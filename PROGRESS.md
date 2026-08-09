@@ -9,36 +9,33 @@ only.
 - **Exit:** T3 + N4 parity ledger discharged + one full Tier D campaign.
 - **Non-negotiables:** N1 API universality ✓ · N2 **restored** (frozen-pivot
   fix `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
-  pair N2-clean) · N3 Tier-D parity not yet measured · N4 scheduling parity ✓
-  (closing cumulative arrays and fuzz legs remain asynchronous).
+  pair N2-clean) · N3 Tier-D parity not yet measured · N4 scheduling parity
+  **reopened** by the full-lifecycle application-order audit.
 - **Last updated:** 2026-08-09.
 
 ## Resume here
 
-The codebase revisit and `SP-COMPACT-1` implementation are complete.
-`DefaultPolicy` owns CDCL/search strategy and composes
-`DefaultInprocessScheduler`; formula rules remain policy-independent and the
-`rule_policy_boundary` check enforces that separation. The N2 frozen-pivot fix
-and its clean retakes remain recorded in
-`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`.
-
-Variable identities are now permanent at every external boundary while search
-uses dense internal indices. The kernel provides a formula-neutral compaction
-primitive; `DefaultPolicy` invokes it after Reduce when retired variables exceed
-kissat's 10% threshold. Focused tests cover mapping, proof/model/reconstruction,
-live reasons, extension variables, `H`, and stable scheduler cursors. Final pin
-`e1d35b8` is green in the full Release suite and focused assertion/sanitizer
-suite. Closing benchmark windows are `20260808-221957-A-compact2`,
-`20260808-222138-B-compact2`, and `20260808-222726-C-compact2`.
-Final LRAT fuzz job 1594313 passed 10,000 cases with zero failures; source probe
-1594316 observed 3 compactions removing 2,796 internal variables.
+The three application-order repairs are implemented in the working tree and
+correctness-green; cumulative benchmark acceptance is still required. The
+canonical audit matrix and evidence are in
+`benchmarks/reports/2026-08-09-default-strategy-application-order-audit.md`.
+Reorder now defaults to both modes; Lucky brackets initial preprocessing; and
+preprocessing Substitute calls follow productive Congruence/Sweep outcomes,
+with one final call only when neither fires. Jump reasons, Factor's two candidate
+pruning rounds, and CaDiCaL's likely-kept redundant subsumption band also now
+ship on at their reference defaults, each with an explicit rollback arm.
+The full Release suite is 60/60 with all six changes enabled.
+`TACTIX_REORDER=0`, `TACTIX_LUCKY_LATE=0`, and
+`TACTIX_PREPROCESS_FOLLOWUPS=0` retain the cumulative attribution arms.
 
 **Next actions:**
 
-1. Resume the Kissat-default parity campaign through the extracted scheduler;
-   take one remaining N4 row at a time, starting with `SP-SWEEP-7` unless a
-   different row is explicitly selected.
-2. Then run the Tier D shakedown, Tier D campaign, and T3 gate in that order.
+1. Price `ORDER-DEFAULT-1`, `ORDER-LUCKY-1`, `ORDER-FOLLOWUP-1`, `SP-JUMP-1`,
+   `SP-FACTOR-CAND-1`, and
+   `SCHED-F6` as cumulative increments using the retained attribution arms; record
+   reach, proof/model status, moved instances, and the acceptance decision.
+2. Only after N4 closes again, run the Tier D shakedown, Tier D campaign, and
+   T3 gate in that order.
 
 ## Current measurement contract
 
@@ -84,7 +81,7 @@ their effect with source counters before performance interpretation.
 - [x] Fix frozen-at-0 retired variables voiding model reconstruction
   (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
 - [ ] Complete and report the fixed-binary Tier C four-arm attribution.
-- [ ] Close or accept the remaining N4 rows below.
+- [ ] Close or accept the reopened application-order rows below.
 - [ ] Run a Tier D shakedown, then the 793-instance campaign.
 - [ ] Evaluate and report T3 last.
 
@@ -138,9 +135,15 @@ required.
   live clauses; DefaultPolicy supplies CaDiCaL's VMTF × saved-phase order, so
   budget-cut arena scans are search-coupled without exposing heuristics to
   proof rules.
-- [x] `SP-PREPROC-2`: preprocessing is one Kissat-ordered reduced probe pass
-  (Congruence→Substitute→Backbone→Sweep→Substitute→Factor), with CaDiCaL's
-  2e6 initial tick reference and no zero-conflict elimination phase.
+- [ ] `ORDER-DEFAULT-1`: implemented and correctness-green; Reorder now ships
+  in both modes with an eligible/application counter and explicit off arm.
+  Cumulative pricing and acceptance remain.
+- [ ] `ORDER-LUCKY-1`: implemented and correctness-green; early and late calls
+  bracket preprocessing with separate reach/SAT counters and a late-off arm.
+  Cumulative pricing and acceptance remain.
+- [ ] `ORDER-FOLLOWUP-1`: implemented and correctness-green; outcome-conditioned
+  eager/final edges replace unconditional preprocessing Substitute calls while
+  retaining the closed dose/admission work. Cumulative pricing remains.
 - [x] `SP-BUMP-2`: reason-side bumping follows CaDiCaL's effective depth: one
   in focused mode and two in stable mode, with the existing all-or-nothing
   mark budget and delay unchanged.
@@ -176,8 +179,8 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Open items
 
-- `Reorder` remains off although Kissat enables it; changing the shipped default
-  requires the user's decision.
+- The three `ORDER-*` repairs are implemented; cumulative pricing is the next
+  one-at-a-time work.
 - `HyperBinaryRes` remains an accepted standalone deviation with a policy-side
   structural cap.
 - Diagnose random-policy nontermination; it is an N1 robustness issue but does
@@ -197,6 +200,10 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Recent changes
 
+- 2026-08-09 — implemented both-mode Reorder, early/late Lucky, and conditional
+  preprocessing follow-ups with attribution arms; full Release suite green.
+- 2026-08-09 — audited full default application order from executable call
+  sites; reopened N4 on Reorder, late Lucky, and conditional follow-up wires.
 - 2026-08-08 — extracted `DefaultInprocessScheduler`, removed the last macro
   rule→policy leaks through rule-owned selection/events, and compacted verbose
   source commentary (`fd5f0f5`; identity/fuzz/Tier B gates green).
@@ -204,9 +211,3 @@ Each row closes with an implementation or an accepted deviation in
 - 2026-08-08 — fixed the N2 frozen-at-0 reconstruction defect behind the three
   invalid closing-pair models; made backward BVE fuzz-reachable
   (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
-- 2026-08-08 — rewrote all 17 Claude skills, retired manual plan revisions,
-  added generic JSON stress scenarios, CMake discovery, SLURM waiting, and the
-  2026 competition wrapper/compliance checks.
-- 2026-08-08 — made the proof-rule guide concrete for M3/C3, V3/V5/V6,
-  E1, and X4/X6: indexed constructions, ordered certificates, model witnesses,
-  and realizable worked chains now mirror `docs/calculus.md` and the emitters.

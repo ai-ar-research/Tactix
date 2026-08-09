@@ -89,10 +89,10 @@ static void test_reason_binary_retired_to_unit() {
 // Under reason jumping the recorded reason is a virtual resolvent, so the
 // clause the LRAT chain cites is (lit v jumped_over), which the reason field
 // no longer names. The live-reason guard must protect that pair too.
-// DefaultPolicy ships the knob off, so this branch is reachable only here.
+// The default follows Kissat; keep the assertion here to pin that wiring.
 static void test_jumped_reason_protects_its_antecedent() {
   Kernel k;
-  k.jump_reasons = true;
+  assert(k.jump_reasons);
   kernel_reserve_vars(k, 3);
   const Lit p = internalize(1), q = internalize(2), r = internalize(3);
   kernel_add_binary_clause(k, p, q, 1);          // (p v q)

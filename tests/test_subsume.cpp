@@ -270,6 +270,9 @@ static void test_touch_resume_rearms_the_tail() {
 // raises the epoch, and a deletion does not (it can only remove one).
 static void test_touch_producers() {
   Kernel k;
+  // Isolate the irredundant substrate; the dedicated test below covers the
+  // default-on likely-kept redundant producer.
+  k.touch_redundant = false;
   kernel_reserve_vars(k, 4); // fresh variables are touched
   assert(k.touch_epoch == 4 && k.stats.touch_marks == 4);
   const uint64_t after_vars = k.touch_epoch;
@@ -308,17 +311,19 @@ static void test_touch_producers() {
 static void test_touch_redundant_scope() {
   Kernel k;
   kernel_reserve_vars(k, 6);
+  assert(k.touch_redundant && "CaDiCaL's likely-kept band defaults on");
   k.tier2 = 2;
   const uint64_t e0 = k.touch_epoch;
   add(k, {1, 2, 3}, /*redundant=*/true); // glue 2 <= tier2: in scope
   assert(k.stats.touch_redundant_dynamic == 1);
-  assert(k.touch_epoch == e0 && "stamping is off by default");
+  assert(k.touch_epoch == e0 + 3 && "stamping is on by default");
 
-  k.touch_redundant = true;
+  k.touch_redundant = false;
   const uint64_t e1 = k.touch_epoch;
   add(k, {1, 2, 4}, /*redundant=*/true);
   assert(k.stats.touch_redundant_dynamic == 2);
-  assert(k.touch_epoch == e1 + 3 && "(a) the stamps fire when enabled");
+  assert(k.touch_epoch == e1 && "the =0 arm suppresses redundant stamps");
+  k.touch_redundant = true;
 
   // narrowing the live tier drops the creation out of scope; static-6 counts on
   k.tier2 = 1;

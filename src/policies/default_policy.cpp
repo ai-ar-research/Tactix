@@ -181,7 +181,7 @@ bool DefaultPolicy::want_rephase(const Kernel &k) const {
 
 bool DefaultPolicy::want_reorder(const Kernel &k) const {
   static const char *const env = std::getenv("TACTIX_REORDER");
-  static const int mode = env ? std::atoi(env) : 0;
+  static const int mode = env ? std::atoi(env) : 2;
   if (mode <= 0)
     return false;
   if (!k.h->stable && mode < 2)
@@ -675,6 +675,9 @@ void DefaultPolicy::configure_from_env() {
   default_reduction_.ramp = rmp ? (rmp[0] == '1') : both;
   dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
   compact_ = !std::getenv("TACTIX_NO_COMPACT");
+  lucky_late_ = true;
+  if (const char *ll = std::getenv("TACTIX_LUCKY_LATE"))
+    lucky_late_ = std::strtoul(ll, nullptr, 10) != 0;
   inprocess_.configure_from_env();
 }
 
@@ -686,6 +689,9 @@ void DefaultInprocessScheduler::configure_from_env() {
   congruence_init_ticks_ = CONGRUENCE_INIT_TICKS;
   if (const char *ci = std::getenv("TACTIX_CONG_INIT_TICKS"))
     congruence_init_ticks_ = std::strtoull(ci, nullptr, 10);
+  preprocess_followups_ = true;
+  if (const char *pf = std::getenv("TACTIX_PREPROCESS_FOLLOWUPS"))
+    preprocess_followups_ = std::strtoul(pf, nullptr, 10) != 0;
 }
 
 void DefaultInprocessScheduler::reset(const Kernel &k) {
@@ -858,10 +864,15 @@ void DefaultInprocessScheduler::build(Kernel &k) {
         "Congruence", "Substitute", "Backbone",
         "Sweep", "Substitute", "Factor"};
     size_t begin = 0;
+    unsigned substitutes = 0;
     for (const char *name : PREPROCESS_ORDER)
       for (size_t i = begin; i < entries.size(); i++)
         if (!std::strcmp(rules[entries[i].rule].name, name)) {
           entries[i].preprocess = true;
+          if (!std::strcmp(name, "Substitute"))
+            entries[i].followup = substitutes++ == 0
+                                      ? FollowupKind::AfterCongruence
+                                      : FollowupKind::AfterSweepOrFinal;
           begin = i + 1;
           break;
         }
@@ -899,16 +910,36 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (reset_schedule_per_solve)
     reset_schedule(k);
   inprocess_.build(k);
-  bool lucky_tried = false;
+
+  // The references expose two distinct Lucky opportunities around initial
+  // preprocessing. Keep them out of the CDCL loop so neither can repeat after
+  // a later inprocessing phase.
+  ApplyResult startup = propagate_apply(k);
+  if (startup != ApplyResult::Ok)
+    return 20; // startup is at root: a conflict is a refutation
+  if (lucky_guard(k)) {
+    k.stats.lucky_early_calls++;
+    if (lucky_apply(k) == ApplyResult::Sat)
+      return 10;
+  }
+  if (inprocess_.want_phase(k, SlotGroup::Probe) &&
+      inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
+    return 20;
+  startup = propagate_apply(k);
+  if (startup != ApplyResult::Ok)
+    return 20;
+  if (lucky_late_ && lucky_guard(k)) {
+    k.stats.lucky_late_calls++;
+    if (lucky_apply(k) == ApplyResult::Sat) {
+      k.stats.lucky_late_sat++;
+      return 10;
+    }
+  }
+
   for (;;) {
     const ApplyResult r = propagate_apply(k);
     if (r == ApplyResult::Unsat)
       return 20;
-    if (!lucky_tried && r == ApplyResult::Ok) {
-      lucky_tried = true;
-      if (lucky_guard(k) && lucky_apply(k) == ApplyResult::Sat)
-        return 10;
-    }
     if (r == ApplyResult::Conflict) {
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);
@@ -990,11 +1021,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         update_restart_limit(k);
       continue;
     }
-    if (want_reorder(k) && reorder_guard(k)) {
-      reorder_apply(k);
-      reorder.count++;
-      update_reorder_limit(k);
-      continue;
+    if (want_reorder(k)) {
+      k.stats.reorder_eligible++;
+      if (reorder_guard(k)) {
+        reorder_apply(k);
+        reorder.count++;
+        update_reorder_limit(k);
+        continue;
+      }
     }
     if (want_rephase(k) && rephase_guard(k)) {
       if (restart_guard(k))
@@ -1048,10 +1082,12 @@ void slot_trace_entry(const Kernel &k, const DefaultInprocessScheduler::SlotEntr
     return;
   std::fprintf(stderr,
                "[slot] phase=%llu outer=%d %s enabled=%d defer=%d "
-               "guard=%d dosed=%d meter=%llu limit=%llu\n",
+               "guard=%d dosed=%d followup=%u mode=%u meter=%llu limit=%llu\n",
                (unsigned long long)k.stats.inprocess_phases, outer, r.name,
                (int)e.enabled, (int)e.defer_preprocess, (int)r.guard(k),
-               (int)e.dosed, (unsigned long long)(e.meter ? e.meter(k) : 0),
+               (int)e.dosed, static_cast<unsigned>(e.followup),
+               static_cast<unsigned>(e.followup_mode),
+               (unsigned long long)(e.meter ? e.meter(k) : 0),
                (unsigned long long)e.limit);
 }
 } // namespace
@@ -1078,6 +1114,39 @@ bool DefaultInprocessScheduler::slot_entry_admissible(SlotEntry &e, const Kernel
   return true;
 }
 
+bool DefaultInprocessScheduler::followup_admissible(SlotEntry &e,
+                                                     const Kernel &k,
+                                                     SlotPhaseCtx &ctx) {
+  e.followup_mode = FollowupMode::None;
+  if (k.stats.conflicts != 0 || e.followup == FollowupKind::None ||
+      !preprocess_followups_)
+    return true;
+  e.tm.followup_offered++;
+  e.followup_mode = preprocessing_followup_mode(
+      e.followup, ctx.congruence_changed, ctx.sweep_changed);
+  if (e.followup_mode == FollowupMode::None)
+    return false;
+  e.tm.followup_taken++;
+  if (e.followup_mode == FollowupMode::Eager)
+    e.tm.followup_eager++;
+  else
+    e.tm.followup_final++;
+  return true;
+}
+
+FollowupMode DefaultInprocessScheduler::preprocessing_followup_mode(
+    FollowupKind kind, bool congruence_changed, bool sweep_changed) {
+  if (kind == FollowupKind::AfterCongruence)
+    return congruence_changed ? FollowupMode::Eager : FollowupMode::None;
+  if (kind == FollowupKind::AfterSweepOrFinal) {
+    if (sweep_changed)
+      return FollowupMode::Eager;
+    if (!congruence_changed)
+      return FollowupMode::Final;
+  }
+  return FollowupMode::None;
+}
+
 uint64_t DefaultInprocessScheduler::ledger_remaining(SlotEntry &e, const Kernel &k,
                                         uint64_t limit) {
   const uint64_t spent = e.meter(k);
@@ -1091,6 +1160,7 @@ DefaultInprocessScheduler::SlotStep
 DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
                                SlotPhaseCtx &ctx) {
   const uint64_t limit = e.limit;
+  ctx.last_result = ApplyResult::NoOp;
   if (!r.guard(k)) {
     e.tm.dec_guard++;
     return SlotStep::Next;
@@ -1164,6 +1234,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         TickSinkScope sink(k, e.tick_counter);
         return apply_rule_instance(r, k, payloads_[i]);
       }();
+      ctx.last_result = ar;
       heuristics_consume_rule_advice(k);
       if (hand_residual)
         k.work_budget = 0;
@@ -1312,6 +1383,7 @@ DefaultInprocessScheduler::SlotStep
 DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVTable &r,
                                SlotPhaseCtx &ctx) {
   const uint64_t limit = e.limit;
+  ctx.last_result = ApplyResult::NoOp;
   if (e.meter && e.meter(k) > limit) {
     e.tm.dec_budget++;
     return SlotStep::Next;
@@ -1350,6 +1422,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     TickSinkScope sink(k, e.tick_counter);
     ar = apply_rule(r, k);
   }
+  ctx.last_result = ar;
   heuristics_consume_rule_advice(k);
   if (e.closure) {
     e.binaries_mark = k.binary_ids.size();
@@ -1429,8 +1502,13 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       if (stop && *stop)
         break; // §6: leave the phase promptly; cleanup runs at its exit
       const RuleVTable &r = rules[e.rule];
-      slot_trace_entry(k, e, r, ctx.outer);
       e.tm.occasions++;
+      const bool followup = followup_admissible(e, k, ctx);
+      slot_trace_entry(k, e, r, ctx.outer);
+      if (!followup) {
+        e.tm.dec_preprocess++;
+        continue;
+      }
       if (!slot_entry_admissible(e, k, ctx))
         continue;
       const bool substitute = !std::strcmp(r.name, "Substitute");
@@ -1445,6 +1523,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
                                 ? run_dosed_entry(k, e, r, ctx)
                                 : run_batch_entry(k, e, r, ctx);
+      if (!std::strcmp(r.name, "Congruence"))
+        ctx.congruence_changed = ctx.last_result == ApplyResult::Ok;
+      else if (!std::strcmp(r.name, "Sweep"))
+        ctx.sweep_changed = ctx.last_result == ApplyResult::Ok;
       if (step == SlotStep::Stop)
         break;
     }
@@ -1583,6 +1665,13 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
         (unsigned long long)t.handed,
         (unsigned long long)t.spent, (unsigned long long)t.completed,
         (unsigned long long)t.wrapped, balance);
+    if (t.followup_offered)
+      std::printf("c followup %-14s offered %llu taken %llu eager %llu final %llu\n",
+                  rules[e.rule].name,
+                  (unsigned long long)t.followup_offered,
+                  (unsigned long long)t.followup_taken,
+                  (unsigned long long)t.followup_eager,
+                  (unsigned long long)t.followup_final);
   }
 }
 

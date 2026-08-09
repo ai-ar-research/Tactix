@@ -84,10 +84,9 @@ TABLE = {
     # rule-round policy, not scheduler policy.
     "touch_filter":            ("ENV", "TACTIX_TOUCH_MARKS (stage-F off arm)"),
     "subsume_holds_elim":      ("ENV", "TACTIX_SUBSUME_HOLD (SCHED-F2 off arm)"),
-    # Ships off: a prerequisite arm, not a candidate default. Extra stamps only
-    # weaken the round filters until a consumer for the redundant tier band
-    # exists.
-    "touch_redundant":         ("ENV", "TACTIX_TOUCH_REDUNDANT (SCHED-F6 on arm)"),
+    # CaDiCaL's likely-kept redundant tier band ships on; =0 is the narrow arm.
+    "touch_redundant":         ("ENV", "TACTIX_TOUCH_REDUNDANT; ships ON "
+                                       "(SCHED-F6 parity), =0 reverts"),
     # Same shape as touch_filter. The probe/candidate order and the trail
     # retention are one mechanism inside the rule's round.
     "vivify_reuse":            ("ENV", "TACTIX_VIVIFY_REUSE; ships ON (SCHED-G3), "
@@ -104,7 +103,8 @@ TABLE = {
     # unconditionally, cadical `factorunbump`=1), with an `=0` revert hatch.
     "factor_demote_fresh":     ("ENV", "TACTIX_FACTOR_DEMOTE; ships ON via the kernel.hpp "
                                        "default (SP-FACTOR-2 parity), =0 reverts"),
-    "factor_cand_rounds":      ("ENV", "TACTIX_FACTOR_CAND_ROUNDS; kissat ships 2, we ship 0"),
+    "factor_cand_rounds":      ("ENV", "TACTIX_FACTOR_CAND_ROUNDS; both references "
+                                       "ship 2, =0 restores the unfiltered set"),
     "no_ext_decisions":        ("ENV", "TACTIX_NO_EXT_DECISIONS"),
     "no_ext_reason_bump":      ("ENV", "TACTIX_NO_EXT_REASON_BUMP"),
     "subst_hazard_round":      ("ENV", "TACTIX_SUBST_HAZARD_ROUND"),
@@ -118,8 +118,8 @@ TABLE = {
     "stop_fuzz":               ("ENV", "TACTIX_STOP_FUZZ, fuzz-only abort knob"),
     "conflict_reuse":          ("ENV", "TACTIX_CONFLICT_REUSE; ships OFF (TB4b(B))"),
     "conflict_reuse_no_repair": ("ENV", "TACTIX_CONFLICT_REUSE_NOREPAIR, diagnostic"),
-    "jump_reasons":            ("ENV", "TACTIX_JUMP_REASONS; kissat `jumpreasons`, "
-                                       "ships OFF pending the A/B (SP-JUMP-1)"),
+    "jump_reasons":            ("ENV", "TACTIX_JUMP_REASONS; kissat `jumpreasons` "
+                                       "ships ON, =0 reverts (SP-JUMP-1)"),
     # Both ship ON at the reference default, `=0` reverts — the transliterated
     # behaviour is the baseline and the OFF arm is what gets priced.
     "shrink_glue_promote":     ("ENV", "TACTIX_SHRINK_GLUE; kissat `promote`, "

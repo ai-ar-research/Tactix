@@ -85,7 +85,33 @@ static void test_unsat_probes_abandon() {
   }
   assert(k.stats.lucky_probes == 6);
   assert(k.stats.conflicts == 0); // probe conflicts are not search ones
+  assert(setenv("TACTIX_SLOT_DISABLE",
+                "Congruence,Substitute,Backbone,Sweep,Factor", 1) == 0);
   assert(default_solve(k) == 20); // and the formula still solves correctly
+  assert(unsetenv("TACTIX_SLOT_DISABLE") == 0);
+  assert(k.stats.lucky_early_calls == 1);
+  assert(k.stats.lucky_late_calls == 1);
+  assert(k.stats.lucky_late_sat == 0);
+
+  Kernel off;
+  ScopedHeuristics _hg_off(off);
+  kernel_reserve_vars(off, 6);
+  for (int p = 0; p < 3; p++)
+    kernel_add_binary_clause(off, internalize(var(p, 0)),
+                             internalize(var(p, 1)));
+  for (int h = 0; h < 2; h++)
+    for (int p1 = 0; p1 < 3; p1++)
+      for (int p2 = p1 + 1; p2 < 3; p2++)
+        kernel_add_binary_clause(off, internalize(-var(p1, h)),
+                                 internalize(-var(p2, h)));
+  assert(setenv("TACTIX_SLOT_DISABLE",
+                "Congruence,Substitute,Backbone,Sweep,Factor", 1) == 0);
+  assert(setenv("TACTIX_LUCKY_LATE", "0", 1) == 0);
+  assert(default_solve(off) == 20);
+  assert(unsetenv("TACTIX_LUCKY_LATE") == 0);
+  assert(unsetenv("TACTIX_SLOT_DISABLE") == 0);
+  assert(off.stats.lucky_early_calls == 1);
+  assert(off.stats.lucky_late_calls == 0 && off.stats.lucky_late_sat == 0);
 }
 
 static void test_registry_surface() {

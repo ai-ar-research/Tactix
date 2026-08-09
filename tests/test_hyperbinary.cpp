@@ -29,6 +29,7 @@ static bool has_bin(const Kernel &k, int a, int b) {
 // 3 and 4 are dominated by 2, so the resolvent must be the tight (¬2 ∨ 5).
 static void test_dominator_resolvent() {
   Kernel k;
+  k.jump_reasons = false; // isolate CaDiCaL's direct-reason HBR mechanism
   kernel_reserve_vars(k, 5);
   bin(k, -1, 2);
   bin(k, -2, 3);
@@ -45,6 +46,7 @@ static void test_dominator_resolvent() {
 // A dominator equal to the probe root gains nothing, so it is declined.
 static void test_root_dominator_declined() {
   Kernel k;
+  k.jump_reasons = false;
   kernel_reserve_vars(k, 4);
   bin(k, -1, 2);
   bin(k, -1, 3);
@@ -57,6 +59,7 @@ static void test_root_dominator_declined() {
 // cadical's case (A): a clause already binary in effect gains no resolvent.
 static void test_root_fixed_rest_declined() {
   Kernel k;
+  k.jump_reasons = false;
   kernel_reserve_vars(k, 5);
   bin(k, -1, 2);
   bin(k, -2, 3);
@@ -67,6 +70,7 @@ static void test_root_fixed_rest_declined() {
   // a non-root literal still remains here, so the resolvent is emitted; the
   // decline applies only when none remains, as in k2 below
   Kernel k2;
+  k2.jump_reasons = false;
   kernel_reserve_vars(k2, 4);
   bin(k2, -1, 2);
   kernel_assign_unit(k2, internalize(-3));
@@ -80,6 +84,7 @@ static void test_root_fixed_rest_declined() {
 // deleted (cadical `stats.hbrsubs`).
 static void test_subsumption_deletes_reason() {
   Kernel k;
+  k.jump_reasons = false;
   kernel_reserve_vars(k, 5);
   bin(k, -1, 2);
   bin(k, -2, 3);
@@ -94,6 +99,7 @@ static void test_subsumption_deletes_reason() {
 // Nothing to resolve: no long clause ever becomes unit at level 1.
 static void test_no_opportunity() {
   Kernel k;
+  k.jump_reasons = false;
   kernel_reserve_vars(k, 4);
   bin(k, -1, 2);
   add3(k, 3, 4, -4);
@@ -105,6 +111,7 @@ static void test_no_opportunity() {
 // statement as the RUP replay, checked independently of it.
 static void test_resolvent_is_implied() {
   Kernel k;
+  k.jump_reasons = false;
   kernel_reserve_vars(k, 5);
   bin(k, -1, 2);
   bin(k, -2, 3);
@@ -119,6 +126,7 @@ static void test_resolvent_is_implied() {
 // surface only the rule's own round can drive is not an instance surface.
 static void test_instance_surface() {
   Kernel k;
+  k.jump_reasons = false;
   kernel_reserve_vars(k, 5);
   bin(k, -1, 2);
   bin(k, -2, 3);
@@ -143,6 +151,7 @@ static void test_instance_surface() {
 // `apply_instance` is total: an off-schedule literal is a NoOp, not a trap.
 static void test_apply_off_schedule_is_total() {
   Kernel k;
+  k.jump_reasons = false;
   kernel_reserve_vars(k, 5);
   bin(k, -1, 2);
   add3(k, -2, 3, 4);

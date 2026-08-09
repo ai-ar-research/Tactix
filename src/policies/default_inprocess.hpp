@@ -81,6 +81,12 @@ public:
 };
 
 enum class SlotGroup : uint8_t { Probe, Eliminate };
+enum class FollowupKind : uint8_t {
+  None,
+  AfterCongruence,
+  AfterSweepOrFinal,
+};
+enum class FollowupMode : uint8_t { None, Eager, Final };
 
 struct SlotOrderRow {
   const char *name;
@@ -111,6 +117,8 @@ public:
     uint64_t limit = 0;
     bool defer_preprocess = false;
     bool preprocess = false;
+    FollowupKind followup = FollowupKind::None;
+    FollowupMode followup_mode = FollowupMode::None;
     uint64_t arena_mark = 0;
     uint32_t max_applies = 0;
     uint32_t applies = 0;
@@ -123,6 +131,8 @@ public:
       uint64_t dec_disabled = 0, dec_cap = 0, dec_preprocess = 0;
       uint64_t dec_guard = 0, dec_budget = 0, dec_delay = 0;
       uint64_t dec_material = 0, dec_warmup = 0;
+      uint64_t followup_offered = 0, followup_taken = 0;
+      uint64_t followup_eager = 0, followup_final = 0;
       uint64_t handed = 0, spent = 0, ok = 0, completed = 0;
       uint64_t wrapped = 0;
     } tm;
@@ -163,6 +173,7 @@ public:
   void order_candidates(const Kernel &, SlotEntry &, uint64_t *, uint32_t);
   void set_entry_limit(SlotEntry &, Kernel &);
   void report(const Kernel &) const;
+  static FollowupMode preprocessing_followup_mode(FollowupKind, bool, bool);
   ArenaOrdering *arena_ordering() { return &default_arena_order_; }
   void pose_initialized(bool value = true) { initialized_ = value; }
   bool initialized() const { return initialized_; }
@@ -175,10 +186,14 @@ private:
     bool phase_unsat = false;
     bool phase_dosed = false;
     bool round_changed = false;
+    bool congruence_changed = false;
+    bool sweep_changed = false;
+    ApplyResult last_result = ApplyResult::NoOp;
   };
   enum class SlotStep : uint8_t { Next, Stop };
 
   bool slot_entry_admissible(SlotEntry &, const Kernel &, const SlotPhaseCtx &);
+  bool followup_admissible(SlotEntry &, const Kernel &, SlotPhaseCtx &);
   static uint64_t ledger_remaining(SlotEntry &, const Kernel &, uint64_t);
   SlotStep run_dosed_entry(Kernel &, SlotEntry &, const RuleVTable &,
                            SlotPhaseCtx &);
@@ -206,6 +221,7 @@ private:
   uint64_t forward_pair_limit_ = 0;
   bool slot_clocks_split_ = true;
   bool slot_watermark_ = true;
+  bool preprocess_followups_ = true;
   bool initialized_ = false;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;
