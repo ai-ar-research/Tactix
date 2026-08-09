@@ -20,7 +20,8 @@ FIELDS = [
     "retired_queue", "retired_heap", "irred", "red", "binary", "digest",
     "search_external", "top32", "payload",
 ]
-DETAIL_EVENTS = {"decision", "conflict", "analysis_begin", "analysis_end"}
+DETAIL_EVENTS = {"decision", "conflict", "analysis_begin", "learned",
+                 "analysis_end"}
 NON_MACRO_EVENTS = DETAIL_EVENTS | {"checkpoint"}
 STATE_FIELDS = (
     "conflicts", "decisions", "level", "mode", "active", "unassigned",

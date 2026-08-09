@@ -189,6 +189,34 @@ void kissat_event_trace_literal (kissat *solver, const char *event,
   kissat_event_trace_detail (solver, event, external_literal (solver, lit));
 }
 
+static int compare_external_literals (const void *a, const void *b) {
+  const int x = *(const int *) a, y = *(const int *) b;
+  return (x > y) - (x < y);
+}
+
+void kissat_event_trace_learned (kissat *solver) {
+  open_trace ();
+  if (!trace_file)
+    return;
+  const size_t size = SIZE_STACK (solver->clause);
+  int *external = malloc (size * sizeof *external);
+  size_t i = 0;
+  for (all_stack (unsigned, lit, solver->clause))
+    external[i++] = external_literal (solver, lit);
+  qsort (external, size, sizeof *external, compare_external_literals);
+  char payload[4096], *p = payload;
+  size_t left = sizeof payload;
+  for (i = 0; i != size; i++) {
+    const int written = snprintf (p, left, "%s%d", i ? "," : "", external[i]);
+    if (written < 0 || (size_t) written >= left)
+      break;
+    p += written;
+    left -= (size_t) written;
+  }
+  free (external);
+  kissat_event_trace (solver, "learned", payload, false);
+}
+
 void kissat_event_trace_checkpoint (kissat *solver) {
   if (!trace_saw_reorder)
     return;

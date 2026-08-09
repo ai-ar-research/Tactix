@@ -193,6 +193,23 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   emit(k, event, buf, !std::strcmp(event, "analysis_end"));
 }
 
+void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {
+  if (!out_)
+    return;
+  std::vector<int> external;
+  external.reserve(clause.size());
+  for (const Lit lit : clause)
+    external.push_back(kernel_externalize(k, lit));
+  std::sort(external.begin(), external.end());
+  std::string payload;
+  for (const int lit : external) {
+    if (!payload.empty())
+      payload += ',';
+    payload += std::to_string(lit);
+  }
+  emit(k, "learned", payload.c_str(), false);
+}
+
 void EventTrace::checkpoint(const Kernel &k) {
   if (!out_ || !saw_reorder_)
     return;
