@@ -15,26 +15,32 @@ only.
 
 ## Resume here
 
-The three application-order repairs are implemented in the working tree and
-correctness-green; cumulative benchmark acceptance is still required. The
+The application-order repairs are implemented and correctness-green. The
 canonical audit matrix and evidence are in
 `benchmarks/reports/2026-08-09-default-strategy-application-order-audit.md`.
-Reorder now defaults to both modes; Lucky brackets initial preprocessing; and
+`ORDER-DEFAULT-1` is Tier-A closed after semantic tracing found and repaired
+retired-variable VMTF corruption; evidence is in
+`benchmarks/reports/2026-08-09-order-default-1-reorder-corruption.md`. Reorder
+now defaults to both modes; Lucky brackets initial preprocessing; and
 preprocessing Substitute calls follow productive Congruence/Sweep outcomes,
 with one final call only when neither fires. Jump reasons, Factor's two candidate
 pruning rounds, and CaDiCaL's likely-kept redundant subsumption band also now
 ship on at their reference defaults, each with an explicit rollback arm.
-The full Release suite is 60/60 with all six changes enabled.
+The full Release suite is 61/61.
 `TACTIX_REORDER=0`, `TACTIX_LUCKY_LATE=0`, and
 `TACTIX_PREPROCESS_FOLLOWUPS=0` retain the cumulative attribution arms.
+The initial, now-superseded collapse is retained in
+`20260809-144515-A-parity-old`, `20260809-144538-B-parity-old`, and
+`20260809-144536-C-parity-old`; do not use its later cumulative arms to judge
+the repaired implementation.
 
 **Next actions:**
 
-1. Price `ORDER-DEFAULT-1`, `ORDER-LUCKY-1`, `ORDER-FOLLOWUP-1`, `SP-JUMP-1`,
-   `SP-FACTOR-CAND-1`, and
-   `SCHED-F6` as cumulative increments using the retained attribution arms; record
-   reach, proof/model status, moved instances, and the acceptance decision.
-2. Only after N4 closes again, run the Tier D shakedown, Tier D campaign, and
+1. With repaired Reorder retained, gate `ORDER-LUCKY-1` on Tier A. Continue one
+   at a time with `ORDER-FOLLOWUP-1`, `SP-JUMP-1`, `SP-FACTOR-CAND-1`, and
+   `SCHED-F6`; stop and diagnose the first Tier-A regression.
+2. Do not rerun Tier B/C until the fully cumulative configuration passes Tier A.
+   Only after N4 closes again, run the Tier D shakedown, Tier D campaign, and
    T3 gate in that order.
 
 ## Current measurement contract
@@ -135,9 +141,9 @@ required.
   live clauses; DefaultPolicy supplies CaDiCaL's VMTF × saved-phase order, so
   budget-cut arena scans are search-coupled without exposing heuristics to
   proof rules.
-- [ ] `ORDER-DEFAULT-1`: implemented and correctness-green; Reorder now ships
-  in both modes with an eligible/application counter and explicit off arm.
-  Cumulative pricing and acceptance remain.
+- [x] `ORDER-DEFAULT-1`: Tier-A closed. Semantic off/on tracing localized the
+  first divergence to retired identities corrupting focused VMTF; active-only
+  Reorder restores paired solve parity with clean proofs/models.
 - [ ] `ORDER-LUCKY-1`: implemented and correctness-green; early and late calls
   bracket preprocessing with separate reach/SAT counters and a late-off arm.
   Cumulative pricing and acceptance remain.
@@ -164,6 +170,8 @@ Each row closes with an implementation or an accepted deviation in
   DRAT/LRAT evidence, preserve SAT-model reconstruction, and evaluate a
   DefaultPolicy admission strategy only after the rule/API boundary is green.
 - [ ] Concretize O15 through `revise-plan` when phase 4 exits.
+- [ ] Substitute (equivalent-literal substitution) is a potential proof rule
+  whose implementation can be optimized.
 
 ## Phase 5 — tuning, bindings, extensibility
 
@@ -204,6 +212,8 @@ Each row closes with an implementation or an accepted deviation in
 
 ## Recent changes
 
+- 2026-08-09 — traced and repaired focused Reorder's retired-variable VMTF
+  corruption; focused fixtures and Tier-A paired gate restored.
 - 2026-08-09 — implemented both-mode Reorder, early/late Lucky, and conditional
   preprocessing follow-ups with attribution arms; full Release suite green.
 - 2026-08-09 — audited full default application order from executable call
@@ -212,6 +222,3 @@ Each row closes with an implementation or an accepted deviation in
   rule→policy leaks through rule-owned selection/events, and compacted verbose
   source commentary (`fd5f0f5`; identity/fuzz/Tier B gates green).
 - 2026-08-08 — closed `SP-FACTOR-1` with the injected posed-phase ladder ctest.
-- 2026-08-08 — fixed the N2 frozen-at-0 reconstruction defect behind the three
-  invalid closing-pair models; made backward BVE fuzz-reachable
-  (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
