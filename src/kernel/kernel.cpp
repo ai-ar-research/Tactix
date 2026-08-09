@@ -717,11 +717,6 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
   const uint32_t *const begin = k.watches.begin(not_lit);
   const uint32_t *p = begin;
   const uint32_t *const end = k.watches.end(not_lit);
-  // The tick charge stays the WHOLE list even when the scan stops early. It is
-  // the effort meter the policy schedules against, so harvesting the saving
-  // here would move the budgets and with them the search; that is a separate
-  // change (kissat does take it, backbone.c:200-202, charging only `touched`).
-  kernel_charge_ticks(k, 1 + kernel_cache_lines(end - p));
   // kissat's `stop_early` (backbone.c:186-193): under the binary-first layout
   // the first large entry ends the binary sub-list, so the whole tail is
   // entries this scan would skip one at a time. Sound because it drops nothing
@@ -768,6 +763,7 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
     kernel_assign_binary(k, other, not_lit);
     k.stats.propagations++;
   }
+  kernel_charge_ticks(k, 1 + kernel_cache_lines(p - begin));
   // Accounted over the prefix actually scanned. `ordered` and `large` describe
   // only the scans the flag did not cover, so they stay the residual measure
   // once the early break is doing its work.

@@ -119,8 +119,10 @@ required.
 - [x] `SP-SWEEP-7`: the default Sweep detector partitions all environment
   literals and applies the model-flip prefilter; `TACTIX_SWEEP_PARTITION=0`
   retains the seed-only attribution arm.
-- [ ] `SCHED-G6`: charge the binary-only scan for entries actually touched;
-  evaluate by A/B because changing the meter changes search.
+- [x] `SCHED-G6`: binary-only propagation charges the cache lines of the
+  actually scanned prefix, matching Kissat's `touched` meter. The focused
+  binary-first-tail test and full suite are green; cumulative A/B/C pricing is
+  the next-pin comparison.
 - [ ] `SCHED-G7`: replace the global binary-first flag with per-list state while
   preserving it through probing snapshot/restore.
 - [ ] `SP-CONG-BUDGET-1`: resolve Congruence's deliberately stricter local
