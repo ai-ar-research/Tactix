@@ -1,4 +1,5 @@
 #include "policies/default_policy.hpp"
+#include "policies/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
 #include "rules/analyze/analyze.hpp"
@@ -910,37 +911,51 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (reset_schedule_per_solve)
     reset_schedule(k);
   inprocess_.build(k);
+  EventTrace event_trace;
+  event_trace.open_from_env(k);
+  event_trace.macro(k, "startup_begin");
+  auto finish = [&](int verdict) {
+    char payload[16];
+    std::snprintf(payload, sizeof payload, "%d", verdict);
+    event_trace.macro(k, "terminate", payload);
+    event_trace.close();
+    return verdict;
+  };
 
   // The references expose two distinct Lucky opportunities around initial
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
   // a later inprocessing phase.
   ApplyResult startup = propagate_apply(k);
   if (startup != ApplyResult::Ok)
-    return 20; // startup is at root: a conflict is a refutation
+    return finish(20); // startup is at root: a conflict is a refutation
   if (lucky_guard(k)) {
     k.stats.lucky_early_calls++;
     if (lucky_apply(k) == ApplyResult::Sat)
-      return 10;
+      return finish(10);
   }
+  event_trace.macro(k, "preprocess_begin");
   if (inprocess_.want_phase(k, SlotGroup::Probe) &&
       inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
-    return 20;
+    return finish(20);
+  event_trace.macro(k, "preprocess_end");
   startup = propagate_apply(k);
   if (startup != ApplyResult::Ok)
-    return 20;
+    return finish(20);
   if (lucky_late_ && lucky_guard(k)) {
     k.stats.lucky_late_calls++;
     if (lucky_apply(k) == ApplyResult::Sat) {
       k.stats.lucky_late_sat++;
-      return 10;
+      return finish(10);
     }
   }
 
   for (;;) {
+    event_trace.checkpoint(k);
     const ApplyResult r = propagate_apply(k);
     if (r == ApplyResult::Unsat)
-      return 20;
+      return finish(20);
     if (r == ApplyResult::Conflict) {
+      event_trace.detail(k, "conflict", k.level);
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);
       k.bump_reason_depth = bump_reason_depth(k);
@@ -958,7 +973,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         bump_reasons_delay_.count = bump_reasons_delay_.current;
       }
       if (ar == ApplyResult::Unsat)
-        return 20;
+        return finish(20);
       if (!k.pending.valid) // `stats.conflict_reused` already counted it
         continue;
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
@@ -988,8 +1003,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       continue;
     }
     if (k.retire_enabled ? k.unassigned_active == 0 : k.unassigned == 0)
-      return 10;
+      return finish(10);
     if (want_reduce(k) && reduce_guard(k)) {
+      event_trace.macro(k, "reduce_begin");
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
       if (dynamic_tiers_)
         reduce_retier(k);
@@ -1001,36 +1017,44 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (compact_ && kernel_should_compact_variables(k, 10))
         kernel_compact_variables(k);
       update_reduce_limit(k);
+      event_trace.macro(k, "reduce_end");
       continue;
     }
     const bool pin_mode =
         force_mode_ == 1 || (force_mode_ == 2 && k.h->stable);
     if (!pin_mode && want_switch_mode(k) && switchmode_guard(k)) {
+      event_trace.macro(k, "switch_begin");
       switchmode_apply(k);
       mode.count++;
       averages[k.h->stable].saved_decisions = k.stats.decisions;
       if (k.h->stable) // entering stable: fresh reluctant sequence
         reluctant = {};
       update_mode_limits(k);
+      event_trace.macro(k, "switch_end");
       continue;
     }
     if (want_restart(k) && restart_guard(k)) {
+      event_trace.macro(k, "restart_begin");
       restart_apply(k);
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       if (!k.h->stable) // kissat restart.c: focused-only limit update
         update_restart_limit(k);
+      event_trace.macro(k, "restart_end");
       continue;
     }
     if (want_reorder(k)) {
       k.stats.reorder_eligible++;
       if (reorder_guard(k)) {
+        event_trace.reorder_begin(k);
         reorder_apply(k);
         reorder.count++;
         update_reorder_limit(k);
+        event_trace.reorder_end(k);
         continue;
       }
     }
     if (want_rephase(k) && rephase_guard(k)) {
+      event_trace.macro(k, "rephase_begin");
       if (restart_guard(k))
         restart_apply_to(k, 0);
       static constexpr uint64_t WALK_SLOT = UINT64_MAX;
@@ -1055,22 +1079,29 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         rephase_apply_type(k, type == WALK_SLOT ? REPHASE_BEST : type);
       }
       update_rephase_limit(k);
+      event_trace.macro(k, "rephase_end");
       continue;
     }
     if (inprocess_.want_phase(k, SlotGroup::Probe)) {
+      event_trace.macro(k, "probe_begin");
       if (inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
-        return 20;
+        return finish(20);
+      event_trace.macro(k, "probe_end");
       continue;
     }
     if (inprocess_.want_phase(k, SlotGroup::Eliminate)) {
+      event_trace.macro(k, "eliminate_begin");
       if (inprocess_.run_phase(k, SlotGroup::Eliminate, stop) == 20)
-        return 20;
+        return finish(20);
+      event_trace.macro(k, "eliminate_end");
       continue;
     }
     if (stop && *stop)
-      return 0;
+      return finish(0);
     BranchingPolicy &bp = branching ? *branching : default_branching_;
-    decide_apply(k, bp.pick(k), false);
+    const Lit decision = bp.pick(k);
+    decide_apply(k, decision, false);
+    event_trace.detail(k, "decision", kernel_externalize(k, decision));
   }
 }
 

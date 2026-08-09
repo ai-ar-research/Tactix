@@ -267,7 +267,7 @@ REACH_SPECS = [
     # runs 3-5x walks on 23 of 24 Tier B instances, so Rephase does fire
     # independently. Treat a lone `--require-reached Rephase` as weak.
     ("Rephase", r"^c rephased\s+(\d+)"),
-    ("Reorder", r"^c reordered\s+(\d+) decision"),
+    ("Reorder", r"^c reordered\s+\d+ eligible, (\d+) decision"),
     ("SwitchMode", r"^c mode\s+\S+ after (\d+) switches"),
     # PATH rows, not registry rules (the conformance check only requires the
     # registry->row direction). Added after the 2026-08-08 wrong-SAT: the

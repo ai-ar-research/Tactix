@@ -40,6 +40,10 @@ add_executable(test_scheduling test_scheduling.cpp)
 target_link_libraries(test_scheduling PRIVATE tactix_lib)
 add_test(NAME scheduling COMMAND test_scheduling)
 
+add_executable(test_event_trace test_event_trace.cpp)
+target_link_libraries(test_event_trace PRIVATE tactix_lib)
+add_test(NAME event_trace COMMAND test_event_trace)
+
 # The §5.6 pose surface: a preposed slot, a disabled entry inert at its own
 # rule's counter, and the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs.
 add_executable(test_slot_pose test_slot_pose.cpp)
