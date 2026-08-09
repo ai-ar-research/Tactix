@@ -128,8 +128,9 @@ required.
 - [x] `SCHED-G7`: binary-first state is per watch list. Binary insertion
   invalidates only affected lists; rebuilds reconstruct it, and probing
   snapshot/restore includes the metadata.
-- [ ] `SP-CONG-BUDGET-1`: resolve Congruence's deliberately stricter local
-  budget against its measured cost/yield gap.
+- [x] `SP-CONG-BUDGET-1`: accepted measured deviation. Congruence keeps its
+  stricter local budget because its current round is about 20x the reference
+  gate volume; the ledger records the cost/yield evidence and removal test.
 - [ ] `SP-SUBST-2`: add Kissat's two-round 10‰ hand-rolled budget without our
   generic 1e7 floor, which would make the port inert.
 - [ ] `SP-ARENA-1`: make budget-cut candidate order search-coupled instead of

@@ -560,6 +560,9 @@ cost gap rather than by parity.
 
 #### SP-CONG-BUDGET-1 — Congruence gets a mid-round budget the reference does not have
 
+**CLOSED AS AN ACCEPTED MEASURED DEVIATION.** The budget remains until the
+named cost-gap removal test passes; reference parity alone does not remove it.
+
 | | |
 |---|---|
 | **The reference** | **kissat gives congruence NO effort budget at all.** `congruence.c` contains no `SET_EFFORT_LIMIT`; `options.h` ships no `congruenceeffort`. Its only bounds are structural (`congruenceandarity` 1e6, `congruencexorarity` 4, `congruenceonce` 0) plus the delay ladder on `equivalent/active < 0.001` (`congruence.c:4630-4633`) — which we already had. cadical's `extract_gates` is likewise unbudgeted. So this row is a deviation in the STRICTER direction, and it must not be read as parity work. |
