@@ -18,6 +18,12 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     return;
   const uint32_t old = k.nvars;
   k.nvars = nvars;
+  k.internal_to_external.reserve(nvars);
+  for (Var v = old; v < nvars; v++) {
+    const Var external = static_cast<Var>(k.external_to_internal.size());
+    k.internal_to_external.push_back(external);
+    k.external_to_internal.push_back(v);
+  }
   // --- σ-state + derived-index growth (kernel-owned) ---
   k.values.resize(2 * nvars, 0);
   k.assigned.resize(nvars);
@@ -75,8 +81,11 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
 
 Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
   const Var first = k.nvars;
-  if (k.first_extension_var == UINT32_MAX)
+  if (k.first_extension_var == UINT32_MAX) {
     k.first_extension_var = first; // boundary = first non-original var
+    k.original_external_vars =
+        static_cast<uint32_t>(k.external_to_internal.size());
+  }
   kernel_reserve_vars(k, k.nvars + count); // additive: grows all per-var state
   return first;
 }
@@ -1286,4 +1295,3 @@ void kernel_extend_model(Kernel &k) {
 }
 
 } // namespace tactix
-

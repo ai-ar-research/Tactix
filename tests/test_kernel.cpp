@@ -12,6 +12,24 @@
 
 using namespace tactix;
 
+static void test_variable_identity_maps() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  assert(k.internal_to_external == std::vector<Var>({0, 1, 2}));
+  assert(k.external_to_internal == std::vector<Var>({0, 1, 2}));
+  assert(kernel_externalize(k, make_lit(1, true)) == -2);
+  assert(kernel_internalize(k, -2) == make_lit(1, true));
+  assert(kernel_internalize(k, 4) == INVALID_LIT);
+  assert(kernel_num_output_vars(k) == 3);
+
+  const Var first = kernel_new_extension_vars(k, 2);
+  assert(first == 3);
+  assert(k.original_external_vars == 3);
+  assert(kernel_num_output_vars(k) == 3);
+  assert(kernel_externalize(k, make_lit(4, false)) == 5);
+  assert(kernel_internalize(k, 5) == make_lit(4, false));
+}
+
 static void test_lit_encoding() {
   assert(internalize(1) == make_lit(0, false));
   assert(internalize(-1) == make_lit(0, true));
@@ -243,6 +261,7 @@ static void test_watch_repair_primitive() {
 }
 
 int main() {
+  test_variable_identity_maps();
   test_lit_encoding();
   test_unit_chain();
   test_large_clause_propagation();

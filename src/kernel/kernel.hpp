@@ -314,6 +314,13 @@ enum class VarStatus : uint8_t { Active = 0, Substituted, Eliminated };
 
 struct Kernel {
   uint32_t nvars = 0;
+  // Stable external identities are separate from the dense indices used by
+  // search.  Before the first compaction both maps are the identity.  A dead
+  // external variable maps to INVALID_VAR; every live internal variable maps
+  // back to the permanent DIMACS/proof variable that names it.
+  std::vector<Var> internal_to_external;
+  std::vector<Var> external_to_internal;
+  uint32_t original_external_vars = UINT32_MAX;
   uint32_t first_extension_var = UINT32_MAX;
   bool inconsistent = false; // root-level conflict happened
 
@@ -470,7 +477,27 @@ void kernel_reserve_vars(Kernel &, uint32_t nvars);
 Var kernel_new_extension_vars(Kernel &, uint32_t count);
 
 inline uint32_t kernel_num_output_vars(const Kernel &k) {
-  return k.first_extension_var == UINT32_MAX ? k.nvars : k.first_extension_var;
+  return k.original_external_vars == UINT32_MAX
+             ? static_cast<uint32_t>(k.external_to_internal.size())
+             : k.original_external_vars;
+}
+
+inline Lit kernel_external_lit(const Kernel &k, Lit l) {
+  assert(var_of(l) < k.internal_to_external.size());
+  return make_lit(k.internal_to_external[var_of(l)], negated(l));
+}
+
+inline int kernel_externalize(const Kernel &k, Lit l) {
+  return externalize(kernel_external_lit(k, l));
+}
+
+inline Lit kernel_internalize(const Kernel &k, int elit) {
+  const Lit external = internalize(elit);
+  const Var ev = var_of(external);
+  if (ev >= k.external_to_internal.size())
+    return INVALID_LIT;
+  const Var iv = k.external_to_internal[ev];
+  return iv == INVALID_VAR ? INVALID_LIT : make_lit(iv, negated(external));
 }
 
 void kernel_push_witness(Kernel &, Lit witness, const Lit *rest, uint32_t nrest);
