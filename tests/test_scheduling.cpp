@@ -62,6 +62,16 @@ static void test_reason_bump_depth_tracks_mode(void) {
   std::printf("  reason bump: depth 1 focused, depth 2 stable\n");
 }
 
+static void test_analysis_trail_reuse_defaults_to_kissat(void) {
+  DefaultPolicy p;
+  assert(!p.chrono_reuse_trail_ &&
+         "Kissat is the tie-break and has no analysis-side trail reuse");
+  // The CaDiCaL strategy remains a first-class diagnostic/experimental arm.
+  p.chrono_reuse_trail_ = true;
+  assert(p.chrono_reuse_trail_);
+  std::printf("  analysis trail reuse: Kissat default off, CaDiCaL arm retained\n");
+}
+
 // --- the resumption cursor, a policy object --------------------------------
 // A dose cut partway into a candidate list must resume past what it consumed,
 // or it re-applies the same prefix and starves the tail (kissat's
@@ -670,6 +680,7 @@ static void test_reorder_ships_in_both_modes(void) {
 int main() {
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_tracks_mode();
+  test_analysis_trail_reuse_defaults_to_kissat();
   test_effort_limit_is_kissats();
   test_preprocess_is_reduced_and_bounded();
   test_preprocess_followup_truth_table();
