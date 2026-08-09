@@ -92,7 +92,7 @@ TABLE = {
     "vivify_reuse":            ("ENV", "TACTIX_VIVIFY_REUSE; ships ON (SCHED-G3), "
                                        "=0 reverts to the per-candidate root return"),
     "vivify_flush":            ("ENV", "TACTIX_VIVIFY_FLUSH; CaDiCaL vivifyflush, "
-                                       "ships ON (SP-VIVIFY-3), =0 reverts"),
+                                       "ships OFF (SP-VIVIFY-3), =1 enables"),
     # Pure diagnostic: it makes C1 report instead of act, so it can never be a
     # shipped default and nothing in the policy may write it.
     "subsume_shadow":          ("ENV", "TACTIX_SUBSUME_SHADOW (SCHED-G2 shadow arm)"),

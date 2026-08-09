@@ -36,7 +36,7 @@ Final LRAT fuzz job 1594313 passed 10,000 cases with zero failures; source probe
 **Next actions:**
 
 1. Resume the Kissat-default parity campaign through the extracted scheduler;
-   take one remaining N4 row at a time, starting with `SP-VIVIFY-3` unless a
+   take one remaining N4 row at a time, starting with `SP-SWEEP-3` unless a
    different row is explicitly selected.
 2. Then run the Tier D shakedown, Tier D campaign, and T3 gate in that order.
 
@@ -101,8 +101,11 @@ required.
 - [x] `SP-COMPACT-1`: closed at `e1d35b8` — permanent external identities,
   dense internal renumbering after Reduce above kissat's 10% inactive threshold,
   and formula-neutral kernel/policy separation.
-- [ ] `SP-VIVIFY-3`: port CaDiCaL's occurrence-sorted schedule and prefix dedup
-  before spending propagations on duplicate/subsumed candidates.
+- [x] `SP-VIVIFY-3`: CaDiCaL's band-local prefix flush is implemented with a
+  pure per-clause surface, but ships off after a robust Tier C regression
+  (`20260808-234549-A-vivflush`, `20260808-234549-B-vivflush`,
+  `20260808-234836-C-vivflush`;
+  `benchmarks/reports/2026-08-09-sp-vivify-3.md`).
 - [ ] `SP-SWEEP-3`: persist the ranked untried tail across calls and grow
   environment caps only after a completed pass; a bare wrapping cursor measured
   worse.
