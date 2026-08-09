@@ -1,0 +1,61 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+
+\title{Concrete Conflict-Analysis Calculus and Guide}
+\author{Tactix Development Project}
+\date{August 8, 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive summary}
+The M3 ConflictAnalysis entry in the interactive proof-rule guide previously
+compressed learning, backjumping, assertion, and proof logging into informal
+placeholders.  The authoritative calculus and the derived HTML guide now give
+the exact first-UIP construction, jump-level definition, atomic trail
+transition, and ordered certificate delta.  This is a documentation-only
+clarification; solver semantics and performance are unchanged.
+
+\section{Findings and results}
+The old display used ``derive learned clause'', \texttt{backtrack(j)}, and
+``optional deletion'' without defining the learned clause, the level $j$, or
+which deletions occur.  The revised rule starts from the all-false conflict
+clause, resolves the latest conflict-level trail assignments with their reason
+clauses until one conflict-level literal remains, and identifies that literal
+as the negated first UIP.  It defines the jump level as the maximum level among
+the other learned literals (or zero), and states the legal chronological target
+interval.
+
+The HTML certificate is now ordered explicitly: OTFS add-before-delete pairs,
+the learned RUP addition with its reason replay, and eager-subsumption
+deletions.  Root LRAT and DRAT refutations are distinguished.  A new two-level
+worked example shows both resolution steps, the LRAT hint order, the computed
+jump level, and the asserted literal.  The root-refutation example now shows
+its concrete certificate as well.
+
+\section{Evidence}
+The statement was checked against \path{src/rules/analyze/analyze.cpp},
+\path{src/rules/backjump/backjump.cpp}, and the proof API.  Documentation
+citation, section-reference, size, comment-hygiene, and whitespace checks pass.
+No solver binary was changed, so no correctness or performance claim is made
+from this work.
+
+\section{Risks and decisions}
+The guide remains a derived teaching view; \texttt{docs/calculus.md} remains
+authoritative.  Only M3 was expanded in this increment.  Several other cards
+still use compact quantified summaries such as ``rewrites'' or ``resolvents'';
+they should be made concrete individually against their authoritative calculus
+and implementation rather than expanded speculatively in one broad rewrite.
+
+\section{Next actions}
+Review the M3 presentation in a browser.  If this level of detail is preferred,
+apply the same notation pattern to the remaining cards with aggregate proof
+deltas, beginning with Substitute, Sweep, Congruence, and BVE.  The solver's
+development next step remains the \texttt{SP-COMPACT-1} Kissat-parity row.
+
+\end{document}
