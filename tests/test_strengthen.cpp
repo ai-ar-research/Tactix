@@ -157,6 +157,7 @@ static void test_slot_schedule_as_data() {
     for (const auto &b : xor3)
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
+    p.reset_schedule_per_solve = false; // retain the explicitly posed clocks
     p.inprocess().pose_initialized();
     // both clocks forced open; these two rules sit on the elimination clock
     p.inprocess().probe_clock.next_conflicts = 0;
@@ -177,6 +178,7 @@ static void test_slot_schedule_as_data() {
     for (const auto &b : xor3)
       kernel_add_binary_clause(k, b[0], b[1]);
     DefaultPolicy p;
+    p.reset_schedule_per_solve = false; // retain the explicitly posed clocks
     p.inprocess().pose_initialized();
     p.inprocess().probe_clock.next_conflicts = 0;
     p.inprocess().elim_clock.next_conflicts = 0;

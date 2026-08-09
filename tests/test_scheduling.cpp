@@ -436,6 +436,37 @@ static void test_two_slot_clocks_diverge(void) {
               (unsigned long long)p.inprocess().elim_clock.next_conflicts);
 }
 
+// Initial preprocessing consumes the probe pipeline only.  Kissat initializes
+// the separate first-search elimination deadline from eliminateinit=500 with
+// formula-size scaling (kimits.c:99-121), so it cannot fire at conflict one.
+static void test_initial_elimination_deadline_matches_kissat(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 12);
+  const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit b[3] = {internalize(4), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, a, 3, false, 0);
+  kernel_add_large_clause(k, b, 3, false, 0);
+  DefaultPolicy p;
+  p.inprocess().build(k);
+
+  const double f =
+      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) - 5;
+  const uint64_t delta = static_cast<uint64_t>(
+      (4.5 * f * f + 25) *
+      static_cast<double>(DefaultInprocessScheduler::SUBSUME_INTERVAL));
+  assert(p.inprocess().probe_clock.next_conflicts == 0 &&
+         "the probe clock must admit initial preprocessing");
+  assert(p.inprocess().elim_clock.next_conflicts == delta &&
+         "first-search elimination must start at scaled eliminateinit=500");
+  k.stats.conflicts = 1;
+  assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate) &&
+         "elimination must not fire immediately after conflict one");
+  k.stats.conflicts = delta;
+  assert(p.inprocess().want_phase(k, SlotGroup::Eliminate));
+  std::printf("  initial elimination: waits until scaled conflict %llu\n",
+              (unsigned long long)delta);
+}
+
 // --- the elapsed interval is necessary, not sufficient ----------------------
 // kissat eliminate.c:33-38 and cadical elim.cpp:75-81 refuse an elimination
 // phase with no new material even once its interval elapsed; cadical
@@ -652,6 +683,7 @@ int main() {
   test_vivify_scope_tracks_tier2();
   test_authored_slot_order_covers_registry();
   test_two_slot_clocks_diverge();
+  test_initial_elimination_deadline_matches_kissat();
   test_slot_gates_decline_without_new_material();
   std::printf("test_scheduling: all passed\n");
   return 0;
