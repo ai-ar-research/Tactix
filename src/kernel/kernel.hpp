@@ -15,6 +15,7 @@ namespace tactix {
 
 struct FactorSelection;
 struct Heuristics;
+struct Kernel;
 
 struct Assigned {
   uint32_t level;
@@ -302,6 +303,11 @@ struct OccIndex {
   std::vector<std::vector<Ref>> large; // by literal; may hold stale garbage Refs
 };
 
+struct ArenaOrdering {
+  virtual ~ArenaOrdering() = default;
+  virtual void order(const Kernel &, std::vector<Ref> &) = 0;
+};
+
 struct ProbingLog {
   bool recording = false;
   uint32_t base_trail = 0, base_head = 0, base_level = 0;
@@ -351,6 +357,7 @@ struct Kernel {
 
   Arena arena;
   WatchLists watches;
+  ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
   std::vector<uint32_t> delayed;
   ProbingLog probing;

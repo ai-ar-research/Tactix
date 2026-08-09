@@ -9,10 +9,17 @@
 #include "rules/reduce/reduce.hpp"
 #include "rules/restart/restart.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 
 using namespace tactix;
+
+struct ReverseArenaOrder final : ArenaOrdering {
+  void order(const Kernel &, std::vector<Ref> &refs) override {
+    std::reverse(refs.begin(), refs.end());
+  }
+};
 
 static void test_restart() {
   Kernel k;
@@ -52,6 +59,41 @@ static void test_collect_preserves_propagation() {
   assert(propagate_apply(k) == ApplyResult::Ok);
   assert(k.values[internalize(4)] > 0);
   assert(k.values[internalize(3)] == 0); // c1 is gone
+}
+
+static void test_collect_accepts_policy_order() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 6);
+  const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit dead[3] = {internalize(1), internalize(4), internalize(5)};
+  const Lit last[3] = {internalize(-1), internalize(-2), internalize(6)};
+  kernel_add_large_clause(k, first, 3, false, 0);
+  const Ref garbage = kernel_add_large_clause(k, dead, 3, false, 0);
+  kernel_add_large_clause(k, last, 3, false, 0);
+  clause_at(k.arena, garbage)->flags |= Clause::GARBAGE;
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse;
+  kernel_collect_garbage(k);
+  const Clause *front = clause_at(k.arena, 0);
+  assert(front->lits[0] == last[0]);
+  const Ref second = clause_words(front->size);
+  assert(clause_at(k.arena, second)->lits[0] == first[0]);
+}
+
+static void test_default_arena_order_tracks_search() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 6);
+  heuristics_queue_bump(k, 0);
+  const Lit older[3] = {internalize(-2), internalize(4), internalize(5)};
+  const Lit fresher[3] = {internalize(-1), internalize(3), internalize(6)};
+  const Ref ro = kernel_add_large_clause(k, older, 3, false, 0);
+  const Ref rf = kernel_add_large_clause(k, fresher, 3, false, 0);
+  std::vector<Ref> refs = {ro, rf};
+  DefaultArenaOrder order;
+  order.order(k, refs);
+  assert(refs.size() == 2 && refs[0] == rf && refs[1] == ro);
 }
 
 static void test_reduce_deletes_and_logs() {
@@ -221,6 +263,8 @@ int main() {
   test_restart_apply_to();
   test_restart_reuses_trail();
   test_collect_preserves_propagation();
+  test_collect_accepts_policy_order();
+  test_default_arena_order_tracks_search();
   test_reduce_deletes_and_logs();
   test_reduce_used_retention();
   test_tier2_band_tracks_the_live_tier();
