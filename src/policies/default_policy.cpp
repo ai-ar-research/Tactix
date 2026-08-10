@@ -914,7 +914,8 @@ Lit DefaultBranching::pick(Kernel &k) {
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
-        const Var v = static_cast<Var>(random % k.nvars);
+        assert(!k.h->random_order.empty());
+        const Var v = k.h->random_order[random % k.h->random_order.size()];
         if (k.values[make_lit(v, true)] == 0 && !kernel_var_retired(k, v)) {
           k.stats.random_decisions++;
           return heuristics_decide_lit(k, v);
