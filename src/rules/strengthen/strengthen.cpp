@@ -315,41 +315,20 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
   }
 }
 
-// Root flushing (kissat collect.c's sparse-collection effect, recomposed
-// rule-side so proof deltas stay rule territory; where V1/V2's root units get
-// consumed): a root-satisfied clause is deleted, root-falsified literals are
-// stripped by a degenerate self-strengthen. A pre-pass over all live large
-// clauses. Returns like act(), plus 1 for a deletion.
+// C2 consumes root units through the same proof-safe clause primitive as the
+// startup sparse collector. Map its typed result onto act()'s local control
+// codes: 0 none, 1 deleted, 2 rewritten, 3 binary, 4 unit, 5 refuted.
 static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
-  Clause *c = clause_at(k.arena, *ref);
-  uint32_t falsified = 0;
-  for (const Lit l : *c) {
-    if (k.value(l) > 0 && k.var_level(var_of(l)) == 0) {
-      if (kernel_shadow_retire(k, c->id())) // C1's shadow ledger
-        k.stats.c1_shadow_deleted++;
-      kernel_delete_clause(k, c); // root-satisfied: delete
-      k.stats.flushed++;
-      (*changed)++;
-      return 1;
-    }
-    if (k.value(l) < 0)
-      falsified++;
+  switch (kernel_flush_root_clause(k, ref, changed)) {
+  case RootFlushOutcome::None: return 0;
+  case RootFlushOutcome::Deleted: return 1;
+  case RootFlushOutcome::Rewritten: return 2;
+  case RootFlushOutcome::Binary: return 3;
+  case RootFlushOutcome::Unit: return 4;
+  case RootFlushOutcome::Refuted: return 5;
   }
-  if (!falsified)
-    return 0;
-  Partner p;
-  p.res.kind = CheckResult::STRENGTHEN;
-  for (const Lit l : *c)
-    if (k.value(l) < 0) {
-      p.res.flipped = negate(l); // act removes negate(flipped) == l
-      break;
-    }
-  if (k.proof && k.proof->lrat())
-    p.id = k.unit_ids[var_of(p.res.flipped)]; // the absorbing unit
-  k.stats.flushed++;
-  const int r = act(k, ref, p, changed);
-  k.stats.strengthened--; // attributed to `flushed`, not `strengthened`
-  return r;
+  assert(false);
+  return 5;
 }
 
 ApplyResult strengthen_apply(Kernel &k) {

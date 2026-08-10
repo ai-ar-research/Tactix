@@ -165,12 +165,15 @@ def worker(args, row):
                         json.dumps(metadata, indent=2, sort_keys=True) + "\n")
                     raise SystemExit(f"{name} failed verdict/proof/model validation")
             event_json = rd / "event-comparison.json"
-            subprocess.run(
-                [sys.executable, str(ROOT / "tools/bench/compare_event_trace.py"),
-                 str(rd / "tactix-event.tsv"), str(rd / "kissat-event.tsv"),
-                 "--mode", "semantic", "--fixture", pathlib.Path(
-                     row["relpath"]).name, "--json", str(event_json)],
-                check=False)
+            if (rd / "tactix-event.tsv").exists() and (
+                    rd / "kissat-event.tsv").exists():
+                subprocess.run(
+                    [sys.executable,
+                     str(ROOT / "tools/bench/compare_event_trace.py"),
+                     str(rd / "tactix-event.tsv"),
+                     str(rd / "kissat-event.tsv"), "--mode", "semantic",
+                     "--fixture", pathlib.Path(row["relpath"]).name,
+                     "--json", str(event_json)], check=False)
             if (rd / "tactix-reduce.tsv").exists() and (
                     rd / "kissat-reduce.tsv").exists():
                 reduce_json = rd / "reduce-comparison.json"

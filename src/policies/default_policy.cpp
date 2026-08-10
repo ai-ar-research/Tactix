@@ -168,6 +168,23 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.sweep_permille=" << inprocess.sweep_permille
       << " inprocess.congruence_permille=" << inprocess.congruence_permille
       << " inprocess.substitute_permille=" << inprocess.substitute_permille
+      << " inprocess.sweep_depth=" << inprocess.sweep_depth
+      << " inprocess.sweep_max_depth=" << inprocess.sweep_max_depth
+      << " inprocess.sweep_vars=" << inprocess.sweep_vars
+      << " inprocess.sweep_max_vars=" << inprocess.sweep_max_vars
+      << " inprocess.sweep_clauses=" << inprocess.sweep_clauses
+      << " inprocess.sweep_max_clauses=" << inprocess.sweep_max_clauses
+      << " inprocess.sweep_candidate_pairs="
+      << inprocess.sweep_candidate_pairs
+      << " inprocess.sweep_flip_rounds=" << inprocess.sweep_flip_rounds
+      << " inprocess.sweep_seed_cap=" << inprocess.sweep_seed_cap
+      << " inprocess.sweep_environment_ticks="
+      << inprocess.sweep_environment_ticks
+      << " inprocess.sweep_strip_root_false="
+      << inprocess.sweep_strip_root_false
+      << " inprocess.sweep_full_partition="
+      << inprocess.sweep_full_partition
+      << " inprocess.sweep_resume=" << inprocess.sweep_resume
       << " inprocess.congruence_productivity_permille="
       << inprocess.congruence_productivity_permille
       << " inprocess.sweep_productivity_permille="
@@ -535,9 +552,31 @@ uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
 uint64_t meter_hbr(const Kernel &k) { return k.stats.hbr_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
-uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks; }
+// Kissat's `SET_EFFORT_LIMIT(..., kitten_ticks)` spends only the embedded
+// solver's ticks. Keep environment scan/dedup work in `sweep_ticks` as
+// diagnostics, but do not charge that different currency to the reference
+// allowance.
+uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks_sub; }
 uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
 uint64_t meter_substitute(const Kernel &k) { return k.stats.substitute_ticks; }
+
+SweepLimits configured_sweep_limits(
+    const DefaultStrategyConfig::Inprocess &config) {
+  SweepLimits lim;
+  lim.max_depth = config.sweep_depth;
+  lim.max_depth_ceiling = config.sweep_max_depth;
+  lim.max_env_vars = config.sweep_vars;
+  lim.max_env_vars_ceiling = config.sweep_max_vars;
+  lim.max_env_clauses = config.sweep_clauses;
+  lim.max_env_clauses_ceiling = config.sweep_max_clauses;
+  lim.max_candidates = config.sweep_candidate_pairs;
+  lim.flip_rounds = config.sweep_flip_rounds;
+  lim.max_seeds = config.sweep_seed_cap;
+  lim.env_ticks = config.sweep_environment_ticks;
+  lim.strip_false = config.sweep_strip_root_false;
+  lim.full_partition = config.sweep_full_partition;
+  return lim;
+}
 
 struct EffortSpec {
   const char *name;
@@ -561,7 +600,9 @@ constexpr DelaySpec DELAY_SPECS[] = {
      active_variables,
      &DefaultStrategyConfig::Inprocess::congruence_productivity_permille,
      false},
-    {"Sweep", [](const Kernel &k) { return k.stats.sweep_equivalences; },
+    {"Sweep", [](const Kernel &k) {
+       return k.stats.sweep_equivalences + k.stats.sweep_units;
+     },
      [](const Kernel &k) { return k.stats.sweep_candidates; },
      &DefaultStrategyConfig::Inprocess::sweep_productivity_permille, true},
 };
@@ -1017,6 +1058,29 @@ void DefaultPolicy::configure_from_env() {
     config_.branching.random_sequences = *rd != '0';
   if (const char *wp = std::getenv("TACTIX_WALK_PERMILLE"))
     config_.rephase.walk_permille = std::strtoull(wp, nullptr, 10);
+  const auto sweep_u32 = [](const char *name, uint32_t &slot) {
+    if (const char *s = std::getenv(name))
+      slot = static_cast<uint32_t>(std::strtoul(s, nullptr, 10));
+  };
+  const auto sweep_bool = [](const char *name, bool &slot) {
+    if (const char *s = std::getenv(name))
+      slot = std::strtoul(s, nullptr, 10) != 0;
+  };
+  sweep_u32("TACTIX_SWEEP_DEPTH", config_.inprocess.sweep_depth);
+  sweep_u32("TACTIX_SWEEP_VARS", config_.inprocess.sweep_vars);
+  sweep_u32("TACTIX_SWEEP_CLAUSES", config_.inprocess.sweep_clauses);
+  sweep_u32("TACTIX_SWEEP_CANDIDATES",
+            config_.inprocess.sweep_candidate_pairs);
+  sweep_u32("TACTIX_SWEEP_FLIP_ROUNDS",
+            config_.inprocess.sweep_flip_rounds);
+  sweep_u32("TACTIX_SWEEP_SEEDS", config_.inprocess.sweep_seed_cap);
+  if (const char *s = std::getenv("TACTIX_SWEEP_TICKS"))
+    config_.inprocess.sweep_environment_ticks = std::strtoull(s, nullptr, 10);
+  sweep_bool("TACTIX_SWEEP_STRIP",
+             config_.inprocess.sweep_strip_root_false);
+  sweep_bool("TACTIX_SWEEP_PARTITION",
+             config_.inprocess.sweep_full_partition);
+  sweep_bool("TACTIX_SWEEP_RESUME", config_.inprocess.sweep_resume);
 
   force_mode_ = config_.mode.force;
   bump_reasons_limit_ = config_.analysis.bump_reason_limit;
@@ -1265,6 +1329,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     owned_h.emplace(k);
   solves++;
   configure_from_env();
+  k.sweep_resume = config_.inprocess.sweep_resume;
   if (reset_schedule_per_solve) {
     for (uint32_t mode = 0; mode != 2; ++mode) {
       k.tier1_by_mode[mode] = config_.reduction.tier1_default;
@@ -1302,6 +1367,29 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "lucky_early_end", "unknown");
   }
   event_trace.macro(k, "preprocess_begin");
+  // Kissat preprocess.c initially propagates, then consumes those root units
+  // by sparse-collecting the whole large-clause arena before the first Probe
+  // technique. This is lifecycle scaffolding, not an authored Strengthen slot.
+  RootCollectOutcome collected;
+  do {
+    event_trace_slot_boundary(k, "SparseCollect", "begin");
+    collected = kernel_sparse_collect_root(k);
+    event_trace_slot_boundary(k, "SparseCollect", "end");
+    if (collected == RootCollectOutcome::Refuted)
+      return finish(20);
+    if (collected == RootCollectOutcome::Unit &&
+        propagate_apply(k) == ApplyResult::Unsat)
+      return finish(20);
+  } while (collected == RootCollectOutcome::Unit);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  for (Var v = 0; v < k.nvars; v++) {
+    uint32_t ordinal = 0;
+    for (uint32_t sign = 0; sign < 2; sign++)
+      for (const WatchEntry w : k.watches.entries(make_lit(v, sign != 0)))
+        if (w.binary())
+          event_trace_sweep_watch(k, v, ordinal++, w.other());
+  }
+#endif
   if (inprocess_.want_phase(k, SlotGroup::Probe) &&
       inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
     return finish(20);
@@ -1633,14 +1721,12 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
   const bool level_mode = bve_entry && ramp && !bve_oneshot;
   const uint32_t passes = level_mode ? 1 : ramp ? ramp->num_passes() : 1;
-  bool dose_cut = false;
   uint64_t elim_at_last_pass = k.stats.bve_eliminated;
   const bool use_retry = bve_entry && !ramp;
   k.bve_track_min_bound = ramp != nullptr;
   bool engaged = false; // a pass got past the budget break and ran instances
   for (uint32_t pass = 0; pass < passes && !ctx.phase_unsat; pass++) {
     if (ramp && e.meter(k) > limit) {
-      dose_cut = true;
       break;
     }
     engaged = true;
@@ -1662,11 +1748,9 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
                    (unsigned long long)e.meter(k), (unsigned long long)limit);
     for (uint32_t i = 0; i < n; i++) {
       if (e.meter(k) > limit) {
-        dose_cut = true;
         break; // dose spent
       }
       if (!r.guard(k)) {
-        dose_cut = true; // conservative: not a completed schedule
         break;
       }
       if (use_retry || ramp) {
@@ -1828,7 +1912,17 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   ApplyResult ar;
   {
     TickSinkScope sink(k, e.tick_counter);
-    ar = apply_rule(r, k);
+    if (!std::strcmp(r.name, "Sweep")) {
+      const SweepLimits lim = configured_sweep_limits(config());
+      const uint64_t t0 = now_nanos();
+      ar = sweep_apply_with_limits(k, lim);
+      if (r.id < Stats::MAX_TIMED_RULES) {
+        k.stats.rule_nanos[r.id] += now_nanos() - t0;
+        k.stats.rule_calls[r.id]++;
+      }
+    } else {
+      ar = apply_rule(r, k);
+    }
   }
   k.work_budget = 0;
   k.factor_admit = true; // advice is per-occasion; default is NO restriction
@@ -2071,13 +2165,26 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
                                        PERMILLE_SCALE
                              : reference / PERMILLE_SCALE * e.permille;
   e.limit = e.meter(k) + delta;
+  if (std::getenv("TACTIX_SLOT_TRACE"))
+    std::fprintf(stderr,
+                 "[slot-limit] %s now=%llu anchor=%llu reference=%llu "
+                 "permille=%u delta=%llu meter=%llu\n",
+                 rules[e.rule].name, (unsigned long long)now,
+                 (unsigned long long)clock.anchor,
+                 (unsigned long long)reference, e.permille,
+                 (unsigned long long)delta,
+                 (unsigned long long)e.meter(k));
   if (e.meter == meter_forward_pair) {
     if (forward_pair_limit_)
       e.limit = forward_pair_limit_;
     else
       forward_pair_limit_ = e.limit;
   }
-  if (k.stats.conflicts > 0 && e.doses == 0 && e.budget_aware &&
+  // Kissat's `factoriniticks` belongs to the first factorization invocation,
+  // including the preprocessing call from `probe_initially`.  Restricting it
+  // to post-search phases silently replaced the shipped 700M first dose with
+  // 50 permille of the 10M preprocessing reference (only 0.5M ticks).
+  if (e.doses == 0 && e.budget_aware &&
       !std::strcmp(rules[e.rule].name, "Factor"))
     e.limit = e.meter(k) + factor_init_ticks_;
   if (k.stats.conflicts > 0 && e.doses == 0 && e.budget_aware &&

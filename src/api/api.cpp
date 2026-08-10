@@ -316,7 +316,9 @@ uint64_t tactix_stat(tactix_solver *s, int stat_id) {
   case 40: // TACTIX_STAT_SWEEP_EQUIVALENCES
     return k.stats.sweep_equivalences;
   case 41: // TACTIX_STAT_SWEEP_TICKS
-    return k.stats.sweep_ticks;
+    // The public Sweep effort statistic follows the currency DefaultPolicy
+    // spends.  `sweep_ticks` remains the broader scan diagnostic.
+    return k.stats.sweep_ticks_sub;
   case 42: // TACTIX_STAT_CONGRUENCE_MERGES
     return k.stats.congruence_merges;
   case 43: // TACTIX_STAT_CONGRUENCE_TICKS

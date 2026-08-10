@@ -27,11 +27,12 @@ private:
 class DefaultFactorMatch final : public FactorMatchPolicy {
 public:
   const char *name() const override { return "watches-size"; }
-  double seed_score(const Kernel &k, Lit s) override {
-    return k.watches.heads[s].size;
+  double seed_score(const Kernel &, Lit, double reference_score) override {
+    return reference_score;
   }
-  double next_factor_score(const Kernel &k, Lit c, uint32_t, Lit) override {
-    return k.watches.heads[c].size;
+  double next_factor_score(const Kernel &, Lit, uint32_t, Lit,
+                           double reference_score) override {
+    return reference_score;
   }
   uint32_t bound = 0;
   bool accept(uint32_t, uint32_t, int delta) override {

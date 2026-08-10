@@ -77,7 +77,7 @@ TABLE = {
     "BCE":              (METERED, "20 permille, bce_ticks currency"),
     "CCE":              (METERED, "cadical covereffort 4 permille, cce_ticks currency"),
     "Instantiate":      (METERED, "20 permille, tick currency"),
-    "Sweep":            (METERED, "kissat sweepeffort 100 permille, sweep_ticks currency"),
+    "Sweep":            (METERED, "kissat sweepeffort 100 permille, sweep_ticks_sub currency"),
     # Metered as well as closure-gated: "a single closure pass is bounded by
     # the formula" is measurably false for Congruence, whose passes have
     # reached half a tier-C solve. The ledger bounds one round; the watermark

@@ -17,20 +17,22 @@ only.
 
 ## Resume here
 
-The three P4A fixtures are closed: their remaining divergence is localized to
-accepted stronger singleton minimization. On the first P4B fixture,
-`mod4block`, Kissat-style input normalization against prior root units is now
-implemented with native-LRAT-safe deferred restatement. It moves Tactix from
-69.5s / 1.38M conflicts to 32.2s / 552k conflicts; Kissat is 19.9s / 715k.
-All models/proofs verify and all 69 Release checks pass.
+The three P4A fixtures and the first P4B fixture, `mod4block`, are closed. The
+startup sparse collection, 10M preprocessing floor, Sweep per-seed application,
+Kitten effort currency, selected-pair model-flip wire, and live Factor schedule
+are now cumulative. The accepted production pin solves `mod4block` in **10.95s**
+against Kissat's **18.51s**; both models verify and all 69 Release checks pass.
 
-Slot-boundary traces moved the current frontier before preprocessing Factor:
-Kissat's startup sparse collection shrinks `mod4block` from 121,440 to 85,606
-irreducible clauses before Congruence, while Tactix enters Congruence at 121,440.
-Kissat then reaches 84,379 before Factor; Tactix reaches 120,640. The isolated
-700M first-Factor-dose wire remains rejected: cumulatively it regressed this
-fixture from 32.2s / 552k conflicts to 249.1s / 5.50M. Implement the missing
-proof-safe startup collection before revisiting Factor composition or dose.
+The convergence trace explains the remaining non-identity. Tactix reproduces
+all five Sweep units and both equivalences and spends the dose on 124 seeds;
+Kissat processes 155. A partial Kitten decision-order/phase arm reached 158 but
+changed a later equivalence orientation and timed out at 300s, so it was removed
+under arm frugality. With the strictly better fixed embedded search restored,
+Factor matches Kissat's first 13 exact ordered grids; later fresh-variable order
+is downstream of that deliberate Sweep search/model choice. This is a localized,
+measured-better deviation, not an unexplained timeout.
+The full fixture evidence is in
+`benchmarks/reports/2026-08-10-mod4block-sweep-factor-convergence.md`.
 The canonical Tier A evidence is in
 `benchmarks/reports/2026-08-09-tier-a-kissat-divergence-convergence.md`;
 the full lifecycle matrix remains in
@@ -41,13 +43,12 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Port Kissat's startup sparse-collection effect after initial propagation and
-   before the first Probe slot, using shared proof-safe clause rewrites rather
-   than presenting it as a Strengthen rule application.
-2. Retest `mod4block` cumulatively and resume the boundary comparison at
-   Congruence, Sweep, Substitute, and Factor. Re-enable the preprocessing
-   first-dose wire only after those upstream states no longer explain its
-   measured regression.
+1. Start the same one-at-a-time boundary/trajectory pass on
+   `mp1-klieber2017s-0500-023-t12`, keeping the accepted `mod4block` pin as a
+   cumulative regression guard.
+2. If the next fixture exposes a mismatch, first decide whether Tactix's current
+   behavior is strictly better; otherwise port the reference wire and require a
+   reach counter plus a same-pin correctness/performance comparison.
 3. Independently restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
@@ -117,8 +118,8 @@ fixtures as cumulative guards.
 - [x] `tr-n300-s055` — accepted stronger singleton minimization.
 - [x] `tr-n260-s002` — accepted stronger singleton minimization.
 - [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
-- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — current frontier:
-  missing startup sparse collection before initial Congruence.
+- [x] `mod4block_2vars_10gates_u2_autoenc-sc2009` — all discoveries reproduced;
+  localized fixed-search deviation measured better (10.95s vs Kissat 18.51s).
 - [ ] `mp1-klieber2017s-0500-023-t12`.
 - [ ] `or_randxor_k3_n540_m540`.
 - [ ] `unsat-set-b-fclqcolor-10-07-09`.
@@ -127,18 +128,16 @@ fixtures as cumulative guards.
 <!-- track-sched:begin -->
 ### Open scheduling-parity findings
 
-`ORDER-SPARSE-COLLECT-1` is open: Tactix lacks Kissat's root-unit sparse
-collection before initial probing. `FACTOR-PREPROCESS-1` is open behind it:
-Tactix owns the 700M first-dose allowance but the isolated conflict-0 wire is
-measured-worse on the uncollected formula. Close the upstream mismatch before
-re-enabling that wire. The stale rows `ORDER-TUMBLE-1`,
-`ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`, `ORDER-LUCKY-1`, and
-`ORDER-FOLLOWUP-1` are implemented and dispositioned; their evidence remains in
-`docs/implementation-notes.md` §13.
+`ORDER-SPARSE-COLLECT-1`, `FACTOR-PREPROCESS-1`, and the `mod4block` Sweep
+currency/candidate-flip findings are implemented and dispositioned. The stale
+rows `ORDER-TUMBLE-1`, `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`,
+`ORDER-LUCKY-1`, and `ORDER-FOLLOWUP-1` remain closed; their evidence is in
+`docs/implementation-notes.md` §13. There is no open scheduling handle carried
+from `mod4block`; the next finding must come from the next fixed P4B fixture.
 
-N4 verification remains pending while that classification is unresolved. A
-P4-CVG result adds one deduplicated finding here only when it identifies missing
-or cruder default scheduling.
+N4 verification remains pending until the remaining fixed fixtures complete the
+lifecycle audit. A P4-CVG result adds one deduplicated finding here only when it
+identifies missing or cruder default scheduling.
 <!-- track-sched:end -->
 
 ## Phase 4.5 — engineering ingenuity beyond reference parity
@@ -160,7 +159,6 @@ or cruder default scheduling.
 - [ ] SAT sweeping currently harvests only equivalences and backbone units;
   harvesting richer consequences from the sweep environment is room for
   improvement (related: designing new proof rules).
-
 ## Phase 5 — tuning, bindings, extensibility
 
 - [ ] Decide O16; add policy presets/MAB, Python bindings, external-branching

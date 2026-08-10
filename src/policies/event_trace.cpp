@@ -475,6 +475,182 @@ void event_trace_slot_boundary(const Kernel &k, const char *name,
     active_trace->slot_boundary(k, name, stage);
 }
 
+void EventTrace::sweep_seed(const Kernel &k, Var seed) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "external=" +
+      std::to_string(kernel_externalize(k, make_lit(seed, false)));
+  emit(k, "sweep_seed", payload.c_str(), false);
+}
+
+void event_trace_sweep_seed(const Kernel &k, Var seed) {
+  if (active_trace)
+    active_trace->sweep_seed(k, seed);
+}
+
+void EventTrace::sweep_environment(const Kernel &k, Var seed, uint32_t vars,
+                                   uint32_t clauses, uint64_t hash) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  char digest[17];
+  std::snprintf(digest, sizeof digest, "%016llx",
+                static_cast<unsigned long long>(hash));
+  const std::string payload =
+      "external=" +
+      std::to_string(kernel_externalize(k, make_lit(seed, false))) +
+      "|vars=" + std::to_string(vars) + "|clauses=" +
+      std::to_string(clauses) + "|hash=" + digest;
+  emit(k, "sweep_environment", payload.c_str(), false);
+}
+
+void event_trace_sweep_environment(const Kernel &k, Var seed, uint32_t vars,
+                                   uint32_t clauses, uint64_t hash) {
+  if (active_trace)
+    active_trace->sweep_environment(k, seed, vars, clauses, hash);
+}
+
+void EventTrace::sweep_effort(const Kernel &k, uint32_t external,
+                              uint64_t kitten_ticks, uint64_t entry_ticks,
+                              uint64_t solves) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "external=" + std::to_string(external) +
+      "|kitten_ticks=" + std::to_string(kitten_ticks) +
+      "|entry_ticks=" + std::to_string(entry_ticks) +
+      "|solves=" + std::to_string(solves);
+  emit(k, "sweep_effort", payload.c_str(), false);
+}
+
+void event_trace_sweep_effort(const Kernel &k, uint32_t external,
+                              uint64_t kitten_ticks, uint64_t entry_ticks,
+                              uint64_t solves) {
+  if (active_trace)
+    active_trace->sweep_effort(k, external, kitten_ticks, entry_ticks, solves);
+}
+
+void EventTrace::sweep_environment_var(const Kernel &k, Var seed,
+                                       uint32_t ordinal, Var var,
+                                       uint32_t depth) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "seed=" +
+      std::to_string(kernel_externalize(k, make_lit(seed, false))) +
+      "|ordinal=" + std::to_string(ordinal) + "|external=" +
+      std::to_string(kernel_externalize(k, make_lit(var, false))) +
+      "|depth=" + std::to_string(depth);
+  emit(k, "sweep_environment_var", payload.c_str(), false);
+}
+
+void event_trace_sweep_environment_var(const Kernel &k, Var seed,
+                                       uint32_t ordinal, Var var,
+                                       uint32_t depth) {
+  if (active_trace)
+    active_trace->sweep_environment_var(k, seed, ordinal, var, depth);
+}
+
+void EventTrace::sweep_watch(const Kernel &k, Var seed, uint32_t ordinal,
+                             Lit other) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("SAT_EVENT_TRACE_SWEEP_WATCH");
+  if (!selected || std::strtol(selected, nullptr, 10) !=
+                       kernel_externalize(k, make_lit(seed, false)))
+    return;
+  const std::string payload =
+      "seed=" +
+      std::to_string(kernel_externalize(k, make_lit(seed, false))) +
+      "|ordinal=" + std::to_string(ordinal) + "|other=" +
+      std::to_string(kernel_externalize(k, other));
+  emit(k, "sweep_watch", payload.c_str(), false);
+}
+
+void event_trace_sweep_watch(const Kernel &k, Var seed, uint32_t ordinal,
+                             Lit other) {
+  if (active_trace)
+    active_trace->sweep_watch(k, seed, ordinal, other);
+}
+
+void EventTrace::sweep_equivalence(const Kernel &k, Lit a, Lit b) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "a=" + std::to_string(kernel_externalize(k, a)) +
+      "|b=" + std::to_string(kernel_externalize(k, b));
+  emit(k, "sweep_equivalence", payload.c_str(), false);
+}
+
+void event_trace_sweep_equivalence(const Kernel &k, Lit a, Lit b) {
+  if (active_trace)
+    active_trace->sweep_equivalence(k, a, b);
+}
+
+void EventTrace::sweep_unit(const Kernel &k, Lit lit) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "lit=" + std::to_string(kernel_externalize(k, lit));
+  emit(k, "sweep_unit", payload.c_str(), false);
+}
+
+void event_trace_sweep_unit(const Kernel &k, Lit lit) {
+  if (active_trace)
+    active_trace->sweep_unit(k, lit);
+}
+
+void EventTrace::factor_seed(const Kernel &k, Lit seed, uint32_t score,
+                             uint32_t remainders) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "external=" + std::to_string(kernel_externalize(k, seed)) +
+      "|score=" + std::to_string(score) +
+      "|remainders=" + std::to_string(remainders);
+  emit(k, "factor_seed", payload.c_str(), false);
+}
+
+void event_trace_factor_seed(const Kernel &k, Lit seed, uint32_t score,
+                             uint32_t remainders) {
+  if (active_trace)
+    active_trace->factor_seed(k, seed, score, remainders);
+}
+
+void EventTrace::factor_grid(const Kernel &k, Lit seed, uint32_t factors,
+                             uint32_t remainders, int delta) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "external=" + std::to_string(kernel_externalize(k, seed)) +
+      "|factors=" + std::to_string(factors) +
+      "|remainders=" + std::to_string(remainders) +
+      "|delta=" + std::to_string(delta);
+  emit(k, "factor_grid", payload.c_str(), false);
+}
+
+void event_trace_factor_grid(const Kernel &k, Lit seed, uint32_t factors,
+                             uint32_t remainders, int delta) {
+  if (active_trace)
+    active_trace->factor_grid(k, seed, factors, remainders, delta);
+}
+
+void EventTrace::factor_grid_member(const Kernel &k, uint32_t ordinal,
+                                    Lit factor) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "ordinal=" + std::to_string(ordinal) +
+      "|external=" + std::to_string(kernel_externalize(k, factor));
+  emit(k, "factor_grid_member", payload.c_str(), false);
+}
+
+void event_trace_factor_grid_member(const Kernel &k, uint32_t ordinal,
+                                    Lit factor) {
+  if (active_trace)
+    active_trace->factor_grid_member(k, ordinal, factor);
+}
+
 void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,
                           const std::vector<uint8_t> &seen,
                           uint8_t bump_mask) {

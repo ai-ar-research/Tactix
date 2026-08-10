@@ -110,8 +110,9 @@ class BoundRecorder final : public FactorMatchPolicy {
 public:
   const char *name() const override { return "bound-recorder"; }
   void set_bound(uint32_t bound) override { seen.push_back(bound); }
-  double seed_score(const Kernel &, Lit) override { return 0; }
-  double next_factor_score(const Kernel &, Lit, uint32_t, Lit) override {
+  double seed_score(const Kernel &, Lit, double) override { return 0; }
+  double next_factor_score(const Kernel &, Lit, uint32_t, Lit,
+                           double) override {
     return 0;
   }
   bool accept(uint32_t, uint32_t, int) override { return false; }

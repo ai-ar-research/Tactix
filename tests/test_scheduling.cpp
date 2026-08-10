@@ -619,9 +619,21 @@ static void test_preprocess_is_reduced_and_bounded(void) {
   e.permille = 20;
   e.meter = [](const Kernel &) -> uint64_t { return 7; };
   p.inprocess().set_entry_limit(e, k);
-  assert(e.limit == 40007 &&
-         "preprocessing must use 20 permille of preprocessinit=2e6");
-  std::printf("  preprocess: one reduced probe pipeline, 2e6 tick reference\n");
+  assert(e.limit == 200007 &&
+         "preprocessing must use 20 permille of Kissat mineffort=10m");
+
+  // Factor is the deliberate exception: kissat factor.c uses
+  // `factoriniticks=700` on its first invocation, and that invocation is the
+  // preprocessing call in probe_initially. It must not fall through to the
+  // ordinary 50-permille preprocessing allowance.
+  e.rule = static_cast<int>(find_rule("Factor")->id);
+  e.permille = 50;
+  e.budget_aware = true;
+  p.inprocess().set_entry_limit(e, k);
+  assert(e.limit ==
+             DefaultStrategyConfig::FACTOR_INITIAL_EFFORT_DEFAULT + 7 &&
+         "preprocessing Factor must receive Kissat's first-dose allowance");
+  std::printf("  preprocess: one reduced probe pipeline, 10m tick reference\n");
 }
 
 static void test_preprocess_followup_truth_table(void) {
@@ -698,6 +710,33 @@ static void test_reorder_ships_in_both_modes(void) {
   std::printf("  reorder default: both modes, policy trigger remains root-only\n");
 }
 
+static void test_startup_sparse_collection_precedes_probe(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_assign_unit(k, internalize(1));
+  const Lit satisfied[3] = {internalize(1), internalize(2),
+                            internalize(4)};
+  const Lit shortened[4] = {internalize(-1), internalize(2),
+                            internalize(3), internalize(4)};
+  kernel_add_large_clause(k, satisfied, 3, false, 0);
+  kernel_add_large_clause(k, shortened, 4, false, 0);
+  const Lit unsat[4][2] = {
+      {internalize(2), internalize(3)},
+      {internalize(2), internalize(-3)},
+      {internalize(-2), internalize(3)},
+      {internalize(-2), internalize(-3)},
+  };
+  for (const auto &binary : unsat)
+    kernel_add_binary_clause(k, binary[0], binary[1]);
+
+  DefaultPolicy p;
+  assert(p.solve(k) == 20);
+  assert(k.stats.sparse_collections == 1);
+  assert(k.stats.sparse_collected == 2);
+  assert(k.stats.strengthen_rounds == 0 &&
+         "startup collection is scaffolding, not an authored C2 slot");
+}
+
 int main() {
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_matches_kissat();
@@ -709,6 +748,7 @@ int main() {
   test_preprocess_final_followup_is_observed();
   test_preprocess_followup_legacy_arm();
   test_reorder_ships_in_both_modes();
+  test_startup_sparse_collection_precedes_probe();
   test_slot_cursor_rotates();
   test_cursor_preserves_n1();
   test_order_arms_reorder();

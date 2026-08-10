@@ -78,14 +78,16 @@ struct FactorMatchPolicy : SubPolicy, FactorSelection {
 
   // Seed priority for the max-heap (kissat watches_score / update_candidate),
   // re-consulted on the stale re-score and the post-apply re-push.
-  virtual double seed_score(const Kernel &, Lit seed) override = 0;
+  virtual double seed_score(const Kernel &, Lit seed,
+                            double reference_score) override = 0;
 
   // Secondary key among next-factor candidates tied on the max co-occurrence
   // count `cofactor` (kissat tied_next_factor_score), which stays the primary
   // key in the rule. `seed` is the chain's seed factor, ignored by the default
   // arm and keyed on by structural scores.
   virtual double next_factor_score(const Kernel &, Lit cand,
-                                   uint32_t cofactor, Lit seed) override = 0;
+                                   uint32_t cofactor, Lit seed,
+                                   double reference_score) override = 0;
 
   // Accept threshold for the best greedy grid (m by n, net gain
   // delta = m*n - (m+n)). At its most permissive setting it must accept every

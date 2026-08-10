@@ -14,6 +14,7 @@
 
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
+#include "rules/sweep/sweep_defaults.hpp"
 #include "engine/subsolver.hpp"
 
 #include <vector>
@@ -25,16 +26,16 @@ namespace tactix {
 // values scaled to one environment; `env_ticks` is in the sub-solver's own
 // currency, not the kernel's.
 struct SweepLimits {
-  uint32_t max_depth = 2;         // BFS layers around the seed (kissat sweepdepth)
-  uint32_t max_env_vars = 256;    // kissat sweepvars
-  uint32_t max_env_clauses = 1024; // kissat sweepclauses
-  uint32_t max_candidates = 32;   // candidate PAIRS solved per environment
-  uint64_t env_ticks = 200000;    // sub-solver budget per environment (cumulative)
-  uint32_t max_seeds = 0;         // seeds per round; 0 = every schedulable var
+  uint32_t max_depth = SweepReferenceDefaults::DEPTH;
+  uint32_t max_depth_ceiling = SweepReferenceDefaults::MAX_DEPTH;
+  uint32_t max_env_vars = SweepReferenceDefaults::VARS;
+  uint32_t max_env_vars_ceiling = SweepReferenceDefaults::MAX_VARS;
+  uint32_t max_env_clauses = SweepReferenceDefaults::CLAUSES;
+  uint32_t max_env_clauses_ceiling = SweepReferenceDefaults::MAX_CLAUSES;
+  uint32_t max_candidates = SweepReferenceDefaults::CANDIDATE_PAIRS;
+  uint64_t env_ticks = SweepReferenceDefaults::ENVIRONMENT_TICKS;
+  uint32_t max_seeds = SweepReferenceDefaults::SEED_CAP;
   uint64_t round_ticks = 0;       // whole-round tick ceiling; 0 = unbounded
-  // Enforce `round_ticks` inside environment construction (see SweepBudget);
-  // `TACTIX_SWEEP_ENV_BUDGET=0` is the between-seeds-only A/B arm.
-  bool enforce_in_env = true;
   // Remove root-false literals from environment clauses (kissat sweep.c:295).
   // Ships on; `TACTIX_SWEEP_STRIP=0` is the off arm.
   bool strip_false = true;
@@ -44,18 +45,7 @@ struct SweepLimits {
   bool measure_closure = false;
   // All-environment-literal partition and model-flip prefilter.
   bool full_partition = true;
-  uint32_t flip_rounds = 1;
-};
-
-// The round's effort ceiling, enforced inside environment construction: the
-// size caps bound what an environment holds, not the scan that finds it, so one
-// seed with long occurrence lists can outspend the whole round dose. Declining
-// to expand is always sound, so the ceiling is a plain early exit
-// (`docs/implementation-notes.md` §13.2).
-struct SweepBudget {
-  uint64_t start = 0; // `Stats::sweep_ticks` when the round began
-  uint64_t limit = 0; // round ceiling in that currency; 0 = unbounded
-  bool over(const Kernel &k, uint64_t pending) const;
+  uint32_t flip_rounds = SweepReferenceDefaults::FLIP_ROUNDS;
 };
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
@@ -121,6 +111,11 @@ struct SweepPairProof {
   SweepDirProof fwd, rev;
 };
 
+struct SweepUnitProof {
+  Lit unit = INVALID_LIT;
+  SweepDirProof proof;
+};
+
 // A proved equivalence `a ≡ b` over kernel literals, canonical with a < b.
 struct SweepEquiv {
   Lit a = INVALID_LIT;
@@ -136,14 +131,13 @@ struct SweepRound {
   std::vector<Lit> repr;                   // union-find over literals
   std::vector<SweepEquiv> found;
   std::vector<SweepPairProof> proofs; // parallel to `found`
+  std::vector<SweepUnitProof> units;
   std::vector<Var> seeds;
   // candidate literals still agreeing with the seed in every model seen
   std::vector<Lit> candidates;
+  std::vector<Lit> backbone;
   std::vector<std::vector<Lit>> partition;
   std::vector<SubLit> sub_scratch, assumptions;
-  // The round's effort ceiling, so `sweep_env_build` can stop mid-scan; left
-  // unbounded by every caller that builds one environment by hand.
-  SweepBudget budget;
 };
 
 // Guard: quiescent root, consistent. A pure precondition — the environment
@@ -183,8 +177,13 @@ ApplyResult sweep_try(Kernel &, Var seed);
 // two binaries, declining the rest.
 ApplyResult sweep_apply(Kernel &);
 
+// DefaultPolicy uses its centralized typed profile through this entry point.
+// Public/registry applications use `sweep_apply` and the standalone reference
+// defaults above; both retain the same proof-rule semantics.
+ApplyResult sweep_apply_with_limits(Kernel &, const SweepLimits &);
+
 // Read the SweepLimits overrides from the environment. Lives here rather than
 // in the policy so the probe hook and the tests configure the detector alike.
-SweepLimits sweep_limits_from_env();
+SweepLimits sweep_limits_from_env(SweepLimits base = SweepLimits{});
 
 } // namespace tactix

@@ -26,7 +26,11 @@ def main():
     required = ["struct DefaultStrategyConfig", "struct Branching",
                 "struct Analysis", "struct Restart", "struct Mode",
                 "struct Reduction", "struct Rephase", "struct Reorder",
-                "struct Inprocess", "serialize() const"]
+                "struct Inprocess", "sweep_depth", "sweep_max_depth",
+                "sweep_vars", "sweep_max_vars", "sweep_clauses",
+                "sweep_max_clauses", "sweep_candidate_pairs",
+                "sweep_flip_rounds", "sweep_environment_ticks",
+                "serialize() const"]
     for token in required:
         if token not in config:
             failures.append(f"{CONFIG.relative_to(ROOT)} lacks `{token}`")
@@ -59,7 +63,8 @@ def main():
                   "config_.analysis.bump_reason_rate",
                   "config_.rephase.walk_permille",
                   "config().minimum_effort_ticks",
-                  "config().preprocess_initial_ticks"):
+                  "config().preprocess_initial_ticks",
+                  "configured_sweep_limits(config())"):
         if token not in policy:
             failures.append(f"policy lost configuration use `{token}`")
 

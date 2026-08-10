@@ -17,6 +17,19 @@ struct Kernel;
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void event_trace_phase_save(const Kernel &, Lit);
+void event_trace_sweep_seed(const Kernel &, Var);
+void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
+                                   uint64_t);
+void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t,
+                              uint64_t);
+void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
+                                       uint32_t);
+void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
+void event_trace_sweep_equivalence(const Kernel &, Lit, Lit);
+void event_trace_sweep_unit(const Kernel &, Lit);
+void event_trace_factor_seed(const Kernel &, Lit, uint32_t, uint32_t);
+void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int);
+void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit);
 #endif
 
 struct FactorSelection;
@@ -125,6 +138,8 @@ struct Stats {
   uint64_t c1_shadow_deleted = 0;   // C2 deleted the same clause outright
   uint64_t c1_shadow_rewritten = 0; // C2 strengthened it away (old id retired)
   uint64_t flushed = 0; // root-satisfied deletions + root-falsified literal
+  uint64_t sparse_collections = 0; // startup whole-arena root collections
+  uint64_t sparse_collected = 0;   // clauses deleted or rewritten by them
   uint64_t vivify_rounds = 0;  // Vivify rounds
   uint64_t vivify_checked = 0; // Vivify candidates probed
   uint64_t vivified = 0;       // clauses distilled by Vivify (add+delete)
@@ -172,6 +187,9 @@ struct Stats {
   uint64_t sweep_solves = 0;       // sub-solver solve() calls
   uint64_t sweep_candidates = 0;   // candidate-pair directions actually solved
   uint64_t sweep_equivalences = 0; // pairs PROVED equivalent
+  uint64_t sweep_units = 0;        // root units proved by local environments
+  uint64_t sweep_backbone_candidates = 0;
+  uint64_t sweep_backbone_flipped = 0;
   uint64_t sweep_binaries = 0;     // equivalence binaries ADDED with a proof
   uint64_t sweep_not_rup = 0;      // equivalences declined (not RUP)
   uint64_t sweep_general = 0;      // pairs emitted via the general proof path
@@ -180,7 +198,7 @@ struct Stats {
   uint64_t sweep_known = 0;        // pairs the formula already states as binaries
   uint64_t sweep_env_unsat = 0;    // environments refuted outright (F is UNSAT)
   uint64_t sweep_budget = 0;       // solves abandoned on the tick budget
-  uint64_t sweep_ticks = 0;        // Sweep's effort currency (scan+sub-solver)
+  uint64_t sweep_ticks = 0;        // Sweep scan+sub-solver diagnostic
   uint64_t sweep_env_lits = 0;      // literal occurrences encoded
   uint64_t sweep_env_false = 0;     // of those, root-FALSE occurrences
   uint64_t sweep_env_freefalse = 0; // of those, with no unit id => free var
@@ -188,7 +206,7 @@ struct Stats {
   uint64_t sweep_strip_cited = 0;   // ... with their root units cited in an
   uint64_t sweep_env_units = 0;     // unit clauses added alongside (off arm)
   uint64_t sweep_ticks_dedup = 0;   // the environment's clause-key scan
-  uint64_t sweep_ticks_sub = 0;     // the sub-solver's own ticks
+  uint64_t sweep_ticks_sub = 0;     // Sweep's scheduled effort currency
   uint64_t sweep_occ_f = 0;         // env vars' large-clause degree in F
   uint64_t sweep_occ_env = 0;       // ... and inside the environment
   uint64_t sweep_vars_closed = 0;   // env vars holding their WHOLE degree
@@ -200,6 +218,7 @@ struct Stats {
   uint64_t sweep_dir_sat = 0;       // candidate directions that MODELLED
   uint64_t sweep_dir_unsat = 0;     // candidate directions that REFUTED
   uint64_t sweep_scheduled = 0;     // eligible seeds placed in canonical tails
+  uint64_t sweep_rescheduled = 0;   // equivalence representatives moved next
   uint64_t sweep_resumed = 0;       // seeds consumed from a retained tail
   uint64_t sweep_completed = 0;     // canonical tails exhausted
   uint32_t sweep_limit_vars = 0;    // last canonical environment limits
@@ -245,6 +264,7 @@ struct Stats {
   uint64_t backjump_stale = 0;
   uint64_t inprocess_phases = 0;   // policy inprocessing phases (a root descent
   uint64_t congruence_rounds = 0;  // Congruence rounds — gate-closure passes
+  uint64_t congruence_binary_rebuilds = 0;
   uint64_t congruence_unjustified = 0;
   uint64_t congruence_units = 0; // root units from degenerate gates
   uint64_t congruence_y1_found = 0; // detections
@@ -442,6 +462,12 @@ struct Kernel {
   std::vector<Lit> input_restate_units;
   std::vector<Var> input_activation_order;
   std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
+  // Permanent external-variable import ranks. Kissat's tumble=1 assigns
+  // internal variables on first input occurrence; Tactix keeps public internal
+  // identities stable and consults this equivalent order at reference-ordered
+  // traversals instead.
+  std::vector<uint32_t> external_import_rank;
+  uint32_t next_import_rank = 0;
   bool input_refuted = false;
   uint64_t input_refutation_id = 0; // the refuting input clause
   std::vector<Lit> input_refutation_units; // root-true antecedent units
@@ -451,6 +477,12 @@ struct Kernel {
 
   std::vector<uint8_t> bve_retry;
   uint32_t bve_retry_fixed_head = 0;
+
+  // Exact persistent Kissat `flags->factor` bit, by literal polarity. Clause
+  // addition sets it; Factor clears it when that literal is popped. Unlike the
+  // shared per-variable touch epochs, this does not spuriously arm the opposite
+  // polarity.
+  std::vector<uint8_t> factor_marks;
 
   uint64_t touch_epoch = 0;
   std::vector<uint64_t> touched; // by var
@@ -462,7 +494,6 @@ struct Kernel {
   uint64_t bce_touch_mark = 0;
   uint64_t ternary_touch_mark = 0;
   uint64_t instantiate_touch_mark = 0;
-  uint64_t factor_touch_mark = 0; // kissat flags->factor
   uint64_t cce_touch_mark = 0;
   bool subsume_complete = true;
   bool strengthen_complete = true;
@@ -544,6 +575,9 @@ struct Kernel {
 };
 
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
+void kernel_record_import(Kernel &, Var);
+uint64_t kernel_import_var_order(const Kernel &, Var);
+uint64_t kernel_import_lit_order(const Kernel &, Lit);
 
 Var kernel_new_extension_vars(Kernel &, uint32_t count);
 
@@ -603,6 +637,15 @@ ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
                                      const Lit *lits, uint32_t size,
                                      bool redundant, uint32_t glue,
                                      Ref *large_ref); // nullable
+
+// Proof-safe root-unit consumption shared by startup sparse collection and C2.
+// The clause form does not collect the arena; callers can continue scanning by
+// the original clause width. The whole-arena form collects once at its exit.
+enum class RootFlushOutcome { None, Deleted, Rewritten, Binary, Unit, Refuted };
+RootFlushOutcome kernel_flush_root_clause(Kernel &, Ref *ref,
+                                          uint64_t *changed = nullptr);
+enum class RootCollectOutcome { NoChange, Changed, Unit, Refuted };
+RootCollectOutcome kernel_sparse_collect_root(Kernel &);
 
 inline void kernel_mark_bve_retry(Kernel &k, Var v) {
   k.bve_retry[v] = 1;
@@ -865,6 +908,7 @@ uint64_t kernel_conflict_reason_walk(
 // in arena order. The default performs a whole-arena rebuild.
 void kernel_collect_garbage(Kernel &, Ref watch_start = 0);
 void kernel_rebuild_large_watches(Kernel &);
+void kernel_canonicalize_binary_watches(Kernel &);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ);
 void kernel_dense_disconnect(Kernel &);
