@@ -364,6 +364,14 @@ static void radix_sort_learned_by_level(Kernel &k, std::vector<Lit> &learned) {
     std::copy(src, src + n, original);
 }
 
+static void reset_analyzed_without_bump(Kernel &k) {
+  k.analyzed_seen = 0;
+  k.reason_bumped.clear();
+  for (const Var v : k.analyzed)
+    k.seen[v] = 0;
+  k.analyzed.clear();
+}
+
 // Bump analysis-side vars and clear all flags, minimization scratch included.
 // Focused: VMTF move-to-front, stamp-sorted to preserve relative recency
 // (kissat bump.c). Stable: EVSIDS bump + one decay, order-independent.
@@ -901,7 +909,8 @@ ApplyResult analyze_apply(Kernel &k) {
   const bool lrat = lrat_active(k);
   uint64_t conflict_chain_id = 0; // the round's conflict, emitted last
   Lit uip = INVALID_LIT;
-  bool first_round = true; // TB4b(A) fires only here — see below
+  bool first_round = true;
+  bool otfs_round = false;
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;
     const Lit *clits = conflict_lits(k, &csize);
@@ -957,10 +966,12 @@ ApplyResult analyze_apply(Kernel &k) {
     // the conflict level the clause is already asserting: backtracking to the
     // second-highest level `jump2` unassigns it while the rest stay false, so
     // the clause is unit and is assigned with itself as reason, learning
-    // nothing. Three deliberate restrictions: the target is the plain
+    // nothing. Two deliberate restrictions remain: the target is the plain
     // non-chronological `jump2`, the chrono target being M3's instance
     // surface; `jump2 == 0` falls through, needing an LRAT derived-unit chain;
-    // and only the first round qualifies. See implementation-notes §12.
+    // First-round reuse remains the separately priced policy arm.  OTFS-round
+    // duplicate elimination runs after Tactix's stronger minimization below:
+    // a strict subclause is kept, an exact replacement copy is not.
     if (alevel > 0 && first_round && k.conflict_reuse) {
       uint32_t at_alevel = 0, jump2 = 0;
       Lit forced = INVALID_LIT;
@@ -1115,9 +1126,16 @@ ApplyResult analyze_apply(Kernel &k) {
     // mode, rephase, reorder, and inprocessing deadlines all read this clock.
     k.stats.conflicts++;
     bump_and_reset_analyzed(k); // kissat bumps each aborted round too
+    otfs_round = true;
   }
   learned[0] = negate(uip);
-  event_trace_learned_stage(k, "learned_raw", learned);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  std::vector<Lit> otfs_raw_trace, otfs_sorted_trace;
+  if (otfs_round)
+    otfs_raw_trace = learned;
+  else
+#endif
+    event_trace_learned_stage(k, "learned_raw", learned);
 
   // shrink + minimize (kissat analyze.c at its default shrink=3): per decision
   // level, first try to collapse the whole block to its local UIP; if that
@@ -1126,7 +1144,12 @@ ApplyResult analyze_apply(Kernel &k) {
     // Group into blocks by descending level while preserving deduction order
     // within each level, matching Kissat's stable bucket sort.
     radix_sort_learned_by_level(k, learned);
-    event_trace_learned_stage(k, "learned_sorted", learned);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (otfs_round)
+      otfs_sorted_trace = learned;
+    else
+#endif
+      event_trace_learned_stage(k, "learned_sorted", learned);
     // Kissat consumes the sorted clause from its tail: lower-level blocks run
     // first, and every successful walk leaves removable intermediates for the
     // later, higher-level blocks.  The clause itself stays in descending-level
@@ -1163,15 +1186,14 @@ ApplyResult analyze_apply(Kernel &k) {
         learned[kept++] = learned[j];
     learned.resize(kept);
   }
-  if (learned.size() <= 2)
-    event_trace_learned_stage(k, "learned_sorted", learned);
-  event_trace_learned_stage(k, "learned_shrunk", learned);
-
-  // reason-side bumping, on the final clause and before the bump (kissat
-  // analyze.c:566). Off unless a policy set the limit, and never on the OTFS
-  // restart path or the root-refutation exit.
-  if (k.bump_reason_limit)
-    bump_reason_side(k, learned);
+  if (learned.size() <= 2) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (otfs_round)
+      otfs_sorted_trace = learned;
+    else
+#endif
+      event_trace_learned_stage(k, "learned_sorted", learned);
+  }
 
   // glue (LBD) + backjump level from the non-asserting literals
   const uint32_t glue = count_glue(k, learned.data() + 1,
@@ -1185,6 +1207,66 @@ ApplyResult analyze_apply(Kernel &k) {
       high_idx = j;
     }
   }
+
+  // Kissat reuses an OTFS replacement immediately when it has one literal on
+  // the highest level.  Tactix first runs its separately specified stronger
+  // minimization.  If that produced a strict subclause, keep and learn it.  If
+  // the final clause is exactly the replacement already in the formula,
+  // learning it adds no strength and only creates a duplicate.
+  bool duplicate_otfs_replacement = false;
+  if (otfs_round && jump > 0) {
+    uint32_t csize;
+    const Lit *clits = conflict_lits(k, &csize);
+    if (csize == learned.size()) {
+      duplicate_otfs_replacement = true;
+      for (const Lit l : learned) {
+        bool found = false;
+        for (uint32_t i = 0; i < csize; i++)
+          found |= clits[i] == l;
+        if (!found) {
+          duplicate_otfs_replacement = false;
+          break;
+        }
+      }
+    }
+  }
+  if (duplicate_otfs_replacement) {
+    const Ref cref = k.conflict_ref;
+    const Lit forced = learned[0];
+    const Lit other = cref == INVALID_REF
+                          ? (k.conflict_bin[0] ^ k.conflict_bin[1] ^ forced)
+                          : INVALID_LIT;
+    if (cref != INVALID_REF && repair_conflict_watches(k, cref, k.level))
+      k.stats.conflict_watch_repaired++;
+    if (k.h)
+      heuristics_update_target_phases(k);
+    kernel_backtrack(k, jump);
+    analyze_retire_otfs_reasons(k);
+    if (cref == INVALID_REF)
+      kernel_assign(k, forced, jump, other, /*binary=*/true);
+    else
+      kernel_assign(k, forced, jump, cref, /*binary=*/false);
+    k.conflict_valid = false;
+    k.conflict_ref = INVALID_REF;
+    k.pending.valid = false;
+    k.stats.conflict_reused++;
+    reset_analyzed_without_bump(k);
+    return ApplyResult::Ok;
+  }
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  if (otfs_round) {
+    event_trace_learned_stage(k, "learned_raw", otfs_raw_trace);
+    event_trace_learned_stage(k, "learned_sorted", otfs_sorted_trace);
+  }
+#endif
+  event_trace_learned_stage(k, "learned_shrunk", learned);
+
+  // reason-side bumping, on the final clause and before the bump (kissat
+  // analyze.c:566). Off unless a policy set the limit, and never on the OTFS
+  // restart path or the root-refutation exit.
+  if (k.bump_reason_limit)
+    bump_reason_side(k, learned);
 
   // proof delta first (add-RUP), then the clause joins R
   const uint64_t learned_id = ++k.next_clause_id;

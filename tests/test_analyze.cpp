@@ -13,25 +13,32 @@
 using namespace tactix;
 
 static void test_uip() {
-  // (-1 -2 3) and (-1 -2 -3): 1-UIP learns (-2 -1), UIP 2, jump level 1
+  // At level 2, 4 and 5 both follow decision 2.  The conflict
+  // (-3,-4,-5) resolves through their binary reasons to (-2,-3).
+  // Binary reasons keep this ordinary learn/backjump fixture separate from
+  // the dedicated OTFS replacement-and-reuse test below.
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  const Lit c1[3] = {internalize(-1), internalize(-2), internalize(3)};
-  const Lit c2[3] = {internalize(-1), internalize(-2), internalize(-3)};
-  kernel_add_large_clause(k, c1, 3, false, 0);
-  kernel_add_large_clause(k, c2, 3, false, 0);
-
+  kernel_reserve_vars(k, 5);
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  kernel_add_binary_clause(k, internalize(-2), internalize(5));
+  const Lit conflict[3] = {internalize(-3), internalize(-4),
+                           internalize(-5)};
+  const Ref cref = kernel_add_large_clause(k, conflict, 3, false, 0);
   kernel_assign_decision(k, internalize(1));
-  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign(k, internalize(3), 1, internalize(-1), true);
   kernel_assign_decision(k, internalize(2));
-  assert(propagate_apply(k) == ApplyResult::Conflict);
+  kernel_assign(k, internalize(4), 2, internalize(-2), true);
+  kernel_assign(k, internalize(5), 2, internalize(-2), true);
+  k.conflict_ref = cref;
+  k.conflict_valid = true;
 
   assert(analyze_guard(k));
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.pending.valid);
   assert(k.pending.lits.size() == 2);
   assert(k.pending.lits[0] == internalize(-2)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-1));
+  assert(k.pending.lits[1] == internalize(-3));
   assert(k.pending.jump_level == 1);
 
   assert(backjump_guard(k));
@@ -40,7 +47,7 @@ static void test_uip() {
   assert(k.values[internalize(-2)] > 0); // asserted
   assert(!k.pending.valid);
 
-  assert(default_solve(k) == 10); // still satisfiable: 1, -2, any 3
+  assert(default_solve(k) == 10); // still satisfiable: 1, -2, 3
 }
 
 // D-SPLIT: Analyze and Backjump are fused into the atomic ConflictAnalysis
@@ -337,7 +344,8 @@ static void test_learned_level_stable_order() {
 
 static void test_otfs() {
   // Resolving d = (-1 -2 -3) with its reason r = (-1 -2 3) yields (-1 -2),
-  // smaller than both: OTFS strengthens r to it, subsumes d, and relearns.
+  // smaller than both: OTFS strengthens r, subsumes d, and reuses the
+  // replacement as its own driver instead of learning an exact duplicate.
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit r[3] = {internalize(-1), internalize(-2), internalize(3)};
@@ -357,14 +365,11 @@ static void test_otfs() {
   assert(k.stats.otfs_strengthened == 1);
   assert(k.stats.otfs_subsumed == 1);
   assert(clause_at(k.arena, dref)->garbage()); // conflict subsumed
-  assert(!clause_at(k.arena, rref)->garbage()); // reason kept (deviation)
-  assert(k.pending.valid);
-  assert(k.pending.lits.size() == 2);
-  assert(k.pending.lits[0] == internalize(-2)); // negated UIP
-  assert(k.pending.lits[1] == internalize(-1));
-  assert(k.pending.jump_level == 1);
-  assert(backjump_apply(k) == ApplyResult::Ok);
-  assert(clause_at(k.arena, rref)->garbage()); // safe after t is unassigned
+  assert(k.stats.conflict_reused == 1); // replacement drives immediately
+  assert(!k.pending.valid);             // no duplicate learned clause
+  assert(k.level == 1);
+  assert(k.values[internalize(-2)] > 0);
+  assert(clause_at(k.arena, rref)->garbage()); // retired after reuse backtrack
   assert(k.otfs_retired.empty());
   assert(default_solve(k) == 10); // satisfiable: 1, -2
 }
@@ -375,23 +380,29 @@ static void test_large_otfs_retires_replaced_reason() {
   // backjump alongside its strict replacement.
   Kernel k;
   kernel_reserve_vars(k, 5);
-  const Lit r[5] = {internalize(-1), internalize(-2), internalize(-3),
-                    internalize(-4), internalize(5)};
+  const Lit r[5] = {internalize(5), internalize(-2), internalize(-3),
+                    internalize(-4), internalize(-1)};
   const Lit d[5] = {internalize(-1), internalize(-2), internalize(-3),
                     internalize(-4), internalize(-5)};
   const Ref rref = kernel_add_large_clause(k, r, 5, false, 0);
-  kernel_add_large_clause(k, d, 5, false, 0);
+  const Ref dref = kernel_add_large_clause(k, d, 5, false, 0);
 
-  for (int v = 1; v <= 4; v++) {
-    kernel_assign_decision(k, internalize(v));
-    const ApplyResult p = propagate_apply(k);
-    if (v < 4)
-      assert(p == ApplyResult::Ok);
-    else
-      assert(p == ApplyResult::Conflict);
-  }
+  // Keep three replacement literals on level 2, so the second analysis round
+  // cannot reuse the strengthened conflict and the Analyze/Backjump lifetime
+  // seam remains observable in this white-box fixture.
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  kernel_assign(k, internalize(3), 2, internalize(-2), true);
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  kernel_assign(k, internalize(4), 2, internalize(-2), true);
+  kernel_assign(k, internalize(5), 2, rref, false);
+  k.conflict_ref = dref;
+  k.conflict_valid = true;
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.otfs_strengthened == 1);
+  assert(k.stats.conflict_reused == 0);
+  assert(k.pending.valid);
   assert(!clause_at(k.arena, rref)->garbage());
   assert(k.otfs_retired.size() == 1 && k.otfs_retired[0] == rref);
   kernel_check_invariants(k); // both old reason and replacement are valid
@@ -408,22 +419,26 @@ static void test_chrono_backjump_clamps_to_jump_level() {
   // and true-level assignment stamps the UIP at jump_level whatever the target,
   // so stopping at level 2 keeps that decision without stranding the clause.
   Kernel k;
-  kernel_reserve_vars(k, 4);
-  const Lit c1[3] = {internalize(-1), internalize(-3), internalize(4)};
-  const Lit c2[3] = {internalize(-1), internalize(-3), internalize(-4)};
-  kernel_add_large_clause(k, c1, 3, false, 0);
-  kernel_add_large_clause(k, c2, 3, false, 0);
-
+  kernel_reserve_vars(k, 6);
+  kernel_add_binary_clause(k, internalize(-1), internalize(6));
+  kernel_add_binary_clause(k, internalize(-3), internalize(4));
+  kernel_add_binary_clause(k, internalize(-3), internalize(5));
+  const Lit conflict[3] = {internalize(-6), internalize(-4),
+                           internalize(-5)};
+  const Ref cref = kernel_add_large_clause(k, conflict, 3, false, 0);
   kernel_assign_decision(k, internalize(1));
-  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign(k, internalize(6), 1, internalize(-1), true);
   kernel_assign_decision(k, internalize(2));
-  assert(propagate_apply(k) == ApplyResult::Ok);
   kernel_assign_decision(k, internalize(3));
-  assert(propagate_apply(k) == ApplyResult::Conflict);
+  kernel_assign(k, internalize(4), 3, internalize(-3), true);
+  kernel_assign(k, internalize(5), 3, internalize(-3), true);
+  k.conflict_ref = cref;
+  k.conflict_valid = true;
 
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.pending.lits.size() == 2);
   assert(k.pending.lits[0] == internalize(-3)); // negated UIP
+  assert(k.pending.lits[1] == internalize(-6));
   assert(k.pending.jump_level == 1);
   assert(backjump_apply_to(k, 2) == ApplyResult::Ok); // chrono target HONORED
   assert(k.level == 2);                    // backtracked to 2, not down to 1
@@ -438,15 +453,20 @@ static void test_backjump_target_clamps() {
   // a target below the assertion level clamps up: the clause must stay
   // asserting
   Kernel k;
-  kernel_reserve_vars(k, 3);
-  const Lit c1[3] = {internalize(-1), internalize(-2), internalize(3)};
-  const Lit c2[3] = {internalize(-1), internalize(-2), internalize(-3)};
-  kernel_add_large_clause(k, c1, 3, false, 0);
-  kernel_add_large_clause(k, c2, 3, false, 0);
+  kernel_reserve_vars(k, 5);
+  kernel_add_binary_clause(k, internalize(-1), internalize(5));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  const Lit conflict[3] = {internalize(-5), internalize(-3),
+                           internalize(-4)};
+  const Ref cref = kernel_add_large_clause(k, conflict, 3, false, 0);
   kernel_assign_decision(k, internalize(1));
-  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign(k, internalize(5), 1, internalize(-1), true);
   kernel_assign_decision(k, internalize(2));
-  assert(propagate_apply(k) == ApplyResult::Conflict);
+  kernel_assign(k, internalize(3), 2, internalize(-2), true);
+  kernel_assign(k, internalize(4), 2, internalize(-2), true);
+  k.conflict_ref = cref;
+  k.conflict_valid = true;
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.pending.jump_level == 1);
   assert(backjump_apply_to(k, 0) == ApplyResult::Ok); // clamps to 1
