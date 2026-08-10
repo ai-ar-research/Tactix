@@ -20,8 +20,15 @@ FIELDS = [
     "retired_queue", "retired_heap", "irred", "red", "binary", "digest",
     "search_external", "top32", "payload",
 ]
-DETAIL_EVENTS = {"decision", "conflict", "analysis_begin", "learned",
-                 "analysis_end"}
+DETAIL_EVENTS = {
+    "decision", "watch", "imply", "conflict", "analysis_begin",
+    "learned_raw", "learned_sorted", "learned_shrunk", "learned",
+    "analysis_end",
+}
+# Detailed records normally carry zeroes in the expensive snapshot fields.
+# Analysis-end is the deliberate exception: both overlays snapshot ranking
+# state there so a latent bump-order mismatch is localized to its conflict.
+SNAPSHOT_DETAIL_EVENTS = {"analysis_end"}
 NON_MACRO_EVENTS = DETAIL_EVENTS | {"checkpoint"}
 STATE_FIELDS = (
     "conflicts", "decisions", "level", "mode", "active", "unassigned",
@@ -114,8 +121,10 @@ def primary_semantic_difference(a, b):
             return "event", i, i, {"event": [left["event"], right["event"]]}
         event = left["event"]
         if event in DETAIL_EVENTS:
-            delta = row_delta(left, right,
-                              ("payload", "conflicts", "decisions", "level"))
+            fields = ("payload", "conflicts", "decisions", "level")
+            if event in SNAPSHOT_DETAIL_EVENTS:
+                fields += STATE_FIELDS
+            delta = row_delta(left, right, fields)
             if delta:
                 return "trajectory", i, i, delta
         elif event != "checkpoint":
@@ -139,9 +148,20 @@ def semantic(a, b, radius, metadata):
     macro_order = first_stream_difference(macro_a, macro_b, ("event",))
     macro_state = first_stream_difference(macro_a, macro_b,
                                           ("event",) + STATE_FIELDS)
-    trajectory = first_stream_difference(
-        detail_a, detail_b,
-        ("event", "payload", "conflicts", "decisions", "level"))
+    trajectory = None
+    for i, (left, right) in enumerate(zip(detail_a, detail_b)):
+        fields = ("event", "payload", "conflicts", "decisions", "level")
+        if left["event"] == right["event"] and \
+                left["event"] in SNAPSHOT_DETAIL_EVENTS:
+            fields += STATE_FIELDS
+        delta = row_delta(left, right, fields)
+        if delta:
+            trajectory = i, i, delta
+            break
+    if trajectory is None and len(detail_a) != len(detail_b):
+        trajectory = (len(detail_a) if len(detail_a) < len(detail_b) else None,
+                      len(detail_b) if len(detail_b) < len(detail_a) else None,
+                      {"length": [str(len(detail_a)), str(len(detail_b))]})
 
     report = {
         "schema": "tactix-kissat-divergence-v1",
