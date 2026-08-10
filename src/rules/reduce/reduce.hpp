@@ -29,6 +29,12 @@ void reduce_retier(Kernel &, uint32_t mode, uint32_t tier1_default,
                    uint32_t tier2_default,
                    uint32_t tier1_relative_permille,
                    uint32_t tier2_relative_permille);
+void reduce_retier_from_histogram(Kernel &, uint32_t mode,
+                                  const uint64_t *used,
+                                  uint32_t tier1_default,
+                                  uint32_t tier2_default,
+                                  uint32_t tier1_relative_permille,
+                                  uint32_t tier2_relative_permille);
 
 // delete exactly refs[0..n) (re-validating: reasons/garbage are skipped),
 // emit proof deletes, then collect garbage. The CHOICE of n is the

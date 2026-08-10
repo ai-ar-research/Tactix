@@ -18,12 +18,13 @@ namespace tactix {
 // floating-point products, keep the result independent of host libm rounding
 // (benchmarks/reports/2026-07-24-battleship-divergence.md). When to recompute
 // is the policy's.
-void reduce_retier(Kernel &k, uint32_t mode, uint32_t tier1_default,
-                   uint32_t tier2_default,
-                   uint32_t tier1_relative_permille,
-                   uint32_t tier2_relative_permille) {
+void reduce_retier_from_histogram(Kernel &k, uint32_t mode,
+                                  const uint64_t *used,
+                                  uint32_t tier1_default,
+                                  uint32_t tier2_default,
+                                  uint32_t tier1_relative_permille,
+                                  uint32_t tier2_relative_permille) {
   assert(mode < 2);
-  const uint64_t *used = k.stats.used_glue[mode];
   uint64_t total = 0;
   for (uint32_t g = 0; g <= Stats::MAX_GLUE_USED; g++)
     total += used[g];
@@ -58,6 +59,16 @@ void reduce_retier(Kernel &k, uint32_t mode, uint32_t tier1_default,
     }
   k.tier1_by_mode[mode] = t1;
   k.tier2_by_mode[mode] = t2;
+}
+
+void reduce_retier(Kernel &k, uint32_t mode, uint32_t tier1_default,
+                   uint32_t tier2_default,
+                   uint32_t tier1_relative_permille,
+                   uint32_t tier2_relative_permille) {
+  assert(mode < 2);
+  reduce_retier_from_histogram(
+      k, mode, k.stats.used_glue[mode], tier1_default, tier2_default,
+      tier1_relative_permille, tier2_relative_permille);
 }
 
 // Deleting redundant clauses is sound as long as reason-locked clauses and the

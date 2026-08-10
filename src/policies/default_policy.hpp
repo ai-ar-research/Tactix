@@ -171,7 +171,7 @@ public:
   void update_reduce_limit(const Kernel &);
   void update_rephase_limit(const Kernel &);
   void update_reorder_limit(const Kernel &);
-  bool update_tiers_after_analysis(Kernel &, uint64_t otfs_before);
+  bool update_tiers_after_analysis(Kernel &);
   uint32_t bump_reason_depth(const Kernel &) const;
 
 private:

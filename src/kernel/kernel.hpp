@@ -337,6 +337,16 @@ struct ProbingLog {
 
 enum class VarStatus : uint8_t { Active = 0, Substituted, Eliminated };
 
+// Analyze is atomic at the rule boundary, but Kissat updates a policy clock
+// between OTFS re-analysis rounds. Preserve the exact observation made at
+// that internal boundary so DefaultPolicy can consume it after the rule
+// returns without moving strategy logic into the proof rule.
+struct AnalysisConflictCheckpoint {
+  uint64_t conflicts = 0;
+  uint32_t mode = 0;
+  uint64_t used_glue[Stats::MAX_GLUE_USED + 1] = {};
+};
+
 struct Kernel {
   uint32_t nvars = 0;
   // Stable external identities are separate from the dense indices used by
@@ -392,6 +402,7 @@ struct Kernel {
   // not shrink in place.  The old reason stays valid until Backjump unassigns
   // its propagated literal, then is retired before the fused rule returns.
   std::vector<Ref> otfs_retired;
+  std::vector<AnalysisConflictCheckpoint> analysis_conflict_checkpoints;
   std::vector<Var> radix_scratch;   // radix-sort double buffer
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
