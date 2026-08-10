@@ -1294,8 +1294,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_reduce(k) && reduce_guard(k)) {
       event_trace.macro(k, "reduce_begin");
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
-      if (dynamic_tiers_)
-        reduce_retier(k);
+      // Keep the most recent exponentially scheduled tier snapshot. Kissat
+      // retiers only from analyze.c's glue-limit cadence; Reduce consumes that
+      // snapshot and does not refresh the histogram at its own boundary.
       reduce_candidates(k, reduce_scratch_);
       const size_t reduce_victims =
           std::min(rp.victims(k, reduce_scratch_.size()),
