@@ -169,6 +169,10 @@ identifies missing or cruder default scheduling.
 - [ ] SAT sweeping currently harvests only equivalences and backbone units;
   harvesting richer consequences from the sweep environment is room for
   improvement (related: designing new proof rules).
+- [ ] It is known that factor (i.e., bounded variable addition) can be implemented
+  in a drastically faster manner:
+  https://drops.dagstuhl.de/storage/00lipics/lipics-vol377-sat2026/LIPIcs.SAT.2026.29/LIPIcs.SAT.2026.29.pdf
+
 ## Phase 5 — tuning, bindings, extensibility
 
 - [ ] Decide O16; add policy presets/MAB, Python bindings, external-branching
