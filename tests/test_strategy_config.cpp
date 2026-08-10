@@ -40,6 +40,21 @@ int main() {
          DefaultPolicy::BUMP_REASONS_RATE);
   assert(defaults.reduction.tier1_default == TIER1_STATIC);
   assert(defaults.reduction.tier2_default == TIER2_STATIC);
+  assert(defaults.branching.random_seed == 0);
+
+  // Kissat's first seed-0 LCG value selects internal variable 254 of 260.
+  // Pin both the generator and the removal of the old bounded-retry fallback.
+  Kernel random;
+  ScopedHeuristics random_heuristics(random);
+  kernel_reserve_vars(random, 260);
+  random.stats.conflicts = 855;
+  DefaultBranching reference_random(&defaults.branching);
+  reference_random.reset(0);
+  const Lit random_lit = reference_random.pick(random);
+  if (kernel_externalize(random, random_lit) != 255 ||
+      random.stats.random_sequences != 1 ||
+      random.stats.random_decisions != 1)
+    return 1;
 
   DefaultStrategyConfig custom = defaults;
   custom.reduction.initial_interval = 37;
