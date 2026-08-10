@@ -396,9 +396,11 @@ void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,
   std::string payload = "vars=";
   char score[64];
   bool first = true;
+  std::vector<uint8_t> emitted(k.nvars);
   for (const Var v : analyzed) {
-    if (!(seen[v] & bump_mask))
+    if (!(seen[v] & bump_mask) || emitted[v])
       continue;
+    emitted[v] = 1;
     if (!first)
       payload += ',';
     first = false;
