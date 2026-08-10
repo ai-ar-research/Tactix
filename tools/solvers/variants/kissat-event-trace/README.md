@@ -28,6 +28,9 @@ clause population, tier/used/reason eligibility, sorted candidate rank, and
 victim cutoff for every Reduce. The matching Tactix diagnostic variable is
 `TACTIX_REDUCE_TRACE`; compare the files with
 `tools/bench/compare_reduce_trace.py`.
+`KISSAT_REDUCE_TRACE_CONFLICT_FROM/TO` and the corresponding Tactix variables
+bound this heavier clause-population stream; `p4_cvg.py` maps its requested
+conflict window to both event and reduction traces.
 
 This binary is for short SLURM diagnosis only.  Benchmark reference arms must
 continue to use the untouched pinned Kissat binary.

@@ -128,6 +128,38 @@ int main() {
   assert(reduce_text.find("\tcandidate\t0\t1\t-2,1,3\n") !=
          std::string::npos);
   std::remove(reduce_path);
+
+  static const char *reduce_window_path =
+      "/tmp/tactix-test-reduce-window.tsv";
+  std::remove(reduce_window_path);
+  setenv("TACTIX_REDUCE_TRACE", reduce_window_path, 1);
+  setenv("TACTIX_REDUCE_TRACE_CONFLICT_FROM", "1000", 1);
+  setenv("TACTIX_REDUCE_TRACE_CONFLICT_TO", "1000", 1);
+  {
+    Kernel reduced;
+    kernel_reserve_vars(reduced, 3);
+    ScopedHeuristics rh(reduced);
+    const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref ref = kernel_add_large_clause(reduced, clause, 3, true, 4);
+    EventTrace trace;
+    reduced.stats.conflicts = 999;
+    trace.reduction(reduced, {ref}, 1);
+    reduced.stats.conflicts = 1000;
+    trace.reduction(reduced, {ref}, 1);
+    reduced.stats.conflicts = 1001;
+    trace.reduction(reduced, {ref}, 1);
+  }
+  unsetenv("TACTIX_REDUCE_TRACE");
+  unsetenv("TACTIX_REDUCE_TRACE_CONFLICT_FROM");
+  unsetenv("TACTIX_REDUCE_TRACE_CONFLICT_TO");
+  std::ifstream reduce_window_input(reduce_window_path);
+  const std::string reduce_window_text(
+      (std::istreambuf_iterator<char>(reduce_window_input)),
+      std::istreambuf_iterator<char>());
+  assert(reduce_window_text.find("\t1000\tfocused\t") != std::string::npos);
+  assert(reduce_window_text.find("\t999\tfocused\t") == std::string::npos);
+  assert(reduce_window_text.find("\t1001\tfocused\t") == std::string::npos);
+  std::remove(reduce_window_path);
   std::puts("test_event_trace OK");
   return 0;
 }

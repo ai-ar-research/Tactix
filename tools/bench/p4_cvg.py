@@ -139,8 +139,12 @@ def worker(args, row):
                 if args.conflict_from is not None:
                     env[f"{prefix}_EVENT_TRACE_CONFLICT_FROM"] = str(
                         args.conflict_from)
+                    env[f"{prefix}_REDUCE_TRACE_CONFLICT_FROM"] = str(
+                        args.conflict_from)
                 if args.conflict_to is not None:
                     env[f"{prefix}_EVENT_TRACE_CONFLICT_TO"] = str(
+                        args.conflict_to)
+                    env[f"{prefix}_REDUCE_TRACE_CONFLICT_TO"] = str(
                         args.conflict_to)
                 if name == "tactix":
                     env["TACTIX_STRATEGY_CONFIG"] = "1"

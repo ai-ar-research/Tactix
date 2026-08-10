@@ -200,6 +200,13 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
   const char *path = std::getenv("TACTIX_REDUCE_TRACE");
   if (!path || !*path)
     return;
+  if (const char *from =
+          std::getenv("TACTIX_REDUCE_TRACE_CONFLICT_FROM"))
+    if (k.stats.conflicts < std::strtoull(from, nullptr, 10))
+      return;
+  if (const char *to = std::getenv("TACTIX_REDUCE_TRACE_CONFLICT_TO"))
+    if (k.stats.conflicts > std::strtoull(to, nullptr, 10))
+      return;
   static std::FILE *file;
   static std::string opened_path;
   if (!file || opened_path != path) {
