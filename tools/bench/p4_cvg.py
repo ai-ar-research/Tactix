@@ -135,6 +135,8 @@ def worker(args, row):
                 env = os.environ.copy()
                 env[f"{prefix}_EVENT_TRACE"] = str(event)
                 env[f"{prefix}_EVENT_TRACE_LIMIT"] = str(args.trace_limit)
+                if args.mode_clock:
+                    env[f"{prefix}_EVENT_TRACE_MODE_CLOCK"] = "1"
                 env[f"{prefix}_REDUCE_TRACE"] = str(reduce)
                 if args.conflict_from is not None:
                     env[f"{prefix}_EVENT_TRACE_CONFLICT_FROM"] = str(
@@ -196,6 +198,7 @@ def main():
     ap.add_argument("--trace-limit", type=int, default=1000000)
     ap.add_argument("--conflict-from", type=int)
     ap.add_argument("--conflict-to", type=int)
+    ap.add_argument("--mode-clock", action="store_true")
     ap.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -219,6 +222,8 @@ def main():
         command += ["--conflict-from", str(args.conflict_from)]
     if args.conflict_to is not None:
         command += ["--conflict-to", str(args.conflict_to)]
+    if args.mode_clock:
+        command += ["--mode-clock"]
     wall_minutes = max(10, int((2 * args.timeout * args.repeats) / 60) + 10)
     sbatch = ["sbatch", "--parsable", "--partition=cpu-dense-hwulab-q",
               "--cpus-per-task=1", "--mem=8G", f"--time={wall_minutes}",
