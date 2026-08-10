@@ -51,6 +51,11 @@ struct DefaultStrategyConfig {
     uint64_t random_sequence_length = RANDOM_SEQUENCE_LENGTH_DEFAULT;
     uint64_t random_seed = RANDOM_SEED_DEFAULT;
     double logarithm_offset = 9.0; // Kissat logarithmic schedule.
+    // Focused decision-phase override indexed by
+    // (mode switches / switch span) modulo the pattern length.  Zero selects
+    // the saved phase, +/-1 forces the initial/opposite phase (decide.c).
+    uint32_t focused_phase_switch_span = 2;
+    std::array<int8_t, 8> focused_phase_pattern{{0, 1, 0, -1, 0, 0, 0, 0}};
     bool random_sequences = true;
   } branching;
 

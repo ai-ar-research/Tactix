@@ -63,6 +63,8 @@ TABLE = {
                                         "audited cadical's 8 down to 2 live mechanisms"),
     "kept_glue":               ("RULE", "reduce.cpp survivor envelope (cadical lim.keptglue)"),
     "kept_size":               ("RULE", "reduce.cpp survivor envelope (cadical lim.keptsize)"),
+    "phase_saving_suppressed": ("RULE", "Lucky probe bracket; mirrors kissat "
+                                         "solver->probing for assign-time phases"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
     "bve_backward":            ("ENV", "TACTIX_BVE_BACKWARD (cadical elimbackward; ships ON)"),

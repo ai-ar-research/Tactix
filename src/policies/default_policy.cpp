@@ -67,8 +67,13 @@ std::string DefaultStrategyConfig::serialize() const {
       << branching.random_sequence_length
       << " branching.random_seed=" << branching.random_seed
       << " branching.logarithm_offset=" << branching.logarithm_offset
-      << " branching.random_sequences=" << branching.random_sequences
-      << " analysis.bump_reason_limit=" << analysis.bump_reason_limit
+      << " branching.focused_phase_switch_span="
+      << branching.focused_phase_switch_span
+      << " branching.random_sequences=" << branching.random_sequences;
+  for (size_t i = 0; i < branching.focused_phase_pattern.size(); ++i)
+    out << " branching.focused_phase" << i << '='
+        << static_cast<int>(branching.focused_phase_pattern[i]);
+  out << " analysis.bump_reason_limit=" << analysis.bump_reason_limit
       << " analysis.bump_reason_rate=" << analysis.bump_reason_rate
       << " analysis.reason_depth=" << analysis.reason_depth
       << " analysis.chronological_levels=" << analysis.chronological_levels
@@ -908,13 +913,27 @@ Lit DefaultBranching::pick(Kernel &k) {
         const Var v = k.h->random_order[random % k.h->random_order.size()];
         if (k.values[make_lit(v, true)] == 0 && !kernel_var_retired(k, v)) {
           k.stats.random_decisions++;
-          return heuristics_decide_lit(k, v);
+          return decide_lit(k, v);
         }
       }
     }
   }
   const Var v = heuristics_next_decision_var(k);
-  return heuristics_decide_lit(k, v);
+  return decide_lit(k, v);
+}
+
+Lit DefaultBranching::decide_lit(const Kernel &k, Var v) const {
+  static const DefaultStrategyConfig defaults;
+  const auto &cfg = config_ ? *config_ : defaults.branching;
+  int8_t phase = 0;
+  if (!k.h->stable && cfg.focused_phase_switch_span &&
+      !cfg.focused_phase_pattern.empty()) {
+    const size_t index =
+        (k.stats.switched / cfg.focused_phase_switch_span) %
+        cfg.focused_phase_pattern.size();
+    phase = cfg.focused_phase_pattern[index];
+  }
+  return phase ? make_lit(v, phase < 0) : heuristics_decide_lit(k, v);
 }
 
 void DefaultBranching::start_random_sequence(Kernel &k) {
