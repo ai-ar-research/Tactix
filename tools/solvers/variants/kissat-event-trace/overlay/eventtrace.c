@@ -14,6 +14,9 @@ static bool trace_detail_window;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
+static FILE *reduce_trace_file;
+static bool reduce_trace_initialized;
+static int compare_external_literals (const void *, const void *);
 
 static unsigned external_variable (kissat *solver, unsigned idx) {
   if (idx < SIZE_STACK (solver->export)) {
@@ -27,6 +30,82 @@ static unsigned external_variable (kissat *solver, unsigned idx) {
 static int external_literal (kissat *solver, unsigned lit) {
   const int external = (int) external_variable (solver, IDX (lit));
   return NEGATED (lit) ? -external : external;
+}
+
+static void open_reduce_trace (void) {
+  if (reduce_trace_initialized)
+    return;
+  reduce_trace_initialized = true;
+  const char *path = getenv ("KISSAT_REDUCE_TRACE");
+  if (!path || !*path)
+    return;
+  reduce_trace_file = fopen (path, "w");
+  if (!reduce_trace_file)
+    return;
+  fputs ("# tactix-kissat-reduce\t1\n", reduce_trace_file);
+  fputs ("# solver\tkind\treduction\tconflict\tmode\ttier1\ttier2\t"
+         "live_red\tcandidates\tvictims\tref\tsize\tglue\tused\t"
+         "reason\teligibility\trank\tselected\tliterals\n",
+         reduce_trace_file);
+}
+
+void kissat_reduce_trace_clause (kissat *solver, clause *c, unsigned ref,
+                                 unsigned used, unsigned tier1,
+                                 unsigned tier2, const char *eligibility) {
+  open_reduce_trace ();
+  if (!reduce_trace_file)
+    return;
+  int *literals = malloc (c->size * sizeof *literals);
+  unsigned size = 0;
+  for (all_literals_in_clause (lit, c))
+    literals[size++] = external_literal (solver, lit);
+  qsort (literals, size, sizeof *literals, compare_external_literals);
+  fprintf (reduce_trace_file,
+           "kissat\tclause\t%" PRIu64 "\t%" PRIu64 "\t%s\t%u\t%u\t"
+           "-\t-\t-\t%u\t%u\t%u\t%u\t%u\t%s\t-\t0\t",
+           solver->statistics.reductions, solver->statistics.conflicts,
+           solver->stable ? "stable" : "focused", tier1, tier2, ref,
+           c->size, c->glue, used, c->reason, eligibility);
+  for (unsigned i = 0; i != size; i++)
+    fprintf (reduce_trace_file, "%s%d", i ? "," : "", literals[i]);
+  fputc ('\n', reduce_trace_file);
+  free (literals);
+}
+
+void kissat_reduce_trace_summary (kissat *solver, unsigned tier1,
+                                  unsigned tier2, size_t candidates,
+                                  size_t victims) {
+  open_reduce_trace ();
+  if (!reduce_trace_file)
+    return;
+  uint64_t live = 0;
+  ward *const arena = BEGIN_STACK (solver->arena);
+  clause *c = (clause *) arena;
+  const clause *const end = (clause *) END_STACK (solver->arena);
+  while (c != end) {
+    if (c->redundant && !c->garbage)
+      live++;
+    c = kissat_next_clause (c);
+  }
+  fprintf (reduce_trace_file,
+           "kissat\tsummary\t%" PRIu64 "\t%" PRIu64 "\t%s\t%u\t%u\t"
+           "%" PRIu64 "\t%zu\t%zu\t-\t-\t-\t-\t-\t-\t-\t-\t-\n",
+           solver->statistics.reductions, solver->statistics.conflicts,
+           solver->stable ? "stable" : "focused", tier1, tier2, live,
+           candidates, victims);
+  fflush (reduce_trace_file);
+}
+
+void kissat_reduce_trace_rank (kissat *solver, unsigned ref, size_t rank,
+                               bool selected) {
+  open_reduce_trace ();
+  if (!reduce_trace_file)
+    return;
+  fprintf (reduce_trace_file,
+           "kissat\trank\t%" PRIu64 "\t%" PRIu64 "\t%s\t-\t-\t-\t"
+           "-\t-\t%u\t-\t-\t-\t-\t-\t%zu\t%u\t-\n",
+           solver->statistics.reductions, solver->statistics.conflicts,
+           solver->stable ? "stable" : "focused", ref, rank, selected);
 }
 
 static uint64_t mix (uint64_t hash, uint64_t value) {
@@ -415,4 +494,9 @@ void kissat_event_trace_close (void) {
   fflush (trace_file);
   fclose (trace_file);
   trace_file = 0;
+  if (reduce_trace_file) {
+    fflush (reduce_trace_file);
+    fclose (reduce_trace_file);
+    reduce_trace_file = 0;
+  }
 }

@@ -1300,6 +1300,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const size_t reduce_victims =
           std::min(rp.victims(k, reduce_scratch_.size()),
                    reduce_scratch_.size());
+      event_trace.reduction(k, reduce_scratch_, reduce_victims);
       reduce_apply_refs(
           k, reduce_scratch_.data(), reduce_victims);
       if (compact_ && kernel_should_compact_variables(

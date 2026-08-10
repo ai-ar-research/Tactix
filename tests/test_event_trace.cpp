@@ -100,6 +100,34 @@ int main() {
   assert(window_text.find("\tdecision\t1\t") == std::string::npos);
   assert(window_text.find("\tdecision\t3\t") == std::string::npos);
   std::remove(window_path);
+
+  static const char *reduce_path = "/tmp/tactix-test-reduce-trace.tsv";
+  std::remove(reduce_path);
+  setenv("TACTIX_REDUCE_TRACE", reduce_path, 1);
+  {
+    Kernel reduced;
+    kernel_reserve_vars(reduced, 4);
+    ScopedHeuristics rh(reduced);
+    const Lit a[3] = {internalize(1), internalize(-2), internalize(3)};
+    const Lit b[3] = {internalize(-1), internalize(2), internalize(4)};
+    const Ref ra = kernel_add_large_clause(reduced, a, 3, true, 7);
+    kernel_add_large_clause(reduced, b, 3, true, 2);
+    reduced.tier1 = 2;
+    reduced.tier2 = 6;
+    EventTrace trace;
+    trace.reduction(reduced, {ra}, 1);
+  }
+  unsetenv("TACTIX_REDUCE_TRACE");
+  std::ifstream reduce_input(reduce_path);
+  const std::string reduce_text(
+      (std::istreambuf_iterator<char>(reduce_input)),
+      std::istreambuf_iterator<char>());
+  assert(reduce_text.find("# tactix-kissat-reduce\t1") != std::string::npos);
+  assert(reduce_text.find("tactix\tsummary\t1\t0\tfocused\t2\t6\t2\t1\t1") !=
+         std::string::npos);
+  assert(reduce_text.find("\tcandidate\t0\t1\t-2,1,3\n") !=
+         std::string::npos);
+  std::remove(reduce_path);
   std::puts("test_event_trace OK");
   return 0;
 }

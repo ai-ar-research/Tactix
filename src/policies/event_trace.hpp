@@ -36,6 +36,7 @@ public:
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
+  void reduction(const Kernel &, const std::vector<Ref> &, size_t victims);
 
 private:
   void emit(const Kernel &, const char *, const char *, bool snapshot);
@@ -72,6 +73,7 @@ public:
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
+  void reduction(const Kernel &, const std::vector<Ref> &, size_t) {}
 };
 #endif
 

@@ -176,6 +176,44 @@ def main():
         '  kissat_event_trace_watch_scan (solver, lit);\n'
         '  assert (not_lit < LITS);\n')
 
+    reduce = dest / "src" / "reduce.c"
+    replace_once(reduce, '#include "collect.h"\n',
+                 '#include "collect.h"\n#include "eventtrace.h"\n')
+    replace_once(reduce,
+        '    const unsigned used = c->used;\n'
+        '    if (used)\n'
+        '      c->used = used - 1;\n'
+        '    if (c->reason)\n'
+        '      continue;\n'
+        '    const unsigned glue = c->glue;\n',
+        '    const unsigned used = c->used;\n'
+        '    const unsigned trace_glue = c->glue;\n'
+        '    const char *trace_eligibility =\n'
+        '        c->reason ? "reason"\n'
+        '        : trace_glue <= tier1 && used ? "tier1-used"\n'
+        '        : trace_glue <= tier2 && used >= MAX_USED - 1\n'
+        '              ? "tier2-recent"\n'
+        '              : "candidate";\n'
+        '    kissat_reduce_trace_clause (solver, c, (ward *) c - arena, used,\n'
+        '                                tier1, tier2, trace_eligibility);\n'
+        '    if (used)\n'
+        '      c->used = used - 1;\n'
+        '    if (c->reason)\n'
+        '      continue;\n'
+        '    const unsigned glue = c->glue;\n')
+    replace_once(reduce,
+        '  size_t target = size * fraction;\n#ifndef QUIET\n',
+        '  size_t target = size * fraction;\n'
+        '  kissat_reduce_trace_summary (solver, TIER1, TIER2, size, target);\n'
+        '  {\n'
+        '    size_t rank = 0;\n'
+        '    for (all_stack (reducible, red, *reds)) {\n'
+        '      kissat_reduce_trace_rank (solver, red.ref, rank, rank < target);\n'
+        '      rank++;\n'
+        '    }\n'
+        '  }\n'
+        '#ifndef QUIET\n')
+
 
 if __name__ == "__main__":
     main()
