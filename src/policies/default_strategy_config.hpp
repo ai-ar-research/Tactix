@@ -49,6 +49,8 @@ struct DefaultStrategyConfig {
   static constexpr uint64_t CONGRUENCE_INITIAL_EFFORT_DEFAULT =
       1000000000000ull;
   static constexpr uint32_t TIER_RELATIVE_SCALE = 1000;
+  static constexpr uint64_t SMALL_CLAUSE_LIMIT_DEFAULT = 100000;
+  static constexpr uint32_t BIG_BINARY_FRACTION_PERMILLE_DEFAULT = 990;
 
   struct Branching {
     uint64_t random_initial_interval = RANDOM_INITIAL_INTERVAL_DEFAULT;
@@ -69,6 +71,9 @@ struct DefaultStrategyConfig {
     uint32_t reason_depth = 1; // Kissat direct-reason traversal in both modes.
     uint32_t chronological_levels = CHRONOLOGICAL_LEVELS_DEFAULT;
     bool reuse_ranked_trail_suffix = false; // Kissat tie-break over CaDiCaL.
+    uint64_t small_clause_limit = SMALL_CLAUSE_LIMIT_DEFAULT;
+    uint32_t big_binary_fraction_permille =
+        BIG_BINARY_FRACTION_PERMILLE_DEFAULT;
   } analysis;
 
   struct Restart {
@@ -144,6 +149,7 @@ struct DefaultStrategyConfig {
 
     std::array<uint32_t, 6> bve_bounds{{0, 1, 2, 4, 8, 16}};
     uint32_t bve_default_ceiling = 8;
+    uint32_t bve_occurrence_limit = 2000; // kissat eliminateocclim
     uint32_t factor_decade_round_cap = 14;
     uint32_t factor_decade_cap = 19;
     uint32_t factor_decade_offset = 5;

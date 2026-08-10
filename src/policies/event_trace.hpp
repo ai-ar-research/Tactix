@@ -55,6 +55,7 @@ public:
   void factor_grid(const Kernel &, Lit, uint32_t factors,
                    uint32_t remainders, int delta);
   void factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
+  void bve_candidate(const Kernel &, Var);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -75,6 +76,9 @@ private:
   uint64_t detail_conflict_to_ = UINT64_MAX;
   bool saw_reorder_ = false;
   bool detail_window_ = false;
+  bool compact_probe_ = false;
+  bool skip_watch_ = false;
+  bool search_only_ = false;
   bool truncated_ = false;
 };
 #else
@@ -112,6 +116,7 @@ public:
   void factor_seed(const Kernel &, Lit, uint32_t, uint32_t) {}
   void factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int) {}
   void factor_grid_member(const Kernel &, uint32_t, Lit) {}
+  void bve_candidate(const Kernel &, Var) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -152,6 +157,7 @@ void event_trace_factor_seed(const Kernel &, Lit, uint32_t score,
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t factors,
                              uint32_t remainders, int delta);
 void event_trace_factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
+void event_trace_bve_candidate(const Kernel &, Var);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
@@ -182,6 +188,7 @@ inline void event_trace_factor_seed(const Kernel &, Lit, uint32_t,
 inline void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t,
                                     int) {}
 inline void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit) {}
+inline void event_trace_bve_candidate(const Kernel &, Var) {}
 #endif
 
 } // namespace tactix

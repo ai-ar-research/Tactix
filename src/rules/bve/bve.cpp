@@ -18,7 +18,6 @@ namespace tactix {
 
 // occurrence limit (kissat eliminateocclim): skip a variable whose polarities
 // together occur more than this, where O(occ⁺·occ⁻) resolution blows up
-static constexpr uint32_t BVE_OCCLIM = 2000;
 // cadical `elimocclim` (options.hpp:100), the only effort bound inside the
 // backward pass: skip a subsumer whose least-occurring literal is commoner
 // than this (backward.cpp:70).
@@ -377,12 +376,14 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
     size_t nter = 0;
     while (nter < psig.size() && psig[nter].first.n == 2)
       nter++;
-    if (uint64_t(nter) * nter > BVE_OCCLIM)
+    if (uint64_t(nter) * nter > k.bve_occurrence_limit)
       return false;
     uint64_t steps = 0;
-    for (size_t i = 0; i + 1 < nter && steps < BVE_OCCLIM; ++i) {
+    for (size_t i = 0; i + 1 < nter &&
+                       steps < k.bve_occurrence_limit; ++i) {
       const Lit u0 = psig[i].first.l[0], u1 = psig[i].first.l[1];
-      for (size_t j = i + 1; j < nter && steps < BVE_OCCLIM; ++j) {
+      for (size_t j = i + 1;
+           j < nter && steps < k.bve_occurrence_limit; ++j) {
         steps++;
         const Lit w0 = psig[j].first.l[0], w1 = psig[j].first.l[1];
         // the pairs must clash on exactly one literal (the condition) and the
@@ -939,7 +940,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // instance from the public API (N1, `RV-S17`). The rule offers the candidate
   // and declines it; it never fails to offer. `pos`/`neg` are x's occurrence
   // lists, so this needs no second index.
-  if (!pos.empty() && !neg.empty() && pos.size() + neg.size() > BVE_OCCLIM)
+  if (!pos.empty() && !neg.empty() &&
+      pos.size() + neg.size() > k.bve_occurrence_limit)
     return ApplyResult::NoOp;
 
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----

@@ -33,6 +33,7 @@ void SubSolver::reset(uint32_t nvars) {
   nvars_ = nvars;
   inconsistent_ = false;
   solved_ = false;
+  model_valid_ = false;
   arena_.clear();
   watches_.assign(2 * static_cast<size_t>(nvars), {});
   occurrences_.assign(2 * static_cast<size_t>(nvars), {});
@@ -390,6 +391,10 @@ SubLit SubSolver::next_decision() {
 
 SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
                            uint64_t ticks_budget, SubTickMode tick_mode) {
+  // Kissat's `kitten_status` ceases to be SAT as soon as another solve starts.
+  // In particular an UNSAT-under-assumptions result must disable the model
+  // flipping API even though `model_` still stores the preceding SAT model.
+  model_valid_ = false;
   if (!solved_) {
     // The original-id watershed is fixed here, not per add_clause: every id
     // handed out from now on names a lemma.
@@ -471,6 +476,7 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
     if (d == NO_LIT) { // every variable is assigned: a total model
       for (SubVar v = 0; v < nvars_; v++)
         model_[v] = values_[sub_lit(v, false)] > 0 ? 1 : -1;
+      model_valid_ = true;
       return SubResult::Sat;
     }
     frames_.push_back(static_cast<uint32_t>(trail_.size()));
@@ -480,6 +486,8 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
 
 bool SubSolver::flip_model_literal(SubLit lit) {
   assert(solved_ && "a flip requires a SAT model");
+  if (!model_valid_)
+    return false; // Kissat: `kitten_status (kitten) != 10`
   const SubVar v = sub_var_of(lit);
   if (v >= nvars_ || level_[v] == 0)
     return false;

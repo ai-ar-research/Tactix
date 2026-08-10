@@ -139,6 +139,23 @@ static void test_binary_resolution_no_unit() {
   assert(k.stats.congruence_y1_found == 0);
 }
 
+// Kissat imports paired binary equivalences into the congruence closure before
+// simplifying gates. The merge is productive even though both binaries were
+// already present: that return value admits preprocessing's eager Substitute
+// follow-up.
+static void test_binary_equivalence_channel() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  xor_gate(k, 3, 1, 2);
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(k.stats.congruence_binary_equivalences == 1);
+  assert(k.stats.congruence_merges >= 1);
+  assert(k.value(internalize(3)) < 0 &&
+         "the imported equivalence must simplify the same-round XOR gate");
+}
+
 // Both polarities in one sweep refute via PendingUnits, not a false unit.
 static void test_binary_resolution_refutes() {
   Kernel k;
@@ -356,6 +373,7 @@ int main() {
   test_kind_isolation();
   test_binary_resolution_unit();
   test_binary_resolution_no_unit();
+  test_binary_equivalence_channel();
   test_binary_resolution_refutes();
   test_xor_cancel_learns_unit();
   test_xor_cancel_refutes();

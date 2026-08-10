@@ -118,6 +118,9 @@ bool EventTrace::open_from_env(const Kernel &k) {
     detail_conflict_to_ = std::strtoull(to, nullptr, 10);
     detail_window_ = true;
   }
+  compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
+  skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
+  search_only_ = std::getenv("TACTIX_EVENT_TRACE_SEARCH_ONLY") != nullptr;
   out_ = std::fopen(path, "w");
   if (!out_)
     return false;
@@ -148,6 +151,24 @@ void EventTrace::close() {
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
   if (!out_)
+    return;
+  if (skip_watch_ && !std::strcmp(event, "watch"))
+    return;
+  if (search_only_ && !snapshot && std::strcmp(event, "decision") &&
+      std::strcmp(event, "randec_draw") &&
+      std::strcmp(event, "phase_pick") && std::strcmp(event, "imply") &&
+      std::strcmp(event, "conflict") && std::strcmp(event, "analyzed") &&
+      std::strncmp(event, "analysis_", 9) &&
+      std::strncmp(event, "learned", 7))
+    return;
+  if (compact_probe_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "probe_begin") && std::strcmp(event, "probe_end") &&
+      std::strcmp(event, "preprocess_begin") &&
+      std::strcmp(event, "preprocess_end") &&
+      std::strcmp(event, "slot_boundary") &&
+      std::strncmp(event, "factor_", 7) &&
+      std::strncmp(event, "bve_", 4) &&
+      std::strncmp(event, "substitute_", 11))
     return;
   if (emitted_ >= limit_) {
     if (!truncated_) {
@@ -649,6 +670,19 @@ void event_trace_factor_grid_member(const Kernel &k, uint32_t ordinal,
                                     Lit factor) {
   if (active_trace)
     active_trace->factor_grid_member(k, ordinal, factor);
+}
+
+void EventTrace::bve_candidate(const Kernel &k, Var var) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "external=" + std::to_string(k.internal_to_external[var] + 1);
+  emit(k, "bve_candidate", payload.c_str(), false);
+}
+
+void event_trace_bve_candidate(const Kernel &k, Var var) {
+  if (active_trace)
+    active_trace->bve_candidate(k, var);
 }
 
 void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,

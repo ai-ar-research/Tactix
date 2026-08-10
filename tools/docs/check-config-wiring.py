@@ -45,6 +45,8 @@ POLICY = ["src/policies/default_policy.cpp", "src/policies/default_policy.hpp",
 TABLE = {
     # --- the policy is supposed to drive these ---------------------------
     "bve_bound":               ("POLICY", "growth-slack ramp (BveBoundPolicy)"),
+    "bve_occurrence_limit":    ("POLICY", "named DefaultStrategyConfig cap installed "
+                                          "at each inprocessing phase"),
     "bve_track_min_bound":     ("POLICY", "ramp bookkeeping"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "factor_admit":            ("POLICY", "SCHED-N1FIX advice; default = no restriction"),
@@ -57,6 +59,8 @@ TABLE = {
     "inprocessing":            ("POLICY", "phase bracket; routes a tick away from "
                                           "stats.search_ticks (kissat gets the same "
                                           "split from the call site)"),
+    "jump_reasons_bigbig":     ("POLICY", "Kissat formula classification refreshed "
+                                          "at search/reduce/probe/eliminate boundaries"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
     "tier2":                   ("RULE", "reduce.cpp; 2 consumers (reduce, vivify) — SP-TIER-2 "

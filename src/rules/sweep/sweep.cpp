@@ -576,6 +576,26 @@ static void partition_refine(SweepRound &r) {
   r.partition = std::move(next);
 }
 
+// Kissat removes the non-representative endpoint from the current partition
+// immediately after merging an equivalence (`sweep.c:1220-1248`).  A generic
+// refinement here would be wrong because the last sub-solver result is UNSAT
+// and therefore has no model; update only the class membership that the merge
+// itself settled.
+static void partition_remove_merged_endpoint(SweepRound &r, Lit a, Lit b) {
+  assert(!r.partition.empty());
+  std::vector<Lit> &c = r.partition.back();
+  assert(c.size() >= 2 && c[c.size() - 2] == a && c.back() == b);
+  if (c.size() == 2) {
+    r.partition.pop_back();
+    return;
+  }
+  const Lit drop = repr_find(r, a) == a ? b : a;
+  if (drop == b)
+    c.pop_back();
+  else
+    c.erase(c.end() - 2);
+}
+
 static void backbone_refine(SweepRound &r) {
   SweepEnv &e = r.env;
   size_t keep = 0;
@@ -695,14 +715,15 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
 
   uint32_t found = 0, solved = 0;
   while (!r.partition.empty() && solved < lim.max_candidates) {
-    partition_refine(r);
-    if (r.partition.empty())
-      break;
+    // Kissat refines only immediately after a SAT sub-solver result.  The
+    // explicit SAT branches below already do that; refining here again used a
+    // stale model after UNSAT and had no reference counterpart.
     std::vector<Lit> &c = r.partition.back();
     const Lit a = c[c.size() - 2], b = c.back();
     if (binary_live(k, negate(a), b) && binary_live(k, a, negate(b))) {
       k.stats.sweep_known++;
       repr_unite(r, a, b);
+      partition_remove_merged_endpoint(r, a, b);
       continue;
     }
 
@@ -781,6 +802,7 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     k.stats.sweep_equivalences++;
     found++;
     repr_unite(r, a, b);
+    partition_remove_merged_endpoint(r, a, b);
   }
   return found;
 }

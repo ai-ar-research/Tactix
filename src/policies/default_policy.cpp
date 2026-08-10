@@ -79,6 +79,9 @@ std::string DefaultStrategyConfig::serialize() const {
       << " analysis.chronological_levels=" << analysis.chronological_levels
       << " analysis.reuse_ranked_trail_suffix="
       << analysis.reuse_ranked_trail_suffix
+      << " analysis.small_clause_limit=" << analysis.small_clause_limit
+      << " analysis.big_binary_fraction_permille="
+      << analysis.big_binary_fraction_permille
       << " restart.glue_margin=" << restart.glue_margin
       << " restart.initial_interval=" << restart.initial_interval
       << " restart.fast_ema_window=" << restart.fast_ema_window
@@ -144,6 +147,8 @@ std::string DefaultStrategyConfig::serialize() const {
   for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
     out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
   out << " inprocess.bve_default_ceiling=" << inprocess.bve_default_ceiling
+      << " inprocess.bve_occurrence_limit="
+      << inprocess.bve_occurrence_limit
       << " inprocess.factor_decade_round_cap="
       << inprocess.factor_decade_round_cap
       << " inprocess.factor_decade_cap=" << inprocess.factor_decade_cap
@@ -526,8 +531,22 @@ struct TickSinkScope {
 
 struct InprocessScope {
   Kernel &k;
-  explicit InprocessScope(Kernel &kk) : k(kk) { k.inprocessing = true; }
-  ~InprocessScope() { k.inprocessing = false; }
+  bool previous_inprocessing;
+  bool previous_phase_saving_suppressed;
+  explicit InprocessScope(Kernel &kk)
+      : k(kk), previous_inprocessing(kk.inprocessing),
+        previous_phase_saving_suppressed(kk.phase_saving_suppressed) {
+    k.inprocessing = true;
+    // Kissat keeps `solver->probing` set across the complete Probe pipeline.
+    // All speculative and learned assignments in that scope therefore leave
+    // `phases.saved` untouched.  Individual Tactix rules may use different
+    // propagation engines, so the strategy scope owns the equivalent wire.
+    k.phase_saving_suppressed = true;
+  }
+  ~InprocessScope() {
+    k.phase_saving_suppressed = previous_phase_saving_suppressed;
+    k.inprocessing = previous_inprocessing;
+  }
   InprocessScope(const InprocessScope &) = delete;
   InprocessScope &operator=(const InprocessScope &) = delete;
 };
@@ -927,6 +946,38 @@ bool DefaultPolicy::update_tiers_after_analysis(Kernel &k) {
   return updated;
 }
 
+void DefaultPolicy::update_formula_classification(Kernel &k) const {
+  uint64_t binary_words = 0;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry w : k.watches.entries(lit))
+      binary_words += w.binary();
+  assert(!(binary_words & 1));
+  const uint64_t binaries = binary_words / 2;
+  uint64_t large = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (!clause->garbage() && !clause->redundant())
+      large++;
+    ref += clause_words(clause->size);
+  }
+  const uint64_t clauses = binaries + large;
+  const auto &cfg = config_.analysis;
+  bool bigbig = false;
+  if (clauses > cfg.small_clause_limit && clauses) {
+    // `kissat_percent` returns 0..100 while bigbigfraction is per mille:
+    // 100*binaries/clauses >= fraction/1000.
+    const unsigned __int128 lhs =
+        static_cast<unsigned __int128>(100000) * binaries;
+    const unsigned __int128 rhs =
+        static_cast<unsigned __int128>(cfg.big_binary_fraction_permille) *
+        clauses;
+    bigbig = lhs >= rhs;
+  }
+  k.jump_reasons_bigbig = bigbig;
+  k.stats.jump_reason_classifications++;
+  k.stats.jump_reason_bigbig += bigbig;
+}
+
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
   if (!ramp)
     return reduce_canonical_victims(candidates);
@@ -944,7 +995,12 @@ Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
   if (!k.warming && randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
-    if (c >= randec_until && k.level <= 1 && c >= randec_next)
+    // Kissat increments `solver->level` before `next_random_decision` tests
+    // whether that level is at most one.  Tactix picks before Decide creates
+    // the new frame, so the equivalent pre-decision condition is level zero.
+    // In particular, a restart which reuses level one must not start a due
+    // random sequence for its first post-restart decision.
+    if (c >= randec_until && k.level == 0 && c >= randec_next)
       start_random_sequence(k);
     if (c < randec_until) {
       for (;;) {
@@ -982,9 +1038,8 @@ Lit DefaultBranching::decide_lit(const Kernel &k, Var v) const {
   const int8_t saved = k.h->saved[v];
   const Lit result =
       phase ? make_lit(v, phase < 0) : heuristics_decide_lit(k, v);
-  if (k.warming)
-    event_trace_phase_pick(k, v, target, saved,
-                           negated(result) ? -1 : 1);
+  event_trace_phase_pick(k, v, target, saved,
+                         negated(result) ? -1 : 1);
   return result;
 }
 
@@ -1381,6 +1436,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         propagate_apply(k) == ApplyResult::Unsat)
       return finish(20);
   } while (collected == RootCollectOutcome::Unit);
+  // Kissat's initial sparse collection compacts every fixed internal variable
+  // onto one representative.  Tactix preserves kernel identities for its
+  // universal rule surface, but the random brancher's index permutation is
+  // policy state and must use the same compacted population and ordering.
+  heuristics_compact_random_order_fixed(k);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Var v = 0; v < k.nvars; v++) {
     uint32_t ordinal = 0;
@@ -1407,6 +1467,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
+
+  // Kissat classifies once after startup simplification and again while
+  // entering search (`search.c:kissat_search`, then `start_search`).  The
+  // calls are adjacent there too; preserve both so the reach counter and the
+  // classification lifetime match the reference exactly.
+  update_formula_classification(k);
+  update_formula_classification(k);
 
   // Kissat initializes the first focused-mode tick anchor in `start_search`,
   // after Lucky and preprocessing.  Tactix's schedule object is reset before
@@ -1498,6 +1565,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         kernel_compact_variables(k);
       update_reduce_limit(k);
       pose_focused_tiers(k); // vivifyfocusedtiers=1 is the shipped default.
+      update_formula_classification(k);
       event_trace.macro(k, "reduce_end");
       continue;
     }
@@ -1600,6 +1668,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "probe_begin");
       if (inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
         return finish(20);
+      update_formula_classification(k);
       event_trace.macro(k, "probe_end");
       continue;
     }
@@ -1607,6 +1676,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.macro(k, "eliminate_begin");
       if (inprocess_.run_phase(k, SlotGroup::Eliminate, stop) == 20)
         return finish(20);
+      update_formula_classification(k);
       event_trace.macro(k, "eliminate_end");
       continue;
     }
@@ -1773,6 +1843,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       }
       const ApplyResult ar = [&] {
         TickSinkScope sink(k, e.tick_counter);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        if (bve_entry) {
+          Lit candidate;
+          if (lit_of_instance(k, payloads_[i], &candidate))
+            event_trace_bve_candidate(k, var_of(candidate));
+        }
+#endif
         return apply_rule_instance(r, k, payloads_[i]);
       }();
       ctx.last_result = ar;
@@ -1819,9 +1896,17 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
     e.tm.dec_warmup++;
     return true;
   }
-  if (k.stats.conflicts > 0 && k.binary_ids.size() <= e.binaries_mark &&
-      k.arena.size() <= e.arena_mark &&
-      kernel_root_fixed(k) <= e.root_fixed_mark) {
+  // Kissat's call-level watermark is exactly the population represented by
+  // `flags->factor`: a clause addition sets a literal's bit and Factor clears
+  // it when that seed is popped (factor.c:1093-1117).  The old proxy compared
+  // monotone binary-map/arena sizes and root units.  An elimination can replace
+  // thousands of clauses while leaving all three proxy values below their
+  // previous highs, delaying Factor by a whole probe phase even though the
+  // precise per-literal marks say new material exists.
+  const bool no_marked_literal =
+      std::none_of(k.factor_marks.begin(), k.factor_marks.end(),
+                   [](uint8_t marked) { return marked != 0; });
+  if (k.stats.conflicts > 0 && no_marked_literal) {
     e.tm.dec_material++;
     return true;
   }
@@ -2034,6 +2119,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   clock.blocked = false; // a new blocking episode may now be counted
   forward_pair_limit_ = 0; // the pair's shared allowance is per phase
   bve_ran_this_phase_ = false;
+  k.bve_occurrence_limit = config().bve_occurrence_limit;
   factor_bound_snapshot_ =
       couple_factor_bound_
           ? (std::getenv("TACTIX_NO_BVE_RAMP") ? k.bve_bound : bve_level_)

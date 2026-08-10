@@ -73,6 +73,12 @@ void heuristics_compact_vars(Kernel &, const std::vector<Var> &old_to_new,
 // is an ordering port and not the renumbering kissat performs.
 void heuristics_seed_activation_order(Kernel &, const std::vector<Var> &order);
 
+// Mirror Kissat's initial literal compaction in the random-index permutation:
+// retain the first root-fixed variable as the shared fixed representative and
+// remove the rest.  Kernel identities and the public Decide surface stay
+// unchanged; only the policy-owned random modulus follows Kissat's `VARS`.
+void heuristics_compact_random_order_fixed(Kernel &);
+
 // The kernel does not own `H`: whoever outlives a solve() owns the storage and
 // attaches it. This RAII helper is that owner for tests and simple embeddings.
 // Sizing at attach is what makes a fresh `H` on an already-parsed kernel
@@ -85,6 +91,11 @@ struct ScopedHeuristics {
     k.saved_phases = &h.saved;
     if (k.nvars)
       heuristics_reserve_vars(k, 0, k.nvars);
+    if (!k.input_activation_order.empty()) {
+      heuristics_seed_activation_order(k, k.input_activation_order);
+      k.input_activation_order.clear();
+      k.input_activation_order.shrink_to_fit();
+    }
   }
   ~ScopedHeuristics() {
     kref.saved_phases = nullptr;
@@ -149,8 +160,9 @@ inline Var heuristics_next_decision_var(Kernel &k) {
   return k.h->stable ? heuristics_heap_next_unassigned(k)
                      : heuristics_queue_next_unassigned(k);
 }
-// phase priority (kissat decide.c kissat_decide_phase): target (stable
-// only) -> saved; both default positive
+// Phase priority (kissat decide.c kissat_decide_phase): target (stable only),
+// then saved, then the positive initial phase.  A zero saved entry means the
+// variable has not yet acquired a saved phase.
 inline Lit heuristics_decide_lit(const Kernel &k, Var v) {
   int8_t phase = k.h->stable ? k.h->target[v] : 0;
   if (phase == 0)

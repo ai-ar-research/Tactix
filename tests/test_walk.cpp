@@ -30,8 +30,10 @@ static void test_finds_model() {
   Kernel k;
   ScopedHeuristics _h(k);
   build_conflict_cover(k, 8);
-  for (Var v = 0; v < k.nvars; v++)
-    assert(k.h->saved[v] == 1); // the wrong assignment: every binary broken
+  for (Var v = 0; v < k.nvars; v++) {
+    assert(k.h->saved[v] == 0); // no assignment has established a saved phase
+    assert(!negated(heuristics_decide_lit(k, v))); // initial phase is positive
+  }
 
   assert(walk_guard(k));
   assert(walk_apply(k) == ApplyResult::Ok); // improved

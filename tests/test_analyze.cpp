@@ -45,6 +45,9 @@ static void test_uip() {
   assert(backjump_apply(k) == ApplyResult::Ok);
   assert(k.level == 1);
   assert(k.values[internalize(-2)] > 0); // asserted
+  assert(k.assigned[var_of(internalize(-2))].jumped &&
+         k.stats.jumped_reasons == 1 &&
+         "Kissat's learned-binary assignment is not classification-gated");
   assert(!k.pending.valid);
 
   assert(default_solve(k) == 10); // still satisfiable: 1, -2, 3

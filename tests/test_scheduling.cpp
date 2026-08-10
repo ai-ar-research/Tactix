@@ -5,6 +5,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
+#include "rules/propagate/propagate.hpp"
 #include "rules/registry.hpp"
 
 #include <algorithm>
@@ -67,6 +68,37 @@ static void test_analysis_trail_reuse_defaults_to_kissat(void) {
   assert(DefaultPolicy::BUMP_REASONS_RATE == 10.0 &&
          "Kissat's bumpreasonsrate=10 is the conflicting-default tie-break");
   std::printf("  analysis trail reuse: Kissat default off, CaDiCaL arm retained\n");
+}
+
+static void test_factor_material_gate_uses_literal_marks(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  k.stats.conflicts = 1; // search-time call: the material gate is live
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  DefaultInprocessScheduler::SlotEntry *factor = nullptr;
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries) {
+    const bool is_factor = !std::strcmp(rules[e.rule].name, "Factor");
+    e.enabled = is_factor;
+    if (is_factor)
+      factor = &e;
+  }
+  assert(factor);
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(factor->tm.dec_material == 1 && factor->tm.admitted == 0);
+
+  // Pose unchanged coarse watermarks.  A newly marked polarity must still
+  // admit Factor, as Kissat's `flags->factor` / `literals_factor` wire does.
+  factor->binaries_mark = k.binary_ids.size();
+  factor->arena_mark = k.arena.size();
+  factor->root_fixed_mark = kernel_root_fixed(k);
+  k.factor_marks[make_lit(3, true)] = 1;
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(factor->tm.dec_material == 1 && factor->tm.admitted == 1);
+  std::printf("  factor material gate: exact per-literal Kissat marks\n");
 }
 
 static void test_retier_schedule_advances_only_on_otfs_conflicts(void) {
@@ -673,6 +705,76 @@ static void test_preprocess_final_followup_is_observed(void) {
   std::printf("  preprocess followups: neither-producer path takes final once\n");
 }
 
+static void test_inprocess_does_not_save_probe_phases(void) {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.bve_occurrence_limit = 37;
+  DefaultPolicy p(cfg);
+  p.inprocess().build(k);
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries)
+    e.enabled = !std::strcmp(rules[e.rule].name, "Backbone");
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  for (Var v = 0; v < k.nvars; v++) {
+    assert(k.h->saved[v] == 0 &&
+           "Kissat probing assignments must not become saved phases");
+    assert(!negated(heuristics_decide_lit(k, v)) &&
+           "zero saved phase must fall back to positive initial phase");
+  }
+  assert(!k.phase_saving_suppressed && !k.inprocessing);
+  assert(k.bve_occurrence_limit == 37 &&
+         "DefaultPolicy must wire the named BVE occurrence limit");
+  std::printf("  inprocess phases: probe assignments leave saved phases unset\n");
+}
+
+static void test_jump_reason_formula_classification(void) {
+  const auto add_chain = [](Kernel &k) {
+    kernel_reserve_vars(k, 3);
+    const Lit p = internalize(1), q = internalize(2), r = internalize(3);
+    kernel_add_binary_clause(k, p, q);
+    kernel_add_binary_clause(k, negate(q), r);
+    kernel_assign_decision(k, negate(p));
+  };
+
+  // Kissat classifies every formula with at most `smallclauses` clauses as
+  // not-bigbig, even if every clause is binary.  Ordinary search propagation
+  // must therefore retain the direct antecedent on this tiny instance.
+  Kernel small;
+  add_chain(small);
+  DefaultPolicy default_policy;
+  default_policy.update_formula_classification(small);
+  assert(!small.jump_reasons_bigbig);
+  assert(propagate_apply(small) == ApplyResult::Ok);
+  const Var small_r = var_of(internalize(3));
+  assert(!small.assigned[small_r].jumped);
+  assert(small.assigned[small_r].reason == internalize(-2));
+  assert(small.stats.jumped_reasons == 0);
+
+  // Lower only the named size limit to exercise the binary-fraction arm on a
+  // fixed micro-fixture.  This avoids a 100k-clause regression test while
+  // pinning the exact same classification-dependent propagation behavior.
+  DefaultStrategyConfig config;
+  config.analysis.small_clause_limit = 0;
+  Kernel large;
+  add_chain(large);
+  DefaultPolicy classified_policy(config);
+  classified_policy.update_formula_classification(large);
+  assert(large.jump_reasons_bigbig);
+  assert(propagate_apply(large) == ApplyResult::Ok);
+  const Var large_r = var_of(internalize(3));
+  assert(large.assigned[large_r].jumped);
+  assert(large.assigned[large_r].reason == internalize(1));
+  assert(large.stats.jumped_reasons == 1);
+  assert(large.stats.jump_reason_classifications == 1);
+  assert(large.stats.jump_reason_bigbig == 1);
+  std::printf("  jump reasons: Kissat small/bigbig classification gates search\n");
+}
+
 static void test_preprocess_followup_legacy_arm(void) {
   assert(setenv("TACTIX_PREPROCESS_FOLLOWUPS", "0", 1) == 0);
   Kernel k;
@@ -741,11 +843,14 @@ int main() {
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_matches_kissat();
   test_analysis_trail_reuse_defaults_to_kissat();
+  test_factor_material_gate_uses_literal_marks();
   test_retier_schedule_advances_only_on_otfs_conflicts();
   test_effort_limit_is_kissats();
   test_preprocess_is_reduced_and_bounded();
   test_preprocess_followup_truth_table();
   test_preprocess_final_followup_is_observed();
+  test_inprocess_does_not_save_probe_phases();
+  test_jump_reason_formula_classification();
   test_preprocess_followup_legacy_arm();
   test_reorder_ships_in_both_modes();
   test_startup_sparse_collection_precedes_probe();
