@@ -19,6 +19,15 @@ static bool reduce_trace_initialized;
 static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
 static int compare_external_literals (const void *, const void *);
 
+void kissat_event_trace_tiers (kissat *solver, const char *event) {
+  char payload[128];
+  snprintf (payload, sizeof payload,
+            "focused=%u,%u|stable=%u,%u|reduce=%u,%u",
+            solver->tier1[0], solver->tier2[0], solver->tier1[1],
+            solver->tier2[1], TIER1, TIER2);
+  kissat_event_trace (solver, event, payload, true);
+}
+
 void kissat_event_trace_retier (kissat *solver) {
   char payload[4096];
   const bool stable = solver->stable;
