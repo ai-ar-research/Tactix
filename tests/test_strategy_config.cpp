@@ -5,8 +5,28 @@
 #include <cassert>
 #include <cstdlib>
 #include <string>
+#include <vector>
 
 using namespace tactix;
+
+static void add_php_4_3(Kernel &k) {
+  kernel_reserve_vars(k, 12);
+  const auto variable = [](int pigeon, int hole) {
+    return pigeon * 3 + hole + 1;
+  };
+  std::vector<Lit> clause;
+  for (int pigeon = 0; pigeon < 4; ++pigeon) {
+    clause.clear();
+    for (int hole = 0; hole < 3; ++hole)
+      clause.push_back(internalize(variable(pigeon, hole)));
+    kernel_add_large_clause(k, clause.data(), clause.size(), false, 0);
+  }
+  for (int hole = 0; hole < 3; ++hole)
+    for (int first = 0; first < 4; ++first)
+      for (int second = first + 1; second < 4; ++second)
+        kernel_add_binary_clause(k, internalize(-variable(first, hole)),
+                                 internalize(-variable(second, hole)));
+}
 
 int main() {
   DefaultStrategyConfig defaults;
@@ -50,4 +70,21 @@ int main() {
   assert(overlaid.strategy_config().rephase.walk_permille == 61);
   unsetenv("TACTIX_BUMP_REASONS_RATE");
   unsetenv("TACTIX_WALK_PERMILLE");
+
+  // Kissat's Reduce consumes the last scheduled dynamic-tier snapshot.  It
+  // does not recompute tiers merely because a reduction boundary was reached.
+  // Pose Reduce at conflict zero and put the scheduled retier far away: the
+  // old extra Reduce-side refresh made this counter one.
+  DefaultStrategyConfig cadence = defaults;
+  cadence.reduction.retier_initial_interval = 1ull << 40;
+  Kernel php;
+  ScopedHeuristics php_heuristics(php);
+  add_php_4_3(php);
+  DefaultPolicy scheduled_only(cadence);
+  scheduled_only.reset_schedule_per_solve = false;
+  scheduled_only.reduce.next_conflicts = 0;
+  assert(scheduled_only.solve(php) == 20);
+  assert(php.stats.reductions > 0);
+  assert(php.stats.retiered == 0 &&
+         "Reduce must not bypass Kissat's exponential retier cadence");
 }
