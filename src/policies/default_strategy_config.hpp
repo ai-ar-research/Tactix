@@ -22,7 +22,7 @@ struct DefaultStrategyConfig {
   static constexpr double SLOW_EMA_WINDOW_DEFAULT = 1e5;
   static constexpr uint64_t RANDOM_INITIAL_INTERVAL_DEFAULT = 500;
   static constexpr uint64_t RANDOM_SEQUENCE_LENGTH_DEFAULT = 10;
-  static constexpr uint64_t RANDOM_SEED_DEFAULT = 0x9e3779b97f4a7c15ull;
+  static constexpr uint64_t RANDOM_SEED_DEFAULT = 0; // Kissat `seed=0`.
   static constexpr uint32_t BUMP_REASON_LIMIT_DEFAULT = 10;
   static constexpr double BUMP_REASON_RATE_DEFAULT = 10.0;
   static constexpr uint32_t CHRONOLOGICAL_LEVELS_DEFAULT = 100;
@@ -49,7 +49,6 @@ struct DefaultStrategyConfig {
   struct Branching {
     uint64_t random_initial_interval = RANDOM_INITIAL_INTERVAL_DEFAULT;
     uint64_t random_sequence_length = RANDOM_SEQUENCE_LENGTH_DEFAULT;
-    uint32_t random_pick_attempts = 64;
     uint64_t random_seed = RANDOM_SEED_DEFAULT;
     double logarithm_offset = 9.0; // Kissat logarithmic schedule.
     bool random_sequences = true;

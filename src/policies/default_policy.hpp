@@ -18,6 +18,10 @@ public:
       DefaultStrategyConfig::RANDOM_SEQUENCE_LENGTH_DEFAULT;
   static constexpr uint64_t RANDEC_SEED =
       DefaultStrategyConfig::RANDOM_SEED_DEFAULT;
+  // Kissat random.h's fixed 64-bit LCG.  These define the generator rather
+  // than a tunable strategy arm, so they do not belong in DefaultStrategyConfig.
+  static constexpr uint64_t RANDEC_MULTIPLIER = 6364136223846793005ull;
+  static constexpr uint64_t RANDEC_INCREMENT = 1442695040888963407ull;
   uint64_t randec_until = 0;
   uint64_t randec_next = RANDEC_INIT;
   uint64_t randec_sequences = 0;

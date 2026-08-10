@@ -65,7 +65,6 @@ std::string DefaultStrategyConfig::serialize() const {
       << branching.random_initial_interval
       << " branching.random_sequence_length="
       << branching.random_sequence_length
-      << " branching.random_pick_attempts=" << branching.random_pick_attempts
       << " branching.random_seed=" << branching.random_seed
       << " branching.logarithm_offset=" << branching.logarithm_offset
       << " branching.random_sequences=" << branching.random_sequences
@@ -906,19 +905,16 @@ Lit DefaultBranching::pick(Kernel &k) {
       const double n = static_cast<double>(randec_sequences);
       const double logn = std::log10(n + cfg.logarithm_offset);
       randec_until =
-          c + static_cast<uint64_t>(cfg.random_sequence_length * logn) + 1;
+          c + static_cast<uint64_t>(cfg.random_sequence_length * logn);
       randec_next =
           c + static_cast<uint64_t>(cfg.random_initial_interval * logn);
       k.stats.random_sequences++;
     }
     if (c < randec_until) {
-      for (uint32_t tries = 0; tries < cfg.random_pick_attempts; tries++) {
-        randec_rng += cfg.random_seed;
-        uint64_t z = randec_rng;
-        z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
-        z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
-        z ^= z >> 31;
-        const Var v = static_cast<Var>(z % k.nvars);
+      for (;;) {
+        randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
+        const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
+        const Var v = static_cast<Var>(random % k.nvars);
         if (k.values[make_lit(v, true)] == 0 && !kernel_var_retired(k, v)) {
           k.stats.random_decisions++;
           return heuristics_decide_lit(k, v);
