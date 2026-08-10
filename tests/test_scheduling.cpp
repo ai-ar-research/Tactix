@@ -51,15 +51,10 @@ static void test_mode_growth_key_matches_kissat(void) {
   std::printf("  mode growth key: matches kissat's (switched+1)/2 ladder\n");
 }
 
-static void test_reason_bump_depth_tracks_mode(void) {
-  Kernel k;
-  ScopedHeuristics h(k);
+static void test_reason_bump_depth_matches_kissat(void) {
   DefaultPolicy p;
-  k.h->stable = false;
-  assert(p.bump_reason_depth(k) == 1);
-  k.h->stable = true;
-  assert(p.bump_reason_depth(k) == 2);
-  std::printf("  reason bump: depth 1 focused, depth 2 stable\n");
+  assert(p.strategy_config().analysis.reason_depth == 1);
+  std::printf("  reason bump: Kissat direct reasons in both modes\n");
 }
 
 static void test_analysis_trail_reuse_defaults_to_kissat(void) {
@@ -705,7 +700,7 @@ static void test_reorder_ships_in_both_modes(void) {
 
 int main() {
   test_mode_growth_key_matches_kissat();
-  test_reason_bump_depth_tracks_mode();
+  test_reason_bump_depth_matches_kissat();
   test_analysis_trail_reuse_defaults_to_kissat();
   test_retier_schedule_advances_only_on_otfs_conflicts();
   test_effort_limit_is_kissats();

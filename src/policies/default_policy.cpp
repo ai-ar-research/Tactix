@@ -71,8 +71,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << " branching.random_sequences=" << branching.random_sequences
       << " analysis.bump_reason_limit=" << analysis.bump_reason_limit
       << " analysis.bump_reason_rate=" << analysis.bump_reason_rate
-      << " analysis.focused_reason_depth=" << analysis.focused_reason_depth
-      << " analysis.stable_reason_depth=" << analysis.stable_reason_depth
+      << " analysis.reason_depth=" << analysis.reason_depth
       << " analysis.chronological_levels=" << analysis.chronological_levels
       << " analysis.reuse_ranked_trail_suffix="
       << analysis.reuse_ranked_trail_suffix
@@ -305,11 +304,6 @@ uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) {
   if (averages[k.h->stable].decision_rate.value >= bump_reasons_rate_)
     return 0;
   return bump_reasons_limit_;
-}
-
-uint32_t DefaultPolicy::bump_reason_depth(const Kernel &k) const {
-  return k.h && k.h->stable ? config_.analysis.stable_reason_depth
-                            : config_.analysis.focused_reason_depth;
 }
 
 void DefaultPolicy::tick_reluctant() {
@@ -1304,7 +1298,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.detail(k, "analysis_begin", k.level);
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);
-      k.bump_reason_depth = bump_reason_depth(k);
+      k.bump_reason_depth = config_.analysis.reason_depth;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
       const ApplyResult ar = analyze_apply(k);
