@@ -498,6 +498,12 @@ struct Kernel {
   bool factor_admit = true;
   uint64_t *tick_sink = nullptr;
   bool inprocessing = false;
+  // Non-owning fast path into policy-owned H.  Kissat updates saved phases at
+  // assignment time; keeping the vector hook here lets the inline assignment
+  // primitive do the same without exposing the rest of Heuristics to rules.
+  // ScopedHeuristics/the frontend install it together with `h`.
+  std::vector<int8_t> *saved_phases = nullptr;
+  bool phase_saving_suppressed = false; // true only for probing assignments
   uint64_t work_budget = 0;
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
@@ -721,6 +727,12 @@ inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
   k.assigned[v] = {level, static_cast<uint32_t>(k.trail.size()), reason,
                    binary, jumped};
   k.trail.push_back(lit);
+  // kissat inlineassign.h: every non-probing assignment, including a root
+  // implication, refreshes the saved phase immediately.  Unassign-time saving
+  // is not equivalent when a schedule changes mode while literals remain on
+  // the trail.  Probing callers suppress this hook around speculative work.
+  if (k.saved_phases && !k.phase_saving_suppressed && !k.probing.recording)
+    (*k.saved_phases)[v] = negated(lit) ? -1 : 1;
   assert(k.unassigned > 0);
   k.unassigned--;
   if (!kernel_var_retired(k, v)) {
@@ -760,7 +772,7 @@ inline void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
   kernel_assign(k, lit, lvl, reason, false);
 }
 void kernel_backtrack(Kernel &, uint32_t target_level,
-                      bool update_phases = true);
+                      bool search_backtrack = true);
 
 bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 

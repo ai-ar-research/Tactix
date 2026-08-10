@@ -4,7 +4,8 @@
 // "none" (failed literals are V1 Probe's); (2) probes share the single
 // propagations/ticks counters rather than kissat's separate probing-mode
 // statistics, so a policy's tick budget includes them. Probes never update
-// saved/target/best phases (kernel_backtrack update_phases=false).
+// saved/target/best phases (the public probe entry suppresses assign-time
+// saving, matching kissat's `solver->probing`).
 #include "rules/lucky/lucky.hpp"
 
 #include "rules/propagate/propagate.hpp"
@@ -111,6 +112,15 @@ static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
 
 ApplyResult lucky_apply_probe(Kernel &k, uint64_t probe) {
   assert(lucky_guard(k));
+  // kissat_lucky runs with solver->probing set, so its speculative decisions
+  // and implications must not overwrite search phases.
+  const bool saved_suppression = k.phase_saving_suppressed;
+  k.phase_saving_suppressed = true;
+  struct RestorePhaseSaving {
+    Kernel &k;
+    bool saved;
+    ~RestorePhaseSaving() { k.phase_saving_suppressed = saved; }
+  } restore{k, saved_suppression};
   k.stats.lucky_probes++;
   switch (probe) {
   case LUCKY_ALL_TRUE:

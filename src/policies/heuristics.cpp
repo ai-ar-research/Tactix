@@ -43,6 +43,9 @@ void heuristics_discard_rule_events(Kernel &k) {
 }
 
 void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
+  assert(k.h);
+  assert(!k.saved_phases || k.saved_phases == &k.h->saved);
+  k.saved_phases = &k.h->saved;
   k.h->saved.resize(nvars, 1); // initial phase: positive (kissat default)
   for (Var v = old; v < nvars; ++v)
     k.h->random_order.push_back(v);
@@ -547,6 +550,7 @@ void heuristics_check(const Kernel &k) {
   // A null `H` is legal (an unguided solver): nothing to check.
   if (!k.h)
     return;
+  assert(k.saved_phases == &k.h->saved);
   // Otherwise every per-var vector tracks Kernel::nvars: a var-adding rule that
   // grew the kernel but not `H` trips here, before the next phase or score read
   // walks off the end.

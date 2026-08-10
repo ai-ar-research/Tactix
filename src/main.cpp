@@ -223,8 +223,10 @@ int main(int argc, char **argv) {
   Heuristics heuristics; // the session owns H, the kernel holds a non-owning
                          // pointer. --no-heuristics leaves it unattached, so
                          // the whole run is H-free.
-  if (!no_heuristics)
+  if (!no_heuristics) {
     kernel.h = &heuristics;
+    kernel.saved_phases = &heuristics.saved;
+  }
   kernel.bve_gate_mask = bve_gate_mask;
   // Each env knob below poses one `Kernel` config field; that field documents
   // its default and soundness class. They are read here rather than in
