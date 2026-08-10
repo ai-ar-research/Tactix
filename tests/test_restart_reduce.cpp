@@ -115,6 +115,23 @@ static void test_sparse_collect_preserves_prefix_watch_order() {
          "the relocated reducible tail must be appended in arena order");
 }
 
+static void test_collect_reselects_watches_by_assignment(void) {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 3);
+  const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, lits, 3, true, 9);
+  kernel_assign_decision(k, internalize(-1)); // false at level 1
+  kernel_assign_decision(k, internalize(-2)); // false at level 2
+
+  kernel_collect_garbage(k);
+  const Clause *c = clause_at(k.arena, 0);
+  assert(c->lits[0] == internalize(3) &&
+         "Kissat rewatching selects an unassigned first watch");
+  assert(c->lits[1] == internalize(2) &&
+         "among false literals Kissat selects the higher level");
+}
+
 static void test_default_arena_order_tracks_search() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -318,6 +335,7 @@ int main() {
   test_collect_preserves_propagation();
   test_collect_accepts_policy_order();
   test_sparse_collect_preserves_prefix_watch_order();
+  test_collect_reselects_watches_by_assignment();
   test_default_arena_order_tracks_search();
   test_reduce_deletes_and_logs();
   test_reduce_used_retention();
