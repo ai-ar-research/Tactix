@@ -46,6 +46,8 @@ int main() {
     trace.detail(k, "analysis_end", 1);
     k.tier1 = 3;
     k.tier2 = 8;
+    k.tier1_by_mode[0] = 3;
+    k.tier2_by_mode[0] = 8;
     k.stats.used_glue[0][3] = 5;
     trace.retier(k);
     trace.reorder_begin(k);
@@ -69,7 +71,8 @@ int main() {
   assert(text.find("\torder=-3,1,-2|set=-3,-2,1\n") != std::string::npos);
   assert(text.find("\tlearned\t") != std::string::npos);
   assert(text.find("\tretier\t") != std::string::npos);
-  assert(text.find("tier1=3|tier2=8|used=0:0,1:0,2:0,3:5,") !=
+  assert(text.find("focused=3,8|stable=2,6|posed=3,8|used="
+                   "0:0,1:0,2:0,3:5,") !=
          std::string::npos);
   assert(text.find("\torder=3,-1,2|set=-1,2,3\n") != std::string::npos);
   const size_t analysis = text.find("\tanalysis_end\t");

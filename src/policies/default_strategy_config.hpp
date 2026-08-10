@@ -44,6 +44,7 @@ struct DefaultStrategyConfig {
   static constexpr uint64_t FACTOR_INITIAL_EFFORT_DEFAULT = 700000000ull;
   static constexpr uint64_t CONGRUENCE_INITIAL_EFFORT_DEFAULT =
       1000000000000ull;
+  static constexpr uint32_t TIER_RELATIVE_SCALE = 1000;
 
   struct Branching {
     uint64_t random_initial_interval = RANDOM_INITIAL_INTERVAL_DEFAULT;
@@ -93,6 +94,10 @@ struct DefaultStrategyConfig {
     uint64_t retier_initial_interval = 2;
     uint64_t retier_max_interval = 1ull << 16;
     uint32_t retier_growth = 2;
+    uint32_t tier1_default = 2; // Kissat tier1.
+    uint32_t tier2_default = 6; // Kissat tier2.
+    uint32_t tier1_relative_permille = 500; // Kissat tier1relative.
+    uint32_t tier2_relative_permille = 900; // Kissat tier2relative.
     bool square_root_cadence = true;
     bool ramp_fraction = true;
     bool dynamic_tiers = true;

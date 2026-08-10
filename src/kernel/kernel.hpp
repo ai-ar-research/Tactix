@@ -501,6 +501,10 @@ struct Kernel {
   uint32_t bump_reason_limit = 0;
   uint32_t bump_reason_depth = 1;
   uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;
+  // DefaultPolicy retains Kissat's separate focused/stable tier snapshots.
+  // `tier1/tier2` is the pair posed for the rule currently being applied.
+  uint32_t tier1_by_mode[2] = {2, 2};
+  uint32_t tier2_by_mode[2] = {6, 6};
   uint32_t tier1 = 2, tier2 = 6;
   bool shrink_glue_promote = true;
   bool tumble = true;

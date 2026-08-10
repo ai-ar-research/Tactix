@@ -34,6 +34,28 @@ constexpr uint64_t PERMILLE_SCALE = 1000;
 constexpr uint64_t PERCENT_SCALE = 100;
 constexpr uint32_t MODES_PER_CYCLE = 2;
 constexpr uint32_t REORDER_STABLE_ONLY = 2;
+
+void pose_focused_tiers(Kernel &k) {
+  k.tier1 = k.tier1_by_mode[0];
+  k.tier2 = std::max(k.tier1, k.tier2_by_mode[0]);
+}
+
+void pose_reduce_tiers(Kernel &k) {
+  // Kissat 4.0.4's shipped internal.h deliberately uses focused tier-1 and
+  // stable tier-2 for Reduce (the general focusedtiers selector is compiled
+  // out). Keep the unusual hybrid explicit: it is the first-reduction witness
+  // on P4A tr-n300-s055, not an inferred simplification.
+  k.tier1 = k.tier1_by_mode[0];
+  k.tier2 = std::max(k.tier1, k.tier2_by_mode[1]);
+}
+
+void retier_current_mode(Kernel &k,
+                         const DefaultStrategyConfig::Reduction &config) {
+  const uint32_t mode = k.h && k.h->stable ? 1u : 0u;
+  reduce_retier(k, mode, config.tier1_default, config.tier2_default,
+                config.tier1_relative_permille,
+                config.tier2_relative_permille);
+}
 } // namespace
 
 std::string DefaultStrategyConfig::serialize() const {
@@ -79,6 +101,12 @@ std::string DefaultStrategyConfig::serialize() const {
       << reduction.retier_initial_interval
       << " reduction.retier_max_interval=" << reduction.retier_max_interval
       << " reduction.retier_growth=" << reduction.retier_growth
+      << " reduction.tier1_default=" << reduction.tier1_default
+      << " reduction.tier2_default=" << reduction.tier2_default
+      << " reduction.tier1_relative_permille="
+      << reduction.tier1_relative_permille
+      << " reduction.tier2_relative_permille="
+      << reduction.tier2_relative_permille
       << " reduction.square_root_cadence="
       << reduction.square_root_cadence
       << " reduction.ramp_fraction=" << reduction.ramp_fraction
@@ -1179,8 +1207,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     owned_h.emplace(k);
   solves++;
   configure_from_env();
-  if (reset_schedule_per_solve)
+  if (reset_schedule_per_solve) {
+    for (uint32_t mode = 0; mode != 2; ++mode) {
+      k.tier1_by_mode[mode] = config_.reduction.tier1_default;
+      k.tier2_by_mode[mode] = std::max(config_.reduction.tier1_default,
+                                       config_.reduction.tier2_default);
+    }
+    pose_focused_tiers(k);
     reset_schedule(k);
+  }
   inprocess_.build(k);
   EventTrace event_trace;
   event_trace.open_from_env(k);
@@ -1264,7 +1299,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.learned(k, k.pending.lits);
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (dynamic_tiers_ && k.stats.conflicts > retier_.next_conflicts) {
-        reduce_retier(k);
+        retier_current_mode(k, config_.reduction);
+        pose_focused_tiers(k);
         event_trace.retier(k);
         if (retier_.interval < config_.reduction.retier_max_interval)
           retier_.interval *= config_.reduction.retier_growth;
@@ -1295,9 +1331,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (want_reduce(k) && reduce_guard(k)) {
       event_trace.macro(k, "reduce_begin");
       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
-      // Keep the most recent exponentially scheduled tier snapshot. Kissat
-      // retiers only from analyze.c's glue-limit cadence; Reduce consumes that
-      // snapshot and does not refresh the histogram at its own boundary.
+      if (dynamic_tiers_)
+        retier_current_mode(k, config_.reduction);
+      pose_reduce_tiers(k);
       reduce_candidates(k, reduce_scratch_);
       const size_t reduce_victims =
           std::min(rp.victims(k, reduce_scratch_.size()),
@@ -1309,6 +1345,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                           k, config_.reduction.compact_inactive_percent))
         kernel_compact_variables(k);
       update_reduce_limit(k);
+      pose_focused_tiers(k); // vivifyfocusedtiers=1 is the shipped default.
       event_trace.macro(k, "reduce_end");
       continue;
     }
