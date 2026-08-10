@@ -2,6 +2,7 @@
 // target/best phase snapshots, and their per-variable growth. See
 // heuristics.hpp for the ownership rule.
 #include "policies/heuristics.hpp"
+#include "policies/event_trace.hpp"
 
 #include <algorithm> // std::max (rescale_scores)
 #include <cassert>
@@ -532,6 +533,7 @@ void heuristics_update_target_phases(Kernel &k) {
     return;
   const uint32_t assigned = static_cast<uint32_t>(k.trail.size());
   if (k.h->target_assigned < assigned) {
+    event_trace_target_save(k);
     k.h->target_assigned = assigned;
     for (const Lit lit : k.trail)
       k.h->target[var_of(lit)] = negated(lit) ? -1 : 1;

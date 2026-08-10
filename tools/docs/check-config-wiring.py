@@ -148,6 +148,7 @@ CONFIG_START = "bve_retry_fixed_head"
 # per-rule resumption watermarks (`*_touch_mark`) — the `transitive_cursor`
 # category, which a policy may reset but never "configures".
 NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
+              "warming",
               "touch_epoch", "touch_fixed_head",
               "subsume_touch_mark", "strengthen_touch_mark",
               "bce_touch_mark", "ternary_touch_mark",

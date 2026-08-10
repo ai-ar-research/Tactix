@@ -175,64 +175,6 @@ void seed_values(Walker &w, const Kernel &k) {
   }
 }
 
-// Warmup (kissat warmup.c + propbeyond.c, cadical warmup.cpp): complete the
-// seed into a propagation-consistent assignment before walking, ignoring
-// conflicts. Runs over the walker's own structures in variable-index order —
-// decision-heuristic order would mean popping the very `H` state this op must
-// leave alone. Opt-in via TACTIX_WALK_WARMUP: a plan §5.6 dosing arm, not a
-// constant, being a large win on walk-decisive instances and a loss elsewhere.
-void warmup(Walker &w) {
-  const uint32_t nlits = w.nlits();
-  std::vector<int8_t> val(nlits, 0); // tri-state: 0 unassigned
-  std::vector<uint32_t> ntrue(w.nclauses, 0);
-  std::vector<uint32_t> nfree(w.nclauses);
-  for (uint32_t c = 0; c < w.nclauses; c++)
-    nfree[c] = w.cl_beg[c + 1] - w.cl_beg[c];
-  std::vector<Lit> queue;
-  const auto assign = [&](Lit lit) {
-    val[lit] = 1;
-    val[negate(lit)] = -1;
-    queue.push_back(lit);
-  };
-  const auto propagate = [&]() {
-    while (!queue.empty()) {
-      const Lit lit = queue.back();
-      queue.pop_back();
-      for (uint32_t i = w.occ_beg[lit]; i < w.occ_beg[lit + 1]; i++)
-        ntrue[w.occ[i]]++, nfree[w.occ[i]]--;
-      const Lit nl = negate(lit);
-      for (uint32_t i = w.occ_beg[nl]; i < w.occ_beg[nl + 1]; i++) {
-        const uint32_t c = w.occ[i];
-        if (--nfree[c] || ntrue[c])
-          continue; // still open, or already satisfied
-        // No free literal left, so falsified; propagating beyond is the point
-        for (uint32_t j = w.cl_beg[c]; j < w.cl_beg[c + 1]; j++)
-          if (!val[w.cl_lits[j]]) {
-            assign(w.cl_lits[j]);
-            break;
-          }
-      }
-      w.steps += (w.occ_beg[lit + 1] - w.occ_beg[lit]) +
-                 (w.occ_beg[nl + 1] - w.occ_beg[nl]) + 1;
-    }
-  };
-  for (Var v = 0; v < w.k->nvars; v++) {
-    const Lit pos_lit = make_lit(v, false);
-    if (val[pos_lit])
-      continue;
-    assign(w.values[pos_lit] > 0 ? pos_lit : negate(pos_lit));
-    propagate();
-  }
-  for (Var v = 0; v < w.k->nvars; v++) {
-    const Lit pos_lit = make_lit(v, false);
-    if (!val[pos_lit])
-      continue; // variable in no walkable clause: keep its decision phase
-    w.values[pos_lit] = val[pos_lit];
-    w.values[pos_lit ^ 1] = val[pos_lit ^ 1];
-    w.best_values[v] = val[pos_lit];
-  }
-}
-
 void init_counters(Walker &w) {
   w.count.assign(w.nclauses, 0);
   w.pos.assign(w.nclauses, 0);
@@ -395,9 +337,6 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
   bool improved = false;
   if (build_table(w, k)) {
     seed_values(w, k);
-    static const bool want_warmup = std::getenv("TACTIX_WALK_WARMUP") != nullptr;
-    if (want_warmup)
-      warmup(w);
     init_counters(w);
     uint64_t limit = steps ? steps : WALK_DEFAULT_STEPS;
     // TACTIX_WALK_MAX_STEPS (diagnostic): hard-cap the per-walk dose on top of
