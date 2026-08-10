@@ -388,6 +388,35 @@ void event_trace_retier(const Kernel &k, uint32_t mode,
     active_trace->retier(k, mode, used_glue);
 }
 
+void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,
+                          const std::vector<uint8_t> &seen,
+                          uint8_t bump_mask) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  std::string payload = "vars=";
+  char score[64];
+  bool first = true;
+  for (const Var v : analyzed) {
+    if (!(seen[v] & bump_mask))
+      continue;
+    if (!first)
+      payload += ',';
+    first = false;
+    payload += std::to_string(kernel_externalize(k, make_lit(v, false)));
+    payload += ':';
+    std::snprintf(score, sizeof score, "%.17g", k.h->scores.score[v]);
+    payload += score;
+  }
+  emit(k, "analyzed", payload.c_str(), false);
+}
+
+void event_trace_analyzed(const Kernel &k, const std::vector<Var> &analyzed,
+                          const std::vector<uint8_t> &seen,
+                          uint8_t bump_mask) {
+  if (active_trace)
+    active_trace->analyzed(k, analyzed, seen, bump_mask);
+}
+
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;

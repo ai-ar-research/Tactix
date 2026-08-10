@@ -398,6 +398,7 @@ static void bump_and_reset_analyzed(Kernel &k) {
         k.stats.bumps_ext_reason_only++;
     }
   };
+  event_trace_analyzed(k, k.analyzed, k.seen, BUMPED);
   if (k.h->stable) {
     for (const Var v : k.analyzed) {
       if (k.seen[v] & BUMPED) {
