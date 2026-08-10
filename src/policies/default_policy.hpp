@@ -27,6 +27,7 @@ public:
   uint64_t randec_sequences = 0;
   uint64_t randec_rng = RANDEC_SEED;
   bool randec_enabled = true;
+  void start_random_sequence(Kernel &);
   void set_config(const DefaultStrategyConfig::Branching *config) {
     config_ = config;
   }
