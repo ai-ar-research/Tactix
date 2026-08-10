@@ -161,6 +161,7 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
 ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   assert(reduce_guard(k));
   k.stats.reductions++;
+  Ref first_reducible = INVALID_REF;
   // aging tick (kissat reduce.c decrements `used` once per reduction):
   // selection already happened on the pre-aging values, matching kissat's
   // read-then-decrement order. The same walk samples the tier2 retention band
@@ -168,6 +169,8 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   // default — what a `likely_to_be_kept` consumer would branch on.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
+    if (first_reducible == INVALID_REF && c->redundant())
+      first_reducible = ref;
     if (c->redundant() && !c->garbage()) {
       const uint32_t used = c->used();
       if (used)
@@ -211,8 +214,12 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
     k.kept_glue = g;
     k.kept_size = sz;
   }
-  if (deleted)
-    kernel_collect_garbage(k); // forwards trail reasons AND pending.ref
+  if (deleted) {
+    assert(first_reducible != INVALID_REF);
+    // Kissat reduce.c starts sparse collection at `first_reducible`, retaining
+    // the already-mutated watch order of the irredundant prefix.
+    kernel_collect_garbage(k, first_reducible);
+  }
   return deleted ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 

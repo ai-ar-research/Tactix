@@ -901,8 +901,10 @@ bool kernel_propagate_binary(Kernel &k) {
 // live clauses into a fresh arena in order, leave a forwarding pointer in
 // the old header (`searched` is dead there), then fix reasons and rebuild
 // the large-watch entries. Watched pairs stay lits[0]/lits[1], so all
-// watch invariants survive collection unchanged.
-void kernel_collect_garbage(Kernel &k) {
+// watch invariants survive collection unchanged. With a nonzero watermark,
+// match Kissat's sparse collector: retain the existing watches for the live,
+// unmoved prefix and only rebuild watches for the relocated tail.
+void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
   // over the compacted arena. Long an implicit assumption of the probing log;
@@ -917,6 +919,23 @@ void kernel_collect_garbage(Kernel &k) {
   // a possibly-garbage clause, the corpus-003 shape.
   for (Ref &r : k.eager_recent)
     r = INVALID_REF;
+  // A policy arena ordering or garbage in the requested prefix can move its
+  // refs, so preserving prefix watches would be invalid. No Reduce call should
+  // hit this fallback: its watermark is the first redundant arena record.
+  if (k.arena_ordering || watch_start > k.arena.size())
+    watch_start = 0;
+  for (Ref ref = 0; ref < watch_start;) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (c->garbage()) {
+      watch_start = 0;
+      break;
+    }
+    ref += clause_words(c->size);
+    if (ref > watch_start) {
+      watch_start = 0;
+      break;
+    }
+  }
   Arena fresh;
   fresh.reserve(k.arena.size());
   std::vector<Ref> order;
@@ -975,8 +994,10 @@ void kernel_collect_garbage(Kernel &k) {
     k.pending.ref = clause_at(k.arena, k.pending.ref)->searched;
   for (Ref &ref : k.otfs_retired)
     ref = clause_at(k.arena, ref)->searched;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++) // strip large entries, keep binaries
-    k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    k.watches.compact(lit, [watch_start](WatchEntry w) {
+      return w.binary() || w.ref() < watch_start;
+    });
   k.arena.swap(fresh);
   // GC relocated every Ref: the dense occurrence index (increment 2) must be
   // rebuilt from the compacted arena in lock-step with the watches below (it
@@ -986,8 +1007,10 @@ void kernel_collect_garbage(Kernel &k) {
     k.dense->large.assign(2 * k.nvars, {});
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    k.watches.push_large(c->lits[0], c->lits[1], ref);
-    k.watches.push_large(c->lits[1], c->lits[0], ref);
+    if (ref >= watch_start) {
+      k.watches.push_large(c->lits[0], c->lits[1], ref);
+      k.watches.push_large(c->lits[1], c->lits[0], ref);
+    }
     if (k.dense && !c->redundant())
       for (const Lit l : *c)
         k.dense->large[l].push_back(ref);
