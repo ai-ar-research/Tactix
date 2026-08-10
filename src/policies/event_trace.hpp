@@ -43,6 +43,7 @@ public:
                   int8_t result);
   void target_save(const Kernel &);
   void phase_save(const Kernel &, Lit);
+  void slot_boundary(const Kernel &, const char *name, const char *stage);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -89,6 +90,7 @@ public:
   void phase_pick(const Kernel &, Var, int8_t, int8_t, int8_t) {}
   void target_save(const Kernel &) {}
   void phase_save(const Kernel &, Lit) {}
+  void slot_boundary(const Kernel &, const char *, const char *) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -111,6 +113,8 @@ void event_trace_phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
                             int8_t result);
 void event_trace_target_save(const Kernel &);
 void event_trace_phase_save(const Kernel &, Lit);
+void event_trace_slot_boundary(const Kernel &, const char *name,
+                               const char *stage);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
@@ -124,6 +128,8 @@ inline void event_trace_phase_pick(const Kernel &, Var, int8_t, int8_t,
                                    int8_t) {}
 inline void event_trace_target_save(const Kernel &) {}
 inline void event_trace_phase_save(const Kernel &, Lit) {}
+inline void event_trace_slot_boundary(const Kernel &, const char *,
+                                      const char *) {}
 #endif
 
 } // namespace tactix

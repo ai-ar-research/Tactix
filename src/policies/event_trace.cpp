@@ -460,6 +460,21 @@ void event_trace_phase_save(const Kernel &k, Lit lit) {
     active_trace->phase_save(k, lit);
 }
 
+void EventTrace::slot_boundary(const Kernel &k, const char *name,
+                               const char *stage) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "name=" + std::string(name) + "|stage=" + std::string(stage);
+  emit(k, "slot_boundary", payload.c_str(), true);
+}
+
+void event_trace_slot_boundary(const Kernel &k, const char *name,
+                               const char *stage) {
+  if (active_trace)
+    active_trace->slot_boundary(k, name, stage);
+}
+
 void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,
                           const std::vector<uint8_t> &seen,
                           uint8_t bump_mask) {

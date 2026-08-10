@@ -1991,9 +1991,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
           set_entry_limit(e, k);
         }
       }
+      event_trace_slot_boundary(k, r.name, "begin");
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
                                 ? run_dosed_entry(k, e, r, ctx)
                                 : run_batch_entry(k, e, r, ctx);
+      event_trace_slot_boundary(k, r.name, "end");
       if (!std::strcmp(r.name, "Congruence"))
         ctx.congruence_changed = ctx.last_result == ApplyResult::Ok;
       else if (!std::strcmp(r.name, "Sweep"))
