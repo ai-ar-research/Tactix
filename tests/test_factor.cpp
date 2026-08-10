@@ -32,6 +32,22 @@ static void add_large(Kernel &k, std::initializer_list<Lit> lits) {
                           ++k.next_clause_id);
 }
 
+static uint32_t count_live_large(Kernel &k, std::initializer_list<Lit> lits) {
+  std::vector<Lit> expected(lits);
+  std::sort(expected.begin(), expected.end());
+  uint32_t result = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->size == expected.size()) {
+      std::vector<Lit> actual(c->begin(), c->end());
+      std::sort(actual.begin(), actual.end());
+      result += actual == expected;
+    }
+    ref += clause_words(c->size);
+  }
+  return result;
+}
+
 // kernel_new_extension_vars grows all per-var state additively, records the
 // extension boundary, and leaves the model-output count at the originals.
 static void test_extension_var_boundary() {
@@ -83,11 +99,124 @@ static void test_factoring_2x3() {
       assert(!has_binary(k, f, rr));
 }
 
-// The first 3x3 grid leaves two partial rows.  Its three fresh large quotients
-// complete those rows into a second 3x2 grid during the same composite pass.
-// This is observable only if apply_factoring indexes its fresh quotients, as
-// Kissat's dense Factor watches do.
-static void test_fresh_large_quotients_extend_index() {
+// Factor has no reference-side dimension ceiling: acceptance is controlled by
+// profitability and the policy effort budget.  This grid crosses Tactix's
+// former 4,096-column implementation cap and must still be reachable through
+// the rule surface.
+static void test_factoring_beyond_former_dimension_cap() {
+  constexpr uint32_t columns = 4097;
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 2 + columns);
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  for (uint32_t i = 0; i < columns; i++) {
+    const Lit remainder = make_lit(2 + i, false);
+    kernel_add_binary_clause(k, a, remainder, ++k.next_clause_id);
+    kernel_add_binary_clause(k, b, remainder, ++k.next_clause_id);
+  }
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  assert(k.nvars == 3 + columns);
+}
+
+// Factor's quotient is a clause projection, not an unassigned-variable
+// projection.  Kissat retains the satisfied grid column (a∨p),(b∨p) when p is
+// root-true; dropping it turns this profitable 2x3 grid into a 2x2 no-op.
+static void test_assigned_binary_remainder() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), q = make_lit(3, false),
+            r = make_lit(4, false);
+  for (const Lit f : {a, b})
+    for (const Lit remainder : {p, q, r})
+      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
+  kernel_assign_unit(k, p);
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  const Lit nx = make_lit(5, true);
+  assert(has_binary(k, nx, p));
+  assert(!has_binary(k, a, p) && !has_binary(k, b, p));
+}
+
+static void test_assigned_large_remainder() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 8);
+  k.factor_size = 3;
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), u = make_lit(3, false);
+  const Lit q = make_lit(4, false), v = make_lit(5, false);
+  const Lit r = make_lit(6, false), w = make_lit(7, false);
+  for (const Lit f : {a, b}) {
+    add_large(k, {f, p, u});
+    add_large(k, {f, q, v});
+    add_large(k, {f, r, w});
+  }
+  kernel_assign_unit(k, p);
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  const Lit nx = make_lit(8, true);
+  assert(count_live_large(k, {nx, p, u}) == 1);
+  assert(count_live_large(k, {a, p, u}) == 0);
+  assert(count_live_large(k, {b, p, u}) == 0);
+}
+
+// Kissat's quotient stack is a clause-occurrence multiset.  Three equal large
+// remainders in each of two rows are therefore a profitable 2x3 grid, not a
+// deduplicated 2x1 set.  Every original Ref and every new quotient occurrence
+// remains independently proof-addressable.
+static void test_duplicate_large_remainder_occurrences() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 4); // a=0 b=1 p=2 q=3
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), q = make_lit(3, false);
+  for (unsigned copy = 0; copy < 3; copy++) {
+    add_large(k, {a, p, q});
+    add_large(k, {b, p, q});
+  }
+  assert(count_live_large(k, {a, p, q}) == 3);
+  assert(count_live_large(k, {b, p, q}) == 3);
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  assert(k.nvars == 5 && k.first_extension_var == 4);
+  const Lit nx = make_lit(4, true);
+  assert(count_live_large(k, {a, p, q}) == 0);
+  assert(count_live_large(k, {b, p, q}) == 0);
+  assert(count_live_large(k, {nx, p, q}) == 3);
+}
+
+// Kissat's dense-mode transition flushes repeated binary watch pairs before
+// Factor connects its occurrence lists. Copies therefore cannot manufacture a
+// profitable 2x3 grid from only two logical pairs.
+static void test_duplicate_binary_occurrences_are_flushed() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 3); // a=0 b=1 p=2
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false);
+  for (unsigned copy = 0; copy < 3; copy++) {
+    kernel_add_binary_clause(k, a, p, ++k.next_clause_id);
+    kernel_add_binary_clause(k, b, p, ++k.next_clause_id);
+  }
+
+  assert(factor_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.factorings == 0);
+  assert(kernel_binary_copies(k, a, p) == 1);
+  assert(kernel_binary_copies(k, b, p) == 1);
+}
+
+// The first 3x3 grid leaves two partial rows.  Its fresh quotient would
+// complete them only by using the new extension literal as a third factor.
+// Kissat grows its dense remainder universe but keeps `factoring.initial`
+// fixed, so a same-pass extension literal is never a next factor.
+static void test_fresh_large_quotients_do_not_become_factors() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 11);
@@ -111,8 +240,8 @@ static void test_fresh_large_quotients_extend_index() {
       add_large(k, {f, x, y});
 
   assert(factor_apply(k) == ApplyResult::Ok);
-  assert(k.stats.factorings == 2);
-  assert(k.nvars == 13 && k.first_extension_var == 11);
+  assert(k.stats.factorings == 1);
+  assert(k.nvars == 12 && k.first_extension_var == 11);
 }
 
 // Fresh extension vars are demoted to the bottom of the VMTF queue in
@@ -190,7 +319,12 @@ int main() {
   // below-threshold grids factor through the rule's own surface.
   test_extension_var_boundary();
   test_factoring_2x3();
-  test_fresh_large_quotients_extend_index();
+  test_factoring_beyond_former_dimension_cap();
+  test_assigned_binary_remainder();
+  test_assigned_large_remainder();
+  test_duplicate_large_remainder_occurrences();
+  test_duplicate_binary_occurrences_are_flushed();
+  test_fresh_large_quotients_do_not_become_factors();
   test_touch_filter_is_policy_only();
   test_demote_fresh_order();
   std::printf("test_factor: all passed\n");

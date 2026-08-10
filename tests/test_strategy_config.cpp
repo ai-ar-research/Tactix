@@ -159,6 +159,7 @@ int main() {
   custom.analysis.chronological_levels = 53;
   custom.inprocess.probe_permille = 59;
   custom.inprocess.sweep_vars = 67;
+  custom.inprocess.sweep_skip_embedded_fixed = false;
   custom.inprocess.sweep_resume = false;
   DefaultPolicy policy(custom);
   Kernel k;
@@ -173,6 +174,8 @@ int main() {
   assert(snapshot.find("reduction.initial_interval=37") != std::string::npos);
   assert(snapshot.find("inprocess.probe_permille=59") != std::string::npos);
   assert(snapshot.find("inprocess.sweep_vars=67") != std::string::npos);
+  assert(snapshot.find("inprocess.sweep_skip_embedded_fixed=0") !=
+         std::string::npos);
   assert(snapshot.find("inprocess.sweep_resume=0") != std::string::npos);
 
   // Environment arms overlay the typed profile and remain visible in its

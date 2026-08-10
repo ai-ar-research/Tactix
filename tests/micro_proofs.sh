@@ -161,11 +161,14 @@ fi
 # ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
 # group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live
 # original's id). The second case duplicates a grid binary, for delete-all-copies
-# under LRAT. TACTIX_FACTOR_FORCE bypasses the density gate; TACTIX_NO_BVE keeps
+# under LRAT. The third is a 2x3 occurrence grid whose three columns have equal
+# large-clause contents but distinct ids; it pins aligned multiset hints and
+# deletion. TACTIX_FACTOR_FORCE bypasses the density gate; TACTIX_NO_BVE keeps
 # BVE off the grid until Factor has run.
 printf 'p cnf 7 13\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor.cnf"
 printf 'p cnf 7 14\n1 3 0\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor_dup.cnf"
-for cnf in "$T/factor.cnf" "$T/factor_dup.cnf"; do
+printf 'p cnf 6 10\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' > "$T/factor_dup_large.cnf"
+for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
   for mode in binary ascii; do
     proof="$cnf.fac.$mode.drat"
     if [ "$mode" = binary ]; then

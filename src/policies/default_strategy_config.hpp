@@ -188,6 +188,7 @@ struct DefaultStrategyConfig {
         SweepReferenceDefaults::ENVIRONMENT_TICKS;
     bool sweep_strip_root_false = true;
     bool sweep_full_partition = true;
+    bool sweep_skip_embedded_fixed = true;
     bool sweep_resume = true;
 
     uint32_t congruence_productivity_permille = 1;

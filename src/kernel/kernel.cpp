@@ -1289,10 +1289,13 @@ void kernel_rebuild_large_watches(Kernel &k) {
 void kernel_canonicalize_binary_watches(Kernel &k) {
   // Kissat Congruence enters dense mode with a non-null binary save stack.
   // `dense.c:flush_large_watches` walks literals globally, keeps the first
-  // copy of each binary, and saves a pair only at its smaller literal; sparse
-  // resume then recreates both mirrors in that global pair order. This order
-  // feeds every later capped Sweep environment, so preserving the clause set
-  // while leaving parse-order watches in place is not behaviorally neutral.
+  // copy of each binary, and saves a pair only at its smaller literal. Then
+  // `extract_binaries` sorts every equal-first run by its second literal before
+  // sparse resume recreates both mirrors. Thus the surviving original pairs
+  // are globally ordered by (min internal literal, max internal literal), not
+  // by their first occurrence in a watch list. Tactix models compacted
+  // internal indices with import order; sorting by the corresponding pair key
+  // preserves that reference-visible order for capped Sweep environments.
   std::vector<std::pair<Lit, Lit>> binaries;
   std::vector<uint32_t> seen(2 * k.nvars, 0);
   uint32_t epoch = 0;
@@ -1321,6 +1324,14 @@ void kernel_canonicalize_binary_watches(Kernel &k) {
       binaries.emplace_back(lit, other);
     }
   }
+  std::sort(binaries.begin(), binaries.end(), [&](const auto &a,
+                                                  const auto &b) {
+    const uint64_t af = kernel_import_lit_order(k, a.first);
+    const uint64_t as = kernel_import_lit_order(k, a.second);
+    const uint64_t bf = kernel_import_lit_order(k, b.first);
+    const uint64_t bs = kernel_import_lit_order(k, b.second);
+    return af != bf ? af < bf : as < bs;
+  });
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     k.watches.compact(lit, [](WatchEntry) { return false; });
   for (const auto &binary : binaries) {
@@ -1329,6 +1340,30 @@ void kernel_canonicalize_binary_watches(Kernel &k) {
   }
   kernel_rebuild_large_watches(k);
   k.stats.congruence_binary_rebuilds++;
+}
+
+void kernel_deduplicate_binary_watches(Kernel &k) {
+  // Kissat's null-stack dense entry (`watch.c:kissat_flush_large_watches`)
+  // retains the first watch for each partner in each literal list. Proof
+  // clauses need not be deleted: one internal pair can represent any still
+  // live identical proof clause, and `binary_ids` already names the latest.
+  std::vector<uint32_t> seen(2 * k.nvars, 0);
+  uint32_t epoch = 0;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    if (++epoch == 0) {
+      std::fill(seen.begin(), seen.end(), 0);
+      epoch = 1;
+    }
+    k.watches.compact(lit, [&](WatchEntry watch) {
+      if (!watch.binary())
+        return true;
+      const Lit other = watch.other();
+      if (seen[other] == epoch)
+        return false;
+      seen[other] = epoch;
+      return true;
+    });
+  }
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {

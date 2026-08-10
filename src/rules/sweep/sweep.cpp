@@ -17,8 +17,11 @@ namespace {
 
 SubResult sweep_solve(SweepEnv &e, const std::vector<SubLit> &assumptions,
                       uint64_t budget) {
+  e.solver.randomize_phases();
   return e.solver.solve(assumptions, budget, SubTickMode::Kitten);
 }
+
+ApplyResult sweep_emit_round(Kernel &, SweepRound &, uint32_t);
 
 // Dedup keys for the environment's clause set: a binary by its literal pair
 // (so both endpoint scans encode it once), a large clause by its arena ref, a
@@ -146,14 +149,18 @@ uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
 // be null) are the proof ids justifying literals the caller already removed.
 bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
              uint64_t id, uint32_t depth, const SweepLimits &,
-             uint64_t *ticks, const std::vector<uint64_t> *strip = nullptr) {
+             uint64_t *ticks, const std::vector<uint64_t> *strip = nullptr,
+             bool deduplicate = true) {
   *ticks += 1;
   k.stats.sweep_ticks_dedup += 1;
-  if (2 * (static_cast<size_t>(e.nclauses()) + 1) >= e.key_slots.size())
-    keyset_grow(e);
-  const size_t slot = keyset_slot(e, key);
-  if (e.key_slots[slot] == key)
-    return false; // already encoded (a binary reached from its other end)
+  size_t slot = 0;
+  if (deduplicate) {
+    if (2 * (static_cast<size_t>(e.nclauses()) + 1) >= e.key_slots.size())
+      keyset_grow(e);
+    slot = keyset_slot(e, key);
+    if (e.key_slots[slot] == key)
+      return false;
+  }
   for (uint32_t i = 0; i < n; i++) {
     e.clause_lits.push_back(lits[i]);
     env_var(e, var_of(lits[i]), depth);
@@ -162,7 +169,8 @@ bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
   if (strip)
     e.strip_ids.insert(e.strip_ids.end(), strip->begin(), strip->end());
   e.strip_off.push_back(static_cast<uint32_t>(e.strip_ids.size()));
-  e.key_slots[slot] = key;
+  if (deduplicate)
+    e.key_slots[slot] = key;
   e.clause_ids.push_back(id);
   return true;
 }
@@ -173,7 +181,8 @@ bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
 // removal is not made (`docs/calculus.md` V5).
 void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
                     uint64_t key, uint64_t id, uint32_t depth,
-                    const SweepLimits &lim, uint64_t *ticks) {
+                    const SweepLimits &lim, uint64_t *ticks,
+                    bool deduplicate = true) {
   // Chains are cited only under LRAT; DRAT and the no-proof mode need no id.
   const bool cite = k.proof && k.proof->lrat();
   e.kept_scratch.clear();
@@ -203,7 +212,7 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
     return;
   if (!env_add(k, e, e.kept_scratch.data(),
                static_cast<uint32_t>(e.kept_scratch.size()), key, id, depth,
-               lim, ticks, &e.strip_scratch))
+               lim, ticks, &e.strip_scratch, deduplicate))
     return;
   k.stats.sweep_env_lits += e.kept_scratch.size();
   if (lim.strip_false)
@@ -333,6 +342,7 @@ static void sweep_completed_limits(Kernel &k, SweepLimits &lim) {
 }
 
 void sweep_round_begin(Kernel &k, SweepRound &r) {
+  r.env.solver.start_kitten_session();
   // Occurrence index over irredundant large clauses. Irredundant only, because
   // `Reduce` may delete a learned clause between detection and emission and a
   // chain citing a deleted id is a rejected proof. Outside a simplification
@@ -371,6 +381,9 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   // every later pair reading the previous round's refutation.
   r.proofs.clear();
   r.units.clear();
+  r.units_emitted = 0;
+  r.equivalences_emitted = 0;
+  r.emission_batches = 0;
 }
 
 bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
@@ -404,9 +417,14 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
         const Lit o = w.other();
         if (k.values[l] > 0 || k.values[o] > 0)
           continue; // root-satisfied: it constrains nothing
+        const uint32_t other_sub = e.sub_of_var[var_of(o)];
+        if (other_sub != SWEEP_NO_SUB_VAR &&
+            e.depth[other_sub] < d)
+          continue; // already copied from its strictly earlier BFS endpoint
         const Lit pair[2] = {l, o};
         env_add_clause(k, e, pair, 2, kernel_binary_key(l, o),
-                       kernel_binary_id(k, l, o), d + 1, lim, &ticks);
+                       kernel_binary_id(k, l, o), d + 1, lim, &ticks,
+                       false);
         if (e.vars.size() >= lim.max_env_vars) {
           limit_reached = true;
           break;
@@ -557,13 +575,17 @@ static uint32_t partition_size(const SweepRound &r) {
   return n;
 }
 
-static void partition_refine(SweepRound &r) {
+static void partition_refine(const Kernel &k, SweepRound &r) {
   SweepEnv &e = r.env;
   std::vector<std::vector<Lit>> next;
   for (const auto &c : r.partition) {
     std::vector<Lit> positive, negative;
     for (const Lit l : c) {
-      if (repr_find(r, l) != l)
+      // `sweep_refine_partition` drops both merged representatives and every
+      // literal fixed in the main solver. The latter matters for a unit proved
+      // earlier in this same seed: it is assigned immediately, so retaining it
+      // here manufactures a later equivalence query Kissat never asks.
+      if (repr_find(r, l) != l || k.values[l] != 0)
         continue;
       (model_value(e, e.solver.model(), l) > 0 ? positive : negative)
           .push_back(l);
@@ -596,24 +618,35 @@ static void partition_remove_merged_endpoint(SweepRound &r, Lit a, Lit b) {
     c.erase(c.end() - 2);
 }
 
-static void backbone_refine(SweepRound &r) {
+static void backbone_refine(const Kernel &k, SweepRound &r) {
   SweepEnv &e = r.env;
   size_t keep = 0;
   for (const Lit lit : r.backbone)
-    if (model_value(e, e.solver.model(), lit) > 0)
+    if (k.values[lit] == 0 && model_value(e, e.solver.model(), lit) > 0)
       r.backbone[keep++] = lit;
   r.backbone.resize(keep);
 }
 
-static void backbone_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
+static void backbone_flip(Kernel &k,
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+                          Var seed,
+#endif
+                          const SweepLimits &lim, SweepRound &r) {
   SweepEnv &e = r.env;
+  if (!e.solver.has_model())
+    return;
   for (uint32_t round = 0; round < lim.flip_rounds; round++) {
     uint32_t flipped = 0;
     size_t keep = 0;
     for (const Lit lit : r.backbone) {
       k.stats.sweep_backbone_candidates++;
       const SubLit sl = sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
-      if (e.solver.flip_model_literal(sl)) {
+      const bool did_flip = e.solver.flip_model_literal(sl);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_flip(k, seed, "backbone_round", lit, did_flip,
+                             e.solver.kitten_ticks());
+#endif
+      if (did_flip) {
         k.stats.sweep_backbone_flipped++;
         flipped++;
       } else {
@@ -629,26 +662,44 @@ static void backbone_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   }
 }
 
-static void partition_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
+static void partition_flip(Kernel &k,
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+                           Var seed,
+#endif
+                           const SweepLimits &lim, SweepRound &r) {
   SweepEnv &e = r.env;
+  if (!e.solver.has_model())
+    return;
   for (uint32_t round = 0; round < lim.flip_rounds; round++) {
     uint32_t flipped = 0;
     for (auto &c : r.partition) {
       size_t keep = 0;
+      size_t live = c.size();
       for (size_t i = 0; i < c.size(); i++) {
         const Lit l = c[i];
         k.stats.sweep_flip_attempts++;
         const SubLit sl = sub_lit(e.sub_of_var[var_of(l)], negated(l));
-        if (e.solver.flip_model_literal(sl)) {
+        const bool did_flip = e.solver.flip_model_literal(sl);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        event_trace_sweep_flip(k, seed, "partition_round", l, did_flip,
+                               e.solver.kitten_ticks());
+#endif
+        if (did_flip) {
           k.stats.sweep_flipped++;
           flipped++;
+          // Kissat abandons the rest of this class as soon as a successful
+          // flip leaves fewer than two possible members.  Trying the unscanned
+          // tail cannot produce another equivalence, but it does mutate the
+          // embedded model and watch lists seen by the next query.
+          if (--live < 2)
+            break;
         } else {
           c[keep++] = l;
         }
         if (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks)
           break;
       }
-      c.resize(keep);
+      c.resize(live < 2 ? 0 : keep);
       if (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks)
         break;
     }
@@ -667,7 +718,7 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     Var seed,
 #endif
-    const SweepLimits &lim, SweepRound &r
+    const SweepLimits &lim, SweepRound &r, bool commit_inline
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     , uint32_t &query_ordinal
 #endif
@@ -692,10 +743,44 @@ static uint32_t detect_full_partition(
   k.stats.sweep_cand_seeded += partition_size(r);
 
   std::vector<SubLit> &assumptions = r.assumptions;
-  backbone_flip(k, lim, r);
   while (!r.backbone.empty()) {
+    // As in the equivalence loop below, Kissat runs the complete flip pass at
+    // the top of every outer iteration.  In particular, a successful retry of
+    // one popped candidate returns here before the next candidate is chosen;
+    // the changed model can eliminate or reorder much of the remaining
+    // backbone without another embedded solve.
+    backbone_flip(k,
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+                  seed,
+#endif
+                  lim, r);
+    if (r.backbone.empty() ||
+        (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
+      break;
     const Lit lit = r.backbone.back();
     r.backbone.pop_back();
+    const SubLit candidate =
+        sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
+    // `kitten_fixed` is checked before the retry flip. A root-fixed candidate
+    // has already been proved inside the incremental environment; querying it
+    // again changes both the learned-clause stream and all later partitions.
+    if (lim.skip_embedded_fixed && e.solver.fixed_literal(candidate))
+      continue;
+    // Kissat retries the popped candidate even though the immediately
+    // preceding round retained it after a failed flip.  Failure is not
+    // side-effect free: earlier watched clauses may already have relocated
+    // before a later clause blocks the flip.
+    k.stats.sweep_backbone_candidates++;
+    const bool did_flip =
+        e.solver.has_model() && e.solver.flip_model_literal(candidate);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_sweep_flip(k, seed, "backbone_candidate", lit, did_flip,
+                           e.solver.kitten_ticks());
+#endif
+    if (did_flip) {
+      k.stats.sweep_backbone_flipped++;
+      continue;
+    }
     assumptions = {sub_lit(e.sub_of_var[var_of(lit)], !negated(lit))};
     k.stats.sweep_solves++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -705,7 +790,11 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_query(k, seed, query_ordinal++, "backbone", lit,
                             INVALID_LIT, static_cast<int>(res),
-                            e.solver.kitten_ticks() - ticks_before);
+                            e.solver.kitten_ticks() - ticks_before,
+                            e.solver.conflicts());
+    if (res == SubResult::Sat)
+      event_trace_sweep_model(k, seed, query_ordinal - 1, e.vars.data(),
+                              e.solver.model().data(), e.vars.size());
 #endif
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
@@ -713,9 +802,8 @@ static uint32_t detect_full_partition(
     }
     if (res == SubResult::Sat) {
       k.stats.sweep_dir_sat++;
-      backbone_refine(r);
-      partition_refine(r);
-      backbone_flip(k, lim, r);
+      backbone_refine(k, r);
+      partition_refine(k, r);
       continue;
     }
     k.stats.sweep_dir_unsat++;
@@ -723,33 +811,43 @@ static uint32_t detect_full_partition(
     unit.unit = lit;
     sweep_capture_dir(e, unit.proof);
     if (unit.proof.ok && unit.proof.t0 == lit &&
-        unit.proof.t1 == INVALID_LIT)
+        unit.proof.t1 == INVALID_LIT) {
       r.units.push_back(std::move(unit));
+      if (commit_inline && sweep_emit_round(k, r, 0) == ApplyResult::Unsat)
+        break;
+    }
   }
 
-  partition_flip(k, lim, r);
-
   uint32_t found = 0, solved = 0;
-  while (!r.partition.empty() && solved < lim.max_candidates) {
-    // Kissat refines only immediately after a SAT sub-solver result.  The
-    // explicit SAT branches below already do that; refining here again used a
-    // stale model after UNSAT and had no reference counterpart.
+  while (!r.partition.empty() &&
+         (!lim.max_candidates || solved < lim.max_candidates)) {
+    // Kissat runs the whole partition-flip pass at the top of *every*
+    // equivalence-loop iteration, not only after SAT refinement.  A successful
+    // endpoint flip, or a proved equivalence, mutates the embedded model and
+    // watch lists before returning here.  Omitting this interstitial pass keeps
+    // candidates alive which Kissat can discard without another solve.
+    partition_flip(k,
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+                   seed,
+#endif
+                   lim, r);
+    if (r.partition.empty() ||
+        (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
+      break;
     std::vector<Lit> &c = r.partition.back();
     const Lit a = c[c.size() - 2], b = c.back();
-    if (binary_live(k, negate(a), b) && binary_live(k, a, negate(b))) {
-      k.stats.sweep_known++;
-      repr_unite(r, a, b);
-      partition_remove_merged_endpoint(r, a, b);
-      continue;
-    }
-
     // Kissat first asks the current model whether either endpoint can be
     // flipped. A successful flip disproves this candidate pair without a SAT
     // query and removes that endpoint from the live class.
     const auto flip_candidate = [&](Lit lit) {
       k.stats.sweep_flip_attempts++;
       const SubLit sl = sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
-      if (!e.solver.flip_model_literal(sl))
+      const bool did_flip = e.solver.flip_model_literal(sl);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_flip(k, seed, "pair", lit, did_flip,
+                             e.solver.kitten_ticks());
+#endif
+      if (!did_flip)
         return false;
       k.stats.sweep_flipped++;
       return true;
@@ -770,8 +868,11 @@ static uint32_t detect_full_partition(
     }
 
     SweepPairProof pair;
-    assumptions = {sub_lit(e.sub_of_var[var_of(a)], negated(a)),
-                   sub_lit(e.sub_of_var[var_of(b)], !negated(b))};
+    // Kissat asks ¬a ∧ b first, then a ∧ ¬b.  Reversing these two sound
+    // implication checks changes the first SAT model and therefore every
+    // subsequent partition refinement and model-flip trajectory.
+    assumptions = {sub_lit(e.sub_of_var[var_of(a)], !negated(a)),
+                   sub_lit(e.sub_of_var[var_of(b)], negated(b))};
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
@@ -782,7 +883,11 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_query(k, seed, query_ordinal++, "equiv_fwd", a, b,
                             static_cast<int>(res),
-                            e.solver.kitten_ticks() - fwd_ticks_before);
+                            e.solver.kitten_ticks() - fwd_ticks_before,
+                            e.solver.conflicts());
+    if (res == SubResult::Sat)
+      event_trace_sweep_model(k, seed, query_ordinal - 1, e.vars.data(),
+                              e.solver.model().data(), e.vars.size());
 #endif
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
@@ -791,17 +896,16 @@ static uint32_t detect_full_partition(
     if (res == SubResult::Sat) {
       k.stats.sweep_dir_sat++;
       const uint32_t before = partition_size(r);
-      partition_refine(r);
+      partition_refine(k, r);
       k.stats.sweep_cand_refined += before - partition_size(r);
-      partition_flip(k, lim, r);
       continue;
     }
     k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
     sweep_capture_dir(e, pair.fwd);
 
-    assumptions = {sub_lit(e.sub_of_var[var_of(a)], !negated(a)),
-                   sub_lit(e.sub_of_var[var_of(b)], negated(b))};
+    assumptions = {sub_lit(e.sub_of_var[var_of(a)], negated(a)),
+                   sub_lit(e.sub_of_var[var_of(b)], !negated(b))};
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
@@ -812,7 +916,11 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_sweep_query(k, seed, query_ordinal++, "equiv_rev", a, b,
                             static_cast<int>(res),
-                            e.solver.kitten_ticks() - rev_ticks_before);
+                            e.solver.kitten_ticks() - rev_ticks_before,
+                            e.solver.conflicts());
+    if (res == SubResult::Sat)
+      event_trace_sweep_model(k, seed, query_ordinal - 1, e.vars.data(),
+                              e.solver.model().data(), e.vars.size());
 #endif
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
@@ -821,9 +929,8 @@ static uint32_t detect_full_partition(
     if (res == SubResult::Sat) {
       k.stats.sweep_dir_sat++;
       const uint32_t before = partition_size(r);
-      partition_refine(r);
+      partition_refine(k, r);
       k.stats.sweep_cand_refined += before - partition_size(r);
-      partition_flip(k, lim, r);
       continue;
     }
     k.stats.sweep_dir_unsat++;
@@ -835,12 +942,14 @@ static uint32_t detect_full_partition(
     found++;
     repr_unite(r, a, b);
     partition_remove_merged_endpoint(r, a, b);
+    if (commit_inline && sweep_emit_round(k, r, 1) == ApplyResult::Unsat)
+      break;
   }
   return found;
 }
 
-uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
-                           SweepRound &r) {
+static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
+                                   SweepRound &r, bool commit_inline) {
   assert(sweep_guard(k));
   assert(r.repr.size() == 2 * k.nvars && "sweep_round_begin must run first");
   SweepEnv &e = r.env;
@@ -851,8 +960,10 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_sweep_seed(k, seed);
 #endif
-  if (!sweep_env_build(k, seed, lim, r))
+  if (!sweep_env_build(k, seed, lim, r)) {
+    e.solver.reset(0, SubSearchMode::Kitten);
     return 0;
+  }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_sweep_environment(k, seed, static_cast<uint32_t>(e.vars.size()),
                                 e.nclauses(), sweep_environment_hash(k, e));
@@ -863,12 +974,13 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   for (uint32_t i = 0; i < e.vars.size(); i++)
     event_trace_sweep_environment_var(k, seed, i, e.vars[i], e.depth[i]);
 #endif
+  e.solver.reset(static_cast<uint32_t>(e.vars.size()),
+                 SubSearchMode::Kitten);
   if (e.vars.size() < 2 || e.nclauses() < 2)
     return 0; // nothing to be equivalent TO
   k.stats.sweep_environments++;
   k.stats.sweep_env_clauses += e.nclauses();
 
-  e.solver.reset(static_cast<uint32_t>(e.vars.size()));
   std::vector<SubLit> &buf = r.sub_scratch;
   for (uint32_t c = 0; c < e.nclauses(); c++) {
     buf.clear();
@@ -897,7 +1009,11 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_sweep_query(k, seed, query_ordinal++, "initial", INVALID_LIT,
                           INVALID_LIT, static_cast<int>(res),
-                          e.solver.kitten_ticks() - initial_ticks_before);
+                          e.solver.kitten_ticks() - initial_ticks_before,
+                          e.solver.conflicts());
+  if (res == SubResult::Sat)
+    event_trace_sweep_model(k, seed, query_ordinal - 1, e.vars.data(),
+                            e.solver.model().data(), e.vars.size());
 #endif
   if (res == SubResult::Budget) {
     k.stats.sweep_budget++;
@@ -922,7 +1038,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         seed,
 #endif
-        lim, r
+        lim, r, commit_inline
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         , query_ordinal
 #endif
@@ -955,7 +1071,8 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   k.stats.sweep_cand_seeded += r.candidates.size();
 
   uint32_t solved = 0;
-  while (!r.candidates.empty() && solved < lim.max_candidates) {
+  while (!r.candidates.empty() &&
+         (!lim.max_candidates || solved < lim.max_candidates)) {
     const Lit y = r.candidates.back();
     const Lit ry = repr_find(r, y);
     if (ry == seed_lit || ry == negate(seed_lit)) {
@@ -1042,6 +1159,11 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   return found;
 }
 
+uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
+                           SweepRound &r) {
+  return sweep_process_seed(k, seed, lim, r, false);
+}
+
 uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   if (!sweep_guard(k))
     return 0;
@@ -1063,7 +1185,15 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
     const uint32_t external = static_cast<uint32_t>(
         kernel_externalize(k, make_lit(v, false)));
 #endif
-    found += sweep_detect_seed(k, v, lim, r);
+    SweepLimits seed_lim = lim;
+    if (lim.round_ticks) {
+      const uint64_t spent = k.stats.sweep_ticks_sub - start;
+      const uint64_t remaining =
+          spent < lim.round_ticks ? lim.round_ticks - spent : 1;
+      if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
+        seed_lim.env_ticks = remaining;
+    }
+    found += sweep_detect_seed(k, v, seed_lim, r);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t spent = k.stats.sweep_ticks_sub - before;
     if (spent)
@@ -1075,8 +1205,6 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
 }
 
 namespace {
-ApplyResult sweep_emit_round(Kernel &, SweepRound &, uint32_t);
-
 // Kissat's `schedule_inner` moves each newly substituted equivalence
 // representative to the pop end of the live schedule.  Since representatives
 // are scheduled in discovery order, the last one becomes the next seed.  The
@@ -1158,7 +1286,16 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     const uint64_t before = k.stats.sweep_ticks_sub;
     const uint64_t solves_before = k.stats.sweep_solves;
 #endif
-    const uint32_t found = sweep_detect_seed(k, v, lim, r);
+    SweepLimits seed_lim = lim;
+    if (lim.round_ticks) {
+      const uint64_t spent = k.stats.sweep_ticks_sub - start;
+      const uint64_t remaining =
+          spent < lim.round_ticks ? lim.round_ticks - spent : 1;
+      if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
+        seed_lim.env_ticks = remaining;
+    }
+    const uint64_t emissions_before = r.emission_batches;
+    (void)sweep_process_seed(k, v, seed_lim, r, true);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t spent = k.stats.sweep_ticks_sub - before;
     if (spent)
@@ -1170,22 +1307,17 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     for (const SweepEquiv &e : r.found)
       external_pairs.emplace_back(k.internal_to_external[var_of(e.a)],
                                   k.internal_to_external[var_of(e.b)]);
-    const ApplyResult emitted = sweep_emit_round(k, r, found);
-    if (emitted == ApplyResult::Unsat)
-      return emitted;
-    if (emitted == ApplyResult::Ok) {
+    if (k.inconsistent)
+      return ApplyResult::Unsat;
+    if (r.emission_batches != emissions_before) {
       result = ApplyResult::Ok;
       sweep_reschedule_representatives(k, external_pairs);
-      // Kissat applies every swept variable's core/equivalence consequences
-      // before building the next environment. At minimum the new units and
-      // binary implications must reach their root fixpoint here; batching the
-      // whole schedule misclassifies later backbones as equivalences.
-      if (inprocess_reach_root(k))
-        return ApplyResult::Unsat;
     }
     r.found.clear();
     r.proofs.clear();
     r.units.clear();
+    r.units_emitted = 0;
+    r.equivalences_emitted = 0;
   }
   if (k.sweep_tail_next == k.sweep_tail.size()) {
     k.sweep_tail.clear();
@@ -1193,6 +1325,12 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     k.sweep_passes_completed++;
     k.stats.sweep_completed++;
   }
+  // Kissat keeps newly assigned units unpropagated throughout the dense Sweep
+  // pass and performs one probing propagation after releasing the sweeper.
+  // Earlier closure changes later environments and is therefore not merely a
+  // batching optimization.
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
   return result;
 }
 
@@ -1316,13 +1454,12 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
     }
     const bool final_step = (si + 1 == p.steps.size());
     if (final_step) {
-      // The target must be exactly the binary being justified. A shorter target
-      // (a unit) is a stronger fact but a different proof delta, and it would
-      // have been RUP anyway, so the fast path already had it.
-      if (lits.size() != 2)
+      const bool unit = t1 == INVALID_LIT;
+      if (lits.size() != (unit ? 1u : 2u))
         return false;
-      const bool same = (lits[0] == t0 && lits[1] == t1) ||
-                        (lits[0] == t1 && lits[1] == t0);
+      const bool same = unit ? lits[0] == t0
+                             : (lits[0] == t0 && lits[1] == t1) ||
+                                   (lits[0] == t1 && lits[1] == t0);
       if (!same)
         return false;
     }
@@ -1343,8 +1480,14 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
   }
   if (dry)
     return true;
-  kernel_add_binary_clause(k, t0, t1, last_id);
-  k.stats.sweep_binaries++;
+  if (t1 == INVALID_LIT) {
+    k.unit_ids[var_of(t0)] = last_id;
+    kernel_assign_unit(k, t0);
+    k.stats.sweep_units++;
+  } else {
+    kernel_add_binary_clause(k, t0, t1, last_id);
+    k.stats.sweep_binaries++;
+  }
   return true;
 }
 
@@ -1366,9 +1509,6 @@ static bool sweep_emit_unit(Kernel &k, Lit unit) {
   k.unit_ids[var_of(unit)] = id;
   kernel_assign_unit(k, unit);
   k.stats.sweep_units++;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-  event_trace_sweep_unit(k, unit);
-#endif
   return true;
 }
 
@@ -1376,7 +1516,9 @@ namespace {
 // Emission, shared by the canonical round and the per-seed instance so the two
 // cannot drift in what they are willing to write.
 ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
-  if (!found && round.units.empty())
+  (void)found;
+  if (round.units_emitted >= round.units.size() &&
+      round.equivalences_emitted >= round.found.size())
     return ApplyResult::NoOp;
   // A refuted environment means F itself is UNSAT; detection records it and the
   // caller re-derives it through the normal root path rather than here, so this
@@ -1392,11 +1534,27 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
   std::vector<uint64_t> chain_fwd, chain_rev;
   std::vector<std::pair<Lit, Lit>> emitted_equivalences;
   bool any = false;
-  for (const SweepUnitProof &unit : round.units)
-    any |= sweep_emit_unit(k, unit.unit);
-  size_t idx = SIZE_MAX;
-  for (const SweepEquiv &e : round.found) {
-    idx++;
+  while (round.units_emitted < round.units.size()) {
+    const SweepUnitProof &unit = round.units[round.units_emitted++];
+    if (k.value(unit.unit) != 0)
+      continue;
+    bool emitted = false;
+    if (unit.proof.ok &&
+        sweep_emit_general(k, unit.proof, unit.unit, INVALID_LIT, true))
+      emitted = sweep_emit_general(k, unit.proof, unit.unit, INVALID_LIT,
+                                   false);
+    if (!emitted)
+      emitted = sweep_emit_unit(k, unit.unit);
+    if (emitted) {
+      any = true;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_unit(k, unit.unit);
+#endif
+    }
+  }
+  while (round.equivalences_emitted < round.found.size()) {
+    const size_t idx = round.equivalences_emitted++;
+    const SweepEquiv &e = round.found[idx];
     if (k.level != 0 || k.conflict_valid)
       break; // replay needs a quiescent root; stop rather than assert
     if (kernel_binary_live(k, negate(e.a), e.b) &&
@@ -1411,18 +1569,9 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
     // that literal.
     if (k.value(e.a) != 0 || k.value(e.b) != 0)
       continue;
-    if (!force_general &&
-        sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev)) {
-      any = true; // RUP over F, the cheap case
-      emitted_equivalences.emplace_back(e.a, e.b);
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace_sweep_equivalence(k, e.a, e.b);
-#endif
-      continue;
-    }
-    k.stats.sweep_not_rup++;
-    // Not RUP, so replay the sub-solver's own refutation. Both directions are
-    // validated dry before either is written, so the pair lands whole or not.
+    // Kissat commits the captured Kitten core without propagating the main
+    // formula.  Prefer the same path; the main-formula RUP replay is retained
+    // only as a proof-safe fallback for a bounded or untranslatable capture.
     if (e.a == e.b || e.a == negate(e.b) || idx >= round.proofs.size())
       continue;
     const SweepPairProof &pp = round.proofs[idx];
@@ -1433,15 +1582,23 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
       return (p.t0 == u && p.t1 == v) || (p.t0 == v && p.t1 == u);
     };
     const Lit f0 = negate(e.a), f1 = e.b, r0 = e.a, r1 = negate(e.b);
-    if (!((is_pair(pp.fwd, f0, f1) && is_pair(pp.rev, r0, r1)) ||
-          (is_pair(pp.fwd, r0, r1) && is_pair(pp.rev, f0, f1))))
-      continue;
-    if (!sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, true) ||
-        !sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, true))
-      continue; // no general proof either: decline, F unchanged
-    if (sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, false) &&
+    const bool matching =
+        (is_pair(pp.fwd, f0, f1) && is_pair(pp.rev, r0, r1)) ||
+        (is_pair(pp.fwd, r0, r1) && is_pair(pp.rev, f0, f1));
+    bool emitted = false;
+    if (matching &&
+        sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, true) &&
+        sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, true) &&
+        sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, false) &&
         sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, false)) {
       k.stats.sweep_general++;
+      emitted = true;
+    } else if (!force_general) {
+      emitted = sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev);
+      if (!emitted)
+        k.stats.sweep_not_rup++;
+    }
+    if (emitted) {
       any = true;
       emitted_equivalences.emplace_back(e.a, e.b);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -1451,11 +1608,13 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
   }
   if (!emitted_equivalences.empty()) {
     const ApplyResult substituted =
-        substitute_apply_equivalences(k, emitted_equivalences);
+        substitute_apply_sweep_equivalences(k, emitted_equivalences);
     if (substituted == ApplyResult::Unsat)
       return substituted;
     any |= substituted == ApplyResult::Ok;
   }
+  if (any)
+    round.emission_batches++;
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 } // namespace
@@ -1512,8 +1671,10 @@ ApplyResult sweep_try(Kernel &k, Var seed) {
   if (k.work_budget)
     lim.round_ticks = k.work_budget;
   sweep_round_begin(k, round);
-  const uint32_t found = sweep_detect_seed(k, seed, lim, round);
-  return sweep_emit_round(k, round, found);
+  (void)sweep_process_seed(k, seed, lim, round, true);
+  if (k.inconsistent || inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  return round.emission_batches ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
 // Ranks by the canonical seed order and never filters: a variable this rule

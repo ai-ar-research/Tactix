@@ -120,6 +120,40 @@ static void test_apply_substitutes() {
   assert(!k.reconstruction.empty());
 }
 
+// Kissat's Sweep-connected substitution rewrites a surviving large clause in
+// place. Tactix represents shrinking/replacement by appending a new arena
+// record, but the Sweep helper must restore the old logical position when it
+// collects: later capped environments observe clause order.
+static void test_sweep_equivalence_preserves_large_clause_position() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit before[3] = {internalize(3), internalize(4), internalize(5)};
+  const Lit touched[3] = {internalize(2), internalize(4), internalize(6)};
+  const Lit after[3] = {internalize(-3), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, before, 3, false, 0);
+  kernel_add_large_clause(k, touched, 3, false, 0);
+  kernel_add_large_clause(k, after, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+
+  const std::vector<std::pair<Lit, Lit>> equivalences = {
+      {internalize(1), internalize(2)}};
+  assert(substitute_apply_sweep_equivalences(k, equivalences) ==
+         ApplyResult::Ok);
+
+  std::vector<Lit> first_literals;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    assert(!c->garbage());
+    first_literals.push_back(c->lits[0]);
+    ref += clause_words(c->size);
+  }
+  assert(first_literals.size() == 3);
+  assert(first_literals[0] == internalize(3));
+  assert(first_literals[1] == internalize(1));
+  assert(first_literals[2] == internalize(-3));
+}
+
 // Model reconstruction through ρ: a model of the reduced formula with x2 at the
 // wrong value must extend to satisfy every original clause.
 static void test_model_reconstruction() {
@@ -241,6 +275,7 @@ int main() {
   test_apply_unsat();
   test_contradictory_units_refute();
   test_apply_substitutes();
+  test_sweep_equivalence_preserves_large_clause_position();
   test_model_reconstruction();
   test_size_collapse_unit();
   test_apply_instance_one_class();

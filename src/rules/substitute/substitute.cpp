@@ -240,10 +240,49 @@ void emit_unsat(Kernel &k, Lit x) {
 // witnesses once per substituted variable, and asserts any collapsed root units
 // un-propagated (M1 owns the cascade, the Probe/Vivify batch discipline).
 // Returns Unsat on an empty rewrite, Ok if anything changed, NoOp otherwise.
+enum class SubstitutionArenaOrder {
+  Policy,
+  PreserveClausePosition,
+};
+
+// Sweep rewrites each connected clause in place (`sweep.c`'s
+// `substitute_connected_clauses`).  Tactix clauses cannot shrink in place: the
+// arena record has no separate allocation-size field, so a replacement is
+// appended and the old record is garbaged.  Preserve the same *logical* pose at
+// collection time by assigning every large replacement the ordinal of its old
+// record.  This is a general representation bridge, not a candidate-order
+// heuristic: all untouched clauses keep their ordinal and binary/unit
+// collapses simply leave a hole.
+struct PositionPreservingOrder final : ArenaOrdering {
+  std::vector<uint64_t> rank;
+
+  void order(const Kernel &, std::vector<Ref> &refs) override {
+    std::stable_sort(refs.begin(), refs.end(), [&](Ref a, Ref b) {
+      const uint64_t ar = a < rank.size() ? rank[a] : UINT64_MAX;
+      const uint64_t br = b < rank.size() ? rank[b] : UINT64_MAX;
+      if (ar != br)
+        return ar < br;
+      return a < b;
+    });
+  }
+};
+
 ApplyResult do_substitution(Kernel &k, const SccResult &r,
-                            const std::vector<uint8_t> &sub) {
+                            const std::vector<uint8_t> &sub,
+                            SubstitutionArenaOrder arena_order =
+                                SubstitutionArenaOrder::Policy) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
+  PositionPreservingOrder position_order;
+  if (arena_order == SubstitutionArenaOrder::PreserveClausePosition) {
+    position_order.rank.assign(k.arena.size(), UINT64_MAX);
+    uint64_t ordinal = 0;
+    for (Ref ref = 0; ref < k.arena.size(); ordinal++) {
+      const Clause *c = clause_at(k.arena, ref);
+      position_order.rank[ref] = ordinal;
+      ref += clause_words(c->size);
+    }
+  }
   // The active substitution set: the caller's `sub`, which step (A) may narrow
   // to `sub_filtered`. The lambda reads through the pointer, so repointing it
   // below re-aims every later use in one place.
@@ -445,12 +484,15 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     // Clamped on cadical's rule (decompose.cpp:629 → shrink_clause); kissat's
     // substitute.c does not clamp here at all. Deviation:
     // docs/implementation-notes.md §13.3.
+    Ref replacement_ref = INVALID_REF;
     switch (kernel_replace_clause(
         k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,
         credundant ? kernel_shrunken_glue(
                          k, cglue, static_cast<uint32_t>(out.size()))
                    : 0,
-        nullptr)) {
+        arena_order == SubstitutionArenaOrder::PreserveClausePosition
+            ? &replacement_ref
+            : nullptr)) {
     case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
       return ApplyResult::Unsat;  // quiescent root)
     case ReplaceOutcome::Unit:
@@ -459,6 +501,13 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       break;
     default:
       break;
+    }
+    if (replacement_ref != INVALID_REF) {
+      assert(arena_order == SubstitutionArenaOrder::PreserveClausePosition);
+      if (position_order.rank.size() <= replacement_ref)
+        position_order.rank.resize(replacement_ref + 1, UINT64_MAX);
+      assert(ref < position_order.rank.size());
+      position_order.rank[replacement_ref] = position_order.rank[ref];
     }
   }
 
@@ -586,8 +635,16 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     if (k.value(u) == 0)
       kernel_assign_unit(k, u);
 
-  if (changed)
-    kernel_collect_garbage(k); // reclaim the garbaged large clauses
+  if (changed) {
+    if (arena_order == SubstitutionArenaOrder::PreserveClausePosition) {
+      ArenaOrdering *const saved = k.arena_ordering;
+      k.arena_ordering = &position_order;
+      kernel_collect_garbage(k); // reclaim without moving replacements to tail
+      k.arena_ordering = saved;
+    } else {
+      kernel_collect_garbage(k); // reclaim the garbaged large clauses
+    }
+  }
   return changed ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
@@ -621,11 +678,13 @@ ApplyResult substitute_apply(Kernel &k) {
   return do_substitution(k, r, sub);
 }
 
-ApplyResult substitute_apply_equivalences(
-    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences) {
+static ApplyResult substitute_apply_equivalences_impl(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences,
+    bool drain_root) {
   if (equivalences.empty())
     return ApplyResult::NoOp;
-  if (inprocess_reach_root(k))
+  assert(k.level == 0 && !k.conflict_valid);
+  if (drain_root && inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.substitute_rounds++;
   SccResult r = substitute_find_sccs(k);
@@ -662,9 +721,20 @@ ApplyResult substitute_apply_equivalences(
   // that policy, while Sweep preserves the live arena traversal it inherited.
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
-  const ApplyResult result = do_substitution(k, r, sub);
+  const ApplyResult result = do_substitution(
+      k, r, sub, SubstitutionArenaOrder::PreserveClausePosition);
   k.arena_ordering = saved_order;
   return result;
+}
+
+ApplyResult substitute_apply_equivalences(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences) {
+  return substitute_apply_equivalences_impl(k, equivalences, true);
+}
+
+ApplyResult substitute_apply_sweep_equivalences(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences) {
+  return substitute_apply_equivalences_impl(k, equivalences, false);
 }
 
 // Instance surface: payload = an SCC representative literal. A single instance

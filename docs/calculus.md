@@ -419,7 +419,10 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   literal, each `Rⱼ` is a clause remainder, `m,n ≥ 2`, `mn > m+n` (a
   strictly positive clause reduction), and `x ∉ vars(F)` is fresh. A binary
   grid is the special case `|Rⱼ|=1`; the shipped bounded matcher admits
-  remainders from clauses through size five.
+  remainders from clauses through size five. Grid members are **clause
+  occurrences**: repeated equal large clauses remain distinct proof ids and
+  each is consumed once. Root-assigned literals may occur in `Rⱼ`; only factors
+  must be active and unassigned, since live clauses—not projections—form `F`.
 - **Effect:** introduce the fresh extension variable `x`; add the `m` **dividers** `{x ∨ fᵢ}` and the
   `n` **quotients** `{¬x} ∪ Rⱼ`; delete the `mn` grid clauses. Net `Δ|F| = (m+n) − mn < 0`. `x` is an
   *extension* variable (indices `≥ first_extension_var`): assigned by search like any other but

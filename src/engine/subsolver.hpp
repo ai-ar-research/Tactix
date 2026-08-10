@@ -13,16 +13,14 @@ namespace tactix {
 
 // Three properties this engine must keep:
 //  - it owns its arena, watches, trail and values and never touches `Kernel`,
-//    so a policy may run it anywhere without perturbing the search trajectory
-//    (even an inference-free pass would move it, since `kernel_propagate`
-//    relocates watches and rewrites `searched` hints);
+//    so it cannot perturb the main search trajectory;
 //  - it is budgeted in its own tick currency and returns `Budget` rather than
 //    guessing, so the effort scheduler doses it like any rule (§5.2);
-//  - it is deterministic: no randomness, no wall clock, fixed decision order.
+//  - it is deterministic: no wall clock or ambient randomness. The shared
+//    fallback has fixed order; Sweep selects Kitten's deterministic
+//    per-environment generator, imported-variable VMTF queue and saved phases.
 
-// Local literal encoding, identical in shape to the kernel's, but a distinct
-// type because it indexes this solver's compact variable space; the environment
-// extraction owns the mapping.
+// Same literal shape as the kernel, but indexing the extracted compact space.
 using SubLit = uint32_t;
 using SubVar = uint32_t;
 
@@ -39,6 +37,11 @@ enum class SubResult {
 enum class SubTickMode {
   Entries, // legacy shared-engine work unit used by BVE definition extraction
   Kitten,  // Kissat cache-line currency used by Sweep scheduling
+};
+
+enum class SubSearchMode {
+  Fixed,  // deterministic shared-engine fallback used by BVE definitions
+  Kitten, // Kissat's imported-variable VMTF queue and randomized phases
 };
 
 // One derived clause: `lits` follows from `chain` in the LRAT sense — assume
@@ -66,7 +69,18 @@ class SubSolver {
 public:
   // Reset to an empty formula over `nvars` variables, reusing the existing
   // allocations so a round of many small environments pays no allocation each.
-  void reset(uint32_t nvars);
+  void reset(uint32_t nvars,
+             SubSearchMode mode = SubSearchMode::Fixed);
+
+  // A Kissat Sweep invocation constructs one embedded Kitten and clears it
+  // between environments. Clear advances Kitten's deterministic generator;
+  // starting a new invocation resets that sequence.
+  void start_kitten_session();
+
+  // Kissat randomizes every active-capacity phase byte immediately before
+  // every Sweep solve. Kept separate from solve because BVE shares this
+  // engine but does not use the Sweep/Kitten search contract.
+  void randomize_phases();
 
   // Add an original clause and return its id. Ids are handed out from 1 in add
   // order, matching the clause numbering of a DIMACS file written in the same
@@ -93,10 +107,15 @@ public:
   // fixed. False means some clause would become false (or the variable is
   // root-fixed). Used only as a cheap model filter; it proves no clause.
   bool flip_model_literal(SubLit lit);
+  // Current level-zero value of an external literal, or zero if it is not
+  // imported, unassigned, or assigned above root (Kitten's `kitten_fixed`).
+  int8_t fixed_literal(SubLit lit) const;
+  bool has_model() const { return model_valid_; }
   // Effort currency, charged per watch-list entry inspected — the same unit
   // `transitive_ticks` / `ternary_ticks` / `bce_ticks` use.
   uint64_t ticks() const { return ticks_; }
   uint64_t kitten_ticks() const { return kitten_ticks_; }
+  uint32_t kitten_phase_capacity() const { return phase_capacity_vars_; }
   // Reported beside `ticks()` as Sweep's (yield, effort) pair.
   uint64_t conflicts() const { return conflicts_; }
   uint32_t nvars() const { return nvars_; }
@@ -124,7 +143,18 @@ private:
   bool propagate();            // false on conflict (conflict_ref_ is then set)
   void backtrack(uint32_t level);
   bool analyze();              // false when the conflict cannot be analyzed
+  void fail_assumptions(const std::vector<SubLit> &);
   SubLit next_decision();
+  SubLit import_literal(SubLit);
+  SubLit export_literal(SubLit) const;
+  std::vector<SubLit> export_literals(const std::vector<SubLit> &) const;
+  void queue_enqueue(SubVar);
+  void queue_dequeue(SubVar);
+  void queue_move_to_front(SubVar);
+  void queue_update_search(SubVar);
+  void queue_bump_analyzed();
+  void clear_assignments();
+  bool propagate_units();
   void attach(SubRef ref);
   SubRef add_derived(const std::vector<SubLit> &lits,
                      const std::vector<uint32_t> &chain);
@@ -145,6 +175,12 @@ private:
   void refute_empty(SubRef conflict); // the empty clause, from a level-0 conflict
 
   uint32_t nvars_ = 0;
+  uint32_t imported_vars_ = 0;
+  uint32_t phase_capacity_vars_ = 0;
+  // `kitten_clear` retains the allocated internal size. Phase randomization
+  // visits that high-water capacity, including bytes above the current
+  // environment's imported-variable count, until the Sweep session ends.
+  uint32_t kitten_capacity_vars_ = 0;
   bool inconsistent_ = false; // the empty clause was derived or added
   bool solved_ = false;       // `solve` has run: no more original clauses
   bool model_valid_ = false;  // the most recent solve returned Sat
@@ -157,7 +193,19 @@ private:
   std::vector<std::vector<SubRef>> occurrences_; // flip safety index
   std::vector<int8_t> values_;                 // by literal: 1/-1/0
   std::vector<int8_t> model_;                  // by variable: +1/-1
-  std::vector<int8_t> phase_;                  // by variable: saved phase
+  std::vector<uint8_t> phase_;                 // by internal variable: sign
+  std::vector<uint32_t> import_; // external variable -> internal + 1
+  std::vector<SubVar> export_;   // internal variable -> external variable
+  std::vector<SubRef> units_;    // original and learned unit clauses
+
+  // Kitten's newest-first VMTF decision queue. The queue is populated in
+  // first-clause-occurrence import order, not the caller's variable order.
+  std::vector<SubVar> queue_prev_, queue_next_;
+  std::vector<uint64_t> queue_stamp_;
+  SubVar queue_first_ = UINT32_MAX;
+  SubVar queue_last_ = UINT32_MAX;
+  SubVar queue_search_ = UINT32_MAX;
+  uint64_t queue_next_stamp_ = 0;
 
   std::vector<SubLit> trail_;
   std::vector<uint32_t> frames_;   // trail index where each level starts
@@ -180,10 +228,14 @@ private:
   std::vector<SubStep> derived_; // every lemma learned, in derivation order
   SubStep target_;               // the last refutation's target clause
   bool have_derivation_ = false;
+  bool target_is_derived_ = false;
 
   uint32_t next_id_ = 1;
   uint32_t original_clauses_ = 0;
   SubVar decision_cursor_ = 0; // fixed decision order (design §3: VSIDS-free)
+  SubSearchMode search_mode_ = SubSearchMode::Fixed;
+  uint64_t kitten_generator_ = 0;
+  uint64_t kitten_initialized_ = 0;
   uint64_t ticks_ = 0;
   uint64_t kitten_ticks_ = 0;
   uint64_t budget_ = 0;

@@ -55,6 +55,14 @@ ApplyResult substitute_apply(Kernel &); // canonical: full round
 ApplyResult substitute_apply_equivalences(
     Kernel &, const std::vector<std::pair<Lit, Lit>> &);
 
+// Sweep commits consequences while its dense pass is still in flight.  Kissat
+// rewrites the proved class immediately but does not propagate newly created
+// root units until the Sweep call ends.  This entry point preserves that
+// lifecycle: the caller must be at level zero and owns the eventual root
+// closure.
+ApplyResult substitute_apply_sweep_equivalences(
+    Kernel &, const std::vector<std::pair<Lit, Lit>> &);
+
 // One directed binary-implication-graph path `from → … → to` as its edge
 // clause-ids in FORWARD order (LRAT antecedent chain; caller guards on lrat).
 // Edge p→q is the binary (¬p∨q). Returns false if no path exists. Reused by V6

@@ -14,10 +14,14 @@ struct SweepReferenceDefaults {
   static constexpr uint32_t MAX_VARS = 8192;
   static constexpr uint32_t CLAUSES = 1024;
   static constexpr uint32_t MAX_CLAUSES = 32768;
-  static constexpr uint32_t CANDIDATE_PAIRS = 32;
+  // Kissat has no per-environment candidate cap: every query spends the one
+  // Sweep effort ledger. Zero is the Tactix "unbounded" sentinel.
+  static constexpr uint32_t CANDIDATE_PAIRS = 0;
   static constexpr uint32_t FLIP_ROUNDS = 1;
   static constexpr uint32_t SEED_CAP = 0;
-  static constexpr uint64_t ENVIRONMENT_TICKS = 200000;
+  // Likewise, the default has no independent per-environment tick ceiling.
+  // The policy hands the remaining round budget to each embedded solver.
+  static constexpr uint64_t ENVIRONMENT_TICKS = 0;
 };
 
 } // namespace tactix
