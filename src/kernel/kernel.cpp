@@ -919,10 +919,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   // a possibly-garbage clause, the corpus-003 shape.
   for (Ref &r : k.eager_recent)
     r = INVALID_REF;
-  // A policy arena ordering or garbage in the requested prefix can move its
-  // refs, so preserving prefix watches would be invalid. No Reduce call should
-  // hit this fallback: its watermark is the first redundant arena record.
-  if (k.arena_ordering || watch_start > k.arena.size())
+  // Garbage in the requested prefix can move its refs, so preserving prefix
+  // watches would be invalid. No Reduce call should hit this fallback: its
+  // watermark is the first redundant arena record.
+  if (watch_start > k.arena.size())
     watch_start = 0;
   for (Ref ref = 0; ref < watch_start;) {
     const Clause *c = clause_at(k.arena, ref);
@@ -946,7 +946,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
       order.push_back(ref);
     ref += words;
   }
-  if (k.arena_ordering)
+  // Arena-order policies belong to whole-arena/inprocessing collection.
+  // Kissat's Reduce preserves the prefix and sweeps the reducible tail in its
+  // existing arena order, even while Tactix has an inprocessing order posed.
+  if (k.arena_ordering && !watch_start)
     k.arena_ordering->order(k, order);
 #ifndef NDEBUG
   std::vector<uint8_t> seen(k.arena.size());

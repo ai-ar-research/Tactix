@@ -100,6 +100,8 @@ static void test_sparse_collect_preserves_prefix_watch_order() {
   // rebuilt reducible tail.
   kernel_swap_large_watch_refs(k, internalize(1), r1, r2, p1[1], p2[1]);
   clause_at(k.arena, first_reducible)->flags |= Clause::GARBAGE;
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse; // posed for inprocessing, ignored by Reduce
   kernel_collect_garbage(k, first_reducible);
 
   std::vector<Ref> refs;
