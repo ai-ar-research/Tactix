@@ -531,6 +531,73 @@ void event_trace_sweep_environment(const Kernel &k, Var seed, uint32_t vars,
     active_trace->sweep_environment(k, seed, vars, clauses, hash);
 }
 
+void EventTrace::sweep_environment_clause(const Kernel &k, Var seed,
+                                          uint32_t ordinal, const Lit *lits,
+                                          uint32_t size) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("SAT_EVENT_TRACE_SWEEP_CLAUSES");
+  if (!selected || std::strtol(selected, nullptr, 10) !=
+                       kernel_externalize(k, make_lit(seed, false)))
+    return;
+  std::vector<int> external;
+  external.reserve(size);
+  std::string payload =
+      "seed=" +
+      std::to_string(kernel_externalize(k, make_lit(seed, false))) +
+      "|ordinal=" + std::to_string(ordinal) + "|order=";
+  for (uint32_t i = 0; i < size; i++) {
+    const int lit = kernel_externalize(k, lits[i]);
+    if (i)
+      payload += ',';
+    payload += std::to_string(lit);
+    external.push_back(lit);
+  }
+  payload += "|set=";
+  std::sort(external.begin(), external.end());
+  for (uint32_t i = 0; i < external.size(); i++) {
+    if (i)
+      payload += ',';
+    payload += std::to_string(external[i]);
+  }
+  emit(k, "sweep_environment_clause", payload.c_str(), false);
+}
+
+void event_trace_sweep_environment_clause(const Kernel &k, Var seed,
+                                          uint32_t ordinal, const Lit *lits,
+                                          uint32_t size) {
+  if (active_trace)
+    active_trace->sweep_environment_clause(k, seed, ordinal, lits, size);
+}
+
+void EventTrace::sweep_query(const Kernel &k, Var seed, uint32_t ordinal,
+                             const char *kind, Lit a, Lit b, int result,
+                             uint64_t ticks) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("SAT_EVENT_TRACE_SWEEP_QUERIES");
+  if (!selected || std::strtol(selected, nullptr, 10) !=
+                       kernel_externalize(k, make_lit(seed, false)))
+    return;
+  const int ea = a == INVALID_LIT ? 0 : kernel_externalize(k, a);
+  const int eb = b == INVALID_LIT ? 0 : kernel_externalize(k, b);
+  const std::string payload =
+      "seed=" +
+      std::to_string(kernel_externalize(k, make_lit(seed, false))) +
+      "|ordinal=" + std::to_string(ordinal) + "|kind=" + kind +
+      "|a=" + std::to_string(ea) + "|b=" + std::to_string(eb) +
+      "|result=" + std::to_string(result) +
+      "|ticks=" + std::to_string(ticks);
+  emit(k, "sweep_query", payload.c_str(), false);
+}
+
+void event_trace_sweep_query(const Kernel &k, Var seed, uint32_t ordinal,
+                             const char *kind, Lit a, Lit b, int result,
+                             uint64_t ticks) {
+  if (active_trace)
+    active_trace->sweep_query(k, seed, ordinal, kind, a, b, result, ticks);
+}
+
 void EventTrace::sweep_effort(const Kernel &k, uint32_t external,
                               uint64_t kitten_ticks, uint64_t entry_ticks,
                               uint64_t solves) {
