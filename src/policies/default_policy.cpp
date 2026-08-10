@@ -895,21 +895,11 @@ size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
 }
 
 Lit DefaultBranching::pick(Kernel &k) {
-  static const DefaultStrategyConfig defaults;
-  const auto &cfg = config_ ? *config_ : defaults.branching;
   assert(k.unassigned > 0);
   if (randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
-    if (c >= randec_until && k.level <= 1 && c >= randec_next) {
-      randec_sequences++;
-      const double n = static_cast<double>(randec_sequences);
-      const double logn = std::log10(n + cfg.logarithm_offset);
-      randec_until =
-          c + static_cast<uint64_t>(cfg.random_sequence_length * logn);
-      randec_next =
-          c + static_cast<uint64_t>(cfg.random_initial_interval * logn);
-      k.stats.random_sequences++;
-    }
+    if (c >= randec_until && k.level <= 1 && c >= randec_next)
+      start_random_sequence(k);
     if (c < randec_until) {
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
@@ -925,6 +915,23 @@ Lit DefaultBranching::pick(Kernel &k) {
   }
   const Var v = heuristics_next_decision_var(k);
   return heuristics_decide_lit(k, v);
+}
+
+void DefaultBranching::start_random_sequence(Kernel &k) {
+  if (!randec_enabled || k.h->stable || k.stats.conflicts < randec_until)
+    return;
+  static const DefaultStrategyConfig defaults;
+  const auto &cfg = config_ ? *config_ : defaults.branching;
+  randec_sequences++;
+  const double n = static_cast<double>(randec_sequences);
+  const double logn = std::log10(n + cfg.logarithm_offset);
+  randec_until =
+      k.stats.conflicts +
+      static_cast<uint64_t>(cfg.random_sequence_length * logn);
+  randec_next =
+      k.stats.conflicts +
+      static_cast<uint64_t>(cfg.random_initial_interval * logn);
+  k.stats.random_sequences++;
 }
 
 void DefaultPolicy::configure_from_env() {
@@ -1386,6 +1393,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (k.h->stable) // entering stable: fresh reluctant sequence
         reluctant = {};
       update_mode_limits(k);
+      // Kissat mode.c calls `kissat_start_random_sequence` after every mode
+      // transition.  It is a no-op on stable entry and starts (or continues)
+      // a focused sequence regardless of decision level or its ordinary
+      // conflict deadline.
+      if (!branching)
+        default_branching_.start_random_sequence(k);
       event_trace.macro(k, "switch_end");
       event_trace.mode_clock(k, "post_switch", mode.ticks_limit,
                              mode.ticks_at_focus_entry, mode.count);

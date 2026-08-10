@@ -67,6 +67,20 @@ int main() {
   if (kernel_externalize(tumbled, tumbled_random.pick(tumbled)) != 1)
     return 1;
 
+  // A stable->focused transition starts a sequence even above decision level
+  // one and before the ordinary randec conflict deadline.
+  Kernel switched;
+  ScopedHeuristics switched_heuristics(switched);
+  kernel_reserve_vars(switched, 3);
+  switched.level = 12;
+  switched.stats.conflicts = 1844;
+  DefaultBranching switched_random(&defaults.branching);
+  switched_random.reset(1500); // ordinary deadline 2000: not due yet
+  switched_random.start_random_sequence(switched);
+  if (switched.stats.random_sequences != 1 ||
+      switched_random.randec_until != 1854)
+    return 1;
+
   DefaultStrategyConfig custom = defaults;
   custom.reduction.initial_interval = 37;
   custom.mode.initial_conflicts = 41;
