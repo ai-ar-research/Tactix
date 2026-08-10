@@ -56,6 +56,17 @@ int main() {
       random.stats.random_decisions != 1)
     return 1;
 
+  Kernel tumbled;
+  ScopedHeuristics tumbled_heuristics(tumbled);
+  kernel_reserve_vars(tumbled, 3);
+  heuristics_seed_activation_order(tumbled, {2, 0, 1});
+  tumbled.stats.conflicts = 855;
+  DefaultBranching tumbled_random(&defaults.branching);
+  tumbled_random.reset(0);
+  // First seed-0 index is 1 modulo 3, which tumble maps to variable 0.
+  if (kernel_externalize(tumbled, tumbled_random.pick(tumbled)) != 1)
+    return 1;
+
   DefaultStrategyConfig custom = defaults;
   custom.reduction.initial_interval = 37;
   custom.mode.initial_conflicts = 41;

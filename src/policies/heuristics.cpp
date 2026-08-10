@@ -44,6 +44,8 @@ void heuristics_discard_rule_events(Kernel &k) {
 
 void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   k.h->saved.resize(nvars, 1); // initial phase: positive (kissat default)
+  for (Var v = old; v < nvars; ++v)
+    k.h->random_order.push_back(v);
   k.h->links.resize(nvars);
   k.h->scores.pos.resize(nvars, UINT32_MAX);
   k.h->scores.score.resize(nvars, 0.0);
@@ -96,6 +98,15 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   if (!h.walk_prev.empty())
     compact_values(h.walk_prev, int8_t{0});
 
+  std::vector<Var> random_order;
+  random_order.reserve(h.random_order.size());
+  for (const Var old : h.random_order) {
+    const Var now = old_to_new[old];
+    if (now != INVALID_VAR)
+      random_order.push_back(now);
+  }
+  h.random_order.swap(random_order);
+
   std::vector<Var> queue;
   queue.reserve(new_nvars);
   for (Var old = h.queue_first; old != INVALID_VAR; old = h.links[old].next) {
@@ -141,6 +152,7 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
 void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) {
   if (!k.h || order.empty())
     return;
+  k.h->random_order = order;
   // Last activated ends at the queue tail, the most-preferred end. A variable
   // in no stored clause is never bumped and falls to the front; kissat never
   // imports one at all, so its position is unconstrained.
@@ -540,6 +552,13 @@ void heuristics_check(const Kernel &k) {
   // walks off the end.
   assert(k.h->nvars == k.nvars);
   assert(k.h->saved.size() == k.nvars);
+  assert(!k.nvars || !k.h->random_order.empty());
+  std::vector<uint8_t> random_ordered(k.nvars, 0);
+  for (const Var v : k.h->random_order) {
+    assert(v < k.nvars);
+    assert(!random_ordered[v]);
+    random_ordered[v] = 1;
+  }
   assert(k.h->links.size() == k.nvars);
   assert(k.h->scores.pos.size() == k.nvars);
   assert(k.h->scores.score.size() == k.nvars);

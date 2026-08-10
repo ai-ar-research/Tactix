@@ -22,6 +22,11 @@ struct Heuristics {
   uint32_t nvars = 0;
 
   std::vector<int8_t> saved; // by var: saved phase (+1/-1)
+  // External Tactix variable reached by a Kissat internal random index.
+  // Kissat's default tumble imports variables in first-activation order;
+  // retaining that permutation lets random decisions match without renumbering
+  // kernel variables or changing the public Decide instance identity.
+  std::vector<Var> random_order;
 
   // VMTF (focused-mode decision heuristic; kissat queue.h)
   std::vector<Link> links; // by var
