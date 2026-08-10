@@ -162,6 +162,21 @@ static void test_reduce_used_retention() {
   assert(cands.size() == 2); // protection lapsed; both are candidates
 }
 
+static void test_reduce_equal_rank_preserves_arena_order() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 6);
+  const Lit first[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit second[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref first_ref = kernel_add_large_clause(k, first, 3, true, 9);
+  const Ref second_ref = kernel_add_large_clause(k, second, 3, true, 9);
+  std::vector<Ref> candidates;
+  reduce_candidates(k, candidates);
+  assert(candidates.size() == 2);
+  assert(candidates[0] == first_ref && candidates[1] == second_ref &&
+         "equal Kissat ranks must retain the arena scan order");
+}
+
 // The retention-band instrument tracks the live tier: moving `k.tier2` moves
 // the dynamic count and leaves the static one alone.
 static void test_tier2_band_tracks_the_live_tier() {
@@ -271,6 +286,7 @@ int main() {
   test_default_arena_order_tracks_search();
   test_reduce_deletes_and_logs();
   test_reduce_used_retention();
+  test_reduce_equal_rank_preserves_arena_order();
   test_tier2_band_tracks_the_live_tier();
   test_solve_with_restarts_still_correct();
   puts("test_restart_reduce OK");
