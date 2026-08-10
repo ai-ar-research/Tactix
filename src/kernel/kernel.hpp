@@ -20,6 +20,10 @@ void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_sweep_seed(const Kernel &, Var);
 void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
                                    uint64_t);
+void event_trace_sweep_environment_clause(const Kernel &, Var, uint32_t,
+                                          const Lit *, uint32_t);
+void event_trace_sweep_query(const Kernel &, Var, uint32_t, const char *, Lit,
+                             Lit, int, uint64_t);
 void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t,
                               uint64_t);
 void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,

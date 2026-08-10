@@ -61,6 +61,15 @@ faithful port but never select what gets repaired, and a regression on a
 faithful port indicts the implementation or a missing coupled mechanism, never
 the reference mechanism.
 
+The implementation boundary is the smallest complete semantic unit in the
+reference, not the nearest local branch.  A port includes every piece of state
+that determines that branch's meaning—such as its analysis result, retained
+trail, candidate classification, conditional predecessors and follow-ups, and
+proof/model transition.  A locally sound proxy or positional heuristic is not
+a faithful baseline and must not ship as an approximation.  If the complete
+unit cannot land in one increment, keep the gap open and use trace-only
+instrumentation until its coupled contract is understood.
+
 For every observed reference mismatch, first classify whether Tactix's current
 effect is strictly stronger under the same correctness contract.  Keep and
 specify a strict improvement; otherwise repair the mismatch.  If neither claim

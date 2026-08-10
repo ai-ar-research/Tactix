@@ -17,22 +17,27 @@ only.
 
 ## Resume here
 
-The three P4A fixtures and the first P4B fixture, `mod4block`, are closed. The
-startup sparse collection, 10M preprocessing floor, Sweep per-seed application,
-Kitten effort currency, selected-pair model-flip wire, and live Factor schedule
-are now cumulative. The accepted production pin solves `mod4block` in **10.95s**
-against Kissat's **18.51s**; both models verify and all 69 Release checks pass.
+The three P4A fixtures remain closed, but the first P4B fixture, `mod4block`, is
+reopened by its cumulative guard.  The former closing pin `95bcea4` solves it in
+**10.96s**; the next accepted `mp1` increment `c5a98e4` takes **261.40s** with
+5,028,372 conflicts.  Both models and proofs verify.  The first old/new semantic
+difference is preprocessing Sweep seed 171: the corrected embedded solver
+invalidates a SAT model after a later UNSAT-under-assumptions solve.  A focused
+rollback proves that first difference is performance-neutral by itself.  The
+complete boundary is `SP-SWEEP-KITTEN-1`: Tactix deduplicates one equal-depth
+binary encounter, and even after the environment is made byte-equivalent its
+embedded initial model/query stream differs from Kitten.  Environment-only and
+search-only partial ports are inadmissible; the whole per-seed state machine is
+the implementation unit.
 
-The convergence trace explains the remaining non-identity. Tactix reproduces
-all five Sweep units and both equivalences and spends the dose on 124 seeds;
-Kissat processes 155. A partial Kitten decision-order/phase arm reached 158 but
-changed a later equivalence orientation and timed out at 300s, so it was removed
-under arm frugality. With the strictly better fixed embedded search restored,
-Factor matches Kissat's first 13 exact ordered grids; later fresh-variable order
-is downstream of that deliberate Sweep search/model choice. This is a localized,
-measured-better deviation, not an unexplained timeout.
-The full fixture evidence is in
-`benchmarks/reports/2026-08-10-mod4block-sweep-factor-convergence.md`.
+On `mp1`, the accepted startup/random and sparse-watch repairs make the
+normalized Tactix/Kissat trajectory exact through conflict 2504.  The first
+mismatch at conflict 2505 is downstream of a learned reason Kissat deletes in
+the first search-time Vivify and Tactix retains.  Three locally sound partial
+ports were rejected and removed: Kissat's implied-candidate deletion depends on
+the complete Vivify deduction state machine, not a probe-position or derived-size
+proxy.  The evidence and exact implementation boundary are in
+`benchmarks/reports/2026-08-10-mp1-vivify-semantic-unit.md`.
 The canonical Tier A evidence is in
 `benchmarks/reports/2026-08-09-tier-a-kissat-divergence-convergence.md`;
 the full lifecycle matrix remains in
@@ -43,12 +48,14 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Start the same one-at-a-time boundary/trajectory pass on
-   `mp1-klieber2017s-0500-023-t12`, keeping the accepted `mod4block` pin as a
-   cumulative regression guard.
-2. If the next fixture exposes a mismatch, first decide whether Tactix's current
-   behavior is strictly better; otherwise port the reference wire and require a
-   reach counter plus a same-pin correctness/performance comparison.
+1. Re-close `mod4block` by implementing `SP-SWEEP-KITTEN-1` as one complete
+   semantic unit: depth-sensitive environment construction, Kitten-compatible
+   model/decision/phase and flip behavior, typed query stream, and
+   effort/resumption handoff.  Never restore stale-model reuse.
+2. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
+   deduction terminal-state machine, with per-arm reach counters, proof/model
+   tests, the target-clause deletion trace, and all earlier fixtures as
+   cumulative guards.
 3. Independently restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
@@ -118,8 +125,9 @@ fixtures as cumulative guards.
 - [x] `tr-n300-s055` — accepted stronger singleton minimization.
 - [x] `tr-n260-s002` — accepted stronger singleton minimization.
 - [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
-- [x] `mod4block_2vars_10gates_u2_autoenc-sc2009` — all discoveries reproduced;
-  localized fixed-search deviation measured better (10.95s vs Kissat 18.51s).
+- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — reopened: corrected
+  cumulative pin regresses 10.96s → 261.40s; `SP-SWEEP-KITTEN-1` is localized
+  at preprocessing seed 171 and must land as a complete coupled unit.
 - [ ] `mp1-klieber2017s-0500-023-t12`.
 - [ ] `or_randxor_k3_n540_m540`.
 - [ ] `unsat-set-b-fclqcolor-10-07-09`.
@@ -132,8 +140,10 @@ fixtures as cumulative guards.
 currency/candidate-flip findings are implemented and dispositioned. The stale
 rows `ORDER-TUMBLE-1`, `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`,
 `ORDER-LUCKY-1`, and `ORDER-FOLLOWUP-1` remain closed; their evidence is in
-`docs/implementation-notes.md` §13. There is no open scheduling handle carried
-from `mod4block`; the next finding must come from the next fixed P4B fixture.
+`docs/implementation-notes.md` §13. `SP-SWEEP-KITTEN-1` is the current open
+`mod4block` handle; environment construction, embedded model/search, query
+state, and scheduler handoff are one semantic unit. `SP-VIVIFY-DEDUCE-1` is
+open from `mp1`, but follows the earlier cumulative guard.
 
 N4 verification remains pending until the remaining fixed fixtures complete the
 lifecycle audit. A P4-CVG result adds one deduplicated finding here only when it
@@ -177,8 +187,10 @@ identifies missing or cruder default scheduling.
 
 ## Open items
 
-- `FACTOR-PREPROCESS-1` is the current one-at-a-time frontier: explain the first
-  different preprocessing Factor candidate/output before restoring its first dose.
+- The current one-at-a-time frontier is `SP-SWEEP-KITTEN-1` at `mod4block`
+  preprocessing seed 171.  Align the complete environment/model/query and
+  effort/resumption lifecycle before returning to `mp1`'s
+  `SP-VIVIFY-DEDUCE-1`.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic
   disposition plus an adversarial public-API reachability test.

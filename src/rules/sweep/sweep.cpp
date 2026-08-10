@@ -662,8 +662,16 @@ static void partition_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   }
 }
 
-static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
-                                      SweepRound &r) {
+static uint32_t detect_full_partition(
+    Kernel &k,
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    Var seed,
+#endif
+    const SweepLimits &lim, SweepRound &r
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    , uint32_t &query_ordinal
+#endif
+) {
   SweepEnv &e = r.env;
   r.partition.clear();
   r.partition.emplace_back();
@@ -690,7 +698,15 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     r.backbone.pop_back();
     assumptions = {sub_lit(e.sub_of_var[var_of(lit)], !negated(lit))};
     k.stats.sweep_solves++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const uint64_t ticks_before = e.solver.kitten_ticks();
+#endif
     const SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_sweep_query(k, seed, query_ordinal++, "backbone", lit,
+                            INVALID_LIT, static_cast<int>(res),
+                            e.solver.kitten_ticks() - ticks_before);
+#endif
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -759,7 +775,15 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const uint64_t fwd_ticks_before = e.solver.kitten_ticks();
+#endif
     SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_sweep_query(k, seed, query_ordinal++, "equiv_fwd", a, b,
+                            static_cast<int>(res),
+                            e.solver.kitten_ticks() - fwd_ticks_before);
+#endif
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -781,7 +805,15 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const uint64_t rev_ticks_before = e.solver.kitten_ticks();
+#endif
     res = sweep_solve(e, assumptions, lim.env_ticks);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_sweep_query(k, seed, query_ordinal++, "equiv_rev", a, b,
+                            static_cast<int>(res),
+                            e.solver.kitten_ticks() - rev_ticks_before);
+#endif
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -824,6 +856,10 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   event_trace_sweep_environment(k, seed, static_cast<uint32_t>(e.vars.size()),
                                 e.nclauses(), sweep_environment_hash(k, e));
+  for (uint32_t c = 0; c < e.nclauses(); c++)
+    event_trace_sweep_environment_clause(
+        k, seed, c, e.clause_lits.data() + e.clause_off[c],
+        e.clause_off[c + 1] - e.clause_off[c]);
   for (uint32_t i = 0; i < e.vars.size(); i++)
     event_trace_sweep_environment_var(k, seed, i, e.vars[i], e.depth[i]);
 #endif
@@ -848,10 +884,21 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   }
 
   uint32_t found = 0;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  uint32_t query_ordinal = 0;
+#endif
   std::vector<SubLit> &assumptions = r.assumptions;
   assumptions.clear();
   k.stats.sweep_solves++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  const uint64_t initial_ticks_before = e.solver.kitten_ticks();
+#endif
   SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_sweep_query(k, seed, query_ordinal++, "initial", INVALID_LIT,
+                          INVALID_LIT, static_cast<int>(res),
+                          e.solver.kitten_ticks() - initial_ticks_before);
+#endif
   if (res == SubResult::Budget) {
     k.stats.sweep_budget++;
     k.stats.sweep_ticks += e.solver.kitten_ticks();
@@ -870,7 +917,16 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   }
 
   if (lim.full_partition) {
-    const uint32_t found = detect_full_partition(k, lim, r);
+    const uint32_t found = detect_full_partition(
+        k,
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        seed,
+#endif
+        lim, r
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        , query_ordinal
+#endif
+    );
     k.stats.sweep_ticks += e.solver.kitten_ticks();
     k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
     return found;
