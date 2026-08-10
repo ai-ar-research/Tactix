@@ -385,6 +385,34 @@ static void test_rebuild_large_watches_restores_arena_order() {
   kernel_check_invariants(k);
 }
 
+static void test_rebuild_large_watches_reselects_root_false_pair() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit root = internalize(1);
+  kernel_assign_unit(k, root);
+  kernel_assign_unit(k, internalize(2));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  // The clause starts with two literals false at root.  Kissat's sparse
+  // reconnect moves the two unassigned literals to the watched pair.
+  const Lit lits[4] = {negate(root), internalize(-2), internalize(3),
+                       internalize(4)};
+  const Ref ref = kernel_add_large_clause(k, lits, 4, false, 0);
+  Clause *c = clause_at(k.arena, ref);
+  assert(c->lits[0] == negate(root));
+  assert(c->lits[1] == internalize(-2));
+
+  kernel_rebuild_large_watches(k);
+
+  c = clause_at(k.arena, ref);
+  assert(c->lits[0] == internalize(3));
+  assert(c->lits[1] == internalize(4));
+  assert(watched_by(k, internalize(3), ref));
+  assert(watched_by(k, internalize(4), ref));
+  assert(!watched_by(k, negate(root), ref));
+  kernel_check_invariants(k);
+}
+
 static void test_watch_repair_primitive() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -511,6 +539,7 @@ int main() {
   test_probing_propagation_restores();
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
+  test_rebuild_large_watches_reselects_root_false_pair();
   test_watch_repair_primitive();
   test_canonical_binary_watch_rebuild();
   test_propagate_beyond_conflicts_for_warmup();
