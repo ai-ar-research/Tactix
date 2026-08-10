@@ -220,6 +220,9 @@ Each row closes with an implementation or an accepted deviation in
 - [ ] Concretize O15 through `revise-plan` when phase 4 exits.
 - [ ] Substitute (equivalent-literal substitution) is a potential proof rule
   whose implementation can be optimized.
+- [ ] SAT sweeping currently harvests only equivalences and backbone units;
+  harvesting richer consequences from the sweep environment is room for
+  improvement (related: designing new proof rules).
 
 ## Phase 5 — tuning, bindings, extensibility
 

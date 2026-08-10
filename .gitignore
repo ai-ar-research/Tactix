@@ -6,6 +6,8 @@ glucose/
 drat-trim/
 cake_lpr/
 winners/
+benchmarks/
+report-to-andrew/
 
 # Locally built third-party binaries (symlinks from tools/*/setup.sh)
 tools/solvers/bin/
