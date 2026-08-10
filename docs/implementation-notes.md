@@ -40,7 +40,7 @@ conjunct.
 | Rule | Implemented guard conjuncts | Engineering deviations (else pure) |
 |---|---|---|
 | M1 Propagate | `!conflict_valid · !inconsistent · propagate_head<\|τ\|` | — pure |
-| M2 Decide | `!conflict_valid · !inconsistent · unassigned>0` | — pure (D-LEVEL-1 closed) |
+| M2 Decide | `!conflict_valid · !inconsistent · unassigned>0` | D-LEVEL-1 is closed, but `N1-RETIRED-DECIDE` is open: guided enumeration omits physically retired unassigned variables even though `apply_instance` accepts them and the guard counts them. |
 | M3 ConflictAnalysis | `conflict_valid · !inconsistent` | — pure |
 | M4 | *(folded into M3 — no guard)* | — |
 | S1 Restart | `!inconsistent · !conflict_valid · level>0` | **D-NOOP:** `!conflict_valid`, `level>0` |
@@ -51,12 +51,12 @@ conjunct.
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). R10's definition extraction adds no conjunct either: the sub-solve runs inside `apply`, and its tick ceiling (`Kernel::bve_definition_budget`) is within-rule *scope* — an exhausted budget yields no gate, i.e. the full cross product, which is the pre-R10 behaviour. It only ever WIDENS what the bound accepts, so `instances()` is unchanged (N1). |
 | V5 Sweep | `!inconsistent · level==0` | **D-ROOT:** `level==0`. Otherwise pure — the environment cites level-0 unit ids and reads the watch lists, and both mean what they say only at a drained root; the apply completes that closure itself (`inprocess_reach_root`) rather than demanding a fixpoint in the guard. Emission is two-path and **declines rather than emits** whenever it cannot name a chain (S-d not RUP → S-e; S-e untranslatable → skip the pair), the D-CONG-SKIP discipline. Sub-solver ↔ kernel literals share the `2v\|negated` encoding and the decode must carry the parity through unchanged (`sweep_kernel_lit`) — inverting it is silent, since the negated lemma is still well-formed and the pair still lands in `F`; that was the 2026-08-05 N2 breach (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`). |
-| V6 Congruence | `root` | **D-ROOT:** `level==0`. Live V6 deviations are **D-CONG-SKIP** (LRAT path only) and **D-CONG-TAUT** (drops the merge in **both** formats, deliberately, so DRAT and LRAT keep the same trajectory) — completeness branches in the *effect*, not guard conjuncts (§2). D-CONG-LRAT / D-CONG-UNIT / D-CONG-DELETE are CLOSED (§2; D-CONG-UNIT's sound residuals are listed there). The **mid-round budget** (`Kernel::work_budget` in `congruence_ticks`, SCHED-G1) is within-rule *scope* like every other budgeted batch rule, **not** a guard conjunct (§4): `work_budget == 0` is unbounded, so the API/RandomPolicy/test surface is unchanged, and a cut round's effect is a subset of the full round's. Its two stop sites are the ones that already honour `kernel_terminating` — read-only extraction, and between all-or-nothing closure worklist items — so it inherits their soundness arguments; design `docs/design/2026-08-05-g1-congruence-governor-design.md` §4. The **binary-resolution unit sweep** (V6a, SCHED-G4) adds no guard conjunct either — same `root` guard, and it runs before extraction on a read-only scan; its budget poll is a third stop site with the same subset-of-the-full-round argument. |
+| V6 Congruence | `root` | **D-ROOT:** `level==0`. Live effect deviations are D-CONG-SKIP and D-CONG-TAUT (§2); budget stops are within-round scope. `N1-CONG-INSTANCES` is open because the public surface offers only one canonical full-round payload; either enumerate every independently legal merge or specify and test the round as the indivisible calculus instance. |
 | X2 HyperTernaryRes | `!inconsistent · root` | **D-ROOT:** `level==0`. Otherwise pure — "resolvent ≤ 3 literals, non-tautological, not already present" is the abstract precondition itself (`calculus.md` §6c), not a guard. |
 | X1 BCE | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — blockedness is the abstract precondition (`calculus.md` §6c), tested per candidate. Irredundant-only and "units are not candidates" are within-rule scope choices (§4), not guards. **Judge it with X2/X4, never alone:** measured negative ALONE (Tier B 21.79 vs 8.05) but near-neutral beside them (9.22) — the families repair each other (`benchmarks/reports/2026-07-28-all-rules-on.md`). |
 | X3 CCE | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — the ALA/CLA chain and its blocked/ATA exit are the abstract precondition (`calculus.md` §6c), constructed per candidate. **Four within-rule SCOPE choices, not guards (§4)** — each only narrows which candidates the rule offers, never whether a deletion is justified: (a) candidates are irredundant, wholly unassigned, and LARGE (binaries have no arena identity here and X1 already covers blocked-on-a-binary); (b) a per-candidate tick cap, because the extension loop restarts the covered scan after every addition and is therefore quadratic in one clause's neighbourhood, where cadical bounds only the round; (c) no repetition filter and no per-clause "already tried" flag (cadical's `Clause::covered`) — a budget-cut round rotates its entry point by `cce_rounds % ncands` instead, so the SCHED-B3 starvation shape does not apply; (d) the CLA/blockedness side quantifies over redundant clauses too. **(a)-(c) are engineering; (d) and its opposite number are NOT symmetric and the asymmetry is load-bearing:** the CLA/blocked side may over-quantify freely (it only makes the test stricter), while **ALA is irredundant-only for an ABSTRACT reason** — the ALA-closure lemma needs the justifying clause to be satisfied when `ρ` replays, and S2 Reduce deletes redundant clauses with no witness at all. Filtering the CLA side is exactly X1's fuzz-2204 wrong-SAT shape. |
 | X4 Instantiate | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — "the probe `l ∧ ¬D` is refuted by propagation" is the abstract precondition (`calculus.md` §6d), tested per (clause, literal) pair. The candidate FILTERS (irredundant-only, size ≥ 3, occurrences ≤ 1, ≥ 3 unassigned) are within-rule *scope*, not guards (§4) — each only narrows which instances the rule offers, and the rule deliberately keeps NO "already tried" memo so the instance surface stays complete under N1 (cadical's `instantiateonce` is a scheduling memo we push to the policy). |
-| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Native LRAT emits real `add_rat` (D-FACTOR-LRAT closed 2026-07-20). The binary-**density short-circuit** is a POLICY admission decision handed in as `Kernel::factor_admit` (defaults true) since SCHED-N1FIX, not a guard conjunct and no longer a rule-side `NoOp` — threshold + history in §5. **Grid selection is strategy-owned:** Factor defines the neutral `FactorSelection` interface, `Kernel::factor_selection` scopes a non-owning implementation, and `FactorMatchPolicy` is the policy adapter. Null retains the built-in watch-size path (§5; `docs/design/s2a-factor-matcher-design.md`). ON since 2026-07-20. (Design `docs/design/e2-factor-design.md`.) |
+| E2 Factor | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is abstract terminality. Native LRAT emits real `add_rat`; density admission is policy-owned. `N1-FACTOR-INSTANCES` is open: Factor's public surface exposes only `INSTANCE_CANONICAL`, so a swappable matcher does not by itself expose every legal grid/phase instance. |
 | X6 HyperBinaryRes | `!inconsistent · !conflict_valid · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality); `!conflict_valid` is *abstract* — the rule assumes a root literal atop a consistent trail, so a recorded conflict is a genuine precondition failure, the same argument as V1 Probe's (`hyperbinary.cpp:44-47`). Otherwise pure. **SCOPE, not guard (§4):** the root schedule (a literal is assumed only if its negation has binary occurrences, V1's) and the ledger-residual bound on one root's resolvent loop — the accepted deviation `D-HBR-STANDALONE`, which narrows what DefaultPolicy *chooses*, never what `hyperbinary_instances` can reach (N1). |
 
 ## 2. The engineering-deviation ledger (the impurity punch-list)
@@ -73,8 +73,7 @@ an obligation with a removal path, not a note.
 | D-CONG-SKIP | Under native LRAT, V6 **drops an AND congruence whose bridging chain cannot be built** rather than emitting it unjustified (`congruence_unjustified` counts these; expected 0). LRAT-path completeness only — DRAT emits a bare add the checker searches for itself. | V6 | Deliberate, with C1 (2026-07-21). Before it, a failed `build()` emitted an LRAT line with an EMPTY hint list and continued — rejected by every checker (measured on lrat-check and cake_lpr), i.e. an unverifiable proof produced silently. **Dropping an inference is sound; emitting an unverifiable certificate violates N2**, so the trade is forced. `build()` can fail when a bridging BIG path runs only through a root-assigned literal, which C3's unit channel makes reachable. | Make `build()` total: when the BIG path is blocked by a root-fixed literal, discharge the bridge from that literal's unit id. Until then the counter is the alarm — nonzero `congruence_unjustified` means real inferences are being dropped. |
 | D-CONG-TAUT | V6 **skips any merge whose ladder would emit a TAUTOLOGICAL lemma** (ITE case-split where the condition coincides with a merged output; an XOR rung whose cancelled literal reappears in the conclusion). Both formats bail, so DRAT and LRAT keep the same trajectory. | V6 | Found 2026-07-27 on `tierC/T105.2.0` (ITE chain emitted `309268 -309268 -309297`). **A tautology is checker-divergent**: DRAT accepts it for free (negating it self-conflicts, so RUP passes without touching the formula) while every LRAT checker walks the hints, finds them already satisfied, and rejects the whole proof (cake_lpr "Checking failed at line 762952"; lrat-check "NOT VERIFIED"). The DRAT proof of the same solve verified — so the defect was invisible to every DRAT-checked tier run and to fuzz legs with only small congruence instances. | Derive the equivalence binaries without the degenerate rung (the tautological case-split carries no information — the non-degenerate half already closes both binaries) instead of dropping the merge. Until then `congruence_unjustified` counts these. Guarded durably by a debug assert in `Proof::add_rup`/`add_rat` (`Proof::tautological`), so a regressing rule trips in the debug fuzz legs. |
 | D-STRENGTHEN-BUDGET | C1/C2 have an ENTRY budget (100 per mille = kissat's `forwardeffort`) but no mid-round stop by default. **The interruptible framing is MEASURED DEAD**, and **the dose landed 2026-08-07**: both entries now meter the SUM of `strengthen_visits` and `forward_visits` against ONE shared per-phase allowance, because kissat's `forwardeffort` = 100 per mille governs a single pass that subsumes and strengthens together (`forward.c:539/554`) — billed 100 each, the pair drew twice the reference. What survives of this row is the CURRENCY: partner visits here, `forward_steps` there. | C1, C2 | Making the round interruptible was implemented, gated and **reverted 2026-08-03**: same-window A/B (`20260803-231532-B` / `20260803-231548-C`) gave Tier B 72.22 vs 70.51 and Tier C **366.58 vs 353.26** at identical solve counts, worsening both T3 halves, and was **inert on its own sentinel** (`DivS_862_11` 102.4 s on vs 103.2 s off, where C2 owns 89.7 % of the solve). Mechanism: at 100 per mille the budget binds ~once per solve and a stopped round just defers its candidates to the next one — the work is rescheduled, not saved. Report `benchmarks/reports/2026-08-04-midround-budget-negative.md`. | **Re-scoped closer: DOSE C1/C2, do not re-try interruptibility.** Forcing 1 per mille takes `DivS_862_11` from ~103 s to **11.5 s** with the slot at 33.1 % instead of 98.3 %, so the dose axis is live where the interruptibility axis is dead. The mechanism stays behind `TACTIX_MIDROUND_BUDGET=1` as a §5.6 dosing arm; `c budgetstop` is its reachability witness. Gate any dose on a Tier B+C pair. **Two later results sharpen this row, neither of them a retry of the dead axis.** (1) `SCHED-H1` added §6 TERMINATION polling to the same loops — a different mechanism on a different axis (SIGTERM latency, not effort), always-on, with `c budgetstop` as its own witness; a real SIGTERM interrupted a C1 round at 1.97 G partner visits, so the latency defect was real even though the budget one was not. (2) `SCHED-G2` says WHICH of the two to dose down: C2 absorbs 698,341 of C1's 698,351 subsumptions, so **C1's share is the duplicated one**. |
-| D-VIVIFY-SCHED | **TWO OF THE THREE ARE CLOSED (SCHED-G3, 2026-08-05).** What remains: (2) **one rewrite per candidate per round**, where kissat AND cadical iterate within the candidate. Closed with G3: (1) trail reuse + count-based candidate scheduling and (3) probe order. | C3 Vivify | **decision (ca9d9a3) audit, 2026-08-02**, closed by `SCHED-G3` (`docs/design/2026-08-05-vivify-trail-reuse.md`). The audit's motive was the **1.3 % hit rate** (veer_axi: 233,588 checked for 2,937 vivified), which candidate sorting exists to raise. G3 landed the global count-descending literal order, the lexicographic candidate order under it, the cross-candidate prefix reuse, kissat's eager implied-literal scan (which the count order makes mandatory rather than optional), and the tier1/tier2/tier3 split. **The reuse rate and the yield effect are UNMEASURED** — the design's §5 A/B is the pre-registered window and its first instruction is to read `c vivify2` and abandon the window if `reused` is 0. | **(2) stays open** and now has no dependency left: iterate within the candidate instead of returning after the first rewrite. **▶ SCOPE NOTE (2026-08-03 audit), still binding: this is a YIELD fix, not a cost fix** — Vivify is 0.7–1.9 % of clock everywhere probed, so the payoff must come from the hit rate, not from the time saved. |
-| D-SUBST-UNBOUNDED | **CLOSED by SP-SUBST-2.** V3 remains unbounded through the rule/API surface, while `DefaultPolicy` meters each canonical round in binary-watch cache lines and applies Kissat's 10‰ per-round allowance without the generic minimum-effort floor. The phase already has a two-round cap; a first round over allowance suppresses the second. | V3 | Focused tests prove both the no-floor arithmetic and the over-budget second-round decline. This is a robustness guard, not a promised PAR-2 lever. |
+| D-VIVIFY-SCHED | Candidate sorting, probe order, and cross-candidate trail-prefix reuse are implemented. Neither reference retries the same candidate at its shipped default (`vivifyretry` is off in CaDiCaL), so the former within-candidate retry obligation was false. | C3 Vivify | The remaining experiment is only whether the existing cross-candidate reuse and tier schedule produce measurable reach/yield. It is not a parity gap; reopen only on a traced missing default-enabled reference wire. |
 | D-CCE-SCOPE | X3 CCE's candidate set is narrower than cadical's: **binaries are not candidates** (cadical `coverminclslim`=2 admits them). Not a guard. **The rotation half of this row is CLOSED** — see below. | X3 | Landed with the rule (R6). Binaries: they have no arena identity in this kernel (watch lists only), and the duplicated-pair hazard `kernel_delete_binary_all_copies` guards is the one X1 BCE shipped a crash on; X1 already covers blocked-on-a-binary and ships ON. | Binaries: admit them once the deletion goes through the same `kernel_delete_binary_all_copies` path X1 uses, with X1's duplicated-pair skip — small, and gated on the same fuzz legs. Cost/yield only — it cannot make a deletion unjustified. |
 | D-CCE-FILTER | X3's repetition filter reads **vars(C)** through `kernel_changed_since`, not C's whole ALA/CLA closure, and the substrate stamps no REDUNDANT clause traffic — while the CLA side must quantify over redundant clauses (header deviation 2). So a blockedness created by a Reduce, or by a change confined to a CLA-added literal, is not seen until something irredundant in C moves. | X3 | The exact filter would have to run the closure, i.e. do the work it is deciding whether to skip; and stamping Reduce's deletions per variable would mark everything every round, which is the flood `kernel_mark_garbage` already refuses for `bve_retry`/`removed`. Yield-only in both directions: the filter decides what to TRY, and `cover_clause` re-reads the live index for every test that passes it, so no deletion can become unjustified. | A fourth stamp array for redundant removals, read by X3 alone — the same split `touched_kept` made for C2's adds, and cheap now that the pattern exists. Until then `c cce2`'s `skipped`/`advances` pair against `cce_tried` is the alarm: all-skipped means the filter has gone further than this row claims. |
 | D-C1C2-VICTIM | C1/C2's canonical ROUND is narrower than the abstract precondition on the VICTIM: C2 admits a redundant clause inside the likely-kept tier band with `Kernel::touch_redundant` on (SHIPS ON), while C1's round admits none. CaDiCaL scopes the same loop on `likely_to_be_kept_clause` (`subsume.cpp:388`) with the band ON. Neither is a guard, and the INSTANCE surface is complete over victims either way. | C1, C2 | The abstract precondition constrains only the subsumer/partner (calculus §C1/C2), so this is scope, not soundness. C1: `SCHED-G2` measures C2 absorbing 698,341 of C1's 698,351 subsumptions, so widening C1 would maintain a fifth mechanism on the absorbed half of a fused pass. C2 now follows the reference-first default directive; `TACTIX_TOUCH_REDUNDANT=0` retains the narrower attribution arm. There is no PROMOTION path — CaDiCaL turns a redundant SUBSUMER irredundant (`subsume.cpp:133-149`); we keep subsumers irredundant instead, which is stricter. | Price the default-on band cumulatively and reopen if proof/model checks fail or its cost dominates without measurable yield. C1 remains closed by measurement. Promotion remains conditional on a measured yield gap and would require a `strengthen`-style proof line plus a redundant→irredundant kernel transition. |
@@ -86,6 +85,8 @@ D-CONG-TAUT are effect branches — D-CONG-SKIP on the LRAT path only, D-CONG-TA
 (deliberately, to keep the two proof modes trajectory-identical; `congruence.cpp:792/802/969`).
 
 ### Closed (one-line records — detail in the cited commit where one is named; mechanism in §3)
+
+- **D-SUBST-UNBOUNDED** — closed by SP-SUBST-2: the public V3 surface stays unbounded while DefaultPolicy applies Kissat's private 10‰ binary-watch meter without the generic floor.
 
 - **D-LEVEL-1** (M2) — `propagate_head==|τ|` on Decide. Closed: conjunct removed; `trail_tainted` + full
   re-propagation on search backtrack (kernel.hpp / decide.cpp / kernel_backtrack). Lesson (stale-scan
@@ -316,7 +317,7 @@ the conflict clause as reason, without learning or emitting proof.
   stale state. An OTFS-round reuse retires the replaced reason inside Analyze because no Backjump follows.
 
 <!-- parity-ledger:begin -->
-## 13. The scheduling-parity ledger (N4's operational test)
+## 13. The scheduling-parity ledger (evidence for N4 verification)
 
 **plan decision (f22423c) §1.1 N4** requires that DefaultPolicy's *scheduling* — order, effort budgets, warm-ups,
 watermarks, acceptance bounds and their ramps, and the couplings between them — be **at least as
@@ -324,28 +325,25 @@ sophisticated as Kissat's default strategy**. This section is the register that 
 **per reference scheduling mechanism, either an at-least-as-strong analogue, or a row here naming the
 gap and its closer.** It is reviewed at every phase gate; **an empty or stale ledger is itself a
 finding.**
-**plan decision (7cb3212) makes this ledger a GATE, not just a register:** discharging N4 — no row left reading
-`WE_LACK_IT` or `WE_ARE_CRUDER` without either a closure or an accepted §13.3 deviation carrying its
-measurement and reopening path — is one of the three phase-4 exit criteria, alongside T3 and the Tier D
-campaign. Rows whose closer is a *rule* rather than a schedule are phase-3 inventory items instead and say
-so (`SP-PROBE-2` → X6 `HyperBinaryRes`, plan §5.2). §2 (guard purity) stays a separate register — a scheduling gap is usually not a guard, which
-is exactly why decision (ca9d9a3)'s guard-shaped register could not hold these (diagnosis §5).
+**plan decision (7cb3212) makes this ledger a GATE:** N4 verification is complete only when no row reads
+`WE_LACK_IT` or `WE_ARE_CRUDER` without closure or an accepted §13.3 deviation carrying measurement and a
+reopening path. N4 is immutable, never an item that opens or closes. Verification complete joins P4-CVG,
+T3, and Tier D at the phase-4 exit. Rule rather than schedule closers are phase-3 inventory items
+(`SP-PROBE-2` → X6 `HyperBinaryRes`, plan §5.2); §2 separately owns guard purity.
 
-**Cross-solver divergence gate (2026-08-09).** Full instruction-for-instruction
-identity with Kissat is not an N4 requirement: representations and several
-deliberately selected mechanisms differ. What is required is stronger than a
-performance-only comparison. On a fixed micro-fixture, each observed first
-divergence must record (1) the paired semantic event and bounded context,
-(2) the concrete state or mechanism that caused it, (3) `intentional`,
-`accepted`, or `actionable` disposition, and (4) source/evidence plus a
-reproducer. `unknown` is not an acceptance disposition. Comparison may resume
-past a known divergence only at a named common anchor; the next divergence then
-owes its own record. A Tier-A regression blocks wider tiers until this chain
-localizes the performance-relevant divergence. Diagnostic Tactix builds use
-`TACTIX_ENABLE_EVENT_TRACE=ON`; ordinary builds compile inline stubs and omit
-the trace implementation. The pinned Kissat overlay and the enforcing
-comparator live under `tools/solvers/variants/kissat-event-trace/` and
-`tools/bench/compare_event_trace.py` respectively.
+**Cross-solver divergence gate (2026-08-09; strengthened by P4-CVG).** Exact
+instruction identity is not required: representations and deliberate mechanisms
+differ. Each first portable divergence records bounded context, cause, strength,
+disposition, evidence, reproducer, owner, and reopening condition. Comparator
+status advances `localized` → `actionable` → `closed`; neither of the first two
+closes a fixture. An identical prefix closes only if both traces terminate and
+are untruncated. Comparison may resume past a closed root only at a named common
+anchor; downstream differences otherwise inherit that root. Diagnostic builds
+use `TACTIX_ENABLE_EVENT_TRACE=ON` plus optional inclusive conflict windows;
+ordinary builds omit the implementation, symbols, and event strings. The
+pinned Kissat overlay and comparator live under
+`tools/solvers/variants/kissat-event-trace/` and
+`tools/bench/compare_event_trace.py`.
 
 **Provenance — two passes.**
 **Pass 1 (rule-family sweep), 2026-08-04:** 216 mechanisms audited, 132 gaps (27 high / 53 med / 15 low),
@@ -393,13 +391,13 @@ in §13.3 — and `SP-PROBE-2` closed with X6 (Track R · R9).
 
 **These rows are deliberately NOT compressed, and the reason is not inertia.** A 2026-08-06 review
 proposed collapsing the closed ones to one-liners, which is the right default for finished work
-everywhere else in this project. It is wrong here: N4 is a LIVE gate re-read row by row, and each
+everywhere else in this project. It is wrong here: this is a LIVE evidence register re-read row by row, and each
 closure carries the *measurement* or the *port trap* that justifies it — three of the four HIGH rows the
 A3 pass surfaced had a WRONG PREMISE, and what corrected them is exactly the use-site detail a one-liner
 would drop. The evidence has no other home; the audits are frozen and predate the corrections.
 
-Still open in the wider ledger: `SP-SWEEP-2`, `SP-SWEEP-3`, `SP-SWEEP-7`, and the MED/LOW rows that the
-decision (7cb3212) phase-4 exit now also covers.
+The wider ledger below owns current status. The Sweep rows named in the former
+resume sentence are closed and remain only as closure evidence.
 
 | id | mechanism | Kissat / CaDiCaL | Tactix | verdict | closer |
 |---|---|---|---|---|---|
@@ -460,13 +458,12 @@ decision (7cb3212) phase-4 exit now also covers.
   bigbig-style classifier to gate it, as kissat does", is **refuted by (b)**: kissat's gate is ON for `9vliw`,
   so the classifier would not have prevented that regression. What survives is a single-draw laptop-era
   reading on a phase-1 kernel with no chrono, no OTFS, no reason-side bumping, no dynamic tiers and no
-  inprocessing — every one of which changes the trajectory this mechanism perturbs. It is a reason to ship OFF
-  and re-derive, not a reason to bank a deviation.
-  **Ship state and what decides it.** Default OFF; the knob is read in `main.cpp` so `--random-policy` and the
-  stress policies can toggle it. OFF is byte-identical to the pre-port binary; ON fires tens of millions of
-  times over the same fuzz CNFs and moves the conflict count on 7 of 52, and **6,618** times under
-  `--random-policy` — so neither the OFF arm nor the random-policy fuzz leg is vacuous. The A/B that decides
-  the default is pre-registered in PROGRESS.md, Track SCHED Stage C, with the exact counts.
+  inprocessing — every one of which changes the trajectory this mechanism
+  perturbs. That was the pre-port reason to stage the arm OFF, not the current
+  ship state. **Current ship state:** default ON, following Kissat;
+  `TACTIX_JUMP_REASONS=0` is the direct-antecedent rollback. Reopen on a
+  proof/model failure or cumulative evidence strong enough to justify an
+  accepted deviation.
 
 ### 13.3 Accepted deviations — measured, keep the simpler version
 
@@ -614,7 +611,7 @@ None of these had a row in pass 1. Ordered by severity, then by cost-to-close.
 | SP-CHRONO-1 | **Analyze-side trail reuse (the twin of restart trail reuse)** | cadical `chronoreusetrail`=1 (`analyze.cpp:675-716`): back-jump only as far as the best-ranked variable assigned above the jump level, keeping the rest of the trail. Ranking follows the mode — EVSIDS while stable, `bumped` while focused. kissat has no counterpart on this side; its trail reuse is at RESTART only (`restart.c:86`) | **PORTED AND RETAINED AS AN ARM.** `reuse_trail_level` matches CaDiCaL, including score ties, the chrono-off guard, and retired-variable exclusion. The two defaults conflict without a strength argument that overrides the project tie-break, so the shipped default now follows Kissat: no ranked analysis-side suffix reuse. Ordinary `chrono/chronolevels=100` backtracking remains enabled and Kissat-shaped. `TACTIX_CHRONO_REUSE=1` opts into the CaDiCaL mechanism. | CLOSED — Kissat default selected; CaDiCaL arm preserved. The former on/off closing pair remains N2-clean evidence for the optional mechanism (`20260808-141938-B-n2fix` / `20260808-141941-C-n2fix`, pin `7fbcb11`). Reopen only with comparative evidence that the CaDiCaL default is materially stronger. |
 | SP-VIVIFY-3 | **Schedule-level dedup before spending a propagation** | cadical `vivifyflush`=1 (`vivify.cpp:1410-1428` → `flush_vivification_schedule`, `:372-419`): sort literals within each scheduled clause by occurrence, `stable_sort` the schedule lexicographically, garbage any clause whose prefix equals a preceding shorter-or-equal one | **PORTED (`a7d7a4b`), DEFAULT ON BY PROJECT POLICY.** The canonical round sorts and prefix-flushes within the exact four schedule bands before propagation; `instances()` stays complete and side-effect free. Deletions use the shared C1 proof path. `TACTIX_VIVIFY_FLUSH=0` selects the off arm. | Enabled was correctness-clean and live, but the unthrottled Tier C pair lost two solves (19/30 vs 21/30) and 164.46 PAR-2; the sign survives removal of any four instances. The default is an explicit policy override, not an inference from this measurement. Evidence: `benchmarks/reports/2026-08-09-sp-vivify-3.md`. | closed |
 | SP-PROBE-2 | **Hyper binary resolution during probing** | cadical `probehbr`=1 (`probe.cpp:218`, called `:477`): when a long clause becomes unit at level 1, fold its false literals through `probe_dominator` and **add the binary `(¬dom, lits[0])`**; if `¬dom` was already in the reason the new binary SUBSUMES it and the reason is garbaged (`stats.hbrsubs`) | **CLOSED by X6 `HyperBinaryRes` (Track R · R9).** We resolve POST-HOC off the finished probing trail rather than inside propagation, reproducing cadical's implication TREE exactly — a literal forced by a long clause takes its own dominator as parent, which is the reason cadical installs by adding the resolvent mid-propagation. Strictly weaker in one respect, recorded as deviation 1 in `hyperbinary.hpp`: our resolvents are not visible to the rest of the same probe. Chains come from the shared RUP replay (V5's discipline), so a resolvent unit propagation cannot re-derive is DECLINED, counted in `hbr_declined`, never emitted unchecked. No redundant/irredundant split — our binaries carry no redundancy bit, which is the stricter side | CLOSED — implemented as X6 | Landed 2026-08-06; UNPRICED, its A/B is in PROGRESS's phase-4 table |
-| SP-PREPROC-2 | **The preprocessing dose is ours, and it is large** | kissat `preprocessrounds`=**1** (`preprocess.c:38,113`) over a **reduced** pipeline; cadical: `lim.preprocessing`=0 so `preprocess_round()` never runs without `-P<n>`, while the real pre-search pass is `preprocess_quickly` (`internal.cpp:742-791`, `preprocesslight`=1, first solve only), and `preprocessinit`=2e6 is the conflict-zero budget source | **PORTED; COMPOSITION PRICING OPEN AS `ORDER-FOLLOWUP-1`.** At zero conflicts DefaultPolicy admits the reduced pipeline and excludes elimination. Productive Congruence and Sweep each trigger one eager Substitute; if neither fires, one final Substitute runs. The 2e6 reference and rates are unchanged, as are rule guards/public instances. Per-edge offered/taken/eager/final counters and `TACTIX_PREPROCESS_FOLLOWUPS=0` retain trace and legacy attribution. | correctness closed; cumulative pricing open | med |
+| SP-PREPROC-2 | **The preprocessing dose is ours, and it is large** | kissat `preprocessrounds`=**1** (`preprocess.c:38,113`) over a **reduced** pipeline; cadical: `lim.preprocessing`=0 so `preprocess_round()` never runs without `-P<n>`, while the real pre-search pass is `preprocess_quickly` (`internal.cpp:742-791`, `preprocesslight`=1, first solve only), and `preprocessinit`=2e6 is the conflict-zero budget source | **PORTED; MECHANISM AND COMPOSITION CLOSED.** At zero conflicts DefaultPolicy admits the reduced pipeline and excludes elimination. Productive Congruence and Sweep each trigger one eager Substitute; if neither fires, one final Substitute runs. The 2e6 reference and rates are unchanged, as are rule guards/public instances. Per-edge offered/taken/eager/final counters and `TACTIX_PREPROCESS_FOLLOWUPS=0` retain trace and legacy attribution. | Scheduling parity closed; cumulative performance belongs to P4-CVG/T3. | med |
 | `ORDER-WATCH-1` | **Input and post-inprocessing watch order are search state** | Kissat retains each unassigned input clause's first two file literals: `internal.c:266-365` keeps insertion order and `clause.c:130-135` calls `kissat_sort_literals`, whose `sort.c:8-79` selector returns immediately on an unassigned literal. Dense probe simplifiers then resume sparse mode through `dense.c:199-225`, flushing and rebuilding every large watch in arena order. | **FIXED.** Input set checks sort only a temporary membership copy; stored clauses stably deduplicate file order. `kernel_rebuild_large_watches` retains binaries, strips large entries, resets `searched=2`, and reconnects every live large clause in arena order after every Probe/Eliminate phase, independently of garbage collection. This is scheduler/kernel ordering support, not a proof rule or an optional arm. | `tr-n280-s052` moved from an immediate propagation-order mismatch to exact equality through early Lucky, preprocessing, late Lucky and search. Job `1605897`: 76,216 watch visits, 20,644 implications and 370 conflicts byte-identical; both DRAT proofs verified. Reopen on the first pre-search watch-payload mismatch. | high |
 | SP-SUBST-2 | **Substitute's reference budget** | kissat `substituterounds`=2, `substituteeffort`=10‰ (`substitute.c:568-602`): compare each productive round's `substitute_ticks` with 10‰ of the search-tick delta, without `mineffort` | **PORTED.** SCC discovery charges `Stats::substitute_ticks` by binary-watch cache lines. `DefaultPolicy` grants a fresh 10‰ allowance per round without `MIN_EFFORT_TICKS`; an over-budget productive round prevents the second. The existing phase cap is two rounds. | CLOSED | med |
 | **SP-BACKBONE-2** | **Backbone's binary-first short-circuit and meter** | kissat `backbone.c:185-210` stops at the first large watch under its global order flag and charges only the touched prefix | **PORTED AND CLOSED (`SCHED-G5`–`G7`).** `WatchHead` owns exact per-list `has_large`/`binaries_first` state; binary insertion invalidates only affected lists, compact/rebuild paths reconstruct it, and probing snapshots restore it with the watch words. Binary propagation stops per list and charges `1 + cache_lines(p - begin)`. | The implementation is stronger than Kissat's global flag without changing the binary-only rule surface. Focused tests cover the touched-prefix meter, an affected versus unaffected list, and probing metadata restoration. | Cumulative pricing follows the preceding accepted pin. |
@@ -698,7 +695,7 @@ option is still not scheduling evidence; §16 is rule-inventory evidence.
 The dated evidence report
 `benchmarks/reports/2026-08-09-default-strategy-application-order-audit.md`
 reconstructed executable order rather than assuming the option-led ledger was
-exhaustive. It reopened three deduplicated roots:
+exhaustive. It added three deduplicated roots:
 
 - `ORDER-DEFAULT-1`: Tier-A closed after repairing retired-variable VMTF
   corruption; the dated Reorder report owns trace and paired-run evidence.
@@ -713,11 +710,12 @@ exhaustive. It reopened three deduplicated roots:
   Eliminate clock remained due after Probe-owned preprocessing and fired at
   conflict 1. It now starts at the references' scaled 500-conflict deadline.
 
-The report owns the canonical lifecycle matrix, severity, one-at-a-time
-implementation sequence, counters, correctness gates, cumulative comparison,
-and reopening conditions. Remaining open pricing rows keep N4 open; the
-repaired ordering roots above are closed. The extra post-BVE Instantiate/BCE/CCE tail remains an accepted
-stronger/weaker pipeline deviation, not three separate gaps.
+The report owns the lifecycle matrix, implementation sequence, counters, gates,
+comparisons, and reopening conditions. `ORDER-TUMBLE-1`, `ORDER-ELIM-INIT-1`,
+and `ORDER-BUMP-RATE-1` are closed by §13.2's later traces. Lucky and follow-up
+composition are also closed scheduling mechanisms; their cumulative performance
+belongs to P4-CVG/T3. The post-BVE Instantiate/BCE/CCE tail remains one accepted
+pipeline deviation, not three separate gaps.
 
 <!-- parity-ledger:end -->
 
@@ -771,7 +769,7 @@ completeness; the phase-3 criterion is about the simplification families.
 | Family | Disposition | Evidence |
 |---|---|---|
 | M1 `Propagate` | implemented | calculus §3; phase 1 |
-| M2 `Decide` | implemented | calculus §3; instance surface = all unassigned literals (N1) |
+| M2 `Decide` | implemented; N1 verification finding pending | calculus §3; `N1-RETIRED-DECIDE` in PROGRESS covers physically retired unassigned variables omitted by guided enumeration |
 | M3 `ConflictAnalysis` | implemented | calculus §3; native LRAT hints |
 | M4 | folded into M3 (decision (91c54af)) | calculus §3 M4 |
 | S1 `Restart` · S2 `Reduce` · S5 `Lucky` | implemented | calculus §4 |
@@ -781,9 +779,9 @@ completeness; the phase-3 criterion is about the simplification families.
 | C1 `SubsumeForward` · C2 `Strengthen` · C3 `Vivify` | implemented | calculus §5 |
 | V1 `Probe` · V2 `Backbone` · V3 `Substitute` · V4 `TransitiveReduce` | implemented | calculus §6 |
 | V5 `Sweep` | implemented (+ embedded sub-solver) | calculus §6; `docs/design/v5-sweep-design.md`. Yield is phase-4 dosing, not an inventory gap |
-| V6 `Congruence` | implemented | calculus §6; V6a unit sweep added by `SCHED-G4` |
+| V6 `Congruence` | implemented; N1 verification finding pending | calculus §6; V6a unit sweep added by `SCHED-G4`; `N1-CONG-INSTANCES` owns the canonical-round-only surface |
 | E1 `BVE` | implemented | calculus §6b. Gate kinds: EQUIV, AND/OR, ITE, XOR (syntactic) and **DEFINITION** (sub-solver, R10) — the last closes §11 O11's BVE half. The definition kind sets `resolve_gate`, because a core can be strictly STRONGER than `x ↔ φ`, so its gate×gate resolvents are not tautologies the way the four syntactic kinds' are |
-| E2 `Factor` (BVA) | implemented | calculus §6b; generalises SBVA |
+| E2 `Factor` (BVA) | implemented; N1 verification finding pending | calculus §6b; generalises SBVA; `N1-FACTOR-INSTANCES` owns the canonical-round-only surface |
 | X1 `BCE` · X3 `CCE` | implemented | calculus §6c; both cadical-only, both ship ON |
 | X2 `HyperTernaryRes` · X4 `Instantiate` | implemented | calculus §6c / §6d |
 | X5 `Condition` | **REASONED NO-IMPLEMENT** | §16 + `SP-COND-1` below. `ρ` carries one in-clause witness literal; a conditional autarky's witness is a CUBE over outside variables. kissat has no such rule, cadical ships `condition`=0. Measured anyway: fires on 13/30 Tier C, no solve flips, +11.3 % wall |

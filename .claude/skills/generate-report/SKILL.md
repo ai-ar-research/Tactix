@@ -9,8 +9,8 @@ Read the plan, PROGRESS, relevant diffs, test results, benchmark reports, and
 primary evidence. Do not invoke `compact-docs` merely to prepare a report.
 
 Create a new timestamped directory under `report-to-andrew/` containing the TeX
-source and compiled PDF. Future report directories are local/untracked; the four
-historical tracked TeX/PDF pairs are frozen and must not be edited.
+source and compiled PDF. Future report directories are local/untracked; every
+historical report already tracked by Git is frozen and must not be edited.
 
 The report should be as long as the topic warrants and should state:
 
@@ -21,8 +21,7 @@ The report should be as long as the topic warrants and should state:
 - the next concrete actions.
 
 Distinguish measured facts from inference. Link or cite repository artifacts
-instead of copying long logs. Compile the PDF, inspect the compiler result, and
-verify both files exist; compilation failure blocks completion. Use
-`scripts/build-report.sh path/to/report.tex` so compilation is isolated and the
-cluster TeX module is loaded when available. Start new reports from
-`assets/report-template.tex` when useful.
+instead of copying long logs. Compile the PDF twice from its own directory,
+loading the cluster TeX module when required; inspect the compiler result and
+verify both files exist. Compilation failure blocks completion. Do not cite a
+helper script or template unless that resource actually exists in the tree.

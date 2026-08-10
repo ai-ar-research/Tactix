@@ -7,6 +7,12 @@
 > transliteration). Motivation banked in PROGRESS Log 2026-07-20
 > (`mp1-gap diagnosis`) + `benchmarks/reports/2026-07-20-tierB-vs-kissat.md`.
 
+> **2026-08-09 audit note:** the §3 claim that swappability satisfies N1 is
+> withdrawn. The public rule surface exposes only `INSTANCE_CANONICAL`; a
+> policy-selected grid is not enumeration of every legal grid. The live issue
+> is `N1-FACTOR-INSTANCES` in PROGRESS and implementation notes. Preserve this
+> snapshot until that obligation is resolved, then compact it.
+
 **Goal.** Lift Factor's grid-selection matcher out of the proof rule into the
 policy layer (swappable / learnable — N1 + §5.6) **without touching the BVA proof
 primitive**. The rule keeps the atom `apply_factoring(x, F, R)`; the *choice* of

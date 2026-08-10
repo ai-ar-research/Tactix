@@ -6,12 +6,13 @@ applicable and apply a chosen rule instance; a default policy schedules rules
 automatically to act as a competitive solver. Every rule application emits a
 DRAT/LRAT proof delta, and I/O follows SAT Competition main-track conventions.
 
-**Status: in development (phase 3 — inprocessing).** Core CDCL + proof
+**Status: in development (phase 4 — reference-faithful scheduling).** Core CDCL + proof
 production + the rule API are in place; the inprocessing rule inventory
 (subsume, strengthen, vivify, probe, backbone, substitute, congruence,
 transitive reduction, blocked-clause elimination, hyper-ternary resolution,
 instantiation, BVE, factoring/BVA, sweeping) is implemented and scheduled, and
-work is on how it is scheduled. See
+work is focused on faithful default scheduling and Tier-A convergence with
+Kissat. See
 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) for the architecture, benchmark tiers,
 fuzzing/proof-checking harness, and milestones; [PROGRESS.md](PROGRESS.md) for the
 live checklist; and [docs/README.md](docs/README.md) for the documentation map.

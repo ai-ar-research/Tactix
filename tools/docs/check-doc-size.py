@@ -7,6 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 LIMITS = {
+    "README.md": 80,
     "CLAUDE.md": 80,
     "DEVELOPMENT_PLAN.md": 750,
     "PROGRESS.md": 350,
@@ -14,6 +15,8 @@ LIMITS = {
     "docs/calculus.md": 600,
     "docs/implementation-notes.md": 800,
     "docs/lessons.md": 100,
+    "docs/proof-rules.html": 1000,
+    "tools/fuzz/README.md": 80,
 }
 SKILL_DEFAULT = 120
 # These workflows contain dense operational or diagnostic protocols whose

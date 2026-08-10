@@ -1,7 +1,7 @@
 // kernel_delete_binary removes both mirror watch entries, retires a live root
 // reason to UNIT_REASON, and keeps binary_ids size-monotone. Invariant: while
 // a pair is live, its id names a clause the checker still holds. See
-// docs/design/v4-transitive-reduce-design.md.
+// docs/implementation-notes.md §14.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/propagate/propagate.hpp"

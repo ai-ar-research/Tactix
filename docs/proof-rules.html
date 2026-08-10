@@ -659,12 +659,12 @@ a=1 ⇒ reconstruct x=0</div><p>The reduced formula has no clause, but the witne
         <details class="rule-card" id="E2" data-family="elimination" data-search="e2 factor bva bounded variable addition grid rat extension variable">
           <summary><span class="rule-id">E2</span><span class="rule-title"><h3>Factor</h3><p>Compress a clause grid by introducing a fresh extension variable</p></span><span class="status">public</span></summary>
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
-            <section class="panel" data-panel-content="formal"><div class="equation">G={fᵢ∨rⱼ | i∈[m],j∈[n]} ⊆ F
+            <section class="panel" data-panel-content="formal"><div class="equation">G={{fᵢ}∪Rⱼ | i∈[m],j∈[n]} ⊆ F
 m,n≥2 ∧ mn&gt;m+n ∧ x fresh
 ──────────────────────────────────── E2(G,x)
-add {x∨fᵢ} and {¬x∨rⱼ}; delete G
+add {x∨fᵢ} and {¬x}∪Rⱼ; delete G
 δ = add_rat(dividers then quotients) · del(G)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Replace <span class="math">mn</span> grid clauses by <span class="math">m+n</span> clauses. Delete the grid last.</p></div><div class="formal-block"><h4>Soundness &amp; model</h4><p>Fresh-variable additions are RAT; quotient resolvents are the still-live grid. No <span class="math">ρ</span> witness: project the extension variable out.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Name a repeated rectangular pattern with a fresh helper variable.</strong> This is the inverse of eliminating that helper with BVE.</p></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Name a repeated rectangular pattern with a fresh helper variable.</strong> Each remainder <span class="math">Rⱼ</span> may contain several literals; the binary grid is the singleton-remainder case. This is the inverse of eliminating that helper with BVE.</p></section>
             <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>A 2×3 grid</h4><div class="equation">G = {f₁∨r₁,f₁∨r₂,f₁∨r₃,
      f₂∨r₁,f₂∨r₂,f₂∨r₃}
 6 clauses → add:

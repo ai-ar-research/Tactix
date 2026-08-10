@@ -3,7 +3,7 @@
 // equivalence binaries. It does not substitute; V3 Substitute, run next in the
 // phase, collapses the equivalences. Precondition, effect, proof delta and
 // soundness: `docs/calculus.md` V6 (and V6a for the binary-resolution unit
-// channel); design `docs/design/v6-congruence-design.md`; transliterated from
+// channel); deviations: `docs/implementation-notes.md` §2; transliterated from
 // kissat congruence.c (MIT).
 #pragma once
 

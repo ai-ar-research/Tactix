@@ -4,9 +4,10 @@
 ``exact`` is the strict Tactix-arm lockstep check.  ``semantic`` is the
 cross-solver diagnostic: it compares the common event vocabulary, reports the
 first lifecycle/state/trajectory mismatch with bounded context, and can write
-a machine-readable divergence record.  A semantic divergence is considered
-explained only when its disposition, cause, and source/evidence handles are
-all supplied; ``--require-explained`` turns that contract into a gate.
+a machine-readable divergence record.  Identical prefixes count as a match
+only when both traces reached a terminal record without truncation.  A
+divergence is closed only when the causal-frontier record carries its cause,
+strength judgment, evidence, reproducer, owner, and reopening condition.
 """
 import argparse
 import csv
@@ -38,8 +39,11 @@ STATE_FIELDS = (
 
 def load(path):
     rows = []
+    truncated = False
     with open(path, encoding="utf-8", errors="replace") as src:
         for raw in src:
+            if raw.startswith("# truncated"):
+                truncated = True
             if not raw.strip() or raw.startswith("#"):
                 continue
             vals = next(csv.reader([raw], delimiter="\t"))
@@ -48,7 +52,13 @@ def load(path):
                       f"{len(vals)}/{len(FIELDS)} fields", file=sys.stderr)
                 continue
             rows.append(dict(zip(FIELDS, vals)))
-    return rows
+    terminal = bool(rows and rows[-1]["event"] == "terminate")
+    return {
+        "rows": rows,
+        "truncated": truncated,
+        "terminal": terminal,
+        "terminal_payload": rows[-1]["payload"] if terminal else "",
+    }
 
 
 def brief(row):
@@ -82,7 +92,8 @@ def row_delta(left, right, fields):
             if left[key] != right[key]}
 
 
-def exact(a, b, radius):
+def exact(trace_a, trace_b, radius):
+    a, b = trace_a["rows"], trace_b["rows"]
     ignored = {"solver", "seq"}
     for i, (left, right) in enumerate(zip(a, b)):
         delta = row_delta(left, right,
@@ -98,7 +109,13 @@ def exact(a, b, radius):
         point = min(len(a), len(b))
         print(f"common prefix {point}; lengths {len(a)} vs {len(b)}")
         return 1
-    print(f"identical semantic trace ({len(a)} records)")
+    complete = (trace_a["terminal"] and trace_b["terminal"] and
+                not trace_a["truncated"] and not trace_b["truncated"])
+    if not complete:
+        print(f"identical prefix ({len(a)} records), but at least one trace "
+              "is non-terminal or truncated")
+        return 1
+    print(f"identical complete semantic trace ({len(a)} records)")
     return 0
 
 
@@ -128,7 +145,7 @@ def primary_semantic_difference(a, b):
             if delta:
                 return "trajectory", i, i, delta
         elif event != "checkpoint":
-            delta = row_delta(left, right, STATE_FIELDS)
+            delta = row_delta(left, right, STATE_FIELDS + ("payload",))
             if delta:
                 return "state", i, i, delta
     if len(a) != len(b):
@@ -138,7 +155,8 @@ def primary_semantic_difference(a, b):
     return None
 
 
-def semantic(a, b, radius, metadata):
+def semantic(trace_a, trace_b, radius, metadata):
+    a, b = trace_a["rows"], trace_b["rows"]
     macro_a = [row for row in a if row["event"] not in NON_MACRO_EVENTS]
     macro_b = [row for row in b if row["event"] not in NON_MACRO_EVENTS]
     detail_a = [row for row in a if row["event"] in DETAIL_EVENTS]
@@ -163,20 +181,53 @@ def semantic(a, b, radius, metadata):
                       len(detail_b) if len(detail_b) < len(detail_a) else None,
                       {"length": [str(len(detail_a)), str(len(detail_b))]})
 
+    complete_match = bool(
+        not primary and trace_a["terminal"] and trace_b["terminal"] and
+        not trace_a["truncated"] and not trace_b["truncated"])
+    closure_dispositions = {
+        "strictly-better", "deliberate-choice", "repaired", "downstream"
+    }
+    required_closure = (
+        metadata["status"] == "closed" and
+        metadata["disposition"] in closure_dispositions and
+        metadata["strength"] != "unknown" and
+        metadata["cause"] and metadata["evidence"] and
+        metadata["reproducer"] and metadata["owner"] and
+        metadata["reopening_condition"])
+    localized = bool(primary and metadata["status"] in
+                     ("localized", "actionable", "closed") and
+                     metadata["cause"] and metadata["evidence"])
+    closed = bool(complete_match or (primary and required_closure))
+
+    effective_status = "closed" if complete_match else metadata["status"]
     report = {
-        "schema": "tactix-kissat-divergence-v1",
+        "schema": "tactix-kissat-divergence-v2",
         "trace_a": metadata["trace_a"],
         "trace_b": metadata["trace_b"],
         "fixture": metadata["fixture"],
         "tactix_commit": metadata["tactix_commit"],
         "kissat_commit": metadata["kissat_commit"],
+        "status": effective_status,
         "disposition": metadata["disposition"],
+        "strength": metadata["strength"],
         "cause": metadata["cause"],
         "evidence": metadata["evidence"],
         "reproducer": metadata["reproducer"],
-        "explained": bool(primary and metadata["cause"] and
-                           metadata["evidence"] and
-                           metadata["disposition"] != "unknown"),
+        "owner": metadata["owner"],
+        "reopening_condition": metadata["reopening_condition"],
+        "common_anchor": metadata["common_anchor"],
+        "trace_status": {
+            "a": {key: trace_a[key] for key in
+                  ("terminal", "truncated", "terminal_payload")},
+            "b": {key: trace_b[key] for key in
+                  ("terminal", "truncated", "terminal_payload")},
+        },
+        "complete_match": complete_match,
+        "localized": localized,
+        "closed": closed,
+        # Compatibility for existing report readers.  In v2 an explanation is
+        # not complete until the causal frontier is actually closed.
+        "explained": closed,
     }
 
     def finding(name, result, rows_a, rows_b):
@@ -210,11 +261,14 @@ def semantic(a, b, radius, metadata):
     finding("trajectory", trajectory, detail_a, detail_b)
 
     if primary:
-        state = "explained" if report["explained"] else "UNEXPLAINED"
-        print(f"disposition: {state}")
+        print(f"causal frontier: {metadata['status']} "
+              f"({'closed' if closed else 'OPEN'})")
     else:
-        report["explained"] = True
-        print("portable semantic streams are identical")
+        if complete_match:
+            print("portable semantic streams are identical and complete")
+        else:
+            print("portable semantic prefixes are identical, but the match "
+                  "is incomplete or truncated")
     return report
 
 
@@ -235,25 +289,38 @@ def main():
     ap.add_argument("--mode", choices=("exact", "semantic", "anchor"),
                     default="exact")
     ap.add_argument("--radius", type=int, default=2)
-    ap.add_argument("--json", help="write a divergence-v1 JSON record")
+    ap.add_argument("--json", help="write a divergence-v2 JSON record")
     ap.add_argument("--fixture", default="")
     ap.add_argument("--tactix-commit", default="")
     ap.add_argument("--kissat-commit", default="")
+    ap.add_argument("--status",
+                    choices=("unknown", "localized", "actionable", "closed"),
+                    default="unknown")
     ap.add_argument("--disposition",
-                    choices=("unknown", "intentional", "accepted", "actionable"),
+                    choices=("unknown", "strictly-better", "deliberate-choice",
+                             "repair-required", "repaired", "downstream"),
+                    default="unknown")
+    ap.add_argument("--strength",
+                    choices=("unknown", "stronger", "equivalent", "weaker",
+                             "incomparable", "downstream"),
                     default="unknown")
     ap.add_argument("--cause", default="")
     ap.add_argument("--evidence", action="append", default=[])
     ap.add_argument("--reproducer", default="")
-    ap.add_argument("--require-explained", action="store_true")
+    ap.add_argument("--owner", default="")
+    ap.add_argument("--reopening-condition", default="")
+    ap.add_argument("--common-anchor", default="")
+    ap.add_argument("--require-closed", action="store_true")
+    ap.add_argument("--require-explained", action="store_true",
+                    help="deprecated alias for --require-closed")
     args = ap.parse_args()
     a = load(args.trace_a)
     if args.mode == "anchor":
         print(f"== {args.trace_a} ==")
-        anchor(a, args.radius)
+        anchor(a["rows"], args.radius)
         if args.trace_b:
             print(f"== {args.trace_b} ==")
-            anchor(load(args.trace_b), args.radius)
+            anchor(load(args.trace_b)["rows"], args.radius)
         return
     if not args.trace_b:
         ap.error(f"{args.mode} mode requires two traces")
@@ -267,11 +334,12 @@ def main():
         with open(args.json, "w", encoding="utf-8") as out:
             json.dump(report, out, indent=2, sort_keys=True)
             out.write("\n")
-    if report["first_divergence"] and args.require_explained and not report["explained"]:
-        print("error: first divergence lacks disposition, cause, or evidence",
-              file=sys.stderr)
+    require_closed = args.require_closed or args.require_explained
+    if require_closed and not report["closed"]:
+        print("error: trace pair is not closed (needs a complete terminal "
+              "match or a fully dispositioned causal frontier)", file=sys.stderr)
         raise SystemExit(2)
-    raise SystemExit(1 if report["first_divergence"] else 0)
+    raise SystemExit(0 if report["complete_match"] else 1)
 
 
 if __name__ == "__main__":

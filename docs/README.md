@@ -9,10 +9,10 @@ preserve evidence and history.
 | Plan | `DEVELOPMENT_PLAN.md` | stable scope, architecture, roadmap, gates, open decisions |
 | Status | `PROGRESS.md` | current phase, in-flight work, next actions, active checklist |
 | Rule model | `docs/calculus.md` | abstract preconditions, effects, proof deltas, soundness |
-| Rule guide | `docs/proof-rules.html` | interactive derived view of rule calculus, explanations, and examples |
+| Rule guide | `docs/proof-rules.html` | manually maintained companion view; its rule-card inventory is checked against the calculus |
 | Engineering | `docs/implementation-notes.md` | guards, deviations, durable design decisions |
 | Working lessons | `docs/lessons.md` | revisable evidence-backed findings; never cite by number |
-| Design snapshots | `docs/design/` | frozen feature/reference designs |
+| Design snapshots | `docs/design/` | frozen historical context; present-tense status is not current authority |
 | Technical evidence | `benchmarks/reports/` and `benchmarks/runs/` | frozen reports and authoritative run data |
 | Historical logs | `docs/log/` | frozen revision and former PROGRESS history |
 | Andrew reports | `report-to-andrew/` | local LaTeX/PDF wrap-up deliverables; already-tracked reports remain frozen |
@@ -31,3 +31,7 @@ preserve evidence and history.
 5. Run `tools/docs/check-doc-size.py` and the other documentation tests. A budget
    exception must be explicit in that checker and justified by structure, not
    accumulated history.
+6. Before deleting or compacting a design snapshot, scan every inbound basename
+   reference and move any still-open obligation to the plan, PROGRESS, or
+   implementation notes. Frozen designs may explain history but never own live
+   work.

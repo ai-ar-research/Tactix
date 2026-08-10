@@ -3,8 +3,8 @@
 // each non-representative is rewritten to its SCC's representative, and an SCC
 // holding a literal together with its own negation refutes the formula.
 // Proof delta: add-RUP + delete + push-witness. Precondition, effect and
-// soundness: `docs/calculus.md` §V3; design record
-// `docs/design/v3-substitute-design.md`. Three parts: SCC detection (iterative
+// soundness: `docs/calculus.md` §V3; engineering invariants:
+// `docs/implementation-notes.md`. Three parts: SCC detection (iterative
 // Tarjan, unit-tested in isolation), the refutation path for l ≡ ¬l (two RUP
 // units and the empty clause via the rule-local graph-path walk), and the
 // rewrite itself (`do_substitution` in substitute.cpp).

@@ -24,8 +24,9 @@ public:
 
   // Macro records are always retained until the global record cap is hit.
   void macro(const Kernel &, const char *event, const char *payload = "-");
-  // Detailed records cover the deterministic prefix and 1024 records after
-  // the first Reorder.  Later search is represented by conflict checkpoints.
+  // Decision/analysis records cover the deterministic prefix and 1024 calls
+  // after the first Reorder. An explicit conflict window overrides that cap;
+  // propagation/clause records remain bounded by the global record limit.
   void detail(const Kernel &, const char *event, int64_t payload = 0);
   void watch_scan(const Kernel &, Lit propagated);
   void implications(const Kernel &, size_t trail_begin);
@@ -38,6 +39,7 @@ public:
 
 private:
   void emit(const Kernel &, const char *, const char *, bool snapshot);
+  bool want_detail(const Kernel &);
 
   std::FILE *out_ = nullptr;
   uint64_t sequence_ = 0;
@@ -45,7 +47,10 @@ private:
   uint64_t limit_ = 50000;
   uint64_t post_reorder_details_ = 0;
   uint64_t checkpoint_bucket_ = 0;
+  uint64_t detail_conflict_from_ = 0;
+  uint64_t detail_conflict_to_ = UINT64_MAX;
   bool saw_reorder_ = false;
+  bool detail_window_ = false;
   bool truncated_ = false;
 };
 #else

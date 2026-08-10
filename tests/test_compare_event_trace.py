@@ -39,31 +39,61 @@ with tempfile.TemporaryDirectory() as tmp:
                  row("kissat", 1, "decision", 1, "-2"))
 
     unexplained = run(a, b, "--mode", "semantic", "--json", report,
-                      "--require-explained")
+                      "--require-closed")
     assert unexplained.returncode == 2, unexplained
     data = json.loads(report.read_text())
     assert data["first_divergence"]["kind"] == "trajectory"
     assert not data["explained"]
     assert data["first_divergence"]["delta"]["payload"] == ["1", "-2"]
 
-    explained = run(a, b, "--mode", "semantic", "--json", report,
-                    "--require-explained", "--disposition", "actionable",
+    localized = run(a, b, "--mode", "semantic", "--json", report,
+                    "--require-closed", "--status", "actionable",
+                    "--disposition", "repair-required", "--strength", "weaker",
                     "--cause", "different initial ranking",
                     "--evidence", "kissat/src/decide.c:1")
-    assert explained.returncode == 1, explained
-    assert json.loads(report.read_text())["explained"]
+    assert localized.returncode == 2, localized
+    data = json.loads(report.read_text())
+    assert data["schema"] == "tactix-kissat-divergence-v2"
+    assert data["localized"] and not data["closed"]
 
-    identical = run(a, a, "--mode", "semantic", "--require-explained")
+    closed = run(a, b, "--mode", "semantic", "--json", report,
+                 "--require-closed", "--status", "closed",
+                 "--disposition", "repaired", "--strength", "weaker",
+                 "--cause", "different initial ranking",
+                 "--evidence", "kissat/src/decide.c:1",
+                 "--reproducer", "fixture-a", "--owner", "DefaultPolicy",
+                 "--reopening-condition", "ranking diverges again")
+    assert closed.returncode == 1, closed
+    assert json.loads(report.read_text())["closed"]
+
+    terminal = row("tactix", 2, "terminate", payload="20")
+    a.write_text(HEADER + common + terminal)
+    identical = run(a, a, "--mode", "semantic", "--require-closed")
     assert identical.returncode == 0, identical
+
+    # A capped or externally interrupted identical prefix is not a match.
+    a.write_text(HEADER + common + "# truncated at 1 records\n")
+    truncated = run(a, a, "--mode", "semantic", "--json", report,
+                    "--require-closed")
+    assert truncated.returncode == 2, truncated
+    data = json.loads(report.read_text())
+    assert data["trace_status"]["a"]["truncated"]
+    assert not data["complete_match"]
+
+    a.write_text(HEADER + common)
+    incomplete = run(a, a, "--mode", "semantic")
+    assert incomplete.returncode == 1, incomplete
 
     # Snapshotless detailed records must not become false state divergences.
     # The Kissat overlay retains cheap global clause counters on these rows;
     # Tactix deliberately writes zero because it did not take a snapshot.
     a.write_text(HEADER + common + row("tactix", 1, "watch", irred=0,
-                                       payload="scan=1"))
+                                       payload="scan=1") +
+                 row("tactix", 2, "terminate", payload="20"))
     b.write_text(HEADER + common.replace("tactix", "kissat") +
-                 row("kissat", 1, "watch", irred=2, payload="scan=1"))
-    snapshotless = run(a, b, "--mode", "semantic", "--require-explained")
+                 row("kissat", 1, "watch", irred=2, payload="scan=1") +
+                 row("kissat", 2, "terminate", payload="20"))
+    snapshotless = run(a, b, "--mode", "semantic", "--require-closed")
     assert snapshotless.returncode == 0, snapshotless
 
     # Analysis-end is snapshot-bearing on both sides and must retain the

@@ -1,10 +1,13 @@
 # Variable retirement v2 — deactivation, not decision-time filtering
 
-**Status** DESIGN, not implemented · **Date** 2026-08-02 · **git** `4cfb984` ·
-Frozen on landing.
+**Status:** landed historical design · **Date:** 2026-08-02 · **git:** `4cfb984`.
+The 2026-08-09 documentation audit reopened `N1-RETIRED-DECIDE`: the §3 claim
+below describes the intended contract, but guided enumeration now walks H and
+can omit a physically retired unassigned variable. PROGRESS and implementation
+notes own the live obligation; preserve this snapshot until it is resolved.
 
-**Supersedes §4 of `variable-retirement-design.md`.** That design's *problem
-statement* stands unchanged and is confirmed by measurement; its *mechanism*
+**Supersedes the removed v1 retirement design.** Its *problem statement* stands
+unchanged and is confirmed by measurement; its *mechanism*
 (skip-with-fallback at decision time) is **measured dead** and must not be
 retried. This document replaces the mechanism with the one both reference
 solvers use, and records why ours was structurally wrong.

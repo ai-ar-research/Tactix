@@ -2,7 +2,7 @@
 // model set. No proof checker catches a violation, since a `delete` line is
 // accepted unconditionally, so each iteration enumerates all 2^5 assignments
 // of a random 5-var formula and compares the model set before and after.
-// See docs/design/v4-transitive-reduce-design.md.
+// See docs/calculus.md V4 and docs/implementation-notes.md §14.
 //
 // argv[1] mode: 0 binaries only; 1 adds a propagated root unit; 2 applies
 // per-source instances in shuffled order (the order-independence N1 demands);

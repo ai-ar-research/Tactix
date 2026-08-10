@@ -16,5 +16,12 @@ Set `KISSAT_EVENT_TRACE=/path/trace.tsv` when running it.  The format is the
 same `tactix-event-trace` version 1 consumed by
 `tools/bench/compare_event_trace.py --mode semantic`.
 
+`KISSAT_EVENT_TRACE_CONFLICT_FROM` and
+`KISSAT_EVENT_TRACE_CONFLICT_TO` restrict detailed decision, propagation, and
+analysis records to an inclusive conflict window while retaining lifecycle
+records. Tactix exposes the matching `TACTIX_EVENT_TRACE_CONFLICT_FROM/TO`
+controls, and `benchmarks/probes/cross-solver-semantic-trace.sh` sets both from
+`CROSS_TRACE_CONFLICT_FROM/TO`.
+
 This binary is for short SLURM diagnosis only.  Benchmark reference arms must
 continue to use the untouched pinned Kissat binary.

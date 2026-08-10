@@ -2,7 +2,8 @@
 
 **Date:** 2026-07-19 **Hardware:** Apple M3 Pro, 12 CPU, 36 GB
 **Branch:** worktree-inproc-safe (off main 604831b) **Concurrency:** jobs=4
-**Design:** `docs/inprocessing-revamp-design.md`
+**Historical design:** removed after landing; current scheduling authority is
+`docs/implementation-notes.md` §13.
 
 ## What landed
 
