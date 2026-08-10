@@ -378,6 +378,33 @@ static void test_watch_repair_primitive() {
   kernel_check_invariants(k);
 }
 
+static void test_propagate_beyond_conflicts_for_warmup() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+
+  // The first clause conflicts under x1=x2=true. Warm-up propagation must
+  // still scan x2's remaining watches and derive x3, without installing a
+  // search conflict or changing the ordinary decision counter.
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  const uint64_t decisions = k.stats.decisions;
+  k.warming = true;
+  kernel_propagate_beyond_conflicts(k);
+  k.warming = false;
+
+  assert(k.values[internalize(3)] > 0);
+  assert(k.h->saved[2] == 1);
+  assert(k.stats.warming_conflicts > 0);
+  assert(k.stats.warming_propagations == 1);
+  assert(k.stats.decisions == decisions);
+  assert(!k.conflict_valid && !k.inconsistent);
+  kernel_backtrack(k, 0);
+  kernel_check_invariants(k);
+}
+
 int main() {
   test_variable_identity_maps();
   test_variable_compaction();
@@ -391,6 +418,7 @@ int main() {
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
   test_watch_repair_primitive();
+  test_propagate_beyond_conflicts_for_warmup();
   puts("test_kernel OK");
   return 0;
 }

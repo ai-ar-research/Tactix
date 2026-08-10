@@ -39,6 +39,10 @@ public:
                   uint64_t anchor, uint64_t count);
   void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                    bool accepted);
+  void phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
+                  int8_t result);
+  void target_save(const Kernel &);
+  void phase_save(const Kernel &, Lit);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -82,6 +86,9 @@ public:
   void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
                   uint64_t) {}
   void randec_draw(const Kernel &, uint32_t, uint32_t, Var, bool) {}
+  void phase_pick(const Kernel &, Var, int8_t, int8_t, int8_t) {}
+  void target_save(const Kernel &) {}
+  void phase_save(const Kernel &, Lit) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -100,6 +107,10 @@ void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                           const std::vector<uint8_t> &, uint8_t bump_mask);
 void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                              bool accepted);
+void event_trace_phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
+                            int8_t result);
+void event_trace_target_save(const Kernel &);
+void event_trace_phase_save(const Kernel &, Lit);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
@@ -109,6 +120,10 @@ inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                                  const std::vector<uint8_t> &, uint8_t) {}
 inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
                                     bool) {}
+inline void event_trace_phase_pick(const Kernel &, Var, int8_t, int8_t,
+                                   int8_t) {}
+inline void event_trace_target_save(const Kernel &) {}
+inline void event_trace_phase_save(const Kernel &, Lit) {}
 #endif
 
 } // namespace tactix

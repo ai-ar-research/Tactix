@@ -13,18 +13,22 @@ formula/search services.
 ## 4. Durable reference choices and deviations
 
 The implementation follows the reference shape for assignment initialization,
-break-value updates, bounded local flips, and phase export. The retained
-warm-up/rotation behavior is a policy choice with an explicit configuration
-surface. Historical pre-implementation status, the proposed separate Track W,
-and contradictory “removed” language are retired.
+break-value updates, bounded local flips, and phase export. Before every walk,
+the policy now runs Kissat's default root decision/propagation warm-up and saves
+its assignment-time phases. The rotation remains `B+W`: on `tr-n280-s052`, a
+fresh pure-`W` rerun regressed 12.6 s to 15.7 s and exposed a walker-output
+phase mismatch immediately after the slot. Historical pre-implementation
+status, the proposed separate Track W, and contradictory “removed” language
+are retired.
 
 ## 6. Dosing record
 
-Measured warm-up and limit variants did not justify accumulating additional
-permanent arms. Current knobs exist only where they retain a distinct diagnostic
-or scheduling use; neutral or superseded arms are removed under the project's
-arm-frugality policy. Current defaults, counters, and measurement evidence are
-owned by `docs/implementation-notes.md` and dated reports.
+The former `TACTIX_WALK_WARMUP` arm only warmed the walker's private assignment;
+it was not the reference mechanism and has been removed. Current knobs exist
+only where they retain a distinct diagnostic or scheduling use; neutral or
+superseded arms are removed under the project's arm-frugality policy. Current
+defaults, counters, and measurement evidence are owned by
+`docs/implementation-notes.md` and dated reports.
 
 Validation remains formula/proof identity, deterministic Walk counters and
 phase output, configuration wiring, and the inventory boundary that classifies

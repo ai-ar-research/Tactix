@@ -28,7 +28,7 @@ DETAIL_EVENTS = {
 }
 AUXILIARY_EVENTS = {
     "checkpoint", "retier", "reduce_tiers", "mode_clock", "analyzed",
-    "randec_draw",
+    "randec_draw", "phase_pick", "target_save", "phase_save",
 }
 # Detailed records normally carry zeroes in the expensive snapshot fields.
 # Analysis-end is the deliberate exception: both overlays snapshot ranking

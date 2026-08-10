@@ -589,7 +589,7 @@ template <bool RECORD> static inline void flush_delayed(Kernel &k) {
 // must not derive anything through the candidate. `RECORD` logs every
 // watch-list / clause-header update into k.probing so a probing scope can undo
 // them; false for search, where codegen is as if the log did not exist.
-template <bool RECORD>
+template <bool RECORD, bool BEYOND = false>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const Lit not_lit = negate(lit);
   if constexpr (!RECORD)
@@ -626,12 +626,15 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
       if (blocking_value > 0)
         continue;
       if (blocking_value < 0) { // conflict: clause (not_lit, blocking)
-        k.conflict_valid = true;
-        k.conflict_ref = INVALID_REF;
-        k.conflict_bin[0] = not_lit;
-        k.conflict_bin[1] = blocking;
         conflict = true;
-        break;
+        if constexpr (!BEYOND) {
+          k.conflict_valid = true;
+          k.conflict_ref = INVALID_REF;
+          k.conflict_bin[0] = not_lit;
+          k.conflict_bin[1] = blocking;
+          break;
+        }
+        continue;
       }
       kernel_assign_binary(k, blocking, not_lit);
       ticks++;
@@ -696,10 +699,12 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         k.delayed.push_back(ref);
         ticks++;
       } else if (other_value < 0) { // conflict
-        k.conflict_valid = true;
-        k.conflict_ref = ref;
         conflict = true;
-        break;
+        if constexpr (!BEYOND) {
+          k.conflict_valid = true;
+          k.conflict_ref = ref;
+          break;
+        }
       } else { // unit: assign `other` with this clause as reason
         kernel_assign_ref(k, other, ref);
         ticks++;
@@ -730,6 +735,17 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
     k.propagate_head++;
   }
   return false;
+}
+
+void kernel_propagate_beyond_conflicts(Kernel &k) {
+  assert(k.warming);
+  const uint64_t before = k.stats.propagations;
+  while (k.propagate_head < k.trail.size()) {
+    const Lit lit = k.trail[k.propagate_head++];
+    if (propagate_literal<false, true>(k, lit, INVALID_REF))
+      k.stats.warming_conflicts++;
+  }
+  k.stats.warming_propagations += k.stats.propagations - before;
 }
 
 // binary-only propagation of `lit` (kissat backbone.c backbone_propagate /
@@ -873,7 +889,7 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
     return kernel_propagate(k, ignore); // no open scope: nothing to record
   while (k.propagate_head < k.trail.size()) {
     const Lit lit = k.trail[k.propagate_head];
-    if (propagate_literal<true>(k, lit, ignore))
+    if (propagate_literal<true, false>(k, lit, ignore))
       return true; // same "do not advance past the conflicting scan" rule
     k.propagate_head++;
   }

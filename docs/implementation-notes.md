@@ -249,8 +249,8 @@ excluded. Focused decisions use the typed `0,+1,0,-1,0,0,0,0` two-switch epoch p
 `decide.c`. The former unassign-only/no-override arm caused opposite phases at a mode boundary.
 The rephase rotation is `B, B+W, I, B, B+W, O`: Walk augments Best rather than replacing it.
 
-Warm-up remains live only behind `TACTIX_WALK_WARMUP`; it is not the default. Dry-walk is retained as
-a mechanism control. Rephase and Walk alter H only and emit no proof delta.
+Walk slots run Kissat's root decision/propagation warm-up through conflicts, save each assigned phase,
+then backtrack without undoing it. Measured-better `B+W` remains the documented rotation deviation.
 
 ## 9. Design decision: reason-side bumping and dynamic tiers
 

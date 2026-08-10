@@ -901,7 +901,7 @@ size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
 
 Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
-  if (randec_enabled && !k.h->stable) {
+  if (!k.warming && randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
     if (c >= randec_until && k.level <= 1 && c >= randec_next)
       start_random_sequence(k);
@@ -937,7 +937,14 @@ Lit DefaultBranching::decide_lit(const Kernel &k, Var v) const {
         cfg.focused_phase_pattern.size();
     phase = cfg.focused_phase_pattern[index];
   }
-  return phase ? make_lit(v, phase < 0) : heuristics_decide_lit(k, v);
+  const int8_t target = k.h->stable ? k.h->target[v] : 0;
+  const int8_t saved = k.h->saved[v];
+  const Lit result =
+      phase ? make_lit(v, phase < 0) : heuristics_decide_lit(k, v);
+  if (k.warming)
+    event_trace_phase_pick(k, v, target, saved,
+                           negated(result) ? -1 : 1);
+  return result;
 }
 
 void DefaultBranching::start_random_sequence(Kernel &k) {
@@ -1465,7 +1472,27 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const uint64_t type = ROTATION[rephase.count % 6];
       rephase.count++; // ONE rephase event, whatever it is composed of
       if (type == WALK_SLOT && walk_guard(k)) {
-        rephase_apply_type(k, REPHASE_BEST); // the slot keeps its Best
+        rephase_apply_type(k, REPHASE_BEST); // measured-better B+W deviation
+        // Kissat warmup.c: before importing phases into the walker, complete a
+        // temporary assignment with the active branch ranking and propagate
+        // beyond conflicts. Assignment-time phase saving is the output; the
+        // trail is then discarded without undoing it.
+        BranchingPolicy &bp = branching ? *branching : default_branching_;
+        assert(k.level == 0 && k.propagate_head == k.trail.size());
+        k.warming = true;
+        k.stats.warmups++;
+        while (k.retire_enabled ? k.unassigned_active : k.unassigned) {
+          if (kernel_terminating(k))
+            break;
+          const Lit decision = bp.pick(k);
+          kernel_assign_decision(k, decision);
+          k.stats.warming_decisions++;
+          event_trace.detail(k, "decision", kernel_externalize(k, decision));
+          kernel_propagate_beyond_conflicts(k);
+        }
+        if (k.level)
+          kernel_backtrack(k, 0);
+        k.warming = false;
         uint64_t reference = search_ticks(k) - walk_anchor;
         if (reference < config_.inprocess.minimum_effort_ticks)
           reference = config_.inprocess.minimum_effort_ticks;

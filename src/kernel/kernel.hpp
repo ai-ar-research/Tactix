@@ -13,9 +13,14 @@
 
 namespace tactix {
 
+struct Kernel;
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+void event_trace_phase_save(const Kernel &, Lit);
+#endif
+
 struct FactorSelection;
 struct Heuristics;
-struct Kernel;
 
 struct Assigned {
   uint32_t level;
@@ -56,6 +61,10 @@ struct Stats {
   uint64_t walk_steps = 0;    // occurrence entries scanned (kissat walk_steps)
   uint64_t walk_improved = 0; // walks that lowered the unsatisfied count
   uint64_t walk_minimum = UINT64_MAX;
+  uint64_t warmups = 0; // root decision/propagation sweeps before Walk
+  uint64_t warming_decisions = 0;
+  uint64_t warming_conflicts = 0;
+  uint64_t warming_propagations = 0;
   uint64_t promoted = 0;     // glue promotions on use (kissat deduce.c)
   uint64_t learned = 0;
   uint64_t learned_units = 0;
@@ -370,6 +379,7 @@ struct Kernel {
   uint32_t level = 0;
   uint32_t unassigned = 0;
   uint32_t unassigned_active = 0;
+  bool warming = false; // Kissat walk warm-up: suppress random branching.
 
   Arena arena;
   WatchLists watches;
@@ -733,6 +743,10 @@ inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
   // the trail.  Probing callers suppress this hook around speculative work.
   if (k.saved_phases && !k.phase_saving_suppressed && !k.probing.recording)
     (*k.saved_phases)[v] = negated(lit) ? -1 : 1;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  if (k.saved_phases && !k.phase_saving_suppressed && !k.probing.recording)
+    event_trace_phase_save(k, lit);
+#endif
   assert(k.unassigned > 0);
   k.unassigned--;
   if (!kernel_var_retired(k, v)) {
@@ -775,6 +789,12 @@ void kernel_backtrack(Kernel &, uint32_t target_level,
                       bool search_backtrack = true);
 
 bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
+
+// Walk warm-up propagation (kissat propbeyond.c): scan to a full assignment
+// and keep going after conflicting clauses.  Conflicts are counted but never
+// installed as search conflicts; non-conflicting implications use the normal
+// assignment path and therefore refresh saved phases.
+void kernel_propagate_beyond_conflicts(Kernel &);
 
 bool kernel_propagate_binary(Kernel &);
 

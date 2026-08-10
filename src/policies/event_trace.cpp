@@ -405,6 +405,61 @@ void event_trace_randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
     active_trace->randec_draw(k, raw, slot, var, accepted);
 }
 
+void EventTrace::phase_pick(const Kernel &k, Var var, int8_t target,
+                            int8_t saved, int8_t result) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "external=" +
+      std::to_string(kernel_externalize(k, make_lit(var, false))) +
+      "|target=" + std::to_string(target) +
+      "|saved=" + std::to_string(saved) +
+      "|result=" + std::to_string(result);
+  emit(k, "phase_pick", payload.c_str(), false);
+}
+
+void event_trace_phase_pick(const Kernel &k, Var var, int8_t target,
+                            int8_t saved, int8_t result) {
+  if (active_trace)
+    active_trace->phase_pick(k, var, target, saved, result);
+}
+
+void EventTrace::target_save(const Kernel &k) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  std::vector<int> assigned;
+  assigned.reserve(k.trail.size());
+  for (const Lit lit : k.trail)
+    assigned.push_back(kernel_externalize(k, lit));
+  std::sort(assigned.begin(), assigned.end());
+  std::string payload = "assigned=" + std::to_string(assigned.size()) +
+                        "|set=";
+  for (const int lit : assigned) {
+    if (payload.back() != '=')
+      payload += ',';
+    payload += std::to_string(lit);
+  }
+  emit(k, "target_save", payload.c_str(), false);
+}
+
+void event_trace_target_save(const Kernel &k) {
+  if (active_trace)
+    active_trace->target_save(k);
+}
+
+void EventTrace::phase_save(const Kernel &k, Lit lit) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const std::string payload =
+      "lit=" + std::to_string(kernel_externalize(k, lit));
+  emit(k, "phase_save", payload.c_str(), false);
+}
+
+void event_trace_phase_save(const Kernel &k, Lit lit) {
+  if (active_trace)
+    active_trace->phase_save(k, lit);
+}
+
 void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,
                           const std::vector<uint8_t> &seen,
                           uint8_t bump_mask) {
