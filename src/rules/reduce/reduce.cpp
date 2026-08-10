@@ -138,7 +138,9 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
                 return a.glue > b.glue;
               if (a.size != b.size)
                 return a.size > b.size;
-              return a.ref > b.ref; // total order for determinism
+              // Kissat's stable LSD radix sort preserves the arena scan order
+              // when both rank components tie.
+              return a.ref < b.ref;
             });
   out.reserve(candidates.size());
   for (const Victim &v : candidates)
