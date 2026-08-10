@@ -858,21 +858,34 @@ void DefaultPolicy::update_reduce_limit(const Kernel &k) {
                               k.stats.reductions;
 }
 
-bool DefaultPolicy::update_tiers_after_analysis(Kernel &k,
-                                                uint64_t otfs_before) {
+bool DefaultPolicy::update_tiers_after_analysis(Kernel &k) {
   // Kissat analyze.c advances this exponential schedule only on the extra
   // conflict created when OTFS restarts 1-UIP analysis. Ordinary propagated
-  // conflicts do not test the glue limit. Reduce has its own independent
-  // current-mode refresh.
-  if (!dynamic_tiers_ || k.stats.otfs_strengthened == otfs_before ||
-      k.stats.conflicts <= retier_.next_conflicts)
-    return false;
-  retier_current_mode(k, config_.reduction);
-  pose_focused_tiers(k);
-  if (retier_.interval < config_.reduction.retier_max_interval)
-    retier_.interval *= config_.reduction.retier_growth;
-  retier_.next_conflicts = k.stats.conflicts + retier_.interval;
-  return true;
+  // conflicts do not test the glue limit. Analyze remains atomic at the rule
+  // boundary, so it records the histogram seen at each internal OTFS boundary
+  // and the policy consumes those observations here. Reduce has its own
+  // independent current-mode refresh.
+  bool updated = false;
+  if (dynamic_tiers_)
+    for (const AnalysisConflictCheckpoint &checkpoint :
+         k.analysis_conflict_checkpoints) {
+      if (checkpoint.conflicts <= retier_.next_conflicts)
+        continue;
+      reduce_retier_from_histogram(
+          k, checkpoint.mode, checkpoint.used_glue,
+          config_.reduction.tier1_default,
+          config_.reduction.tier2_default,
+          config_.reduction.tier1_relative_permille,
+          config_.reduction.tier2_relative_permille);
+      pose_focused_tiers(k);
+      if (retier_.interval < config_.reduction.retier_max_interval)
+        retier_.interval *= config_.reduction.retier_growth;
+      retier_.next_conflicts = checkpoint.conflicts + retier_.interval;
+      event_trace_retier(k, checkpoint.mode, checkpoint.used_glue);
+      updated = true;
+    }
+  k.analysis_conflict_checkpoints.clear();
+  return updated;
 }
 
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
@@ -1292,7 +1305,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);
       k.bump_reason_depth = bump_reason_depth(k);
-      const uint64_t otfs_before = k.stats.otfs_strengthened;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
       const ApplyResult ar = analyze_apply(k);
@@ -1310,8 +1322,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         event_trace.detail(k, "analysis_end", -1);
         return finish(20);
       }
-      if (update_tiers_after_analysis(k, otfs_before))
-        event_trace.retier(k);
+      update_tiers_after_analysis(k);
       if (!k.pending.valid) { // `stats.conflict_reused` already counted it
         event_trace.detail(k, "analysis_end", k.level);
         continue;

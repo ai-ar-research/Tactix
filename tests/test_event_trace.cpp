@@ -49,7 +49,7 @@ int main() {
     k.tier1_by_mode[0] = 3;
     k.tier2_by_mode[0] = 8;
     k.stats.used_glue[0][3] = 5;
-    trace.retier(k);
+    trace.retier(k, 0, k.stats.used_glue[0]);
     trace.reorder_begin(k);
     trace.reorder_end(k);
     trace.macro(k, "terminate", "10");

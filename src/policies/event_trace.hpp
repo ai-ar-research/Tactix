@@ -36,7 +36,7 @@ public:
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
-  void retier(const Kernel &);
+  void retier(const Kernel &, uint32_t mode, const uint64_t *used_glue);
   void reduction(const Kernel &, const std::vector<Ref> &, size_t victims);
 
 private:
@@ -74,7 +74,7 @@ public:
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
-  void retier(const Kernel &) {}
+  void retier(const Kernel &, uint32_t, const uint64_t *) {}
   void reduction(const Kernel &, const std::vector<Ref> &, size_t) {}
 };
 #endif
@@ -83,10 +83,13 @@ public:
 void event_trace_watch_scan(const Kernel &, Lit propagated);
 void event_trace_learned_stage(const Kernel &, const char *,
                                const std::vector<Lit> &);
+void event_trace_retier(const Kernel &, uint32_t mode,
+                        const uint64_t *used_glue);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
                                       const std::vector<Lit> &) {}
+inline void event_trace_retier(const Kernel &, uint32_t, const uint64_t *) {}
 #endif
 
 } // namespace tactix

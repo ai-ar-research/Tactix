@@ -81,13 +81,20 @@ static void test_retier_schedule_advances_only_on_otfs_conflicts(void) {
   DefaultPolicy p;
   p.reset_schedule(k);
   k.stats.conflicts = 3;
-  assert(!p.update_tiers_after_analysis(k, k.stats.otfs_strengthened));
+  assert(!p.update_tiers_after_analysis(k));
   assert(k.stats.retiered == 0 &&
          "ordinary learned conflicts must not advance Kissat's glue limit");
-  const uint64_t before = k.stats.otfs_strengthened++;
-  assert(p.update_tiers_after_analysis(k, before));
+  AnalysisConflictCheckpoint checkpoint;
+  checkpoint.conflicts = k.stats.conflicts;
+  checkpoint.mode = 0;
+  checkpoint.used_glue[3] = 1;
+  k.analysis_conflict_checkpoints.push_back(checkpoint);
+  assert(p.update_tiers_after_analysis(k));
   assert(k.stats.retiered == 1 &&
          "an OTFS re-analysis conflict must advance the glue limit");
+  assert(k.analysis_conflict_checkpoints.empty() &&
+         "policy must consume each internal observation exactly once");
+  assert(!p.update_tiers_after_analysis(k));
   std::printf("  retier cadence: only OTFS re-analysis advances glue limit\n");
 }
 

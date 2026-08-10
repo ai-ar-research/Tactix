@@ -195,19 +195,21 @@ void EventTrace::macro(const Kernel &k, const char *event, const char *payload) 
   emit(k, event, payload, true);
 }
 
-void EventTrace::retier(const Kernel &k) {
+void EventTrace::retier(const Kernel &k, uint32_t mode,
+                        const uint64_t *used_glue) {
+  assert(mode < 2);
   std::string payload =
-      "focused=" + std::to_string(k.tier1_by_mode[0]) + ',' +
+      std::string("mode=") + (mode ? "stable" : "focused") +
+      "|focused=" + std::to_string(k.tier1_by_mode[0]) + ',' +
       std::to_string(k.tier2_by_mode[0]) + "|stable=" +
       std::to_string(k.tier1_by_mode[1]) + ',' +
       std::to_string(k.tier2_by_mode[1]) + "|posed=" +
       std::to_string(k.tier1) + ',' + std::to_string(k.tier2) + "|used=";
-  const uint32_t mode = k.h && k.h->stable ? 1u : 0u;
   uint64_t total = 0;
   for (uint32_t glue = 0; glue <= Stats::MAX_GLUE_USED; ++glue) {
     if (glue)
       payload += ',';
-    const uint64_t used = k.stats.used_glue[mode][glue];
+    const uint64_t used = used_glue[glue];
     total += used;
     payload += std::to_string(glue) + ':' + std::to_string(used);
   }
@@ -378,6 +380,12 @@ void event_trace_learned_stage(const Kernel &k, const char *event,
                                const std::vector<Lit> &clause) {
   if (active_trace)
     active_trace->learned_stage(k, event, clause);
+}
+
+void event_trace_retier(const Kernel &k, uint32_t mode,
+                        const uint64_t *used_glue) {
+  if (active_trace)
+    active_trace->retier(k, mode, used_glue);
 }
 
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {

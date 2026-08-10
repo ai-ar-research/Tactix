@@ -14,6 +14,7 @@
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
 
 #include <algorithm>
+#include <iterator>
 
 namespace tactix {
 
@@ -905,6 +906,7 @@ void analyze_eager_subsume(Kernel &k) {
 
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
+  k.analysis_conflict_checkpoints.clear();
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
   const bool lrat = lrat_active(k);
   uint64_t conflict_chain_id = 0; // the round's conflict, emitted last
@@ -1125,6 +1127,13 @@ ApplyResult analyze_apply(Kernel &k) {
     // re-running 1-UIP analysis.  This is not cosmetic: restart, reduction,
     // mode, rephase, reorder, and inprocessing deadlines all read this clock.
     k.stats.conflicts++;
+    AnalysisConflictCheckpoint checkpoint;
+    checkpoint.conflicts = k.stats.conflicts;
+    checkpoint.mode = k.h && k.h->stable ? 1u : 0u;
+    std::copy(std::begin(k.stats.used_glue[checkpoint.mode]),
+              std::end(k.stats.used_glue[checkpoint.mode]),
+              std::begin(checkpoint.used_glue));
+    k.analysis_conflict_checkpoints.push_back(checkpoint);
     bump_and_reset_analyzed(k); // kissat bumps each aborted round too
     otfs_round = true;
   }
