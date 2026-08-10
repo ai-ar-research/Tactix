@@ -7,52 +7,99 @@ namespace tactix {
 
 class DefaultBranching final : public BranchingPolicy {
 public:
+  explicit DefaultBranching(
+      const DefaultStrategyConfig::Branching *config = nullptr)
+      : config_(config) {}
   const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
-  static constexpr uint64_t RANDEC_INIT = 500;
-  static constexpr uint64_t RANDEC_LENGTH = 10;
-  static constexpr uint64_t RANDEC_SEED = 0x9E3779B97F4A7C15ull;
+  static constexpr uint64_t RANDEC_INIT =
+      DefaultStrategyConfig::RANDOM_INITIAL_INTERVAL_DEFAULT;
+  static constexpr uint64_t RANDEC_LENGTH =
+      DefaultStrategyConfig::RANDOM_SEQUENCE_LENGTH_DEFAULT;
+  static constexpr uint64_t RANDEC_SEED =
+      DefaultStrategyConfig::RANDOM_SEED_DEFAULT;
   uint64_t randec_until = 0;
   uint64_t randec_next = RANDEC_INIT;
   uint64_t randec_sequences = 0;
   uint64_t randec_rng = RANDEC_SEED;
   bool randec_enabled = true;
-  void reset(uint64_t conflicts) {
-    randec_until = 0;
-    randec_next = conflicts + RANDEC_INIT;
-    randec_sequences = 0;
-    randec_rng = RANDEC_SEED;
+  void set_config(const DefaultStrategyConfig::Branching *config) {
+    config_ = config;
   }
+  void reset(uint64_t conflicts) {
+    const auto defaults = DefaultStrategyConfig{}.branching;
+    const auto &cfg = config_ ? *config_ : defaults;
+    randec_until = 0;
+    randec_next = conflicts + cfg.random_initial_interval;
+    randec_sequences = 0;
+    randec_rng = cfg.random_seed;
+  }
+
+private:
+  const DefaultStrategyConfig::Branching *config_ = nullptr;
 };
 
 class GlueTieredReduction final : public ReductionPolicy {
 public:
+  explicit GlueTieredReduction(
+      const DefaultStrategyConfig::Reduction *config = nullptr)
+      : config_(config) {}
   const char *name() const override { return "glue-tiered"; }
   size_t victims(const Kernel &, size_t candidates) override;
   bool ramp = false;
+  void set_config(const DefaultStrategyConfig::Reduction *config) {
+    config_ = config;
+  }
+
+private:
+  const DefaultStrategyConfig::Reduction *config_ = nullptr;
 };
 
 class DefaultPolicy final : public Policy {
 public:
-  static constexpr double RESTART_MARGIN = 1.10;
-  static constexpr uint64_t RESTART_INTERVAL = 1;
-  static constexpr double EMA_FAST_WINDOW = 33;
-  static constexpr double EMA_SLOW_WINDOW = 1e5;
-  static constexpr uint64_t REDUCE_INTERVAL_INIT = 1000;
-  static constexpr uint64_t REDUCE_INTERVAL_ARITH = 2000;
-  static constexpr uint64_t REDUCE_INTERVAL_STEP = 300;
-  static constexpr uint64_t MODE_INITIAL_CONFLICTS = 1000;
-  static constexpr uint64_t MODE_INTERVAL = 1000;
-  static constexpr uint64_t RELUCTANT_PERIOD = 1024;
-  static constexpr uint64_t RELUCTANT_LIMIT = 1 << 20;
-  static constexpr uint64_t REPHASE_INTERVAL_INIT = 1000;
-  static constexpr uint64_t REPHASE_INTERVAL = 1000;
-  static constexpr uint64_t REORDER_INTERVAL_INIT = 10000;
-  static constexpr uint64_t REORDER_INTERVAL = 10000;
-  static constexpr uint32_t BUMP_REASONS_LIMIT = 10;
-  static constexpr double BUMP_REASONS_RATE = 10.0;
-  static constexpr uint32_t CHRONO_LEVELS = 100;
-  static constexpr uint64_t WALK_PERMILLE = 560;
+  static constexpr double RESTART_MARGIN =
+      DefaultStrategyConfig::RESTART_MARGIN_DEFAULT;
+  static constexpr uint64_t RESTART_INTERVAL =
+      DefaultStrategyConfig::RESTART_INTERVAL_DEFAULT;
+  static constexpr double EMA_FAST_WINDOW =
+      DefaultStrategyConfig::FAST_EMA_WINDOW_DEFAULT;
+  static constexpr double EMA_SLOW_WINDOW =
+      DefaultStrategyConfig::SLOW_EMA_WINDOW_DEFAULT;
+  static constexpr uint64_t REDUCE_INTERVAL_INIT =
+      DefaultStrategyConfig::REDUCE_INTERVAL_DEFAULT;
+  static constexpr uint64_t REDUCE_INTERVAL_ARITH =
+      DefaultStrategyConfig::REDUCE_ARITHMETIC_DEFAULT;
+  static constexpr uint64_t REDUCE_INTERVAL_STEP =
+      DefaultStrategyConfig::REDUCE_ARITHMETIC_STEP_DEFAULT;
+  static constexpr uint64_t MODE_INITIAL_CONFLICTS =
+      DefaultStrategyConfig::MODE_INITIAL_CONFLICTS_DEFAULT;
+  static constexpr uint64_t MODE_INTERVAL =
+      DefaultStrategyConfig::MODE_INTERVAL_DEFAULT;
+  static constexpr uint64_t RELUCTANT_PERIOD =
+      DefaultStrategyConfig::RELUCTANT_PERIOD_DEFAULT;
+  static constexpr uint64_t RELUCTANT_LIMIT =
+      DefaultStrategyConfig::RELUCTANT_LIMIT_DEFAULT;
+  static constexpr uint64_t REPHASE_INTERVAL_INIT =
+      DefaultStrategyConfig::REPHASE_INTERVAL_DEFAULT;
+  static constexpr uint64_t REPHASE_INTERVAL =
+      DefaultStrategyConfig::REPHASE_INTERVAL_DEFAULT;
+  static constexpr uint64_t REORDER_INTERVAL_INIT =
+      DefaultStrategyConfig::REORDER_INITIAL_INTERVAL_DEFAULT;
+  static constexpr uint64_t REORDER_INTERVAL =
+      DefaultStrategyConfig::REORDER_INITIAL_INTERVAL_DEFAULT;
+  static constexpr uint32_t BUMP_REASONS_LIMIT =
+      DefaultStrategyConfig::BUMP_REASON_LIMIT_DEFAULT;
+  static constexpr double BUMP_REASONS_RATE =
+      DefaultStrategyConfig::BUMP_REASON_RATE_DEFAULT;
+  static constexpr uint32_t CHRONO_LEVELS =
+      DefaultStrategyConfig::CHRONOLOGICAL_LEVELS_DEFAULT;
+  static constexpr uint64_t WALK_PERMILLE =
+      DefaultStrategyConfig::WALK_PERMILLE_DEFAULT;
+
+  DefaultPolicy();
+  explicit DefaultPolicy(const DefaultStrategyConfig &);
+  const DefaultStrategyConfig &strategy_config() const { return config_; }
+  std::string strategy_config_snapshot() const { return config_.serialize(); }
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
   void reset_schedule(const Kernel &);
@@ -141,7 +188,9 @@ private:
   bool compact_ = true;
   bool lucky_late_ = true;
   bool dynamic_tiers_ = true;
-  struct { uint64_t next_conflicts = 2, interval = 2; } retier_;
+  struct { uint64_t next_conflicts = 0, interval = 0; } retier_;
+  DefaultStrategyConfig base_config_;
+  DefaultStrategyConfig config_;
   DefaultBranching default_branching_;
   GlueTieredReduction default_reduction_;
   DefaultInprocessScheduler inprocess_;

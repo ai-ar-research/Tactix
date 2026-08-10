@@ -75,6 +75,16 @@ experiment closes. A permanent knob must support a distinct, continuing use
 that cannot be covered by the shipped default plus short-lived experimental
 instrumentation; historical behavior alone is not sufficient justification.
 
+DefaultPolicy contains no magic strategy numbers. Every numeric value that can
+change action choice, order, admission, timing, repetition, effort, candidate
+scope, or retention is a descriptively named field in the centralized typed
+default-strategy configuration, with its reference or derivation recorded.
+Use sites do not embed those values. Algorithmic invariants, representation
+constants, enum values, sentinels, and diagnostic-only limits are exempt but
+must be identifiable as such. A new or changed strategy value lands with
+configuration-wiring and shipped-default tests; a narrow annotated allowlist is
+required for any exceptional literal.
+
 ## 3. Core design: flexibility without hot-loop overhead
 
 Use two dispatch tiers backed by the same rule implementations:

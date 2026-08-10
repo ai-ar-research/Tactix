@@ -44,6 +44,10 @@ add_executable(test_scheduling test_scheduling.cpp)
 target_link_libraries(test_scheduling PRIVATE tactix_lib)
 add_test(NAME scheduling COMMAND test_scheduling)
 
+add_executable(test_strategy_config test_strategy_config.cpp)
+target_link_libraries(test_strategy_config PRIVATE tactix_lib)
+add_test(NAME strategy_config COMMAND test_strategy_config)
+
 if(TACTIX_ENABLE_EVENT_TRACE)
   add_executable(test_event_trace test_event_trace.cpp)
 else()
@@ -283,6 +287,9 @@ add_test(NAME doc_size
 add_test(NAME proof_rule_sync
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-proof-rule-sync.py)
+add_test(NAME default_strategy_config_check
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-default-strategy-config.py)
 
 # `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)

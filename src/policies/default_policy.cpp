@@ -23,9 +23,182 @@
 #include <cstdlib>
 #include <cstring>
 #include <optional>
+#include <sstream>
 #include <utility>
 
 namespace tactix {
+
+namespace {
+// Unit conversions and protocol values, not strategy parameters.
+constexpr uint64_t PERMILLE_SCALE = 1000;
+constexpr uint64_t PERCENT_SCALE = 100;
+constexpr uint32_t MODES_PER_CYCLE = 2;
+constexpr uint32_t REORDER_STABLE_ONLY = 2;
+} // namespace
+
+std::string DefaultStrategyConfig::serialize() const {
+  std::ostringstream out;
+  out << "strategy-v1"
+      << " branching.random_initial_interval="
+      << branching.random_initial_interval
+      << " branching.random_sequence_length="
+      << branching.random_sequence_length
+      << " branching.random_pick_attempts=" << branching.random_pick_attempts
+      << " branching.random_seed=" << branching.random_seed
+      << " branching.logarithm_offset=" << branching.logarithm_offset
+      << " branching.random_sequences=" << branching.random_sequences
+      << " analysis.bump_reason_limit=" << analysis.bump_reason_limit
+      << " analysis.bump_reason_rate=" << analysis.bump_reason_rate
+      << " analysis.focused_reason_depth=" << analysis.focused_reason_depth
+      << " analysis.stable_reason_depth=" << analysis.stable_reason_depth
+      << " analysis.chronological_levels=" << analysis.chronological_levels
+      << " analysis.reuse_ranked_trail_suffix="
+      << analysis.reuse_ranked_trail_suffix
+      << " restart.glue_margin=" << restart.glue_margin
+      << " restart.initial_interval=" << restart.initial_interval
+      << " restart.fast_ema_window=" << restart.fast_ema_window
+      << " restart.slow_ema_window=" << restart.slow_ema_window
+      << " restart.logarithm_offset=" << restart.logarithm_offset
+      << " restart.logarithm_bias=" << restart.logarithm_bias
+      << " restart.reluctant_period=" << restart.reluctant_period
+      << " restart.reluctant_limit=" << restart.reluctant_limit
+      << " mode.initial_conflicts=" << mode.initial_conflicts
+      << " mode.interval=" << mode.interval
+      << " mode.logarithm_offset=" << mode.logarithm_offset
+      << " mode.logarithm_power=" << mode.logarithm_power
+      << " mode.force=" << mode.force
+      << " reduction.initial_interval=" << reduction.initial_interval
+      << " reduction.arithmetic_interval=" << reduction.arithmetic_interval
+      << " reduction.arithmetic_step=" << reduction.arithmetic_step
+      << " reduction.low_percent=" << reduction.low_percent
+      << " reduction.high_percent=" << reduction.high_percent
+      << " reduction.logarithm_offset=" << reduction.logarithm_offset
+      << " reduction.compact_inactive_percent="
+      << reduction.compact_inactive_percent
+      << " reduction.retier_initial_interval="
+      << reduction.retier_initial_interval
+      << " reduction.retier_max_interval=" << reduction.retier_max_interval
+      << " reduction.retier_growth=" << reduction.retier_growth
+      << " reduction.square_root_cadence="
+      << reduction.square_root_cadence
+      << " reduction.ramp_fraction=" << reduction.ramp_fraction
+      << " reduction.dynamic_tiers=" << reduction.dynamic_tiers
+      << " reduction.compact_variables=" << reduction.compact_variables
+      << " rephase.initial_interval=" << rephase.initial_interval
+      << " rephase.interval=" << rephase.interval
+      << " rephase.logarithm_offset=" << rephase.logarithm_offset
+      << " rephase.logarithm_power=" << rephase.logarithm_power
+      << " rephase.walk_permille=" << rephase.walk_permille
+      << " rephase.stable_only=" << rephase.stable_only
+      << " rephase.late_lucky=" << rephase.late_lucky
+      << " reorder.initial_interval=" << reorder.initial_interval
+      << " reorder.interval=" << reorder.interval
+      << " reorder.mode=" << reorder.mode
+      << " inprocess.eliminate_interval=" << inprocess.eliminate_interval
+      << " inprocess.probe_interval=" << inprocess.probe_interval
+      << " inprocess.minimum_effort_ticks="
+      << inprocess.minimum_effort_ticks
+      << " inprocess.preprocess_initial_ticks="
+      << inprocess.preprocess_initial_ticks
+      << " inprocess.phase_rounds=" << inprocess.phase_rounds
+      << " inprocess.factor_initial_ticks=" << inprocess.factor_initial_ticks
+      << " inprocess.congruence_initial_ticks="
+      << inprocess.congruence_initial_ticks
+      << " inprocess.logarithm_offset=" << inprocess.logarithm_offset
+      << " inprocess.scale_quadratic=" << inprocess.scale_quadratic
+      << " inprocess.scale_constant=" << inprocess.scale_constant
+      << " inprocess.scale_log_shift=" << inprocess.scale_log_shift
+      << " inprocess.candidate_order_seed="
+      << inprocess.candidate_order_seed;
+  for (size_t i = 0; i < inprocess.bve_bounds.size(); ++i)
+    out << " inprocess.bve_bound" << i << '=' << inprocess.bve_bounds[i];
+  out << " inprocess.bve_default_ceiling=" << inprocess.bve_default_ceiling
+      << " inprocess.factor_decade_round_cap="
+      << inprocess.factor_decade_round_cap
+      << " inprocess.factor_decade_cap=" << inprocess.factor_decade_cap
+      << " inprocess.factor_decade_offset=" << inprocess.factor_decade_offset
+      << " inprocess.factor_decade_base=" << inprocess.factor_decade_base
+      << " inprocess.bve_permille=" << inprocess.bve_permille
+      << " inprocess.probe_permille=" << inprocess.probe_permille
+      << " inprocess.hyper_binary_permille="
+      << inprocess.hyper_binary_permille
+      << " inprocess.backbone_permille=" << inprocess.backbone_permille
+      << " inprocess.transitive_permille=" << inprocess.transitive_permille
+      << " inprocess.vivify_permille=" << inprocess.vivify_permille
+      << " inprocess.strengthen_permille=" << inprocess.strengthen_permille
+      << " inprocess.subsume_forward_permille="
+      << inprocess.subsume_forward_permille
+      << " inprocess.factor_permille=" << inprocess.factor_permille
+      << " inprocess.hyper_ternary_permille="
+      << inprocess.hyper_ternary_permille
+      << " inprocess.bce_permille=" << inprocess.bce_permille
+      << " inprocess.cce_permille=" << inprocess.cce_permille
+      << " inprocess.instantiate_permille=" << inprocess.instantiate_permille
+      << " inprocess.sweep_permille=" << inprocess.sweep_permille
+      << " inprocess.congruence_permille=" << inprocess.congruence_permille
+      << " inprocess.substitute_permille=" << inprocess.substitute_permille
+      << " inprocess.congruence_productivity_permille="
+      << inprocess.congruence_productivity_permille
+      << " inprocess.sweep_productivity_permille="
+      << inprocess.sweep_productivity_permille
+      << " inprocess.vivify_irredundant_productivity_percent="
+      << inprocess.vivify_irredundant_productivity_percent
+      << " inprocess.vivify_redundant_share="
+      << inprocess.vivify_redundant_share
+      << " inprocess.vivify_total_share=" << inprocess.vivify_total_share;
+  for (size_t i = 0; i < inprocess.vivify_tier_shares.size(); ++i)
+    out << " inprocess.vivify_tier_share" << i << '='
+        << inprocess.vivify_tier_shares[i]
+        << " inprocess.vivify_tier_scope" << i << '='
+        << unsigned(inprocess.vivify_tier_scopes[i]);
+  out << " inprocess.closure_delay=" << inprocess.closure_delay
+      << " inprocess.split_clocks=" << inprocess.split_clocks
+      << " inprocess.watermarks=" << inprocess.watermarks
+      << " inprocess.preprocess_followups="
+      << inprocess.preprocess_followups
+      << " inprocess.couple_factor_bound="
+      << inprocess.couple_factor_bound;
+  return out.str();
+}
+
+DefaultPolicy::DefaultPolicy() : DefaultPolicy(DefaultStrategyConfig{}) {}
+
+DefaultPolicy::DefaultPolicy(const DefaultStrategyConfig &config)
+    : chrono_levels(config.analysis.chronological_levels),
+      chrono_reuse_trail_(config.analysis.reuse_ranked_trail_suffix),
+      base_config_(config), config_(config),
+      default_branching_(&config_.branching),
+      default_reduction_(&config_.reduction), inprocess_(&config_.inprocess) {
+  default_reduction_.ramp = config_.reduction.ramp_fraction;
+  retier_.next_conflicts = retier_.interval =
+      config_.reduction.retier_initial_interval;
+}
+
+const DefaultStrategyConfig::Inprocess &
+DefaultInprocessScheduler::config() const {
+  static const DefaultStrategyConfig defaults;
+  return config_ ? *config_ : defaults.inprocess;
+}
+
+uint32_t DefaultBveBoundRamp::num_passes() const {
+  static const DefaultStrategyConfig defaults;
+  const auto &cfg = config_ ? *config_ : defaults.inprocess;
+  uint32_t cap = cfg.bve_default_ceiling;
+  if (const char *s = std::getenv("TACTIX_BVE_RAMP_MAX"))
+    cap = static_cast<uint32_t>(std::atoi(s));
+  uint32_t n = 0;
+  for (uint32_t i = 0; i < cfg.bve_bounds.size(); i++)
+    if (cfg.bve_bounds[i] <= cap)
+      n = i + 1;
+  return n ? n : 1;
+}
+
+uint32_t DefaultBveBoundRamp::bound(uint32_t pass) const {
+  static const DefaultStrategyConfig defaults;
+  const auto &cfg = config_ ? *config_ : defaults.inprocess;
+  const size_t last = cfg.bve_bounds.size() - 1;
+  return cfg.bve_bounds[pass < cfg.bve_bounds.size() ? pass : last];
+}
 
 void DefaultArenaOrder::order(const Kernel &k, std::vector<Ref> &refs) {
   if (!k.h || k.h->queue_last == INVALID_VAR || refs.empty())
@@ -71,9 +244,9 @@ struct ScopedArenaOrdering {
 void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
   ModeAverages &avg = averages[k.h->stable];
   if (!avg.initialized) { // lazy, once per mode (kissat init_averages)
-    avg.fast_glue.init(EMA_FAST_WINDOW);
-    avg.slow_glue.init(EMA_SLOW_WINDOW);
-    avg.decision_rate.init(EMA_SLOW_WINDOW);
+    avg.fast_glue.init(config_.restart.fast_ema_window);
+    avg.slow_glue.init(config_.restart.slow_ema_window);
+    avg.decision_rate.init(config_.restart.slow_ema_window);
     avg.initialized = true;
   }
   avg.fast_glue.update(glue);
@@ -83,9 +256,9 @@ void DefaultPolicy::observe_glue(const Kernel &k, uint32_t glue) {
 void DefaultPolicy::observe_decision_rate(const Kernel &k) {
   ModeAverages &avg = averages[k.h->stable];
   if (!avg.initialized) {
-    avg.fast_glue.init(EMA_FAST_WINDOW);
-    avg.slow_glue.init(EMA_SLOW_WINDOW);
-    avg.decision_rate.init(EMA_SLOW_WINDOW);
+    avg.fast_glue.init(config_.restart.fast_ema_window);
+    avg.slow_glue.init(config_.restart.slow_ema_window);
+    avg.decision_rate.init(config_.restart.slow_ema_window);
     avg.initialized = true;
   }
   const uint64_t cur = k.stats.decisions;
@@ -107,7 +280,8 @@ uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) {
 }
 
 uint32_t DefaultPolicy::bump_reason_depth(const Kernel &k) const {
-  return k.h && k.h->stable ? 2u : 1u;
+  return k.h && k.h->stable ? config_.analysis.stable_reason_depth
+                            : config_.analysis.focused_reason_depth;
 }
 
 void DefaultPolicy::tick_reluctant() {
@@ -122,10 +296,10 @@ void DefaultPolicy::tick_reluctant() {
   } else {
     v *= 2;
   }
-  uint64_t wait = v * RELUCTANT_PERIOD;
-  if (wait > RELUCTANT_LIMIT) {
+  uint64_t wait = v * config_.restart.reluctant_period;
+  if (wait > config_.restart.reluctant_limit) {
     u = v = 1;
-    wait = RELUCTANT_PERIOD;
+    wait = config_.restart.reluctant_period;
   }
   reluctant.trigger = true;
   reluctant.wait = wait;
@@ -139,7 +313,8 @@ bool DefaultPolicy::want_restart(const Kernel &k) const {
   if (k.h->stable)
     return reluctant.trigger;
   const ModeAverages &avg = averages[0];
-  return RESTART_MARGIN * avg.slow_glue.value <= avg.fast_glue.value;
+  return config_.restart.glue_margin * avg.slow_glue.value <=
+         avg.fast_glue.value;
 }
 
 bool DefaultPolicy::want_switch_mode(const Kernel &k) const {
@@ -153,21 +328,28 @@ void DefaultPolicy::update_mode_limits(const Kernel &k) {
     const uint64_t focused_ticks = search_ticks(k) - mode.ticks_at_focus_entry;
     mode.ticks_limit = search_ticks(k) + focused_ticks;
   } else { // just entered focused
-    const uint64_t n = mode.count / 2 ? mode.count / 2 : 1;
-    const double log4 = std::pow(std::log10(static_cast<double>(n) + 9), 4);
+    const uint64_t n = mode.count / MODES_PER_CYCLE
+                           ? mode.count / MODES_PER_CYCLE
+                           : 1;
+    const double log4 = std::pow(
+        std::log10(static_cast<double>(n) + config_.mode.logarithm_offset),
+        config_.mode.logarithm_power);
     mode.conflicts_limit =
         k.stats.conflicts +
-        static_cast<uint64_t>(MODE_INTERVAL * static_cast<double>(n) * log4);
+        static_cast<uint64_t>(config_.mode.interval * static_cast<double>(n) *
+                              log4);
     mode.ticks_at_focus_entry = search_ticks(k);
     update_restart_limit(k);
   }
 }
 
 void DefaultPolicy::update_restart_limit(const Kernel &k) {
-  uint64_t delta = RESTART_INTERVAL;
+  uint64_t delta = config_.restart.initial_interval;
   if (k.stats.restarts)
     delta += static_cast<uint64_t>(
-        std::log10(static_cast<double>(k.stats.restarts) + 9) - 1.0);
+        std::log10(static_cast<double>(k.stats.restarts) +
+                   config_.restart.logarithm_offset) -
+        config_.restart.logarithm_bias);
   restart.next_conflicts = k.stats.conflicts + delta;
 }
 
@@ -176,16 +358,14 @@ bool DefaultPolicy::want_reduce(const Kernel &k) const {
 }
 
 bool DefaultPolicy::want_rephase(const Kernel &k) const {
-  static const bool both = std::getenv("TACTIX_REPHASE_BOTH_MODES") != nullptr;
-  return (both || k.h->stable) && k.stats.conflicts > rephase.next_conflicts;
+  return (!config_.rephase.stable_only || k.h->stable) &&
+         k.stats.conflicts > rephase.next_conflicts;
 }
 
 bool DefaultPolicy::want_reorder(const Kernel &k) const {
-  static const char *const env = std::getenv("TACTIX_REORDER");
-  static const int mode = env ? std::atoi(env) : 2;
-  if (mode <= 0)
+  if (!config_.reorder.mode)
     return false;
-  if (!k.h->stable && mode < 2)
+  if (!k.h->stable && config_.reorder.mode < REORDER_STABLE_ONLY)
     return false;
   if (k.level != 0)
     return false; // kissat's own trigger: reorder only at the root
@@ -194,15 +374,16 @@ bool DefaultPolicy::want_reorder(const Kernel &k) const {
 
 void DefaultPolicy::update_reorder_limit(const Kernel &k) {
   reorder.next_conflicts =
-      k.stats.conflicts + REORDER_INTERVAL * reorder.count;
+      k.stats.conflicts + config_.reorder.interval * reorder.count;
 }
 
 void DefaultPolicy::update_rephase_limit(const Kernel &k) {
   const double n = static_cast<double>(rephase.count);
-  const double lg = std::log10(n + 9);
-  rephase.next_conflicts =
-      k.stats.conflicts +
-      static_cast<uint64_t>(REPHASE_INTERVAL * n * lg * lg * lg);
+  const double lg = std::log10(n + config_.rephase.logarithm_offset);
+  rephase.next_conflicts = k.stats.conflicts +
+                           static_cast<uint64_t>(
+                               config_.rephase.interval * n *
+                               std::pow(lg, config_.rephase.logarithm_power));
 }
 
 void DefaultPolicy::reset_schedule(const Kernel &k) {
@@ -213,18 +394,20 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   update_restart_limit(k);
   reduce.next_conflicts =
       conflicts +
-      (reduce_sqrt_ ? REDUCE_INTERVAL_INIT : REDUCE_INTERVAL_ARITH);
+      (reduce_sqrt_ ? config_.reduction.initial_interval
+                    : config_.reduction.arithmetic_interval);
   mode = {};
-  mode.conflicts_limit = conflicts + MODE_INITIAL_CONFLICTS;
+  mode.conflicts_limit = conflicts + config_.mode.initial_conflicts;
   mode.ticks_at_focus_entry = ticks;
   reluctant = {};
   rephase = {};
-  rephase.next_conflicts = conflicts + REPHASE_INTERVAL_INIT;
+  rephase.next_conflicts = conflicts + config_.rephase.initial_interval;
   reorder = {};
-  reorder.next_conflicts = conflicts + REORDER_INTERVAL_INIT;
+  reorder.next_conflicts = conflicts + config_.reorder.initial_interval;
   walk_anchor = ticks;
   bump_reasons_delay_ = {};
-  retier_ = {};
+  retier_.next_conflicts = config_.reduction.retier_initial_interval;
+  retier_.interval = config_.reduction.retier_initial_interval;
   if (dynamic_tiers_)
     retier_.next_conflicts = conflicts + retier_.interval;
   default_branching_.reset(conflicts);
@@ -238,10 +421,14 @@ static uint64_t active_variables(const Kernel &k) {
   return n > retired ? n - retired : 0;
 }
 
-static uint64_t scale_inprocessing_delta(const Kernel &k, uint64_t delta) {
+static uint64_t scale_inprocessing_delta(
+    const Kernel &k, uint64_t delta,
+    const DefaultStrategyConfig::Inprocess &config) {
   const double f =
-      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) - 5;
-  return static_cast<uint64_t>((4.5 * f * f + 25) *
+      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) -
+      config.scale_log_shift;
+  return static_cast<uint64_t>((config.scale_quadratic * f * f +
+                                config.scale_constant) *
                                static_cast<double>(delta));
 }
 
@@ -328,7 +515,7 @@ uint64_t meter_substitute(const Kernel &k) { return k.stats.substitute_ticks; }
 
 struct EffortSpec {
   const char *name;
-  uint32_t permille;
+  uint32_t DefaultStrategyConfig::Inprocess::*permille;
   uint64_t (*meter)(const Kernel &);
   bool dosed;
   bool budget_aware;
@@ -340,14 +527,17 @@ struct DelaySpec {
   const char *name;
   uint64_t (*yield)(const Kernel &);
   uint64_t (*denom)(const Kernel &);
-  uint32_t permille; // bump the delay when yield * 1000 < permille * denom
+  uint32_t DefaultStrategyConfig::Inprocess::*permille;
   bool denom_delta;
 };
 constexpr DelaySpec DELAY_SPECS[] = {
     {"Congruence", [](const Kernel &k) { return k.stats.congruence_merges; },
-     active_variables, 1, false},
+     active_variables,
+     &DefaultStrategyConfig::Inprocess::congruence_productivity_permille,
+     false},
     {"Sweep", [](const Kernel &k) { return k.stats.sweep_equivalences; },
-     [](const Kernel &k) { return k.stats.sweep_candidates; }, 1, true},
+     [](const Kernel &k) { return k.stats.sweep_candidates; },
+     &DefaultStrategyConfig::Inprocess::sweep_productivity_permille, true},
 };
 static const DelaySpec *delay_spec(const char *name) {
   for (const DelaySpec &d : DELAY_SPECS)
@@ -357,22 +547,41 @@ static const DelaySpec *delay_spec(const char *name) {
 }
 
 constexpr EffortSpec EFFORT_SPECS[] = {
-    {"BVE", 100, meter_bve, true, false, nullptr},
-    {"Probe", 8, meter_probe, true, false, &Stats::probe_ticks},
-    {"HyperBinaryRes", 8, meter_hbr, true, true, &Stats::hbr_ticks},
-    {"Backbone", 20, meter_backbone, true, false, &Stats::backbone_ticks},
-    {"TransitiveReduce", 20, meter_transitive, true, false},
-    {"Vivify", 100, meter_vivify, false, true, &Stats::vivify_ticks},
-    {"Strengthen", 100, meter_forward_pair, false, true, nullptr},
-    {"SubsumeForward", 100, meter_forward_pair, false, true, nullptr},
-    {"Factor", 50, meter_factor, false, true, nullptr},
-    {"HyperTernaryRes", 8, meter_ternary, false, true, nullptr},
-    {"BCE", 20, meter_bce, false, true},
-    {"CCE", 4, meter_cce, false, true},
-    {"Instantiate", 20, meter_instantiate, false, true, &Stats::instantiate_ticks},
-    {"Sweep", 100, meter_sweep, false, true},
-    {"Congruence", 100, meter_congruence, false, true, nullptr, true},
-    {"Substitute", 10, meter_substitute, false, true, nullptr, true},
+    {"BVE", &DefaultStrategyConfig::Inprocess::bve_permille, meter_bve, true,
+     false, nullptr},
+    {"Probe", &DefaultStrategyConfig::Inprocess::probe_permille, meter_probe,
+     true, false, &Stats::probe_ticks},
+    {"HyperBinaryRes",
+     &DefaultStrategyConfig::Inprocess::hyper_binary_permille, meter_hbr, true,
+     true, &Stats::hbr_ticks},
+    {"Backbone", &DefaultStrategyConfig::Inprocess::backbone_permille,
+     meter_backbone, true, false, &Stats::backbone_ticks},
+    {"TransitiveReduce", &DefaultStrategyConfig::Inprocess::transitive_permille,
+     meter_transitive, true, false},
+    {"Vivify", &DefaultStrategyConfig::Inprocess::vivify_permille,
+     meter_vivify, false, true, &Stats::vivify_ticks},
+    {"Strengthen", &DefaultStrategyConfig::Inprocess::strengthen_permille,
+     meter_forward_pair, false, true, nullptr},
+    {"SubsumeForward",
+     &DefaultStrategyConfig::Inprocess::subsume_forward_permille,
+     meter_forward_pair, false, true, nullptr},
+    {"Factor", &DefaultStrategyConfig::Inprocess::factor_permille,
+     meter_factor, false, true, nullptr},
+    {"HyperTernaryRes",
+     &DefaultStrategyConfig::Inprocess::hyper_ternary_permille, meter_ternary,
+     false, true, nullptr},
+    {"BCE", &DefaultStrategyConfig::Inprocess::bce_permille, meter_bce, false,
+     true},
+    {"CCE", &DefaultStrategyConfig::Inprocess::cce_permille, meter_cce, false,
+     true},
+    {"Instantiate", &DefaultStrategyConfig::Inprocess::instantiate_permille,
+     meter_instantiate, false, true, &Stats::instantiate_ticks},
+    {"Sweep", &DefaultStrategyConfig::Inprocess::sweep_permille, meter_sweep,
+     false, true},
+    {"Congruence", &DefaultStrategyConfig::Inprocess::congruence_permille,
+     meter_congruence, false, true, nullptr, true},
+    {"Substitute", &DefaultStrategyConfig::Inprocess::substitute_permille,
+     meter_substitute, false, true, nullptr, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -508,7 +717,7 @@ void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
   }
   if (arm == CandidateOrder::Random) {
     for (uint32_t i = n; i > 1; i--) {
-      rng_ += 0x9e3779b97f4a7c15ull;
+      rng_ += increment_;
       uint64_t z = rng_;
       z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
       z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
@@ -587,18 +796,22 @@ bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
 }
 
 void DefaultInprocessScheduler::update_limit(const Kernel &k, SlotGroup g) {
+  const auto &cfg = config();
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
   const bool split = slot_clocks_split_;
   uint64_t n = split ? c.rounds
                      : std::max(probe_clock.rounds, elim_clock.rounds);
   if (!n)
     n = 1;
-  const double lg = std::log10(static_cast<double>(n) + 9);
+  const double lg =
+      std::log10(static_cast<double>(n) + cfg.logarithm_offset);
   const double base = split && g == SlotGroup::Probe
-                          ? PROBE_INTERVAL * static_cast<double>(n) * lg
-                          : SUBSUME_INTERVAL * static_cast<double>(n) * lg * lg;
+                          ? cfg.probe_interval * static_cast<double>(n) * lg
+                          : cfg.eliminate_interval * static_cast<double>(n) *
+                                lg * lg;
   c.next_conflicts = k.stats.conflicts +
-                     scale_inprocessing_delta(k, static_cast<uint64_t>(base));
+                     scale_inprocessing_delta(k, static_cast<uint64_t>(base),
+                                              cfg);
 }
 
 void DefaultPolicy::update_reduce_limit(const Kernel &k) {
@@ -607,37 +820,48 @@ void DefaultPolicy::update_reduce_limit(const Kernel &k) {
         k.stats.reductions ? k.stats.reductions : 1);
     reduce.next_conflicts =
         k.stats.conflicts +
-        static_cast<uint64_t>(REDUCE_INTERVAL_INIT * std::sqrt(n));
+        static_cast<uint64_t>(config_.reduction.initial_interval *
+                              std::sqrt(n));
     return;
   }
-  reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_ARITH +
-                          REDUCE_INTERVAL_STEP * k.stats.reductions;
+  reduce.next_conflicts = k.stats.conflicts +
+                          config_.reduction.arithmetic_interval +
+                          config_.reduction.arithmetic_step *
+                              k.stats.reductions;
 }
 
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
   if (!ramp)
     return reduce_canonical_victims(candidates);
+  static const DefaultStrategyConfig defaults;
+  const auto &cfg = config_ ? *config_ : defaults.reduction;
   const double r = static_cast<double>(k.stats.reductions) + 1.0;
-  const double percent = 90.0 - 40.0 / std::log10(r + 9.0);
+  const double percent =
+      cfg.high_percent - (cfg.high_percent - cfg.low_percent) /
+                             std::log10(r + cfg.logarithm_offset);
   return static_cast<size_t>(static_cast<double>(candidates) * percent /
-                             100.0);
+                             PERCENT_SCALE);
 }
 
 Lit DefaultBranching::pick(Kernel &k) {
+  static const DefaultStrategyConfig defaults;
+  const auto &cfg = config_ ? *config_ : defaults.branching;
   assert(k.unassigned > 0);
   if (randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
     if (c >= randec_until && k.level <= 1 && c >= randec_next) {
       randec_sequences++;
       const double n = static_cast<double>(randec_sequences);
-      const double logn = std::log10(n + 9.0);
-      randec_until = c + static_cast<uint64_t>(RANDEC_LENGTH * logn) + 1;
-      randec_next = c + static_cast<uint64_t>(RANDEC_INIT * logn);
+      const double logn = std::log10(n + cfg.logarithm_offset);
+      randec_until =
+          c + static_cast<uint64_t>(cfg.random_sequence_length * logn) + 1;
+      randec_next =
+          c + static_cast<uint64_t>(cfg.random_initial_interval * logn);
       k.stats.random_sequences++;
     }
     if (c < randec_until) {
-      for (uint32_t tries = 0; tries < 64; tries++) {
-        randec_rng += 0x9E3779B97F4A7C15ull;
+      for (uint32_t tries = 0; tries < cfg.random_pick_attempts; tries++) {
+        randec_rng += cfg.random_seed;
         uint64_t z = randec_rng;
         z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ull;
         z = (z ^ (z >> 27)) * 0x94D049BB133111EBull;
@@ -655,41 +879,91 @@ Lit DefaultBranching::pick(Kernel &k) {
 }
 
 void DefaultPolicy::configure_from_env() {
-  force_mode_ = 0;
+  config_ = base_config_;
+  // Preserve the pre-existing white-box policy pose surface: callers and
+  // focused tests may set these public members before solve().
+  config_.analysis.chronological_levels = chrono_levels;
+  config_.analysis.reuse_ranked_trail_suffix = chrono_reuse_trail_;
+  config_.branching.random_sequences = default_branching_.randec_enabled;
   if (const char *fm = std::getenv("TACTIX_FORCE_MODE")) {
     if (!std::strcmp(fm, "focused"))
-      force_mode_ = 1;
+      config_.mode.force = 1;
     else if (!std::strcmp(fm, "stable"))
-      force_mode_ = 2;
+      config_.mode.force = 2;
   }
-  bump_reasons_limit_ =
-      std::getenv("TACTIX_NO_BUMP_REASONS") ? 0 : BUMP_REASONS_LIMIT;
+  if (std::getenv("TACTIX_NO_BUMP_REASONS"))
+    config_.analysis.bump_reason_limit = 0;
   if (const char *bl = std::getenv("TACTIX_BUMP_REASONS_LIMIT"))
-    bump_reasons_limit_ = static_cast<uint32_t>(std::strtoul(bl, nullptr, 10));
-  bump_reasons_rate_ = BUMP_REASONS_RATE;
+    config_.analysis.bump_reason_limit =
+        static_cast<uint32_t>(std::strtoul(bl, nullptr, 10));
   if (const char *br = std::getenv("TACTIX_BUMP_REASONS_RATE"))
-    bump_reasons_rate_ = std::strtod(br, nullptr);
+    config_.analysis.bump_reason_rate = std::strtod(br, nullptr);
   const char *cad = std::getenv("TACTIX_REDUCE_CADENCE"); // "sqrt" | "arith"
   const char *rmp = std::getenv("TACTIX_REDUCE_RAMP");    // "1" | "0"
-  reduce_sqrt_ = cad ? std::strcmp(cad, "arith") != 0 : true;
-  default_reduction_.ramp = rmp ? (rmp[0] == '1') : reduce_sqrt_;
-  dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
-  compact_ = !std::getenv("TACTIX_NO_COMPACT");
-  lucky_late_ = true;
+  if (cad)
+    config_.reduction.square_root_cadence =
+        std::strcmp(cad, "arith") != 0;
+  if (rmp)
+    config_.reduction.ramp_fraction = rmp[0] == '1';
+  else if (cad)
+    config_.reduction.ramp_fraction =
+        config_.reduction.square_root_cadence;
+  if (std::getenv("TACTIX_NO_DYNAMIC_TIERS"))
+    config_.reduction.dynamic_tiers = false;
+  if (std::getenv("TACTIX_NO_COMPACT"))
+    config_.reduction.compact_variables = false;
   if (const char *ll = std::getenv("TACTIX_LUCKY_LATE"))
-    lucky_late_ = std::strtoul(ll, nullptr, 10) != 0;
+    config_.rephase.late_lucky = std::strtoul(ll, nullptr, 10) != 0;
+  if (std::getenv("TACTIX_REPHASE_BOTH_MODES"))
+    config_.rephase.stable_only = false;
+  if (const char *ro = std::getenv("TACTIX_REORDER"))
+    config_.reorder.mode =
+        static_cast<uint32_t>(std::strtoul(ro, nullptr, 10));
+  if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
+    const long n = std::strtol(cl, nullptr, 10);
+    if (n >= 0)
+      config_.analysis.chronological_levels = static_cast<uint32_t>(n);
+  }
+  if (const char *cr = std::getenv("TACTIX_CHRONO_REUSE"))
+    config_.analysis.reuse_ranked_trail_suffix =
+        std::strtoul(cr, nullptr, 10) != 0;
+  if (const char *rd = std::getenv("TACTIX_RANDEC"))
+    config_.branching.random_sequences = *rd != '0';
+  if (const char *wp = std::getenv("TACTIX_WALK_PERMILLE"))
+    config_.rephase.walk_permille = std::strtoull(wp, nullptr, 10);
+
+  force_mode_ = config_.mode.force;
+  bump_reasons_limit_ = config_.analysis.bump_reason_limit;
+  bump_reasons_rate_ = config_.analysis.bump_reason_rate;
+  reduce_sqrt_ = config_.reduction.square_root_cadence;
+  dynamic_tiers_ = config_.reduction.dynamic_tiers;
+  compact_ = config_.reduction.compact_variables;
+  lucky_late_ = config_.rephase.late_lucky;
+  chrono_levels = config_.analysis.chronological_levels;
+  chrono_reuse_trail_ = config_.analysis.reuse_ranked_trail_suffix;
+  default_branching_.set_config(&config_.branching);
+  default_branching_.randec_enabled = config_.branching.random_sequences;
+  default_reduction_.set_config(&config_.reduction);
+  default_reduction_.ramp = config_.reduction.ramp_fraction;
+  inprocess_.set_config(&config_.inprocess);
   inprocess_.configure_from_env();
 }
 
 void DefaultInprocessScheduler::configure_from_env() {
-  closure_delay_ = std::getenv("TACTIX_NO_CLOSURE_DELAY") == nullptr;
-  factor_init_ticks_ = FACTOR_INIT_TICKS;
+  const auto &cfg = config();
+  closure_delay_ = cfg.closure_delay;
+  slot_clocks_split_ = cfg.split_clocks;
+  slot_watermark_ = cfg.watermarks;
+  couple_factor_bound_ = cfg.couple_factor_bound;
+  if (std::getenv("TACTIX_NO_CLOSURE_DELAY"))
+    closure_delay_ = false;
+  factor_init_ticks_ = cfg.factor_initial_ticks;
   if (const char *fi = std::getenv("TACTIX_FACTOR_INIT_TICKS"))
     factor_init_ticks_ = std::strtoull(fi, nullptr, 10);
-  congruence_init_ticks_ = CONGRUENCE_INIT_TICKS;
+  congruence_init_ticks_ = cfg.congruence_initial_ticks;
   if (const char *ci = std::getenv("TACTIX_CONG_INIT_TICKS"))
     congruence_init_ticks_ = std::strtoull(ci, nullptr, 10);
-  preprocess_followups_ = true;
+  preprocess_followups_ = cfg.preprocess_followups;
   if (const char *pf = std::getenv("TACTIX_PREPROCESS_FOLLOWUPS"))
     preprocess_followups_ = std::strtoul(pf, nullptr, 10) != 0;
 }
@@ -702,7 +976,7 @@ void DefaultInprocessScheduler::reset(const Kernel &k) {
   bve_rounds_run_ = 0;
   bve_level_ = 0;
   bve_level_idx_ = 0;
-  default_candidate_order_.reset();
+  default_candidate_order_.reset(config().candidate_order_seed);
   for (SlotEntry &e : entries) {
     e.limit = 0;
     e.applies = 0;
@@ -759,7 +1033,7 @@ void DefaultInprocessScheduler::build(Kernel &k) {
         e.closure = true;
         if (const EffortSpec *s = effort_spec(nm)) {
           e.closure = s->closure;
-          e.permille = s->permille;
+          e.permille = config().*(s->permille);
           e.meter = s->meter;
           e.tick_counter = s->tick_counter;
           e.dosed = s->dosed;
@@ -898,15 +1172,6 @@ void DefaultInprocessScheduler::build(Kernel &k) {
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   KernelStopPublisher stop_published(k, stop);
   ScopedArenaOrdering arena_ordered(k, inprocess_.arena_ordering());
-  if (const char *cl = std::getenv("TACTIX_CHRONO_LEVELS")) {
-    const long n = std::strtol(cl, nullptr, 10);
-    if (n >= 0)
-      chrono_levels = static_cast<uint32_t>(n);
-  }
-  if (const char *cr = std::getenv("TACTIX_CHRONO_REUSE"))
-    chrono_reuse_trail_ = std::strtoul(cr, nullptr, 10) != 0;
-  if (const char *rd = std::getenv("TACTIX_RANDEC"))
-    default_branching_.randec_enabled = (*rd != '0');
   if (k.inconsistent)
     return 20;
   std::optional<ScopedHeuristics> owned_h;
@@ -1000,8 +1265,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (dynamic_tiers_ && k.stats.conflicts > retier_.next_conflicts) {
         reduce_retier(k);
-        if (retier_.interval < (1u << 16))
-          retier_.interval *= 2;
+        if (retier_.interval < config_.reduction.retier_max_interval)
+          retier_.interval *= config_.reduction.retier_growth;
         retier_.next_conflicts = k.stats.conflicts + retier_.interval;
       }
       if (k.h->stable)
@@ -1032,11 +1297,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (dynamic_tiers_)
         reduce_retier(k);
       reduce_candidates(k, reduce_scratch_);
-      reduce_apply_refs(
-          k, reduce_scratch_.data(),
+      const size_t reduce_victims =
           std::min(rp.victims(k, reduce_scratch_.size()),
-                   reduce_scratch_.size()));
-      if (compact_ && kernel_should_compact_variables(k, 10))
+                   reduce_scratch_.size());
+      reduce_apply_refs(
+          k, reduce_scratch_.data(), reduce_victims);
+      if (compact_ && kernel_should_compact_variables(
+                          k, config_.reduction.compact_inactive_percent))
         kernel_compact_variables(k);
       update_reduce_limit(k);
       event_trace.macro(k, "reduce_end");
@@ -1088,12 +1355,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (type == WALK_SLOT && walk_guard(k)) {
         rephase_apply_type(k, REPHASE_BEST); // the slot keeps its Best
         uint64_t reference = search_ticks(k) - walk_anchor;
-        if (reference < DefaultInprocessScheduler::MIN_EFFORT_TICKS)
-          reference = DefaultInprocessScheduler::MIN_EFFORT_TICKS;
-        static const char *const pm_env = std::getenv("TACTIX_WALK_PERMILLE");
-        const uint64_t permille =
-            pm_env ? std::strtoull(pm_env, nullptr, 10) : WALK_PERMILLE;
-        k.work_budget = reference / 1000 * permille;
+        if (reference < config_.inprocess.minimum_effort_ticks)
+          reference = config_.inprocess.minimum_effort_ticks;
+        k.work_budget =
+            reference / PERMILLE_SCALE * config_.rephase.walk_permille;
         walk_apply(k);
         k.work_budget = 0;
         walk_anchor = search_ticks(k);
@@ -1318,11 +1583,15 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
 }
 
 bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry &e) {
+  const auto &cfg = config();
   const uint64_t active = active_variables(k);
   uint64_t threshold = 1;
-  const uint32_t decades = bve_rounds_run_ > 14 ? 19u : bve_rounds_run_ + 5;
+  const uint32_t decades =
+      bve_rounds_run_ > cfg.factor_decade_round_cap
+          ? cfg.factor_decade_cap
+          : bve_rounds_run_ + cfg.factor_decade_offset;
   for (uint32_t d = 0; d < decades; d++)
-    threshold *= 10;
+    threshold *= cfg.factor_decade_base;
   if (active >= threshold) {
     e.tm.dec_warmup++;
     return true;
@@ -1344,6 +1613,7 @@ void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &) {
 ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
                                            const RuleVTable &r,
                                            uint64_t limit) {
+  const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;
   const bool irr_delayed = k.stats.conflicts > 0 && e.delay_count > 0;
@@ -1352,14 +1622,18 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   const char *no_t3 = std::getenv("TACTIX_VIVIFY_TIER3");
   const bool split = !(no_t3 && *no_t3 == '0');
   ApplyResult ar = ApplyResult::NoOp;
-  const uint64_t red = irr_delayed ? remaining : remaining * 7 / 10;
-  const uint8_t scopes[3] = {3, 4, 5};
-  const uint64_t shares[3] = {red * 3 / 7, red * 3 / 7, red / 7};
-  const uint32_t passes = split ? 3u : 1u;
+  const uint64_t red = irr_delayed
+                           ? remaining
+                           : remaining * cfg.vivify_redundant_share /
+                                 cfg.vivify_total_share;
+  const uint32_t passes =
+      split ? static_cast<uint32_t>(cfg.vivify_tier_scopes.size()) : 1u;
   for (uint32_t p = 0; p < passes && ar != ApplyResult::Unsat && !k.inconsistent;
        p++) {
-    k.vivify_scope = split ? scopes[p] : uint8_t{1};
-    k.work_budget = std::max<uint64_t>(1, split ? shares[p] : red);
+    k.vivify_scope = split ? cfg.vivify_tier_scopes[p] : uint8_t{1};
+    const uint64_t tier_share =
+        red * cfg.vivify_tier_shares[p] / cfg.vivify_redundant_share;
+    k.work_budget = std::max<uint64_t>(1, split ? tier_share : red);
     TickSinkScope sink(k, e.tick_counter);
     const ApplyResult a = apply_rule(r, k);
     if (a == ApplyResult::Unsat ||
@@ -1386,7 +1660,9 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
       const uint64_t tried = k.stats.vivify_checked - tried_before;
       const uint64_t produced =
           k.stats.vivified + k.stats.vivify_deleted - produced_before;
-      if (tried == 0 || produced * 100 < tried) {
+      if (tried == 0 ||
+          produced * PERCENT_SCALE <
+              tried * cfg.vivify_irredundant_productivity_percent) {
         e.delay_current += (e.delay_current < UINT32_MAX);
         e.delay_count = e.delay_current;
       } else {
@@ -1488,7 +1764,9 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
       const uint64_t yield = dspec->yield(k) - yield_before;
       const uint64_t denom =
           dspec->denom_delta ? dspec->denom(k) - denom_before : dspec->denom(k);
-      unproductive = denom == 0 || yield * 1000 < uint64_t(dspec->permille) * denom;
+      const uint32_t permille = config().*(dspec->permille);
+      unproductive = denom == 0 ||
+                     yield * PERMILLE_SCALE < uint64_t(permille) * denom;
     } else {
       unproductive = ar != ApplyResult::Ok;
     }
@@ -1541,7 +1819,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   SlotPhaseCtx ctx{group, stop};
   const std::vector<RuleVTable> &rules = tactix_rules();
   uint64_t active_before = active_variables(k);
-  const int rounds = k.stats.conflicts == 0 ? 1 : PHASE_ROUNDS;
+  const int rounds =
+      k.stats.conflicts == 0 ? 1 : static_cast<int>(config().phase_rounds);
   for (ctx.outer = 0;
        ctx.outer < rounds && !ctx.phase_unsat &&
        !(stop && *stop);
@@ -1642,13 +1921,14 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   const bool substitute =
       !std::strcmp(rules[e.rule].name, "Substitute");
   if (k.stats.conflicts == 0)
-    reference = PREPROCESS_INIT_TICKS;
-  else if (!substitute && reference < MIN_EFFORT_TICKS)
-    reference = MIN_EFFORT_TICKS;
+    reference = config().preprocess_initial_ticks;
+  else if (!substitute && reference < config().minimum_effort_ticks)
+    reference = config().minimum_effort_ticks;
   const uint64_t delta = substitute
-                             ? reference / 1000 * e.permille +
-                                   reference % 1000 * e.permille / 1000
-                             : reference / 1000 * e.permille;
+                             ? reference / PERMILLE_SCALE * e.permille +
+                                   reference % PERMILLE_SCALE * e.permille /
+                                       PERMILLE_SCALE
+                             : reference / PERMILLE_SCALE * e.permille;
   e.limit = e.meter(k) + delta;
   if (e.meter == meter_forward_pair) {
     if (forward_pair_limit_)
@@ -1736,6 +2016,9 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
 int default_solve(Kernel &k, volatile sig_atomic_t *stop) {
   DefaultPolicy policy;
   const int res = policy.solve(k, stop);
+  if (std::getenv("TACTIX_STRATEGY_CONFIG"))
+    std::printf("c strategy-config %s\n",
+                policy.strategy_config_snapshot().c_str());
   if (std::getenv("TACTIX_SLOT_STATS"))
     policy.inprocess().report(k);
   return res;

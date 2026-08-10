@@ -1,0 +1,176 @@
+#pragma once
+
+#include <array>
+#include <cstdint>
+#include <string>
+
+namespace tactix {
+
+// Canonical configuration of the shipped strategy.  A value belongs here when
+// changing it can alter which DefaultPolicy action runs, when it runs, how much
+// work it receives, or which candidates it keeps.  Constants intrinsic to data
+// representation and diagnostics deliberately do not belong here.
+//
+// Defaults cite Kissat 4.0.4 unless a comment says otherwise.  The executable
+// call-site evidence is maintained in docs/implementation-notes.md.
+struct DefaultStrategyConfig {
+  // Named compatibility constants are kept beside the typed fields so tests
+  // and design probes can cite a default without duplicating its literal.
+  static constexpr uint64_t RESTART_INTERVAL_DEFAULT = 1;
+  static constexpr double RESTART_MARGIN_DEFAULT = 1.10;
+  static constexpr double FAST_EMA_WINDOW_DEFAULT = 33.0;
+  static constexpr double SLOW_EMA_WINDOW_DEFAULT = 1e5;
+  static constexpr uint64_t RANDOM_INITIAL_INTERVAL_DEFAULT = 500;
+  static constexpr uint64_t RANDOM_SEQUENCE_LENGTH_DEFAULT = 10;
+  static constexpr uint64_t RANDOM_SEED_DEFAULT = 0x9e3779b97f4a7c15ull;
+  static constexpr uint32_t BUMP_REASON_LIMIT_DEFAULT = 10;
+  static constexpr double BUMP_REASON_RATE_DEFAULT = 10.0;
+  static constexpr uint32_t CHRONOLOGICAL_LEVELS_DEFAULT = 100;
+  static constexpr uint64_t WALK_PERMILLE_DEFAULT = 560;
+  static constexpr uint64_t REDUCE_INTERVAL_DEFAULT = 1000;
+  static constexpr uint64_t REDUCE_ARITHMETIC_DEFAULT = 2000;
+  static constexpr uint64_t REDUCE_ARITHMETIC_STEP_DEFAULT = 300;
+  static constexpr uint64_t MODE_INITIAL_CONFLICTS_DEFAULT = 1000;
+  static constexpr uint64_t MODE_INTERVAL_DEFAULT = 1000;
+  static constexpr uint64_t RELUCTANT_PERIOD_DEFAULT = 1024;
+  static constexpr uint64_t RELUCTANT_LIMIT_DEFAULT = 1ull << 20;
+  static constexpr uint64_t REPHASE_INTERVAL_DEFAULT = 1000;
+  static constexpr uint64_t REORDER_INITIAL_INTERVAL_DEFAULT = 10000;
+  static constexpr uint64_t INPROCESS_ELIMINATE_INTERVAL_DEFAULT = 500;
+  static constexpr uint64_t INPROCESS_PROBE_INTERVAL_DEFAULT = 100;
+  static constexpr uint64_t INPROCESS_MINIMUM_EFFORT_DEFAULT = 10000000;
+  static constexpr uint64_t INPROCESS_PREPROCESS_EFFORT_DEFAULT = 2000000;
+  static constexpr uint32_t INPROCESS_PHASE_ROUNDS_DEFAULT = 2;
+  static constexpr uint64_t FACTOR_INITIAL_EFFORT_DEFAULT = 700000000ull;
+  static constexpr uint64_t CONGRUENCE_INITIAL_EFFORT_DEFAULT =
+      1000000000000ull;
+
+  struct Branching {
+    uint64_t random_initial_interval = RANDOM_INITIAL_INTERVAL_DEFAULT;
+    uint64_t random_sequence_length = RANDOM_SEQUENCE_LENGTH_DEFAULT;
+    uint32_t random_pick_attempts = 64;
+    uint64_t random_seed = RANDOM_SEED_DEFAULT;
+    double logarithm_offset = 9.0; // Kissat logarithmic schedule.
+    bool random_sequences = true;
+  } branching;
+
+  struct Analysis {
+    uint32_t bump_reason_limit = BUMP_REASON_LIMIT_DEFAULT;
+    double bump_reason_rate = BUMP_REASON_RATE_DEFAULT;
+    uint32_t focused_reason_depth = 1;
+    uint32_t stable_reason_depth = 2; // CaDiCaL depth extension.
+    uint32_t chronological_levels = CHRONOLOGICAL_LEVELS_DEFAULT;
+    bool reuse_ranked_trail_suffix = false; // Kissat tie-break over CaDiCaL.
+  } analysis;
+
+  struct Restart {
+    double glue_margin = RESTART_MARGIN_DEFAULT;
+    uint64_t initial_interval = RESTART_INTERVAL_DEFAULT;
+    double fast_ema_window = FAST_EMA_WINDOW_DEFAULT;
+    double slow_ema_window = SLOW_EMA_WINDOW_DEFAULT;
+    double logarithm_offset = 9.0;
+    double logarithm_bias = 1.0;
+    uint64_t reluctant_period = RELUCTANT_PERIOD_DEFAULT;
+    uint64_t reluctant_limit = RELUCTANT_LIMIT_DEFAULT;
+  } restart;
+
+  struct Mode {
+    uint64_t initial_conflicts = MODE_INITIAL_CONFLICTS_DEFAULT;
+    uint64_t interval = MODE_INTERVAL_DEFAULT;
+    double logarithm_offset = 9.0;
+    unsigned logarithm_power = 4;
+    uint32_t force = 0; // 0 automatic, 1 focused, 2 stable.
+  } mode;
+
+  struct Reduction {
+    uint64_t initial_interval = REDUCE_INTERVAL_DEFAULT; // Kissat reduceinit.
+    uint64_t arithmetic_interval = REDUCE_ARITHMETIC_DEFAULT;
+    uint64_t arithmetic_step = REDUCE_ARITHMETIC_STEP_DEFAULT;
+    double low_percent = 50.0;  // Kissat reducelow.
+    double high_percent = 90.0; // Kissat reducehigh.
+    double logarithm_offset = 9.0;
+    uint32_t compact_inactive_percent = 10; // Kissat compactlim.
+    uint64_t retier_initial_interval = 2;
+    uint64_t retier_max_interval = 1ull << 16;
+    uint32_t retier_growth = 2;
+    bool square_root_cadence = true;
+    bool ramp_fraction = true;
+    bool dynamic_tiers = true;
+    bool compact_variables = true;
+  } reduction;
+
+  struct Rephase {
+    uint64_t initial_interval = REPHASE_INTERVAL_DEFAULT;
+    uint64_t interval = REPHASE_INTERVAL_DEFAULT;
+    double logarithm_offset = 9.0;
+    unsigned logarithm_power = 3;
+    uint64_t walk_permille = WALK_PERMILLE_DEFAULT;
+    bool stable_only = true;
+    bool late_lucky = true;
+  } rephase;
+
+  struct Reorder {
+    uint64_t initial_interval = REORDER_INITIAL_INTERVAL_DEFAULT;
+    uint64_t interval = REORDER_INITIAL_INTERVAL_DEFAULT;
+    // 0 off, 1 both modes, 2 stable only.  Kissat ships reorder enabled.
+    uint32_t mode = 2;
+  } reorder;
+
+  struct Inprocess {
+    uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
+    uint64_t probe_interval = INPROCESS_PROBE_INTERVAL_DEFAULT;
+    uint64_t minimum_effort_ticks = INPROCESS_MINIMUM_EFFORT_DEFAULT;
+    uint64_t preprocess_initial_ticks = INPROCESS_PREPROCESS_EFFORT_DEFAULT;
+    uint32_t phase_rounds = INPROCESS_PHASE_ROUNDS_DEFAULT;
+    uint64_t factor_initial_ticks = FACTOR_INITIAL_EFFORT_DEFAULT;
+    uint64_t congruence_initial_ticks = CONGRUENCE_INITIAL_EFFORT_DEFAULT;
+    double logarithm_offset = 9.0;
+    double scale_quadratic = 4.5;
+    double scale_constant = 25.0;
+    double scale_log_shift = 5.0;
+    uint64_t candidate_order_seed = 0x9e3779b97f4a7c15ull;
+
+    std::array<uint32_t, 6> bve_bounds{{0, 1, 2, 4, 8, 16}};
+    uint32_t bve_default_ceiling = 8;
+    uint32_t factor_decade_round_cap = 14;
+    uint32_t factor_decade_cap = 19;
+    uint32_t factor_decade_offset = 5;
+    uint32_t factor_decade_base = 10;
+
+    uint32_t bve_permille = 100;
+    uint32_t probe_permille = 8;
+    uint32_t hyper_binary_permille = 8;
+    uint32_t backbone_permille = 20;
+    uint32_t transitive_permille = 20;
+    uint32_t vivify_permille = 100;
+    uint32_t strengthen_permille = 100;
+    uint32_t subsume_forward_permille = 100;
+    uint32_t factor_permille = 50;
+    uint32_t hyper_ternary_permille = 8;
+    uint32_t bce_permille = 20;
+    uint32_t cce_permille = 4;
+    uint32_t instantiate_permille = 20;
+    uint32_t sweep_permille = 100;
+    uint32_t congruence_permille = 100;
+    uint32_t substitute_permille = 10;
+
+    uint32_t congruence_productivity_permille = 1;
+    uint32_t sweep_productivity_permille = 1;
+    uint32_t vivify_irredundant_productivity_percent = 1;
+    uint32_t vivify_redundant_share = 7;
+    uint32_t vivify_total_share = 10;
+    std::array<uint32_t, 3> vivify_tier_shares{{3, 3, 1}};
+    std::array<uint8_t, 3> vivify_tier_scopes{{3, 4, 5}};
+
+    bool closure_delay = true;
+    bool split_clocks = true;
+    bool watermarks = true;
+    bool preprocess_followups = true;
+    bool couple_factor_bound = true;
+  } inprocess;
+
+  // Stable, line-oriented snapshot used by trace and benchmark metadata.
+  std::string serialize() const;
+};
+
+} // namespace tactix
