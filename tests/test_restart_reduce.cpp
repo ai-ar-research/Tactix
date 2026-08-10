@@ -113,6 +113,7 @@ static void test_reduce_deletes_and_logs() {
   const Ref kref = kernel_add_large_clause(k, keeper, 3, true, 1);
   (void)kref;
   DefaultPolicy rp;
+  assert(rp.reduce.next_conflicts == DefaultPolicy::REDUCE_INTERVAL_INIT);
   k.stats.conflicts = rp.reduce.next_conflicts;
   assert(reduce_guard(k) && rp.want_reduce(k));
   assert(reduce_apply(k) == ApplyResult::Ok);
@@ -128,7 +129,10 @@ static void test_reduce_deletes_and_logs() {
   remove(path);
   assert(dels == 3); // every deletion hit the proof
   // the policy owns the budget now: advancing it stops the advice
-  rp.reduce.next_conflicts = k.stats.conflicts + 2000 + 300 * k.stats.reductions;
+  rp.reduce.next_conflicts = k.stats.conflicts +
+                             DefaultPolicy::REDUCE_INTERVAL_ARITH +
+                             DefaultPolicy::REDUCE_INTERVAL_STEP *
+                                 k.stats.reductions;
   assert(!rp.want_reduce(k)); // budget pushed out (guard still holds)
 }
 

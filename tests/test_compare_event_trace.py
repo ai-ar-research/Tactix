@@ -14,9 +14,9 @@ HEADER = (
 )
 
 
-def row(solver, seq, event, decisions=0, payload="-"):
+def row(solver, seq, event, decisions=0, payload="-", irred=2):
     values = [solver, seq, event, 0, decisions, 0, 0, "focused", 3, 3, 0,
-              3, 0, 0, 0, 2, 0, 1, "abcd", 1, "1,2,3", payload]
+              3, 0, 0, 0, irred, 0, 1, "abcd", 1, "1,2,3", payload]
     return "\t".join(map(str, values)) + "\n"
 
 
@@ -55,5 +55,23 @@ with tempfile.TemporaryDirectory() as tmp:
 
     identical = run(a, a, "--mode", "semantic", "--require-explained")
     assert identical.returncode == 0, identical
+
+    # Snapshotless detailed records must not become false state divergences.
+    # The Kissat overlay retains cheap global clause counters on these rows;
+    # Tactix deliberately writes zero because it did not take a snapshot.
+    a.write_text(HEADER + common + row("tactix", 1, "watch", irred=0,
+                                       payload="scan=1"))
+    b.write_text(HEADER + common.replace("tactix", "kissat") +
+                 row("kissat", 1, "watch", irred=2, payload="scan=1"))
+    snapshotless = run(a, b, "--mode", "semantic", "--require-explained")
+    assert snapshotless.returncode == 0, snapshotless
+
+    # Analysis-end is snapshot-bearing on both sides and must retain the
+    # ranking/state localization contract.
+    a.write_text(HEADER + row("tactix", 0, "analysis_end", irred=1))
+    b.write_text(HEADER + row("kissat", 0, "analysis_end", irred=2))
+    analyzed = run(a, b, "--mode", "semantic")
+    assert analyzed.returncode == 1, analyzed
+    assert "irred: 1 -> 2" in analyzed.stdout
 
 print("test_compare_event_trace OK")

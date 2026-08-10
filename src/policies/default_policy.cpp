@@ -213,7 +213,7 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   update_restart_limit(k);
   reduce.next_conflicts =
       conflicts +
-      (reduce_sqrt_ ? REDUCE_INTERVAL_KISSAT : REDUCE_INTERVAL_INIT);
+      (reduce_sqrt_ ? REDUCE_INTERVAL_INIT : REDUCE_INTERVAL_ARITH);
   mode = {};
   mode.conflicts_limit = conflicts + MODE_INITIAL_CONFLICTS;
   mode.ticks_at_focus_entry = ticks;
@@ -607,10 +607,10 @@ void DefaultPolicy::update_reduce_limit(const Kernel &k) {
         k.stats.reductions ? k.stats.reductions : 1);
     reduce.next_conflicts =
         k.stats.conflicts +
-        static_cast<uint64_t>(REDUCE_INTERVAL_KISSAT * std::sqrt(n));
+        static_cast<uint64_t>(REDUCE_INTERVAL_INIT * std::sqrt(n));
     return;
   }
-  reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_INIT +
+  reduce.next_conflicts = k.stats.conflicts + REDUCE_INTERVAL_ARITH +
                           REDUCE_INTERVAL_STEP * k.stats.reductions;
 }
 
@@ -669,11 +669,10 @@ void DefaultPolicy::configure_from_env() {
   bump_reasons_rate_ = BUMP_REASONS_RATE;
   if (const char *br = std::getenv("TACTIX_BUMP_REASONS_RATE"))
     bump_reasons_rate_ = std::strtod(br, nullptr);
-  const bool both = std::getenv("TACTIX_REDUCE_SQRT") != nullptr;
   const char *cad = std::getenv("TACTIX_REDUCE_CADENCE"); // "sqrt" | "arith"
   const char *rmp = std::getenv("TACTIX_REDUCE_RAMP");    // "1" | "0"
-  reduce_sqrt_ = cad ? !std::strcmp(cad, "sqrt") : both;
-  default_reduction_.ramp = rmp ? (rmp[0] == '1') : both;
+  reduce_sqrt_ = cad ? std::strcmp(cad, "arith") != 0 : true;
+  default_reduction_.ramp = rmp ? (rmp[0] == '1') : reduce_sqrt_;
   dynamic_tiers_ = std::getenv("TACTIX_NO_DYNAMIC_TIERS") == nullptr;
   compact_ = !std::getenv("TACTIX_NO_COMPACT");
   lucky_late_ = true;

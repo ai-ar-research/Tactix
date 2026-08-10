@@ -38,9 +38,9 @@ public:
   static constexpr uint64_t RESTART_INTERVAL = 1;
   static constexpr double EMA_FAST_WINDOW = 33;
   static constexpr double EMA_SLOW_WINDOW = 1e5;
-  static constexpr uint64_t REDUCE_INTERVAL_INIT = 2000;
+  static constexpr uint64_t REDUCE_INTERVAL_INIT = 1000;
+  static constexpr uint64_t REDUCE_INTERVAL_ARITH = 2000;
   static constexpr uint64_t REDUCE_INTERVAL_STEP = 300;
-  static constexpr uint64_t REDUCE_INTERVAL_KISSAT = 1000;
   static constexpr uint64_t MODE_INITIAL_CONFLICTS = 1000;
   static constexpr uint64_t MODE_INTERVAL = 1000;
   static constexpr uint64_t RELUCTANT_PERIOD = 1024;
@@ -137,7 +137,7 @@ private:
   uint32_t bump_reasons_limit_ = 0;
   double bump_reasons_rate_ = BUMP_REASONS_RATE;
   struct { uint32_t count = 0, current = 0; } bump_reasons_delay_;
-  bool reduce_sqrt_ = false;
+  bool reduce_sqrt_ = true;
   bool compact_ = true;
   bool lucky_late_ = true;
   bool dynamic_tiers_ = true;
