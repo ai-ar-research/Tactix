@@ -26,11 +26,14 @@ DETAIL_EVENTS = {
     "learned_raw", "learned_sorted", "learned_shrunk", "learned",
     "analysis_end",
 }
+AUXILIARY_EVENTS = {
+    "checkpoint", "retier", "reduce_tiers", "mode_clock", "analyzed",
+}
 # Detailed records normally carry zeroes in the expensive snapshot fields.
 # Analysis-end is the deliberate exception: both overlays snapshot ranking
 # state there so a latent bump-order mismatch is localized to its conflict.
 SNAPSHOT_DETAIL_EVENTS = {"analysis_end"}
-NON_MACRO_EVENTS = DETAIL_EVENTS | {"checkpoint"}
+NON_MACRO_EVENTS = DETAIL_EVENTS | AUXILIARY_EVENTS
 STATE_FIELDS = (
     "conflicts", "decisions", "level", "mode", "active", "unassigned",
     "trail", "queue", "heap", "irred", "red", "binary", "top32",
@@ -144,7 +147,7 @@ def primary_semantic_difference(a, b):
             delta = row_delta(left, right, fields)
             if delta:
                 return "trajectory", i, i, delta
-        elif event != "checkpoint":
+        else:
             delta = row_delta(left, right, STATE_FIELDS + ("payload",))
             if delta:
                 return "state", i, i, delta
@@ -157,12 +160,18 @@ def primary_semantic_difference(a, b):
 
 def semantic(trace_a, trace_b, radius, metadata):
     a, b = trace_a["rows"], trace_b["rows"]
+    # These records expose implementation-specific observation boundaries or
+    # raw diagnostic currencies.  They remain available to exact comparison
+    # and dedicated payload checks, but must not hide the first portable
+    # lifecycle/trajectory divergence in cross-solver semantic mode.
+    portable_a = [row for row in a if row["event"] not in AUXILIARY_EVENTS]
+    portable_b = [row for row in b if row["event"] not in AUXILIARY_EVENTS]
     macro_a = [row for row in a if row["event"] not in NON_MACRO_EVENTS]
     macro_b = [row for row in b if row["event"] not in NON_MACRO_EVENTS]
     detail_a = [row for row in a if row["event"] in DETAIL_EVENTS]
     detail_b = [row for row in b if row["event"] in DETAIL_EVENTS]
 
-    primary = primary_semantic_difference(a, b)
+    primary = primary_semantic_difference(portable_a, portable_b)
     macro_order = first_stream_difference(macro_a, macro_b, ("event",))
     macro_state = first_stream_difference(macro_a, macro_b,
                                           ("event",) + STATE_FIELDS)
@@ -255,7 +264,7 @@ def semantic(trace_a, trace_b, radius, metadata):
         print_context("A", rows_a, ia, radius)
         print_context("B", rows_b, ib, radius)
 
-    finding("first_divergence", primary, a, b)
+    finding("first_divergence", primary, portable_a, portable_b)
     finding("macro_order", macro_order, macro_a, macro_b)
     finding("macro_state", macro_state, macro_a, macro_b)
     finding("trajectory", trajectory, detail_a, detail_b)
