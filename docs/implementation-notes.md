@@ -341,10 +341,10 @@ status advances `localized` → `actionable` → `closed`; neither of the first 
 closes a fixture. An identical prefix closes only if both traces terminate and
 are untruncated. Comparison may resume past a closed root only at a named common
 anchor; downstream differences otherwise inherit that root. Diagnostic builds
-use `TACTIX_ENABLE_EVENT_TRACE=ON` plus optional inclusive conflict windows;
-ordinary builds omit the implementation, symbols, and event strings. The
-pinned Kissat overlay and comparator live under
-`tools/solvers/variants/kissat-event-trace/` and
+use `TACTIX_ENABLE_EVENT_TRACE=ON`; admitted preprocessing rules emit auxiliary
+begin/end `slot_boundary` snapshots. Ordinary builds omit trace implementation,
+symbols, and event strings. The pinned Kissat overlay lives under
+`tools/solvers/variants/kissat-event-trace/`; comparator:
 `tools/bench/compare_event_trace.py`.
 
 **Provenance — two passes.**

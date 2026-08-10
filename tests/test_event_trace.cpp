@@ -33,6 +33,7 @@ int main() {
     trace.macro(k, "lucky_early_begin");
     trace.macro(k, "lucky_early_end", "unknown");
     trace.detail(k, "decision", 3);
+    trace.slot_boundary(k, "Sweep", "begin");
     trace.detail(k, "analysis_begin", 2);
     kernel_assign_decision(k, internalize(1));
     const size_t trail_begin = k.trail.size();
@@ -64,6 +65,8 @@ int main() {
   assert(text.find("\tlucky_early_begin\t") != std::string::npos);
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
+  assert(text.find("\tslot_boundary\t") != std::string::npos);
+  assert(text.find("name=Sweep|stage=begin") != std::string::npos);
   assert(text.find("\tanalysis_begin\t") != std::string::npos);
   assert(text.find("\timply\t") != std::string::npos);
   assert(text.find("\tlit=2|level=1|reason=-1,2\n") != std::string::npos);

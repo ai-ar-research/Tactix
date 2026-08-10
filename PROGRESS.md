@@ -24,13 +24,14 @@ implemented with native-LRAT-safe deferred restatement. It moves Tactix from
 69.5s / 1.38M conflicts to 32.2s / 552k conflicts; Kissat is 19.9s / 715k.
 All models/proofs verify and all 69 Release checks pass.
 
-The current frontier is preprocessing Factor composition. Kissat's first
-Factor call receives `factoriniticks`; Tactix gates that allowance on search
-having started. Removing only that gate was rejected: cumulatively the same
-fixture regressed from 32.2s / 552k conflicts to 249.1s / 5.50M (the pre-parser
-arm was 162.8s / 3.67M) and still produced far fewer initial extension variables
-than Kissat. The budget wire therefore reopens only after Factor's
-candidate/output trajectory is localized. The canonical Tier A evidence is in
+Slot-boundary traces moved the current frontier before preprocessing Factor:
+Kissat's startup sparse collection shrinks `mod4block` from 121,440 to 85,606
+irreducible clauses before Congruence, while Tactix enters Congruence at 121,440.
+Kissat then reaches 84,379 before Factor; Tactix reaches 120,640. The isolated
+700M first-Factor-dose wire remains rejected: cumulatively it regressed this
+fixture from 32.2s / 552k conflicts to 249.1s / 5.50M. Implement the missing
+proof-safe startup collection before revisiting Factor composition or dose.
+The canonical Tier A evidence is in
 `benchmarks/reports/2026-08-09-tier-a-kissat-divergence-convergence.md`;
 the full lifecycle matrix remains in
 `benchmarks/reports/2026-08-09-default-strategy-application-order-audit.md`.
@@ -40,13 +41,13 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Instrument the first preprocessing Factor candidate/grid/output sequence in
-   Tactix and the Kissat overlay. Compare the first differing candidate under
-   the same 700M first-dose allowance, accounting for Tactix's stronger
-   duplicate-binary elimination.
-2. Fix the first non-stronger Factor mechanism mismatch, then retest `mod4block`
-   cumulatively. Re-enable the preprocessing first-dose wire only when the
-   resulting transformation is no longer the measured-worse arm.
+1. Port Kissat's startup sparse-collection effect after initial propagation and
+   before the first Probe slot, using shared proof-safe clause rewrites rather
+   than presenting it as a Strengthen rule application.
+2. Retest `mod4block` cumulatively and resume the boundary comparison at
+   Congruence, Sweep, Substitute, and Factor. Re-enable the preprocessing
+   first-dose wire only after those upstream states no longer explain its
+   measured regression.
 3. Independently restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
@@ -117,7 +118,7 @@ fixtures as cumulative guards.
 - [x] `tr-n260-s002` — accepted stronger singleton minimization.
 - [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
 - [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — current frontier:
-  preprocessing Factor candidate/output trajectory.
+  missing startup sparse collection before initial Congruence.
 - [ ] `mp1-klieber2017s-0500-023-t12`.
 - [ ] `or_randxor_k3_n540_m540`.
 - [ ] `unsat-set-b-fclqcolor-10-07-09`.
@@ -126,10 +127,11 @@ fixtures as cumulative guards.
 <!-- track-sched:begin -->
 ### Open scheduling-parity findings
 
-`FACTOR-PREPROCESS-1` is open: Tactix owns the 700M first-dose allowance but
-does not apply it at conflict 0. The isolated wire is measured-worse because
-the current Factor mechanism transforms a different candidate stream; close
-that upstream mismatch before re-enabling the wire. The stale rows `ORDER-TUMBLE-1`,
+`ORDER-SPARSE-COLLECT-1` is open: Tactix lacks Kissat's root-unit sparse
+collection before initial probing. `FACTOR-PREPROCESS-1` is open behind it:
+Tactix owns the 700M first-dose allowance but the isolated conflict-0 wire is
+measured-worse on the uncollected formula. Close the upstream mismatch before
+re-enabling that wire. The stale rows `ORDER-TUMBLE-1`,
 `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`, `ORDER-LUCKY-1`, and
 `ORDER-FOLLOWUP-1` are implemented and dispositioned; their evidence remains in
 `docs/implementation-notes.md` §13.
