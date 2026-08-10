@@ -13,19 +13,23 @@ only.
   `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
   pair N2-clean) · N3 Tier-D parity not yet measured · N4 verification
   **pending** while the current causal frontier is classified.
-- **Last updated:** 2026-08-09.
+- **Last updated:** 2026-08-10.
 
 ## Resume here
 
-The application-order and Analyze repairs are correctness-green. Portable
-Tactix/Kissat traces are identical for 286,987 records through conflict 1,000
-on `tr-n300-s055`. Exact OTFS replacement reuse and Kissat's reduction
-cadence/ramp now ship; all 66 current Release checks and the traced DRAT proofs
-pass.
-The first remaining mismatch is `REDUCE-CANDIDATE-1`: from the same 957-clause
-pre-Reduce population, Tactix retains 905 redundant clauses and Kissat 633.
-This is an open strength question, not an unexplained downstream watch-order
-bug. The canonical evidence and cumulative trajectory are in
+The three P4A fixtures are closed: their remaining divergence is localized to
+accepted stronger singleton minimization. On the first P4B fixture,
+`mod4block`, Kissat-style input normalization against prior root units is now
+implemented with native-LRAT-safe deferred restatement. It moves Tactix from
+69.5s / 1.38M conflicts to 32.2s / 552k conflicts; Kissat is 19.9s / 715k.
+All models/proofs verify and all 69 Release checks pass.
+
+The current frontier is preprocessing Factor composition. Kissat's first
+Factor call receives `factoriniticks`; Tactix gates that allowance on search
+having started. Removing only that gate was rejected: the same fixture regressed
+to 162.8s / 3.67M conflicts and still produced only 196 of Kissat's 759 initial
+extension variables. The budget wire therefore reopens only after Factor's
+candidate/output trajectory is localized. The canonical Tier A evidence is in
 `benchmarks/reports/2026-08-09-tier-a-kissat-divergence-convergence.md`;
 the full lifecycle matrix remains in
 `benchmarks/reports/2026-08-09-default-strategy-application-order-audit.md`.
@@ -35,13 +39,13 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Instrument the first Reduce candidate sequence with glue, used age, live
-   mode-tier thresholds, reason lock, rank, and keep/delete disposition. Compare
-   the first differing candidate at conflict 1,000 with Kissat's executable
-   `reduce.c` path.
-2. Decide whether Tactix's larger retained set is strictly better. If not, fix
-   it to Kissat; if the candidate trace leaves the strength relation uncertain,
-   ask for a policy decision. Rerun `tr-n260-s002` only after an actual increment.
+1. Instrument the first preprocessing Factor candidate/grid/output sequence in
+   Tactix and the Kissat overlay. Compare the first differing candidate under
+   the same 700M first-dose allowance, accounting for Tactix's stronger
+   duplicate-binary elimination.
+2. Fix the first non-stronger Factor mechanism mismatch, then retest `mod4block`
+   cumulatively. Re-enable the preprocessing first-dose wire only when the
+   resulting transformation is no longer the measured-worse arm.
 3. Independently restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
@@ -108,11 +112,11 @@ Each fixture closes only on a terminal untruncated match or a fully closed
 causal-frontier record. After every accepted repair, rerun all earlier checked
 fixtures as cumulative guards.
 
-- [ ] `tr-n300-s055` — current frontier: `REDUCE-CANDIDATE-1` at the common
-  conflict-1,000 Reduce.
-- [ ] `tr-n260-s002`.
-- [ ] `tr-n280-s052`.
-- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009`.
+- [x] `tr-n300-s055` — accepted stronger singleton minimization.
+- [x] `tr-n260-s002` — accepted stronger singleton minimization.
+- [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
+- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — current frontier:
+  preprocessing Factor candidate/output trajectory.
 - [ ] `mp1-klieber2017s-0500-023-t12`.
 - [ ] `or_randxor_k3_n540_m540`.
 - [ ] `unsat-set-b-fclqcolor-10-07-09`.
@@ -121,12 +125,13 @@ fixtures as cumulative guards.
 <!-- track-sched:begin -->
 ### Open scheduling-parity findings
 
-None currently classified. The stale resume rows `ORDER-TUMBLE-1`,
+`FACTOR-PREPROCESS-1` is open: Tactix owns the 700M first-dose allowance but
+does not apply it at conflict 0. The isolated wire is measured-worse because
+the current Factor mechanism transforms a different candidate stream; close
+that upstream mismatch before re-enabling the wire. The stale rows `ORDER-TUMBLE-1`,
 `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`, `ORDER-LUCKY-1`, and
 `ORDER-FOLLOWUP-1` are implemented and dispositioned; their evidence remains in
-`docs/implementation-notes.md` §13. `REDUCE-CANDIDATE-1` stays in the P4-CVG
-classification queue until source and candidate tracing determines whether it
-is a scheduling deficiency, a stronger/deliberate choice, or downstream.
+`docs/implementation-notes.md` §13.
 
 N4 verification remains pending while that classification is unresolved. A
 P4-CVG result adds one deduplicated finding here only when it identifies missing
@@ -171,8 +176,8 @@ or cruder default scheduling.
 
 ## Open items
 
-- `REDUCE-CANDIDATE-1` is the current one-at-a-time frontier: explain the first
-  different survivor in the common conflict-1,000 Reduce.
+- `FACTOR-PREPROCESS-1` is the current one-at-a-time frontier: explain the first
+  different preprocessing Factor candidate/output before restoring its first dose.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic
   disposition plus an adversarial public-API reachability test.

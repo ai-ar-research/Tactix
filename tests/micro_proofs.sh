@@ -43,6 +43,10 @@ EOF
     > "$T/dupbinary.cnf"
   printf 'p cnf 4 8\n1 1 2 3 0\n-2 0\n-3 0\n-1 4 0\n-1 -4 0\n2 3 4 0\n-4 2 0\n-4 3 0\n' \
     > "$T/duplarge.cnf"
+  # A prior root unit shrinks a later input binary to a unit. The stored unit
+  # needs a deferred lemma with both the prior unit and file clause as hints;
+  # the following opposite unit then cites that restated id in the empty proof.
+  printf 'p cnf 2 3\n1 0\n-1 2 0\n-2 0\n' > "$T/rootshrink.cnf"
   # a refutation found DURING input, with input clauses still to come: the
   # derived empty clause must not take an id the checker gave to clause 3 or 4
   printf 'p cnf 2 4\n1 0\n-1 0\n2 0\n-2 0\n' > "$T/midrefute.cnf"

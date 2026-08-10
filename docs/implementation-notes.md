@@ -201,9 +201,9 @@ M3 is one public operation. Private pending state must be consumed before contro
 
 ### Input/proof identity and shared mechanics
 
-- Input clause position is its checker id. If parser normalization removes repeated literals, defer a
-  one-antecedent RUP restatement until `finish_input`, after every original id is known, and store the
-  restated id. Parse-time refutation using it is deferred for the same reason.
+- Input clause position is its checker id. Normalization removes repeats and already-root-false
+  literals (root-true drops the clause); defer restatement to `finish_input`, with root-unit hints then
+  the file id, and store the new id. Parse-time refutation is deferred for the same reason.
 - Tautologies, duplicate units/binaries, and post-refutation input clauses still consume their input id.
   Parse-time binary dedup is safe because no binary has yet been deleted.
 - Use the shared proof primitives for contradictory-unit empty emission, pending-unit batching, clause
