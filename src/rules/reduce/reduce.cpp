@@ -13,25 +13,31 @@ namespace tactix {
 
 // kissat 4.0's dynamic tier limits (tiers.c compute_tier_limits): quantiles of
 // the glue distribution of the clauses actually used in conflict analysis,
-// tier1 at 50 % and tier2 at 90 %; with no data the option defaults stand. The
-// histogram read is the focused one in both modes (kissat `focusedtiers`
-// defaults on). Integer thresholds, not `total * 0.5`, so the result cannot
-// depend on host libm rounding
+// configurable tier1/tier2 quantiles; with no data the option defaults stand.
+// Focused and stable histograms remain separate. Integer thresholds, not
+// floating-point products, keep the result independent of host libm rounding
 // (benchmarks/reports/2026-07-24-battleship-divergence.md). When to recompute
 // is the policy's.
-void reduce_retier(Kernel &k) {
-  const uint64_t *used = k.stats.used_glue[0];
+void reduce_retier(Kernel &k, uint32_t mode, uint32_t tier1_default,
+                   uint32_t tier2_default,
+                   uint32_t tier1_relative_permille,
+                   uint32_t tier2_relative_permille) {
+  assert(mode < 2);
+  const uint64_t *used = k.stats.used_glue[mode];
   uint64_t total = 0;
   for (uint32_t g = 0; g <= Stats::MAX_GLUE_USED; g++)
     total += used[g];
   k.stats.retiered++;
   if (!total) {
-    k.tier1 = TIER1_STATIC;
-    k.tier2 = TIER2_STATIC;
+    k.tier1_by_mode[mode] = tier1_default;
+    k.tier2_by_mode[mode] = std::max(tier1_default, tier2_default);
     return;
   }
-  const uint64_t lim1 = total / 2;           // tier1relative 500 per mille
-  const uint64_t lim2 = (total * 9 + 9) / 10; // tier2relative 900, rounded up
+  constexpr uint64_t scale = 1000;
+  const uint64_t lim1 =
+      (total * tier1_relative_permille + scale - 1) / scale;
+  const uint64_t lim2 =
+      (total * tier2_relative_permille + scale - 1) / scale;
   uint64_t acc = 0;
   uint32_t t1 = 0;
   for (uint32_t g = 0;; g++) {
@@ -50,8 +56,8 @@ void reduce_retier(Kernel &k) {
         break;
       }
     }
-  k.tier1 = t1;
-  k.tier2 = t2;
+  k.tier1_by_mode[mode] = t1;
+  k.tier2_by_mode[mode] = t2;
 }
 
 // Deleting redundant clauses is sound as long as reason-locked clauses and the

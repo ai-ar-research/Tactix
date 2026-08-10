@@ -196,8 +196,12 @@ void EventTrace::macro(const Kernel &k, const char *event, const char *payload) 
 }
 
 void EventTrace::retier(const Kernel &k) {
-  std::string payload = "tier1=" + std::to_string(k.tier1) +
-                        "|tier2=" + std::to_string(k.tier2) + "|used=";
+  std::string payload =
+      "focused=" + std::to_string(k.tier1_by_mode[0]) + ',' +
+      std::to_string(k.tier2_by_mode[0]) + "|stable=" +
+      std::to_string(k.tier1_by_mode[1]) + ',' +
+      std::to_string(k.tier2_by_mode[1]) + "|posed=" +
+      std::to_string(k.tier1) + ',' + std::to_string(k.tier2) + "|used=";
   const uint32_t mode = k.h && k.h->stable ? 1u : 0u;
   uint64_t total = 0;
   for (uint32_t glue = 0; glue <= Stats::MAX_GLUE_USED; ++glue) {

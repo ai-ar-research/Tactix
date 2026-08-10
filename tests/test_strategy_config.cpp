@@ -1,6 +1,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
+#include "rules/reduce/reduce.hpp"
 
 #include <cassert>
 #include <cstdlib>
@@ -37,6 +38,8 @@ int main() {
          DefaultInprocessScheduler::SUBSUME_INTERVAL);
   assert(defaults.analysis.bump_reason_rate ==
          DefaultPolicy::BUMP_REASONS_RATE);
+  assert(defaults.reduction.tier1_default == TIER1_STATIC);
+  assert(defaults.reduction.tier2_default == TIER2_STATIC);
 
   DefaultStrategyConfig custom = defaults;
   custom.reduction.initial_interval = 37;
@@ -71,10 +74,10 @@ int main() {
   unsetenv("TACTIX_BUMP_REASONS_RATE");
   unsetenv("TACTIX_WALK_PERMILLE");
 
-  // Kissat's Reduce consumes the last scheduled dynamic-tier snapshot.  It
-  // does not recompute tiers merely because a reduction boundary was reached.
-  // Pose Reduce at conflict zero and put the scheduled retier far away: the
-  // old extra Reduce-side refresh made this counter one.
+  // Kissat recomputes the current mode's tier snapshot at every Reduce in
+  // addition to its analysis-side cadence. Pose Reduce at conflict zero and
+  // put the scheduled retier far away so every recomputation is attributable
+  // to one reduction boundary.
   DefaultStrategyConfig cadence = defaults;
   cadence.reduction.retier_initial_interval = 1ull << 40;
   Kernel php;
@@ -85,6 +88,6 @@ int main() {
   scheduled_only.reduce.next_conflicts = 0;
   assert(scheduled_only.solve(php) == 20);
   assert(php.stats.reductions > 0);
-  assert(php.stats.retiered == 0 &&
-         "Reduce must not bypass Kissat's exponential retier cadence");
+  assert(php.stats.retiered == php.stats.reductions &&
+         "every Reduce must refresh exactly one current-mode tier snapshot");
 }

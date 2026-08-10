@@ -22,10 +22,13 @@ bool reduce_guard(const Kernel &);
 // since an enumeration that changes a counter breaks replay identity.
 void reduce_candidates(Kernel &, std::vector<Ref> &out, bool measure = false);
 
-// Recompute Kernel::tier1/tier2 as the 50 %/90 % quantiles of the used-glue
-// histogram (kissat 4.0 tiers.c). A pure configuration update — no proof
-// delta, no formula change — and when to call it is the policy's.
-void reduce_retier(Kernel &);
+// Recompute one mode's tier snapshot from configurable quantiles of its
+// used-glue histogram (kissat 4.0 tiers.c). A pure configuration update — no
+// proof delta, no formula change — and when/how to pose it is the policy's.
+void reduce_retier(Kernel &, uint32_t mode, uint32_t tier1_default,
+                   uint32_t tier2_default,
+                   uint32_t tier1_relative_permille,
+                   uint32_t tier2_relative_permille);
 
 // delete exactly refs[0..n) (re-validating: reasons/garbage are skipped),
 // emit proof deletes, then collect garbage. The CHOICE of n is the
