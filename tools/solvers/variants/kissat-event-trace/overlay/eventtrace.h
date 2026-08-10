@@ -17,5 +17,10 @@ void kissat_event_trace_clause (struct kissat *, const char *);
 void kissat_event_trace_learned (struct kissat *);
 void kissat_event_trace_checkpoint (struct kissat *);
 void kissat_event_trace_close (void);
+void kissat_reduce_trace_clause (struct kissat *, struct clause *, unsigned,
+                                 unsigned, unsigned, unsigned, const char *);
+void kissat_reduce_trace_summary (struct kissat *, unsigned, unsigned, size_t,
+                                  size_t);
+void kissat_reduce_trace_rank (struct kissat *, unsigned, size_t, bool);
 
 #endif

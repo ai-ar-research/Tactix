@@ -63,6 +63,9 @@ add_test(NAME event_trace COMMAND test_event_trace)
 add_test(NAME event_trace_compare
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_compare_event_trace.py)
+add_test(NAME reduce_trace_compare
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_compare_reduce_trace.py)
 add_test(NAME p4_fixtures
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_p4_fixtures.py)

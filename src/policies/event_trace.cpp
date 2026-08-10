@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace tactix {
@@ -192,6 +193,96 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
 
 void EventTrace::macro(const Kernel &k, const char *event, const char *payload) {
   emit(k, event, payload, true);
+}
+
+void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
+                           size_t victims) {
+  const char *path = std::getenv("TACTIX_REDUCE_TRACE");
+  if (!path || !*path)
+    return;
+  static std::FILE *file;
+  static std::string opened_path;
+  if (!file || opened_path != path) {
+    if (file)
+      std::fclose(file);
+    file = std::fopen(path, "w");
+    if (!file)
+      return;
+    opened_path = path;
+    std::fprintf(file, "# tactix-kissat-reduce\t1\n");
+    std::fprintf(file,
+                 "# solver\tkind\treduction\tconflict\tmode\ttier1\t"
+                 "tier2\tlive_red\tcandidates\tvictims\tref\tsize\t"
+                 "glue\tused\treason\teligibility\trank\tselected\t"
+                 "literals\n");
+  }
+  std::unordered_map<Ref, size_t> ranks;
+  for (size_t rank = 0; rank < candidates.size(); ++rank)
+    ranks.emplace(candidates[rank], rank);
+  std::vector<uint8_t> reason(k.arena.size());
+  if (k.pending.valid && k.pending.ref != INVALID_REF)
+    reason[k.pending.ref] = 1;
+  for (const Lit lit : k.trail) {
+    const Assigned &a = k.assigned[var_of(lit)];
+    if (!a.binary && a.reason != DECISION_REASON && a.reason != UNIT_REASON)
+      reason[a.reason] = 1;
+  }
+  uint64_t live = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    live += c->redundant() && !c->garbage();
+    ref += clause_words(c->size);
+  }
+  const uint64_t reduction = k.stats.reductions + 1;
+  std::fprintf(file,
+               "tactix\tsummary\t%llu\t%llu\t%s\t%u\t%u\t%llu\t"
+               "%zu\t%zu\t-\t-\t-\t-\t-\t-\t-\t-\t-\n",
+               (unsigned long long)reduction,
+               (unsigned long long)k.stats.conflicts,
+               k.h && k.h->stable ? "stable" : "focused", k.tier1, k.tier2,
+               (unsigned long long)live, candidates.size(), victims);
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const Ref next = ref + clause_words(c->size);
+    if (!c->redundant() || c->garbage()) {
+      ref = next;
+      continue;
+    }
+    const uint32_t used = c->used(), glue = c->glue();
+    const char *eligibility =
+        reason[ref] ? "reason"
+        : glue <= k.tier1 && used
+            ? "tier1-used"
+        : glue <= std::max(k.tier1, k.tier2) &&
+                  used >= Clause::MAX_USED - 1
+            ? "tier2-recent"
+            : "candidate";
+    const auto found = ranks.find(ref);
+    const bool candidate = found != ranks.end();
+    const size_t rank = candidate ? found->second : 0;
+    std::vector<int> literals;
+    literals.reserve(c->size);
+    for (const Lit lit : *c)
+      literals.push_back(kernel_externalize(k, lit));
+    std::sort(literals.begin(), literals.end());
+    std::fprintf(file,
+                 "tactix\tclause\t%llu\t%llu\t%s\t%u\t%u\t%llu\t"
+                 "%zu\t%zu\t%u\t%u\t%u\t%u\t%u\t%s\t",
+                 (unsigned long long)reduction,
+                 (unsigned long long)k.stats.conflicts,
+                 k.h && k.h->stable ? "stable" : "focused", k.tier1,
+                 k.tier2, (unsigned long long)live, candidates.size(), victims,
+                 ref, c->size, glue, used, reason[ref], eligibility);
+    if (candidate)
+      std::fprintf(file, "%zu\t%u\t", rank, rank < victims);
+    else
+      std::fprintf(file, "-\t0\t");
+    for (size_t i = 0; i < literals.size(); ++i)
+      std::fprintf(file, "%s%d", i ? "," : "", literals[i]);
+    std::fputc('\n', file);
+    ref = next;
+  }
+  std::fflush(file);
 }
 
 bool EventTrace::want_detail(const Kernel &k) {

@@ -23,5 +23,11 @@ records. Tactix exposes the matching `TACTIX_EVENT_TRACE_CONFLICT_FROM/TO`
 controls, and `benchmarks/probes/cross-solver-semantic-trace.sh` sets both from
 `CROSS_TRACE_CONFLICT_FROM/TO`.
 
+`KISSAT_REDUCE_TRACE=/path/reduce.tsv` additionally records the pre-aging
+clause population, tier/used/reason eligibility, sorted candidate rank, and
+victim cutoff for every Reduce. The matching Tactix diagnostic variable is
+`TACTIX_REDUCE_TRACE`; compare the files with
+`tools/bench/compare_reduce_trace.py`.
+
 This binary is for short SLURM diagnosis only.  Benchmark reference arms must
 continue to use the untouched pinned Kissat binary.

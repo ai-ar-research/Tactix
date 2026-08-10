@@ -2,6 +2,8 @@
 """Pin the Phase 4 causal-gap subsets and their parent-tier provenance."""
 import importlib.util
 import pathlib
+import subprocess
+import sys
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -43,4 +45,22 @@ assert runner.TIER_TIMEOUT["P4A"] == 30.0
 assert runner.TIER_TIMEOUT["P4B"] == 300.0
 assert [row[0] for row in runner.read_tier_list("P4A")] == [row[0] for row in p4a]
 assert [row[0] for row in runner.read_tier_list("P4B")] == [row[0] for row in p4b]
+
+spec = importlib.util.spec_from_file_location("p4_cvg", ROOT / "tools" /
+                                              "bench" / "p4_cvg.py")
+p4 = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(p4)
+assert p4.resolve_fixture("tr-n300-s055")["group"] == "P4A"
+assert p4.resolve_fixture("or_randxor_k3_n540_m540.cnf")["group"] == "P4B"
+try:
+    p4.resolve_fixture("not-a-p4-fixture")
+    raise AssertionError("unknown fixture accepted")
+except ValueError:
+    pass
+dry = subprocess.run(
+    [sys.executable, str(ROOT / "tools/bench/p4_cvg.py"),
+     "--fixture", "tr-n300-s055", "--tactix", "/pin/tactix",
+     "--kissat", "/pin/kissat", "--out", "/tmp/p4-dry", "--dry-run"],
+    check=True, text=True, stdout=subprocess.PIPE).stdout
+assert "sbatch" in dry and "--worker" in dry and "--time=11" in dry
 print("test_p4_fixtures OK")
