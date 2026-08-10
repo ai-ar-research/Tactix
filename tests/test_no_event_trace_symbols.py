@@ -7,8 +7,10 @@ import sys
 
 binary = pathlib.Path(sys.argv[1])
 data = binary.read_bytes()
-for marker in (b"TACTIX_EVENT_TRACE", b"tactix-event-trace",
-               b"reorder_begin", b"analysis_end"):
+# Method identifiers can remain in DWARF even when every no-op call is inlined
+# away.  Check protocol strings here and linked implementation symbols below;
+# together those distinguish a real trace implementation from debug metadata.
+for marker in (b"TACTIX_EVENT_TRACE", b"tactix-event-trace"):
     assert marker not in data, f"production binary contains {marker!r}"
 
 symbols = subprocess.run(["nm", "-C", str(binary)], text=True,

@@ -23,7 +23,11 @@ void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
 void event_trace_sweep_environment_clause(const Kernel &, Var, uint32_t,
                                           const Lit *, uint32_t);
 void event_trace_sweep_query(const Kernel &, Var, uint32_t, const char *, Lit,
-                             Lit, int, uint64_t);
+                             Lit, int, uint64_t, uint64_t);
+void event_trace_sweep_model(const Kernel &, Var, uint32_t, const Var *,
+                             const int8_t *, uint32_t);
+void event_trace_sweep_flip(const Kernel &, Var, const char *, Lit, bool,
+                            uint64_t);
 void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t,
                               uint64_t);
 void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
@@ -32,6 +36,13 @@ void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit, Lit);
 void event_trace_sweep_unit(const Kernel &, Lit);
 void event_trace_factor_seed(const Kernel &, Lit, uint32_t, uint32_t);
+void event_trace_factor_remainder(const Kernel &, Lit, uint32_t, bool,
+                                  const Lit *, uint32_t);
+void event_trace_factor_pair(const Kernel &, Lit, const char *);
+void event_trace_factor_heap(const Kernel &, Lit, const char *, Lit, uint32_t,
+                             uint32_t, Lit, uint32_t, uint32_t, uint32_t);
+void event_trace_factor_schedule(const Kernel &, uint32_t, Lit, uint32_t);
+void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t);
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int);
 void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit);
 #endif
@@ -922,6 +933,7 @@ uint64_t kernel_conflict_reason_walk(
 void kernel_collect_garbage(Kernel &, Ref watch_start = 0);
 void kernel_rebuild_large_watches(Kernel &);
 void kernel_canonicalize_binary_watches(Kernel &);
+void kernel_deduplicate_binary_watches(Kernel &);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ);
 void kernel_dense_disconnect(Kernel &);

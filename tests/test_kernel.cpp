@@ -496,6 +496,28 @@ static void test_canonical_binary_watch_rebuild() {
   assert(saw_large);
   assert(k.stats.congruence_binary_rebuilds == 1);
   kernel_check_invariants(k);
+
+  // Congruence's saved binary stack is pair-sorted after extraction. Model a
+  // tumbled import order in which the pivot was imported second: pairs whose
+  // other endpoint was imported later must still be sorted by that endpoint,
+  // rather than retaining the shuffled order of the pivot's watch list.
+  Kernel tumbled;
+  kernel_reserve_vars(tumbled, 6);
+  for (const Var v : {0u, 1u, 2u, 4u, 3u, 5u})
+    kernel_record_import(tumbled, v);
+  const Lit p = make_lit(1, false);
+  for (const Var v : {5u, 3u, 0u, 4u, 2u})
+    kernel_add_binary_clause(tumbled, p, make_lit(v, true));
+  kernel_canonicalize_binary_watches(tumbled);
+  std::vector<Lit> pair_sorted;
+  for (const WatchEntry w : tumbled.watches.entries(p))
+    if (w.binary())
+      pair_sorted.push_back(w.other());
+  assert(pair_sorted ==
+         std::vector<Lit>({make_lit(0, true), make_lit(2, true),
+                           make_lit(4, true), make_lit(3, true),
+                           make_lit(5, true)}));
+  kernel_check_invariants(tumbled);
 }
 
 static void test_propagate_beyond_conflicts_for_warmup() {

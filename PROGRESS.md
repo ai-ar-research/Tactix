@@ -17,18 +17,27 @@ only.
 
 ## Resume here
 
-The three P4A fixtures remain closed, but the first P4B fixture, `mod4block`, is
-reopened by its cumulative guard.  The former closing pin `95bcea4` solves it in
-**10.96s**; the next accepted `mp1` increment `c5a98e4` takes **261.40s** with
-5,028,372 conflicts.  Both models and proofs verify.  The first old/new semantic
-difference is preprocessing Sweep seed 171: the corrected embedded solver
-invalidates a SAT model after a later UNSAT-under-assumptions solve.  A focused
-rollback proves that first difference is performance-neutral by itself.  The
-complete boundary is `SP-SWEEP-KITTEN-1`: Tactix deduplicates one equal-depth
-binary encounter, and even after the environment is made byte-equivalent its
-embedded initial model/query stream differs from Kitten.  Environment-only and
-search-only partial ports are inadmissible; the whole per-seed state machine is
-the implementation unit.
+The three P4A fixtures remain closed.  The first P4B fixture, `mod4block`, has
+recovered once from the cumulative **261.40s** regression but is not reclosed.
+The 45.89s binary-occurrence arm was rejected after an adversarial test exposed
+candidate overcount; the corrected dense-entry arm times out at 60s, versus
+Kissat **18.30s** and former Tactix pin `95bcea4` at **10.96s**. The Sweep/SubSolver semantic
+unit is now implemented as a whole.  The next causal layer was Factor's mutable
+quotient: repeated equal clauses were collapsed, assigned remainders were
+discarded, equal-score heap insertion used external rather than first-import
+order, fresh extensions could become same-pass factors, and binary/large
+watches did not share one ordered stream.  `SP-FACTOR-OCCURRENCE-1` repairs
+those as one occurrence-preserving mechanism.  Tactix and Kissat now produce
+the same first 711 accepted Factor grids and ordered members throughout every
+observed common prefix.
+
+The remaining loss is computational and downstream. Kissat spends **0.96s** in
+Factor. Its dense entry flushes duplicate binary watches before every Factor
+dose; Tactix now reproduces that boundary and pins it adversarially. Startup is
+exact through all 766 grids. By dose 2 the solvers already have different
+formula/search states (conflicts 2512/2513), yielding 16/12 grids; this is a
+consequence, not a new Factor-order root. Direct-cache and direct-binary arms
+timed out and were removed. Evidence: `20260810-sp-factor-dense-*`.
 
 On `mp1`, the accepted startup/random and sparse-watch repairs make the
 normalized Tactix/Kissat trajectory exact through conflict 2504.  The first
@@ -48,10 +57,11 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Re-close `mod4block` by implementing `SP-SWEEP-KITTEN-1` as one complete
-   semantic unit: depth-sensitive environment construction, Kitten-compatible
-   model/decision/phase and flip behavior, typed query stream, and
-   effort/resumption handoff.  Never restore stale-model reuse.
+1. Re-close `mod4block` by localizing the first formula/search-state divergence
+   before the second Factor dose.  Compare one event boundary at a time from
+   the exact 766-grid startup checkpoint; change Factor again only if a common
+   input state exposes a grid/ref/update mismatch.  Preserve proof/model gates,
+   trace-off builds, and accept only a verified cumulative production gain.
 2. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
    deduction terminal-state machine, with per-arm reach counters, proof/model
    tests, the target-clause deletion trace, and all earlier fixtures as
@@ -79,6 +89,19 @@ next change is evaluated against the preceding accepted pin. Single-feature off
 arms are diagnostic; they do not replace the cumulative comparison. Incremental
 campaigns run only those two Tactix pins. Kissat and CaDiCaL are rerun at gates,
 or when the manifest or allocation shape changes, rather than on every step.
+
+Phase 4 also requires a small matched feature-off matrix.  For each selected
+mechanism, map the semantic gate in Kissat and Tactix (not merely similarly
+named command-line flags), disable that mechanism in both solvers, and replay
+the same fixed fixtures one configuration at a time.  The resulting trajectory
+must either remain aligned or have a localized, source-backed, justified
+divergence.  These projections are both robustness tests and diagnostic cuts
+through otherwise coupled behavior; they supplement, but never replace, the
+shipped-default trajectory and production-performance gates.
+One-sided feature-off runs are also encouraged when they isolate which solver
+or subsystem introduces a divergence.  Record the hypothesis and trace anchor,
+change one semantic gate at a time, and remove the diagnostic variant after the
+attribution question is answered; it is not a candidate shipped strategy arm.
 
 ## Gates
 
@@ -113,6 +136,9 @@ their effect with source counters before performance interpretation.
 - [ ] Complete and report the fixed-binary Tier C four-arm attribution.
 - [ ] Close P4-CVG on the fixed three-instance P4A and five-instance P4B sets.
 - [ ] Complete N4 verification against the reconciled scheduling ledger.
+- [ ] Pass the matched feature-off differential matrix: selected shared
+  mechanisms disabled symmetrically in Kissat and Tactix, one configuration at
+  a time, with every trajectory divergence localized and justified.
 - [ ] Run a Tier D shakedown, then the 793-instance campaign.
 - [ ] Evaluate and report T3 last.
 
@@ -125,9 +151,10 @@ fixtures as cumulative guards.
 - [x] `tr-n300-s055` — accepted stronger singleton minimization.
 - [x] `tr-n260-s002` — accepted stronger singleton minimization.
 - [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
-- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — reopened: corrected
-  cumulative pin regresses 10.96s → 261.40s; `SP-SWEEP-KITTEN-1` is localized
-  at preprocessing seed 171 and must land as a complete coupled unit.
+- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — corrected dense-entry arm
+  times out at 60s versus Kissat 18.30s and the former 10.96s closing pin.
+  Startup Factor grids match through all 766 observed grids; the active closer
+  is the formula/search-state divergence before the second Factor dose.
 - [ ] `mp1-klieber2017s-0500-023-t12`.
 - [ ] `or_randxor_k3_n540_m540`.
 - [ ] `unsat-set-b-fclqcolor-10-07-09`.
@@ -136,14 +163,14 @@ fixtures as cumulative guards.
 <!-- track-sched:begin -->
 ### Open scheduling-parity findings
 
-`ORDER-SPARSE-COLLECT-1`, `FACTOR-PREPROCESS-1`, and the `mod4block` Sweep
-currency/candidate-flip findings are implemented and dispositioned. The stale
+`ORDER-SPARSE-COLLECT-1`, `FACTOR-PREPROCESS-1`, the `mod4block` Sweep semantic
+unit, and Factor occurrence/order are implemented and dispositioned. The stale
 rows `ORDER-TUMBLE-1`, `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`,
 `ORDER-LUCKY-1`, and `ORDER-FOLLOWUP-1` remain closed; their evidence is in
-`docs/implementation-notes.md` §13. `SP-SWEEP-KITTEN-1` is the current open
-`mod4block` handle; environment construction, embedded model/search, query
-state, and scheduler handoff are one semantic unit. `SP-VIVIFY-DEDUCE-1` is
-open from `mp1`, but follows the earlier cumulative guard.
+`docs/implementation-notes.md` §13. `SP-FACTOR-OCCURRENCE-1` is semantically
+closed at startup; the pre-dose-2 formula/search divergence is the current `mod4block` closer.
+`SP-VIVIFY-DEDUCE-1` is open from `mp1`, but follows the earlier cumulative
+guard.
 
 N4 verification remains pending until the remaining fixed fixtures complete the
 lifecycle audit. A P4-CVG result adds one deduplicated finding here only when it
@@ -158,6 +185,7 @@ identifies missing or cruder default scheduling.
   as a universal public proof-rule operation, emit independently checkable
   DRAT/LRAT evidence, preserve SAT-model reconstruction, and evaluate a
   DefaultPolicy admission strategy only after the rule/API boundary is green.
+- [ ] Evaluate a zero-copy embedded-SubSolver clause view that reuses immutable main-formula clause storage while retaining local watches, trail, compact variables, and proof mapping.
 - [ ] Disposition the seven independent-lineage candidates before compacting
   their survey: binary-resolution minimization and blocking restarts (phase
   4.5), adaptive Reduce intervals and usage-count ranking (Reduce policy), and
@@ -191,9 +219,9 @@ identifies missing or cruder default scheduling.
 
 ## Open items
 
-- The current one-at-a-time frontier is `SP-SWEEP-KITTEN-1` at `mod4block`
-  preprocessing seed 171.  Align the complete environment/model/query and
-  effort/resumption lifecycle before returning to `mp1`'s
+- The current one-at-a-time frontier is the formula/search divergence before
+  `mod4block` Factor dose 2. Startup Factor is exact; do not optimize the later
+  unequal grids as though they shared an input state. Then return to `mp1`'s
   `SP-VIVIFY-DEDUCE-1`.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic

@@ -84,6 +84,17 @@ experiment closes. A permanent knob must support a distinct, continuing use
 that cannot be covered by the shipped default plus short-lived experimental
 instrumentation; historical behavior alone is not sufficient justification.
 
+Feature-off projections are an encouraged divergence-localization tool. Prefer
+disabling the same semantic mechanism in Tactix and a reference solver and
+compare those matched trajectories one configuration at a time; this both
+tests robustness and exposes causal dimensions hidden by the all-default run.
+A one-sided disable is also allowed when it answers a narrower attribution
+question. Each projection must name the semantic gate, hypothesis, fixture,
+trace anchor, and removal condition. It is diagnostic evidence, not permission
+to ship a disabled required mechanism, shrink its budget until inert, retain a
+permanent experimental arm, or replace the default-on trajectory and
+performance gates.
+
 DefaultPolicy contains no magic strategy numbers. Every numeric value that can
 change action choice, order, admission, timing, repetition, effort, candidate
 scope, or retention is a descriptively named field in the centralized typed
@@ -323,6 +334,13 @@ superseded strategy arm. A first divergence classified as missing or cruder
 default scheduling adds one deduplicated scheduling-parity finding and makes
 N4 verification pending. Analysis, kernel, or proof-rule defects are routed to
 their owning non-negotiable or subsystem instead.
+
+After the shipped-default fixture pass, run a small matched feature-off matrix
+over selected shared mechanisms. Resolve equivalence by executable semantics,
+not flag spelling. Each projected trajectory must either agree or close under
+the same localized, source-backed explanation standard as the default run.
+These projections are additional Phase-4 robustness and causal-coverage
+evidence; they do not relax T3, P4-CVG default closure, or N4 verification.
 
 Report #solved before PAR-2, SAT/UNSAT split, proof time/size, regressions, and
 memory. A solve gained with none lost may be banked despite PAR-2 cost, but the

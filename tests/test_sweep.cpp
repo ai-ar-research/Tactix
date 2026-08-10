@@ -320,6 +320,28 @@ void test_env_provenance() {
   }
 }
 
+void test_equal_depth_binary_encounters() {
+  Kernel k;
+  build(k, 3, {{1, 2}, {1, 3}, {2, 3}});
+  SweepRound r;
+  SweepLimits lim;
+  sweep_round_begin(k, r);
+  assert(sweep_env_build(k, 0, lim, r));
+  const SweepEnv &e = r.env;
+
+  // The seed introduces variables 2 and 3 at the same BFS depth. Kissat then
+  // copies their connecting binary from both directed watch encounters:
+  // (2,3) when expanding 2 and (3,2) when expanding 3. A canonical pair-set
+  // dedup loses the second clause and changes Kitten's watch/query trajectory.
+  assert(e.nclauses() == 4);
+  assert((e.clause_ids == std::vector<uint64_t>{1, 2, 3, 3}));
+  const uint32_t a = e.clause_off[2], b = e.clause_off[3];
+  assert(externalize(e.clause_lits[a]) == 2);
+  assert(externalize(e.clause_lits[a + 1]) == 3);
+  assert(externalize(e.clause_lits[b]) == 3);
+  assert(externalize(e.clause_lits[b + 1]) == 2);
+}
+
 // --- 4. structural limits bind between whole expansion steps -----------------
 void test_limits() {
   // a 6-variable clique of binaries: every seed can reach every variable
@@ -368,15 +390,16 @@ void test_limits() {
 
 // --- 5. an equivalence the formula already states ----------------------------
 void test_known_equivalence() {
-  // (¬1 ∨ 2), (1 ∨ ¬2) already states 1 ≡ 2: count it as known, do not report
-  // a find, since emission would duplicate a binary.
+  // Detection follows Kissat's candidate pipeline even when the two binaries
+  // already state the equivalence.  Duplicate suppression belongs to emission;
+  // short-circuiting here changes the embedded model/watch trajectory.
   Kernel k;
   build(k, 3, {{-1, 2}, {1, -2}, {1, 3}, {-3, 2}});
   SweepRound r;
   SweepLimits lim;
-  assert(sweep_detect_round(k, lim, r) == 0);
-  assert(r.found.empty());
-  assert(k.stats.sweep_known >= 1);
+  assert(sweep_detect_round(k, lim, r) >= 1);
+  assert(!r.found.empty());
+  assert(k.stats.sweep_known == 0);
 }
 
 // --- 6. the seed surface -----------------------------------------------------
@@ -542,9 +565,8 @@ static void test_sd_declines_non_rup(void) {
 
 // --- the general path, and its reachability ---------------------------------
 // `non_rup_formula()` carries an equivalence unit propagation cannot refute in
-// either direction, so only the replayed sub-solver refutation can justify it.
-// The `sweep_general` assertion is the reachability proof: non-RUP claims are
-// too rare for the random oracle to force this path.
+// either direction, so only the captured sub-solver refutation can justify it.
+// The `sweep_general` assertion is the reachability proof.
 static void test_se_general_path_emits(void) {
   const std::vector<std::vector<int>> cls = non_rup_formula();
   Kernel k;
@@ -555,7 +577,6 @@ static void test_se_general_path_emits(void) {
 
   const ApplyResult r = sweep_apply(k);
   assert(r == ApplyResult::Ok && "the general path must justify what RUP cannot");
-  assert(k.stats.sweep_not_rup >= 1 && "S-d must have declined first");
   assert(k.stats.sweep_general >= 1 &&
          "S-e NEVER FIRED -- the general path is unreachable and untested");
   assert(k.stats.sweep_binaries >= 2 && "an equivalence is two binaries");
@@ -663,6 +684,7 @@ int main(int argc, char **argv) {
   test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();
   test_env_provenance();
+  test_equal_depth_binary_encounters();
   test_limits();
   test_known_equivalence();
   test_seeds();

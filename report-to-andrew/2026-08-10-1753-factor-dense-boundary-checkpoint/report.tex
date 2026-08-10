@@ -1,0 +1,194 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.88in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{needspace}
+
+\newcommand{\code}[1]{\nolinkurl{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\tactix}{Tactix}
+\newcommand{\kissat}{Kissat}
+\newcommand{\measured}{\textcolor{blue!55!black}{measured}}
+\newcommand{\inferred}{\textcolor{orange!65!black}{inferred}}
+
+\title{Factor Dense-Boundary Convergence\\and Phase-4 Checkpoint}
+\author{Tactix Development Project}
+\date{August 10, 2026}
+
+\begin{document}
+\maketitle
+\sloppy
+
+\section*{Executive summary}
+
+The current checkpoint closes the startup semantic mismatch in \tactix{}'s
+Factor pipeline.  Under the corrected dense-entry semantics, \tactix{} and
+\kissat{} select the same ordered Factor grids through all 766 startup grids
+observed on
+\code{mod4block_2vars_10gates_u2_autoenc-sc2009}.  The implementation now
+preserves exact large-clause occurrences, assigned remainders, first-import
+heap order, the fixed same-pass factor boundary, and one unified local watch
+order.  It also performs \kissat{}'s first-watch-preserving duplicate-binary
+flush at the dense boundary.
+
+This is a semantic checkpoint, not a performance closure.  The correct
+trace-off \tactix{} arm times out at 60 seconds, while \kissat{} solves in
+18.30 seconds.  A superficially better \tactix{} arm solved in 45.89 seconds,
+but an adversarial fixture proved that it repeatedly counted the same binary
+candidate key.  That arm is rejected.  Direct-scan and cache variants also
+timed out and were removed under the project's arm-frugality rule.
+
+The next causal frontier is now narrower.  At the second Factor dose the
+solvers enter from already different formula and search states, at conflicts
+2512 and 2513 respectively, and produce 16 versus 12 grids.  Because startup
+Factor is exact, this second-dose difference is a downstream symptom.  The
+next pass must compare the preceding search events one boundary at a time;
+Factor should be reopened only if equal input states expose an unequal
+grid, source reference, heap update, or effort stop.
+
+\section{Complete semantic unit implemented}
+
+Earlier trace alignment had hidden several coupled approximations.  They were
+repaired together because each changes the mutable quotient consumed by the
+next Factor step.
+
+\begin{enumerate}[leftmargin=*,itemsep=2pt]
+  \item Equal large clauses are no longer collapsed into content identity.
+  Content is an equality key; each aligned row retains its exact clause
+  reference, including repeated equal occurrences.
+  \item Root assignments no longer discard otherwise live remainders.
+  Assigned literals may remain in a remainder, while the prospective factor
+  itself must still be active and unassigned.
+  \item Tied Factor candidates are seeded in first-import literal order,
+  reproducing \kissat{}'s internal permutation without sacrificing \tactix{}'s
+  stable public identities.
+  \item Same-pass extensions may occur in remainders but may not become a new
+  factor.  The candidate boundary is fixed at phase entry.
+  \item Binary and large encounters use one ordered local stream: surviving
+  binary partners, arena-order large occurrences, then same-pass additions.
+  Deletions invalidate exact stream entries.
+  \item Large rows match the first unused exact source reference with the
+  required remainder, rather than an arbitrary clause having equal content.
+\end{enumerate}
+
+The final binary rule came from re-reading executable \kissat{} call sites.
+Dense entry flushes duplicate binary watches before Factor observes them,
+preserving the first watch for each literal--partner pair.  \tactix{} formerly
+deduplicated only Factor's candidate view, leaving the physical watch state
+different for later rules and search.  The new kernel operation performs that
+boundary transition once, keeps proof clauses live, and leaves the latest
+binary proof identifier available for naming.  Focused tests pin both the
+first-watch order and the absence of duplicate Factor candidates.
+
+\section{Measured evidence and rejected arms}
+
+Table~\ref{tab:evidence} separates accepted semantic evidence from diagnostic
+arms.  Times are wall-clock results from the named fixed allocation; ``timeout''
+means the 60-second limit was reached.  SAT results cited as verified passed
+independent model checking.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{L{0.27\textwidth} L{0.29\textwidth} L{0.34\textwidth}}
+\toprule
+Purpose & Artifact / job & Result and disposition \\
+\midrule
+Unified startup order & unified-watch trace v2 &
+711 exact grids in the original common window; semantic arm retained \\
+Rejected overcount arm & job \code{1607031} &
+45.89 s versus \kissat{} 18.30 s; 864 grids and 126,212,303 Factor ticks, but
+adversarial 2-by-3 duplication proves candidate overcount; rejected \\
+Correct dense boundary & job \code{1607035} &
+\tactix{} timeout at 60 s; \kissat{} 18.30 s verified; current production
+semantics \\
+Post-startup \tactix{} trace & job \code{1607037} &
+766 exact startup grids; second dose at conflict 2512, 16 grids \\
+Post-startup \kissat{} trace & job \code{1607038} &
+766 exact startup grids; second dose at conflict 2513, 12 grids \\
+Direct/cache experiments & jobs \code{1607010}, \code{1607012},
+\code{1607014}, \code{1607016}, \code{1607018}, \code{1607026},
+\code{1607039} & Longer or equal trace prefixes but production timeout;
+all code removed \\
+\bottomrule
+\end{tabular}
+\caption{Factor convergence evidence.  Only the dense-boundary semantic arm is
+retained.}
+\label{tab:evidence}
+\end{table}
+
+The 766-grid startup identity is \measured{}.  The statement that the
+second-dose grid difference is downstream is an \inferred{} causal
+classification supported by the unequal conflict and formula/search entry
+states.  It does not yet identify the earlier event that created those states.
+Likewise, the timeout demonstrates a cumulative performance regression but
+does not by itself attribute that regression to Factor's inner-loop cost.
+
+\section{Other retained work in this checkpoint}
+
+This checkpoint also carries the coupled Sweep/SubSolver and policy tracing
+work needed by the broader one-instance-at-a-time Phase-4 method.  Sweep now
+uses the reference Kitten tick currency throughout its queries, flips, round
+checks, scheduler meter, and public effort counter.  Its environment and model
+operations are represented as complete stateful units rather than local
+stand-ins.  Substitution follow-ups and solve-entry root lifecycle behavior
+are pinned by focused tests.  Default-strategy constants introduced by these
+mechanisms live in the configuration surface rather than as policy magic
+numbers.
+
+Diagnostic event tracing remains an implementation feature only in explicit
+trace builds.  The production configuration compiles out calls, event strings,
+and implementation symbols.  The new traces provide exact Factor grids,
+ordered members, source references, heap transitions, phase boundaries, and
+the adjacent solver state needed to decide whether a future mismatch belongs
+to Factor or to an earlier mechanism.
+
+\section{Verification at the checkpoint}
+
+The final source state passed the following local gates:
+
+\begin{itemize}[leftmargin=*,itemsep=2pt]
+  \item the full ASan-enabled debug suite excluding the separately exercised
+  scripted-default example: 68 of 68 tests;
+  \item the release scripted-default example: 1 of 1;
+  \item Factor, Factor-N1, kernel, solve-reset, proof micro-fixtures,
+  configuration wiring, policy/rule boundary, documentation, and strategy
+  configuration checks;
+  \item the production zero-overhead trace test: 1 of 1;
+  \item document line-budget and whitespace checks.
+\end{itemize}
+
+No current SAT experiment remains in Slurm.  The allocation list contains two
+interactive shell sessions and an unrelated GPU job rooted in
+\code{/home/hwu/reduction}; none is modified by this wrap-up.
+
+\section{Next controlled increment}
+
+\begin{enumerate}[leftmargin=*,itemsep=3pt]
+  \item Start from the exact 766-grid startup checkpoint and identify the
+  first unequal search/formula event before conflicts 2512/2513.  Compare one
+  event family or matched feature-off projection at a time.
+  \item Decide whether \tactix{}'s behavior is demonstrably strictly better.
+  If not, port the complete \kissat{} semantic unit; do not retain a proxy or
+  another long-lived arm.
+  \item Require a reach counter and localized trace, focused proof/model
+  fixtures, the earlier P4A fixtures as cumulative guards, a trace-off build,
+  and a same-allocation production comparison.
+  \item Reopen Factor only if both solvers reach it with the same input state
+  and nevertheless differ in grid order, exact source selection, update
+  order, or budget termination.
+\end{enumerate}
+
+The Phase-4 exit criterion is unchanged: \tactix{} must remain competitive
+with \kissat{} and CaDiCaL.  The tightened methodology adds a second obligation:
+on each selected Tier-A/B fixture, the trajectory either matches \kissat{} or
+the first divergence has a localized, source-backed, technically justified
+reason.
+
+\end{document}

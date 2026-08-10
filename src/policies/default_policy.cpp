@@ -189,6 +189,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << inprocess.sweep_strip_root_false
       << " inprocess.sweep_full_partition="
       << inprocess.sweep_full_partition
+      << " inprocess.sweep_skip_embedded_fixed="
+      << inprocess.sweep_skip_embedded_fixed
       << " inprocess.sweep_resume=" << inprocess.sweep_resume
       << " inprocess.congruence_productivity_permille="
       << inprocess.congruence_productivity_permille
@@ -594,6 +596,7 @@ SweepLimits configured_sweep_limits(
   lim.env_ticks = config.sweep_environment_ticks;
   lim.strip_false = config.sweep_strip_root_false;
   lim.full_partition = config.sweep_full_partition;
+  lim.skip_embedded_fixed = config.sweep_skip_embedded_fixed;
   return lim;
 }
 
@@ -1379,6 +1382,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   ScopedArenaOrdering arena_ordered(k, inprocess_.arena_ordering());
   if (k.inconsistent)
     return 20;
+  // A solve always starts from the root closure.  Besides matching the
+  // reference lifecycle, this makes repeated/incremental calls independent of
+  // a caller's last search level before startup preprocessing inspects clauses.
+  if (k.level)
+    kernel_backtrack(k, 0);
   std::optional<ScopedHeuristics> owned_h;
   if (!k.h)
     owned_h.emplace(k);

@@ -82,8 +82,9 @@ Formula random_formula(std::mt19937 &rng, uint32_t nvars, uint32_t nclauses,
   return f;
 }
 
-void load(SubSolver &s, const Formula &f) {
-  s.reset(f.nvars);
+void load(SubSolver &s, const Formula &f,
+          SubSearchMode mode = SubSearchMode::Fixed) {
+  s.reset(f.nvars, mode);
   for (const auto &c : f.clauses)
     s.add_clause(c);
 }
@@ -235,6 +236,7 @@ void test_model_flip() {
   s.reset(2);
   s.add_clause({sub_lit(0, false)});
   assert(s.solve({}, 0) == SubResult::Sat);
+  assert(s.has_model());
   assert(!s.flip_model_literal(sub_lit(0, false)));
 
   // A later UNSAT-under-assumptions result invalidates the prior model.
@@ -247,8 +249,102 @@ void test_model_flip() {
   assert(s.flip_model_literal(sub_lit(0, false)));
   assert(s.solve({sub_lit(0, true), sub_lit(1, true)}, 0) ==
          SubResult::Unsat);
+  assert(!s.has_model());
   assert(!s.flip_model_literal(sub_lit(1, false)));
   assert(s.solve({}, 0) == SubResult::Sat);
+}
+
+void test_kitten_search_state() {
+  SubSolver s;
+  s.start_kitten_session();
+
+  // Clause order imports external variable 1 before 0. Kitten decides from
+  // the newest end of that queue. With generator 0, both initial phase bits
+  // are negative, so external 0 is decided false and the clause propagates
+  // external 1 true.
+  s.reset(2, SubSearchMode::Kitten);
+  s.add_clause({sub_lit(1, false), sub_lit(0, false)});
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  assert(s.model()[0] < 0 && s.model()[1] > 0);
+  assert(s.fixed_literal(sub_lit(0, false)) == 0);
+  assert(s.fixed_literal(sub_lit(1, false)) == 0);
+
+  // Clearing the same embedded Kitten advances the deterministic environment
+  // seed. Generator 1 gives both variables a positive phase in this fixture.
+  s.reset(2, SubSearchMode::Kitten);
+  s.add_clause({sub_lit(1, false), sub_lit(0, false)});
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  assert(s.model()[0] > 0 && s.model()[1] > 0);
+
+  // A new Sweep invocation starts with generator 0 again.
+  s.start_kitten_session();
+  s.reset(2, SubSearchMode::Kitten);
+  s.add_clause({sub_lit(1, false), sub_lit(0, false)});
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  assert(s.model()[0] < 0 && s.model()[1] > 0);
+
+  s.start_kitten_session();
+  s.reset(2, SubSearchMode::Kitten);
+  s.add_clause({sub_lit(1, true)});
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  assert(s.fixed_literal(sub_lit(1, true)) > 0);
+  assert(s.fixed_literal(sub_lit(1, false)) < 0);
+  assert(s.fixed_literal(sub_lit(0, false)) == 0);
+
+  // `kitten_clear` retains its allocated internal size. A later small
+  // environment therefore randomizes the same high-water phase capacity;
+  // recreating capacity from the current import count advances the generator
+  // by too few words and changes every later environment.
+  s.start_kitten_session();
+  s.reset(130, SubSearchMode::Kitten);
+  for (SubVar v = 0; v < 130; v++)
+    s.add_clause({sub_lit(v, false)});
+  assert(s.kitten_phase_capacity() == 256);
+  s.reset(3, SubSearchMode::Kitten);
+  for (SubVar v = 0; v < 3; v++)
+    s.add_clause({sub_lit(v, false)});
+  assert(s.kitten_phase_capacity() == 256);
+  s.start_kitten_session();
+  s.reset(3, SubSearchMode::Kitten);
+  for (SubVar v = 0; v < 3; v++)
+    s.add_clause({sub_lit(v, false)});
+  assert(s.kitten_phase_capacity() == 4);
+}
+
+void test_kitten_against_brute_force(uint32_t iterations) {
+  std::mt19937 rng(20260810);
+  SubSolver s;
+  s.start_kitten_session();
+  for (uint32_t it = 0; it < iterations; it++) {
+    const uint32_t nvars = 2 + rng() % 7;
+    const Formula f =
+        random_formula(rng, nvars, 1 + rng() % (4 * nvars), 3);
+    std::vector<SubLit> assumptions;
+    for (uint32_t i = 0, n = rng() % 3; i < n; i++)
+      assumptions.push_back(sub_lit(rng() % nvars, rng() & 1u));
+    load(s, f, SubSearchMode::Kitten);
+    s.randomize_phases();
+    const SubResult result =
+        s.solve(assumptions, 0, SubTickMode::Kitten);
+    assert(result != SubResult::Budget);
+    const bool expected = brute_force(f, assumptions);
+    assert((result == SubResult::Sat) == expected);
+    if (result != SubResult::Sat)
+      continue;
+    uint32_t bits = 0;
+    for (SubVar v = 0; v < nvars; v++)
+      if (s.model()[v] > 0)
+        bits |= 1u << v;
+    assert(satisfied_by(f, bits));
+    for (const SubLit a : assumptions) {
+      const bool value = (bits >> sub_var_of(a)) & 1u;
+      assert(value != ((a & 1u) != 0));
+    }
+  }
 }
 
 // --- the refutation derivation ---------------------------------------------
@@ -318,9 +414,12 @@ void check_target_is_entailed(const Formula &f, const std::vector<SubLit> &assum
 // The derivation oracle: random refutations, each replayed as LRAT, checked for
 // entailment by enumeration, and checked for core discipline — every chain
 // entry is a core original or an earlier lemma, so the order replays.
-void test_derivations(uint32_t iterations) {
+void test_derivations(uint32_t iterations,
+                      SubSearchMode mode = SubSearchMode::Fixed) {
   std::mt19937 rng(999);
   SubSolver s;
+  if (mode == SubSearchMode::Kitten)
+    s.start_kitten_session();
   uint32_t refutations = 0, assumption_targets = 0, empty_targets = 0;
   uint32_t steps_total = 0, core_total = 0, multi_step = 0, max_steps = 0;
   for (uint32_t it = 0; it < iterations; it++) {
@@ -342,8 +441,13 @@ void test_derivations(uint32_t iterations) {
     const uint32_t na = rng() % 3;
     for (uint32_t i = 0; i < na; i++)
       assumptions.push_back(sub_lit(rng() % nvars, rng() & 1u));
-    load(s, f);
-    if (s.solve(assumptions, 0) != SubResult::Unsat)
+    load(s, f, mode);
+    if (mode == SubSearchMode::Kitten)
+      s.randomize_phases();
+    const SubTickMode tick_mode = mode == SubSearchMode::Kitten
+                                      ? SubTickMode::Kitten
+                                      : SubTickMode::Entries;
+    if (s.solve(assumptions, 0, tick_mode) != SubResult::Unsat)
       continue;
     SubDerivation d;
     if (!s.derivation(d))
@@ -383,9 +487,10 @@ void test_derivations(uint32_t iterations) {
     for (const uint32_t id : d.core)
       assert(id >= 1 && id <= s.original_clauses());
   }
-  printf("  derivations: %u refutations checked (%u over assumptions, %u empty),"
+  printf("  %s derivations: %u refutations checked (%u over assumptions, %u empty),"
          " %.1f steps / %.1f core clauses each, %u multi-step (max %u)\n",
-         refutations, assumption_targets, empty_targets,
+         mode == SubSearchMode::Kitten ? "Kitten" : "fixed", refutations,
+         assumption_targets, empty_targets,
          refutations ? double(steps_total) / refutations : 0.0,
          refutations ? double(core_total) / refutations : 0.0, multi_step,
          max_steps);
@@ -428,6 +533,34 @@ void test_derivation_edge_cases() {
   s.add_clause({sub_lit(0, false), sub_lit(1, false)});
   assert(s.solve({sub_lit(0, false), sub_lit(0, true)}, 0) == SubResult::Unsat);
   assert(!s.derivation(d) && "contradictory assumptions derive nothing");
+
+  // Kitten keeps the clause learned from a failed assumption solve and reuses
+  // it in later calls on the same environment.  Use a deliberately non-identity
+  // import order so both the persistent internal clause and the exported proof
+  // literals are checked.  F = (x2 v x0) & (~x2 v x1) entails (x0 v x1).
+  s.start_kitten_session();
+  s.reset(3, SubSearchMode::Kitten);
+  s.add_clause({sub_lit(2, false), sub_lit(0, false)});
+  s.add_clause({sub_lit(2, true), sub_lit(1, false)});
+  const std::vector<SubLit> assumptions = {sub_lit(0, true),
+                                            sub_lit(1, true)};
+  s.randomize_phases();
+  assert(s.solve(assumptions, 0, SubTickMode::Kitten) == SubResult::Unsat);
+  assert(s.derivation(d));
+  assert(d.steps.back().lits ==
+         std::vector<SubLit>({sub_lit(1, false), sub_lit(0, false)}));
+  std::map<uint32_t, std::vector<SubLit>> clauses = {
+      {1, {sub_lit(2, false), sub_lit(0, false)}},
+      {2, {sub_lit(2, true), sub_lit(1, false)}}};
+  for (const SubStep &step : d.steps) {
+    assert(lrat_replay(clauses, step));
+    clauses[step.id] = step.lits;
+  }
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  s.randomize_phases();
+  assert(s.solve(assumptions, 0, SubTickMode::Kitten) == SubResult::Unsat);
+  assert(s.derivation(d));
 }
 
 // Write the cases the external-checker script feeds to drat-trim and
@@ -533,9 +666,12 @@ int main(int argc, char **argv) {
   test_assumption_paths();
   test_budget_and_determinism();
   test_model_flip();
+  test_kitten_search_state();
+  test_kitten_against_brute_force(iterations / 5);
   test_against_brute_force(iterations);
   test_derivation_edge_cases();
   test_derivations(iterations / 4);
+  test_derivations(iterations / 10, SubSearchMode::Kitten);
   printf("test_subsolver: all passed\n");
   return 0;
 }

@@ -49,13 +49,25 @@ public:
   void sweep_environment_clause(const Kernel &, Var, uint32_t, const Lit *,
                                 uint32_t);
   void sweep_query(const Kernel &, Var, uint32_t, const char *, Lit, Lit, int,
-                   uint64_t);
+                   uint64_t, uint64_t);
+  void sweep_model(const Kernel &, Var, uint32_t, const Var *, const int8_t *,
+                   uint32_t);
+  void sweep_flip(const Kernel &, Var, const char *, Lit, bool, uint64_t);
   void sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t, uint64_t);
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t);
   void sweep_watch(const Kernel &, Var, uint32_t, Lit);
   void sweep_equivalence(const Kernel &, Lit a, Lit b);
   void sweep_unit(const Kernel &, Lit);
   void factor_seed(const Kernel &, Lit, uint32_t score, uint32_t remainders);
+  void factor_remainder(const Kernel &, Lit seed, uint32_t ordinal, bool large,
+                        const Lit *, uint32_t);
+  void factor_pair(const Kernel &, Lit grid_seed, const char *stage);
+  void factor_heap(const Kernel &, Lit grid_seed, const char *stage, Lit a,
+                   uint32_t pos_a, uint32_t score_a, Lit b, uint32_t pos_b,
+                   uint32_t score_b, uint32_t size);
+  void factor_schedule(const Kernel &, uint32_t ordinal, Lit, uint32_t score);
+  void factor_update(const Kernel &, Lit grid_seed, uint32_t ordinal, Lit,
+                     uint32_t score);
   void factor_grid(const Kernel &, Lit, uint32_t factors,
                    uint32_t remainders, int delta);
   void factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
@@ -115,13 +127,23 @@ public:
   void sweep_environment_clause(const Kernel &, Var, uint32_t, const Lit *,
                                 uint32_t) {}
   void sweep_query(const Kernel &, Var, uint32_t, const char *, Lit, Lit, int,
-                   uint64_t) {}
+                   uint64_t, uint64_t) {}
+  void sweep_model(const Kernel &, Var, uint32_t, const Var *, const int8_t *,
+                   uint32_t) {}
+  void sweep_flip(const Kernel &, Var, const char *, Lit, bool, uint64_t) {}
   void sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t, uint64_t) {}
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t) {}
   void sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
   void sweep_equivalence(const Kernel &, Lit, Lit) {}
   void sweep_unit(const Kernel &, Lit) {}
   void factor_seed(const Kernel &, Lit, uint32_t, uint32_t) {}
+  void factor_remainder(const Kernel &, Lit, uint32_t, bool, const Lit *,
+                        uint32_t) {}
+  void factor_pair(const Kernel &, Lit, const char *) {}
+  void factor_heap(const Kernel &, Lit, const char *, Lit, uint32_t, uint32_t,
+                   Lit, uint32_t, uint32_t, uint32_t) {}
+  void factor_schedule(const Kernel &, uint32_t, Lit, uint32_t) {}
+  void factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t) {}
   void factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int) {}
   void factor_grid_member(const Kernel &, uint32_t, Lit) {}
   void bve_candidate(const Kernel &, Var) {}
@@ -155,7 +177,9 @@ void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
 void event_trace_sweep_environment_clause(const Kernel &, Var, uint32_t,
                                           const Lit *, uint32_t);
 void event_trace_sweep_query(const Kernel &, Var, uint32_t, const char *, Lit,
-                             Lit, int, uint64_t);
+                             Lit, int, uint64_t, uint64_t);
+void event_trace_sweep_model(const Kernel &, Var, uint32_t, const Var *,
+                             const int8_t *, uint32_t);
 void event_trace_sweep_effort(const Kernel &, uint32_t external,
                               uint64_t kitten_ticks, uint64_t entry_ticks,
                               uint64_t solves);
@@ -166,6 +190,16 @@ void event_trace_sweep_equivalence(const Kernel &, Lit a, Lit b);
 void event_trace_sweep_unit(const Kernel &, Lit);
 void event_trace_factor_seed(const Kernel &, Lit, uint32_t score,
                              uint32_t remainders);
+void event_trace_factor_remainder(const Kernel &, Lit seed, uint32_t ordinal,
+                                  bool large, const Lit *, uint32_t);
+void event_trace_factor_pair(const Kernel &, Lit grid_seed, const char *stage);
+void event_trace_factor_heap(const Kernel &, Lit grid_seed, const char *stage,
+                             Lit a, uint32_t pos_a, uint32_t score_a, Lit b,
+                             uint32_t pos_b, uint32_t score_b, uint32_t size);
+void event_trace_factor_schedule(const Kernel &, uint32_t ordinal, Lit,
+                                 uint32_t score);
+void event_trace_factor_update(const Kernel &, Lit grid_seed,
+                               uint32_t ordinal, Lit, uint32_t score);
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t factors,
                              uint32_t remainders, int delta);
 void event_trace_factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
@@ -191,7 +225,10 @@ inline void event_trace_sweep_environment(const Kernel &, Var, uint32_t,
 inline void event_trace_sweep_environment_clause(const Kernel &, Var, uint32_t,
                                                  const Lit *, uint32_t) {}
 inline void event_trace_sweep_query(const Kernel &, Var, uint32_t,
-                                    const char *, Lit, Lit, int, uint64_t) {}
+                                    const char *, Lit, Lit, int, uint64_t,
+                                    uint64_t) {}
+inline void event_trace_sweep_model(const Kernel &, Var, uint32_t, const Var *,
+                                    const int8_t *, uint32_t) {}
 inline void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t,
                                      uint64_t, uint64_t) {}
 inline void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t,
@@ -201,6 +238,16 @@ inline void event_trace_sweep_equivalence(const Kernel &, Lit, Lit) {}
 inline void event_trace_sweep_unit(const Kernel &, Lit) {}
 inline void event_trace_factor_seed(const Kernel &, Lit, uint32_t,
                                     uint32_t) {}
+inline void event_trace_factor_remainder(const Kernel &, Lit, uint32_t, bool,
+                                         const Lit *, uint32_t) {}
+inline void event_trace_factor_pair(const Kernel &, Lit, const char *) {}
+inline void event_trace_factor_heap(const Kernel &, Lit, const char *, Lit,
+                                    uint32_t, uint32_t, Lit, uint32_t,
+                                    uint32_t, uint32_t) {}
+inline void event_trace_factor_schedule(const Kernel &, uint32_t, Lit,
+                                        uint32_t) {}
+inline void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit,
+                                      uint32_t) {}
 inline void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t,
                                     int) {}
 inline void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit) {}

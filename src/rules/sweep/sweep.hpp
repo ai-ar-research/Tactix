@@ -45,6 +45,10 @@ struct SweepLimits {
   bool measure_closure = false;
   // All-environment-literal partition and model-flip prefilter.
   bool full_partition = true;
+  // The shipped strategy runs after the root probe pipeline and follows
+  // Kissat's `kitten_fixed` filter. Standalone rule applications retain the
+  // stronger detector because they need not have had that preceding probe.
+  bool skip_embedded_fixed = false;
   uint32_t flip_rounds = SweepReferenceDefaults::FLIP_ROUNDS;
 };
 
@@ -132,6 +136,13 @@ struct SweepRound {
   std::vector<SweepEquiv> found;
   std::vector<SweepPairProof> proofs; // parallel to `found`
   std::vector<SweepUnitProof> units;
+  // Emission cursors let the apply path commit each newly proved consequence
+  // immediately while the public detection path remains pure.  `emission_batches`
+  // is monotone within a round so a caller can observe a commit even after the
+  // pending vectors have been drained.
+  size_t units_emitted = 0;
+  size_t equivalences_emitted = 0;
+  uint64_t emission_batches = 0;
   std::vector<Var> seeds;
   // candidate literals still agreeing with the seed in every model seen
   std::vector<Lit> candidates;
