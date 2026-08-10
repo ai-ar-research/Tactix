@@ -2,8 +2,8 @@
 // implication graph edge ¬src → dst — when dst is still reachable from ¬src
 // along other binaries. Proof delta: `del` only, chain-free, so the redundancy
 // argument is a solver-soundness obligation discharged by the walk rather than
-// a proof obligation. Precondition, effect, soundness: `docs/calculus.md` §V4;
-// reference study `docs/design/v4-transitive-reduce-design.md`.
+// a proof obligation. Precondition, effect, and soundness:
+// `docs/calculus.md` §V4; binary lifecycle: `docs/implementation-notes.md` §14.
 #pragma once
 
 #include "rules/registry.hpp"

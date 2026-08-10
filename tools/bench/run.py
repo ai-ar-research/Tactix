@@ -68,6 +68,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CACHE = os.path.join(ROOT, "benchmarks", "cache")
 TIERS = os.path.join(ROOT, "benchmarks", "tiers")
+MANIFESTS = os.path.join(HERE, "manifests")
 RUNS = os.path.join(ROOT, "benchmarks", "runs")
 DRAT_TRIM = os.path.join(ROOT, "tools", "checkers", "bin", "drat-trim")
 CAKE_LPR = os.path.join(ROOT, "tools", "checkers", "bin", "cake_lpr")
@@ -161,7 +162,10 @@ def classify_checker_output(stdout, stderr, returncode):
         msg = f"{kind}: " + (tail[-1][:160] if tail else f"exit {returncode}")
     return kind, msg, detail
 
-TIER_TIMEOUT = {"A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0}
+TIER_TIMEOUT = {
+    "A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0,
+    "P4A": 30.0, "P4B": 300.0,
+}
 # 16 GB is the competition cap (§8.1). Under the cluster's 8 GB/core rule this
 # costs 2 cores per task for a single-threaded solver — the second core buys
 # memory, not parallelism. Tiers A and B keep the 1-core default: nothing on
@@ -178,7 +182,8 @@ BASELINES = {
 
 
 def read_tier_list(tier):
-    path = os.path.join(TIERS, f"{tier}.list")
+    directory = MANIFESTS if tier.startswith("P4") else TIERS
+    path = os.path.join(directory, f"{tier}.list")
     if not os.path.exists(path):
         sys.exit(f"error: tier list {path} does not exist (build/freeze it "
                  f"first — see the benchmarks skill)")
@@ -1127,7 +1132,7 @@ exec {sys.executable} {me} --aggregate {outdir}
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--tier", choices="ABCD")
+    ap.add_argument("--tier", choices=("A", "B", "C", "D", "P4A", "P4B"))
     ap.add_argument("--solver", help="solver under test (competition CLI)")
     ap.add_argument("--name", default=None, help="label for the solver")
     ap.add_argument("--baseline", action="append", default=[],

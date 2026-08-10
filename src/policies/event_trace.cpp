@@ -5,6 +5,7 @@
 #include "policies/heuristics.hpp"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -108,11 +109,23 @@ bool EventTrace::open_from_env(const Kernel &k) {
     return false;
   if (const char *cap = std::getenv("TACTIX_EVENT_TRACE_LIMIT"))
     limit_ = std::strtoull(cap, nullptr, 10);
+  if (const char *from = std::getenv("TACTIX_EVENT_TRACE_CONFLICT_FROM")) {
+    detail_conflict_from_ = std::strtoull(from, nullptr, 10);
+    detail_window_ = true;
+  }
+  if (const char *to = std::getenv("TACTIX_EVENT_TRACE_CONFLICT_TO")) {
+    detail_conflict_to_ = std::strtoull(to, nullptr, 10);
+    detail_window_ = true;
+  }
   out_ = std::fopen(path, "w");
   if (!out_)
     return false;
   active_trace = this;
   std::fprintf(out_, "# tactix-event-trace\t1\n");
+  if (detail_window_)
+    std::fprintf(out_, "# detail-conflicts\t%llu\t%llu\n",
+                 (unsigned long long)detail_conflict_from_,
+                 (unsigned long long)detail_conflict_to_);
   std::fprintf(out_, "# solver\tseq\tevent\tconflicts\tdecisions\t"
                      "propagations\tlevel\tmode\tactive\tunassigned\ttrail\t"
                      "queue\theap\tretired_queue\tretired_heap\tirred\tred\t"
@@ -181,10 +194,19 @@ void EventTrace::macro(const Kernel &k, const char *event, const char *payload) 
   emit(k, event, payload, true);
 }
 
-void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
+bool EventTrace::want_detail(const Kernel &k) {
   if (!out_)
+    return false;
+  if (detail_window_)
+    return k.stats.conflicts >= detail_conflict_from_ &&
+           k.stats.conflicts <= detail_conflict_to_;
+  return true;
+}
+
+void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
+  if (!want_detail(k))
     return;
-  if (saw_reorder_) {
+  if (!detail_window_ && saw_reorder_) {
     if (!post_reorder_details_)
       return;
     post_reorder_details_--;
@@ -199,7 +221,7 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
 }
 
 void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
-  if (!out_ || emitted_ >= limit_)
+  if (!want_detail(k) || emitted_ >= limit_)
     return;
   const Lit watched = negate(propagated);
   for (const WatchEntry entry : k.watches.entries(watched)) {
@@ -241,7 +263,7 @@ void event_trace_learned_stage(const Kernel &k, const char *event,
 }
 
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {
-  if (!out_ || emitted_ >= limit_)
+  if (!want_detail(k) || emitted_ >= limit_)
     return;
   for (size_t pos = trail_begin; pos < k.trail.size(); pos++) {
     if (emitted_ >= limit_)
@@ -275,7 +297,7 @@ void EventTrace::implications(const Kernel &k, size_t trail_begin) {
 }
 
 void EventTrace::conflict(const Kernel &k) {
-  if (!out_ || !k.conflict_valid)
+  if (!want_detail(k) || !k.conflict_valid)
     return;
   const Lit *lits;
   uint32_t size;
@@ -313,7 +335,7 @@ void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {
 
 void EventTrace::learned_stage(const Kernel &k, const char *event,
                                const std::vector<Lit> &clause) {
-  if (!out_ || emitted_ >= limit_)
+  if (!want_detail(k) || emitted_ >= limit_)
     return;
   std::string payload = "order=";
   for (size_t i = 0; i < clause.size(); i++) {

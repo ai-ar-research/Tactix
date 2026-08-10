@@ -201,7 +201,7 @@ bool big_path_chain(const Kernel &k, Lit from, Lit to,
 
 namespace {
 
-// x ≡ ¬x: emit the refutation (`docs/design/v3-substitute-design.md` §3.3).
+// x ≡ ¬x: emit the refutation (`docs/calculus.md` V3).
 // {¬x} is RUP (assume x; the path x -> ¬x propagates ¬x) and {x} likewise via
 // ¬x -> x, and the two resolve to the empty clause. Uses add_rup rather than
 // add_derived_unit, which emits nothing in DRAT, because these are
@@ -564,7 +564,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     // Retire v here, at the witness push: the status and the reconstruction
     // witness must be created together, because a retired variable with no
     // witness is never decided and never reconstructed — a wrong SAT answer
-    // rather than a crash (`docs/design/variable-retirement-design.md` §4-§5).
+    // rather than a crash (`docs/design/variable-retirement-design-v2.md` §3).
     if (k.var_status.size() < k.nvars)
       k.var_status.resize(k.nvars, VarStatus::Active);
     if (k.var_status[v] == VarStatus::Active &&

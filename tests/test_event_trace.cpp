@@ -73,6 +73,33 @@ int main() {
          std::string::npos &&
          "analysis_end must carry the post-analysis ranking snapshot");
   std::remove(path);
+
+  static const char *window_path = "/tmp/tactix-test-event-window.tsv";
+  setenv("TACTIX_EVENT_TRACE", window_path, 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_FROM", "2", 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_TO", "2", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    k.stats.conflicts = 1;
+    trace.detail(k, "decision", 11);
+    k.stats.conflicts = 2;
+    trace.detail(k, "decision", 22);
+    k.stats.conflicts = 3;
+    trace.detail(k, "decision", 33);
+    trace.macro(k, "terminate", "20");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_FROM");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_TO");
+  std::ifstream window_input(window_path);
+  const std::string window_text((std::istreambuf_iterator<char>(window_input)),
+                                std::istreambuf_iterator<char>());
+  assert(window_text.find("# detail-conflicts\t2\t2") != std::string::npos);
+  assert(window_text.find("\tdecision\t2\t") != std::string::npos);
+  assert(window_text.find("\tdecision\t1\t") == std::string::npos);
+  assert(window_text.find("\tdecision\t3\t") == std::string::npos);
+  std::remove(window_path);
   std::puts("test_event_trace OK");
   return 0;
 }

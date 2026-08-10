@@ -59,6 +59,15 @@ add_test(NAME event_trace COMMAND test_event_trace)
 add_test(NAME event_trace_compare
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_compare_event_trace.py)
+add_test(NAME p4_fixtures
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_p4_fixtures.py)
+if(NOT TACTIX_ENABLE_EVENT_TRACE)
+  add_test(NAME event_trace_zero_overhead
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_no_event_trace_symbols.py
+                   $<TARGET_FILE:tactix>)
+endif()
 
 # The §5.6 pose surface: a preposed slot, a disabled entry inert at its own
 # rule's counter, and the TACTIX_SLOT_*/CURSOR_*/ORDER_* knobs.
@@ -268,6 +277,12 @@ add_test(NAME comment_hygiene
 add_test(NAME doc_size
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_SOURCE_DIR}/tools/docs/check-doc-size.py)
+
+# The HTML guide is manually maintained, so at minimum its public/folded rule
+# inventory must stay identical to the calculus (plus V6a's internal card).
+add_test(NAME proof_rule_sync
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_SOURCE_DIR}/tools/docs/check-proof-rule-sync.py)
 
 # `H` is optional -- a null-H solver is sound but unguided.
 add_executable(test_no_heuristics test_no_heuristics.cpp)

@@ -36,6 +36,12 @@ single-threaded, deterministic solving.
   as Kissat's. Every gap has a closure or an accepted deviation with evidence
   and a reopening path in the scheduling-parity ledger.
 
+N1–N4 are immutable requirements, not work items that can be opened, closed, or
+preserved. Their verification is `pending` or `complete`. The
+scheduling-parity ledger contains open or dispositioned findings used to verify
+N4; new evidence may add a finding and return verification to pending without
+changing N4 itself.
+
 Priority is N1/N2 soundness, N3 performance, N4 mechanism quality, then other
 goals. A soundness regression is never staged.
 
@@ -281,6 +287,24 @@ Shrink failures and retain minimal regressions. Cadence and commands live in the
   Tier-D view, before learning; N3's minimum is parity.
 - **T5:** beat AE-Kissat-MAB on the competition set or ship best effort.
 
+**P4-CVG — causal trajectory gate.** Phase 4 also runs the fixed `P4A` and
+`P4B` manifests in order, one instance at a time. They contain three difficult
+Tier A instances at the Tier A timeout and five historically difficult Tier B
+instances at the Tier B timeout. For each fixture, compare Tactix and Kissat to
+the earliest portable semantic divergence. A fixture closes only when its
+terminal, untruncated traces agree, or when that causal frontier records bounded
+context, cause, relative-strength judgment, evidence, reproducer, owner, and a
+reopening condition. A localized or actionable diagnosis is not closed.
+
+If current Tactix behavior is not demonstrably stronger and is not an approved
+deliberate choice, repair it and restart the comparison. Downstream differences
+inherit the first root until both solvers reach a named common anchor. After
+each accepted repair, rerun every previously closed fixture; remove a neutral
+superseded strategy arm. A first divergence classified as missing or cruder
+default scheduling adds one deduplicated scheduling-parity finding and makes
+N4 verification pending. Analysis, kernel, or proof-rule defects are routed to
+their owning non-negotiable or subsystem instead.
+
 Report #solved before PAR-2, SAT/UNSAT split, proof time/size, regressions, and
 memory. A solve gained with none lost may be banked despite PAR-2 cost, but the
 cost gets a named closer. A staged regression requires a pre-registered sequence,
@@ -311,7 +335,7 @@ branching without kernel edits. Ablations use configuration, not forks.
 | 1 | kernel, M1–M3, S1/S2/S4, DRAT, I/O | T1 + green proof fuzz |
 | 2 | S3/S5, LRAT, API freeze | T2 + API review |
 | 3 | complete reference rule inventory and Tier C | catalog disposition/reach complete |
-| 4 | faithful dosing, optimization, N4 ledger | T3 + N4 + one Tier D campaign |
+| 4 | faithful dosing, optimization, scheduling verification, causal gap merging | P4-CVG + N4 verification complete + T3 + one Tier D campaign |
 | 4.5 | proof-event correlation and novel engineering beyond reference parity | proof ranges map to emitting rule/application; concretize remaining scope via O15 |
 | 5 | tuning, bindings, extensibility proof | T4 + ≤5% overhead + CCE test |
 | 6 | competition packaging | T5/best effort + submission ready |

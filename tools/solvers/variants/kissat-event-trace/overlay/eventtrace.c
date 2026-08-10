@@ -10,8 +10,10 @@
 
 static FILE *trace_file;
 static bool trace_initialized, trace_truncated, trace_saw_reorder;
+static bool trace_detail_window;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
+static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
 
 static unsigned external_variable (kissat *solver, unsigned idx) {
   if (idx < SIZE_STACK (solver->export)) {
@@ -95,14 +97,37 @@ static void open_trace (void) {
   const char *limit = getenv ("KISSAT_EVENT_TRACE_LIMIT");
   if (limit && *limit)
     trace_limit = strtoull (limit, 0, 10);
+  const char *from = getenv ("KISSAT_EVENT_TRACE_CONFLICT_FROM");
+  if (from && *from) {
+    trace_detail_from = strtoull (from, 0, 10);
+    trace_detail_window = true;
+  }
+  const char *to = getenv ("KISSAT_EVENT_TRACE_CONFLICT_TO");
+  if (to && *to) {
+    trace_detail_to = strtoull (to, 0, 10);
+    trace_detail_window = true;
+  }
   trace_file = fopen (path, "w");
   if (!trace_file)
     return;
   fputs ("# tactix-event-trace\t1\n", trace_file);
+  if (trace_detail_window)
+    fprintf (trace_file, "# detail-conflicts\t%" PRIu64 "\t%" PRIu64 "\n",
+             trace_detail_from, trace_detail_to);
   fputs ("# solver\tseq\tevent\tconflicts\tdecisions\tpropagations\t"
          "level\tmode\tactive\tunassigned\ttrail\tqueue\theap\t"
          "retired_queue\tretired_heap\tirred\tred\tbinary\tdigest\t"
          "search_external\ttop32\tpayload\n", trace_file);
+}
+
+static bool detail_enabled (kissat *solver) {
+  open_trace ();
+  if (!trace_file)
+    return false;
+  if (!trace_detail_window)
+    return true;
+  const uint64_t conflicts = solver->statistics.conflicts;
+  return trace_detail_from <= conflicts && conflicts <= trace_detail_to;
 }
 
 void kissat_event_trace (kissat *solver, const char *event,
@@ -176,6 +201,8 @@ void kissat_event_trace (kissat *solver, const char *event,
 }
 
 void kissat_event_trace_detail (kissat *solver, const char *event, int payload) {
+  if (!detail_enabled (solver))
+    return;
   char buffer[32];
   snprintf (buffer, sizeof buffer, "%d", payload);
   // Match Tactix's diagnostic post-analysis ranking snapshot.  This localizes
@@ -196,8 +223,7 @@ static int compare_external_literals (const void *a, const void *b) {
 }
 
 void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
-  open_trace ();
-  if (!trace_file || trace_emitted >= trace_limit)
+  if (!detail_enabled (solver) || trace_emitted >= trace_limit)
     return;
   const unsigned watched = NOT (propagated);
   watches entries = WATCHES (watched);
@@ -245,8 +271,7 @@ void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
 }
 
 void kissat_event_trace_implications (kissat *solver, size_t trail_begin) {
-  open_trace ();
-  if (!trace_file || trace_emitted >= trace_limit)
+  if (!detail_enabled (solver) || trace_emitted >= trace_limit)
     return;
   const size_t trail_size = SIZE_ARRAY (solver->trail);
   for (size_t pos = trail_begin; pos != trail_size; pos++) {
@@ -292,8 +317,7 @@ void kissat_event_trace_implications (kissat *solver, size_t trail_begin) {
 }
 
 void kissat_event_trace_conflict (kissat *solver, clause *conflict) {
-  open_trace ();
-  if (!trace_file)
+  if (!detail_enabled (solver))
     return;
   const size_t size = conflict->size;
   int *external = malloc (size * sizeof *external);
@@ -331,8 +355,7 @@ void kissat_event_trace_conflict (kissat *solver, clause *conflict) {
 }
 
 void kissat_event_trace_clause (kissat *solver, const char *event) {
-  open_trace ();
-  if (!trace_file || trace_emitted >= trace_limit)
+  if (!detail_enabled (solver) || trace_emitted >= trace_limit)
     return;
   const size_t size = SIZE_STACK (solver->clause);
   int *external = malloc (size * sizeof *external);

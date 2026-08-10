@@ -414,12 +414,14 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   witness segments by one reverse walk (`kernel_extend_model`), robust to any later N1 decision on `x`.
 
 ### E2 · Factor — bounded variable addition (BVA), the inverse of E1
-- **Precondition (abstract):** an `m×n` grid of binary clauses `{fᵢ ∨ rⱼ : i∈[m], j∈[n]}` all present in
-  `F`, with `m,n ≥ 2` and `mn > m+n` (a strictly positive clause reduction), and a fresh variable `x ∉
-  vars(F)`. (Binary-grid factoring is the S1 scope; general-clause remainders `{fᵢ ∨ R : R a shared
-  sub-clause}` are the same rule with `rⱼ` a clause — deferred, S4.)
+- **Precondition (abstract):** an `m×n` grid of clauses
+  `{{fᵢ} ∪ Rⱼ : i∈[m], j∈[n]}` all present in `F`, where each `fᵢ` is a
+  literal, each `Rⱼ` is a clause remainder, `m,n ≥ 2`, `mn > m+n` (a
+  strictly positive clause reduction), and `x ∉ vars(F)` is fresh. A binary
+  grid is the special case `|Rⱼ|=1`; the shipped bounded matcher admits
+  remainders from clauses through size five.
 - **Effect:** introduce the fresh extension variable `x`; add the `m` **dividers** `{x ∨ fᵢ}` and the
-  `n` **quotients** `{¬x ∨ rⱼ}`; delete the `mn` grid clauses. Net `Δ|F| = (m+n) − mn < 0`. `x` is an
+  `n` **quotients** `{¬x} ∪ Rⱼ`; delete the `mn` grid clauses. Net `Δ|F| = (m+n) − mn < 0`. `x` is an
   *extension* variable (indices `≥ first_extension_var`): assigned by search like any other but
   **projected out** of the reported model (§2, the `v`-line ranges over the originals). Exactly the
   inverse of E1's Davis–Putnam step — BVE on `x` resolves the dividers against the quotients back to the
@@ -427,8 +429,8 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   `implementation-notes.md` §5).
 - **Proof δ:** **add-RAT** (the first `ρ`-free new-variable rule). Each divider `(x ∨ fᵢ)` is RAT on the
   fresh literal `x` — no clause mentions `¬x` yet, so the RAT side-condition is vacuous. Each quotient
-  `(¬x ∨ rⱼ)` is RAT on `¬x`: its only resolution partners are the dividers, and each resolvent `(fᵢ ∨
-  rⱼ)` is a grid clause **still live** at add-time — so every RAT resolvent is RUP. Hence the emission
+  `{¬x} ∪ Rⱼ` is RAT on `¬x`: its only resolution partners are the dividers, and each resolvent
+  `{fᵢ} ∪ Rⱼ` is a grid clause **still live** at add-time — so every RAT resolvent is RUP. Hence the emission
   order: **dividers, then quotients, delete the grid LAST.** DRAT emits each added clause
   **pivot-first** (the checker reads the leading literal as the RAT pivot), then `del`s the grid.
   **Native LRAT emits real `add_rat`:** each divider a *vacuous* RAT line (pivot `x` first, empty

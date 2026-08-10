@@ -9,24 +9,41 @@ KISSAT=${CROSS_TRACE_KISSAT:-$ROOT/tools/solvers/variants/kissat-event-trace/wor
 CROSS_TRACE_CASES=${CROSS_TRACE_CASES:-tr-n170-s053:20 tr-n220-s013:10}
 CROSS_TRACE_TIMEOUT=${CROSS_TRACE_TIMEOUT:-20}
 CROSS_TRACE_LIMIT=${CROSS_TRACE_LIMIT:-50000}
+CROSS_TRACE_CONFLICT_FROM=${CROSS_TRACE_CONFLICT_FROM:-}
+CROSS_TRACE_CONFLICT_TO=${CROSS_TRACE_CONFLICT_TO:-}
 DRAT=$ROOT/tools/checkers/bin/drat-trim
 CHECKMODEL=$ROOT/tools/fuzz/checkmodel
 mkdir -p "$OUT"
 
 run_one() {
   local name=$1 expected=$2 solver=$3 binary=$4 trace log proof rc
+  local -a window
+  window=()
+  if [ -n "$CROSS_TRACE_CONFLICT_FROM" ]; then
+    window+=(TACTIX_EVENT_TRACE_CONFLICT_FROM="$CROSS_TRACE_CONFLICT_FROM")
+  fi
+  if [ -n "$CROSS_TRACE_CONFLICT_TO" ]; then
+    window+=(TACTIX_EVENT_TRACE_CONFLICT_TO="$CROSS_TRACE_CONFLICT_TO")
+  fi
   trace=$OUT/$name-$solver.tsv
   log=$OUT/$name-$solver.log
   proof=$OUT/$name-$solver.drat
   if [ "$solver" = tactix ]; then
-    env TACTIX_EVENT_TRACE="$trace" \
+    env "${window[@]}" TACTIX_EVENT_TRACE="$trace" \
       TACTIX_EVENT_TRACE_LIMIT="$CROSS_TRACE_LIMIT" \
       timeout --preserve-status --signal=TERM --kill-after=5 "$CROSS_TRACE_TIMEOUT" \
       "$binary" "$ROOT/benchmarks/cache/tierA/$name.cnf" "$proof" \
       >"$log" 2>&1
     rc=$?
   else
-    env KISSAT_EVENT_TRACE="$trace" \
+    window=()
+    if [ -n "$CROSS_TRACE_CONFLICT_FROM" ]; then
+      window+=(KISSAT_EVENT_TRACE_CONFLICT_FROM="$CROSS_TRACE_CONFLICT_FROM")
+    fi
+    if [ -n "$CROSS_TRACE_CONFLICT_TO" ]; then
+      window+=(KISSAT_EVENT_TRACE_CONFLICT_TO="$CROSS_TRACE_CONFLICT_TO")
+    fi
+    env "${window[@]}" KISSAT_EVENT_TRACE="$trace" \
       KISSAT_EVENT_TRACE_LIMIT="$CROSS_TRACE_LIMIT" \
       timeout --preserve-status --signal=TERM --kill-after=5 "$CROSS_TRACE_TIMEOUT" \
       "$binary" "$ROOT/benchmarks/cache/tierA/$name.cnf" "$proof" \

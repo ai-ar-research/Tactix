@@ -1,8 +1,9 @@
 # E2 Factor beyond binary clauses (`factorsize`) — design pass
 
-**Status:** design, pre-implementation (2026-07-30). Freeze on landing.
+**Status:** landed and frozen. Current semantics/defaults are owned by
+`docs/calculus.md` E2 and `docs/implementation-notes.md` §5.
 **Motivating measurement:** `benchmarks/reports/2026-07-30-tierB-timeouts-diagnosis.md`
-§5a′/R5. **Owner item:** PROGRESS task "Defect B".
+§5a′/R5.
 
 ## 1. Why
 
@@ -85,20 +86,17 @@ accessor, no RFC.
   before quotients, grid deleted last) is load-bearing exactly as today —
   `docs/calculus.md` §6b, deviation D-FACTOR-LRAT.
 - **Grid deletion** — plain `delete` of `({f} ∪ r)` for all `m × n` pairs.
-- **`ρ` witness for `x`** — unchanged in shape; E2 is a `ρ`-free *new-variable*
-  rule, and the reconstruction entry is the same one the binary variant pushes.
+- **`ρ` witness for `x`** — none. E2 is a `ρ`-free new-variable rule; output
+  projection removes the extension variable.
 
-**Consequence:** `docs/calculus.md`'s E2 entry needs no semantic change. Only
-`implementation-notes.md` gains a line recording the scope widening (which is a
-within-rule *scope* choice in the established sense, not a guard).
+**Landed consequence:** the calculus now states the generalized remainder-grid
+rule. The size-five matcher is within-rule scope, not an abstract guard.
 
-## 5. Shipping plan — default-identical, arm-gated
+## 5. Historical shipping gate and landed default
 
-`Kernel::factor_size` (config, policy-owned, in the `bve_bound` pattern),
-**default 2 = today's binary-only behaviour**, `TACTIX_FACTOR_SIZE` as the arm.
-This is not timidity: every dosing/scope change measured in the last two days
-that *looked* safe on single instances moved a tier the other way, so the
-default must not move until the tier pair says so.
+`Kernel::factor_size` is policy-owned; `TACTIX_FACTOR_SIZE` retains the
+comparison surface. The binary-only identity setting is 2 and the shipped
+reference default is 5.
 
 **Acceptance gate (pre-registered):**
 - **Bit-identity at `factor_size = 2`** — conflicts AND `c factor` counts

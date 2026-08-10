@@ -1,0 +1,6 @@
+# Phase 4 causal-gap fixtures from Tier B; fixed order, 300 s each.
+tierB/mod4block_2vars_10gates_u2_autoenc-sc2009.cnf.xz SAT 19.40
+tierB/mp1-klieber2017s-0500-023-t12.cnf.xz SAT 12.60
+tierB/or_randxor_k3_n540_m540.cnf.xz UNSAT 12.41
+tierB/unsat-set-b-fclqcolor-10-07-09.sat05-1282.reshuffled-07.cnf.xz UNSAT 16.57
+tierB/veer_axi_yosyshq_appnote_123_veer_axi-p23_transition.cnf.xz UNSAT 3.33

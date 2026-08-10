@@ -1,0 +1,4 @@
+# Phase 4 causal-gap fixtures from Tier A; fixed order, 30 s each.
+tierA/tr-n300-s055.cnf UNSAT 17.115
+tierA/tr-n260-s002.cnf UNSAT 2.876
+tierA/tr-n280-s052.cnf UNSAT 7.928
