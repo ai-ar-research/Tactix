@@ -93,6 +93,7 @@ static void test_reason_binary_retired_to_unit() {
 static void test_jumped_reason_protects_its_antecedent() {
   Kernel k;
   assert(k.jump_reasons);
+  k.jump_reasons_bigbig = true; // ordinary propagation is classification-gated
   kernel_reserve_vars(k, 3);
   const Lit p = internalize(1), q = internalize(2), r = internalize(3);
   kernel_add_binary_clause(k, p, q, 1);          // (p v q)

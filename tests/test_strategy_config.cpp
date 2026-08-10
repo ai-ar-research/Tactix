@@ -97,6 +97,46 @@ int main() {
   if (kernel_externalize(tumbled, tumbled_random.pick(tumbled)) != 1)
     return 1;
 
+  // An API/owned-H path may parse before DefaultPolicy attaches `H`. Preserve
+  // the tumble population across that boundary: header-only variables must not
+  // change Kissat's random-index modulus.
+  Kernel late_tumbled;
+  kernel_reserve_vars(late_tumbled, 5);
+  late_tumbled.input_activation_order = {0, 2, 4};
+  {
+    ScopedHeuristics late_heuristics(late_tumbled);
+    if (late_heuristics.h.random_order != std::vector<Var>({0, 2, 4}) ||
+        !late_tumbled.input_activation_order.empty())
+      return 1;
+  }
+
+  Kernel compacted_random;
+  ScopedHeuristics compacted_heuristics(compacted_random);
+  kernel_reserve_vars(compacted_random, 5);
+  heuristics_seed_activation_order(compacted_random, {2, 0, 4, 1, 3});
+  kernel_assign_unit(compacted_random, make_lit(0, false));
+  kernel_assign_unit(compacted_random, make_lit(1, true));
+  heuristics_compact_random_order_fixed(compacted_random);
+  if (compacted_heuristics.h.random_order !=
+      std::vector<Var>({2, 0, 4, 3}))
+    return 1;
+
+  // `kissat_decide` increments its level before checking the random-sequence
+  // deadline.  DefaultBranching is called before Tactix Decide adds the frame,
+  // so a reused level-one restart prefix corresponds to Kissat level two and
+  // must keep using the ranked brancher even when randec is due.
+  Kernel reused;
+  ScopedHeuristics reused_heuristics(reused);
+  kernel_reserve_vars(reused, 3);
+  reused.level = 1;
+  reused.stats.conflicts = 855;
+  DefaultBranching reused_random(&defaults.branching);
+  reused_random.reset(0);
+  if (kernel_externalize(reused, reused_random.pick(reused)) != 3 ||
+      reused.stats.random_sequences != 0 ||
+      reused.stats.random_decisions != 0)
+    return 1;
+
   // A stable->focused transition starts a sequence even above decision level
   // one and before the ordinary randec conflict deadline.
   Kernel switched;

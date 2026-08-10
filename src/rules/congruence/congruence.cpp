@@ -1360,8 +1360,6 @@ ApplyResult congruence_apply(Kernel &k) {
   // than derived, so the sign layer canonicalization folds on top of the
   // union-find bridging never has to be unpicked by hand.
   congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
-  if (gates.empty())
-    return finish(/*merged=*/false);
   // Extraction is read-only, so an interrupt raised during it costs nothing to
   // honour — nothing has been applied yet.
   if (kernel_terminating(k)) {
@@ -1442,6 +1440,69 @@ ApplyResult congruence_apply(Kernel &k) {
           work.push_back(gg);
         }
   };
+
+  // Kissat's `find_equivalences` channel runs before propagating the gate
+  // closure (congruence.c). Import every equivalence already stated by the
+  // paired binaries (a v !b), (!a v b) into this round's representatives.
+  // This is not redundant with Substitute: the imported classes simplify
+  // gates during this very closure, and a non-zero merge count is the signal
+  // that `probe_initially` uses to run its eager Substitute follow-up.
+  //
+  // Follow Kissat's positive-literal, smaller-endpoint traversal. Besides
+  // making every pair unique, that order keeps the representative trajectory
+  // stable for trace comparison.
+  std::vector<uint8_t> binary_marks(nlits, 0);
+  std::vector<Lit> marked;
+  for (Var v = 0; v < k.nvars && !unsat; v++) {
+    if (v < k.var_status.size() &&
+        k.var_status[v] != VarStatus::Active)
+      continue;
+    const Lit lit = make_lit(v, false);
+    if (k.value(lit) != 0)
+      continue;
+    bool restart;
+    do {
+      restart = false;
+      for (const WatchEntry w : k.watches.entries(lit)) {
+        if (!w.binary())
+          continue;
+        const Lit other = w.other();
+        if (lit > other || binary_marks[other])
+          continue;
+        binary_marks[other] = 1;
+        marked.push_back(other);
+      }
+      const Lit not_lit = negate(lit);
+      for (const WatchEntry w : k.watches.entries(not_lit)) {
+        if (!w.binary())
+          continue;
+        const Lit other = w.other();
+        if (not_lit > other || lit == other ||
+            !binary_marks[negate(other)])
+          continue;
+        const Lit lit_repr = find(lit), other_repr = find(other);
+        if (lit_repr == other_repr)
+          continue;
+        if (lit_repr == negate(other_repr)) {
+          unsat = refute_contradictory(lit);
+          break;
+        }
+        merge_lits(lit, other);
+        k.stats.congruence_binary_equivalences++;
+        restart = true;
+        break;
+      }
+      for (const Lit other : marked)
+        binary_marks[other] = 0;
+      marked.clear();
+    } while (restart && !unsat);
+  }
+  if (unsat)
+    return ApplyResult::Unsat;
+  if (gates.empty()) {
+    k.stats.congruence_merges += neq;
+    return finish(/*merged=*/neq != 0);
+  }
 
   // The closure is the long block, so it must be interruptible: abort between
   // worklist items, each all-or-nothing (binaries and proof chain both emitted,

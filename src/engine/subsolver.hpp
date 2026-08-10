@@ -147,6 +147,7 @@ private:
   uint32_t nvars_ = 0;
   bool inconsistent_ = false; // the empty clause was derived or added
   bool solved_ = false;       // `solve` has run: no more original clauses
+  bool model_valid_ = false;  // the most recent solve returned Sat
   // An input clause that refuted the formula on its own. Its target is built at
   // the first solve, so lemma ids never land below the original-id watershed.
   SubRef pending_refutation_ = NO_REF;

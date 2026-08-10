@@ -253,6 +253,8 @@ struct Stats {
   uint64_t reactivations = 0;  // ... of those, later re-inserted into a ranking
   uint64_t conflict_reused = 0; // conflicts resolved by reusing the conflict as
   uint64_t jumped_reasons = 0;  // binary reasons replaced by their resolvent
+  uint64_t jump_reason_classifications = 0;
+  uint64_t jump_reason_bigbig = 0;
   uint64_t conflict_watch_repaired = 0; // ... of those, needing watch repair
   uint64_t binprop_scans = 0;
   uint64_t binprop_ordered = 0;
@@ -269,6 +271,7 @@ struct Stats {
   uint64_t congruence_units = 0; // root units from degenerate gates
   uint64_t congruence_y1_found = 0; // detections
   uint64_t congruence_y1_units = 0; // ... emitted and batched
+  uint64_t congruence_binary_equivalences = 0; // paired binaries imported
   mutable uint64_t congruence_gates_and = 0;
   mutable uint64_t congruence_gates_xor = 0;
   mutable uint64_t congruence_gates_ite = 0;
@@ -509,6 +512,9 @@ struct Kernel {
 
   uint32_t bve_gate_mask = ~0u;
   uint32_t bve_bound = 16;
+  // Policy-owned BVE occurrence cap.  UINT32_MAX leaves the public rule
+  // unrestricted; DefaultPolicy installs its named strategy configuration.
+  uint32_t bve_occurrence_limit = UINT32_MAX;
   bool bve_backward = true;
   uint64_t bve_definition_budget = 10000;
   uint32_t bce_occ_limit = 0;
@@ -559,6 +565,7 @@ struct Kernel {
   bool conflict_reuse = false;
   bool conflict_reuse_no_repair = false;
   bool jump_reasons = true;
+  bool jump_reasons_bigbig = false;
   uint32_t bump_reason_limit = 0;
   uint32_t bump_reason_depth = 1;
   uint32_t eager_subsume = EAGER_SUBSUME_SLOTS;
@@ -808,10 +815,12 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
 inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
 }
-inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false) {
+inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
+                                 bool require_bigbig = true) {
   const Assigned &a = k.assigned[var_of(other_false)];
   const uint32_t level = a.level;
-  if (k.jump_reasons && level && a.binary) {
+  if (k.jump_reasons && (!require_bigbig || k.jump_reasons_bigbig) && level &&
+      a.binary) {
     k.jumped_over[var_of(lit)] = other_false;
     k.stats.jumped_reasons++;
     kernel_assign(k, lit, level, a.reason, true, true);

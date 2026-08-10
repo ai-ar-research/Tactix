@@ -225,13 +225,16 @@ void finish_input(Kernel &k) {
   k.input_restatements.clear();
   k.input_restate_lits.clear();
   k.input_restate_units.clear();
-  // The decision order is `H` state, so this is a no-op for an unguided kernel
-  // and for a solver whose `H` is attached later — ScopedHeuristics re-seeds
-  // from ascending order in that case, which is the documented `tumble=0`
-  // behaviour rather than a silent half-application.
+  // The decision order is `H` state.  If `H` is already attached, publish the
+  // imported-variable permutation now.  Otherwise retain it until
+  // ScopedHeuristics attaches at solve entry: Kissat's random brancher samples
+  // `VARS` (the imported population), not every variable admitted by the DIMACS
+  // header, so dropping this order also changes the RNG modulus.
   heuristics_seed_activation_order(k, k.input_activation_order);
-  k.input_activation_order.clear();
-  k.input_activation_order.shrink_to_fit();
+  if (k.h) {
+    k.input_activation_order.clear();
+    k.input_activation_order.shrink_to_fit();
+  }
   k.input_activated.clear();
   k.input_activated.shrink_to_fit();
   if (k.input_refuted) {

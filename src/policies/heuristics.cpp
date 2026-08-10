@@ -47,7 +47,11 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   assert(k.h);
   assert(!k.saved_phases || k.saved_phases == &k.h->saved);
   k.saved_phases = &k.h->saved;
-  k.h->saved.resize(nvars, 1); // initial phase: positive (kissat default)
+  // Kissat initializes saved phases to zero.  The positive initial phase is a
+  // separate fallback in `heuristics_decide_lit`; storing +1 here makes an
+  // untouched variable indistinguishable from one actually assigned positive
+  // and lets preprocessing assignments leak into the first search trajectory.
+  k.h->saved.resize(nvars, 0);
   for (Var v = old; v < nvars; ++v)
     k.h->random_order.push_back(v);
   k.h->links.resize(nvars);
@@ -95,7 +99,7 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     }
     values.swap(fresh);
   };
-  compact_values(h.saved, int8_t{1});
+  compact_values(h.saved, int8_t{0});
   compact_values(h.target, int8_t{0});
   compact_values(h.best, int8_t{0});
   compact_values(h.scores.score, 0.0);
@@ -170,6 +174,25 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   for (const Var v : order)
     heuristics_score_set(k, v, 1.0 - 1.0 / static_cast<double>(++rank));
   k.stats.tumble_seeded = order.size();
+}
+
+void heuristics_compact_random_order_fixed(Kernel &k) {
+  if (!k.h || !kernel_root_fixed(k))
+    return;
+  bool kept_fixed = false;
+  auto &order = k.h->random_order;
+  order.erase(std::remove_if(order.begin(), order.end(), [&](Var v) {
+                const bool fixed = k.values[make_lit(v, false)] != 0 &&
+                                   k.assigned[v].level == 0;
+                if (!fixed)
+                  return false;
+                if (!kept_fixed) {
+                  kept_fixed = true;
+                  return false;
+                }
+                return true;
+              }),
+              order.end());
 }
 // --- VMTF -------------------------------------------------------------------
 

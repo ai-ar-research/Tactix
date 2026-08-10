@@ -598,8 +598,12 @@ int main(int argc, char **argv) {
     printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",
            (unsigned long long)kernel.stats.conflict_reused,
            (unsigned long long)kernel.stats.conflict_watch_repaired);
-    printf("c jumpreason  %llu binary reasons jumped\n",
-           (unsigned long long)kernel.stats.jumped_reasons);
+    printf("c jumpreason  %llu binary reasons jumped, %llu classifications, "
+           "%llu big-binary; gate %s\n",
+           (unsigned long long)kernel.stats.jumped_reasons,
+           (unsigned long long)kernel.stats.jump_reason_classifications,
+           (unsigned long long)kernel.stats.jump_reason_bigbig,
+           kernel.jump_reasons_bigbig ? "on" : "off");
     // What a binary-first watch order would be worth: `ordered` over `scans` is
     // the reachability, `large` over `words` the ceiling on an early break.
     printf("c binprop     %llu scans, %llu flagged, %llu words, %llu skipped, "
@@ -627,9 +631,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_unjustified,
            (unsigned long long)kernel.stats.congruence_ticks,
            (unsigned long long)kernel.stats.congruence_budget_stops);
-    printf("c congy1      %llu found, %llu units\n",
+    printf("c congy1      %llu found, %llu units, %llu binary equivalences\n",
            (unsigned long long)kernel.stats.congruence_y1_found,
-           (unsigned long long)kernel.stats.congruence_y1_units);
+           (unsigned long long)kernel.stats.congruence_y1_units,
+           (unsigned long long)
+               kernel.stats.congruence_binary_equivalences);
     {
       uint64_t n_sub = 0, n_elim = 0;
       for (Var v = 0; v < kernel.nvars; v++) {

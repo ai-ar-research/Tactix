@@ -236,6 +236,19 @@ void test_model_flip() {
   s.add_clause({sub_lit(0, false)});
   assert(s.solve({}, 0) == SubResult::Sat);
   assert(!s.flip_model_literal(sub_lit(0, false)));
+
+  // A later UNSAT-under-assumptions result invalidates the prior model.
+  // Kissat checks `kitten_status == 10` before every Sweep flip; without the
+  // same gate, flipping here creates a value with no trail entry and corrupts
+  // the next conflict analysis.
+  s.reset(2);
+  s.add_clause({sub_lit(0, false), sub_lit(1, false)});
+  assert(s.solve({}, 0) == SubResult::Sat);
+  assert(s.flip_model_literal(sub_lit(0, false)));
+  assert(s.solve({sub_lit(0, true), sub_lit(1, true)}, 0) ==
+         SubResult::Unsat);
+  assert(!s.flip_model_literal(sub_lit(1, false)));
+  assert(s.solve({}, 0) == SubResult::Sat);
 }
 
 // --- the refutation derivation ---------------------------------------------

@@ -91,7 +91,9 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     kernel_assign_unit(k, asserting);
     k.stats.learned_units++;
   } else if (p.lits.size() == 2) {
-    kernel_assign_binary(k, asserting, p.lits[1]);
+    // Kissat's learned-binary assertion uses assign.c, whose jump-reason path
+    // is deliberately not gated by `classification.bigbig`.
+    kernel_assign_binary(k, asserting, p.lits[1], /*require_bigbig=*/false);
   } else {
     assert(p.ref != INVALID_REF);
     kernel_assign_ref(k, asserting, p.ref);

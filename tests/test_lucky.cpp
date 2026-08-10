@@ -79,7 +79,7 @@ static void test_unsat_probes_abandon() {
   assert(k.trail.empty());
   assert(k.propagate_head == 0);
   for (Var v = 0; v < 6; v++) {
-    assert(k.h->saved[v] == 1);  // probe assignments never touch phases
+    assert(k.h->saved[v] == 0);  // probe assignments never touch phases
     assert(k.h->target[v] == 0);
     assert(k.h->best[v] == 0);
   }

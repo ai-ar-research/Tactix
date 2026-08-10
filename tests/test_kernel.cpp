@@ -297,7 +297,7 @@ static void test_probing_propagation_restores() {
   assert(same(b0, a0));
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
-  assert(b.h->saved[0] == 1); // probing assignments never become saved phases
+  assert(b.h->saved[0] == 0); // probing assignments never become saved phases
   assert(!kernel_propagate_probing(b));
   assert(b.trail == derived); // same implied literals, same trail order
   kernel_backtrack(b, 0, /*update_phases=*/false);
@@ -307,7 +307,7 @@ static void test_probing_propagation_restores() {
   // not a one-shot: a second episode repeats, so the stamp epoch rolls over
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
-  assert(b.h->saved[0] == 1);
+  assert(b.h->saved[0] == 0);
   assert(!kernel_propagate_probing(b));
   assert(b.trail == derived);
   kernel_backtrack(b, 0, /*update_phases=*/false);
