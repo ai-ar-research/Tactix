@@ -17,6 +17,7 @@ void kissat_event_trace_clause (struct kissat *, const char *);
 void kissat_event_trace_learned (struct kissat *);
 void kissat_event_trace_checkpoint (struct kissat *);
 void kissat_event_trace_retier (struct kissat *);
+void kissat_event_trace_tiers (struct kissat *, const char *);
 void kissat_event_trace_close (void);
 void kissat_reduce_trace_clause (struct kissat *, struct clause *, unsigned,
                                  unsigned, unsigned, unsigned, const char *);

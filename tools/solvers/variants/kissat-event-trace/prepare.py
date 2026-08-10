@@ -186,6 +186,12 @@ def main():
     replace_once(reduce, '#include "collect.h"\n',
                  '#include "collect.h"\n#include "eventtrace.h"\n')
     replace_once(reduce,
+        '  INC (reductions);\n'
+        '  kissat_phase (solver, "reduce", GET (reductions),\n',
+        '  INC (reductions);\n'
+        '  kissat_event_trace_tiers (solver, "reduce_tiers");\n'
+        '  kissat_phase (solver, "reduce", GET (reductions),\n')
+    replace_once(reduce,
         '    const unsigned used = c->used;\n'
         '    if (used)\n'
         '      c->used = used - 1;\n'
