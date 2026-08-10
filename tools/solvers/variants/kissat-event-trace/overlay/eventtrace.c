@@ -16,6 +16,7 @@ static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
 static FILE *reduce_trace_file;
 static bool reduce_trace_initialized;
+static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
 static int compare_external_literals (const void *, const void *);
 
 static unsigned external_variable (kissat *solver, unsigned idx) {
@@ -47,13 +48,26 @@ static void open_reduce_trace (void) {
          "live_red\tcandidates\tvictims\tref\tsize\tglue\tused\t"
          "reason\teligibility\trank\tselected\tliterals\n",
          reduce_trace_file);
+  const char *from = getenv ("KISSAT_REDUCE_TRACE_CONFLICT_FROM");
+  const char *to = getenv ("KISSAT_REDUCE_TRACE_CONFLICT_TO");
+  if (from && *from)
+    reduce_trace_from = strtoull (from, 0, 10);
+  if (to && *to)
+    reduce_trace_to = strtoull (to, 0, 10);
+}
+
+static bool reduce_trace_enabled (kissat *solver) {
+  open_reduce_trace ();
+  if (!reduce_trace_file)
+    return false;
+  const uint64_t conflicts = solver->statistics.conflicts;
+  return reduce_trace_from <= conflicts && conflicts <= reduce_trace_to;
 }
 
 void kissat_reduce_trace_clause (kissat *solver, clause *c, unsigned ref,
                                  unsigned used, unsigned tier1,
                                  unsigned tier2, const char *eligibility) {
-  open_reduce_trace ();
-  if (!reduce_trace_file)
+  if (!reduce_trace_enabled (solver))
     return;
   int *literals = malloc (c->size * sizeof *literals);
   unsigned size = 0;
@@ -75,8 +89,7 @@ void kissat_reduce_trace_clause (kissat *solver, clause *c, unsigned ref,
 void kissat_reduce_trace_summary (kissat *solver, unsigned tier1,
                                   unsigned tier2, size_t candidates,
                                   size_t victims) {
-  open_reduce_trace ();
-  if (!reduce_trace_file)
+  if (!reduce_trace_enabled (solver))
     return;
   uint64_t live = 0;
   ward *const arena = BEGIN_STACK (solver->arena);
@@ -98,8 +111,7 @@ void kissat_reduce_trace_summary (kissat *solver, unsigned tier1,
 
 void kissat_reduce_trace_rank (kissat *solver, unsigned ref, size_t rank,
                                bool selected) {
-  open_reduce_trace ();
-  if (!reduce_trace_file)
+  if (!reduce_trace_enabled (solver))
     return;
   fprintf (reduce_trace_file,
            "kissat\trank\t%" PRIu64 "\t%" PRIu64 "\t%s\t-\t-\t-\t"
