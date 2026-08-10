@@ -1286,6 +1286,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
 
+  // Kissat initializes the first focused-mode tick anchor in `start_search`,
+  // after Lucky and preprocessing.  Tactix's schedule object is reset before
+  // those startup phases, whose kernel work also uses the shared tick meter;
+  // rebase this one clock so startup work cannot lengthen the first stable
+  // interval.  Later anchors are maintained by `update_mode_limits`.
+  mode.ticks_at_focus_entry = search_ticks(k);
+
   for (;;) {
     event_trace.checkpoint(k);
     const size_t trace_trail_begin = k.trail.size();
@@ -1296,6 +1303,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (r == ApplyResult::Conflict) {
       event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
+      event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
+                             mode.ticks_at_focus_entry, mode.count);
       observe_decision_rate(k); // kissat: before the analysis, once per conflict
       k.bump_reason_limit = want_bump_reasons(k);
       k.bump_reason_depth = config_.analysis.reason_depth;
@@ -1319,8 +1328,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       update_tiers_after_analysis(k);
       if (!k.pending.valid) { // `stats.conflict_reused` already counted it
         event_trace.detail(k, "analysis_end", k.level);
-        event_trace.mode_clock(k, mode.ticks_limit, mode.ticks_at_focus_entry,
-                               mode.count);
+        event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
+                               mode.ticks_at_focus_entry, mode.count);
         continue;
       }
       event_trace.learned(k, k.pending.lits);
@@ -1343,8 +1352,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         backjump_apply_to(k, target);
       }
       event_trace.detail(k, "analysis_end", k.level);
-      event_trace.mode_clock(k, mode.ticks_limit, mode.ticks_at_focus_entry,
-                             mode.count);
+      event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
+                             mode.ticks_at_focus_entry, mode.count);
       continue;
     }
     if (k.retire_enabled ? k.unassigned_active == 0 : k.unassigned == 0)
@@ -1381,8 +1390,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         reluctant = {};
       update_mode_limits(k);
       event_trace.macro(k, "switch_end");
-      event_trace.mode_clock(k, mode.ticks_limit, mode.ticks_at_focus_entry,
-                             mode.count);
+      event_trace.mode_clock(k, "post_switch", mode.ticks_limit,
+                             mode.ticks_at_focus_entry, mode.count);
       continue;
     }
     if (want_restart(k) && restart_guard(k)) {

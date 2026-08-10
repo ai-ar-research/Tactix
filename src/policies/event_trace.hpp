@@ -35,8 +35,8 @@ public:
   void learned_stage(const Kernel &, const char *, const std::vector<Lit> &);
   void analyzed(const Kernel &, const std::vector<Var> &,
                 const std::vector<uint8_t> &, uint8_t bump_mask);
-  void mode_clock(const Kernel &, uint64_t limit, uint64_t anchor,
-                  uint64_t count);
+  void mode_clock(const Kernel &, const char *stage, uint64_t limit,
+                  uint64_t anchor, uint64_t count);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -77,7 +77,8 @@ public:
   void learned_stage(const Kernel &, const char *, const std::vector<Lit> &) {}
   void analyzed(const Kernel &, const std::vector<Var> &,
                 const std::vector<uint8_t> &, uint8_t) {}
-  void mode_clock(const Kernel &, uint64_t, uint64_t, uint64_t) {}
+  void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
+                  uint64_t) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
