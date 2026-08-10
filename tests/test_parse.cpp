@@ -55,8 +55,38 @@ static void test_tumble_preserves_file_literal_order() {
   kernel_check_invariants(k);
 }
 
+static void test_root_units_normalize_later_input_clauses() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  FILE *file = std::tmpfile();
+  assert(file);
+  const char *dimacs =
+      "p cnf 7 5\n"
+      "1 0\n"
+      "-1 2 3 0\n"     // root-false -1: stored as binary 2 3
+      "-1 4 5 6 0\n"   // root-false -1: stored as large 4 5 6
+      "1 7 0\n"        // root-true 1: satisfied, activates no 7
+      "2 4 0\n";
+  assert(std::fputs(dimacs, file) >= 0);
+  std::rewind(file);
+  assert(parse_dimacs(file, k) == nullptr);
+  std::fclose(file);
+
+  assert(k.stats.input_restated == 2);
+  assert(kernel_binary_id(k, internalize(2), internalize(3)) != 0);
+  const Clause *clause = clause_at(k.arena, 0);
+  assert(clause->size == 3);
+  assert(clause->lits[0] == internalize(4));
+  assert(clause->lits[1] == internalize(5));
+  assert(clause->lits[2] == internalize(6));
+  assert(k.stats.tumble_seeded == 6 &&
+         "a root-satisfied clause must not activate its other variable");
+  kernel_check_invariants(k);
+}
+
 int main() {
   test_tumble_preserves_file_literal_order();
+  test_root_units_normalize_later_input_clauses();
   puts("test_parse OK");
   return 0;
 }

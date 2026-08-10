@@ -93,7 +93,7 @@ struct Stats {
   uint64_t reason_bump_depth2 = 0; // rounds allowed to recurse in stable mode
   uint64_t reason_bump_aborted = 0; // rounds rolled back at the mark limit
   uint64_t api_decisions = 0; // externally chosen branches (N1)
-  uint64_t input_restated = 0; // input clauses restated under a fresh id
+  uint64_t input_restated = 0; // normalized input clauses restated by fresh id
   uint64_t decisions_extension = 0; // decisions on a Factor extension variable
   uint64_t decisions_substituted = 0; // ... on one Substitute rewrote away
   mutable uint64_t rule_interrupted = 0; // applications aborted on the
@@ -430,18 +430,21 @@ struct Kernel {
   std::vector<Var> jump_pending;
 
   struct InputRestatement {
-    uint64_t id;    // the file-position id; the lemma's sole antecedent
-    uint32_t begin; // slice of input_restate_lits (the deduped clause)
+    uint64_t id;    // the file-position id; final antecedent of the lemma
+    uint32_t begin; // slice of input_restate_lits (the normalized clause)
     uint32_t size;
+    uint32_t unit_begin; // root-true units used to remove false literals
+    uint32_t unit_size;
     Ref ref; // large clauses only: the header to re-point
   };
   std::vector<InputRestatement> input_restatements;
   std::vector<Lit> input_restate_lits;
+  std::vector<Lit> input_restate_units;
   std::vector<Var> input_activation_order;
   std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
   bool input_refuted = false;
   uint64_t input_refutation_id = 0; // the refuting input clause
-  uint32_t input_refutation_var = UINT32_MAX; // its unit partner, if any
+  std::vector<Lit> input_refutation_units; // root-true antecedent units
 
   Proof *proof = nullptr;
   Stats stats;

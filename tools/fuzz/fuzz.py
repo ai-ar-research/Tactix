@@ -194,7 +194,7 @@ _RESTATED_RE = re.compile(r"^c input\s+(\d+) clauses restated", re.M)
 
 
 def input_restated(stdout):
-    """How many input clauses the solver had to restate (repeated literals).
+    """How many input clauses the solver had to restate after normalization.
 
     Reads the solver's own `c input` counter, so this measures the path at its
     SOURCE rather than re-deriving it from the CNF. 0 when the leg runs the
@@ -495,7 +495,7 @@ def cmd_run(args):
     # Reachability, counted at the source: a green leg proves nothing about a
     # path no case reached. The solver prints `c input <n> clauses restated`
     # for the frontend's input-normalization path, so tally how many cases had
-    # a degenerate input clause and report it next to the pass/fail counts. Add
+    # a normalized input clause and report it next to the pass/fail counts. Add
     # a line here for any other path whose coverage a leg must demonstrate.
     reach = {"restated_cases": 0, "restated_unsat": 0}
     # per-rule reachability (the same principle, generalised): cases in which

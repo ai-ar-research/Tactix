@@ -13,14 +13,13 @@ namespace tactix {
 // and every normalization ingest_clause performs is a potential divergence.
 // Every case is enumerated with its verdict in
 // benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2; two are
-// breaches, both fixed here. A repeated literal leaves the stored clause
-// narrower than the one the checker holds under that id, since a clause is a
-// list and not a set: fixed by restating it under a fresh id, CaDiCaL's lemma
-// shape (clause.cpp add_new_original_clause) but deferred to end of input, so
-// no header need be trusted. A refutation emitted mid-input consumed an id
-// already given to a later input clause: likewise deferred, to finish_input.
+// breaches, both fixed here. Repeats and already-root-false literals leave the
+// stored clause narrower than the checker clause: restate it under a fresh id,
+// using the root units as hints where needed. This is CaDiCaL's lemma shape
+// (clause.cpp add_new_original_clause), deferred to end of input so no header
+// need be trusted. A mid-input refutation is likewise deferred to finish_input.
 static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
-                          Ref ref) {
+                          const std::vector<Lit> &units, Ref ref) {
   // Record that the checker's clause `id` is not the clause just stored. The
   // count is unconditional, being the reachability probe for this path; the
   // restatement matters only with a proof, since without one no id names
@@ -32,9 +31,13 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   r.id = id;
   r.begin = static_cast<uint32_t>(k.input_restate_lits.size());
   r.size = static_cast<uint32_t>(lits.size());
+  r.unit_begin = static_cast<uint32_t>(k.input_restate_units.size());
+  r.unit_size = static_cast<uint32_t>(units.size());
   r.ref = ref;
   k.input_restate_lits.insert(k.input_restate_lits.end(), lits.begin(),
                               lits.end());
+  k.input_restate_units.insert(k.input_restate_units.end(), units.begin(),
+                               units.end());
   k.input_restatements.push_back(r);
 }
 
@@ -87,6 +90,26 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
       scratch.push_back(lit);
     }
   }
+  // Kissat internal.c:kissat_add normalizes every input clause against units
+  // already fixed while parsing.  A root-true literal satisfies the clause;
+  // a root-false literal is removed, with its true complement retained as the
+  // LRAT antecedent for the deferred restatement below.  Tactix deliberately
+  // does not propagate during parsing (derived ids cannot precede later input
+  // ids), but explicit and earlier root-shrunk units still have the same
+  // effect on every subsequent clause.
+  std::vector<Lit> root_units;
+  auto out = scratch.begin();
+  for (const Lit lit : scratch) {
+    const int8_t value = k.values[lit];
+    if (value > 0)
+      return; // satisfied input clause: consume its id, activate/store nothing
+    if (value < 0)
+      root_units.push_back(negate(lit));
+    else
+      *out++ = lit;
+  }
+  scratch.erase(out, scratch.end());
+
   // N2: the checker holds the file clause under `id`, repeats and all, so a
   // shrunk clause may not keep it. Restate at finish_input, but only when this
   // clause is actually stored — a dropped clause's id is never cited.
@@ -105,7 +128,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     if (k.input_activated.size() < k.nvars)
       k.input_activated.resize(k.nvars, 0);
     for (const Var v : activation_order) {
-      if (!k.input_activated[v]) {
+      if (k.values[make_lit(v, false)] == 0 && !k.input_activated[v]) {
         k.input_activated[v] = 1;
         k.input_activation_order.push_back(v);
       }
@@ -116,6 +139,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     k.inconsistent = true;
     k.input_refuted = true; // the input empty clause is the whole chain
     k.input_refutation_id = id;
+    k.input_refutation_units = root_units;
   } else if (scratch.size() == 1) {
     const Lit u = scratch[0];
     if (k.values[u] > 0)
@@ -124,16 +148,12 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
       k.inconsistent = true;
       k.input_refuted = true;
       k.input_refutation_id = id;
-      // The partner is read from unit_ids at finish_input, after any
-      // restatement has re-pointed it. `id` itself needs none: every copy of
-      // `u` in the file form is falsified by the partner, so the checker sees a
-      // conflicting rather than propagating antecedent whatever its width.
-      k.input_refutation_var = var_of(u);
+      k.input_refutation_units = {negate(u)};
       return;
     }
     k.unit_ids[var_of(u)] = id;
     if (shrunk)
-      restate_input(k, id, scratch, 0);
+      restate_input(k, id, scratch, root_units, 0);
     kernel_assign_unit(k, u);
   } else if (scratch.size() == 2) {
     // Duplicate binary: id consumed, never stored, following the duplicate-unit
@@ -148,12 +168,12 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
       return;
     kernel_add_binary_clause(k, scratch[0], scratch[1], id);
     if (shrunk)
-      restate_input(k, id, scratch, 0);
+      restate_input(k, id, scratch, root_units, 0);
   } else {
     const Ref ref = kernel_add_large_clause(
         k, scratch.data(), static_cast<uint32_t>(scratch.size()), false, 0, id);
     if (shrunk)
-      restate_input(k, id, scratch, ref);
+      restate_input(k, id, scratch, root_units, ref);
   }
 }
 
@@ -164,15 +184,24 @@ void finish_input(Kernel &k) {
   // Restatements are non-empty only when a proof was attached before the input;
   // attaching one later cannot be repaired, the input ids are already spent.
   assert(k.input_restatements.empty() || k.proof);
+  std::vector<uint64_t> chain;
   for (const Kernel::InputRestatement &r : k.input_restatements) {
     const Lit *lits = k.input_restate_lits.data() + r.begin;
     const uint64_t nid = ++k.next_clause_id;
-    // One antecedent, the file clause: negating the deduped clause falsifies
-    // every literal of the file form (same literal set), so it is RUP by that
-    // clause alone, valid for LRAT and DRAT. The original is left live; a
-    // checker holding a superset only ever finds RUP easier.
-    const uint64_t chain[1] = {r.id};
-    k.proof->add_rup(nid, lits, r.size, chain, 1);
+    chain.clear();
+    for (uint32_t i = 0; i < r.unit_size; i++) {
+      const Lit unit = k.input_restate_units[r.unit_begin + i];
+      assert(k.values[unit] > 0);
+      const uint64_t uid = k.unit_ids[var_of(unit)];
+      assert(uid);
+      chain.push_back(uid);
+    }
+    // Root units first remove every root-false literal; the original file
+    // clause then conflicts under the negated normalized clause. Duplicate-
+    // only normalization has no units and retains the old one-hint proof.
+    chain.push_back(r.id);
+    k.proof->add_rup(nid, lits, r.size, chain.data(),
+                     static_cast<uint32_t>(chain.size()));
     if (r.size == 1) {
       assert(k.unit_ids[var_of(lits[0])] == r.id);
       k.unit_ids[var_of(lits[0])] = nid;
@@ -188,6 +217,7 @@ void finish_input(Kernel &k) {
   }
   k.input_restatements.clear();
   k.input_restate_lits.clear();
+  k.input_restate_units.clear();
   // The decision order is `H` state, so this is a no-op for an unguided kernel
   // and for a solver whose `H` is attached later — ScopedHeuristics re-seeds
   // from ascending order in that case, which is the documented `tumble=0`
@@ -200,13 +230,18 @@ void finish_input(Kernel &k) {
   if (k.input_refuted) {
     k.input_refuted = false;
     if (k.proof) {
-      uint64_t chain[2];
-      uint32_t n = 0;
-      if (k.input_refutation_var != UINT32_MAX)
-        chain[n++] = k.unit_ids[k.input_refutation_var];
-      chain[n++] = k.input_refutation_id;
-      k.proof->add_empty(++k.next_clause_id, chain, n);
+      chain.clear();
+      for (const Lit unit : k.input_refutation_units) {
+        assert(k.values[unit] > 0);
+        const uint64_t uid = k.unit_ids[var_of(unit)];
+        assert(uid);
+        chain.push_back(uid);
+      }
+      chain.push_back(k.input_refutation_id);
+      k.proof->add_empty(++k.next_clause_id, chain.data(),
+                         static_cast<uint32_t>(chain.size()));
     }
+    k.input_refutation_units.clear();
   }
 }
 
