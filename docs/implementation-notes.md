@@ -244,7 +244,9 @@ engine with an undo log restores those search-only effects for a non-committing 
 
 ## 8. Design decision: phase saving and rephasing
 
-Saved phases update on unassign, not assign. The shipped rotation is
+Saved phases update on every non-probing assignment (`inlineassign.h`); Lucky/Probe/Vivify-family
+assignments are excluded. The former unassign-time arm caused opposite phases after a mode switch:
+currently assigned literals have not passed through an unwind. The shipped rotation is
 `B, B+W, I, B, B+W, O`: Walk augments Best rather than replacing it.
 
 Warm-up remains live only behind `TACTIX_WALK_WARMUP`; it is not the default. Dry-walk is retained as

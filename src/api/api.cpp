@@ -22,7 +22,10 @@ struct tactix_solver {
                          // before any solve still has an H.
   Proof proof;
   std::vector<Lit> scratch;
-  tactix_solver() { kernel.h = &heuristics; }
+  tactix_solver() {
+    kernel.h = &heuristics;
+    kernel.saved_phases = &heuristics.saved;
+  }
 };
 
 extern "C" {

@@ -82,10 +82,14 @@ struct ScopedHeuristics {
   Kernel &kref;
   explicit ScopedHeuristics(Kernel &k) : kref(k) {
     k.h = &h;
+    k.saved_phases = &h.saved;
     if (k.nvars)
       heuristics_reserve_vars(k, 0, k.nvars);
   }
-  ~ScopedHeuristics() { kref.h = nullptr; }
+  ~ScopedHeuristics() {
+    kref.saved_phases = nullptr;
+    kref.h = nullptr;
+  }
   ScopedHeuristics(const ScopedHeuristics &) = delete;
   ScopedHeuristics &operator=(const ScopedHeuristics &) = delete;
 };

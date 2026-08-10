@@ -414,14 +414,13 @@ void kernel_touch_sync_fixed(Kernel &k) {
 // `if (k.h)`. Only <true> is instantiated today.
 template <bool HasH>
 static void kernel_backtrack_impl(Kernel &k, uint32_t target,
-                                  bool update_phases) {
+                                  bool search_backtrack) {
   assert(target < k.level);
-  // Snapshot timing, as in kissat's
-  // `kissat_backtrack_without_updating_phases` (backtrack.c:72): SAVE phases,
-  // gated by `update_phases`, but do NOT snapshot target/best — that belongs at
-  // the call sites, since the conflict path steps down one level before
-  // snapshotting (backtrack.c:156). Snapshotting here would let the high-water
-  // mark include the conflict level's own literals, so later genuinely-longer
+  // Saved phases are refreshed by kernel_assign, matching kissat's
+  // inlineassign.h.  Target/best snapshots still belong at the call sites:
+  // the conflict path steps down one level before snapshotting
+  // (kissat backtrack.c:156). Snapshotting here would let the high-water mark
+  // include the conflict level's own literals, so later genuinely-longer
   // trails would fail to update it and the target phases would go stale.
   // Compacting backtrack (docs/implementation-notes.md, D-LEVEL-2): true-level
   // assignment leaves the trail unsorted by level, so it cannot be truncated by
@@ -439,10 +438,6 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
       k.assigned[v].trail = j;
       j++;
       continue;
-    }
-    if constexpr (HasH) {
-      if (update_phases)
-        k.h->saved[v] = negated(lit) ? -1 : 1; // phase saving
     }
     k.values[lit] = 0;
     k.values[negate(lit)] = 0;
@@ -479,20 +474,20 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
   // forward. Only a real search backtrack does this. A probing restore unwinds
   // its own assumptions off a clean root fixpoint and must land back on the
   // boundary, so it keeps the boundary reset regardless of taint.
-  const uint32_t reset = (k.trail_tainted && update_phases) ? 0 : boundary;
+  const uint32_t reset = (k.trail_tainted && search_backtrack) ? 0 : boundary;
   if (k.propagate_head > reset)
     k.propagate_head = reset;
 }
 
-void kernel_backtrack(Kernel &k, uint32_t target, bool update_phases) {
+void kernel_backtrack(Kernel &k, uint32_t target, bool search_backtrack) {
   // Dispatch ONCE per backtrack on whether `H` is present. With no
   // `H` (an unguided solver) the <false> instantiation runs the same σ unwind but
   // its inner loop is branch-free w.r.t. `H` (every hook is `if constexpr (HasH)`,
   // compiled out). DefaultPolicy always has `H`, so it takes <true> — bit-exact.
   if (k.h)
-    kernel_backtrack_impl<true>(k, target, update_phases);
+    kernel_backtrack_impl<true>(k, target, search_backtrack);
   else
-    kernel_backtrack_impl<false>(k, target, update_phases);
+    kernel_backtrack_impl<false>(k, target, search_backtrack);
 }
 
 // --- shared proof idioms (decls in kernel.hpp) ------------------------------

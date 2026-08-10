@@ -68,9 +68,11 @@ static void test_variable_compaction() {
   assert(lit_instance(k, make_lit(2, false)) == stable_instance);
   assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
   const Clause *c = clause_at(k.arena, 0);
-  assert(c->lits[0] == make_lit(0, false));
+  // Whole-arena collection reselects Kissat's best watched pair: the only
+  // unassigned literal first, then the latest satisfied one.
+  assert(c->lits[0] == make_lit(2, false));
   assert(c->lits[1] == make_lit(1, false));
-  assert(c->lits[2] == make_lit(2, false));
+  assert(c->lits[2] == make_lit(0, false));
   assert(k.stats.variable_compactions == 1);
   assert(k.stats.compacted_variables == 2);
   assert(k.sweep_tail == std::vector<Var>({1, 4}));
@@ -150,11 +152,26 @@ static void test_backtrack_restores() {
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(-2));
   assert(k.level == 2 && k.unassigned == 1);
+  // Kissat saves at assignment, not while removing the trail.
+  assert(k.h->saved[0] == 1);
+  assert(k.h->saved[1] == -1);
   kernel_backtrack(k, 0);
   assert(k.level == 0 && k.unassigned == 3);
   assert(k.values[internalize(1)] == 0);
   assert(k.h->saved[0] == 1);  // phase of var 1 saved positive
   assert(k.h->saved[1] == -1); // phase of var 2 saved negative
+}
+
+static void test_probing_does_not_save_phases() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 2);
+  k.h->saved[0] = 1;
+  k.phase_saving_suppressed = true;
+  kernel_assign_decision(k, internalize(-1));
+  assert(k.h->saved[0] == 1);
+  k.phase_saving_suppressed = false;
+  kernel_backtrack(k, 0, /*search_backtrack=*/false);
 }
 
 // A probing episode derives exactly what kernel_propagate derives and hands
@@ -226,6 +243,7 @@ static void test_probing_propagation_restores() {
   assert(same(b0, a0));
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
+  assert(b.h->saved[0] == 1); // probing assignments never become saved phases
   assert(!kernel_propagate_probing(b));
   assert(b.trail == derived); // same implied literals, same trail order
   kernel_backtrack(b, 0, /*update_phases=*/false);
@@ -235,6 +253,7 @@ static void test_probing_propagation_restores() {
   // not a one-shot: a second episode repeats, so the stamp epoch rolls over
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
+  assert(b.h->saved[0] == 1);
   assert(!kernel_propagate_probing(b));
   assert(b.trail == derived);
   kernel_backtrack(b, 0, /*update_phases=*/false);
@@ -367,6 +386,7 @@ int main() {
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();
+  test_probing_does_not_save_phases();
   test_probing_propagation_restores();
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
