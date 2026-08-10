@@ -58,8 +58,7 @@ struct DefaultStrategyConfig {
   struct Analysis {
     uint32_t bump_reason_limit = BUMP_REASON_LIMIT_DEFAULT;
     double bump_reason_rate = BUMP_REASON_RATE_DEFAULT;
-    uint32_t focused_reason_depth = 1;
-    uint32_t stable_reason_depth = 2; // CaDiCaL depth extension.
+    uint32_t reason_depth = 1; // Kissat direct-reason traversal in both modes.
     uint32_t chronological_levels = CHRONOLOGICAL_LEVELS_DEFAULT;
     bool reuse_ranked_trail_suffix = false; // Kissat tie-break over CaDiCaL.
   } analysis;
