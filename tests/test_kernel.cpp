@@ -6,6 +6,7 @@
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
@@ -120,6 +121,59 @@ static void test_unit_chain() {
     assert(k.values[internalize(e)] > 0);
   assert(k.trail.size() == 4);
   assert(k.unassigned == 0);
+}
+
+static void test_root_sparse_collection() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_assign_unit(k, internalize(1));
+  const Lit satisfied[3] = {internalize(1), internalize(2),
+                            internalize(3)};
+  const Lit shortened[4] = {internalize(-1), internalize(2),
+                            internalize(3), internalize(4)};
+  kernel_add_large_clause(k, satisfied, 3, false, 0);
+  kernel_add_large_clause(k, shortened, 4, false, 0);
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
+  assert(k.stats.sparse_collections == 1);
+  assert(k.stats.sparse_collected == 2 && k.stats.flushed == 2);
+  assert(k.arena.size() == clause_words(3));
+  const Clause *remaining = clause_at(k.arena, 0);
+  assert(remaining->size == 3 && !remaining->garbage());
+  for (const Lit l : *remaining)
+    assert(var_of(l) != 0);
+  kernel_check_invariants(k);
+}
+
+struct ReverseArenaOrder final : ArenaOrdering {
+  void order(const Kernel &, std::vector<Ref> &refs) override {
+    std::reverse(refs.begin(), refs.end());
+  }
+};
+
+static void test_root_sparse_collection_keeps_native_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse;
+  kernel_assign_unit(k, internalize(1));
+  const Lit first[3] = {internalize(2), internalize(3), internalize(4)};
+  const Lit shortened[4] = {internalize(-1), internalize(3), internalize(4),
+                            internalize(5)};
+  const Lit garbage[3] = {internalize(1), internalize(3), internalize(4)};
+  const Lit second[3] = {internalize(5), internalize(6), internalize(7)};
+  kernel_add_large_clause(k, first, 3, false, 0, 11);
+  kernel_add_large_clause(k, shortened, 4, false, 0, 12);
+  kernel_add_large_clause(k, garbage, 3, false, 0, 14);
+  kernel_add_large_clause(k, second, 3, false, 0, 13);
+  assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
+  const Clause *a = clause_at(k.arena, 0);
+  const Clause *b = clause_at(k.arena, clause_words(a->size));
+  const Clause *c = clause_at(k.arena, clause_words(a->size) +
+                                           clause_words(b->size));
+  assert(a->id() == 11 && b->id() == 1 && c->id() == 13);
+  kernel_check_invariants(k);
 }
 
 static void test_large_clause_propagation() {
@@ -378,6 +432,44 @@ static void test_watch_repair_primitive() {
   kernel_check_invariants(k);
 }
 
+static void test_canonical_binary_watch_rebuild() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit pivot = internalize(3);
+  const Lit higher = internalize(-5);
+  const Lit lower2 = internalize(2);
+  const Lit lower0 = internalize(1);
+  const Lit lower1 = internalize(-1);
+  kernel_add_binary_clause(k, pivot, higher);
+  kernel_add_binary_clause(k, pivot, lower2);
+  kernel_add_binary_clause(k, pivot, lower0);
+  kernel_add_binary_clause(k, pivot, lower1);
+  const Lit large[3] = {pivot, internalize(4), internalize(6)};
+  kernel_add_large_clause(k, large, 3, false, 0);
+
+  std::vector<Lit> before;
+  for (const WatchEntry w : k.watches.entries(pivot))
+    if (w.binary())
+      before.push_back(w.other());
+  assert(before == std::vector<Lit>({higher, lower2, lower0, lower1}));
+
+  kernel_canonicalize_binary_watches(k);
+  std::vector<Lit> after;
+  bool saw_large = false;
+  for (const WatchEntry w : k.watches.entries(pivot)) {
+    if (w.binary()) {
+      assert(!saw_large);
+      after.push_back(w.other());
+    } else {
+      saw_large = true;
+    }
+  }
+  assert(after == std::vector<Lit>({lower0, lower1, lower2, higher}));
+  assert(saw_large);
+  assert(k.stats.congruence_binary_rebuilds == 1);
+  kernel_check_invariants(k);
+}
+
 static void test_propagate_beyond_conflicts_for_warmup() {
   Kernel k;
   ScopedHeuristics h(k);
@@ -410,6 +502,8 @@ int main() {
   test_variable_compaction();
   test_lit_encoding();
   test_unit_chain();
+  test_root_sparse_collection();
+  test_root_sparse_collection_keeps_native_order();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();
@@ -418,6 +512,7 @@ int main() {
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
   test_watch_repair_primitive();
+  test_canonical_binary_watch_rebuild();
   test_propagate_beyond_conflicts_for_warmup();
   puts("test_kernel OK");
   return 0;

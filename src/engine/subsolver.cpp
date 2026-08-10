@@ -23,6 +23,7 @@ namespace tactix {
 
 namespace {
 constexpr SubLit NO_LIT = UINT32_MAX;
+constexpr uint32_t KITTEN_CACHE_LINE_SHIFT = 7;
 // Restart cadence. Environments are tiny, so this only has to stop the solver
 // burning its whole budget down one bad subtree.
 constexpr uint64_t RESTART_INTERVAL = 100;
@@ -60,7 +61,9 @@ void SubSolver::reset(uint32_t nvars) {
   original_clauses_ = 0;
   decision_cursor_ = 0;
   ticks_ = 0;
+  kitten_ticks_ = 0;
   budget_ = 0;
+  tick_mode_ = SubTickMode::Entries;
   conflicts_ = 0;
 }
 
@@ -84,6 +87,7 @@ void SubSolver::assign(SubLit l, SubRef reason) {
 uint32_t SubSolver::add_clause(const std::vector<SubLit> &lits) {
   assert(!solved_ && "original clauses must all precede the first solve");
   const uint32_t id = next_id_++;
+  kitten_ticks_++; // Kitten `new_reference`
   if (inconsistent_)
     return id;
   // Dedup and drop tautologies. Nothing is shrunk against the root assignment:
@@ -136,6 +140,7 @@ uint32_t SubSolver::add_clause(const std::vector<SubLit> &lits) {
 SubSolver::SubRef SubSolver::add_derived(const std::vector<SubLit> &lits,
                                          const std::vector<uint32_t> &chain) {
   const uint32_t id = next_id_++;
+  kitten_ticks_++; // learned clauses use the same `new_reference`
   derived_.push_back({id, lits, chain});
   arena_.push_back(id);
   arena_.push_back(static_cast<SubLit>(lits.size()));
@@ -154,6 +159,8 @@ bool SubSolver::propagate() {
     const SubLit falsified = sub_negate(lit);
     std::vector<SubWatch> &ws = watches_[falsified];
     ticks_ += ws.size(); // effort currency: watch entries inspected
+    kitten_ticks_ +=
+        1 + (ws.size() * sizeof(SubWatch) >> KITTEN_CACHE_LINE_SHIFT);
     size_t i = 0, j = 0;
     const size_t n = ws.size();
     for (; i < n;) {
@@ -164,6 +171,7 @@ bool SubSolver::propagate() {
       }
       SubLit *c = clause_lits(w.ref);
       const uint32_t size = clause_size(w.ref);
+      kitten_ticks_ += size > 2;
       if (c[0] == falsified)
         std::swap(c[0], c[1]);
       assert(c[1] == falsified);
@@ -381,7 +389,7 @@ SubLit SubSolver::next_decision() {
 }
 
 SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
-                           uint64_t ticks_budget) {
+                           uint64_t ticks_budget, SubTickMode tick_mode) {
   if (!solved_) {
     // The original-id watershed is fixed here, not per add_clause: every id
     // handed out from now on names a lemma.
@@ -389,6 +397,13 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
     original_clauses_ = next_id_ - 1;
   }
   budget_ = ticks_budget;
+  tick_mode_ = tick_mode;
+  const auto over_budget = [&] {
+    const uint64_t spent = tick_mode_ == SubTickMode::Kitten
+                               ? kitten_ticks_
+                               : ticks_;
+    return budget_ && spent > budget_;
+  };
   conflicts_ = 0;
   if (inconsistent_) {
     if (!have_derivation_ && pending_refutation_ != NO_REF)
@@ -409,7 +424,7 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
       }
       if (!analyze())
         return SubResult::Budget; // see analyze(): no conclusion, not Unsat
-      if (budget_ && ticks_ > budget_)
+      if (over_budget())
         return SubResult::Budget;
       if (conflicts_ >= next_restart) {
         restarts++;
@@ -450,7 +465,7 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
         assign(a, NO_REF); // else: an empty level, keeping the index
       continue;
     }
-    if (budget_ && ticks_ > budget_)
+    if (over_budget())
       return SubResult::Budget;
     const SubLit d = next_decision();
     if (d == NO_LIT) { // every variable is assigned: a total model
@@ -470,24 +485,71 @@ bool SubSolver::flip_model_literal(SubLit lit) {
     return false;
   lit = sub_lit(v, model_[v] < 0);
   assert(((lit & 1u) == 0) == (model_[v] > 0));
-  for (const SubRef ref : occurrences_[lit]) {
-    bool other_true = false;
-    const SubLit *c = clause_lits(ref);
-    const uint32_t size = clause_size(ref);
+  std::vector<SubWatch> &ws = watches_[lit];
+  kitten_ticks_ +=
+      1 + (ws.size() * sizeof(SubWatch) >> KITTEN_CACHE_LINE_SHIFT);
+  size_t i = 0, j = 0;
+  const size_t n = ws.size();
+  bool can_flip = true;
+  for (; i < n;) {
+    const SubWatch w = ws[i++];
+    if (values_[w.blocking] > 0) {
+      ws[j++] = w;
+      continue;
+    }
+    SubLit *c = clause_lits(w.ref);
+    const uint32_t size = clause_size(w.ref);
+    if (size == 2) {
+      ws[j++] = w;
+      can_flip = false;
+      break;
+    }
+    kitten_ticks_++;
     ticks_ += size;
-    for (uint32_t i = 0; i < size; i++) {
-      const SubLit o = c[i];
-      if (sub_var_of(o) == v)
-        continue;
-      const int8_t value = model_[sub_var_of(o)];
-      if ((value > 0) != ((o & 1u) != 0)) {
-        other_true = true;
+    const SubLit other = c[0] ^ c[1] ^ lit;
+    if (values_[other] > 0) {
+      ws[j++] = w;
+      continue;
+    }
+    uint32_t replacement = 2;
+    while (replacement < size && values_[c[replacement]] < 0)
+      replacement++;
+    if (replacement == size) {
+      ws[j++] = w;
+      can_flip = false;
+      break;
+    }
+    c[0] = other;
+    c[1] = c[replacement];
+    c[replacement] = lit;
+    watches_[c[1]].push_back({other, w.ref});
+  }
+  while (i < n)
+    ws[j++] = ws[i++];
+  ws.resize(j);
+  // Repeated backbone/partition filtering can revisit a variable after an
+  // earlier successful flip moved its literal out of a watched position.
+  // Kitten relies on its exact caller discipline here; retain the occurrence
+  // safety check so this shared engine never turns its model into a non-model.
+  if (can_flip)
+    for (const SubRef ref : occurrences_[lit]) {
+      const SubLit *c = clause_lits(ref);
+      const uint32_t size = clause_size(ref);
+      bool other_true = false;
+      for (uint32_t k = 0; k < size; k++)
+        if (c[k] != lit && values_[c[k]] > 0) {
+          other_true = true;
+          break;
+        }
+      if (!other_true) {
+        can_flip = false;
         break;
       }
     }
-    if (!other_true)
-      return false;
-  }
+  if (!can_flip)
+    return false;
+  values_[lit] = -1;
+  values_[sub_negate(lit)] = 1;
   model_[v] = static_cast<int8_t>(-model_[v]);
   return true;
 }

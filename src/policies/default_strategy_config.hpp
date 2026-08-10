@@ -1,5 +1,7 @@
 #pragma once
 
+#include "rules/sweep/sweep_defaults.hpp"
+
 #include <array>
 #include <cstdint>
 #include <string>
@@ -39,7 +41,9 @@ struct DefaultStrategyConfig {
   static constexpr uint64_t INPROCESS_ELIMINATE_INTERVAL_DEFAULT = 500;
   static constexpr uint64_t INPROCESS_PROBE_INTERVAL_DEFAULT = 100;
   static constexpr uint64_t INPROCESS_MINIMUM_EFFORT_DEFAULT = 10000000;
-  static constexpr uint64_t INPROCESS_PREPROCESS_EFFORT_DEFAULT = 2000000;
+  // Kissat's default `mineffort=10`, in the `SET_EFFORT_LIMIT` reference
+  // currency used by its startup probing pipeline.
+  static constexpr uint64_t INPROCESS_PREPROCESS_EFFORT_DEFAULT = 10000000;
   static constexpr uint32_t INPROCESS_PHASE_ROUNDS_DEFAULT = 2;
   static constexpr uint64_t FACTOR_INITIAL_EFFORT_DEFAULT = 700000000ull;
   static constexpr uint64_t CONGRUENCE_INITIAL_EFFORT_DEFAULT =
@@ -161,6 +165,24 @@ struct DefaultStrategyConfig {
     uint32_t sweep_permille = 100;
     uint32_t congruence_permille = 100;
     uint32_t substitute_permille = 10;
+
+    // Kissat Sweep environment and growth options (options.h).  These belong
+    // to the strategy profile even though Sweep also exposes a caller-owned
+    // limits object for public rule applications.
+    uint32_t sweep_depth = SweepReferenceDefaults::DEPTH;
+    uint32_t sweep_max_depth = SweepReferenceDefaults::MAX_DEPTH;
+    uint32_t sweep_vars = SweepReferenceDefaults::VARS;
+    uint32_t sweep_max_vars = SweepReferenceDefaults::MAX_VARS;
+    uint32_t sweep_clauses = SweepReferenceDefaults::CLAUSES;
+    uint32_t sweep_max_clauses = SweepReferenceDefaults::MAX_CLAUSES;
+    uint32_t sweep_candidate_pairs = SweepReferenceDefaults::CANDIDATE_PAIRS;
+    uint32_t sweep_flip_rounds = SweepReferenceDefaults::FLIP_ROUNDS;
+    uint32_t sweep_seed_cap = SweepReferenceDefaults::SEED_CAP;
+    uint64_t sweep_environment_ticks =
+        SweepReferenceDefaults::ENVIRONMENT_TICKS;
+    bool sweep_strip_root_false = true;
+    bool sweep_full_partition = true;
+    bool sweep_resume = true;
 
     uint32_t congruence_productivity_permille = 1;
     uint32_t sweep_productivity_permille = 1;

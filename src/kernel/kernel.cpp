@@ -28,6 +28,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     k.internal_to_external.push_back(external);
     k.external_to_internal.push_back(v);
   }
+  k.external_import_rank.resize(k.external_to_internal.size(), UINT32_MAX);
   // --- σ-state + derived-index growth (kernel-owned) ---
   k.values.resize(2 * nvars, 0);
   k.assigned.resize(nvars);
@@ -40,6 +41,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // starts retry-worthy (kissat activate_variable marks it removed+added). A
   // derived index, not `H` (docs/implementation-notes.md §6) — kernel-side.
   k.bve_retry.resize(nvars, 1);
+  k.factor_marks.resize(2 * nvars, 0);
   // Touched-epoch substrate: a brand-new variable has never been looked at by
   // any consumer, so it must read as touched against every existing watermark
   // — hence a real touch EVENT each, not a resize fill (kissat
@@ -49,8 +51,12 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // The band array needs no such event: a fresh variable is already touched
   // below, and C2 reads the two arrays as a union.
   k.touched_kept.resize(nvars, 0);
-  for (uint32_t v = old; v < nvars; v++)
+  for (uint32_t v = old; v < nvars; v++) {
     kernel_touch_var(k, v);
+    // Variable activation marks the stripped (positive) literal in Kissat;
+    // actual clause polarities are marked below by clause addition.
+    k.factor_marks[make_lit(v, false)] = 1;
+  }
   // Retirement status: a brand-new variable is Active (design R-a). Only grown
   // once something has retired a variable, so the common case stays empty.
   if (!k.var_status.empty())
@@ -83,6 +89,31 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     heuristics_reserve_vars(k, old, nvars);
 }
 
+void kernel_record_import(Kernel &k, Var v) {
+  assert(v < k.nvars);
+  const Var external = k.internal_to_external[v];
+  if (k.external_import_rank.size() <= external)
+    k.external_import_rank.resize(external + 1, UINT32_MAX);
+  uint32_t &rank = k.external_import_rank[external];
+  if (rank == UINT32_MAX)
+    rank = k.next_import_rank++;
+}
+
+uint64_t kernel_import_var_order(const Kernel &k, Var v) {
+  assert(v < k.nvars);
+  const Var external = k.internal_to_external[v];
+  if (external < k.external_import_rank.size() &&
+      k.external_import_rank[external] != UINT32_MAX)
+    return k.external_import_rank[external];
+  // Direct kernel clients need no input finalization. Put their unrecorded
+  // variables after recorded imports in stable external order.
+  return static_cast<uint64_t>(k.next_import_rank) + external;
+}
+
+uint64_t kernel_import_lit_order(const Kernel &k, Lit lit) {
+  return 2 * kernel_import_var_order(k, var_of(lit)) + negated(lit);
+}
+
 Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
   const Var first = k.nvars;
   if (k.first_extension_var == UINT32_MAX) {
@@ -91,6 +122,8 @@ Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
         static_cast<uint32_t>(k.external_to_internal.size());
   }
   kernel_reserve_vars(k, k.nvars + count); // additive: grows all per-var state
+  for (Var v = first; v < first + count; v++)
+    kernel_record_import(k, v);
   return first;
 }
 
@@ -120,6 +153,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
     for (uint32_t i = 0; i < size; i++) {
       kernel_mark_bve_retry(k, var_of(lits[i]));
       kernel_touch_var(k, var_of(lits[i]));
+      k.factor_marks[lits[i]] = 1;
       if (k.dense)
         k.dense->large[lits[i]].push_back(ref);
     }
@@ -157,6 +191,8 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   // learned binaries, which is where this over-touches on purpose).
   kernel_touch_var(k, var_of(a));
   kernel_touch_var(k, var_of(b));
+  k.factor_marks[a] = 1;
+  k.factor_marks[b] = 1;
 }
 
 // Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
@@ -541,6 +577,145 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   if (large_ref)
     *large_ref = r;
   return ReplaceOutcome::Large;
+}
+
+RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
+                                          uint64_t *changed) {
+  assert(k.level == 0);
+  Clause *c = clause_at(k.arena, *ref);
+  assert(!c->garbage());
+  std::vector<Lit> kept;
+  std::vector<uint64_t> chain;
+  kept.reserve(c->size);
+  if (k.proof && k.proof->lrat())
+    chain.reserve(c->size + 1);
+  for (const Lit l : *c) {
+    if (k.value(l) > 0) {
+      if (kernel_shadow_retire(k, c->id()))
+        k.stats.c1_shadow_deleted++;
+      kernel_delete_clause(k, c);
+      k.stats.flushed++;
+      if (changed)
+        (*changed)++;
+      return RootFlushOutcome::Deleted;
+    }
+    if (k.value(l) < 0) {
+      if (k.proof && k.proof->lrat()) {
+        const uint64_t unit_id = k.unit_ids[var_of(l)];
+        assert(unit_id);
+        chain.push_back(unit_id);
+      }
+    } else {
+      kept.push_back(l);
+    }
+  }
+  if (kept.size() == c->size)
+    return RootFlushOutcome::None;
+
+  if (kernel_shadow_retire(k, c->id()))
+    k.stats.c1_shadow_rewritten++;
+  const uint64_t original_id = c->id();
+  const bool redundant = c->redundant();
+  const uint32_t glue = kernel_shrunken_glue(
+      k, c->glue(), static_cast<uint32_t>(kept.size()));
+  const uint64_t id = ++k.next_clause_id;
+  if (k.proof) {
+    if (k.proof->lrat()) {
+      chain.push_back(original_id);
+      k.proof->add_rup(id, kept.data(), static_cast<uint32_t>(kept.size()),
+                       chain.data(), static_cast<uint32_t>(chain.size()));
+    } else {
+      k.proof->add_rup(0, kept.data(), static_cast<uint32_t>(kept.size()),
+                       nullptr, 0);
+    }
+  }
+  k.stats.flushed++;
+  if (changed)
+    (*changed)++;
+  switch (kernel_replace_clause(k, c, id, kept.data(),
+                                static_cast<uint32_t>(kept.size()), redundant,
+                                redundant ? glue : 0, ref)) {
+  case ReplaceOutcome::Refuted:
+    return RootFlushOutcome::Refuted;
+  case ReplaceOutcome::Unit: {
+    const Lit unit = kept[0];
+    const int8_t value = k.value(unit);
+    const uint64_t opposite_id = k.unit_ids[var_of(unit)];
+    k.unit_ids[var_of(unit)] = id;
+    if (value < 0) {
+      kernel_emit_empty_from_pair(k, id, opposite_id);
+      return RootFlushOutcome::Refuted;
+    }
+    if (!value)
+      kernel_assign_unit(k, unit);
+    return RootFlushOutcome::Unit;
+  }
+  case ReplaceOutcome::Binary:
+    return RootFlushOutcome::Binary;
+  case ReplaceOutcome::Large:
+    return RootFlushOutcome::Rewritten;
+  }
+  assert(false);
+  return RootFlushOutcome::Refuted;
+}
+
+RootCollectOutcome kernel_sparse_collect_root(Kernel &k) {
+  assert(k.level == 0);
+  k.stats.sparse_collections++;
+  if (!kernel_root_fixed(k))
+    return RootCollectOutcome::NoChange;
+  // Rewrites allocate a new variable-width record, but Kissat's collector
+  // emits that record at the old clause's position. Preserve the same relative
+  // order explicitly; otherwise tens of thousands of shortened clauses move
+  // to the arena tail and change every capped downstream environment.
+  struct RootArenaOrder final : ArenaOrdering {
+    std::vector<Ref> desired;
+    void order(const Kernel &k, std::vector<Ref> &refs) override {
+      if (refs.size() != desired.size())
+        return; // defensive: never drop an unaccounted live clause
+      std::vector<uint8_t> seen(k.arena.size());
+      for (const Ref ref : refs)
+        seen[ref] = 1;
+      for (const Ref ref : desired)
+        if (ref >= seen.size() || !seen[ref])
+          return;
+        else
+          seen[ref] = 0;
+      refs = desired;
+    }
+  } root_order;
+  uint64_t changed = 0;
+  RootCollectOutcome outcome = RootCollectOutcome::NoChange;
+  const Ref original_end = static_cast<Ref>(k.arena.size());
+  for (Ref ref = 0; ref < original_end;) {
+    const uint32_t words = clause_words(clause_at(k.arena, ref)->size);
+    if (!clause_at(k.arena, ref)->garbage()) {
+      Ref current = ref;
+      const RootFlushOutcome flushed =
+          kernel_flush_root_clause(k, &current, &changed);
+      if (flushed == RootFlushOutcome::Refuted) {
+        outcome = RootCollectOutcome::Refuted;
+        break;
+      }
+      if (flushed == RootFlushOutcome::Unit)
+        outcome = RootCollectOutcome::Unit;
+      else if (flushed != RootFlushOutcome::None &&
+               outcome == RootCollectOutcome::NoChange)
+        outcome = RootCollectOutcome::Changed;
+      if (flushed == RootFlushOutcome::None ||
+          flushed == RootFlushOutcome::Rewritten)
+        root_order.desired.push_back(current);
+    }
+    ref += words;
+  }
+  k.stats.sparse_collected += changed;
+  if (changed && outcome != RootCollectOutcome::Refuted) {
+    ArenaOrdering *const saved = k.arena_ordering;
+    k.arena_ordering = &root_order;
+    kernel_collect_garbage(k);
+    k.arena_ordering = saved;
+  }
+  return outcome;
 }
 
 // --- propagation engine ------------------------------------------------
@@ -1102,6 +1277,51 @@ void kernel_rebuild_large_watches(Kernel &k) {
     }
     ref += words;
   }
+}
+
+void kernel_canonicalize_binary_watches(Kernel &k) {
+  // Kissat Congruence enters dense mode with a non-null binary save stack.
+  // `dense.c:flush_large_watches` walks literals globally, keeps the first
+  // copy of each binary, and saves a pair only at its smaller literal; sparse
+  // resume then recreates both mirrors in that global pair order. This order
+  // feeds every later capped Sweep environment, so preserving the clause set
+  // while leaving parse-order watches in place is not behaviorally neutral.
+  std::vector<std::pair<Lit, Lit>> binaries;
+  std::vector<uint32_t> seen(2 * k.nvars, 0);
+  uint32_t epoch = 0;
+  std::vector<Lit> ordered_literals(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    ordered_literals[lit] = lit;
+  std::sort(ordered_literals.begin(), ordered_literals.end(),
+            [&](Lit a, Lit b) {
+              return kernel_import_lit_order(k, a) <
+                     kernel_import_lit_order(k, b);
+            });
+  for (const Lit lit : ordered_literals) {
+    if (++epoch == 0) {
+      std::fill(seen.begin(), seen.end(), 0);
+      epoch = 1;
+    }
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (!w.binary())
+        continue;
+      const Lit other = w.other();
+      if (kernel_import_lit_order(k, lit) >=
+              kernel_import_lit_order(k, other) ||
+          seen[other] == epoch)
+        continue;
+      seen[other] = epoch;
+      binaries.emplace_back(lit, other);
+    }
+  }
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    k.watches.compact(lit, [](WatchEntry) { return false; });
+  for (const auto &binary : binaries) {
+    k.watches.push_binary(binary.first, binary.second);
+    k.watches.push_binary(binary.second, binary.first);
+  }
+  kernel_rebuild_large_watches(k);
+  k.stats.congruence_binary_rebuilds++;
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {

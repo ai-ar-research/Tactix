@@ -12,6 +12,7 @@
 
 #include "rules/registry.hpp"
 
+#include <utility>
 #include <vector>
 
 namespace tactix {
@@ -45,6 +46,14 @@ SccResult substitute_find_sccs(const Kernel &k);
 // representative's class and its mirror; INSTANCE_CANONICAL = the full round
 // (every non-trivial SCC). On x ≡ ¬x, apply refutes.
 ApplyResult substitute_apply(Kernel &); // canonical: full round
+
+// Mechanism helper for Sweep's reference-inline application: rewrite only the
+// SCC classes named by equivalence binaries that the caller has just proved
+// and added. This is not a scheduling call to the Substitute rule; it is the
+// same proof-safe add-before-delete kernel used by that rule, restricted to
+// the supplied classes.
+ApplyResult substitute_apply_equivalences(
+    Kernel &, const std::vector<std::pair<Lit, Lit>> &);
 
 // One directed binary-implication-graph path `from → … → to` as its edge
 // clause-ids in FORWARD order (LRAT antecedent chain; caller guards on lrat).

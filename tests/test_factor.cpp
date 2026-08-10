@@ -5,6 +5,7 @@
 #include "policies/heuristics.hpp"
 #include "rules/factor/factor.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 
@@ -22,6 +23,13 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
       i += 2;
   }
   return false;
+}
+
+static void add_large(Kernel &k, std::initializer_list<Lit> lits) {
+  const std::vector<Lit> clause(lits);
+  kernel_add_large_clause(k, clause.data(), static_cast<uint32_t>(clause.size()),
+                          /*redundant=*/false, /*glue=*/0,
+                          ++k.next_clause_id);
 }
 
 // kernel_new_extension_vars grows all per-var state additively, records the
@@ -75,6 +83,38 @@ static void test_factoring_2x3() {
       assert(!has_binary(k, f, rr));
 }
 
+// The first 3x3 grid leaves two partial rows.  Its three fresh large quotients
+// complete those rows into a second 3x2 grid during the same composite pass.
+// This is observable only if apply_factoring indexes its fresh quotients, as
+// Kissat's dense Factor watches do.
+static void test_fresh_large_quotients_extend_index() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 11);
+  k.factor_size = 3;
+  k.factor_composite = true;
+  k.touch_filter = false;
+
+  const Lit a = make_lit(0, false), b = make_lit(1, false),
+            c = make_lit(2, false), h = make_lit(3, false),
+            j = make_lit(4, false);
+  const Lit p = make_lit(5, false), u = make_lit(6, false),
+            q = make_lit(7, false), v = make_lit(8, false),
+            r = make_lit(9, false), w = make_lit(10, false);
+  const std::pair<Lit, Lit> remainders[3] = {{p, u}, {q, v}, {r, w}};
+  for (const Lit f : {a, b, c})
+    for (const auto &[x, y] : remainders)
+      add_large(k, {f, x, y});
+  const std::pair<Lit, Lit> partial[2] = {remainders[0], remainders[1]};
+  for (const Lit f : {h, j})
+    for (const auto &[x, y] : partial)
+      add_large(k, {f, x, y});
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 2);
+  assert(k.nvars == 13 && k.first_extension_var == 11);
+}
+
 // Fresh extension vars are demoted to the bottom of the VMTF queue in
 // creation order, so the newest is least preferred — matching kissat
 // factor.c:867-882 and cadical factor.cpp:799-802. Two disjoint grids in one
@@ -123,12 +163,13 @@ static void test_touch_filter_is_policy_only() {
     for (const Lit rr : {p, q, r})
       kernel_add_binary_clause(k, f, rr, ++k.next_clause_id);
 
-  k.factor_touch_mark = k.touch_epoch; // "already seeded everything"
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  // "already seeded everything": Factor has cleared every literal bit.
   assert(factor_guard(k));
   assert(factor_apply(k) == ApplyResult::NoOp);
   assert(k.stats.factorings == 0);
   assert(k.stats.factor_mark_skipped >= 10);
-  assert(k.stats.factor_rearmed == 0 && "nothing was seeded, nothing to resume");
+  assert(k.stats.factor_rearmed == 0);
 
   // one more binary touches a and p, so both seeds come back
   kernel_add_binary_clause(k, a, make_lit(2, true), ++k.next_clause_id);
@@ -149,6 +190,7 @@ int main() {
   // below-threshold grids factor through the rule's own surface.
   test_extension_var_boundary();
   test_factoring_2x3();
+  test_fresh_large_quotients_extend_index();
   test_touch_filter_is_policy_only();
   test_demote_fresh_order();
   std::printf("test_factor: all passed\n");

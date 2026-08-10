@@ -36,6 +36,11 @@ enum class SubResult {
   Budget, // the tick budget ran out — NO conclusion may be drawn
 };
 
+enum class SubTickMode {
+  Entries, // legacy shared-engine work unit used by BVE definition extraction
+  Kitten,  // Kissat cache-line currency used by Sweep scheduling
+};
+
 // One derived clause: `lits` follows from `chain` in the LRAT sense — assume
 // every literal of `lits` false, then propagate `chain` in order, each entry
 // unit or (the last) conflicting. An empty `lits` is the empty clause.
@@ -73,7 +78,8 @@ public:
   // Solve under `assumptions`; `ticks_budget == 0` means unlimited. Same
   // formula and assumptions give the same result and the same tick count.
   SubResult solve(const std::vector<SubLit> &assumptions,
-                  uint64_t ticks_budget);
+                  uint64_t ticks_budget,
+                  SubTickMode tick_mode = SubTickMode::Entries);
 
   // The refutation behind the last `Unsat`. False when there is none: no
   // refutation yet, or the assumptions were directly contradictory, so nothing
@@ -90,6 +96,7 @@ public:
   // Effort currency, charged per watch-list entry inspected — the same unit
   // `transitive_ticks` / `ternary_ticks` / `bce_ticks` use.
   uint64_t ticks() const { return ticks_; }
+  uint64_t kitten_ticks() const { return kitten_ticks_; }
   // Reported beside `ticks()` as Sweep's (yield, effort) pair.
   uint64_t conflicts() const { return conflicts_; }
   uint32_t nvars() const { return nvars_; }
@@ -146,7 +153,7 @@ private:
 
   std::vector<SubLit> arena_;
   std::vector<std::vector<SubWatch>> watches_; // by literal
-  std::vector<std::vector<SubRef>> occurrences_; // clauses containing literal
+  std::vector<std::vector<SubRef>> occurrences_; // flip safety index
   std::vector<int8_t> values_;                 // by literal: 1/-1/0
   std::vector<int8_t> model_;                  // by variable: +1/-1
   std::vector<int8_t> phase_;                  // by variable: saved phase
@@ -177,7 +184,9 @@ private:
   uint32_t original_clauses_ = 0;
   SubVar decision_cursor_ = 0; // fixed decision order (design §3: VSIDS-free)
   uint64_t ticks_ = 0;
+  uint64_t kitten_ticks_ = 0;
   uint64_t budget_ = 0;
+  SubTickMode tick_mode_ = SubTickMode::Entries;
   uint64_t conflicts_ = 0;
 };
 

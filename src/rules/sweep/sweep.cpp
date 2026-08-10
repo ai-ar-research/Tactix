@@ -3,6 +3,7 @@
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
+#include "rules/substitute/substitute.hpp"
 #include "rules/sweep/sweep.hpp"
 
 #include <algorithm>
@@ -13,6 +14,11 @@
 namespace tactix {
 
 namespace {
+
+SubResult sweep_solve(SweepEnv &e, const std::vector<SubLit> &assumptions,
+                      uint64_t budget) {
+  return e.solver.solve(assumptions, budget, SubTickMode::Kitten);
+}
 
 // Dedup keys for the environment's clause set: a binary by its literal pair
 // (so both endpoint scans encode it once), a large clause by its arena ref, a
@@ -86,8 +92,9 @@ void env_reset(const Kernel &k, SweepEnv &e) {
   e.strip_off.assign(1, 0);
 }
 
-// Sized so the index never passes half full — at most `max_env_clauses` keys
-// are inserted — so linear probing stays short and the insert cannot loop.
+// Start large enough for the configured clause cap. Kissat admits the whole
+// clause which crosses a structural boundary, so `keyset_grow` preserves the
+// half-full invariant if that admitted clause crosses the initial cap.
 void keyset_reset(SweepEnv &e, uint32_t cap) {
   size_t n = 16;
   while (n < 2 * static_cast<size_t>(cap) + 2)
@@ -110,6 +117,17 @@ size_t keyset_slot(const SweepEnv &e, uint64_t key) {
   return i;
 }
 
+void keyset_grow(SweepEnv &e) {
+  const std::vector<uint64_t> old = std::move(e.key_slots);
+  e.key_slots.assign(old.size() * 2, UINT64_MAX);
+  e.key_mask = e.key_slots.size() - 1;
+  for (const uint64_t key : old) {
+    if (key == UINT64_MAX)
+      continue;
+    e.key_slots[keyset_slot(e, key)] = key;
+  }
+}
+
 uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
   uint32_t s = e.sub_of_var[v];
   if (s != SWEEP_NO_SUB_VAR)
@@ -122,33 +140,20 @@ uint32_t env_var(SweepEnv &e, Var v, uint32_t depth) {
   return s;
 }
 
-// Add one clause of F to the environment. Returns false when a limit declines
-// it — always sound, since the environment only ever shrinks, which is why
-// every cap here is a plain early return. `strip` (may be null) are the proof
-// ids justifying the literals the caller already removed.
+// Add one clause of F to the environment. Kissat checks its structural caps at
+// variable-expansion boundaries, so the clause that crosses a cap lands whole;
+// declining or truncating that clause changes the local formula. `strip` (may
+// be null) are the proof ids justifying literals the caller already removed.
 bool env_add(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n, uint64_t key,
-             uint64_t id, uint32_t depth, const SweepLimits &lim,
+             uint64_t id, uint32_t depth, const SweepLimits &,
              uint64_t *ticks, const std::vector<uint64_t> *strip = nullptr) {
-  if (e.nclauses() >= lim.max_env_clauses)
-    return false;
   *ticks += 1;
   k.stats.sweep_ticks_dedup += 1;
+  if (2 * (static_cast<size_t>(e.nclauses()) + 1) >= e.key_slots.size())
+    keyset_grow(e);
   const size_t slot = keyset_slot(e, key);
   if (e.key_slots[slot] == key)
     return false; // already encoded (a binary reached from its other end)
-  uint32_t fresh = 0;
-  for (uint32_t i = 0; i < n; i++) {
-    const Var v = var_of(lits[i]);
-    if (e.sub_of_var[v] != SWEEP_NO_SUB_VAR)
-      continue;
-    bool dup = false;
-    for (uint32_t j = 0; j < i && !dup; j++)
-      dup = var_of(lits[j]) == v;
-    fresh += !dup;
-  }
-  if (e.vars.size() + fresh > lim.max_env_vars)
-    return false; // the clause would not fit WHOLE, and half a clause is not
-                  // a clause of F — never truncate
   for (uint32_t i = 0; i < n; i++) {
     e.clause_lits.push_back(lits[i]);
     env_var(e, var_of(lits[i]), depth);
@@ -222,25 +227,29 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
 
 } // namespace
 
-bool SweepBudget::over(const Kernel &k, uint64_t pending) const {
-  // `pending` is the scan charge accumulated but not yet folded into
-  // `Stats::sweep_ticks`, so the ceiling binds during a scan and not only after
-  // it.
-  return limit && k.stats.sweep_ticks + pending - start > limit;
-}
-
 bool sweep_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
 
 // The variable's large-clause + watch degree, both polarities. Without the
 // phase occurrence index only the watch lists are readable, which still ranks
 // binaries and the two watched literals of every large clause.
+static uint64_t seed_literal_occurrences(const Kernel &k, Lit lit) {
+  if (!k.dense ||
+      k.dense->large.size() < 2 * static_cast<size_t>(k.nvars))
+    return k.watches.size(lit);
+  // Kissat ranks in dense mode, where its watch lists contain each large
+  // occurrence exactly once. Tactix keeps the sparse two-watch entries beside
+  // its all-literal dense index, so adding both whole lists double-counts a
+  // large clause precisely when `lit` is one of its watched literals.
+  uint64_t binary = 0;
+  for (const WatchEntry w : k.watches.entries(lit))
+    binary += w.binary();
+  return binary + k.dense->large[lit].size();
+}
+
 static uint64_t seed_degree(const Kernel &k, Var v, bool &both_polarities) {
   const Lit pos = make_lit(v, false), neg = make_lit(v, true);
-  uint64_t dp = k.watches.size(pos), dn = k.watches.size(neg);
-  if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
-    dp += k.dense->large[pos].size();
-    dn += k.dense->large[neg].size();
-  }
+  const uint64_t dp = seed_literal_occurrences(k, pos);
+  const uint64_t dn = seed_literal_occurrences(k, neg);
   both_polarities = dp && dn;
   return dp + dn;
 }
@@ -261,17 +270,29 @@ void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
   // last; kissat drops both classes, but ranking them to the back keeps
   // `instances()` total (N1, rule-dev §instances). Rank computed once per
   // variable, since a recomputing comparator walks four watch lists per call.
-  std::vector<std::pair<uint64_t, Var>> ranked;
+  struct RankedSeed {
+    uint64_t degree;
+    uint64_t import_order;
+    Var var;
+  };
+  std::vector<RankedSeed> ranked;
   ranked.reserve(out.size());
   for (const Var v : out) {
     bool both = false;
     const uint64_t d = seed_degree(k, v, both);
-    ranked.emplace_back(both ? d : UINT64_MAX, v);
+    ranked.push_back(
+        {both ? d : UINT64_MAX, kernel_import_var_order(k, v), v});
   }
-  // `std::sort` suffices: the pair's second component breaks every tie.
-  std::sort(ranked.begin(), ranked.end());
+  std::sort(ranked.begin(), ranked.end(), [](const RankedSeed &a,
+                                             const RankedSeed &b) {
+    if (a.degree != b.degree)
+      return a.degree < b.degree;
+    if (a.import_order != b.import_order)
+      return a.import_order < b.import_order;
+    return a.var < b.var;
+  });
   for (size_t i = 0; i < ranked.size(); i++)
-    out[i] = ranked[i].second;
+    out[i] = ranked[i].var;
 }
 
 static bool sweep_schedulable(const Kernel &k, Var v,
@@ -279,11 +300,8 @@ static bool sweep_schedulable(const Kernel &k, Var v,
   if (v >= k.nvars || root_fixed(k, v) || kernel_var_retired(k, v))
     return false;
   const Lit pos = make_lit(v, false), neg = make_lit(v, true);
-  uint64_t dp = k.watches.size(pos), dn = k.watches.size(neg);
-  if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
-    dp += k.dense->large[pos].size();
-    dn += k.dense->large[neg].size();
-  }
+  const uint64_t dp = seed_literal_occurrences(k, pos);
+  const uint64_t dn = seed_literal_occurrences(k, neg);
   return dp && dn && dp <= lim.max_env_clauses &&
          dn <= lim.max_env_clauses;
 }
@@ -298,14 +316,17 @@ static uint32_t grown_limit(uint32_t base, uint32_t reference_max,
 }
 
 static void sweep_completed_limits(Kernel &k, SweepLimits &lim) {
-  lim.max_env_vars =
-      grown_limit(lim.max_env_vars, 8192, k.sweep_passes_completed);
-  lim.max_env_clauses =
-      grown_limit(lim.max_env_clauses, 32768, k.sweep_passes_completed);
+  lim.max_env_vars = grown_limit(lim.max_env_vars,
+                                 lim.max_env_vars_ceiling,
+                                 k.sweep_passes_completed);
+  lim.max_env_clauses = grown_limit(lim.max_env_clauses,
+                                    lim.max_env_clauses_ceiling,
+                                    k.sweep_passes_completed);
   const uint64_t depth =
       static_cast<uint64_t>(lim.max_depth) + k.sweep_passes_completed;
   lim.max_depth = static_cast<uint32_t>(
-      std::min(depth, static_cast<uint64_t>(std::max(lim.max_depth, 3u))));
+      std::min(depth, static_cast<uint64_t>(
+                          std::max(lim.max_depth, lim.max_depth_ceiling))));
   k.stats.sweep_limit_vars = lim.max_env_vars;
   k.stats.sweep_limit_clauses = lim.max_env_clauses;
   k.stats.sweep_limit_depth = lim.max_depth;
@@ -330,8 +351,17 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
       k.stats.sweep_ticks += words;
       ref += words;
     }
-    r.occ = &r.occ_owned;
+  r.occ = &r.occ_owned;
   }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  for (Var v = 0; v < k.nvars; v++) {
+    uint32_t ordinal = 0;
+    for (uint32_t sign = 0; sign < 2; sign++)
+      for (const WatchEntry w : k.watches.entries(make_lit(v, sign != 0)))
+        if (w.binary())
+          event_trace_sweep_watch(k, v, ordinal++, w.other());
+  }
+#endif
   r.repr.resize(2 * k.nvars);
   for (Lit l = 0; l < 2 * k.nvars; l++)
     r.repr[l] = l; // O(nlits) once per ROUND, never per environment
@@ -340,6 +370,7 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   // `idx`), so it must be reset with it: clearing one and not the other leaves
   // every later pair reading the previous round's refutation.
   r.proofs.clear();
+  r.units.clear();
 }
 
 bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
@@ -356,12 +387,15 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   // sweep_binary/sweep_reference). `vars` doubles as the BFS queue, appended in
   // non-decreasing depth; fixed variables carry UINT32_MAX, so the frontier
   // never expands through one.
-  for (uint32_t i = 0; i < e.vars.size() && !r.budget.over(k, ticks); i++) {
+  bool limit_reached = false;
+  for (uint32_t i = 0; i < e.vars.size() && !limit_reached; i++) {
+    if (e.nclauses() >= lim.max_env_clauses)
+      break;
     const uint32_t d = e.depth[i];
-    if (d > lim.max_depth)
-      continue;
+    if (d && d >= lim.max_depth)
+      break;
     const Var v = e.vars[i];
-    for (uint32_t pol = 0; pol < 2 && !r.budget.over(k, ticks); pol++) {
+    for (uint32_t pol = 0; pol < 2 && !limit_reached; pol++) {
       const Lit l = make_lit(v, pol != 0);
       ticks += k.watches.size(l);
       for (const WatchEntry w : k.watches.entries(l)) {
@@ -373,25 +407,38 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
         const Lit pair[2] = {l, o};
         env_add_clause(k, e, pair, 2, kernel_binary_key(l, o),
                        kernel_binary_id(k, l, o), d + 1, lim, &ticks);
-      }
-      for (const Ref ref : (*r.occ)[l]) {
-        // The occurrence walk is the unbounded term: `max_env_vars` stops the
-        // environment growing long before this list ends. Poll here, not
-        // merely between seeds.
-        if (r.budget.over(k, ticks))
+        if (e.vars.size() >= lim.max_env_vars) {
+          limit_reached = true;
           break;
+        }
+      }
+      if (limit_reached)
+        break;
+      for (const Ref ref : (*r.occ)[l]) {
+        // Scan work remains diagnostic; Kissat spends the embedded-solver tick
+        // currency and bounds the resulting environment structurally.
         ticks += 1;
-        const Clause *c = clause_at(k.arena, ref);
+        Clause *c = clause_at(k.arena, ref);
         if (c->garbage() || c->redundant())
           continue; // the index may hold stale refs (OccIndex contract)
         bool satisfied = false;
         for (const Lit m : *c)
           satisfied = satisfied || k.values[m] > 0;
         ticks += c->size;
-        if (satisfied)
+        if (satisfied) {
+          // Kissat `sweep_reference` retires a root-satisfied large clause as
+          // soon as the dense traversal encounters it. Merely skipping it
+          // leaves a different live formula and changes which later clauses
+          // fit into capped environments (the seed-89 startup divergence).
+          kernel_delete_clause(k, c);
           continue;
+        }
         env_add_clause(k, e, c->begin(), c->size, KEY_LARGE | ref, c->id(),
                        d + 1, lim, &ticks);
+        if (e.vars.size() >= lim.max_env_vars) {
+          limit_reached = true;
+          break;
+        }
       }
     }
   }
@@ -419,6 +466,28 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
   }
   return e.nclauses() > 0;
 }
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+static uint64_t sweep_trace_mix(uint64_t x) {
+  x += 0x9e3779b97f4a7c15ull;
+  x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9ull;
+  x = (x ^ (x >> 27)) * 0x94d049bb133111ebull;
+  return x ^ (x >> 31);
+}
+
+static uint64_t sweep_environment_hash(const Kernel &k, const SweepEnv &e) {
+  uint64_t result = 0;
+  for (uint32_t i = 0; i < e.nclauses(); i++) {
+    const uint32_t begin = e.clause_off[i], end = e.clause_off[i + 1];
+    uint64_t clause = sweep_trace_mix(end - begin);
+    for (uint32_t j = begin; j < end; j++)
+      clause += sweep_trace_mix(static_cast<uint64_t>(
+          static_cast<int64_t>(kernel_externalize(k, e.clause_lits[j]))));
+    result += sweep_trace_mix(clause);
+  }
+  return result;
+}
+#endif
 
 namespace {
 
@@ -469,10 +538,10 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   if (d.steps.size() > SWEEP_MAX_PROOF_STEPS)
     return; // pathological: decline rather than allocate without bound
   const std::vector<SubLit> &tl = d.steps.back().lits;
-  if (tl.size() != 2)
-    return; // a unit target is a stronger fact and a different proof delta
+  if (tl.empty() || tl.size() > 2)
+    return;
   out.t0 = sweep_kernel_lit(e.vars, tl[0]);
-  out.t1 = sweep_kernel_lit(e.vars, tl[1]);
+  out.t1 = tl.size() == 2 ? sweep_kernel_lit(e.vars, tl[1]) : INVALID_LIT;
   out.steps = std::move(d.steps);
   out.orig_ids = e.clause_ids;
   out.strip_ids = e.strip_ids;
@@ -507,6 +576,39 @@ static void partition_refine(SweepRound &r) {
   r.partition = std::move(next);
 }
 
+static void backbone_refine(SweepRound &r) {
+  SweepEnv &e = r.env;
+  size_t keep = 0;
+  for (const Lit lit : r.backbone)
+    if (model_value(e, e.solver.model(), lit) > 0)
+      r.backbone[keep++] = lit;
+  r.backbone.resize(keep);
+}
+
+static void backbone_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
+  SweepEnv &e = r.env;
+  for (uint32_t round = 0; round < lim.flip_rounds; round++) {
+    uint32_t flipped = 0;
+    size_t keep = 0;
+    for (const Lit lit : r.backbone) {
+      k.stats.sweep_backbone_candidates++;
+      const SubLit sl = sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
+      if (e.solver.flip_model_literal(sl)) {
+        k.stats.sweep_backbone_flipped++;
+        flipped++;
+      } else {
+        r.backbone[keep++] = lit;
+      }
+      if (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks)
+        break;
+    }
+    r.backbone.resize(keep);
+    if (!flipped ||
+        (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
+      break;
+  }
+}
+
 static void partition_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   SweepEnv &e = r.env;
   for (uint32_t round = 0; round < lim.flip_rounds; round++) {
@@ -523,18 +625,19 @@ static void partition_flip(Kernel &k, const SweepLimits &lim, SweepRound &r) {
         } else {
           c[keep++] = l;
         }
-        if (lim.env_ticks && e.solver.ticks() > lim.env_ticks)
+        if (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks)
           break;
       }
       c.resize(keep);
-      if (lim.env_ticks && e.solver.ticks() > lim.env_ticks)
+      if (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks)
         break;
     }
     r.partition.erase(
         std::remove_if(r.partition.begin(), r.partition.end(),
                        [](const auto &c) { return c.size() < 2; }),
         r.partition.end());
-    if (!flipped || (lim.env_ticks && e.solver.ticks() > lim.env_ticks))
+    if (!flipped ||
+        (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
       break;
   }
 }
@@ -544,22 +647,53 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
   SweepEnv &e = r.env;
   r.partition.clear();
   r.partition.emplace_back();
+  r.backbone.clear();
   auto &initial = r.partition.back();
   for (const Var v : e.vars) {
     if (root_fixed(k, v) || kernel_var_retired(k, v))
       continue;
     const uint32_t u = e.sub_of_var[v];
     const Lit l = make_lit(v, e.solver.model()[u] < 0);
-    if (repr_find(r, l) == l)
+    if (repr_find(r, l) == l) {
       initial.push_back(l);
+      r.backbone.push_back(l);
+    }
   }
   if (initial.size() < 2)
     r.partition.clear();
   k.stats.sweep_cand_seeded += partition_size(r);
+
+  std::vector<SubLit> &assumptions = r.assumptions;
+  backbone_flip(k, lim, r);
+  while (!r.backbone.empty()) {
+    const Lit lit = r.backbone.back();
+    r.backbone.pop_back();
+    assumptions = {sub_lit(e.sub_of_var[var_of(lit)], !negated(lit))};
+    k.stats.sweep_solves++;
+    const SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
+    if (res == SubResult::Budget) {
+      k.stats.sweep_budget++;
+      break;
+    }
+    if (res == SubResult::Sat) {
+      k.stats.sweep_dir_sat++;
+      backbone_refine(r);
+      partition_refine(r);
+      backbone_flip(k, lim, r);
+      continue;
+    }
+    k.stats.sweep_dir_unsat++;
+    SweepUnitProof unit;
+    unit.unit = lit;
+    sweep_capture_dir(e, unit.proof);
+    if (unit.proof.ok && unit.proof.t0 == lit &&
+        unit.proof.t1 == INVALID_LIT)
+      r.units.push_back(std::move(unit));
+  }
+
   partition_flip(k, lim, r);
 
   uint32_t found = 0, solved = 0;
-  std::vector<SubLit> &assumptions = r.assumptions;
   while (!r.partition.empty() && solved < lim.max_candidates) {
     partition_refine(r);
     if (r.partition.empty())
@@ -572,13 +706,39 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
       continue;
     }
 
+    // Kissat first asks the current model whether either endpoint can be
+    // flipped. A successful flip disproves this candidate pair without a SAT
+    // query and removes that endpoint from the live class.
+    const auto flip_candidate = [&](Lit lit) {
+      k.stats.sweep_flip_attempts++;
+      const SubLit sl = sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
+      if (!e.solver.flip_model_literal(sl))
+        return false;
+      k.stats.sweep_flipped++;
+      return true;
+    };
+    if (flip_candidate(a)) {
+      if (c.size() == 2)
+        r.partition.pop_back();
+      else
+        c.erase(c.end() - 2);
+      continue;
+    }
+    if (flip_candidate(b)) {
+      if (c.size() == 2)
+        r.partition.pop_back();
+      else
+        c.pop_back();
+      continue;
+    }
+
     SweepPairProof pair;
     assumptions = {sub_lit(e.sub_of_var[var_of(a)], negated(a)),
                    sub_lit(e.sub_of_var[var_of(b)], !negated(b))};
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
-    SubResult res = e.solver.solve(assumptions, lim.env_ticks);
+    SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -600,7 +760,7 @@ static uint32_t detect_full_partition(Kernel &k, const SweepLimits &lim,
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
-    res = e.solver.solve(assumptions, lim.env_ticks);
+    res = sweep_solve(e, assumptions, lim.env_ticks);
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -634,8 +794,17 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   if (repr_find(r, seed_lit) != seed_lit)
     return 0; // already merged into a class this round: its sweep is that
               // class representative's (kissat schedule_inner)
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_sweep_seed(k, seed);
+#endif
   if (!sweep_env_build(k, seed, lim, r))
     return 0;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_sweep_environment(k, seed, static_cast<uint32_t>(e.vars.size()),
+                                e.nclauses(), sweep_environment_hash(k, e));
+  for (uint32_t i = 0; i < e.vars.size(); i++)
+    event_trace_sweep_environment_var(k, seed, i, e.vars[i], e.depth[i]);
+#endif
   if (e.vars.size() < 2 || e.nclauses() < 2)
     return 0; // nothing to be equivalent TO
   k.stats.sweep_environments++;
@@ -660,11 +829,11 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
   std::vector<SubLit> &assumptions = r.assumptions;
   assumptions.clear();
   k.stats.sweep_solves++;
-  SubResult res = e.solver.solve(assumptions, lim.env_ticks);
+  SubResult res = sweep_solve(e, assumptions, lim.env_ticks);
   if (res == SubResult::Budget) {
     k.stats.sweep_budget++;
-    k.stats.sweep_ticks += e.solver.ticks();
-    k.stats.sweep_ticks_sub += e.solver.ticks();
+    k.stats.sweep_ticks += e.solver.kitten_ticks();
+    k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
     return 0;
   }
   if (res == SubResult::Unsat) {
@@ -673,15 +842,15 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     // nothing — the same reason there is no backbone half: those root units are
     // V1 Probe / V2 Backbone's proof delta.
     k.stats.sweep_env_unsat++;
-    k.stats.sweep_ticks += e.solver.ticks();
-    k.stats.sweep_ticks_sub += e.solver.ticks();
+    k.stats.sweep_ticks += e.solver.kitten_ticks();
+    k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
     return 0;
   }
 
   if (lim.full_partition) {
     const uint32_t found = detect_full_partition(k, lim, r);
-    k.stats.sweep_ticks += e.solver.ticks();
-    k.stats.sweep_ticks_sub += e.solver.ticks();
+    k.stats.sweep_ticks += e.solver.kitten_ticks();
+    k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
     return found;
   }
 
@@ -735,7 +904,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
-    res = e.solver.solve(assumptions, lim.env_ticks);
+    res = sweep_solve(e, assumptions, lim.env_ticks);
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -768,7 +937,7 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     solved++;
     k.stats.sweep_candidates++;
     k.stats.sweep_solves++;
-    res = e.solver.solve(assumptions, lim.env_ticks);
+    res = sweep_solve(e, assumptions, lim.env_ticks);
     if (res == SubResult::Budget) {
       k.stats.sweep_budget++;
       break;
@@ -790,8 +959,8 @@ uint32_t sweep_detect_seed(Kernel &k, Var seed, const SweepLimits &lim,
     repr_unite(r, seed_lit, y);
     r.candidates.pop_back();
   }
-  k.stats.sweep_ticks += e.solver.ticks();
-  k.stats.sweep_ticks_sub += e.solver.ticks();
+  k.stats.sweep_ticks += e.solver.kitten_ticks();
+  k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
   return found;
 }
 
@@ -801,28 +970,79 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   k.stats.sweep_rounds++;
   sweep_round_begin(k, r);
   sweep_seeds(k, r.seeds);
-  const uint64_t start = k.stats.sweep_ticks;
-  // The between-seeds check is unconditional; `budget` carries the same ceiling
-  // into `sweep_env_build`, so one seed cannot outspend the round before the
-  // next check. `enforce_in_env=0` reverts only the inner poll.
-  r.budget.start = start;
-  r.budget.limit = lim.enforce_in_env ? lim.round_ticks : 0;
+  const uint64_t start = k.stats.sweep_ticks_sub;
   uint32_t found = 0, seeds = 0;
   for (const Var v : r.seeds) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
-    if (lim.round_ticks && k.stats.sweep_ticks - start > lim.round_ticks)
+    if (lim.round_ticks &&
+        k.stats.sweep_ticks_sub - start > lim.round_ticks)
       break;
     seeds++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const uint64_t before = k.stats.sweep_ticks_sub;
+    const uint64_t solves_before = k.stats.sweep_solves;
+    const uint32_t external = static_cast<uint32_t>(
+        kernel_externalize(k, make_lit(v, false)));
+#endif
     found += sweep_detect_seed(k, v, lim, r);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const uint64_t spent = k.stats.sweep_ticks_sub - before;
+    if (spent)
+      event_trace_sweep_effort(k, external, spent, r.env.solver.ticks(),
+                               k.stats.sweep_solves - solves_before);
+#endif
   }
   return found;
 }
 
-static uint32_t sweep_detect_resumable(Kernel &k, SweepLimits lim,
-                                       SweepRound &r) {
+namespace {
+ApplyResult sweep_emit_round(Kernel &, SweepRound &, uint32_t);
+
+// Kissat's `schedule_inner` moves each newly substituted equivalence
+// representative to the pop end of the live schedule.  Since representatives
+// are scheduled in discovery order, the last one becomes the next seed.  The
+// stable-external tail is the same stack written forwards: remove any stale
+// occurrence, then insert each representative at the consumed boundary.
+static void sweep_reschedule_representatives(
+    Kernel &k, const std::vector<std::pair<Var, Var>> &external_pairs) {
+  std::vector<Var> representatives;
+  for (const auto &pair : external_pairs) {
+    Var representative = INVALID_VAR;
+    for (const Var external : {pair.first, pair.second}) {
+      if (external >= k.external_to_internal.size())
+        continue;
+      const Var internal = k.external_to_internal[external];
+      if (internal == INVALID_VAR || kernel_var_retired(k, internal))
+        continue;
+      if (representative != INVALID_VAR) {
+        representative = INVALID_VAR; // no substitution actually landed
+        break;
+      }
+      representative = external;
+    }
+    if (representative == INVALID_VAR ||
+        std::find(representatives.begin(), representatives.end(),
+                  representative) != representatives.end())
+      continue;
+    representatives.push_back(representative);
+  }
+  for (const Var representative : representatives) {
+    const auto begin = k.sweep_tail.begin() + k.sweep_tail_next;
+    const auto found = std::find(begin, k.sweep_tail.end(), representative);
+    if (found != k.sweep_tail.end())
+      k.sweep_tail.erase(found);
+    k.sweep_tail.insert(k.sweep_tail.begin() + k.sweep_tail_next,
+                        representative);
+    k.stats.sweep_rescheduled++;
+  }
+}
+}
+
+static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
+                                         SweepRound &r) {
   if (!sweep_guard(k))
-    return 0;
+    return ApplyResult::NoOp;
   k.stats.sweep_rounds++;
   sweep_completed_limits(k, lim);
   sweep_round_begin(k, r);
@@ -838,14 +1058,14 @@ static uint32_t sweep_detect_resumable(Kernel &k, SweepLimits lim,
     k.stats.sweep_scheduled += k.sweep_tail.size();
   }
 
-  const uint64_t start = k.stats.sweep_ticks;
-  r.budget.start = start;
-  r.budget.limit = lim.enforce_in_env ? lim.round_ticks : 0;
-  uint32_t found = 0, seeds = 0;
+  const uint64_t start = k.stats.sweep_ticks_sub;
+  uint32_t seeds = 0;
+  ApplyResult result = ApplyResult::NoOp;
   while (k.sweep_tail_next < k.sweep_tail.size()) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
-    if (lim.round_ticks && k.stats.sweep_ticks - start > lim.round_ticks)
+    if (lim.round_ticks &&
+        k.stats.sweep_ticks_sub - start > lim.round_ticks)
       break;
     const Var external = k.sweep_tail[k.sweep_tail_next++];
     if (external >= k.external_to_internal.size())
@@ -856,7 +1076,38 @@ static uint32_t sweep_detect_resumable(Kernel &k, SweepLimits lim,
     if (retained)
       k.stats.sweep_resumed++;
     seeds++;
-    found += sweep_detect_seed(k, v, lim, r);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const uint64_t before = k.stats.sweep_ticks_sub;
+    const uint64_t solves_before = k.stats.sweep_solves;
+#endif
+    const uint32_t found = sweep_detect_seed(k, v, lim, r);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const uint64_t spent = k.stats.sweep_ticks_sub - before;
+    if (spent)
+      event_trace_sweep_effort(k, external + 1, spent, r.env.solver.ticks(),
+                               k.stats.sweep_solves - solves_before);
+#endif
+    std::vector<std::pair<Var, Var>> external_pairs;
+    external_pairs.reserve(r.found.size());
+    for (const SweepEquiv &e : r.found)
+      external_pairs.emplace_back(k.internal_to_external[var_of(e.a)],
+                                  k.internal_to_external[var_of(e.b)]);
+    const ApplyResult emitted = sweep_emit_round(k, r, found);
+    if (emitted == ApplyResult::Unsat)
+      return emitted;
+    if (emitted == ApplyResult::Ok) {
+      result = ApplyResult::Ok;
+      sweep_reschedule_representatives(k, external_pairs);
+      // Kissat applies every swept variable's core/equivalence consequences
+      // before building the next environment. At minimum the new units and
+      // binary implications must reach their root fixpoint here; batching the
+      // whole schedule misclassifies later backbones as equivalences.
+      if (inprocess_reach_root(k))
+        return ApplyResult::Unsat;
+    }
+    r.found.clear();
+    r.proofs.clear();
+    r.units.clear();
   }
   if (k.sweep_tail_next == k.sweep_tail.size()) {
     k.sweep_tail.clear();
@@ -864,11 +1115,10 @@ static uint32_t sweep_detect_resumable(Kernel &k, SweepLimits lim,
     k.sweep_passes_completed++;
     k.stats.sweep_completed++;
   }
-  return found;
+  return result;
 }
 
-SweepLimits sweep_limits_from_env() {
-  SweepLimits lim;
+SweepLimits sweep_limits_from_env(SweepLimits lim) {
   const auto u32 = [](const char *name, uint32_t &slot) {
     if (const char *s = std::getenv(name))
       slot = static_cast<uint32_t>(std::strtoul(s, nullptr, 10));
@@ -885,8 +1135,6 @@ SweepLimits sweep_limits_from_env() {
   u32("TACTIX_SWEEP_SEEDS", lim.max_seeds);
   u64("TACTIX_SWEEP_TICKS", lim.env_ticks);
   u64("TACTIX_SWEEP_ROUND_TICKS", lim.round_ticks);
-  if (const char *s = std::getenv("TACTIX_SWEEP_ENV_BUDGET"))
-    lim.enforce_in_env = std::strtoul(s, nullptr, 10) != 0;
   if (const char *s = std::getenv("TACTIX_SWEEP_STRIP"))
     lim.strip_false = std::strtoul(s, nullptr, 10) != 0;
   if (const char *s = std::getenv("TACTIX_SWEEP_CLOSURE"))
@@ -1022,11 +1270,35 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
   return true;
 }
 
+static bool sweep_emit_unit(Kernel &k, Lit unit) {
+  if (k.value(unit) > 0)
+    return false;
+  if (k.value(unit) < 0)
+    return false; // the caller's consistent environment cannot prove this
+  std::vector<uint64_t> chain;
+  if (!congruence_replay_rup(k, &unit, 1, chain))
+    return false;
+  const uint64_t id = ++k.next_clause_id;
+  if (k.proof) {
+    const bool lrat = k.proof->lrat();
+    k.proof->add_rup(lrat ? id : 0, &unit, 1,
+                     lrat ? chain.data() : nullptr,
+                     lrat ? static_cast<uint32_t>(chain.size()) : 0);
+  }
+  k.unit_ids[var_of(unit)] = id;
+  kernel_assign_unit(k, unit);
+  k.stats.sweep_units++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_sweep_unit(k, unit);
+#endif
+  return true;
+}
+
 namespace {
 // Emission, shared by the canonical round and the per-seed instance so the two
 // cannot drift in what they are willing to write.
 ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
-  if (!found)
+  if (!found && round.units.empty())
     return ApplyResult::NoOp;
   // A refuted environment means F itself is UNSAT; detection records it and the
   // caller re-derives it through the normal root path rather than here, so this
@@ -1040,7 +1312,10 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
   // (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`).
   const bool force_general = std::getenv("TACTIX_SWEEP_FORCE_GENERAL") != nullptr;
   std::vector<uint64_t> chain_fwd, chain_rev;
+  std::vector<std::pair<Lit, Lit>> emitted_equivalences;
   bool any = false;
+  for (const SweepUnitProof &unit : round.units)
+    any |= sweep_emit_unit(k, unit.unit);
   size_t idx = SIZE_MAX;
   for (const SweepEquiv &e : round.found) {
     idx++;
@@ -1061,6 +1336,10 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
     if (!force_general &&
         sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev)) {
       any = true; // RUP over F, the cheap case
+      emitted_equivalences.emplace_back(e.a, e.b);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_equivalence(k, e.a, e.b);
+#endif
       continue;
     }
     k.stats.sweep_not_rup++;
@@ -1086,13 +1365,24 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
         sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, false)) {
       k.stats.sweep_general++;
       any = true;
+      emitted_equivalences.emplace_back(e.a, e.b);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_equivalence(k, e.a, e.b);
+#endif
     }
+  }
+  if (!emitted_equivalences.empty()) {
+    const ApplyResult substituted =
+        substitute_apply_equivalences(k, emitted_equivalences);
+    if (substituted == ApplyResult::Unsat)
+      return substituted;
+    any |= substituted == ApplyResult::Ok;
   }
   return any ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 } // namespace
 
-ApplyResult sweep_apply(Kernel &k) {
+ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   // TACTIX_NO_SWEEP: diagnostic kill switch, so a fuzz leg can run with V5
   // inert. It stays because Sweep shares the RUP-replay primitive with
   // Congruence, and a crash inside that primitive is otherwise unattributable
@@ -1112,16 +1402,20 @@ ApplyResult sweep_apply(Kernel &k) {
   if (k.level != 0 || k.conflict_valid)
     return ApplyResult::NoOp;
   SweepRound round;
-  SweepLimits lim = sweep_limits_from_env();
+  SweepLimits lim = sweep_limits_from_env(base);
   // Honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
   // which is right for the diagnostic probe and catastrophic for a scheduled
   // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
   if (k.work_budget)
     lim.round_ticks = k.work_budget;
-  const uint32_t found = k.sweep_resume
-                             ? sweep_detect_resumable(k, lim, round)
-                             : sweep_detect_round(k, lim, round);
+  if (k.sweep_resume)
+    return sweep_apply_resumable(k, lim, round);
+  const uint32_t found = sweep_detect_round(k, lim, round);
   return sweep_emit_round(k, round, found);
+}
+
+ApplyResult sweep_apply(Kernel &k) {
+  return sweep_apply_with_limits(k, SweepLimits{});
 }
 
 

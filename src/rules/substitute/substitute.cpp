@@ -621,6 +621,52 @@ ApplyResult substitute_apply(Kernel &k) {
   return do_substitution(k, r, sub);
 }
 
+ApplyResult substitute_apply_equivalences(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences) {
+  if (equivalences.empty())
+    return ApplyResult::NoOp;
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  k.stats.substitute_rounds++;
+  SccResult r = substitute_find_sccs(k);
+  if (r.contradiction) {
+    assert(r.contradiction_lit != INVALID_LIT);
+    emit_unsat(k, r.contradiction_lit);
+    return ApplyResult::Unsat;
+  }
+  k.stats.substitute_sccs += r.nontrivial_reps.size();
+  std::vector<uint8_t> sub(2 * k.nvars, 0);
+  for (const auto &eq : equivalences) {
+    const Lit a = eq.first, b = eq.second;
+    if (a >= r.repr.size() || b >= r.repr.size())
+      continue;
+    const Lit rep = r.repr[a];
+    if (rep == INVALID_LIT || r.repr[b] != rep)
+      continue; // the supplied binaries no longer state a live SCC class
+    const Lit mirror = r.repr[negate(a)];
+    for (Lit l = 0; l < static_cast<Lit>(r.repr.size()); l++)
+      if (r.repr[l] != INVALID_LIT && r.repr[l] != l &&
+          (r.repr[l] == rep || r.repr[l] == mirror)) {
+        if (!sub[l])
+          k.stats.substitute_scc_lits++;
+        sub[l] = 1;
+      }
+  }
+  if (std::none_of(sub.begin(), sub.end(), [](uint8_t marked) {
+        return marked != 0;
+      }))
+    return ApplyResult::NoOp;
+  // This path implements Kissat Sweep's connected-clause rewrite. Do not let
+  // DefaultPolicy's CaDiCaL-style VMTF arena pose reorder the whole formula at
+  // the helper's garbage collection boundary; ordinary Substitute retains
+  // that policy, while Sweep preserves the live arena traversal it inherited.
+  ArenaOrdering *const saved_order = k.arena_ordering;
+  k.arena_ordering = nullptr;
+  const ApplyResult result = do_substitution(k, r, sub);
+  k.arena_ordering = saved_order;
+  return result;
+}
+
 // Instance surface: payload = an SCC representative literal. A single instance
 // substitutes the requested class — the SCC with representative `rep` and its
 // mirror ¬rep — so both polarities of every member variable go together.

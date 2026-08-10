@@ -30,6 +30,15 @@ static void test_tumble_preserves_file_literal_order() {
   assert(parse_dimacs(file, k) == nullptr);
   std::fclose(file);
 
+  // Kissat imports variables before it recognizes a tautology, so 5 and 4
+  // still occupy their first-occurrence positions even though that clause is
+  // discarded.  Header-only variables would follow this imported prefix.
+  const std::vector<Var> expected_import_order = {2, 0, 1, 4, 3, 5, 6};
+  for (uint32_t rank = 0; rank < expected_import_order.size(); rank++)
+    assert(kernel_import_var_order(k, expected_import_order[rank]) == rank);
+  assert(kernel_import_lit_order(k, internalize(5)) + 1 ==
+         kernel_import_lit_order(k, internalize(-5)));
+
   assert(k.stats.tumble_seeded == 6);
   const std::vector<Var> expected_queue = {4, 2, 0, 1, 5, 3, 6};
   std::vector<Var> queue;

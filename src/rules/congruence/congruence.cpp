@@ -1293,6 +1293,7 @@ ApplyResult congruence_apply(Kernel &k) {
   const uint64_t apply_t0 = cong_time ? now_nanos() : 0; // in-flight, for the print
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
+  kernel_canonicalize_binary_watches(k);
   k.stats.congruence_rounds++;
   if (cong_probe)
     cong_root_in = kernel_root_fixed(k);

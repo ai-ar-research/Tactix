@@ -435,6 +435,9 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.strengthened,
            (unsigned long long)kernel.stats.strengthen_subsumed,
            (unsigned long long)kernel.stats.flushed);
+    printf("c sparsecol   %llu runs, %llu clauses\n",
+           (unsigned long long)kernel.stats.sparse_collections,
+           (unsigned long long)kernel.stats.sparse_collected);
     // `vivified` here counts strengthened clauses only, so it is not comparable
     // to kissat's counter of the same name, an aggregate (statistics.h:247)
     // over subsumed, promoted, shrunken, implied, asym and instantiated.
@@ -511,14 +514,15 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.instantiated,
            (unsigned long long)kernel.stats.instantiate_checked);
     printf("c sweep       %llu rounds, %llu environments (%llu clauses), "
-           "%llu solves, %llu candidates, %llu equivalences (%llu already "
-           "binary), %llu env-unsat, %llu budget, %llu ticks\n",
+           "%llu solves, %llu candidates, %llu equivalences, %llu units "
+           "(%llu already binary), %llu env-unsat, %llu budget, %llu ticks\n",
            (unsigned long long)kernel.stats.sweep_rounds,
            (unsigned long long)kernel.stats.sweep_environments,
            (unsigned long long)kernel.stats.sweep_env_clauses,
            (unsigned long long)kernel.stats.sweep_solves,
            (unsigned long long)kernel.stats.sweep_candidates,
            (unsigned long long)kernel.stats.sweep_equivalences,
+           (unsigned long long)kernel.stats.sweep_units,
            (unsigned long long)kernel.stats.sweep_known,
            (unsigned long long)kernel.stats.sweep_env_unsat,
            (unsigned long long)kernel.stats.sweep_budget,
@@ -541,6 +545,9 @@ int main(int argc, char **argv) {
     printf("c sweepflip   %llu attempts, %llu successful\n",
            (unsigned long long)kernel.stats.sweep_flip_attempts,
            (unsigned long long)kernel.stats.sweep_flipped);
+    printf("c sweepback   %llu candidates, %llu flipped\n",
+           (unsigned long long)kernel.stats.sweep_backbone_candidates,
+           (unsigned long long)kernel.stats.sweep_backbone_flipped);
     printf("c sweepcost   %llu dedup ticks, %llu sub-solver ticks; closure "
            "%llu/%llu occurrences, %llu/%llu vars whole\n",
            (unsigned long long)kernel.stats.sweep_ticks_dedup,
@@ -555,9 +562,10 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_not_rup,
            (unsigned long long)kernel.stats.sweep_general,
            (unsigned long long)kernel.stats.sweep_strip_cited);
-    printf("c sweepsched  %llu scheduled, %llu resumed, %llu completed, "
-           "%zu tail; limits %u vars, %u clauses, depth %u\n",
+    printf("c sweepsched  %llu scheduled, %llu rescheduled, %llu resumed, "
+           "%llu completed, %zu tail; limits %u vars, %u clauses, depth %u\n",
            (unsigned long long)kernel.stats.sweep_scheduled,
+           (unsigned long long)kernel.stats.sweep_rescheduled,
            (unsigned long long)kernel.stats.sweep_resumed,
            (unsigned long long)kernel.stats.sweep_completed,
            kernel.sweep_tail.size() - kernel.sweep_tail_next,
@@ -608,9 +616,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_gates_and,
            (unsigned long long)kernel.stats.congruence_gates_xor,
            (unsigned long long)kernel.stats.congruence_gates_ite);
-    printf("c congruence  %llu rounds, %llu gates, %llu merges, %llu units, "
-           "%llu unjustified, %llu ticks, %llu budget stops\n",
+    printf("c congruence  %llu rounds, %llu binary rebuilds, %llu gates, "
+           "%llu merges, %llu units, %llu unjustified, %llu ticks, "
+           "%llu budget stops\n",
            (unsigned long long)kernel.stats.congruence_rounds,
+           (unsigned long long)kernel.stats.congruence_binary_rebuilds,
            (unsigned long long)kernel.stats.congruence_gates,
            (unsigned long long)kernel.stats.congruence_merges,
            (unsigned long long)kernel.stats.congruence_units,

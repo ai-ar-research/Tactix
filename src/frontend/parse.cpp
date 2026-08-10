@@ -59,6 +59,8 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // that order across the set-semantics check below.  Do not publish it yet: a
   // tautology activates nothing and returns below.
   const std::vector<Lit> file_order = scratch;
+  for (const Lit l : file_order)
+    kernel_record_import(k, var_of(l));
   std::vector<Var> activation_order;
   if (k.tumble) {
     activation_order.reserve(scratch.size());
@@ -184,6 +186,11 @@ void finish_input(Kernel &k) {
   // Restatements are non-empty only when a proof was attached before the input;
   // attaching one later cannot be repaired, the input ids are already spent.
   assert(k.input_restatements.empty() || k.proof);
+  // A declared but unmentioned variable is absent from Kissat's import map.
+  // Tactix has already reserved it from the DIMACS header; rank it after every
+  // actually imported variable so it cannot perturb reference-ordered ties.
+  for (Var v = 0; v < k.nvars; v++)
+    kernel_record_import(k, v);
   std::vector<uint64_t> chain;
   for (const Kernel::InputRestatement &r : k.input_restatements) {
     const Lit *lits = k.input_restate_lits.data() + r.begin;

@@ -44,6 +44,17 @@ public:
   void target_save(const Kernel &);
   void phase_save(const Kernel &, Lit);
   void slot_boundary(const Kernel &, const char *name, const char *stage);
+  void sweep_seed(const Kernel &, Var);
+  void sweep_environment(const Kernel &, Var, uint32_t, uint32_t, uint64_t);
+  void sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t, uint64_t);
+  void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t);
+  void sweep_watch(const Kernel &, Var, uint32_t, Lit);
+  void sweep_equivalence(const Kernel &, Lit a, Lit b);
+  void sweep_unit(const Kernel &, Lit);
+  void factor_seed(const Kernel &, Lit, uint32_t score, uint32_t remainders);
+  void factor_grid(const Kernel &, Lit, uint32_t factors,
+                   uint32_t remainders, int delta);
+  void factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -91,6 +102,16 @@ public:
   void target_save(const Kernel &) {}
   void phase_save(const Kernel &, Lit) {}
   void slot_boundary(const Kernel &, const char *, const char *) {}
+  void sweep_seed(const Kernel &, Var) {}
+  void sweep_environment(const Kernel &, Var, uint32_t, uint32_t, uint64_t) {}
+  void sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t, uint64_t) {}
+  void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t) {}
+  void sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
+  void sweep_equivalence(const Kernel &, Lit, Lit) {}
+  void sweep_unit(const Kernel &, Lit) {}
+  void factor_seed(const Kernel &, Lit, uint32_t, uint32_t) {}
+  void factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int) {}
+  void factor_grid_member(const Kernel &, uint32_t, Lit) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -115,6 +136,22 @@ void event_trace_target_save(const Kernel &);
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_slot_boundary(const Kernel &, const char *name,
                                const char *stage);
+void event_trace_sweep_seed(const Kernel &, Var);
+void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
+                                   uint64_t);
+void event_trace_sweep_effort(const Kernel &, uint32_t external,
+                              uint64_t kitten_ticks, uint64_t entry_ticks,
+                              uint64_t solves);
+void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
+                                       uint32_t);
+void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
+void event_trace_sweep_equivalence(const Kernel &, Lit a, Lit b);
+void event_trace_sweep_unit(const Kernel &, Lit);
+void event_trace_factor_seed(const Kernel &, Lit, uint32_t score,
+                             uint32_t remainders);
+void event_trace_factor_grid(const Kernel &, Lit, uint32_t factors,
+                             uint32_t remainders, int delta);
+void event_trace_factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
@@ -130,6 +167,21 @@ inline void event_trace_target_save(const Kernel &) {}
 inline void event_trace_phase_save(const Kernel &, Lit) {}
 inline void event_trace_slot_boundary(const Kernel &, const char *,
                                       const char *) {}
+inline void event_trace_sweep_seed(const Kernel &, Var) {}
+inline void event_trace_sweep_environment(const Kernel &, Var, uint32_t,
+                                          uint32_t, uint64_t) {}
+inline void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t,
+                                     uint64_t, uint64_t) {}
+inline void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t,
+                                              Var, uint32_t) {}
+inline void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
+inline void event_trace_sweep_equivalence(const Kernel &, Lit, Lit) {}
+inline void event_trace_sweep_unit(const Kernel &, Lit) {}
+inline void event_trace_factor_seed(const Kernel &, Lit, uint32_t,
+                                    uint32_t) {}
+inline void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t,
+                                    int) {}
+inline void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit) {}
 #endif
 
 } // namespace tactix

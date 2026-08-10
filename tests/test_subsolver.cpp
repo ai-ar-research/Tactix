@@ -205,6 +205,21 @@ void test_budget_and_determinism() {
   build();
   const SubResult starved = s.solve({}, /*ticks=*/50);
   assert(starved == SubResult::Budget && "a starved solve must not conclude");
+
+  // Sweep uses Kissat Kitten's separate currency.  Loading an environment
+  // costs one Kitten tick per clause reference; the legacy entry counter does
+  // not charge clause creation.  Pin both that distinction and the fact that
+  // selecting the Kitten budget cannot silently fall back to `ticks()`.
+  build();
+  constexpr uint64_t original_clauses = pigeons + holes * pigeons * (pigeons - 1) / 2;
+  assert(s.kitten_ticks() == original_clauses);
+  assert(s.ticks() == 0);
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Unsat);
+  const uint64_t kitten_full = s.kitten_ticks();
+  assert(kitten_full > original_clauses);
+  build();
+  assert(s.solve({}, kitten_full / 2, SubTickMode::Kitten) ==
+         SubResult::Budget);
 }
 
 void test_model_flip() {

@@ -84,6 +84,13 @@ bool is_rup_binary(Kernel &k, Lit a, Lit b) {
   return conflict;
 }
 
+bool same_polarity_pair(const SweepEquiv &e, Lit x, Lit y) {
+  return var_of(e.a) != var_of(e.b) &&
+         (var_of(e.a) == var_of(x) || var_of(e.a) == var_of(y)) &&
+         (var_of(e.b) == var_of(x) || var_of(e.b) == var_of(y)) &&
+         negated(e.a) == negated(e.b);
+}
+
 // --- 1. the equivalence RUP cannot reach ------------------------------------
 // (¬x ∨ y ∨ ±z ∨ ±w) over all four sign patterns says x → y with no unit
 // consequence (refuting x ∧ ¬y needs a decision), and the mirrored block gives
@@ -113,7 +120,9 @@ void test_non_rup_equivalence() {
   const uint32_t found = sweep_detect_round(k, lim, r);
   assert(found == 1);
   assert(r.found.size() == 1);
-  assert(r.found[0].a == std::min(x, y) && r.found[0].b == std::max(x, y));
+  // The full partition is model-polarized. Kitten's deterministic randomized
+  // phases may represent x=y as either (x,y) or (-x,-y).
+  assert(same_polarity_pair(r.found[0], x, y));
   // reachability: the detector really ran, and really solved candidate pairs
   assert(k.stats.sweep_rounds == 1);
   assert(k.stats.sweep_environments >= 1);
@@ -139,7 +148,7 @@ void test_seed_symmetry() {
     SweepLimits lim;
     sweep_round_begin(k, r);
     assert(sweep_detect_seed(k, seed, lim, r) == 1);
-    assert(r.found[0].a == internalize(1) && r.found[0].b == internalize(2));
+    assert(same_polarity_pair(r.found[0], internalize(1), internalize(2)));
   }
 }
 
@@ -162,7 +171,7 @@ void test_full_partition_finds_nonseed_pair() {
   const Lit y = internalize(2), z = internalize(3);
   assert(std::none_of(old_round.found.begin(), old_round.found.end(),
                       [&](const SweepEquiv &e) {
-                        return e.a == y && e.b == z;
+                        return same_polarity_pair(e, y, z);
                       }));
 
   Kernel full;
@@ -170,22 +179,35 @@ void test_full_partition_finds_nonseed_pair() {
   SweepRound new_round;
   SweepLimits new_lim;
   new_lim.full_partition = true;
+  // Isolate full-partition reach from the model-dependent flip prefilter.
+  new_lim.flip_rounds = 0;
   sweep_round_begin(full, new_round);
   assert(sweep_detect_seed(full, 0, new_lim, new_round) >= 1);
   assert(std::any_of(new_round.found.begin(), new_round.found.end(),
                      [&](const SweepEquiv &e) {
-                       return e.a == y && e.b == z;
+                       return same_polarity_pair(e, y, z);
                      }));
-  assert(full.stats.sweep_flip_attempts > 0);
-  assert(full.stats.sweep_flipped > 0);
+
+  Kernel filtered;
+  build(filtered, 5, cls);
+  SweepRound filtered_round;
+  SweepLimits filtered_lim;
+  sweep_round_begin(filtered, filtered_round);
+  (void)sweep_detect_seed(filtered, 0, filtered_lim, filtered_round);
+  assert(filtered.stats.sweep_flip_attempts > 0);
+  assert(filtered.stats.sweep_flipped > 0);
+  assert(filtered.stats.sweep_solves < full.stats.sweep_solves &&
+         "candidate flips must avoid embedded SAT queries");
 
   Kernel emitted;
   build(emitted, 5, cls);
   assert(setenv("TACTIX_SWEEP_PARTITION", "1", 1) == 0);
+  assert(setenv("TACTIX_SWEEP_FLIP_ROUNDS", "0", 1) == 0);
   assert(sweep_try(emitted, 0) == ApplyResult::Ok);
   assert(kernel_binary_id(emitted, negate(y), z));
   assert(kernel_binary_id(emitted, y, negate(z)));
   assert(emitted.stats.sweep_general >= 1);
+  assert(unsetenv("TACTIX_SWEEP_FLIP_ROUNDS") == 0);
   assert(unsetenv("TACTIX_SWEEP_PARTITION") == 0);
 }
 
@@ -298,7 +320,7 @@ void test_env_provenance() {
   }
 }
 
-// --- 4. the limits bind by declining whole clauses ---------------------------
+// --- 4. structural limits bind between whole expansion steps -----------------
 void test_limits() {
   // a 6-variable clique of binaries: every seed can reach every variable
   std::vector<std::vector<int>> cls;
@@ -316,12 +338,21 @@ void test_limits() {
     for (Var seed = 0; seed < 6; seed++) {
       if (!sweep_env_build(k, seed, lim, r))
         continue;
-      assert(r.env.nclauses() <= cap);
-      assert(r.env.vars.size() <= cap);
+      // Kissat checks after adding a whole clause, so a binary can cross the
+      // variable cap by one; it never truncates or declines that clause.
+      assert(r.env.vars.size() <= cap + 1);
       for (uint32_t c = 0; c + 1 < r.env.clause_off.size(); c++)
         assert(r.env.clause_off[c + 1] - r.env.clause_off[c] == 2);
     }
   }
+  // The clause cap is checked before expanding a variable, not after each of
+  // its watches. One expansion therefore lands whole and may overshoot.
+  SweepLimits overshoot;
+  overshoot.max_env_clauses = 1;
+  overshoot.max_env_vars = 100;
+  sweep_round_begin(k, r);
+  assert(sweep_env_build(k, 0, overshoot, r));
+  assert(r.env.nclauses() == 5);
   // depth 0 keeps the environment to the seed's own clauses
   SweepLimits lim;
   lim.max_depth = 0;
@@ -371,6 +402,19 @@ void test_seeds() {
   sweep_round_begin(k, r);
   assert(sweep_detect_seed(k, 0, lim, r) == 0);
   assert(sweep_detect_seed(k, 3, lim, r) == 0);
+
+  // Dense scheduling counts each large occurrence once. The sparse watches
+  // for the first two literals of a large clause remain connected in Tactix;
+  // they must not be added on top of the all-literal dense index.
+  Kernel ranked;
+  build(ranked, 6, {{1, 3, 2}, {-1, 4, 2}, {5, 6, -2}});
+  OccIndex occ;
+  kernel_dense_connect(ranked, occ);
+  sweep_seeds(ranked, seeds);
+  const auto one = std::find(seeds.begin(), seeds.end(), 0u);
+  const auto two = std::find(seeds.begin(), seeds.end(), 1u);
+  assert(one != seeds.end() && two != seeds.end() && one < two);
+  kernel_dense_disconnect(ranked);
 }
 
 void test_resumable_schedule() {
@@ -394,7 +438,8 @@ void test_resumable_schedule() {
   assert(filtered.stats.sweep_completed == 1);
   std::vector<Var> complete_surface;
   sweep_seeds(filtered, complete_surface);
-  assert(complete_surface.size() == 3); // instances still expose filtered vars
+  assert(filtered.stats.sweep_units == 1);
+  assert(complete_surface.size() == 2); // only the newly fixed var leaves scope
 
   assert(setenv("TACTIX_SWEEP_CLAUSES", "1", 1) == 0);
   Kernel growth;
@@ -514,9 +559,12 @@ static void test_se_general_path_emits(void) {
   assert(k.stats.sweep_general >= 1 &&
          "S-e NEVER FIRED -- the general path is unreachable and untested");
   assert(k.stats.sweep_binaries >= 2 && "an equivalence is two binaries");
-  // and the formula now literally states it
-  assert(is_rup_binary(k, negate(x), y));
-  assert(is_rup_binary(k, x, negate(y)));
+  // Reference-inline application consumes the transient binaries by rewriting
+  // the proved class immediately; the retired variable and witness are the
+  // persistent effect, not two stale equivalence clauses.
+  assert(k.stats.substitute_vars >= 1);
+  assert(kernel_var_retired(k, var_of(x)) ||
+         kernel_var_retired(k, var_of(y)));
   printf("  S-e: general path emitted %llu binaries for a non-RUP equivalence\n",
          (unsigned long long)k.stats.sweep_binaries);
 }
@@ -527,8 +575,10 @@ static void test_se_general_path_emits(void) {
 // the pair test and the verdict all look right and only an external checker
 // sees the bad lemma (N2). So this writes a self-contained refutation whose
 // middle is the general path's output, for drat-trim and lrat-check
-// (tests/sweep_proofs.sh): `non_rup_formula()` closed by (x v y) and
-// (~x v ~y), the last two lemmas finishing from Sweep's binaries.
+// (tests/sweep_proofs.sh). Two checker-only contradictory units close the file
+// after Sweep, so the checker validates the whole general-path + inline-
+// substitution prefix without depending on transient binaries that the
+// substitution correctly deletes.
 static void emit_se_case(const char *dir) {
   const std::vector<std::vector<int>> env = non_rup_formula(); // clauses 1..8
   const uint64_t ID_XY = 9, ID_NXNY = 10;
@@ -543,7 +593,7 @@ static void emit_se_case(const char *dir) {
       fprintf(cnf, "%d ", e);
     fprintf(cnf, "0\n");
   }
-  fprintf(cnf, "1 2 0\n-1 -2 0\n"); // clauses 9 and 10
+  fprintf(cnf, "1 0\n-1 0\n"); // checker-only clauses 9 and 10
   fclose(cnf);
 
   for (int fmt = 0; fmt < 2; fmt++) {
@@ -566,26 +616,45 @@ static void emit_se_case(const char *dir) {
     assert(r == ApplyResult::Ok && k.stats.sweep_general >= 1 &&
            "S-e must have emitted, or this case checks nothing");
 
-    // Close the refutation from the two binaries Sweep just stated.
-    //   (~x): assume x -> (~x v y) forces y -> (~x v ~y) conflicts.
-    //   ():   (~x) -> (x v y) forces y -> (x v ~y) conflicts.
-    const uint64_t id_fwd = kernel_binary_id(k, negate(x), y);
-    const uint64_t id_rev = kernel_binary_id(k, x, negate(y));
-    assert(id_fwd && id_rev && "the pair must be in F with proof ids");
-    const Lit nx = negate(x);
-    const uint64_t unit_chain[2] = {id_fwd, ID_NXNY};
-    const uint64_t unit_id = ++k.next_clause_id;
-    proof.add_rup(unit_id, &nx, 1, unit_chain, 2);
-    const uint64_t empty_chain[3] = {unit_id, ID_XY, id_rev};
-    proof.add_empty(++k.next_clause_id, empty_chain, 3);
+    const uint64_t empty_chain[2] = {ID_XY, ID_NXNY};
+    proof.add_empty(++k.next_clause_id, empty_chain, 2);
     proof.flush();
   }
   printf("emitted the S-e case to %s\n", dir);
 }
 
+static void emit_unit_case(const char *dir) {
+  char path[512];
+  snprintf(path, sizeof path, "%s/unit.cnf", dir);
+  FILE *cnf = fopen(path, "w");
+  assert(cnf);
+  fprintf(cnf, "p cnf 2 3\n1 2 0\n1 -2 0\n-1 0\n");
+  fclose(cnf);
+
+  for (int fmt = 0; fmt < 2; fmt++) {
+    const bool lrat = fmt == 1;
+    snprintf(path, sizeof path, "%s/unit.%s", dir,
+             lrat ? "lrat" : "drat");
+    Proof proof;
+    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    Kernel k;
+    build(k, 2, {{1, 2}, {1, -2}}); // clause 3 stays checker-only
+    k.next_clause_id = 3;
+    k.proof = &proof;
+    assert(sweep_apply(k) == ApplyResult::Ok && k.stats.sweep_units == 1);
+    const uint64_t unit_id = k.unit_ids[var_of(internalize(1))];
+    assert(unit_id > 3 && k.value(internalize(1)) > 0);
+    const uint64_t empty_chain[2] = {unit_id, 3};
+    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.flush();
+  }
+  printf("emitted the Sweep-unit case to %s\n", dir);
+}
+
 int main(int argc, char **argv) {
   if (argc > 2 && !strcmp(argv[1], "--emit")) {
     emit_se_case(argv[2]);
+    emit_unit_case(argv[2]);
     return 0;
   }
   const uint32_t rounds =

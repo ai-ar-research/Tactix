@@ -34,6 +34,14 @@ int main() {
     trace.macro(k, "lucky_early_end", "unknown");
     trace.detail(k, "decision", 3);
     trace.slot_boundary(k, "Sweep", "begin");
+    trace.sweep_seed(k, 1);
+    trace.sweep_environment(k, 1, 3, 4, 0x1234);
+    trace.sweep_effort(k, 2, 17, 31, 5);
+    trace.sweep_equivalence(k, internalize(1), internalize(-2));
+    trace.sweep_unit(k, internalize(-3));
+    trace.factor_seed(k, internalize(-2), 17, 9);
+    trace.factor_grid(k, internalize(-2), 3, 4, 5);
+    trace.factor_grid_member(k, 0, internalize(-2));
     trace.detail(k, "analysis_begin", 2);
     kernel_assign_decision(k, internalize(1));
     const size_t trail_begin = k.trail.size();
@@ -67,6 +75,24 @@ int main() {
   assert(text.find("\tdecision\t") != std::string::npos);
   assert(text.find("\tslot_boundary\t") != std::string::npos);
   assert(text.find("name=Sweep|stage=begin") != std::string::npos);
+  assert(text.find("\tsweep_seed\t") != std::string::npos);
+  assert(text.find("external=2") != std::string::npos);
+  assert(text.find("\tsweep_environment\t") != std::string::npos);
+  assert(text.find("\tsweep_effort\t") != std::string::npos);
+  assert(text.find("vars=3|clauses=4|hash=0000000000001234") !=
+         std::string::npos);
+  assert(text.find("\tsweep_equivalence\t") != std::string::npos);
+  assert(text.find("a=1|b=-2") != std::string::npos);
+  assert(text.find("\tsweep_unit\t") != std::string::npos);
+  assert(text.find("lit=-3") != std::string::npos);
+  assert(text.find("\tfactor_seed\t") != std::string::npos);
+  assert(text.find("external=-2|score=17|remainders=9") !=
+         std::string::npos);
+  assert(text.find("\tfactor_grid\t") != std::string::npos);
+  assert(text.find("\tfactor_grid_member\t") != std::string::npos);
+  assert(text.find("ordinal=0|external=-2") != std::string::npos);
+  assert(text.find("external=-2|factors=3|remainders=4|delta=5") !=
+         std::string::npos);
   assert(text.find("\tanalysis_begin\t") != std::string::npos);
   assert(text.find("\timply\t") != std::string::npos);
   assert(text.find("\tlit=2|level=1|reason=-1,2\n") != std::string::npos);

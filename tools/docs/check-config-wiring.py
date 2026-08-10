@@ -152,7 +152,7 @@ NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
               "touch_epoch", "touch_fixed_head",
               "subsume_touch_mark", "strengthen_touch_mark",
               "bce_touch_mark", "ternary_touch_mark",
-              "instantiate_touch_mark", "factor_touch_mark",
+              "instantiate_touch_mark",
               "cce_touch_mark",
               # rule outputs, read by the policy, never configured
               "subsume_complete", "strengthen_complete"}
