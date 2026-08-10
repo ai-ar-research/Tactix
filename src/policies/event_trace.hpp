@@ -33,6 +33,8 @@ public:
   void conflict(const Kernel &);
   void learned(const Kernel &, const std::vector<Lit> &);
   void learned_stage(const Kernel &, const char *, const std::vector<Lit> &);
+  void analyzed(const Kernel &, const std::vector<Var> &,
+                const std::vector<uint8_t> &, uint8_t bump_mask);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -71,6 +73,8 @@ public:
   void conflict(const Kernel &) {}
   void learned(const Kernel &, const std::vector<Lit> &) {}
   void learned_stage(const Kernel &, const char *, const std::vector<Lit> &) {}
+  void analyzed(const Kernel &, const std::vector<Var> &,
+                const std::vector<uint8_t> &, uint8_t) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -85,11 +89,15 @@ void event_trace_learned_stage(const Kernel &, const char *,
                                const std::vector<Lit> &);
 void event_trace_retier(const Kernel &, uint32_t mode,
                         const uint64_t *used_glue);
+void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
+                          const std::vector<uint8_t> &, uint8_t bump_mask);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
                                       const std::vector<Lit> &) {}
 inline void event_trace_retier(const Kernel &, uint32_t, const uint64_t *) {}
+inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
+                                 const std::vector<uint8_t> &, uint8_t) {}
 #endif
 
 } // namespace tactix
