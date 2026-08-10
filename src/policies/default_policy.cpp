@@ -910,8 +910,12 @@ Lit DefaultBranching::pick(Kernel &k) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
         assert(!k.h->random_order.empty());
-        const Var v = k.h->random_order[random % k.h->random_order.size()];
-        if (k.values[make_lit(v, true)] == 0 && !kernel_var_retired(k, v)) {
+        const uint32_t slot = random % k.h->random_order.size();
+        const Var v = k.h->random_order[slot];
+        const bool accepted = k.values[make_lit(v, true)] == 0 &&
+                              !kernel_var_retired(k, v);
+        event_trace_randec_draw(k, random, slot, v, accepted);
+        if (accepted) {
           k.stats.random_decisions++;
           return decide_lit(k, v);
         }

@@ -37,6 +37,8 @@ public:
                 const std::vector<uint8_t> &, uint8_t bump_mask);
   void mode_clock(const Kernel &, const char *stage, uint64_t limit,
                   uint64_t anchor, uint64_t count);
+  void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
+                   bool accepted);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -79,6 +81,7 @@ public:
                 const std::vector<uint8_t> &, uint8_t) {}
   void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
                   uint64_t) {}
+  void randec_draw(const Kernel &, uint32_t, uint32_t, Var, bool) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -95,6 +98,8 @@ void event_trace_retier(const Kernel &, uint32_t mode,
                         const uint64_t *used_glue);
 void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                           const std::vector<uint8_t> &, uint8_t bump_mask);
+void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
+                             bool accepted);
 #else
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
@@ -102,6 +107,8 @@ inline void event_trace_learned_stage(const Kernel &, const char *,
 inline void event_trace_retier(const Kernel &, uint32_t, const uint64_t *) {}
 inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                                  const std::vector<uint8_t> &, uint8_t) {}
+inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
+                                    bool) {}
 #endif
 
 } // namespace tactix
