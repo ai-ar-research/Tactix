@@ -139,6 +139,12 @@ def main():
     replace_once(analyze, '#include "deduce.h"\n',
                  '#include "deduce.h"\n#include "eventtrace.h"\n')
     replace_once(analyze,
+        '  kissat_compute_and_set_tier_limits (solver);\n'
+        '  if (solver->limits.glue.interval < (1u << 16))\n',
+        '  kissat_compute_and_set_tier_limits (solver);\n'
+        '  kissat_event_trace_retier (solver);\n'
+        '  if (solver->limits.glue.interval < (1u << 16))\n')
+    replace_once(analyze,
         '    } else {\n'
         '      if (GET_OPTION (minimize)) {\n'
         '        sort_deduced_clause (solver);\n'

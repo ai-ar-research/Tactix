@@ -19,6 +19,26 @@ static bool reduce_trace_initialized;
 static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
 static int compare_external_literals (const void *, const void *);
 
+void kissat_event_trace_retier (kissat *solver) {
+  char payload[4096];
+  const bool stable = solver->stable;
+  uint64_t total = 0;
+  int written = snprintf (payload, sizeof payload, "tier1=%u|tier2=%u|used=",
+                          solver->tier1[stable], solver->tier2[stable]);
+  for (unsigned glue = 0; glue <= MAX_GLUE_USED && written > 0 &&
+                          (size_t) written < sizeof payload;
+       glue++) {
+    const uint64_t used = solver->statistics.used[stable].glue[glue];
+    total += used;
+    written += snprintf (payload + written, sizeof payload - written,
+                         "%s%u:%" PRIu64, glue ? "," : "", glue, used);
+  }
+  if (written > 0 && (size_t) written < sizeof payload)
+    snprintf (payload + written, sizeof payload - written, "|total=%" PRIu64,
+              total);
+  kissat_event_trace (solver, "retier", payload, true);
+}
+
 static unsigned external_variable (kissat *solver, unsigned idx) {
   if (idx < SIZE_STACK (solver->export)) {
     const int external = PEEK_STACK (solver->export, idx);
