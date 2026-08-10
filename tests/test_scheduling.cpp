@@ -74,6 +74,23 @@ static void test_analysis_trail_reuse_defaults_to_kissat(void) {
   std::printf("  analysis trail reuse: Kissat default off, CaDiCaL arm retained\n");
 }
 
+static void test_retier_schedule_advances_only_on_otfs_conflicts(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 1);
+  ScopedHeuristics h(k);
+  DefaultPolicy p;
+  p.reset_schedule(k);
+  k.stats.conflicts = 3;
+  assert(!p.update_tiers_after_analysis(k, k.stats.otfs_strengthened));
+  assert(k.stats.retiered == 0 &&
+         "ordinary learned conflicts must not advance Kissat's glue limit");
+  const uint64_t before = k.stats.otfs_strengthened++;
+  assert(p.update_tiers_after_analysis(k, before));
+  assert(k.stats.retiered == 1 &&
+         "an OTFS re-analysis conflict must advance the glue limit");
+  std::printf("  retier cadence: only OTFS re-analysis advances glue limit\n");
+}
+
 // --- the resumption cursor, a policy object --------------------------------
 // A dose cut partway into a candidate list must resume past what it consumed,
 // or it re-applies the same prefix and starves the tail (kissat's
@@ -683,6 +700,7 @@ int main() {
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_tracks_mode();
   test_analysis_trail_reuse_defaults_to_kissat();
+  test_retier_schedule_advances_only_on_otfs_conflicts();
   test_effort_limit_is_kissats();
   test_preprocess_is_reduced_and_bounded();
   test_preprocess_followup_truth_table();
