@@ -900,10 +900,56 @@ bool kernel_propagate_binary(Kernel &k) {
 // Garbage collection after kissat/src/collect.c (MIT), simplified: copy
 // live clauses into a fresh arena in order, leave a forwarding pointer in
 // the old header (`searched` is dead there), then fix reasons and rebuild
-// the large-watch entries. Watched pairs stay lits[0]/lits[1], so all
-// watch invariants survive collection unchanged. With a nonzero watermark,
-// match Kissat's sparse collector: retain the existing watches for the live,
-// unmoved prefix and only rebuild watches for the relocated tail.
+// the large-watch entries. Rebuilt clauses select their best current watched
+// pair into lits[0]/lits[1]. With a nonzero watermark, match Kissat's sparse
+// collector: retain the existing watches for the live, unmoved prefix and only
+// rebuild watches for the relocated tail.
+static int8_t move_best_watch_to_front(Kernel &k, Clause *c, uint32_t start,
+                                       bool satisfied_is_enough) {
+  Lit a = c->lits[start];
+  int8_t u = k.values[a];
+  if (!u || (u > 0 && satisfied_is_enough))
+    return u;
+
+  uint32_t pos = 0;
+  Lit best = a;
+  uint32_t best_level =
+      u ? k.assigned[var_of(a)].level : UINT32_MAX;
+  for (uint32_t i = start + 1; i < c->size; ++i) {
+    const Lit b = c->lits[i];
+    const int8_t v = k.values[b];
+    if (!v || (v > 0 && satisfied_is_enough)) {
+      best = b;
+      pos = i;
+      u = v;
+      break;
+    }
+    const uint32_t level = k.assigned[var_of(b)].level;
+    const bool better =
+        (u < 0 && v > 0) ? true
+        : (u > 0 && v < 0) ? false
+        : (u < 0)           ? best_level < level
+                            : best_level > level;
+    if (better) {
+      best = b;
+      pos = i;
+      u = v;
+      best_level = level;
+    }
+  }
+  if (pos) {
+    c->lits[start] = best;
+    c->lits[pos] = a;
+  }
+  return u;
+}
+
+static void sort_clause_watches_like_kissat(Kernel &k, Clause *c) {
+  const int8_t first = move_best_watch_to_front(k, c, 0, false);
+  if (c->size > 2)
+    move_best_watch_to_front(k, c, 1, first >= 0);
+}
+
 void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
@@ -1011,6 +1057,9 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (ref >= watch_start) {
+      // collect.c:rewatch_clauses selects the best current watched pair before
+      // appending the relocated clause to its two watch lists.
+      sort_clause_watches_like_kissat(k, c);
       k.watches.push_large(c->lits[0], c->lits[1], ref);
       k.watches.push_large(c->lits[1], c->lits[0], ref);
     }
