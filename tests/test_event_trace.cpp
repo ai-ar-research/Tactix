@@ -44,6 +44,10 @@ int main() {
     trace.conflict(k);
     trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
     trace.detail(k, "analysis_end", 1);
+    k.tier1 = 3;
+    k.tier2 = 8;
+    k.stats.used_glue[0][3] = 5;
+    trace.retier(k);
     trace.reorder_begin(k);
     trace.reorder_end(k);
     trace.macro(k, "terminate", "10");
@@ -64,6 +68,9 @@ int main() {
   assert(text.find("\tconflict\t") != std::string::npos);
   assert(text.find("\torder=-3,1,-2|set=-3,-2,1\n") != std::string::npos);
   assert(text.find("\tlearned\t") != std::string::npos);
+  assert(text.find("\tretier\t") != std::string::npos);
+  assert(text.find("tier1=3|tier2=8|used=0:0,1:0,2:0,3:5,") !=
+         std::string::npos);
   assert(text.find("\torder=3,-1,2|set=-1,2,3\n") != std::string::npos);
   const size_t analysis = text.find("\tanalysis_end\t");
   assert(analysis != std::string::npos);

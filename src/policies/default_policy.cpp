@@ -1265,6 +1265,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (dynamic_tiers_ && k.stats.conflicts > retier_.next_conflicts) {
         reduce_retier(k);
+        event_trace.retier(k);
         if (retier_.interval < config_.reduction.retier_max_interval)
           retier_.interval *= config_.reduction.retier_growth;
         retier_.next_conflicts = k.stats.conflicts + retier_.interval;

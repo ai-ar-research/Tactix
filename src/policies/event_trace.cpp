@@ -195,6 +195,22 @@ void EventTrace::macro(const Kernel &k, const char *event, const char *payload) 
   emit(k, event, payload, true);
 }
 
+void EventTrace::retier(const Kernel &k) {
+  std::string payload = "tier1=" + std::to_string(k.tier1) +
+                        "|tier2=" + std::to_string(k.tier2) + "|used=";
+  const uint32_t mode = k.h && k.h->stable ? 1u : 0u;
+  uint64_t total = 0;
+  for (uint32_t glue = 0; glue <= Stats::MAX_GLUE_USED; ++glue) {
+    if (glue)
+      payload += ',';
+    const uint64_t used = k.stats.used_glue[mode][glue];
+    total += used;
+    payload += std::to_string(glue) + ':' + std::to_string(used);
+  }
+  payload += "|total=" + std::to_string(total);
+  macro(k, "retier", payload.c_str());
+}
+
 void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
                            size_t victims) {
   const char *path = std::getenv("TACTIX_REDUCE_TRACE");
