@@ -26,9 +26,10 @@ All models/proofs verify and all 69 Release checks pass.
 
 The current frontier is preprocessing Factor composition. Kissat's first
 Factor call receives `factoriniticks`; Tactix gates that allowance on search
-having started. Removing only that gate was rejected: the same fixture regressed
-to 162.8s / 3.67M conflicts and still produced only 196 of Kissat's 759 initial
-extension variables. The budget wire therefore reopens only after Factor's
+having started. Removing only that gate was rejected: cumulatively the same
+fixture regressed from 32.2s / 552k conflicts to 249.1s / 5.50M (the pre-parser
+arm was 162.8s / 3.67M) and still produced far fewer initial extension variables
+than Kissat. The budget wire therefore reopens only after Factor's
 candidate/output trajectory is localized. The canonical Tier A evidence is in
 `benchmarks/reports/2026-08-09-tier-a-kissat-divergence-convergence.md`;
 the full lifecycle matrix remains in
