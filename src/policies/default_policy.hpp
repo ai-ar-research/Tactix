@@ -41,6 +41,7 @@ public:
   }
 
 private:
+  Lit decide_lit(const Kernel &, Var) const;
   const DefaultStrategyConfig::Branching *config_ = nullptr;
 };
 

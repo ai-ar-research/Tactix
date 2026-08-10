@@ -41,6 +41,31 @@ int main() {
   assert(defaults.reduction.tier1_default == TIER1_STATIC);
   assert(defaults.reduction.tier2_default == TIER2_STATIC);
   assert(defaults.branching.random_seed == 0);
+  if (defaults.branching.focused_phase_switch_span != 2)
+    return 1;
+  const std::array<int8_t, 8> focused_phases{{0, 1, 0, -1, 0, 0, 0, 0}};
+  if (defaults.branching.focused_phase_pattern != focused_phases)
+    return 1;
+
+  // Kissat rotates two focused epochs through forced initial/opposite phases.
+  // This applies equally to ranked and random decisions.
+  DefaultStrategyConfig no_random = defaults;
+  no_random.branching.random_sequences = false;
+  Kernel phase;
+  ScopedHeuristics phase_heuristics(phase);
+  kernel_reserve_vars(phase, 1);
+  DefaultBranching phase_branching(&no_random.branching);
+  phase.h->saved[0] = -1;
+  phase.stats.switched = 2;
+  if (phase_branching.pick(phase) != internalize(1))
+    return 1;
+  phase.stats.switched = 4;
+  if (phase_branching.pick(phase) != internalize(-1))
+    return 1;
+  phase.h->saved[0] = 1;
+  phase.stats.switched = 6;
+  if (phase_branching.pick(phase) != internalize(-1))
+    return 1;
 
   // Kissat's first seed-0 LCG value selects internal variable 254 of 260.
   // Pin both the generator and the removal of the old bounded-retry fallback.
