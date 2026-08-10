@@ -142,7 +142,9 @@ def effort_meters():
     body = s[s.index("EFFORT_SPECS[]"):]
     body = body[:body.index("\n};")]
     out = {}
-    for m in re.finditer(r'\{\s*"(\w+)"\s*,\s*\d+\s*,\s*(meter_\w+)', body):
+    field = r'&DefaultStrategyConfig::Inprocess::\w+'
+    for m in re.finditer(r'\{\s*"(\w+)"\s*,\s*' + field +
+                         r'\s*,\s*(meter_\w+)', body):
         out[m.group(1)] = meters.get(m.group(2), set())
     return out
 

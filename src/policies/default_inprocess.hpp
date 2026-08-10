@@ -1,5 +1,6 @@
 #pragma once
 
+#include "policies/default_strategy_config.hpp"
 #include "policies/subpolicy.hpp"
 #include "rules/registry.hpp"
 
@@ -9,25 +10,18 @@ namespace tactix {
 
 class DefaultBveBoundRamp final : public BveBoundPolicy {
 public:
+  explicit DefaultBveBoundRamp(
+      const DefaultStrategyConfig::Inprocess *config = nullptr)
+      : config_(config) {}
   const char *name() const override { return "kissat-ramp"; }
-  static uint32_t ceiling() {
-    if (const char *s = std::getenv("TACTIX_BVE_RAMP_MAX"))
-      return static_cast<uint32_t>(std::atoi(s));
-    return 8;
+  uint32_t num_passes() const override;
+  uint32_t bound(uint32_t pass) const override;
+  void set_config(const DefaultStrategyConfig::Inprocess *config) {
+    config_ = config;
   }
-  uint32_t num_passes() const override {
-    const uint32_t cap = ceiling();
-    static constexpr uint32_t levels[6] = {0, 1, 2, 4, 8, 16};
-    uint32_t n = 0;
-    for (uint32_t i = 0; i < 6; i++)
-      if (levels[i] <= cap)
-        n = i + 1;
-    return n ? n : 1;
-  }
-  uint32_t bound(uint32_t pass) const override {
-    static constexpr uint32_t levels[6] = {0, 1, 2, 4, 8, 16};
-    return levels[pass < 6 ? pass : 5];
-  }
+
+private:
+  const DefaultStrategyConfig::Inprocess *config_ = nullptr;
 };
 
 class DefaultFactorMatch final : public FactorMatchPolicy {
@@ -66,12 +60,12 @@ public:
   CandidateOrder arm_of(uint32_t rule) const {
     return rule < arms.size() ? arms[rule] : CandidateOrder::Native;
   }
-  void reset() { rng_ = SEED; }
+  void reset(uint64_t seed) { rng_ = increment_ = seed; }
 
 private:
-  static constexpr uint64_t SEED = 0x9e3779b97f4a7c15ull;
   std::vector<std::pair<uint64_t, uint64_t>> scratch_;
-  uint64_t rng_ = SEED;
+  uint64_t rng_ = 0;
+  uint64_t increment_ = 0;
 };
 
 class DefaultArenaOrder final : public ArenaOrderPolicy {
@@ -96,13 +90,31 @@ const SlotOrderRow *default_slot_order(size_t *count);
 
 class DefaultInprocessScheduler {
 public:
-  static constexpr uint64_t SUBSUME_INTERVAL = 500;
-  static constexpr uint64_t PROBE_INTERVAL = 100;
-  static constexpr uint64_t MIN_EFFORT_TICKS = 10000000;
-  static constexpr uint64_t PREPROCESS_INIT_TICKS = 2000000;
-  static constexpr int PHASE_ROUNDS = 2;
-  static constexpr uint64_t FACTOR_INIT_TICKS = 700000000ull;
-  static constexpr uint64_t CONGRUENCE_INIT_TICKS = 1000000000000ull;
+  // Compatibility aliases for tests and external design probes.  The numbers
+  // themselves have one home in DefaultStrategyConfig.
+  static constexpr uint64_t SUBSUME_INTERVAL =
+      DefaultStrategyConfig::INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
+  static constexpr uint64_t PROBE_INTERVAL =
+      DefaultStrategyConfig::INPROCESS_PROBE_INTERVAL_DEFAULT;
+  static constexpr uint64_t MIN_EFFORT_TICKS =
+      DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT;
+  static constexpr uint64_t PREPROCESS_INIT_TICKS =
+      DefaultStrategyConfig::INPROCESS_PREPROCESS_EFFORT_DEFAULT;
+  static constexpr int PHASE_ROUNDS =
+      DefaultStrategyConfig::INPROCESS_PHASE_ROUNDS_DEFAULT;
+  static constexpr uint64_t FACTOR_INIT_TICKS =
+      DefaultStrategyConfig::FACTOR_INITIAL_EFFORT_DEFAULT;
+  static constexpr uint64_t CONGRUENCE_INIT_TICKS =
+      DefaultStrategyConfig::CONGRUENCE_INITIAL_EFFORT_DEFAULT;
+
+  DefaultInprocessScheduler() = default;
+  explicit DefaultInprocessScheduler(
+      const DefaultStrategyConfig::Inprocess *config)
+      : config_(config), default_bve_ramp_(config) {}
+  void set_config(const DefaultStrategyConfig::Inprocess *config) {
+    config_ = config;
+    default_bve_ramp_.set_config(config);
+  }
 
   struct SlotEntry {
     int rule = -1;
@@ -179,6 +191,7 @@ public:
   bool initialized() const { return initialized_; }
 
 private:
+  const DefaultStrategyConfig::Inprocess &config() const;
   struct SlotPhaseCtx {
     SlotGroup group;
     volatile sig_atomic_t *stop;
@@ -223,6 +236,7 @@ private:
   bool slot_watermark_ = true;
   bool preprocess_followups_ = true;
   bool initialized_ = false;
+  const DefaultStrategyConfig::Inprocess *config_ = nullptr;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;
   DefaultCandidateOrder default_candidate_order_;

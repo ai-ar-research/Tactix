@@ -38,6 +38,7 @@ ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                       capture_output=True, text=True, check=True).stdout.strip()
 POLICY_REL = "src/policies/default_policy.cpp"
 POLICY = os.path.join(ROOT, POLICY_REL)
+CONFIG_REL = "src/policies/default_strategy_config.hpp"
 # All of src/, not just src/rules + src/policies/ops: the registry accepts a
 # registration line from anywhere, and a conformance check with a directory
 # blind spot goes green because it did not look.
@@ -138,6 +139,18 @@ def effort_specs():
     return out
 
 
+def configured_permille(expr):
+    """Resolve the typed strategy field named by an EFFORT_SPECS row."""
+    m = re.fullmatch(
+        r"&DefaultStrategyConfig::Inprocess::([A-Za-z_]\w*)", expr)
+    if not m:
+        return None
+    src = strip_comments(open(os.path.join(ROOT, CONFIG_REL)).read())
+    d = re.search(r"\buint32_t\s+" + re.escape(m.group(1)) +
+                  r"\s*=\s*([1-9][0-9]*)\s*;", src)
+    return int(d.group(1)) if d else None
+
+
 def main():
     fails, notes = [], []
     rules = registered_rules()
@@ -203,10 +216,12 @@ def main():
                 ok = False
                 fails.append(f"`{n}`'s EFFORT_SPECS row has no meter function, so the "
                              f"ledger cannot price it — the row buys nothing.")
-            if not re.fullmatch(r"[1-9][0-9]*", s["permille"]):
+            permille = configured_permille(s["permille"])
+            if permille is None:
                 ok = False
                 fails.append(f"`{n}`'s EFFORT_SPECS row has permille=`{s['permille']}`; "
-                             f"a zero or unparsed share is not a budget.")
+                             f"it must name a positive uint32_t field in "
+                             f"{CONFIG_REL}.")
             if s["dosed"] != "true" and s["budget_aware"] != "true":
                 ok = False
                 fails.append(f"`{n}`'s EFFORT_SPECS row is neither `dosed` nor "
@@ -214,7 +229,8 @@ def main():
                              f"round starts, never how much ONE round does — the "
                              f"D-STRENGTHEN-BUDGET shape (implementation-notes.md).")
             if ok:
-                notes.append(f"METERED {n:17} <- {s['permille']} permille, "
+                notes.append(f"METERED {n:17} <- {permille} permille "
+                             f"({s['permille']}), "
                              f"{s['meter']}"
                              f"{', dosed' if s['dosed'] == 'true' else ''}"
                              f"{', budgeted' if s['budget_aware'] == 'true' else ''}")
