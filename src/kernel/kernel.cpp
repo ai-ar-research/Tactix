@@ -1271,6 +1271,13 @@ void kernel_rebuild_large_watches(Kernel &k) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
     if (!c->garbage()) {
+      // `kissat_watch_large_clauses` does not merely reconnect the existing
+      // pair: it first runs `kissat_sort_literals` under the current root
+      // assignment.  In particular, root-false literals must not remain in
+      // front of unassigned literals after Probe/Eliminate.  The selected
+      // pair is search-visible state and can control which of several valid
+      // antecedents propagation records.
+      sort_clause_watches_like_kissat(k, c);
       c->searched = 2;
       k.watches.push_large(c->lits[0], c->lits[1], ref);
       k.watches.push_large(c->lits[1], c->lits[0], ref);
