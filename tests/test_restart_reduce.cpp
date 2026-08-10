@@ -81,6 +81,38 @@ static void test_collect_accepts_policy_order() {
   assert(clause_at(k.arena, second)->lits[0] == first[0]);
 }
 
+static void test_sparse_collect_preserves_prefix_watch_order() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 8);
+  const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit p2[3] = {internalize(1), internalize(4), internalize(5)};
+  const Lit dead[3] = {internalize(1), internalize(6), internalize(7)};
+  const Lit tail[3] = {internalize(1), internalize(7), internalize(8)};
+  const Ref r1 = kernel_add_large_clause(k, p1, 3, false, 0);
+  const Ref r2 = kernel_add_large_clause(k, p2, 3, false, 0);
+  const Ref first_reducible =
+      kernel_add_large_clause(k, dead, 3, true, 9);
+  kernel_add_large_clause(k, tail, 3, true, 9);
+
+  // Stand in for search-time watch relocation: the prefix no longer follows
+  // arena order. Kissat's sparse collector retains this order and appends the
+  // rebuilt reducible tail.
+  kernel_swap_large_watch_refs(k, internalize(1), r1, r2, p1[1], p2[1]);
+  clause_at(k.arena, first_reducible)->flags |= Clause::GARBAGE;
+  kernel_collect_garbage(k, first_reducible);
+
+  std::vector<Ref> refs;
+  for (const WatchEntry w : k.watches.entries(internalize(1)))
+    if (!w.binary())
+      refs.push_back(w.ref());
+  assert(refs.size() == 3);
+  assert(refs[0] == r2 && refs[1] == r1 &&
+         "sparse collection must retain prefix watch order");
+  assert(refs[2] == first_reducible &&
+         "the relocated reducible tail must be appended in arena order");
+}
+
 static void test_default_arena_order_tracks_search() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -283,6 +315,7 @@ int main() {
   test_restart_reuses_trail();
   test_collect_preserves_propagation();
   test_collect_accepts_policy_order();
+  test_sparse_collect_preserves_prefix_watch_order();
   test_default_arena_order_tracks_search();
   test_reduce_deletes_and_logs();
   test_reduce_used_retention();

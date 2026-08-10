@@ -825,7 +825,10 @@ uint64_t kernel_conflict_reason_walk(
     std::vector<Var> *touched = nullptr);
 
 
-void kernel_collect_garbage(Kernel &);
+// `watch_start` is Kissat's sparse-collection watermark: watches below it keep
+// their current order, while relocated clauses at and above it are rewatched
+// in arena order. The default performs a whole-arena rebuild.
+void kernel_collect_garbage(Kernel &, Ref watch_start = 0);
 void kernel_rebuild_large_watches(Kernel &);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ);
