@@ -410,6 +410,17 @@ void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,
   emit(k, "analyzed", payload.c_str(), false);
 }
 
+void EventTrace::mode_clock(const Kernel &k, uint64_t limit, uint64_t anchor,
+                            uint64_t count) {
+  if (!std::getenv("TACTIX_EVENT_TRACE_MODE_CLOCK") || !want_detail(k))
+    return;
+  const std::string payload =
+      "ticks=" + std::to_string(k.stats.search_ticks) +
+      "|limit=" + std::to_string(limit) + "|anchor=" +
+      std::to_string(anchor) + "|count=" + std::to_string(count);
+  emit(k, "mode_clock", payload.c_str(), false);
+}
+
 void event_trace_analyzed(const Kernel &k, const std::vector<Var> &analyzed,
                           const std::vector<uint8_t> &seen,
                           uint8_t bump_mask) {

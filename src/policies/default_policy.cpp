@@ -1319,6 +1319,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       update_tiers_after_analysis(k);
       if (!k.pending.valid) { // `stats.conflict_reused` already counted it
         event_trace.detail(k, "analysis_end", k.level);
+        event_trace.mode_clock(k, mode.ticks_limit, mode.ticks_at_focus_entry,
+                               mode.count);
         continue;
       }
       event_trace.learned(k, k.pending.lits);
@@ -1341,6 +1343,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         backjump_apply_to(k, target);
       }
       event_trace.detail(k, "analysis_end", k.level);
+      event_trace.mode_clock(k, mode.ticks_limit, mode.ticks_at_focus_entry,
+                             mode.count);
       continue;
     }
     if (k.retire_enabled ? k.unassigned_active == 0 : k.unassigned == 0)
@@ -1377,6 +1381,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         reluctant = {};
       update_mode_limits(k);
       event_trace.macro(k, "switch_end");
+      event_trace.mode_clock(k, mode.ticks_limit, mode.ticks_at_focus_entry,
+                             mode.count);
       continue;
     }
     if (want_restart(k) && restart_guard(k)) {
