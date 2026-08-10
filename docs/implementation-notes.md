@@ -43,7 +43,7 @@ conjunct.
 | M2 Decide | `!conflict_valid · !inconsistent · unassigned>0` | D-LEVEL-1 is closed, but `N1-RETIRED-DECIDE` is open: guided enumeration omits physically retired unassigned variables even though `apply_instance` accepts them and the guard counts them. |
 | M3 ConflictAnalysis | `conflict_valid · !inconsistent` | — pure |
 | M4 | *(folded into M3 — no guard)* | — |
-| S1 Restart | `!inconsistent · !conflict_valid · level>0` | **D-NOOP:** `!conflict_valid`, `level>0` |
+| S1 Restart | `!inconsistent · !conflict_valid · level>0` | **D-NOOP:** `!conflict_valid`, `level>0`. DefaultPolicy previews its active brancher once for the reuse threshold, including a random draw (`restart.c`). |
 | S2 Reduce | `!inconsistent · !conflict_valid` | **D-NOOP:** `!conflict_valid` |
 | S5 Lucky | `root · !conflict_valid` | **D-ROOT:** `level==0`. (`!conflict_valid` is *abstract* — a SAT-concluding probe needs a consistent start.) |
 | C1 SubsumeForward, C2 Strengthen, C3 Vivify | `root` | **D-ROOT:** `level==0`. C1/C2's binary subsumers carry no redundancy check: a structural consequence of the irredundant binary lifecycle, not a deviation (§14). |

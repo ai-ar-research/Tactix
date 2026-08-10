@@ -80,6 +80,11 @@ int main() {
       random.stats.random_sequences != 1 ||
       random.stats.random_decisions != 1)
     return 1;
+  // Restart reuse previews the active brancher without assigning its result.
+  // Kissat counts/consumes that draw, so the real decision receives draw two.
+  if (kernel_externalize(random, reference_random.pick(random)) != 130 ||
+      random.stats.random_decisions != 2)
+    return 1;
 
   Kernel tumbled;
   ScopedHeuristics tumbled_heuristics(tumbled);

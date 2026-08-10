@@ -1429,7 +1429,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (want_restart(k) && restart_guard(k)) {
       event_trace.macro(k, "restart_begin");
-      restart_apply(k);
+      // Kissat restart.c asks `kissat_next_decision_variable` for the reuse
+      // threshold.  That call is semantically part of restart: during a
+      // random-decision sequence it consumes and counts a draw before the
+      // post-restart decision.  Route through the active branching subpolicy,
+      // then hand only its variable to the policy-neutral Restart rule.
+      BranchingPolicy &bp = branching ? *branching : default_branching_;
+      const Lit next = bp.pick(k);
+      restart_apply_to(k, restart_reuse_level_for(k, var_of(next)));
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       if (!k.h->stable) // kissat restart.c: focused-only limit update
         update_restart_limit(k);

@@ -17,6 +17,10 @@ bool restart_guard(const Kernel &);
 // reuse_focused_trail / reuse_stable_trail). Mutates only the ranking's
 // search caches (VMTF cursor, lazy heap pops) — heuristic H-state.
 uint32_t restart_reuse_level(Kernel &);
+// Policy-supplied counterpart: score reuse against the variable selected by
+// its active brancher. DefaultPolicy needs this because Kissat's restart path
+// calls `kissat_next_decision_variable`, which can consume a random draw.
+uint32_t restart_reuse_level_for(Kernel &, Var next);
 
 // N1 instance surface: restart keeping exactly the first `keep_level`
 // decision levels — every keep-level is a legal instance (clamped to the
