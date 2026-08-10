@@ -340,6 +340,17 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   emit(k, event, buf, !std::strcmp(event, "analysis_end"));
 }
 
+void EventTrace::randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
+                             Var var, bool accepted) {
+  if (!want_detail(k))
+    return;
+  const std::string payload =
+      "raw=" + std::to_string(raw) + "|slot=" + std::to_string(slot) +
+      "|external=" + std::to_string(k.internal_to_external[var] + 1) +
+      "|accepted=" + std::to_string(accepted);
+  emit(k, "randec_draw", payload.c_str(), false);
+}
+
 void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;
@@ -386,6 +397,12 @@ void event_trace_retier(const Kernel &k, uint32_t mode,
                         const uint64_t *used_glue) {
   if (active_trace)
     active_trace->retier(k, mode, used_glue);
+}
+
+void event_trace_randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
+                             Var var, bool accepted) {
+  if (active_trace)
+    active_trace->randec_draw(k, raw, slot, var, accepted);
 }
 
 void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,

@@ -103,12 +103,14 @@ with tempfile.TemporaryDirectory() as tmp:
                  row("tactix", 1, "retier", payload="mode=focused") +
                  row("tactix", 2, "mode_clock", payload="ticks=12") +
                  row("tactix", 3, "analyzed", payload="vars=1") +
-                 row("tactix", 4, "terminate", payload="20"))
+                 row("tactix", 4, "randec_draw", payload="raw=1") +
+                 row("tactix", 5, "terminate", payload="20"))
     b.write_text(HEADER + common.replace("tactix", "kissat") +
                  row("kissat", 1, "reduce_tiers", payload="tier1=7") +
                  row("kissat", 2, "retier", payload="tier1=7") +
                  row("kissat", 3, "mode_clock", payload="ticks=9") +
-                 row("kissat", 4, "terminate", payload="20"))
+                 row("kissat", 4, "randec_draw", payload="raw=2") +
+                 row("kissat", 5, "terminate", payload="20"))
     auxiliary = run(a, b, "--mode", "semantic", "--require-closed")
     assert auxiliary.returncode == 0, auxiliary
     exact_auxiliary = run(a, b, "--mode", "exact")
