@@ -135,10 +135,24 @@ static void test_retired_variables_stay_disconnected() {
     k.h->stable = stable;
     if (stable)
       heuristics_update_scores(k);
+    const Var queue_first = k.h->queue_first;
+    const Var queue_last = k.h->queue_last;
+    const double retired_score = k.h->scores.score[4];
+    // Conflict analysis can still encounter a retired identity in stale
+    // reason-side material.  Kissat filters those bumps through ACTIVE: the
+    // disconnected variable must not be dequeued again or gain heap score.
+    heuristics_queue_bump(k, 1);
+    heuristics_score_bump(k, 4);
+    assert(k.h->queue_first == queue_first && k.h->queue_last == queue_last);
+    assert(k.h->links[1].prev == INVALID_VAR &&
+           k.h->links[1].next == INVALID_VAR);
+    assert(k.h->scores.score[4] == retired_score);
     assert(reorder_apply(k) == ApplyResult::Ok);
     assert(k.stats.reactivations == 0);
+    uint32_t queued = 0;
     for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next)
-      assert(v != 1 && v != 4);
+      assert(++queued <= 4 && v != 1 && v != 4);
+    assert(queued == 4);
     for (const Var v : k.h->scores.stack)
       assert(v != 1 && v != 4);
   }

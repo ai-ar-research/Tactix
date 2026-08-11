@@ -37,6 +37,25 @@ static void test_no_scc() {
   assert(r.repr[internalize(3)] == internalize(3));
 }
 
+// Kissat's SCC graph excludes inactive variables.  A retired permanent
+// identity may still be mentioned by stale binary material, but must not form
+// another substitution class and emit a duplicate retirement event.
+static void test_retired_variable_excluded_from_scc() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[1] = VarStatus::Substituted;
+  k.unassigned_active--;
+
+  const SccResult r = substitute_find_sccs(k);
+  assert(r.nontrivial_reps.empty());
+  assert(r.repr[internalize(2)] == INVALID_LIT);
+  assert(substitute_apply(k) == ApplyResult::NoOp);
+  assert(k.retired_events.empty() && k.substituted_events.empty());
+}
+
 // x ≡ ¬x: x, a, and ¬x all collapse into one SCC -> UNSAT contradiction
 static void test_contradiction_scc() {
   Kernel k;
@@ -271,6 +290,7 @@ static void test_guard() {
 int main() {
   test_equivalence_scc();
   test_no_scc();
+  test_retired_variable_excluded_from_scc();
   test_contradiction_scc();
   test_apply_unsat();
   test_contradictory_units_refute();

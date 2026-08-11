@@ -515,16 +515,20 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
   // Dividers (x ∨ fᵢ): RAT on the fresh literal x. At add time no clause
   // contains ¬x (the quotients come after), so the RAT condition is vacuous —
   // pivot-first, empty hints.
-  std::vector<uint64_t> divider_ids;
-  divider_ids.reserve(F.size());
-  for (const Lit f : F) {
+  std::vector<uint64_t> divider_ids(F.size());
+  // `best_F` is the first-factor -> last-factor quotient chain. Kissat applies
+  // that chain from the best quotient back through `prev`, so its dividers
+  // enter every binary watch list last-factor first. The formula is unchanged
+  // by this order, but propagation and learned-reason selection are not.
+  for (size_t rev = F.size(); rev-- > 0;) {
+    const Lit f = F[rev];
     const uint64_t id = ++k.next_clause_id;
     const Lit lits[2] = {px, f}; // pivot (x) first
     if (k.proof)
       k.proof->add_rat(id, lits, 2, nullptr, 0);
     kernel_add_binary_clause(k, px, f, id);
     append_binary_watch(px, f, id);
-    divider_ids.push_back(id);
+    divider_ids[rev] = id;
   }
 
   // Quotients (¬x ∨ rⱼ): RAT on ¬x. The only clauses containing x are the m
@@ -537,14 +541,32 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     const uint32_t rid = R[column];
     const uint32_t rn = pool.size_of(rid);
     const Lit *rl = pool.lits_of(rid);
-    // Quotient {¬x} ∪ r, pivot first. The RAT-on-¬x argument is indifferent to
-    // |r|, so the hint stream stays per-divider at any factor size.
+    // Quotient {¬x} ∪ r, pivot first.  `rid` is only the canonical
+    // comparison key.  Kissat constructs the actual quotient from the chosen
+    // last-factor clause (`q->clauses`) and preserves that clause's literal
+    // pose after removing the factor.  Reusing the sorted key here changes the
+    // quotient's initial watched pair and therefore later propagation order.
+    // The RAT-on-¬x argument is indifferent to |r|, so the hint stream stays
+    // per-divider at any factor size.
     qlits.assign(1, nx);
-    qlits.insert(qlits.end(), rl, rl + rn);
+    if (rn == 1) {
+      qlits.push_back(rl[0]);
+    } else {
+      const Ref pose_ref = grid_refs.back()[column];
+      assert(pose_ref != INVALID_REF);
+      const Clause *pose = clause_at(k.arena, pose_ref);
+      const Lit pose_factor = F.back();
+      for (const Lit other : *pose)
+        if (other != pose_factor)
+          qlits.push_back(other);
+      assert(qlits.size() == static_cast<size_t>(rn) + 1);
+      assert(std::is_permutation(qlits.begin() + 1, qlits.end(), rl,
+                                 rl + rn));
+    }
     const uint64_t id = ++k.next_clause_id;
     if (lrat) {
       hints.clear();
-      for (size_t i = 0; i < F.size(); i++) {
+      for (size_t i = F.size(); i-- > 0;) {
         const Ref gref = grid_refs[i][column];
         const uint64_t gid = (gref == INVALID_REF)
                                  ? kernel_binary_id(k, F[i], rl[0])
@@ -595,7 +617,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       if (watch.binary() && watch.other == a)
         watch.live = false;
   };
-  for (size_t i = 0; i < F.size(); i++)
+  for (size_t i = F.size(); i-- > 0;)
     for (size_t column = 0; column < R.size(); column++) {
       const uint32_t rid = R[column];
       if (pool.size_of(rid) == 1) {
@@ -1110,6 +1132,17 @@ ApplyResult factor_apply(Kernel &k) {
 
   if (fm)
     fm->end_sweep();
+
+  // Kissat leaves Factor's dense occurrence mode through
+  // `kissat_resume_sparse_mode`: it drops every connected large occurrence,
+  // sorts each live clause's watched pair for the current root assignment,
+  // and reconnects the clauses in arena order.  Keeping the pre-Factor sparse
+  // watches instead is observably different even when every accepted grid is
+  // identical: quotient implications can enter the trail in a different
+  // order and select a different learned reason.  Binary watches deliberately
+  // stay in their first-encounter order across this boundary.
+  kernel_rebuild_large_watches(k);
+
   if (std::getenv("TACTIX_FACTOR_TRACE"))
     std::fprintf(stderr,
                  "[factor] entered (%u orig lits), %llu factorings, "
