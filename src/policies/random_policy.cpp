@@ -18,6 +18,7 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
   const char *stress_spec = getenv("TACTIX_STRESS_RULES");
   const bool targeted = stress_spec && *stress_spec;
   const uint32_t normal_every = stress_env_u32("TACTIX_STRESS_NORMAL_EVERY", 8);
+  const bool trace_steps = getenv("TACTIX_TRACE") != nullptr;
   // A verdict must be recorded on every exit, or a trace that stops early
   // replays as "reached 0" against a recorded 20 and reports a divergence that
   // is really a missing line. One scope-exit writer covers all four returns.
@@ -112,6 +113,11 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     }
     if (id < 0)
       id = applicable[stress_random(rng) % applicable.size()];
+    // Named BEFORE the apply: a rule that aborts inside its own body (an
+    // invariant or proof assert) is otherwise the one step the trace never
+    // attributes, since the result line below is never reached.
+    if (trace_steps)
+      fprintf(stderr, "step %-16s -> ...\n", rules[id].name);
     ApplyResult r;
     // The payload this step applied, in the rule's own encoding, recorded so
     // the step replays through apply_instance (trace.hpp). Decide and Restart
@@ -149,12 +155,11 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     heuristics_consume_retirements(k);
     if (trace)
       trace->record(id, applied);
-    if (targeted)
-      kernel_check_invariants(k);
     // Per-step rule trace, env-gated: it names rule, result and state at every
     // step, where the every-256 invariant check only reports that state was
-    // corrupted. See the stress-policy skill.
-    if (getenv("TACTIX_TRACE")) {
+    // corrupted. Printed before the invariant oracle so an abort inside the
+    // oracle still has this step's result line. See the stress-policy skill.
+    if (trace_steps) {
       static const char *rn[] = {"Ok", "NoOp", "Conflict", "Sat", "Unsat"};
       fprintf(stderr,
               "step %-16s -> %-8s level=%u trail=%zu head=%u unassigned=%u "
@@ -163,6 +168,8 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
               k.propagate_head, k.unassigned, (int)k.conflict_valid,
               (int)k.inconsistent);
     }
+    if (targeted)
+      kernel_check_invariants(k);
     if (r == ApplyResult::Unsat)
       return fin.verdict = 20;
     if (r == ApplyResult::Sat)

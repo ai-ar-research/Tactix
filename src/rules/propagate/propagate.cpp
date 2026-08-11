@@ -20,43 +20,6 @@ bool propagate_guard(const Kernel &k) {
          k.propagate_head < k.trail.size();
 }
 
-// LRAT: every root-level propagation-derived literal becomes an explicit
-// unit clause in the proof (CaDiCaL's scheme) so later chains can cite it
-static void emit_root_units(Kernel &k, size_t from) {
-  for (size_t i = from; i < k.trail.size(); i++) {
-    const Lit lit = k.trail[i];
-    const Var v = var_of(lit);
-    const Assigned &a = k.assigned[v];
-    if (a.level != 0 || a.reason == UNIT_REASON ||
-        a.reason == DECISION_REASON)
-      continue; // asserted units got their ids at the source
-    k.lrat_entries.clear();
-    uint64_t reason_id;
-    if (a.binary) {
-      // Reason jumping needs the resolved-away literal above level 0, so it
-      // cannot reach the root and the reason still names a real clause.
-      assert(!a.jumped);
-      reason_id = kernel_binary_id(k, lit, a.reason);
-      const Var ov = var_of(a.reason);
-      k.lrat_entries.emplace_back(k.assigned[ov].trail, k.unit_ids[ov]);
-    } else {
-      const Clause *c = clause_at(k.arena, a.reason);
-      reason_id = c->id();
-      for (const Lit l : *c)
-        if (l != lit) {
-          const Var ov = var_of(l);
-          k.lrat_entries.emplace_back(k.assigned[ov].trail,
-                                      k.unit_ids[ov]);
-        }
-    }
-    kernel_lrat_chain(k, reason_id);
-    const uint64_t id = ++k.next_clause_id;
-    k.unit_ids[v] = id;
-    k.proof->add_derived_unit(id, lit, k.lrat_chain.data(),
-                              static_cast<uint32_t>(k.lrat_chain.size()));
-  }
-}
-
 ApplyResult propagate_service(Kernel &k) {
   if (k.inconsistent)
     return ApplyResult::Unsat;
@@ -68,10 +31,11 @@ ApplyResult propagate_service(Kernel &k) {
   // root-false forces a literal at level 0 while the solver stands higher;
   // gating on the solver's level would skip those, leave `unit_ids[v] == 0` —
   // LRAT's chain terminator — and truncate every later chain citing them.
-  // `emit_root_units` applies the correct per-literal test. Only reachable
-  // with chrono on, and invisible to DRAT, so an LRAT fuzz leg pins it.
+  // `kernel_emit_root_units` applies the correct per-literal test. Only
+  // reachable with chrono on, and invisible to DRAT, so an LRAT fuzz leg pins
+  // it.
   if (lrat)
-    emit_root_units(k, assigned_before);
+    kernel_emit_root_units(k, assigned_before);
   if (conflict) {
     k.stats.conflicts++;
     if (k.level == 0) { // root conflict: the formula is refuted

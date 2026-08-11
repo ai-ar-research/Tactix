@@ -511,6 +511,11 @@ struct Kernel {
   // polarity.
   std::vector<uint8_t> factor_marks;
 
+  // Bumped by every `kernel_collect_garbage`. A Ref recorded before the bump
+  // names the pre-collection arena, so anything holding one across a possible
+  // collection compares this instead of reasoning about the call graph.
+  uint64_t arena_generation = 1;
+
   uint64_t touch_epoch = 0;
   std::vector<uint64_t> touched; // by var
   std::vector<uint64_t> removed; // by var
@@ -924,6 +929,12 @@ inline uint32_t kernel_root_fixed(const Kernel &k) {
 }
 
 void kernel_lrat_chain(Kernel &, uint64_t closing_id);
+
+// Native LRAT only: name every root literal appended to the trail at or after
+// `from` that a propagation derived, so a later chain can cite it. Callers are
+// the propagation entry points, because "root-fixed implies it has a unit id"
+// is a kernel invariant (`kernel_check_invariants`), not a rule's obligation.
+void kernel_emit_root_units(Kernel &, size_t from);
 
 void kernel_reason_walk(Kernel &, Var start, std::vector<uint8_t> &seen,
                         std::vector<std::pair<uint32_t, uint64_t>> &entries,

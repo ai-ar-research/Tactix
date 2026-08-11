@@ -341,13 +341,12 @@ static void sweep_completed_limits(Kernel &k, SweepLimits &lim) {
   k.stats.sweep_limit_depth = lim.max_depth;
 }
 
-void sweep_round_begin(Kernel &k, SweepRound &r) {
-  r.env.solver.start_kitten_session();
-  // Occurrence index over irredundant large clauses. Irredundant only, because
-  // `Reduce` may delete a learned clause between detection and emission and a
-  // chain citing a deleted id is a rejected proof. Outside a simplification
-  // phase a single arena pass builds the same thing, so the detector stays
-  // usable at any state (N1).
+// Occurrence index over irredundant large clauses. Irredundant only, because
+// `Reduce` may delete a learned clause between detection and emission and a
+// chain citing a deleted id is a rejected proof. Outside a simplification
+// phase a single arena pass builds the same thing, so the detector stays
+// usable at any state (N1).
+static void sweep_build_occurrences(Kernel &k, SweepRound &r) {
   if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
     r.occ = &k.dense->large;
   } else {
@@ -361,8 +360,24 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
       k.stats.sweep_ticks += words;
       ref += words;
     }
-  r.occ = &r.occ_owned;
+    r.occ = &r.occ_owned;
   }
+  r.occ_generation = k.arena_generation;
+}
+
+// A productive seed substitutes its consequences inline, and that collects the
+// variable-width arena. `Kernel::dense` is rebuilt by the collector; a
+// round-local snapshot is not, so its Ref offsets would keep naming the
+// pre-collection arena. Checked per seed rather than at the emission site so
+// no future collector inside a round can reintroduce the stale traversal.
+static void sweep_refresh_occurrences(Kernel &k, SweepRound &r) {
+  if (r.occ == &r.occ_owned && r.occ_generation != k.arena_generation)
+    sweep_build_occurrences(k, r);
+}
+
+void sweep_round_begin(Kernel &k, SweepRound &r) {
+  r.env.solver.start_kitten_session();
+  sweep_build_occurrences(k, r);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Var v = 0; v < k.nvars; v++) {
     uint32_t ordinal = 0;
@@ -389,6 +404,7 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
 bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
                      SweepRound &r) {
   assert(r.occ && "sweep_round_begin must run first");
+  sweep_refresh_occurrences(k, r);
   SweepEnv &e = r.env;
   env_reset(k, e);
   keyset_reset(e, lim.max_env_clauses);

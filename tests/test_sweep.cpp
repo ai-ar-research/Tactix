@@ -593,6 +593,26 @@ static void test_se_general_path_emits(void) {
          (unsigned long long)k.stats.sweep_binaries);
 }
 
+// The public/random-policy path has no shared dense index. A productive seed
+// substitutes inline and garbage-collects the variable-width arena; the next
+// resumed seed must traverse a rebuilt occurrence snapshot rather than the old
+// Ref offsets. ASan turns the pre-fix stale read into a deterministic failure.
+static void test_inline_bridge_refreshes_owned_occurrences(void) {
+  std::vector<std::vector<int>> cls = non_rup_formula();
+  cls.push_back({5, 6, 7});
+  cls.push_back({-5, 6, 7});
+  cls.push_back({5, -6, 7});
+  Kernel k;
+  build(k, 7, cls);
+  assert(k.dense == nullptr);
+  k.sweep_tail = {k.internal_to_external[0], k.internal_to_external[4]};
+  k.sweep_tail_next = 0;
+
+  assert(sweep_apply(k) == ApplyResult::Ok);
+  assert(k.stats.substitute_vars >= 1);
+  assert(k.stats.sweep_general >= 1);
+}
+
 // --- the emitted proof, through a real checker ------------------------------
 // Emitting is not the same as being checkable: a sub-solver literal decoded
 // with inverted parity still leaves both correct binaries in F, so detection,
@@ -696,6 +716,7 @@ int main(int argc, char **argv) {
   test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();
   test_se_general_path_emits();
+  test_inline_bridge_refreshes_owned_occurrences();
   test_brute_force_oracle(rounds);
   printf("test_sweep: all tests passed\n");
   return 0;

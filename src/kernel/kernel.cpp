@@ -1060,15 +1060,31 @@ void kernel_probing_end(Kernel &k) {
 }
 
 bool kernel_propagate_probing(Kernel &k, Ref ignore) {
-  if (!k.probing.recording)
-    return kernel_propagate(k, ignore); // no open scope: nothing to record
-  while (k.propagate_head < k.trail.size()) {
-    const Lit lit = k.trail[k.propagate_head];
-    if (propagate_literal<true, false>(k, lit, ignore))
-      return true; // same "do not advance past the conflicting scan" rule
-    k.propagate_head++;
+  // A speculative propagation can force a literal at level 0 (D-LEVEL-2 stamps
+  // a forced literal at its TRUE level), and the unwind leaves it assigned. It
+  // never passes through `propagate_service`, so without this it keeps
+  // `unit_ids[v] == 0` — LRAT's line terminator — and truncates the next chain
+  // that cites it. Reachable whenever the root is not drained at entry, which
+  // V5 Sweep does deliberately: it asserts each environment's units without
+  // propagating and then replays the next equivalence.
+  const size_t assigned_before = k.trail.size();
+  const bool lrat = k.proof && k.proof->lrat();
+  bool conflict = false;
+  if (!k.probing.recording) {
+    conflict = kernel_propagate(k, ignore); // no open scope: nothing to record
+  } else {
+    while (k.propagate_head < k.trail.size()) {
+      const Lit lit = k.trail[k.propagate_head];
+      if (propagate_literal<true, false>(k, lit, ignore)) {
+        conflict = true; // same "do not advance past the conflicting scan" rule
+        break;
+      }
+      k.propagate_head++;
+    }
   }
-  return false;
+  if (lrat)
+    kernel_emit_root_units(k, assigned_before);
+  return conflict;
 }
 
 // binary-only propagation to fixpoint or first conflict (V2 Backbone). Same
@@ -1277,6 +1293,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   // entry was appended after it, so the binary-first layout now holds — the
   // same way kissat gets it out of `kissat_watch_large_clauses`
   // (substitute.c:594-596), as a byproduct rather than as a sort.
+  k.arena_generation++; // every Ref taken before this call is now stale
 }
 
 // Re-enter sparse search after an inprocessing phase in arena order.  Kissat's
@@ -1657,6 +1674,47 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
   k.lrat_chain.push_back(closing_id);
 }
 
+// LRAT: every root-level propagation-derived literal becomes an explicit unit
+// clause in the proof (CaDiCaL's scheme) so later chains can cite it. Emitting
+// in trail order is what makes each chain nameable: a reason's other literals
+// are all root-false and were assigned earlier, so their own ids already exist.
+void kernel_emit_root_units(Kernel &k, size_t from) {
+  for (size_t i = from; i < k.trail.size(); i++) {
+    const Lit lit = k.trail[i];
+    const Var v = var_of(lit);
+    const Assigned &a = k.assigned[v];
+    if (a.level != 0 || a.reason == UNIT_REASON ||
+        a.reason == DECISION_REASON)
+      continue; // asserted units got their ids at the source
+    if (k.unit_ids[v])
+      continue; // already named (a repeated drain of the same root literal)
+    k.lrat_entries.clear();
+    uint64_t reason_id;
+    if (a.binary) {
+      // Reason jumping needs the resolved-away literal above level 0, so it
+      // cannot reach the root and the reason still names a real clause.
+      assert(!a.jumped);
+      reason_id = kernel_binary_id(k, lit, a.reason);
+      const Var ov = var_of(a.reason);
+      k.lrat_entries.emplace_back(k.assigned[ov].trail, k.unit_ids[ov]);
+    } else {
+      const Clause *c = clause_at(k.arena, a.reason);
+      reason_id = c->id();
+      for (const Lit l : *c)
+        if (l != lit) {
+          const Var ov = var_of(l);
+          k.lrat_entries.emplace_back(k.assigned[ov].trail,
+                                      k.unit_ids[ov]);
+        }
+    }
+    kernel_lrat_chain(k, reason_id);
+    const uint64_t id = ++k.next_clause_id;
+    k.unit_ids[v] = id;
+    k.proof->add_derived_unit(id, lit, k.lrat_chain.data(),
+                              static_cast<uint32_t>(k.lrat_chain.size()));
+  }
+}
+
 void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
                         std::vector<std::pair<uint32_t, uint64_t>> &out,
                         std::vector<Var> *touched) {
@@ -1777,6 +1835,27 @@ void kernel_check_invariants(const Kernel &k) {
     // completeness checks below are what actually catch propagation bugs.)
     assert(a.level == 0 || i >= k.frames[a.level]);
   }
+  // Native LRAT: a root-fixed literal must already carry its unit line's id.
+  // 0 is the format's line TERMINATOR, so a later chain citing the literal is
+  // truncated rather than wrong, and the defect surfaces only as a checker
+  // rejection thousands of lemmas downstream (corpus 011). Checked at every
+  // rule boundary so the abort names the rule that FIXED the literal instead
+  // of the one that later cites it.
+  if (k.proof && k.proof->lrat())
+    for (const Lit lit : k.trail) {
+      const Var v = var_of(lit);
+      if (k.assigned[v].level != 0 || k.unit_ids[v] != 0)
+        continue;
+      fprintf(stderr,
+              "INVARIANT: root literal %d has no LRAT unit id; trailpos %u "
+              "reason %s\n",
+              externalize(lit), k.assigned[v].trail,
+              k.assigned[v].reason == UNIT_REASON      ? "unit"
+              : k.assigned[v].reason == DECISION_REASON ? "decision"
+              : k.assigned[v].binary                    ? "binary"
+                                                        : "large");
+      assert(false && "root literal without an LRAT unit id");
+    }
   // every live large clause is watched on exactly lits[0] and lits[1]
   // (and, folded into the same walk, the eager-subsumption register holds only
   // real clause STARTS — a stale Ref left there by a collect would index the

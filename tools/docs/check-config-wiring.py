@@ -151,6 +151,9 @@ CONFIG_START = "bve_retry_fixed_head"
 # category, which a policy may reset but never "configures".
 NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
               "warming",
+              # the arena's own relocation counter: whoever holds a Ref across
+              # a possible collection compares it. Nothing configures it.
+              "arena_generation",
               "touch_epoch", "touch_fixed_head",
               "subsume_touch_mark", "strengthen_touch_mark",
               "bce_touch_mark", "ternary_touch_mark",
