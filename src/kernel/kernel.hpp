@@ -229,6 +229,7 @@ struct Stats {
   uint64_t sweep_env_units = 0;     // unit clauses added alongside (off arm)
   uint64_t sweep_ticks_dedup = 0;   // the environment's clause-key scan
   uint64_t sweep_ticks_sub = 0;     // Sweep's scheduled effort currency
+  uint64_t sweep_ticks_repr = 0;    // Tactix arena words rebuilt after emissions
   uint64_t sweep_occ_f = 0;         // env vars' large-clause degree in F
   uint64_t sweep_occ_env = 0;       // ... and inside the environment
   uint64_t sweep_vars_closed = 0;   // env vars holding their WHOLE degree

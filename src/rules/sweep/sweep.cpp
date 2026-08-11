@@ -13,6 +13,10 @@
 
 namespace tactix {
 
+static uint64_t sweep_scheduled_ticks(const Kernel &k) {
+  return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
+}
+
 namespace {
 
 SubResult sweep_solve(SweepEnv &e, const std::vector<SubLit> &assumptions,
@@ -722,7 +726,7 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     Var seed,
 #endif
-    const SweepLimits &lim, SweepRound &r, bool commit_inline
+    const SweepLimits &lim, SweepRound &r
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     , uint32_t &query_ordinal
 #endif
@@ -817,8 +821,6 @@ static uint32_t detect_full_partition(
     if (unit.proof.ok && unit.proof.t0 == lit &&
         unit.proof.t1 == INVALID_LIT) {
       r.units.push_back(std::move(unit));
-      if (commit_inline && sweep_emit_round(k, r, 0) == ApplyResult::Unsat)
-        break;
     }
   }
 
@@ -946,8 +948,6 @@ static uint32_t detect_full_partition(
     found++;
     repr_unite(r, a, b);
     partition_remove_merged_endpoint(r, a, b);
-    if (commit_inline && sweep_emit_round(k, r, 1) == ApplyResult::Unsat)
-      break;
   }
   return found;
 }
@@ -1042,13 +1042,20 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         seed,
 #endif
-        lim, r, commit_inline
+        lim, r
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         , query_ordinal
 #endif
     );
     k.stats.sweep_ticks += e.solver.kitten_ticks();
     k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
+    // Detection after the initial solve reads only the embedded environment.
+    // Commit its ordered units/equivalences once before the next main-formula
+    // seed, where Kissat's connected-clause substitutions first become
+    // observable.  Substituting after every pair forced Tactix's variable-width
+    // arena bridge to collect and rebuild the whole formula hundreds of times.
+    if (commit_inline)
+      (void)sweep_emit_round(k, r, found);
     return found;
   }
 
@@ -1160,6 +1167,8 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
   }
   k.stats.sweep_ticks += e.solver.kitten_ticks();
   k.stats.sweep_ticks_sub += e.solver.kitten_ticks();
+  if (commit_inline)
+    (void)sweep_emit_round(k, r, found);
   return found;
 }
 
@@ -1174,24 +1183,24 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   k.stats.sweep_rounds++;
   sweep_round_begin(k, r);
   sweep_seeds(k, r.seeds);
-  const uint64_t start = k.stats.sweep_ticks_sub;
+  const uint64_t start = sweep_scheduled_ticks(k);
   uint32_t found = 0, seeds = 0;
   for (const Var v : r.seeds) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
-        k.stats.sweep_ticks_sub - start > lim.round_ticks)
+        sweep_scheduled_ticks(k) - start > lim.round_ticks)
       break;
     seeds++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t before = k.stats.sweep_ticks_sub;
+    const uint64_t before = sweep_scheduled_ticks(k);
     const uint64_t solves_before = k.stats.sweep_solves;
     const uint32_t external = static_cast<uint32_t>(
         kernel_externalize(k, make_lit(v, false)));
 #endif
     SweepLimits seed_lim = lim;
     if (lim.round_ticks) {
-      const uint64_t spent = k.stats.sweep_ticks_sub - start;
+      const uint64_t spent = sweep_scheduled_ticks(k) - start;
       const uint64_t remaining =
           spent < lim.round_ticks ? lim.round_ticks - spent : 1;
       if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
@@ -1199,7 +1208,7 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
     }
     found += sweep_detect_seed(k, v, seed_lim, r);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t spent = k.stats.sweep_ticks_sub - before;
+    const uint64_t spent = sweep_scheduled_ticks(k) - before;
     if (spent)
       event_trace_sweep_effort(k, external, spent, r.env.solver.ticks(),
                                k.stats.sweep_solves - solves_before);
@@ -1268,14 +1277,14 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     k.stats.sweep_scheduled += k.sweep_tail.size();
   }
 
-  const uint64_t start = k.stats.sweep_ticks_sub;
+  const uint64_t start = sweep_scheduled_ticks(k);
   uint32_t seeds = 0;
   ApplyResult result = ApplyResult::NoOp;
   while (k.sweep_tail_next < k.sweep_tail.size()) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
-        k.stats.sweep_ticks_sub - start > lim.round_ticks)
+        sweep_scheduled_ticks(k) - start > lim.round_ticks)
       break;
     const Var external = k.sweep_tail[k.sweep_tail_next++];
     if (external >= k.external_to_internal.size())
@@ -1287,12 +1296,12 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
       k.stats.sweep_resumed++;
     seeds++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t before = k.stats.sweep_ticks_sub;
+    const uint64_t before = sweep_scheduled_ticks(k);
     const uint64_t solves_before = k.stats.sweep_solves;
 #endif
     SweepLimits seed_lim = lim;
     if (lim.round_ticks) {
-      const uint64_t spent = k.stats.sweep_ticks_sub - start;
+      const uint64_t spent = sweep_scheduled_ticks(k) - start;
       const uint64_t remaining =
           spent < lim.round_ticks ? lim.round_ticks - spent : 1;
       if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
@@ -1301,7 +1310,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     const uint64_t emissions_before = r.emission_batches;
     (void)sweep_process_seed(k, v, seed_lim, r, true);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t spent = k.stats.sweep_ticks_sub - before;
+    const uint64_t spent = sweep_scheduled_ticks(k) - before;
     if (spent)
       event_trace_sweep_effort(k, external + 1, spent, r.env.solver.ticks(),
                                k.stats.sweep_solves - solves_before);

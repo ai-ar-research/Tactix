@@ -575,10 +575,13 @@ uint64_t meter_hbr(const Kernel &k) { return k.stats.hbr_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
 // Kissat's `SET_EFFORT_LIMIT(..., kitten_ticks)` spends only the embedded
-// solver's ticks. Keep environment scan/dedup work in `sweep_ticks` as
-// diagnostics, but do not charge that different currency to the reference
-// allowance.
-uint64_t meter_sweep(const Kernel &k) { return k.stats.sweep_ticks_sub; }
+// solver's ticks because connected-clause substitution is in-place. Tactix's
+// variable-width arena has to rebuild the formula after a productive
+// environment, so include those deterministic arena words in the scheduled
+// currency. Environment construction/dedup remains diagnostic-only.
+uint64_t meter_sweep(const Kernel &k) {
+  return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
+}
 uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
 uint64_t meter_substitute(const Kernel &k) { return k.stats.substitute_ticks; }
 

@@ -264,15 +264,30 @@ enum class SubstitutionArenaOrder {
 // collapses simply leave a hole.
 struct PositionPreservingOrder final : ArenaOrdering {
   std::vector<uint64_t> rank;
+  uint64_t ranks = 0;
 
   void order(const Kernel &, std::vector<Ref> &refs) override {
-    std::stable_sort(refs.begin(), refs.end(), [&](Ref a, Ref b) {
-      const uint64_t ar = a < rank.size() ? rank[a] : UINT64_MAX;
-      const uint64_t br = b < rank.size() ? rank[b] : UINT64_MAX;
-      if (ar != br)
-        return ar < br;
-      return a < b;
-    });
+    // Every original clause position owns one rank, and replacement clauses
+    // inherit that rank after the old record is garbaged.  Thus live ranked
+    // records form a partial permutation: restore it in linear time instead of
+    // comparison-sorting the complete formula after every productive Sweep
+    // environment.  The tail is defensive for unranked/duplicate records and
+    // retains their incoming arena order, matching the old stable-sort tie.
+    std::vector<Ref> by_rank(ranks, INVALID_REF), tail;
+    tail.reserve(refs.size());
+    for (const Ref ref : refs) {
+      const uint64_t r = ref < rank.size() ? rank[ref] : UINT64_MAX;
+      if (r < ranks && by_rank[r] == INVALID_REF)
+        by_rank[r] = ref;
+      else
+        tail.push_back(ref);
+    }
+    refs.clear();
+    refs.reserve(by_rank.size() + tail.size());
+    for (const Ref ref : by_rank)
+      if (ref != INVALID_REF)
+        refs.push_back(ref);
+    refs.insert(refs.end(), tail.begin(), tail.end());
   }
 };
 
@@ -291,6 +306,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       position_order.rank[ref] = ordinal;
       ref += clause_words(c->size);
     }
+    position_order.ranks = ordinal;
   }
   // The active substitution set: the caller's `sub`, which step (A) may narrow
   // to `sub_filtered`. The lambda reads through the pointer, so repointing it
@@ -846,11 +862,18 @@ ApplyResult substitute_apply_sweep_equivalences(
       k.stats.substitute_scc_lits++;
     }
 
+  // The representation bridge below collects the variable-width arena once if
+  // this environment changed it.  Kissat rewrites connected clauses in place;
+  // charge Tactix's unavoidable whole-arena rebuild to Sweep so the next seed
+  // cannot consume effort that the scheduler never saw.
+  const uint64_t representation_words = k.arena.size();
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(
       k, r, sub, SubstitutionArenaOrder::PreserveClausePosition);
   k.arena_ordering = saved_order;
+  if (result == ApplyResult::Ok)
+    k.stats.sweep_ticks_repr += representation_words;
   return result;
 }
 

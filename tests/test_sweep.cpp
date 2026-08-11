@@ -577,6 +577,7 @@ static void test_se_general_path_emits(void) {
   assert(!is_rup_binary(k, negate(x), y)); // premise: S-d cannot do this
   assert(!is_rup_binary(k, x, negate(y)));
 
+  const uint64_t arena_words_before = k.arena.size();
   const ApplyResult r = sweep_apply(k);
   assert(r == ApplyResult::Ok && "the general path must justify what RUP cannot");
   assert(k.stats.sweep_general >= 1 &&
@@ -586,6 +587,8 @@ static void test_se_general_path_emits(void) {
   // the proved class immediately; the retired variable and witness are the
   // persistent effect, not two stale equivalence clauses.
   assert(k.stats.substitute_vars >= 1);
+  assert(k.stats.sweep_ticks_repr == arena_words_before &&
+         "one productive environment prices its whole-arena rebuild once");
   assert(kernel_var_retired(k, var_of(x)) ||
          kernel_var_retired(k, var_of(y)));
   printf("  S-e: general path emitted %llu binaries for a non-RUP equivalence\n",
