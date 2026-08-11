@@ -683,15 +683,6 @@ ApplyResult factor_apply(Kernel &k) {
     dump_factored_and_exit(k, p);
 #endif
 
-  // Admission is the policy's decision, not the rule's: a selectivity heuristic
-  // here as a NoOp would let the guard report applicable while apply did
-  // nothing, so no API caller could apply a legal factoring — an N1 breach,
-  // whose carve-out covers the policy declining, never the rule refusing
-  // everyone. `Kernel::factor_admit` defaults true; `TACTIX_FACTOR_FORCE`
-  // overrides for fuzz on tiny formulas.
-  if (!k.factor_admit && !std::getenv("TACTIX_FACTOR_FORCE"))
-    return ApplyResult::NoOp;
-
   // Anti-loop boundary: only original literals may be factors/remainders, never
   // the extension vars Factor adds. It must be `first_extension_var`, fixed
   // across applies — `2*k.nvars` would let a second apply factor over the

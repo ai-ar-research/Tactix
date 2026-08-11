@@ -1,7 +1,6 @@
-// N1 regression: Factor's admission heuristic lives in DefaultPolicy, not in
-// the rule. A rule that guards true, advertises an instance and then NoOps on
-// it removes a capability from every external policy. The predicate reaches
-// the rule as `Kernel::factor_admit`, which defaults true.
+// N1 regression: Factor admission lives wholly in the calling policy. A rule
+// that guards true, advertises an instance and then NoOps on a strategy
+// predicate removes a capability from every external policy.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/factor/factor.hpp"

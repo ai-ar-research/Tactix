@@ -163,8 +163,7 @@ fi
 # original's id). The second case duplicates a grid binary, for delete-all-copies
 # under LRAT. The third is a 2x3 occurrence grid whose three columns have equal
 # large-clause contents but distinct ids; it pins aligned multiset hints and
-# deletion. TACTIX_FACTOR_FORCE bypasses the density gate; TACTIX_NO_BVE keeps
-# BVE off the grid until Factor has run.
+# deletion. TACTIX_NO_BVE keeps BVE off the grid until Factor has run.
 printf 'p cnf 7 13\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor.cnf"
 printf 'p cnf 7 14\n1 3 0\n1 3 0\n1 4 0\n1 5 0\n2 3 0\n2 4 0\n2 5 0\n-1 -2 0\n-3 -4 0\n-5 -3 0\n6 7 0\n6 -7 0\n-6 7 0\n-6 -7 0\n' > "$T/factor_dup.cnf"
 printf 'p cnf 6 10\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n1 3 4 0\n2 3 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' > "$T/factor_dup_large.cnf"
@@ -172,10 +171,10 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
   for mode in binary ascii; do
     proof="$cnf.fac.$mode.drat"
     if [ "$mode" = binary ]; then
-      TACTIX_FACTOR_FORCE=1 TACTIX_NO_BVE=1 "$TACTIX" -q "$cnf" "$proof" \
+      TACTIX_NO_BVE=1 "$TACTIX" -q "$cnf" "$proof" \
         > "$T/out" && rc=$? || rc=$?
     else
-      TACTIX_FACTOR_FORCE=1 TACTIX_NO_BVE=1 "$TACTIX" -q --no-binary "$cnf" \
+      TACTIX_NO_BVE=1 "$TACTIX" -q --no-binary "$cnf" \
         "$proof" > "$T/out" && rc=$? || rc=$?
     fi
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor (rc=$rc)"; exit 1; }
@@ -187,7 +186,7 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
   done
   if [ -x "$LRAT_CHECK" ]; then
     proof="$cnf.fac.lrat"
-    TACTIX_FACTOR_FORCE=1 TACTIX_NO_BVE=1 "$TACTIX" -q --lrat "$cnf" "$proof" \
+    TACTIX_NO_BVE=1 "$TACTIX" -q --lrat "$cnf" "$proof" \
       > "$T/out" && rc=$? || rc=$?
     [ "$rc" -eq 20 ] || { echo "FAIL: $cnf not UNSAT under Factor --lrat"; exit 1; }
     "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \

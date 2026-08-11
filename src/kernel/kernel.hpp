@@ -569,7 +569,6 @@ struct Kernel {
   uint32_t stop_fuzz = 0;
   mutable uint64_t stop_fuzz_state = 0x9E3779B97F4A7C15ull;
   bool factor_composite = false;
-  bool factor_admit = true;
   uint64_t *tick_sink = nullptr;
   bool inprocessing = false;
   // Non-owning fast path into policy-owned H.  Kissat updates saved phases at
@@ -582,7 +581,6 @@ struct Kernel {
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
   bool vivify_flush = true;
-  bool sweep_resume = true;
   std::vector<Var> sweep_tail; // stable external identities
   uint32_t sweep_tail_next = 0;
   uint32_t sweep_passes_completed = 0;

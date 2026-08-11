@@ -257,8 +257,6 @@ int main(int argc, char **argv) {
     kernel.vivify_reuse = (*vr != '0');
   if (const char *vf = getenv("TACTIX_VIVIFY_FLUSH"))
     kernel.vivify_flush = (*vf != '0');
-  if (const char *sr = getenv("TACTIX_SWEEP_RESUME"))
-    kernel.sweep_resume = (*sr != '0');
   // CaDiCaL's likely-kept redundant band ships ON; =0 restores the narrower
   // irredundant-only round.
   if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))

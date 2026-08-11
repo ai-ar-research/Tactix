@@ -862,18 +862,11 @@ ApplyResult substitute_apply_sweep_equivalences(
       k.stats.substitute_scc_lits++;
     }
 
-  // The representation bridge below collects the variable-width arena once if
-  // this environment changed it.  Kissat rewrites connected clauses in place;
-  // charge Tactix's unavoidable whole-arena rebuild to Sweep so the next seed
-  // cannot consume effort that the scheduler never saw.
-  const uint64_t representation_words = k.arena.size();
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(
       k, r, sub, SubstitutionArenaOrder::PreserveClausePosition);
   k.arena_ordering = saved_order;
-  if (result == ApplyResult::Ok)
-    k.stats.sweep_ticks_repr += representation_words;
   return result;
 }
 
