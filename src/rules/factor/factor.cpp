@@ -880,7 +880,14 @@ ApplyResult factor_apply(Kernel &k) {
       for (const uint32_t rid : R)
         if (!remainder_count[rid]++)
           distinct_rids.push_back(rid);
-      std::vector<RemainderFactorBucket> buckets(pool.count());
+      // Only the current quotient's distinct remainders need candidate buckets.
+      // `pool` is pass-wide and can contain hundreds of thousands of ids, so a
+      // dense `vector(pool.count())` here constructed and destroyed that many
+      // vectors/maps for every popped seed even when the quotient had only a
+      // few dozen columns.  Keep the same rid-keyed lookup and insertion order
+      // without paying work proportional to all previously interned content.
+      std::unordered_map<uint32_t, RemainderFactorBucket> buckets;
+      buckets.reserve(distinct_rids.size());
       for (const uint32_t rid : distinct_rids) {
         const Lit *remainder = pool.lits_of(rid);
         const uint32_t remainder_size = pool.size_of(rid);
@@ -892,7 +899,7 @@ ApplyResult factor_apply(Kernel &k) {
         }
         if (contains_existing_factor)
           continue;
-        RemainderFactorBucket &bucket = buckets[rid];
+        RemainderFactorBucket &bucket = buckets.try_emplace(rid).first->second;
         build_remainder_factor_bucket(k, fidx, pool, rid, orig_lits, bucket);
         for (const Lit h : bucket.order) {
           if (var_of(h) == var_of(seed) || contains(F, h))
@@ -946,8 +953,11 @@ ApplyResult factor_apply(Kernel &k) {
         const uint32_t rn = pool.size_of(rid);
         Ref matched_ref = INVALID_REF;
         if (rn == 1) {
-          const auto it = buckets[rid].refs.find(g);
-          if (it == buckets[rid].refs.end() ||
+          const auto bucket_it = buckets.find(rid);
+          if (bucket_it == buckets.end())
+            continue;
+          const auto it = bucket_it->second.refs.find(g);
+          if (it == bucket_it->second.refs.end() ||
               used[rid] >= it->second.size())
             continue;
           matched_ref = it->second[used[rid]++];

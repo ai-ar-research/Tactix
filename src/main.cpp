@@ -557,10 +557,12 @@ int main(int argc, char **argv) {
     printf("c sweepback   %llu candidates, %llu flipped\n",
            (unsigned long long)kernel.stats.sweep_backbone_candidates,
            (unsigned long long)kernel.stats.sweep_backbone_flipped);
-    printf("c sweepcost   %llu dedup ticks, %llu sub-solver ticks; closure "
+    printf("c sweepcost   %llu dedup ticks, %llu sub-solver ticks, "
+           "%llu representation words; closure "
            "%llu/%llu occurrences, %llu/%llu vars whole\n",
            (unsigned long long)kernel.stats.sweep_ticks_dedup,
            (unsigned long long)kernel.stats.sweep_ticks_sub,
+           (unsigned long long)kernel.stats.sweep_ticks_repr,
            (unsigned long long)kernel.stats.sweep_occ_env,
            (unsigned long long)kernel.stats.sweep_occ_f,
            (unsigned long long)kernel.stats.sweep_vars_closed,
