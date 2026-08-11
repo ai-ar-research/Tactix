@@ -542,6 +542,8 @@ static void test_sd_emits_rup_equivalence(void) {
          "an emitted equivalence is TWO binaries; one alone would state an "
          "implication the sub-solver did not prove on its own");
   assert(k.stats.sweep_binaries % 2 == 0 && "binaries are emitted in pairs");
+  assert(k.stats.sweep_general == 0 &&
+         "default emission must prefer the independently replayed RUP path");
   printf("  S-d: emitted %llu binaries via the RUP fast path\n",
          (unsigned long long)(k.stats.sweep_binaries - before));
 }

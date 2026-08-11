@@ -461,6 +461,9 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
     }
   }
   k.stats.sweep_ticks += ticks;
+  // Root-satisfied clauses can be retired while the environment is built, so
+  // take the snapshot only after the BFS has finished mutating the formula.
+  e.formula_epoch = k.touch_epoch;
   // Closure diagnostic: an environment is a ball around the seed, so its outer
   // variables arrive with only the clause that introduced them and every pair
   // they join costs a solve to learn that nothing about them can be proved.
@@ -565,6 +568,7 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   out.strip_ids = e.strip_ids;
   out.strip_off = e.strip_off;
   out.vars = e.vars;
+  out.formula_epoch = e.formula_epoch;
   out.ok = true;
 }
 
@@ -1403,6 +1407,11 @@ static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
                                const Lit t0, const Lit t1, bool dry) {
   if (!p.ok || p.steps.empty())
     return false;
+  // Resumable Sweep can commit and substitute an earlier consequence while
+  // the embedded solver continues on its old environment. Validate freshness
+  // during the all-or-nothing dry pass, before any proof line is emitted.
+  if (dry && p.formula_epoch != k.touch_epoch)
+    return false;
   // The strip ledger is indexed by original clause, one CSR slot each. A
   // capture that does not satisfy that cannot be translated, so decline rather
   // than index past it.
@@ -1586,18 +1595,18 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
         (is_pair(pp.fwd, f0, f1) && is_pair(pp.rev, r0, r1)) ||
         (is_pair(pp.fwd, r0, r1) && is_pair(pp.rev, f0, f1));
     bool emitted = false;
-    if (matching &&
+    if (!force_general)
+      emitted = sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev);
+    if (!emitted && matching &&
         sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, true) &&
         sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, true) &&
         sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, false) &&
         sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, false)) {
       k.stats.sweep_general++;
       emitted = true;
-    } else if (!force_general) {
-      emitted = sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev);
-      if (!emitted)
-        k.stats.sweep_not_rup++;
     }
+    if (!emitted && !force_general)
+      k.stats.sweep_not_rup++;
     if (emitted) {
       any = true;
       emitted_equivalences.emplace_back(e.a, e.b);

@@ -59,6 +59,10 @@ constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
 // → main-formula proof id.
 struct SweepEnv {
   SubSolver solver;
+  // Formula-mutation epoch after this environment was fully built. Inline
+  // emission may rewrite F while the embedded solver still holds this local
+  // snapshot; captured general proofs are usable only at this epoch.
+  uint64_t formula_epoch = 0;
   std::vector<Var> vars;            // sub var -> kernel var
   std::vector<uint32_t> sub_of_var; // kernel var -> sub var (SWEEP_NO_SUB_VAR)
   std::vector<Var> touched;         // sub_of_var restore list (see reset)
@@ -109,6 +113,7 @@ struct SweepDirProof {
   std::vector<uint64_t> strip_ids;
   std::vector<uint32_t> strip_off;
   std::vector<Var> vars;
+  uint64_t formula_epoch = 0;
   bool ok = false;
 };
 struct SweepPairProof {
