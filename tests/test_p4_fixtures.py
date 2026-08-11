@@ -85,6 +85,16 @@ tactix_only_dry = subprocess.run(
 assert "--tactix-only" in tactix_only_dry and "--no-trace" in tactix_only_dry
 assert "--time=110" in tactix_only_dry
 
+large_memory_dry = subprocess.run(
+    [sys.executable, str(ROOT / "tools/bench/p4_cvg.py"),
+     "--fixture", "128_125.sanitized", "--tier", "C",
+     "--tactix", "/pin/kissat", "--kissat", "/pin/kissat",
+     "--out", "/tmp/p4-tier-c-large-memory-dry", "--tactix-only",
+     "--no-trace", "--memory-gb", "32", "--dry-run"],
+    check=True, text=True, stdout=subprocess.PIPE).stdout
+assert "--cpus-per-task=4" in large_memory_dry and "--mem=32G" in large_memory_dry
+assert "--memory-gb 32" in large_memory_dry
+
 with tempfile.TemporaryDirectory(prefix="p4-check-timeout-") as directory:
     directory = pathlib.Path(directory)
     check_log = directory / "check.log"
