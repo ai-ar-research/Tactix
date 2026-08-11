@@ -13,7 +13,11 @@ LIMITS = {
     "PROGRESS.md": 350,
     "docs/README.md": 100,
     "docs/calculus.md": 600,
-    "docs/implementation-notes.md": 800,
+    # Split 2026-08-11: section 13 became the parity ledger below. Both caps
+    # carry reserve on purpose — the old 800 was saturated at exactly 800, so
+    # it read green while the next invariant could not be written at all.
+    "docs/implementation-notes.md": 520,
+    "docs/scheduling-parity-ledger.md": 600,
     "docs/lessons.md": 100,
     "docs/proof-rules.html": 1000,
     "tools/fuzz/README.md": 80,
@@ -35,10 +39,17 @@ def lines(rel):
 
 def main():
     errors = []
+    warnings = []
     for rel, limit in LIMITS.items():
         actual = lines(rel)
         if actual > limit:
             errors.append(f"{rel}: {actual} lines exceeds budget {limit}")
+        elif actual > (limit * 9) // 10:
+            # A budget with no reserve fails only when someone is already
+            # mid-edit, which forces an unrelated trim to land the real change.
+            warnings.append(
+                f"{rel}: {actual} of {limit} lines — under 10% reserve left, "
+                f"compact it before the next addition needs the room")
 
     for skill in sorted((ROOT / ".claude/skills").glob("*/SKILL.md")):
         limit = SKILL_EXCEPTIONS.get(skill.parent.name, SKILL_DEFAULT)
@@ -78,10 +89,13 @@ def main():
     if recent_count > 5:
         errors.append(f"PROGRESS.md: {recent_count} recent changes exceeds limit 5")
 
+    for warning in warnings:
+        print(f"  warn  {warning}")
     for error in errors:
         print(f"  FAIL  {error}")
     checked = len(LIMITS) + len(list((ROOT / ".claude/skills").glob("*/SKILL.md")))
-    print(f"check-doc-size: {len(errors)} error(s), {checked} file budget(s) checked")
+    print(f"check-doc-size: {len(errors)} error(s), {len(warnings)} warning(s), "
+          f"{checked} file budget(s) checked")
     return 1 if errors else 0
 
 

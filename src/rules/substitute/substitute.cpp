@@ -529,7 +529,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     // c dangles after (arena may reallocate) and is not touched again
     // Clamped on cadical's rule (decompose.cpp:629 → shrink_clause); kissat's
     // substitute.c does not clamp here at all. Deviation:
-    // docs/implementation-notes.md §13.3.
+    // docs/scheduling-parity-ledger.md §13.3.
     Ref replacement_ref = INVALID_REF;
     switch (kernel_replace_clause(
         k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,

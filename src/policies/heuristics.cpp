@@ -155,7 +155,7 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
 // order, so each prefers the LAST-activated variable — the VMTF queue enqueues
 // in that order and the k-th activated variable scores 1 − 1/k. Ported as an
 // ORDER, not as kissat's internal renumbering, which variable identity here
-// forbids; docs/implementation-notes.md §13 carries the argument and the
+// forbids; docs/scheduling-parity-ledger.md §13 carries the argument and the
 // deviation.
 void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) {
   if (!k.h || order.empty())

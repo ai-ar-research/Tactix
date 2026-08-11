@@ -1170,7 +1170,8 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
 // (l ∨ o) and (l ∨ ¬o) resolve on `o` to {l}, and `l`'s watch list holds both
 // partners, so one linear sweep finds every such unit. A strict special case of
 // V2 Backbone's precondition, kept here for coverage at linear cost; placement
-// argument and removal path in V6a and `docs/implementation-notes.md` §13.3.
+// argument and removal path in V6a and
+// `docs/scheduling-parity-ledger.md` §13.3.
 // `record` batches, so no unit is asserted mid-scan.
 const bool cong_y1 = [] {
   const char *s = std::getenv("TACTIX_CONG_Y1");
