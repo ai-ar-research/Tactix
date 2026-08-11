@@ -17,43 +17,43 @@ only.
 
 ## Resume here
 
-The user-directed Tier B divergence block is complete. Full same-window job
-`1609585` compares the retirement repair with pin `83238d1` on all 28 fixtures:
-Tactix improves **21/28 → 25/28 solved** and **187.33s → 116.58s PAR-2**,
-recovering `summle`, `circuit`, `201311`, and `b22` with every scored model and
-DRAT certificate independently checked. The other 24 cases move by at most
-0.42s. The causal record is
-`benchmarks/reports/2026-08-11-tier-b-retirement-divergence.md`.
+The user-directed Tier B performance block is complete. Factor now uses sparse
+literal buckets for last-factor construction, and Sweep owns its
+representation-bridge effort charge instead of relying on Substitute to mutate
+another rule's counter. Full same-window jobs `1609714`/`1609715` solve all
+**28/28** Tier B fixtures (14 SAT, 14 UNSAT), improving the previous accepted
+pin's 25/28 result and 114.19s PAR-2 to 28/28 and 28.69s. Every scored model and
+DRAT certificate passed independent validation. The causal record is
+`benchmarks/reports/2026-08-11-tier-b-factor-sweep-performance.md`.
 
-The defect was duplicate formula-retirement events crossing the policy
-boundary. A second VMTF dequeue followed disconnected sentinel links and
-eventually crashed focused branching. Heuristic deactivation is now
-idempotent; the production counter fires 7 times on the repaired circuit run,
-which returns model-clean SAT. Job `1609646` passes the full Release suite
-69/69. The remaining Tier B timeouts are `mod4block`, `FmlaEquivChain`, and
-`PRP_30_38`; a separate `b22` trace also shows Kissat deriving an initial
-Congruence equivalence that Tactix misses before Sweep.
+The subsequent rule/strategy boundary audit removed a dead Factor admission
+switch, moved Sweep resumption into caller-owned `SweepLimits`, and eliminated
+the remaining Substitute→Sweep governor mutation. Full Tier A and Tier B
+before/after evaluations have identical verdicts, reached maps, proof sizes,
+and model-check outcomes; Tier A runtime changes by +0.56% and Tier B by +0.73%.
+The completed windows are `20260811-113528-A-rule-policy-after` and
+`20260811-113628-B-rule-policy-after`.
+An additional `FmlaEquivChain` replay produced byte-identical DRAT and
+normalized logs. Job `1610381` passes the full Release suite 69/69. The audit
+record is `benchmarks/reports/2026-08-11-rule-strategy-boundary-audit.md`.
 
 P4-CVG remains closed by its canonical fixed-order jobs `1607665`--`1607672`.
 Tier C was deliberately cancelled rather than awaited and has no complete
 result in this block. The sparse-GC candidate and tracked corpus cases 004/005
-were not exercised and remain deferred. No benchmark job is in flight.
+were not exercised and remain deferred. No Tactix benchmark job is in flight;
+the live queue contains only unrelated workloads outside this repository.
 
 **Next actions:**
 
-1. Continue Tier B performance diagnosis on the three remaining timeouts as the
-   primary fixed set. Keep `b22`'s missed initial Congruence equivalence as the
-   source-backed secondary frontier; do not conflate it with this closed queue
-   corruption defect.
-2. Complete N4 verification against the reconciled scheduling ledger and the
+1. Complete N4 verification against the reconciled scheduling ledger and the
    canonical eight-fixture closure manifest. Do not reopen P4-CVG without a
    new proof/model failure or a localized causal-frontier regression.
-3. Restore N1 evidence for Factor, Congruence, and retired Decide
+2. Restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
    as the indivisible instance.
-4. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
-5. Keep the sparse-GC candidate and corpus cases 004/005 deferred unless the
+3. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
+4. Keep the sparse-GC candidate and corpus cases 004/005 deferred unless the
    user separately authorizes returning to that security-warning path.
 
 ## Current measurement contract
@@ -226,6 +226,12 @@ N4 only on an explicit verification record.
 
 ## Recent changes
 
+- 2026-08-11 — re-audited rule/strategy ownership: removed dead Factor policy
+  state, made Sweep resumption an explicit limit, and stopped Substitute from
+  charging Sweep; full A/B behavior is identical with +0.56%/+0.73% runtime.
+- 2026-08-11 — replaced Factor's dense scan with sparse literal buckets and
+  repaired Sweep representation accounting; full Tier B improves 25/28 →
+  28/28 solved and 114.19s → 28.69s PAR-2, correctness clean.
 - 2026-08-11 — made retirement deactivation idempotent after GDB/ASan and
   one-sided cuts localized duplicate-event VMTF corruption; full Tier B improves
   21/28 → 25/28 and 187.33s → 116.58s PAR-2, correctness clean.
@@ -234,9 +240,3 @@ N4 only on an explicit verification record.
 - 2026-08-11 — completed Vivify's terminal deduction state machine, optimized
   eager Sweep→Substitute equivalence consumption, repaired compact level-one
   randec admission, and solve-latched the large-formula Factor decline.
-- 2026-08-10 — localized `mod4block` conflict 1010 to sparse-GC cursor reset;
-  the candidate solves in 31.87s but remains held by a two-case fuzz regression
-  and the `tr-n300-s055` 30s cumulative guard.
-- 2026-08-10 — preserved the chosen last-factor clause pose and reverse
-  quotient-chain order; matched conflict reuse now holds search parity through
-  conflict 1009 and localizes the first backjump split at conflict 1010.

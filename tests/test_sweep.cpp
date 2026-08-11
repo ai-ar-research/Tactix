@@ -447,15 +447,15 @@ void test_resumable_schedule() {
 
   Kernel off;
   build(off, 4, cls);
-  off.sweep_resume = false;
-  sweep_apply(off);
-  sweep_apply(off);
+  SweepLimits off_limits;
+  off_limits.resume = false;
+  sweep_apply_with_limits(off, off_limits);
+  sweep_apply_with_limits(off, off_limits);
   assert(off.sweep_tail.empty());
   assert(off.stats.sweep_resumed == 0 && off.stats.sweep_completed == 0);
 
   Kernel filtered;
   build(filtered, 3, {{1, 2}, {-1, 2}});
-  filtered.sweep_resume = true;
   sweep_apply(filtered);
   assert(filtered.stats.sweep_scheduled == 1);
   assert(filtered.stats.sweep_completed == 1);
@@ -467,7 +467,6 @@ void test_resumable_schedule() {
   assert(setenv("TACTIX_SWEEP_CLAUSES", "1", 1) == 0);
   Kernel growth;
   build(growth, 3, {{1, 2}, {1, 3}, {-1, 2}, {-1, 3}});
-  growth.sweep_resume = true;
   sweep_apply(growth);
   assert(growth.stats.sweep_scheduled == 0 &&
          growth.stats.sweep_completed == 1);
@@ -478,7 +477,6 @@ void test_resumable_schedule() {
 
   Kernel on;
   build(on, 4, cls);
-  on.sweep_resume = true;
   sweep_apply(on);
   assert(on.sweep_tail.size() == 4 && on.sweep_tail_next == 1);
   assert(on.stats.sweep_scheduled == 4 && on.stats.sweep_resumed == 0);

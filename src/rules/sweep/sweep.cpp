@@ -13,10 +13,6 @@
 
 namespace tactix {
 
-static uint64_t sweep_scheduled_ticks(const Kernel &k) {
-  return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
-}
-
 namespace {
 
 SubResult sweep_solve(SweepEnv &e, const std::vector<SubLit> &assumptions,
@@ -1183,24 +1179,24 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   k.stats.sweep_rounds++;
   sweep_round_begin(k, r);
   sweep_seeds(k, r.seeds);
-  const uint64_t start = sweep_scheduled_ticks(k);
+  const uint64_t start = sweep_effort(k);
   uint32_t found = 0, seeds = 0;
   for (const Var v : r.seeds) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
-        sweep_scheduled_ticks(k) - start > lim.round_ticks)
+        sweep_effort(k) - start > lim.round_ticks)
       break;
     seeds++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t before = sweep_scheduled_ticks(k);
+    const uint64_t before = sweep_effort(k);
     const uint64_t solves_before = k.stats.sweep_solves;
     const uint32_t external = static_cast<uint32_t>(
         kernel_externalize(k, make_lit(v, false)));
 #endif
     SweepLimits seed_lim = lim;
     if (lim.round_ticks) {
-      const uint64_t spent = sweep_scheduled_ticks(k) - start;
+      const uint64_t spent = sweep_effort(k) - start;
       const uint64_t remaining =
           spent < lim.round_ticks ? lim.round_ticks - spent : 1;
       if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
@@ -1208,7 +1204,7 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
     }
     found += sweep_detect_seed(k, v, seed_lim, r);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t spent = sweep_scheduled_ticks(k) - before;
+    const uint64_t spent = sweep_effort(k) - before;
     if (spent)
       event_trace_sweep_effort(k, external, spent, r.env.solver.ticks(),
                                k.stats.sweep_solves - solves_before);
@@ -1277,14 +1273,14 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     k.stats.sweep_scheduled += k.sweep_tail.size();
   }
 
-  const uint64_t start = sweep_scheduled_ticks(k);
+  const uint64_t start = sweep_effort(k);
   uint32_t seeds = 0;
   ApplyResult result = ApplyResult::NoOp;
   while (k.sweep_tail_next < k.sweep_tail.size()) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
-        sweep_scheduled_ticks(k) - start > lim.round_ticks)
+        sweep_effort(k) - start > lim.round_ticks)
       break;
     const Var external = k.sweep_tail[k.sweep_tail_next++];
     if (external >= k.external_to_internal.size())
@@ -1296,12 +1292,12 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
       k.stats.sweep_resumed++;
     seeds++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t before = sweep_scheduled_ticks(k);
+    const uint64_t before = sweep_effort(k);
     const uint64_t solves_before = k.stats.sweep_solves;
 #endif
     SweepLimits seed_lim = lim;
     if (lim.round_ticks) {
-      const uint64_t spent = sweep_scheduled_ticks(k) - start;
+      const uint64_t spent = sweep_effort(k) - start;
       const uint64_t remaining =
           spent < lim.round_ticks ? lim.round_ticks - spent : 1;
       if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
@@ -1310,7 +1306,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     const uint64_t emissions_before = r.emission_batches;
     (void)sweep_process_seed(k, v, seed_lim, r, true);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t spent = sweep_scheduled_ticks(k) - before;
+    const uint64_t spent = sweep_effort(k) - before;
     if (spent)
       event_trace_sweep_effort(k, external + 1, spent, r.env.solver.ticks(),
                                k.stats.sweep_solves - solves_before);
@@ -1370,6 +1366,8 @@ SweepLimits sweep_limits_from_env(SweepLimits lim) {
     lim.measure_closure = std::strtoul(s, nullptr, 10) != 0;
   if (const char *s = std::getenv("TACTIX_SWEEP_PARTITION"))
     lim.full_partition = std::strtoul(s, nullptr, 10) != 0;
+  if (const char *s = std::getenv("TACTIX_SWEEP_RESUME"))
+    lim.resume = std::strtoul(s, nullptr, 10) != 0;
   return lim;
 }
 
@@ -1625,10 +1623,16 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
     }
   }
   if (!emitted_equivalences.empty()) {
+    // Applying one Sweep environment's consequences crosses Tactix's
+    // variable-width representation bridge once. Sweep owns that scheduled
+    // cost; Substitute remains unaware of who requested the rewrite.
+    const uint64_t representation_words = k.arena.size();
     const ApplyResult substituted =
         substitute_apply_sweep_equivalences(k, emitted_equivalences);
     if (substituted == ApplyResult::Unsat)
       return substituted;
+    if (substituted == ApplyResult::Ok)
+      k.stats.sweep_ticks_repr += representation_words;
     any |= substituted == ApplyResult::Ok;
   }
   if (any)
@@ -1663,7 +1667,7 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
   if (k.work_budget)
     lim.round_ticks = k.work_budget;
-  if (k.sweep_resume)
+  if (lim.resume)
     return sweep_apply_resumable(k, lim, round);
   const uint32_t found = sweep_detect_round(k, lim, round);
   return sweep_emit_round(k, round, found);

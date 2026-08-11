@@ -50,7 +50,17 @@ struct SweepLimits {
   // stronger detector because they need not have had that preceding probe.
   bool skip_embedded_fixed = false;
   uint32_t flip_rounds = SweepReferenceDefaults::FLIP_ROUNDS;
+  // Retaining a seed tail is scheduling, not formula state. Standalone rule
+  // applications use the reference-on default; policies pose their own value.
+  bool resume = true;
 };
+
+// Sweep owns the deterministic currency consumed inside a caller-provided
+// allowance. Policies choose the allowance; they do not reconstruct which
+// internal representation work the rule has to price.
+inline uint64_t sweep_effort(const Kernel &k) {
+  return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
+}
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
 

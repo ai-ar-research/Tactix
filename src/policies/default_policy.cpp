@@ -574,14 +574,7 @@ uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
 uint64_t meter_hbr(const Kernel &k) { return k.stats.hbr_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
-// Kissat's `SET_EFFORT_LIMIT(..., kitten_ticks)` spends only the embedded
-// solver's ticks because connected-clause substitution is in-place. Tactix's
-// variable-width arena has to rebuild the formula after a productive
-// environment, so include those deterministic arena words in the scheduled
-// currency. Environment construction/dedup remains diagnostic-only.
-uint64_t meter_sweep(const Kernel &k) {
-  return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
-}
+uint64_t meter_sweep(const Kernel &k) { return sweep_effort(k); }
 uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
 uint64_t meter_substitute(const Kernel &k) { return k.stats.substitute_ticks; }
 
@@ -601,6 +594,7 @@ SweepLimits configured_sweep_limits(
   lim.strip_false = config.sweep_strip_root_false;
   lim.full_partition = config.sweep_full_partition;
   lim.skip_embedded_fixed = config.sweep_skip_embedded_fixed;
+  lim.resume = config.sweep_resume;
   return lim;
 }
 
@@ -1408,7 +1402,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     owned_h.emplace(k);
   solves++;
   configure_from_env();
-  k.sweep_resume = config_.inprocess.sweep_resume;
   if (reset_schedule_per_solve) {
     for (uint32_t mode = 0; mode != 2; ++mode) {
       k.tier1_by_mode[mode] = config_.reduction.tier1_default;
@@ -1951,7 +1944,6 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
 
 void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &) {
   k.factor_composite = true;
-  k.factor_admit = true;
 }
 
 ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
@@ -2046,7 +2038,6 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
     }
   }
   k.work_budget = 0;
-  k.factor_admit = true; // advice is per-occasion; default is NO restriction
   k.factor_composite = false;
   const uint64_t spent = e.meter(k) - spent_before;
   e.tm.handed += handed;
