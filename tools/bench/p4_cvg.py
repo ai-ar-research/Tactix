@@ -168,21 +168,22 @@ def worker(args, row):
                 event = rd / f"{name}-event.tsv"
                 reduce = rd / f"{name}-reduce.tsv"
                 env = os.environ.copy()
-                env[f"{prefix}_EVENT_TRACE"] = str(event)
-                env[f"{prefix}_EVENT_TRACE_LIMIT"] = str(args.trace_limit)
-                if args.mode_clock:
-                    env[f"{prefix}_EVENT_TRACE_MODE_CLOCK"] = "1"
-                env[f"{prefix}_REDUCE_TRACE"] = str(reduce)
-                if args.conflict_from is not None:
-                    env[f"{prefix}_EVENT_TRACE_CONFLICT_FROM"] = str(
-                        args.conflict_from)
-                    env[f"{prefix}_REDUCE_TRACE_CONFLICT_FROM"] = str(
-                        args.conflict_from)
-                if args.conflict_to is not None:
-                    env[f"{prefix}_EVENT_TRACE_CONFLICT_TO"] = str(
-                        args.conflict_to)
-                    env[f"{prefix}_REDUCE_TRACE_CONFLICT_TO"] = str(
-                        args.conflict_to)
+                if not args.no_trace:
+                    env[f"{prefix}_EVENT_TRACE"] = str(event)
+                    env[f"{prefix}_EVENT_TRACE_LIMIT"] = str(args.trace_limit)
+                    if args.mode_clock:
+                        env[f"{prefix}_EVENT_TRACE_MODE_CLOCK"] = "1"
+                    env[f"{prefix}_REDUCE_TRACE"] = str(reduce)
+                    if args.conflict_from is not None:
+                        env[f"{prefix}_EVENT_TRACE_CONFLICT_FROM"] = str(
+                            args.conflict_from)
+                        env[f"{prefix}_REDUCE_TRACE_CONFLICT_FROM"] = str(
+                            args.conflict_from)
+                    if args.conflict_to is not None:
+                        env[f"{prefix}_EVENT_TRACE_CONFLICT_TO"] = str(
+                            args.conflict_to)
+                        env[f"{prefix}_REDUCE_TRACE_CONFLICT_TO"] = str(
+                            args.conflict_to)
                 if name == "tactix":
                     env["TACTIX_STRATEGY_CONFIG"] = "1"
                 command = [str(binary), str(cnf), str(proof)]
@@ -191,7 +192,8 @@ def worker(args, row):
                     "command": command, "exit_code": code,
                     "seconds": elapsed, "verified": False,
                     "check_status": "pending",
-                    "event_trace": str(event), "reduce_trace": str(reduce)}
+                    "event_trace": None if args.no_trace else str(event),
+                    "reduce_trace": None if args.no_trace else str(reduce)}
                 # Preserve the child status before a potentially long or
                 # failing checker and before starting the reference solver.
                 write_metadata(out, metadata)
@@ -248,6 +250,9 @@ def main():
     ap.add_argument("--tactix-only", action="store_true",
                     help="run only Tactix in --tier diagnostic mode; reuse "
                          "stored reference results")
+    ap.add_argument("--no-trace", action="store_true",
+                    help="disable semantic/reduction traces in --tier "
+                         "diagnostic mode")
     ap.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -263,6 +268,8 @@ def main():
         ap.error("--repeats must be positive")
     if args.tactix_only and not args.tier:
         ap.error("--tactix-only requires --tier")
+    if args.no_trace and not args.tier:
+        ap.error("--no-trace requires --tier")
     if args.worker:
         worker(args, row)
         return
@@ -281,6 +288,8 @@ def main():
         command += ["--mode-clock"]
     if args.tactix_only:
         command += ["--tactix-only"]
+    if args.no_trace:
+        command += ["--no-trace"]
     solver_count = 1 if args.tactix_only else 2
     per_solver_wall = args.timeout + checker_budget(args.timeout)
     wall_minutes = max(
