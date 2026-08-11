@@ -21,13 +21,23 @@
  *    canonical pick — an N1 hole.
  *  - Restart: the keep-level. Reduce: the number of ranked victims to delete.
  *    ConflictAnalysis: the backjump level it may return to, 0..level-1.
- *  - Propagate, SwitchMode and Sweep have no per-application choice: they
- *    expose only the canonical instance, and a non-canonical payload to
- *    tactix_apply_instance on one of them is an invalid argument (-1), never a
- *    silent canonical application.
- * Enumeration fills a caller buffer, canonical instance first; values are
- * snapshots, valid until the next state-mutating call. Errors are -1 int
- * returns (unknown rule, guard does not hold, invalid argument). */
+ *  - Sweep: the seed it sweeps around, as an OPAQUE value obtained from
+ *    tactix_rule_instances. It is an internal variable index, not a DIMACS
+ *    literal and not constructible by the caller: enumerate, then apply one of
+ *    the values returned, within the same solver state.
+ *  - Propagate and SwitchMode have no instance surface at all, so a
+ *    non-canonical payload to tactix_apply_instance on one of them is an
+ *    invalid argument (-1), never a silent canonical application. Congruence,
+ *    Factor and Walk do have the entry point but currently enumerate only the
+ *    canonical sentinel. Both sets are pinned by tests/test_api_instances.c;
+ *    joining or leaving either is a deliberate act, so update that test and
+ *    this comment together.
+ * Enumeration fills a caller buffer with the rule's own instances; a rule with
+ * no surface reports exactly the canonical sentinel, and one with a surface
+ * need not list the canonical instance at all — it is always reachable as
+ * TACTIX_INSTANCE_CANONICAL. Values are snapshots, valid until the next
+ * state-mutating call. Errors are -1 int returns (unknown rule, guard does not
+ * hold, invalid argument). */
 #ifndef TACTIX_H_INCLUDED
 #define TACTIX_H_INCLUDED
 
