@@ -23,7 +23,7 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
   proof).
 - `corpus/regressions/` — tracked, monotonically growing regression corpus.
 - `selftest.sh` — end-to-end validation against Kissat/CaDiCaL stand-ins;
-  runs in CI on every push.
+  runs in the weekly and manually dispatched CI workflow.
 
 - `retention.py` — which tracked per-job artifact is still cited as evidence
   (job id, id range, or name — never the basename), for this directory's

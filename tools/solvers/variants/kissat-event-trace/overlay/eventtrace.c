@@ -356,6 +356,7 @@ void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
     const unsigned blocking = head.blocking.lit;
     size_t size;
     int *external;
+    clause *large = 0;
     if (head.type.binary) {
       size = 2;
       external = malloc (size * sizeof *external);
@@ -363,11 +364,11 @@ void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
       external[1] = external_literal (solver, blocking);
     } else {
       const reference ref = p++->raw;
-      clause *c = kissat_dereference_clause (solver, ref);
-      size = c->size;
+      large = kissat_dereference_clause (solver, ref);
+      size = large->size;
       external = malloc (size * sizeof *external);
       size_t i = 0;
-      for (all_literals_in_clause (lit, c))
+      for (all_literals_in_clause (lit, large))
         external[i++] = external_literal (solver, lit);
     }
     qsort (external, size, sizeof *external, compare_external_literals);
@@ -384,6 +385,22 @@ void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
         break;
       q += written;
       left -= (size_t) written;
+    }
+    if (large && getenv ("KISSAT_EVENT_TRACE_WATCH_POSE")) {
+      written = snprintf (q, left, "|searched=%u|pose=", large->searched);
+      if (written >= 0 && (size_t) written < left) {
+        q += written;
+        left -= (size_t) written;
+        size_t i = 0;
+        for (all_literals_in_clause (lit, large)) {
+          written = snprintf (q, left, "%s%d", i++ ? "," : "",
+                              external_literal (solver, lit));
+          if (written < 0 || (size_t) written >= left)
+            break;
+          q += written;
+          left -= (size_t) written;
+        }
+      }
     }
     free (external);
     kissat_event_trace (solver, "watch", payload, false);

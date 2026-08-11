@@ -1151,17 +1151,13 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   // a possibly-garbage clause, the corpus-003 shape.
   for (Ref &r : k.eager_recent)
     r = INVALID_REF;
-  // Garbage in the requested prefix can move its refs, so preserving prefix
-  // watches would be invalid. No Reduce call should hit this fallback: its
-  // watermark is the first redundant arena record.
+  // A sparse watermark must fall exactly on an arena-record boundary.  Prefix
+  // garbage is legal in Tactix because clauses retired by an earlier rule can
+  // remain marked until Reduce; its live watch entries are forwarded below.
   if (watch_start > k.arena.size())
     watch_start = 0;
   for (Ref ref = 0; ref < watch_start;) {
     const Clause *c = clause_at(k.arena, ref);
-    if (c->garbage()) {
-      watch_start = 0;
-      break;
-    }
     ref += clause_words(c->size);
     if (ref > watch_start) {
       watch_start = 0;
@@ -1196,13 +1192,30 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
     ref += clause_words(c->size);
   }
 #endif
+  // In Kissat the live prefix occupies exactly `watch_start` words.  Prefix
+  // garbage is a Tactix representation difference, so compute where the tail
+  // begins after that garbage is omitted from the fresh arena.
+  Ref rewatch_start = 0;
+  if (watch_start)
+    for (const Ref ref : order) {
+      if (ref >= watch_start)
+        break;
+      rewatch_start += clause_words(clause_at(k.arena, ref)->size);
+    }
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
     const Ref nref = static_cast<Ref>(fresh.size());
     fresh.insert(fresh.end(), k.arena.begin() + ref,
                  k.arena.begin() + ref + words);
-    clause_at(fresh, nref)->searched = 2;
+    // Kissat's sparse sweep starts at `watch_start`: the irredundant prefix
+    // is neither copied nor rewatched there, so its replacement-search cursor
+    // remains search-visible state.  Tactix copies the whole arena into
+    // `fresh`, so the same prefix cursor must survive while the relocated tail
+    // reconnected below resets.  Whole-arena collection has
+    // `watch_start == 0` and still resets every clause.
+    clause_at(fresh, nref)->searched =
+        ref < watch_start ? c->searched : 2;
     c->searched = nref;
   }
   for (const Lit lit : k.trail) {
@@ -1229,10 +1242,16 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
     k.pending.ref = clause_at(k.arena, k.pending.ref)->searched;
   for (Ref &ref : k.otfs_retired)
     ref = clause_at(k.arena, ref)->searched;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    k.watches.compact(lit, [watch_start](WatchEntry w) {
-      return w.binary() || w.ref() < watch_start;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    k.watches.compact(lit, [&k, watch_start](WatchEntry w) {
+      return w.binary() ||
+             (w.ref() < watch_start &&
+              !clause_at(k.arena, w.ref())->garbage());
     });
+    k.watches.map_large_refs(lit, [&k](Ref ref) {
+      return clause_at(k.arena, ref)->searched;
+    });
+  }
   k.arena.swap(fresh);
   // GC relocated every Ref: the dense occurrence index (increment 2) must be
   // rebuilt from the compacted arena in lock-step with the watches below (it
@@ -1242,7 +1261,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
     k.dense->large.assign(2 * k.nvars, {});
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (ref >= watch_start) {
+    if (ref >= rewatch_start) {
       // collect.c:rewatch_clauses selects the best current watched pair before
       // appending the relocated clause to its two watch lists.
       sort_clause_watches_like_kissat(k, c);

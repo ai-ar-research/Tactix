@@ -17,31 +17,32 @@ only.
 
 ## Resume here
 
-The three P4A fixtures remain closed.  The first P4B fixture, `mod4block`, has
-recovered once from the cumulative **261.40s** regression but is not reclosed.
-The 45.89s binary-occurrence arm was rejected after an adversarial test exposed
-candidate overcount; the corrected dense-entry arm times out at 60s, versus
-Kissat **18.30s** and former Tactix pin `95bcea4` at **10.96s**. The Sweep/SubSolver semantic
-unit is now implemented as a whole.  The next causal layer was Factor's mutable
-quotient: repeated equal clauses were collapsed, assigned remainders were
-discarded, equal-score heap insertion used external rather than first-import
-order, fresh extensions could become same-pass factors, and binary/large
-watches did not share one ordered stream.  `SP-FACTOR-OCCURRENCE-1` repairs
-those as one occurrence-preserving mechanism.  Tactix and Kissat now produce
-the same first 711 accepted Factor grids and ordered members throughout every
-observed common prefix.
+The three P4A fixtures remain closed. The first P4B fixture, `mod4block`, has a
+new candidate recovery but is not reclosed. The matched conflict-1010 trace
+localized the first consequential difference to Reduce's sparse collection:
+Tactix reset the preserved irredundant prefix's `Clause::searched` replacement
+cursors, while Kissat retains them. The candidate now preserves prefix cursor
+and watch-list order, forwards live prefix watches around earlier garbage, and
+rewatches only the relocated reducible tail. A trace-only pose/cursor field pins
+the comparison without entering production builds.
 
-The remaining loss is computational and downstream. Kissat spends **0.96s** in
-Factor. Its dense entry flushes duplicate binary watches before every Factor
-dose; Tactix now reproduces that boundary and pins it adversarially. Startup is
-exact through all 766 grids, including reverse quotient-chain application and
-the selected large row's literal pose. The clean shipped pin survives 120s but
-does not solve. A matched conflict-reuse trace keeps decisions, conflicts and
-backtracks exact through conflict 1009; conflict 1010 is the first different
-backjump/learned-clause outcome. An earlier clause-payload difference retains a
-root-false `-89` in Tactix, so the next cut is its creation/lifetime before the
-common conflict-1010 analysis, not the already unequal dose-2 grids. Evidence:
-`20260810-sp-factor-pose-active-*`.
+The immutable trace pair aligns the target clause's scans and the subsequent
+decision/learned trajectory through conflict 1012. The trace-off production pin
+solves `mod4block` with a verified SAT model in **31.87s**, versus Kissat
+**18.60s**; the preceding shipped pin timed out at 120s. The earlier P4A guards
+`tr-n260-s002` and `tr-n280-s052` remain proof-clean. `tr-n300-s055` solves and
+verifies at 120s (**36.43s**) but misses its 30s fixed-order guard; historical
+bisection places that performance regression exactly at `c5a98e4` rather than
+the sparse-GC candidate. No-Sweep and no-Factor controls remain about 35--36s,
+so neither rule's execution alone owns it.
+
+The candidate is nevertheless **not landable yet**. The exact quick fuzz gate
+fails two tracked corpus entries: case 004 reaches an ASan out-of-bounds read in
+Sweep after Factor extension-variable activity, and case 005 reaches the same
+invalid-literal shape at proof serialization. A Slurm trace submission was
+blocked locally by the workspace sandbox's controller-socket restriction; no
+job is in flight. Evidence and the exact resume command are recorded in
+`benchmarks/reports/2026-08-10-mod4block-sparse-gc-checkpoint.md`.
 
 The same production run exposed a release-only queue exhaustion after about
 1.26M conflicts. Analyze bumps could reconnect retired variables, and
@@ -67,21 +68,24 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Re-close `mod4block` from the matched-policy conflict-1010 frontier. Trace
-   the differing conflict reasons back through conflicts 1007-1010 and the
-   earlier root-false `-89` clause lifetime. Change Factor again only if a
-   common input state exposes a grid/ref/update/emission mismatch; otherwise
-   repair the owning simplification/watch boundary. Preserve proof/model gates,
-   trace-off builds, and accept only a verified cumulative production gain.
-2. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
+1. Reproduce corpus 004 with `TACTIX_TRACE=1` on Slurm, identify the first
+   invalid arena reference, and add a focused Factor/Reduce/Sweep interleaving
+   test. Repair the reference lifecycle, then rerun corpus 004/005 and the exact
+   `tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300`
+   gate. Do not accept the sparse-GC candidate while this gate is red.
+2. Return immediately to P4-CVG fixture order. Re-run the 30s `tr-n300-s055`
+   guard and continue the already-localized `c5a98e4` trajectory regression;
+   then re-run all three P4A guards and the `mod4block` production/proof/model
+   gate before declaring the fixture closed.
+3. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
    deduction terminal-state machine, with per-arm reach counters, proof/model
    tests, the target-clause deletion trace, and all earlier fixtures as
    cumulative guards.
-3. Independently restore N1 evidence for Factor, Congruence, and retired Decide
+4. Independently restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
    as the indivisible instance.
-4. Close the three P4A fixtures in fixed order, then the five P4B fixtures in
+5. Close the three P4A fixtures in fixed order, then the five P4B fixtures in
    fixed order. Broad Tier B/C pricing remains deferred during this loop. After
    all eight close and N4 verification is complete, run the Tier D
    shakedown/campaign and evaluate T3 in that order.
@@ -162,12 +166,11 @@ fixtures as cumulative guards.
 - [x] `tr-n300-s055` — accepted stronger singleton minimization.
 - [x] `tr-n260-s002` — accepted stronger singleton minimization.
 - [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
-- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — corrected dense-entry arm
-  still has no shipped-default close: the clean pin times out at 120s. Startup
-  Factor grids match through all 766 observed grids. With conflict reuse
-  matched, the run is proof/model-clean in 59.82s versus Kissat 18.80s and the
-  search prefix matches through conflict 1009; conflict 1010 is the active
-  formula/reason frontier.
+- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — a sparse-GC candidate solves
+  proof/model-clean in 31.87s versus Kissat 18.60s, after the prior pin timed
+  out at 120s. The candidate is held because the mandatory quick fuzz corpus
+  fails cases 004/005; fix and rerun that gate, then restore the 30s
+  `tr-n300-s055` cumulative guard.
 - [ ] `mp1-klieber2017s-0500-023-t12`.
 - [ ] `or_randxor_k3_n540_m540`.
 - [ ] `unsat-set-b-fclqcolor-10-07-09`.
@@ -181,10 +184,11 @@ unit, and Factor occurrence/order are implemented and dispositioned. The stale
 rows `ORDER-TUMBLE-1`, `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`,
 `ORDER-LUCKY-1`, and `ORDER-FOLLOWUP-1` remain closed; their evidence is in
 `docs/implementation-notes.md` §13. `SP-FACTOR-OCCURRENCE-1` is semantically
-closed at startup; the pre-dose-2 formula/search divergence is the current `mod4block` closer.
+closed at startup. The conflict-1010 frontier localized to sparse Reduce
+collection, whose candidate repair is performance-positive but held behind a
+red fuzz gate and the regressed `tr-n300-s055` cumulative guard.
 `SP-VIVIFY-DEDUCE-1` is open from `mp1`, but follows the earlier cumulative
-guard. The active `mod4block` cut is now the matched-policy conflict-1010 reason
-divergence, not the already unequal second Factor dose.
+guard.
 
 N4 verification remains pending until the remaining fixed fixtures complete the
 lifecycle audit. A P4-CVG result adds one deduplicated finding here only when it
@@ -233,11 +237,11 @@ identifies missing or cruder default scheduling.
 
 ## Open items
 
-- The current one-at-a-time frontier is `mod4block` conflict 1010 under matched
-  conflict reuse. Trace its different reasons through conflicts 1007-1010 and
-  the earlier root-false `-89` clause. Startup Factor is exact; do not optimize
-  the later unequal grids as though they shared an input state. Then return to
-  `mp1`'s `SP-VIVIFY-DEDUCE-1`.
+- The immediate blocker is the quick fuzz regression on tracked corpus cases
+  004/005. Trace the first invalid arena reference across the
+  Factor/Reduce/Sweep schedule, repair it, and rerun the exact 300-case gate.
+  Then resume P4-CVG at the `tr-n300-s055` guard regression localized to
+  `c5a98e4`; do not skip ahead to `mp1`.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic
   disposition plus an adversarial public-API reachability test.
@@ -260,6 +264,9 @@ identifies missing or cruder default scheduling.
 
 ## Recent changes
 
+- 2026-08-10 — localized `mod4block` conflict 1010 to sparse-GC cursor reset;
+  the candidate solves in 31.87s but remains held by a two-case fuzz regression
+  and the `tr-n300-s055` 30s cumulative guard.
 - 2026-08-10 — preserved the chosen last-factor clause pose and reverse
   quotient-chain order; matched conflict reuse now holds search parity through
   conflict 1009 and localizes the first backjump split at conflict 1010.
@@ -270,5 +277,3 @@ identifies missing or cruder default scheduling.
   `REDUCE-CANDIDATE-1` at the common conflict-1,000 Reduce (`d22593e`).
 - 2026-08-09 — reused exact OTFS replacements while preserving strict
   post-minimization subclauses (`ca8b341`).
-- 2026-08-09 — matched Kissat minimization depth and learned-block order
-  (`7a52c53`, `3d297e5`).

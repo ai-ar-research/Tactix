@@ -122,6 +122,23 @@ struct WatchLists {
     heads[l].binaries_first = binaries_first;
   }
 
+  // Rewrite the clause reference of every retained large entry in place.
+  // Collection uses this after entry-aware compaction: prefix watch order and
+  // blockers stay byte-identical while arena references are forwarded around
+  // garbage records that preceded the sparse-collection watermark.
+  template <class Map> void map_large_refs(Lit l, Map map) {
+    uint32_t *p = begin(l);
+    uint32_t *const e = end(l);
+    while (p != e) {
+      if (Watch{*p}.binary()) {
+        p++;
+      } else {
+        p[1] = map(p[1]);
+        p += 2;
+      }
+    }
+  }
+
   // shrink after in-place compaction (capacity is retained and reused)
   void truncate(Lit l, uint32_t n) {
     assert(n <= heads[l].size);
