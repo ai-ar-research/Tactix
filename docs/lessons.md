@@ -3,7 +3,7 @@
 This living working aid records current experimental lessons. It is not an authority and must never be
 cited by lesson number. Put any finding used for a decision, together with its primary evidence, in the
 owning report or design document. Rewrite or delete lessons when evidence changes; frozen reports,
-designs, logs, and Git preserve history. `PROGRESS.md` owns status and the may-not-gate set.
+designs, logs, and Git preserve history. `PROGRESS.md` owns status.
 
 - **L2 · Unbudgeted recurring BVE loses.** The measured recurring growth-slack arm regressed Tier B
   from 20.8 to 32.9 PAR-2; the smaller interval variants were inside noise. This bounds that undosed
@@ -38,7 +38,8 @@ designs, logs, and Git preserve history. `PROGRESS.md` owns status and the may-n
   delayed; parity on one guard does not imply whole-rule parity.
 - **L20 · Replication-stable instances can be perturbation-fragile.** Before attributing a large
   single-instance regression, test an unrelated perturbation and distinguish knife-edge behavior from
-  ordinary run-to-run noise. This is the basis of the may-not-gate set.
+  ordinary run-to-run noise. Fragility changes the evidence required for causal attribution; it never
+  removes an instance from a gate or excuses a solve gap versus original Kissat.
 - **L21 · Compare a candidate fix with the shipped default, not only the broken arm it repairs.** Never
   estimate a tier verdict from a small hand-picked decomposition.
 - **L22 · A stress knob must be observed firing on the generated size class.** Count at the source, pass

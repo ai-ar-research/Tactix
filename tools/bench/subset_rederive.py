@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Re-derive the T3 rule-neutral subset from a replicated sweep ablation.
+"""Re-derive the T3 rule-neutral analysis view from a replicated sweep ablation.
+
+This view isolates Sweep-mechanism parity only. It never removes an instance
+from its frozen tier's scored population, changes the full-tier solved-count
+gate, or excuses a candidate failure on an instance solved by original Kissat.
 
 The shipped `benchmarks/tiers/C-ruleneutral.list` came from a single-shot
 ablation: exclude an instance iff ablating Sweep moved either baseline by >25 %.

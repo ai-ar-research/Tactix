@@ -310,6 +310,13 @@ authoritative per-instance evidence; PROGRESS carries only a current headline.
 State #solved before PAR-2 and name moved instances. Never tune on Tier A or mix
 different set versions, timeouts, memory caps, or allocation shapes.
 
+Every instance in a frozen tier remains in its scored population. Replication,
+leave-one-out sensitivity, and unrelated-perturbation tests control confidence
+and causal attribution only; they never create a may-not-gate exemption, erase
+a solve loss, or waive the obligation to pursue every instance that original
+Kissat solves under the matched resource contract. A rule-neutral view may
+isolate mechanism parity, but it never replaces the full-tier solved-count gate.
+
 ### 8.2 Correctness
 
 Every relevant run checks SAT models against the original CNF, UNSAT DRAT/LRAT
