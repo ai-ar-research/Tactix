@@ -154,6 +154,10 @@ struct DefaultStrategyConfig {
     uint32_t factor_decade_cap = 19;
     uint32_t factor_decade_offset = 5;
     uint32_t factor_decade_base = 10;
+    // A 700M-tick first Factor dose is only a small/medium-formula operation.
+    // Crossing this active population latches Factor off for the solve, even
+    // if earlier preprocessing later shrinks below the ceiling.
+    uint64_t factor_active_ceiling = 100000;
 
     uint32_t bve_permille = 100;
     uint32_t probe_permille = 8;

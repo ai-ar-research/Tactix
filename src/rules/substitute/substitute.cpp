@@ -11,7 +11,9 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <numeric>
 #include <set>
+#include <unordered_set>
 #include <utility>
 
 namespace tactix {
@@ -447,11 +449,32 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // the arena). Vivify's ordering: add_rup, del and the garbage mark all read
   // the clause before the arena-mutating add, so the Clause* never dangles.
   std::vector<Ref> refs;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage())
-      refs.push_back(ref);
-    ref += clause_words(c->size);
+  // During preprocessing the dense index covers every live large clause
+  // (there are no learned clauses yet).  Sweep substitutes tiny, freshly
+  // proved classes one seed at a time; collecting just their connected clauses
+  // avoids rescanning the complete input arena after every seed.  Later rounds
+  // can contain redundant clauses, which are intentionally absent from the
+  // dense index, so they retain the complete arena snapshot.
+  if (k.stats.conflicts == 0 && k.dense) {
+    std::unordered_set<Ref> connected;
+    for (Lit l = 0; l < nlits; l++) {
+      if (!substitutable(l))
+        continue;
+      for (const Ref ref : k.dense->large[l]) {
+        const Clause *c = clause_at(k.arena, ref);
+        if (!c->garbage())
+          connected.insert(ref);
+      }
+    }
+    refs.assign(connected.begin(), connected.end());
+    std::sort(refs.begin(), refs.end()); // preserve current arena traversal
+  } else {
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage())
+        refs.push_back(ref);
+      ref += clause_words(c->size);
+    }
   }
   std::vector<Lit> out;
   std::vector<uint64_t> chain;
@@ -741,7 +764,94 @@ ApplyResult substitute_apply_equivalences(
 
 ApplyResult substitute_apply_sweep_equivalences(
     Kernel &k, const std::vector<std::pair<Lit, Lit>> &equivalences) {
-  return substitute_apply_equivalences_impl(k, equivalences, false);
+  if (equivalences.empty())
+    return ApplyResult::NoOp;
+  assert(k.level == 0 && !k.conflict_valid);
+
+  // Sweep has just inserted both implication binaries for every pair.  Its
+  // resumable loop needs those identities substituted before choosing the next
+  // seed, but a whole-formula Tarjan pass here makes that bridge O(seeds * F).
+  // Build exactly the equivalence classes stated by this emission batch; any
+  // older/larger SCC remains visible to the normal Substitute slot immediately
+  // after Sweep.  This is complete for the requested rewrite and preserves the
+  // same minimum-literal representative as substitute_find_sccs.
+  const Lit nlits = static_cast<Lit>(2 * k.nvars);
+  std::vector<Lit> members;
+  members.reserve(4 * equivalences.size());
+  for (const auto &eq : equivalences) {
+    const Lit a = eq.first, b = eq.second;
+    if (a >= nlits || b >= nlits || a == b || a == negate(b) ||
+        k.value(a) != 0 || k.value(b) != 0)
+      continue;
+    members.insert(members.end(), {a, b, negate(a), negate(b)});
+  }
+  if (members.empty())
+    return ApplyResult::NoOp;
+  std::sort(members.begin(), members.end());
+  members.erase(std::unique(members.begin(), members.end()), members.end());
+
+  std::vector<uint32_t> parent(members.size());
+  std::iota(parent.begin(), parent.end(), 0);
+  const auto index_of = [&](Lit l) {
+    const auto it = std::lower_bound(members.begin(), members.end(), l);
+    assert(it != members.end() && *it == l);
+    return static_cast<uint32_t>(it - members.begin());
+  };
+  const auto find = [&](uint32_t start) {
+    uint32_t root = start;
+    while (parent[root] != root)
+      root = parent[root];
+    while (parent[start] != start) {
+      const uint32_t next = parent[start];
+      parent[start] = root;
+      start = next;
+    }
+    return root;
+  };
+  const auto unite = [&](Lit a, Lit b) {
+    uint32_t ra = find(index_of(a)), rb = find(index_of(b));
+    if (ra == rb)
+      return;
+    if (members[rb] < members[ra])
+      std::swap(ra, rb);
+    parent[rb] = ra;
+  };
+  for (const auto &eq : equivalences) {
+    const Lit a = eq.first, b = eq.second;
+    if (a >= nlits || b >= nlits || a == b || a == negate(b) ||
+        k.value(a) != 0 || k.value(b) != 0)
+      continue;
+    unite(a, b);
+    unite(negate(a), negate(b));
+  }
+
+  SccResult r;
+  r.repr.assign(nlits, INVALID_LIT);
+  std::vector<uint32_t> class_size(members.size(), 0);
+  for (uint32_t i = 0; i < members.size(); i++)
+    class_size[find(i)]++;
+  for (uint32_t i = 0; i < members.size(); i++) {
+    const uint32_t root = find(i);
+    r.repr[members[i]] = members[root];
+    if (i == root && class_size[root] > 1)
+      r.nontrivial_reps.push_back(members[root]);
+  }
+
+  k.stats.substitute_rounds++;
+  k.stats.substitute_sccs += r.nontrivial_reps.size();
+  std::vector<uint8_t> sub(nlits, 0);
+  for (const Lit l : members)
+    if (r.repr[l] != l) {
+      sub[l] = 1;
+      k.stats.substitute_scc_lits++;
+    }
+
+  ArenaOrdering *const saved_order = k.arena_ordering;
+  k.arena_ordering = nullptr;
+  const ApplyResult result = do_substitution(
+      k, r, sub, SubstitutionArenaOrder::PreserveClausePosition);
+  k.arena_ordering = saved_order;
+  return result;
 }
 
 // Instance surface: payload = an SCC representative literal. A single instance

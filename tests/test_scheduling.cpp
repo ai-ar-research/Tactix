@@ -101,6 +101,36 @@ static void test_factor_material_gate_uses_literal_marks(void) {
   std::printf("  factor material gate: exact per-literal Kissat marks\n");
 }
 
+static void test_large_formula_factor_decline_is_solve_latched(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.factor_active_ceiling = 6;
+  DefaultPolicy p(cfg);
+  p.inprocess().build(k);
+
+  DefaultInprocessScheduler::SlotEntry *factor = nullptr;
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries) {
+    const bool is_factor = !std::strcmp(rules[e.rule].name, "Factor");
+    e.enabled = is_factor;
+    if (is_factor)
+      factor = &e;
+  }
+  assert(factor);
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(factor->tm.dec_warmup == 1 && factor->tm.admitted == 0);
+
+  // Model preprocessing retiring half the variables.  The current active
+  // population is now below the ceiling, but this solve began in the large
+  // class and must not acquire Factor's first 700M-tick dose later.
+  k.stats.bve_eliminated = 4;
+  k.factor_marks[make_lit(1, true)] = 1;
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(factor->tm.dec_warmup == 2 && factor->tm.admitted == 0);
+  std::printf("  factor large-formula gate: latched for the solve\n");
+}
+
 static void test_retier_schedule_advances_only_on_otfs_conflicts(void) {
   Kernel k;
   kernel_reserve_vars(k, 1);
@@ -844,6 +874,7 @@ int main() {
   test_reason_bump_depth_matches_kissat();
   test_analysis_trail_reuse_defaults_to_kissat();
   test_factor_material_gate_uses_literal_marks();
+  test_large_formula_factor_decline_is_solve_latched();
   test_retier_schedule_advances_only_on_otfs_conflicts();
   test_effort_limit_is_kissats();
   test_preprocess_is_reduced_and_bounded();

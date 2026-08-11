@@ -51,7 +51,7 @@ static void test_implied_literal_strengthens() {
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   assert(vivify_guard(k));
   assert(vivify_apply(k) == ApplyResult::Ok);
-  assert(k.stats.vivified == 1);
+  assert(k.stats.vivify_subsumed == 1);
   assert(live_large(k) == 0);
   assert(k.level == 0 && !k.conflict_valid); // state restored
   assert(default_solve(k) == 10);
@@ -65,7 +65,7 @@ static void test_implied_negation_removes() {
   kernel_add_large_clause(k, c, 3, false, 0);
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
   assert(vivify_apply(k) == ApplyResult::Ok);
-  assert(k.stats.vivified == 1);
+  assert(k.stats.vivified == 1 && k.stats.vivify_shrunken == 1);
   assert(live_large(k) == 0); // (1 3) became a binary
   assert(default_solve(k) == 10);
 }
@@ -79,10 +79,93 @@ static void test_probe_conflict_strengthens() {
   kernel_add_binary_clause(k, internalize(1), internalize(4));
   kernel_add_binary_clause(k, internalize(2), internalize(-4));
   assert(vivify_apply(k) == ApplyResult::Ok);
-  assert(k.stats.vivified == 1);
+  assert(k.stats.vivified == 1 && k.stats.vivify_shrunken == 1);
   assert(live_large(k) == 0);
   assert(k.level == 0 && !k.conflict_valid);
   assert(default_solve(k) == 10);
+}
+
+static void add_clause(Kernel &k, std::initializer_list<int> xs,
+                       bool redundant = false, uint32_t glue = 0) {
+  std::vector<Lit> lits;
+  for (const int x : xs)
+    lits.push_back(internalize(x));
+  kernel_add_large_clause(k, lits.data(), static_cast<uint32_t>(lits.size()),
+                          redundant, glue);
+}
+
+// One focused witness for each terminal arm in kissat vivify.c:1124-1200.
+// All use the instance surface so candidate scheduling cannot hide an arm.
+static void test_terminal_dispatch() {
+  { // irredundant candidate, redundant large subsumer: promote then delete
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref candidate = kernel_add_large_clause(k, lits, 3, false, 0);
+    kernel_add_large_clause(k, lits, 3, true, 2);
+    assert(vivify_try(k, candidate) == ApplyResult::Ok);
+    assert(k.stats.vivify_subsumed == 1 && k.stats.vivify_promoted == 1);
+    bool saw_irredundant = false;
+    for (Ref r = 0; r < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, r);
+      saw_irredundant |= !c->garbage() && !c->redundant();
+      r += clause_words(c->size);
+    }
+    assert(saw_irredundant && default_solve(k) == 10);
+  }
+  { // no strict shrink: a redundant independently-implied candidate dies
+    Kernel k;
+    k.vivify_reuse = false;
+    kernel_reserve_vars(k, 4);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref candidate = kernel_add_large_clause(k, lits, 3, true, 2);
+    kernel_add_binary_clause(k, internalize(1), internalize(-4));
+    add_clause(k, {2, 3, 4});
+    assert(vivify_try(k, candidate) == ApplyResult::Ok);
+    assert(k.stats.vivify_implied == 1 && default_solve(k) == 10);
+  }
+  { // the same implication graph without redundant reasons is asymmetric
+    Kernel k;
+    k.vivify_reuse = false;
+    kernel_reserve_vars(k, 4);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref candidate = kernel_add_large_clause(k, lits, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(1), internalize(-4));
+    add_clause(k, {2, 3, 4});
+    assert(vivify_try(k, candidate) == ApplyResult::Ok);
+    assert(k.stats.vivify_asymmetric == 1 && default_solve(k) == 10);
+  }
+  { // a redundant antecedent forbids the asymmetric deletion: explicit no-op
+    Kernel k;
+    k.vivify_reuse = false;
+    kernel_reserve_vars(k, 4);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref candidate = kernel_add_large_clause(k, lits, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(1), internalize(-4));
+    add_clause(k, {2, 3, 4}, true, 2);
+    assert(vivify_try(k, candidate) == ApplyResult::NoOp);
+    assert(k.stats.vivify_noop == 1 && default_solve(k) == 10);
+  }
+  { // reversing the final assumption conflicts and removes that literal
+    Kernel k;
+    k.vivify_reuse = false;
+    kernel_reserve_vars(k, 4);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref candidate = kernel_add_large_clause(k, lits, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(-3), internalize(4));
+    kernel_add_binary_clause(k, internalize(-3), internalize(-4));
+    assert(vivify_try(k, candidate) == ApplyResult::Ok);
+    assert(k.stats.vivify_instantiated == 1 && default_solve(k) == 10);
+  }
+  { // with no consequence the reversed final assumption is a terminal no-op
+    Kernel k;
+    k.vivify_reuse = false;
+    kernel_reserve_vars(k, 3);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref candidate = kernel_add_large_clause(k, lits, 3, false, 0);
+    assert(vivify_try(k, candidate) == ApplyResult::NoOp);
+    assert(k.stats.vivify_noop == 1 && default_solve(k) == 10);
+  }
 }
 
 static void test_lcm_scope_and_satisfied_delete() {
@@ -99,7 +182,7 @@ static void test_lcm_scope_and_satisfied_delete() {
   vivify_candidates(k, cands);
   assert(cands.size() == 1 && cands[0] == r1); // LCM scope: tier2 only
   assert(vivify_apply(k) == ApplyResult::Ok);  // r1 distilled to (1 2)
-  assert(k.stats.vivified == 1);
+  assert(k.stats.vivify_subsumed == 1);
 
   // satisfied deletion via the instance surface
   Kernel k2;
@@ -126,7 +209,7 @@ static void test_instance_surface() {
   const uint32_t n = rules[id].instances(k, insts, 4);
   assert(n == 1 && insts[0] == cref);
   assert(rules[id].apply_instance(k, insts[0]) == ApplyResult::Ok);
-  assert(k.stats.vivified == 1);
+  assert(k.stats.vivify_subsumed == 1);
   assert(rules[id].apply_instance(k, 999999) == ApplyResult::NoOp);
 }
 
@@ -307,6 +390,7 @@ int main() {
   test_implied_literal_strengthens();
   test_implied_negation_removes();
   test_probe_conflict_strengthens();
+  test_terminal_dispatch();
   test_lcm_scope_and_satisfied_delete();
   test_instance_surface();
   test_tier3_scope();

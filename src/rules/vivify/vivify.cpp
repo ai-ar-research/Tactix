@@ -335,7 +335,155 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
   }
 }
 
-// Probe one candidate; on an actionable outcome, rewrite. `reuse` means the
+struct VivifyDeduction {
+  std::vector<Lit> learned;
+  Ref subsuming = INVALID_REF;
+  bool binary_subsuming = false;
+  bool used_redundant = false;
+};
+
+// Turn a learned clause into permanent formula material.  Vivify is the one
+// rule which can discover that an irredundant candidate is subsumed by a
+// redundant reason.  Deleting the former is equisatisfiable only if the latter
+// leaves Reduce's population at the same instant (kissat vivify.c:1145-1163).
+static void promote_irredundant(Kernel &k, Ref ref) {
+  Clause *c = clause_at(k.arena, ref);
+  assert(!c->garbage() && c->redundant());
+  c->set_redundant(false);
+  for (const Lit l : *c) {
+    kernel_mark_bve_retry(k, var_of(l));
+    kernel_touch_var(k, var_of(l));
+    k.factor_marks[l] = 1;
+    if (k.dense)
+      k.dense->large[l].push_back(ref);
+  }
+  k.stats.vivify_promoted++;
+}
+
+// Analyze the implication graph under the candidate assumptions.  `analyzed`
+// marks FALSE literals by variable (the true mate owns the reason).  The
+// learned clause is the negation of the decision frontier plus an optional
+// implied candidate literal.  During the same walk, a reason wholly contained
+// in the candidate is a subsumer and every redundant reason is remembered for
+// the asymmetric-tautology terminal guard.
+static VivifyDeduction deduce(Kernel &k, Ref cref,
+                              Lit implied,
+                              const std::vector<uint8_t> &marked,
+                              std::vector<uint8_t> &analyzed,
+                              std::vector<Var> &touched) {
+  VivifyDeduction d;
+  std::vector<Lit> todo;
+  const auto push_false = [&](Lit f) {
+    const Var v = var_of(f);
+    if (!k.var_level(v) || analyzed[v])
+      return;
+    analyzed[v] = 1;
+    touched.push_back(v);
+    todo.push_back(f);
+  };
+  const auto seed_reason = [&](const Lit *begin, const Lit *end,
+                               bool may_subsume, bool redundant,
+                               Ref reason_ref) {
+    d.used_redundant |= redundant;
+    bool subsumes = may_subsume;
+    for (const Lit *p = begin; p != end; ++p) {
+      const Lit l = *p;
+      if (root_value(k, l) < 0)
+        continue;
+      if (!marked[l])
+        subsumes = false;
+      push_false(l);
+    }
+    if (subsumes)
+      d.subsuming = reason_ref;
+  };
+
+  if (implied != INVALID_LIT) {
+    push_false(negate(implied));
+    d.learned.push_back(implied);
+  } else if (k.conflict_valid) {
+    if (k.conflict_ref == INVALID_REF) {
+      const Lit a = k.conflict_bin[0], b = k.conflict_bin[1];
+      if (marked[a] && marked[b])
+        d.binary_subsuming = true;
+      else {
+        push_false(a);
+        push_false(b);
+      }
+    } else {
+      const Clause *reason = clause_at(k.arena, k.conflict_ref);
+      seed_reason(reason->begin(), reason->end(), true, reason->redundant(),
+                  k.conflict_ref);
+    }
+  } else {
+    const Clause *candidate = clause_at(k.arena, cref);
+    seed_reason(candidate->begin(), candidate->end(), false,
+                candidate->redundant(), cref);
+  }
+
+  size_t next = 0;
+  while (next < todo.size() && d.subsuming == INVALID_REF &&
+         !d.binary_subsuming) {
+    const Lit false_lit = todo[next++];
+    const Var v = var_of(false_lit);
+    const Assigned &a = k.assigned[v];
+    if (a.reason == DECISION_REASON) {
+      d.learned.push_back(false_lit);
+      continue;
+    }
+    if (a.reason == UNIT_REASON)
+      continue;
+    const Lit true_lit = negate(false_lit);
+    if (a.binary) {
+      const Lit other = a.jumped ? k.jumped_over[v] : a.reason;
+      if (marked[true_lit] && marked[other]) {
+        d.binary_subsuming = true;
+        break;
+      }
+      push_false(other);
+      continue;
+    }
+    const Ref rref = a.reason;
+    const Clause *reason = clause_at(k.arena, rref);
+    d.used_redundant |= reason->redundant();
+    bool subsumes = true;
+    for (const Lit other : *reason) {
+      if (!marked[other])
+        subsumes = false;
+      if (other == true_lit || root_value(k, other) < 0)
+        continue;
+      push_false(other);
+    }
+    if (subsumes)
+      d.subsuming = rref;
+  }
+  return d;
+}
+
+static bool shrinkable(const Kernel &k, const std::vector<Lit> &probes,
+                       const std::vector<Lit> &learned,
+                       const std::vector<uint8_t> &analyzed, bool conflict) {
+  if (learned.size() == probes.size())
+    return false;
+  uint32_t implied = 0;
+  for (const Lit l : probes) {
+    const int8_t value = k.value(l);
+    if (!value)
+      return true;
+    if (value > 0) {
+      if (conflict || implied++)
+        return true;
+    } else {
+      const Assigned &a = k.assigned[var_of(l)];
+      if (!analyzed[var_of(l)] || a.reason != DECISION_REASON)
+        return true;
+    }
+  }
+  return false;
+}
+
+// Probe one candidate; on an actionable outcome, run the complete reference
+// terminal dispatch. `reuse` means the
 // round hands over a live probing trail and owns the scope; otherwise this
 // path opens and closes its own scope around a root-to-root probe. In both
 // modes reset_to_root() runs before any mutation (design §3).
@@ -402,9 +550,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
                        /*update_phases=*/false);
   }
   std::vector<std::pair<uint32_t, uint64_t>> entries;
-  // Persistent walk scratch: a per-candidate assign() would be an O(nvars)
-  // zero-fill per vivified candidate. Restored all-zero in O(marked) at the
-  // single exit below, and LRAT-gated, so a proofs-off round pays nothing.
+  // Persistent proof-walk and deduction scratch, restored in O(touched).
   static thread_local std::vector<uint8_t> seen;
   static thread_local std::vector<Var> seen_touched;
   if (lrat) {
@@ -417,12 +563,16 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
   // Mandatory under a count-based probe order, which can put the implied
   // literal anywhere the lazy `v > 0` test below would miss it.
   static thread_local std::vector<uint8_t> marked;
+  static thread_local std::vector<uint8_t> analyzed;
+  static thread_local std::vector<Var> analyzed_touched;
   if (marked.size() < 2 * k.nvars)
     marked.resize(2 * k.nvars, 0);
+  if (analyzed.size() < k.nvars)
+    analyzed.resize(k.nvars, 0);
+  analyzed_touched.clear();
   for (const Lit l : probes)
     marked[l] = 1;
 
-  std::vector<Lit> next;
   ApplyResult res = ApplyResult::NoOp;
   // Watch-list and clause-header churn from the assumption propagations below
   // is speculative and is handed back to search when the scope closes. In
@@ -430,15 +580,18 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
   if (!reuse)
     kernel_probing_begin(k);
   uint32_t reused = 0, made = 0;
+  uint32_t assumed = 0;
+  Lit implied = INVALID_LIT;
   for (uint32_t i = 0; i < probes.size(); i++) {
     const Lit li = probes[i];
-    const uint32_t lvl = i + 1; // the decision level this probe occupies
+    const uint32_t lvl = assumed + 1;
     if (lvl <= k.level) {
       // Reuse test on the frame decision, not on the value: a literal false
       // for some other reason is not a reused assumption, and a value may
       // only be read once exactly this candidate's assumptions hold (VP3).
       if (k.trail[k.frames[lvl]] == negate(li)) {
         reused++;
+        assumed++;
         continue;
       }
       kernel_backtrack(k, lvl - 1, /*update_phases=*/false);
@@ -446,58 +599,16 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
     assert(k.level == lvl - 1); // VP3: only this candidate's assumptions hold
     const int8_t v = k.value(li);
     if (v > 0) {
-      // implied: (probes[0..i-1], li) subsumes the candidate, and strictly,
-      // since i + 1 == probes.size() would need li to have been assigned by
-      // assumption, which v > 0 with li unassumed excludes
-      if (i + 1 >= probes.size())
-        break; // no strict gain; defensive
-      next.assign(probes.begin(), probes.begin() + i);
-      next.push_back(li);
-      // chain: li's derivation alone — its own reason (the max-trail entry) is
-      // the conflicting hint under the ¬li assumption, and the candidate is
-      // not cited, a hint after the conflict being illegal
-      if (lrat)
-        kernel_reason_walk(k, var_of(li), seen, entries, &seen_touched);
-      reset_to_root(k);
-      res = rewrite(k, cref, next, entries, 0, ended_round);
+      implied = li;
       break;
     }
-    if (v < 0) {
-      // implied negation: li is redundant in the candidate
-      next.assign(probes.begin(), probes.end());
-      next.erase(next.begin() + i);
-      if (lrat) {
-        kernel_reason_walk(k, var_of(li), seen, entries, &seen_touched);
-        for (const uint64_t u : absorbed)
-          entries.emplace_back(0, u);
-      }
-      reset_to_root(k);
-      res = rewrite(k, cref, next, entries, cid, ended_round);
-      break;
-    }
+    if (v < 0)
+      continue;
     const uint32_t before = static_cast<uint32_t>(k.trail.size());
     assume(k, negate(li));
+    assumed++;
     made++;
     if (kernel_propagate_probing(k, cref)) {
-      // probe conflict: (probes[0..i]) is RUP — strict gain iff it drops
-      // literals (later probes or root-falsified originals)
-      const bool gain = i + 1 < probes.size() || probes.size() < c->size;
-      if (!gain) {
-        // A conflict invalidates only the level that produced it, so drop that
-        // level and keep the prefix below it for the next candidate (kissat
-        // vivify.c:1223-1226). The conflict handoff fields are cleared with
-        // it: a recorded conflict may never outlive its candidate.
-        k.conflict_valid = false;
-        k.conflict_ref = INVALID_REF;
-        kernel_backtrack(k, lvl - 1, /*update_phases=*/false);
-        break;
-      }
-      next.assign(probes.begin(), probes.begin() + i + 1);
-      uint64_t last = 0;
-      if (lrat)
-        last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
-      reset_to_root(k);
-      res = rewrite(k, cref, next, entries, last, ended_round);
       break;
     }
     // Eager implied literal (kissat vivify.c:1078-1090): scan what this
@@ -505,7 +616,6 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
     // (probes[0..i], implied) — stronger than waiting for position j > i.
     // kissat's `better_implied` refinement (vivify.c:1101-1117) is not
     // ported; the first in trail order is taken.
-    Lit implied = INVALID_LIT;
     // From before + 1: trail[before] is the assumption itself, a marked
     // literal's negation and never an implied one.
     for (uint32_t t = before + 1; t < k.trail.size(); t++)
@@ -513,27 +623,111 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
         implied = k.trail[t];
         break;
       }
-    if (implied != INVALID_LIT && i + 2 < c->size) {
-      // i + 2 >= c->size is "no strict gain" and must continue, not break: the
-      // assumption is already made and a later position can still find a
-      // conflict, so breaking would lose coverage the lazy scan had.
-      next.assign(probes.begin(), probes.begin() + i + 1);
-      next.push_back(implied);
-      // same chain shape as the lazy case above: `implied`'s own derivation,
-      // whose max-trail entry is the conflicting hint under the negation of
-      // the emitted clause; the candidate is not cited
-      if (lrat)
-        kernel_reason_walk(k, var_of(implied), seen, entries, &seen_touched);
-      reset_to_root(k);
-      res = rewrite(k, cref, next, entries, 0, ended_round);
+    if (implied != INVALID_LIT)
       break;
+  }
+
+  // The first marked true literal in trail order is the canonical implied
+  // witness, independent of which probe happened to notice it.
+  if (!k.conflict_valid && implied != INVALID_LIT)
+    for (const Lit l : probes)
+      if (k.value(l) > 0 &&
+          k.assigned[var_of(l)].trail < k.assigned[var_of(implied)].trail)
+        implied = l;
+
+  const bool conflict = k.conflict_valid;
+  VivifyDeduction d =
+      deduce(k, cref, implied, marked, analyzed, analyzed_touched);
+  c = clause_at(k.arena, cref);
+  const bool has_subsumer = d.binary_subsuming || d.subsuming != INVALID_REF;
+  if (has_subsumer) {
+    const bool candidate_redundant = c->redundant();
+    if (!d.binary_subsuming) {
+      Clause *sub = clause_at(k.arena, d.subsuming);
+      if (candidate_redundant && sub->redundant() && c->glue() < sub->glue())
+        sub->set_glue(c->glue());
+      else if (!candidate_redundant && sub->redundant())
+        promote_irredundant(k, d.subsuming);
     }
+    reset_to_root(k);
+    c = clause_at(k.arena, cref);
+    kernel_delete_clause(k, c);
+    k.stats.vivify_subsumed++;
+    res = ApplyResult::Ok;
+  } else if (shrinkable(k, probes, d.learned, analyzed, conflict)) {
+    uint64_t last = 0;
+    if (lrat) {
+      if (implied != INVALID_LIT)
+        kernel_reason_walk(k, var_of(implied), seen, entries, &seen_touched);
+      else if (conflict)
+        last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
+      else {
+        for (const Lit l : probes) {
+          const Assigned &a = k.assigned[var_of(l)];
+          if (k.value(l) < 0 && a.reason != DECISION_REASON)
+            kernel_reason_walk(k, var_of(l), seen, entries, &seen_touched);
+        }
+        last = cid;
+      }
+      for (const uint64_t u : absorbed)
+        entries.emplace_back(0, u);
+    }
+    reset_to_root(k);
+    res = rewrite(k, cref, d.learned, entries, last, ended_round);
+    k.stats.vivify_shrunken++;
+  } else if (implied != INVALID_LIT && c->redundant()) {
+    reset_to_root(k);
+    kernel_delete_clause(k, clause_at(k.arena, cref));
+    k.stats.vivify_implied++;
+    res = ApplyResult::Ok;
+  } else if ((conflict || implied != INVALID_LIT) && !c->redundant() &&
+             !d.used_redundant) {
+    reset_to_root(k);
+    kernel_delete_clause(k, clause_at(k.arena, cref));
+    k.stats.vivify_asymmetric++;
+    res = ApplyResult::Ok;
+  } else if (implied != INVALID_LIT) {
+    k.stats.vivify_noop++;
+  } else if (!conflict && assumed == probes.size()) {
+    // No deduction: reverse the last assumption and test whether that literal
+    // can be removed (kissat vivify.c:1180-1200).  The candidate is ignored;
+    // a conflict proves the shortened clause by RUP.
+    const Lit remove = probes.back();
+    kernel_backtrack(k, k.level - 1, /*update_phases=*/false);
+    assume(k, remove);
+    made++;
+    if (kernel_propagate_probing(k, cref)) {
+      std::vector<Lit> shorter;
+      shorter.reserve(probes.size() - 1);
+      for (const Lit l : probes)
+        if (l != remove)
+          shorter.push_back(l);
+      uint64_t last = 0;
+      if (lrat) {
+        last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
+        if (seen[var_of(remove)])
+          entries.emplace_back(k.assigned[var_of(remove)].trail, cid);
+        for (const uint64_t u : absorbed)
+          entries.emplace_back(0, u);
+      }
+      reset_to_root(k);
+      res = rewrite(k, cref, shorter, entries, last, ended_round);
+      k.stats.vivify_instantiated++;
+    } else {
+      const uint32_t keep = k.level > 1 ? k.level - 2 : 0;
+      kernel_backtrack(k, keep, /*update_phases=*/false);
+      k.stats.vivify_noop++;
+    }
+  } else {
+    k.stats.vivify_noop++;
   }
   for (const Lit l : probes) // restore the persistent mark scratch all-zero
     marked[l] = 0;
+  for (const Var v : analyzed_touched)
+    analyzed[v] = 0;
   k.stats.vivify_reused += reused;
   k.stats.vivify_probes += made;
-  if (reused && reused == probes.size())
+  if (reused && made == 0 && assumed == probes.size())
     k.stats.vivify_reuse_full++; // wholly covered: nothing new was assumed
   if (!reuse || k.conflict_valid)
     reset_to_root(k); // standalone mode returns to the root every candidate;

@@ -222,6 +222,7 @@ private:
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
 
   uint32_t bve_rounds_run_ = 0;
+  bool factor_large_formula_ = false;
   bool slot_order_legacy_ = false;
   bool closure_delay_ = true;
   uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;

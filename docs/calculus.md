@@ -163,18 +163,14 @@ conjunct.
   Like C1 the precondition constrains only the PARTNER `d` — ledger `D-C1C2-VICTIM`.
 
 ### C3 · Vivify
-- **Precondition (abstract):** ∃ a clause `c` whose distillation by propagation proves a
-  strengthened `c′` (or root-satisfaction → delete). The clause's **tier is not part of the
-  precondition** — `Kernel::vivify_scope` selects a band so the policy can spend separate budget shares,
-  and the unscoped setting must therefore span *every* band, tier3 included, or a band becomes
-  unreachable through the API (N1; the guard-says-applicable/apply-declines shape,
-  `implementation-notes.md` §5).
-- **Effect:** with schedule flushing enabled, delete a scheduled `c` when an earlier same-band
-  clause `d` is its prefix under the round's literal order (C1, `del(c)`). The round then has three
-  distillation outcomes — replace `c` by the distilled `c′` (add-before-delete), delete a
-  root-satisfied `c`, or, when the distillation collapses, **assert the surviving literal as a root
-  unit** / **refute on an empty distillation** (`Unsat`). Proof δ: `add_rup(c′)` + `del(c)` (reason-walk
-  chain); the unit and the refutation carry their own chains.
+- **Precondition (abstract):** ∃ a clause `c` whose distillation by propagation proves a strengthened
+  `c′` (or root-satisfaction → delete). Tier is policy scope, not a precondition: unscoped
+  `Kernel::vivify_scope` spans every band, tier3 included (N1; `implementation-notes.md` §5).
+- **Effect:** schedule-prefix deletion is C1. Deduction dispatches in reference precedence: a subsuming
+  reason deletes an irredundant victim or promotes a redundant one; otherwise strict replacement,
+  independently-implied redundant deletion, asymmetric deletion, then instantiation/no-op. Root
+  satisfaction deletes; collapse asserts a unit or refutes. Proof δ is `add_rup(c′)·del(c)` for
+  replacement; subsumed, independently-implied and asymmetric terminal deletions emit `del(c)`.
 - **Distillation and proof δ:** let `P=(p₀,…,pₘ₋₁)` be `c` after removing root-false literals, in the
   chosen probe order, and let `Aᵢ={¬p₀,…,¬pᵢ}`. Four propagation outcomes yield a strict `c′`:
   (1) `F∧Aᵢ⊢₁⊥` gives `c′={p₀,…,pᵢ}`; (2) `F∧Aᵢ₋₁⊢₁pᵢ` gives
@@ -185,10 +181,12 @@ conjunct.
   `c` all-false. In cases (2)/(4), the implied literal's own reason closes `h`, so citing `c` after it
   would be illegal. Root-false unit ids used by the replay join `h`. The replacement remains in `c`'s
   irredundancy partition.
-- **Soundness:** prefix flushing is C1 within one schedule band: an irredundant
-  victim has an irredundant subsumer, while a redundant victim is forgettable.
-  The distilled clause is RUP from `c` and the propagated reasons; free-standing
-  after emission regardless of any binary's later fate.
+- **Terminal analysis:** the earliest implied literal anchors the reason walk; subsumption,
+  redundant-antecedent and shrinkability state select exactly one arm (`c vivify3`). Promotion keeps
+  the clause/proof id live and changes only its retention class.
+- **Soundness:** prefix/subsuming-reason deletion is C1; strict replacements are RUP from `c` and the
+  reasons. The deduction state proves independently-implied/asymmetric victims redundant before
+  deletion. Promotion preserves `F` literally.
 
 ## 6. Probing, BIG rewriting, congruence (V1–V4, V6)
 
@@ -223,6 +221,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   size-collapsed root units un-propagated (M1 owns the cascade). If the rewrite derives **two
   contradictory root units** in one round, resolve `{l}` and `{¬l}` to ∅ → `Unsat`. A round with no
   non-trivial SCC is a `NoOp`.
+- **Fresh-equivalence bridge:** after Sweep emits both binaries of exact pairs, V3 may union them directly before final whole-BIG cleanup; rewrite/proof/`ρ` semantics are identical to SCC discovery.
 - **Proof δ:** write `μ(l)=repr[l]` for a substituted literal and
   `λ_l={¬l,μ(l)}`. First emit `add_rup(λ_l, big_path_chain(l,μ(l)))` for every substituted polarity.
   For each touched clause `C`, form `C^μ` by applying `μ`, removing duplicates and root-false literals,

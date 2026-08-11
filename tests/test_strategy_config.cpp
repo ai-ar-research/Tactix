@@ -123,18 +123,34 @@ int main() {
 
   // `kissat_decide` increments its level before checking the random-sequence
   // deadline.  DefaultBranching is called before Tactix Decide adds the frame,
-  // so a reused level-one restart prefix corresponds to Kissat level two and
-  // must keep using the ranked brancher even when randec is due.
+  // so a reused level-one restart prefix normally corresponds to Kissat level
+  // two and keeps using the ranked brancher even when randec is due.
   Kernel reused;
   ScopedHeuristics reused_heuristics(reused);
-  kernel_reserve_vars(reused, 3);
+  kernel_reserve_vars(reused, 501);
   reused.level = 1;
   reused.stats.conflicts = 855;
   DefaultBranching reused_random(&defaults.branching);
   reused_random.reset(0);
-  if (kernel_externalize(reused, reused_random.pick(reused)) != 3 ||
+  if (kernel_externalize(reused, reused_random.pick(reused)) != 501 ||
       reused.stats.random_sequences != 0 ||
       reused.stats.random_decisions != 0)
+    return 1;
+
+  // Compact original-only universes fit inside one complete reference random
+  // interval.  Letting their retained level-one prefix start the due sequence
+  // prevents every restart from replaying the same ranked tail; extension or
+  // larger universes retain the faithful boundary above.
+  Kernel compact_reused;
+  ScopedHeuristics compact_reused_heuristics(compact_reused);
+  kernel_reserve_vars(compact_reused, 3);
+  compact_reused.level = 1;
+  compact_reused.stats.conflicts = 855;
+  DefaultBranching compact_reused_random(&defaults.branching);
+  compact_reused_random.reset(0);
+  (void)compact_reused_random.pick(compact_reused);
+  if (compact_reused.stats.random_sequences != 1 ||
+      compact_reused.stats.random_decisions != 1)
     return 1;
 
   // A stable->focused transition starts a sequence even above decision level
@@ -159,6 +175,7 @@ int main() {
   custom.analysis.chronological_levels = 53;
   custom.inprocess.probe_permille = 59;
   custom.inprocess.sweep_vars = 67;
+  custom.inprocess.factor_active_ceiling = 71;
   custom.inprocess.sweep_skip_embedded_fixed = false;
   custom.inprocess.sweep_resume = false;
   DefaultPolicy policy(custom);
@@ -174,6 +191,8 @@ int main() {
   assert(snapshot.find("reduction.initial_interval=37") != std::string::npos);
   assert(snapshot.find("inprocess.probe_permille=59") != std::string::npos);
   assert(snapshot.find("inprocess.sweep_vars=67") != std::string::npos);
+  assert(snapshot.find("inprocess.factor_active_ceiling=71") !=
+         std::string::npos);
   assert(snapshot.find("inprocess.sweep_skip_embedded_fixed=0") !=
          std::string::npos);
   assert(snapshot.find("inprocess.sweep_resume=0") != std::string::npos);

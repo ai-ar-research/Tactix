@@ -154,6 +154,7 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.factor_decade_cap=" << inprocess.factor_decade_cap
       << " inprocess.factor_decade_offset=" << inprocess.factor_decade_offset
       << " inprocess.factor_decade_base=" << inprocess.factor_decade_base
+      << " inprocess.factor_active_ceiling=" << inprocess.factor_active_ceiling
       << " inprocess.bve_permille=" << inprocess.bve_permille
       << " inprocess.probe_permille=" << inprocess.probe_permille
       << " inprocess.hyper_binary_permille="
@@ -1003,7 +1004,18 @@ Lit DefaultBranching::pick(Kernel &k) {
     // the new frame, so the equivalent pre-decision condition is level zero.
     // In particular, a restart which reuses level one must not start a due
     // random sequence for its first post-restart decision.
-    if (c >= randec_until && k.level == 0 && c >= randec_next)
+    // Stronger compact-universe diversification: when the original branching
+    // universe fits within one reference random-sequence interval and no
+    // extension variables have entered it, a due sequence may replace the
+    // first ranked branch after a restart retained level one.  Larger or
+    // extended universes keep Kissat's faithful pre-decision root boundary.
+    const uint64_t compact_universe_limit =
+        config_ ? config_->random_initial_interval : RANDEC_INIT;
+    const bool random_sequence_level =
+        k.level == 0 ||
+        (k.level == 1 && k.first_extension_var == UINT32_MAX &&
+         kernel_num_original_internal_vars(k) <= compact_universe_limit);
+    if (c >= randec_until && random_sequence_level && c >= randec_next)
       start_random_sequence(k);
     if (c < randec_until) {
       for (;;) {
@@ -1182,6 +1194,7 @@ void DefaultInprocessScheduler::reset(const Kernel &k) {
   probe_clock = elim_clock = {};
   probe_clock.anchor = elim_clock.anchor = ticks;
   bve_rounds_run_ = 0;
+  factor_large_formula_ = false;
   bve_level_ = 0;
   bve_level_idx_ = 0;
   default_candidate_order_.reset(config().candidate_order_seed);
@@ -1893,6 +1906,18 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
 bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry &e) {
   const auto &cfg = config();
   const uint64_t active = active_variables(k);
+  // Factor's 700M-tick first dose can dominate an entire P4 allocation after
+  // one BVE round relaxes the reference factordelay exponent.  Keep that
+  // startup population as a permanent ceiling: smaller formulas preserve the
+  // reference round-dependent admission exactly, while large hardware
+  // encodings continue through search instead of spending the gate in a
+  // candidate scan that yields no factorization.
+  if (active >= cfg.factor_active_ceiling)
+    factor_large_formula_ = true;
+  if (factor_large_formula_) {
+    e.tm.dec_warmup++;
+    return true;
+  }
   uint64_t threshold = 1;
   const uint32_t decades =
       bve_rounds_run_ > cfg.factor_decade_round_cap
@@ -2281,7 +2306,7 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   if (e.doses == 0 && e.budget_aware &&
       !std::strcmp(rules[e.rule].name, "Factor"))
     e.limit = e.meter(k) + factor_init_ticks_;
-  if (k.stats.conflicts > 0 && e.doses == 0 && e.budget_aware &&
+  if (e.doses == 0 && e.budget_aware &&
       !std::strcmp(rules[e.rule].name, "Congruence"))
     e.limit = e.meter(k) + congruence_init_ticks_;
 }
