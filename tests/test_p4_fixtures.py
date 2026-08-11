@@ -52,6 +52,7 @@ p4 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(p4)
 assert p4.resolve_fixture("tr-n300-s055")["group"] == "P4A"
 assert p4.resolve_fixture("or_randxor_k3_n540_m540.cnf")["group"] == "P4B"
+assert p4.resolve_fixture("T87.2.0", "C")["group"] == "C"
 try:
     p4.resolve_fixture("not-a-p4-fixture")
     raise AssertionError("unknown fixture accepted")
@@ -63,4 +64,13 @@ dry = subprocess.run(
      "--kissat", "/pin/kissat", "--out", "/tmp/p4-dry", "--dry-run"],
     check=True, text=True, stdout=subprocess.PIPE).stdout
 assert "sbatch" in dry and "--worker" in dry and "--time=11" in dry
+tier_c_dry = subprocess.run(
+    [sys.executable, str(ROOT / "tools/bench/p4_cvg.py"),
+     "--fixture", "T87.2.0", "--tier", "C", "--tactix", "/pin/tactix",
+     "--kissat", "/pin/kissat", "--out", "/tmp/p4-tier-c-dry",
+     "--dry-run"],
+    check=True, text=True, stdout=subprocess.PIPE).stdout
+assert "--tier C" in tier_c_dry
+assert "--cpus-per-task=2" in tier_c_dry and "--mem=16G" in tier_c_dry
+assert "--time=50" in tier_c_dry
 print("test_p4_fixtures OK")
