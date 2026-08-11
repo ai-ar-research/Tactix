@@ -1,0 +1,8 @@
+{
+  "seed": 20260709,
+  "generator": "Tier A tr-n60-s046.cnf (60 vars / 256 clauses), ddmin-shrunk on SLURM jobs 1608570 and 1608571 to 24 vars / 31 clauses under the old-proof-rejected predicate",
+  "failure": "proof",
+  "solver_args": [],
+  "solver_env": {},
+  "diagnosis": "N2 BREACH in resumable V5 Sweep. Sweep built a local embedded-solver environment, captured general-path refutations, emitted an earlier equivalence inline, and immediately ran Substitute. That rewrite advanced the live formula and deleted or replaced clauses named by the captured environment, but detection continued in the old embedded environment. The RUP emission path independently replayed against the live kernel and therefore failed closed; the general path checked only its captured translation tables and emitted stale clause-id derivations. drat-trim rejected four full Tier A UNSAT certificates. FIX (2026-08-11): SweepEnv records the kernel formula-mutation epoch after environment construction; SweepDirProof carries it, and the all-or-nothing dry pass declines a general proof when its capture epoch differs from the live kernel epoch. The intended RUP-first fixture order is also restored, so FORCE_GENERAL remains the only bypass. Fresh general proofs still emit. THIS CASE: commit 7b49dd1 answers UNSAT but drat-trim rejects; the fixed binary answers UNSAT and drat-trim verifies. The original four witnesses and their checker logs are preserved under benchmarks/runs/20260811-081628-A-p4cvg-final and benchmarks/probes/tmp/p4-proof-repro."
+}

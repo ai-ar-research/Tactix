@@ -277,8 +277,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   formula, and let `h` be its reason clauses in propagation order followed by the conflict. **General
   path:** translate the sub-solver derivation `D₁,…,Dₘ=B`; emit each
   `add_rup(Dᵢ,[stripped-root-unit ids first, translated antecedent ids])` in derivation order. Both
-  directions are validated without mutation before either sequence is emitted. If either direction is
-  neither replay-RUP nor exactly translatable, decline the pair and leave `F` unchanged. Further
+  directions are validated without mutation before either sequence is emitted. The fast path is tried first.
+  A general derivation is admissible only at its environment's mutation epoch; inline substitution makes
+  an old capture stale. Otherwise decline the pair and leave `F` unchanged. Further
   emission detail is in `implementation-notes.md` (V5 row, `SP-SWEEP-8`).
 - **Soundness:** both directions must replay before either binary is added, so the rule never states an
   implication it has not justified; and a declined pair leaves `F` unchanged.
