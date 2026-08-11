@@ -9,12 +9,18 @@
 namespace tactix {
 
 // Pure precondition (docs/calculus.md §3 M2): no conflict, not refuted,
-// some variable unassigned. No propagation-fixpoint conjunct (D-LEVEL-1), so a
-// policy may take several decisions in a row — the N1 capability a learned
-// policy reasons over. Off-fixpoint deciding is made safe by the
-// `trail_tainted` kernel repair, not by a guard (kernel.hpp).
+// some variable unassigned, and at a propagation fixpoint (D-LEVEL-1).
+// The fixpoint conjunct (`propagate_head == trail.size`) prevents deciding
+// on an un-propagated trail: the current-level-assignment scheme stamps every
+// implication at the decision level at which the watch scan runs; a decision
+// taken before that scan completes would stamp those implications one level too
+// deep, letting a later backtrack strand them as escaped units.
+// DefaultPolicy always propagates to fixpoint before deciding and is
+// unaffected; the guard closes the hazard for any N1 policy that would
+// otherwise interleave Decide with un-run propagation.
 bool decide_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0;
+  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0 &&
+         k.propagate_head == k.trail.size();
 }
 
 ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {

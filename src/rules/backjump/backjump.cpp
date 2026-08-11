@@ -15,12 +15,16 @@ bool backjump_guard(const Kernel &k) {
 ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
   PendingLearned &p = k.pending;
-  // Chronological target (D-LEVEL-2): true-level assignment stamps the
-  // asserting literal at jump_level however far the trail is cut, so any level
-  // in [jump_level, level-1] is sound. The clamp keeps every legal instance
-  // total (N1).
-  if (target < p.jump_level)
-    target = p.jump_level;
+  // Under current-level assignment (kissat assign.c/backtrack.c), every
+  // implication is stamped at the decision level at which the watch scan ran.
+  // A chronological target above jump_level would leave the asserting literal
+  // stamped at that higher level; a subsequent restart to a level between
+  // jump_level and that target would unassign it while its reason clause
+  // stayed unit at the lower levels — producing an escaped unit.  The only
+  // sound backjump target under this scheme is jump_level.  (True-level
+  // assignment + chronological backtracking, the §5.4 kernel candidate, would
+  // lift this restriction; that remains future work.)
+  target = p.jump_level;
   if (target + 1 > k.level) // target >= level (guard against underflow)
     target = k.level - 1;
   // A learned unit goes through the same chrono determination as any other

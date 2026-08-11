@@ -1335,16 +1335,17 @@ static ApplyResult conflictanalysis_apply(Kernel &k) {
   return backjump_apply(k); // asserts the UIP at jump_level; clears pending
 }
 
-// Instance surface (D-LEVEL-2): the backjump target, any level in
-// [jump_level, level-1]. jump_level is unknown until analyze runs, so
-// instances() offers every level 0..level-1 and apply_instance clamps
-// afterwards. INSTANCE_CANONICAL = jump_level.
+// Instance surface: only the canonical (jump_level) target is offered.
+// Chronological targets above jump_level are unsound under current-level
+// assignment (see backjump_apply_to); backjump_apply_to always clamps to
+// jump_level regardless, so the non-canonical path is a no-op alias.
+// Offering only INSTANCE_CANONICAL reflects the single legal choice.
 static uint32_t conflictanalysis_instances(Kernel &k, uint64_t *out,
                                            uint32_t cap) {
-  const uint32_t n = std::min<uint32_t>(cap, k.level); // levels 0..level-1
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = i;
-  return n;
+  if (cap == 0)
+    return 0;
+  out[0] = INSTANCE_CANONICAL;
+  return 1;
 }
 
 static ApplyResult conflictanalysis_apply_instance(Kernel &k, uint64_t inst) {

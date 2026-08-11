@@ -350,6 +350,7 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   // usable at any state (N1).
   if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
     r.occ = &k.dense->large;
+    r.occ_arena_size = k.arena.size();
   } else {
     r.occ_owned.assign(2 * k.nvars, {});
     for (Ref ref = 0; ref < k.arena.size();) {
@@ -362,6 +363,7 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
       ref += words;
     }
   r.occ = &r.occ_owned;
+  r.occ_arena_size = k.arena.size();
   }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Var v = 0; v < k.nvars; v++) {
@@ -386,9 +388,36 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   r.emission_batches = 0;
 }
 
+// Rebuild the occurrence index after GC compacted the arena mid-round.
+// Unlike sweep_round_begin, this does NOT reset the representative map or
+// emission state — those stay valid across seeds in the same round.
+static void sweep_refresh_occ(Kernel &k, SweepRound &r) {
+  if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
+    r.occ = &k.dense->large;
+  } else {
+    r.occ_owned.assign(2 * k.nvars, {});
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_words(c->size);
+      if (!c->garbage() && !c->redundant())
+        for (const Lit l : *c)
+          r.occ_owned[l].push_back(ref);
+      k.stats.sweep_ticks += words;
+      ref += words;
+    }
+    r.occ = &r.occ_owned;
+  }
+  r.occ_arena_size = k.arena.size();
+}
+
 bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
                      SweepRound &r) {
   assert(r.occ && "sweep_round_begin must run first");
+  // If GC ran since the OCC was built (e.g., from substitute mid-round), refs
+  // in occ_owned are stale: they may point to different clauses in the compacted
+  // arena. Rebuild before using the index.
+  if (k.arena.size() < r.occ_arena_size)
+    sweep_refresh_occ(k, r);
   SweepEnv &e = r.env;
   env_reset(k, e);
   keyset_reset(e, lim.max_env_clauses);
@@ -436,6 +465,8 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
         // Scan work remains diagnostic; Kissat spends the embedded-solver tick
         // currency and bounds the resulting environment structurally.
         ticks += 1;
+        if (ref + CLAUSE_HEADER_WORDS > k.arena.size())
+          continue; // stale ref: GC may compact the arena mid-round
         Clause *c = clause_at(k.arena, ref);
         if (c->garbage() || c->redundant())
           continue; // the index may hold stale refs (OccIndex contract)

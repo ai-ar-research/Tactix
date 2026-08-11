@@ -132,6 +132,7 @@ struct SweepRound {
   SweepEnv env;
   std::vector<std::vector<Ref>> occ_owned; // built only when k.dense is unusable
   const std::vector<std::vector<Ref>> *occ = nullptr; // by literal
+  size_t occ_arena_size = 0; // k.arena.size() when occ_owned was last built
   std::vector<Lit> repr;                   // union-find over literals
   std::vector<SweepEquiv> found;
   std::vector<SweepPairProof> proofs; // parallel to `found`
