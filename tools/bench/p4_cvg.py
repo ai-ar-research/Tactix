@@ -145,7 +145,8 @@ def worker(args, row):
                             "sha256": sha256(tactix)},
                 "kissat": {"path": str(kissat.resolve()),
                             "sha256": sha256(kissat)},
-                "timeout": args.timeout, "repeats": args.repeats,
+                "timeout": args.timeout, "memory_gb": args.memory_gb,
+                "repeats": args.repeats,
                 "conflict_window": [args.conflict_from, args.conflict_to],
                 "started_utc": datetime.datetime.now(
                     datetime.timezone.utc).isoformat(), "runs": []}
@@ -242,6 +243,9 @@ def main():
     ap.add_argument("--kissat", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--timeout", type=float)
+    ap.add_argument("--memory-gb", type=int,
+                    help="diagnostic allocation override; requires --tier "
+                         "and preserves 8 GB/core")
     ap.add_argument("--repeats", type=int, default=1)
     ap.add_argument("--trace-limit", type=int, default=1000000)
     ap.add_argument("--conflict-from", type=int)
@@ -266,6 +270,13 @@ def main():
                         "D": 5000.0}[row["group"]]
     if args.repeats < 1:
         ap.error("--repeats must be positive")
+    if args.memory_gb is None:
+        args.memory_gb = 16 if row["group"] in ("C", "D") else 8
+    if args.memory_gb <= 0 or args.memory_gb % 8:
+        ap.error("--memory-gb must be a positive multiple of 8")
+    if args.memory_gb != (16 if row["group"] in ("C", "D") else 8) \
+            and not args.tier:
+        ap.error("a non-default --memory-gb requires --tier")
     if args.tactix_only and not args.tier:
         ap.error("--tactix-only requires --tier")
     if args.no_trace and not args.tier:
@@ -277,6 +288,7 @@ def main():
                "--fixture", args.fixture, "--tactix", args.tactix,
                "--kissat", args.kissat, "--out", args.out,
                "--timeout", str(args.timeout), "--repeats", str(args.repeats),
+               "--memory-gb", str(args.memory_gb),
                "--trace-limit", str(args.trace_limit), "--worker"]
     if args.tier:
         command += ["--tier", args.tier]
@@ -294,7 +306,7 @@ def main():
     per_solver_wall = args.timeout + checker_budget(args.timeout)
     wall_minutes = max(
         10, int((solver_count * per_solver_wall * args.repeats) / 60) + 10)
-    memory_gb = 16 if row["group"] in ("C", "D") else 8
+    memory_gb = args.memory_gb
     cpus = max(1, -(-memory_gb // 8))
     sbatch = ["sbatch", "--parsable", "--partition=cpu-dense-hwulab-q",
               f"--cpus-per-task={cpus}", f"--mem={memory_gb}G",
