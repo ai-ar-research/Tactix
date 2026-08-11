@@ -80,9 +80,10 @@ tactix_only_dry = subprocess.run(
     [sys.executable, str(ROOT / "tools/bench/p4_cvg.py"),
      "--fixture", "T87.2.0", "--tier", "C", "--tactix", "/pin/tactix",
      "--kissat", "/pin/kissat", "--out", "/tmp/p4-tier-c-tactix-only-dry",
-     "--tactix-only", "--dry-run"],
+     "--tactix-only", "--no-trace", "--dry-run"],
     check=True, text=True, stdout=subprocess.PIPE).stdout
-assert "--tactix-only" in tactix_only_dry and "--time=110" in tactix_only_dry
+assert "--tactix-only" in tactix_only_dry and "--no-trace" in tactix_only_dry
+assert "--time=110" in tactix_only_dry
 
 with tempfile.TemporaryDirectory(prefix="p4-check-timeout-") as directory:
     directory = pathlib.Path(directory)
