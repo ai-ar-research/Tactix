@@ -7,9 +7,16 @@
 name: ci
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  # The full sanitizer, checker-toolchain, and fuzz matrix is intentionally
+  # weekly to keep GitHub Actions minutes bounded. Run it on demand before a
+  # milestone merge with the Actions UI when fresher evidence is required.
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   harness:

@@ -380,13 +380,14 @@ void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
     if (emitted_ >= limit_)
       return;
     std::vector<int> clause;
+    const Clause *large = nullptr;
     if (entry.binary()) {
       clause.push_back(kernel_externalize(k, watched));
       clause.push_back(kernel_externalize(k, entry.other()));
     } else {
-      const Clause *c = clause_at(k.arena, entry.ref());
-      clause.reserve(c->size);
-      for (const Lit lit : *c)
+      large = clause_at(k.arena, entry.ref());
+      clause.reserve(large->size);
+      for (const Lit lit : *large)
         clause.push_back(kernel_externalize(k, lit));
     }
     std::sort(clause.begin(), clause.end());
@@ -398,6 +399,14 @@ void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
       if (payload.back() != '=')
         payload += ',';
       payload += std::to_string(lit);
+    }
+    if (large && std::getenv("TACTIX_EVENT_TRACE_WATCH_POSE")) {
+      payload += "|searched=" + std::to_string(large->searched) + "|pose=";
+      for (uint32_t i = 0; i < large->size; i++) {
+        if (i)
+          payload += ',';
+        payload += std::to_string(kernel_externalize(k, large->lits[i]));
+      }
     }
     emit(k, "watch", payload.c_str(), false);
   }

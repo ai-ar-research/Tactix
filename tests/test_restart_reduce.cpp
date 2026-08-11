@@ -93,12 +93,15 @@ static void test_sparse_collect_preserves_prefix_watch_order() {
   const Ref r2 = kernel_add_large_clause(k, p2, 3, false, 0);
   const Ref first_reducible =
       kernel_add_large_clause(k, dead, 3, true, 9);
-  kernel_add_large_clause(k, tail, 3, true, 9);
+  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, true, 9);
 
   // Stand in for search-time watch relocation: the prefix no longer follows
   // arena order. Kissat's sparse collector retains this order and appends the
   // rebuilt reducible tail.
   kernel_swap_large_watch_refs(k, internalize(1), r1, r2, p1[1], p2[1]);
+  clause_at(k.arena, r1)->searched = 3;
+  clause_at(k.arena, r2)->searched = 7;
+  clause_at(k.arena, tail_ref)->searched = 6;
   clause_at(k.arena, first_reducible)->flags |= Clause::GARBAGE;
   ReverseArenaOrder reverse;
   k.arena_ordering = &reverse; // posed for inprocessing, ignored by Reduce
@@ -113,6 +116,54 @@ static void test_sparse_collect_preserves_prefix_watch_order() {
          "sparse collection must retain prefix watch order");
   assert(refs[2] == first_reducible &&
          "the relocated reducible tail must be appended in arena order");
+  assert(clause_at(k.arena, r1)->searched == 3 &&
+         clause_at(k.arena, r2)->searched == 7 &&
+         "sparse collection must retain prefix replacement cursors");
+  assert(clause_at(k.arena, first_reducible)->searched == 2 &&
+         "rewatching the relocated tail must reset its replacement cursor");
+}
+
+static void test_sparse_collect_forwards_garbage_prefix_watches() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 10);
+  const Lit p1[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit prefix_dead[3] = {internalize(1), internalize(4),
+                              internalize(5)};
+  const Lit p2[3] = {internalize(1), internalize(6), internalize(7)};
+  const Lit reducible_dead[3] = {internalize(1), internalize(8),
+                                 internalize(9)};
+  const Lit tail[3] = {internalize(1), internalize(9), internalize(10)};
+  const Ref r1 = kernel_add_large_clause(k, p1, 3, false, 0);
+  const Ref dead_prefix_ref =
+      kernel_add_large_clause(k, prefix_dead, 3, false, 0);
+  const Ref r2 = kernel_add_large_clause(k, p2, 3, false, 0);
+  const Ref first_reducible =
+      kernel_add_large_clause(k, reducible_dead, 3, true, 9);
+  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, true, 9);
+
+  kernel_swap_large_watch_refs(k, internalize(1), r1, r2, p1[1], p2[1]);
+  clause_at(k.arena, r1)->searched = 3;
+  clause_at(k.arena, r2)->searched = 7;
+  clause_at(k.arena, tail_ref)->searched = 6;
+  clause_at(k.arena, dead_prefix_ref)->flags |= Clause::GARBAGE;
+  clause_at(k.arena, first_reducible)->flags |= Clause::GARBAGE;
+
+  kernel_collect_garbage(k, first_reducible);
+
+  const Ref moved_r2 = r2 - clause_words(3);
+  const Ref moved_tail = 2 * clause_words(3);
+  std::vector<Ref> refs;
+  for (const WatchEntry w : k.watches.entries(internalize(1)))
+    if (!w.binary())
+      refs.push_back(w.ref());
+  assert(refs == std::vector<Ref>({moved_r2, r1, moved_tail}) &&
+         "sparse collection must forward live prefix watches in place");
+  assert(clause_at(k.arena, r1)->searched == 3);
+  assert(clause_at(k.arena, moved_r2)->searched == 7);
+  assert(clause_at(k.arena, moved_tail)->searched == 2 &&
+         "the relocated tail must still be rewatched from cursor two");
+  kernel_check_invariants(k);
 }
 
 static void test_collect_reselects_watches_by_assignment(void) {
@@ -335,6 +386,7 @@ int main() {
   test_collect_preserves_propagation();
   test_collect_accepts_policy_order();
   test_sparse_collect_preserves_prefix_watch_order();
+  test_sparse_collect_forwards_garbage_prefix_watches();
   test_collect_reselects_watches_by_assignment();
   test_default_arena_order_tracks_search();
   test_reduce_deletes_and_logs();

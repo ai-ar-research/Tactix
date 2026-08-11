@@ -27,6 +27,7 @@ int main() {
   assert(!absent.good());
 
   setenv("TACTIX_EVENT_TRACE", path, 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_POSE", "1", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
@@ -50,6 +51,8 @@ int main() {
     const Lit conflict[3] = {internalize(-3), internalize(1), internalize(-2)};
     k.conflict_ref = kernel_add_large_clause(k, conflict, 3, false, 0);
     k.conflict_valid = true;
+    clause_at(k.arena, k.conflict_ref)->searched = 3;
+    trace.watch_scan(k, internalize(3));
     trace.conflict(k);
     trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
     trace.detail(k, "analysis_end", 1);
@@ -64,6 +67,7 @@ int main() {
     trace.macro(k, "terminate", "10");
   }
   unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_POSE");
   std::ifstream input(path);
   const std::string text((std::istreambuf_iterator<char>(input)),
                          std::istreambuf_iterator<char>());
@@ -97,6 +101,7 @@ int main() {
   assert(text.find("\timply\t") != std::string::npos);
   assert(text.find("\tlit=2|level=1|reason=-1,2\n") != std::string::npos);
   assert(text.find("\tconflict\t") != std::string::npos);
+  assert(text.find("|searched=3|pose=-3,1,-2\n") != std::string::npos);
   assert(text.find("\torder=-3,1,-2|set=-3,-2,1\n") != std::string::npos);
   assert(text.find("\tlearned\t") != std::string::npos);
   assert(text.find("\tretier\t") != std::string::npos);
