@@ -32,7 +32,12 @@ DOCS = {
     "CLAUDE.md": "CLAUDE.md",
     "docs/implementation-notes.md": "docs/implementation-notes.md",
     "docs/calculus.md": "docs/calculus.md",
+    "docs/scheduling-parity-ledger.md": "docs/scheduling-parity-ledger.md",
 }
+# The parity ledger left implementation-notes with only a §13 stub, so a
+# historical `implementation-notes.md §13.x` -- including citations in FROZEN
+# designs and logs, which must not be edited -- resolves against the ledger.
+REDIRECT = {("docs/implementation-notes.md", "13"): "docs/scheduling-parity-ledger.md"}
 # Resolution order for a bare `§X.Y`: the document it appears in, THEN the plan.
 # That is how these docs actually read -- implementation-notes defines §13.3 of
 # its own and also cites plan §5.2 without qualifying it -- and it still catches

@@ -27,7 +27,7 @@ constexpr int FACTOR_MIN_GAIN = 1;
 // 1 + one tick per 128 bytes touched, so a walk over `words` uint32_t watch
 // entries costs 1 + (4·words)/128. The apply-local stream retains unique
 // binary partners and large-clause occurrences, like Kissat's dense watches
-// (`docs/implementation-notes.md` §13).
+// (`docs/scheduling-parity-ledger.md` §13).
 inline void charge_factor_ticks(Kernel &k, uint32_t words) {
   k.stats.factor_ticks += 1 + (words >> 5);
 }

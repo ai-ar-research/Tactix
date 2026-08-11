@@ -37,7 +37,8 @@ import sys
 ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                       capture_output=True, text=True).stdout.strip()
 DOCS = ["PROGRESS.md", "DEVELOPMENT_PLAN.md", "CLAUDE.md",
-        "docs/implementation-notes.md", "docs/calculus.md", "docs/README.md"]
+        "docs/implementation-notes.md", "docs/calculus.md", "docs/README.md",
+        "docs/scheduling-parity-ledger.md"]
 OURS = ["src", "tools", "tests", "include", "benchmarks/probes"]
 REFS = ["kissat", "cadical", "glucose", "cryptominisat", "winners"]
 

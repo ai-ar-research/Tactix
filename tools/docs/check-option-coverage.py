@@ -56,6 +56,10 @@ import sys
 ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"],
                       capture_output=True, text=True, check=True).stdout.strip()
 NOTES = os.path.join(ROOT, "docs", "implementation-notes.md")
+# The parity ledger was section 13 of the notes until it grew to half that
+# file. Its headings, row ids and markers moved verbatim, so only the path
+# changed here.
+LEDGER = os.path.join(ROOT, "docs", "scheduling-parity-ledger.md")
 PROGRESS = os.path.join(ROOT, "PROGRESS.md")
 AUDIT = os.path.join(ROOT, "docs", "design",
                      "2026-08-04-n4-scheduling-parity-audit.md")
@@ -295,7 +299,7 @@ def ledger_corpus():
     heading), and each time this check broke rather than the docs -- so the
     thing it keys on must be something a doc edit has no reason to touch.
     """
-    notes = open(NOTES).read()
+    notes = open(LEDGER).read()
     s13 = section(notes, "<!-- parity-ledger:begin -->",
                   "<!-- parity-ledger:end -->")
     prog = open(PROGRESS).read()
@@ -306,7 +310,7 @@ def ledger_corpus():
 
 def coverage_table():
     """§13.6's published per-source coverage numbers."""
-    notes = open(NOTES).read()
+    notes = open(LEDGER).read()
     s = section(notes, "### 13.6 Coverage of the SCHED-A3 pass", "\n**Dismissal")
     out = {}
     for src, key in (("kissat/src/options.h", "kissat"),
@@ -333,7 +337,7 @@ def dismissal_roster(kissat, cadical):
     count re-checked, so a reference bump that adds a `block*` option fails
     here instead of hiding inside the glob.
     """
-    notes = open(NOTES).read()
+    notes = open(LEDGER).read()
     s = section(notes, "**Dismissal roster**", "\n**What A3 did NOT reach")
     bullets = [b for b in s.split("\n- ")[1:]]
     if len(bullets) != 3:

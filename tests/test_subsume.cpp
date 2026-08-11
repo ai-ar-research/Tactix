@@ -232,7 +232,7 @@ static void test_touch_filter_is_policy_only() {
 
 // Why the filter cannot wedge: a cut round re-arms the candidates it never
 // reached, so the next round starts at the tail. DefaultPolicy never drives it
-// (`midround_budget` ships off, docs/implementation-notes.md §13.3).
+// (`midround_budget` ships off, docs/scheduling-parity-ledger.md §13.3).
 static void test_touch_resume_rearms_the_tail() {
   Kernel k;
   kernel_reserve_vars(k, 8);

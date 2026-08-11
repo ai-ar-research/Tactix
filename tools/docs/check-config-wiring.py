@@ -138,7 +138,7 @@ TABLE = {
                                        "and is never connected. Wiring it is measured negative "
                                        "3x, so this stays API until a NEW mechanism exists — "
                                        "an accepted gap, not an oversight. Ledger row + "
-                                       "removal path: implementation-notes.md 13.3, "
+                                       "removal path: scheduling-parity-ledger.md 13.3, "
                                        "SP-FACTOR-1."),
 }
 

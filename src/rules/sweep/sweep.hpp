@@ -4,7 +4,7 @@
 // Contract, proof delta and soundness: `docs/calculus.md` V5; design
 // `docs/design/v5-sweep-design.md`; the deviations from kissat `sweep.c` and
 // cadical `sweep.cpp` (each a weakening of what is detected, never of what may
-// be concluded) are the sweep rows of `docs/implementation-notes.md` §13.2.
+// be concluded) are the sweep rows of `docs/scheduling-parity-ledger.md` §13.2.
 //
 // The invariant everything here serves: the environment is entailed by F, so
 // `env ⊨ x ≡ y` gives `F ⊨ x ≡ y`. Every environment clause is a clause the
