@@ -34,10 +34,20 @@ observed common prefix.
 The remaining loss is computational and downstream. Kissat spends **0.96s** in
 Factor. Its dense entry flushes duplicate binary watches before every Factor
 dose; Tactix now reproduces that boundary and pins it adversarially. Startup is
-exact through all 766 grids. By dose 2 the solvers already have different
-formula/search states (conflicts 2512/2513), yielding 16/12 grids; this is a
-consequence, not a new Factor-order root. Direct-cache and direct-binary arms
-timed out and were removed. Evidence: `20260810-sp-factor-dense-*`.
+exact through all 766 grids, including reverse quotient-chain application and
+the selected large row's literal pose. The clean shipped pin survives 120s but
+does not solve. A matched conflict-reuse trace keeps decisions, conflicts and
+backtracks exact through conflict 1009; conflict 1010 is the first different
+backjump/learned-clause outcome. An earlier clause-payload difference retains a
+root-false `-89` in Tactix, so the next cut is its creation/lifetime before the
+common conflict-1010 analysis, not the already unequal dose-2 grids. Evidence:
+`20260810-sp-factor-pose-active-*`.
+
+The same production run exposed a release-only queue exhaustion after about
+1.26M conflicts. Analyze bumps could reconnect retired variables, and
+Substitute's SCC traversal could rediscover them through stale binaries and
+retire them twice. Both active-variable boundaries are repaired and covered by
+adversarial tests; a 120s diagnostic completed without queue corruption.
 
 On `mp1`, the accepted startup/random and sparse-watch repairs make the
 normalized Tactix/Kissat trajectory exact through conflict 2504.  The first
@@ -57,10 +67,11 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Re-close `mod4block` by localizing the first formula/search-state divergence
-   before the second Factor dose.  Compare one event boundary at a time from
-   the exact 766-grid startup checkpoint; change Factor again only if a common
-   input state exposes a grid/ref/update mismatch.  Preserve proof/model gates,
+1. Re-close `mod4block` from the matched-policy conflict-1010 frontier. Trace
+   the differing conflict reasons back through conflicts 1007-1010 and the
+   earlier root-false `-89` clause lifetime. Change Factor again only if a
+   common input state exposes a grid/ref/update/emission mismatch; otherwise
+   repair the owning simplification/watch boundary. Preserve proof/model gates,
    trace-off builds, and accept only a verified cumulative production gain.
 2. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
    deduction terminal-state machine, with per-arm reach counters, proof/model
@@ -152,9 +163,11 @@ fixtures as cumulative guards.
 - [x] `tr-n260-s002` — accepted stronger singleton minimization.
 - [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
 - [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — corrected dense-entry arm
-  times out at 60s versus Kissat 18.30s and the former 10.96s closing pin.
-  Startup Factor grids match through all 766 observed grids; the active closer
-  is the formula/search-state divergence before the second Factor dose.
+  still has no shipped-default close: the clean pin times out at 120s. Startup
+  Factor grids match through all 766 observed grids. With conflict reuse
+  matched, the run is proof/model-clean in 59.82s versus Kissat 18.80s and the
+  search prefix matches through conflict 1009; conflict 1010 is the active
+  formula/reason frontier.
 - [ ] `mp1-klieber2017s-0500-023-t12`.
 - [ ] `or_randxor_k3_n540_m540`.
 - [ ] `unsat-set-b-fclqcolor-10-07-09`.
@@ -170,7 +183,8 @@ rows `ORDER-TUMBLE-1`, `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`,
 `docs/implementation-notes.md` §13. `SP-FACTOR-OCCURRENCE-1` is semantically
 closed at startup; the pre-dose-2 formula/search divergence is the current `mod4block` closer.
 `SP-VIVIFY-DEDUCE-1` is open from `mp1`, but follows the earlier cumulative
-guard.
+guard. The active `mod4block` cut is now the matched-policy conflict-1010 reason
+divergence, not the already unequal second Factor dose.
 
 N4 verification remains pending until the remaining fixed fixtures complete the
 lifecycle audit. A P4-CVG result adds one deduplicated finding here only when it
@@ -219,10 +233,11 @@ identifies missing or cruder default scheduling.
 
 ## Open items
 
-- The current one-at-a-time frontier is the formula/search divergence before
-  `mod4block` Factor dose 2. Startup Factor is exact; do not optimize the later
-  unequal grids as though they shared an input state. Then return to `mp1`'s
-  `SP-VIVIFY-DEDUCE-1`.
+- The current one-at-a-time frontier is `mod4block` conflict 1010 under matched
+  conflict reuse. Trace its different reasons through conflicts 1007-1010 and
+  the earlier root-false `-89` clause. Startup Factor is exact; do not optimize
+  the later unequal grids as though they shared an input state. Then return to
+  `mp1`'s `SP-VIVIFY-DEDUCE-1`.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic
   disposition plus an adversarial public-API reachability test.
@@ -245,13 +260,15 @@ identifies missing or cruder default scheduling.
 
 ## Recent changes
 
+- 2026-08-10 — preserved the chosen last-factor clause pose and reverse
+  quotient-chain order; matched conflict reuse now holds search parity through
+  conflict 1009 and localizes the first backjump split at conflict 1010.
+- 2026-08-10 — kept retired variables outside Analyze bumps and Substitute SCC
+  traversal, preventing duplicate retirement and release queue exhaustion;
+  the 120s corruption diagnostic and Release 68/68 suite are green.
 - 2026-08-09 — matched Kissat's reduction cadence/ramp; the next mismatch is
   `REDUCE-CANDIDATE-1` at the common conflict-1,000 Reduce (`d22593e`).
 - 2026-08-09 — reused exact OTFS replacements while preserving strict
   post-minimization subclauses (`ca8b341`).
 - 2026-08-09 — matched Kissat minimization depth and learned-block order
   (`7a52c53`, `3d297e5`).
-- 2026-08-09 — repaired OTFS reason lifetime and conflict-clock accounting
-  (`4a08214`, `bb0f17f`).
-- 2026-08-09 — added P4-CVG manifests, conflict-window tracing, zero-overhead
-  production trace checks, and the causal-frontier divergence-v2 gate.

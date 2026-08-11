@@ -25,6 +25,14 @@ static bool has_binary(const Kernel &k, Lit a, Lit b) {
   return false;
 }
 
+static std::vector<Lit> binary_watch_partners(const Kernel &k, Lit lit) {
+  std::vector<Lit> result;
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (watch.binary())
+      result.push_back(watch.other());
+  return result;
+}
+
 static void add_large(Kernel &k, std::initializer_list<Lit> lits) {
   const std::vector<Lit> clause(lits);
   kernel_add_large_clause(k, clause.data(), static_cast<uint32_t>(clause.size()),
@@ -45,6 +53,22 @@ static uint32_t count_live_large(Kernel &k, std::initializer_list<Lit> lits) {
     }
     ref += clause_words(c->size);
   }
+  return result;
+}
+
+static std::vector<Ref> large_watch_refs(const Kernel &k, Lit lit) {
+  std::vector<Ref> result;
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (!watch.binary())
+      result.push_back(watch.ref());
+  return result;
+}
+
+static std::vector<Lit> large_watch_blockers(const Kernel &k, Lit lit) {
+  std::vector<Lit> result;
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (!watch.binary())
+      result.push_back(watch.other());
   return result;
 }
 
@@ -92,6 +116,10 @@ static void test_factoring_2x3() {
   const Lit x = make_lit(5, false), nx = make_lit(5, true);
 
   assert(has_binary(k, x, a) && has_binary(k, x, b)); // dividers
+  // Kissat applies the selected quotient chain backwards: the last selected
+  // factor is the first divider in the fresh literal's watch list.
+  assert((binary_watch_partners(k, x) == std::vector<Lit>{b, a}));
+  assert((binary_watch_partners(k, nx) == std::vector<Lit>{p, q, r}));
   for (const Lit rr : R)
     assert(has_binary(k, nx, rr)); // quotients
   for (const Lit f : {a, b})       // every original deleted
@@ -166,6 +194,31 @@ static void test_assigned_large_remainder() {
   assert(count_live_large(k, {b, p, u}) == 0);
 }
 
+// Remainder interning canonicalizes content only for matching.  Kissat emits
+// each large quotient by copying the selected last-factor clause in its
+// existing pose and removing that factor.  Sorting the emitted remainder
+// instead changes the quotient's initial watched pair after sparse resume.
+static void test_large_quotient_preserves_last_factor_pose() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 8);
+  k.factor_size = 3;
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), u = make_lit(3, false);
+  const Lit q = make_lit(4, false), v = make_lit(5, false);
+  const Lit r = make_lit(6, false), w = make_lit(7, false);
+  for (const auto &[lo, hi] :
+       {std::pair<Lit, Lit>{p, u}, {q, v}, {r, w}}) {
+    add_large(k, {a, lo, hi});
+    add_large(k, {b, hi, lo});
+  }
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  const Lit nx = make_lit(8, true);
+  assert((large_watch_blockers(k, nx) == std::vector<Lit>{u, v, w}));
+}
+
 // Kissat's quotient stack is a clause-occurrence multiset.  Three equal large
 // remainders in each of two rows are therefore a profitable 2x3 grid, not a
 // deduplicated 2x1 set.  Every original Ref and every new quotient occurrence
@@ -210,6 +263,33 @@ static void test_duplicate_binary_occurrences_are_flushed() {
   assert(k.stats.factorings == 0);
   assert(kernel_binary_copies(k, a, p) == 1);
   assert(kernel_binary_copies(k, b, p) == 1);
+}
+
+// Factor's dense-mode lifecycle ends by rebuilding every live large watch in
+// arena order, even when no profitable grid was found.  Kissat does this in
+// `kissat_resume_sparse_mode`; retaining the incoming sparse order changes
+// propagation/reason order after an otherwise identical Factor pass.
+static void test_sparse_resume_rebuilds_large_watch_order() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  k.factor_size = 3;
+  const Lit a = make_lit(0, false), b = make_lit(1, false),
+            c = make_lit(2, false), d = make_lit(3, false),
+            e = make_lit(4, false);
+  const Lit first_lits[3] = {a, b, c};
+  const Lit second_lits[3] = {a, d, e};
+  const Ref first =
+      kernel_add_large_clause(k, first_lits, 3, false, 0, ++k.next_clause_id);
+  const Ref second =
+      kernel_add_large_clause(k, second_lits, 3, false, 0, ++k.next_clause_id);
+  assert((large_watch_refs(k, a) == std::vector<Ref>{first, second}));
+
+  kernel_swap_large_watch_refs(k, a, first, second, b, d);
+  assert((large_watch_refs(k, a) == std::vector<Ref>{second, first}));
+
+  assert(factor_apply(k) == ApplyResult::NoOp);
+  assert((large_watch_refs(k, a) == std::vector<Ref>{first, second}));
 }
 
 // The first 3x3 grid leaves two partial rows.  Its fresh quotient would
@@ -322,8 +402,10 @@ int main() {
   test_factoring_beyond_former_dimension_cap();
   test_assigned_binary_remainder();
   test_assigned_large_remainder();
+  test_large_quotient_preserves_last_factor_pose();
   test_duplicate_large_remainder_occurrences();
   test_duplicate_binary_occurrences_are_flushed();
+  test_sparse_resume_rebuilds_large_watch_order();
   test_fresh_large_quotients_do_not_become_factors();
   test_touch_filter_is_policy_only();
   test_demote_fresh_order();

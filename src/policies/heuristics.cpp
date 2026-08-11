@@ -314,8 +314,12 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
 }
 
 void heuristics_queue_bump(Kernel &k, Var v) {
+  // Kissat bump.c filters analyzed variables through flags[idx].active before
+  // touching either ranking.  A retired identity can still occur in stale
+  // reason-side material; it is already disconnected, so trying to dequeue it
+  // again would splice the VMTF queue through sentinel links.
   if (k.retire_enabled && kernel_var_retired(k, v))
-    k.stats.reactivations++; // counted: this would undo the deactivation
+    return;
 
   if (k.h->queue_last == v)
     return;
@@ -495,8 +499,10 @@ static void rescale_scores(Kernel &k) {
 }
 
 void heuristics_score_bump(Kernel &k, Var v) {
+  // Same active-variable filter as the focused queue path above and Kissat's
+  // bump_analyzed_variable_scores.  Retired variables remain out of the heap.
   if (k.retire_enabled && kernel_var_retired(k, v))
-    k.stats.reactivations++; // counted: this would undo the deactivation
+    return;
 
   const double new_score = k.h->scores.score[v] + k.h->scinc;
   k.h->scores.score[v] = new_score;

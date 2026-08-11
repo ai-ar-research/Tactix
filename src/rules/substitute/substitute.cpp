@@ -42,7 +42,14 @@ SccResult substitute_find_sccs(const Kernel &k) {
   };
   std::vector<Frame> work;
 
-  auto active = [&](Lit l) { return k.values[l] == 0; };
+  // Kissat substitute.c builds the implication SCC graph from ACTIVE
+  // variables only.  Retired identities can remain addressable and stale
+  // binaries can mention them, but they must not be substituted a second time:
+  // that would enqueue a duplicate deactivation for an already-disconnected
+  // decision variable.
+  auto active = [&](Lit l) {
+    return k.values[l] == 0 && !kernel_var_retired(k, var_of(l));
+  };
   // Out-edges of p are the binary watches of negate(p): (negate(p) ∨ q) is
   // exactly p → q. The watch arena is never mutated here, so a suspended
   // iterator stays valid across the whole DFS.
@@ -170,7 +177,7 @@ bool big_path_chain(const Kernel &k, Lit from, Lit to,
       if (!w.binary())
         continue;
       const Lit q = w.other();
-      if (k.values[q] != 0 || seen[q])
+      if (k.values[q] != 0 || kernel_var_retired(k, var_of(q)) || seen[q])
         continue;
       seen[q] = 1;
       parent[q] = cur;
