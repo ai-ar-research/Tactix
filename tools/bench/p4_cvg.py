@@ -85,18 +85,38 @@ def run(cmd, env, timeout, log):
     return code, time.monotonic() - start
 
 
+def checker_budget(timeout):
+    """Plan §8.1 budget for validating a solver result."""
+    return max(3600.0, 4 * timeout)
+
+
 def verify(expected, cnf, proof, log, out, timeout):
     if expected == "SAT":
         cmd = [str(CHECKMODEL), str(cnf), str(log)]
     else:
         cmd = [str(DRAT), str(cnf), str(proof)]
-    checked = subprocess.run(cmd, stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT, text=True,
-                             errors="replace", timeout=max(timeout, 300))
+    budget = checker_budget(timeout)
+    try:
+        checked = subprocess.run(cmd, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, text=True,
+                                 errors="replace", timeout=budget)
+    except subprocess.TimeoutExpired as error:
+        output = error.stdout or ""
+        if isinstance(output, bytes):
+            output = output.decode(errors="replace")
+        out.write_text(output + f"\nCHECKER TIMEOUT after {budget:g}s\n")
+        return False, "timeout"
     out.write_text(checked.stdout)
     if expected == "SAT":
-        return checked.returncode == 0
-    return checked.returncode == 0 and "s VERIFIED" in checked.stdout
+        ok = checked.returncode == 0
+    else:
+        ok = checked.returncode == 0 and "s VERIFIED" in checked.stdout
+    return ok, "verified" if ok else "rejected"
+
+
+def write_metadata(out, metadata):
+    (out / "metadata.json").write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n")
 
 
 def stage(row, directory):
@@ -138,8 +158,12 @@ def worker(args, row):
             rd = out / f"repeat-{repeat + 1}"
             rd.mkdir(exist_ok=True)
             record = {"repeat": repeat + 1, "solvers": {}}
-            for name, binary, prefix in (("tactix", tactix, "TACTIX"),
-                                         ("kissat", kissat, "KISSAT")):
+            metadata["runs"].append(record)
+            write_metadata(out, metadata)
+            solvers = [("tactix", tactix, "TACTIX")]
+            if not args.tactix_only:
+                solvers.append(("kissat", kissat, "KISSAT"))
+            for name, binary, prefix in solvers:
                 log, proof = rd / f"{name}.log", rd / f"{name}.drat"
                 event = rd / f"{name}-event.tsv"
                 reduce = rd / f"{name}-reduce.tsv"
@@ -163,17 +187,24 @@ def worker(args, row):
                     env["TACTIX_STRATEGY_CONFIG"] = "1"
                 command = [str(binary), str(cnf), str(proof)]
                 code, elapsed = run(command, env, args.timeout, log)
-                ok = code == expected_code and verify(
-                    row["expected"], cnf, proof, log,
-                    rd / f"{name}-check.log", args.timeout)
                 record["solvers"][name] = {
                     "command": command, "exit_code": code,
-                    "seconds": elapsed, "verified": ok,
+                    "seconds": elapsed, "verified": False,
+                    "check_status": "pending",
                     "event_trace": str(event), "reduce_trace": str(reduce)}
+                # Preserve the child status before a potentially long or
+                # failing checker and before starting the reference solver.
+                write_metadata(out, metadata)
+                if code == expected_code:
+                    ok, check_status = verify(
+                        row["expected"], cnf, proof, log,
+                        rd / f"{name}-check.log", args.timeout)
+                else:
+                    ok, check_status = False, "not-run: unexpected solver exit"
+                record["solvers"][name]["verified"] = ok
+                record["solvers"][name]["check_status"] = check_status
+                write_metadata(out, metadata)
                 if not ok and not args.tier:
-                    metadata["runs"].append(record)
-                    (out / "metadata.json").write_text(
-                        json.dumps(metadata, indent=2, sort_keys=True) + "\n")
                     raise SystemExit(f"{name} failed verdict/proof/model validation")
             event_json = rd / "event-comparison.json"
             if (rd / "tactix-event.tsv").exists() and (
@@ -194,11 +225,9 @@ def worker(args, row):
                      str(rd / "tactix-reduce.tsv"),
                      str(rd / "kissat-reduce.tsv"), "--json", str(reduce_json)],
                     check=False)
-            metadata["runs"].append(record)
     metadata["finished_utc"] = datetime.datetime.now(
         datetime.timezone.utc).isoformat()
-    (out / "metadata.json").write_text(
-        json.dumps(metadata, indent=2, sort_keys=True) + "\n")
+    write_metadata(out, metadata)
 
 
 def main():
@@ -216,6 +245,9 @@ def main():
     ap.add_argument("--conflict-from", type=int)
     ap.add_argument("--conflict-to", type=int)
     ap.add_argument("--mode-clock", action="store_true")
+    ap.add_argument("--tactix-only", action="store_true",
+                    help="run only Tactix in --tier diagnostic mode; reuse "
+                         "stored reference results")
     ap.add_argument("--worker", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -229,6 +261,8 @@ def main():
                         "D": 5000.0}[row["group"]]
     if args.repeats < 1:
         ap.error("--repeats must be positive")
+    if args.tactix_only and not args.tier:
+        ap.error("--tactix-only requires --tier")
     if args.worker:
         worker(args, row)
         return
@@ -245,7 +279,12 @@ def main():
         command += ["--conflict-to", str(args.conflict_to)]
     if args.mode_clock:
         command += ["--mode-clock"]
-    wall_minutes = max(10, int((2 * args.timeout * args.repeats) / 60) + 10)
+    if args.tactix_only:
+        command += ["--tactix-only"]
+    solver_count = 1 if args.tactix_only else 2
+    per_solver_wall = args.timeout + checker_budget(args.timeout)
+    wall_minutes = max(
+        10, int((solver_count * per_solver_wall * args.repeats) / 60) + 10)
     memory_gb = 16 if row["group"] in ("C", "D") else 8
     cpus = max(1, -(-memory_gb // 8))
     sbatch = ["sbatch", "--parsable", "--partition=cpu-dense-hwulab-q",

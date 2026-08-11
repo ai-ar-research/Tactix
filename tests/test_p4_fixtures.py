@@ -4,6 +4,8 @@ import importlib.util
 import pathlib
 import subprocess
 import sys
+import tempfile
+from unittest import mock
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -63,7 +65,7 @@ dry = subprocess.run(
      "--fixture", "tr-n300-s055", "--tactix", "/pin/tactix",
      "--kissat", "/pin/kissat", "--out", "/tmp/p4-dry", "--dry-run"],
     check=True, text=True, stdout=subprocess.PIPE).stdout
-assert "sbatch" in dry and "--worker" in dry and "--time=11" in dry
+assert "sbatch" in dry and "--worker" in dry and "--time=131" in dry
 tier_c_dry = subprocess.run(
     [sys.executable, str(ROOT / "tools/bench/p4_cvg.py"),
      "--fixture", "T87.2.0", "--tier", "C", "--tactix", "/pin/tactix",
@@ -72,5 +74,24 @@ tier_c_dry = subprocess.run(
     check=True, text=True, stdout=subprocess.PIPE).stdout
 assert "--tier C" in tier_c_dry
 assert "--cpus-per-task=2" in tier_c_dry and "--mem=16G" in tier_c_dry
-assert "--time=50" in tier_c_dry
+assert "--time=210" in tier_c_dry
+
+tactix_only_dry = subprocess.run(
+    [sys.executable, str(ROOT / "tools/bench/p4_cvg.py"),
+     "--fixture", "T87.2.0", "--tier", "C", "--tactix", "/pin/tactix",
+     "--kissat", "/pin/kissat", "--out", "/tmp/p4-tier-c-tactix-only-dry",
+     "--tactix-only", "--dry-run"],
+    check=True, text=True, stdout=subprocess.PIPE).stdout
+assert "--tactix-only" in tactix_only_dry and "--time=110" in tactix_only_dry
+
+with tempfile.TemporaryDirectory(prefix="p4-check-timeout-") as directory:
+    directory = pathlib.Path(directory)
+    check_log = directory / "check.log"
+    timeout = subprocess.TimeoutExpired(["drat-trim"], 300, output=b"partial")
+    with mock.patch.object(p4.subprocess, "run", side_effect=timeout):
+        ok, status = p4.verify(
+            "UNSAT", directory / "input.cnf", directory / "proof.drat",
+            directory / "solver.log", check_log, 30)
+    assert not ok and status == "timeout"
+    assert check_log.read_text() == "partial\nCHECKER TIMEOUT after 3600s\n"
 print("test_p4_fixtures OK")

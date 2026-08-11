@@ -28,18 +28,21 @@ be called a timeout and goldcrest is not explained by memory pressure. The
 partial window `20260811-190933-C-current-only-ad9064f` is diagnostic only and
 must not support a performance claim.
 
-Focused P4-CVG-style Tier C diagnostics preserve the missing child exit status,
+Focused P4-CVG-style Tier C diagnostics target the missing child exit status,
 logs, and semantic traces: `128_125` job `1611934` writes
 `benchmarks/runs/20260811-tierc-cvg-128_125`; goldcrest job `1611933` writes
 `benchmarks/runs/20260811-tierc-cvg-goldcrest`. The `128_125` trace captured
 Tactix exit `-9` after 82.58s, then the batch ended `OUT_OF_MEMORY` at 5:41
 (14,269,912 KiB MaxRSS and two cgroup OOM kills); this memory-heavy diagnostic
-does not yet explain the release-run exit. Goldcrest job `1611933` remained in
-flight at handoff. The runner now accepts an explicit frozen-tier fixture while
-leaving the fixed P4A/P4B gate manifests and fail-fast behavior unchanged.
-Diagnostic tier mode runs both solvers even when one is nonterminal and uses
-Tier C's 16 GB/two-core shape. Original Kissat remains the benchmark reference;
-the instrumented variant is used only for causal traces.
+does not yet explain the release-run exit. Goldcrest job `1611933` reached both
+solver phases, then failed at 24:01 because its Kissat proof checker hit 1200s
+and `p4_cvg.py` let `TimeoutExpired` escape. The runner had not checkpointed its
+in-memory record, so the already-observed Tactix child status was lost. This is
+a runner defect, not evidence that goldcrest crashed. The repaired runner
+checkpoints each child before checking or reference execution, classifies a
+checker timeout, uses plan §8.1's checker budget, and permits a Tactix-only tier
+diagnostic that reuses stored original-reference results. The fixed P4A/P4B gate
+manifests and fail-fast behavior remain unchanged.
 
 Completed evidence remains unchanged: corpus 18/18 and both 10,000-case fuzz
 legs are clean after the three random-policy repairs; Tier A/B are
@@ -52,12 +55,12 @@ P4-CVG stays closed (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
 
 **Next actions:**
 
-1. Inspect goldcrest job `1611933`; reproduce both release-run exits with a
-   lower-footprint, same-pin diagnostic that records each child status before
-   reference tracing and avoids retaining huge SAT output in memory. Fix any
-   defect, add a regression, validate the affected SAT model or UNSAT proof,
-   and rerun the required correctness gate. Treat the `128_125` trace OOM as
-   evidence, not yet as the release-run root cause.
+1. Reproduce both release-run exits with lower-footprint, same-pin Tactix-only
+   diagnostics. Record each child status before proof checking and avoid the
+   million-row semantic traces that pushed `128_125` over its cgroup. Fix any
+   solver defect, add a regression, validate the affected SAT model or UNSAT
+   proof, and rerun the required correctness gate. Treat the `128_125` trace
+   OOM and goldcrest checker timeout as runner evidence, not release-run causes.
 2. Only after action 1 is green, rerun the Tactix-only Tier C window. Compare
    it with stored original-reference results from compatible window
    `20260809-091255-C-cumulative-g6`; then apply the Tier C causal diagnostic to
@@ -251,6 +254,11 @@ the complete ledger, then mark N4 only on an explicit verification record.
 
 ## Recent changes
 
+- 2026-08-11 — retired may-not-gate exemptions: perturbation sensitivity now
+  changes the attribution burden only; every frozen instance remains scored and
+  every original-Kissat solve remains an active candidate obligation. Repaired
+  P4-CVG diagnostic checkpointing and checker-timeout/budget handling after
+  goldcrest job `1611933` lost its already-observed Tactix status.
 - 2026-08-11 — started a current-pin Tier C retake, stopped it under plan §8.1
   after two early nonterminal exits, and added explicit Tier C causal-diagnostic
   support without changing the fixed P4-CVG gate. The partial 22/30 window is
@@ -266,6 +274,3 @@ the complete ledger, then mark N4 only on an explicit verification record.
 - 2026-08-11 — replaced Factor's dense scan with sparse literal buckets and
   repaired Sweep representation accounting; full Tier B improves 25/28 →
   28/28 solved and 114.19s → 28.69s PAR-2, correctness clean.
-- 2026-08-11 — made retirement deactivation idempotent after GDB/ASan and
-  one-sided cuts localized duplicate-event VMTF corruption; full Tier B improves
-  21/28 → 25/28 and 187.33s → 116.58s PAR-2, correctness clean.
