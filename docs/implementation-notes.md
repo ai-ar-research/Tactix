@@ -269,13 +269,13 @@ Reorder is an H-only policy operation and ships in both modes, matching Kissat's
 `reorder=2`; `TACTIX_REORDER=0/1/2` retains off, stable-only, and both arms.
 `ORDER-DEFAULT-1` is Tier-A closed by
 `benchmarks/reports/2026-08-09-order-default-1-reorder-corruption.md`.
-The first default-on run exposed a focused-mode port bug: permanent retired
-identities were sorted after disconnection from H, so stale links corrupted VMTF.
-The same invariant now filters Analyze bumps and Substitute SCC roots/edges;
-otherwise a stale binary can retire an identity twice and dequeue it twice.
-Reorder sorts non-retired variables, queue removal clears links, and stable refresh
-follows the connected queue. This preserves N1 while matching Kissat's `ACTIVE`
-filters; `reorder_eligible` and `reordered` distinguish reach from applications.
+The first default-on run exposed retired identities sorted after disconnection from H, so stale links
+corrupted VMTF. Source filters now exclude retired Analyze bumps and Substitute SCC edges, but
+independent formula rules can still report the same retirement before the policy drain. Heuristic
+deactivation is idempotent: it counts already-disconnected reports and never dequeues through sentinel
+links. Reorder sorts non-retired variables, clears removed links, and refreshes stable H from the
+connected queue. This preserves N1 and Kissat's `ACTIVE` filters; `reorder_eligible` / `reordered`
+distinguish reach / apply. The dated Tier B retirement-divergence report owns the paired evidence.
 
 For each open irredundant-clause occurrence, literal weight adds `2^-(size-2)` with size clamped to
 `[2,100]`. Variable weight is `max(w+,w-) + 2*min(w+,w-)`. Focused mode moves variables to the

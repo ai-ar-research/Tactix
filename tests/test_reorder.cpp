@@ -132,6 +132,11 @@ static void test_retired_variables_stay_disconnected() {
     k.var_status[4] = VarStatus::Substituted;
     heuristics_deactivate_var(k, 1);
     heuristics_deactivate_var(k, 4);
+    // Overlapping retirement reports are idempotent.  A second dequeue must
+    // not splice the queue through the disconnected sentinel links.
+    heuristics_deactivate_var(k, 1);
+    heuristics_deactivate_var(k, 4);
+    assert(k.stats.deactivation_repeats == 2);
     k.h->stable = stable;
     if (stable)
       heuristics_update_scores(k);
