@@ -13,86 +13,49 @@ only.
   `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
   pair N2-clean) · N3 Tier-D parity not yet measured · N4 verification
   **pending** while the current causal frontier is classified.
-- **Last updated:** 2026-08-10.
+- **Last updated:** 2026-08-11.
 
 ## Resume here
 
-The three P4A fixtures remain closed. The first P4B fixture, `mod4block`, has a
-new candidate recovery but is not reclosed. The matched conflict-1010 trace
-localized the first consequential difference to Reduce's sparse collection:
-Tactix reset the preserved irredundant prefix's `Clause::searched` replacement
-cursors, while Kissat retains them. The candidate now preserves prefix cursor
-and watch-list order, forwards live prefix watches around earlier garbage, and
-rewatches only the relocated reducible tail. A trace-only pose/cursor field pins
-the comparison without entering production builds.
+P4-CVG is complete on final release pin SHA-256
+`c3ecdf38d6f7cebb45f378db50c36d80027a49d508e225ecbd89c07866528c14`.
+The three P4A and five P4B fixtures ran in fixed order under a 300-second
+per-solver gate; every SAT result passed model validation and every UNSAT result
+passed DRAT verification. Jobs `1607665`--`1607672` are the canonical sequence.
+The closure manifest and causal record are in
+`benchmarks/reports/2026-08-11-p4-cvg-closure.md`.
 
-The immutable trace pair aligns the target clause's scans and the subsequent
-decision/learned trajectory through conflict 1012. The trace-off production pin
-solves `mod4block` with a verified SAT model in **31.87s**, versus Kissat
-**18.60s**; the preceding shipped pin timed out at 120s. The earlier P4A guards
-`tr-n260-s002` and `tr-n280-s052` remain proof-clean. `tr-n300-s055` solves and
-verifies at 120s (**36.43s**) but misses its 30s fixed-order guard; historical
-bisection places that performance regression exactly at `c5a98e4` rather than
-the sparse-GC candidate. No-Sweep and no-Factor controls remain about 35--36s,
-so neither rule's execution alone owns it.
+Four coupled repairs close the block. Compact-universe level-one startup may
+enter the first random-decision sequence without admitting a large reused
+level-one prefix, restoring `tr-n300-s055` to **27.83s**. Vivify now implements
+the complete precedence-ordered deduction terminal state machine, closing
+`SP-VIVIFY-DEDUCE-1` and the former `mp1` conflict-2505 frontier. Eager
+post-Sweep Substitute consumes the exact newly emitted equivalence pairs with
+union-find and a dense occurrence index instead of repeating whole-formula SCC
+and arena scans. Finally, crossing `factor_active_ceiling=100000` latches the
+700M-tick first Factor dose off for that solve; without the latch, Veer shrank
+below the ceiling and re-admitted Factor, timing out at 300s, while the final
+pin verifies UNSAT in **101.62s**.
 
-The candidate is nevertheless **not landable yet**. The exact quick fuzz gate
-fails two tracked corpus entries: case 004 reaches an ASan out-of-bounds read in
-Sweep after Factor extension-variable activity, and case 005 reaches the same
-invalid-literal shape at proof serialization. A connection to random-policy
-execution is a hypothesis, not yet a root-cause result. This investigation is
-deferred until after the ordered P4-CVG fixture loop; the failures must then be
-reproduced in another random-policy fuzzing round, repaired, and cleared by the
-exact quick gate before fuzzing or the sparse-GC candidate is called green.
-Evidence and the exact resume command are recorded in
-`benchmarks/reports/2026-08-10-mod4block-sparse-gc-checkpoint.md`.
-
-The same production run exposed a release-only queue exhaustion after about
-1.26M conflicts. Analyze bumps could reconnect retired variables, and
-Substitute's SCC traversal could rediscover them through stale binaries and
-retire them twice. Both active-variable boundaries are repaired and covered by
-adversarial tests; a 120s diagnostic completed without queue corruption.
-
-On `mp1`, the accepted startup/random and sparse-watch repairs make the
-normalized Tactix/Kissat trajectory exact through conflict 2504.  The first
-mismatch at conflict 2505 is downstream of a learned reason Kissat deletes in
-the first search-time Vivify and Tactix retains.  Three locally sound partial
-ports were rejected and removed: Kissat's implied-candidate deletion depends on
-the complete Vivify deduction state machine, not a probe-position or derived-size
-proxy.  The evidence and exact implementation boundary are in
-`benchmarks/reports/2026-08-10-mp1-vivify-semantic-unit.md`.
-The canonical Tier A evidence is in
-`benchmarks/reports/2026-08-09-tier-a-kissat-divergence-convergence.md`;
-the full lifecycle matrix remains in
-`benchmarks/reports/2026-08-09-default-strategy-application-order-audit.md`.
-Production builds omit all trace implementation, symbols, and event strings.
-The newest broad window, `20260809-144538-B-parity-old`, belongs to the
-superseded pre-repair collapse and is cited for provenance, not banked.
+The previously held sparse-GC candidate and tracked corpus cases 004/005 were
+deliberately not exercised in this task block. They remain separate deferred
+work and are not part of the final P4-CVG pin or its correctness claim. Their
+possible random-policy connection remains an unconfirmed hypothesis. No
+P4-CVG job is in flight. The immediate phase-order action is N4 verification
+against the now-reconciled scheduling ledger; Tier D and T3 still follow N4.
 
 **Next actions:**
 
-1. Return immediately to P4-CVG fixture order. Re-run the 30s `tr-n300-s055`
-   guard and continue the already-localized `c5a98e4` trajectory regression;
-   then re-run all three P4A guards and the `mod4block` production/proof/model
-   gate before declaring the fixture closed.
-2. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
-   deduction terminal-state machine, with per-arm reach counters, proof/model
-   tests, the target-clause deletion trace, and all earlier fixtures as
-   cumulative guards.
-3. Close the three P4A fixtures in fixed order, then the five P4B fixtures in
-   fixed order. Broad Tier B/C pricing remains deferred during this loop.
-4. After the ordered P4-CVG loop, run another random-policy fuzzing round,
-   reproduce corpus 004/005, test the unconfirmed random-policy hypothesis,
-   repair the cause, and rerun the exact
-   `tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300`
-   gate. Do not accept the sparse-GC candidate while this gate is red.
-5. Independently restore N1 evidence for Factor, Congruence, and retired Decide
+1. Complete N4 verification against the reconciled scheduling ledger and the
+   canonical eight-fixture closure manifest. Do not reopen P4-CVG without a
+   new proof/model failure or a localized causal-frontier regression.
+2. Restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
    as the indivisible instance.
-6. After all eight fixtures close, the deferred fuzz gate is green, and N4
-   verification is complete, run the Tier D shakedown/campaign and evaluate T3
-   in that order.
+3. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
+4. Keep the sparse-GC candidate and corpus cases 004/005 deferred unless the
+   user separately authorizes returning to that security-warning path.
 
 ## Current measurement contract
 
@@ -153,7 +116,8 @@ their effect with source counters before performance interpretation.
 - [x] Fix frozen-at-0 retired variables voiding model reconstruction
   (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
 - [ ] Complete and report the fixed-binary Tier C four-arm attribution.
-- [ ] Close P4-CVG on the fixed three-instance P4A and five-instance P4B sets.
+- [x] Close P4-CVG on the fixed three-instance P4A and five-instance P4B sets
+  (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
 - [ ] Complete N4 verification against the reconciled scheduling ledger.
 - [ ] Pass the matched feature-off differential matrix: selected shared
   mechanisms disabled symmetrically in Kissat and Tactix, one configuration at
@@ -167,36 +131,31 @@ Each fixture closes only on a terminal untruncated match or a fully closed
 causal-frontier record. After every accepted repair, rerun all earlier checked
 fixtures as cumulative guards.
 
-- [x] `tr-n300-s055` — accepted stronger singleton minimization.
-- [x] `tr-n260-s002` — accepted stronger singleton minimization.
-- [x] `tr-n280-s052` — warm-up fixed; measured-better B+W deviation retained.
-- [ ] `mod4block_2vars_10gates_u2_autoenc-sc2009` — a sparse-GC candidate solves
-  proof/model-clean in 31.87s versus Kissat 18.60s, after the prior pin timed
-  out at 120s. The candidate is held because the mandatory quick fuzz corpus
-  fails cases 004/005; fix and rerun that gate, then restore the 30s
-  `tr-n300-s055` cumulative guard.
-- [ ] `mp1-klieber2017s-0500-023-t12`.
-- [ ] `or_randxor_k3_n540_m540`.
-- [ ] `unsat-set-b-fclqcolor-10-07-09`.
-- [ ] `veer_axi_yosyshq_appnote_123_veer_axi-p23_transition`.
+- [x] `tr-n300-s055` — verified UNSAT, 27.83s (job `1607665`).
+- [x] `tr-n260-s002` — verified UNSAT, 4.90s (job `1607666`).
+- [x] `tr-n280-s052` — verified UNSAT, 16.42s (job `1607667`).
+- [x] `mod4block_2vars_10gates_u2_autoenc-sc2009` — verified SAT/model,
+  163.96s (job `1607668`).
+- [x] `mp1-klieber2017s-0500-023-t12` — verified SAT/model, 195.08s
+  (job `1607669`).
+- [x] `or_randxor_k3_n540_m540` — verified UNSAT, 14.41s (job `1607670`).
+- [x] `unsat-set-b-fclqcolor-10-07-09` — verified UNSAT, 39.38s
+  (job `1607671`).
+- [x] `veer_axi_yosyshq_appnote_123_veer_axi-p23_transition` — verified UNSAT,
+  101.62s (job `1607672`).
 
 <!-- track-sched:begin -->
 ### Open scheduling-parity findings
 
-`ORDER-SPARSE-COLLECT-1`, `FACTOR-PREPROCESS-1`, the `mod4block` Sweep semantic
-unit, and Factor occurrence/order are implemented and dispositioned. The stale
-rows `ORDER-TUMBLE-1`, `ORDER-ELIM-INIT-1`, `ORDER-BUMP-RATE-1`,
-`ORDER-LUCKY-1`, and `ORDER-FOLLOWUP-1` remain closed; their evidence is in
-`docs/implementation-notes.md` §13. `SP-FACTOR-OCCURRENCE-1` is semantically
-closed at startup. The conflict-1010 frontier localized to sparse Reduce
-collection, whose candidate repair is performance-positive but held behind a
-red fuzz gate and the regressed `tr-n300-s055` cumulative guard.
-`SP-VIVIFY-DEDUCE-1` is open from `mp1`, but follows the earlier cumulative
-guard.
+P4-CVG is closed. `SP-VIVIFY-DEDUCE-1`, compact-universe randec admission, the
+fresh Sweep→Substitute equivalence bridge, and the solve-latched large-formula
+Factor gate are implemented and cumulatively verified. `SP-FACTOR-OCCURRENCE-1`
+remains semantically closed at startup. The sparse-GC candidate is excluded
+from the closure pin and stays deferred with corpus 004/005 outside this task.
 
-N4 verification remains pending until the remaining fixed fixtures complete the
-lifecycle audit. A P4-CVG result adds one deduplicated finding here only when it
-identifies missing or cruder default scheduling.
+N4 verification is now the immediate owner: reconcile the final scheduler
+snapshot and these accepted deviations against the complete ledger, then mark
+N4 only on an explicit verification record.
 <!-- track-sched:end -->
 
 ## Phase 4.5 — engineering ingenuity beyond reference parity
@@ -241,12 +200,11 @@ identifies missing or cruder default scheduling.
 
 ## Open items
 
-- The immediate work is P4-CVG at the `tr-n300-s055` guard regression localized
-  to `c5a98e4`; do not skip ahead to `mp1`. The tracked corpus 004/005 fuzz
-  failures are deferred until the ordered fixture loop finishes. Their possible
-  random-policy connection is unconfirmed; afterward reproduce them in another
-  random-policy fuzzing round, repair the cause, and rerun the exact 300-case
-  quick gate.
+- N4 verification against the reconciled scheduling ledger is the immediate
+  phase-order action now that P4-CVG is closed.
+- The sparse-GC candidate and tracked corpus cases 004/005 remain deferred and
+  outside the closure pin. Their random-policy connection is unconfirmed; do
+  not exercise them without separate user direction.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic
   disposition plus an adversarial public-API reachability test.
@@ -269,6 +227,11 @@ identifies missing or cruder default scheduling.
 
 ## Recent changes
 
+- 2026-08-11 — closed all eight P4-CVG fixtures in fixed order on release pin
+  `c3ecdf38…28c14`; jobs `1607665`--`1607672` all pass proof/model validation.
+- 2026-08-11 — completed Vivify's terminal deduction state machine, optimized
+  eager Sweep→Substitute equivalence consumption, repaired compact level-one
+  randec admission, and solve-latched the large-formula Factor decline.
 - 2026-08-10 — localized `mod4block` conflict 1010 to sparse-GC cursor reset;
   the candidate solves in 31.87s but remains held by a two-case fuzz regression
   and the `tr-n300-s055` 30s cumulative guard.
@@ -278,7 +241,3 @@ identifies missing or cruder default scheduling.
 - 2026-08-10 — kept retired variables outside Analyze bumps and Substitute SCC
   traversal, preventing duplicate retirement and release queue exhaustion;
   the 120s corruption diagnostic and Release 68/68 suite are green.
-- 2026-08-09 — matched Kissat's reduction cadence/ramp; the next mismatch is
-  `REDUCE-CANDIDATE-1` at the common conflict-1,000 Reduce (`d22593e`).
-- 2026-08-09 — reused exact OTFS replacements while preserving strict
-  post-minimization subclauses (`ca8b341`).

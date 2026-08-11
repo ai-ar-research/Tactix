@@ -58,6 +58,11 @@ struct Clause {
   bool redundant() const { return flags & REDUNDANT; }
   bool reason() const { return flags & REASON; }
   bool vivify() const { return flags & VIVIFY; }
+  void set_redundant(bool v) {
+    flags = v ? (flags | REDUNDANT) : (flags & ~REDUNDANT);
+    if (!v)
+      set_glue(0);
+  }
   void set_vivify(bool v) {
     flags = v ? (flags | VIVIFY) : (flags & ~VIVIFY);
   }

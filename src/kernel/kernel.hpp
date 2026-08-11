@@ -168,6 +168,13 @@ struct Stats {
   uint64_t vivify_reprioritized = 0; // rounds whose leftover set was empty
   uint64_t vivify_polls = 0;      // kernel_terminating evaluations at the site
   uint64_t vivify_terminated = 0; // rounds cut short by one
+  uint64_t vivify_subsumed = 0;   // candidates deleted by a reason clause
+  uint64_t vivify_promoted = 0;   // redundant subsumers made irredundant
+  uint64_t vivify_shrunken = 0;   // strict deduction rewrites
+  uint64_t vivify_implied = 0;    // redundant independently-implied deletes
+  uint64_t vivify_asymmetric = 0; // irredundant asymmetric-tautology deletes
+  uint64_t vivify_instantiated = 0; // successful last-literal instantiations
+  uint64_t vivify_noop = 0;       // terminal implied/instantiation declines
   uint64_t probe_rounds = 0;   // Probe rounds
   uint64_t probed = 0;         // probe assumptions made
   uint64_t probe_failed = 0;   // failed literals -> root units derived

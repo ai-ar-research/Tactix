@@ -60,7 +60,8 @@ static void rule_side(uint8_t scope) {
   assert(r == ApplyResult::Ok &&
          "N1 BREACH: a legal tier3 vivification is not applicable through the "
          "rule API");
-  assert(k.stats.vivified == 1 && "apply reported Ok but distilled nothing");
+  assert(k.stats.vivify_subsumed == 1 &&
+         "apply reported Ok but removed no subsumed candidate");
   assert(k.stats.vivify_tier3 == 1 && "the tier3 witness did not fire, so the "
                                       "candidate was not really in tier3");
   std::printf("  scope %u: tier3 candidate enumerated and applied\n", scope);

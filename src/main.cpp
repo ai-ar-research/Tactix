@@ -460,6 +460,15 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.vivify_reprioritized,
            (unsigned long long)kernel.stats.vivify_polls,
            (unsigned long long)kernel.stats.vivify_terminated);
+    printf("c vivify3     %llu subsumed, %llu promoted, %llu shrunken, "
+           "%llu implied, %llu asym, %llu instantiated, %llu noop\n",
+           (unsigned long long)kernel.stats.vivify_subsumed,
+           (unsigned long long)kernel.stats.vivify_promoted,
+           (unsigned long long)kernel.stats.vivify_shrunken,
+           (unsigned long long)kernel.stats.vivify_implied,
+           (unsigned long long)kernel.stats.vivify_asymmetric,
+           (unsigned long long)kernel.stats.vivify_instantiated,
+           (unsigned long long)kernel.stats.vivify_noop);
     printf("c probe       %llu rounds, %llu probed, %llu failed\n",
            (unsigned long long)kernel.stats.probe_rounds,
            (unsigned long long)kernel.stats.probed,
