@@ -39,9 +39,12 @@ so neither rule's execution alone owns it.
 The candidate is nevertheless **not landable yet**. The exact quick fuzz gate
 fails two tracked corpus entries: case 004 reaches an ASan out-of-bounds read in
 Sweep after Factor extension-variable activity, and case 005 reaches the same
-invalid-literal shape at proof serialization. A Slurm trace submission was
-blocked locally by the workspace sandbox's controller-socket restriction; no
-job is in flight. Evidence and the exact resume command are recorded in
+invalid-literal shape at proof serialization. A connection to random-policy
+execution is a hypothesis, not yet a root-cause result. This investigation is
+deferred until after the ordered P4-CVG fixture loop; the failures must then be
+reproduced in another random-policy fuzzing round, repaired, and cleared by the
+exact quick gate before fuzzing or the sparse-GC candidate is called green.
+Evidence and the exact resume command are recorded in
 `benchmarks/reports/2026-08-10-mod4block-sparse-gc-checkpoint.md`.
 
 The same production run exposed a release-only queue exhaustion after about
@@ -68,27 +71,28 @@ superseded pre-repair collapse and is cited for provenance, not banked.
 
 **Next actions:**
 
-1. Reproduce corpus 004 with `TACTIX_TRACE=1` on Slurm, identify the first
-   invalid arena reference, and add a focused Factor/Reduce/Sweep interleaving
-   test. Repair the reference lifecycle, then rerun corpus 004/005 and the exact
-   `tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300`
-   gate. Do not accept the sparse-GC candidate while this gate is red.
-2. Return immediately to P4-CVG fixture order. Re-run the 30s `tr-n300-s055`
+1. Return immediately to P4-CVG fixture order. Re-run the 30s `tr-n300-s055`
    guard and continue the already-localized `c5a98e4` trajectory regression;
    then re-run all three P4A guards and the `mod4block` production/proof/model
    gate before declaring the fixture closed.
-3. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
+2. Then return to `mp1` and implement `SP-VIVIFY-DEDUCE-1` only as the complete
    deduction terminal-state machine, with per-arm reach counters, proof/model
    tests, the target-clause deletion trace, and all earlier fixtures as
    cumulative guards.
-4. Independently restore N1 evidence for Factor, Congruence, and retired Decide
+3. Close the three P4A fixtures in fixed order, then the five P4B fixtures in
+   fixed order. Broad Tier B/C pricing remains deferred during this loop.
+4. After the ordered P4-CVG loop, run another random-policy fuzzing round,
+   reproduce corpus 004/005, test the unconfirmed random-policy hypothesis,
+   repair the cause, and rerun the exact
+   `tools/fuzz/run.sh --quick --solver ./build/debug/tactix --no-shrink --n 300`
+   gate. Do not accept the sparse-GC candidate while this gate is red.
+5. Independently restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
    as the indivisible instance.
-5. Close the three P4A fixtures in fixed order, then the five P4B fixtures in
-   fixed order. Broad Tier B/C pricing remains deferred during this loop. After
-   all eight close and N4 verification is complete, run the Tier D
-   shakedown/campaign and evaluate T3 in that order.
+6. After all eight fixtures close, the deferred fuzz gate is green, and N4
+   verification is complete, run the Tier D shakedown/campaign and evaluate T3
+   in that order.
 
 ## Current measurement contract
 
@@ -237,11 +241,12 @@ identifies missing or cruder default scheduling.
 
 ## Open items
 
-- The immediate blocker is the quick fuzz regression on tracked corpus cases
-  004/005. Trace the first invalid arena reference across the
-  Factor/Reduce/Sweep schedule, repair it, and rerun the exact 300-case gate.
-  Then resume P4-CVG at the `tr-n300-s055` guard regression localized to
-  `c5a98e4`; do not skip ahead to `mp1`.
+- The immediate work is P4-CVG at the `tr-n300-s055` guard regression localized
+  to `c5a98e4`; do not skip ahead to `mp1`. The tracked corpus 004/005 fuzz
+  failures are deferred until the ordered fixture loop finishes. Their possible
+  random-policy connection is unconfirmed; afterward reproduce them in another
+  random-policy fuzzing round, repair the cause, and rerun the exact 300-case
+  quick gate.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic
   disposition plus an adversarial public-API reachability test.
