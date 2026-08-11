@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Run one correctness-checked P4 convergence fixture on one SLURM node."""
+"""Run one correctness-checked causal-convergence fixture on one SLURM node.
+
+Without ``--tier`` this is the frozen P4A/P4B gate runner.  ``--tier`` admits
+one named fixture from a frozen benchmark tier for a P4-CVG-style diagnostic;
+it does not add that fixture to the gate manifests.
+"""
 import argparse
 import datetime
 import hashlib
@@ -17,15 +22,18 @@ import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 MANIFESTS = pathlib.Path(__file__).resolve().parent / "manifests"
+TIERS = ROOT / "benchmarks/tiers"
 CACHE = ROOT / "benchmarks/cache"
 CHECKMODEL = ROOT / "tools/fuzz/checkmodel"
 DRAT = ROOT / "tools/checkers/bin/drat-trim"
 
 
-def fixtures():
+def read_fixtures(tier=None):
     result = []
-    for group in ("P4A", "P4B"):
-        for line in (MANIFESTS / f"{group}.list").read_text().splitlines():
+    groups = (tier,) if tier else ("P4A", "P4B")
+    directory = TIERS if tier else MANIFESTS
+    for group in groups:
+        for line in (directory / f"{group}.list").read_text().splitlines():
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
@@ -36,9 +44,9 @@ def fixtures():
     return result
 
 
-def resolve_fixture(name):
+def resolve_fixture(name, tier=None):
     matches = []
-    for row in fixtures():
+    for row in read_fixtures(tier):
         path = pathlib.Path(row["relpath"])
         candidates = {row["relpath"], path.name, path.stem}
         if path.suffix == ".xz":
@@ -47,7 +55,9 @@ def resolve_fixture(name):
         if name in candidates:
             matches.append(row)
     if len(matches) != 1:
-        raise ValueError(f"fixture {name!r} resolves to {len(matches)} P4 rows")
+        scope = f"Tier {tier}" if tier else "P4"
+        raise ValueError(
+            f"fixture {name!r} resolves to {len(matches)} {scope} rows")
     return matches[0]
 
 
@@ -109,6 +119,7 @@ def worker(args, row):
     out.mkdir(parents=True, exist_ok=True)
     tactix, kissat = pathlib.Path(args.tactix), pathlib.Path(args.kissat)
     metadata = {"schema": "p4-cvg-run-v1", "fixture": row,
+                "diagnostic_tier": args.tier,
                 "slurm_job_id": os.environ["SLURM_JOB_ID"],
                 "tactix": {"path": str(tactix.resolve()),
                             "sha256": sha256(tactix)},
@@ -159,7 +170,7 @@ def worker(args, row):
                     "command": command, "exit_code": code,
                     "seconds": elapsed, "verified": ok,
                     "event_trace": str(event), "reduce_trace": str(reduce)}
-                if not ok:
+                if not ok and not args.tier:
                     metadata["runs"].append(record)
                     (out / "metadata.json").write_text(
                         json.dumps(metadata, indent=2, sort_keys=True) + "\n")
@@ -193,6 +204,9 @@ def worker(args, row):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixture", required=True)
+    ap.add_argument("--tier", choices=("A", "B", "C", "D"),
+                    help="use a frozen tier fixture diagnostically; omit for "
+                         "the fixed P4A/P4B gate manifests")
     ap.add_argument("--tactix", required=True)
     ap.add_argument("--kissat", required=True)
     ap.add_argument("--out", required=True)
@@ -206,11 +220,13 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
     try:
-        row = resolve_fixture(args.fixture)
+        row = resolve_fixture(args.fixture, args.tier)
     except ValueError as error:
         ap.error(str(error))
     if args.timeout is None:
-        args.timeout = 30.0 if row["group"] == "P4A" else 300.0
+        args.timeout = {"P4A": 30.0, "P4B": 300.0, "A": 30.0,
+                        "B": 300.0, "C": 1200.0,
+                        "D": 5000.0}[row["group"]]
     if args.repeats < 1:
         ap.error("--repeats must be positive")
     if args.worker:
@@ -221,6 +237,8 @@ def main():
                "--kissat", args.kissat, "--out", args.out,
                "--timeout", str(args.timeout), "--repeats", str(args.repeats),
                "--trace-limit", str(args.trace_limit), "--worker"]
+    if args.tier:
+        command += ["--tier", args.tier]
     if args.conflict_from is not None:
         command += ["--conflict-from", str(args.conflict_from)]
     if args.conflict_to is not None:
@@ -228,8 +246,11 @@ def main():
     if args.mode_clock:
         command += ["--mode-clock"]
     wall_minutes = max(10, int((2 * args.timeout * args.repeats) / 60) + 10)
+    memory_gb = 16 if row["group"] in ("C", "D") else 8
+    cpus = max(1, -(-memory_gb // 8))
     sbatch = ["sbatch", "--parsable", "--partition=cpu-dense-hwulab-q",
-              "--cpus-per-task=1", "--mem=8G", f"--time={wall_minutes}",
+              f"--cpus-per-task={cpus}", f"--mem={memory_gb}G",
+              f"--time={wall_minutes}",
               f"--output={args.out}/slurm-%j.log", "--wrap",
               shlex.join(command)]
     if args.dry_run:

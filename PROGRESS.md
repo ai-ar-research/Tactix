@@ -17,91 +17,60 @@ only.
 
 ## Resume here
 
-The two random-policy fuzz defects found on `07dccc2` are fixed, and the
-regression corpus is clean in both proof formats.
+The user-directed current-pin Tier C run is blocked by two early nonterminal
+solver exits. Release pin `build/pin-tierc-current-ad9064f/tactix` (commit
+`ad9064f`, SHA-256 `664d291a…3274`) passed 69/69 tests, then array `1611899`
+produced 22/30 task artifacts before it and aggregate `1611900` were cancelled
+under plan §8.1. `128_125` and `goldcrest-and-9` returned `UNKNOWN` after about
+70 seconds rather than the 1200-second cap. Their SLURM wrappers completed;
+MaxRSS was about 13.0 GB and 0.74 GB respectively under 16 GB, so neither may
+be called a timeout and goldcrest is not explained by memory pressure. The
+partial window `20260811-190933-C-current-only-ad9064f` is diagnostic only and
+must not support a performance claim.
 
-1. **Sweep traversed a stale arena snapshot** (crash, both formats). Its
-   round-local occurrence index outlived the collection the inline Substitute
-   bridge performs. `Kernel::arena_generation` is bumped by every
-   `kernel_collect_garbage`; the snapshot carries it and `sweep_env_build`
-   rebuilds when it moved. `Kernel::dense` is rebuilt by the collector, so
-   DefaultPolicy never reached this.
-2. **A root literal was fixed without its LRAT unit line** (proof rejection,
-   LRAT only). Only `propagate_service` named root units. Sweep asserts each
-   environment's units un-propagated and then replays, so the replay's
-   speculative propagation drained them at level 0, un-named; 0 is LRAT's
-   terminator, so the next citation truncated the line.
-   `kernel_propagate_probing` now emits through `kernel_emit_root_units`.
-   The earlier session's Substitute workaround is reverted — it made the
-   installed clause depend on the proof format.
+Focused P4-CVG-style Tier C diagnostics preserve the missing child exit status,
+logs, and semantic traces: `128_125` job `1611934` writes
+`benchmarks/runs/20260811-tierc-cvg-128_125`; goldcrest job `1611933` writes
+`benchmarks/runs/20260811-tierc-cvg-goldcrest`. The `128_125` trace captured
+Tactix exit `-9` after 82.58s, then the batch ended `OUT_OF_MEMORY` at 5:41
+(14,269,912 KiB MaxRSS and two cgroup OOM kills); this memory-heavy diagnostic
+does not yet explain the release-run exit. Goldcrest job `1611933` remained in
+flight at handoff. The runner now accepts an explicit frozen-tier fixture while
+leaving the fixed P4A/P4B gate manifests and fail-fast behavior unchanged.
+Diagnostic tier mode runs both solvers even when one is nonterminal and uses
+Tier C's 16 GB/two-core shape. Original Kissat remains the benchmark reference;
+the instrumented variant is used only for causal traces.
 
-"Root-fixed implies it has a unit id" and the arena-generation rule are
-standing invariants in `docs/implementation-notes.md` §3, asserted by
-`kernel_check_invariants` and `Proof::add_rup`/`add_rat`. Diagnoses live in
-corpus entries `016-sweep-stale-occurrence-index` and
-`017-probing-drain-root-unit-id`.
-
-3. **A clause added behind the propagation cursor stayed invisible** (crash,
-   both formats; the fourth escaped-unit member after corpus 004/005/006).
-   Propagation reaches a clause only through a literal it is currently scanning
-   off the trail, so one added over an already-scanned false literal is never
-   revisited and the next drain still reports a fixpoint. Sweep reaches it
-   because its emission keeps units unpropagated while the RUP replay fixes
-   literals underneath the pair it is about to add, leaving the rule's own
-   value guard stale. Both kernel adders now rewind `propagate_head`
-   (`kernel_rearm_propagation`), gated to a root with no conflict in flight
-   because ConflictAnalysis adds an all-false clause above the root and
-   Backjump already resets the cursor there.
-
-Evidence on pin `pin-rearm-v2`: corpus 18/18 clean on both legs, where
-`07dccc2` failed 3 (DRAT) and 4 (LRAT) including the long-deferred 004 and 005;
-10,000-case legs `1611179`/`1611180` are **0 failures** in both proof formats.
-Same-window Tier A (`20260811-161629-A-A-cand` versus `-A-A-base`) and Tier B
-(`20260811-161642-B-B-cand` versus `20260811-161645-B-B-base`) against
-`07dccc2` are instance-identical over all 228 — 0 verdict, proof-byte or
-reach-map differences, 200/200 and 28/28, every proof checked and all 14 Tier B
-models validated. The re-arm counter reads 0 on twelve Tier A instances under
-DefaultPolicy (`1611384`), so the trajectory is untouched and all three repairs
-are confined to free schedules.
-
-The user-directed Tier B performance block is complete. Factor now uses sparse
-literal buckets for last-factor construction, and Sweep owns its
-representation-bridge effort charge instead of relying on Substitute to mutate
-another rule's counter. Full same-window jobs `1609714`/`1609715` solve all
-**28/28** Tier B fixtures (14 SAT, 14 UNSAT), improving the previous accepted
-pin's 25/28 result and 114.19s PAR-2 to 28/28 and 28.69s. Every scored model and
-DRAT certificate passed independent validation. The causal record is
-`benchmarks/reports/2026-08-11-tier-b-factor-sweep-performance.md`.
-
-The subsequent rule/strategy boundary audit removed a dead Factor admission
-switch, moved Sweep resumption into caller-owned `SweepLimits`, and eliminated
-the remaining Substitute→Sweep governor mutation. Full Tier A and Tier B
-before/after evaluations have identical verdicts, reached maps, proof sizes,
-and model-check outcomes; Tier A runtime changes by +0.56% and Tier B by +0.73%.
-The completed windows are `20260811-113528-A-rule-policy-after` and
-`20260811-113628-B-rule-policy-after`.
-An additional `FmlaEquivChain` replay produced byte-identical DRAT and
-normalized logs. Job `1610381` passes the full Release suite 69/69. The audit
-record is `benchmarks/reports/2026-08-11-rule-strategy-boundary-audit.md`.
-
-P4-CVG remains closed by its canonical fixed-order jobs `1607665`--`1607672`.
-Tier C was deliberately cancelled rather than awaited and has no complete
-result in this block. The sparse-GC candidate remains deferred; corpus cases
-004 and 005 are no longer deferred — both now pass on every corpus leg. No
-Tactix benchmark job is in flight; the live queue contains only unrelated
-workloads outside this repository.
+Completed evidence remains unchanged: corpus 18/18 and both 10,000-case fuzz
+legs are clean after the three random-policy repairs; Tier A/B are
+instance-identical to `07dccc2` (including baseline window
+`20260811-161645-B-B-base`); full Tier B is 28/28 and 28.69s PAR-2
+(`benchmarks/reports/2026-08-11-tier-b-factor-sweep-performance.md`); the
+rule/strategy boundary audit is behavior-identical
+(`benchmarks/reports/2026-08-11-rule-strategy-boundary-audit.md`); and canonical
+P4-CVG stays closed (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
 
 **Next actions:**
 
-1. Complete N4 verification against the reconciled scheduling ledger and the
-   canonical eight-fixture closure manifest. Do not reopen P4-CVG without a
-   new proof/model failure or a localized causal-frontier regression.
-2. Restore N1 evidence for Factor, Congruence, and retired Decide
+1. Inspect goldcrest job `1611933`; reproduce both release-run exits with a
+   lower-footprint, same-pin diagnostic that records each child status before
+   reference tracing and avoids retaining huge SAT output in memory. Fix any
+   defect, add a regression, validate the affected SAT model or UNSAT proof,
+   and rerun the required correctness gate. Treat the `128_125` trace OOM as
+   evidence, not yet as the release-run root cause.
+2. Only after action 1 is green, rerun the Tactix-only Tier C window. Compare
+   it with stored original-reference results from compatible window
+   `20260809-091255-C-cumulative-g6`; then apply the Tier C causal diagnostic to
+   the largest terminal performance gaps. Do not score the cancelled window.
+3. Complete N4 verification against the reconciled scheduling ledger and the
+   canonical eight-fixture closure manifest. Do not reopen canonical P4-CVG
+   without a new proof/model failure or localized causal-frontier regression.
+4. Restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
    as the indivisible instance.
-3. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
-4. Keep the sparse-GC candidate deferred unless the user separately authorizes
+5. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
+6. Keep the sparse-GC candidate deferred unless the user separately authorizes
    returning to that security-warning path.
 
 ## Current measurement contract
@@ -111,8 +80,8 @@ the manifest SHA and allocation shape, states #solved before PAR-2, names moved
 instances, and compares only same-window compatible arms. Every arm writes a
 proof; every scored Tactix SAT answer is model-checked. Broad scheduling changes
 eventually require Tier C pricing because Tier B is dominated by boundary
-instances. P4-CVG's fixed P4A/P4B sequence is closed; current user-directed work
-uses full Tier B, while Tier C remains paused.
+instances. P4-CVG's fixed P4A/P4B sequence is closed; Tier C performance work
+is paused on the early-exit incident above.
 Feature acceptance is cumulative: an accepted change remains enabled while the
 next change is evaluated against the preceding accepted pin. Single-feature off
 arms are diagnostic; they do not replace the cumulative comparison. Incremental
@@ -200,9 +169,9 @@ Factor gate are implemented and cumulatively verified. `SP-FACTOR-OCCURRENCE-1`
 remains semantically closed at startup. The sparse-GC candidate is excluded
 from the closure pin and stays deferred.
 
-N4 verification is now the immediate owner: reconcile the final scheduler
-snapshot and these accepted deviations against the complete ledger, then mark
-N4 only on an explicit verification record.
+The Tier C early-exit incident is the immediate owner. After it closes,
+reconcile the final scheduler snapshot and these accepted deviations against
+the complete ledger, then mark N4 only on an explicit verification record.
 <!-- track-sched:end -->
 
 ## Phase 4.5 — engineering ingenuity beyond reference parity
@@ -247,8 +216,9 @@ N4 only on an explicit verification record.
 
 ## Open items
 
-- N4 verification against the reconciled scheduling ledger is the immediate
-  phase-order action now that P4-CVG is closed.
+- The Tier C early-exit incident is blocking performance interpretation; the
+  `128_125` trace run also exceeded its 16 GB cgroup and needs a lower-footprint
+  reproducer. N4 resumes only after this incident closes.
 - The sparse-GC candidate remains deferred and outside the closure pin; do not
   exercise it without separate user direction. Corpus 004/005 are closed: the
   Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
@@ -281,6 +251,10 @@ N4 only on an explicit verification record.
 
 ## Recent changes
 
+- 2026-08-11 — started a current-pin Tier C retake, stopped it under plan §8.1
+  after two early nonterminal exits, and added explicit Tier C causal-diagnostic
+  support without changing the fixed P4-CVG gate. The partial 22/30 window is
+  diagnostic only; focused exit classification remains open.
 - 2026-08-11 — fixed three random-policy fuzz defects: Sweep's occurrence
   snapshot outliving an arena collection, a root literal fixed by a speculative
   propagation without its LRAT unit line, and a clause added behind the
@@ -295,5 +269,3 @@ N4 only on an explicit verification record.
 - 2026-08-11 — made retirement deactivation idempotent after GDB/ASan and
   one-sided cuts localized duplicate-event VMTF corruption; full Tier B improves
   21/28 → 25/28 and 187.33s → 116.58s PAR-2, correctness clean.
-- 2026-08-11 — closed all eight P4-CVG fixtures in fixed order on release pin
-  `c3ecdf38…28c14`; jobs `1607665`--`1607672` all pass proof/model validation.
