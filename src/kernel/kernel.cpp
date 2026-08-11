@@ -127,9 +127,44 @@ Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
   return first;
 }
 
+// Propagation is trail-driven: it only ever visits a clause through the watch
+// list of a literal it is currently scanning off the trail. A clause added over
+// a literal that is ALREADY false and already scanned is therefore never
+// looked at again, and if it is unit the next drain still reports a fixpoint —
+// the corpus-004 stale-scan family, reached here by V5 Sweep, whose emission
+// keeps units unpropagated while its RUP replay fixes literals underneath the
+// pair it is about to add. Rewinding to the earliest such literal re-arms the
+// scan; it is a no-op unless a clause really was added behind the cursor.
+static void kernel_rearm_propagation(Kernel &k, const Lit *lits,
+                                     uint32_t size) {
+  // Root additions only, and only outside a recorded conflict. ConflictAnalysis
+  // is the one caller that adds above the root, and it adds a clause whose
+  // literals are ALL false by construction — re-arming there would rewind the
+  // cursor over the whole trail on every conflict, where the Backjump that
+  // must follow already resets it to the level boundary and rescans.
+  if (k.level != 0 || k.conflict_valid)
+    return;
+  for (uint32_t i = 0; i < size; i++) {
+    const Lit l = lits[i];
+    if (k.values[l] >= 0)
+      continue;
+    const uint32_t pos = k.assigned[var_of(l)].trail;
+    if (pos < k.propagate_head) {
+      k.propagate_head = pos;
+      k.stats.propagation_rearms++;
+    }
+  }
+}
+
+static void kernel_rearm_propagation(Kernel &k, Lit a, Lit b) {
+  const Lit pair[2] = {a, b};
+  kernel_rearm_propagation(k, pair, 2);
+}
+
 Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id) {
   assert(size >= 3);
+  kernel_rearm_propagation(k, lits, size);
   const Ref ref = static_cast<Ref>(k.arena.size());
   k.arena.resize(k.arena.size() + clause_words(size));
   Clause *c = clause_at(k.arena, ref);
@@ -173,6 +208,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 }
 
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
+  kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
   // LAST id wins. The map must always name a clause the checker still holds,

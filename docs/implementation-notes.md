@@ -129,7 +129,9 @@ requirements:
 - Propagated literals carry their true level. Because the trail need not remain level-sorted,
   `kernel_backtrack` compacts the literals whose true levels survive.
 - An off-fixpoint Decide taints the trail; a search backtrack resets `propagate_head` to zero so stale
-  watch scans cannot leave an escaped unit.
+  watch scans cannot leave an escaped unit. Propagation reaches a clause only through a literal it is
+  currently scanning off the trail, so adding one at the root behind that cursor rewinds it
+  (`kernel_rearm_propagation`, corpus 018); above the root ConflictAnalysis owns the reset.
 - Under native LRAT a root-fixed literal carries its unit line's id: 0 is the terminator, so a chain
   citing an unnamed one is truncated, not wrong. Every propagation entry point names what it fixed
   (`kernel_emit_root_units`); `kernel_check_invariants` asserts it at each rule boundary.
@@ -714,9 +716,8 @@ positions), `ORDER-TUMBLE-1` (stable file-literal activation order) and
 500-conflict deadline).
 
 All are closed, the last three by §13.2's later traces; Lucky and follow-up
-composition are closed scheduling mechanisms whose cumulative performance
-belongs to P4-CVG/T3. The post-BVE Instantiate/BCE/CCE tail remains one accepted
-pipeline deviation, not three separate gaps.
+composition are closed mechanisms whose performance belongs to P4-CVG/T3, and
+the post-BVE Instantiate/BCE/CCE tail is one accepted deviation, not three.
 
 <!-- parity-ledger:end -->
 
