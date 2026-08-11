@@ -271,6 +271,17 @@ static void heap_remove(Kernel &k, Var v); // defined with the heap, below
 void heuristics_deactivate_var(Kernel &k, Var v) {
   if (!k.h || v >= k.h->nvars)
     return;
+  // Several formula rules can report the same retirement before the policy
+  // drains its event queue.  Kissat's active flag makes deactivation
+  // idempotent; mirror that property here.  A second queue_dequeue would
+  // follow the disconnected link sentinels and erase queue_first/queue_last.
+  if (!queue_contains(k, v)) {
+    k.stats.deactivation_repeats++;
+    heap_remove(k, v);
+    if (k.h->search_idx == v)
+      heuristics_reset_queue_search(k);
+    return;
+  }
   k.stats.deactivations++;
   queue_dequeue(k, v);            // out of the VMTF queue
   heap_remove(k, v);              // out of the EVSIDS heap, if present

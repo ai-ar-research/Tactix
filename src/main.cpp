@@ -662,8 +662,10 @@ int main(int argc, char **argv) {
     printf("c compact     %llu passes removed %llu internal variables\n",
            (unsigned long long)kernel.stats.variable_compactions,
            (unsigned long long)kernel.stats.compacted_variables);
-    printf("c deactivate  %llu deactivations, %llu re-bumps of retired vars\n",
+    printf("c deactivate  %llu deactivations, %llu repeated reports, "
+           "%llu re-bumps of retired vars\n",
            (unsigned long long)kernel.stats.deactivations,
+           (unsigned long long)kernel.stats.deactivation_repeats,
            (unsigned long long)kernel.stats.reactivations);
     printf("c substdec    %llu decisions on substituted vars (%.2f%% of %llu)\n",
            (unsigned long long)kernel.stats.decisions_substituted,

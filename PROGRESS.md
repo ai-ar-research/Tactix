@@ -17,44 +17,43 @@ only.
 
 ## Resume here
 
-P4-CVG is complete on final release pin SHA-256
-`c3ecdf38d6f7cebb45f378db50c36d80027a49d508e225ecbd89c07866528c14`.
-The three P4A and five P4B fixtures ran in fixed order under a 300-second
-per-solver gate; every SAT result passed model validation and every UNSAT result
-passed DRAT verification. Jobs `1607665`--`1607672` are the canonical sequence.
-The closure manifest and causal record are in
-`benchmarks/reports/2026-08-11-p4-cvg-closure.md`.
+The user-directed Tier B divergence block is complete. Full same-window job
+`1609585` compares the retirement repair with pin `83238d1` on all 28 fixtures:
+Tactix improves **21/28 → 25/28 solved** and **187.33s → 116.58s PAR-2**,
+recovering `summle`, `circuit`, `201311`, and `b22` with every scored model and
+DRAT certificate independently checked. The other 24 cases move by at most
+0.42s. The causal record is
+`benchmarks/reports/2026-08-11-tier-b-retirement-divergence.md`.
 
-Four coupled repairs close the block. Compact-universe level-one startup may
-enter the first random-decision sequence without admitting a large reused
-level-one prefix, restoring `tr-n300-s055` to **27.83s**. Vivify now implements
-the complete precedence-ordered deduction terminal state machine, closing
-`SP-VIVIFY-DEDUCE-1` and the former `mp1` conflict-2505 frontier. Eager
-post-Sweep Substitute consumes the exact newly emitted equivalence pairs with
-union-find and a dense occurrence index instead of repeating whole-formula SCC
-and arena scans. Finally, crossing `factor_active_ceiling=100000` latches the
-700M-tick first Factor dose off for that solve; without the latch, Veer shrank
-below the ceiling and re-admitted Factor, timing out at 300s, while the final
-pin verifies UNSAT in **101.62s**.
+The defect was duplicate formula-retirement events crossing the policy
+boundary. A second VMTF dequeue followed disconnected sentinel links and
+eventually crashed focused branching. Heuristic deactivation is now
+idempotent; the production counter fires 7 times on the repaired circuit run,
+which returns model-clean SAT. Job `1609646` passes the full Release suite
+69/69. The remaining Tier B timeouts are `mod4block`, `FmlaEquivChain`, and
+`PRP_30_38`; a separate `b22` trace also shows Kissat deriving an initial
+Congruence equivalence that Tactix misses before Sweep.
 
-The previously held sparse-GC candidate and tracked corpus cases 004/005 were
-deliberately not exercised in this task block. They remain separate deferred
-work and are not part of the final P4-CVG pin or its correctness claim. Their
-possible random-policy connection remains an unconfirmed hypothesis. No
-P4-CVG job is in flight. The immediate phase-order action is N4 verification
-against the now-reconciled scheduling ledger; Tier D and T3 still follow N4.
+P4-CVG remains closed by its canonical fixed-order jobs `1607665`--`1607672`.
+Tier C was deliberately cancelled rather than awaited and has no complete
+result in this block. The sparse-GC candidate and tracked corpus cases 004/005
+were not exercised and remain deferred. No benchmark job is in flight.
 
 **Next actions:**
 
-1. Complete N4 verification against the reconciled scheduling ledger and the
+1. Continue Tier B performance diagnosis on the three remaining timeouts as the
+   primary fixed set. Keep `b22`'s missed initial Congruence equivalence as the
+   source-backed secondary frontier; do not conflate it with this closed queue
+   corruption defect.
+2. Complete N4 verification against the reconciled scheduling ledger and the
    canonical eight-fixture closure manifest. Do not reopen P4-CVG without a
    new proof/model failure or a localized causal-frontier regression.
-2. Restore N1 evidence for Factor, Congruence, and retired Decide
+3. Restore N1 evidence for Factor, Congruence, and retired Decide
    instances. Do not call N1 green until adversarial public-API enumeration
    tests cover every legal instance or the calculus explicitly defines a round
    as the indivisible instance.
-3. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
-4. Keep the sparse-GC candidate and corpus cases 004/005 deferred unless the
+4. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
+5. Keep the sparse-GC candidate and corpus cases 004/005 deferred unless the
    user separately authorizes returning to that security-warning path.
 
 ## Current measurement contract
@@ -63,9 +62,9 @@ against the now-reconciled scheduling ledger; Tier D and T3 still follow N4.
 the manifest SHA and allocation shape, states #solved before PAR-2, names moved
 instances, and compares only same-window compatible arms. Every arm writes a
 proof; every scored Tactix SAT answer is model-checked. Broad scheduling changes
-eventually require Tier C pricing because Tier B is dominated by four unstable
-instances. During P4-CVG, only the fixed P4A/P4B subsets are run; broad Tier
-B/C campaigns remain deferred until the eight causal fixtures close.
+eventually require Tier C pricing because Tier B is dominated by boundary
+instances. P4-CVG's fixed P4A/P4B sequence is closed; current user-directed work
+uses full Tier B, while Tier C remains paused.
 Feature acceptance is cumulative: an accepted change remains enabled while the
 next change is evaluated against the preceding accepted pin. Single-feature off
 arms are diagnostic; they do not replace the cumulative comparison. Incremental
@@ -227,6 +226,9 @@ N4 only on an explicit verification record.
 
 ## Recent changes
 
+- 2026-08-11 — made retirement deactivation idempotent after GDB/ASan and
+  one-sided cuts localized duplicate-event VMTF corruption; full Tier B improves
+  21/28 → 25/28 and 187.33s → 116.58s PAR-2, correctness clean.
 - 2026-08-11 — closed all eight P4-CVG fixtures in fixed order on release pin
   `c3ecdf38…28c14`; jobs `1607665`--`1607672` all pass proof/model validation.
 - 2026-08-11 — completed Vivify's terminal deduction state machine, optimized
@@ -238,6 +240,3 @@ N4 only on an explicit verification record.
 - 2026-08-10 — preserved the chosen last-factor clause pose and reverse
   quotient-chain order; matched conflict reuse now holds search parity through
   conflict 1009 and localizes the first backjump split at conflict 1010.
-- 2026-08-10 — kept retired variables outside Analyze bumps and Substitute SCC
-  traversal, preventing duplicate retirement and release queue exhaustion;
-  the 120s corruption diagnostic and Release 68/68 suite are green.

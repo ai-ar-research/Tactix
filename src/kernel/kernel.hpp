@@ -272,6 +272,7 @@ struct Stats {
   uint64_t substitute_hazard_partial = 0;
   uint64_t substitute_hazard_lits = 0;
   uint64_t deactivations = 0;  // counted at the site, so 0 means "never fired"
+  uint64_t deactivation_repeats = 0; // already disconnected retirement reports
   uint64_t reactivations = 0;  // ... of those, later re-inserted into a ranking
   uint64_t conflict_reused = 0; // conflicts resolved by reusing the conflict as
   uint64_t jumped_reasons = 0;  // binary reasons replaced by their resolvent
