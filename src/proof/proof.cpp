@@ -68,6 +68,17 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
   // Rules must skip the inference instead of emitting one; a trivially-true
   // lemma whose replay produces an empty chain is the way this happens.
   assert(!(format_ == ProofFormat::Lrat && size > 0 && nchain == 0));
+#ifndef NDEBUG
+  // 0 is LRAT's line terminator, never an antecedent, so a zero hint TRUNCATES
+  // the line instead of corrupting it — the checker sees a shorter chain and
+  // rejects a lemma that the emitter believed it had justified. Caught here
+  // because the hand-built chains (Congruence's RUP replay, Substitute's
+  // rewrite, Sweep's general path) never pass through `kernel_lrat_chain`,
+  // whose own assert covers the reason-walk chains.
+  if (format_ == ProofFormat::Lrat)
+    for (uint32_t i = 0; i < nchain; i++)
+      assert(chain[i] != 0 && "LRAT RUP chain contains the line terminator");
+#endif
   if (!file_)
     return;
   if (format_ == ProofFormat::Lrat) {
@@ -90,6 +101,11 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                     const int64_t *hints, uint32_t nhints) {
   assert(!tautological(lits, size)); // see Proof::tautological
+#ifndef NDEBUG
+  if (format_ == ProofFormat::Lrat) // same terminator hazard as add_rup
+    for (uint32_t i = 0; i < nhints; i++)
+      assert(hints[i] != 0 && "LRAT RAT hints contain the line terminator");
+#endif
   if (!file_)
     return;
   if (format_ == ProofFormat::Lrat) {

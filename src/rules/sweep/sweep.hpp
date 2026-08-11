@@ -147,6 +147,10 @@ struct SweepRound {
   SweepEnv env;
   std::vector<std::vector<Ref>> occ_owned; // built only when k.dense is unusable
   const std::vector<std::vector<Ref>> *occ = nullptr; // by literal
+  // `Kernel::arena_generation` when `occ_owned` was built. A collection inside
+  // the round invalidates every Ref in it, and unlike `Kernel::dense` nothing
+  // else rebuilds it.
+  uint64_t occ_generation = 0;
   std::vector<Lit> repr;                   // union-find over literals
   std::vector<SweepEquiv> found;
   std::vector<SweepPairProof> proofs; // parallel to `found`

@@ -17,6 +17,37 @@ only.
 
 ## Resume here
 
+The two random-policy fuzz defects found on `07dccc2` are fixed, and the
+regression corpus is clean in both proof formats.
+
+1. **Sweep traversed a stale arena snapshot** (crash, both formats). Its
+   round-local occurrence index outlived the collection the inline Substitute
+   bridge performs. `Kernel::arena_generation` is bumped by every
+   `kernel_collect_garbage`; the snapshot carries it and `sweep_env_build`
+   rebuilds when it moved. `Kernel::dense` is rebuilt by the collector, so
+   DefaultPolicy never reached this.
+2. **A root literal was fixed without its LRAT unit line** (proof rejection,
+   LRAT only). Only `propagate_service` named root units. Sweep asserts each
+   environment's units un-propagated and then replays, so the replay's
+   speculative propagation drained them at level 0, un-named; 0 is LRAT's
+   terminator, so the next citation truncated the line.
+   `kernel_propagate_probing` now emits through `kernel_emit_root_units`.
+   The earlier session's Substitute workaround is reverted — it made the
+   installed clause depend on the proof format.
+
+"Root-fixed implies it has a unit id" and the arena-generation rule are
+standing invariants in `docs/implementation-notes.md` §3, asserted by
+`kernel_check_invariants` and `Proof::add_rup`/`add_rat`. Diagnoses live in
+corpus entries `016-sweep-stale-occurrence-index` and
+`017-probing-drain-root-unit-id`.
+
+Evidence on pin `pin-fuzzfix-v3`: corpus 17/17 clean on both legs, where
+`07dccc2` failed 3 (DRAT) and 4 (LRAT) including the long-deferred 004 and 005;
+10,000-case legs `1610947`/`1610948` each end at one failure, the pre-existing
+escaped-unit abort below. Release Tier A `1610545` versus `1610739` is
+instance-identical to `07dccc2` on all 200 — same verdicts, same proof bytes,
+same reach maps — so the DefaultPolicy trajectory is untouched.
+
 The user-directed Tier B performance block is complete. Factor now uses sparse
 literal buckets for last-factor construction, and Sweep owns its
 representation-bridge effort charge instead of relying on Substitute to mutate
@@ -211,6 +242,18 @@ N4 only on an explicit verification record.
   structural cap.
 - Diagnose random-policy nontermination; it is an N1 robustness issue but does
   not gate the already-closed phase 3.
+- A fourth escaped-unit abort survives the fuzz fixes: `binary clause escaped
+  propagation` on seed 20265772, the corpus 004/005/006 family. Job `1610951`
+  shows it identical on `07dccc2` and on the fixed pin in both formats, so it
+  is pre-existing and undiagnosed. Bundle:
+  `benchmarks/probes/scratch/fuzz-escaped-unit-5063/`.
+- The random-policy fuzz legs never connect the dense occurrence index:
+  `main.cpp` defaults the policy seed to the even constant 20260710, so
+  `random_solve`'s `(seed & 1) != 0` branch never fires and every bare
+  `--random-policy` run prints `c stress-dense 0`. The dense-gated tails read
+  `BveBackward=0!`, `BveBackwardUnit=0!` and `VariableCompaction=0!` in every
+  leg's reach line — that half of the coverage comment is vacuous until the
+  harness varies the policy seed.
 - **Sweep ships — user directive, non-negotiable:** neither disabling Sweep nor
   shrinking its budget until inert counts as a fix; after any governor change it
   must still fire and find equivalences.
@@ -226,6 +269,10 @@ N4 only on an explicit verification record.
 
 ## Recent changes
 
+- 2026-08-11 — fixed both random-policy fuzz defects: Sweep's round-local
+  occurrence snapshot outliving an arena collection, and a root literal fixed
+  by a speculative propagation without its LRAT unit line. Corpus goes 17/17
+  clean on both proof legs; Tier A is instance-identical to the previous pin.
 - 2026-08-11 — re-audited rule/strategy ownership: removed dead Factor policy
   state, made Sweep resumption an explicit limit, and stopped Substitute from
   charging Sweep; full A/B behavior is identical with +0.56%/+0.73% runtime.
@@ -237,6 +284,3 @@ N4 only on an explicit verification record.
   21/28 → 25/28 and 187.33s → 116.58s PAR-2, correctness clean.
 - 2026-08-11 — closed all eight P4-CVG fixtures in fixed order on release pin
   `c3ecdf38…28c14`; jobs `1607665`--`1607672` all pass proof/model validation.
-- 2026-08-11 — completed Vivify's terminal deduction state machine, optimized
-  eager Sweep→Substitute equivalence consumption, repaired compact level-one
-  randec admission, and solve-latched the large-formula Factor decline.
