@@ -56,10 +56,13 @@ corpus entries `016-sweep-stale-occurrence-index` and
 Evidence on pin `pin-rearm-v2`: corpus 18/18 clean on both legs, where
 `07dccc2` failed 3 (DRAT) and 4 (LRAT) including the long-deferred 004 and 005;
 10,000-case legs `1611179`/`1611180` are **0 failures** in both proof formats.
-Release Tier A `1611181` versus `1610739` is instance-identical to `07dccc2` on
-all 200 — same verdicts, same proof bytes, same reach maps — and the re-arm
-counter reads 0 on twelve Tier A instances under DefaultPolicy (`1611384`), so
-the trajectory is untouched and the repair is confined to free schedules.
+Same-window Tier A (`20260811-161629-A-A-cand` versus `-A-A-base`) and Tier B
+(`20260811-161642-B-B-cand` versus `20260811-161645-B-B-base`) against
+`07dccc2` are instance-identical over all 228 — 0 verdict, proof-byte or
+reach-map differences, 200/200 and 28/28, every proof checked and all 14 Tier B
+models validated. The re-arm counter reads 0 on twelve Tier A instances under
+DefaultPolicy (`1611384`), so the trajectory is untouched and all three repairs
+are confined to free schedules.
 
 The user-directed Tier B performance block is complete. Factor now uses sparse
 literal buckets for last-factor construction, and Sweep owns its
@@ -83,9 +86,10 @@ record is `benchmarks/reports/2026-08-11-rule-strategy-boundary-audit.md`.
 
 P4-CVG remains closed by its canonical fixed-order jobs `1607665`--`1607672`.
 Tier C was deliberately cancelled rather than awaited and has no complete
-result in this block. The sparse-GC candidate and tracked corpus cases 004/005
-were not exercised and remain deferred. No Tactix benchmark job is in flight;
-the live queue contains only unrelated workloads outside this repository.
+result in this block. The sparse-GC candidate remains deferred; corpus cases
+004 and 005 are no longer deferred — both now pass on every corpus leg. No
+Tactix benchmark job is in flight; the live queue contains only unrelated
+workloads outside this repository.
 
 **Next actions:**
 
@@ -97,8 +101,8 @@ the live queue contains only unrelated workloads outside this repository.
    tests cover every legal instance or the calculus explicitly defines a round
    as the indivisible instance.
 3. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
-4. Keep the sparse-GC candidate and corpus cases 004/005 deferred unless the
-   user separately authorizes returning to that security-warning path.
+4. Keep the sparse-GC candidate deferred unless the user separately authorizes
+   returning to that security-warning path.
 
 ## Current measurement contract
 
@@ -194,7 +198,7 @@ P4-CVG is closed. `SP-VIVIFY-DEDUCE-1`, compact-universe randec admission, the
 fresh Sweep→Substitute equivalence bridge, and the solve-latched large-formula
 Factor gate are implemented and cumulatively verified. `SP-FACTOR-OCCURRENCE-1`
 remains semantically closed at startup. The sparse-GC candidate is excluded
-from the closure pin and stays deferred with corpus 004/005 outside this task.
+from the closure pin and stays deferred.
 
 N4 verification is now the immediate owner: reconcile the final scheduler
 snapshot and these accepted deviations against the complete ledger, then mark
@@ -245,9 +249,9 @@ N4 only on an explicit verification record.
 
 - N4 verification against the reconciled scheduling ledger is the immediate
   phase-order action now that P4-CVG is closed.
-- The sparse-GC candidate and tracked corpus cases 004/005 remain deferred and
-  outside the closure pin. Their random-policy connection is unconfirmed; do
-  not exercise them without separate user direction.
+- The sparse-GC candidate remains deferred and outside the closure pin; do not
+  exercise it without separate user direction. Corpus 004/005 are closed: the
+  Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
 - `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
   reopened by the documentation audit. Each needs an explicit semantic
   disposition plus an adversarial public-API reachability test.
