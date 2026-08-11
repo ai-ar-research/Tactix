@@ -36,6 +36,7 @@ capability, not DefaultPolicy's choice to decline an offered action.
 - Before creating documentation, consult `docs/README.md`. New technical
   evidence goes in `benchmarks/reports/`; Andrew-facing LaTeX/PDF deliverables
   go in `report-to-andrew/` through `generate-report`.
+- Whether you are CLAUDE or Codex, you should use the skills in .claude/
 
 ## Work loop
 

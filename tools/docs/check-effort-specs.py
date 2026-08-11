@@ -65,19 +65,19 @@ EV_CLOSURE_DEFAULT = r"e\.closure = true;"
 TABLE = {
     # --- metered: an EFFORT_SPECS row is the governor ---------------------
     "BVE":              (METERED, "eliminateeffort 100 permille, resolution currency"),
-    "Probe":            (METERED, "probing-family 20 permille, tick currency"),
+    "Probe":            (METERED, "probe_permille 8, tick currency"),
     "Backbone":         (METERED, "probing-family 20 permille, tick currency"),
     "TransitiveReduce": (METERED, "probing-family 20 permille"),
-    "Vivify":           (METERED, "vivifyeffort 100 permille + cadical vivifythresh 20"),
+    "Vivify":           (METERED, "vivifyeffort 100 permille; the cadical vivifythresh\n                               stand-in is deleted, not merely unused"),
     "Strengthen":       (METERED, "100 permille; budget_aware since D-STRENGTHEN-BUDGET"),
     "SubsumeForward":   (METERED, "forwardeffort 100 permille; budget_aware likewise"),
-    "Factor":           (METERED, "factoreffort 50 permille + factorthresh 7"),
+    "Factor":           (METERED, "factoreffort 50 permille; the factorthresh\n                               stand-in is deleted, not merely unused"),
     "HyperTernaryRes":  (METERED, "cadical ternaryeffort 8 permille + ternarythresh 6"),
-    "HyperBinaryRes":   (METERED, "Probe's row transplanted: same schedule, same currency, cheap-probing 20 permille"),
+    "HyperBinaryRes":   (METERED, "Probe's row transplanted: same schedule, same currency, hyper_binary_permille 8"),
     "BCE":              (METERED, "20 permille, bce_ticks currency"),
     "CCE":              (METERED, "cadical covereffort 4 permille, cce_ticks currency"),
     "Instantiate":      (METERED, "20 permille, tick currency"),
-    "Sweep":            (METERED, "kissat sweepeffort 100 permille, sweep_ticks_sub currency"),
+    "Sweep":            (METERED, "kissat sweepeffort 100 permille; the currency is\n                               sweep_effort() = sweep_ticks_sub + sweep_ticks_repr"),
     # Metered as well as closure-gated: "a single closure pass is bounded by
     # the formula" is measurably false for Congruence, whose passes have
     # reached half a tier-C solve. The ledger bounds one round; the watermark

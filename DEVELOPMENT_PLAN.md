@@ -285,6 +285,19 @@ immutable build directories. Every arm writes proofs; our rejected/missing
 proof scores unsolved, while baseline proof verification is optional and never
 changes its score. Checker budget is `max(3600s, 4× solve timeout)`.
 
+An early process exit without a valid SAT/UNSAT result is a blocking incident,
+not an ordinary performance loss. Preserve its raw exit status, signal, and
+diagnostic output; first distinguish the configured timeout, scheduler
+cancellation/preemption, and an enforced memory limit or confirmed OOM. If
+those do not explain the exit—such as a crash, assertion failure, sanitizer
+finding, or unexplained nonzero status—all unrelated development and
+performance interpretation pause, and owned in-flight performance jobs whose
+results depend on the faulty binary are stopped. Resume only after the same
+immutable-pin fixture has a causal reproducer, the defect is fixed and covered
+by a regression test, its SAT model or UNSAT proof validates, and the affected
+smoke/correctness gate is clean. Benchmark tooling must not flatten this class
+into an undifferentiated `UNKNOWN` that can be mistaken for a timeout.
+
 | Tier | Purpose | Set and limit | Cadence |
 |---|---|---|---|
 | A | correctness/smoke | generated + crafted, 30 s, 8 GB | every commit |

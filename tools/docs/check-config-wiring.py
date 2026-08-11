@@ -54,7 +54,8 @@ TABLE = {
                                           "splits the redundant side into kissat's "
                                           "tier1/tier2/tier3 (C10 hand-off H3)"),
     "bump_reason_limit":       ("POLICY", "reason-side bumping rate"),
-    "bump_reason_depth":       ("POLICY", "stable/focused reason traversal depth"),
+    "bump_reason_depth":       ("POLICY", "reason traversal depth; the shipped config is a "
+                                          "constant 1 in BOTH modes, reset after analysis"),
     "inprocessing":            ("POLICY", "phase bracket; routes a tick away from "
                                           "stats.search_ticks (kissat gets the same "
                                           "split from the call site)"),
@@ -97,7 +98,7 @@ TABLE = {
     "vivify_reuse":            ("ENV", "TACTIX_VIVIFY_REUSE; ships ON (SCHED-G3), "
                                        "=0 reverts to the per-candidate root return"),
     "vivify_flush":            ("ENV", "TACTIX_VIVIFY_FLUSH; CaDiCaL vivifyflush, "
-                                       "ships OFF (SP-VIVIFY-3), =1 enables"),
+                                       "ships ON via the kernel.hpp default, =0 reverts"),
     "sweep_tail_next":         ("RULE", "Sweep canonical schedule state"),
     "sweep_passes_completed":  ("RULE", "Sweep completed-pass limit growth"),
     # Pure diagnostic: it makes C1 report instead of act, so it can never be a
@@ -133,13 +134,13 @@ TABLE = {
                                        "(SP-DECIDE-2), =0 reverts to ascending "
                                        "variable order"),
     # --- external-policy surface (N1) ------------------------------------
-    "factor_bound":            ("API", "kissat's `reduction > bound`. NOT policy-wired, and "
-                                       "that is the N4 exhibit: the ramp exists as bve_level_ "
-                                       "and is never connected. Wiring it is measured negative "
-                                       "3x, so this stays API until a NEW mechanism exists — "
-                                       "an accepted gap, not an oversight. Ledger row + "
-                                       "removal path: scheduling-parity-ledger.md 13.3, "
-                                       "SP-FACTOR-1."),
+    "factor_bound":            ("API", "kissat's `reduction > bound`. The FIELD stays "
+                                       "unwritten on purpose — it is the external-policy "
+                                       "surface N1 owes, and a writer added to satisfy this "
+                                       "check would be the fake wiring it exists to expose. "
+                                       "The WIRE is closed: SP-FACTOR-1 reads bve_level_ at "
+                                       "phase entry and hands it to Factor as the matcher "
+                                       "bound. Ledger row: scheduling-parity-ledger.md 13.3."),
 }
 
 # Where the config surface begins in kernel.hpp. Everything below this marker
