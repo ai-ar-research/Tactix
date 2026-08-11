@@ -599,9 +599,14 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.hbr_ticks);
     // `stale backjumps` should be 0: nonzero means conflicts are dropped and
     // re-derived, which is otherwise invisible in a tier run.
-    printf("c chrono      %llu chronological, %llu stale backjumps\n",
+    // `re-arms` counts clause additions that landed behind the propagation
+    // cursor; each one is a unit or falsified clause the trail-driven scan
+    // would otherwise never revisit.
+    printf("c chrono      %llu chronological, %llu stale backjumps, "
+           "%llu propagation re-arms\n",
            (unsigned long long)kernel.stats.chronological,
-           (unsigned long long)kernel.stats.backjump_stale);
+           (unsigned long long)kernel.stats.backjump_stale,
+           (unsigned long long)kernel.stats.propagation_rearms);
     // The second number separates the full mechanism from the subset a version
     // that declines instead of repairing would reach.
     printf("c reuse       %llu conflicts reused, %llu needed watch repair\n",

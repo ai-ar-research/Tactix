@@ -69,6 +69,8 @@ struct Stats {
   uint64_t ticks = 0; // propagation memory-traffic proxy (see propagate.cpp)
   uint64_t search_ticks = 0;
   uint64_t inprocess_propagations = 0; // of those, inside a simplification
+  // clause additions that landed behind the propagation cursor and rewound it
+  uint64_t propagation_rearms = 0;
   static constexpr uint32_t MAX_TIMED_RULES = 64;
   uint64_t rule_nanos[MAX_TIMED_RULES] = {}; // per registry rule id
   uint64_t rule_calls[MAX_TIMED_RULES] = {};
