@@ -13,7 +13,8 @@ Usage:
   writes. The allocation shape (partition, cpus/mem per task, throttle) is
   recorded in place of the local jobs count; numbers are comparable only
   across identical shapes.
-  --throttle caps concurrent tasks for lower-contention gate runs;
+  Arrays run at full width by default. --throttle is exceptional: use it only
+  on an explicit user request or for a documented correctness/resource limit;
   --dry-run writes manifest + sbatch scripts without submitting.
 
 - Tier lists are frozen files `benchmarks/tiers/<tier>.list`; each
@@ -1151,8 +1152,9 @@ def main() -> int:
                          "background to keep working)")
     ap.add_argument("--partition", default="cpu-dense-hwulab-q")
     ap.add_argument("--throttle", type=int, default=None,
-                    help="cap concurrent array tasks (sbatch %%N) for "
-                         "lower-contention gate runs")
+                    help="exceptionally cap concurrent array tasks; default "
+                         "is full width, and any use needs an explicit user "
+                         "request or documented correctness/resource reason")
     ap.add_argument("--no-check", action="store_true",
                     help="do not write/check proofs for the solver under "
                          "test (baseline-ablation arrays: every arm is a "

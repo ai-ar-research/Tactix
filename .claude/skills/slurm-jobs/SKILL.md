@@ -13,6 +13,13 @@ Submit to the `cpu-dense-hwulab-q` partition without a node constraint. Let
 SLURM place array tasks across eligible nodes; do not pass `--nodelist` or add a
 `#SBATCH --nodelist` directive.
 
+Submit arrays at full width by default. Do not pass an array throttle (`%N` or
+the runner's `--throttle`) merely to reduce contention or out of habit: make
+every task eligible and let SLURM use the available partition. A throttle is
+permitted only when the user explicitly requests it or a documented
+correctness/resource constraint requires it. Record the exception and its
+reason in the run manifest/report.
+
 ## Workflow
 
 1. Pin an immutable build and record its commit and binary hash. Never rebuild a
