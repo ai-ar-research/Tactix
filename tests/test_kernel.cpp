@@ -98,6 +98,26 @@ static void test_variable_compaction() {
   assert(k.model_values[internalize(2)] > 0);
 }
 
+static void test_compaction_defers_retired_jumped_reason() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  const Lit p = internalize(1), q = internalize(2), r = internalize(3);
+  kernel_assign_decision(k, p);
+  kernel_assign(k, q, k.level, DECISION_REASON, false);
+  kernel_assign(k, r, k.level, p, true, true);
+  k.jumped_over[var_of(r)] = q;
+
+  // The retired q no longer occurs in the formula, but r's virtual binary
+  // reason still needs it. Dropping q would make the reason unrepresentable;
+  // the goldcrest crash indexed old_to_new[INVALID_VAR] while remapping it.
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[var_of(q)] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, var_of(q));
+  assert(!kernel_compact_variables(k));
+  assert(k.nvars == 3 && k.jumped_over[var_of(r)] == q);
+}
+
 static void test_lit_encoding() {
   assert(internalize(1) == make_lit(0, false));
   assert(internalize(-1) == make_lit(0, true));
@@ -550,6 +570,7 @@ static void test_propagate_beyond_conflicts_for_warmup() {
 int main() {
   test_variable_identity_maps();
   test_variable_compaction();
+  test_compaction_defers_retired_jumped_reason();
   test_lit_encoding();
   test_unit_chain();
   test_root_sparse_collection();

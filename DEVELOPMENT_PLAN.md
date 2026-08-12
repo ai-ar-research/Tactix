@@ -332,8 +332,10 @@ Shrink failures and retain minimal regressions. Cadence and commands live in the
 
 - **T1:** all Tier A; at least MiniSat on Tier B.
 - **T2:** at least Glucose on Tier B; propagation within 20% of Kissat.
-- **T3:** within 10% PAR-2 of CaDiCaL on Tier C and parity with CaDiCaL/Kissat
-  on the rule-neutral subset. Gates phase 4.
+- **T3:** on both Tier B and Tier C, solve every instance solved by original
+  Kissat and achieve at most 1.10× its PAR-2 under the matched allocation
+  contract. A rule-neutral view may diagnose a mechanism but cannot replace
+  either full-tier requirement. Gates phase 4.
 - **T4:** DefaultPolicy engineering exceeds Kissat-public PAR-2 on the SC25
   Tier-D view, before learning; N3's minimum is parity.
 - **T5:** beat AE-Kissat-MAB on the competition set or ship best effort.
@@ -355,6 +357,15 @@ superseded strategy arm. A first divergence classified as missing or cruder
 default scheduling adds one deduplicated scheduling-parity finding and makes
 N4 verification pending. Analysis, kernel, or proof-rule defects are routed to
 their owning non-negotiable or subsystem instead.
+
+After the fixed fixtures, apply the same loop to every Tier B/C solve mismatch
+and then to runtime gaps large enough to threaten T3. Work in descending gate
+impact: reproduce one instance, localize the earliest portable semantic
+divergence, repair it unless evidence shows the Tactix behavior is stronger or
+an explicit decision accepts it, and rerun the instance plus cumulative guards.
+Variance, perturbation sensitivity, and inconvenience are never reasons to
+close a divergence. Phase 4 exits only when the full Tier B/C solved sets match
+original Kissat and both full-tier PAR-2 ratios are at most 1.10.
 
 After the shipped-default fixture pass, run a small matched feature-off matrix
 over selected shared mechanisms. Resolve equivalence by executable semantics,
@@ -393,7 +404,7 @@ branching without kernel edits. Ablations use configuration, not forks.
 | 1 | kernel, M1–M3, S1/S2/S4, DRAT, I/O | T1 + green proof fuzz |
 | 2 | S3/S5, LRAT, API freeze | T2 + API review |
 | 3 | complete reference rule inventory and Tier C | catalog disposition/reach complete |
-| 4 | faithful dosing, optimization, scheduling verification, causal gap merging | P4-CVG + N4 verification complete + T3 + one Tier D campaign |
+| 4 | faithful dosing, scheduling verification, and Tier B/C causal convergence | P4-CVG + N4 verification complete + T3 |
 | 4.5 | proof-event correlation and novel engineering beyond reference parity | proof ranges map to emitting rule/application; concretize remaining scope via O15 |
 | 5 | tuning, bindings, extensibility proof | T4 + ≤5% overhead + CCE test |
 | 6 | competition packaging | T5/best effort + submission ready |
@@ -422,7 +433,7 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O6 | learned scheduler arm sets and UCB constants | phase 7 |
 | O7 | incremental/IPASIR proof interaction | phase-6 entry |
 | O8 | retain FRAT only if a consumer appears | phase 6 |
-| O9 | add/replace SC2026 for T4; phase-4 Tier D remains SC24+SC25 | phase-5 T4 setup |
+| O9 | add/replace SC2026 for T4; current T4 view remains SC24+SC25 | phase-5 T4 setup |
 | O12 | contextual features and learned-state persistence | phase 7 RL2 |
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
 | O15 | phase-4.5 scope, deliverables, and exit | phase-4 exit |

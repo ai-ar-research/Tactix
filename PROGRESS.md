@@ -5,8 +5,9 @@
 deviations in `docs/implementation-notes.md`. This file contains current state
 only.
 
-- **Current phase:** 4 — faithful reference dosing, optimization, and scheduling.
-- **Exit:** P4-CVG + N4 verification complete + T3 + one full Tier D campaign.
+- **Current phase:** 4 — Tier B/C causal convergence with original Kissat.
+- **Exit:** identical Kissat/Tactix solved sets on Tier B and Tier C, ≤1.10×
+  Kissat PAR-2 on both at the matched 32 GB shape, plus P4-CVG/N4 closure.
 - **Non-negotiables:** N1 verification **pending after the documentation audit**
   (Factor and Congruence expose only canonical rounds; retired Decide instances
   need an adversarial reachability test) · N2 verification **complete** (frozen-pivot fix
@@ -28,21 +29,23 @@ be called a timeout and goldcrest is not explained by memory pressure. The
 partial window `20260811-190933-C-current-only-ad9064f` is diagnostic only and
 must not support a performance claim.
 
-Focused P4-CVG-style Tier C diagnostics target the missing child exit status,
-logs, and semantic traces: `128_125` job `1611934` writes
-`benchmarks/runs/20260811-tierc-cvg-128_125`; goldcrest job `1611933` writes
-`benchmarks/runs/20260811-tierc-cvg-goldcrest`. The `128_125` trace captured
-Tactix exit `-9` after 82.58s, then the batch ended `OUT_OF_MEMORY` at 5:41
-(14,269,912 KiB MaxRSS and two cgroup OOM kills); this memory-heavy diagnostic
-does not yet explain the release-run exit. Goldcrest job `1611933` reached both
-solver phases, then failed at 24:01 because its Kissat proof checker hit 1200s
-and `p4_cvg.py` let `TimeoutExpired` escape. The runner had not checkpointed its
-in-memory record, so the already-observed Tactix child status was lost. This is
-a runner defect, not evidence that goldcrest crashed. The repaired runner
-checkpoints each child before checking or reference execution, classifies a
-checker timeout, uses plan §8.1's checker budget, and permits a Tactix-only tier
-diagnostic that reuses stored original-reference results. The fixed P4A/P4B gate
-manifests and fail-fast behavior remain unchanged.
+Exact-release, no-trace reproducers classified both exits. Goldcrest job
+`1611939` deterministically segfaulted (`-11`) after 65.406s at only 768,252 KiB
+MaxRSS. Optimized GDB job `1611964` localized it to
+`kernel_compact_variables`: a live jumped binary reason still referenced a
+retired variable, and compaction indexed its `INVALID_VAR` remap. The fix defers
+compaction while any live direct/jumped binary reason depends on a retired
+variable; a red-then-green micro-regression and focused ASan/UBSan tests cover
+the path, and 69/69 release tests pass. A fixed release goldcrest rerun is next.
+
+`128_125` job `1611940` reproduced the old-pin `-9` at 75.803s as a real 16 GB
+cgroup OOM (14,430,976 KiB recorded MaxRSS). Under the new 32 GB contract,
+original clean Kissat job `1611951` solved SAT in 87.419s and its model verified
+(27,180,280 KiB MaxRSS); stock CaDiCaL job `1611952` still OOM-killed after
+49.986s. Current old-pin Tactix retake `1611958` remains in flight. The repaired
+diagnostic runner checkpoints child status before checking/reference execution,
+classifies checker timeouts, uses plan §8.1's checker budget, and supports
+Tactix-only/no-trace runs. Fixed P4A/P4B manifests remain unchanged.
 
 Completed evidence remains unchanged: corpus 18/18 and both 10,000-case fuzz
 legs are clean after the three random-policy repairs; Tier A/B are
@@ -53,29 +56,21 @@ rule/strategy boundary audit is behavior-identical
 (`benchmarks/reports/2026-08-11-rule-strategy-boundary-audit.md`); and canonical
 P4-CVG stays closed (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
 
-**Next actions:**
+**Next actions — one convergence loop:**
 
-1. Reproduce both release-run exits with lower-footprint, same-pin Tactix-only
-   diagnostics. Record each child status before proof checking and avoid the
-   million-row semantic traces that pushed `128_125` over its cgroup. Fix any
-   solver defect, add a regression, validate the affected SAT model or UNSAT
-   proof, and rerun the required correctness gate. Treat the `128_125` trace
-   OOM and goldcrest checker timeout as runner evidence, not release-run causes.
-   All retakes use the new 32 GB/four-CPU tier allocation contract.
-2. Only after action 1 is green, rerun the Tactix-only Tier C window. Compare
-   it with stored original-reference results from compatible window
-   `20260809-091255-C-cumulative-g6`; then apply the Tier C causal diagnostic to
-   the largest terminal performance gaps. Do not score the cancelled window.
-3. Complete N4 verification against the reconciled scheduling ledger and the
-   canonical eight-fixture closure manifest. Do not reopen canonical P4-CVG
-   without a new proof/model failure or localized causal-frontier regression.
-4. Restore N1 evidence for Factor, Congruence, and retired Decide
-   instances. Do not call N1 green until adversarial public-API enumeration
-   tests cover every legal instance or the calculus explicitly defines a round
-   as the indivisible instance.
-5. Run the Tier D shakedown/campaign, then evaluate T3, after N4 completes.
-6. Keep the sparse-GC candidate deferred unless the user separately authorizes
-   returning to that security-warning path.
+1. Close the current blockers: fix and verify the goldcrest variable-compaction
+   crash, finish the 32 GB `128_125` comparison, and rerun correctness gates.
+2. Run current Tactix across Tier B/C at 32 GB. Compare against stored original
+   Kissat evidence, refreshing only baseline rows made decision-relevant by the
+   allocation change. State solved-set differences before aggregate timing.
+3. In descending gate impact, take every missing solve and then every runtime
+   gap that threatens the 1.10× target. Reproduce it, trace both solvers to the
+   earliest portable semantic divergence, and fix the divergence unless it is
+   demonstrably stronger or explicitly accepted for a source-backed reason.
+   Rerun the instance and all previously closed cumulative guards after each fix.
+4. Repeat action 2 until Tier B/C solved sets match original Kissat and both
+   PAR-2 ratios are ≤1.10. The same closure records complete N4; fixed P4A/P4B
+   fixtures remain regression guards rather than a separate workstream.
 
 ## Current measurement contract
 
@@ -92,25 +87,17 @@ arms are diagnostic; they do not replace the cumulative comparison. Incremental
 campaigns run only those two Tactix pins. Kissat and CaDiCaL are rerun at gates,
 or when the manifest or allocation shape changes, rather than on every step.
 
-Phase 4 also requires a small matched feature-off matrix.  For each selected
-mechanism, map the semantic gate in Kissat and Tactix (not merely similarly
-named command-line flags), disable that mechanism in both solvers, and replay
-the same fixed fixtures one configuration at a time.  The resulting trajectory
-must either remain aligned or have a localized, source-backed, justified
-divergence.  These projections are both robustness tests and diagnostic cuts
-through otherwise coupled behavior; they supplement, but never replace, the
-shipped-default trajectory and production-performance gates.
-One-sided feature-off runs are also encouraged when they isolate which solver
-or subsystem introduces a divergence.  Record the hypothesis and trace anchor,
-change one semantic gate at a time, and remove the diagnostic variant after the
-attribution question is answered; it is not a candidate shipped strategy arm.
+Matched or one-sided feature-off runs are diagnostic cuts inside the convergence
+loop, not separate deliverables. Map executable semantics rather than flag
+names, change one semantic gate at a time, and remove diagnostic variants after
+attribution; no ablation replaces shipped-default full-tier evidence.
 
 ## Gates
 
 - [x] **T1:** Tier A and MiniSat bar (`benchmarks/reports/2026-07-14-t1-gate.md`).
 - [x] **T2:** Glucose/API bar (`benchmarks/reports/2026-07-14-t2-gate.md`).
-- [ ] **T3:** ≤1.10× CaDiCaL on Tier C and parity with CaDiCaL/Kissat on the
-  rule-neutral subset; retake required after the N2 fix.
+- [ ] **T3:** identical solved sets with original Kissat on Tier B/C and
+  ≤1.10× Kissat PAR-2 on both at the matched 32 GB shape.
 - [ ] **T4:** DefaultPolicy engineering exceeds Kissat on the SC25 Tier-D view.
 - [ ] **T5:** beat AE-Kissat-MAB or ship best effort.
 
@@ -121,7 +108,7 @@ attribution question is answered; it is not a candidate shipped strategy arm.
 - [x] Phase 3 rule-completeness gate, including reach evidence or explicit
   no-implement disposition (`benchmarks/reports/2026-08-07-phase-3-gate.md`).
 
-## Phase 4 — dosing, optimization, scheduling
+## Phase 4 — Tier B/C causal convergence
 
 The baseline is the faithful five-layer reference scheme: phase intervals,
 per-technique effort fractions in native currencies, structural candidate caps,
@@ -135,15 +122,13 @@ their effect with source counters before performance interpretation.
   model checks (`6033378`).
 - [x] Fix frozen-at-0 retired variables voiding model reconstruction
   (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
-- [ ] Complete and report the fixed-binary Tier C four-arm attribution.
 - [x] Close P4-CVG on the fixed three-instance P4A and five-instance P4B sets
   (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
-- [ ] Complete N4 verification against the reconciled scheduling ledger.
-- [ ] Pass the matched feature-off differential matrix: selected shared
-  mechanisms disabled symmetrically in Kissat and Tactix, one configuration at
-  a time, with every trajectory divergence localized and justified.
-- [ ] Run a Tier D shakedown, then the 793-instance campaign.
-- [ ] Evaluate and report T3 last.
+- [ ] Match original Kissat's solved set on full Tier B and full Tier C.
+- [ ] Reach ≤1.10× original-Kissat PAR-2 on both Tier B and Tier C.
+- [ ] Close every decision-relevant first divergence or record an explicit,
+  source-backed stronger/accepted behavior; use the resulting corpus plus the
+  reconciled scheduling ledger to complete N4 verification.
 
 ### P4-CVG fixture order
 
@@ -221,8 +206,9 @@ the complete ledger, then mark N4 only on an explicit verification record.
 ## Open items
 
 - The Tier C early-exit incident is blocking performance interpretation; the
-  `128_125` release reproducer exceeded the former 16 GB cgroup; retake it under
-  the new 32 GB tier contract. N4 resumes only after this incident closes.
+  goldcrest compaction fix still needs a real-instance release rerun, and the
+  32 GB `128_125` Tactix retake is in flight. N4 resumes through the unified
+  Tier B/C divergence-closure loop after these blockers close.
 - The sparse-GC candidate remains deferred and outside the closure pin; do not
   exercise it without separate user direction. Corpus 004/005 are closed: the
   Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
@@ -255,12 +241,11 @@ the complete ledger, then mark N4 only on an explicit verification record.
 
 ## Recent changes
 
-- 2026-08-11 — retired may-not-gate exemptions: perturbation sensitivity now
-  changes the attribution burden only; every frozen instance remains scored and
-  every original-Kissat solve remains an active candidate obligation. Repaired
-  P4-CVG diagnostic checkpointing and checker-timeout/budget handling after
-  goldcrest job `1611933` lost its already-observed Tactix status. Raised every
-  Tier A/B/C/D solver task to 32 GB/four CPUs by user direction.
+- 2026-08-11 — made Tier B/C original-Kissat convergence the Phase-4 exit,
+  retired may-not-gate exemptions, and raised every tier task to 32 GB. Repaired
+  diagnostic checkpoint/checker handling; classified `128_125` as a 16 GB OOM
+  and goldcrest as a retired jumped-reason variable-compaction crash, with a
+  red-then-green regression and full release suite.
 - 2026-08-11 — started a current-pin Tier C retake, stopped it under plan §8.1
   after two early nonterminal exits, and added explicit Tier C causal-diagnostic
   support without changing the fixed P4-CVG gate. The partial 22/30 window is

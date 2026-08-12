@@ -1494,6 +1494,28 @@ bool kernel_compact_variables(Kernel &k) {
                          old_to_new[var_of(w.other())] == INVALID_VAR))
         return false;
 
+  // Non-root assignments can outlive retirement until the next backtrack.
+  // Their reason graph is representation state too: in particular, a jumped
+  // binary reason names both its virtual endpoint in `reason` and the real
+  // antecedent in `jumped_over`. Defer compaction while either endpoint is a
+  // retired variable; dropping it would make the live assignment's reason
+  // unrepresentable (and used to index old_to_new[INVALID_VAR] on goldcrest).
+  for (Var old = 0; old < old_nvars; old++) {
+    if (old_to_new[old] == INVALID_VAR ||
+        k.values[make_lit(old, false)] == 0)
+      continue;
+    const Assigned &a = k.assigned[old];
+    if (a.binary && a.reason < 2 * old_nvars &&
+        old_to_new[var_of(a.reason)] == INVALID_VAR)
+      return false;
+    if (a.jumped) {
+      const Lit over = k.jumped_over[old];
+      if (over >= 2 * old_nvars ||
+          old_to_new[var_of(over)] == INVALID_VAR)
+        return false;
+    }
+  }
+
   // Remove garbage first so the rebuilt arena and watch lists contain exactly
   // the live formula.  This preserves clause refs in assigned reasons through
   // kernel_collect_garbage's forwarding pass.
