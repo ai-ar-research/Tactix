@@ -114,6 +114,8 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
       random_order.push_back(now);
   }
   h.random_order.swap(random_order);
+  if (h.fixed_representative != INVALID_VAR)
+    h.fixed_representative = old_to_new[h.fixed_representative];
 
   std::vector<Var> queue;
   queue.reserve(new_nvars);
@@ -188,6 +190,7 @@ void heuristics_compact_random_order_fixed(Kernel &k) {
                   return false;
                 if (!kept_fixed) {
                   kept_fixed = true;
+                  k.h->fixed_representative = v;
                   return false;
                 }
                 return true;
@@ -217,6 +220,10 @@ static bool queue_contains(const Kernel &k, Var v) {
   const Link &l = k.h->links[v];
   return l.prev != INVALID_VAR && l.prev < k.nvars &&
          k.h->links[l.prev].next == v;
+}
+
+bool heuristics_var_active(const Kernel &k, Var v) {
+  return k.h && v < k.h->nvars && queue_contains(k, v);
 }
 
 static void queue_restamp(Kernel &k) {
@@ -264,7 +271,6 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first) {
   k.stats.factor_demoted_vars += k.h->nvars - first;
   queue_restamp(k); // renumber in queue order + reset the search cache
 }
-
 
 static void heap_remove(Kernel &k, Var v); // defined with the heap, below
 
@@ -326,10 +332,11 @@ void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) 
 
 void heuristics_queue_bump(Kernel &k, Var v) {
   // Kissat bump.c filters analyzed variables through flags[idx].active before
-  // touching either ranking.  A retired identity can still occur in stale
-  // reason-side material; it is already disconnected, so trying to dequeue it
-  // again would splice the VMTF queue through sentinel links.
-  if (k.retire_enabled && kernel_var_retired(k, v))
+  // touching either ranking.  Retired identities and newly root-fixed
+  // learned units are both disconnected immediately; either can still occur
+  // in the current analyzed stack, so queue membership is the exact active
+  // predicate and avoids splicing through sentinel links.
+  if (!heuristics_var_active(k, v))
     return;
 
   if (k.h->queue_last == v)
@@ -511,8 +518,10 @@ static void rescale_scores(Kernel &k) {
 
 void heuristics_score_bump(Kernel &k, Var v) {
   // Same active-variable filter as the focused queue path above and Kissat's
-  // bump_analyzed_variable_scores.  Retired variables remain out of the heap.
-  if (k.retire_enabled && kernel_var_retired(k, v))
+  // bump_analyzed_variable_scores. Retired variables and root-fixed learned
+  // units remain outside both decision structures even while their scratch
+  // analyzed mark is cleared at the end of this transaction.
+  if (!heuristics_var_active(k, v))
     return;
 
   const double new_score = k.h->scores.score[v] + k.h->scinc;
@@ -551,8 +560,26 @@ void heuristics_update_scores(Kernel &k) {
   // queue must be reachable via the heap. DefaultPolicy disconnects retired
   // variables; the policy-neutral API may retain them for N1 decisions.
   // (kissat bump.c kissat_update_scores)
+  // `random_order` is Kissat-internal index order after tumble/compaction.
+  // Equal scores retain heap insertion pose, so iterating Tactix's external
+  // identities here is observably different after a sequence of lazy pops.
+  // It also contains exactly Kissat's compacted variable population (one
+  // representative for the root-fixed set), rather than Tactix's permanent
+  // reconstruction identities.
+  for (const Var v : k.h->random_order)
+    if (queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
+        (k.assigned[v].level != 0 ||
+         k.values[make_lit(v, false)] == 0))
+      heuristics_heap_push(k, v);
+  // Tactix retains declared-but-never-imported variables so its returned SAT
+  // model is total. Kissat has no internal identity for them, hence they do
+  // not occur in `random_order`; append only those residual live variables.
+  // They sit below every activated variable (score zero) and cannot perturb
+  // the reference trajectory unless the semantic formula is already decided.
   for (Var v = 0; v < k.nvars; v++)
-    if (queue_contains(k, v) && !heuristics_heap_contains(k, v))
+    if (queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
+        (k.assigned[v].level != 0 ||
+         k.values[make_lit(v, false)] == 0))
       heuristics_heap_push(k, v);
 }
 

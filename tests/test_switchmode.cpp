@@ -36,6 +36,21 @@ static void test_heap_basic() {
   assert(heuristics_heap_next_unassigned(k) == 1);
 }
 
+static void test_heap_uses_tumbled_internal_order_for_ties() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  k.h->random_order = {2, 4, 1, 3}; // v0 was declared but never imported
+  heuristics_update_scores(k);
+
+  // With equal scores, push/bubble is stable.  This is the exact heap pose
+  // Kissat gets from its tumbled internal indices; external variable order is
+  // deliberately different.
+  assert(k.h->scores.stack == std::vector<Var>({2, 4, 1, 3, 0}));
+  kernel_assign_unit(k, make_lit(2, false));
+  assert(heuristics_heap_next_unassigned(k) == 0);
+}
+
 static void test_rescale() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -161,6 +176,7 @@ static void test_default_policy_solves_across_modes() {
 
 int main() {
   test_heap_basic();
+  test_heap_uses_tumbled_internal_order_for_ties();
   test_rescale();
   test_switchmode_rule();
   test_stable_decide_and_target_phases();

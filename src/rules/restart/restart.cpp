@@ -10,8 +10,11 @@ namespace tactix {
 // recorded-but-unanalyzed conflict pins the trail (stale conflict record).
 // WHEN to restart is the policy's decision and state (plan §5) —
 // this module only knows HOW.
-bool restart_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent && k.level > 0;
+RuleEligibility restart_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("no-conflict", !k.conflict_valid)
+      .fact("consistent", !k.inconsistent)
+      .fact("nonroot-level", k.level > 0);
 }
 
 // trail reuse (kissat restart.c reuse_focused_trail/reuse_stable_trail):

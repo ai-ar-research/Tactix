@@ -7,7 +7,7 @@
 
 namespace tactix {
 
-bool propagate_guard(const Kernel &);
+RuleEligibility propagate_guard(const Kernel &);
 ApplyResult propagate_apply(Kernel &);
 
 // The propagation service (a primitive, not a rule): propagate to a fixpoint

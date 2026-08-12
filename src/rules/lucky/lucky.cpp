@@ -1,7 +1,4 @@
-// Transliterated from kissat/src/lucky.c (MIT). Deviations: (1) kissat's
-// failed-literal handling inside probes is dropped — a conflicting probe
-// abandons and restores the entry state, keeping the proof delta exactly
-// "none" (failed literals are V1 Probe's); (2) probes share the single
+// Transliterated from kissat/src/lucky.c (MIT). Probes share the single
 // propagations/ticks counters rather than kissat's separate probing-mode
 // statistics, so a policy's tick budget includes them. Probes never update
 // saved/target/best phases (the public probe entry suppresses assign-time
@@ -10,12 +7,18 @@
 
 #include "rules/propagate/propagate.hpp"
 
+#include "proof/proof.hpp"
+
+#include <algorithm>
+
 namespace tactix {
 
-bool lucky_guard(const Kernel &k) {
+RuleEligibility lucky_guard(const Kernel &k) {
   // quiescent root state: see lucky.hpp
-  return !k.inconsistent && !k.conflict_valid &&
-         k.level == 0;
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("no-conflict", !k.conflict_valid)
+      .fact("root-level", k.level == 0);
 }
 
 // abandon an in-flight probe: clear the recorded conflict (its clause
@@ -33,6 +36,46 @@ static void assume(Kernel &k, Lit lit) {
   k.level++;
   k.frames.push_back(static_cast<uint32_t>(k.trail.size()));
   kernel_assign(k, lit, k.level, DECISION_REASON, false);
+}
+
+// A conflict under the very first Lucky assumption proves its negation at the
+// root. Kissat analyzes and commits that failed literal before continuing the
+// same directional sweep. Keeping this consequence is essential: abandoning
+// it left FmlaEquivChain with 30 extra active variables before Factor and
+// changed the mutable Factor heap even though all later grid guards matched.
+static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
+  assert(k.level == 1 && k.conflict_valid);
+  const Lit unit = negate(assumed);
+  const bool lrat = k.proof && k.proof->lrat();
+  uint64_t closing = 0;
+  std::vector<std::pair<uint32_t, uint64_t>> entries;
+  if (lrat) {
+    std::vector<uint8_t> seen(k.nvars, 0);
+    closing = kernel_conflict_reason_walk(k, seen, entries);
+  }
+
+  k.conflict_valid = false;
+  k.conflict_ref = INVALID_REF;
+  kernel_backtrack(k, 0, /*update_phases=*/false);
+
+  const uint64_t id = ++k.next_clause_id;
+  if (k.proof) {
+    if (lrat) {
+      std::sort(entries.begin(), entries.end());
+      std::vector<uint64_t> chain;
+      chain.reserve(entries.size() + 1);
+      for (const auto &entry : entries)
+        chain.push_back(entry.second);
+      chain.push_back(closing);
+      k.proof->add_rup(id, &unit, 1, chain.data(),
+                       static_cast<uint32_t>(chain.size()));
+    } else {
+      k.proof->add_rup(0, &unit, 1, nullptr, 0);
+    }
+  }
+  k.unit_ids[var_of(unit)] = id;
+  kernel_assign_unit(k, unit);
+  return propagate_service(k);
 }
 
 // True iff the constant assignment of polarity !want_negated satisfies every
@@ -79,16 +122,19 @@ static ApplyResult constant_probe(Kernel &k, int8_t phase) {
       return ApplyResult::Ok;
     }
   }
-  assert(k.unassigned == 0);
-  return ApplyResult::Sat;
+  return k.unassigned_active ? ApplyResult::Ok : ApplyResult::Sat;
 }
 
-// sweep the variables in `forward` order assuming phase `phase`; on a conflict
-// deeper than the first probe level, retry the flipped literal once; any
-// conflict that sticks abandons the whole probe (deviation 1 above)
+// Sweep Kissat's external-variable import table in `forward` order while
+// assuming phase `phase`.  Tumble makes internal identities follow first
+// occurrence, but Lucky deliberately does not use that order.  On a conflict
+// deeper than the first probe level, retry the flipped literal once; if both
+// phases conflict, abandon the whole probe.
 static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
-  for (uint32_t i = 0; i < k.nvars; i++) {
-    const Var v = forward ? i : k.nvars - 1 - i;
+  std::vector<Var> order;
+  kernel_vars_in_external_order(k, order);
+  for (uint32_t i = 0; i < order.size(); i++) {
+    const Var v = forward ? order[i] : order[order.size() - 1 - i];
     Lit lit = make_lit(v, phase < 0);
     if (k.value(lit) != 0)
       continue;
@@ -102,12 +148,17 @@ static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
       assume(k, negate(lit));
       if (!kernel_propagate(k))
         continue;
+      // Both phases failed above the first probe level. Neither polarity is a
+      // root consequence; retain earlier committed units, abandon this sweep,
+      // and let the next Lucky direction try from the clean root.
+      abandon_probe(k);
+      return ApplyResult::Ok;
     }
-    abandon_probe(k);
-    return ApplyResult::Ok;
+    const ApplyResult committed = commit_failed_literal(k, lit);
+    if (committed == ApplyResult::Unsat)
+      return committed;
   }
-  assert(k.unassigned == 0);
-  return ApplyResult::Sat;
+  return k.unassigned_active ? ApplyResult::Ok : ApplyResult::Sat;
 }
 
 ApplyResult lucky_apply_probe(Kernel &k, uint64_t probe) {
@@ -152,7 +203,7 @@ ApplyResult lucky_apply(Kernel &k) {
       LUCKY_FORWARD_TRUE,   LUCKY_BACKWARD_FALSE, LUCKY_BACKWARD_TRUE};
   for (const uint64_t probe : CASCADE) {
     const ApplyResult r = lucky_apply_probe(k, probe);
-    if (r == ApplyResult::Sat)
+    if (r == ApplyResult::Sat || r == ApplyResult::Unsat)
       return r;
   }
   return ApplyResult::Ok;

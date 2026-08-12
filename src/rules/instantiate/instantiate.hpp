@@ -25,7 +25,7 @@ constexpr uint32_t INST_OCCLIM = 1;  // maximum occurrences of the literal
 // Guard: quiescent root (D-ROOT) — occurrence counts and the "unassigned"
 // filters only mean anything once every level-0 unit is propagated into the
 // clause set.
-bool instantiate_guard(const Kernel &);
+RuleEligibility instantiate_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = candidate arena Ref, in arena order.
 // One instance = one clause = all of its eligible literals, since every removal

@@ -26,6 +26,9 @@ struct tactix_solver {
   tactix_solver() {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
+    // Match the CLI/reference default; rule-level fixtures using a bare Kernel
+    // can still exercise the non-reuse path explicitly.
+    kernel.conflict_reuse = true;
   }
 };
 

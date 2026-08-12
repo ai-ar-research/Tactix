@@ -20,7 +20,7 @@ namespace tactix {
 // decides how long the search runs, never whether it is sound.
 constexpr uint64_t WALK_DEFAULT_STEPS = 1000000;
 
-bool walk_guard(const Kernel &);
+RuleEligibility walk_guard(const Kernel &);
 ApplyResult walk_apply(Kernel &);                 // canonical: budgeted round
 ApplyResult walk_apply_steps(Kernel &, uint64_t); // explicit step budget
 

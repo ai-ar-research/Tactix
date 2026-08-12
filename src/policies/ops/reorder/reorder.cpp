@@ -100,8 +100,10 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
 
 // Requires `H`: Reorder re-ranks the decision queue/heap, which is `H` state —
 // a pure precondition of a policy operation that needs `H` (plan §5).
-bool reorder_guard(const Kernel &k) {
-  return !k.inconsistent && k.h != nullptr;
+RuleEligibility reorder_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("heuristics-attached", k.h != nullptr);
 }
 
 ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {

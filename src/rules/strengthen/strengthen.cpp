@@ -9,10 +9,12 @@
 
 namespace tactix {
 
-bool strengthen_guard(const Kernel &k) {
+RuleEligibility strengthen_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/calculus.md` §7).
-  return !k.inconsistent && k.level == 0;
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
 }
 
 // Victim criteria, shared with C1 (duplicated deliberately — modules stay
@@ -138,9 +140,17 @@ struct Partner {
 static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
                             const Clause *c,
                             const std::vector<std::vector<Ref>> *occs,
-                            Ref self) {
+                            Ref self, uint64_t check_start,
+                            bool *budget_exhausted) {
   Partner p;
   const bool lrat = k.proof && k.proof->lrat();
+  const auto budget_cut = [&]() {
+    if (!budget_exhausted || !k.midround_budget || !k.work_budget ||
+        k.stats.strengthen_visits - check_start < k.work_budget)
+      return false;
+    *budget_exhausted = true;
+    return true;
+  };
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
@@ -152,6 +162,8 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         for (const WatchEntry w : k.watches.entries(probe)) {
           if (!w.binary())
             continue;
+          if (budget_cut())
+            return p;
           k.stats.strengthen_visits++; // a binary partner compared
           const Lit o = w.other();
           if (phase == 0) {
@@ -185,6 +197,8 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       if (os.size() > STRENGTHEN_OCCLIM)
         continue;
       for (const Ref dref : os) {
+        if (budget_cut())
+          return p;
         k.stats.strengthen_visits++;
         const Clause *d = clause_at(k.arena, dref);
         const CheckResult r = check_marked(k, marks, d);
@@ -219,6 +233,8 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         const Ref dref = w.ref();
         if (dref == self)
           continue;
+        if (budget_cut())
+          return p;
         k.stats.strengthen_visits++;
         const Clause *d = clause_at(k.arena, dref);
         if (d->garbage() || d->redundant() || d->size > c->size)
@@ -427,7 +443,7 @@ ApplyResult strengthen_apply(Kernel &k) {
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     Ref cref = candidates[ci];
     if (k.midround_budget && k.work_budget &&
-        k.stats.strengthen_visits - check_start > k.work_budget) {
+        k.stats.strengthen_visits - check_start >= k.work_budget) {
       k.stats.budget_stops_c2++;
       stopped_at = ci;
       break;
@@ -451,12 +467,16 @@ ApplyResult strengthen_apply(Kernel &k) {
     k.stats.strengthen_red_checked += red;
     const uint64_t red_sub_before = k.stats.strengthen_subsumed;
     const uint64_t red_str_before = k.stats.strengthened;
+    bool budget_exhausted = false;
     for (;;) { // strengthening cascades on the same candidate
       Clause *c = clause_at(k.arena, cref);
       k.stats.strengthen_checked++;
       mark_candidate(k, marks, c, 1);
-      const Partner p = find_partner(k, marks, c, &occs, cref);
+      const Partner p = find_partner(k, marks, c, &occs, cref, check_start,
+                                     &budget_exhausted);
       mark_candidate(k, marks, clause_at(k.arena, cref), 0);
+      if (budget_exhausted)
+        break;
       const int r = act(k, &cref, p, &changed);
       if (r == 5)
         return ApplyResult::Unsat;
@@ -482,6 +502,11 @@ ApplyResult strengthen_apply(Kernel &k) {
           k.stats.strengthen_subsumed - red_sub_before;
       k.stats.strengthen_red_strengthened +=
           k.stats.strengthened - red_str_before;
+    }
+    if (budget_exhausted) {
+      k.stats.budget_stops_c2++;
+      stopped_at = ci;
+      break;
     }
     if (ended || interrupted) {
       stopped_at = ci + 1; // this candidate was checked; the rest were not
@@ -558,7 +583,7 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   k.stats.strengthen_checked++;
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   mark_candidate(k, marks, c, 1);
-  const Partner p = find_partner(k, marks, c, nullptr, candidate);
+  const Partner p = find_partner(k, marks, c, nullptr, candidate, 0, nullptr);
   mark_candidate(k, marks, clause_at(k.arena, candidate), 0);
   uint64_t changed = 0;
   Ref ref = candidate;

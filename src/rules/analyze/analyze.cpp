@@ -31,6 +31,20 @@ static constexpr uint8_t REASON_BUMP = 32; // marked by reason-side bumping
 // antecedents, so membership is a flag test and the size is counted apart.
 static constexpr uint8_t BUMPED = SEEN | REASON_BUMP;
 
+// Kissat's conflict unwind is deliberately two-stage: first remove the
+// current decision level, then snapshot target/best phases, then continue to
+// the semantic conflict level. Besides phase history, this fixes the order in
+// which lazily removed equal-score variables re-enter the stable heap.
+static void unwind_after_conflict(Kernel &k, uint32_t target) {
+  if (k.level) {
+    kernel_backtrack(k, k.level - 1);
+    if (k.h)
+      heuristics_update_target_phases(k);
+  }
+  if (target < k.level)
+    kernel_backtrack(k, target);
+}
+
 // --- native LRAT antecedent capture. CaDiCaL's id scheme with a simpler
 // ordering: entries carry the trail position of the literal their antecedent
 // propagated, and the chain is emitted ascending with the conflict last, so it
@@ -150,8 +164,10 @@ static void mark_used(Kernel &k, Clause *c) {
   k.stats.used_glue[mode][std::min<uint32_t>(c->glue(), Stats::MAX_GLUE_USED)]++;
 }
 
-bool analyze_guard(const Kernel &k) {
-  return k.conflict_valid && !k.inconsistent;
+RuleEligibility analyze_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("conflict-valid", k.conflict_valid)
+      .fact("consistent", !k.inconsistent);
 }
 
 // literals of the conflict clause (binary conflicts live in conflict_bin)
@@ -400,27 +416,47 @@ static void bump_and_reset_analyzed(Kernel &k) {
   };
   event_trace_analyzed(k, k.analyzed, k.seen, BUMPED);
   if (k.h->stable) {
+    const bool any_analyzed = !k.analyzed.empty();
+    event_trace_heap_scores(k);
     for (const Var v : k.analyzed) {
       if (k.seen[v] & BUMPED) {
         count_bump(v);
-        heuristics_score_bump(k, v);
+        if (heuristics_var_active(k, v)) {
+          heuristics_score_bump(k, v);
+          event_trace_detail(k, "score_bump",
+                             kernel_externalize(k, make_lit(v, false)));
+          event_trace_heap_scores(k);
+        }
       }
+      // Preserve solver semantics while tracing: this clear is what makes
+      // repeated scratch entries harmless. A logger must never extend the
+      // lifetime of BUMPED or turn a duplicate into a second bump.
       k.seen[v] = 0;
     }
+    event_trace_analyzed_post(k, k.analyzed);
     k.analyzed.clear();
-    heuristics_scores_decay(k);
+    // Kissat advances EVSIDS only inside its `!EMPTY_STACK(analyzed)` guard.
+    // Level-one/failed-literal analysis can leave that stack empty. Decaying
+    // anyway puts Tactix's score increment one generation ahead; after enough
+    // conflicts the resulting few-ULP differences change equal-score heap
+    // order and the decision trajectory.
+    if (any_analyzed)
+      heuristics_scores_decay(k);
     return;
   }
   radix_sort_analyzed_by_stamp(k);
   for (const Var v : k.analyzed) {
     if (k.seen[v] & BUMPED) {
       count_bump(v);
-      heuristics_queue_bump(k, v);
+      if (heuristics_var_active(k, v))
+        heuristics_queue_bump(k, v);
     }
     k.seen[v] = 0;
   }
   k.analyzed.clear();
 }
+
+void analyze_bump_after_backjump(Kernel &k) { bump_and_reset_analyzed(k); }
 
 // --- reason-side bumping (kissat analyze_reason_side_literals; cadical
 // bump_also_all_reason_literals; MapleCOMSPS 2016) --------------------------
@@ -478,6 +514,7 @@ static void mark_reason_tree(Kernel &k, Lit false_lit, uint32_t depth,
 }
 
 static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
+  event_trace_detail(k, "reason_bump_begin", k.bump_reason_limit);
   const uint32_t saved = k.analyzed_seen;
   const uint64_t limit =
       static_cast<uint64_t>(k.bump_reason_limit) * saved;
@@ -533,6 +570,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   }
   assert(lits.size() >= 2);
   const uint64_t id = ++k.next_clause_id;
+  kernel_inherit_clause_order(k, id, reason->id());
 
   bool subsume = false, subsumed_irredundant = false;
   if (subsumed_ref != INVALID_REF) {
@@ -807,6 +845,20 @@ static uint32_t repair_conflict_watches(Kernel &k, Ref ref, uint32_t alevel) {
   return moved;
 }
 
+// Kissat's single target calculation is shared by ordinary learned-clause
+// backjumping and both forms of conflict reuse (original and OTFS replacement).
+// Keeping it here prevents a reuse path from silently bypassing chronological
+// retention, as the duplicate-OTFS path did on Fmla at conflict 844.
+static uint32_t conflict_reuse_target(Kernel &k, uint32_t jump) {
+  assert(k.level && jump < k.level);
+  const uint32_t back = k.level - 1;
+  if (back - jump > k.conflict_reuse_chrono_levels) {
+    k.stats.chronological++;
+    return back;
+  }
+  return jump;
+}
+
 // --- eager subsumption of recently learned clauses -------------------------
 // Transliterated from kissat learn.c:70-187 (MIT). Not a registered rule: the
 // clauses it deletes are redundant, so S2 Reduce's unconditional Forget
@@ -912,7 +964,6 @@ ApplyResult analyze_apply(Kernel &k) {
   const bool lrat = lrat_active(k);
   uint64_t conflict_chain_id = 0; // the round's conflict, emitted last
   Lit uip = INVALID_LIT;
-  bool first_round = true;
   bool otfs_round = false;
   for (;;) { // one round per conflict; OTFS restarts with a stronger one
     uint32_t csize;
@@ -925,9 +976,6 @@ ApplyResult analyze_apply(Kernel &k) {
               ? kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1])
               : clause_at(k.arena, k.conflict_ref)->id();
     }
-    if (k.conflict_ref != INVALID_REF) // conflict clause is "used" too
-      mark_used(k, clause_at(k.arena, k.conflict_ref));
-
     uint32_t alevel = 0;         // analysis level: max over conflict literals
     uint32_t conflict_nonroot = 0; // OTFS-subsume compares against this
     for (uint32_t i = 0; i < csize; i++) {
@@ -959,23 +1007,22 @@ ApplyResult analyze_apply(Kernel &k) {
     // reads as a stale pending clause and drops the conflict. A no-op with
     // chrono off, where alevel == k.level always.
     if (alevel < k.level) {
-      if (k.h)
-        heuristics_update_target_phases(k); // was inside kernel_backtrack
-      kernel_backtrack(k, alevel);
+      unwind_after_conflict(k, alevel);
     }
 
-    // Reuse the conflict as the driving clause (kissat
-    // `one_literal_on_conflict_level`). With exactly one conflict literal at
-    // the conflict level the clause is already asserting: backtracking to the
-    // second-highest level `jump2` unassigns it while the rest stay false, so
-    // the clause is unit and is assigned with itself as reason, learning
-    // nothing. Two deliberate restrictions remain: the target is the plain
-    // non-chronological `jump2`, the chrono target being M3's instance
-    // surface; `jump2 == 0` falls through, needing an LRAT derived-unit chain;
-    // First-round reuse remains the separately priced policy arm.  OTFS-round
-    // duplicate elimination runs after Tactix's stronger minimization below:
-    // a strict subclause is kept, an exact replacement copy is not.
-    if (alevel > 0 && first_round && k.conflict_reuse) {
+    // A conflict with one literal at `alevel` is already asserting after a
+    // backtrack to `jump2`; reuse it without learning. Apply the ordinary
+    // chronological-gap target, and let jump2==0 use the LRAT unit path.
+    // Canonicalize watches first because even a declined conflict can survive
+    // the backtrack and its pose controls its next observation. Repeat this at
+    // every OTFS pass. See docs/implementation-notes.md §12.
+    if (alevel > 0 && k.conflict_ref != INVALID_REF &&
+        repair_conflict_watches(k, k.conflict_ref, alevel))
+      k.stats.conflict_watch_repaired++;
+
+    // Test reuse at every OTFS pass, before another 1-UIP/minimize round can
+    // change the replacement (implementation-notes.md §12).
+    if (alevel > 0 && k.conflict_reuse) {
       uint32_t at_alevel = 0, jump2 = 0;
       Lit forced = INVALID_LIT;
       for (uint32_t i = 0; i < csize; i++) {
@@ -1010,8 +1057,6 @@ ApplyResult analyze_apply(Kernel &k) {
         // now implies and a false literal at exactly `jump2` (see
         // repair_conflict_watches). Repairing rather than declining lets the
         // shortcut fire on every such conflict.
-        if (cref != INVALID_REF && repair_conflict_watches(k, cref, alevel))
-          k.stats.conflict_watch_repaired++;
 #ifndef NDEBUG
         if (cref != INVALID_REF) { // post-repair: exactly the invariant above
           const Clause *cc = clause_at(k.arena, cref);
@@ -1021,11 +1066,16 @@ ApplyResult analyze_apply(Kernel &k) {
           }
         }
 #endif
-        if (k.h)
-          heuristics_update_target_phases(k); // was inside kernel_backtrack
-        kernel_backtrack(k, jump2);
+        const uint32_t target = conflict_reuse_target(k, jump2);
+        unwind_after_conflict(k, target);
+        analyze_retire_otfs_reasons(k);
         if (cref == INVALID_REF)
-          kernel_assign(k, forced, jump2, other, /*binary=*/true);
+          // Kissat routes reused binary conflicts through
+          // `kissat_assign_binary`, whose reason-jump path is intentionally
+          // not guarded by the big/big formula classification.  Storing the
+          // intermediate antecedent here makes the next analysis bump a
+          // variable Kissat resolves straight past.
+          kernel_assign_binary(k, forced, other, /*require_bigbig=*/false);
         else
           kernel_assign(k, forced, jump2, cref, /*binary=*/false);
         k.conflict_valid = false;
@@ -1037,7 +1087,14 @@ ApplyResult analyze_apply(Kernel &k) {
       }
     }
 
-    first_round = false;
+    // Kissat marks the conflict as used inside
+    // `kissat_deduce_first_uip_clause`, after the already-asserting conflict
+    // shortcut above.  Doing this at Analyze entry counted reused conflicts
+    // in the dynamic glue histogram even though Kissat never entered Deduce;
+    // that one observation can move the next Reduce tier quantile.
+    if (k.conflict_ref != INVALID_REF)
+      mark_used(k, clause_at(k.arena, k.conflict_ref));
+
     const Ref conflict_ref0 = k.conflict_ref; // may be garbage'd by OTFS
 
     learned.clear();
@@ -1135,12 +1192,20 @@ ApplyResult analyze_apply(Kernel &k) {
               std::end(k.stats.used_glue[checkpoint.mode]),
               std::begin(checkpoint.used_glue));
     k.analysis_conflict_checkpoints.push_back(checkpoint);
+    // This is a policy observation at an internal atomic-rule boundary.
+    // Kissat tests and applies its glue-tier deadline here, before bumping the
+    // aborted analysis and before the next OTFS round can mark another clause
+    // used.  The hook keeps the proof rule policy-neutral while preserving
+    // that decision-observable order for DefaultPolicy.
+    if (k.analysis_conflict_hook)
+      k.analysis_conflict_hook(k, k.analysis_conflict_hook_state);
     bump_and_reset_analyzed(k); // kissat bumps each aborted round too
     otfs_round = true;
   }
   learned[0] = negate(uip);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   std::vector<Lit> otfs_raw_trace, otfs_sorted_trace;
+  bool learned_sorted_traced = false;
   if (otfs_round)
     otfs_raw_trace = learned;
   else
@@ -1157,9 +1222,13 @@ ApplyResult analyze_apply(Kernel &k) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (otfs_round)
       otfs_sorted_trace = learned;
-    else
+    else {
+      learned_sorted_traced = true;
 #endif
       event_trace_learned_stage(k, "learned_sorted", learned);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    }
+#endif
     // Kissat consumes the sorted clause from its tail: lower-level blocks run
     // first, and every successful walk leaves removable intermediates for the
     // later, higher-level blocks.  The clause itself stays in descending-level
@@ -1200,7 +1269,7 @@ ApplyResult analyze_apply(Kernel &k) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (otfs_round)
       otfs_sorted_trace = learned;
-    else
+    else if (!learned_sorted_traced)
 #endif
       event_trace_learned_stage(k, "learned_sorted", learned);
   }
@@ -1248,12 +1317,11 @@ ApplyResult analyze_apply(Kernel &k) {
                           : INVALID_LIT;
     if (cref != INVALID_REF && repair_conflict_watches(k, cref, k.level))
       k.stats.conflict_watch_repaired++;
-    if (k.h)
-      heuristics_update_target_phases(k);
-    kernel_backtrack(k, jump);
+    const uint32_t target = conflict_reuse_target(k, jump);
+    unwind_after_conflict(k, target);
     analyze_retire_otfs_reasons(k);
     if (cref == INVALID_REF)
-      kernel_assign(k, forced, jump, other, /*binary=*/true);
+      kernel_assign_binary(k, forced, other, /*require_bigbig=*/false);
     else
       kernel_assign(k, forced, jump, cref, /*binary=*/false);
     k.conflict_valid = false;
@@ -1311,8 +1379,6 @@ ApplyResult analyze_apply(Kernel &k) {
     // learned unit: give the var its unit id (Backjump asserts it)
     k.unit_ids[var_of(p.lits[0])] = learned_id;
   }
-
-  bump_and_reset_analyzed(k);
 
   k.conflict_valid = false;
   p.valid = true;

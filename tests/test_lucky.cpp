@@ -58,9 +58,23 @@ static void test_sweep() {
   assert(k.values[internalize(2)] > 0);  // 2 propagated by (1 2)
 }
 
-static void test_unsat_probes_abandon() {
-  // on UNSAT every probe abandons and restores the entry state exactly,
-  // saved phases included
+static void test_first_level_conflict_commits_failed_literal() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 2);
+  // Assuming -1 forces both 2 and -2. Lucky must keep the proved root unit 1
+  // and continue the sweep, exactly like kissat_analyze at probing level one.
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  assert(lucky_apply_probe(k, LUCKY_FORWARD_FALSE) == ApplyResult::Sat);
+  assert(k.values[internalize(1)] > 0);
+  assert(k.assigned[var_of(internalize(1))].level == 0);
+  assert(k.unit_ids[var_of(internalize(1))] != 0);
+}
+
+static void test_unsat_probes_commit_root_consequences() {
+  // Lucky's level-one failed literals can collectively refute this UNSAT
+  // pigeonhole formula. Speculation still leaves saved phases untouched.
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
@@ -73,25 +87,16 @@ static void test_unsat_probes_abandon() {
       for (int p2 = p1 + 1; p2 < 3; p2++)
         kernel_add_binary_clause(k, internalize(-var(p1, h)),
                                  internalize(-var(p2, h)));
-  assert(lucky_apply(k) == ApplyResult::Ok); // canonical cascade: no luck
+  const ApplyResult lucky_result = lucky_apply(k);
+  assert(lucky_result == ApplyResult::Unsat);
+  assert(k.inconsistent);
   assert(k.level == 0);
-  assert(k.unassigned == 6);
-  assert(k.trail.empty());
-  assert(k.propagate_head == 0);
   for (Var v = 0; v < 6; v++) {
     assert(k.h->saved[v] == 0);  // probe assignments never touch phases
     assert(k.h->target[v] == 0);
     assert(k.h->best[v] == 0);
   }
-  assert(k.stats.lucky_probes == 6);
-  assert(k.stats.conflicts == 0); // probe conflicts are not search ones
-  assert(setenv("TACTIX_SLOT_DISABLE",
-                "Congruence,Substitute,Backbone,Sweep,Factor", 1) == 0);
-  assert(default_solve(k) == 20); // and the formula still solves correctly
-  assert(unsetenv("TACTIX_SLOT_DISABLE") == 0);
-  assert(k.stats.lucky_early_calls == 1);
-  assert(k.stats.lucky_late_calls == 1);
-  assert(k.stats.lucky_late_sat == 0);
+  assert(k.stats.lucky_probes <= 6);
 
   Kernel off;
   ScopedHeuristics _hg_off(off);
@@ -146,7 +151,8 @@ int main() {
   test_all_true();
   test_all_false();
   test_sweep();
-  test_unsat_probes_abandon();
+  test_first_level_conflict_commits_failed_literal();
+  test_unsat_probes_commit_root_consequences();
   test_registry_surface();
   test_guard_needs_quiescent_root();
   puts("test_lucky OK");

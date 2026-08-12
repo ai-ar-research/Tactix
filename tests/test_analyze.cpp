@@ -85,7 +85,12 @@ static void test_conflictanalysis_atomic() {
 static void test_learned_unit() {
   // (-1 2), (-1 -2): deciding 1 conflicts and learns unit -1
   Kernel k;
+  ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 2);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+  assert(heuristics_heap_contains(k, 0));
+  const double unit_score = k.h->scores.score[0];
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   kernel_assign_decision(k, internalize(1));
@@ -98,6 +103,8 @@ static void test_learned_unit() {
   assert(k.level == 0);
   assert(k.values[internalize(-1)] > 0);
   assert(k.stats.learned_units == 1);
+  assert(!heuristics_heap_contains(k, 0));
+  assert(k.h->scores.score[0] == unit_score);
 }
 
 static void test_shrink() {
@@ -377,6 +384,37 @@ static void test_otfs() {
   assert(default_solve(k) == 10); // satisfiable: 1, -2
 }
 
+static void test_otfs_reuse_honors_chronological_gap() {
+  // The OTFS replacement is asserting at level 103 with jump level 1.  With
+  // Kissat's 100-level threshold, reuse retains level 102 instead of jumping
+  // directly to 1.  This is the deep-gap form reached by Fmla conflict 844.
+  Kernel k;
+  kernel_reserve_vars(k, 104);
+  k.conflict_reuse_chrono_levels = 100;
+  const Lit r[3] = {internalize(-1), internalize(-2), internalize(3)};
+  const Lit d[3] = {internalize(-1), internalize(-2), internalize(-3)};
+  kernel_add_large_clause(k, r, 3, false, 0);
+  kernel_add_large_clause(k, d, 3, false, 0);
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  for (int v = 4; v <= 104; v++) {
+    kernel_assign_decision(k, internalize(v));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+  }
+  kernel_assign_decision(k, internalize(2));
+  assert(k.level == 103);
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.conflict_reused == 1);
+  assert(k.stats.chronological == 1);
+  assert(k.level == 102);
+  assert(k.values[internalize(104)] > 0); // retained chronological prefix
+  assert(k.values[internalize(-2)] > 0); // replacement's forced literal
+  assert(k.assigned[var_of(internalize(2))].level == 1);
+}
+
 static void test_large_otfs_retires_replaced_reason() {
   // The five-literal reason is strengthened to four literals.  It must stay a
   // valid reason during Analyze's white-box half, but not survive the fused
@@ -501,7 +539,10 @@ static bool watched_by(const Kernel &k, Lit l, Ref ref) {
 // white-box — only chronological backtracking produces the wrong pair.
 static void test_conflict_reuse_repairs_watches() {
   Kernel k;
+  ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 4);
+  k.h->stable = true;
+  const double scinc_before = k.h->scinc;
   k.conflict_reuse = true;
   for (int v = 1; v <= 4; v++) { // levels 1..4, one decision each
     kernel_assign_decision(k, internalize(v));
@@ -511,7 +552,7 @@ static void test_conflict_reuse_repairs_watches() {
   // -4 (the unique conflict-level literal) and -3
   const Lit cl[4] = {internalize(-1), internalize(-2), internalize(-3),
                      internalize(-4)};
-  const Ref ref = kernel_add_large_clause(k, cl, 4, false, 0);
+  const Ref ref = kernel_add_large_clause(k, cl, 4, true, 2);
   assert(watched_by(k, internalize(-1), ref));
   assert(watched_by(k, internalize(-2), ref));
   k.conflict_valid = true; // the clause is falsified: record it as the conflict
@@ -521,7 +562,11 @@ static void test_conflict_reuse_repairs_watches() {
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.conflict_reused == 1);        // the shortcut fired...
   assert(k.stats.conflict_watch_repaired == 1); // ...and needed the repair
+  assert(k.stats.used_glue[1][2] == 0 &&
+         "an already-asserting conflict bypasses Kissat Deduce/mark-used");
   assert(!k.pending.valid);                     // nothing learned, nothing to assert
+  assert(k.h->scinc == scinc_before &&
+         "an empty Kissat analyzed stack must not advance EVSIDS decay");
 
   const Clause *c = clause_at(k.arena, ref);
   assert(c->lits[0] == internalize(-4));                 // the forced literal
@@ -549,6 +594,87 @@ static void test_conflict_reuse_repairs_watches() {
   assert(k.values[internalize(-4)] > 0); // derived through the repaired watch
   kernel_check_invariants(k);
   assert(k.stats.backjump_stale == 0);
+}
+
+static void test_binary_conflict_reuse_jumps_reason() {
+  // Reusing a binary conflict uses Kissat's learned/reused assignment path,
+  // where reason jumping is unconditional (not classification-gated).
+  // 1 implies 2; deciding 3 conflicts with (-3,-2).  Reuse asserts -3 at
+  // level 1 and must record the virtual direct reason -1, resolving past -2.
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  k.conflict_reuse = true;
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(k.values[internalize(2)] > 0);
+  kernel_assign_decision(k, internalize(3));
+  kernel_add_binary_clause(k, internalize(-3), internalize(-2));
+  k.conflict_ref = INVALID_REF;
+  k.conflict_bin[0] = internalize(-3);
+  k.conflict_bin[1] = internalize(-2);
+  k.conflict_valid = true;
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  const Var v = var_of(internalize(3));
+  assert(k.stats.conflict_reused == 1);
+  assert(k.values[internalize(-3)] > 0);
+  assert(k.assigned[v].binary && k.assigned[v].jumped);
+  assert(k.assigned[v].reason == internalize(-1));
+  assert(k.jumped_over[v] == internalize(-2));
+}
+
+static void test_nonreusable_conflict_repairs_watches() {
+  // Kissat promotes the two highest-level literals into the watched pair even
+  // when more than one literal lies at the conflict level and the conflict
+  // therefore cannot be reused.  The surviving clause pose affects which
+  // conflict propagation observes after the next backtrack.
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_add_binary_clause(k, internalize(-3), internalize(4));
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  kernel_assign_decision(k, internalize(3));
+  kernel_assign(k, internalize(4), 3, internalize(-3), true);
+  const Lit conflict[4] = {internalize(-1), internalize(-2),
+                           internalize(-3), internalize(-4)};
+  const Ref ref = kernel_add_large_clause(k, conflict, 4, false, 0);
+  k.conflict_ref = ref;
+  k.conflict_valid = true;
+  k.conflict_reuse = false; // watch canonicalization is independent of reuse
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  const Clause *c = clause_at(k.arena, ref);
+  assert(c->lits[0] == internalize(-3));
+  assert(c->lits[1] == internalize(-4));
+  assert(k.stats.conflict_watch_repaired > 0);
+}
+
+static void test_forced_conflict_unwind_preserves_two_stage_heap_pose() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 6);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+
+  // Remove each assigned variable lazily from the stable heap. Variables 4
+  // and 5 retain equal scores, so their reinsertion order is observable.
+  for (Var v = 0; v < 5; ++v) {
+    heuristics_score_set(k, v, v >= 3 ? 100.0 : 10.0 + v);
+    kernel_assign_decision(k, make_lit(v, false));
+    (void) heuristics_heap_next_unassigned(k);
+  }
+  assert(!heuristics_heap_contains(k, 3));
+  assert(!heuristics_heap_contains(k, 4));
+
+  // The conflict lives at level 2 although the solver stands at level 5.
+  // Kissat first unwinds level 5 (reinsert v4), snapshots, then unwinds to 2
+  // (reinsert v3). A direct unwind would reverse this equal-score pose.
+  k.conflict_bin[0] = negate(make_lit(1, false));
+  k.conflict_bin[1] = negate(make_lit(1, false));
+  k.conflict_ref = INVALID_REF;
+  k.conflict_valid = true;
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.h->scores.pos[4] < k.h->scores.pos[3]);
 }
 
 // The shortcut leaves no pending record, so a white-box micro-loop must skip
@@ -743,10 +869,14 @@ int main() {
   test_minimization_depth_matches_kissat();
   test_learned_level_stable_order();
   test_otfs();
+  test_otfs_reuse_honors_chronological_gap();
   test_large_otfs_retires_replaced_reason();
   test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
   test_conflict_reuse_repairs_watches();
+  test_binary_conflict_reuse_jumps_reason();
+  test_nonreusable_conflict_repairs_watches();
+  test_forced_conflict_unwind_preserves_two_stage_heap_pose();
   test_conflict_reuse_under_default_policy();
   test_eager_subsume();
   puts("test_analyze OK");

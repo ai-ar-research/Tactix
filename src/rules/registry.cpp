@@ -30,7 +30,8 @@ const char *journal_outcome(ApplyResult result) {
 void journal_dispatch(const RuleVTable &vt, const Kernel &k,
                       const char *candidate, uint64_t pre_digest,
                       uint64_t formula_epoch, uint64_t root_epoch,
-                      bool eligible, ApplyResult result) {
+                      const RuleEligibility &eligibility, ApplyResult result,
+                      uint64_t effort_before) {
   if (vt.kind != ActionKind::ProofRule)
     return;
   RuleJournalRecord record;
@@ -45,15 +46,31 @@ void journal_dispatch(const RuleVTable &vt, const Kernel &k,
   record.formula_epoch = formula_epoch;
   record.root_epoch = root_epoch;
   record.pre_digest = pre_digest;
-  record.guards = "rule_guard=" + std::to_string(eligible) +
-                  ";consistent=" + std::to_string(!k.inconsistent);
-  record.antecedents = "rule-owned";
-  record.outcome = eligible ? journal_outcome(result) : "declined";
-  record.decline = eligible ? "none" : "rule-guard-false";
+  record.guards.clear();
+  for (uint8_t i = 0; i < eligibility.fact_count; i++) {
+    if (!record.guards.empty())
+      record.guards.push_back(';');
+    record.guards += eligibility.facts[i].name;
+    record.guards.push_back('=');
+    record.guards.push_back(eligibility.facts[i].value ? '1' : '0');
+  }
+  record.outcome = eligibility ? journal_outcome(result) : "declined";
+  record.decline = "none";
+  if (!eligibility) {
+    for (uint8_t i = 0; i < eligibility.fact_count; i++)
+      if (!eligibility.facts[i].value) {
+        record.decline = std::string("guard:") + eligibility.facts[i].name;
+        break;
+      }
+  }
   const uint64_t post_digest = rule_journal_digest(k);
-  record.deltas =
-      pre_digest == post_digest ? "none" : "state-digest-change";
-  record.witnesses = "rule-owned";
+  record.deltas = rule_journal_transaction_deltas();
+  if (record.deltas == "none" && pre_digest != post_digest)
+    record.deltas = "state-digest-change";
+  record.antecedents = rule_journal_transaction_antecedents();
+  record.witnesses = rule_journal_transaction_witnesses();
+  record.effort = k.stats.ticks - effort_before;
+  record.budget = k.work_budget;
   record.post_digest = post_digest;
   rule_journal_emit(k, record);
 }
@@ -103,17 +120,22 @@ ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   const bool journal = vt.kind == ActionKind::ProofRule &&
                        rule_journal_wants(k, vt.name, "canonical");
-  uint64_t pre_digest = 0, formula_epoch = 0, root_epoch = 0;
+  uint64_t pre_digest = 0, formula_epoch = 0, root_epoch = 0,
+           effort_before = 0;
+  RuleEligibility eligibility;
   if (journal) {
     formula_epoch = k.arena_generation;
     root_epoch = k.touch_fixed_head;
     pre_digest = rule_journal_digest(k);
-    const bool eligible = vt.guard(k);
-    if (!eligible) {
+    effort_before = k.stats.ticks;
+    eligibility = vt.guard(k);
+    if (!eligibility) {
       journal_dispatch(vt, k, "canonical", pre_digest, formula_epoch,
-                       root_epoch, false, ApplyResult::NoOp);
+                       root_epoch, eligibility, ApplyResult::NoOp,
+                       effort_before);
       return ApplyResult::NoOp;
     }
+    rule_journal_transaction_begin(vt.name, "canonical");
   }
 #endif
   if (vt.id >= Stats::MAX_TIMED_RULES)
@@ -122,7 +144,9 @@ ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
     if (journal)
       journal_dispatch(vt, k, "canonical", pre_digest, formula_epoch,
-                       root_epoch, true, result);
+                       root_epoch, eligibility, result, effort_before);
+    if (journal)
+      rule_journal_transaction_end();
 #endif
     return result;
   }
@@ -133,7 +157,9 @@ ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (journal)
     journal_dispatch(vt, k, "canonical", pre_digest, formula_epoch,
-                     root_epoch, true, r);
+                     root_epoch, eligibility, r, effort_before);
+  if (journal)
+    rule_journal_transaction_end();
 #endif
   return r;
 }
@@ -145,17 +171,22 @@ ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
       inst == INSTANCE_CANONICAL ? "canonical" : std::to_string(inst);
   const bool journal = vt.kind == ActionKind::ProofRule &&
                        rule_journal_wants(k, vt.name, candidate);
-  uint64_t pre_digest = 0, formula_epoch = 0, root_epoch = 0;
+  uint64_t pre_digest = 0, formula_epoch = 0, root_epoch = 0,
+           effort_before = 0;
+  RuleEligibility eligibility;
   if (journal) {
     formula_epoch = k.arena_generation;
     root_epoch = k.touch_fixed_head;
     pre_digest = rule_journal_digest(k);
-    const bool eligible = vt.guard(k);
-    if (!eligible) {
+    effort_before = k.stats.ticks;
+    eligibility = vt.guard(k);
+    if (!eligibility) {
       journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                       root_epoch, false, ApplyResult::NoOp);
+                       root_epoch, eligibility, ApplyResult::NoOp,
+                       effort_before);
       return ApplyResult::NoOp;
     }
+    rule_journal_transaction_begin(vt.name, candidate);
   }
 #endif
   if (vt.id >= Stats::MAX_TIMED_RULES)
@@ -164,7 +195,9 @@ ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
     if (journal)
       journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                       root_epoch, true, result);
+                       root_epoch, eligibility, result, effort_before);
+    if (journal)
+      rule_journal_transaction_end();
 #endif
     return result;
   }
@@ -175,10 +208,43 @@ ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   if (journal)
     journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                     root_epoch, true, r);
+                     root_epoch, eligibility, r, effort_before);
+  if (journal)
+    rule_journal_transaction_end();
 #endif
   return r;
 }
+
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+ApplyResult journal_direct_rule(Kernel &k, const char *name,
+                                const std::string &candidate,
+                                const std::function<ApplyResult()> &apply,
+                                ApplyResult declined_result) {
+  const int id = tactix_rule_id(name);
+  assert(id >= 0);
+  const RuleVTable &vt = tactix_rules()[static_cast<size_t>(id)];
+  assert(vt.kind == ActionKind::ProofRule);
+  if (!rule_journal_wants(k, name, candidate))
+    return apply();
+  const uint64_t formula_epoch = k.arena_generation;
+  const uint64_t root_epoch = k.touch_fixed_head;
+  const uint64_t pre_digest = rule_journal_digest(k);
+  const uint64_t effort_before = k.stats.ticks;
+  const RuleEligibility eligibility = vt.guard(k);
+  if (!eligibility) {
+    journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
+                     root_epoch, eligibility, ApplyResult::NoOp,
+                     effort_before);
+    return declined_result;
+  }
+  rule_journal_transaction_begin(name, candidate);
+  const ApplyResult result = apply();
+  journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
+                   root_epoch, eligibility, result, effort_before);
+  rule_journal_transaction_end();
+  return result;
+}
+#endif
 
 int tactix_rule_id(const char *name) {
   const auto &rules = tactix_rules();

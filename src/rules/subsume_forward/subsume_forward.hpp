@@ -20,7 +20,7 @@ constexpr uint32_t SUBSUME_BINLIM = 10000;
 // Guard: quiescent root — fully propagated, consistent, level 0. That is what
 // makes the semantic check sound as stated ("false" means root-falsified) and
 // keeps deletion away from in-flight reasons.
-bool subsume_forward_guard(const Kernel &);
+RuleEligibility subsume_forward_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = the arena Ref of a candidate clause, in
 // canonical processing order (size ascending): live, 3 <= size <=

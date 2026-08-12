@@ -15,7 +15,7 @@ namespace tactix {
 // Guard: quiescent root — the graph must reflect every level-0 unit before its
 // edges mean anything, and quiescence is what makes kernel_delete_binary's
 // in-place watch compaction safe.
-bool transitive_reduce_guard(const Kernel &);
+RuleEligibility transitive_reduce_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = a source literal, sign-extended DIMACS
 // int; one instance = one source = all its candidate edges, since a walk is

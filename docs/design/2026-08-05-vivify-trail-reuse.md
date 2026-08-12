@@ -230,12 +230,12 @@ get wrong, because there is no state that outlives the thing it describes.
 This also discharges, for free, three obligations that would otherwise each
 need their own argument:
 
-* `kernel_probing_end`'s contract — *"no clause may be added, deleted, or
-  relocated inside a scope: the log holds Refs and watch-list contents"* — is
-  satisfied because the scope closes before any mutation.
-* `kernel_probing_end`'s restore precondition (trail / `propagate_head` /
-  level back at the scope's entry values) is met, because `reset_to_root`
-  backtracks to level 0 first.
+* `kernel_probing_end`'s contract — no clause may be added, deleted, or arena-
+  relocated inside a scope — is satisfied because the scope closes before any
+  mutation. Propagation's legal watch relocation and `searched` pose persist,
+  matching Kissat's probing engine.
+* `reset_to_root` restores the trail / `propagate_head` / level values before a
+  formula mutation; no watch rollback is performed.
 * kissat's `reestablish_watch_invariant_for_candidate` has no counterpart here
   and needs none: it exists because kissat shrinks a clause in place while
   still at a non-zero level, and we never mutate above the root.

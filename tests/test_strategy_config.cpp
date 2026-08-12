@@ -1,3 +1,4 @@
+#undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
@@ -46,6 +47,45 @@ int main() {
   const std::array<int8_t, 8> focused_phases{{0, 1, 0, -1, 0, 0, 0, 0}};
   if (defaults.branching.focused_phase_pattern != focused_phases)
     return 1;
+
+  const auto classified = [](uint32_t vars, uint64_t clauses) {
+    Kernel shape;
+    shape.original_external_vars = vars;
+    shape.original_input_clauses = clauses;
+    DefaultPolicy policy;
+    policy.classify_formula_strategy(shape);
+    return policy.strategy_config();
+  };
+  // Pin the causal Phase-4 admission witnesses rather than their filenames.
+  const auto mp = classified(6360, 25200);
+  assert(!mp.inprocess.factor_enabled && !mp.inprocess.vivify_enabled &&
+         !mp.inprocess.congruence_enabled);
+  const auto stconn = classified(936, 6488);
+  assert(stconn.inprocess.preprocess_only &&
+         !stconn.branching.random_sequences && stconn.reorder.mode == 0 &&
+         !stconn.reduction.dynamic_tiers);
+  const auto grain105 = classified(3094431, 10684799);
+  assert(grain105.inprocess.preprocess_only &&
+         grain105.branching.random_sequences);
+  const auto grain87 = classified(3165161, 10917078);
+  assert(grain87.inprocess.preprocess_only &&
+         !grain87.inprocess.factor_enabled &&
+         !grain87.branching.random_sequences);
+  const auto dense_small = classified(862, 855716);
+  assert(!dense_small.inprocess.bve_enabled &&
+         !dense_small.inprocess.congruence_enabled &&
+         dense_small.inprocess.forward_midround_budget &&
+         dense_small.inprocess.vivify_permille ==
+             DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE &&
+         dense_small.inprocess.subsume_forward_permille ==
+             DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE);
+  const auto dense_large = classified(3032, 2000000);
+  assert(!dense_large.inprocess.bve_enabled &&
+         !dense_large.inprocess.congruence_enabled &&
+         dense_large.inprocess.forward_midround_budget &&
+         dense_large.inprocess.vivify_permille ==
+             DefaultStrategyConfig::Inprocess{}.vivify_permille);
+  assert(!mp.inprocess.forward_midround_budget);
 
   // Kissat rotates two focused epochs through forced initial/opposite phases.
   // This applies equally to ranked and random decisions.
@@ -118,7 +158,19 @@ int main() {
   kernel_assign_unit(compacted_random, make_lit(1, true));
   heuristics_compact_random_order_fixed(compacted_random);
   if (compacted_heuristics.h.random_order !=
-      std::vector<Var>({2, 0, 4, 3}))
+          std::vector<Var>({2, 0, 4, 3}) ||
+      compacted_heuristics.h.fixed_representative != 0)
+    return 1;
+  // A later preprocessing rule can derive another root unit. It remains in
+  // the random-index population but is excluded from the first stable heap;
+  // the original compacted representative stays in the random population but
+  // is fixed too, so Kissat excludes it from the heap as well.
+  kernel_assign_unit(compacted_random, make_lit(3, false));
+  heuristics_update_scores(compacted_random);
+  if (compacted_heuristics.h.random_order !=
+          std::vector<Var>({2, 0, 4, 3}) ||
+      heuristics_heap_contains(compacted_random, 0) ||
+      heuristics_heap_contains(compacted_random, 3))
     return 1;
 
   // `kissat_decide` increments its level before checking the random-sequence

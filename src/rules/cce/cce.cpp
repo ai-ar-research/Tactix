@@ -405,7 +405,11 @@ bool cover_range(Kernel &k, const CceIndex &idx, Coveror &cv,
 
 } // namespace
 
-bool cce_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
+RuleEligibility cce_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
+}
 
 void cce_literals(const Kernel &k, std::vector<Lit> &out) {
   out.clear();

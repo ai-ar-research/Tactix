@@ -1,12 +1,17 @@
 #include "proof/proof.hpp"
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+#include "diagnostics/rule_journal.hpp"
+#endif
 
 #include <cassert>
 #include <cinttypes>
+#include <cstdlib>
 
 namespace tactix {
 
 Proof::~Proof() {
   if (file_) {
+    flush_binary();
     fflush(file_);
     fclose(file_);
   }
@@ -16,8 +21,25 @@ bool Proof::open(const char *path, ProofFormat format) {
   file_ = fopen(path, "wb");
   format_ = format;
   if (file_)
-    setvbuf(file_, nullptr, _IOFBF, 1 << 20);
+    setvbuf(file_, nullptr,
+            format == ProofFormat::DratBinary ? _IONBF : _IOFBF, 1 << 20);
   return file_ != nullptr;
+}
+
+void Proof::put_byte(unsigned char byte) {
+  binary_buffer_[binary_buffer_size_++] = byte;
+  if (binary_buffer_size_ == binary_buffer_.size())
+    flush_binary();
+}
+
+void Proof::flush_binary() {
+  if (!file_ || !binary_buffer_size_)
+    return;
+  const size_t written =
+      fwrite(binary_buffer_.data(), 1, binary_buffer_size_, file_);
+  if (written != binary_buffer_size_)
+    std::abort();
+  binary_buffer_size_ = 0;
 }
 
 // Binary DRAT literal encoding (drat-trim format): map external literal e
@@ -32,10 +54,10 @@ void Proof::put_lit(Lit l) {
   if (format_ == ProofFormat::DratBinary) {
     uint32_t u = (static_cast<uint32_t>(e < 0 ? -e : e) << 1) | (e < 0);
     while (u >= 128) {
-      fputc(128 | (u & 127), file_);
+      put_byte(static_cast<unsigned char>(128 | (u & 127)));
       u >>= 7;
     }
-    fputc(u, file_);
+    put_byte(static_cast<unsigned char>(u));
   } else {
     fprintf(file_, "%d ", e);
   }
@@ -45,7 +67,7 @@ void Proof::put_u64(uint64_t v) { fprintf(file_, "%" PRIu64 " ", v); }
 
 void Proof::end_line() {
   if (format_ == ProofFormat::DratBinary)
-    fputc(0, file_);
+    put_byte(0);
   else
     fputs("0\n", file_);
 }
@@ -62,6 +84,9 @@ bool Proof::tautological(const Lit *lits, uint32_t size) {
 
 void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
                     const uint64_t *chain, uint32_t nchain) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_rup(id, chain, nchain);
+#endif
   assert(!tautological(lits, size)); // see Proof::tautological
   // Under LRAT a non-empty clause with NO antecedents is uncheckable: the
   // checker has nothing to propagate and rejects the line (`<id> <lits> 0 0`).
@@ -92,7 +117,7 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
     return;
   }
   if (format_ == ProofFormat::DratBinary)
-    fputc('a', file_);
+    put_byte('a');
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
   end_line();
@@ -100,6 +125,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
                     const int64_t *hints, uint32_t nhints) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_rat(id, hints, nhints);
+#endif
   assert(!tautological(lits, size)); // see Proof::tautological
 #ifndef NDEBUG
   if (format_ == ProofFormat::Lrat) // same terminator hazard as add_rup
@@ -122,7 +150,7 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
   // justification is inferred by the checker (first-literal RAT). Byte-identical
   // to add_rup's DRAT path, so DRAT output is unchanged.
   if (format_ == ProofFormat::DratBinary)
-    fputc('a', file_);
+    put_byte('a');
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
   end_line();
@@ -150,7 +178,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     fputs("0\n", file_);
     return;
   }
-  fputc('d', file_);
+  if (format_ == ProofFormat::DratBinary)
+    put_byte('d');
+  else
+    fputc('d', file_);
   if (format_ == ProofFormat::DratAscii)
     fputc(' ', file_);
   for (uint32_t i = 0; i < size; i++)
@@ -159,8 +190,10 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
 }
 
 void Proof::flush() {
-  if (file_)
+  if (file_) {
+    flush_binary();
     fflush(file_);
+  }
 }
 
 } // namespace tactix

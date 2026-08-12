@@ -19,7 +19,7 @@ namespace tactix {
 // Guard: quiescent root (D-ROOT) — the tautology test reads the live occurrence
 // structure, which only means what it says once every level-0 unit is
 // propagated.
-bool bce_guard(const Kernel &);
+RuleEligibility bce_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = the blocking literal. One instance =
 // one literal = delete every irredundant clause blocked on it; per-clause

@@ -152,6 +152,19 @@ static void test_retier_schedule_advances_only_on_otfs_conflicts(void) {
   assert(k.analysis_conflict_checkpoints.empty() &&
          "policy must consume each internal observation exactly once");
   assert(!p.update_tiers_after_analysis(k));
+  k.h->stable = true;
+  k.tier1_by_mode[0] = 2;
+  k.tier2_by_mode[0] = 6;
+  k.tier1_by_mode[1] = 2;
+  k.tier2_by_mode[1] = 5;
+  checkpoint.conflicts = 70000;
+  checkpoint.mode = 1;
+  checkpoint.used_glue[3] = 1;
+  k.analysis_conflict_checkpoints.push_back(checkpoint);
+  assert(p.update_tiers_after_analysis(k));
+  assert(k.tier1 == k.tier1_by_mode[1] &&
+         k.tier2 == k.tier2_by_mode[1] &&
+         "an internal stable-mode retier must be posed before OTFS resumes");
   std::printf("  retier cadence: only OTFS re-analysis advances glue limit\n");
 }
 
@@ -489,6 +502,28 @@ static void test_authored_slot_order_covers_registry(void) {
   std::printf("  authored slot order: %zu rows, registry-complete\n", norder);
 }
 
+static void test_default_slot_membership_matches_kissat(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  const auto &rules = tactix_rules();
+  static constexpr const char *POSED_ONLY[] = {
+      "HyperBinaryRes", "Probe", "HyperTernaryRes",
+      "Instantiate",    "BCE",   "CCE",
+  };
+  for (const auto &entry : p.inprocess().entries) {
+    const char *name = rules[entry.rule].name;
+    bool posed_only = false;
+    for (const char *candidate : POSED_ONLY)
+      posed_only = posed_only || !std::strcmp(name, candidate);
+    assert(entry.enabled != posed_only &&
+           "production membership must be exactly the original-Kissat "
+           "pipeline; non-Kissat proof rules remain explicitly poseable");
+  }
+  std::printf("  slot membership: original Kissat; six extra rules poseable\n");
+}
+
 // --- the two clocks are actually two ----------------------------------------
 // kissat runs probing on probeint=100 x NLOGN (probe.c:85) and elimination on
 // eliminateint=500 x NLOG2N (eliminate.c:600), so at the same phase count the
@@ -555,9 +590,56 @@ static void test_initial_elimination_deadline_matches_kissat(void) {
   assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate) &&
          "elimination must not fire immediately after conflict one");
   k.stats.conflicts = delta;
+  assert(!p.inprocess().want_phase(k, SlotGroup::Eliminate) &&
+         "Kissat enters only after, not at, the stored conflict limit");
+  k.stats.conflicts++;
   assert(p.inprocess().want_phase(k, SlotGroup::Eliminate));
-  std::printf("  initial elimination: waits until scaled conflict %llu\n",
+  std::printf("  initial elimination: waits past scaled conflict %llu\n",
               (unsigned long long)delta);
+}
+
+// kimits.c scales from BINIRR_CLAUSES, whose binary component is live.  The
+// kernel's binary-id table is intentionally historical so proof deletions and
+// later re-additions remain nameable; it must not leak into this scheduler
+// statistic.
+static void test_inprocess_scale_ignores_deleted_binary_ids(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(2);
+  kernel_add_binary_clause(k, a, b, 41);
+  assert(kernel_irredundant_clauses(k) == 1);
+  assert(kernel_delete_binary(k, a, b));
+  assert(k.binary_ids.size() == 1 && "the proof identity remains archived");
+  assert(kernel_irredundant_clauses(k) == 0 &&
+         "scaled inprocessing deadlines count live binaries only");
+}
+
+static void test_congruence_preprocess_bumps_first_search_delay(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  const auto &rules = tactix_rules();
+  DefaultInprocessScheduler::SlotEntry *congruence = nullptr;
+  for (auto &e : p.inprocess().entries) {
+    const bool selected = !std::strcmp(rules[e.rule].name, "Congruence");
+    e.enabled = selected;
+    if (selected)
+      congruence = &e;
+  }
+  assert(congruence);
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(congruence->tm.admitted == 1);
+  assert(congruence->delay_current == 1 && congruence->delay_count == 1 &&
+         "Kissat bumps an unproductive Congruence delay during preprocessing");
+
+  // New formula material makes the closure watermark eligible, but the named
+  // delay must be consumed before Congruence does any setup.
+  kernel_add_binary_clause(k, internalize(1), internalize(2), 51);
+  k.stats.conflicts = 1;
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(congruence->tm.admitted == 1 && congruence->tm.dec_delay == 1);
+  assert(congruence->delay_count == 0);
 }
 
 // --- the elapsed interval is necessary, not sufficient ----------------------
@@ -864,7 +946,9 @@ static void test_startup_sparse_collection_precedes_probe(void) {
   DefaultPolicy p;
   assert(p.solve(k) == 20);
   assert(k.stats.sparse_collections == 1);
-  assert(k.stats.sparse_collected == 2);
+  // The sparse collector removes the satisfied large clause, rewrites the
+  // shortened one, and drops the three root-satisfied binary pairs first.
+  assert(k.stats.sparse_collected == 5);
   assert(k.stats.strengthen_rounds == 0 &&
          "startup collection is scaffolding, not an authored C2 slot");
 }
@@ -891,8 +975,11 @@ int main() {
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
   test_authored_slot_order_covers_registry();
+  test_default_slot_membership_matches_kissat();
   test_two_slot_clocks_diverge();
   test_initial_elimination_deadline_matches_kissat();
+  test_inprocess_scale_ignores_deleted_binary_ids();
+  test_congruence_preprocess_bumps_first_search_delay();
   test_slot_gates_decline_without_new_material();
   std::printf("test_scheduling: all passed\n");
   return 0;

@@ -19,7 +19,7 @@
 namespace tactix {
 
 // Guard: quiescent root, the probing family's precondition (as in V1).
-bool hyperbinary_guard(const Kernel &k);
+RuleEligibility hyperbinary_guard(const Kernel &k);
 
 // Canonical instance: one full round over the probing-candidate schedule.
 // Resolution happens post-hoc, off the finished probing trail, where cadical

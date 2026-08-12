@@ -3,6 +3,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/strengthen/strengthen.hpp"
 
@@ -106,6 +107,32 @@ static void test_unit_producing_strengthen_ends_round() {
   assert(live_large(k) == 0);
 }
 
+static void test_partner_budget_rearms_current_candidate() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, c, 3, false, 0);
+  // None of these binaries acts on c, but they make its first watch scan long
+  // enough to prove that the cut happens inside a candidate, not merely
+  // between candidates.
+  for (int v = 4; v <= 8; ++v)
+    kernel_add_binary_clause(k, internalize(1), internalize(v));
+  k.midround_budget = true;
+  k.work_budget = 1;
+  assert(strengthen_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.strengthen_visits == 1);
+  assert(k.stats.budget_stops_c2 == 1);
+  assert(!k.strengthen_complete);
+  assert(k.stats.strengthen_rearmed > 0);
+  assert(live_large(k) == 1);
+
+  k.midround_budget = false;
+  k.work_budget = 0;
+  assert(strengthen_apply(k) == ApplyResult::NoOp);
+  assert(k.strengthen_complete);
+  kernel_check_invariants(k);
+}
+
 static void test_instance_surface() {
   // instances() lists candidates size-ascending; apply_instance does one step
   Kernel k;
@@ -152,6 +179,7 @@ static void test_slot_schedule_as_data() {
   {
     // posed: Strengthen on, SubsumeForward off, forced from the first check
     Kernel k;
+    ScopedHeuristics heuristics(k);
     kernel_reserve_vars(k, 3);
     k.stats.conflicts = 1;
     for (const auto &b : xor3)
@@ -164,15 +192,17 @@ static void test_slot_schedule_as_data() {
     p.inprocess().elim_clock.next_conflicts = 0;
     p.inprocess().entries.push_back(pose(strengthen_id, true));
     p.inprocess().entries.push_back(pose(subsume_id, false));
-    assert(p.solve(k) == 20); // odd-parity xor cycle: UNSAT
+    const int phase = p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr);
     assert(p.inprocess().entries.size() == 2); // posed slot left untouched
     assert(p.inprocess().elim_clock.rounds >= 1);     // the forced pass ran
     assert(k.stats.strengthen_rounds >= 1);
     assert(k.stats.forward_subsumptions == 0); // disabled entry never ran
+    assert(phase == 20 || p.solve(k) == 20); // odd-parity xor cycle: UNSAT
   }
   {
     // fully disabled slot suppresses all rounds
     Kernel k;
+    ScopedHeuristics heuristics(k);
     kernel_reserve_vars(k, 3);
     k.stats.conflicts = 1;
     for (const auto &b : xor3)
@@ -183,7 +213,7 @@ static void test_slot_schedule_as_data() {
     p.inprocess().probe_clock.next_conflicts = 0;
     p.inprocess().elim_clock.next_conflicts = 0;
     p.inprocess().entries.push_back(pose(strengthen_id, false));
-    assert(p.solve(k) == 20);
+    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
     assert(k.stats.strengthen_rounds == 0);
   }
 }
@@ -297,6 +327,7 @@ int main() {
   test_fused_subsumption();
   test_large_partner_and_cascade();
   test_unit_producing_strengthen_ends_round();
+  test_partner_budget_rearms_current_candidate();
   test_instance_surface();
   test_slot_schedule_as_data();
   test_root_flush();

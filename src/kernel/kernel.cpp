@@ -1,5 +1,6 @@
 #include "kernel/kernel.hpp"
 
+#include "diagnostics/rule_journal.hpp"
 #include "policies/event_trace.hpp"
 
 #include "policies/heuristics.hpp" // the opaque `H`: Kernel's ctor/dtor + calls
@@ -7,10 +8,16 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <numeric>
 #include <type_traits>
 #include <utility>
 
 namespace tactix {
+
+void kernel_update_target_phases(Kernel &k) {
+  if (k.h)
+    heuristics_update_target_phases(k);
+}
 
 // The kernel does NOT own `H`: it is a non-owning `Heuristics *`
 // (kernel.hpp), attached by whoever owns the storage (the session / a policy).
@@ -114,6 +121,39 @@ uint64_t kernel_import_lit_order(const Kernel &k, Lit lit) {
   return 2 * kernel_import_var_order(k, var_of(lit)) + negated(lit);
 }
 
+void kernel_vars_in_import_order(const Kernel &k, std::vector<Var> &order) {
+  order.resize(k.nvars);
+  // Before variable compaction, finish_input gives every live variable one
+  // dense import rank.  Invert that permutation in linear time: comparison
+  // sorting tens of millions of stable identities only reconstructs the same
+  // order Kissat already has in its compact internal indices.
+  if (k.next_import_rank == k.nvars) {
+    for (Var v = 0; v < k.nvars; v++) {
+      const uint64_t rank = kernel_import_var_order(k, v);
+      assert(rank < k.nvars);
+      order[rank] = v;
+    }
+    return;
+  }
+  // Compaction can leave holes in the permanent external import ranks.
+  std::iota(order.begin(), order.end(), 0);
+  std::sort(order.begin(), order.end(), [&](Var a, Var b) {
+    return kernel_import_var_order(k, a) < kernel_import_var_order(k, b);
+  });
+}
+
+void kernel_vars_in_external_order(const Kernel &k, std::vector<Var> &order) {
+  order.clear();
+  order.reserve(k.nvars);
+  // Kissat's `solver->import` is indexed by external variable identity, not
+  // by the order in which tumble assigned internal identities.  Retired
+  // external variables remain as holes after compaction and are skipped.
+  for (const Var internal : k.external_to_internal)
+    if (internal != INVALID_VAR)
+      order.push_back(internal);
+  assert(order.size() == k.nvars);
+}
+
 Var kernel_new_extension_vars(Kernel &k, uint32_t count) {
   const Var first = k.nvars;
   if (k.first_extension_var == UINT32_MAX) {
@@ -176,6 +216,9 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   c->set_id(id);
   for (uint32_t i = 0; i < size; i++)
     c->lits[i] = lits[i];
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_large_add(k, lits, size, id, redundant, glue);
+#endif
   k.watches.push_large(lits[0], lits[1], ref);
   k.watches.push_large(lits[1], lits[0], ref);
   // Irredundant clauses only, for all three consumers: the dense index (Refs
@@ -207,6 +250,18 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   return ref;
 }
 
+uint64_t kernel_clause_order(const Kernel &k, uint64_t id) {
+  const auto found = k.clause_order_alias.find(id);
+  return found == k.clause_order_alias.end() ? id : found->second;
+}
+
+void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
+                                 uint64_t source_id) {
+  assert(replacement_id && source_id);
+  k.clause_order_alias.insert_or_assign(replacement_id,
+                                        kernel_clause_order(k, source_id));
+}
+
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
@@ -229,6 +284,9 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   kernel_touch_var(k, var_of(b));
   k.factor_marks[a] = 1;
   k.factor_marks[b] = 1;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_binary_add(k, a, b, id);
+#endif
 }
 
 // Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
@@ -343,7 +401,7 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
 // kernel_delete_binary already uses, and the walk must be entry-aware rather
 // than word-aware because a large watch occupies two consecutive words.
 void kernel_unwatch_large(Kernel &k, Lit l, Ref ref) {
-  assert(k.delayed.empty());     // no scan may hold pointers into this slice
+  assert(!k.delayed_used);       // no scan may hold pointers into this slice
   assert(!k.probing.recording);  // an unlogged edit would survive the rollback
   bool removed = false;
   k.watches.compact(l, [&](WatchEntry w) {
@@ -526,8 +584,11 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
       if (k.retire_enabled && kernel_var_retired(k, v)) {
         // leave both structures alone; it stays out for good
       } else if (k.h->stable) {
-        if (!heuristics_heap_contains(k, v))
+        if (!heuristics_heap_contains(k, v)) {
+          event_trace_detail(k, "heap_reinsert",
+                             kernel_externalize(k, make_lit(v, false)));
           heuristics_heap_push(k, v);
+        }
       } else if (k.h->links[v].stamp > k.h->search_stamp) {
         k.h->search_idx = v;
         k.h->search_stamp = k.h->links[v].stamp;
@@ -598,6 +659,7 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // primitive prefixes its LRAT deletion line with. That was an unstated,
   // uncheckable invariant while this site passed `id` by hand; assert it.
   assert(id == k.next_clause_id);
+  kernel_inherit_clause_order(k, id, c->id());
   kernel_delete_clause(k, c); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
     k.inconsistent = true; // emitted IS the refutation
@@ -617,16 +679,29 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
 
 RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
                                           uint64_t *changed) {
-  assert(k.level == 0);
+  const Ref original_ref = *ref;
   Clause *c = clause_at(k.arena, *ref);
   assert(!c->garbage());
-  std::vector<Lit> kept;
-  std::vector<uint64_t> chain;
-  kept.reserve(c->size);
-  if (k.proof && k.proof->lrat())
-    chain.reserve(c->size + 1);
+  const bool reason_clause = c->reason();
+  Var reason_var = INVALID_VAR;
+  bool has_root_false = false;
   for (const Lit l : *c) {
-    if (k.value(l) > 0) {
+    const int8_t root_value = kernel_root_value(k, l);
+    if (root_value > 0) {
+      // A higher-level reason cannot also be satisfied by a root literal.
+      // Root reasons are deliberately retired to UNIT_REASON by GC below.
+#ifndef NDEBUG
+      if (reason_clause)
+        for (const Lit assigned_lit : k.trail) {
+          const Var v = var_of(assigned_lit);
+          const Assigned &a = k.assigned[v];
+          if (!a.binary && a.reason == original_ref) {
+            assert(reason_var == INVALID_VAR);
+            reason_var = v;
+          }
+        }
+      assert(reason_var == INVALID_VAR || k.assigned[reason_var].level == 0);
+#endif
       if (kernel_shadow_retire(k, c->id()))
         k.stats.c1_shadow_deleted++;
       kernel_delete_clause(k, c);
@@ -635,7 +710,22 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
         (*changed)++;
       return RootFlushOutcome::Deleted;
     }
-    if (k.value(l) < 0) {
+    has_root_false |= root_value < 0;
+  }
+  if (!has_root_false)
+    return RootFlushOutcome::None;
+
+  // Allocate rewrite/proof scratch only for a clause that really shrinks.
+  // Root collection visits every live clause, while most are unchanged; the
+  // former eager vectors made that common case pay two heap allocations and a
+  // full literal copy merely to discover `None`.
+  std::vector<Lit> kept;
+  std::vector<uint64_t> chain;
+  kept.reserve(c->size);
+  if (k.proof && k.proof->lrat())
+    chain.reserve(c->size + 1);
+  for (const Lit l : *c) {
+    if (kernel_root_value(k, l) < 0) {
       if (k.proof && k.proof->lrat()) {
         const uint64_t unit_id = k.unit_ids[var_of(l)];
         assert(unit_id);
@@ -645,8 +735,21 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
       kept.push_back(l);
     }
   }
-  if (kept.size() == c->size)
-    return RootFlushOutcome::None;
+
+  // Locating a large reason is O(trail).  Most reason clauses encountered by
+  // root collection are already satisfied and return above, so doing this
+  // before scanning the clause made the collector quadratic in the root trail
+  // for no semantic benefit.  A rewritten unsatisfied reason still needs the
+  // exact owner so its arena reference can be repaired below.
+  if (reason_clause)
+    for (const Lit assigned_lit : k.trail) {
+      const Var v = var_of(assigned_lit);
+      const Assigned &a = k.assigned[v];
+      if (!a.binary && a.reason == original_ref) {
+        assert(reason_var == INVALID_VAR);
+        reason_var = v;
+      }
+    }
 
   if (kernel_shadow_retire(k, c->id()))
     k.stats.c1_shadow_rewritten++;
@@ -654,6 +757,12 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   const bool redundant = c->redundant();
   const uint32_t glue = kernel_shrunken_glue(
       k, c->glue(), static_cast<uint32_t>(kept.size()));
+  // At a root propagation fixpoint this cannot be needed above level zero: a
+  // clause with one non-root-fixed literal would already have made that
+  // literal root-fixed.  Keep the primitive sound for an off-fixpoint caller,
+  // though: unwind before turning the replacement into a permanent unit.
+  if (kept.size() == 1 && k.level)
+    kernel_backtrack(k, 0, /*search_backtrack=*/false);
   const uint64_t id = ++k.next_clause_id;
   if (k.proof) {
     if (k.proof->lrat()) {
@@ -687,18 +796,36 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
     return RootFlushOutcome::Unit;
   }
   case ReplaceOutcome::Binary:
+    if (reason_var != INVALID_VAR) {
+      Assigned &a = k.assigned[reason_var];
+      const Lit forced = k.trail[a.trail];
+      assert(kept.size() == 2 &&
+             (kept[0] == forced || kept[1] == forced));
+      a.reason = kept[0] == forced ? kept[1] : kept[0];
+      a.binary = true;
+      a.jumped = false;
+    }
+    assert(!k.pending.valid || k.pending.ref != original_ref);
     return RootFlushOutcome::Binary;
   case ReplaceOutcome::Large:
+    if (reason_var != INVALID_VAR) {
+      Assigned &a = k.assigned[reason_var];
+      a.reason = *ref;
+      clause_at(k.arena, *ref)->flags |= Clause::REASON;
+    }
+    if (k.pending.valid && k.pending.ref == original_ref) {
+      k.pending.ref = *ref;
+      clause_at(k.arena, *ref)->flags |= Clause::REASON;
+    }
     return RootFlushOutcome::Rewritten;
   }
   assert(false);
   return RootFlushOutcome::Refuted;
 }
 
-RootCollectOutcome kernel_sparse_collect_root(Kernel &k) {
-  assert(k.level == 0);
+RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   k.stats.sparse_collections++;
-  if (!kernel_root_fixed(k))
+  if (!kernel_has_root_assignment(k))
     return RootCollectOutcome::NoChange;
   // Rewrites allocate a new variable-width record, but Kissat's collector
   // emits that record at the old clause's position. Preserve the same relative
@@ -709,6 +836,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k) {
     void order(const Kernel &k, std::vector<Ref> &refs) override {
       if (refs.size() != desired.size())
         return; // defensive: never drop an unaccounted live clause
+#ifndef NDEBUG
       std::vector<uint8_t> seen(k.arena.size());
       for (const Ref ref : refs)
         seen[ref] = 1;
@@ -717,13 +845,63 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k) {
           return;
         else
           seen[ref] = 0;
+#else
+      (void)k;
+#endif
       refs = desired;
     }
   } root_order;
   uint64_t changed = 0;
   RootCollectOutcome outcome = RootCollectOutcome::NoChange;
+
+  // A Reduce collection starts at the first redundant clause.  The live
+  // irredundant prefix is copied byte-for-byte and is not root-flushed, just
+  // as in Kissat's `sparse_sweep_garbage_clauses(start)`.
+  for (Ref ref = 0; ref < start;) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage())
+      root_order.desired.push_back(ref);
+    ref += clause_words(c->size);
+  }
+
+  // Kissat's sparse collector flushes watched binaries before sweeping the
+  // large-clause arena (collect.c:flush_watched_clauses_by_literal).  In
+  // particular it drops binaries satisfied by any root literal.  Keeping
+  // those pairs made initial collection create 216 shortened binaries on
+  // FmlaEquivChain without retiring the 216 already-satisfied pairs, shifting
+  // every later Factor score even though the root assignment was identical.
+  // Snapshot unique pairs first because deletion compacts both watch lists.
+  std::vector<std::pair<Lit, Lit>> satisfied_binaries;
+  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
+    for (const WatchEntry watch : k.watches.entries(lit)) {
+      if (!watch.binary())
+        continue;
+      const Lit other = watch.other();
+      if (kernel_import_lit_order(k, lit) >=
+          kernel_import_lit_order(k, other))
+        continue;
+      if (kernel_root_value(k, lit) > 0 ||
+          kernel_root_value(k, other) > 0)
+        satisfied_binaries.emplace_back(lit, other);
+    }
+  std::sort(satisfied_binaries.begin(), satisfied_binaries.end());
+  satisfied_binaries.erase(
+      std::unique(satisfied_binaries.begin(), satisfied_binaries.end()),
+      satisfied_binaries.end());
+  for (const auto &[a, b] : satisfied_binaries) {
+    const uint32_t copies = kernel_binary_copies(k, a, b);
+    if (!copies)
+      continue;
+    const bool deleted = copies == 1 ? kernel_delete_binary(k, a, b)
+                                     : kernel_delete_binary_all_copies(k, a, b);
+    assert(deleted);
+    (void)deleted;
+    changed += copies;
+    outcome = RootCollectOutcome::Changed;
+  }
+
   const Ref original_end = static_cast<Ref>(k.arena.size());
-  for (Ref ref = 0; ref < original_end;) {
+  for (Ref ref = start; ref < original_end;) {
     const uint32_t words = clause_words(clause_at(k.arena, ref)->size);
     if (!clause_at(k.arena, ref)->garbage()) {
       Ref current = ref;
@@ -748,7 +926,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k) {
   if (changed && outcome != RootCollectOutcome::Refuted) {
     ArenaOrdering *const saved = k.arena_ordering;
     k.arena_ordering = &root_order;
-    kernel_collect_garbage(k);
+    kernel_collect_garbage(k, start, /*apply_sparse_order=*/true);
     k.arena_ordering = saved;
   }
   return outcome;
@@ -783,7 +961,7 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
 }
 
 template <bool RECORD> static inline void flush_delayed(Kernel &k) {
-  for (size_t i = 0; i < k.delayed.size(); i += 3) {
+  for (size_t i = 0; i < k.delayed_used; i += 3) {
     const Lit lit = k.delayed[i];
     const Lit blocking = k.delayed[i + 1];
     const Ref ref = k.delayed[i + 2];
@@ -791,21 +969,23 @@ template <bool RECORD> static inline void flush_delayed(Kernel &k) {
       probing_snapshot_list(k, lit); // before the push grows/moves the list
     k.watches.push_large(lit, blocking, ref);
   }
-  k.delayed.clear();
+  k.delayed_used = 0;
 }
 
 // Returns true iff a conflict was found (recorded in the kernel). `ignore`
 // (cadical's ignore pointer) is a clause ref that must not propagate or
 // conflict during this scan: a rule probing a candidate's own negated literals
 // must not derive anything through the candidate. `RECORD` logs every
-// watch-list / clause-header update into k.probing so a probing scope can undo
-// them; false for search, where codegen is as if the log did not exist.
+// watch-list / clause-header update into k.probing when an observer explicitly
+// requests rollback; false for search and for the canonical probing engine.
+// Kissat's probing propagator retains relocation and `searched` churn, so the
+// production probing path deliberately uses the false instantiation too.
 template <bool RECORD, bool BEYOND = false>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   const Lit not_lit = negate(lit);
   if constexpr (!RECORD)
     event_trace_watch_scan(k, lit);
-  assert(k.delayed.empty());
+  assert(!k.delayed_used);
   // Not WatchLists::entries/compact: this scan COPIES each entry forward and
   // then rewinds or rewrites it (dropped garbage, a new blocking literal, a
   // delayed relocation), which is neither a read-only walk nor a keep/drop
@@ -820,6 +1000,13 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   uint32_t *q = begin;
   const uint32_t *p = q;
   const uint32_t *const end = k.watches.end(not_lit);
+  // At most one relocation triple per large (two-word) watch entry.  Retain
+  // the largest backing store across scans and write through a raw cursor;
+  // this is Kissat's inline stack discipline without vector::push_back on
+  // each of the three words.
+  const size_t delayed_capacity = 3 * ((end - p + 1) / 2);
+  if (k.delayed.size() < delayed_capacity)
+    k.delayed.resize(delayed_capacity);
   bool conflict = false;
   // search ticks, kissat's proplit.h charge exactly: 1 + the cache lines of
   // the watch list scanned, then +1 per binary assignment (:92), per
@@ -853,8 +1040,6 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
     } else {
       const Ref ref = *q++ = *p++;
       if (blocking_value > 0)
-        continue;
-      if (ref == ignore) // keep the watch, derive nothing through it
         continue;
       ticks++;
       Clause *c = clause_at(arena, ref);
@@ -905,11 +1090,16 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         lits[1] = replacement;
         *r = not_lit;
         q -= 2;
-        k.delayed.push_back(replacement);
-        k.delayed.push_back(other);
-        k.delayed.push_back(ref);
+        k.delayed[k.delayed_used++] = replacement;
+        k.delayed[k.delayed_used++] = other;
+        k.delayed[k.delayed_used++] = ref;
         ticks++;
       } else if (other_value < 0) { // conflict
+        // Kissat tests the ignored candidate only after performing any legal
+        // watch relocation above.  Skipping at dereference time preserves a
+        // different clause pose and can change a later antecedent choice.
+        if (ref == ignore)
+          continue;
         conflict = true;
         if constexpr (!BEYOND) {
           k.conflict_valid = true;
@@ -917,6 +1107,8 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
           break;
         }
       } else { // unit: assign `other` with this clause as reason
+        if (ref == ignore)
+          continue;
         kernel_assign_ref(k, other, ref);
         ticks++;
         k.stats.propagations++;
@@ -1041,11 +1233,12 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
 // kernel_propagate, so the derived literals, their trail order and the recorded
 // conflict are the same.
 
-void kernel_probing_begin(Kernel &k) {
+void kernel_probing_begin(Kernel &k, bool rollback_pose) {
   ProbingLog &lg = k.probing;
   if (lg.recording)
     kernel_probing_end(k); // defensive: scopes never nest
   lg.recording = true;
+  lg.rollback_pose = rollback_pose;
   lg.base_trail = static_cast<uint32_t>(k.trail.size());
   lg.base_head = k.propagate_head;
   lg.base_level = k.level;
@@ -1060,16 +1253,8 @@ void kernel_probing_end(Kernel &k) {
   if (!lg.recording)
     return;
   lg.recording = false;
-  // Restore only from a fully unwound trail. If anything the speculation
-  // derived is still assigned, the relocations it made are load-bearing: a
-  // clause whose watch moved off a literal that STAYS false would otherwise
-  // have no live watch able to fire when it later goes unit. Keeping the
-  // updates in that case is exactly the pre-existing behaviour, so it is sound.
-  if (k.trail.size() == lg.base_trail && k.propagate_head == lg.base_head &&
-      k.level == lg.base_level) {
-    // clause records in reverse: each undoes one 3-cycle
-    // (lits[0], lits[1], lits[rpos]) <- (other, replacement, not_lit), and at
-    // this point lits[1] still holds that record's `replacement`
+  if (lg.rollback_pose && k.trail.size() == lg.base_trail &&
+      k.propagate_head == lg.base_head && k.level == lg.base_level) {
     for (size_t i = lg.clauses.size(); i-- > 0;) {
       const ProbingLog::ClauseSnap &s = lg.clauses[i];
       Clause *c = clause_at(k.arena, s.ref);
@@ -1078,9 +1263,9 @@ void kernel_probing_end(Kernel &k) {
       c->lits[1] = s.lit1;
       c->searched = s.searched;
     }
-    kernel_charge_ticks(k, lg.clauses.size()); // S3: restore traffic, same currency
+    kernel_charge_ticks(k, lg.clauses.size());
     for (const ProbingLog::ListSnap &s : lg.lists) {
-      k.watches.ensure_capacity(s.lit, s.size); // a defrag may have clamped it
+      k.watches.ensure_capacity(s.lit, s.size);
       std::copy(lg.words.begin() + s.off, lg.words.begin() + s.off + s.size,
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
       WatchHead &h = k.watches.heads[s.lit];
@@ -1111,7 +1296,10 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   } else {
     while (k.propagate_head < k.trail.size()) {
       const Lit lit = k.trail[k.propagate_head];
-      if (propagate_literal<true, false>(k, lit, ignore)) {
+      const bool found = k.probing.rollback_pose
+                             ? propagate_literal<true, false>(k, lit, ignore)
+                             : propagate_literal<false, false>(k, lit, ignore);
+      if (found) {
         conflict = true; // same "do not advance past the conflicting scan" rule
         break;
       }
@@ -1188,7 +1376,8 @@ static void sort_clause_watches_like_kissat(Kernel &k, Clause *c) {
     move_best_watch_to_front(k, c, 1, first >= 0);
 }
 
-void kernel_collect_garbage(Kernel &k, Ref watch_start) {
+void kernel_collect_garbage(Kernel &k, Ref watch_start,
+                            bool apply_sparse_order) {
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
   // over the compacted arena. Long an implicit assumption of the probing log;
@@ -1229,7 +1418,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   // Arena-order policies belong to whole-arena/inprocessing collection.
   // Kissat's Reduce preserves the prefix and sweeps the reducible tail in its
   // existing arena order, even while Tactix has an inprocessing order posed.
-  if (k.arena_ordering && !watch_start)
+  if (k.arena_ordering && (!watch_start || apply_sparse_order))
     k.arena_ordering->order(k, order);
 #ifndef NDEBUG
   std::vector<uint8_t> seen(k.arena.size());
@@ -1295,9 +1484,9 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start) {
   for (Ref &ref : k.otfs_retired)
     ref = clause_at(k.arena, ref)->searched;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    k.watches.compact(lit, [&k, watch_start](WatchEntry w) {
+    k.watches.compact(lit, [&k, watch_start, lit](WatchEntry w) {
       return w.binary() ||
-             (w.ref() < watch_start &&
+             (kernel_root_value(k, lit) == 0 && w.ref() < watch_start &&
               !clause_at(k.arena, w.ref())->garbage());
     });
     k.watches.map_large_refs(lit, [&k](Ref ref) {
@@ -1358,7 +1547,101 @@ void kernel_rebuild_large_watches(Kernel &k) {
   }
 }
 
-void kernel_canonicalize_binary_watches(Kernel &k) {
+void kernel_resume_walk_watches(Kernel &k) {
+  // Walk's non-null dense entry deletes root-satisfied binaries before saving
+  // and restoring the root-open population.  This is the *null-stack* Walk
+  // transition, not Congruence's sorted binary-save transition: preserve each
+  // surviving sparse binary list in its current order, then reconnect large
+  // clauses in arena order.  Sorting the binaries here agrees locally after
+  // Walk but changes the later learned-clause antecedent order.
+  std::vector<std::pair<Lit, Lit>> satisfied;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry watch : k.watches.entries(lit)) {
+      if (!watch.binary())
+        continue;
+      const Lit other = watch.other();
+      if (lit >= other)
+        continue;
+      if (kernel_root_value(k, lit) > 0 ||
+          kernel_root_value(k, other) > 0)
+        satisfied.emplace_back(lit, other);
+    }
+  std::sort(satisfied.begin(), satisfied.end());
+  satisfied.erase(std::unique(satisfied.begin(), satisfied.end()),
+                  satisfied.end());
+  for (const auto &[a, b] : satisfied) {
+    const uint32_t copies = kernel_binary_copies(k, a, b);
+    if (copies == 1)
+      kernel_delete_binary(k, a, b);
+    else if (copies > 1)
+      kernel_delete_binary_all_copies(k, a, b);
+  }
+  // Save each surviving pair once in the order exposed by the current compact
+  // internal universe.  Walk's null-stack dense transition does not run the
+  // Congruence pair sort, but sparse resume does rebuild one packed arena; an
+  // in-place large-only rebuild leaves old slice capacities and mirror pose
+  // behind and is therefore not the same transition.
+  std::vector<std::pair<Lit, Lit>> binaries;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary() && lit < watch.other())
+        binaries.emplace_back(lit, watch.other());
+
+  std::vector<uint32_t>().swap(k.watches.arena);
+  k.watches.holes = 0;
+  for (WatchHead &head : k.watches.heads)
+    head = WatchHead{};
+  for (const auto &[a, b] : binaries) {
+    k.watches.heads[a].size++;
+    k.watches.heads[b].size++;
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      sort_clause_watches_like_kissat(k, c);
+      c->searched = 2;
+      k.watches.heads[c->lits[0]].size += 2;
+      k.watches.heads[c->lits[1]].size += 2;
+    }
+    ref += words;
+  }
+  uint64_t total_words = 0;
+  for (WatchHead &head : k.watches.heads) {
+    assert(total_words + head.size <= UINT32_MAX);
+    head.offset = static_cast<uint32_t>(total_words);
+    head.capacity = head.size;
+    total_words += head.size;
+    head.size = 0;
+  }
+  k.watches.arena.resize(static_cast<size_t>(total_words));
+  const auto push_word = [&](Lit lit, uint32_t word) {
+    WatchHead &head = k.watches.heads[lit];
+    assert(head.size < head.capacity);
+    k.watches.arena[head.offset + head.size++] = word;
+  };
+  for (const auto &[a, b] : binaries) {
+    push_word(a, binary_watch(b).raw);
+    push_word(b, binary_watch(a).raw);
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      const Lit first = c->lits[0], second = c->lits[1];
+      push_word(first, blocking_watch(second).raw);
+      push_word(first, ref);
+      push_word(second, blocking_watch(first).raw);
+      push_word(second, ref);
+      k.watches.heads[first].has_large = true;
+      k.watches.heads[second].has_large = true;
+    }
+    ref += words;
+  }
+}
+
+void kernel_canonicalize_binary_watches(Kernel &k,
+                                        bool count_congruence_rebuild) {
   // Kissat Congruence enters dense mode with a non-null binary save stack.
   // `dense.c:flush_large_watches` walks literals globally, keeps the first
   // copy of each binary, and saves a pair only at its smaller literal. Then
@@ -1371,54 +1654,117 @@ void kernel_canonicalize_binary_watches(Kernel &k) {
   std::vector<std::pair<Lit, Lit>> binaries;
   std::vector<uint32_t> seen(2 * k.nvars, 0);
   uint32_t epoch = 0;
-  std::vector<Lit> ordered_literals(2 * k.nvars);
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    ordered_literals[lit] = lit;
-  std::sort(ordered_literals.begin(), ordered_literals.end(),
-            [&](Lit a, Lit b) {
-              return kernel_import_lit_order(k, a) <
-                     kernel_import_lit_order(k, b);
-            });
-  for (const Lit lit : ordered_literals) {
-    if (++epoch == 0) {
-      std::fill(seen.begin(), seen.end(), 0);
-      epoch = 1;
+  std::vector<Var> ordered_variables;
+  kernel_vars_in_import_order(k, ordered_variables);
+  for (const Var variable : ordered_variables)
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit lit = make_lit(variable, sign != 0);
+      if (++epoch == 0) {
+        std::fill(seen.begin(), seen.end(), 0);
+        epoch = 1;
+      }
+      for (const WatchEntry w : k.watches.entries(lit)) {
+        if (!w.binary())
+          continue;
+        const Lit other = w.other();
+        if (kernel_import_lit_order(k, lit) >=
+                kernel_import_lit_order(k, other) ||
+            seen[other] == epoch)
+          continue;
+        seen[other] = epoch;
+        binaries.emplace_back(lit, other);
+      }
     }
-    for (const WatchEntry w : k.watches.entries(lit)) {
-      if (!w.binary())
-        continue;
-      const Lit other = w.other();
-      if (kernel_import_lit_order(k, lit) >=
-              kernel_import_lit_order(k, other) ||
-          seen[other] == epoch)
-        continue;
-      seen[other] = epoch;
-      binaries.emplace_back(lit, other);
-    }
+  // The outer scan already appends groups in first-literal import order.
+  // Kissat's extract_binaries sorts only each equal-first run by the other
+  // literal (insertion sort below 32, radix otherwise), not the complete
+  // binary population.  Sorting each run independently preserves that exact
+  // lexicographic result without an O(m log m) global sort of 83M pairs.
+  for (size_t begin = 0; begin < binaries.size();) {
+    size_t end = begin + 1;
+    while (end < binaries.size() &&
+           binaries[end].first == binaries[begin].first)
+      end++;
+    std::sort(binaries.begin() + begin, binaries.begin() + end,
+              [&](const auto &a, const auto &b) {
+                return kernel_import_lit_order(k, a.second) <
+                       kernel_import_lit_order(k, b.second);
+              });
+    begin = end;
   }
-  std::sort(binaries.begin(), binaries.end(), [&](const auto &a,
-                                                  const auto &b) {
-    const uint64_t af = kernel_import_lit_order(k, a.first);
-    const uint64_t as = kernel_import_lit_order(k, a.second);
-    const uint64_t bf = kernel_import_lit_order(k, b.first);
-    const uint64_t bs = kernel_import_lit_order(k, b.second);
-    return af != bf ? af < bf : as < bs;
-  });
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    k.watches.compact(lit, [](WatchEntry) { return false; });
+  // Dense resume knows the complete final size of every watch list.  Build the
+  // packed arena once, as Kissat's dense->sparse transition does, instead of
+  // feeding tens of millions of entries through capacity doubling, slice
+  // relocation, and repeated whole-arena defragmentation.  Iterating the
+  // globally ordered pair vector writes each literal's binary partners in the
+  // same order as the former push loop: smaller partners first, then larger
+  // partners, both in import order.
+  std::vector<uint32_t>().swap(seen);
+  std::vector<Var>().swap(ordered_variables);
+  std::vector<uint32_t>().swap(k.watches.arena);
+  k.watches.holes = 0;
+  for (WatchHead &head : k.watches.heads)
+    head = WatchHead{};
   for (const auto &binary : binaries) {
-    k.watches.push_binary(binary.first, binary.second);
-    k.watches.push_binary(binary.second, binary.first);
+    k.watches.heads[binary.first].size++;
+    k.watches.heads[binary.second].size++;
   }
-  kernel_rebuild_large_watches(k);
-  k.stats.congruence_binary_rebuilds++;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      sort_clause_watches_like_kissat(k, c);
+      c->searched = 2;
+      k.watches.heads[c->lits[0]].size += 2;
+      k.watches.heads[c->lits[1]].size += 2;
+    }
+    ref += words;
+  }
+  uint64_t total_words = 0;
+  for (WatchHead &head : k.watches.heads) {
+    assert(total_words + head.size <= UINT32_MAX);
+    head.offset = static_cast<uint32_t>(total_words);
+    head.capacity = head.size;
+    total_words += head.size;
+    head.size = 0;
+  }
+  k.watches.arena.resize(static_cast<size_t>(total_words));
+  const auto push_word = [&](Lit lit, uint32_t word) {
+    WatchHead &head = k.watches.heads[lit];
+    assert(head.size < head.capacity);
+    k.watches.arena[head.offset + head.size++] = word;
+  };
+  for (const auto &binary : binaries) {
+    push_word(binary.first, binary_watch(binary.second).raw);
+    push_word(binary.second, binary_watch(binary.first).raw);
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      const Lit first = c->lits[0], second = c->lits[1];
+      push_word(first, blocking_watch(second).raw);
+      push_word(first, ref);
+      push_word(second, blocking_watch(first).raw);
+      push_word(second, ref);
+      k.watches.heads[first].has_large = true;
+      k.watches.heads[second].has_large = true;
+    }
+    ref += words;
+  }
+  if (count_congruence_rebuild)
+    k.stats.congruence_binary_rebuilds++;
 }
 
 void kernel_deduplicate_binary_watches(Kernel &k) {
   // Kissat's null-stack dense entry (`watch.c:kissat_flush_large_watches`)
-  // retains the first watch for each partner in each literal list. Proof
-  // clauses need not be deleted: one internal pair can represent any still
-  // live identical proof clause, and `binary_ids` already names the latest.
+  // retains the first watch for each partner in each literal list, including
+  // root-satisfied binaries.  The latter is load-bearing for Sweep and Factor:
+  // unlike `dense.c:flush_large_watches` with a non-null binary-save stack,
+  // the null-stack path never inspects values.  Congruence performs its own
+  // value-aware collection immediately after this operation. Proof clauses
+  // need not be deleted for duplicate watches: one internal pair can represent
+  // any still-live identical proof clause, and `binary_ids` names the latest.
   std::vector<uint32_t> seen(2 * k.nvars, 0);
   uint32_t epoch = 0;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
@@ -1436,6 +1782,7 @@ void kernel_deduplicate_binary_watches(Kernel &k) {
       return true;
     });
   }
+
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {
@@ -1465,7 +1812,7 @@ bool kernel_should_compact_variables(const Kernel &k, uint32_t percent) {
 
 bool kernel_compact_variables(Kernel &k) {
   if (k.var_status.empty() || k.conflict_valid || k.pending.valid || k.dense ||
-      k.probing.recording || !k.delayed.empty())
+      k.probing.recording || k.delayed_used)
     return false;
 
   const uint32_t old_nvars = k.nvars;
@@ -1546,7 +1893,8 @@ bool kernel_compact_variables(Kernel &k) {
 
   WatchLists watches;
   watches.resize_lits(2 * new_nvars);
-  std::unordered_map<uint64_t, uint64_t> binary_ids;
+  BinaryIdMap binary_ids;
+  binary_ids.reserve(binaries.size());
   for (const Binary &b : binaries) {
     const Lit a = map_lit(b.a), other = map_lit(b.b);
     watches.push_binary(a, other);
@@ -1840,10 +2188,16 @@ uint64_t kernel_conflict_reason_walk(
 }
 
 uint64_t kernel_irredundant_clauses(const Kernel &k) {
-  // binary_ids counts every distinct binary ever added (incl. derived
-  // ones — they are irredundant-lifecycle here); the log-scale consumers
-  // tolerate that over-approximation
-  uint64_t n = k.binary_ids.size();
+  // Kissat's BINIRR_CLAUSES is a live-clause statistic.  `binary_ids` is a
+  // proof-identity archive and deliberately retains deleted pairs, so using
+  // its size here moves every scaled inprocessing deadline after a phase that
+  // adds and later removes binaries.  Count one watch direction per live
+  // binary instead.
+  uint64_t n = 0;
+  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
+    for (const WatchEntry w : k.watches.entries(lit))
+      if (w.binary() && lit < w.other())
+        n++;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage() && !c->redundant())
@@ -2049,6 +2403,9 @@ void kernel_check_invariants(const Kernel &) {}
 // --- reconstruction (rho) --------------------------------------------------
 void kernel_push_witness(Kernel &k, Lit witness, const Lit *rest,
                          uint32_t nrest) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_reconstruction(k, witness, rest, nrest);
+#endif
   for (uint32_t i = 0; i < nrest; i++)
     k.reconstruction.push_back(kernel_external_lit(k, rest[i]));
   k.reconstruction.push_back(kernel_external_lit(k, witness));

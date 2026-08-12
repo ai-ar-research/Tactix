@@ -100,6 +100,18 @@ void live_clause_counts(const Kernel &k, uint64_t &irredundant,
   }
 }
 
+uint64_t live_binary_clause_count(const Kernel &k) {
+  // `binary_ids` is a proof-identity archive: deleted pairs intentionally stay
+  // there, so its size is not comparable with Kissat's live
+  // `clauses_binary` statistic. Count one watch direction per live copy.
+  uint64_t result = 0;
+  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary() && lit < watch.other())
+        result++;
+  return result;
+}
+
 } // namespace
 
 EventTrace::~EventTrace() { close(); }
@@ -120,7 +132,12 @@ bool EventTrace::open_from_env(const Kernel &k) {
   }
   compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
   skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
+  skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
+  skip_heap_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_HEAP") != nullptr;
+  skip_decisions_ =
+      std::getenv("TACTIX_EVENT_TRACE_SKIP_DECISIONS") != nullptr;
   search_only_ = std::getenv("TACTIX_EVENT_TRACE_SEARCH_ONLY") != nullptr;
+  control_only_ = std::getenv("TACTIX_EVENT_TRACE_CONTROL_ONLY") != nullptr;
   out_ = std::fopen(path, "w");
   if (!out_)
     return false;
@@ -154,12 +171,40 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     return;
   if (skip_watch_ && !std::strcmp(event, "watch"))
     return;
+  if (skip_imply_ && !std::strcmp(event, "imply"))
+    return;
+  if (skip_heap_ && !std::strncmp(event, "heap_", 5))
+    return;
+  if (skip_decisions_ &&
+      (!std::strcmp(event, "decision") || !std::strcmp(event, "randec_draw") ||
+       !std::strcmp(event, "phase_pick")))
+    return;
   if (search_only_ && !snapshot && std::strcmp(event, "decision") &&
       std::strcmp(event, "randec_draw") &&
-      std::strcmp(event, "phase_pick") && std::strcmp(event, "imply") &&
-      std::strcmp(event, "conflict") && std::strcmp(event, "analyzed") &&
+      std::strcmp(event, "phase_pick") &&
+      std::strcmp(event, "heap_scores") &&
+      std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&
+      std::strcmp(event, "imply") &&
+      std::strcmp(event, "conflict") && std::strncmp(event, "analyzed", 8) &&
       std::strncmp(event, "analysis_", 9) &&
       std::strncmp(event, "learned", 7))
+    return;
+  // Bounded trajectory comparison without the much larger implication stream.
+  // Snapshots retain control transitions; detailed records retain only choices
+  // and conflict-analysis transactions needed to find the first mismatch.
+  if (control_only_ && !snapshot && std::strcmp(event, "decision") &&
+      std::strcmp(event, "randec_draw") &&
+      std::strcmp(event, "heap_scores") &&
+      std::strcmp(event, "assignment") &&
+      std::strcmp(event, "heap_reinsert") && std::strcmp(event, "watch") &&
+      std::strcmp(event, "conflict") &&
+      std::strncmp(event, "analyzed", 8) &&
+      std::strncmp(event, "analysis_", 9) &&
+      std::strncmp(event, "learned", 7) &&
+      std::strncmp(event, "factor_", 7) &&
+      std::strncmp(event, "vivify_", 7) &&
+      std::strncmp(event, "root_", 5) &&
+      std::strncmp(event, "reason_", 7))
     return;
   if (compact_probe_ && std::strcmp(event, "trace_begin") &&
       std::strcmp(event, "probe_begin") && std::strcmp(event, "probe_end") &&
@@ -180,10 +225,11 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   }
   emitted_++;
   RankingSummary rank;
-  uint64_t active = 0, irred = 0, red = 0, digest = 0;
+  uint64_t active = 0, irred = 0, red = 0, binary = 0, digest = 0;
   if (snapshot) {
     rank = summarize_ranking(k);
     live_clause_counts(k, irred, red);
+    binary = live_binary_clause_count(k);
     digest = state_digest(k);
     for (Var v = 0; v < k.nvars; v++)
       active += !kernel_var_retired(k, v);
@@ -208,12 +254,18 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                (unsigned long long)rank.retired_queue,
                (unsigned long long)rank.retired_heap,
                (unsigned long long)irred, (unsigned long long)red,
-               k.binary_ids.size(), (unsigned long long)digest,
+               (size_t)binary, (unsigned long long)digest,
                search_external, rank.top.c_str(), payload ? payload : "-");
 }
 
 void EventTrace::macro(const Kernel &k, const char *event, const char *payload) {
   emit(k, event, payload, true);
+}
+
+void EventTrace::detail_text(const Kernel &k, const char *event,
+                             const char *payload) {
+  if (want_detail(k))
+    emit(k, event, payload, false);
 }
 
 void EventTrace::retier(const Kernel &k, uint32_t mode,
@@ -390,6 +442,15 @@ void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
       for (const Lit lit : *large)
         clause.push_back(kernel_externalize(k, lit));
     }
+    if (const char *selected =
+            std::getenv("TACTIX_EVENT_TRACE_WATCH_LITERAL")) {
+      const int wanted = std::abs(std::atoi(selected));
+      bool contains = false;
+      for (const int lit : clause)
+        contains |= std::abs(lit) == wanted;
+      if (!contains)
+        continue;
+    }
     std::sort(clause.begin(), clause.end());
     std::string payload =
         "scan=" + std::to_string(kernel_externalize(k, propagated)) +
@@ -401,7 +462,10 @@ void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
       payload += std::to_string(lit);
     }
     if (large && std::getenv("TACTIX_EVENT_TRACE_WATCH_POSE")) {
-      payload += "|searched=" + std::to_string(large->searched) + "|pose=";
+      payload += "|id=" + std::to_string(large->id()) +
+                 "|order=" +
+                 std::to_string(kernel_clause_order(k, large->id())) +
+                 "|searched=" + std::to_string(large->searched) + "|pose=";
       for (uint32_t i = 0; i < large->size; i++) {
         if (i)
           payload += ',';
@@ -415,6 +479,11 @@ void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
 void event_trace_watch_scan(const Kernel &k, Lit propagated) {
   if (active_trace)
     active_trace->watch_scan(k, propagated);
+}
+
+void event_trace_detail(const Kernel &k, const char *event, int64_t payload) {
+  if (active_trace)
+    active_trace->detail(k, event, payload);
 }
 
 void event_trace_learned_stage(const Kernel &k, const char *event,
@@ -796,6 +865,243 @@ void event_trace_factor_remainder(const Kernel &k, Lit seed,
     active_trace->factor_remainder(k, seed, ordinal, large, lits, size);
 }
 
+void EventTrace::factor_candidate(const Kernel &k, Lit seed, uint32_t depth,
+                                  uint32_t ordinal, Lit candidate,
+                                  uint32_t count, uint32_t score) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_SEED");
+  if (!selected || std::atoi(selected) != kernel_externalize(k, seed))
+    return;
+  const std::string payload =
+      "seed=" + std::to_string(kernel_externalize(k, seed)) +
+      "|depth=" + std::to_string(depth) +
+      "|ordinal=" + std::to_string(ordinal) +
+      "|candidate=" + std::to_string(kernel_externalize(k, candidate)) +
+      "|count=" + std::to_string(count) +
+      "|score=" + std::to_string(score);
+  emit(k, "factor_candidate", payload.c_str(), false);
+}
+
+void event_trace_factor_candidate(const Kernel &k, Lit seed, uint32_t depth,
+                                  uint32_t ordinal, Lit candidate,
+                                  uint32_t count, uint32_t score) {
+  if (active_trace)
+    active_trace->factor_candidate(k, seed, depth, ordinal, candidate, count,
+                                   score);
+}
+
+void EventTrace::factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
+                                    Lit candidate, uint32_t ordinal, bool live,
+                                    Lit other, uint64_t id,
+                                    const Clause *clause) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected_seed = std::getenv("TACTIX_EVENT_TRACE_FACTOR_SEED");
+  const char *selected_candidate =
+      std::getenv("TACTIX_EVENT_TRACE_FACTOR_CANDIDATE");
+  if (!selected_seed || !selected_candidate ||
+      std::atoi(selected_seed) != kernel_externalize(k, seed) ||
+      std::atoi(selected_candidate) != kernel_externalize(k, candidate))
+    return;
+  std::string payload =
+      "seed=" + std::to_string(kernel_externalize(k, seed)) +
+      "|depth=" + std::to_string(depth) +
+      "|candidate=" + std::to_string(kernel_externalize(k, candidate)) +
+      "|ordinal=" + std::to_string(ordinal) +
+      "|kind=" + (clause ? "large" : "binary") +
+      "|live=" + (live ? "1" : "0") + "|id=" + std::to_string(id) +
+      "|lits=";
+  if (clause) {
+    std::vector<int> lits;
+    for (const Lit lit : *clause)
+      lits.push_back(kernel_externalize(k, lit));
+    std::sort(lits.begin(), lits.end());
+    for (size_t i = 0; i < lits.size(); i++) {
+      if (i)
+        payload += ',';
+      payload += std::to_string(lits[i]);
+    }
+  } else {
+    payload += std::to_string(kernel_externalize(k, candidate));
+    payload += ',';
+    payload += std::to_string(kernel_externalize(k, other));
+  }
+  emit(k, "factor_score_entry", payload.c_str(), false);
+}
+
+void event_trace_factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
+                                    Lit candidate, uint32_t ordinal, bool live,
+                                    Lit other, uint64_t id,
+                                    const Clause *clause) {
+  if (active_trace)
+    active_trace->factor_score_entry(k, seed, depth, candidate, ordinal, live,
+                                     other, id, clause);
+}
+
+void EventTrace::factor_literal_state(const Kernel &k, Lit lit, bool marked,
+                                      bool retired, int value,
+                                      uint32_t score) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL");
+  if (!selected || std::atoi(selected) != kernel_externalize(k, lit))
+    return;
+  const std::string payload =
+      "external=" + std::to_string(kernel_externalize(k, lit)) +
+      "|active=" + (retired ? "0" : "1") +
+      "|marked=" + (marked ? "1" : "0") +
+      "|value=" + std::to_string(value) +
+      "|score=" + std::to_string(score);
+  emit(k, "factor_literal_state", payload.c_str(), false);
+}
+
+void event_trace_factor_literal_state(const Kernel &k, Lit lit, bool marked,
+                                      bool retired, int value,
+                                      uint32_t score) {
+  if (active_trace)
+    active_trace->factor_literal_state(k, lit, marked, retired, value, score);
+}
+
+void EventTrace::substitute_map(const Kernel &k, Lit lit, Lit representative) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("TACTIX_EVENT_TRACE_SUBSTITUTE_LITERAL");
+  if (!selected || std::atoi(selected) != kernel_externalize(k, lit))
+    return;
+  const std::string payload =
+      "external=" + std::to_string(kernel_externalize(k, lit)) +
+      "|representative=" +
+      std::to_string(representative == INVALID_LIT
+                         ? 0
+                         : kernel_externalize(k, representative)) +
+      "|active=" + (kernel_var_retired(k, var_of(lit)) ? "0" : "1") +
+      "|value=" + std::to_string(k.value(lit));
+  emit(k, "substitute_map", payload.c_str(), false);
+}
+
+void event_trace_substitute_map(const Kernel &k, Lit lit, Lit representative) {
+  if (active_trace)
+    active_trace->substitute_map(k, lit, representative);
+}
+
+void EventTrace::factor_literal_entry(const Kernel &k, Lit selected_lit,
+                                      uint32_t ordinal, bool live, Lit other,
+                                      uint64_t id, const Clause *clause) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL");
+  if (!selected ||
+      std::atoi(selected) != kernel_externalize(k, selected_lit))
+    return;
+  std::string payload =
+      "external=" + std::to_string(kernel_externalize(k, selected_lit)) +
+      "|ordinal=" + std::to_string(ordinal) +
+      "|kind=" + (clause ? "large" : "binary") +
+      "|live=" + (live ? "1" : "0") + "|id=" + std::to_string(id) +
+      "|lits=";
+  if (clause) {
+    std::vector<int> lits;
+    for (const Lit lit : *clause)
+      lits.push_back(kernel_externalize(k, lit));
+    std::sort(lits.begin(), lits.end());
+    for (size_t i = 0; i < lits.size(); i++) {
+      if (i)
+        payload += ',';
+      payload += std::to_string(lits[i]);
+    }
+  } else {
+    payload += std::to_string(kernel_externalize(k, selected_lit));
+    payload += ',';
+    payload += std::to_string(kernel_externalize(k, other));
+  }
+  emit(k, "factor_literal_entry", payload.c_str(), false);
+}
+
+void event_trace_factor_literal_entry(const Kernel &k, Lit lit,
+                                      uint32_t ordinal, bool live, Lit other,
+                                      uint64_t id, const Clause *clause) {
+  if (active_trace)
+    active_trace->factor_literal_entry(k, lit, ordinal, live, other, id,
+                                       clause);
+}
+
+void EventTrace::factor_candidate_source(const Kernel &k, Lit seed,
+                                         uint32_t depth, uint32_t column,
+                                         Lit scan, Lit candidate,
+                                         const Clause *current,
+                                         const Clause *matched) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_SEED");
+  if (!selected || std::atoi(selected) != kernel_externalize(k, seed))
+    return;
+  std::string payload =
+      "seed=" + std::to_string(kernel_externalize(k, seed)) +
+      "|depth=" + std::to_string(depth) +
+      "|column=" + std::to_string(column) +
+      "|scan=" + std::to_string(kernel_externalize(k, scan)) +
+      "|candidate=" + std::to_string(kernel_externalize(k, candidate)) +
+      "|current=";
+  std::vector<int> lits;
+  for (const Lit lit : *current)
+    lits.push_back(kernel_externalize(k, lit));
+  std::sort(lits.begin(), lits.end());
+  for (size_t i = 0; i < lits.size(); i++) {
+    if (i)
+      payload += ',';
+    payload += std::to_string(lits[i]);
+  }
+  payload += "|matched=";
+  lits.clear();
+  for (const Lit lit : *matched)
+    lits.push_back(kernel_externalize(k, lit));
+  std::sort(lits.begin(), lits.end());
+  for (size_t i = 0; i < lits.size(); i++) {
+    if (i)
+      payload += ',';
+    payload += std::to_string(lits[i]);
+  }
+  emit(k, "factor_candidate_source", payload.c_str(), false);
+}
+
+void event_trace_factor_candidate_source(const Kernel &k, Lit seed,
+                                         uint32_t depth, uint32_t column,
+                                         Lit scan, Lit candidate,
+                                         const Clause *current,
+                                         const Clause *matched) {
+  if (active_trace)
+    active_trace->factor_candidate_source(k, seed, depth, column, scan,
+                                          candidate, current, matched);
+}
+
+void EventTrace::factor_candidate_binary_source(const Kernel &k, Lit seed,
+                                                uint32_t depth,
+                                                uint32_t column, Lit q,
+                                                Lit candidate) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_SEED");
+  if (!selected || std::atoi(selected) != kernel_externalize(k, seed))
+    return;
+  const std::string payload =
+      "seed=" + std::to_string(kernel_externalize(k, seed)) +
+      "|depth=" + std::to_string(depth) +
+      "|column=" + std::to_string(column) +
+      "|q=" + std::to_string(kernel_externalize(k, q)) +
+      "|candidate=" + std::to_string(kernel_externalize(k, candidate));
+  emit(k, "factor_candidate_binary_source", payload.c_str(), false);
+}
+
+void event_trace_factor_candidate_binary_source(const Kernel &k, Lit seed,
+                                                uint32_t depth,
+                                                uint32_t column, Lit q,
+                                                Lit candidate) {
+  if (active_trace)
+    active_trace->factor_candidate_binary_source(k, seed, depth, column, q,
+                                                 candidate);
+}
+
 void EventTrace::factor_pair(const Kernel &k, Lit grid_seed,
                              const char *stage) {
   if (!want_detail(k) || emitted_ >= limit_)
@@ -973,8 +1279,59 @@ void EventTrace::analyzed(const Kernel &k, const std::vector<Var> &analyzed,
     payload += ':';
     std::snprintf(score, sizeof score, "%.17g", k.h->scores.score[v]);
     payload += score;
+    payload += ':';
+    payload += heuristics_heap_contains(k, v)
+                   ? std::to_string(k.h->scores.pos[v])
+                   : "-";
   }
   emit(k, "analyzed", payload.c_str(), false);
+}
+
+void EventTrace::analyzed_post(const Kernel &k,
+                               const std::vector<Var> &analyzed) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  std::string payload = "vars=";
+  char score[64];
+  for (size_t i = 0; i < analyzed.size(); i++) {
+    const Var v = analyzed[i];
+    if (i) payload += ',';
+    payload += std::to_string(kernel_externalize(k, make_lit(v, false)));
+    payload += ':';
+    std::snprintf(score, sizeof score, "%.17g", k.h->scores.score[v]);
+    payload += score;
+    payload += ':';
+    payload += heuristics_heap_contains(k, v)
+                   ? std::to_string(k.h->scores.pos[v]) : "-";
+  }
+  emit(k, "analyzed_post", payload.c_str(), false);
+}
+
+void EventTrace::heap_scores(const Kernel &k) {
+  if (!want_detail(k) || !k.h || !k.h->stable)
+    return;
+  uint64_t stack_hash = 1469598103934665603ull;
+  for (const Var v : k.h->scores.stack) {
+    const uint64_t ext = static_cast<uint64_t>(k.internal_to_external[v]) + 1;
+    stack_hash ^= ext;
+    stack_hash *= 1099511628211ull;
+  }
+  char hash[32];
+  std::snprintf(hash, sizeof hash, "hash=%016llx|",
+                (unsigned long long)stack_hash);
+  std::string payload(hash);
+  char score[64];
+  const size_t size = std::min<size_t>(32, k.h->scores.stack.size());
+  for (size_t i = 0; i < size; i++) {
+    const Var v = k.h->scores.stack[i];
+    if (i)
+      payload += ',';
+    payload += std::to_string(kernel_externalize(k, make_lit(v, false)));
+    payload += ':';
+    std::snprintf(score, sizeof score, "%.17g", k.h->scores.score[v]);
+    payload += score;
+  }
+  emit(k, "heap_scores", payload.c_str(), false);
 }
 
 void EventTrace::mode_clock(const Kernel &k, const char *stage, uint64_t limit,
@@ -994,6 +1351,22 @@ void event_trace_analyzed(const Kernel &k, const std::vector<Var> &analyzed,
                           uint8_t bump_mask) {
   if (active_trace)
     active_trace->analyzed(k, analyzed, seen, bump_mask);
+}
+
+void event_trace_analyzed_post(const Kernel &k,
+                               const std::vector<Var> &analyzed) {
+  if (active_trace)
+    active_trace->analyzed_post(k, analyzed);
+}
+
+void event_trace_heap_scores(const Kernel &k) {
+  if (active_trace)
+    active_trace->heap_scores(k);
+}
+
+void event_trace_root_assign(const Kernel &k, Lit lit) {
+  if (active_trace)
+    active_trace->detail(k, "root_assign", kernel_externalize(k, lit));
 }
 
 void EventTrace::implications(const Kernel &k, size_t trail_begin) {
@@ -1060,7 +1433,40 @@ void EventTrace::conflict(const Kernel &k) {
       payload += ',';
     payload += std::to_string(lit);
   }
+  payload += "|levels=";
+  for (uint32_t i = 0; i < size; i++) {
+    if (i)
+      payload += ',';
+    payload += std::to_string(kernel_externalize(k, lits[i]));
+    payload += ':';
+    payload += std::to_string(k.var_level(var_of(lits[i])));
+  }
   emit(k, "conflict", payload.c_str(), false);
+  if (const char *selected = std::getenv("TACTIX_EVENT_TRACE_ASSIGNMENT")) {
+    const unsigned ext = static_cast<unsigned>(std::strtoul(selected, nullptr, 10));
+    if (ext && ext <= k.external_to_internal.size()) {
+      const Var v = k.external_to_internal[ext - 1];
+      if (v < k.nvars && k.values[make_lit(v, false)] != 0) {
+        const Assigned &a = k.assigned[v];
+        std::string state = "external=" + std::to_string(ext) +
+                            "|level=" + std::to_string(a.level) +
+                            "|trail=" + std::to_string(a.trail) +
+                            "|binary=" + std::to_string(a.binary) +
+                            "|jumped=" + std::to_string(a.jumped) +
+                            "|reason=";
+        if (a.reason == DECISION_REASON)
+          state += "decision";
+        else if (a.reason == UNIT_REASON)
+          state += "unit";
+        else if (a.binary)
+          state += std::to_string(kernel_externalize(k, a.reason));
+        else
+          state += "clause:" +
+                   std::to_string(clause_at(k.arena, a.reason)->id());
+        emit(k, "assignment", state.c_str(), false);
+      }
+    }
+  }
 }
 
 void EventTrace::learned(const Kernel &k, const std::vector<Lit> &clause) {

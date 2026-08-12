@@ -41,9 +41,12 @@ Lit dominator(const Kernel &k, const std::vector<Lit> &parent, Lit a, Lit b) {
 
 } // namespace
 
-bool hyperbinary_guard(const Kernel &k) {
+RuleEligibility hyperbinary_guard(const Kernel &k) {
   // quiescent root, the probing-family precondition (V1's argument)
-  return !k.inconsistent && !k.conflict_valid && k.level == 0;
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("no-conflict", !k.conflict_valid)
+      .fact("root-level", k.level == 0);
 }
 
 // Same schedule as V1 Probe: a literal is worth assuming only if its negation

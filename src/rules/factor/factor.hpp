@@ -27,7 +27,7 @@ struct FactorSelection {
   virtual bool accept(uint32_t rows, uint32_t columns, int delta) = 0;
 };
 
-bool factor_guard(const Kernel &); // pure quiescent-root precondition
+RuleEligibility factor_guard(const Kernel &); // pure quiescent-root precondition
 ApplyResult factor_apply(Kernel &);
 
 } // namespace tactix

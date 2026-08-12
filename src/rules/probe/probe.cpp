@@ -9,10 +9,12 @@
 
 namespace tactix {
 
-bool probe_guard(const Kernel &k) {
+RuleEligibility probe_guard(const Kernel &k) {
   // quiescent root (C1/C2/C3's argument)
-  return !k.inconsistent && !k.conflict_valid &&
-         k.level == 0;
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("no-conflict", !k.conflict_valid)
+      .fact("root-level", k.level == 0);
 }
 
 // BIG-head candidates: assuming p propagates iff negate(p) carries a binary

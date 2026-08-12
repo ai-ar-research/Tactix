@@ -4,6 +4,7 @@
 // (glue, size). The rule owns the ranking and every soundness filter; how much
 // of the ranked list dies, and when, is the policy's.
 #include "rules/reduce/reduce.hpp"
+#include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
 
@@ -16,8 +17,10 @@ namespace tactix {
 // configurable tier1/tier2 quantiles; with no data the option defaults stand.
 // Focused and stable histograms remain separate. Integer thresholds, not
 // floating-point products, keep the result independent of host libm rounding
-// (benchmarks/reports/2026-07-24-battleship-divergence.md). When to recompute
-// is the policy's.
+// (benchmarks/reports/2026-07-24-battleship-divergence.md).  Kissat converts
+// the positive floating product to uint64_t, which truncates: the exact
+// integer equivalent is floor(total * permille / 1000), not a ceiling.
+// When to recompute is the policy's.
 void reduce_retier_from_histogram(Kernel &k, uint32_t mode,
                                   const uint64_t *used,
                                   uint32_t tier1_default,
@@ -35,10 +38,8 @@ void reduce_retier_from_histogram(Kernel &k, uint32_t mode,
     return;
   }
   constexpr uint64_t scale = 1000;
-  const uint64_t lim1 =
-      (total * tier1_relative_permille + scale - 1) / scale;
-  const uint64_t lim2 =
-      (total * tier2_relative_permille + scale - 1) / scale;
+  const uint64_t lim1 = total * tier1_relative_permille / scale;
+  const uint64_t lim2 = total * tier2_relative_permille / scale;
   uint64_t acc = 0;
   uint32_t t1 = 0;
   for (uint32_t g = 0;; g++) {
@@ -74,8 +75,29 @@ void reduce_retier(Kernel &k, uint32_t mode, uint32_t tier1_default,
 // Deleting redundant clauses is sound as long as reason-locked clauses and the
 // pending learned clause survive; only a recorded-but-unanalyzed conflict pins
 // the arena, through its stale conflict ref.
-bool reduce_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent;
+RuleEligibility reduce_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("no-conflict", !k.conflict_valid)
+      .fact("consistent", !k.inconsistent);
+}
+
+void reduce_prepare(Kernel &k) {
+  if (!k.unflushed_root)
+    return;
+  if (k.level) {
+    kernel_update_target_phases(k);
+    kernel_backtrack(k, 0);
+  }
+  // `kissat_backtrack_propagate_and_flush_trail` reaches a root fixpoint
+  // before sparse collection.  This is semantically visible even when it
+  // derives no new units: scanning the newly root-false literals repairs
+  // large-clause watches before the collector decides which prefix watches to
+  // preserve.  Merely clearing the marker here left those scans pending until
+  // the following Walk warm-up and caused the first Phase-4 divergence.
+  if (!k.inconsistent && k.propagate_head < k.trail.size())
+    propagate_service(k);
+  if (!k.inconsistent)
+    k.unflushed_root = 0;
 }
 
 static void lock_reasons(Kernel &k, bool lock) {
@@ -160,6 +182,9 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
 
 ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   assert(reduce_guard(k));
+  reduce_prepare(k);
+  if (k.inconsistent)
+    return ApplyResult::Unsat;
   k.stats.reductions++;
   Ref first_reducible = INVALID_REF;
   // aging tick (kissat reduce.c decrements `used` once per reduction):
@@ -193,7 +218,6 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
     deleted++;
   }
   k.stats.deleted += deleted;
-  lock_reasons(k, false);
   // Publish the survivor envelope (cadical `lim.keptglue`/`lim.keptsize`): the
   // widest (glue, size) still present, and the third disjunct of
   // `kernel_likely_kept`. Taken over survivors, not victims, and not reset
@@ -216,16 +240,33 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
   }
   if (deleted) {
     assert(first_reducible != INVALID_REF);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_detail(k, "reason_reduce_first_id",
+                       clause_at(k.arena, first_reducible)->id());
+#endif
     // Kissat reduce.c starts sparse collection at `first_reducible`, retaining
-    // the already-mutated watch order of the irredundant prefix.
-    kernel_collect_garbage(k, first_reducible);
+    // the already-mutated watch order of the irredundant prefix.  Its sparse
+    // sweep also strips root-false literals and deletes root-satisfied large
+    // and binary clauses; merely reclaiming selected garbage leaves a
+    // different formula for the immediately following Rephase.
+    if (kernel_has_root_assignment(k))
+      kernel_sparse_collect_root(k, first_reducible);
+    else
+      kernel_collect_garbage(k, first_reducible);
   }
+  // Kissat keeps every live trail reason marked throughout sparse collection:
+  // root-false stripping may relocate a large reason or turn it into a binary.
+  // The collector updates that assignment before this final unmarking pass.
+  lock_reasons(k, false);
   return deleted ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
 // canonical instance: kissat's default fraction of the ranked candidates
 ApplyResult reduce_apply(Kernel &k) {
   assert(reduce_guard(k));
+  reduce_prepare(k);
+  if (k.inconsistent)
+    return ApplyResult::Unsat;
   std::vector<Ref> candidates;
   reduce_candidates(k, candidates, /*measure=*/true);
   return reduce_apply_refs(k, candidates.data(),
@@ -257,6 +298,9 @@ static uint32_t reduce_instances(Kernel &k, uint64_t *out, uint32_t cap) {
 static ApplyResult reduce_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return reduce_apply(k);
+  reduce_prepare(k);
+  if (k.inconsistent)
+    return ApplyResult::Unsat;
   std::vector<Ref> candidates;
   reduce_candidates(k, candidates, /*measure=*/true);
   const size_t n =

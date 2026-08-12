@@ -17,6 +17,7 @@
 #include "rules/registry.hpp" // now_nanos + the rule list for `c timing`
 
 #include <algorithm>
+#include <charconv>
 #include <utility>
 #include <vector>
 
@@ -56,31 +57,40 @@ static FILE *open_input(const char *path, bool *piped) {
 
 static void print_model(const Kernel &k) {
   // v lines <= 4096 chars, each terminated by 0 on the last line
-  std::string line = "v";
+  char line[4096];
+  char *cursor = line;
+  *cursor++ = 'v';
   auto flush_line = [&] {
-    fputs(line.c_str(), stdout);
-    fputc('\n', stdout);
-    line = "v";
+    *cursor++ = '\n';
+    fwrite(line, 1, static_cast<size_t>(cursor - line), stdout);
+    cursor = line;
+    *cursor++ = 'v';
   };
   for (Var v = 0; v < kernel_num_output_vars(k); v++) { // external originals
     const Lit pos = make_lit(v, false);
     const int e = static_cast<int>(v) + 1;
-    char buf[16];
     // Strict > 0, agreeing with tactix_value: after kernel_extend_model no
     // variable is value-0, and if extension were ever skipped a 0 must print
     // as false, not fabricate a positive phase the API would deny.
-    snprintf(buf, sizeof buf, " %d", k.model_values[pos] > 0 ? e : -e);
-    if (line.size() + strlen(buf) > 4094)
+    if (cursor - line + 16 > 4094)
       flush_line();
-    line += buf;
+    *cursor++ = ' ';
+    const int value = k.model_values[pos] > 0 ? e : -e;
+    const std::to_chars_result converted =
+        std::to_chars(cursor, line + 4094, value);
+    assert(converted.ec == std::errc{});
+    cursor = converted.ptr;
   }
-  if (line.size() + 2 > 4094)
+  if (cursor - line + 2 > 4094)
     flush_line();
-  line += " 0";
+  *cursor++ = ' ';
+  *cursor++ = '0';
   flush_line();
 }
 
 int main(int argc, char **argv) {
+  setvbuf(stdout, nullptr, _IOFBF, 1 << 20);
+  const bool frontend_time = getenv("TACTIX_FRONTEND_TIME") != nullptr;
   const char *cnf_path = nullptr;
   const char *proof_path = nullptr;
   ProofFormat proof_format = ProofFormat::DratBinary;
@@ -301,8 +311,11 @@ int main(int argc, char **argv) {
   }
   if (getenv("TACTIX_NO_EXT_REASON_BUMP"))
     kernel.no_ext_reason_bump = true; // arm, see Kernel::no_ext_reason_bump
-  if (getenv("TACTIX_CONFLICT_REUSE"))
-    kernel.conflict_reuse = true;
+  // Conflict-clause reuse ships ON, matching Kissat's
+  // one_literal_on_conflict_level shortcut; `=0` is the diagnostic revert.
+  kernel.conflict_reuse = true;
+  if (const char *cr = getenv("TACTIX_CONFLICT_REUSE"))
+    kernel.conflict_reuse = (*cr != '0');
   // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
   if (const char *jr = getenv("TACTIX_JUMP_REASONS"))
     kernel.jump_reasons = (*jr != '0');
@@ -332,7 +345,10 @@ int main(int argc, char **argv) {
     printf("s UNKNOWN\n");
     return 1;
   }
+  const uint64_t parse_t0 = frontend_time ? tactix::now_nanos() : 0;
   const char *err = parse_dimacs(in, kernel);
+  const uint64_t parse_nanos =
+      frontend_time ? tactix::now_nanos() - parse_t0 : 0;
   if (piped)
     pclose(in);
   else
@@ -905,9 +921,21 @@ int main(int argc, char **argv) {
     }
   }
   if (res == 10) {
+    const uint64_t extend_t0 = frontend_time ? tactix::now_nanos() : 0;
     kernel_extend_model(kernel); // rebuild the model through rho (plan §4)
+    const uint64_t extend_nanos =
+        frontend_time ? tactix::now_nanos() - extend_t0 : 0;
     printf("s SATISFIABLE\n");
+    const uint64_t print_t0 = frontend_time ? tactix::now_nanos() : 0;
     print_model(kernel);
+    if (frontend_time) {
+      fflush(stdout); // keep stderr diagnostics out of a buffered model token
+      fprintf(stderr,
+              "[frontend-time] ms: parse %.0f extend-model %.0f "
+              "print-model %.0f\n",
+              parse_nanos / 1e6, extend_nanos / 1e6,
+              (tactix::now_nanos() - print_t0) / 1e6);
+    }
   } else if (res == 20) {
     printf("s UNSATISFIABLE\n");
   } else {

@@ -9,7 +9,6 @@
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
-#include <deque>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -71,8 +70,10 @@ template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
 
 } // namespace
 
-bool congruence_guard(const Kernel &k) {
-  return !k.inconsistent && k.level == 0;
+RuleEligibility congruence_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
 }
 
 void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
@@ -533,7 +534,9 @@ static CongMatchStats cong_match[3]; // indexed by GateKind
 static const bool cong_time = std::getenv("TACTIX_CONG_TIME") != nullptr;
 struct CongTime {
   uint64_t extract_and = 0, index = 0, sort = 0, xor_x = 0, ite_x = 0;
-  uint64_t canon = 0, table = 0, proof = 0, closure_all = 0, apply_all = 0;
+  uint64_t rebuild = 0, binary_extract = 0, binary_units = 0, setup = 0;
+  uint64_t binary_import = 0, canon = 0, table = 0, proof = 0;
+  uint64_t closure_all = 0, forward = 0, apply_all = 0;
   uint64_t items = 0;
 };
 static CongTime cong_t;
@@ -1363,22 +1366,46 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
       std::swap(a, b);
     return (static_cast<uint64_t>(a) << 32) | b;
   };
-  std::unordered_set<uint64_t> original;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    for (const WatchEntry w : k.watches.entries(lit))
-      if (w.binary() && lit < w.other())
-        original.insert(pair_key(lit, w.other()));
+  // `kernel_canonicalize_binary_watches` has just packed every list as sorted
+  // binaries followed by large watches. Kissat's extractor queries that fixed
+  // dense offset table directly. Record only each list's binary prefix length
+  // and binary-search it; materializing the same 80M pairs in a node-based
+  // unordered_set costs several GiB and dominates this entire rule.
+  const Lit nlits = static_cast<Lit>(2 * k.nvars);
+  std::vector<uint32_t> binary_prefix(nlits, 0);
+  for (Lit lit = 0; lit < nlits; lit++) {
+    const uint32_t *p = k.watches.begin(lit);
+    const uint32_t *const end = k.watches.end(lit);
+    while (p != end && Watch{*p}.binary())
+      p++;
+    binary_prefix[lit] = static_cast<uint32_t>(p - k.watches.begin(lit));
+  }
+  const auto original_live = [&](Lit lit, Lit other) {
+    const uint32_t *begin = k.watches.begin(lit);
+    const uint32_t *end = begin + binary_prefix[lit];
+    const uint64_t wanted = kernel_import_lit_order(k, other);
+    const uint32_t *it = std::lower_bound(
+        begin, end, wanted, [&](uint32_t word, uint64_t order) {
+          return kernel_import_lit_order(k, Watch{word}.other()) < order;
+        });
+    return it != end && Watch{*it}.other() == other;
+  };
   std::unordered_set<uint64_t> emitted;
   std::vector<uint64_t> chain;
+  std::vector<Lit> touched_binary_lists;
+  bool complete = true;
   uint32_t tick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     if (k.stop_fuzz || !(++tick & 255)) {
       if (kernel_terminating(k)) {
         k.stats.rule_interrupted++;
-        return false;
+        complete = false;
+        break;
       }
-      if (cong_budget.over(k))
-        return false;
+      if (cong_budget.over(k)) {
+        complete = false;
+        break;
+      }
     }
     const Clause *c = clause_at(k.arena, ref);
     ref += clause_words(c->size);
@@ -1392,8 +1419,7 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
     for (unsigned pivot = 0; pivot != 3; pivot++) {
       const Lit a = lits[pivot], b = lits[(pivot + 1) % 3],
                 cc = lits[(pivot + 2) % 3];
-      if (original.count(pair_key(negate(a), b)) ||
-          original.count(pair_key(negate(a), cc))) {
+      if (original_live(negate(a), b) || original_live(negate(a), cc)) {
         x = b;
         y = cc;
         break;
@@ -1402,7 +1428,7 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
     if (x == INVALID_LIT)
       continue;
     const uint64_t key = pair_key(x, y);
-    if (original.count(key) || !emitted.insert(key).second)
+    if (original_live(x, y) || !emitted.insert(key).second)
       continue;
     const Lit binary[2] = {x, y};
     chain.clear();
@@ -1416,9 +1442,46 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
                        lrat ? chain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
     kernel_add_binary_clause(k, x, y, id);
+    touched_binary_lists.push_back(x);
+    touched_binary_lists.push_back(y);
     extracted++;
   }
-  return true;
+  // Kissat accumulates extracted pairs in a separate dense-mode suffix, radix
+  // sorts that suffix by (min compact literal, max compact literal), then
+  // reconnects it after the pre-existing binary prefix.  Proof emission above
+  // remains in arena traversal order; only sparse propagation order changes.
+  // Tactix adds directly to the packed watch lists, after their large entries,
+  // so restore the same old-prefix / sorted-new-suffix / large layout here.
+  std::sort(touched_binary_lists.begin(), touched_binary_lists.end());
+  touched_binary_lists.erase(
+      std::unique(touched_binary_lists.begin(), touched_binary_lists.end()),
+      touched_binary_lists.end());
+  std::vector<uint32_t> new_binaries, large_words;
+  for (const Lit lit : touched_binary_lists) {
+    new_binaries.clear();
+    large_words.clear();
+    uint32_t *const begin = k.watches.begin(lit);
+    uint32_t *p = begin + binary_prefix[lit];
+    uint32_t *const end = k.watches.end(lit);
+    while (p != end) {
+      if (Watch{*p}.binary()) {
+        new_binaries.push_back(*p++);
+      } else {
+        large_words.push_back(*p++);
+        large_words.push_back(*p++);
+      }
+    }
+    std::sort(new_binaries.begin(), new_binaries.end(),
+              [&](uint32_t a, uint32_t b) {
+                return kernel_import_lit_order(k, Watch{a}.other()) <
+                       kernel_import_lit_order(k, Watch{b}.other());
+              });
+    uint32_t *out = begin + binary_prefix[lit];
+    out = std::copy(new_binaries.begin(), new_binaries.end(), out);
+    std::copy(large_words.begin(), large_words.end(), out);
+    k.watches.heads[lit].binaries_first = true;
+  }
+  return complete;
 }
 
 // After propagating the closure, Kissat enters dense mode a second time and
@@ -1530,7 +1593,12 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
                      return a.size < b.size;
                    });
 
-  std::vector<std::vector<Ref>> occ(2 * k.nvars);
+  // Only literals selected as the least-occurring connection of an accepted
+  // candidate ever own a list.  A dense vector-of-vectors spends 24 bytes for
+  // every literal even when no candidate names it; on 128_125 that means 97
+  // million empty vectors before storing one Ref.  Sparse lookup preserves
+  // the exact candidate and insertion order.
+  std::unordered_map<Lit, std::vector<Ref>> occ;
   for (const Candidate candidate : candidates) {
     if (kernel_terminating(k))
       break;
@@ -1546,7 +1614,10 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
       marks[lit] = 1;
     bool subsumed = false;
     for (const Lit lit : canonical) {
-      for (const Ref dref : occ[lit]) {
+      const auto occurrence = occ.find(lit);
+      if (occurrence == occ.end())
+        continue;
+      for (const Ref dref : occurrence->second) {
         const Clause *d = clause_at(k.arena, dref);
         bool d_matchable = false;
         std::vector<Lit> dcanonical;
@@ -1579,7 +1650,9 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     Lit least = INVALID_LIT;
     size_t least_count = 0;
     for (const Lit lit : canonical) {
-      const size_t count = occ[lit].size();
+      const auto occurrence = occ.find(lit);
+      const size_t count =
+          occurrence == occ.end() ? 0 : occurrence->second.size();
       if (least == INVALID_LIT || count < least_count) {
         least = lit;
         least_count = count;
@@ -1715,7 +1788,10 @@ ApplyResult congruence_apply(Kernel &k) {
   const uint64_t apply_t0 = cong_time ? now_nanos() : 0; // in-flight, for the print
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
-  kernel_canonicalize_binary_watches(k);
+  {
+    Stage s(&cong_t.rebuild);
+    kernel_canonicalize_binary_watches(k);
+  }
   k.stats.congruence_rounds++;
   if (cong_probe)
     cong_root_in = kernel_root_fixed(k);
@@ -1770,7 +1846,10 @@ ApplyResult congruence_apply(Kernel &k) {
   // the resulting binaries participate in unit/equivalence discovery and in
   // gate extraction during this same closure.
   uint64_t extracted_binaries = 0;
-  (void) extract_congruence_binaries(k, extracted_binaries);
+  {
+    Stage s(&cong_t.binary_extract);
+    (void)extract_congruence_binaries(k, extracted_binaries);
+  }
 
   std::vector<CongGate> gates;
   // Gate extraction precedes unit discovery in Kissat.  This snapshot order is
@@ -1787,16 +1866,20 @@ ApplyResult congruence_apply(Kernel &k) {
 
   // The binary-resolution unit sweep follows binary and gate extraction; its
   // immediate root closure seeds value-driven gate simplification below.
-  if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
-        return record_unit(u, ch, &k.stats.congruence_y1_units);
-      }))
-    return ApplyResult::Unsat;
+  {
+    Stage s(&cong_t.binary_units);
+    if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
+          return record_unit(u, ch, &k.stats.congruence_y1_units);
+        }))
+      return ApplyResult::Unsat;
+  }
 
   // The congruence closure (kissat's), an incremental worklist over a union-find
   // on literals: merge the outputs of two gates that canonicalize to the same
   // (kind, key), then re-process only the gates whose inputs contain the merged
   // literal, so the collapse propagates through the circuit layers in one apply
   // (`docs/calculus.md` V6).
+  const uint64_t setup_t0 = cong_time ? now_nanos() : 0;
   const uint32_t nlits = 2 * k.nvars;
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
@@ -1814,11 +1897,35 @@ ApplyResult congruence_apply(Kernel &k) {
   // Per-kind tables keyed by the canonical input key (kinds must not collide).
   std::unordered_map<std::vector<Lit>, uint32_t, InputsHash> table[3];
   table[0].reserve(gates.size() * 2);
-  std::vector<std::vector<uint32_t>> occ(nlits); // canonical-input lit → gate ids
-  std::deque<uint32_t> work;
-  std::vector<uint8_t> inq(gates.size(), 1);
+  // Canonical-input literal -> gate ids, preserving registration order.  A
+  // vector<vector<...>> spends 24 bytes on every one of 97M literal slots in
+  // 128_125 before storing a dependency. Packed head/tail endpoints plus flat
+  // nodes match the reference's contiguous occurrence representation.
+  struct OccNode {
+    uint32_t gate;
+    uint32_t next;
+  };
+  std::vector<uint64_t> occ_endpoints(nlits, UINT64_MAX);
+  std::vector<OccNode> occ_nodes;
+  occ_nodes.reserve(2 * gates.size());
+  auto add_occurrence = [&](Lit lit, uint32_t gate) {
+    assert(occ_nodes.size() < UINT32_MAX);
+    const uint32_t node = static_cast<uint32_t>(occ_nodes.size());
+    occ_nodes.push_back({gate, UINT32_MAX});
+    uint64_t &endpoints = occ_endpoints[lit];
+    if (endpoints == UINT64_MAX) {
+      endpoints = (static_cast<uint64_t>(node) << 32) | node;
+    } else {
+      const uint32_t tail = static_cast<uint32_t>(endpoints);
+      occ_nodes[tail].next = node;
+      endpoints = (endpoints & UINT64_C(0xffffffff00000000)) | node;
+    }
+  };
+  std::vector<uint32_t> work(gates.size());
   for (uint32_t i = 0; i < gates.size(); i++)
-    work.push_back(i);
+    work[i] = i;
+  size_t work_head = 0;
+  std::vector<uint8_t> inq(gates.size(), 1);
   auto reschedule_all_gates = [&]() {
     for (uint32_t gg = 0; gg < gates.size(); gg++)
       if (!inq[gg]) {
@@ -1826,6 +1933,8 @@ ApplyResult congruence_apply(Kernel &k) {
         work.push_back(gg);
       }
   };
+  if (cong_time)
+    cong_t.setup += now_nanos() - setup_t0;
 
   uint64_t neq = 0;
   bool unsat = false;
@@ -1885,12 +1994,19 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     unite(sm, big);
     neq++;
-    for (const Lit side : {big, negate(big)})
-      for (const uint32_t gg : occ[side])
+    for (const Lit side : {big, negate(big)}) {
+      const uint64_t endpoints = occ_endpoints[side];
+      if (endpoints == UINT64_MAX)
+        continue;
+      for (uint32_t node = static_cast<uint32_t>(endpoints >> 32);
+           node != UINT32_MAX; node = occ_nodes[node].next) {
+        const uint32_t gg = occ_nodes[node].gate;
         if (!inq[gg]) {
           inq[gg] = 1;
           work.push_back(gg);
         }
+      }
+    }
     // The raw-output binaries are proof scaffolding only.  Kissat keeps the
     // representative pair emitted above, not a second edge between arbitrary
     // members of the newly joined classes.  Do retain a raw clause when it was
@@ -1923,17 +2039,11 @@ ApplyResult congruence_apply(Kernel &k) {
   // Follow Kissat's positive-literal, smaller-endpoint traversal. Besides
   // making every pair unique, that order keeps the representative trajectory
   // stable for trace comparison.
+  const uint64_t binary_import_t0 = cong_time ? now_nanos() : 0;
   std::vector<uint8_t> binary_marks(nlits, 0);
   std::vector<Lit> marked;
   std::vector<Var> binary_vars;
-  binary_vars.reserve(k.nvars);
-  for (Var v = 0; v < k.nvars; v++)
-    if (v >= k.var_status.size() || k.var_status[v] == VarStatus::Active)
-      binary_vars.push_back(v);
-  std::sort(binary_vars.begin(), binary_vars.end(), [&](Var a, Var b) {
-    return kernel_import_lit_order(k, make_lit(a, false)) <
-           kernel_import_lit_order(k, make_lit(b, false));
-  });
+  kernel_vars_in_import_order(k, binary_vars);
   for (const Var v : binary_vars) {
     if (unsat)
       break;
@@ -1986,6 +2096,8 @@ ApplyResult congruence_apply(Kernel &k) {
       marked.clear();
     } while (restart && !unsat);
   }
+  if (cong_time)
+    cong_t.binary_import += now_nanos() - binary_import_t0;
   if (unsat)
     return ApplyResult::Unsat;
   if (gates.empty()) {
@@ -1998,7 +2110,7 @@ ApplyResult congruence_apply(Kernel &k) {
   // or nothing). The batched root units are still asserted from what it did.
   uint32_t stop_tick = 0;
   const uint64_t closure_t0 = cong_time ? now_nanos() : 0;
-  while (!work.empty() && !unsat) {
+  while (work_head < work.size() && !unsat) {
     if (k.stop_fuzz || !(++stop_tick & 255)) {
       if (kernel_terminating(k)) {
         k.stats.rule_interrupted++;
@@ -2010,8 +2122,7 @@ ApplyResult congruence_apply(Kernel &k) {
         break;
     }
     cong_t.items++;
-    const uint32_t i = work.front();
-    work.pop_front();
+    const uint32_t i = work[work_head++];
     inq[i] = 0;
     Lit out_i;
     bool value_derived_i = false;
@@ -2151,7 +2262,7 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     Stage table_stage(&cong_t.table);
     for (const Lit l : key)
-      occ[l].push_back(i); // register for rescheduling when an input merges
+      add_occurrence(l, i); // reschedule when a canonical input merges
     auto &tab = table[static_cast<int>(gates[i].kind)];
     auto it = tab.find(key);
     if (it == tab.end()) {
@@ -2275,20 +2386,27 @@ ApplyResult congruence_apply(Kernel &k) {
       continue;
     }
   }
-  if (!unsat && (neq || !pending.units.empty()) && !kernel_terminating(k))
-    (void) forward_subsume_congruent_clauses(k, find);
+  if (!unsat && (neq || !pending.units.empty()) && !kernel_terminating(k)) {
+    Stage s(&cong_t.forward);
+    (void)forward_subsume_congruent_clauses(k, find);
+  }
   if (cong_time) {
     cong_t.closure_all += now_nanos() - closure_t0;
     const double ms = 1e-6;
     std::fprintf(stderr,
                  "[cong-time] cumulative ms: apply %.0f | extract{and %.0f "
-                 "index %.0f sort %.0f xor %.0f ite %.0f} | closure %.0f "
-                 "{canon %.0f match %.0f (of which proof %.0f)} | items %llu\n",
+                 "index %.0f sort %.0f xor %.0f ite %.0f} | rebuild %.0f "
+                 "binary{extract %.0f units %.0f import %.0f} setup %.0f | "
+                 "closure %.0f {canon %.0f match %.0f (of which proof %.0f)} "
+                 "| forward %.0f | items %llu\n",
                  (cong_t.apply_all + (now_nanos() - apply_t0)) * ms,
                  cong_t.extract_and * ms,
                  cong_t.index * ms, cong_t.sort * ms, cong_t.xor_x * ms,
-                 cong_t.ite_x * ms, cong_t.closure_all * ms, cong_t.canon * ms,
-                 cong_t.table * ms, cong_t.proof * ms,
+                 cong_t.ite_x * ms, cong_t.rebuild * ms,
+                 cong_t.binary_extract * ms, cong_t.binary_units * ms,
+                 cong_t.binary_import * ms, cong_t.setup * ms,
+                 cong_t.closure_all * ms, cong_t.canon * ms,
+                 cong_t.table * ms, cong_t.proof * ms, cong_t.forward * ms,
                  (unsigned long long)cong_t.items);
   }
   if (cong_probe) {

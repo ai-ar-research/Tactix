@@ -66,6 +66,12 @@ add_test(NAME event_trace_compare
 add_test(NAME reduce_trace_compare
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_compare_reduce_trace.py)
+add_test(NAME modelcheck
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_modelcheck.py)
+add_test(NAME kissat_journal_overlay_static
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_kissat_journal_overlay_static.py)
 
 if(TACTIX_ENABLE_RULE_JOURNAL)
   add_executable(test_rule_journal test_rule_journal.cpp)
@@ -75,13 +81,20 @@ else()
   add_executable(test_rule_journal test_rule_journal.cpp
                  ${CMAKE_SOURCE_DIR}/src/diagnostics/rule_journal.cpp)
   target_compile_definitions(test_rule_journal PRIVATE
-                             TACTIX_ENABLE_RULE_JOURNAL=1)
+                             TACTIX_ENABLE_RULE_JOURNAL=1
+                             TACTIX_TEST_STANDALONE_JOURNAL=1)
 endif()
 target_link_libraries(test_rule_journal PRIVATE tactix_lib)
 add_test(NAME rule_journal
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_rule_journal.py
                  $<TARGET_FILE:test_rule_journal>)
+if(TACTIX_ENABLE_RULE_JOURNAL)
+  add_test(NAME default_policy_rule_journal
+           COMMAND ${CMAKE_COMMAND} -E env python3
+                   ${CMAKE_CURRENT_SOURCE_DIR}/test_tactix_default_journal.py
+                   $<TARGET_FILE:tactix>)
+endif()
 add_test(NAME p4_fixtures
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_p4_fixtures.py)

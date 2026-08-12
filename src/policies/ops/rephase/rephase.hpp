@@ -16,7 +16,7 @@ constexpr uint64_t REPHASE_INVERTED = 1; // all saved = -initial (-1)
 constexpr uint64_t REPHASE_ORIGINAL = 2; // all saved = +initial (+1)
 // (Walking joins with S6 Walk in phase 4)
 
-bool rephase_guard(const Kernel &);
+RuleEligibility rephase_guard(const Kernel &);
 ApplyResult rephase_apply_type(Kernel &, uint64_t type);
 ApplyResult rephase_apply(Kernel &); // canonical: Best
 

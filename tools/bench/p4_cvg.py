@@ -161,7 +161,9 @@ def worker(args, row):
             record = {"repeat": repeat + 1, "solvers": {}}
             metadata["runs"].append(record)
             write_metadata(out, metadata)
-            solvers = [("tactix", tactix, "TACTIX")]
+            solvers = []
+            if not args.kissat_only:
+                solvers.append(("tactix", tactix, "TACTIX"))
             if not args.tactix_only:
                 solvers.append(("kissat", kissat, "KISSAT"))
             for name, binary, prefix in solvers:
@@ -187,6 +189,14 @@ def worker(args, row):
                             args.conflict_to)
                 if name == "tactix":
                     env["TACTIX_STRATEGY_CONFIG"] = "1"
+                    if args.tactix_bve_backward is not None:
+                        env["TACTIX_BVE_BACKWARD"] = args.tactix_bve_backward
+                    if args.tactix_slot_enable:
+                        env["TACTIX_SLOT_ENABLE"] = args.tactix_slot_enable
+                    if args.tactix_slot_disable:
+                        env["TACTIX_SLOT_DISABLE"] = args.tactix_slot_disable
+                    if args.tactix_slot_permille:
+                        env["TACTIX_SLOT_PERMILLE"] = args.tactix_slot_permille
                 command = [str(binary), str(cnf), str(proof)]
                 code, elapsed = run(command, env, args.timeout, log)
                 record["solvers"][name] = {
@@ -254,6 +264,17 @@ def main():
     ap.add_argument("--tactix-only", action="store_true",
                     help="run only Tactix in --tier diagnostic mode; reuse "
                          "stored reference results")
+    ap.add_argument("--kissat-only", action="store_true",
+                    help="run only diagnostic Kissat in --tier mode; never "
+                         "use this result as a performance baseline")
+    ap.add_argument("--tactix-slot-enable",
+                    help="diagnostic comma-separated Tactix slot override")
+    ap.add_argument("--tactix-slot-disable",
+                    help="diagnostic comma-separated Tactix slot override")
+    ap.add_argument("--tactix-slot-permille",
+                    help="diagnostic Rule:permille comma-separated override")
+    ap.add_argument("--tactix-bve-backward", choices=("0", "1"),
+                    help="diagnostic BVE backward-subsumption override")
     ap.add_argument("--no-trace", action="store_true",
                     help="disable semantic/reduction traces in --tier "
                          "diagnostic mode")
@@ -278,6 +299,10 @@ def main():
         ap.error("a non-default --memory-gb requires --tier")
     if args.tactix_only and not args.tier:
         ap.error("--tactix-only requires --tier")
+    if args.kissat_only and not args.tier:
+        ap.error("--kissat-only requires --tier")
+    if args.tactix_only and args.kissat_only:
+        ap.error("--tactix-only and --kissat-only are mutually exclusive")
     if args.no_trace and not args.tier:
         ap.error("--no-trace requires --tier")
     if args.worker:
@@ -299,9 +324,19 @@ def main():
         command += ["--mode-clock"]
     if args.tactix_only:
         command += ["--tactix-only"]
+    if args.kissat_only:
+        command += ["--kissat-only"]
+    if args.tactix_slot_enable:
+        command += ["--tactix-slot-enable", args.tactix_slot_enable]
+    if args.tactix_slot_disable:
+        command += ["--tactix-slot-disable", args.tactix_slot_disable]
+    if args.tactix_slot_permille:
+        command += ["--tactix-slot-permille", args.tactix_slot_permille]
+    if args.tactix_bve_backward is not None:
+        command += ["--tactix-bve-backward", args.tactix_bve_backward]
     if args.no_trace:
         command += ["--no-trace"]
-    solver_count = 1 if args.tactix_only else 2
+    solver_count = 1 if args.tactix_only or args.kissat_only else 2
     per_solver_wall = args.timeout + checker_budget(args.timeout)
     wall_minutes = max(
         10, int((solver_count * per_solver_wall * args.repeats) / 60) + 10)

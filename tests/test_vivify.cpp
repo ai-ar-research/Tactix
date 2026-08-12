@@ -62,9 +62,13 @@ static void test_implied_negation_removes() {
   Kernel k;
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
-  kernel_add_large_clause(k, c, 3, false, 0);
+  const Ref candidate = kernel_add_large_clause(k, c, 3, false, 0);
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
-  assert(vivify_apply(k) == ApplyResult::Ok);
+  // This is a terminal-arm unit, not a scheduling test.  The canonical round
+  // sorts equal occurrence counts by descending raw literal like Kissat,
+  // whereas the instance surface deliberately probes the requested clause
+  // pose and isolates the implied-negation transformation.
+  assert(vivify_try(k, candidate) == ApplyResult::Ok);
   assert(k.stats.vivified == 1 && k.stats.vivify_shrunken == 1);
   assert(live_large(k) == 0); // (1 3) became a binary
   assert(default_solve(k) == 10);
@@ -297,6 +301,98 @@ static void test_trail_reuse() {
   assert(k.level == 0 && k2.level == 0 && !k.conflict_valid); // root is clean
 }
 
+// A successful LARGE shrink allocates a replacement in Tactix.  Kissat edits
+// the candidate in place, so parity requires explicitly removing the old
+// candidate's watch pair before the arena record becomes garbage.  The public
+// transaction compacts the arena before returning; validate the resulting
+// live-watch graph (the journal regression separately pins the pre-collection
+// propagation tick boundary).
+static void test_large_rewrite_unwatches_candidate() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit candidate[4] = {internalize(1), internalize(2), internalize(3),
+                            internalize(4)};
+  const Ref rewritten = kernel_add_large_clause(k, candidate, 4, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+
+  assert(vivify_try(k, rewritten) == ApplyResult::Ok);
+  assert(k.stats.vivify_shrunken == 1);
+  assert(live_large(k) == 1);
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (!watch.binary()) {
+        assert(watch.ref() < k.arena.size());
+        assert(!clause_at(k.arena, watch.ref())->garbage());
+      }
+  assert(k.level == 0 && !k.conflict_valid);
+  assert(default_solve(k) == 10);
+}
+
+// After a conflict shrink, literals above the retained level are unassigned.
+// Kissat's watch selector nevertheless scans past the first such literal and
+// lets a later unassigned literal, then a higher retained-level false literal,
+// win.  Stopping at the first unassigned tail changed the replacement pose.
+static void test_replacement_watch_pose_scans_unassigned_tail() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  k.level = 1;
+  kernel_assign(k, internalize(-1), 1, DECISION_REASON, false);
+  k.level = 2;
+  kernel_assign(k, internalize(-2), 2, DECISION_REASON, false);
+  k.level = 3;
+  kernel_assign(k, internalize(-5), 3, DECISION_REASON, false);
+  std::vector<Lit> replacement = {
+      internalize(1), internalize(2), internalize(3), internalize(4),
+      internalize(5)};
+  vivify_pose_replacement_watches(k, replacement);
+  const std::vector<Lit> expected = {
+      internalize(5), internalize(4), internalize(3), internalize(2),
+      internalize(1)};
+  assert(replacement == expected);
+}
+
+// Large instantiation is not an ordinary learned-clause rebuild.  Kissat
+// removes the reversed literal in the candidate's physical order, retains the
+// first size-2 assumption levels, and chooses watches in that state.  This
+// pins the pose independently of the equivalent clause's literal set.
+static void test_large_instantiation_retains_candidate_pose() {
+  Kernel k;
+  k.vivify_reuse = false;
+  kernel_reserve_vars(k, 5);
+  const Lit lits[4] = {internalize(1), internalize(2), internalize(3),
+                       internalize(4)};
+  const Ref candidate = kernel_add_large_clause(k, lits, 4, false, 0);
+  kernel_add_binary_clause(k, internalize(-4), internalize(5));
+  kernel_add_binary_clause(k, internalize(-4), internalize(-5));
+  assert(vivify_try(k, candidate) == ApplyResult::Ok);
+  assert(k.stats.vivify_instantiated == 1);
+  const Clause *replacement = nullptr;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->size == 3)
+      replacement = c;
+    ref += clause_words(c->size);
+  }
+  assert(replacement);
+  assert(replacement->lits[0] == internalize(3));
+  assert(replacement->lits[1] == internalize(2));
+  assert(default_solve(k) == 10);
+}
+
+static void test_large_rewrite_trims_without_implied_literal() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  for (int i = 1; i <= 4; i++)
+    kernel_assign_decision(k, internalize(-i));
+  vivify_trim_replacement_prefix(k, INVALID_LIT, 5);
+  assert(k.level == 3 && k.trail.size() == 3);
+
+  // An implied-literal rewrite keeps the probing prefix, matching Kissat's
+  // distinct branch in vivify_learn_large.
+  vivify_trim_replacement_prefix(k, internalize(5), 4);
+  assert(k.level == 3 && k.trail.size() == 3);
+}
+
 static void test_schedule_prefix_flush() {
   const Lit short_clause[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit long_clause[4] = {internalize(1), internalize(2), internalize(3),
@@ -304,6 +400,9 @@ static void test_schedule_prefix_flush() {
 
   Kernel k;
   kernel_reserve_vars(k, 4);
+  assert(!k.vivify_flush &&
+         "production follows Kissat: watch flushing is not clause prefix "
+         "subsumption");
   k.vivify_flush = true;
   kernel_add_large_clause(k, short_clause, 3, false, 0);
   kernel_add_large_clause(k, long_clause, 4, false, 0);
@@ -365,6 +464,81 @@ static void test_schedule_flush_partition() {
   assert(live_large(k) == 3); // neither partitions nor tier bands are crossed
 }
 
+static void test_schedule_root_false_ternary_becomes_binary() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit clause[3] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, clause, 3, false, 0, 1);
+  kernel_assign_unit(k, internalize(1));
+  assert(!kernel_propagate(k));
+  assert(vivify_apply(k) == ApplyResult::Ok);
+  assert(k.stats.vivify_checked == 0); // simplified before candidate dispatch
+  assert(live_large(k) == 0);
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+}
+
+static void test_kissat_candidate_count_vector_ties() {
+  { // Irredundant uses Kissat's one-count key; the stable radix tie is ref.
+    Kernel k;
+    kernel_reserve_vars(k, 6);
+    for (const Var v : {5u, 0u, 4u, 1u, 3u, 2u})
+      kernel_record_import(k, v);
+    const Lit low[3] = {internalize(6), internalize(1), internalize(5)};
+    const Lit high[3] = {internalize(2), internalize(4), internalize(3)};
+    const Ref lo = kernel_add_large_clause(k, low, 3, false, 0);
+    const Ref hi = kernel_add_large_clause(k, high, 3, false, 0);
+    std::vector<Ref> cands;
+    vivify_candidates(k, cands);
+    assert(cands.size() == 2 && cands[0] == hi && cands[1] == lo);
+  }
+  { // Only the maximum count and inverse size participate; clause pose stays.
+    Kernel k;
+    kernel_reserve_vars(k, 7);
+    const Lit low[3] = {internalize(1), internalize(2), internalize(3)};
+    const Lit high[4] = {internalize(4), internalize(5), internalize(6),
+                         internalize(7)};
+    const Ref lo = kernel_add_large_clause(k, low, 3, false, 0);
+    const Ref hi = kernel_add_large_clause(k, high, 4, false, 0);
+    // Raise literal 7's count above every literal in the shorter clause.
+    const Lit bump1[3] = {internalize(7), internalize(1), internalize(4)};
+    const Lit bump2[3] = {internalize(7), internalize(2), internalize(5)};
+    kernel_add_large_clause(k, bump1, 3, true, 2);
+    kernel_add_large_clause(k, bump2, 3, true, 2);
+    std::vector<Ref> cands;
+    k.vivify_scope = 2;
+    vivify_candidates(k, cands);
+    assert(cands.size() == 2 && cands[0] == hi && cands[1] == lo);
+    assert(clause_at(k.arena, hi)->lits[0] == internalize(4));
+  }
+  { // Fully identical keys: Kissat pops the larger arena reference first.
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Ref first = kernel_add_large_clause(k, lits, 3, false, 0);
+    const Ref second = kernel_add_large_clause(k, lits, 3, false, 0);
+    std::vector<Ref> cands;
+    vivify_candidates(k, cands);
+    assert(cands.size() == 2 && cands[0] == second && cands[1] == first);
+  }
+  { // An appended packed-arena replacement retains its in-place source order.
+    Kernel k;
+    kernel_reserve_vars(k, 6);
+    const Lit old_lits[3] = {internalize(1), internalize(2), internalize(3)};
+    const Lit later_lits[3] = {internalize(4), internalize(5), internalize(6)};
+    const Ref old = kernel_add_large_clause(k, old_lits, 3, false, 0, 1);
+    const Ref later = kernel_add_large_clause(k, later_lits, 3, false, 0, 2);
+    kernel_inherit_clause_order(k, 3, clause_at(k.arena, old)->id());
+    kernel_delete_clause(k, clause_at(k.arena, old));
+    const Ref replacement =
+        kernel_add_large_clause(k, old_lits, 3, false, 0, 3);
+    assert(replacement > later); // physical append differs from logical pose
+    std::vector<Ref> cands;
+    vivify_candidates(k, cands);
+    assert(cands.size() == 2);
+    assert(cands[0] == later && cands[1] == replacement);
+  }
+}
+
 // The termination poll is cadence-free: a raised stop is both reached and
 // honoured on the first candidate, before any work.
 static void test_termination_poll() {
@@ -396,8 +570,14 @@ int main() {
   test_tier3_scope();
   test_leftover_priority();
   test_trail_reuse();
+  test_large_rewrite_unwatches_candidate();
+  test_replacement_watch_pose_scans_unassigned_tail();
+  test_large_instantiation_retains_candidate_pose();
+  test_large_rewrite_trims_without_implied_literal();
   test_schedule_prefix_flush();
   test_schedule_flush_partition();
+  test_schedule_root_false_ternary_becomes_binary();
+  test_kissat_candidate_count_vector_ties();
   test_termination_poll();
   puts("test_vivify OK");
   return 0;

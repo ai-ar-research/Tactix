@@ -7,6 +7,7 @@
 
 #include "kernel/types.hpp"
 
+#include <array>
 #include <cstdio>
 #include <vector>
 
@@ -61,11 +62,15 @@ public:
   static bool tautological(const Lit *lits, uint32_t size);
 
 private:
+  void put_byte(unsigned char byte);
+  void flush_binary();
   void put_lit(Lit l);
   void put_u64(uint64_t v);
   void end_line();
   FILE *file_ = nullptr;
   ProofFormat format_ = ProofFormat::DratBinary;
+  std::array<unsigned char, 1 << 20> binary_buffer_{};
+  size_t binary_buffer_size_ = 0;
   const std::vector<Var> *variable_map_ = nullptr;
 };
 

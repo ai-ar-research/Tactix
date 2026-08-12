@@ -21,7 +21,7 @@ constexpr uint32_t STRENGTHEN_BINLIM = 10000;
 
 // Guard: quiescent root, C1's argument — value semantics plus no in-flight
 // reasons; reaching the root is the policy's job.
-bool strengthen_guard(const Kernel &);
+RuleEligibility strengthen_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = candidate arena Ref, as in C1, in
 // canonical order (irredundant first, then size ascending). `complete` selects

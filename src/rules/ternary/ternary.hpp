@@ -18,7 +18,7 @@ namespace tactix {
 // Guard: quiescent root (D-ROOT) — the occurrence index and the "already
 // present" checks only mean anything once every level-0 unit is propagated into
 // the clause set.
-bool ternary_guard(const Kernel &);
+RuleEligibility ternary_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = the pivot literal, sign-extended DIMACS
 // int; one instance = one pivot = all resolutions of its positive ternaries

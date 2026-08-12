@@ -4,6 +4,7 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <array>
 
 namespace tactix {
 
@@ -11,13 +12,13 @@ namespace tactix {
 // position — lrat-check and cake_lpr both ignore the header count — so a chain
 // citing id `i` asks it to propagate the clause the file holds at position `i`,
 // and every normalization ingest_clause performs is a potential divergence.
-// Every case is enumerated with its verdict in
-// benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2; two are
-// breaches, both fixed here. Repeats and already-root-false literals leave the
-// stored clause narrower than the checker clause: restate it under a fresh id,
-// using the root units as hints where needed. This is CaDiCaL's lemma shape
-// (clause.cpp add_new_original_clause), deferred to end of input so no header
-// need be trusted. A mid-input refutation is likewise deferred to finish_input.
+// The normalization cases and verdicts live in
+// benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2. Repeats
+// and root-false literals narrow the stored clause, so LRAT restates it under a
+// fresh id with root-unit hints. DRAT has no clause identities: deduplication is
+// equivalent, root shrinking is RUP under the derived units, and unmatched
+// deletions are hints. A mid-input refutation remains deferred to finish_input
+// so LRAT's original id namespace is never crossed.
 static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                           const std::vector<Lit> &units, Ref ref) {
   // Record that the checker's clause `id` is not the clause just stored. The
@@ -25,7 +26,7 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   // restatement matters only with a proof, since without one no id names
   // anything.
   k.stats.input_restated++;
-  if (!k.proof)
+  if (!k.proof || !k.proof->lrat())
     return;
   Kernel::InputRestatement r;
   r.id = id;
@@ -77,38 +78,49 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Retain
   // that order across the set-semantics check below.  Do not publish it yet: a
   // tautology activates nothing and returns below.
-  const std::vector<Lit> file_order = scratch;
-  for (const Lit l : file_order)
-    kernel_record_import(k, var_of(l));
-  std::vector<Var> activation_order;
-  if (k.tumble) {
-    activation_order.reserve(scratch.size());
-    for (const Lit l : scratch)
-      activation_order.push_back(var_of(l));
+  const size_t file_size = scratch.size();
+  std::array<Lit, 2> small_order{};
+  std::vector<Lit> large_order;
+  const Lit *file_order;
+  if (file_size <= small_order.size()) {
+    std::copy(scratch.begin(), scratch.end(), small_order.begin());
+    file_order = small_order.data();
+  } else {
+    large_order = scratch;
+    file_order = large_order.data();
   }
+  for (size_t i = 0; i < file_size; i++)
+    kernel_record_import(k, var_of(file_order[i]));
 
   // Set semantics: dedupe; tautologies contribute nothing.  The sorted copy
   // is only the membership check.  Original clauses are stored in stable
   // first-occurrence file order, as Kissat does while all literals are
   // unassigned; sorting storage here changes the initial watched pair and the
   // order of every affected watch list.
-  const size_t file_size = scratch.size();
-  std::sort(scratch.begin(), scratch.end());
-  scratch.erase(std::unique(scratch.begin(), scratch.end()), scratch.end());
-  for (size_t i = 1; i < scratch.size(); i++)
-    if (scratch[i] == negate(scratch[i - 1]))
-      return; // tautology
-  const std::vector<Lit> canonical = scratch;
-  std::vector<uint8_t> emitted(canonical.size(), 0);
-  scratch.clear();
-  scratch.reserve(canonical.size());
-  for (const Lit lit : file_order) {
-    const auto it = std::lower_bound(canonical.begin(), canonical.end(), lit);
-    assert(it != canonical.end() && *it == lit);
-    const size_t pos = static_cast<size_t>(it - canonical.begin());
-    if (!emitted[pos]) {
-      emitted[pos] = 1;
-      scratch.push_back(lit);
+  if (file_size == 2) {
+    if (scratch[0] == negate(scratch[1]))
+      return;
+    if (scratch[0] == scratch[1])
+      scratch.resize(1);
+  } else if (file_size > 2) {
+    std::sort(scratch.begin(), scratch.end());
+    scratch.erase(std::unique(scratch.begin(), scratch.end()), scratch.end());
+    for (size_t i = 1; i < scratch.size(); i++)
+      if (scratch[i] == negate(scratch[i - 1]))
+        return; // tautology
+    const std::vector<Lit> canonical = scratch;
+    std::vector<uint8_t> emitted(canonical.size(), 0);
+    scratch.clear();
+    scratch.reserve(canonical.size());
+    for (size_t i = 0; i < file_size; i++) {
+      const Lit lit = file_order[i];
+      const auto it = std::lower_bound(canonical.begin(), canonical.end(), lit);
+      assert(it != canonical.end() && *it == lit);
+      const size_t pos = static_cast<size_t>(it - canonical.begin());
+      if (!emitted[pos]) {
+        emitted[pos] = 1;
+        scratch.push_back(lit);
+      }
     }
   }
   // Kissat internal.c:kissat_add normalizes every input clause against units
@@ -150,7 +162,8 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   if (k.tumble) {
     if (k.input_activated.size() < k.nvars)
       k.input_activated.resize(k.nvars, 0);
-    for (const Var v : activation_order) {
+    for (size_t i = 0; i < file_size; i++) {
+      const Var v = var_of(file_order[i]);
       if (k.values[make_lit(v, false)] == 0 && !k.input_activated[v]) {
         k.input_activated[v] = 1;
         k.input_activation_order.push_back(v);
@@ -202,6 +215,12 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 }
 
 void finish_input(Kernel &k) {
+  // Search never has more than one assignment per variable, while its level
+  // stack cannot exceed the same population.  Reserve both once, after the
+  // DIMACS header/import stream has fixed the population, so the propagation
+  // hot path does not carry vector growth and relocation into assignment.
+  k.trail.reserve(k.nvars);
+  k.frames.reserve(static_cast<size_t>(k.nvars) + 1);
   // Input ids are now settled: next_clause_id equals the number of input
   // clauses, exactly the checker's numbering, because ingest_clause consumes
   // one id per clause and nothing else consumed any. Derived ids start here.
@@ -244,6 +263,7 @@ void finish_input(Kernel &k) {
     } else {
       Clause *c = clause_at(k.arena, r.ref);
       assert(c->id() == r.id);
+      kernel_inherit_clause_order(k, nid, r.id);
       c->set_id(nid);
     }
   }
@@ -285,16 +305,33 @@ void finish_input(Kernel &k) {
 
 const char *parse_dimacs(FILE *f, Kernel &k) {
   std::vector<Lit> scratch;
-  int c = getc(f);
+  // Parsing is single-threaded and owns `f`. Pull a block at a time rather than
+  // entering stdio for every byte; a three-gigabyte binary CNF otherwise pays
+  // tens of millions of calls even with the stream lock disabled.
+  struct Reader {
+    FILE *file;
+    std::array<unsigned char, 1 << 20> buffer{};
+    size_t pos = 0, end = 0;
+    int next() {
+      if (pos == end) {
+        end = fread(buffer.data(), 1, buffer.size(), file);
+        pos = 0;
+        if (!end)
+          return EOF;
+      }
+      return buffer[pos++];
+    }
+  } reader{f};
+  int c = reader.next();
   for (;;) {
     // Skip whitespace.
     while (c == ' ' || c == '\t' || c == '\r' || c == '\n')
-      c = getc(f);
+      c = reader.next();
     if (c == EOF)
       break;
     if (c == 'c') { // comment line
       while (c != '\n' && c != EOF)
-        c = getc(f);
+        c = reader.next();
       continue;
     }
     if (c == 'p') { // header: "p cnf <vars> <clauses>" (counts advisory)
@@ -305,14 +342,30 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
             n = n * 10 + (c - '0');
             if (n > (1u << 28))
               return "variable count out of range";
-            c = getc(f);
+            c = reader.next();
           }
           kernel_reserve_vars(k, static_cast<uint32_t>(n));
-          while (c != '\n' && c != EOF) // ignore the clause count
-            c = getc(f);
+          while (c == ' ' || c == '\t' || c == '\r')
+            c = reader.next();
+          uint64_t clauses = 0;
+          while (c >= '0' && c <= '9') {
+            clauses = clauses * 10 + (c - '0');
+            c = reader.next();
+          }
+          k.original_input_clauses = clauses;
+          // Avoid repeated multi-gigabyte rehashes on binary-dominated inputs.
+          // Binary encodings commonly contain almost nothing else.  Reserve up
+          // to the declared clause count, capped by three times the variable
+          // population so a huge long-clause input does not reserve a giant
+          // binary table it will never use.
+          const uint64_t predicted_binaries =
+              std::min<uint64_t>(clauses, 3 * n);
+          k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
+          while (c != '\n' && c != EOF)
+            c = reader.next();
           break;
         }
-        c = getc(f);
+        c = reader.next();
       }
       continue;
     }
@@ -320,7 +373,7 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
     bool neg = false;
     if (c == '-') {
       neg = true;
-      c = getc(f);
+      c = reader.next();
     }
     if (c < '0' || c > '9')
       return "expected literal";
@@ -329,7 +382,7 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
       n = n * 10 + (c - '0');
       if (n > (1u << 28))
         return "literal out of range";
-      c = getc(f);
+      c = reader.next();
     }
     if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != EOF)
       return "unexpected character after literal";

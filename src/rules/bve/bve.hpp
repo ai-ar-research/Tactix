@@ -38,7 +38,7 @@ constexpr uint32_t BVE_MAX_BOUND = 16;
 
 // Pure quiescent-root precondition, D-LEVEL purified: no fixpoint conjunct,
 // since the round drains the root closure U at apply entry.
-bool bve_guard(const Kernel &);
+RuleEligibility bve_guard(const Kernel &);
 
 // Round-local occurrence index over the elimination clause set — irredundant
 // large clauses plus all binaries — by literal, both polarities, active

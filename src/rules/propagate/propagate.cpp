@@ -11,13 +11,15 @@
 
 namespace tactix {
 
-bool propagate_guard(const Kernel &k) {
+RuleEligibility propagate_guard(const Kernel &k) {
   // Pure abstract precondition (docs/calculus.md §3 M1): not refuted, no
   // unresolved conflict, propagation work remains. No ¬pending.valid conjunct:
   // with Analyze+Backjump fused, `pending` never crosses a rule boundary, so
   // the state it would exclude is unrepresentable (D-SPLIT-1 closed).
-  return !k.conflict_valid && !k.inconsistent &&
-         k.propagate_head < k.trail.size();
+  RuleEligibility result;
+  return result.fact("no-conflict", !k.conflict_valid)
+      .fact("consistent", !k.inconsistent)
+      .fact("pending-propagation", k.propagate_head < k.trail.size());
 }
 
 ApplyResult propagate_service(Kernel &k) {
@@ -73,6 +75,13 @@ ApplyResult propagate_service(Kernel &k) {
     }
     return ApplyResult::Conflict;
   }
+  // `kissat_update_conflicts_and_trail` consumes the unflushed root prefix
+  // after a successful root-level propagation.  Tactix keeps those literals
+  // in its stable trail representation, but must consume the matching
+  // lifecycle marker here.  Root facts discovered while the solver stands
+  // above level zero remain pending until a later Reduce/Rephase/phase entry.
+  if (k.level == 0)
+    k.unflushed_root = 0;
   return ApplyResult::Ok;
 }
 

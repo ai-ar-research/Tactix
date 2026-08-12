@@ -17,7 +17,7 @@
 namespace tactix {
 
 // Guard: quiescent root; `!conflict_valid` is abstract, as in V1.
-bool backbone_guard(const Kernel &);
+RuleEligibility backbone_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = probe literal, sign-extended DIMACS
 // int. Canonical order: BIG-head literals, var-index ascending, positive phase

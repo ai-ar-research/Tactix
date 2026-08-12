@@ -14,7 +14,7 @@
 
 namespace tactix {
 
-bool analyze_guard(const Kernel &);
+RuleEligibility analyze_guard(const Kernel &);
 ApplyResult analyze_apply(Kernel &);
 
 // Eager subsumption (kissat `eagersubsume`): the learn-time half of the fused
@@ -31,5 +31,10 @@ void analyze_eager_subsume(Kernel &);
 // analysis-level propagated literal.  Kept separate only because Backjump
 // owns the trail mutation; ConflictAnalysis still exposes one atomic step.
 void analyze_retire_otfs_reasons(Kernel &);
+
+// Complete Analyze's deferred score/queue transaction after the fused
+// Backjump has restored the trail. Kissat learns/backtracks before it bumps;
+// keeping this ordering is observable through equal-score heap pose.
+void analyze_bump_after_backjump(Kernel &);
 
 } // namespace tactix

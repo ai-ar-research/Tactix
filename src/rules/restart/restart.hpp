@@ -9,7 +9,7 @@
 
 namespace tactix {
 
-bool restart_guard(const Kernel &);
+RuleEligibility restart_guard(const Kernel &);
 
 // instance ranking (§5.1): the canonical keep-level — the trail prefix the
 // active heuristic (VMTF stamps / EVSIDS scores) would immediately
