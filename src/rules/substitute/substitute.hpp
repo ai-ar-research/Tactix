@@ -24,11 +24,12 @@ bool substitute_guard(const Kernel &k);
 
 // SCC decomposition of the binary implication graph (edges p → q for every
 // binary clause (¬p ∨ q); only active — unassigned — literals are nodes).
-//   repr[l]  = the representative (numerically smallest) literal of l's SCC;
+//   repr[l]  = the representative with the smallest DIMACS import order in
+//              l's SCC (Kissat's compact internal-literal order);
 //              repr[l]==l for a representative or a singleton; INVALID_LIT for
 //              an inactive (root-fixed) literal that is not a node.
 //   nontrivial_reps = representatives of SCCs with more than one literal, in
-//              ascending order — the substitution instances.
+//              ascending import order — the substitution instances.
 //   contradiction   = some SCC contains a literal and its own negation.
 //   contradiction_lit = a witness x with x and ¬x in one SCC (INVALID_LIT if
 //              none); both directed paths x→¬x and ¬x→x then exist, which the
@@ -36,6 +37,10 @@ bool substitute_guard(const Kernel &k);
 struct SccResult {
   std::vector<Lit> repr;            // by lit
   std::vector<Lit> nontrivial_reps; // representatives of |SCC| > 1, ascending
+  // Kissat's integrated failed-root channel: if one DFS root reaches a literal
+  // and its negation in distinct SCCs, learn its negation as a root unit.
+  std::vector<Lit> failed_units;
+  std::vector<Lit> failed_witness;
   bool contradiction = false;
   Lit contradiction_lit = INVALID_LIT;
 };
@@ -46,6 +51,11 @@ SccResult substitute_find_sccs(const Kernel &k);
 // representative's class and its mirror; INSTANCE_CANONICAL = the full round
 // (every non-trivial SCC). On x ≡ ¬x, apply refutes.
 ApplyResult substitute_apply(Kernel &); // canonical: full round
+
+// Initial probing uses Kissat's `complete=true` contract: repeat productive
+// rounds so equivalences exposed by one rewrite are consumed by the next.
+// The shipped reference cap is two rounds (`substituterounds=2`).
+ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds = 2);
 
 // Mechanism helper for Sweep's reference-inline application: rewrite only the
 // SCC classes named by equivalence binaries that the caller has just proved

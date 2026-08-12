@@ -34,10 +34,13 @@ def main():
     overlay = pathlib.Path(__file__).resolve().parent / "overlay"
     shutil.copy2(overlay / "eventtrace.c", dest / "src" / "eventtrace.c")
     shutil.copy2(overlay / "eventtrace.h", dest / "src" / "eventtrace.h")
+    shutil.copy2(overlay / "rulejournal.c", dest / "src" / "rulejournal.c")
+    shutil.copy2(overlay / "rulejournal.h", dest / "src" / "rulejournal.h")
 
     search = dest / "src" / "search.c"
     replace_once(search, '#include "eliminate.h"\n',
-                 '#include "eliminate.h"\n#include "eventtrace.h"\n')
+                 '#include "eliminate.h"\n#include "eventtrace.h"\n'
+                 '#include "rulejournal.h"\n')
     replace_once(search,
         '  REPORT (0, \'*\');\n  int res = 0;\n',
         '  REPORT (0, \'*\');\n'
@@ -123,6 +126,7 @@ def main():
         '    kissat_event_trace (solver, "terminate", payload, true);\n'
         '  }\n'
         '  kissat_event_trace_close ();\n'
+        '  kissat_rule_journal_close ();\n'
         '  report_search_result (solver, res);\n'
         '  return res;\n')
 
@@ -225,6 +229,78 @@ def main():
         '    }\n'
         '  }\n'
         '#ifndef QUIET\n')
+
+    sweep = dest / "src" / "sweep.c"
+    replace_once(sweep, '#include "terminate.h"\n',
+                 '#include "terminate.h"\n#include "rulejournal.h"\n')
+    replace_once(sweep,
+        '  unsigned *q = BEGIN_STACK (*core);\n'
+        '  const unsigned *const end_core = END_STACK (*core), *p = q;\n\n'
+        '  while (p != end_core) {\n',
+        '  unsigned *q = BEGIN_STACK (*core);\n'
+        '  const unsigned *const end_core = END_STACK (*core), *p = q;\n'
+        '  unsigned journal_ordinal = 0;\n\n'
+        '  while (p != end_core) {\n')
+    replace_once(sweep,
+        '    while (*p != INVALID_LIT)\n'
+        '      p++;\n#ifdef LOGGING\n',
+        '    while (*p != INVALID_LIT)\n'
+        '      p++;\n'
+        '    const size_t journal_old_size = p - c;\n'
+        '    char journal_literals[2048];\n'
+        '    kissat_rule_journal_literals (solver, c, journal_old_size,\n'
+        '                                  journal_literals,\n'
+        '                                  sizeof journal_literals);\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '#ifdef LOGGING\n')
+    replace_once(sweep,
+        '    if (satisfied) {\n'
+        '      q = d;\n'
+        '      LOG ("not adding satisfied clause");\n'
+        '      continue;\n'
+        '    }\n',
+        '    if (satisfied) {\n'
+        '      q = d;\n'
+        '      LOG ("not adding satisfied clause");\n'
+        '      kissat_rule_journal_sweep_core (\n'
+        '          solver, core_idx, journal_ordinal++, journal_literals,\n'
+        '          journal_old_size, true, new_size, INVALID_LIT, "no-op",\n'
+        '          "satisfied", journal_pre);\n'
+        '      continue;\n'
+        '    }\n')
+    replace_once(sweep,
+        '      solver->inconsistent = true;\n'
+        '      CLEAR_STACK (*core);\n'
+        '      return;\n',
+        '      solver->inconsistent = true;\n'
+        '      kissat_rule_journal_sweep_core (\n'
+        '          solver, core_idx, journal_ordinal++, journal_literals,\n'
+        '          journal_old_size, false, new_size, INVALID_LIT, "refuted",\n'
+        '          "none", journal_pre);\n'
+        '      CLEAR_STACK (*core);\n'
+        '      return;\n')
+    replace_once(sweep,
+        '      kissat_assign_unit (solver, unit, "sweeping backbone reason");\n'
+        '      INC (sweep_units);\n'
+        '      continue;\n',
+        '      kissat_assign_unit (solver, unit, "sweeping backbone reason");\n'
+        '      INC (sweep_units);\n'
+        '      kissat_rule_journal_sweep_core (\n'
+        '          solver, core_idx, journal_ordinal++, journal_literals,\n'
+        '          journal_old_size, false, new_size, unit, "applied", "none",\n'
+        '          journal_pre);\n'
+        '      continue;\n')
+    replace_once(sweep,
+        '    CHECK_AND_ADD_LITS (new_size, d);\n'
+        '    ADD_LITS_TO_PROOF (new_size, d);\n'
+        '  }\n',
+        '    CHECK_AND_ADD_LITS (new_size, d);\n'
+        '    ADD_LITS_TO_PROOF (new_size, d);\n'
+        '    kissat_rule_journal_sweep_core (\n'
+        '        solver, core_idx, journal_ordinal++, journal_literals,\n'
+        '        journal_old_size, false, new_size, INVALID_LIT, "applied",\n'
+        '        "none", journal_pre);\n'
+        '  }\n')
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # use inline no-op methods and do not link the implementation, so decision and
 # conflict hot paths contain no runtime trace branch.
 option(TACTIX_ENABLE_EVENT_TRACE "Compile semantic event tracing" OFF)
+option(TACTIX_ENABLE_RULE_JOURNAL "Compile semantic rule journaling" OFF)
 
 # Kernel discipline (plan §5): C-style core, no exceptions/RTTI anywhere in
 # the solver library or binary.
@@ -44,6 +45,10 @@ add_library(tactix_lib OBJECT
 if(TACTIX_ENABLE_EVENT_TRACE)
   target_sources(tactix_lib PRIVATE src/policies/event_trace.cpp)
   target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_EVENT_TRACE=1)
+endif()
+if(TACTIX_ENABLE_RULE_JOURNAL)
+  target_sources(tactix_lib PRIVATE src/diagnostics/rule_journal.cpp)
+  target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_RULE_JOURNAL=1)
 endif()
 target_include_directories(tactix_lib PUBLIC src include)
 

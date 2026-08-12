@@ -7,6 +7,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/random_policy.hpp"
+#include "diagnostics/rule_journal.hpp"
 #include "policies/trace.hpp"
 // The stress policies reach `main` only as a StressSolveFn from this table, so
 // none of their headers is included here.
@@ -360,6 +361,7 @@ int main(int argc, char **argv) {
           : default_solve(kernel, &caught_signal);
   kernel.stats.solve_nanos = tactix::now_nanos() - solve_t0;
   trace.close();
+  rule_journal_close();
   if (res == -1) { // a replay that could not be replayed: see trace.cpp
     proof.flush(); // N2: whatever WAS derived is still on disk, as on any exit
     printf("s UNKNOWN\n");

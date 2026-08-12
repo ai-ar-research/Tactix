@@ -18,6 +18,17 @@ tools/checkers/bin/
 # would silently replace the baseline every tier run measures against). They live
 # here rather than in $HOME — same safety property, no spillover (re-org 2026-08-03).
 tools/solvers/variants/
+# The rule-journal adapter is source-owned even though generated variant trees
+# and binaries below this directory remain local diagnostics.
+!tools/solvers/variants/
+tools/solvers/variants/*
+!tools/solvers/variants/kissat-event-trace/
+tools/solvers/variants/kissat-event-trace/*
+!tools/solvers/variants/kissat-event-trace/prepare.py
+!tools/solvers/variants/kissat-event-trace/overlay/
+tools/solvers/variants/kissat-event-trace/overlay/*
+!tools/solvers/variants/kissat-event-trace/overlay/rulejournal.c
+!tools/solvers/variants/kissat-event-trace/overlay/rulejournal.h
 
 # Probe scratch (regenerable artifacts: preserved proofs, decompressed CNFs)
 benchmarks/probes/scratch/
