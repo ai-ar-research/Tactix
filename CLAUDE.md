@@ -30,6 +30,10 @@ capability, not DefaultPolicy's choice to decline an offered action.
 - All solver executions use SLURM through the `slurm-jobs` skill. Submitted
   arrays own immutable `build/pin-*` directories; a simultaneous Tier B/C pair
   needs two builds from the same commit with matching binary hashes.
+- Submit benchmark arrays at full width: do not set an array-task throttle or a
+  node constraint. A throttle is allowed only when the user explicitly asks for
+  one or a documented correctness/resource constraint requires it; record that
+  reason with the run.
 - Plan edits use `revise-plan`; rule/guard edits use `calculus`; completed work
   updates PROGRESS in the same commit. Never edit frozen design, report, or log
   artifacts.
