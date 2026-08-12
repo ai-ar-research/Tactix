@@ -118,6 +118,31 @@ static void test_compaction_defers_retired_jumped_reason() {
   assert(k.nvars == 3 && k.jumped_over[var_of(r)] == q);
 }
 
+static void test_compaction_drops_unassigned_stale_reason() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+
+  // Backtracking intentionally leaves Assigned metadata behind. Model the
+  // goldcrest state exactly: active r is unassigned, but its stale record says
+  // a jumped binary reason exists while jumped_over is already INVALID_LIT.
+  const Var retired = 1, stale = 2;
+  k.assigned[stale] = {7, 11, INVALID_LIT, true, true};
+  k.jumped_over[stale] = INVALID_LIT;
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[retired] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, retired);
+  k.unassigned_active--;
+
+  assert(kernel_compact_variables(k));
+  assert(k.nvars == 2);
+  const Assigned &a = k.assigned[1];
+  assert(!a.binary && !a.jumped && a.level == 0 && a.trail == 0 &&
+         a.reason == 0);
+  assert(k.jumped_over[1] == INVALID_LIT);
+  kernel_check_invariants(k);
+}
+
 static void test_lit_encoding() {
   assert(internalize(1) == make_lit(0, false));
   assert(internalize(-1) == make_lit(0, true));
@@ -571,6 +596,7 @@ int main() {
   test_variable_identity_maps();
   test_variable_compaction();
   test_compaction_defers_retired_jumped_reason();
+  test_compaction_drops_unassigned_stale_reason();
   test_lit_encoding();
   test_unit_chain();
   test_root_sparse_collection();

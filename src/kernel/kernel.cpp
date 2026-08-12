@@ -1571,12 +1571,20 @@ bool kernel_compact_variables(Kernel &k) {
     const Lit opos = make_lit(old, false), npos = make_lit(now, false);
     values[npos] = k.values[opos];
     values[negate(npos)] = k.values[negate(opos)];
-    assigned[now] = k.assigned[old];
-    if (assigned[now].binary && assigned[now].reason < 2 * old_nvars)
-      assigned[now].reason = map_lit(assigned[now].reason);
-    if (assigned[now].jumped)
-      jumped_over[now] = map_lit(k.jumped_over[old]);
-    unit_ids[now] = k.unit_ids[old];
+    // Backtracking clears the value/trail but deliberately leaves Assigned
+    // metadata behind.  It is inert while the variable is unassigned and must
+    // not become representation state again: stale jumped=true commonly pairs
+    // with jumped_over=INVALID_LIT.  Goldcrest used to remap that sentinel as
+    // a variable index here.  Fresh vectors already hold the canonical empty
+    // record, invalid jumped endpoint, and zero unit id for this case.
+    if (values[npos] != 0) {
+      assigned[now] = k.assigned[old];
+      if (assigned[now].binary && assigned[now].reason < 2 * old_nvars)
+        assigned[now].reason = map_lit(assigned[now].reason);
+      if (assigned[now].jumped)
+        jumped_over[now] = map_lit(k.jumped_over[old]);
+      unit_ids[now] = k.unit_ids[old];
+    }
   }
 
   std::vector<uint32_t> trail_prefix(k.trail.size() + 1, 0);

@@ -39,18 +39,20 @@ variable; a red-then-green micro-regression and focused ASan/UBSan tests cover
 the path, and 69/69 release tests pass. However, the immutable fixed Release
 pin `build/pin-goldcrest-fix-144fec4/tactix` (SHA-256
 `29757d9b…921a`) still segfaulted in job `1611989` after 65.053s at 768,600 KiB
-MaxRSS. The local regression is therefore necessary but not sufficient; resume
-by capturing a fixed-pin optimized GDB backtrace and comparing it with
-`1611964` before changing the kernel again.
+MaxRSS. Fixed-pin optimized GDB under allocation `1611976` localized the
+remaining fault one remap later: an unassigned active variable retained stale
+`jumped=true` metadata with `jumped_over=INVALID_LIT`. Compaction now copies and
+remaps `Assigned` metadata only for live assignments. The exact regression was
+red before the repair, then the focused ASan/UBSan test and 69/69 Release tests
+passed. A new immutable-pin real goldcrest rerun is the remaining closure gate.
 
 `128_125` job `1611940` reproduced the old-pin `-9` at 75.803s as a real 16 GB
 cgroup OOM (14,430,976 KiB recorded MaxRSS). Under the new 32 GB contract,
 original clean Kissat job `1611951` solved SAT in 87.419s and its model verified
 (27,180,280 KiB MaxRSS); stock CaDiCaL job `1611952` still OOM-killed after
-49.986s. Current old-pin Tactix retake `1611958` remains in flight at 32 GB;
-at this checkpoint its metadata contains no solver result. Inspect both its
-metadata and `sacct` after it leaves the queue rather than inferring an outcome
-from queue disappearance. The repaired
+49.986s. Old-pin Tactix job `1611958` used 26,348,340 KiB MaxRSS but timed out
+after 1200.546s without a verdict. Thus `128_125` is a confirmed Kissat-solved
+Tactix solve-set divergence, not a memory exemption. The repaired
 diagnostic runner checkpoints child status before checking/reference execution,
 classifies checker timeouts, uses plan §8.1's checker budget, and supports
 Tactix-only/no-trace runs. Fixed P4A/P4B manifests remain unchanged.
@@ -66,10 +68,9 @@ P4-CVG stays closed (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
 
 **Next actions — one convergence loop:**
 
-1. Close the current blockers: obtain an optimized GDB backtrace from fixed pin
-   `144fec4` on goldcrest and repair the still-live crash; collect job `1611958`
-   metadata plus `sacct` for the 32 GB `128_125` comparison; then rerun
-   correctness gates. Do not infer either result from wrapper or queue state.
+1. Close the current blocker: pin the stale-unassigned-reason compaction repair,
+   rerun goldcrest Release/no-trace at 32 GB, verify its proof, and rerun the
+   cumulative correctness gates.
 2. Run current Tactix across Tier B/C at 32 GB. Compare against stored original
    Kissat evidence, refreshing only baseline rows made decision-relevant by the
    allocation change. State solved-set differences before aggregate timing.
@@ -216,10 +217,12 @@ the complete ledger, then mark N4 only on an explicit verification record.
 ## Open items
 
 - The Tier C early-exit incident is blocking performance interpretation; the
-  first goldcrest compaction fix passed its regression and 69/69 tests but the
-  fixed Release pin still segfaulted at the same real-instance frontier. The
-  32 GB `128_125` Tactix retake is in flight. N4 resumes through the unified
-  Tier B/C divergence-closure loop after these blockers close.
+  second GDB capture exposed stale jumped metadata on an unassigned active
+  variable, and the causal repair passes its regression and 69/69 tests but
+  still needs the real-instance proof-checked rerun. `128_125` is independently
+  confirmed as a 32 GB Tactix timeout versus a verified Kissat SAT. N4 resumes
+  through the unified Tier B/C divergence-closure loop after these blockers
+  close.
 - The sparse-GC candidate remains deferred and outside the closure pin; do not
   exercise it without separate user direction. Corpus 004/005 are closed: the
   Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
@@ -259,6 +262,11 @@ the complete ledger, then mark N4 only on an explicit verification record.
   red-then-green regression and full release suite. The immutable fixed-pin
   real-instance rerun still segfaulted after 65.053s, so that repair remains
   open rather than validated.
+- 2026-08-11 — classified `128_125` as a 1200.546s Tactix timeout at 32 GB
+  versus original Kissat's verified 87.419s SAT. A second optimized goldcrest
+  backtrace found stale jumped-reason metadata on an unassigned active variable;
+  the exact red/green regression, focused sanitizers, and 69/69 Release tests
+  pass, with the real-instance closure rerun pending.
 - 2026-08-11 — started a current-pin Tier C retake, stopped it under plan §8.1
   after two early nonterminal exits, and added explicit Tier C causal-diagnostic
   support without changing the fixed P4-CVG gate. The partial 22/30 window is
