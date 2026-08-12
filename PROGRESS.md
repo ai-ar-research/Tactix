@@ -61,6 +61,7 @@ P4-CVG stays closed (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
    solver defect, add a regression, validate the affected SAT model or UNSAT
    proof, and rerun the required correctness gate. Treat the `128_125` trace
    OOM and goldcrest checker timeout as runner evidence, not release-run causes.
+   All retakes use the new 32 GB/four-CPU tier allocation contract.
 2. Only after action 1 is green, rerun the Tactix-only Tier C window. Compare
    it with stored original-reference results from compatible window
    `20260809-091255-C-cumulative-g6`; then apply the Tier C causal diagnostic to
@@ -220,8 +221,8 @@ the complete ledger, then mark N4 only on an explicit verification record.
 ## Open items
 
 - The Tier C early-exit incident is blocking performance interpretation; the
-  `128_125` trace run also exceeded its 16 GB cgroup and needs a lower-footprint
-  reproducer. N4 resumes only after this incident closes.
+  `128_125` release reproducer exceeded the former 16 GB cgroup; retake it under
+  the new 32 GB tier contract. N4 resumes only after this incident closes.
 - The sparse-GC candidate remains deferred and outside the closure pin; do not
   exercise it without separate user direction. Corpus 004/005 are closed: the
   Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
@@ -258,7 +259,8 @@ the complete ledger, then mark N4 only on an explicit verification record.
   changes the attribution burden only; every frozen instance remains scored and
   every original-Kissat solve remains an active candidate obligation. Repaired
   P4-CVG diagnostic checkpointing and checker-timeout/budget handling after
-  goldcrest job `1611933` lost its already-observed Tactix status.
+  goldcrest job `1611933` lost its already-observed Tactix status. Raised every
+  Tier A/B/C/D solver task to 32 GB/four CPUs by user direction.
 - 2026-08-11 — started a current-pin Tier C retake, stopped it under plan §8.1
   after two early nonterminal exits, and added explicit Tier C causal-diagnostic
   support without changing the fixed P4-CVG gate. The partial 22/30 window is
