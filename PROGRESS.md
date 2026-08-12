@@ -255,18 +255,12 @@ the complete ledger, then mark N4 only on an explicit verification record.
 
 ## Recent changes
 
-- 2026-08-11 — made Tier B/C original-Kissat convergence the Phase-4 exit,
-  retired may-not-gate exemptions, and raised every tier task to 32 GB. Repaired
-  diagnostic checkpoint/checker handling; classified `128_125` as a 16 GB OOM
-  and goldcrest as a retired jumped-reason variable-compaction crash, with a
-  red-then-green regression and full release suite. The immutable fixed-pin
-  real-instance rerun still segfaulted after 65.053s, so that repair remains
-  open rather than validated.
-- 2026-08-11 — classified `128_125` as a 1200.546s Tactix timeout at 32 GB
-  versus original Kissat's verified 87.419s SAT. A second optimized goldcrest
-  backtrace found stale jumped-reason metadata on an unassigned active variable;
-  the exact red/green regression, focused sanitizers, and 69/69 Release tests
-  pass, with the real-instance closure rerun pending.
+- 2026-08-11 — made 32 GB Tier B/C original-Kissat convergence the Phase-4
+  exit and retired may-not-gate exemptions. `128_125` is a 1200.546s Tactix
+  timeout versus Kissat's verified 87.419s SAT. Two optimized goldcrest
+  backtraces exposed retired and stale-unassigned jumped-reason compaction
+  hazards; both exact regressions, focused sanitizers, and 69/69 Release tests
+  pass, with the second real-instance closure rerun pending.
 - 2026-08-11 — started a current-pin Tier C retake, stopped it under plan §8.1
   after two early nonterminal exits, and added explicit Tier C causal-diagnostic
   support without changing the fixed P4-CVG gate. The partial 22/30 window is
