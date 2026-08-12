@@ -20,7 +20,7 @@ namespace tactix {
 
 // Guard: quiescent root. `!conflict_valid` is abstract here — failed-literal
 // reasoning assumes p atop a consistent trail.
-bool probe_guard(const Kernel &);
+RuleEligibility probe_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = probe literal, sign-extended DIMACS
 // int. Canonical order: BIG-head literals, var-index ascending, positive phase

@@ -109,6 +109,9 @@ public:
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
   void reset_schedule(const Kernel &);
+  // White-box admission seam: pure over stable DIMACS shape and the current
+  // typed config. Production calls it once before environment overlays.
+  void classify_formula_strategy(const Kernel &);
   DefaultInprocessScheduler &inprocess() { return inprocess_; }
   const DefaultInprocessScheduler &inprocess() const { return inprocess_; }
 
@@ -182,7 +185,7 @@ public:
 
 private:
   uint64_t search_ticks(const Kernel &k) const { return k.stats.search_ticks; }
-  void configure_from_env();
+  void configure_from_env(const Kernel &);
   void observe_glue(const Kernel &, uint32_t);
   void observe_decision_rate(const Kernel &);
   uint32_t want_bump_reasons(const Kernel &);

@@ -51,8 +51,13 @@ def main():
         '  if (!res && GET_OPTION (luckyearly))\n'
         '    res = kissat_lucky (solver);\n',
         '  if (!res && GET_OPTION (luckyearly)) {\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '    const uint64_t journal_effort = solver->statistics.search_ticks;\n'
         '    kissat_event_trace (solver, "lucky_early_begin", "-", true);\n'
         '    res = kissat_lucky (solver);\n'
+        '    kissat_rule_journal_rule_attempt (\n'
+        '        solver, "lucky", "early", "startup", journal_pre,\n'
+        '        journal_effort, solver->statistics.search_ticks, 0);\n'
         '    kissat_event_trace (solver, "lucky_early_end",\n'
         '                        res == 10 ? "sat" : "unknown", true);\n'
         '  }\n')
@@ -68,8 +73,13 @@ def main():
         '  if (!res && GET_OPTION (luckylate))\n'
         '    res = kissat_lucky (solver);\n',
         '  if (!res && GET_OPTION (luckylate)) {\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '    const uint64_t journal_effort = solver->statistics.search_ticks;\n'
         '    kissat_event_trace (solver, "lucky_late_begin", "-", true);\n'
         '    res = kissat_lucky (solver);\n'
+        '    kissat_rule_journal_rule_attempt (\n'
+        '        solver, "lucky", "late", "startup", journal_pre,\n'
+        '        journal_effort, solver->statistics.search_ticks, 0);\n'
         '    kissat_event_trace (solver, "lucky_late_end",\n'
         '                        res == 10 ? "sat" : "unknown", true);\n'
         '  }\n')
@@ -80,14 +90,27 @@ def main():
         '        res = kissat_analyze (solver, conflict);\n',
         '    while (!res) {\n'
         '      kissat_event_trace_checkpoint (solver);\n'
+        '      kissat_event_trace_propagate_cursor (solver);\n'
         '      const size_t trace_trail_begin = SIZE_ARRAY (solver->trail);\n'
+        '      const uint64_t propagate_pre = kissat_rule_journal_digest (solver);\n'
+        '      const uint64_t propagate_effort = solver->statistics.search_ticks;\n'
         '      clause *conflict = kissat_search_propagate (solver);\n'
+        '      kissat_rule_journal_rule_attempt (\n'
+        '          solver, "propagate", "search", "search-loop", propagate_pre,\n'
+        '          propagate_effort, solver->statistics.search_ticks, 0);\n'
         '      kissat_event_trace_implications (solver, trace_trail_begin);\n'
         '      if (conflict) {\n'
+        '        const uint64_t analyze_pre = kissat_rule_journal_digest (solver);\n'
+        '        const uint64_t analyze_effort = solver->statistics.search_ticks;\n'
         '        kissat_event_trace_conflict (solver, conflict);\n'
         '        kissat_event_trace_detail (solver, "analysis_begin",\n'
         '                                   (int) solver->level);\n'
         '        res = kissat_analyze (solver, conflict);\n'
+        '        kissat_rule_journal_rule_attempt (\n'
+        '            solver, "conflict-analysis", "current-conflict",\n'
+        '            "search-loop", analyze_pre, analyze_effort,\n'
+        '            solver->statistics.search_ticks, 0);\n'
+        '        kissat_event_trace_heap_scores (solver);\n'
         '        kissat_event_trace_detail (solver, "analysis_end",\n'
         '                                   res == 20 ? -1 : (int) solver->level);\n'
         '      }\n')
@@ -106,18 +129,57 @@ def main():
             raise SystemExit(f"{search}: missing call anchor {call}")
         if call.startswith("kissat_switch") or call.startswith("kissat_restart") or call.startswith("kissat_reorder") or call.startswith("kissat_rephase"):
             old = f"        {call};"
-            new = (f'        kissat_event_trace (solver, "{event}_begin", "-", true);\n'
+            after = ("\n        kissat_event_trace_heap_scores (solver);"
+                     if call.startswith("kissat_switch") else "")
+            journal_before = (
+                '        const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+                '        const uint64_t journal_effort = solver->statistics.search_ticks;\n'
+                if event == "restart" else "")
+            journal_after = (
+                '        kissat_rule_journal_rule_attempt (\n'
+                '            solver, "restart", "canonical", "search-loop",\n'
+                '            journal_pre, journal_effort,\n'
+                '            solver->statistics.search_ticks, 0);\n'
+                if event == "restart" else "")
+            new = (journal_before +
+                   f'        kissat_event_trace (solver, "{event}_begin", "-", true);\n'
                    f"        {call};\n"
-                   f'        kissat_event_trace (solver, "{event}_end", "-", true);')
+                   f"{journal_after}"
+                   f'        kissat_event_trace (solver, "{event}_end", "-", true);'
+                   f"{after}")
         else:
             old = f"        res = {call};"
-            new = (f'        kissat_event_trace (solver, "{event}_begin", "-", true);\n'
+            proof = event in ("reduce", "eliminate")
+            journal_before = (
+                '        const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+                '        const uint64_t journal_effort = solver->statistics.search_ticks;\n'
+                if proof else "")
+            journal_after = (
+                f'        kissat_rule_journal_rule_attempt (\n'
+                f'            solver, "{event}", "canonical", "search-loop",\n'
+                f'            journal_pre, journal_effort,\n'
+                f'            solver->statistics.search_ticks, 0);\n'
+                if proof else "")
+            new = (journal_before +
+                   f'        kissat_event_trace (solver, "{event}_begin", "-", true);\n'
                    f"        res = {call};\n"
+                   f"{journal_after}"
                    f'        kissat_event_trace (solver, "{event}_end", "-", true);')
         if text.count(old) != 1:
             raise SystemExit(f"{search}: expected one wrapper anchor {old!r}")
         text = text.replace(old, "{\n" + new + "\n      }")
     search.write_text(text)
+    replace_once(
+        search,
+        '      else\n        kissat_decide (solver);\n',
+        '      else {\n'
+        '        const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '        const uint64_t journal_effort = solver->statistics.search_ticks;\n'
+        '        kissat_decide (solver);\n'
+        '        kissat_rule_journal_rule_attempt (\n'
+        '            solver, "decide", "canonical", "search-loop", journal_pre,\n'
+        '            journal_effort, solver->statistics.search_ticks, 0);\n'
+        '      }\n')
     replace_once(search,
         '  report_search_result (solver, res);\n  return res;\n',
         '  {\n'
@@ -130,6 +192,352 @@ def main():
         '  report_search_result (solver, res);\n'
         '  return res;\n')
 
+    # Expose the ordered preprocessing/probing control surface, not only the
+    # outer `probe` call in search.c.  The calls remain the real guards and
+    # actions; the diagnostic overlay only brackets them.
+    probe = dest / "src" / "probe.c"
+    replace_once(probe, '#include "probe.h"\n',
+                 '#include "probe.h"\n#include "eventtrace.h"\n'
+                 '#include "rulejournal.h"\n'
+                 '#include "krite.h"\n')
+    replace_once(probe, '#include <inttypes.h>\n',
+                 '#include <inttypes.h>\n#include <stdio.h>\n'
+                 '#include <stdlib.h>\n')
+    replace_once(
+        probe,
+        'static void probe (kissat *solver) {\n'
+        '  kissat_backtrack_propagate_and_flush_trail (solver);\n'
+        '  assert (!solver->inconsistent);\n'
+        '  STOP_SEARCH_AND_START_SIMPLIFIER (probe);\n'
+        '  kissat_phase (solver, "probe", GET (probings),\n'
+        '                "probing limit hit after %" PRIu64 " conflicts",\n'
+        '                solver->limits.probe.conflicts);\n'
+        '  kissat_congruence (solver);\n'
+        '  kissat_substitute (solver, false);\n'
+        '  kissat_binary_clauses_backbone (solver);\n'
+        '  kissat_vivify (solver);\n'
+        '  kissat_sweep (solver);\n'
+        '  kissat_substitute (solver, false);\n'
+        '  kissat_transitive_reduction (solver);\n'
+        '  kissat_binary_clauses_backbone (solver);\n'
+        '  kissat_factor (solver);\n'
+        '  STOP_SIMPLIFIER_AND_RESUME_SEARCH (probe);\n'
+        '}\n',
+        'static void probe (kissat *solver) {\n'
+        '  kissat_backtrack_propagate_and_flush_trail (solver);\n'
+        '  assert (!solver->inconsistent);\n'
+        '  STOP_SEARCH_AND_START_SIMPLIFIER (probe);\n'
+        '  kissat_phase (solver, "probe", GET (probings),\n'
+        '                "probing limit hit after %" PRIu64 " conflicts",\n'
+        '                solver->limits.probe.conflicts);\n'
+        '#define TRACE_RULE(CALL, NAME) do { \\\n'
+        '  const uint64_t journal_pre = kissat_rule_journal_digest (solver); \\\n'
+        '  const uint64_t journal_effort = solver->statistics.probing_ticks; \\\n'
+        '  kissat_event_trace (solver, NAME "_begin", "-", true); \\\n'
+        '  CALL; \\\n'
+        '  kissat_rule_journal_rule_attempt ( \\\n'
+        '      solver, NAME, "canonical", "probe-pipeline", journal_pre, \\\n'
+        '      journal_effort, solver->statistics.probing_ticks, 0); \\\n'
+        '  kissat_event_trace (solver, NAME "_end", "-", true); \\\n'
+        '} while (0)\n'
+        '  TRACE_RULE (kissat_congruence (solver), "congruence");\n'
+        '  TRACE_RULE (kissat_substitute (solver, false), "substitute_early");\n'
+        '  TRACE_RULE (kissat_binary_clauses_backbone (solver), "backbone_early");\n'
+        '  TRACE_RULE (kissat_vivify (solver), "vivify");\n'
+        '  TRACE_RULE (kissat_sweep (solver), "sweep");\n'
+        '  TRACE_RULE (kissat_substitute (solver, false), "substitute_late");\n'
+        '  TRACE_RULE (kissat_transitive_reduction (solver), "transitive");\n'
+        '  TRACE_RULE (kissat_binary_clauses_backbone (solver), "backbone_late");\n'
+        '  TRACE_RULE (kissat_factor (solver), "factor");\n'
+        '#undef TRACE_RULE\n'
+        '  STOP_SIMPLIFIER_AND_RESUME_SEARCH (probe);\n'
+        '}\n')
+    replace_once(
+        probe,
+        'static void probe_initially (kissat *solver) {\n'
+        '  assert (!solver->level);\n'
+        '  assert (!solver->inconsistent);\n'
+        '  kissat_phase (solver, "probe", GET (probings), "initial probing");\n'
+        '  bool substitute_at_the_end = true;\n'
+        '  if (GET_OPTION (preprocesscongruence)) {\n'
+        '    if (kissat_congruence (solver)) {\n'
+        '      kissat_substitute (solver, true);\n'
+        '      substitute_at_the_end = false;\n'
+        '    }\n'
+        '  }\n'
+        '  if (GET_OPTION (preprocessbackbone))\n'
+        '    kissat_binary_clauses_backbone (solver);\n'
+        '  if (GET_OPTION (preprocessweep)) {\n'
+        '    if (kissat_sweep (solver)) {\n'
+        '      kissat_substitute (solver, true);\n'
+        '      substitute_at_the_end = false;\n'
+        '    }\n'
+        '  }\n'
+        '  if (substitute_at_the_end)\n'
+        '    kissat_substitute (solver, false);\n'
+        '  if (GET_OPTION (preprocessfactor))\n'
+        '    kissat_factor (solver);\n'
+        '}\n',
+        'static void probe_initially (kissat *solver) {\n'
+        '  assert (!solver->level);\n'
+        '  assert (!solver->inconsistent);\n'
+        '  kissat_phase (solver, "probe", GET (probings), "initial probing");\n'
+        '  bool substitute_at_the_end = true;\n'
+        '  if (GET_OPTION (preprocesscongruence)) {\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '    const uint64_t journal_effort = solver->statistics.probing_ticks;\n'
+        '    kissat_event_trace (solver, "congruence_begin", "-", true);\n'
+        '    const bool congruent = kissat_congruence (solver);\n'
+        '    kissat_rule_journal_rule_attempt (\n'
+        '        solver, "congruence", "canonical", "preprocess", journal_pre,\n'
+        '        journal_effort, solver->statistics.probing_ticks, 0);\n'
+        '    kissat_event_trace (solver, "congruence_end", "-", true);\n'
+        '    if (congruent) {\n'
+        '      const uint64_t sub_pre = kissat_rule_journal_digest (solver);\n'
+        '      const uint64_t sub_effort = solver->statistics.probing_ticks;\n'
+        '      kissat_event_trace (solver, "substitute_complete_begin", "-", true);\n'
+        '      kissat_substitute (solver, true);\n'
+        '      kissat_rule_journal_rule_attempt (\n'
+        '          solver, "substitute", "complete", "after-congruence",\n'
+        '          sub_pre, sub_effort, solver->statistics.probing_ticks, 0);\n'
+        '      kissat_event_trace (solver, "substitute_complete_end", "-", true);\n'
+        '      substitute_at_the_end = false;\n'
+        '    }\n'
+        '  }\n'
+        '  if (GET_OPTION (preprocessbackbone)) {\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '    const uint64_t journal_effort = solver->statistics.probing_ticks;\n'
+        '    kissat_event_trace (solver, "backbone_begin", "-", true);\n'
+        '    kissat_binary_clauses_backbone (solver);\n'
+        '    kissat_rule_journal_rule_attempt (\n'
+        '        solver, "backbone", "canonical", "preprocess", journal_pre,\n'
+        '        journal_effort, solver->statistics.probing_ticks, 0);\n'
+        '    kissat_event_trace (solver, "backbone_end", "-", true);\n'
+        '  }\n'
+        '  if (GET_OPTION (preprocessweep)) {\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '    const uint64_t journal_effort = solver->statistics.probing_ticks;\n'
+        '    kissat_event_trace (solver, "sweep_begin", "-", true);\n'
+        '    const bool swept = kissat_sweep (solver);\n'
+        '    kissat_rule_journal_rule_attempt (\n'
+        '        solver, "sweep", "canonical", "preprocess", journal_pre,\n'
+        '        journal_effort, solver->statistics.probing_ticks, 0);\n'
+        '    kissat_event_trace (solver, "sweep_end", "-", true);\n'
+        '    if (swept) {\n'
+        '      const uint64_t sub_pre = kissat_rule_journal_digest (solver);\n'
+        '      const uint64_t sub_effort = solver->statistics.probing_ticks;\n'
+        '      kissat_event_trace (solver, "substitute_complete_begin", "-", true);\n'
+        '      kissat_substitute (solver, true);\n'
+        '      kissat_rule_journal_rule_attempt (\n'
+        '          solver, "substitute", "complete", "after-sweep", sub_pre,\n'
+        '          sub_effort, solver->statistics.probing_ticks, 0);\n'
+        '      kissat_event_trace (solver, "substitute_complete_end", "-", true);\n'
+        '      substitute_at_the_end = false;\n'
+        '    }\n'
+        '  }\n'
+        '  if (substitute_at_the_end) {\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '    const uint64_t journal_effort = solver->statistics.probing_ticks;\n'
+        '    kissat_event_trace (solver, "substitute_begin", "-", true);\n'
+        '    kissat_substitute (solver, false);\n'
+        '    kissat_rule_journal_rule_attempt (\n'
+        '        solver, "substitute", "canonical", "preprocess-final",\n'
+        '        journal_pre, journal_effort,\n'
+        '        solver->statistics.probing_ticks, 0);\n'
+        '    kissat_event_trace (solver, "substitute_end", "-", true);\n'
+        '  }\n'
+        '  if (GET_OPTION (preprocessfactor)) {\n'
+        '    const uint64_t journal_pre = kissat_rule_journal_digest (solver);\n'
+        '    const uint64_t journal_effort = solver->statistics.factor_ticks;\n'
+        '    kissat_event_trace (solver, "factor_begin", "-", true);\n'
+        '    const char *predump_path = getenv ("KISSAT_DUMP_PREFACTOR");\n'
+        '    if (predump_path && *predump_path) {\n'
+        '      FILE *predump_file = fopen (predump_path, "w");\n'
+        '      if (!predump_file) { perror (predump_path); exit (1); }\n'
+        '      kissat_write_dimacs (solver, predump_file);\n'
+        '      fclose (predump_file);\n'
+        '      exit (0);\n'
+        '    }\n'
+        '    kissat_factor (solver);\n'
+        '    kissat_rule_journal_rule_attempt (\n'
+        '        solver, "factor", "canonical", "preprocess", journal_pre,\n'
+        '        journal_effort, solver->statistics.factor_ticks, 0);\n'
+        '    kissat_event_trace (solver, "factor_end", "-", true);\n'
+        '    const char *dump_path = getenv ("KISSAT_DUMP_FACTORED");\n'
+        '    if (dump_path && *dump_path) {\n'
+        '      FILE *dump_file = fopen (dump_path, "w");\n'
+        '      if (!dump_file) {\n'
+        '        perror (dump_path);\n'
+        '        exit (1);\n'
+        '      }\n'
+        '      kissat_write_dimacs (solver, dump_file);\n'
+        '      fclose (dump_file);\n'
+        '      exit (0);\n'
+        '    }\n'
+        '  }\n'
+        '}\n')
+
+    factor = dest / "src" / "factor.c"
+    replace_once(factor, '#include "factor.h"\n',
+                 '#include "factor.h"\n#include "eventtrace.h"\n')
+
+    substitute = dest / "src" / "substitute.c"
+    replace_once(substitute, '#include "substitute.h"\n',
+                 '#include "substitute.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        substitute,
+        '  determine_representatives (solver, repr);\n',
+        '  determine_representatives (solver, repr);\n'
+        '  for (all_literals (lit))\n'
+        '    kissat_event_trace_substitute_map (solver, lit, repr[lit]);\n')
+
+    preprocess = dest / "src" / "preprocess.c"
+    replace_once(preprocess, '#include "preprocess.h"\n',
+                 '#include "preprocess.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        preprocess,
+        '  kissat_initial_sparse_collect (solver);\n',
+        '  for (all_literals (lit))\n'
+        '    kissat_event_trace_substitute_map (solver, lit, lit);\n'
+        '  kissat_initial_sparse_collect (solver);\n')
+
+    search = dest / "src" / "search.c"
+    replace_once(
+        search,
+        '  if (!res)\n    kissat_classify (solver);\n',
+        '  if (!res)\n'
+        '    for (all_literals (lit))\n'
+        '      kissat_event_trace_factor_literal_state (\n'
+        '          solver, lit, ACTIVE (IDX (lit)), false, solver->values[lit],\n'
+        '          SIZE_WATCHES (WATCHES (lit)));\n'
+        '  if (!res)\n    kissat_classify (solver);\n')
+    replace_once(
+        factor,
+        '  for (all_variables (idx)) {\n'
+        '    if (ACTIVE (idx)) {\n'
+        '      struct flags *f = flags + idx;\n'
+        '      const unsigned lit = LIT (idx);\n'
+        '      const unsigned not_lit = NOT (lit);\n'
+        '      if (f->factor & 1)\n'
+        '        update_candidate (factoring, lit);\n'
+        '      if (f->factor & 2)\n'
+        '        update_candidate (factoring, not_lit);\n'
+        '    }\n'
+        '  }\n',
+        '  for (all_variables (idx)) {\n'
+        '    struct flags *f = flags + idx;\n'
+        '    const unsigned lit = LIT (idx);\n'
+        '    const unsigned not_lit = NOT (lit);\n'
+        '    kissat_event_trace_factor_literal_state (\n'
+        '        solver, lit, ACTIVE (idx), f->factor & 1, solver->values[lit],\n'
+        '        SIZE_WATCHES (solver->watches[lit]));\n'
+        '    kissat_event_trace_factor_literal_state (\n'
+        '        solver, not_lit, ACTIVE (idx), f->factor & 2,\n'
+        '        solver->values[not_lit],\n'
+        '        SIZE_WATCHES (solver->watches[not_lit]));\n'
+        '    if (ACTIVE (idx)) {\n'
+        '      if (f->factor & 1)\n'
+        '        update_candidate (factoring, lit);\n'
+        '      if (f->factor & 2)\n'
+        '        update_candidate (factoring, not_lit);\n'
+        '    }\n'
+        '  }\n')
+    replace_once(
+        factor,
+        '      if (q && reduction > factoring.bound) {\n'
+        '        if (apply_factoring (&factoring, q)) {\n',
+        '      if (q && reduction > factoring.bound) {\n'
+        '        kissat_event_trace_factor_grid (solver, q->id + 1,\n'
+        '                                        SIZE_STACK (q->clauses),\n'
+        '                                        reduction);\n'
+        '        for (quotient *p = q; p; p = p->prev)\n'
+        '          kissat_event_trace_factor_grid_member (solver, p->id,\n'
+        '                                                 p->factor);\n'
+        '        if (apply_factoring (&factoring, q)) {\n'
+        '          kissat_event_trace_factor_heap (solver, q->factor,\n'
+        '                                          &factoring.schedule);\n')
+    replace_once(
+        factor,
+        '      double next_score = -1;\n'
+        '      for (all_stack (unsigned, lit, *counted)) {\n'
+        '        const unsigned lit_count = count[lit];\n'
+        '        if (lit_count != next_count)\n'
+        '          continue;\n'
+        '        double lit_score = tied_next_factor_score (factoring, lit);\n',
+        '      double next_score = -1;\n'
+        '      size_t candidate_ordinal = 0;\n'
+        '      for (all_stack (unsigned, lit, *counted)) {\n'
+        '        const size_t ordinal = candidate_ordinal++;\n'
+        '        const unsigned lit_count = count[lit];\n'
+        '        if (lit_count != next_count)\n'
+        '          continue;\n'
+        '        double lit_score = tied_next_factor_score (factoring, lit);\n'
+        '        const quotient *first_q = factoring->quotients.first;\n'
+        '        const quotient *last_q = factoring->quotients.last;\n'
+        '        kissat_event_trace_factor_candidate (\n'
+        '            solver, first_q->factor, last_q->id + 1, ordinal, lit,\n'
+        '            lit_count, (unsigned) lit_score);\n'
+        '        kissat_event_trace_factor_score_entries (\n'
+        '            solver, first_q->factor, last_q->id + 1, lit);\n')
+    replace_once(
+        factor,
+        '  uint64_t ticks = 0;\n'
+        '  for (all_binary_large_watches (watch, *factor_watches)) {\n'
+        '    PUSH_STACK (*clauses, watch);\n',
+        '  uint64_t ticks = 0;\n'
+        '  size_t trace_ordinal = 0;\n'
+        '  for (all_binary_large_watches (watch, *factor_watches)) {\n'
+        '    if (watch.type.binary)\n'
+        '      kissat_event_trace_factor_remainder_binary (\n'
+        '          solver, factor, trace_ordinal, watch.binary.lit);\n'
+        '    else {\n'
+        '      clause *trace_clause =\n'
+        '          kissat_dereference_clause (solver, watch.large.ref);\n'
+        '      kissat_event_trace_factor_remainder_clause (\n'
+        '          solver, factor, trace_ordinal, trace_clause);\n'
+        '    }\n'
+        '    trace_ordinal++;\n'
+        '    PUSH_STACK (*clauses, watch);\n')
+    replace_once(
+        factor,
+        '          const unsigned next_idx = IDX (next);\n'
+        '          if (!ACTIVE (next_idx))\n'
+        '            continue;\n'
+        '          assert (!(marks[next] & (FACTOR | NOUNTED)));\n',
+        '          const unsigned next_idx = IDX (next);\n'
+        '          if (!ACTIVE (next_idx))\n'
+        '            continue;\n'
+        '          const quotient *trace_first_q =\n'
+        '              factoring->quotients.first;\n'
+        '          const quotient *trace_last_q = factoring->quotients.last;\n'
+        '          kissat_event_trace_factor_candidate_source (\n'
+        '              solver, trace_first_q->factor, trace_last_q->id + 1,\n'
+        '              min_lit, next, c, d);\n'
+        '          assert (!(marks[next] & (FACTOR | NOUNTED)));\n')
+    replace_once(
+        factor,
+        '        if (marks[next] & FACTOR)\n'
+        '          continue;\n'
+        '        const unsigned next_idx = IDX (next);\n'
+        '        if (!ACTIVE (next_idx))\n'
+        '          continue;\n'
+        '        if (!count[next])\n'
+        '          PUSH_STACK (*counted, next);\n'
+        '        count[next]++;\n',
+        '        if (marks[next] & FACTOR)\n'
+        '          continue;\n'
+        '        const unsigned next_idx = IDX (next);\n'
+        '        if (!ACTIVE (next_idx))\n'
+        '          continue;\n'
+        '        const quotient *trace_first_q = factoring->quotients.first;\n'
+        '        const quotient *trace_last_q = factoring->quotients.last;\n'
+        '        kissat_event_trace_factor_candidate_binary_source (\n'
+        '            solver, trace_first_q->factor, trace_last_q->id + 1, q,\n'
+        '            next);\n'
+        '        if (!count[next])\n'
+        '          PUSH_STACK (*counted, next);\n'
+        '        count[next]++;\n')
+
     decide = dest / "src" / "decide.c"
     replace_once(decide, '#include "decide.h"\n',
                  '#include "decide.h"\n#include "eventtrace.h"\n')
@@ -137,7 +545,35 @@ def main():
         '  kissat_assign_decision (solver, lit);\n  STOP (decide);\n',
         '  kissat_assign_decision (solver, lit);\n'
         '  kissat_event_trace_literal (solver, "decision", lit);\n'
+        '  kissat_event_trace_heap_scores (solver);\n'
         '  STOP (decide);\n')
+
+    bump = dest / "src" / "bump.c"
+    replace_once(bump, '#include "analyze.h"\n',
+                 '#include "analyze.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        bump,
+        '  for (all_stack (unsigned, idx, solver->analyzed))\n'
+        '    if (flags[idx].active)\n'
+        '      bump_analyzed_variable_score (solver, idx);\n',
+        '  for (all_stack (unsigned, idx, solver->analyzed))\n'
+        '    if (flags[idx].active) {\n'
+        '      bump_analyzed_variable_score (solver, idx);\n'
+        '      kissat_event_trace_literal (solver, "score_bump", LIT (idx));\n'
+        '      kissat_event_trace_heap_scores (solver);\n'
+        '    }\n')
+
+    backtrack = dest / "src" / "backtrack.c"
+    replace_once(backtrack, '#include "analyze.h"\n',
+                 '#include "analyze.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        backtrack,
+        '  if (!kissat_heap_contains (scores, idx))\n'
+        '    kissat_push_heap (solver, scores, idx);\n',
+        '  if (!kissat_heap_contains (scores, idx)) {\n'
+        '    kissat_event_trace_literal (solver, "heap_reinsert", LIT (idx));\n'
+        '    kissat_push_heap (solver, scores, idx);\n'
+        '  }\n')
 
     analyze = dest / "src" / "analyze.c"
     replace_once(analyze, '#include "deduce.h"\n',
@@ -232,7 +668,8 @@ def main():
 
     sweep = dest / "src" / "sweep.c"
     replace_once(sweep, '#include "terminate.h"\n',
-                 '#include "terminate.h"\n#include "rulejournal.h"\n')
+                 '#include "terminate.h"\n#include "eventtrace.h"\n'
+                 '#include "rulejournal.h"\n')
     replace_once(sweep,
         '  unsigned *q = BEGIN_STACK (*core);\n'
         '  const unsigned *const end_core = END_STACK (*core), *p = q;\n\n'
@@ -285,11 +722,24 @@ def main():
         '      continue;\n',
         '      kissat_assign_unit (solver, unit, "sweeping backbone reason");\n'
         '      INC (sweep_units);\n'
+        '      kissat_event_trace_sweep_unit (solver, unit, "core");\n'
         '      kissat_rule_journal_sweep_core (\n'
         '          solver, core_idx, journal_ordinal++, journal_literals,\n'
         '          journal_old_size, false, new_size, unit, "applied", "none",\n'
         '          journal_pre);\n'
         '      continue;\n')
+    replace_once(sweep,
+        '          kissat_assign_unit (solver, lit, "substituted binary clause");\n'
+        '          INC (sweep_units);\n',
+        '          kissat_assign_unit (solver, lit, "substituted binary clause");\n'
+        '          INC (sweep_units);\n'
+        '          kissat_event_trace_sweep_unit (solver, lit, "binary");\n')
+    replace_once(sweep,
+        '          kissat_assign_unit (solver, unit, "substituted large clause");\n'
+        '          INC (sweep_units);\n',
+        '          kissat_assign_unit (solver, unit, "substituted large clause");\n'
+        '          INC (sweep_units);\n'
+        '          kissat_event_trace_sweep_unit (solver, unit, "large");\n')
     replace_once(sweep,
         '    CHECK_AND_ADD_LITS (new_size, d);\n'
         '    ADD_LITS_TO_PROOF (new_size, d);\n'

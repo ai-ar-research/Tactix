@@ -20,13 +20,16 @@ struct Heuristics {
   // Kernel::nvars and every per-var vector is sized to it, so a missed growth
   // trips an assert rather than reading out of bounds later.
   uint32_t nvars = 0;
-
   std::vector<int8_t> saved; // by var: saved phase (+1/-1)
   // External Tactix variable reached by a Kissat internal random index.
   // Kissat's default tumble imports variables in first-activation order;
   // retaining that permutation lets random decisions match without renumbering
   // kernel variables or changing the public Decide instance identity.
   std::vector<Var> random_order;
+  // The one root-fixed identity retained by initial sparse compaction. Later
+  // preprocessing units remain in random_order (Kissat's random modulus) but
+  // are inactive in its stable heap.
+  Var fixed_representative = INVALID_VAR;
 
   // VMTF (focused-mode decision heuristic; kissat queue.h)
   std::vector<Link> links; // by var
@@ -124,6 +127,9 @@ void heuristics_demote_marked_vars(Kernel &, const std::vector<uint8_t> &mark);
 // only active variables. N1 is untouched: `decide_candidates` builds the
 // instance surface from `k.nvars`, never from `H`.
 void heuristics_deactivate_var(Kernel &, Var v);
+// Kissat's flags[idx].active predicate for decision-guidance operations.
+// Root-fixed and retired variables are disconnected but retain kernel IDs.
+bool heuristics_var_active(const Kernel &, Var v);
 
 // --- EVSIDS score heap (stable mode) ----------------------------------------
 void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)

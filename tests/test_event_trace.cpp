@@ -102,7 +102,7 @@ int main() {
   assert(text.find("\tlit=2|level=1|reason=-1,2\n") != std::string::npos);
   assert(text.find("\tconflict\t") != std::string::npos);
   assert(text.find("|searched=3|pose=-3,1,-2\n") != std::string::npos);
-  assert(text.find("\torder=-3,1,-2|set=-3,-2,1\n") != std::string::npos);
+  assert(text.find("\torder=-3,1,-2|set=-3,-2,1|") != std::string::npos);
   assert(text.find("\tlearned\t") != std::string::npos);
   assert(text.find("\tretier\t") != std::string::npos);
   assert(text.find("focused=3,8|stable=2,6|posed=3,8|used="

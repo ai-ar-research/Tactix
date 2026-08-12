@@ -23,6 +23,11 @@ static void test_equivalence_scc() {
   assert(r.repr[internalize(2)] == r.repr[internalize(1)]);
   assert(r.repr[internalize(1)] == internalize(1));           // rep = min = +1
   assert(r.repr[internalize(-2)] == r.repr[internalize(-1)]);
+
+  const SccResult compact = substitute_find_sccs(k, false);
+  assert(compact.nontrivial_count == 2);
+  assert(compact.nontrivial_reps.empty());
+  assert(compact.repr == r.repr);
 }
 
 // Tactix keeps stable external-index-backed storage, while Kissat assigns its
@@ -55,6 +60,23 @@ static void test_no_scc() {
   assert(r.nontrivial_reps.empty());
   assert(r.repr[internalize(1)] == internalize(1)); // singleton = own rep
   assert(r.repr[internalize(3)] == internalize(3));
+}
+
+// Kissat runs its large-clause substitution pass even when Tarjan found no
+// equivalence class.  It therefore commits root simplification left by the
+// preceding Sweep: a root-false literal can turn a ternary into a binary.
+static void test_no_scc_still_simplifies_root_fixed_clauses() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit clause[3] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, clause, 3, /*redundant=*/false, /*glue=*/0);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  assert(substitute_find_sccs(k).nontrivial_reps.empty());
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_binary_live(k, internalize(2), internalize(3)));
+  assert(substitute_apply(k) == ApplyResult::NoOp);
 }
 
 // Kissat's SCC graph excludes inactive variables.  A retired permanent
@@ -120,6 +142,14 @@ static bool lit_in_any_clause(const Kernel &k, Lit l) {
     ref += clause_words(c->size);
   }
   return false;
+}
+
+static std::vector<Lit> binary_watch_others(const Kernel &k, Lit lit) {
+  std::vector<Lit> result;
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (watch.binary())
+      result.push_back(watch.other());
+  return result;
 }
 
 // A consistent x1 ≡ x2 is substituted: the non-rep x2 vanishes everywhere.
@@ -200,8 +230,12 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
 
   const std::vector<std::pair<Lit, Lit>> equivalences = {
       {internalize(1), internalize(2)}};
-  assert(substitute_apply_sweep_equivalences(k, equivalences) ==
+  SweepSubstitutionSession session;
+  session.begin(k);
+  assert(substitute_apply_sweep_equivalences(k, equivalences, session) ==
          ApplyResult::Ok);
+  assert(session.changed);
+  assert(session.collect(k) > 0);
 
   std::vector<Lit> first_literals;
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -214,6 +248,62 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   assert(first_literals[0] == internalize(3));
   assert(first_literals[1] == internalize(1));
   assert(first_literals[2] == internalize(-3));
+}
+
+// Connected substitution must not rebuild an unrelated binary watch list.
+// Besides avoiding a whole-formula snapshot on very large inputs, retaining
+// this order is semantic: later bounded scans consume candidates in watch
+// order, so re-appending untouched binaries can change the search trajectory.
+static void test_substitution_preserves_unrelated_binary_watch_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+
+  const Lit pivot = internalize(3);
+  kernel_add_binary_clause(k, pivot, internalize(6));
+  kernel_add_binary_clause(k, pivot, internalize(-4));
+  kernel_add_binary_clause(k, pivot, internalize(7));
+  kernel_add_binary_clause(k, pivot, internalize(5));
+  const std::vector<Lit> before = binary_watch_others(k, pivot);
+  assert(before.size() == 4);
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(binary_watch_others(k, pivot) == before);
+}
+
+// The DRAT/no-proof streaming path keeps clause multiplicity. Two connected
+// sources that map to an already-present target must leave three target copies;
+// deduplicating the internal image would change later watch-order scans.
+static void test_substitution_preserves_binary_multiplicity() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  kernel_add_binary_clause(k, internalize(2), internalize(3));
+  kernel_add_binary_clause(k, internalize(2), internalize(3));
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_binary_copies(k, internalize(2), internalize(3)) == 0);
+  assert(kernel_binary_copies(k, internalize(1), internalize(3)) == 3);
+}
+
+static void test_substitution_rewrites_stable_watch_in_place() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+
+  const Lit stable = internalize(3);
+  kernel_add_binary_clause(k, stable, internalize(4));
+  kernel_add_binary_clause(k, stable, internalize(1));
+  kernel_add_binary_clause(k, stable, internalize(2));
+  kernel_add_binary_clause(k, stable, internalize(5));
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  const std::vector<Lit> expected = {internalize(4), internalize(1),
+                                     internalize(1), internalize(5)};
+  assert(binary_watch_others(k, stable) == expected);
 }
 
 // Model reconstruction through ρ: a model of the reduced formula with x2 at the
@@ -335,6 +425,7 @@ int main() {
   test_equivalence_scc();
   test_representative_uses_import_order();
   test_no_scc();
+  test_no_scc_still_simplifies_root_fixed_clauses();
   test_retired_variable_excluded_from_scc();
   test_contradiction_scc();
   test_apply_unsat();
@@ -342,6 +433,9 @@ int main() {
   test_apply_substitutes();
   test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
+  test_substitution_preserves_unrelated_binary_watch_order();
+  test_substitution_preserves_binary_multiplicity();
+  test_substitution_rewrites_stable_watch_in_place();
   test_model_reconstruction();
   test_size_collapse_unit();
   test_apply_instance_one_class();

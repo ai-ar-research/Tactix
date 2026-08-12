@@ -31,6 +31,14 @@ static bool equivalence_added(const Kernel &k, int ea, int eb) {
          has_binary(k, internalize(ea), internalize(-eb));
 }
 
+static std::vector<Lit> binary_partners(const Kernel &k, Lit lit) {
+  std::vector<Lit> result;
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (watch.binary())
+      result.push_back(watch.other());
+  return result;
+}
+
 static void add3(Kernel &k, int a, int b, int c) {
   Lit lits[3] = {internalize(a), internalize(b), internalize(c)};
   kernel_add_large_clause(k, lits, 3, /*redundant=*/false, /*glue=*/0);
@@ -326,6 +334,31 @@ static void test_xor_output_sign_odd_arity() {
   assert_xor_gate_output(k, {2, 3, 4}, 1);
 }
 
+// Congruence emits extracted binaries in arena order for the proof, then
+// Kissat sorts only that newly extracted segment before sparse reconnection.
+// Give q an earlier compact/import rank while placing p's ternary first: the
+// old prefix stays fixed and the new suffix must be q,p rather than p,q.
+static void test_extracted_binary_suffix_is_sorted() {
+  Kernel k;
+  kernel_reserve_vars(k, 5); // a=1 b=2 c=3 p=4 q=5
+  for (const Var v : {0u, 1u, 2u, 4u, 3u})
+    kernel_record_import(k, v);
+  const Lit a = internalize(1), b = internalize(2), c = internalize(3);
+  const Lit p = internalize(4), q = internalize(5);
+  kernel_add_binary_clause(k, negate(a), c, ++k.next_clause_id);
+  kernel_add_binary_clause(k, negate(b), c, ++k.next_clause_id);
+  Lit first[3] = {a, c, p};
+  Lit second[3] = {b, c, q};
+  kernel_add_large_clause(k, first, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, second, 3, false, 0, ++k.next_clause_id);
+
+  (void)congruence_apply(k);
+  const std::vector<Lit> partners = binary_partners(k, c);
+  assert(partners.size() >= 4);
+  assert(partners[partners.size() - 2] == q);
+  assert(partners[partners.size() - 1] == p);
+}
+
 // The mid-round budget: `work_budget` 0 leaves the rule unbounded, and a small
 // budget cuts the round — counted once in `congruence_budget_stops` — with no
 // unjustified inference. `stop_fuzz` keeps the strided termination draw from
@@ -383,6 +416,7 @@ int main() {
   test_xor_output_sign_even_arity();
   test_xor_output_sign_odd_relation();
   test_xor_output_sign_odd_arity();
+  test_extracted_binary_suffix_is_sorted();
   std::printf("test_congruence: all passed\n");
   return 0;
 }

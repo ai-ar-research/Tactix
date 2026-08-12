@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <numeric>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -28,8 +29,12 @@ constexpr int FACTOR_MIN_GAIN = 1;
 // entries costs 1 + (4·words)/128. The apply-local stream retains unique
 // binary partners and large-clause occurrences, like Kissat's dense watches
 // (`docs/scheduling-parity-ledger.md` §13).
-inline void charge_factor_ticks(Kernel &k, uint32_t words) {
-  k.stats.factor_ticks += 1 + (words >> 5);
+inline uint64_t factor_cache_lines(uint64_t watches) {
+  return watches ? (watches + 31) >> 5 : 0;
+}
+
+inline void charge_factor_watch_scan(Kernel &k, uint64_t watches) {
+  k.stats.factor_ticks += 1 + factor_cache_lines(watches);
 }
 
 // --- remainder interning (`docs/design/e2-factorsize-design.md` §3) ----------
@@ -262,12 +267,20 @@ static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
 void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   idx.occ.assign(2 * k.nvars, {});
   idx.order.assign(2 * k.nvars, {});
-  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
+  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
     for (const WatchEntry watch : k.watches.entries(lit))
       if (watch.binary())
         idx.order[lit].push_back(
             {watch.other(), INVALID_REF,
              kernel_binary_id(k, lit, watch.other()), true});
+    // Factor enters Kissat's dense mode with a null binary-save stack.  That
+    // flushes large watches but deliberately keeps the current sparse binary
+    // sequence; unlike Congruence it does not sort/reconnect the pairs.  This
+    // order is both the quotient-column order and a tie-break during greedy
+    // growth.  Re-sorting by import identity here reversed sted5's two
+    // quotients (-3016,-198)/(-3016,-199), producing the first search
+    // divergence at conflict 146 despite an identical clause set.
+  }
   // --- candidate reduction (kissat `factorcandrounds`, factor.c:1000) --------
   // A large clause is grid material only if every literal occurs in at least
   // two candidate clauses. Dropping one can drop its neighbours below the bar,
@@ -389,8 +402,10 @@ void remainder_occurrences_of(Kernel &k, const FactorIndex &idx, RemPool &pool,
     return;
   for (const FactorWatch watch : idx.order[l]) {
     if (watch.binary()) {
-      if (watch.other < limit && factor_binary_live(k, l, watch))
+      if (watch.other < limit && factor_binary_live(k, l, watch)) {
+        k.stats.factor_ticks++;
         out.push_back({pool.intern_unit(watch.other), INVALID_REF});
+      }
       continue;
     }
     if (k.factor_size < 3)
@@ -399,7 +414,7 @@ void remainder_occurrences_of(Kernel &k, const FactorIndex &idx, RemPool &pool,
     const Clause *c = clause_at(k.arena, ref);
     if (!grid_clause_live(k, c))
       continue;
-    charge_factor_ticks(k, c->size);
+    k.stats.factor_ticks++;
     if (!remainder_of(k, c, l, limit, rem_scratch))
       continue;
     const uint32_t rid =
@@ -427,6 +442,7 @@ struct RemainderFactorBucket {
 
 void build_remainder_factor_bucket(Kernel &k, const FactorIndex &idx,
                                    const RemPool &pool, uint32_t rid, Lit limit,
+                                   Ref pose_ref, const std::vector<Lit> &factors,
                                    RemainderFactorBucket &bucket) {
   bucket.order.clear();
   bucket.refs.clear();
@@ -438,6 +454,7 @@ void build_remainder_factor_bucket(Kernel &k, const FactorIndex &idx,
     for (const FactorWatch watch : idx.order[rl[0]]) {
       if (!watch.binary() || watch.other >= limit ||
           k.value(watch.other) != 0 ||
+          kernel_var_retired(k, var_of(watch.other)) ||
           !factor_binary_live(k, rl[0], watch))
         continue;
       const Lit factor = watch.other;
@@ -449,14 +466,21 @@ void build_remainder_factor_bucket(Kernel &k, const FactorIndex &idx,
     return;
   }
 
+  // Kissat chooses the first least-watched remainder literal in the current
+  // quotient clause's existing pose.  The canonical sorted remainder is only
+  // a content key: using it here reverses equal-size ties (sted's -1173/-1171
+  // candidate pair) and using `idx.occ` ignores binary watches altogether.
+  assert(pose_ref != INVALID_REF);
+  const Clause *pose = clause_at(k.arena, pose_ref);
   Lit scan = INVALID_LIT;
   size_t scan_occ = SIZE_MAX;
-  for (uint32_t i = 0; i < rn; i++) {
-    if (rl[i] >= idx.occ.size())
+  for (const Lit lit : *pose) {
+    if (contains(factors, lit) || lit >= idx.order.size())
       continue;
-    if (idx.occ[rl[i]].size() < scan_occ) {
-      scan_occ = idx.occ[rl[i]].size();
-      scan = rl[i];
+    const size_t occurrences = idx.order[lit].size();
+    if (scan == INVALID_LIT || occurrences < scan_occ) {
+      scan_occ = occurrences;
+      scan = lit;
     }
   }
   if (scan == INVALID_LIT)
@@ -468,7 +492,6 @@ void build_remainder_factor_bucket(Kernel &k, const FactorIndex &idx,
     const Clause *c = clause_at(k.arena, ref);
     if (c->size != rn + 1 || !grid_clause_live(k, c))
       continue;
-    charge_factor_ticks(k, c->size);
     Lit factor = INVALID_LIT;
     bool ok = true;
     for (const Lit x : *c) {
@@ -481,7 +504,7 @@ void build_remainder_factor_bucket(Kernel &k, const FactorIndex &idx,
       factor = x;
     }
     if (!ok || factor == INVALID_LIT || factor >= limit ||
-        k.value(factor) != 0)
+        k.value(factor) != 0 || kernel_var_retired(k, var_of(factor)))
       continue;
     auto [it, inserted] = bucket.refs.try_emplace(factor);
     if (inserted)
@@ -631,6 +654,24 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       Clause *c = clause_at(k.arena, ref);
       if (c->garbage())
         continue;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      std::string transition = "factor-grid-delete(factors=";
+      for (size_t fi = 0; fi < F.size(); fi++) {
+        if (fi)
+          transition.push_back(',');
+        transition += std::to_string(kernel_externalize(k, F[fi]));
+      }
+      transition += ";remainder=";
+      const Lit *remainder = pool.lits_of(rid);
+      for (uint32_t ri = 0; ri < pool.size_of(rid); ri++) {
+        if (ri)
+          transition.push_back(',');
+        transition += std::to_string(kernel_externalize(k, remainder[ri]));
+      }
+      transition.push_back(')');
+      rule_journal_note_clause_transition(k, transition.c_str(), c->lits,
+                                          c->size, c->id());
+#endif
       kernel_delete_clause(k, c);
     }
 }
@@ -667,7 +708,11 @@ void dump_factored_and_exit(const Kernel &k, const char *path) {
 
 } // namespace
 
-bool factor_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
+RuleEligibility factor_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
+}
 
 ApplyResult factor_apply(Kernel &k) {
   assert(factor_guard(k));
@@ -683,12 +728,15 @@ ApplyResult factor_apply(Kernel &k) {
     dump_factored_and_exit(k, p);
 #endif
 
-  // Anti-loop boundary: only original literals may be factors/remainders, never
-  // the extension vars Factor adds. It must be `first_extension_var`, fixed
-  // across applies — `2*k.nvars` would let a second apply factor over the
-  // first's extension vars, unbounded self-factoring.
-  const Lit orig_lits =
-      static_cast<Lit>(2 * kernel_num_original_internal_vars(k));
+  // Kissat snapshots `factoring.initial = LITS` at the start of every Factor
+  // application.  `LITS` includes extension variables created by earlier
+  // applications; excluding those variables loses composite grids on later
+  // inprocessing rounds.  Since literal ids are zero based, `next > initial`
+  // deliberately admits the positive literal of this application's first
+  // fresh variable (`next == LITS`), while excluding its negation and all later
+  // fresh literals.  Keep this boundary fixed while the application runs.
+  const Lit initial_lits = static_cast<Lit>(2 * k.nvars);
+  const Lit next_factor_limit = initial_lits + 1;
 
   // Fresh-variable boundary for the post-application demotion: every var this
   // application adds lands in [fresh_first, k.nvars), contiguously, so the
@@ -700,13 +748,14 @@ ApplyResult factor_apply(Kernel &k) {
   // growing as the pass applies (kissat resize_factoring). Fresh literals can
   // participate as remainders, but never as factors in the same pass: Kissat
   // keeps `factoring.initial` fixed and rejects `next > initial` in addition
-  // to not pushing fresh literals into the first-factor heap.
+  // to not pushing fresh literals into the first-factor heap.  The boundary's
+  // one admitted positive fresh literal is covered by `next_factor_limit`.
   // Termination needs no var-class exclusion — every accepted grid has
   // delta >= 1, strictly decreasing the finite live-binary count. Default off:
   // composition over-applies in a preprocessing blast, and belongs to the
   // interleaved during-search doses where DefaultPolicy sets it.
   const bool composite = k.factor_composite;
-  Lit live_lits = composite ? static_cast<Lit>(2 * k.nvars) : orig_lits;
+  Lit live_lits = initial_lits;
 
   // Remainder content is interned, while the vectors below retain one entry
   // per clause occurrence.  Equal ids are valid distinct quotient columns.
@@ -754,13 +803,12 @@ ApplyResult factor_apply(Kernel &k) {
       const Clause *c = clause_at(k.arena, ref);
       if (!grid_clause_live(k, c))
         continue;
-      bool usable = true;
-      for (const Lit other : *c)
-        if (other != l && other >= live_lits) {
-          usable = false;
-          break;
-        }
-      score += usable;
+      // Kissat's update_candidate/tied_next_factor_score use the complete
+      // live dense-watch size.  A quotient containing this application's
+      // fresh extension literal is not eligible as a grid row (remainder_of
+      // enforces that boundary), but it still contributes to the heap and tie
+      // score.  Filtering it here changed Fmla's first candidate at grid 6496.
+      score++;
     }
     return score;
   };
@@ -807,7 +855,31 @@ ApplyResult factor_apply(Kernel &k) {
                    });
   uint32_t schedule_ordinal = 0;
   for (const Lit l : schedule_order) {
-    if (k.value(l) != 0)
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_factor_literal_state(
+        k, l, k.factor_marks[l], kernel_var_retired(k, var_of(l)), k.value(l),
+        reference_score_of(l));
+    const char *selected_literal =
+        std::getenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL");
+    if (selected_literal &&
+        std::atoi(selected_literal) == kernel_externalize(k, l)) {
+      uint32_t ordinal = 0;
+      for (const FactorWatch watch : fidx.order[l]) {
+        const Clause *clause = nullptr;
+        bool live = false;
+        if (watch.binary()) {
+          live = watch.other < live_lits && factor_binary_live(k, l, watch);
+        } else {
+          clause = clause_at(k.arena, watch.ref);
+          live = grid_clause_live(k, clause);
+        }
+        event_trace_factor_literal_entry(
+            k, l, ordinal++, live, watch.other,
+            watch.binary() ? watch.id : clause->id(), clause);
+      }
+    }
+#endif
+    if (k.value(l) != 0 || kernel_var_retired(k, var_of(l)))
       continue;
     if (!seed_is_new(l)) {
       k.stats.factor_mark_skipped++;
@@ -829,7 +901,8 @@ ApplyResult factor_apply(Kernel &k) {
     if (over_budget()) // quit point 1: before each popped seed
       break;
     const Lit seed = schedule.pop_max();
-    if (seed >= armed.size() || !armed[seed] || k.value(seed) != 0)
+    if (seed >= armed.size() || !armed[seed] || k.value(seed) != 0 ||
+        kernel_var_retired(k, var_of(seed)))
       continue;
     armed[seed] = 0;
     k.factor_marks[seed] = 0;
@@ -863,51 +936,161 @@ ApplyResult factor_apply(Kernel &k) {
 
     // greedily grow the factor set, tracking the max-delta prefix.
     while (R.size() >= 2 && !over_budget()) {
-      // Count candidate next factors by multiset intersection with the current
-      // quotient.  Equal remainder contents retain their clause-occurrence
-      // capacity, so a candidate can consume no more exact Refs than exist.
+      // Count next factors in Kissat's actual clause-occurrence order.  A
+      // content bucket is insufficient here: for each current large clause
+      // Kissat chooses that clause's first least-watched remainder literal,
+      // scans its dense watch list, and reserves each exact matching clause at
+      // most once across the whole quotient.  That first-discovery order is
+      // also the tie-break between equal count/score candidates.
       touched.clear();
-      std::vector<uint32_t> remainder_count(pool.count(), 0), distinct_rids;
+      const auto count_candidate = [&](Lit candidate) -> bool {
+        if (candidate >= next_factor_limit || k.value(candidate) != 0 ||
+            kernel_var_retired(k, var_of(candidate)) || contains(F, candidate))
+          return false;
+        if (!cofactor[candidate])
+          touched.push_back(candidate);
+        cofactor[candidate]++;
+        return true;
+      };
+      charge_factor_watch_scan(k, R.size());
+      bool next_factor_budget_hit = false;
+      std::unordered_set<Ref> reserved_large_refs;
+      for (size_t column = 0; column < R.size(); column++) {
+        const uint32_t rid = R[column];
+        const uint32_t rn = pool.size_of(rid);
+        const Lit *remainder = pool.lits_of(rid);
+        if (rn == 1) {
+          const Lit q = remainder[0];
+          if (q >= fidx.order.size())
+            continue;
+          charge_factor_watch_scan(k, reference_score_of(q));
+          for (const FactorWatch watch : fidx.order[q])
+            if (watch.binary() && factor_binary_live(k, q, watch) &&
+                count_candidate(watch.other)) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+              event_trace_factor_candidate_binary_source(
+                  k, seed, static_cast<uint32_t>(F.size()),
+                  static_cast<uint32_t>(column), q, watch.other);
+#endif
+            }
+          if (over_budget()) {
+            next_factor_budget_hit = true;
+            break;
+          }
+          continue;
+        }
+
+        const Ref current_ref = grid_refs.back()[column];
+        if (current_ref == INVALID_REF)
+          continue;
+        const Clause *current = clause_at(k.arena, current_ref);
+        k.stats.factor_ticks++;
+        Lit scan = INVALID_LIT;
+        uint32_t scan_size = 0;
+        uint32_t factors_in_clause = 0;
+        for (const Lit lit : *current) {
+          if (contains(F, lit)) {
+            factors_in_clause++;
+            continue;
+          }
+          const uint32_t dense_size = reference_score_of(lit);
+          if (scan == INVALID_LIT || dense_size < scan_size) {
+            scan = lit;
+            scan_size = dense_size;
+          }
+        }
+        if (factors_in_clause != 1 || scan == INVALID_LIT ||
+            scan >= fidx.order.size())
+          continue;
+
+        charge_factor_watch_scan(k, reference_score_of(scan));
+        std::unordered_set<Lit> counted_for_current;
+        for (const FactorWatch watch : fidx.order[scan]) {
+          if (watch.binary())
+            continue;
+          const Ref ref = watch.ref;
+          if (ref == current_ref)
+            continue;
+          const Clause *candidate_clause = clause_at(k.arena, ref);
+          if (!grid_clause_live(k, candidate_clause))
+            continue;
+          // Kissat charges every live large entry reached by the dense scan,
+          // including occurrences already reserved by an earlier column.
+          k.stats.factor_ticks++;
+          if (reserved_large_refs.count(ref))
+            continue;
+          if (candidate_clause->size != current->size ||
+              !grid_clause_live(k, candidate_clause))
+            continue;
+          Lit candidate = INVALID_LIT;
+          bool matches = true;
+          for (const Lit lit : *candidate_clause) {
+            if (std::binary_search(remainder, remainder + rn, lit))
+              continue;
+            if (contains(F, lit) || counted_for_current.count(lit) ||
+                candidate != INVALID_LIT) {
+              matches = false;
+              break;
+            }
+            candidate = lit;
+          }
+          if (!matches || candidate == INVALID_LIT ||
+              candidate >= next_factor_limit || k.value(candidate) != 0 ||
+              kernel_var_retired(k, var_of(candidate)))
+            continue;
+          counted_for_current.insert(candidate);
+          reserved_large_refs.insert(ref);
+          if (count_candidate(candidate)) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+            event_trace_factor_candidate_source(
+                k, seed, static_cast<uint32_t>(F.size()),
+                static_cast<uint32_t>(column), scan, candidate, current,
+                candidate_clause);
+#endif
+          }
+        }
+        if (over_budget()) {
+          next_factor_budget_hit = true;
+          break;
+        }
+      }
+
+      if (next_factor_budget_hit) {
+        for (const Lit h : touched)
+          cofactor[h] = 0;
+        break;
+      }
+
+      // Binary matching below needs only the exact partner buckets.  Large
+      // matching is occurrence-specific and replays the scan directly.
+      std::vector<uint32_t> distinct_rids;
+      std::vector<uint8_t> seen_rid(pool.count(), 0);
       for (const uint32_t rid : R)
-        if (!remainder_count[rid]++)
+        if (!seen_rid[rid]) {
+          seen_rid[rid] = 1;
           distinct_rids.push_back(rid);
-      // Only the current quotient's distinct remainders need candidate buckets.
-      // `pool` is pass-wide and can contain hundreds of thousands of ids, so a
-      // dense `vector(pool.count())` here constructed and destroyed that many
-      // vectors/maps for every popped seed even when the quotient had only a
-      // few dozen columns.  Keep the same rid-keyed lookup and insertion order
-      // without paying work proportional to all previously interned content.
+        }
       std::unordered_map<uint32_t, RemainderFactorBucket> buckets;
       buckets.reserve(distinct_rids.size());
       for (const uint32_t rid : distinct_rids) {
-        const Lit *remainder = pool.lits_of(rid);
-        const uint32_t remainder_size = pool.size_of(rid);
-        bool contains_existing_factor = false;
-        for (uint32_t i = 0; i < remainder_size; i++)
-          if (contains(F, remainder[i])) {
-            contains_existing_factor = true;
-            break;
-        }
-        if (contains_existing_factor)
+        if (pool.size_of(rid) != 1)
           continue;
         RemainderFactorBucket &bucket = buckets.try_emplace(rid).first->second;
-        build_remainder_factor_bucket(k, fidx, pool, rid, orig_lits, bucket);
-        for (const Lit h : bucket.order) {
-          if (var_of(h) == var_of(seed) || contains(F, h))
-            continue;
-          if (!cofactor[h])
-            touched.push_back(h);
-          const size_t available = bucket.refs.find(h)->second.size();
-          cofactor[h] += static_cast<uint32_t>(
-              std::min<size_t>(remainder_count[rid], available));
-        }
+        build_remainder_factor_bucket(k, fidx, pool, rid, next_factor_limit,
+                                      INVALID_REF, F, bucket);
       }
       // Highest co-occurrence count, ties broken by watch-list size (kissat's
       // `tied_next_factor_score`, factor.c:318). On a dense binary graph the max
       // count is tied among many candidates, so the tie-break selects the grid.
       Lit g = INVALID_LIT;
       uint32_t bestc = 1, best_score = 0;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      uint32_t candidate_ordinal = 0;
+#endif
       for (const Lit h : touched) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        const uint32_t ordinal = candidate_ordinal++;
+#endif
         const uint32_t c = cofactor[h];
         if (c <= 1 || c < bestc)
           continue;
@@ -917,6 +1100,25 @@ ApplyResult factor_apply(Kernel &k) {
                                             k, h, c, seed,
                                             static_cast<double>(reference_score)))
                                   : reference_score;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        event_trace_factor_candidate(k, seed, static_cast<uint32_t>(F.size()),
+                                     ordinal, h, c, score);
+        uint32_t score_entry_ordinal = 0;
+        for (const FactorWatch watch : fidx.order[h]) {
+          const Clause *clause = nullptr;
+          bool live = false;
+          if (watch.binary()) {
+            live = watch.other < live_lits && factor_binary_live(k, h, watch);
+          } else {
+            clause = clause_at(k.arena, watch.ref);
+            live = grid_clause_live(k, clause);
+          }
+          event_trace_factor_score_entry(
+              k, seed, static_cast<uint32_t>(F.size()), h,
+              score_entry_ordinal++, live, watch.other,
+              watch.binary() ? watch.id : clause->id(), clause);
+        }
+#endif
         if (c > bestc) {
           bestc = c;
           best_score = score;
@@ -939,11 +1141,13 @@ ApplyResult factor_apply(Kernel &k) {
       std::vector<Ref> next_refs;
       std::vector<uint32_t> used(pool.count(), 0);
       std::unordered_set<Ref> used_large_refs;
+      charge_factor_watch_scan(k, R.size());
       for (size_t column = 0; column < R.size(); column++) {
         const uint32_t rid = R[column];
         const uint32_t rn = pool.size_of(rid);
         Ref matched_ref = INVALID_REF;
         if (rn == 1) {
+          charge_factor_watch_scan(k, reference_score_of(pool.lit0(rid)));
           const auto bucket_it = buckets.find(rid);
           if (bucket_it == buckets.end())
             continue;
@@ -963,6 +1167,7 @@ ApplyResult factor_apply(Kernel &k) {
           if (current_ref == INVALID_REF)
             continue;
           const Clause *current = clause_at(k.arena, current_ref);
+          k.stats.factor_ticks++;
           Lit scan = INVALID_LIT;
           uint32_t scan_size = 0;
           uint32_t factors_in_clause = 0;
@@ -980,14 +1185,20 @@ ApplyResult factor_apply(Kernel &k) {
           if (factors_in_clause != 1 || scan == INVALID_LIT ||
               scan >= fidx.order.size())
             continue;
+          charge_factor_watch_scan(k, reference_score_of(scan));
           const Lit *expected = pool.lits_of(rid);
           for (const FactorWatch watch : fidx.order[scan]) {
             if (watch.binary())
               continue;
             const Ref ref = watch.ref;
-            if (ref == current_ref || used_large_refs.count(ref))
+            if (ref == current_ref)
               continue;
             const Clause *candidate = clause_at(k.arena, ref);
+            if (!grid_clause_live(k, candidate))
+              continue;
+            k.stats.factor_ticks++;
+            if (used_large_refs.count(ref))
+              continue;
             if (candidate->size != rn + 1 || !grid_clause_live(k, candidate))
               continue;
             if (!remainder_of(k, candidate, g, live_lits, rem_scratch) ||
@@ -1146,9 +1357,9 @@ ApplyResult factor_apply(Kernel &k) {
 
   if (std::getenv("TACTIX_FACTOR_TRACE"))
     std::fprintf(stderr,
-                 "[factor] entered (%u orig lits), %llu factorings, "
+                 "[factor] entered (%u initial lits), %llu factorings, "
                  "%llu ticks (budget %llu%s)\n",
-                 orig_lits, (unsigned long long)applied,
+                 initial_lits, (unsigned long long)applied,
                  (unsigned long long)(k.stats.factor_ticks - tick_start),
                  (unsigned long long)budget, over_budget() ? ", CUT" : "");
   if (const char *p = std::getenv("TACTIX_DUMP_FACTORED"))

@@ -9,10 +9,12 @@
 
 namespace tactix {
 
-bool instantiate_guard(const Kernel &k) {
+RuleEligibility instantiate_guard(const Kernel &k) {
   // Quiescent root (D-ROOT). A pure F-rewrite, so a recorded conflict does not
   // bar it; level == 0 is what the occurrence and unassigned filters need.
-  return !k.inconsistent && k.level == 0;
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
 }
 
 // candidate clause: live, irredundant, size >= INST_CLSLIM, not root-satisfied,

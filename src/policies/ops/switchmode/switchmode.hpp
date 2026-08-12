@@ -5,7 +5,7 @@
 
 namespace tactix {
 
-bool switchmode_guard(const Kernel &);
+RuleEligibility switchmode_guard(const Kernel &);
 ApplyResult switchmode_apply(Kernel &);
 
 } // namespace tactix

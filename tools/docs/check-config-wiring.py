@@ -61,6 +61,9 @@ TABLE = {
                                           "split from the call site)"),
     "jump_reasons_bigbig":     ("POLICY", "Kissat formula classification refreshed "
                                           "at search/reduce/probe/eliminate boundaries"),
+    "conflict_reuse_chrono_levels":
+                                ("POLICY", "configured chronological-gap limit "
+                                           "for the conflict-reuse shortcut"),
     # --- a rule computes these -------------------------------------------
     "tier1":                   ("RULE", "reduce.cpp, from the live glue distribution"),
     "tier2":                   ("RULE", "reduce.cpp; 2 consumers (reduce, vivify) — SP-TIER-2 "
@@ -152,6 +155,9 @@ CONFIG_START = "bve_retry_fixed_head"
 # category, which a policy may reset but never "configures".
 NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
               "warming",
+              # lifecycle state: root assignments increment it and reference
+              # flush boundaries clear it; no caller configures it.
+              "unflushed_root",
               # the arena's own relocation counter: whoever holds a Ref across
               # a possible collection compares it. Nothing configures it.
               "arena_generation",

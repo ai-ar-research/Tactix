@@ -21,17 +21,16 @@ namespace tactix {
 
 namespace {
 
-// xorshift64*, seeded from the walk count so repeated solves replay identically
-// (the determinism trace tests depend on this).
+// Kissat's seed-0 LCG.  Sharing both the recurrence and the 32-bit projection
+// is necessary for the selected unsatisfied clause and flip literal to agree.
 inline uint64_t next_random(uint64_t &s) {
-  s ^= s >> 12;
-  s ^= s << 25;
-  s ^= s >> 27;
-  return s * 2685821657736338717ULL;
+  s *= UINT64_C(6364136223846793005);
+  s += UINT64_C(1442695040888963407);
+  return s;
 }
 // uniform double in [0,1) from the top 53 bits (kissat_pick_double)
 inline double pick_double(uint64_t &s) {
-  return static_cast<double>(next_random(s) >> 11) * (1.0 / 9007199254740992.0);
+  return static_cast<uint32_t>(next_random(s) >> 32) / 4294967296.0;
 }
 
 // ProbSAT CB base as a function of average clause size (kissat walk.c cbvals)
@@ -71,7 +70,11 @@ struct Walker {
   double epsilon = 1.0;
 
   uint32_t nclauses = 0;
+  uint32_t binary_clauses = 0;
+  uint32_t full_binary_clauses = 0;
+  uint32_t full_irredundant_clauses = 0;
   uint32_t initial = 0, minimum = 0;
+  uint32_t initial_binary_unsat = 0;
   uint64_t flips = 0, steps = 0;
   uint64_t rng = 0;
 
@@ -83,7 +86,7 @@ struct Walker {
 // Collect the walkable clauses. Binaries live only in watch lists, so they are
 // enumerated from there with an `other > lit` dedup; large irredundant clauses
 // come from one arena scan.
-bool build_table(Walker &w, const Kernel &k) {
+bool build_table(Walker &w, Kernel &k) {
   const uint32_t nlits = 2 * k.nvars;
   double total_size = 0;
 
@@ -93,34 +96,63 @@ bool build_table(Walker &w, const Kernel &k) {
     for (uint32_t i = 0; i < n; i++) {
       const int8_t v = k.value(lits[i]);
       if (v > 0)
-        return; // satisfied by the trail: not the walker's problem
+        return false; // satisfied by the trail: not the walker's problem
       if (v == 0)
         free_lits++;
     }
     if (!free_lits)
-      return; // falsified by the trail: the search's problem, not the walk's
+      return false; // falsified by the trail: the search's problem, not the walk's
     for (uint32_t i = 0; i < n; i++)
       if (k.value(lits[i]) == 0)
         w.cl_lits.push_back(lits[i]);
     w.cl_beg.push_back(static_cast<uint32_t>(w.cl_lits.size()));
     total_size += free_lits;
+    return true;
   };
 
-  for (Lit l = 0; l < nlits; l++) {
-    for (const WatchEntry wt : k.watches.entries(l)) {
-      if (!wt.binary())
-        continue;
-      const Lit other = wt.other();
-      if (other < l)
-        continue; // dedup: each binary is seen from both watch lists
-      const Lit pair[2] = {l, other};
-      emit(pair, 2);
+  // Kissat enters dense mode after compacting its internal variable universe.
+  // Tactix keeps stable internal identities, but the permanent import ranks
+  // are precisely that compact-order key.  Enumerate by those ranks so the
+  // binary counter order (and therefore the deterministic unsatisfied stack)
+  // is representation-independent and matches Kissat.
+  std::vector<Var> import_order;
+  kernel_vars_in_import_order(k, import_order);
+  for (const Var v : import_order) {
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit l = make_lit(v, sign != 0);
+      for (const WatchEntry wt : k.watches.entries(l)) {
+        if (!wt.binary())
+          continue;
+        const Lit other = wt.other();
+        if (kernel_import_lit_order(k, other) <
+            kernel_import_lit_order(k, l))
+          continue; // dedup: each binary is seen from both watch lists
+        const Lit pair[2] = {l, other};
+        w.full_binary_clauses++;
+        w.binary_clauses += emit(pair, 2);
+      }
     }
   }
   for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage() && !c->redundant())
-      emit(c->lits, c->size);
+    Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && !c->redundant()) {
+      w.full_irredundant_clauses++;
+      bool root_satisfied = false;
+      for (const Lit lit : *c)
+        root_satisfied |= kernel_root_value(k, lit) > 0;
+      if (root_satisfied) {
+        // Kissat's dense Walk entry keeps the pre-collection irredundant
+        // count as the score-table denominator, then `connect_large_counters`
+        // retires every irredundant clause satisfied by the original root
+        // assignment.  Merely omitting such a clause from the private CSR
+        // leaves a semantically dead clause in sparse search and changes both
+        // propagation and later substitution.  Retire it at the same point;
+        // the resume rebuild below discards its stale watches.
+        kernel_delete_clause(k, c);
+      } else {
+        emit(c->lits, c->size);
+      }
+    }
     ref += clause_words(c->size);
   }
 
@@ -144,7 +176,9 @@ bool build_table(Walker &w, const Kernel &k) {
 
   // The ProbSAT score table, base 1/cb (kissat init_score_table): cb alternates
   // between the fixed 2.0 and the size fit across walks.
-  const double avg = total_size / w.nclauses;
+  const uint32_t denominator =
+      w.full_binary_clauses + w.full_irredundant_clauses;
+  const double avg = total_size / denominator;
   const double cb = (k.stats.walks & 1) ? fit_cbval(avg) : 2.0;
   const double base = 1 / cb;
   double next = 1;
@@ -189,6 +223,8 @@ void init_counters(Walker &w) {
     }
   }
   w.initial = w.minimum = static_cast<uint32_t>(w.unsat.size());
+  for (uint32_t c = 0; c < w.binary_clauses; c++)
+    w.initial_binary_unsat += w.count[c] == 0;
 }
 
 // --- the flip loop ---------------------------------------------------------
@@ -197,12 +233,13 @@ inline void push_unsat(Walker &w, uint32_t c) {
   w.pos[c] = static_cast<uint32_t>(w.unsat.size());
   w.unsat.push_back(c);
 }
-inline void pop_unsat(Walker &w, uint32_t c) {
+inline bool pop_unsat(Walker &w, uint32_t c) {
   const uint32_t p = w.pos[c];
   const uint32_t last = w.unsat.back();
   w.unsat[p] = last;
   w.pos[last] = p;
   w.unsat.pop_back();
+  return last != c;
 }
 
 // How many clauses flipping `lit` to true would falsify: those satisfied by
@@ -223,7 +260,13 @@ inline double scale_score(const Walker &w, uint32_t breaks) {
 
 // roulette-wheel pick over exp(-breaks) scores within one unsatisfied clause
 Lit pick_literal(Walker &w, std::vector<double> &scores) {
-  const uint32_t c = w.unsat[w.flips % w.unsat.size()];
+  // Kissat increments walker->flipped once in local_search_step and once more
+  // in pick_literal before taking the modulo.  Thus its first positions are
+  // 1, 3, 5, ... rather than 0, 1, 2, ... .  Keep `flips` as the true number
+  // of flips for Tactix statistics, but reproduce that selection sequence.
+  const uint64_t selection = 2 * w.flips + 1;
+  const uint32_t pos = selection % w.unsat.size();
+  const uint32_t c = w.unsat[pos];
   const uint32_t beg = w.cl_beg[c], end = w.cl_beg[c + 1];
   scores.clear();
   double sum = 0;
@@ -232,14 +275,35 @@ Lit pick_literal(Walker &w, std::vector<double> &scores) {
     scores.push_back(s);
     sum += s;
   }
-  const double threshold = sum * pick_double(w.rng);
+  const uint64_t rng_before = w.rng;
+  const double random = pick_double(w.rng);
+  const double threshold = sum * random;
   double acc = 0;
+  Lit picked = w.cl_lits[end - 1];
   for (uint32_t i = beg; i < end; i++) {
     acc += scores[i - beg];
-    if (threshold < acc)
-      return w.cl_lits[i];
+    if (threshold < acc) {
+      picked = w.cl_lits[i];
+      break;
+    }
   }
-  return w.cl_lits[end - 1]; // rounding: fall back to the last literal
+  static const uint64_t trace_choices = [] {
+    const char *value = std::getenv("TACTIX_WALK_CHOICES");
+    return value ? std::strtoull(value, nullptr, 10) : UINT64_C(0);
+  }();
+  if (w.flips < trace_choices) {
+    fprintf(stderr,
+            "c walk-choice flip=%llu current=%zu pos=%u clause=%u lits=",
+            (unsigned long long)w.flips, w.unsat.size(), pos, c);
+    for (uint32_t i = beg; i < end; i++)
+      fprintf(stderr, "%s%d:%g", i == beg ? "" : ",",
+              kernel_externalize(*w.k, w.cl_lits[i]), scores[i - beg]);
+    fprintf(stderr,
+            " rng=%llu random=%.17g sum=%.17g threshold=%.17g picked=%u\n",
+            (unsigned long long)rng_before, random, sum, threshold,
+            kernel_externalize(*w.k, picked));
+  }
+  return picked; // rounding: fall back to the last literal
 }
 
 // Keep `best_values` recoverable without an O(nvars) copy per improvement:
@@ -271,7 +335,7 @@ void record_improvement(Walker &w) {
 void push_flip(Walker &w, Lit lit) {
   if (!w.pending_valid)
     return;
-  const size_t cap = w.k->nvars / 4 + 1024;
+  const size_t cap = w.k->nvars / 4 + 1;
   if (w.pending.size() >= cap) {
     if (w.best_pending)
       sync_best(w); // shift the winning prefix into best_values, keep the rest
@@ -291,8 +355,8 @@ void flip(Walker &w, Lit lit) {
     const uint32_t end = w.occ_beg[lit + 1];
     for (uint32_t i = w.occ_beg[lit]; i < end; i++) {
       const uint32_t c = w.occ[i];
-      if (!w.count[c]++)
-        pop_unsat(w, c);
+      if (!w.count[c]++ && pop_unsat(w, c))
+        w.steps++; // Kissat charges the replacement write in pop_unsat.
     }
     w.steps += end - w.occ_beg[lit] + 1;
   }
@@ -324,16 +388,37 @@ void local_search(Walker &w, uint64_t limit) {
 
 // Requires `H` (the walk writes the phase arrays) and a non-refuted kernel. Any
 // decision level is legal; assigned literals are held fixed (deviation 2).
-bool walk_guard(const Kernel &k) {
-  return !k.inconsistent && k.h != nullptr && k.nvars > 0;
+RuleEligibility walk_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("heuristics-attached", k.h != nullptr)
+      .fact("has-variables", k.nvars > 0);
 }
 
 ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
   assert(walk_guard(k));
   k.stats.walks++;
+  if (const char *selected = std::getenv("TACTIX_WALK_WATCH_LITERAL")) {
+    const int wanted = std::abs(std::atoi(selected));
+    for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+      if (std::abs(kernel_externalize(k, lit)) != wanted)
+        continue;
+      std::fprintf(stderr, "c walk-pre-watch lit=%d entries=",
+                   kernel_externalize(k, lit));
+      bool first = true;
+      for (const WatchEntry watch : k.watches.entries(lit)) {
+        if (!watch.binary())
+          continue;
+        std::fprintf(stderr, "%s%d", first ? "" : ",",
+                     kernel_externalize(k, watch.other()));
+        first = false;
+      }
+      std::fputc('\n', stderr);
+    }
+  }
   Walker w;
   w.k = &k;
-  w.rng = 0x9E3779B97F4A7C15ULL ^ (k.stats.walks * 0x2545F4914F6CDD1DULL);
+  w.rng = k.walk_random_seed ^ k.stats.walks;
   bool improved = false;
   if (build_table(w, k)) {
     seed_values(w, k);
@@ -349,17 +434,30 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
         limit = cap;
     }
     local_search(w, limit);
+    // Kissat's walker temporarily repurposes every large-watch list as an
+    // occurrence index.  Leaving dense mode consequently reconnects all large
+    // clauses in arena order and reselects their watched pair.  That
+    // representation-only delta is search-visible: omitting it changed the
+    // very first post-Walk implication order on the Tier-B witness even when
+    // every Walk flip matched.  Reproduce the sparse-resume side effect after
+    // the private CSR walker has finished.
+    kernel_resume_walk_watches(k);
     k.stats.walk_flips += w.flips;
     k.stats.walk_steps += w.steps;
     k.stats.walk_minimum = w.minimum;
     if (std::getenv("TACTIX_WALK_TRACE"))
+      {
       fprintf(stderr,
-              "c walk#%llu clauses=%u initial=%u minimum=%u flips=%llu "
+              "c walk#%llu clauses=%u full=%u binary=%u "
+              "initial=%u binary_unsat=%u minimum=%u flips=%llu "
               "steps=%llu budget=%llu conflicts=%llu\n",
-              (unsigned long long)k.stats.walks, w.nclauses, w.initial,
-              w.minimum, (unsigned long long)w.flips,
+              (unsigned long long)k.stats.walks, w.nclauses,
+              w.full_binary_clauses + w.full_irredundant_clauses,
+              w.binary_clauses, w.initial, w.initial_binary_unsat, w.minimum,
+              (unsigned long long)w.flips,
               (unsigned long long)w.steps, (unsigned long long)steps,
               (unsigned long long)k.stats.conflicts);
+      }
     // TACTIX_WALK_DRY (diagnostic): run the walk but discard its assignment,
     // separating the phases the walk writes from what else the slot changed.
     // See docs/design/s6-walk-design.md §6.

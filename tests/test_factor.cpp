@@ -127,6 +127,97 @@ static void test_factoring_2x3() {
       assert(!has_binary(k, f, rr));
 }
 
+// Factor's effort currency is Kissat's dense-watch scan currency, and its
+// second quit point is checked after each current quotient occurrence.  A
+// budget of four therefore pays 3 ticks for first_factor, 2 for the quotient
+// stack, and 2 for the first remainder watch list before declining the grid.
+static void test_dense_scan_budget_boundary() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), q = make_lit(3, false),
+            r = make_lit(4, false);
+  for (const Lit f : {a, b})
+    for (const Lit remainder : {p, q, r})
+      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
+
+  k.work_budget = 4;
+  assert(factor_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.factorings == 0);
+  assert(k.stats.factor_ticks == 7);
+}
+
+// `factoring.initial` is the current literal universe at entry, not the
+// original-variable boundary.  An extension literal created by an earlier
+// Factor application is therefore a legal factor in a later application.
+static void test_prior_extension_literal_is_a_later_factor() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 4); // a=0, p=1, q=2, r=3
+  const Var extension = kernel_new_extension_vars(k, 1);
+  const Lit a = make_lit(0, false), nx = make_lit(extension, true);
+  const Lit p = make_lit(1, false), q = make_lit(2, false),
+            r = make_lit(3, false);
+  for (const Lit factor : {a, nx})
+    for (const Lit remainder : {p, q, r})
+      kernel_add_binary_clause(k, factor, remainder, ++k.next_clause_id);
+
+  // Force `a` to be the only first-factor seed.  The old original-variable
+  // bound then rejected `nx` as the next factor and incorrectly no-oped.
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  k.factor_marks[a] = 1;
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  assert(k.nvars == 6);
+}
+
+// Kissat enters Factor dense mode without saving/reconnecting binaries.  The
+// current sparse watch order therefore owns quotient-column order; import rank
+// must not silently re-sort it.  Give q an earlier import rank than p while
+// inserting the grid columns as p,q,r to distinguish those two contracts.
+static void test_binary_quotients_preserve_sparse_watch_order() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  for (const Var v : {0u, 1u, 3u, 2u, 4u})
+    kernel_record_import(k, v);
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), q = make_lit(3, false),
+            r = make_lit(4, false);
+  for (const Lit f : {a, b})
+    for (const Lit remainder : {p, q, r})
+      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  const Lit nx = make_lit(5, true);
+  assert((binary_watch_partners(k, nx) == std::vector<Lit>{p, q, r}));
+}
+
+// Factor eligibility is per literal in Kissat.  Opposite polarities of the
+// same variable can therefore form the two rows of a profitable grid; treating
+// factor identity as per-variable skipped this exact shape on sted and shifted
+// all later extension-variable definitions.
+static void test_opposite_polarities_can_share_a_grid() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 4); // a=0 p=1 q=2 r=3
+  const Lit a = make_lit(0, false), na = negate(a);
+  const Lit p = make_lit(1, false), q = make_lit(2, false),
+            r = make_lit(3, false);
+  for (const Lit f : {a, na})
+    for (const Lit remainder : {p, q, r})
+      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
+
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  assert(k.nvars == 5 && k.first_extension_var == 4);
+  const Lit x = make_lit(4, false), nx = negate(x);
+  assert(has_binary(k, x, a) && has_binary(k, x, na));
+  for (const Lit remainder : {p, q, r})
+    assert(has_binary(k, nx, remainder));
+}
+
 // Factor has no reference-side dimension ceiling: acceptance is controlled by
 // profitability and the policy effort budget.  This grid crosses Tactix's
 // former 4,096-column implementation cap and must still be reachable through
@@ -148,10 +239,10 @@ static void test_factoring_beyond_former_dimension_cap() {
   assert(k.nvars == 3 + columns);
 }
 
-// Factor's quotient is a clause projection, not an unassigned-variable
-// projection.  Kissat retains the satisfied grid column (a∨p),(b∨p) when p is
-// root-true; dropping it turns this profitable 2x3 grid into a 2x2 no-op.
-static void test_assigned_binary_remainder() {
+// Factor enters Kissat's null-stack dense path, which retains root-satisfied
+// binaries.  Thus root-true p remains a structural column in this 2x3 grid.
+// Congruence's distinct non-null dense path is the one that collects it.
+static void test_satisfied_binary_remainder_is_retained() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
@@ -165,9 +256,27 @@ static void test_assigned_binary_remainder() {
 
   assert(factor_apply(k) == ApplyResult::Ok);
   assert(k.stats.factorings == 1);
-  const Lit nx = make_lit(5, true);
-  assert(has_binary(k, nx, p));
+  assert(k.nvars == 6);
   assert(!has_binary(k, a, p) && !has_binary(k, b, p));
+}
+
+static void test_retired_literal_is_not_a_factor_candidate() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  const Lit retired = make_lit(0, false), active = make_lit(1, false);
+  for (const Lit remainder : {make_lit(2, false), make_lit(3, false),
+                              make_lit(4, false)}) {
+    kernel_add_binary_clause(k, retired, remainder, ++k.next_clause_id);
+    kernel_add_binary_clause(k, active, remainder, ++k.next_clause_id);
+  }
+  k.var_status.resize(k.nvars, VarStatus::Active);
+  k.var_status[var_of(retired)] = VarStatus::Substituted;
+
+  (void)factor_apply(k); // the transposed grid may still factor active p/q/r
+  for (Var v = 5; v < k.nvars; v++)
+    assert(!has_binary(k, make_lit(v, false), retired) &&
+           "a retired literal must never become a divider candidate");
 }
 
 static void test_assigned_large_remainder() {
@@ -399,8 +508,13 @@ int main() {
   // below-threshold grids factor through the rule's own surface.
   test_extension_var_boundary();
   test_factoring_2x3();
+  test_dense_scan_budget_boundary();
+  test_prior_extension_literal_is_a_later_factor();
+  test_binary_quotients_preserve_sparse_watch_order();
+  test_opposite_polarities_can_share_a_grid();
   test_factoring_beyond_former_dimension_cap();
-  test_assigned_binary_remainder();
+  test_satisfied_binary_remainder_is_retained();
+  test_retired_literal_is_not_a_factor_candidate();
   test_assigned_large_remainder();
   test_large_quotient_preserves_last_factor_pose();
   test_duplicate_large_remainder_occurrences();

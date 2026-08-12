@@ -25,7 +25,7 @@ struct RuleJournalRecord {
   std::string guards = "-";
   std::string antecedents = "-";
   const char *outcome = "-";
-  const char *decline = "-";
+  std::string decline = "-";
   std::string deltas = "-";
   std::string witnesses = "-";
   uint64_t effort = 0;
@@ -36,7 +36,39 @@ struct RuleJournalRecord {
 uint64_t rule_journal_digest(const Kernel &);
 bool rule_journal_wants(const Kernel &, const char *rule,
                         const std::string &candidate);
+int rule_journal_selected_literal();
+uint64_t rule_journal_selected_clause_id();
 void rule_journal_emit(const Kernel &, const RuleJournalRecord &);
+// The registry brackets the real proof-rule call with this mutation ledger.
+// Kernel primitives append facts at the point where the mutation actually
+// occurs; the journal therefore does not reconstruct or duplicate rule logic.
+void rule_journal_transaction_begin(const char *rule,
+                                    const std::string &candidate);
+void rule_journal_note_binary_add(const Kernel &, uint32_t a, uint32_t b,
+                                  uint64_t id);
+void rule_journal_note_binary_rewrite(const Kernel &, uint32_t source_a,
+                                      uint32_t source_b, uint32_t target_a,
+                                      uint32_t target_b);
+void rule_journal_note_large_add(const Kernel &, const uint32_t *lits,
+                                 uint32_t size, uint64_t id, bool redundant,
+                                 uint32_t glue);
+void rule_journal_note_clause_transition(const Kernel &, const char *event,
+                                         const uint32_t *lits, uint32_t size,
+                                         uint64_t id);
+void rule_journal_note_root_assignment(const Kernel &, uint32_t lit,
+                                       uint32_t reason, bool binary);
+void rule_journal_note_variable_status(const Kernel &, uint32_t var,
+                                       const char *status);
+void rule_journal_note_reconstruction(const Kernel &, uint32_t witness,
+                                      const uint32_t *rest, uint32_t nrest);
+void rule_journal_note_rup(uint64_t id, const uint64_t *chain,
+                           uint32_t nchain);
+void rule_journal_note_rat(uint64_t id, const int64_t *hints,
+                           uint32_t nhints);
+std::string rule_journal_transaction_deltas();
+std::string rule_journal_transaction_antecedents();
+std::string rule_journal_transaction_witnesses();
+void rule_journal_transaction_end();
 void rule_journal_close();
 
 #else

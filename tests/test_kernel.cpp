@@ -176,13 +176,15 @@ static void test_root_sparse_collection() {
                             internalize(3)};
   const Lit shortened[4] = {internalize(-1), internalize(2),
                             internalize(3), internalize(4)};
+  kernel_add_binary_clause(k, internalize(1), internalize(4));
   kernel_add_large_clause(k, satisfied, 3, false, 0);
   kernel_add_large_clause(k, shortened, 4, false, 0);
   assert(propagate_apply(k) == ApplyResult::Ok);
 
   assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
   assert(k.stats.sparse_collections == 1);
-  assert(k.stats.sparse_collected == 2 && k.stats.flushed == 2);
+  assert(k.stats.sparse_collected == 3 && k.stats.flushed == 2);
+  assert(kernel_binary_copies(k, internalize(1), internalize(4)) == 0);
   assert(k.arena.size() == clause_words(3));
   const Clause *remaining = clause_at(k.arena, 0);
   assert(remaining->size == 3 && !remaining->garbage());
@@ -218,6 +220,83 @@ static void test_root_sparse_collection_keeps_native_order() {
   const Clause *c = clause_at(k.arena, clause_words(a->size) +
                                            clause_words(b->size));
   assert(a->id() == 11 && b->id() == 1 && c->id() == 13);
+  kernel_check_invariants(k);
+}
+
+static void test_root_sparse_collection_ignores_nonroot_values() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 7);
+  kernel_assign_unit(k, internalize(1));
+
+  const Lit root_satisfied[3] = {internalize(1), internalize(6),
+                                 internalize(7)};
+  kernel_add_large_clause(k, root_satisfied, 3, true, 7, 101);
+  const Lit search_satisfied[3] = {internalize(2), internalize(4),
+                                   internalize(5)};
+  kernel_add_large_clause(k, search_satisfied, 3, true, 7, 102);
+
+  kernel_assign_decision(k, internalize(2));
+  assert(k.level == 1 && kernel_root_value(k, internalize(2)) == 0);
+  assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
+
+  bool saw_root = false, saw_search = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    saw_root |= c->id() == 101;
+    saw_search |= c->id() == 102;
+    ref += clause_words(c->size);
+  }
+  assert(!saw_root);
+  assert(saw_search && "a decision-level true literal is not a root fact");
+  assert(k.level == 1 && k.values[internalize(2)] > 0);
+  kernel_check_invariants(k);
+}
+
+static void test_root_sparse_collection_rewrites_nonroot_reason() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  kernel_assign_unit(k, internalize(1));
+  const Lit reason_lits[3] = {internalize(-1), internalize(-2),
+                              internalize(3)};
+  const Ref reason =
+      kernel_add_large_clause(k, reason_lits, 3, true, 3, 103);
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  kernel_assign_decision(k, internalize(2));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  Assigned &a = k.assigned[var_of(internalize(3))];
+  assert(a.level == 1 && !a.binary && a.reason == reason);
+  clause_at(k.arena, reason)->flags |= Clause::REASON;
+
+  assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
+  assert(k.values[internalize(3)] > 0);
+  assert(a.level == 1 && a.binary && !a.jumped);
+  assert(a.reason == internalize(-2));
+  assert(kernel_binary_live(k, internalize(-2), internalize(3)));
+  kernel_check_invariants(k);
+}
+
+static void test_sparse_collection_flushes_fixed_prefix_watch() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit prefix[3] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 104);
+  const Ref start = static_cast<Ref>(k.arena.size());
+  const Lit victim_lits[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref victim =
+      kernel_add_large_clause(k, victim_lits, 3, true, 7, 105);
+  kernel_assign_unit(k, internalize(1));
+  kernel_delete_clause(k, clause_at(k.arena, victim));
+
+  kernel_collect_garbage(k, start);
+  bool fixed_watch = false, live_watch = false;
+  for (const WatchEntry w : k.watches.entries(internalize(-1)))
+    fixed_watch |= !w.binary();
+  for (const WatchEntry w : k.watches.entries(internalize(2)))
+    live_watch |= !w.binary();
+  assert(!fixed_watch && "Kissat flushes prefix watches of fixed literals");
+  assert(live_watch);
   kernel_check_invariants(k);
 }
 
@@ -322,7 +401,7 @@ static void build_probing_formula(Kernel &k) {
   }
 }
 
-static void test_probing_propagation_restores() {
+static void test_probing_propagation_restores_or_persists_pose() {
   // control: the plain engine churns it, so the identity below is not vacuous
   Kernel a;
   ScopedHeuristics _hg_a(a);
@@ -334,7 +413,7 @@ static void test_probing_propagation_restores() {
   kernel_backtrack(a, 0, /*update_phases=*/false);
   assert(!same(bookkeeping(a), a0));
 
-  // probing engine: same derivation, bookkeeping handed back untouched
+  // The default isolated scope restores bookkeeping.
   Kernel b;
   ScopedHeuristics _hg_b(b);
   build_probing_formula(b);
@@ -349,7 +428,7 @@ static void test_probing_propagation_restores() {
   kernel_probing_end(b);
   assert(same(bookkeeping(b), b0));
 
-  // not a one-shot: a second episode repeats, so the stamp epoch rolls over
+  // A second episode repeats exactly.
   kernel_probing_begin(b);
   kernel_assign_decision(b, internalize(-1));
   assert(b.h->saved[0] == 0);
@@ -358,6 +437,19 @@ static void test_probing_propagation_restores() {
   kernel_backtrack(b, 0, /*update_phases=*/false);
   kernel_probing_end(b);
   assert(same(bookkeeping(b), b0));
+
+  // Vivify selects Kissat's persistent-pose scope explicitly.
+  Kernel p;
+  ScopedHeuristics _hg_p(p);
+  build_probing_formula(p);
+  kernel_probing_begin(p, /*rollback_pose=*/false);
+  kernel_assign_decision(p, internalize(-1));
+  assert(!kernel_propagate_probing(p));
+  kernel_backtrack(p, 0, /*update_phases=*/false);
+  const BookKeeping p1 = bookkeeping(p);
+  kernel_probing_end(p);
+  assert(same(bookkeeping(p), p1));
+  assert(!same(bookkeeping(p), b0));
 
   // a scope closed on a trail still assigned keeps the updates: they are
   // load-bearing for those literals
@@ -565,6 +657,25 @@ static void test_canonical_binary_watch_rebuild() {
   kernel_check_invariants(tumbled);
 }
 
+static void test_null_stack_dense_flush_retains_root_satisfied_pairs() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 4);
+  const Lit root = internalize(-1);
+  const Lit satisfied = internalize(2);
+  const Lit live_a = internalize(3), live_b = internalize(-4);
+  kernel_add_binary_clause(k, root, satisfied, ++k.next_clause_id);
+  kernel_add_binary_clause(k, live_a, live_b, ++k.next_clause_id);
+  kernel_assign_unit(k, root);
+
+  kernel_deduplicate_binary_watches(k);
+
+  assert(kernel_binary_copies(k, root, satisfied) == 1);
+  assert(kernel_binary_copies(k, live_a, live_b) == 1);
+  assert(k.stats.binaries_deleted == 0);
+  kernel_check_invariants(k);
+}
+
 static void test_propagate_beyond_conflicts_for_warmup() {
   Kernel k;
   ScopedHeuristics h(k);
@@ -601,16 +712,20 @@ int main() {
   test_unit_chain();
   test_root_sparse_collection();
   test_root_sparse_collection_keeps_native_order();
+  test_root_sparse_collection_ignores_nonroot_values();
+  test_root_sparse_collection_rewrites_nonroot_reason();
+  test_sparse_collection_flushes_fixed_prefix_watch();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();
   test_probing_does_not_save_phases();
-  test_probing_propagation_restores();
+  test_probing_propagation_restores_or_persists_pose();
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
   test_rebuild_large_watches_reselects_root_false_pair();
   test_watch_repair_primitive();
   test_canonical_binary_watch_rebuild();
+  test_null_stack_dense_flush_retains_root_satisfied_pairs();
   test_propagate_beyond_conflicts_for_warmup();
   puts("test_kernel OK");
   return 0;

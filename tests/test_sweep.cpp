@@ -19,11 +19,11 @@
 
 using namespace tactix;
 
-static void test_effort_uses_embedded_solver_ticks() {
+static void test_effort_prices_embedded_and_representation_ticks() {
   Kernel k;
   k.stats.sweep_ticks_sub = 17;
   k.stats.sweep_ticks_repr = 1000;
-  assert(sweep_effort(k) == 17);
+  assert(sweep_effort(k) == 1017);
 }
 
 namespace {
@@ -629,8 +629,8 @@ static void test_se_general_path_emits(void) {
   // the proved class immediately; the retired variable and witness are the
   // persistent effect, not two stale equivalence clauses.
   assert(k.stats.substitute_vars >= 1);
-  assert(k.stats.sweep_ticks_repr == arena_words_before &&
-         "one productive environment prices its whole-arena rebuild once");
+  assert(k.stats.sweep_ticks_repr >= arena_words_before &&
+         "one productive call prices its deferred arena rebuild once");
   assert(kernel_var_retired(k, var_of(x)) ||
          kernel_var_retired(k, var_of(y)));
   printf("  S-e: general path emitted %llu binaries for a non-RUP equivalence\n",
@@ -749,7 +749,7 @@ int main(int argc, char **argv) {
   }
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
-  test_effort_uses_embedded_solver_ticks();
+  test_effort_prices_embedded_and_representation_ticks();
   test_non_rup_equivalence();
   test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();

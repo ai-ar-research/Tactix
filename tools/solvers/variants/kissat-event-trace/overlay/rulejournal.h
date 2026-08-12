@@ -21,6 +21,13 @@ void kissat_rule_journal_sweep_core (
     struct kissat *, unsigned core, unsigned ordinal, const char *literals,
     size_t old_size, bool satisfied, size_t new_size, unsigned unit,
     const char *outcome, const char *decline, uint64_t pre_digest);
+void kissat_rule_journal_rule_attempt (struct kissat *, const char *rule,
+                                       const char *candidate,
+                                       const char *trigger,
+                                       uint64_t pre_digest,
+                                       uint64_t effort_before,
+                                       uint64_t effort_after,
+                                       uint64_t budget);
 void kissat_rule_journal_close (void);
 
 #endif

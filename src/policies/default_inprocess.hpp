@@ -237,6 +237,7 @@ private:
   bool slot_clocks_split_ = true;
   bool slot_watermark_ = true;
   bool preprocess_followups_ = true;
+  bool preprocess_only_ = false;
   bool initialized_ = false;
   const DefaultStrategyConfig::Inprocess *config_ = nullptr;
   DefaultBveBoundRamp default_bve_ramp_;

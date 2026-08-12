@@ -77,11 +77,13 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     // chain: the learned unit + its opposite (the shared kernel idiom;
     // sets `inconsistent`)
     kernel_emit_empty_from_pair(k, p.id, k.unit_ids[var_of(asserting)]);
+    analyze_bump_after_backjump(k);
     return ApplyResult::Unsat;
   }
   if (stale) {
     k.stats.backjump_stale++;
     p.valid = false;
+    analyze_bump_after_backjump(k);
     return ApplyResult::NoOp;
   }
 
@@ -89,6 +91,13 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     // Asserted as a root fact even when the solver stands higher (see the
     // unit chrono note above), so `k.level == 0` is not an invariant here.
     kernel_assign_unit(k, asserting);
+    // Kissat marks a newly learned unit's variable fixed inside assignment,
+    // which immediately removes it from both decision structures before the
+    // analyzed stack is bumped.  Keeping the root-fixed variable in Tactix's
+    // EVSIDS heap both bumps an inactive UIP and changes the heap pose.  The
+    // kernel deliberately retains its stable identity for reconstruction;
+    // only the policy-owned decision structures are deactivated here.
+    heuristics_deactivate_var(k, var_of(asserting));
     k.stats.learned_units++;
   } else if (p.lits.size() == 2) {
     // Kissat's learned-binary assertion uses assign.c, whose jump-reason path
@@ -98,6 +107,11 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     assert(p.ref != INVALID_REF);
     kernel_assign_ref(k, asserting, p.ref);
   }
+  // `ConflictAnalysis` is one public atomic rule, but its internal order
+  // follows Kissat's learn.c/analyze.c boundary: learn, backtrack/assert, then
+  // bump the analyzed variables. Reinsertion before equal-score bumps is
+  // decision-observable even though the score arithmetic is commutative.
+  analyze_bump_after_backjump(k);
   p.valid = false;
   return ApplyResult::Ok;
 }

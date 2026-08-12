@@ -238,6 +238,65 @@ static void test_reduce_deletes_and_logs() {
   assert(!rp.want_reduce(k)); // budget pushed out (guard still holds)
 }
 
+static void test_reduce_flushes_new_root_units_before_selection() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 4);
+  kernel_assign_unit(k, internalize(1));
+  assert(k.unflushed_root == 1);
+  kernel_assign_decision(k, internalize(2));
+  kernel_assign_decision(k, internalize(3));
+  const uint64_t restarts = k.stats.restarts;
+  reduce_prepare(k);
+  assert(k.level == 0);
+  assert(k.values[internalize(1)] > 0);
+  assert(k.values[internalize(2)] == 0);
+  assert(k.values[internalize(3)] == 0);
+  assert(k.unflushed_root == 0);
+  assert(k.stats.restarts == restarts &&
+         "Reduce's internal unwind is not a scheduled Restart");
+
+  kernel_assign_decision(k, internalize(4));
+  reduce_prepare(k); // no newly fixed root: preserve the search prefix
+  assert(k.level == 1);
+}
+
+static void test_reduce_prepare_propagates_root_before_collection() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_assign_unit(k, internalize(1));
+  kernel_assign_decision(k, internalize(3));
+  reduce_prepare(k);
+  assert(k.level == 0);
+  assert(k.values[internalize(2)] > 0);
+  assert(k.propagate_head == k.trail.size());
+  assert(k.unflushed_root == 0);
+  kernel_check_invariants(k);
+}
+
+static void test_reduce_prepare_reports_root_conflict() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  kernel_assign_unit(k, internalize(1));
+  kernel_assign_unit(k, internalize(2));
+  reduce_prepare(k);
+  assert(k.inconsistent);
+  assert(k.stats.conflicts == 1);
+}
+
+static void test_root_propagation_consumes_unflushed_marker() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_assign_unit(k, internalize(1));
+  assert(k.unflushed_root == 1);
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(k.unflushed_root == 0);
+}
+
 static void test_reduce_used_retention() {
   // kissat reduce.c recency: tier2 survives two reductions, aged per apply
   Kernel k;
@@ -299,6 +358,20 @@ static void test_tier2_band_tracks_the_live_tier() {
   reduce_apply_refs(k, nullptr, 0);
   assert(k.stats.tier2_band_dynamic == 3); // +2: both clauses this round
   assert(k.stats.tier2_band_static == 2);  // +1: the static 6 still admits one
+}
+
+static void test_retier_uses_kissat_truncation() {
+  Kernel k;
+  uint64_t used[Stats::MAX_GLUE_USED + 1] = {};
+  // total=11: Kissat's uint64 conversion makes the 90% threshold 9 (not 10).
+  // The ninth observation is at glue 5 and the tenth at glue 6.
+  used[1] = 6;
+  used[5] = 3;
+  used[6] = 1;
+  used[7] = 1;
+  reduce_retier_from_histogram(k, 1, used, 2, 6, 500, 900);
+  assert(k.tier1_by_mode[1] == 1);
+  assert(k.tier2_by_mode[1] == 5);
 }
 
 static void test_solve_with_restarts_still_correct() {
@@ -390,9 +463,14 @@ int main() {
   test_collect_reselects_watches_by_assignment();
   test_default_arena_order_tracks_search();
   test_reduce_deletes_and_logs();
+  test_reduce_flushes_new_root_units_before_selection();
+  test_reduce_prepare_propagates_root_before_collection();
+  test_reduce_prepare_reports_root_conflict();
+  test_root_propagation_consumes_unflushed_marker();
   test_reduce_used_retention();
   test_reduce_equal_rank_preserves_arena_order();
   test_tier2_band_tracks_the_live_tier();
+  test_retier_uses_kissat_truncation();
   test_solve_with_restarts_still_correct();
   puts("test_restart_reduce OK");
   return 0;

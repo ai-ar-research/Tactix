@@ -15,7 +15,7 @@ namespace tactix {
 constexpr uint64_t REORDER_QUEUE = 0; // VMTF queue: move-to-front in weight order
 constexpr uint64_t REORDER_HEAP = 1;  // EVSIDS heap: score += weight
 
-bool reorder_guard(const Kernel &);
+RuleEligibility reorder_guard(const Kernel &);
 ApplyResult reorder_apply_target(Kernel &, uint64_t target);
 ApplyResult reorder_apply(Kernel &); // canonical: whichever the active mode reads
 

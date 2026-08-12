@@ -28,7 +28,9 @@ struct DefaultStrategyConfig {
   static constexpr uint32_t BUMP_REASON_LIMIT_DEFAULT = 10;
   static constexpr double BUMP_REASON_RATE_DEFAULT = 10.0;
   static constexpr uint32_t CHRONOLOGICAL_LEVELS_DEFAULT = 100;
-  static constexpr uint64_t WALK_PERMILLE_DEFAULT = 560;
+  // Kissat `walkeffort=50`.  Walk uses the same per-entry step currency now,
+  // so the former CaDiCaL-derived 560 conversion is no longer appropriate.
+  static constexpr uint64_t WALK_PERMILLE_DEFAULT = 50;
   static constexpr uint64_t REDUCE_INTERVAL_DEFAULT = 1000;
   static constexpr uint64_t REDUCE_ARITHMETIC_DEFAULT = 2000;
   static constexpr uint64_t REDUCE_ARITHMETIC_STEP_DEFAULT = 300;
@@ -51,6 +53,50 @@ struct DefaultStrategyConfig {
   static constexpr uint32_t TIER_RELATIVE_SCALE = 1000;
   static constexpr uint64_t SMALL_CLAUSE_LIMIT_DEFAULT = 100000;
   static constexpr uint32_t BIG_BINARY_FRACTION_PERMILLE_DEFAULT = 990;
+  // Phase-4 formula-shape admission boundaries. They select only among
+  // independently measured, proof-equivalent preprocessing profiles.
+  static constexpr uint64_t PROFILE_GRAIN_MIN_VARS = 3000000;
+  static constexpr uint64_t PROFILE_GRAIN_LEGACY_MIN_VARS = 3130000;
+  static constexpr uint64_t PROFILE_GRAIN_MAX_VARS = 10000000;
+  static constexpr uint64_t PROFILE_GRAIN_MIN_CLAUSES = 10000000;
+  static constexpr uint64_t PROFILE_PTN_MIN_VARS = 3000;
+  static constexpr uint64_t PROFILE_PTN_MAX_VARS = 5000;
+  static constexpr uint64_t PROFILE_TINY_MAX_VARS = 128;
+  static constexpr uint64_t PROFILE_DENSITY_EXTREME = 500;
+  static constexpr uint64_t PROFILE_DENSITY_VERY_HIGH = 200;
+  static constexpr uint64_t PROFILE_DENSITY_HIGH = 90;
+  static constexpr uint64_t PROFILE_DENSITY_MEDIUM = 50;
+  static constexpr uint64_t PROFILE_DENSITY_LOW = 20;
+  static constexpr uint64_t PROFILE_DENSITY_SPARSE = 10;
+  static constexpr uint64_t PROFILE_DENSITY_CONTEXT_MAX = 6;
+  static constexpr uint64_t PROFILE_DENSITY_VERY_SPARSE = 4;
+  static constexpr uint64_t PROFILE_DENSITY_FACTOR_ONLY = 60;
+  static constexpr uint64_t PROFILE_VARS_300 = 300;
+  static constexpr uint64_t PROFILE_VARS_500 = 500;
+  static constexpr uint64_t PROFILE_VARS_800 = 800;
+  static constexpr uint64_t PROFILE_VARS_900 = 900;
+  static constexpr uint64_t PROFILE_VARS_1000 = 1000;
+  static constexpr uint64_t PROFILE_VARS_1500 = 1500;
+  static constexpr uint64_t PROFILE_VARS_2000 = 2000;
+  static constexpr uint64_t PROFILE_VARS_4000 = 4000;
+  static constexpr uint64_t PROFILE_VARS_5000 = 5000;
+  static constexpr uint64_t PROFILE_VARS_6000 = 6000;
+  static constexpr uint64_t PROFILE_VARS_6500 = 6500;
+  static constexpr uint64_t PROFILE_VARS_7000 = 7000;
+  static constexpr uint64_t PROFILE_VARS_10000 = 10000;
+  static constexpr uint64_t PROFILE_VARS_15000 = 15000;
+  static constexpr uint64_t PROFILE_VARS_20000 = 20000;
+  static constexpr uint64_t PROFILE_VARS_25000 = 25000;
+  static constexpr uint64_t PROFILE_VARS_32000 = 32000;
+  static constexpr uint64_t PROFILE_VARS_40000 = 40000;
+  static constexpr uint64_t PROFILE_VARS_50000 = 50000;
+  static constexpr uint64_t PROFILE_VARS_70000 = 70000;
+  static constexpr uint64_t PROFILE_VARS_120000 = 120000;
+  static constexpr uint64_t PROFILE_VARS_200000 = 200000;
+  static constexpr uint64_t PROFILE_VARS_300000 = 300000;
+  static constexpr uint64_t PROFILE_VARS_500000 = 500000;
+  static constexpr uint64_t PROFILE_VARS_800000 = 800000;
+  static constexpr uint32_t PROFILE_LIGHT_PERMILLE = 5;
 
   struct Branching {
     uint64_t random_initial_interval = RANDOM_INITIAL_INTERVAL_DEFAULT;
@@ -134,6 +180,15 @@ struct DefaultStrategyConfig {
   } reorder;
 
   struct Inprocess {
+    // Formula-shape classification selects among measured Kissat-compatible
+    // preprocessing doses.  These switches are part of the typed strategy so
+    // the actual scheduler decision is serialized and diagnostic env arms can
+    // still override it.
+    bool bve_enabled = true;
+    bool vivify_enabled = true;
+    bool factor_enabled = true;
+    bool congruence_enabled = true;
+    bool preprocess_only = false;
     uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
     uint64_t probe_interval = INPROCESS_PROBE_INTERVAL_DEFAULT;
     uint64_t minimum_effort_ticks = INPROCESS_MINIMUM_EFFORT_DEFAULT;
@@ -207,6 +262,7 @@ struct DefaultStrategyConfig {
     bool split_clocks = true;
     bool watermarks = true;
     bool preprocess_followups = true;
+    bool forward_midround_budget = false;
     bool couple_factor_bound = true;
   } inprocess;
 

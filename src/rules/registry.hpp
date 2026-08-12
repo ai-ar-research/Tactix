@@ -6,6 +6,11 @@
 
 #include "kernel/kernel.hpp"
 
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+#include <functional>
+#include <string>
+#endif
+
 namespace tactix {
 
 // Micro = per-conflict hot path (statically composed in DefaultPolicy);
@@ -31,6 +36,35 @@ enum class ApplyResult {
   Conflict, // conflict found (analyze is now applicable)
   Sat,      // all variables assigned, formula satisfied
   Unsat     // empty clause derived (proof emitted)
+};
+
+// The guard is the executable precondition contract.  Its individual facts
+// control eligibility and, in a journal build, are serialized from this same
+// result.  Thus the journal never reconstructs or duplicates guard logic.
+// Production retains only the conjunction; fact names/storage disappear and
+// the fluent calls inline to ordinary boolean ANDs.
+struct RuleEligibility {
+  bool eligible = true;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  struct Fact {
+    const char *name;
+    bool value;
+  };
+  Fact facts[8]{};
+  uint8_t fact_count = 0;
+#endif
+
+  RuleEligibility &fact(const char *name, bool value) {
+    eligible = eligible && value;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    assert(fact_count < sizeof facts / sizeof *facts);
+    facts[fact_count++] = {name, value};
+#else
+    (void)name;
+#endif
+    return *this;
+  }
+  operator bool() const { return eligible; }
 };
 
 // Instance payloads (plan §5.1): a rule instance is a uint64 whose meaning the
@@ -89,7 +123,7 @@ inline bool lit_of_instance(const Kernel &k, uint64_t inst, Lit *out) {
 struct RuleVTable {
   const char *name;
   RuleTier tier;
-  bool (*guard)(const Kernel &);
+  RuleEligibility (*guard)(const Kernel &);
   ApplyResult (*apply)(Kernel &); // canonical instance
   // instance surface (null for rules with no per-application choice, whose only
   // instance is the canonical one). instances() fills up to cap payloads ranked
@@ -118,6 +152,18 @@ uint64_t now_nanos();
 // the return value and every kernel effect are exactly vt.apply's.
 ApplyResult apply_rule(const RuleVTable &vt, Kernel &k);
 ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k, uint64_t inst);
+
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+// DefaultPolicy statically composes hot micro/macro calls in production.  A
+// journal build brackets those exact calls through this diagnostic-only
+// adapter, so it records the real chosen payload without changing production
+// dispatch or introducing a hot-path branch there.
+ApplyResult journal_direct_rule(Kernel &, const char *name,
+                                const std::string &candidate,
+                                const std::function<ApplyResult()> &apply,
+                                ApplyResult declined_result =
+                                    ApplyResult::NoOp);
+#endif
 
 // registration (called from static initializers in rule modules); the macros
 // pass the ActionKind, which stamps the vtable before it is stored.

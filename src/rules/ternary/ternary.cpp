@@ -119,7 +119,11 @@ bool resolve(const Tern &c, const Tern &d, Lit pivot, std::vector<Lit> &res) {
 
 } // namespace
 
-bool ternary_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
+RuleEligibility ternary_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
+}
 
 void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
                    uint64_t *total_clauses) {

@@ -13,7 +13,13 @@ namespace tactix {
 constexpr uint32_t TIER1_STATIC = 2;
 constexpr uint32_t TIER2_STATIC = 6;
 
-bool reduce_guard(const Kernel &);
+RuleEligibility reduce_guard(const Kernel &);
+
+// Mirror `kissat_flush_and_mark_reason_clauses`: when a reduction observes
+// newly derived root units, unwind and propagate to a root fixpoint before
+// selecting reason-locked victims, then consume the unflushed marker.
+// Idempotent; propagation may refute the formula.
+void reduce_prepare(Kernel &);
 
 // Ranked deletion candidates, worst-first (glue desc, size desc; redundant,
 // unlocked, above the keep tier only — soundness filtering is the rule's). A

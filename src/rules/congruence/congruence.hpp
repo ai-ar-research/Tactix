@@ -44,7 +44,7 @@ void congruence_extract(const Kernel &, std::vector<CongGate> &out);
 void congruence_extract_gates(const Kernel &, std::vector<CongGate> &out,
                               bool with_xor_ite);
 
-bool congruence_guard(const Kernel &); // pure quiescent-root precondition
+RuleEligibility congruence_guard(const Kernel &); // quiescent-root precondition
 
 // The canonical full-round apply: extract AND/XOR/ITE gates and run the union-find
 // congruence closure, adding equivalence binaries (+ proof). Exposed for tests.

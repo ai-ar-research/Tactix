@@ -13,8 +13,11 @@ namespace tactix {
 // policy may take several decisions in a row — the N1 capability a learned
 // policy reasons over. Off-fixpoint deciding is made safe by the
 // `trail_tainted` kernel repair, not by a guard (kernel.hpp).
-bool decide_guard(const Kernel &k) {
-  return !k.conflict_valid && !k.inconsistent && k.unassigned > 0;
+RuleEligibility decide_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("no-conflict", !k.conflict_valid)
+      .fact("consistent", !k.inconsistent)
+      .fact("has-unassigned", k.unassigned > 0);
 }
 
 ApplyResult decide_apply(Kernel &k, Lit lit, bool external) {

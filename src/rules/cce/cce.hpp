@@ -20,7 +20,7 @@ namespace tactix {
 // Guard: quiescent root (D-ROOT) — every test reads the live occurrence
 // structure, which only means what it says once each level-0 unit is
 // propagated.
-bool cce_guard(const Kernel &);
+RuleEligibility cce_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = a literal. One instance = one literal =
 // attempt CCE on every candidate clause containing it; per-clause instances

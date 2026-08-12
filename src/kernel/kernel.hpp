@@ -5,7 +5,9 @@
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
 
+#include <cassert>
 #include <csignal>
+#include <cstddef>
 #include <cstdint>
 #include <unordered_map>
 #include <unordered_set>
@@ -14,9 +16,117 @@
 namespace tactix {
 
 struct Kernel;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+void rule_journal_note_clause_transition(const Kernel &, const char *,
+                                         const uint32_t *, uint32_t,
+                                         uint64_t);
+void rule_journal_note_root_assignment(const Kernel &, uint32_t, uint32_t,
+                                       bool);
+void rule_journal_note_variable_status(const Kernel &, uint32_t,
+                                       const char *);
+#endif
+
+// Binary clauses are numerous enough that std::unordered_map's one allocation
+// per entry is both a parse-time and a memory bottleneck.  This table has the
+// deliberately narrow interface the kernel needs: keys are never erased (the
+// binary-id namespace is size-monotone), insert-or-assign updates the latest
+// proof id, and diagnostics can visit the occupied slots.  Open addressing
+// also matches the dense representation used by the reference solver much
+// more closely than a node-based container.
+class BinaryIdMap {
+  static constexpr uint64_t EMPTY = UINT64_MAX;
+  struct Entry {
+    uint64_t key = EMPTY;
+    uint64_t value = 0;
+  };
+
+  std::vector<Entry> table_;
+  size_t size_ = 0;
+
+  static uint64_t hash(uint64_t x) {
+    x += UINT64_C(0x9e3779b97f4a7c15);
+    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
+    return x ^ (x >> 31);
+  }
+
+  size_t locate(uint64_t key) const {
+    assert(!table_.empty());
+    const size_t mask = table_.size() - 1;
+    size_t pos = static_cast<size_t>(hash(key)) & mask;
+    while (table_[pos].key != EMPTY && table_[pos].key != key)
+      pos = (pos + 1) & mask;
+    return pos;
+  }
+
+  void rehash(size_t capacity) {
+    std::vector<Entry> old;
+    old.swap(table_);
+    table_.resize(capacity);
+    size_ = 0;
+    for (const Entry &entry : old)
+      if (entry.key != EMPTY)
+        insert_or_assign(entry.key, entry.value);
+  }
+
+public:
+  size_t size() const { return size_; }
+  bool empty() const { return size_ == 0; }
+
+  void reserve(size_t entries) {
+    size_t capacity = 16;
+    while (entries > (capacity * 7) / 10)
+      capacity <<= 1;
+    if (capacity > table_.size())
+      rehash(capacity);
+  }
+
+  size_t count(uint64_t key) const {
+    return table_.empty() ? 0 : table_[locate(key)].key == key;
+  }
+
+  uint64_t get(uint64_t key) const {
+    if (table_.empty())
+      return 0;
+    const Entry &entry = table_[locate(key)];
+    return entry.key == key ? entry.value : 0;
+  }
+
+  uint64_t at(uint64_t key) const {
+    assert(!table_.empty());
+    const Entry &entry = table_[locate(key)];
+    assert(entry.key == key && "missing binary clause id");
+    return entry.value;
+  }
+
+  void insert_or_assign(uint64_t key, uint64_t value) {
+    assert(key != EMPTY);
+    if (table_.empty() || (size_ + 1) * 10 > table_.size() * 7)
+      rehash(table_.empty() ? 16 : 2 * table_.size());
+    Entry &entry = table_[locate(key)];
+    if (entry.key == EMPTY) {
+      entry.key = key;
+      size_++;
+    }
+    entry.value = value;
+  }
+
+  template <class F> void for_each(F &&visit) const {
+    for (const Entry &entry : table_)
+      if (entry.key != EMPTY)
+        visit(entry.key, entry.value);
+  }
+
+  void swap(BinaryIdMap &other) {
+    table_.swap(other.table_);
+    std::swap(size_, other.size_);
+  }
+};
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
+void event_trace_detail(const Kernel &, const char *, int64_t);
 void event_trace_phase_save(const Kernel &, Lit);
+void event_trace_root_assign(const Kernel &, Lit);
 void event_trace_sweep_seed(const Kernel &, Var);
 void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
                                    uint64_t);
@@ -35,9 +145,24 @@ void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
 void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit, Lit);
 void event_trace_sweep_unit(const Kernel &, Lit);
+void event_trace_substitute_map(const Kernel &, Lit, Lit);
 void event_trace_factor_seed(const Kernel &, Lit, uint32_t, uint32_t);
 void event_trace_factor_remainder(const Kernel &, Lit, uint32_t, bool,
                                   const Lit *, uint32_t);
+void event_trace_factor_candidate(const Kernel &, Lit, uint32_t, uint32_t,
+                                  Lit, uint32_t, uint32_t);
+void event_trace_factor_score_entry(const Kernel &, Lit, uint32_t, Lit,
+                                    uint32_t, bool, Lit, uint64_t,
+                                    const Clause *);
+void event_trace_factor_literal_state(const Kernel &, Lit, bool, bool, int,
+                                      uint32_t);
+void event_trace_factor_literal_entry(const Kernel &, Lit, uint32_t, bool, Lit,
+                                      uint64_t, const Clause *);
+void event_trace_factor_candidate_source(const Kernel &, Lit, uint32_t,
+                                         uint32_t, Lit, Lit, const Clause *,
+                                         const Clause *);
+void event_trace_factor_candidate_binary_source(const Kernel &, Lit, uint32_t,
+                                                uint32_t, Lit, Lit);
 void event_trace_factor_pair(const Kernel &, Lit, const char *);
 void event_trace_factor_heap(const Kernel &, Lit, const char *, Lit, uint32_t,
                              uint32_t, Lit, uint32_t, uint32_t, uint32_t);
@@ -374,6 +499,7 @@ struct ArenaOrdering {
 
 struct ProbingLog {
   bool recording = false;
+  bool rollback_pose = true;
   uint32_t base_trail = 0, base_head = 0, base_level = 0;
   struct ListSnap {
     Lit lit;
@@ -405,6 +531,9 @@ struct AnalysisConflictCheckpoint {
   uint64_t used_glue[Stats::MAX_GLUE_USED + 1] = {};
 };
 
+struct Kernel;
+using AnalysisConflictHook = void (*)(Kernel &, void *);
+
 struct Kernel {
   uint32_t nvars = 0;
   // Stable external identities are separate from the dense indices used by
@@ -414,6 +543,10 @@ struct Kernel {
   std::vector<Var> internal_to_external;
   std::vector<Var> external_to_internal;
   uint32_t original_external_vars = UINT32_MAX;
+  // Declared DIMACS clause population, captured before preprocessing mutates
+  // the formula.  Strategy classification uses this stable input feature;
+  // UINT64_MAX means an API caller supplied no DIMACS header.
+  uint64_t original_input_clauses = UINT64_MAX;
   uint32_t first_extension_var = UINT32_MAX;
   bool inconsistent = false; // root-level conflict happened
 
@@ -429,12 +562,24 @@ struct Kernel {
   uint32_t unassigned = 0;
   uint32_t unassigned_active = 0;
   bool warming = false; // Kissat walk warm-up: suppress random branching.
+  uint64_t walk_random_seed = 0; // policy RNG snapshot for a faithful Walk
 
   Arena arena;
+  // Most clause ids are allocated in the same order as arena records and are
+  // therefore their own stable arena-order key.  A packed-arena rewrite has
+  // to append its replacement, while Kissat shortens the original record in
+  // place.  Only those exceptional ids need an alias to the source key.
+  // Keeping this sparse avoids adding a word to every hot Clause header.
+  std::unordered_map<uint64_t, uint64_t> clause_order_alias;
   WatchLists watches;
   ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
+  // Scratch capacity for delayed large-watch relocations.  `delayed_used`,
+  // not vector::size(), is the live stack length: propagation grows this
+  // backing store once per largest watch list and writes triples directly,
+  // avoiding three checked vector pushes on the hottest relocation path.
   std::vector<uint32_t> delayed;
+  size_t delayed_used = 0;
   ProbingLog probing;
 
   Heuristics *h = nullptr;
@@ -462,6 +607,8 @@ struct Kernel {
   // its propagated literal, then is retired before the fused rule returns.
   std::vector<Ref> otfs_retired;
   std::vector<AnalysisConflictCheckpoint> analysis_conflict_checkpoints;
+  AnalysisConflictHook analysis_conflict_hook = nullptr;
+  void *analysis_conflict_hook_state = nullptr;
   std::vector<Var> radix_scratch;   // radix-sort double buffer
   std::vector<uint8_t> marked_levels;
   std::vector<uint32_t> touched_levels;
@@ -473,7 +620,7 @@ struct Kernel {
 
   uint64_t next_clause_id = 0;
   std::vector<uint64_t> unit_ids; // by var
-  std::unordered_map<uint64_t, uint64_t> binary_ids;
+  BinaryIdMap binary_ids;
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
   std::vector<Var> jump_pending;
@@ -523,6 +670,12 @@ struct Kernel {
   std::vector<uint64_t> removed; // by var
   std::vector<uint64_t> touched_kept; // by var
   uint32_t touch_fixed_head = 0;
+  // Kissat keeps newly derived root units in an `unflushed` trail prefix.
+  // Some macro rules (notably Reduce and Rephase) use its non-emptiness as a
+  // control guard for a root unwind/flush.  Tactix retains root literals in
+  // its trail permanently, so this separate count carries the same lifecycle
+  // fact without changing trail representation.
+  uint32_t unflushed_root = 0;
   uint64_t subsume_touch_mark = 0;
   uint64_t strengthen_touch_mark = 0;
   uint64_t bce_touch_mark = 0;
@@ -587,11 +740,16 @@ struct Kernel {
   uint64_t work_budget = 0;
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
-  bool vivify_flush = true;
+  bool vivify_flush = false;
   std::vector<Var> sweep_tail; // stable external identities
   uint32_t sweep_tail_next = 0;
   uint32_t sweep_passes_completed = 0;
+  // Policy choice: shipped frontends enable Kissat's
+  // one_literal_on_conflict_level path; bare white-box kernels remain neutral.
   bool conflict_reuse = false;
+  // Chronological gap used by the conflict-reuse shortcut.  Bare rule tests
+  // default to non-chronological; DefaultPolicy poses its configured limit.
+  uint32_t conflict_reuse_chrono_levels = UINT32_MAX;
   bool conflict_reuse_no_repair = false;
   bool jump_reasons = true;
   bool jump_reasons_bigbig = false;
@@ -614,6 +772,9 @@ void kernel_reserve_vars(Kernel &, uint32_t nvars);
 void kernel_record_import(Kernel &, Var);
 uint64_t kernel_import_var_order(const Kernel &, Var);
 uint64_t kernel_import_lit_order(const Kernel &, Lit);
+void kernel_vars_in_import_order(const Kernel &, std::vector<Var> &);
+void kernel_vars_in_external_order(const Kernel &, std::vector<Var> &);
+void kernel_update_target_phases(Kernel &);
 
 Var kernel_new_extension_vars(Kernel &, uint32_t count);
 
@@ -681,7 +842,7 @@ enum class RootFlushOutcome { None, Deleted, Rewritten, Binary, Unit, Refuted };
 RootFlushOutcome kernel_flush_root_clause(Kernel &, Ref *ref,
                                           uint64_t *changed = nullptr);
 enum class RootCollectOutcome { NoChange, Changed, Unit, Refuted };
-RootCollectOutcome kernel_sparse_collect_root(Kernel &);
+RootCollectOutcome kernel_sparse_collect_root(Kernel &, Ref start = 0);
 
 inline void kernel_mark_bve_retry(Kernel &k, Var v) {
   k.bve_retry[v] = 1;
@@ -734,6 +895,9 @@ void kernel_touch_sync_fixed(Kernel &);
 
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id = 0);
+uint64_t kernel_clause_order(const Kernel &, uint64_t id);
+void kernel_inherit_clause_order(Kernel &, uint64_t replacement_id,
+                                 uint64_t source_id);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
@@ -768,6 +932,10 @@ inline void kernel_delete_clause(Kernel &k, Clause *c) {
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
   if (c->garbage())
     return; // already retired: the mark and its bookkeeping are idempotent
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_clause_transition(k, "delete", c->lits, c->size,
+                                      c->id());
+#endif
   c->flags |= Clause::GARBAGE;
   if (!c->redundant())
     for (const Lit l : *c) {
@@ -792,8 +960,7 @@ inline uint64_t kernel_binary_key(Lit a, Lit b) {
   return (static_cast<uint64_t>(lo) << 32) | hi;
 }
 inline uint64_t kernel_binary_id(const Kernel &k, Lit a, Lit b) {
-  const auto it = k.binary_ids.find(kernel_binary_key(a, b));
-  return it == k.binary_ids.end() ? 0 : it->second;
+  return k.binary_ids.get(kernel_binary_key(a, b));
 }
 
 inline bool kernel_var_retired(const Kernel &k, Var v) {
@@ -810,15 +977,33 @@ inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
     *k.tick_sink += n;
 }
 
-inline void kernel_assign(Kernel &k, Lit lit, uint32_t level,
-                          uint32_t reason, bool binary, bool jumped = false) {
+[[gnu::always_inline]] inline void
+kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
+              bool jumped = false) {
   assert(k.values[lit] == 0);
   const Var v = var_of(lit);
+  // Kissat inlineassign.h prefetches the watch list that the newly true
+  // literal will scan next.  This is pure latency hiding: it neither reads nor
+  // mutates semantic state, but omitting it is visible on propagation-heavy
+  // instances where the next scan otherwise begins with a cold arena slice.
+  const Lit scan = negate(lit);
+  if (k.watches.size(scan))
+    __builtin_prefetch(k.watches.begin(scan), 0, 1);
   k.values[lit] = 1;
   k.values[negate(lit)] = -1;
   k.assigned[v] = {level, static_cast<uint32_t>(k.trail.size()), reason,
                    binary, jumped};
   k.trail.push_back(lit);
+  if (!level) {
+    assert(k.unflushed_root < UINT32_MAX);
+    k.unflushed_root++;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    rule_journal_note_root_assignment(k, lit, reason, binary);
+#endif
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_root_assign(k, lit);
+#endif
+  }
   // kissat inlineassign.h: every non-probing assignment, including a root
   // implication, refreshes the saved phase immediately.  Unassign-time saving
   // is not equivalent when a schedule changes mode while literals remain on
@@ -844,8 +1029,9 @@ inline void kernel_assign_decision(Kernel &k, Lit lit) { // level++ inside
 inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
 }
-inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
-                                 bool require_bigbig = true) {
+[[gnu::always_inline]] inline void
+kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
+                     bool require_bigbig = true) {
   const Assigned &a = k.assigned[var_of(other_false)];
   const uint32_t level = a.level;
   if (k.jump_reasons && (!require_bigbig || k.jump_reasons_bigbig) && level &&
@@ -857,7 +1043,8 @@ inline void kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
   }
   kernel_assign(k, lit, level, other_false, true);
 }
-inline void kernel_assign_ref(Kernel &k, Lit lit, Ref reason) {
+[[gnu::always_inline]] inline void kernel_assign_ref(Kernel &k, Lit lit,
+                                                     Ref reason) {
   const Clause *c = clause_at(k.arena, reason);
   const Var v = var_of(lit);
   uint32_t lvl = 0;
@@ -882,7 +1069,7 @@ void kernel_propagate_beyond_conflicts(Kernel &);
 
 bool kernel_propagate_binary(Kernel &);
 
-void kernel_probing_begin(Kernel &);
+void kernel_probing_begin(Kernel &, bool rollback_pose = true);
 void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope
 bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 
@@ -926,8 +1113,44 @@ struct KernelStopPublisher {
   KernelStopPublisher &operator=(const KernelStopPublisher &) = delete;
 };
 
+struct KernelAnalysisConflictPublisher {
+  Kernel &k;
+  AnalysisConflictHook saved_hook;
+  void *saved_state;
+  KernelAnalysisConflictPublisher(Kernel &kk, AnalysisConflictHook hook,
+                                  void *state)
+      : k(kk), saved_hook(kk.analysis_conflict_hook),
+        saved_state(kk.analysis_conflict_hook_state) {
+    k.analysis_conflict_hook = hook;
+    k.analysis_conflict_hook_state = state;
+  }
+  ~KernelAnalysisConflictPublisher() {
+    k.analysis_conflict_hook = saved_hook;
+    k.analysis_conflict_hook_state = saved_state;
+  }
+  KernelAnalysisConflictPublisher(const KernelAnalysisConflictPublisher &) =
+      delete;
+  KernelAnalysisConflictPublisher &
+  operator=(const KernelAnalysisConflictPublisher &) = delete;
+};
+
 inline uint32_t kernel_root_fixed(const Kernel &k) {
   return k.level == 0 ? static_cast<uint32_t>(k.trail.size()) : k.frames[1];
+}
+
+// A true-level assignment can be appended after higher-level literals, so the
+// root is not necessarily a contiguous trail prefix.  Formula simplification
+// must read the assignment's semantic level, not the current search value.
+inline int8_t kernel_root_value(const Kernel &k, Lit lit) {
+  const int8_t value = k.value(lit);
+  return value && k.assigned[var_of(lit)].level == 0 ? value : 0;
+}
+
+inline bool kernel_has_root_assignment(const Kernel &k) {
+  for (const Lit lit : k.trail)
+    if (k.assigned[var_of(lit)].level == 0)
+      return true;
+  return false;
 }
 
 void kernel_lrat_chain(Kernel &, uint64_t closing_id);
@@ -950,9 +1173,12 @@ uint64_t kernel_conflict_reason_walk(
 // `watch_start` is Kissat's sparse-collection watermark: watches below it keep
 // their current order, while relocated clauses at and above it are rewatched
 // in arena order. The default performs a whole-arena rebuild.
-void kernel_collect_garbage(Kernel &, Ref watch_start = 0);
+void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
+                            bool apply_sparse_order = false);
 void kernel_rebuild_large_watches(Kernel &);
-void kernel_canonicalize_binary_watches(Kernel &);
+void kernel_resume_walk_watches(Kernel &);
+void kernel_canonicalize_binary_watches(Kernel &,
+                                        bool count_congruence_rebuild = true);
 void kernel_deduplicate_binary_watches(Kernel &);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ);

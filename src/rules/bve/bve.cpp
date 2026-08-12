@@ -31,7 +31,11 @@ static constexpr uint32_t BVE_CLSLIM = 100;
 // eliminate.c set_next_elimination_bound).
 static uint32_t bve_bound(const Kernel &k) { return k.bve_bound; }
 
-bool bve_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
+RuleEligibility bve_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
+}
 
 void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   const uint32_t nlits = 2 * k.nvars;
@@ -1149,6 +1153,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     assert(k.unassigned_active > 0);
     k.unassigned_active--;
   }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_variable_status(k, x, "eliminated");
+#endif
   k.var_status[x] = VarStatus::Eliminated;
   k.retired_events.push_back(x); // the policy deactivates its own H from this
 

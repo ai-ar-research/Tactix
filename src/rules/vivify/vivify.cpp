@@ -1,29 +1,233 @@
 // See vivify.hpp for the reference/deviation record.
 #include "rules/vivify/vivify.hpp"
 
+#include "diagnostics/rule_journal.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <unordered_map>
 
 namespace tactix {
 
-bool vivify_guard(const Kernel &k) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+namespace {
+struct VivifyJournalSnapshot {
+  uint64_t subsumed, shrunken, implied, asymmetric, instantiated, deleted;
+  uint64_t noop, ticks;
+  uint64_t clause_id;
+  uint32_t size, glue;
+  bool live, redundant, prioritized;
+};
+
+struct VivifyJournalFacts {
+  std::string probes = "-";
+  std::string learned = "-";
+  std::string replacement_pose = "-";
+  std::string replacement_levels = "-";
+  std::string conflict_clause = "-";
+  std::string reasons = "-";
+  std::string trail = "-";
+  std::string selected_cause = "-";
+  int implied = 0;
+  bool conflict = false;
+  bool subsumer = false;
+  bool shrinkable = false;
+  uint32_t reused = 0, made = 0, assumed = 0;
+  const char *terminal = "none";
+};
+static thread_local bool vivify_journal_active;
+static thread_local VivifyJournalFacts vivify_journal_facts;
+
+static std::string vivify_journal_literals(const Kernel &k,
+                                           const std::vector<Lit> &lits) {
+  std::string out;
+  for (const Lit lit : lits) {
+    if (!out.empty())
+      out.push_back(',');
+    out += std::to_string(kernel_externalize(k, lit));
+  }
+  return out;
+}
+
+static std::string vivify_journal_selected_cause(const Kernel &k) {
+  const int selected = std::abs(rule_journal_selected_literal());
+  if (!selected)
+    return "-";
+  for (const Lit lit : k.trail) {
+    const int external = kernel_externalize(k, lit);
+    if (std::abs(external) != selected)
+      continue;
+    const Assigned &a = k.assigned[var_of(lit)];
+    std::string result = std::to_string(external) + ':';
+    if (a.reason == DECISION_REASON)
+      return result + "decision";
+    if (a.reason == UNIT_REASON)
+      return result + "unit";
+    if (a.binary)
+      return result + "binary(" +
+             std::to_string(kernel_externalize(
+                 k, a.jumped ? k.jumped_over[var_of(lit)] : a.reason)) +
+             ')';
+    const Clause *reason = clause_at(k.arena, a.reason);
+    std::vector<Lit> lits(reason->begin(), reason->end());
+    return result + "large(" + vivify_journal_literals(k, lits) + ')';
+  }
+  return "unassigned";
+}
+
+static VivifyJournalSnapshot vivify_journal_snapshot(const Kernel &k,
+                                                      const Clause *c) {
+  return {k.stats.vivify_subsumed,     k.stats.vivify_shrunken,
+          k.stats.vivify_implied,      k.stats.vivify_asymmetric,
+          k.stats.vivify_instantiated, k.stats.vivify_deleted,
+          k.stats.vivify_noop,         k.stats.ticks,
+          c ? c->id() : 0,             c ? c->size : 0,
+          c ? c->glue() : 0,           c && !c->garbage(),
+          c && c->redundant(),         c && c->vivify()};
+}
+
+static std::string vivify_journal_candidate(const Kernel &k, const Clause *c,
+                                             uint64_t ordinal,
+                                             uint32_t rank_count) {
+  std::string out = "clause=" + std::to_string(c->id()) +
+                    ";round=" + std::to_string(k.stats.vivify_rounds) +
+                    ";scope=" + std::to_string(k.vivify_scope) +
+                    ";ordinal=" + std::to_string(ordinal) +
+                    ";rank-count=" + std::to_string(rank_count) +
+                    ";lits=";
+  bool first = true;
+  for (const Lit lit : *c) {
+    if (!first)
+      out.push_back(',');
+    first = false;
+    out += std::to_string(kernel_externalize(k, lit));
+  }
+  return out;
+}
+
+static std::string vivify_journal_selected_clause_pose(const Kernel &k) {
+  const char *value = std::getenv("TACTIX_RULE_JOURNAL_CLAUSE_HASH");
+  if (!value || !*value)
+    return "-";
+  const uint64_t selected = std::strtoull(value, nullptr, 16);
+  std::string result;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      std::vector<int> external;
+      external.reserve(c->size);
+      for (const Lit lit : *c)
+        external.push_back(kernel_externalize(k, lit));
+      std::vector<int> sorted = external;
+      std::sort(sorted.begin(), sorted.end());
+      uint64_t hash = UINT64_C(1469598103934665603);
+      for (const int external_lit : sorted)
+        hash = (hash ^ static_cast<uint64_t>(
+                           static_cast<int64_t>(external_lit))) *
+               UINT64_C(1099511628211);
+      hash = (hash ^ c->size) * UINT64_C(1099511628211);
+      if (hash == selected) {
+        if (!result.empty())
+          result.push_back('|');
+        result += std::to_string(c->id()) + ':';
+        for (size_t i = 0; i < external.size(); i++) {
+          if (i)
+            result.push_back(',');
+          result += std::to_string(external[i]);
+        }
+      }
+    }
+    ref += clause_words(c->size);
+  }
+  return result.empty() ? "-" : result;
+}
+
+static void vivify_journal_emit_candidate(
+    const Kernel &k, const std::string &candidate,
+    const VivifyJournalSnapshot &pre, uint64_t pre_digest,
+    uint64_t formula_epoch, uint64_t root_epoch,
+    const std::string &selected_pose_pre, ApplyResult result) {
+  const VivifyJournalSnapshot post = vivify_journal_snapshot(k, nullptr);
+  const char *outcome = result == ApplyResult::Unsat
+                            ? "refuted"
+                            : result == ApplyResult::Ok ? "applied" : "no-op";
+  const char *delta = "none";
+  if (post.subsumed != pre.subsumed)
+    delta = "delete-subsumed";
+  else if (post.shrunken != pre.shrunken)
+    delta = "rewrite-shrunken";
+  else if (post.implied != pre.implied)
+    delta = "delete-implied";
+  else if (post.asymmetric != pre.asymmetric)
+    delta = "delete-asymmetric";
+  else if (post.instantiated != pre.instantiated)
+    delta = "rewrite-instantiated";
+  else if (post.deleted != pre.deleted)
+    delta = "delete-root-satisfied";
+  RuleJournalRecord record;
+  record.rule = "Vivify";
+  record.event = "candidate-attempt";
+  record.candidate = candidate;
+  record.trigger = "vivify-schedule-pop";
+  record.context = "scope=" + std::to_string(k.vivify_scope) +
+                   ";reuse=" + std::to_string(k.vivify_reuse) +
+                   ";level-before=0";
+  record.formula_epoch = formula_epoch;
+  record.root_epoch = root_epoch;
+  record.pre_digest = pre_digest;
+  record.guards = "live=" + std::to_string(pre.live) +
+                  ";size-ge-3=" + std::to_string(pre.size >= 3) +
+                  ";redundant=" + std::to_string(pre.redundant) +
+                  ";glue=" + std::to_string(pre.glue) +
+                  ";prioritized=" + std::to_string(pre.prioritized) +
+                  ";conflict=" +
+                  std::to_string(vivify_journal_facts.conflict) +
+                  ";implied=" + std::to_string(vivify_journal_facts.implied) +
+                  ";subsumer=" +
+                  std::to_string(vivify_journal_facts.subsumer) +
+                  ";shrinkable=" +
+                  std::to_string(vivify_journal_facts.shrinkable);
+  record.antecedents = "clause-id=" + std::to_string(pre.clause_id);
+  record.outcome = outcome;
+  record.decline = result == ApplyResult::NoOp ? "no-deduction" : "none";
+  record.deltas = delta;
+  record.witnesses =
+      "terminal=" + std::string(vivify_journal_facts.terminal) +
+      ";probes=" + vivify_journal_facts.probes +
+      ";learned=" + vivify_journal_facts.learned +
+      ";replacement-pose=" + vivify_journal_facts.replacement_pose +
+      ";replacement-levels=" + vivify_journal_facts.replacement_levels +
+      ";conflict-clause=" + vivify_journal_facts.conflict_clause +
+      ";trail=" + vivify_journal_facts.trail +
+      ";selected-cause=" + vivify_journal_facts.selected_cause +
+      ";selected-pose-pre=" + selected_pose_pre +
+      ";selected-pose-post=" + vivify_journal_selected_clause_pose(k) +
+      ";reasons=" + vivify_journal_facts.reasons +
+      ";reused=" + std::to_string(vivify_journal_facts.reused) +
+      ";made=" + std::to_string(vivify_journal_facts.made) +
+      ";assumed=" + std::to_string(vivify_journal_facts.assumed);
+  record.effort = post.ticks - pre.ticks;
+  record.budget = k.work_budget;
+  record.post_digest = rule_journal_digest(k);
+  rule_journal_emit(k, record);
+}
+} // namespace
+#endif
+
+RuleEligibility vivify_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct (D-SPLIT-3): this is a pure
   // F-rewrite, sound regardless of a recorded conflict.
-  return !k.inconsistent && k.level == 0;
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
 }
 
 // A retained probing trail makes k.value() speculative, so every candidacy and
 // probe-list decision reads the root value (kissat `kissat_fixed`). The
 // root-satisfied deletion path uses the same test, and a clause satisfied only
 // under an assumption must never be deleted (design §3.1).
-static inline int8_t root_value(const Kernel &k, Lit l) {
-  const int8_t v = k.value(l);
-  return (v != 0 && k.var_level(var_of(l)) == 0) ? v : 0;
-}
-
 // Does `c` fall in the band `k.vivify_scope` selects? The redundant side is
 // split into kissat's three tiers (vivify.c:236-256) so a policy can spend
 // three separate shares. Design §2.5.
@@ -61,24 +265,31 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
       k.vivify_scope != 5)
     return false;
   for (const Lit l : *c)
-    if (root_value(k, l) > 0)
+    if (kernel_root_value(k, l) > 0)
       return false;
   return true;
 }
 
 // --- the round's global literal order ---------------------------------------
 // What makes cross-candidate reuse possible is the order, not the reuse loop
-// (cadical vivify.cpp:35-42; kissat vivify_sort_clause_by_counts). Deliberate
-// deviation: kissat permutes the literals in the arena and must bracket the
-// round with flush_large_watches/watch_large_clauses, whereas the order here
-// lives in a round-scoped side vector, so no arena is touched.
+// (cadical vivify.cpp:35-42; kissat vivify_sort_clause_by_counts). The side
+// vector is the comparison key, but a canonical round also commits that pose
+// to each full-size scheduled clause before rebuilding large watches.  This is
+// observable: propagation can otherwise select a different valid conflict and
+// hence a different Vivify transaction on the same formula.
 struct VivifyOrder {
+  const Kernel *kernel = nullptr;
   std::vector<uint32_t> counts; // per-literal occurrences; persistent scratch
   std::vector<Lit> touched;     // ...restored in O(touched), never O(nvars)
   bool operator()(Lit a, Lit b) const { // a ≺ b: more occurrences first
     if (counts[a] != counts[b])
       return counts[a] > counts[b];
-    return a < b; // total order for determinism
+    // Kissat's branch-free `more_occurrences` comparator breaks equal counts
+    // by descending raw internal literal (vivify.c:24-31).  This tie is not
+    // cosmetic: the in-place pose is committed before all large watches are
+    // rebuilt, so it can select a different valid antecedent in propagation.
+    return kernel_import_lit_order(*kernel, a) >
+           kernel_import_lit_order(*kernel, b);
   }
 };
 
@@ -97,6 +308,88 @@ static void order_sort(const VivifyOrder &ord, std::vector<Lit> &out) {
   std::sort(out.begin(), out.end(), [&ord](Lit a, Lit b) { return ord(a, b); });
 }
 
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+static void vivify_journal_occurrence_control(const Kernel &k,
+                                              const char *event,
+                                              uint64_t scheduled = 0,
+                                              uint64_t prioritized = 0,
+                                              bool rearmed = false) {
+  const int selected = rule_journal_selected_literal();
+  if (!selected)
+    return;
+  uint64_t selected_hash = 0;
+  if (const char *value = std::getenv("TACTIX_RULE_JOURNAL_CLAUSE_HASH"))
+    selected_hash = std::strtoull(value, nullptr, 16);
+  std::vector<uint64_t> signatures;
+  std::string details = "selected=";
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      bool contains = false;
+      std::vector<int> external;
+      external.reserve(c->size);
+      for (const Lit lit : *c) {
+        const int value = kernel_externalize(k, lit);
+        contains |= value == selected;
+        external.push_back(value);
+      }
+      if (contains) {
+        std::sort(external.begin(), external.end());
+        uint64_t hash = UINT64_C(1469598103934665603);
+        for (const int value : external)
+          hash = (hash ^ static_cast<uint64_t>(static_cast<int64_t>(value))) *
+                 UINT64_C(1099511628211);
+        hash = (hash ^ c->size) * UINT64_C(1099511628211);
+        signatures.push_back(hash);
+        if (selected_hash && hash == selected_hash) {
+          if (details.size() > 9)
+            details.push_back('|');
+          details += std::to_string(c->id()) + "(red=" +
+                     std::to_string(c->redundant()) + ",glue=" +
+                     std::to_string(c->glue()) + ",priority=" +
+                     std::to_string(c->vivify()) + "):";
+          for (size_t i = 0; i < external.size(); i++) {
+            if (i)
+              details.push_back(',');
+            details += std::to_string(external[i]);
+          }
+        }
+      }
+    }
+    ref += clause_words(c->size);
+  }
+  std::sort(signatures.begin(), signatures.end());
+  std::string witnesses = details + ";signatures=";
+  char hex[17];
+  for (size_t i = 0; i < signatures.size(); i++) {
+    if (i)
+      witnesses.push_back(',');
+    std::snprintf(hex, sizeof hex, "%016llx",
+                  static_cast<unsigned long long>(signatures[i]));
+    witnesses += hex;
+  }
+  RuleJournalRecord record;
+  record.kind = "control";
+  record.rule = "Vivify";
+  record.event = event;
+  record.candidate = "literal=" + std::to_string(selected);
+  record.trigger = "second-schedule-pass";
+  record.context = "scope=" + std::to_string(k.vivify_scope);
+  record.pre_digest = rule_journal_digest(k);
+  record.guards = "occurrences=" + std::to_string(signatures.size()) +
+                  ";scheduled=" + std::to_string(scheduled) +
+                  ";prioritized=" + std::to_string(prioritized) +
+                  ";rearmed=" + std::to_string(rearmed);
+  record.antecedents = "all-live-large-clauses";
+  record.outcome = "observed";
+  record.decline = "none";
+  record.deltas = "none";
+  record.witnesses = witnesses;
+  record.post_digest = record.pre_digest;
+  rule_journal_emit(k, record);
+}
+#endif
+
 // The non-root-fixed literals of `c`, in probe order — clause order unless
 // `ordered`, which is off for the no-reuse arm and for the standalone path,
 // where `counts` was never filled and no next candidate shares a prefix.
@@ -105,7 +398,7 @@ static void probe_list(const Kernel &k, const Clause *c,
                        bool ordered) {
   out.clear();
   for (const Lit l : *c)
-    if (root_value(k, l) == 0)
+    if (kernel_root_value(k, l) == 0)
       out.push_back(l);
   if (ordered)
     order_sort(ord, out);
@@ -115,7 +408,10 @@ static void probe_list(const Kernel &k, const Clause *c,
 struct VivifySchedule {
   uint64_t prioritized = 0; // candidates carrying the leftover bit
   uint64_t flushed = 0;     // prefix-subsumed before any propagation
+  uint64_t root_changed = 0; // root-satisfied/false schedule simplifications
   bool rearmed = false;     // ...the set was empty, so the scope was re-armed
+  bool root_unit = false;
+  bool refuted = false;
 };
 
 // `commit` writes the re-arm back into the clause headers; the const query
@@ -124,11 +420,90 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
                             VivifySchedule *commit) {
   out.clear();
   VivifyOrder &ord = vivify_order();
+  ord.kernel = &k;
   if (ord.counts.size() < 2 * k.nvars)
     ord.counts.resize(2 * k.nvars, 0);
   order_clear(ord);
-  // kissat counts over the whole live database, not just the scope: the
-  // count_clause call at vivify.c:276 precedes the tier filter.
+  struct Cand {
+    Ref ref;
+    uint64_t arena_order;
+    uint32_t prioritized, redundant, band, size;
+    uint32_t key_off, key_len; // literal snapshot at scheduling time
+  };
+  std::vector<Cand> cands;
+  std::vector<Lit> keys;
+  uint64_t prioritized = 0;
+
+  // Kissat pushes a candidate during the pass which owns its current priority
+  // bit.  Preserve that temporal membership: a later pass may derive a root
+  // assignment which satisfies an already-scheduled clause, but it must not
+  // retroactively remove that clause from the schedule or from the re-arm set.
+  const auto append_priority = [&](bool priority) {
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (c->vivify() == priority && is_candidate(k, c) && in_scope(k, c)) {
+        uint32_t band = 0;
+        if (c->redundant()) {
+          if (c->glue() <= k.tier1)
+            band = 1;
+          else if (c->glue() <= k.tier2)
+            band = 2;
+          else
+            band = 3;
+        }
+        const uint32_t key_off = static_cast<uint32_t>(keys.size());
+        for (const Lit lit : *c)
+          keys.push_back(lit);
+        cands.push_back({ref,
+                         c->id() ? kernel_clause_order(k, c->id()) : ref,
+                         priority ? 1u : 0u,
+                         c->redundant() ? 1u : 0u, band, c->size, key_off,
+                         c->size});
+        prioritized += priority;
+      }
+      ref += clause_words(c->size);
+    }
+  };
+  // Kissat schedules in two arena passes: unprioritized clauses first, then
+  // prioritized clauses.  The occurrence-count pass is the *second* arena
+  // pass.  Consequently root simplifications of unprioritized candidates are
+  // already visible to the counts, while each prioritized clause is counted
+  // immediately before its own simplification.  Moving the count before both
+  // passes changes equal-prefix ranks even when the final clause set matches.
+  const auto simplify_priority = [&](bool prioritized) {
+    Kernel &mut = const_cast<Kernel &>(k);
+    const Ref original_words = static_cast<Ref>(k.arena.size());
+    for (Ref ref = 0; ref < original_words;) {
+      Clause *c = clause_at(mut.arena, ref);
+      const uint32_t words = clause_words(c->size);
+      if (!c->garbage() && c->size >= 3 && in_scope(k, c) &&
+          c->vivify() == prioritized) {
+        const bool retain_priority = c->vivify();
+        Ref replacement = ref;
+        uint64_t changed = 0;
+        const RootFlushOutcome outcome =
+            kernel_flush_root_clause(mut, &replacement, &changed);
+        commit->root_changed += changed;
+        if (retain_priority && outcome == RootFlushOutcome::Rewritten)
+          clause_at(mut.arena, replacement)->set_vivify(true);
+        if (outcome == RootFlushOutcome::Unit)
+          commit->root_unit = true;
+        else if (outcome == RootFlushOutcome::Refuted)
+          commit->refuted = true;
+      }
+      ref += words;
+    }
+  };
+  if (commit)
+    simplify_priority(false);
+  if (commit && (commit->root_unit || commit->refuted)) {
+    out.clear();
+    return;
+  }
+  append_priority(false);
+
+  // The count_clause call precedes tier and priority filters, so this is the
+  // complete live database after pass zero, not merely the active band.
   if (k.vivify_reuse)
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
@@ -139,35 +514,33 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
         }
       ref += clause_words(c->size);
     }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  vivify_journal_occurrence_control(k, "occurrence-count");
+#endif
 
-  struct Cand {
-    Ref ref;
-    uint32_t prioritized, redundant, band, size;
-    uint32_t key_off, key_len; // probe list, in the global order
-  };
-  std::vector<Cand> cands;
-  std::vector<Lit> keys, probes;
-  uint64_t prioritized = 0;
+  if (commit)
+    simplify_priority(true);
+  if (commit && (commit->root_unit || commit->refuted)) {
+    out.clear();
+    return;
+  }
+  append_priority(true);
+
+  // The occurrence counts are complete only after the second arena pass has
+  // been counted.  Sort each pass-time literal snapshot now.  Redundant
+  // clauses later commit this pose; irredundant clauses use it only as the
+  // imprecise COUNTREF key and keep their physical pose unchanged.
+  if (k.vivify_reuse)
+    for (const Cand &cand : cands)
+      std::sort(keys.begin() + cand.key_off,
+                keys.begin() + cand.key_off + cand.key_len,
+                [&ord](Lit a, Lit b) { return ord(a, b); });
+
+  uint64_t live_irredundant = 0, live_redundant = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    if (is_candidate(k, c) && in_scope(k, c)) {
-      probe_list(k, c, ord, probes, k.vivify_reuse);
-      uint32_t band = 0;
-      if (c->redundant()) {
-        if (c->glue() <= k.tier1)
-          band = 1;
-        else if (c->glue() <= k.tier2)
-          band = 2;
-        else
-          band = 3;
-      }
-      cands.push_back({ref, c->vivify() ? 1u : 0u,
-                       c->redundant() ? 1u : 0u, band, c->size,
-                       static_cast<uint32_t>(keys.size()),
-                       static_cast<uint32_t>(probes.size())});
-      prioritized += c->vivify();
-      keys.insert(keys.end(), probes.begin(), probes.end());
-    }
+    if (!c->garbage())
+      (c->redundant() ? live_redundant : live_irredundant)++;
     ref += clause_words(c->size);
   }
   // kissat vivify.c:296-301: an empty leftover set re-arms the whole scope.
@@ -183,6 +556,31 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
       Arena &arena = const_cast<Arena &>(k.arena);
       for (const Cand &c : cands)
         clause_at(arena, c.ref)->set_vivify(true);
+    }
+  }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  vivify_journal_occurrence_control(k, "schedule-ready", cands.size(),
+                                    prioritized, rearm);
+#endif
+
+  // kissat's precise redundant-band sorter writes the count order into each
+  // scheduled clause before `watch_large_clauses`.  Retaining it only in
+  // `keys` reproduces candidate/probe order but not propagation's antecedent
+  // order.  Clauses with root-false literals are left to vivify_one's existing
+  // proof-bearing simplification path; the common full-size case is a pure
+  // permutation and can be committed here.
+  if (commit && k.vivify_reuse) {
+    Arena &arena = const_cast<Arena &>(k.arena);
+    for (const Cand &cand : cands) {
+      Clause *clause = clause_at(arena, cand.ref);
+      // Kissat's precise redundant-tier sorter commits the count pose to the
+      // clause.  Its irredundant sorter is deliberately imprecise (one count
+      // key) and leaves the clause pose untouched; vivify_clause sorts only a
+      // temporary probe stack there.
+      if (!cand.redundant || cand.key_len != clause->size)
+        continue;
+      for (uint32_t i = 0; i < cand.key_len; i++)
+        clause->lits[i] = keys[cand.key_off + i];
     }
   }
 
@@ -235,19 +633,48 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
                   return a.redundant < b.redundant; // irredundant first
                 if (a.size != b.size)
                   return a.size < b.size;
-                return a.ref < b.ref;
+                return a.arena_order < b.arena_order;
+              }
+              if (!a.redundant && !b.redundant) {
+                // For a large irredundant population Kissat skips candidate
+                // sorting altogether (vivify.c:1443). The schedule was pushed
+                // in arena order and is popped from the back.
+                if (live_irredundant / 10 > live_redundant)
+                  return a.arena_order > b.arena_order;
+                // COUNTREF_COUNTS == 1 in Kissat's irredundant path: rank by
+                // the maximum occurrence count, then inverse size. Radix sort
+                // is stable in arena order and the schedule is popped from
+                // the back, hence descending reference is the final tie.
+                const uint32_t ac = ord.counts[kb[a.key_off]];
+                const uint32_t bc = ord.counts[kb[b.key_off]];
+                if (ac != bc)
+                  return ac > bc;
+                if (a.key_len != b.key_len)
+                  return a.key_len < b.key_len;
+                return a.arena_order > b.arena_order;
               }
               // lexicographic under the global literal order, so candidates
-              // sharing a leading literal become adjacent
+              // sharing a leading occurrence profile become adjacent. Kissat's
+              // `worse_candidate` compares COUNTS at every position, not the
+              // literal identity; only the final posed literal breaks a fully
+              // equal count vector, then the arena reference. Its stack is
+              // popped from the back, hence both final ties are descending in
+              // this forward schedule.
               const uint32_t n = std::min(a.key_len, b.key_len);
               for (uint32_t i = 0; i < n; i++) {
                 const Lit x = kb[a.key_off + i], y = kb[b.key_off + i];
-                if (x != y)
-                  return ord(x, y);
+                if (ord.counts[x] != ord.counts[y])
+                  return ord.counts[x] > ord.counts[y];
               }
               if (a.key_len != b.key_len)
                 return a.key_len < b.key_len; // shorter prefix first
-              return a.ref < b.ref;           // total order for determinism
+              const Lit ax = kb[a.key_off + a.key_len - 1];
+              const Lit bx = kb[b.key_off + b.key_len - 1];
+              const uint64_t ao = kernel_import_lit_order(k, ax);
+              const uint64_t bo = kernel_import_lit_order(k, bx);
+              if (ao != bo)
+                return ao > bo;
+              return a.arena_order > b.arena_order;
             });
   out.reserve(cands.size());
   for (const Cand &c : cands)
@@ -265,9 +692,9 @@ static void assume(Kernel &k, Lit lit) {
   kernel_assign(k, lit, k.level, DECISION_REASON, false);
 }
 
-// Discard the whole probing trail and close the scope. Every operation that
-// can invalidate a retained trail is preceded by this, so a trail is only ever
-// carried across candidates that changed nothing — invariant VP1 (design §3).
+// Discard the whole probing trail and close the scope.  Kissat needs this for
+// unit/binary rewrites, but deliberately keeps a valid prefix across large
+// rewrites and deletions.  Those paths are handled in vivify_one below.
 static void reset_to_root(Kernel &k) {
   k.conflict_valid = false;
   k.conflict_ref = INVALID_REF;
@@ -277,6 +704,44 @@ static void reset_to_root(Kernel &k) {
   // churned. Must run before rewrite() touches the arena, the rollback log
   // holding Refs; every rewrite site below is reached through here.
   kernel_probing_end(k);
+}
+
+// Kissat's `vivify_watch_clause` chooses the two watched literals under the
+// retained probing assignment immediately after a large rewrite.  The
+// replacement clause lives at a new arena reference in Tactix, so pose the
+// literal vector before kernel_replace_clause installs its watches.
+void vivify_pose_replacement_watches(Kernel &k, std::vector<Lit> &lits) {
+  const auto pose = [&](uint32_t start) {
+    uint32_t best_pos = start;
+    const int8_t first_value = k.value(lits[start]);
+    uint32_t best_level = k.var_level(var_of(lits[start]));
+    // Kissat deliberately keeps the loop condition tied to the original
+    // first literal.  In particular, finding an unassigned literal after the
+    // conflict backtrack does not stop the scan: a later unassigned literal,
+    // or a later false literal at a higher retained level, still wins.
+    for (uint32_t i = start + 1; first_value < 0 && i < lits.size(); i++) {
+      const Lit lit = lits[i];
+      const int8_t value = k.value(lit);
+      if (value < 0) {
+        const uint32_t level = k.var_level(var_of(lit));
+        if (level <= best_level)
+          continue;
+        best_level = level;
+      }
+      best_pos = i;
+    }
+    std::swap(lits[start], lits[best_pos]);
+  };
+  pose(0);
+  pose(1);
+}
+
+void vivify_trim_replacement_prefix(Kernel &k, Lit implied,
+                                    uint32_t replacement_size) {
+  assert(replacement_size > 2);
+  const uint32_t retained = replacement_size - 2;
+  if (implied == INVALID_LIT && k.level > retained)
+    kernel_backtrack(k, retained, /*update_phases=*/false);
 }
 
 // last == 0 means the sorted entries already end in the conflicting hint
@@ -295,6 +760,40 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                    chain.data(), static_cast<uint32_t>(chain.size()));
 }
 
+// Kissat shortens large clauses inside their existing arena records. Tactix's
+// packed replacement is appended physically but inherits the source's stable
+// order key in kernel_replace_clause. Restore those logical positions at the
+// band-end collection: the next Vivify band rebuilds every large watch in
+// arena order, so this is semantic state rather than a storage detail.
+struct VivifyArenaOrder final : ArenaOrdering {
+  bool changed = false;
+
+  explicit VivifyArenaOrder(const Kernel &) {}
+
+  void retire() { changed = true; }
+
+  void inherit(Ref, Ref) { changed = true; }
+
+  void order(const Kernel &k, std::vector<Ref> &refs) override {
+    std::stable_sort(refs.begin(), refs.end(), [&](Ref a, Ref b) {
+      const uint64_t aid = clause_at(k.arena, a)->id();
+      const uint64_t bid = clause_at(k.arena, b)->id();
+      const uint64_t ao = aid ? kernel_clause_order(k, aid) : a;
+      const uint64_t bo = bid ? kernel_clause_order(k, bid) : b;
+      return ao == bo ? a < b : ao < bo;
+    });
+  }
+
+  void collect(Kernel &k) {
+    if (!changed)
+      return;
+    ArenaOrdering *const saved = k.arena_ordering;
+    k.arena_ordering = this;
+    kernel_collect_garbage(k);
+    k.arena_ordering = saved;
+  }
+};
+
 // Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
 // form the LRAT chain. The replacement keeps the candidate's redundancy and
 // takes the shared post-shrink glue (kernel_shrunken_glue). No
@@ -302,7 +801,8 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
 // itself, so the rewrite is implied by F ∪ R and subsumes the original.
 static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                            std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                           uint64_t last, bool *ended_round) {
+                           uint64_t last, bool *ended_round,
+                           VivifyArenaOrder &arena_order) {
   Clause *c = clause_at(k.arena, cref);
   const bool lrat = k.proof && k.proof->lrat();
   const bool redundant = c->redundant();
@@ -317,10 +817,21 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                        nullptr, 0);
   }
   k.stats.vivified++;
+  // Kissat rewrites a large candidate in place: it explicitly removes the
+  // candidate's two old large watches before installing the shortened pair.
+  // Tactix allocates a replacement clause, so do the same unwatch here before
+  // kernel_replace_clause marks the old arena record garbage.  Leaving those
+  // two dead entries for propagation to discover changed the tick ledger by a
+  // few ticks per later candidate and moved the budget boundary.
+  if (lits.size() > 2) {
+    kernel_unwatch_large(k, c->lits[0], cref);
+    kernel_unwatch_large(k, c->lits[1], cref);
+  }
   // shared replacement tail; glue is a redundant-clause concept, 0 otherwise
+  Ref replacement_ref = INVALID_REF;
   switch (kernel_replace_clause(k, c, id, lits.data(),
                                 static_cast<uint32_t>(lits.size()), redundant,
-                                redundant ? glue : 0, nullptr)) {
+                                redundant ? glue : 0, &replacement_ref)) {
   case ReplaceOutcome::Refuted:
     return ApplyResult::Unsat;
   case ReplaceOutcome::Unit:
@@ -329,9 +840,17 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
     k.unit_ids[var_of(lits[0])] = id;
     kernel_assign_unit(k, lits[0]);
     *ended_round = true;
+    arena_order.retire();
+    return ApplyResult::Ok;
+  case ReplaceOutcome::Binary:
+    arena_order.retire();
+    return ApplyResult::Ok;
+  case ReplaceOutcome::Large:
+    arena_order.inherit(replacement_ref, cref);
     return ApplyResult::Ok;
   default:
-    return ApplyResult::Ok;
+    assert(false);
+    return ApplyResult::Unsat;
   }
 }
 
@@ -342,6 +861,33 @@ struct VivifyDeduction {
   bool used_redundant = false;
 };
 
+// Vivify conflict analysis is itself a clause-use site. Kissat recomputes the
+// glue of every redundant large reason it traverses (without setting the
+// general conflict-analysis `used` counter) and promotes it immediately.
+// The new tier is visible to later bands in this same Vivify invocation.
+static void vivify_recompute_and_promote(Kernel &k, Clause *c) {
+  if (!c->redundant() || c->glue() <= 1)
+    return;
+  const uint32_t old_glue = c->glue();
+  uint32_t glue = 0;
+  for (const Lit lit : *c) {
+    const uint32_t level = k.var_level(var_of(lit));
+    if (!k.marked_levels[level]) {
+      k.marked_levels[level] = 1;
+      k.touched_levels.push_back(level);
+      if (++glue == old_glue)
+        break;
+    }
+  }
+  for (const uint32_t level : k.touched_levels)
+    k.marked_levels[level] = 0;
+  k.touched_levels.clear();
+  if (glue < old_glue) {
+    c->set_glue(glue);
+    k.stats.promoted++;
+  }
+}
+
 // Turn a learned clause into permanent formula material.  Vivify is the one
 // rule which can discover that an irredundant candidate is subsumed by a
 // redundant reason.  Deleting the former is equisatisfiable only if the latter
@@ -349,6 +895,10 @@ struct VivifyDeduction {
 static void promote_irredundant(Kernel &k, Ref ref) {
   Clause *c = clause_at(k.arena, ref);
   assert(!c->garbage() && c->redundant());
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_clause_transition(k, "promote", c->lits, c->size,
+                                      c->id());
+#endif
   c->set_redundant(false);
   for (const Lit l : *c) {
     kernel_mark_bve_retry(k, var_of(l));
@@ -388,12 +938,14 @@ static VivifyDeduction deduce(Kernel &k, Ref cref,
     bool subsumes = may_subsume;
     for (const Lit *p = begin; p != end; ++p) {
       const Lit l = *p;
-      if (root_value(k, l) < 0)
+      if (kernel_root_value(k, l) < 0)
         continue;
       if (!marked[l])
         subsumes = false;
       push_false(l);
     }
+    if (may_subsume && redundant)
+      vivify_recompute_and_promote(k, clause_at(k.arena, reason_ref));
     if (subsumes)
       d.subsuming = reason_ref;
   };
@@ -427,15 +979,38 @@ static VivifyDeduction deduce(Kernel &k, Ref cref,
     const Lit false_lit = todo[next++];
     const Var v = var_of(false_lit);
     const Assigned &a = k.assigned[v];
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    const auto journal_reason = [&](const std::string &kind) {
+      if (!vivify_journal_active)
+        return;
+      if (vivify_journal_facts.reasons == "-")
+        vivify_journal_facts.reasons.clear();
+      if (!vivify_journal_facts.reasons.empty())
+        vivify_journal_facts.reasons.push_back('|');
+      vivify_journal_facts.reasons +=
+          std::to_string(kernel_externalize(k, false_lit)) + ':' + kind;
+    };
+#endif
     if (a.reason == DECISION_REASON) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      journal_reason("decision");
+#endif
       d.learned.push_back(false_lit);
       continue;
     }
-    if (a.reason == UNIT_REASON)
+    if (a.reason == UNIT_REASON) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      journal_reason("unit");
+#endif
       continue;
+    }
     const Lit true_lit = negate(false_lit);
     if (a.binary) {
       const Lit other = a.jumped ? k.jumped_over[v] : a.reason;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      journal_reason("binary(" +
+                     std::to_string(kernel_externalize(k, other)) + ')');
+#endif
       if (marked[true_lit] && marked[other]) {
         d.binary_subsuming = true;
         break;
@@ -445,15 +1020,25 @@ static VivifyDeduction deduce(Kernel &k, Ref cref,
     }
     const Ref rref = a.reason;
     const Clause *reason = clause_at(k.arena, rref);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    if (vivify_journal_active) {
+      std::vector<Lit> reason_lits(reason->begin(), reason->end());
+      journal_reason("large(id=" + std::to_string(reason->id()) +
+                     ";lits=" +
+                     vivify_journal_literals(k, reason_lits) + ')');
+    }
+#endif
     d.used_redundant |= reason->redundant();
     bool subsumes = true;
     for (const Lit other : *reason) {
       if (!marked[other])
         subsumes = false;
-      if (other == true_lit || root_value(k, other) < 0)
+      if (other == true_lit || kernel_root_value(k, other) < 0)
         continue;
       push_false(other);
     }
+    if (reason->redundant())
+      vivify_recompute_and_promote(k, clause_at(k.arena, rref));
     if (subsumes)
       d.subsuming = rref;
   }
@@ -488,7 +1073,7 @@ static bool shrinkable(const Kernel &k, const std::vector<Lit> &probes,
 // path opens and closes its own scope around a root-to-root probe. In both
 // modes reset_to_root() runs before any mutation (design §3).
 static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
-                              bool reuse) {
+                              bool reuse, VivifyArenaOrder &arena_order) {
   Clause *c = clause_at(k.arena, cref);
   if (!is_candidate(k, c)) {
     // re-check root satisfaction for deletion (kissat/CaDiCaL delete a
@@ -497,11 +1082,12 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
     if (!c->garbage() && c->size >= 3) {
       bool satisfied = false;
       for (const Lit l : *c)
-        satisfied |= root_value(k, l) > 0;
+        satisfied |= kernel_root_value(k, l) > 0;
       if (satisfied && in_scope(k, c)) {
         reset_to_root(k); // a deletion is a database change: §2.4 step 5
         c = clause_at(k.arena, cref);
         kernel_delete_clause(k, c);
+        arena_order.retire();
         k.stats.vivify_deleted++;
         return ApplyResult::Ok;
       }
@@ -519,9 +1105,13 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
   std::vector<uint64_t> absorbed; // unit ids of root-falsified lits (LRAT)
   probes.reserve(c->size);
   probe_list(k, c, vivify_order(), probes, reuse);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  if (vivify_journal_active)
+    vivify_journal_facts.probes = vivify_journal_literals(k, probes);
+#endif
   if (lrat)
     for (const Lit l : *c)
-      if (root_value(k, l) < 0)
+      if (kernel_root_value(k, l) < 0)
         absorbed.push_back(k.unit_ids[var_of(l)]);
   if (probes.size() <= 2)
     return ApplyResult::NoOp; // effectively binary: C2 territory
@@ -578,7 +1168,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
   // is speculative and is handed back to search when the scope closes. In
   // reuse mode the round owns the scope, so it is not reopened per candidate.
   if (!reuse)
-    kernel_probing_begin(k);
+    kernel_probing_begin(k, /*rollback_pose=*/false);
   uint32_t reused = 0, made = 0;
   uint32_t assumed = 0;
   Lit implied = INVALID_LIT;
@@ -636,11 +1226,47 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
         implied = l;
 
   const bool conflict = k.conflict_valid;
+  const uint32_t level_after_assumptions = k.level;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  if (vivify_journal_active)
+    vivify_journal_facts.trail = vivify_journal_literals(k, k.trail);
+  if (vivify_journal_active)
+    vivify_journal_facts.selected_cause =
+        vivify_journal_selected_cause(k);
+  if (vivify_journal_active && conflict) {
+    std::vector<Lit> conflict_lits;
+    if (k.conflict_ref == INVALID_REF) {
+      conflict_lits.push_back(k.conflict_bin[0]);
+      conflict_lits.push_back(k.conflict_bin[1]);
+    } else {
+      const Clause *conflict_clause = clause_at(k.arena, k.conflict_ref);
+      conflict_lits.assign(conflict_clause->begin(), conflict_clause->end());
+    }
+    vivify_journal_facts.conflict_clause =
+        vivify_journal_literals(k, conflict_lits);
+  }
+#endif
   VivifyDeduction d =
       deduce(k, cref, implied, marked, analyzed, analyzed_touched);
   c = clause_at(k.arena, cref);
   const bool has_subsumer = d.binary_subsuming || d.subsuming != INVALID_REF;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  if (vivify_journal_active) {
+    vivify_journal_facts.implied =
+        implied == INVALID_LIT ? 0 : kernel_externalize(k, implied);
+    vivify_journal_facts.conflict = conflict;
+    vivify_journal_facts.subsumer = has_subsumer;
+    vivify_journal_facts.learned = vivify_journal_literals(k, d.learned);
+    vivify_journal_facts.reused = reused;
+    vivify_journal_facts.made = made;
+    vivify_journal_facts.assumed = assumed;
+  }
+#endif
   if (has_subsumer) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    if (vivify_journal_active)
+      vivify_journal_facts.terminal = "subsumed";
+#endif
     const bool candidate_redundant = c->redundant();
     if (!d.binary_subsuming) {
       Clause *sub = clause_at(k.arena, d.subsuming);
@@ -649,12 +1275,23 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       else if (!candidate_redundant && sub->redundant())
         promote_irredundant(k, d.subsuming);
     }
-    reset_to_root(k);
     c = clause_at(k.arena, cref);
     kernel_delete_clause(k, c);
+    arena_order.retire();
     k.stats.vivify_subsumed++;
     res = ApplyResult::Ok;
-  } else if (shrinkable(k, probes, d.learned, analyzed, conflict)) {
+  } else {
+    const bool can_shrink =
+        shrinkable(k, probes, d.learned, analyzed, conflict);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    if (vivify_journal_active)
+      vivify_journal_facts.shrinkable = can_shrink;
+#endif
+    if (can_shrink) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active)
+        vivify_journal_facts.terminal = "shrunken";
+#endif
     uint64_t last = 0;
     if (lrat) {
       if (implied != INVALID_LIT)
@@ -672,36 +1309,94 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       for (const uint64_t u : absorbed)
         entries.emplace_back(0, u);
     }
-    reset_to_root(k);
-    res = rewrite(k, cref, d.learned, entries, last, ended_round);
+    // Units and binaries force a root-level database transition in Kissat.
+    // A large learned clause instead retains the valid assumption prefix. If
+    // there is no implied literal, Kissat always trims that prefix to
+    // new_size-2 before choosing replacement watches (vivify.c:
+    // vivify_learn_large), not only on the explicit-conflict path.  The trim
+    // changes which high-level false literals are still assigned and is thus
+    // part of the replacement-watch precondition, not cleanup.
+    std::vector<Lit> replacement = d.learned;
+    if (replacement.size() <= 2) {
+      reset_to_root(k);
+    } else {
+      vivify_trim_replacement_prefix(
+          k, implied, static_cast<uint32_t>(replacement.size()));
+      vivify_pose_replacement_watches(k, replacement);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active) {
+        vivify_journal_facts.replacement_pose =
+            vivify_journal_literals(k, replacement);
+        vivify_journal_facts.replacement_levels.clear();
+        for (const Lit lit : replacement) {
+          if (!vivify_journal_facts.replacement_levels.empty())
+            vivify_journal_facts.replacement_levels.push_back(',');
+          vivify_journal_facts.replacement_levels +=
+              std::to_string(kernel_externalize(k, lit)) + ':' +
+              std::to_string(k.var_level(var_of(lit)));
+        }
+      }
+#endif
+    }
+    res = rewrite(k, cref, replacement, entries, last, ended_round,
+                  arena_order);
     k.stats.vivify_shrunken++;
-  } else if (implied != INVALID_LIT && c->redundant()) {
-    reset_to_root(k);
+    } else if (implied != INVALID_LIT && c->redundant()) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active)
+        vivify_journal_facts.terminal = "implied-delete";
+#endif
     kernel_delete_clause(k, clause_at(k.arena, cref));
+    arena_order.retire();
     k.stats.vivify_implied++;
     res = ApplyResult::Ok;
-  } else if ((conflict || implied != INVALID_LIT) && !c->redundant() &&
+    } else if ((conflict || implied != INVALID_LIT) && !c->redundant() &&
              !d.used_redundant) {
-    reset_to_root(k);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active)
+        vivify_journal_facts.terminal = "asymmetric-delete";
+#endif
     kernel_delete_clause(k, clause_at(k.arena, cref));
+    arena_order.retire();
     k.stats.vivify_asymmetric++;
     res = ApplyResult::Ok;
-  } else if (implied != INVALID_LIT) {
+    } else if (implied != INVALID_LIT) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active)
+        vivify_journal_facts.terminal = "implied-decline";
+#endif
     k.stats.vivify_noop++;
-  } else if (!conflict && assumed == probes.size()) {
+    } else if (implied == INVALID_LIT && assumed == probes.size()) {
     // No deduction: reverse the last assumption and test whether that literal
     // can be removed (kissat vivify.c:1180-1200).  The candidate is ignored;
     // a conflict proves the shortened clause by RUP.
     const Lit remove = probes.back();
     kernel_backtrack(k, k.level - 1, /*update_phases=*/false);
+    // Kissat's conflict is a local return value.  The first deduction has
+    // consumed it; the reverse-last-literal transaction starts clean.
+    k.conflict_valid = false;
+    k.conflict_ref = INVALID_REF;
     assume(k, remove);
     made++;
     if (kernel_propagate_probing(k, cref)) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active)
+        vivify_journal_facts.terminal = "instantiated";
+#endif
+      // Kissat strengthens a large instantiation in the candidate's current
+      // physical order, then backtracks two levels before selecting the new
+      // watches (vivify.c:large_strengthen_after_instantiation).  Rebuilding
+      // from `probes` after a root reset preserves the clause set but loses
+      // that pose; the very next candidate can then use a different reason.
+      // Tactix allocates a packed replacement, so reconstruct the exact
+      // in-place result before handing it to the common rewrite primitive.
       std::vector<Lit> shorter;
-      shorter.reserve(probes.size() - 1);
-      for (const Lit l : probes)
-        if (l != remove)
+      c = clause_at(k.arena, cref);
+      shorter.reserve(c->size - 1);
+      for (const Lit l : *c)
+        if (l != remove && kernel_root_value(k, l) >= 0)
           shorter.push_back(l);
+      assert(shorter.size() > 2);
       uint64_t last = 0;
       if (lrat) {
         last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
@@ -710,16 +1405,42 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
         for (const uint64_t u : absorbed)
           entries.emplace_back(0, u);
       }
-      reset_to_root(k);
-      res = rewrite(k, cref, shorter, entries, last, ended_round);
+      const uint32_t retained = k.level > 1 ? k.level - 2 : 0;
+      kernel_backtrack(k, retained, /*update_phases=*/false);
+      vivify_pose_replacement_watches(k, shorter);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active) {
+        vivify_journal_facts.replacement_pose =
+            vivify_journal_literals(k, shorter);
+        vivify_journal_facts.replacement_levels.clear();
+        for (const Lit lit : shorter) {
+          if (!vivify_journal_facts.replacement_levels.empty())
+            vivify_journal_facts.replacement_levels.push_back(',');
+          vivify_journal_facts.replacement_levels +=
+              std::to_string(kernel_externalize(k, lit)) + ':' +
+              std::to_string(k.var_level(var_of(lit)));
+        }
+      }
+#endif
+      res = rewrite(k, cref, shorter, entries, last, ended_round,
+                    arena_order);
       k.stats.vivify_instantiated++;
     } else {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active)
+        vivify_journal_facts.terminal = "instantiation-decline";
+#endif
       const uint32_t keep = k.level > 1 ? k.level - 2 : 0;
       kernel_backtrack(k, keep, /*update_phases=*/false);
       k.stats.vivify_noop++;
     }
-  } else {
+    } else {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (vivify_journal_active)
+        vivify_journal_facts.terminal = "no-deduction";
+#endif
     k.stats.vivify_noop++;
+    }
   }
   for (const Lit l : probes) // restore the persistent mark scratch all-zero
     marked[l] = 0;
@@ -729,9 +1450,17 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
   k.stats.vivify_probes += made;
   if (reused && made == 0 && assumed == probes.size())
     k.stats.vivify_reuse_full++; // wholly covered: nothing new was assumed
-  if (!reuse || k.conflict_valid)
-    reset_to_root(k); // standalone mode returns to the root every candidate;
-                      // a recorded conflict must never outlive the candidate
+  if (!reuse) {
+    reset_to_root(k); // standalone mode returns to the root every candidate
+  } else {
+    // Kissat's conflict is a local return value.  If the terminal path kept
+    // the whole conflicting assumption stack, drop at least its last frame;
+    // otherwise preserve the valid prefix selected by the rewrite/no-op path.
+    if (conflict && k.level == level_after_assumptions && k.level)
+      kernel_backtrack(k, k.level - 1, /*update_phases=*/false);
+    k.conflict_valid = false;
+    k.conflict_ref = INVALID_REF;
+  }
   for (const Var tv : seen_touched) // restore the persistent scratch all-zero
     seen[tv] = 0;
   return res;
@@ -752,14 +1481,29 @@ ApplyResult vivify_apply(Kernel &k) {
   std::vector<Ref> candidates;
   VivifySchedule sched;
   vivify_schedule(k, candidates, &sched);
+  if (sched.refuted)
+    return ApplyResult::Unsat;
+  if (sched.root_unit) {
+    if (inprocess_reach_root(k))
+      return ApplyResult::Unsat;
+    return ApplyResult::Ok;
+  }
+  // Kissat flushes large watches before scheduling and reconnects all live
+  // clauses after committing the candidate literal order.  The resulting
+  // watch pose controls which conflict/reason a probing propagation records.
+  kernel_rebuild_large_watches(k);
   k.stats.vivify_prioritized += sched.prioritized;
   k.stats.vivify_reprioritized += sched.rearmed;
   k.stats.vivify_flushed += sched.flushed;
-  uint64_t changed = sched.flushed;
+  uint64_t changed = sched.flushed + sched.root_changed;
   bool ended = false;
   const bool reuse = k.vivify_reuse;
   // k.work_budget in Vivify's currency (propagation ticks); 0 = unbounded
   const uint64_t tick_start = k.stats.ticks;
+  uint64_t ordinal = 0;
+  VivifyArenaOrder arena_order(k);
+  if (sched.root_changed)
+    arena_order.retire();
   for (const Ref cref : candidates) {
     if (k.work_budget && k.stats.ticks - tick_start > k.work_budget)
       break;
@@ -776,8 +1520,46 @@ ApplyResult vivify_apply(Kernel &k) {
     // decline at the root without closing the scope, and reopening a
     // recording scope rolls the round's watch state back.
     if (reuse && !k.probing.recording)
-      kernel_probing_begin(k);
-    const ApplyResult r = vivify_one(k, cref, &ended, reuse);
+      kernel_probing_begin(k, /*rollback_pose=*/false);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_detail(k, "vivify_candidate", static_cast<int>(ordinal));
+#endif
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    Clause *journal_clause = clause_at(k.arena, cref);
+    uint32_t journal_rank_count = 0;
+    for (const Lit lit : *journal_clause)
+      journal_rank_count =
+          std::max(journal_rank_count, vivify_order().counts[lit]);
+    const std::string journal_candidate =
+        vivify_journal_candidate(k, journal_clause, ordinal,
+                                 journal_rank_count);
+    const bool journal =
+        rule_journal_wants(k, "Vivify", journal_candidate);
+    VivifyJournalSnapshot journal_pre{};
+    uint64_t journal_digest = 0, journal_formula_epoch = 0;
+    uint64_t journal_root_epoch = 0;
+    std::string journal_selected_pose_pre;
+    if (journal) {
+      vivify_journal_facts = VivifyJournalFacts{};
+      vivify_journal_active = true;
+      journal_pre = vivify_journal_snapshot(k, journal_clause);
+      journal_digest = rule_journal_digest(k);
+      journal_formula_epoch = k.arena_generation;
+      journal_root_epoch = k.touch_fixed_head;
+      journal_selected_pose_pre = vivify_journal_selected_clause_pose(k);
+    }
+#endif
+    const ApplyResult r = vivify_one(k, cref, &ended, reuse, arena_order);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    if (journal) {
+      vivify_journal_emit_candidate(
+          k, journal_candidate, journal_pre, journal_digest,
+          journal_formula_epoch, journal_root_epoch,
+          journal_selected_pose_pre, r);
+      vivify_journal_active = false;
+    }
+#endif
+    ordinal++;
     // Cleared once a candidate has been tried, so a budget cut or termination
     // leaves exactly the untried tail armed for the next round (kissat
     // vivify.c:1311). A garbage clause still has its header until the collect.
@@ -793,18 +1575,20 @@ ApplyResult vivify_apply(Kernel &k) {
                     // rewrite and completion all leave through here
   if (!changed)
     return ApplyResult::NoOp;
-  kernel_collect_garbage(k);
+  arena_order.collect(k);
   return ApplyResult::Ok;
 }
 
 ApplyResult vivify_try(Kernel &k, Ref candidate) {
   assert(vivify_guard(k));
   bool ended = false;
+  VivifyArenaOrder arena_order(k);
   // Standalone: its own root-to-root probing scope, no retained trail — the N1
   // surface must not depend on a round having run first.
-  const ApplyResult r = vivify_one(k, candidate, &ended, /*reuse=*/false);
+  const ApplyResult r =
+      vivify_one(k, candidate, &ended, /*reuse=*/false, arena_order);
   if (r == ApplyResult::Ok)
-    kernel_collect_garbage(k);
+    arena_order.collect(k);
   return r;
 }
 

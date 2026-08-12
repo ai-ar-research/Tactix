@@ -79,7 +79,9 @@ precondition, effect, proof delta, and soundness; implemented guards are in impl
 - **Effect (one atomic transition):** add `L` to `R`; choose a backtrack target `t` in
   `[j,d−1]` (canonically `t=j`); truncate `τ` through level `t`; then append `¬u` with reason `L` and
   **true level** `j`. OTFS may replace a reason `C` by a strict RUP subset `C′` in the same
-  irredundancy partition and delete `C`. At root (learned `∅` or a top-level conflict), set
+  irredundancy partition and delete `C`; the replacement inherits `C`'s stable clause-order
+  identity, since the reference implementation performs this rewrite in place and later
+  ordered rule schedules observe that position. At root (learned `∅` or a top-level conflict), set
   `inconsistent` and do not assert a literal. `pending` is internal scratch handed from learn to
   backjump *within this one apply* — never a control state at a rule boundary.
   **Also (eager subsumption, `Kernel::eager_subsume`):** after backtracking, drop from `R` any of the
@@ -171,6 +173,21 @@ conjunct.
   independently-implied redundant deletion, asymmetric deletion, then instantiation/no-op. Root
   satisfaction deletes; collapse asserts a unit or refutes. Proof δ is `add_rup(c′)·del(c)` for
   replacement; subsumed, independently-implied and asymmetric terminal deletions emit `del(c)`.
+  A replacement inherits the source clause's stable clause-order identity even when a packed arena
+  must append its physical record; candidate ties and later arena rebuilds use that identity.
+  Large instantiation additionally inherits the candidate's current literal pose: remove the
+  reversed literal in physical clause order, retain the first `|c′|-1` assumption levels, and choose
+  the two watches in that valuation before installing the packed replacement. This is semantic
+  control state because it selects later propagation reasons, although the clause set is unchanged.
+  Every redundant large reason traversed by Vivify deduction has its glue recomputed from the
+  current assumption levels and is promoted immediately when smaller; this is a control mutation
+  (later tier eligibility), not an additional proof delta.
+  Scheduling itself consumes the root valuation before candidate dispatch: a satisfied clause is
+  forgotten and root-false literals are stripped proof-first, so a resulting binary/unit/refutation
+  is committed and never appears as a spurious no-op Vivify candidate. Scheduling has two ordered
+  arena passes: simplify unprioritized candidates, count the complete live database, then simplify
+  prioritized candidates. Thus occurrence ranks intentionally see the former simplifications and
+  the latter clauses' pre-simplification literals.
 - **Distillation and proof δ:** let `P=(p₀,…,pₘ₋₁)` be `c` after removing root-false literals, in the
   chosen probe order, and let `Aᵢ={¬p₀,…,¬pᵢ}`. Four propagation outcomes yield a strict `c′`:
   (1) `F∧Aᵢ⊢₁⊥` gives `c′={p₀,…,pᵢ}`; (2) `F∧Aᵢ₋₁⊢₁pᵢ` gives
@@ -420,9 +437,12 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   strictly positive clause reduction), and `x ∉ vars(F)` is fresh. A binary
   grid is the special case `|Rⱼ|=1`; the shipped bounded matcher admits
   remainders from clauses through size five. Grid members are **clause
-  occurrences**: repeated equal large clauses remain distinct proof ids and
-  each is consumed once. Root-assigned literals may occur in `Rⱼ`; only factors
-  must be active and unassigned, since live clauses—not projections—form `F`.
+  occurrences**: repeated equal large clauses retain distinct, once-consumed proof ids.
+  Root-assigned literals may occur in `Rⱼ`; only factors must be active/unassigned.
+  A factor may be an extension literal introduced by an earlier Factor application: the
+  matcher snapshots the complete current literal universe at entry. Literals introduced
+  during that same application cannot become later factors in the application.
+  Dense normalization deletes root-satisfied binaries as maintenance, not a stronger precondition.
 - **Effect:** introduce the fresh extension variable `x`; add the `m` **dividers** `{x ∨ fᵢ}` and the
   `n` **quotients** `{¬x} ∪ Rⱼ`; delete the `mn` grid clauses. Net `Δ|F| = (m+n) − mn < 0`. `x` is an
   *extension* variable (indices `≥ first_extension_var`): assigned by search like any other but
@@ -443,6 +463,14 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Reconstruction (`ρ`):** *none* — `x` is fully defined by the clauses just added, so a model of `F′`
   restricted to `vars(F)` already satisfies `F` (drop `x`). No witness is pushed; recovery is pure
   projection over `first_extension_var` (`kernel_num_output_vars`).
+- **Effort transaction:** the canonical matcher uses Kissat's dense-watch
+  currency.  The first factor charges one tick per quotient occurrence.  Each
+  subsequent-factor attempt charges `1 + ceil(|Q|/32)` for the current quotient
+  stack, `1 + ceil(|W(l)|/32)` for each dense watch list scanned, and one tick
+  for each live large-clause occurrence inspected.  It tests exhaustion after
+  each current quotient occurrence and before each new seed.  A budget decline
+  leaves the unpopped seed marks armed for the next call; it is not a semantic
+  rejection of the grid.
 - **Soundness:** BVA is satisfiability-preserving *on the originals* — `F′` is equisatisfiable with `F`,
   and every model of `F′` restricted to `vars(F)` models `F` (the added clauses constrain only the fresh
   `x`). Each add step is a RAT addition (satisfiability-preserving) and each delete removes a clause

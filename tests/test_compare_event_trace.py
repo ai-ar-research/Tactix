@@ -14,9 +14,10 @@ HEADER = (
 )
 
 
-def row(solver, seq, event, decisions=0, payload="-", irred=2):
+def row(solver, seq, event, decisions=0, payload="-", irred=2,
+        top32="1,2,3"):
     values = [solver, seq, event, 0, decisions, 0, 0, "focused", 3, 3, 0,
-              3, 0, 0, 0, irred, 0, 1, "abcd", 1, "1,2,3", payload]
+              3, 0, 0, 0, irred, 0, 1, "abcd", 1, top32, payload]
     return "\t".join(map(str, values)) + "\n"
 
 
@@ -118,10 +119,14 @@ with tempfile.TemporaryDirectory() as tmp:
 
     # Analysis-end is snapshot-bearing on both sides and must retain the
     # ranking/state localization contract.
-    a.write_text(HEADER + row("tactix", 0, "analysis_end", irred=1))
-    b.write_text(HEADER + row("kissat", 0, "analysis_end", irred=2))
+    a.write_text(HEADER + row("tactix", 0, "analysis_end", irred=1,
+                              top32="1,2,3"))
+    b.write_text(HEADER + row("kissat", 0, "analysis_end", irred=2,
+                              top32="2,1,3"))
     analyzed = run(a, b, "--mode", "semantic")
     assert analyzed.returncode == 1, analyzed
-    assert "irred: 1 -> 2" in analyzed.stdout
+    # Formula storage is intentionally representation-specific at this edge;
+    # the portable contract is the search-visible ranking snapshot.
+    assert "top32: 1,2,3 -> 2,1,3" in analyzed.stdout
 
 print("test_compare_event_trace OK")

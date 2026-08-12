@@ -247,6 +247,30 @@ void kissat_rule_journal_sweep_core (
       kissat_rule_journal_digest (solver));
 }
 
+void kissat_rule_journal_rule_attempt (kissat *solver, const char *rule,
+                                       const char *candidate,
+                                       const char *trigger,
+                                       uint64_t pre_digest,
+                                       uint64_t effort_before,
+                                       uint64_t effort_after,
+                                       uint64_t budget) {
+  const uint64_t post_digest = kissat_rule_journal_digest (solver);
+  const bool changed = pre_digest != post_digest;
+  char context[128], guards[160], deltas[96];
+  snprintf (context, sizeof context, "level=%u;inconsistent=%u;proof=%u",
+            solver->level, solver->inconsistent, solver->proof != 0);
+  snprintf (guards, sizeof guards,
+            "scheduled=1;consistent-before=1;call-returned=1");
+  snprintf (deltas, sizeof deltas, "%s",
+            changed ? "state-digest-change" : "none");
+  kissat_rule_journal_emit (
+      solver, "transaction", rule, "rule-attempt", candidate, trigger,
+      context, solver->statistics.clauses_added, SIZE_ARRAY (solver->trail),
+      pre_digest, guards, "rule-owned", changed ? "applied" : "no-op",
+      "none", deltas, "rule-owned", effort_after - effort_before, budget,
+      post_digest);
+}
+
 void kissat_rule_journal_close (void) {
   if (!initialized)
     return;

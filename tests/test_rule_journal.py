@@ -21,6 +21,11 @@ with tempfile.TemporaryDirectory(prefix="tactix-rule-journal-") as tmp:
     for outcome in ("applied", "declined", "no-op", "refuted"):
         assert f"\t{outcome}\t" in text
     assert "\tbudget-exhausted\t" in text
+    assert "add-binary(id=17;lits=1,-2)" in text
+    assert "root-unit(lit=1;reason=" in text
+    assert "retire-var(var=2;status=substituted)" in text
+    assert "reconstruct(witness=1;rest=-2)" in text
+    assert "rup(id=17;chain=3,5,8)" in text
 
     env = os.environ.copy()
     env["TACTIX_RULE_JOURNAL_REPLAY"] = str(journal)

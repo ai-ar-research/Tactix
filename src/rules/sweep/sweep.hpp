@@ -14,6 +14,7 @@
 
 #include "kernel/kernel.hpp"
 #include "rules/registry.hpp"
+#include "rules/substitute/substitute.hpp"
 #include "rules/sweep/sweep_defaults.hpp"
 #include "engine/subsolver.hpp"
 
@@ -59,11 +60,13 @@ struct SweepLimits {
 // allowance. Policies choose the allowance; they do not reconstruct which
 // internal representation work the rule has to price.
 inline uint64_t sweep_effort(const Kernel &k) {
-  // Kissat's `SET_EFFORT_LIMIT(..., sweep, kitten_ticks)` charges only the
-  // embedded solver. Host-representation work remains measured separately,
-  // but charging it here can exhaust the reference allowance before the
-  // productive seed tail is visited.
-  return k.stats.sweep_ticks_sub;
+  // The embedded solver is only part of Tactix's cost.  A productive
+  // environment immediately crosses the variable-width representation bridge
+  // to commit its equivalences, so omitting that rebuild lets one allowance
+  // perform an unbounded number of whole-formula substitutions.  Keep both
+  // currencies in the rule-owned meter; the scheduler must not reconstruct
+  // this implementation detail.
+  return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
 }
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
@@ -149,6 +152,7 @@ struct SweepEquiv {
 // O(nvars) and must be initialized once, then restored by touched-list.
 struct SweepRound {
   SweepEnv env;
+  SweepSubstitutionSession substitution;
   std::vector<std::vector<Ref>> occ_owned; // built only when k.dense is unusable
   const std::vector<std::vector<Ref>> *occ = nullptr; // by literal
   // `Kernel::arena_generation` when `occ_owned` was built. A collection inside
@@ -177,7 +181,7 @@ struct SweepRound {
 // Guard: quiescent root, consistent. A pure precondition — the environment
 // cites level-0 unit ids and reads the watch lists, and both mean what they say
 // only at a drained root.
-bool sweep_guard(const Kernel &);
+RuleEligibility sweep_guard(const Kernel &);
 
 // Canonical seed order: active, unassigned variables, ascending occurrence
 // degree. This is the action surface `instances()` exposes, so it ranks and

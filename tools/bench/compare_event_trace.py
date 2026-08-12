@@ -14,6 +14,8 @@ import csv
 import json
 import sys
 
+csv.field_size_limit(64 * 1024 * 1024)
+
 
 FIELDS = [
     "solver", "seq", "event", "conflicts", "decisions", "propagations",
@@ -22,7 +24,8 @@ FIELDS = [
     "search_external", "top32", "payload",
 ]
 DETAIL_EVENTS = {
-    "decision", "watch", "imply", "conflict", "analysis_begin",
+    "decision", "propagate_cursor", "watch", "imply", "conflict",
+    "analysis_begin",
     "learned_raw", "learned_sorted", "learned_shrunk", "learned",
     "analysis_end",
 }
@@ -30,17 +33,76 @@ AUXILIARY_EVENTS = {
     "checkpoint", "retier", "reduce_tiers", "mode_clock", "analyzed",
     "randec_draw", "phase_pick", "target_save", "phase_save",
     "slot_boundary", "sweep_seed", "sweep_environment",
-    "sweep_equivalence", "sweep_unit",
+    "sweep_environment_var", "sweep_effort", "sweep_equivalence",
+    "sweep_unit", "root_assign", "analysis_trail_size",
+    "analysis_propagate_head", "reason_bump_rate_milli",
+    "reason_bump_limit", "reason_bump_delay_before",
 }
 # Detailed records normally carry zeroes in the expensive snapshot fields.
 # Analysis-end is the deliberate exception: both overlays snapshot ranking
 # state there so a latent bump-order mismatch is localized to its conflict.
 SNAPSHOT_DETAIL_EVENTS = {"analysis_end"}
 NON_MACRO_EVENTS = DETAIL_EVENTS | AUXILIARY_EVENTS
+# Cross-solver state deliberately excludes representation counters.  Kissat
+# physically compacts fixed/substituted variables out of its queue while
+# Tactix retains stable external identities and records the retired suffix;
+# `unassigned` is the shared semantic population.  In particular, comparing
+# `active`, queue/heap sizes, or the input-time digest hides a later control
+# divergence behind that known representation choice.  Clause counts become
+# portable after the common startup transformation pipeline has normalized
+# duplicate input binaries, so they remain useful at rule boundaries.
 STATE_FIELDS = (
-    "conflicts", "decisions", "level", "mode", "active", "unassigned",
-    "trail", "queue", "heap", "irred", "red", "binary", "top32",
+    "conflicts", "decisions", "level", "mode", "unassigned",
+    "irred", "red", "binary", "top32",
 )
+
+
+def normalize_semantic_rows(rows):
+    """Map solver-specific observation boundaries to shared rule events."""
+    normalized = []
+    for original in rows:
+        row = dict(original)
+        if row["event"] == "slot_boundary":
+            payload = dict(part.split("=", 1) for part in
+                           row["payload"].split("|") if "=" in part)
+            name, stage = payload.get("name"), payload.get("stage")
+            # SparseCollect is Tactix lifecycle scaffolding around Kissat's
+            # implicit initial collection, not a proof-rule transaction.
+            if name == "SparseCollect":
+                continue
+            shared = {
+                "Congruence": "congruence",
+                "Substitute": "substitute_complete",
+                "Backbone": "backbone",
+                "Sweep": "sweep",
+                "Factor": "factor",
+            }.get(name)
+            if shared and stage in ("begin", "end"):
+                row["event"] = f"{shared}_{stage}"
+                row["payload"] = "-"
+        normalized.append(row)
+    # Input normalization differs deliberately: Kissat retains duplicate
+    # binary occurrences until its startup pipeline, while Tactix deduplicates
+    # them during parsing.  Both formulas reach identical clause populations
+    # at preprocess_end.  Mask only the transient representation counts before
+    # that shared checkpoint; a mismatch at or after the checkpoint is real.
+    for row in normalized:
+        if row["event"] == "preprocess_end":
+            break
+        row["irred"] = row["red"] = row["binary"] = "startup-normalizing"
+        # Kissat exposes Sweep's proved equivalences to the immediately
+        # following Substitute call; Tactix commits them inside Sweep and the
+        # following Substitute is consequently a no-op.  The portable boundary
+        # is the end of that two-rule transaction, not the intermediate count.
+        if row["event"] in ("sweep_end", "substitute_complete_begin"):
+            row["unassigned"] = "sweep-consequence-pending"
+    for row in normalized:
+        if row["event"] == "propagate_cursor":
+            # Root-fixed literals remain as a stable-identity prefix in Tactix
+            # but Kissat clears them during compaction.  The next external
+            # literal is the shared control choice; cursor offsets are not.
+            row["payload"] = row["payload"].split("|", 1)[0]
+    return normalized
 
 
 def load(path):
@@ -146,7 +208,12 @@ def primary_semantic_difference(a, b):
         if event in DETAIL_EVENTS:
             fields = ("payload", "conflicts", "decisions", "level")
             if event in SNAPSHOT_DETAIL_EVENTS:
-                fields += STATE_FIELDS
+                # Cross-solver root storage differs intentionally: Kissat
+                # compacts fixed variables and clears the root trail, while
+                # Tactix retains stable identities.  At analysis boundaries
+                # compare the search-visible ranking snapshot, not those
+                # representation counters.
+                fields += ("mode", "top32")
             delta = row_delta(left, right, fields)
             if delta:
                 return "trajectory", i, i, delta
@@ -163,6 +230,17 @@ def primary_semantic_difference(a, b):
 
 def semantic(trace_a, trace_b, radius, metadata):
     a, b = trace_a["rows"], trace_b["rows"]
+    # Kissat can emit parse-time root assignments before `kissat_search`, while
+    # Tactix opens its trace only after parsing.  The shared execution model
+    # begins at trace_begin; retain parse diagnostics in the file but do not
+    # misreport that observer-boundary difference as a solver divergence.
+    def execution_rows(rows):
+        for index, row in enumerate(rows):
+            if row["event"] == "trace_begin":
+                return rows[index:]
+        return rows
+    a = normalize_semantic_rows(execution_rows(a))
+    b = normalize_semantic_rows(execution_rows(b))
     # These records expose implementation-specific observation boundaries or
     # raw diagnostic currencies.  They remain available to exact comparison
     # and dedicated payload checks, but must not hide the first portable
@@ -183,7 +261,7 @@ def semantic(trace_a, trace_b, radius, metadata):
         fields = ("event", "payload", "conflicts", "decisions", "level")
         if left["event"] == right["event"] and \
                 left["event"] in SNAPSHOT_DETAIL_EVENTS:
-            fields += STATE_FIELDS
+            fields += ("mode", "top32")
         delta = row_delta(left, right, fields)
         if delta:
             trajectory = i, i, delta

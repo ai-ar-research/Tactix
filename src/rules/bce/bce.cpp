@@ -105,7 +105,11 @@ void collect_occs(const Kernel &k, const BceIndex &idx, Lit l, Side side,
 
 } // namespace
 
-bool bce_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
+RuleEligibility bce_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
+}
 
 void bce_literals(const Kernel &k, std::vector<Lit> &out) {
   out.clear();

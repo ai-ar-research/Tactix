@@ -24,9 +24,15 @@ constexpr uint32_t VIVIFY_CLSLIM = 100; // probe-cost bound per candidate
 // also kissat's `TIER2` constant.
 constexpr uint32_t VIVIFY_TIER2 = 6;    // redundant scope (LCM): glue <= 6
 
-bool vivify_guard(const Kernel &);
+RuleEligibility vivify_guard(const Kernel &);
 // Complete per-clause instance surface in the canonical candidate order.
 void vivify_candidates(const Kernel &, std::vector<Ref> &out);
+// Exact in-place watch selection used after a large shrink.  Kept visible so
+// the conflict-backtrack/unassigned-tail behavior can be unit tested.
+void vivify_pose_replacement_watches(Kernel &, std::vector<Lit> &);
+// Exact prefix trim that precedes the watch selection for a large rewrite.
+void vivify_trim_replacement_prefix(Kernel &, Lit implied,
+                                    uint32_t replacement_size);
 ApplyResult vivify_try(Kernel &, Ref candidate); // one candidate
 ApplyResult vivify_apply(Kernel &);              // canonical: full round
 

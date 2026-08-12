@@ -11,8 +11,10 @@ namespace tactix {
 
 // Requires `H`: SwitchMode flips the ranking mode, which is `H` state — a pure
 // precondition of a policy operation that genuinely needs `H` (plan §5).
-bool switchmode_guard(const Kernel &k) {
-  return !k.inconsistent && k.h != nullptr;
+RuleEligibility switchmode_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("heuristics-attached", k.h != nullptr);
 }
 
 ApplyResult switchmode_apply(Kernel &k) {

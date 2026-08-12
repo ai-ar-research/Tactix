@@ -238,7 +238,11 @@ void env_add_clause(Kernel &k, SweepEnv &e, const Lit *lits, uint32_t n,
 
 } // namespace
 
-bool sweep_guard(const Kernel &k) { return !k.inconsistent && k.level == 0; }
+RuleEligibility sweep_guard(const Kernel &k) {
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
+}
 
 // The variable's large-clause + watch degree, both polarities. Without the
 // phase occurrence index only the watch lists are readable, which still ranks
@@ -417,6 +421,7 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   r.env.solver.start_kitten_session();
   sweep_enter_dense(k);
   sweep_build_occurrences(k, r);
+  r.substitution.begin(k);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Var v = 0; v < k.nvars; v++) {
     uint32_t ordinal = 0;
@@ -1449,6 +1454,12 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     k.sweep_passes_completed++;
     k.stats.sweep_completed++;
   }
+  // Each connected rewrite above is incremental.  Cross the variable-width
+  // arena bridge once, after every reference-ordered environment in this call
+  // has observed its predecessor's consequences.  Charging here records the
+  // real host cost without letting that representation detail postpone the
+  // next semantic Sweep transaction.
+  k.stats.sweep_ticks_repr += r.substitution.collect(k);
   // Kissat keeps newly assigned units unpropagated throughout the dense Sweep
   // pass and performs one probing propagation after releasing the sweeper.
   // Earlier closure changes later environments and is therefore not merely a
@@ -2302,13 +2313,21 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
     // Applying one Sweep environment's consequences crosses Tactix's
     // variable-width representation bridge once. Sweep owns that scheduled
     // cost; Substitute remains unaware of who requested the rewrite.
-    const uint64_t representation_words = k.arena.size();
     const ApplyResult substituted =
-        substitute_apply_sweep_equivalences(k, emitted_equivalences);
+        substitute_apply_sweep_equivalences(k, emitted_equivalences,
+                                            round.substitution);
     if (substituted == ApplyResult::Unsat)
       return substituted;
-    if (substituted == ApplyResult::Ok)
-      k.stats.sweep_ticks_repr += representation_words;
+    if ((!k.dense || k.stats.conflicts > 0) &&
+        round.substitution.changed) {
+      // The reference-ordered multi-environment commitment is a preprocessing
+      // lifecycle.  Search-time Sweep calls keep the ordinary representation-
+      // aware per-environment boundary so a later dose cannot turn one search
+      // allowance into thousands of whole-formula rewrites.  Standalone Sweep
+      // likewise owns an occurrence snapshot that needs the generation bump.
+      k.stats.sweep_ticks_repr += round.substitution.collect(k);
+      round.substitution.begin(k);
+    }
     any |= substituted == ApplyResult::Ok;
   }
   if (any)
@@ -2346,7 +2365,10 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   if (lim.resume)
     return sweep_apply_resumable(k, lim, round);
   const uint32_t found = sweep_detect_round(k, lim, round);
-  return sweep_emit_round(k, round, found);
+  const ApplyResult result = sweep_emit_round(k, round, found);
+  if (result != ApplyResult::Unsat)
+    k.stats.sweep_ticks_repr += round.substitution.collect(k);
+  return result;
 }
 
 ApplyResult sweep_apply(Kernel &k) {
@@ -2370,7 +2392,10 @@ ApplyResult sweep_try(Kernel &k, Var seed) {
     lim.round_ticks = k.work_budget;
   sweep_round_begin(k, round);
   (void)sweep_process_seed(k, seed, lim, round, true);
-  if (k.inconsistent || inprocess_reach_root(k))
+  if (k.inconsistent)
+    return ApplyResult::Unsat;
+  k.stats.sweep_ticks_repr += round.substitution.collect(k);
+  if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   return round.emission_batches ? ApplyResult::Ok : ApplyResult::NoOp;
 }

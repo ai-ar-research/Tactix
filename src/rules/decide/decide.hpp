@@ -10,7 +10,7 @@
 
 namespace tactix {
 
-bool decide_guard(const Kernel &);
+RuleEligibility decide_guard(const Kernel &);
 ApplyResult decide_apply_canonical(Kernel &);
 
 // N1 surface: apply Decide on a chosen literal (any unassigned literal is a

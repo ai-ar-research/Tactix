@@ -9,10 +9,12 @@
 
 namespace tactix {
 
-bool subsume_forward_guard(const Kernel &k) {
+RuleEligibility subsume_forward_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
   // regardless of a recorded conflict (D-SPLIT-3, `docs/calculus.md` §7).
-  return !k.inconsistent && k.level == 0;
+  RuleEligibility result;
+  return result.fact("consistent", !k.inconsistent)
+      .fact("root-level", k.level == 0);
 }
 
 // is `d` (irredundant, live) a subsumer of the marked candidate? true iff every
@@ -121,7 +123,8 @@ static bool watch_population_within(const Kernel &k, Lit lit, bool binary,
 // binary subsumer — see subsume_forward.hpp.
 static bool subsumed_by_binary(Kernel &k,
                                const std::vector<uint8_t> &marks,
-                               const Clause *c) {
+                               const Clause *c, uint64_t check_start,
+                               bool &budget_exhausted) {
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
@@ -131,6 +134,11 @@ static bool subsumed_by_binary(Kernel &k,
       if (!w.binary())
         continue;
       k.stats.forward_visits++;
+      if (k.midround_budget && k.work_budget &&
+          k.stats.forward_visits - check_start >= k.work_budget) {
+        budget_exhausted = true;
+        return false;
+      }
       if (marks[w.other()])
         return true;
     }
@@ -184,7 +192,7 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     const Ref ref = candidates[ci];
     if (k.midround_budget && k.work_budget &&
-        k.stats.forward_visits - check_start > k.work_budget) {
+        k.stats.forward_visits - check_start >= k.work_budget) {
       k.stats.budget_stops_c1++;
       stopped_at = ci;
       break;
@@ -202,12 +210,16 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     // loses old-subsumes-new; the index is round-local and cheap here.
     const bool check = !filter || kernel_clause_new_material(k, c, wm);
     bool subsumed = false;
+    bool budget_exhausted = false;
     if (check) {
       k.stats.forward_checked++;
       mark_candidate(k, marks, c, 1);
-      subsumed = subsumed_by_binary(k, marks, c);
+      subsumed = subsumed_by_binary(k, marks, c, check_start,
+                                    budget_exhausted);
       if (!subsumed) {
         for (const Lit l : *c) {
+          if (budget_exhausted)
+            break;
           if (k.value(l) != 0)
             continue;
           const std::vector<Ref> &os = occs[l];
@@ -215,6 +227,11 @@ ApplyResult subsume_forward_apply(Kernel &k) {
             continue;
           for (const Ref dref : os) {
             k.stats.forward_visits++;
+            if (k.midround_budget && k.work_budget &&
+                k.stats.forward_visits - check_start >= k.work_budget) {
+              budget_exhausted = true;
+              break;
+            }
             const Clause *d = clause_at(k.arena, dref);
             assert(d->size <= c->size); // connected earlier => not larger
             if (subsumes_marked(k, marks, d)) {
@@ -227,6 +244,11 @@ ApplyResult subsume_forward_apply(Kernel &k) {
         }
       }
       mark_candidate(k, marks, c, 0);
+      if (budget_exhausted) {
+        k.stats.budget_stops_c1++;
+        stopped_at = ci;
+        break;
+      }
     } else {
       k.stats.forward_mark_skipped++;
     }

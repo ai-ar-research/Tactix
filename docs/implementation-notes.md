@@ -164,32 +164,94 @@ M3 is one public operation. Private pending state must be consumed before contro
 - Factor variables are contiguous at `[first_extension_var,nvars)` and projected from output models.
   Focused VMTF demotes that range once per Factor apply; `factor_demote_fresh` defaults true. Stable
   mode inserts them at score zero.
+- Factor snapshots the full current `2*nvars` literal universe at each application. Extension
+  literals from earlier applications remain eligible factors; the fixed snapshot excludes literals
+  created later in the same application (apart from Kissat's harmless positive-boundary literal).
 - `factor_size=5` and `factor_cand_rounds=2` are within-rule scope, not guards;
   the latter matches both shipped reference defaults and has an explicit `=0`
   unfiltered arm.
   `no_ext_decisions` is diagnostic only: excluding extension variables from Decide would violate N1.
 - BVE does not schedule extension variables because it would immediately reverse Factor. This is policy,
   not a soundness precondition.
-- Factor's dense entry keeps the first watch for each binary partner and flushes duplicates; dense exit
-  rebuilds large watches in arena order while binaries keep encounter order. Selected grids apply
+- Factor's dense entry keeps the first watch for each binary partner, flushes duplicates, and proof-deletes
+  root-satisfied binary pairs before matching, as Kissat's dense connection does; dense exit rebuilds
+  large watches in arena order while binaries keep encounter order. Selected grids apply
   last-factor first (`q -> prev`), and each large quotient copies that row's literal pose after removing
   the factor; the interned sorted remainder is only a comparison key, never the emitted watch pose.
 - Factor has no within-rule admission gate. DefaultPolicy solve-latches the first 700M-tick dose off after crossing `factor_active_ceiling`; later shrinkage cannot re-admit it, and a decline occurs before rule dispatch. The deleted binary-density gate read a size-monotone proof-id map and must not return.
 - Grid selection crosses a rule-owned `FactorSelection` interface; the default scheduler scopes a
   `FactorMatchPolicy` adapter while Factor owns the proof-bearing
   grid rewrite, positive-gain floor and effort budget. Clear the policy pointer after the phase.
+- Factor's budget meter is the reference dense-scan meter, not clause size:
+  quotient-stack and watch-list cache lines plus every inspected live large
+  occurrence.  The two reference quit points are after each current quotient
+  occurrence and before each seed.  This boundary is scheduling state: on the
+  `sted5` witness it splits one probe phase into the same 23-grid then 11-grid
+  Factor doses as original Kissat, allowing the intervening Vivify pass to see
+  the same clause population.
 - Proof order is E2's divider-then-quotient-then-grid-deletion order. BVE skips extension variables; no reconstruction witness is pushed because output projection removes them.
 
 ### Budgets and scope
 
+- DefaultPolicy ships the original-Kissat pipeline membership. The CaDiCaL-derived
+  `HyperBinaryRes`, standalone `Probe`, `HyperTernaryRes`, `Instantiate`, `BCE`, and `CCE`
+  proof rules remain registered, N1-reachable, journaled, and explicitly poseable with
+  `TACTIX_SLOT_ENABLE`, but are not interposed in production. On the Tier B `sted5` causal
+  witness, merely removing the three extra Probe-family entries changed 149.22 s to 133.34 s;
+  matching both Kissat pipelines changed it to 52.75 s with a verified model. This is a
+  control-membership repair, not a semantic guard or removal of any rule.
 - `work_budget=0` is unbounded. A scoped canonical round may stop at a prefix in its own deterministic currency: Vivify uses
-  propagation ticks, Factor factor-cache ticks, and Sweep Kitten ticks plus arena words rebuilt by Tactix's variable-width bridge. This accepted deviation prices work absent from Kissat's in-place rewrite. Clear after apply.
+  propagation ticks, Factor uses the exact dense-watch scan currency above,
+  and Sweep uses Kitten ticks plus arena words rebuilt by Tactix's variable-width bridge. The Sweep deviation prices work absent from Kissat's in-place rewrite. Clear after apply.
 - `vivify_scope=0` enumerates all bands; 1–5 select the documented tier bands. The setter accepts 0–5
   and ignores invalid values rather than mapping them to another band.
+- Canonical Vivify commits its count-sorted probe pose to full-size scheduled
+  clauses and rebuilds large watches before propagation, matching Kissat's
+  `sort_scheduled_candidate_literals` → `watch_large_clauses` boundary. Keeping
+  the order only in a side vector matched candidate order but selected a
+  different conflict/reason on `sted5` candidate 9 (`-58` left the learned
+  frontier), causing the first unequal rule outcome.
+- Clause order is semantic scheduling state. Ordinary large additions use their
+  monotone proof id as the arena-order key; input restatements and packed-arena
+  replacements inherit the source key. This sparse alias preserves Kissat's
+  in-place OTFS/Strengthen/Vivify position without enlarging every clause header.
+  Vivify uses the key for reference ties and restores physical arena order at
+  its collection boundary. On `sted5`, appending an OTFS replacement at
+  conflict 392 had otherwise inserted an extra first irredundant candidate at
+  conflict 2553 even though both solvers had derived the same clause.
+- Canonical Vivify performs Kissat's root simplification while building each
+  band schedule. Root-satisfied clauses are deleted and root-false literals
+  are stripped through the shared proof-bearing replacement primitive before
+  candidate dispatch. The N1 `instances()` query remains const and complete.
+  The `sted5` witness exposed the distinction as an irredundant ternary that
+  Kissat converted to binary during scheduling while Tactix had retained it as
+  a later no-op candidate.
+- Preserve the two scheduling passes around that simplification. Kissat first
+  simplifies `vivify=0` candidates, then counts every live clause during the
+  `vivify=1` arena pass immediately before simplifying prioritized candidates.
+  Counts therefore include the post-pass-zero database but the pre-strip
+  literals of pass-one clauses. Counting before both passes changed a `sted5`
+  candidate rank from 98 to 100 and swapped ordinals 27 and 28.
+- Vivify's reverse-final-literal instantiation is posed separately from an
+  ordinary learned replacement. For a large result, copy the candidate's
+  current physical order without the removed literal, backtrack two levels,
+  and run the exact two-watch selector under that retained assignment before
+  adding the packed replacement. Resetting to root and rebuilding from probe
+  order produced the same clause but a different next reason on `sted5`; the
+  first affected candidate consumed 2,088 rather than 1,376 propagation ticks.
+- Vivify deduction is a reference clause-use site even though it does not set
+  the ordinary conflict-analysis `used` counter. Each redundant large reason
+  is glue-recomputed from the live assumption levels and promoted immediately,
+  matching `kissat_recompute_and_promote`. On `sted5`, learned clause 84622
+  entered with glue 2 and had to become glue 1 before scheduling; retaining 2
+  was the journal's first differing guard fact.
 - `vivify_flush` affects only the canonical schedule. Per-clause `instances()`
   remains complete and side-effect free; flush compares prefixes only within
-  one of CaDiCaL's four schedule bands. It defaults on by project policy despite
-  the recorded Tier C regression; `TACTIX_VIVIFY_FLUSH=0` selects the off arm.
+  one of CaDiCaL's four schedule bands. It is an explicitly poseable off-default
+  optimization: Kissat's `flush_large_watches` removes watch entries, not
+  prefix-subsumed clauses. On the common `sted5` pre-state, disabling the
+  conflated pass reduces the first Vivify irredundant delta from 1,458 clauses
+  to 97 (Kissat: 165); `TACTIX_VIVIFY_FLUSH=1` selects the diagnostic arm.
 - `sweep_resume` affects only the canonical Sweep round. Its retained tail uses external variable identities;
   `instances()` and `sweep_try()` remain complete.
   Only tail exhaustion grows the 256/1024/2 environment limits toward
@@ -229,21 +291,25 @@ BVE last attempted `v`. It is scheduling advice, not a calculus guard.
   candidate; an external policy can still force the real computation.
 - Added-clause marking is the default. Removal-only retry was measured negative and is not a live arm.
 
-## 7. Design decision: propagation rollback for probing scopes
+## 7. Design decision: persistent propagation pose for probing scopes
 
 Probe and Vivify use normal propagation, which relocates watches and mutates `searched` hints. One
-engine with an undo log restores those search-only effects for a non-committing probe.
+engine supports two explicit scope policies. Vivify uses persistent pose like Kissat: besides selecting
+the same reasons, this avoids charging rollback traffic to its candidate budget. The first persistent
+diagnostic was slower because a separate candidate comparator defect reordered the schedule at ordinal
+65; the coupled comparator+pose repair is the unit under validation.
 
-- Snapshot each watch list at first touch; replay clause-header relocations in reverse.
-- Restore only after trail size, `propagate_head`, and level exactly match scope entry. If a derived
-  root literal survives, discard the log and keep its load-bearing watch changes.
+- A probing scope suppresses phase saving and delimits formula mutations. Its caller can choose
+  isolated rollback or persistent pose; canonical Vivify selects persistent pose.
+- The ignored Vivify candidate may relocate a watch; it is excluded only at the unit/conflict action,
+  matching Kissat rather than being skipped at dereference time.
 - A surviving root literal is also a proof obligation, so `kernel_propagate_probing` emits its LRAT
   unit line as `propagate_service` does (regression corpus 017).
-- No clause addition/deletion, arena compaction, or external watch relocation may occur inside the
-  scope. Callers unwind and close it before rewrite or unit assertion.
+- No clause addition/deletion or arena compaction may occur inside the scope. Callers unwind and close
+  it before rewrite or unit assertion.
 - Outside a scope, probing propagation is ordinary propagation. V1 Probe and C3 Vivify open a scope per
   candidate; V2 uses the non-mutating binary engine; S5 uses ordinary propagation before search.
-- A public `NoOp` therefore restores assignments, reasons, queue heads, watches, and search hints.
+- A public isolated `NoOp` restores all bookkeeping; Vivify retains legal watch/search-hint churn.
 
 ## 8. Design decision: phase saving and rephasing
 
@@ -338,6 +404,17 @@ Every binary deletion must be justified either by current formula entailment or 
 reconstruction witness; reasons may not be deleted while live. If a redundant-binary lifecycle is added,
 reopen the representation, reduction, reason-locking, proof-deletion, and regression-test decisions
 together.
+
+Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue. The binary-id map is a
+size-monotone proof-identity archive, not a live-clause statistic; counting it advanced the first
+post-preprocessing Probe deadline from Kissat's conflict 2553 to 2541 on the Tier B `sted5` witness.
+Scaled probe/eliminate guards are strict (`limit < conflicts`), with only the explicit round-zero Probe
+invitation exempt so startup preprocessing still runs.
+
+Named Congruence and Sweep productivity delays update after preprocessing as well as search-time
+calls, exactly like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`. Thus an unproductive startup call can skip
+the first scheduled search-time attempt. Substitute has no Kissat delay object; its local closure
+backoff remains search-time-only.
 
 ## 15. Design decision: eager subsumption after analysis
 
