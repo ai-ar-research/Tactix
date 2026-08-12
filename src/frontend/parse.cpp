@@ -41,6 +41,25 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   k.input_restatements.push_back(r);
 }
 
+// Kissat closes every new input unit immediately, so later clauses are added
+// against the resulting root assignment.  Do the same for the proof-less and
+// DRAT paths.  Native LRAT must defer this closure until all original input
+// ids have been consumed: propagation-derived units need fresh ids, and a
+// derived id may not precede a later original id in the LRAT namespace.
+static void propagate_input_unit(Kernel &k) {
+  if (k.proof && k.proof->lrat())
+    return;
+  const bool was_inprocessing = k.inprocessing;
+  k.inprocessing = true; // input scans do not spend the search-tick budget
+  const bool conflict = kernel_propagate(k);
+  k.inprocessing = was_inprocessing;
+  if (!conflict)
+    return;
+  if (k.proof)
+    k.proof->add_empty(0, nullptr, 0); // DRAT needs no antecedent ids
+  k.inconsistent = true;
+}
+
 void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // Every input clause consumes one proof id in input order, including
   // tautologies and duplicates that are never stored (LRAT input numbering).
@@ -95,18 +114,20 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // Kissat internal.c:kissat_add normalizes every input clause against units
   // already fixed while parsing.  A root-true literal satisfies the clause;
   // a root-false literal is removed, with its true complement retained as the
-  // LRAT antecedent for the deferred restatement below.  Tactix deliberately
-  // does not propagate during parsing (derived ids cannot precede later input
-  // ids), but explicit and earlier root-shrunk units still have the same
-  // effect on every subsequent clause.
+  // LRAT antecedent for the deferred restatement below.  The normal and DRAT
+  // paths propagate new units immediately, matching Kissat; native LRAT alone
+  // defers derived units because their ids cannot precede later input ids.
+  const bool native_lrat = k.proof && k.proof->lrat();
   std::vector<Lit> root_units;
   auto out = scratch.begin();
   for (const Lit lit : scratch) {
     const int8_t value = k.values[lit];
     if (value > 0)
       return; // satisfied input clause: consume its id, activate/store nothing
-    if (value < 0)
-      root_units.push_back(negate(lit));
+    if (value < 0) {
+      if (native_lrat)
+        root_units.push_back(negate(lit));
+    }
     else
       *out++ = lit;
   }
@@ -157,6 +178,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     if (shrunk)
       restate_input(k, id, scratch, root_units, 0);
     kernel_assign_unit(k, u);
+    propagate_input_unit(k);
   } else if (scratch.size() == 2) {
     // Duplicate binary: id consumed, never stored, following the duplicate-unit
     // precedent — the checker keeps its never-referenced input copy and no
@@ -196,18 +218,21 @@ void finish_input(Kernel &k) {
     const Lit *lits = k.input_restate_lits.data() + r.begin;
     const uint64_t nid = ++k.next_clause_id;
     chain.clear();
-    for (uint32_t i = 0; i < r.unit_size; i++) {
-      const Lit unit = k.input_restate_units[r.unit_begin + i];
-      assert(k.values[unit] > 0);
-      const uint64_t uid = k.unit_ids[var_of(unit)];
-      assert(uid);
-      chain.push_back(uid);
+    if (k.proof->lrat()) {
+      for (uint32_t i = 0; i < r.unit_size; i++) {
+        const Lit unit = k.input_restate_units[r.unit_begin + i];
+        assert(k.values[unit] > 0);
+        const uint64_t uid = k.unit_ids[var_of(unit)];
+        assert(uid);
+        chain.push_back(uid);
+      }
+      // Root units first remove every root-false literal; the original file
+      // clause then conflicts under the negated normalized clause. Duplicate-
+      // only normalization has no units and retains the old one-hint proof.
+      chain.push_back(r.id);
     }
-    // Root units first remove every root-false literal; the original file
-    // clause then conflicts under the negated normalized clause. Duplicate-
-    // only normalization has no units and retains the old one-hint proof.
-    chain.push_back(r.id);
-    k.proof->add_rup(nid, lits, r.size, chain.data(),
+    k.proof->add_rup(nid, lits, r.size,
+                     chain.empty() ? nullptr : chain.data(),
                      static_cast<uint32_t>(chain.size()));
     if (r.size == 1) {
       assert(k.unit_ids[var_of(lits[0])] == r.id);
@@ -241,14 +266,17 @@ void finish_input(Kernel &k) {
     k.input_refuted = false;
     if (k.proof) {
       chain.clear();
-      for (const Lit unit : k.input_refutation_units) {
-        assert(k.values[unit] > 0);
-        const uint64_t uid = k.unit_ids[var_of(unit)];
-        assert(uid);
-        chain.push_back(uid);
+      if (k.proof->lrat()) {
+        for (const Lit unit : k.input_refutation_units) {
+          assert(k.values[unit] > 0);
+          const uint64_t uid = k.unit_ids[var_of(unit)];
+          assert(uid);
+          chain.push_back(uid);
+        }
+        chain.push_back(k.input_refutation_id);
       }
-      chain.push_back(k.input_refutation_id);
-      k.proof->add_empty(++k.next_clause_id, chain.data(),
+      k.proof->add_empty(++k.next_clause_id,
+                         chain.empty() ? nullptr : chain.data(),
                          static_cast<uint32_t>(chain.size()));
     }
     k.input_refutation_units.clear();

@@ -47,6 +47,12 @@ EOF
   # needs a deferred lemma with both the prior unit and file clause as hints;
   # the following opposite unit then cites that restated id in the empty proof.
   printf 'p cnf 2 3\n1 0\n-1 2 0\n-2 0\n' > "$T/rootshrink.cnf"
+  # A unit implication cascade is closed while DRAT input is still being read.
+  # Its derived x3 shrinks a later ternary to binary, and the following units
+  # refute during ingestion.  This exercises derived-root normalization without
+  # LRAT ids; native LRAT deliberately keeps the deferred-input path.
+  printf 'p cnf 5 6\n-1 2 0\n-2 3 0\n1 0\n-3 4 5 0\n-4 0\n-5 0\n' \
+    > "$T/rootcascade.cnf"
   # Startup sparse collection: the large clause precedes the binary implication
   # that fixes x1, so input normalization cannot shorten it. Initial propagation
   # derives x1; the collector then rewrites the large clause to binary (5 6).

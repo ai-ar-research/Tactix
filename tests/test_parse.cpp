@@ -93,9 +93,40 @@ static void test_root_units_normalize_later_input_clauses() {
   kernel_check_invariants(k);
 }
 
+static void test_input_units_propagate_before_later_clauses() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  FILE *file = std::tmpfile();
+  assert(file);
+  const char *dimacs =
+      "p cnf 6 6\n"
+      "-1 2 0\n"       // stored before its forcing unit
+      "-2 3 0\n"       // transitive binary consequence
+      "1 0\n"          // must propagate x2 and x3 during ingestion
+      "3 4 0\n"        // now root-satisfied and omitted
+      "-3 5 6 0\n"     // now shrinks to the binary 5 6
+      "4 5 0\n";
+  assert(std::fputs(dimacs, file) >= 0);
+  std::rewind(file);
+  assert(parse_dimacs(file, k) == nullptr);
+  std::fclose(file);
+
+  assert(k.values[internalize(1)] > 0);
+  assert(k.values[internalize(2)] > 0);
+  assert(k.values[internalize(3)] > 0);
+  assert(k.propagate_head == k.trail.size());
+  assert(kernel_binary_live(k, internalize(5), internalize(6)));
+  assert(k.stats.input_restated == 1);
+  // x4 first appears only in the satisfied clause and must not be activated
+  // there, matching Kissat's add-at-root behavior.
+  assert(!k.input_activated.size()); // finish_input has released the scratch
+  kernel_check_invariants(k);
+}
+
 int main() {
   test_tumble_preserves_file_literal_order();
   test_root_units_normalize_later_input_clauses();
+  test_input_units_propagate_before_later_clauses();
   puts("test_parse OK");
   return 0;
 }
