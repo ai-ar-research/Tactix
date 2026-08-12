@@ -8,7 +8,7 @@ Usage:
 
 - SLURM mode (see the slurm-jobs skill): submits one array task per
   solver x instance to cpu-dense-hwulab-q (8 GB/core rule: cpus-per-task =
-  ceil(mem_gb/8), default 1 core / 8 GB), plus a dependent aggregate job that
+  ceil(mem_gb/8), default 4 cores / 32 GB), plus a dependent aggregate job that
   merges the per-task JSONs into the identical results.json a local run
   writes. The allocation shape (partition, cpus/mem per task, throttle) is
   recorded in place of the local jobs count; numbers are comparable only
@@ -166,13 +166,10 @@ TIER_TIMEOUT = {
     "A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0,
     "P4A": 30.0, "P4B": 300.0,
 }
-# 16 GB is the competition cap (§8.1). Under the cluster's 8 GB/core rule this
-# costs 2 cores per task for a single-threaded solver — the second core buys
-# memory, not parallelism. Tiers A and B keep the 1-core default: nothing on
-# either approaches the cap (Tier B solves 28/28), so the headroom would buy
-# nothing while making every banked number on the daily-driver tier
-# incomparable.
-TIER_MEM_GB = {"C": 16, "D": 16}
+# Every tier task receives 32 GB (§8.1). Under the cluster's 8 GB/core rule this
+# costs four allocated CPUs for one single-threaded solver; the extra CPUs buy
+# memory capacity, not solver parallelism.
+TIER_MEM_GB = {tier: 32 for tier in ("A", "B", "C", "D", "P4A", "P4B")}
 BASELINES = {
     "kissat": os.path.join(ROOT, "tools", "solvers", "bin", "kissat"),
     "cadical": os.path.join(ROOT, "tools", "solvers", "bin", "cadical"),

@@ -45,6 +45,8 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 assert runner.TIER_TIMEOUT["P4A"] == 30.0
 assert runner.TIER_TIMEOUT["P4B"] == 300.0
+assert all(runner.TIER_MEM_GB[tier] == 32
+           for tier in ("A", "B", "C", "D", "P4A", "P4B"))
 assert [row[0] for row in runner.read_tier_list("P4A")] == [row[0] for row in p4a]
 assert [row[0] for row in runner.read_tier_list("P4B")] == [row[0] for row in p4b]
 
@@ -73,7 +75,7 @@ tier_c_dry = subprocess.run(
      "--dry-run"],
     check=True, text=True, stdout=subprocess.PIPE).stdout
 assert "--tier C" in tier_c_dry
-assert "--cpus-per-task=2" in tier_c_dry and "--mem=16G" in tier_c_dry
+assert "--cpus-per-task=4" in tier_c_dry and "--mem=32G" in tier_c_dry
 assert "--time=210" in tier_c_dry
 
 tactix_only_dry = subprocess.run(
@@ -90,10 +92,10 @@ large_memory_dry = subprocess.run(
      "--fixture", "128_125.sanitized", "--tier", "C",
      "--tactix", "/pin/kissat", "--kissat", "/pin/kissat",
      "--out", "/tmp/p4-tier-c-large-memory-dry", "--tactix-only",
-     "--no-trace", "--memory-gb", "32", "--dry-run"],
+     "--no-trace", "--memory-gb", "40", "--dry-run"],
     check=True, text=True, stdout=subprocess.PIPE).stdout
-assert "--cpus-per-task=4" in large_memory_dry and "--mem=32G" in large_memory_dry
-assert "--memory-gb 32" in large_memory_dry
+assert "--cpus-per-task=5" in large_memory_dry and "--mem=40G" in large_memory_dry
+assert "--memory-gb 40" in large_memory_dry
 
 with tempfile.TemporaryDirectory(prefix="p4-check-timeout-") as directory:
     directory = pathlib.Path(directory)

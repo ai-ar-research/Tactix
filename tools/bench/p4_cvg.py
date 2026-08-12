@@ -271,11 +271,10 @@ def main():
     if args.repeats < 1:
         ap.error("--repeats must be positive")
     if args.memory_gb is None:
-        args.memory_gb = 16 if row["group"] in ("C", "D") else 8
+        args.memory_gb = 32
     if args.memory_gb <= 0 or args.memory_gb % 8:
         ap.error("--memory-gb must be a positive multiple of 8")
-    if args.memory_gb != (16 if row["group"] in ("C", "D") else 8) \
-            and not args.tier:
+    if args.memory_gb != 32 and not args.tier:
         ap.error("a non-default --memory-gb requires --tier")
     if args.tactix_only and not args.tier:
         ap.error("--tactix-only requires --tier")
