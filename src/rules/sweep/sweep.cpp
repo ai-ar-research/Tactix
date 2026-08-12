@@ -1,6 +1,7 @@
 // Sweep: candidate selection, environment construction and emission. Contract,
 // soundness argument and deviation ledger: sweep.hpp.
 #include "proof/proof.hpp"
+#include "diagnostics/rule_journal.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/congruence/congruence.hpp"
 #include "rules/substitute/substitute.hpp"
@@ -22,6 +23,7 @@ SubResult sweep_solve(SweepEnv &e, const std::vector<SubLit> &assumptions,
 }
 
 ApplyResult sweep_emit_round(Kernel &, SweepRound &, uint32_t);
+ApplyResult sweep_emit_pending_units(Kernel &, SweepRound &);
 
 // Dedup keys for the environment's clause set: a binary by its literal pair
 // (so both endpoint scans encode it once), a large clause by its arena ref, a
@@ -59,7 +61,7 @@ Lit repr_find(SweepRound &r, Lit l) {
   return root;
 }
 
-void repr_unite(SweepRound &r, Lit a, Lit b) {
+void repr_unite(const Kernel &k, SweepRound &r, Lit a, Lit b) {
   Lit ra = repr_find(r, a), rb = repr_find(r, b);
   if (ra == rb)
     return;
@@ -69,7 +71,7 @@ void repr_unite(SweepRound &r, Lit a, Lit b) {
   // apart. Emission must treat the case as a refutation, not as two binaries.
   if (rb == negate(ra))
     return;
-  if (rb < ra)
+  if (kernel_import_lit_order(k, rb) < kernel_import_lit_order(k, ra))
     std::swap(ra, rb);
   r.repr[rb] = ra;
   r.repr[negate(rb)] = negate(ra);
@@ -365,6 +367,42 @@ static void sweep_build_occurrences(Kernel &k, SweepRound &r) {
   r.occ_generation = k.arena_generation;
 }
 
+// Kissat enters dense mode immediately before scheduling Sweep.  Its
+// null-stack `kissat_flush_large_watches` deduplicates binaries (and, unlike
+// Congruence's non-null dense entry, retains root-satisfied ones);
+// `connect_irredundant_large_clauses` then garbages root-satisfied large clauses
+// before constructing the full occurrence lists.  Reusing Tactix's
+// older dense index without this transition leaves clauses satisfied by the
+// preceding Backbone pass in the degree ranks and changes the very first seed.
+static void sweep_enter_dense(Kernel &k) {
+  kernel_deduplicate_binary_watches(k);
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      bool satisfied = false;
+      for (const Lit lit : *c)
+        if (k.value(lit) > 0) {
+          satisfied = true;
+          break;
+        }
+      if (satisfied)
+        kernel_delete_clause(k, c);
+    }
+    ref += words;
+  }
+  if (k.dense) {
+    k.dense->large.assign(2 * k.nvars, {});
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !c->redundant())
+        for (const Lit lit : *c)
+          k.dense->large[lit].push_back(ref);
+      ref += clause_words(c->size);
+    }
+  }
+}
+
 // A productive seed substitutes its consequences inline, and that collects the
 // variable-width arena. `Kernel::dense` is rebuilt by the collector; a
 // round-local snapshot is not, so its Ref offsets would keep naming the
@@ -377,6 +415,7 @@ static void sweep_refresh_occurrences(Kernel &k, SweepRound &r) {
 
 void sweep_round_begin(Kernel &k, SweepRound &r) {
   r.env.solver.start_kitten_session();
+  sweep_enter_dense(k);
   sweep_build_occurrences(k, r);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Var v = 0; v < k.nvars; v++) {
@@ -588,6 +627,59 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   out.ok = true;
 }
 
+// Kissat's `save_add_clear_core` does not retain only the failed assumption's
+// final target.  It walks every learned lemma in the extracted core and a lemma
+// which is unit under the live root assignment is committed immediately.  A
+// later SAT refinement in this same environment can therefore discard that
+// literal before ever posing it as an equivalence candidate.  Keep the same
+// ordered semantic surface here: each unit gets the derivation prefix ending
+// at the lemma which proves it, rather than borrowing the final target's proof.
+static void sweep_capture_core_units(const Kernel &k,
+                                     const SweepDirProof &proof,
+                                     SweepRound &round) {
+  if (!proof.ok)
+    return;
+  for (size_t i = 0; i < proof.steps.size(); i++) {
+    const SubStep &step = proof.steps[i];
+    Lit unit = INVALID_LIT;
+    bool satisfied = false;
+    for (const SubLit sl : step.lits) {
+      if (sub_var_of(sl) >= proof.vars.size()) {
+        satisfied = true; // malformed captures decline in the real evaluator
+        break;
+      }
+      const Lit lit = sweep_kernel_lit(proof.vars, sl);
+      const int8_t value = k.value(lit);
+      if (value > 0) {
+        satisfied = true;
+        break;
+      }
+      if (!value) {
+        if (unit != INVALID_LIT) {
+          unit = INVALID_LIT;
+          satisfied = true; // more than one non-false literal: not a unit
+          break;
+        }
+        unit = lit;
+      }
+    }
+    if (satisfied || unit == INVALID_LIT)
+      continue;
+    if (std::any_of(round.units.begin(), round.units.end(),
+                    [&](const SweepUnitProof &known) {
+                      return known.unit == unit;
+                    }))
+      continue;
+    SweepUnitProof captured;
+    captured.unit = unit;
+    captured.proof = proof;
+    captured.proof.steps.resize(i + 1);
+    captured.proof.t0 = unit;
+    captured.proof.t1 = INVALID_LIT;
+    round.units.push_back(std::move(captured));
+  }
+}
+
 static uint32_t partition_size(const SweepRound &r) {
   uint32_t n = 0;
   for (const auto &c : r.partition)
@@ -738,7 +830,7 @@ static uint32_t detect_full_partition(
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     Var seed,
 #endif
-    const SweepLimits &lim, SweepRound &r
+    const SweepLimits &lim, SweepRound &r, bool commit_inline
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     , uint32_t &query_ordinal
 #endif
@@ -827,13 +919,12 @@ static uint32_t detect_full_partition(
       continue;
     }
     k.stats.sweep_dir_unsat++;
-    SweepUnitProof unit;
-    unit.unit = lit;
-    sweep_capture_dir(e, unit.proof);
-    if (unit.proof.ok && unit.proof.t0 == lit &&
-        unit.proof.t1 == INVALID_LIT) {
-      r.units.push_back(std::move(unit));
-    }
+    SweepDirProof proof;
+    sweep_capture_dir(e, proof);
+    sweep_capture_core_units(k, proof, r);
+    if (commit_inline &&
+        sweep_emit_pending_units(k, r) == ApplyResult::Ok)
+      r.emission_batches++;
   }
 
   uint32_t found = 0, solved = 0;
@@ -954,11 +1045,19 @@ static uint32_t detect_full_partition(
     k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
     sweep_capture_dir(e, pair.rev);
+    sweep_capture_core_units(k, pair.fwd, r);
+    if (commit_inline &&
+        sweep_emit_pending_units(k, r) == ApplyResult::Ok)
+      r.emission_batches++;
+    sweep_capture_core_units(k, pair.rev, r);
+    if (commit_inline &&
+        sweep_emit_pending_units(k, r) == ApplyResult::Ok)
+      r.emission_batches++;
     r.found.push_back({std::min(a, b), std::max(a, b)});
     r.proofs.push_back(std::move(pair));
     k.stats.sweep_equivalences++;
     found++;
-    repr_unite(r, a, b);
+    repr_unite(k, r, a, b);
     partition_remove_merged_endpoint(r, a, b);
   }
   return found;
@@ -1054,7 +1153,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         seed,
 #endif
-        lim, r
+        lim, r, commit_inline
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         , query_ordinal
 #endif
@@ -1107,7 +1206,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
         binary_live(k, seed_lit, negate(y))) {
       // the formula already states this equivalence: nothing for Sweep to add
       k.stats.sweep_known++;
-      repr_unite(r, seed_lit, y);
+      repr_unite(k, r, seed_lit, y);
       r.candidates.pop_back();
       continue;
     }
@@ -1174,7 +1273,7 @@ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
     r.proofs.push_back(std::move(pair));
     k.stats.sweep_equivalences++;
     found++;
-    repr_unite(r, seed_lit, y);
+    repr_unite(k, r, seed_lit, y);
     r.candidates.pop_back();
   }
   k.stats.sweep_ticks += e.solver.kitten_ticks();
@@ -1302,7 +1401,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     if (external >= k.external_to_internal.size())
       continue;
     const Var v = k.external_to_internal[external];
-    if (v == INVALID_VAR || !sweep_schedulable(k, v, lim))
+    if (v == INVALID_VAR || root_fixed(k, v) || kernel_var_retired(k, v))
       continue;
     if (retained)
       k.stats.sweep_resumed++;
@@ -1426,102 +1525,431 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
 // antecedent it names. Anything not mappable exactly declines rather than
 // emits. `dry` validates without emitting or consuming an id, so a pair is
 // checked whole before either half is written.
-static bool sweep_emit_general(Kernel &k, const SweepDirProof &p,
-                               const Lit t0, const Lit t1, bool dry) {
-  if (!p.ok || p.steps.empty())
-    return false;
-  // Resumable Sweep can commit and substitute an earlier consequence while
-  // the embedded solver continues on its old environment. Validate freshness
-  // during the all-or-nothing dry pass, before any proof line is emitted.
-  if (dry && p.formula_epoch != k.touch_epoch)
-    return false;
-  // The strip ledger is indexed by original clause, one CSR slot each. A
-  // capture that does not satisfy that cannot be translated, so decline rather
-  // than index past it.
-  if (p.strip_off.size() != p.orig_ids.size() + 1)
-    return false;
-  const bool lrat = k.proof && k.proof->lrat();
-  uint32_t max_id = static_cast<uint32_t>(p.orig_ids.size());
-  for (const SubStep &st : p.steps)
-    max_id = std::max(max_id, st.id);
-  std::vector<uint64_t> id_of(static_cast<size_t>(max_id) + 1, 0);
-  for (size_t i = 0; i < p.orig_ids.size(); i++)
-    id_of[i + 1] = p.orig_ids[i]; // sub ids are 1-based, in add order
+enum class SweepGeneralDecline : uint8_t {
+  None,
+  CaptureMissing,
+  StripShape,
+  SubVariable,
+  EmptyStep,
+  TautologicalStep,
+  AntecedentMissing,
+  FixedTarget,
+  FixedUnitId,
+  FinalShape,
+  FinalTarget,
+};
 
-  std::vector<Lit> lits;
-  std::vector<uint64_t> chain;
-  uint64_t last_id = 0;
-  for (size_t si = 0; si < p.steps.size(); si++) {
-    const SubStep &st = p.steps[si];
-    lits.clear();
-    for (const SubLit sl : st.lits) {
-      if (sub_var_of(sl) >= p.vars.size())
-        return false;
-      lits.push_back(sweep_kernel_lit(p.vars, sl));
-    }
-    if (lits.empty())
-      return false; // the empty clause means F is UNSAT; not this rule's job
-    if (Proof::tautological(lits.data(), static_cast<uint32_t>(lits.size())))
-      return false; // uncheckable under LRAT; decline the whole pair
-    chain.clear();
-    // Strip units first: a unit is unit under every assignment, hence valid at
-    // any position in an LRAT hint list, and front-loading them is the only
-    // order independent of which antecedent needs which unit.
-    for (const uint32_t c : st.chain) {
-      if (c == 0 || c > p.orig_ids.size())
-        continue; // a derived lemma carries no strip ledger
-      for (uint32_t s = p.strip_off[c - 1]; s < p.strip_off[c]; s++) {
-        const uint64_t uid = p.strip_ids[s];
-        if (std::find(chain.begin(), chain.end(), uid) == chain.end()) {
-          chain.push_back(uid);
-          if (!dry && lrat)
-            k.stats.sweep_strip_cited++;
-        }
+enum class SweepPairDecline : uint8_t {
+  None,
+  ProofIndexMissing,
+  ForwardCaptureMissing,
+  ReverseCaptureMissing,
+  TargetMismatch,
+};
+
+struct SweepPairSelection {
+  SweepPairDecline decline = SweepPairDecline::None;
+  const SweepDirProof *forward = nullptr;
+  const SweepDirProof *reverse = nullptr;
+  const SweepPairProof *captured = nullptr;
+  bool unit_consequences = false;
+  bool eligible() const { return decline == SweepPairDecline::None; }
+};
+
+static bool sweep_proof_is_pair(const SweepDirProof &proof, Lit a, Lit b) {
+  return (proof.t0 == a && proof.t1 == b) ||
+         (proof.t0 == b && proof.t1 == a);
+}
+
+static SweepPairSelection sweep_select_pair(const SweepRound &round,
+                                            size_t index, Lit a, Lit b) {
+  SweepPairSelection result;
+  if (index >= round.proofs.size()) {
+    result.decline = SweepPairDecline::ProofIndexMissing;
+    return result;
+  }
+  result.captured = &round.proofs[index];
+  const SweepPairProof &proof = *result.captured;
+  if (!proof.fwd.ok) {
+    result.decline = SweepPairDecline::ForwardCaptureMissing;
+    return result;
+  }
+  if (!proof.rev.ok) {
+    result.decline = SweepPairDecline::ReverseCaptureMissing;
+    return result;
+  }
+  const Lit f0 = negate(a), f1 = b, r0 = a, r1 = negate(b);
+  if (sweep_proof_is_pair(proof.fwd, f0, f1) &&
+      sweep_proof_is_pair(proof.rev, r0, r1)) {
+    result.forward = &proof.fwd;
+    result.reverse = &proof.rev;
+  } else if (sweep_proof_is_pair(proof.rev, f0, f1) &&
+             sweep_proof_is_pair(proof.fwd, r0, r1)) {
+    result.forward = &proof.rev;
+    result.reverse = &proof.fwd;
+  } else {
+    // A refuted direction can simplify all the way to a unit when the local
+    // environment fixes that endpoint. If the two captured units fix the two
+    // endpoints consistently, they are stronger than the requested
+    // equivalence and are the real semantic consequences to commit.
+    const auto endpoint_value = [&](Lit unit, Lit endpoint) {
+      return unit == endpoint ? 1 : unit == negate(endpoint) ? -1 : 0;
+    };
+    if (proof.fwd.t1 == INVALID_LIT && proof.rev.t1 == INVALID_LIT) {
+      const int fwd_a = endpoint_value(proof.fwd.t0, a);
+      const int fwd_b = endpoint_value(proof.fwd.t0, b);
+      const int rev_a = endpoint_value(proof.rev.t0, a);
+      const int rev_b = endpoint_value(proof.rev.t0, b);
+      const int value_a = fwd_a ? fwd_a : rev_a;
+      const int value_b = fwd_b ? fwd_b : rev_b;
+      if (value_a && value_b && value_a == value_b &&
+          (fwd_a != 0) != (rev_a != 0)) {
+        result.forward = &proof.fwd;
+        result.reverse = &proof.rev;
+        result.unit_consequences = true;
+        return result;
       }
     }
-    for (const uint32_t c : st.chain) {
-      if (c >= id_of.size() || id_of[c] == 0)
-        return false; // an antecedent with no name in the main proof
-      chain.push_back(id_of[c]);
+    result.decline = SweepPairDecline::TargetMismatch;
+  }
+  return result;
+}
+
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+static const char *sweep_pair_decline_name(SweepPairDecline decline) {
+  switch (decline) {
+  case SweepPairDecline::None:
+    return "none";
+  case SweepPairDecline::ProofIndexMissing:
+    return "proof-index-missing";
+  case SweepPairDecline::ForwardCaptureMissing:
+    return "forward-capture-missing";
+  case SweepPairDecline::ReverseCaptureMissing:
+    return "reverse-capture-missing";
+  case SweepPairDecline::TargetMismatch:
+    return "captured-target-mismatch";
+  }
+  return "unknown";
+}
+#endif
+
+struct SweepGeneralStepPlan {
+  uint32_t sub_id = 0;
+  std::vector<Lit> lits;
+  std::vector<uint64_t> strip_ids;
+  std::vector<uint32_t> antecedents;
+};
+
+struct SweepGeneralPlan {
+  SweepGeneralDecline decline = SweepGeneralDecline::None;
+  uint32_t step = 0;
+  uint32_t fact = 0;
+  Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
+  uint64_t formula_epoch = 0;
+  std::vector<uint64_t> source_ids;
+  std::vector<SweepGeneralStepPlan> steps;
+  bool eligible() const { return decline == SweepGeneralDecline::None; }
+};
+
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+static const char *sweep_general_decline_name(SweepGeneralDecline decline) {
+  switch (decline) {
+  case SweepGeneralDecline::None:
+    return "none";
+  case SweepGeneralDecline::CaptureMissing:
+    return "capture-missing";
+  case SweepGeneralDecline::StripShape:
+    return "strip-shape";
+  case SweepGeneralDecline::SubVariable:
+    return "sub-variable-out-of-range";
+  case SweepGeneralDecline::EmptyStep:
+    return "empty-step";
+  case SweepGeneralDecline::TautologicalStep:
+    return "tautological-step";
+  case SweepGeneralDecline::AntecedentMissing:
+    return "antecedent-missing";
+  case SweepGeneralDecline::FixedTarget:
+    return "fixed-target-mismatch";
+  case SweepGeneralDecline::FixedUnitId:
+    return "fixed-unit-id-missing";
+  case SweepGeneralDecline::FinalShape:
+    return "final-shape";
+  case SweepGeneralDecline::FinalTarget:
+    return "final-target-mismatch";
+  }
+  return "unknown";
+}
+#endif
+
+// The single eligibility evaluator for captured Sweep proofs. Its structured
+// plan controls execution and is also serialized by the rule journal; emission
+// below does not reconstruct or repeat the guards.
+static SweepGeneralPlan sweep_plan_general(const Kernel &k,
+                                           const SweepDirProof &p,
+                                           const Lit t0, const Lit t1,
+                                           const Lit fixed = INVALID_LIT) {
+  SweepGeneralPlan plan;
+  plan.t0 = t0;
+  plan.t1 = t1;
+  plan.formula_epoch = p.formula_epoch;
+  plan.source_ids = p.orig_ids;
+  const auto decline = [&](SweepGeneralDecline reason, uint32_t step = 0,
+                           uint32_t fact = 0) {
+    plan.decline = reason;
+    plan.step = step;
+    plan.fact = fact;
+    plan.steps.clear();
+    return plan;
+  };
+  if (!p.ok || p.steps.empty())
+    return decline(SweepGeneralDecline::CaptureMissing, 0,
+                   static_cast<uint32_t>(p.steps.size()));
+  if (p.strip_off.size() != p.orig_ids.size() + 1)
+    return decline(SweepGeneralDecline::StripShape, 0,
+                   static_cast<uint32_t>(p.strip_off.size()));
+  const bool lrat = k.proof && k.proof->lrat();
+  uint32_t max_id = static_cast<uint32_t>(p.orig_ids.size());
+  for (const SubStep &step : p.steps)
+    max_id = std::max(max_id, step.id);
+  std::vector<uint8_t> named(static_cast<size_t>(max_id) + 1, 0);
+  for (size_t i = 0; i < p.orig_ids.size(); i++)
+    named[i + 1] = p.orig_ids[i] != 0;
+
+  for (size_t si = 0; si < p.steps.size(); si++) {
+    const SubStep &step = p.steps[si];
+    SweepGeneralStepPlan translated;
+    translated.sub_id = step.id;
+    for (const SubLit sub_lit : step.lits) {
+      if (sub_var_of(sub_lit) >= p.vars.size())
+        return decline(SweepGeneralDecline::SubVariable,
+                       static_cast<uint32_t>(si), sub_var_of(sub_lit));
+      translated.lits.push_back(sweep_kernel_lit(p.vars, sub_lit));
     }
-    const bool final_step = (si + 1 == p.steps.size());
-    if (final_step) {
+    if (translated.lits.empty())
+      return decline(SweepGeneralDecline::EmptyStep,
+                     static_cast<uint32_t>(si));
+    if (Proof::tautological(translated.lits.data(),
+                           static_cast<uint32_t>(translated.lits.size())))
+      return decline(SweepGeneralDecline::TautologicalStep,
+                     static_cast<uint32_t>(si));
+    for (const uint32_t antecedent : step.chain) {
+      if (antecedent == 0 || antecedent > p.orig_ids.size())
+        continue;
+      for (uint32_t s = p.strip_off[antecedent - 1];
+           s < p.strip_off[antecedent]; s++) {
+        const uint64_t unit_id = p.strip_ids[s];
+        if (std::find(translated.strip_ids.begin(),
+                      translated.strip_ids.end(), unit_id) ==
+            translated.strip_ids.end())
+          translated.strip_ids.push_back(unit_id);
+      }
+    }
+    for (const uint32_t antecedent : step.chain) {
+      if (antecedent >= named.size() || !named[antecedent])
+        return decline(SweepGeneralDecline::AntecedentMissing,
+                       static_cast<uint32_t>(si), antecedent);
+      translated.antecedents.push_back(antecedent);
+    }
+    if (si + 1 == p.steps.size()) {
       const bool unit = t1 == INVALID_LIT;
-      if (lits.size() != (unit ? 1u : 2u))
-        return false;
-      const bool same = unit ? lits[0] == t0
-                             : (lits[0] == t0 && lits[1] == t1) ||
-                                   (lits[0] == t1 && lits[1] == t0);
-      if (!same)
-        return false;
+      if (unit) {
+        std::vector<Lit> remaining;
+        std::vector<uint64_t> fixed_ids;
+        bool satisfied = false, saw_fixed = fixed == INVALID_LIT;
+        for (const Lit lit : translated.lits) {
+          const int8_t value = k.value(lit);
+          if (value > 0) {
+            satisfied = true;
+            break;
+          }
+          if (!value) {
+            remaining.push_back(lit);
+            continue;
+          }
+          if (fixed != INVALID_LIT && lit == negate(fixed))
+            saw_fixed = true;
+          const uint64_t unit_id = k.unit_ids[var_of(lit)];
+          if (lrat && unit_id == 0)
+            return decline(SweepGeneralDecline::FixedUnitId,
+                           static_cast<uint32_t>(si), var_of(lit));
+          if (lrat &&
+              std::find(fixed_ids.begin(), fixed_ids.end(), unit_id) ==
+                  fixed_ids.end())
+            fixed_ids.push_back(unit_id);
+        }
+        if (satisfied || !saw_fixed)
+          return decline(SweepGeneralDecline::FixedTarget,
+                         static_cast<uint32_t>(si));
+        if (remaining.size() != 1)
+          return decline(SweepGeneralDecline::FinalShape,
+                         static_cast<uint32_t>(si),
+                         static_cast<uint32_t>(remaining.size()));
+        if (remaining[0] != t0)
+          return decline(SweepGeneralDecline::FinalTarget,
+                         static_cast<uint32_t>(si));
+        translated.strip_ids.insert(translated.strip_ids.begin(),
+                                    fixed_ids.begin(), fixed_ids.end());
+        translated.lits.assign(1, t0);
+      } else {
+        if (fixed != INVALID_LIT || translated.lits.size() != 2)
+          return decline(SweepGeneralDecline::FinalShape,
+                         static_cast<uint32_t>(si),
+                         static_cast<uint32_t>(translated.lits.size()));
+        const bool same =
+            (translated.lits[0] == t0 && translated.lits[1] == t1) ||
+            (translated.lits[0] == t1 && translated.lits[1] == t0);
+        if (!same)
+          return decline(SweepGeneralDecline::FinalTarget,
+                         static_cast<uint32_t>(si));
+      }
     }
-    if (dry) {
-      if (st.id < id_of.size())
-        id_of[st.id] = UINT64_MAX; // a placeholder is enough to validate naming
-      continue;
+    if (step.id < named.size())
+      named[step.id] = 1;
+    plan.steps.push_back(std::move(translated));
+  }
+  return plan;
+}
+
+static void sweep_apply_general_plan(Kernel &k,
+                                     const SweepGeneralPlan &plan) {
+  assert(plan.eligible() && !plan.steps.empty());
+  const bool lrat = k.proof && k.proof->lrat();
+  uint32_t max_id = static_cast<uint32_t>(plan.source_ids.size());
+  for (const SweepGeneralStepPlan &step : plan.steps)
+    max_id = std::max(max_id, step.sub_id);
+  std::vector<uint64_t> id_of(static_cast<size_t>(max_id) + 1, 0);
+  for (size_t i = 0; i < plan.source_ids.size(); i++)
+    id_of[i + 1] = plan.source_ids[i];
+  std::vector<uint64_t> chain;
+  uint64_t last_id = 0;
+  for (const SweepGeneralStepPlan &step : plan.steps) {
+    chain = step.strip_ids;
+    if (lrat)
+      k.stats.sweep_strip_cited += step.strip_ids.size();
+    for (const uint32_t antecedent : step.antecedents) {
+      assert(antecedent < id_of.size() && id_of[antecedent]);
+      chain.push_back(id_of[antecedent]);
     }
     const uint64_t id = ++k.next_clause_id;
     if (k.proof)
-      k.proof->add_rup(lrat ? id : 0, lits.data(),
-                       static_cast<uint32_t>(lits.size()),
+      k.proof->add_rup(lrat ? id : 0, step.lits.data(),
+                       static_cast<uint32_t>(step.lits.size()),
                        lrat ? chain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
-    if (st.id < id_of.size())
-      id_of[st.id] = id;
+    if (step.sub_id < id_of.size())
+      id_of[step.sub_id] = id;
     last_id = id;
   }
-  if (dry)
-    return true;
-  if (t1 == INVALID_LIT) {
-    k.unit_ids[var_of(t0)] = last_id;
-    kernel_assign_unit(k, t0);
+  if (plan.t1 == INVALID_LIT) {
+    k.unit_ids[var_of(plan.t0)] = last_id;
+    kernel_assign_unit(k, plan.t0);
     k.stats.sweep_units++;
   } else {
-    kernel_add_binary_clause(k, t0, t1, last_id);
+    kernel_add_binary_clause(k, plan.t0, plan.t1, last_id);
     k.stats.sweep_binaries++;
   }
+}
+
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+static std::string sweep_journal_candidate(const Kernel &k,
+                                           const SweepGeneralPlan &plan) {
+  std::string result = std::to_string(kernel_externalize(k, plan.t0));
+  if (plan.t1 != INVALID_LIT)
+    result += "," + std::to_string(kernel_externalize(k, plan.t1));
+  return result;
+}
+
+static bool begin_journal_sweep_general(const Kernel &k,
+                                        const SweepGeneralPlan &plan,
+                                        uint64_t &pre_digest) {
+  if (!rule_journal_wants(k, "Sweep", sweep_journal_candidate(k, plan)))
+    return false;
+  pre_digest = rule_journal_digest(k);
   return true;
 }
+
+static void journal_sweep_general(const Kernel &k,
+                                  const SweepGeneralPlan &plan,
+                                  uint64_t pre_digest, const char *outcome,
+                                  const char *decline,
+                                  const char *deltas) {
+  RuleJournalRecord record;
+  record.rule = "Sweep";
+  record.event = "consequence-commit";
+  record.candidate = sweep_journal_candidate(k, plan);
+  record.trigger = "embedded-refutation";
+  record.context = "path=general-core;proof=" +
+                   std::to_string(k.proof != nullptr) +
+                   ";level=" + std::to_string(k.level);
+  record.formula_epoch = plan.formula_epoch;
+  record.root_epoch = k.touch_fixed_head;
+  record.pre_digest = pre_digest;
+  record.guards =
+      "capture=" + std::to_string(plan.decline !=
+                                  SweepGeneralDecline::CaptureMissing) +
+      ";strip_shape=" +
+      std::to_string(plan.decline != SweepGeneralDecline::StripShape) +
+      ";step=" + std::to_string(plan.step) +
+      ";fact=" + std::to_string(plan.fact) +
+      ";steps=" + std::to_string(plan.steps.size());
+  record.antecedents = "source_clauses=" +
+                       std::to_string(plan.source_ids.size());
+  record.outcome = outcome;
+  record.decline = decline;
+  record.deltas = deltas;
+  record.witnesses = "kitten-core";
+  record.effort = k.stats.sweep_ticks_sub;
+  record.budget = 0;
+  record.post_digest = rule_journal_digest(k);
+  rule_journal_emit(k, record);
+}
+
+static std::string sweep_proof_target(const Kernel &k,
+                                      const SweepDirProof &proof) {
+  if (!proof.ok)
+    return "missing";
+  std::string result = std::to_string(kernel_externalize(k, proof.t0));
+  if (proof.t1 != INVALID_LIT)
+    result += "," + std::to_string(kernel_externalize(k, proof.t1));
+  return result;
+}
+
+static void journal_sweep_pair_selection(const Kernel &k, Lit a, Lit b,
+                                         const SweepPairSelection &selection) {
+  RuleJournalRecord record;
+  record.rule = "Sweep";
+  record.event = "consequence-select";
+  record.candidate = std::to_string(kernel_externalize(k, a)) + "," +
+                     std::to_string(kernel_externalize(k, b));
+  if (!rule_journal_wants(k, "Sweep", record.candidate))
+    return;
+  record.trigger = "proved-equivalence";
+  record.context = "proof_index=present";
+  record.formula_epoch = selection.captured
+                             ? selection.captured->fwd.formula_epoch
+                             : 0;
+  record.root_epoch = k.touch_fixed_head;
+  record.pre_digest = rule_journal_digest(k);
+  record.guards =
+      "proof_index=" + std::to_string(selection.captured != nullptr) +
+      ";fwd=" +
+      (selection.captured ? sweep_proof_target(k, selection.captured->fwd)
+                          : "missing") +
+      ";rev=" +
+      (selection.captured ? sweep_proof_target(k, selection.captured->rev)
+                          : "missing") +
+      ";unit_consequences=" +
+      std::to_string(selection.unit_consequences);
+  record.antecedents = "kitten-captures";
+  record.outcome = selection.eligible() ? "selected" : "declined";
+  record.decline = sweep_pair_decline_name(selection.decline);
+  record.deltas = "-";
+  record.witnesses = "captured-targets";
+  record.effort = k.stats.sweep_ticks_sub;
+  record.post_digest = rule_journal_digest(k);
+  rule_journal_emit(k, record);
+}
+#endif
 
 static bool sweep_emit_unit(Kernel &k, Lit unit) {
   if (k.value(unit) > 0)
@@ -1544,7 +1972,77 @@ static bool sweep_emit_unit(Kernel &k, Lit unit) {
   return true;
 }
 
+// A successful Kitten refutation is the semantic certificate used by Kissat's
+// Sweep implementation.  When no external proof is requested, commit that
+// consequence directly: replaying it through the main propagator is redundant
+// and can decline valid consequences merely because its bounded traversal does
+// not reconstruct the embedded refutation.  Proof-producing runs still take
+// one of the checked translation paths below.
+static bool sweep_commit_unit_without_proof(Kernel &k, Lit unit) {
+  if (k.proof || k.value(unit) != 0)
+    return false;
+  const uint64_t id = ++k.next_clause_id;
+  k.unit_ids[var_of(unit)] = id;
+  kernel_assign_unit(k, unit);
+  k.stats.sweep_units++;
+  return true;
+}
+
+static bool sweep_commit_equiv_without_proof(Kernel &k, Lit a, Lit b) {
+  if (k.proof || a == b || a == negate(b) || k.value(a) != 0 ||
+      k.value(b) != 0)
+    return false;
+  const Lit fwd[2] = {negate(a), b};
+  const Lit rev[2] = {a, negate(b)};
+  kernel_add_binary_clause(k, fwd[0], fwd[1], ++k.next_clause_id);
+  kernel_add_binary_clause(k, rev[0], rev[1], ++k.next_clause_id);
+  k.stats.sweep_binaries += 2;
+  return true;
+}
+
 namespace {
+ApplyResult sweep_emit_pending_units(Kernel &k, SweepRound &round) {
+  bool any = false;
+  const bool force_general =
+      std::getenv("TACTIX_SWEEP_FORCE_GENERAL") != nullptr;
+  while (round.units_emitted < round.units.size()) {
+    const SweepUnitProof &unit = round.units[round.units_emitted++];
+    if (k.value(unit.unit) != 0)
+      continue;
+    bool emitted =
+        !force_general && sweep_commit_unit_without_proof(k, unit.unit);
+    if (!emitted) {
+      const SweepGeneralPlan plan =
+          sweep_plan_general(k, unit.proof, unit.unit, INVALID_LIT);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      uint64_t pre_digest = 0;
+      const bool journal_plan =
+          begin_journal_sweep_general(k, plan, pre_digest);
+#endif
+      if (plan.eligible()) {
+        sweep_apply_general_plan(k, plan);
+        emitted = true;
+      }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (journal_plan)
+        journal_sweep_general(
+            k, plan, pre_digest, emitted ? "applied" : "declined",
+            emitted ? "none" : sweep_general_decline_name(plan.decline),
+            emitted ? "unit" : "-");
+#endif
+    }
+    if (!emitted)
+      emitted = sweep_emit_unit(k, unit.unit);
+    if (emitted) {
+      any = true;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_unit(k, unit.unit);
+#endif
+    }
+  }
+  return any ? ApplyResult::Ok : ApplyResult::NoOp;
+}
+
 // Emission, shared by the canonical round and the per-seed instance so the two
 // cannot drift in what they are willing to write.
 ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
@@ -1565,69 +2063,231 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
   const bool force_general = std::getenv("TACTIX_SWEEP_FORCE_GENERAL") != nullptr;
   std::vector<uint64_t> chain_fwd, chain_rev;
   std::vector<std::pair<Lit, Lit>> emitted_equivalences;
-  bool any = false;
-  while (round.units_emitted < round.units.size()) {
-    const SweepUnitProof &unit = round.units[round.units_emitted++];
-    if (k.value(unit.unit) != 0)
-      continue;
-    bool emitted = false;
-    if (unit.proof.ok &&
-        sweep_emit_general(k, unit.proof, unit.unit, INVALID_LIT, true))
-      emitted = sweep_emit_general(k, unit.proof, unit.unit, INVALID_LIT,
-                                   false);
-    if (!emitted)
-      emitted = sweep_emit_unit(k, unit.unit);
-    if (emitted) {
-      any = true;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
-      event_trace_sweep_unit(k, unit.unit);
-#endif
-    }
-  }
+  bool any = sweep_emit_pending_units(k, round) == ApplyResult::Ok;
   while (round.equivalences_emitted < round.found.size()) {
     const size_t idx = round.equivalences_emitted++;
     const SweepEquiv &e = round.found[idx];
     if (k.level != 0 || k.conflict_valid)
       break; // replay needs a quiescent root; stop rather than assert
-    if (kernel_binary_live(k, negate(e.a), e.b) &&
-        kernel_binary_live(k, e.a, negate(e.b))) {
-      k.stats.sweep_known++;
+    // Units are committed before equivalences, as in Kissat.  If one member
+    // of a proved class became fixed in that first batch, the class merge is
+    // a unit on the other member, not a reason to discard the consequence.
+    // The proof-producing path keeps using its translated cores below; the
+    // direct path mirrors Kissat's trusted Kitten-core commitment.
+    const int8_t av = k.value(e.a), bv = k.value(e.b);
+    if (!k.proof && (av || bv)) {
+      bool unit_emitted = false;
+      if (!av && bv)
+        unit_emitted = sweep_commit_unit_without_proof(
+            k, bv > 0 ? e.a : negate(e.a));
+      else if (av && !bv)
+        unit_emitted = sweep_commit_unit_without_proof(
+            k, av > 0 ? e.b : negate(e.b));
+      if (unit_emitted) {
+        any = true;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        const Lit unit = !av ? (bv > 0 ? e.a : negate(e.a))
+                             : (av > 0 ? e.b : negate(e.b));
+        event_trace_sweep_unit(k, unit);
+#endif
+      }
+      if ((!av || !bv) || av == bv) {
+        any = true;
+        emitted_equivalences.emplace_back(e.a, e.b);
+      }
       continue;
     }
-    // Never emit over a root-assigned literal. Detection excludes fixed
-    // variables, but emission runs after the whole round, by which time an
-    // earlier pair's binaries may have fixed one — and such a binary becomes a
-    // root unit with no recorded id, tripping the next LRAT chain that cites
-    // that literal.
-    if (k.value(e.a) != 0 || k.value(e.b) != 0)
-      continue;
+    // Detection excludes fixed variables, but a unit proved earlier in this
+    // environment can fix one endpoint before this pair is emitted. Collapse
+    // the captured implication in that direction directly to the partner unit,
+    // matching Kissat's unit batch without installing an intermediate binary.
     // Kissat commits the captured Kitten core without propagating the main
     // formula.  Prefer the same path; the main-formula RUP replay is retained
     // only as a proof-safe fallback for a bounded or untranslatable capture.
-    if (e.a == e.b || e.a == negate(e.b) || idx >= round.proofs.size())
+    if (e.a == e.b || e.a == negate(e.b))
       continue;
-    const SweepPairProof &pp = round.proofs[idx];
-    // The two captured targets must be the equivalence, in either order.
-    // Verified rather than assumed, so a capture that drifted out of step with
-    // `found` declines instead of emitting an unproved binary.
-    auto is_pair = [&](const SweepDirProof &p, Lit u, Lit v) {
-      return (p.t0 == u && p.t1 == v) || (p.t0 == v && p.t1 == u);
-    };
-    const Lit f0 = negate(e.a), f1 = e.b, r0 = e.a, r1 = negate(e.b);
-    const bool matching =
-        (is_pair(pp.fwd, f0, f1) && is_pair(pp.rev, r0, r1)) ||
-        (is_pair(pp.fwd, r0, r1) && is_pair(pp.rev, f0, f1));
-    bool emitted = false;
-    if (!force_general)
-      emitted = sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev);
-    if (!emitted && matching &&
-        sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, true) &&
-        sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, true) &&
-        sweep_emit_general(k, pp.fwd, pp.fwd.t0, pp.fwd.t1, false) &&
-        sweep_emit_general(k, pp.rev, pp.rev.t0, pp.rev.t1, false)) {
-      k.stats.sweep_general++;
-      emitted = true;
+    if (k.proof && (av || bv)) {
+      if (av && bv)
+        continue;
+      const Lit fixed = av ? (av > 0 ? e.a : negate(e.a))
+                           : (bv > 0 ? e.b : negate(e.b));
+      const Lit unit = av ? (av > 0 ? e.b : negate(e.b))
+                          : (bv > 0 ? e.a : negate(e.a));
+      const Lit need0 = negate(fixed), need1 = unit;
+      const SweepDirProof *proof = nullptr;
+      Lit proof_fixed = INVALID_LIT;
+      if (idx < round.proofs.size()) {
+        const SweepPairProof &pp = round.proofs[idx];
+        // Kitten can simplify the implication to a unit when the environment
+        // itself already fixes the partner. That unit core is stronger than
+        // the binary implication and must be selected before looking for the
+        // unsimplified target.
+        if (pp.fwd.ok && pp.fwd.t0 == unit && pp.fwd.t1 == INVALID_LIT)
+          proof = &pp.fwd;
+        else if (pp.rev.ok && pp.rev.t0 == unit &&
+                 pp.rev.t1 == INVALID_LIT)
+          proof = &pp.rev;
+        else if (sweep_proof_is_pair(pp.fwd, need0, need1)) {
+          proof = &pp.fwd;
+          proof_fixed = fixed;
+        } else if (sweep_proof_is_pair(pp.rev, need0, need1)) {
+          proof = &pp.rev;
+          proof_fixed = fixed;
+        }
+      }
+      SweepGeneralPlan plan;
+      if (proof)
+        plan =
+            sweep_plan_general(k, *proof, unit, INVALID_LIT, proof_fixed);
+      else {
+        plan.decline = SweepGeneralDecline::CaptureMissing;
+        plan.t0 = unit;
+        plan.t1 = INVALID_LIT;
+      }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      uint64_t pre_digest = 0;
+      const bool journal_plan =
+          begin_journal_sweep_general(k, plan, pre_digest);
+#endif
+      bool emitted = plan.eligible();
+      if (emitted)
+        sweep_apply_general_plan(k, plan);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (journal_plan)
+        journal_sweep_general(
+            k, plan, pre_digest, emitted ? "applied" : "declined",
+            emitted ? "none" : sweep_general_decline_name(plan.decline),
+            emitted ? "unit-from-fixed-equivalence" : "-");
+#endif
+      if (!emitted)
+        emitted = sweep_emit_unit(k, unit);
+      if (emitted) {
+        any = true;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        event_trace_sweep_unit(k, unit);
+#endif
+      }
+      continue;
     }
+    if (kernel_binary_live(k, negate(e.a), e.b) &&
+        kernel_binary_live(k, e.a, negate(e.b))) {
+      k.stats.sweep_known++;
+      any = true;
+      emitted_equivalences.emplace_back(e.a, e.b);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_equivalence(k, e.a, e.b);
+#endif
+      continue;
+    }
+    const SweepPairSelection selection = sweep_select_pair(round, idx, e.a, e.b);
+    bool emitted =
+        !force_general && sweep_commit_equiv_without_proof(k, e.a, e.b);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    if (!emitted) {
+      journal_sweep_pair_selection(k, e.a, e.b, selection);
+    }
+#endif
+    if (!emitted && selection.unit_consequences) {
+      const SweepGeneralPlan first = sweep_plan_general(
+          k, *selection.forward, selection.forward->t0, INVALID_LIT);
+      const SweepGeneralPlan second = sweep_plan_general(
+          k, *selection.reverse, selection.reverse->t0, INVALID_LIT);
+      if (first.eligible() && second.eligible() && k.value(first.t0) >= 0 &&
+          k.value(second.t0) >= 0) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+        uint64_t pre_digest = 0;
+        bool journal_plan =
+            begin_journal_sweep_general(k, first, pre_digest);
+#endif
+        const bool apply_first = k.value(first.t0) == 0;
+        if (apply_first) {
+          sweep_apply_general_plan(k, first);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+          event_trace_sweep_unit(k, first.t0);
+#endif
+        }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+        if (journal_plan)
+          journal_sweep_general(k, first, pre_digest,
+                                apply_first ? "applied" : "no-op", "none",
+                                "unit");
+        journal_plan = begin_journal_sweep_general(k, second, pre_digest);
+#endif
+        const bool apply_second = k.value(second.t0) == 0;
+        if (apply_second) {
+          sweep_apply_general_plan(k, second);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+          event_trace_sweep_unit(k, second.t0);
+#endif
+        }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+        if (journal_plan)
+          journal_sweep_general(k, second, pre_digest,
+                                apply_second ? "applied" : "no-op", "none",
+                                "unit");
+#endif
+        k.stats.sweep_general++;
+        any = true;
+        continue;
+      }
+    }
+    if (!emitted && selection.eligible() && !selection.unit_consequences) {
+      const SweepGeneralPlan fwd =
+          sweep_plan_general(k, *selection.forward, selection.forward->t0,
+                             selection.forward->t1);
+      const SweepGeneralPlan rev =
+          sweep_plan_general(k, *selection.reverse, selection.reverse->t0,
+                             selection.reverse->t1);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      uint64_t fwd_pre_digest = 0;
+      const bool journal_fwd =
+          begin_journal_sweep_general(k, fwd, fwd_pre_digest);
+#endif
+      if (fwd.eligible() && rev.eligible()) {
+        sweep_apply_general_plan(k, fwd);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+        if (journal_fwd)
+          journal_sweep_general(k, fwd, fwd_pre_digest, "applied", "none",
+                                "binary");
+        uint64_t rev_pre_digest = 0;
+        const bool journal_rev =
+            begin_journal_sweep_general(k, rev, rev_pre_digest);
+#endif
+        sweep_apply_general_plan(k, rev);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+        if (journal_rev)
+          journal_sweep_general(k, rev, rev_pre_digest, "applied", "none",
+                                "binary");
+#endif
+        k.stats.sweep_general++;
+        emitted = true;
+      } else {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+        const char *fwd_decline =
+            fwd.eligible() ? "paired-direction-declined"
+                           : sweep_general_decline_name(fwd.decline);
+        if (journal_fwd)
+          journal_sweep_general(k, fwd, fwd_pre_digest, "declined",
+                                fwd_decline, "-");
+        uint64_t rev_pre_digest = 0;
+        const bool journal_rev =
+            begin_journal_sweep_general(k, rev, rev_pre_digest);
+        const char *rev_decline =
+            rev.eligible() ? "paired-direction-declined"
+                           : sweep_general_decline_name(rev.decline);
+        if (journal_rev)
+          journal_sweep_general(k, rev, rev_pre_digest, "declined",
+                                rev_decline, "-");
+#endif
+      }
+    }
+    // Replaying against the live kernel is a fallback, not the primary proof
+    // path. Sweep deliberately batches newly proved root units without
+    // propagation; a probing replay can drain those units and thereby change
+    // later consequence order even though it restores its speculative levels.
+    // The captured Kitten derivation has no such main-formula side effect.
+    if (!emitted && !force_general)
+      emitted = sweep_emit_equiv(k, e.a, e.b, chain_fwd, chain_rev);
     if (!emitted && !force_general)
       k.stats.sweep_not_rup++;
     if (emitted) {

@@ -18,70 +18,58 @@ only.
 
 ## Resume here
 
-The user-directed current-pin Tier C run is blocked by two early nonterminal
-solver exits. Release pin `build/pin-tierc-current-ad9064f/tactix` (commit
-`ad9064f`, SHA-256 `664d291a…3274`) passed 69/69 tests, then array `1611899`
-produced 22/30 task artifacts before it and aggregate `1611900` were cancelled
-under plan §8.1. `128_125` and `goldcrest-and-9` returned `UNKNOWN` after about
-70 seconds rather than the 1200-second cap. Their SLURM wrappers completed;
-MaxRSS was about 13.0 GB and 0.74 GB respectively under 16 GB, so neither may
-be called a timeout and goldcrest is not explained by memory pressure. The
-partial window `20260811-190933-C-current-only-ad9064f` is diagnostic only and
-must not support a performance claim.
+Phase 4 has one goal: Tactix must solve every Tier B/C instance solved by the
+clean original Kissat pin, and its Tier B and Tier C PAR-2 must each be no more
+than 1.10× Kissat's under the matched 32 GB shape. A divergence is work to
+localize and repair unless the Tactix behavior is proved stronger or an explicit
+source-backed exception is accepted. Fixed P4A/P4B fixtures are cumulative
+regression guards inside this loop, not a separate workstream.
 
-Exact-release, no-trace reproducers classified both exits. Goldcrest job
-`1611939` deterministically segfaulted (`-11`) after 65.406s at only 768,252 KiB
-MaxRSS. Optimized GDB job `1611964` localized it to
-`kernel_compact_variables`: a live jumped binary reason still referenced a
-retired variable, and compaction indexed its `INVALID_VAR` remap. The fix defers
-compaction while any live direct/jumped binary reason depends on a retired
-variable; a red-then-green micro-regression and focused ASan/UBSan tests cover
-the path, and 69/69 release tests pass. However, the immutable fixed Release
-pin `build/pin-goldcrest-fix-144fec4/tactix` (SHA-256
-`29757d9b…921a`) still segfaulted in job `1611989` after 65.053s at 768,600 KiB
-MaxRSS. Fixed-pin optimized GDB under allocation `1611976` localized the
-remaining fault one remap later: an unassigned active variable retained stale
-`jumped=true` metadata with `jumped_over=INVALID_LIT`. Compaction now copies and
-remaps `Assigned` metadata only for live assignments. The exact regression was
-red before the repair, then the focused ASan/UBSan test and 69/69 Release tests
-passed. A new immutable-pin real goldcrest rerun is the remaining closure gate.
+The current Tier B witness is
+`2013113162201nw.shuffled-as.sat03-1668.cnf`. Stored clean-original Kissat is
+6.052 s. The first Sweep mismatch was localized to failed-assumption core
+commitment: Kissat committed every unit lemma exposed by the core immediately,
+while Tactix retained only the final target and deferred it to the seed boundary.
+Tactix now commits the ordered core units during detection. On seed 2816 both
+solvers produce `-4737,-1793` after query 3 and then ask the same 38 embedded
+queries with matching candidates, outcomes, and per-query ticks. Proof-mode
+Tactix solves the complete witness in 1.02 s with a valid model and zero Sweep
+fallback replays. The remaining local ordering difference is the intentional
+environment-boundary batch of already-proved equivalence substitutions, which
+avoids repeated whole-arena rebuilds without changing later embedded queries.
 
-`128_125` job `1611940` reproduced the old-pin `-9` at 75.803s as a real 16 GB
-cgroup OOM (14,430,976 KiB recorded MaxRSS). Under the new 32 GB contract,
-original clean Kissat job `1611951` solved SAT in 87.419s and its model verified
-(27,180,280 KiB MaxRSS); stock CaDiCaL job `1611952` still OOM-killed after
-49.986s. Old-pin Tactix job `1611958` used 26,348,340 KiB MaxRSS but timed out
-after 1200.546s without a verdict. Thus `128_125` is a confirmed Kissat-solved
-Tactix solve-set divergence, not a memory exemption. The repaired
-diagnostic runner checkpoints child status before checking/reference execution,
-classifies checker timeouts, uses plan §8.1's checker budget, and supports
-Tactix-only/no-trace runs. Fixed P4A/P4B manifests remain unchanged.
+Tier C still owns two cumulative gates. The goldcrest crash was localized to
+stale jumped-reason metadata across variable compaction; the two exact
+regressions and focused sanitizers are green, but a fresh immutable Release
+rerun remains required. `128_125` is a real solve-set gap: under 32 GB clean
+Kissat solved SAT in 87.419 s with a verified model, while the preceding Tactix
+pin timed out at 1200 s after using about 25.7 GiB. It is not a memory exemption.
 
-Completed evidence remains unchanged: corpus 18/18 and both 10,000-case fuzz
-legs are clean after the three random-policy repairs; Tier A/B are
-instance-identical to `07dccc2` (including baseline window
-`20260811-161645-B-B-base`); full Tier B is 28/28 and 28.69s PAR-2
-(`benchmarks/reports/2026-08-11-tier-b-factor-sweep-performance.md`); the
-rule/strategy boundary audit is behavior-identical
-(`benchmarks/reports/2026-08-11-rule-strategy-boundary-audit.md`); and canonical
-P4-CVG stays closed (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
+The trace-divergence workflow is being replaced by a structured rule journal in
+both diagnostic solvers. Every proof rule in Kissat and Tactix must use the same
+transaction contract, including applied, declined, no-op, budget, and refuted
+outcomes; exact guard facts must come from the evaluator which controls the
+operation. Sweep → consequence commitment → Congruence/Substitute is the
+pilot because it owns the active witness. Coverage then extends to every proof
+rule, while production builds compile out the journal implementation, symbols,
+environment markers, and hot-path branches. Record→replay must reproduce the
+ordered semantic deltas/digests and stop at the exact changed field.
 
-**Next actions — one convergence loop:**
+**Next actions — repeat without opening a separate Phase-4 workstream:**
 
-1. Close the current blocker: pin the stale-unassigned-reason compaction repair,
-   rerun goldcrest Release/no-trace at 32 GB, verify its proof, and rerun the
-   cumulative correctness gates.
-2. Run current Tactix across Tier B/C at 32 GB. Compare against stored original
-   Kissat evidence, refreshing only baseline rows made decision-relevant by the
-   allocation change. State solved-set differences before aggregate timing.
-3. In descending gate impact, take every missing solve and then every runtime
-   gap that threatens the 1.10× target. Reproduce it, trace both solvers to the
-   earliest portable semantic divergence, and fix the divergence unless it is
-   demonstrably stronger or explicitly accepted for a source-backed reason.
-   Rerun the instance and all previously closed cumulative guards after each fix.
-4. Repeat action 2 until Tier B/C solved sets match original Kissat and both
-   PAR-2 ratios are ≤1.10. The same closure records complete N4; fixed P4A/P4B
-   fixtures remain regression guards rather than a separate workstream.
+1. Pin the core-unit repair with a focused regression, checker gates, and the
+   selected witness; finish the Sweep/Congruence/Substitute journal pilot in
+   both diagnostic solvers and demonstrate the newly closed first divergence.
+2. Complete uniform journal coverage for all proof rules in both solvers, with
+   replay/mutated-field tests and production trace-elision checks.
+3. Rerun goldcrest and current Tactix Tier B/C at 32 GB. Compare only with the
+   stored clean-original Kissat results; never use an instrumented Kissat for
+   performance. State solved-set differences before aggregate timing.
+4. Take every missing solve, then every runtime gap threatening 1.10×, in
+   descending gate impact. Journal the first differing control event, guard
+   fact, or transaction outcome; fix it and rerun all earlier cumulative guards.
+5. Repeat actions 3–4 until solved sets match and both PAR-2 ratios are ≤1.10.
+   That same closure completes P4-CVG and N4.
 
 ## Current measurement contract
 
@@ -102,6 +90,11 @@ Matched or one-sided feature-off runs are diagnostic cuts inside the convergence
 loop, not separate deliverables. Map executable semantics rather than flag
 names, change one semantic gate at a time, and remove diagnostic variants after
 attribution; no ablation replaces shipped-default full-tier evidence.
+
+Every Tier A/B/C/D solver process receives a 32 GB address-space limit. Kissat
+performance numbers come only from the clean original pin; diagnostic/event or
+rule-journal Kissat binaries are never timed as baselines. Reuse stored Kissat
+and CaDiCaL results when the instance and allocation contract are unchanged.
 
 ## Gates
 

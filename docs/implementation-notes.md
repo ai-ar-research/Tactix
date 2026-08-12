@@ -406,3 +406,49 @@ whose witness is a single in-clause literal *without* collapsing to X1 `BCE` —
 restricted form is not worth implementing. **What does NOT reopen it:** a new measurement of its yield. Yield
 was deliberately excluded from the criterion before investigating, so a better number does not change the
 representability argument.
+
+## 18. Design decision: structured rule journal
+
+The rule journal is convergence infrastructure for diagnostic Tactix and Kissat
+builds. It does not replace DRAT/LRAT: a proof certifies the final answer, while
+the journal explains why each control choice and semantic transaction was or
+was not attempted. Every implemented proof rule is in scope; policy operations
+may emit control records but are not proof-rule transactions.
+
+The canonical TSV v1 row is ordered and shared by both solvers:
+
+`solver, seq, kind, rule, event, conflicts, candidate, trigger, context,
+formula_epoch, root_epoch, pre_digest, guards, antecedents, outcome, decline,
+deltas, witnesses, effort, budget, post_digest`.
+
+- Candidate literals use external identities. Clauses use their stable proof
+  IDs where the solver has them; a diagnostic reference adapter without native
+  clause IDs uses a stable creation ordinal plus external literal content.
+- `kind=control` records scheduling triggers, order, budgets, mode changes, and
+  restarts. `kind=transaction` records every attempted semantic rule outcome:
+  applied, declined with a precise reason, no-op, budget-exhausted, conflict,
+  SAT, or refuted.
+- A guard/precondition evaluator returns a structured result. The operation
+  consumes that same result and the serializer writes it; the logger must never
+  reimplement eligibility logic. Antecedents, proof cores, mutation deltas, and
+  reconstruction witnesses follow the same ownership rule.
+- Formula/root epochs identify mutation boundaries. Pre/post digests cover the
+  externally named formula and root assignment; successful replay reproduces
+  the same ordered semantic deltas and digests.
+- Replay re-executes the recorded run, compares every field in order, and
+  aborts at the first differing field with expected and actual values. It is a
+  deterministic diagnostic verifier, not a way to trust or inject a recorded
+  transformation.
+- Rule, candidate/seed, conflict-window, and record-limit selectors are applied
+  before constructing expensive digests. Detailed traces are therefore bounded
+  without changing the selected rule's execution.
+- Production builds do not compile the implementation. Their linked binaries
+  contain no journal symbol, protocol marker, environment-variable marker, or
+  hot-path runtime branch. Instrumented Kissat binaries are diagnostic only and
+  are never performance baselines.
+
+The initial detailed vocabulary is Sweep detection → consequence commitment →
+Congruence/Substitute. The generic transaction envelope is not considered full
+coverage for a rule until its actual evaluator supplies the rule-specific guard
+facts, stable candidates/antecedents, precise decline reasons, semantic deltas,
+and witnesses required above.

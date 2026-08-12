@@ -19,6 +19,13 @@
 
 using namespace tactix;
 
+static void test_effort_uses_embedded_solver_ticks() {
+  Kernel k;
+  k.stats.sweep_ticks_sub = 17;
+  k.stats.sweep_ticks_repr = 1000;
+  assert(sweep_effort(k) == 17);
+}
+
 namespace {
 
 // Build a kernel from DIMACS-style clauses, ids in input order as the parser
@@ -203,12 +210,43 @@ void test_full_partition_finds_nonseed_pair() {
   build(emitted, 5, cls);
   assert(setenv("TACTIX_SWEEP_PARTITION", "1", 1) == 0);
   assert(setenv("TACTIX_SWEEP_FLIP_ROUNDS", "0", 1) == 0);
+  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
   assert(sweep_try(emitted, 0) == ApplyResult::Ok);
   assert(kernel_binary_id(emitted, negate(y), z));
   assert(kernel_binary_id(emitted, y, negate(z)));
   assert(emitted.stats.sweep_general >= 1);
+  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(unsetenv("TACTIX_SWEEP_FLIP_ROUNDS") == 0);
   assert(unsetenv("TACTIX_SWEEP_PARTITION") == 0);
+}
+
+// Existing implication binaries make an equivalence cheap to detect, but do
+// not make its variable merge redundant. Kissat still substitutes the class.
+static void test_known_equivalence_still_substitutes() {
+  Kernel k;
+  build(k, 3, {{-1, 2}, {-2, 1}});
+  assert(sweep_apply(k) == ApplyResult::Ok);
+  assert(k.stats.sweep_known >= 1);
+  assert(kernel_var_retired(k, 0) || kernel_var_retired(k, 1));
+}
+
+// Sweep commits backbone units before its equivalence batch. If one member of
+// a proved class is fixed by that batch, the class implies a unit on the other
+// member; dropping the pair loses a core consequence.
+static void test_equivalence_with_new_unit_forces_partner() {
+  Kernel k;
+  build(k, 3, {{1, 3}, {1, -3}, {-1, 2}, {-2, 1}});
+  // One seed is enough: the failed-assumption core exposes unit 1 first, and
+  // the following lemma (-1 v 2) must then be simplified against that newly
+  // committed root fact to expose unit 2 in the same core transaction.  A
+  // detector that retains only its final target loses this ordered consequence.
+  assert(sweep_try(k, 0) == ApplyResult::Ok);
+  assert(k.value(internalize(1)) > 0);
+  assert(k.value(internalize(2)) > 0);
+  assert(k.stats.sweep_units >= 2);
+  assert(k.trail.size() >= 2);
+  assert(k.trail[0] == internalize(1));
+  assert(k.trail[1] == internalize(2));
 }
 
 // --- 2. every claim is true --------------------------------------------------
@@ -478,12 +516,16 @@ void test_resumable_schedule() {
   Kernel on;
   build(on, 4, cls);
   sweep_apply(on);
-  assert(on.sweep_tail.size() == 4 && on.sweep_tail_next == 1);
+  // Productive seeds may append their surviving representatives to the live
+  // tail, exactly as Kissat's schedule_inner does. The original four entries
+  // remain the scheduled baseline, but completion is no longer necessarily
+  // four calls after a productive first seed.
+  assert(on.sweep_tail.size() >= 4 && on.sweep_tail_next == 1);
   assert(on.stats.sweep_scheduled == 4 && on.stats.sweep_resumed == 0);
   sweep_apply(on);
-  assert(on.sweep_tail_next == 2 && on.stats.sweep_resumed == 1);
-  sweep_apply(on);
-  sweep_apply(on);
+  assert(on.sweep_tail_next >= 2 && on.stats.sweep_resumed >= 1);
+  for (uint32_t calls = 0; !on.sweep_passes_completed && calls < 16; calls++)
+    sweep_apply(on);
   assert(on.sweep_tail.empty() && on.sweep_tail_next == 0);
   assert(on.sweep_passes_completed == 1 && on.stats.sweep_completed == 1);
   assert(on.stats.sweep_limit_vars == 256 &&
@@ -576,7 +618,9 @@ static void test_se_general_path_emits(void) {
   assert(!is_rup_binary(k, x, negate(y)));
 
   const uint64_t arena_words_before = k.arena.size();
+  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
   const ApplyResult r = sweep_apply(k);
+  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(r == ApplyResult::Ok && "the general path must justify what RUP cannot");
   assert(k.stats.sweep_general >= 1 &&
          "S-e NEVER FIRED -- the general path is unreachable and untested");
@@ -608,7 +652,9 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   k.sweep_tail = {k.internal_to_external[0], k.internal_to_external[4]};
   k.sweep_tail_next = 0;
 
+  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
   assert(sweep_apply(k) == ApplyResult::Ok);
+  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(k.stats.substitute_vars >= 1);
   assert(k.stats.sweep_general >= 1);
 }
@@ -703,9 +749,12 @@ int main(int argc, char **argv) {
   }
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
+  test_effort_uses_embedded_solver_ticks();
   test_non_rup_equivalence();
   test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();
+  test_known_equivalence_still_substitutes();
+  test_equivalence_with_new_unit_forces_partner();
   test_env_provenance();
   test_equal_depth_binary_encounters();
   test_limits();

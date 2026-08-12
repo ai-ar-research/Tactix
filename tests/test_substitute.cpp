@@ -25,6 +25,26 @@ static void test_equivalence_scc() {
   assert(r.repr[internalize(-2)] == r.repr[internalize(-1)]);
 }
 
+// Tactix keeps stable external-index-backed storage, while Kissat assigns its
+// compact internal indices in first-occurrence order. SCC representatives must
+// use the recorded import order or equivalent formulas retain different
+// decision variables after preprocessing.
+static void test_representative_uses_import_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_record_import(k, 1); // external x2 appears before x1
+  kernel_record_import(k, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+
+  const SccResult r = substitute_find_sccs(k);
+  assert(r.repr[internalize(1)] == internalize(2));
+  assert(r.repr[internalize(-1)] == internalize(-2));
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, 0));
+  assert(!kernel_var_retired(k, 1));
+}
+
 // a one-way implication x1 -> x2 (no return edge) forms no non-trivial SCC
 static void test_no_scc() {
   Kernel k;
@@ -139,6 +159,29 @@ static void test_apply_substitutes() {
   assert(!k.reconstruction.empty());
 }
 
+// A first equivalence rewrite can expose another equivalence by shrinking
+// large clauses to binaries. Kissat's preprocessing `complete=true` call runs
+// a second SCC round and consumes that class before search.
+static void test_complete_closes_exposed_scc() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  // x1 ≡ x2 is visible initially.
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  // Rewriting x2 -> x1 turns these into the two implications x1 ≡ x3.
+  const Lit a[3] = {internalize(1), internalize(-3), internalize(2)};
+  const Lit b[3] = {internalize(-1), internalize(3), internalize(-2)};
+  kernel_add_large_clause(k, a, 3, false, 0);
+  kernel_add_large_clause(k, b, 3, false, 0);
+
+  assert(substitute_apply_complete(k) == ApplyResult::Ok);
+  assert(k.stats.substitute_rounds == 2);
+  assert(kernel_var_retired(k, 1));
+  assert(kernel_var_retired(k, 2));
+  assert(!lit_in_any_clause(k, internalize(2)));
+  assert(!lit_in_any_clause(k, internalize(3)));
+}
+
 // Kissat's Sweep-connected substitution rewrites a surviving large clause in
 // place. Tactix represents shrinking/replacement by appending a new arena
 // record, but the Sweep helper must restore the old logical position when it
@@ -216,7 +259,8 @@ static void test_size_collapse_unit() {
   kernel_add_binary_clause(k, internalize(2), internalize(1));  // (x2 ∨ x1)
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(k.value(internalize(1)) > 0 && "x1 forced true by the collapsed unit");
-  assert(k.propagate_head < k.trail.size() && "unit asserted un-propagated");
+  assert(k.propagate_head == k.trail.size() &&
+         "binary-collapse units reach root closure before large rewrites");
 }
 
 // N1: one instance substitutes just that class; a junk payload is a total NoOp.
@@ -289,12 +333,14 @@ static void test_guard() {
 
 int main() {
   test_equivalence_scc();
+  test_representative_uses_import_order();
   test_no_scc();
   test_retired_variable_excluded_from_scc();
   test_contradiction_scc();
   test_apply_unsat();
   test_contradictory_units_refute();
   test_apply_substitutes();
+  test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
   test_model_reconstruction();
   test_size_collapse_unit();

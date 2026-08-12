@@ -59,7 +59,11 @@ struct SweepLimits {
 // allowance. Policies choose the allowance; they do not reconstruct which
 // internal representation work the rule has to price.
 inline uint64_t sweep_effort(const Kernel &k) {
-  return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
+  // Kissat's `SET_EFFORT_LIMIT(..., sweep, kitten_ticks)` charges only the
+  // embedded solver. Host-representation work remains measured separately,
+  // but charging it here can exhaust the reference allowance before the
+  // productive seed tail is visited.
+  return k.stats.sweep_ticks_sub;
 }
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;

@@ -13,6 +13,7 @@
 #include "policies/ops/walk/walk.hpp"
 #include "rules/restart/restart.hpp"
 #include "rules/registry.hpp"
+#include "rules/substitute/substitute.hpp"
 #include "rules/sweep/sweep.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 
@@ -2033,6 +2034,11 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;
       }
+    } else if (k.stats.conflicts == 0 &&
+               !std::strcmp(r.name, "Substitute")) {
+      // `complete=true` ignores the per-round effort break during initial
+      // probing, while retaining the configured two-round cap.
+      ar = substitute_apply_complete(k);
     } else {
       ar = apply_rule(r, k);
     }
@@ -2094,7 +2100,14 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
     ar = run_budgeted_batch(k, e, r, limit, factor_entry);
   } else {
     TickSinkScope sink(k, e.tick_counter);
-    ar = apply_rule(r, k);
+    // Kissat's two preprocessing follow-ups call substitute with
+    // `complete=true`: a productive rewrite can expose another binary SCC,
+    // and the shipped `substituterounds=2` consumes that closure immediately.
+    // Search-time calls retain the ordinary one-round, effort-ledger path.
+    if (k.stats.conflicts == 0 && !std::strcmp(r.name, "Substitute"))
+      ar = substitute_apply_complete(k);
+    else
+      ar = apply_rule(r, k);
   }
   ctx.last_result = ar;
   heuristics_consume_rule_advice(k);

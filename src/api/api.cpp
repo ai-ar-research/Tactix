@@ -7,6 +7,7 @@
 #include "policies/heuristics.hpp"
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "diagnostics/rule_journal.hpp"
 #include "proof/proof.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/registry.hpp"
@@ -107,6 +108,7 @@ void tactix_set_vivify_scope(tactix_solver *s, unsigned scope) {
 int tactix_solve(tactix_solver *s) {
   input_complete(s);
   const int r = default_solve(s->kernel);
+  rule_journal_close();
   if (r == 10)
     kernel_extend_model(s->kernel); // rebuild model through rho before reads
   return r;

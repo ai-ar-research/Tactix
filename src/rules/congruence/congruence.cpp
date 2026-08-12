@@ -114,9 +114,10 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     }
     out.push_back(std::move(g));
   };
-  // "candidate (c, i) is tried" ≡ lits[0..i] all unassigned: the clause-major
-  // path breaks at the first assigned literal, and the literal-major path must
-  // reproduce that exactly.
+  // Keep gates whose clauses contain root-assigned literals.  The clauses still
+  // state the original relation, and the closure below simplifies that relation
+  // with the live root values.  Dropping these gates here severs precisely the
+  // value-driven cascade Congruence is meant to compute.
   if (k.dense) {
     // Literal-major over the phase occ index: mark ¬out's binary partners once
     // per output literal, not once per clause-occurrence. The tag sort below
@@ -147,18 +148,16 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
             c->size > CONG_ARITY_LIMIT + 1)
           continue;
         k.stats.congruence_ticks += c->size;
-        // locate outp, verifying the unassigned prefix up to it
+        // locate outp in the (still logically valid) original clause
         uint32_t idx = UINT32_MAX;
         for (uint32_t j = 0; j < c->size; j++) {
-          if (k.value(c->lits[j]) != 0)
-            break; // clause-major would have stopped here
           if (c->lits[j] == outp) {
             idx = j;
             break;
           }
         }
         if (idx == UINT32_MAX)
-          continue; // assigned prefix, or a stale occ entry
+          continue; // stale occurrence entry
         if (!marked) {
           mark_bin_partners<1>(k, nout, mark);
           marked = true;
@@ -220,8 +219,6 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       return;
     k.stats.congruence_ticks += c->size;
     for (const Lit outp : *c) {
-      if (k.value(outp) != 0)
-        break; // clause has an assigned literal → not a clean gate base
       const Lit nout = negate(outp);
       mark_bin_partners<1>(k, nout, mark);
       bool all = true;
@@ -375,9 +372,11 @@ static std::vector<SmallKey> sorted_keys(const Kernel &k,
   return keys;
 }
 
-// Index every irredundant, fully-unassigned clause of size 3..CONG_XOR_ARITY+1
-// by its sorted literals. Gate clauses are never rewritten within an apply, so
-// one snapshot is valid for the whole closure.
+// Index every irredundant clause of size 3..CONG_XOR_ARITY+1 by its sorted
+// literals, including clauses currently satisfied or shortened by root values:
+// while present they still justify the original XOR/ITE relation, which the
+// closure simplifies under those values.  Gate clauses are never rewritten
+// within an apply, so one snapshot is valid for the whole closure.
 void build_clause_index(const Kernel &k, ClauseIndex &index) {
   std::vector<Lit> ls;
   // Extraction is read-only, so aborting is free: the caller returns NoOp.
@@ -399,17 +398,9 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
         c->size > CONG_XOR_ARITY + 1)
       continue;
     k.stats.congruence_ticks += c->size;
-    bool ok = true;
     ls.clear();
-    for (const Lit l : *c) {
-      if (k.value(l) != 0) {
-        ok = false;
-        break;
-      }
+    for (const Lit l : *c)
       ls.push_back(l);
-    }
-    if (!ok)
-      continue;
     index.insert(small_key(ls.data(), static_cast<uint32_t>(ls.size())));
   }
 }
@@ -563,6 +554,7 @@ struct Stage {
 enum class Canon {
   Ok,    // `key` + `out_lit` valid — file the gate in the table
   Unit,  // the gate forces `out_lit` to a constant: the root unit is ¬out_lit
+  InputUnit, // `key[0]` is a root unit forced by a valued gate
   Merge, // the gate collapsed to out_lit ≡ key[0] — no second gate needed
   Skip,  // degenerate in a way this rule does not exploit (ITE)
 };
@@ -574,14 +566,29 @@ enum class Canon {
 // quantifies over. `reps` is caller-owned scratch and `Find` a template
 // parameter for the same reason: this is the rule's hottest loop.
 template <class Find>
-Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
-                   Lit &out_lit, std::vector<Lit> &cancelled,
-                   std::vector<Lit> &reps) {
+Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
+                   std::vector<Lit> &key, Lit &out_lit,
+                   std::vector<Lit> &cancelled, std::vector<Lit> &reps,
+                   bool &value_derived) {
   cancelled.clear();
+  value_derived = false;
   if (g.kind == GateKind::And) {
-    key.assign(g.inputs.begin(), g.inputs.end());
-    for (Lit &l : key)
-      l = find(l);
+    key.clear();
+    bool false_input = false;
+    for (const Lit input : g.inputs) {
+      const Lit l = find(input);
+      const int8_t v = k.value(l);
+      if (v > 0) {
+        value_derived = true; // AND(...,1,...) = AND(...)
+        continue;
+      }
+      if (v < 0) {
+        false_input = true; // AND(...,0,...) = 0
+        value_derived = true;
+        break;
+      }
+      key.push_back(l);
+    }
     std::sort(key.begin(), key.end());
     out_lit = g.output;
     // AND degeneracies: AND(…,x,¬x,…) = 0 gives the root unit ¬out, and
@@ -603,12 +610,100 @@ Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
       }
       key.resize(n);
     }
+    const int8_t out_value = k.value(out_lit);
+    if (false_input) {
+      if (out_value < 0)
+        return Canon::Skip; // the valued relation is already satisfied
+      return Canon::Unit;   // force ¬out_lit (or expose a root contradiction)
+    }
+    if (out_value > 0) {
+      if (key.empty())
+        return Canon::Skip;
+      // out=1 forces every remaining input to one.  Emit one and reschedule
+      // this gate after propagation; repeated pops drain the whole input list.
+      key.assign(1, key.front());
+      value_derived = true;
+      return Canon::InputUnit;
+    }
+    if (out_value < 0) {
+      // With all other inputs fixed true, out=0 forces the sole remaining
+      // input false.  With two or more inputs it is only a residual clause.
+      if (key.size() == 1) {
+        key[0] = negate(key[0]);
+        value_derived = true;
+        return Canon::InputUnit;
+      }
+      return Canon::Skip;
+    }
+    if (key.empty()) {
+      // AND()=1.  Canon::Unit records ¬out_lit, so flip its carrier.
+      out_lit = negate(out_lit);
+      value_derived = true;
+      return Canon::Unit;
+    }
     if (key.size() == 1)
       return Canon::Merge; // unary AND(x) ⇒ out_lit ≡ key[0]
     return Canon::Ok;
   }
   if (g.kind == GateKind::Ite) {
     Lit cond = find(g.inputs[0]), th = find(g.inputs[1]), el = find(g.inputs[2]);
+    out_lit = g.output;
+    const int8_t cv = k.value(cond), tv = k.value(th), ev = k.value(el),
+                 ov = k.value(out_lit);
+    auto force_output = [&](bool truth) {
+      // Canon::Unit records ¬out_lit.
+      out_lit = truth ? negate(g.output) : g.output;
+      value_derived = true;
+      return Canon::Unit;
+    };
+    auto equate_output = [&](Lit other) {
+      const int8_t other_value = k.value(other);
+      if (ov != 0 && other_value == 0) {
+        key.assign(1, ov > 0 ? other : negate(other));
+        value_derived = true;
+        return Canon::InputUnit;
+      }
+      if (ov == 0 && other_value != 0)
+        return force_output(other_value > 0);
+      if (ov != 0 && other_value != 0) {
+        if ((ov > 0) == (other_value > 0))
+          return Canon::Skip;
+        // Re-emit the already false output literal so record_unit constructs
+        // the root contradiction with its trail reason.
+        return force_output(ov < 0);
+      }
+      key.assign(1, other);
+      value_derived = true;
+      return Canon::Merge;
+    };
+    // A fixed condition selects one branch outright.
+    if (cv != 0)
+      return equate_output(cv > 0 ? th : el);
+    // Equal branches erase the condition.
+    if (th == el)
+      return equate_output(th);
+    // Two constant branches either force the output or turn the ITE into a
+    // literal equivalence with its condition.
+    if (tv != 0 && ev != 0) {
+      if ((tv > 0) == (ev > 0))
+        return force_output(tv > 0);
+      return equate_output(tv > 0 ? cond : negate(cond));
+    }
+    // With a fixed output, a branch carrying the opposite value rules out its
+    // side of the condition.  Propagation after this unit exposes the selected
+    // branch on the next pop.
+    if (ov != 0) {
+      if (tv != 0 && ((tv > 0) != (ov > 0))) {
+        key.assign(1, negate(cond));
+        value_derived = true;
+        return Canon::InputUnit;
+      }
+      if (ev != 0 && ((ev > 0) != (ov > 0))) {
+        key.assign(1, cond);
+        value_derived = true;
+        return Canon::InputUnit;
+      }
+    }
     // Defer any ITE whose representative operands share a variable: then==else,
     // then==¬else (an XOR), or cond touching a branch all collapse it to a
     // simpler gate a later round or propagation handles. Skipping stays sound.
@@ -629,6 +724,13 @@ Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
   reps.reserve(g.inputs.size());
   for (const Lit in : g.inputs) {
     Lit r = find(in);
+    const int8_t value = k.value(r);
+    if (value != 0) {
+      if (value > 0)
+        parity ^= 1;
+      value_derived = true;
+      continue;
+    }
     if (negated(r)) {
       parity ^= 1;
       r = negate(r);
@@ -652,6 +754,16 @@ Canon canonicalize(const CongGate &g, Find &find, std::vector<Lit> &key,
   if (key.empty()) {
     if (cong_probe) cong_n_xor++;
     return Canon::Unit; // every variable cancelled ⇒ out_lit is the constant 0
+  }
+  const int8_t out_value = k.value(out_lit);
+  if (out_value != 0) {
+    value_derived = true;
+    if (key.size() == 1) {
+      if (out_value < 0)
+        key[0] = negate(key[0]);
+      return Canon::InputUnit;
+    }
+    return Canon::Skip; // a residual parity constraint, not a gate key
   }
   if (key.size() == 1)
     return Canon::Merge; // XOR(x) ⇒ out_lit ≡ x
@@ -1060,9 +1172,14 @@ bool add_ite_matching_proof_chain(Kernel &k, Lit cond, Lit a, Lit b,
 // base conflicts. Returns false iff that chain fails — its only route can run
 // through a root-assigned literal — and the caller must then skip the merge
 // (N2). All-or-nothing: both binaries are justified before either is added.
+struct AddedEquivalence {
+  bool forward = false;
+  bool reverse = false;
+};
+
 template <class Find>
 bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
-                     Find &find) {
+                     Find &find, AddedEquivalence *added = nullptr) {
   const bool lrat = k.proof && k.proof->lrat();
   const Lit a = ga.output, b = gb.output;
   std::vector<uint64_t> chain, br;
@@ -1127,8 +1244,14 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
                        lrat ? static_cast<uint32_t>(ch.size()) : 0);
     kernel_add_binary_clause(k, x, y, id);
   };
+  const bool had_fwd = kernel_binary_live(k, negate(a), b);
+  const bool had_rev = kernel_binary_live(k, a, negate(b));
   add_bin(negate(a), b, chain_fwd); // ga.out=1 → ga inputs → bridge → gb.base
   add_bin(a, negate(b), chain_rev); // gb.out=1 → gb inputs → bridge → ga.base
+  if (added) {
+    added->forward = !had_fwd;
+    added->reverse = !had_rev;
+  }
   return true;
 }
 
@@ -1137,7 +1260,8 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
 // carries the chain its ladder returned, so no hint-less line is emitted.
 bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
                              const std::vector<uint64_t> &chain_fwd,
-                             const std::vector<uint64_t> &chain_rev) {
+                             const std::vector<uint64_t> &chain_rev,
+                             AddedEquivalence *added = nullptr) {
   const bool lrat = k.proof && k.proof->lrat();
   // All-or-nothing, checked before either binary is added: under LRAT a binary
   // that is still missing needs a non-empty chain or the line is uncheckable.
@@ -1161,8 +1285,52 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
                        lrat ? static_cast<uint32_t>(ch.size()) : 0);
     kernel_add_binary_clause(k, x, y, id);
   };
+  const bool had_fwd = kernel_binary_live(k, negate(a), b);
+  const bool had_rev = kernel_binary_live(k, a, negate(b));
   add_bin(negate(a), b, chain_fwd);
   add_bin(a, negate(b), chain_rev);
+  if (added) {
+    added->forward = !had_fwd;
+    added->reverse = !had_rev;
+  }
+  return true;
+}
+
+// Kissat records every union-find merge with the two binary clauses connecting
+// the *current class representatives*.  This is stronger than merely keeping
+// an arbitrary edge that proves the same equality: the representative-star
+// shape is exactly the graph consumed by the immediately following Substitute
+// pass.  Gate matching first makes the raw output equality live; binary
+// matching already has it.  Consequently each missing representative clause
+// is RUP here, including in LRAT mode.
+bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
+  assert(smaller != larger && smaller != negate(larger));
+  const Lit forward[2] = {negate(larger), smaller};
+  const Lit reverse[2] = {larger, negate(smaller)};
+  const bool need_forward = !kernel_binary_live(k, forward[0], forward[1]);
+  const bool need_reverse = !kernel_binary_live(k, reverse[0], reverse[1]);
+  const bool lrat = k.proof && k.proof->lrat();
+  std::vector<uint64_t> forward_chain, reverse_chain;
+  if (lrat) {
+    if (need_forward &&
+        !congruence_rup_chain(k, forward, 2, forward_chain))
+      return false;
+    if (need_reverse &&
+        !congruence_rup_chain(k, reverse, 2, reverse_chain))
+      return false;
+  }
+  auto add = [&](const Lit *clause, const std::vector<uint64_t> &chain) {
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, clause, 2,
+                       lrat ? chain.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    kernel_add_binary_clause(k, clause[0], clause[1], id);
+  };
+  if (need_forward)
+    add(forward, forward_chain);
+  if (need_reverse)
+    add(reverse, reverse_chain);
   return true;
 }
 
@@ -1177,6 +1345,259 @@ const bool cong_y1 = [] {
   const char *s = std::getenv("TACTIX_CONG_Y1");
   return !s || *s != '0';
 }();
+
+// Kissat's Congruence first strengthens an irredundant ternary with a binary:
+//
+//   (a ∨ b ∨ c), (¬a ∨ b)  ⊢  (b ∨ c)
+//
+// (and symmetrically for each pivot).  The extracted binaries are part of the
+// gate database itself: on the Tier-B convergence witness they double the
+// binary population before AND/XOR/ITE extraction, exposing the equivalences
+// that drive the rest of the closure.  Only binaries present at entry are used
+// as antecedents, matching Kissat's fixed offset table; newly derived pairs are
+// deduplicated but do not recursively seed this pass.
+static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
+  const bool lrat = k.proof && k.proof->lrat();
+  const auto pair_key = [](Lit a, Lit b) {
+    if (a > b)
+      std::swap(a, b);
+    return (static_cast<uint64_t>(a) << 32) | b;
+  };
+  std::unordered_set<uint64_t> original;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry w : k.watches.entries(lit))
+      if (w.binary() && lit < w.other())
+        original.insert(pair_key(lit, w.other()));
+  std::unordered_set<uint64_t> emitted;
+  std::vector<uint64_t> chain;
+  uint32_t tick = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    if (k.stop_fuzz || !(++tick & 255)) {
+      if (kernel_terminating(k)) {
+        k.stats.rule_interrupted++;
+        return false;
+      }
+      if (cong_budget.over(k))
+        return false;
+    }
+    const Clause *c = clause_at(k.arena, ref);
+    ref += clause_words(c->size);
+    if (c->garbage() || c->redundant() || c->size != 3)
+      continue;
+    Lit lits[3] = {c->lits[0], c->lits[1], c->lits[2]};
+    if (k.value(lits[0]) || k.value(lits[1]) || k.value(lits[2]))
+      continue;
+    k.stats.congruence_ticks += 3;
+    Lit x = INVALID_LIT, y = INVALID_LIT;
+    for (unsigned pivot = 0; pivot != 3; pivot++) {
+      const Lit a = lits[pivot], b = lits[(pivot + 1) % 3],
+                cc = lits[(pivot + 2) % 3];
+      if (original.count(pair_key(negate(a), b)) ||
+          original.count(pair_key(negate(a), cc))) {
+        x = b;
+        y = cc;
+        break;
+      }
+    }
+    if (x == INVALID_LIT)
+      continue;
+    const uint64_t key = pair_key(x, y);
+    if (original.count(key) || !emitted.insert(key).second)
+      continue;
+    const Lit binary[2] = {x, y};
+    chain.clear();
+    if (lrat && !congruence_rup_chain(k, binary, 2, chain)) {
+      k.stats.congruence_unjustified++;
+      continue;
+    }
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, binary, 2,
+                       lrat ? chain.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    kernel_add_binary_clause(k, x, y, id);
+    extracted++;
+  }
+  return true;
+}
+
+// After propagating the closure, Kissat enters dense mode a second time and
+// forward-subsumes large clauses modulo the still-live representative map.
+// This is deliberately local to Congruence: once the map is reset, ordinary
+// SubsumeForward can no longer see that (a v b) and (repr(a) v repr(b)) match.
+template <class Find>
+static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
+  // Dense entry first deduplicates binaries and drops every one satisfied by a
+  // newly propagated root unit.  At a root fixpoint an assigned binary must be
+  // satisfied (the both-false case would already have refuted).
+  kernel_deduplicate_binary_watches(k);
+  std::vector<std::pair<Lit, Lit>> satisfied_binaries;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (!w.binary())
+        continue;
+      const Lit other = w.other();
+      if (kernel_import_lit_order(k, lit) >=
+          kernel_import_lit_order(k, other))
+        continue;
+      if (k.value(lit) || k.value(other)) {
+        assert(k.value(lit) > 0 || k.value(other) > 0);
+        satisfied_binaries.emplace_back(lit, other);
+      }
+    }
+  for (const auto &[a, b] : satisfied_binaries) {
+    const bool deleted = kernel_delete_binary(k, a, b);
+    assert(deleted);
+    (void) deleted;
+  }
+  std::vector<uint8_t> matchable(k.nvars, 0);
+  for (Var v = 0; v < k.nvars; v++) {
+    if (k.value(make_lit(v, false)) || kernel_var_retired(k, v))
+      continue;
+    const Lit lit = make_lit(v, false);
+    const Lit repr = find(lit);
+    if (lit != repr) {
+      matchable[v] = 1;
+      matchable[var_of(repr)] = 1;
+    }
+  }
+
+  struct Candidate {
+    Ref ref;
+    uint32_t size;
+  };
+  std::vector<Candidate> candidates;
+  std::vector<uint8_t> seen(2 * k.nvars, 0);
+  std::vector<uint8_t> marks(2 * k.nvars, 0);
+  std::vector<Lit> canonical;
+  uint64_t deleted = 0;
+
+  // Return false for a root-satisfied or representative-tautological clause.
+  // Otherwise preserve first-occurrence order in `canonical`; Kissat uses that
+  // order to break ties when choosing the least-occurring connection literal.
+  const auto canonicalize_clause = [&](const Clause *c,
+                                       bool *contains_matchable) {
+    canonical.clear();
+    *contains_matchable = false;
+    bool keep = true;
+    for (const Lit lit : *c) {
+      const int8_t value = k.value(lit);
+      if (value > 0) {
+        keep = false;
+        break;
+      }
+      if (value < 0)
+        continue;
+      *contains_matchable |= matchable[var_of(lit)] != 0;
+      const Lit repr = find(lit);
+      const int8_t repr_value = k.value(repr);
+      if (repr_value > 0) {
+        keep = false;
+        break;
+      }
+      if (repr_value < 0 || seen[repr])
+        continue;
+      if (seen[negate(repr)]) {
+        keep = false;
+        break;
+      }
+      seen[repr] = 1;
+      canonical.push_back(repr);
+    }
+    for (const Lit lit : canonical)
+      seen[lit] = 0;
+    return keep;
+  };
+
+  for (Ref ref = 0; ref < k.arena.size();) {
+    Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    ref += words;
+    if (c->garbage() || c->redundant())
+      continue;
+    bool contains_matchable = false;
+    if (!canonicalize_clause(c, &contains_matchable)) {
+      kernel_delete_clause(k, c);
+      deleted++;
+      continue;
+    }
+    if (contains_matchable)
+      candidates.push_back(
+          {static_cast<Ref>(ref - words), static_cast<uint32_t>(canonical.size())});
+  }
+  std::stable_sort(candidates.begin(), candidates.end(),
+                   [](const Candidate &a, const Candidate &b) {
+                     return a.size < b.size;
+                   });
+
+  std::vector<std::vector<Ref>> occ(2 * k.nvars);
+  for (const Candidate candidate : candidates) {
+    if (kernel_terminating(k))
+      break;
+    Clause *c = clause_at(k.arena, candidate.ref);
+    if (c->garbage())
+      continue;
+    bool contains_matchable = false;
+    const bool live = canonicalize_clause(c, &contains_matchable);
+    assert(live && contains_matchable);
+    (void) live;
+    (void) contains_matchable;
+    for (const Lit lit : canonical)
+      marks[lit] = 1;
+    bool subsumed = false;
+    for (const Lit lit : canonical) {
+      for (const Ref dref : occ[lit]) {
+        const Clause *d = clause_at(k.arena, dref);
+        bool d_matchable = false;
+        std::vector<Lit> dcanonical;
+        // `canonicalize_clause` owns shared scratch, so preserve the candidate
+        // before canonicalizing a possible subsumer.
+        dcanonical.swap(canonical);
+        const bool d_live = canonicalize_clause(d, &d_matchable);
+        bool subset = d_live;
+        for (const Lit other : canonical)
+          if (!marks[other]) {
+            subset = false;
+            break;
+          }
+        canonical.swap(dcanonical);
+        if (subset) {
+          subsumed = true;
+          break;
+        }
+      }
+      if (subsumed)
+        break;
+    }
+    for (const Lit lit : canonical)
+      marks[lit] = 0;
+    if (subsumed) {
+      kernel_delete_clause(k, c);
+      deleted++;
+      continue;
+    }
+    Lit least = INVALID_LIT;
+    size_t least_count = 0;
+    for (const Lit lit : canonical) {
+      const size_t count = occ[lit].size();
+      if (least == INVALID_LIT || count < least_count) {
+        least = lit;
+        least_count = count;
+      }
+    }
+    assert(least != INVALID_LIT);
+    occ[least].push_back(candidate.ref);
+  }
+
+  if (deleted) {
+    ArenaOrdering *const saved_order = k.arena_ordering;
+    k.arena_ordering = nullptr;
+    kernel_collect_garbage(k);
+    k.arena_ordering = saved_order;
+  } else
+    kernel_rebuild_large_watches(k);
+  return deleted;
+}
 
 template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
   if (!cong_y1)
@@ -1303,11 +1724,11 @@ ApplyResult congruence_apply(Kernel &k) {
   // input can be an XOR/ITE output.
   const bool lrat = k.proof && k.proof->lrat();
 
-  // Root units derived by this round, batched and asserted once every channel
-  // has run, as V1 Probe and V3 Substitute do: the closure reasons purely over
-  // the union-find, so a unit changes nothing already computed and M1 owns the
-  // cascade. Deduped per variable, an opposite-sign pair being a refutation; a
-  // unit contradicting one on the trail refutes against the trail id.
+  // Root units derived by this round are asserted and propagated immediately.
+  // Congruence is a value-driven closure: each new root value can simplify a
+  // gate into the next unit or equivalence in the same application.  The
+  // PendingUnits table still owns proof-id deduplication and opposite-sign
+  // refutation, but no longer delays the semantic cascade until M1.
   PendingUnits pending;
   pending.init(k.nvars);
   auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
@@ -1326,21 +1747,17 @@ ApplyResult congruence_apply(Kernel &k) {
       return true;
     }
     const PendingUnits::Outcome o = pending.record(k, u, id);
-    if (o == PendingUnits::Outcome::Recorded)
+    if (o == PendingUnits::Outcome::Recorded) {
       ++(counter ? *counter : k.stats.congruence_units);
+      kernel_assign_unit(k, u);
+      if (inprocess_reach_root(k))
+        return true;
+    }
     return o == PendingUnits::Outcome::Refuted;
   };
-  // Assert whatever the round batched and close the root. Every exit path that
-  // can carry pending units must go through this.
+  // Every recorded unit has already reached root closure.  Keep the common
+  // finish path for result accounting and all early exits.
   auto finish = [&](bool merged) -> ApplyResult {
-    for (const Lit u : pending.units) {
-      assert(k.value(u) >= 0 &&
-             "record_unit refutes rather than batching a false unit");
-      if (k.value(u) == 0)
-        kernel_assign_unit(k, u);
-    }
-    if (!pending.units.empty() && inprocess_reach_root(k))
-      return ApplyResult::Unsat;
     if (cong_probe)
       cong_root_out = kernel_root_fixed(k);
     if (k.inconsistent)
@@ -1349,17 +1766,17 @@ ApplyResult congruence_apply(Kernel &k) {
                                               : ApplyResult::NoOp;
   };
 
-  // The binary-resolution unit sweep, at the head of the round because its
-  // units seed the value cascade (see `find_binary_units`).
-  if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
-        return record_unit(u, ch, &k.stats.congruence_y1_units);
-      }))
-    return ApplyResult::Unsat;
+  // Strengthening precedes every other Congruence channel in the reference:
+  // the resulting binaries participate in unit/equivalence discovery and in
+  // gate extraction during this same closure.
+  uint64_t extracted_binaries = 0;
+  (void) extract_congruence_binaries(k, extracted_binaries);
 
   std::vector<CongGate> gates;
-  // XOR and ITE run on every proof path: their lemma chains are replayed rather
-  // than derived, so the sign layer canonicalization folds on top of the
-  // union-find bridging never has to be unpicked by hand.
+  // Gate extraction precedes unit discovery in Kissat.  This snapshot order is
+  // semantic: gates containing a literal fixed by the new binary-unit sweep
+  // must remain present so the closure can simplify them into residual units,
+  // binaries, and equivalences.
   congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
   // Extraction is read-only, so an interrupt raised during it costs nothing to
   // honour — nothing has been applied yet.
@@ -1367,6 +1784,13 @@ ApplyResult congruence_apply(Kernel &k) {
     k.stats.rule_interrupted++;
     return finish(/*merged=*/false);
   }
+
+  // The binary-resolution unit sweep follows binary and gate extraction; its
+  // immediate root closure seeds value-driven gate simplification below.
+  if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
+        return record_unit(u, ch, &k.stats.congruence_y1_units);
+      }))
+    return ApplyResult::Unsat;
 
   // The congruence closure (kissat's), an incremental worklist over a union-find
   // on literals: merge the outputs of two gates that canonicalize to the same
@@ -1382,9 +1806,9 @@ ApplyResult congruence_apply(Kernel &k) {
       l = repr[l] = repr[repr[l]];
     return l;
   };
-  auto unite = [&](Lit small, Lit big) { // big's class → small's (small<big)
-    repr[big] = small;
-    repr[negate(big)] = negate(small);
+  auto unite = [&](Lit representative, Lit retired) {
+    repr[retired] = representative;
+    repr[negate(retired)] = negate(representative);
   };
 
   // Per-kind tables keyed by the canonical input key (kinds must not collide).
@@ -1395,6 +1819,13 @@ ApplyResult congruence_apply(Kernel &k) {
   std::vector<uint8_t> inq(gates.size(), 1);
   for (uint32_t i = 0; i < gates.size(); i++)
     work.push_back(i);
+  auto reschedule_all_gates = [&]() {
+    for (uint32_t gg = 0; gg < gates.size(); gg++)
+      if (!inq[gg]) {
+        inq[gg] = 1;
+        work.push_back(gg);
+      }
+  };
 
   uint64_t neq = 0;
   bool unsat = false;
@@ -1425,13 +1856,33 @@ ApplyResult congruence_apply(Kernel &k) {
   // Merge two provably-equivalent literals: unite their classes and reschedule
   // the gates whose canonical inputs just changed. Proving the equivalence is
   // the caller's job — it differs per kind and per degeneracy.
-  auto merge_lits = [&](Lit x, Lit y) {
+  auto same_binary = [](Lit a, Lit b, Lit c, Lit d) {
+    return (a == c && b == d) || (a == d && b == c);
+  };
+  auto merge_lits = [&](Lit x, Lit y,
+                        const AddedEquivalence *temporary = nullptr) -> bool {
     const Lit oa = find(x), ob = find(y);
     if (oa == ob)
-      return;
+      return false;
     if (cong_probe && (k.value(oa) != 0 || k.value(ob) != 0))
       cong_val_merge++;
-    const Lit sm = oa < ob ? oa : ob, big = oa < ob ? ob : oa;
+    // Kissat's representatives are selected by compact internal-literal order.
+    // Tactix deliberately keeps DIMACS/external-backed variable numbers, so a
+    // raw literal comparison silently chooses a different representative and
+    // changes every later gate key.  Compare through the parser's import-order
+    // bridge instead (the same bridge Substitute uses).
+    const bool a_first = kernel_import_lit_order(k, oa) <
+                         kernel_import_lit_order(k, ob);
+    const Lit sm = a_first ? oa : ob, big = a_first ? ob : oa;
+    if (!add_representative_equivalence(k, sm, big)) {
+      if (temporary) {
+        if (temporary->forward)
+          (void)kernel_delete_binary(k, negate(x), y);
+        if (temporary->reverse)
+          (void)kernel_delete_binary(k, x, negate(y));
+      }
+      return false;
+    }
     unite(sm, big);
     neq++;
     for (const Lit side : {big, negate(big)})
@@ -1440,6 +1891,26 @@ ApplyResult congruence_apply(Kernel &k) {
           inq[gg] = 1;
           work.push_back(gg);
         }
+    // The raw-output binaries are proof scaffolding only.  Kissat keeps the
+    // representative pair emitted above, not a second edge between arbitrary
+    // members of the newly joined classes.  Do retain a raw clause when it was
+    // already part of the input graph, or when it is itself the representative
+    // clause.
+    if (temporary) {
+      const Lit rf0 = negate(big), rf1 = sm;
+      const Lit rr0 = big, rr1 = negate(sm);
+      auto retire = [&](bool added, Lit a, Lit b) {
+        if (!added || same_binary(a, b, rf0, rf1) ||
+            same_binary(a, b, rr0, rr1))
+          return;
+        const bool deleted = kernel_delete_binary(k, a, b);
+        assert(deleted);
+        (void)deleted;
+      };
+      retire(temporary->forward, negate(x), y);
+      retire(temporary->reverse, x, negate(y));
+    }
+    return true;
   };
 
   // Kissat's `find_equivalences` channel runs before propagating the gate
@@ -1454,7 +1925,18 @@ ApplyResult congruence_apply(Kernel &k) {
   // stable for trace comparison.
   std::vector<uint8_t> binary_marks(nlits, 0);
   std::vector<Lit> marked;
-  for (Var v = 0; v < k.nvars && !unsat; v++) {
+  std::vector<Var> binary_vars;
+  binary_vars.reserve(k.nvars);
+  for (Var v = 0; v < k.nvars; v++)
+    if (v >= k.var_status.size() || k.var_status[v] == VarStatus::Active)
+      binary_vars.push_back(v);
+  std::sort(binary_vars.begin(), binary_vars.end(), [&](Var a, Var b) {
+    return kernel_import_lit_order(k, make_lit(a, false)) <
+           kernel_import_lit_order(k, make_lit(b, false));
+  });
+  for (const Var v : binary_vars) {
+    if (unsat)
+      break;
     if (v < k.var_status.size() &&
         k.var_status[v] != VarStatus::Active)
       continue;
@@ -1468,7 +1950,9 @@ ApplyResult congruence_apply(Kernel &k) {
         if (!w.binary())
           continue;
         const Lit other = w.other();
-        if (lit > other || binary_marks[other])
+        if (kernel_import_lit_order(k, lit) >
+                kernel_import_lit_order(k, other) ||
+            binary_marks[other])
           continue;
         binary_marks[other] = 1;
         marked.push_back(other);
@@ -1478,7 +1962,9 @@ ApplyResult congruence_apply(Kernel &k) {
         if (!w.binary())
           continue;
         const Lit other = w.other();
-        if (not_lit > other || lit == other ||
+        if (kernel_import_lit_order(k, not_lit) >
+                kernel_import_lit_order(k, other) ||
+            lit == other ||
             !binary_marks[negate(other)])
           continue;
         const Lit lit_repr = find(lit), other_repr = find(other);
@@ -1488,9 +1974,11 @@ ApplyResult congruence_apply(Kernel &k) {
           unsat = refute_contradictory(lit);
           break;
         }
-        merge_lits(lit, other);
-        k.stats.congruence_binary_equivalences++;
-        restart = true;
+        if (merge_lits(lit, other)) {
+          k.stats.congruence_binary_equivalences++;
+          restart = true;
+        } else
+          k.stats.congruence_unjustified++;
         break;
       }
       for (const Lit other : marked)
@@ -1526,39 +2014,71 @@ ApplyResult congruence_apply(Kernel &k) {
     work.pop_front();
     inq[i] = 0;
     Lit out_i;
+    bool value_derived_i = false;
     Canon ci;
     {
       Stage s(&cong_t.canon);
-      ci = canonicalize(gates[i], find, key, out_i, cancelled, reps);
+      ci = canonicalize(k, gates[i], find, key, out_i, cancelled, reps,
+                        value_derived_i);
     }
     k.stats.congruence_ticks += 1 + gates[i].inputs.size();
     CongMatchStats &cm = cong_match[static_cast<int>(gates[i].kind)];
     if (cong_probe)
       (ci == Canon::Ok     ? cm.canon_ok
        : ci == Canon::Skip ? cm.canon_skip
-       : ci == Canon::Unit ? cm.canon_unit
+       : ci == Canon::Unit || ci == Canon::InputUnit ? cm.canon_unit
                            : cm.canon_merge)++;
     if (ci == Canon::Skip)
       continue; // degenerate in a way this rule does not exploit — sound
+    if (ci == Canon::InputUnit) {
+      const Lit unit = key[0];
+      const bool newly_fixed = k.value(unit) == 0;
+      std::vector<uint64_t> chain;
+      if (!congruence_rup_chain(k, &unit, 1, chain)) {
+        k.stats.congruence_unjustified++;
+        continue;
+      }
+      if (record_unit(unit, chain)) {
+        unsat = true;
+        break;
+      }
+      // Root propagation changed every gate's value view, including outputs
+      // which are deliberately absent from the input-occurrence index.
+      if (newly_fixed)
+        reschedule_all_gates();
+      continue;
+    }
     // --- a degenerate gate is an inference, not a dead end ------------------
     if (ci == Canon::Unit) {
       // value(out_lit) = 0, so ¬out_lit is a root unit. XOR arrives with its
       // cancelled set; an AND clash arrives with `cancelled` empty, its unit
       // directly RUP, so the ladder's top==0 form just replays the chain.
-      const std::vector<std::vector<Lit>> concl = {{negate(out_i)}};
+      const Lit unit = negate(out_i);
+      const bool newly_fixed = k.value(unit) == 0;
       std::vector<std::vector<uint64_t>> cch;
       transient.clear();
-      if (!add_xor_degeneracy_chain(k, cancelled, concl, cch, transient)) {
-        k.stats.congruence_unjustified++;
-        if (cong_probe) std::fprintf(stderr, "[cong-probe] UNIT ladder replay failed (|cancelled|=%zu)\n", cancelled.size());
-        continue; // ladder did not replay — emit nothing, drop the inference
+      bool justified;
+      if (value_derived_i) {
+        cch.resize(1);
+        justified = congruence_rup_chain(k, &unit, 1, cch[0]);
+      } else {
+        const std::vector<std::vector<Lit>> concl = {{unit}};
+        justified =
+            add_xor_degeneracy_chain(k, cancelled, concl, cch, transient);
       }
-      const bool refuted = record_unit(negate(out_i), cch[0]);
+      if (!justified) {
+        k.stats.congruence_unjustified++;
+        delete_transients(k, transient);
+        continue;
+      }
+      const bool refuted = record_unit(unit, cch[0]);
       delete_transients(k, transient);
       if (refuted) {
         unsat = true;
         break;
       }
+      if (newly_fixed)
+        reschedule_all_gates();
       continue; // the gate is consumed by its own inference
     }
     if (ci == Canon::Merge) {
@@ -1589,11 +2109,22 @@ ApplyResult congruence_apply(Kernel &k) {
                                                   {out_i, negate(other)}};
       std::vector<std::vector<uint64_t>> cch;
       transient.clear();
-      if (!add_xor_degeneracy_chain(k, cancelled, concl, cch, transient)) {
+      bool justified;
+      if (value_derived_i) {
+        cch.resize(2);
+        justified = congruence_rup_chain(k, concl[0].data(), 2, cch[0]) &&
+                    congruence_rup_chain(k, concl[1].data(), 2, cch[1]);
+      } else {
+        justified =
+            add_xor_degeneracy_chain(k, cancelled, concl, cch, transient);
+      }
+      if (!justified) {
         k.stats.congruence_unjustified++;
         continue; // ladder did not replay — emit nothing, drop the inference
       }
-      if (!add_equivalence_chained(k, out_i, other, cch[0], cch[1])) {
+      AddedEquivalence added;
+      if (!add_equivalence_chained(k, out_i, other, cch[0], cch[1],
+                                   &added)) {
         k.stats.congruence_unjustified++;
         delete_transients(k, transient);
         continue; // an unjustifiable binary — drop the inference, keep N2
@@ -1606,7 +2137,10 @@ ApplyResult congruence_apply(Kernel &k) {
         }
         continue; // replay failed — the inference is dropped
       }
-      merge_lits(out_i, other);
+      if (!merge_lits(out_i, other, &added)) {
+        k.stats.congruence_unjustified++;
+        continue;
+      }
       continue;
     }
     if (cong_probe) {
@@ -1634,7 +2168,9 @@ ApplyResult congruence_apply(Kernel &k) {
     // worklist, so its own pop draws the inference.
     const uint32_t j = it->second;
     Lit out_j;
-    if (canonicalize(gates[j], find, key_j, out_j, cancelled_j, reps) !=
+    bool value_derived_j = false;
+    if (canonicalize(k, gates[j], find, key_j, out_j, cancelled_j, reps,
+                     value_derived_j) !=
             Canon::Ok ||
         key_j != key) {
       if (cong_probe)
@@ -1687,7 +2223,8 @@ ApplyResult congruence_apply(Kernel &k) {
         }
         continue; // no checkable chain — drop the inference, keep N2
       }
-      if (!add_equivalence_chained(k, out_j, out_i, cf, cr)) {
+      AddedEquivalence added;
+      if (!add_equivalence_chained(k, out_j, out_i, cf, cr, &added)) {
         k.stats.congruence_unjustified++;
         if (cong_probe)
           cm.chain_fail++;
@@ -1695,30 +2232,51 @@ ApplyResult congruence_apply(Kernel &k) {
         continue; // an unjustifiable binary — drop the inference, keep N2
       }
       delete_transients(k, transient);
+      if (clash) {
+        if (refute_contradictory(out_j)) {
+          unsat = true;
+          break;
+        }
+        continue; // replay failed — the inference is dropped
+      }
+      if (cong_probe)
+        cm.merged++;
+      if (!merge_lits(out_j, out_i, &added)) {
+        k.stats.congruence_unjustified++;
+        if (cong_probe)
+          cm.chain_fail++;
+        continue;
+      }
+      continue;
     } else {
       Stage proof_stage(&cong_t.proof);
-      if (!add_equivalence(k, gates[j], gates[i], find)) {
+      AddedEquivalence added;
+      if (!add_equivalence(k, gates[j], gates[i], find, &added)) {
         k.stats.congruence_unjustified++;
         if (cong_probe)
           cm.chain_fail++;
         continue; // no checkable chain — drop the inference, keep proof valid
       }
-    }
-    if (clash) {
-      if (refute_contradictory(out_j)) {
-        unsat = true;
-        break;
+      if (clash) {
+        if (refute_contradictory(out_j)) {
+          unsat = true;
+          break;
+        }
+        continue; // replay failed — the inference is dropped
       }
-      continue; // replay failed — the inference is dropped
-    }
-    if (cong_probe)
-      cm.merged++;
-    merge_lits(out_j, out_i);
-    if (k.inconsistent) {
-      unsat = true;
-      break;
+      if (cong_probe)
+        cm.merged++;
+      if (!merge_lits(out_j, out_i, &added)) {
+        k.stats.congruence_unjustified++;
+        if (cong_probe)
+          cm.chain_fail++;
+        continue;
+      }
+      continue;
     }
   }
+  if (!unsat && (neq || !pending.units.empty()) && !kernel_terminating(k))
+    (void) forward_subsume_congruent_clauses(k, find);
   if (cong_time) {
     cong_t.closure_all += now_nanos() - closure_t0;
     const double ms = 1e-6;
@@ -1775,8 +2333,11 @@ ApplyResult congruence_apply(Kernel &k) {
                  (unsigned long long)k.stats.congruence_units);
   }
   if (std::getenv("TACTIX_CONG_TRACE"))
-    std::fprintf(stderr, "[cong] %zu gates, %llu equivalences added\n",
-                 gates.size(), (unsigned long long)neq);
+    std::fprintf(stderr,
+                 "[cong] %zu gates, %llu binaries extracted, %llu "
+                 "equivalences added\n",
+                 gates.size(), (unsigned long long)extracted_binaries,
+                 (unsigned long long)neq);
   k.stats.congruence_gates += gates.size();
   k.stats.congruence_merges += neq;
   if (unsat)

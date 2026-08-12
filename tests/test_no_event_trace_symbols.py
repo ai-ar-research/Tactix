@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Production builds must contain no diagnostic event-trace implementation."""
+"""Production builds must contain no diagnostic trace implementation."""
 import pathlib
 import subprocess
 import sys
@@ -10,10 +10,12 @@ data = binary.read_bytes()
 # Method identifiers can remain in DWARF even when every no-op call is inlined
 # away.  Check protocol strings here and linked implementation symbols below;
 # together those distinguish a real trace implementation from debug metadata.
-for marker in (b"TACTIX_EVENT_TRACE", b"tactix-event-trace"):
+for marker in (b"TACTIX_EVENT_TRACE", b"tactix-event-trace",
+               b"TACTIX_RULE_JOURNAL", b"tactix-rule-journal"):
     assert marker not in data, f"production binary contains {marker!r}"
 
 symbols = subprocess.run(["nm", "-C", str(binary)], text=True,
                          capture_output=True, check=True).stdout
 assert "tactix::EventTrace" not in symbols, "production trace symbols linked"
+assert "rule_journal" not in symbols, "production journal symbols linked"
 print("test_no_event_trace_symbols OK")
