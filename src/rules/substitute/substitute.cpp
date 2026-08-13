@@ -435,7 +435,20 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   SweepSubstitutionSession &position_order = session ? *session : local_order;
   if (arena_order != SubstitutionArenaOrder::Policy && !session)
     position_order.begin(k);
-  auto substitutable = [&](Lit l) { return l < nlits && sub[l]; };
+  // A member can already be root-fixed here: the caller's map predates the
+  // round's failed root units. Kissat skips exactly those at the same point
+  // (substitute.c add_representative_equivalences, `if (!ACTIVE (idx))`), and
+  // a fixed member has left the active implication graph, so its equivalence
+  // lemma has no path to cite and would go out with an empty chain.
+  // Snapshot, never a live test: the phases below assert units, so a live
+  // predicate could hold while (D) rewrites a variable away and fail by the
+  // time (F) owes it a witness — retired-without-witness answers a wrong SAT.
+  std::vector<uint8_t> live_sub(nlits, 0);
+  for (Lit l = 0; l < nlits; l++)
+    live_sub[l] = static_cast<uint8_t>(l < sub.size() && sub[l] &&
+                                       k.values[l] == 0 &&
+                                       !kernel_var_retired(k, var_of(l)));
+  auto substitutable = [&](Lit l) { return l < nlits && live_sub[l]; };
 
   // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal,
   // derived before any binary mutation so big_path_chain reads the intact

@@ -1,0 +1,10 @@
+{
+  "seed": 20329112,
+  "index": 68403,
+  "generator": "mut-n62-m286 (ddmin-shrunk under the proof-rejection predicate)",
+  "failure": "proof",
+  "solver_args": ["--lrat"],
+  "solver_env": {},
+  "found_by": "N1-audit DefaultPolicy native-LRAT leg, 2026-08-12 (job 1617181), 1 case in 81600. DefaultPolicy, not a random schedule.",
+  "diagnosis": "lrat-check rejected the certificate of an UNSAT run at a V3 equivalence lemma emitted with an EMPTY hint list, which the checker reads as a vacuous RAT claim on the leading literal and rejects. V3 computes its SCCs, then asserts and propagates the round's failed root units, and only then rewrites -- so a member can be root-fixed by the time its lemma is emitted. big_path_chain walks active literals only, finds no path, and the release build emitted the lemma with the empty chain the failed search left behind (the debug build aborts on its assert). Kissat skips exactly these members at the same point: add_representative_equivalences takes only ACTIVE variables (substitute.c:210). Fixed 2026-08-12 by snapshotting that activity test into the substitution set at entry to do_substitution. The snapshot is the load-bearing half: the later phases assert units themselves, so a LIVE predicate would let phase (D) rewrite a variable's occurrences away and then fail in phase (F), leaving it retired without a reconstruction witness -- which answers a wrong SAT. That regression was caught immediately by tests/micro_proofs.sh, whose substchain case is UNSAT and turned SAT under the live predicate."
+}
