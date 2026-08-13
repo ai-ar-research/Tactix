@@ -61,14 +61,9 @@ static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
   const uint64_t id = ++k.next_clause_id;
   if (k.proof) {
     if (lrat) {
-      std::sort(entries.begin(), entries.end());
-      std::vector<uint64_t> chain;
-      chain.reserve(entries.size() + 1);
-      for (const auto &entry : entries)
-        chain.push_back(entry.second);
-      chain.push_back(closing);
-      k.proof->add_rup(id, &unit, 1, chain.data(),
-                       static_cast<uint32_t>(chain.size()));
+      kernel_build_lrat_chain(entries, closing, k.lrat_chain);
+      k.proof->add_rup(id, &unit, 1, k.lrat_chain.data(),
+                       static_cast<uint32_t>(k.lrat_chain.size()));
     } else {
       k.proof->add_rup(0, &unit, 1, nullptr, 0);
     }

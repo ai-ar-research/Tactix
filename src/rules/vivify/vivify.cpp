@@ -749,15 +749,10 @@ void vivify_trim_replacement_prefix(Kernel &k, Lit implied,
 static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                        std::vector<std::pair<uint32_t, uint64_t>> &entries,
                        uint64_t last) {
-  std::sort(entries.begin(), entries.end());
-  std::vector<uint64_t> chain;
-  chain.reserve(entries.size() + 1);
-  for (const auto &e : entries)
-    chain.push_back(e.second);
-  if (last)
-    chain.push_back(last);
+  kernel_build_lrat_chain(entries, last, k.lrat_chain);
   k.proof->add_rup(id, lits.data(), static_cast<uint32_t>(lits.size()),
-                   chain.data(), static_cast<uint32_t>(chain.size()));
+                   k.lrat_chain.data(),
+                   static_cast<uint32_t>(k.lrat_chain.size()));
 }
 
 // Kissat shortens large clauses inside their existing arena records. Tactix's

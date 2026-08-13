@@ -2087,10 +2087,13 @@ void kernel_flush_retired_redundant(Kernel &k) {
   }
 }
 
-void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
-  std::sort(k.lrat_entries.begin(), k.lrat_entries.end());
-  k.lrat_chain.clear();
-  for (const auto &e : k.lrat_entries) {
+void kernel_build_lrat_chain(
+    std::vector<std::pair<uint32_t, uint64_t>> &entries,
+    uint64_t closing_id, std::vector<uint64_t> &chain) {
+  std::sort(entries.begin(), entries.end());
+  chain.clear();
+  chain.reserve(entries.size() + (closing_id != 0));
+  for (const auto &e : entries) {
     // 0 is LRAT's line terminator, so a zero antecedent does not produce a
     // wrong chain — it produces a TRUNCATED one, silently dropping every
     // later antecedent. `unit_ids[v] == 0` means "this literal has no unit
@@ -2104,9 +2107,14 @@ void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
     // behind a verified DRAT proof on every tier run and every fuzz leg until
     // an LRAT checker walked the chain and rejected the hint-less line.
     assert(e.second != 0 && "LRAT chain cites a literal with no unit id");
-    k.lrat_chain.push_back(e.second);
+    chain.push_back(e.second);
   }
-  k.lrat_chain.push_back(closing_id);
+  if (closing_id)
+    chain.push_back(closing_id);
+}
+
+void kernel_lrat_chain(Kernel &k, uint64_t closing_id) {
+  kernel_build_lrat_chain(k.lrat_entries, closing_id, k.lrat_chain);
 }
 
 // LRAT: every root-level propagation-derived literal becomes an explicit unit
@@ -2153,7 +2161,10 @@ void kernel_emit_root_units(Kernel &k, size_t from) {
 void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
                         std::vector<std::pair<uint32_t, uint64_t>> &out,
                         std::vector<Var> *touched) {
-  std::vector<Var> todo; // explicit stack: trails can be arbitrarily deep
+  // Explicit solver-owned stack: trails can be arbitrarily deep, and native
+  // LRAT can invoke this walk many times for one rule application.
+  std::vector<Var> &todo = k.reason_walk_stack;
+  todo.clear();
   todo.push_back(start);
   while (!todo.empty()) {
     const Var v = todo.back();
