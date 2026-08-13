@@ -26,7 +26,7 @@ static void test_h_optional_contracts() {
   // a policy op that mutates H is inapplicable without H (plan §5)
   assert(!switchmode_guard(k));
   assert(!rephase_guard(k));
-  assert(restart_reuse_level(k) == 0); // cannot rank: keep nothing
+  assert(heuristics_restart_reuse_level(k) == 0); // cannot rank: keep nothing
 
   Lit cand[8]; // Decide falls back to index order, positive phase
   const uint32_t n = decide_candidates(k, cand, 8);

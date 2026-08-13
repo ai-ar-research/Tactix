@@ -126,7 +126,9 @@ static void test_stable_trail_reuse() {
   // v1 outranks v2, so only the v0 level survives the restart
   decide_apply(k, make_lit(0, false), false);
   decide_apply(k, make_lit(2, false), false);
-  assert(restart_apply(k) == ApplyResult::Ok);
+  const uint32_t keep = heuristics_restart_reuse_level(k);
+  heuristics_update_target_phases(k);
+  assert(restart_apply_to(k, keep) == ApplyResult::Ok);
   assert(k.level == 1);
   assert(k.values[make_lit(0, false)] > 0);
   assert(k.values[make_lit(2, false)] == 0);

@@ -1960,7 +1960,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // then hand only its variable to the policy-neutral Restart rule.
       BranchingPolicy &bp = branching ? *branching : default_branching_;
       const Lit next = bp.pick(k);
-      const uint32_t keep = restart_reuse_level_for(k, var_of(next));
+      const uint32_t keep =
+          heuristics_restart_reuse_level_for(k, var_of(next));
+      if (keep < k.level)
+        heuristics_update_target_phases(k);
       (void)default_direct_rule(
           k, "Restart", "keep-level=" + std::to_string(keep),
           [&] { return restart_apply_to(k, keep); });
@@ -1983,9 +1986,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     if (want_rephase(k) && rephase_guard(k)) {
       event_trace.macro(k, "rephase_begin");
-      if (restart_guard(k))
+      if (restart_guard(k)) {
+        heuristics_update_target_phases(k);
         (void)default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
                                   [&] { return restart_apply_to(k, 0); });
+      }
       k.unflushed_root = 0; // Kissat Rephase flushes the root trail here.
       static constexpr uint64_t WALK_SLOT = UINT64_MAX;
       static constexpr uint64_t ROTATION[6] = {
@@ -2570,9 +2575,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const uint64_t phase_props_at_entry = k.stats.propagations;
   const uint64_t phase_nanos_at_entry = now_nanos();
   k.stats.inprocess_phases++;
-  if (k.level > 0 && restart_guard(k))
+  if (k.level > 0 && restart_guard(k)) {
+    heuristics_update_target_phases(k);
     (void)default_direct_rule(k, "Restart", "keep-level=0;inprocess=1",
                               [&] { return restart_apply_to(k, 0); });
+  }
   // Probe and Eliminate enter through
   // `kissat_backtrack_propagate_and_flush_trail`; dense Tactix keeps the root
   // literals but has consumed the same pending-root lifecycle state.

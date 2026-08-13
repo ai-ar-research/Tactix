@@ -132,6 +132,8 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
       // Random keep-level: every level in [0, current] is a legal instance
       // (plan §8.2 fuzzes instance choices, not only rule order).
       applied = stress_random(rng) % (k.level + 1);
+      if (applied < k.level)
+        heuristics_update_target_phases(k);
       r = restart_apply_to(k, static_cast<uint32_t>(applied));
     } else if (rules[id].instances && rules[id].apply_instance) {
       // Generic instance draw over the rule's own enumeration, so any rule

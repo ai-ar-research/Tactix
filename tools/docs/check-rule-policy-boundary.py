@@ -15,16 +15,18 @@ for path in sorted((root / "src/rules").glob("*/*")):
     if re.search(r'\bheuristics_[A-Za-z0-9_]+\s*\(', text):
         bad.append(f"{path.relative_to(root)} calls a heuristic operation")
 
-# Decide is a proof rule with a complete explicit-literal surface. Its
-# canonical ordering must remain semantic; DefaultPolicy owns the ranked pick.
-for path in sorted((root / "src/rules/decide").glob("*")):
-    if path.suffix not in {".cpp", ".hpp"}:
-        continue
-    text = path.read_text()
-    if re.search(r'^\s*#\s*include\s*[<"]policies/', text, re.MULTILINE):
-        bad.append(f"{path.relative_to(root)} imports a policy header")
-    if re.search(r'\bheuristics_[A-Za-z0-9_]+\s*\(', text):
-        bad.append(f"{path.relative_to(root)} calls a heuristic operation")
+# Decide and Restart have complete explicit-instance surfaces. Their canonical
+# order and mechanics must remain semantic; DefaultPolicy owns ranked picks,
+# trail-reuse scoring, and phase snapshots.
+for rule in ("decide", "restart"):
+    for path in sorted((root / "src/rules" / rule).glob("*")):
+        if path.suffix not in {".cpp", ".hpp"}:
+            continue
+        text = path.read_text()
+        if re.search(r'^\s*#\s*include\s*[<"]policies/', text, re.MULTILINE):
+            bad.append(f"{path.relative_to(root)} imports a policy header")
+        if re.search(r'\bheuristics_[A-Za-z0-9_]+\s*\(', text):
+            bad.append(f"{path.relative_to(root)} calls a heuristic operation")
 
 # Data-flow checks for the two failure shapes found by the post-P4 audit. A
 # header-import check cannot see either: both compile through neutral Kernel

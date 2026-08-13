@@ -244,6 +244,38 @@ uint32_t heuristics_decide_candidates(const Kernel &k, Lit *out,
   return append_unranked_decision_candidates(k, out, cap, n);
 }
 
+uint32_t heuristics_restart_reuse_level_for(Kernel &k, Var next) {
+  assert(k.h && next < k.nvars);
+  assert(k.values[make_lit(next, false)] == 0);
+  uint32_t level = 0;
+  if (k.h->stable) {
+    const double limit = k.h->scores.score[next];
+    while (level < k.level) {
+      const Lit decision = k.trail[k.frames[level + 1]];
+      if (k.h->scores.score[var_of(decision)] <= limit)
+        break;
+      level++;
+    }
+  } else {
+    const uint32_t limit = k.h->links[next].stamp;
+    while (level < k.level) {
+      const Lit decision = k.trail[k.frames[level + 1]];
+      if (k.h->links[var_of(decision)].stamp <= limit)
+        break;
+      level++;
+    }
+  }
+  return level;
+}
+
+uint32_t heuristics_restart_reuse_level(Kernel &k) {
+  if (k.unassigned == 0 || !k.h)
+    return 0;
+  const Var next = k.h->stable ? heuristics_heap_next_unassigned(k)
+                               : heuristics_queue_next_unassigned(k);
+  return heuristics_restart_reuse_level_for(k, next);
+}
+
 // --- VMTF -------------------------------------------------------------------
 
 static void queue_dequeue(Kernel &k, Var v) {
