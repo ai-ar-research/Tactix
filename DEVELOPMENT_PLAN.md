@@ -279,9 +279,10 @@ pinned phase 4.5 pass.
 ### 8.1 Benchmark tiers
 
 All solver executions use SLURM partition `cpu-dense-hwulab-q`; one
-single-threaded solver per array task with 32 GB provisioned as four CPUs at
-8 GB/core. Candidate and baselines share the same array. Record and match
-allocation shape. Submitted arrays own their
+single-threaded solver per array task. Tiers A–C use 32 GB provisioned as four
+CPUs at 8 GB/core; Tier D uses the competition-shaped 16 GB cap provisioned as
+two CPUs at 8 GB/core. Candidate and baselines share the same array. Record and
+match allocation shape. Submitted arrays own their
 immutable build directories. Every arm writes proofs; our rejected/missing
 proof scores unsolved, while baseline proof verification is optional and never
 changes its score. Checker budget is `max(3600s, 4× solve timeout)`.
@@ -304,7 +305,7 @@ into an undifferentiated `UNKNOWN` that can be mistaken for a timeout.
 | A | correctness/smoke | generated + crafted, 30 s, 32 GB | every commit |
 | B | daily signal | 28 frozen SC instances, 300 s, 32 GB | daily/change |
 | C | scheduling signal | 30 frozen instances, 1200 s, 32 GB | weekly/major change |
-| D | gate scale | SC24+SC25 union, 793, 5000 s, 32 GB | phase gates |
+| D | gate scale | SC24+SC25 union, 793, 5000 s, 16 GB | phase gates |
 
 Tier D's SC25 list is a scoring view, not a second run. Results JSON is
 authoritative per-instance evidence; PROGRESS carries only a current headline.
