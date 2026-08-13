@@ -26,8 +26,10 @@ while [ $# -gt 0 ]; do
         --nightly) N=200000; EXTRA+=(--lrat); shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
+        # corpus-only: the fuzz phase meters its non-terminating population
+        # with --max-nonterminating-frac instead, and rejects this flag
         --allow-nonterminating)
-            EXTRA+=("$1" "$2"); CORPUS_EXTRA+=("$1" "$2"); shift 2 ;;
+            CORPUS_EXTRA+=("$1" "$2"); shift 2 ;;
         *) EXTRA+=("$1"); shift ;;
     esac
 done
