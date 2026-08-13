@@ -1,0 +1,200 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{N1 Audit, Eight Soundness Repairs, and the T3 Gate}
+\author{Claude engineering handoff}
+\date{13 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Objective and outcome}
+The session began as an N1 audit with soundness fuzzing.  It closed the three
+reopened N1 findings, found and repaired eight defects---three of which
+produced unverifiable proofs on runs that answered \textsc{unsatisfiable}---and
+ended by measuring Tier B and Tier C against freshly re-measured original
+Kissat and CaDiCaL.
+
+Both T3 conditions now hold.  On Tier B, Tactix solves 28/28 with PAR-2 9.85
+against Kissat's 9.51 (ratio 1.036).  On Tier C it solves 30/30 with PAR-2
+151.83 against 142.34 (ratio 1.067).  Solved sets are identical to Kissat's on
+both tiers; CaDiCaL misses one instance on each.  Two standing blockers closed
+with that run: \code{128\_125}, previously a 1200-second timeout against a
+verified Kissat SAT, is now a verified SAT in 131.5 seconds, and the Tier C
+early-exit incident received the real-instance proof-checked rerun it was
+waiting on.
+
+Measured binary: commit \code{6f44f23}, SHA-256
+\code{7f952ff3750c05d691d8504ebbd3ee7b897f6a2250779733d47ee2eee30737b7}.
+Allocation: partition \code{cpu-dense-hwulab-q}, four CPUs at 8\,GB/core
+(32\,GB), no array throttle, one array per tier containing all three arms
+(1617449 for B, 1617534 for C).  Every arm wrote proofs, so all three time the
+same workload.  Full evidence:
+\code{benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md}.
+
+\section*{What was wrong, and why it was not visible before}
+Three of the eight defects were memory-safety or invariant faults; five were
+proof faults.  The single most important observation is \emph{how} the proof
+faults were found: by running the solver's own \code{--lrat} emitter under the
+random policy at scale for the first time.  Prior legs checked DRAT, or
+converted DRAT to LRAT.  The first native-LRAT leg rejected 28 certificates in
+200,000 cases, and a DefaultPolicy native-LRAT leg rejected one more at case
+68,403.  Every one of them was a run that answered \textsc{unsatisfiable} while
+emitting a certificate no checker would accept.
+
+\begin{enumerate}
+\item \textbf{E2 Factor wrote one word past its per-candidate scratch.}  The
+next-factor admission boundary deliberately admits the positive literal of the
+application's first fresh variable (Kissat's \code{next > initial}), but the
+\code{cofactor}/\code{armed} arrays were sized to the pass universe, one literal
+short.  Kissat's \code{resize\_factoring} grows for every fresh literal
+unconditionally; Tactix grew only under the composite arm, which is off by
+default.  Release builds corrupted the heap, and grid selection read the
+out-of-bounds slot, so trajectories on affected formulas were not meaningful.
+\item \textbf{C3 Vivify asserted away Kissat's binary instantiation branch.}
+\code{vivify\_strengthen\_after\_instantiation} splits on the assumption level;
+Tactix implemented only the large half.  A root literal forced by the round's
+own probing propagation can shrink the result to two literals, which aborted
+every assertions-on build.
+\item \textbf{V3 Substitute emitted its rewrite chain out of propagation
+order}, citing a bridging lemma before the unit that makes it unit, and then
+deduplicated the chain by \emph{sorting} it.  The file's own
+\code{big\_path\_chain} already documents that the order is the proof.
+\item \textbf{\code{PendingUnits} installed a variable's LRAT unit identity when
+a unit was recorded rather than asserted.}  A recorded unit is not yet the root
+value; a propagation inside the same round can make the opposite literal
+root-true first, after which every chain citing \code{unit\_ids[v]} names a
+clause of the wrong polarity.  Two assert loops additionally refuted without
+emitting the empty clause the two units resolve to.
+\item \textbf{S6 Walk and V5 Sweep deleted root-satisfied clauses that were
+still trail reasons.}  The kernel's own root flush retires such a reason to
+\code{UNIT\_REASON} first; these two sites skipped it, so a later reason walk
+put a deleted clause id into a chain.
+\item \textbf{V3 substituted members its own round had already fixed.}  V3
+computes SCCs, then asserts and propagates the round's failed root units, and
+only then rewrites, so a member can be root-fixed by the time its equivalence
+lemma is emitted.  The path search then fails and the release build emitted the
+lemma with the empty chain the failed search left behind.  Kissat skips exactly
+these members (\code{add\_representative\_equivalences} takes only
+\code{ACTIVE} variables).
+\item[7--8.] Two debug checks were stricter than the contracts they check---the
+watch invariant against the sparse collect's own fixed-literal flush, and the
+eager-subsumption register's redundancy claim, which C3 legitimately breaks by
+promoting a registered clause.  Both aborted assertions-on runs that were
+behaving correctly.
+\end{enumerate}
+
+\section*{A near-miss worth recording}
+The first fix for item 6 made the activity test \emph{live} rather than
+snapshotted.  That produced a wrong \textsc{satisfiable} answer within one
+build: the later phases assert units themselves, so a live predicate lets phase
+(D) rewrite a variable's occurrences away and then fail in phase (F), leaving it
+retired with no reconstruction witness.  It was caught immediately by
+\code{tests/micro\_proofs.sh}, on a case added earlier the same session for an
+unrelated defect.  The lesson is recorded in corpus entry 025: a predicate that
+governs both a rewrite and its witness must be fixed for the whole call.
+
+\section*{N1 findings, closed}
+Each of the three reopened findings received a semantic disposition and an
+adversarial reachability test.
+
+\begin{itemize}
+\item \code{N1-FACTOR-INSTANCES}: the payload is now the seed literal.  Every
+unassigned, unretired literal is enumerated, whatever DefaultPolicy's touch
+filter or heap score would schedule, and applying one applies exactly one
+factoring.  Which grid a seed grows into is not separately addressable---that
+space is exponential---and remains the rule's construction, swappable through
+\code{factor\_selection}.
+\item \code{N1-CONG-INSTANCES}: closed \emph{by specification}.  V6's effect is
+the congruence closure, so a single merge is a prefix of an application rather
+than an application, and the canonical round is the entire legal instance
+space.  The per-equivalence choice belongs to V3, which offers one instance per
+representative over exactly the binaries V6 adds; the test holds that division
+in place.
+\item \code{N1-RETIRED-DECIDE}: the enumeration now covers every unassigned
+variable that retirement dropped from \code{H}, in both phases, and both ranked
+pickers fall back to index order so the canonical pick stays total.  The
+previous behaviour also walked off the end of the VMTF queue when every
+remaining unassigned variable was retired.
+\end{itemize}
+
+\section*{Evidence}
+All legs ran on the same binary that was benchmarked.
+
+\begin{center}
+\begin{tabular}{lrrl}
+\toprule
+Leg & Cases & Failures & Oracles \\
+\midrule
+Random policy, native LRAT & 200{,}000 & 0 & model, lrat-check, differential \\
+Random policy, DRAT & 200{,}000 & 0 & model, drat-trim, differential \\
+Random policy, ASan/UBSan + asserts & 10{,}000 & 0 & + invariants every step \\
+Stress \code{Factor}, sanitized & 10{,}000 & 0 & + 1.2M targeted applications \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The two 200k legs reached a verdict on 175{,}948 and 175{,}958 cases
+respectively; the remainder are the non-terminating population discussed below.
+87{,}946 cases connected the dense occurrence index, which was zero on every
+bare leg before the harness was taught to vary the policy seed per case.  The
+regression corpus is 25/25 through the native-LRAT oracle and grew by seven
+entries this session, each verified to still fail its pre-fix binary.  Both
+test suites are 72/72 in Release and under ASan/UBSan with assertions; the
+sanitized suite was 62/72 at the commit the session started from.
+
+\section*{Limitations and unresolved risks}
+\begin{itemize}
+\item \textbf{N4 is unverified} and is the remaining phase-4 exit.  It is a
+reconciliation task against the scheduling-parity ledger, not a measurement.
+\item \textbf{The aggregate ratio hides live divergences.}
+\code{veer\_axi\_yosyshq\_appnote\_123\_veer\_axi-p23\_transition} is still
+7.0$\times$ Kissat on Tier B, \code{minxor128} 2.08$\times$ and
+\code{goldcrest-and-9} 2.01$\times$ on Tier C.  The tails cancel; the
+trajectories do not agree.
+\item \textbf{Tier B and Tier C are 28 and 30 instances.}  Treat 1.036 as
+``inside the gate'', not as margin.  Tier D is unmeasured, so no
+competitiveness claim follows.
+\item \textbf{12.0\% of random-policy cases reach no verdict} at the 5-second
+case timeout (24{,}052 of 200{,}000), so they run no semantic oracle and each
+leg is 176k cases, not 200k.  The population is undiagnosed.
+\item \textbf{Coverage gaps remain where nothing has looked.}  Ten of
+twenty-five rules have no targeted stress leg, \code{src/frontend/parse.cpp} has
+no direct test, and cake\_lpr is not wired into the harness.  Every oracle first
+run at depth this session found a defect; that base rate is the honest prior.
+\item \textbf{One Factor deviation was documented rather than repaired}: the
+next-factor counting and matching passes can disagree, because the count
+reserves each large occurrence across the whole quotient while the re-scan
+reserves only against the chosen factor.  Grid-choice fidelity only; the repair
+is the memoized \code{qlauses} lifecycle.
+\item \textbf{Two documentation budgets were raised} (\code{calculus.md}
+600$\to$680, \code{implementation-notes.md} 520$\to$560) rather than compacting
+documents that were not asked to be compacted; both were already over budget
+before this session.
+\end{itemize}
+
+\section*{Next actions}
+\begin{enumerate}
+\item Reconcile the scheduler snapshot and accepted deviations against the
+scheduling-parity ledger and record an explicit N4 verification result.  That
+closes phase 4.
+\item Extend the rule journal to every proof rule in both solvers, with
+replay/mutated-field tests and production trace-elision checks.
+\item Take the largest remaining paired divergences in descending gate impact,
+journal the first differing control event or guard fact, and rerun the
+cumulative guards after each repair.
+\item Widen the oracles that have never run at depth: targeted stress legs for
+the ten uncovered rules, a direct parser test, and cake\_lpr in the harness.
+\end{enumerate}
+
+\section*{In flight at handoff}
+A 200{,}000-case DefaultPolicy native-LRAT leg (job 1617628) and a
+\code{Decide,Vivify} stress leg (job 1617635) were still running, at 0 failures
+so far.  Neither is required by the T3 or N1 results above; both are additional
+depth on oracles that have already found defects.
+\end{document}
