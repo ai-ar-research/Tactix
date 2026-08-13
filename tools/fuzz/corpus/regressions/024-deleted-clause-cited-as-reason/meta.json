@@ -1,0 +1,10 @@
+{
+  "seed": 20267694,
+  "index": 6985,
+  "generator": "ksat (ddmin-shrunk under the proof-rejection predicate)",
+  "failure": "proof",
+  "solver_args": ["--random-policy=20267694", "--lrat"],
+  "solver_env": {},
+  "found_by": "N1-audit native-LRAT random-policy leg, 2026-08-12 (job 1617174). The residual family after corpus 023: 5 of that leg's 57 preserved rejections.",
+  "diagnosis": "lrat-check: 'ERROR: using DELETED hint clause 16' on a run answering UNSATISFIABLE. Two root-satisfied-clause sweeps deleted a clause that was still a trail literal's reason: S6 Walk's table build (walk.cpp connect_large_counters analogue) and V5 Sweep's dense entry. Nothing retired the reason, so the next rule to walk that literal's reason -- X4 Instantiate here -- put the dropped id into its chain. The kernel's own root flush avoids this by retiring a live root reason to UNIT_REASON before the clause goes (kernel_flush_root_clause, and the collector's pass at the end of the same call), which is exactly the invariant these two sites skipped; corpus 003 is the same family through a different door. Fixed 2026-08-12 with kernel_retire_root_reason, used by both sites: at a quiescent root the propagated literal is root-fixed and already carries its own unit id, so retiring costs nothing and every later chain cites that unit instead."
+}
