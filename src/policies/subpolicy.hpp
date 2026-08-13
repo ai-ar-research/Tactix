@@ -61,10 +61,10 @@ struct BveBoundPolicy : SubPolicy {
 // Factor grid-selection strategy, the Factor analog of BveBoundPolicy. The BVA
 // proof rule is `apply_factoring(x, F, R)`; which grid to build is strategy,
 // left to this sub-policy, which owns only the scalars the rule's mechanism
-// keys on. N1: reachability of every delta >= 1 factoring rests on swappability
-// plus the pure guard, as with `k.bve_bound`, not on a per-grid enumeration — a
-// maximizing policy sets accept to delta >= 1 and reaches every positive-gain
-// grid. Design: docs/design/s2a-factor-matcher-design.md.
+// keys on. N1 rests on Factor's public seed-literal surface, which enumerates
+// every unassigned, unretired seed independently of this policy. Swappability
+// changes ranking/admission only; it is not the reachability argument. Design:
+// docs/design/s2a-factor-matcher-design.md.
 struct FactorMatchPolicy : SubPolicy, FactorSelection {
   // The coupled Factor bound (BVE's growth allowance) for this phase. An
   // injected matcher customizes SCORING, not the growth invariant — kissat's

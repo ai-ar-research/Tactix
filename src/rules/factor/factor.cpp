@@ -37,7 +37,7 @@ inline void charge_factor_watch_scan(Kernel &k, uint64_t watches) {
   k.stats.factor_ticks += 1 + factor_cache_lines(watches);
 }
 
-// --- remainder interning (`docs/design/e2-factorsize-design.md` §3) ----------
+// --- remainder interning (`docs/design/e2-factorsize-design.md`) -------------
 // A remainder is `C \ {f}` for a grid clause C.  Content is interned so equal
 // remainders compare cheaply, but quotient columns are clause OCCURRENCES and
 // may therefore carry the same id more than once.  This distinction is
