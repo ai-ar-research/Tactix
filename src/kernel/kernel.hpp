@@ -940,6 +940,22 @@ void kernel_swap_large_watch_refs(Kernel &, Lit l, Ref first, Ref second,
 void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
                                 uint32_t from);
 
+// Retire any trail reason naming this clause, so a delete never leaves a
+// literal whose reason is a dropped clause: a later reason walk would put that
+// id into an LRAT chain and the checker rejects it as a deleted hint. Only for
+// callers deleting at a quiescent root, where the propagated literal is
+// root-fixed and already carries its own unit id. The kernel's own root flush
+// instead lets the collector's pass do this at the end of the same call.
+inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
+  for (const Lit lit : *c) {
+    Assigned &a = k.assigned[var_of(lit)];
+    if (!a.binary && a.reason == ref && k.values[lit] != 0) {
+      assert(a.level == 0);
+      a.reason = UNIT_REASON;
+    }
+  }
+}
+
 inline void kernel_delete_clause(Kernel &k, Clause *c) {
   if (k.proof)
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);

@@ -148,6 +148,10 @@ bool build_table(Walker &w, Kernel &k) {
         // leaves a semantically dead clause in sparse search and changes both
         // propagation and later substitution.  Retire it at the same point;
         // the resume rebuild below discards its stale watches.
+        //
+        // A trail reason may not name a deleted clause (kernel.hpp
+        // kernel_retire_root_reason); Walk runs at a quiescent root.
+        kernel_retire_root_reason(k, c, ref);
         kernel_delete_clause(k, c);
       } else {
         emit(c->lits, c->size);

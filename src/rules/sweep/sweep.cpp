@@ -390,8 +390,12 @@ static void sweep_enter_dense(Kernel &k) {
           satisfied = true;
           break;
         }
-      if (satisfied)
+      if (satisfied) {
+        // dense entry runs at a quiescent root; a reason may not name a
+        // deleted clause (kernel.hpp kernel_retire_root_reason)
+        kernel_retire_root_reason(k, c, ref);
         kernel_delete_clause(k, c);
+      }
     }
     ref += words;
   }
