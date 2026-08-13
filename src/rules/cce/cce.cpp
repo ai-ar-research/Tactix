@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/support/flat_occurrence.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -54,24 +55,24 @@ bool relevant(const Kernel &k, const Clause *c) {
 // per-literal scan would make a canonical round O(nlits x arena), which
 // measured as an order-of-magnitude tier regression for BCE.
 struct CceIndex {
-  std::vector<std::vector<Ref>> occ; // by literal; may hold stale garbage Refs
+  FlatOccurrenceIndex occ;
   std::vector<Ref> cands;            // deletion candidates, arena order
 };
 
 void build_index(const Kernel &k, CceIndex &idx) {
-  idx.occ.assign(2 * k.nvars, {});
+  std::vector<Ref> relevant_clauses;
   idx.cands.clear();
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
     if (relevant(k, c)) {
-      for (const Lit x : *c)
-        idx.occ[x].push_back(ref);
+      relevant_clauses.push_back(ref);
       if (candidate_clause(k, c))
         idx.cands.push_back(ref);
     }
     ref += words;
   }
+  idx.occ.build(k, relevant_clauses);
 }
 
 // The extension state for one candidate. Every array is round-owned and

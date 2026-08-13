@@ -2,6 +2,7 @@
 
 #include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/support/flat_occurrence.hpp"
 
 #include <algorithm>
 #include <vector>
@@ -59,19 +60,19 @@ enum class Side { Cand, Opposite };
 // not a per-literal scan: that makes a canonical round O(nlits × arena), an
 // order-of-magnitude tier regression.
 struct BceIndex {
-  std::vector<std::vector<Ref>> occ; // by literal; may hold stale garbage Refs
+  FlatOccurrenceIndex occ;
 };
 
 void build_index(const Kernel &k, BceIndex &idx) {
-  idx.occ.assign(2 * k.nvars, {});
+  std::vector<Ref> relevant;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
     if (opposite_relevant(k, c))
-      for (const Lit x : *c)
-        idx.occ[x].push_back(ref);
+      relevant.push_back(ref);
     ref += words;
   }
+  idx.occ.build(k, relevant);
 }
 
 // Binaries live in the watch lists, not the arena; all of them are irredundant
@@ -130,8 +131,8 @@ ApplyResult bce_try_indexed(Kernel &k, Lit blocking, const BceIndex &idx,
   // the raw index sizes so the decision is O(1), and on both sides because
   // blockedness quantifies over the opposite occurrences too.
   if (k.bce_occ_limit &&
-      (idx.occ[blocking].size() > k.bce_occ_limit ||
-       idx.occ[negate(blocking)].size() > k.bce_occ_limit))
+      (idx.occ.size(blocking) > k.bce_occ_limit ||
+       idx.occ.size(negate(blocking)) > k.bce_occ_limit))
     return ApplyResult::NoOp;
   std::vector<Occ> cands, opposite;
   collect_occs(k, idx, blocking, Side::Cand, cands);
