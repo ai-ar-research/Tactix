@@ -1,15 +1,13 @@
 # Tactix proof-rule calculus
 
-This document is authoritative for each implemented proof rule's abstract precondition, state effect,
-proof delta, and soundness. `DEVELOPMENT_PLAN.md` owns architecture; `PROGRESS.md` owns status;
-`docs/implementation-notes.md` owns implemented guards, engineering deviations, and design decisions.
-A semantic, guard, proof, addition, or removal change must update these documents with the code.
+This document owns every implemented proof rule's abstract precondition, state effect, proof delta, and
+soundness. The plan owns architecture, PROGRESS owns status, and implementation notes own guards and
+engineering deviations. Semantic, guard, proof, addition, or removal changes update their owners with code.
 
 ## 1. Applicability and N1
 
-N1 requires every applicable proof rule, including branching choices, to be callable through the public
-API at every solver state. Applicable means that the rule's pure soundness precondition holds. A stronger
-implemented guard narrows that action space and must appear in the implementation-notes guard/deviation
+N1 requires every rule and legal branch instance to be callable whenever its pure soundness precondition
+holds. A stronger implemented guard narrows that surface and belongs in the implementation-notes deviation
 ledger with its root cause and removal path.
 
 ## 2. Abstract state
@@ -24,22 +22,19 @@ Following the formal model in `DEVELOPMENT_PLAN.md` §4:
 H          heuristic/policy state (scores, phases, limits, MAB), outside σ
 ```
 
-`dl` is the decision count on `τ`; `M` is the induced partial assignment; `U ⊆ M` is its root
-part. `F ∧ M ⊢₁ ⊥` denotes a unit-propagation conflict.
+`dl` is the decision count on `τ`; `M` is its partial assignment; `U ⊆ M` is the root part;
+`F ∧ M ⊢₁ ⊥` denotes a unit-propagation conflict.
 
-Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a
-checker-accepted proof delta. Rules may read/write `H` without a proof obligation. An operation belongs
-here only when it changes `σ`; H-only Rephase, SwitchMode, Walk, and Reorder are policy operations.
-Recorded-conflict and pending-learned-clause flags are engineering state, so guards mentioning them are
-ledgered deviations rather than abstract preconditions.
+Invariants: `F₀ ≡SAT (F ∪ ρ)`; `F ⊨ R` is proof-justified; every transition emits a checker-accepted
+delta. Rules may change `H` without proof. Only operations changing `σ` belong here; Rephase, SwitchMode,
+Walk, and Reorder are H-only policy operations. Recorded-conflict/pending flags are engineering state, so
+guards mentioning them are deviations rather than abstract preconditions.
 
-The proof vocabulary in `proof.hpp` is `add_rup`, `add_derived_unit`, `add_empty`, `del`,
-`add_rat`, and internal `kernel_push_witness` (which changes `ρ` without a proof line). Factor is
-the only `add_rat` user.
+The proof vocabulary is `add_rup`, `add_derived_unit`, `add_empty`, `del`, `add_rat`, and internal
+`kernel_push_witness` (changes `ρ` without a proof line). Factor alone uses `add_rat`.
 
-Each public rule has a pure `guard(σ)`, lazy `instances(σ)`, and total
-`apply(σ, instance) → (σ′, δ)` whenever the guard holds. Entries below state only the abstract
-precondition, effect, proof delta, and soundness; implemented guards are in implementation-notes §1.
+Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
+`apply(σ,instance) → (σ′,δ)` when guarded. Implemented guards are in implementation-notes §1.
 
 ## 3. Core search (M1–M4)
 
@@ -175,19 +170,14 @@ conjunct.
   replacement; subsumed, independently-implied and asymmetric terminal deletions emit `del(c)`.
   A replacement inherits the source clause's stable clause-order identity even when a packed arena
   must append its physical record; candidate ties and later arena rebuilds use that identity.
-  Large instantiation additionally inherits the candidate's current literal pose: remove the
-  reversed literal in physical clause order, retain the first `|c′|-1` assumption levels, and choose
-  the two watches in that valuation before installing the packed replacement. This is semantic
-  control state because it selects later propagation reasons, although the clause set is unchanged.
-  Every redundant large reason traversed by Vivify deduction has its glue recomputed from the
-  current assumption levels and is promoted immediately when smaller; this is a control mutation
-  (later tier eligibility), not an additional proof delta.
-  Scheduling itself consumes the root valuation before candidate dispatch: a satisfied clause is
-  forgotten and root-false literals are stripped proof-first, so a resulting binary/unit/refutation
-  is committed and never appears as a spurious no-op Vivify candidate. Scheduling has two ordered
-  arena passes: simplify unprioritized candidates, count the complete live database, then simplify
-  prioritized candidates. Thus occurrence ranks intentionally see the former simplifications and
-  the latter clauses' pre-simplification literals.
+  Large instantiation inherits the candidate's current literal pose: remove the reversed literal in
+  physical order, retain the first `|c′|-1` assumption levels, and choose watches in that valuation.
+  This control state selects later reasons. Vivify also recomputes each traversed redundant reason's
+  glue and immediately promotes improvements; that changes later tier eligibility, not proof delta.
+  Before dispatch, scheduling forgets root-satisfied clauses and strips root-false literals proof-first,
+  committing any binary/unit/refutation. Two ordered arena passes simplify unprioritized candidates,
+  count the live database, then simplify prioritized candidates; ranks therefore see the former changes
+  and the latter clauses' pre-simplification literals.
 - **Distillation and proof δ:** let `P=(p₀,…,pₘ₋₁)` be `c` after removing root-false literals, in the
   chosen probe order, and let `Aᵢ={¬p₀,…,¬pᵢ}`. Four propagation outcomes yield a strict `c′`:
   (1) `F∧Aᵢ⊢₁⊥` gives `c′={p₀,…,pᵢ}`; (2) `F∧Aᵢ₋₁⊢₁pᵢ` gives
@@ -435,18 +425,13 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   witness segments by one reverse walk (`kernel_extend_model`), robust to any later N1 decision on `x`.
 
 ### E2 · Factor — bounded variable addition (BVA), the inverse of E1
-- **Precondition (abstract):** an `m×n` grid of clauses
-  `{{fᵢ} ∪ Rⱼ : i∈[m], j∈[n]}` all present in `F`, where each `fᵢ` is a
-  literal, each `Rⱼ` is a clause remainder, `m,n ≥ 2`, `mn > m+n` (a
-  strictly positive clause reduction), and `x ∉ vars(F)` is fresh. A binary
-  grid is the special case `|Rⱼ|=1`; the shipped bounded matcher admits
-  remainders from clauses through size five. Grid members are **clause
-  occurrences**: repeated equal large clauses retain distinct, once-consumed proof ids.
-  Root-assigned literals may occur in `Rⱼ`; only factors must be active/unassigned.
-  A factor may be an extension literal introduced by an earlier Factor application: the
-  matcher snapshots the complete current literal universe at entry. Literals introduced
-  during that same application cannot become later factors in the application.
-  Dense normalization deletes root-satisfied binaries as maintenance, not a stronger precondition.
+- **Precondition (abstract):** an `m×n` grid
+  `{{fᵢ} ∪ Rⱼ : i∈[m], j∈[n]}` is present in `F`, each `fᵢ` is a literal, each `Rⱼ` a remainder,
+  `m,n ≥ 2`, `mn > m+n`, and `x ∉ vars(F)` is fresh. Binary grids have `|Rⱼ|=1`; the shipped matcher
+  admits source clauses through size five. Members are **clause occurrences**, so equal large clauses
+  keep distinct proof ids. Root assignments may occur in remainders; factors are active/unassigned.
+  Earlier extension literals may be factors: entry snapshots the current literal universe, excluding
+  only literals created during this application. Dense root-satisfied-binary deletion is maintenance.
 - **Effect:** introduce the fresh extension variable `x`; add the `m` **dividers** `{x ∨ fᵢ}` and the
   `n` **quotients** `{¬x} ∪ Rⱼ`; delete the `mn` grid clauses. Net `Δ|F| = (m+n) − mn < 0`. `x` is an
   *extension* variable (indices `≥ first_extension_var`): assigned by search like any other but
@@ -459,27 +444,19 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   independently of any policy-side schedule filter, and applying one applies at most one factoring. The
   grid `(F,R)` a seed grows into is not separately addressable — that space is exponential — and is the
   matcher's maximal-delta construction, swappable through `Kernel::factor_selection`.
-- **Proof δ:** **add-RAT** (the first `ρ`-free new-variable rule). Each divider `(x ∨ fᵢ)` is RAT on the
-  fresh literal `x` — no clause mentions `¬x` yet, so the RAT side-condition is vacuous. Each quotient
-  `{¬x} ∪ Rⱼ` is RAT on `¬x`: its only resolution partners are the dividers, and each resolvent
-  `{fᵢ} ∪ Rⱼ` is a grid clause **still live** at add-time — so every RAT resolvent is RUP. Hence the emission
-  order: **dividers, then quotients, delete the grid LAST.** DRAT emits each added clause
-  **pivot-first** (the checker reads the leading literal as the RAT pivot), then `del`s the grid.
-  **Native LRAT emits real `add_rat`:** each divider a *vacuous* RAT line (pivot `x` first, empty
-  hints); each quotient **one resolution group per divider**, `-⟨dividerᵢ id⟩ ⟨orig(fᵢ,rⱼ) id⟩`,
-  discharging its resolvent by the still-live grid clause. **First realization of the `add_rat`
-  primitive** in the backend; the DRAT byte-stream is unchanged.
+- **Proof δ:** **add-RAT**. Each divider `(x ∨ fᵢ)` is vacuous RAT on fresh `x`, since no clause yet
+  mentions `¬x`. Each quotient `{¬x} ∪ Rⱼ` is RAT on `¬x`: resolving against divider `i` yields the
+  still-live grid clause `{fᵢ} ∪ Rⱼ`, hence RUP. Order is load-bearing: **dividers, quotients, grid
+  deletion last**. DRAT writes pivot first. Native LRAT writes each divider as vacuous `add_rat` and
+  each quotient with one group per divider,
+  `-⟨dividerᵢ id⟩ ⟨orig(fᵢ,rⱼ) id⟩`; the DRAT byte stream is unchanged.
 - **Reconstruction (`ρ`):** *none* — `x` is fully defined by the clauses just added, so a model of `F′`
   restricted to `vars(F)` already satisfies `F` (drop `x`). No witness is pushed; recovery is pure
   projection over `first_extension_var` (`kernel_num_output_vars`).
-- **Effort transaction:** the canonical matcher uses Kissat's dense-watch
-  currency.  The first factor charges one tick per quotient occurrence.  Each
-  subsequent-factor attempt charges `1 + ceil(|Q|/32)` for the current quotient
-  stack, `1 + ceil(|W(l)|/32)` for each dense watch list scanned, and one tick
-  for each live large-clause occurrence inspected.  It tests exhaustion after
-  each current quotient occurrence and before each new seed.  A budget decline
-  leaves the unpopped seed marks armed for the next call; it is not a semantic
-  rejection of the grid.
+- **Effort transaction:** the canonical matcher uses Kissat's dense-watch currency: one tick per first-
+  factor quotient occurrence; then `1+ceil(|Q|/32)` per quotient stack, `1+ceil(|W(l)|/32)` per dense
+  watch list, and one per inspected live large occurrence. Exhaustion is tested after each current
+  quotient and before each seed. A decline leaves unpopped seed marks armed; it is not semantic rejection.
 - **Soundness:** BVA is satisfiability-preserving *on the originals* — `F′` is equisatisfiable with `F`,
   and every model of `F′` restricted to `vars(F)` models `F` (the added clauses constrain only the fresh
   `x`). Each add step is a RAT addition (satisfiability-preserving) and each delete removes a clause
@@ -630,8 +607,6 @@ represents one in-clause witness literal. The rule is unimplemented; its reopeni
 
 ## 7. Maintenance
 
-Every registered proof rule must have an entry here. Every stronger implemented guard conjunct must have
-a root cause and removal path in `implementation-notes.md`; proof deltas must match actual proof calls,
-including LRAT/DRAT differences; and no entry may weaken N1–N4. Keep engineering conditions out of
-abstract preconditions and synchronize calculus, implementation notes, plan, progress, and code in one
-change.
+Every registered proof rule has an entry here. Stronger implemented guards need a root cause and removal
+path in implementation notes; deltas match actual DRAT/LRAT calls; no entry weakens N1–N4. Keep engineering
+conditions out of abstract preconditions and update every affected authority with code.
