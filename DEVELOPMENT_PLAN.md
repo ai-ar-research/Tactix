@@ -315,8 +315,10 @@ Per-instance results remain authoritative; PROGRESS carries only a headline.
 
 The five reference solvers run exactly once. Their immutable authority is
 `benchmarks/baselines/sc24-26-32g-5000s-v1/`, containing manifests, pins,
-per-instance solve/check metrics, and integrity metadata but no successfully
-checked certificates. Future time caps are exact truncations of these records.
+per-instance solve/check metrics, integrity metadata, and a compact generated
+LaTeX/PDF report under `report-to-andrew/`, but no successfully checked
+certificates. The report is a view of the frozen tables, never a second result
+authority. Future time caps are exact truncations of these records.
 Lower memory caps are simulations from recorded high-water data and must be
 labeled as such; a peak alone cannot determine when memory was crossed. Never
 rerun a frozen reference to fill a missing metric—record the limitation.
@@ -330,9 +332,13 @@ isolate mechanism parity, but it never replaces the full-tier solved-count gate.
 
 ### 8.2 Correctness
 
-Every relevant run checks SAT models against the original CNF, UNSAT DRAT/LRAT
+Every relevant run checks SAT models against the original CNF, UNSAT proofs
 with independent checkers, differential status against references, and internal
-invariants. Fuzz uniform, structured, mutated, circuit-derived, and fixed
+invariants. The Tier-D campaign follows the SC2026 Main-track contract: the
+solver writes `proof.out` in its supplied output directory, uses its registered
+DPR, GRAT, or VeriPB pipeline, and an UNSAT result whose checker fails or times
+out is unsolved. SAT output includes a competition-valid (possibly partial)
+model. Fuzz uniform, structured, mutated, circuit-derived, and fixed
 degenerate inputs with recorded seeds. Random-policy and targeted stress-policy
 legs exercise legal schedules; validate every oracle with known-bad artifacts.
 Shrink failures and retain minimal regressions. Cadence and commands live in the
@@ -400,7 +406,7 @@ branching without kernel edits. Ablations use configuration, not forks.
 | 4 | faithful dosing, scheduling verification, and Tier B/C causal convergence | P4-CVG + N4 verification complete + T3 |
 | 4.19 | code/document cleanup | no obsolete artifact or duplicated live authority |
 | 4.20 | proof-rule and solving-strategy design surveys | two reviewed reports; no implementation |
-| 4.21 | once-only SC24–26 reference campaign | frozen five-solver metrics at the §8.1 authority |
+| 4.21 | once-only SC24–26 reference campaign | frozen five-solver metrics and generated Andrew report at the §8.1 authority |
 | 4.25 | staged Tier-D convergence A–E | T4-VBS |
 | 4.5 | proof-event correlation and novel engineering | proof ranges map to emitting rule/application |
 | 5 | tuning, bindings, extensibility proof | ≤5% overhead + CCE test |

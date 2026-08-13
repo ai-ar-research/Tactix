@@ -1,0 +1,129 @@
+# Phase 4.20 solving-strategy and source survey
+
+**Status:** design report; no performance mechanism is implemented here.
+**Sources:** Tactix, Kissat 4.0.4 (`kissat/`), and the four winner trees under
+`winners/`. Frozen results, not source reputation, decide priority in Phase 4.25.
+
+## Result and order
+
+Stage A should first remove local avoidable cost and close divergences against
+Kissat 4.0.4. Later winner mechanisms enter only at their cumulative stage:
+SC24 initial fast elimination, AE's VSIDS/CHB bandit, Satsuma symmetry breaking,
+then LymphoSAT-style content features for SAT. This order prevents a portfolio
+layer from masking a weaker core solver.
+
+## Tactix source findings
+
+| Priority | Finding | Proposed optimization and acceptance |
+|---|---|---|
+| A0 | repeated `O(nvars)` scratch initialization in BVE, Probe/Backbone, C1/C2, HBR/BCE and other rounds | persistent epoch/touched scratch owned by the rule support service; identical candidates, counters, proof SHA, and allocation profile |
+| A0 | C1/C2 and several inprocessors rebuild overlapping literal occurrence structures | mutation-epoch read-only occurrence service with explicit irredundant/redundant views; invalidate on every formula mutation; bit-identical order |
+| A0 | Factor counts large occurrences and later rematches them through a different lifecycle | retain the counted `qlauses` occurrence stream through selection; identical grids/proofs, fewer scans |
+| A1 | `main.cpp` mixes CLI, environment posing, execution, and two strengthen print schemas | split frontend/config/reporting; one typed statistic schema; compile/tests only, no performance claim |
+| A1 | public-instance queries repeatedly allocate temporary vectors | caller/reusable scratch with mutation-stamped snapshots; preserve enumeration order and purity |
+
+These are hypotheses until counters and profiles show the relevant path. Apply
+them one at a time under Tier A plus the triggering Tier-D instances; do not
+bank a code-size cleanup as a speedup.
+
+## Rule/strategy separation audit
+
+The kernel currently stores a large *posed strategy frame*: `work_budget`,
+`vivify_scope/reuse/flush`, BVE/Factor bounds and candidate controls, BCE/X2
+limits, Reduce tiers, conflict-reuse/Analyze knobs, Sweep resumption, and a
+`FactorSelection*` (`src/kernel/kernel.hpp:690–770`). Two items cross the boundary
+more deeply:
+
+1. `saved_phases` points from Kernel into policy-owned heuristic storage and the
+   assignment primitive writes through it.
+2. `factor_selection` points from Kernel to a policy object which the E2 rule
+   calls during grid construction.
+
+This does not presently make proof validity policy-dependent, but it violates
+the plan's stronger claim that Kernel has no policy knowledge and makes stale
+pose leakage possible between rule calls. It also duplicates configuration:
+typed DefaultStrategyConfig → DefaultPolicy members → Kernel fields → rules.
+
+**Proposed boundary:** introduce a short-lived `RuleApplicationContext` owned by
+the dispatcher, containing budget, candidate scope, ranker/admission callbacks,
+and observation sinks. Pass it to canonical application; keep the public bare
+API context maximally permissive. Persistent resumption stays in policy, while
+formula epochs/cursors required for correctness stay in rule state. Replace
+the saved-phase pointer with an assignment observer installed by the session,
+not a Kernel field named after policy H. Migrate one rule at a time and require
+null/default trajectory identity, random-policy N1/N2, and no hot-loop overhead.
+
+Do not move soundness checks, proof-chain construction, model witnesses,
+mutation order, or deterministic construction of a supplied instance into the
+context. Conversely, admission, ranking, cadence, effort allowance, and
+resumption are strategy even when a reference implements them inside a rule.
+
+## Stage A — Kissat 4.0.4
+
+Use frozen per-instance gaps in descending coverage/PAR impact. For each, the
+rule journal identifies the earliest portable divergence before any tuning.
+Candidate families are the A0 costs above, remaining N4 accepted deviations,
+and reference mechanism mismatches. A content profile may select among already
+validated Tactix presets, but Stage A may not use benchmark identity.
+
+Exit remains every Kissat solve plus ≤1.10× PAR-2 on SC24, SC25, SC26, and
+their union. If a mechanism does not move its causal fixture, remove the arm.
+
+## Stage B — kissat-sc2024
+
+A source diff against `kissat/` isolates two intentional scheduling differences
+amid numerous later public fixes: SC24 defaults `fastel=1` and removes the
+`factordelay` option. Tactix currently excludes elimination from preprocessing
+(`default_policy.cpp:2116`) and carries a measured Factor admission deviation.
+
+First test an explicit initial-fast-elimination pose matching SC24's small
+occurrence/resolvent limits; record its formula delta, proof/model cost, and
+downstream effect. Test Factor timing separately. Do not port SC24's reversed
+fresh-variable ordering or congruence defects visible in the source diff; those
+are not strategy improvements.
+
+## Stage C — AE-Kissat-MAB
+
+AE adds a second stable-mode CHB heap and selects VSIDS versus CHB at stable
+restarts. Its reward accumulates `log2(decisions)/log2(conflicts)` and its UCB
+term uses an adaptively scaled exploration constant
+(`winners/AE_kissat2025_MAB/.../restart.c:113–175`); CHB updates appear in
+`bump.c:116–142`.
+
+Implement only after a replay model can reproduce arm choices and rewards on
+recorded traces. Guard zero/one counts, keep bandit state per solver rather than
+function-static, reset/rebuild the active heap on arm switches, and fuzz both
+heaps under arbitrary switching. Pre-register DefaultPolicy as a permanent arm
+and kill the bandit if cumulative Stage A–B coverage or VBS score regresses.
+
+## Stage D — Satsuma+Kissat
+
+The winner runs Satsuma BSR once, writes a DSR prefix, solves the transformed
+CNF, and checks the combined proof with dsr-trim. Symmetry detection and BSR
+clause choice are strategy; adding a non-entailed symmetry breaker is a proof
+rule. Therefore Stage D depends on P3 in the proof-rule survey. Until a native
+DRAT/LRAT story exists, collect symmetry features/yield only and do not mutate
+the formula.
+
+## Stage E — LymphoSAT SAT target
+
+LymphoSAT profiles clause-length, polarity, Horn, binary-graph, occurrence,
+span, and block-structure features, then checks 126 ordered threshold matchers
+before a Kissat fallback. The matchers use content, but many windows are narrow
+enough to act as family fingerprints (for example Purdom variable/clause ranges).
+
+Tactix should reuse a small, cheap, versioned feature vector to choose among
+proof-clean strategy presets inside one solver, not copy 126 direct solvers or
+family names. Train/tune on the SC24–26 union intentionally, report matcher
+coverage/false positives, use perturbation tests, and reserve SC27 as the first
+clean holdout. Stage E scores LymphoSAT SAT solves only; UNSAT does not influence
+its target or VBS contribution.
+
+## Implementation queue after frozen results
+
+1. Rank Stage-A misses from frozen Kissat data and profile the first causal path.
+2. Apply the smallest A0 optimization or semantic repair that addresses it.
+3. Close Stage A before activating the SC24 fast-elimination experiment.
+4. Add AE, Satsuma, and LymphoSAT mechanisms only at Stages C, D, and E.
+5. Preserve one feature-driven binary and cumulative correctness/performance
+   guards throughout.

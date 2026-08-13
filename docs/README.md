@@ -15,6 +15,7 @@ preserve evidence and history.
 | Working lessons | `docs/lessons.md` | revisable evidence-backed findings; never cite by number |
 | Design snapshots | `docs/design/` | frozen historical context; present-tense status is not current authority |
 | Technical evidence | `benchmarks/reports/` and `benchmarks/runs/` | frozen reports and authoritative run data |
+| Frozen references | `benchmarks/baselines/sc24-26-32g-5000s-v1/` | once-only SC24–26 baseline manifests and per-instance metrics; checked certificates are deleted |
 | Historical logs | `docs/log/` | frozen revision and former PROGRESS history |
 | Andrew reports | `report-to-andrew/` | local LaTeX/PDF wrap-up deliverables; already-tracked reports remain frozen |
 | Papers | `docs/papers/` | external resources |

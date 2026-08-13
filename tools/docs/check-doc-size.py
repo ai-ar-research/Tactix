@@ -22,6 +22,8 @@ LIMITS = {
     "docs/implementation-notes.md": 560,
     "docs/scheduling-parity-ledger.md": 600,
     "docs/lessons.md": 100,
+    "docs/design/phase-4.20-proof-rule-survey.md": 180,
+    "docs/design/phase-4.20-solving-strategy-survey.md": 180,
     "docs/proof-rules.html": 1000,
     "tools/fuzz/README.md": 80,
 }

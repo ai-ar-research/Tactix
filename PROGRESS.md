@@ -5,9 +5,9 @@ roadmap, and gates; `docs/calculus.md` owns rule semantics;
 `docs/implementation-notes.md` owns guards and durable engineering decisions.
 This file is only the resume surface.
 
-- **Current phase:** 4.19 cleanup. Phase 4 has met T3; N4 reconciliation remains.
-- **Next sequence:** finish 4.19 → write the two 4.20 surveys → freeze the
-  once-only 4.21 baselines → staged 4.25 convergence → Phase 4.5.
+- **Current phase:** 4.20 design surveys. Phase 4 has met T3; N4 reconciliation remains.
+- **Next sequence:** review the two 4.20 surveys → freeze the once-only 4.21
+  baselines → staged 4.25 convergence → Phase 4.5.
 - **Non-negotiables:** N1 complete (2026-08-12 reachability audit); N2 complete
   (2026-08-13, native-LRAT/DRAT random-policy campaigns); N3 pending Tier D;
   N4 pending final ledger reconciliation.
@@ -21,10 +21,9 @@ at 1.036× original Kissat and Tier C 30/30 at 1.067×, with SAT models and
 UNSAT proofs checked. The latest completed Tier C validation window is
 `20260813-111513-C-cleanup-b2b8362`; it does not supersede that gate report.
 
-Phase 4.19 is removing obsolete or duplicated material before new design work.
-The only source deletion criterion is demonstrated deadness; no source file met
-it in the audit. The superseded Factor dosing note is deleted, and the landed
-Factor matcher/scope notes are compact contracts. Preserve unrelated dirty edits.
+Phase 4.19 is committed as `202552b`. No source file met the demonstrated-dead
+criterion. One follow-up corrected FactorMatchPolicy's stale N1 comment: the
+complete seed-literal API, not policy swappability, carries reachability.
 
 The once-only Tier-D reference campaign is being prepared in parallel at
 `benchmarks/baselines/sc24-26-32g-5000s-v1/`. Do not submit a duplicate run.
@@ -35,12 +34,11 @@ diagnosis.
 
 **Immediate actions:**
 
-1. Finish the living-doc compaction, documentation checks, and cleanup commit.
+1. Review the two 4.20 surveys and design P1's N1 compound-instance surface;
+   implement no performance feature yet.
 2. Reconcile `docs/scheduling-parity-ledger.md` into an explicit N4 verdict.
-3. Write the 4.20 proof-rule and solving-strategy surveys; implement nothing
-   from them until both reports are reviewable.
-4. Validate and freeze the 4.21 baseline campaign without rerunning any solver.
-5. Start 4.25 Stage A against frozen Kissat, using the rule journal on each gap.
+3. Validate and freeze the 4.21 baseline campaign without rerunning any solver.
+4. Start 4.25 Stage A against frozen Kissat, using the rule journal on each gap.
 
 ## Measurement and gates
 
@@ -93,10 +91,13 @@ cruder reference mechanism reopens N4 until repaired or explicitly accepted.
 
 ### Phase 4.20 — design surveys
 
-- [ ] `docs/design/phase-4.20-proof-rule-survey.md`: candidate calculus rule,
+- [x] `docs/design/phase-4.20-proof-rule-survey.md`: candidate calculus rule,
   DRAT/LRAT delta, model reconstruction, ownership boundary, and N1/N2 tests.
-- [ ] `docs/design/phase-4.20-solving-strategy-survey.md`: decision point,
+- [x] `docs/design/phase-4.20-solving-strategy-survey.md`: decision point,
   features, reference source, cost, experiment, and kill criterion.
+- [x] Generic AND-definition RAT feasibility: non-RUP DRAT additions verified
+  in forward mode; native LRAT verified by lrat-check and cake_lpr.
+- [ ] Project-owner review and P1 compound-instance API decision.
 
 ### Phase 4.21 — frozen references
 
