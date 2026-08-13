@@ -64,14 +64,9 @@ static void unwind(Kernel &k) {
 static void emit_unit_chain(Kernel &k, uint64_t id, Lit lit,
                             std::vector<std::pair<uint32_t, uint64_t>> &entries,
                             uint64_t last) {
-  std::sort(entries.begin(), entries.end());
-  std::vector<uint64_t> chain;
-  chain.reserve(entries.size() + 1);
-  for (const auto &e : entries)
-    chain.push_back(e.second);
-  chain.push_back(last);
-  k.proof->add_rup(id, &lit, 1, chain.data(),
-                   static_cast<uint32_t>(chain.size()));
+  kernel_build_lrat_chain(entries, last, k.lrat_chain);
+  k.proof->add_rup(id, &lit, 1, k.lrat_chain.data(),
+                   static_cast<uint32_t>(k.lrat_chain.size()));
 }
 
 // binary-probe one literal against the current clean root. If p fails, emit the

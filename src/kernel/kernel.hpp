@@ -623,6 +623,7 @@ struct Kernel {
   BinaryIdMap binary_ids;
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
+  std::vector<Var> reason_walk_stack; // reusable proof-reason DFS stack
   std::vector<Var> jump_pending;
 
   struct InputRestatement {
@@ -1192,6 +1193,9 @@ inline bool kernel_has_root_assignment(const Kernel &k) {
 }
 
 void kernel_lrat_chain(Kernel &, uint64_t closing_id);
+void kernel_build_lrat_chain(
+    std::vector<std::pair<uint32_t, uint64_t>> &entries,
+    uint64_t closing_id, std::vector<uint64_t> &chain);
 
 // Native LRAT only: name every root literal appended to the trail at or after
 // `from` that a propagation derived, so a later chain can cite it. Callers are

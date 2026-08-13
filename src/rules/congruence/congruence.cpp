@@ -845,12 +845,7 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   if (!conflict)
     return false;
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
-  std::sort(entries.begin(), entries.end());
-  chain.reserve(entries.size() + 1);
-  for (const auto &e : entries)
-    chain.push_back(e.second);
-  if (last)
-    chain.push_back(last);
+  kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its
   // own assumption, so the walk yields no antecedents and every LRAT checker
   // rejects the line. Refusing here covers all three ladders at one choke
