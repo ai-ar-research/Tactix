@@ -1191,9 +1191,16 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   }
 
   // assert collapsed root units un-propagated; M1 owns the cascade.
-  for (const Lit u : pending.units)
-    if (k.value(u) == 0)
+  for (const Lit u : pending.units) {
+    if (k.value(u) < 0) { // ¬u became root-true since the record
+      pending.refute(k, u);
+      return ApplyResult::Unsat;
+    }
+    if (k.value(u) == 0) {
+      pending.commit(k, u);
       kernel_assign_unit(k, u);
+    }
+  }
 
   // cadical drains here: after the resolvents are connected and the pivot's
   // own clauses are garbage, so the antecedents are skipped (elim.cpp:731).
