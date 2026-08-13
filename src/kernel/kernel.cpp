@@ -2291,15 +2291,16 @@ void kernel_check_invariants(const Kernel &k) {
   // (and, folded into the same walk, the eager-subsumption register holds only
   // real clause STARTS — a stale Ref left there by a collect would index the
   // middle of some other clause and read a bogus header, which is the single
-  // way that register can go wrong)
+  // way that register can go wrong). Redundancy is NOT an invariant of the
+  // register: C3 Vivify can promote a registered clause to irredundant, and
+  // both consumers re-test it (analyze.cpp eager_subsume_recent; kissat
+  // learn.c:163 `if (!c->redundant) continue`).
   uint32_t eager_seen = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     for (const Ref r : k.eager_recent)
-      if (r == ref) {
-        assert(c->redundant() && "eager register entry is not a learned clause");
-        eager_seen++;
-      }
+      if (r == ref)
+        eager_seen++; // a live clause START; see the count check below
     if (!c->garbage()) {
       // ...except on a ROOT-ASSIGNED watched literal. The sparse root collect
       // sweeps only from its watermark while its watch flush drops every large
