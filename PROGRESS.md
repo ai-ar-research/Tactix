@@ -5,76 +5,61 @@
 deviations in `docs/implementation-notes.md`. This file contains current state
 only.
 
-- **Current phase:** 4 — Tier B/C causal convergence with original Kissat.
+- **Current phase:** 4 — T3 met; N4 verification is the remaining exit.
 - **Exit:** identical Kissat/Tactix solved sets on Tier B and Tier C, ≤1.10×
   Kissat PAR-2 on both at the matched 32 GB shape, plus P4-CVG/N4 closure.
 - **Non-negotiables:** N1 verification **complete** (2026-08-12: the three
   reopened audit findings are closed — Factor now enumerates seed literals,
   Congruence's round is specified as the indivisible instance, and Decide
   enumerates every unassigned literal including retired variables; each has an
-  adversarial reachability test) · N2 verification **pending**: the first legs to run the
-  solver's own `--lrat` rather than the DRAT conversion rejected certificates of
-  runs answering UNSATISFIABLE, under DefaultPolicy as well as random schedules.
-  Three causes are fixed (V3 chain order, unit identity installed before the
-  assert, a reason naming a deleted clause) and all 57 preserved rejections now
-  verify; the standing evidence is the 200k native-LRAT pair in flight · N3 Tier-D parity not yet measured · N4 verification
+  adversarial reachability test) · N2 verification **complete** (2026-08-13: four proof
+  defects found by first running the solver's own `--lrat` under the random
+  policy, then closed; the 200k native-LRAT and 200k DRAT random-policy legs on
+  `6f44f23` are 0 failures with corpus 25/25) · N3 Tier-D parity not yet measured · N4 verification
   **pending** while the current causal frontier is classified.
-- **Last updated:** 2026-08-12.
+- **Last updated:** 2026-08-13.
 
 ## Resume here
 
-Phase 4 has one goal: Tactix must solve every Tier B/C instance solved by the
-clean original Kissat pin, and its Tier B and Tier C PAR-2 must each be no more
-than 1.10× Kissat's under the matched 32 GB shape. A divergence is work to
-localize and repair unless the Tactix behavior is proved stronger or an explicit
-source-backed exception is accepted. Fixed P4A/P4B fixtures are cumulative
-regression guards inside this loop, not a separate workstream.
+T3 is met on both tiers in a single-array, three-arm window
+(`benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md`): Tier B 28/28 at
+1.036× original Kissat, Tier C 30/30 at 1.067×, correctness clean, every arm
+writing proofs. `128_125` and the Tier C early-exit incident closed with it.
+**N4 verification is the remaining phase-4 exit**, and it is a documentation
+and reconciliation task, not a measurement one: reconcile the final scheduler
+snapshot and the accepted deviations against the complete scheduling-parity
+ledger, then mark N4 only on an explicit verification record.
 
-The current Tier B witness is
-`2013113162201nw.shuffled-as.sat03-1668.cnf`. Stored clean-original Kissat is
-6.052 s. The first Sweep mismatch was localized to failed-assumption core
-commitment: Kissat committed every unit lemma exposed by the core immediately,
-while Tactix retained only the final target and deferred it to the seed boundary.
-Tactix now commits the ordered core units during detection. On seed 2816 both
-solvers produce `-4737,-1793` after query 3 and then ask the same 38 embedded
-queries with matching candidates, outcomes, and per-query ticks. Proof-mode
-Tactix solves the complete witness in 1.02 s with a valid model and zero Sweep
-fallback replays. The remaining local ordering difference is the intentional
-environment-boundary batch of already-proved equivalence substitutions, which
-avoids repeated whole-arena rebuilds without changing later embedded queries.
+The aggregate ratio hides live divergences rather than retiring them. The
+sharpest is `veer_axi_yosyshq_appnote_123_veer_axi-p23_transition` at 7.0× on
+Tier B; `minxor128` (2.08×) and `goldcrest-and-9` (2.01×) lead Tier C. The
+Sweep witness `2013113162201nw.shuffled-as.sat03-1668` is down to 2.81× after
+the core-unit repair. Any of these is a legitimate next divergence to localize
+with the rule journal; none of them gates T3 any more.
 
-Tier C still owns two cumulative gates. The goldcrest crash was localized to
-stale jumped-reason metadata across variable compaction; the two exact
-regressions and focused sanitizers are green, but a fresh immutable Release
-rerun remains required. `128_125` is a real solve-set gap: under 32 GB clean
-Kissat solved SAT in 87.419 s with a verified model, while the preceding Tactix
-pin timed out at 1200 s after using about 25.7 GiB. It is not a memory exemption.
+The structured rule journal remains the divergence-localization tool. Every
+proof rule in Kissat and Tactix should use the same transaction contract —
+applied, declined, no-op, budget, refuted — with exact guard facts from the
+evaluator that owns the operation. Sweep → consequence commitment →
+Congruence/Substitute is the landed pilot; coverage still has to extend to
+every proof rule, with production builds compiling out the journal
+implementation, symbols, environment markers, and hot-path branches.
 
-The trace-divergence workflow is being replaced by a structured rule journal in
-both diagnostic solvers. Every proof rule in Kissat and Tactix must use the same
-transaction contract, including applied, declined, no-op, budget, and refuted
-outcomes; exact guard facts must come from the evaluator which controls the
-operation. Sweep → consequence commitment → Congruence/Substitute is the
-pilot because it owns the active witness. Coverage then extends to every proof
-rule, while production builds compile out the journal implementation, symbols,
-environment markers, and hot-path branches. Record→replay must reproduce the
-ordered semantic deltas/digests and stop at the exact changed field.
+**Next actions:**
 
-**Next actions — repeat without opening a separate Phase-4 workstream:**
-
-1. Pin the core-unit repair with a focused regression, checker gates, and the
-   selected witness; finish the Sweep/Congruence/Substitute journal pilot in
-   both diagnostic solvers and demonstrate the newly closed first divergence.
-2. Complete uniform journal coverage for all proof rules in both solvers, with
+1. Reconcile the scheduler snapshot and the accepted deviations against the
+   scheduling-parity ledger and record an explicit N4 verification result;
+   that closes phase 4.
+2. Extend the rule journal to every proof rule in both solvers, with
    replay/mutated-field tests and production trace-elision checks.
-3. Rerun goldcrest and current Tactix Tier B/C at 32 GB. Compare only with the
-   stored clean-original Kissat results; never use an instrumented Kissat for
-   performance. State solved-set differences before aggregate timing.
-4. Take every missing solve, then every runtime gap threatening 1.10×, in
-   descending gate impact. Journal the first differing control event, guard
-   fact, or transaction outcome; fix it and rerun all earlier cumulative guards.
-5. Repeat actions 3–4 until solved sets match and both PAR-2 ratios are ≤1.10.
-   That same closure completes P4-CVG and N4.
+3. Take the largest remaining paired divergences in descending gate impact
+   (`veer_axi…p23_transition`, `minxor128`, `goldcrest-and-9`), journal the
+   first differing control event or guard fact, and rerun the cumulative
+   guards after each repair.
+4. Widen the oracles that have never run at scale: 10 of 25 rules still have
+   no targeted stress leg, `src/frontend/parse.cpp` has no direct test, and
+   cake_lpr is not wired into the harness. Every oracle first run at depth
+   this session found a defect.
 
 ## Current measurement contract
 
@@ -105,8 +90,9 @@ and CaDiCaL results when the instance and allocation contract are unchanged.
 
 - [x] **T1:** Tier A and MiniSat bar (`benchmarks/reports/2026-07-14-t1-gate.md`).
 - [x] **T2:** Glucose/API bar (`benchmarks/reports/2026-07-14-t2-gate.md`).
-- [ ] **T3:** identical solved sets with original Kissat on Tier B/C and
-  ≤1.10× Kissat PAR-2 on both at the matched 32 GB shape.
+- [x] **T3:** identical solved sets with original Kissat on Tier B/C and
+  ≤1.10× Kissat PAR-2 on both at the matched 32 GB shape
+  (`benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md`).
 - [ ] **T4:** DefaultPolicy engineering exceeds Kissat on the SC25 Tier-D view.
 - [ ] **T5:** beat AE-Kissat-MAB or ship best effort.
 
@@ -133,8 +119,10 @@ their effect with source counters before performance interpretation.
   (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
 - [x] Close P4-CVG on the fixed three-instance P4A and five-instance P4B sets
   (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
-- [ ] Match original Kissat's solved set on full Tier B and full Tier C.
-- [ ] Reach ≤1.10× original-Kissat PAR-2 on both Tier B and Tier C.
+- [x] Match original Kissat's solved set on full Tier B and full Tier C
+  (28/28 and 30/30, one array per tier, 2026-08-12).
+- [x] Reach ≤1.10× original-Kissat PAR-2 on both Tier B and Tier C
+  (1.036× and 1.067×).
 - [ ] Close every decision-relevant first divergence or record an explicit,
   source-backed stronger/accepted behavior; use the resulting corpus plus the
   reconciled scheduling ledger to complete N4 verification.
@@ -224,10 +212,15 @@ the complete ledger, then mark N4 only on an explicit verification record.
   Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
 - `HyperBinaryRes` remains an accepted standalone deviation with a policy-side
   structural cap.
-- Random-policy nontermination: ~12% of cases reach no verdict at the 5 s case
-  timeout, so they run no semantic oracle. The ranked-picker totality defect is
-  fixed (both pickers fall back to index order when `H`'s structures cannot
-  answer), but the population itself is undiagnosed.
+- Random-policy nontermination: 24,052 of 200,000 cases (12.0%) reach no
+  verdict at the 5 s case timeout, so they run no semantic oracle and the legs
+  below are 176k cases, not 200k. The ranked-picker totality defect is fixed
+  (both pickers fall back to index order when `H`'s structures cannot answer);
+  the population itself is undiagnosed.
+- A `Decide,Vivify` stress schedule leaves corpus 017 and 025 without a
+  verdict at the 60 s corpus timeout, so that leg pre-registers
+  `--allow-nonterminating 2`. Both are proof-oracle entries whose verdict needs
+  the normal-step propagation this schedule starves.
 - `VariableCompaction` and `VivifyFlush` read as never-fired on every random
   and stress leg for a structural reason, not a coverage one: compaction is
   called only from DefaultPolicy (`default_policy.cpp`), and `vivify_flush`
@@ -253,6 +246,13 @@ the complete ledger, then mark N4 only on an explicit verification record.
 
 ## Recent changes
 
+- 2026-08-13 — T3 met and N2 re-verified. Tier B 28/28 at 1.036× original
+  Kissat and Tier C 30/30 at 1.067×, one array per tier with Kissat and CaDiCaL
+  re-measured beside it, correctness clean
+  (`benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md`). The intensive
+  legs on the same binary are 0 failures: 200k random-policy native-LRAT, 200k
+  random-policy DRAT, 10k random-policy under ASan/UBSan with assertions, and
+  10k stress-Factor, with corpus 25/25 and 87,946 dense-connected cases.
 - 2026-08-12 — N1 audit and soundness fuzzing. Fixed a heap-buffer-overflow in
   Factor's per-candidate scratch (the admitted fresh literal indexed one past
   `cofactor`/`armed`; Kissat's `resize_factoring` grows unconditionally), the
@@ -280,10 +280,6 @@ the complete ledger, then mark N4 only on an explicit verification record.
   backtraces exposed retired and stale-unassigned jumped-reason compaction
   hazards; both exact regressions, focused sanitizers, and 69/69 Release tests
   pass, with the second real-instance closure rerun pending.
-- 2026-08-11 — started a current-pin Tier C retake, stopped it under plan §8.1
-  after two early nonterminal exits, and added explicit Tier C causal-diagnostic
-  support without changing the fixed P4-CVG gate. The partial 22/30 window is
-  diagnostic only; focused exit classification remains open.
 - 2026-08-11 — fixed three random-policy fuzz defects: Sweep's occurrence
   snapshot outliving an arena collection, a root literal fixed by a speculative
   propagation without its LRAT unit line, and a clause added behind the
