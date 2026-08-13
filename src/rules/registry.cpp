@@ -112,63 +112,18 @@ uint64_t now_nanos() {
           .count());
 }
 
-// The two charge-and-dispatch wrappers. An id at or beyond MAX_TIMED_RULES
+// The charge-and-dispatch wrapper. An id at or beyond MAX_TIMED_RULES
 // would silently corrupt neighbouring counters, so it drops the measurement
 // instead — the registry may outgrow the array, but a diagnostic must never
 // change behaviour or scribble.
-ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-  const bool journal = vt.kind == ActionKind::ProofRule &&
-                       rule_journal_wants(k, vt.name, "canonical");
-  uint64_t pre_digest = 0, formula_epoch = 0, root_epoch = 0,
-           effort_before = 0;
-  RuleEligibility eligibility;
-  if (journal) {
-    formula_epoch = k.arena_generation;
-    root_epoch = k.touch_fixed_head;
-    pre_digest = rule_journal_digest(k);
-    effort_before = k.stats.ticks;
-    eligibility = vt.guard(k);
-    if (!eligibility) {
-      journal_dispatch(vt, k, "canonical", pre_digest, formula_epoch,
-                       root_epoch, eligibility, ApplyResult::NoOp,
-                       effort_before);
-      return ApplyResult::NoOp;
-    }
-    rule_journal_transaction_begin(vt.name, "canonical");
-  }
-#endif
-  if (vt.id >= Stats::MAX_TIMED_RULES)
-  {
-    const ApplyResult result = vt.apply(k);
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-    if (journal)
-      journal_dispatch(vt, k, "canonical", pre_digest, formula_epoch,
-                       root_epoch, eligibility, result, effort_before);
-    if (journal)
-      rule_journal_transaction_end();
-#endif
-    return result;
-  }
-  const uint64_t t0 = now_nanos();
-  const ApplyResult r = vt.apply(k);
-  k.stats.rule_nanos[vt.id] += now_nanos() - t0;
-  k.stats.rule_calls[vt.id]++;
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-  if (journal)
-    journal_dispatch(vt, k, "canonical", pre_digest, formula_epoch,
-                     root_epoch, eligibility, r, effort_before);
-  if (journal)
-    rule_journal_transaction_end();
-#endif
-  return r;
-}
+namespace {
 
-ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
-                                uint64_t inst) {
+template <typename Candidate, typename Apply>
+ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
+                          [[maybe_unused]] Candidate &&candidate_name,
+                          Apply &&apply) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-  const std::string candidate =
-      inst == INSTANCE_CANONICAL ? "canonical" : std::to_string(inst);
+  const std::string candidate = candidate_name();
   const bool journal = vt.kind == ActionKind::ProofRule &&
                        rule_journal_wants(k, vt.name, candidate);
   uint64_t pre_digest = 0, formula_epoch = 0, root_epoch = 0,
@@ -189,30 +144,41 @@ ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
     rule_journal_transaction_begin(vt.name, candidate);
   }
 #endif
-  if (vt.id >= Stats::MAX_TIMED_RULES)
-  {
-    const ApplyResult result = vt.apply_instance(k, inst);
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
-    if (journal)
-      journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                       root_epoch, eligibility, result, effort_before);
-    if (journal)
-      rule_journal_transaction_end();
-#endif
-    return result;
+  ApplyResult result;
+  if (vt.id >= Stats::MAX_TIMED_RULES) {
+    result = apply();
+  } else {
+    const uint64_t t0 = now_nanos();
+    result = apply();
+    k.stats.rule_nanos[vt.id] += now_nanos() - t0;
+    k.stats.rule_calls[vt.id]++;
   }
-  const uint64_t t0 = now_nanos();
-  const ApplyResult r = vt.apply_instance(k, inst);
-  k.stats.rule_nanos[vt.id] += now_nanos() - t0;
-  k.stats.rule_calls[vt.id]++;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-  if (journal)
+  if (journal) {
     journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
-                     root_epoch, eligibility, r, effort_before);
-  if (journal)
+                     root_epoch, eligibility, result, effort_before);
     rule_journal_transaction_end();
+  }
 #endif
-  return r;
+  return result;
+}
+
+} // namespace
+
+ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
+  return dispatch_rule(vt, k, [] { return std::string("canonical"); },
+                       [&] { return vt.apply(k); });
+}
+
+ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
+                                uint64_t inst) {
+  return dispatch_rule(vt, k,
+                       [&] {
+                         return inst == INSTANCE_CANONICAL
+                                    ? std::string("canonical")
+                                    : std::to_string(inst);
+                       },
+                       [&] { return vt.apply_instance(k, inst); });
 }
 
 #ifdef TACTIX_ENABLE_RULE_JOURNAL

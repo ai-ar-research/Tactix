@@ -714,7 +714,6 @@ struct Kernel {
   uint32_t factor_cand_rounds = 2;
   bool no_ext_decisions = false;
   bool no_ext_reason_bump = false;
-  bool subst_hazard_round = false;
   std::vector<VarStatus> var_status;
   std::vector<Var> retired_events;
   std::vector<Var> substituted_events;

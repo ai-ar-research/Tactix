@@ -299,8 +299,6 @@ int main(int argc, char **argv) {
     kernel.retire_enabled = (*rt != '0'); // retirement ships ON; =0 reverts
   if (getenv("TACTIX_SUBST_DEMOTE"))
     kernel.subst_demote = true; // rank substituted vars last, see Kernel
-  if (getenv("TACTIX_SUBST_HAZARD_ROUND"))
-    kernel.subst_hazard_round = true; // A/B, see Kernel::subst_hazard_round
   // Eager subsumption of recent learned clauses ships ON at kissat's default
   // and maximum (`eagersubsume`=4, learn.c); `=0` reverts, 1..4 dose it.
   if (const char *es = getenv("TACTIX_EAGER_SUBSUME")) {
@@ -445,12 +443,6 @@ int main(int argc, char **argv) {
     printf("c tumble      %llu vars seeded (%s)\n",
            (unsigned long long)kernel.stats.tumble_seeded,
            kernel.tumble ? "activation order" : "off");
-    printf("c strengthen  %llu rounds, %llu strengthened, %llu subsumed, "
-           "%llu flushed\n",
-           (unsigned long long)kernel.stats.strengthen_rounds,
-           (unsigned long long)kernel.stats.strengthened,
-           (unsigned long long)kernel.stats.strengthen_subsumed,
-           (unsigned long long)kernel.stats.flushed);
     printf("c sparsecol   %llu runs, %llu clauses\n",
            (unsigned long long)kernel.stats.sparse_collections,
            (unsigned long long)kernel.stats.sparse_collected);
