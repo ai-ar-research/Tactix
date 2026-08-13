@@ -124,8 +124,8 @@ void heuristics_demote_marked_vars(Kernel &, const std::vector<uint8_t> &mark);
 
 // Remove a retired variable from the ranking structures outright (kissat
 // flags.c deactivate_variable), at no per-decision cost since they then hold
-// only active variables. N1 is untouched: `decide_candidates` builds the
-// instance surface from `k.nvars`, never from `H`.
+// only active variables. N1 is untouched: the Decide rule builds its instance
+// surface from `k.nvars`, never from `H`.
 void heuristics_deactivate_var(Kernel &, Var v);
 // Kissat's flags[idx].active predicate for decision-guidance operations.
 // Root-fixed and retired variables are disconnected but retain kernel IDs.
@@ -175,6 +175,10 @@ inline Lit heuristics_decide_lit(const Kernel &k, Var v) {
     phase = k.h->saved[v];
   return make_lit(v, phase < 0);
 }
+
+// Policy-ranked candidate variables for clients that want the active search
+// order without making that order part of the Decide proof rule.
+uint32_t heuristics_decide_candidates(const Kernel &, Lit *out, uint32_t cap);
 
 #ifndef NDEBUG
 // debug invariant: `H` exists and its per-var state is sized to Kernel::nvars.

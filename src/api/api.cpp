@@ -372,7 +372,8 @@ int tactix_decide_candidates(tactix_solver *s, int *lits, int cap) {
     return 0;
   std::vector<Lit> buf(static_cast<size_t>(cap));
   const uint32_t n =
-      decide_candidates(s->kernel, buf.data(), static_cast<uint32_t>(cap));
+      heuristics_decide_candidates(s->kernel, buf.data(),
+                                   static_cast<uint32_t>(cap));
   for (uint32_t i = 0; i < n; i++)
     lits[i] = kernel_externalize(s->kernel, buf[i]);
   return static_cast<int>(n);

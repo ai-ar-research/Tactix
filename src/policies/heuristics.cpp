@@ -197,6 +197,53 @@ void heuristics_compact_random_order_fixed(Kernel &k) {
               }),
               order.end());
 }
+
+static uint32_t append_unranked_decision_candidates(
+    const Kernel &k, Lit *out, uint32_t cap, uint32_t n) {
+  if (n >= cap)
+    return n;
+  std::vector<uint8_t> emitted(k.nvars, 0);
+  for (uint32_t i = 0; i < n; i++)
+    emitted[var_of(out[i])] = 1;
+  for (Var v = 0; v < k.nvars && n < cap; v++)
+    if (!emitted[v] && k.values[make_lit(v, false)] == 0)
+      out[n++] = heuristics_decide_lit(k, v);
+  return n;
+}
+
+uint32_t heuristics_decide_candidates(const Kernel &k, Lit *out,
+                                      uint32_t cap) {
+  uint32_t n = 0;
+  if (!k.h) {
+    for (Var v = 0; v < k.nvars && n < cap; v++)
+      if (k.values[make_lit(v, false)] == 0)
+        out[n++] = make_lit(v, false);
+    return n;
+  }
+  if (k.h->stable) {
+    std::vector<Var> scratch;
+    scratch.reserve(k.unassigned);
+    for (Var v = 0; v < k.nvars; v++)
+      if (k.values[make_lit(v, false)] == 0)
+        scratch.push_back(v);
+    std::stable_sort(scratch.begin(), scratch.end(),
+                     [&](Var a, Var b) {
+                       return k.h->scores.score[a] > k.h->scores.score[b];
+                     });
+    for (const Var v : scratch) {
+      if (n >= cap)
+        break;
+      out[n++] = heuristics_decide_lit(k, v);
+    }
+    return n;
+  }
+  for (Var v = k.h->search_idx; v != UINT32_MAX && n < cap;
+       v = k.h->links[v].prev)
+    if (k.values[make_lit(v, false)] == 0)
+      out[n++] = heuristics_decide_lit(k, v);
+  return append_unranked_decision_candidates(k, out, cap, n);
+}
+
 // --- VMTF -------------------------------------------------------------------
 
 static void queue_dequeue(Kernel &k, Var v) {
