@@ -1073,6 +1073,16 @@ void kernel_probing_begin(Kernel &, bool rollback_pose = true);
 void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope
 bool kernel_propagate_probing(Kernel &, Ref ignore = INVALID_REF);
 
+// True while the open scope is accumulating pose snapshots it will restore.
+// A `rollback_pose == false` scope records nothing (every snapshot push in the
+// propagation engine is under its `RECORD` instantiation) and restores
+// nothing, so an unlogged watch edit inside one survives by construction. That
+// is the case a scope-holding rule may edit watches in; the rollback case is
+// not.
+inline bool kernel_probing_rollback_active(const Kernel &k) {
+  return k.probing.recording && k.probing.rollback_pose;
+}
+
 
 inline bool kernel_terminating(const Kernel &k) {
   if (k.stop_fuzz) {

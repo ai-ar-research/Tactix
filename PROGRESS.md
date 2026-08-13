@@ -8,13 +8,15 @@ only.
 - **Current phase:** 4 — Tier B/C causal convergence with original Kissat.
 - **Exit:** identical Kissat/Tactix solved sets on Tier B and Tier C, ≤1.10×
   Kissat PAR-2 on both at the matched 32 GB shape, plus P4-CVG/N4 closure.
-- **Non-negotiables:** N1 verification **pending after the documentation audit**
-  (Factor and Congruence expose only canonical rounds; retired Decide instances
-  need an adversarial reachability test) · N2 verification **complete** (frozen-pivot fix
+- **Non-negotiables:** N1 verification **complete** (2026-08-12: the three
+  reopened audit findings are closed — Factor now enumerates seed literals,
+  Congruence's round is specified as the indivisible instance, and Decide
+  enumerates every unassigned literal including retired variables; each has an
+  adversarial reachability test) · N2 verification **complete** (frozen-pivot fix
   `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
   pair N2-clean) · N3 Tier-D parity not yet measured · N4 verification
   **pending** while the current causal frontier is classified.
-- **Last updated:** 2026-08-11.
+- **Last updated:** 2026-08-12.
 
 ## Resume here
 
@@ -219,20 +221,20 @@ the complete ledger, then mark N4 only on an explicit verification record.
 - The sparse-GC candidate remains deferred and outside the closure pin; do not
   exercise it without separate user direction. Corpus 004/005 are closed: the
   Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
-- `N1-FACTOR-INSTANCES`, `N1-CONG-INSTANCES`, and `N1-RETIRED-DECIDE` are
-  reopened by the documentation audit. Each needs an explicit semantic
-  disposition plus an adversarial public-API reachability test.
 - `HyperBinaryRes` remains an accepted standalone deviation with a policy-side
   structural cap.
-- Diagnose random-policy nontermination; it is an N1 robustness issue but does
-  not gate the already-closed phase 3.
-- The random-policy fuzz legs never connect the dense occurrence index:
-  `main.cpp` defaults the policy seed to the even constant 20260710, so
-  `random_solve`'s `(seed & 1) != 0` branch never fires and every bare
-  `--random-policy` run prints `c stress-dense 0`. The dense-gated tails read
-  `BveBackward=0!`, `BveBackwardUnit=0!` and `VariableCompaction=0!` in every
-  leg's reach line — that half of the coverage comment is vacuous until the
-  harness varies the policy seed.
+- Random-policy nontermination: ~12% of cases reach no verdict at the 5 s case
+  timeout, so they run no semantic oracle. The ranked-picker totality defect is
+  fixed (both pickers fall back to index order when `H`'s structures cannot
+  answer), but the population itself is undiagnosed.
+- `VariableCompaction` and `VivifyFlush` still read as never-fired on every
+  leg, now that the `Lucky` and `SweepResume` reach specs are repaired and the
+  dense half of the schedule is exercised. Until a leg fires them, no leg says
+  anything about either path.
+- Factor's next-factor counting and matching passes can disagree (the count
+  reserves each large occurrence across the whole quotient, the re-scan only
+  against the chosen factor). Grid-choice fidelity only; the repair is the
+  memoized `qlauses` lifecycle in `docs/implementation-notes.md` §5.
 - **Sweep ships — user directive, non-negotiable:** neither disabling Sweep nor
   shrinking its budget until inert counts as a fix; after any governor change it
   must still fire and find equivalences.
@@ -248,6 +250,16 @@ the complete ledger, then mark N4 only on an explicit verification record.
 
 ## Recent changes
 
+- 2026-08-12 — N1 audit and soundness fuzzing. Fixed a heap-buffer-overflow in
+  Factor's per-candidate scratch (the admitted fresh literal indexed one past
+  `cofactor`/`armed`; Kissat's `resize_factoring` grows unconditionally), the
+  missing binary branch of Vivify's instantiation strengthening, and a debug
+  watch invariant stricter than the sparse-collect contract it checked. All 167
+  preserved crash bundles are clean, corpus is 21/21 with three new entries, and
+  both suites are 72/72 in Release and under ASan/UBSan with assertions (they
+  were 62/72 before). Closed the three reopened N1 findings with dispositions
+  and adversarial tests, and made the fuzz harness vary the policy seed per case
+  so the dense-index half of the schedule is reached (4407 of 8803 cases).
 - 2026-08-11 — made 32 GB Tier B/C original-Kissat convergence the Phase-4
   exit and retired may-not-gate exemptions. `128_125` is a 1200.546s Tactix
   timeout versus Kissat's verified 87.419s SAT. Two optimized goldcrest
@@ -266,6 +278,3 @@ the complete ledger, then mark N4 only on an explicit verification record.
 - 2026-08-11 — re-audited rule/strategy ownership: removed dead Factor policy
   state, made Sweep resumption an explicit limit, and stopped Substitute from
   charging Sweep; full A/B behavior is identical with +0.56%/+0.73% runtime.
-- 2026-08-11 — replaced Factor's dense scan with sparse literal buckets and
-  repaired Sweep representation accounting; full Tier B improves 25/28 →
-  28/28 solved and 114.19s → 28.69s PAR-2, correctness clean.

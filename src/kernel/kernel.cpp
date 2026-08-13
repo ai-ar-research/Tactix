@@ -257,7 +257,13 @@ uint64_t kernel_clause_order(const Kernel &k, uint64_t id) {
 
 void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
                                  uint64_t source_id) {
-  assert(replacement_id && source_id);
+  // Id 0 is "no proof identity", the documented default of the clause-add API
+  // (kernel.hpp) and the state every kernel built without a proof is in. The
+  // alias map is keyed by clause id, so there is nothing to key and nothing to
+  // inherit; the order consumers already fall back to the arena Ref for an
+  // id-less clause (vivify.cpp VivifyArenaOrder::order).
+  if (!replacement_id || !source_id)
+    return;
   k.clause_order_alias.insert_or_assign(replacement_id,
                                         kernel_clause_order(k, source_id));
 }
@@ -401,8 +407,13 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
 // kernel_delete_binary already uses, and the walk must be entry-aware rather
 // than word-aware because a large watch occupies two consecutive words.
 void kernel_unwatch_large(Kernel &k, Lit l, Ref ref) {
-  assert(!k.delayed_used);       // no scan may hold pointers into this slice
-  assert(!k.probing.recording);  // an unlogged edit would survive the rollback
+  assert(!k.delayed_used); // no scan may hold pointers into this slice
+  // An unlogged edit would be overwritten by a pose rollback. Vivify's rewrite
+  // path unwatches the replaced candidate while its own scope is still open —
+  // the large-replacement case deliberately retains the assumption prefix — and
+  // that scope is opened with `rollback_pose == false`, so nothing is restored
+  // over the removal.
+  assert(!kernel_probing_rollback_active(k));
   bool removed = false;
   k.watches.compact(l, [&](WatchEntry w) {
     if (removed || w.binary() || w.ref() != ref)
@@ -2290,13 +2301,22 @@ void kernel_check_invariants(const Kernel &k) {
         eager_seen++;
       }
     if (!c->garbage()) {
+      // ...except on a ROOT-ASSIGNED watched literal. The sparse root collect
+      // sweeps only from its watermark while its watch flush drops every large
+      // entry of a fixed literal (kissat collect.c
+      // flush_watched_clauses_by_literal, `if (!lit_fixed)`), so a clause in
+      // the unswept prefix stays live and singly watched until a whole-arena
+      // collect reclaims it. That entry can never fire again: the literal keeps
+      // its root value for the rest of the solve. Pinned by
+      // tests/test_kernel.cpp::test_sparse_collection_flushes_fixed_prefix_watch.
       for (int w = 0; w < 2; w++) {
         const Lit lit = c->lits[w];
         bool found = false;
         for (const WatchEntry w : k.watches.entries(lit))
           if (!w.binary() && w.ref() == ref)
             found = true;
-        assert(found && "clause not watched on a watched literal");
+        assert((found || kernel_root_value(k, lit) != 0) &&
+               "clause not watched on a watched literal");
       }
     }
     ref += clause_words(c->size);

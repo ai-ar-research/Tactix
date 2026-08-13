@@ -3,6 +3,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "rules/congruence/congruence.hpp"
+#include "rules/registry.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -397,6 +398,34 @@ static void test_budget_stops_round() {
   assert(again.stats.congruence_budget_stops == 0);
 }
 
+// `N1-CONG-INSTANCES` (disposition: docs/calculus.md §6 V6). V6's effect is the
+// closure, so a single merge is a prefix of one application rather than an
+// application, and the canonical round is the whole legal instance space. The
+// finer choice — which discovered equivalence to collapse into the formula —
+// belongs to V3, which offers one instance per representative over exactly the
+// binaries V6 adds. This test holds that division in place.
+static void test_round_is_the_instance_and_substitute_owns_the_choice() {
+  Kernel k;
+  kernel_reserve_vars(k, 6); // x1 x2, two AND outputs, and a second gate pair
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2);
+  and_gate(k, 5, 1, 2);
+  const RuleVTable &cong = tactix_rules()[tactix_rule_id("Congruence")];
+  uint64_t insts[8];
+  assert(cong.instances(k, insts, 8) == 1 && insts[0] == INSTANCE_CANONICAL &&
+         "V6's instance is the closure; see the disposition above");
+  assert(cong.apply_instance(k, INSTANCE_CANONICAL) == ApplyResult::Ok);
+  assert(equivalence_added(k, 3, 4) && equivalence_added(k, 3, 5));
+
+  // the gate clauses are untouched: the collapse is V3's to schedule
+  assert(has_binary(k, internalize(-3), internalize(1)));
+
+  const RuleVTable &subst = tactix_rules()[tactix_rule_id("Substitute")];
+  const uint32_t n = subst.instances(k, insts, 8);
+  assert(n >= 1 && "the equivalence class V6 discovered is addressable in V3");
+  assert(subst.apply_instance(k, insts[0]) == ApplyResult::Ok);
+}
+
 int main() {
   test_budget_stops_round();
   test_and_congruent();
@@ -417,6 +446,7 @@ int main() {
   test_xor_output_sign_odd_relation();
   test_xor_output_sign_odd_arity();
   test_extracted_binary_suffix_is_sorted();
+  test_round_is_the_instance_and_substitute_owns_the_choice();
   std::printf("test_congruence: all passed\n");
   return 0;
 }

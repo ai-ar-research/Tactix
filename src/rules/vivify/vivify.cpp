@@ -1396,7 +1396,8 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
       for (const Lit l : *c)
         if (l != remove && kernel_root_value(k, l) >= 0)
           shorter.push_back(l);
-      assert(shorter.size() > 2);
+      // The chain is walked before any backtrack: it reads the conflict and
+      // the trail positions this propagation produced.
       uint64_t last = 0;
       if (lrat) {
         last = kernel_conflict_reason_walk(k, seen, entries, &seen_touched);
@@ -1405,9 +1406,23 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
         for (const uint64_t u : absorbed)
           entries.emplace_back(0, u);
       }
-      const uint32_t retained = k.level > 1 ? k.level - 2 : 0;
-      kernel_backtrack(k, retained, /*update_phases=*/false);
-      vivify_pose_replacement_watches(k, shorter);
+      // Kissat splits the instantiation result on the assumption level
+      // (vivify_strengthen_after_instantiation): at level 3 the surviving
+      // non-root literals are exactly two and
+      // binary_strengthen_after_instantiation returns to the root before
+      // installing the binary; deeper, large_strengthen_after_instantiation
+      // keeps level-2 and re-poses the watched pair. `shorter` already holds
+      // that same root-filtered result, so branch on it rather than on the
+      // level — a root literal forced by this round's own probing propagation
+      // can shrink a deeper instantiation to a binary as well, and only the
+      // large case has a watched pair to pose.
+      if (shorter.size() > 2) {
+        const uint32_t retained = k.level > 1 ? k.level - 2 : 0;
+        kernel_backtrack(k, retained, /*update_phases=*/false);
+        vivify_pose_replacement_watches(k, shorter);
+      } else {
+        reset_to_root(k);
+      }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       if (vivify_journal_active) {
         vivify_journal_facts.replacement_pose =
