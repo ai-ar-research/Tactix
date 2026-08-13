@@ -329,6 +329,10 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   Still deferred, sound: the ITE collapses (`Canon::Skip`), and the literal-form `x ≡ ¬x` for XOR/ITE,
   whose "binaries" degenerate to units (AND refutes it directly). *(Closed ledger row **D-CONG-UNIT**,
   `implementation-notes.md` §2.)*
+- **Instances:** the closure IS the instance. A single merge re-canonicalizes every gate that used
+  either output, and its bridging lemmas are produced by that same closure, so one merge is a prefix of
+  an application rather than an application: V6 offers exactly the canonical payload. Choosing WHICH
+  discovered equivalence to collapse into the formula is V3's instance surface over the binaries V6 adds.
 - **Proof δ:** for outputs `a,b`, write `B→={¬a,b}` and `B←={a,¬b}`. Every path emits the supporting
   transient lemmas first, then `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest
   first. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the
@@ -450,6 +454,11 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   inverse of E1's Davis–Putnam step — BVE on `x` resolves the dividers against the quotients back to the
   grid (so BVE must not schedule extension variables, else the two rules thrash; see
   `implementation-notes.md` §5).
+- **Instances:** the seed literal (`lit_instance`), i.e. the grid's first factor; the canonical payload
+  is that choice repeated over the ranked schedule. Every unassigned, unretired literal is enumerated,
+  independently of any policy-side schedule filter, and applying one applies at most one factoring. The
+  grid `(F,R)` a seed grows into is not separately addressable — that space is exponential — and is the
+  matcher's maximal-delta construction, swappable through `Kernel::factor_selection`.
 - **Proof δ:** **add-RAT** (the first `ρ`-free new-variable rule). Each divider `(x ∨ fᵢ)` is RAT on the
   fresh literal `x` — no clause mentions `¬x` yet, so the RAT side-condition is vacuous. Each quotient
   `{¬x} ∪ Rⱼ` is RAT on `¬x`: its only resolution partners are the dividers, and each resolvent

@@ -1,0 +1,10 @@
+{
+  "seed": 20262727,
+  "index": 2018,
+  "generator": "ksat-k5-n21-m416 (ddmin-shrunk to 290 clauses under the crash predicate)",
+  "failure": "crash",
+  "solver_args": ["--stress-policy"],
+  "solver_env": {"TACTIX_STRESS_RULES": "Factor", "TACTIX_STRESS_NORMAL_EVERY": "6"},
+  "found_by": "N1-audit stress-Factor and random-policy legs on the 3fdaf95 pins, 2026-08-12 (jobs 1617033/1617155/1617156: 49 failures in 200000 random-policy cases and 58-60 per 10000 stress cases). Reproduces deterministically; ASAN localizes it directly.",
+  "diagnosis": "Heap-buffer-overflow of one uint32_t past `cofactor` in factor_apply (AddressSanitizer at factor.cpp:950, `WRITE/READ of size 4 ... 0 bytes after a 168-byte region`, i.e. index 2*nvars of a 2*nvars array), seen in release builds as glibc 'malloc(): corrupted size vs. prev_size' / 'munmap_chunk(): invalid pointer' with any s-line, including a printed SATISFIABLE. Cause: Factor's per-candidate scratch (`cofactor`, and `armed` for a chosen fresh factor) was sized to `live_lits == 2*nvars-at-entry`, while the next-factor admission boundary is `next_factor_limit == live_lits + 1` -- Kissat's `next > initial` test deliberately admits the positive literal of the application's first fresh variable, and Tactix carries that boundary. Once a factoring in the same application creates that variable, its divider/quotient binaries enter the dense stream and a later seed's scan counts it as a candidate, indexing one past the end. Kissat cannot reach this: resize_factoring (factor.c:645) grows `count` for every fresh literal unconditionally, while Tactix grew the arrays only under the composite-grid arm (default off). Fixed 2026-08-12 by sizing both arrays to the admission boundary and making the first-factor test read the pass universe (`live_lits`) instead of the container size, which is a semantic boundary and not an allocation detail. Behaviour before the fix was undefined -- the out-of-bounds slot also fed grid selection -- so trajectories on formulas that hit it were not meaningful."
+}

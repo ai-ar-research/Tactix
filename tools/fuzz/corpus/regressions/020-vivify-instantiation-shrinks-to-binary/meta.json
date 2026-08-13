@@ -1,0 +1,10 @@
+{
+  "seed": 20261025,
+  "index": 316,
+  "generator": "mut-n21 (ddmin-shrunk to 144 clauses under the crash predicate)",
+  "failure": "crash",
+  "solver_args": ["--stress-policy"],
+  "solver_env": {"TACTIX_STRESS_RULES": "Factor", "TACTIX_STRESS_NORMAL_EVERY": "6"},
+  "found_by": "N1-audit legs on the 3fdaf95 pins, 2026-08-12: 57 of 167 preserved crash bundles carried this assertion once the Factor overflow (corpus 019) no longer masked it.",
+  "diagnosis": "`assert(shorter.size() > 2)` in vivify_one's instantiation branch (vivify.cpp). Kissat splits that result on the assumption level: at level 3 binary_strengthen_after_instantiation keeps the two surviving non-root literals, adds a binary and backtracks to the root; deeper, large_strengthen_after_instantiation re-poses a watched pair. Tactix folded both into the large branch and asserted the binary one away, so any instantiation whose root-filtered result is a binary aborted an assertions-on build. Reachable without an exotic schedule: the candidate's own probing propagation can force a literal at level 0 (kernel_propagate_probing keeps such assignments), and `shorter` drops root-false literals, so a deeper instantiation can still collapse to two literals. Fixed 2026-08-12 by branching on the filtered result -- large keeps the level-2 retention and the replacement pose, binary returns to the root through reset_to_root -- and letting the shared rewrite primitive install the binary (its ReplaceOutcome path already handles unit and refutation too). The LRAT chain is still walked before any backtrack, since it reads the conflict and the trail positions this propagation produced."
+}

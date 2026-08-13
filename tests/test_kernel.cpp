@@ -88,10 +88,15 @@ static void test_variable_compaction() {
       decide = &rule;
   assert(decide && decide->instances && decide->apply_instance);
   uint64_t instances[4];
-  assert(decide->instances(k, instances, 4) == 1);
+  // one unassigned variable left, offered in both phases (M2's instance
+  // surface is any unassigned LITERAL — docs/calculus.md §3 M2)
+  assert(decide->instances(k, instances, 4) == 2);
   Lit external;
   assert(lit_of_instance(instances[0], &external));
   assert(std::abs(externalize(external)) == 5);
+  Lit opposite;
+  assert(lit_of_instance(instances[1], &opposite));
+  assert(opposite == negate(external));
   kernel_check_invariants(k);
 
   kernel_extend_model(k);

@@ -714,7 +714,11 @@ RuleEligibility factor_guard(const Kernel &k) {
       .fact("root-level", k.level == 0);
 }
 
-ApplyResult factor_apply(Kernel &k) {
+// `forced_seed == INVALID_LIT` is the canonical sweep: schedule every eligible
+// first factor and keep factoring until the heap or the budget runs out. A
+// literal payload instead applies at most one factoring, seeded at exactly that
+// literal (`N1-FACTOR-INSTANCES`; instance surface at the bottom of this file).
+static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   assert(factor_guard(k));
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
@@ -765,8 +769,13 @@ ApplyResult factor_apply(Kernel &k) {
   // clauses are neither indexed nor considered.
   FactorIndex fidx;
   build_factor_index(k, fidx, k.factor_size);
-  std::vector<Lit> rem_scratch;                 // one remainder, sorted
-  std::vector<uint32_t> cofactor(live_lits, 0); // co-occurrence counts
+  std::vector<Lit> rem_scratch; // one remainder, sorted
+  // Per-candidate scratch spans the FACTOR admission boundary, not the
+  // remainder universe: `next_factor_limit` admits one fresh positive literal
+  // (see above), so `live_lits` entries are one short of the widest index a
+  // candidate can carry. Kissat sizes `factoring->count` the same way by
+  // growing it for every fresh literal in resize_factoring (factor.c:645).
+  std::vector<uint32_t> cofactor(next_factor_limit, 0); // co-occurrence counts
   std::vector<Lit> touched, F, best_F;
   std::vector<uint32_t> R, newR, best_R;
   std::vector<RemOccurrence> occurrences;
@@ -828,7 +837,7 @@ ApplyResult factor_apply(Kernel &k) {
   FactorHeap schedule;
   // Per-polarity analogue of Kissat's `flags->factor`: clear on pop, set again
   // only when a newly added divider or quotient contains the literal.
-  std::vector<uint8_t> armed(live_lits, 0);
+  std::vector<uint8_t> armed(next_factor_limit, 0);
   // Exact persistent per-literal seed marks (`flags->factor`, inline.h:60-66,
   // read at factor.c:922). Clause addition sets the actual polarity and a pop
   // clears it. The shared per-variable touched epoch is intentionally not used:
@@ -854,6 +863,17 @@ ApplyResult factor_apply(Kernel &k) {
                             kernel_import_lit_order(k, b);
                    });
   uint32_t schedule_ordinal = 0;
+  // Single-instance mode arms exactly the requested literal. The touch filter
+  // (`seed_is_new`) is deliberately NOT applied: it is DefaultPolicy's
+  // per-literal narrowing of the canonical schedule, and N1 forbids a policy
+  // narrowing from reaching the public instance surface.
+  if (forced_seed != INVALID_LIT) {
+    if (forced_seed < live_lits && k.value(forced_seed) == 0 &&
+        !kernel_var_retired(k, var_of(forced_seed))) {
+      armed[forced_seed] = 1;
+      schedule.update(forced_seed, score_of(forced_seed));
+    }
+  } else
   for (const Lit l : schedule_order) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_factor_literal_state(
@@ -900,8 +920,18 @@ ApplyResult factor_apply(Kernel &k) {
   while (!schedule.empty()) {
     if (over_budget()) // quit point 1: before each popped seed
       break;
+    // One factoring per literal instance. An applied factoring re-scores its
+    // factors back into the heap, which the canonical sweep is meant to
+    // continue from and a single instance is not.
+    if (forced_seed != INVALID_LIT && applied)
+      break;
     const Lit seed = schedule.pop_max();
-    if (seed >= armed.size() || !armed[seed] || k.value(seed) != 0 ||
+    if (forced_seed != INVALID_LIT && seed != forced_seed)
+      break;
+    // `live_lits`, not `armed.size()`: the first-factor boundary is the pass
+    // universe. An update_candidate on a divider/quotient literal can push a
+    // fresh literal into the heap, and Kissat never schedules one as a seed.
+    if (seed >= live_lits || !armed[seed] || k.value(seed) != 0 ||
         kernel_var_retired(k, var_of(seed)))
       continue;
     armed[seed] = 0;
@@ -1216,7 +1246,13 @@ ApplyResult factor_apply(Kernel &k) {
         newR.push_back(rid);
         next_refs.push_back(matched_ref);
       }
-      assert(newR.size() == bestc);
+      // `newR.size()` need not equal `bestc`: the counting pass reserves each
+      // live large occurrence once across the whole quotient, so a clause an
+      // earlier column spent on another candidate is invisible to g's count,
+      // while this pass re-scans and reserves only against g. Grid-choice
+      // fidelity only — the grid and its delta are built from the matched
+      // columns, and only g's selection reads `bestc`. Deviation and repair:
+      // docs/implementation-notes.md §5, Factor next-factor matching.
       new_grid_refs.assign(grid_refs.size() + 1, {});
       for (size_t row = 0; row < grid_refs.size(); row++) {
         new_grid_refs[row].reserve(matched_columns.size());
@@ -1277,8 +1313,8 @@ ApplyResult factor_apply(Kernel &k) {
       // fresh literal itself as a first factor.
       if (composite && static_cast<Lit>(2 * k.nvars) > live_lits) {
         live_lits = static_cast<Lit>(2 * k.nvars);
-        cofactor.resize(live_lits, 0);
-        armed.resize(live_lits, 0);
+        cofactor.resize(std::max(live_lits, next_factor_limit), 0);
+        armed.resize(std::max(live_lits, next_factor_limit), 0);
       }
       // Clause addition re-arms exactly the polarities present in the new
       // definition: each factor occurs in a divider, and every remainder
@@ -1368,16 +1404,34 @@ ApplyResult factor_apply(Kernel &k) {
   return applied ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
-uint32_t factor_instances(Kernel &, uint64_t *out, uint32_t cap) {
-  if (cap >= 1)
-    out[0] = INSTANCE_CANONICAL;
-  return 1;
+ApplyResult factor_apply(Kernel &k) {
+  return factor_apply_seeded(k, INVALID_LIT);
+}
+
+// `N1-FACTOR-INSTANCES` (disposition: docs/implementation-notes.md §5 Factor).
+// E2's atom is one factoring, and the choice a policy owns is the seed literal,
+// so that is the payload: every unassigned, unretired literal is offered,
+// whatever DefaultPolicy's touch filter or heap score would schedule. The grid
+// a seed grows into is not separately addressable — that space is exponential
+// and is the rule's construction, swappable through `factor_selection`.
+uint32_t factor_instances(Kernel &k, uint64_t *out, uint32_t cap) {
+  if (cap == 0)
+    return 0;
+  uint32_t n = 0;
+  out[n++] = INSTANCE_CANONICAL; // ranked canonical-first, as everywhere
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars) && n < cap; l++)
+    if (k.value(l) == 0 && !kernel_var_retired(k, var_of(l)))
+      out[n++] = lit_instance(k, l);
+  return n;
 }
 
 ApplyResult factor_apply_instance(Kernel &k, uint64_t inst) {
   if (inst == INSTANCE_CANONICAL)
     return factor_apply(k);
-  return ApplyResult::NoOp;
+  Lit l;
+  if (!lit_of_instance(k, inst, &l))
+    return ApplyResult::NoOp;
+  return factor_apply_seeded(k, l);
 }
 
 TACTIX_REGISTER_RULE(Factor, RuleTier::Inprocess, factor_guard, factor_apply,

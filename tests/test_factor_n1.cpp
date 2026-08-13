@@ -8,6 +8,7 @@
 
 #include <cassert>
 #include <cstdio>
+#include <algorithm>
 #include <cstring>
 
 using namespace tactix;
@@ -52,6 +53,38 @@ int main() {
          "N1 BREACH: a legal factoring is not applicable through the rule API "
          "on a binary-sparse formula");
   assert(k.stats.factorings > before && "apply reported Ok but factored nothing");
+
+  // `N1-FACTOR-INSTANCES`: the sweep is not the only addressable application.
+  // Every unassigned, unretired literal is a legal seed, and seeding at one
+  // applies at most that one factoring.
+  {
+    Kernel s;
+    build_sparse_factorable(s, 4);
+    uint64_t seeds[512];
+    const uint32_t m = factor->instances(s, seeds, 512);
+    assert(m == 1 + 2 * s.nvars &&
+           "N1: canonical, then every unassigned literal as a seed");
+    assert(seeds[0] == INSTANCE_CANONICAL);
+
+    // DefaultPolicy's per-literal touch filter is a schedule narrowing, so it
+    // must not reach the API: clear every factor mark (the state in which the
+    // canonical sweep declines to schedule ANY seed) and seed explicitly.
+    std::fill(s.factor_marks.begin(), s.factor_marks.end(), 0);
+    s.touch_filter = true;
+    const uint64_t canonical_before = s.stats.factorings;
+    assert(factor->apply_instance(s, INSTANCE_CANONICAL) == ApplyResult::NoOp &&
+           "the filtered canonical schedule must be empty for this to be "
+           "an adversarial test of the instance surface");
+    assert(s.stats.factorings == canonical_before);
+
+    const Lit seed = make_lit(0, true); // divider `a` of the 2x3 grid
+    assert(factor->apply_instance(s, lit_instance(s, seed)) ==
+               ApplyResult::Ok &&
+           "N1 BREACH: a legal seed is unreachable once DefaultPolicy's touch "
+           "filter declines to schedule it");
+    assert(s.stats.factorings == canonical_before + 1 &&
+           "a literal instance applies exactly one factoring");
+  }
 
   std::printf("test_factor_n1: all passed (%llu factorings on a formula at "
               "%.3f binaries/var)\n",

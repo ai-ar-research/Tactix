@@ -212,6 +212,20 @@ def stress_target_fires(stdout):
                _STRESS_FIRES_RE.finditer(stdout or ""))
 
 
+_DENSE_RE = re.compile(r"^c stress-dense\s+(\d+)", re.M)
+
+
+def stress_dense_connected(stdout):
+    """Did this case walk with the dense occurrence index attached?
+
+    random_solve derives that from the POLICY seed's low bit, so a leg that
+    passes one fixed seed reaches only one half of the schedule space and its
+    dense-gated tails (BveBackward, VariableCompaction) read as never-fired.
+    Counted at the source, like every other reach number here."""
+    m = _DENSE_RE.search(stdout or "")
+    return m is not None and m.group(1) != "0"
+
+
 # --- per-rule reachability, counted at the source -------------------------
 # One row per registry entry (rule or policy op): the label, and a regex whose
 # group(1) is a counter that is non-zero iff that entry's apply actually ran on
@@ -238,7 +252,10 @@ REACH_SPECS = [
     ("ConflictAnalysis", r"^c learned\s+(\d+)"),
     ("Restart", r"^c restarts\s+(\d+)"),
     ("Reduce", r"^c reductions\s+(\d+)"),
-    ("Lucky", r"^c lucky\s+(\d+) probes"),
+    # `c lucky` prints early/late/SAT before the probe count; keying on the
+    # first field would miss a late-only Lucky, and the old pattern matched no
+    # line at all, so this row read 0 in every leg ever run.
+    ("Lucky", r"^c lucky\s+\d+ early, \d+ late \(\d+ SAT\), (\d+) probes"),
     ("Vivify", r"^c vivify\s+(\d+) rounds,"),
     # These key on attempts, not rounds: they are `dosed` entries reached
     # through apply_instance, whose round counter never moves. See the note
@@ -252,7 +269,8 @@ REACH_SPECS = [
     ("CCE", r"^c cce\s+(\d+) rounds,"),
     ("Instantiate", r"^c instantiate\s+(\d+) rounds,"),
     ("Sweep", r"^c sweep\s+(\d+) rounds,"),
-    ("SweepResume", r"^c sweepsched\s+\d+ scheduled, (\d+) resumed,"),
+    ("SweepResume",
+     r"^c sweepsched\s+\d+ scheduled, \d+ rescheduled, (\d+) resumed,"),
     ("SweepPartition", r"^c sweepflip\s+\d+ attempts, (\d+) successful"),
     ("HyperTernaryRes", r"^c ternary\s+(\d+) rounds,"),
     ("Congruence", r"^c congruence\s+(\d+) rounds,"),
@@ -301,6 +319,19 @@ def rule_reachability(stdout):
         seen[label] = m is not None
         counts[label] = int(m.group(1)) if m else 0
     return True, counts, seen
+
+
+# A leg's solver command may carry `{seed}` where a policy seed belongs
+# (`--random-policy={seed}`, `--stress-policy={seed}`). `run` fills in each
+# case's own seed; the single-CNF entry points below pin CORPUS_SEED so a
+# replay is reproducible. Odd, because random_solve connects the dense
+# occurrence index on odd seeds and the dense-gated rules are the ones a
+# corpus entry is most likely to be protecting.
+CORPUS_SEED = 1
+
+
+def substitute_seed(cmd, seed):
+    return [a.replace("{seed}", str(seed)) for a in cmd]
 
 
 def run_case(cnf_path, solver, oracle, timeout, lrat, workdir):
@@ -497,7 +528,7 @@ def cmd_run(args):
     # for the frontend's input-normalization path, so tally how many cases had
     # a normalized input clause and report it next to the pass/fail counts. Add
     # a line here for any other path whose coverage a leg must demonstrate.
-    reach = {"restated_cases": 0, "restated_unsat": 0}
+    reach = {"restated_cases": 0, "restated_unsat": 0, "dense_cases": 0}
     # per-rule reachability (the same principle, generalised): cases in which
     # each registry entry actually fired, plus the spec-miss guard.
     reach_rules = {label: 0 for label, _ in REACH_SPECS}
@@ -538,10 +569,16 @@ def cmd_run(args):
                and not name.startswith("edge-") and attempt < 1000):
             attempt += 1
             name, nvars, clauses = generate(seed + 7919 * attempt, i)
+        # `{seed}` in the solver command becomes this case's seed, so a policy
+        # whose schedule is seed-derived (--random-policy / --stress-policy)
+        # varies with the case instead of replaying one walk per leg. The
+        # substituted command is what the bundle records, so a failure still
+        # reproduces exactly.
+        case_solver = substitute_seed(solver, seed)
         with tempfile.TemporaryDirectory(prefix="fuzz-case-") as workdir:
             cnf = os.path.join(workdir, "case.cnf")
             write_dimacs(cnf, nvars, clauses)
-            outcome = run_case(cnf, solver, oracle, args.timeout,
+            outcome = run_case(cnf, case_solver, oracle, args.timeout,
                                args.lrat, workdir)
             bundle = None
             if outcome.failures:
@@ -549,8 +586,8 @@ def cmd_run(args):
                 # case dir is alive; bundle names carry the case index, so
                 # completion order does not matter
                 bundle = save_bundle(outdir, i, seed, name, cnf, outcome,
-                                     solver, oracle, args.timeout, args.lrat,
-                                     not args.no_shrink)
+                                     case_solver, oracle, args.timeout,
+                                     args.lrat, not args.no_shrink)
             if outcome.verdict in ("TIMEOUT", "UNKNOWN"):
                 with lock:
                     take = saved_nonterm[0] < args.max_nonterminating_saved
@@ -558,8 +595,9 @@ def cmd_run(args):
                         saved_nonterm[0] += 1
                 if take:
                     save_nonterminating(outdir, i, seed, name, cnf, outcome,
-                                        solver, args.timeout)
+                                        case_solver, args.timeout)
         restated = input_restated(outcome.solver_out)
+        dense = stress_dense_connected(outcome.solver_out)
         target_fires = stress_target_fires(outcome.solver_out)
         stats_present, rcounts, rseen = rule_reachability(outcome.solver_out)
         with lock:
@@ -573,6 +611,8 @@ def cmd_run(args):
                 reach["restated_cases"] += 1
                 if outcome.verdict == "UNSAT":
                     reach["restated_unsat"] += 1
+            if dense:
+                reach["dense_cases"] += 1
             stress_fires += target_fires
             if stats_present:
                 stats_cases += 1
@@ -618,6 +658,7 @@ def cmd_run(args):
           + f" | coverage: {effective}/{ran} cases reached a verdict"
           + f" | reached: input-restated {reach['restated_cases']} cases"
             f" ({reach['restated_unsat']} UNSAT)"
+          + f", dense-connected {reach['dense_cases']} cases"
           + (f" | oracles skipped: {skips_count}" if skips_count else ""))
     if nnon:
         pct = 100.0 * nnon / ran if ran else 0.0
@@ -675,7 +716,7 @@ def cmd_run(args):
 
 
 def cmd_check_one(args):
-    solver = shlex.split(args.solver)
+    solver = substitute_seed(shlex.split(args.solver), CORPUS_SEED)
     oracle = shlex.split(args.oracle) if args.oracle else None
     with tempfile.TemporaryDirectory(prefix="fuzz-check-") as workdir:
         outcome = run_case(args.cnf, solver, oracle, args.timeout,
@@ -691,7 +732,7 @@ def cmd_check_one(args):
 
 def cmd_corpus(args):
     corpus = os.path.join(HERE, "corpus", "regressions")
-    solver = shlex.split(args.solver)
+    solver = substitute_seed(shlex.split(args.solver), CORPUS_SEED)
     oracle = shlex.split(args.oracle) if args.oracle else None
     entries = sorted(
         d for d in (os.listdir(corpus) if os.path.isdir(corpus) else [])

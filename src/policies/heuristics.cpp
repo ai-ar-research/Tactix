@@ -359,13 +359,27 @@ void heuristics_queue_bump(Kernel &k, Var v) {
     k.h->search_stamp = k.h->links[v].stamp;
   }
 }
+// N1 totality backstop for both ranked pickers. `H`'s queue and heap hold only
+// the variables the policy still branches on, while M2's guard counts EVERY
+// unassigned variable (`unassigned`, not `unassigned_active`) — DefaultPolicy
+// keeps the two in step by testing `unassigned_active`, but a policy that
+// retires a variable and then applies Decide leaves the ranked structures
+// unable to answer. Kissat cannot reach that state, so it walks its queue
+// unguarded; here the walk would run off `INVALID_VAR` and read out of bounds.
+// Index order is the same total fallback the unguided (`!k.h`) path uses.
+static Var heuristics_any_unassigned(const Kernel &k) {
+  for (Var v = 0; v < k.nvars; v++)
+    if (k.values[make_lit(v, false)] == 0)
+      return v;
+  return INVALID_VAR; // caller's guard promised one exists
+}
+
 Var heuristics_queue_next_unassigned(Kernel &k) {
   Var v = k.h->search_idx;
-  assert(v != UINT32_MAX);
-  while (k.values[make_lit(v, false)] != 0) {
+  while (v != UINT32_MAX && k.values[make_lit(v, false)] != 0)
     v = k.h->links[v].prev;
-    assert(v != UINT32_MAX);
-  }
+  if (v == UINT32_MAX)
+    return heuristics_any_unassigned(k);
   k.h->search_idx = v;
   k.h->search_stamp = k.h->links[v].stamp;
   return v;
@@ -584,14 +598,13 @@ void heuristics_update_scores(Kernel &k) {
 }
 
 Var heuristics_heap_next_unassigned(Kernel &k) {
-  assert(!k.h->scores.stack.empty());
-  Var v = k.h->scores.stack[0];
-  while (k.values[make_lit(v, false)] != 0) {
+  while (!k.h->scores.stack.empty()) {
+    const Var v = k.h->scores.stack[0];
+    if (k.values[make_lit(v, false)] == 0)
+      return v;
     heap_pop_max(k); // lazy deletion (kissat decide.c)
-    assert(!k.h->scores.stack.empty());
-    v = k.h->scores.stack[0];
   }
-  return v;
+  return heuristics_any_unassigned(k); // see the backstop above
 }
 
 void heuristics_update_target_phases(Kernel &k) {

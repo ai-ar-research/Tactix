@@ -19,9 +19,12 @@ static const char *const NO_SURFACE[] = {"Propagate", "SwitchMode"};
 
 /* Entries whose enumeration is exactly the canonical sentinel: an
  * `apply_instance` with nothing to choose between. Joining or leaving this set
- * is a deliberate act. */
-static const char *const CANONICAL_ONLY[] = {"Congruence", "Factor",
-                                             "Propagate",
+ * is a deliberate act. Congruence is here by specification, not by omission:
+ * V6's effect is the congruence closure, so a single merge is a prefix of one
+ * application rather than an application (`N1-CONG-INSTANCES`, disposed in
+ * docs/calculus.md §6 V6 and pinned by test_congruence.cpp). Factor left this
+ * set when its seed-literal surface landed (`N1-FACTOR-INSTANCES`). */
+static const char *const CANONICAL_ONLY[] = {"Congruence", "Propagate",
                                              "SwitchMode", "Walk"};
 
 static int in_list(const char *const *list, size_t n, const char *name) {

@@ -52,7 +52,31 @@ ApplyResult decide_apply_canonical(Kernel &k) {
     return ApplyResult::NoOp; // unreachable given unassigned > 0
   }
   const Var v = heuristics_next_decision_var(k);
+  if (v == INVALID_VAR) // guard promised one; never index `H` with a sentinel
+    return ApplyResult::NoOp;
   return decide_apply(k, heuristics_decide_lit(k, v), false);
+}
+
+// N1 completeness tail (`N1-RETIRED-DECIDE`). `H`'s ranked structures hold only
+// the variables the POLICY still branches on: retirement dequeues a substituted
+// or eliminated variable from the VMTF queue and the EVSIDS heap, and a lazy
+// heap pop drops it too. Those variables can still be unassigned, the guard
+// counts them in `unassigned`, and `apply_instance` decides them — so leaving
+// them out of the enumeration would narrow the API surface to the default
+// policy's own action space, which N1 forbids. Ranked order first, then
+// whatever the ranked walk could not reach, in index order.
+// Only runs when the ranked walk left room, so a capped caller pays nothing.
+static uint32_t decide_candidate_tail(const Kernel &k, Lit *out, uint32_t cap,
+                                      uint32_t n) {
+  if (n >= cap)
+    return n;
+  std::vector<uint8_t> emitted(k.nvars, 0);
+  for (uint32_t i = 0; i < n; i++)
+    emitted[var_of(out[i])] = 1;
+  for (Var v = 0; v < k.nvars && n < cap; v++)
+    if (!emitted[v] && k.values[make_lit(v, false)] == 0)
+      out[n++] = heuristics_decide_lit(k, v);
+  return n;
 }
 
 uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
@@ -89,17 +113,27 @@ uint32_t decide_candidates(const Kernel &k, Lit *out, uint32_t cap) {
        v = k.h->links[v].prev)
     if (k.values[make_lit(v, false)] == 0)
       out[n++] = heuristics_decide_lit(k, v);
-  return n;
+  return decide_candidate_tail(k, out, cap, n);
 }
 
 // instance surface: payload = the DIMACS literal in the shared lit_instance
-// encoding (registry.hpp), enumerated in the ranked candidate order
+// encoding (registry.hpp), enumerated in the ranked candidate order. BOTH
+// polarities of each candidate variable are offered: the calculus makes M2's
+// instance surface *any* unassigned literal (docs/calculus.md §3 M2), so the
+// phase is a dimension of the instance and not the heuristic's to fix. The
+// ranked phase is emitted first, so a caller that keeps only a prefix still
+// sees the canonical pick ahead of its complement.
 static uint32_t decide_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Lit> buf(cap);
-  const uint32_t n = decide_candidates(k, buf.data(), cap);
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, buf[i]);
-  return n;
+  const uint32_t vars = (cap + 1) / 2;
+  std::vector<Lit> buf(vars);
+  const uint32_t n = decide_candidates(k, buf.data(), vars);
+  uint32_t m = 0;
+  for (uint32_t i = 0; i < n && m < cap; i++) {
+    out[m++] = lit_instance(k, buf[i]);
+    if (m < cap)
+      out[m++] = lit_instance(k, negate(buf[i]));
+  }
+  return m;
 }
 
 static ApplyResult decide_apply_instance(Kernel &k, uint64_t inst) {

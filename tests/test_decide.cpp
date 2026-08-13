@@ -4,9 +4,11 @@
 // row D-LEVEL-1 in docs/implementation-notes.md.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "policies/heuristics.hpp"
 #include "rules/backjump/backjump.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/propagate/propagate.hpp"
+#include "rules/registry.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -62,9 +64,44 @@ static void test_off_fixpoint_decide_then_backtrack_no_escape() {
   assert(k.value(internalize(2)) > 0); // re-derived as a unit of the clause
 }
 
+// `N1-RETIRED-DECIDE`. Retirement takes a variable out of `H`'s ranked
+// structures, but the guard still counts it and `apply_instance` still decides
+// it, so the enumeration must keep offering it: the API surface may not shrink
+// to DefaultPolicy's own action space. Adversarial on purpose — the retired
+// variable is the LAST one left unassigned, which is the state the ranked
+// pickers cannot answer from their own structures.
+static void test_retired_unassigned_var_stays_selectable() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  ScopedHeuristics h(k);
+  k.var_status.resize(k.nvars, VarStatus::Active);
+  for (Var v = 0; v < k.nvars; v++) {
+    k.var_status[v] = VarStatus::Substituted; // as V3/E1 retire one
+    heuristics_deactivate_var(k, v);
+  }
+  assert(decide_guard(k) && "every variable is still unassigned");
+
+  Lit cands[8];
+  const uint32_t n = decide_candidates(k, cands, 8);
+  assert(n == k.nvars && "a retired unassigned variable is still a candidate");
+
+  // through the registry, i.e. exactly what `tactix_rule_instances` dispatches
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("Decide")];
+  uint64_t insts[16];
+  const uint32_t m = vt.instances(k, insts, 16);
+  assert(m == 2 * k.nvars && "both phases of each are legal instances");
+  for (uint32_t i = 0; i < m; i++)
+    assert(vt.apply_instance != nullptr && insts[i] != INSTANCE_CANONICAL);
+
+  // and the canonical pick stays total once the ranked structures are empty
+  assert(decide_apply_canonical(k) == ApplyResult::Ok);
+  assert(k.level == 1 && k.unassigned == k.nvars - 1);
+}
+
 int main() {
   test_decide_guard_is_pure_off_fixpoint();
   test_off_fixpoint_decide_then_backtrack_no_escape();
+  test_retired_unassigned_var_stays_selectable();
   puts("test_decide OK");
   return 0;
 }

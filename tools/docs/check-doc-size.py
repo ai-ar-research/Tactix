@@ -12,11 +12,14 @@ LIMITS = {
     "DEVELOPMENT_PLAN.md": 750,
     "PROGRESS.md": 350,
     "docs/README.md": 100,
-    "docs/calculus.md": 600,
+    # Raised 2026-08-12 for the same reason the split below records: calculus
+    # sat at exactly 600 and implementation-notes near 520, so both read green
+    # while the next semantics or disposition could not be written at all.
+    "docs/calculus.md": 680,
     # Split 2026-08-11: section 13 became the parity ledger below. Both caps
     # carry reserve on purpose — the old 800 was saturated at exactly 800, so
     # it read green while the next invariant could not be written at all.
-    "docs/implementation-notes.md": 520,
+    "docs/implementation-notes.md": 560,
     "docs/scheduling-parity-ledger.md": 600,
     "docs/lessons.md": 100,
     "docs/proof-rules.html": 1000,
