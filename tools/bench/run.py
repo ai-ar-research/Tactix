@@ -8,11 +8,12 @@ Usage:
 
 - SLURM mode (see the slurm-jobs skill): submits one array task per
   solver x instance to cpu-dense-hwulab-q (8 GB/core rule: cpus-per-task =
-  ceil(mem_gb/8), default 4 cores / 32 GB), plus a dependent aggregate job that
-  merges the per-task JSONs into the identical results.json a local run
-  writes. The allocation shape (partition, cpus/mem per task, throttle) is
-  recorded in place of the local jobs count; numbers are comparable only
-  across identical shapes.
+  ceil(mem_gb/8), normally 4 cores / 32 GB; Tier D mirrors the competition's
+  16 GB cap with 2 cores), plus a dependent aggregate job that merges the
+  per-task JSONs into the identical results.json a local run writes. The
+  allocation shape (partition, cpus/mem per task, throttle) is recorded in
+  place of the local jobs count; numbers are comparable only across identical
+  shapes.
   Arrays run at full width by default. --throttle is exceptional: use it only
   on an explicit user request or for a documented correctness/resource limit;
   --dry-run writes manifest + sbatch scripts without submitting.
@@ -167,10 +168,12 @@ TIER_TIMEOUT = {
     "A": 30.0, "B": 300.0, "C": 1200.0, "D": 5000.0,
     "P4A": 30.0, "P4B": 300.0,
 }
-# Every tier task receives 32 GB (§8.1). Under the cluster's 8 GB/core rule this
-# costs four allocated CPUs for one single-threaded solver; the extra CPUs buy
-# memory capacity, not solver parallelism.
-TIER_MEM_GB = {tier: 32 for tier in ("A", "B", "C", "D", "P4A", "P4B")}
+# A–C and the Phase-4 fixtures receive 32 GB. Tier D mirrors the competition's
+# 16 GB cap. Under the cluster's 8 GB/core rule these become four and two
+# allocated CPUs respectively; the extra CPUs buy memory capacity, not solver
+# parallelism.
+TIER_MEM_GB = {tier: 32 for tier in ("A", "B", "C", "P4A", "P4B")}
+TIER_MEM_GB["D"] = 16
 BASELINES = {
     "kissat": os.path.join(ROOT, "tools", "solvers", "bin", "kissat"),
     "cadical": os.path.join(ROOT, "tools", "solvers", "bin", "cadical"),

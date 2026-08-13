@@ -46,7 +46,8 @@ spec.loader.exec_module(runner)
 assert runner.TIER_TIMEOUT["P4A"] == 30.0
 assert runner.TIER_TIMEOUT["P4B"] == 300.0
 assert all(runner.TIER_MEM_GB[tier] == 32
-           for tier in ("A", "B", "C", "D", "P4A", "P4B"))
+           for tier in ("A", "B", "C", "P4A", "P4B"))
+assert runner.TIER_MEM_GB["D"] == 16
 assert [row[0] for row in runner.read_tier_list("P4A")] == [row[0] for row in p4a]
 assert [row[0] for row in runner.read_tier_list("P4B")] == [row[0] for row in p4b]
 
