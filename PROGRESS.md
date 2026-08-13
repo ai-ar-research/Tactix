@@ -214,13 +214,11 @@ the complete ledger, then mark N4 only on an explicit verification record.
 
 ## Open items
 
-- The Tier C early-exit incident is blocking performance interpretation; the
-  second GDB capture exposed stale jumped metadata on an unassigned active
-  variable, and the causal repair passes its regression and 69/69 tests but
-  still needs the real-instance proof-checked rerun. `128_125` is independently
-  confirmed as a 32 GB Tactix timeout versus a verified Kissat SAT. N4 resumes
-  through the unified Tier B/C divergence-closure loop after these blockers
-  close.
+- The Tier C early-exit incident and the `128_125` solve gap both closed on the
+  2026-08-12 32 GB reruns: full Tier C is 30/30 with every proof checked and no
+  nonterminal exit, `goldcrest-and-9` is a verified UNSAT in 168.27 s, and
+  `128_125` is a verified SAT in 131.53 s against Kissat's 88.84 s. N4 resumes
+  through the unified Tier B/C divergence-closure loop.
 - The sparse-GC candidate remains deferred and outside the closure pin; do not
   exercise it without separate user direction. Corpus 004/005 are closed: the
   Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
