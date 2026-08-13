@@ -844,6 +844,13 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   }
   if (!conflict)
     return false;
+  // RUP replay is also the semantic admission test for DRAT and proofless
+  // callers (HyperBinaryRes shares it).  Only native LRAT needs antecedent
+  // ids; proofless white-box kernels legitimately leave root units unnamed.
+  if (!k.proof || !k.proof->lrat()) {
+    chain.clear();
+    return true;
+  }
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
   kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its
