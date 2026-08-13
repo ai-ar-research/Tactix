@@ -46,10 +46,10 @@ static void test_tumble_preserves_file_literal_order() {
     queue.push_back(v);
   assert(queue == expected_queue);
 
-  // Canonical Decide walks the same queue backwards, so this is the exact
-  // initial external-variable prefix: 7,4,6,2,1,3,5.
+  // The policy-ranked candidate surface walks the same queue backwards, so
+  // this is the exact initial external-variable prefix: 7,4,6,2,1,3,5.
   Lit candidates[7];
-  assert(decide_candidates(k, candidates, 7) == 7);
+  assert(heuristics_decide_candidates(k, candidates, 7) == 7);
   const int expected_candidates[7] = {7, 4, 6, 2, 1, 3, 5};
   for (unsigned i = 0; i < 7; i++)
     assert(externalize(candidates[i]) == expected_candidates[i]);

@@ -1,8 +1,7 @@
 // M2 Decide (plan §5.2, N1): branching is a first-class API surface.
-// instances(σ) = every unassigned literal; the canonical instance is the
-// active ranking's top pick (focused: VMTF + saved phase; stable: EVSIDS score
-// heap + target-then-saved phase). N1: an external policy may apply Decide on
-// any unassigned literal at any decision point, in every build.
+// instances(σ) = every unassigned literal. The proof rule enumerates a stable
+// semantic order and its canonical instance is the lowest-index positive
+// literal; policies own ranking and phase selection.
 // Proof delta: none (H only).
 #pragma once
 
@@ -17,9 +16,8 @@ ApplyResult decide_apply_canonical(Kernel &);
 // legal instance). Returns NoOp if `lit` is out of range or assigned.
 ApplyResult decide_apply(Kernel &, Lit lit, bool external);
 
-// ranked instance enumeration: fills up to `cap` unassigned literals in the
-// active heuristic's order (VMTF recency / EVSIDS score, with the mode's
-// phase priority); returns the count
+// Stable semantic enumeration: one positive literal per unassigned variable,
+// in variable order. The registry expands each to both legal phases.
 uint32_t decide_candidates(const Kernel &, Lit *out, uint32_t cap);
 
 } // namespace tactix

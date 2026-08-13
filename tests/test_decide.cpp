@@ -93,15 +93,28 @@ static void test_retired_unassigned_var_stays_selectable() {
   for (uint32_t i = 0; i < m; i++)
     assert(vt.apply_instance != nullptr && insts[i] != INSTANCE_CANONICAL);
 
-  // and the canonical pick stays total once the ranked structures are empty
+  // and the semantic canonical pick stays total once policy rankings are empty
   assert(decide_apply_canonical(k) == ApplyResult::Ok);
   assert(k.level == 1 && k.unassigned == k.nvars - 1);
+}
+
+static void test_canonical_decide_is_policy_independent() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  ScopedHeuristics h(k);
+  // VMTF prefers the most recently enqueued variable (v2). The proof rule's
+  // canonical instance is nevertheless its stable semantic first literal.
+  assert(heuristics_next_decision_var(k) == 2);
+  assert(decide_apply_canonical(k) == ApplyResult::Ok);
+  assert(k.value(make_lit(0, false)) > 0);
+  assert(k.value(make_lit(2, false)) == 0);
 }
 
 int main() {
   test_decide_guard_is_pure_off_fixpoint();
   test_off_fixpoint_decide_then_backtrack_no_escape();
   test_retired_unassigned_var_stays_selectable();
+  test_canonical_decide_is_policy_independent();
   puts("test_decide OK");
   return 0;
 }
