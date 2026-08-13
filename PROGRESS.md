@@ -12,9 +12,10 @@ only.
   reopened audit findings are closed — Factor now enumerates seed literals,
   Congruence's round is specified as the indivisible instance, and Decide
   enumerates every unassigned literal including retired variables; each has an
-  adversarial reachability test) · N2 verification **complete** (frozen-pivot fix
-  `7fbcb11`; 40k-case battery green with real backward-BVE reach; retake
-  pair N2-clean) · N3 Tier-D parity not yet measured · N4 verification
+  adversarial reachability test) · N2 verification **complete**, re-verified 2026-08-12
+  after a V3 chain-order defect: the native-LRAT oracle rejected a real UNSAT
+  certificate under a legal random schedule, and legs must keep running the
+  solver's own `--lrat` and not only the DRAT conversion · N3 Tier-D parity not yet measured · N4 verification
   **pending** while the current causal frontier is classified.
 - **Last updated:** 2026-08-12.
 
@@ -260,6 +261,12 @@ the complete ledger, then mark N4 only on an explicit verification record.
   were 62/72 before). Closed the three reopened N1 findings with dispositions
   and adversarial tests, and made the fuzz harness vary the policy seed per case
   so the dense-index half of the schedule is reached (4407 of 8803 cases).
+  Two further defects came out of the first legs on the fixed pins: the eager
+  register asserted a redundancy neither consumer requires (C3 promotes a
+  registered clause), and V3's rewrite chain cited a bridging lemma before the
+  unit that makes it unit — and deduplicated by sorting, discarding propagation
+  order — so `lrat-check` rejected an emitted certificate. Corpus is 22/22
+  through the native-LRAT oracle and micro_proofs.sh carries the chain witness.
 - 2026-08-11 — made 32 GB Tier B/C original-Kissat convergence the Phase-4
   exit and retired may-not-gate exemptions. `128_125` is a 1200.546s Tactix
   timeout versus Kissat's verified 87.419s SAT. Two optimized goldcrest
