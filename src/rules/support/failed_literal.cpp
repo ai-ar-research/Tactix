@@ -125,12 +125,19 @@ ApplyResult failed_literal_try(Kernel &k, Lit p,
 }
 
 uint32_t failed_literal_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Lit> candidates;
-  failed_literal_candidates(k, candidates);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(candidates.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, candidates[i]);
+  uint32_t n = 0;
+  for (Var v = 0; v < k.nvars && n < cap; v++) {
+    if (k.value(make_lit(v, false)) != 0)
+      continue;
+    for (int neg = 0; neg <= 1 && n < cap; neg++) {
+      const Lit p = make_lit(v, neg != 0);
+      for (const WatchEntry w : k.watches.entries(negate(p)))
+        if (w.binary()) {
+          out[n++] = lit_instance(k, p);
+          break;
+        }
+    }
+  }
   return n;
 }
 
