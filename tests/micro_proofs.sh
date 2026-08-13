@@ -201,4 +201,19 @@ for cnf in "$T/factor.cnf" "$T/factor_dup.cnf" "$T/factor_dup_large.cnf"; do
       || { echo "FAIL: lrat-check gave no verdict on Factor $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+# V3 rewrite chain order (corpus 019-022 family): a substituted literal whose
+# representative is root-false needs that unit BEFORE the bridging lemma, since
+# the unit is what makes the lemma unit. Reached through a legal random
+# schedule rather than the default one, so drive that schedule explicitly.
+if [ -x "$LRAT_CHECK" ]; then
+  printf 'p cnf 7 7\n-4 3 1 0\n-5 4 0\n-6 2 0\n6 -2 0\n7 6 2 0\n-6 -2 0\n-7 0\n' \
+    > "$T/substchain.cnf"
+  "$TACTIX" -q --random-policy=1 --lrat "$T/substchain.cnf" \
+    "$T/substchain.lrat" > "$T/out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] || { echo "FAIL: substchain not UNSAT (rc=$rc)"; exit 1; }
+  "$LRAT_CHECK" "$T/substchain.cnf" "$T/substchain.lrat" > "$T/check" 2>&1 || true
+  grep -q 'c VERIFIED' "$T/check" \
+    || { echo "FAIL: native LRAT of substchain rejected"; cat "$T/check"; exit 1; }
+fi
+
 echo "micro_proofs OK"
