@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Compatibility compiler for LymphoSAT's supplied "generic" build.  Nested
+# packages hard-code the competition host's Ice Lake flags even though the
+# top-level generic-build.sh promises a portable build; strip only those target
+# flags and retain every algorithmic/optimization option.
+set -euo pipefail
+
+args=()
+for arg in "$@"; do
+    case "$arg" in
+        -march=icelake-server|-mtune=icelake-server|-march=native|-mtune=native)
+            ;;
+        *) args+=("$arg") ;;
+    esac
+done
+exec /cm/local/apps/gcc/13.1.0/bin/g++ -march=x86-64-v2 -mtune=generic "${args[@]}"
