@@ -228,10 +228,12 @@ the complete ledger, then mark N4 only on an explicit verification record.
   timeout, so they run no semantic oracle. The ranked-picker totality defect is
   fixed (both pickers fall back to index order when `H`'s structures cannot
   answer), but the population itself is undiagnosed.
-- `VariableCompaction` and `VivifyFlush` still read as never-fired on every
-  leg, now that the `Lucky` and `SweepResume` reach specs are repaired and the
-  dense half of the schedule is exercised. Until a leg fires them, no leg says
-  anything about either path.
+- `VariableCompaction` and `VivifyFlush` read as never-fired on every random
+  and stress leg for a structural reason, not a coverage one: compaction is
+  called only from DefaultPolicy (`default_policy.cpp`), and `vivify_flush`
+  defaults off and is only set by its env knob. Their coverage has to come from
+  a DefaultPolicy leg and from an explicit flush arm; the `Lucky` and
+  `SweepResume` rows read 0 for a real reason (broken specs) and are repaired.
 - Factor's next-factor counting and matching passes can disagree (the count
   reserves each large occurrence across the whole quotient, the re-scan only
   against the chosen factor). Grid-choice fidelity only; the repair is the
