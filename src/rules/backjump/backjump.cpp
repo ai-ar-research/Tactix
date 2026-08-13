@@ -34,8 +34,7 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   // conflict level's own literals into the target/best high-water mark and
   // later longer trails fail to beat it.
   if (k.level) {
-    if (k.level - 1 < k.level)
-      kernel_backtrack(k, k.level - 1);
+    kernel_backtrack(k, k.level - 1);
     if (k.h)
       heuristics_update_target_phases(k);
   }

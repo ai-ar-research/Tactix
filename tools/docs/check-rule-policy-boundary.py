@@ -3,11 +3,11 @@ from pathlib import Path
 import re
 
 root = Path(__file__).resolve().parents[2]
-micro = {"analyze", "backjump", "decide", "restart"}
+fused_micro = {"analyze", "backjump"}
 bad = []
 
 for path in sorted((root / "src/rules").glob("*/*")):
-    if path.suffix not in {".cpp", ".hpp"} or path.parent.name in micro:
+    if path.suffix not in {".cpp", ".hpp"} or path.parent.name in fused_micro:
         continue
     text = path.read_text()
     if re.search(r'^\s*#\s*include\s*[<"]policies/', text, re.MULTILINE):
@@ -17,7 +17,9 @@ for path in sorted((root / "src/rules").glob("*/*")):
 
 # Decide and Restart have complete explicit-instance surfaces. Their canonical
 # order and mechanics must remain semantic; DefaultPolicy owns ranked picks,
-# trail-reuse scoring, and phase snapshots.
+# trail-reuse scoring, and phase snapshots.  Keep this explicit check separate
+# from the general loop so adding another fused micro rule cannot accidentally
+# widen their exception.
 for rule in ("decide", "restart"):
     for path in sorted((root / "src/rules" / rule).glob("*")):
         if path.suffix not in {".cpp", ".hpp"}:
@@ -27,6 +29,47 @@ for rule in ("decide", "restart"):
             bad.append(f"{path.relative_to(root)} imports a policy header")
         if re.search(r'\bheuristics_[A-Za-z0-9_]+\s*\(', text):
             bad.append(f"{path.relative_to(root)} calls a heuristic operation")
+
+# ConflictAnalysis is one atomic micro rule.  Its two source files may use only
+# the exact heuristic observations required at internal learn/backtrack
+# boundaries; treating the whole directories as exempt would let arbitrary
+# strategy ranking creep into the rule unnoticed.
+fused_allowed = {
+    "analyze": {
+        "heuristics_queue_bump",
+        "heuristics_score_bump",
+        "heuristics_scores_decay",
+        "heuristics_update_target_phases",
+        "heuristics_var_active",
+    },
+    "backjump": {
+        "heuristics_deactivate_var",
+        "heuristics_update_target_phases",
+    },
+}
+for rule, allowed in fused_allowed.items():
+    for path in sorted((root / "src/rules" / rule).glob("*")):
+        if path.suffix not in {".cpp", ".hpp"}:
+            continue
+        text = path.read_text()
+        calls = set(re.findall(r'\b(heuristics_[A-Za-z0-9_]+)\s*\(', text))
+        for call in sorted(calls - allowed):
+            bad.append(
+                f"{path.relative_to(root)} calls non-allowlisted heuristic "
+                f"operation `{call}`"
+            )
+        policy_includes = set(
+            re.findall(
+                r'^\s*#\s*include\s*[<"]policies/([^>"]+)[>"]',
+                text,
+                re.MULTILINE,
+            )
+        )
+        for include in sorted(policy_includes - {"event_trace.hpp", "heuristics.hpp"}):
+            bad.append(
+                f"{path.relative_to(root)} imports non-allowlisted policy "
+                f"header `policies/{include}`"
+            )
 
 # Data-flow checks for the two failure shapes found by the post-P4 audit. A
 # header-import check cannot see either: both compile through neutral Kernel
