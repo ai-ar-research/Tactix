@@ -180,6 +180,11 @@ inline Lit heuristics_decide_lit(const Kernel &k, Var v) {
 // order without making that order part of the Decide proof rule.
 uint32_t heuristics_decide_candidates(const Kernel &, Lit *out, uint32_t cap);
 
+// Restart trail-reuse ranking (kissat restart.c): keep the decision prefix
+// that outranks the next policy-selected variable.
+uint32_t heuristics_restart_reuse_level_for(Kernel &, Var next);
+uint32_t heuristics_restart_reuse_level(Kernel &);
+
 #ifndef NDEBUG
 // debug invariant: `H` exists and its per-var state is sized to Kernel::nvars.
 void heuristics_check(const Kernel &k);

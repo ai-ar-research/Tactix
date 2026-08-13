@@ -415,7 +415,9 @@ static void test_restart_reuses_trail() {
   heuristics_queue_bump(k, 0);
   kernel_assign_decision(k, internalize(1)); // var 0
   kernel_assign_decision(k, internalize(2)); // var 1
-  assert(restart_apply(k) == ApplyResult::Ok);
+  uint32_t keep = heuristics_restart_reuse_level(k);
+  heuristics_update_target_phases(k);
+  assert(restart_apply_to(k, keep) == ApplyResult::Ok);
   assert(k.level == 1);
   assert(k.values[internalize(1)] > 0);  // level-1 prefix kept
   assert(k.values[internalize(2)] == 0); // level 2 abandoned
@@ -423,7 +425,8 @@ static void test_restart_reuses_trail() {
 
   heuristics_queue_bump(k, 1); // now every level outranks the candidate
   kernel_assign_decision(k, internalize(2));
-  assert(restart_apply(k) == ApplyResult::Ok);
+  keep = heuristics_restart_reuse_level(k);
+  assert(restart_apply_to(k, keep) == ApplyResult::Ok);
   assert(k.level == 2); // full reuse: no backtrack at all
   assert(k.stats.restarts_reused == 2);
   assert(k.stats.restarts == 2);
@@ -437,7 +440,7 @@ static void test_restart_apply_to() {
   heuristics_queue_bump(k, 0); // var 0 freshest (stamp 4 > var 2's 3)
   kernel_assign_decision(k, internalize(1)); // var 0 at level 1
   kernel_assign_decision(k, internalize(2)); // var 1 at level 2
-  assert(restart_reuse_level(k) == 1); // canonical would keep level 1...
+  assert(heuristics_restart_reuse_level(k) == 1); // policy would keep level 1
   assert(restart_apply_to(k, 0) == ApplyResult::Ok); // ...full restart anyway
   assert(k.level == 0);
   assert(k.values[internalize(1)] == 0); // nothing kept
