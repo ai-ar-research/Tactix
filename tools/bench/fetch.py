@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """tools/bench/fetch.py — populate the benchmark instance cache.
 
-Usage: fetch.py --tier B [--sources path]
+Usage: fetch.py --tier B [--sources path] [--cache-dir path]
 
 Downloads the instances listed in `benchmarks/tiers/<tier>.sources`
 (lines: `<gbd-hash> <filename>`) from the Global Benchmark Database
@@ -24,12 +24,16 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--tier", required=True, choices="ABCD")
     ap.add_argument("--sources", default=None)
+    ap.add_argument("--cache-dir", default=None,
+                    help="override benchmarks/cache/tier<TIER> (for a frozen "
+                         "campaign union with its own content manifest)")
     args = ap.parse_args()
     sources = args.sources or os.path.join(
         ROOT, "benchmarks", "tiers", f"{args.tier}.sources")
     if not os.path.exists(sources):
         sys.exit(f"error: {sources} not found")
-    cache = os.path.join(ROOT, "benchmarks", "cache", f"tier{args.tier}")
+    cache = (os.path.abspath(args.cache_dir) if args.cache_dir else
+             os.path.join(ROOT, "benchmarks", "cache", f"tier{args.tier}"))
     os.makedirs(cache, exist_ok=True)
 
     entries = []
@@ -44,12 +48,22 @@ def main() -> int:
     for h, fn in entries:
         dst = os.path.join(cache, fn)
         if os.path.exists(dst) and os.path.getsize(dst) > 0:
-            skipped += 1
-            continue
+            valid = subprocess.run(["xz", "-t", dst]).returncode == 0
+            if valid:
+                skipped += 1
+                continue
+            os.unlink(dst)
         print(f"fetching {fn} ({h}) ...", flush=True)
         # curl instead of urllib: system CA bundle just works everywhere
-        subprocess.run(["curl", "-sSfL", "-o", dst, GBD_URL.format(h)],
-                       check=True)
+        tmp = dst + f".tmp.{os.getpid()}"
+        try:
+            subprocess.run(["curl", "-sSfL", "-o", tmp, GBD_URL.format(h)],
+                           check=True)
+            subprocess.run(["xz", "-t", tmp], check=True)
+            os.replace(tmp, dst)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
         fetched += 1
     print(f"fetch: {fetched} downloaded, {skipped} already cached -> {cache}")
     return 0
