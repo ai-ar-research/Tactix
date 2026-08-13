@@ -61,10 +61,10 @@ implementation, symbols, environment markers, and hot-path branches.
    cake_lpr is not wired into the harness. Every oracle first run at depth
    this session found a defect.
 
-**In flight at handoff:** a 200,000-case DefaultPolicy native-LRAT leg (job
-1617628) and a `Decide,Vivify` stress leg (job 1617635), both at 0 failures so
-far. Neither gates the results above; both add depth on oracles that have
-already found defects. Their logs are `tools/fuzz/slurm-final-*.log`.
+The two trailing legs finished clean as well: the 200,000-case DefaultPolicy
+native-LRAT leg is 0 failures over 196,310 scored cases (job 1617628), and the
+`Decide,Vivify` stress leg is 0 failures with 4,775,834 targeted applications
+(job 1617635). Logs are `tools/fuzz/slurm-final*.log`.
 
 ## Current measurement contract
 
