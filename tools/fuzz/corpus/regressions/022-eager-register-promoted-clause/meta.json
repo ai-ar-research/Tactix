@@ -1,0 +1,10 @@
+{
+  "seed": 20264406,
+  "index": 3697,
+  "generator": "ksat-k4-n30-m394 (ddmin-shrunk to 300 clauses under the crash predicate)",
+  "failure": "crash",
+  "solver_args": ["--random-policy=20264406"],
+  "solver_env": {},
+  "found_by": "N1-audit random-policy leg on the sanitized pin, 2026-08-12 (job 1617165: 1 failure in 10000 cases), reproduced on the pin carrying the same day's three earlier fixes.",
+  "diagnosis": "`kernel_check_invariants` aborted with 'eager register entry is not a learned clause'. C3 Vivify promotes a redundant clause to irredundant when it finds an irredundant candidate subsumed by a redundant reason (vivify.cpp promote_irredundant, kissat vivify.c:1145-1163), and that clause may still sit in the eager-subsumption register. Redundancy is not an invariant of the register in either solver: both consumers re-test it (analyze.cpp eager_subsume_recent, kissat learn.c:163 `if (!c->redundant) continue`), so no irredundant clause can be eagerly subsumed. Only the debug invariant claimed otherwise, and it aborted every assertions-on walk that reached the state. Fixed 2026-08-12 by asserting what the register really owes -- every entry names a live clause START, which the surrounding count check already enforces -- and citing the promotion path. This case does not reach a verdict under the random policy, so it is a crash-oracle entry: it passes iff no abort."
+}
