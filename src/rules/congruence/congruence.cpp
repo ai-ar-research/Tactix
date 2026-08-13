@@ -1825,6 +1825,7 @@ ApplyResult congruence_apply(Kernel &k) {
     const PendingUnits::Outcome o = pending.record(k, u, id);
     if (o == PendingUnits::Outcome::Recorded) {
       ++(counter ? *counter : k.stats.congruence_units);
+      pending.commit(k, u); // the id is this variable's identity from here
       kernel_assign_unit(k, u);
       if (inprocess_reach_root(k))
         return true;

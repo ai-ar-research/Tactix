@@ -1,0 +1,10 @@
+{
+  "seed": 20262096,
+  "index": 1387,
+  "generator": "ksat-k3-n28-m119 (ddmin-shrunk under the proof-rejection predicate)",
+  "failure": "proof",
+  "solver_args": ["--random-policy=20262096", "--lrat"],
+  "solver_env": {},
+  "found_by": "N1-audit native-LRAT random-policy leg, 2026-08-12 (job 1617174), which is the first leg to run the solver's own --lrat rather than the drat-trim conversion. 52 of that leg's 56 preserved rejections are this defect.",
+  "diagnosis": "lrat-check rejected the proof of a run that answered UNSATISFIABLE: 'WARNING hint already satisfied in lemma with index 549'. Lemma 549 is the root unit (-20) emitted by kernel_emit_root_units, whose binary reason cites the unit id of the other literal -- and that id named the clause for the OPPOSITE polarity. Cause: PendingUnits::record installed `Kernel::unit_ids[v]` when a unit was RECORDED, but a recorded unit is not yet the root value: the batch is asserted later, and a propagation inside the same round or another rule can make the opposite literal root-true first. Every later chain citing unit_ids[v] assumes it names the clause for the literal that IS true, so the wrong polarity poisons the chain. The same batch had a second hole: two assert loops (V3's flush and E1's) treated an already-false pending unit as a bare refutation, setting `inconsistent` without emitting the empty clause the two units resolve to, which leaves the proof incomplete on a run that still answers UNSATISFIABLE. Fixed 2026-08-12: PendingUnits keeps the recorded id in its own table, `commit` installs it at assert time, and `refute` emits the pair's empty clause; V3 (both batches), E1 and V6 use them. Retained as a `proof` entry: the case answers UNSAT quickly and the oracle is lrat-check on the solver's own hints."
+}

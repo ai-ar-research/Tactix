@@ -328,8 +328,11 @@ ApplyResult apply_failed_root_units(Kernel &k, const SccResult &r) {
   for (const Lit unit : pending.units) {
     if (k.value(unit) > 0)
       continue;
-    if (k.value(unit) < 0)
-      return ApplyResult::Unsat; // the preceding propagation already refuted
+    if (k.value(unit) < 0) {
+      pending.refute(k, unit); // the preceding propagation already refuted
+      return ApplyResult::Unsat;
+    }
+    pending.commit(k, unit);
     kernel_assign_unit(k, unit);
     if (inprocess_reach_root(k))
       return ApplyResult::Unsat;
@@ -498,9 +501,10 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       if (k.value(u) > 0)
         continue;
       if (k.value(u) < 0) {
-        k.inconsistent = true;
+        pending.refute(k, u); // ¬u became root-true since the record
         return true;
       }
+      pending.commit(k, u); // the id is this variable's identity from here
       kernel_assign_unit(k, u);
       if (inprocess_reach_root(k))
         return true;

@@ -819,14 +819,27 @@ bool kernel_should_compact_variables(const Kernel &, uint32_t percent);
 void kernel_emit_empty_from_pair(Kernel &, uint64_t id_a, uint64_t id_b);
 
 struct PendingUnits {
-  std::vector<Lit> units;  // first-recorded order (assert after the round)
-  std::vector<Lit> by_var; // INVALID_LIT = none recorded yet
+  std::vector<Lit> units;    // first-recorded order (assert after the round)
+  std::vector<Lit> by_var;   // INVALID_LIT = none recorded yet
+  std::vector<uint64_t> ids; // by var: the recorded unit's proof id
   enum class Outcome { Recorded, Duplicate, Refuted };
   void init(uint32_t nvars) {
     units.clear();
     by_var.assign(nvars, INVALID_LIT);
+    ids.assign(nvars, 0);
   }
   Outcome record(Kernel &, Lit u, uint64_t id);
+  // A recorded unit is not yet the root value: the batch is asserted later and
+  // anything in between — a propagation inside the same round, another
+  // rule — can make the OPPOSITE literal root-true first. So the recorded id
+  // stays here and `Kernel::unit_ids` is installed only when the unit is
+  // actually asserted; `unit_ids[v]` must always name the clause for the
+  // literal that is true, because every later chain citing it assumes so.
+  void commit(Kernel &, Lit u) const;
+  // The assert-time opposite case: {u} was recorded, ¬u is already root-true,
+  // so the two resolve to the empty clause. Refuting without emitting it
+  // leaves the proof incomplete on a run that answers UNSATISFIABLE.
+  void refute(Kernel &, Lit u) const;
 };
 
 enum class ReplaceOutcome { Refuted, Unit, Binary, Large };

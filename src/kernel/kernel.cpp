@@ -651,14 +651,24 @@ PendingUnits::Outcome PendingUnits::record(Kernel &k, Lit u, uint64_t id) {
   const Var v = var_of(u);
   if (by_var[v] == INVALID_LIT) {
     by_var[v] = u;
-    k.unit_ids[v] = id;
+    ids[v] = id;
     units.push_back(u);
     return Outcome::Recorded;
   }
   if (by_var[v] == u)
     return Outcome::Duplicate; // same-sign duplicate: a redundant unit
-  kernel_emit_empty_from_pair(k, id, k.unit_ids[v]); // {u} + {¬u} ⊢ ∅
+  kernel_emit_empty_from_pair(k, id, ids[v]); // {u} + {¬u} ⊢ ∅
   return Outcome::Refuted;
+}
+
+void PendingUnits::commit(Kernel &k, Lit u) const {
+  const Var v = var_of(u);
+  if (ids[v])
+    k.unit_ids[v] = ids[v];
+}
+
+void PendingUnits::refute(Kernel &k, Lit u) const {
+  kernel_emit_empty_from_pair(k, ids[var_of(u)], k.unit_ids[var_of(u)]);
 }
 
 ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
