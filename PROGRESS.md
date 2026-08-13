@@ -12,10 +12,12 @@ only.
   reopened audit findings are closed — Factor now enumerates seed literals,
   Congruence's round is specified as the indivisible instance, and Decide
   enumerates every unassigned literal including retired variables; each has an
-  adversarial reachability test) · N2 verification **complete**, re-verified 2026-08-12
-  after a V3 chain-order defect: the native-LRAT oracle rejected a real UNSAT
-  certificate under a legal random schedule, and legs must keep running the
-  solver's own `--lrat` and not only the DRAT conversion · N3 Tier-D parity not yet measured · N4 verification
+  adversarial reachability test) · N2 verification **pending**: the first legs to run the
+  solver's own `--lrat` rather than the DRAT conversion rejected certificates of
+  runs answering UNSATISFIABLE, under DefaultPolicy as well as random schedules.
+  Three causes are fixed (V3 chain order, unit identity installed before the
+  assert, a reason naming a deleted clause) and all 57 preserved rejections now
+  verify; the standing evidence is the 200k native-LRAT pair in flight · N3 Tier-D parity not yet measured · N4 verification
   **pending** while the current causal frontier is classified.
 - **Last updated:** 2026-08-12.
 
@@ -263,12 +265,17 @@ the complete ledger, then mark N4 only on an explicit verification record.
   were 62/72 before). Closed the three reopened N1 findings with dispositions
   and adversarial tests, and made the fuzz harness vary the policy seed per case
   so the dense-index half of the schedule is reached (4407 of 8803 cases).
-  Two further defects came out of the first legs on the fixed pins: the eager
+  Four further defects came out of the first legs on the fixed pins. The eager
   register asserted a redundancy neither consumer requires (C3 promotes a
-  registered clause), and V3's rewrite chain cited a bridging lemma before the
-  unit that makes it unit — and deduplicated by sorting, discarding propagation
-  order — so `lrat-check` rejected an emitted certificate. Corpus is 22/22
-  through the native-LRAT oracle and micro_proofs.sh carries the chain witness.
+  registered clause). The other three are N2: V3's rewrite chain cited a
+  bridging lemma before the unit that makes it unit and deduplicated by sorting;
+  `PendingUnits` installed a variable's LRAT unit identity when a unit was
+  recorded rather than asserted, so the opposite literal could become the root
+  value first and poison every chain citing it (two assert loops also refuted
+  without emitting the pair's empty clause); and S6 Walk and V5 Sweep deleted
+  root-satisfied clauses that were still trail reasons, so a later reason walk
+  cited a deleted id. Corpus is 24/24 through the native-LRAT oracle and
+  micro_proofs.sh carries the chain witness.
 - 2026-08-11 — made 32 GB Tier B/C original-Kissat convergence the Phase-4
   exit and retired may-not-gate exemptions. `128_125` is a 1200.546s Tactix
   timeout versus Kissat's verified 87.419s SAT. Two optimized goldcrest
