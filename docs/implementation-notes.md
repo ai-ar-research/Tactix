@@ -82,45 +82,23 @@ deviation is D-ROOT** (`level==0`); D-NOOP is the other open guard deviation (S1
 D-CONG-TAUT are effect branches — D-CONG-SKIP on the LRAT path only, D-CONG-TAUT in BOTH formats
 (deliberately, to keep the two proof modes trajectory-identical; `congruence.cpp:792/802/969`).
 
-### Closed (one-line records — detail in the cited commit where one is named; mechanism in §3)
+### Closed
 
-- **D-SUBST-UNBOUNDED** — closed by SP-SUBST-2: the public V3 surface stays unbounded while DefaultPolicy applies Kissat's private 10‰ binary-watch meter without the generic floor.
+Git and frozen reports own chronology; these records retain only the landed invariant.
 
-- **D-LEVEL-1** (M2) — `propagate_head==|τ|` on Decide. Closed: conjunct removed; `trail_tainted` + full
-  re-propagation on search backtrack (kernel.hpp / decide.cpp / kernel_backtrack). Lesson (stale-scan
-  escaped unit): §3.
-- **D-LEVEL-2** (M4) — Backjump clamped to `jump_level`. Closed: true-level assignment + compacting
-  `kernel_backtrack`; the chrono target is now a ConflictAnalysis instance (§3).
-- **D-LEVEL (inproc/S5)** (C1–C3, V1–V4, S5) — the root-fixpoint conjunct. Closed: each rule drains `U`
-  at apply entry (`inprocess_reach_root` → `propagate_service`, M1's engine, carrying the root-unit LRAT
-  ids the callers' chains need; a root conflict there returns `Unsat`). **Lesson: a naive removal is
-  *unsound*** — Substitute's SCC and the probing rules read a partial `U`. Evidence: bit-exact (s055
-  932,762); random-policy DRAT 2000/0 + LRAT 1500/0.
-- **D-SPLIT-1 / D-SPLIT-2** — `¬pending.valid` (M1, S5, C1–C3, V1–V4) and the
-  `pending.valid`/`¬conflict_valid` + stale-pending path (M4). Closed by the atomic ConflictAnalysis
-  rule (§4): `pending` is never observable at a boundary.
-- **D-SPLIT-3** — `¬conflict_valid` on the pure `F`-rewrites (C1, C2, C3, V3, V4). Closed;
-  behavior-preserving because `conflict_valid ⟹ level>0` at every rule boundary, so under the retained
-  `level==0` it never fired. V1/V2 **keep** it — *abstract*, not a leak.
-- **D-CONG-LRAT** — XOR/ITE extraction was gated off under native LRAT. **CLOSED 2026-07-21 (C1/C2)**;
-  both now run on every proof path. Root cause: canonicalization folds signs, so canonical lemma
-  literals do not correspond by position and sign to either gate's raw clauses. Done by **replaying**
-  the chains rather than deriving them (`congruence_rup_chain`), so the chain comes out in the
-  checker's own propagation order by construction. **Lesson: a lemma the assumptions already force
-  TRUE is a conflict too** — seed the walk from the implied literal's own reason, or you lose exactly
-  the miter inferences the ladder exists for.
-- **D-CONG-UNIT** — AND degeneracies + contradictory merge were skipped. **CLOSED 2026-07-25 (C3b,
-  `2998029`)**, after C3 closed the XOR half. AND conclusions are directly RUP over the live DB, so no
-  new ladder was needed. **Lesson: the duplicated-hint hazard is real** in bridge assembly, closed by
-  order-preserving first-occurrence id dedup, safe because a repeated hint propagates nothing.
-  **Residuals, sound and deliberate:** ITE *collapse* degeneracies stay `Canon::Skip`; literal-form
-  `x ≡ ¬x` is refuted for AND, dropped-and-counted for XOR/ITE. All degeneracies measured **0 firings
-  on the tiers** — completeness and N1 work, as predicted.
-- **D-CONG-DELETE** — transient ladder / case-split lemmas were not `del`-eted (proof size only; they
-  were RUP, so soundness was never affected). **CLOSED 2026-07-21 (C4).**
-- **D-FACTOR-LRAT** — E2 Factor no-oped under native LRAT. **CLOSED 2026-07-20:** `Proof::add_rat`
-  landed and Factor emits it — dividers as vacuous RAT, quotients as one resolution each. First
-  backend realization of add-RAT; emission order is load-bearing (`calculus.md` E2).
+- **D-SUBST-UNBOUNDED:** V3's public surface is unbounded; DefaultPolicy meters binary watches.
+- **D-LEVEL-1/2:** Decide may run off-fixpoint; tainted trails re-propagate after backtrack. M3 admits
+  every chronological target and compacts by true level (§3/§4).
+- **D-LEVEL (inprocessing/S5):** each apply drains root closure through M1's engine, including LRAT
+  unit identities and root refutation; rules never inspect a partial `U`.
+- **D-SPLIT-1/2/3:** M3 consumes pending state atomically; pure root rewrites need no conflict guard,
+  while V1/V2 retain it as an abstract precondition.
+- **D-CONG-LRAT:** XOR/ITE chains replay canonical lemmas in checker propagation order.
+- **D-CONG-UNIT:** AND/XOR degeneracies emit their unit/merge chains with order-preserving hint dedup;
+  deliberate ITE/literal residuals remain specified in calculus V6.
+- **D-CONG-DELETE:** transient Congruence lemmas are proof-deleted newest first.
+- **D-FACTOR-LRAT:** Factor emits real `add_rat`; dividers precede quotients and grid deletion
+  (`calculus.md` E2).
 ## 3. Closed deviation families and standing invariants
 
 The live deviation state is §2; linked reports and Git own chronology. Closed deviations leave these
@@ -442,17 +420,9 @@ implementation sketch is not a reopening trigger.
 
 ## 17. The rule-inventory disposition table (the phase-3 exit, made checkable)
 
-Plan §9's phase-3 exit says every proof rule Kissat 4.0.4 or CaDiCaL 3.0.0 implements is **either**
-implemented (registered; guard / instances / apply; N1-exposed; N2-clean; fuzz-green *and reached*)
-**or** carries a reasoned no-implement row with its evidence and a reopening path. Until decision (b94ed3a) there
-was nowhere to *enumerate* that: the one no-implement, X5 `Condition`, is §16 prose that calls itself
-a ledger id while having no row anywhere, so the criterion could not be checked — only asserted.
-
-This table is that enumeration, and `tools/docs/check-inventory.py` (ctest `inventory`) fails when a
-family in plan §5.2 is missing from it. **A gate you cannot enumerate is a gate you cannot fail.**
-
-Micro/search families (M1–M4, S1–S5) predate the reference-inventory question and are listed for
-completeness; the phase-3 criterion is about the simplification families.
+Every plan §5.2 family is enumerated here as implemented/reached or as a reasoned no-implement with a
+reopening path. `tools/docs/check-inventory.py` fails on omissions. Micro/search families are included
+for completeness; Phase 3's reference-inventory criterion concerned simplification families.
 
 | Family | Disposition | Evidence |
 |---|---|---|

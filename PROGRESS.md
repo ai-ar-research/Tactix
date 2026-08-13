@@ -1,295 +1,145 @@
 # Progress
 
-**Tactix:** a proof-rule-driven SAT solver. Stable scope and architecture are in
-`DEVELOPMENT_PLAN.md`; rule semantics in `docs/calculus.md`; guards and
-deviations in `docs/implementation-notes.md`. This file contains current state
-only.
+**Tactix:** a proof-rule-driven SAT solver. `DEVELOPMENT_PLAN.md` owns scope,
+roadmap, and gates; `docs/calculus.md` owns rule semantics;
+`docs/implementation-notes.md` owns guards and durable engineering decisions.
+This file is only the resume surface.
 
-- **Current phase:** 4 — T3 met; N4 verification is the remaining exit.
-- **Exit:** identical Kissat/Tactix solved sets on Tier B and Tier C, ≤1.10×
-  Kissat PAR-2 on both at the matched 32 GB shape, plus P4-CVG/N4 closure.
-- **Non-negotiables:** N1 verification **complete** (2026-08-12: the three
-  reopened audit findings are closed — Factor now enumerates seed literals,
-  Congruence's round is specified as the indivisible instance, and Decide
-  enumerates every unassigned literal including retired variables; each has an
-  adversarial reachability test) · N2 verification **complete** (2026-08-13: four proof
-  defects found by first running the solver's own `--lrat` under the random
-  policy, then closed; the 200k native-LRAT and 200k DRAT random-policy legs on
-  `6f44f23` are 0 failures with corpus 25/25) · N3 Tier-D parity not yet measured · N4 verification
-  **pending** while the current causal frontier is classified.
+- **Current phase:** 4.19 cleanup. Phase 4 has met T3; N4 reconciliation remains.
+- **Next sequence:** finish 4.19 → write the two 4.20 surveys → freeze the
+  once-only 4.21 baselines → staged 4.25 convergence → Phase 4.5.
+- **Non-negotiables:** N1 complete (2026-08-12 reachability audit); N2 complete
+  (2026-08-13, native-LRAT/DRAT random-policy campaigns); N3 pending Tier D;
+  N4 pending final ledger reconciliation.
 - **Last updated:** 2026-08-13.
 
 ## Resume here
 
-T3 is met on both tiers in a single-array, three-arm window
-(`benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md`): Tier B 28/28 at
-1.036× original Kissat, Tier C 30/30 at 1.067×, correctness clean, every arm
-writing proofs. `128_125` and the Tier C early-exit incident closed with it.
-**N4 verification is the remaining phase-4 exit**, and it is a documentation
-and reconciliation task, not a measurement one: reconcile the final scheduler
-snapshot and the accepted deviations against the complete scheduling-parity
-ledger, then mark N4 only on an explicit verification record.
+T3 is met in the matched three-arm window:
+`benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md` records Tier B 28/28
+at 1.036× original Kissat and Tier C 30/30 at 1.067×, with SAT models and
+UNSAT proofs checked. The latest completed Tier C validation window is
+`20260813-111513-C-cleanup-b2b8362`; it does not supersede that gate report.
 
-The aggregate ratio hides live divergences rather than retiring them. The
-sharpest is `veer_axi_yosyshq_appnote_123_veer_axi-p23_transition` at 7.0× on
-Tier B; `minxor128` (2.08×) and `goldcrest-and-9` (2.01×) lead Tier C. The
-Sweep witness `2013113162201nw.shuffled-as.sat03-1668` is down to 2.81× after
-the core-unit repair. Any of these is a legitimate next divergence to localize
-with the rule journal; none of them gates T3 any more.
+Phase 4.19 is removing obsolete or duplicated material before new design work.
+The only source deletion criterion is demonstrated deadness; no source file met
+it in the audit. The superseded Factor dosing note is deleted, and the landed
+Factor matcher/scope notes are compact contracts. Preserve unrelated dirty edits.
 
-The structured rule journal remains the divergence-localization tool. Every
-proof rule in Kissat and Tactix should use the same transaction contract —
-applied, declined, no-op, budget, refuted — with exact guard facts from the
-evaluator that owns the operation. Sweep → consequence commitment →
-Congruence/Substitute is the landed pilot; coverage still has to extend to
-every proof rule, with production builds compiling out the journal
-implementation, symbols, environment markers, and hot-path branches.
+The once-only Tier-D reference campaign is being prepared in parallel at
+`benchmarks/baselines/sc24-26-32g-5000s-v1/`. Do not submit a duplicate run.
+The runner must record solve/check time and peak memory, model/proof verdict,
+proof size, solver/checker pins, and manifest integrity. Successfully checked
+certificates are deleted; failed or unclassified certificates remain only for
+diagnosis.
 
-**Next actions:**
+**Immediate actions:**
 
-1. Reconcile the scheduler snapshot and the accepted deviations against the
-   scheduling-parity ledger and record an explicit N4 verification result;
-   that closes phase 4.
-2. Extend the rule journal to every proof rule in both solvers, with
-   replay/mutated-field tests and production trace-elision checks.
-3. Take the largest remaining paired divergences in descending gate impact
-   (`veer_axi…p23_transition`, `minxor128`, `goldcrest-and-9`), journal the
-   first differing control event or guard fact, and rerun the cumulative
-   guards after each repair.
-4. Widen the oracles that have never run at scale: 10 of 25 rules still have
-   no targeted stress leg, `src/frontend/parse.cpp` has no direct test, and
-   cake_lpr is not wired into the harness. Every oracle first run at depth
-   this session found a defect.
+1. Finish the living-doc compaction, documentation checks, and cleanup commit.
+2. Reconcile `docs/scheduling-parity-ledger.md` into an explicit N4 verdict.
+3. Write the 4.20 proof-rule and solving-strategy surveys; implement nothing
+   from them until both reports are reviewable.
+4. Validate and freeze the 4.21 baseline campaign without rerunning any solver.
+5. Start 4.25 Stage A against frozen Kissat, using the rule journal on each gap.
 
-The two trailing legs finished clean as well: the 200,000-case DefaultPolicy
-native-LRAT leg is 0 failures over 196,310 scored cases (job 1617628), and the
-`Decide,Vivify` stress leg is 0 failures with 4,775,834 targeted applications
-(job 1617635). Logs are `tools/fuzz/slurm-final*.log`.
+## Measurement and gates
 
-## Current measurement contract
+The resource, correctness, certificate-retention, frozen-baseline, replay, and
+staged-VBS contracts are authoritative in plan §8. Per-instance JSON is
+authoritative; this file carries only gate headlines.
 
-`benchmarks/runs/<window>/results.json` owns per-instance results. A claim names
-the manifest SHA and allocation shape, states #solved before PAR-2, names moved
-instances, and compares only same-window compatible arms. Every arm writes a
-proof; every scored Tactix SAT answer is model-checked. Broad scheduling changes
-eventually require Tier C pricing because Tier B is dominated by boundary
-instances. P4-CVG's fixed P4A/P4B sequence is closed; Tier C performance work
-is paused on the early-exit incident above.
-Feature acceptance is cumulative: an accepted change remains enabled while the
-next change is evaluated against the preceding accepted pin. Single-feature off
-arms are diagnostic; they do not replace the cumulative comparison. Incremental
-campaigns run only those two Tactix pins. Kissat and CaDiCaL are rerun at gates,
-or when the manifest or allocation shape changes, rather than on every step.
+- [x] **T1:** Tier A and MiniSat bar
+  (`benchmarks/reports/2026-07-14-t1-gate.md`).
+- [x] **T2:** Glucose/API bar
+  (`benchmarks/reports/2026-07-14-t2-gate.md`).
+- [x] **T3:** matched Tier B/C Kissat coverage and ≤1.10× PAR-2.
+- [ ] **T4-K:** Kissat coverage and ≤1.10× on each SC24/25/26 view and union.
+- [ ] **T4-VBS:** exact status-sensitive frozen-VBS parity; blocks Phase 4.5.
+- [ ] **T5:** exceed the frozen VBS or ship best verified effort.
 
-Matched or one-sided feature-off runs are diagnostic cuts inside the convergence
-loop, not separate deliverables. Map executable semantics rather than flag
-names, change one semantic gate at a time, and remove diagnostic variants after
-attribution; no ablation replaces shipped-default full-tier evidence.
+## Phase status
 
-Every Tier A/B/C/D solver process receives a 32 GB address-space limit. Kissat
-performance numbers come only from the clean original pin; diagnostic/event or
-rule-journal Kissat binaries are never timed as baselines. Reuse stored Kissat
-and CaDiCaL results when the instance and allocation contract are unchanged.
+### Phases 0–3 — complete
 
-## Gates
+Repository, kernel, proof pipeline, competition I/O, API freeze, and the full
+rule-inventory disposition/reach gate are complete. Evidence:
+`benchmarks/reports/2026-08-07-phase-3-gate.md`.
 
-- [x] **T1:** Tier A and MiniSat bar (`benchmarks/reports/2026-07-14-t1-gate.md`).
-- [x] **T2:** Glucose/API bar (`benchmarks/reports/2026-07-14-t2-gate.md`).
-- [x] **T3:** identical solved sets with original Kissat on Tier B/C and
-  ≤1.10× Kissat PAR-2 on both at the matched 32 GB shape
-  (`benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md`).
-- [ ] **T4:** DefaultPolicy engineering exceeds Kissat on the SC25 Tier-D view.
-- [ ] **T5:** beat AE-Kissat-MAB or ship best effort.
+### Phase 4 — T3 complete; N4 pending
 
-## Phases 0–3 — complete
-
-- [x] Setup, kernel, proof pipeline, competition I/O, API freeze, and full
-  reference rule-inventory disposition.
-- [x] Phase 3 rule-completeness gate, including reach evidence or explicit
-  no-implement disposition (`benchmarks/reports/2026-08-07-phase-3-gate.md`).
-
-## Phase 4 — Tier B/C causal convergence
-
-The baseline is the faithful five-layer reference scheme: phase intervals,
-per-technique effort fractions in native currencies, structural candidate caps,
-success-driven delay, and fixpoint watermarks. Reference ports must demonstrate
-their effect with source counters before performance interpretation.
-
-- [x] Port phase-anchored effort, reference phase structure/repeats, density-gate
-  removal, shared forward allowance, tick units, delay/yield ladder, Factor/BVE
-  coupling, backward BVE, and analyze-side trail reuse.
-- [x] Fix backward BVE strengthened-to-unit handling and add independent SAT
-  model checks (`6033378`).
-- [x] Fix frozen-at-0 retired variables voiding model reconstruction
-  (`benchmarks/reports/2026-08-08-n2-frozen-pivot.md`).
-- [x] Close P4-CVG on the fixed three-instance P4A and five-instance P4B sets
+- [x] Faithful phase structure, effort currencies, delay/yield ladder,
+  Factor/BVE coupling, backward BVE, trail reuse, and cumulative guards.
+- [x] P4-CVG fixed fixtures
   (`benchmarks/reports/2026-08-11-p4-cvg-closure.md`).
-- [x] Match original Kissat's solved set on full Tier B and full Tier C
-  (28/28 and 30/30, one array per tier, 2026-08-12).
-- [x] Reach ≤1.10× original-Kissat PAR-2 on both Tier B and Tier C
-  (1.036× and 1.067×).
-- [ ] Close every decision-relevant first divergence or record an explicit,
-  source-backed stronger/accepted behavior; use the resulting corpus plus the
-  reconciled scheduling ledger to complete N4 verification.
-
-### P4-CVG fixture order
-
-Each fixture closes only on a terminal untruncated match or a fully closed
-causal-frontier record. After every accepted repair, rerun all earlier checked
-fixtures as cumulative guards.
-
-- [x] `tr-n300-s055` — verified UNSAT, 27.83s (job `1607665`).
-- [x] `tr-n260-s002` — verified UNSAT, 4.90s (job `1607666`).
-- [x] `tr-n280-s052` — verified UNSAT, 16.42s (job `1607667`).
-- [x] `mod4block_2vars_10gates_u2_autoenc-sc2009` — verified SAT/model,
-  163.96s (job `1607668`).
-- [x] `mp1-klieber2017s-0500-023-t12` — verified SAT/model, 195.08s
-  (job `1607669`).
-- [x] `or_randxor_k3_n540_m540` — verified UNSAT, 14.41s (job `1607670`).
-- [x] `unsat-set-b-fclqcolor-10-07-09` — verified UNSAT, 39.38s
-  (job `1607671`).
-- [x] `veer_axi_yosyshq_appnote_123_veer_axi-p23_transition` — verified UNSAT,
-  101.62s (job `1607672`).
+- [x] Tier B/C Kissat coverage and PAR-2 gate.
+- [ ] Reconcile every scheduling-ledger disposition against the shipped
+  snapshot and record the explicit N4 verdict.
 
 <!-- track-sched:begin -->
-### Open scheduling-parity findings
-
-P4-CVG is closed. `SP-VIVIFY-DEDUCE-1`, compact-universe randec admission, the
-fresh Sweep→Substitute equivalence bridge, and the solve-latched large-formula
-Factor gate are implemented and cumulatively verified. `SP-FACTOR-OCCURRENCE-1`
-remains semantically closed at startup. The sparse-GC candidate is excluded
-from the closure pin and stays deferred.
-
-The Tier C early-exit incident is the immediate owner. After it closes,
-reconcile the final scheduler snapshot and these accepted deviations against
-the complete ledger, then mark N4 only on an explicit verification record.
+The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
+closed; sparse-GC remains deferred outside the closure pin. Any new missing or
+cruder reference mechanism reopens N4 until repaired or explicitly accepted.
 <!-- track-sched:end -->
 
-## Phase 4.5 — engineering ingenuity beyond reference parity
+### Phase 4.19 — cleanup
 
-- [ ] Add debug proof-event correlation: record the emitting rule/application
-  and proof line or byte range so checker failures localize without inference.
-- [ ] Add extended-resolution support: expose extension-variable introduction
-  as a universal public proof-rule operation, emit independently checkable
-  DRAT/LRAT evidence, preserve SAT-model reconstruction, and evaluate a
-  DefaultPolicy admission strategy only after the rule/API boundary is green.
-- [ ] Evaluate a zero-copy embedded-SubSolver clause view that reuses immutable main-formula clause storage while retaining local watches, trail, compact variables, and proof mapping.
-- [ ] Disposition the seven independent-lineage candidates before compacting
-  their survey: binary-resolution minimization and blocking restarts (phase
-  4.5), adaptive Reduce intervals and usage-count ranking (Reduce policy), and
-  branch/restart/polarity rotation, `best_inv`, and schedule strings (phase 7
-  scheduler/preset design). Each is a candidate, not a promised implementation.
-- [ ] Concretize O15 through `revise-plan` when phase 4 exits.
-- [ ] Substitute (equivalent-literal substitution) is a potential proof rule
-  whose implementation can be optimized.
-- [ ] SAT sweeping currently harvests only equivalences and backbone units;
-  harvesting richer consequences from the sweep environment is room for
-  improvement (related: designing new proof rules).
-- [ ] It is known that factor (i.e., bounded variable addition) can be implemented
-  in a drastically faster manner:
-  https://drops.dagstuhl.de/storage/00lipics/lipics-vol377-sat2026/LIPIcs.SAT.2026.29/LIPIcs.SAT.2026.29.pdf
+- [x] Audit tracked source, scripts, docs, runs, probes, and inbound references.
+- [x] Delete the superseded Factor dosing design; compact the two landed Factor
+  design diaries into durable contracts.
+- [x] Compact PROGRESS, closed plan narrative, calculus wording, and
+  implementation-note chronology without losing semantics or open deviations.
+- [x] Run documentation tests and commit the cleanup separately from new design
+  work. No production source or executable tooling changed in this increment.
 
-## Phase 5 — tuning, bindings, extensibility
+### Phase 4.20 — design surveys
 
-- [ ] Decide O16; add policy presets/MAB, Python bindings, external-branching
-  demos, ≤5% hardcoded-twin check, and CCE extensibility gate.
-- [ ] Exit on T4.
+- [ ] `docs/design/phase-4.20-proof-rule-survey.md`: candidate calculus rule,
+  DRAT/LRAT delta, model reconstruction, ownership boundary, and N1/N2 tests.
+- [ ] `docs/design/phase-4.20-solving-strategy-survey.md`: decision point,
+  features, reference source, cost, experiment, and kill criterion.
 
-## Phase 6 — competition readiness
+### Phase 4.21 — frozen references
 
-- [ ] Package, audit licenses/attribution, rehearse the proof pipeline, and
-  decide O7/O8. Exit on T5 or best effort.
+- [ ] Run Kissat 4.0.4, kissat-sc2024, AE-Kissat-MAB, Satsuma+Kissat, and
+  LymphoSAT exactly once on the 1166-instance SC24–26 union at 32 GB/5000 s.
+- [ ] Freeze per-instance solve/check time, peak memory, verdict, proof size,
+  pins, manifests, and annual membership views. LymphoSAT is SAT-only.
+- [ ] Delete successfully checked certificates and publish integrity/cleanup
+  status. Never rerun a frozen reference to fill a missing metric.
 
-## Phase 7 — learned scheduling
+### Phase 4.25 — staged convergence
 
-- [ ] Replay/reward validation; RL1 windowed UCB; random-policy fuzz inclusion;
-  L-safe; contextual RL2; composed-batch RL3; anytime test; L-win.
+- [ ] **A:** close T4-K against Kissat 4.0.4.
+- [ ] **B:** preserve A; reach ≤1.10× cumulative VBS with kissat-sc2024.
+- [ ] **C:** preserve A–B; add AE-Kissat-MAB.
+- [ ] **D:** preserve A–C; add Satsuma+Kissat.
+- [ ] **E:** preserve A–D; add LymphoSAT SAT solves, then exact T4-VBS parity.
 
-## Open items
+Every miss enters the same loop: earliest portable semantic divergence, repair
+or source-backed stronger/accepted disposition, then instance and cumulative
+guards. One content-feature-driven Tactix binary serves every stage.
 
-- The Tier C early-exit incident and the `128_125` solve gap both closed on the
-  2026-08-12 32 GB reruns: full Tier C is 30/30 with every proof checked and no
-  nonterminal exit, `goldcrest-and-9` is a verified UNSAT in 168.27 s, and
-  `128_125` is a verified SAT in 131.53 s against Kissat's 88.84 s. N4 resumes
-  through the unified Tier B/C divergence-closure loop.
-- The sparse-GC candidate remains deferred and outside the closure pin; do not
-  exercise it without separate user direction. Corpus 004/005 are closed: the
-  Sweep stale-occurrence fix repaired both, and they pass on every corpus leg.
-- `HyperBinaryRes` remains an accepted standalone deviation with a policy-side
-  structural cap.
-- Random-policy nontermination: 24,052 of 200,000 cases (12.0%) reach no
-  verdict at the 5 s case timeout, so they run no semantic oracle and the legs
-  below are 176k cases, not 200k. The ranked-picker totality defect is fixed
-  (both pickers fall back to index order when `H`'s structures cannot answer);
-  the population itself is undiagnosed.
-- A `Decide,Vivify` stress schedule leaves corpus 017 and 025 without a
-  verdict at the 60 s corpus timeout, so that leg pre-registers
-  `--allow-nonterminating 2`. Both are proof-oracle entries whose verdict needs
-  the normal-step propagation this schedule starves.
-- `VariableCompaction` and `VivifyFlush` read as never-fired on every random
-  and stress leg for a structural reason, not a coverage one: compaction is
-  called only from DefaultPolicy (`default_policy.cpp`), and `vivify_flush`
-  defaults off and is only set by its env knob. Their coverage has to come from
-  a DefaultPolicy leg and from an explicit flush arm; the `Lucky` and
-  `SweepResume` rows read 0 for a real reason (broken specs) and are repaired.
-- Factor's next-factor counting and matching passes can disagree (the count
-  reserves each large occurrence across the whole quotient, the re-scan only
-  against the chosen factor). Grid-choice fidelity only; the repair is the
-  memoized `qlauses` lifecycle in `docs/implementation-notes.md` §5.
-- **Sweep ships — user directive, non-negotiable:** neither disabling Sweep nor
-  shrinking its budget until inert counts as a fix; after any governor change it
-  must still fire and find equivalences.
-- Per-call O(nvars) scratch in hot rules (`RV-S19`): five fill-init sites in
-  BVE/probe/backbone; fix is persistent scratch + touched restore, gated on
-  identical rule counters and proof SHA.
-- `main.cpp` split (`RV-S29`); while there, fix `c strengthen` printed twice
-  under two different schemas.
-- Stress-policy coverage: 10 of 25 rules have no targeted stress leg, including
-  `Reorder`.
-- No direct test for `src/frontend/parse.cpp`, and cake_lpr is not wired into
-  the fuzz harness (`RV-S24` remainder).
+### Later phases
+
+Phase 4.5 covers reviewed novel-engineering candidates and proof-event
+correlation; Phase 5 tuning/bindings/extensibility; Phase 6 packaging; Phase 7
+learned scheduling. Candidate scope and gates live only in the plan.
+
+## Active engineering debt
+
+- Extend the structured rule journal from its Sweep/Congruence/Substitute pilot
+  to every proof rule; production builds must compile it out completely.
+- Diagnose random-policy no-verdict cases instead of counting them as checked.
+- Align Factor's large-occurrence count/match lifecycle (`qlauses`).
+- Replace hot per-call `O(nvars)` fill-init scratch with persistent touched
+  scratch under identical counters and proof hashes.
+- Split `src/main.cpp` and remove the duplicate strengthen statistic schema.
+- Add targeted stress legs for the ten uncovered rules, a direct parser test,
+  and cake_lpr fuzz-harness coverage.
+- Sweep remains enabled and productive; an inert budget is not an optimization.
 
 ## Recent changes
 
-- 2026-08-13 — T3 met and N2 re-verified. Tier B 28/28 at 1.036× original
-  Kissat and Tier C 30/30 at 1.067×, one array per tier with Kissat and CaDiCaL
-  re-measured beside it, correctness clean
-  (`benchmarks/reports/2026-08-12-tier-bc-t3-same-window.md`). The intensive
-  legs on the same binary are 0 failures: 200k random-policy native-LRAT, 200k
-  random-policy DRAT, 10k random-policy under ASan/UBSan with assertions, and
-  10k stress-Factor, with corpus 25/25 and 87,946 dense-connected cases.
-- 2026-08-12 — N1 audit and soundness fuzzing. Fixed a heap-buffer-overflow in
-  Factor's per-candidate scratch (the admitted fresh literal indexed one past
-  `cofactor`/`armed`; Kissat's `resize_factoring` grows unconditionally), the
-  missing binary branch of Vivify's instantiation strengthening, and a debug
-  watch invariant stricter than the sparse-collect contract it checked. All 167
-  preserved crash bundles are clean, corpus is 21/21 with three new entries, and
-  both suites are 72/72 in Release and under ASan/UBSan with assertions (they
-  were 62/72 before). Closed the three reopened N1 findings with dispositions
-  and adversarial tests, and made the fuzz harness vary the policy seed per case
-  so the dense-index half of the schedule is reached (4407 of 8803 cases).
-  Four further defects came out of the first legs on the fixed pins. The eager
-  register asserted a redundancy neither consumer requires (C3 promotes a
-  registered clause). The other three are N2: V3's rewrite chain cited a
-  bridging lemma before the unit that makes it unit and deduplicated by sorting;
-  `PendingUnits` installed a variable's LRAT unit identity when a unit was
-  recorded rather than asserted, so the opposite literal could become the root
-  value first and poison every chain citing it (two assert loops also refuted
-  without emitting the pair's empty clause); and S6 Walk and V5 Sweep deleted
-  root-satisfied clauses that were still trail reasons, so a later reason walk
-  cited a deleted id. Corpus is 24/24 through the native-LRAT oracle and
-  micro_proofs.sh carries the chain witness.
-- 2026-08-11 — made 32 GB Tier B/C original-Kissat convergence the Phase-4
-  exit and retired may-not-gate exemptions. `128_125` is a 1200.546s Tactix
-  timeout versus Kissat's verified 87.419s SAT. Two optimized goldcrest
-  backtraces exposed retired and stale-unassigned jumped-reason compaction
-  hazards; both exact regressions, focused sanitizers, and 69/69 Release tests
-  pass, with the second real-instance closure rerun pending.
-- 2026-08-11 — fixed three random-policy fuzz defects: Sweep's occurrence
-  snapshot outliving an arena collection, a root literal fixed by a speculative
-  propagation without its LRAT unit line, and a clause added behind the
-  propagation cursor. Both 10,000-case legs are 0 failures and corpus is 18/18;
-  Tier A stays instance-identical.
-- 2026-08-11 — re-audited rule/strategy ownership: removed dead Factor policy
-  state, made Sweep resumption an explicit limit, and stopped Substitute from
-  charging Sweep; full A/B behavior is identical with +0.56%/+0.73% runtime.
+- 2026-08-13 — T3 met and N2 re-verified in matched Tier B/C and intensive fuzz.
+- 2026-08-12 — N1 seed/closure/decision surfaces closed with adversarial tests.
+- 2026-08-11 — P4-CVG fixed fixtures closed and cumulative guards banked.

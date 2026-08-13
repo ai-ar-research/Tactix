@@ -48,8 +48,10 @@ goals. A soundness regression is never staged.
 ## 2. Landscape and reference policy
 
 Top sequential solvers are predominantly Kissat/CaDiCaL derivatives augmented
-with techniques such as MAB scheduling, SBVA, and CURE. Tactix therefore studies
-Kissat, CaDiCaL, Glucose, CryptoMiniSat, and recent competition winners.
+with techniques such as MAB scheduling and circuit preprocessing. The frozen
+SC24–26 reference set is Kissat 4.0.4, kissat-sc2024, AE-Kissat-MAB,
+Satsuma+Kissat, and LymphoSAT; LymphoSAT is a SAT-only target. CaDiCaL, Glucose,
+and CryptoMiniSat remain mechanism references, not Tier-D performance arms.
 
 For DefaultPolicy, transliterate the references' mechanism and effect, never
 their code. Read Kissat and CaDiCaL; choose the stronger mechanism and use
@@ -280,12 +282,12 @@ pinned phase 4.5 pass.
 
 All solver executions use SLURM partition `cpu-dense-hwulab-q`; one
 single-threaded solver per array task. Tiers A–C use 32 GB provisioned as four
-CPUs at 8 GB/core; Tier D uses the competition-shaped 16 GB cap provisioned as
-two CPUs at 8 GB/core. Candidate and baselines share the same array. Record and
-match allocation shape. Submitted arrays own their
-immutable build directories. Every arm writes proofs; our rejected/missing
-proof scores unsolved, while baseline proof verification is optional and never
-changes its score. Checker budget is `max(3600s, 4× solve timeout)`.
+CPUs at 8 GB/core. Tier D uses the same 32 GB process limit and a 5000 s solve
+limit. Record allocation shape; submitted arrays own immutable builds and
+manifests. Every UNSAT result is independently proof-checked and every SAT
+result model-checked. Proof certificates are temporary: after checker result,
+time, peak memory, proof size, and provenance are durably recorded, delete the
+certificate. Retain failed/unclassified certificates only until diagnosis.
 
 An early process exit without a valid SAT/UNSAT result is a blocking incident,
 not an ordinary performance loss. Preserve its raw exit status, signal, and
@@ -305,12 +307,19 @@ into an undifferentiated `UNKNOWN` that can be mistaken for a timeout.
 | A | correctness/smoke | generated + crafted, 30 s, 32 GB | every commit |
 | B | daily signal | 28 frozen SC instances, 300 s, 32 GB | daily/change |
 | C | scheduling signal | 30 frozen instances, 1200 s, 32 GB | weekly/major change |
-| D | gate scale | SC24+SC25 union, 793, 5000 s, 16 GB | phase gates |
+| D | gate scale | SC24+SC25+SC26 union, 1166 unique, 5000 s, 32 GB | frozen reference + phase gates |
 
-Tier D's SC25 list is a scoring view, not a second run. Results JSON is
-authoritative per-instance evidence; PROGRESS carries only a current headline.
-State #solved before PAR-2 and name moved instances. Never tune on Tier A or mix
-different set versions, timeouts, memory caps, or allocation shapes.
+The three annual memberships (1200 total) are scoring views over the 1166
+unique runs. Never tune on Tier A or mix set versions or resource contracts.
+Per-instance results remain authoritative; PROGRESS carries only a headline.
+
+The five reference solvers run exactly once. Their immutable authority is
+`benchmarks/baselines/sc24-26-32g-5000s-v1/`, containing manifests, pins,
+per-instance solve/check metrics, and integrity metadata but no successfully
+checked certificates. Future time caps are exact truncations of these records.
+Lower memory caps are simulations from recorded high-water data and must be
+labeled as such; a peak alone cannot determine when memory was crossed. Never
+rerun a frozen reference to fill a missing metric—record the limitation.
 
 Every instance in a frozen tier remains in its scored population. Replication,
 leave-one-out sensitivity, and unrelated-perturbation tests control confidence
@@ -337,43 +346,26 @@ Shrink failures and retain minimal regressions. Cadence and commands live in the
   Kissat and achieve at most 1.10× its PAR-2 under the matched allocation
   contract. A rule-neutral view may diagnose a mechanism but cannot replace
   either full-tier requirement. Gates phase 4.
-- **T4:** DefaultPolicy engineering exceeds Kissat-public PAR-2 on the SC25
-  Tier-D view, before learning; N3's minimum is parity.
-- **T5:** beat AE-Kissat-MAB on the competition set or ship best effort.
+- **T4-K:** on each annual Tier-D view and their union, cover every Kissat 4.0.4
+  solve and reach at most 1.10× its PAR-2.
+- **T4-VBS:** exact status-sensitive parity with the frozen reference VBS on
+  the union; LymphoSAT contributes SAT results only. This gates Phase 4.5.
+- **T5:** exceed the frozen VBS or ship the best verified effort.
 
-**P4-CVG — causal trajectory gate.** Phase 4 also runs the fixed `P4A` and
-`P4B` manifests in order, one instance at a time. They contain three difficult
-Tier A instances at the Tier A timeout and five historically difficult Tier B
-instances at the Tier B timeout. For each fixture, compare Tactix and Kissat to
-the earliest portable semantic divergence. A fixture closes only when its
-terminal, untruncated traces agree, or when that causal frontier records bounded
-context, cause, relative-strength judgment, evidence, reproducer, owner, and a
-reopening condition. A localized or actionable diagnosis is not closed.
+**Causal convergence.** For every coverage or runtime gap, localize the earliest
+portable semantic divergence with the structured rule journal. Repair it unless
+Tactix is demonstrably stronger or the deviation is explicitly accepted; then
+rerun the instance and cumulative guards. Record context, cause, relative
+strength, evidence, reproducer, owner, and reopening condition. Feature-off
+projections diagnose one semantic mechanism but never replace a full gate.
 
-If current Tactix behavior is not demonstrably stronger and is not an approved
-deliberate choice, repair it and restart the comparison. Downstream differences
-inherit the first root until both solvers reach a named common anchor. After
-each accepted repair, rerun every previously closed fixture; remove a neutral
-superseded strategy arm. A first divergence classified as missing or cruder
-default scheduling adds one deduplicated scheduling-parity finding and makes
-N4 verification pending. Analysis, kernel, or proof-rule defects are routed to
-their owning non-negotiable or subsystem instead.
-
-After the fixed fixtures, apply the same loop to every Tier B/C solve mismatch
-and then to runtime gaps large enough to threaten T3. Work in descending gate
-impact: reproduce one instance, localize the earliest portable semantic
-divergence, repair it unless evidence shows the Tactix behavior is stronger or
-an explicit decision accepts it, and rerun the instance plus cumulative guards.
-Variance, perturbation sensitivity, and inconvenience are never reasons to
-close a divergence. Phase 4 exits only when the full Tier B/C solved sets match
-original Kissat and both full-tier PAR-2 ratios are at most 1.10.
-
-After the shipped-default fixture pass, run a small matched feature-off matrix
-over selected shared mechanisms. Resolve equivalence by executable semantics,
-not flag spelling. Each projected trajectory must either agree or close under
-the same localized, source-backed explanation standard as the default run.
-These projections are additional Phase-4 robustness and causal-coverage
-evidence; they do not relax T3, P4-CVG default closure, or N4 verification.
+Tier-D convergence is cumulative: A closes T4-K; B adds kissat-sc2024; C adds
+AE-Kissat-MAB; D adds Satsuma+Kissat; E adds LymphoSAT's SAT solves. At stages
+B–E Tactix must preserve prior coverage and be within 1.10× the cumulative
+status-sensitive VBS on every annual view and the union. A single
+feature-driven Tactix binary is used throughout: content-derived features are
+allowed, benchmark names, paths, hashes, identities, and external-solver output
+are not. Final T4-VBS requires exact coverage parity, not only the 1.10× score.
 
 Report #solved before PAR-2, SAT/UNSAT split, proof time/size, regressions, and
 memory. A solve gained with none lost may be banked despite PAR-2 cost, but the
@@ -406,10 +398,26 @@ branching without kernel edits. Ablations use configuration, not forks.
 | 2 | S3/S5, LRAT, API freeze | T2 + API review |
 | 3 | complete reference rule inventory and Tier C | catalog disposition/reach complete |
 | 4 | faithful dosing, scheduling verification, and Tier B/C causal convergence | P4-CVG + N4 verification complete + T3 |
-| 4.5 | proof-event correlation and novel engineering beyond reference parity | proof ranges map to emitting rule/application; concretize remaining scope via O15 |
-| 5 | tuning, bindings, extensibility proof | T4 + ≤5% overhead + CCE test |
+| 4.19 | code/document cleanup | no obsolete artifact or duplicated live authority |
+| 4.20 | proof-rule and solving-strategy design surveys | two reviewed reports; no implementation |
+| 4.21 | once-only SC24–26 reference campaign | frozen five-solver metrics at the §8.1 authority |
+| 4.25 | staged Tier-D convergence A–E | T4-VBS |
+| 4.5 | proof-event correlation and novel engineering | proof ranges map to emitting rule/application |
+| 5 | tuning, bindings, extensibility proof | ≤5% overhead + CCE test |
 | 6 | competition packaging | T5/best effort + submission ready |
 | 7 | learned scheduling | L-safe then L-win |
+
+Phase 4.20 writes `docs/design/phase-4.20-proof-rule-survey.md` and
+`docs/design/phase-4.20-solving-strategy-survey.md`. A proof-rule candidate must
+state calculus precondition/effect, DRAT/LRAT delta, reconstruction impact,
+rule/strategy ownership, and N1/N2 tests. A strategy candidate must state its
+features, decision point, reference source, cost model, attribution experiment,
+and kill criterion. Only reviewed candidates enter 4.25/4.5 implementation.
+
+Phase 4.5 candidates include proof-event correlation, richer Sweep consequences,
+extended resolution, faster Factor matching, and `egg`-style batched Congruence
+rebuilding at safe root boundaries. Each must preserve the legal rule surface
+and independently checkable native proofs and earn a measured time/memory gain.
 
 ## 10. Risks and mitigations
 
@@ -434,10 +442,8 @@ Resolve through `revise-plan` concretize mode and record only the minimum needed
 | O6 | learned scheduler arm sets and UCB constants | phase 7 |
 | O7 | incremental/IPASIR proof interaction | phase-6 entry |
 | O8 | retain FRAT only if a consumer appears | phase 6 |
-| O9 | add/replace SC2026 for T4; current T4 view remains SC24+SC25 | phase-5 T4 setup |
 | O12 | contextual features and learned-state persistence | phase 7 RL2 |
 | O13 | distill stable learned schedules into DefaultPolicy | phase-7 exit |
-| O15 | phase-4.5 scope, deliverables, and exit | phase-4 exit |
 | O16 | admit PR/SR learning with an N2 checker/translation story | phase-5 entry |
 
 Closed decisions have their current contracts in the owning sections; Git
