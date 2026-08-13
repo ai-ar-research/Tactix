@@ -1,23 +1,11 @@
 #!/usr/bin/env bash
-# Fetch recent SAT Competition winners' SOURCES as reference material
-# (plan §5 "reference solvers are evidence, not templates", decision (f01a6d5); §8.3
-# lists them as baselines "where obtainable"). Sources only — these are
-# StarExec/Linux-targeted packages; building them for benchmark baselines
-# is a separate, deliberate step (revisit at the T4/T5 gates).
+# Fetch the source of the 2024--2026 SAT Competition Main Track winners,
+# plus LymphoSAT, the 2026 Main Track SAT winner.
 #
-# Everything lands in winners/ at the repo root, untracked (see .gitignore),
-# same convention as the kissat/ and cadical/ reference clones.
-#
-#   AE-Kissat-MAB   SC 2025 main-track winner (MAB restart tuning on kissat)
-#   CaDiCaL-SC2025  SC 2025 main-track UNSAT winner
-#   kissat-sc2025   Biere et al.'s own SC 2025 entry (2nd overall)
-#   kissat-sc2024   SC 2024 main-track winner (swept all three golds); the
-#                   SC 2024 site never published solver archives ("tbd"),
-#                   so this comes from the kissat repo's sc2024 tag — the
-#                   pinned rel-4.0.4 clone is this winner's lineage a few
-#                   releases later, so diffs against it are small and telling
-#   SBVA            SC 2023 winner's preprocessor (SBVA-CaDiCaL), from the
-#                   authors' GitHub (paper artifact, pinned commit)
+# Sources land in winners/ at the repository root.  That directory is ignored
+# by git because these are third-party reference trees, not Tactix sources.
+# Competition archives retain the organizers' original layout; in 2026 they
+# are grouped by submitting author and may contain more than one solver.
 #
 # Usage: tools/solvers/fetch-winners.sh
 
@@ -28,41 +16,129 @@ DIR="$ROOT/winners"
 mkdir -p "$DIR"
 
 SC25=https://satcompetition.github.io/2025/downloads/solvers/main
-SBVA_REPO=https://github.com/hgarrereyn/SBVA.git
-SBVA_COMMIT=35e74d02aa1b0970d53fef1c86171e596d0da453
+SC26=https://satcompetition.github.io/2026/downloads/solvers
+KISSAT_REPO=https://github.com/arminbiere/kissat.git
 
-fetch_tar () { # name url
+archive=""
+repairs=""
+stage=""
+cleanup () {
+    if [ -n "$archive" ] && [ -f "$archive" ]; then
+        rm -f -- "$archive"
+    fi
+    if [ -n "$stage" ] && [ -d "$stage" ]; then
+        rm -rf -- "$stage"
+    fi
+    if [ -n "$repairs" ] && [ -f "$repairs" ]; then
+        rm -f -- "$repairs"
+    fi
+}
+trap cleanup EXIT
+
+validate_tar () { # archive repair-list
+    python3 - "$1" "$2" <<'PY'
+import posixpath
+import sys
+import tarfile
+
+archive = sys.argv[1]
+repair_file = sys.argv[2]
+with tarfile.open(archive, "r:xz") as tf:
+    members = {member.name: member for member in tf.getmembers()}
+    repairs = []
+    for member in members.values():
+        name = member.name
+        normalized = posixpath.normpath(name)
+        if "\n" in name or "\n" in member.linkname:
+            raise SystemExit(f"newline in archive path: {name!r}")
+        if name.startswith("/") or normalized == ".." or normalized.startswith("../"):
+            raise SystemExit(f"unsafe archive member: {name!r}")
+        if not (member.isfile() or member.isdir() or member.issym() or member.islnk()):
+            raise SystemExit(f"unsupported archive member type: {name!r}")
+        if member.issym():
+            target = posixpath.normpath(posixpath.join(posixpath.dirname(name), member.linkname))
+            if member.linkname.startswith("/") or target == ".." or target.startswith("../"):
+                # Several official packages accidentally captured an absolute
+                # build-tree link from src/makefile to the adjacent makefile.
+                # Repair only that exact, independently verifiable pattern.
+                expected = posixpath.normpath(posixpath.join(posixpath.dirname(name), "../makefile"))
+                expected_member = members.get(expected)
+                if (posixpath.basename(name) == "makefile"
+                        and posixpath.basename(posixpath.dirname(name)) == "src"
+                        and posixpath.basename(member.linkname) == "makefile"
+                        and expected_member is not None
+                        and expected_member.isfile()):
+                    repairs.append(name)
+                else:
+                    raise SystemExit(f"unsafe symlink target: {name!r} -> {member.linkname!r}")
+        if member.islnk():
+            target = posixpath.normpath(member.linkname)
+            if member.linkname.startswith("/") or target == ".." or target.startswith("../"):
+                raise SystemExit(f"unsafe hardlink target: {name!r} -> {member.linkname!r}")
+with open(repair_file, "w", encoding="utf-8") as out:
+    for name in repairs:
+        print(name, file=out)
+PY
+}
+
+fetch_tar () { # destination-name source-url
     local name="$1" url="$2"
     if [ -d "$DIR/$name" ]; then
         echo "== $name: already present =="
         return
     fi
+
     echo "== $name: fetching =="
-    local tmp="$DIR/.tmp.$name"
-    rm -rf "$tmp"
-    mkdir -p "$tmp"
-    # extract into a temp dir first so an interrupted fetch never leaves a
-    # partial directory that a re-run would mistake for a complete one
-    curl -fsSL "$url" | tar -xJ -C "$tmp"
-    echo "$url" > "$tmp/SOURCE_URL"
-    mv "$tmp" "$DIR/$name"
+    archive="$(mktemp "$DIR/.${name}.archive.XXXXXX")"
+    repairs="$(mktemp "$DIR/.${name}.repairs.XXXXXX")"
+    stage="$(mktemp -d "$DIR/.${name}.stage.XXXXXX")"
+    curl --fail --location --silent --show-error --retry 3 \
+        --output "$archive" "$url"
+    xz --test "$archive"
+    validate_tar "$archive" "$repairs"
+    tar --extract --xz --file "$archive" --directory "$stage" \
+        --no-same-owner --no-same-permissions --exclude-from "$repairs"
+    while IFS= read -r member; do
+        ln --symbolic ../makefile "$stage/$member"
+    done < "$repairs"
+    printf '%s\n' "$url" > "$stage/SOURCE_URL"
+    sha256sum "$archive" | cut -d ' ' -f 1 > "$stage/SOURCE_SHA256"
+    mv -- "$stage" "$DIR/$name"
+    stage=""
+    rm -f -- "$archive"
+    archive=""
+    rm -f -- "$repairs"
+    repairs=""
 }
 
-fetch_tar AE_kissat2025_MAB "$SC25/AE_kissat2025_MAB.tar.xz"
-fetch_tar cadical-sc2025    "$SC25/cadical-sc2025.tar.xz"
-fetch_tar kissat-sc2025     "$SC25/kissat-sc2025.tar.xz"
+fetch_git_tag () { # destination-name repository tag
+    local name="$1" repository="$2" tag="$3"
+    if [ -d "$DIR/$name" ]; then
+        echo "== $name: already present =="
+        return
+    fi
 
-if [ ! -d "$DIR/kissat-sc2024" ]; then
-    echo "== kissat-sc2024: cloning at tag sc2024 =="
-    git clone --depth 1 --branch sc2024 https://github.com/arminbiere/kissat.git \
-        "$DIR/kissat-sc2024"
-fi
+    echo "== $name: cloning tag $tag =="
+    stage="$(mktemp -d "$DIR/.${name}.stage.XXXXXX")"
+    git clone --depth 1 --branch "$tag" "$repository" "$stage/source"
+    printf '%s\n' "$repository" > "$stage/source/SOURCE_URL"
+    printf '%s\n' "$tag" > "$stage/source/SOURCE_REF"
+    git -C "$stage/source" rev-parse HEAD > "$stage/source/SOURCE_COMMIT"
+    mv -- "$stage/source" "$DIR/$name"
+    rmdir -- "$stage"
+    stage=""
+}
 
-if [ ! -d "$DIR/SBVA" ]; then
-    echo "== SBVA: cloning =="
-    git clone "$SBVA_REPO" "$DIR/SBVA"
-    git -C "$DIR/SBVA" checkout --detach "$SBVA_COMMIT" 2>/dev/null ||
-        echo "warning: pinned SBVA commit not found; using default branch HEAD"
-fi
+# The SC2024 downloads page was left as "tbd".  The winning source is
+# available as the upstream Kissat repository's sc2024 tag.
+fetch_git_tag kissat-sc2024 "$KISSAT_REPO" sc2024
 
-echo "done: $(ls "$DIR" | tr '\n' ' ')"
+fetch_tar AE_kissat2025_MAB \
+    "$SC25/AE_kissat2025_MAB.tar.xz"
+fetch_tar satsuma-iter-kissat-sc2026 \
+    "$SC26/anders.tar.xz"
+fetch_tar lymphosat-sc2026 \
+    "$SC26/green.tar.xz"
+
+echo "done:"
+find "$DIR" -mindepth 1 -maxdepth 1 -type d -printf '  %f\n' | sort
