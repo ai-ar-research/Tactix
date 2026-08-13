@@ -115,7 +115,6 @@ TABLE = {
                                        "ship 2, =0 restores the unfiltered set"),
     "no_ext_decisions":        ("ENV", "TACTIX_NO_EXT_DECISIONS"),
     "no_ext_reason_bump":      ("ENV", "TACTIX_NO_EXT_REASON_BUMP"),
-    "subst_hazard_round":      ("ENV", "TACTIX_SUBST_HAZARD_ROUND"),
     "subst_demote":            ("ENV", "TACTIX_SUBST_DEMOTE"),
     "retire_enabled":          ("ENV", "TACTIX_RETIRE; ships ON via the kernel.hpp default"),
     # Same shape as retire_enabled / factor_demote_fresh: ships on at kissat's
