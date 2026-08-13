@@ -3,6 +3,7 @@
 
 #include "rules/congruence/congruence.hpp" // congruence_replay_rup
 #include "rules/propagate/propagate.hpp"
+#include "rules/support/failed_literal.hpp"
 
 #include "proof/proof.hpp"
 
@@ -53,19 +54,7 @@ RuleEligibility hyperbinary_guard(const Kernel &k) {
 // carries a binary watch, i.e. it is a head of the binary implication graph.
 // Without that, the closure is empty and no long clause can be resolved.
 void hyperbinary_candidates(const Kernel &k, std::vector<Lit> &out) {
-  out.clear();
-  for (Var v = 0; v < k.nvars; v++) {
-    if (k.value(make_lit(v, false)) != 0)
-      continue; // root-fixed
-    for (int neg = 0; neg <= 1; neg++) {
-      const Lit p = make_lit(v, neg != 0);
-      for (const WatchEntry w : k.watches.entries(negate(p)))
-        if (w.binary()) {
-          out.push_back(p);
-          break;
-        }
-    }
-  }
+  failed_literal_candidates(k, out);
 }
 
 namespace {
@@ -259,13 +248,7 @@ ApplyResult hyperbinary_apply(Kernel &k) {
 // COMPLETE over roots — the enumeration is the same schedule the round walks,
 // and `hyperbinary_try` accepts any unfixed literal, not only a scheduled one.
 static uint32_t hyperbinary_instances(Kernel &k, uint64_t *out, uint32_t cap) {
-  std::vector<Lit> cands;
-  hyperbinary_candidates(k, cands);
-  const uint32_t n =
-      std::min<uint32_t>(cap, static_cast<uint32_t>(cands.size()));
-  for (uint32_t i = 0; i < n; i++)
-    out[i] = lit_instance(k, cands[i]);
-  return n;
+  return failed_literal_instances(k, out, cap);
 }
 
 static ApplyResult hyperbinary_apply_instance(Kernel &k, uint64_t inst) {
