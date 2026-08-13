@@ -15,12 +15,19 @@ N=10000
 EXTRA=()
 SOLVER=""
 ORACLE=""
+# The corpus replays whole entries under the leg's own solver command, so a
+# schedule that starves M1 can leave one of them without a verdict. That is
+# fatal by default (a replay that reaches no verdict runs no oracle); the
+# allowance is pre-registered per leg and has to reach BOTH phases.
+CORPUS_EXTRA=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --quick)   N=10000;   shift ;;
         --nightly) N=200000; EXTRA+=(--lrat); shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
+        --allow-nonterminating)
+            EXTRA+=("$1" "$2"); CORPUS_EXTRA+=("$1" "$2"); shift 2 ;;
         *) EXTRA+=("$1"); shift ;;
     esac
 done
@@ -38,7 +45,7 @@ echo "== regression corpus =="
 # fuzz.py counts that as a failure rather than a pass. Raise this, or pass
 # --allow-nonterminating with a reason, before weakening either side.
 python3 "$HERE/fuzz.py" corpus --solver "$SOLVER" --oracle "$ORACLE" \
-    --timeout 60
+    --timeout 60 ${CORPUS_EXTRA[@]+"${CORPUS_EXTRA[@]}"}
 
 echo "== fuzz: $N cases, solver=$SOLVER oracle=$ORACLE =="
 python3 "$HERE/fuzz.py" run --solver "$SOLVER" --oracle "$ORACLE" --n "$N" \
