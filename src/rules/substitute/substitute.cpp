@@ -522,17 +522,24 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     for (uint32_t i = 0; i < size; i++) {
       const Lit m = lits[i];
       const Lit mp = substitutable(m) ? r.repr[m] : m;
-      if (substitutable(m) && lrat)
-        chain.push_back(lemma[m]);
       if (k.value(mp) > 0) { // root-true → clause satisfied
         satisfied = true;
         break;
       }
       if (k.value(mp) < 0) { // root-false → strip (cite its unit)
-        if (lrat)
+        // Propagation order, not literal order: the representative's unit is
+        // what makes the bridging lemma unit, so it precedes it. A checker
+        // rejects a hint that is not unit at its turn, and the reverse order
+        // is exactly that (the D-CONG-LRAT lesson).
+        if (lrat) {
           chain.push_back(k.unit_ids[var_of(mp)]);
+          if (substitutable(m))
+            chain.push_back(lemma[m]);
+        }
         continue;
       }
+      if (substitutable(m) && lrat)
+        chain.push_back(lemma[m]);
       if (seen[mp]) // duplicate literal
         continue;
       if (seen[negate(mp)]) { // mp and ¬mp both present → tautology
@@ -549,8 +556,18 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       return true;
     }
     if (lrat) { // a duplicated member literal would push its lemma twice
-      std::sort(chain.begin(), chain.end());
-      chain.erase(std::unique(chain.begin(), chain.end()), chain.end());
+      // In place, never by sorting: the order is the proof. Every other chain
+      // here sorts pairs keyed by trail position (probe.cpp emit_unit_chain),
+      // which is propagation order; sorting bare ids is not.
+      size_t kept = 0;
+      for (size_t rd = 0; rd < chain.size(); rd++) {
+        bool duplicate = false;
+        for (size_t j = 0; j < kept && !duplicate; j++)
+          duplicate = chain[j] == chain[rd];
+        if (!duplicate)
+          chain[kept++] = chain[rd];
+      }
+      chain.resize(kept);
     }
     return false;
   };
