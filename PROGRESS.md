@@ -72,21 +72,21 @@ open gaps. Different gaps may require different source-backed mechanisms.
 ### Current ten-target divergence round (2026-08-17)
 
 The frozen target list and shipped comparison are in
-`benchmarks/runs/20260817-0030-tierd-top10-hybrid/`. That cumulative
-pre-Factor-optimization pin closes ranks 1--5 with checked results: Congruence
-admission closes ranks 1--3, startup Factor admission closes rank 4, and
-storage-free large-DRAT binary identity plus pre-growth watch packing closes
-rank 5. Its candidate PAR-2 is 12,040.916 s versus shipped Tactix's 24,000 s
-under the 16 GiB/1200 s debug contract.
+`benchmarks/runs/20260817-0030-tierd-top10-hybrid/`. The landed final binary is
+directly revalidated on ranks 1--6 in
+`benchmarks/runs/20260817-1115-tierd-ranks1-6-final-revalidation/`: all six
+results match the frozen expectations, all four UNSAT proofs and two SAT models
+check against the original CNFs, and no certificate residue remains. Ranks
+1--3 were closed by Congruence admission, rank 4 by startup Factor admission,
+rank 5 by storage-free large-DRAT binary identity plus pre-growth watch packing,
+and rank 6 by the Factor dense-index repair.
 
-Rank 6 is closed by the promoted Factor dense-index component in
-`benchmarks/runs/20260817-0050-tierd-rank6-factor-score-cache/`: SAT in
-971.450 s at 1,166,196 KiB peak RSS, followed by a successful original-CNF
-model check. A line-buffered trace first proves that Congruence, Backbone,
-Sweep, and Substitute return before Tactix diverges inside Factor's first dense
-seed. The repair replaces per-remainder hash construction with one selected-
-factor adjacency stamp and caches the exact live dense degree used for the same
-scores and tie breaks as before.
+The final rank-6 revalidation is SAT in 966.996 s at 1,206,200 KiB peak RSS,
+followed by a successful original-CNF model check. Its causal trace first
+proved that Congruence, Backbone, Sweep, and Substitute return before Tactix
+diverges inside Factor's first dense seed. The repair replaces per-remainder
+hash construction with one selected-factor adjacency stamp and caches the exact
+live dense degree used for the same scores and tie breaks as before.
 
 The compact/paged Congruence repair closes ranks 7 and 8 under the 16 GiB
 contract. The final production campaign
