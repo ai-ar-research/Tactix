@@ -214,7 +214,10 @@ M3 is one public operation. Private pending state must be consumed before contro
   representative: it rewrites that stable watch in place and appends only the missing mirror. Before rebuilding,
   it counts exact per-literal appends and packs surviving prefixes into final slices. Ordinary kernel additions
   then publish the same metadata and encounter order without arena growth or a duplicate stable watch. Packing
-  retains already-paid global capacity until the final rewrite image, avoiding a first-post-batch doubling.
+  retains already-paid global capacity until the final rewrite image, avoiding a first-post-batch doubling. Capture
+  asymmetric images from the retiring directed list: Kissat appends that source order, not stable-partner order.
+- Canonical Backbone scans first-import order on one retained binary-assumption trail and resolves a conflict to its first repeated predecessor. That true level-zero unit carries the reversed native-LRAT reason chain; root propagation repeats under private ticks and Kissat's 100-per-computation/1,000 round ramp.
+  `backbone_try` remains the independent one-assumption N1 operation.
 - The canonical large-clause pass streams refs to a captured pre-rewrite end, reacquiring each clause pointer. Replacement
   clauses append beyond that end, so a full ref snapshot carries no information; Sweep retains its non-prefix
   selected refs. Since Tactix appends where Kissat shrinks in place, a read-only image pass derives and reserves

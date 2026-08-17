@@ -84,6 +84,179 @@ static bool probe_one(Kernel &k, Lit p, Lit *unit_out,
   return true;
 }
 
+// Analyze a binary conflict on the accumulated Backbone trail.  For an
+// assignment `lit`, Tactix stores the *false* other endpoint of its binary
+// reason in `Assigned::reason`.  Walking the trail backwards and stopping when
+// that predecessor has already been reached is therefore the Kissat/CaDiCaL
+// binary-UIP algorithm; the repeated false endpoint itself is the derived
+// unit.  The reversed clause-id list is an LRAT RUP chain for that unit.
+static Lit chained_binary_uip(Kernel &k, size_t speculative_begin,
+                              std::vector<uint64_t> &chain) {
+  assert(k.conflict_valid && k.conflict_ref == INVALID_REF);
+  std::vector<uint8_t> seen(k.nvars, 0);
+  seen[var_of(k.conflict_bin[0])] = 1;
+  seen[var_of(k.conflict_bin[1])] = 1;
+  chain.clear();
+  if (k.proof && k.proof->lrat())
+    chain.push_back(
+        kernel_binary_id(k, k.conflict_bin[0], k.conflict_bin[1]));
+
+  for (size_t i = k.trail.size(); i-- > speculative_begin;) {
+    const Lit lit = k.trail[i];
+    const Var v = var_of(lit);
+    if (!seen[v])
+      continue;
+    const Assigned &a = k.assigned[v];
+    // Backbone propagation suppresses reason jumping, so every implication on
+    // this slice names its actual binary antecedent.  A decision/root marker
+    // means no binary UIP was found; fail closed rather than emit a unit.
+    if (!a.binary || a.jumped || a.reason == DECISION_REASON ||
+        a.reason == UNIT_REASON)
+      return INVALID_LIT;
+    const Lit predecessor = a.reason;
+    if (k.proof && k.proof->lrat())
+      chain.push_back(kernel_binary_id(k, lit, predecessor));
+    const Var pv = var_of(predecessor);
+    if (!seen[pv]) {
+      seen[pv] = 1;
+      continue;
+    }
+    std::reverse(chain.begin(), chain.end());
+    return predecessor;
+  }
+  return INVALID_LIT;
+}
+
+ApplyResult failed_literal_apply_chained_binary(
+    Kernel &k, const FailedLiteralStats &stats) {
+  assert(failed_literal_guard(k));
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+
+  // Kissat grows `backbonerounds` (100) with the computation count and caps it
+  // at `backbonemaxrounds` (1000).  Keep the same later-call reach rather than
+  // permanently applying only the first-computation scope.
+  const uint64_t computation = ++k.stats.backbone_computations;
+  const uint32_t round_limit = computation >= 10
+                                   ? 1000
+                                   : static_cast<uint32_t>(100 * computation);
+  const uint64_t meter_begin = k.stats.backbone_ticks;
+  bool changed = false;
+  std::vector<uint64_t> lrat_chain;
+  std::vector<Lit> units;
+  std::vector<Var> candidate_order;
+  kernel_vars_in_import_order(k, candidate_order);
+
+  for (uint32_t round = 0; round < round_limit; round++) {
+    uint64_t candidate_variables = 0;
+    for (const Var v : candidate_order)
+      candidate_variables += !kernel_var_retired(k, v) &&
+                             k.value(make_lit(v, false)) == 0;
+    if (!candidate_variables)
+      break;
+
+    k.stats.*stats.rounds += 1;
+    kernel_charge_ticks(k, 1 + kernel_cache_lines(2 * candidate_variables));
+    const size_t speculative_begin = k.trail.size();
+    units.clear();
+    bool budget_hit = false;
+    bool inconsistent = false;
+
+    // The reference intentionally schedules every active polarity.  Successful
+    // assumptions stay assigned, so the opposite polarity and all implications
+    // are skipped later in the same round.
+    for (const Var v : candidate_order) {
+      if (inconsistent)
+        break;
+      if (kernel_var_retired(k, v))
+        continue;
+      if (kernel_terminating(k)) {
+        budget_hit = true;
+        break;
+      }
+      for (int neg = 0; neg <= 1; neg++) {
+        const Lit p = make_lit(v, neg != 0);
+        if (k.value(p) != 0)
+          continue;
+        if (k.work_budget &&
+            k.stats.backbone_ticks - meter_begin >= k.work_budget) {
+          budget_hit = true;
+          break;
+        }
+
+        const uint32_t saved_level = k.level;
+        k.stats.*stats.probed += 1;
+        assume(k, p);
+        const bool saved_jump_reasons = k.jump_reasons;
+        k.jump_reasons = false;
+        const bool conflict = kernel_propagate_binary(k);
+        k.jump_reasons = saved_jump_reasons;
+        if (!conflict)
+          continue;
+
+        const Lit unit = chained_binary_uip(k, speculative_begin, lrat_chain);
+        k.conflict_valid = false;
+        k.conflict_ref = INVALID_REF;
+        kernel_backtrack(k, saved_level, /*update_phases=*/false);
+        if (unit == INVALID_LIT) {
+          budget_hit = true; // fail closed; do not repeat this conflict
+          break;
+        }
+
+        k.stats.*stats.failed += 1;
+        const uint64_t id = ++k.next_clause_id;
+        if (k.proof) {
+          if (k.proof->lrat())
+            k.proof->add_rup(id, &unit, 1, lrat_chain.data(),
+                             static_cast<uint32_t>(lrat_chain.size()));
+          else
+            k.proof->add_rup(0, &unit, 1, nullptr, 0);
+        }
+        k.unit_ids[var_of(unit)] = id;
+        units.push_back(unit);
+
+        // Keep the proven unit on the accumulated trail at true level zero.
+        // Tactix's compacting backtrack preserves such out-of-order roots, so
+        // later candidates benefit and the round exit replays only propagation.
+        kernel_assign_unit(k, unit);
+        const bool saved_jump_after_uip = k.jump_reasons;
+        k.jump_reasons = false;
+        inconsistent = kernel_propagate_binary(k);
+        k.jump_reasons = saved_jump_after_uip;
+        if (inconsistent) {
+          k.conflict_valid = false;
+          k.conflict_ref = INVALID_REF;
+        }
+      }
+      if (budget_hit)
+        break;
+    }
+
+    if (k.level)
+      kernel_backtrack(k, 0, /*update_phases=*/false);
+    k.conflict_valid = false;
+    k.conflict_ref = INVALID_REF;
+
+    if (units.empty())
+      break;
+    changed = true;
+    for (const Lit unit : units) {
+      const int8_t value = k.value(unit);
+      if (value < 0) {
+        k.inconsistent = true;
+        return ApplyResult::Unsat;
+      }
+      if (!value)
+        kernel_assign_unit(k, unit);
+    }
+    if (propagate_apply(k) == ApplyResult::Unsat)
+      return ApplyResult::Unsat;
+    if (budget_hit || inconsistent)
+      break;
+  }
+  return changed ? ApplyResult::Ok : ApplyResult::NoOp;
+}
+
 ApplyResult failed_literal_apply(Kernel &k,
                                  FailedLiteralPropagation propagation,
                                  const FailedLiteralStats &stats) {

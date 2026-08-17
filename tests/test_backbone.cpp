@@ -4,12 +4,16 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
+#include "proof/proof.hpp"
 #include "rules/backbone/backbone.hpp"
 #include "rules/probe/probe.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include <cassert>
 #include <cstdio>
+#include <string>
+
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -21,11 +25,64 @@ static void test_binary_failed_literal() {
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   assert(backbone_guard(k));
   assert(backbone_apply(k) == ApplyResult::Ok);
+  assert(k.stats.backbone_computations == 1);
   assert(k.stats.backbone_failed == 1);
-  assert(k.stats.backbone_rounds == 1);
+  assert(k.stats.backbone_rounds >= 1);
   assert(k.value(internalize(-1)) > 0); // ¬1 asserted at root, un-propagated
   assert(k.level == 0 && !k.conflict_valid);
   assert(default_solve(k) == 10);
+}
+
+static void test_canonical_computation_counter_advances() {
+  Kernel k;
+  kernel_reserve_vars(k, 1);
+  assert(backbone_apply(k) == ApplyResult::NoOp);
+  assert(backbone_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.backbone_computations == 2);
+}
+
+// The conflict-causing probe need not be the strongest failed literal.  Here
+// 1 implies 2 and 2 forks to both 3 and ¬3.  Binary-UIP analysis learns ¬2;
+// replaying it at root then propagates ¬1.  Independent probes learn only ¬1
+// from the same first conflict and miss the reference algorithm's UIP unit.
+static void test_chained_binary_uip_learns_internal_predecessor() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(-3));
+  assert(backbone_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(-2)) > 0);
+  assert(k.value(internalize(-1)) > 0);
+  assert(k.stats.backbone_failed == 1);
+  assert(k.level == 0 && !k.conflict_valid);
+}
+
+static void test_chained_binary_uip_lrat_order() {
+  const std::string path = "/tmp/tactix-backbone-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".lrat";
+  {
+    Kernel k;
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::Lrat));
+    k.proof = &proof;
+    kernel_reserve_vars(k, 3);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2), 1);
+    kernel_add_binary_clause(k, internalize(-2), internalize(3), 2);
+    kernel_add_binary_clause(k, internalize(-2), internalize(-3), 3);
+    k.next_clause_id = 3;
+    assert(backbone_apply(k) == ApplyResult::Ok);
+    proof.flush();
+    k.proof = nullptr;
+  }
+  FILE *file = fopen(path.c_str(), "rb");
+  assert(file);
+  char bytes[64] = {};
+  const size_t size = fread(bytes, 1, sizeof bytes, file);
+  fclose(file);
+  remove(path.c_str());
+  assert(std::string(bytes, size) == "4 -2 0 2 3 0\n");
 }
 
 // The binary-only restriction: 1 fails only through the size-3 clauses, so
@@ -110,9 +167,8 @@ static void test_both_polarities_fail_unsat() {
   kernel_add_binary_clause(k, internalize(-1), internalize(-2));
   kernel_add_binary_clause(k, internalize(1), internalize(3));
   kernel_add_binary_clause(k, internalize(1), internalize(-3));
-  assert(backbone_apply(k) == ApplyResult::Ok);
+  assert(backbone_apply(k) == ApplyResult::Unsat);
   assert(k.stats.backbone_failed >= 1);
-  assert(propagate_apply(k) == ApplyResult::Unsat);
   assert(k.inconsistent);
 }
 
@@ -144,6 +200,9 @@ static void test_instance_surface() {
 
 int main() {
   test_binary_failed_literal();
+  test_canonical_computation_counter_advances();
+  test_chained_binary_uip_learns_internal_predecessor();
+  test_chained_binary_uip_lrat_order();
   test_binary_only_misses_large_clause_failure();
   test_no_failed_literal_noop();
   test_binary_meter_charges_scanned_prefix();

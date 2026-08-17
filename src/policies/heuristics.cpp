@@ -655,23 +655,17 @@ void heuristics_update_scores(Kernel &k) {
   // queue must be reachable via the heap. DefaultPolicy disconnects retired
   // variables; the policy-neutral API may retain them for N1 decisions.
   // (kissat bump.c kissat_update_scores)
-  // `random_order` is Kissat-internal index order after tumble/compaction.
-  // Equal scores retain heap insertion pose, so iterating Tactix's external
-  // identities here is observably different after a sequence of lazy pops.
-  // It also contains exactly Kissat's compacted variable population (one
-  // representative for the root-fixed set), rather than Tactix's permanent
-  // reconstruction identities.
-  for (const Var v : k.h->random_order)
-    if (queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
-        (k.assigned[v].level != 0 ||
-         k.values[make_lit(v, false)] == 0))
-      heuristics_heap_push(k, v);
-  // Tactix retains declared-but-never-imported variables so its returned SAT
-  // model is total. Kissat has no internal identity for them, hence they do
-  // not occur in `random_order`; append only those residual live variables.
-  // They sit below every activated variable (score zero) and cannot perturb
-  // the reference trajectory unless the semantic formula is already decided.
-  for (Var v = 0; v < k.nvars; v++)
+  // Kissat's tumbled INTERNAL indices follow first import, not first
+  // activation.  Those orders differ when a variable first occurs in a
+  // tautological/satisfied clause: import.c assigns its index immediately,
+  // while internal.c activates it only when a retained clause closes.  The
+  // activation permutation in `random_order` is therefore right for random
+  // decisions and initial scores but wrong for this all_variables(idx) loop.
+  // Equal scores preserve heap insertion pose, so use the permanent import
+  // ranks that emulate Kissat's compact internal-index order.
+  std::vector<Var> import_order;
+  kernel_vars_in_import_order(k, import_order);
+  for (const Var v : import_order)
     if (queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
         (k.assigned[v].level != 0 ||
          k.values[make_lit(v, false)] == 0))

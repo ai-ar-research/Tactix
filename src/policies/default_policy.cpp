@@ -670,7 +670,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
      &DefaultStrategyConfig::Inprocess::hyper_binary_permille, meter_hbr, true,
      true, &Stats::hbr_ticks},
     {"Backbone", &DefaultStrategyConfig::Inprocess::backbone_permille,
-     meter_backbone, true, false, &Stats::backbone_ticks},
+     meter_backbone, false, true, &Stats::backbone_ticks},
     {"TransitiveReduce", &DefaultStrategyConfig::Inprocess::transitive_permille,
      meter_transitive, true, false},
     {"Vivify", &DefaultStrategyConfig::Inprocess::vivify_permille,

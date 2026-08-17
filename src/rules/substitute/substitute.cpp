@@ -1170,6 +1170,25 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   }
   substitute_stage_trace(k, "rewrite-stable-directions");
 
+  // Proof and clause identity use the one-image-per-undirected-clause order
+  // above.  Sparse reconstruction is directed in Kissat: each retired
+  // literal appends its own watch sequence to its representative only after
+  // that complete source list has been visited (substitute.c:294-363).  Reuse
+  // the released image storage for those directed moves so two retired
+  // endpoints can land in their two independently correct destination orders.
+  std::deque<BinaryImage>().swap(images);
+  for (const Var variable : variable_order)
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit lit = make_lit(variable, sign != 0);
+      if (!substitutable(lit))
+        continue;
+      for (const WatchEntry watch : k.watches.entries(lit))
+        if (watch.binary())
+          images.push_back({lit, watch.other()});
+    }
+  substitute_stage_trace(k, "rewrite-directed-images", images.size(), 0,
+                         sizeof(BinaryImage));
+
   if (connected_only) {
     // Every snapshotted image is exactly one binary with at least one marked
     // endpoint. Remove moved/retired directions in one pass over each watch
@@ -1202,15 +1221,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
-    const bool stable_a = !substitutable(image.source_a);
-    const bool stable_b = !substitutable(image.source_b);
-    if (stable_a != stable_b) {
-      const Lit moved = stable_a ? image.target_b : image.target_a;
-      k.watches.reserve_batch_word(moved);
-    } else {
-      k.watches.reserve_batch_word(image.target_a);
-      k.watches.reserve_batch_word(image.target_b);
-    }
+    assert(substitutable(image.source_a));
+    k.watches.reserve_batch_word(image.target_a);
   }
   k.watches.finish_batch_reserve(false);
   substitute_stage_trace(k, "rewrite-binary-reserved", k.watches.arena.size(),
@@ -1220,7 +1232,11 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
-    uint64_t id;
+    const bool moved_other = substitutable(image.source_b);
+    const bool publish =
+        !moved_other || kernel_import_lit_order(k, image.source_a) <
+                            kernel_import_lit_order(k, image.source_b);
+    uint64_t id = 0;
     if (lrat) {
       const uint64_t target =
           kernel_binary_key(image.target_a, image.target_b);
@@ -1229,24 +1245,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       assert(it != target_keys.end() && *it == target);
       id = target_ids[static_cast<size_t>(it - target_keys.begin())];
       assert(id);
-    } else {
-      const bool changed_image =
-          kernel_binary_key(image.source_a, image.source_b) !=
-          kernel_binary_key(image.target_a, image.target_b);
-      id = changed_image
-               ? ++k.next_clause_id
-               : kernel_binary_id(k, image.source_a, image.source_b);
-    }
-    const bool stable_a = !substitutable(image.source_a);
-    const bool stable_b = !substitutable(image.source_b);
-    if (stable_a != stable_b) {
-      // The stable mirror already exists in-place. Complete only its moved
-      // endpoint so a full stable list never doubles for a transient append.
-      const Lit stable = stable_a ? image.target_a : image.target_b;
-      const Lit moved = stable_a ? image.target_b : image.target_a;
-      kernel_add_binary_mirror(k, stable, moved, id);
-    } else
-      kernel_add_binary_clause(k, image.target_a, image.target_b, id);
+    } else if (publish)
+      id = ++k.next_clause_id;
+    const bool already_live =
+        kernel_binary_copies(k, image.target_a, image.target_b, 1) ||
+        kernel_binary_copies(k, image.target_b, image.target_a, 1);
+    k.watches.push_binary(image.target_a, image.target_b);
+    if (publish)
+      kernel_publish_binary_clause(k, image.target_a, image.target_b, id,
+                                   !already_live);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (!(++rebuilt_images % 1000000))
       substitute_stage_trace(k, "rewrite-binary-progress", rebuilt_images,

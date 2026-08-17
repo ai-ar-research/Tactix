@@ -312,6 +312,12 @@ void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
   note_binary_add(k, stable, moved, id, false);
 }
 
+void kernel_publish_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
+                                  bool new_pair) {
+  kernel_rearm_propagation(k, a, b);
+  note_binary_add(k, a, b, id, new_pair);
+}
+
 // Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
 // reason jumping the recorded reason is a virtual resolvent, so the real first
 // antecedent is (x ∨ jumped_over[x]) rather than (x ∨ reason); the second
