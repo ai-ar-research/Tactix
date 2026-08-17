@@ -269,6 +269,7 @@ void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
 }
 
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
+  const bool new_pair = !kernel_binary_live(k, a, b);
   kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
@@ -276,7 +277,7 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   // and kernel_delete_binary can retire this pair's id, so a re-add must
   // install its fresh one — otherwise every later LRAT chain through the pair
   // cites a deleted clause. Among live duplicates either id is equally valid.
-  k.binary_ids.insert_or_assign(kernel_binary_key(a, b), id);
+  k.binary_ids.insert_or_assign_known(kernel_binary_key(a, b), id, new_pair);
   // BVE retry filter: binaries have an irredundant lifecycle in this kernel,
   // so every added pair is new elimination material for both variables
   // (removal-only marking measured and rejected — see kernel_add_large_clause).
@@ -1662,7 +1663,9 @@ void kernel_resume_walk_watches(Kernel &k) {
 }
 
 void kernel_canonicalize_binary_watches(Kernel &k,
-                                        bool count_congruence_rebuild) {
+                                        bool count_congruence_rebuild,
+                                        const std::vector<std::pair<Lit, Lit>> *
+                                            binary_suffix) {
   // Kissat Congruence enters dense mode with a non-null binary save stack.
   // `dense.c:flush_large_watches` walks literals globally, keeps the first
   // copy of each binary, and saves a pair only at its smaller literal. Then
@@ -1672,29 +1675,41 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   // by their first occurrence in a watch list. Tactix models compacted
   // internal indices with import order; sorting by the corresponding pair key
   // preserves that reference-visible order for capped Sweep environments.
+  size_t binary_watch_entries = 0;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry w : k.watches.entries(lit))
+      binary_watch_entries += w.binary();
+
   std::vector<std::pair<Lit, Lit>> binaries;
-  std::vector<uint32_t> seen(2 * k.nvars, 0);
-  uint32_t epoch = 0;
+  // Every retained binary has two mirrored watch entries.  Reserve their
+  // upper bound before the import-order scan so a large dense instance never
+  // pays the transient memory of geometric vector growth.
+  binaries.reserve((binary_watch_entries + 1) / 2);
+
+  // Deduplication is local to one watch list.  A byte per literal plus a
+  // second pass that clears the touched bits is substantially smaller than a
+  // 32-bit global epoch table and preserves the same first-copy semantics.
+  std::vector<uint8_t> seen(2 * k.nvars, 0);
   std::vector<Var> ordered_variables;
   kernel_vars_in_import_order(k, ordered_variables);
   for (const Var variable : ordered_variables)
     for (uint32_t sign = 0; sign < 2; sign++) {
       const Lit lit = make_lit(variable, sign != 0);
-      if (++epoch == 0) {
-        std::fill(seen.begin(), seen.end(), 0);
-        epoch = 1;
-      }
       for (const WatchEntry w : k.watches.entries(lit)) {
         if (!w.binary())
           continue;
         const Lit other = w.other();
         if (kernel_import_lit_order(k, lit) >=
                 kernel_import_lit_order(k, other) ||
-            seen[other] == epoch)
+            seen[other])
           continue;
-        seen[other] = epoch;
+        seen[other] = 1;
         binaries.emplace_back(lit, other);
       }
+      for (const WatchEntry w : k.watches.entries(lit))
+        if (w.binary() && kernel_import_lit_order(k, lit) <
+                              kernel_import_lit_order(k, w.other()))
+          seen[w.other()] = 0;
     }
   // The outer scan already appends groups in first-literal import order.
   // Kissat's extract_binaries sorts only each equal-first run by the other
@@ -1713,14 +1728,15 @@ void kernel_canonicalize_binary_watches(Kernel &k,
               });
     begin = end;
   }
-  // Dense resume knows the complete final size of every watch list.  Build the
-  // packed arena once, as Kissat's dense->sparse transition does, instead of
+  // Dense resume knows the complete entry size of every watch list.  Build the
+  // packed arena once (plus the bounded extraction suffix below), as Kissat's
+  // dense->sparse transition does, instead of
   // feeding tens of millions of entries through capacity doubling, slice
   // relocation, and repeated whole-arena defragmentation.  Iterating the
   // globally ordered pair vector writes each literal's binary partners in the
   // same order as the former push loop: smaller partners first, then larger
   // partners, both in import order.
-  std::vector<uint32_t>().swap(seen);
+  std::vector<uint8_t>().swap(seen);
   std::vector<Var>().swap(ordered_variables);
   std::vector<uint32_t>().swap(k.watches.arena);
   k.watches.holes = 0;
@@ -1730,6 +1746,11 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     k.watches.heads[binary.first].size++;
     k.watches.heads[binary.second].size++;
   }
+  if (binary_suffix)
+    for (const auto &[a, b] : *binary_suffix) {
+      k.watches.heads[a].capacity++;
+      k.watches.heads[b].capacity++;
+    }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
@@ -1741,14 +1762,30 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     }
     ref += words;
   }
+  uint64_t planned_words = 0;
+  for (const WatchHead &head : k.watches.heads)
+    planned_words += static_cast<uint64_t>(head.size) + head.capacity;
+  const bool keep_extraction_suffix = planned_words <= UINT32_MAX;
   uint64_t total_words = 0;
   for (WatchHead &head : k.watches.heads) {
-    assert(total_words + head.size <= UINT32_MAX);
+    const uint64_t capacity = static_cast<uint64_t>(head.size) +
+                              (keep_extraction_suffix ? head.capacity : 0);
+    assert(total_words + capacity <= UINT32_MAX);
     head.offset = static_cast<uint32_t>(total_words);
-    head.capacity = head.size;
-    total_words += head.size;
+    head.capacity = static_cast<uint32_t>(capacity);
+    total_words += capacity;
     head.size = 0;
   }
+  // The canonical layout is exact per list, but Congruence immediately adds a
+  // sparse set of representative binaries.  With an exactly-sized global
+  // vector, the first list relocation asks std::vector to geometrically copy
+  // the entire (often GiB-scale) arena.  Reserve bounded relocation headroom
+  // while the replacement arena is still empty, preserving every slice and
+  // entry order without paying that transient duplicate.
+  const uint64_t relocation_slack = std::min<uint64_t>(
+      {total_words / 16, uint64_t{1} << 24, UINT32_MAX - total_words});
+  k.watches.arena.reserve(
+      static_cast<size_t>(total_words + relocation_slack));
   k.watches.arena.resize(static_cast<size_t>(total_words));
   const auto push_word = [&](Lit lit, uint32_t word) {
     WatchHead &head = k.watches.heads[lit];
@@ -1915,12 +1952,16 @@ bool kernel_compact_variables(Kernel &k) {
   WatchLists watches;
   watches.resize_lits(2 * new_nvars);
   BinaryIdMap binary_ids;
+  if (!k.binary_ids.tracks_keys())
+    binary_ids.discard_storage();
+  else if (!k.binary_ids.tracks_values())
+    binary_ids.discard_values();
   binary_ids.reserve(binaries.size());
   for (const Binary &b : binaries) {
     const Lit a = map_lit(b.a), other = map_lit(b.b);
     watches.push_binary(a, other);
     watches.push_binary(other, a);
-    binary_ids.insert_or_assign(kernel_binary_key(a, other), b.id);
+    binary_ids.insert_or_assign_known(kernel_binary_key(a, other), b.id, true);
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);

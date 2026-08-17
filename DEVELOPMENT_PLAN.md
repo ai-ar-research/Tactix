@@ -285,9 +285,27 @@ single-threaded solver per array task. Tiers A–C use 32 GB provisioned as four
 CPUs at 8 GB/core. Tier D uses the same 32 GB process limit and a 5000 s solve
 limit. Record allocation shape; submitted arrays own immutable builds and
 manifests. Every UNSAT result is independently proof-checked and every SAT
-result model-checked. Proof certificates are temporary: after checker result,
-time, peak memory, proof size, and provenance are durably recorded, delete the
-certificate. Retain failed/unclassified certificates only until diagnosis.
+result model-checked.
+
+Concurrent solver arms use distinct immutable `build/pin-*` directories; each
+manifest records the source commit and binary hash. A queued or running job's
+pin is never rebuilt, renamed, or shared with another arm. After the owning
+campaign is terminal and aggregated, remove an ephemeral pin only after
+confirming that no queued/running job or retained manifest references it.
+Long-lived development builds are limited to `build/release` and `build/debug`;
+durable frozen campaigns carry their own pins under the campaign directory.
+
+A single benchmark task atomically entails solve, proof/model check when a
+verdict exists, durable recording of verdict, solve/check time and peak memory,
+certificate size/hash and checker provenance, then deletion of the certificate
+and every checker-derived proof artifact. Deletion is mandatory after success,
+checker failure, timeout, crash, cancellation, or an unclassified result; a
+partial proof is not diagnostic authority. No task is complete and no campaign
+may be scored while a certificate remains outside its live solver run's scratch
+directory. Each checker stage deletes its consumed input immediately; the task
+deletes the remaining scratch before publishing its result. Experimental
+runners and aggregate checks enforce this
+contract; diagnosis reproduces from the pinned solver and manifest.
 
 An early process exit without a valid SAT/UNSAT result is a blocking incident,
 not an ordinary performance loss. Preserve its raw exit status, signal, and
@@ -313,8 +331,11 @@ The three annual memberships (1200 total) are scoring views over the 1166
 unique runs. Never tune on Tier A or mix set versions or resource contracts.
 Per-instance results remain authoritative; PROGRESS carries only a headline.
 
-The five reference solvers run exactly once. Their immutable authority is
-`benchmarks/baselines/sc24-26-32g-5000s-v1/`, containing manifests, pins,
+The five reference solvers run exactly once per valid frozen campaign. A run
+invalidated by infrastructure or storage failure is not result authority and
+is replaced in a new campaign directory rather than repaired in place. Their
+immutable authority is
+`benchmarks/baselines/sc24-26-32g-5000s/`, containing manifests, pins,
 per-instance solve/check metrics, integrity metadata, and a compact generated
 LaTeX/PDF report under `report-to-andrew/`, but no successfully checked
 certificates. The report is a view of the frozen tables, never a second result
@@ -322,6 +343,41 @@ authority. Future time caps are exact truncations of these records.
 Lower memory caps are simulations from recorded high-water data and must be
 labeled as such; a peak alone cannot determine when memory was crossed. Never
 rerun a frozen reference to fill a missing metric—record the limitation.
+
+Until Phase 4.5 begins, divergence repair and convergence iteration use a
+separate **debug comparison contract**: new Tactix campaign tasks receive a
+16 GiB process limit (two CPUs at 8 GiB/core) and a 1200 s solver timeout. Do
+not rerun any reference solver. Instead, derive the matched reference view from
+the immutable 32 GiB/5000 s baseline records: truncate solve times exactly at
+1200 s, and count a validated baseline solve as eligible under the simulated
+16 GiB cap only when its recorded peak RSS is at most 16 GiB. Label every such
+comparison as simulated; a result above the recorded memory threshold is a
+simulated non-solve, not evidence of the exact crossing time or of an OOM.
+This debug contract accelerates iteration and does not replace the canonical
+32 GiB/5000 s Tier-D gates.
+
+Submit these debug arrays without an array-concurrency throttle (no `%N`
+suffix) or a hard node constraint. Expose the full task array so SLURM can use
+all available capacity, including `node017,node018`. Keep one single-threaded
+solver per task, the immutable-build and certificate-cleanup contracts, and
+enough job wall time for post-solve proof/model checking.
+
+This resource contract applies to the whole pre-Phase-4.5 debugging phase. Every
+candidate must pass the full frozen Tier B and a predeclared, mechanism-relevant
+Tier C regression subset before it advances to the targeted Tier-D witnesses.
+Each debugging round may carry up to ten predeclared Tier-D improvement
+witnesses.  These witnesses are selected from matched Kissat-over-Tactix gaps
+and are used to prioritize and measure general repairs; they are not promoted
+into the regression set, and a repair need not affect all ten through one
+mechanism.  Keep the set cumulative where practical so fixes already obtained
+remain visible while the remaining gaps receive divergence analysis.
+Choose the Tier C subset from existing causal evidence and include, where the
+mechanism has them, a productive witness, its worst measured cost case, and a
+low- or zero-yield case; record the exact membership in the campaign manifest
+before submission. Compare candidate and shipped Tactix in the same allocation
+window. Every SAT model and UNSAT proof must validate, and an unexplained solve
+loss blocks the candidate. The selected Tier C subset is an iteration guard,
+not a replacement for the complete Tier C or canonical Tier-D gates.
 
 Every instance in a frozen tier remains in its scored population. Replication,
 leave-one-out sensitivity, and unrelated-perturbation tests control confidence
@@ -364,6 +420,11 @@ Tactix is demonstrably stronger or the deviation is explicitly accepted; then
 rerun the instance and cumulative guards. Record context, cause, relative
 strength, evidence, reproducer, owner, and reopening condition. Feature-off
 projections diagnose one semantic mechanism but never replace a full gate.
+After the complete T4-K pass, the first divergence set is at most twelve
+coverage losses where validated Kissat finishes within 300 s and Tactix does
+not finish within 5000 s, balanced across SAT and UNSAT when possible and then
+ordered by Kissat time. Diagnose this compact set iteratively; frozen Kissat
+measurements remain scoring authority, while instrumented reruns are diagnostic.
 
 Tier-D convergence is cumulative: A closes T4-K; B adds kissat-sc2024; C adds
 AE-Kissat-MAB; D adds Satsuma+Kissat; E adds LymphoSAT's SAT solves. At stages
