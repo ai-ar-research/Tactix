@@ -56,10 +56,36 @@ int main() {
     policy.classify_formula_strategy(shape);
     return policy.strategy_config();
   };
+  const auto schedules_congruence = [](uint32_t vars, uint64_t clauses) {
+    Kernel shape;
+    shape.original_external_vars = vars;
+    shape.original_input_clauses = clauses;
+    DefaultPolicy policy;
+    policy.classify_formula_strategy(shape);
+    policy.inprocess().build(shape);
+    const auto &rules = tactix_rules();
+    for (const auto &entry : policy.inprocess().entries)
+      if (std::string(rules[entry.rule].name) == "Congruence")
+        return entry.enabled && entry.preprocess;
+    return false;
+  };
+  const auto schedules_startup_factor = [](uint32_t vars, uint64_t clauses) {
+    Kernel shape;
+    shape.original_external_vars = vars;
+    shape.original_input_clauses = clauses;
+    DefaultPolicy policy;
+    policy.classify_formula_strategy(shape);
+    policy.inprocess().build(shape);
+    const auto &rules = tactix_rules();
+    for (const auto &entry : policy.inprocess().entries)
+      if (std::string(rules[entry.rule].name) == "Factor")
+        return entry.enabled && entry.preprocess;
+    return false;
+  };
   // Pin the causal Phase-4 admission witnesses rather than their filenames.
   const auto mp = classified(6360, 25200);
-  assert(!mp.inprocess.factor_enabled && !mp.inprocess.vivify_enabled &&
-         !mp.inprocess.congruence_enabled);
+  assert(!mp.inprocess.factor_repeated_enabled &&
+         !mp.inprocess.vivify_enabled);
   const auto stconn = classified(936, 6488);
   assert(stconn.inprocess.preprocess_only &&
          !stconn.branching.random_sequences && stconn.reorder.mode == 0 &&
@@ -69,11 +95,10 @@ int main() {
          grain105.branching.random_sequences);
   const auto grain87 = classified(3165161, 10917078);
   assert(grain87.inprocess.preprocess_only &&
-         !grain87.inprocess.factor_enabled &&
+         !grain87.inprocess.factor_repeated_enabled &&
          !grain87.branching.random_sequences);
   const auto dense_small = classified(862, 855716);
   assert(!dense_small.inprocess.bve_enabled &&
-         !dense_small.inprocess.congruence_enabled &&
          dense_small.inprocess.forward_midround_budget &&
          dense_small.inprocess.vivify_permille ==
              DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE &&
@@ -81,11 +106,16 @@ int main() {
              DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE);
   const auto dense_large = classified(3032, 2000000);
   assert(!dense_large.inprocess.bve_enabled &&
-         !dense_large.inprocess.congruence_enabled &&
          dense_large.inprocess.forward_midround_budget &&
          dense_large.inprocess.vivify_permille ==
              DefaultStrategyConfig::Inprocess{}.vivify_permille);
   assert(!mp.inprocess.forward_midround_budget);
+  assert(schedules_congruence(6360, 25200));
+  assert(schedules_congruence(862, 855716));
+  assert(schedules_congruence(3032, 2000000));
+  assert(schedules_startup_factor(450, 20035));
+  assert(schedules_startup_factor(6360, 25200));
+  assert(schedules_startup_factor(3165161, 10917078));
 
   // Kissat rotates two focused epochs through forced initial/opposite phases.
   // This applies equally to ranked and random decisions.

@@ -250,6 +250,30 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   assert(first_literals[2] == internalize(-3));
 }
 
+static void test_canonical_substitution_preserves_large_clause_position() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit before[3] = {internalize(3), internalize(4), internalize(5)};
+  const Lit touched[3] = {internalize(2), internalize(4), internalize(6)};
+  const Lit after[3] = {internalize(-3), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, before, 3, false, 0);
+  kernel_add_large_clause(k, touched, 3, false, 0);
+  kernel_add_large_clause(k, after, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  std::vector<Lit> first_literals;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    assert(!c->garbage());
+    first_literals.push_back(c->lits[0]);
+    ref += clause_words(c->size);
+  }
+  assert(first_literals ==
+         std::vector<Lit>({internalize(3), internalize(1), internalize(-3)}));
+}
+
 // Connected substitution must not rebuild an unrelated binary watch list.
 // Besides avoiding a whole-formula snapshot on very large inputs, retaining
 // this order is semantic: later bounded scans consume candidates in watch
@@ -433,6 +457,7 @@ int main() {
   test_apply_substitutes();
   test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
+  test_canonical_substitution_preserves_large_clause_position();
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
   test_substitution_rewrites_stable_watch_in_place();

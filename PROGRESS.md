@@ -13,10 +13,14 @@ decisions. This file is only the current resume surface.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
 - The promoted debug candidate release binary is
-  `b06795a962bcda7ec1d7c7702afe21f234dd1a46c0662787b6a0237edb14e775`.
-  It cumulatively contains the Congruence/startup-Factor admission repairs,
-  large-DRAT binary/watch memory repair, the Factor dense-index repair, and the
-  compact/paged Congruence representation and scratch-lifetime repair.
+  `50fba1d448e1dac005226bdb9cd7ecd5b2140e7fbbb6bfcebd9d9a6126a06bfa`.
+  It closes all ten frozen divergence targets under the debug contract.
+
+<!-- track-sched:begin -->
+The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
+closed; sparse-GC remains deferred outside the closure pin. Any new missing or
+cruder reference mechanism reopens N4 until repaired or explicitly accepted.
+<!-- track-sched:end -->
 
 ## Active measurement
 
@@ -72,39 +76,30 @@ open gaps. Different gaps may require different source-backed mechanisms.
 ### Current ten-target divergence round (2026-08-17)
 
 The frozen target list and shipped comparison are in
-`benchmarks/runs/20260817-0030-tierd-top10-hybrid/`. The landed final binary is
-directly revalidated on ranks 1--6 in
-`benchmarks/runs/20260817-1115-tierd-ranks1-6-final-revalidation/`: all six
-results match the frozen expectations, all four UNSAT proofs and two SAT models
-check against the original CNFs, and no certificate residue remains. Ranks
-1--3 were closed by Congruence admission, rank 4 by startup Factor admission,
-rank 5 by storage-free large-DRAT binary identity plus pre-growth watch packing,
-and rank 6 by the Factor dense-index repair.
+`benchmarks/runs/20260817-0030-tierd-top10-hybrid/`. The final candidate-only
+gate is `benchmarks/runs/20260817-1325-tierd-top10-final/`: all ten targets solve
+under 16 GiB/1200 s, all four UNSAT proofs and six SAT models validate against
+the original CNFs, and no certificate residue remains. Solve-time PAR-2 is
+1469.070 s; maximum peak RSS is 16,118,220 KiB. The frozen shipped Tactix
+32 GiB/5000 s results project to zero eligible solves under the simulated
+16 GiB/1200 s view.
 
-The final rank-6 revalidation is SAT in 966.996 s at 1,206,200 KiB peak RSS,
-followed by a successful original-CNF model check. Its causal trace first
-proved that Congruence, Backbone, Sweep, and Substitute return before Tactix
-diverges inside Factor's first dense seed. The repair replaces per-remainder
-hash construction with one selected-factor adjacency stamp and caches the exact
-live dense degree used for the same scores and tie breaks as before.
+Ranks 1--4 close through universal startup Congruence/Factor admission; ranks
+5 and 10 through proof-format-aware binary identity, exact Substitute watch
+packing, output-sensitive watch growth, and streamed dense scratch; rank 6
+through Factor's stamped binary relation and cached live degree; and ranks 7--8
+through compact/paged Congruence storage. Rank 9's common-state trace matches
+Kissat for the first 99,913 decisions and 79 conflicts but exposes 3,107,244
+physical variables versus 1,766,908 active variables. Post-Lucky compaction
+removes that representation gap, and persistent sparse BVE scratch reduces
+identical BVE work from 913.347 s to 109.162 s. The final rank-9 solve is
+223.611 s at 5,827,952 KiB; rank 10 is 106.013 s at 16,118,220 KiB.
 
-The compact/paged Congruence repair closes ranks 7 and 8 under the 16 GiB
-contract. The final production campaign
-`benchmarks/runs/20260817-1015-tierd-congruence-final-release/` solves rank 7
-SAT in 84.551 s at 12,100,808 KiB and rank 8 SAT in 95.284 s at 14,861,132
-KiB. Independent original-CNF model checks validate 78,481,932 and 97,146,109
-clauses, respectively, in
-`benchmarks/runs/20260817-1030-tierd-final-model-checks/`.
-
-Rank 10 no longer fails inside Congruence: the traced candidate imports all
-48,505,464 variables, processes the capped 20,000,000-gate closure, records
-1,249,100 merges, and completes congruence-aware forward subsumption. It then
-fails with `bad_alloc` in the eager post-Congruence follow-up at 15,900,600 KiB
-peak RSS; that subsequent rule is the next divergence boundary. Rank 9 still
-times out. The final candidate passes all 33 Tier B plus selected Tier C tasks
-with valid proofs/models and zero certificate residue; PAR-2 is 2718.357 s and
-maximum peak RSS is 2.131 GiB in
-`benchmarks/runs/20260817-1000-BC-congruence-final-regression/`.
+The final iteration guard is
+`benchmarks/runs/20260817-1325-BC-final-regression/`: 28/28 Tier B and the
+frozen 5/5 mechanism-relevant Tier C cases are proof/model clean with zero
+residue. Against the preceding pin, Tier-B aggregate solve time improves from
+1275.910 s to 956.795 s; Tier C remains flat at 1442.447 s versus 1447.383 s.
 
 ## Gates
 
@@ -117,12 +112,11 @@ maximum peak RSS is 2.131 GiB in
 
 ## Next engineering work
 
-1. Trace rank 10's eager post-Congruence follow-up; Congruence itself now
-   completes, so do not attribute the remaining allocation failure to it.
-2. Trace rank 9's first semantic divergence from Kissat.
-3. Reconcile `docs/scheduling-parity-ledger.md` into the N4 verdict.
-4. Review the Phase 4.20 surveys and decide P1's compound-instance API.
-5. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
+1. Select the next predeclared ten Kissat-over-Tactix gaps from the frozen
+   baseline view, excluding this closed cohort, and repeat the divergence loop.
+2. Reconcile `docs/scheduling-parity-ledger.md` into the N4 verdict.
+3. Review the Phase 4.20 surveys and decide P1's compound-instance API.
+4. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
    repair or disposition, and protect the result with focused and cumulative
    guards.

@@ -91,17 +91,33 @@ ApplyResult failed_literal_apply(Kernel &k,
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   k.stats.*stats.rounds += 1;
-  std::vector<Lit> candidates;
-  failed_literal_candidates(k, candidates);
-  std::vector<uint8_t> forced(k.nvars, 0);
   std::vector<Lit> units;
-  for (const Lit p : candidates) {
-    if (forced[var_of(p)] || k.value(p) != 0)
+  // The public candidate collector remains available for N1 enumeration, but
+  // this canonical one-round application can consume the same var/polarity
+  // order directly.  Units are deliberately committed only after the scan,
+  // so probing one literal cannot change a later candidate's eligibility; a
+  // per-variable local bit is therefore enough to suppress the opposite
+  // polarity after a failed probe.  This removes two dense temporary arrays
+  // at the post-preprocessing memory high-water mark.
+  for (Var v = 0; v < k.nvars; v++) {
+    if (k.value(make_lit(v, false)) != 0)
       continue;
-    Lit unit;
-    if (probe_one(k, p, &unit, propagation, stats)) {
-      forced[var_of(p)] = 1;
-      units.push_back(unit);
+    bool forced = false;
+    for (int neg = 0; neg <= 1 && !forced; neg++) {
+      const Lit p = make_lit(v, neg != 0);
+      bool candidate = false;
+      for (const WatchEntry w : k.watches.entries(negate(p)))
+        if (w.binary()) {
+          candidate = true;
+          break;
+        }
+      if (!candidate || k.value(p) != 0)
+        continue;
+      Lit unit;
+      if (probe_one(k, p, &unit, propagation, stats)) {
+        forced = true;
+        units.push_back(unit);
+      }
     }
   }
   if (units.empty())

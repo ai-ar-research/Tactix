@@ -14,16 +14,67 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <deque>
 #include <numeric>
-#include <set>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+#include <sys/resource.h>
+#include <unistd.h>
+#endif
 
 namespace tactix {
 
 static const bool substitute_time =
     std::getenv("TACTIX_SUBSTITUTE_TIME") != nullptr;
+
+namespace {
+
+// Allocation-boundary tracing is compiled only into semantic-trace builds.
+// Substitute owns several literal-indexed tables; on giant formulas the last
+// successful line identifies which dense allocation crossed the memory limit.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+void substitute_stage_trace(const Kernel &k, const char *stage,
+                            size_t first = 0, size_t second = 0,
+                            size_t third = 0) {
+  static FILE *out = nullptr;
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
+    const char *path = std::getenv("TACTIX_SUBSTITUTE_MEMORY_TRACE");
+    if (path && *path) {
+      out = std::fopen(path, "w");
+      if (out)
+        std::setvbuf(out, nullptr, _IOLBF, 0);
+    }
+  }
+  if (!out)
+    return;
+  struct rusage usage {};
+  getrusage(RUSAGE_SELF, &usage);
+  unsigned long virtual_pages = 0;
+  if (FILE *statm = std::fopen("/proc/self/statm", "r")) {
+    (void)std::fscanf(statm, "%lu", &virtual_pages);
+    std::fclose(statm);
+  }
+  const unsigned long virtual_kib =
+      virtual_pages * static_cast<unsigned long>(sysconf(_SC_PAGESIZE) / 1024);
+  std::fprintf(out,
+               "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
+               "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
+               "third=%zu\n",
+               stage, usage.ru_maxrss, virtual_kib, k.nvars, k.arena.size(),
+               k.watches.arena.size(), k.watches.arena.capacity(), first,
+               second, third);
+}
+#else
+inline void substitute_stage_trace(const Kernel &, const char *, size_t = 0,
+                                   size_t = 0, size_t = 0) {}
+#endif
+
+} // namespace
 
 RuleEligibility substitute_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
@@ -36,13 +87,17 @@ RuleEligibility substitute_guard(const Kernel &k) {
 SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
   SccResult res;
+  substitute_stage_trace(k, "scc-entry", nlits);
   res.repr.assign(nlits, INVALID_LIT);
+  substitute_stage_trace(k, "scc-repr", res.repr.size(),
+                         res.repr.capacity());
   if (nlits == 0)
     return res;
 
   std::vector<uint32_t> dfs(nlits, 0); // 1-based DFS index; 0 = unvisited
+  substitute_stage_trace(k, "scc-dfs", dfs.size(), dfs.capacity());
   std::vector<uint32_t> low(nlits, 0); // low-link
-  std::vector<uint8_t> onstack(nlits, 0);
+  substitute_stage_trace(k, "scc-low", low.size(), low.capacity());
   std::vector<Lit> tstack; // Tarjan's component stack
   uint32_t next = 1;
 
@@ -67,6 +122,7 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
   auto out_edges = [&](Lit p) { return k.watches.entries(negate(p)); };
 
   std::vector<Var> roots(k.nvars);
+  substitute_stage_trace(k, "scc-roots", roots.size(), roots.capacity());
   kernel_vars_in_import_order(k, roots);
   for (const Var root_var : roots) {
     for (uint32_t root_sign = 0; root_sign < 2; root_sign++) {
@@ -76,7 +132,6 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
       dfs[root] = low[root] = next++;
       const uint32_t mark_root = dfs[root];
       bool failed_root = false;
-      onstack[root] = 1;
       tstack.push_back(root);
       k.stats.substitute_ticks +=
           1 + kernel_cache_lines(k.watches.size(negate(root)));
@@ -98,7 +153,6 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
             // tree edge: save v's resume point (past this edge), descend into q
             work.back().it = ++it;
             dfs[q] = low[q] = next++;
-            onstack[q] = 1;
             tstack.push_back(q);
             k.stats.substitute_ticks +=
                 1 + kernel_cache_lines(k.watches.size(negate(q)));
@@ -107,7 +161,11 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
             descended = true;
             break;
           }
-          if (onstack[q] && dfs[q] < low[v])
+          // `repr` is written exactly when a component leaves Tarjan's stack,
+          // so a visited literal with no representative is still on-stack.
+          // Reusing that output state avoids a dense byte per literal without
+          // changing DFS order or the low-link recurrence.
+          if (res.repr[q] == INVALID_LIT && dfs[q] < low[v])
             low[v] = dfs[q]; // frond to an on-stack node
         }
         if (descended)
@@ -129,7 +187,6 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
           for (size_t i = start; i < tstack.size(); i++) {
             const Lit m = tstack[i];
             res.repr[m] = rep;
-            onstack[m] = 0;
           }
           if (members > 1) {
             res.nontrivial_count++;
@@ -175,6 +232,8 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
                 return kernel_import_lit_order(k, a) <
                        kernel_import_lit_order(k, b);
               });
+  substitute_stage_trace(k, "scc-complete", res.nontrivial_count,
+                         res.failed_units.size(), tstack.capacity());
   return res;
 }
 
@@ -288,7 +347,7 @@ ApplyResult apply_failed_root_units(Kernel &k, const SccResult &r) {
     return ApplyResult::NoOp;
   const bool lrat = k.proof && k.proof->lrat();
   PendingUnits pending;
-  pending.init(k.nvars);
+  pending.init(k);
   std::vector<uint64_t> first, second, chain;
   std::unordered_set<uint64_t> seen_ids;
   for (size_t pos = r.failed_units.size(); pos-- > 0;) {
@@ -352,6 +411,42 @@ enum class SubstitutionArenaOrder {
   Policy,
   PreserveClausePosition,
   PreserveAllClausePositions,
+};
+
+// A canonical Substitute pass visits every pre-pass arena record once and
+// appends at most one large replacement for it. Encode that forwarding ref in
+// the now-garbage source's otherwise-dead `searched` word. This is the same
+// logical-position ledger as SweepSubstitutionSession, without two hash-table
+// entries per replacement on giant complete passes.
+struct CanonicalSubstitutionOrder final : ArenaOrdering {
+  Ref original_words = 0;
+
+  void begin(const Kernel &k) {
+    original_words = static_cast<Ref>(k.arena.size());
+  }
+  void inherit(Kernel &k, Ref replacement, Ref source) {
+    assert(source < original_words && replacement >= original_words);
+    Clause *old = clause_at(k.arena, source);
+    assert(old->garbage());
+    old->searched = replacement;
+  }
+  void order(const Kernel &k, std::vector<Ref> &refs) override {
+    size_t written = 0;
+    for (Ref ref = 0; ref < original_words;) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage()) {
+        refs[written++] = ref;
+      } else if (c->searched >= original_words &&
+                 c->searched < k.arena.size()) {
+        const Clause *replacement = clause_at(k.arena, c->searched);
+        if (!replacement->garbage())
+          refs[written++] = c->searched;
+      }
+      ref += clause_words(c->size);
+    }
+    assert(written == refs.size());
+    refs.resize(written);
+  }
 };
 
 // Sweep rewrites each connected clause in place (`sweep.c`'s
@@ -423,18 +518,21 @@ uint64_t SweepSubstitutionSession::collect(Kernel &k) {
 
 namespace {
 
-ApplyResult do_substitution(Kernel &k, const SccResult &r,
-                            const std::vector<uint8_t> &sub,
+ApplyResult do_substitution(Kernel &k, SccResult &r,
+                            std::vector<uint8_t> &&sub,
                             SubstitutionArenaOrder arena_order =
                                 SubstitutionArenaOrder::Policy,
                             SweepSubstitutionSession *session = nullptr) {
   const bool lrat = k.proof && k.proof->lrat();
   const uint64_t subst_t0 = substitute_time ? now_nanos() : 0;
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  SweepSubstitutionSession local_order;
-  SweepSubstitutionSession &position_order = session ? *session : local_order;
+  substitute_stage_trace(k, "rewrite-entry", nlits, r.nontrivial_count);
+  CanonicalSubstitutionOrder local_order;
+  ArenaOrdering *const position_order = session
+                                             ? static_cast<ArenaOrdering *>(session)
+                                             : static_cast<ArenaOrdering *>(&local_order);
   if (arena_order != SubstitutionArenaOrder::Policy && !session)
-    position_order.begin(k);
+    local_order.begin(k);
   // A member can already be root-fixed here: the caller's map predates the
   // round's failed root units. Kissat skips exactly those at the same point
   // (substitute.c add_representative_equivalences, `if (!ACTIVE (idx))`), and
@@ -443,11 +541,12 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // Snapshot, never a live test: the phases below assert units, so a live
   // predicate could hold while (D) rewrites a variable away and fail by the
   // time (F) owes it a witness — retired-without-witness answers a wrong SAT.
-  std::vector<uint8_t> live_sub(nlits, 0);
+  std::vector<uint8_t> live_sub = std::move(sub);
   for (Lit l = 0; l < nlits; l++)
-    live_sub[l] = static_cast<uint8_t>(l < sub.size() && sub[l] &&
-                                       k.values[l] == 0 &&
+    live_sub[l] = static_cast<uint8_t>(live_sub[l] && k.values[l] == 0 &&
                                        !kernel_var_retired(k, var_of(l)));
+  substitute_stage_trace(k, "rewrite-live-sub", live_sub.size(),
+                         live_sub.capacity());
   auto substitutable = [&](Lit l) { return l < nlits && live_sub[l]; };
 
   // (B) transient equivalence lemmas {¬l, repr[l]}, one per member literal,
@@ -481,12 +580,17 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     }
   }
   const uint64_t subst_lemmas = substitute_time ? now_nanos() : 0;
+  substitute_stage_trace(k, "rewrite-lemmas", lemma.size(), lemma.capacity());
 
   std::vector<uint8_t> seen(nlits, 0); // dedup scratch for a rewritten clause
+  substitute_stage_trace(k, "rewrite-seen", seen.size(), seen.capacity());
   // Batched root units + opposite-sign refutation: the shared kernel idiom
   // (PendingUnits, kernel.hpp).
   PendingUnits pending;
-  pending.init(k.nvars);
+  substitute_stage_trace(k, "rewrite-pending-begin", k.nvars);
+  pending.init(k);
+  substitute_stage_trace(k, "rewrite-pending-end", pending.units.size(),
+                         pending.ids.size(), pending.units.capacity());
   bool changed = false;
 
   // Record a size-collapsed root unit `u`, deduping per variable within the
@@ -522,7 +626,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       if (inprocess_reach_root(k))
         return true;
     }
-    pending.init(k.nvars);
+    pending.init(k);
     return false;
   };
 
@@ -590,12 +694,160 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   };
 
   // (D) rewrite large clauses. Snapshot the original refs first (adds append to
-  // the arena). Vivify's ordering: add_rup, del and the garbage mark all read
-  // the clause before the arena-mutating add, so the Clause* never dangles.
+  // the arena only for Sweep's connected subset. The canonical pass streams to
+  // a captured original arena end, just as Kissat's `all_clauses` traversal
+  // does: refs survive vector relocation, and every Clause* is reacquired.
+  // Vivify's ordering: add_rup, del and the garbage mark all read the clause
+  // before the arena-mutating add, so the Clause* never dangles.
   std::vector<Lit> out;
   std::vector<uint64_t> chain;
+  size_t large_visited = 0, large_touched = 0;
+  bool traced_large_replacement = false;
+  const auto rewrite_large_ref = [&](Ref ref) -> ApplyResult {
+    Clause *c = clause_at(k.arena, ref);
+    if (!large_visited++)
+      substitute_stage_trace(k, "rewrite-large-first-ref", ref, c->size,
+                             k.arena.capacity());
+    bool touched = false;
+    for (const Lit m : *c) {
+      const Lit mp = substitutable(m) ? r.repr[m] : m;
+      if (substitutable(m) || k.value(m) != 0 || k.value(mp) != 0) {
+        touched = true;
+        break;
+      }
+    }
+    if (!touched)
+      return ApplyResult::Ok;
+    if (!large_touched++)
+      substitute_stage_trace(k, "rewrite-large-first-touched", ref, c->size,
+                             k.arena.capacity());
+    const bool credundant = c->redundant();
+    const uint32_t cglue = c->glue();
+    const uint64_t cid = c->id();
+    const bool sat = rewrite_lits(c->lits, c->size, out, chain);
+    if (large_touched <= 5)
+      substitute_stage_trace(k, "rewrite-large-first-image", out.size(),
+                             out.capacity(), chain.capacity());
+    if (sat) { // satisfied/tautology -> delete only (deletions are proof-free)
+      kernel_delete_clause(k, c); // cid == c->id()
+      changed = true;
+      return ApplyResult::Ok;
+    }
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof) {
+      if (lrat) {
+        chain.push_back(cid); // original clause closes the RUP chain
+        k.proof->add_rup(id, out.data(), static_cast<uint32_t>(out.size()),
+                         chain.data(), static_cast<uint32_t>(chain.size()));
+      } else {
+        k.proof->add_rup(0, out.data(), static_cast<uint32_t>(out.size()),
+                         nullptr, 0);
+      }
+    }
+    changed = true;
+    // shared replacement tail; glue 0 for irredundant (review-aligned);
+    // c dangles after (arena may reallocate) and is not touched again
+    // Clamped on cadical's rule (decompose.cpp:629 -> shrink_clause); kissat's
+    // substitute.c does not clamp here at all. Deviation:
+    // docs/scheduling-parity-ledger.md section 13.3.
+    Ref replacement_ref = INVALID_REF;
+    const bool trace_replacement = !traced_large_replacement;
+    if (trace_replacement) {
+      substitute_stage_trace(k, "rewrite-large-first-replace", ref,
+                             k.arena.size(), k.arena.capacity());
+      traced_large_replacement = true;
+    }
+    switch (kernel_replace_clause(
+        k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,
+        credundant ? kernel_shrunken_glue(
+                         k, cglue, static_cast<uint32_t>(out.size()))
+                   : 0,
+        arena_order != SubstitutionArenaOrder::Policy ? &replacement_ref
+                                                       : nullptr)) {
+    case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
+      return ApplyResult::Unsat;  // quiescent root)
+    case ReplaceOutcome::Unit:
+      if (record_unit(out[0], id))
+        return ApplyResult::Unsat;
+      break;
+    default:
+      break;
+    }
+    if (replacement_ref != INVALID_REF) {
+      assert(arena_order != SubstitutionArenaOrder::Policy);
+      if (session)
+        session->inherit(replacement_ref, ref);
+      else
+        local_order.inherit(k, replacement_ref, ref);
+    }
+    if (trace_replacement)
+      substitute_stage_trace(k, "rewrite-large-first-replaced", replacement_ref,
+                             k.arena.size(), k.arena.capacity());
+    return ApplyResult::Ok;
+  };
+
+  const auto make_large_image = [&](Ref ref) {
+    const Clause *c = clause_at(k.arena, ref);
+    bool touched = false;
+    for (const Lit m : *c) {
+      const Lit mp = substitutable(m) ? r.repr[m] : m;
+      if (substitutable(m) || k.value(m) != 0 || k.value(mp) != 0) {
+        touched = true;
+        break;
+      }
+    }
+    return touched && !rewrite_lits(c->lits, c->size, out, chain);
+  };
+
+  // Tactix represents a large replacement by appending a new arena record,
+  // while Kissat shrinks the existing allocation in place. Derive the exact
+  // append image before mutating anything so neither the clause arena nor its
+  // two watch slices can hit an amortized doubling in the memory-critical
+  // pass. `visit` must enumerate the same immutable refs in both calls.
+  const auto reserve_large_replacements = [&](const auto &visit) {
+    size_t arena_words = 0, watch_words = 0;
+    visit([&](Ref ref) {
+      if (!make_large_image(ref))
+        return;
+      if (out.size() == 2)
+        watch_words += 2;
+      else if (out.size() >= 3) {
+        arena_words += clause_words(static_cast<uint32_t>(out.size()));
+        watch_words += 4;
+      }
+    });
+    assert(k.arena.size() + arena_words <= UINT32_MAX);
+    substitute_stage_trace(k, "rewrite-large-reserve-plan", arena_words,
+                           watch_words, k.arena.capacity());
+    if (k.arena.capacity() < k.arena.size() + arena_words)
+      k.arena.reserve(k.arena.size() + arena_words);
+    if (watch_words) {
+      k.watches.begin_batch_reserve();
+      visit([&](Ref ref) {
+        if (!make_large_image(ref))
+          return;
+        if (out.size() == 2) {
+          k.watches.reserve_batch_word(out[0]);
+          k.watches.reserve_batch_word(out[1]);
+        } else if (out.size() >= 3) {
+          k.watches.reserve_batch_word(out[0]);
+          k.watches.reserve_batch_word(out[0]);
+          k.watches.reserve_batch_word(out[1]);
+          k.watches.reserve_batch_word(out[1]);
+        }
+      });
+      // Pack exactly while dense rewrite scratch is live. The first later
+      // relocation establishes bounded global headroom on demand.
+      k.watches.finish_batch_reserve(false);
+    }
+    substitute_stage_trace(k, "rewrite-large-reserved", k.arena.capacity(),
+                           k.watches.arena.size(),
+                           k.watches.arena.capacity());
+  };
+
   auto rewrite_large_clauses = [&]() -> ApplyResult {
-  std::vector<Ref> refs;
+  substitute_stage_trace(k, "rewrite-large-begin", k.arena.size(),
+                         k.arena.capacity());
   // During preprocessing the dense index covers every live large clause
   // (there are no learned clauses yet).  Sweep substitutes tiny, freshly
   // proved classes one seed at a time; collecting just their connected clauses
@@ -604,6 +856,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // dense index, so they retain the complete arena snapshot.
   if (arena_order == SubstitutionArenaOrder::PreserveClausePosition &&
       k.stats.conflicts == 0 && k.dense) {
+    std::vector<Ref> refs;
     // One bit per arena word plus one Ref per selected clause is much smaller
     // than a node-based unordered_set and yields the same arena-order list.
     std::vector<uint64_t> connected((k.arena.size() + 63) / 64, 0);
@@ -621,73 +874,32 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       }
     }
     std::sort(refs.begin(), refs.end()); // preserve current arena traversal
-  } else {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage())
-        refs.push_back(ref);
-      ref += clause_words(c->size);
-    }
-  }
-  for (const Ref ref : refs) {
-    Clause *c = clause_at(k.arena, ref);
-    bool touched = false;
-    for (const Lit m : *c) {
-      const Lit mp = substitutable(m) ? r.repr[m] : m;
-      if (substitutable(m) || k.value(m) != 0 || k.value(mp) != 0) {
-        touched = true;
-        break;
-      }
-    }
-    if (!touched)
-      continue;
-    const bool credundant = c->redundant();
-    const uint32_t cglue = c->glue();
-    const uint64_t cid = c->id();
-    const bool sat = rewrite_lits(c->lits, c->size, out, chain);
-    if (sat) { // satisfied/tautology → delete only (deletions are proof-free)
-      kernel_delete_clause(k, c); // cid == c->id()
-      changed = true;
-      continue;
-    }
-    const uint64_t id = ++k.next_clause_id;
-    if (k.proof) {
-      if (lrat) {
-        chain.push_back(cid); // original clause closes the RUP chain
-        k.proof->add_rup(id, out.data(), static_cast<uint32_t>(out.size()),
-                         chain.data(), static_cast<uint32_t>(chain.size()));
-      } else {
-        k.proof->add_rup(0, out.data(), static_cast<uint32_t>(out.size()),
-                         nullptr, 0);
-      }
-    }
-    changed = true;
-    // shared replacement tail; glue 0 for irredundant (review-aligned);
-    // c dangles after (arena may reallocate) and is not touched again
-    // Clamped on cadical's rule (decompose.cpp:629 → shrink_clause); kissat's
-    // substitute.c does not clamp here at all. Deviation:
-    // docs/scheduling-parity-ledger.md §13.3.
-    Ref replacement_ref = INVALID_REF;
-    switch (kernel_replace_clause(
-        k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,
-        credundant ? kernel_shrunken_glue(
-                         k, cglue, static_cast<uint32_t>(out.size()))
-                   : 0,
-        arena_order != SubstitutionArenaOrder::Policy
-            ? &replacement_ref
-            : nullptr)) {
-    case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
-      return ApplyResult::Unsat;  // quiescent root)
-    case ReplaceOutcome::Unit:
-      if (record_unit(out[0], id))
+    const auto visit = [&](const auto &fn) {
+      for (const Ref ref : refs)
+        fn(ref);
+    };
+    reserve_large_replacements(visit);
+    for (const Ref ref : refs)
+      if (rewrite_large_ref(ref) == ApplyResult::Unsat)
         return ApplyResult::Unsat;
-      break;
-    default:
-      break;
-    }
-    if (replacement_ref != INVALID_REF) {
-      assert(arena_order != SubstitutionArenaOrder::Policy);
-      position_order.inherit(replacement_ref, ref);
+  } else {
+    const Ref original_end = static_cast<Ref>(k.arena.size());
+    const auto visit = [&](const auto &fn) {
+      for (Ref ref = 0; ref < original_end;) {
+        const Clause *c = clause_at(k.arena, ref);
+        const uint32_t words = clause_words(c->size);
+        if (!c->garbage())
+          fn(ref);
+        ref += words;
+      }
+    };
+    reserve_large_replacements(visit);
+    for (Ref ref = 0; ref < original_end;) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_words(c->size);
+      if (!c->garbage() && rewrite_large_ref(ref) == ApplyResult::Unsat)
+        return ApplyResult::Unsat;
+      ref += words;
     }
   }
   return ApplyResult::Ok;
@@ -701,14 +913,30 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // the formula seen by the following SCC/Sweep passes byte-for-byte aligned
   // with the no-proof/Kissat path without weakening DRAT or LRAT.
   std::vector<Var> variable_order(k.nvars);
+  substitute_stage_trace(k, "rewrite-variable-order", variable_order.size(),
+                         variable_order.capacity());
   kernel_vars_in_import_order(k, variable_order);
 
   struct BinaryImage {
     Lit source_a, source_b;
+  };
+  struct ExpandedBinaryImage {
+    Lit source_a, source_b;
     Lit target_a, target_b;
     bool tautological;
   };
-  std::vector<BinaryImage> images;
+  const auto expand_image = [&](const BinaryImage &source) {
+    const Lit a = substitutable(source.source_a) ? r.repr[source.source_a]
+                                                  : source.source_a;
+    const Lit b = substitutable(source.source_b) ? r.repr[source.source_b]
+                                                  : source.source_b;
+    return ExpandedBinaryImage{source.source_a, source.source_b, a, b,
+                               a == negate(b)};
+  };
+  // Targets are a pure function of the immutable representative map. Store
+  // only the source pair, and use segmented storage so growing a giant image
+  // does not momentarily hold both old and doubled contiguous buffers.
+  std::deque<BinaryImage> images;
   // Substitution, canonical or Sweep-inline, rewrites only clauses incident to
   // a non-representative literal.  Unconnected binaries cannot change.  Keep
   // them in place instead of copying the complete binary formula into
@@ -728,18 +956,32 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         // though their literals were untouched.
         if (connected_only && !substitutable(lit) && !substitutable(other))
           continue;
+        images.push_back({lit, other});
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
         const Lit a = substitutable(lit) ? r.repr[lit] : lit;
         const Lit b = substitutable(other) ? r.repr[other] : other;
-        images.push_back({lit, other, a, b, a == negate(b)});
-#ifdef TACTIX_ENABLE_RULE_JOURNAL
         rule_journal_note_binary_rewrite(k, lit, other, a, b);
 #endif
       }
     }
   }
   const uint64_t subst_snapshot = substitute_time ? now_nanos() : 0;
+  const size_t image_count = images.size();
+  substitute_stage_trace(k, "rewrite-images", images.size(), 0,
+                         sizeof(BinaryImage));
 
-  std::set<Lit> emitted_units;
+  // `seen` is otherwise clear between large-clause rewrites. Reuse it to
+  // deduplicate collapsed binary units and retain only the touched literals
+  // for O(produced units) restoration; a tree node per unit can exceed the
+  // binary image itself on highly congruent formulas.
+  std::vector<Lit> emitted_units;
+  const auto first_emitted_unit = [&](Lit unit) {
+    if (seen[unit])
+      return false;
+    seen[unit] = 1;
+    emitted_units.push_back(unit);
+    return true;
+  };
   bool refuted = false;
   std::vector<uint64_t> target_keys, target_ids;
   if (!lrat) {
@@ -749,7 +991,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     // binary formulas those arrays and their comparison sorts dominate both
     // Substitute's memory and wall time.  Duplicate source clauses deliberately
     // produce duplicate target clauses, preserving the internal multiset.
-    for (const BinaryImage &image : images) {
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
       const bool changed_image =
           image.tautological || image.target_a == image.target_b ||
           kernel_binary_key(image.source_a, image.source_b) !=
@@ -759,7 +1002,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         continue;
 
       if (image.target_a == image.target_b) {
-        if (!emitted_units.insert(image.target_a).second)
+        if (!first_emitted_unit(image.target_a))
           continue;
         const uint64_t id = ++k.next_clause_id;
         if (k.proof)
@@ -776,7 +1019,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     }
 
     if (k.proof)
-      for (const BinaryImage &image : images) {
+      for (const BinaryImage &stored : images) {
+        const ExpandedBinaryImage image = expand_image(stored);
         const bool changed_image =
             image.tautological || image.target_a == image.target_b ||
             kernel_binary_key(image.source_a, image.source_b) !=
@@ -790,7 +1034,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     std::vector<uint64_t> source_keys;
     source_keys.reserve(images.size());
     target_keys.reserve(images.size());
-    for (const BinaryImage &image : images) {
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
       const uint64_t source =
           kernel_binary_key(image.source_a, image.source_b);
       source_keys.push_back(source);
@@ -821,7 +1066,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       if (contains(source_keys, target_keys[i]))
         target_ids[i] = k.binary_ids.at(target_keys[i]);
 
-    for (const BinaryImage &image : images) {
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
       const bool changed_image =
           image.tautological || image.target_a == image.target_b ||
           kernel_binary_key(image.source_a, image.source_b) !=
@@ -840,7 +1086,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
       ch.push_back(k.binary_ids.at(source));
 
       if (image.target_a == image.target_b) {
-        if (!emitted_units.insert(image.target_a).second)
+        if (!first_emitted_unit(image.target_a))
           continue;
         const uint64_t id = ++k.next_clause_id;
         k.proof->add_rup(id, &image.target_a, 1, ch.data(),
@@ -866,7 +1112,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     // duplicate LRAT copies may stay in the checker because one id cannot name
     // several input copies.
     std::vector<uint8_t> deleted(source_keys.size(), 0);
-    for (const BinaryImage &image : images) {
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
       const uint64_t source =
           kernel_binary_key(image.source_a, image.source_b);
       const size_t source_index = key_index(source_keys, source);
@@ -879,6 +1126,11 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
                    2);
     }
   }
+  substitute_stage_trace(k, "rewrite-binary-proof", emitted_units.size(),
+                         emitted_units.capacity());
+  for (const Lit unit : emitted_units)
+    seen[unit] = 0;
+  std::vector<Lit>().swap(emitted_units);
 
   // Kissat rewrites a binary direction in place when the literal owning that
   // watch list is already the class representative (substitute.c:328-340).
@@ -888,7 +1140,8 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // binary and selected a different Vivify antecedent.  Rewrite exactly one
   // matching source copy now; the compact pass below will retain it because
   // both of its post-rewrite endpoints are representatives.
-  for (const BinaryImage &image : images) {
+  for (const BinaryImage &stored : images) {
+    const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
     const bool stable_a = !substitutable(image.source_a);
@@ -915,6 +1168,7 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     }
     assert(rewritten);
   }
+  substitute_stage_trace(k, "rewrite-stable-directions");
 
   if (connected_only) {
     // Every snapshotted image is exactly one binary with at least one marked
@@ -935,7 +1189,35 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
         k.watches.compact(make_lit(variable, sign != 0),
                           [](WatchEntry w) { return !w.binary(); });
   }
-  for (const BinaryImage &image : images) {
+  substitute_stage_trace(k, "rewrite-binary-compact", k.watches.arena.size(),
+                         k.watches.holes);
+  std::vector<Var>().swap(variable_order);
+  std::vector<uint8_t>().swap(seen);
+  substitute_stage_trace(k, "rewrite-binary-scratch-released");
+  // Every forthcoming mirror is known from the immutable image. Pack the
+  // current prefixes once into exact final per-literal slices; ordinary pushes
+  // below then fill reserved words without global arena growth or relocation.
+  k.watches.begin_batch_reserve();
+  for (const BinaryImage &stored : images) {
+    const ExpandedBinaryImage image = expand_image(stored);
+    if (image.tautological || image.target_a == image.target_b)
+      continue;
+    const bool stable_a = !substitutable(image.source_a);
+    const bool stable_b = !substitutable(image.source_b);
+    if (stable_a != stable_b) {
+      const Lit moved = stable_a ? image.target_b : image.target_a;
+      k.watches.reserve_batch_word(moved);
+    } else {
+      k.watches.reserve_batch_word(image.target_a);
+      k.watches.reserve_batch_word(image.target_b);
+    }
+  }
+  k.watches.finish_batch_reserve(false);
+  substitute_stage_trace(k, "rewrite-binary-reserved", k.watches.arena.size(),
+                         k.watches.arena.capacity());
+  size_t rebuilt_images = 0;
+  for (const BinaryImage &stored : images) {
+    const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
     uint64_t id;
@@ -957,23 +1239,27 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     }
     const bool stable_a = !substitutable(image.source_a);
     const bool stable_b = !substitutable(image.source_b);
-    kernel_add_binary_clause(k, image.target_a, image.target_b, id);
     if (stable_a != stable_b) {
-      // `kernel_add_binary_clause` installed both mirrors and all shared
-      // metadata. The stable mirror already exists in-place; discard only the
-      // just-appended duplicate at that list's tail.
+      // The stable mirror already exists in-place. Complete only its moved
+      // endpoint so a full stable list never doubles for a transient append.
       const Lit stable = stable_a ? image.target_a : image.target_b;
       const Lit moved = stable_a ? image.target_b : image.target_a;
-      WatchHead &head = k.watches.heads[stable];
-      assert(head.size > 0);
-      const uint32_t last =
-          k.watches.arena[head.offset + static_cast<size_t>(head.size - 1)];
-      assert(Watch{last}.binary() && Watch{last}.other() == moved);
-      (void)moved;
-      (void)last;
-      head.size--;
-    }
+      kernel_add_binary_mirror(k, stable, moved, id);
+    } else
+      kernel_add_binary_clause(k, image.target_a, image.target_b, id);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (!(++rebuilt_images % 1000000))
+      substitute_stage_trace(k, "rewrite-binary-progress", rebuilt_images,
+                             k.watches.arena.size(), k.watches.holes);
+#else
+    ++rebuilt_images;
+#endif
   }
+  substitute_stage_trace(k, "rewrite-binary-end", rebuilt_images,
+                         k.watches.arena.size(), k.watches.holes);
+  std::deque<BinaryImage>().swap(images);
+  seen.assign(nlits, 0);
+  substitute_stage_trace(k, "rewrite-large-scratch-restored", seen.size());
   const uint64_t subst_binaries = substitute_time ? now_nanos() : 0;
   if (refuted)
     return ApplyResult::Unsat;
@@ -983,9 +1269,14 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   const uint64_t subst_binary_units = substitute_time ? now_nanos() : 0;
   if (rewrite_large_clauses() == ApplyResult::Unsat)
     return ApplyResult::Unsat;
+  substitute_stage_trace(k, "rewrite-large-end", k.arena.size());
   const uint64_t subst_large = substitute_time ? now_nanos() : 0;
   if (flush_units())
     return ApplyResult::Unsat;
+  std::vector<uint8_t>().swap(seen);
+  std::vector<Lit>().swap(pending.units);
+  std::vector<uint64_t>().swap(pending.ids);
+  substitute_stage_trace(k, "rewrite-large-scratch-released");
 
   // (E) delete the transient equivalence lemmas (keep the core clean).
   if (k.proof)
@@ -999,6 +1290,15 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
   // order-independent symmetric pair for l ≡ s = repr[l], {¬l, s} witnessed by
   // ¬l and {l, ¬s} witnessed by l, so kernel_extend_model recovers l's value
   // from s regardless of any search assignment to l.
+  size_t witness_vars = 0;
+  for (Var v = 0; v < k.nvars; v++)
+    witness_vars += substitutable(make_lit(v, false));
+  k.retired_events.reserve(k.retired_events.size() + witness_vars);
+  k.substituted_events.reserve(k.substituted_events.size() + witness_vars);
+  k.reconstruction.reserve(k.reconstruction.size() + 6 * witness_vars);
+  substitute_stage_trace(k, "rewrite-witness-reserved", witness_vars,
+                         k.reconstruction.capacity(),
+                         k.retired_events.capacity());
   for (Var v = 0; v < k.nvars; v++) {
     const Lit l = make_lit(v, false);
     if (!substitutable(l))
@@ -1028,17 +1328,27 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
     kernel_push_witness(k, l, rest_b, 1); // clause {¬s, l}
   }
   const uint64_t subst_witnesses = substitute_time ? now_nanos() : 0;
+  std::vector<Lit>().swap(r.repr);
+  std::vector<Lit>().swap(r.failed_units);
+  std::vector<Lit>().swap(r.failed_witness);
+  std::vector<uint8_t>().swap(live_sub);
+  std::vector<uint64_t>().swap(lemma);
+  substitute_stage_trace(k, "rewrite-representatives-released");
 
   if (changed && session) {
     session->changed = true;
   } else if (changed) {
     if (arena_order != SubstitutionArenaOrder::Policy) {
       ArenaOrdering *const saved = k.arena_ordering;
-      k.arena_ordering = &position_order;
+      k.arena_ordering = position_order;
       kernel_collect_garbage(k); // reclaim without moving replacements to tail
       k.arena_ordering = saved;
+      substitute_stage_trace(k, "rewrite-collected", k.arena.size(),
+                             k.watches.arena.size());
     } else {
       kernel_collect_garbage(k); // reclaim the garbaged large clauses
+      substitute_stage_trace(k, "rewrite-collected", k.arena.size(),
+                             k.watches.arena.size());
     }
   }
   if (substitute_time) {
@@ -1054,8 +1364,10 @@ ApplyResult do_substitution(Kernel &k, const SccResult &r,
                  (subst_large - subst_binary_units) / 1e6,
                  (subst_witnesses - subst_large) / 1e6,
                  (subst_done - subst_witnesses) / 1e6,
-                 (subst_done - subst_t0) / 1e6, images.size());
+                 (subst_done - subst_t0) / 1e6, image_count);
   }
+  substitute_stage_trace(k, "rewrite-exit", changed, k.arena.size(),
+                         k.watches.arena.size());
   return changed ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
@@ -1072,10 +1384,13 @@ ApplyResult substitute_apply(Kernel &k) {
   const uint64_t root_t1 = substitute_time ? now_nanos() : 0;
   k.stats.substitute_rounds++;
   SccResult r = substitute_find_sccs(k, false);
+  substitute_stage_trace(k, "scc-return", r.nontrivial_count,
+                         r.failed_units.size(), r.repr.capacity());
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
     event_trace_substitute_map(k, l, r.repr[l]);
 #endif
+  substitute_stage_trace(k, "scc-event-map-end");
   const uint64_t scc_t1 = substitute_time ? now_nanos() : 0;
   if (r.contradiction) {
     assert(r.contradiction_lit != INVALID_LIT);
@@ -1083,6 +1398,7 @@ ApplyResult substitute_apply(Kernel &k) {
     return ApplyResult::Unsat;
   }
   const ApplyResult failed = apply_failed_root_units(k, r);
+  substitute_stage_trace(k, "scc-failed-units-end", r.failed_units.size());
   if (failed == ApplyResult::Unsat)
     return failed;
   k.stats.substitute_sccs += r.nontrivial_count; // counted before the
@@ -1092,6 +1408,7 @@ ApplyResult substitute_apply(Kernel &k) {
   // those clauses stale and was the first FmlaEquivChain divergence after an
   // otherwise identical Sweep consequence set.
   std::vector<uint8_t> sub(2 * k.nvars, 0);
+  substitute_stage_trace(k, "scc-sub-map", sub.size(), sub.capacity());
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
     if (r.repr[l] != INVALID_LIT && r.repr[l] != l) {
       sub[l] = 1;
@@ -1099,7 +1416,8 @@ ApplyResult substitute_apply(Kernel &k) {
     }
   const uint64_t mark_t1 = substitute_time ? now_nanos() : 0;
   const ApplyResult rewritten = do_substitution(
-      k, r, sub, SubstitutionArenaOrder::PreserveAllClausePositions);
+      k, r, std::move(sub),
+      SubstitutionArenaOrder::PreserveAllClausePositions);
   if (substitute_time) {
     const uint64_t rewrite_t1 = now_nanos();
     std::fprintf(stderr,
@@ -1174,7 +1492,7 @@ static ApplyResult substitute_apply_equivalences_impl(
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(
-      k, r, sub, SubstitutionArenaOrder::PreserveClausePosition);
+      k, r, std::move(sub), SubstitutionArenaOrder::PreserveClausePosition);
   k.arena_ordering = saved_order;
   return result;
 }
@@ -1279,7 +1597,8 @@ ApplyResult substitute_apply_sweep_equivalences(
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(
-      k, r, sub, SubstitutionArenaOrder::PreserveClausePosition, &session);
+      k, r, std::move(sub), SubstitutionArenaOrder::PreserveClausePosition,
+      &session);
   k.arena_ordering = saved_order;
   return result;
 }
@@ -1329,7 +1648,7 @@ static ApplyResult substitute_apply_instance(Kernel &k, uint64_t inst) {
     }
   if (!any)
     return ApplyResult::NoOp;
-  return do_substitution(k, r, sub);
+  return do_substitution(k, r, std::move(sub));
 }
 
 TACTIX_REGISTER_RULE(Substitute, RuleTier::Inprocess, substitute_guard,

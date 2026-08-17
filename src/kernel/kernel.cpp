@@ -268,11 +268,8 @@ void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
                                         kernel_clause_order(k, source_id));
 }
 
-void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
-  const bool new_pair = !kernel_binary_live(k, a, b);
-  kernel_rearm_propagation(k, a, b);
-  k.watches.push_binary(a, b);
-  k.watches.push_binary(b, a);
+static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
+                            bool new_pair) {
   // LAST id wins. The map must always name a clause the checker still holds,
   // and kernel_delete_binary can retire this pair's id, so a re-add must
   // install its fresh one — otherwise every later LRAT chain through the pair
@@ -294,6 +291,23 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_binary_add(k, a, b, id);
 #endif
+}
+
+void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
+  const bool new_pair = !kernel_binary_live(k, a, b);
+  kernel_rearm_propagation(k, a, b);
+  k.watches.push_binary(a, b);
+  k.watches.push_binary(b, a);
+  note_binary_add(k, a, b, id, new_pair);
+}
+
+void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
+  // The stable list already contains (stable -> moved), rewritten in place by
+  // the caller. Adding the opposite direction restores the mirrored-watch
+  // invariant without appending and immediately discarding a stable duplicate.
+  kernel_rearm_propagation(k, stable, moved);
+  k.watches.push_binary(moved, stable);
+  note_binary_add(k, stable, moved, id, false);
 }
 
 // Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
@@ -648,28 +662,55 @@ void kernel_emit_empty_from_pair(Kernel &k, uint64_t id_a, uint64_t id_b) {
   k.inconsistent = true;
 }
 
+PendingUnits::~PendingUnits() {
+  if (owner)
+    for (const Lit unit : units)
+      owner->eager_marks[unit] = 0;
+}
+
+void PendingUnits::init(Kernel &k) {
+  if (owner)
+    for (const Lit unit : units)
+      owner->eager_marks[unit] = 0;
+  units.clear();
+  owner = &k;
+#ifndef NDEBUG
+  for (const uint8_t mark : k.eager_marks)
+    assert(!mark && "PendingUnits requires the shared marks to be clear");
+#endif
+  if (k.proof && k.proof->lrat())
+    ids.assign(k.nvars, 0);
+  else {
+    ids.clear();
+    ids.shrink_to_fit();
+  }
+}
+
 PendingUnits::Outcome PendingUnits::record(Kernel &k, Lit u, uint64_t id) {
+  assert(owner == &k);
   const Var v = var_of(u);
-  if (by_var[v] == INVALID_LIT) {
-    by_var[v] = u;
-    ids[v] = id;
+  if (!k.eager_marks[u] && !k.eager_marks[negate(u)]) {
+    k.eager_marks[u] = 1;
+    if (!ids.empty())
+      ids[v] = id;
     units.push_back(u);
     return Outcome::Recorded;
   }
-  if (by_var[v] == u)
+  if (k.eager_marks[u])
     return Outcome::Duplicate; // same-sign duplicate: a redundant unit
-  kernel_emit_empty_from_pair(k, id, ids[v]); // {u} + {¬u} ⊢ ∅
+  kernel_emit_empty_from_pair(k, id, ids.empty() ? 0 : ids[v]);
   return Outcome::Refuted;
 }
 
 void PendingUnits::commit(Kernel &k, Lit u) const {
   const Var v = var_of(u);
-  if (ids[v])
+  if (!ids.empty() && ids[v])
     k.unit_ids[v] = ids[v];
 }
 
 void PendingUnits::refute(Kernel &k, Lit u) const {
-  kernel_emit_empty_from_pair(k, ids[var_of(u)], k.unit_ids[var_of(u)]);
+  kernel_emit_empty_from_pair(
+      k, ids.empty() ? 0 : ids[var_of(u)], k.unit_ids[var_of(u)]);
 }
 
 ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
@@ -1022,13 +1063,11 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   uint32_t *q = begin;
   const uint32_t *p = q;
   const uint32_t *const end = k.watches.end(not_lit);
-  // At most one relocation triple per large (two-word) watch entry.  Retain
-  // the largest backing store across scans and write through a raw cursor;
-  // this is Kissat's inline stack discipline without vector::push_back on
-  // each of the three words.
-  const size_t delayed_capacity = 3 * ((end - p + 1) / 2);
-  if (k.delayed.size() < delayed_capacity)
-    k.delayed.resize(delayed_capacity);
+  // Retain the largest backing store across scans and write through a raw
+  // cursor.  Grow it only when a relocation is actually delayed: Kissat's
+  // stack has that output-sensitive behavior, while reserving one triple for
+  // every large entry in the input watch list can allocate hundreds of MiB
+  // even when every blocker is already true and nothing moves.
   bool conflict = false;
   // search ticks, kissat's proplit.h charge exactly: 1 + the cache lines of
   // the watch list scanned, then +1 per binary assignment (:92), per
@@ -1112,6 +1151,12 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         lits[1] = replacement;
         *r = not_lit;
         q -= 2;
+        if (k.delayed_used + 3 > k.delayed.size()) {
+          const size_t grown =
+              std::max(k.delayed_used + 3,
+                       k.delayed.size() ? 2 * k.delayed.size() : size_t{3});
+          k.delayed.resize(grown);
+        }
         k.delayed[k.delayed_used++] = replacement;
         k.delayed[k.delayed_used++] = other;
         k.delayed[k.delayed_used++] = ref;
@@ -1427,9 +1472,19 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       break;
     }
   }
-  Arena fresh;
-  fresh.reserve(k.arena.size());
+  size_t live_words = 0, live_clauses = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_words(c->size);
+    if (!c->garbage()) {
+      live_words += words;
+      live_clauses++;
+    }
+    ref += words;
+  }
+  assert(live_words <= UINT32_MAX);
   std::vector<Ref> order;
+  order.reserve(live_clauses);
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
@@ -1437,6 +1492,12 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       order.push_back(ref);
     ref += words;
   }
+  Arena fresh;
+  // Appending rewrites can leave a large garbage suffix. Reserving the old
+  // arena size here needlessly kept that suffix alive in both arenas during
+  // collection; the live-word prepass is the exact Kissat-style compacted
+  // image and also prevents geometric growth while copying it.
+  fresh.reserve(live_words);
   // Arena-order policies belong to whole-arena/inprocessing collection.
   // Kissat's Reduce preserves the prefix and sweeps the reducible tail in its
   // existing arena order, even while Tactix has an inprocessing order posed.

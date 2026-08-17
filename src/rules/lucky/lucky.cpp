@@ -10,8 +10,58 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+#include <sys/resource.h>
+#include <unistd.h>
+#endif
 
 namespace tactix {
+
+namespace {
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+void lucky_stage_trace(const Kernel &k, const char *stage, size_t first = 0,
+                       size_t second = 0, size_t third = 0) {
+  static FILE *out = nullptr;
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
+    const char *path = std::getenv("TACTIX_LUCKY_MEMORY_TRACE");
+    if (path && *path) {
+      out = std::fopen(path, "w");
+      if (out)
+        std::setvbuf(out, nullptr, _IOLBF, 0);
+    }
+  }
+  if (!out)
+    return;
+  struct rusage usage {};
+  getrusage(RUSAGE_SELF, &usage);
+  unsigned long virtual_pages = 0;
+  if (FILE *statm = std::fopen("/proc/self/statm", "r")) {
+    (void)std::fscanf(statm, "%lu", &virtual_pages);
+    std::fclose(statm);
+  }
+  const unsigned long virtual_kib =
+      virtual_pages * static_cast<unsigned long>(sysconf(_SC_PAGESIZE) / 1024);
+  std::fprintf(out,
+               "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\ttrail=%zu\t"
+               "trail_capacity=%zu\tframes=%zu\tframes_capacity=%zu\t"
+               "delayed=%zu\tdelayed_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
+               "third=%zu\n",
+               stage, usage.ru_maxrss, virtual_kib, k.nvars, k.trail.size(),
+               k.trail.capacity(), k.frames.size(), k.frames.capacity(),
+               k.delayed.size(), k.delayed.capacity(), first, second, third);
+}
+#else
+inline void lucky_stage_trace(const Kernel &, const char *, size_t = 0,
+                              size_t = 0, size_t = 0) {}
+#endif
+
+} // namespace
 
 RuleEligibility lucky_guard(const Kernel &k) {
   // quiescent root state: see lucky.hpp
@@ -126,10 +176,20 @@ static ApplyResult constant_probe(Kernel &k, int8_t phase) {
 // deeper than the first probe level, retry the flipped literal once; if both
 // phases conflict, abandon the whole probe.
 static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
-  std::vector<Var> order;
-  kernel_vars_in_external_order(k, order);
-  for (uint32_t i = 0; i < order.size(); i++) {
-    const Var v = forward ? order[i] : order[order.size() - 1 - i];
+  // Kissat walks its permanent external import table directly.  Tactix used
+  // to copy the same table into a dense temporary vector for every direction,
+  // adding four bytes per live variable at precisely the post-preprocessing
+  // memory high-water mark.  Walk the existing map instead; compaction leaves
+  // INVALID_VAR holes, matching Kissat's skipped retired imports.
+  const size_t count = k.external_to_internal.size();
+  lucky_stage_trace(k, "sweep-entry", phase < 0, forward, count);
+  for (size_t i = 0; i < count; i++) {
+    if (!(i & ((size_t{1} << 20) - 1)))
+      lucky_stage_trace(k, "sweep-progress", phase < 0, forward, i);
+    const size_t external = forward ? i : count - 1 - i;
+    const Var v = k.external_to_internal[external];
+    if (v == INVALID_VAR)
+      continue;
     Lit lit = make_lit(v, phase < 0);
     if (k.value(lit) != 0)
       continue;
@@ -147,12 +207,14 @@ static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
       // root consequence; retain earlier committed units, abandon this sweep,
       // and let the next Lucky direction try from the clean root.
       abandon_probe(k);
+      lucky_stage_trace(k, "sweep-abandoned", phase < 0, forward, i);
       return ApplyResult::Ok;
     }
     const ApplyResult committed = commit_failed_literal(k, lit);
     if (committed == ApplyResult::Unsat)
       return committed;
   }
+  lucky_stage_trace(k, "sweep-exit", phase < 0, forward, count);
   return k.unassigned_active ? ApplyResult::Ok : ApplyResult::Sat;
 }
 

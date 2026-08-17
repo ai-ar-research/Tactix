@@ -875,14 +875,18 @@ void kernel_emit_empty_from_pair(Kernel &, uint64_t id_a, uint64_t id_b);
 
 struct PendingUnits {
   std::vector<Lit> units;    // first-recorded order (assert after the round)
-  std::vector<Lit> by_var;   // INVALID_LIT = none recorded yet
-  std::vector<uint64_t> ids; // by var: the recorded unit's proof id
+  // The kernel's literal mark bytes are all-zero between conflict analyses.
+  // Inprocessing runs at the root, so a pending batch borrows those bytes and
+  // restores every one it touches. Only native LRAT needs the dense proof-id
+  // side table; DRAT and proof-less batches allocate no per-variable storage.
+  Kernel *owner = nullptr;
+  std::vector<uint64_t> ids; // by var in LRAT mode; empty otherwise
   enum class Outcome { Recorded, Duplicate, Refuted };
-  void init(uint32_t nvars) {
-    units.clear();
-    by_var.assign(nvars, INVALID_LIT);
-    ids.assign(nvars, 0);
-  }
+  PendingUnits() = default;
+  PendingUnits(const PendingUnits &) = delete;
+  PendingUnits &operator=(const PendingUnits &) = delete;
+  ~PendingUnits();
+  void init(Kernel &);
   Outcome record(Kernel &, Lit u, uint64_t id);
   // A recorded unit is not yet the root value: the batch is asserted later and
   // anything in between — a propagation inside the same round, another
@@ -967,6 +971,10 @@ uint64_t kernel_clause_order(const Kernel &, uint64_t id);
 void kernel_inherit_clause_order(Kernel &, uint64_t replacement_id,
                                  uint64_t source_id);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
+// Complete a pair whose `stable` direction was rewritten in place: append only
+// the missing mirror (to `moved`'s list), then publish the normal add metadata.
+void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
+                              uint64_t id = 0);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 

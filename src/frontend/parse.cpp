@@ -5,8 +5,57 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
+#include <sys/resource.h>
 
 namespace tactix {
+
+namespace {
+
+struct ParseMemoryTrace {
+  FILE *out = nullptr;
+  uint64_t next_clause = 5000000;
+
+  ParseMemoryTrace() {
+    const char *path = std::getenv("TACTIX_PARSE_MEMORY_TRACE");
+    if (path && *path)
+      out = std::fopen(path, "w");
+  }
+
+  ~ParseMemoryTrace() {
+    if (out)
+      std::fclose(out);
+  }
+
+  void emit(const Kernel &k, const char *stage) {
+    if (!out)
+      return;
+    struct rusage usage {};
+    getrusage(RUSAGE_SELF, &usage);
+    std::fprintf(
+        out,
+        "%s\tclauses=%llu\tvars=%u\trss_kib=%ld\tbinary_count=%zu\t"
+        "watch_heads=%zu\twatch_words=%zu\twatch_capacity=%zu\t"
+        "watch_holes=%llu\tarena_words=%zu\ttrail_capacity=%zu\tframes_capacity=%zu\t"
+        "activation_capacity=%zu\n",
+        stage, (unsigned long long)k.next_clause_id, k.nvars,
+        usage.ru_maxrss, k.binary_ids.size(), k.watches.heads.size(),
+        k.watches.arena.size(), k.watches.arena.capacity(),
+        (unsigned long long)k.watches.holes, k.arena.size(),
+        k.trail.capacity(), k.frames.capacity(),
+        k.input_activation_order.capacity());
+    std::fflush(out);
+  }
+
+  void maybe(const Kernel &k) {
+    if (!out || k.next_clause_id < next_clause)
+      return;
+    emit(k, "import");
+    next_clause = ((k.next_clause_id / 5000000) + 1) * 5000000;
+  }
+};
+
+} // namespace
 
 // N2 and the input path. A checker numbers the original file's clauses 1..N by
 // position — lrat-check and cake_lpr both ignore the header count — so a chain
@@ -201,7 +250,7 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     // inflate Factor's watch-score seeds and block BVE through the
     // singular-delete hazard, and on an input carrying six figures of them this
     // deduplication alone is worth an order of magnitude.
-    if (k.binary_ids.count(kernel_binary_key(scratch[0], scratch[1])))
+    if (kernel_binary_live(k, scratch[0], scratch[1]))
       return;
     kernel_add_binary_clause(k, scratch[0], scratch[1], id);
     if (shrunk)
@@ -259,7 +308,7 @@ void finish_input(Kernel &k) {
     } else if (r.size == 2) {
       const uint64_t key = kernel_binary_key(lits[0], lits[1]);
       assert(k.binary_ids.at(key) == r.id);
-      k.binary_ids.insert_or_assign(key, nid);
+      k.binary_ids.insert_or_assign_known(key, nid, false);
     } else {
       Clause *c = clause_at(k.arena, r.ref);
       assert(c->id() == r.id);
@@ -305,6 +354,8 @@ void finish_input(Kernel &k) {
 
 const char *parse_dimacs(FILE *f, Kernel &k) {
   std::vector<Lit> scratch;
+  ParseMemoryTrace memory_trace;
+  memory_trace.emit(k, "begin");
   // Parsing is single-threaded and owns `f`. Pull a block at a time rather than
   // entering stdio for every byte; a three-gigabyte binary CNF otherwise pays
   // tens of millions of calls even with the stream lock disabled.
@@ -357,10 +408,28 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
           // Binary encodings commonly contain almost nothing else.  Reserve up
           // to the declared clause count, capped by three times the variable
           // population so a huge long-clause input does not reserve a giant
-          // binary table it will never use.
+          // binary table it will never use.  Two binaries per declared
+          // variable is a deliberately non-binding prediction: the table
+          // still grows exactly when an input exceeds it, while a conservative
+          // three-times estimate needlessly crossed a power-of-two boundary on
+          // large circuit encodings.
           const uint64_t predicted_binaries =
-              std::min<uint64_t>(clauses, 3 * n);
+              std::min<uint64_t>(clauses, 2 * n);
+          // Native LRAT always needs exact binary proof identities. DRAT does
+          // not, but retaining them on ordinary formulas preserves cheap hash
+          // deduplication and the reference input-order keys consumed by dense
+          // rules. Only omit the duplicate archive when the declaration alone
+          // predicts a large table; mirrored watches remain the exact identity
+          // authority in that mode. This resource threshold avoids both the
+          // 4-GiB rank-5 archive and quadratic scans on dense, low-variable
+          // formulas such as the rank-6 CFI witness.
+          constexpr uint64_t DRAT_BINARY_ARCHIVE_ENTRY_LIMIT = UINT64_C(1)
+                                                                << 24;
+          if (k.proof && !k.proof->lrat() &&
+              predicted_binaries > DRAT_BINARY_ARCHIVE_ENTRY_LIMIT)
+            k.binary_ids.discard_storage();
           k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
+          memory_trace.emit(k, "header");
           while (c != '\n' && c != EOF)
             c = reader.next();
           break;
@@ -389,6 +458,7 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
     if (n == 0) {
       ingest_clause(k, scratch);
       scratch.clear();
+      memory_trace.maybe(k);
     } else {
       if (neg)
         scratch.push_back(internalize(-static_cast<int>(n)));
@@ -398,7 +468,9 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
   }
   if (!scratch.empty()) // tolerate a missing final 0
     ingest_clause(k, scratch);
+  memory_trace.emit(k, "finish-begin");
   finish_input(k);
+  memory_trace.emit(k, "finish-end");
   return nullptr;
 }
 

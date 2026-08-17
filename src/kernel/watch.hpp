@@ -13,6 +13,7 @@
 
 #include "kernel/types.hpp"
 
+#include <algorithm>
 #include <vector>
 
 namespace tactix {
@@ -145,6 +146,43 @@ struct WatchLists {
     heads[l].size = n;
   }
 
+  // Batch rebuild support. A caller that knows every forthcoming per-literal
+  // append can replace the fragmented arena once with exact final slices,
+  // then fill them through ordinary `push` calls without any relocation.
+  // Existing entry order is preserved as the prefix of each new slice.
+  void begin_batch_reserve() {
+    for (WatchHead &head : heads)
+      head.capacity = head.size;
+  }
+  void reserve_batch_word(Lit lit) {
+    assert(heads[lit].capacity < UINT32_MAX);
+    heads[lit].capacity++;
+  }
+  void finish_batch_reserve(bool preserve_global_capacity = true) {
+    size_t total = 0;
+    for (const WatchHead &head : heads)
+      total += head.capacity;
+    assert(total <= UINT32_MAX);
+    // Packing must not erase global append headroom that the normal arena
+    // growth policy already paid for. In particular, an exact-size vector
+    // would double at the first post-batch learned or large-clause watch.
+    const size_t reserve_floor = preserve_global_capacity ? arena.capacity() : 0;
+    std::vector<uint32_t> fresh;
+    fresh.reserve(std::max(total, reserve_floor));
+    fresh.resize(total);
+    size_t next = 0;
+    for (WatchHead &head : heads) {
+      const uint32_t old_offset = head.offset;
+      std::copy_n(arena.begin() + old_offset, head.size,
+                  fresh.begin() + next);
+      head.offset = static_cast<uint32_t>(next);
+      next += head.capacity;
+    }
+    assert(next == total);
+    arena.swap(fresh);
+    holes = 0;
+  }
+
   // make room for `n` words in l's slice without changing its contents.
   // Needed by the probing restore (kernel.cpp): a list snapshotted at size n
   // can be compacted and then have its capacity clamped to the smaller size by
@@ -176,6 +214,28 @@ private:
   void grow(Lit l) {
     WatchHead &h = heads[l];
     const uint32_t ncap = h.capacity ? 2 * h.capacity : 4;
+    // An exact batch image has no holes or tail room. Letting vector::resize
+    // handle its first later relocation would normally double the complete
+    // flat arena while retaining the old image during the copy. Reserve only
+    // the S/3 append budget needed to reach the defrag threshold instead. A
+    // sequence of list grows appends 2H words and creates H holes; defrag arms
+    // at H >= (S + 2H) / 8, i.e. H >= S/6. Delaying this reserve until an
+    // actual relocation also keeps it out of memory-critical batch rewrites.
+    if (arena.size() + ncap > arena.capacity() && !holes &&
+        arena.size() == arena.capacity()) {
+      const size_t reserve_target = std::min<size_t>(
+          UINT32_MAX, arena.size() + (arena.size() + 2) / 3);
+      arena.reserve(std::max(arena.size() + ncap, reserve_target));
+    }
+    // A global vector reallocation otherwise holds the entire old watch arena
+    // beside its doubled replacement.  Binary-heavy inputs can have hundreds
+    // of millions of dead slice words below `holes > size/2`, so compact them
+    // before crossing capacity.  Reserve the old capacity in the packed arena:
+    // this pays one bounded copy and prevents an immediate second growth while
+    // preserving every per-literal entry order.
+    if (arena.size() + ncap > arena.capacity() &&
+        holes >= arena.size() / 8 && arena.size() > (1u << 16))
+      defrag(arena.capacity());
     const uint32_t noff = static_cast<uint32_t>(arena.size());
     arena.resize(arena.size() + ncap);
     // h may dangle after resize; re-index
@@ -189,9 +249,9 @@ private:
       defrag();
   }
 
-  void defrag() {
+  void defrag(size_t reserve_floor = 0) {
     std::vector<uint32_t> fresh;
-    fresh.reserve(arena.size() - holes);
+    fresh.reserve(std::max(arena.size() - holes, reserve_floor));
     for (WatchHead &h : heads) {
       const uint32_t noff = static_cast<uint32_t>(fresh.size());
       fresh.insert(fresh.end(), arena.begin() + h.offset,

@@ -143,7 +143,7 @@ public:
       uint64_t admitted = 0;
       uint64_t dec_disabled = 0, dec_cap = 0, dec_preprocess = 0;
       uint64_t dec_guard = 0, dec_budget = 0, dec_delay = 0;
-      uint64_t dec_material = 0, dec_warmup = 0;
+      uint64_t dec_material = 0, dec_warmup = 0, dec_profile = 0;
       uint64_t followup_offered = 0, followup_taken = 0;
       uint64_t followup_eager = 0, followup_final = 0;
       uint64_t handed = 0, spent = 0, ok = 0, completed = 0;
