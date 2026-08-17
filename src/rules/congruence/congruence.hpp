@@ -9,12 +9,127 @@
 
 #include "rules/registry.hpp"
 
+#include <algorithm>
 #include <cstdint>
+#include <initializer_list>
+#include <memory>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 namespace tactix {
 
 enum class GateKind : uint8_t { And, Xor, Ite };
+
+template <typename T> class CompactVector {
+public:
+  static_assert(std::is_trivially_copyable<T>::value);
+  CompactVector() = default;
+  CompactVector(const CompactVector &other) { assign(other.begin(), other.end()); }
+  CompactVector &operator=(const CompactVector &other) {
+    if (this != &other)
+      assign(other.begin(), other.end());
+    return *this;
+  }
+  CompactVector(CompactVector &&other) noexcept {
+    if (other.on_heap()) {
+      storage_.heap = other.storage_.heap;
+      capacity_ = other.capacity_;
+      other.storage_.heap = nullptr;
+      other.capacity_ = INLINE_CAPACITY;
+    } else
+      for (uint32_t i = 0; i < other.size_; i++)
+        storage_.inlined[i] = other.storage_.inlined[i];
+    size_ = other.size_;
+    other.size_ = 0;
+  }
+  CompactVector &operator=(CompactVector &&other) noexcept {
+    if (this != &other) {
+      if (on_heap())
+        delete[] storage_.heap;
+      capacity_ = INLINE_CAPACITY;
+      if (other.on_heap()) {
+        storage_.heap = other.storage_.heap;
+        capacity_ = other.capacity_;
+        other.storage_.heap = nullptr;
+        other.capacity_ = INLINE_CAPACITY;
+      } else
+        for (uint32_t i = 0; i < other.size_; i++)
+          storage_.inlined[i] = other.storage_.inlined[i];
+      size_ = other.size_;
+      other.size_ = 0;
+    }
+    return *this;
+  }
+  CompactVector &operator=(std::initializer_list<T> values) {
+    assign(values.begin(), values.end());
+    return *this;
+  }
+  ~CompactVector() {
+    if (on_heap())
+      delete[] storage_.heap;
+  }
+
+  void reserve(size_t capacity) {
+    if (capacity <= capacity_)
+      return;
+    T *replacement = new T[capacity];
+    for (uint32_t i = 0; i < size_; i++)
+      replacement[i] = data()[i];
+    if (on_heap())
+      delete[] storage_.heap;
+    storage_.heap = replacement;
+    capacity_ = static_cast<uint32_t>(capacity);
+  }
+  void push_back(const T &value) {
+    if (size_ == capacity_)
+      reserve(capacity_ ? 2 * capacity_ : 4);
+    data()[size_++] = value;
+  }
+  size_t size() const { return size_; }
+  bool empty() const { return size_ == 0; }
+  T *begin() { return data(); }
+  T *end() { return data() + size_; }
+  const T *begin() const { return data(); }
+  const T *end() const { return data() + size_; }
+  T &operator[](size_t index) { return data()[index]; }
+  const T &operator[](size_t index) const { return data()[index]; }
+
+  friend bool operator==(const CompactVector &a, const std::vector<T> &b) {
+    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin());
+  }
+  friend bool operator!=(const CompactVector &a, const std::vector<T> &b) {
+    return !(a == b);
+  }
+
+private:
+  template <typename Iterator> void assign(Iterator begin, Iterator end) {
+    if (begin == end) {
+      size_ = 0;
+      return;
+    }
+    const size_t count = static_cast<size_t>(end - begin);
+    if (count > capacity_) {
+      reserve(count);
+    }
+    size_ = static_cast<uint32_t>(count);
+    for (uint32_t i = 0; i < size_; i++)
+      data()[i] = begin[i];
+  }
+  static constexpr uint32_t INLINE_CAPACITY = 2;
+  union Storage {
+    T *heap;
+    T inlined[INLINE_CAPACITY];
+    Storage() : heap(nullptr) {}
+  } storage_;
+  bool on_heap() const { return capacity_ > INLINE_CAPACITY; }
+  T *data() { return on_heap() ? storage_.heap : storage_.inlined; }
+  const T *data() const {
+    return on_heap() ? storage_.heap : storage_.inlined;
+  }
+  uint32_t size_ = 0;
+  uint32_t capacity_ = INLINE_CAPACITY;
+};
 
 // Extracted gate, output = f(inputs) per kind (`docs/calculus.md` V6 gives each
 // kind's defining clauses). Storage conventions the closure relies on:
@@ -25,11 +140,40 @@ enum class GateKind : uint8_t { And, Xor, Ite };
 //        `normalize_ite` puts cond and then positive, absorbing any flip into
 //        the output sign.
 struct CongGate {
+  struct ProofData {
+    uint64_t base_id = 0;
+    std::vector<uint64_t> input_bin_ids;
+  };
   GateKind kind = GateKind::And;
   Lit output = 0;
-  std::vector<Lit> inputs;             // canonical (sorted) — the structural key
-  uint64_t base_id = 0;                // AND/XOR base clause proof id
-  std::vector<uint64_t> input_bin_ids; // And: (¬output ∨ inputᵢ) ids ∥ inputs
+  CompactVector<Lit> inputs;           // canonical (sorted) — structural key
+  std::unique_ptr<ProofData> proof_data;
+
+  void set_base_id(uint64_t id) { mutable_proof_data().base_id = id; }
+  uint64_t base_id() const { return proof_data ? proof_data->base_id : 0; }
+  void reserve_input_bin_ids(size_t size) {
+    mutable_proof_data().input_bin_ids.reserve(size);
+  }
+  void push_input_bin_id(uint64_t id) {
+    mutable_proof_data().input_bin_ids.push_back(id);
+  }
+  uint64_t &input_bin_id(size_t index) {
+    return proof_data->input_bin_ids[index];
+  }
+  const std::vector<uint64_t> &input_bin_ids() const {
+    return proof_data ? proof_data->input_bin_ids : empty_input_bin_ids();
+  }
+
+private:
+  ProofData &mutable_proof_data() {
+    if (!proof_data)
+      proof_data.reset(new ProofData);
+    return *proof_data;
+  }
+  static const std::vector<uint64_t> &empty_input_bin_ids() {
+    static const std::vector<uint64_t> empty;
+    return empty;
+  }
 };
 
 // Extract AND/OR gates from the irredundant large clauses (bounded arity). Rule-

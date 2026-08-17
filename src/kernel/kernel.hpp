@@ -28,20 +28,23 @@ void rule_journal_note_variable_status(const Kernel &, uint32_t,
 
 // Binary clauses are numerous enough that std::unordered_map's one allocation
 // per entry is both a parse-time and a memory bottleneck.  This table has the
-// deliberately narrow interface the kernel needs: keys are never erased (the
-// binary-id namespace is size-monotone), insert-or-assign updates the latest
-// proof id, and diagnostics can visit the occupied slots.  Open addressing
-// also matches the dense representation used by the reference solver much
-// more closely than a node-based container.
+// deliberately narrow interface the kernel needs.  Native LRAT retains exact
+// keys and latest proof ids; DRAT file mode uses the watch lists as its exact
+// membership authority and keeps only the size-monotone addition count.
+// Open addressing in the identity-bearing mode also matches the dense
+// representation used by the reference solver more closely than a node-based
+// container.
 class BinaryIdMap {
   static constexpr uint64_t EMPTY = UINT64_MAX;
-  struct Entry {
-    uint64_t key = EMPTY;
-    uint64_t value = 0;
-  };
-
-  std::vector<Entry> table_;
+  // Keep keys and proof ids in separate arrays.  Native LRAT needs both;
+  // DRAT names deletions by literals and ignores antecedent ids, so file
+  // parsing can omit the value array while retaining the identical key table
+  // used for binary deduplication and membership.
+  std::vector<uint64_t> keys_;
+  std::vector<uint64_t> values_;
   size_t size_ = 0;
+  bool track_keys_ = true;
+  bool track_values_ = true;
 
   static uint64_t hash(uint64_t x) {
     x += UINT64_C(0x9e3779b97f4a7c15);
@@ -51,75 +54,127 @@ class BinaryIdMap {
   }
 
   size_t locate(uint64_t key) const {
-    assert(!table_.empty());
-    const size_t mask = table_.size() - 1;
+    assert(!keys_.empty());
+    const size_t mask = keys_.size() - 1;
     size_t pos = static_cast<size_t>(hash(key)) & mask;
-    while (table_[pos].key != EMPTY && table_[pos].key != key)
+    while (keys_[pos] != EMPTY && keys_[pos] != key)
       pos = (pos + 1) & mask;
     return pos;
   }
 
   void rehash(size_t capacity) {
-    std::vector<Entry> old;
-    old.swap(table_);
-    table_.resize(capacity);
+    std::vector<uint64_t> old_keys, old_values;
+    old_keys.swap(keys_);
+    old_values.swap(values_);
+    keys_.assign(capacity, EMPTY);
+    if (track_values_)
+      values_.assign(capacity, 0);
     size_ = 0;
-    for (const Entry &entry : old)
-      if (entry.key != EMPTY)
-        insert_or_assign(entry.key, entry.value);
+    for (size_t i = 0; i < old_keys.size(); i++)
+      if (old_keys[i] != EMPTY)
+        insert_or_assign(old_keys[i],
+                         track_values_ ? old_values[i] : UINT64_C(1));
   }
 
 public:
   size_t size() const { return size_; }
   bool empty() const { return size_ == 0; }
+  bool tracks_keys() const { return track_keys_; }
+  bool tracks_values() const { return track_values_; }
 
+  void discard_storage() {
+    assert(size_ == 0 && "proof-id mode is fixed before binary import");
+    track_keys_ = false;
+    track_values_ = false;
+    keys_.clear();
+    keys_.shrink_to_fit();
+    values_.clear();
+    values_.shrink_to_fit();
+  }
+
+  void discard_values() {
+    assert(track_keys_);
+    assert(size_ == 0 && "proof-id mode is fixed before binary import");
+    track_values_ = false;
+    values_.clear();
+    values_.shrink_to_fit();
+  }
+
+  // Linear probing remains well behaved for this one-shot archive at 7/8:
+  // keys are never erased and the split key/value layout keeps probes to one
+  // cache stream in DRAT mode.  The former 0.7 target rounded common
+  // hundred-million-key formulas up by an otherwise unnecessary power of two.
   void reserve(size_t entries) {
+    if (!track_keys_)
+      return;
     size_t capacity = 16;
-    while (entries > (capacity * 7) / 10)
+    while (entries > (capacity * 7) / 8)
       capacity <<= 1;
-    if (capacity > table_.size())
+    if (capacity > keys_.size())
       rehash(capacity);
   }
 
   size_t count(uint64_t key) const {
-    return table_.empty() ? 0 : table_[locate(key)].key == key;
+    if (!track_keys_)
+      return 0;
+    return keys_.empty() ? 0 : keys_[locate(key)] == key;
   }
 
   uint64_t get(uint64_t key) const {
-    if (table_.empty())
+    if (!track_keys_)
+      return UINT64_C(1);
+    if (keys_.empty())
       return 0;
-    const Entry &entry = table_[locate(key)];
-    return entry.key == key ? entry.value : 0;
+    const size_t pos = locate(key);
+    if (keys_[pos] != key)
+      return 0;
+    return track_values_ ? values_[pos] : UINT64_C(1);
   }
 
   uint64_t at(uint64_t key) const {
-    assert(!table_.empty());
-    const Entry &entry = table_[locate(key)];
-    assert(entry.key == key && "missing binary clause id");
-    return entry.value;
+    if (!track_keys_)
+      return UINT64_C(1);
+    assert(!keys_.empty());
+    const size_t pos = locate(key);
+    assert(keys_[pos] == key && "missing binary clause id");
+    return track_values_ ? values_[pos] : UINT64_C(1);
   }
 
   void insert_or_assign(uint64_t key, uint64_t value) {
+    insert_or_assign_known(key, value, true);
+  }
+
+  void insert_or_assign_known(uint64_t key, uint64_t value, bool is_new) {
     assert(key != EMPTY);
-    if (table_.empty() || (size_ + 1) * 10 > table_.size() * 7)
-      rehash(table_.empty() ? 16 : 2 * table_.size());
-    Entry &entry = table_[locate(key)];
-    if (entry.key == EMPTY) {
-      entry.key = key;
+    if (!track_keys_) {
+      size_ += is_new;
+      return;
+    }
+    if (keys_.empty() || (size_ + 1) * 8 > keys_.size() * 7)
+      rehash(keys_.empty() ? 16 : 2 * keys_.size());
+    const size_t pos = locate(key);
+    if (keys_[pos] == EMPTY) {
+      keys_[pos] = key;
       size_++;
     }
-    entry.value = value;
+    if (track_values_)
+      values_[pos] = value;
   }
 
   template <class F> void for_each(F &&visit) const {
-    for (const Entry &entry : table_)
-      if (entry.key != EMPTY)
-        visit(entry.key, entry.value);
+    if (!track_keys_)
+      return;
+    for (size_t i = 0; i < keys_.size(); i++)
+      if (keys_[i] != EMPTY)
+        visit(keys_[i], track_values_ ? values_[i] : UINT64_C(1));
   }
 
   void swap(BinaryIdMap &other) {
-    table_.swap(other.table_);
+    keys_.swap(other.keys_);
+    values_.swap(other.values_);
     std::swap(size_, other.size_);
+    std::swap(track_keys_, other.track_keys_);
+    std::swap(track_values_, other.track_values_);
   }
 };
 
@@ -1220,7 +1275,9 @@ void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
 void kernel_rebuild_large_watches(Kernel &);
 void kernel_resume_walk_watches(Kernel &);
 void kernel_canonicalize_binary_watches(Kernel &,
-                                        bool count_congruence_rebuild = true);
+                                        bool count_congruence_rebuild = true,
+                                        const std::vector<std::pair<Lit, Lit>> *
+                                            binary_suffix = nullptr);
 void kernel_deduplicate_binary_watches(Kernel &);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ);

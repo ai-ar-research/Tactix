@@ -6,13 +6,20 @@
 #include "rules/substitute/substitute.hpp" // big_path_chain (bridged LRAT chains)
 
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <memory>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+#include <sys/resource.h>
+#include <unistd.h>
+#endif
 
 namespace tactix {
 
@@ -60,6 +67,49 @@ struct BudgetScope {
   }
 };
 
+// Allocation-boundary tracing is compiled only into semantic-trace builds.
+// Large formulas can finish parsing yet fail in one of Congruence's several
+// dense working sets; a line-buffered stage record identifies the last
+// completed allocation without adding a branch to production binaries.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+void congruence_stage_trace(const Kernel &k, const char *stage,
+                            size_t first = 0, size_t second = 0,
+                            size_t third = 0, size_t fourth = 0) {
+  static FILE *out = nullptr;
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
+    const char *path = std::getenv("TACTIX_CONGRUENCE_MEMORY_TRACE");
+    if (path && *path) {
+      out = std::fopen(path, "w");
+      if (out)
+        std::setvbuf(out, nullptr, _IOLBF, 0);
+    }
+  }
+  if (!out)
+    return;
+  struct rusage usage {};
+  getrusage(RUSAGE_SELF, &usage);
+  unsigned long virtual_pages = 0;
+  if (FILE *statm = std::fopen("/proc/self/statm", "r")) {
+    (void)std::fscanf(statm, "%lu", &virtual_pages);
+    std::fclose(statm);
+  }
+  const unsigned long virtual_kib =
+      virtual_pages * static_cast<unsigned long>(sysconf(_SC_PAGESIZE) / 1024);
+  std::fprintf(out,
+               "%s\trss_kib=%ld\tvm_kib=%lu\tvars=%u\tarena_words=%zu\t"
+               "watch_words=%zu\twatch_capacity=%zu\tfirst=%zu\tsecond=%zu\t"
+               "third=%zu\tfourth=%zu\n",
+               stage, usage.ru_maxrss, virtual_kib, k.nvars, k.arena.size(),
+               k.watches.arena.size(), k.watches.arena.capacity(), first,
+               second, third, fourth);
+}
+#else
+inline void congruence_stage_trace(const Kernel &, const char *, size_t = 0,
+                                   size_t = 0, size_t = 0, size_t = 0) {}
+#endif
+
 // Mark the binary-watch partners of `lit`.
 template <int V> void mark_bin_partners(const Kernel &k, Lit lit,
                                         std::vector<uint8_t> &mark) {
@@ -88,27 +138,28 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     const Lit nout = negate(outp);
     CongGate g;
     g.output = outp;
-    g.base_id = c->id();
+    if (lrat)
+      g.set_base_id(c->id());
     g.inputs.reserve(c->size - 1);
     if (lrat)
-      g.input_bin_ids.reserve(c->size - 1);
+      g.reserve_input_bin_ids(c->size - 1);
     for (const Lit l : *c)
       if (l != outp) {
         const Lit inp = negate(l);
         g.inputs.push_back(inp);
         if (lrat)
-          g.input_bin_ids.push_back(kernel_binary_id(k, nout, inp));
+          g.push_input_bin_id(kernel_binary_id(k, nout, inp));
       }
     // canonicalize inputs (the structural key) — keep bin_ids parallel
     if (lrat) {
       pairs.clear();
       pairs.resize(g.inputs.size());
       for (size_t i = 0; i < g.inputs.size(); i++)
-        pairs[i] = {g.inputs[i], g.input_bin_ids[i]};
+        pairs[i] = {g.inputs[i], g.input_bin_id(i)};
       std::sort(pairs.begin(), pairs.end());
       for (size_t i = 0; i < pairs.size(); i++) {
         g.inputs[i] = pairs[i].first;
-        g.input_bin_ids[i] = pairs[i].second;
+        g.input_bin_id(i) = pairs[i].second;
       }
     } else {
       std::sort(g.inputs.begin(), g.inputs.end());
@@ -126,8 +177,7 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     // since merge order feeds the search trajectory.
     struct Tag {
       Ref ref;
-      uint32_t idx;  // outp's index within the clause
-      uint32_t gate; // index into `out` where the gate was appended
+      uint32_t idx; // outp's index within the clause
     };
     std::vector<Tag> tags;
     const size_t base = out.size();
@@ -174,8 +224,12 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
         }
         if (!all)
           continue;
-        tags.push_back({ref, idx, static_cast<uint32_t>(out.size())});
-        emit(c, outp);
+        // Do not materialize the gate yet.  Literal-major discovery can find
+        // far more than the clause-major cap before the sort below knows which
+        // prefix survives.  Keeping just this eight-byte descriptor makes the
+        // cap a real memory bound and avoids one tiny allocation per discarded
+        // gate; the descriptor contains everything `emit` needs afterward.
+        tags.push_back({ref, idx});
       }
       if (marked)
         mark_bin_partners<0>(k, nout, mark); // unmark once per literal
@@ -184,19 +238,24 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
     std::sort(tags.begin(), tags.end(), [](const Tag &a, const Tag &b) {
       return a.ref != b.ref ? a.ref < b.ref : a.idx < b.idx;
     });
-    std::vector<CongGate> ordered;
-    ordered.reserve(tags.size());
+    const size_t remaining = base < CONG_GATE_LIMIT
+                                 ? CONG_GATE_LIMIT - base
+                                 : 0;
+    // The cap is checked before each clause, so the final clause may contribute
+    // at most CONG_ARITY_LIMIT+1 outputs beyond it.
+    out.reserve(base + std::min(tags.size(),
+                                remaining + CONG_ARITY_LIMIT + 1));
     // clause-major CONG_GATE_LIMIT semantics: checked before each new clause
     for (size_t i = 0; i < tags.size();) {
-      if (base + ordered.size() >= CONG_GATE_LIMIT)
+      if (out.size() >= CONG_GATE_LIMIT)
         break;
       const Ref r = tags[i].ref;
-      for (; i < tags.size() && tags[i].ref == r; i++)
-        ordered.push_back(std::move(out[tags[i].gate]));
+      const Clause *c = clause_at(k.arena, r);
+      for (; i < tags.size() && tags[i].ref == r; i++) {
+        assert(tags[i].idx < c->size);
+        emit(c, c->lits[tags[i].idx]);
+      }
     }
-    out.resize(base);
-    for (CongGate &g : ordered)
-      out.push_back(std::move(g));
     return;
   }
   // Extraction is read-only, so aborting is free: the caller returns NoOp.
@@ -241,15 +300,473 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
 
 namespace {
 
-struct InputsHash {
-  size_t operator()(const std::vector<Lit> &v) const {
+// Closure maps an immutable canonical input key to a replaceable gate id.
+// Keys live in one literal arena, records in a second vector, and a flat table
+// stores 32-bit record indices. The table is never iterated, so bucket order
+// cannot affect merge order; a 70% load bounds probes at the 20M-gate cap.
+template <typename T, uint32_t BLOCK_SHIFT = 20> class PagedVector {
+public:
+  static constexpr size_t BLOCK_SIZE = size_t{1} << BLOCK_SHIFT;
+  static constexpr size_t BLOCK_MASK = BLOCK_SIZE - 1;
+
+  void reserve(size_t entries) {
+    blocks_.reserve((entries + BLOCK_SIZE - 1) / BLOCK_SIZE);
+  }
+  void push_back(const T &value) {
+    const size_t block = size_ >> BLOCK_SHIFT;
+    if (block == blocks_.size())
+      blocks_.emplace_back(new T[BLOCK_SIZE]);
+    blocks_[block][size_ & BLOCK_MASK] = value;
+    size_++;
+  }
+  T &operator[](size_t index) {
+    assert(index < size_);
+    return blocks_[index >> BLOCK_SHIFT][index & BLOCK_MASK];
+  }
+  const T &operator[](size_t index) const {
+    assert(index < size_);
+    return blocks_[index >> BLOCK_SHIFT][index & BLOCK_MASK];
+  }
+  size_t size() const { return size_; }
+  size_t capacity() const { return blocks_.size() * BLOCK_SIZE; }
+
+private:
+  std::vector<std::unique_ptr<T[]>> blocks_;
+  size_t size_ = 0;
+};
+
+// Direct literal indexing without one monolithic nlits-word allocation.  A
+// missing page is semantically all EMPTY, and pages appear only when closure
+// registration first touches one of their literals.  Fine-grained pages retain
+// O(1) lookup while avoiding dense commitment for untouched literal regions.
+class PagedLiteralTails {
+public:
+  static constexpr uint32_t EMPTY = UINT32_MAX;
+  static constexpr uint32_t BLOCK_SHIFT = 12;
+  static constexpr size_t BLOCK_SIZE = size_t{1} << BLOCK_SHIFT;
+  static constexpr size_t BLOCK_MASK = BLOCK_SIZE - 1;
+
+  explicit PagedLiteralTails(size_t literals = 0)
+      : blocks_((literals + BLOCK_SIZE - 1) / BLOCK_SIZE) {}
+  uint32_t get(Lit lit) const {
+    const auto &block = blocks_[lit >> BLOCK_SHIFT];
+    return block ? block[lit & BLOCK_MASK] : EMPTY;
+  }
+  uint32_t &get_or_create(Lit lit) {
+    auto &block = blocks_[lit >> BLOCK_SHIFT];
+    if (!block) {
+      block.reset(new uint32_t[BLOCK_SIZE]);
+      std::fill(block.get(), block.get() + BLOCK_SIZE, EMPTY);
+      allocated_blocks_++;
+    }
+    return block[lit & BLOCK_MASK];
+  }
+  size_t directory_size() const { return blocks_.size(); }
+  size_t allocated_blocks() const { return allocated_blocks_; }
+
+private:
+  std::vector<std::unique_ptr<uint32_t[]>> blocks_;
+  size_t allocated_blocks_ = 0;
+};
+
+// Dense import ranks form a permutation of the current variables.  Store that
+// inverse permutation at the information-theoretic word width instead of four
+// bytes per variable.  After compaction leaves holes in permanent ranks, sort
+// the packed variables in place with an MSD radix permutation: ranks are
+// unique, so this yields the same exact total order without a second array.
+class CompactVarOrder {
+public:
+  CompactVarOrder() = default;
+  explicit CompactVarOrder(const Kernel &k) : size_(k.nvars) {
+    bits_ = 1;
+    while ((uint64_t{1} << bits_) < std::max<uint64_t>(k.nvars, 2))
+      bits_++;
+    const uint64_t total_bits = static_cast<uint64_t>(k.nvars) * bits_;
+    const size_t word_count = (total_bits + 63) / 64 + 1;
+    // A single packed vector is compact but still asks malloc for one
+    // 150+ MiB contiguous extent on the largest Tier-D inputs. Congruence has
+    // already built millions of variable-sized gate records by this point, so
+    // that request can fail under the 16 GiB debug envelope even when the
+    // aggregate bytes fit. Fixed-size pages retain the same bit layout and
+    // random access while bounding each allocator request.
+    words_.reserve(word_count);
+    for (size_t word = 0; word < word_count; word++)
+      words_.push_back(0);
+    congruence_stage_trace(k, "binary-order-storage-end", word_count, bits_);
+    if (k.next_import_rank == k.nvars)
+      for (Var variable = 0; variable < k.nvars; variable++) {
+        const uint64_t rank = kernel_import_var_order(k, variable);
+        assert(rank < k.nvars);
+        set(rank, variable);
+      }
+    else {
+      for (Var variable = 0; variable < k.nvars; variable++)
+        set(variable, variable);
+      uint32_t maximum_rank = k.next_import_rank ? k.next_import_rank - 1 : 0;
+      int shift = 0;
+      while (static_cast<uint64_t>(maximum_rank) >>
+             (shift + RADIX_BITS))
+        shift += RADIX_BITS;
+      radix_sort(k, 0, k.nvars, shift);
+    }
+#ifndef NDEBUG
+    for (size_t i = 1; i < size_; i++)
+      assert(kernel_import_var_order(k, (*this)[i - 1]) <
+             kernel_import_var_order(k, (*this)[i]));
+#endif
+    congruence_stage_trace(k, "binary-order-fill-end", size_, bits_);
+  }
+  size_t size() const { return size_; }
+  Var operator[](size_t index) const {
+    const uint64_t bit = static_cast<uint64_t>(index) * bits_;
+    const size_t word = bit >> 6;
+    const uint32_t shift = bit & 63;
+    uint64_t value = words_[word] >> shift;
+    if (shift + bits_ > 64)
+      value |= words_[word + 1] << (64 - shift);
+    return static_cast<Var>(value & ((uint64_t{1} << bits_) - 1));
+  }
+  uint32_t bits() const { return bits_; }
+
+private:
+  static constexpr uint32_t RADIX_BITS = 11;
+  static constexpr uint32_t RADIX_SIZE = 1u << RADIX_BITS;
+  static constexpr uint32_t RADIX_MASK = RADIX_SIZE - 1;
+  void set(size_t index, Var variable) {
+    const uint64_t bit = static_cast<uint64_t>(index) * bits_;
+    const size_t word = bit >> 6;
+    const uint32_t shift = bit & 63;
+    const uint64_t value_mask = (uint64_t{1} << bits_) - 1;
+    words_[word] = (words_[word] & ~(value_mask << shift)) |
+                   (static_cast<uint64_t>(variable) << shift);
+    if (shift + bits_ > 64) {
+      const uint32_t high_bits = shift + bits_ - 64;
+      const uint64_t high_mask = (uint64_t{1} << high_bits) - 1;
+      words_[word + 1] =
+          (words_[word + 1] & ~high_mask) |
+          (static_cast<uint64_t>(variable) >> (64 - shift));
+    }
+  }
+  void swap(size_t a, size_t b) {
+    const Var av = (*this)[a], bv = (*this)[b];
+    set(a, bv);
+    set(b, av);
+  }
+  uint32_t digit(const Kernel &k, Var variable, int shift) const {
+    return static_cast<uint32_t>(kernel_import_var_order(k, variable) >> shift) &
+           RADIX_MASK;
+  }
+  void radix_sort(const Kernel &k, uint32_t begin, uint32_t end, int shift) {
+    if (end - begin < 2)
+      return;
+    std::array<uint32_t, RADIX_SIZE> counts{}, starts{}, next{};
+    for (uint32_t i = begin; i < end; i++)
+      counts[digit(k, (*this)[i], shift)]++;
+    uint32_t position = begin;
+    for (uint32_t bucket = 0; bucket < RADIX_SIZE; bucket++) {
+      starts[bucket] = next[bucket] = position;
+      position += counts[bucket];
+    }
+    for (uint32_t bucket = 0; bucket < RADIX_SIZE; bucket++) {
+      const uint32_t bucket_end = starts[bucket] + counts[bucket];
+      while (next[bucket] < bucket_end) {
+        const uint32_t target = digit(k, (*this)[next[bucket]], shift);
+        if (target == bucket)
+          next[bucket]++;
+        else
+          swap(next[bucket], next[target]++);
+      }
+    }
+    if (shift >= static_cast<int>(RADIX_BITS))
+      for (uint32_t bucket = 0; bucket < RADIX_SIZE; bucket++)
+        if (counts[bucket] > 1)
+          radix_sort(k, starts[bucket], starts[bucket] + counts[bucket],
+                     shift - RADIX_BITS);
+  }
+  PagedVector<uint64_t> words_;
+  size_t size_ = 0;
+  uint32_t bits_ = 0;
+};
+
+// Sparse literal -> insertion-ordered Ref list.  The forward congruence pass
+// never iterates map keys; it only looks up a literal, scans that literal's
+// Refs in insertion order, and appends one Ref.  A node-based unordered_map of
+// heap-backed vectors spends multiple allocations per selected literal.  This
+// flat index stores one 32-bit entry id per bucket and paged list nodes, while
+// preserving the only observable order.
+class SparseRefOccurrences {
+public:
+  static constexpr uint32_t EMPTY = UINT32_MAX;
+
+  void reserve(size_t maximum_nodes) {
+    entries_.reserve(maximum_nodes);
+    nodes_.reserve(maximum_nodes);
+    size_t capacity = 64;
+    while (maximum_nodes * 10 > capacity * 7)
+      capacity *= 2;
+    buckets_.assign(capacity, EMPTY);
+  }
+  uint32_t find(Lit lit) const {
+    if (buckets_.empty())
+      return EMPTY;
+    const size_t mask = buckets_.size() - 1;
+    size_t pos = hash_lit(lit) & mask;
+    while (buckets_[pos] != EMPTY) {
+      const uint32_t entry = buckets_[pos];
+      if (entries_[entry].lit == lit)
+        return entry;
+      pos = (pos + 1) & mask;
+    }
+    return EMPTY;
+  }
+  void push_back(Lit lit, Ref ref) {
+    if (buckets_.empty())
+      buckets_.assign(64, EMPTY);
+    if ((entries_.size() + 1) * 10 > buckets_.size() * 7)
+      rehash(2 * buckets_.size());
+    const size_t mask = buckets_.size() - 1;
+    size_t pos = hash_lit(lit) & mask;
+    while (buckets_[pos] != EMPTY &&
+           entries_[buckets_[pos]].lit != lit)
+      pos = (pos + 1) & mask;
+    uint32_t entry = buckets_[pos];
+    if (entry == EMPTY) {
+      assert(entries_.size() < EMPTY);
+      entry = static_cast<uint32_t>(entries_.size());
+      entries_.push_back({lit, EMPTY, EMPTY, 0});
+      buckets_[pos] = entry;
+    }
+    assert(nodes_.size() < EMPTY);
+    const uint32_t node = static_cast<uint32_t>(nodes_.size());
+    nodes_.push_back({ref, EMPTY});
+    Entry &e = entries_[entry];
+    if (e.tail == EMPTY)
+      e.head = node;
+    else
+      nodes_[e.tail].next = node;
+    e.tail = node;
+    e.count++;
+  }
+
+  uint32_t first(uint32_t entry) const {
+    assert(entry < entries_.size());
+    return entries_[entry].head;
+  }
+  uint32_t next(uint32_t node) const {
+    assert(node < nodes_.size());
+    return nodes_[node].next;
+  }
+  Ref ref(uint32_t node) const {
+    assert(node < nodes_.size());
+    return nodes_[node].ref;
+  }
+  size_t count(uint32_t entry) const {
+    assert(entry < entries_.size());
+    return entries_[entry].count;
+  }
+
+private:
+  struct Entry {
+    Lit lit;
+    uint32_t head;
+    uint32_t tail;
+    uint32_t count;
+  };
+  struct Node {
+    Ref ref;
+    uint32_t next;
+  };
+  static size_t hash_lit(Lit lit) {
+    uint64_t h = lit;
+    h ^= h >> 16;
+    h *= UINT64_C(0x7feb352d);
+    h ^= h >> 15;
+    h *= UINT64_C(0x846ca68b);
+    h ^= h >> 16;
+    return static_cast<size_t>(h);
+  }
+  void rehash(size_t capacity) {
+    std::vector<uint32_t> replacement(capacity, EMPTY);
+    const size_t mask = capacity - 1;
+    for (uint32_t entry = 0; entry < entries_.size(); entry++) {
+      size_t pos = hash_lit(entries_[entry].lit) & mask;
+      while (replacement[pos] != EMPTY)
+        pos = (pos + 1) & mask;
+      replacement[pos] = entry;
+    }
+    buckets_.swap(replacement);
+  }
+
+  std::vector<uint32_t> buckets_;
+  PagedVector<Entry> entries_;
+  PagedVector<Node> nodes_;
+};
+
+class ClosureTable {
+public:
+  struct Lookup {
+    uint32_t record;
+    bool inserted;
+  };
+
+  void reserve(size_t entries, size_t key_literals) {
+    record_blocks_.reserve((entries + RECORD_BLOCK_SIZE - 1) /
+                           RECORD_BLOCK_SIZE);
+    literal_blocks_.reserve((key_literals + LITERAL_BLOCK_SIZE - 1) /
+                            LITERAL_BLOCK_SIZE);
+    size_t buckets = 64;
+    while (entries * 10 > buckets * 7)
+      buckets *= 2;
+    rehash(buckets);
+  }
+
+  Lookup lookup_or_insert(const std::vector<Lit> &key, uint32_t gate) {
+    if (buckets_.empty())
+      rehash(64);
+    const size_t hash = hash_key(key.data(), key.size());
+    size_t pos = find_slot(key, hash);
+    if (buckets_[pos] != EMPTY)
+      return {buckets_[pos], false};
+
+    if ((static_cast<size_t>(record_count_) + 1) * 10 >
+        buckets_.size() * 7) {
+      rehash(2 * buckets_.size());
+      pos = find_slot(key, hash);
+      assert(buckets_[pos] == EMPTY);
+    }
+    assert(record_count_ < EMPTY);
+    assert(key.size() <= UINT32_MAX);
+    const uint32_t begin = append_key(key);
+    const uint32_t record = record_count_++;
+    ensure_record_block(record);
+    record_at(record) = {begin, static_cast<uint32_t>(key.size()), gate};
+    buckets_[pos] = record;
+    return {record, true};
+  }
+
+  uint32_t gate(uint32_t record) const {
+    assert(record < record_count_);
+    return record_at(record).gate;
+  }
+  void replace(uint32_t record, uint32_t gate) {
+    assert(record < record_count_);
+    record_at(record).gate = gate;
+  }
+  size_t size() const { return record_count_; }
+  size_t bucket_count() const { return buckets_.size(); }
+  size_t literal_count() const { return literal_count_; }
+
+private:
+  static constexpr uint32_t EMPTY = UINT32_MAX;
+  // Blocks are large enough to amortize allocator metadata and small enough
+  // that one re-key never asks the allocator to duplicate a multi-hundred-MiB
+  // vector.  A key never crosses a literal block, so comparisons stay a single
+  // contiguous scan.
+  static constexpr uint32_t RECORD_BLOCK_SHIFT = 20;
+  static constexpr uint32_t RECORD_BLOCK_SIZE = 1u << RECORD_BLOCK_SHIFT;
+  static constexpr uint32_t RECORD_BLOCK_MASK = RECORD_BLOCK_SIZE - 1;
+  static constexpr uint32_t LITERAL_BLOCK_SHIFT = 22;
+  static constexpr uint32_t LITERAL_BLOCK_SIZE = 1u << LITERAL_BLOCK_SHIFT;
+  static constexpr uint32_t LITERAL_BLOCK_MASK = LITERAL_BLOCK_SIZE - 1;
+  struct Record {
+    uint32_t begin;
+    uint32_t size;
+    uint32_t gate;
+  };
+
+  static size_t hash_key(const Lit *begin, size_t size) {
     size_t h = 1469598103934665603ull;
-    for (const Lit l : v) {
-      h ^= static_cast<size_t>(l);
+    for (size_t i = 0; i < size; i++) {
+      h ^= static_cast<size_t>(begin[i]);
       h *= 1099511628211ull;
     }
+    // FNV's low bits are weak for power-of-two linear probing.  This avalanche
+    // changes bucket placement only; equality and processing order are intact.
+    h ^= h >> 33;
+    h *= static_cast<size_t>(0xff51afd7ed558ccdull);
+    h ^= h >> 29;
     return h;
   }
+
+  bool equal(uint32_t record, const std::vector<Lit> &key) const {
+    const Record &r = record_at(record);
+    if (r.size != key.size())
+      return false;
+    const Lit *stored = literal_at(r.begin);
+    for (uint32_t i = 0; i < r.size; i++)
+      if (stored[i] != key[i])
+        return false;
+    return true;
+  }
+
+  Record &record_at(uint32_t record) {
+    return record_blocks_[record >> RECORD_BLOCK_SHIFT]
+                         [record & RECORD_BLOCK_MASK];
+  }
+  const Record &record_at(uint32_t record) const {
+    return record_blocks_[record >> RECORD_BLOCK_SHIFT]
+                         [record & RECORD_BLOCK_MASK];
+  }
+  const Lit *literal_at(uint32_t begin) const {
+    return literal_blocks_[begin >> LITERAL_BLOCK_SHIFT].get() +
+           (begin & LITERAL_BLOCK_MASK);
+  }
+  void ensure_record_block(uint32_t record) {
+    const size_t needed = (record >> RECORD_BLOCK_SHIFT) + 1;
+    while (record_blocks_.size() < needed)
+      record_blocks_.emplace_back(new Record[RECORD_BLOCK_SIZE]);
+  }
+  void ensure_literal_block(uint32_t begin) {
+    const size_t needed = (begin >> LITERAL_BLOCK_SHIFT) + 1;
+    while (literal_blocks_.size() < needed)
+      literal_blocks_.emplace_back(new Lit[LITERAL_BLOCK_SIZE]);
+  }
+  uint32_t append_key(const std::vector<Lit> &key) {
+    assert(key.size() <= LITERAL_BLOCK_SIZE);
+    uint64_t begin = literal_slots_;
+    const uint32_t offset = static_cast<uint32_t>(begin) & LITERAL_BLOCK_MASK;
+    if (offset + key.size() > LITERAL_BLOCK_SIZE)
+      begin = (begin + LITERAL_BLOCK_MASK) &
+              ~static_cast<uint64_t>(LITERAL_BLOCK_MASK);
+    assert(begin + key.size() <= UINT32_MAX);
+    ensure_literal_block(static_cast<uint32_t>(begin));
+    Lit *target = literal_blocks_[begin >> LITERAL_BLOCK_SHIFT].get() +
+                  (begin & LITERAL_BLOCK_MASK);
+    std::copy(key.begin(), key.end(), target);
+    literal_slots_ = begin + key.size();
+    literal_count_ += key.size();
+    return static_cast<uint32_t>(begin);
+  }
+
+  size_t find_slot(const std::vector<Lit> &key, size_t hash) const {
+    assert(!buckets_.empty());
+    const size_t mask = buckets_.size() - 1;
+    size_t pos = hash & mask;
+    while (buckets_[pos] != EMPTY && !equal(buckets_[pos], key))
+      pos = (pos + 1) & mask;
+    return pos;
+  }
+
+  void rehash(size_t capacity) {
+    assert(capacity >= 64 && !(capacity & (capacity - 1)));
+    std::vector<uint32_t> replacement(capacity, EMPTY);
+    const size_t mask = capacity - 1;
+    for (uint32_t record = 0; record < record_count_; record++) {
+      const Record &r = record_at(record);
+      size_t pos = hash_key(literal_at(r.begin), r.size) & mask;
+      while (replacement[pos] != EMPTY)
+        pos = (pos + 1) & mask;
+      replacement[pos] = record;
+    }
+    buckets_.swap(replacement);
+  }
+
+  std::vector<uint32_t> buckets_;
+  std::vector<std::unique_ptr<Record[]>> record_blocks_;
+  std::vector<std::unique_ptr<Lit[]>> literal_blocks_;
+  uint32_t record_count_ = 0;
+  uint64_t literal_slots_ = 0;
+  size_t literal_count_ = 0;
 };
 
 // Fixed-capacity key for the small-clause index and the XOR/ITE dedup sets: no
@@ -355,22 +872,141 @@ private:
   size_t size_ = 0;
 };
 
-using ClauseIndex = SmallKeySet;
+// Full small-clause membership used by XOR/ITE extraction.  The old open
+// addressing table stored a 24-byte key in every bucket and temporarily held
+// both tables while growing; tens of millions of ternaries therefore needed
+// several GiB merely to answer membership queries.  A sorted unique compact
+// record stores the common first three literals inline and only the optional
+// fourth/fifth literals in a paged tail.  It is the same mathematical set and
+// canonical iteration order without a full padded key per clause.
+class ClauseIndex {
+  static constexpr uint32_t OFFSET_BITS = 30;
+  static constexpr uint32_t OFFSET_MASK = (uint32_t{1} << OFFSET_BITS) - 1;
+  struct Record {
+    Lit lits[3];
+    uint32_t meta;
+  };
+  static_assert(sizeof(Record) == 16);
+
+public:
+  void reserve(size_t n) { records_.reserve(n); }
+  void insert(const SmallKey &key) {
+    assert(key.size >= 3 && key.size <= CONG_XOR_ARITY + 1);
+    assert(tails_.size() + key.size - 3 <= OFFSET_MASK);
+    Record record{{key.lits[0], key.lits[1], key.lits[2]},
+                  static_cast<uint32_t>(tails_.size()) |
+                      ((key.size - 3) << OFFSET_BITS)};
+    for (uint32_t i = 3; i < key.size; i++)
+      tails_.push_back(key.lits[i]);
+    records_.push_back(record);
+  }
+  void finish() {
+    std::sort(records_.begin(), records_.end(),
+              [&](const Record &a, const Record &b) {
+                return compare(a, b) < 0;
+              });
+    records_.erase(
+        std::unique(records_.begin(), records_.end(),
+                    [&](const Record &a, const Record &b) {
+                      return compare(a, b) == 0;
+                    }),
+        records_.end());
+  }
+  bool contains(const SmallKey &key) const {
+    const auto it = std::lower_bound(
+        records_.begin(), records_.end(), key,
+        [&](const Record &record, const SmallKey &wanted) {
+          return compare(record, wanted) < 0;
+        });
+    return it != records_.end() && compare(*it, key) == 0;
+  }
+  size_t size() const { return records_.size(); }
+
+  class Iterator {
+  public:
+    Iterator(const ClauseIndex *index, size_t position)
+        : index_(index), position_(position) {}
+    SmallKey operator*() const { return index_->key(records(position_)); }
+    Iterator &operator++() {
+      position_++;
+      return *this;
+    }
+    bool operator!=(const Iterator &other) const {
+      return position_ != other.position_;
+    }
+
+  private:
+    const Record &records(size_t position) const {
+      return index_->records_[position];
+    }
+    const ClauseIndex *index_;
+    size_t position_;
+  };
+  Iterator begin() const { return Iterator(this, 0); }
+  Iterator end() const { return Iterator(this, records_.size()); }
+
+  // Preserve the old work-meter denomination.  SmallKeySet started at 64
+  // buckets and doubled just before crossing 70 percent load; sorted_keys
+  // charged one visit per bucket plus one per stored key.
+  size_t legacy_bucket_count() const {
+    size_t buckets = 64;
+    while (records_.size() * 10 > buckets * 7)
+      buckets *= 2;
+    return buckets;
+  }
+
+private:
+  uint32_t size(const Record &record) const {
+    return 3 + (record.meta >> OFFSET_BITS);
+  }
+  uint32_t offset(const Record &record) const {
+    return record.meta & OFFSET_MASK;
+  }
+  Lit literal(const Record &record, uint32_t position) const {
+    if (position < 3)
+      return record.lits[position];
+    if (position >= size(record))
+      return 0;
+    return tails_[offset(record) + position - 3];
+  }
+  int compare(const Record &a, const Record &b) const {
+    for (uint32_t i = 0; i < CONG_XOR_ARITY + 1; i++) {
+      const Lit alit = literal(a, i), blit = literal(b, i);
+      if (alit != blit)
+        return alit < blit ? -1 : 1;
+    }
+    const uint32_t asize = size(a), bsize = size(b);
+    return asize == bsize ? 0 : (asize < bsize ? -1 : 1);
+  }
+  int compare(const Record &record, const SmallKey &key) const {
+    for (uint32_t i = 0; i < CONG_XOR_ARITY + 1; i++) {
+      const Lit stored = literal(record, i);
+      if (stored != key.lits[i])
+        return stored < key.lits[i] ? -1 : 1;
+    }
+    const uint32_t stored_size = size(record);
+    return stored_size == key.size ? 0 : (stored_size < key.size ? -1 : 1);
+  }
+  SmallKey key(const Record &record) const {
+    SmallKey result;
+    result.size = size(record);
+    for (uint32_t i = 0; i < result.size; i++)
+      result.lits[i] = literal(record, i);
+    return result;
+  }
+
+  std::vector<Record> records_;
+  PagedVector<Lit> tails_;
+};
 
 // Iterating a hash table is implementation-ordered, and gate emission order
 // feeds the closure's merge order and hence the search trajectory, which must
 // not fork across toolchains. `operator<` totally orders stored keys, so this
 // is independent of the table's. Built once per apply, by value.
-static std::vector<SmallKey> sorted_keys(const Kernel &k,
-                                         const ClauseIndex &index) {
-  std::vector<SmallKey> keys;
-  keys.reserve(index.size());
-  for (const SmallKey &sk : index.buckets())
-    if (sk.size != 0)
-      keys.push_back(sk);
-  k.stats.congruence_ticks += index.buckets().size() + keys.size();
-  std::sort(keys.begin(), keys.end());
-  return keys;
+static const ClauseIndex &sorted_keys(const Kernel &k,
+                                      const ClauseIndex &index) {
+  k.stats.congruence_ticks += index.legacy_bucket_count() + index.size();
+  return index;
 }
 
 // Index every irredundant clause of size 3..CONG_XOR_ARITY+1 by its sorted
@@ -380,6 +1016,10 @@ static std::vector<SmallKey> sorted_keys(const Kernel &k,
 // within an apply, so one snapshot is valid for the whole closure.
 void build_clause_index(const Kernel &k, ClauseIndex &index) {
   std::vector<Lit> ls;
+  // Every indexed clause has at least three literals and therefore at least
+  // eight arena words.  Reserving this exact structural upper bound prevents a
+  // second full vector from coexisting during geometric growth.
+  index.reserve(k.arena.size() / clause_words(3));
   // Extraction is read-only, so aborting is free: the caller returns NoOp.
   uint32_t xtick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -404,6 +1044,7 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
       ls.push_back(l);
     index.insert(small_key(ls.data(), static_cast<uint32_t>(ls.size())));
   }
+  index.finish();
 }
 
 // A size-s clause group over {v0..v_{s-1}} is the XOR relation v0⊕…⊕v_{s-1} = c
@@ -411,7 +1052,7 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
 // not the relation, and the gate would be unsound (`docs/calculus.md` V6). It
 // yields s gates, one per output vᵢ, with the other variables as inputs.
 void congruence_extract_xor(const Kernel &k, const ClauseIndex &index,
-                            const std::vector<SmallKey> &sorted,
+                            const ClauseIndex &sorted,
                             std::vector<CongGate> &out) {
   (void)k;
   SmallKeySet seen;     // by sorted positive vars
@@ -1038,7 +1679,7 @@ bool normalize_ite(Lit &cond, Lit &then_l, Lit &else_l) {
 // ternaries before emission, so a mis-detected pair cannot yield an unsound
 // gate.
 void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
-                            const std::vector<SmallKey> &sorted,
+                            const ClauseIndex &sorted,
                             std::vector<CongGate> &out) {
   (void)k;
   auto has = [&](Lit a, Lit b, Lit c) -> bool {
@@ -1190,7 +1831,8 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
   std::vector<uint64_t> chain, br;
   // chain forcing conflict for (¬g_from.out ∨ g_to.out)
   auto build = [&](const CongGate &g_from, const CongGate &g_to) -> bool {
-    chain.assign(g_from.input_bin_ids.begin(), g_from.input_bin_ids.end());
+    chain.assign(g_from.input_bin_ids().begin(),
+                 g_from.input_bin_ids().end());
     std::unordered_map<Lit, Lit> rep2from;
     for (const Lit in : g_from.inputs)
       rep2from[find(in)] = in;
@@ -1205,7 +1847,7 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
         return false;
       chain.insert(chain.end(), br.begin(), br.end());
     }
-    chain.push_back(g_to.base_id);
+    chain.push_back(g_to.base_id());
     // Two same-class inputs can thread bridge paths sharing binary ids, and a
     // repeated hint is illegal LRAT. It propagates nothing at its second
     // position, so dropping it leaves the propagation sequence intact.
@@ -1314,6 +1956,14 @@ bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
   const Lit reverse[2] = {larger, negate(smaller)};
   const bool need_forward = !kernel_binary_live(k, forward[0], forward[1]);
   const bool need_reverse = !kernel_binary_live(k, reverse[0], reverse[1]);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  static uint32_t traced_sparse_adds = 0;
+  const bool trace_sparse_add =
+      (need_forward || need_reverse) && traced_sparse_adds++ < 32;
+  if (trace_sparse_add)
+    congruence_stage_trace(k, "representative-binary-add-begin", smaller,
+                           larger, need_forward, need_reverse);
+#endif
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<uint64_t> forward_chain, reverse_chain;
   if (lrat) {
@@ -1335,7 +1985,13 @@ bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
   if (need_forward)
     add(forward, forward_chain);
   if (need_reverse)
-    add(reverse, reverse_chain);
+  add(reverse, reverse_chain);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  if (trace_sparse_add)
+    congruence_stage_trace(k, "representative-binary-add-end",
+                           k.watches.arena.size(), k.watches.arena.capacity(),
+                           k.watches.holes);
+#endif
   return true;
 }
 
@@ -1361,40 +2017,9 @@ const bool cong_y1 = [] {
 // that drive the rest of the closure.  Only binaries present at entry are used
 // as antecedents, matching Kissat's fixed offset table; newly derived pairs are
 // deduplicated but do not recursively seed this pass.
-static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
-  const bool lrat = k.proof && k.proof->lrat();
-  const auto pair_key = [](Lit a, Lit b) {
-    if (a > b)
-      std::swap(a, b);
-    return (static_cast<uint64_t>(a) << 32) | b;
-  };
-  // `kernel_canonicalize_binary_watches` has just packed every list as sorted
-  // binaries followed by large watches. Kissat's extractor queries that fixed
-  // dense offset table directly. Record only each list's binary prefix length
-  // and binary-search it; materializing the same 80M pairs in a node-based
-  // unordered_set costs several GiB and dominates this entire rule.
-  const Lit nlits = static_cast<Lit>(2 * k.nvars);
-  std::vector<uint32_t> binary_prefix(nlits, 0);
-  for (Lit lit = 0; lit < nlits; lit++) {
-    const uint32_t *p = k.watches.begin(lit);
-    const uint32_t *const end = k.watches.end(lit);
-    while (p != end && Watch{*p}.binary())
-      p++;
-    binary_prefix[lit] = static_cast<uint32_t>(p - k.watches.begin(lit));
-  }
-  const auto original_live = [&](Lit lit, Lit other) {
-    const uint32_t *begin = k.watches.begin(lit);
-    const uint32_t *end = begin + binary_prefix[lit];
-    const uint64_t wanted = kernel_import_lit_order(k, other);
-    const uint32_t *it = std::lower_bound(
-        begin, end, wanted, [&](uint32_t word, uint64_t order) {
-          return kernel_import_lit_order(k, Watch{word}.other()) < order;
-        });
-    return it != end && Watch{*it}.other() == other;
-  };
-  std::unordered_set<uint64_t> emitted;
-  std::vector<uint64_t> chain;
-  std::vector<Lit> touched_binary_lists;
+static bool find_congruence_binary_candidates(
+    Kernel &k, std::vector<std::pair<Lit, Lit>> &candidates) {
+  candidates.clear();
   bool complete = true;
   uint32_t tick = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -1421,7 +2046,8 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
     for (unsigned pivot = 0; pivot != 3; pivot++) {
       const Lit a = lits[pivot], b = lits[(pivot + 1) % 3],
                 cc = lits[(pivot + 2) % 3];
-      if (original_live(negate(a), b) || original_live(negate(a), cc)) {
+      if (kernel_binary_live(k, negate(a), b) ||
+          kernel_binary_live(k, negate(a), cc)) {
         x = b;
         y = cc;
         break;
@@ -1429,8 +2055,32 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
     }
     if (x == INVALID_LIT)
       continue;
-    const uint64_t key = pair_key(x, y);
-    if (original_live(x, y) || !emitted.insert(key).second)
+    if (kernel_binary_live(k, x, y))
+      continue;
+    candidates.emplace_back(x, y);
+  }
+  return complete;
+}
+
+static void install_congruence_binary_candidates(
+    Kernel &k, const std::vector<std::pair<Lit, Lit>> &candidates,
+    uint64_t &extracted) {
+  const bool lrat = k.proof && k.proof->lrat();
+  std::vector<uint64_t> chain;
+  std::vector<std::pair<Lit, uint32_t>> touched_binary_lists;
+  const auto note_prefix = [&](Lit lit) {
+    const uint32_t *p = k.watches.begin(lit);
+    const uint32_t *const end = k.watches.end(lit);
+    while (p != end && Watch{*p}.binary())
+      p++;
+    touched_binary_lists.emplace_back(
+        lit, static_cast<uint32_t>(p - k.watches.begin(lit)));
+  };
+  for (const auto &[x, y] : candidates) {
+    // Discovery snapshots entry membership before any pair is installed, so
+    // derived binaries never recursively seed this pass.  The live watch
+    // database now serves only to suppress later duplicate candidates.
+    if (kernel_binary_live(k, x, y))
       continue;
     const Lit binary[2] = {x, y};
     chain.clear();
@@ -1443,9 +2093,9 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
       k.proof->add_rup(lrat ? id : 0, binary, 2,
                        lrat ? chain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    note_prefix(x);
+    note_prefix(y);
     kernel_add_binary_clause(k, x, y, id);
-    touched_binary_lists.push_back(x);
-    touched_binary_lists.push_back(y);
     extracted++;
   }
   // Kissat accumulates extracted pairs in a separate dense-mode suffix, radix
@@ -1454,16 +2104,22 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
   // remains in arena traversal order; only sparse propagation order changes.
   // Tactix adds directly to the packed watch lists, after their large entries,
   // so restore the same old-prefix / sorted-new-suffix / large layout here.
-  std::sort(touched_binary_lists.begin(), touched_binary_lists.end());
+  std::stable_sort(touched_binary_lists.begin(), touched_binary_lists.end(),
+                   [](const auto &a, const auto &b) {
+                     return a.first < b.first;
+                   });
   touched_binary_lists.erase(
-      std::unique(touched_binary_lists.begin(), touched_binary_lists.end()),
+      std::unique(touched_binary_lists.begin(), touched_binary_lists.end(),
+                  [](const auto &a, const auto &b) {
+                    return a.first == b.first;
+                  }),
       touched_binary_lists.end());
   std::vector<uint32_t> new_binaries, large_words;
-  for (const Lit lit : touched_binary_lists) {
+  for (const auto &[lit, binary_prefix] : touched_binary_lists) {
     new_binaries.clear();
     large_words.clear();
     uint32_t *const begin = k.watches.begin(lit);
-    uint32_t *p = begin + binary_prefix[lit];
+    uint32_t *p = begin + binary_prefix;
     uint32_t *const end = k.watches.end(lit);
     while (p != end) {
       if (Watch{*p}.binary()) {
@@ -1478,12 +2134,11 @@ static bool extract_congruence_binaries(Kernel &k, uint64_t &extracted) {
                 return kernel_import_lit_order(k, Watch{a}.other()) <
                        kernel_import_lit_order(k, Watch{b}.other());
               });
-    uint32_t *out = begin + binary_prefix[lit];
+    uint32_t *out = begin + binary_prefix;
     out = std::copy(new_binaries.begin(), new_binaries.end(), out);
     std::copy(large_words.begin(), large_words.end(), out);
     k.watches.heads[lit].binaries_first = true;
   }
-  return complete;
 }
 
 // After propagating the closure, Kissat enters dense mode a second time and
@@ -1496,6 +2151,7 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
   // newly propagated root unit.  At a root fixpoint an assigned binary must be
   // satisfied (the both-false case would already have refuted).
   kernel_deduplicate_binary_watches(k);
+  congruence_stage_trace(k, "forward-deduplicate-end");
   std::vector<std::pair<Lit, Lit>> satisfied_binaries;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     for (const WatchEntry w : k.watches.entries(lit)) {
@@ -1510,11 +2166,15 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
         satisfied_binaries.emplace_back(lit, other);
       }
     }
+  congruence_stage_trace(k, "forward-satisfied-scan-end",
+                         satisfied_binaries.size());
   for (const auto &[a, b] : satisfied_binaries) {
     const bool deleted = kernel_delete_binary(k, a, b);
     assert(deleted);
     (void) deleted;
   }
+  congruence_stage_trace(k, "forward-satisfied-delete-end",
+                         satisfied_binaries.size());
   std::vector<uint8_t> matchable(k.nvars, 0);
   for (Var v = 0; v < k.nvars; v++) {
     if (k.value(make_lit(v, false)) || kernel_var_retired(k, v))
@@ -1526,6 +2186,7 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
       matchable[var_of(repr)] = 1;
     }
   }
+  congruence_stage_trace(k, "forward-matchable-end", matchable.size());
 
   struct Candidate {
     Ref ref;
@@ -1536,6 +2197,7 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<Lit> canonical;
   uint64_t deleted = 0;
+  congruence_stage_trace(k, "forward-scratch-end", seen.size(), marks.size());
 
   // Return false for a root-satisfied or representative-tautological clause.
   // Otherwise preserve first-occurrence order in `canonical`; Kissat uses that
@@ -1590,17 +2252,20 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
       candidates.push_back(
           {static_cast<Ref>(ref - words), static_cast<uint32_t>(canonical.size())});
   }
+  congruence_stage_trace(k, "forward-candidates-end", candidates.size());
   std::stable_sort(candidates.begin(), candidates.end(),
                    [](const Candidate &a, const Candidate &b) {
                      return a.size < b.size;
                    });
+  congruence_stage_trace(k, "forward-candidate-sort-end", candidates.size());
 
   // Only literals selected as the least-occurring connection of an accepted
   // candidate ever own a list.  A dense vector-of-vectors spends 24 bytes for
   // every literal even when no candidate names it; on 128_125 that means 97
   // million empty vectors before storing one Ref.  Sparse lookup preserves
   // the exact candidate and insertion order.
-  std::unordered_map<Lit, std::vector<Ref>> occ;
+  SparseRefOccurrences occ;
+  occ.reserve(candidates.size());
   for (const Candidate candidate : candidates) {
     if (kernel_terminating(k))
       break;
@@ -1616,10 +2281,12 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
       marks[lit] = 1;
     bool subsumed = false;
     for (const Lit lit : canonical) {
-      const auto occurrence = occ.find(lit);
-      if (occurrence == occ.end())
+      const uint32_t occurrence = occ.find(lit);
+      if (occurrence == SparseRefOccurrences::EMPTY)
         continue;
-      for (const Ref dref : occurrence->second) {
+      for (uint32_t node = occ.first(occurrence);
+           node != SparseRefOccurrences::EMPTY; node = occ.next(node)) {
+        const Ref dref = occ.ref(node);
         const Clause *d = clause_at(k.arena, dref);
         bool d_matchable = false;
         std::vector<Lit> dcanonical;
@@ -1652,16 +2319,17 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     Lit least = INVALID_LIT;
     size_t least_count = 0;
     for (const Lit lit : canonical) {
-      const auto occurrence = occ.find(lit);
-      const size_t count =
-          occurrence == occ.end() ? 0 : occurrence->second.size();
+      const uint32_t occurrence = occ.find(lit);
+      const size_t count = occurrence == SparseRefOccurrences::EMPTY
+                               ? 0
+                               : occ.count(occurrence);
       if (least == INVALID_LIT || count < least_count) {
         least = lit;
         least_count = count;
       }
     }
     assert(least != INVALID_LIT);
-    occ[least].push_back(candidate.ref);
+    occ.push_back(least, candidate.ref);
   }
 
   if (deleted) {
@@ -1748,35 +2416,42 @@ bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
                               bool with_xor_ite) {
   const size_t base = out.size();
+  congruence_stage_trace(k, "and-begin", out.size());
   {
     Stage s(&cong_t.extract_and);
     congruence_extract(k, out);
   }
+  congruence_stage_trace(k, "and-end", out.size());
   k.stats.congruence_gates_and += out.size() - base; // see Stats
   if (with_xor_ite) {
     ClauseIndex index; // built once, shared by XOR + ITE extraction
+    congruence_stage_trace(k, "small-index-begin", out.size());
     {
       Stage s(&cong_t.index);
       build_clause_index(k, index);
     }
+    congruence_stage_trace(k, "small-index-end", out.size(), index.size());
     // …and so is its canonical iteration order: the index is immutable for the
     // whole apply, so sorting it per consumer would recompute the same vector.
-    std::vector<SmallKey> sorted;
+    const ClauseIndex *sorted = nullptr;
     {
       Stage s(&cong_t.sort);
-      sorted = sorted_keys(k, index);
+      sorted = &sorted_keys(k, index);
     }
+    congruence_stage_trace(k, "small-sort-end", out.size(), sorted->size());
     const size_t before_xor = out.size();
     {
       Stage s(&cong_t.xor_x);
-      congruence_extract_xor(k, index, sorted, out);
+      congruence_extract_xor(k, index, *sorted, out);
     }
+    congruence_stage_trace(k, "xor-end", out.size(), sorted->size());
     k.stats.congruence_gates_xor += out.size() - before_xor;
     const size_t before_ite = out.size();
     {
       Stage s(&cong_t.ite_x);
-      congruence_extract_ite(k, index, sorted, out);
+      congruence_extract_ite(k, index, *sorted, out);
     }
+    congruence_stage_trace(k, "ite-end", out.size(), sorted->size());
     k.stats.congruence_gates_ite += out.size() - before_ite;
   }
 }
@@ -1790,10 +2465,19 @@ ApplyResult congruence_apply(Kernel &k) {
   const uint64_t apply_t0 = cong_time ? now_nanos() : 0; // in-flight, for the print
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
+  congruence_stage_trace(k, "root-end");
+  std::vector<std::pair<Lit, Lit>> binary_candidates;
+  {
+    Stage s(&cong_t.binary_extract);
+    (void)find_congruence_binary_candidates(k, binary_candidates);
+  }
+  congruence_stage_trace(k, "binary-candidates-end",
+                         binary_candidates.size());
   {
     Stage s(&cong_t.rebuild);
-    kernel_canonicalize_binary_watches(k);
+    kernel_canonicalize_binary_watches(k, true, &binary_candidates);
   }
+  congruence_stage_trace(k, "binary-rebuild-end");
   k.stats.congruence_rounds++;
   if (cong_probe)
     cong_root_in = kernel_root_fixed(k);
@@ -1804,11 +2488,12 @@ ApplyResult congruence_apply(Kernel &k) {
 
   // Root units derived by this round are asserted and propagated immediately.
   // Congruence is a value-driven closure: each new root value can simplify a
-  // gate into the next unit or equivalence in the same application.  The
-  // PendingUnits table still owns proof-id deduplication and opposite-sign
-  // refutation, but no longer delays the semantic cascade until M1.
-  PendingUnits pending;
-  pending.init(k.nvars);
+  // gate into the next unit or equivalence in the same application.  Earlier
+  // batching needed a dense literal/id pair for every variable; immediate
+  // root closure makes the root assignment and `unit_ids` that same-sign
+  // deduplication and opposite-sign refutation state.
+  bool recorded_unit = false;
+  congruence_stage_trace(k, "unit-state-end");
   auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
                          uint64_t *counter = nullptr) -> bool {
     const Var v = var_of(u);
@@ -1824,15 +2509,11 @@ ApplyResult congruence_apply(Kernel &k) {
       kernel_emit_empty_from_pair(k, id, trail_id);
       return true;
     }
-    const PendingUnits::Outcome o = pending.record(k, u, id);
-    if (o == PendingUnits::Outcome::Recorded) {
-      ++(counter ? *counter : k.stats.congruence_units);
-      pending.commit(k, u); // the id is this variable's identity from here
-      kernel_assign_unit(k, u);
-      if (inprocess_reach_root(k))
-        return true;
-    }
-    return o == PendingUnits::Outcome::Refuted;
+    ++(counter ? *counter : k.stats.congruence_units);
+    recorded_unit = true;
+    k.unit_ids[v] = id; // this unit is the variable's identity from here
+    kernel_assign_unit(k, u);
+    return inprocess_reach_root(k);
   };
   // Every recorded unit has already reached root closure.  Keep the common
   // finish path for result accounting and all early exits.
@@ -1841,8 +2522,7 @@ ApplyResult congruence_apply(Kernel &k) {
       cong_root_out = kernel_root_fixed(k);
     if (k.inconsistent)
       return ApplyResult::Unsat;
-    return (merged || !pending.units.empty()) ? ApplyResult::Ok
-                                              : ApplyResult::NoOp;
+    return (merged || recorded_unit) ? ApplyResult::Ok : ApplyResult::NoOp;
   };
 
   // Strengthening precedes every other Congruence channel in the reference:
@@ -1851,8 +2531,11 @@ ApplyResult congruence_apply(Kernel &k) {
   uint64_t extracted_binaries = 0;
   {
     Stage s(&cong_t.binary_extract);
-    (void)extract_congruence_binaries(k, extracted_binaries);
+    install_congruence_binary_candidates(k, binary_candidates,
+                                         extracted_binaries);
   }
+  std::vector<std::pair<Lit, Lit>>().swap(binary_candidates);
+  congruence_stage_trace(k, "binary-extract-end", extracted_binaries);
 
   std::vector<CongGate> gates;
   // Gate extraction precedes unit discovery in Kissat.  This snapshot order is
@@ -1860,6 +2543,7 @@ ApplyResult congruence_apply(Kernel &k) {
   // must remain present so the closure can simplify them into residual units,
   // binaries, and equivalences.
   congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
+  congruence_stage_trace(k, "gates-end", gates.size());
   // Extraction is read-only, so an interrupt raised during it costs nothing to
   // honour — nothing has been applied yet.
   if (kernel_terminating(k)) {
@@ -1876,6 +2560,7 @@ ApplyResult congruence_apply(Kernel &k) {
         }))
       return ApplyResult::Unsat;
   }
+  congruence_stage_trace(k, "binary-units-end", gates.size());
 
   // The congruence closure (kissat's), an incremental worklist over a union-find
   // on literals: merge the outputs of two gates that canonicalize to the same
@@ -1884,9 +2569,11 @@ ApplyResult congruence_apply(Kernel &k) {
   // (`docs/calculus.md` V6).
   const uint64_t setup_t0 = cong_time ? now_nanos() : 0;
   const uint32_t nlits = 2 * k.nvars;
+  congruence_stage_trace(k, "closure-repr-begin", gates.size(), nlits);
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
     repr[l] = l;
+  congruence_stage_trace(k, "closure-repr-end", gates.size(), repr.size());
   auto find = [&](Lit l) {
     while (repr[l] != l)
       l = repr[l] = repr[repr[l]];
@@ -1898,42 +2585,73 @@ ApplyResult congruence_apply(Kernel &k) {
   };
 
   // Per-kind tables keyed by the canonical input key (kinds must not collide).
-  std::unordered_map<std::vector<Lit>, uint32_t, InputsHash> table[3];
-  table[0].reserve(gates.size() * 2);
+  // Pre-size each one from the extracted gate population.  Canonicalization
+  // can only shrink an input key on its first insertion; later re-keying grows
+  // normally if a gate is rescheduled after a merge.
+  size_t gate_counts[3] = {0, 0, 0};
+  size_t input_counts[3] = {0, 0, 0};
+  for (const CongGate &g : gates) {
+    const int kind = static_cast<int>(g.kind);
+    gate_counts[kind]++;
+    input_counts[kind] += g.inputs.size();
+  }
+  ClosureTable table[3];
   // Canonical-input literal -> gate ids, preserving registration order.  A
-  // vector<vector<...>> spends 24 bytes on every one of 97M literal slots in
-  // 128_125 before storing a dependency. Packed head/tail endpoints plus flat
-  // nodes match the reference's contiguous occurrence representation.
+  // vector<vector<...>> spends 24 bytes on every literal before storing one
+  // dependency.  Each dense slot instead names the tail of a circular linked
+  // list: tail.next is the head, so one 32-bit endpoint supports ordered append
+  // and ordered traversal.  Paged nodes avoid geometric whole-buffer copies.
   struct OccNode {
     uint32_t gate;
     uint32_t next;
   };
-  std::vector<uint64_t> occ_endpoints(nlits, UINT64_MAX);
-  std::vector<OccNode> occ_nodes;
-  occ_nodes.reserve(2 * gates.size());
+  PagedLiteralTails occ_tails(nlits);
+  congruence_stage_trace(k, "closure-occ-heads-end", gates.size(),
+                         occ_tails.directory_size());
+  PagedVector<OccNode> occ_nodes;
+  occ_nodes.reserve(input_counts[0] + input_counts[1] + input_counts[2]);
+  congruence_stage_trace(k, "closure-occ-nodes-end", gates.size(),
+                         occ_nodes.capacity());
   auto add_occurrence = [&](Lit lit, uint32_t gate) {
     assert(occ_nodes.size() < UINT32_MAX);
     const uint32_t node = static_cast<uint32_t>(occ_nodes.size());
-    occ_nodes.push_back({gate, UINT32_MAX});
-    uint64_t &endpoints = occ_endpoints[lit];
-    if (endpoints == UINT64_MAX) {
-      endpoints = (static_cast<uint64_t>(node) << 32) | node;
+    uint32_t &tail = occ_tails.get_or_create(lit);
+    if (tail == UINT32_MAX) {
+      occ_nodes.push_back({gate, node});
     } else {
-      const uint32_t tail = static_cast<uint32_t>(endpoints);
+      const uint32_t head = occ_nodes[tail].next;
+      occ_nodes.push_back({gate, head});
       occ_nodes[tail].next = node;
-      endpoints = (endpoints & UINT64_C(0xffffffff00000000)) | node;
     }
+    tail = node;
   };
-  std::vector<uint32_t> work(gates.size());
-  for (uint32_t i = 0; i < gates.size(); i++)
-    work[i] = i;
+  // The initial FIFO is exactly 0..gates.size()-1; represent that prefix
+  // implicitly and store only later reschedules.  Queue membership is one bit
+  // per gate, not one byte.
+  const size_t initial_work = gates.size();
+  PagedVector<uint32_t> rescheduled_work;
+  rescheduled_work.reserve(gates.size());
   size_t work_head = 0;
-  std::vector<uint8_t> inq(gates.size(), 1);
+  std::vector<uint64_t> inq((gates.size() + 63) / 64, UINT64_MAX);
+  const auto queued = [&](uint32_t gate) {
+    return (inq[gate >> 6] >> (gate & 63)) & 1;
+  };
+  const auto set_queued = [&](uint32_t gate, bool value) {
+    const uint64_t bit = UINT64_C(1) << (gate & 63);
+    if (value)
+      inq[gate >> 6] |= bit;
+    else
+      inq[gate >> 6] &= ~bit;
+  };
+  const auto work_size = [&]() {
+    return initial_work + rescheduled_work.size();
+  };
+  congruence_stage_trace(k, "closure-work-end", work_size(), inq.size());
   auto reschedule_all_gates = [&]() {
     for (uint32_t gg = 0; gg < gates.size(); gg++)
-      if (!inq[gg]) {
-        inq[gg] = 1;
-        work.push_back(gg);
+      if (!queued(gg)) {
+        set_queued(gg, true);
+        rescheduled_work.push_back(gg);
       }
   };
   if (cong_time)
@@ -1986,6 +2704,8 @@ ApplyResult congruence_apply(Kernel &k) {
     const bool a_first = kernel_import_lit_order(k, oa) <
                          kernel_import_lit_order(k, ob);
     const Lit sm = a_first ? oa : ob, big = a_first ? ob : oa;
+    if (neq < 16)
+      congruence_stage_trace(k, "binary-import-merge-begin", x, y, sm, big);
     if (!add_representative_equivalence(k, sm, big)) {
       if (temporary) {
         if (temporary->forward)
@@ -1997,17 +2717,23 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     unite(sm, big);
     neq++;
+    if (neq <= 16)
+      congruence_stage_trace(k, "binary-import-merge-added", neq,
+                             k.watches.arena.size(), k.watches.holes);
     for (const Lit side : {big, negate(big)}) {
-      const uint64_t endpoints = occ_endpoints[side];
-      if (endpoints == UINT64_MAX)
+      const uint32_t tail = occ_tails.get(side);
+      if (tail == UINT32_MAX)
         continue;
-      for (uint32_t node = static_cast<uint32_t>(endpoints >> 32);
-           node != UINT32_MAX; node = occ_nodes[node].next) {
+      uint32_t node = occ_nodes[tail].next;
+      while (true) {
         const uint32_t gg = occ_nodes[node].gate;
-        if (!inq[gg]) {
-          inq[gg] = 1;
-          work.push_back(gg);
+        if (!queued(gg)) {
+          set_queued(gg, true);
+          rescheduled_work.push_back(gg);
         }
+        if (node == tail)
+          break;
+        node = occ_nodes[node].next;
       }
     }
     // The raw-output binaries are proof scaffolding only.  Kissat keeps the
@@ -2043,11 +2769,11 @@ ApplyResult congruence_apply(Kernel &k) {
   // making every pair unique, that order keeps the representative trajectory
   // stable for trace comparison.
   const uint64_t binary_import_t0 = cong_time ? now_nanos() : 0;
-  std::vector<uint8_t> binary_marks(nlits, 0);
   std::vector<Lit> marked;
-  std::vector<Var> binary_vars;
-  kernel_vars_in_import_order(k, binary_vars);
-  for (const Var v : binary_vars) {
+  CompactVarOrder binary_vars(k);
+  for (size_t variable_index = 0; variable_index < binary_vars.size();
+       variable_index++) {
+    const Var v = binary_vars[variable_index];
     if (unsat)
       break;
     if (v < k.var_status.size() &&
@@ -2064,21 +2790,24 @@ ApplyResult congruence_apply(Kernel &k) {
           continue;
         const Lit other = w.other();
         if (kernel_import_lit_order(k, lit) >
-                kernel_import_lit_order(k, other) ||
-            binary_marks[other])
+            kernel_import_lit_order(k, other))
           continue;
-        binary_marks[other] = 1;
         marked.push_back(other);
       }
+      if (variable_index < 16 || !(variable_index % 250000))
+        congruence_stage_trace(k, "binary-import-collected", variable_index,
+                               marked.size(), marked.capacity(), neq);
+      std::sort(marked.begin(), marked.end());
+      marked.erase(std::unique(marked.begin(), marked.end()), marked.end());
       const Lit not_lit = negate(lit);
       for (const WatchEntry w : k.watches.entries(not_lit)) {
         if (!w.binary())
           continue;
         const Lit other = w.other();
         if (kernel_import_lit_order(k, not_lit) >
-                kernel_import_lit_order(k, other) ||
+            kernel_import_lit_order(k, other) ||
             lit == other ||
-            !binary_marks[negate(other)])
+            !std::binary_search(marked.begin(), marked.end(), negate(other)))
           continue;
         const Lit lit_repr = find(lit), other_repr = find(other);
         if (lit_repr == other_repr)
@@ -2094,26 +2823,38 @@ ApplyResult congruence_apply(Kernel &k) {
           k.stats.congruence_unjustified++;
         break;
       }
-      for (const Lit other : marked)
-        binary_marks[other] = 0;
       marked.clear();
     } while (restart && !unsat);
+    if (variable_index < 16 || !(variable_index % 250000))
+      congruence_stage_trace(k, "binary-import-variable-end", variable_index,
+                             k.watches.arena.size(), k.watches.holes, neq);
   }
   if (cong_time)
     cong_t.binary_import += now_nanos() - binary_import_t0;
+  std::vector<Lit>().swap(marked);
+  binary_vars = CompactVarOrder{};
+  congruence_stage_trace(k, "binary-import-scratch-released", gates.size(),
+                         occ_tails.allocated_blocks());
   if (unsat)
     return ApplyResult::Unsat;
   if (gates.empty()) {
     k.stats.congruence_merges += neq;
     return finish(/*merged=*/neq != 0);
   }
+  for (int kind = 0; kind < 3; kind++)
+    if (gate_counts[kind])
+      table[kind].reserve(gate_counts[kind], input_counts[kind]);
+  congruence_stage_trace(
+      k, "closure-table-end", gates.size(),
+      table[0].bucket_count() + table[1].bucket_count() +
+          table[2].bucket_count());
 
   // The closure is the long block, so it must be interruptible: abort between
   // worklist items, each all-or-nothing (binaries and proof chain both emitted,
   // or nothing). The batched root units are still asserted from what it did.
   uint32_t stop_tick = 0;
   const uint64_t closure_t0 = cong_time ? now_nanos() : 0;
-  while (work_head < work.size() && !unsat) {
+  while (work_head < work_size() && !unsat) {
     if (k.stop_fuzz || !(++stop_tick & 255)) {
       if (kernel_terminating(k)) {
         k.stats.rule_interrupted++;
@@ -2125,8 +2866,20 @@ ApplyResult congruence_apply(Kernel &k) {
         break;
     }
     cong_t.items++;
-    const uint32_t i = work[work_head++];
-    inq[i] = 0;
+    const uint32_t i = work_head < initial_work
+                           ? static_cast<uint32_t>(work_head)
+                           : rescheduled_work[work_head - initial_work];
+    work_head++;
+    set_queued(i, false);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (!(work_head % 250000))
+      congruence_stage_trace(
+          k, "closure-progress", work_head,
+          table[0].size() + table[1].size() + table[2].size(),
+          table[0].literal_count() + table[1].literal_count() +
+              table[2].literal_count(),
+          occ_nodes.size());
+#endif
     Lit out_i;
     bool value_derived_i = false;
     Canon ci;
@@ -2266,12 +3019,11 @@ ApplyResult congruence_apply(Kernel &k) {
     Stage table_stage(&cong_t.table);
     for (const Lit l : key)
       add_occurrence(l, i); // reschedule when a canonical input merges
-    auto &tab = table[static_cast<int>(gates[i].kind)];
-    auto it = tab.find(key);
-    if (it == tab.end()) {
+    ClosureTable &tab = table[static_cast<int>(gates[i].kind)];
+    const ClosureTable::Lookup lookup = tab.lookup_or_insert(key, i);
+    if (lookup.inserted) {
       if (cong_probe)
         cm.insert++;
-      tab.emplace(key, i);
       continue;
     }
     if (cong_probe)
@@ -2280,7 +3032,7 @@ ApplyResult congruence_apply(Kernel &k) {
     // on, and only a shared current key proves the outputs equal. A degenerate
     // stored gate is evicted rather than exploited here — it is still in the
     // worklist, so its own pop draws the inference.
-    const uint32_t j = it->second;
+    const uint32_t j = tab.gate(lookup.record);
     Lit out_j;
     bool value_derived_j = false;
     if (canonicalize(k, gates[j], find, key_j, out_j, cancelled_j, reps,
@@ -2289,7 +3041,9 @@ ApplyResult congruence_apply(Kernel &k) {
         key_j != key) {
       if (cong_probe)
         cm.stale++;
-      it->second = i; // evict stale/degenerate entry; current gate represents key
+      // Evict the stale/degenerate value while retaining the immutable key,
+      // exactly like assigning through the old unordered_map iterator.
+      tab.replace(lookup.record, i);
       continue;
     }
     const Lit oa = find(out_j);
@@ -2389,10 +3143,45 @@ ApplyResult congruence_apply(Kernel &k) {
       continue;
     }
   }
-  if (!unsat && (neq || !pending.units.empty()) && !kernel_terminating(k)) {
+  const size_t closure_work_size = work_size();
+  congruence_stage_trace(k, "closure-loop-end", work_head, closure_work_size,
+                         neq, recorded_unit ? 1 : 0);
+
+  // Forward subsumption needs only `repr` through `find`.  Releasing the gate
+  // hash, dependency index, and work queue at this phase boundary prevents two
+  // complete dense working sets from overlapping.  On rank 8 these dead
+  // closure indices retain about 1.5 GiB; keeping them alive made even the
+  // forward pass's first 16 MiB flat bucket allocation fail under 16 GiB.
+  for (ClosureTable &tab : table)
+    tab = ClosureTable{};
+  occ_tails = PagedLiteralTails{};
+  occ_nodes = PagedVector<OccNode>{};
+  rescheduled_work = PagedVector<uint32_t>{};
+  std::vector<uint64_t>().swap(inq);
+  // The forward pass consumes only the completed representative map.  Keeping
+  // the extracted gates alive here retained 20M fixed records (roughly 0.6
+  // GiB on the largest Tier-D circuit) beside a wholly separate occurrence
+  // index. Preserve the count needed by statistics and release the records at
+  // the actual lifetime boundary.
+  const size_t completed_gate_count = gates.size();
+  std::vector<CongGate>().swap(gates);
+  congruence_stage_trace(k, "closure-scratch-released", work_head,
+                         closure_work_size, completed_gate_count,
+                         recorded_unit ? 1 : 0);
+  if (!unsat && (neq || recorded_unit) && !kernel_terminating(k)) {
+    congruence_stage_trace(k, "closure-forward-begin", work_head,
+                           closure_work_size, neq, recorded_unit ? 1 : 0);
     Stage s(&cong_t.forward);
     (void)forward_subsume_congruent_clauses(k, find);
+    congruence_stage_trace(k, "closure-forward-end", work_head,
+                           closure_work_size, neq, recorded_unit ? 1 : 0);
   }
+  // No later phase consults the union-find: forward subsumption was its final
+  // consumer. Release the dense literal representative map before root
+  // propagation and any eager Substitute follow-up allocate their own state.
+  std::vector<Lit>().swap(repr);
+  congruence_stage_trace(k, "closure-representatives-released", work_head,
+                         closure_work_size, neq, recorded_unit ? 1 : 0);
   if (cong_time) {
     cong_t.closure_all += now_nanos() - closure_t0;
     const double ms = 1e-6;
@@ -2457,9 +3246,10 @@ ApplyResult congruence_apply(Kernel &k) {
     std::fprintf(stderr,
                  "[cong] %zu gates, %llu binaries extracted, %llu "
                  "equivalences added\n",
-                 gates.size(), (unsigned long long)extracted_binaries,
+                 completed_gate_count,
+                 (unsigned long long)extracted_binaries,
                  (unsigned long long)neq);
-  k.stats.congruence_gates += gates.size();
+  k.stats.congruence_gates += completed_gate_count;
   k.stats.congruence_merges += neq;
   if (unsat)
     return ApplyResult::Unsat;
