@@ -45,7 +45,7 @@ struct RankingSummary {
   std::string top = "-";
 };
 
-RankingSummary summarize_ranking(const Kernel &k) {
+RankingSummary summarize_ranking(const Kernel &k, bool include_top) {
   RankingSummary res;
   if (!k.h)
     return res;
@@ -58,6 +58,13 @@ RankingSummary summarize_ranking(const Kernel &k) {
   res.heap = k.h->scores.stack.size();
   for (const Var v : k.h->scores.stack)
     res.retired_heap += kernel_var_retired(k, v);
+
+  // SKIP_HEAP is also the low-memory tracing contract: retain scalar queue and
+  // heap populations, but do not materialize and sort one Var per solver
+  // variable merely to print top32.  On giant formulas that diagnostic copy
+  // can itself be the allocation that changes the observed failure boundary.
+  if (!include_top)
+    return res;
 
   std::vector<Var> ranked;
   ranked.reserve(k.nvars);
@@ -141,6 +148,11 @@ bool EventTrace::open_from_env(const Kernel &k) {
   out_ = std::fopen(path, "w");
   if (!out_)
     return false;
+  // Diagnostic traces are often used to locate a solver stuck inside its
+  // first long macro operation.  Line buffering makes the last completed
+  // boundary observable while the process is still running instead of only
+  // when stdio fills or the solver exits.
+  std::setvbuf(out_, nullptr, _IOLBF, 0);
   active_trace = this;
   std::fprintf(out_, "# tactix-event-trace\t1\n");
   if (detail_window_)
@@ -227,7 +239,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   RankingSummary rank;
   uint64_t active = 0, irred = 0, red = 0, binary = 0, digest = 0;
   if (snapshot) {
-    rank = summarize_ranking(k);
+    rank = summarize_ranking(k, !skip_heap_);
     live_clause_counts(k, irred, red);
     binary = live_binary_clause_count(k);
     digest = state_digest(k);

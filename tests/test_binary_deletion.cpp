@@ -11,6 +11,38 @@
 
 using namespace tactix;
 
+static void test_compact_drat_binary_table_keeps_keys_without_ids() {
+  BinaryIdMap ids;
+  ids.discard_values();
+  ids.reserve(100);
+  const uint64_t key = kernel_binary_key(internalize(1), internalize(-2));
+  ids.insert_or_assign(key, 77);
+  assert(!ids.tracks_values());
+  assert(ids.size() == 1 && ids.count(key));
+  assert(ids.get(key) == 1 && ids.at(key) == 1);
+  ids.insert_or_assign(key, 99);
+  assert(ids.size() == 1 && ids.get(key) == 1);
+  uint64_t visited_key = 0, visited_id = 0;
+  ids.for_each([&](uint64_t k, uint64_t id) {
+    visited_key = k;
+    visited_id = id;
+  });
+  assert(visited_key == key && visited_id == 1);
+}
+
+static void test_storage_free_drat_archive_counts_distinct_adds() {
+  Kernel k;
+  k.binary_ids.discard_storage();
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(2);
+  kernel_add_binary_clause(k, a, b, 7);
+  kernel_add_binary_clause(k, a, b, 8);
+  assert(!k.binary_ids.tracks_keys() && !k.binary_ids.tracks_values());
+  assert(k.binary_ids.size() == 1);
+  assert(kernel_binary_id(k, a, b) == 1);
+  assert(kernel_binary_live(k, a, b));
+}
+
 // delete drops exactly one slot from each mirror list; the map keeps the key
 static void test_delete_shrinks_both_lists() {
   Kernel k;
@@ -41,6 +73,22 @@ static void test_readd_after_delete_installs_fresh_id() {
   assert(kernel_binary_id(k, a, b) == 42); // not the retired 7
   assert(kernel_delete_binary(k, a, b)); // deletable again under the new id
   assert(k.stats.binaries_deleted == 2);
+}
+
+static void test_add_missing_mirror_does_not_duplicate_stable_direction() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit stable = internalize(1), moved = internalize(2);
+  kernel_add_binary_clause(k, stable, moved, 7);
+  const uint32_t stable_size = k.watches.size(stable);
+  assert(k.watches.size(moved) == 1);
+  k.watches.heads[moved].size = 0; // pose an in-place rewritten stable watch
+
+  kernel_add_binary_mirror(k, stable, moved, 17);
+  assert(k.watches.size(stable) == stable_size);
+  assert(k.watches.size(moved) == 1);
+  assert(kernel_binary_id(k, stable, moved) == 17);
+  kernel_check_invariants(k);
 }
 
 // A duplicated pair is not deletable: one id cannot name two live clauses.
@@ -114,8 +162,11 @@ static void test_jumped_reason_protects_its_antecedent() {
 }
 
 int main() {
+  test_compact_drat_binary_table_keeps_keys_without_ids();
+  test_storage_free_drat_archive_counts_distinct_adds();
   test_delete_shrinks_both_lists();
   test_readd_after_delete_installs_fresh_id();
+  test_add_missing_mirror_does_not_duplicate_stable_direction();
   test_duplicate_pair_refused();
   test_delete_idempotent();
   test_reason_binary_retired_to_unit();

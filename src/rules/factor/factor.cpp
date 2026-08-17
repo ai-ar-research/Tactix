@@ -110,6 +110,10 @@ struct FactorIndex {
   // surviving dense-entry deduplication, then candidate large clauses in arena
   // order, then every divider/quotient appended during the pass.
   std::vector<std::vector<FactorWatch>> order;
+  // Exact live size of each dense Factor watch list.  Kissat obtains this in
+  // O(1) from its stack header for heap scores and next-factor tie breaks.
+  // Re-walking every dense list here makes a tied m-by-n grid cubic.
+  std::vector<uint32_t> live_degree;
   bool built = false;
 };
 
@@ -267,12 +271,15 @@ static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
 void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   idx.occ.assign(2 * k.nvars, {});
   idx.order.assign(2 * k.nvars, {});
+  idx.live_degree.assign(2 * k.nvars, 0);
   for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
     for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary())
+      if (watch.binary()) {
         idx.order[lit].push_back(
             {watch.other(), INVALID_REF,
              kernel_binary_id(k, lit, watch.other()), true});
+        idx.live_degree[lit]++;
+      }
     // Factor enters Kissat's dense mode with a null binary-save stack.  That
     // flushes large watches but deliberately keeps the current sparse binary
     // sequence; unlike Congruence it does not sort/reconnect the pairs.  This
@@ -336,6 +343,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
         for (const Lit l : *clause_at(k.arena, cand[i])) {
           idx.occ[l].push_back(cand[i]);
           idx.order[l].push_back({INVALID_LIT, cand[i], 0, true});
+          idx.live_degree[l]++;
         }
     idx.built = true;
     return;
@@ -347,6 +355,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
       for (const Lit l : *c) {
         idx.occ[l].push_back(ref);
         idx.order[l].push_back({INVALID_LIT, ref, 0, true});
+        idx.live_degree[l]++;
       }
     ref += words;
   }
@@ -431,88 +440,6 @@ bool contains(const std::vector<Lit> &v, Lit l) {
   return false;
 }
 
-// All clause occurrences of the form {factor} ∪ remainder, grouped by factor
-// while preserving first-factor and clause encounter order.  The vectors of
-// refs retain occurrence capacity for multiset intersection; content identity
-// alone is insufficient when equal clauses occur more than once.
-struct RemainderFactorBucket {
-  std::vector<Lit> order;
-  std::unordered_map<Lit, std::vector<Ref>> refs;
-};
-
-void build_remainder_factor_bucket(Kernel &k, const FactorIndex &idx,
-                                   const RemPool &pool, uint32_t rid, Lit limit,
-                                   Ref pose_ref, const std::vector<Lit> &factors,
-                                   RemainderFactorBucket &bucket) {
-  bucket.order.clear();
-  bucket.refs.clear();
-  const uint32_t rn = pool.size_of(rid);
-  const Lit *rl = pool.lits_of(rid);
-  if (rn == 1) {
-    if (rl[0] >= idx.order.size())
-      return;
-    for (const FactorWatch watch : idx.order[rl[0]]) {
-      if (!watch.binary() || watch.other >= limit ||
-          k.value(watch.other) != 0 ||
-          kernel_var_retired(k, var_of(watch.other)) ||
-          !factor_binary_live(k, rl[0], watch))
-        continue;
-      const Lit factor = watch.other;
-      auto [it, inserted] = bucket.refs.try_emplace(factor);
-      if (inserted)
-        bucket.order.push_back(factor);
-      it->second.push_back(INVALID_REF);
-    }
-    return;
-  }
-
-  // Kissat chooses the first least-watched remainder literal in the current
-  // quotient clause's existing pose.  The canonical sorted remainder is only
-  // a content key: using it here reverses equal-size ties (sted's -1173/-1171
-  // candidate pair) and using `idx.occ` ignores binary watches altogether.
-  assert(pose_ref != INVALID_REF);
-  const Clause *pose = clause_at(k.arena, pose_ref);
-  Lit scan = INVALID_LIT;
-  size_t scan_occ = SIZE_MAX;
-  for (const Lit lit : *pose) {
-    if (contains(factors, lit) || lit >= idx.order.size())
-      continue;
-    const size_t occurrences = idx.order[lit].size();
-    if (scan == INVALID_LIT || occurrences < scan_occ) {
-      scan_occ = occurrences;
-      scan = lit;
-    }
-  }
-  if (scan == INVALID_LIT)
-    return;
-  for (const FactorWatch watch : idx.order[scan]) {
-    if (watch.binary())
-      continue;
-    const Ref ref = watch.ref;
-    const Clause *c = clause_at(k.arena, ref);
-    if (c->size != rn + 1 || !grid_clause_live(k, c))
-      continue;
-    Lit factor = INVALID_LIT;
-    bool ok = true;
-    for (const Lit x : *c) {
-      if (std::binary_search(rl, rl + rn, x))
-        continue;
-      if (factor != INVALID_LIT) {
-        ok = false;
-        break;
-      }
-      factor = x;
-    }
-    if (!ok || factor == INVALID_LIT || factor >= limit ||
-        k.value(factor) != 0 || kernel_var_retired(k, var_of(factor)))
-      continue;
-    auto [it, inserted] = bucket.refs.try_emplace(factor);
-    if (inserted)
-      bucket.order.push_back(factor);
-    it->second.push_back(ref);
-  }
-}
-
 void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
                      const std::vector<uint32_t> &R, const RemPool &pool,
                      const std::vector<std::vector<Ref>> &grid_refs) {
@@ -531,8 +458,12 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     const size_t need = static_cast<size_t>(std::max(a, b)) + 1;
     if (idx.order.size() < need)
       idx.order.resize(need);
+    if (idx.live_degree.size() < need)
+      idx.live_degree.resize(need, 0);
     idx.order[a].push_back({b, INVALID_REF, id, true});
     idx.order[b].push_back({a, INVALID_REF, id, true});
+    idx.live_degree[a]++;
+    idx.live_degree[b]++;
   };
 
   // Dividers (x ∨ fᵢ): RAT on the fresh literal x. At add time no clause
@@ -619,9 +550,12 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
           idx.occ.resize(static_cast<size_t>(2 * k.nvars));
         if (idx.order.size() < static_cast<size_t>(2 * k.nvars))
           idx.order.resize(static_cast<size_t>(2 * k.nvars));
+        if (idx.live_degree.size() < static_cast<size_t>(2 * k.nvars))
+          idx.live_degree.resize(static_cast<size_t>(2 * k.nvars), 0);
         for (const Lit l : qlits) {
           idx.occ[l].push_back(qref);
           idx.order[l].push_back({INVALID_LIT, qref, 0, true});
+          idx.live_degree[l]++;
         }
       }
     }
@@ -634,11 +568,17 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     if (!idx.built)
       return;
     for (FactorWatch &watch : idx.order[a])
-      if (watch.binary() && watch.other == b)
+      if (watch.live && watch.binary() && watch.other == b) {
         watch.live = false;
+        assert(idx.live_degree[a]);
+        idx.live_degree[a]--;
+      }
     for (FactorWatch &watch : idx.order[b])
-      if (watch.binary() && watch.other == a)
+      if (watch.live && watch.binary() && watch.other == a) {
         watch.live = false;
+        assert(idx.live_degree[b]);
+        idx.live_degree[b]--;
+      }
   };
   for (size_t i = F.size(); i-- > 0;)
     for (size_t column = 0; column < R.size(); column++) {
@@ -654,6 +594,10 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       Clause *c = clause_at(k.arena, ref);
       if (c->garbage())
         continue;
+      for (const Lit l : *c) {
+        assert(l < idx.live_degree.size() && idx.live_degree[l]);
+        idx.live_degree[l]--;
+      }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       std::string transition = "factor-grid-delete(factors=";
       for (size_t fi = 0; fi < F.size(); fi++) {
@@ -776,6 +720,14 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // candidate can carry. Kissat sizes `factoring->count` the same way by
   // growing it for every fresh literal in resize_factoring (factor.c:645).
   std::vector<uint32_t> cofactor(next_factor_limit, 0); // co-occurrence counts
+  // Binary quotient filtering asks whether the selected next factor is paired
+  // with each one-literal remainder.  Mark the selected factor's adjacency
+  // list once per greedy step.  The old implementation rebuilt one
+  // unordered_map (and one heap node per edge) for every remainder, turning a
+  // dense m-by-n grid into millions of allocator operations although the
+  // already-deduplicated Factor index contains exactly the required relation.
+  std::vector<uint32_t> binary_partner_epoch(next_factor_limit, 0);
+  uint32_t binary_epoch = 0;
   std::vector<Lit> touched, F, best_F;
   std::vector<uint32_t> R, newR, best_R;
   std::vector<RemOccurrence> occurrences;
@@ -800,26 +752,13 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // watch size is not an approximation of this degree (a literal can watch
   // thousands of clauses which do not contain it as Factor material).
   const auto reference_score_of = [&](Lit l) -> uint32_t {
-    uint32_t score = 0;
-    if (!fidx.built || l >= fidx.order.size())
-      return score;
-    for (const FactorWatch watch : fidx.order[l]) {
-      if (watch.binary()) {
-        score += watch.other < live_lits && factor_binary_live(k, l, watch);
-        continue;
-      }
-      const Ref ref = watch.ref;
-      const Clause *c = clause_at(k.arena, ref);
-      if (!grid_clause_live(k, c))
-        continue;
-      // Kissat's update_candidate/tied_next_factor_score use the complete
-      // live dense-watch size.  A quotient containing this application's
-      // fresh extension literal is not eligible as a grid row (remainder_of
-      // enforces that boundary), but it still contributes to the heap and tie
-      // score.  Filtering it here changed Fmla's first candidate at grid 6496.
-      score++;
-    }
-    return score;
+    if (!fidx.built || l >= fidx.live_degree.size())
+      return 0;
+    // Kissat's update_candidate/tied_next_factor_score use the complete live
+    // dense-watch size.  A quotient containing this application's fresh
+    // extension literal is not eligible as a grid row, but still contributes
+    // to the heap and tie score.
+    return fidx.live_degree[l];
   };
   const auto score_of = [&](Lit l) -> uint32_t {
     const uint32_t reference_score = reference_score_of(l);
@@ -1091,24 +1030,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         break;
       }
 
-      // Binary matching below needs only the exact partner buckets.  Large
-      // matching is occurrence-specific and replays the scan directly.
-      std::vector<uint32_t> distinct_rids;
-      std::vector<uint8_t> seen_rid(pool.count(), 0);
-      for (const uint32_t rid : R)
-        if (!seen_rid[rid]) {
-          seen_rid[rid] = 1;
-          distinct_rids.push_back(rid);
-        }
-      std::unordered_map<uint32_t, RemainderFactorBucket> buckets;
-      buckets.reserve(distinct_rids.size());
-      for (const uint32_t rid : distinct_rids) {
-        if (pool.size_of(rid) != 1)
-          continue;
-        RemainderFactorBucket &bucket = buckets.try_emplace(rid).first->second;
-        build_remainder_factor_bucket(k, fidx, pool, rid, next_factor_limit,
-                                      INVALID_REF, F, bucket);
-      }
       // Highest co-occurrence count, ties broken by watch-list size (kissat's
       // `tied_next_factor_score`, factor.c:318). On a dense binary graph the max
       // count is tied among many candidates, so the tie-break selects the grid.
@@ -1163,13 +1084,22 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       if (g == INVALID_LIT) // no factor shares ≥ 2 remainders
         break;
 
+      if (++binary_epoch == 0) {
+        std::fill(binary_partner_epoch.begin(), binary_partner_epoch.end(), 0);
+        binary_epoch = 1;
+      }
+      if (g < fidx.order.size())
+        for (const FactorWatch watch : fidx.order[g])
+          if (watch.binary() && watch.other < binary_partner_epoch.size() &&
+              factor_binary_live(k, g, watch))
+            binary_partner_epoch[watch.other] = binary_epoch;
+
       // Filter every existing row through the same match indices, then append
       // g's exact clause Ref as the new row.  Iterating R in its current order
       // is Kissat's factorize_next + flush_unmatched_clauses lifecycle.
       newR.clear();
       std::vector<size_t> matched_columns;
       std::vector<Ref> next_refs;
-      std::vector<uint32_t> used(pool.count(), 0);
       std::unordered_set<Ref> used_large_refs;
       charge_factor_watch_scan(k, R.size());
       for (size_t column = 0; column < R.size(); column++) {
@@ -1177,15 +1107,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         const uint32_t rn = pool.size_of(rid);
         Ref matched_ref = INVALID_REF;
         if (rn == 1) {
-          charge_factor_watch_scan(k, reference_score_of(pool.lit0(rid)));
-          const auto bucket_it = buckets.find(rid);
-          if (bucket_it == buckets.end())
+          const Lit remainder = pool.lit0(rid);
+          charge_factor_watch_scan(k, reference_score_of(remainder));
+          if (remainder >= binary_partner_epoch.size() ||
+              binary_partner_epoch[remainder] != binary_epoch)
             continue;
-          const auto it = bucket_it->second.refs.find(g);
-          if (it == bucket_it->second.refs.end() ||
-              used[rid] >= it->second.size())
-            continue;
-          matched_ref = it->second[used[rid]++];
         } else {
           // Kissat does not consume an arbitrary clause from a content bucket.
           // For each surviving clause occurrence it chooses that clause's
@@ -1315,6 +1241,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         live_lits = static_cast<Lit>(2 * k.nvars);
         cofactor.resize(std::max(live_lits, next_factor_limit), 0);
         armed.resize(std::max(live_lits, next_factor_limit), 0);
+        binary_partner_epoch.resize(std::max(live_lits, next_factor_limit), 0);
       }
       // Clause addition re-arms exactly the polarities present in the new
       // definition: each factor occurs in a divider, and every remainder

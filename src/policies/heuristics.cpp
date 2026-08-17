@@ -28,6 +28,7 @@ void heuristics_consume_rule_advice(Kernel &k) {
     heuristics_demote_marked_vars(k, mark);
   }
   k.substituted_events.clear();
+  k.substituted_events.shrink_to_fit();
 }
 
 void heuristics_consume_retirements(Kernel &k) {
@@ -35,6 +36,7 @@ void heuristics_consume_retirements(Kernel &k) {
     for (const Var v : k.retired_events)
       heuristics_deactivate_var(k, v);
   k.retired_events.clear();
+  k.retired_events.shrink_to_fit();
 }
 
 void heuristics_discard_rule_events(Kernel &k) {

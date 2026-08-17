@@ -469,6 +469,24 @@ static void test_probing_propagation_restores_or_persists_pose() {
   assert(same(bookkeeping(c), c1));
 }
 
+static void test_delayed_relocation_scratch_is_output_sensitive() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 3);
+  const Lit clause[3] = {internalize(-1), internalize(2), internalize(3)};
+  for (unsigned i = 0; i < 64; i++)
+    kernel_add_large_clause(k, clause, 3, false, 0, i + 1);
+
+  // Propagating x1 scans 64 large watches, but every blocking x2 is true.
+  // Kissat delays no relocation here, so the scratch must stay empty instead
+  // of reserving three words for every possible relocation.
+  kernel_assign_unit(k, internalize(2));
+  kernel_assign_unit(k, internalize(1));
+  assert(!kernel_propagate(k));
+  assert(k.delayed_used == 0);
+  assert(k.delayed.empty());
+}
+
 static void test_default_solve_sat() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -708,6 +726,69 @@ static void test_propagate_beyond_conflicts_for_warmup() {
   kernel_check_invariants(k);
 }
 
+static void test_pending_units_borrow_and_restore_literal_marks() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(-2);
+  {
+    PendingUnits pending;
+    pending.init(k);
+    assert(pending.ids.empty()); // proof-less/DRAT batches stay sparse
+    assert(pending.record(k, a, 11) == PendingUnits::Outcome::Recorded);
+    assert(pending.record(k, a, 12) == PendingUnits::Outcome::Duplicate);
+    assert(pending.record(k, b, 13) == PendingUnits::Outcome::Recorded);
+    assert(k.eager_marks[a] && k.eager_marks[b]);
+    pending.init(k); // resetting a batch restores every borrowed byte
+    assert(!k.eager_marks[a] && !k.eager_marks[b]);
+  }
+  assert(std::all_of(k.eager_marks.begin(), k.eager_marks.end(),
+                     [](uint8_t mark) { return !mark; }));
+
+  PendingUnits opposite;
+  opposite.init(k);
+  assert(opposite.record(k, a, 21) == PendingUnits::Outcome::Recorded);
+  assert(opposite.record(k, negate(a), 22) ==
+         PendingUnits::Outcome::Refuted);
+  assert(k.inconsistent);
+}
+
+static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
+  WatchLists watches;
+  watches.resize_lits(4);
+  watches.push_binary(0, 1);
+  watches.push_large(0, 2, 17);
+  watches.push_binary(1, 0);
+  watches.push_binary(2, 3);
+
+  const std::vector<uint32_t> prefix0(watches.begin(0), watches.end(0));
+  const std::vector<uint32_t> prefix1(watches.begin(1), watches.end(1));
+  const uint32_t size0 = watches.size(0), size1 = watches.size(1);
+  watches.begin_batch_reserve();
+  watches.reserve_batch_word(0);
+  watches.reserve_batch_word(0);
+  watches.reserve_batch_word(1);
+  watches.finish_batch_reserve();
+
+  assert(std::vector<uint32_t>(watches.begin(0), watches.end(0)) == prefix0);
+  assert(std::vector<uint32_t>(watches.begin(1), watches.end(1)) == prefix1);
+  assert(watches.heads[0].capacity == size0 + 2);
+  assert(watches.heads[1].capacity == size1 + 1);
+  const size_t arena_size = watches.arena.size();
+  watches.push_large(0, 3, 23);
+  watches.push_binary(1, 2);
+  assert(watches.arena.size() == arena_size);
+  assert(watches.heads[0].size == watches.heads[0].capacity);
+  assert(watches.heads[1].size == watches.heads[1].capacity);
+  assert(watches.holes == 0);
+
+  watches.begin_batch_reserve();
+  watches.finish_batch_reserve(false);
+  const size_t exact_size = watches.arena.size();
+  assert(watches.arena.capacity() == exact_size);
+  watches.push_binary(0, 1);
+  assert(watches.arena.capacity() >= exact_size + (exact_size + 2) / 3);
+}
+
 int main() {
   test_variable_identity_maps();
   test_variable_compaction();
@@ -725,6 +806,7 @@ int main() {
   test_backtrack_restores();
   test_probing_does_not_save_phases();
   test_probing_propagation_restores_or_persists_pose();
+  test_delayed_relocation_scratch_is_output_sensitive();
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
   test_rebuild_large_watches_reselects_root_false_pair();
@@ -732,6 +814,8 @@ int main() {
   test_canonical_binary_watch_rebuild();
   test_null_stack_dense_flush_retains_root_satisfied_pairs();
   test_propagate_beyond_conflicts_for_warmup();
+  test_pending_units_borrow_and_restore_literal_marks();
+  test_watch_batch_reserve_preserves_prefixes_and_fills_exactly();
   puts("test_kernel OK");
   return 0;
 }

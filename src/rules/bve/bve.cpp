@@ -113,15 +113,41 @@ struct MClause {
   Lit ba = INVALID_LIT, bb = INVALID_LIT;
 };
 
-// Reusable state for definition extraction, owned by `bve_eliminate`'s caller:
-// a round creates one and every candidate reuses it, so no per-attempt
-// O(nvars) fill-init happens inside a per-variable loop. A null pointer means
-// definition extraction is unavailable here.
+// Sparse literal-to-clause lookup for one candidate. The dense value image is
+// allocated once per BVE round; only entries written by the preceding
+// candidate are reset. On multi-million-variable formulas, constructing two
+// fresh 2*nvars integer vectors for every cheap candidate made zero-fill, not
+// resolution, the dominant cost.
+struct SparseBinaryIndex {
+  std::vector<int32_t> values;
+  std::vector<Lit> touched;
+
+  void begin(size_t nlits) {
+    for (const Lit lit : touched)
+      values[lit] = -1;
+    touched.clear();
+    if (values.size() < nlits)
+      values.resize(nlits, -1);
+  }
+  void set(Lit lit, int32_t value) {
+    if (values[lit] < 0)
+      touched.push_back(lit);
+    values[lit] = value;
+  }
+  int32_t get(Lit lit) const { return values[lit]; }
+};
+
+// Reusable candidate state, owned by `bve_eliminate`'s caller: a round creates
+// one and every candidate reuses it, so no per-attempt O(nvars) fill-init
+// happens inside a per-variable loop. A null pointer retains the standalone
+// fallback used by direct rule consumers.
 struct BveDefScratch {
   SubSolver solver;
   std::vector<Var> vars;    // sorted distinct non-pivot vars = the sub var space
   std::vector<SubLit> lits; // one reduced clause, being encoded
   SubDerivation deriv;
+  SparseBinaryIndex pos_bin, neg_bin;
+  std::vector<uint8_t> literal_marks;
   uint64_t ticks = 0;    // ticks the last attempt spent (0 if none was made)
   bool checked = false;  // an attempt was made at all
   bool exhausted = false; // ...and the tick ceiling cut it short
@@ -291,16 +317,20 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
                          BveDefScratch *def) {
   resolve_gate = false;
   // binary partner lookup: side_bin[lit] = index of a binary {pivot, lit}, or -1.
-  std::vector<int> pos_bin(2 * k.nvars, -1), neg_bin(2 * k.nvars, -1);
+  SparseBinaryIndex local_pos_bin, local_neg_bin;
+  SparseBinaryIndex &pos_bin = def ? def->pos_bin : local_pos_bin;
+  SparseBinaryIndex &neg_bin = def ? def->neg_bin : local_neg_bin;
+  pos_bin.begin(2 * static_cast<size_t>(k.nvars));
+  neg_bin.begin(2 * static_cast<size_t>(k.nvars));
   for (size_t i = 0; i < pos.size(); ++i)
     if (pos[i].active.size() == 2) {
       const Lit o = pos[i].active[0] == px ? pos[i].active[1] : pos[i].active[0];
-      pos_bin[o] = int(i);
+      pos_bin.set(o, static_cast<int32_t>(i));
     }
   for (size_t j = 0; j < neg.size(); ++j)
     if (neg[j].active.size() == 2) {
       const Lit o = neg[j].active[0] == nx ? neg[j].active[1] : neg[j].active[0];
-      neg_bin[o] = int(j);
+      neg_bin.set(o, static_cast<int32_t>(j));
     }
 
   // (1) equivalence x↔¬w: pos binary (x∨w) + neg binary (¬x∨¬w) ⟹ ¬w→x, x→¬w.
@@ -308,7 +338,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   for (size_t i = 0; i < pos.size(); ++i)
     if (pos[i].active.size() == 2) {
       const Lit w = pos[i].active[0] == px ? pos[i].active[1] : pos[i].active[0];
-      const int j = neg_bin[negate(w)];
+      const int j = neg_bin.get(negate(w));
       if (j >= 0) {
         pos_gate[i] = 1;
         neg_gate[size_t(j)] = 1;
@@ -319,7 +349,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   // (2) AND/OR: a base clause on one side whose every input has the matching
   // binary on the other; the base plus those binaries fully define x.
   auto try_and_or = [&](const std::vector<MClause> &base_side, Lit base_pivot,
-                        const std::vector<int> &opp_bin,
+                        const SparseBinaryIndex &opp_bin,
                         std::vector<uint8_t> &base_gate,
                         std::vector<uint8_t> &opp_gate) -> bool {
     for (size_t b = 0; b < base_side.size(); ++b) {
@@ -328,7 +358,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
         continue; // a 2-literal base is an equivalence (handled above)
       bool all = true;
       for (const Lit o : base.active)
-        if (o != base_pivot && opp_bin[negate(o)] < 0) {
+        if (o != base_pivot && opp_bin.get(negate(o)) < 0) {
           all = false;
           break;
         }
@@ -337,7 +367,7 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       base_gate[b] = 1;
       for (const Lit o : base.active)
         if (o != base_pivot)
-          opp_gate[size_t(opp_bin[negate(o)])] = 1;
+          opp_gate[size_t(opp_bin.get(negate(o)))] = 1;
       return true;
     }
     return false;
@@ -901,7 +931,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // binary_ids id (kernel.hpp invariant), the witness wants one entry, and
   // kernel_delete_binary_all_copies removes them all. Dedup also makes `base`
   // count distinct clauses, matching kissat's deduped dense occurrences.
-  std::vector<uint8_t> seen_bin(2 * k.nvars, 0);
+  std::vector<uint8_t> local_literal_marks;
+  std::vector<uint8_t> &literal_marks =
+      def ? def->literal_marks : local_literal_marks;
+  if (literal_marks.size() < 2 * static_cast<size_t>(k.nvars))
+    literal_marks.resize(2 * static_cast<size_t>(k.nvars), 0);
   std::vector<Lit> touched_bin;
   auto gather_bin = [&](Lit lit, std::vector<MClause> &live) {
     touched_bin.clear();
@@ -909,9 +943,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       if (!w.binary())
         continue;
       const Lit o = w.other();
-      if (seen_bin[o]) // duplicate copy: same logical clause, same id
+      if (literal_marks[o]) // duplicate copy: same logical clause, same id
         continue;
-      seen_bin[o] = 1;
+      literal_marks[o] = 1;
       touched_bin.push_back(o);
       if (k.value(o) > 0) { // satisfied
         del_bin.emplace_back(lit, o);
@@ -927,7 +961,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       live.push_back(std::move(m));
     }
     for (const Lit o : touched_bin) // clear for the other polarity's gather
-      seen_bin[o] = 0;
+      literal_marks[o] = 0;
   };
   gather_bin(px, pos);
   gather_bin(nx, neg);
@@ -1007,7 +1041,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
           : commit_limit;
   bool oversized = false; // a resolvent exceeded BVE_CLSLIM → never eliminable
   bool over_gen = false;  // resolvent count passed gen_limit → needs > ceiling
-  std::vector<uint8_t> seen(2 * k.nvars, 0); // dedup/tautology scratch
+  // The binary gather above restored every touched mark. Reuse the same
+  // round-owned literal image for resolvent deduplication and tautology tests.
+  std::vector<uint8_t> &seen = literal_marks;
   for (size_t ci = 0; ci < pos.size() && !oversized && !over_gen; ++ci) {
     const MClause &c = pos[ci];
     for (const Lit l : c.active)
@@ -1078,7 +1114,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // Batched root units + opposite-sign refutation, the shared kernel idiom
   // (PendingUnits, kernel.hpp).
   PendingUnits pending;
-  pending.init(k.nvars);
+  pending.init(k);
   std::vector<Ref> fresh; // large resolvents, the backward pass's subsumers
   std::vector<std::pair<Lit, Lit>> fresh_bin; // size-2 resolvents, ditto
   auto record_unit = [&](Lit u, uint64_t id) -> bool {
@@ -1268,7 +1304,13 @@ static ApplyResult bve_apply_instance(Kernel &k, uint64_t inst) {
     return ApplyResult::Unsat;
   if (k.values[l] != 0) // the requested var got assigned by the drain
     return ApplyResult::NoOp;
-  BveDefScratch def;
+  // The scheduler doses BVE through this one-instance entry, so stack-local
+  // scratch here would still allocate and zero 2*nvars maps once per
+  // candidate even though the canonical-round entry reuses them. Keep the
+  // rule-scoped cache across admissions, matching the persistent sparse
+  // scratch used by Instantiate, Congruence, and TransitiveReduce. BVE is not
+  // re-entrant; thread-local storage keeps independent solver threads apart.
+  static thread_local BveDefScratch def;
   return bve_eliminate(k, var_of(l), &def);
 }
 

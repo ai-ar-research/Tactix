@@ -151,8 +151,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " reorder.mode=" << reorder.mode
       << " inprocess.bve_enabled=" << inprocess.bve_enabled
       << " inprocess.vivify_enabled=" << inprocess.vivify_enabled
-      << " inprocess.factor_enabled=" << inprocess.factor_enabled
-      << " inprocess.congruence_enabled=" << inprocess.congruence_enabled
+      << " inprocess.factor_repeated_enabled="
+      << inprocess.factor_repeated_enabled
       << " inprocess.preprocess_only=" << inprocess.preprocess_only
       << " inprocess.eliminate_interval=" << inprocess.eliminate_interval
       << " inprocess.probe_interval=" << inprocess.probe_interval
@@ -1113,19 +1113,17 @@ void DefaultBranching::start_random_sequence(Kernel &k) {
 void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   enum class FormulaProfile {
     Reference,
-    NoFvc,
-    NoFactor,
-    NoFactorNoVivify,
-    NoVivifyCongruence,
-    NoFactorCongruence,
+    StartupFactorOnly,
+    StartupFactorOnlyNoVivify,
+    NoVivify,
     Dose5NoVivify,
     Dose5Vivify5,
     Factor5NoVivify,
     NoBveNoVivify,
-    NoBveNoCongruence,
-    NoBveNoCongruenceLight,
+    NoBve,
+    NoBveLight,
     LegacySearch,
-    LegacyNoFactor,
+    LegacyStartupFactorOnly,
   };
 
   const uint64_t vars = kernel_num_output_vars(k);
@@ -1153,7 +1151,7 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   // disabling it turns a 58-second solve into a timeout.
   if (grain_shape &&
       vars >= DefaultStrategyConfig::PROFILE_GRAIN_LEGACY_MIN_VARS)
-    profile = FormulaProfile::LegacyNoFactor;
+    profile = FormulaProfile::LegacyStartupFactorOnly;
   else if (vars >= DefaultStrategyConfig::PROFILE_VARS_900 &&
            vars < DefaultStrategyConfig::PROFILE_VARS_1000 &&
            clauses < DefaultStrategyConfig::PROFILE_DENSITY_SPARSE * vars)
@@ -1161,11 +1159,11 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   else if (vars >= DefaultStrategyConfig::PROFILE_PTN_MIN_VARS &&
       vars < DefaultStrategyConfig::PROFILE_PTN_MAX_VARS &&
       clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
-    profile = FormulaProfile::NoFactorNoVivify;
+    profile = FormulaProfile::StartupFactorOnlyNoVivify;
   else if (vars >= DefaultStrategyConfig::PROFILE_VARS_6000 &&
            vars < DefaultStrategyConfig::PROFILE_VARS_7000 &&
            clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
-    profile = FormulaProfile::NoFvc;
+    profile = FormulaProfile::StartupFactorOnlyNoVivify;
   else if (vars >= DefaultStrategyConfig::PROFILE_VARS_10000 &&
            vars < DefaultStrategyConfig::PROFILE_VARS_15000 &&
            clauses < DefaultStrategyConfig::PROFILE_DENSITY_CONTEXT_MAX * vars)
@@ -1174,32 +1172,32 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     profile = FormulaProfile::Dose5NoVivify;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_EXTREME))
     profile = vars < DefaultStrategyConfig::PROFILE_VARS_1000
-                  ? FormulaProfile::NoBveNoCongruenceLight
-                  : FormulaProfile::NoBveNoCongruence;
+                  ? FormulaProfile::NoBveLight
+                  : FormulaProfile::NoBve;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_VERY_HIGH))
-    profile = FormulaProfile::NoFvc;
+    profile = FormulaProfile::StartupFactorOnlyNoVivify;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_HIGH))
     profile = FormulaProfile::Reference;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_MEDIUM)) {
     if (vars >= DefaultStrategyConfig::PROFILE_VARS_800 &&
         vars < DefaultStrategyConfig::PROFILE_VARS_900)
-      profile = FormulaProfile::NoFactor;
+      profile = FormulaProfile::StartupFactorOnly;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_900)
-      profile = FormulaProfile::NoFvc;
+      profile = FormulaProfile::StartupFactorOnlyNoVivify;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_1000 &&
              at_least(DefaultStrategyConfig::PROFILE_DENSITY_FACTOR_ONLY))
-      profile = FormulaProfile::NoFactor;
+      profile = FormulaProfile::StartupFactorOnly;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_1500)
       profile = FormulaProfile::Dose5NoVivify;
     else
-      profile = FormulaProfile::NoFactorCongruence;
+      profile = FormulaProfile::StartupFactorOnly;
   } else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_LOW)) {
     if (vars < DefaultStrategyConfig::PROFILE_VARS_300)
-      profile = FormulaProfile::NoBveNoCongruence;
+      profile = FormulaProfile::NoBve;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_1000)
-      profile = FormulaProfile::NoFactorCongruence;
+      profile = FormulaProfile::StartupFactorOnly;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_4000)
-      profile = FormulaProfile::NoFvc;
+      profile = FormulaProfile::StartupFactorOnlyNoVivify;
     else
       profile = FormulaProfile::Dose5Vivify5;
   } else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_SPARSE)) {
@@ -1208,10 +1206,10 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_5000)
       profile = FormulaProfile::Factor5NoVivify;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_10000)
-      profile = FormulaProfile::NoFvc;
+      profile = FormulaProfile::StartupFactorOnlyNoVivify;
     else if (vars >= DefaultStrategyConfig::PROFILE_VARS_20000 &&
              vars < DefaultStrategyConfig::PROFILE_VARS_25000)
-      profile = FormulaProfile::NoFactorNoVivify;
+      profile = FormulaProfile::StartupFactorOnlyNoVivify;
     else
       profile = FormulaProfile::Dose5Vivify5;
   } else if (vars < DefaultStrategyConfig::PROFILE_VARS_500)
@@ -1219,60 +1217,57 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_2000)
     profile = FormulaProfile::Dose5Vivify5;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_6500)
-    profile = FormulaProfile::NoVivifyCongruence;
+    profile = FormulaProfile::NoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_10000)
     profile = FormulaProfile::Factor5NoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_25000)
-    profile = vars >= DefaultStrategyConfig::PROFILE_VARS_15000 &&
-                      vars < DefaultStrategyConfig::PROFILE_VARS_20000
-                  ? FormulaProfile::NoFactorNoVivify
-                  : FormulaProfile::NoFvc;
+    profile = FormulaProfile::StartupFactorOnlyNoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_32000)
     profile = FormulaProfile::Factor5NoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_40000)
     profile = FormulaProfile::Dose5NoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_50000)
-    profile = FormulaProfile::NoFactorCongruence;
+      profile = FormulaProfile::StartupFactorOnly;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_70000)
     profile = clauses < DefaultStrategyConfig::PROFILE_DENSITY_VERY_SPARSE *
                             vars
                   ? FormulaProfile::Reference
-                  : FormulaProfile::NoFvc;
+                  : FormulaProfile::StartupFactorOnlyNoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_120000)
-    profile = FormulaProfile::NoFactorCongruence;
+    profile = FormulaProfile::StartupFactorOnly;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_200000)
-    profile = FormulaProfile::NoVivifyCongruence;
+    profile = FormulaProfile::NoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_300000)
     profile = FormulaProfile::NoBveNoVivify;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_800000)
     profile = vars < DefaultStrategyConfig::PROFILE_VARS_500000
-                  ? FormulaProfile::NoFactorNoVivify
+                  ? FormulaProfile::StartupFactorOnlyNoVivify
                   : clauses >=
                             DefaultStrategyConfig::PROFILE_DENSITY_VERY_SPARSE *
                                 vars
-                        ? FormulaProfile::NoFvc
+                        ? FormulaProfile::StartupFactorOnlyNoVivify
                         : FormulaProfile::Dose5NoVivify;
 
   auto &in = config_.inprocess;
   in.forward_midround_budget =
       at_least(DefaultStrategyConfig::PROFILE_DENSITY_EXTREME);
+  // Congruence is deliberately absent from these static profiles.  Kissat
+  // 4.0.4 and CaDiCaL 3.0 both admit their startup closure on every formula
+  // and govern repetition from observed merge yield.  Tactix follows that
+  // admission contract; its tick budget, closure watermark, and productivity
+  // delay bound later applications.
   switch (profile) {
   case FormulaProfile::Reference:
     break;
-  case FormulaProfile::NoFvc:
-    in.factor_enabled = in.vivify_enabled = in.congruence_enabled = false;
+  case FormulaProfile::StartupFactorOnly:
+    in.factor_repeated_enabled = false;
     break;
-  case FormulaProfile::NoFactor:
-    in.factor_enabled = false;
+  case FormulaProfile::StartupFactorOnlyNoVivify:
+    in.factor_repeated_enabled = false;
+    in.vivify_enabled = false;
     break;
-  case FormulaProfile::NoFactorNoVivify:
-    in.factor_enabled = in.vivify_enabled = false;
-    break;
-  case FormulaProfile::NoVivifyCongruence:
-    in.vivify_enabled = in.congruence_enabled = false;
-    break;
-  case FormulaProfile::NoFactorCongruence:
-    in.factor_enabled = in.congruence_enabled = false;
+  case FormulaProfile::NoVivify:
+    in.vivify_enabled = false;
     break;
   case FormulaProfile::Dose5NoVivify:
     in.bve_permille = in.factor_permille = in.subsume_forward_permille =
@@ -1291,21 +1286,21 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   case FormulaProfile::NoBveNoVivify:
     in.bve_enabled = in.vivify_enabled = false;
     break;
-  case FormulaProfile::NoBveNoCongruence:
-    in.bve_enabled = in.congruence_enabled = false;
+  case FormulaProfile::NoBve:
+    in.bve_enabled = false;
     config_.rephase.late_lucky = false;
     break;
-  case FormulaProfile::NoBveNoCongruenceLight:
-    in.bve_enabled = in.congruence_enabled = false;
+  case FormulaProfile::NoBveLight:
+    in.bve_enabled = false;
     in.vivify_permille = in.subsume_forward_permille =
         DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
     config_.rephase.late_lucky = false;
     break;
   case FormulaProfile::LegacySearch:
-  case FormulaProfile::LegacyNoFactor:
+  case FormulaProfile::LegacyStartupFactorOnly:
     in.preprocess_only = true;
-    if (profile == FormulaProfile::LegacyNoFactor)
-      in.factor_enabled = false;
+    if (profile == FormulaProfile::LegacyStartupFactorOnly)
+      in.factor_repeated_enabled = false;
     config_.branching.random_sequences = false;
     config_.rephase.walk_permille = 0;
     config_.reorder.mode = 0;
@@ -1492,9 +1487,6 @@ void DefaultInprocessScheduler::build(Kernel &k) {
         bool on = !non_kissat_pipeline &&
                   !( !config().bve_enabled && !std::strcmp(nm, "BVE")) &&
                   !( !config().vivify_enabled && !std::strcmp(nm, "Vivify")) &&
-                  !( !config().factor_enabled && !std::strcmp(nm, "Factor")) &&
-                  !( !config().congruence_enabled &&
-                     !std::strcmp(nm, "Congruence")) &&
                   !(bve_off && !std::strcmp(nm, "BVE")) &&
                   !(factor_off && !std::strcmp(nm, "Factor"));
         if (env_list("TACTIX_SLOT_ENABLE", nm))
@@ -1773,6 +1765,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
+  // Kissat's startup collectors physically remove inactive variables before
+  // search. Tactix defers that representation-only compaction until both
+  // Lucky attempts have failed: easy SAT instances avoid the rebuild, while
+  // long searches do not carry substituted variables through every dense
+  // kernel and heuristic array. Use the same strict inactive-percent policy
+  // as the post-Reduce compaction point.
+  if (compact_ && kernel_should_compact_variables(
+                      k, config_.reduction.compact_inactive_percent))
+    kernel_compact_variables(k);
   // Preprocessing has consumed the root-unit trail prefix.  Tactix retains
   // those literals for stable IDs/proof witnesses, so only the lifecycle
   // marker is cleared (Kissat physically clears that prefix).
@@ -2277,6 +2278,15 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
 
 bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry &e) {
   const auto &cfg = config();
+  // Formula profiles may suppress repeated Factor work, but never the startup
+  // entry. Kissat 4.0.4 admits `preprocessfactor` independently of formula
+  // shape; keeping the entry prevents density classification from hiding
+  // productive BVA. The resource and decade governors below remain separate
+  // policy decisions and may still decline before rule dispatch.
+  if (k.stats.conflicts > 0 && !cfg.factor_repeated_enabled) {
+    e.tm.dec_profile++;
+    return true;
+  }
   const uint64_t active = active_variables(k);
   // Factor's 700M-tick first dose can dominate an entire P4 allocation after
   // one BVE round relaxes the reference factordelay exponent.  Keep that
@@ -2775,11 +2785,12 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
       continue;
     const uint64_t declined =
         t.dec_disabled + t.dec_cap + t.dec_preprocess + t.dec_guard +
-        t.dec_budget + t.dec_delay + t.dec_material + t.dec_warmup;
+        t.dec_budget + t.dec_delay + t.dec_material + t.dec_warmup +
+        t.dec_profile;
     const char *balance = (t.admitted + declined == t.occasions) ? "" : "  ***UNACCOUNTED***";
     std::printf(
         "c slot %-18s occ %6llu adm %5llu ok %5llu | dec dis %llu cap %llu "
-        "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu "
+        "pre %llu grd %llu bud %llu dly %llu mat %llu warm %llu prof %llu "
         "| handed %llu spent %llu completed %llu | "
         "wrapped %llu%s\n",
         rules[e.rule].name, (unsigned long long)t.occasions,
@@ -2788,6 +2799,7 @@ void DefaultInprocessScheduler::report(const Kernel &k) const {
         (unsigned long long)t.dec_preprocess, (unsigned long long)t.dec_guard,
         (unsigned long long)t.dec_budget, (unsigned long long)t.dec_delay,
         (unsigned long long)t.dec_material, (unsigned long long)t.dec_warmup,
+        (unsigned long long)t.dec_profile,
         (unsigned long long)t.handed,
         (unsigned long long)t.spent, (unsigned long long)t.completed,
         (unsigned long long)t.wrapped, balance);

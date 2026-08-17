@@ -1454,6 +1454,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   }
   if (k.sweep_tail_next == k.sweep_tail.size()) {
     k.sweep_tail.clear();
+    k.sweep_tail.shrink_to_fit();
     k.sweep_tail_next = 0;
     k.sweep_passes_completed++;
     k.stats.sweep_completed++;

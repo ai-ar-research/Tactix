@@ -156,7 +156,12 @@ M3 is one public operation. Private pending state must be consumed before contro
   large watches in arena order while binaries keep encounter order. Selected grids apply
   last-factor first (`q -> prev`), and each large quotient copies that row's literal pose after removing
   the factor; the interned sorted remainder is only a comparison key, never the emitted watch pose.
-- Factor has no within-rule admission gate. DefaultPolicy solve-latches the first 700M-tick dose off after crossing `factor_active_ceiling`; later shrinkage cannot re-admit it, and a decline occurs before rule dispatch. The deleted binary-density gate read a size-monotone proof-id map and must not return.
+- Factor has no within-rule admission gate. Formula profiles may suppress only
+  repeated post-search calls; they do not remove the startup entry. Independent
+  resource governors still decline before rule dispatch: DefaultPolicy
+  solve-latches Factor off after crossing `factor_active_ceiling`, and the
+  reference decade threshold follows completed BVE rounds. The deleted
+  binary-density gate read a size-monotone proof-id map and must not return.
 - Grid selection crosses a rule-owned `FactorSelection` interface; the default scheduler scopes a
   `FactorMatchPolicy` adapter while Factor owns the proof-bearing
   grid rewrite, positive-gain floor and effort budget. Clear the policy pointer after the phase.
@@ -167,8 +172,61 @@ M3 is one public operation. Private pending state must be consumed before contro
   `sted5` witness it splits one probe phase into the same 23-grid then 11-grid
   Factor doses as original Kissat, allowing the intervening Vivify pass to see
   the same clause population.
+- Factor's binary-grid matcher uses the dense index as a relation, not as a
+  source for per-remainder hash tables. After selecting the next factor it
+  stamps that factor's live binary partners once and filters all unit
+  remainders by the stamp. Dense watch degree is cached exactly and updated by
+  Factor's own divider/quotient additions and grid deletions, matching Kissat's
+  constant-time watch-stack size for heap scores and tie breaks. Both changes
+  preserve candidate counts, scores, encounter order, and the emitted grid;
+  they remove allocator and repeated adjacency-scan costs only.
 - Factor next-factor matching: the counting pass reserves each live large occurrence once across the whole quotient (kissat marks it and pushes `qlauses`), while the second matching pass re-scans and reserves only against the chosen factor, so the matched column count can exceed the count that selected it. Kissat has no second pass — `flush_unmatched_clauses` filters the reserved `qlauses` — so its two agree by construction. Grid-choice fidelity only: the grid, its delta and every accepted factoring come from the matched columns. Repair: memoize the counting pass's (candidate, ref) discoveries per column and consume that memo.
 - Proof order is E2's divider-then-quotient-then-grid-deletion order. BVE skips extension variables; no reconstruction witness is pushed because output projection removes them.
+
+### Binary identity and watch-arena memory
+
+- Native LRAT retains the exact open-addressed binary-pair to proof-id archive.
+  DRAT ignores clause ids, but ordinary-size file inputs retain the archive too
+  because dense rules consume its stable input-order ids and hash lookup keeps
+  binary deduplication cheap. When the DIMACS declaration predicts more than
+  `2^24` archive entries, DRAT file parsing instead uses the mirrored watch
+  lists as the exact identity/deduplication authority and retains only the
+  scheduler's monotone distinct-add count. This is a proof-format and declared
+  memory policy, not a formula-name exception; API and LRAT behavior are
+  unchanged.
+- Per-literal watch slices share one flat word arena. A capacity-crossing grow
+  first packs accumulated dead slice words when holes occupy at least one
+  eighth of the arena, reserving the old capacity in the packed replacement.
+  Every list's entry order is preserved. This prevents the old arena and a
+  doubled arena from coexisting merely because the post-growth half-hole
+  defragmentation test ran too late.
+- Substitute's iterative Tarjan pass uses `repr[l] == INVALID_LIT` as the
+  on-stack predicate for an already visited literal: representatives are
+  written exactly when an SCC is popped, so a second dense bitmap carried no
+  information. Pending-unit batches borrow and restore the kernel's otherwise
+  clear literal mark bytes; only native LRAT allocates a proof-id side table.
+  The binary rewrite snapshot stores source pairs in segmented storage and
+  derives target pairs from the immutable SCC map on demand. This preserves
+  import traversal, proof order, multiplicity, and representative selection
+  while avoiding contiguous-growth copies and redundant target fields on
+  formulas with tens of millions of literals.
+- Substitute follows Kissat's asymmetric binary update when exactly one source endpoint is already a
+  representative: it rewrites that stable watch in place and appends only the missing mirror. Before rebuilding,
+  it counts exact per-literal appends and packs surviving prefixes into final slices. Ordinary kernel additions
+  then publish the same metadata and encounter order without arena growth or a duplicate stable watch. Packing
+  retains already-paid global capacity until the final rewrite image, avoiding a first-post-batch doubling.
+- The canonical large-clause pass streams refs to a captured pre-rewrite end, reacquiring each clause pointer. Replacement
+  clauses append beyond that end, so a full ref snapshot carries no information; Sweep retains its non-prefix
+  selected refs. Since Tactix appends where Kissat shrinks in place, a read-only image pass derives and reserves
+  exact clause/watch additions after root closure. A garbage source's dead `searched` word forwards its replacement
+  at collection, replacing the former two-entry hash ledger; dense scratch is released before that witness/GC suffix.
+  Garbage collection reserves exact live words and clause count, not the garbage-inclusive arena. Proof order and
+  the actual replacement traversal remain unchanged.
+
+### Search representation and BVE scratch
+
+- After late Lucky fails, DefaultPolicy uses the normal strict inactive-percent compaction threshold: delaying this representation-only rebuild lets easy Lucky SAT exits avoid it while long search sheds retired entries from every dense array. Lucky walks the permanent external-to-internal map directly in both directions, skipping retired holes without changing order or making a dense high-water copy.
+- BVE's two literal-to-binary indexes clear only touched entries, while binary gathering and resolvent dedup share one restored literal-mark image. Thread-local rule scratch persists across one-variable scheduler admissions like other non-reentrant dense rules; candidate order, gates, resolvents, proof, and reconstruction are unchanged.
 
 ### Budgets and scope
 
