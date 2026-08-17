@@ -330,6 +330,61 @@ static void test_substitution_rewrites_stable_watch_in_place() {
   assert(binary_watch_others(k, stable) == expected);
 }
 
+// Kissat moves a retired literal's binary watches to its representative in
+// the retiring watch list's order.  The stable partners' literal order must
+// not reorder that appended suffix: x6 lists x4 before x2 even though x2 is
+// visited before x4 by an undirected lower-endpoint snapshot.
+static void test_substitution_appends_moved_watches_in_source_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  // x1 == x6, with x1 the import-order representative.
+  kernel_add_binary_clause(k, internalize(-1), internalize(6));
+  kernel_add_binary_clause(k, internalize(-6), internalize(1));
+
+  const Lit representative = internalize(1);
+  const Lit retired = internalize(6);
+  kernel_add_binary_clause(k, representative, internalize(7));
+  kernel_add_binary_clause(k, retired, internalize(4));
+  kernel_add_binary_clause(k, retired, internalize(2));
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  const std::vector<Lit> watches =
+      binary_watch_others(k, representative);
+  const auto four = std::find(watches.begin(), watches.end(), internalize(4));
+  const auto two = std::find(watches.begin(), watches.end(), internalize(2));
+  assert(four != watches.end());
+  assert(two != watches.end());
+  assert(four < two);
+}
+
+// When both endpoints retire, Kissat moves the two directed watches
+// independently.  The x8 source list says x7 before x6, so representative x1
+// must receive x2 before x3 even though the undirected clauses are first seen
+// from x6 and x7 in the opposite order.
+static void test_substitution_moves_both_directions_independently() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  kernel_add_binary_clause(k, internalize(-1), internalize(8));
+  kernel_add_binary_clause(k, internalize(-8), internalize(1));
+  kernel_add_binary_clause(k, internalize(-2), internalize(7));
+  kernel_add_binary_clause(k, internalize(-7), internalize(2));
+  kernel_add_binary_clause(k, internalize(-3), internalize(6));
+  kernel_add_binary_clause(k, internalize(-6), internalize(3));
+
+  kernel_add_binary_clause(k, internalize(8), internalize(7));
+  kernel_add_binary_clause(k, internalize(8), internalize(6));
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  const std::vector<Lit> watches =
+      binary_watch_others(k, internalize(1));
+  const auto two = std::find(watches.begin(), watches.end(), internalize(2));
+  const auto three =
+      std::find(watches.begin(), watches.end(), internalize(3));
+  assert(two != watches.end());
+  assert(three != watches.end());
+  assert(two < three);
+}
+
 // Model reconstruction through ρ: a model of the reduced formula with x2 at the
 // wrong value must extend to satisfy every original clause.
 static void test_model_reconstruction() {
@@ -461,6 +516,8 @@ int main() {
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
   test_substitution_rewrites_stable_watch_in_place();
+  test_substitution_appends_moved_watches_in_source_order();
+  test_substitution_moves_both_directions_independently();
   test_model_reconstruction();
   test_size_collapse_unit();
   test_apply_instance_one_class();

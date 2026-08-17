@@ -13,9 +13,9 @@ decisions. This file is only the current resume surface.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
 - The accepted next-round debug candidate release binary is
-  `d39cc80fd3412dc407040a22a0c1553d8c14a0c10e21b8ffc1bb737f1ff7d399`.
-  It preserves the preceding ten-target closure and closes nine of the next ten
-  frozen divergence targets under the debug contract; rank 19 remains open.
+  `4a41b541368010519fbeb302dc2adcec0329067c827947f961a0d9eacf3e3fcf`.
+  It closes all ten ranks 11--20; the cumulative ranks 1--20 debug view has 19
+  checked answers and one reproduced near-cap memory unknown at rank 10.
 
 <!-- track-sched:begin -->
 The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
@@ -104,14 +104,12 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
 
 ### Next ten-target divergence round (2026-08-17)
 
-Ranks 11--20 were predeclared from the same frozen eligible
-Kissat-over-Tactix view, excluding the closed ranks 1--10. Shipped Tactix
-closed 6/10 with PAR-2 10576.236 s in
-`benchmarks/runs/20260817-1350-tierd-next10-predeclared/`. The accepted candidate
-closes 9/10 with PAR-2 4140.349 s in
-`benchmarks/runs/20260817-1630-tierd-next10-header-final/`; all six SAT models
-and three UNSAT proofs validate against the original CNFs, and no certificate
-residue remains. Rank 19 (`knight_18`) is the sole timeout.
+Ranks 11--20 were predeclared from the same frozen eligible Kissat-over-Tactix
+view, excluding the closed ranks 1--10. Shipped Tactix closed 6/10 with PAR-2
+10576.236 s in `benchmarks/runs/20260817-1350-tierd-next10-predeclared/`; the
+preceding checkpoint closed 9/10 with PAR-2 4140.349 s. The final candidate
+closes 10/10 with a 1693.565 s solve-time sum in
+`benchmarks/runs/20260817-2220-tierd-cumulative20-backbone-ramp-final/`.
 
 Rank 12 now uses a scoped exact live-binary index, occurrence-driven gate
 rescheduling, and direct structural lemma emission in DRAT/proofless modes;
@@ -122,22 +120,27 @@ This removes the first traced semantic mismatch (1,416 versus 1,086 active
 variables) and yields a checked SAT solve in 74.158 s versus a shipped timeout
 and Kissat's 124.551 s.
 
-The iteration guard is
-`benchmarks/runs/20260817-1635-BC-next10-header-final/`: Tier B remains 28/28
-and the frozen mechanism-relevant Tier C subset remains 5/5, all checked with
-zero residue. Their solve-time sums are 1089.550 s and 1353.205 s,
-respectively. Rank 17 also closes in the cumulative gate at 924.856 s, but its
-first choice divergence remains localized at decision 47,049/conflict 1,229;
-an exact Kissat queue-cursor experiment reproduced the same divergence and was
-reverted, so it is not claimed as the cause. Rank 19 matches Kissat through
-conflict 225 and decision 68,706. On the next propagation, the binary
-`(-102556,-101136)` and an eight-literal clause force opposite values: Kissat
-visits the large reason first and then conflicts on the binary, while Tactix
-visits the binary first and conflicts on the large clause. Their first 38
-implications after decision 68,706 match; binary-watch order differs at the
-39th. The saved-phase residue produces the first decision mismatch at 68,719.
-This reopens `ORDER-WATCH-1`; locating the preprocessing emission-order source
-is the next diagnostic action.
+The original rank-19 watch mismatch had two earlier causes. Substitute rebuilt
+moved binaries from an undirected image rather than each retiring directed
+source list, and stable heap fill used activation order rather than Kissat's
+first-import internal-index order. After those repairs, the remaining tie came
+from Backbone: Tactix independently rolled back every successful probe, while
+Kissat retains one assumption trail and learns the first repeated binary
+predecessor. The canonical V2 batch now follows that algorithm, including its
+private meter and 100-times-computation/1000 round ramp; the public literal
+instance stays independent for N1. It derives two units on `knight_18`, fixes
+20 root variables, matches all preprocessing formula counts and the stable
+top-32 heap, and then matches Kissat for 85,969 decisions through conflict
+1,339. The checked SAT solve is 542.977 s with a verified model.
+
+The final iteration guard is
+`benchmarks/runs/20260817-2220-BC-next10-backbone-ramp-final/`: Tier B is 28/28
+and the frozen Tier C subset is 5/5, with solve-time sums 765.943 s and
+1415.191 s. All proofs/models validate and certificate residue is empty. The
+cumulative ranks 1--20 campaign has 19 checked answers, PAR-2 5499.998 s, and
+zero residue. Rank 10 alone is memory-unknown at 49.165 s; the accepted
+pre-repair binary reproduces the same `bad_alloc` at 49.818 s, so this is the
+agreed near-cap debug classification rather than a source regression.
 
 ## Gates
 
@@ -150,13 +153,13 @@ is the next diagnostic action.
 
 ## Next engineering work
 
-1. Trace rank 19's first post-preprocessing binary-watch-order mismatch back to
-   its producing Congruence/Sweep/Substitute transaction, then repair that
-   lifecycle in a general, source-backed way. Preserve the 28B+5C and
-   cumulative 20-case gates.
+1. Measure whether repaired Backbone makes V6a's overlapping binary-unit sweep
+   redundant on `T105`; delete it or assign an independently justified budget.
 2. Reconcile `docs/scheduling-parity-ledger.md` into the N4 verdict.
-3. Review the Phase 4.20 surveys and decide P1's compound-instance API.
-4. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
+3. Predeclare the next ten frozen Tier-D gaps, excluding ranks 1--20, and use
+   28B+5C (not Tier D) as the regression set.
+4. Review the Phase 4.20 surveys and decide P1's compound-instance API.
+5. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
    repair or disposition, and protect the result with focused and cumulative
    guards.

@@ -381,6 +381,7 @@ struct Stats {
   uint64_t probe_rounds = 0;   // Probe rounds
   uint64_t probed = 0;         // probe assumptions made
   uint64_t probe_failed = 0;   // failed literals -> root units derived
+  uint64_t backbone_computations = 0; // canonical batch applications
   uint64_t backbone_rounds = 0;  // Backbone rounds
   uint64_t backbone_probed = 0;  // binary probe assumptions made
   uint64_t backbone_failed = 0;  // failed literals -> root units derived
@@ -997,6 +998,10 @@ void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 // the missing mirror (to `moved`'s list), then publish the normal add metadata.
 void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
                               uint64_t id = 0);
+// Publish the ordinary add metadata for a binary direction already inserted
+// by a transaction that reconstructs the two directed watches independently.
+void kernel_publish_binary_clause(Kernel &, Lit a, Lit b, uint64_t id,
+                                  bool new_pair);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 

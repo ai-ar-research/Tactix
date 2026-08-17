@@ -212,10 +212,16 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Soundness:** `¬p` is RUP: assume `p`, the recorded reason chain propagates to the conflict.
 
 ### V2 · Backbone — binary-only failed-literal probing
-- **Precondition (abstract):** as V1, restricted to binary propagation (the BIG); the derived units are
-  a **subset** of V1's — the value is speed, a cheaper distinct arm.
-- **Effect / Proof δ:** as V1, with `kernel_propagate_binary` as the engine.
-- **Soundness:** as V1 (the binary reason chain is a special case).
+- **Precondition (abstract):** as V1, restricted to binary propagation (the BIG). If an accumulated
+  assumption trail reaches a binary conflict, its first repeated implication predecessor `u` also satisfies
+  `F ∧ M ∧ u ⊢₁ ⊥`; thus `¬u` is a binary failed-literal unit and remains a subset of V1's conclusions.
+- **Effect:** the canonical round retains successful candidate assumptions. On conflict it walks the binary
+  reasons backwards to that repeated predecessor, keeps `¬u` as a true level-zero unit, and continues; after
+  returning to root it propagates the units and may repeat. The public one-literal instance remains V1-shaped.
+- **Proof δ:** `add_rup({¬u}, reversed binary conflict/reason-id chain)`. The reversal is the checker's
+  propagation order under assumption `u`; DRAT records the same unit without hints.
+- **Soundness:** negating `¬u` replays the cited BIG path to the binary conflict. Retaining other assumptions is
+  only a schedule for discovering `u`; they do not occur in the unit's replay chain.
 
 ### V3 · Substitute — equivalent-literal substitution over the BIG
 - **Precondition (abstract):** in the BIG (edge `p→q` for each binary `(¬p∨q)`), a non-trivial SCC of
