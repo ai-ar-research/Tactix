@@ -276,11 +276,35 @@ void finish_input(Kernel &k) {
   // Restatements are non-empty only when a proof was attached before the input;
   // attaching one later cannot be repaired, the input ids are already spent.
   assert(k.input_restatements.empty() || k.proof);
-  // A declared but unmentioned variable is absent from Kissat's import map.
-  // Tactix has already reserved it from the DIMACS header; rank it after every
-  // actually imported variable so it cannot perturb reference-ordered ties.
-  for (Var v = 0; v < k.nvars; v++)
+  // A declared but unmentioned variable is absent from Kissat's import map and
+  // active/search population.  Retire Tactix's header-reserved identity without
+  // a witness: it occurs in no input clause, so either value extends a model,
+  // and kernel_extend_model completes missing external values to false.
+  // Otherwise propagation-free decisions perturb every search clock on sparse
+  // headers.  Still rank the identity after real imports: permanent ranks also
+  // serve policy-neutral/debug enumeration, where preserving the old total
+  // order does not admit it to DefaultPolicy's decision population.
+  for (Var v = 0; v < k.nvars; v++) {
+    const Var external = k.internal_to_external[v];
+    const bool imported =
+        external < k.external_import_rank.size() &&
+        k.external_import_rank[external] != UINT32_MAX;
+    if (!imported) {
+      if (k.var_status.size() < k.nvars)
+        k.var_status.resize(k.nvars, VarStatus::Active);
+      if (k.var_status[v] == VarStatus::Active) {
+        assert(k.values[make_lit(v, false)] == 0);
+        assert(k.unassigned_active > 0);
+        k.unassigned_active--;
+        k.var_status[v] = VarStatus::Eliminated;
+        if (k.retire_enabled && k.h)
+          heuristics_deactivate_var(k, v);
+        else
+          k.retired_events.push_back(v);
+      }
+    }
     kernel_record_import(k, v);
+  }
   std::vector<uint64_t> chain;
   for (const Kernel::InputRestatement &r : k.input_restatements) {
     const Lit *lits = k.input_restate_lits.data() + r.begin;

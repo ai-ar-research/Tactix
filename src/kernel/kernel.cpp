@@ -275,6 +275,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
   // install its fresh one — otherwise every later LRAT chain through the pair
   // cites a deleted clause. Among live duplicates either id is equally valid.
   k.binary_ids.insert_or_assign_known(kernel_binary_key(a, b), id, new_pair);
+  if (k.binary_liveness)
+    k.binary_liveness->add(kernel_binary_key(a, b));
   // BVE retry filter: binaries have an irredundant lifecycle in this kernel,
   // so every added pair is new elimination material for both variables
   // (removal-only marking measured and rejected — see kernel_add_large_clause).
@@ -354,6 +356,8 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
     });
     assert(removed);
   }
+  if (k.binary_liveness)
+    k.binary_liveness->remove(kernel_binary_key(a, b));
   // (4) proof delete (chain-free; deletions do not consume an id).
   if (k.proof) {
     const Lit lits2[2] = {a, b};
@@ -402,6 +406,8 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
       return !(w.binary() && w.other() == other);
     });
   }
+  if (k.binary_liveness)
+    k.binary_liveness->remove(kernel_binary_key(a, b));
   if (k.proof) {
     const Lit lits2[2] = {a, b};
     for (uint32_t i = 0; i < copies; i++)

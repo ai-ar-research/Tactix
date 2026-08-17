@@ -12,9 +12,10 @@ decisions. This file is only the current resume surface.
   reconciliation.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
-- The promoted debug candidate release binary is
-  `50fba1d448e1dac005226bdb9cd7ecd5b2140e7fbbb6bfcebd9d9a6126a06bfa`.
-  It closes all ten frozen divergence targets under the debug contract.
+- The accepted next-round debug candidate release binary is
+  `d39cc80fd3412dc407040a22a0c1553d8c14a0c10e21b8ffc1bb737f1ff7d399`.
+  It preserves the preceding ten-target closure and closes nine of the next ten
+  frozen divergence targets under the debug contract; rank 19 remains open.
 
 <!-- track-sched:begin -->
 The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
@@ -101,6 +102,43 @@ frozen 5/5 mechanism-relevant Tier C cases are proof/model clean with zero
 residue. Against the preceding pin, Tier-B aggregate solve time improves from
 1275.910 s to 956.795 s; Tier C remains flat at 1442.447 s versus 1447.383 s.
 
+### Next ten-target divergence round (2026-08-17)
+
+Ranks 11--20 were predeclared from the same frozen eligible
+Kissat-over-Tactix view, excluding the closed ranks 1--10. Shipped Tactix
+closed 6/10 with PAR-2 10576.236 s in
+`benchmarks/runs/20260817-1350-tierd-next10-predeclared/`. The accepted candidate
+closes 9/10 with PAR-2 4140.349 s in
+`benchmarks/runs/20260817-1630-tierd-next10-header-final/`; all six SAT models
+and three UNSAT proofs validate against the original CNFs, and no certificate
+residue remains. Rank 19 (`knight_18`) is the sole timeout.
+
+Rank 12 now uses a scoped exact live-binary index, occurrence-driven gate
+rescheduling, and direct structural lemma emission in DRAT/proofless modes;
+native LRAT retains antecedent replay. Its checked UNSAT solve is 13.644 s
+versus a shipped timeout and Kissat's 5.574 s. Rank 16 retires DIMACS-header
+variables that never occur while preserving their external model identities.
+This removes the first traced semantic mismatch (1,416 versus 1,086 active
+variables) and yields a checked SAT solve in 74.158 s versus a shipped timeout
+and Kissat's 124.551 s.
+
+The iteration guard is
+`benchmarks/runs/20260817-1635-BC-next10-header-final/`: Tier B remains 28/28
+and the frozen mechanism-relevant Tier C subset remains 5/5, all checked with
+zero residue. Their solve-time sums are 1089.550 s and 1353.205 s,
+respectively. Rank 17 also closes in the cumulative gate at 924.856 s, but its
+first choice divergence remains localized at decision 47,049/conflict 1,229;
+an exact Kissat queue-cursor experiment reproduced the same divergence and was
+reverted, so it is not claimed as the cause. Rank 19 matches Kissat through
+conflict 225 and decision 68,706. On the next propagation, the binary
+`(-102556,-101136)` and an eight-literal clause force opposite values: Kissat
+visits the large reason first and then conflicts on the binary, while Tactix
+visits the binary first and conflicts on the large clause. Their first 38
+implications after decision 68,706 match; binary-watch order differs at the
+39th. The saved-phase residue produces the first decision mismatch at 68,719.
+This reopens `ORDER-WATCH-1`; locating the preprocessing emission-order source
+is the next diagnostic action.
+
 ## Gates
 
 - [x] T1: MiniSat correctness/performance bar.
@@ -112,8 +150,10 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
 
 ## Next engineering work
 
-1. Select the next predeclared ten Kissat-over-Tactix gaps from the frozen
-   baseline view, excluding this closed cohort, and repeat the divergence loop.
+1. Trace rank 19's first post-preprocessing binary-watch-order mismatch back to
+   its producing Congruence/Sweep/Substitute transaction, then repair that
+   lifecycle in a general, source-backed way. Preserve the 28B+5C and
+   cumulative 20-case gates.
 2. Reconcile `docs/scheduling-parity-ledger.md` into the N4 verdict.
 3. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 4. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same

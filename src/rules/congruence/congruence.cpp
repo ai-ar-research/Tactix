@@ -1426,6 +1426,14 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
                           std::vector<uint64_t> &chain) {
   assert(k.level == 0 && !k.conflict_valid);
   chain.clear();
+  // Kissat's Congruence emits these structurally derived units and binaries
+  // directly (learn_congruence_unit/add_binary_clause); it does not run a
+  // speculative propagation before every DRAT lemma.  DRAT needs no explicit
+  // antecedent chain and the campaign checker validates the emitted proof as a
+  // whole.  Native LRAT still needs the exact ordered chain, so only that mode
+  // pays for replay and its watch-pose rollback.
+  if (!k.proof || !k.proof->lrat())
+    return true;
   kernel_probing_begin(k);
   bool conflict = false;
   Var implied = UINT32_MAX; // a lemma literal the assumptions already forced TRUE
@@ -1485,13 +1493,6 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   }
   if (!conflict)
     return false;
-  // RUP replay is also the semantic admission test for DRAT and proofless
-  // callers (HyperBinaryRes shares it).  Only native LRAT needs antecedent
-  // ids; proofless white-box kernels legitimately leave root units unnamed.
-  if (!k.proof || !k.proof->lrat()) {
-    chain.clear();
-    return true;
-  }
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
   kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its
@@ -2466,6 +2467,32 @@ ApplyResult congruence_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   congruence_stage_trace(k, "root-end");
+  // Kissat enters dense mode before extraction and keeps the live binaries in
+  // closure->binaries, where find_binary answers every later membership query
+  // without touching large-watch tails.  Build the corresponding exact index
+  // once for the whole Tactix application.  It follows additions and deletions
+  // through the kernel hooks, while k.binary_ids remains the proof-id archive.
+  struct ScopedBinaryLiveness {
+    Kernel &kernel;
+    BinaryLivenessIndex index;
+    explicit ScopedBinaryLiveness(Kernel &k) : kernel(k) {
+      assert(!kernel.binary_liveness);
+      size_t pairs = 0;
+      for (Lit lit = 0; lit < 2 * kernel.nvars; lit++)
+        for (const WatchEntry w : kernel.watches.entries(lit))
+          pairs += w.binary() && lit < w.other();
+      index.reserve(pairs);
+      for (Lit lit = 0; lit < 2 * kernel.nvars; lit++)
+        for (const WatchEntry w : kernel.watches.entries(lit))
+          if (w.binary() && lit < w.other())
+            index.add(kernel_binary_key(lit, w.other()));
+      kernel.binary_liveness = &index;
+    }
+    ~ScopedBinaryLiveness() {
+      assert(kernel.binary_liveness == &index);
+      kernel.binary_liveness = nullptr;
+    }
+  } binary_liveness(k);
   std::vector<std::pair<Lit, Lit>> binary_candidates;
   {
     Stage s(&cong_t.binary_extract);
@@ -2551,6 +2578,43 @@ ApplyResult congruence_apply(Kernel &k) {
     return finish(/*merged=*/false);
   }
 
+  // Kissat indexes every gate by RHS literal and propagates a root unit only
+  // through gates containing that literal (congruence.c
+  // simplify_gates/propagate_unit).  This immutable value index includes the
+  // output too.  It is separate from the representative-occurrence index
+  // below, whose keys change as equivalence classes merge.
+  struct OccNode {
+    uint32_t gate;
+    uint32_t next;
+  };
+  const uint32_t nlits = 2 * k.nvars;
+  PagedLiteralTails value_occ_tails(nlits);
+  PagedVector<OccNode> value_occ_nodes;
+  size_t value_occurrences = gates.size();
+  for (const CongGate &g : gates)
+    value_occurrences += g.inputs.size();
+  value_occ_nodes.reserve(value_occurrences);
+  const auto add_value_occurrence = [&](Lit lit, uint32_t gate) {
+    assert(value_occ_nodes.size() < UINT32_MAX);
+    const uint32_t node = static_cast<uint32_t>(value_occ_nodes.size());
+    uint32_t &tail = value_occ_tails.get_or_create(lit);
+    if (tail == UINT32_MAX) {
+      value_occ_nodes.push_back({gate, node});
+    } else {
+      const uint32_t head = value_occ_nodes[tail].next;
+      value_occ_nodes.push_back({gate, head});
+      value_occ_nodes[tail].next = node;
+    }
+    tail = node;
+  };
+  for (uint32_t gate = 0; gate < gates.size(); gate++) {
+    for (const Lit input : gates[gate].inputs)
+      add_value_occurrence(input, gate);
+    add_value_occurrence(gates[gate].output, gate);
+  }
+  congruence_stage_trace(k, "value-occurrences-end", gates.size(),
+                         value_occ_nodes.size());
+
   // The binary-resolution unit sweep follows binary and gate extraction; its
   // immediate root closure seeds value-driven gate simplification below.
   {
@@ -2568,7 +2632,6 @@ ApplyResult congruence_apply(Kernel &k) {
   // literal, so the collapse propagates through the circuit layers in one apply
   // (`docs/calculus.md` V6).
   const uint64_t setup_t0 = cong_time ? now_nanos() : 0;
-  const uint32_t nlits = 2 * k.nvars;
   congruence_stage_trace(k, "closure-repr-begin", gates.size(), nlits);
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
@@ -2601,10 +2664,6 @@ ApplyResult congruence_apply(Kernel &k) {
   // dependency.  Each dense slot instead names the tail of a circular linked
   // list: tail.next is the head, so one 32-bit endpoint supports ordered append
   // and ordered traversal.  Paged nodes avoid geometric whole-buffer copies.
-  struct OccNode {
-    uint32_t gate;
-    uint32_t next;
-  };
   PagedLiteralTails occ_tails(nlits);
   congruence_stage_trace(k, "closure-occ-heads-end", gates.size(),
                          occ_tails.directory_size());
@@ -2647,13 +2706,6 @@ ApplyResult congruence_apply(Kernel &k) {
     return initial_work + rescheduled_work.size();
   };
   congruence_stage_trace(k, "closure-work-end", work_size(), inq.size());
-  auto reschedule_all_gates = [&]() {
-    for (uint32_t gg = 0; gg < gates.size(); gg++)
-      if (!queued(gg)) {
-        set_queued(gg, true);
-        rescheduled_work.push_back(gg);
-      }
-  };
   if (cong_time)
     cong_t.setup += now_nanos() - setup_t0;
 
@@ -2849,6 +2901,33 @@ ApplyResult congruence_apply(Kernel &k) {
       table[0].bucket_count() + table[1].bucket_count() +
           table[2].bucket_count());
 
+  // Every gate is initially queued, so units found before this point need no
+  // explicit reschedule.  From here on, admit only already-consumed gates that
+  // mention a newly root-assigned variable.  Scan both signs because one root
+  // assignment changes the value view of its complement too.
+  size_t value_trail_head = k.trail.size();
+  const auto reschedule_assigned_gates = [&]() {
+    while (value_trail_head < k.trail.size()) {
+      const Lit assigned = k.trail[value_trail_head++];
+      for (const Lit side : {assigned, negate(assigned)}) {
+        const uint32_t tail = value_occ_tails.get(side);
+        if (tail == UINT32_MAX)
+          continue;
+        uint32_t node = value_occ_nodes[tail].next;
+        while (true) {
+          const uint32_t gate = value_occ_nodes[node].gate;
+          if (!queued(gate)) {
+            set_queued(gate, true);
+            rescheduled_work.push_back(gate);
+          }
+          if (node == tail)
+            break;
+          node = value_occ_nodes[node].next;
+        }
+      }
+    }
+  };
+
   // The closure is the long block, so it must be interruptible: abort between
   // worklist items, each all-or-nothing (binaries and proof chain both emitted,
   // or nothing). The batched root units are still asserted from what it did.
@@ -2909,10 +2988,10 @@ ApplyResult congruence_apply(Kernel &k) {
         unsat = true;
         break;
       }
-      // Root propagation changed every gate's value view, including outputs
-      // which are deliberately absent from the input-occurrence index.
+      // Root propagation changes only the gates admitted by the immutable
+      // value-occurrence index (including output positions).
       if (newly_fixed)
-        reschedule_all_gates();
+        reschedule_assigned_gates();
       continue;
     }
     // --- a degenerate gate is an inference, not a dead end ------------------
@@ -2945,7 +3024,7 @@ ApplyResult congruence_apply(Kernel &k) {
         break;
       }
       if (newly_fixed)
-        reschedule_all_gates();
+        reschedule_assigned_gates();
       continue; // the gate is consumed by its own inference
     }
     if (ci == Canon::Merge) {

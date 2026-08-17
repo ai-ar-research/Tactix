@@ -654,6 +654,9 @@ static void test_canonical_binary_watch_rebuild() {
   }
   assert(after == std::vector<Lit>({lower0, lower1, lower2, higher}));
   assert(saw_large);
+  assert(k.watches.heads[pivot].binaries_first);
+  assert(kernel_binary_copies(k, pivot, higher) == 1);
+  assert(kernel_binary_copies(k, pivot, internalize(6)) == 0);
   assert(k.stats.congruence_binary_rebuilds == 1);
   kernel_check_invariants(k);
 

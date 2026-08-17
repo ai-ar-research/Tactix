@@ -178,6 +178,27 @@ public:
   }
 };
 
+// Optional exact live-pair index for phases that make many binary-membership
+// queries.  BinaryIdMap cannot serve this role because proof identities are
+// deliberately retained after deletion.  Keep the common storage compact and
+// record only the usually-small deleted overlay; a re-add clears its tombstone.
+class BinaryLivenessIndex {
+  BinaryIdMap present_;
+  std::unordered_set<uint64_t> deleted_;
+
+public:
+  BinaryLivenessIndex() { present_.discard_values(); }
+  void reserve(size_t entries) { present_.reserve(entries); }
+  bool count(uint64_t key) const {
+    return present_.count(key) && !deleted_.count(key);
+  }
+  void add(uint64_t key) {
+    present_.insert_or_assign(key, 1);
+    deleted_.erase(key);
+  }
+  void remove(uint64_t key) { deleted_.insert(key); }
+};
+
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void event_trace_detail(const Kernel &, const char *, int64_t);
 void event_trace_phase_save(const Kernel &, Lit);
@@ -676,6 +697,7 @@ struct Kernel {
   uint64_t next_clause_id = 0;
   std::vector<uint64_t> unit_ids; // by var
   BinaryIdMap binary_ids;
+  BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
   std::vector<Var> reason_walk_stack; // reusable proof-reason DFS stack
@@ -978,15 +1000,26 @@ void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 
+inline uint64_t kernel_binary_key(Lit a, Lit b);
+
 inline uint32_t kernel_binary_copies(const Kernel &k, Lit a, Lit b,
                                      uint32_t cap = UINT32_MAX) {
   uint32_t n = 0;
-  for (const WatchEntry w : k.watches.entries(a))
-    if (w.binary() && w.other() == b && ++n == cap)
+  const bool stop_at_large = k.watches.heads[a].binaries_first;
+  for (const WatchEntry w : k.watches.entries(a)) {
+    if (!w.binary()) {
+      if (stop_at_large)
+        break;
+      continue;
+    }
+    if (w.other() == b && ++n == cap)
       break;
+  }
   return n;
 }
 inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
+  if (k.binary_liveness)
+    return k.binary_liveness->count(kernel_binary_key(a, b));
   return kernel_binary_copies(k, a, b, 1) == 1;
 }
 
