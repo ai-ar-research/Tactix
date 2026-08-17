@@ -515,46 +515,41 @@ representability argument.
 
 ## 18. Design decision: structured rule journal
 
-The rule journal is convergence infrastructure for diagnostic Tactix and Kissat
-builds. It does not replace DRAT/LRAT: a proof certifies the final answer, while
-the journal explains why each control choice and semantic transaction was or
-was not attempted. Every implemented proof rule is in scope; policy operations
-may emit control records but are not proof-rule transactions.
+The rule journal is diagnostic convergence infrastructure, not a DRAT/LRAT
+replacement. It explains control choices and semantic transactions; proofs
+remain the correctness oracle. Its ordered TSV v1 row is shared by both solvers:
+`solver, seq, kind, rule, event, conflicts, candidate, trigger, context, formula_epoch,
+root_epoch, pre_digest, guards, antecedents, outcome, decline, deltas, witnesses,
+effort, budget, post_digest`.
 
-The canonical TSV v1 row is ordered and shared by both solvers:
+- Literals use external identities; clauses use proof IDs or a stable creation ordinal plus external content.
+- Control rows cover triggers, order, budgets, modes, and restarts; transaction rows cover every applied or declined outcome.
+- The operation and serializer consume the evaluator's same structured guard result; logging never reimplements eligibility.
+- Epochs and digests delimit mutations. Replay re-executes and stops at the first field mismatch; it never injects a transformation.
+- Selectors apply before expensive digests, so bounded traces do not alter the selected execution.
+- Production builds contain no journal code or hot-path branch; instrumented Kissat is diagnostic, never a baseline.
 
-`solver, seq, kind, rule, event, conflicts, candidate, trigger, context,
-formula_epoch, root_epoch, pre_digest, guards, antecedents, outcome, decline,
-deltas, witnesses, effort, budget, post_digest`.
+Detailed coverage starts with Sweep consequence commitment and
+Congruence/Substitute. A generic envelope is insufficient until the evaluator
+supplies its rule-specific guards, candidates, antecedents, deltas, and witnesses.
 
-- Candidate literals use external identities. Clauses use their stable proof
-  IDs where the solver has them; a diagnostic reference adapter without native
-  clause IDs uses a stable creation ordinal plus external literal content.
-- `kind=control` records scheduling triggers, order, budgets, mode changes, and
-  restarts. `kind=transaction` records every attempted semantic rule outcome:
-  applied, declined with a precise reason, no-op, budget-exhausted, conflict,
-  SAT, or refuted.
-- A guard/precondition evaluator returns a structured result. The operation
-  consumes that same result and the serializer writes it; the logger must never
-  reimplement eligibility logic. Antecedents, proof cores, mutation deltas, and
-  reconstruction witnesses follow the same ownership rule.
-- Formula/root epochs identify mutation boundaries. Pre/post digests cover the
-  externally named formula and root assignment; successful replay reproduces
-  the same ordered semantic deltas and digests.
-- Replay re-executes the recorded run, compares every field in order, and
-  aborts at the first differing field with expected and actual values. It is a
-  deterministic diagnostic verifier, not a way to trust or inject a recorded
-  transformation.
-- Rule, candidate/seed, conflict-window, and record-limit selectors are applied
-  before constructing expensive digests. Detailed traces are therefore bounded
-  without changing the selected rule's execution.
-- Production builds do not compile the implementation. Their linked binaries
-  contain no journal symbol, protocol marker, environment-variable marker, or
-  hot-path runtime branch. Instrumented Kissat binaries are diagnostic only and
-  are never performance baselines.
+## 19. Congruence closure indices and sparse-header identities
 
-The initial detailed vocabulary is Sweep detection → consequence commitment →
-Congruence/Substitute. The generic transaction envelope is not considered full
-coverage for a rule until its actual evaluator supplies the rule-specific guard
-facts, stable candidates/antecedents, precise decline reasons, semantic deltas,
-and witnesses required above.
+Congruence owns a scoped exact live-binary index. `Kernel::binary_ids` is a
+size-monotone proof-ID archive and must not answer liveness queries; add/delete
+hooks maintain the scoped index, and ordered binary prefixes stop at large watches.
+
+An immutable occurrence index covers every gate input and output. New root
+assignments requeue only gates mentioning either polarity; all gates are already
+queued initially. Reopening every gate would turn occurrence-driven closure into
+quadratic work.
+
+Structural lemmas emit directly in proofless/DRAT modes, as in Kissat; whole-proof
+DRAT checking is authoritative. Only native LRAT pays for speculative replay to
+construct antecedent chains. Checked rank-12 witness:
+`benchmarks/runs/20260817-1505-tierd-rank12-direct-drat/`.
+
+A never-imported DIMACS-header variable keeps its external identity but retires
+from DefaultPolicy search at `finish_input`. It occurs nowhere, needs no witness,
+and total model extension supplies an arbitrary value. Checked rank-16 witness:
+`benchmarks/runs/20260817-1625-tierd-rank16-header-only-checked/`.

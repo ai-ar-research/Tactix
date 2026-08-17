@@ -193,6 +193,23 @@ static void test_xor_cancel_learns_unit() {
   assert(k.stats.congruence_units >= 1);
 }
 
+// A late unit must revisit an already-consumed gate that mentions it, without
+// reopening every unrelated gate.  AND gates are extracted before XOR gates:
+// the dependent gate is therefore indexed first, then the XOR cancellation
+// fixes its input and the value-occurrence schedule derives its output unit.
+static void test_unit_reschedules_only_affected_gate() {
+  Kernel k;
+  kernel_reserve_vars(k, 7); // p q a b x c r
+  and_gate(k, 3, 1, 2);
+  and_gate(k, 4, 1, 2); // a == b
+  and_gate(k, 6, 5, 7); // c = x & r, consumed before the XOR unit
+  xor_gate(k, 5, 3, 4); // x = a xor b = 0
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(5)) < 0);
+  assert(k.value(internalize(6)) < 0 &&
+         "the affected earlier gate must be revisited after x becomes false");
+}
+
 // Opposite-sign units derived in one round must refute, not assign.
 static void test_xor_cancel_refutes() {
   Kernel k;
@@ -360,6 +377,34 @@ static void test_extracted_binary_suffix_is_sorted() {
   assert(partners[partners.size() - 1] == p);
 }
 
+// Input binaries need not precede large watches in a sparse list.  The
+// candidate pass snapshots live binary membership before scanning ternaries,
+// rather than repeatedly walking a high-occurrence mixed list.  Keep the
+// adversarial ordering explicit here: both antecedent binaries are appended
+// only after the ternaries installed large watches on their pivot literals.
+static void test_binary_extraction_from_mixed_watch_lists() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit a = internalize(1), b = internalize(2), c = internalize(3);
+  const Lit x = internalize(4), y = internalize(5);
+  Lit pad_a[3] = {negate(a), internalize(6), internalize(7)};
+  Lit pad_c[3] = {negate(c), internalize(-6), internalize(-7)};
+  Lit first[3] = {a, b, x};
+  Lit second[3] = {c, b, y};
+  kernel_add_large_clause(k, pad_a, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, pad_c, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, first, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, second, 3, false, 0, ++k.next_clause_id);
+  kernel_add_binary_clause(k, negate(a), b, ++k.next_clause_id);
+  kernel_add_binary_clause(k, negate(c), b, ++k.next_clause_id);
+  assert(!k.watches.heads[negate(a)].binaries_first);
+  assert(!k.watches.heads[negate(c)].binaries_first);
+
+  (void)congruence_apply(k);
+  assert(kernel_binary_live(k, b, x));
+  assert(kernel_binary_live(k, b, y));
+}
+
 // The mid-round budget: `work_budget` 0 leaves the rule unbounded, and a small
 // budget cuts the round — counted once in `congruence_budget_stops` — with no
 // unjustified inference. `stop_fuzz` keeps the strided termination draw from
@@ -438,6 +483,7 @@ int main() {
   test_binary_equivalence_channel();
   test_binary_resolution_refutes();
   test_xor_cancel_learns_unit();
+  test_unit_reschedules_only_affected_gate();
   test_xor_cancel_refutes();
   test_and_clash_learns_unit();
   test_and_idempotent_unary_merge();
@@ -446,6 +492,7 @@ int main() {
   test_xor_output_sign_odd_relation();
   test_xor_output_sign_odd_arity();
   test_extracted_binary_suffix_is_sorted();
+  test_binary_extraction_from_mixed_watch_lists();
   test_round_is_the_instance_and_substitute_owns_the_choice();
   std::printf("test_congruence: all passed\n");
   return 0;
