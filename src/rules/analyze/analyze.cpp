@@ -1087,6 +1087,10 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   k.conflict_valid = false;
   k.conflict_ref = INVALID_REF;
   k.pending.valid = false;
+  // The public LAST_LEARNED_GLUE observation reads this field after the fused
+  // rule consumes pending state.  A failed-literal batch has no pending clause
+  // but is still Kissat's one size-one/glue-zero learned event.
+  k.pending.glue = 0;
 
   for (const auto &[unit, id] : units) {
     const int8_t value = k.value(unit);

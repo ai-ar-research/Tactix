@@ -120,6 +120,8 @@ static void test_level_one_failed_literal_batch() {
   kernel_add_binary_clause(k, internalize(-2), internalize(3));
   kernel_add_binary_clause(k, internalize(-2), internalize(4));
   kernel_add_binary_clause(k, internalize(-3), internalize(-4));
+  // Prove the no-pending path refreshes the external-policy observation.
+  k.pending.glue = UINT32_MAX;
 
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Conflict);
@@ -127,6 +129,7 @@ static void test_level_one_failed_literal_batch() {
   assert(analyze_apply(k) == ApplyResult::Ok);
 
   assert(!k.pending.valid);
+  assert(k.pending.glue == 0);
   assert(k.level == 0);
   assert(k.values[internalize(-2)] > 0);
   assert(k.values[internalize(-1)] > 0);
