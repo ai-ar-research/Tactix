@@ -12,6 +12,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <string>
+
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -202,8 +205,13 @@ static void test_reduce_deletes_and_logs() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   Proof proof;
-  char path[] = "/tmp/tactix_reduce_test.drat";
-  assert(proof.open(path, ProofFormat::DratAscii));
+  // Named after the writing process: ctest runs concurrently over several
+  // build directories, and a shared name lets one run truncate the proof
+  // another is counting deletion lines in.
+  const std::string path = "/tmp/tactix-reduce-test-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".drat";
+  assert(proof.open(path.c_str(), ProofFormat::DratAscii));
   k.proof = &proof;
   kernel_reserve_vars(k, 12);
   for (int i = 0; i < 4; i++) { // four high-glue candidates, plus one keeper
@@ -221,14 +229,14 @@ static void test_reduce_deletes_and_logs() {
   assert(reduce_apply(k) == ApplyResult::Ok);
   assert(k.stats.deleted == 3); // 75% of the four candidates
   proof.flush();
-  FILE *f = fopen(path, "r");
+  FILE *f = fopen(path.c_str(), "r");
   char buf[256];
   int dels = 0;
   while (fgets(buf, sizeof buf, f))
     if (buf[0] == 'd')
       dels++;
   fclose(f);
-  remove(path);
+  remove(path.c_str());
   assert(dels == 3); // every deletion hit the proof
   // the policy owns the budget now: advancing it stops the advice
   rp.reduce.next_conflicts = k.stats.conflicts +
