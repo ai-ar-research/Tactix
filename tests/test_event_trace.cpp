@@ -190,6 +190,30 @@ int main() {
   assert(skip_randec_text.find("\tdecision\t") != std::string::npos);
   std::remove(skip_randec_path);
 
+  static const char *compact_bumps_path =
+      "/tmp/tactix-test-event-compact-bumps.tsv";
+  std::remove(compact_bumps_path);
+  setenv("TACTIX_EVENT_TRACE", compact_bumps_path, 1);
+  setenv("TACTIX_EVENT_TRACE_SEARCH_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_SKIP_HEAP", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "score_bump", 2);
+    trace.detail(k, "diagnostic_noise", 9);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_SEARCH_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_SKIP_HEAP");
+  std::ifstream compact_bumps_input(compact_bumps_path);
+  const std::string compact_bumps_text(
+      (std::istreambuf_iterator<char>(compact_bumps_input)),
+      std::istreambuf_iterator<char>());
+  assert(compact_bumps_text.find("\tscore_bump\t") != std::string::npos);
+  assert(compact_bumps_text.find("\tdiagnostic_noise\t") ==
+         std::string::npos);
+  std::remove(compact_bumps_path);
+
   static const char *reduce_path = "/tmp/tactix-test-reduce-trace.tsv";
   std::remove(reduce_path);
   setenv("TACTIX_REDUCE_TRACE", reduce_path, 1);
