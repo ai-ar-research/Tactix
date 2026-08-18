@@ -473,6 +473,49 @@ static void test_root_sparse_collection_partitions_rewritten_tail() {
   kernel_check_invariants(k);
 }
 
+// Reduce has already marked its victims when it enters the root-aware sparse
+// collector.  Pre-existing garbage alone must therefore trigger the sweep and
+// rewatch; it must not depend on an unrelated root shortening in the same pass.
+static void test_root_sparse_collection_collects_existing_garbage() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  kernel_assign_unit(k, internalize(1));
+  const Lit shared = internalize(2);
+  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
+  const Lit red_first[3] = {shared, internalize(4), internalize(5)};
+  const Lit irred_first[3] = {shared, internalize(5), internalize(6)};
+  const Lit victim_lits[3] = {shared, internalize(6), internalize(7)};
+  const Lit irred_second[3] = {shared, internalize(7), internalize(8)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 401);
+  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 402);
+  kernel_add_large_clause(k, irred_first, 3, false, 0, 403);
+  const Ref victim =
+      kernel_add_large_clause(k, victim_lits, 3, true, 8, 404);
+  kernel_add_large_clause(k, irred_second, 3, false, 0, 405);
+  kernel_delete_clause(k, clause_at(k.arena, victim));
+  const uint64_t generation = k.arena_generation;
+
+  // The root assignment is deliberately absent from every live clause, so
+  // collecting the already-marked victim is the only reason to compact.
+  assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::NoChange);
+  assert(k.arena_generation == generation + 1);
+
+  std::vector<uint64_t> arena_ids;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    arena_ids.push_back(c->id());
+    ref += clause_words(c->size);
+  }
+  assert((arena_ids == std::vector<uint64_t>{401, 403, 405, 402}));
+
+  std::vector<uint64_t> watched_ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((watched_ids == arena_ids));
+  kernel_check_invariants(k);
+}
+
 static void test_large_clause_propagation() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -984,6 +1027,7 @@ int main() {
   test_sparse_collection_flushes_fixed_prefix_watch();
   test_sparse_collection_partitions_mixed_tail();
   test_root_sparse_collection_partitions_rewritten_tail();
+  test_root_sparse_collection_collects_existing_garbage();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();

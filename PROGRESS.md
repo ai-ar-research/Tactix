@@ -252,6 +252,18 @@ source-position replay in `kernel_sparse_collect_root`; obsolete runtime job
 within each redundancy class and stably partitions the classes. Separate
 non-root and rewritten-root mixed-tail tests distinguish physical, policy, and
 reference order; Release 72/72, Trace 71/71, and ASAN-O3 72/72 are clean.
+Trace job `1633964` rejects that candidate at the unchanged conflict-2001
+watch frontier, after 63,075 matching normalized watch records in the focused
+window; obsolete runtime `1633965` was cancelled with zero certificate
+residue. The actual general defect is collection admission: Reduce marks its
+victims before entering `kernel_sparse_collect_root`, but that path formerly
+compacted only if root simplification independently changed another clause.
+Thus its 22 conflict-2001 victims remained garbage in the arena and no sparse
+rewatch occurred. The new candidate collects whenever pre-existing garbage or
+root simplification requires it. A generic test uses an unrelated root unit and
+makes an already-marked victim the sole reason to collect, while also checking
+the stable mixed-tail replay. Release 72/72, Trace 71/71, and ASAN-O3 72/72 are
+clean; focused trace/runtime validation remains pending.
 
 ## Gates
 

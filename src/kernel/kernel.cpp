@@ -927,6 +927,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
     }
   } root_order;
   uint64_t changed = 0;
+  bool has_garbage = false;
   RootCollectOutcome outcome = RootCollectOutcome::NoChange;
 
   // A Reduce collection starts at the first redundant clause.  The live
@@ -936,6 +937,8 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage())
       root_order.desired.push_back(ref);
+    else
+      has_garbage = true;
     ref += clause_words(c->size);
   }
   const size_t prefix_clauses = root_order.desired.size();
@@ -995,11 +998,17 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
       if (flushed == RootFlushOutcome::None ||
           flushed == RootFlushOutcome::Rewritten)
         root_order.desired.push_back(current);
-    }
+    } else
+      has_garbage = true;
     ref += words;
   }
   k.stats.sparse_collected += changed;
-  if (changed && outcome != RootCollectOutcome::Refuted) {
+  // Reduce marks its selected victims before entering the root-aware sparse
+  // collector.  Those records still require the same sweep and rewatch even
+  // when no root-fixed literal happens to shorten another clause in this
+  // collection.  `changed` only describes root simplification, so it cannot
+  // by itself be the collection admission predicate.
+  if ((changed || has_garbage) && outcome != RootCollectOutcome::Refuted) {
     // Root shortening appends packed replacement records, while Kissat writes
     // them at the swept source position.  `desired` restores those positions.
     // Compose that relation with the collector's subsequent stable move of
