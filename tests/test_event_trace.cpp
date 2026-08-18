@@ -145,6 +145,28 @@ int main() {
   assert(window_text.find("\tdecision\t3\t") == std::string::npos);
   std::remove(window_path);
 
+  static const char *skip_ticks_path =
+      "/tmp/tactix-test-event-skip-analysis-ticks.tsv";
+  std::remove(skip_ticks_path);
+  setenv("TACTIX_EVENT_TRACE", skip_ticks_path, 1);
+  setenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "analysis_tick_reason", 1);
+    trace.detail(k, "analysis_tick_shrink", 1);
+    trace.detail(k, "decision", 7);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS");
+  std::ifstream skip_ticks_input(skip_ticks_path);
+  const std::string skip_ticks_text(
+      (std::istreambuf_iterator<char>(skip_ticks_input)),
+      std::istreambuf_iterator<char>());
+  assert(skip_ticks_text.find("\tanalysis_tick") == std::string::npos);
+  assert(skip_ticks_text.find("\tdecision\t") != std::string::npos);
+  std::remove(skip_ticks_path);
+
   static const char *reduce_path = "/tmp/tactix-test-reduce-trace.tsv";
   std::remove(reduce_path);
   setenv("TACTIX_REDUCE_TRACE", reduce_path, 1);
