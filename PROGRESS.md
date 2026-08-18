@@ -15,19 +15,22 @@ decisions. This file is only the current resume surface.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
 - The accepted next-round debug candidate release binary is
-  `18ca7a4f8a51558176678a564510194b3d31d88626785632b630c782593c4bd8`.
+  `0cc79e4f156ccf425697b6d8d119d3c39092ff5daea9b31745a9334a3bc5e59d`.
   It closes all ten ranks 11--20; the cumulative ranks 1--20 debug view has 19
   checked answers and one reproduced near-cap memory unknown at rank 10.
 
 <!-- track-sched:begin -->
 The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
 closed; sparse-GC's repaired implementation and the Reduce candidate population
-are reconciled as closed. `SP-RANDEC-1`, `SP-COMPACT-1`, `SP-VIVIFY-1`, and
-`SP-WALK-WATCH-1` verification is temporarily pending. The cumulative
+are reconciled as closed. `SP-RANDEC-1`, `SP-COMPACT-1`, `SP-COMPACT-2`,
+`SP-VIVIFY-1`, and `SP-WALK-WATCH-1` verification is temporarily pending. The cumulative
 candidate removes formula-shape random-policy overrides and the extra
 post-Lucky compaction, poses focused tiers at every Vivify consumer, and
-replays Walk binaries in Kissat's compact-literal encounter order. Release is
-72/72; checked Slurm validation remains required. Any new missing or cruder
+replays Walk binaries in Kissat's compact-literal encounter order. Reduce-time
+variable compaction preserves each directed binary prefix and cannot invoke an
+optional arena-ordering policy during its representation-only collection.
+Release is 72/72 and trace evidence is exact through the repaired Rank-29
+frontier; checked Slurm validation remains required. Any new missing or cruder
 reference mechanism returns N4 verification to pending.
 <!-- track-sched:end -->
 
@@ -195,6 +198,26 @@ binary replay: job `1633433` restores the first divergent watch order, matches
 all 66 Kissat analysis records through conflict 2008, and solves the traced
 instance SAT in 24.708 s. This is mechanism evidence, not promotion; the
 current cumulative candidate still needs checked 28B+5C and ranks 21--40.
+
+Rank 29 exposed a second compaction-order issue after the post-Lucky lifecycle
+repair. Before conflict 1000 Reduce, Tactix and Kissat had the same directed
+binary order; the old variable remap reconstructed both directions from an
+undirected stream and reversed that order immediately afterwards. Preserving
+each directed binary prefix repaired it. A broader experiment that also
+preserved every large-watch vector was rejected: although it repaired the
+observed conflict-1006 pair, it introduced an earlier conflict-1003 semantic
+divergence and slowed the checked solve. The accepted general repair instead
+prevents representation-only variable compaction from invoking the
+solve-scoped optional arena-ordering policy, matching Kissat's retained arena
+sequence before large clauses are rewatched. Its regression installs a
+synthetic reverse ordering and retires an unrelated variable; it contains no
+benchmark, rank, literal, conflict, hash, or deadline condition.
+
+Trace job `1633732` matches all 16,032 normalized decision, implication,
+conflict, and analysis records from conflicts 980--1100 and all 4,666 score
+bumps from conflicts 980--1044, including both formerly divergent watch
+frontiers. Rank-29 runtime job `1633733`, checked 28B+5C job `1633745`, and
+frozen ranks 21--40 job `1633760` are the pending acceptance gates.
 
 ## Gates
 
