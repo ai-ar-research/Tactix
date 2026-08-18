@@ -125,7 +125,12 @@ static void test_kind_isolation() {
 // (l∨o) and (l∨¬o) resolve on o to {l}, no gate involved. docs/calculus.md.
 static void test_binary_resolution_unit() {
   Kernel k;
-  kernel_reserve_vars(k, 2);
+  kernel_reserve_vars(k, 5);
+  // Spend the shared Congruence allowance in gate extraction first.  V6a's
+  // own structural pass must still reach the unrelated binary unit.
+  k.work_budget = 1;
+  for (unsigned i = 0; i < 300; i++)
+    add3(k, 3, 4, 5);
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
   assert(congruence_guard(k));
@@ -133,6 +138,9 @@ static void test_binary_resolution_unit() {
   assert(k.value(internalize(1)) > 0 && "the unit is asserted at the root");
   assert(k.stats.congruence_y1_found == 1);
   assert(k.stats.congruence_y1_units == 1);
+  assert(k.stats.congruence_y1_ticks > 0);
+  assert(k.stats.congruence_budget_stops > 0 &&
+         "the shared Congruence budget was already exhausted");
   assert(k.stats.congruence_units == 0 && "not the degenerate-gate channel");
   assert(k.stats.congruence_gates == 0 && "no gate was extracted");
 }

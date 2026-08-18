@@ -8,19 +8,20 @@ decisions. This file is only the current resume surface.
 
 - Phase 4 has met T3: the matched Tier B/C window solved 28/28 and 30/30,
   respectively, within the 1.10x Kissat gate; all results were checked.
-- N1 and N2 are complete. N3 awaits Tier D; N4 awaits final parity-ledger
-  reconciliation.
+- N1, N2, and N4 are complete. N3 awaits the canonical Tier-D gate.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
 - The accepted next-round debug candidate release binary is
-  `4a41b541368010519fbeb302dc2adcec0329067c827947f961a0d9eacf3e3fcf`.
+  `18ca7a4f8a51558176678a564510194b3d31d88626785632b630c782593c4bd8`.
   It closes all ten ranks 11--20; the cumulative ranks 1--20 debug view has 19
   checked answers and one reproduced near-cap memory unknown at rank 10.
 
 <!-- track-sched:begin -->
 The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
-closed; sparse-GC remains deferred outside the closure pin. Any new missing or
-cruder reference mechanism reopens N4 until repaired or explicitly accepted.
+closed; sparse-GC's repaired implementation and the Reduce candidate population
+are now reconciled as closed. Every live missing/cruder row has a repair or an
+explicit accepted-deviation disposition with a reopening path. Any new missing
+or cruder reference mechanism reopens N4.
 <!-- track-sched:end -->
 
 ## Active measurement
@@ -142,6 +143,42 @@ zero residue. Rank 10 alone is memory-unknown at 49.165 s; the accepted
 pre-repair binary reproduces the same `bad_alloc` at 49.818 s, so this is the
 agreed near-cap debug classification rather than a source regression.
 
+### T105 V6a disposition and ranks 21--30 (2026-08-18)
+
+Repaired Backbone does not make V6a redundant on `T105`. Paired same-node job
+`1631961` in `benchmarks/runs/20260818-0110-T105-backbone-v6a-ablation/`
+records zero Backbone failed literals in both arms. V6a-on derives 501 units and
+solves checked UNSAT in 365.861 s; V6a-off derives none and takes 430.693 s,
+with 346,574 versus 495,955 conflicts and a 66,107,192 versus 166,616,967-byte
+proof. V6a is retained with one complete linear pass per admitted Congruence
+application and separate `congruence_y1_ticks` accounting.
+
+The post-repair iteration guard is
+`benchmarks/runs/20260818-0125-BC-v6a-budget-final/` (job `1631978`): Tier B
+is 28/28 and the frozen Tier C subset is 5/5, with solve-time sums 630.845 s
+and 1285.260 s. All 17 SAT models and 16 UNSAT proofs validate, peak RSS is
+2,001,780 KiB, and every task reports complete certificate cleanup.
+
+The next ten gaps are frozen, before any work on them, in
+`benchmarks/runs/20260818-0120-tierd-ranks21-30-predeclared/`. Selection is the
+fastest completed Kissat-4.0.4 eligible view at the freeze, excluding ranks
+1--20; because the canonical baseline was still running, this is an immutable
+available-results ranking rather than a claim about the eventual global top 30.
+No baseline job was rerun.
+
+| rank | expected | instance basename | Kissat s | shipped Tactix s |
+|---:|:---:|---|---:|---:|
+| 21 | SAT | `ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz` | 106.338 | 1889.889 |
+| 22 | UNSAT | `113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz` | 196.556 | timeout |
+| 23 | SAT | `994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz` | 212.567 | 1242.639 |
+| 24 | UNSAT | `29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz` | 221.203 | 1504.167 |
+| 25 | SAT | `180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz` | 263.773 | 3209.790 |
+| 26 | SAT | `0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz` | 266.921 | 2116.037 |
+| 27 | UNSAT | `5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz` | 278.187 | timeout |
+| 28 | SAT | `9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz` | 286.337 | 1290.399 |
+| 29 | SAT | `16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz` | 294.468 | 1780.110 |
+| 30 | SAT | `ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz` | 304.761 | 1386.023 |
+
 ## Gates
 
 - [x] T1: MiniSat correctness/performance bar.
@@ -153,13 +190,10 @@ agreed near-cap debug classification rather than a source regression.
 
 ## Next engineering work
 
-1. Measure whether repaired Backbone makes V6a's overlapping binary-unit sweep
-   redundant on `T105`; delete it or assign an independently justified budget.
-2. Reconcile `docs/scheduling-parity-ledger.md` into the N4 verdict.
-3. Predeclare the next ten frozen Tier-D gaps, excluding ranks 1--20, and use
-   28B+5C (not Tier D) as the regression set.
-4. Review the Phase 4.20 surveys and decide P1's compound-instance API.
-5. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
+1. Diagnose rank 21 from the first portable Tactix/Kissat divergence, retaining
+   ranks 21--30 as improvement witnesses and 28B+5C as the regression set.
+2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
+3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
    repair or disposition, and protect the result with focused and cumulative
    guards.
