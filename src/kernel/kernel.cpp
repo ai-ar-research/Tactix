@@ -2003,12 +2003,27 @@ bool kernel_compact_variables(Kernel &k) {
   // Remove garbage first so the rebuilt arena and watch lists contain exactly
   // the live formula.  This preserves clause refs in assigned reasons through
   // kernel_collect_garbage's forwarding pass.  Variable compaction is not an
-  // arena-ordering checkpoint in Kissat: its sparse collector retains the
-  // current clause order while remapping variables.  Suppress Tactix's
-  // optional inprocessing order for this representation-only collection, or
-  // it can reorder the large-watch replay solely because variables retired.
+  // optional policy-ordering checkpoint in Kissat: its sparse collector walks
+  // the current arena while remapping variables.  Tactix can append a
+  // replacement that Kissat emitted at the source clause's position; the
+  // inherited clause-order key is the permanent representation of that native
+  // position.  Replay that logical arena order here instead of either physical
+  // append order or the solve-scoped inprocessing policy.
+  struct CompactionArenaOrder final : ArenaOrdering {
+    void order(const Kernel &kernel, std::vector<Ref> &refs) override {
+      std::stable_sort(refs.begin(), refs.end(), [&](Ref a, Ref b) {
+        const Clause *ca = clause_at(kernel.arena, a);
+        const Clause *cb = clause_at(kernel.arena, b);
+        const uint64_t ao =
+            ca->id() ? kernel_clause_order(kernel, ca->id()) : a;
+        const uint64_t bo =
+            cb->id() ? kernel_clause_order(kernel, cb->id()) : b;
+        return ao < bo;
+      });
+    }
+  } compaction_order;
   ArenaOrdering *const saved_arena_ordering = k.arena_ordering;
-  k.arena_ordering = nullptr;
+  k.arena_ordering = &compaction_order;
   kernel_collect_garbage(k);
   k.arena_ordering = saved_arena_ordering;
 

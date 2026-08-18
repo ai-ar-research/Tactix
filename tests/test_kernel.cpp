@@ -136,28 +136,34 @@ static void test_variable_compaction_preserves_directed_binary_order() {
   kernel_check_invariants(k);
 }
 
-// Variable compaction is not an arena-policy checkpoint.  Kissat's compacting
-// sparse collector retains the current clause order, so an independently
-// configured inprocessing order must not leak into its large-watch replay.
-static void test_variable_compaction_preserves_current_arena_order() {
+// Variable compaction is not an arena-policy checkpoint.  Kissat keeps a
+// replacement at its source clause's position during compacting collection;
+// Tactix appends the replacement and retains that native position in the
+// inherited clause-order key.  Compaction must replay the logical source order
+// and must not leak an independently configured inprocessing order.
+static void test_variable_compaction_replays_inherited_arena_order() {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 7);
   const Lit shared = internalize(7);
-  const Lit first[3] = {shared, internalize(3), internalize(4)};
-  const Lit second[3] = {shared, internalize(5), internalize(6)};
-  kernel_add_large_clause(k, first, 3, false, 0, 101);
-  kernel_add_large_clause(k, second, 3, false, 0, 102);
+  const Lit source[3] = {shared, internalize(3), internalize(4)};
+  const Lit middle[3] = {shared, internalize(5), internalize(6)};
+  const Lit replacement[3] = {shared, internalize(3), internalize(6)};
+  const Ref source_ref = kernel_add_large_clause(k, source, 3, false, 0, 101);
+  kernel_add_large_clause(k, middle, 3, false, 0, 102);
+  kernel_add_large_clause(k, replacement, 3, false, 0, 103);
+  kernel_inherit_clause_order(k, 103, 101);
+  kernel_delete_clause(k, clause_at(k.arena, source_ref));
 
   const auto watched_ids = [&] {
     std::vector<uint64_t> ids;
     const Lit current_shared = kernel_internalize(k, 7);
     for (const WatchEntry watch : k.watches.entries(current_shared))
-      if (!watch.binary())
+      if (!watch.binary() && !clause_at(k.arena, watch.ref())->garbage())
         ids.push_back(clause_at(k.arena, watch.ref())->id());
     return ids;
   };
-  assert((watched_ids() == std::vector<uint64_t>{101, 102}));
+  assert((watched_ids() == std::vector<uint64_t>{102, 103}));
 
   struct ReverseOrder final : ArenaOrdering {
     void order(const Kernel &, std::vector<Ref> &refs) override {
@@ -166,15 +172,16 @@ static void test_variable_compaction_preserves_current_arena_order() {
   } reverse;
   k.arena_ordering = &reverse;
 
-  // Retire an unrelated variable.  A normal ordered whole-arena collection
-  // would reverse these clauses; representation-only compaction must not.
+  // Retire an unrelated variable.  Physical append order is 102,103 and the
+  // posed policy would reverse it to 103,102 for the wrong reason.  The result
+  // is 103,102 because replacement 103 inherits source position 101.
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[1] = VarStatus::Eliminated;
   heuristics_deactivate_var(k, 1);
   k.unassigned_active--;
   assert(kernel_compact_variables(k));
   assert(k.arena_ordering == &reverse);
-  assert((watched_ids() == std::vector<uint64_t>{101, 102}));
+  assert((watched_ids() == std::vector<uint64_t>{103, 102}));
   kernel_check_invariants(k);
 }
 
@@ -879,7 +886,7 @@ int main() {
   test_variable_identity_maps();
   test_variable_compaction();
   test_variable_compaction_preserves_directed_binary_order();
-  test_variable_compaction_preserves_current_arena_order();
+  test_variable_compaction_replays_inherited_arena_order();
   test_compaction_defers_retired_jumped_reason();
   test_compaction_drops_unassigned_stale_reason();
   test_lit_encoding();
