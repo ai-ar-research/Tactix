@@ -85,19 +85,38 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // Kissat's dense watch lists are one ordered stream containing binaries and
   // every irredundant large occurrence. Inline substitution can append either
   // kind, so two separately ordered Tactix indexes are not enough.
+  //
+  // Invariant, restored at every entry point below: for each literal the
+  // binary sub-multiset of this ledger equals that literal's physical binary
+  // watch multiset, and its large sub-multiset names the same irredundant
+  // records as `Kernel::dense`. The ledger owns only the ORDER; the watch lists
+  // and `Kernel::dense` own membership. A ledger that claims a clause the
+  // formula does not hold puts a phantom clause into the next environment.
   std::vector<std::vector<DenseOccurrence>> dense_occurrences;
 
   void begin(const Kernel &);
+  // Adopt the binaries Sweep published for this batch. Must run for every
+  // emitted batch, including one whose classes are all declined below, because
+  // the binaries are already in the watch lists by then.
   void sync_new_binaries(
       const Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
+  // `members` is the requested class map. The rewrite this mirrors declines a
+  // member that is already root-fixed or retired, so this applies the same
+  // predicate rather than the map; mirroring the map instead moves ledger
+  // entries the kernel leaves in place.
   void rewrite_binary_occurrences(const Kernel &, const std::vector<Lit> &repr,
-                                  const std::vector<uint8_t> &sub);
+                                  const std::vector<uint8_t> &members);
   void remove_large(Kernel &, Ref source);
   void collapse_large_to_binary(Kernel &, Ref source, Lit a, Lit b,
                                 bool append_a, bool append_b);
   void inherit(Kernel &, Ref replacement, Ref source);
   void order(const Kernel &, std::vector<Ref> &) override;
   uint64_t collect(Kernel &);
+
+private:
+  DenseOccurrence *find_large(Lit, Ref);
+  void erase_large(Lit, Ref);
+  void purge_stale_binaries(Lit, std::unordered_map<Lit, size_t> &);
 };
 
 // Sweep commits consequences while its dense pass is still in flight.  Kissat

@@ -501,6 +501,10 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
           // soon as the dense traversal encounters it. Merely skipping it
           // leaves a different live formula and changes which later clauses
           // fit into capped environments (the seed-89 startup divergence).
+          // Same quiescent-root deletion contract as the dense entry above: a
+          // trail reason may not name a dropped clause
+          // (kernel.hpp kernel_retire_root_reason).
+          kernel_retire_root_reason(k, c, ref);
           kernel_delete_clause(k, c);
           return;
         }
@@ -1361,25 +1365,38 @@ static void sweep_reschedule_representatives(
     Kernel &k, const std::vector<std::pair<Var, Var>> &external_pairs) {
   std::vector<Var> representatives;
   for (const auto &pair : external_pairs) {
-    Var representative = INVALID_VAR;
-    for (const Var external : {pair.first, pair.second}) {
-      if (external >= k.external_to_internal.size())
-        continue;
-      const Var internal = k.external_to_internal[external];
-      if (internal == INVALID_VAR || kernel_var_retired(k, internal))
-        continue;
-      if (representative != INVALID_VAR) {
-        representative = INVALID_VAR; // no substitution actually landed
-        break;
+    Var endpoints[2] = {INVALID_VAR, INVALID_VAR};
+    bool resolved = true;
+    for (uint32_t i = 0; i < 2 && resolved; i++) {
+      const Var external = i ? pair.second : pair.first;
+      resolved = external < k.external_to_internal.size();
+      if (resolved) {
+        endpoints[i] = k.external_to_internal[external];
+        resolved = endpoints[i] != INVALID_VAR;
       }
-      representative = external;
     }
-    if (representative == INVALID_VAR)
+    if (!resolved)
+      continue;
+    // The rescheduled variable is the pair's REPRESENTATIVE, chosen by import
+    // order exactly as `substitute_apply_sweep_equivalences` chooses it and as
+    // Kissat's `sweep_equivalence_candidates` chooses `lit < other`.  Deriving
+    // it instead from "the endpoint that survived retirement" silently declined
+    // every pair whose substitution was skipped, where Kissat still schedules.
+    const Var representative =
+        kernel_import_var_order(k, endpoints[0]) <=
+                kernel_import_var_order(k, endpoints[1])
+            ? endpoints[0]
+            : endpoints[1];
+    // `schedule_inner` declines a variable that is no longer ACTIVE, and a
+    // root-fixed variable is deactivated the moment it is assigned
+    // (kissat flags.c `kissat_mark_fixed_literal`), not only a retired one.
+    if (root_fixed(k, representative) ||
+        kernel_var_retired(k, representative))
       continue;
     // Do not deduplicate: Kissat's `schedule_inner` is a move-to-pop-end for
     // every proved equivalence.  If A, B, A are discovered in that order, the
     // final move of A is observable and A—not B—is the next seed.
-    representatives.push_back(representative);
+    representatives.push_back(k.internal_to_external[representative]);
   }
   for (const Var representative : representatives) {
     const auto begin = k.sweep_tail.begin() + k.sweep_tail_next;

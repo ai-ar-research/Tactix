@@ -539,6 +539,38 @@ void test_resumable_schedule() {
   assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
+// Kissat reschedules a proved pair's REPRESENTATIVE — `schedule_inner
+// (sweeper, repr_idx)` in `sweep_equivalence_candidates`, where the
+// representative is the endpoint with the smaller internal index, i.e. Tactix's
+// import order. Reading it off "whichever endpoint escaped retirement" happens
+// to agree only while a substitution actually lands, and names nothing at all
+// when the pair is declined. Both import orders are exercised because the
+// representative is not a function of the external numbering.
+void test_reschedules_pair_representative_by_import_order() {
+  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+  for (uint32_t flipped = 0; flipped < 2; flipped++) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_record_import(k, flipped ? 1 : 0);
+    kernel_record_import(k, flipped ? 0 : 1);
+    kernel_record_import(k, 2);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(-2), internalize(1),
+                             ++k.next_clause_id);
+    assert(sweep_apply(k) == ApplyResult::Ok);
+
+    const Var representative = flipped ? 1u : 0u;
+    assert(!kernel_var_retired(k, representative));
+    assert(kernel_var_retired(k, flipped ? 0u : 1u));
+    assert(k.stats.sweep_rescheduled == 1);
+    assert(k.sweep_tail_next < k.sweep_tail.size());
+    assert(k.sweep_tail[k.sweep_tail_next] ==
+           k.internal_to_external[representative]);
+  }
+  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
+}
+
 // A productive dense environment is a transaction boundary, not just a
 // detector boundary.  Its proved unit can force variables outside a depth-zero
 // environment; Kissat propagates that trail before choosing/building the next
@@ -778,6 +810,7 @@ int main(int argc, char **argv) {
   test_known_equivalence();
   test_seeds();
   test_resumable_schedule();
+  test_reschedules_pair_representative_by_import_order();
   test_resumable_closes_root_between_environments();
   test_env_unsat();
   test_sd_emits_rup_equivalence();
