@@ -2356,16 +2356,23 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<uint64_t> chain;
   for (Var v = 0; v < k.nvars; v++) {
+    // V6a owns one complete linear pass.  The shared Congruence allowance may
+    // truncate gate extraction or closure, but must not starve this pass after
+    // they have already spent it.  Only a global termination request can cut
+    // the pass (soundly dropping the remaining optional inferences).
+    if (!(v & 255) && kernel_terminating(k))
+      return false;
     if (kernel_var_retired(k, v))
       continue;
-    if (cong_budget.over(k))
-      break; // dropping inferences is sound
     for (int s = 0; s < 2; s++) {
       const Lit l = make_lit(v, s != 0);
       // A root-assigned `l` has nothing to learn: already true, and false is
       // impossible at a quiescent root.
       if (k.value(l) != 0)
         continue;
+      const uint64_t scan_ticks = 1 + k.watches.size(l);
+      k.stats.congruence_y1_ticks += scan_ticks;
+      // Retain the inclusive Congruence accounting used by the outer rule.
       k.stats.congruence_ticks += k.watches.size(l);
       touched.clear();
       bool found = false;
@@ -2393,7 +2400,9 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
       // order wrong. The replay charges real propagation, so meter it here.
       const uint64_t t0 = k.stats.ticks;
       const bool ok = !lrat || congruence_rup_chain(k, &l, 1, chain);
-      k.stats.congruence_ticks += k.stats.ticks - t0;
+      const uint64_t replay_ticks = k.stats.ticks - t0;
+      k.stats.congruence_y1_ticks += replay_ticks;
+      k.stats.congruence_ticks += replay_ticks;
       if (!ok) {
         k.stats.congruence_unjustified++;
         continue; // sound: the inference is dropped, nothing is emitted

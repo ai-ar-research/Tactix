@@ -360,6 +360,11 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Effect:** collect-then-batch, into the SAME batch as the degeneracy units above — nothing is
   asserted mid-sweep, so the closure that follows sees an unchanged trail and M1 owns the cascade.
   Deriving both `l` and `¬l` in one round is a refutation (the two units resolve to ∅).
+- **Canonical dose:** every admitted V6 application performs exactly one complete linear scan of the
+  active variables and their binary watches. V6a owns that structural allowance: spending the shared
+  Congruence gate-extraction budget cannot truncate it. A global termination request may stop the
+  scan, soundly dropping only the remaining optional inferences. `congruence_y1_ticks` accounts for
+  the scan and any proof replay without turning the completeness guarantee into a tuned constant.
 - **Proof δ:** `add_rup({l}, chain)` per unit, the chain **replayed** rather than assembled from the two
   binary ids — assuming `¬l` at a probing scope and reading the antecedents off the conflict gives the
   chain in the checker's own propagation order by construction, which a hand-built pair silently gets
@@ -369,7 +374,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   entailed, and it is RUP, which is what the emitted chain certifies.
 - **Why it lives in V6 rather than in a rule of its own:** the reference couples the two at exactly
   this rate (`congruence.c:4613`), and the units it derives seed the value cascade V6's unit channel
-  needs. The open question is dosing, not soundness — ledger `SP-CONG-UNITS-1`.
+  needs. The retained dose and its T105 ablation are ledger `SP-CONG-UNITS-1`.
 
 ## 6b. Variable elimination and addition (E1–E2)
 

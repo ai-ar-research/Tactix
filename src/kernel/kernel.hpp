@@ -499,6 +499,7 @@ struct Stats {
   uint64_t congruence_units = 0; // root units from degenerate gates
   uint64_t congruence_y1_found = 0; // detections
   uint64_t congruence_y1_units = 0; // ... emitted and batched
+  uint64_t congruence_y1_ticks = 0; // one complete binary-watch pass + replay
   uint64_t congruence_binary_equivalences = 0; // paired binaries imported
   mutable uint64_t congruence_gates_and = 0;
   mutable uint64_t congruence_gates_xor = 0;

@@ -556,3 +556,5 @@ A never-imported DIMACS-header variable keeps its external identity but retires
 from DefaultPolicy search at `finish_input`. It occurs nowhere, needs no witness,
 and total model extension supplies an arbitrary value. Checked rank-16 witness:
 `benchmarks/runs/20260817-1625-tierd-rank16-header-only-checked/`.
+
+T105's paired removal (`20260818-0110-T105-backbone-v6a-ablation`) retains V6a: Backbone finds 0 units, V6a finds 501, and off is 430.693 s versus 365.861 s. Each admitted Congruence application therefore completes one linear V6a binary-watch pass independently of prior gate-budget spending; only global termination may soundly cut it. `congruence_y1_ticks` accounts for scan/replay work while `congruence_ticks` remains inclusive, and the focused test exhausts the shared budget before requiring the unit.
