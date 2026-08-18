@@ -938,6 +938,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
       root_order.desired.push_back(ref);
     ref += clause_words(c->size);
   }
+  const size_t prefix_clauses = root_order.desired.size();
 
   // Kissat's sparse collector flushes watched binaries before sweeping the
   // large-clause arena (collect.c:flush_watched_clauses_by_literal).  In
@@ -999,6 +1000,15 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   }
   k.stats.sparse_collected += changed;
   if (changed && outcome != RootCollectOutcome::Refuted) {
+    // Root shortening appends packed replacement records, while Kissat writes
+    // them at the swept source position.  `desired` restores those positions.
+    // Compose that relation with the collector's subsequent stable move of
+    // tail irredundant clauses ahead of tail redundant clauses; neither the
+    // physical append order nor the posed policy represents both invariants.
+    std::stable_partition(root_order.desired.begin() + prefix_clauses,
+                          root_order.desired.end(), [&k](Ref ref) {
+                            return !clause_at(k.arena, ref)->redundant();
+                          });
     ArenaOrdering *const saved = k.arena_ordering;
     k.arena_ordering = &root_order;
     kernel_collect_garbage(k, start, /*apply_sparse_order=*/true);

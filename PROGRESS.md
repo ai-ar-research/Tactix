@@ -245,9 +245,13 @@ cumulative arrays are submitted. Continuation job `1633890` matches another
 107,804 portable records before the same conflict-2272 semantic split and
 localizes its next cause to Reduce at conflict 2001: Kissat stably partitions
 the swept tail into irredundant then redundant clauses before rewatching;
-Tactix retained the interleaving. The general tail-partition candidate has a
-mixed-tail stability test and clean Release 72/72, Trace 71/71, and ASAN-O3
-72/72 suites. Its focused trace and runtime gates are next.
+Tactix retained the interleaving. Trace job `1633950` proves the first general
+tail-partition patch inert because root assignments route Reduce through the
+source-position replay in `kernel_sparse_collect_root`; obsolete runtime job
+`1633951` was cancelled. The composed candidate now preserves rewrite position
+within each redundancy class and stably partitions the classes. Separate
+non-root and rewritten-root mixed-tail tests distinguish physical, policy, and
+reference order; Release 72/72, Trace 71/71, and ASAN-O3 72/72 are clean.
 
 ## Gates
 
