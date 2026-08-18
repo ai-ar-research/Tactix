@@ -14,7 +14,7 @@ decisions. This file is only the current resume surface.
   21--40 gates. N3 awaits the canonical Tier-D gate.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
-- The accepted next-round debug candidate release binary is
+- The current diagnostic candidate release binary is
   `0cc79e4f156ccf425697b6d8d119d3c39092ff5daea9b31745a9334a3bc5e59d`.
   It closes all ten ranks 11--20; the cumulative ranks 1--20 debug view has 19
   checked answers and one reproduced near-cap memory unknown at rank 10.
@@ -29,9 +29,9 @@ post-Lucky compaction, poses focused tiers at every Vivify consumer, and
 replays Walk binaries in Kissat's compact-literal encounter order. Reduce-time
 variable compaction preserves each directed binary prefix and cannot invoke an
 optional arena-ordering policy during its representation-only collection.
-Release is 72/72 and trace evidence is exact through the repaired Rank-29
-frontier; checked Slurm validation remains required. Any new missing or cruder
-reference mechanism returns N4 verification to pending.
+Release is 72/72 and trace evidence is exact through conflict 1100 on Rank 29,
+but the focused 1200 s runtime timed out; the candidate is not accepted. Any
+new missing or cruder reference mechanism returns N4 verification to pending.
 <!-- track-sched:end -->
 
 ## Active measurement
@@ -216,8 +216,11 @@ benchmark, rank, literal, conflict, hash, or deadline condition.
 Trace job `1633732` matches all 16,032 normalized decision, implication,
 conflict, and analysis records from conflicts 980--1100 and all 4,666 score
 bumps from conflicts 980--1044, including both formerly divergent watch
-frontiers. Rank-29 runtime job `1633733`, checked 28B+5C job `1633745`, and
-frozen ranks 21--40 job `1633760` are the pending acceptance gates.
+frontiers. Focused runtime job `1633733` nevertheless times out at 1200.004 s
+after 27,240,776 conflicts, so this candidate is rejected pending the first
+later traced divergence. Diagnostic job `1633808` covers conflicts 1080--1400.
+Checked 28B+5C job `1633745` and frozen ranks 21--40 job `1633760` remain in
+flight as cumulative regression evidence, not promotion gates for this pin.
 
 ## Gates
 
