@@ -169,6 +169,27 @@ int main() {
   assert(skip_ticks_text.find("\tdecision\t") != std::string::npos);
   std::remove(skip_ticks_path);
 
+  static const char *skip_randec_path =
+      "/tmp/tactix-test-event-skip-randec.tsv";
+  std::remove(skip_randec_path);
+  setenv("TACTIX_EVENT_TRACE", skip_randec_path, 1);
+  setenv("TACTIX_EVENT_TRACE_SKIP_RANDEC_DRAWS", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.randec_draw(k, 17, 2, 0, false);
+    trace.detail(k, "decision", 1);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_SKIP_RANDEC_DRAWS");
+  std::ifstream skip_randec_input(skip_randec_path);
+  const std::string skip_randec_text(
+      (std::istreambuf_iterator<char>(skip_randec_input)),
+      std::istreambuf_iterator<char>());
+  assert(skip_randec_text.find("\trandec_draw\t") == std::string::npos);
+  assert(skip_randec_text.find("\tdecision\t") != std::string::npos);
+  std::remove(skip_randec_path);
+
   static const char *reduce_path = "/tmp/tactix-test-reduce-trace.tsv";
   std::remove(reduce_path);
   setenv("TACTIX_REDUCE_TRACE", reduce_path, 1);

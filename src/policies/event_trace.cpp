@@ -158,6 +158,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
   skip_heap_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_HEAP") != nullptr;
   skip_decisions_ =
       std::getenv("TACTIX_EVENT_TRACE_SKIP_DECISIONS") != nullptr;
+  skip_randec_draws_ =
+      std::getenv("TACTIX_EVENT_TRACE_SKIP_RANDEC_DRAWS") != nullptr;
   skip_analysis_ticks_ =
       std::getenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != nullptr;
   search_only_ = std::getenv("TACTIX_EVENT_TRACE_SEARCH_ONLY") != nullptr;
@@ -207,6 +209,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   if (skip_decisions_ &&
       (!std::strcmp(event, "decision") || !std::strcmp(event, "randec_draw") ||
        !std::strcmp(event, "phase_pick")))
+    return;
+  if (skip_randec_draws_ && !std::strcmp(event, "randec_draw"))
     return;
   if (skip_analysis_ticks_ && !std::strncmp(event, "analysis_tick", 13))
     return;

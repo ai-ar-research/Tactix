@@ -118,6 +118,7 @@ private:
   bool skip_imply_ = false;
   bool skip_heap_ = false;
   bool skip_decisions_ = false;
+  bool skip_randec_draws_ = false;
   bool skip_analysis_ticks_ = false;
   bool search_only_ = false;
   bool control_only_ = false;
