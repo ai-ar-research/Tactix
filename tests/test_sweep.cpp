@@ -539,6 +539,23 @@ void test_resumable_schedule() {
   assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
+// A productive dense environment is a transaction boundary, not just a
+// detector boundary.  Its proved unit can force variables outside a depth-zero
+// environment; Kissat propagates that trail before choosing/building the next
+// seed, so those variables must never become later environments.
+void test_resumable_closes_root_between_environments() {
+  Kernel k;
+  build(k, 6,
+        {{1, 2}, {-1, 2}, {-2, 3}, {-3, 4}, {-4, 5}, {-5, 6}});
+  assert(setenv("TACTIX_SWEEP_DEPTH", "0", 1) == 0);
+  assert(sweep_apply(k) == ApplyResult::Ok);
+  assert(unsetenv("TACTIX_SWEEP_DEPTH") == 0);
+  for (Var v = 1; v < 6; v++)
+    assert(kernel_root_value(k, make_lit(v, false)) > 0);
+  assert(k.stats.sweep_environments == 1 &&
+         "root consequences must close before the next environment");
+}
+
 // --- 7. an environment that refutes the formula outright ---------------------
 void test_env_unsat() {
   // (1)(¬1) is caught before sweeping, so use a refutation the environment
@@ -761,6 +778,7 @@ int main(int argc, char **argv) {
   test_known_equivalence();
   test_seeds();
   test_resumable_schedule();
+  test_resumable_closes_root_between_environments();
   test_env_unsat();
   test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();

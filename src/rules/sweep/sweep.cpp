@@ -475,34 +475,23 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
     for (uint32_t pol = 0; pol < 2 && !limit_reached; pol++) {
       const Lit l = make_lit(v, pol != 0);
       ticks += k.watches.size(l);
-      for (const WatchEntry w : k.watches.entries(l)) {
-        if (!w.binary())
-          continue; // large clauses come from the occurrence index below
-        const Lit o = w.other();
+      const auto process_binary = [&](Lit o) {
         if (k.values[l] > 0 || k.values[o] > 0)
-          continue; // root-satisfied: it constrains nothing
+          return;
         const uint32_t other_sub = e.sub_of_var[var_of(o)];
-        if (other_sub != SWEEP_NO_SUB_VAR &&
-            e.depth[other_sub] < d)
-          continue; // already copied from its strictly earlier BFS endpoint
+        if (other_sub != SWEEP_NO_SUB_VAR && e.depth[other_sub] < d)
+          return;
         const Lit pair[2] = {l, o};
         env_add_clause(k, e, pair, 2, kernel_binary_key(l, o),
-                       kernel_binary_id(k, l, o), d + 1, lim, &ticks,
-                       false);
-        if (e.vars.size() >= lim.max_env_vars) {
-          limit_reached = true;
-          break;
-        }
-      }
-      if (limit_reached)
-        break;
-      for (const Ref ref : (*r.occ)[l]) {
+                       kernel_binary_id(k, l, o), d + 1, lim, &ticks, false);
+      };
+      const auto process_large = [&](Ref ref) {
         // Scan work remains diagnostic; Kissat spends the embedded-solver tick
         // currency and bounds the resulting environment structurally.
         ticks += 1;
         Clause *c = clause_at(k.arena, ref);
         if (c->garbage() || c->redundant())
-          continue; // the index may hold stale refs (OccIndex contract)
+          return; // the index may hold stale refs (OccIndex contract)
         bool satisfied = false;
         for (const Lit m : *c)
           satisfied = satisfied || k.values[m] > 0;
@@ -513,14 +502,39 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
           // leaves a different live formula and changes which later clauses
           // fit into capped environments (the seed-89 startup divergence).
           kernel_delete_clause(k, c);
-          continue;
+          return;
         }
         env_add_clause(k, e, c->begin(), c->size, KEY_LARGE | ref, c->id(),
                        d + 1, lim, &ticks);
-        if (e.vars.size() >= lim.max_env_vars) {
-          limit_reached = true;
-          break;
+      };
+      if (!r.substitution.dense_occurrences.empty()) {
+        for (const auto occurrence : r.substitution.dense_occurrences[l]) {
+          if (occurrence.binary)
+            process_binary(static_cast<Lit>(occurrence.payload));
+          else
+            process_large(static_cast<Ref>(occurrence.payload));
+          if (e.vars.size() >= lim.max_env_vars) {
+            limit_reached = true;
+            break;
+          }
         }
+      } else {
+        for (const WatchEntry watch : k.watches.entries(l)) {
+          if (watch.binary())
+            process_binary(watch.other());
+          if (e.vars.size() >= lim.max_env_vars) {
+            limit_reached = true;
+            break;
+          }
+        }
+        if (!limit_reached)
+          for (const Ref ref : (*r.occ)[l]) {
+            process_large(ref);
+            if (e.vars.size() >= lim.max_env_vars) {
+              limit_reached = true;
+              break;
+            }
+          }
       }
     }
   }
@@ -1360,10 +1374,11 @@ static void sweep_reschedule_representatives(
       }
       representative = external;
     }
-    if (representative == INVALID_VAR ||
-        std::find(representatives.begin(), representatives.end(),
-                  representative) != representatives.end())
+    if (representative == INVALID_VAR)
       continue;
+    // Do not deduplicate: Kissat's `schedule_inner` is a move-to-pop-end for
+    // every proved equivalence.  If A, B, A are discovered in that order, the
+    // final move of A is observable and A—not B—is the next seed.
     representatives.push_back(representative);
   }
   for (const Var representative : representatives) {
@@ -1442,6 +1457,15 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
                                   k.internal_to_external[var_of(e.b)]);
     if (k.inconsistent)
       return ApplyResult::Unsat;
+    // Kissat closes the dense root trail after every swept environment
+    // (`sweep_variable` calls `kissat_dense_propagate` after releasing its
+    // local sweeper).  Those consequences are part of the live formula seen
+    // by the next environment: fixed variables leave its BFS and falsified
+    // literals are stripped from rewritten clauses.  Deferring this drain to
+    // the end of the whole Sweep pass changes both structural caps and the
+    // candidate partition, rather than merely batching equivalent work.
+    if (inprocess_reach_root(k))
+      return ApplyResult::Unsat;
     if (r.emission_batches != emissions_before) {
       result = ApplyResult::Ok;
       sweep_reschedule_representatives(k, external_pairs);
@@ -1465,10 +1489,8 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   // real host cost without letting that representation detail postpone the
   // next semantic Sweep transaction.
   k.stats.sweep_ticks_repr += r.substitution.collect(k);
-  // Kissat keeps newly assigned units unpropagated throughout the dense Sweep
-  // pass and performs one probing propagation after releasing the sweeper.
-  // Earlier closure changes later environments and is therefore not merely a
-  // batching optimization.
+  // The per-environment drains above normally leave no work.  Keep the final
+  // closure for the unproductive/early-exit tail and as a lifecycle guard.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   return result;
