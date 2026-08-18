@@ -103,6 +103,39 @@ static void test_variable_compaction() {
   assert(k.model_values[internalize(2)] > 0);
 }
 
+// Kissat moves each surviving literal's watch vector wholesale during variable
+// compaction.  The directed binary prefix must therefore retain its own
+// encounter order; rebuilding it from numerically enumerated undirected pairs
+// can reverse a shared endpoint even though the formula is unchanged.
+static void test_variable_compaction_preserves_directed_binary_order() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 5);
+  const Lit shared = internalize(5);
+  kernel_add_binary_clause(k, internalize(3), shared);
+  kernel_add_binary_clause(k, internalize(1), shared);
+
+  const auto external_partners = [&] {
+    std::vector<int> result;
+    const Lit current_shared = kernel_internalize(k, 5);
+    for (const WatchEntry watch : k.watches.entries(current_shared))
+      if (watch.binary())
+        result.push_back(kernel_externalize(k, watch.other()));
+    return result;
+  };
+  assert((external_partners() == std::vector<int>{3, 1}));
+
+  // Retire an unrelated variable so all binary endpoints remain live while
+  // their internal identities move.
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, 1);
+  k.unassigned_active--;
+  assert(kernel_compact_variables(k));
+  assert((external_partners() == std::vector<int>{3, 1}));
+  kernel_check_invariants(k);
+}
+
 static void test_compaction_defers_retired_jumped_reason() {
   Kernel k;
   ScopedHeuristics h(k);
@@ -803,6 +836,7 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
 int main() {
   test_variable_identity_maps();
   test_variable_compaction();
+  test_variable_compaction_preserves_directed_binary_order();
   test_compaction_defers_retired_jumped_reason();
   test_compaction_drops_unassigned_stale_reason();
   test_lit_encoding();

@@ -2030,6 +2030,50 @@ bool kernel_compact_variables(Kernel &k) {
 
   WatchLists watches;
   watches.resize_lits(2 * new_nvars);
+  // Kissat compacts a surviving literal by moving its complete watch vector
+  // onto the new literal (collect.c:flush_watched_clauses_by_literal).  Thus
+  // each directed binary list keeps its encounter order.  Reconstructing both
+  // directions from an undirected pair stream instead orders a shared
+  // endpoint by whichever identity enumerated the pairs; that identity is not
+  // Kissat's compact internal order in this stable-identity kernel.
+  //
+  // Reserve and replay every directed entry independently.  Large watches are
+  // still appended in compacted arena order below, exactly as sparse collect
+  // re-watches them after moving the binary prefixes.
+  for (Lit old_lit = 0; old_lit < 2 * old_nvars; old_lit++) {
+    const Var now = old_to_new[var_of(old_lit)];
+    if (now == INVALID_VAR)
+      continue;
+    const Lit lit = make_lit(now, negated(old_lit));
+    for (const WatchEntry watch : k.watches.entries(old_lit))
+      if (watch.binary() &&
+          old_to_new[var_of(watch.other())] != INVALID_VAR)
+        watches.reserve_batch_word(lit);
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    watches.reserve_batch_word(c->lits[0]);
+    watches.reserve_batch_word(c->lits[0]);
+    watches.reserve_batch_word(c->lits[1]);
+    watches.reserve_batch_word(c->lits[1]);
+    ref += clause_words(c->size);
+  }
+  watches.finish_batch_reserve(false);
+  for (Lit old_lit = 0; old_lit < 2 * old_nvars; old_lit++) {
+    const Var now = old_to_new[var_of(old_lit)];
+    if (now == INVALID_VAR)
+      continue;
+    const Lit lit = make_lit(now, negated(old_lit));
+    for (const WatchEntry watch : k.watches.entries(old_lit)) {
+      if (!watch.binary())
+        continue;
+      const Var other_now = old_to_new[var_of(watch.other())];
+      if (other_now == INVALID_VAR)
+        continue;
+      watches.push_binary(
+          lit, make_lit(other_now, negated(watch.other())));
+    }
+  }
   BinaryIdMap binary_ids;
   if (!k.binary_ids.tracks_keys())
     binary_ids.discard_storage();
@@ -2038,8 +2082,6 @@ bool kernel_compact_variables(Kernel &k) {
   binary_ids.reserve(binaries.size());
   for (const Binary &b : binaries) {
     const Lit a = map_lit(b.a), other = map_lit(b.b);
-    watches.push_binary(a, other);
-    watches.push_binary(other, a);
     binary_ids.insert_or_assign_known(kernel_binary_key(a, other), b.id, true);
   }
   for (Ref ref = 0; ref < k.arena.size();) {
