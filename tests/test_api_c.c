@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <unistd.h>
+
 static int rule_id(const char *name) {
   for (int i = 0; i < tactix_rule_count(); i++)
     if (!strcmp(tactix_rule_name(i), name))
@@ -143,17 +145,21 @@ static void test_instance_surface(void) {
   assert(tactix_stat(s, 9999) == UINT64_MAX);
   tactix_release(s);
 
-  /* proof formats: all three accepted (native LRAT landed); junk isn't */
+  /* proof formats: all three accepted (native LRAT landed); junk isn't.
+     Named after the writing process: ctest runs concurrently over several
+     build directories, and a shared name lets those runs reopen and truncate
+     each other's proof file. */
+  char proof_path[64];
+  snprintf(proof_path, sizeof proof_path, "/tmp/tactix-api-fmt-%ld.drat",
+           (long)getpid());
   s = tactix_init();
-  assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat", 99) == -1);
-  assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat", TACTIX_PROOF_LRAT) ==
-         0);
+  assert(tactix_proof(s, proof_path, 99) == -1);
+  assert(tactix_proof(s, proof_path, TACTIX_PROOF_LRAT) == 0);
   tactix_release(s);
   s = tactix_init();
-  assert(tactix_proof(s, "/tmp/tactix_api_fmt.drat",
-                      TACTIX_PROOF_DRAT_BINARY) == 0);
+  assert(tactix_proof(s, proof_path, TACTIX_PROOF_DRAT_BINARY) == 0);
   tactix_release(s);
-  remove("/tmp/tactix_api_fmt.drat");
+  remove(proof_path);
 }
 
 /* A solver that never saw a variable must survive rule application. */

@@ -8,11 +8,24 @@
 #include <fstream>
 #include <string>
 
+#include <unistd.h>
+
 using namespace tactix;
 
+// Every artifact below lands in the machine-wide temporary directory, while a
+// change is validated by running ctest over several build directories at once.
+// A fixed name makes those runs race: one process unlinks and re-creates the
+// file another is about to read back, so the loser reports a missing record
+// instead of the collision.  Name each artifact after the process that writes
+// it, as test_backbone.cpp already does.
+static std::string trace_path(const char *stem) {
+  return "/tmp/tactix-test-" + std::string(stem) + "-" +
+         std::to_string(static_cast<long>(getpid())) + ".tsv";
+}
+
 int main() {
-  static const char *path = "/tmp/tactix-test-event-trace.tsv";
-  std::remove(path);
+  const std::string path = trace_path("event-trace");
+  std::remove(path.c_str());
   Kernel k;
   kernel_reserve_vars(k, 3);
   ScopedHeuristics h(k);
@@ -26,7 +39,7 @@ int main() {
   std::ifstream absent(path);
   assert(!absent.good());
 
-  setenv("TACTIX_EVENT_TRACE", path, 1);
+  setenv("TACTIX_EVENT_TRACE", path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_POSE", "1", 1);
   {
     EventTrace trace;
@@ -118,10 +131,10 @@ int main() {
          "analysis_end must carry the post-analysis ranking snapshot");
   assert(analysis_line.find("\t3\t3\t1") != std::string::npos &&
          "focused top32 must retain queue-tail decision order");
-  std::remove(path);
+  std::remove(path.c_str());
 
-  static const char *window_path = "/tmp/tactix-test-event-window.tsv";
-  setenv("TACTIX_EVENT_TRACE", window_path, 1);
+  const std::string window_path = trace_path("event-window");
+  setenv("TACTIX_EVENT_TRACE", window_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_CONFLICT_FROM", "2", 1);
   setenv("TACTIX_EVENT_TRACE_CONFLICT_TO", "2", 1);
   {
@@ -145,12 +158,11 @@ int main() {
   assert(window_text.find("\tdecision\t2\t") != std::string::npos);
   assert(window_text.find("\tdecision\t1\t") == std::string::npos);
   assert(window_text.find("\tdecision\t3\t") == std::string::npos);
-  std::remove(window_path);
+  std::remove(window_path.c_str());
 
-  static const char *skip_ticks_path =
-      "/tmp/tactix-test-event-skip-analysis-ticks.tsv";
-  std::remove(skip_ticks_path);
-  setenv("TACTIX_EVENT_TRACE", skip_ticks_path, 1);
+  const std::string skip_ticks_path = trace_path("event-skip-analysis-ticks");
+  std::remove(skip_ticks_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", skip_ticks_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS", "1", 1);
   {
     EventTrace trace;
@@ -167,12 +179,11 @@ int main() {
       std::istreambuf_iterator<char>());
   assert(skip_ticks_text.find("\tanalysis_tick") == std::string::npos);
   assert(skip_ticks_text.find("\tdecision\t") != std::string::npos);
-  std::remove(skip_ticks_path);
+  std::remove(skip_ticks_path.c_str());
 
-  static const char *skip_randec_path =
-      "/tmp/tactix-test-event-skip-randec.tsv";
-  std::remove(skip_randec_path);
-  setenv("TACTIX_EVENT_TRACE", skip_randec_path, 1);
+  const std::string skip_randec_path = trace_path("event-skip-randec");
+  std::remove(skip_randec_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", skip_randec_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_SKIP_RANDEC_DRAWS", "1", 1);
   {
     EventTrace trace;
@@ -188,12 +199,11 @@ int main() {
       std::istreambuf_iterator<char>());
   assert(skip_randec_text.find("\trandec_draw\t") == std::string::npos);
   assert(skip_randec_text.find("\tdecision\t") != std::string::npos);
-  std::remove(skip_randec_path);
+  std::remove(skip_randec_path.c_str());
 
-  static const char *compact_bumps_path =
-      "/tmp/tactix-test-event-compact-bumps.tsv";
-  std::remove(compact_bumps_path);
-  setenv("TACTIX_EVENT_TRACE", compact_bumps_path, 1);
+  const std::string compact_bumps_path = trace_path("event-compact-bumps");
+  std::remove(compact_bumps_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", compact_bumps_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_SEARCH_ONLY", "1", 1);
   setenv("TACTIX_EVENT_TRACE_SKIP_HEAP", "1", 1);
   {
@@ -212,11 +222,11 @@ int main() {
   assert(compact_bumps_text.find("\tscore_bump\t") != std::string::npos);
   assert(compact_bumps_text.find("\tdiagnostic_noise\t") ==
          std::string::npos);
-  std::remove(compact_bumps_path);
+  std::remove(compact_bumps_path.c_str());
 
-  static const char *reduce_path = "/tmp/tactix-test-reduce-trace.tsv";
-  std::remove(reduce_path);
-  setenv("TACTIX_REDUCE_TRACE", reduce_path, 1);
+  const std::string reduce_path = trace_path("reduce-trace");
+  std::remove(reduce_path.c_str());
+  setenv("TACTIX_REDUCE_TRACE", reduce_path.c_str(), 1);
   {
     Kernel reduced;
     kernel_reserve_vars(reduced, 4);
@@ -240,12 +250,11 @@ int main() {
          std::string::npos);
   assert(reduce_text.find("\tcandidate\t0\t1\t-2,1,3\n") !=
          std::string::npos);
-  std::remove(reduce_path);
+  std::remove(reduce_path.c_str());
 
-  static const char *reduce_window_path =
-      "/tmp/tactix-test-reduce-window.tsv";
-  std::remove(reduce_window_path);
-  setenv("TACTIX_REDUCE_TRACE", reduce_window_path, 1);
+  const std::string reduce_window_path = trace_path("reduce-window");
+  std::remove(reduce_window_path.c_str());
+  setenv("TACTIX_REDUCE_TRACE", reduce_window_path.c_str(), 1);
   setenv("TACTIX_REDUCE_TRACE_CONFLICT_FROM", "1000", 1);
   setenv("TACTIX_REDUCE_TRACE_CONFLICT_TO", "1000", 1);
   {
@@ -272,7 +281,7 @@ int main() {
   assert(reduce_window_text.find("\t1000\tfocused\t") != std::string::npos);
   assert(reduce_window_text.find("\t999\tfocused\t") == std::string::npos);
   assert(reduce_window_text.find("\t1001\tfocused\t") == std::string::npos);
-  std::remove(reduce_window_path);
+  std::remove(reduce_window_path.c_str());
   std::puts("test_event_trace OK");
   return 0;
 }
