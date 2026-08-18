@@ -583,11 +583,15 @@ test makes garbage the only trigger under an unrelated root assignment and
 pins the ensuing stable tail replay. Job `1633999` closes the semantic frontier
 (61,653/61,653 portable records exact through conflict 2400) but finds that a
 replacement inherited before the pass remains physically behind later clauses;
-runtime `1634000` was cancelled cleanly. The current candidate decorates each
+runtime `1634000` was cancelled cleanly. The accepted candidate decorates each
 swept clause once with its persistent source key, stably replays those keys,
-then stably partitions irredundant before redundant. The garbage-only fixture
-now also distinguishes appended physical order from inherited order. Release
-72/72, Trace 71/71, ASAN-O3 72/72, and concurrent trace isolation stress are
-clean. Focused trace/runtime gates remain; N4 is pending.
+then stably partitions irredundant before redundant. The generic fixture
+distinguishes appended physical order from inherited order. Release 72/72,
+Trace 71/71, ASAN-O3 72/72, and concurrent trace-isolation stress are clean.
+Focused trace `1634075` exactly matches all 61,653 portable and 297,047
+normalized-watch records through conflict 2400. Checked runtime `1634074`
+solves SAT in 130.767 s at 68,524 KiB, verifies the model, and leaves zero
+residue; frozen eligible Kissat is 294.468 s. Cumulative 28B+5C job `1634094`
+and ranks-21--40 job `1634095` are the remaining N4 gate.
 
 <!-- parity-ledger:end -->

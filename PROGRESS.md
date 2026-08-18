@@ -275,8 +275,15 @@ any witness constant. Claude Opus diagnosed one concurrent Trace-suite abort
 as fixed `/tmp` filenames racing across build directories, not solver state;
 all remaining fixed-name test artifacts are process-unique. Serial trace stress
 passes 30/30, concurrent Release/Trace/ASAN stress passes 60/60, and sequential
-Release 72/72, Trace 71/71, and ASAN-O3 72/72 are clean. Focused trace/runtime
-validation remains pending.
+Release 72/72, Trace 71/71, and ASAN-O3 72/72 are clean. Focused trace job
+`1634075` matches all 61,653 portable and 297,047 normalized-watch records
+exactly through conflict 2400, closing both the conflict-2001 source-order
+frontier and its conflict-2272 consequence. Checked runtime job `1634074`
+solves Rank 29 SAT in 130.767 s at 68,524 KiB and verifies the model, versus
+the frozen eligible Kissat result of 294.468 s, with zero certificate residue.
+Unthrottled cumulative jobs `1634094` (28B+5C) and `1634095` (frozen ranks
+21--40) now exercise the same pin under 16 GiB/1200 s; N4 promotion awaits
+their complete checked results.
 
 ## Gates
 
