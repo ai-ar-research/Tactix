@@ -11,6 +11,11 @@ namespace tactix {
 
 bool backjump_guard(const Kernel &);
 
+// Shared learned-unit assertion sub-step for both ordinary one-unit Backjump
+// and Analyze's level-one failed-literal batch.  Learned root facts must leave
+// both decision structures before the analyzed-variable bump transaction.
+void backjump_assign_learned_unit(Kernel &, Lit);
+
 // N1 instance surface: under true-level assignment every level in
 // [pending.jump_level, level-1] is a sound target, so `target_level` is
 // clamped into that range and every instance stays total.

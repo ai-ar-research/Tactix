@@ -71,6 +71,12 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
   `{¬u} ∪ B`, where `u` is the first UIP. Recursive minimization and all-UIP shrinking may remove
   literals from `B` but preserve that asserting form. Write the final clause as `L = {¬u} ∪ B` and
   define `j = max({level(l) | l ∈ B} ∪ {0})`.
+- **Level-one failed-literal construction:** if `d=1` and `K₀` has more than one level-one literal,
+  walk the marked implication graph backwards instead of stopping at one UIP. Whenever the unresolved
+  frontier has one true literal `q`, record the root unit `¬q`; stop when a reason contains the negated
+  decision, then record that literal too. This is one size-one/glue-zero learned result even when the
+  traversal exposes several units. The whole batch is asserted at level zero before the analyzed set is
+  bumped; root-fixed variables therefore leave both decision structures before any equal-score move.
 - **Effect (one atomic transition):** add `L` to `R`; choose a backtrack target `t` in
   `[j,d−1]` (canonically `t=j`); truncate `τ` through level `t`; then append `¬u` with reason `L` and
   **true level** `j`. OTFS may replace a reason `C` by a strict RUP subset `C′` in the same
@@ -88,13 +94,17 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
   every eagerly subsumed recent clause `D`. Root refutation is `add_rup(∅,h_⊥)` in LRAT (not a
   dedicated empty line) and `add_empty` in DRAT. Backtracking and assertion emit no line, except that a
   learned unit contradicting a root unit emits the resulting empty clause and returns `Unsat`.
+- **Level-one proof δ:** emit one `add_rup({¬q},h_q)` for every singleton frontier, where `h_q` is the
+  already-resolved suffix in increasing trail order followed by the conflict. Rebuild the full conflict
+  reason walk for the final negated-decision unit; then backtrack once and assert the batch.
 - **Soundness:** the 1-UIP clause is `F`-entailed (RUP-checkable); minimization/shrinking/OTFS preserve
   entailment; eager subsumption inherits S2's (deleting from `R` is equisatisfiability-preserving, and a
   `del` needs no chain — the subsumer is already in the proof, so no later RUP check is made harder);
   the assert is a sound unit propagation of the learned clause at `jump_level`. The backjump
   target may be any level in `[jump_level, level-1]`; the asserting literal is stamped at its true level
   `jump_level` regardless, so a higher chronological target keeps the intervening decisions without
-  stranding the assertion.
+  stranding the assertion. In the level-one case, unit propagation from each singleton frontier reaches
+  the recorded conflict, so every emitted unit is RUP and their root-level batch is sound.
 
 ### M4 · Backjump — folded into M3
 

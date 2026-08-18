@@ -449,4 +449,20 @@ reopening/removal path; it is not an unrecorded scheduling mechanism. N4
 reopens if a new missing/cruder mechanism appears, a closed row violates its
 reopening condition, or an accepted deviation loses its stated disposition.
 
+**Reopened finding `ORDER-ANALYZE-L1-1` (2026-08-18; validation pending).**
+Rank-22 common-state traces match through conflict 4, where Kissat takes its
+hard-coded `analyze_failed_literal` transition and Tactix formerly used ordinary
+1-UIP. Both derive the final unit `-3826321`, but Kissat walks the full
+level-one implication graph, root-assigns the resulting unit batch, deactivates
+it, and only then bumps its analyzed set. Tactix's different bump population
+made its next external decision `3826320`; Kissat chose `10`. The candidate
+ports that complete source transition for every multi-literal level-one
+conflict, including one glue/reluctant observation, shared learned-unit
+deactivation, and per-unit native-LRAT chains. The repaired trace chooses `10`
+at the same frontier; the two-unit focused regression and its complete native
+LRAT refutation pass `lrat-check`, and the 69-test non-demo suite is clean.
+Closure still requires the frozen 28B+5C iteration guard and a checked Rank-22
+run under the 16 GiB/1200 s debug contract; until then N4 verification is
+pending, not complete.
+
 <!-- parity-ledger:end -->
