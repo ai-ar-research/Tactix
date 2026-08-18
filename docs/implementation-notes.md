@@ -128,6 +128,7 @@ M3 is one public operation. Private pending state must be consumed before contro
 - The learned clause is asserting at `target_level ∈ [0, conflict_level)`; the target agrees with the maximum level among its non-asserting literals.
 - A conflict with several level-one literals takes Kissat's failed-literal sub-path: Analyze records every singleton-frontier unit and the negated decision; Backjump asserts/deactivates the root batch; only then does Analyze bump surviving implication variables. Shared `backjump_assign_learned_unit` keeps ordinary and batched units identical at the rule/policy boundary.
 - True-level reasoning may lower the asserting literal's stored level without changing its meaning.
+- The Kissat-shaped `shrink=3` pipeline admits only multi-literal learned-level blocks to shrink/minimize; retaining singletons is an engineering reference-clock rule, not an M3 soundness precondition.
 - Eager subsumption runs after the backtrack and before the next propagation.
 - No policy may observe a half-analyzed conflict or schedule Backjump separately.
 
@@ -421,8 +422,7 @@ the conflict clause as reason, without learning or emitting proof.
   the clause is live and watched by the named literal, delayed propagation is empty, and no probing
   scope is recording.
 - The rule selects the level-ranked watched pair. Repair runs only when the shortcut will fire.
-  First-round reuse remains the priced policy arm. After OTFS, Tactix retains its stronger minimization:
-  a strict subclause is learned, while an exact copy of the already-materialized replacement is reused.
+  First-round reuse remains the priced policy arm. After OTFS, a strict minimize/shrink result is learned; an exact copy of the materialized replacement is reused.
 - The shortcut is reachable chiefly after chronological backtracking, so tests must force that shape.
 - If reuse clears pending state, DefaultPolicy must stop the learn/backjump tail rather than analyze
   stale state. An OTFS-round reuse retires the replaced reason inside Analyze because no Backjump follows.
