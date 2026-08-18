@@ -389,6 +389,45 @@ static void test_sparse_collection_flushes_fixed_prefix_watch() {
   kernel_check_invariants(k);
 }
 
+// Kissat's sparse collector keeps the unswept prefix, then stably partitions
+// a mixed swept tail into irredundant and redundant clauses before rewatching
+// it.  The partition is a collection invariant, not an arena policy choice.
+static void test_sparse_collection_partitions_mixed_tail() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(1);
+  const Lit prefix[3] = {shared, internalize(2), internalize(3)};
+  const Lit red_first[3] = {shared, internalize(3), internalize(4)};
+  const Lit irred_first[3] = {shared, internalize(4), internalize(5)};
+  const Lit red_second[3] = {shared, internalize(5), internalize(6)};
+  const Lit irred_second[3] = {shared, internalize(6), internalize(7)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 201);
+  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 202);
+  kernel_add_large_clause(k, irred_first, 3, false, 0, 203);
+  kernel_add_large_clause(k, red_second, 3, true, 8, 204);
+  kernel_add_large_clause(k, irred_second, 3, false, 0, 205);
+
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse;
+  kernel_collect_garbage(k, start);
+  assert(k.arena_ordering == &reverse);
+
+  std::vector<uint64_t> arena_ids;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    arena_ids.push_back(c->id());
+    ref += clause_words(c->size);
+  }
+  assert((arena_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
+
+  std::vector<uint64_t> watched_ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((watched_ids == arena_ids));
+  kernel_check_invariants(k);
+}
+
 static void test_large_clause_propagation() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -898,6 +937,7 @@ int main() {
   test_root_sparse_collection_ignores_nonroot_values();
   test_root_sparse_collection_rewrites_nonroot_reason();
   test_sparse_collection_flushes_fixed_prefix_watch();
+  test_sparse_collection_partitions_mixed_tail();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();
