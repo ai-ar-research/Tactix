@@ -221,12 +221,14 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   kernel_reserve_vars(k, 6);
   const Lit before[3] = {internalize(3), internalize(4), internalize(5)};
   const Lit touched[3] = {internalize(2), internalize(4), internalize(6)};
-  const Lit after[3] = {internalize(-3), internalize(5), internalize(6)};
+  const Lit after[3] = {internalize(-3), internalize(4), internalize(6)};
   kernel_add_large_clause(k, before, 3, false, 0);
   kernel_add_large_clause(k, touched, 3, false, 0);
   kernel_add_large_clause(k, after, 3, false, 0);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
 
   const std::vector<std::pair<Lit, Lit>> equivalences = {
       {internalize(1), internalize(2)}};
@@ -235,6 +237,18 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   assert(substitute_apply_sweep_equivalences(k, equivalences, session) ==
          ApplyResult::Ok);
   assert(session.changed);
+
+  // The next environment is built before the session's final collection.
+  // Its live x4 occurrences must already retain before/touched/after order;
+  // appending the touched image here changes capped Sweep semantics.
+  std::vector<Lit> live_dense_first;
+  for (const Ref ref : occ.large[internalize(4)]) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage())
+      live_dense_first.push_back(c->lits[0]);
+  }
+  assert(live_dense_first ==
+         std::vector<Lit>({internalize(3), internalize(1), internalize(-3)}));
   assert(session.collect(k) > 0);
 
   std::vector<Lit> first_literals;
@@ -248,6 +262,85 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   assert(first_literals[0] == internalize(3));
   assert(first_literals[1] == internalize(1));
   assert(first_literals[2] == internalize(-3));
+}
+
+// In Kissat's dense Sweep list, a large clause that collapses to a binary
+// replaces the stable endpoint's occurrence in place but appends the moved
+// representative's direction. The resulting large/binary interleaving is
+// observed by the very next bounded environment.
+static void test_sweep_preserves_cross_kind_dense_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit before[3] = {internalize(1), internalize(3), internalize(5)};
+  const Lit collapse[3] = {internalize(2), internalize(1), internalize(4)};
+  const Lit after[3] = {internalize(1), internalize(-3), internalize(-5)};
+  kernel_add_large_clause(k, before, 3, false, 0);
+  kernel_add_large_clause(k, collapse, 3, false, 0);
+  kernel_add_large_clause(k, after, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  SweepSubstitutionSession session;
+  session.begin(k);
+  const std::vector<std::pair<Lit, Lit>> equivalences = {
+      {internalize(1), internalize(2)}};
+  assert(substitute_apply_sweep_equivalences(k, equivalences, session) ==
+         ApplyResult::Ok);
+
+  const auto &ordered = session.dense_occurrences[internalize(1)];
+  assert(ordered.size() == 3);
+  assert(!ordered[0].binary && !ordered[1].binary);
+  assert(ordered[2].binary && ordered[2].payload == internalize(4));
+  assert(session.collect(k) > 0);
+}
+
+// The logical dense ledger follows Kissat's cross-kind order, while Tactix's
+// physical binary watches can retain a different order after an inline
+// rewrite. Synchronization matches the old multiset and appends only the new
+// binary; treating the physical list as a prefix corrupts release builds.
+static void test_sweep_syncs_new_binaries_by_multiset() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit one = internalize(1);
+  kernel_add_binary_clause(k, one, internalize(2));
+  kernel_add_binary_clause(k, one, internalize(3));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+  std::swap(session.dense_occurrences[one][0],
+            session.dense_occurrences[one][1]);
+
+  kernel_add_binary_clause(k, one, internalize(4));
+  session.sync_new_binaries(k, {{one, internalize(4)}});
+  const auto &ordered = session.dense_occurrences[one];
+  assert(ordered.size() == 3);
+  assert(ordered[0].payload == internalize(3));
+  assert(ordered[1].payload == internalize(2));
+  assert(ordered[2].payload == internalize(4));
+}
+
+// Redundant clauses share the arena-order bridge but are absent from Kissat's
+// dense Sweep occurrence stream. Rewriting one must inherit its arena rank
+// without trying to find an occurrence that was deliberately never indexed.
+static void test_sweep_does_not_index_redundant_replacement() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit redundant[3] = {internalize(2), internalize(3), internalize(4)};
+  kernel_add_large_clause(k, redundant, 3, true, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+
+  assert(substitute_apply_sweep_equivalences(
+             k, {{internalize(1), internalize(2)}}, session) ==
+         ApplyResult::Ok);
+  assert(session.collect(k) > 0);
 }
 
 static void test_canonical_substitution_preserves_large_clause_position() {
@@ -512,6 +605,9 @@ int main() {
   test_apply_substitutes();
   test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
+  test_sweep_preserves_cross_kind_dense_order();
+  test_sweep_syncs_new_binaries_by_multiset();
+  test_sweep_does_not_index_redundant_replacement();
   test_canonical_substitution_preserves_large_clause_position();
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();

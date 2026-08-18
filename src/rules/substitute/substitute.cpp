@@ -464,44 +464,250 @@ void SweepSubstitutionSession::begin(const Kernel &k) {
   changed = false;
   origin.clear();
   latest.clear();
+  dense_occurrences.clear();
+  if (k.dense) {
+    dense_occurrences.resize(2 * k.nvars);
+    for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+      std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+      ordered.reserve(k.watches.size(lit) + k.dense->large[lit].size());
+      for (const WatchEntry watch : k.watches.entries(lit))
+        if (watch.binary())
+          ordered.push_back({true, watch.other()});
+      for (const Ref ref : k.dense->large[lit]) {
+        const Clause *clause = clause_at(k.arena, ref);
+        if (!clause->garbage() && !clause->redundant())
+          ordered.push_back({false, ref});
+      }
+    }
+  }
 }
 
-void SweepSubstitutionSession::inherit(Ref replacement, Ref source) {
-    const auto inherited = origin.find(source);
-    const Ref original = inherited == origin.end() ? source : inherited->second;
-    origin.insert_or_assign(replacement, original);
-    latest.insert_or_assign(original, replacement);
+void SweepSubstitutionSession::sync_new_binaries(
+    const Kernel &k,
+    const std::vector<std::pair<Lit, Lit>> &equivalences) {
+  if (dense_occurrences.empty())
+    return;
+  std::vector<Lit> touched;
+  touched.reserve(4 * equivalences.size());
+  for (const auto &eq : equivalences)
+    touched.insert(touched.end(),
+                   {eq.first, negate(eq.first), eq.second, negate(eq.second)});
+  std::sort(touched.begin(), touched.end());
+  touched.erase(std::unique(touched.begin(), touched.end()), touched.end());
+  for (const Lit lit : touched) {
+    std::unordered_map<Lit, size_t> known;
+    for (const DenseOccurrence occurrence : dense_occurrences[lit])
+      if (occurrence.binary)
+        known[static_cast<Lit>(occurrence.payload)]++;
+    for (const WatchEntry watch : k.watches.entries(lit)) {
+      if (!watch.binary())
+        continue;
+      const auto found = known.find(watch.other());
+      if (found != known.end() && found->second) {
+        if (!--found->second)
+          known.erase(found);
+        continue;
+      }
+      // The physical Tactix watch sub-list can have a different order from the
+      // logical Kissat-order ledger after a prior inline substitution. Match
+      // the existing multiset, not a prefix; only unmatched watches are new
+      // equivalence binaries, in the creation order observed here.
+      dense_occurrences[lit].push_back({true, watch.other()});
+    }
+    assert(known.empty());
+  }
+}
+
+void SweepSubstitutionSession::rewrite_binary_occurrences(
+    const Kernel &k, const std::vector<Lit> &repr,
+    const std::vector<uint8_t> &sub) {
+  if (dense_occurrences.empty())
+    return;
+  struct Move {
+    Lit destination;
+    Lit other;
+  };
+  std::vector<Move> moved;
+  std::vector<Var> variable_order(k.nvars);
+  kernel_vars_in_import_order(k, variable_order);
+  for (const Var variable : variable_order)
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit owner = make_lit(variable, sign != 0);
+      const Lit target_owner = sub[owner] ? repr[owner] : owner;
+      std::vector<DenseOccurrence> &ordered = dense_occurrences[owner];
+      size_t kept = 0;
+      for (DenseOccurrence occurrence : ordered) {
+        if (!occurrence.binary) {
+          ordered[kept++] = occurrence;
+          continue;
+        }
+        const Lit other = static_cast<Lit>(occurrence.payload);
+        const Lit target_other = sub[other] ? repr[other] : other;
+        if (target_owner == target_other ||
+            target_owner == negate(target_other))
+          continue;
+        if (target_owner == owner) {
+          occurrence.payload = target_other;
+          ordered[kept++] = occurrence;
+        } else {
+          moved.push_back({target_owner, target_other});
+        }
+      }
+      ordered.resize(kept);
+    }
+  for (const Move move : moved)
+    dense_occurrences[move.destination].push_back({true, move.other});
+}
+
+void SweepSubstitutionSession::remove_large(Kernel &k, Ref source) {
+  const Clause *const old = clause_at(k.arena, source);
+  if (old->redundant())
+    return; // dense Sweep indexes irredundant clauses only
+  for (const Lit lit : *old) {
+    if (k.dense) {
+      std::vector<Ref> &occ = k.dense->large[lit];
+      const auto at = std::find(occ.begin(), occ.end(), source);
+      assert(at != occ.end());
+      occ.erase(at);
+    }
+    if (!dense_occurrences.empty()) {
+      std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+      const auto at = std::find_if(
+          ordered.begin(), ordered.end(), [&](DenseOccurrence occurrence) {
+            return !occurrence.binary && occurrence.payload == source;
+          });
+      assert(at != ordered.end());
+      ordered.erase(at);
+    }
+  }
+}
+
+void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
+                                                         Lit a, Lit b,
+                                                         bool append_a,
+                                                         bool append_b) {
+  const Clause *const old = clause_at(k.arena, source);
+  if (old->redundant())
+    return; // dense Sweep indexes irredundant clauses only
+  for (const Lit lit : *old) {
+    if (k.dense) {
+      std::vector<Ref> &occ = k.dense->large[lit];
+      const auto at = std::find(occ.begin(), occ.end(), source);
+      assert(at != occ.end());
+      occ.erase(at);
+    }
+    if (!dense_occurrences.empty()) {
+      std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+      const auto at = std::find_if(
+          ordered.begin(), ordered.end(), [&](DenseOccurrence occurrence) {
+            return !occurrence.binary && occurrence.payload == source;
+          });
+      assert(at != ordered.end());
+      if (lit == a && !append_a)
+        *at = {true, b};
+      else if (lit == b && !append_b)
+        *at = {true, a};
+      else
+        ordered.erase(at);
+    }
+  }
+  if (!dense_occurrences.empty()) {
+    const auto contains = [&](Lit lit) {
+      return std::find(old->begin(), old->end(), lit) != old->end();
+    };
+    if (append_a || !contains(a))
+      dense_occurrences[a].push_back({true, b});
+    if (append_b || !contains(b))
+      dense_occurrences[b].push_back({true, a});
+  }
+}
+
+void SweepSubstitutionSession::inherit(Kernel &k, Ref replacement, Ref source) {
+  const Clause *const old = clause_at(k.arena, source);
+  const Clause *const image = clause_at(k.arena, replacement);
+  // `kernel_add_large_clause` appends the replacement to every dense
+  // occurrence list.  Kissat rewrites the source allocation in place:
+  // literals retained by the image therefore keep the source occurrence,
+  // removed literals disappear, and only a newly introduced representative
+  // is appended.  Restore that pose immediately, not merely at the final
+  // arena collection, because later environments in this same Sweep pass
+  // traverse the live dense lists and their structural caps make the order
+  // semantic.
+  if (k.dense && !old->redundant()) {
+    // Remove the append performed by `kernel_add_large_clause`; the loop below
+    // puts each image occurrence at its Kissat position.
+    for (const Lit lit : *image) {
+      std::vector<Ref> &occ = k.dense->large[lit];
+      const auto appended = std::find(occ.rbegin(), occ.rend(), replacement);
+      assert(appended != occ.rend());
+      occ.erase(std::next(appended).base());
+    }
+
+    for (const Lit lit : *old) {
+      std::vector<Ref> &occ = k.dense->large[lit];
+      const auto at = std::find(occ.begin(), occ.end(), source);
+      assert(at != occ.end());
+      if (std::find(image->begin(), image->end(), lit) != image->end())
+        *at = replacement;
+      else
+        occ.erase(at);
+    }
+    for (const Lit lit : *image)
+      if (std::find(old->begin(), old->end(), lit) == old->end())
+        k.dense->large[lit].push_back(replacement);
+  }
+  if (!old->redundant() && !dense_occurrences.empty()) {
+    for (const Lit lit : *old) {
+      std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+      const auto at = std::find_if(
+          ordered.begin(), ordered.end(), [&](DenseOccurrence occurrence) {
+            return !occurrence.binary && occurrence.payload == source;
+          });
+      assert(at != ordered.end());
+      if (std::find(image->begin(), image->end(), lit) != image->end())
+        at->payload = replacement;
+      else
+        ordered.erase(at);
+    }
+    for (const Lit lit : *image)
+      if (std::find(old->begin(), old->end(), lit) == old->end())
+        dense_occurrences[lit].push_back({false, replacement});
+  }
+  const auto inherited = origin.find(source);
+  const Ref original = inherited == origin.end() ? source : inherited->second;
+  origin.insert_or_assign(replacement, original);
+  latest.insert_or_assign(original, replacement);
 }
 
 void SweepSubstitutionSession::order(const Kernel &k,
                                      std::vector<Ref> &refs) {
-    // Every original clause position owns one rank, and replacement clauses
-    // inherit that rank after the old record is garbaged.  Thus live ranked
-    // records form a partial permutation: restore it in linear time instead of
-    // comparison-sorting the complete formula after every productive Sweep
-    // environment.  The tail is defensive for unranked/duplicate records and
-    // retains their incoming arena order, matching the old stable-sort tie.
-    std::vector<Ref> ordered;
-    ordered.reserve(refs.size());
-    for (Ref ref = 0; ref < original_words;) {
-      const Clause *clause = clause_at(k.arena, ref);
-      if (!clause->garbage()) {
-        ordered.push_back(ref);
-      } else {
-        const auto replacement = latest.find(ref);
-        if (replacement != latest.end()) {
-          const Clause *live = clause_at(k.arena, replacement->second);
-          if (!live->garbage())
-            ordered.push_back(replacement->second);
-        }
+  // Every original clause position owns one rank, and replacement clauses
+  // inherit that rank after the old record is garbaged.  Thus live ranked
+  // records form a partial permutation: restore it in linear time instead of
+  // comparison-sorting the complete formula after every productive Sweep
+  // environment.  The tail is defensive for unranked/duplicate records and
+  // retains their incoming arena order, matching the old stable-sort tie.
+  std::vector<Ref> ordered;
+  ordered.reserve(refs.size());
+  for (Ref ref = 0; ref < original_words;) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (!clause->garbage()) {
+      ordered.push_back(ref);
+    } else {
+      const auto replacement = latest.find(ref);
+      if (replacement != latest.end()) {
+        const Clause *live = clause_at(k.arena, replacement->second);
+        if (!live->garbage())
+          ordered.push_back(replacement->second);
       }
-      ref += clause_words(clause->size);
     }
-    // New clauses which are not replacements retain their append order.
-    for (const Ref ref : refs)
-      if (ref >= original_words && !origin.count(ref))
-        ordered.push_back(ref);
-    refs.swap(ordered);
+    ref += clause_words(clause->size);
+  }
+  // New clauses which are not replacements retain their append order.
+  for (const Ref ref : refs)
+    if (ref >= original_words && !origin.count(ref))
+      ordered.push_back(ref);
+  refs.swap(ordered);
 }
 
 uint64_t SweepSubstitutionSession::collect(Kernel &k) {
@@ -729,6 +935,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       substitute_stage_trace(k, "rewrite-large-first-image", out.size(),
                              out.capacity(), chain.capacity());
     if (sat) { // satisfied/tautology -> delete only (deletions are proof-free)
+      if (session)
+        session->remove_large(k, ref);
       kernel_delete_clause(k, c); // cid == c->id()
       changed = true;
       return ApplyResult::Ok;
@@ -757,13 +965,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                              k.arena.size(), k.arena.capacity());
       traced_large_replacement = true;
     }
-    switch (kernel_replace_clause(
+    const ReplaceOutcome replacement = kernel_replace_clause(
         k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,
         credundant ? kernel_shrunken_glue(
                          k, cglue, static_cast<uint32_t>(out.size()))
                    : 0,
         arena_order != SubstitutionArenaOrder::Policy ? &replacement_ref
-                                                       : nullptr)) {
+                                                       : nullptr);
+    switch (replacement) {
     case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
       return ApplyResult::Unsat;  // quiescent root)
     case ReplaceOutcome::Unit:
@@ -773,10 +982,25 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     default:
       break;
     }
+    if (session) {
+      if (replacement == ReplaceOutcome::Binary) {
+        bool append_first = false, append_second = false;
+        for (const Lit old_lit : *clause_at(k.arena, ref))
+          if (substitutable(old_lit)) {
+            append_first |= r.repr[old_lit] == out[0];
+            append_second |= r.repr[old_lit] == out[1];
+          }
+        session->collapse_large_to_binary(k, ref, out[0], out[1],
+                                          append_first, append_second);
+      } else if (replacement == ReplaceOutcome::Unit ||
+                 replacement == ReplaceOutcome::Refuted) {
+        session->remove_large(k, ref);
+      }
+    }
     if (replacement_ref != INVALID_REF) {
       assert(arena_order != SubstitutionArenaOrder::Policy);
       if (session)
-        session->inherit(replacement_ref, ref);
+        session->inherit(k, replacement_ref, ref);
       else
         local_order.inherit(k, replacement_ref, ref);
     }
@@ -1601,6 +1825,8 @@ ApplyResult substitute_apply_sweep_equivalences(
       k.stats.substitute_scc_lits++;
     }
 
+  session.sync_new_binaries(k, equivalences);
+  session.rewrite_binary_occurrences(k, r.repr, sub);
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(

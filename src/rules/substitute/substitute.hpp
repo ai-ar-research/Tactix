@@ -73,13 +73,29 @@ ApplyResult substitute_apply_equivalences(
 // after the reference-ordered consequence sequence, and the resulting arena
 // has the same logical clause order it had before the call.
 struct SweepSubstitutionSession final : ArenaOrdering {
+  struct DenseOccurrence {
+    bool binary = false;
+    uint32_t payload = 0; // other literal for binary, arena Ref otherwise
+  };
+
   Ref original_words = 0;
   bool changed = false;
   std::unordered_map<Ref, Ref> origin;
   std::unordered_map<Ref, Ref> latest;
+  // Kissat's dense watch lists are one ordered stream containing binaries and
+  // every irredundant large occurrence. Inline substitution can append either
+  // kind, so two separately ordered Tactix indexes are not enough.
+  std::vector<std::vector<DenseOccurrence>> dense_occurrences;
 
   void begin(const Kernel &);
-  void inherit(Ref replacement, Ref source);
+  void sync_new_binaries(
+      const Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
+  void rewrite_binary_occurrences(const Kernel &, const std::vector<Lit> &repr,
+                                  const std::vector<uint8_t> &sub);
+  void remove_large(Kernel &, Ref source);
+  void collapse_large_to_binary(Kernel &, Ref source, Lit a, Lit b,
+                                bool append_a, bool append_b);
+  void inherit(Kernel &, Ref replacement, Ref source);
   void order(const Kernel &, std::vector<Ref> &) override;
   uint64_t collect(Kernel &);
 };
