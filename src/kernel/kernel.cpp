@@ -1011,13 +1011,27 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   if ((changed || has_garbage) && outcome != RootCollectOutcome::Refuted) {
     // Root shortening appends packed replacement records, while Kissat writes
     // them at the swept source position.  `desired` restores those positions.
-    // Compose that relation with the collector's subsequent stable move of
-    // tail irredundant clauses ahead of tail redundant clauses; neither the
-    // physical append order nor the posed policy represents both invariants.
-    std::stable_partition(root_order.desired.begin() + prefix_clauses,
-                          root_order.desired.end(), [&k](Ref ref) {
-                            return !clause_at(k.arena, ref)->redundant();
-                          });
+    // Replacements inherited before this collection can already be physically
+    // appended, so replay every swept record's persistent source-position key
+    // before composing the collector's stable move of tail irredundant clauses
+    // ahead of tail redundant clauses.  The unswept prefix remains untouched.
+    const auto tail = root_order.desired.begin() + prefix_clauses;
+    std::vector<std::pair<uint64_t, Ref>> source_order;
+    source_order.reserve(root_order.desired.end() - tail);
+    for (auto it = tail; it != root_order.desired.end(); ++it) {
+      const Clause *c = clause_at(k.arena, *it);
+      source_order.emplace_back(
+          c->id() ? kernel_clause_order(k, c->id()) : *it, *it);
+    }
+    std::stable_sort(source_order.begin(), source_order.end(),
+                     [](const auto &a, const auto &b) {
+                       return a.first < b.first;
+                     });
+    for (size_t i = 0; i < source_order.size(); ++i)
+      tail[i] = source_order[i].second;
+    std::stable_partition(tail, root_order.desired.end(), [&k](Ref ref) {
+      return !clause_at(k.arena, ref)->redundant();
+    });
     ArenaOrdering *const saved = k.arena_ordering;
     k.arena_ordering = &root_order;
     kernel_collect_garbage(k, start, /*apply_sparse_order=*/true);
