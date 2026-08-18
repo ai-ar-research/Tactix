@@ -449,21 +449,15 @@ struct CanonicalSubstitutionOrder final : ArenaOrdering {
   }
 };
 
-// Sweep rewrites each connected clause in place (`sweep.c`'s
-// `substitute_connected_clauses`).  Tactix clauses cannot shrink in place: the
-// arena record has no separate allocation-size field, so a replacement is
-// appended and the old record is garbaged.  Preserve the same *logical* pose at
-// collection time by assigning every large replacement the ordinal of its old
-// record.  This is a general representation bridge, not a candidate-order
-// heuristic: all untouched clauses keep their ordinal and binary/unit
-// collapses simply leave a hole.
+// Sweep rewrites connected clauses in place. Tactix arena records cannot
+// shrink, so replacements append and garbage their source. Assign every large
+// replacement its source ordinal at collection: untouched clauses keep their
+// logical pose, while binary and unit collapses leave holes.
 
-// The member predicate the rewrite below actually applies. A member that is
-// already root-fixed or retired has left the active implication graph, so the
-// clause rewrite declines it (kissat substitute.c
-// `add_representative_equivalences`: `if (!ACTIVE (idx))`). Every index that
-// mirrors the rewrite must ask the same question, or the logical dense stream
-// and the physical watch lists drift apart on exactly those members.
+// Mirror the rewrite's member predicate: root-fixed or retired members have
+// left the active implication graph and are declined, matching Kissat's
+// `add_representative_equivalences`. Otherwise the logical dense stream can
+// drift from the physical watch lists.
 inline bool substitution_member_live(const Kernel &k,
                                      const std::vector<uint8_t> &members,
                                      Lit l) {
