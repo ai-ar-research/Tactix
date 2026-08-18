@@ -1306,7 +1306,11 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     in.preprocess_only = true;
     if (profile == FormulaProfile::LegacyStartupFactorOnly)
       in.factor_repeated_enabled = false;
-    config_.branching.random_sequences = false;
+    // Formula profiles dose inprocessing work.  They must not silently select
+    // CaDiCaL's randec-off policy over the shipped Kissat tie-break
+    // (kissat decide.c:57-113): random sequences are a search-wide
+    // diversification schedule, and the explicit typed config /
+    // TACTIX_RANDEC arm remains its selection surface.
     config_.rephase.walk_permille = 0;
     config_.reorder.mode = 0;
     config_.reduction.square_root_cadence = false;
