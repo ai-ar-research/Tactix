@@ -571,6 +571,16 @@ Job `1633950` proves the first collector patch inert: root assignments select
 `1633951` was cancelled. The follow-up composes source position within each
 redundancy class with the stable class partition. Generic non-root and
 rewritten-root mixed-tail tests plus Release 72/72, Trace 71/71, and ASAN-O3
+72/72 pass. Job `1633964` still reaches the identical conflict-2001 watch
+mismatch and rejects that follow-up; runtime `1633965` was cancelled with zero
+residue. The newly exposed lifecycle cause is more fundamental: Reduce's
+victims are already garbage before `kernel_sparse_collect_root` runs, while
+that function admitted collection only when root simplification itself changed
+a clause. A reduction with victims but no coincident root rewrite therefore
+performed no sweep or rewatch at all. The current general candidate admits the
+collector on either pre-existing garbage or root simplification. Its synthetic
+test makes garbage the only trigger under an unrelated root assignment and
+pins the ensuing stable tail replay. Release 72/72, Trace 71/71, and ASAN-O3
 72/72 pass. Focused trace/runtime gates remain; N4 is pending.
 
 <!-- parity-ledger:end -->
