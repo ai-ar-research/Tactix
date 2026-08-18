@@ -2001,15 +2001,16 @@ bool kernel_compact_variables(Kernel &k) {
   }
 
   // Remove garbage first so the rebuilt arena and watch lists contain exactly
-  // the live formula.  Variable compaction itself is only a representation
-  // change, so preserve every surviving directed watch list (and each large
-  // clause's selected pair / search cursor) while forwarding clause refs.
-  //
-  // This is also how the compacting Reduce lifecycle composes with the sparse
-  // collector in Kissat: the collector has already retained its prefix and
-  // rewatched its tail.  A second whole-arena rewatch here would erase that
-  // search-visible result merely because inactive variables are renumbered.
-  kernel_collect_garbage(k, static_cast<Ref>(k.arena.size()));
+  // the live formula.  This preserves clause refs in assigned reasons through
+  // kernel_collect_garbage's forwarding pass.  Variable compaction is not an
+  // arena-ordering checkpoint in Kissat: its sparse collector retains the
+  // current clause order while remapping variables.  Suppress Tactix's
+  // optional inprocessing order for this representation-only collection, or
+  // it can reorder the large-watch replay solely because variables retired.
+  ArenaOrdering *const saved_arena_ordering = k.arena_ordering;
+  k.arena_ordering = nullptr;
+  kernel_collect_garbage(k);
+  k.arena_ordering = saved_arena_ordering;
 
   struct Binary {
     Lit a, b;
@@ -2036,25 +2037,28 @@ bool kernel_compact_variables(Kernel &k) {
 
   WatchLists watches;
   watches.resize_lits(2 * new_nvars);
-  // Kissat compacts a surviving literal by moving its complete watch vector
-  // onto the new literal (collect.c:flush_watched_clauses_by_literal).  Replay
-  // every directed entry independently and in encounter order.  Rebuilding
-  // binary mirrors from an undirected pair stream, or large watches from the
-  // arena, would replace that list order with an unrelated identity/ref order.
+  // Kissat compacts a surviving literal by moving its binary watch prefix onto
+  // the new literal (collect.c:flush_watched_clauses_by_literal), then rewatches
+  // the collected large-clause tail.  Preserve each directed binary encounter
+  // order; rebuilding both directions from undirected pairs would instead use
+  // an unrelated stable/external identity order.
   for (Lit old_lit = 0; old_lit < 2 * old_nvars; old_lit++) {
     const Var now = old_to_new[var_of(old_lit)];
     if (now == INVALID_VAR)
       continue;
     const Lit lit = make_lit(now, negated(old_lit));
-    for (const WatchEntry watch : k.watches.entries(old_lit)) {
-      if (watch.binary()) {
-        if (old_to_new[var_of(watch.other())] != INVALID_VAR)
-          watches.reserve_batch_word(lit);
-      } else {
+    for (const WatchEntry watch : k.watches.entries(old_lit))
+      if (watch.binary() &&
+          old_to_new[var_of(watch.other())] != INVALID_VAR)
         watches.reserve_batch_word(lit);
-        watches.reserve_batch_word(lit);
-      }
-    }
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    watches.reserve_batch_word(c->lits[0]);
+    watches.reserve_batch_word(c->lits[0]);
+    watches.reserve_batch_word(c->lits[1]);
+    watches.reserve_batch_word(c->lits[1]);
+    ref += clause_words(c->size);
   }
   watches.finish_batch_reserve(false);
   for (Lit old_lit = 0; old_lit < 2 * old_nvars; old_lit++) {
@@ -2063,15 +2067,13 @@ bool kernel_compact_variables(Kernel &k) {
       continue;
     const Lit lit = make_lit(now, negated(old_lit));
     for (const WatchEntry watch : k.watches.entries(old_lit)) {
-      if (watch.binary()) {
-        const Var other_now = old_to_new[var_of(watch.other())];
-        if (other_now == INVALID_VAR)
-          continue;
-        watches.push_binary(lit,
-                            make_lit(other_now, negated(watch.other())));
-      } else {
-        watches.push_large(lit, map_lit(watch.blocking()), watch.ref());
-      }
+      if (!watch.binary())
+        continue;
+      const Var other_now = old_to_new[var_of(watch.other())];
+      if (other_now == INVALID_VAR)
+        continue;
+      watches.push_binary(
+          lit, make_lit(other_now, negated(watch.other())));
     }
   }
   BinaryIdMap binary_ids;
@@ -2083,6 +2085,12 @@ bool kernel_compact_variables(Kernel &k) {
   for (const Binary &b : binaries) {
     const Lit a = map_lit(b.a), other = map_lit(b.b);
     binary_ids.insert_or_assign_known(kernel_binary_key(a, other), b.id, true);
+  }
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    watches.push_large(c->lits[0], c->lits[1], ref);
+    watches.push_large(c->lits[1], c->lits[0], ref);
+    ref += clause_words(c->size);
   }
   std::vector<int8_t> values(2 * new_nvars, 0);
   std::vector<Assigned> assigned(new_nvars);
