@@ -2350,6 +2350,12 @@ void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &) {
 ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
                                            const RuleVTable &r,
                                            uint64_t limit) {
+  // `vivifyfocusedtiers=1` is Kissat's shipped policy: every Vivify band reads
+  // the focused-mode tier snapshot, independent of the current search mode.
+  // A stable OTFS retier legitimately poses the stable snapshot for the
+  // analysis it resumes, so pose the Vivify consumer here instead of relying
+  // on the last Reduce to have left these shared fields in focused mode.
+  pose_focused_tiers(k);
   const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;

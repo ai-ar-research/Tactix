@@ -411,7 +411,8 @@ static void test_solve_with_restarts_still_correct() {
 // short search which never reaches Reduce: DefaultPolicy must not invent a
 // third, post-preprocessing compaction point merely because late Lucky ended.
 static void test_variable_compaction_waits_for_reduce() {
-  Kernel k; // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
+  // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
+  Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 15);
   auto var = [](int p, int h) { return p * 3 + h + 1; };

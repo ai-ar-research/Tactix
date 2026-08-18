@@ -341,6 +341,48 @@ void kissat_event_trace (kissat *solver, const char *event,
   int search_external = 0;
   if (solver->queue.search.idx < solver->vars)
     search_external = (int) external_variable (solver, solver->queue.search.idx);
+  char annotated_payload[4096];
+  snprintf (annotated_payload, sizeof annotated_payload, "%s",
+            payload ? payload : "-");
+  if (snapshot) {
+    const char *selected = getenv ("SAT_EVENT_TRACE_WATCH_LIST");
+    if (selected && *selected) {
+      const int wanted = atoi (selected);
+      unsigned watched = INVALID_LIT;
+      for (all_literals (lit))
+        if (external_literal (solver, lit) == wanted) {
+          watched = lit;
+          break;
+        }
+      size_t used = strlen (annotated_payload);
+      int written = snprintf (annotated_payload + used,
+                              sizeof annotated_payload - used,
+                              "|watch_lit=%d|binary=", wanted);
+      if (written > 0)
+        used += (size_t) written;
+      bool first = true;
+      if (watched != INVALID_LIT) {
+        watches entries = WATCHES (watched);
+        const watch *p = BEGIN_WATCHES (entries);
+        const watch *const end = END_WATCHES (entries);
+        while (p != end && used < sizeof annotated_payload) {
+          const watch head = *p++;
+          if (!head.type.binary) {
+            p++;
+            continue;
+          }
+          written = snprintf (annotated_payload + used,
+                              sizeof annotated_payload - used, "%s%d",
+                              first ? "" : ",",
+                              external_literal (solver, head.binary.lit));
+          if (written <= 0)
+            break;
+          used += (size_t) written;
+          first = false;
+        }
+      }
+    }
+  }
   fprintf (trace_file,
            "kissat\t%" PRIu64 "\t%s\t%" PRIu64 "\t%" PRIu64
            "\t%" PRIu64 "\t%u\t%s\t%u\t%u\t%zu\t%" PRIu64
@@ -357,7 +399,7 @@ void kissat_event_trace (kissat *solver, const char *event,
            solver->statistics.clauses_irredundant,
            solver->statistics.clauses_redundant,
            solver->statistics.clauses_binary, digest, search_external, top,
-           payload ? payload : "-");
+           annotated_payload);
   if (!strcmp (event, "reorder_begin")) {
     trace_saw_reorder = true;
     trace_checkpoint_bucket = solver->statistics.conflicts / 1000;

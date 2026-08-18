@@ -269,6 +269,33 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   if (k.h && k.h->search_idx != INVALID_VAR &&
       k.h->search_idx < k.internal_to_external.size())
     search_external = static_cast<int>(k.internal_to_external[k.h->search_idx]) + 1;
+  std::string annotated_payload = payload ? payload : "-";
+  if (snapshot) {
+    if (const char *selected =
+            std::getenv("SAT_EVENT_TRACE_WATCH_LIST")) {
+      const int wanted = std::atoi(selected);
+      Lit watched = INVALID_LIT;
+      for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+        if (kernel_externalize(k, lit) == wanted) {
+          watched = lit;
+          break;
+        }
+      annotated_payload += "|watch_lit=" + std::to_string(wanted) +
+                           "|binary=";
+      if (watched != INVALID_LIT) {
+        bool first = true;
+        for (const WatchEntry entry : k.watches.entries(watched)) {
+          if (!entry.binary())
+            continue;
+          if (!first)
+            annotated_payload += ',';
+          first = false;
+          annotated_payload +=
+              std::to_string(kernel_externalize(k, entry.other()));
+        }
+      }
+    }
+  }
   std::fprintf(out_,
                "tactix\t%llu\t%s\t%llu\t%llu\t%llu\t%u\t%s\t%u\t%u\t"
                "%zu\t%llu\t%llu\t%llu\t%llu\t%llu\t%llu\t%zu\t"
@@ -286,7 +313,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                (unsigned long long)rank.retired_heap,
                (unsigned long long)irred, (unsigned long long)red,
                (size_t)binary, (unsigned long long)digest,
-               search_external, rank.top.c_str(), payload ? payload : "-");
+               search_external, rank.top.c_str(), annotated_payload.c_str());
 }
 
 void EventTrace::macro(const Kernel &k, const char *event, const char *payload) {

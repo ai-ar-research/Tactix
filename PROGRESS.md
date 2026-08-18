@@ -8,7 +8,10 @@ decisions. This file is only the current resume surface.
 
 - Phase 4 has met T3: the matched Tier B/C window solved 28/28 and 30/30,
   respectively, within the 1.10x Kissat gate; all results were checked.
-- N1, N2, and N4 are complete. N3 awaits the canonical Tier-D gate.
+- N1 and N2 are complete. N4 is immutable and its verification is pending on
+  the cumulative general random-decision, post-Lucky compaction, Vivify-tier,
+  and Walk compact-order replay repairs' checked 28B+fixed5C and frozen ranks
+  21--40 gates. N3 awaits the canonical Tier-D gate.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
 - The accepted next-round debug candidate release binary is
@@ -19,9 +22,13 @@ decisions. This file is only the current resume surface.
 <!-- track-sched:begin -->
 The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
 closed; sparse-GC's repaired implementation and the Reduce candidate population
-are now reconciled as closed. Every live missing/cruder row has a repair or an
-explicit accepted-deviation disposition with a reopening path. Any new missing
-or cruder reference mechanism reopens N4.
+are reconciled as closed. `SP-RANDEC-1`, `SP-COMPACT-1`, `SP-VIVIFY-1`, and
+`SP-WALK-WATCH-1` verification is temporarily pending. The cumulative
+candidate removes formula-shape random-policy overrides and the extra
+post-Lucky compaction, poses focused tiers at every Vivify consumer, and
+replays Walk binaries in Kissat's compact-literal encounter order. Release is
+72/72; checked Slurm validation remains required. Any new missing or cruder
+reference mechanism returns N4 verification to pending.
 <!-- track-sched:end -->
 
 ## Active measurement
@@ -69,7 +76,7 @@ low/no-yield witnesses when available. Checked proof/model failure or an
 unexplained solve loss blocks promotion to the targeted Tier-D cases; this
 iteration guard does not replace the full Tier C or canonical Tier-D gates.
 
-The active divergence round targets up to ten predeclared Tier-D
+The active divergence round targets the twenty predeclared Tier-D ranks 21--40
 Kissat-over-Tactix gaps. These are improvement witnesses, not regression-test
 members: general repairs are guarded by Tier B and selected Tier C, while the
 Tier-D set remains cumulative where practical to expose both closed and still
@@ -179,6 +186,16 @@ No baseline job was rerun.
 | 29 | SAT | `16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz` | 294.468 | 1780.110 |
 | 30 | SAT | `ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz` | 304.761 | 1386.023 |
 
+Ranks 31--40 are frozen in the same immutable manifest as ranks 21--30. The
+pre-Walk-repair cumulative candidate job `1633266` solved and checked ranks 21,
+23, 25, 28, 29, and 38 under 16 GiB/1200 s; the other fourteen timed out. Its
+28B+5C guard job `1633265` was 28/28 Tier B and 4/5 Tier C, with only
+`mp1-Nb5T15` timing out. That regression is now localized to Walk's compact
+binary replay: job `1633433` restores the first divergent watch order, matches
+all 66 Kissat analysis records through conflict 2008, and solves the traced
+instance SAT in 24.708 s. This is mechanism evidence, not promotion; the
+current cumulative candidate still needs checked 28B+5C and ranks 21--40.
+
 ## Gates
 
 - [x] T1: MiniSat correctness/performance bar.
@@ -190,8 +207,8 @@ No baseline job was rerun.
 
 ## Next engineering work
 
-1. Diagnose rank 21 from the first portable Tactix/Kissat divergence, retaining
-   ranks 21--30 as improvement witnesses and 28B+5C as the regression set.
+1. Run the cumulative candidate on checked 28B+5C and frozen ranks 21--40;
+   diagnose each remaining gap from its first portable Tactix/Kissat divergence.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
