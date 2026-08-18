@@ -1773,15 +1773,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
-  // Kissat's startup collectors physically remove inactive variables before
-  // search. Tactix defers that representation-only compaction until both
-  // Lucky attempts have failed: easy SAT instances avoid the rebuild, while
-  // long searches do not carry substituted variables through every dense
-  // kernel and heuristic array. Use the same strict inactive-percent policy
-  // as the post-Reduce compaction point.
-  if (compact_ && kernel_should_compact_variables(
-                      k, config_.reduction.compact_inactive_percent))
-    kernel_compact_variables(k);
+  // There is no Kissat collection point between late Lucky and search
+  // (preprocess.c:57, reduce.c:160-185).  In particular, collecting the whole
+  // arena here would apply DefaultArenaOrder after preprocessing and invent a
+  // representation transition the reference never performs.  Tactix models
+  // initial fixed-variable compaction's decision-population effect above;
+  // subsequent variable/arena compaction remains coupled to Reduce below.
   // Preprocessing has consumed the root-unit trail prefix.  Tactix retains
   // those literals for stable IDs/proof witnesses, so only the lifecycle
   // marker is cleared (Kissat physically clears that prefix).

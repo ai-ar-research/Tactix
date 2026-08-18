@@ -406,6 +406,43 @@ static void test_solve_with_restarts_still_correct() {
   assert(storm.solve(k) == 20);
 }
 
+// Kissat compacts variable identities only in its initial sparse collector
+// (when root units exist) and at Reduce.  Retire more than compactlim before a
+// short search which never reaches Reduce: DefaultPolicy must not invent a
+// third, post-preprocessing compaction point merely because late Lucky ended.
+static void test_variable_compaction_waits_for_reduce() {
+  Kernel k; // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 15);
+  auto var = [](int p, int h) { return p * 3 + h + 1; };
+  std::vector<Lit> scratch;
+  for (int p = 0; p < 4; p++) {
+    scratch.clear();
+    for (int h = 0; h < 3; h++)
+      scratch.push_back(internalize(var(p, h)));
+    kernel_add_large_clause(k, scratch.data(), 3, false, 0);
+  }
+  for (int h = 0; h < 3; h++)
+    for (int p1 = 0; p1 < 4; p1++)
+      for (int p2 = p1 + 1; p2 < 4; p2++)
+        kernel_add_binary_clause(k, internalize(-var(p1, h)),
+                                 internalize(-var(p2, h)));
+
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  for (Var v = 12; v < 15; v++) {
+    k.var_status[v] = VarStatus::Eliminated;
+    heuristics_deactivate_var(k, v);
+    k.unassigned_active--;
+  }
+  assert(kernel_should_compact_variables(k, 10));
+
+  DefaultPolicy policy;
+  assert(policy.solve(k) == 20);
+  assert(k.stats.reductions == 0);
+  assert(k.stats.variable_compactions == 0 &&
+         "variable compaction is admitted at Reduce, not after late Lucky");
+}
+
 static void test_restart_reuses_trail() {
   // A restart keeps every level whose decision outranks the next candidate:
   // here var 0 (stamp 4) beats var 2 (stamp 3) and var 1 (stamp 2) does not.
@@ -475,6 +512,7 @@ int main() {
   test_tier2_band_tracks_the_live_tier();
   test_retier_uses_kissat_truncation();
   test_solve_with_restarts_still_correct();
+  test_variable_compaction_waits_for_reduce();
   puts("test_restart_reduce OK");
   return 0;
 }
