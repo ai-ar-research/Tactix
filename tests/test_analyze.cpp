@@ -107,6 +107,29 @@ static void test_learned_unit() {
   assert(k.h->scores.score[0] == unit_score);
 }
 
+static void test_bump_admission_order_is_not_cleanup_order() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 4);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+
+  // Variable 0 models a literal touched first as minimization scratch and
+  // admitted to the bump set only after 1 and 2.  Cleanup order must not move
+  // that late admission ahead of them.  Equal EVSIDS increments make the
+  // stable heap root an exact, witness-independent observation of the order.
+  k.analyzed = {0, 1, 2};
+  k.bump_order = {1, 2, 0};
+  k.seen[0] = k.seen[1] = k.seen[2] = 1; // analysis-side bump mark
+  k.analyzed_seen = 3;
+  analyze_bump_after_backjump(k);
+
+  assert(heuristics_heap_next_unassigned(k) == 1);
+  assert(k.analyzed.empty());
+  assert(k.bump_order.empty());
+  assert(!k.seen[0] && !k.seen[1] && !k.seen[2]);
+}
+
 // Kissat's level-one failed-literal analysis walks the implication graph past
 // every singleton frontier, rather than stopping after one ordinary 1-UIP.
 // Under decision 1, literal 2 implies both 3 and 4, whose binary conflict
@@ -944,6 +967,7 @@ int main(int argc, char **argv) {
   test_uip();
   test_conflictanalysis_atomic();
   test_learned_unit();
+  test_bump_admission_order_is_not_cleanup_order();
   test_level_one_failed_literal_batch();
   if (argc == 2)
     write_level_one_failed_literal_lrat(argv[1]);
