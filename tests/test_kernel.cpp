@@ -715,6 +715,8 @@ static void test_propagate_beyond_conflicts_for_warmup() {
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   const uint64_t decisions = k.stats.decisions;
+  const uint64_t ticks_before = k.stats.ticks;
+  const uint64_t search_ticks_before = k.stats.search_ticks;
   k.warming = true;
   kernel_propagate_beyond_conflicts(k);
   k.warming = false;
@@ -723,6 +725,12 @@ static void test_propagate_beyond_conflicts_for_warmup() {
   assert(k.h->saved[2] == 1);
   assert(k.stats.warming_conflicts > 0);
   assert(k.stats.warming_propagations == 1);
+  // Kissat propbeyond.c charges warm-up work to total ticks only.  In
+  // particular it must not shorten the stable-mode search-tick interval.
+  assert(k.stats.ticks > ticks_before);
+  assert(k.stats.search_ticks == search_ticks_before);
+  kernel_charge_ticks(k, 7);
+  assert(k.stats.search_ticks == search_ticks_before + 7);
   assert(k.stats.decisions == decisions);
   assert(!k.conflict_valid && !k.inconsistent);
   kernel_backtrack(k, 0);

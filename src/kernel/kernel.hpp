@@ -1102,7 +1102,11 @@ inline uint64_t kernel_cache_lines(uint64_t n) { return (n + 31u) >> 5; }
 
 inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
   k.stats.ticks += n;
-  if (!k.inprocessing)
+  // Kissat's ordinary search propagator adds to both `ticks` and
+  // `search_ticks` (propsearch.c), while its warm-up propagator deliberately
+  // adds only to `ticks` (propbeyond.c:14-24).  Warm-up is search scaffolding
+  // for Walk, not work that may consume mode or inprocessing budgets.
+  if (!k.inprocessing && !k.warming)
     k.stats.search_ticks += n;
   if (k.tick_sink)
     *k.tick_sink += n;
