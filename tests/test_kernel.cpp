@@ -69,11 +69,11 @@ static void test_variable_compaction() {
   assert(lit_instance(k, make_lit(2, false)) == stable_instance);
   assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
   const Clause *c = clause_at(k.arena, 0);
-  // Variable compaction is only a relabeling: it preserves the selected pair
-  // and clause cursor instead of performing a second whole-arena rewatch.
-  assert(c->lits[0] == make_lit(0, false));
+  // Whole-arena collection reselects Kissat's best watched pair: the only
+  // unassigned literal first, then the latest satisfied one.
+  assert(c->lits[0] == make_lit(2, false));
   assert(c->lits[1] == make_lit(1, false));
-  assert(c->lits[2] == make_lit(2, false));
+  assert(c->lits[2] == make_lit(0, false));
   assert(k.stats.variable_compactions == 1);
   assert(k.stats.compacted_variables == 2);
   assert(k.sweep_tail == std::vector<Var>({1, 4}));
@@ -136,55 +136,45 @@ static void test_variable_compaction_preserves_directed_binary_order() {
   kernel_check_invariants(k);
 }
 
-// Large entries are part of the same directed vector.  Propagation can move a
-// watch to the list tail, so arena order is not a valid reconstruction order
-// for a later representation-only variable compaction.
-static void test_variable_compaction_preserves_directed_large_order() {
+// Variable compaction is not an arena-policy checkpoint.  Kissat's compacting
+// sparse collector retains the current clause order, so an independently
+// configured inprocessing order must not leak into its large-watch replay.
+static void test_variable_compaction_preserves_current_arena_order() {
   Kernel k;
   ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 8);
-  const Lit garbage[3] = {internalize(1), internalize(3), internalize(4)};
-  const Ref dead = kernel_add_large_clause(k, garbage, 3, false, 0, 100);
-  const Lit first[4] = {internalize(8), internalize(3), internalize(4),
-                        internalize(7)};
-  const Lit second[3] = {internalize(8), internalize(5), internalize(6)};
-  const Ref ra = kernel_add_large_clause(k, first, 4, false, 0, 101);
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(7);
+  const Lit first[3] = {shared, internalize(3), internalize(4)};
+  const Lit second[3] = {shared, internalize(5), internalize(6)};
+  kernel_add_large_clause(k, first, 3, false, 0, 101);
   kernel_add_large_clause(k, second, 3, false, 0, 102);
-  kernel_delete_clause(k, clause_at(k.arena, dead));
-
-  // Model an ordinary watch relocation: the first arena clause is now after
-  // the second one on their shared directed list.
-  const Lit shared = internalize(8);
-  kernel_unwatch_large(k, shared, ra);
-  k.watches.push_large(shared, internalize(3), ra);
-  clause_at(k.arena, ra)->searched = 3;
 
   const auto watched_ids = [&] {
     std::vector<uint64_t> ids;
-    const Lit current_shared = kernel_internalize(k, 8);
+    const Lit current_shared = kernel_internalize(k, 7);
     for (const WatchEntry watch : k.watches.entries(current_shared))
       if (!watch.binary())
         ids.push_back(clause_at(k.arena, watch.ref())->id());
     return ids;
   };
-  assert((watched_ids() == std::vector<uint64_t>{102, 101}));
+  assert((watched_ids() == std::vector<uint64_t>{101, 102}));
 
-  // Retire an unrelated variable.  Collection forwards both clause refs, and
-  // compaction must still preserve the directed order and search cursor.
+  struct ReverseOrder final : ArenaOrdering {
+    void order(const Kernel &, std::vector<Ref> &refs) override {
+      std::reverse(refs.begin(), refs.end());
+    }
+  } reverse;
+  k.arena_ordering = &reverse;
+
+  // Retire an unrelated variable.  A normal ordered whole-arena collection
+  // would reverse these clauses; representation-only compaction must not.
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[1] = VarStatus::Eliminated;
   heuristics_deactivate_var(k, 1);
   k.unassigned_active--;
   assert(kernel_compact_variables(k));
-  assert((watched_ids() == std::vector<uint64_t>{102, 101}));
-  bool found_first = false;
-  for (const WatchEntry watch :
-       k.watches.entries(kernel_internalize(k, 8)))
-    if (!watch.binary() && clause_at(k.arena, watch.ref())->id() == 101) {
-      assert(clause_at(k.arena, watch.ref())->searched == 3);
-      found_first = true;
-    }
-  assert(found_first);
+  assert(k.arena_ordering == &reverse);
+  assert((watched_ids() == std::vector<uint64_t>{101, 102}));
   kernel_check_invariants(k);
 }
 
@@ -889,7 +879,7 @@ int main() {
   test_variable_identity_maps();
   test_variable_compaction();
   test_variable_compaction_preserves_directed_binary_order();
-  test_variable_compaction_preserves_directed_large_order();
+  test_variable_compaction_preserves_current_arena_order();
   test_compaction_defers_retired_jumped_reason();
   test_compaction_drops_unassigned_stale_reason();
   test_lit_encoding();
