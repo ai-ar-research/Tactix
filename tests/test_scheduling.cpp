@@ -467,6 +467,49 @@ static void test_vivify_scope_tracks_tier2(void) {
          wide);
 }
 
+// A stable-mode OTFS retier poses its current-mode limits so conflict analysis
+// can resume under them.  Kissat's shipped `vivifyfocusedtiers=1` nevertheless
+// makes the later Vivify consumer read tier[focused], not whichever snapshot
+// most recently occupied the shared live fields.
+static void test_vivify_dose_poses_focused_tiers(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 64);
+  ScopedHeuristics h(k);
+  k.h->stable = true;
+  k.stats.conflicts = 1;
+
+  const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, clause, 3, true, 20, 0);
+
+  DefaultPolicy p;
+  p.inprocess().build(k);
+  DefaultInprocessScheduler::SlotEntry *vivify = nullptr;
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries) {
+    const bool selected = !std::strcmp(rules[e.rule].name, "Vivify");
+    e.enabled = selected;
+    if (selected)
+      vivify = &e;
+  }
+  assert(vivify);
+
+  k.tier1_by_mode[0] = 20;
+  k.tier2_by_mode[0] = 38;
+  k.tier1_by_mode[1] = 19;
+  k.tier2_by_mode[1] = 46;
+  k.tier1 = k.tier1_by_mode[1];
+  k.tier2 = k.tier2_by_mode[1];
+
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(vivify->tm.admitted > 0 && k.stats.vivify_rounds > 0 &&
+         "the fixture must execute a real Vivify dose");
+  assert(k.tier1 == k.tier1_by_mode[0] &&
+         k.tier2 == k.tier2_by_mode[0] &&
+         "Vivify consumed the last posed stable snapshot instead of Kissat's "
+         "shipped focused tier snapshot");
+  std::printf("  vivify tiers: stable retier -> focused 20/38 at dose entry\n");
+}
+
 // --- the authored slot order covers the registry ----------------------------
 // The slot order is data (default_slot_order), and an unnamed rule is still
 // scheduled — appended in registry order — so its position becomes an accident.
@@ -974,6 +1017,7 @@ int main() {
   test_order_arms_reorder();
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
+  test_vivify_dose_poses_focused_tiers();
   test_authored_slot_order_covers_registry();
   test_default_slot_membership_matches_kissat();
   test_two_slot_clocks_diverge();

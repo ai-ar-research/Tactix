@@ -1644,26 +1644,30 @@ void kernel_rebuild_large_watches(Kernel &k) {
 
 void kernel_resume_walk_watches(Kernel &k) {
   // Walk's non-null dense entry deletes root-satisfied binaries before saving
-  // and restoring the root-open population.  This is the *null-stack* Walk
-  // transition, not Congruence's sorted binary-save transition: preserve each
-  // surviving sparse binary list in its current order, then reconnect large
-  // clauses in arena order.  Sorting the binaries here agrees locally after
-  // Walk but changes the later learned-clause antecedent order.
+  // and restoring the root-open population.  `dense.c:flush_large_watches`
+  // scans Kissat's compact literals globally and saves a pair only from its
+  // lower compact endpoint.  Sparse resume then replays that stack without a
+  // sort.  Tactix's stable internal identities can contain holes and therefore
+  // must use permanent import order as the compact-literal key; numeric kernel
+  // order preserves the wrong mirror pose after Walk.
+  std::vector<Var> ordered_variables;
+  kernel_vars_in_import_order(k, ordered_variables);
   std::vector<std::pair<Lit, Lit>> satisfied;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    for (const WatchEntry watch : k.watches.entries(lit)) {
-      if (!watch.binary())
-        continue;
-      const Lit other = watch.other();
-      if (lit >= other)
-        continue;
-      if (kernel_root_value(k, lit) > 0 ||
-          kernel_root_value(k, other) > 0)
-        satisfied.emplace_back(lit, other);
+  for (const Var variable : ordered_variables)
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit lit = make_lit(variable, sign != 0);
+      for (const WatchEntry watch : k.watches.entries(lit)) {
+        if (!watch.binary())
+          continue;
+        const Lit other = watch.other();
+        if (kernel_import_lit_order(k, lit) >=
+            kernel_import_lit_order(k, other))
+          continue;
+        if (kernel_root_value(k, lit) > 0 ||
+            kernel_root_value(k, other) > 0)
+          satisfied.emplace_back(lit, other);
+      }
     }
-  std::sort(satisfied.begin(), satisfied.end());
-  satisfied.erase(std::unique(satisfied.begin(), satisfied.end()),
-                  satisfied.end());
   for (const auto &[a, b] : satisfied) {
     const uint32_t copies = kernel_binary_copies(k, a, b);
     if (copies == 1)
@@ -1671,16 +1675,18 @@ void kernel_resume_walk_watches(Kernel &k) {
     else if (copies > 1)
       kernel_delete_binary_all_copies(k, a, b);
   }
-  // Save each surviving pair once in the order exposed by the current compact
-  // internal universe.  Walk's null-stack dense transition does not run the
-  // Congruence pair sort, but sparse resume does rebuild one packed arena; an
-  // in-place large-only rebuild leaves old slice capacities and mirror pose
-  // behind and is therefore not the same transition.
+  // Save each surviving pair in that same compact-literal encounter order.
+  // Unlike Congruence, Walk does not sort equal-first runs; the current watch
+  // order of a pair whose lower endpoint is shared is retained verbatim.
   std::vector<std::pair<Lit, Lit>> binaries;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary() && lit < watch.other())
-        binaries.emplace_back(lit, watch.other());
+  for (const Var variable : ordered_variables)
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit lit = make_lit(variable, sign != 0);
+      for (const WatchEntry watch : k.watches.entries(lit))
+        if (watch.binary() && kernel_import_lit_order(k, lit) <
+                                  kernel_import_lit_order(k, watch.other()))
+          binaries.emplace_back(lit, watch.other());
+    }
 
   std::vector<uint32_t>().swap(k.watches.arena);
   k.watches.holes = 0;
