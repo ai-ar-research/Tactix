@@ -585,6 +585,10 @@ def main():
         '  kissat_event_trace_retier (solver);\n'
         '  if (solver->limits.glue.interval < (1u << 16))\n')
     replace_once(analyze,
+        '    INC (search_ticks);\n',
+        '    kissat_event_trace_detail (solver, "analysis_tick_reason_bump", 1);\n'
+        '    INC (search_ticks);\n')
+    replace_once(analyze,
         '    } else {\n'
         '      if (GET_OPTION (minimize)) {\n'
         '        sort_deduced_clause (solver);\n'
@@ -609,6 +613,28 @@ def main():
         '      analyze_reason_side_literals (solver);\n'
         '      kissat_event_trace_learned (solver);\n'
         '      kissat_learn_clause (solver);\n')
+
+    minimize = dest / "src" / "minimize.c"
+    replace_once(minimize, '#include "minimize.h"\n',
+                 '#include "minimize.h"\n#include "eventtrace.h"\n')
+    replace_once(minimize,
+        '  if (GET_OPTION (minimizeticks))\n'
+        '    INC (search_ticks);\n',
+        '  if (GET_OPTION (minimizeticks)) {\n'
+        '    kissat_event_trace_detail (solver, "analysis_tick_minimize", 1);\n'
+        '    INC (search_ticks);\n'
+        '  }\n')
+
+    shrink = dest / "src" / "shrink.c"
+    replace_once(shrink, '#include "shrink.h"\n',
+                 '#include "shrink.h"\n#include "eventtrace.h"\n')
+    replace_once(shrink,
+        '  if (GET_OPTION (minimizeticks))\n'
+        '    INC (search_ticks);\n',
+        '  if (GET_OPTION (minimizeticks)) {\n'
+        '    kissat_event_trace_detail (solver, "analysis_tick_shrink", 1);\n'
+        '    INC (search_ticks);\n'
+        '  }\n')
 
     proplit = dest / "src" / "proplit.h"
     replace_once(proplit,

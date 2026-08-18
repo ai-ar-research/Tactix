@@ -226,6 +226,7 @@ static bool binary_chain_redundant(Kernel &k, Lit next, unsigned depth) {
 
     // The chain node itself is one level below the caller; literals in its
     // large reason are two.  Binary nodes before it do not deepen the walk.
+    event_trace_detail(k, "analysis_tick_minimize_binary", 1);
     kernel_charge_ticks(k, 1);
     const Clause *reason = clause_at(k.arena, a.reason);
     const Lit assigned_lit = negate(next);
@@ -288,6 +289,7 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
     // One search tick per reason deref, as kissat minimize.c:52 charges for
     // the same walk. `search_ticks` denominates the stable-mode budget and
     // every effort limit, so omitting it stretches those windows.
+    event_trace_detail(k, "analysis_tick_minimize_reference", 1);
     kernel_charge_ticks(k, 1);
     const Clause *reason = clause_at(k.arena, a.reason);
     for (const Lit m : *reason) {
@@ -500,6 +502,7 @@ static void mark_reason_tree(Kernel &k, Lit false_lit, uint32_t depth,
       mark_reason_tree(k, m, depth - 1, limit);
     return;
   }
+  event_trace_detail(k, "analysis_tick_reason_bump", 1);
   kernel_charge_ticks(k, 1);
   const Clause *r = clause_at(k.arena, a.reason);
   const Lit self = negate(false_lit);
@@ -757,6 +760,7 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
         open += tmp;
     } else {
       // kissat shrink.c:180, same `minimizeticks` charge as minimize above.
+      event_trace_detail(k, "analysis_tick_shrink", 1);
       kernel_charge_ticks(k, 1);
       const Clause *reason = clause_at(k.arena, a.reason);
       for (const Lit m : *reason) {
@@ -1408,23 +1412,20 @@ ApplyResult analyze_apply(Kernel &k) {
       size_t b = e - 1;
       while (b > 1 && k.var_level(var_of(learned[b - 1])) == blevel)
         b--;
-      bool minimize_block = true;
-      if (e - b >= 2 && shrink_block(k, learned, b, e, blevel)) {
-        k.stats.shrunken += (e - b) - 1;
-        minimize_block = false;
-      }
-      if (minimize_block) {
-        // Minimize literal by literal, singleton blocks included. kissat
-        // skips singleton blocks; Tactix always includes them because,
-        // under a free N1 schedule, a literal's chain can bottom out without
-        // another literal on its own level.  Removing a proven-redundant
-        // singleton yields a strict subclause, so this is a specified stronger
-        // deviation rather than a reference-parity arm.
-        for (size_t j = b; j < e; j++)
-          if (literal_redundant(k, learned[j], 0)) {
-            learned[j] = INVALID_LIT;
-            k.stats.minimized++;
-          }
+      // Kissat's default shrink=3 only opens this pipeline for a block with at
+      // least two literals.  In particular, it does not recursively minimize
+      // singleton blocks: doing so charges extra search ticks and can advance
+      // every effort deadline even when the learned clause is unchanged.
+      if (e - b >= 2) {
+        if (shrink_block(k, learned, b, e, blevel)) {
+          k.stats.shrunken += (e - b) - 1;
+        } else {
+          for (size_t j = b; j < e; j++)
+            if (literal_redundant(k, learned[j], 0)) {
+              learned[j] = INVALID_LIT;
+              k.stats.minimized++;
+            }
+        }
       }
       e = b;
     }
