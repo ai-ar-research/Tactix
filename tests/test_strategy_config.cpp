@@ -88,7 +88,7 @@ int main() {
          !mp.inprocess.vivify_enabled);
   const auto stconn = classified(936, 6488);
   assert(stconn.inprocess.preprocess_only &&
-         !stconn.branching.random_sequences && stconn.reorder.mode == 0 &&
+         stconn.branching.random_sequences && stconn.reorder.mode == 0 &&
          !stconn.reduction.dynamic_tiers);
   const auto grain105 = classified(3094431, 10684799);
   assert(grain105.inprocess.preprocess_only &&
@@ -96,7 +96,7 @@ int main() {
   const auto grain87 = classified(3165161, 10917078);
   assert(grain87.inprocess.preprocess_only &&
          !grain87.inprocess.factor_repeated_enabled &&
-         !grain87.branching.random_sequences);
+         grain87.branching.random_sequences);
   const auto dense_small = classified(862, 855716);
   assert(!dense_small.inprocess.bve_enabled &&
          dense_small.inprocess.forward_midround_budget &&
@@ -122,7 +122,7 @@ int main() {
   const auto grain_late = classified(3859779, 13462874);
   assert(grain_late.inprocess.preprocess_only &&
          !grain_late.inprocess.factor_repeated_enabled &&
-         !grain_late.branching.random_sequences &&
+         grain_late.branching.random_sequences &&
          grain_late.reorder.mode == 0 &&
          !grain_late.reduction.dynamic_tiers &&
          grain_late.rephase.late_lucky);
@@ -157,10 +157,23 @@ int main() {
         const auto shaped = classified(static_cast<uint32_t>(shape_vars),
                                        static_cast<uint64_t>(shape_clauses));
         assert(shaped.rephase.late_lucky);
+        assert(shaped.branching.random_sequences);
       }
   assert(grain87.rephase.late_lucky && stconn.rephase.late_lucky &&
          dense_small.rephase.late_lucky && dense_large.rephase.late_lucky &&
          mp.rephase.late_lucky);
+
+  // Formula shape never chooses the reference-disagreement arm.  A caller
+  // can still select CaDiCaL's randec-off policy explicitly, and
+  // classification must preserve that typed choice.
+  DefaultStrategyConfig profile_no_random = defaults;
+  profile_no_random.branching.random_sequences = false;
+  DefaultPolicy no_random_profile(profile_no_random);
+  Kernel legacy_shape;
+  legacy_shape.original_external_vars = 3859779;
+  legacy_shape.original_input_clauses = 13462874;
+  no_random_profile.classify_formula_strategy(legacy_shape);
+  assert(!no_random_profile.strategy_config().branching.random_sequences);
 
   // Kissat rotates two focused epochs through forced initial/opposite phases.
   // This applies equally to ranked and random decisions.
