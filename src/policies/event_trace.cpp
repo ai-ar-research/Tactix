@@ -66,23 +66,38 @@ RankingSummary summarize_ranking(const Kernel &k, bool include_top) {
   if (!include_top)
     return res;
 
+  // Focused VMTF is already totally ordered from queue_last backwards.  Walk
+  // only far enough to print the requested prefix, as Kissat's focused_top
+  // does, instead of materializing every active variable merely to keep 32.
+  // Besides being equivalent, this keeps tracing a multi-million-variable
+  // instance from adding an O(nvars) allocation at every control snapshot.
+  if (!k.h->stable) {
+    std::string top;
+    size_t ranked = 0;
+    for (Var v = k.h->queue_last, seen = 0;
+         v != INVALID_VAR && seen++ <= k.nvars && ranked < 32;
+         v = k.h->links[v].prev) {
+      if (kernel_var_retired(k, v) || k.values[make_lit(v, false)] != 0)
+        continue;
+      if (ranked++)
+        top += ',';
+      top += std::to_string(k.internal_to_external[v] + 1);
+    }
+    if (!top.empty())
+      res.top.swap(top);
+    return res;
+  }
+
   std::vector<Var> ranked;
   ranked.reserve(k.nvars);
-  if (k.h->stable) {
-    for (Var v = 0; v < k.nvars; v++)
-      if (!kernel_var_retired(k, v) && k.values[make_lit(v, false)] == 0)
-        ranked.push_back(v);
-    std::stable_sort(ranked.begin(), ranked.end(), [&](Var a, Var b) {
-      if (k.h->scores.score[a] != k.h->scores.score[b])
-        return k.h->scores.score[a] > k.h->scores.score[b];
-      return a < b;
-    });
-  } else {
-    for (Var v = k.h->queue_last, n = 0;
-         v != INVALID_VAR && n++ <= k.nvars; v = k.h->links[v].prev)
-      if (!kernel_var_retired(k, v) && k.values[make_lit(v, false)] == 0)
-        ranked.push_back(v);
-  }
+  for (Var v = 0; v < k.nvars; v++)
+    if (!kernel_var_retired(k, v) && k.values[make_lit(v, false)] == 0)
+      ranked.push_back(v);
+  std::stable_sort(ranked.begin(), ranked.end(), [&](Var a, Var b) {
+    if (k.h->scores.score[a] != k.h->scores.score[b])
+      return k.h->scores.score[a] > k.h->scores.score[b];
+    return a < b;
+  });
   std::string top;
   const size_t n = std::min<size_t>(32, ranked.size());
   for (size_t i = 0; i < n; i++) {

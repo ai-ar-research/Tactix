@@ -116,6 +116,8 @@ int main() {
   assert(analysis_line.find("\tfocused\t3\t1\t2\t3\t0\t") !=
          std::string::npos &&
          "analysis_end must carry the post-analysis ranking snapshot");
+  assert(analysis_line.find("\t3\t3\t1") != std::string::npos &&
+         "focused top32 must retain queue-tail decision order");
   std::remove(path);
 
   static const char *window_path = "/tmp/tactix-test-event-window.tsv";
