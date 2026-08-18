@@ -428,6 +428,51 @@ static void test_sparse_collection_partitions_mixed_tail() {
   kernel_check_invariants(k);
 }
 
+// The same partition must compose with root shortening: replacements retain
+// their source position within their redundancy class, then the two stable
+// classes form Kissat's rewatched sparse tail.
+static void test_root_sparse_collection_partitions_rewritten_tail() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  kernel_assign_unit(k, internalize(1));
+  const Lit shared = internalize(2);
+  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
+  const Lit red_rewritten[4] = {internalize(-1), shared, internalize(4),
+                                internalize(5)};
+  const Lit irred_first[3] = {shared, internalize(5), internalize(6)};
+  const Lit red_second[3] = {shared, internalize(6), internalize(7)};
+  const Lit irred_second[3] = {shared, internalize(7), internalize(8)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 301);
+  const Ref start =
+      kernel_add_large_clause(k, red_rewritten, 4, true, 7, 302);
+  kernel_add_large_clause(k, irred_first, 3, false, 0, 303);
+  kernel_add_large_clause(k, red_second, 3, true, 8, 304);
+  kernel_add_large_clause(k, irred_second, 3, false, 0, 305);
+
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse;
+  assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::Changed);
+  assert(k.arena_ordering == &reverse);
+
+  std::vector<uint64_t> arena_ids;
+  std::vector<bool> redundant;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    arena_ids.push_back(c->id());
+    redundant.push_back(c->redundant());
+    ref += clause_words(c->size);
+  }
+  assert((arena_ids == std::vector<uint64_t>{301, 303, 305, 1, 304}));
+  assert((redundant == std::vector<bool>{false, false, false, true, true}));
+
+  std::vector<uint64_t> watched_ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((watched_ids == arena_ids));
+  kernel_check_invariants(k);
+}
+
 static void test_large_clause_propagation() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -938,6 +983,7 @@ int main() {
   test_root_sparse_collection_rewrites_nonroot_reason();
   test_sparse_collection_flushes_fixed_prefix_watch();
   test_sparse_collection_partitions_mixed_tail();
+  test_root_sparse_collection_partitions_rewritten_tail();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();

@@ -566,7 +566,11 @@ conflict 2272. Runtime job `1633837` nevertheless times out at 1200.004 s and
 `1633890` localizes the next cause to conflict-2001 Reduce: Kissat's sparse
 collector stably partitions the swept tail as irredundant then redundant before
 rewatching, while Tactix retained the interleaving; conflict 2272 is downstream.
-The general collector repair and mixed-tail stability test pass Release 72/72,
-Trace 71/71, and ASAN-O3 72/72. Focused trace/runtime gates remain; N4 is pending.
+Job `1633950` proves the first collector patch inert: root assignments select
+`kernel_sparse_collect_root`, whose source-position replay bypassed it; runtime
+`1633951` was cancelled. The follow-up composes source position within each
+redundancy class with the stable class partition. Generic non-root and
+rewritten-root mixed-tail tests plus Release 72/72, Trace 71/71, and ASAN-O3
+72/72 pass. Focused trace/runtime gates remain; N4 is pending.
 
 <!-- parity-ledger:end -->
