@@ -12,6 +12,17 @@ bool backjump_guard(const Kernel &k) {
   return k.pending.valid && !k.conflict_valid && !k.inconsistent;
 }
 
+void backjump_assign_learned_unit(Kernel &k, Lit unit) {
+  kernel_assign_unit(k, unit);
+  // Kissat marks a newly learned unit's variable fixed inside assignment,
+  // which immediately removes it from both decision structures before the
+  // analyzed stack is bumped.  Tactix retains stable kernel identities for
+  // reconstruction, so this policy-owned sub-step performs the equivalent
+  // decision-structure transition explicitly.
+  heuristics_deactivate_var(k, var_of(unit));
+  k.stats.learned_units++;
+}
+
 ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
   PendingLearned &p = k.pending;
@@ -89,15 +100,7 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   if (p.lits.size() == 1) {
     // Asserted as a root fact even when the solver stands higher (see the
     // unit chrono note above), so `k.level == 0` is not an invariant here.
-    kernel_assign_unit(k, asserting);
-    // Kissat marks a newly learned unit's variable fixed inside assignment,
-    // which immediately removes it from both decision structures before the
-    // analyzed stack is bumped.  Keeping the root-fixed variable in Tactix's
-    // EVSIDS heap both bumps an inactive UIP and changes the heap pose.  The
-    // kernel deliberately retains its stable identity for reconstruction;
-    // only the policy-owned decision structures are deactivated here.
-    heuristics_deactivate_var(k, var_of(asserting));
-    k.stats.learned_units++;
+    backjump_assign_learned_unit(k, asserting);
   } else if (p.lits.size() == 2) {
     // Kissat's learned-binary assertion uses assign.c, whose jump-reason path
     // is deliberately not gated by `classification.bigbig`.

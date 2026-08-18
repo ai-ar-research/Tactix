@@ -957,6 +957,159 @@ void analyze_eager_subsume(Kernel &k) {
     eager_insert_recent(k, p.ref);
 }
 
+// Kissat analyze.c:390-520 handles a conflict at decision level one as a
+// failed-literal traversal, not as ordinary 1-UIP.  Walking the implication
+// graph backwards can expose several singleton frontiers: each one is a root
+// unit, and the negated decision is the final root unit.  Besides being
+// stronger than learning only one UIP, this defines the analyzed-variable set
+// that focused VMTF bumps after the root assignments have deactivated their
+// variables.  The order is therefore part of N4, not a proof-only shortcut.
+static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
+                                            uint32_t csize,
+                                            uint64_t conflict_chain_id,
+                                            bool lrat) {
+  assert(k.level == 1);
+  assert(k.frames.size() == 2);
+  assert(k.frames[1] < k.trail.size());
+  assert(k.analyzed.empty());
+
+  const Lit failed = k.trail[k.frames[1]];
+  const Lit not_failed = negate(failed);
+  std::vector<std::pair<Lit, uint64_t>> units;
+  uint32_t unresolved = 0;
+  bool direct_failed = false;
+
+  auto mark = [&](Lit lit) {
+    const Var v = var_of(lit);
+    const uint32_t level = k.var_level(v);
+    if (!level) {
+      if (lrat)
+        chain_record_root(k, v);
+      return;
+    }
+    assert(level == 1);
+    if (k.seen[v] & SEEN)
+      return;
+    k.seen[v] |= SEEN;
+    k.analyzed.push_back(v);
+    k.analyzed_seen++;
+    unresolved++;
+  };
+
+  for (uint32_t i = 0; i < csize; i++) {
+    if (clits[i] == not_failed) {
+      direct_failed = true;
+      break;
+    }
+    mark(clits[i]);
+  }
+
+  auto emit_unit = [&](Lit unit, bool full_conflict_walk) {
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof) {
+      if (lrat) {
+        if (full_conflict_walk) {
+          std::vector<uint8_t> proof_seen(k.nvars);
+          k.lrat_entries.clear();
+          const uint64_t closing = kernel_conflict_reason_walk(
+              k, proof_seen, k.lrat_entries);
+          assert(closing == conflict_chain_id);
+          (void)closing;
+        }
+        chain_emit(k, id, &unit, 1, conflict_chain_id);
+      } else {
+        k.proof->add_rup(0, &unit, 1, nullptr, 0);
+      }
+    }
+    units.emplace_back(unit, id);
+  };
+
+  if (!direct_failed) {
+    size_t pos = k.trail.size();
+    bool done = false;
+    while (!done) {
+      Lit lit = INVALID_LIT;
+      do {
+        assert(pos > 0);
+        lit = k.trail[--pos];
+      } while (!(k.seen[var_of(lit)] & SEEN));
+
+      // The remaining frontier is just this true literal.  Assuming it
+      // replays the already-resolved suffix to the conflict, so its negation
+      // is a root unit.  Do not add its own reason to that unit's LRAT chain.
+      if (unresolved == 1)
+        emit_unit(negate(lit), /*full_conflict_walk=*/false);
+
+      const Var v = var_of(lit);
+      const Assigned &a = k.assigned[v];
+      assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
+      if (lrat)
+        chain_record(k, v);
+
+      if (a.binary) {
+        const Lit other = a.reason;
+        if (other == not_failed) {
+          done = true;
+        } else {
+          mark(other);
+        }
+      } else {
+        const Clause *reason = clause_at(k.arena, a.reason);
+        for (const Lit other : *reason) {
+          if (other == lit)
+            continue;
+          if (other == not_failed) {
+            done = true;
+            break;
+          }
+          mark(other);
+        }
+      }
+      assert(unresolved > 0);
+      unresolved--;
+    }
+  }
+
+  // The full reason walk is deliberately rebuilt for the final decision
+  // unit.  The failed-literal traversal can stop as soon as one reason names
+  // `not_failed`, while LRAT still needs every other conflict branch in
+  // propagation order.  DRAT infers the same RUP chain itself.
+  emit_unit(not_failed, /*full_conflict_walk=*/lrat);
+
+  // Kissat learns the whole failed-literal batch as one size-one/glue-zero
+  // conflict result, even when the backward traversal found extra units.
+  k.stats.learned++;
+  k.stats.learned_lits++;
+
+  // Unlike the ordinary conflict path, level-one failed analysis returns
+  // directly to the root without taking a target/best phase snapshot.
+  kernel_backtrack(k, 0);
+  k.conflict_valid = false;
+  k.conflict_ref = INVALID_REF;
+  k.pending.valid = false;
+
+  for (const auto &[unit, id] : units) {
+    const int8_t value = k.value(unit);
+    if (value < 0) {
+      kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(unit)]);
+      bump_and_reset_analyzed(k);
+      return ApplyResult::Unsat;
+    }
+    if (value > 0)
+      continue;
+    k.unit_ids[var_of(unit)] = id;
+    backjump_assign_learned_unit(k, unit);
+  }
+
+  // Reference order is learn/backtrack/assign, then bump.  Root-fixed units
+  // are inactive by this point and therefore cannot be moved back into either
+  // decision structure by the analyzed-variable transaction.
+  bump_and_reset_analyzed(k);
+  k.lrat_entries.clear();
+  k.jump_pending.clear();
+  return ApplyResult::Ok;
+}
+
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
   k.analysis_conflict_checkpoints.clear();
@@ -1085,6 +1238,18 @@ ApplyResult analyze_apply(Kernel &k) {
         bump_and_reset_analyzed(k);
         return ApplyResult::Ok;
       }
+    }
+
+    // A genuine level-one conflict with more than one literal on that level
+    // is Kissat's failed-literal case.  The one-literal case above remains the
+    // conflict-reuse path (or Tactix's explicit LRAT unit path when jump2=0).
+    if (alevel == 1) {
+      uint32_t on_level_one = 0;
+      for (uint32_t i = 0; i < csize; i++)
+        on_level_one += k.var_level(var_of(clits[i])) == 1;
+      if (on_level_one > 1)
+        return analyze_failed_level_one(k, clits, csize, conflict_chain_id,
+                                        lrat);
     }
 
     // Kissat marks the conflict as used inside

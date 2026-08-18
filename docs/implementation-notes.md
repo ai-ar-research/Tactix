@@ -125,8 +125,8 @@ requirements:
 
 M3 is one public operation. Private pending state must be consumed before control returns to policy code.
 
-- The learned clause is asserting at `target_level ∈ [0, conflict_level)`; the target agrees with the
-  maximum level among its non-asserting literals.
+- The learned clause is asserting at `target_level ∈ [0, conflict_level)`; the target agrees with the maximum level among its non-asserting literals.
+- A conflict with several level-one literals takes Kissat's failed-literal sub-path: Analyze records every singleton-frontier unit and the negated decision; Backjump asserts/deactivates the root batch; only then does Analyze bump surviving implication variables. Shared `backjump_assign_learned_unit` keeps ordinary and batched units identical at the rule/policy boundary.
 - True-level reasoning may lower the asserting literal's stored level without changing its meaning.
 - Eager subsumption runs after the backtrack and before the next propagation.
 - No policy may observe a half-analyzed conflict or schedule Backjump separately.

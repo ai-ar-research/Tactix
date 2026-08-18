@@ -400,6 +400,14 @@ legs exercise legal schedules; validate every oracle with known-bad artifacts.
 Shrink failures and retain minimal regressions. Cadence and commands live in the
 `fuzz`, `proof-check`, and `stress-policy` skills.
 
+**External debugging escalation.** Invoke Claude when fuzzing or unit testing
+discovers a soundness defect or a crash. The primary agent owns performance
+divergence, runtime regression, mechanism-fidelity work, and ordinary
+implementation debugging without delegating the fix to Claude. If an ordinary
+investigation later produces a fuzz/unit-test reproducer that demonstrates
+unsoundness or a crash, escalate at that point; the trigger is the reproduced
+failure class, not the difficulty of the repair.
+
 ### 8.3 Performance gates
 
 - **T1:** all Tier A; at least MiniSat on Tier B.

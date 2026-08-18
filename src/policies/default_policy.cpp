@@ -1851,6 +1851,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       k.bump_reason_limit = want_bump_reasons(k);
       event_trace.detail(k, "reason_bump_limit", k.bump_reason_limit);
       k.bump_reason_depth = config_.analysis.reason_depth;
+      const uint64_t learned_before = k.stats.learned;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
       const ApplyResult ar = default_direct_rule(
@@ -1872,7 +1873,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         return finish(20);
       }
       update_tiers_after_analysis(k);
-      if (!k.pending.valid) { // `stats.conflict_reused` already counted it
+      if (!k.pending.valid) { // reused conflict or direct level-one unit batch
+        // Level-one failed-literal analysis owns its root-unit batch inside
+        // the atomic M3 transition, so it has no pending clause for policy to
+        // observe. Kissat still updates the glue averages and reluctant clock
+        // once for that size-one/glue-zero conflict result (learn.c:120-130).
+        if (k.stats.learned != learned_before) {
+          observe_glue(k, 0);
+          if (k.h->stable)
+            tick_reluctant();
+        }
         event_trace.detail(k, "analysis_end", k.level);
         event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                                mode.ticks_at_focus_entry, mode.count);

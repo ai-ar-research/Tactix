@@ -3,6 +3,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
+#include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -96,15 +97,82 @@ static void test_learned_unit() {
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Conflict);
   assert(analyze_apply(k) == ApplyResult::Ok);
-  assert(k.pending.lits.size() == 1);
-  assert(k.pending.lits[0] == internalize(-1));
-  assert(k.pending.jump_level == 0);
-  assert(backjump_apply(k) == ApplyResult::Ok);
+  // Level-one failed analysis owns its root-unit batch inside atomic M3; it
+  // never exposes the ordinary Analyze -> Backjump pending handoff.
+  assert(!k.pending.valid);
   assert(k.level == 0);
   assert(k.values[internalize(-1)] > 0);
   assert(k.stats.learned_units == 1);
   assert(!heuristics_heap_contains(k, 0));
   assert(k.h->scores.score[0] == unit_score);
+}
+
+// Kissat's level-one failed-literal analysis walks the implication graph past
+// every singleton frontier, rather than stopping after one ordinary 1-UIP.
+// Under decision 1, literal 2 implies both 3 and 4, whose binary conflict
+// proves first -2 and then -1. Both become true root units before the analyzed
+// variables are bumped, so neither can re-enter the focused decision queue.
+static void test_level_one_failed_literal_batch() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 5); // variable 5 remains as a decision witness
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  kernel_add_binary_clause(k, internalize(-3), internalize(-4));
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+  assert(k.level == 1);
+  assert(analyze_apply(k) == ApplyResult::Ok);
+
+  assert(!k.pending.valid);
+  assert(k.level == 0);
+  assert(k.values[internalize(-2)] > 0);
+  assert(k.values[internalize(-1)] > 0);
+  assert(k.assigned[var_of(internalize(-2))].level == 0);
+  assert(k.assigned[var_of(internalize(-1))].level == 0);
+  assert(k.unit_ids[var_of(internalize(-2))] != 0);
+  assert(k.unit_ids[var_of(internalize(-1))] != 0);
+  assert(k.stats.learned == 1);
+  assert(k.stats.learned_units == 2);
+  assert(!heuristics_var_active(k, var_of(internalize(1))));
+  assert(!heuristics_var_active(k, var_of(internalize(2))));
+  const Var next = heuristics_queue_next_unassigned(k);
+  assert(next != var_of(internalize(1)) && next != var_of(internalize(2)));
+  assert(default_solve(k) == 10);
+}
+
+// Proof-producing twin of the batch fixture.  The first four clauses produce
+// the two-unit failed-literal batch under decision 1; the final two make the
+// opposite branch inconsistent, so root propagation closes a complete UNSAT
+// proof that an external LRAT checker can replay.
+static void write_level_one_failed_literal_lrat(const char *path) {
+  Proof proof;
+  assert(proof.open(path, ProofFormat::Lrat));
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 5);
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  kernel_add_binary_clause(k, internalize(-1), internalize(2), 1);
+  kernel_add_binary_clause(k, internalize(-2), internalize(3), 2);
+  kernel_add_binary_clause(k, internalize(-2), internalize(4), 3);
+  kernel_add_binary_clause(k, internalize(-3), internalize(-4), 4);
+  kernel_add_binary_clause(k, internalize(1), internalize(5), 5);
+  kernel_add_binary_clause(k, internalize(1), internalize(-5), 6);
+  k.next_clause_id = 6;
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.learned_units == 2);
+  assert(k.values[internalize(-2)] > 0);
+  assert(k.values[internalize(-1)] > 0);
+  assert(propagate_apply(k) == ApplyResult::Unsat);
+  assert(k.inconsistent);
+  proof.flush();
+  k.proof = nullptr;
 }
 
 static void test_shrink() {
@@ -857,10 +925,13 @@ static void test_eager_subsume() {
   }
 }
 
-int main() {
+int main(int argc, char **argv) {
   test_uip();
   test_conflictanalysis_atomic();
   test_learned_unit();
+  test_level_one_failed_literal_batch();
+  if (argc == 2)
+    write_level_one_failed_literal_lrat(argv[1]);
   test_shrink();
   test_shrink_accepts_lower_learned_literal();
   test_shrink_crosses_unmarked_lower_level();

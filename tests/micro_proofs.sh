@@ -7,6 +7,7 @@ TACTIX="$1"
 ROOT="$2"
 DRAT_TRIM="$ROOT/tools/checkers/bin/drat-trim"
 LRAT_CHECK="$ROOT/tools/checkers/bin/lrat-check"
+ANALYZE_TEST="${3:-}"
 [ -x "$DRAT_TRIM" ] || { echo "drat-trim not built — skipping"; exit 77; }
 
 T="$(mktemp -d)"
@@ -95,6 +96,23 @@ for cnf in "$T"/*.cnf; do
       || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+
+# Analyze's level-one failed-literal path can emit more than one root unit from
+# one conflict.  Drive the exact rule transition in the analysis fixture, then
+# check the complete native LRAT proof against the matching original CNF.
+if [ -n "$ANALYZE_TEST" ] && [ -x "$LRAT_CHECK" ]; then
+  cnf="$T/failed-level-one.cnf"
+  printf 'p cnf 5 6\n-1 2 0\n-2 3 0\n-2 4 0\n-3 -4 0\n1 5 0\n1 -5 0\n' \
+    > "$cnf"
+  proof="$cnf.lrat"
+  "$ANALYZE_TEST" "$proof" > "$T/out"
+  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+    || { echo "FAIL: native LRAT of level-one failed batch rejected"; \
+         cat "$T/check"; exit 1; }
+  grep -q 'c VERIFIED' "$T/check" \
+    || { echo "FAIL: lrat-check gave no verdict on level-one failed batch"; \
+         cat "$T/check"; exit 1; }
+fi
 
 # ---- the same formulas with BVE in the proof. The generic stress scenario
 # BVE at the root, so BVE's resolvent/deletion deltas must compose into a valid
