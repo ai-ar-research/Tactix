@@ -148,11 +148,13 @@ static void test_variable_compaction_replays_inherited_arena_order() {
   const Lit shared = internalize(7);
   const Lit source[3] = {shared, internalize(3), internalize(4)};
   const Lit middle[3] = {shared, internalize(5), internalize(6)};
+  const Lit later[3] = {shared, internalize(4), internalize(5)};
   const Lit replacement[3] = {shared, internalize(3), internalize(6)};
   const Ref source_ref = kernel_add_large_clause(k, source, 3, false, 0, 101);
   kernel_add_large_clause(k, middle, 3, false, 0, 102);
-  kernel_add_large_clause(k, replacement, 3, false, 0, 103);
-  kernel_inherit_clause_order(k, 103, 101);
+  kernel_add_large_clause(k, later, 3, false, 0, 103);
+  kernel_add_large_clause(k, replacement, 3, false, 0, 104);
+  kernel_inherit_clause_order(k, 104, 101);
   kernel_delete_clause(k, clause_at(k.arena, source_ref));
 
   const auto watched_ids = [&] {
@@ -163,7 +165,7 @@ static void test_variable_compaction_replays_inherited_arena_order() {
         ids.push_back(clause_at(k.arena, watch.ref())->id());
     return ids;
   };
-  assert((watched_ids() == std::vector<uint64_t>{102, 103}));
+  assert((watched_ids() == std::vector<uint64_t>{102, 103, 104}));
 
   struct ReverseOrder final : ArenaOrdering {
     void order(const Kernel &, std::vector<Ref> &refs) override {
@@ -172,16 +174,16 @@ static void test_variable_compaction_replays_inherited_arena_order() {
   } reverse;
   k.arena_ordering = &reverse;
 
-  // Retire an unrelated variable.  Physical append order is 102,103 and the
-  // posed policy would reverse it to 103,102 for the wrong reason.  The result
-  // is 103,102 because replacement 103 inherits source position 101.
+  // Retire an unrelated variable.  Physical append order is 102,103,104 and
+  // the posed policy would reverse it to 104,103,102.  The distinct result is
+  // 104,102,103 because replacement 104 inherits source position 101.
   k.var_status.assign(k.nvars, VarStatus::Active);
   k.var_status[1] = VarStatus::Eliminated;
   heuristics_deactivate_var(k, 1);
   k.unassigned_active--;
   assert(kernel_compact_variables(k));
   assert(k.arena_ordering == &reverse);
-  assert((watched_ids() == std::vector<uint64_t>{103, 102}));
+  assert((watched_ids() == std::vector<uint64_t>{104, 102, 103}));
   kernel_check_invariants(k);
 }
 
