@@ -117,6 +117,51 @@ int main() {
   assert(schedules_startup_factor(6360, 25200));
   assert(schedules_startup_factor(3165161, 10917078));
 
+  // The measured Grain witness of the startup-only schedule keeps its benefit
+  // and the late Lucky opportunity together.
+  const auto grain_late = classified(3859779, 13462874);
+  assert(grain_late.inprocess.preprocess_only &&
+         !grain_late.inprocess.factor_repeated_enabled &&
+         !grain_late.branching.random_sequences &&
+         grain_late.reorder.mode == 0 &&
+         !grain_late.reduction.dynamic_tiers &&
+         grain_late.rephase.late_lucky);
+  // A profile may dose or decline an inprocessing slot; none may withdraw the
+  // late Lucky opportunity, which both references offer on every formula
+  // (kissat search.c:188, options.h:79).  Sweeping the classification space
+  // rather than a witness list is the point: the defect this pins made the
+  // closed late call unreachable for whole formula classes at once.
+  static const uint64_t GRID_VARS[] = {
+      1,       2,       127,     128,     129,     299,      300,
+      301,     499,     500,     501,     799,     800,      801,
+      862,     899,     900,     901,     936,     999,      1000,
+      1001,    1499,    1500,    1999,    2000,    2999,     3000,
+      3032,    3999,    4000,    4999,    5000,    5999,     6000,
+      6360,    6499,    6500,    6999,    7000,    9999,     10000,
+      14999,   15000,   19999,   20000,   24999,   25000,    31999,
+      32000,   39999,   40000,   49999,   50000,   69999,    70000,
+      119999,  120000,  199999,  200000,  299999,  300000,   499999,
+      500000,  799999,  800000,  1000000, 2999999, 3000000,  3094431,
+      3129999, 3130000, 3165161, 3859779, 9999999, 10000000, 20000000};
+  static const uint64_t GRID_RATIOS[] = {0,  1,  3,  4,  5,  6,   9,
+                                         10, 11, 19, 20, 21, 49,  50,
+                                         51, 59, 60, 61, 89, 90,  91,
+                                         199, 200, 201, 499, 500, 501, 1000};
+  for (const uint64_t shape_vars : GRID_VARS)
+    for (const uint64_t ratio : GRID_RATIOS)
+      for (const int64_t nudge : {int64_t{-1}, int64_t{0}, int64_t{1}}) {
+        const int64_t shape_clauses =
+            static_cast<int64_t>(ratio * shape_vars) + nudge;
+        if (shape_clauses < 0)
+          continue;
+        const auto shaped = classified(static_cast<uint32_t>(shape_vars),
+                                       static_cast<uint64_t>(shape_clauses));
+        assert(shaped.rephase.late_lucky);
+      }
+  assert(grain87.rephase.late_lucky && stconn.rephase.late_lucky &&
+         dense_small.rephase.late_lucky && dense_large.rephase.late_lucky &&
+         mp.rephase.late_lucky);
+
   // Kissat rotates two focused epochs through forced initial/opposite phases.
   // This applies equally to ranked and random decisions.
   DefaultStrategyConfig no_random = defaults;
