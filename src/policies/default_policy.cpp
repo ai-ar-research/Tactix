@@ -1256,6 +1256,13 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   // and govern repetition from observed merge yield.  Tactix follows that
   // admission contract; its tick budget, closure watermark, and productivity
   // delay bound later applications.
+  //
+  // Late Lucky is absent for the same reason.  `luckylate` is unconditional in
+  // both references (kissat search.c:188, options.h:79); no configuration or
+  // classification clears it, not even `plain`/`basic` (kissat config.c:38).
+  // A profile may dose or decline an inprocessing slot, never withdraw a rule
+  // opportunity the references always offer.  The typed knob and
+  // `TACTIX_LUCKY_LATE` remain the diagnostic and N1 selection surface.
   switch (profile) {
   case FormulaProfile::Reference:
     break;
@@ -1288,13 +1295,11 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     break;
   case FormulaProfile::NoBve:
     in.bve_enabled = false;
-    config_.rephase.late_lucky = false;
     break;
   case FormulaProfile::NoBveLight:
     in.bve_enabled = false;
     in.vivify_permille = in.subsume_forward_permille =
         DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    config_.rephase.late_lucky = false;
     break;
   case FormulaProfile::LegacySearch:
   case FormulaProfile::LegacyStartupFactorOnly:
@@ -1308,7 +1313,6 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     config_.reduction.ramp_fraction = false;
     config_.reduction.dynamic_tiers = false;
     config_.reduction.compact_variables = false;
-    config_.rephase.late_lucky = false;
     break;
   }
 }

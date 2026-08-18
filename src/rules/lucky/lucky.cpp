@@ -123,6 +123,17 @@ static ApplyResult commit_failed_literal(Kernel &k, Lit assumed) {
   return propagate_service(k);
 }
 
+// kissat ACTIVE (flags.h:23, flags.c:60-103): a variable stays active until it
+// is fixed at the root or retired by elimination or substitution. Lucky
+// consults it on every identity it might assume and on both endpoints of a
+// binary polarity scan, so this holds wherever kissat writes ACTIVE. A retired
+// identity keeps its mapping whenever compaction is declined, so the
+// INVALID_VAR holes compaction leaves cannot stand in for the test.
+static bool lucky_active(const Kernel &k, Var v) {
+  return !kernel_var_retired(k, v) &&
+         kernel_root_value(k, make_lit(v, false)) == 0;
+}
+
 // True iff the constant assignment of polarity !want_negated satisfies every
 // irredundant clause, i.e. none of them needs a `want_negated` literal (kissat
 // no_all_negative_clauses / no_all_positive_clauses).
@@ -142,11 +153,17 @@ static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
     ref += clause_words(c->size);
   }
   // binaries live only in watch lists: scan each variable's
-  // `want_negated`-polarity literal for a partner of the same polarity
+  // `want_negated`-polarity literal for a partner of the same polarity. Both
+  // endpoints must be active (kissat lucky.c:29 and :37): a binary that an
+  // inactive endpoint already satisfies, or that a retired one has left the
+  // formula with, no longer forces that polarity on the active clauses.
   for (Var v = 0; v < k.nvars; v++) {
+    if (!lucky_active(k, v))
+      continue;
     const Lit lit = make_lit(v, want_negated);
     for (const WatchEntry w : k.watches.entries(lit))
-      if (w.binary() && negated(w.other()) == want_negated)
+      if (w.binary() && negated(w.other()) == want_negated &&
+          lucky_active(k, var_of(w.other())))
         return false;
   }
   return true;
@@ -158,6 +175,8 @@ static ApplyResult constant_probe(Kernel &k, int8_t phase) {
   if (!no_all_polarity_clauses(k, /*want_negated=*/phase > 0))
     return ApplyResult::Ok; // some clause defeats this constant
   for (Var v = 0; v < k.nvars; v++) {
+    if (!lucky_active(k, v)) // kissat lucky.c:325
+      continue;
     const Lit lit = make_lit(v, phase < 0);
     if (k.value(lit) != 0)
       continue;
@@ -179,8 +198,9 @@ static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
   // Kissat walks its permanent external import table directly.  Tactix used
   // to copy the same table into a dense temporary vector for every direction,
   // adding four bytes per live variable at precisely the post-preprocessing
-  // memory high-water mark.  Walk the existing map instead; compaction leaves
-  // INVALID_VAR holes, matching Kissat's skipped retired imports.
+  // memory high-water mark.  Walk the existing map instead: a hole compaction
+  // left reads as INVALID_VAR, and every identity it has not removed is
+  // filtered below, so neither direction depends on compaction having run.
   const size_t count = k.external_to_internal.size();
   lucky_stage_trace(k, "sweep-entry", phase < 0, forward, count);
   for (size_t i = 0; i < count; i++) {
@@ -188,7 +208,13 @@ static ApplyResult sweep_probe(Kernel &k, int8_t phase, bool forward) {
       lucky_stage_trace(k, "sweep-progress", phase < 0, forward, i);
     const size_t external = forward ? i : count - 1 - i;
     const Var v = k.external_to_internal[external];
-    if (v == INVALID_VAR)
+    // kissat lucky.c:88-95 skips an unimported or eliminated import entry and
+    // an inactive identity before assuming anything. An identity outside the
+    // active formula is not a probe opportunity: assuming one spends a probe
+    // level, which pushes the next genuine failed literal below the first
+    // probe level, where the sweep flips it instead of committing it at the
+    // root.
+    if (v == INVALID_VAR || !lucky_active(k, v))
       continue;
     Lit lit = make_lit(v, phase < 0);
     if (k.value(lit) != 0)
