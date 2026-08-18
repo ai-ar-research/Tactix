@@ -571,6 +571,52 @@ void test_reschedules_pair_representative_by_import_order() {
   assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
+// One environment can prove several pairs, and every pair is rescheduled on
+// its own representative. When those pairs share a class, only the class
+// minimum survives: an intermediate representative is retired by the same
+// batch and `schedule_inner` declines an inactive variable (kissat flags.c
+// `kissat_mark_fixed_literal` deactivates a fixed one the same way). Reading
+// the representative off the pair, as Kissat does, is what makes this case
+// reachable at all — and rescheduling a retired identity would seed a variable
+// that no longer occurs in F.
+//
+// The chain x1 = x2 = x3 is proved from a single environment, so one of the
+// two pairs names x2 — which the same batch then retires into x1.
+void test_reschedule_declines_a_retired_representative() {
+  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  // Four ternaries state the equivalence without handing unit propagation a
+  // binary, so detection has to prove it and the pair is not already known.
+  const auto equate = [&](int left, int right, int helper) {
+    for (uint32_t mask = 0; mask < 4; mask++) {
+      const int sign = (mask & 1) ? 1 : -1;
+      const int h = (mask & 2) ? helper : -helper;
+      const Lit clause[3] = {internalize(-sign * left),
+                             internalize(sign * right), internalize(h)};
+      kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    }
+  };
+  equate(1, 2, 4);
+  equate(2, 3, 5);
+
+  assert(sweep_apply(k) == ApplyResult::Ok);
+  const Var minimum = var_of(internalize(1));
+  const Var intermediate = var_of(internalize(2));
+  assert(k.stats.sweep_equivalences == 2);
+  assert(!kernel_var_retired(k, minimum));
+  assert(kernel_var_retired(k, intermediate));
+  assert(kernel_var_retired(k, var_of(internalize(3))));
+  // Two pairs, one live representative: the retired one is declined.
+  assert(k.stats.sweep_rescheduled == 1);
+  assert(k.sweep_tail_next < k.sweep_tail.size());
+  // The retired identity keeps its original schedule slot, where the seed
+  // loop skips it; what it must not do is take the pop end from the live
+  // representative.
+  assert(k.sweep_tail[k.sweep_tail_next] == k.internal_to_external[minimum]);
+  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
+}
+
 // A productive dense environment is a transaction boundary, not just a
 // detector boundary.  Its proved unit can force variables outside a depth-zero
 // environment; Kissat propagates that trail before choosing/building the next
@@ -811,6 +857,7 @@ int main(int argc, char **argv) {
   test_seeds();
   test_resumable_schedule();
   test_reschedules_pair_representative_by_import_order();
+  test_reschedule_declines_a_retired_representative();
   test_resumable_closes_root_between_environments();
   test_env_unsat();
   test_sd_emits_rup_equivalence();
