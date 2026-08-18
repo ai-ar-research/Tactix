@@ -318,10 +318,9 @@ static bool literal_redundant(Kernel &k, Lit l, unsigned depth) {
   return ok;
 }
 
-// LSD radix sort of `analyzed` by VMTF stamp, ascending (kissat sort.h
+// LSD radix sort of a bump set by VMTF stamp, ascending (kissat sort.h
 // RADIX_STACK); stamps are unique, so the order matches a comparison sort.
-static void radix_sort_analyzed_by_stamp(Kernel &k) {
-  std::vector<Var> &a = k.analyzed;
+static void radix_sort_bumps_by_stamp(Kernel &k, std::vector<Var> &a) {
   const size_t n = a.size();
   if (n < 32) { // small sets: std::sort's insertion regime wins
     std::sort(a.begin(), a.end(), [&](Var x, Var y) {
@@ -389,11 +388,13 @@ static void reset_analyzed_without_bump(Kernel &k) {
   for (const Var v : k.analyzed)
     k.seen[v] = 0;
   k.analyzed.clear();
+  k.bump_order.clear();
 }
 
 // Bump analysis-side vars and clear all flags, minimization scratch included.
 // Focused: VMTF move-to-front, stamp-sorted to preserve relative recency
-// (kissat bump.c). Stable: EVSIDS bump + one decay, order-independent.
+// (kissat bump.c). Stable: EVSIDS bump in exact admission order + one decay;
+// equal-score heap topology makes the order decision-observable.
 static void bump_and_reset_analyzed(Kernel &k) {
   k.analyzed_seen = 0;
   k.reason_bumped.clear();
@@ -403,6 +404,7 @@ static void bump_and_reset_analyzed(Kernel &k) {
     for (const Var v : k.analyzed)
       k.seen[v] = 0;
     k.analyzed.clear();
+    k.bump_order.clear();
     return;
   }
   // attribute each bump to its channel and to whether it landed on an
@@ -416,11 +418,11 @@ static void bump_and_reset_analyzed(Kernel &k) {
         k.stats.bumps_ext_reason_only++;
     }
   };
-  event_trace_analyzed(k, k.analyzed, k.seen, BUMPED);
+  event_trace_analyzed(k, k.bump_order, k.seen, BUMPED);
   if (k.h->stable) {
-    const bool any_analyzed = !k.analyzed.empty();
+    const bool any_analyzed = !k.bump_order.empty();
     event_trace_heap_scores(k);
-    for (const Var v : k.analyzed) {
+    for (const Var v : k.bump_order) {
       if (k.seen[v] & BUMPED) {
         count_bump(v);
         if (heuristics_var_active(k, v)) {
@@ -430,13 +432,12 @@ static void bump_and_reset_analyzed(Kernel &k) {
           event_trace_heap_scores(k);
         }
       }
-      // Preserve solver semantics while tracing: this clear is what makes
-      // repeated scratch entries harmless. A logger must never extend the
-      // lifetime of BUMPED or turn a duplicate into a second bump.
-      k.seen[v] = 0;
     }
-    event_trace_analyzed_post(k, k.analyzed);
+    event_trace_analyzed_post(k, k.bump_order);
+    for (const Var v : k.analyzed)
+      k.seen[v] = 0;
     k.analyzed.clear();
+    k.bump_order.clear();
     // Kissat advances EVSIDS only inside its `!EMPTY_STACK(analyzed)` guard.
     // Level-one/failed-literal analysis can leave that stack empty. Decaying
     // anyway puts Tactix's score increment one generation ahead; after enough
@@ -446,16 +447,18 @@ static void bump_and_reset_analyzed(Kernel &k) {
       heuristics_scores_decay(k);
     return;
   }
-  radix_sort_analyzed_by_stamp(k);
-  for (const Var v : k.analyzed) {
+  radix_sort_bumps_by_stamp(k, k.bump_order);
+  for (const Var v : k.bump_order) {
     if (k.seen[v] & BUMPED) {
       count_bump(v);
       if (heuristics_var_active(k, v))
         heuristics_queue_bump(k, v);
     }
-    k.seen[v] = 0;
   }
+  for (const Var v : k.analyzed)
+    k.seen[v] = 0;
   k.analyzed.clear();
+  k.bump_order.clear();
 }
 
 void analyze_bump_after_backjump(Kernel &k) { bump_and_reset_analyzed(k); }
@@ -482,6 +485,7 @@ static bool mark_reason_side(Kernel &k, Lit m) {
   // `!a->analyzed` test admits. Testing the whole byte bumps a smaller set.
   if (!k.seen[v])
     k.analyzed.push_back(v);
+  k.bump_order.push_back(v);
   k.seen[v] |= REASON_BUMP;
   k.reason_bumped.push_back(v);
   k.analyzed_seen++;
@@ -519,6 +523,7 @@ static void mark_reason_tree(Kernel &k, Lit false_lit, uint32_t depth,
 static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
   event_trace_detail(k, "reason_bump_begin", k.bump_reason_limit);
   const uint32_t saved = k.analyzed_seen;
+  const size_t saved_bump_order = k.bump_order.size();
   const uint64_t limit =
       static_cast<uint64_t>(k.bump_reason_limit) * saved;
   k.reason_bumped.clear();
@@ -535,6 +540,7 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
       k.seen[v] &= static_cast<uint8_t>(~REASON_BUMP);
     k.stats.reason_bumped -= k.reason_bumped.size();
     k.analyzed_seen = saved;
+    k.bump_order.resize(saved_bump_order);
     k.stats.reason_bump_aborted++;
     // Vars newly pushed to k.analyzed stay there with seen == 0, harmlessly:
     // bump_and_reset_analyzed skips them and clears unconditionally. kissat
@@ -792,8 +798,10 @@ static bool shrink_block(Kernel &k, std::vector<Lit> &learned, size_t b,
   const Var uv = var_of(uip);
   if (!k.seen[uv])
     k.analyzed.push_back(uv);
-  if (!(k.seen[uv] & BUMPED))
+  if (!(k.seen[uv] & BUMPED)) {
     k.analyzed_seen++;
+    k.bump_order.push_back(uv);
+  }
   k.seen[uv] |= SEEN; // new clause literal: bump + minimization anchor
   // walked literals resolve to ¬uip, now in the clause: mark removable so
   // lower blocks' chains may bottom out in them
@@ -976,6 +984,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
   assert(k.frames.size() == 2);
   assert(k.frames[1] < k.trail.size());
   assert(k.analyzed.empty());
+  assert(k.bump_order.empty());
 
   const Lit failed = k.trail[k.frames[1]];
   const Lit not_failed = negate(failed);
@@ -996,6 +1005,7 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
       return;
     k.seen[v] |= SEEN;
     k.analyzed.push_back(v);
+    k.bump_order.push_back(v);
     k.analyzed_seen++;
     unresolved++;
   };
@@ -1120,6 +1130,8 @@ static ApplyResult analyze_failed_level_one(Kernel &k, const Lit *clits,
 
 ApplyResult analyze_apply(Kernel &k) {
   assert(analyze_guard(k));
+  assert(k.analyzed.empty());
+  assert(k.bump_order.empty());
   k.analysis_conflict_checkpoints.clear();
   std::vector<Lit> &learned = k.learned_scratch; // no per-conflict alloc
   const bool lrat = lrat_active(k);
@@ -1287,6 +1299,7 @@ ApplyResult analyze_apply(Kernel &k) {
         return;
       k.seen[v] = SEEN;
       k.analyzed.push_back(v);
+      k.bump_order.push_back(v);
       k.analyzed_seen++;
       resolvent_size++;
       if (lv == alevel)

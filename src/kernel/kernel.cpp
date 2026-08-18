@@ -2160,6 +2160,7 @@ bool kernel_compact_variables(Kernel &k) {
   k.substituted_events.clear();
   k.fresh_var_events.clear();
   k.analyzed.clear();
+  k.bump_order.clear();
   k.shrinkable.clear();
   k.reason_bumped.clear();
   k.minimize_scratch.clear();

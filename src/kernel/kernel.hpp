@@ -673,7 +673,11 @@ struct Kernel {
   PendingLearned pending;
 
   std::vector<uint8_t> seen;   // by var
-  std::vector<Var> analyzed;   // vars marked seen
+  std::vector<Var> analyzed;   // every var whose analysis scratch needs reset
+  // Exact admission order of the SEEN | REASON_BUMP set.  Kissat keeps this
+  // order on a stack separate from minimization/removability scratch; stable
+  // EVSIDS heap topology is observable when equal increments are applied.
+  std::vector<Var> bump_order;
   std::vector<Var> shrinkable; // vars marked during a block-shrink walk
   uint32_t analyzed_seen = 0;
   std::vector<Var> reason_bumped; // REASON_BUMP marks, for rollback
