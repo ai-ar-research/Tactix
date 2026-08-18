@@ -1511,9 +1511,17 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // image and also prevents geometric growth while copying it.
   fresh.reserve(live_words);
   // Arena-order policies belong to whole-arena/inprocessing collection.
-  // Kissat's Reduce preserves the prefix and sweeps the reducible tail in its
-  // existing arena order, even while Tactix has an inprocessing order posed.
-  if (k.arena_ordering && (!watch_start || apply_sparse_order))
+  // Kissat's sparse collector preserves the prefix, sweeps the tail in its
+  // existing order, then stably moves surviving redundant clauses behind all
+  // surviving irredundant clauses in that tail (collect.c:
+  // move_redundant_clauses_to_the_end).  This partition is observable when
+  // the tail is rewatched, and is independent of the optional policy order.
+  if (watch_start && !apply_sparse_order) {
+    const auto tail = std::lower_bound(order.begin(), order.end(), watch_start);
+    std::stable_partition(tail, order.end(), [&k](Ref ref) {
+      return !clause_at(k.arena, ref)->redundant();
+    });
+  } else if (k.arena_ordering)
     k.arena_ordering->order(k, order);
 #ifndef NDEBUG
   std::vector<uint8_t> seen(k.arena.size());

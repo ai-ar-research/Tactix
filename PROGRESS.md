@@ -233,10 +233,21 @@ all 40,382 portable semantic records through conflict 1400 still match. A
 replacement with clause ID 92812 inherits source position 92810 but the
 rejected patch keeps it after ID 92811; Kissat retains it at the source
 position and visits it first. The new general candidate orders every live
-clause by the existing inherited source-position key during compaction. The
-synthetic regression deletes a source, appends its replacement around an
-unrelated middle clause, and poses an adversarial reverse policy. Trace job
-`1633836` and focused checked runtime job `1633837` are pending.
+clause by the existing inherited source-position key during compaction. Its
+synthetic regression distinguishes physical `102,103,104`, reverse-policy
+`104,103,102`, and inherited `104,102,103` order. Trace job `1633836` matches
+Kissat exactly for 53,910 portable and 223,125 normalized-watch records over
+conflicts 980--1400, including the repaired conflict-1211 frontier. The old
+order stays latent until conflict 2272, where encounter and then raw learned
+order differ. Focused runtime job `1633837` still times out at 1200.004 s after
+28,656,897 conflicts with zero residue, so the pin is not promoted and no
+cumulative arrays are submitted. Continuation job `1633890` matches another
+107,804 portable records before the same conflict-2272 semantic split and
+localizes its next cause to Reduce at conflict 2001: Kissat stably partitions
+the swept tail into irredundant then redundant clauses before rewatching;
+Tactix retained the interleaving. The general tail-partition candidate has a
+mixed-tail stability test and clean Release 72/72, Trace 71/71, and ASAN-O3
+72/72 suites. Its focused trace and runtime gates are next.
 
 ## Gates
 

@@ -556,9 +556,17 @@ replacement at that earlier source position and visits it first. This also
 reconciles the earlier conflict-1005 pair: their inherited positions are the
 ordinary 92483 then 92489, whereas the rejected VMTF policy reversed them.
 Commit `0af7c15` makes compaction replay every live clause by the existing
-inherited source-position relation, with no observed literal, ID, conflict, or
-instance in production or tests. Local Release, Trace, and ASAN-O3 suites are
-clean. Jobs `1633836` (trace) and `1633837` (checked runtime) are the focused
-gates before any cumulative resubmission.
+inherited source-position relation, with no witness identity in production or
+tests; its synthetic order is distinct from both physical and posed-policy
+order. Release, Trace, and ASAN-O3 are clean. Job `1633836` matches 53,910
+portable and 223,125 normalized-watch records through conflict 1400, including
+the repaired conflict-1211 frontier. The old order becomes semantic only at
+conflict 2272. Runtime job `1633837` nevertheless times out at 1200.004 s and
+28,656,897 conflicts, so no cumulative arrays are launched. Continuation job
+`1633890` localizes the next cause to conflict-2001 Reduce: Kissat's sparse
+collector stably partitions the swept tail as irredundant then redundant before
+rewatching, while Tactix retained the interleaving; conflict 2272 is downstream.
+The general collector repair and mixed-tail stability test pass Release 72/72,
+Trace 71/71, and ASAN-O3 72/72. Focused trace/runtime gates remain; N4 is pending.
 
 <!-- parity-ledger:end -->
