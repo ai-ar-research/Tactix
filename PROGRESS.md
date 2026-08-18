@@ -15,7 +15,7 @@ decisions. This file is only the current resume surface.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
 - The current diagnostic candidate release binary is
-  `0cc79e4f156ccf425697b6d8d119d3c39092ff5daea9b31745a9334a3bc5e59d`.
+  `ded2310246672785734e10839a7ac2871d4a7f8aaf8a51757deb555d0d3f5712`.
   It closes all ten ranks 11--20; the cumulative ranks 1--20 debug view has 19
   checked answers and one reproduced near-cap memory unknown at rank 10.
 
@@ -29,9 +29,10 @@ post-Lucky compaction, poses focused tiers at every Vivify consumer, and
 replays Walk binaries in Kissat's compact-literal encounter order. Reduce-time
 variable compaction preserves each directed binary prefix and cannot invoke an
 optional arena-ordering policy during its representation-only collection.
-Release is 72/72 and trace evidence is exact through conflict 1100 on Rank 29,
-but the focused 1200 s runtime timed out; the candidate is not accepted. Any
-new missing or cruder reference mechanism returns N4 verification to pending.
+The rejected physical-order candidate is superseded by inherited source-order
+replay for appended replacements. Release is 72/72, Trace is 71/71, and
+ASAN-O3 is 72/72; Slurm validation is pending. Any new missing or cruder
+reference mechanism returns N4 verification to pending.
 <!-- track-sched:end -->
 
 ## Active measurement
@@ -221,6 +222,21 @@ after 27,240,776 conflicts, so this candidate is rejected pending the first
 later traced divergence. Diagnostic job `1633808` covers conflicts 1080--1400.
 Checked 28B+5C job `1633745` and frozen ranks 21--40 job `1633760` remain in
 flight as cumulative regression evidence, not promotion gates for this pin.
+The B/C job has since completed 28/28 Tier B but only 4/5 Tier C:
+`mp1-Nb5T15` falls from a checked 14.349 s SAT solve to timeout, while
+`mod4block` rises from 305.421 s to 790.619 s. It independently rejects the
+candidate. Its completed Tier-D array closes only ranks 21, 25, 28, and 38,
+losing predecessor ranks 23 and 26 and failing to recover rank 29.
+
+The first later representation divergence is conflict 1211, scan `846`, after
+all 40,382 portable semantic records through conflict 1400 still match. A
+replacement with clause ID 92812 inherits source position 92810 but the
+rejected patch keeps it after ID 92811; Kissat retains it at the source
+position and visits it first. The new general candidate orders every live
+clause by the existing inherited source-position key during compaction. The
+synthetic regression deletes a source, appends its replacement around an
+unrelated middle clause, and poses an adversarial reverse policy. Trace job
+`1633836` and focused checked runtime job `1633837` are pending.
 
 ## Gates
 
