@@ -580,7 +580,14 @@ a clause. A reduction with victims but no coincident root rewrite therefore
 performed no sweep or rewatch at all. The current general candidate admits the
 collector on either pre-existing garbage or root simplification. Its synthetic
 test makes garbage the only trigger under an unrelated root assignment and
-pins the ensuing stable tail replay. Release 72/72, Trace 71/71, and ASAN-O3
-72/72 pass. Focused trace/runtime gates remain; N4 is pending.
+pins the ensuing stable tail replay. Job `1633999` closes the semantic frontier
+(61,653/61,653 portable records exact through conflict 2400) but finds that a
+replacement inherited before the pass remains physically behind later clauses;
+runtime `1634000` was cancelled cleanly. The current candidate decorates each
+swept clause once with its persistent source key, stably replays those keys,
+then stably partitions irredundant before redundant. The garbage-only fixture
+now also distinguishes appended physical order from inherited order. Release
+72/72, Trace 71/71, ASAN-O3 72/72, and concurrent trace isolation stress are
+clean. Focused trace/runtime gates remain; N4 is pending.
 
 <!-- parity-ledger:end -->

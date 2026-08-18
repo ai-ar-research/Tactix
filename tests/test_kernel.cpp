@@ -478,20 +478,25 @@ static void test_root_sparse_collection_partitions_rewritten_tail() {
 // rewatch; it must not depend on an unrelated root shortening in the same pass.
 static void test_root_sparse_collection_collects_existing_garbage() {
   Kernel k;
-  kernel_reserve_vars(k, 8);
+  kernel_reserve_vars(k, 9);
   kernel_assign_unit(k, internalize(1));
   const Lit shared = internalize(2);
   const Lit prefix[3] = {shared, internalize(3), internalize(4)};
   const Lit red_first[3] = {shared, internalize(4), internalize(5)};
-  const Lit irred_first[3] = {shared, internalize(5), internalize(6)};
+  const Lit source_lits[3] = {shared, internalize(5), internalize(6)};
   const Lit victim_lits[3] = {shared, internalize(6), internalize(7)};
-  const Lit irred_second[3] = {shared, internalize(7), internalize(8)};
+  const Lit middle_lits[3] = {shared, internalize(7), internalize(8)};
+  const Lit replacement_lits[3] = {shared, internalize(8), internalize(9)};
   kernel_add_large_clause(k, prefix, 3, false, 0, 401);
   const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 402);
-  kernel_add_large_clause(k, irred_first, 3, false, 0, 403);
+  const Ref source =
+      kernel_add_large_clause(k, source_lits, 3, false, 0, 403);
   const Ref victim =
       kernel_add_large_clause(k, victim_lits, 3, true, 8, 404);
-  kernel_add_large_clause(k, irred_second, 3, false, 0, 405);
+  kernel_add_large_clause(k, middle_lits, 3, false, 0, 405);
+  kernel_add_large_clause(k, replacement_lits, 3, false, 0, 406);
+  kernel_inherit_clause_order(k, 406, 403);
+  kernel_delete_clause(k, clause_at(k.arena, source));
   kernel_delete_clause(k, clause_at(k.arena, victim));
   const uint64_t generation = k.arena_generation;
 
@@ -506,7 +511,7 @@ static void test_root_sparse_collection_collects_existing_garbage() {
     arena_ids.push_back(c->id());
     ref += clause_words(c->size);
   }
-  assert((arena_ids == std::vector<uint64_t>{401, 403, 405, 402}));
+  assert((arena_ids == std::vector<uint64_t>{401, 406, 405, 402}));
 
   std::vector<uint64_t> watched_ids;
   for (const WatchEntry watch : k.watches.entries(shared))

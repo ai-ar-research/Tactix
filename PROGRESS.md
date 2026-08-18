@@ -263,7 +263,20 @@ rewatch occurred. The new candidate collects whenever pre-existing garbage or
 root simplification requires it. A generic test uses an unrelated root unit and
 makes an already-marked victim the sole reason to collect, while also checking
 the stable mixed-tail replay. Release 72/72, Trace 71/71, and ASAN-O3 72/72 are
-clean; focused trace/runtime validation remains pending.
+clean. Trace job `1633999` then makes all 61,653 portable records exact through
+conflict 2400 and equalizes the watch-stream lengths at 297,047, but the first
+watch mismatch at conflict 2001 reveals a replacement inherited before the
+collection still physically appended behind two later clauses. Runtime
+`1634000` was cancelled with zero residue. The follow-up now replays the swept
+tail by persistent source-position key, using one decorated lookup per clause,
+then stably partitions the redundancy classes. The generic garbage-only test
+also places an appended replacement before a physical middle clause without
+any witness constant. Claude Opus diagnosed one concurrent Trace-suite abort
+as fixed `/tmp` filenames racing across build directories, not solver state;
+all remaining fixed-name test artifacts are process-unique. Serial trace stress
+passes 30/30, concurrent Release/Trace/ASAN stress passes 60/60, and sequential
+Release 72/72, Trace 71/71, and ASAN-O3 72/72 are clean. Focused trace/runtime
+validation remains pending.
 
 ## Gates
 
