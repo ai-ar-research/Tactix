@@ -365,6 +365,102 @@ static void assert_ledger_mirrors_kernel(const Kernel &k,
   }
 }
 
+// Kissat retires one literal at a time and walks its single unified watch
+// stream, so the binaries and the large clauses that stream releases reach the
+// representative interleaved, in the order they were met — not all binaries
+// and then all large clauses. Only a source whose large occurrence precedes
+// one of its binaries can tell the two rules apart, and a moved binary lands
+// behind the larges already indexed for that literal, so the discriminating
+// stream is the one a previous substitution built.
+static void test_sweep_flushes_one_source_stream_at_a_time() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  const Lit one = internalize(1), two = internalize(2), three = internalize(3);
+  // x1's own large clause: untouched by both classes, so it keeps its slot and
+  // the moves have to land behind it.
+  const Lit resident[3] = {internalize(1), internalize(7), internalize(8)};
+  // x2's large clause: it survives as a large clause and introduces x1.
+  const Lit connected[3] = {internalize(2), internalize(6), internalize(7)};
+  kernel_add_large_clause(k, resident, 3, false, 0);
+  kernel_add_large_clause(k, connected, 3, false, 0);
+  kernel_add_binary_clause(k, three, internalize(5));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  SweepSubstitutionSession session;
+  session.begin(k);
+  // First class x2 = x3: x3's binary moves to x2 and is appended behind x2's
+  // large clause, which is exactly the stream shape Kissat then walks.
+  kernel_add_binary_clause(k, negate(two), three);
+  kernel_add_binary_clause(k, two, negate(three));
+  assert(substitute_apply_sweep_equivalences(k, {{two, three}}, session) ==
+         ApplyResult::Ok);
+  assert_ledger_mirrors_kernel(k, session);
+  {
+    const auto &source = session.dense_occurrences[two];
+    assert(source.size() == 2);
+    assert(!source[0].binary); // the large clause was met first
+    assert(source[1].binary && source[1].payload == internalize(5));
+  }
+
+  // Second class x1 = x2 retires that whole stream into x1: the large clause
+  // must arrive before the binary that sat behind it.
+  kernel_add_binary_clause(k, negate(one), two);
+  kernel_add_binary_clause(k, one, negate(two));
+  assert(substitute_apply_sweep_equivalences(k, {{one, two}}, session) ==
+         ApplyResult::Ok);
+  assert_ledger_mirrors_kernel(k, session);
+
+  const auto &ordered = session.dense_occurrences[one];
+  assert(ordered.size() == 3);
+  assert(!ordered[0].binary); // x1's own resident clause keeps its slot
+  const Clause *const kept = clause_at(k.arena, ordered[0].payload);
+  assert(!kept->garbage() && std::find(kept->begin(), kept->end(),
+                                       internalize(8)) != kept->end());
+  assert(!ordered[1].binary); // then x2's large clause, rewritten to x1
+  const Clause *const inherited = clause_at(k.arena, ordered[1].payload);
+  assert(!inherited->garbage() && inherited->size == 3);
+  assert(std::find(inherited->begin(), inherited->end(), internalize(6)) !=
+         inherited->end());
+  assert(std::find(inherited->begin(), inherited->end(), one) !=
+         inherited->end());
+  assert(ordered[2].binary && ordered[2].payload == internalize(5));
+  assert(session.collect(k) > 0);
+  kernel_dense_disconnect(k);
+}
+
+// Two retiring literals can share one representative. Kissat empties them in
+// the order `sweep_equivalence` proved them, one complete stream at a time;
+// walking the class in import order instead interleaves two sources that the
+// reference keeps contiguous and in the opposite order.
+static void test_sweep_flushes_sources_in_emission_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit one = internalize(1), two = internalize(2), three = internalize(3);
+  kernel_add_binary_clause(k, two, internalize(6));
+  kernel_add_binary_clause(k, three, internalize(7));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  SweepSubstitutionSession session;
+  session.begin(k);
+  // x1 wins both merges by import order, so x3 and x2 both retire into it.
+  // The batch proves x1 = x3 first, which is not import order.
+  kernel_add_binary_clause(k, negate(one), three);
+  kernel_add_binary_clause(k, one, negate(three));
+  kernel_add_binary_clause(k, negate(one), two);
+  kernel_add_binary_clause(k, one, negate(two));
+  assert(substitute_apply_sweep_equivalences(k, {{one, three}, {one, two}},
+                                             session) == ApplyResult::Ok);
+  assert_ledger_mirrors_kernel(k, session);
+
+  const auto &ordered = session.dense_occurrences[one];
+  assert(ordered.size() == 2);
+  assert(ordered[0].binary && ordered[0].payload == internalize(7)); // from x3
+  assert(ordered[1].binary && ordered[1].payload == internalize(6)); // from x2
+  kernel_dense_disconnect(k);
+}
+
 // Sweep publishes both implication binaries before asking for the rewrite, so
 // the ledger owes them a stream position whatever the classes turn out to be.
 // Declining every class is a normal outcome — a unit emitted by the same batch
@@ -782,6 +878,8 @@ int main() {
   test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
   test_sweep_preserves_cross_kind_dense_order();
+  test_sweep_flushes_one_source_stream_at_a_time();
+  test_sweep_flushes_sources_in_emission_order();
   test_sweep_syncs_new_binaries_by_multiset();
   test_sweep_records_binaries_of_a_declined_batch();
   test_sweep_ledger_declines_the_same_members_as_the_rewrite();

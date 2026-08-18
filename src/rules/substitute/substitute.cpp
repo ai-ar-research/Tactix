@@ -532,6 +532,7 @@ void SweepSubstitutionSession::begin(const Kernel &k) {
   changed = false;
   origin.clear();
   latest.clear();
+  reset_transaction();
   dense_occurrences.clear();
   if (k.dense) {
     dense_occurrences.resize(2 * k.nvars);
@@ -614,9 +615,64 @@ void SweepSubstitutionSession::purge_stale_binaries(
   ordered.resize(kept);
 }
 
+void SweepSubstitutionSession::reset_transaction() {
+  delayed_moves.clear();
+  retiring.clear();
+  retiring_repr.clear();
+  retiring_rank.clear();
+  retiring_position.clear();
+}
+
+// A retiring literal's large occurrences move with its binaries, but only the
+// clause rewrite knows what each one became, so the stream index is stored
+// under the pair that identifies it while the stream is still intact.
+static uint64_t sweep_stream_key(Lit lit, Ref source) {
+  return (static_cast<uint64_t>(lit) << 32) | source;
+}
+
+// The retiring literal whose stream releases this clause to `representative`.
+// Kissat introduces a representative into a clause during the first
+// `substitute_connected_clauses` call that rewrites one of the clause's own
+// literals to it; every later call for the same clause finds it already
+// watched and appends nothing. Tactix rewrites the whole class at once, so
+// pick that same first call: the lowest-ranked retiring member of the source
+// clause whose representative is this one.
+bool SweepSubstitutionSession::move_origin(const Clause &old,
+                                           Lit representative, Ref source,
+                                           uint32_t &rank,
+                                           uint32_t &position) const {
+  rank = UINT32_MAX;
+  for (const Lit lit : old) {
+    const auto found = retiring_rank.find(lit);
+    if (found == retiring_rank.end() ||
+        retiring_repr[found->second] != representative)
+      continue;
+    rank = std::min(rank, found->second);
+  }
+  if (rank == UINT32_MAX)
+    return false;
+  const auto at = retiring_position.find(sweep_stream_key(retiring[rank],
+                                                          source));
+  // A redundant source clause never entered the dense stream, so its collapse
+  // has no recorded position; it follows that literal's other occurrences.
+  position = at == retiring_position.end() ? UINT32_MAX : at->second;
+  return true;
+}
+
+void SweepSubstitutionSession::push_move(const Clause &old,
+                                         Lit representative, Ref source,
+                                         DenseOccurrence image) {
+  uint32_t rank = 0, position = 0;
+  if (move_origin(old, representative, source, rank, position))
+    delayed_moves.push_back({representative, rank, position, image});
+  else
+    dense_occurrences[representative].push_back(image);
+}
+
 void SweepSubstitutionSession::rewrite_binary_occurrences(
     const Kernel &k, const std::vector<Lit> &repr,
-    const std::vector<uint8_t> &members) {
+    const std::vector<uint8_t> &members, const std::vector<Lit> &sources) {
+  reset_transaction();
   if (dense_occurrences.empty())
     return;
   // Ask the rewrite's own member question rather than the requested class map:
@@ -625,21 +681,32 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
   const auto image_of = [&](Lit l) {
     return substitution_member_live(k, members, l) ? repr[l] : l;
   };
-  struct Move {
-    Lit destination;
-    Lit other;
-  };
-  std::vector<Move> moved;
+  for (const Lit source : sources) {
+    if (!substitution_member_live(k, members, source))
+      continue; // declined here exactly as the rewrite declines it
+    if (retiring_rank.emplace(source,
+                              static_cast<uint32_t>(retiring.size())).second) {
+      retiring.push_back(source);
+      retiring_repr.push_back(repr[source]);
+    }
+  }
   std::vector<Var> variable_order(k.nvars);
   kernel_vars_in_import_order(k, variable_order);
   for (const Var variable : variable_order)
     for (uint32_t sign = 0; sign < 2; sign++) {
       const Lit owner = make_lit(variable, sign != 0);
       const Lit target_owner = image_of(owner);
+      const auto rank = retiring_rank.find(owner);
+      const bool retires = rank != retiring_rank.end();
       std::vector<DenseOccurrence> &ordered = dense_occurrences[owner];
       size_t kept = 0;
-      for (DenseOccurrence occurrence : ordered) {
+      for (size_t at = 0; at < ordered.size(); at++) {
+        DenseOccurrence occurrence = ordered[at];
         if (!occurrence.binary) {
+          if (retires)
+            retiring_position.emplace(
+                sweep_stream_key(owner, static_cast<Ref>(occurrence.payload)),
+                static_cast<uint32_t>(at));
           ordered[kept++] = occurrence;
           continue;
         }
@@ -652,13 +719,35 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
           occurrence.payload = target_other;
           ordered[kept++] = occurrence;
         } else {
-          moved.push_back({target_owner, target_other});
+          // Every literal the rewrite retires lost exactly one merge, so the
+          // caller's source list names it. Keep an unranked move reachable
+          // rather than dropping it: membership is the ledger's contract and
+          // order is only the pose.
+          assert(retires && "sweep ledger moved an unranked source stream");
+          delayed_moves.push_back({target_owner,
+                                   retires ? rank->second : UINT32_MAX,
+                                   static_cast<uint32_t>(at),
+                                   {true, target_other}});
         }
       }
       ordered.resize(kept);
     }
-  for (const Move move : moved)
-    dense_occurrences[move.destination].push_back({true, move.other});
+}
+
+void SweepSubstitutionSession::flush_moves() {
+  // One retiring literal's `delayed` stack is flushed before the next literal
+  // is walked, so a representative sees each source's occurrences contiguously
+  // and in that source's own encounter order, binaries and large clauses
+  // interleaved exactly as the single watch stream met them.
+  std::stable_sort(delayed_moves.begin(), delayed_moves.end(),
+                   [](const DelayedMove &a, const DelayedMove &b) {
+                     if (a.source != b.source)
+                       return a.source < b.source;
+                     return a.position < b.position;
+                   });
+  for (const DelayedMove &move : delayed_moves)
+    dense_occurrences[move.representative].push_back(move.image);
+  reset_transaction();
 }
 
 void SweepSubstitutionSession::remove_large(Kernel &k, Ref source) {
@@ -712,9 +801,9 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
     return std::find(old->begin(), old->end(), lit) != old->end();
   };
   if (!rewritten_in_place(a, append_a))
-    dense_occurrences[a].push_back({true, b});
+    push_move(*old, a, source, {true, b});
   if (!rewritten_in_place(b, append_b))
-    dense_occurrences[b].push_back({true, a});
+    push_move(*old, b, source, {true, a});
 }
 
 void SweepSubstitutionSession::inherit(Kernel &k, Ref replacement, Ref source) {
@@ -766,7 +855,7 @@ void SweepSubstitutionSession::inherit(Kernel &k, Ref replacement, Ref source) {
     }
     for (const Lit lit : *image)
       if (!source_held(lit))
-        dense_occurrences[lit].push_back({false, replacement});
+        push_move(*old, lit, source, {false, replacement});
   }
   const auto inherited = origin.find(source);
   const Ref original = inherited == origin.end() ? source : inherited->second;
@@ -1881,6 +1970,14 @@ ApplyResult substitute_apply_sweep_equivalences(
     }
     return root;
   };
+  // Kissat proves one equivalence at a time and substitutes it before the next
+  // is even attempted, so the retiring literal of each merge releases its whole
+  // watch stream into the winner's, in merge order (sweep.c `sweep_equivalence`
+  // -> `substitute_connected_clauses`). A literal that lost an earlier merge of
+  // the same batch therefore travels inside the block of the literal it lost
+  // to, not as a peer of it. Record the merge forest here, and read that order
+  // back below; the final representative map alone cannot express it.
+  std::vector<std::vector<Lit>> absorbed(members.size());
   const auto unite = [&](Lit a, Lit b) {
     uint32_t ra = find(index_of(a)), rb = find(index_of(b));
     if (ra == rb)
@@ -1889,6 +1986,7 @@ ApplyResult substitute_apply_sweep_equivalences(
         kernel_import_lit_order(k, members[ra]))
       std::swap(ra, rb);
     parent[rb] = ra;
+    absorbed[ra].push_back(members[rb]);
   };
   for (const auto &eq : equivalences) {
     const Lit a = eq.first, b = eq.second;
@@ -1926,13 +2024,40 @@ ApplyResult substitute_apply_sweep_equivalences(
       k.stats.substitute_scc_lits++;
     }
 
-  session.rewrite_binary_occurrences(k, r.repr, sub);
+  // Pre-order walk of the merge forest: a retiring literal is followed by
+  // everything it had already absorbed, which is exactly the stream Kissat
+  // hands to `substitute_connected_clauses` at the moment that literal retires.
+  // Both polarities are separate roots and their streams never mix, so the
+  // relative order of the two halves is not observable.
+  std::vector<Lit> sources;
+  sources.reserve(members.size());
+  {
+    std::vector<uint32_t> pending;
+    const auto descend = [&](uint32_t node) {
+      for (auto it = absorbed[node].rbegin(); it != absorbed[node].rend(); ++it)
+        pending.push_back(index_of(*it));
+    };
+    for (uint32_t i = 0; i < members.size(); i++) {
+      if (find(i) != i)
+        continue; // reached from the root that absorbed it
+      descend(i);
+      while (!pending.empty()) {
+        const uint32_t node = pending.back();
+        pending.pop_back();
+        sources.push_back(members[node]);
+        descend(node);
+      }
+    }
+  }
+
+  session.rewrite_binary_occurrences(k, r.repr, sub, sources);
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(
       k, r, std::move(sub), SubstitutionArenaOrder::PreserveClausePosition,
       &session);
   k.arena_ordering = saved_order;
+  session.flush_moves();
   return result;
 }
 

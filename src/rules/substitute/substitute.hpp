@@ -94,6 +94,20 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // formula does not hold puts a phantom clause into the next environment.
   std::vector<std::vector<DenseOccurrence>> dense_occurrences;
 
+  // Kissat retires one literal at a time: `substitute_connected_clauses` walks
+  // that literal's single unified watch stream and pushes every occurrence it
+  // moves — binary or large, in encounter order — onto one `delayed` stack,
+  // which it flushes to the representative before the next retiring literal is
+  // walked. Tactix rewrites binaries and large clauses in two separate batch
+  // passes, so a move instead records which stream released it and where it sat
+  // in that stream, and the transaction replays all of them in that order.
+  struct DelayedMove {
+    Lit representative = INVALID_LIT;
+    uint32_t source = 0;   // retiring literal's rank in Kissat's call order
+    uint32_t position = 0; // its index in that literal's stream
+    DenseOccurrence image;
+  };
+
   void begin(const Kernel &);
   // Adopt the binaries Sweep published for this batch. Must run for every
   // emitted batch, including one whose classes are all declined below, because
@@ -103,13 +117,20 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // `members` is the requested class map. The rewrite this mirrors declines a
   // member that is already root-fixed or retired, so this applies the same
   // predicate rather than the map; mirroring the map instead moves ledger
-  // entries the kernel leaves in place.
+  // entries the kernel leaves in place. `sources` is every retiring literal in
+  // the order `sweep_equivalence` hands it to `substitute_connected_clauses`;
+  // it opens the transaction that `flush_moves` closes.
   void rewrite_binary_occurrences(const Kernel &, const std::vector<Lit> &repr,
-                                  const std::vector<uint8_t> &members);
+                                  const std::vector<uint8_t> &members,
+                                  const std::vector<Lit> &sources);
   void remove_large(Kernel &, Ref source);
   void collapse_large_to_binary(Kernel &, Ref source, Lit a, Lit b,
                                 bool append_a, bool append_b);
   void inherit(Kernel &, Ref replacement, Ref source);
+  // Append the transaction's moved occurrences to their representatives, one
+  // retiring literal's stream at a time. Runs once per emission batch, after
+  // the large-clause rewrite has decided what each large occurrence became.
+  void flush_moves();
   void order(const Kernel &, std::vector<Ref> &) override;
   uint64_t collect(Kernel &);
 
@@ -117,6 +138,18 @@ private:
   DenseOccurrence *find_large(Lit, Ref);
   void erase_large(Lit, Ref);
   void purge_stale_binaries(Lit, std::unordered_map<Lit, size_t> &);
+  void reset_transaction();
+  bool move_origin(const Clause &, Lit representative, Ref source,
+                   uint32_t &rank, uint32_t &position) const;
+  void push_move(const Clause &, Lit representative, Ref source,
+                 DenseOccurrence image);
+
+  std::vector<DelayedMove> delayed_moves;
+  std::vector<Lit> retiring;      // by rank
+  std::vector<Lit> retiring_repr; // by rank
+  std::unordered_map<Lit, uint32_t> retiring_rank;
+  // (retiring literal, source ref) -> that occurrence's stream index.
+  std::unordered_map<uint64_t, uint32_t> retiring_position;
 };
 
 // Sweep commits consequences while its dense pass is still in flight.  Kissat
