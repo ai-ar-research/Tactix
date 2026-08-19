@@ -305,13 +305,14 @@ M3 is one public operation. Private pending state must be consumed before contro
 
 ### Input/proof identity and shared mechanics
 
-- Input clause position is its checker id. Normalization removes repeats and already-root-false
-  literals (root-true drops the clause); defer restatement to `finish_input`, with root-unit hints then
-  the file id, and store the new id. Parse-time refutation is deferred for the same reason.
-- Tautologies, duplicate units/binaries, and post-refutation input clauses still consume their input id.
-  Parse-time binary dedup is safe because no binary has yet been deleted.
+- Input clause position is its checker id. Normalization removes repeats/root-false literals (root-true
+  drops the clause); at `finish_input`, add the exact normalized clause. LRAT cites root units then the
+  file id and stores its fresh checker id; id-less DRAT searches for the justification without changing
+  solver ids. Exact DRAT addition is required because deletion matches a literal multiset, not set
+  semantics. Parse-time refutation is deferred for the same namespace reason.
+- Tautologies, duplicate units/binaries, and post-refutation clauses still consume an input id; parse-time binary dedup is safe because no binary has yet been deleted.
 - Shared proof primitives own empty emission, pending units, replacement, and deletion; garbage marking and proof deletion stay inseparable in `kernel_delete_clause`, and an already-garbage record emits no second deletion (LRAT names one id; a surplus DRAT line can silently retire a live literal-identical duplicate).
-- The optional `TACTIX_ENABLE_PROOF_SHADOW` build seeds the checker's clause population after input finalization and aborts at the first unbacked deletion; production builds compile out its emission hooks.
+- The optional `TACTIX_ENABLE_PROOF_SHADOW` build seeds every raw file clause before normalization, tracks later additions, and aborts at the first unbacked deletion after input finalization; production builds compile out its emission hooks.
 - Every trajectory-affecting comparator is a strict total order, and trajectory code must not depend on
   unordered-container iteration order.
 
