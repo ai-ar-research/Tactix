@@ -47,6 +47,19 @@ ApplyResult default_direct_rule(Kernel &k, const char *name,
   return apply();
 #endif
 }
+
+ApplyResult default_propagate(Kernel &k, const char *candidate) {
+  const size_t trail_begin = k.trail.size();
+  const ApplyResult result = default_direct_rule(
+      k, "Propagate", candidate, [&] { return propagate_apply(k); },
+      ApplyResult::Ok);
+  // Kissat marks every true-level-zero assignment fixed in its assignment
+  // primitive. Keep the proof rule independent of policy state, but consume
+  // the same lifecycle transition before DefaultPolicy next chooses a rule or
+  // decision. This includes root implications discovered above level zero.
+  heuristics_consume_root_assignments(k, trail_begin);
+  return result;
+}
 } // namespace
 
 namespace {
@@ -1698,9 +1711,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // The references expose two distinct Lucky opportunities around initial
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
   // a later inprocessing phase.
-  ApplyResult startup = default_direct_rule(
-      k, "Propagate", "startup", [&] { return propagate_apply(k); },
-      ApplyResult::Ok);
+  ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
   if (lucky_guard(k)) {
@@ -1730,9 +1741,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (collected == RootCollectOutcome::Refuted)
       return finish(20);
     if (collected == RootCollectOutcome::Unit) {
-      const ApplyResult root_result = default_direct_rule(
-          k, "Propagate", "root-collect",
-          [&] { return propagate_apply(k); }, ApplyResult::Ok);
+      const ApplyResult root_result = default_propagate(k, "root-collect");
       if (root_result == ApplyResult::Unsat)
         return finish(20);
     }
@@ -1755,9 +1764,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
     return finish(20);
   event_trace.macro(k, "preprocess_end");
-  startup = default_direct_rule(
-      k, "Propagate", "post-preprocess",
-      [&] { return propagate_apply(k); }, ApplyResult::Ok);
+  startup = default_propagate(k, "post-preprocess");
   if (startup != ApplyResult::Ok)
     return finish(20);
   if (lucky_late_ && lucky_guard(k)) {
@@ -1829,9 +1836,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
 #endif
     const size_t trace_trail_begin = k.trail.size();
-    const ApplyResult r = default_direct_rule(
-        k, "Propagate", "search", [&] { return propagate_apply(k); },
-        ApplyResult::Ok);
+    const ApplyResult r = default_propagate(k, "search");
     event_trace.implications(k, trace_trail_begin);
     if (r == ApplyResult::Unsat)
       return finish(20);
@@ -2283,9 +2288,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         continue; // this candidate was not viable; try the next
       ctx.round_changed = true;
       ctx.phase_dosed = true;
-      const ApplyResult propagation = default_direct_rule(
-          k, "Propagate", "inprocess-candidate",
-          [&] { return propagate_apply(k); }, ApplyResult::Ok);
+      const ApplyResult propagation =
+          default_propagate(k, "inprocess-candidate");
       if (propagation == ApplyResult::Unsat) {
         ctx.phase_unsat = true;
         break;
@@ -2591,9 +2595,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   if (ar != ApplyResult::Ok)
     return SlotStep::Next;
   ctx.round_changed = true;
-  const ApplyResult propagation = default_direct_rule(
-      k, "Propagate", "inprocess-batch",
-      [&] { return propagate_apply(k); }, ApplyResult::Ok);
+  const ApplyResult propagation = default_propagate(k, "inprocess-batch");
   if (propagation == ApplyResult::Unsat) {
     ctx.phase_unsat = true;
     return SlotStep::Stop;

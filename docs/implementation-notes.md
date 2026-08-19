@@ -386,9 +386,9 @@ Reorder is an H-only policy operation and ships in both modes, matching Kissat's
 The first default-on run exposed retired identities sorted after disconnection from H, so stale links
 corrupted VMTF. Source filters now exclude retired Analyze bumps and Substitute SCC edges, but
 independent formula rules can still report the same retirement before the policy drain. Heuristic
-deactivation is idempotent: it counts already-disconnected reports and never dequeues through sentinel
-links. Reorder sorts non-retired variables, clears removed links, and refreshes stable H from the
-connected queue. This preserves N1 and Kissat's `ACTIVE` filters; `reorder_eligible` / `reordered`
+deactivation is idempotent. After each DefaultPolicy Propagate, its policy-owned consumer also removes every newly assigned true-level-zero variable from VMTF and EVSIDS, matching Kissat's inline fixed transition without coupling the public proof rule to H.
+Reorder sorts non-retired variables, clears removed links, and refreshes stable H from the
+connected queue. Both transitions preserve N1 and Kissat's `ACTIVE` filters; `reorder_eligible` / `reordered`
 distinguish reach / apply. The dated Tier B retirement-divergence report owns the paired evidence.
 
 For each open irredundant-clause occurrence, literal weight adds `2^-(size-2)` with size clamped to
