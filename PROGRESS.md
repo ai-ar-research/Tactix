@@ -343,7 +343,7 @@ The cumulative pin is accepted; V6a stays on.
    matches through conflict 533/decision 3859653; `1634436`
    differs at stable decision 23748; `1634438`
    finds four missing bumps; `1634440` proves 10848's identical direct
-   `1634444` traces variable 10's origin; `1634446` journals its extra binary.
+   `1634446` rules out root transactions; `1634447` journals search Analyze.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
