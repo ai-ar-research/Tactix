@@ -651,6 +651,17 @@ def main():
         '  kissat_fast_assign (solver, probing, level, values, assigned, true, lit,\n'
         '                      other);\n')
 
+    clause = dest / "src" / "clause.c"
+    replace_once(clause, '#include "collect.h"\n',
+                 '#include "collect.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        clause,
+        '  if (watch)\n'
+        '    kissat_watch_binary (solver, first, second);\n',
+        '  kissat_event_trace_binary_add (solver, first, second);\n'
+        '  if (watch)\n'
+        '    kissat_watch_binary (solver, first, second);\n')
+
     bump = dest / "src" / "bump.c"
     replace_once(bump, '#include "analyze.h"\n',
                  '#include "analyze.h"\n#include "eventtrace.h"\n')

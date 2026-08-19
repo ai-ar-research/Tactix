@@ -327,6 +327,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "score_bump") &&
       std::strcmp(event, "heap_scores") &&
       std::strcmp(event, "binary_assignment") &&
+      std::strcmp(event, "binary_add") &&
       std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&
       std::strcmp(event, "imply") &&
       std::strcmp(event, "conflict") && std::strncmp(event, "analyzed", 8) &&
@@ -1632,6 +1633,23 @@ void EventTrace::binary_assignment(const Kernel &k, Lit assigned,
   emit(k, "binary_assignment", payload, false);
 }
 
+void EventTrace::binary_add(const Kernel &k, Lit a, Lit b) {
+  if (!out_)
+    return;
+  const char *selected = std::getenv("SAT_EVENT_TRACE_BINARY_ADD");
+  if (!selected || !*selected)
+    return;
+  const int wanted = std::atoi(selected);
+  const int external_a = kernel_externalize(k, a);
+  const int external_b = kernel_externalize(k, b);
+  if (external_a != wanted && external_b != wanted)
+    return;
+  char payload[96];
+  std::snprintf(payload, sizeof payload, "a=%d|b=%d", external_a,
+                external_b);
+  emit(k, "binary_add", payload, false);
+}
+
 void EventTrace::mode_clock(const Kernel &k, const char *stage, uint64_t limit,
                             uint64_t anchor, uint64_t count) {
   if (!std::getenv("TACTIX_EVENT_TRACE_MODE_CLOCK") || !want_detail(k))
@@ -1674,6 +1692,11 @@ void event_trace_binary_assignment(const Kernel &k, Lit assigned,
   if (active_trace)
     active_trace->binary_assignment(k, assigned, immediate_reason,
                                     stored_reason, jumped);
+}
+
+void event_trace_binary_add(const Kernel &k, Lit a, Lit b) {
+  if (active_trace)
+    active_trace->binary_add(k, a, b);
 }
 
 void event_trace_root_assign(const Kernel &k, Lit lit) {

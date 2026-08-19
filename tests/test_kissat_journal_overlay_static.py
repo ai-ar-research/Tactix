@@ -69,6 +69,10 @@ assert 'KISSAT_EVENT_TRACE_BINARY_ASSIGNMENT' in eventtrace
 assert 'TACTIX_EVENT_TRACE_BINARY_ASSIGNMENT' in tactix_trace
 assert 'SAT_EVENT_TRACE_WATCH_TARGETS' in eventtrace
 assert 'SAT_EVENT_TRACE_WATCH_TARGETS' in tactix_trace
+assert 'SAT_EVENT_TRACE_BINARY_ADD' in eventtrace
+assert 'SAT_EVENT_TRACE_BINARY_ADD' in tactix_trace
+assert 'kissat_event_trace_binary_add (solver, first, second);' in prepare
+assert 'event_trace_binary_add(k, a, b);' in (root / "src/kernel/kernel.cpp").read_text()
 assert 'binary_count=%zu|binary_hash=%016' in eventtrace
 assert 'binary_count=%zu|binary_hash=%016llx' in tactix_trace
 assert 'kissat_event_trace_binary_assignment (solver, lit, immediate_reason,' in prepare
