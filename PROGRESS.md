@@ -339,10 +339,10 @@ The cumulative pin is accepted; V6a stays on.
 ## Next engineering work
 
 1. Rank-22 random lifetime diverges after conflict 533. Job `1634404` is
-   observer-invalid: `SEARCH_ONLY` filtered `randec_state`; its manifest records zero state records,
-   both hashes, and zero residue. Symmetric repair `9fc6971` passes Release/Trace
-   regressions. Await identical-window job `1634409`, campaign
-   `20260819-0025-tierd-rank22-randec-state-rerun`; no conclusion yet.
+   observer-invalid (state filtered); `1634409` is infra-invalid (pins lost execute
+   mode); both cleaned with zero residue. Repair `9fc6971` passes Release/Trace.
+   Await corrected job `1634412`, campaign
+   `20260819-0028-tierd-rank22-randec-state-rerun2`; no conclusion yet.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
