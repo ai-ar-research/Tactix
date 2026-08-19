@@ -851,6 +851,24 @@ def main():
                  '#include "terminate.h"\n#include "eventtrace.h"\n'
                  '#include "rulejournal.h"\n')
     replace_once(sweep,
+        '    watch *q = begin_watches;\n'
+        '    const watch *p = q;\n\n'
+        '    while (p != end_watches) {\n'
+        '      const watch head = *q++ = *p++;\n',
+        '    watch *q = begin_watches;\n'
+        '    const watch *p = q;\n'
+        '    size_t trace_position = 0;\n\n'
+        '    while (p != end_watches) {\n'
+        '      const size_t current_trace_position = trace_position++;\n'
+        '      const watch head = *q++ = *p++;\n')
+    replace_once(sweep,
+        '        PUSH_STACK (*delayed, head.raw);\n'
+        '        watch src = {.raw = head.raw};\n',
+        '        kissat_event_trace_sweep_rewrite_binary (\n'
+        '            solver, lit, repr, current_trace_position, other);\n'
+        '        PUSH_STACK (*delayed, head.raw);\n'
+        '        watch src = {.raw = head.raw};\n')
+    replace_once(sweep,
         '  unsigned *q = BEGIN_STACK (*core);\n'
         '  const unsigned *const end_core = END_STACK (*core), *p = q;\n\n'
         '  while (p != end_core) {\n',

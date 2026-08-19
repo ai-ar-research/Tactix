@@ -328,6 +328,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "heap_scores") &&
       std::strcmp(event, "binary_assignment") &&
       std::strcmp(event, "binary_add") &&
+      std::strcmp(event, "sweep_rewrite_binary") &&
       std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&
       std::strcmp(event, "imply") &&
       std::strcmp(event, "conflict") && std::strncmp(event, "analyzed", 8) &&
@@ -1054,6 +1055,34 @@ void EventTrace::sweep_equivalence(const Kernel &k, Lit a, Lit b) {
 void event_trace_sweep_equivalence(const Kernel &k, Lit a, Lit b) {
   if (active_trace)
     active_trace->sweep_equivalence(k, a, b);
+}
+
+void EventTrace::sweep_rewrite_binary(const Kernel &k, Lit source,
+                                      Lit representative, uint32_t position,
+                                      Lit other) {
+  if (!out_)
+    return;
+  const char *selected = std::getenv("SAT_EVENT_TRACE_SWEEP_REWRITE");
+  if (!selected || !*selected)
+    return;
+  const int external_representative =
+      kernel_externalize(k, representative);
+  if (external_representative != std::atoi(selected))
+    return;
+  char payload[160];
+  std::snprintf(payload, sizeof payload,
+                "source=%d|repr=%d|position=%u|other=%d",
+                kernel_externalize(k, source), external_representative,
+                position, kernel_externalize(k, other));
+  emit(k, "sweep_rewrite_binary", payload, false);
+}
+
+void event_trace_sweep_rewrite_binary(const Kernel &k, Lit source,
+                                      Lit representative, uint32_t position,
+                                      Lit other) {
+  if (active_trace)
+    active_trace->sweep_rewrite_binary(k, source, representative, position,
+                                       other);
 }
 
 void EventTrace::sweep_unit(const Kernel &k, Lit lit) {

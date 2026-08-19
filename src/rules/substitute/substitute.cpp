@@ -728,7 +728,10 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
     }
 }
 
-void SweepSubstitutionSession::flush_moves() {
+void SweepSubstitutionSession::flush_moves(const Kernel &k) {
+#ifndef TACTIX_ENABLE_EVENT_TRACE
+  (void)k;
+#endif
   // One retiring literal's `delayed` stack is flushed before the next literal
   // is walked, so a representative sees each source's occurrences contiguously
   // and in that source's own encounter order, binaries and large clauses
@@ -739,8 +742,15 @@ void SweepSubstitutionSession::flush_moves() {
                        return a.source < b.source;
                      return a.position < b.position;
                    });
-  for (const DelayedMove &move : delayed_moves)
+  for (const DelayedMove &move : delayed_moves) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (move.image.binary && move.source < retiring.size())
+      event_trace_sweep_rewrite_binary(
+          k, retiring[move.source], move.representative, move.position,
+          static_cast<Lit>(move.image.payload));
+#endif
     dense_occurrences[move.representative].push_back(move.image);
+  }
   reset_transaction();
 }
 
@@ -2051,7 +2061,7 @@ ApplyResult substitute_apply_sweep_equivalences(
       k, r, std::move(sub), SubstitutionArenaOrder::PreserveClausePosition,
       &session);
   k.arena_ordering = saved_order;
-  session.flush_moves();
+  session.flush_moves(k);
   return result;
 }
 

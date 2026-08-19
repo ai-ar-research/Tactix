@@ -43,6 +43,8 @@ void kissat_event_trace_factor_candidate (struct kissat *, unsigned, size_t,
 void kissat_event_trace_factor_score_entries (struct kissat *, unsigned,
                                               size_t, unsigned);
 void kissat_event_trace_sweep_unit (struct kissat *, unsigned, const char *);
+void kissat_event_trace_sweep_rewrite_binary (struct kissat *, unsigned,
+                                              unsigned, size_t, unsigned);
 void kissat_event_trace_factor_literal_state (struct kissat *, unsigned, bool,
                                               bool, int, size_t);
 void kissat_event_trace_substitute_map (struct kissat *, unsigned, unsigned);

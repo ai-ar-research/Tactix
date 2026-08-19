@@ -430,6 +430,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "heap_scores") &&
       strcmp (event, "binary_assignment") &&
       strcmp (event, "binary_add") &&
+      strcmp (event, "sweep_rewrite_binary") &&
       strcmp (event, "watch") && strcmp (event, "imply") &&
       strcmp (event, "conflict") &&
       strcmp (event, "analyzed") && strncmp (event, "analysis_", 9) &&
@@ -979,6 +980,26 @@ void kissat_event_trace_binary_add (kissat *solver, unsigned first,
   snprintf (payload, sizeof payload, "a=%d|b=%d", external_first,
             external_second);
   kissat_event_trace (solver, "binary_add", payload, false);
+}
+
+void kissat_event_trace_sweep_rewrite_binary (kissat *solver,
+                                              unsigned source,
+                                              unsigned representative,
+                                              size_t position,
+                                              unsigned other) {
+  const char *selected = getenv ("SAT_EVENT_TRACE_SWEEP_REWRITE");
+  if (!selected || !*selected)
+    return;
+  const int external_representative =
+      external_literal (solver, representative);
+  if (external_representative != atoi (selected))
+    return;
+  char payload[160];
+  snprintf (payload, sizeof payload,
+            "source=%d|repr=%d|position=%zu|other=%d",
+            external_literal (solver, source), external_representative,
+            position, external_literal (solver, other));
+  kissat_event_trace (solver, "sweep_rewrite_binary", payload, false);
 }
 
 void kissat_event_trace_clause (kissat *solver, const char *event) {
