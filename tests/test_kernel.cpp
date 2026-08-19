@@ -62,6 +62,10 @@ static void test_variable_compaction() {
     heuristics_deactivate_var(k, v);
     k.unassigned_active--;
   }
+  // Kissat remaps (rather than resets) the focused queue search cache during
+  // compact_queue.  Preserve the same external candidate across renumbering.
+  hg.h.search_idx = 4;
+  hg.h.search_stamp = hg.h.links[4].stamp;
   assert(kernel_should_compact_variables(k, 10));
   assert(kernel_compact_variables(k));
 
@@ -71,6 +75,7 @@ static void test_variable_compaction() {
          std::vector<Var>({0, INVALID_VAR, 1, INVALID_VAR, 2}));
   assert(kernel_internalize(k, 3) == make_lit(1, false));
   assert(kernel_externalize(k, make_lit(2, true)) == -5);
+  assert(kernel_externalize(k, make_lit(hg.h.search_idx, false)) == 5);
   assert(lit_instance(k, make_lit(2, false)) == stable_instance);
   assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
   const Clause *c = clause_at(k.arena, 0);
@@ -117,9 +122,12 @@ static void test_compaction_counts_root_fixed_and_rewatches() {
   kernel_add_large_clause(k, target, 3, false, 0);
   kernel_assign_unit(k, internalize(-1));
   kernel_assign_unit(k, internalize(11));
+  hg.h.search_idx = 2;
+  hg.h.search_stamp = hg.h.links[2].stamp;
   assert(kernel_should_compact_variables(k, 10));
   assert(kernel_compact_variables(k));
   assert(k.nvars == 11 && k.stats.variable_compactions == 1);
+  assert(hg.h.search_idx == 2 && hg.h.search_stamp == hg.h.links[2].stamp);
   const Clause *clause = clause_at(k.arena, 0);
   assert(clause->lits[0] != internalize(1) &&
          "a compacting collection must rewatch the whole arena");
