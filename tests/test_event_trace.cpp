@@ -142,6 +142,39 @@ int main() {
                             "pose=-3,1,-2") != std::string::npos);
   std::remove(path.c_str());
 
+  const std::string watch_positions_path =
+      trace_path("event-watch-positions");
+  std::remove(watch_positions_path.c_str());
+  Kernel watch_kernel;
+  kernel_reserve_vars(watch_kernel, 3);
+  ScopedHeuristics watch_h(watch_kernel);
+  kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(2));
+  kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(-3));
+  setenv("TACTIX_EVENT_TRACE", watch_positions_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_WATCH_LIST", "-1", 1);
+  setenv("SAT_EVENT_TRACE_WATCH_TARGETS", "2,3", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(watch_kernel));
+    trace.macro(watch_kernel, "watch_positions");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("SAT_EVENT_TRACE_WATCH_LIST");
+  unsetenv("SAT_EVENT_TRACE_WATCH_TARGETS");
+  std::ifstream watch_positions_input(watch_positions_path);
+  const std::string watch_positions_text(
+      (std::istreambuf_iterator<char>(watch_positions_input)),
+      std::istreambuf_iterator<char>());
+  assert(watch_positions_text.find(
+             "|watch_lit=-1|binary_count=2|binary_hash=") !=
+         std::string::npos);
+  assert(watch_positions_text.find(
+             "|target_a=2|target_a_pos=1|target_a_lit=2"
+             "|target_b=3|target_b_pos=2|target_b_lit=-3") !=
+         std::string::npos);
+  assert(watch_positions_text.find("|binary=") == std::string::npos);
+  std::remove(watch_positions_path.c_str());
+
   const std::string window_path = trace_path("event-window");
   setenv("TACTIX_EVENT_TRACE", window_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_CONFLICT_FROM", "2", 1);

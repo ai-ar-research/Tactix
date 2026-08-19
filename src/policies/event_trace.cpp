@@ -400,25 +400,54 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     if (const char *selected =
             std::getenv("SAT_EVENT_TRACE_WATCH_LIST")) {
       const int wanted = std::atoi(selected);
+      int target_a = 0, target_b = 0;
+      const char *targets = std::getenv("SAT_EVENT_TRACE_WATCH_TARGETS");
+      const bool compact_targets =
+          targets && std::sscanf(targets, "%d,%d", &target_a, &target_b) == 2;
       Lit watched = INVALID_LIT;
       for (Lit lit = 0; lit < 2 * k.nvars; lit++)
         if (kernel_externalize(k, lit) == wanted) {
           watched = lit;
           break;
         }
-      annotated_payload += "|watch_lit=" + std::to_string(wanted) +
-                           "|binary=";
-      if (watched != INVALID_LIT) {
+      annotated_payload += "|watch_lit=" + std::to_string(wanted);
+      if (compact_targets) {
+        uint64_t hash = 1469598103934665603ull;
+        size_t count = 0, pos_a = 0, pos_b = 0;
+        int lit_a = 0, lit_b = 0;
+        if (watched != INVALID_LIT)
+          for (const WatchEntry entry : k.watches.entries(watched)) {
+            if (!entry.binary())
+              continue;
+            const int other = kernel_externalize(k, entry.other());
+            hash = mix(hash, static_cast<uint64_t>(static_cast<int64_t>(other)));
+            ++count;
+            if (!pos_a && std::abs(other) == std::abs(target_a))
+              pos_a = count, lit_a = other;
+            if (!pos_b && std::abs(other) == std::abs(target_b))
+              pos_b = count, lit_b = other;
+          }
+        char compact[256];
+        std::snprintf(compact, sizeof compact,
+                      "|binary_count=%zu|binary_hash=%016llx|target_a=%d"
+                      "|target_a_pos=%zu|target_a_lit=%d|target_b=%d"
+                      "|target_b_pos=%zu|target_b_lit=%d",
+                      count, (unsigned long long)hash, target_a, pos_a, lit_a,
+                      target_b, pos_b, lit_b);
+        annotated_payload += compact;
+      } else {
+        annotated_payload += "|binary=";
         bool first = true;
-        for (const WatchEntry entry : k.watches.entries(watched)) {
-          if (!entry.binary())
-            continue;
-          if (!first)
-            annotated_payload += ',';
-          first = false;
-          annotated_payload +=
-              std::to_string(kernel_externalize(k, entry.other()));
-        }
+        if (watched != INVALID_LIT)
+          for (const WatchEntry entry : k.watches.entries(watched)) {
+            if (!entry.binary())
+              continue;
+            if (!first)
+              annotated_payload += ',';
+            first = false;
+            annotated_payload +=
+                std::to_string(kernel_externalize(k, entry.other()));
+          }
       }
     }
     annotate_clause_set(k, annotated_payload);
