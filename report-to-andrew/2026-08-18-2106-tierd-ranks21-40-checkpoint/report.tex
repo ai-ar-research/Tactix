@@ -2413,6 +2413,17 @@ Release 72/72, Trace 71/71, removal replay \code{1634712}, and endpoint pair
 through the solver and any independent checker. Accept only a checked answer
 with the decompressed input, proof, and scratch deleted and no cleanup pending.
 
+Job \code{1634718} does not close rank 22. The repaired Release pin returns
+UNKNOWN at the exact 1,200.004-second solver timeout. Its partial certificate
+is 57,671,680 bytes with SHA-256 prefix \code{931ad114}; no proof checker runs
+and no answer is accepted. The runner deletes the decompressed input, partial
+proof, and scratch before publishing the result, with both artifact-deletion
+flags true and \code{cleanup\_pending=false}. Thus \code{a56c674} remains an
+accepted mechanism repair because its focused gates are exact, but it is
+insufficient for rank closure. Keep rank 22 open and resume with a repaired
+current-pin conflict-1,199 raw heap endpoint, the next previously identified
+frontier after conflict 1,007.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
