@@ -103,6 +103,7 @@ public:
 
 private:
   void emit(const Kernel &, const char *, const char *, bool snapshot);
+  void emit_heap_scores(const Kernel &);
   bool want_detail(const Kernel &);
 
   std::FILE *out_ = nullptr;
@@ -113,6 +114,7 @@ private:
   uint64_t checkpoint_bucket_ = 0;
   uint64_t detail_conflict_from_ = 0;
   uint64_t detail_conflict_to_ = UINT64_MAX;
+  uint64_t stop_after_conflict_ = UINT64_MAX;
   bool saw_reorder_ = false;
   bool detail_window_ = false;
   bool compact_probe_ = false;
@@ -126,6 +128,7 @@ private:
   bool control_only_ = false;
   bool trajectory_only_ = false;
   bool watch_only_ = false;
+  bool stop_pending_ = false;
   bool truncated_ = false;
 };
 #else
