@@ -543,6 +543,22 @@ def main():
                  '#include "decide.h"\n#include "eventtrace.h"\n')
     replace_once(
         decide,
+        'static unsigned next_random_decision (kissat *solver) {\n'
+        '  if (!VARS)\n',
+        'static unsigned next_random_decision (kissat *solver) {\n'
+        '  kissat_event_trace_randec_state (solver, "pre");\n'
+        '  if (!VARS)\n')
+    replace_once(
+        decide,
+        '    kissat_start_random_sequence (solver);\n'
+        '  }\n\n'
+        '  for (;;) {\n',
+        '    kissat_start_random_sequence (solver);\n'
+        '    kissat_event_trace_randec_state (solver, "post-start");\n'
+        '  }\n\n'
+        '  for (;;) {\n')
+    replace_once(
+        decide,
         '  for (;;) {\n'
         '    unsigned idx = kissat_next_random32 (&solver->random) % VARS;\n'
         '    if (!ACTIVE (idx))\n'

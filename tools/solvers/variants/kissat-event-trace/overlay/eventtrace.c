@@ -440,6 +440,17 @@ void kissat_event_trace_randec_draw (kissat *solver, unsigned raw,
   kissat_event_trace (solver, "randec_draw", payload, false);
 }
 
+void kissat_event_trace_randec_state (kissat *solver, const char *stage) {
+  if (!detail_enabled (solver))
+    return;
+  char payload[192];
+  snprintf (payload, sizeof payload,
+            "stage=%s|remaining=%u|next=%" PRIu64 "|sequence=%" PRIu64,
+            stage, solver->randec, solver->limits.randec.conflicts,
+            solver->statistics.random_sequences);
+  kissat_event_trace (solver, "randec_state", payload, false);
+}
+
 static int compare_external_literals (const void *a, const void *b) {
   const int x = *(const int *) a, y = *(const int *) b;
   return (x > y) - (x < y);

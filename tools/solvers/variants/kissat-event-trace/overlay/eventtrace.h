@@ -13,6 +13,7 @@ void kissat_event_trace_detail (struct kissat *, const char *, int);
 void kissat_event_trace_literal (struct kissat *, const char *, unsigned);
 void kissat_event_trace_randec_draw (struct kissat *, unsigned raw,
                                      unsigned idx, bool accepted);
+void kissat_event_trace_randec_state (struct kissat *, const char *stage);
 void kissat_event_trace_watch_scan (struct kissat *, unsigned propagated);
 void kissat_event_trace_propagate_cursor (struct kissat *);
 void kissat_event_trace_implications (struct kissat *, size_t trail_begin);
