@@ -611,6 +611,45 @@ def main():
         '    kissat_push_heap (solver, scores, idx);\n'
         '  }\n')
 
+    deduce = dest / "src" / "deduce.c"
+    replace_once(deduce, '#include "deduce.h"\n',
+                 '#include "deduce.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        deduce,
+        '  kissat_push_analyzed (solver, all_assigned, idx);\n'
+        '  assert (level <= solver->level);\n',
+        '  kissat_push_analyzed (solver, all_assigned, idx);\n'
+        '  kissat_event_trace_literal (solver, "analysis_mark", lit);\n'
+        '  assert (level <= solver->level);\n')
+    replace_once(
+        deduce,
+        '    resolved++;\n'
+        '    if (a->binary) {\n'
+        '      const unsigned other = a->reason;\n',
+        '    resolved++;\n'
+        '    kissat_event_trace_literal (solver, "analysis_resolve", uip);\n'
+        '    if (a->binary) {\n'
+        '      const unsigned other = a->reason;\n'
+        '      kissat_event_trace_literal (solver, "analysis_binary_reason",\n'
+        '                                  other);\n')
+    replace_once(
+        deduce,
+        '      clause *reason = kissat_dereference_clause (solver, ref);\n'
+        '      for (all_literals_in_clause (lit, reason))\n'
+        '        if (lit != uip &&\n'
+        '            analyze_literal (solver, all_assigned, frames, lit))\n'
+        '          unresolved_on_current_level++;\n',
+        '      clause *reason = kissat_dereference_clause (solver, ref);\n'
+        '      kissat_event_trace_detail (solver, "analysis_reason_size",\n'
+        '                                 reason->size);\n'
+        '      for (all_literals_in_clause (lit, reason))\n'
+        '        if (lit != uip) {\n'
+        '          kissat_event_trace_literal (solver, "analysis_reason_lit",\n'
+        '                                      lit);\n'
+        '          if (analyze_literal (solver, all_assigned, frames, lit))\n'
+        '            unresolved_on_current_level++;\n'
+        '        }\n')
+
     analyze = dest / "src" / "analyze.c"
     replace_once(analyze, '#include "deduce.h"\n',
                  '#include "deduce.h"\n#include "eventtrace.h"\n')

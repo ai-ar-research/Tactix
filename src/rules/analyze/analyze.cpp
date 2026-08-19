@@ -1298,6 +1298,7 @@ ApplyResult analyze_apply(Kernel &k) {
       if (k.seen[v])
         return;
       k.seen[v] = SEEN;
+      event_trace_detail(k, "analysis_mark", kernel_externalize(k, l));
       k.analyzed.push_back(v);
       k.bump_order.push_back(v);
       k.analyzed_seen++;
@@ -1335,16 +1336,26 @@ ApplyResult analyze_apply(Kernel &k) {
       if (lrat)
         chain_record(k, var_of(t)); // the checker re-propagates t
       const Assigned &a = k.assigned[var_of(t)];
+      event_trace_detail(k, "analysis_resolve", kernel_externalize(k, t));
       if (a.binary) {
+        event_trace_detail(k, "analysis_binary_reason",
+                           kernel_externalize(k, a.reason));
+        if (a.jumped)
+          event_trace_detail(k, "analysis_jumped_over",
+                             kernel_externalize(k,
+                                                k.jumped_over[var_of(t)]));
         mark(a.reason); // the other literal of the binary reason clause
         resolvent_size--;
       } else {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
         Clause *reason = clause_at(k.arena, a.reason);
         mark_used(k, reason);
+        event_trace_detail(k, "analysis_reason_size", reason->size);
         uint32_t antecedent = 1; // t's own slot in the reason
         for (const Lit l : *reason)
           if (l != t) {
+            event_trace_detail(k, "analysis_reason_lit",
+                               kernel_externalize(k, l));
             if (k.var_level(var_of(l)) > 0)
               antecedent++;
             mark(l);
