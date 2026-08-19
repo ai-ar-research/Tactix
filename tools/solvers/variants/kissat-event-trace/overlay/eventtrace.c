@@ -505,6 +505,10 @@ void kissat_event_trace (kissat *solver, const char *event,
     const char *selected = getenv ("SAT_EVENT_TRACE_WATCH_LIST");
     if (selected && *selected) {
       const int wanted = atoi (selected);
+      int target_a = 0, target_b = 0;
+      const char *targets = getenv ("SAT_EVENT_TRACE_WATCH_TARGETS");
+      const bool compact_targets =
+          targets && sscanf (targets, "%d,%d", &target_a, &target_b) == 2;
       unsigned watched = INVALID_LIT;
       for (all_literals (lit))
         if (external_literal (solver, lit) == wanted) {
@@ -514,28 +518,62 @@ void kissat_event_trace (kissat *solver, const char *event,
       size_t used = strlen (annotated_payload);
       int written = snprintf (annotated_payload + used,
                               sizeof annotated_payload - used,
-                              "|watch_lit=%d|binary=", wanted);
+                              "|watch_lit=%d", wanted);
       if (written > 0)
         used += (size_t) written;
-      bool first = true;
-      if (watched != INVALID_LIT) {
-        watches entries = WATCHES (watched);
-        const watch *p = BEGIN_WATCHES (entries);
-        const watch *const end = END_WATCHES (entries);
-        while (p != end && used < sizeof annotated_payload) {
-          const watch head = *p++;
-          if (!head.type.binary) {
-            p++;
-            continue;
+      if (compact_targets) {
+        uint64_t hash = UINT64_C (1469598103934665603);
+        size_t count = 0, pos_a = 0, pos_b = 0;
+        int lit_a = 0, lit_b = 0;
+        if (watched != INVALID_LIT) {
+          watches entries = WATCHES (watched);
+          const watch *p = BEGIN_WATCHES (entries);
+          const watch *const end = END_WATCHES (entries);
+          while (p != end) {
+            const watch head = *p++;
+            if (!head.type.binary) {
+              p++;
+              continue;
+            }
+            const int other = external_literal (solver, head.binary.lit);
+            hash = mix (hash, (uint64_t) (int64_t) other);
+            count++;
+            if (!pos_a && abs (other) == abs (target_a))
+              pos_a = count, lit_a = other;
+            if (!pos_b && abs (other) == abs (target_b))
+              pos_b = count, lit_b = other;
           }
-          written = snprintf (annotated_payload + used,
-                              sizeof annotated_payload - used, "%s%d",
-                              first ? "" : ",",
-                              external_literal (solver, head.binary.lit));
-          if (written <= 0)
-            break;
+        }
+        snprintf (annotated_payload + used, sizeof annotated_payload - used,
+                  "|binary_count=%zu|binary_hash=%016" PRIx64
+                  "|target_a=%d|target_a_pos=%zu|target_a_lit=%d"
+                  "|target_b=%d|target_b_pos=%zu|target_b_lit=%d",
+                  count, hash, target_a, pos_a, lit_a, target_b, pos_b, lit_b);
+      } else {
+        written = snprintf (annotated_payload + used,
+                            sizeof annotated_payload - used, "|binary=");
+        if (written > 0)
           used += (size_t) written;
-          first = false;
+        bool first = true;
+        if (watched != INVALID_LIT) {
+          watches entries = WATCHES (watched);
+          const watch *p = BEGIN_WATCHES (entries);
+          const watch *const end = END_WATCHES (entries);
+          while (p != end && used < sizeof annotated_payload) {
+            const watch head = *p++;
+            if (!head.type.binary) {
+              p++;
+              continue;
+            }
+            written = snprintf (annotated_payload + used,
+                                sizeof annotated_payload - used, "%s%d",
+                                first ? "" : ",",
+                                external_literal (solver, head.binary.lit));
+            if (written <= 0)
+              break;
+            used += (size_t) written;
+            first = false;
+          }
         }
       }
     }
