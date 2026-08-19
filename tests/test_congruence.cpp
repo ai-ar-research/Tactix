@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <string>
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -199,6 +201,53 @@ static void test_xor_cancel_learns_unit() {
   assert(equivalence_added(k, 3, 4));          // the enabling merge
   assert(k.value(internalize(5)) < 0);         // ¬out asserted at the root
   assert(k.stats.congruence_units >= 1);
+}
+
+// A root-valued input and an independently cancelled pair still require the
+// XOR degeneracy ladder. The old value-derived branch tried the conclusion as
+// one direct LRAT lemma, found it non-RUP, and silently lost the sound unit.
+static void test_xor_value_plus_cancel_uses_ladder() {
+  const std::string path = "/tmp/tactix-congruence-valued-xor-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".lrat";
+  Proof proof;
+  assert(proof.open(path.c_str(), ProofFormat::Lrat));
+  Kernel k;
+  kernel_reserve_vars(k, 6); // a=1 out=2 x=3 y=4 p=5 q=6
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+
+  k.unit_ids[var_of(internalize(-1))] = ++k.next_clause_id;
+  kernel_assign_unit(k, internalize(-1)); // a=0
+  const auto add_and = [&](int out, int lhs, int rhs) {
+    kernel_add_binary_clause(k, internalize(-out), internalize(lhs),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(-out), internalize(rhs),
+                             ++k.next_clause_id);
+    const Lit base[3] = {internalize(out), internalize(-lhs),
+                         internalize(-rhs)};
+    kernel_add_large_clause(k, base, 3, false, 0, ++k.next_clause_id);
+  };
+  add_and(3, 5, 6);
+  add_and(4, 5, 6); // closure proves x == y
+
+  // out = a XOR x XOR y: all eight odd-negation clauses over the relation.
+  const int vars[4] = {1, 3, 4, 2};
+  for (unsigned mask = 0; mask < 16; mask++) {
+    if (!(__builtin_popcount(mask) & 1))
+      continue;
+    Lit clause[4];
+    for (unsigned j = 0; j < 4; j++)
+      clause[j] = internalize((mask & (1u << j)) ? -vars[j] : vars[j]);
+    kernel_add_large_clause(k, clause, 4, false, 0, ++k.next_clause_id);
+  }
+
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(-2)) > 0);
+  assert(k.stats.congruence_units >= 1);
+  proof.flush();
+  k.proof = nullptr;
+  std::remove(path.c_str());
 }
 
 // A late unit must revisit an already-consumed gate that mentions it, without
@@ -491,6 +540,7 @@ int main() {
   test_binary_equivalence_channel();
   test_binary_resolution_refutes();
   test_xor_cancel_learns_unit();
+  test_xor_value_plus_cancel_uses_ladder();
   test_unit_reschedules_only_affected_gate();
   test_xor_cancel_refutes();
   test_and_clash_learns_unit();
