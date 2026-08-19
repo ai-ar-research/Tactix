@@ -318,6 +318,7 @@ int main() {
     assert(trace.open_from_env(k));
     trace.detail(k, "score_bump", 2);
     trace.randec_state(k, "pre", 523, 533, 4);
+    trace.sweep_equivalence(k, internalize(1), internalize(-2));
     trace.detail(k, "diagnostic_noise", 9);
   }
   unsetenv("TACTIX_EVENT_TRACE");
@@ -329,6 +330,8 @@ int main() {
       std::istreambuf_iterator<char>());
   assert(compact_bumps_text.find("\tscore_bump\t") != std::string::npos);
   assert(compact_bumps_text.find("\trandec_state\t") != std::string::npos);
+  assert(compact_bumps_text.find("\tsweep_equivalence\t") !=
+         std::string::npos);
   assert(compact_bumps_text.find("\tdiagnostic_noise\t") ==
          std::string::npos);
   std::remove(compact_bumps_path.c_str());

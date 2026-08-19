@@ -328,6 +328,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "heap_scores") &&
       std::strcmp(event, "binary_assignment") &&
       std::strcmp(event, "binary_add") &&
+      std::strcmp(event, "sweep_equivalence") &&
       std::strcmp(event, "sweep_rewrite_binary") &&
       std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&
       std::strcmp(event, "imply") &&
