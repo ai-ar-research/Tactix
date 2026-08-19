@@ -320,8 +320,9 @@ verification; its 15,604,302-byte proof verifies with zero residue. This is a
 solver-side XOR `Canon::Unit` defect; do not promote the diagnostic fail-closed
 guard. The next shadow refinement dumps the failed gate's output, original
 inputs, representatives, root values, and unit ids to distinguish stale
-extraction from bad parity/value folding before any production edit. V6a stays
-on, no pin is promoted, and cumulative arrays remain blocked.
+extraction from bad parity/value folding. It is submitted as campaign
+`20260818-2220-ascon-xor-gate-dump`, job `1634270`, from commit `cdf3109` and
+pin `79843e74...`. V6a stays on; no pin is promoted; arrays remain blocked.
 
 ## Gates
 
