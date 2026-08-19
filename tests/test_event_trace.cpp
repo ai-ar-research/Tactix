@@ -68,6 +68,8 @@ int main() {
     trace.watch_scan(k, internalize(3));
     trace.conflict(k);
     trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
+    setenv("SAT_EVENT_TRACE_CLAUSE_SET", "-3,1,-2", 1);
+    setenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO", "0", 1);
     trace.detail(k, "analysis_end", 1);
     k.tier1 = 3;
     k.tier2 = 8;
@@ -81,6 +83,8 @@ int main() {
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_POSE");
+  unsetenv("SAT_EVENT_TRACE_CLAUSE_SET");
+  unsetenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
   std::ifstream input(path);
   const std::string text((std::istreambuf_iterator<char>(input)),
                          std::istreambuf_iterator<char>());
@@ -131,6 +135,9 @@ int main() {
          "analysis_end must carry the post-analysis ranking snapshot");
   assert(analysis_line.find("\t3\t3\t1") != std::string::npos &&
          "focused top32 must retain queue-tail decision order");
+  assert(analysis_line.find("|clause_set=-3,1,-2|clause_poses="
+                            "id=0,order=0,searched=3,redundant=0,"
+                            "pose=-3,1,-2") != std::string::npos);
   std::remove(path.c_str());
 
   const std::string window_path = trace_path("event-window");

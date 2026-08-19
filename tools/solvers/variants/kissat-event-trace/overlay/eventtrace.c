@@ -66,6 +66,99 @@ static int external_literal (kissat *solver, unsigned lit) {
   return NEGATED (lit) ? -external : external;
 }
 
+static size_t parse_clause_set (const char *spec, int *selected,
+                                size_t capacity) {
+  size_t size = 0;
+  const char *cursor = spec;
+  while (*cursor) {
+    if (size == capacity)
+      return 0;
+    char *end = 0;
+    const long value = strtol (cursor, &end, 10);
+    if (end == cursor)
+      return 0;
+    selected[size++] = (int) value;
+    cursor = end;
+    if (*cursor == ',')
+      cursor++;
+    else if (*cursor)
+      return 0;
+  }
+  return size;
+}
+
+static void annotate_clause_set (kissat *solver, char *payload,
+                                 size_t capacity) {
+  const char *spec = getenv ("SAT_EVENT_TRACE_CLAUSE_SET");
+  if (!spec || !*spec)
+    return;
+  const char *conflict_to =
+      getenv ("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
+  if (conflict_to && *conflict_to) {
+    char *end = 0;
+    const unsigned long long limit = strtoull (conflict_to, &end, 10);
+    if (end != conflict_to && !*end && solver->statistics.conflicts > limit)
+      return;
+  }
+  int selected[64];
+  const size_t selected_size =
+      parse_clause_set (spec, selected, sizeof selected / sizeof *selected);
+  if (!selected_size)
+    return;
+  size_t used = strlen (payload);
+  int written = snprintf (payload + used, capacity - used,
+                          "|clause_set=%s|clause_poses=", spec);
+  if (written <= 0 || (size_t) written >= capacity - used)
+    return;
+  used += (size_t) written;
+  size_t matches = 0;
+  ward *const arena = BEGIN_STACK (solver->arena);
+  clause *c = (clause *) arena;
+  const clause *const end = (clause *) END_STACK (solver->arena);
+  while (c != end && used < capacity) {
+    if (!c->garbage && c->size == selected_size) {
+      bool matched[64] = {false};
+      bool same = true;
+      for (all_literals_in_clause (lit, c)) {
+        const int external = external_literal (solver, lit);
+        size_t i = 0;
+        while (i != selected_size &&
+               (matched[i] || selected[i] != external))
+          i++;
+        if (i == selected_size) {
+          same = false;
+          break;
+        }
+        matched[i] = true;
+      }
+      if (same) {
+        written = snprintf (payload + used, capacity - used,
+                            "%ssearched=%u,redundant=%u,pose=",
+                            matches ? ";" : "", c->searched,
+                            c->redundant);
+        if (written <= 0 || (size_t) written >= capacity - used)
+          return;
+        used += (size_t) written;
+        size_t i = 0;
+        for (all_literals_in_clause (lit, c)) {
+          written = snprintf (payload + used, capacity - used, "%s%d",
+                              i++ ? "," : "",
+                              external_literal (solver, lit));
+          if (written <= 0 || (size_t) written >= capacity - used)
+            return;
+          used += (size_t) written;
+        }
+        matches++;
+      }
+    }
+    c = kissat_next_clause (c);
+  }
+  if (!matches && used < capacity - 1) {
+    payload[used++] = '-';
+    payload[used] = 0;
+  }
+}
+
 static void open_reduce_trace (void) {
   if (reduce_trace_initialized)
     return;
@@ -390,6 +483,8 @@ void kissat_event_trace (kissat *solver, const char *event,
         }
       }
     }
+    annotate_clause_set (solver, annotated_payload,
+                         sizeof annotated_payload);
   }
   fprintf (trace_file,
            "kissat\t%" PRIu64 "\t%s\t%" PRIu64 "\t%" PRIu64
