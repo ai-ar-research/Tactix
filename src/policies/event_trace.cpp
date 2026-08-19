@@ -126,6 +126,14 @@ void annotate_clause_set(const Kernel &k, std::string &payload) {
   const char *spec = std::getenv("SAT_EVENT_TRACE_CLAUSE_SET");
   if (!spec || !*spec)
     return;
+  const char *conflict_from =
+      std::getenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_FROM");
+  if (conflict_from && *conflict_from) {
+    char *end = nullptr;
+    const unsigned long long limit = std::strtoull(conflict_from, &end, 10);
+    if (end != conflict_from && !*end && k.stats.conflicts < limit)
+      return;
+  }
   const char *conflict_to =
       std::getenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
   if (conflict_to && *conflict_to) {

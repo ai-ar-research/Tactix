@@ -93,6 +93,14 @@ static void annotate_clause_set (kissat *solver, char *payload,
   const char *spec = getenv ("SAT_EVENT_TRACE_CLAUSE_SET");
   if (!spec || !*spec)
     return;
+  const char *conflict_from =
+      getenv ("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_FROM");
+  if (conflict_from && *conflict_from) {
+    char *end = 0;
+    const unsigned long long limit = strtoull (conflict_from, &end, 10);
+    if (end != conflict_from && !*end && solver->statistics.conflicts < limit)
+      return;
+  }
   const char *conflict_to =
       getenv ("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
   if (conflict_to && *conflict_to) {
