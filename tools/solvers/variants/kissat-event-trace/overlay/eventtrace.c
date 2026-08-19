@@ -5,6 +5,7 @@
 #include "heap.h"
 
 #include <inttypes.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -542,6 +543,12 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   // than at the later decision that exposes it.
   const bool snapshot = !strcmp (event, "analysis_end");
   kissat_event_trace (solver, event, buffer, snapshot);
+  const char *stop = getenv ("KISSAT_EVENT_TRACE_STOP_AFTER_CONFLICT");
+  if (stop && snapshot &&
+      solver->statistics.conflicts >= strtoull (stop, 0, 10)) {
+    fflush (trace_file);
+    raise (SIGTERM);
+  }
 }
 
 void kissat_event_trace_literal (kissat *solver, const char *event,
