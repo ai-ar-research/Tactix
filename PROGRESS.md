@@ -312,20 +312,16 @@ bad trajectory. Shadow job `1634243` reaches the unchanged failure without
 aborting: both premises of every direct Y1 unit exist in the checker. Thus Y1
 changes upstream root state but is not the bad unit's direct emitter. Label the
 Congruence unit channel in shadow job `1634245`: `-1997` is a value-derived
-`Canon::Unit`, not direct Y1. Force diagnostic RUP replay on that channel next;
-keep V6a on and promote no pin. A compile-time shadow-only arm now performs
-that replay and labels the gate kind plus pass/fail result; Shadow and Release
-both pass 72/72 locally. No production pin includes this diagnostic. Submit one
-pinned Ascon shadow task next, and do not launch cumulative arrays until its
-proof verifies. Campaign `20260818-2212-ascon-value-unit-replay`, job `1634264`,
-is submitted from commit `1a53ba3` with shadow pin `ef58cf2e...`; resume by
-reading its `forced-rup` label, checked result, and cleanup state. It completes
-valid: `-1997` is an XOR value-unit and forced RUP fails inside Tactix. Dropping
-that one unjustified inference yields checked UNSAT in 95.785 s plus 57.775 s
-verification; the 15,604,302-byte proof verifies and all scratch is removed.
-This localizes a solver-side XOR `Canon::Unit` correctness defect. Repair the
-canonicalization/root-value reasoning itself; do not promote the shadow-only
-fail-closed guard as the production fix.
+`Canon::Unit`, not direct Y1. Compile-time forced replay campaign
+`20260818-2212-ascon-value-unit-replay`, job `1634264`, completes valid:
+`-1997` is an XOR value-unit and RUP fails inside Tactix. Dropping that one
+unjustified inference yields checked UNSAT in 95.785 s plus 57.775 s
+verification; its 15,604,302-byte proof verifies with zero residue. This is a
+solver-side XOR `Canon::Unit` defect; do not promote the diagnostic fail-closed
+guard. The next shadow refinement dumps the failed gate's output, original
+inputs, representatives, root values, and unit ids to distinguish stale
+extraction from bad parity/value folding before any production edit. V6a stays
+on, no pin is promoted, and cumulative arrays remain blocked.
 
 ## Gates
 
