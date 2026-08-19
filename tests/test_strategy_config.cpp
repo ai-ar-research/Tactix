@@ -304,7 +304,31 @@ int main() {
   switched_random.reset(1500); // ordinary deadline 2000: not due yet
   switched_random.start_random_sequence(switched);
   if (switched.stats.random_sequences != 1 ||
-      switched_random.randec_until != 1854)
+      switched_random.randec_remaining != 10)
+    return 1;
+
+  // Kissat charges random-sequence lifetime only when search propagation
+  // returns a conflict. An OTFS conflict added inside analysis advances the
+  // global conflict count but does not consume the sequence counter.
+  switched_random.on_search_propagation_conflict();
+  switched.stats.conflicts++;
+  if (switched_random.randec_remaining != 9)
+    return 1;
+  switched.stats.conflicts++; // analysis/OTFS conflict: deliberately uncharged
+  if (switched_random.randec_remaining != 9)
+    return 1;
+  for (unsigned i = 0; i != 8; ++i)
+    switched_random.on_search_propagation_conflict();
+  if (switched_random.randec_remaining != 1)
+    return 1;
+  const uint64_t random_decisions_before = switched.stats.random_decisions;
+  (void)switched_random.pick(switched);
+  if (switched.stats.random_decisions != random_decisions_before + 1)
+    return 1;
+  switched_random.on_search_propagation_conflict();
+  (void)switched_random.pick(switched);
+  if (switched_random.randec_remaining ||
+      switched.stats.random_decisions != random_decisions_before + 1)
     return 1;
 
   DefaultStrategyConfig custom = defaults;

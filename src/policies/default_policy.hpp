@@ -22,19 +22,23 @@ public:
   // than a tunable strategy arm, so they do not belong in DefaultStrategyConfig.
   static constexpr uint64_t RANDEC_MULTIPLIER = 6364136223846793005ull;
   static constexpr uint64_t RANDEC_INCREMENT = 1442695040888963407ull;
-  uint64_t randec_until = 0;
+  uint64_t randec_remaining = 0;
   uint64_t randec_next = RANDEC_INIT;
   uint64_t randec_sequences = 0;
   uint64_t randec_rng = RANDEC_SEED;
   bool randec_enabled = true;
   void start_random_sequence(Kernel &);
+  void on_search_propagation_conflict() override {
+    if (randec_remaining)
+      --randec_remaining;
+  }
   void set_config(const DefaultStrategyConfig::Branching *config) {
     config_ = config;
   }
   void reset(uint64_t conflicts) {
     const auto defaults = DefaultStrategyConfig{}.branching;
     const auto &cfg = config_ ? *config_ : defaults;
-    randec_until = 0;
+    randec_remaining = 0;
     randec_next = conflicts + cfg.random_initial_interval;
     randec_sequences = 0;
     randec_rng = cfg.random_seed;

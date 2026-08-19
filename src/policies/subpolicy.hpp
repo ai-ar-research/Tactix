@@ -24,6 +24,9 @@ struct SubPolicy {
 // legal instance (N1); rules validate, choosing never bypasses the guard.
 struct BranchingPolicy : SubPolicy {
   virtual Lit pick(Kernel &) = 0;
+  // Search-propagation conflicts can advance branching schedules differently
+  // from conflicts synthesized inside analysis (for example OTFS restarts).
+  virtual void on_search_propagation_conflict() {}
 };
 
 // Candidate order: in what order to try the instances a rule enumerated for one

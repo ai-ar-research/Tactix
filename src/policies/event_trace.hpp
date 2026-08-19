@@ -42,7 +42,7 @@ public:
                   uint64_t anchor, uint64_t count);
   void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                    bool accepted);
-  void randec_state(const Kernel &, const char *stage, uint64_t until,
+  void randec_state(const Kernel &, const char *stage, uint64_t remaining,
                     uint64_t next, uint64_t sequence);
   void phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
                   int8_t result);
@@ -213,7 +213,7 @@ void event_trace_heap_scores(const Kernel &);
 void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                              bool accepted);
 void event_trace_randec_state(const Kernel &, const char *stage,
-                              uint64_t until, uint64_t next,
+                              uint64_t remaining, uint64_t next,
                               uint64_t sequence);
 void event_trace_phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
                             int8_t result);
