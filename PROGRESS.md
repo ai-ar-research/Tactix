@@ -343,7 +343,7 @@ The cumulative pin is accepted; V6a stays on.
    matches through conflict 533/decision 3859653; `1634436` differs at stable
    decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
    direct reason; `1634446` excludes root transactions; `1634449` proves binary sharing.
-   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. `c5a6928` fixes admission; `1634463` exposes legacy-profile overrides. `9645e25` restores defaults/fixed-aware compaction. `1634464` matches c1000 pose; `1634465` times out cleanly. Saved traces pin reduce-end VMTF reset 3824785→3722682. `bcfe4a0` maps the cursor like Kissat (72/72+71/71); confirmation job `1634466` active.
+   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. `c5a6928` fixes admission; `1634463` exposes profile overrides; `1634464` matches c1000 pose; `1634465` times out cleanly. `bcfe4a0` maps VMTF cursor (72/72+71/71); `1634466` confirms 3824785 through c1001, terminal/clean. Next frontier at same reduce-end: Kissat irred 8701390→8701220; Tactix unchanged.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
