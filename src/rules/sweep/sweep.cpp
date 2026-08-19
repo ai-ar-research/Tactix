@@ -2152,6 +2152,12 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
       if ((!av || !bv) || av == bv) {
         any = true;
         emitted_equivalences.emplace_back(e.a, e.b);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        // Kissat reports the proved equivalence before root-fixed commitment.
+        // Keep the semantic event stream complete when this early branch
+        // retains the same consequence for the substitution batch.
+        event_trace_sweep_equivalence(k, e.a, e.b);
+#endif
       }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       event_trace_sweep_commit(k, e.a, e.b, av, bv,
