@@ -430,6 +430,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "heap_scores") &&
       strcmp (event, "binary_assignment") &&
       strcmp (event, "binary_add") &&
+      strcmp (event, "sweep_seed") &&
       strcmp (event, "sweep_equivalence") &&
       strcmp (event, "sweep_rewrite_binary") &&
       strcmp (event, "watch") && strcmp (event, "imply") &&
