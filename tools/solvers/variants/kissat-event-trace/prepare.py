@@ -851,6 +851,17 @@ def main():
                  '#include "terminate.h"\n#include "eventtrace.h"\n'
                  '#include "rulejournal.h"\n')
     replace_once(sweep,
+        '  INC (sweep_variables);\n\n'
+        '  LOG ("sweeping %s", LOGVAR (idx));\n',
+        '  INC (sweep_variables);\n'
+        '  {\n'
+        '    char payload[64];\n'
+        '    snprintf (payload, sizeof payload, "external=%d",\n'
+        '              kissat_export_literal (solver, LIT (idx)));\n'
+        '    kissat_event_trace (solver, "sweep_seed", payload, false);\n'
+        '  }\n\n'
+        '  LOG ("sweeping %s", LOGVAR (idx));\n')
+    replace_once(sweep,
         '  LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));\n'
         '  INC (sweep_equivalences);\n',
         '  LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));\n'
