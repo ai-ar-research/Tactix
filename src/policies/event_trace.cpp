@@ -1494,7 +1494,10 @@ void EventTrace::analyzed_post(const Kernel &k,
 }
 
 void EventTrace::heap_scores(const Kernel &k) {
-  if (!want_detail(k) || !k.h || !k.h->stable)
+  // Trajectory-only mode deliberately omits heap-score records.  Return
+  // before hashing the full stack: on multi-million-variable instances the
+  // discarded diagnostic work otherwise dominates the solver run.
+  if (trajectory_only_ || !want_detail(k) || !k.h || !k.h->stable)
     return;
   uint64_t stack_hash = 1469598103934665603ull;
   for (const Var v : k.h->scores.stack) {

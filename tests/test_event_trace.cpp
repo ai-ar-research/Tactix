@@ -272,6 +272,9 @@ int main() {
                         {internalize(3), internalize(-1), internalize(2)});
     trace.detail(k, "analysis_tail_probe", 7);
     trace.detail(k, "analysis_end", 1);
+    k.h->stable = true;
+    trace.heap_scores(k);
+    k.h->stable = false;
     trace.detail(k, "score_bump", 2);
     trace.detail(k, "analysis_mark", 1);
     trace.macro(k, "restart_begin");
@@ -290,6 +293,7 @@ int main() {
   assert(trajectory_text.find("\tanalysis_tail_probe\t") ==
          std::string::npos);
   assert(trajectory_text.find("\tanalysis_end\t") != std::string::npos);
+  assert(trajectory_text.find("\theap_scores\t") == std::string::npos);
   assert(trajectory_text.find("\trestart_begin\t") != std::string::npos);
   assert(trajectory_text.find("\tscore_bump\t") == std::string::npos);
   assert(trajectory_text.find("\tanalysis_mark\t") == std::string::npos);
