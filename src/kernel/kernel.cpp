@@ -297,6 +297,7 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
 
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   const bool new_pair = !kernel_binary_live(k, a, b);
+  event_trace_binary_add(k, a, b);
   kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);

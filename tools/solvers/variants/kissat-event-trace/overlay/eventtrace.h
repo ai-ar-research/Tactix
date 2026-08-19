@@ -26,6 +26,7 @@ void kissat_event_trace_binary_assignment (struct kissat *, unsigned assigned,
                                            unsigned immediate_reason,
                                            unsigned stored_reason,
                                            bool jumped);
+void kissat_event_trace_binary_add (struct kissat *, unsigned, unsigned);
 void kissat_event_trace_clause (struct kissat *, const char *);
 void kissat_event_trace_learned (struct kissat *);
 void kissat_event_trace_checkpoint (struct kissat *);

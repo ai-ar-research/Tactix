@@ -150,19 +150,23 @@ int main() {
   Kernel watch_kernel;
   kernel_reserve_vars(watch_kernel, 3);
   ScopedHeuristics watch_h(watch_kernel);
-  kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(2));
-  kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(-3));
   setenv("TACTIX_EVENT_TRACE", watch_positions_path.c_str(), 1);
   setenv("SAT_EVENT_TRACE_WATCH_LIST", "-1", 1);
   setenv("SAT_EVENT_TRACE_WATCH_TARGETS", "2,3", 1);
+  setenv("SAT_EVENT_TRACE_BINARY_ADD", "-1", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(watch_kernel));
+    trace.binary_add(watch_kernel, internalize(-1), internalize(2));
+    kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(2));
+    trace.binary_add(watch_kernel, internalize(-1), internalize(-3));
+    kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(-3));
     trace.macro(watch_kernel, "watch_positions");
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("SAT_EVENT_TRACE_WATCH_LIST");
   unsetenv("SAT_EVENT_TRACE_WATCH_TARGETS");
+  unsetenv("SAT_EVENT_TRACE_BINARY_ADD");
   std::ifstream watch_positions_input(watch_positions_path);
   const std::string watch_positions_text(
       (std::istreambuf_iterator<char>(watch_positions_input)),
@@ -174,6 +178,9 @@ int main() {
              "|target_a=2|target_a_pos=1|target_a_lit=2"
              "|target_b=3|target_b_pos=2|target_b_lit=-3") !=
          std::string::npos);
+  assert(watch_positions_text.find("\tbinary_add\t") != std::string::npos);
+  assert(watch_positions_text.find("\ta=-1|b=2\n") != std::string::npos);
+  assert(watch_positions_text.find("\ta=-1|b=-3\n") != std::string::npos);
   assert(watch_positions_text.find("|binary=") == std::string::npos);
   std::remove(watch_positions_path.c_str());
 

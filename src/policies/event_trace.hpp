@@ -42,6 +42,7 @@ public:
                 uint32_t from, uint32_t to);
   void binary_assignment(const Kernel &, Lit assigned, Lit immediate_reason,
                          Lit stored_reason, bool jumped);
+  void binary_add(const Kernel &, Lit a, Lit b);
   void mode_clock(const Kernel &, const char *stage, uint64_t limit,
                   uint64_t anchor, uint64_t count);
   void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
@@ -227,6 +228,7 @@ void event_trace_heap_pop(const Kernel &, const char *stage, Var held,
 void event_trace_binary_assignment(const Kernel &, Lit assigned,
                                    Lit immediate_reason, Lit stored_reason,
                                    bool jumped);
+void event_trace_binary_add(const Kernel &, Lit a, Lit b);
 void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                              bool accepted);
 void event_trace_randec_state(const Kernel &, const char *stage,
@@ -308,6 +310,7 @@ inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
                                  uint32_t, uint32_t) {}
 inline void event_trace_binary_assignment(const Kernel &, Lit, Lit, Lit,
                                           bool) {}
+inline void event_trace_binary_add(const Kernel &, Lit, Lit) {}
 inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
                                     bool) {}
 inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
