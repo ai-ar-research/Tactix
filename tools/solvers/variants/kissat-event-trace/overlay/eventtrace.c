@@ -797,8 +797,15 @@ void kissat_event_trace_heap_scores (kissat *solver) {
     return;
   heap *heap = SCORES;
   char payload[4096];
-  char *p = payload;
-  size_t left = sizeof payload;
+  uint64_t stack_hash = UINT64_C (1469598103934665603);
+  for (all_stack (unsigned, idx, heap->stack)) {
+    stack_hash ^= (uint64_t) external_literal (solver, LIT (idx));
+    stack_hash *= UINT64_C (1099511628211);
+  }
+  const int prefix = snprintf (payload, sizeof payload,
+                               "hash=%016" PRIx64 "|", stack_hash);
+  char *p = payload + prefix;
+  size_t left = sizeof payload - (size_t) prefix;
   const size_t size = MIN ((size_t) 32, SIZE_STACK (heap->stack));
   for (size_t i = 0; i != size; i++) {
     const unsigned idx = PEEK_STACK (heap->stack, i);
