@@ -238,12 +238,17 @@ bool EventTrace::open_from_env(const Kernel &k) {
   if (const char *decision =
           std::getenv("TACTIX_EVENT_TRACE_HEAP_FROM_DECISION"))
     heap_from_decision_ = std::strtoull(decision, nullptr, 10);
+  if (const char *decision =
+          std::getenv("TACTIX_EVENT_TRACE_HEAP_POP_DECISION"))
+    heap_pop_decision_ = std::strtoull(decision, nullptr, 10);
   compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
   skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
   skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
   skip_heap_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_HEAP") != nullptr;
   heap_each_bump_ =
       std::getenv("TACTIX_EVENT_TRACE_HEAP_EACH_BUMP") != nullptr;
+  heap_pop_only_ =
+      std::getenv("TACTIX_EVENT_TRACE_HEAP_POP_ONLY") != nullptr;
   skip_decisions_ =
       std::getenv("TACTIX_EVENT_TRACE_SKIP_DECISIONS") != nullptr;
   skip_randec_draws_ =
@@ -290,6 +295,10 @@ void EventTrace::close() {
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
   if (!out_)
+    return;
+  if (heap_pop_only_ && std::strcmp(event, "heap_pop") &&
+      std::strcmp(event, "heap_scores") && std::strcmp(event, "decision") &&
+      std::strcmp(event, "analysis_end"))
     return;
   if (snapshot && stop_after_conflict_ != UINT64_MAX &&
       (k.stats.conflicts < stop_after_conflict_ || stop_pending_) &&
@@ -1565,6 +1574,20 @@ void EventTrace::heap_scores(const Kernel &k) {
   emit_heap_scores(k);
 }
 
+void EventTrace::heap_pop(const Kernel &k, const char *stage, Var held,
+                          Var other, uint32_t from, uint32_t to) {
+  if (!out_ || !k.h || !k.h->stable || k.stats.decisions != heap_pop_decision_)
+    return;
+  char payload[256];
+  std::snprintf(payload, sizeof payload,
+                "stage=%s|held=%d:%.17g|other=%d:%.17g|from=%u|to=%u", stage,
+                kernel_externalize(k, make_lit(held, false)),
+                k.h->scores.score[held],
+                kernel_externalize(k, make_lit(other, false)),
+                k.h->scores.score[other], from, to);
+  emit(k, "heap_pop", payload, false);
+}
+
 void EventTrace::mode_clock(const Kernel &k, const char *stage, uint64_t limit,
                             uint64_t anchor, uint64_t count) {
   if (!std::getenv("TACTIX_EVENT_TRACE_MODE_CLOCK") || !want_detail(k))
@@ -1593,6 +1616,12 @@ void event_trace_analyzed_post(const Kernel &k,
 void event_trace_heap_scores(const Kernel &k) {
   if (active_trace)
     active_trace->heap_scores(k);
+}
+
+void event_trace_heap_pop(const Kernel &k, const char *stage, Var held,
+                          Var other, uint32_t from, uint32_t to) {
+  if (active_trace)
+    active_trace->heap_pop(k, stage, held, other, from, to);
 }
 
 void event_trace_root_assign(const Kernel &k, Lit lit) {
