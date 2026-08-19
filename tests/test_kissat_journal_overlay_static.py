@@ -35,11 +35,14 @@ assert eventtrace.count('strcmp (event, "randec_state")') >= 2, (
 assert 'solver->statistics.conflicts < stop' in eventtrace, (
     "stop-mode must suppress expensive snapshots before its endpoint")
 assert re.search(
-    r'if \(snapshot && stop != UINT64_MAX &&\s*'
-    r'solver->statistics.conflicts >= stop\)\s*emit_heap_scores \(solver\);',
-    eventtrace), "stop-mode must emit one endpoint heap digest"
+    r'if \(stop_here && solver->stable\)\s*emit_heap_scores \(solver\);',
+    eventtrace), "stable analysis-end must emit one endpoint heap digest"
 assert re.search(
-    r'!solver->stable \|\|\s*stop_after_conflict \(\) != UINT64_MAX\)',
-    eventtrace), "ordinary heap snapshots must be suppressed in stop-mode"
+    r'if \(stop != UINT64_MAX && !trace_stop_pending\)\s*return;',
+    eventtrace), "intermediate heap snapshots must be suppressed in stop-mode"
+assert 'else if (stop_here)\n    trace_stop_pending = true;' in eventtrace, (
+    "focused analysis-end must defer the stop until stable mode")
+assert '(solver->statistics.conflicts < stop || trace_stop_pending)' in eventtrace, (
+    "pending stop must suppress expensive mode-switch snapshots")
 
 print("test_kissat_journal_overlay_static OK")
