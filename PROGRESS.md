@@ -339,10 +339,10 @@ The cumulative pin is accepted; V6a stays on.
 ## Next engineering work
 
 1. Rank-22 cause is localized by valid job `1634412`; both start sequence 1 at
-   conflict 523 with length 10/next 1023. At conflict 533 Kissat has one unit
-   left while Tactix's absolute deadline expires. Analysis/OTFS conflict 526 is
-   global but not search propagation. A remaining counter now charges only the
-   outer Propagate conflict hook; Release 72/72 and Trace 71/71 pass. Replay next.
+   conflict 523 with length 10/next 1023. Analysis/OTFS conflict 526 is global
+   but not search propagation, leaving Kissat one unit at conflict 533. Repair
+   `a9f751c` uses a propagation-charged counter; 72/72+71/71 pass. Await job
+   `1634419`, campaign `20260819-0040-tierd-rank22-randec-lifetime-replay`.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
