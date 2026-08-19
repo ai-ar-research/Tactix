@@ -851,6 +851,26 @@ def main():
                  '#include "terminate.h"\n#include "eventtrace.h"\n'
                  '#include "rulejournal.h"\n')
     replace_once(sweep,
+        '  unsigned encoded;\n'
+        '  unsigned save;\n',
+        '  unsigned encoded;\n'
+        '  unsigned trace_seed;\n'
+        '  unsigned save;\n')
+    replace_once(sweep,
+        '  kitten_clause (solver->kitten, SIZE_STACK (sweeper->clause),\n'
+        '                 BEGIN_STACK (sweeper->clause));\n',
+        '  kissat_event_trace_sweep_environment_clause (\n'
+        '      solver, sweeper->trace_seed, sweeper->encoded,\n'
+        '      SIZE_STACK (sweeper->clause), BEGIN_STACK (sweeper->clause));\n'
+        '  kitten_clause (solver->kitten, SIZE_STACK (sweeper->clause),\n'
+        '                 BEGIN_STACK (sweeper->clause));\n')
+    replace_once(sweep,
+        '  const unsigned start = LIT (idx);\n'
+        '  if (sweeper->reprs[start] != start)\n',
+        '  const unsigned start = LIT (idx);\n'
+        '  sweeper->trace_seed = start;\n'
+        '  if (sweeper->reprs[start] != start)\n')
+    replace_once(sweep,
         '  ADD (sweep_environment, SIZE_STACK (sweeper->vars));\n'
         '  kissat_extremely_verbose (solver,\n',
         '  ADD (sweep_environment, SIZE_STACK (sweeper->vars));\n'

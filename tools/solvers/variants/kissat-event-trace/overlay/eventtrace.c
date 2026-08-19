@@ -432,6 +432,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "binary_add") &&
       strcmp (event, "sweep_seed") &&
       strcmp (event, "sweep_environment") &&
+      strcmp (event, "sweep_environment_clause") &&
       strcmp (event, "sweep_equivalence") &&
       strcmp (event, "sweep_rewrite_binary") &&
       strcmp (event, "watch") && strcmp (event, "imply") &&
@@ -1313,6 +1314,29 @@ void kissat_event_trace_factor_candidate_binary_source (
             external_literal (solver, candidate), seed, q, candidate);
   kissat_event_trace (solver, "factor_candidate_binary_source", payload,
                       false);
+}
+
+void kissat_event_trace_sweep_environment_clause (
+    kissat *solver, unsigned seed, unsigned ordinal, size_t size,
+    const unsigned *lits) {
+  const char *selected = getenv ("SAT_EVENT_TRACE_SWEEP_CLAUSES");
+  const int external_seed = external_literal (solver, seed);
+  if (!selected || strtol (selected, 0, 10) != external_seed)
+    return;
+  const size_t capacity = 96 + 13 * size;
+  char *payload = malloc (capacity);
+  if (!payload)
+    return;
+  int written = snprintf (payload, capacity, "seed=%d|ordinal=%u|order=",
+                          external_seed, ordinal);
+  for (size_t i = 0; i < size && written > 0 &&
+                     (size_t) written < capacity;
+       i++)
+    written += snprintf (payload + written, capacity - (size_t) written,
+                         "%s%d", i ? "," : "",
+                         external_literal (solver, lits[i]));
+  kissat_event_trace (solver, "sweep_environment_clause", payload, false);
+  free (payload);
 }
 
 void kissat_event_trace_factor_heap (kissat *solver, unsigned seed,

@@ -313,6 +313,7 @@ int main() {
   setenv("TACTIX_EVENT_TRACE", compact_bumps_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_SEARCH_ONLY", "1", 1);
   setenv("TACTIX_EVENT_TRACE_SKIP_HEAP", "1", 1);
+  setenv("SAT_EVENT_TRACE_SWEEP_CLAUSES", "1", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
@@ -320,12 +321,15 @@ int main() {
     trace.randec_state(k, "pre", 523, 533, 4);
     trace.sweep_seed(k, 0);
     trace.sweep_environment(k, 0, 3, 4, 5);
+    const Lit sweep_clause[2] = {internalize(1), internalize(-2)};
+    trace.sweep_environment_clause(k, 0, 0, sweep_clause, 2);
     trace.sweep_equivalence(k, internalize(1), internalize(-2));
     trace.detail(k, "diagnostic_noise", 9);
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("TACTIX_EVENT_TRACE_SEARCH_ONLY");
   unsetenv("TACTIX_EVENT_TRACE_SKIP_HEAP");
+  unsetenv("SAT_EVENT_TRACE_SWEEP_CLAUSES");
   std::ifstream compact_bumps_input(compact_bumps_path);
   const std::string compact_bumps_text(
       (std::istreambuf_iterator<char>(compact_bumps_input)),
@@ -334,6 +338,8 @@ int main() {
   assert(compact_bumps_text.find("\trandec_state\t") != std::string::npos);
   assert(compact_bumps_text.find("\tsweep_seed\t") != std::string::npos);
   assert(compact_bumps_text.find("\tsweep_environment\t") !=
+         std::string::npos);
+  assert(compact_bumps_text.find("\tsweep_environment_clause\t") !=
          std::string::npos);
   assert(compact_bumps_text.find("\tsweep_equivalence\t") !=
          std::string::npos);
