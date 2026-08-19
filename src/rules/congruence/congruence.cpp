@@ -3066,6 +3066,31 @@ ApplyResult congruence_apply(Kernel &k) {
                        kernel_externalize(k, unit),
                        kind_names[static_cast<int>(gates[i].kind)],
                        justified ? "pass" : "fail");
+          if (!justified) {
+            const Lit output_rep = find(gates[i].output);
+            std::fprintf(stderr,
+                         "PROOF SHADOW: failed gate output=%d(v=%d) "
+                         "rep=%d(v=%d) inputs=%zu cancelled=%zu\n",
+                         kernel_externalize(k, gates[i].output),
+                         static_cast<int>(k.value(gates[i].output)),
+                         kernel_externalize(k, output_rep),
+                         static_cast<int>(k.value(output_rep)),
+                         gates[i].inputs.size(), cancelled.size());
+            for (size_t input_index = 0;
+                 input_index < gates[i].inputs.size(); input_index++) {
+              const Lit input = gates[i].inputs[input_index];
+              const Lit input_rep = find(input);
+              std::fprintf(stderr,
+                           "PROOF SHADOW: failed gate input[%zu]=%d(v=%d) "
+                           "rep=%d(v=%d,unit-id=%llu)\n",
+                           input_index, kernel_externalize(k, input),
+                           static_cast<int>(k.value(input)),
+                           kernel_externalize(k, input_rep),
+                           static_cast<int>(k.value(input_rep)),
+                           static_cast<unsigned long long>(
+                               k.unit_ids[var_of(input_rep)]));
+            }
+          }
         }
 #else
         justified = congruence_rup_chain(k, &unit, 1, cch[0]);
