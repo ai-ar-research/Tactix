@@ -2402,6 +2402,17 @@ focused acceptance gate for the repair, not a rank closure. Resume with one
 checked 16\,GiB/1,200-second repaired Release attempt on frozen rank 22; close
 only for an independently checked SAT or UNSAT answer.
 
+The checked production campaign is
+\begin{center}\small\artifact{20260819-1458-tierd-rank22-root-fixed-production}\end{center}
+It pins optimized repaired Tactix at SHA-256 prefix \code{16eff1de}, with two
+CPUs, 16\,GiB, a 1,200-second solver ceiling, a 4,800-second checker ceiling,
+no array throttle, and no node constraint. The runner and pin checks pass;
+Release 72/72, Trace 71/71, removal replay \code{1634712}, and endpoint pair
+\code{1634715} are its prerequisites. Scheduler dry validation is job
+\code{1634717}; the actual production job is \code{1634718}. Resume by waiting
+through the solver and any independent checker. Accept only a checked answer
+with the decompressed input, proof, and scratch deleted and no cleanup pending.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
