@@ -124,6 +124,7 @@ private:
   bool skip_analysis_ticks_ = false;
   bool search_only_ = false;
   bool control_only_ = false;
+  bool watch_only_ = false;
   bool truncated_ = false;
 };
 #else

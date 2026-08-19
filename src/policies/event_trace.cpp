@@ -235,6 +235,7 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != nullptr;
   search_only_ = std::getenv("TACTIX_EVENT_TRACE_SEARCH_ONLY") != nullptr;
   control_only_ = std::getenv("TACTIX_EVENT_TRACE_CONTROL_ONLY") != nullptr;
+  watch_only_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_ONLY") != nullptr;
   out_ = std::fopen(path, "w");
   if (!out_)
     return false;
@@ -284,6 +285,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   if (skip_randec_draws_ && !std::strcmp(event, "randec_draw"))
     return;
   if (skip_analysis_ticks_ && !std::strncmp(event, "analysis_tick", 13))
+    return;
+  if (watch_only_ && !snapshot && std::strcmp(event, "watch"))
     return;
   if (search_only_ && !snapshot && std::strcmp(event, "decision") &&
       std::strcmp(event, "randec_draw") &&

@@ -14,7 +14,8 @@ static bool trace_initialized, trace_truncated, trace_saw_reorder;
 static bool trace_detail_window;
 static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
             trace_skip_decisions, trace_skip_randec_draws,
-            trace_skip_analysis_ticks, trace_search_only, trace_control_only;
+            trace_skip_analysis_ticks, trace_search_only, trace_control_only,
+            trace_watch_only;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
@@ -334,6 +335,7 @@ static void open_trace (void) {
       getenv ("KISSAT_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != 0;
   trace_search_only = getenv ("KISSAT_EVENT_TRACE_SEARCH_ONLY") != 0;
   trace_control_only = getenv ("KISSAT_EVENT_TRACE_CONTROL_ONLY") != 0;
+  trace_watch_only = getenv ("KISSAT_EVENT_TRACE_WATCH_ONLY") != 0;
   trace_file = fopen (path, "w");
   if (!trace_file)
     return;
@@ -375,6 +377,8 @@ void kissat_event_trace (kissat *solver, const char *event,
   if (trace_skip_randec_draws && !strcmp (event, "randec_draw"))
     return;
   if (trace_skip_analysis_ticks && !strncmp (event, "analysis_tick", 13))
+    return;
+  if (trace_watch_only && !snapshot && strcmp (event, "watch"))
     return;
   if (trace_search_only && !snapshot && strcmp (event, "decision") &&
       strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&

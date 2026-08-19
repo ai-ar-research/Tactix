@@ -167,6 +167,30 @@ int main() {
   assert(window_text.find("\tdecision\t3\t") == std::string::npos);
   std::remove(window_path.c_str());
 
+  const std::string watch_only_path = trace_path("event-watch-only");
+  std::remove(watch_only_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", watch_only_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "decision", 44);
+    trace.detail(k, "analysis_begin", 2);
+    trace.watch_scan(k, internalize(3));
+    trace.macro(k, "restart_begin");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_ONLY");
+  std::ifstream watch_only_input(watch_only_path);
+  const std::string watch_only_text(
+      (std::istreambuf_iterator<char>(watch_only_input)),
+      std::istreambuf_iterator<char>());
+  assert(watch_only_text.find("\twatch\t") != std::string::npos);
+  assert(watch_only_text.find("\trestart_begin\t") != std::string::npos);
+  assert(watch_only_text.find("\tdecision\t") == std::string::npos);
+  assert(watch_only_text.find("\tanalysis_begin\t") == std::string::npos);
+  std::remove(watch_only_path.c_str());
+
   const std::string skip_ticks_path = trace_path("event-skip-analysis-ticks");
   std::remove(skip_ticks_path.c_str());
   setenv("TACTIX_EVENT_TRACE", skip_ticks_path.c_str(), 1);
