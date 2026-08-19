@@ -299,8 +299,22 @@ second checker mutation; under DRAT it could consume a still-live duplicate.
 collection drops already-retired deferred OTFS reasons instead of interpreting
 their search cursor as a forwarding reference. Generic regressions cover both
 cases. An optional proof-population shadow build aborts at the first unbacked
-deletion and is compiled out of production. Its rebuilt suite is 72/72; focused
-checked `asconhashv12`, then 28B+5C and ranks 21--40, are the next gates.
+deletion and is compiled out of production. Its rebuilt suite is 72/72.
+Focused job `1634219` falsifies the large-clause-retirement diagnosis: both
+production and shadow arms reproduce the same 15,605,586-byte rejected proof
+(96.988/97.438 s), and the shadow does not abort. The warned surplus deletions
+therefore precede frontend arming during input finalization or are missing from
+its seed. Seeding every raw file clause before normalization makes the shadow
+name the first real divergence on `dupbinary.cnf`: parser duplicate removal
+stores binary `-4 3`, but DRAT still holds only raw `-4 3 3`; sparse collection
+later deletes a normalized clause the checker never received. The old claim
+that DRAT set-equivalence made restatement unnecessary is false because DRAT
+deletion matches the literal multiset. Both proof formats now add every stored
+narrowed input clause at `finish_input`; LRAT retains explicit hints and DRAT
+lets the checker find the RUP justification. The shadow suite, including all
+binary/ascii DRAT and native-LRAT microproofs, is 72/72 clean; the repaired
+Release, Trace, and ASAN-O3 suites are 72/72, 71/71, and 72/72 clean. Focused
+Ascon is the next gate; no cumulative pin is promoted yet.
 
 ## Gates
 
@@ -313,9 +327,9 @@ checked `asconhashv12`, then 28B+5C and ranks 21--40, are the next gates.
 
 ## Next engineering work
 
-1. Check the proof-idempotence repair on `asconhashv12`, then rerun 28B+5C and
-   frozen ranks 21--40; diagnose each remaining gap from its first portable
-   Tactix/Kissat divergence.
+1. Check the DRAT input-restatement repair on `asconhashv12`, then rerun
+   28B+5C and frozen ranks 21--40; diagnose each remaining gap from its first
+   portable Tactix/Kissat divergence.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed

@@ -57,25 +57,22 @@ struct ParseMemoryTrace {
 
 } // namespace
 
-// N2 and the input path. A checker numbers the original file's clauses 1..N by
-// position — lrat-check and cake_lpr both ignore the header count — so a chain
-// citing id `i` asks it to propagate the clause the file holds at position `i`,
-// and every normalization ingest_clause performs is a potential divergence.
-// The normalization cases and verdicts live in
-// benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2. Repeats
-// and root-false literals narrow the stored clause, so LRAT restates it under a
-// fresh id with root-unit hints. DRAT has no clause identities: deduplication is
-// equivalent, root shrinking is RUP under the derived units, and unmatched
-// deletions are hints. A mid-input refutation remains deferred to finish_input
-// so LRAT's original id namespace is never crossed.
+// N2 input identity: the checker numbers raw file clauses by position, so any
+// normalization can diverge from the stored clause. Add each exact narrowed
+// clause after input: LRAT cites root units then the file id; DRAT searches for
+// the same RUP justification. This includes duplicate removal because a later
+// DRAT deletion matches a literal multiset, not set semantics. Mid-input
+// refutation is likewise deferred so LRAT's input namespace is never crossed.
+// Cases and checker evidence:
+// benchmarks/reports/2026-08-05-input-clause-normalization-n2.md §2.
 static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                           const std::vector<Lit> &units, Ref ref) {
   // Record that the checker's clause `id` is not the clause just stored. The
   // count is unconditional, being the reachability probe for this path; the
-  // restatement matters only with a proof, since without one no id names
-  // anything.
+  // restatement matters only with a proof, since without one no checker
+  // population can diverge from the normalized solver population.
   k.stats.input_restated++;
-  if (!k.proof || !k.proof->lrat())
+  if (!k.proof)
     return;
   Kernel::InputRestatement r;
   r.id = id;
@@ -114,6 +111,14 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // Every input clause consumes one proof id in input order, including
   // tautologies and duplicates that are never stored (LRAT input numbering).
   const uint64_t id = ++k.next_clause_id;
+  // Seed the diagnostic proof shadow from the checker's ACTUAL starting
+  // population, before normalization changes or drops this clause. The checker
+  // reads every file clause, including tautologies and duplicate copies; a
+  // snapshot of only the solver's later live formula cannot model DRAT
+  // deletion-by-literal-multiset.
+  if (k.proof && k.proof->population_shadow())
+    k.proof->seed_population(id, scratch.data(),
+                             static_cast<uint32_t>(scratch.size()));
 
   // Grow the kernel to cover every mentioned variable.
   Var maxv = 0;
@@ -195,8 +200,9 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   scratch.erase(out, scratch.end());
 
   // N2: the checker holds the file clause under `id`, repeats and all, so a
-  // shrunk clause may not keep it. Restate at finish_input, but only when this
-  // clause is actually stored — a dropped clause's id is never cited.
+  // shrunk clause may not keep it. Add the exact stored clause at finish_input,
+  // but only when it is actually stored — a dropped clause is never deleted or
+  // used as the solver-side premise of a later inference.
   const bool shrunk = scratch.size() < file_size;
 
   if (k.inconsistent)
@@ -305,20 +311,16 @@ void finish_input(Kernel &k) {
     }
     kernel_record_import(k, v);
   }
-  // The N2 population oracle (Proof::seed_population) compares every emitted
-  // deletion against the clauses the checker holds; the checker starts from the
-  // CNF, which never passes through the proof writer. Register the input
-  // population once, here, where it is exactly the live formula. Restated
-  // clauses are excluded: `finish_input` emits a lemma for each below, and that
-  // lemma is what the checker matches afterwards. Compiled out entirely unless
-  // the diagnostic build feature is on (`population_shadow()` is a constant).
-  const uint64_t input_ids = k.next_clause_id;
   std::vector<uint64_t> chain;
   for (const Kernel::InputRestatement &r : k.input_restatements) {
     const Lit *lits = k.input_restate_lits.data() + r.begin;
-    const uint64_t nid = ++k.next_clause_id;
+    // DRAT additions carry no ids, so retain the solver's input id and do not
+    // perturb its proofless trajectory. LRAT must allocate and publish the
+    // fresh checker id used by every later hint and deletion.
+    const bool native_lrat = k.proof->lrat();
+    const uint64_t nid = native_lrat ? ++k.next_clause_id : r.id;
     chain.clear();
-    if (k.proof->lrat()) {
+    if (native_lrat) {
       for (uint32_t i = 0; i < r.unit_size; i++) {
         const Lit unit = k.input_restate_units[r.unit_begin + i];
         assert(k.values[unit] > 0);
@@ -334,6 +336,8 @@ void finish_input(Kernel &k) {
     k.proof->add_rup(nid, lits, r.size,
                      chain.empty() ? nullptr : chain.data(),
                      static_cast<uint32_t>(chain.size()));
+    if (!native_lrat)
+      continue;
     if (r.size == 1) {
       assert(k.unit_ids[var_of(lits[0])] == r.id);
       k.unit_ids[var_of(lits[0])] = nid;
@@ -351,24 +355,8 @@ void finish_input(Kernel &k) {
   k.input_restatements.clear();
   k.input_restate_lits.clear();
   k.input_restate_units.clear();
-  if (k.proof && k.proof->population_shadow()) {
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage() && c->id() && c->id() <= input_ids)
-        k.proof->seed_population(c->id(), c->lits, c->size);
-      ref += clause_words(c->size);
-    }
-    for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
-      for (const WatchEntry w : k.watches.entries(lit)) {
-        if (!w.binary() || lit >= w.other())
-          continue;
-        const Lit pair[2] = {lit, w.other()};
-        const uint64_t id = kernel_binary_id(k, lit, w.other());
-        if (id && id <= input_ids)
-          k.proof->seed_population(id, pair, 2);
-      }
+  if (k.proof && k.proof->population_shadow())
     k.proof->arm_population_shadow();
-  }
   // The decision order is `H` state.  If `H` is already attached, publish the
   // imported-variable permutation now.  Otherwise retain it until
   // ScopedHeuristics attaches at solve entry: Kissat's random brancher samples

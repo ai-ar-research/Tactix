@@ -78,8 +78,9 @@ public:
   // where it is emitted. `seed` registers the clauses the checker starts with.
   void seed_population(uint64_t id, const Lit *lits, uint32_t size);
   // The oracle can only judge a run whose whole starting population it saw, so
-  // it stays inert until the frontend has registered the input formula. A
-  // kernel assembled directly in a unit test never arms it.
+  // it stays inert until the frontend has registered every original file
+  // clause and completed input restatement. A kernel assembled directly in a
+  // unit test never arms it.
   void arm_population_shadow() { armed_ = true; }
   uint64_t unbacked_deletions() const { return unbacked_deletions_; }
   bool population_shadow() const { return true; }
