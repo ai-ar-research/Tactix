@@ -338,11 +338,11 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank-22 cause is localized by valid job `1634412`; both start sequence 1 at
-   conflict 523; analysis/OTFS conflict 526 must not consume lifetime. Repair
-   `a9f751c` uses a propagation-charged counter and passes 72/72+71/71. Replay
-   job `1634419` exactly matches 2,908 decision/conflict records through 533,
-   including remaining=1 and decision 3859653; zero residue. Run rank 22/1200s.
+1. Rank-22 repair `a9f751c` stops analysis/OTFS conflict 526 from consuming its
+   propagation-charged random lifetime and passes 72/72+71/71. Replay `1634419`
+   matches 2,908 decision/conflict records through 533, including remaining=1
+   and decision 3859653; zero residue. Await checked 1200s job `1634423`,
+   campaign `20260819-0049-tierd-rank22-randec-lifetime-runtime`.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
