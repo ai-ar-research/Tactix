@@ -180,7 +180,8 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
     out.push_back(v.ref);
 }
 
-ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
+ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
+                              bool compact_collect) {
   assert(reduce_guard(k));
   reduce_prepare(k);
   if (k.inconsistent)
@@ -238,21 +239,22 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n) {
     k.kept_glue = g;
     k.kept_size = sz;
   }
-  if (deleted) {
-    assert(first_reducible != INVALID_REF);
+  if (deleted || compact_collect) {
+    assert(compact_collect || first_reducible != INVALID_REF);
+    const Ref collect_start = compact_collect ? 0 : first_reducible;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    event_trace_detail(k, "reason_reduce_first_id",
-                       clause_at(k.arena, first_reducible)->id());
+    if (first_reducible != INVALID_REF)
+      event_trace_detail(k, "reason_reduce_first_id",
+                         clause_at(k.arena, first_reducible)->id());
 #endif
-    // Kissat reduce.c starts sparse collection at `first_reducible`, retaining
-    // the already-mutated watch order of the irredundant prefix.  Its sparse
-    // sweep also strips root-false literals and deletes root-satisfied large
-    // and binary clauses; merely reclaiming selected garbage leaves a
-    // different formula for the immediately following Rephase.
+    // Ordinary Reduce starts at `first_reducible`, retaining the already-
+    // mutated watch order of the irredundant prefix.  When compactlim fires,
+    // Kissat instead sets start=0 before sparse collection, so root-satisfied
+    // irredundant clauses and root-false literals are swept too.
     if (kernel_has_root_assignment(k))
-      kernel_sparse_collect_root(k, first_reducible);
+      kernel_sparse_collect_root(k, collect_start);
     else
-      kernel_collect_garbage(k, first_reducible);
+      kernel_collect_garbage(k, collect_start);
   }
   // Kissat keeps every live trail reason marked throughout sparse collection:
   // root-false stripping may relocate a large reason or turn it into a binary.

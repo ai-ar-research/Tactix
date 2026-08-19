@@ -1928,6 +1928,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (dynamic_tiers_)
         retier_current_mode(k, config_.reduction);
       pose_reduce_tiers(k);
+      // Kissat samples compactlim before selecting/deleting victims and uses
+      // that decision to choose sparse-collection start 0 versus the first
+      // reducible clause.  Reusing the decision after Reduce also prevents a
+      // formula-changing pass from silently changing the admission boundary.
+      const bool compact_due =
+          compact_ && kernel_should_compact_variables(
+                          k, config_.reduction.compact_inactive_percent);
       reduce_candidates(k, reduce_scratch_);
       const size_t reduce_victims =
           std::min(rp.victims(k, reduce_scratch_.size()),
@@ -1935,11 +1942,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.reduction(k, reduce_scratch_, reduce_victims);
       (void)default_direct_rule(
           k, "Reduce", "victims=" + std::to_string(reduce_victims), [&] {
-            return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims);
+            return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims,
+                                     compact_due);
           });
-      if (compact_ && kernel_should_compact_variables(
-                          k, config_.reduction.compact_inactive_percent) &&
-          kernel_compact_variables(k))
+      if (compact_due && kernel_compact_variables(k))
         heuristics_compact_random_order_fixed(k);
       update_reduce_limit(k);
       pose_focused_tiers(k); // vivifyfocusedtiers=1 is the shipped default.
