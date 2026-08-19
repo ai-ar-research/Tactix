@@ -31,7 +31,7 @@ DETAIL_EVENTS = {
 }
 AUXILIARY_EVENTS = {
     "checkpoint", "retier", "reduce_tiers", "mode_clock", "analyzed",
-    "randec_draw", "phase_pick", "target_save", "phase_save",
+    "randec_draw", "randec_state", "phase_pick", "target_save", "phase_save",
     "slot_boundary", "sweep_seed", "sweep_environment",
     "sweep_environment_var", "sweep_effort", "sweep_equivalence",
     "sweep_unit", "root_assign", "analysis_trail_size",

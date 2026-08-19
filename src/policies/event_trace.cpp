@@ -488,6 +488,18 @@ void EventTrace::randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
   emit(k, "randec_draw", payload.c_str(), false);
 }
 
+void EventTrace::randec_state(const Kernel &k, const char *stage,
+                              uint64_t until, uint64_t next,
+                              uint64_t sequence) {
+  if (!want_detail(k))
+    return;
+  const std::string payload =
+      "stage=" + std::string(stage) + "|until=" + std::to_string(until) +
+      "|next=" + std::to_string(next) +
+      "|sequence=" + std::to_string(sequence);
+  emit(k, "randec_state", payload.c_str(), false);
+}
+
 void EventTrace::watch_scan(const Kernel &k, Lit propagated) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;
@@ -566,6 +578,13 @@ void event_trace_randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
                              Var var, bool accepted) {
   if (active_trace)
     active_trace->randec_draw(k, raw, slot, var, accepted);
+}
+
+void event_trace_randec_state(const Kernel &k, const char *stage,
+                              uint64_t until, uint64_t next,
+                              uint64_t sequence) {
+  if (active_trace)
+    active_trace->randec_state(k, stage, until, next, sequence);
 }
 
 void EventTrace::phase_pick(const Kernel &k, Var var, int8_t target,

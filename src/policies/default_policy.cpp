@@ -1034,6 +1034,8 @@ Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
   if (!k.warming && randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
+    event_trace_randec_state(k, "pre", randec_until, randec_next,
+                             randec_sequences);
     // Kissat increments `solver->level` before `next_random_decision` tests
     // whether that level is at most one.  Tactix picks before Decide creates
     // the new frame, so the equivalent pre-decision condition is level zero.
@@ -1052,6 +1054,8 @@ Lit DefaultBranching::pick(Kernel &k) {
          kernel_num_original_internal_vars(k) <= compact_universe_limit);
     if (c >= randec_until && random_sequence_level && c >= randec_next)
       start_random_sequence(k);
+    event_trace_randec_state(k, c < randec_until ? "active" : "inactive",
+                             randec_until, randec_next, randec_sequences);
     if (c < randec_until) {
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
