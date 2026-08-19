@@ -338,10 +338,10 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank-22 job `1634385` matches all 9,906 shared decision/conflict records
-   through conflict 527 and decision 9,389; no causal divergence is observed.
-   Await tick/random-draw-suppressed control trace job `1634396`, campaign
-   `20260818-2347-tierd-rank22-control-trace`.
+1. Rank-22 job `1634396` localizes the first control divergence after matching
+   10,051 records: at conflict 533/decision 9,529, Kissat randomly chooses
+   `3859653` over heap top `3813932`, which Tactix chooses. Trace the random
+   decision scheduler; conflict analysis and learned clauses already match.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
