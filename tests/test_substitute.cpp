@@ -458,6 +458,11 @@ static void test_sweep_flushes_sources_in_emission_order() {
   assert(ordered.size() == 2);
   assert(ordered[0].binary && ordered[0].payload == internalize(7)); // from x3
   assert(ordered[1].binary && ordered[1].payload == internalize(6)); // from x2
+  std::vector<Lit> physical;
+  for (const WatchEntry watch : k.watches.entries(one))
+    if (watch.binary())
+      physical.push_back(watch.other());
+  assert(physical == std::vector<Lit>({internalize(7), internalize(6)}));
   kernel_dense_disconnect(k);
 }
 
