@@ -216,6 +216,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     return;
   if (search_only_ && !snapshot && std::strcmp(event, "decision") &&
       std::strcmp(event, "randec_draw") &&
+      std::strcmp(event, "randec_state") &&
       std::strcmp(event, "phase_pick") &&
       std::strcmp(event, "score_bump") &&
       std::strcmp(event, "heap_scores") &&
@@ -230,6 +231,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   // and conflict-analysis transactions needed to find the first mismatch.
   if (control_only_ && !snapshot && std::strcmp(event, "decision") &&
       std::strcmp(event, "randec_draw") &&
+      std::strcmp(event, "randec_state") &&
       std::strcmp(event, "score_bump") &&
       std::strcmp(event, "heap_scores") &&
       std::strcmp(event, "assignment") &&
