@@ -128,6 +128,7 @@ private:
   bool control_only_ = false;
   bool trajectory_only_ = false;
   bool watch_only_ = false;
+  bool heap_each_bump_ = false;
   bool stop_pending_ = false;
   bool truncated_ = false;
 };

@@ -38,18 +38,21 @@ assert 'solver->statistics.conflicts < stop' in eventtrace, (
 assert re.search(
     r'if \(stop_here && solver->stable\)\s*emit_heap_scores \(solver\);',
     eventtrace), "stable analysis-end must emit one endpoint heap digest"
-assert re.search(
-    r'if \(stop != UINT64_MAX && !trace_stop_pending\)\s*return;',
-    eventtrace), "intermediate heap snapshots must be suppressed in stop-mode"
+assert 'if (stop != UINT64_MAX && !trace_stop_pending) {' in eventtrace, (
+    "stop-mode must gate intermediate heap snapshots")
 assert 'else if (stop_here)\n    trace_stop_pending = true;' in eventtrace, (
     "focused analysis-end must defer the stop until stable mode")
 assert '(solver->statistics.conflicts < stop || trace_stop_pending)' in eventtrace, (
     "pending stop must suppress expensive mode-switch snapshots")
 assert 'TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT' in tactix_trace
 assert 'if (stop_here && k.h && k.h->stable)\n    emit_heap_scores(k);' in tactix_trace
-assert 'if (!stop_pending_)\n      return;' in tactix_trace, (
-    "Tactix stop-mode must suppress intermediate full-heap hashes")
+assert 'if (!stop_pending_) {' in tactix_trace, (
+    "Tactix stop-mode must gate intermediate full-heap hashes")
 assert tactix_trace.count('std::raise(SIGTERM);') == 2, (
     "Tactix stop-mode must terminate at stable analysis-end or deferred stable mode")
+assert 'KISSAT_EVENT_TRACE_HEAP_EACH_BUMP' in eventtrace
+assert 'TACTIX_EVENT_TRACE_HEAP_EACH_BUMP' in tactix_trace
+assert 'if (!trace_heap_each_bump || solver->statistics.conflicts < stop)' in eventtrace
+assert 'if (heap_each_bump_ && k.stats.conflicts >= stop_after_conflict_)' in tactix_trace
 
 print("test_kissat_journal_overlay_static OK")
