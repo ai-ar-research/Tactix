@@ -2284,6 +2284,16 @@ arm. Resume with heap-pop-only detail for the first decision, using decision
 counter 23,745 in Kissat and 23,744 in Tactix because the solvers increment on
 opposite sides of variable selection.
 
+That counter-aligned pop comparison is campaign
+\begin{center}\small\artifact{20260819-1419-tierd-rank22-d23745-heap-pop}\end{center}
+It reuses pins \code{8ae2afa2}/\code{24c47384}, retains only heap-pop,
+heap-score, decision, and analysis-end records, and stops at conflict 1,007.
+The two tasks independently use two CPUs and 16\,GiB with no throttle or node
+constraint. Scheduler dry validation passed as job \code{1634705}; the actual
+pair is Slurm job \code{1634706}. Resume by waiting for both tasks, validating
+answer/trace/cleanup integrity, then aligning the begin/move/end payloads for
+the logical decision 23,745 selection.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
