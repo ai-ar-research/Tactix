@@ -284,7 +284,8 @@ void kissat_event_trace (kissat *solver, const char *event,
   if (trace_skip_analysis_ticks && !strncmp (event, "analysis_tick", 13))
     return;
   if (trace_search_only && !snapshot && strcmp (event, "decision") &&
-      strcmp (event, "randec_draw") && strcmp (event, "phase_pick") &&
+      strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&
+      strcmp (event, "phase_pick") &&
       strcmp (event, "score_bump") &&
       strcmp (event, "assignment") &&
       strcmp (event, "propagate_cursor") &&
@@ -295,7 +296,8 @@ void kissat_event_trace (kissat *solver, const char *event,
       strncmp (event, "learned", 7))
     return;
   if (trace_control_only && !snapshot && strcmp (event, "decision") &&
-      strcmp (event, "randec_draw") && strcmp (event, "score_bump") &&
+      strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&
+      strcmp (event, "score_bump") &&
       strcmp (event, "heap_scores") &&
       strcmp (event, "assignment") &&
       strcmp (event, "heap_reinsert") &&
