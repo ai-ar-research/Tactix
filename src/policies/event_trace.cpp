@@ -235,6 +235,9 @@ bool EventTrace::open_from_env(const Kernel &k) {
   if (const char *stop =
           std::getenv("TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT"))
     stop_after_conflict_ = std::strtoull(stop, nullptr, 10);
+  if (const char *decision =
+          std::getenv("TACTIX_EVENT_TRACE_HEAP_FROM_DECISION"))
+    heap_from_decision_ = std::strtoull(decision, nullptr, 10);
   compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
   skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
   skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
@@ -1547,7 +1550,9 @@ void EventTrace::heap_scores(const Kernel &k) {
     return;
   if (stop_after_conflict_ != UINT64_MAX) {
     if (!stop_pending_) {
-      if (heap_each_bump_ && k.stats.conflicts >= stop_after_conflict_)
+      if (heap_each_bump_ &&
+          (k.stats.conflicts >= stop_after_conflict_ ||
+           k.stats.decisions >= heap_from_decision_))
         emit_heap_scores(k);
       return;
     }

@@ -22,6 +22,7 @@ static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
+static uint64_t trace_heap_from_decision = UINT64_MAX;
 static FILE *reduce_trace_file;
 static bool reduce_trace_initialized;
 static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
@@ -347,6 +348,10 @@ static void open_trace (void) {
   trace_skip_heap = getenv ("KISSAT_EVENT_TRACE_SKIP_HEAP") != 0;
   trace_heap_each_bump =
       getenv ("KISSAT_EVENT_TRACE_HEAP_EACH_BUMP") != 0;
+  const char *heap_from_decision =
+      getenv ("KISSAT_EVENT_TRACE_HEAP_FROM_DECISION");
+  if (heap_from_decision && *heap_from_decision)
+    trace_heap_from_decision = strtoull (heap_from_decision, 0, 10);
   trace_skip_decisions = getenv ("KISSAT_EVENT_TRACE_SKIP_DECISIONS") != 0;
   trace_skip_randec_draws =
       getenv ("KISSAT_EVENT_TRACE_SKIP_RANDEC_DRAWS") != 0;
@@ -848,8 +853,9 @@ void kissat_event_trace_heap_before_bumps (kissat *solver) {
   if (!detail_enabled (solver) || !solver->stable || !trace_heap_each_bump)
     return;
   const uint64_t stop = stop_after_conflict ();
-  if (stop == UINT64_MAX || solver->statistics.conflicts < stop ||
-      trace_stop_pending)
+  if (stop == UINT64_MAX || trace_stop_pending ||
+      (solver->statistics.conflicts < stop &&
+       solver->statistics.decisions < trace_heap_from_decision))
     return;
   emit_heap_scores (solver);
 }
@@ -859,7 +865,9 @@ void kissat_event_trace_heap_scores (kissat *solver) {
     return;
   const uint64_t stop = stop_after_conflict ();
   if (stop != UINT64_MAX && !trace_stop_pending) {
-    if (!trace_heap_each_bump || solver->statistics.conflicts < stop)
+    if (!trace_heap_each_bump ||
+        (solver->statistics.conflicts < stop &&
+         solver->statistics.decisions < trace_heap_from_decision))
       return;
     emit_heap_scores (solver);
     return;

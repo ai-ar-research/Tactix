@@ -115,6 +115,7 @@ private:
   uint64_t detail_conflict_from_ = 0;
   uint64_t detail_conflict_to_ = UINT64_MAX;
   uint64_t stop_after_conflict_ = UINT64_MAX;
+  uint64_t heap_from_decision_ = UINT64_MAX;
   bool saw_reorder_ = false;
   bool detail_window_ = false;
   bool compact_probe_ = false;
