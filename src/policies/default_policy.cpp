@@ -1034,7 +1034,7 @@ Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
   if (!k.warming && randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
-    event_trace_randec_state(k, "pre", randec_until, randec_next,
+    event_trace_randec_state(k, "pre", randec_remaining, randec_next,
                              randec_sequences);
     // Kissat increments `solver->level` before `next_random_decision` tests
     // whether that level is at most one.  Tactix picks before Decide creates
@@ -1052,11 +1052,11 @@ Lit DefaultBranching::pick(Kernel &k) {
         k.level == 0 ||
         (k.level == 1 && k.first_extension_var == UINT32_MAX &&
          kernel_num_original_internal_vars(k) <= compact_universe_limit);
-    if (c >= randec_until && random_sequence_level && c >= randec_next)
+    if (!randec_remaining && random_sequence_level && c >= randec_next)
       start_random_sequence(k);
-    event_trace_randec_state(k, c < randec_until ? "active" : "inactive",
-                             randec_until, randec_next, randec_sequences);
-    if (c < randec_until) {
+    event_trace_randec_state(k, randec_remaining ? "active" : "inactive",
+                             randec_remaining, randec_next, randec_sequences);
+    if (randec_remaining) {
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
@@ -1098,15 +1098,14 @@ Lit DefaultBranching::decide_lit(const Kernel &k, Var v) const {
 }
 
 void DefaultBranching::start_random_sequence(Kernel &k) {
-  if (!randec_enabled || k.h->stable || k.stats.conflicts < randec_until)
+  if (!randec_enabled || k.h->stable || randec_remaining)
     return;
   static const DefaultStrategyConfig defaults;
   const auto &cfg = config_ ? *config_ : defaults.branching;
   randec_sequences++;
   const double n = static_cast<double>(randec_sequences);
   const double logn = std::log10(n + cfg.logarithm_offset);
-  randec_until =
-      k.stats.conflicts +
+  randec_remaining =
       static_cast<uint64_t>(cfg.random_sequence_length * logn);
   randec_next =
       k.stats.conflicts +
@@ -1841,6 +1840,8 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
+      BranchingPolicy &bp = branching ? *branching : default_branching_;
+      bp.on_search_propagation_conflict();
       event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
       event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,

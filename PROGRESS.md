@@ -341,8 +341,8 @@ The cumulative pin is accepted; V6a stays on.
 1. Rank-22 cause is localized by valid job `1634412`; both start sequence 1 at
    conflict 523 with length 10/next 1023. At conflict 533 Kissat has one unit
    left while Tactix's absolute deadline expires. Analysis/OTFS conflict 526 is
-   global but not search propagation: Kissat does not charge it, Tactix does.
-   Implement a propagation-charged remaining counter, then replay and guard.
+   global but not search propagation. A remaining counter now charges only the
+   outer Propagate conflict hook; Release 72/72 and Trace 71/71 pass. Replay next.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
