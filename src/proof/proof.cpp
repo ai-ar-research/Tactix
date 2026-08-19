@@ -248,6 +248,12 @@ void Proof::population_add(uint64_t id, const Lit *lits, uint32_t size) {
   population_[population_key(id, lits, size)]++;
 }
 
+bool Proof::population_contains(uint64_t id, const Lit *lits,
+                                uint32_t size) const {
+  const auto found = population_.find(population_key(id, lits, size));
+  return found != population_.end() && found->second;
+}
+
 void Proof::population_del(uint64_t id, const Lit *lits, uint32_t size) {
   if (!armed_)
     return;
