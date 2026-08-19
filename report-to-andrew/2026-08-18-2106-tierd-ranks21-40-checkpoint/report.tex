@@ -2367,6 +2367,20 @@ for both tasks and requiring valid results, untruncated traces, decision-23,786
 coverage, deleted scratch, no pending cleanup, exactly 265 identical ordered
 removal payloads, and the same next 42 decision literals.
 
+Job \code{1634712} accepts the focused repair replay exactly. Tactix reaches
+the intentional UNKNOWN stop in 98.315 seconds with an untruncated 62,057-byte
+trace (SHA-256 prefix \code{77ab63f6}); Kissat again times out after 180.067
+seconds, but its untruncated 64,981-byte line-buffered prefix contains the full
+predeclared target. Both scratch artifacts are deleted and neither cleanup is
+pending. Each trace contains exactly 265 arbitrary-removal payloads; the two
+ordered streams are byte-equal with canonical payload SHA-256 prefix
+\code{2b29dd38}. Each then contains the same 42 decision literals from
+\code{-3814641} through \code{1206696}, with common sequence prefix
+\code{b46d874d} and final counter 23,786. This validates the causal repair but
+does not close rank 22, because the Kissat arm is not terminal-valid and no
+production answer was attempted. Resume by replaying the repaired
+conflict-1,007 raw heap endpoint and advancing only if that state is exact.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
