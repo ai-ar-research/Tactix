@@ -342,8 +342,8 @@ The cumulative pin is accepted; V6a stays on.
    propagation-charged random lifetime and passes 72/72+71/71. `1634419`
    matches through conflict 533/decision 3859653; `1634436` differs at stable
    decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
-   direct reason; `1634446` excludes root transactions; `1634448` reaches c89;
-   `1634449` proves the target binary is shared; `1634451` probes its watch race.
+   direct reason; `1634446` excludes root transactions; `1634449` proves its
+   binary is shared; `1634451` pins the cause to derived-ternary watched pose.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
