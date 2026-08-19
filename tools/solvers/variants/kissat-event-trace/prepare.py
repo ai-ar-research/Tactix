@@ -630,6 +630,34 @@ def main():
         '#endif\n'
         '  return idx;\n')
     replace_once(
+        inlineheap,
+        '  const unsigned last = POP_STACK (heap->stack);\n'
+        '  heap->pos[last] = DISCONTAIN;\n'
+        '  if (last == idx)\n'
+        '    return;\n'
+        '  const unsigned idx_pos = heap->pos[idx];\n'
+        '  heap->pos[idx] = DISCONTAIN;\n'
+        '  POKE_STACK (heap->stack, idx_pos, last);\n'
+        '  heap->pos[last] = idx_pos;\n'
+        '  kissat_bubble_up (solver, heap, last);\n'
+        '  kissat_bubble_down (solver, heap, last);\n',
+        '  const unsigned last_pos = SIZE_STACK (heap->stack) - 1;\n'
+        '  const unsigned last = POP_STACK (heap->stack);\n'
+        '  heap->pos[last] = DISCONTAIN;\n'
+        '  const unsigned idx_pos = heap->pos[idx];\n'
+        '  if (last == idx) {\n'
+        '    kissat_event_trace_heap_remove (solver, heap, idx, last, last_pos,\n'
+        '                                    last_pos, UINT_MAX);\n'
+        '    return;\n'
+        '  }\n'
+        '  heap->pos[idx] = DISCONTAIN;\n'
+        '  POKE_STACK (heap->stack, idx_pos, last);\n'
+        '  heap->pos[last] = idx_pos;\n'
+        '  kissat_bubble_up (solver, heap, last);\n'
+        '  kissat_bubble_down (solver, heap, last);\n'
+        '  kissat_event_trace_heap_remove (solver, heap, idx, last, idx_pos,\n'
+        '                                  last_pos, heap->pos[last]);\n')
+    replace_once(
         decide,
         '    kissat_pop_max_heap (solver, scores);\n'
         '    res = kissat_max_heap (scores);\n',

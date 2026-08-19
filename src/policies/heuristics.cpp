@@ -594,17 +594,23 @@ static void heap_remove(Kernel &k, Var v) {
   if (!heuristics_heap_contains(k, v))
     return;
   const uint32_t vpos = k.h->scores.pos[v];
+  const uint32_t last_pos =
+      static_cast<uint32_t>(k.h->scores.stack.size() - 1);
   const Var last = k.h->scores.stack.back();
   k.h->scores.stack.pop_back();
   k.h->scores.pos[v] = UINT32_MAX;
-  if (last == v)
+  if (last == v) {
+    event_trace_heap_remove(k, v, last, vpos, last_pos, UINT32_MAX);
     return; // v was the last element; nothing moved
+  }
   k.h->scores.stack[vpos] = last;
   k.h->scores.pos[last] = vpos;
   // `last` may belong either above or below vpos — try both, each is a no-op
   // when the invariant already holds.
   heap_bubble_up(k, last);
   heap_bubble_down(k, last);
+  event_trace_heap_remove(k, v, last, vpos, last_pos,
+                          k.h->scores.pos[last]);
 }
 
 static void heap_pop_max(Kernel &k) {
