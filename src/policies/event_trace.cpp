@@ -325,6 +325,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "randec_state") &&
       std::strcmp(event, "phase_pick") &&
       std::strcmp(event, "score_bump") &&
+      std::strcmp(event, "heap_insert") &&
       std::strcmp(event, "heap_scores") &&
       std::strcmp(event, "binary_assignment") &&
       std::strcmp(event, "binary_add") &&
@@ -1670,6 +1671,18 @@ void EventTrace::heap_scores(const Kernel &k) {
   emit_heap_scores(k);
 }
 
+void EventTrace::heap_insert(const Kernel &k, Var v, uint32_t from,
+                             uint32_t to) {
+  if (!out_ || !k.h || !k.h->stable || !want_detail(k))
+    return;
+  char payload[192];
+  std::snprintf(payload, sizeof payload,
+                "var=%d|score=%.17g|from=%u|to=%u",
+                kernel_externalize(k, make_lit(v, false)),
+                k.h->scores.score[v], from, to);
+  emit(k, "heap_insert", payload, false);
+}
+
 void EventTrace::heap_pop(const Kernel &k, const char *stage, Var held,
                           Var other, uint32_t from, uint32_t to) {
   if (!out_ || !k.h || !k.h->stable || k.stats.decisions != heap_pop_decision_)
@@ -1749,6 +1762,12 @@ void event_trace_analyzed_post(const Kernel &k,
 void event_trace_heap_scores(const Kernel &k) {
   if (active_trace)
     active_trace->heap_scores(k);
+}
+
+void event_trace_heap_insert(const Kernel &k, Var v, uint32_t from,
+                             uint32_t to) {
+  if (active_trace)
+    active_trace->heap_insert(k, v, from, to);
 }
 
 void event_trace_heap_pop(const Kernel &k, const char *stage, Var held,

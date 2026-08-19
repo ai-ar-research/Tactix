@@ -426,6 +426,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&
       strcmp (event, "phase_pick") &&
       strcmp (event, "score_bump") &&
+      strcmp (event, "heap_insert") &&
       strcmp (event, "assignment") &&
       strcmp (event, "propagate_cursor") &&
       strcmp (event, "heap_scores") &&
@@ -933,6 +934,17 @@ void kissat_event_trace_heap_scores (kissat *solver) {
     fflush (trace_file);
     raise (SIGTERM);
   }
+}
+
+void kissat_event_trace_heap_insert (kissat *solver, heap *heap, unsigned idx,
+                                     unsigned from, unsigned to) {
+  if (!detail_enabled (solver) || !solver->stable || heap != SCORES)
+    return;
+  char payload[192];
+  snprintf (payload, sizeof payload,
+            "var=%d|score=%.17g|from=%u|to=%u",
+            external_literal (solver, LIT (idx)), heap->score[idx], from, to);
+  kissat_event_trace (solver, "heap_insert", payload, false);
 }
 
 void kissat_event_trace_heap_pop (kissat *solver, const char *stage,

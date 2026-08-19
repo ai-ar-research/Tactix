@@ -49,6 +49,9 @@ int main() {
     trace.macro(k, "lucky_early_begin");
     trace.macro(k, "lucky_early_end", "unknown");
     trace.detail(k, "decision", 3);
+    k.h->stable = true;
+    trace.heap_insert(k, 1, 17, 4);
+    k.h->stable = false;
     trace.slot_boundary(k, "Sweep", "begin");
     trace.sweep_seed(k, 1);
     trace.sweep_environment(k, 1, 3, 4, 0x1234);
@@ -98,6 +101,8 @@ int main() {
   assert(text.find("\tlucky_early_begin\t") != std::string::npos);
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
+  assert(text.find("\theap_insert\t") != std::string::npos);
+  assert(text.find("var=2|score=0|from=17|to=4") != std::string::npos);
   assert(text.find("\tslot_boundary\t") != std::string::npos);
   assert(text.find("name=Sweep|stage=begin") != std::string::npos);
   assert(text.find("\tsweep_seed\t") != std::string::npos);
