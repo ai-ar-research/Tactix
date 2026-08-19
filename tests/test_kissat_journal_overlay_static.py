@@ -32,5 +32,14 @@ assert "scheduled=1;consistent-before=1;call-returned=1" in journal
 assert "field '%s'" in journal, "replay must name the exact differing field"
 assert eventtrace.count('strcmp (event, "randec_state")') >= 2, (
     "randec_state must survive both SEARCH_ONLY and CONTROL_ONLY filters")
+assert 'solver->statistics.conflicts < stop' in eventtrace, (
+    "stop-mode must suppress expensive snapshots before its endpoint")
+assert re.search(
+    r'if \(snapshot && stop != UINT64_MAX &&\s*'
+    r'solver->statistics.conflicts >= stop\)\s*emit_heap_scores \(solver\);',
+    eventtrace), "stop-mode must emit one endpoint heap digest"
+assert re.search(
+    r'!solver->stable \|\|\s*stop_after_conflict \(\) != UINT64_MAX\)',
+    eventtrace), "ordinary heap snapshots must be suppressed in stop-mode"
 
 print("test_kissat_journal_overlay_static OK")

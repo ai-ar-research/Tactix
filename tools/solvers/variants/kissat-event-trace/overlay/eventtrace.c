@@ -24,6 +24,12 @@ static FILE *reduce_trace_file;
 static bool reduce_trace_initialized;
 static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
 static int compare_external_literals (const void *, const void *);
+static void emit_heap_scores (kissat *);
+
+static uint64_t stop_after_conflict (void) {
+  const char *stop = getenv ("KISSAT_EVENT_TRACE_STOP_AFTER_CONFLICT");
+  return stop && *stop ? strtoull (stop, 0, 10) : UINT64_MAX;
+}
 
 void kissat_event_trace_tiers (kissat *solver, const char *event) {
   char payload[128];
@@ -375,6 +381,11 @@ void kissat_event_trace (kissat *solver, const char *event,
   open_trace ();
   if (!trace_file)
     return;
+  const uint64_t stop = stop_after_conflict ();
+  if (snapshot && stop != UINT64_MAX &&
+      solver->statistics.conflicts < stop &&
+      strcmp (event, "analysis_end"))
+    return;
   if (trace_skip_watch && !strcmp (event, "watch"))
     return;
   if (trace_skip_imply && !strcmp (event, "imply"))
@@ -542,10 +553,13 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   // a latent bump-order difference at the conflict that creates it rather
   // than at the later decision that exposes it.
   const bool snapshot = !strcmp (event, "analysis_end");
+  const uint64_t stop = stop_after_conflict ();
+  if (snapshot && stop != UINT64_MAX &&
+      solver->statistics.conflicts >= stop)
+    emit_heap_scores (solver);
   kissat_event_trace (solver, event, buffer, snapshot);
-  const char *stop = getenv ("KISSAT_EVENT_TRACE_STOP_AFTER_CONFLICT");
-  if (stop && snapshot &&
-      solver->statistics.conflicts >= strtoull (stop, 0, 10)) {
+  if (snapshot && stop != UINT64_MAX &&
+      solver->statistics.conflicts >= stop) {
     fflush (trace_file);
     raise (SIGTERM);
   }
@@ -799,9 +813,7 @@ void kissat_event_trace_conflict (kissat *solver, clause *conflict) {
   }
 }
 
-void kissat_event_trace_heap_scores (kissat *solver) {
-  if (!detail_enabled (solver) || !solver->stable)
-    return;
+static void emit_heap_scores (kissat *solver) {
   heap *heap = SCORES;
   char payload[4096];
   uint64_t stack_hash = UINT64_C (1469598103934665603);
@@ -825,6 +837,13 @@ void kissat_event_trace_heap_scores (kissat *solver) {
     left -= (size_t) written;
   }
   kissat_event_trace (solver, "heap_scores", payload, false);
+}
+
+void kissat_event_trace_heap_scores (kissat *solver) {
+  if (!detail_enabled (solver) || !solver->stable ||
+      stop_after_conflict () != UINT64_MAX)
+    return;
+  emit_heap_scores (solver);
 }
 
 void kissat_event_trace_clause (kissat *solver, const char *event) {
