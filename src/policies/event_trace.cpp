@@ -334,6 +334,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "sweep_query") &&
       std::strcmp(event, "sweep_query_model") &&
       std::strcmp(event, "sweep_equivalence") &&
+      std::strcmp(event, "sweep_commit") &&
       std::strcmp(event, "sweep_rewrite_binary") &&
       std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&
       std::strcmp(event, "imply") &&
@@ -1061,6 +1062,41 @@ void EventTrace::sweep_equivalence(const Kernel &k, Lit a, Lit b) {
 void event_trace_sweep_equivalence(const Kernel &k, Lit a, Lit b) {
   if (active_trace)
     active_trace->sweep_equivalence(k, a, b);
+}
+
+void EventTrace::sweep_commit(const Kernel &k, Lit a, Lit b, int8_t av,
+                              int8_t bv, const char *stage) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected = std::getenv("SAT_EVENT_TRACE_SWEEP_COMMIT");
+  if (!selected || !*selected)
+    return;
+  char *end = nullptr;
+  const long selected_a = std::strtol(selected, &end, 10);
+  if (end == selected || *end != ',')
+    return;
+  const char *second = end + 1;
+  const long selected_b = std::strtol(second, &end, 10);
+  if (end == second || *end)
+    return;
+  const int external_a = kernel_externalize(k, a);
+  const int external_b = kernel_externalize(k, b);
+  if (!((external_a == selected_a && external_b == selected_b) ||
+        (external_a == selected_b && external_b == selected_a)))
+    return;
+  const std::string payload =
+      "a=" + std::to_string(external_a) +
+      "|b=" + std::to_string(external_b) + "|av=" +
+      std::to_string(static_cast<int>(av)) + "|bv=" +
+      std::to_string(static_cast<int>(bv)) +
+      "|proof=" + std::to_string(k.proof ? 1 : 0) + "|stage=" + stage;
+  emit(k, "sweep_commit", payload.c_str(), false);
+}
+
+void event_trace_sweep_commit(const Kernel &k, Lit a, Lit b, int8_t av,
+                              int8_t bv, const char *stage) {
+  if (active_trace)
+    active_trace->sweep_commit(k, a, b, av, bv, stage);
 }
 
 void EventTrace::sweep_rewrite_binary(const Kernel &k, Lit source,

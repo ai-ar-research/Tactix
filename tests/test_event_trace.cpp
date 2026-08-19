@@ -315,6 +315,7 @@ int main() {
   setenv("TACTIX_EVENT_TRACE_SKIP_HEAP", "1", 1);
   setenv("SAT_EVENT_TRACE_SWEEP_CLAUSES", "1", 1);
   setenv("SAT_EVENT_TRACE_SWEEP_QUERIES", "1", 1);
+  setenv("SAT_EVENT_TRACE_SWEEP_COMMIT", "1,-2", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
@@ -330,6 +331,7 @@ int main() {
     const int8_t sweep_values[2] = {1, -1};
     trace.sweep_model(k, 0, 0, sweep_vars, sweep_values, 2);
     trace.sweep_equivalence(k, internalize(1), internalize(-2));
+    trace.sweep_commit(k, internalize(-2), internalize(1), -1, 0, "entry");
     trace.detail(k, "diagnostic_noise", 9);
   }
   unsetenv("TACTIX_EVENT_TRACE");
@@ -337,6 +339,7 @@ int main() {
   unsetenv("TACTIX_EVENT_TRACE_SKIP_HEAP");
   unsetenv("SAT_EVENT_TRACE_SWEEP_CLAUSES");
   unsetenv("SAT_EVENT_TRACE_SWEEP_QUERIES");
+  unsetenv("SAT_EVENT_TRACE_SWEEP_COMMIT");
   std::ifstream compact_bumps_input(compact_bumps_path);
   const std::string compact_bumps_text(
       (std::istreambuf_iterator<char>(compact_bumps_input)),
@@ -352,6 +355,10 @@ int main() {
   assert(compact_bumps_text.find("\tsweep_query_model\t") !=
          std::string::npos);
   assert(compact_bumps_text.find("\tsweep_equivalence\t") !=
+         std::string::npos);
+  assert(compact_bumps_text.find("\tsweep_commit\t") != std::string::npos);
+  assert(compact_bumps_text.find(
+             "a=-2|b=1|av=-1|bv=0|proof=0|stage=entry") !=
          std::string::npos);
   assert(compact_bumps_text.find("\tdiagnostic_noise\t") ==
          std::string::npos);
