@@ -11,8 +11,7 @@
 #include <string.h>
 
 static FILE *trace_file;
-static bool trace_initialized, trace_truncated, trace_saw_reorder,
-            trace_stop_pending;
+static bool trace_initialized, trace_truncated, trace_saw_reorder;
 static bool trace_detail_window;
 static bool trace_heap_each_bump;
 static bool trace_heap_pop_only;
@@ -403,7 +402,7 @@ void kissat_event_trace (kissat *solver, const char *event,
     return;
   const uint64_t stop = stop_after_conflict ();
   if (snapshot && stop != UINT64_MAX &&
-      (solver->statistics.conflicts < stop || trace_stop_pending) &&
+      solver->statistics.conflicts < stop &&
       strcmp (event, "analysis_end"))
     return;
   if (trace_skip_watch && !strcmp (event, "watch"))
@@ -618,11 +617,10 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   if (stop_here && solver->stable)
     emit_heap_scores (solver);
   kissat_event_trace (solver, event, buffer, snapshot);
-  if (stop_here && solver->stable) {
+  if (stop_here) {
     fflush (trace_file);
     raise (SIGTERM);
-  } else if (stop_here)
-    trace_stop_pending = true;
+  }
 }
 
 void kissat_event_trace_literal (kissat *solver, const char *event,
@@ -903,8 +901,7 @@ void kissat_event_trace_heap_before_bumps (kissat *solver) {
   if (!detail_enabled (solver) || !solver->stable || !trace_heap_each_bump)
     return;
   const uint64_t stop = stop_after_conflict ();
-  if (stop == UINT64_MAX || trace_stop_pending ||
-      (solver->statistics.conflicts < stop &&
+  if (stop == UINT64_MAX || (solver->statistics.conflicts < stop &&
        solver->statistics.decisions < trace_heap_from_decision))
     return;
   emit_heap_scores (solver);
@@ -914,7 +911,7 @@ void kissat_event_trace_heap_scores (kissat *solver) {
   if (!detail_enabled (solver) || !solver->stable)
     return;
   const uint64_t stop = stop_after_conflict ();
-  if (stop != UINT64_MAX && !trace_stop_pending) {
+  if (stop != UINT64_MAX) {
     if (!trace_heap_each_bump ||
         (solver->statistics.conflicts < stop &&
          solver->statistics.decisions < trace_heap_from_decision))

@@ -136,7 +136,6 @@ private:
   bool watch_only_ = false;
   bool heap_each_bump_ = false;
   bool heap_pop_only_ = false;
-  bool stop_pending_ = false;
   bool truncated_ = false;
 };
 #else
