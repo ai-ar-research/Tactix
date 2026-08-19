@@ -338,8 +338,8 @@ The focused blocker is cleared; V6a stays on and no pin is promoted yet.
 
 ## Next engineering work
 
-1. Run paired 28B+5C and frozen ranks 21--40 cumulative guards from commit
-   `ddc2ce4`, release pin `494b8bd...`.
+1. Await cumulative 28B+5C job `1634307` and frozen ranks 21--40 job `1634294`,
+   campaigns `20260818-2240-{BC,tierd-ranks21-40}-xor-ladder`, pin `494b8bd...`.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
