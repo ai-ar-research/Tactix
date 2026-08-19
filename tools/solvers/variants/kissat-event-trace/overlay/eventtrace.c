@@ -429,6 +429,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "assignment") &&
       strcmp (event, "propagate_cursor") &&
       strcmp (event, "heap_scores") &&
+      strcmp (event, "binary_assignment") &&
       strcmp (event, "watch") && strcmp (event, "imply") &&
       strcmp (event, "conflict") &&
       strcmp (event, "analyzed") && strncmp (event, "analysis_", 9) &&
@@ -903,6 +904,27 @@ void kissat_event_trace_heap_pop (kissat *solver, const char *stage,
             external_literal (solver, LIT (other)), heap->score[other], from,
             to);
   kissat_event_trace (solver, "heap_pop", payload, false);
+}
+
+void kissat_event_trace_binary_assignment (kissat *solver, unsigned assigned,
+                                           unsigned immediate_reason,
+                                           unsigned stored_reason,
+                                           bool jumped) {
+  if (!trace_file)
+    return;
+  const char *selected = getenv ("KISSAT_EVENT_TRACE_BINARY_ASSIGNMENT");
+  if (!selected || !*selected)
+    return;
+  const int external = external_literal (solver, assigned);
+  const int wanted = atoi (selected);
+  if (abs (external) != abs (wanted))
+    return;
+  char payload[256];
+  snprintf (payload, sizeof payload,
+            "assigned=%d|immediate=%d|jumped=%u|stored=%d", external,
+            external_literal (solver, immediate_reason), jumped,
+            external_literal (solver, stored_reason));
+  kissat_event_trace (solver, "binary_assignment", payload, false);
 }
 
 void kissat_event_trace_clause (kissat *solver, const char *event) {

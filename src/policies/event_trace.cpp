@@ -326,6 +326,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "phase_pick") &&
       std::strcmp(event, "score_bump") &&
       std::strcmp(event, "heap_scores") &&
+      std::strcmp(event, "binary_assignment") &&
       std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&
       std::strcmp(event, "imply") &&
       std::strcmp(event, "conflict") && std::strncmp(event, "analyzed", 8) &&
@@ -1588,6 +1589,26 @@ void EventTrace::heap_pop(const Kernel &k, const char *stage, Var held,
   emit(k, "heap_pop", payload, false);
 }
 
+void EventTrace::binary_assignment(const Kernel &k, Lit assigned,
+                                   Lit immediate_reason, Lit stored_reason,
+                                   bool jumped) {
+  if (!out_)
+    return;
+  const char *selected =
+      std::getenv("TACTIX_EVENT_TRACE_BINARY_ASSIGNMENT");
+  if (!selected || !*selected)
+    return;
+  const int external = kernel_externalize(k, assigned);
+  if (std::abs(external) != std::abs(std::atoi(selected)))
+    return;
+  char payload[256];
+  std::snprintf(payload, sizeof payload,
+                "assigned=%d|immediate=%d|jumped=%u|stored=%d", external,
+                kernel_externalize(k, immediate_reason), jumped,
+                kernel_externalize(k, stored_reason));
+  emit(k, "binary_assignment", payload, false);
+}
+
 void EventTrace::mode_clock(const Kernel &k, const char *stage, uint64_t limit,
                             uint64_t anchor, uint64_t count) {
   if (!std::getenv("TACTIX_EVENT_TRACE_MODE_CLOCK") || !want_detail(k))
@@ -1622,6 +1643,14 @@ void event_trace_heap_pop(const Kernel &k, const char *stage, Var held,
                           Var other, uint32_t from, uint32_t to) {
   if (active_trace)
     active_trace->heap_pop(k, stage, held, other, from, to);
+}
+
+void event_trace_binary_assignment(const Kernel &k, Lit assigned,
+                                   Lit immediate_reason, Lit stored_reason,
+                                   bool jumped) {
+  if (active_trace)
+    active_trace->binary_assignment(k, assigned, immediate_reason,
+                                    stored_reason, jumped);
 }
 
 void event_trace_root_assign(const Kernel &k, Lit lit) {
