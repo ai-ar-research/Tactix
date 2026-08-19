@@ -310,9 +310,8 @@ M3 is one public operation. Private pending state must be consumed before contro
   the file id, and store the new id. Parse-time refutation is deferred for the same reason.
 - Tautologies, duplicate units/binaries, and post-refutation input clauses still consume their input id.
   Parse-time binary dedup is safe because no binary has yet been deleted.
-- Use the shared proof primitives for contradictory-unit empty emission, pending-unit batching, clause
-  replacement, and clause deletion. Large-clause garbage marking and proof deletion stay inseparable in
-  `kernel_delete_clause`.
+- Shared proof primitives own empty emission, pending units, replacement, and deletion; garbage marking and proof deletion stay inseparable in `kernel_delete_clause`, and an already-garbage record emits no second deletion (LRAT names one id; a surplus DRAT line can silently retire a live literal-identical duplicate).
+- The optional `TACTIX_ENABLE_PROOF_SHADOW` build seeds the checker's clause population after input finalization and aborts at the first unbacked deletion; production builds compile out its emission hooks.
 - Every trajectory-affecting comparator is a strict total order, and trajectory code must not depend on
   unordered-container iteration order.
 

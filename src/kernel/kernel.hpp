@@ -1063,10 +1063,20 @@ inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
 }
 
 inline void kernel_delete_clause(Kernel &k, Clause *c) {
+  // The proof delta belongs INSIDE the retirement transition, not in front of
+  // it. A deletion names one clause: DRAT by its literals, LRAT by its id, and
+  // in both formats the checker retires exactly one copy per `d` line. Emitting
+  // one for a record that is already garbage therefore does not "repeat" a
+  // no-op — it retires a SECOND clause. Under DRAT that is whatever live clause
+  // carries the same literals (a duplicate the solver keeps), leaving the
+  // solver with a clause the checker no longer holds, so the next lemma that
+  // resolves through it is not RUP. Under LRAT it retires one id twice, which
+  // every checker rejects outright. The mark and the bookkeeping below were
+  // already idempotent; this makes the whole retirement idempotent.
+  if (c->garbage())
+    return; // already retired
   if (k.proof)
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-  if (c->garbage())
-    return; // already retired: the mark and its bookkeeping are idempotent
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_clause_transition(k, "delete", c->lits, c->size,
                                       c->id());

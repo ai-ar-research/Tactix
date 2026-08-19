@@ -6,12 +6,17 @@
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 
+#include "proof/proof.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <vector>
+
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -518,6 +523,82 @@ static void test_root_sparse_collection_collects_existing_garbage() {
     if (!watch.binary())
       watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
   assert((watched_ids == arena_ids));
+  kernel_check_invariants(k);
+}
+
+// A retired clause must be retired exactly ONCE on the proof channel too. A
+// checker retires one clause per `d` line and, under DRAT, selects it by the
+// literals, so a second deletion of an already-garbage record silently retires
+// the live duplicate the solver keeps — after which the next lemma resolving
+// through it is not RUP. Regression for the certificate rejected on
+// tierC/asconhashv12 (benchmarks/runs/20260818-1930-BC-inherited-sparse).
+static void test_repeated_clause_deletion_emits_one_proof_line() {
+  Kernel k;
+  ScopedHeuristics _hg(k);
+  Proof proof;
+  const std::string path = "/tmp/tactix-delete-idempotence-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".drat";
+  assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+  k.proof = &proof;
+  kernel_reserve_vars(k, 4);
+  const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+  // Two live records with the SAME literals: exactly the state in which a
+  // surplus deletion is silent rather than a checker warning.
+  const Ref first = kernel_add_large_clause(k, lits, 3, true, 3, 11);
+  const Ref duplicate = kernel_add_large_clause(k, lits, 3, true, 3, 12);
+  kernel_delete_clause(k, clause_at(k.arena, first));
+  kernel_delete_clause(k, clause_at(k.arena, first)); // idempotent re-delete
+  assert(clause_at(k.arena, first)->garbage());
+  assert(!clause_at(k.arena, duplicate)->garbage());
+  proof.flush();
+  FILE *f = fopen(path.c_str(), "r");
+  assert(f);
+  char buf[256];
+  int dels = 0;
+  while (fgets(buf, sizeof buf, f))
+    if (buf[0] == 'd')
+      dels++;
+  fclose(f);
+  remove(path.c_str());
+  assert(dels == 1); // the surviving duplicate stays in the checker
+  k.proof = nullptr;
+}
+
+// `searched` carries a forwarding pointer only for a record the collection
+// COPIED. An OTFS reason retired before Backjump drains the register keeps its
+// search cursor there, so forwarding it unconditionally lands inside another
+// clause's literals; the register's own consumer already skips a garbage
+// record, so the collector must drop it.
+static void test_garbage_collection_drops_retired_otfs_reason() {
+  Kernel k;
+  ScopedHeuristics _hg(k);
+  kernel_reserve_vars(k, 8);
+  const Lit lead[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit retired[3] = {internalize(2), internalize(3), internalize(4)};
+  const Lit live[3] = {internalize(4), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, lead, 3, false, 0, 21);
+  const Ref stale = kernel_add_large_clause(k, retired, 3, true, 4, 22);
+  const Ref kept = kernel_add_large_clause(k, live, 3, true, 4, 23);
+  k.otfs_retired = {stale, kept};
+  // Some other rule retires the register entry before Backjump reaches it.
+  kernel_delete_clause(k, clause_at(k.arena, stale));
+  const uint32_t cursor = clause_at(k.arena, stale)->searched;
+  assert(cursor < clause_words(3)); // a cursor, not a record start
+
+  kernel_collect_garbage(k);
+
+  assert(k.otfs_retired.size() == 1);
+  const Ref forwarded = k.otfs_retired[0];
+  assert(clause_at(k.arena, forwarded)->id() == 23);
+  // Every surviving entry is a real record START, which is what the register's
+  // consumer dereferences.
+  bool is_record_start = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    is_record_start |= ref == forwarded;
+    ref += clause_words(clause_at(k.arena, ref)->size);
+  }
+  assert(is_record_start);
   kernel_check_invariants(k);
 }
 
@@ -1033,6 +1114,8 @@ int main() {
   test_sparse_collection_partitions_mixed_tail();
   test_root_sparse_collection_partitions_rewritten_tail();
   test_root_sparse_collection_collects_existing_garbage();
+  test_repeated_clause_deletion_emits_one_proof_line();
+  test_garbage_collection_drops_retired_otfs_reason();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();

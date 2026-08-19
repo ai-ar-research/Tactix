@@ -305,6 +305,14 @@ void finish_input(Kernel &k) {
     }
     kernel_record_import(k, v);
   }
+  // The N2 population oracle (Proof::seed_population) compares every emitted
+  // deletion against the clauses the checker holds; the checker starts from the
+  // CNF, which never passes through the proof writer. Register the input
+  // population once, here, where it is exactly the live formula. Restated
+  // clauses are excluded: `finish_input` emits a lemma for each below, and that
+  // lemma is what the checker matches afterwards. Compiled out entirely unless
+  // the diagnostic build feature is on (`population_shadow()` is a constant).
+  const uint64_t input_ids = k.next_clause_id;
   std::vector<uint64_t> chain;
   for (const Kernel::InputRestatement &r : k.input_restatements) {
     const Lit *lits = k.input_restate_lits.data() + r.begin;
@@ -343,6 +351,24 @@ void finish_input(Kernel &k) {
   k.input_restatements.clear();
   k.input_restate_lits.clear();
   k.input_restate_units.clear();
+  if (k.proof && k.proof->population_shadow()) {
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && c->id() && c->id() <= input_ids)
+        k.proof->seed_population(c->id(), c->lits, c->size);
+      ref += clause_words(c->size);
+    }
+    for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
+      for (const WatchEntry w : k.watches.entries(lit)) {
+        if (!w.binary() || lit >= w.other())
+          continue;
+        const Lit pair[2] = {lit, w.other()};
+        const uint64_t id = kernel_binary_id(k, lit, w.other());
+        if (id && id <= input_ids)
+          k.proof->seed_population(id, pair, 2);
+      }
+    k.proof->arm_population_shadow();
+  }
   // The decision order is `H` state.  If `H` is already attached, publish the
   // imported-variable permutation now.  Otherwise retain it until
   // ScopedHeuristics attaches at solve entry: Kissat's random brancher samples

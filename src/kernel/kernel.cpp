@@ -1615,10 +1615,31 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       }
     }
   }
-  if (k.pending.valid && k.pending.ref != INVALID_REF)
-    k.pending.ref = clause_at(k.arena, k.pending.ref)->searched;
-  for (Ref &ref : k.otfs_retired)
-    ref = clause_at(k.arena, ref)->searched;
+  // Same forwarding contract as the trail reasons above: `searched` holds a
+  // forwarding pointer only for a record this collection COPIED. A garbage
+  // record keeps its search cursor there (a small literal index), so reading it
+  // as a Ref lands inside some unrelated clause's literals.
+  if (k.pending.valid && k.pending.ref != INVALID_REF) {
+    const Clause *c = clause_at(k.arena, k.pending.ref);
+    // The Analyze->Backjump handoff is reason-locked by every collector caller,
+    // so it must still be live here; there is no meaningful recovery from a
+    // pending clause that was retired mid-handoff.
+    assert(!c->garbage() && "pending learned clause retired before Backjump");
+    k.pending.ref = c->searched;
+  }
+  {
+    // An OTFS reason can be retired by another rule before Backjump drains the
+    // register; `analyze_retire_otfs_reasons` already skips a garbage record,
+    // so dropping it here is exactly what a correctly forwarded entry would
+    // have done — and it is the only way to avoid forwarding a search cursor.
+    size_t kept = 0;
+    for (const Ref ref : k.otfs_retired) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage())
+        k.otfs_retired[kept++] = c->searched;
+    }
+    k.otfs_retired.resize(kept);
+  }
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     k.watches.compact(lit, [&k, watch_start, lit](WatchEntry w) {
       return w.binary() ||

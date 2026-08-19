@@ -9,6 +9,8 @@
 
 #include <array>
 #include <cstdio>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace tactix {
@@ -61,7 +63,42 @@ public:
   // legs rather than by a gigabyte-scale tier proof.
   static bool tautological(const Lit *lits, uint32_t size);
 
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  // N2 population oracle (diagnostic build feature, CMake
+  // TACTIX_ENABLE_PROOF_SHADOW; production pins compile none of this).
+  //
+  // A checker retires exactly ONE clause per `d` line, selected the way that
+  // format names a clause: DRAT by the literal multiset, LRAT by the id. So
+  // every deletion must be backed by a copy the checker still holds. An
+  // unbacked one is not a harmless no-op — under DRAT it retires whatever OTHER
+  // live clause carries the same literals, leaving the solver with a clause the
+  // checker lost, after which the first lemma resolving through it fails RUP.
+  // That divergence is silent in the certificate (drat-trim only warns when the
+  // surplus deletion happens to match nothing at all), so it has to be caught
+  // where it is emitted. `seed` registers the clauses the checker starts with.
+  void seed_population(uint64_t id, const Lit *lits, uint32_t size);
+  // The oracle can only judge a run whose whole starting population it saw, so
+  // it stays inert until the frontend has registered the input formula. A
+  // kernel assembled directly in a unit test never arms it.
+  void arm_population_shadow() { armed_ = true; }
+  uint64_t unbacked_deletions() const { return unbacked_deletions_; }
+  bool population_shadow() const { return true; }
+#else
+  void seed_population(uint64_t, const Lit *, uint32_t) {}
+  void arm_population_shadow() {}
+  uint64_t unbacked_deletions() const { return 0; }
+  bool population_shadow() const { return false; }
+#endif
+
 private:
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  std::string population_key(uint64_t id, const Lit *lits, uint32_t size) const;
+  void population_add(uint64_t id, const Lit *lits, uint32_t size);
+  void population_del(uint64_t id, const Lit *lits, uint32_t size);
+  std::unordered_map<std::string, uint32_t> population_;
+  uint64_t unbacked_deletions_ = 0;
+  bool armed_ = false;
+#endif
   void put_byte(unsigned char byte);
   void flush_binary();
   void put_lit(Lit l);
