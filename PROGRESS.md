@@ -319,7 +319,13 @@ both pass 72/72 locally. No production pin includes this diagnostic. Submit one
 pinned Ascon shadow task next, and do not launch cumulative arrays until its
 proof verifies. Campaign `20260818-2212-ascon-value-unit-replay`, job `1634264`,
 is submitted from commit `1a53ba3` with shadow pin `ef58cf2e...`; resume by
-reading its `forced-rup` label, checked result, and cleanup state.
+reading its `forced-rup` label, checked result, and cleanup state. It completes
+valid: `-1997` is an XOR value-unit and forced RUP fails inside Tactix. Dropping
+that one unjustified inference yields checked UNSAT in 95.785 s plus 57.775 s
+verification; the 15,604,302-byte proof verifies and all scratch is removed.
+This localizes a solver-side XOR `Canon::Unit` correctness defect. Repair the
+canonicalization/root-value reasoning itself; do not promote the shadow-only
+fail-closed guard as the production fix.
 
 ## Gates
 
@@ -332,10 +338,9 @@ reading its `forced-rup` label, checked result, and cleanup state.
 
 ## Next engineering work
 
-1. Run the forced value-unit RUP shadow on `asconhashv12`. If replay fails,
-   localize the invalid `Canon::Unit` gate canonicalization; if it passes,
-   continue locating solver/checker formula divergence. Rerun 28B+5C and
-   frozen ranks 21--40 only after the focused proof verifies.
+1. Repair the invalid XOR value-derived `Canon::Unit` localized by Ascon job
+   `1634264`, protect it with a generic regression, then rerun focused Ascon.
+   Rerun 28B+5C and frozen ranks 21--40 only after the production proof verifies.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
