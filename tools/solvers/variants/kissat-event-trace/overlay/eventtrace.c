@@ -13,8 +13,8 @@ static FILE *trace_file;
 static bool trace_initialized, trace_truncated, trace_saw_reorder;
 static bool trace_detail_window;
 static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
-            trace_skip_decisions, trace_skip_analysis_ticks, trace_search_only,
-            trace_control_only;
+            trace_skip_decisions, trace_skip_randec_draws,
+            trace_skip_analysis_ticks, trace_search_only, trace_control_only;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
@@ -235,6 +235,8 @@ static void open_trace (void) {
   trace_skip_imply = getenv ("KISSAT_EVENT_TRACE_SKIP_IMPLY") != 0;
   trace_skip_heap = getenv ("KISSAT_EVENT_TRACE_SKIP_HEAP") != 0;
   trace_skip_decisions = getenv ("KISSAT_EVENT_TRACE_SKIP_DECISIONS") != 0;
+  trace_skip_randec_draws =
+      getenv ("KISSAT_EVENT_TRACE_SKIP_RANDEC_DRAWS") != 0;
   trace_skip_analysis_ticks =
       getenv ("KISSAT_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != 0;
   trace_search_only = getenv ("KISSAT_EVENT_TRACE_SEARCH_ONLY") != 0;
@@ -276,6 +278,8 @@ void kissat_event_trace (kissat *solver, const char *event,
   if (trace_skip_decisions &&
       (!strcmp (event, "decision") || !strcmp (event, "randec_draw") ||
        !strcmp (event, "phase_pick")))
+    return;
+  if (trace_skip_randec_draws && !strcmp (event, "randec_draw"))
     return;
   if (trace_skip_analysis_ticks && !strncmp (event, "analysis_tick", 13))
     return;
@@ -423,6 +427,17 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
 void kissat_event_trace_literal (kissat *solver, const char *event,
                                  unsigned lit) {
   kissat_event_trace_detail (solver, event, external_literal (solver, lit));
+}
+
+void kissat_event_trace_randec_draw (kissat *solver, unsigned raw,
+                                     unsigned idx, bool accepted) {
+  if (!detail_enabled (solver))
+    return;
+  char payload[160];
+  snprintf (payload, sizeof payload,
+            "raw=%u|slot=%u|external=%u|accepted=%u", raw, idx,
+            external_variable (solver, idx), accepted);
+  kissat_event_trace (solver, "randec_draw", payload, false);
 }
 
 static int compare_external_literals (const void *a, const void *b) {
