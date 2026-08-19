@@ -337,8 +337,8 @@ on; no pin is promoted; cumulative arrays remain blocked.
 
 ## Next engineering work
 
-1. Rerun focused Ascon with a production proof for the mixed
-   valued-plus-cancelled XOR ladder repair.
+1. Await production Ascon ladder campaign `20260818-2235-ascon-xor-ladder-repair`,
+   job `1634293`, commit `ddc2ce4`, release pin `494b8bd...`.
    Rerun 28B+5C and frozen ranks 21--40 only after the production proof verifies.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
