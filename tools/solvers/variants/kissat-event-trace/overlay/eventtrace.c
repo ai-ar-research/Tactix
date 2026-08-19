@@ -844,6 +844,16 @@ static void emit_heap_scores (kissat *solver) {
   kissat_event_trace (solver, "heap_scores", payload, false);
 }
 
+void kissat_event_trace_heap_before_bumps (kissat *solver) {
+  if (!detail_enabled (solver) || !solver->stable || !trace_heap_each_bump)
+    return;
+  const uint64_t stop = stop_after_conflict ();
+  if (stop == UINT64_MAX || solver->statistics.conflicts < stop ||
+      trace_stop_pending)
+    return;
+  emit_heap_scores (solver);
+}
+
 void kissat_event_trace_heap_scores (kissat *solver) {
   if (!detail_enabled (solver) || !solver->stable)
     return;

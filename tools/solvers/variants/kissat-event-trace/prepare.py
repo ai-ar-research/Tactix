@@ -592,6 +592,7 @@ def main():
         '  for (all_stack (unsigned, idx, solver->analyzed))\n'
         '    if (flags[idx].active)\n'
         '      bump_analyzed_variable_score (solver, idx);\n',
+        '  kissat_event_trace_heap_before_bumps (solver);\n'
         '  for (all_stack (unsigned, idx, solver->analyzed))\n'
         '    if (flags[idx].active) {\n'
         '      bump_analyzed_variable_score (solver, idx);\n'
