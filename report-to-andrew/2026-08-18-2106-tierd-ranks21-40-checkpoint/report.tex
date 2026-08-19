@@ -2381,6 +2381,16 @@ does not close rank 22, because the Kissat arm is not terminal-valid and no
 production answer was attempted. Resume by replaying the repaired
 conflict-1,007 raw heap endpoint and advancing only if that state is exact.
 
+That fresh matched endpoint campaign is
+\begin{center}\small\artifact{20260819-1453-tierd-rank22-repaired-c1007-endpoint}\end{center}
+It uses the same immutable Kissat/Tactix prefixes \code{fac07c1f}/
+\code{60d971f6}, with two CPUs, 16\,GiB, a 180-second solver ceiling, a
+full-width two-task array, no throttle, and no node constraint. Runner and pin
+validation pass; scheduler dry validation is job \code{1634714} and the actual
+pair is job \code{1634715}. Resume by requiring valid intentional-stop UNKNOWN
+results, untruncated terminal conflict-1,007 records, deleted scratch, no
+pending cleanup, and byte-equal raw heap hash plus ordered top-32 payloads.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
