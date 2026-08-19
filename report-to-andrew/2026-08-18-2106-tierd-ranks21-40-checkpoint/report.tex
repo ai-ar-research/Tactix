@@ -2391,6 +2391,17 @@ pair is job \code{1634715}. Resume by requiring valid intentional-stop UNKNOWN
 results, untruncated terminal conflict-1,007 records, deleted scratch, no
 pending cleanup, and byte-equal raw heap hash plus ordered top-32 payloads.
 
+Job \code{1634715} accepts the endpoint comparison. Kissat and Tactix reach
+their intended UNKNOWN stops in 41.407 and 93.521 seconds with untruncated
+840,911-byte and 689,789-byte traces. Both scratch artifacts are deleted and
+neither cleanup is pending. Each trace contains exactly one conflict-1,007
+heap endpoint; the full payloads are byte-equal, including raw heap hash
+\code{2dc7247556f5f30b} and every ordered top-32 variable/score pair. The first
+known raw heap divergence therefore moves beyond conflict 1,007. This is the
+focused acceptance gate for the repair, not a rank closure. Resume with one
+checked 16\,GiB/1,200-second repaired Release attempt on frozen rank 22; close
+only for an independently checked SAT or UNSAT answer.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
