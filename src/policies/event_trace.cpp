@@ -239,6 +239,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
   skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
   skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
   skip_heap_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_HEAP") != nullptr;
+  heap_each_bump_ =
+      std::getenv("TACTIX_EVENT_TRACE_HEAP_EACH_BUMP") != nullptr;
   skip_decisions_ =
       std::getenv("TACTIX_EVENT_TRACE_SKIP_DECISIONS") != nullptr;
   skip_randec_draws_ =
@@ -1544,8 +1546,11 @@ void EventTrace::heap_scores(const Kernel &k) {
   if (trajectory_only_ || !k.h || !k.h->stable)
     return;
   if (stop_after_conflict_ != UINT64_MAX) {
-    if (!stop_pending_)
+    if (!stop_pending_) {
+      if (heap_each_bump_ && k.stats.conflicts >= stop_after_conflict_)
+        emit_heap_scores(k);
       return;
+    }
     emit_heap_scores(k);
     std::fflush(out_);
     std::raise(SIGTERM);
