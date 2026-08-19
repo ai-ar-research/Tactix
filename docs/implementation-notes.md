@@ -375,7 +375,7 @@ decision is joint because either alone measured negative while the pair measured
 - The rule/kernel owns the bump set and tier computation; policy owns timing. Re-anchor the decision-rate
   EMA on mode switches and retier at reductions and the capped doubling interval.
 - Shared live tier fields may pose the current mode for OTFS or the focused/stable hybrid for Reduce; DefaultPolicy re-poses focused tiers at every Vivify dose, matching shipped `vivifyfocusedtiers=1` rather than inheriting the last consumer's fields.
-- Reduction always seeds its first deadline from Kissat `reduceinit=1000`; thereafter it ships with Kissat's `1000·sqrt(reductions)` cadence/ramp. Rollback is `TACTIX_REDUCE_CADENCE=arith TACTIX_REDUCE_RAMP=0` (the 2000+300n / flat-75% recurrence never replaces `reduceinit`).
+- Reduction always seeds its first deadline from Kissat `reduceinit=1000`; thereafter it ships with Kissat's `1000·sqrt(reductions)` cadence/ramp. Formula-shape profiles dose inprocessing only and cannot override cadence, ramp, dynamic tiers, or compacting collection. `compactlim` counts the union of retired and root-fixed variables as Kissat's inactive population; Tactix retains stable fixed identities but still performs the due whole-arena rewatch and compacts the policy random-index permutation. Rollback is `TACTIX_REDUCE_CADENCE=arith TACTIX_REDUCE_RAMP=0` (the 2000+300n / flat-75% recurrence never replaces `reduceinit`).
 
 ## 10. Design decision: Reorder
 

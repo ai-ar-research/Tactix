@@ -1311,17 +1311,11 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     in.preprocess_only = true;
     if (profile == FormulaProfile::LegacyStartupFactorOnly)
       in.factor_repeated_enabled = false;
-    // Formula profiles dose inprocessing work.  They must not silently select
-    // CaDiCaL's randec-off policy over the shipped Kissat tie-break
-    // (kissat decide.c:57-113): random sequences are a search-wide
-    // diversification schedule, and the explicit typed config /
-    // TACTIX_RANDEC arm remains its selection surface.
-    config_.rephase.walk_permille = 0;
-    config_.reorder.mode = 0;
-    config_.reduction.square_root_cadence = false;
-    config_.reduction.ramp_fraction = false;
-    config_.reduction.dynamic_tiers = false;
-    config_.reduction.compact_variables = false;
+    // Formula profiles dose inprocessing work only. Search-wide choices stay
+    // on the shipped Kissat tie-break: random decisions, Rephase/Walk,
+    // Reorder, dynamic reduction tiers and ramp, square-root cadence, and
+    // compacting collection. Their typed knobs and environment overlays are
+    // the explicit selection surface for a different reference-backed arm.
     break;
   }
 }
@@ -1944,8 +1938,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims);
           });
       if (compact_ && kernel_should_compact_variables(
-                          k, config_.reduction.compact_inactive_percent))
-        kernel_compact_variables(k);
+                          k, config_.reduction.compact_inactive_percent) &&
+          kernel_compact_variables(k))
+        heuristics_compact_random_order_fixed(k);
       update_reduce_limit(k);
       pose_focused_tiers(k); // vivifyfocusedtiers=1 is the shipped default.
       update_formula_classification(k);

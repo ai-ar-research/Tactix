@@ -2004,8 +2004,11 @@ bool kernel_should_compact_variables(const Kernel &k, uint32_t percent) {
   if (k.var_status.empty() || k.nvars == 0)
     return false;
   uint64_t inactive = 0;
-  for (const VarStatus status : k.var_status)
-    inactive += status != VarStatus::Active;
+  for (Var v = 0; v < k.nvars; ++v) {
+    const bool fixed = k.values[make_lit(v, false)] != 0 &&
+                       k.assigned[v].level == 0;
+    inactive += k.var_status[v] != VarStatus::Active || fixed;
+  }
   return 100 * inactive > static_cast<uint64_t>(percent) * k.nvars;
 }
 
@@ -2020,7 +2023,12 @@ bool kernel_compact_variables(Kernel &k) {
   for (Var old = 0; old < old_nvars; old++)
     if (k.var_status[old] == VarStatus::Active)
       old_to_new[old] = new_nvars++;
-  if (new_nvars == old_nvars)
+  // Tactix keeps distinct public identities for root-fixed variables, while
+  // Kissat maps them onto one representative.  They still count as inactive
+  // for `compactlim`, and a due compacting collection must rebuild the whole
+  // arena/watch pose even when there is no retired identity to renumber.
+  const bool root_fixed = kernel_root_fixed(k);
+  if (new_nvars == old_nvars && !root_fixed)
     return false;
 
   // Retirement owns the formula-changing work.  Compaction is only a change
