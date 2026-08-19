@@ -2424,6 +2424,17 @@ insufficient for rank closure. Keep rank 22 open and resume with a repaired
 current-pin conflict-1,199 raw heap endpoint, the next previously identified
 frontier after conflict 1,007.
 
+The repaired conflict-1,199 endpoint campaign is
+\begin{center}\small\artifact{20260819-1521-tierd-rank22-repaired-c1199-endpoint}\end{center}
+It reuses current immutable observer prefixes \code{fac07c1f}/\code{60d971f6}
+with two CPUs, 16\,GiB, a 300-second solver ceiling, full-width array, no
+throttle, and no node constraint. Runner and pin checks pass; scheduler dry
+validation is job \code{1634720}, and the actual pair is job \code{1634721}.
+Resume by requiring one untruncated terminal conflict-1,199 heap endpoint per
+task, valid intentional-stop UNKNOWN results, deleted scratch, and no cleanup
+pending. An exact payload moves the frontier later; a clean mismatch selects
+conflict 1,199 for the next mutation-level trace.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
