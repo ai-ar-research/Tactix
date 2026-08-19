@@ -584,6 +584,48 @@ def main():
         '  kissat_event_trace_heap_scores (solver);\n'
         '  STOP (decide);\n')
 
+    inlineheap = dest / "src" / "inlineheap.h"
+    replace_once(inlineheap, '#include "internal.h"\n',
+                 '#include "internal.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        inlineheap,
+        '  const unsigned last = POP_STACK (*stack);\n'
+        '  unsigned *const pos = heap->pos;\n',
+        '  const unsigned last_pos = SIZE_STACK (*stack) - 1;\n'
+        '  const unsigned last = POP_STACK (*stack);\n'
+        '  kissat_event_trace_heap_pop (solver, "begin", heap, last, idx,\n'
+        '                               last_pos, 0);\n'
+        '  unsigned *const pos = heap->pos;\n')
+    replace_once(
+        inlineheap,
+        '    stack[idx_pos] = child;\n'
+        '    pos[child] = idx_pos;\n',
+        '    kissat_event_trace_heap_pop (solver, "move", heap, idx, child,\n'
+        '                                 child_pos, idx_pos);\n'
+        '    stack[idx_pos] = child;\n'
+        '    pos[child] = idx_pos;\n')
+    replace_once(
+        inlineheap,
+        '  kissat_bubble_down (solver, heap, last);\n'
+        '#ifdef CHECK_HEAP\n'
+        '  kissat_check_heap (heap);\n'
+        '#endif\n'
+        '  return idx;\n',
+        '  kissat_bubble_down (solver, heap, last);\n'
+        '  kissat_event_trace_heap_pop (solver, "end", heap, last, last,\n'
+        '                               heap->pos[last], heap->pos[last]);\n'
+        '#ifdef CHECK_HEAP\n'
+        '  kissat_check_heap (heap);\n'
+        '#endif\n'
+        '  return idx;\n')
+    replace_once(
+        decide,
+        '    kissat_pop_max_heap (solver, scores);\n'
+        '    res = kissat_max_heap (scores);\n',
+        '    kissat_pop_max_heap (solver, scores);\n'
+        '    kissat_event_trace_heap_scores (solver);\n'
+        '    res = kissat_max_heap (scores);\n')
+
     bump = dest / "src" / "bump.c"
     replace_once(bump, '#include "analyze.h"\n',
                  '#include "analyze.h"\n#include "eventtrace.h"\n')

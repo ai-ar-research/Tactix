@@ -15,6 +15,7 @@ static bool trace_initialized, trace_truncated, trace_saw_reorder,
             trace_stop_pending;
 static bool trace_detail_window;
 static bool trace_heap_each_bump;
+static bool trace_heap_pop_only;
 static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
             trace_skip_decisions, trace_skip_randec_draws,
             trace_skip_analysis_ticks, trace_search_only, trace_control_only,
@@ -23,6 +24,7 @@ static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
 static uint64_t trace_heap_from_decision = UINT64_MAX;
+static uint64_t trace_heap_pop_decision = UINT64_MAX;
 static FILE *reduce_trace_file;
 static bool reduce_trace_initialized;
 static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
@@ -352,6 +354,11 @@ static void open_trace (void) {
       getenv ("KISSAT_EVENT_TRACE_HEAP_FROM_DECISION");
   if (heap_from_decision && *heap_from_decision)
     trace_heap_from_decision = strtoull (heap_from_decision, 0, 10);
+  const char *heap_pop_decision =
+      getenv ("KISSAT_EVENT_TRACE_HEAP_POP_DECISION");
+  if (heap_pop_decision && *heap_pop_decision)
+    trace_heap_pop_decision = strtoull (heap_pop_decision, 0, 10);
+  trace_heap_pop_only = getenv ("KISSAT_EVENT_TRACE_HEAP_POP_ONLY") != 0;
   trace_skip_decisions = getenv ("KISSAT_EVENT_TRACE_SKIP_DECISIONS") != 0;
   trace_skip_randec_draws =
       getenv ("KISSAT_EVENT_TRACE_SKIP_RANDEC_DRAWS") != 0;
@@ -389,6 +396,10 @@ void kissat_event_trace (kissat *solver, const char *event,
                          const char *payload, bool snapshot) {
   open_trace ();
   if (!trace_file)
+    return;
+  if (trace_heap_pop_only && strcmp (event, "heap_pop") &&
+      strcmp (event, "heap_scores") && strcmp (event, "decision") &&
+      strcmp (event, "analysis_end"))
     return;
   const uint64_t stop = stop_after_conflict ();
   if (snapshot && stop != UINT64_MAX &&
@@ -877,6 +888,21 @@ void kissat_event_trace_heap_scores (kissat *solver) {
     fflush (trace_file);
     raise (SIGTERM);
   }
+}
+
+void kissat_event_trace_heap_pop (kissat *solver, const char *stage,
+                                  heap *heap, unsigned held, unsigned other,
+                                  unsigned from, unsigned to) {
+  if (!detail_enabled (solver) || !solver->stable ||
+      solver->statistics.decisions != trace_heap_pop_decision)
+    return;
+  char payload[256];
+  snprintf (payload, sizeof payload,
+            "stage=%s|held=%d:%.17g|other=%d:%.17g|from=%u|to=%u", stage,
+            external_literal (solver, LIT (held)), heap->score[held],
+            external_literal (solver, LIT (other)), heap->score[other], from,
+            to);
+  kissat_event_trace (solver, "heap_pop", payload, false);
 }
 
 void kissat_event_trace_clause (kissat *solver, const char *event) {

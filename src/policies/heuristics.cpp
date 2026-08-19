@@ -569,6 +569,7 @@ static void heap_bubble_down(Kernel &k, Var v) {
     }
     if (child_score <= vscore)
       break;
+    event_trace_heap_pop(k, "move", v, child, child_pos, vpos);
     stack[vpos] = child;
     pos[child] = vpos;
     vpos = child_pos;
@@ -608,12 +609,17 @@ static void heap_pop_max(Kernel &k) {
   assert(!k.h->scores.stack.empty());
   const Var max = k.h->scores.stack[0];
   const Var last = k.h->scores.stack.back();
+  const uint32_t last_pos =
+      static_cast<uint32_t>(k.h->scores.stack.size() - 1);
+  event_trace_heap_pop(k, "begin", last, max, last_pos, 0);
   k.h->scores.stack.pop_back();
   k.h->scores.pos[max] = UINT32_MAX;
   if (last != max) {
     k.h->scores.pos[last] = 0;
     k.h->scores.stack[0] = last;
     heap_bubble_down(k, last);
+    event_trace_heap_pop(k, "end", last, last, k.h->scores.pos[last],
+                         k.h->scores.pos[last]);
   }
 }
 
@@ -695,6 +701,7 @@ Var heuristics_heap_next_unassigned(Kernel &k) {
     if (k.values[make_lit(v, false)] == 0)
       return v;
     heap_pop_max(k); // lazy deletion (kissat decide.c)
+    event_trace_heap_scores(k);
   }
   return heuristics_any_unassigned(k); // see the backstop above
 }

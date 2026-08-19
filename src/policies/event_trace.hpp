@@ -38,6 +38,8 @@ public:
                 const std::vector<uint8_t> &, uint8_t bump_mask);
   void analyzed_post(const Kernel &, const std::vector<Var> &);
   void heap_scores(const Kernel &);
+  void heap_pop(const Kernel &, const char *stage, Var held, Var other,
+                uint32_t from, uint32_t to);
   void mode_clock(const Kernel &, const char *stage, uint64_t limit,
                   uint64_t anchor, uint64_t count);
   void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
@@ -116,6 +118,7 @@ private:
   uint64_t detail_conflict_to_ = UINT64_MAX;
   uint64_t stop_after_conflict_ = UINT64_MAX;
   uint64_t heap_from_decision_ = UINT64_MAX;
+  uint64_t heap_pop_decision_ = UINT64_MAX;
   bool saw_reorder_ = false;
   bool detail_window_ = false;
   bool compact_probe_ = false;
@@ -130,6 +133,7 @@ private:
   bool trajectory_only_ = false;
   bool watch_only_ = false;
   bool heap_each_bump_ = false;
+  bool heap_pop_only_ = false;
   bool stop_pending_ = false;
   bool truncated_ = false;
 };
@@ -217,6 +221,8 @@ void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                           const std::vector<uint8_t> &, uint8_t bump_mask);
 void event_trace_analyzed_post(const Kernel &, const std::vector<Var> &);
 void event_trace_heap_scores(const Kernel &);
+void event_trace_heap_pop(const Kernel &, const char *stage, Var held,
+                          Var other, uint32_t from, uint32_t to);
 void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                              bool accepted);
 void event_trace_randec_state(const Kernel &, const char *stage,
@@ -294,6 +300,8 @@ inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
 inline void event_trace_analyzed_post(const Kernel &,
                                       const std::vector<Var> &) {}
 inline void event_trace_heap_scores(const Kernel &) {}
+inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
+                                 uint32_t, uint32_t) {}
 inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
                                     bool) {}
 inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
