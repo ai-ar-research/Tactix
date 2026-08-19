@@ -338,11 +338,11 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank-22 random lifetime diverges after conflict 533. Job `1634404` is
-   observer-invalid (state filtered); `1634409` is infra-invalid (pins lost execute
-   mode); both cleaned with zero residue. Repair `9fc6971` passes Release/Trace.
-   Await corrected job `1634412`, campaign
-   `20260819-0028-tierd-rank22-randec-state-rerun2`; no conclusion yet.
+1. Rank-22 cause is localized by valid job `1634412`; both start sequence 1 at
+   conflict 523 with length 10/next 1023. At conflict 533 Kissat has one unit
+   left while Tactix's absolute deadline expires. Analysis/OTFS conflict 526 is
+   global but not search propagation: Kissat does not charge it, Tactix does.
+   Implement a propagation-charged remaining counter, then replay and guard.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
