@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 struct kissat;
 struct clause;
@@ -47,6 +48,12 @@ void kissat_event_trace_sweep_rewrite_binary (struct kissat *, unsigned,
                                               unsigned, size_t, unsigned);
 void kissat_event_trace_sweep_environment_clause (
     struct kissat *, unsigned, unsigned, size_t, const unsigned *);
+void kissat_event_trace_sweep_query (struct kissat *, unsigned, unsigned,
+                                     const char *, unsigned, unsigned, int,
+                                     uint64_t);
+void kissat_event_trace_sweep_query_model (struct kissat *, unsigned,
+                                           unsigned, size_t,
+                                           const unsigned *);
 void kissat_event_trace_factor_literal_state (struct kissat *, unsigned, bool,
                                               bool, int, size_t);
 void kissat_event_trace_substitute_map (struct kissat *, unsigned, unsigned);

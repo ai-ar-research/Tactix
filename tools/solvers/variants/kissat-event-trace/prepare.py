@@ -854,8 +854,31 @@ def main():
         '  unsigned encoded;\n'
         '  unsigned save;\n',
         '  unsigned encoded;\n'
-        '  unsigned trace_seed;\n'
+        '  unsigned trace_seed, trace_query_ordinal;\n'
         '  unsigned save;\n')
+    replace_once(sweep,
+        '  return res;\n'
+        '}\n\n'
+        'static void set_kitten_ticks_limit (sweeper *sweeper) {\n',
+        '  return res;\n'
+        '}\n\n'
+        'static int sweep_solve_traced (sweeper *sweeper, const char *kind,\n'
+        '                               unsigned a, unsigned b) {\n'
+        '  kissat *solver = sweeper->solver;\n'
+        '  const uint64_t ticks_before = solver->statistics.kitten_ticks;\n'
+        '  const int res = sweep_solve (sweeper);\n'
+        '  const unsigned ordinal = sweeper->trace_query_ordinal++;\n'
+        '  const int normalized = res == 10 ? 0 : res == 20 ? 1 : 2;\n'
+        '  kissat_event_trace_sweep_query (\n'
+        '      solver, sweeper->trace_seed, ordinal, kind, a, b, normalized,\n'
+        '      solver->statistics.kitten_ticks - ticks_before);\n'
+        '  if (res == 10)\n'
+        '    kissat_event_trace_sweep_query_model (\n'
+        '        solver, sweeper->trace_seed, ordinal,\n'
+        '        SIZE_STACK (sweeper->vars), BEGIN_STACK (sweeper->vars));\n'
+        '  return res;\n'
+        '}\n\n'
+        'static void set_kitten_ticks_limit (sweeper *sweeper) {\n')
     replace_once(sweep,
         '  kitten_clause (solver->kitten, SIZE_STACK (sweeper->clause),\n'
         '                 BEGIN_STACK (sweeper->clause));\n',
@@ -869,7 +892,34 @@ def main():
         '  if (sweeper->reprs[start] != start)\n',
         '  const unsigned start = LIT (idx);\n'
         '  sweeper->trace_seed = start;\n'
+        '  sweeper->trace_query_ordinal = 0;\n'
         '  if (sweeper->reprs[start] != start)\n')
+    replace_once(sweep,
+        '  int res = sweep_solve (sweeper);\n'
+        '  LOG ("sub-solver returns \'%d\'", res);\n',
+        '  int res = sweep_solve_traced (sweeper, "initial", INVALID_LIT,\n'
+        '                                INVALID_LIT);\n'
+        '  LOG ("sub-solver returns \'%d\'", res);\n')
+    replace_once(sweep,
+        '  int res = sweep_solve (sweeper);\n'
+        '  if (res == 10) {\n'
+        '    LOG ("sweeping backbone candidate %s failed", LOGLIT (lit));\n',
+        '  int res = sweep_solve_traced (sweeper, "backbone", lit,\n'
+        '                                INVALID_LIT);\n'
+        '  if (res == 10) {\n'
+        '    LOG ("sweeping backbone candidate %s failed", LOGLIT (lit));\n')
+    replace_once(sweep,
+        '  int res = sweep_solve (sweeper);\n'
+        '  if (res == 10) {\n'
+        '    INC (sweep_sat_equivalences);\n',
+        '  int res = sweep_solve_traced (sweeper, "equiv_fwd", lit, other);\n'
+        '  if (res == 10) {\n'
+        '    INC (sweep_sat_equivalences);\n')
+    replace_once(sweep,
+        '  res = sweep_solve (sweeper);\n'
+        '  INC (sweep_solved_equivalences);\n',
+        '  res = sweep_solve_traced (sweeper, "equiv_rev", lit, other);\n'
+        '  INC (sweep_solved_equivalences);\n')
     replace_once(sweep,
         '  ADD (sweep_environment, SIZE_STACK (sweeper->vars));\n'
         '  kissat_extremely_verbose (solver,\n',

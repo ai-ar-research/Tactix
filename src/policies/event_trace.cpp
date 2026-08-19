@@ -331,6 +331,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "sweep_seed") &&
       std::strcmp(event, "sweep_environment") &&
       std::strcmp(event, "sweep_environment_clause") &&
+      std::strcmp(event, "sweep_query") &&
+      std::strcmp(event, "sweep_query_model") &&
       std::strcmp(event, "sweep_equivalence") &&
       std::strcmp(event, "sweep_rewrite_binary") &&
       std::strcmp(event, "assignment") && std::strcmp(event, "watch") &&

@@ -3,6 +3,7 @@
 #include "internal.h"
 #include "inline.h"
 #include "heap.h"
+#include "kitten.h"
 
 #include <inttypes.h>
 #include <signal.h>
@@ -433,6 +434,8 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "sweep_seed") &&
       strcmp (event, "sweep_environment") &&
       strcmp (event, "sweep_environment_clause") &&
+      strcmp (event, "sweep_query") &&
+      strcmp (event, "sweep_query_model") &&
       strcmp (event, "sweep_equivalence") &&
       strcmp (event, "sweep_rewrite_binary") &&
       strcmp (event, "watch") && strcmp (event, "imply") &&
@@ -1336,6 +1339,54 @@ void kissat_event_trace_sweep_environment_clause (
                          "%s%d", i ? "," : "",
                          external_literal (solver, lits[i]));
   kissat_event_trace (solver, "sweep_environment_clause", payload, false);
+  free (payload);
+}
+
+static bool selected_sweep_query_seed (kissat *solver, unsigned seed) {
+  const char *selected = getenv ("SAT_EVENT_TRACE_SWEEP_QUERIES");
+  return selected &&
+         strtol (selected, 0, 10) == external_literal (solver, seed);
+}
+
+void kissat_event_trace_sweep_query (kissat *solver, unsigned seed,
+                                     unsigned ordinal, const char *kind,
+                                     unsigned a, unsigned b, int result,
+                                     uint64_t ticks) {
+  if (!selected_sweep_query_seed (solver, seed))
+    return;
+  const int external_a = a == INVALID_LIT ? 0 : external_literal (solver, a);
+  const int external_b = b == INVALID_LIT ? 0 : external_literal (solver, b);
+  char payload[256];
+  snprintf (payload, sizeof payload,
+            "seed=%d|ordinal=%u|kind=%s|a=%d|b=%d|result=%d|ticks=%" PRIu64
+            "|conflicts=0",
+            external_literal (solver, seed), ordinal, kind, external_a,
+            external_b, result, ticks);
+  kissat_event_trace (solver, "sweep_query", payload, false);
+}
+
+void kissat_event_trace_sweep_query_model (kissat *solver, unsigned seed,
+                                           unsigned ordinal, size_t size,
+                                           const unsigned *vars) {
+  if (!selected_sweep_query_seed (solver, seed))
+    return;
+  const size_t capacity = 96 + 13 * size;
+  char *payload = malloc (capacity);
+  if (!payload)
+    return;
+  int written = snprintf (payload, capacity, "seed=%d|ordinal=%u|model=",
+                          external_literal (solver, seed), ordinal);
+  for (size_t i = 0; i < size && written > 0 &&
+                     (size_t) written < capacity;
+       i++) {
+    const unsigned lit = LIT (vars[i]);
+    const signed char value = kitten_value (solver->kitten, lit);
+    const unsigned model_lit = value < 0 ? NOT (lit) : lit;
+    written += snprintf (payload + written, capacity - (size_t) written,
+                         "%s%d", i ? "," : "",
+                         external_literal (solver, model_lit));
+  }
+  kissat_event_trace (solver, "sweep_query_model", payload, false);
   free (payload);
 }
 
