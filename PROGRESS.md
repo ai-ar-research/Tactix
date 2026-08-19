@@ -343,7 +343,7 @@ The cumulative pin is accepted; V6a stays on.
    matches through conflict 533/decision 3859653; `1634436` differs at stable
    decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
    direct reason; `1634446` excludes root transactions; `1634449` proves binary sharing.
-   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. `c5a6928` fixes admission; `1634463` exposes profile overrides; `1634464` matches c1000 pose; `1634465` times out cleanly. `bcfe4a0` maps VMTF cursor; `1634466` confirms c1001. `115f40e` compacting Reduce; `1634467` matches c1000. `1634468` parity through c1010; `1634471` through c1058. `9d27e72` learned digests. `1634473` is exact through c1073 and c1074 learned size/hash, then Tactix stalls before analysis_end. Instrument post-learn/backjump stages; one-arm c1074 probe.
+   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. `c5a6928` fixes admission; `1634463` exposes profile overrides; `1634464` matches c1000 pose; `1634465` times out cleanly. `bcfe4a0` maps VMTF cursor; `1634466` confirms c1001. `115f40e` compacting Reduce; `1634467` matches c1000. `1634468` parity c1010; `1634471` c1058. `9d27e72` learned digests. `1634473` exact through c1073 and c1074 learned size/hash, then stalls pre-analysis_end. Post-learn/backjump stage observer passes 72/72+71/71; Tactix pin `4459e81e`. Submit one-arm c1074 probe.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
