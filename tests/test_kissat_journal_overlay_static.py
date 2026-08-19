@@ -9,6 +9,7 @@ root = pathlib.Path(__file__).resolve().parents[1]
 prepare = (root / "tools/solvers/variants/kissat-event-trace/prepare.py").read_text()
 journal = (root / "tools/solvers/variants/kissat-event-trace/overlay/rulejournal.c").read_text()
 eventtrace = (root / "tools/solvers/variants/kissat-event-trace/overlay/eventtrace.c").read_text()
+tactix_trace = (root / "src/policies/event_trace.cpp").read_text()
 
 # These are Kissat's scheduled semantic families in search, elimination and the
 # probe pipeline.  Search-guidance-only switch/rephase/reorder operations are
@@ -44,5 +45,11 @@ assert 'else if (stop_here)\n    trace_stop_pending = true;' in eventtrace, (
     "focused analysis-end must defer the stop until stable mode")
 assert '(solver->statistics.conflicts < stop || trace_stop_pending)' in eventtrace, (
     "pending stop must suppress expensive mode-switch snapshots")
+assert 'TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT' in tactix_trace
+assert 'if (stop_here && k.h && k.h->stable)\n    emit_heap_scores(k);' in tactix_trace
+assert 'if (!stop_pending_)\n      return;' in tactix_trace, (
+    "Tactix stop-mode must suppress intermediate full-heap hashes")
+assert tactix_trace.count('std::raise(SIGTERM);') == 2, (
+    "Tactix stop-mode must terminate at stable analysis-end or deferred stable mode")
 
 print("test_kissat_journal_overlay_static OK")

@@ -5,6 +5,7 @@
 #include "policies/heuristics.hpp"
 
 #include <algorithm>
+#include <csignal>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -231,6 +232,9 @@ bool EventTrace::open_from_env(const Kernel &k) {
     detail_conflict_to_ = std::strtoull(to, nullptr, 10);
     detail_window_ = true;
   }
+  if (const char *stop =
+          std::getenv("TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT"))
+    stop_after_conflict_ = std::strtoull(stop, nullptr, 10);
   compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
   skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
   skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
@@ -281,6 +285,10 @@ void EventTrace::close() {
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
   if (!out_)
+    return;
+  if (snapshot && stop_after_conflict_ != UINT64_MAX &&
+      (k.stats.conflicts < stop_after_conflict_ || stop_pending_) &&
+      std::strcmp(event, "analysis_end"))
     return;
   if (skip_watch_ && !std::strcmp(event, "watch"))
     return;
@@ -559,7 +567,11 @@ bool EventTrace::want_detail(const Kernel &k) {
 }
 
 void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
-  if (!want_detail(k))
+  const bool analysis_end = !std::strcmp(event, "analysis_end");
+  const bool stop_here = analysis_end &&
+                         stop_after_conflict_ != UINT64_MAX &&
+                         k.stats.conflicts >= stop_after_conflict_;
+  if (!stop_here && !want_detail(k))
     return;
   if (!detail_window_ && saw_reorder_) {
     if (!post_reorder_details_)
@@ -574,9 +586,15 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   // trajectory traces retain the boundary without repeatedly scanning and
   // sorting every variable on giant formulas; a localized follow-up can turn
   // the full snapshot back on by leaving trajectory-only mode.
-  const bool snapshot =
-      !trajectory_only_ && !std::strcmp(event, "analysis_end");
+  const bool snapshot = !trajectory_only_ && analysis_end;
+  if (stop_here && k.h && k.h->stable)
+    emit_heap_scores(k);
   emit(k, event, buf, snapshot);
+  if (stop_here && k.h && k.h->stable) {
+    std::fflush(out_);
+    std::raise(SIGTERM);
+  } else if (stop_here)
+    stop_pending_ = true;
 }
 
 void EventTrace::randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
@@ -1493,12 +1511,7 @@ void EventTrace::analyzed_post(const Kernel &k,
   emit(k, "analyzed_post", payload.c_str(), false);
 }
 
-void EventTrace::heap_scores(const Kernel &k) {
-  // Trajectory-only mode deliberately omits heap-score records.  Return
-  // before hashing the full stack: on multi-million-variable instances the
-  // discarded diagnostic work otherwise dominates the solver run.
-  if (trajectory_only_ || !want_detail(k) || !k.h || !k.h->stable)
-    return;
+void EventTrace::emit_heap_scores(const Kernel &k) {
   uint64_t stack_hash = 1469598103934665603ull;
   for (const Var v : k.h->scores.stack) {
     const uint64_t ext = static_cast<uint64_t>(k.internal_to_external[v]) + 1;
@@ -1521,6 +1534,25 @@ void EventTrace::heap_scores(const Kernel &k) {
     payload += score;
   }
   emit(k, "heap_scores", payload.c_str(), false);
+}
+
+void EventTrace::heap_scores(const Kernel &k) {
+  // Trajectory-only and endpoint-stop modes deliberately omit intermediate
+  // heap-score records.  Return before hashing the full stack: on
+  // multi-million-variable instances discarded diagnostic work otherwise
+  // dominates the solver run.
+  if (trajectory_only_ || !k.h || !k.h->stable)
+    return;
+  if (stop_after_conflict_ != UINT64_MAX) {
+    if (!stop_pending_)
+      return;
+    emit_heap_scores(k);
+    std::fflush(out_);
+    std::raise(SIGTERM);
+  }
+  if (!want_detail(k))
+    return;
+  emit_heap_scores(k);
 }
 
 void EventTrace::mode_clock(const Kernel &k, const char *stage, uint64_t limit,
