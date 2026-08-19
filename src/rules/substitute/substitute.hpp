@@ -123,6 +123,7 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   void rewrite_binary_occurrences(const Kernel &, const std::vector<Lit> &repr,
                                   const std::vector<uint8_t> &members,
                                   const std::vector<Lit> &sources);
+  const std::vector<Lit> &retiring_sources() const { return retiring; }
   void remove_large(Kernel &, Ref source);
   void collapse_large_to_binary(Kernel &, Ref source, Lit a, Lit b,
                                 bool append_a, bool append_b);

@@ -1588,15 +1588,29 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // the released image storage for those directed moves so two retired
   // endpoints can land in their two independently correct destination orders.
   std::deque<BinaryImage>().swap(images);
-  for (const Var variable : variable_order)
-    for (uint32_t sign = 0; sign < 2; sign++) {
-      const Lit lit = make_lit(variable, sign != 0);
-      if (!substitutable(lit))
-        continue;
-      for (const WatchEntry watch : k.watches.entries(lit))
-        if (watch.binary())
-          images.push_back({lit, watch.other()});
-    }
+  const auto snapshot_directed = [&](Lit lit) {
+    assert(substitutable(lit));
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary())
+        images.push_back({lit, watch.other()});
+  };
+  if (session) {
+    // Sweep retires one source at a time in equivalence-emission order.  The
+    // session already computed that order to replay its logical dense stream;
+    // use the same order for the physical watch mirrors that search will later
+    // consume.  Import-order reconstruction gave the next Sweep environments
+    // the right ledger but left search with a different binary propagation
+    // order once sparse mode resumed.
+    for (const Lit lit : session->retiring_sources())
+      snapshot_directed(lit);
+  } else {
+    for (const Var variable : variable_order)
+      for (uint32_t sign = 0; sign < 2; sign++) {
+        const Lit lit = make_lit(variable, sign != 0);
+        if (substitutable(lit))
+          snapshot_directed(lit);
+      }
+  }
   substitute_stage_trace(k, "rewrite-directed-images", images.size(), 0,
                          sizeof(BinaryImage));
 
