@@ -338,10 +338,10 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank-22 job `1634399` proves a random-sequence lifetime mismatch: after
-   conflict 533 Kissat draws, while Tactix is inactive. Kissat accepts draw
-   1,420 (`raw=2423939830`, external `3859653`). Compare sequence ordinal,
-   length, and countdown at the common post-restart start at conflict 523.
+1. Rank-22 random lifetime diverges after conflict 533. Await sequence-state
+   job `1634404`, campaign `20260819-0014-tierd-rank22-randec-state`, from
+   trace-only commit `13cb7e1`; it reports ordinal/deadline/countdown around
+   the common conflict-523 start with random draws suppressed.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
