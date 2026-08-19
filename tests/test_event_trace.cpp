@@ -271,6 +271,7 @@ int main() {
     trace.learned_stage(k, "learned_shrunk",
                         {internalize(3), internalize(-1), internalize(2)});
     trace.detail(k, "analysis_tail_probe", 7);
+    trace.detail(k, "analysis_end", 1);
     trace.detail(k, "score_bump", 2);
     trace.detail(k, "analysis_mark", 1);
     trace.macro(k, "restart_begin");
@@ -286,8 +287,9 @@ int main() {
   assert(trajectory_text.find("\tlearned_shrunk\t") != std::string::npos);
   assert(trajectory_text.find("size=3|order_hash=") != std::string::npos);
   assert(trajectory_text.find("|set_hash=") != std::string::npos);
-  assert(trajectory_text.find("\tanalysis_tail_probe\t") !=
+  assert(trajectory_text.find("\tanalysis_tail_probe\t") ==
          std::string::npos);
+  assert(trajectory_text.find("\tanalysis_end\t") != std::string::npos);
   assert(trajectory_text.find("\trestart_begin\t") != std::string::npos);
   assert(trajectory_text.find("\tscore_bump\t") == std::string::npos);
   assert(trajectory_text.find("\tanalysis_mark\t") == std::string::npos);

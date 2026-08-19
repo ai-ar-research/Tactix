@@ -338,8 +338,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "phase_pick") && std::strcmp(event, "conflict") &&
       std::strcmp(event, "analysis_begin") &&
       std::strcmp(event, "analysis_end") &&
-      std::strncmp(event, "learned", 7) &&
-      std::strncmp(event, "analysis_tail_", 14))
+      std::strncmp(event, "learned", 7))
     return;
   if (compact_probe_ && std::strcmp(event, "trace_begin") &&
       std::strcmp(event, "probe_begin") && std::strcmp(event, "probe_end") &&
@@ -569,11 +568,15 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   }
   char buf[32];
   std::snprintf(buf, sizeof buf, "%lld", (long long)payload);
-  // Analysis is the only detailed event that mutates the ranking.  Snapshot
-  // its post-state so a later decision mismatch can be attributed to the
-  // exact conflict that first changed VMTF/EVSIDS, not merely to the decision
-  // where that latent difference became visible.  Diagnostic builds only.
-  emit(k, event, buf, !std::strcmp(event, "analysis_end"));
+  // Analysis is the only detailed event that mutates the ranking.  Ordinary
+  // detailed traces snapshot its post-state so a later decision mismatch can
+  // be attributed to the exact conflict that changed VMTF/EVSIDS.  Compact
+  // trajectory traces retain the boundary without repeatedly scanning and
+  // sorting every variable on giant formulas; a localized follow-up can turn
+  // the full snapshot back on by leaving trajectory-only mode.
+  const bool snapshot =
+      !trajectory_only_ && !std::strcmp(event, "analysis_end");
+  emit(k, event, buf, snapshot);
 }
 
 void EventTrace::randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
