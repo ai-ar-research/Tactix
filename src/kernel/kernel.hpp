@@ -223,6 +223,8 @@ void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
                                        uint32_t);
 void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit, Lit);
+void event_trace_sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t,
+                              const char *);
 void event_trace_sweep_rewrite_binary(const Kernel &, Lit, Lit, uint32_t,
                                       Lit);
 void event_trace_sweep_unit(const Kernel &, Lit);

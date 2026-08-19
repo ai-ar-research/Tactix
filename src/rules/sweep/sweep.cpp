@@ -2130,6 +2130,9 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
     // The proof-producing path keeps using its translated cores below; the
     // direct path mirrors Kissat's trusted Kitten-core commitment.
     const int8_t av = k.value(e.a), bv = k.value(e.b);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_sweep_commit(k, e.a, e.b, av, bv, "entry");
+#endif
     if (!k.proof && (av || bv)) {
       bool unit_emitted = false;
       if (!av && bv)
@@ -2150,6 +2153,11 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
         any = true;
         emitted_equivalences.emplace_back(e.a, e.b);
       }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_commit(k, e.a, e.b, av, bv,
+                               unit_emitted ? "fixed-no-proof-unit"
+                                            : "fixed-no-proof-no-unit");
+#endif
       continue;
     }
     // Detection excludes fixed variables, but a unit proved earlier in this
@@ -2159,11 +2167,19 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
     // Kissat commits the captured Kitten core without propagating the main
     // formula.  Prefer the same path; the main-formula RUP replay is retained
     // only as a proof-safe fallback for a bounded or untranslatable capture.
-    if (e.a == e.b || e.a == negate(e.b))
+    if (e.a == e.b || e.a == negate(e.b)) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_commit(k, e.a, e.b, av, bv, "degenerate");
+#endif
       continue;
+    }
     if (k.proof && (av || bv)) {
-      if (av && bv)
+      if (av && bv) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        event_trace_sweep_commit(k, e.a, e.b, av, bv, "fixed-proof-both");
+#endif
         continue;
+      }
       const Lit fixed = av ? (av > 0 ? e.a : negate(e.a))
                            : (bv > 0 ? e.b : negate(e.b));
       const Lit unit = av ? (av > 0 ? e.b : negate(e.b))
@@ -2222,6 +2238,11 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
         event_trace_sweep_unit(k, unit);
 #endif
       }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_commit(k, e.a, e.b, av, bv,
+                               emitted ? "fixed-proof-unit"
+                                       : "fixed-proof-declined");
+#endif
       continue;
     }
     if (kernel_binary_live(k, negate(e.a), e.b) &&
@@ -2231,12 +2252,17 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
       emitted_equivalences.emplace_back(e.a, e.b);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       event_trace_sweep_equivalence(k, e.a, e.b);
+      event_trace_sweep_commit(k, e.a, e.b, av, bv, "known");
 #endif
       continue;
     }
     const SweepPairSelection selection = sweep_select_pair(round, idx, e.a, e.b);
     bool emitted =
         !force_general && sweep_commit_equiv_without_proof(k, e.a, e.b);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (emitted)
+      event_trace_sweep_commit(k, e.a, e.b, av, bv, "direct");
+#endif
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
     if (!emitted) {
       journal_sweep_pair_selection(k, e.a, e.b, selection);
@@ -2350,6 +2376,11 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
       emitted_equivalences.emplace_back(e.a, e.b);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       event_trace_sweep_equivalence(k, e.a, e.b);
+      event_trace_sweep_commit(k, e.a, e.b, av, bv, "emitted");
+#endif
+    } else {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_sweep_commit(k, e.a, e.b, av, bv, "declined");
 #endif
     }
   }
