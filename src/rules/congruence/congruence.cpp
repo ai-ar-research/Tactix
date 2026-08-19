@@ -3053,7 +3053,13 @@ ApplyResult congruence_apply(Kernel &k) {
       std::vector<std::vector<uint64_t>> cch;
       transient.clear();
       bool justified;
-      if (value_derived_i) {
+      // A valued input does not make an independently cancelled XOR pair
+      // disappear from the proof obligation. For example, with a=0 and x=y,
+      // out=a XOR x XOR y forces out=0 semantically, but the direct unit is
+      // not RUP: the parity clauses plus x=y need the cancellation ladder.
+      const bool needs_xor_ladder =
+          gates[i].kind == GateKind::Xor && !cancelled.empty();
+      if (value_derived_i && !needs_xor_ladder) {
         cch.resize(1);
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
         const bool shadow_replay =

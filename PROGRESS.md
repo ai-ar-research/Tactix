@@ -318,11 +318,13 @@ Congruence unit channel in shadow job `1634245`: `-1997` is a value-derived
 unjustified inference yields checked UNSAT in 95.785 s plus 57.775 s
 verification; its 15,604,302-byte proof verifies with zero residue. This is a
 solver-side XOR `Canon::Unit` defect; do not promote the diagnostic fail-closed
-guard. The next shadow refinement dumps the failed gate's output, original
-inputs, representatives, root values, and unit ids to distinguish stale
-extraction from bad parity/value folding. It is submitted as campaign
-`20260818-2220-ascon-xor-gate-dump`, job `1634270`, from commit `cdf3109` and
-pin `79843e74...`. V6a stays on; no pin is promoted; arrays remain blocked.
+guard. Gate-dump job `1634270` finds `1997=XOR(341,1562,1844)`, with `341=0`
+and `1562≡1844`: the equivalent pair cancels, but the separate valued input
+made the code bypass the mandatory parity-elimination ladder. The repair now
+routes every XOR with a nonempty cancelled set through that ladder, including
+mixed valued-plus-cancelled gates; a native-LRAT regression covers this shape.
+Release/Shadow/Trace/ASAN-O3 pass 72/72, 72/72, 71/71, and 72/72. V6a stays
+on; no pin is promoted; cumulative arrays remain blocked.
 
 ## Gates
 
@@ -335,8 +337,8 @@ pin `79843e74...`. V6a stays on; no pin is promoted; arrays remain blocked.
 
 ## Next engineering work
 
-1. Repair the invalid XOR value-derived `Canon::Unit` localized by Ascon job
-   `1634264`, protect it with a generic regression, then rerun focused Ascon.
+1. Rerun focused Ascon with a production proof for the mixed
+   valued-plus-cancelled XOR ladder repair.
    Rerun 28B+5C and frozen ranks 21--40 only after the production proof verifies.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
