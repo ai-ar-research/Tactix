@@ -122,6 +122,77 @@ void live_clause_counts(const Kernel &k, uint64_t &irredundant,
   }
 }
 
+void annotate_clause_set(const Kernel &k, std::string &payload) {
+  const char *spec = std::getenv("SAT_EVENT_TRACE_CLAUSE_SET");
+  if (!spec || !*spec)
+    return;
+  const char *conflict_to =
+      std::getenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
+  if (conflict_to && *conflict_to) {
+    char *end = nullptr;
+    const unsigned long long limit = std::strtoull(conflict_to, &end, 10);
+    if (end != conflict_to && !*end && k.stats.conflicts > limit)
+      return;
+  }
+  std::vector<int> selected;
+  const char *cursor = spec;
+  while (*cursor) {
+    if (selected.size() == 64)
+      return;
+    char *end = nullptr;
+    const long value = std::strtol(cursor, &end, 10);
+    if (end == cursor)
+      return;
+    selected.push_back(static_cast<int>(value));
+    cursor = end;
+    if (*cursor == ',')
+      cursor++;
+    else if (*cursor)
+      return;
+  }
+  std::sort(selected.begin(), selected.end());
+  payload += "|clause_set=" + std::string(spec) + "|clause_poses=";
+  size_t matches = 0;
+  std::vector<uint8_t> matched(selected.size());
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    ref += clause_words(clause->size);
+    if (clause->garbage() || clause->size != selected.size())
+      continue;
+    std::fill(matched.begin(), matched.end(), 0);
+    bool same = true;
+    for (const Lit lit : *clause) {
+      const int external = kernel_externalize(k, lit);
+      size_t i = 0;
+      while (i != selected.size() &&
+             (matched[i] || selected[i] != external))
+        i++;
+      if (i == selected.size()) {
+        same = false;
+        break;
+      }
+      matched[i] = 1;
+    }
+    if (!same)
+      continue;
+    if (matches++)
+      payload.push_back(';');
+    payload += "id=" + std::to_string(clause->id()) + ",order=" +
+               std::to_string(kernel_clause_order(k, clause->id())) +
+               ",searched=" + std::to_string(clause->searched) +
+               ",redundant=" + std::to_string(clause->redundant()) +
+               ",pose=";
+    size_t i = 0;
+    for (const Lit lit : *clause) {
+      if (i++)
+        payload.push_back(',');
+      payload += std::to_string(kernel_externalize(k, lit));
+    }
+  }
+  if (!matches)
+    payload.push_back('-');
+}
+
 uint64_t live_binary_clause_count(const Kernel &k) {
   // `binary_ids` is a proof-identity archive: deleted pairs intentionally stay
   // there, so its size is not comparable with Kissat's live
@@ -303,6 +374,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
         }
       }
     }
+    annotate_clause_set(k, annotated_payload);
   }
   std::fprintf(out_,
                "tactix\t%llu\t%s\t%llu\t%llu\t%llu\t%u\t%s\t%u\t%u\t"
