@@ -53,8 +53,10 @@ assert tactix_trace.count('std::raise(SIGTERM);') == 2, (
     "Tactix stop-mode must terminate at stable analysis-end or deferred stable mode")
 assert 'KISSAT_EVENT_TRACE_HEAP_EACH_BUMP' in eventtrace
 assert 'TACTIX_EVENT_TRACE_HEAP_EACH_BUMP' in tactix_trace
-assert 'if (!trace_heap_each_bump || solver->statistics.conflicts < stop)' in eventtrace
-assert 'if (heap_each_bump_ && k.stats.conflicts >= stop_after_conflict_)' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_HEAP_FROM_DECISION' in eventtrace
+assert 'TACTIX_EVENT_TRACE_HEAP_FROM_DECISION' in tactix_trace
+assert 'solver->statistics.decisions < trace_heap_from_decision' in eventtrace
+assert 'k.stats.decisions >= heap_from_decision_' in tactix_trace
 assert 'kissat_event_trace_heap_before_bumps (solver);' in prepare
 assert 'void kissat_event_trace_heap_before_bumps (kissat *solver)' in eventtrace
 assert 'event_trace_heap_scores(k);\n    for (const Var v : k.bump_order)' in tactix_analyze
