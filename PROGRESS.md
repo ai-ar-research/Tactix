@@ -338,13 +338,12 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Await symmetric low-volume rank-22 trace job `1634385`, campaign
-   `20260818-2331-tierd-rank22-low-volume-trace`; compare in semantic mode.
+1. Rank-22 symmetric trace job `1634385` times out cleanly in both arms; its
+   first two decisions agree. Normalize observer-only `top32`, cursor, and
+   analysis-tick vocabulary, then locate the first causal portable mismatch.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
-3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
-   loop: locate the earliest portable semantic divergence, make a source-backed
-   repair or disposition, and protect the result with focused and cumulative
-   guards.
+3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
+   earliest portable divergence, repair or disposition it, and run both guards.
 
 No performance feature is implemented until the Tier-D comparison and its
 divergence plan are reviewed.
