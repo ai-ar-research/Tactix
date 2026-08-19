@@ -2435,6 +2435,17 @@ task, valid intentional-stop UNKNOWN results, deleted scratch, and no cleanup
 pending. An exact payload moves the frontier later; a clean mismatch selects
 conflict 1,199 for the next mutation-level trace.
 
+Job \code{1634721} accepts the exact branch. Kissat and Tactix reach valid
+intentional UNKNOWN stops in 42.703 and 94.826 seconds with untruncated
+327,507-byte and 226,200-byte traces. Both delete scratch and leave no cleanup
+pending. Each contains exactly one conflict-1,199 heap endpoint, and the full
+payloads are byte-equal: raw heap hash \code{259d1d77227e9979} plus every
+ordered top-32 variable/score pair at decision count 25,779. The prior
+conflict-1,199 mismatch was downstream of the conflict-1,007 fixed-variable
+lifecycle defect, not an independent frontier. Resume with a predeclared
+coarse current-pin endpoint grid beyond conflict 1,199, then refine the first
+mismatching interval. Rank 22 remains open.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
