@@ -2355,6 +2355,18 @@ including the rule-policy boundary check. Resume by replaying the window with a
 fresh immutable Tactix pin; the expected witness is the same ordered 265
 removals.
 
+The immutable repair replay is
+\begin{center}\small\artifact{20260819-1445-tierd-rank22-root-fixed-replay}\end{center}
+It retains Kissat observer SHA-256 prefix \code{fac07c1f} and pins the repaired
+Tactix Trace binary at prefix \code{60d971f6}. Both tasks independently receive
+two CPUs, 16\,GiB, and a 180-second solver ceiling; the array is full-width with
+no throttle or node constraint. Runner compilation, pin hashes, Release 72/72,
+Trace 71/71, and the rule-policy boundary check pass. Scheduler dry validation
+is job \code{1634711}; the actual array is job \code{1634712}. Resume by waiting
+for both tasks and requiring valid results, untruncated traces, decision-23,786
+coverage, deleted scratch, no pending cleanup, exactly 265 identical ordered
+removal payloads, and the same next 42 decision literals.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
