@@ -343,7 +343,7 @@ The cumulative pin is accepted; V6a stays on.
    matches through conflict 533/decision 3859653; `1634436` differs at stable
    decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
    direct reason; `1634446` excludes root transactions; `1634449` proves binary sharing.
-   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. `c5a6928` fixes admission; `1634463` exposes profile overrides; `1634464` matches c1000 pose; `1634465` times out cleanly. `bcfe4a0` maps VMTF cursor; `1634466` confirms c1001. `115f40e` compacting Reduce; `1634467` matches c1000. `1634468` proves portable decisions/conflicts/learned exact through c1010; c1005 extra jumped resolve is representation-only. Add compact trajectory observer, then extend to c1293.
+   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. `c5a6928` fixes admission; `1634463` exposes profile overrides; `1634464` matches c1000 pose; `1634465` times out cleanly. `bcfe4a0` maps VMTF cursor; `1634466` confirms c1001. `115f40e` compacting Reduce; `1634467` matches c1000. `1634468` proves portable parity through c1010. New trajectory-only observers pass 72/72+71/71; pins are Tactix `daf10cb6` and Kissat `38f0df0e`. Submit c1011--1293 two-arm trace.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 

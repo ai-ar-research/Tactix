@@ -15,7 +15,7 @@ static bool trace_detail_window;
 static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
             trace_skip_decisions, trace_skip_randec_draws,
             trace_skip_analysis_ticks, trace_search_only, trace_control_only,
-            trace_watch_only;
+            trace_trajectory_only, trace_watch_only;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
@@ -343,6 +343,8 @@ static void open_trace (void) {
       getenv ("KISSAT_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != 0;
   trace_search_only = getenv ("KISSAT_EVENT_TRACE_SEARCH_ONLY") != 0;
   trace_control_only = getenv ("KISSAT_EVENT_TRACE_CONTROL_ONLY") != 0;
+  trace_trajectory_only =
+      getenv ("KISSAT_EVENT_TRACE_TRAJECTORY_ONLY") != 0;
   trace_watch_only = getenv ("KISSAT_EVENT_TRACE_WATCH_ONLY") != 0;
   trace_file = fopen (path, "w");
   if (!trace_file)
@@ -411,6 +413,15 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "analyzed") && strncmp (event, "analysis_", 9) &&
       strncmp (event, "learned", 7) && strncmp (event, "factor_", 7) &&
       strncmp (event, "reason_", 7))
+    return;
+  // Minimal portable search trajectory.  Keep macro/snapshot boundaries and
+  // only the choices plus learned-clause transaction needed to locate the
+  // first semantic divergence before enabling the high-volume internals.
+  if (trace_trajectory_only && !snapshot && strcmp (event, "decision") &&
+      strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&
+      strcmp (event, "phase_pick") && strcmp (event, "conflict") &&
+      strcmp (event, "analysis_begin") &&
+      strcmp (event, "analysis_end") && strncmp (event, "learned", 7))
     return;
   if (trace_emitted >= trace_limit) {
     if (!trace_truncated) {
