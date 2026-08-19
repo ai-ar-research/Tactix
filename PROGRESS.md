@@ -342,8 +342,8 @@ The cumulative pin is accepted; V6a stays on.
    propagation-charged random lifetime and passes 72/72+71/71. `1634419`
    matches through conflict 533/decision 3859653; `1634436` differs at stable
    decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
-   identical direct reason; `1634446` excludes root transactions; `1634447` is
-   a selector miss; `1634448` journals search `ConflictAnalysis`.
+   direct reason; `1634446` excludes root transactions; `1634447` misses its
+   selector; `1634448` excludes search learning only to c89; `1634449` probes pose.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
