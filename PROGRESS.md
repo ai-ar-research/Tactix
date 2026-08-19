@@ -343,7 +343,7 @@ The cumulative pin is accepted; V6a stays on.
    matches through conflict 533/decision 3859653; `1634436`
    differs at stable decision 23748; `1634438`
    finds four missing bumps; `1634440` proves 10848's identical direct
-   reason is not their source; job `1634442` traces main-analysis admission.
+   reason is not their source; `1634442` localizes variable 10's reason choice.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
