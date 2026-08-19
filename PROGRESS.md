@@ -322,10 +322,10 @@ guard. Gate-dump job `1634270` finds `1997=XOR(341,1562,1844)`, with `341=0`
 and `1562≡1844`: the equivalent pair cancels, but the separate valued input
 made the code bypass the mandatory parity-elimination ladder. The repair now
 routes every XOR with a nonempty cancelled set through that ladder, including
-mixed valued-plus-cancelled gates; a native-LRAT regression covers it and all
-four suites pass. Production job `1634293` then checks UNSAT in 95.680 s plus
-57.220 s verification, with 8 Congruence units, 0 unjustified, and zero residue.
-The focused blocker is cleared; V6a stays on and no pin is promoted yet.
+mixed valued-plus-cancelled gates; its regression and all four suites pass.
+Focused job `1634293` verifies; paired guard `1634307` is 33/33. Tier-D job
+`1634294` retains ranks 21,23,25,28,29,38 with no gains/losses and zero residue.
+The cumulative pin is accepted; V6a stays on.
 
 ## Gates
 
@@ -338,8 +338,8 @@ The focused blocker is cleared; V6a stays on and no pin is promoted yet.
 
 ## Next engineering work
 
-1. 28B+5C job `1634307` passes 33/33 checked with zero residue; await frozen
-   ranks 21--40 job `1634294`, campaign `20260818-2240-tierd-ranks21-40-xor-ladder`.
+1. Diagnose frozen rank 22, the first still-open target, from its earliest
+   portable Tactix/Kissat divergence; retain accepted pin `494b8bd...`.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
