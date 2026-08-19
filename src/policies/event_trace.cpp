@@ -1659,6 +1659,30 @@ void EventTrace::learned_stage(const Kernel &k, const char *event,
                                const std::vector<Lit> &clause) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;
+  if (trajectory_only_) {
+    uint64_t order_hash = 1469598103934665603ull;
+    std::vector<int> external;
+    external.reserve(clause.size());
+    for (const Lit lit : clause) {
+      const int value = kernel_externalize(k, lit);
+      external.push_back(value);
+      order_hash = mix(
+          order_hash,
+          static_cast<uint64_t>(static_cast<int64_t>(value)));
+    }
+    std::sort(external.begin(), external.end());
+    uint64_t set_hash = 1469598103934665603ull;
+    for (const int value : external)
+      set_hash =
+          mix(set_hash, static_cast<uint64_t>(static_cast<int64_t>(value)));
+    char payload[128];
+    std::snprintf(payload, sizeof payload,
+                  "size=%zu|order_hash=%016llx|set_hash=%016llx",
+                  clause.size(), (unsigned long long)order_hash,
+                  (unsigned long long)set_hash);
+    emit(k, event, payload, false);
+    return;
+  }
   std::string payload = "order=";
   for (size_t i = 0; i < clause.size(); i++) {
     if (i)

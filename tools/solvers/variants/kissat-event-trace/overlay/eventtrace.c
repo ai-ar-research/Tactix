@@ -819,9 +819,25 @@ void kissat_event_trace_clause (kissat *solver, const char *event) {
   const size_t size = SIZE_STACK (solver->clause);
   int *external = malloc (size * sizeof *external);
   size_t i = 0;
-  for (all_stack (unsigned, lit, solver->clause))
-    external[i++] = external_literal (solver, lit);
+  uint64_t order_hash = UINT64_C (1469598103934665603);
+  for (all_stack (unsigned, lit, solver->clause)) {
+    const int value = external_literal (solver, lit);
+    external[i++] = value;
+    order_hash = mix (order_hash, (uint64_t) (int64_t) value);
+  }
   qsort (external, size, sizeof *external, compare_external_literals);
+  if (trace_trajectory_only) {
+    uint64_t set_hash = UINT64_C (1469598103934665603);
+    for (i = 0; i != size; i++)
+      set_hash = mix (set_hash, (uint64_t) (int64_t) external[i]);
+    char compact[128];
+    snprintf (compact, sizeof compact,
+              "size=%zu|order_hash=%016" PRIx64 "|set_hash=%016" PRIx64,
+              size, order_hash, set_hash);
+    free (external);
+    kissat_event_trace (solver, event, compact, false);
+    return;
+  }
   char payload[4096];
   int written = snprintf (payload, sizeof payload, "order=");
   char *p = payload + written;
