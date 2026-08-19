@@ -1423,16 +1423,25 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
 // Returns false when the lemma is not RUP; the caller then drops the inference
 // rather than write an unverifiable line.
 bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
-                          std::vector<uint64_t> &chain) {
+                          std::vector<uint64_t> &chain
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+                          , bool force_drat_replay = false
+#endif
+                          ) {
   assert(k.level == 0 && !k.conflict_valid);
   chain.clear();
   // Kissat's Congruence emits these structurally derived units and binaries
   // directly (learn_congruence_unit/add_binary_clause); it does not run a
   // speculative propagation before every DRAT lemma.  DRAT needs no explicit
   // antecedent chain and the campaign checker validates the emitted proof as a
-  // whole.  Native LRAT still needs the exact ordered chain, so only that mode
-  // pays for replay and its watch-pose rollback.
+  // whole. Native LRAT normally alone pays for replay and watch-pose rollback;
+  // the proof-shadow diagnostic can force the same check on a selected DRAT
+  // inference without changing production.
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  if (!k.proof || (!force_drat_replay && !k.proof->lrat()))
+#else
   if (!k.proof || !k.proof->lrat())
+#endif
     return true;
   kernel_probing_begin(k);
   bool conflict = false;
@@ -3046,7 +3055,21 @@ ApplyResult congruence_apply(Kernel &k) {
       bool justified;
       if (value_derived_i) {
         cch.resize(1);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+        const bool shadow_replay =
+            k.proof && k.proof->population_shadow() && !lrat;
+        justified = congruence_rup_chain(k, &unit, 1, cch[0], shadow_replay);
+        if (shadow_replay) {
+          static const char *kind_names[] = {"and", "xor", "ite"};
+          std::fprintf(stderr,
+                       "PROOF SHADOW: value-unit %d kind=%s forced-rup=%s\n",
+                       kernel_externalize(k, unit),
+                       kind_names[static_cast<int>(gates[i].kind)],
+                       justified ? "pass" : "fail");
+        }
+#else
         justified = congruence_rup_chain(k, &unit, 1, cch[0]);
+#endif
       } else {
         const std::vector<std::vector<Lit>> concl = {{unit}};
         justified =
