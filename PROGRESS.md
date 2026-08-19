@@ -291,33 +291,25 @@ all six answers validate and certificate residue is empty. The paired guard is
 then drat-trim rejects its proof at unit `-1997`. The pin is therefore rejected
 despite Rank 29's closure.
 
-The checker log also reports hundreds of surplus deletion lines. The common
-large-clause retirement primitive emitted its proof deletion before checking
-the record's garbage bit, so a second retirement was a formula no-op but a
-second checker mutation; under DRAT it could consume a still-live duplicate.
-`kernel_delete_clause` now makes the whole transition idempotent, and sparse
-collection drops already-retired deferred OTFS reasons instead of interpreting
-their search cursor as a forwarding reference. Generic regressions cover both
-cases. An optional proof-population shadow build aborts at the first unbacked
-deletion and is compiled out of production. Its rebuilt suite is 72/72.
-Focused job `1634219` falsifies the large-clause-retirement diagnosis: both
-production and shadow arms reproduce the same 15,605,586-byte rejected proof
-(96.988/97.438 s), and the shadow does not abort. The warned surplus deletions
-therefore precede frontend arming during input finalization or are missing from
-its seed. Seeding every raw file clause before normalization makes the shadow
-name the first real divergence on `dupbinary.cnf`: parser duplicate removal
-stores binary `-4 3`, but DRAT still holds only raw `-4 3 3`; sparse collection
-later deletes a normalized clause the checker never received. The old claim
-that DRAT set-equivalence made restatement unnecessary is false because DRAT
-deletion matches the literal multiset. Both proof formats now add every stored
-narrowed input clause at `finish_input`; LRAT retains explicit hints and DRAT
-lets the checker find the RUP justification. The shadow suite, including all
-binary/ascii DRAT and native-LRAT microproofs, is 72/72 clean; the repaired
-Release, Trace, and ASAN-O3 suites are 72/72, 71/71, and 72/72 clean. Focused
-job `1634231` nevertheless falsifies this as Ascon's blocker: both arms add 643
-restatements, emit the same 15,610,721-byte proof, and still fail at `-1997`
-(96.588/97.139 s); the raw-input shadow reports no unbacked deletion. Retain the
-general N2 repair, but locate the earliest invalid inference before promotion.
+Hundreds of surplus deletions first exposed non-idempotent large-clause
+retirement and a stale deferred-OTFS reason; both are repaired with generic
+tests and a compile-time proof-population shadow. Job `1634219` falsifies those
+as Ascon's blocker: production/shadow reproduce the same rejected proof in
+96.988/97.438 s without a shadow abort. Raw-clause seeding then catches a real
+generic N2 defect on `dupbinary.cnf`: the parser stored `-4 3` from raw
+`-4 3 3`, but DRAT never received that exact deletion multiset. Both formats
+now add every stored narrowed input clause at `finish_input`; LRAT keeps hints
+and DRAT preserves solver ids. Shadow/Release/Trace/ASAN-O3 pass 72/72, 72/72,
+71/71, and 72/72. Job `1634231` nevertheless falsifies restatement as Ascon's
+blocker: both arms add 643 clauses and still fail at `-1997` in 96.588/97.139 s
+without an unbacked deletion. Forward job `1634233` verifies every earlier add:
+unit `-1997` itself (checker id 1354312, proof line 768571) is the first invalid
+inference. Adjacent equivalence adds and 39 V6a/Y1 units make Congruence's
+binary-resolution unit channel the leading source. Isolation job `1634236`
+turns only Y1 off and checks UNSAT in 107.956 s plus 60.224 s verification;
+the 63,635,534-byte proof is valid with zero residue. Y1 is therefore causal.
+Keep V6a on by policy; next shadow-check both binary premises of its unit. No
+pin is promoted.
 
 ## Gates
 
