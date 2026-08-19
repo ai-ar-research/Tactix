@@ -10,6 +10,7 @@ prepare = (root / "tools/solvers/variants/kissat-event-trace/prepare.py").read_t
 journal = (root / "tools/solvers/variants/kissat-event-trace/overlay/rulejournal.c").read_text()
 eventtrace = (root / "tools/solvers/variants/kissat-event-trace/overlay/eventtrace.c").read_text()
 tactix_trace = (root / "src/policies/event_trace.cpp").read_text()
+tactix_analyze = (root / "src/rules/analyze/analyze.cpp").read_text()
 
 # These are Kissat's scheduled semantic families in search, elimination and the
 # probe pipeline.  Search-guidance-only switch/rephase/reorder operations are
@@ -54,5 +55,8 @@ assert 'KISSAT_EVENT_TRACE_HEAP_EACH_BUMP' in eventtrace
 assert 'TACTIX_EVENT_TRACE_HEAP_EACH_BUMP' in tactix_trace
 assert 'if (!trace_heap_each_bump || solver->statistics.conflicts < stop)' in eventtrace
 assert 'if (heap_each_bump_ && k.stats.conflicts >= stop_after_conflict_)' in tactix_trace
+assert 'kissat_event_trace_heap_before_bumps (solver);' in prepare
+assert 'void kissat_event_trace_heap_before_bumps (kissat *solver)' in eventtrace
+assert 'event_trace_heap_scores(k);\n    for (const Var v : k.bump_order)' in tactix_analyze
 
 print("test_kissat_journal_overlay_static OK")

@@ -18,6 +18,7 @@ void kissat_event_trace_watch_scan (struct kissat *, unsigned propagated);
 void kissat_event_trace_propagate_cursor (struct kissat *);
 void kissat_event_trace_implications (struct kissat *, size_t trail_begin);
 void kissat_event_trace_conflict (struct kissat *, struct clause *);
+void kissat_event_trace_heap_before_bumps (struct kissat *);
 void kissat_event_trace_heap_scores (struct kissat *);
 void kissat_event_trace_clause (struct kissat *, const char *);
 void kissat_event_trace_learned (struct kissat *);
