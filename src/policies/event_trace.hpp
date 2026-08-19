@@ -67,6 +67,8 @@ public:
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t);
   void sweep_watch(const Kernel &, Var, uint32_t, Lit);
   void sweep_equivalence(const Kernel &, Lit a, Lit b);
+  void sweep_rewrite_binary(const Kernel &, Lit source, Lit representative,
+                            uint32_t position, Lit other);
   void sweep_unit(const Kernel &, Lit);
   void substitute_map(const Kernel &, Lit, Lit);
   void factor_seed(const Kernel &, Lit, uint32_t score, uint32_t remainders);
@@ -180,6 +182,7 @@ public:
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t) {}
   void sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
   void sweep_equivalence(const Kernel &, Lit, Lit) {}
+  void sweep_rewrite_binary(const Kernel &, Lit, Lit, uint32_t, Lit) {}
   void sweep_unit(const Kernel &, Lit) {}
   void substitute_map(const Kernel &, Lit, Lit) {}
   void factor_seed(const Kernel &, Lit, uint32_t, uint32_t) {}
@@ -256,6 +259,9 @@ void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
                                        uint32_t);
 void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit a, Lit b);
+void event_trace_sweep_rewrite_binary(const Kernel &, Lit source,
+                                      Lit representative, uint32_t position,
+                                      Lit other);
 void event_trace_sweep_unit(const Kernel &, Lit);
 void event_trace_substitute_map(const Kernel &, Lit, Lit);
 void event_trace_factor_seed(const Kernel &, Lit, uint32_t score,
@@ -337,6 +343,8 @@ inline void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t,
                                               Var, uint32_t) {}
 inline void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
 inline void event_trace_sweep_equivalence(const Kernel &, Lit, Lit) {}
+inline void event_trace_sweep_rewrite_binary(const Kernel &, Lit, Lit,
+                                             uint32_t, Lit) {}
 inline void event_trace_sweep_unit(const Kernel &, Lit) {}
 inline void event_trace_substitute_map(const Kernel &, Lit, Lit) {}
 inline void event_trace_factor_seed(const Kernel &, Lit, uint32_t,

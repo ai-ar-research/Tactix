@@ -130,7 +130,7 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // Append the transaction's moved occurrences to their representatives, one
   // retiring literal's stream at a time. Runs once per emission batch, after
   // the large-clause rewrite has decided what each large occurrence became.
-  void flush_moves();
+  void flush_moves(const Kernel &);
   void order(const Kernel &, std::vector<Ref> &) override;
   uint64_t collect(Kernel &);
 

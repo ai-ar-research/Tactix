@@ -154,6 +154,7 @@ int main() {
   setenv("SAT_EVENT_TRACE_WATCH_LIST", "-1", 1);
   setenv("SAT_EVENT_TRACE_WATCH_TARGETS", "2,3", 1);
   setenv("SAT_EVENT_TRACE_BINARY_ADD", "-1", 1);
+  setenv("SAT_EVENT_TRACE_SWEEP_REWRITE", "-1", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(watch_kernel));
@@ -161,12 +162,15 @@ int main() {
     kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(2));
     trace.binary_add(watch_kernel, internalize(-1), internalize(-3));
     kernel_add_binary_clause(watch_kernel, internalize(-1), internalize(-3));
+    trace.sweep_rewrite_binary(watch_kernel, internalize(-2),
+                               internalize(-1), 7, internalize(3));
     trace.macro(watch_kernel, "watch_positions");
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("SAT_EVENT_TRACE_WATCH_LIST");
   unsetenv("SAT_EVENT_TRACE_WATCH_TARGETS");
   unsetenv("SAT_EVENT_TRACE_BINARY_ADD");
+  unsetenv("SAT_EVENT_TRACE_SWEEP_REWRITE");
   std::ifstream watch_positions_input(watch_positions_path);
   const std::string watch_positions_text(
       (std::istreambuf_iterator<char>(watch_positions_input)),
@@ -181,6 +185,11 @@ int main() {
   assert(watch_positions_text.find("\tbinary_add\t") != std::string::npos);
   assert(watch_positions_text.find("\ta=-1|b=2\n") != std::string::npos);
   assert(watch_positions_text.find("\ta=-1|b=-3\n") != std::string::npos);
+  assert(watch_positions_text.find(
+             "\tsweep_rewrite_binary\t") != std::string::npos);
+  assert(watch_positions_text.find(
+             "\tsource=-2|repr=-1|position=7|other=3\n") !=
+         std::string::npos);
   assert(watch_positions_text.find("|binary=") == std::string::npos);
   std::remove(watch_positions_path.c_str());
 
