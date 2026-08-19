@@ -541,6 +541,26 @@ def main():
     decide = dest / "src" / "decide.c"
     replace_once(decide, '#include "decide.h"\n',
                  '#include "decide.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        decide,
+        '  for (;;) {\n'
+        '    unsigned idx = kissat_next_random32 (&solver->random) % VARS;\n'
+        '    if (!ACTIVE (idx))\n'
+        '      continue;\n'
+        '    unsigned lit = LIT (idx);\n'
+        '    if (solver->values[lit])\n'
+        '      continue;\n'
+        '    return idx;\n'
+        '  }\n',
+        '  for (;;) {\n'
+        '    const unsigned raw = kissat_next_random32 (&solver->random);\n'
+        '    const unsigned idx = raw % VARS;\n'
+        '    const unsigned lit = LIT (idx);\n'
+        '    const bool accepted = ACTIVE (idx) && !solver->values[lit];\n'
+        '    kissat_event_trace_randec_draw (solver, raw, idx, accepted);\n'
+        '    if (accepted)\n'
+        '      return idx;\n'
+        '  }\n')
     replace_once(decide,
         '  kissat_assign_decision (solver, lit);\n  STOP (decide);\n',
         '  kissat_assign_decision (solver, lit);\n'
