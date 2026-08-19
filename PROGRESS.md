@@ -338,10 +338,10 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank-22 diverges after 10,051 control records at conflict 533/decision 9,529.
-   Conflict analysis matches. Await raw random-draw window job `1634399`,
-   campaign `20260819-0001-tierd-rank22-randec-window`, from trace-only
-   observer commit `982fa9b`; compare RNG values, slots, and acceptance.
+1. Rank-22 job `1634399` proves a random-sequence lifetime mismatch: after
+   conflict 533 Kissat draws, while Tactix is inactive. Kissat accepts draw
+   1,420 (`raw=2423939830`, external `3859653`). Compare sequence ordinal,
+   length, and countdown at the common post-restart start at conflict 523.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
