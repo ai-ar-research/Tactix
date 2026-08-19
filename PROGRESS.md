@@ -31,8 +31,10 @@ variable compaction preserves each directed binary prefix and cannot invoke an
 optional arena-ordering policy during its representation-only collection.
 The rejected physical-order candidate is superseded by inherited source-order
 replay for appended replacements. Release is 72/72, Trace is 71/71, and
-ASAN-O3 is 72/72; Slurm validation is pending. Any new missing or cruder
-reference mechanism returns N4 verification to pending.
+ASAN-O3 is 72/72. The cumulative Slurm pin closed Rank 29 but failed the fixed
+Tier-C correctness gate on `asconhashv12`; its proof-population repair is now
+the active N2 prerequisite. Any new missing or cruder reference mechanism
+returns N4 verification to pending.
 <!-- track-sched:end -->
 
 ## Active measurement
@@ -282,8 +284,23 @@ frontier and its conflict-2272 consequence. Checked runtime job `1634074`
 solves Rank 29 SAT in 130.767 s at 68,524 KiB and verifies the model, versus
 the frozen eligible Kissat result of 294.468 s, with zero certificate residue.
 Unthrottled cumulative jobs `1634094` (28B+5C) and `1634095` (frozen ranks
-21--40) now exercise the same pin under 16 GiB/1200 s; N4 promotion awaits
-their complete checked results.
+21--40) completed under 16 GiB/1200 s. The Tier-D job checks ranks 21, 23, 25,
+28, 29, and 38 (six of twenty), adding 23 and 29 with no predecessor losses;
+all six answers validate and certificate residue is empty. The paired guard is
+28/28 Tier B but only 4/5 Tier C: `asconhashv12` solves UNSAT in 101.224 s,
+then drat-trim rejects its proof at unit `-1997`. The pin is therefore rejected
+despite Rank 29's closure.
+
+The checker log also reports hundreds of surplus deletion lines. The common
+large-clause retirement primitive emitted its proof deletion before checking
+the record's garbage bit, so a second retirement was a formula no-op but a
+second checker mutation; under DRAT it could consume a still-live duplicate.
+`kernel_delete_clause` now makes the whole transition idempotent, and sparse
+collection drops already-retired deferred OTFS reasons instead of interpreting
+their search cursor as a forwarding reference. Generic regressions cover both
+cases. An optional proof-population shadow build aborts at the first unbacked
+deletion and is compiled out of production. Its rebuilt suite is 72/72; focused
+checked `asconhashv12`, then 28B+5C and ranks 21--40, are the next gates.
 
 ## Gates
 
@@ -296,8 +313,9 @@ their complete checked results.
 
 ## Next engineering work
 
-1. Run the cumulative candidate on checked 28B+5C and frozen ranks 21--40;
-   diagnose each remaining gap from its first portable Tactix/Kissat divergence.
+1. Check the proof-idempotence repair on `asconhashv12`, then rerun 28B+5C and
+   frozen ranks 21--40; diagnose each remaining gap from its first portable
+   Tactix/Kissat divergence.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
