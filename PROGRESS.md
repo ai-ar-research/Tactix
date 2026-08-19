@@ -342,7 +342,7 @@ The cumulative pin is accepted; V6a stays on.
    propagation-charged random lifetime and passes 72/72+71/71. Replay `1634419`
    matches 2,908 decision/conflict records through 533, including remaining=1
    and decision 3859653. Job `1634436` differs at stable decision 23748;
-   `1634438` localizes four missing bumps (28,14,15,70) around unit -10848.
+   `1634438` finds four missing bumps; `1634440` traces unit -10848's reason.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
