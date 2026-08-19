@@ -2269,6 +2269,21 @@ requiring a valid answer, untruncated trace, deleted scratch, and no pending
 cleanup, then align the ordered \code{heap\_insert} payloads after
 conflict-1,006 analysis and before decision 23,745.
 
+Job \code{1634703} exonerates the central heap-insertion stream but does not
+produce two valid terminal arms. Tactix stops intentionally in 97.468 seconds
+with 46,331 trace bytes (SHA-256 prefix \code{3b88a2b6}); Kissat reaches all
+42 decisions through 23,786, then unrestricted retained Sweep detail fills
+essentially the 100,000-record cap and the task times out at 180.137 seconds
+with 14,475,264 bytes (prefix \code{4d6092d3}). Both tasks delete scratch and
+leave no cleanup pending. Before that cap, both contain the complete 140-event
+score-heap insertion stream before conflict-1,006 analysis ends. Every payload
+matches in order, with common sequence SHA-256 prefix \code{2efcc434}; neither
+solver inserts between that analysis endpoint and decision 23,745. Treat only
+this completed target stream as diagnostic evidence, not the Kissat terminal
+arm. Resume with heap-pop-only detail for the first decision, using decision
+counter 23,745 in Kissat and 23,744 in Tactix because the solvers increment on
+opposite sides of variable selection.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
