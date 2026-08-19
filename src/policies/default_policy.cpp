@@ -1891,9 +1891,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         continue;
       }
       event_trace.learned(k, k.pending.lits);
+      event_trace.detail(k, "analysis_tail_learned_emitted",
+                         k.pending.lits.size());
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (k.h->stable)
         tick_reluctant(); // per learned clause (kissat learn.c)
+      event_trace.detail(k, "analysis_tail_policy_updated", k.pending.glue);
       {
         const uint32_t jump = k.pending.jump_level;
         const uint32_t back = k.level - 1;
@@ -1907,8 +1910,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (target != jump)
             k.stats.chronological++;
         }
+        event_trace.detail(k, "analysis_tail_target", target);
         backjump_apply_to(k, target);
       }
+      event_trace.detail(k, "analysis_tail_backjump_return", k.level);
       event_trace.heap_scores(k);
       event_trace.detail(k, "analysis_propagate_head", k.propagate_head);
       event_trace.detail(k, "analysis_trail_size", k.trail.size());
