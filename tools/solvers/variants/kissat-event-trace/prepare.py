@@ -851,6 +851,18 @@ def main():
                  '#include "terminate.h"\n#include "eventtrace.h"\n'
                  '#include "rulejournal.h"\n')
     replace_once(sweep,
+        '  LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));\n'
+        '  INC (sweep_equivalences);\n',
+        '  LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));\n'
+        '  INC (sweep_equivalences);\n'
+        '  {\n'
+        '    char payload[128];\n'
+        '    snprintf (payload, sizeof payload, "a=%d|b=%d",\n'
+        '              kissat_export_literal (solver, lit),\n'
+        '              kissat_export_literal (solver, other));\n'
+        '    kissat_event_trace (solver, "sweep_equivalence", payload, false);\n'
+        '  }\n')
+    replace_once(sweep,
         '    watch *q = begin_watches;\n'
         '    const watch *p = q;\n\n'
         '    while (p != end_watches) {\n'
