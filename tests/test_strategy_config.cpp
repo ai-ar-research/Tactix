@@ -361,6 +361,14 @@ int main() {
          std::string::npos);
   assert(snapshot.find("inprocess.sweep_resume=0") != std::string::npos);
 
+  // The arithmetic cadence changes only deadlines after a reduction.  Kissat
+  // always seeds the first deadline from `reduceinit`.
+  custom.reduction.square_root_cadence = false;
+  custom.reduction.arithmetic_interval = 91;
+  DefaultPolicy arithmetic(custom);
+  arithmetic.reset_schedule(k);
+  assert(arithmetic.reduce.next_conflicts == 37);
+
   // Environment arms overlay the typed profile and remain visible in its
   // readback rather than becoming hidden use-site constants.
   setenv("TACTIX_BUMP_REASONS_RATE", "17", 1);

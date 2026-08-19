@@ -471,10 +471,12 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
 
   averages[0] = averages[1] = {};
   update_restart_limit(k);
-  reduce.next_conflicts =
-      conflicts +
-      (reduce_sqrt_ ? config_.reduction.initial_interval
-                    : config_.reduction.arithmetic_interval);
+  // Kissat initializes Reduce from `reduceinit` independently of the cadence
+  // used after a completed reduction (kimits.c:kissat_init_limits).  The
+  // arithmetic interval is a recurrence delta, not an alternative first
+  // deadline: using it here postponed LegacySearch's first Reduce from
+  // conflict 1000 to 2000.
+  reduce.next_conflicts = conflicts + config_.reduction.initial_interval;
   mode = {};
   mode.conflicts_limit = conflicts + config_.mode.initial_conflicts;
   mode.ticks_at_focus_entry = ticks;
