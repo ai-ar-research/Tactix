@@ -77,6 +77,8 @@ assert 'strcmp (event, "sweep_equivalence")' in eventtrace
 assert 'std::strcmp(event, "sweep_equivalence")' in tactix_trace
 assert 'strcmp (event, "sweep_seed")' in eventtrace
 assert 'std::strcmp(event, "sweep_seed")' in tactix_trace
+assert 'strcmp (event, "sweep_environment")' in eventtrace
+assert 'std::strcmp(event, "sweep_environment")' in tactix_trace
 assert 'kissat_event_trace_binary_add (solver, first, second);' in prepare
 assert 'event_trace_binary_add(k, a, b);' in (root / "src/kernel/kernel.cpp").read_text()
 assert 'kissat_event_trace_sweep_rewrite_binary (\\n' in prepare
@@ -84,6 +86,7 @@ assert 'event_trace_sweep_rewrite_binary(\n' in (
     root / "src/rules/substitute/substitute.cpp").read_text()
 assert 'kissat_event_trace (solver, "sweep_equivalence", payload, false);' in prepare
 assert 'kissat_event_trace (solver, "sweep_seed", payload, false);' in prepare
+assert 'kissat_event_trace (solver, "sweep_environment", payload, false);' in prepare
 assert 'binary_count=%zu|binary_hash=%016' in eventtrace
 assert 'binary_count=%zu|binary_hash=%016llx' in tactix_trace
 assert 'kissat_event_trace_binary_assignment (solver, lit, immediate_reason,' in prepare
