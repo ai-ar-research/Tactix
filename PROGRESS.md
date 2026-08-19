@@ -343,7 +343,7 @@ The cumulative pin is accepted; V6a stays on.
    matches through conflict 533/decision 3859653; `1634436` differs at stable
    decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
    direct reason; `1634446` excludes root transactions; `1634449` proves binary
-   sharing; `1634451` pins watched pose. `2847d78` passes; `1634453` traces origin.
+   sharing. `1634451` pins watch mismatch; `1634453` proves root pose parity.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
