@@ -89,6 +89,7 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     return;
   Heuristics &h = *k.h;
   const uint32_t old_nvars = h.nvars;
+  const Var old_search = h.search_idx;
   assert(old_to_new.size() == old_nvars);
 
   auto compact_values = [&](auto &values, const auto &fallback) {
@@ -136,6 +137,23 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     link.next = i + 1 < queue.size() ? queue[i + 1] : INVALID_VAR;
     link.stamp = ++h.queue_stamp;
   }
+  // Kissat's compact_queue maps the focused VMTF search cache and preserves
+  // its position; it does not reset the cache to the queue tail.  This matters
+  // even for Tactix's identity-preserving root-fixed compaction, where only the
+  // arena/watch pose changes.  A reset here changes the very next focused
+  // decision after returning from stable mode.
+  const Var mapped_search = old_search == INVALID_VAR
+                                ? INVALID_VAR
+                                : old_to_new[old_search];
+  if (mapped_search != INVALID_VAR) {
+    h.search_idx = mapped_search;
+    h.search_stamp = h.links[mapped_search].stamp;
+  } else {
+    h.search_idx = h.queue_last;
+    h.search_stamp = h.queue_last == INVALID_VAR
+                         ? 0
+                         : h.links[h.queue_last].stamp;
+  }
 
   std::vector<Var> heap;
   heap.reserve(h.scores.stack.size());
@@ -152,7 +170,6 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   h.nvars = new_nvars;
   h.target_assigned = 0;
   h.best_assigned = 0;
-  heuristics_reset_queue_search(k);
 }
 
 // Kissat's `tumble` (default 1): both rankings are seeded in first-activation
