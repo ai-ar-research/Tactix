@@ -81,6 +81,10 @@ assert 'strcmp (event, "sweep_environment")' in eventtrace
 assert 'std::strcmp(event, "sweep_environment")' in tactix_trace
 assert 'strcmp (event, "sweep_environment_clause")' in eventtrace
 assert 'std::strcmp(event, "sweep_environment_clause")' in tactix_trace
+assert 'strcmp (event, "sweep_query")' in eventtrace
+assert 'std::strcmp(event, "sweep_query")' in tactix_trace
+assert 'strcmp (event, "sweep_query_model")' in eventtrace
+assert 'std::strcmp(event, "sweep_query_model")' in tactix_trace
 assert 'kissat_event_trace_binary_add (solver, first, second);' in prepare
 assert 'event_trace_binary_add(k, a, b);' in (root / "src/kernel/kernel.cpp").read_text()
 assert 'kissat_event_trace_sweep_rewrite_binary (\\n' in prepare
@@ -91,6 +95,10 @@ assert 'kissat_event_trace (solver, "sweep_seed", payload, false);' in prepare
 assert 'kissat_event_trace (solver, "sweep_environment", payload, false);' in prepare
 assert 'kissat_event_trace_sweep_environment_clause (\\n' in prepare
 assert 'kissat_event_trace (solver, "sweep_environment_clause", payload, false);' in eventtrace
+assert 'kissat_event_trace_sweep_query (\\n' in prepare
+assert 'kissat_event_trace (solver, "sweep_query", payload, false);' in eventtrace
+assert 'kissat_event_trace_sweep_query_model (\\n' in prepare
+assert 'kissat_event_trace (solver, "sweep_query_model", payload, false);' in eventtrace
 assert 'binary_count=%zu|binary_hash=%016' in eventtrace
 assert 'binary_count=%zu|binary_hash=%016llx' in tactix_trace
 assert 'kissat_event_trace_binary_assignment (solver, lit, immediate_reason,' in prepare
