@@ -346,6 +346,24 @@ static void test_reduce_equal_rank_preserves_arena_order() {
          "equal Kissat ranks must retain the arena scan order");
 }
 
+static void test_compacting_reduce_collects_irredundant_prefix() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 6);
+  const Lit satisfied[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, satisfied, 3, false, 0);
+  const Lit victim[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref victim_ref = kernel_add_large_clause(k, victim, 3, true, 9);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  // Kissat reduce.c uses start=0 when compactlim fires.  Tail-only Reduce
+  // would delete the victim but retain this root-satisfied irredundant prefix.
+  assert(reduce_apply_refs(k, &victim_ref, 1, true) == ApplyResult::Ok);
+  assert(k.arena.empty());
+  assert(k.stats.sparse_collected == 1);
+}
+
 // The retention-band instrument tracks the live tier: moving `k.tier2` moves
 // the dynamic count and leaves the static one alone.
 static void test_tier2_band_tracks_the_live_tier() {
@@ -518,6 +536,7 @@ int main() {
   test_root_propagation_consumes_unflushed_marker();
   test_reduce_used_retention();
   test_reduce_equal_rank_preserves_arena_order();
+  test_compacting_reduce_collects_irredundant_prefix();
   test_tier2_band_tracks_the_live_tier();
   test_retier_uses_kissat_truncation();
   test_solve_with_restarts_still_correct();
