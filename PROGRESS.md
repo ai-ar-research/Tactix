@@ -317,7 +317,9 @@ keep V6a on and promote no pin. A compile-time shadow-only arm now performs
 that replay and labels the gate kind plus pass/fail result; Shadow and Release
 both pass 72/72 locally. No production pin includes this diagnostic. Submit one
 pinned Ascon shadow task next, and do not launch cumulative arrays until its
-proof verifies.
+proof verifies. Campaign `20260818-2212-ascon-value-unit-replay`, job `1634264`,
+is submitted from commit `1a53ba3` with shadow pin `ef58cf2e...`; resume by
+reading its `forced-rup` label, checked result, and cleanup state.
 
 ## Gates
 
