@@ -259,6 +259,34 @@ int main() {
          std::string::npos);
   std::remove(compact_bumps_path.c_str());
 
+  const std::string trajectory_path = trace_path("event-trajectory-only");
+  std::remove(trajectory_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", trajectory_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "decision", 3);
+    trace.detail(k, "analysis_begin", 2);
+    trace.detail(k, "learned_shrunk", 3);
+    trace.detail(k, "score_bump", 2);
+    trace.detail(k, "analysis_mark", 1);
+    trace.macro(k, "restart_begin");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY");
+  std::ifstream trajectory_input(trajectory_path);
+  const std::string trajectory_text(
+      (std::istreambuf_iterator<char>(trajectory_input)),
+      std::istreambuf_iterator<char>());
+  assert(trajectory_text.find("\tdecision\t") != std::string::npos);
+  assert(trajectory_text.find("\tanalysis_begin\t") != std::string::npos);
+  assert(trajectory_text.find("\tlearned_shrunk\t") != std::string::npos);
+  assert(trajectory_text.find("\trestart_begin\t") != std::string::npos);
+  assert(trajectory_text.find("\tscore_bump\t") == std::string::npos);
+  assert(trajectory_text.find("\tanalysis_mark\t") == std::string::npos);
+  std::remove(trajectory_path.c_str());
+
   const std::string reduce_path = trace_path("reduce-trace");
   std::remove(reduce_path.c_str());
   setenv("TACTIX_REDUCE_TRACE", reduce_path.c_str(), 1);

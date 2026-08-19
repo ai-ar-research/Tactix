@@ -243,6 +243,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != nullptr;
   search_only_ = std::getenv("TACTIX_EVENT_TRACE_SEARCH_ONLY") != nullptr;
   control_only_ = std::getenv("TACTIX_EVENT_TRACE_CONTROL_ONLY") != nullptr;
+  trajectory_only_ =
+      std::getenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY") != nullptr;
   watch_only_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_ONLY") != nullptr;
   out_ = std::fopen(path, "w");
   if (!out_)
@@ -326,6 +328,17 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strncmp(event, "vivify_", 7) &&
       std::strncmp(event, "root_", 5) &&
       std::strncmp(event, "reason_", 7))
+    return;
+  // Minimal portable search trajectory.  Keep macro/snapshot boundaries and
+  // only the choices plus learned-clause transaction needed to locate the
+  // first semantic divergence before enabling the high-volume internals.
+  if (trajectory_only_ && !snapshot && std::strcmp(event, "decision") &&
+      std::strcmp(event, "randec_draw") &&
+      std::strcmp(event, "randec_state") &&
+      std::strcmp(event, "phase_pick") && std::strcmp(event, "conflict") &&
+      std::strcmp(event, "analysis_begin") &&
+      std::strcmp(event, "analysis_end") &&
+      std::strncmp(event, "learned", 7))
     return;
   if (compact_probe_ && std::strcmp(event, "trace_begin") &&
       std::strcmp(event, "probe_begin") && std::strcmp(event, "probe_end") &&
