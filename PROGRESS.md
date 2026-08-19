@@ -311,7 +311,13 @@ the 63,635,534-byte proof is valid with zero residue, so Y1 is necessary on the
 bad trajectory. Shadow job `1634243` reaches the unchanged failure without
 aborting: both premises of every direct Y1 unit exist in the checker. Thus Y1
 changes upstream root state but is not the bad unit's direct emitter. Label the
-Congruence unit channel next; keep V6a on and promote no pin.
+Congruence unit channel in shadow job `1634245`: `-1997` is a value-derived
+`Canon::Unit`, not direct Y1. Force diagnostic RUP replay on that channel next;
+keep V6a on and promote no pin. A compile-time shadow-only arm now performs
+that replay and labels the gate kind plus pass/fail result; Shadow and Release
+both pass 72/72 locally. No production pin includes this diagnostic. Submit one
+pinned Ascon shadow task next, and do not launch cumulative arrays until its
+proof verifies.
 
 ## Gates
 
@@ -324,9 +330,10 @@ Congruence unit channel next; keep V6a on and promote no pin.
 
 ## Next engineering work
 
-1. Check the DRAT input-restatement repair on `asconhashv12`, then rerun
-   28B+5C and frozen ranks 21--40; diagnose each remaining gap from its first
-   portable Tactix/Kissat divergence.
+1. Run the forced value-unit RUP shadow on `asconhashv12`. If replay fails,
+   localize the invalid `Canon::Unit` gate canonicalization; if it passes,
+   continue locating solver/checker formula divergence. Rerun 28B+5C and
+   frozen ranks 21--40 only after the focused proof verifies.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
