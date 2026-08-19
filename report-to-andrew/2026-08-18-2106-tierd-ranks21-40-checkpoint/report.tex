@@ -2328,6 +2328,33 @@ for both tasks, requiring valid answers, untruncated line-buffered traces,
 deleted scratch, and no pending cleanup, then align the ordered removal
 payloads from the last exact heap checkpoint.
 
+Job \code{1634709} isolates the first policy-state mutation mismatch. Tactix
+reaches its intentional UNKNOWN stop in 97.128 seconds with 6,534 trace bytes
+(SHA-256 prefix \code{3a60dbe5}); Kissat times out after 180.067 seconds with
+a usable, untruncated, line-buffered 64,981-byte prefix (prefix
+\code{d0e4cb15}). Both delete scratch and leave no cleanup pending. The Kissat
+arm is not terminal-valid, but it contains the complete target stream and all
+42 decisions through count 23,786. Both solvers first remove variable 10,848
+with the exact same score, slot, replacement variable, and final slot. After
+conflict-1,006 analysis, Kissat makes 264 additional arbitrary removals before
+logical decision 23,745, beginning with variable 10,967 and ending with
+3,538,779 as the replacement source shrinks from 3,442,789 to 3,442,526;
+Tactix makes none. The next 42 decision literals nevertheless remain exact.
+
+The source explains that measured asymmetry. Kissat's inline assignment marks
+every true-level-zero assignment fixed and immediately deactivates the variable
+from its VMTF queue and score heap. Tactix already deactivates the shared
+learned root unit, but its Propagate proof rule retains the 264 root implications
+in policy rankings. This is a policy-lifecycle mismatch, not a proof-rule or
+soundness defect. The first repair attempt correctly changed the observed unit
+behavior but violated the enforced rule/policy dependency boundary. The revised
+implementation keeps Propagate independent and makes DefaultPolicy consume all
+new true-level-zero assignments after each propagation application. A focused
+regression covers the transition; Release passes 72/72 and Trace passes 71/71,
+including the rule-policy boundary check. Resume by replaying the window with a
+fresh immutable Tactix pin; the expected witness is the same ordered 265
+removals.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed

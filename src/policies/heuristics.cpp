@@ -395,6 +395,16 @@ void heuristics_deactivate_var(Kernel &k, Var v) {
     heuristics_reset_queue_search(k);
 }
 
+void heuristics_consume_root_assignments(Kernel &k, size_t trail_begin) {
+  if (!k.h)
+    return;
+  for (size_t i = trail_begin; i < k.trail.size(); ++i) {
+    const Var v = var_of(k.trail[i]);
+    if (k.assigned[v].level == 0 && heuristics_var_active(k, v))
+      heuristics_deactivate_var(k, v);
+  }
+}
+
 void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) {
   if (!k.h || mark.empty())
     return;
