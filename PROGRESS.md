@@ -307,9 +307,11 @@ unit `-1997` itself (checker id 1354312, proof line 768571) is the first invalid
 inference. Adjacent equivalence adds and 39 V6a/Y1 units make Congruence's
 binary-resolution unit channel the leading source. Isolation job `1634236`
 turns only Y1 off and checks UNSAT in 107.956 s plus 60.224 s verification;
-the 63,635,534-byte proof is valid with zero residue. Y1 is therefore causal.
-Keep V6a on by policy; next shadow-check both binary premises of its unit. No
-pin is promoted.
+the 63,635,534-byte proof is valid with zero residue, so Y1 is necessary on the
+bad trajectory. Shadow job `1634243` reaches the unchanged failure without
+aborting: both premises of every direct Y1 unit exist in the checker. Thus Y1
+changes upstream root state but is not the bad unit's direct emitter. Label the
+Congruence unit channel next; keep V6a on and promote no pin.
 
 ## Gates
 

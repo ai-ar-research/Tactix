@@ -2558,6 +2558,7 @@ ApplyResult congruence_apply(Kernel &k) {
   bool recorded_unit = false;
   congruence_stage_trace(k, "unit-state-end");
   auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
+                         const char *origin,
                          uint64_t *counter = nullptr) -> bool {
     const Var v = var_of(u);
     if (k.value(u) > 0)
@@ -2565,6 +2566,9 @@ ApplyResult congruence_apply(Kernel &k) {
     const uint64_t trail_id = k.unit_ids[v];
     const bool contradicts_trail = k.value(u) < 0;
     const uint64_t id = ++k.next_clause_id;
+    if (k.proof && k.proof->population_shadow())
+      std::fprintf(stderr, "PROOF SHADOW: Congruence unit %d origin=%s\n",
+                   kernel_externalize(k, u), origin);
     if (k.proof)
       k.proof->add_rup(lrat ? id : 0, &u, 1, lrat ? uchain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(uchain.size()) : 0);
@@ -2656,7 +2660,7 @@ ApplyResult congruence_apply(Kernel &k) {
   {
     Stage s(&cong_t.binary_units);
     if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
-          return record_unit(u, ch, &k.stats.congruence_y1_units);
+          return record_unit(u, ch, "y1", &k.stats.congruence_y1_units);
         }))
       return ApplyResult::Unsat;
   }
@@ -2762,13 +2766,13 @@ ApplyResult congruence_apply(Kernel &k) {
       k.stats.congruence_unjustified++;
       return false;
     }
-    if (record_unit(u1, ch1))
+    if (record_unit(u1, ch1, "contradictory-first"))
       return true;
     if (lrat && !congruence_rup_chain(k, &u2, 1, ch2)) {
       k.stats.congruence_unjustified++;
       return false; // {¬a} stays pending — half the inference, still sound
     }
-    return record_unit(u2, ch2);
+    return record_unit(u2, ch2, "contradictory-second");
   };
 
   // Merge two provably-equivalent literals: unite their classes and reschedule
@@ -3020,7 +3024,7 @@ ApplyResult congruence_apply(Kernel &k) {
         k.stats.congruence_unjustified++;
         continue;
       }
-      if (record_unit(unit, chain)) {
+      if (record_unit(unit, chain, "input-unit")) {
         unsat = true;
         break;
       }
@@ -3053,7 +3057,8 @@ ApplyResult congruence_apply(Kernel &k) {
         delete_transients(k, transient);
         continue;
       }
-      const bool refuted = record_unit(unit, cch[0]);
+      const bool refuted = record_unit(
+          unit, cch[0], value_derived_i ? "value-unit" : "gate-degeneracy");
       delete_transients(k, transient);
       if (refuted) {
         unsat = true;
