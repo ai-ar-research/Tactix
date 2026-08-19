@@ -69,6 +69,7 @@ int main() {
     trace.conflict(k);
     trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
     setenv("SAT_EVENT_TRACE_CLAUSE_SET", "-3,1,-2", 1);
+    setenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_FROM", "0", 1);
     setenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO", "0", 1);
     trace.detail(k, "analysis_end", 1);
     k.tier1 = 3;
@@ -84,6 +85,7 @@ int main() {
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_POSE");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET");
+  unsetenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_FROM");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
   std::ifstream input(path);
   const std::string text((std::istreambuf_iterator<char>(input)),
