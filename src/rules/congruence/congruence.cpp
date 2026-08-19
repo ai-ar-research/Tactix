@@ -2376,6 +2376,7 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
       k.stats.congruence_ticks += k.watches.size(l);
       touched.clear();
       bool found = false;
+      Lit witness = INVALID_LIT;
       for (const WatchEntry w : k.watches.entries(l)) {
         if (!w.binary())
           continue;
@@ -2384,6 +2385,7 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
           continue; // satisfied or already-propagated binary
         if (mark[negate(o)]) {
           found = true;
+          witness = o;
           break;
         }
         if (!mark[o]) {
@@ -2395,6 +2397,31 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
         mark[t] = 0;
       if (!found)
         continue;
+      assert(witness != INVALID_LIT);
+      if (k.proof && k.proof->population_shadow()) {
+        const Lit first[2] = {l, witness};
+        const Lit second[2] = {l, negate(witness)};
+        const uint64_t first_id = kernel_binary_id(k, first[0], first[1]);
+        const uint64_t second_id = kernel_binary_id(k, second[0], second[1]);
+        const bool first_backed =
+            k.proof->population_contains(first_id, first, 2);
+        const bool second_backed =
+            k.proof->population_contains(second_id, second, 2);
+        if (!first_backed || !second_backed) {
+          std::fprintf(stderr,
+                       "PROOF SHADOW: Y1 unit %d has checker-missing binary "
+                       "premise%s%s: (%d %d) id=%llu; (%d %d) id=%llu\n",
+                       kernel_externalize(k, l), first_backed ? "" : " 1",
+                       second_backed ? "" : " 2",
+                       kernel_externalize(k, first[0]),
+                       kernel_externalize(k, first[1]),
+                       static_cast<unsigned long long>(first_id),
+                       kernel_externalize(k, second[0]),
+                       kernel_externalize(k, second[1]),
+                       static_cast<unsigned long long>(second_id));
+          std::abort();
+        }
+      }
       k.stats.congruence_y1_found++;
       // Replayed, never hand-built: a hand-built pair silently gets propagation
       // order wrong. The replay charges real propagation, so meter it here.
