@@ -65,6 +65,9 @@ assert 'kissat_event_trace_heap_pop (solver, "move"' in prepare
 assert 'event_trace_heap_pop(k, "move"' in tactix_analyze or (
     'event_trace_heap_pop(k, "move"' in
     (root / "src/policies/heuristics.cpp").read_text())
+assert 'kissat_event_trace_heap_insert (solver, heap, idx' in prepare
+assert 'event_trace_heap_insert(k, v, from' in (
+    root / "src/policies/heuristics.cpp").read_text()
 assert 'KISSAT_EVENT_TRACE_BINARY_ASSIGNMENT' in eventtrace
 assert 'TACTIX_EVENT_TRACE_BINARY_ASSIGNMENT' in tactix_trace
 assert 'SAT_EVENT_TRACE_WATCH_TARGETS' in eventtrace

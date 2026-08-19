@@ -38,6 +38,7 @@ public:
                 const std::vector<uint8_t> &, uint8_t bump_mask);
   void analyzed_post(const Kernel &, const std::vector<Var> &);
   void heap_scores(const Kernel &);
+  void heap_insert(const Kernel &, Var, uint32_t from, uint32_t to);
   void heap_pop(const Kernel &, const char *stage, Var held, Var other,
                 uint32_t from, uint32_t to);
   void binary_assignment(const Kernel &, Lit assigned, Lit immediate_reason,
@@ -164,6 +165,7 @@ public:
                 const std::vector<uint8_t> &, uint8_t) {}
   void analyzed_post(const Kernel &, const std::vector<Var> &) {}
   void heap_scores(const Kernel &) {}
+  void heap_insert(const Kernel &, Var, uint32_t, uint32_t) {}
   void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
                   uint64_t) {}
   void randec_draw(const Kernel &, uint32_t, uint32_t, Var, bool) {}
@@ -229,6 +231,7 @@ void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                           const std::vector<uint8_t> &, uint8_t bump_mask);
 void event_trace_analyzed_post(const Kernel &, const std::vector<Var> &);
 void event_trace_heap_scores(const Kernel &);
+void event_trace_heap_insert(const Kernel &, Var, uint32_t from, uint32_t to);
 void event_trace_heap_pop(const Kernel &, const char *stage, Var held,
                           Var other, uint32_t from, uint32_t to);
 void event_trace_binary_assignment(const Kernel &, Lit assigned,
@@ -317,6 +320,7 @@ inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
 inline void event_trace_analyzed_post(const Kernel &,
                                       const std::vector<Var> &) {}
 inline void event_trace_heap_scores(const Kernel &) {}
+inline void event_trace_heap_insert(const Kernel &, Var, uint32_t, uint32_t) {}
 inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
                                  uint32_t, uint32_t) {}
 inline void event_trace_binary_assignment(const Kernel &, Lit, Lit, Lit,

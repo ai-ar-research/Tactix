@@ -21,6 +21,8 @@ void kissat_event_trace_implications (struct kissat *, size_t trail_begin);
 void kissat_event_trace_conflict (struct kissat *, struct clause *);
 void kissat_event_trace_heap_before_bumps (struct kissat *);
 void kissat_event_trace_heap_scores (struct kissat *);
+void kissat_event_trace_heap_insert (struct kissat *, struct heap *, unsigned,
+                                     unsigned, unsigned);
 void kissat_event_trace_heap_pop (struct kissat *, const char *, struct heap *,
                                   unsigned, unsigned, unsigned, unsigned);
 void kissat_event_trace_binary_assignment (struct kissat *, unsigned assigned,

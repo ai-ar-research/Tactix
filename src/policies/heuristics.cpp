@@ -580,9 +580,11 @@ static void heap_bubble_down(Kernel &k, Var v) {
 
 void heuristics_heap_push(Kernel &k, Var v) {
   assert(!heuristics_heap_contains(k, v));
-  k.h->scores.pos[v] = static_cast<uint32_t>(k.h->scores.stack.size());
+  const uint32_t from = static_cast<uint32_t>(k.h->scores.stack.size());
+  k.h->scores.pos[v] = from;
   k.h->scores.stack.push_back(v);
   heap_bubble_up(k, v);
+  event_trace_heap_insert(k, v, from, k.h->scores.pos[v]);
 }
 
 // Remove an arbitrary element (kissat inlineheap.h kissat_pop_heap): swap the

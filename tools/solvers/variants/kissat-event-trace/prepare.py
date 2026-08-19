@@ -589,6 +589,17 @@ def main():
                  '#include "internal.h"\n#include "eventtrace.h"\n')
     replace_once(
         inlineheap,
+        '  heap->pos[idx] = SIZE_STACK (heap->stack);\n'
+        '  PUSH_STACK (heap->stack, idx);\n'
+        '  kissat_bubble_up (solver, heap, idx);\n',
+        '  const unsigned trace_from = SIZE_STACK (heap->stack);\n'
+        '  heap->pos[idx] = trace_from;\n'
+        '  PUSH_STACK (heap->stack, idx);\n'
+        '  kissat_bubble_up (solver, heap, idx);\n'
+        '  kissat_event_trace_heap_insert (solver, heap, idx, trace_from,\n'
+        '                                  heap->pos[idx]);\n')
+    replace_once(
+        inlineheap,
         '  const unsigned last = POP_STACK (*stack);\n'
         '  unsigned *const pos = heap->pos;\n',
         '  const unsigned last_pos = SIZE_STACK (*stack) - 1;\n'
