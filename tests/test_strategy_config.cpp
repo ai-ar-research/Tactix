@@ -88,8 +88,10 @@ int main() {
          !mp.inprocess.vivify_enabled);
   const auto stconn = classified(936, 6488);
   assert(stconn.inprocess.preprocess_only &&
-         stconn.branching.random_sequences && stconn.reorder.mode == 0 &&
-         !stconn.reduction.dynamic_tiers);
+         stconn.branching.random_sequences &&
+         stconn.reorder.mode == defaults.reorder.mode &&
+         stconn.reduction.dynamic_tiers ==
+             defaults.reduction.dynamic_tiers);
   const auto grain105 = classified(3094431, 10684799);
   assert(grain105.inprocess.preprocess_only &&
          grain105.branching.random_sequences);
@@ -123,8 +125,13 @@ int main() {
   assert(grain_late.inprocess.preprocess_only &&
          !grain_late.inprocess.factor_repeated_enabled &&
          grain_late.branching.random_sequences &&
-         grain_late.reorder.mode == 0 &&
-         !grain_late.reduction.dynamic_tiers &&
+         grain_late.reorder.mode == defaults.reorder.mode &&
+         grain_late.reduction.square_root_cadence &&
+         grain_late.reduction.ramp_fraction &&
+         grain_late.reduction.dynamic_tiers &&
+         grain_late.reduction.compact_variables &&
+         grain_late.rephase.walk_permille ==
+             defaults.rephase.walk_permille &&
          grain_late.rephase.late_lucky);
   // A profile may dose or decline an inprocessing slot; none may withdraw the
   // late Lucky opportunity, which both references offer on every formula

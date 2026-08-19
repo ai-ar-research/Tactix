@@ -108,6 +108,23 @@ static void test_variable_compaction() {
   assert(k.model_values[internalize(2)] > 0);
 }
 
+static void test_compaction_counts_root_fixed_and_rewatches() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 11);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  const Lit target[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, target, 3, false, 0);
+  kernel_assign_unit(k, internalize(-1));
+  kernel_assign_unit(k, internalize(11));
+  assert(kernel_should_compact_variables(k, 10));
+  assert(kernel_compact_variables(k));
+  assert(k.nvars == 11 && k.stats.variable_compactions == 1);
+  const Clause *clause = clause_at(k.arena, 0);
+  assert(clause->lits[0] != internalize(1) &&
+         "a compacting collection must rewatch the whole arena");
+}
+
 // Kissat moves each surviving literal's watch vector wholesale during variable
 // compaction.  The directed binary prefix must therefore retain its own
 // encounter order; rebuilding it from numerically enumerated undirected pairs
@@ -1100,6 +1117,7 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
 int main() {
   test_variable_identity_maps();
   test_variable_compaction();
+  test_compaction_counts_root_fixed_and_rewatches();
   test_variable_compaction_preserves_directed_binary_order();
   test_variable_compaction_replays_inherited_arena_order();
   test_compaction_defers_retired_jumped_reason();
