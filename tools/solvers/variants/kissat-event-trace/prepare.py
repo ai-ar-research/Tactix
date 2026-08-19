@@ -851,6 +851,19 @@ def main():
                  '#include "terminate.h"\n#include "eventtrace.h"\n'
                  '#include "rulejournal.h"\n')
     replace_once(sweep,
+        '  ADD (sweep_environment, SIZE_STACK (sweeper->vars));\n'
+        '  kissat_extremely_verbose (solver,\n',
+        '  ADD (sweep_environment, SIZE_STACK (sweeper->vars));\n'
+        '  {\n'
+        '    char payload[128];\n'
+        '    snprintf (payload, sizeof payload,\n'
+        '              "external=%d|vars=%zu|clauses=%u",\n'
+        '              kissat_export_literal (solver, LIT (idx)),\n'
+        '              SIZE_STACK (sweeper->vars), sweeper->encoded);\n'
+        '    kissat_event_trace (solver, "sweep_environment", payload, false);\n'
+        '  }\n'
+        '  kissat_extremely_verbose (solver,\n')
+    replace_once(sweep,
         '  INC (sweep_variables);\n\n'
         '  LOG ("sweeping %s", LOGVAR (idx));\n',
         '  INC (sweep_variables);\n'

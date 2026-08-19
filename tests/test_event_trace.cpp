@@ -319,6 +319,7 @@ int main() {
     trace.detail(k, "score_bump", 2);
     trace.randec_state(k, "pre", 523, 533, 4);
     trace.sweep_seed(k, 0);
+    trace.sweep_environment(k, 0, 3, 4, 5);
     trace.sweep_equivalence(k, internalize(1), internalize(-2));
     trace.detail(k, "diagnostic_noise", 9);
   }
@@ -332,6 +333,8 @@ int main() {
   assert(compact_bumps_text.find("\tscore_bump\t") != std::string::npos);
   assert(compact_bumps_text.find("\trandec_state\t") != std::string::npos);
   assert(compact_bumps_text.find("\tsweep_seed\t") != std::string::npos);
+  assert(compact_bumps_text.find("\tsweep_environment\t") !=
+         std::string::npos);
   assert(compact_bumps_text.find("\tsweep_equivalence\t") !=
          std::string::npos);
   assert(compact_bumps_text.find("\tdiagnostic_noise\t") ==
