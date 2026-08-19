@@ -343,7 +343,7 @@ The cumulative pin is accepted; V6a stays on.
    matches through conflict 533/decision 3859653; `1634436` differs at stable
    decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
    direct reason; `1634446` excludes root transactions; `1634449` proves binary sharing.
-   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch.
+   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. Root cause: arithmetic recurrence wrongly seeded conflict 2000 instead of Kissat `reduceinit=1000`; repaired with focused plus 72/72+71/71 validation, pending focused Slurm trace.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
