@@ -2258,6 +2258,17 @@ overlay, then run one independent two-CPU/16-GiB pair through conflict 1,007
 and compare only insertions after conflict-1,006 analysis and before decision
 23,745. Rank 22 remains open; this is localization evidence, not a repair.
 
+The fresh heap-insertion observer pins are Kissat SHA-256 prefix
+\code{8ae2afa2} and Tactix prefix \code{24c47384}. The immutable campaign is
+\begin{center}\small\artifact{20260819-1412-tierd-rank22-c1006-heap-inserts}\end{center}
+Its two tasks independently use two CPUs and 16\,GiB, with no array throttle
+or node constraint; detail is restricted to conflict 1,006 and execution stops
+at conflict 1,007. Scheduler dry validation passed as job \code{1634702}; the
+actual array is Slurm job \code{1634703}. Resume by waiting for both tasks,
+requiring a valid answer, untruncated trace, deleted scratch, and no pending
+cleanup, then align the ordered \code{heap\_insert} payloads after
+conflict-1,006 analysis and before decision 23,745.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
