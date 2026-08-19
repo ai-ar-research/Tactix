@@ -2294,6 +2294,20 @@ pair is Slurm job \code{1634706}. Resume by waiting for both tasks, validating
 answer/trace/cleanup integrity, then aligning the begin/move/end payloads for
 the logical decision 23,745 selection.
 
+Job \code{1634706} is invalid as a cross-solver comparison. Both tasks delete
+scratch and leave no cleanup pending. Tactix reaches the intended stop in
+97.811 seconds with 6,332 bytes (SHA-256 prefix \code{31acecc4}) and records
+no lazy-pop event for the first logical decision. Kissat times out at 180.068
+seconds and leaves an empty buffered trace. The pop-only filter drops
+\code{heap\_insert} records only after their payload has been formatted, so
+the millions of filtered calls still dominate the Kissat arm; its stream is
+also not line-buffered. Do not infer pop parity from this pair. The remaining
+source-backed candidate is arbitrary heap removal during root-variable
+deactivation, implemented by Kissat's \code{pop\_heap} and Tactix's
+\code{heap\_remove}, not the observed lazy pop-max path. Resume by making
+filtered insertions cheap, line-buffering Kissat, and tracing those arbitrary
+removals at conflict 1,006/decision count 23,744.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
