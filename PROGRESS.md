@@ -338,8 +338,8 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Diagnose frozen rank 22, the first still-open target, from its earliest
-   portable Tactix/Kissat divergence; retain accepted pin `494b8bd...`.
+1. Await rank-22 paired trace job `1634369`, campaign
+   `20260818-2324-tierd-rank22-regression-trace`, then compare portable streams.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
