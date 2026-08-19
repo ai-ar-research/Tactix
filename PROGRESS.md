@@ -339,12 +339,12 @@ The cumulative pin is accepted; V6a stays on.
 ## Next engineering work
 
 1. Rank-22 repair `a9f751c` stops analysis/OTFS conflict 526 from consuming its
-   propagation-charged random lifetime and passes 72/72+71/71. Replay `1634419`
-   matches 2,908 decision/conflict records through 533, including remaining=1
-   and decision 3859653. Job `1634436` differs at stable decision 23748;
-   `1634438` finds four missing bumps; `1634440` traces unit -10848's reason.
+   propagation-charged random lifetime and passes 72/72+71/71. `1634419`
+   matches through conflict 533/decision 3859653; `1634436`
+   differs at stable decision 23748; `1634438`
+   finds four missing bumps; `1634440` proves 10848's identical direct
+   reason is not their source, so localize earlier main-analysis admission next.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
-3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
-   earliest portable divergence, repair or disposition it, and run both guards.
+3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
 No performance feature is implemented until the Tier-D comparison and divergence plan are reviewed.
