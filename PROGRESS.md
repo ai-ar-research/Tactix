@@ -314,7 +314,10 @@ narrowed input clause at `finish_input`; LRAT retains explicit hints and DRAT
 lets the checker find the RUP justification. The shadow suite, including all
 binary/ascii DRAT and native-LRAT microproofs, is 72/72 clean; the repaired
 Release, Trace, and ASAN-O3 suites are 72/72, 71/71, and 72/72 clean. Focused
-Ascon is the next gate; no cumulative pin is promoted yet.
+job `1634231` nevertheless falsifies this as Ascon's blocker: both arms add 643
+restatements, emit the same 15,610,721-byte proof, and still fail at `-1997`
+(96.588/97.139 s); the raw-input shadow reports no unbacked deletion. Retain the
+general N2 repair, but locate the earliest invalid inference before promotion.
 
 ## Gates
 
