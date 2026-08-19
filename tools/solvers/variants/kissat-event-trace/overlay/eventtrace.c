@@ -11,7 +11,8 @@
 #include <string.h>
 
 static FILE *trace_file;
-static bool trace_initialized, trace_truncated, trace_saw_reorder;
+static bool trace_initialized, trace_truncated, trace_saw_reorder,
+            trace_stop_pending;
 static bool trace_detail_window;
 static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
             trace_skip_decisions, trace_skip_randec_draws,
@@ -383,7 +384,7 @@ void kissat_event_trace (kissat *solver, const char *event,
     return;
   const uint64_t stop = stop_after_conflict ();
   if (snapshot && stop != UINT64_MAX &&
-      solver->statistics.conflicts < stop &&
+      (solver->statistics.conflicts < stop || trace_stop_pending) &&
       strcmp (event, "analysis_end"))
     return;
   if (trace_skip_watch && !strcmp (event, "watch"))
@@ -554,15 +555,16 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   // than at the later decision that exposes it.
   const bool snapshot = !strcmp (event, "analysis_end");
   const uint64_t stop = stop_after_conflict ();
-  if (snapshot && stop != UINT64_MAX &&
-      solver->statistics.conflicts >= stop)
+  const bool stop_here = snapshot && stop != UINT64_MAX &&
+                         solver->statistics.conflicts >= stop;
+  if (stop_here && solver->stable)
     emit_heap_scores (solver);
   kissat_event_trace (solver, event, buffer, snapshot);
-  if (snapshot && stop != UINT64_MAX &&
-      solver->statistics.conflicts >= stop) {
+  if (stop_here && solver->stable) {
     fflush (trace_file);
     raise (SIGTERM);
-  }
+  } else if (stop_here)
+    trace_stop_pending = true;
 }
 
 void kissat_event_trace_literal (kissat *solver, const char *event,
@@ -840,10 +842,16 @@ static void emit_heap_scores (kissat *solver) {
 }
 
 void kissat_event_trace_heap_scores (kissat *solver) {
-  if (!detail_enabled (solver) || !solver->stable ||
-      stop_after_conflict () != UINT64_MAX)
+  if (!detail_enabled (solver) || !solver->stable)
+    return;
+  const uint64_t stop = stop_after_conflict ();
+  if (stop != UINT64_MAX && !trace_stop_pending)
     return;
   emit_heap_scores (solver);
+  if (stop != UINT64_MAX) {
+    fflush (trace_file);
+    raise (SIGTERM);
+  }
 }
 
 void kissat_event_trace_clause (kissat *solver, const char *event) {
