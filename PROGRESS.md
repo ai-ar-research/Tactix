@@ -341,8 +341,8 @@ The cumulative pin is accepted; V6a stays on.
 1. Rank-22 repair `a9f751c` stops analysis/OTFS conflict 526 from consuming its
    propagation-charged random lifetime and passes 72/72+71/71. Replay `1634419`
    matches 2,908 decision/conflict records through 533, including remaining=1
-   and decision 3859653. Job `1634423` times out UNKNOWN at 1200s with its
-   partial proof deleted; job `1634432` symmetrically traces conflicts 534--560.
+   and decision 3859653. Runtime `1634423` remains UNKNOWN with zero residue;
+   trace `1634432` matches all 417 control records through conflict 560. Extend.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. For every miss, locate the
    earliest portable divergence, repair or disposition it, and run both guards.
