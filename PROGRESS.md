@@ -322,9 +322,10 @@ guard. Gate-dump job `1634270` finds `1997=XOR(341,1562,1844)`, with `341=0`
 and `1562≡1844`: the equivalent pair cancels, but the separate valued input
 made the code bypass the mandatory parity-elimination ladder. The repair now
 routes every XOR with a nonempty cancelled set through that ladder, including
-mixed valued-plus-cancelled gates; a native-LRAT regression covers this shape.
-Release/Shadow/Trace/ASAN-O3 pass 72/72, 72/72, 71/71, and 72/72. V6a stays
-on; no pin is promoted; cumulative arrays remain blocked.
+mixed valued-plus-cancelled gates; a native-LRAT regression covers it and all
+four suites pass. Production job `1634293` then checks UNSAT in 95.680 s plus
+57.220 s verification, with 8 Congruence units, 0 unjustified, and zero residue.
+The focused blocker is cleared; V6a stays on and no pin is promoted yet.
 
 ## Gates
 
@@ -337,9 +338,8 @@ on; no pin is promoted; cumulative arrays remain blocked.
 
 ## Next engineering work
 
-1. Await production Ascon ladder campaign `20260818-2235-ascon-xor-ladder-repair`,
-   job `1634293`, commit `ddc2ce4`, release pin `494b8bd...`.
-   Rerun 28B+5C and frozen ranks 21--40 only after the production proof verifies.
+1. Run paired 28B+5C and frozen ranks 21--40 cumulative guards from commit
+   `ddc2ce4`, release pin `494b8bd...`.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
    loop: locate the earliest portable semantic divergence, make a source-backed
