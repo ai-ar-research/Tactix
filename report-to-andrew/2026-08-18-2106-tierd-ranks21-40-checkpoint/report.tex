@@ -2318,6 +2318,16 @@ fresh optimized Kissat overlay build passes. The fresh immutable SHA-256
 prefixes are Kissat \code{fac07c1f} and Tactix \code{d7eaf69c}. Resume by
 pinning these binaries and tracing conflict 1,006 at decision count 23,744.
 
+The immutable removal campaign is
+\begin{center}\small\artifact{20260819-1431-tierd-rank22-c1006-heap-removes}\end{center}
+It restricts removal records to conflict 1,006/decision count 23,744 and stops
+at conflict 1,007. Two tasks independently use two CPUs and 16\,GiB, with no
+array throttle or node constraint. Scheduler dry validation passed as job
+\code{1634708}; the actual pair is Slurm job \code{1634709}. Resume by waiting
+for both tasks, requiring valid answers, untruncated line-buffered traces,
+deleted scratch, and no pending cleanup, then align the ordered removal
+payloads from the last exact heap checkpoint.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed
