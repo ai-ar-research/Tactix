@@ -25,6 +25,7 @@ static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
 static uint64_t trace_heap_from_decision = UINT64_MAX;
 static uint64_t trace_heap_pop_decision = UINT64_MAX;
+static uint64_t trace_heap_remove_decision = UINT64_MAX;
 static FILE *reduce_trace_file;
 static bool reduce_trace_initialized;
 static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
@@ -358,6 +359,10 @@ static void open_trace (void) {
       getenv ("KISSAT_EVENT_TRACE_HEAP_POP_DECISION");
   if (heap_pop_decision && *heap_pop_decision)
     trace_heap_pop_decision = strtoull (heap_pop_decision, 0, 10);
+  const char *heap_remove_decision =
+      getenv ("KISSAT_EVENT_TRACE_HEAP_REMOVE_DECISION");
+  if (heap_remove_decision && *heap_remove_decision)
+    trace_heap_remove_decision = strtoull (heap_remove_decision, 0, 10);
   trace_heap_pop_only = getenv ("KISSAT_EVENT_TRACE_HEAP_POP_ONLY") != 0;
   trace_skip_decisions = getenv ("KISSAT_EVENT_TRACE_SKIP_DECISIONS") != 0;
   trace_skip_randec_draws =
@@ -372,6 +377,7 @@ static void open_trace (void) {
   trace_file = fopen (path, "w");
   if (!trace_file)
     return;
+  setvbuf (trace_file, 0, _IOLBF, 0);
   fputs ("# tactix-event-trace\t1\n", trace_file);
   if (trace_detail_window)
     fprintf (trace_file, "# detail-conflicts\t%" PRIu64 "\t%" PRIu64 "\n",
@@ -398,6 +404,7 @@ void kissat_event_trace (kissat *solver, const char *event,
   if (!trace_file)
     return;
   if (trace_heap_pop_only && strcmp (event, "heap_pop") &&
+      strcmp (event, "heap_remove") &&
       strcmp (event, "heap_scores") && strcmp (event, "decision") &&
       strcmp (event, "analysis_end"))
     return;
@@ -427,6 +434,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "phase_pick") &&
       strcmp (event, "score_bump") &&
       strcmp (event, "heap_insert") &&
+      strcmp (event, "heap_remove") &&
       strcmp (event, "assignment") &&
       strcmp (event, "propagate_cursor") &&
       strcmp (event, "heap_scores") &&
@@ -938,13 +946,37 @@ void kissat_event_trace_heap_scores (kissat *solver) {
 
 void kissat_event_trace_heap_insert (kissat *solver, heap *heap, unsigned idx,
                                      unsigned from, unsigned to) {
-  if (!detail_enabled (solver) || !solver->stable || heap != SCORES)
+  if (!detail_enabled (solver) || trace_heap_pop_only || !solver->stable ||
+      heap != SCORES)
     return;
   char payload[192];
   snprintf (payload, sizeof payload,
             "var=%d|score=%.17g|from=%u|to=%u",
             external_literal (solver, LIT (idx)), heap->score[idx], from, to);
   kissat_event_trace (solver, "heap_insert", payload, false);
+}
+
+void kissat_event_trace_heap_remove (kissat *solver, heap *heap,
+                                     unsigned removed, unsigned last,
+                                     unsigned removed_pos, unsigned from,
+                                     unsigned to) {
+  if (!detail_enabled (solver) || !solver->stable || heap != SCORES ||
+      solver->statistics.decisions != trace_heap_remove_decision)
+    return;
+  char payload[256];
+  if (to == UINT_MAX)
+    snprintf (payload, sizeof payload,
+              "removed=%d:%.17g|removed_pos=%u|last=%d:%.17g|from=%u|to=-",
+              external_literal (solver, LIT (removed)), heap->score[removed],
+              removed_pos, external_literal (solver, LIT (last)),
+              heap->score[last], from);
+  else
+    snprintf (payload, sizeof payload,
+              "removed=%d:%.17g|removed_pos=%u|last=%d:%.17g|from=%u|to=%u",
+              external_literal (solver, LIT (removed)), heap->score[removed],
+              removed_pos, external_literal (solver, LIT (last)),
+              heap->score[last], from, to);
+  kissat_event_trace (solver, "heap_remove", payload, false);
 }
 
 void kissat_event_trace_heap_pop (kissat *solver, const char *stage,

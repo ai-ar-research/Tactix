@@ -241,6 +241,9 @@ bool EventTrace::open_from_env(const Kernel &k) {
   if (const char *decision =
           std::getenv("TACTIX_EVENT_TRACE_HEAP_POP_DECISION"))
     heap_pop_decision_ = std::strtoull(decision, nullptr, 10);
+  if (const char *decision =
+          std::getenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION"))
+    heap_remove_decision_ = std::strtoull(decision, nullptr, 10);
   compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
   skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
   skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
@@ -297,6 +300,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   if (!out_)
     return;
   if (heap_pop_only_ && std::strcmp(event, "heap_pop") &&
+      std::strcmp(event, "heap_remove") &&
       std::strcmp(event, "heap_scores") && std::strcmp(event, "decision") &&
       std::strcmp(event, "analysis_end"))
     return;
@@ -326,6 +330,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "phase_pick") &&
       std::strcmp(event, "score_bump") &&
       std::strcmp(event, "heap_insert") &&
+      std::strcmp(event, "heap_remove") &&
       std::strcmp(event, "heap_scores") &&
       std::strcmp(event, "binary_assignment") &&
       std::strcmp(event, "binary_add") &&
@@ -1673,7 +1678,7 @@ void EventTrace::heap_scores(const Kernel &k) {
 
 void EventTrace::heap_insert(const Kernel &k, Var v, uint32_t from,
                              uint32_t to) {
-  if (!out_ || !k.h || !k.h->stable || !want_detail(k))
+  if (!out_ || heap_pop_only_ || !k.h || !k.h->stable || !want_detail(k))
     return;
   char payload[192];
   std::snprintf(payload, sizeof payload,
@@ -1681,6 +1686,30 @@ void EventTrace::heap_insert(const Kernel &k, Var v, uint32_t from,
                 kernel_externalize(k, make_lit(v, false)),
                 k.h->scores.score[v], from, to);
   emit(k, "heap_insert", payload, false);
+}
+
+void EventTrace::heap_remove(const Kernel &k, Var removed, Var last,
+                             uint32_t removed_pos, uint32_t from,
+                             uint32_t to) {
+  if (!out_ || !k.h || !k.h->stable || !want_detail(k) ||
+      k.stats.decisions != heap_remove_decision_)
+    return;
+  char payload[256];
+  if (to == UINT32_MAX)
+    std::snprintf(payload, sizeof payload,
+                  "removed=%d:%.17g|removed_pos=%u|last=%d:%.17g|from=%u|to=-",
+                  kernel_externalize(k, make_lit(removed, false)),
+                  k.h->scores.score[removed], removed_pos,
+                  kernel_externalize(k, make_lit(last, false)),
+                  k.h->scores.score[last], from);
+  else
+    std::snprintf(payload, sizeof payload,
+                  "removed=%d:%.17g|removed_pos=%u|last=%d:%.17g|from=%u|to=%u",
+                  kernel_externalize(k, make_lit(removed, false)),
+                  k.h->scores.score[removed], removed_pos,
+                  kernel_externalize(k, make_lit(last, false)),
+                  k.h->scores.score[last], from, to);
+  emit(k, "heap_remove", payload, false);
 }
 
 void EventTrace::heap_pop(const Kernel &k, const char *stage, Var held,
@@ -1768,6 +1797,13 @@ void event_trace_heap_insert(const Kernel &k, Var v, uint32_t from,
                              uint32_t to) {
   if (active_trace)
     active_trace->heap_insert(k, v, from, to);
+}
+
+void event_trace_heap_remove(const Kernel &k, Var removed, Var last,
+                             uint32_t removed_pos, uint32_t from,
+                             uint32_t to) {
+  if (active_trace)
+    active_trace->heap_remove(k, removed, last, removed_pos, from, to);
 }
 
 void event_trace_heap_pop(const Kernel &k, const char *stage, Var held,

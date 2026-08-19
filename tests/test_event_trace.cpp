@@ -43,6 +43,7 @@ int main() {
 
   setenv("TACTIX_EVENT_TRACE", path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_POSE", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION", "0", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
@@ -51,6 +52,7 @@ int main() {
     trace.detail(k, "decision", 3);
     k.h->stable = true;
     trace.heap_insert(k, 1, 17, 4);
+    trace.heap_remove(k, 1, 2, 17, 20, 4);
     k.h->stable = false;
     trace.slot_boundary(k, "Sweep", "begin");
     trace.sweep_seed(k, 1);
@@ -89,6 +91,7 @@ int main() {
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_POSE");
+  unsetenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_FROM");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
@@ -103,6 +106,9 @@ int main() {
   assert(text.find("\tdecision\t") != std::string::npos);
   assert(text.find("\theap_insert\t") != std::string::npos);
   assert(text.find("var=2|score=0|from=17|to=4") != std::string::npos);
+  assert(text.find("\theap_remove\t") != std::string::npos);
+  assert(text.find("removed=2:0|removed_pos=17|last=3:0|from=20|to=4") !=
+         std::string::npos);
   assert(text.find("\tslot_boundary\t") != std::string::npos);
   assert(text.find("name=Sweep|stage=begin") != std::string::npos);
   assert(text.find("\tsweep_seed\t") != std::string::npos);

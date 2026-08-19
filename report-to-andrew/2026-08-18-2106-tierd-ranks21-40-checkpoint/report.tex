@@ -2308,6 +2308,16 @@ deactivation, implemented by Kissat's \code{pop\_heap} and Tactix's
 filtered insertions cheap, line-buffering Kissat, and tracing those arbitrary
 removals at conflict 1,006/decision count 23,744.
 
+The arbitrary-removal observer is now implemented symmetrically at the two
+central heap primitives. It records removed and replacement variables with
+exact scores, the removed slot, replacement source slot, and final bubbled
+slot, restricted by an exact decision counter. The pop-only mode now rejects
+insertions before payload formatting, and Kissat is line-buffered. Release
+passes 72/72 tests, Trace passes 71/71, the overlay static test passes, and a
+fresh optimized Kissat overlay build passes. The fresh immutable SHA-256
+prefixes are Kissat \code{fac07c1f} and Tactix \code{d7eaf69c}. Resume by
+pinning these binaries and tracing conflict 1,006 at decision count 23,744.
+
 Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
 180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
 only. Resume with one isolated 292-second cutoff, below the observed

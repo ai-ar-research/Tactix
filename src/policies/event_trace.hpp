@@ -39,6 +39,8 @@ public:
   void analyzed_post(const Kernel &, const std::vector<Var> &);
   void heap_scores(const Kernel &);
   void heap_insert(const Kernel &, Var, uint32_t from, uint32_t to);
+  void heap_remove(const Kernel &, Var removed, Var last,
+                   uint32_t removed_pos, uint32_t from, uint32_t to);
   void heap_pop(const Kernel &, const char *stage, Var held, Var other,
                 uint32_t from, uint32_t to);
   void binary_assignment(const Kernel &, Lit assigned, Lit immediate_reason,
@@ -127,6 +129,7 @@ private:
   uint64_t stop_after_conflict_ = UINT64_MAX;
   uint64_t heap_from_decision_ = UINT64_MAX;
   uint64_t heap_pop_decision_ = UINT64_MAX;
+  uint64_t heap_remove_decision_ = UINT64_MAX;
   bool saw_reorder_ = false;
   bool detail_window_ = false;
   bool compact_probe_ = false;
@@ -166,6 +169,7 @@ public:
   void analyzed_post(const Kernel &, const std::vector<Var> &) {}
   void heap_scores(const Kernel &) {}
   void heap_insert(const Kernel &, Var, uint32_t, uint32_t) {}
+  void heap_remove(const Kernel &, Var, Var, uint32_t, uint32_t, uint32_t) {}
   void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
                   uint64_t) {}
   void randec_draw(const Kernel &, uint32_t, uint32_t, Var, bool) {}
@@ -232,6 +236,8 @@ void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
 void event_trace_analyzed_post(const Kernel &, const std::vector<Var> &);
 void event_trace_heap_scores(const Kernel &);
 void event_trace_heap_insert(const Kernel &, Var, uint32_t from, uint32_t to);
+void event_trace_heap_remove(const Kernel &, Var removed, Var last,
+                             uint32_t removed_pos, uint32_t from, uint32_t to);
 void event_trace_heap_pop(const Kernel &, const char *stage, Var held,
                           Var other, uint32_t from, uint32_t to);
 void event_trace_binary_assignment(const Kernel &, Lit assigned,
@@ -321,6 +327,8 @@ inline void event_trace_analyzed_post(const Kernel &,
                                       const std::vector<Var> &) {}
 inline void event_trace_heap_scores(const Kernel &) {}
 inline void event_trace_heap_insert(const Kernel &, Var, uint32_t, uint32_t) {}
+inline void event_trace_heap_remove(const Kernel &, Var, Var, uint32_t,
+                                    uint32_t, uint32_t) {}
 inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
                                  uint32_t, uint32_t) {}
 inline void event_trace_binary_assignment(const Kernel &, Lit, Lit, Lit,
