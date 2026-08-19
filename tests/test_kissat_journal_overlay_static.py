@@ -65,6 +65,11 @@ assert 'kissat_event_trace_heap_pop (solver, "move"' in prepare
 assert 'event_trace_heap_pop(k, "move"' in tactix_analyze or (
     'event_trace_heap_pop(k, "move"' in
     (root / "src/policies/heuristics.cpp").read_text())
+assert 'KISSAT_EVENT_TRACE_BINARY_ASSIGNMENT' in eventtrace
+assert 'TACTIX_EVENT_TRACE_BINARY_ASSIGNMENT' in tactix_trace
+assert 'kissat_event_trace_binary_assignment (solver, lit, immediate_reason,' in prepare
+assert 'event_trace_binary_assignment(k, lit, other_false' in (
+    root / "src/kernel/kernel.hpp").read_text()
 assert 'kissat_event_trace_heap_before_bumps (solver);' in prepare
 assert 'void kissat_event_trace_heap_before_bumps (kissat *solver)' in eventtrace
 assert 'event_trace_heap_scores(k);\n    for (const Var v : k.bump_order)' in tactix_analyze

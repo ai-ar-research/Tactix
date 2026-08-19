@@ -201,6 +201,9 @@ public:
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void event_trace_detail(const Kernel &, const char *, int64_t);
+void event_trace_binary_assignment(const Kernel &, Lit assigned,
+                                   Lit immediate_reason, Lit stored_reason,
+                                   bool jumped);
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_root_assign(const Kernel &, Lit);
 void event_trace_sweep_seed(const Kernel &, Var);
@@ -1185,11 +1188,17 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
   const uint32_t level = a.level;
   if (k.jump_reasons && (!require_bigbig || k.jump_reasons_bigbig) && level &&
       a.binary) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_binary_assignment(k, lit, other_false, a.reason, true);
+#endif
     k.jumped_over[var_of(lit)] = other_false;
     k.stats.jumped_reasons++;
     kernel_assign(k, lit, level, a.reason, true, true);
     return;
   }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_binary_assignment(k, lit, other_false, other_false, false);
+#endif
   kernel_assign(k, lit, level, other_false, true);
 }
 [[gnu::always_inline]] inline void kernel_assign_ref(Kernel &k, Lit lit,

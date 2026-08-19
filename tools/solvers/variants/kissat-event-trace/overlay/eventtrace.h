@@ -22,6 +22,10 @@ void kissat_event_trace_heap_before_bumps (struct kissat *);
 void kissat_event_trace_heap_scores (struct kissat *);
 void kissat_event_trace_heap_pop (struct kissat *, const char *, struct heap *,
                                   unsigned, unsigned, unsigned, unsigned);
+void kissat_event_trace_binary_assignment (struct kissat *, unsigned assigned,
+                                           unsigned immediate_reason,
+                                           unsigned stored_reason,
+                                           bool jumped);
 void kissat_event_trace_clause (struct kissat *, const char *);
 void kissat_event_trace_learned (struct kissat *);
 void kissat_event_trace_checkpoint (struct kissat *);

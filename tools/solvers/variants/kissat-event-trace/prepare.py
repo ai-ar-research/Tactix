@@ -626,6 +626,31 @@ def main():
         '    kissat_event_trace_heap_scores (solver);\n'
         '    res = kissat_max_heap (scores);\n')
 
+    fastassign = dest / "src" / "fastassign.h"
+    replace_once(fastassign, '#include "inlineassign.h"\n',
+                 '#include "inlineassign.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        fastassign,
+        '  if (GET_OPTION (jumpreasons) && level && solver->classification.bigbig) {\n',
+        '  const unsigned immediate_reason = other;\n'
+        '  bool jumped = false;\n'
+        '  if (GET_OPTION (jumpreasons) && level && solver->classification.bigbig) {\n')
+    replace_once(
+        fastassign,
+        '      INC (jumped_reasons);\n'
+        '      other = a->reason;\n',
+        '      INC (jumped_reasons);\n'
+        '      other = a->reason;\n'
+        '      jumped = true;\n')
+    replace_once(
+        fastassign,
+        '  kissat_fast_assign (solver, probing, level, values, assigned, true, lit,\n'
+        '                      other);\n',
+        '  kissat_event_trace_binary_assignment (solver, lit, immediate_reason,\n'
+        '                                        other, jumped);\n'
+        '  kissat_fast_assign (solver, probing, level, values, assigned, true, lit,\n'
+        '                      other);\n')
+
     bump = dest / "src" / "bump.c"
     replace_once(bump, '#include "analyze.h"\n',
                  '#include "analyze.h"\n#include "eventtrace.h"\n')
