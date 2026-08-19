@@ -3,11 +3,13 @@
 #include "policies/heuristics.hpp"
 
 #include <cassert>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <string>
 
+#include <sys/wait.h>
 #include <unistd.h>
 
 using namespace tactix;
@@ -174,6 +176,29 @@ int main() {
          std::string::npos);
   assert(watch_positions_text.find("|binary=") == std::string::npos);
   std::remove(watch_positions_path.c_str());
+
+  const std::string focused_stop_path = trace_path("event-focused-stop");
+  std::remove(focused_stop_path.c_str());
+  const pid_t child = fork();
+  assert(child >= 0);
+  if (!child) {
+    Kernel stop_kernel;
+    kernel_reserve_vars(stop_kernel, 1);
+    ScopedHeuristics stop_h(stop_kernel);
+    stop_kernel.h->stable = false;
+    stop_kernel.stats.conflicts = 1;
+    setenv("TACTIX_EVENT_TRACE", focused_stop_path.c_str(), 1);
+    setenv("TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT", "1", 1);
+    EventTrace trace;
+    assert(trace.open_from_env(stop_kernel));
+    trace.detail(stop_kernel, "analysis_end", 0);
+    _exit(0);
+  }
+  int child_status = 0;
+  assert(waitpid(child, &child_status, 0) == child);
+  assert(WIFSIGNALED(child_status));
+  assert(WTERMSIG(child_status) == SIGTERM);
+  std::remove(focused_stop_path.c_str());
 
   const std::string window_path = trace_path("event-window");
   setenv("TACTIX_EVENT_TRACE", window_path.c_str(), 1);

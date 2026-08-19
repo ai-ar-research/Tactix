@@ -301,7 +301,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "analysis_end"))
     return;
   if (snapshot && stop_after_conflict_ != UINT64_MAX &&
-      (k.stats.conflicts < stop_after_conflict_ || stop_pending_) &&
+      k.stats.conflicts < stop_after_conflict_ &&
       std::strcmp(event, "analysis_end"))
     return;
   if (skip_watch_ && !std::strcmp(event, "watch"))
@@ -634,11 +634,10 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
   if (stop_here && k.h && k.h->stable)
     emit_heap_scores(k);
   emit(k, event, buf, snapshot);
-  if (stop_here && k.h && k.h->stable) {
+  if (stop_here) {
     std::fflush(out_);
     std::raise(SIGTERM);
-  } else if (stop_here)
-    stop_pending_ = true;
+  }
 }
 
 void EventTrace::randec_draw(const Kernel &k, uint32_t raw, uint32_t slot,
@@ -1588,16 +1587,11 @@ void EventTrace::heap_scores(const Kernel &k) {
   if (trajectory_only_ || !k.h || !k.h->stable)
     return;
   if (stop_after_conflict_ != UINT64_MAX) {
-    if (!stop_pending_) {
-      if (heap_each_bump_ &&
-          (k.stats.conflicts >= stop_after_conflict_ ||
-           k.stats.decisions >= heap_from_decision_))
-        emit_heap_scores(k);
-      return;
-    }
-    emit_heap_scores(k);
-    std::fflush(out_);
-    std::raise(SIGTERM);
+    if (heap_each_bump_ &&
+        (k.stats.conflicts >= stop_after_conflict_ ||
+         k.stats.decisions >= heap_from_decision_))
+      emit_heap_scores(k);
+    return;
   }
   if (!want_detail(k))
     return;
