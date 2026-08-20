@@ -453,6 +453,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "watch") && strcmp (event, "imply") &&
       strcmp (event, "conflict") &&
       strcmp (event, "analyzed") && strncmp (event, "analysis_", 9) &&
+      strncmp (event, "reason_", 7) &&
       strncmp (event, "learned", 7))
     return;
   if (trace_control_only && !snapshot && strcmp (event, "decision") &&
