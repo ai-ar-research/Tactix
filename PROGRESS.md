@@ -338,12 +338,13 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank 22 remains the first open frozen target. Observer and reason-delay repairs
-   make all traced state exact through analysis 4001; job `1635063` cleanly timed out.
-   Diagnostic job `1635129` found the first split at common conflict 4487: Kissat admits its complete due
-   Probe pipeline, while a formula profile suppresses all Tactix search-time
-   inprocessing. Remove that implicit whole-slot gate, retain the explicit
-   diagnostic arm, then validate the conflict-4487 trace and both guards.
+1. Rank 22 remains the first open frozen target. Commit `9f0f506` removes the
+   implicit formula-shape Probe suppression; job `1635266` confirms both arms
+   enter the same complete pipeline at conflict 4487. Job `1635393` rules out
+   Backbone budget starvation and exposes its missing persistent per-polarity
+   priority and retained between-round candidate stack. The complete-state
+   repair passes Release 72/72, Trace 71/71, and ASAN/UBSAN 72/72; validate the
+   conflict-4487 effect and guards.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 

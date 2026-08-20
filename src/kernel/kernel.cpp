@@ -49,6 +49,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // derived index, not `H` (docs/implementation-notes.md §6) — kernel-side.
   k.bve_retry.resize(nvars, 1);
   k.factor_marks.resize(2 * nvars, 0);
+  k.backbone_priority.resize(nvars, 0);
   // Touched-epoch substrate: a brand-new variable has never been looked at by
   // any consumer, so it must read as touched against every existing watermark
   // — hence a real touch EVENT each, not a resize fill (kissat
@@ -2235,6 +2236,7 @@ bool kernel_compact_variables(Kernel &k) {
   };
   compact_by_var(k.bve_retry, uint8_t{0});
   compact_by_var(k.bve_min_bound, uint16_t{0});
+  compact_by_var(k.backbone_priority, uint8_t{0});
   compact_by_var(k.touched, uint64_t{0});
   compact_by_var(k.removed, uint64_t{0});
   compact_by_var(k.touched_kept, uint64_t{0});
