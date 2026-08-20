@@ -274,7 +274,15 @@ def run_one(campaign, index):
         }
         shutil.rmtree(out_dir, ignore_errors=True)
         atomic_json(result_path, result)
-        shutil.rmtree(work)
+        # A just-killed solver can briefly hold the unlinked proof open, leaving
+        # an EBUSY .nfs sillyrename that fails a strict rmtree even though the
+        # result is already durable. Retry once, then leave the residue to the
+        # aggregate's orphan-scratch audit rather than failing the task.
+        try:
+            shutil.rmtree(work)
+        except OSError:
+            time.sleep(10)
+            shutil.rmtree(work, ignore_errors=True)
         return 0
     finally:
         shutil.rmtree(local, ignore_errors=True)
