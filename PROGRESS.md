@@ -136,5 +136,58 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
    and its Kissat-family baselines miss — and prioritize those families in the
    Tier-D convergence work.
 
+## Future phases and retained ideas
+
+These are explicit action items, not promised implementations. Each candidate
+still needs its owning design review, correctness/reach gates, bounded
+experiment, cumulative measurement, and removal condition.
+
+### Phase 4.5 — engineering beyond reference parity
+
+- [ ] Add debug proof-event correlation from each emitting rule/application to
+  its proof lines or byte range.
+- [ ] Design P1's compound-instance API, then expose generic definitional
+  extension with independently checked DRAT/LRAT and correct model projection.
+- [ ] Evaluate a zero-copy embedded-`SubSolver` clause view with local watches,
+  trail, compact variables, and proof mapping over immutable main-formula data.
+- [ ] Disposition all seven independent-lineage candidates: binary-resolution
+  minimization; blocking restarts; adaptive Reduce intervals; usage-count
+  ranking; branch/restart/polarity rotation; `best_inv`; and schedule strings.
+- [ ] Optimize `Substitute` without changing its equivalent-literal rule or
+  proof/reconstruction behavior.
+- [ ] Factor out a shared RUP-consequence emitter and evaluate richer Sweep
+  harvesting: units, one-way implications, and equivalence pairs.
+- [ ] Evaluate substantially faster Factor matching, including the
+  [SAT 2026 approach](https://drops.dagstuhl.de/storage/00lipics/lipics-vol377-sat2026/LIPIcs.SAT.2026.29/LIPIcs.SAT.2026.29.pdf).
+- [ ] Evaluate `egg`-style batched Congruence rebuilding at safe root
+  boundaries with native-proof and time/memory gates.
+- [ ] Review and concretize Phase 4.5 scope and exit criteria before any of
+  these candidates enters implementation (the former O15 decision).
+
+### Phase 5 — tuning, bindings, and extensibility
+
+- [ ] Decide O16's PR/SR-learning proof story.
+- [ ] Add reviewed policy presets/MAB scheduling, Python bindings, and
+  external-branching demos.
+- [ ] Pass the at-most-5% hardcoded-twin overhead gate and the CCE pure-plugin
+  extensibility gate.
+
+### Phase 6 — competition readiness
+
+- [ ] Package the solver; audit licenses and attribution; provide build/run
+  scripts and a solver description; rehearse solver-to-proof-to-checker under
+  the competition contract; and decide O7/O8.
+- [ ] Exit on T5 or publish the best fully verified effort.
+
+### Phase 7 — learned scheduling
+
+- [ ] Validate replay and reward proxies offline before online learning.
+- [ ] Implement RL1 windowed UCB with DefaultPolicy as a permanent arm; include
+  LearnedPolicy in random/stress-policy proof and model fuzzing.
+- [ ] Pass L-safe, then evaluate contextual RL2 and composed-batch RL3 under
+  explicit kill criteria and an arbitrary-interruption anytime test.
+- [ ] Add the offline per-family preset layer, measure L-win on Tier D across at
+  least two families, and decide whether to distill stable schedules (O13).
+
 No performance feature is implemented until the Tier-D comparison and its
 divergence plan are reviewed.
