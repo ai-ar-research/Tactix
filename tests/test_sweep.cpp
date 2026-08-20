@@ -7,6 +7,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
+#include "rules/congruence/congruence.hpp" // congruence_replay_rup, RupReplay
 #include "rules/propagate/propagate.hpp"
 #include "rules/sweep/sweep.hpp"
 
@@ -700,6 +701,62 @@ static void test_sd_declines_non_rup(void) {
   printf("  S-d: non-RUP pairs declined, F unchanged\n");
 }
 
+// "Is this line RUP over F?" is a question about the FORMULA. Its answer cannot
+// depend on which certificate format the run happens to be writing, so the
+// primitive Sweep admits with must give one verdict in all of them. It used to
+// short-circuit to `true` whenever the proof was not native LRAT, which turned
+// Sweep's admission test into an unconditional yes and let it emit an
+// unreplayable binary under DRAT (corpus 026).
+static void test_rup_admission_is_format_independent(void) {
+  // Neither direction of the fixture's `1 == 2` is RUP -- that is the premise
+  // the whole general path exists for -- so `Decide` must refuse all three.
+  const std::vector<std::vector<int>> non_rup = non_rup_formula();
+  // ...against a control that is RUP: assume -1 and the two binaries clash.
+  const std::vector<std::vector<int>> rup = {{1, 2}, {1, -2}};
+
+  struct Mode {
+    const char *name;
+    bool proof;
+    ProofFormat format;
+  };
+  const Mode modes[] = {{"no-proof", false, ProofFormat::DratAscii},
+                        {"DRAT", true, ProofFormat::DratAscii},
+                        {"LRAT", true, ProofFormat::Lrat}};
+  for (const Mode &mode : modes) {
+    Proof proof;
+    if (mode.proof)
+      assert(proof.open("/dev/null", mode.format));
+
+    Kernel hard;
+    build(hard, 4, non_rup);
+    if (mode.proof)
+      hard.proof = &proof;
+    const Lit x = internalize(1), y = internalize(2);
+    const Lit entailed[2] = {negate(x), y};
+    std::vector<uint64_t> chain;
+    assert(!congruence_replay_rup(hard, entailed, 2, chain,
+                                  RupReplay::Decide) &&
+           "an entailed but non-RUP lemma must be declined in every format");
+    // The opposite purpose is a deliberate asymmetry, not an oversight:
+    // Congruence's own lemmas are RUP by construction, so outside LRAT -- where
+    // there is no chain to read -- the replay is pure cost and is skipped.
+    assert(congruence_replay_rup(hard, entailed, 2, chain,
+                                 RupReplay::ChainOnly) ==
+               (mode.proof && mode.format == ProofFormat::Lrat ? false : true) &&
+           "ChainOnly replays exactly when a chain is written");
+
+    Kernel easy;
+    build(easy, 2, rup);
+    if (mode.proof)
+      easy.proof = &proof;
+    const Lit unit = internalize(1);
+    assert(congruence_replay_rup(easy, &unit, 1, chain, RupReplay::Decide) &&
+           "a genuinely RUP lemma must be admitted in every format");
+    printf("  admission: %s agrees (non-RUP declined, RUP admitted)\n",
+           mode.name);
+  }
+}
+
 // --- the general path, and its reachability ---------------------------------
 // `non_rup_formula()` carries an equivalence unit propagation cannot refute in
 // either direction, so only the captured sub-solver refutation can justify it.
@@ -752,6 +809,56 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(k.stats.substitute_vars >= 1);
   assert(k.stats.sweep_general >= 1);
+}
+
+// A Sweep session that holds no dense ledger still retires literals, and the
+// substitution it drives drops every binary incident to a retiring literal
+// before rebuilding the ones the session names. If the session names none, a
+// binary with one retiring endpoint keeps the direction the rewrite patched in
+// place and loses its mirror -- it still propagates from the surviving side
+// while owning no `binary_ids` identity, so an LRAT chain that cites it goes
+// out truncated -- and a binary with two retiring endpoints disappears from the
+// formula altogether, which can answer a wrong SAT.
+//
+// The check is the two structural invariants, not a verdict: mirrored watches
+// and a named id for every live pair.
+static void test_sessionless_substitution_keeps_binaries_whole(void) {
+  std::vector<std::vector<int>> cls = non_rup_formula(); // 1 == 2, vars 1..4
+  // One binary per shape the rewrite treats differently: a retiring endpoint
+  // against a stable one in each polarity -- the stable direction is patched in
+  // place and only the snapshot rebuilds the mirror -- plus a pair whose image
+  // is a tautology, which must be dropped whole rather than half.
+  cls.push_back({2, 5});
+  cls.push_back({-2, 6});
+  cls.push_back({1, -2});
+  Kernel k;
+  build(k, 6, cls);
+  assert(k.dense == nullptr); // the state this regression is about
+
+  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
+  const ApplyResult r = sweep_apply(k);
+  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
+  assert(r == ApplyResult::Ok);
+  assert(k.stats.substitute_vars >= 1 &&
+         "the substitution under test never ran");
+
+  size_t live_pairs = 0;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (!w.binary())
+        continue;
+      const Lit other = w.other();
+      assert(kernel_binary_copies(k, other, lit, 1) == 1 &&
+             "substitution left a half-watched binary");
+      assert(kernel_binary_id(k, lit, other) != 0 &&
+             "live binary has no proof identity");
+      live_pairs++;
+    }
+  assert(live_pairs >= 2 && "no binary survived; nothing was checked");
+  kernel_check_invariants(k);
+  printf("  substitution without a dense session kept %zu binary watches "
+         "whole\n",
+         live_pairs);
 }
 
 // --- the emitted proof, through a real checker ------------------------------
@@ -862,8 +969,10 @@ int main(int argc, char **argv) {
   test_env_unsat();
   test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();
+  test_rup_admission_is_format_independent();
   test_se_general_path_emits();
   test_inline_bridge_refreshes_owned_occurrences();
+  test_sessionless_substitution_keeps_binaries_whole();
   test_brute_force_oracle(rounds);
   printf("test_sweep: all tests passed\n");
   return 0;

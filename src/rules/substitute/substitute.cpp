@@ -667,14 +667,19 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
     const Kernel &k, const std::vector<Lit> &repr,
     const std::vector<uint8_t> &members, const std::vector<Lit> &sources) {
   reset_transaction();
-  if (dense_occurrences.empty())
-    return;
   // Ask the rewrite's own member question rather than the requested class map:
   // a member already root-fixed or retired is declined by `do_substitution`,
   // and mirroring it here would move ledger entries the watch lists keep.
   const auto image_of = [&](Lit l) {
     return substitution_member_live(k, members, l) ? repr[l] : l;
   };
+  // The retiring list is the transaction's membership, not a view of the dense
+  // ledger: `do_substitution` reads it to decide which watch lists to snapshot
+  // before it drops every binary incident to a retiring literal. Record it even
+  // when this session holds no ledger (Sweep with the dense occurrence index
+  // disconnected), or that rewrite loses each mirror while the opposite
+  // direction survives in place, leaving a half-watched clause that still
+  // propagates but has no proof identity.
   for (const Lit source : sources) {
     if (!substitution_member_live(k, members, source))
       continue; // declined here exactly as the rewrite declines it
@@ -684,6 +689,8 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
       retiring_repr.push_back(repr[source]);
     }
   }
+  if (dense_occurrences.empty())
+    return; // no dense stream to re-pose; the membership above still stands
   std::vector<Var> variable_order(k.nvars);
   kernel_vars_in_import_order(k, variable_order);
   for (const Var variable : variable_order)
@@ -1603,6 +1610,21 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     // order once sparse mode resumed.
     for (const Lit lit : session->retiring_sources())
       snapshot_directed(lit);
+#ifndef NDEBUG
+    // Contract, not an optimization: the compaction below drops EVERY binary
+    // incident to a substitutable literal, and only a snapshotted direction is
+    // rebuilt.  A literal the session fails to name therefore loses its mirror
+    // while the opposite direction survives, rewritten in place — a
+    // half-watched clause that still propagates but owns no proof identity.
+    {
+      std::vector<uint8_t> named(nlits, 0);
+      for (const Lit lit : session->retiring_sources())
+        named[lit] = 1;
+      for (Lit l = 0; l < nlits; l++)
+        assert((!substitutable(l) || named[l]) &&
+               "sweep session omitted a substitutable literal");
+    }
+#endif
   } else {
     for (const Var variable : variable_order)
       for (uint32_t sign = 0; sign < 2; sign++) {

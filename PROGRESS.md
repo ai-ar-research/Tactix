@@ -336,15 +336,12 @@ The cumulative pin is accepted; V6a stays on.
 - [ ] T4-VBS: exact status-sensitive frozen-VBS parity; blocks Phase 4.5.
 - [ ] T5: exceed the frozen VBS or ship the best verified effort.
 
-## Next engineering work
+## Soundness gate and next engineering work
 
-1. Rank 22 is first open. `9f0f506` admits the conflict-4487 Probe pipeline;
-   jobs `1635266`/`1635393` expose persistent priority/retained-round Backbone
-   state and rule out budget starvation. Its repair passes Release 72/72, Trace
-   71/71, and ASAN/UBSAN 72/72, but `1635431` rejects parity: four calls fix
-   670/5,343/107/4,137 versus Kissat's 95/37,569/11,156/590. Jobs `1635443`/`48`
-   show the preprocessing survivor count/order hash exact; trace 4487's rounds.
+Mandatory Claude escalation closed fuzz regressions 004/023 and new corpus 026. Sessionless Sweep substitution now preserves complete binary mirrors and proof ids; RUP admission is format-independent for Sweep and HyperBinaryResolution. Exact model/LRAT/DRAT reproducers, four 26-entry corpus configurations, Release 72/72, Trace 71/71, ASAN-O3 72/72, Debug 71/71, and 2,000 local random-policy fuzz cases pass. Final Slurm job `1636794` adds 10,000 cases with zero failures, 8,771 checked verdicts, and direct Backbone/Sweep/HyperBinaryResolution reachability. Evidence is in `benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`.
+
+1. Rank 22 remains first open. Jobs `1636147`--`1636219` make the conflict-4487 early Backbone call exact; boundary jobs `1636337`/`1636338` leave both solvers at 3,442,398 semantic variables. Vivify is the first later owner (3,442,395 Tactix versus 3,442,270 Kissat); continue inside that common-input call.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
-3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
+3. Continue Phase 4.25 Stage A: localize each frozen miss, repair or disposition it, and run both guards.
 
 No performance feature is implemented until the Tier-D comparison and divergence plan are reviewed.

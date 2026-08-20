@@ -1423,25 +1423,17 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
 // Returns false when the lemma is not RUP; the caller then drops the inference
 // rather than write an unverifiable line.
 bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
-                          std::vector<uint64_t> &chain
-#ifdef TACTIX_ENABLE_PROOF_SHADOW
-                          , bool force_drat_replay = false
-#endif
-                          ) {
+                          std::vector<uint64_t> &chain,
+                          RupReplay purpose = RupReplay::ChainOnly) {
   assert(k.level == 0 && !k.conflict_valid);
   chain.clear();
-  // Kissat's Congruence emits these structurally derived units and binaries
-  // directly (learn_congruence_unit/add_binary_clause); it does not run a
-  // speculative propagation before every DRAT lemma.  DRAT needs no explicit
-  // antecedent chain and the campaign checker validates the emitted proof as a
-  // whole. Native LRAT normally alone pays for replay and watch-pose rollback;
-  // the proof-shadow diagnostic can force the same check on a selected DRAT
-  // inference without changing production.
-#ifdef TACTIX_ENABLE_PROOF_SHADOW
-  if (!k.proof || (!force_drat_replay && !k.proof->lrat()))
-#else
-  if (!k.proof || !k.proof->lrat())
-#endif
+  const bool lrat = k.proof && k.proof->lrat();
+  // `ChainOnly` may skip the whole replay when no chain is wanted: its lemma is
+  // RUP by construction and the replay only reads antecedents off it. `Decide`
+  // may not — the replay is the caller's admission test, and skipping it turns
+  // that test into an unconditional yes, so the caller emits a line no checker
+  // can replay. See `RupReplay`.
+  if (!lrat && purpose == RupReplay::ChainOnly)
     return true;
   kernel_probing_begin(k);
   bool conflict = false;
@@ -1468,7 +1460,10 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   }
   uint64_t last = 0;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
-  if (conflict) {
+  // Only LRAT has a chain to read, and only LRAT can read one: the walk cites
+  // `unit_ids`, which no other format fills in, so walking there would put the
+  // format's line TERMINATOR into a chain (kernel_build_lrat_chain's assert).
+  if (conflict && lrat) {
     // Persistent walk scratch: a fresh `seen(k.nvars, 0)` per replayed lemma
     // dominates the native-LRAT path — never reintroduce it. Restored all-zero
     // in O(marked), so it is clean on entry for any kernel this thread uses.
@@ -1502,12 +1497,17 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   }
   if (!conflict)
     return false;
+  if (!lrat)
+    return true; // the replay itself was the whole question
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
   kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its
   // own assumption, so the walk yields no antecedents and every LRAT checker
   // rejects the line. Refusing here covers all three ladders at one choke
-  // point, at the cost of completeness where the line would cost N2.
+  // point, at the cost of completeness where the line would cost N2. This is a
+  // rule about writing an LRAT line, not part of the RUP verdict — a DRAT `a`
+  // line for the same lemma carries no chain and the checker re-derives it — so
+  // it is the one place the two formats may legitimately answer differently.
   if (chain.empty())
     return false;
   return true;
@@ -2455,8 +2455,8 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
 
 // External-linkage forwarder for the primitive Sweep shares.
 bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
-                           std::vector<uint64_t> &chain) {
-  return congruence_rup_chain(k, lits, n, chain);
+                           std::vector<uint64_t> &chain, RupReplay purpose) {
+  return congruence_rup_chain(k, lits, n, chain, purpose);
 }
 
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
@@ -3064,7 +3064,9 @@ ApplyResult congruence_apply(Kernel &k) {
 #ifdef TACTIX_ENABLE_PROOF_SHADOW
         const bool shadow_replay =
             k.proof && k.proof->population_shadow() && !lrat;
-        justified = congruence_rup_chain(k, &unit, 1, cch[0], shadow_replay);
+        justified = congruence_rup_chain(
+            k, &unit, 1, cch[0],
+            shadow_replay ? RupReplay::Decide : RupReplay::ChainOnly);
         if (shadow_replay) {
           static const char *kind_names[] = {"and", "xor", "ite"};
           std::fprintf(stderr,

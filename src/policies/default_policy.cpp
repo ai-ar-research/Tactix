@@ -595,6 +595,24 @@ struct InprocessScope {
   InprocessScope &operator=(const InprocessScope &) = delete;
 };
 
+// Kissat's `search_ticks` is charged only by the ordinary CDCL search
+// propagator.  Startup propagation, both Lucky trials, sparse root collection,
+// and `probe_initially` all run before search and therefore must not seed mode
+// or inprocessing effort references.  This scope suppresses only that tick
+// currency; unlike `InprocessScope` it deliberately leaves assignment-time
+// phase saving unchanged outside the actual Probe pipeline.
+struct PreSearchTickScope {
+  Kernel &k;
+  bool previous_inprocessing;
+  explicit PreSearchTickScope(Kernel &kk)
+      : k(kk), previous_inprocessing(kk.inprocessing) {
+    k.inprocessing = true;
+  }
+  ~PreSearchTickScope() { k.inprocessing = previous_inprocessing; }
+  PreSearchTickScope(const PreSearchTickScope &) = delete;
+  PreSearchTickScope &operator=(const PreSearchTickScope &) = delete;
+};
+
 uint64_t meter_probe(const Kernel &k) { return k.stats.probe_ticks; }
 uint64_t meter_backbone(const Kernel &k) { return k.stats.backbone_ticks; }
 uint64_t meter_vivify(const Kernel &k) { return k.stats.vivify_ticks; }
@@ -1690,6 +1708,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     return verdict;
   };
 
+  std::optional<PreSearchTickScope> presearch_ticks;
+  presearch_ticks.emplace(k);
+
   // The references expose two distinct Lucky opportunities around initial
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
   // a later inprocessing phase.
@@ -1761,6 +1782,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
+  presearch_ticks.reset();
   // There is no Kissat collection point between late Lucky and search
   // (preprocess.c:57, reduce.c:160-185).  In particular, collecting the whole
   // arena here would apply DefaultArenaOrder after preprocessing and invent a
@@ -2703,7 +2725,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       clock.fixed_mark = 0;
     }
   }
-  clock.anchor = search_ticks(k);
+  // `kissat_probe_initially` does not update `last.ticks.probe`; the first
+  // search-time Probe phase therefore measures effort from search tick zero.
+  // Only a completed post-search Probe phase advances that anchor.
+  if (group != SlotGroup::Probe || k.stats.conflicts)
+    clock.anchor = search_ticks(k);
   if (ctx.phase_unsat)
     return 20;
   clock.rounds++;

@@ -577,6 +577,39 @@ void kernel_touch_sync_fixed(Kernel &k) {
 
 // kernel_assign* live header-inline in kernel.hpp (fastassign.h pattern)
 
+// The one per-literal unassign. Every path that takes a literal off the trail
+// goes through here: value reset, both unassigned counters, and the policy's
+// ranking structures must move together, and a caller that re-implements the
+// first two silently desynchronizes the third.
+template <bool HasH> static void kernel_unassign_literal(Kernel &k, Lit lit) {
+  const Var v = var_of(lit);
+  k.values[lit] = 0;
+  k.values[negate(lit)] = 0;
+  k.unassigned++;
+  if (!kernel_var_retired(k, v))
+    k.unassigned_active++;
+  if constexpr (HasH) {
+    // Ranking-structure maintenance. Invariant: a RETIRED variable must not
+    // re-enter either structure here, or deactivation degenerates into
+    // demotion — the heap re-push puts it straight back, and in focused mode
+    // the hint update points `search_idx` at a dequeued variable whose
+    // `values` are 0, so the queue returns it immediately. kissat never hits
+    // this, because its deactivated variables are never on the trail.
+    if (k.retire_enabled && kernel_var_retired(k, v)) {
+      // leave both structures alone; it stays out for good
+    } else if (k.h->stable) {
+      if (!heuristics_heap_contains(k, v)) {
+        event_trace_detail(k, "heap_reinsert",
+                           kernel_externalize(k, make_lit(v, false)));
+        heuristics_heap_push(k, v);
+      }
+    } else if (k.h->links[v].stamp > k.h->search_stamp) {
+      k.h->search_idx = v;
+      k.h->search_stamp = k.h->links[v].stamp;
+    }
+  }
+}
+
 // The `H`-hook seam. `HasH` selects at compile time whether this backtrack
 // maintains search guidance — the four `H` touches (target/best snapshot, phase
 // save, heap re-insert, VMTF search-cache) each sit under `if constexpr
@@ -609,31 +642,7 @@ static void kernel_backtrack_impl(Kernel &k, uint32_t target,
       j++;
       continue;
     }
-    k.values[lit] = 0;
-    k.values[negate(lit)] = 0;
-    k.unassigned++;
-    if (!kernel_var_retired(k, v))
-      k.unassigned_active++;
-    if constexpr (HasH) {
-      // Ranking-structure maintenance. Invariant: a RETIRED variable must not
-      // re-enter either structure here, or deactivation degenerates into
-      // demotion — the heap re-push puts it straight back, and in focused mode
-      // the hint update points `search_idx` at a dequeued variable whose
-      // `values` are 0, so the queue returns it immediately. kissat never hits
-      // this, because its deactivated variables are never on the trail.
-      if (k.retire_enabled && kernel_var_retired(k, v)) {
-        // leave both structures alone; it stays out for good
-      } else if (k.h->stable) {
-        if (!heuristics_heap_contains(k, v)) {
-          event_trace_detail(k, "heap_reinsert",
-                             kernel_externalize(k, make_lit(v, false)));
-          heuristics_heap_push(k, v);
-        }
-      } else if (k.h->links[v].stamp > k.h->search_stamp) {
-        k.h->search_idx = v;
-        k.h->search_stamp = k.h->links[v].stamp;
-      }
-    }
+    kernel_unassign_literal<HasH>(k, lit);
   }
   k.trail.resize(j);
   k.frames.resize(target + 1);
@@ -661,6 +670,34 @@ void kernel_backtrack(Kernel &k, uint32_t target, bool search_backtrack) {
     kernel_backtrack_impl<true>(k, target, search_backtrack);
   else
     kernel_backtrack_impl<false>(k, target, search_backtrack);
+}
+
+template <bool HasH>
+static void kernel_unwind_speculation_impl(Kernel &k, uint32_t position) {
+  assert(position <= k.trail.size());
+  // Every level above the root must live entirely inside the discarded
+  // suffix, or landing at level zero would strand one of its literals.
+  assert(!k.level || k.frames[1] >= position);
+  while (k.trail.size() > position) {
+    const Lit lit = k.trail.back();
+    k.trail.pop_back();
+    kernel_unassign_literal<HasH>(k, lit);
+  }
+  k.frames.resize(1);
+  k.level = 0;
+  // Same monotonicity rule as a backtrack: the cursor may only move back.
+  // Moving it forward would declare literals propagated that never were.
+  if (k.propagate_head > position)
+    k.propagate_head = position;
+  k.conflict_valid = false;
+  k.conflict_ref = INVALID_REF;
+}
+
+void kernel_unwind_speculation(Kernel &k, uint32_t position) {
+  if (k.h)
+    kernel_unwind_speculation_impl<true>(k, position);
+  else
+    kernel_unwind_speculation_impl<false>(k, position);
 }
 
 // --- shared proof idioms (decls in kernel.hpp) ------------------------------
@@ -1239,7 +1276,19 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   return conflict;
 }
 
+// Full propagation takes over whatever region binary-only propagation credited
+// to the shared cursor (Kernel::binary_only_head): pull the cursor back so the
+// large watches that scan skipped are inspected exactly once here. A literal
+// below the returned cursor has had every clause it watches examined again,
+// which is precisely what the cursor is allowed to mean.
+static void kernel_settle_binary_only_debt(Kernel &k) {
+  if (k.binary_only_head < k.propagate_head)
+    k.propagate_head = k.binary_only_head;
+  k.binary_only_head = UINT32_MAX;
+}
+
 bool kernel_propagate(Kernel &k, Ref ignore) {
+  kernel_settle_binary_only_debt(k);
   while (k.propagate_head < k.trail.size()) {
     const Lit lit = k.trail[k.propagate_head];
     if (propagate_literal<false>(k, lit, ignore)) {
@@ -1256,6 +1305,7 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
 
 void kernel_propagate_beyond_conflicts(Kernel &k) {
   assert(k.warming);
+  kernel_settle_binary_only_debt(k); // full scans, conflicts included
   const uint64_t before = k.stats.propagations;
   while (k.propagate_head < k.trail.size()) {
     const Lit lit = k.trail[k.propagate_head++];
@@ -1271,7 +1321,8 @@ void kernel_propagate_beyond_conflicts(Kernel &k) {
 // there is no watch mutation and no delayed relocation). Far cheaper than the
 // full engine; the units it derives are a subset of full propagation's. A
 // binary conflict (not_lit, other) is recorded exactly like the full engine.
-static bool propagate_literal_binary(Kernel &k, Lit lit) {
+static bool propagate_literal_binary(Kernel &k, Lit lit,
+                                     bool use_current_level) {
   const Lit not_lit = negate(lit);
   const int8_t *const values = k.values.data();
   const uint32_t *const begin = k.watches.begin(not_lit);
@@ -1290,23 +1341,25 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
   // entries.
   bool large_seen = false, ordered = true;
   uint64_t large_words = 0;
-  bool conflict = false;
   // Not WatchLists::entries: `binprop_words`/`binprop_skipped` below price the
-  // word cursor where the scan stopped, and the conflict break leaves it past
-  // the conflicting binary. An entry iterator stops before the entry it breaks
-  // on, so the stride is load-bearing here beyond iteration.
+  // word cursor where a successful scan stopped. Kissat returns immediately
+  // on a conflicting binary, before charging that literal's scan at all.
+  // Kissat also fetches the first large watch with
+  // `*p++` before its binary-type test, so an early break charges that first
+  // word even though it does not inspect the large clause reference.  An entry
+  // iterator stops before the entry it breaks on, so the stride is load-bearing
+  // here beyond iteration.
   while (p != end) {
-    const Watch w{*p};
+    const Watch w{*p++};
     if (!w.binary()) { // large watch occupies two slots; skipped here
       if (stop_early)
         break;
       large_seen = true;
       large_words += 2;
-      p += 2;
+      p += 1;
       continue;
     }
     ordered = ordered && !large_seen;
-    p += 1;
     const Lit other = w.other();
     const int8_t other_value = values[other];
     if (other_value > 0)
@@ -1316,10 +1369,12 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
       k.conflict_ref = INVALID_REF;
       k.conflict_bin[0] = not_lit;
       k.conflict_bin[1] = other;
-      conflict = true;
-      break;
+      return true;
     }
-    kernel_assign_binary(k, other, not_lit);
+    if (use_current_level)
+      kernel_assign(k, other, k.level, not_lit, true);
+    else
+      kernel_assign_binary(k, other, not_lit);
     k.stats.propagations++;
   }
   kernel_charge_ticks(k, 1 + kernel_cache_lines(p - begin));
@@ -1335,7 +1390,7 @@ static bool propagate_literal_binary(Kernel &k, Lit lit) {
     k.stats.binprop_ordered += ordered;
     k.stats.binprop_large += large_words;
   }
-  return conflict;
+  return false;
 }
 
 // --- probing propagation (kissat proprobe.c) --------------------------------
@@ -1405,6 +1460,7 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   const size_t assigned_before = k.trail.size();
   const bool lrat = k.proof && k.proof->lrat();
   bool conflict = false;
+  kernel_settle_binary_only_debt(k); // this scan is a full one
   if (!k.probing.recording) {
     conflict = kernel_propagate(k, ignore); // no open scope: nothing to record
   } else {
@@ -1427,14 +1483,35 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
 
 // binary-only propagation to fixpoint or first conflict (V2 Backbone). Same
 // contract as kernel_propagate but through the binary-implication graph only.
-bool kernel_propagate_binary(Kernel &k) {
+bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
+  // Two obligations this speculative propagator carries because it is not
+  // `propagate_service`, and neither of them is the caller's to remember:
+  //
+  // 1. It advances the SHARED full-propagation cursor while inspecting only
+  //    binary watches, so record the debt for the next full propagation
+  //    (Kernel::binary_only_head). Without it, a covered literal left on the
+  //    trail keeps its large watches unscanned behind a claimed fixpoint.
+  // 2. Exactly as in `kernel_propagate_probing`, it can force a literal at
+  //    level zero and the caller's unwind may leave that literal assigned. It
+  //    never passes through `propagate_service`, so without its own unit line
+  //    the literal keeps `unit_ids[v] == 0` — LRAT's line terminator — and
+  //    truncates the next chain that cites it.
+  if (k.propagate_head < k.binary_only_head)
+    k.binary_only_head = k.propagate_head;
+  const size_t assigned_before = k.trail.size();
+  const bool lrat = k.proof && k.proof->lrat();
+  bool conflict = false;
   while (k.propagate_head < k.trail.size()) {
     const Lit lit = k.trail[k.propagate_head];
-    if (propagate_literal_binary(k, lit))
-      return true;
+    if (propagate_literal_binary(k, lit, use_current_level)) {
+      conflict = true;
+      break;
+    }
     k.propagate_head++;
   }
-  return false;
+  if (lrat)
+    kernel_emit_root_units(k, assigned_before);
+  return conflict;
 }
 
 // Garbage collection after kissat/src/collect.c (MIT), simplified: copy
@@ -2223,6 +2300,11 @@ bool kernel_compact_variables(Kernel &k) {
   for (uint32_t &frame : frames)
     frame = trail_prefix[frame];
   const uint32_t propagate_head = trail_prefix[k.propagate_head];
+  // The binary-only debt is a trail POSITION like the cursor, so it moves with
+  // the same map; UINT32_MAX is the no-debt sentinel, not a position.
+  const uint32_t binary_only_head =
+      k.binary_only_head <= k.trail.size() ? trail_prefix[k.binary_only_head]
+                                           : UINT32_MAX;
 
   auto compact_by_var = [&](auto &values_by_var, const auto &fallback) {
     using Vector = std::decay_t<decltype(values_by_var)>;
@@ -2264,6 +2346,7 @@ bool kernel_compact_variables(Kernel &k) {
   k.trail.swap(trail);
   k.frames.swap(frames);
   k.propagate_head = propagate_head;
+  k.binary_only_head = binary_only_head;
   k.watches = std::move(watches);
   k.binary_ids.swap(binary_ids);
   k.unassigned = 0;
@@ -2390,6 +2473,20 @@ void kernel_emit_root_units(Kernel &k, size_t from) {
       // cannot reach the root and the reason still names a real clause.
       assert(!a.jumped);
       reason_id = kernel_binary_id(k, lit, a.reason);
+      // Same terminator hazard as a zero antecedent, one step earlier: a
+      // closing id of 0 is DROPPED by `kernel_build_lrat_chain`, so the line
+      // goes out with a short chain the checker cannot replay. The pair is
+      // unnamed only when it is not a live clause of this formula — a reason
+      // that survived its clause, which is a state defect, not a proof one.
+      if (!reason_id) {
+        fprintf(stderr,
+                "INVARIANT: root literal %d has a binary reason (%d %d) with "
+                "no proof id; watched %u forward / %u mirrored\n",
+                externalize(lit), externalize(lit), externalize(a.reason),
+                kernel_binary_copies(k, lit, a.reason, 1),
+                kernel_binary_copies(k, a.reason, lit, 1));
+        assert(false && "root unit's binary reason has no clause id");
+      }
       const Var ov = var_of(a.reason);
       k.lrat_entries.emplace_back(k.assigned[ov].trail, k.unit_ids[ov]);
     } else {
@@ -2643,8 +2740,12 @@ void kernel_check_invariants(const Kernel &k) {
   }
 
   // propagation completeness: fully propagated + no conflict in flight
-  // means no clause is falsified
-  if (k.propagate_head == k.trail.size() && !k.conflict_valid &&
+  // means no clause is falsified.  An outstanding binary-only debt is NOT a
+  // fixpoint however far the cursor stands: the next full propagation pulls
+  // the cursor back over that region and scans the large watches the binary
+  // propagator skipped.
+  if (k.propagate_head == k.trail.size() &&
+      k.binary_only_head >= k.propagate_head && !k.conflict_valid &&
       !k.pending.valid && !k.inconsistent) {
     for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
       for (const WatchEntry w : k.watches.entries(lit)) {

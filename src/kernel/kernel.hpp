@@ -641,6 +641,17 @@ struct Kernel {
 
   std::vector<Lit> trail;
   uint32_t propagate_head = 0;
+  // Lowest trail position that BINARY-ONLY propagation moved `propagate_head`
+  // past and full propagation has not re-covered; UINT32_MAX means none.
+  // `propagate_head` means "every clause watched by this literal has been
+  // inspected", which the binary propagator does not establish: it skips every
+  // large watch. A literal it covered that STAYS on the trail is then credited
+  // forever, so the trail can reach a claimed fixpoint that still hides a large
+  // unit or conflict, and a total assignment built on it falsifies a clause.
+  // The next full propagation pulls the cursor back to this debt and rescans.
+  // A speculative caller that retracts everything it scanned leaves the debt
+  // equal to the cursor, so the pull-back is inert for it.
+  uint32_t binary_only_head = UINT32_MAX;
   bool trail_tainted = false;
   std::vector<uint32_t> frames = {0};
   uint32_t level = 0;
@@ -1226,6 +1237,26 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
 void kernel_backtrack(Kernel &, uint32_t target_level,
                       bool search_backtrack = true);
 
+// Retract the whole trail suffix from `position` upward and land at the root.
+// A speculative probing round is not level-structured — Backbone stamps a
+// proved unit at the saved assumption level, and level zero itself when that
+// level is zero — so `kernel_backtrack(k, 0)` cannot express the retraction: it
+// keeps every literal whose recorded level is already zero. Unwinding by trail
+// POSITION does, and routing it through the kernel keeps the per-literal
+// unassign contract (both counters plus the policy's ranking structures) in one
+// place instead of half-copied into the rule.
+void kernel_unwind_speculation(Kernel &, uint32_t position);
+
+// The one propagation-fixpoint predicate. Not `propagate_head == trail.size()`
+// on its own: binary-only propagation moves that cursor while skipping every
+// large watch and leaves the debt below, which the next full propagation still
+// has to discharge. A verdict, a guard or an oracle that reads the raw cursor
+// can therefore call a trail complete while a large clause is still unit.
+inline bool kernel_propagation_fixpoint(const Kernel &k) {
+  return k.propagate_head == k.trail.size() &&
+         k.binary_only_head >= k.propagate_head;
+}
+
 bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 
 // Walk warm-up propagation (kissat propbeyond.c): scan to a full assignment
@@ -1234,7 +1265,10 @@ bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 // assignment path and therefore refresh saved phases.
 void kernel_propagate_beyond_conflicts(Kernel &);
 
-bool kernel_propagate_binary(Kernel &);
+// `use_current_level` is the chained Backbone contract: Kissat assigns every
+// binary implication at the current accumulated-assumption level instead of
+// compacting it to its antecedent's true level.
+bool kernel_propagate_binary(Kernel &, bool use_current_level = false);
 
 void kernel_probing_begin(Kernel &, bool rollback_pose = true);
 void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope

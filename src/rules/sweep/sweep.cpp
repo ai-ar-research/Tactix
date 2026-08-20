@@ -1555,9 +1555,9 @@ static bool sweep_emit_equiv(Kernel &k, Lit a, Lit b,
     return false; // degenerate: nothing to state, and not emittable
   const Lit fwd[2] = {negate(a), b};
   const Lit rev[2] = {a, negate(b)};
-  if (!congruence_replay_rup(k, fwd, 2, chain_fwd))
+  if (!congruence_replay_rup(k, fwd, 2, chain_fwd, RupReplay::Decide))
     return false;
-  if (!congruence_replay_rup(k, rev, 2, chain_rev))
+  if (!congruence_replay_rup(k, rev, 2, chain_rev, RupReplay::Decide))
     return false;
   const bool lrat = k.proof && k.proof->lrat();
   auto add = [&](const Lit *l, const std::vector<uint64_t> &ch) {
@@ -2012,7 +2012,10 @@ static bool sweep_emit_unit(Kernel &k, Lit unit) {
   if (k.value(unit) < 0)
     return false; // the caller's consistent environment cannot prove this
   std::vector<uint64_t> chain;
-  if (!congruence_replay_rup(k, &unit, 1, chain))
+  // Admission, exactly as in `sweep_emit_equiv`: Kitten's refutation is the
+  // semantic certificate, and this asks the separate, format-independent
+  // question of whether a checker can replay the line.
+  if (!congruence_replay_rup(k, &unit, 1, chain, RupReplay::Decide))
     return false;
   const uint64_t id = ++k.next_clause_id;
   if (k.proof) {

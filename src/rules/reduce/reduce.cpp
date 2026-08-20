@@ -94,7 +94,7 @@ void reduce_prepare(Kernel &k) {
   // large-clause watches before the collector decides which prefix watches to
   // preserve.  Merely clearing the marker here left those scans pending until
   // the following Walk warm-up and caused the first Phase-4 divergence.
-  if (!k.inconsistent && k.propagate_head < k.trail.size())
+  if (!k.inconsistent && !kernel_propagation_fixpoint(k))
     propagate_service(k);
   if (!k.inconsistent)
     k.unflushed_root = 0;

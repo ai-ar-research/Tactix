@@ -24,7 +24,7 @@ ApplyResult propagate_service(Kernel &);
 // closure `U` before reading the assignment. A no-op at a fixpoint, so
 // DefaultPolicy stays bit-exact. True iff the drain refuted the formula.
 inline bool inprocess_reach_root(Kernel &k) {
-  return k.propagate_head < k.trail.size() &&
+  return !kernel_propagation_fixpoint(k) &&
          propagate_service(k) == ApplyResult::Unsat;
 }
 

@@ -1,0 +1,10 @@
+{
+  "seed": 8800844,
+  "index": 844,
+  "generator": "ksat-k3-n100-m459 (ddmin-shrunk under the proof-rejection predicate)",
+  "failure": "proof",
+  "solver_args": ["--random-policy=8800844"],
+  "solver_env": {},
+  "found_by": "local random-policy DRAT leg while validating the corpus-004/023 repair, 2026-08-20; the first witness of this defect was seed 990486 of an earlier 400-case leg, retained in benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md",
+  "diagnosis": "drat-trim rejected the DRAT proof of a run that answered UNSATISFIABLE: 'RAT check on proof pivot failed' on a Sweep equivalence binary, 'RAT check failed on all possible pivots'. Cause: Sweep's S-d fast path (`sweep_emit_equiv`) decides whether a proved equivalence may be stated as two binaries by asking `congruence_replay_rup`, and that primitive short-circuited `if (!k.proof || !k.proof->lrat()) return true;`. The short-circuit is correct for Congruence's OWN lemma families -- they are RUP by construction, so the replay only reads the antecedent chain and is pure cost when no chain is written -- but Sweep reuses the primitive as an ADMISSION test: Kitten's refutation is the semantic certificate, and RUP over the main formula is the separate question of whether a checker can replay the line. Outside native LRAT that question therefore always answered yes, and Sweep emitted equivalences unit propagation cannot re-derive. The counter that was supposed to make this visible, `sweep_not_rup`, could not move outside LRAT for the same reason. Two further callers shared the hole with the same stated contract in their own comments: `sweep_emit_unit` and HyperBinaryResolution's `emit`. Fixed 2026-08-20: the primitive takes an explicit `RupReplay` purpose; `Decide` runs the replay in every proof format and builds the LRAT chain only when one is written, while `ChainOnly` keeps Congruence's skip. Mechanism regression: tests/test_sweep.cpp::test_rup_admission_is_format_independent."
+}
