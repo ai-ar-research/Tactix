@@ -45,18 +45,13 @@ finish, audit completeness and cleanup, compare Tactix with Kissat annually and
 on the union, then select cases where Kissat solves quickly and Tactix times out
 or is materially slower for iterative divergence analysis.
 
-A LymphoSAT module-attribution rerun of the full Tier-D set is in flight in
-`benchmarks/runs/20260819-tierd-lymphosat-modlog/` (array 1635270, %40
-throttle recorded in the manifest; aggregate 1635271). It reruns the frozen
-LymphoSAT pin with an attribution-logging dispatcher (nested solver binaries
-byte-identical; variant `tools/solvers/variants/lymphosat-modlog/`) under the
-frozen 5,000 s / 32 GiB contract and records, per instance, every launched
-sub-solver and the one responsible for the answer. Attribution-only: verdict
-validity is owned by the frozen baseline and cross-checked at aggregation.
-The first launch (array 1634927) was cancelled and archived in the campaign's
-`incident-20260820-node-tmp-aborts/`: writing proofs to node-local /tmp
-exhausted the dense nodes' disks under concurrency and aborted sub-solvers
-mid-write; proofs now use shared-FS campaign scratch, deleted at task end.
+The LymphoSAT module-attribution rerun of the full Tier-D set is complete:
+1,166/1,166 instances, 948 solved, every solve attributed (296 by 75 targeted
+modules, 652 by the kissat-derived fallback), five explained verdict flips vs
+the frozen arm. Evidence:
+`benchmarks/reports/2026-08-20-lymphosat-module-attribution.md`; data in
+`benchmarks/runs/20260819-tierd-lymphosat-modlog/` (`results-table.tsv` is
+the per-instance verdict/runtime/attempt-sequence table).
 
 ### Pre-Phase-4.5 debug contract
 
@@ -133,14 +128,6 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
    loop: locate the earliest portable semantic divergence, make a source-backed
    repair or disposition, and protect the result with focused and cumulative
    guards.
-6. When `benchmarks/runs/20260819-tierd-lymphosat-modlog/` completes, produce
-   the pure LymphoSAT attribution deliverable (no Tactix or baseline
-   comparison): a per-instance table with verdict, runtime, and the ordered
-   sequence of sub-solvers tried (with each attempt's outcome), frozen in
-   `benchmarks/reports/` with a module-distribution summary, plus an
-   Andrew-facing LaTeX/PDF report of the same through `generate-report`.
-   Done when every solved instance is attributed and verdict flips against
-   the frozen baseline arm are explained.
 
 ## Future phases and retained ideas
 
