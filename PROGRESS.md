@@ -338,13 +338,12 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank 22 remains the first open frozen target. Commit `9f0f506` removes the
-   implicit formula-shape Probe suppression; job `1635266` confirms both arms
-   enter the same complete pipeline at conflict 4487. Job `1635393` rules out
-   Backbone budget starvation and exposes its missing persistent per-polarity
-   priority and retained between-round candidate stack. The complete-state
-   repair passes Release 72/72, Trace 71/71, and ASAN/UBSAN 72/72; validate the
-   conflict-4487 effect and guards.
+1. Rank 22 is first open. `9f0f506` admits the conflict-4487 Probe pipeline;
+   jobs `1635266`/`1635393` expose persistent priority/retained-round Backbone
+   state and rule out budget starvation. Its repair passes Release 72/72, Trace
+   71/71, and ASAN/UBSAN 72/72, but job `1635431` rejects parity: four calls fix
+   670/5,343/107/4,137 versus Kissat's 95/37,569/11,156/590 variables. Trace
+   both preprocessing calls' priority state before changing semantics again.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
