@@ -39,6 +39,11 @@ assert 'solver->statistics.conflicts < stop' in eventtrace, (
 assert re.search(
     r'if \(stop_here && solver->stable\)\s*emit_heap_scores \(solver\);',
     eventtrace), "stable analysis-end must emit one endpoint heap digest"
+assert re.search(
+    r'if \(!stop_here && trace_detail_window &&\s*'
+    r'\(solver->statistics.conflicts < trace_detail_from \|\|\s*'
+    r'solver->statistics.conflicts > trace_detail_to\)\)\s*return;',
+    eventtrace), "endpoint stop must survive a skipped detail-window conflict"
 assert 'if (stop != UINT64_MAX) {' in eventtrace, (
     "stop-mode must gate intermediate heap snapshots")
 assert 'if (stop_here) {\n    fflush (trace_file);\n    raise (SIGTERM);' in eventtrace, (
