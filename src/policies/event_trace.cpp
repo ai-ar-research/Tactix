@@ -97,7 +97,11 @@ RankingSummary summarize_ranking(const Kernel &k, bool include_top) {
   std::stable_sort(ranked.begin(), ranked.end(), [&](Var a, Var b) {
     if (k.h->scores.score[a] != k.h->scores.score[b])
       return k.h->scores.score[a] > k.h->scores.score[b];
-    return a < b;
+    // Kissat's internal indices are assigned in first-import order.  Tactix
+    // keeps public identities stable and stores that permutation separately,
+    // so comparing the current dense indices fabricates a ranking divergence
+    // whenever a large bump makes scores equal at double precision.
+    return kernel_import_var_order(k, a) < kernel_import_var_order(k, b);
   });
   std::string top;
   const size_t n = std::min<size_t>(32, ranked.size());
