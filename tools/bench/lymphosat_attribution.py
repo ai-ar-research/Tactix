@@ -246,7 +246,11 @@ def run_one(campaign, index):
         with open(cnf, "wb") as out:
             subprocess.run(["xz", "-dc", source], stdout=out, check=True)
         stdout, stderr = work / "solver.stdout", work / "solver.stderr"
-        out_dir = local / "out"
+        # Proof scratch lives on the shared filesystem, exactly like the frozen
+        # baseline runner: concurrent multi-GB proofs overflow the dense nodes'
+        # local /tmp and abort the sub-solvers mid-write. Deleted below as soon
+        # as the byte count is recorded, so shared usage is transient.
+        out_dir = work / "proof-dir"
         solve = measured([campaign / man["solver"]["executable"], cnf, out_dir],
                          stdout, stderr, SOLVE_LIMIT, work / "solve.time")
         answer = verdict(solve["exit_code"], stdout)
@@ -261,11 +265,14 @@ def run_one(campaign, index):
             "solve": solve,
             "node": os.environ.get("SLURMD_NODENAME", os.uname().nodename),
             "attribution": attribution,
+            "abnormal_attempts": [a["solver"] for a in attribution["attempts"]
+                                  if a["outcome"].startswith("exited-")],
             "proof_bytes": proof.stat().st_size if proof.is_file() else None,
             "stdout_bytes": stdout.stat().st_size,
             "stdout_tail": tail(stdout, 8),
             "stderr_tail": tail(stderr),
         }
+        shutil.rmtree(out_dir, ignore_errors=True)
         atomic_json(result_path, result)
         shutil.rmtree(work)
         return 0
@@ -310,6 +317,16 @@ def aggregate(campaign):
     unattributed = [r["instance"] for r in results
                     if r.get("verdict") in ("SAT", "UNSAT")
                     and not r.get("attribution", {}).get("responsible")]
+    # Scratch surviving for a task that already published its result is a
+    # leak; scratch for a missing task is interrupted-task evidence.
+    result_tasks = {r["task"] for r in results}
+    orphan_scratch = sorted(str(p.relative_to(campaign))
+                            for p in (campaign / "scratch").iterdir()
+                            if p.name.isdigit() and int(p.name) in result_tasks)
+    abnormal = [{"task": r["task"], "instance": r["instance"],
+                 "node": r.get("node"),
+                 "solvers": r["abnormal_attempts"]}
+                for r in results if r.get("abnormal_attempts")]
     summary = {
         "schema": 1,
         "manifest_sha256": sha256(campaign / "manifest.json"),
@@ -323,6 +340,8 @@ def aggregate(campaign):
                     sorted(modules, key=lambda k: -sum(modules[k].values()))},
         "verdict_flips_vs_frozen": verdict_flips,
         "unattributed_solved": unattributed,
+        "abnormal_attempt_tasks": abnormal,
+        "orphan_scratch": orphan_scratch,
         "results": results,
     }
     atomic_json(campaign / "results.json", summary)
