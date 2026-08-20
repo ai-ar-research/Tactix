@@ -129,16 +129,14 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
    loop: locate the earliest portable semantic divergence, make a source-backed
    repair or disposition, and protect the result with focused and cumulative
    guards.
-6. When `benchmarks/runs/20260819-tierd-lymphosat-modlog/` completes, build the
-   complementarity map: per instance, LymphoSAT's responsible module joined
-   against Tactix's canonical Tier-D result and the best Kissat-family
-   baseline. Goal: a frozen report ranking the instance families where a
-   targeted module solved what Tactix and every Kissat-family arm missed, each
-   family carrying a disposition (candidate Tactix rule/policy coverage, or an
-   explicit accept). SAT wins bear on T4-VBS/T5 (LymphoSAT is SAT-only VBS
-   eligible); UNSAT wins are rule-idea evidence only. Done when all solved
-   instances are attributed, verdict flips are explained, and the shortlist is
-   dispositioned.
+6. When `benchmarks/runs/20260819-tierd-lymphosat-modlog/` completes, analyze
+   the per-instance attribution log as a pure LymphoSAT characterization (no
+   Tactix or baseline comparison): per-module solved counts split SAT/UNSAT,
+   targeted-versus-fallback share separating "no matcher matched" from
+   "specialist matched but gave up", cascade patterns, and per-module
+   time/RSS profiles; freeze the report in `benchmarks/reports/`. Done when
+   every solved instance is attributed and verdict flips against the frozen
+   baseline arm are explained.
 
 ## Future phases and retained ideas
 
