@@ -385,6 +385,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "phase_pick") && std::strcmp(event, "conflict") &&
       std::strcmp(event, "analysis_begin") &&
       std::strcmp(event, "analysis_end") &&
+      std::strncmp(event, "backbone_", 9) &&
       std::strncmp(event, "learned", 7))
     return;
   if (compact_probe_ && std::strcmp(event, "trace_begin") &&
