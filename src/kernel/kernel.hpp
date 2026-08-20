@@ -751,6 +751,11 @@ struct Kernel {
   // polarity.
   std::vector<uint8_t> factor_marks;
 
+  // Kissat retains the surviving Backbone candidate polarities between
+  // computations and schedules that priority set before all other literals.
+  // Bit 0 is the positive literal and bit 1 the negative literal.
+  std::vector<uint8_t> backbone_priority;
+
   // Bumped by every `kernel_collect_garbage`. A Ref recorded before the bump
   // names the pre-collection arena, so anything holding one across a possible
   // collection compares this instead of reasoning about the call graph.

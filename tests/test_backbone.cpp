@@ -58,6 +58,46 @@ static void test_chained_binary_uip_learns_internal_predecessor() {
   assert(k.level == 0 && !k.conflict_valid);
 }
 
+// Kissat retains the candidates falsified by one accumulated assumption trail
+// and tries that smaller stack in the next round even when the first round
+// found no unit. A fresh full scan, or stopping on an empty unit batch, misses
+// this failure of -1.
+static void test_falsified_candidate_survives_to_next_round() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(3));
+  kernel_add_binary_clause(k, internalize(1), internalize(-3));
+  assert(backbone_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(1)) > 0);
+  assert(k.stats.backbone_rounds >= 2);
+}
+
+static void test_candidate_priority_persists_between_computations() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  k.work_budget = 1;
+  k.tick_sink = &k.stats.backbone_ticks;
+  assert(backbone_apply(k) == ApplyResult::NoOp);
+  k.tick_sink = nullptr;
+  assert(k.backbone_priority[0] || k.backbone_priority[1]);
+  assert(!(k.backbone_priority[0] & 1u));
+  assert(!(k.backbone_priority[1] & 1u));
+}
+
+static void test_candidate_priority_survives_variable_compaction() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  k.backbone_priority = {1, 2, 3};
+  k.var_status.assign(3, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  assert(kernel_compact_variables(k));
+  assert(k.nvars == 2);
+  assert(k.backbone_priority[0] == 1);
+  assert(k.backbone_priority[1] == 3);
+}
+
 static void test_chained_binary_uip_lrat_order() {
   const std::string path = "/tmp/tactix-backbone-" +
                            std::to_string(static_cast<long>(getpid())) +
@@ -202,6 +242,9 @@ int main() {
   test_binary_failed_literal();
   test_canonical_computation_counter_advances();
   test_chained_binary_uip_learns_internal_predecessor();
+  test_falsified_candidate_survives_to_next_round();
+  test_candidate_priority_persists_between_computations();
+  test_candidate_priority_survives_variable_compaction();
   test_chained_binary_uip_lrat_order();
   test_binary_only_misses_large_clause_failure();
   test_no_failed_literal_noop();

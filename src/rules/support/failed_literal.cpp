@@ -143,93 +143,144 @@ ApplyResult failed_literal_apply_chained_binary(
   const uint64_t meter_begin = k.stats.backbone_ticks;
   bool changed = false;
   std::vector<uint64_t> lrat_chain;
-  std::vector<Lit> units;
   std::vector<Var> candidate_order;
   kernel_vars_in_import_order(k, candidate_order);
 
+  // `flags.backbone[01]` is persistent in Kissat.  A computation offers its
+  // surviving priority polarities first, then every other active polarity.
+  // The local stack is retained between rounds: successful assumptions prune
+  // it, while literals falsified by those assumptions become the next round's
+  // candidates.  Rebuilding a fresh var/polarity scan each round loses both
+  // pieces of the reference algorithm.
+  std::vector<Lit> candidates;
+  candidates.reserve(2 * candidate_order.size());
+  for (int prioritized = 1; prioritized >= 0; prioritized--) {
+    for (const Var v : candidate_order) {
+      if (kernel_var_retired(k, v))
+        continue;
+      for (uint32_t neg = 0; neg != 2; neg++) {
+        const uint8_t bit = static_cast<uint8_t>(1u << neg);
+        if (static_cast<bool>(k.backbone_priority[v] & bit) ==
+            static_cast<bool>(prioritized))
+          candidates.push_back(make_lit(v, neg != 0));
+      }
+    }
+    if (!prioritized)
+      break;
+  }
+
   for (uint32_t round = 0; round < round_limit; round++) {
-    uint64_t candidate_variables = 0;
-    for (const Var v : candidate_order)
-      candidate_variables += !kernel_var_retired(k, v) &&
-                             k.value(make_lit(v, false)) == 0;
-    if (!candidate_variables)
+    if (candidates.empty())
+      break;
+    if (kernel_terminating(k) ||
+        (k.work_budget &&
+         k.stats.backbone_ticks - meter_begin > k.work_budget))
       break;
 
     k.stats.*stats.rounds += 1;
-    kernel_charge_ticks(k, 1 + kernel_cache_lines(2 * candidate_variables));
     const size_t speculative_begin = k.trail.size();
-    units.clear();
+    std::vector<Lit> units;
+    std::vector<Lit> retained;
+    retained.reserve(candidates.size());
     bool budget_hit = false;
     bool inconsistent = false;
 
-    // The reference intentionally schedules every active polarity.  Successful
-    // assumptions stay assigned, so the opposite polarity and all implications
-    // are skipped later in the same round.
-    for (const Var v : candidate_order) {
-      if (inconsistent)
-        break;
-      if (kernel_var_retired(k, v))
+    size_t next = 0;
+    for (; next < candidates.size() && !inconsistent; next++) {
+      const Lit p = candidates[next];
+      const Var v = var_of(p);
+      const uint8_t bit = static_cast<uint8_t>(1u << negated(p));
+      if (kernel_var_retired(k, v)) {
+        k.backbone_priority[v] &= static_cast<uint8_t>(~bit);
         continue;
-      if (kernel_terminating(k)) {
+      }
+      const int8_t value = k.value(p);
+      if (value > 0) {
+        k.backbone_priority[v] &= static_cast<uint8_t>(~bit);
+        continue;
+      }
+      if (value < 0) {
+        if (k.assigned[v].level)
+          retained.push_back(p);
+        else
+          k.backbone_priority[v] &= static_cast<uint8_t>(~bit);
+        continue;
+      }
+      if (kernel_terminating(k) ||
+          (k.work_budget &&
+           k.stats.backbone_ticks - meter_begin > k.work_budget)) {
         budget_hit = true;
         break;
       }
-      for (int neg = 0; neg <= 1; neg++) {
-        const Lit p = make_lit(v, neg != 0);
-        if (k.value(p) != 0)
-          continue;
-        if (k.work_budget &&
-            k.stats.backbone_ticks - meter_begin >= k.work_budget) {
-          budget_hit = true;
-          break;
-        }
 
-        const uint32_t saved_level = k.level;
-        k.stats.*stats.probed += 1;
-        assume(k, p);
-        const bool saved_jump_reasons = k.jump_reasons;
-        k.jump_reasons = false;
-        const bool conflict = kernel_propagate_binary(k);
-        k.jump_reasons = saved_jump_reasons;
-        if (!conflict)
-          continue;
+      retained.push_back(p);
+      const uint32_t saved_level = k.level;
+      k.stats.*stats.probed += 1;
+      assume(k, p);
+      const bool saved_jump_reasons = k.jump_reasons;
+      k.jump_reasons = false;
+      const bool conflict = kernel_propagate_binary(k);
+      k.jump_reasons = saved_jump_reasons;
+      if (!conflict)
+        continue;
 
-        const Lit unit = chained_binary_uip(k, speculative_begin, lrat_chain);
+      retained.pop_back();
+      const Lit unit = chained_binary_uip(k, speculative_begin, lrat_chain);
+      k.conflict_valid = false;
+      k.conflict_ref = INVALID_REF;
+      kernel_backtrack(k, saved_level, /*update_phases=*/false);
+      if (unit == INVALID_LIT) {
+        budget_hit = true; // fail closed; do not repeat this conflict
+        next++;
+        break;
+      }
+
+      k.stats.*stats.failed += 1;
+      const uint64_t id = ++k.next_clause_id;
+      if (k.proof) {
+        if (k.proof->lrat())
+          k.proof->add_rup(id, &unit, 1, lrat_chain.data(),
+                           static_cast<uint32_t>(lrat_chain.size()));
+        else
+          k.proof->add_rup(0, &unit, 1, nullptr, 0);
+      }
+      k.unit_ids[var_of(unit)] = id;
+      units.push_back(unit);
+
+      kernel_assign_unit(k, unit);
+      const bool saved_jump_after_uip = k.jump_reasons;
+      k.jump_reasons = false;
+      inconsistent = kernel_propagate_binary(k);
+      k.jump_reasons = saved_jump_after_uip;
+      if (inconsistent) {
         k.conflict_valid = false;
         k.conflict_ref = INVALID_REF;
-        kernel_backtrack(k, saved_level, /*update_phases=*/false);
-        if (unit == INVALID_LIT) {
-          budget_hit = true; // fail closed; do not repeat this conflict
-          break;
-        }
-
-        k.stats.*stats.failed += 1;
-        const uint64_t id = ++k.next_clause_id;
-        if (k.proof) {
-          if (k.proof->lrat())
-            k.proof->add_rup(id, &unit, 1, lrat_chain.data(),
-                             static_cast<uint32_t>(lrat_chain.size()));
-          else
-            k.proof->add_rup(0, &unit, 1, nullptr, 0);
-        }
-        k.unit_ids[var_of(unit)] = id;
-        units.push_back(unit);
-
-        // Keep the proven unit on the accumulated trail at true level zero.
-        // Tactix's compacting backtrack preserves such out-of-order roots, so
-        // later candidates benefit and the round exit replays only propagation.
-        kernel_assign_unit(k, unit);
-        const bool saved_jump_after_uip = k.jump_reasons;
-        k.jump_reasons = false;
-        inconsistent = kernel_propagate_binary(k);
-        k.jump_reasons = saved_jump_after_uip;
-        if (inconsistent) {
-          k.conflict_valid = false;
-          k.conflict_ref = INVALID_REF;
-        }
       }
-      if (budget_hit)
-        break;
+    }
+
+    if (next < candidates.size())
+      retained.insert(retained.end(), candidates.begin() + next,
+                      candidates.end());
+
+    // Match Kissat's post-round flush: candidates satisfied by the retained
+    // trail are retired, while falsified non-root candidates survive in their
+    // existing order for the next round.
+    candidates.clear();
+    candidates.reserve(retained.size());
+    if (!inconsistent) {
+      for (const Lit p : retained) {
+        const Var v = var_of(p);
+        const uint8_t bit = static_cast<uint8_t>(1u << negated(p));
+        if (kernel_var_retired(k, v) || k.value(p) > 0) {
+          k.backbone_priority[v] &= static_cast<uint8_t>(~bit);
+          continue;
+        }
+        if (k.value(p) < 0 && !k.assigned[v].level) {
+          k.backbone_priority[v] &= static_cast<uint8_t>(~bit);
+          continue;
+        }
+        candidates.push_back(p);
+      }
     }
 
     if (k.level)
@@ -237,23 +288,37 @@ ApplyResult failed_literal_apply_chained_binary(
     k.conflict_valid = false;
     k.conflict_ref = INVALID_REF;
 
-    if (units.empty())
-      break;
-    changed = true;
-    for (const Lit unit : units) {
-      const int8_t value = k.value(unit);
-      if (value < 0) {
-        k.inconsistent = true;
-        return ApplyResult::Unsat;
+    if (!units.empty()) {
+      changed = true;
+      for (const Lit unit : units) {
+        const int8_t value = k.value(unit);
+        if (value < 0) {
+          k.inconsistent = true;
+          return ApplyResult::Unsat;
+        }
+        if (!value)
+          kernel_assign_unit(k, unit);
       }
-      if (!value)
-        kernel_assign_unit(k, unit);
+      if (propagate_apply(k) == ApplyResult::Unsat)
+        return ApplyResult::Unsat;
     }
-    if (propagate_apply(k) == ApplyResult::Unsat)
-      return ApplyResult::Unsat;
     if (budget_hit || inconsistent)
       break;
   }
+
+  size_t prioritized = 0;
+  for (const Lit p : candidates) {
+    const Var v = var_of(p);
+    if (!kernel_var_retired(k, v) &&
+        (k.backbone_priority[v] & (1u << negated(p))))
+      prioritized++;
+  }
+  if (!prioritized)
+    for (const Lit p : candidates)
+      if (!kernel_var_retired(k, var_of(p)))
+        k.backbone_priority[var_of(p)] |=
+            static_cast<uint8_t>(1u << negated(p));
+
   return changed ? ApplyResult::Ok : ApplyResult::NoOp;
 }
 
