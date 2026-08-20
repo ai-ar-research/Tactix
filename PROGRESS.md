@@ -341,9 +341,9 @@ The cumulative pin is accepted; V6a stays on.
 1. Rank 22 is first open. `9f0f506` admits the conflict-4487 Probe pipeline;
    jobs `1635266`/`1635393` expose persistent priority/retained-round Backbone
    state and rule out budget starvation. Its repair passes Release 72/72, Trace
-   71/71, and ASAN/UBSAN 72/72, but job `1635431` rejects parity: four calls fix
-   670/5,343/107/4,137 versus Kissat's 95/37,569/11,156/590 variables. Trace
-   both preprocessing calls' priority state before changing semantics again.
+   71/71, and ASAN/UBSAN 72/72, but `1635431` rejects parity: four calls fix
+   670/5,343/107/4,137 versus Kissat's 95/37,569/11,156/590. Jobs `1635443`/`48`
+   show the preprocessing survivor count/order hash exact; trace 4487's rounds.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
