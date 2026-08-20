@@ -364,13 +364,11 @@ void DefaultPolicy::observe_decision_rate(const Kernel &k) {
   avg.decision_rate.update(static_cast<double>(cur - prev));
 }
 
-uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) {
+uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) const {
   if (!bump_reasons_limit_)
     return 0;
-  if (bump_reasons_delay_.count) {
-    bump_reasons_delay_.count--;
+  if (bump_reasons_delay_.count)
     return 0;
-  }
   if (averages[k.h->stable].decision_rate.value >= bump_reasons_rate_)
     return 0;
   return bump_reasons_limit_;
@@ -1867,14 +1865,14 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           [&] { return analyze_apply(k); });
       k.bump_reason_limit = 0;
       k.bump_reason_depth = 1;
-      if (k.stats.reason_bump_rounds != br_rounds) { // the pass actually ran
-        if (k.stats.reason_bump_aborted != br_aborted) // over the mark limit
-          bump_reasons_delay_.current +=
-              (bump_reasons_delay_.current < UINT32_MAX);
-        else if (bump_reasons_delay_.current)
-          bump_reasons_delay_.current /= 2;
-        bump_reasons_delay_.count = bump_reasons_delay_.current;
-      }
+      // Kissat calls DELAYING(bumpreasons) inside
+      // analyze_reason_side_literals, after ordinary analysis has produced a
+      // final clause.  Reused conflicts, failed-literal unit batches, and
+      // other early analysis exits must not consume this countdown.
+      if (k.pending.valid && k.stats.learned != learned_before)
+        bump_reasons_delay_.reached_gate(
+            k.stats.reason_bump_rounds != br_rounds,
+            k.stats.reason_bump_aborted != br_aborted);
       if (ar == ApplyResult::Unsat) {
         event_trace.detail(k, "analysis_end", -1);
         return finish(20);

@@ -158,6 +158,26 @@ public:
     uint64_t saved_decisions = 0;
   };
 
+  // Kissat owns this delay at the finalized-clause reason-side gate, not at
+  // search-conflict entry.  Keeping the transition explicit makes conflict
+  // reuse and failed-literal exits unable to consume the countdown.
+  struct ReasonBumpDelay {
+    uint32_t count = 0, current = 0;
+    void reached_gate(bool ran, bool aborted) {
+      if (count) {
+        --count;
+        return;
+      }
+      if (!ran)
+        return;
+      if (aborted)
+        current += current < UINT32_MAX;
+      else if (current)
+        current /= 2;
+      count = current;
+    }
+  };
+
   ModeAverages averages[2];
   struct { uint64_t next_conflicts = RESTART_INTERVAL; } restart;
   struct { uint64_t next_conflicts = REDUCE_INTERVAL_INIT; } reduce;
@@ -192,12 +212,12 @@ private:
   void configure_from_env(const Kernel &);
   void observe_glue(const Kernel &, uint32_t);
   void observe_decision_rate(const Kernel &);
-  uint32_t want_bump_reasons(const Kernel &);
+  uint32_t want_bump_reasons(const Kernel &) const;
 
   uint32_t force_mode_ = 0;
   uint32_t bump_reasons_limit_ = 0;
   double bump_reasons_rate_ = BUMP_REASONS_RATE;
-  struct { uint32_t count = 0, current = 0; } bump_reasons_delay_;
+  ReasonBumpDelay bump_reasons_delay_;
   bool reduce_sqrt_ = true;
   bool compact_ = true;
   bool lucky_late_ = true;
