@@ -141,6 +141,24 @@ static void test_resume_uses_compact_literal_order() {
   assert((partners() == std::vector<Lit>{internalize(2), internalize(1)}));
 }
 
+// Kissat's Walk dense entry retains only the first copy of a binary pair.
+// Mirrored watch entries are not duplicates; two complete insertions are.
+static void test_dense_entry_deduplicates_binary_pairs() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(-2);
+  kernel_add_binary_clause(k, a, b, ++k.next_clause_id);
+  kernel_add_binary_clause(k, a, b, ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(2), internalize(3),
+                           ++k.next_clause_id);
+  assert(kernel_binary_copies(k, a, b) == 2);
+
+  assert(walk_apply_steps(k, 1) != ApplyResult::Conflict);
+  assert(kernel_binary_copies(k, a, b) == 1);
+  kernel_check_invariants(k);
+}
+
 // registered as a policy op with a working instance pair
 static void test_registry() {
   const int id = tactix_rule_id("Walk");
@@ -173,6 +191,7 @@ int main() {
   test_deterministic();
   test_budget_and_noop();
   test_resume_uses_compact_literal_order();
+  test_dense_entry_deduplicates_binary_pairs();
   test_registry();
   test_no_heuristics_guard();
   printf("test_walk: all passed\n");
