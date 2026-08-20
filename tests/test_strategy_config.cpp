@@ -87,16 +87,16 @@ int main() {
   assert(!mp.inprocess.factor_repeated_enabled &&
          !mp.inprocess.vivify_enabled);
   const auto stconn = classified(936, 6488);
-  assert(stconn.inprocess.preprocess_only &&
+  assert(!stconn.inprocess.preprocess_only &&
          stconn.branching.random_sequences &&
          stconn.reorder.mode == defaults.reorder.mode &&
          stconn.reduction.dynamic_tiers ==
              defaults.reduction.dynamic_tiers);
   const auto grain105 = classified(3094431, 10684799);
-  assert(grain105.inprocess.preprocess_only &&
+  assert(!grain105.inprocess.preprocess_only &&
          grain105.branching.random_sequences);
   const auto grain87 = classified(3165161, 10917078);
-  assert(grain87.inprocess.preprocess_only &&
+  assert(!grain87.inprocess.preprocess_only &&
          !grain87.inprocess.factor_repeated_enabled &&
          grain87.branching.random_sequences);
   const auto dense_small = classified(862, 855716);
@@ -119,10 +119,10 @@ int main() {
   assert(schedules_startup_factor(6360, 25200));
   assert(schedules_startup_factor(3165161, 10917078));
 
-  // The measured Grain witness of the startup-only schedule keeps its benefit
-  // and the late Lucky opportunity together.
+  // Formula classification may lighten repeated Factor, but the reference
+  // Probe clock remains live along with every search-wide mechanism.
   const auto grain_late = classified(3859779, 13462874);
-  assert(grain_late.inprocess.preprocess_only &&
+  assert(!grain_late.inprocess.preprocess_only &&
          !grain_late.inprocess.factor_repeated_enabled &&
          grain_late.branching.random_sequences &&
          grain_late.reorder.mode == defaults.reorder.mode &&
@@ -163,6 +163,8 @@ int main() {
           continue;
         const auto shaped = classified(static_cast<uint32_t>(shape_vars),
                                        static_cast<uint64_t>(shape_clauses));
+        assert(!shaped.inprocess.preprocess_only &&
+               "formula shape must not suppress Kissat's Probe pipeline");
         assert(shaped.rephase.late_lucky);
         assert(shaped.branching.random_sequences);
       }
@@ -181,6 +183,14 @@ int main() {
   legacy_shape.original_input_clauses = 13462874;
   no_random_profile.classify_formula_strategy(legacy_shape);
   assert(!no_random_profile.strategy_config().branching.random_sequences);
+
+  // The startup-only arm remains explicit and typed for bounded attribution;
+  // classification preserves a caller selection but never selects it itself.
+  DefaultStrategyConfig startup_only = defaults;
+  startup_only.inprocess.preprocess_only = true;
+  DefaultPolicy explicit_startup_only(startup_only);
+  explicit_startup_only.classify_formula_strategy(legacy_shape);
+  assert(explicit_startup_only.strategy_config().inprocess.preprocess_only);
 
   // Kissat rotates two focused epochs through forced initial/opposite phases.
   // This applies equally to ranked and random decisions.

@@ -232,10 +232,10 @@ static bool model_satisfies(Kernel &k, const std::vector<Ternary> &formula) {
   return true;
 }
 
-// A formula profile may decline an inprocessing dose; it must not withdraw the
-// late Lucky opportunity, which both references offer on every formula. This
-// shape (912 variables, 912 clauses) is the sparse legacy startup-only profile;
-// search-wide random diversification also remains independently enabled.
+// Formula profiles may dose individual inprocessing entries; they must not
+// withdraw either the search-time Probe pipeline or late Lucky, which Kissat
+// offers on every formula. Search-wide random diversification also remains
+// independently enabled.
 static void test_late_call_survives_formula_classification() {
   const uint32_t blocks = 57;
   const uint32_t vars = blocks * 16;
@@ -247,7 +247,7 @@ static void test_late_call_survives_formula_classification() {
   DefaultPolicy classifier;
   classifier.classify_formula_strategy(shape);
   const auto &profiled = classifier.strategy_config();
-  assert(profiled.inprocess.preprocess_only &&
+  assert(!profiled.inprocess.preprocess_only &&
          profiled.branching.random_sequences && profiled.rephase.late_lucky);
 
   const std::vector<Ternary> formula = lucky_resistant_formula(blocks);

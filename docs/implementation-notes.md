@@ -445,11 +445,11 @@ reconstruction witness; reasons may not be deleted while live. If a redundant-bi
 reopen the representation, reduction, reason-locking, proof-deletion, and regression-test decisions
 together.
 
-Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue. The binary-id map is a
-size-monotone proof-identity archive, not a live-clause statistic; counting it advanced the first
-post-preprocessing Probe deadline from Kissat's conflict 2553 to 2541 on the Tier B `sted5` witness.
-Scaled probe/eliminate guards are strict (`limit < conflicts`), with only the explicit round-zero Probe
-invitation exempt so startup preprocessing still runs.
+Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue, not the size-monotone
+proof-identity archive. Scaled guards are strict (`limit < conflicts`); only the explicit round-zero
+Probe invitation is exempt so startup preprocessing still runs.
+
+Formula classification may adjust individual entry membership or dose, but never the whole-slot `preprocess_only` guard, which remains explicit and diagnostic-only.
 
 Named Congruence and Sweep productivity delays update after preprocessing as well as search-time
 calls, exactly like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`. Thus an unproductive startup call can skip

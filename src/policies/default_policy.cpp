@@ -1138,8 +1138,6 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     NoBveNoVivify,
     NoBve,
     NoBveLight,
-    LegacySearch,
-    LegacyStartupFactorOnly,
   };
 
   const uint64_t vars = kernel_num_output_vars(k);
@@ -1148,17 +1146,14 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     return;
 
   FormulaProfile profile = FormulaProfile::Reference;
-  // The two 3M-variable Grain witnesses spend 50--65 seconds per search-time
-  // inprocessing entry without changing the useful startup closure.  Their
-  // paired trace/journal runs agree through preprocessing, and a startup-only
-  // schedule solves both.  Keep larger sparse instances (notably 128_125) on
-  // the reference schedule.
+  // Large dense formulas retain the measured lighter repeated-Factor dose,
+  // but classification may not suppress the complete search-time Probe
+  // pipeline.  Kissat admits that pipeline from its conflict clock on every
+  // formula; per-entry budgets and productivity delays own its cost.
   const bool grain_shape =
       vars >= DefaultStrategyConfig::PROFILE_GRAIN_MIN_VARS &&
       vars < DefaultStrategyConfig::PROFILE_GRAIN_MAX_VARS &&
       clauses >= DefaultStrategyConfig::PROFILE_GRAIN_MIN_CLAUSES;
-  if (grain_shape)
-    config_.inprocess.preprocess_only = true;
 
   const auto at_least = [vars, clauses](uint64_t ratio) {
     return clauses >= ratio * vars;
@@ -1167,11 +1162,11 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   // disabling it turns a 58-second solve into a timeout.
   if (grain_shape &&
       vars >= DefaultStrategyConfig::PROFILE_GRAIN_LEGACY_MIN_VARS)
-    profile = FormulaProfile::LegacyStartupFactorOnly;
+    profile = FormulaProfile::StartupFactorOnly;
   else if (vars >= DefaultStrategyConfig::PROFILE_VARS_900 &&
            vars < DefaultStrategyConfig::PROFILE_VARS_1000 &&
            clauses < DefaultStrategyConfig::PROFILE_DENSITY_SPARSE * vars)
-    profile = FormulaProfile::LegacySearch;
+    profile = FormulaProfile::Reference;
   else if (vars >= DefaultStrategyConfig::PROFILE_PTN_MIN_VARS &&
       vars < DefaultStrategyConfig::PROFILE_PTN_MAX_VARS &&
       clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
@@ -1316,17 +1311,6 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     in.bve_enabled = false;
     in.vivify_permille = in.subsume_forward_permille =
         DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    break;
-  case FormulaProfile::LegacySearch:
-  case FormulaProfile::LegacyStartupFactorOnly:
-    in.preprocess_only = true;
-    if (profile == FormulaProfile::LegacyStartupFactorOnly)
-      in.factor_repeated_enabled = false;
-    // Formula profiles dose inprocessing work only. Search-wide choices stay
-    // on the shipped Kissat tie-break: random decisions, Rephase/Walk,
-    // Reorder, dynamic reduction tiers and ramp, square-root cadence, and
-    // compacting collection. Their typed knobs and environment overlays are
-    // the explicit selection surface for a different reference-backed arm.
     break;
   }
 }
