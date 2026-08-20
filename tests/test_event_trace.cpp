@@ -355,6 +355,7 @@ int main() {
     assert(trace.open_from_env(k));
     trace.detail(k, "score_bump", 2);
     trace.detail(k, "reason_bump_limit", 10);
+    trace.detail(k, "heap_reinsert", 1);
     trace.randec_state(k, "pre", 523, 533, 4);
     trace.sweep_seed(k, 0);
     trace.sweep_environment(k, 0, 3, 4, 5);
@@ -382,6 +383,7 @@ int main() {
   assert(compact_bumps_text.find("\tscore_bump\t") != std::string::npos);
   assert(compact_bumps_text.find("\treason_bump_limit\t") !=
          std::string::npos);
+  assert(compact_bumps_text.find("\theap_reinsert\t") != std::string::npos);
   assert(compact_bumps_text.find("\trandec_state\t") != std::string::npos);
   assert(compact_bumps_text.find("\tsweep_seed\t") != std::string::npos);
   assert(compact_bumps_text.find("\tsweep_environment\t") !=

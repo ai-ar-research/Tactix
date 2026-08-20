@@ -420,7 +420,8 @@ void kissat_event_trace (kissat *solver, const char *event,
     return;
   if (trace_skip_imply && !strcmp (event, "imply"))
     return;
-  if (trace_skip_heap && !strncmp (event, "heap_", 5))
+  if (trace_skip_heap && !strncmp (event, "heap_", 5) &&
+      strcmp (event, "heap_reinsert"))
     return;
   if (trace_skip_decisions &&
       (!strcmp (event, "decision") || !strcmp (event, "randec_draw") ||
