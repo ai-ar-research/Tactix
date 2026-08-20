@@ -129,14 +129,14 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
    loop: locate the earliest portable semantic divergence, make a source-backed
    repair or disposition, and protect the result with focused and cumulative
    guards.
-6. When `benchmarks/runs/20260819-tierd-lymphosat-modlog/` completes, analyze
-   the per-instance attribution log as a pure LymphoSAT characterization (no
-   Tactix or baseline comparison): per-module solved counts split SAT/UNSAT,
-   targeted-versus-fallback share separating "no matcher matched" from
-   "specialist matched but gave up", cascade patterns, and per-module
-   time/RSS profiles; freeze the report in `benchmarks/reports/`. Done when
-   every solved instance is attributed and verdict flips against the frozen
-   baseline arm are explained.
+6. When `benchmarks/runs/20260819-tierd-lymphosat-modlog/` completes, produce
+   the pure LymphoSAT attribution deliverable (no Tactix or baseline
+   comparison): a per-instance table with verdict, runtime, and the ordered
+   sequence of sub-solvers tried (with each attempt's outcome), frozen in
+   `benchmarks/reports/` with a module-distribution summary, plus an
+   Andrew-facing LaTeX/PDF report of the same through `generate-report`.
+   Done when every solved instance is attributed and verdict flips against
+   the frozen baseline arm are explained.
 
 ## Future phases and retained ideas
 
