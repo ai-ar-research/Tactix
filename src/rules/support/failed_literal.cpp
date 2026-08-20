@@ -4,6 +4,7 @@
 #include "rules/propagate/propagate.hpp"
 
 #include <algorithm>
+#include <utility>
 
 namespace tactix {
 
@@ -34,6 +35,7 @@ static void trace_backbone_candidates(const Kernel &k, const char *event,
   event_trace_detail(k, "backbone_hash_hi",
                      static_cast<int32_t>(hash >> 32));
 }
+
 #endif
 
 RuleEligibility failed_literal_guard(const Kernel &k) {
@@ -156,6 +158,22 @@ static Lit chained_binary_uip(Kernel &k, size_t speculative_begin,
   return INVALID_LIT;
 }
 
+// Kissat's Backbone trail is deliberately separate from ordinary search
+// backtracking: even a derived unit stamped at saved level zero remains
+// speculative until the whole round finishes.  Clear the complete round
+// suffix by position, then replay the accumulated unit batch at root.  A
+// generic backtrack-to-zero would retain those temporary level-zero entries.
+// The retraction itself is the kernel's, not this rule's: unassigning a
+// literal has to move the ranking structures with the value and the counters.
+static void rewind_chained_binary_round(Kernel &k, size_t speculative_begin,
+                                        uint32_t unflushed_root_begin) {
+  kernel_unwind_speculation(k, static_cast<uint32_t>(speculative_begin));
+  // The round's level-zero stamps are retracted with everything else, so the
+  // pending-root marker goes back to what the round inherited; the replay
+  // below re-raises it for the units it actually commits.
+  k.unflushed_root = unflushed_root_begin;
+}
+
 ApplyResult failed_literal_apply_chained_binary(
     Kernel &k, const FailedLiteralStats &stats) {
   assert(failed_literal_guard(k));
@@ -187,6 +205,14 @@ ApplyResult failed_literal_apply_chained_binary(
     for (const Var v : candidate_order) {
       if (kernel_var_retired(k, v))
         continue;
+      // Kissat's ACTIVE_VAR schedule excludes variables fixed at root.  They
+      // are not retired in Tactix's representation, so filter them explicitly
+      // when rebuilding a later computation instead of carrying two dead
+      // polarities through its first round.
+      if (k.value(make_lit(v, false))) {
+        k.backbone_priority[v] = 0;
+        continue;
+      }
       for (uint32_t neg = 0; neg != 2; neg++) {
         const uint8_t bit = static_cast<uint8_t>(1u << neg);
         if (static_cast<bool>(k.backbone_priority[v] & bit) ==
@@ -217,7 +243,12 @@ ApplyResult failed_literal_apply_chained_binary(
                        static_cast<int64_t>(candidates.size()));
 #endif
     const size_t speculative_begin = k.trail.size();
-    std::vector<Lit> units;
+    const uint32_t unflushed_root_begin = k.unflushed_root;
+    // A proved unit and the id of its lemma. `Kernel::unit_ids[v]` must name
+    // the clause for the literal that IS root-true (corpus 023), so the id
+    // rides the batch and is installed at assert time, not at record time:
+    // between the two the unit is only speculative.
+    std::vector<std::pair<Lit, uint64_t>> units;
     std::vector<Lit> retained;
     retained.reserve(candidates.size());
     bool budget_hit = false;
@@ -257,7 +288,8 @@ ApplyResult failed_literal_apply_chained_binary(
       assume(k, p);
       const bool saved_jump_reasons = k.jump_reasons;
       k.jump_reasons = false;
-      const bool conflict = kernel_propagate_binary(k);
+      const bool conflict = kernel_propagate_binary(
+          k, /*use_current_level=*/true);
       k.jump_reasons = saved_jump_reasons;
       if (!conflict)
         continue;
@@ -282,13 +314,26 @@ ApplyResult failed_literal_apply_chained_binary(
         else
           k.proof->add_rup(0, &unit, 1, nullptr, 0);
       }
-      k.unit_ids[var_of(unit)] = id;
-      units.push_back(unit);
+      units.emplace_back(unit, id);
 
-      kernel_assign_unit(k, unit);
+      // The derived unit is sound, but remains part of the speculative
+      // Backbone trail through the rest of this round.  In particular, a
+      // falsified candidate sees the saved assumption level here, exactly as
+      // in Kissat; committing at root early changes candidate retention.
+      //
+      // At saved level zero the stamp IS a root assertion, so the id belongs
+      // here by the same assert-time rule: the binary closure propagated below
+      // is then root-level too, and `kernel_emit_root_units` names this literal
+      // as its antecedent.  A root literal whose id is still 0 would truncate
+      // that chain.  Above the root the literal is not a root value and the id
+      // stays with the batch until the replay commits it.
+      if (!saved_level)
+        k.unit_ids[var_of(unit)] = id;
+      kernel_assign(k, unit, saved_level, UNIT_REASON, false);
       const bool saved_jump_after_uip = k.jump_reasons;
       k.jump_reasons = false;
-      inconsistent = kernel_propagate_binary(k);
+      inconsistent = kernel_propagate_binary(
+          k, /*use_current_level=*/true);
       k.jump_reasons = saved_jump_after_uip;
       if (inconsistent) {
         k.conflict_valid = false;
@@ -321,23 +366,38 @@ ApplyResult failed_literal_apply_chained_binary(
       }
     }
 
-    if (k.level)
-      kernel_backtrack(k, 0, /*update_phases=*/false);
-    k.conflict_valid = false;
-    k.conflict_ref = INVALID_REF;
+    rewind_chained_binary_round(k, speculative_begin,
+                                unflushed_root_begin);
 
     if (!units.empty()) {
       changed = true;
-      for (const Lit unit : units) {
+      for (const auto &proved : units) {
+        const Lit unit = proved.first;
+        const Var v = var_of(unit);
         const int8_t value = k.value(unit);
         if (value < 0) {
-          k.inconsistent = true;
+          // The batch contradicts the root. Refuting here without the lemma
+          // the two units resolve to leaves an UNSATISFIABLE answer whose
+          // proof never derives the empty clause (corpus 023).  Read the
+          // opposite literal's id BEFORE overwriting the entry.
+          kernel_emit_empty_from_pair(k, proved.second, k.unit_ids[v]);
+          k.unit_ids[v] = proved.second;
           return ApplyResult::Unsat;
         }
+        // Assert time, not record time: only now is `unit` the root value.
+        k.unit_ids[v] = proved.second;
         if (!value)
           kernel_assign_unit(k, unit);
       }
-      if (propagate_apply(k) == ApplyResult::Unsat)
+      // Kissat's `backbone_propagate` charges the technique-private meter,
+      // but the post-round root replay uses `kissat_probing_propagate` and
+      // charges only the shared probing/global meters.  The scheduler's sink
+      // spans the complete Tactix rule call, so pause it around that replay.
+      uint64_t *const saved_tick_sink = k.tick_sink;
+      k.tick_sink = nullptr;
+      const ApplyResult replay = propagate_apply(k);
+      k.tick_sink = saved_tick_sink;
+      if (replay == ApplyResult::Unsat)
         return ApplyResult::Unsat;
     }
 #ifdef TACTIX_ENABLE_EVENT_TRACE

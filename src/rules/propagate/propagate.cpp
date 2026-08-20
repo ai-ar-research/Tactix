@@ -19,7 +19,7 @@ RuleEligibility propagate_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("no-conflict", !k.conflict_valid)
       .fact("consistent", !k.inconsistent)
-      .fact("pending-propagation", k.propagate_head < k.trail.size());
+      .fact("pending-propagation", !kernel_propagation_fixpoint(k));
 }
 
 ApplyResult propagate_service(Kernel &k) {

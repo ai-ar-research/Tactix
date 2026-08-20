@@ -226,8 +226,10 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   assumption trail reaches a binary conflict, its first repeated implication predecessor `u` also satisfies
   `F ∧ M ∧ u ⊢₁ ⊥`; thus `¬u` is a binary failed-literal unit and remains a subset of V1's conclusions.
 - **Effect:** the canonical round retains successful candidate assumptions. On conflict it walks the binary
-  reasons backwards to that repeated predecessor, keeps `¬u` as a true level-zero unit, and continues; after
-  returning to root it propagates the units and may repeat. The public one-literal instance remains V1-shaped.
+  reasons backwards to that repeated predecessor, assigns `¬u` at the saved speculative level, binary-propagates
+  its closure at the current accumulated-assumption level, and continues. At round end it unwinds the complete
+  speculative suffix, asserts the proved unit batch at root, propagates that root closure, and may repeat. The
+  public one-literal instance remains V1-shaped.
 - **Proof δ:** `add_rup({¬u}, reversed binary conflict/reason-id chain)`. The reversal is the checker's
   propagation order under assumption `u`; DRAT records the same unit without hints.
 - **Soundness:** negating `¬u` replays the cited BIG path to the binary conflict. Retaining other assumptions is

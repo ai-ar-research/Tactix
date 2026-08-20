@@ -91,7 +91,7 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     // the assignment still falsifies a clause. No `pending` check is needed —
     // ConflictAnalysis is atomic, so no learned clause crosses this boundary.
     if (k.unassigned == 0 && !k.conflict_valid &&
-        k.propagate_head == k.trail.size())
+        kernel_propagation_fixpoint(k))
       return fin.verdict = 10;
     if (stop && *stop && (steps & 1023) == 0)
       return fin.verdict = 0;

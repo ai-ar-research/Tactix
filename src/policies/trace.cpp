@@ -48,7 +48,7 @@ void RuleTrace::close() {
 // it and a divergence must surface as the verdict mismatch replay checks.
 static bool concluded_sat(const Kernel &k) {
   return k.unassigned == 0 && !k.conflict_valid &&
-         k.propagate_head == k.trail.size();
+         kernel_propagation_fixpoint(k);
 }
 
 int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
