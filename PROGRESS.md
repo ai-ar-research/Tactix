@@ -45,6 +45,15 @@ finish, audit completeness and cleanup, compare Tactix with Kissat annually and
 on the union, then select cases where Kissat solves quickly and Tactix times out
 or is materially slower for iterative divergence analysis.
 
+A LymphoSAT module-attribution rerun of the full Tier-D set is in flight in
+`benchmarks/runs/20260819-tierd-lymphosat-modlog/` (array 1634927, %40
+throttle recorded in the manifest; aggregate 1634928). It reruns the frozen
+LymphoSAT pin with an attribution-logging dispatcher (nested solver binaries
+byte-identical; variant `tools/solvers/variants/lymphosat-modlog/`) under the
+frozen 5,000 s / 32 GiB contract and records, per instance, every launched
+sub-solver and the one responsible for the answer. Attribution-only: verdict
+validity is owned by the frozen baseline and cross-checked at aggregation.
+
 ### Pre-Phase-4.5 debug contract
 
 For all newly submitted Tactix convergence/debug campaigns before Phase 4.5,
@@ -120,6 +129,12 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
    loop: locate the earliest portable semantic divergence, make a source-backed
    repair or disposition, and protect the result with focused and cumulative
    guards.
+6. When `benchmarks/runs/20260819-tierd-lymphosat-modlog/` completes, analyze
+   the per-instance module-attribution log to identify which LymphoSAT
+   sub-solvers (and instance families) are most complementary to Tactix —
+   i.e., where LymphoSAT's wins come from modules covering instances Tactix
+   and its Kissat-family baselines miss — and prioritize those families in the
+   Tier-D convergence work.
 
 No performance feature is implemented until the Tier-D comparison and its
 divergence plan are reviewed.
