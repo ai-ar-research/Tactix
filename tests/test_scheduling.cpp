@@ -58,6 +58,25 @@ static void test_reason_bump_depth_matches_kissat(void) {
   std::printf("  reason bump: Kissat direct reasons in both modes\n");
 }
 
+static void test_reason_bump_delay_lives_at_final_clause_gate(void) {
+  DefaultPolicy::ReasonBumpDelay delay{2, 2};
+  // Conflict reuse and failed-literal analysis exit before Kissat calls
+  // DELAYING(bumpreasons), so neither consumes the delay.
+  assert(delay.count == 2);
+  // The first two ordinary finalized clauses consume it one gate at a time.
+  delay.reached_gate(false, false);
+  assert(delay.count == 1 && delay.current == 2);
+  delay.reached_gate(false, false);
+  assert(delay.count == 0 && delay.current == 2);
+  // A successful pass halves the interval; an over-budget pass bumps it.
+  delay.reached_gate(true, false);
+  assert(delay.count == 1 && delay.current == 1);
+  delay.count = 0;
+  delay.reached_gate(true, true);
+  assert(delay.count == 2 && delay.current == 2);
+  std::printf("  reason bump delay: consumed only at finalized-clause gate\n");
+}
+
 static void test_analysis_trail_reuse_defaults_to_kissat(void) {
   DefaultPolicy p;
   assert(!p.chrono_reuse_trail_ &&
@@ -999,6 +1018,7 @@ static void test_startup_sparse_collection_precedes_probe(void) {
 int main() {
   test_mode_growth_key_matches_kissat();
   test_reason_bump_depth_matches_kissat();
+  test_reason_bump_delay_lives_at_final_clause_gate();
   test_analysis_trail_reuse_defaults_to_kissat();
   test_factor_material_gate_uses_literal_marks();
   test_large_formula_factor_decline_is_solve_latched();
