@@ -348,6 +348,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "imply") &&
       std::strcmp(event, "conflict") && std::strncmp(event, "analyzed", 8) &&
       std::strncmp(event, "analysis_", 9) &&
+      std::strncmp(event, "reason_", 7) &&
       std::strncmp(event, "learned", 7))
     return;
   // Bounded trajectory comparison without the much larger implication stream.
