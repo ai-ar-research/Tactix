@@ -227,6 +227,29 @@ int main() {
   assert(WTERMSIG(child_status) == SIGTERM);
   std::remove(focused_stop_path.c_str());
 
+  const std::string keep_snapshots_path =
+      trace_path("event-keep-snapshots-before-stop");
+  std::remove(keep_snapshots_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", keep_snapshots_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT", "2", 1);
+  setenv("TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    k.stats.conflicts = 1;
+    trace.macro(k, "restart_begin");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT");
+  unsetenv("TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS");
+  std::ifstream keep_snapshots_input(keep_snapshots_path);
+  const std::string keep_snapshots_text(
+      (std::istreambuf_iterator<char>(keep_snapshots_input)),
+      std::istreambuf_iterator<char>());
+  assert(keep_snapshots_text.find("\trestart_begin\t1\t") !=
+         std::string::npos);
+  std::remove(keep_snapshots_path.c_str());
+
   const std::string window_path = trace_path("event-window");
   setenv("TACTIX_EVENT_TRACE", window_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_CONFLICT_FROM", "2", 1);

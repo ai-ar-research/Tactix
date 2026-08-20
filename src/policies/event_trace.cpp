@@ -258,6 +258,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_SKIP_RANDEC_DRAWS") != nullptr;
   skip_analysis_ticks_ =
       std::getenv("TACTIX_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != nullptr;
+  keep_snapshots_ =
+      std::getenv("TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS") != nullptr;
   search_only_ = std::getenv("TACTIX_EVENT_TRACE_SEARCH_ONLY") != nullptr;
   control_only_ = std::getenv("TACTIX_EVENT_TRACE_CONTROL_ONLY") != nullptr;
   trajectory_only_ =
@@ -304,7 +306,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "heap_scores") && std::strcmp(event, "decision") &&
       std::strcmp(event, "analysis_end"))
     return;
-  if (snapshot && stop_after_conflict_ != UINT64_MAX &&
+  if (snapshot && !keep_snapshots_ && stop_after_conflict_ != UINT64_MAX &&
       k.stats.conflicts < stop_after_conflict_ &&
       std::strcmp(event, "analysis_end"))
     return;
