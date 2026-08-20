@@ -438,6 +438,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "score_bump") &&
       strcmp (event, "heap_insert") &&
       strcmp (event, "heap_remove") &&
+      strcmp (event, "heap_reinsert") &&
       strcmp (event, "assignment") &&
       strcmp (event, "propagate_cursor") &&
       strcmp (event, "heap_scores") &&
