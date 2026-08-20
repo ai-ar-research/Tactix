@@ -621,10 +621,9 @@ void kissat_event_trace (kissat *solver, const char *event,
 }
 
 void kissat_event_trace_detail (kissat *solver, const char *event, int payload) {
-  if (!detail_enabled (solver))
+  open_trace ();
+  if (!trace_file)
     return;
-  char buffer[32];
-  snprintf (buffer, sizeof buffer, "%d", payload);
   // Match Tactix's diagnostic post-analysis ranking snapshot.  This localizes
   // a latent bump-order difference at the conflict that creates it rather
   // than at the later decision that exposes it.
@@ -632,6 +631,17 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   const uint64_t stop = stop_after_conflict ();
   const bool stop_here = snapshot && stop != UINT64_MAX &&
                          solver->statistics.conflicts >= stop;
+  // A conflict counter may skip the exact end of a narrow detail window (for
+  // example, a root-level unit can advance the counter without emitting the
+  // ordinary analysis tail).  The stop contract still owns the first later
+  // analysis_end, exactly as in Tactix; otherwise the observer runs until its
+  // timeout while producing an irrelevant post-window trace.
+  if (!stop_here && trace_detail_window &&
+      (solver->statistics.conflicts < trace_detail_from ||
+       solver->statistics.conflicts > trace_detail_to))
+    return;
+  char buffer[32];
+  snprintf (buffer, sizeof buffer, "%d", payload);
   if (stop_here && solver->stable)
     emit_heap_scores (solver);
   kissat_event_trace (solver, event, buffer, snapshot);
