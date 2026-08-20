@@ -338,20 +338,12 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank 22 remains the first open frozen target. After the conflict-1600
-   observer repair, Walk binary deduplication and reason-bump admission align
-   the portable trajectory through conflict 2332. `2216907` moves the
-   reason-delay decrement to Kissat's finalized ordinary-clause gate and makes
-   conflict 2333 exact. The apparent conflict-2363 heap divergence was only a
-   diagnostic tie-break defect: `045277d` renders equal-score stable top-32 by
-   permanent first-import order. Jobs `1635026`, `1635042`, and `1635065`
-   confirm exact decisions, learned/backjump payloads, complete heap hashes,
-   and top-32 state through completed analysis 4001, with non-truncated traces
-   and zero residue. Checked 16 GiB/1200 s production job `1635063` is active;
-   diagnostic-only terminal probe `1635129` asks whether the instrumented
-   reference reaches conflict 5000; it cannot replace the frozen baseline as
-   scoring authority. Resume by accepting only a checker-validated answer from
-   `1635063`; otherwise use `1635129` to select the next semantic boundary.
+1. Rank 22 remains the first open frozen target. Observer and reason-delay repairs
+   make all traced state exact through analysis 4001; job `1635063` cleanly timed out.
+   Diagnostic job `1635129` found the first split at common conflict 4487: Kissat admits its complete due
+   Probe pipeline, while a formula profile suppresses all Tactix search-time
+   inprocessing. Remove that implicit whole-slot gate, retain the explicit
+   diagnostic arm, then validate the conflict-4487 trace and both guards.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
