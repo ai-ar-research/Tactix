@@ -7,6 +7,35 @@
 
 namespace tactix {
 
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+static uint64_t backbone_candidate_hash(const Kernel &k,
+                                        const std::vector<Lit> &candidates) {
+  uint64_t hash = 1469598103934665603ull;
+  for (const Lit lit : candidates) {
+    const int64_t external = kernel_externalize(k, lit);
+    hash ^= static_cast<uint64_t>(external);
+    hash *= 1099511628211ull;
+  }
+  return hash;
+}
+
+static void trace_backbone_candidates(const Kernel &k, const char *event,
+                                      const std::vector<Lit> &candidates) {
+  const uint64_t hash = backbone_candidate_hash(k, candidates);
+  size_t prioritized = 0;
+  for (const Lit lit : candidates)
+    prioritized += !!(k.backbone_priority[var_of(lit)] &
+                       (1u << negated(lit)));
+  event_trace_detail(k, event, static_cast<int64_t>(candidates.size()));
+  event_trace_detail(k, "backbone_prioritized",
+                     static_cast<int64_t>(prioritized));
+  event_trace_detail(k, "backbone_hash_lo",
+                     static_cast<int32_t>(hash));
+  event_trace_detail(k, "backbone_hash_hi",
+                     static_cast<int32_t>(hash >> 32));
+}
+#endif
+
 RuleEligibility failed_literal_guard(const Kernel &k) {
   RuleEligibility result;
   return result.fact("consistent", !k.inconsistent)
@@ -168,6 +197,11 @@ ApplyResult failed_literal_apply_chained_binary(
     if (!prioritized)
       break;
   }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_detail(k, "backbone_computation",
+                     static_cast<int64_t>(computation));
+  trace_backbone_candidates(k, "backbone_scheduled", candidates);
+#endif
 
   for (uint32_t round = 0; round < round_limit; round++) {
     if (candidates.empty())
@@ -178,6 +212,10 @@ ApplyResult failed_literal_apply_chained_binary(
       break;
 
     k.stats.*stats.rounds += 1;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_detail(k, "backbone_round_begin",
+                       static_cast<int64_t>(candidates.size()));
+#endif
     const size_t speculative_begin = k.trail.size();
     std::vector<Lit> units;
     std::vector<Lit> retained;
@@ -302,6 +340,11 @@ ApplyResult failed_literal_apply_chained_binary(
       if (propagate_apply(k) == ApplyResult::Unsat)
         return ApplyResult::Unsat;
     }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    trace_backbone_candidates(k, "backbone_round_end", candidates);
+    event_trace_detail(k, "backbone_round_units",
+                       static_cast<int64_t>(units.size()));
+#endif
     if (budget_hit || inconsistent)
       break;
   }
