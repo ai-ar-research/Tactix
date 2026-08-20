@@ -50,6 +50,8 @@ assert 'if (stop_here) {\n    fflush (trace_file);\n    raise (SIGTERM);' in eve
     "focused analysis-end must stop directly")
 assert 'trace_stop_pending' not in eventtrace
 assert 'TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT' in tactix_trace
+assert 'TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS' in eventtrace
 assert 'if (stop_here && k.h && k.h->stable)\n    emit_heap_scores(k);' in tactix_trace
 assert 'if (stop_after_conflict_ != UINT64_MAX) {' in tactix_trace, (
     "Tactix stop-mode must gate intermediate full-heap hashes")

@@ -139,6 +139,7 @@ private:
   bool skip_decisions_ = false;
   bool skip_randec_draws_ = false;
   bool skip_analysis_ticks_ = false;
+  bool keep_snapshots_ = false;
   bool search_only_ = false;
   bool control_only_ = false;
   bool trajectory_only_ = false;

@@ -18,7 +18,8 @@ static bool trace_heap_each_bump;
 static bool trace_heap_pop_only;
 static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
             trace_skip_decisions, trace_skip_randec_draws,
-            trace_skip_analysis_ticks, trace_search_only, trace_control_only,
+            trace_skip_analysis_ticks, trace_keep_snapshots,
+            trace_search_only, trace_control_only,
             trace_trajectory_only, trace_watch_only;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
@@ -369,6 +370,8 @@ static void open_trace (void) {
       getenv ("KISSAT_EVENT_TRACE_SKIP_RANDEC_DRAWS") != 0;
   trace_skip_analysis_ticks =
       getenv ("KISSAT_EVENT_TRACE_SKIP_ANALYSIS_TICKS") != 0;
+  trace_keep_snapshots =
+      getenv ("KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS") != 0;
   trace_search_only = getenv ("KISSAT_EVENT_TRACE_SEARCH_ONLY") != 0;
   trace_control_only = getenv ("KISSAT_EVENT_TRACE_CONTROL_ONLY") != 0;
   trace_trajectory_only =
@@ -409,7 +412,7 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "analysis_end"))
     return;
   const uint64_t stop = stop_after_conflict ();
-  if (snapshot && stop != UINT64_MAX &&
+  if (snapshot && !trace_keep_snapshots && stop != UINT64_MAX &&
       solver->statistics.conflicts < stop &&
       strcmp (event, "analysis_end"))
     return;
