@@ -401,6 +401,26 @@ int main() {
          std::string::npos);
   std::remove(compact_bumps_path.c_str());
 
+  const std::string search_heap_path = trace_path("event-search-heap");
+  std::remove(search_heap_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", search_heap_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_SEARCH_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "heap_reinsert", 1);
+    trace.detail(k, "diagnostic_noise", 9);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_SEARCH_ONLY");
+  std::ifstream search_heap_input(search_heap_path);
+  const std::string search_heap_text(
+      (std::istreambuf_iterator<char>(search_heap_input)),
+      std::istreambuf_iterator<char>());
+  assert(search_heap_text.find("\theap_reinsert\t") != std::string::npos);
+  assert(search_heap_text.find("\tdiagnostic_noise\t") == std::string::npos);
+  std::remove(search_heap_path.c_str());
+
   const std::string trajectory_path = trace_path("event-trajectory-only");
   std::remove(trajectory_path.c_str());
   setenv("TACTIX_EVENT_TRACE", trajectory_path.c_str(), 1);
