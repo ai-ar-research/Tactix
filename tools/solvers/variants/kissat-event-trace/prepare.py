@@ -782,6 +782,15 @@ def main():
         '    kissat_event_trace_detail (solver, "analysis_tick_reason_bump", 1);\n'
         '    INC (search_ticks);\n')
     replace_once(analyze,
+        'static void analyze_reason_side_literals (kissat *solver) {\n'
+        '  if (!GET_OPTION (bump))\n',
+        'static void analyze_reason_side_literals (kissat *solver) {\n'
+        '  kissat_event_trace_detail (solver, "reason_bump_delay_before",\n'
+        '                             solver->delays.bumpreasons.count);\n'
+        '  kissat_event_trace_detail (solver, "reason_bump_rate_milli",\n'
+        '                             (int) (AVERAGE (decision_rate) * 1000));\n'
+        '  if (!GET_OPTION (bump))\n')
+    replace_once(analyze,
         '    } else {\n'
         '      if (GET_OPTION (minimize)) {\n'
         '        sort_deduced_clause (solver);\n'
