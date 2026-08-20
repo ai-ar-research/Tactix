@@ -314,7 +314,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     return;
   if (skip_imply_ && !std::strcmp(event, "imply"))
     return;
-  if (skip_heap_ && !std::strncmp(event, "heap_", 5))
+  if (skip_heap_ && !std::strncmp(event, "heap_", 5) &&
+      std::strcmp(event, "heap_reinsert"))
     return;
   if (skip_decisions_ &&
       (!std::strcmp(event, "decision") || !std::strcmp(event, "randec_draw") ||
