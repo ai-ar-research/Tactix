@@ -46,13 +46,17 @@ on the union, then select cases where Kissat solves quickly and Tactix times out
 or is materially slower for iterative divergence analysis.
 
 A LymphoSAT module-attribution rerun of the full Tier-D set is in flight in
-`benchmarks/runs/20260819-tierd-lymphosat-modlog/` (array 1634927, %40
-throttle recorded in the manifest; aggregate 1634928). It reruns the frozen
+`benchmarks/runs/20260819-tierd-lymphosat-modlog/` (array 1635270, %40
+throttle recorded in the manifest; aggregate 1635271). It reruns the frozen
 LymphoSAT pin with an attribution-logging dispatcher (nested solver binaries
 byte-identical; variant `tools/solvers/variants/lymphosat-modlog/`) under the
 frozen 5,000 s / 32 GiB contract and records, per instance, every launched
 sub-solver and the one responsible for the answer. Attribution-only: verdict
 validity is owned by the frozen baseline and cross-checked at aggregation.
+The first launch (array 1634927) was cancelled and archived in the campaign's
+`incident-20260820-node-tmp-aborts/`: writing proofs to node-local /tmp
+exhausted the dense nodes' disks under concurrency and aborted sub-solvers
+mid-write; proofs now use shared-FS campaign scratch, deleted at task end.
 
 ### Pre-Phase-4.5 debug contract
 
