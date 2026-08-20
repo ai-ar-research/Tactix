@@ -29,6 +29,13 @@ tools/solvers/variants/kissat-event-trace/*
 tools/solvers/variants/kissat-event-trace/overlay/*
 !tools/solvers/variants/kissat-event-trace/overlay/rulejournal.c
 !tools/solvers/variants/kissat-event-trace/overlay/rulejournal.h
+!tools/solvers/variants/lymphosat-modlog/
+tools/solvers/variants/lymphosat-modlog/*
+!tools/solvers/variants/lymphosat-modlog/README.md
+!tools/solvers/variants/lymphosat-modlog/prepare.py
+!tools/solvers/variants/lymphosat-modlog/overlay/
+tools/solvers/variants/lymphosat-modlog/overlay/*
+!tools/solvers/variants/lymphosat-modlog/overlay/main.cpp
 
 # Probe scratch (regenerable artifacts: preserved proofs, decompressed CNFs)
 benchmarks/probes/scratch/
