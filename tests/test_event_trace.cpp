@@ -155,6 +155,42 @@ int main() {
                             "pose=-3,1,-2") != std::string::npos);
   std::remove(path.c_str());
 
+  // Stable top32 is a portable reference comparison, not a rendering of
+  // Tactix's dense variable indices.  Kissat assigns those indices in first
+  // import order, which can disagree with both external and current compact
+  // order.  Equal scores must therefore retain that permanent permutation.
+  const std::string import_tie_path = trace_path("event-import-tie");
+  std::remove(import_tie_path.c_str());
+  Kernel import_tie_kernel;
+  kernel_reserve_vars(import_tie_kernel, 3);
+  kernel_record_import(import_tie_kernel, 1);
+  kernel_record_import(import_tie_kernel, 0);
+  kernel_record_import(import_tie_kernel, 2);
+  ScopedHeuristics import_tie_h(import_tie_kernel);
+  import_tie_kernel.h->stable = true;
+  setenv("TACTIX_EVENT_TRACE", import_tie_path.c_str(), 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(import_tie_kernel));
+    trace.detail(import_tie_kernel, "analysis_end", 0);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  std::ifstream import_tie_input(import_tie_path);
+  const std::string import_tie_text(
+      (std::istreambuf_iterator<char>(import_tie_input)),
+      std::istreambuf_iterator<char>());
+  const size_t import_tie_analysis =
+      import_tie_text.find("\tanalysis_end\t");
+  assert(import_tie_analysis != std::string::npos);
+  const size_t import_tie_end =
+      import_tie_text.find('\n', import_tie_analysis);
+  const std::string import_tie_line =
+      import_tie_text.substr(import_tie_analysis,
+                             import_tie_end - import_tie_analysis);
+  assert(import_tie_line.find("\t2,1,3\t0") != std::string::npos &&
+         "stable score ties must follow Kissat's first-import index order");
+  std::remove(import_tie_path.c_str());
+
   const std::string watch_positions_path =
       trace_path("event-watch-positions");
   std::remove(watch_positions_path.c_str());

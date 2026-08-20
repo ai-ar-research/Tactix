@@ -15,7 +15,7 @@ decisions. This file is only the current resume surface.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
 - The current diagnostic candidate release binary is
-  `ded2310246672785734e10839a7ac2871d4a7f8aaf8a51757deb555d0d3f5712`.
+  `08f3a97cc5a921fb8e2d30a21dd0391b8f3de6f1bf7ce8de8d292635dc325b7e`.
   It closes all ten ranks 11--20; the cumulative ranks 1--20 debug view has 19
   checked answers and one reproduced near-cap memory unknown at rank 10.
 
@@ -338,12 +338,20 @@ The cumulative pin is accepted; V6a stays on.
 
 ## Next engineering work
 
-1. Rank-22 repair `a9f751c` stops analysis/OTFS conflict 526 from consuming its
-   propagation-charged random lifetime and passes 72/72+71/71. `1634419`
-   matches through conflict 533/decision 3859653; `1634436` differs at stable
-   decision 23748; `1634438` finds four missing bumps; `1634440` excludes their
-   direct reason; `1634446` excludes root transactions; `1634449` proves binary sharing.
-   `1634451` pins mismatch; `1634453` root parity; `1634457` isolates c611; `1634459` confirms c612 parity; `1634461` pins reduce-end rewatch. `c5a6928` fixes admission; `1634463` exposes profile overrides; `1634464` matches c1000 pose; `1634465` times out cleanly. `bcfe4a0` maps VMTF cursor; `1634466` confirms c1001. `115f40e` compacting Reduce; `1634467` matches c1000. `1634479` exact through c1198; old`1634636` c1199 heap differs. Repair `a56c674`; `1634712` removals+decisions exact; `1634715` c1007 heap exact; production`1634718` clean timeout1200.004s. Repaired c1199 `1634721` exact raw heap/top32 (`259d1d77227e9979`), valid clean stops 42.703/94.826s. Coarse job `1634736` is exact at requested c1200, c1250, c1300, and c1600; c1400 is excluded because Kissat skipped the exact conflict, applied its detail-window filter before the `>=` stop, and timed out with a truncated trace. The observer now gives the stop contract precedence, matching Tactix. Rank22 remains open; rebuild the Kissat observer and continue coarse endpoints beyond c1600.
+1. Rank 22 remains the first open frozen target. After the conflict-1600
+   observer repair, Walk binary deduplication and reason-bump admission align
+   the portable trajectory through conflict 2332. `2216907` moves the
+   reason-delay decrement to Kissat's finalized ordinary-clause gate and makes
+   conflict 2333 exact. The apparent conflict-2363 heap divergence was only a
+   diagnostic tie-break defect: `045277d` renders equal-score stable top-32 by
+   permanent first-import order. Jobs `1635026`, `1635042`, and `1635065`
+   confirm exact decisions, learned/backjump payloads, complete heap hashes,
+   and top-32 state through completed analysis 4001, with non-truncated traces
+   and zero residue. Checked 16 GiB/1200 s production job `1635063` is active;
+   diagnostic-only terminal probe `1635129` asks whether the instrumented
+   reference reaches conflict 5000; it cannot replace the frozen baseline as
+   scoring authority. Resume by accepting only a checker-validated answer from
+   `1635063`; otherwise use `1635129` to select the next semantic boundary.
 2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
 3. Continue Phase 4.25 Stage A: localize each frozen miss, repair/disposition it, and run both guards.
 
