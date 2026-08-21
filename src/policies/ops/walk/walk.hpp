@@ -1,10 +1,12 @@
 // S6 Walk (plan §5.2; design docs/design/s6-walk-design.md; kissat walk.c /
 // cadical walk.cpp): WalkSAT/ProbSAT local search that improves the saved
-// phases. Pure `H`, no proof delta and no calculus entry — the walker never
-// touches clauses, the trail or the proof. It computes an assignment out of
+// phases. The local search is `H`-only and has no proof delta or calculus
+// entry. The full operation also reproduces Kissat's dense-entry/sparse-resume
+// normalization: root-satisfied and duplicate binary representations are
+// removed, and large watches are rebuilt. It computes an assignment out of
 // band and copies it into `h->saved` only if that assignment falsifies fewer
 // clauses than the phases already encode, so a bad walk is a bad phase guess
-// and never an unsound step. The application is kissat's whole walking rephase
+// and never an unsound step. The application is Kissat's whole walking rephase
 // slot: local search, then the tail every rephase type runs (target := saved,
 // watermark reset, `stats.rephased++`). When to walk is policy state.
 #pragma once

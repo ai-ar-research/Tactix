@@ -6,6 +6,10 @@
 #include <cassert>
 #include <cinttypes>
 #include <cstdlib>
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+#include <algorithm>
+#include <execinfo.h>
+#endif
 
 namespace tactix {
 
@@ -114,6 +118,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
     for (uint32_t i = 0; i < nchain; i++)
       put_u64(chain[i]);
     fputs("0\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_add(id, lits, size);
+#endif
     return;
   }
   if (format_ == ProofFormat::DratBinary)
@@ -121,6 +128,9 @@ void Proof::add_rup(uint64_t id, const Lit *lits, uint32_t size,
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
   end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  population_add(id, lits, size);
+#endif
 }
 
 void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
@@ -144,6 +154,9 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
     for (uint32_t i = 0; i < nhints; i++)
       fprintf(file_, "%" PRId64 " ", hints[i]);
     fputs("0\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_add(id, lits, size);
+#endif
     return;
   }
   // DRAT (binary/ascii): a plain add with the pivot ordered first; the RAT
@@ -154,6 +167,9 @@ void Proof::add_rat(uint64_t id, const Lit *lits, uint32_t size,
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
   end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  population_add(id, lits, size);
+#endif
 }
 
 void Proof::add_empty(uint64_t id, const uint64_t *chain, uint32_t nchain) {
@@ -176,6 +192,9 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
     fputs("d ", file_);
     put_u64(del_id);
     fputs("0\n", file_);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+    population_del(del_id, lits, size);
+#endif
     return;
   }
   if (format_ == ProofFormat::DratBinary)
@@ -187,6 +206,9 @@ void Proof::del(uint64_t line_id, uint64_t del_id, const Lit *lits,
   for (uint32_t i = 0; i < size; i++)
     put_lit(lits[i]);
   end_line();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  population_del(del_id, lits, size);
+#endif
 }
 
 void Proof::flush() {
@@ -195,5 +217,75 @@ void Proof::flush() {
     fflush(file_);
   }
 }
+
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+// Key a clause exactly the way the target format's checker matches a deletion:
+// by the sorted external literal multiset under DRAT, by the clause id under
+// native LRAT. Keying DRAT by id would miss the whole defect class, because the
+// hazard is precisely that two different ids can carry the same literals.
+std::string Proof::population_key(uint64_t id, const Lit *lits,
+                                  uint32_t size) const {
+  std::string key;
+  if (format_ == ProofFormat::Lrat) {
+    key.assign(reinterpret_cast<const char *>(&id), sizeof id);
+    return key;
+  }
+  std::vector<int> external;
+  external.reserve(size);
+  for (uint32_t i = 0; i < size; i++) {
+    Lit l = lits[i];
+    if (variable_map_)
+      l = make_lit((*variable_map_)[var_of(l)], negated(l));
+    external.push_back(externalize(l));
+  }
+  std::sort(external.begin(), external.end());
+  key.assign(reinterpret_cast<const char *>(external.data()),
+             external.size() * sizeof(int));
+  return key;
+}
+
+void Proof::population_add(uint64_t id, const Lit *lits, uint32_t size) {
+  population_[population_key(id, lits, size)]++;
+}
+
+bool Proof::population_contains(uint64_t id, const Lit *lits,
+                                uint32_t size) const {
+  const auto found = population_.find(population_key(id, lits, size));
+  return found != population_.end() && found->second;
+}
+
+void Proof::population_del(uint64_t id, const Lit *lits, uint32_t size) {
+  if (!armed_)
+    return;
+  const auto found = population_.find(population_key(id, lits, size));
+  if (found != population_.end() && found->second) {
+    if (!--found->second)
+      population_.erase(found);
+    return;
+  }
+  unbacked_deletions_++;
+  fprintf(stderr, "PROOF SHADOW: unbacked deletion #%" PRIu64 " of [%" PRIu64
+                  "]",
+          unbacked_deletions_, id);
+  for (uint32_t i = 0; i < size; i++) {
+    Lit l = lits[i];
+    if (variable_map_)
+      l = make_lit((*variable_map_)[var_of(l)], negated(l));
+    fprintf(stderr, " %d", externalize(l));
+  }
+  fputs(" 0\n", stderr);
+  void *frames[32];
+  const int depth = backtrace(frames, 32);
+  backtrace_symbols_fd(frames, depth, fileno(stderr));
+  fflush(stderr);
+  // Abort on the FIRST one: the emitting rule is what this build exists to
+  // name, and every later line is downstream of an already-diverged checker.
+  std::abort();
+}
+
+void Proof::seed_population(uint64_t id, const Lit *lits, uint32_t size) {
+  population_add(id, lits, size);
+}
+#endif
 
 } // namespace tactix

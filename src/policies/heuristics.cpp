@@ -89,6 +89,7 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     return;
   Heuristics &h = *k.h;
   const uint32_t old_nvars = h.nvars;
+  const Var old_search = h.search_idx;
   assert(old_to_new.size() == old_nvars);
 
   auto compact_values = [&](auto &values, const auto &fallback) {
@@ -136,6 +137,23 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     link.next = i + 1 < queue.size() ? queue[i + 1] : INVALID_VAR;
     link.stamp = ++h.queue_stamp;
   }
+  // Kissat's compact_queue maps the focused VMTF search cache and preserves
+  // its position; it does not reset the cache to the queue tail.  This matters
+  // even for Tactix's identity-preserving root-fixed compaction, where only the
+  // arena/watch pose changes.  A reset here changes the very next focused
+  // decision after returning from stable mode.
+  const Var mapped_search = old_search == INVALID_VAR
+                                ? INVALID_VAR
+                                : old_to_new[old_search];
+  if (mapped_search != INVALID_VAR) {
+    h.search_idx = mapped_search;
+    h.search_stamp = h.links[mapped_search].stamp;
+  } else {
+    h.search_idx = h.queue_last;
+    h.search_stamp = h.queue_last == INVALID_VAR
+                         ? 0
+                         : h.links[h.queue_last].stamp;
+  }
 
   std::vector<Var> heap;
   heap.reserve(h.scores.stack.size());
@@ -152,7 +170,6 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   h.nvars = new_nvars;
   h.target_assigned = 0;
   h.best_assigned = 0;
-  heuristics_reset_queue_search(k);
 }
 
 // Kissat's `tumble` (default 1): both rankings are seeded in first-activation
@@ -378,6 +395,16 @@ void heuristics_deactivate_var(Kernel &k, Var v) {
     heuristics_reset_queue_search(k);
 }
 
+void heuristics_consume_root_assignments(Kernel &k, size_t trail_begin) {
+  if (!k.h)
+    return;
+  for (size_t i = trail_begin; i < k.trail.size(); ++i) {
+    const Var v = var_of(k.trail[i]);
+    if (k.assigned[v].level == 0 && heuristics_var_active(k, v))
+      heuristics_deactivate_var(k, v);
+  }
+}
+
 void heuristics_demote_marked_vars(Kernel &k, const std::vector<uint8_t> &mark) {
   if (!k.h || mark.empty())
     return;
@@ -552,6 +579,7 @@ static void heap_bubble_down(Kernel &k, Var v) {
     }
     if (child_score <= vscore)
       break;
+    event_trace_heap_pop(k, "move", v, child, child_pos, vpos);
     stack[vpos] = child;
     pos[child] = vpos;
     vpos = child_pos;
@@ -562,9 +590,11 @@ static void heap_bubble_down(Kernel &k, Var v) {
 
 void heuristics_heap_push(Kernel &k, Var v) {
   assert(!heuristics_heap_contains(k, v));
-  k.h->scores.pos[v] = static_cast<uint32_t>(k.h->scores.stack.size());
+  const uint32_t from = static_cast<uint32_t>(k.h->scores.stack.size());
+  k.h->scores.pos[v] = from;
   k.h->scores.stack.push_back(v);
   heap_bubble_up(k, v);
+  event_trace_heap_insert(k, v, from, k.h->scores.pos[v]);
 }
 
 // Remove an arbitrary element (kissat inlineheap.h kissat_pop_heap): swap the
@@ -574,29 +604,40 @@ static void heap_remove(Kernel &k, Var v) {
   if (!heuristics_heap_contains(k, v))
     return;
   const uint32_t vpos = k.h->scores.pos[v];
+  const uint32_t last_pos =
+      static_cast<uint32_t>(k.h->scores.stack.size() - 1);
   const Var last = k.h->scores.stack.back();
   k.h->scores.stack.pop_back();
   k.h->scores.pos[v] = UINT32_MAX;
-  if (last == v)
+  if (last == v) {
+    event_trace_heap_remove(k, v, last, vpos, last_pos, UINT32_MAX);
     return; // v was the last element; nothing moved
+  }
   k.h->scores.stack[vpos] = last;
   k.h->scores.pos[last] = vpos;
   // `last` may belong either above or below vpos — try both, each is a no-op
   // when the invariant already holds.
   heap_bubble_up(k, last);
   heap_bubble_down(k, last);
+  event_trace_heap_remove(k, v, last, vpos, last_pos,
+                          k.h->scores.pos[last]);
 }
 
 static void heap_pop_max(Kernel &k) {
   assert(!k.h->scores.stack.empty());
   const Var max = k.h->scores.stack[0];
   const Var last = k.h->scores.stack.back();
+  const uint32_t last_pos =
+      static_cast<uint32_t>(k.h->scores.stack.size() - 1);
+  event_trace_heap_pop(k, "begin", last, max, last_pos, 0);
   k.h->scores.stack.pop_back();
   k.h->scores.pos[max] = UINT32_MAX;
   if (last != max) {
     k.h->scores.pos[last] = 0;
     k.h->scores.stack[0] = last;
     heap_bubble_down(k, last);
+    event_trace_heap_pop(k, "end", last, last, k.h->scores.pos[last],
+                         k.h->scores.pos[last]);
   }
 }
 
@@ -655,23 +696,17 @@ void heuristics_update_scores(Kernel &k) {
   // queue must be reachable via the heap. DefaultPolicy disconnects retired
   // variables; the policy-neutral API may retain them for N1 decisions.
   // (kissat bump.c kissat_update_scores)
-  // `random_order` is Kissat-internal index order after tumble/compaction.
-  // Equal scores retain heap insertion pose, so iterating Tactix's external
-  // identities here is observably different after a sequence of lazy pops.
-  // It also contains exactly Kissat's compacted variable population (one
-  // representative for the root-fixed set), rather than Tactix's permanent
-  // reconstruction identities.
-  for (const Var v : k.h->random_order)
-    if (queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
-        (k.assigned[v].level != 0 ||
-         k.values[make_lit(v, false)] == 0))
-      heuristics_heap_push(k, v);
-  // Tactix retains declared-but-never-imported variables so its returned SAT
-  // model is total. Kissat has no internal identity for them, hence they do
-  // not occur in `random_order`; append only those residual live variables.
-  // They sit below every activated variable (score zero) and cannot perturb
-  // the reference trajectory unless the semantic formula is already decided.
-  for (Var v = 0; v < k.nvars; v++)
+  // Kissat's tumbled INTERNAL indices follow first import, not first
+  // activation.  Those orders differ when a variable first occurs in a
+  // tautological/satisfied clause: import.c assigns its index immediately,
+  // while internal.c activates it only when a retained clause closes.  The
+  // activation permutation in `random_order` is therefore right for random
+  // decisions and initial scores but wrong for this all_variables(idx) loop.
+  // Equal scores preserve heap insertion pose, so use the permanent import
+  // ranks that emulate Kissat's compact internal-index order.
+  std::vector<Var> import_order;
+  kernel_vars_in_import_order(k, import_order);
+  for (const Var v : import_order)
     if (queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
         (k.assigned[v].level != 0 ||
          k.values[make_lit(v, false)] == 0))
@@ -684,6 +719,7 @@ Var heuristics_heap_next_unassigned(Kernel &k) {
     if (k.values[make_lit(v, false)] == 0)
       return v;
     heap_pop_max(k); // lazy deletion (kissat decide.c)
+    event_trace_heap_scores(k);
   }
   return heuristics_any_unassigned(k); // see the backstop above
 }

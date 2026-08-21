@@ -13,12 +13,22 @@
 
 static FILE *output, *replay;
 static bool initialized;
+static int requested = -1;
 static uint64_t sequence, emitted, limit = UINT64_MAX;
 static uint64_t conflict_from, conflict_to = UINT64_MAX;
 static const char *selected_rule, *selected_candidate;
 
 static uint64_t mix (uint64_t hash, uint64_t value) {
   return (hash ^ value) * UINT64_C (1099511628211);
+}
+
+static bool journal_requested (void) {
+  if (requested < 0) {
+    const char *output_path = getenv ("KISSAT_RULE_JOURNAL");
+    const char *replay_path = getenv ("KISSAT_RULE_JOURNAL_REPLAY");
+    requested = (output_path && *output_path) || (replay_path && *replay_path);
+  }
+  return requested;
 }
 
 static unsigned external_variable (kissat *solver, unsigned idx) {
@@ -55,6 +65,8 @@ void kissat_rule_journal_literals (kissat *solver, const unsigned *lits,
 }
 
 uint64_t kissat_rule_journal_digest (kissat *solver) {
+  if (!journal_requested ())
+    return 0;
   uint64_t hash = UINT64_C (1469598103934665603);
   hash = mix (hash, solver->level);
   hash = mix (hash, SIZE_ARRAY (solver->trail));

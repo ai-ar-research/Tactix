@@ -186,8 +186,9 @@ struct DefaultStrategyConfig {
     // still override it.
     bool bve_enabled = true;
     bool vivify_enabled = true;
-    // Kissat always admits startup Factor.  Formula profiles may suppress
-    // only later inprocessing calls after that reference-compatible dose.
+    // Kissat always admits startup Factor. Formula profiles may lighten later
+    // Factor doses, but only an explicit diagnostic arm may suppress all
+    // search-time inprocessing.
     bool factor_repeated_enabled = true;
     bool preprocess_only = false;
     uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;

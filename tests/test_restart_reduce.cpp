@@ -12,6 +12,9 @@
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <string>
+
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -202,8 +205,13 @@ static void test_reduce_deletes_and_logs() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   Proof proof;
-  char path[] = "/tmp/tactix_reduce_test.drat";
-  assert(proof.open(path, ProofFormat::DratAscii));
+  // Named after the writing process: ctest runs concurrently over several
+  // build directories, and a shared name lets one run truncate the proof
+  // another is counting deletion lines in.
+  const std::string path = "/tmp/tactix-reduce-test-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".drat";
+  assert(proof.open(path.c_str(), ProofFormat::DratAscii));
   k.proof = &proof;
   kernel_reserve_vars(k, 12);
   for (int i = 0; i < 4; i++) { // four high-glue candidates, plus one keeper
@@ -221,14 +229,14 @@ static void test_reduce_deletes_and_logs() {
   assert(reduce_apply(k) == ApplyResult::Ok);
   assert(k.stats.deleted == 3); // 75% of the four candidates
   proof.flush();
-  FILE *f = fopen(path, "r");
+  FILE *f = fopen(path.c_str(), "r");
   char buf[256];
   int dels = 0;
   while (fgets(buf, sizeof buf, f))
     if (buf[0] == 'd')
       dels++;
   fclose(f);
-  remove(path);
+  remove(path.c_str());
   assert(dels == 3); // every deletion hit the proof
   // the policy owns the budget now: advancing it stops the advice
   rp.reduce.next_conflicts = k.stats.conflicts +
@@ -338,6 +346,24 @@ static void test_reduce_equal_rank_preserves_arena_order() {
          "equal Kissat ranks must retain the arena scan order");
 }
 
+static void test_compacting_reduce_collects_irredundant_prefix() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 6);
+  const Lit satisfied[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, satisfied, 3, false, 0);
+  const Lit victim[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref victim_ref = kernel_add_large_clause(k, victim, 3, true, 9);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  // Kissat reduce.c uses start=0 when compactlim fires.  Tail-only Reduce
+  // would delete the victim but retain this root-satisfied irredundant prefix.
+  assert(reduce_apply_refs(k, &victim_ref, 1, true) == ApplyResult::Ok);
+  assert(k.arena.empty());
+  assert(k.stats.sparse_collected == 1);
+}
+
 // The retention-band instrument tracks the live tier: moving `k.tier2` moves
 // the dynamic count and leaves the static one alone.
 static void test_tier2_band_tracks_the_live_tier() {
@@ -406,6 +432,44 @@ static void test_solve_with_restarts_still_correct() {
   assert(storm.solve(k) == 20);
 }
 
+// Kissat compacts variable identities only in its initial sparse collector
+// (when root units exist) and at Reduce.  Retire more than compactlim before a
+// short search which never reaches Reduce: DefaultPolicy must not invent a
+// third, post-preprocessing compaction point merely because late Lucky ended.
+static void test_variable_compaction_waits_for_reduce() {
+  // PHP(4,3) survives both Lucky probes and needs fewer than 1000 conflicts.
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 15);
+  auto var = [](int p, int h) { return p * 3 + h + 1; };
+  std::vector<Lit> scratch;
+  for (int p = 0; p < 4; p++) {
+    scratch.clear();
+    for (int h = 0; h < 3; h++)
+      scratch.push_back(internalize(var(p, h)));
+    kernel_add_large_clause(k, scratch.data(), 3, false, 0);
+  }
+  for (int h = 0; h < 3; h++)
+    for (int p1 = 0; p1 < 4; p1++)
+      for (int p2 = p1 + 1; p2 < 4; p2++)
+        kernel_add_binary_clause(k, internalize(-var(p1, h)),
+                                 internalize(-var(p2, h)));
+
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  for (Var v = 12; v < 15; v++) {
+    k.var_status[v] = VarStatus::Eliminated;
+    heuristics_deactivate_var(k, v);
+    k.unassigned_active--;
+  }
+  assert(kernel_should_compact_variables(k, 10));
+
+  DefaultPolicy policy;
+  assert(policy.solve(k) == 20);
+  assert(k.stats.reductions == 0);
+  assert(k.stats.variable_compactions == 0 &&
+         "variable compaction is admitted at Reduce, not after late Lucky");
+}
+
 static void test_restart_reuses_trail() {
   // A restart keeps every level whose decision outranks the next candidate:
   // here var 0 (stamp 4) beats var 2 (stamp 3) and var 1 (stamp 2) does not.
@@ -472,9 +536,11 @@ int main() {
   test_root_propagation_consumes_unflushed_marker();
   test_reduce_used_retention();
   test_reduce_equal_rank_preserves_arena_order();
+  test_compacting_reduce_collects_irredundant_prefix();
   test_tier2_band_tracks_the_live_tier();
   test_retier_uses_kissat_truncation();
   test_solve_with_restarts_still_correct();
+  test_variable_compaction_waits_for_reduce();
   puts("test_restart_reduce OK");
   return 0;
 }

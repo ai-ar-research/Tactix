@@ -178,8 +178,32 @@ public:
   }
 };
 
+// Optional exact live-pair index for phases that make many binary-membership
+// queries.  BinaryIdMap cannot serve this role because proof identities are
+// deliberately retained after deletion.  Keep the common storage compact and
+// record only the usually-small deleted overlay; a re-add clears its tombstone.
+class BinaryLivenessIndex {
+  BinaryIdMap present_;
+  std::unordered_set<uint64_t> deleted_;
+
+public:
+  BinaryLivenessIndex() { present_.discard_values(); }
+  void reserve(size_t entries) { present_.reserve(entries); }
+  bool count(uint64_t key) const {
+    return present_.count(key) && !deleted_.count(key);
+  }
+  void add(uint64_t key) {
+    present_.insert_or_assign(key, 1);
+    deleted_.erase(key);
+  }
+  void remove(uint64_t key) { deleted_.insert(key); }
+};
+
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void event_trace_detail(const Kernel &, const char *, int64_t);
+void event_trace_binary_assignment(const Kernel &, Lit assigned,
+                                   Lit immediate_reason, Lit stored_reason,
+                                   bool jumped);
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_root_assign(const Kernel &, Lit);
 void event_trace_sweep_seed(const Kernel &, Var);
@@ -199,6 +223,10 @@ void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
                                        uint32_t);
 void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit, Lit);
+void event_trace_sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t,
+                              const char *);
+void event_trace_sweep_rewrite_binary(const Kernel &, Lit, Lit, uint32_t,
+                                      Lit);
 void event_trace_sweep_unit(const Kernel &, Lit);
 void event_trace_substitute_map(const Kernel &, Lit, Lit);
 void event_trace_factor_seed(const Kernel &, Lit, uint32_t, uint32_t);
@@ -360,6 +388,7 @@ struct Stats {
   uint64_t probe_rounds = 0;   // Probe rounds
   uint64_t probed = 0;         // probe assumptions made
   uint64_t probe_failed = 0;   // failed literals -> root units derived
+  uint64_t backbone_computations = 0; // canonical batch applications
   uint64_t backbone_rounds = 0;  // Backbone rounds
   uint64_t backbone_probed = 0;  // binary probe assumptions made
   uint64_t backbone_failed = 0;  // failed literals -> root units derived
@@ -477,6 +506,7 @@ struct Stats {
   uint64_t congruence_units = 0; // root units from degenerate gates
   uint64_t congruence_y1_found = 0; // detections
   uint64_t congruence_y1_units = 0; // ... emitted and batched
+  uint64_t congruence_y1_ticks = 0; // one complete binary-watch pass + replay
   uint64_t congruence_binary_equivalences = 0; // paired binaries imported
   mutable uint64_t congruence_gates_and = 0;
   mutable uint64_t congruence_gates_xor = 0;
@@ -611,6 +641,17 @@ struct Kernel {
 
   std::vector<Lit> trail;
   uint32_t propagate_head = 0;
+  // Lowest trail position that BINARY-ONLY propagation moved `propagate_head`
+  // past and full propagation has not re-covered; UINT32_MAX means none.
+  // `propagate_head` means "every clause watched by this literal has been
+  // inspected", which the binary propagator does not establish: it skips every
+  // large watch. A literal it covered that STAYS on the trail is then credited
+  // forever, so the trail can reach a claimed fixpoint that still hides a large
+  // unit or conflict, and a total assignment built on it falsifies a clause.
+  // The next full propagation pulls the cursor back to this debt and rescans.
+  // A speculative caller that retracts everything it scanned leaves the debt
+  // equal to the cursor, so the pull-back is inert for it.
+  uint32_t binary_only_head = UINT32_MAX;
   bool trail_tainted = false;
   std::vector<uint32_t> frames = {0};
   uint32_t level = 0;
@@ -650,7 +691,11 @@ struct Kernel {
   PendingLearned pending;
 
   std::vector<uint8_t> seen;   // by var
-  std::vector<Var> analyzed;   // vars marked seen
+  std::vector<Var> analyzed;   // every var whose analysis scratch needs reset
+  // Exact admission order of the SEEN | REASON_BUMP set.  Kissat keeps this
+  // order on a stack separate from minimization/removability scratch; stable
+  // EVSIDS heap topology is observable when equal increments are applied.
+  std::vector<Var> bump_order;
   std::vector<Var> shrinkable; // vars marked during a block-shrink walk
   uint32_t analyzed_seen = 0;
   std::vector<Var> reason_bumped; // REASON_BUMP marks, for rollback
@@ -676,6 +721,7 @@ struct Kernel {
   uint64_t next_clause_id = 0;
   std::vector<uint64_t> unit_ids; // by var
   BinaryIdMap binary_ids;
+  BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
   std::vector<std::pair<uint32_t, uint64_t>> lrat_entries;
   std::vector<uint64_t> lrat_chain; // built by kernel_lrat_chain below
   std::vector<Var> reason_walk_stack; // reusable proof-reason DFS stack
@@ -715,6 +761,11 @@ struct Kernel {
   // shared per-variable touch epochs, this does not spuriously arm the opposite
   // polarity.
   std::vector<uint8_t> factor_marks;
+
+  // Kissat retains the surviving Backbone candidate polarities between
+  // computations and schedules that priority set before all other literals.
+  // Bit 0 is the positive literal and bit 1 the negative literal.
+  std::vector<uint8_t> backbone_priority;
 
   // Bumped by every `kernel_collect_garbage`. A Ref recorded before the bump
   // names the pre-collection arena, so anything holding one across a possible
@@ -975,18 +1026,33 @@ void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 // the missing mirror (to `moved`'s list), then publish the normal add metadata.
 void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
                               uint64_t id = 0);
+// Publish the ordinary add metadata for a binary direction already inserted
+// by a transaction that reconstructs the two directed watches independently.
+void kernel_publish_binary_clause(Kernel &, Lit a, Lit b, uint64_t id,
+                                  bool new_pair);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
+
+inline uint64_t kernel_binary_key(Lit a, Lit b);
 
 inline uint32_t kernel_binary_copies(const Kernel &k, Lit a, Lit b,
                                      uint32_t cap = UINT32_MAX) {
   uint32_t n = 0;
-  for (const WatchEntry w : k.watches.entries(a))
-    if (w.binary() && w.other() == b && ++n == cap)
+  const bool stop_at_large = k.watches.heads[a].binaries_first;
+  for (const WatchEntry w : k.watches.entries(a)) {
+    if (!w.binary()) {
+      if (stop_at_large)
+        break;
+      continue;
+    }
+    if (w.other() == b && ++n == cap)
       break;
+  }
   return n;
 }
 inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
+  if (k.binary_liveness)
+    return k.binary_liveness->count(kernel_binary_key(a, b));
   return kernel_binary_copies(k, a, b, 1) == 1;
 }
 
@@ -1020,10 +1086,20 @@ inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
 }
 
 inline void kernel_delete_clause(Kernel &k, Clause *c) {
+  // The proof delta belongs INSIDE the retirement transition, not in front of
+  // it. A deletion names one clause: DRAT by its literals, LRAT by its id, and
+  // in both formats the checker retires exactly one copy per `d` line. Emitting
+  // one for a record that is already garbage therefore does not "repeat" a
+  // no-op — it retires a SECOND clause. Under DRAT that is whatever live clause
+  // carries the same literals (a duplicate the solver keeps), leaving the
+  // solver with a clause the checker no longer holds, so the next lemma that
+  // resolves through it is not RUP. Under LRAT it retires one id twice, which
+  // every checker rejects outright. The mark and the bookkeeping below were
+  // already idempotent; this makes the whole retirement idempotent.
+  if (c->garbage())
+    return; // already retired
   if (k.proof)
     k.proof->del(k.next_clause_id, c->id(), c->lits, c->size);
-  if (c->garbage())
-    return; // already retired: the mark and its bookkeeping are idempotent
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_clause_transition(k, "delete", c->lits, c->size,
                                       c->id());
@@ -1063,7 +1139,11 @@ inline uint64_t kernel_cache_lines(uint64_t n) { return (n + 31u) >> 5; }
 
 inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
   k.stats.ticks += n;
-  if (!k.inprocessing)
+  // Kissat's ordinary search propagator adds to both `ticks` and
+  // `search_ticks` (propsearch.c), while its warm-up propagator deliberately
+  // adds only to `ticks` (propbeyond.c:14-24).  Warm-up is search scaffolding
+  // for Walk, not work that may consume mode or inprocessing budgets.
+  if (!k.inprocessing && !k.warming)
     k.stats.search_ticks += n;
   if (k.tick_sink)
     *k.tick_sink += n;
@@ -1128,11 +1208,17 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
   const uint32_t level = a.level;
   if (k.jump_reasons && (!require_bigbig || k.jump_reasons_bigbig) && level &&
       a.binary) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_binary_assignment(k, lit, other_false, a.reason, true);
+#endif
     k.jumped_over[var_of(lit)] = other_false;
     k.stats.jumped_reasons++;
     kernel_assign(k, lit, level, a.reason, true, true);
     return;
   }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_binary_assignment(k, lit, other_false, other_false, false);
+#endif
   kernel_assign(k, lit, level, other_false, true);
 }
 [[gnu::always_inline]] inline void kernel_assign_ref(Kernel &k, Lit lit,
@@ -1151,6 +1237,26 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
 void kernel_backtrack(Kernel &, uint32_t target_level,
                       bool search_backtrack = true);
 
+// Retract the whole trail suffix from `position` upward and land at the root.
+// A speculative probing round is not level-structured — Backbone stamps a
+// proved unit at the saved assumption level, and level zero itself when that
+// level is zero — so `kernel_backtrack(k, 0)` cannot express the retraction: it
+// keeps every literal whose recorded level is already zero. Unwinding by trail
+// POSITION does, and routing it through the kernel keeps the per-literal
+// unassign contract (both counters plus the policy's ranking structures) in one
+// place instead of half-copied into the rule.
+void kernel_unwind_speculation(Kernel &, uint32_t position);
+
+// The one propagation-fixpoint predicate. Not `propagate_head == trail.size()`
+// on its own: binary-only propagation moves that cursor while skipping every
+// large watch and leaves the debt below, which the next full propagation still
+// has to discharge. A verdict, a guard or an oracle that reads the raw cursor
+// can therefore call a trail complete while a large clause is still unit.
+inline bool kernel_propagation_fixpoint(const Kernel &k) {
+  return k.propagate_head == k.trail.size() &&
+         k.binary_only_head >= k.propagate_head;
+}
+
 bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 
 // Walk warm-up propagation (kissat propbeyond.c): scan to a full assignment
@@ -1159,7 +1265,10 @@ bool kernel_propagate(Kernel &, Ref ignore = INVALID_REF);
 // assignment path and therefore refresh saved phases.
 void kernel_propagate_beyond_conflicts(Kernel &);
 
-bool kernel_propagate_binary(Kernel &);
+// `use_current_level` is the chained Backbone contract: Kissat assigns every
+// binary implication at the current accumulated-assumption level instead of
+// compacting it to its antecedent's true level.
+bool kernel_propagate_binary(Kernel &, bool use_current_level = false);
 
 void kernel_probing_begin(Kernel &, bool rollback_pose = true);
 void kernel_probing_end(Kernel &); // idempotent; a no-op outside a scope

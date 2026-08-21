@@ -8,18 +8,33 @@ decisions. This file is only the current resume surface.
 
 - Phase 4 has met T3: the matched Tier B/C window solved 28/28 and 30/30,
   respectively, within the 1.10x Kissat gate; all results were checked.
-- N1 and N2 are complete. N3 awaits Tier D; N4 awaits final parity-ledger
-  reconciliation.
+- N1 and N2 are complete. N4 is immutable and its verification is pending on
+  the cumulative general random-decision, post-Lucky compaction, Vivify-tier,
+  and Walk compact-order replay repairs' checked 28B+fixed5C and frozen ranks
+  21--40 gates. N3 awaits the canonical Tier-D gate.
 - Phase 4.20 proof-rule and strategy surveys are drafted. Project review and
   the P1 compound-instance API decision remain open.
-- The promoted debug candidate release binary is
-  `50fba1d448e1dac005226bdb9cd7ecd5b2140e7fbbb6bfcebd9d9a6126a06bfa`.
-  It closes all ten frozen divergence targets under the debug contract.
+- The current diagnostic candidate release binary is
+  `08f3a97cc5a921fb8e2d30a21dd0391b8f3de6f1bf7ce8de8d292635dc325b7e`.
+  It closes all ten ranks 11--20; the cumulative ranks 1--20 debug view has 19
+  checked answers and one reproduced near-cap memory unknown at rank 10.
 
 <!-- track-sched:begin -->
 The scheduling-parity register is `docs/scheduling-parity-ledger.md`. P4-CVG is
-closed; sparse-GC remains deferred outside the closure pin. Any new missing or
-cruder reference mechanism reopens N4 until repaired or explicitly accepted.
+closed; sparse-GC's repaired implementation and the Reduce candidate population
+are reconciled as closed. `SP-RANDEC-1`, `SP-COMPACT-1`, `SP-COMPACT-2`,
+`SP-VIVIFY-1`, and `SP-WALK-WATCH-1` verification is temporarily pending. The cumulative
+candidate removes formula-shape random-policy overrides and the extra
+post-Lucky compaction, poses focused tiers at every Vivify consumer, and
+replays Walk binaries in Kissat's compact-literal encounter order. Reduce-time
+variable compaction preserves each directed binary prefix and cannot invoke an
+optional arena-ordering policy during its representation-only collection.
+The rejected physical-order candidate is superseded by inherited source-order
+replay for appended replacements. Release is 72/72, Trace is 71/71, and
+ASAN-O3 is 72/72. The cumulative Slurm pin closed Rank 29 but failed the fixed
+Tier-C correctness gate on `asconhashv12`; its proof-population repair is now
+the active N2 prerequisite. Any new missing or cruder reference mechanism
+returns N4 verification to pending.
 <!-- track-sched:end -->
 
 ## Active measurement
@@ -75,7 +90,7 @@ low/no-yield witnesses when available. Checked proof/model failure or an
 unexplained solve loss blocks promotion to the targeted Tier-D cases; this
 iteration guard does not replace the full Tier C or canonical Tier-D gates.
 
-The active divergence round targets up to ten predeclared Tier-D
+The active divergence round targets the twenty predeclared Tier-D ranks 21--40
 Kissat-over-Tactix gaps. These are improvement witnesses, not regression-test
 members: general repairs are guarded by Tier B and selected Tier C, while the
 Tier-D set remains cumulative where practical to expose both closed and still
@@ -109,6 +124,217 @@ frozen 5/5 mechanism-relevant Tier C cases are proof/model clean with zero
 residue. Against the preceding pin, Tier-B aggregate solve time improves from
 1275.910 s to 956.795 s; Tier C remains flat at 1442.447 s versus 1447.383 s.
 
+### Next ten-target divergence round (2026-08-17)
+
+Ranks 11--20 were predeclared from the same frozen eligible Kissat-over-Tactix
+view, excluding the closed ranks 1--10. Shipped Tactix closed 6/10 with PAR-2
+10576.236 s in `benchmarks/runs/20260817-1350-tierd-next10-predeclared/`; the
+preceding checkpoint closed 9/10 with PAR-2 4140.349 s. The final candidate
+closes 10/10 with a 1693.565 s solve-time sum in
+`benchmarks/runs/20260817-2220-tierd-cumulative20-backbone-ramp-final/`.
+
+Rank 12 now uses a scoped exact live-binary index, occurrence-driven gate
+rescheduling, and direct structural lemma emission in DRAT/proofless modes;
+native LRAT retains antecedent replay. Its checked UNSAT solve is 13.644 s
+versus a shipped timeout and Kissat's 5.574 s. Rank 16 retires DIMACS-header
+variables that never occur while preserving their external model identities.
+This removes the first traced semantic mismatch (1,416 versus 1,086 active
+variables) and yields a checked SAT solve in 74.158 s versus a shipped timeout
+and Kissat's 124.551 s.
+
+The original rank-19 watch mismatch had two earlier causes. Substitute rebuilt
+moved binaries from an undirected image rather than each retiring directed
+source list, and stable heap fill used activation order rather than Kissat's
+first-import internal-index order. After those repairs, the remaining tie came
+from Backbone: Tactix independently rolled back every successful probe, while
+Kissat retains one assumption trail and learns the first repeated binary
+predecessor. The canonical V2 batch now follows that algorithm, including its
+private meter and 100-times-computation/1000 round ramp; the public literal
+instance stays independent for N1. It derives two units on `knight_18`, fixes
+20 root variables, matches all preprocessing formula counts and the stable
+top-32 heap, and then matches Kissat for 85,969 decisions through conflict
+1,339. The checked SAT solve is 542.977 s with a verified model.
+
+The final iteration guard is
+`benchmarks/runs/20260817-2220-BC-next10-backbone-ramp-final/`: Tier B is 28/28
+and the frozen Tier C subset is 5/5, with solve-time sums 765.943 s and
+1415.191 s. All proofs/models validate and certificate residue is empty. The
+cumulative ranks 1--20 campaign has 19 checked answers, PAR-2 5499.998 s, and
+zero residue. Rank 10 alone is memory-unknown at 49.165 s; the accepted
+pre-repair binary reproduces the same `bad_alloc` at 49.818 s, so this is the
+agreed near-cap debug classification rather than a source regression.
+
+### T105 V6a disposition and ranks 21--30 (2026-08-18)
+
+Repaired Backbone does not make V6a redundant on `T105`. Paired same-node job
+`1631961` in `benchmarks/runs/20260818-0110-T105-backbone-v6a-ablation/`
+records zero Backbone failed literals in both arms. V6a-on derives 501 units and
+solves checked UNSAT in 365.861 s; V6a-off derives none and takes 430.693 s,
+with 346,574 versus 495,955 conflicts and a 66,107,192 versus 166,616,967-byte
+proof. V6a is retained with one complete linear pass per admitted Congruence
+application and separate `congruence_y1_ticks` accounting.
+
+The post-repair iteration guard is
+`benchmarks/runs/20260818-0125-BC-v6a-budget-final/` (job `1631978`): Tier B
+is 28/28 and the frozen Tier C subset is 5/5, with solve-time sums 630.845 s
+and 1285.260 s. All 17 SAT models and 16 UNSAT proofs validate, peak RSS is
+2,001,780 KiB, and every task reports complete certificate cleanup.
+
+The next ten gaps are frozen, before any work on them, in
+`benchmarks/runs/20260818-0120-tierd-ranks21-30-predeclared/`. Selection is the
+fastest completed Kissat-4.0.4 eligible view at the freeze, excluding ranks
+1--20; because the canonical baseline was still running, this is an immutable
+available-results ranking rather than a claim about the eventual global top 30.
+No baseline job was rerun.
+
+| rank | expected | instance basename | Kissat s | shipped Tactix s |
+|---:|:---:|---|---:|---:|
+| 21 | SAT | `ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz` | 106.338 | 1889.889 |
+| 22 | UNSAT | `113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz` | 196.556 | timeout |
+| 23 | SAT | `994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz` | 212.567 | 1242.639 |
+| 24 | UNSAT | `29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz` | 221.203 | 1504.167 |
+| 25 | SAT | `180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz` | 263.773 | 3209.790 |
+| 26 | SAT | `0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz` | 266.921 | 2116.037 |
+| 27 | UNSAT | `5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz` | 278.187 | timeout |
+| 28 | SAT | `9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz` | 286.337 | 1290.399 |
+| 29 | SAT | `16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz` | 294.468 | 1780.110 |
+| 30 | SAT | `ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz` | 304.761 | 1386.023 |
+
+Ranks 31--40 are frozen in the same immutable manifest as ranks 21--30. The
+pre-Walk-repair cumulative candidate job `1633266` solved and checked ranks 21,
+23, 25, 28, 29, and 38 under 16 GiB/1200 s; the other fourteen timed out. Its
+28B+5C guard job `1633265` was 28/28 Tier B and 4/5 Tier C, with only
+`mp1-Nb5T15` timing out. That regression is now localized to Walk's compact
+binary replay: job `1633433` restores the first divergent watch order, matches
+all 66 Kissat analysis records through conflict 2008, and solves the traced
+instance SAT in 24.708 s. This is mechanism evidence, not promotion; the
+current cumulative candidate still needs checked 28B+5C and ranks 21--40.
+
+Rank 29 exposed a second compaction-order issue after the post-Lucky lifecycle
+repair. Before conflict 1000 Reduce, Tactix and Kissat had the same directed
+binary order; the old variable remap reconstructed both directions from an
+undirected stream and reversed that order immediately afterwards. Preserving
+each directed binary prefix repaired it. A broader experiment that also
+preserved every large-watch vector was rejected: although it repaired the
+observed conflict-1006 pair, it introduced an earlier conflict-1003 semantic
+divergence and slowed the checked solve. The accepted general repair instead
+prevents representation-only variable compaction from invoking the
+solve-scoped optional arena-ordering policy, matching Kissat's retained arena
+sequence before large clauses are rewatched. Its regression installs a
+synthetic reverse ordering and retires an unrelated variable; it contains no
+benchmark, rank, literal, conflict, hash, or deadline condition.
+
+Trace job `1633732` matches all 16,032 normalized decision, implication,
+conflict, and analysis records from conflicts 980--1100 and all 4,666 score
+bumps from conflicts 980--1044, including both formerly divergent watch
+frontiers. Focused runtime job `1633733` nevertheless times out at 1200.004 s
+after 27,240,776 conflicts, so this candidate is rejected pending the first
+later traced divergence. Diagnostic job `1633808` covers conflicts 1080--1400.
+Checked 28B+5C job `1633745` and frozen ranks 21--40 job `1633760` remain in
+flight as cumulative regression evidence, not promotion gates for this pin.
+The B/C job has since completed 28/28 Tier B but only 4/5 Tier C:
+`mp1-Nb5T15` falls from a checked 14.349 s SAT solve to timeout, while
+`mod4block` rises from 305.421 s to 790.619 s. It independently rejects the
+candidate. Its completed Tier-D array closes only ranks 21, 25, 28, and 38,
+losing predecessor ranks 23 and 26 and failing to recover rank 29.
+
+The first later representation divergence is conflict 1211, scan `846`, after
+all 40,382 portable semantic records through conflict 1400 still match. A
+replacement with clause ID 92812 inherits source position 92810 but the
+rejected patch keeps it after ID 92811; Kissat retains it at the source
+position and visits it first. The new general candidate orders every live
+clause by the existing inherited source-position key during compaction. Its
+synthetic regression distinguishes physical `102,103,104`, reverse-policy
+`104,103,102`, and inherited `104,102,103` order. Trace job `1633836` matches
+Kissat exactly for 53,910 portable and 223,125 normalized-watch records over
+conflicts 980--1400, including the repaired conflict-1211 frontier. The old
+order stays latent until conflict 2272, where encounter and then raw learned
+order differ. Focused runtime job `1633837` still times out at 1200.004 s after
+28,656,897 conflicts with zero residue, so the pin is not promoted and no
+cumulative arrays are submitted. Continuation job `1633890` matches another
+107,804 portable records before the same conflict-2272 semantic split and
+localizes its next cause to Reduce at conflict 2001: Kissat stably partitions
+the swept tail into irredundant then redundant clauses before rewatching;
+Tactix retained the interleaving. Trace job `1633950` proves the first general
+tail-partition patch inert because root assignments route Reduce through the
+source-position replay in `kernel_sparse_collect_root`; obsolete runtime job
+`1633951` was cancelled. The composed candidate now preserves rewrite position
+within each redundancy class and stably partitions the classes. Separate
+non-root and rewritten-root mixed-tail tests distinguish physical, policy, and
+reference order; Release 72/72, Trace 71/71, and ASAN-O3 72/72 are clean.
+Trace job `1633964` rejects that candidate at the unchanged conflict-2001
+watch frontier, after 63,075 matching normalized watch records in the focused
+window; obsolete runtime `1633965` was cancelled with zero certificate
+residue. The actual general defect is collection admission: Reduce marks its
+victims before entering `kernel_sparse_collect_root`, but that path formerly
+compacted only if root simplification independently changed another clause.
+Thus its 22 conflict-2001 victims remained garbage in the arena and no sparse
+rewatch occurred. The new candidate collects whenever pre-existing garbage or
+root simplification requires it. A generic test uses an unrelated root unit and
+makes an already-marked victim the sole reason to collect, while also checking
+the stable mixed-tail replay. Release 72/72, Trace 71/71, and ASAN-O3 72/72 are
+clean. Trace job `1633999` then makes all 61,653 portable records exact through
+conflict 2400 and equalizes the watch-stream lengths at 297,047, but the first
+watch mismatch at conflict 2001 reveals a replacement inherited before the
+collection still physically appended behind two later clauses. Runtime
+`1634000` was cancelled with zero residue. The follow-up now replays the swept
+tail by persistent source-position key, using one decorated lookup per clause,
+then stably partitions the redundancy classes. The generic garbage-only test
+also places an appended replacement before a physical middle clause without
+any witness constant. Claude Opus diagnosed one concurrent Trace-suite abort
+as fixed `/tmp` filenames racing across build directories, not solver state;
+all remaining fixed-name test artifacts are process-unique. Serial trace stress
+passes 30/30, concurrent Release/Trace/ASAN stress passes 60/60, and sequential
+Release 72/72, Trace 71/71, and ASAN-O3 72/72 are clean. Focused trace job
+`1634075` matches all 61,653 portable and 297,047 normalized-watch records
+exactly through conflict 2400, closing both the conflict-2001 source-order
+frontier and its conflict-2272 consequence. Checked runtime job `1634074`
+solves Rank 29 SAT in 130.767 s at 68,524 KiB and verifies the model, versus
+the frozen eligible Kissat result of 294.468 s, with zero certificate residue.
+Unthrottled cumulative jobs `1634094` (28B+5C) and `1634095` (frozen ranks
+21--40) completed under 16 GiB/1200 s. The Tier-D job checks ranks 21, 23, 25,
+28, 29, and 38 (six of twenty), adding 23 and 29 with no predecessor losses;
+all six answers validate and certificate residue is empty. The paired guard is
+28/28 Tier B but only 4/5 Tier C: `asconhashv12` solves UNSAT in 101.224 s,
+then drat-trim rejects its proof at unit `-1997`. The pin is therefore rejected
+despite Rank 29's closure.
+
+Hundreds of surplus deletions first exposed non-idempotent large-clause
+retirement and a stale deferred-OTFS reason; both are repaired with generic
+tests and a compile-time proof-population shadow. Job `1634219` falsifies those
+as Ascon's blocker: production/shadow reproduce the same rejected proof in
+96.988/97.438 s without a shadow abort. Raw-clause seeding then catches a real
+generic N2 defect on `dupbinary.cnf`: the parser stored `-4 3` from raw
+`-4 3 3`, but DRAT never received that exact deletion multiset. Both formats
+now add every stored narrowed input clause at `finish_input`; LRAT keeps hints
+and DRAT preserves solver ids. Shadow/Release/Trace/ASAN-O3 pass 72/72, 72/72,
+71/71, and 72/72. Job `1634231` nevertheless falsifies restatement as Ascon's
+blocker: both arms add 643 clauses and still fail at `-1997` in 96.588/97.139 s
+without an unbacked deletion. Forward job `1634233` verifies every earlier add:
+unit `-1997` itself (checker id 1354312, proof line 768571) is the first invalid
+inference. Adjacent equivalence adds and 39 V6a/Y1 units make Congruence's
+binary-resolution unit channel the leading source. Isolation job `1634236`
+turns only Y1 off and checks UNSAT in 107.956 s plus 60.224 s verification;
+the 63,635,534-byte proof is valid with zero residue, so Y1 is necessary on the
+bad trajectory. Shadow job `1634243` reaches the unchanged failure without
+aborting: both premises of every direct Y1 unit exist in the checker. Thus Y1
+changes upstream root state but is not the bad unit's direct emitter. Label the
+Congruence unit channel in shadow job `1634245`: `-1997` is a value-derived
+`Canon::Unit`, not direct Y1. Compile-time forced replay campaign
+`20260818-2212-ascon-value-unit-replay`, job `1634264`, completes valid:
+`-1997` is an XOR value-unit and RUP fails inside Tactix. Dropping that one
+unjustified inference yields checked UNSAT in 95.785 s plus 57.775 s
+verification; its 15,604,302-byte proof verifies with zero residue. This is a
+solver-side XOR `Canon::Unit` defect; do not promote the diagnostic fail-closed
+guard. Gate-dump job `1634270` finds `1997=XOR(341,1562,1844)`, with `341=0`
+and `1562≡1844`: the equivalent pair cancels, but the separate valued input
+made the code bypass the mandatory parity-elimination ladder. The repair now
+routes every XOR with a nonempty cancelled set through that ladder, including
+mixed valued-plus-cancelled gates; its regression and all four suites pass.
+Focused job `1634293` verifies; paired guard `1634307` is 33/33. Tier-D job
+`1634294` retains ranks 21,23,25,28,29,38 with no gains/losses and zero residue.
+The cumulative pin is accepted; V6a stays on.
+
 ## Gates
 
 - [x] T1: MiniSat correctness/performance bar.
@@ -118,16 +344,15 @@ residue. Against the preceding pin, Tier-B aggregate solve time improves from
 - [ ] T4-VBS: exact status-sensitive frozen-VBS parity; blocks Phase 4.5.
 - [ ] T5: exceed the frozen VBS or ship the best verified effort.
 
-## Next engineering work
+## Soundness gate and next engineering work
 
-1. Select the next predeclared ten Kissat-over-Tactix gaps from the frozen
-   baseline view, excluding this closed cohort, and repeat the divergence loop.
-2. Reconcile `docs/scheduling-parity-ledger.md` into the N4 verdict.
-3. Review the Phase 4.20 surveys and decide P1's compound-instance API.
-4. Continue Phase 4.25 Stage A against frozen Kissat. Every miss follows the same
-   loop: locate the earliest portable semantic divergence, make a source-backed
-   repair or disposition, and protect the result with focused and cumulative
-   guards.
+Mandatory Claude escalation closed fuzz regressions 004/023 and new corpus 026. Sessionless Sweep substitution now preserves complete binary mirrors and proof ids; RUP admission is format-independent for Sweep and HyperBinaryResolution. Exact model/LRAT/DRAT reproducers, four 26-entry corpus configurations, Release 72/72, Trace 71/71, ASAN-O3 72/72, Debug 71/71, and 2,000 local random-policy fuzz cases pass. Final Slurm job `1636794` adds 10,000 cases with zero failures, 8,771 checked verdicts, and direct Backbone/Sweep/HyperBinaryResolution reachability. Evidence is in `benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`.
+
+## Immediate next engineering work
+
+1. Rank 22 remains open. Jobs `1636147`--`1636219` make the conflict-4487 early Backbone call exact; boundary jobs `1636337`/`1636338` leave both solvers at 3,442,398 semantic variables. Vivify is the first later owner (3,442,395 Tactix versus 3,442,270 Kissat). Park this expensive trace for now, continue the other frozen misses, and return to the common-input Vivify call later.
+2. Review the Phase 4.20 surveys and decide P1's compound-instance API.
+3. Continue Phase 4.25 Stage A: localize each frozen miss, repair or disposition it, and run both guards.
 
 ## Future phases and retained ideas
 

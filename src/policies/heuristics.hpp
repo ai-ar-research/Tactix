@@ -127,6 +127,10 @@ void heuristics_demote_marked_vars(Kernel &, const std::vector<uint8_t> &mark);
 // only active variables. N1 is untouched: the Decide rule builds its instance
 // surface from `k.nvars`, never from `H`.
 void heuristics_deactivate_var(Kernel &, Var v);
+// Consume the DefaultPolicy consequence of a Propagate application: Kissat
+// marks every newly assigned true-level-zero variable fixed and removes it
+// from both decision rankings. The proof rule itself remains policy-agnostic.
+void heuristics_consume_root_assignments(Kernel &, size_t trail_begin);
 // Kissat's flags[idx].active predicate for decision-guidance operations.
 // Root-fixed and retired variables are disconnected but retain kernel IDs.
 bool heuristics_var_active(const Kernel &, Var v);

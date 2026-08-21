@@ -194,12 +194,27 @@ RuleEligibility congruence_guard(const Kernel &); // quiescent-root precondition
 // congruence closure, adding equivalence binaries (+ proof). Exposed for tests.
 ApplyResult congruence_apply(Kernel &);
 
+// What a caller wants the replay for; reading one as the other silently removes
+// an admission gate (`benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`,
+// pinned by `tests/test_sweep.cpp::test_rup_admission_is_format_independent`).
+//
+//  - `ChainOnly` — the lemma is RUP by construction (Congruence's own
+//    families), so the replay only reads its antecedent chain and may be
+//    skipped whenever no chain is written; kissat likewise emits these lines
+//    directly (`learn_congruence_unit`, `add_binary_clause`).
+//  - `Decide` — the replay is the caller's admission test: Sweep and
+//    HyperBinaryResolution hold a semantic certificate and ask the separate
+//    question of whether a checker can re-derive the line by unit propagation.
+//    Same answer in every proof format, so it must run in all of them.
+enum class RupReplay : uint8_t { ChainOnly, Decide };
+
 // Replay-based RUP chain builder: assume the negation of `lits` at a probing
 // scope, propagate, and read the antecedents off the conflict's reason walk, so
 // the chain comes out in the checker's own propagation order by construction.
 // Returns false when the lemma is not RUP over the current DB, in which case
 // the caller must emit nothing. Shared with Sweep's RUP fast path.
 bool congruence_replay_rup(Kernel &, const Lit *lits, uint32_t n,
-                           std::vector<uint64_t> &chain);
+                           std::vector<uint64_t> &chain,
+                           RupReplay purpose = RupReplay::ChainOnly);
 
 } // namespace tactix

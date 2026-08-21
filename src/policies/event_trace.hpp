@@ -38,10 +38,20 @@ public:
                 const std::vector<uint8_t> &, uint8_t bump_mask);
   void analyzed_post(const Kernel &, const std::vector<Var> &);
   void heap_scores(const Kernel &);
+  void heap_insert(const Kernel &, Var, uint32_t from, uint32_t to);
+  void heap_remove(const Kernel &, Var removed, Var last,
+                   uint32_t removed_pos, uint32_t from, uint32_t to);
+  void heap_pop(const Kernel &, const char *stage, Var held, Var other,
+                uint32_t from, uint32_t to);
+  void binary_assignment(const Kernel &, Lit assigned, Lit immediate_reason,
+                         Lit stored_reason, bool jumped);
+  void binary_add(const Kernel &, Lit a, Lit b);
   void mode_clock(const Kernel &, const char *stage, uint64_t limit,
                   uint64_t anchor, uint64_t count);
   void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                    bool accepted);
+  void randec_state(const Kernel &, const char *stage, uint64_t remaining,
+                    uint64_t next, uint64_t sequence);
   void phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
                   int8_t result);
   void target_save(const Kernel &);
@@ -60,6 +70,10 @@ public:
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t);
   void sweep_watch(const Kernel &, Var, uint32_t, Lit);
   void sweep_equivalence(const Kernel &, Lit a, Lit b);
+  void sweep_commit(const Kernel &, Lit a, Lit b, int8_t av, int8_t bv,
+                    const char *stage);
+  void sweep_rewrite_binary(const Kernel &, Lit source, Lit representative,
+                            uint32_t position, Lit other);
   void sweep_unit(const Kernel &, Lit);
   void substitute_map(const Kernel &, Lit, Lit);
   void factor_seed(const Kernel &, Lit, uint32_t score, uint32_t remainders);
@@ -101,6 +115,7 @@ public:
 
 private:
   void emit(const Kernel &, const char *, const char *, bool snapshot);
+  void emit_heap_scores(const Kernel &);
   bool want_detail(const Kernel &);
 
   std::FILE *out_ = nullptr;
@@ -111,6 +126,10 @@ private:
   uint64_t checkpoint_bucket_ = 0;
   uint64_t detail_conflict_from_ = 0;
   uint64_t detail_conflict_to_ = UINT64_MAX;
+  uint64_t stop_after_conflict_ = UINT64_MAX;
+  uint64_t heap_from_decision_ = UINT64_MAX;
+  uint64_t heap_pop_decision_ = UINT64_MAX;
+  uint64_t heap_remove_decision_ = UINT64_MAX;
   bool saw_reorder_ = false;
   bool detail_window_ = false;
   bool compact_probe_ = false;
@@ -118,8 +137,15 @@ private:
   bool skip_imply_ = false;
   bool skip_heap_ = false;
   bool skip_decisions_ = false;
+  bool skip_randec_draws_ = false;
+  bool skip_analysis_ticks_ = false;
+  bool keep_snapshots_ = false;
   bool search_only_ = false;
   bool control_only_ = false;
+  bool trajectory_only_ = false;
+  bool watch_only_ = false;
+  bool heap_each_bump_ = false;
+  bool heap_pop_only_ = false;
   bool truncated_ = false;
 };
 #else
@@ -143,6 +169,8 @@ public:
                 const std::vector<uint8_t> &, uint8_t) {}
   void analyzed_post(const Kernel &, const std::vector<Var> &) {}
   void heap_scores(const Kernel &) {}
+  void heap_insert(const Kernel &, Var, uint32_t, uint32_t) {}
+  void heap_remove(const Kernel &, Var, Var, uint32_t, uint32_t, uint32_t) {}
   void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
                   uint64_t) {}
   void randec_draw(const Kernel &, uint32_t, uint32_t, Var, bool) {}
@@ -163,6 +191,8 @@ public:
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t) {}
   void sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
   void sweep_equivalence(const Kernel &, Lit, Lit) {}
+  void sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t, const char *) {}
+  void sweep_rewrite_binary(const Kernel &, Lit, Lit, uint32_t, Lit) {}
   void sweep_unit(const Kernel &, Lit) {}
   void substitute_map(const Kernel &, Lit, Lit) {}
   void factor_seed(const Kernel &, Lit, uint32_t, uint32_t) {}
@@ -206,8 +236,20 @@ void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                           const std::vector<uint8_t> &, uint8_t bump_mask);
 void event_trace_analyzed_post(const Kernel &, const std::vector<Var> &);
 void event_trace_heap_scores(const Kernel &);
+void event_trace_heap_insert(const Kernel &, Var, uint32_t from, uint32_t to);
+void event_trace_heap_remove(const Kernel &, Var removed, Var last,
+                             uint32_t removed_pos, uint32_t from, uint32_t to);
+void event_trace_heap_pop(const Kernel &, const char *stage, Var held,
+                          Var other, uint32_t from, uint32_t to);
+void event_trace_binary_assignment(const Kernel &, Lit assigned,
+                                   Lit immediate_reason, Lit stored_reason,
+                                   bool jumped);
+void event_trace_binary_add(const Kernel &, Lit a, Lit b);
 void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                              bool accepted);
+void event_trace_randec_state(const Kernel &, const char *stage,
+                              uint64_t remaining, uint64_t next,
+                              uint64_t sequence);
 void event_trace_phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
                             int8_t result);
 void event_trace_target_save(const Kernel &);
@@ -230,6 +272,11 @@ void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
                                        uint32_t);
 void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit a, Lit b);
+void event_trace_sweep_commit(const Kernel &, Lit a, Lit b, int8_t av,
+                              int8_t bv, const char *stage);
+void event_trace_sweep_rewrite_binary(const Kernel &, Lit source,
+                                      Lit representative, uint32_t position,
+                                      Lit other);
 void event_trace_sweep_unit(const Kernel &, Lit);
 void event_trace_substitute_map(const Kernel &, Lit, Lit);
 void event_trace_factor_seed(const Kernel &, Lit, uint32_t score,
@@ -280,8 +327,18 @@ inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
 inline void event_trace_analyzed_post(const Kernel &,
                                       const std::vector<Var> &) {}
 inline void event_trace_heap_scores(const Kernel &) {}
+inline void event_trace_heap_insert(const Kernel &, Var, uint32_t, uint32_t) {}
+inline void event_trace_heap_remove(const Kernel &, Var, Var, uint32_t,
+                                    uint32_t, uint32_t) {}
+inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
+                                 uint32_t, uint32_t) {}
+inline void event_trace_binary_assignment(const Kernel &, Lit, Lit, Lit,
+                                          bool) {}
+inline void event_trace_binary_add(const Kernel &, Lit, Lit) {}
 inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
                                     bool) {}
+inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
+                                     uint64_t, uint64_t) {}
 inline void event_trace_phase_pick(const Kernel &, Var, int8_t, int8_t,
                                    int8_t) {}
 inline void event_trace_target_save(const Kernel &) {}
@@ -304,6 +361,10 @@ inline void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t,
                                               Var, uint32_t) {}
 inline void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
 inline void event_trace_sweep_equivalence(const Kernel &, Lit, Lit) {}
+inline void event_trace_sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t,
+                                     const char *) {}
+inline void event_trace_sweep_rewrite_binary(const Kernel &, Lit, Lit,
+                                             uint32_t, Lit) {}
 inline void event_trace_sweep_unit(const Kernel &, Lit) {}
 inline void event_trace_substitute_map(const Kernel &, Lit, Lit) {}
 inline void event_trace_factor_seed(const Kernel &, Lit, uint32_t,

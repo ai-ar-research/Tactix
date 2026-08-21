@@ -16,8 +16,7 @@ void backbone_candidates(const Kernel &k, std::vector<Lit> &out) {
 }
 
 ApplyResult backbone_apply(Kernel &k) {
-  return failed_literal_apply(k, FailedLiteralPropagation::Binary,
-                              backbone_stats);
+  return failed_literal_apply_chained_binary(k, backbone_stats);
 }
 
 ApplyResult backbone_try(Kernel &k, Lit p) {

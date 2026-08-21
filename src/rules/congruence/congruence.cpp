@@ -1423,9 +1423,18 @@ Canon canonicalize(const Kernel &k, const CongGate &g, Find &find,
 // Returns false when the lemma is not RUP; the caller then drops the inference
 // rather than write an unverifiable line.
 bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
-                          std::vector<uint64_t> &chain) {
+                          std::vector<uint64_t> &chain,
+                          RupReplay purpose = RupReplay::ChainOnly) {
   assert(k.level == 0 && !k.conflict_valid);
   chain.clear();
+  const bool lrat = k.proof && k.proof->lrat();
+  // `ChainOnly` may skip the whole replay when no chain is wanted: its lemma is
+  // RUP by construction and the replay only reads antecedents off it. `Decide`
+  // may not — the replay is the caller's admission test, and skipping it turns
+  // that test into an unconditional yes, so the caller emits a line no checker
+  // can replay. See `RupReplay`.
+  if (!lrat && purpose == RupReplay::ChainOnly)
+    return true;
   kernel_probing_begin(k);
   bool conflict = false;
   Var implied = UINT32_MAX; // a lemma literal the assumptions already forced TRUE
@@ -1451,7 +1460,10 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   }
   uint64_t last = 0;
   std::vector<std::pair<uint32_t, uint64_t>> entries;
-  if (conflict) {
+  // Only LRAT has a chain to read, and only LRAT can read one: the walk cites
+  // `unit_ids`, which no other format fills in, so walking there would put the
+  // format's line TERMINATOR into a chain (kernel_build_lrat_chain's assert).
+  if (conflict && lrat) {
     // Persistent walk scratch: a fresh `seen(k.nvars, 0)` per replayed lemma
     // dominates the native-LRAT path — never reintroduce it. Restored all-zero
     // in O(marked), so it is clean on entry for any kernel this thread uses.
@@ -1485,19 +1497,17 @@ bool congruence_rup_chain(Kernel &k, const Lit *lits, uint32_t n,
   }
   if (!conflict)
     return false;
-  // RUP replay is also the semantic admission test for DRAT and proofless
-  // callers (HyperBinaryRes shares it).  Only native LRAT needs antecedent
-  // ids; proofless white-box kernels legitimately leave root units unnamed.
-  if (!k.proof || !k.proof->lrat()) {
-    chain.clear();
-    return true;
-  }
+  if (!lrat)
+    return true; // the replay itself was the whole question
   // (trail position ascending, conflict last) — kernel.hpp's chain contract
   kernel_build_lrat_chain(entries, last, chain);
   // An empty chain is not a proof: a trivially true lemma conflicts against its
   // own assumption, so the walk yields no antecedents and every LRAT checker
   // rejects the line. Refusing here covers all three ladders at one choke
-  // point, at the cost of completeness where the line would cost N2.
+  // point, at the cost of completeness where the line would cost N2. This is a
+  // rule about writing an LRAT line, not part of the RUP verdict — a DRAT `a`
+  // line for the same lemma carries no chain and the checker re-derives it — so
+  // it is the one place the two formats may legitimately answer differently.
   if (chain.empty())
     return false;
   return true;
@@ -2355,19 +2365,27 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<uint64_t> chain;
   for (Var v = 0; v < k.nvars; v++) {
+    // V6a owns one complete linear pass.  The shared Congruence allowance may
+    // truncate gate extraction or closure, but must not starve this pass after
+    // they have already spent it.  Only a global termination request can cut
+    // the pass (soundly dropping the remaining optional inferences).
+    if (!(v & 255) && kernel_terminating(k))
+      return false;
     if (kernel_var_retired(k, v))
       continue;
-    if (cong_budget.over(k))
-      break; // dropping inferences is sound
     for (int s = 0; s < 2; s++) {
       const Lit l = make_lit(v, s != 0);
       // A root-assigned `l` has nothing to learn: already true, and false is
       // impossible at a quiescent root.
       if (k.value(l) != 0)
         continue;
+      const uint64_t scan_ticks = 1 + k.watches.size(l);
+      k.stats.congruence_y1_ticks += scan_ticks;
+      // Retain the inclusive Congruence accounting used by the outer rule.
       k.stats.congruence_ticks += k.watches.size(l);
       touched.clear();
       bool found = false;
+      Lit witness = INVALID_LIT;
       for (const WatchEntry w : k.watches.entries(l)) {
         if (!w.binary())
           continue;
@@ -2376,6 +2394,7 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
           continue; // satisfied or already-propagated binary
         if (mark[negate(o)]) {
           found = true;
+          witness = o;
           break;
         }
         if (!mark[o]) {
@@ -2387,12 +2406,39 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
         mark[t] = 0;
       if (!found)
         continue;
+      assert(witness != INVALID_LIT);
+      if (k.proof && k.proof->population_shadow()) {
+        const Lit first[2] = {l, witness};
+        const Lit second[2] = {l, negate(witness)};
+        const uint64_t first_id = kernel_binary_id(k, first[0], first[1]);
+        const uint64_t second_id = kernel_binary_id(k, second[0], second[1]);
+        const bool first_backed =
+            k.proof->population_contains(first_id, first, 2);
+        const bool second_backed =
+            k.proof->population_contains(second_id, second, 2);
+        if (!first_backed || !second_backed) {
+          std::fprintf(stderr,
+                       "PROOF SHADOW: Y1 unit %d has checker-missing binary "
+                       "premise%s%s: (%d %d) id=%llu; (%d %d) id=%llu\n",
+                       kernel_externalize(k, l), first_backed ? "" : " 1",
+                       second_backed ? "" : " 2",
+                       kernel_externalize(k, first[0]),
+                       kernel_externalize(k, first[1]),
+                       static_cast<unsigned long long>(first_id),
+                       kernel_externalize(k, second[0]),
+                       kernel_externalize(k, second[1]),
+                       static_cast<unsigned long long>(second_id));
+          std::abort();
+        }
+      }
       k.stats.congruence_y1_found++;
       // Replayed, never hand-built: a hand-built pair silently gets propagation
       // order wrong. The replay charges real propagation, so meter it here.
       const uint64_t t0 = k.stats.ticks;
       const bool ok = !lrat || congruence_rup_chain(k, &l, 1, chain);
-      k.stats.congruence_ticks += k.stats.ticks - t0;
+      const uint64_t replay_ticks = k.stats.ticks - t0;
+      k.stats.congruence_y1_ticks += replay_ticks;
+      k.stats.congruence_ticks += replay_ticks;
       if (!ok) {
         k.stats.congruence_unjustified++;
         continue; // sound: the inference is dropped, nothing is emitted
@@ -2409,8 +2455,8 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
 
 // External-linkage forwarder for the primitive Sweep shares.
 bool congruence_replay_rup(Kernel &k, const Lit *lits, uint32_t n,
-                           std::vector<uint64_t> &chain) {
-  return congruence_rup_chain(k, lits, n, chain);
+                           std::vector<uint64_t> &chain, RupReplay purpose) {
+  return congruence_rup_chain(k, lits, n, chain, purpose);
 }
 
 void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
@@ -2466,6 +2512,32 @@ ApplyResult congruence_apply(Kernel &k) {
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   congruence_stage_trace(k, "root-end");
+  // Kissat enters dense mode before extraction and keeps the live binaries in
+  // closure->binaries, where find_binary answers every later membership query
+  // without touching large-watch tails.  Build the corresponding exact index
+  // once for the whole Tactix application.  It follows additions and deletions
+  // through the kernel hooks, while k.binary_ids remains the proof-id archive.
+  struct ScopedBinaryLiveness {
+    Kernel &kernel;
+    BinaryLivenessIndex index;
+    explicit ScopedBinaryLiveness(Kernel &k) : kernel(k) {
+      assert(!kernel.binary_liveness);
+      size_t pairs = 0;
+      for (Lit lit = 0; lit < 2 * kernel.nvars; lit++)
+        for (const WatchEntry w : kernel.watches.entries(lit))
+          pairs += w.binary() && lit < w.other();
+      index.reserve(pairs);
+      for (Lit lit = 0; lit < 2 * kernel.nvars; lit++)
+        for (const WatchEntry w : kernel.watches.entries(lit))
+          if (w.binary() && lit < w.other())
+            index.add(kernel_binary_key(lit, w.other()));
+      kernel.binary_liveness = &index;
+    }
+    ~ScopedBinaryLiveness() {
+      assert(kernel.binary_liveness == &index);
+      kernel.binary_liveness = nullptr;
+    }
+  } binary_liveness(k);
   std::vector<std::pair<Lit, Lit>> binary_candidates;
   {
     Stage s(&cong_t.binary_extract);
@@ -2495,6 +2567,7 @@ ApplyResult congruence_apply(Kernel &k) {
   bool recorded_unit = false;
   congruence_stage_trace(k, "unit-state-end");
   auto record_unit = [&](Lit u, const std::vector<uint64_t> &uchain,
+                         const char *origin,
                          uint64_t *counter = nullptr) -> bool {
     const Var v = var_of(u);
     if (k.value(u) > 0)
@@ -2502,6 +2575,9 @@ ApplyResult congruence_apply(Kernel &k) {
     const uint64_t trail_id = k.unit_ids[v];
     const bool contradicts_trail = k.value(u) < 0;
     const uint64_t id = ++k.next_clause_id;
+    if (k.proof && k.proof->population_shadow())
+      std::fprintf(stderr, "PROOF SHADOW: Congruence unit %d origin=%s\n",
+                   kernel_externalize(k, u), origin);
     if (k.proof)
       k.proof->add_rup(lrat ? id : 0, &u, 1, lrat ? uchain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(uchain.size()) : 0);
@@ -2551,12 +2627,49 @@ ApplyResult congruence_apply(Kernel &k) {
     return finish(/*merged=*/false);
   }
 
+  // Kissat indexes every gate by RHS literal and propagates a root unit only
+  // through gates containing that literal (congruence.c
+  // simplify_gates/propagate_unit).  This immutable value index includes the
+  // output too.  It is separate from the representative-occurrence index
+  // below, whose keys change as equivalence classes merge.
+  struct OccNode {
+    uint32_t gate;
+    uint32_t next;
+  };
+  const uint32_t nlits = 2 * k.nvars;
+  PagedLiteralTails value_occ_tails(nlits);
+  PagedVector<OccNode> value_occ_nodes;
+  size_t value_occurrences = gates.size();
+  for (const CongGate &g : gates)
+    value_occurrences += g.inputs.size();
+  value_occ_nodes.reserve(value_occurrences);
+  const auto add_value_occurrence = [&](Lit lit, uint32_t gate) {
+    assert(value_occ_nodes.size() < UINT32_MAX);
+    const uint32_t node = static_cast<uint32_t>(value_occ_nodes.size());
+    uint32_t &tail = value_occ_tails.get_or_create(lit);
+    if (tail == UINT32_MAX) {
+      value_occ_nodes.push_back({gate, node});
+    } else {
+      const uint32_t head = value_occ_nodes[tail].next;
+      value_occ_nodes.push_back({gate, head});
+      value_occ_nodes[tail].next = node;
+    }
+    tail = node;
+  };
+  for (uint32_t gate = 0; gate < gates.size(); gate++) {
+    for (const Lit input : gates[gate].inputs)
+      add_value_occurrence(input, gate);
+    add_value_occurrence(gates[gate].output, gate);
+  }
+  congruence_stage_trace(k, "value-occurrences-end", gates.size(),
+                         value_occ_nodes.size());
+
   // The binary-resolution unit sweep follows binary and gate extraction; its
   // immediate root closure seeds value-driven gate simplification below.
   {
     Stage s(&cong_t.binary_units);
     if (find_binary_units(k, [&](Lit u, const std::vector<uint64_t> &ch) {
-          return record_unit(u, ch, &k.stats.congruence_y1_units);
+          return record_unit(u, ch, "y1", &k.stats.congruence_y1_units);
         }))
       return ApplyResult::Unsat;
   }
@@ -2568,7 +2681,6 @@ ApplyResult congruence_apply(Kernel &k) {
   // literal, so the collapse propagates through the circuit layers in one apply
   // (`docs/calculus.md` V6).
   const uint64_t setup_t0 = cong_time ? now_nanos() : 0;
-  const uint32_t nlits = 2 * k.nvars;
   congruence_stage_trace(k, "closure-repr-begin", gates.size(), nlits);
   std::vector<Lit> repr(nlits);
   for (Lit l = 0; l < static_cast<Lit>(nlits); l++)
@@ -2601,10 +2713,6 @@ ApplyResult congruence_apply(Kernel &k) {
   // dependency.  Each dense slot instead names the tail of a circular linked
   // list: tail.next is the head, so one 32-bit endpoint supports ordered append
   // and ordered traversal.  Paged nodes avoid geometric whole-buffer copies.
-  struct OccNode {
-    uint32_t gate;
-    uint32_t next;
-  };
   PagedLiteralTails occ_tails(nlits);
   congruence_stage_trace(k, "closure-occ-heads-end", gates.size(),
                          occ_tails.directory_size());
@@ -2647,13 +2755,6 @@ ApplyResult congruence_apply(Kernel &k) {
     return initial_work + rescheduled_work.size();
   };
   congruence_stage_trace(k, "closure-work-end", work_size(), inq.size());
-  auto reschedule_all_gates = [&]() {
-    for (uint32_t gg = 0; gg < gates.size(); gg++)
-      if (!queued(gg)) {
-        set_queued(gg, true);
-        rescheduled_work.push_back(gg);
-      }
-  };
   if (cong_time)
     cong_t.setup += now_nanos() - setup_t0;
 
@@ -2674,13 +2775,13 @@ ApplyResult congruence_apply(Kernel &k) {
       k.stats.congruence_unjustified++;
       return false;
     }
-    if (record_unit(u1, ch1))
+    if (record_unit(u1, ch1, "contradictory-first"))
       return true;
     if (lrat && !congruence_rup_chain(k, &u2, 1, ch2)) {
       k.stats.congruence_unjustified++;
       return false; // {¬a} stays pending — half the inference, still sound
     }
-    return record_unit(u2, ch2);
+    return record_unit(u2, ch2, "contradictory-second");
   };
 
   // Merge two provably-equivalent literals: unite their classes and reschedule
@@ -2849,6 +2950,33 @@ ApplyResult congruence_apply(Kernel &k) {
       table[0].bucket_count() + table[1].bucket_count() +
           table[2].bucket_count());
 
+  // Every gate is initially queued, so units found before this point need no
+  // explicit reschedule.  From here on, admit only already-consumed gates that
+  // mention a newly root-assigned variable.  Scan both signs because one root
+  // assignment changes the value view of its complement too.
+  size_t value_trail_head = k.trail.size();
+  const auto reschedule_assigned_gates = [&]() {
+    while (value_trail_head < k.trail.size()) {
+      const Lit assigned = k.trail[value_trail_head++];
+      for (const Lit side : {assigned, negate(assigned)}) {
+        const uint32_t tail = value_occ_tails.get(side);
+        if (tail == UINT32_MAX)
+          continue;
+        uint32_t node = value_occ_nodes[tail].next;
+        while (true) {
+          const uint32_t gate = value_occ_nodes[node].gate;
+          if (!queued(gate)) {
+            set_queued(gate, true);
+            rescheduled_work.push_back(gate);
+          }
+          if (node == tail)
+            break;
+          node = value_occ_nodes[node].next;
+        }
+      }
+    }
+  };
+
   // The closure is the long block, so it must be interruptible: abort between
   // worklist items, each all-or-nothing (binaries and proof chain both emitted,
   // or nothing). The batched root units are still asserted from what it did.
@@ -2905,14 +3033,14 @@ ApplyResult congruence_apply(Kernel &k) {
         k.stats.congruence_unjustified++;
         continue;
       }
-      if (record_unit(unit, chain)) {
+      if (record_unit(unit, chain, "input-unit")) {
         unsat = true;
         break;
       }
-      // Root propagation changed every gate's value view, including outputs
-      // which are deliberately absent from the input-occurrence index.
+      // Root propagation changes only the gates admitted by the immutable
+      // value-occurrence index (including output positions).
       if (newly_fixed)
-        reschedule_all_gates();
+        reschedule_assigned_gates();
       continue;
     }
     // --- a degenerate gate is an inference, not a dead end ------------------
@@ -2925,9 +3053,56 @@ ApplyResult congruence_apply(Kernel &k) {
       std::vector<std::vector<uint64_t>> cch;
       transient.clear();
       bool justified;
-      if (value_derived_i) {
+      // A valued input does not make an independently cancelled XOR pair
+      // disappear from the proof obligation. For example, with a=0 and x=y,
+      // out=a XOR x XOR y forces out=0 semantically, but the direct unit is
+      // not RUP: the parity clauses plus x=y need the cancellation ladder.
+      const bool needs_xor_ladder =
+          gates[i].kind == GateKind::Xor && !cancelled.empty();
+      if (value_derived_i && !needs_xor_ladder) {
         cch.resize(1);
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+        const bool shadow_replay =
+            k.proof && k.proof->population_shadow() && !lrat;
+        justified = congruence_rup_chain(
+            k, &unit, 1, cch[0],
+            shadow_replay ? RupReplay::Decide : RupReplay::ChainOnly);
+        if (shadow_replay) {
+          static const char *kind_names[] = {"and", "xor", "ite"};
+          std::fprintf(stderr,
+                       "PROOF SHADOW: value-unit %d kind=%s forced-rup=%s\n",
+                       kernel_externalize(k, unit),
+                       kind_names[static_cast<int>(gates[i].kind)],
+                       justified ? "pass" : "fail");
+          if (!justified) {
+            const Lit output_rep = find(gates[i].output);
+            std::fprintf(stderr,
+                         "PROOF SHADOW: failed gate output=%d(v=%d) "
+                         "rep=%d(v=%d) inputs=%zu cancelled=%zu\n",
+                         kernel_externalize(k, gates[i].output),
+                         static_cast<int>(k.value(gates[i].output)),
+                         kernel_externalize(k, output_rep),
+                         static_cast<int>(k.value(output_rep)),
+                         gates[i].inputs.size(), cancelled.size());
+            for (size_t input_index = 0;
+                 input_index < gates[i].inputs.size(); input_index++) {
+              const Lit input = gates[i].inputs[input_index];
+              const Lit input_rep = find(input);
+              std::fprintf(stderr,
+                           "PROOF SHADOW: failed gate input[%zu]=%d(v=%d) "
+                           "rep=%d(v=%d,unit-id=%llu)\n",
+                           input_index, kernel_externalize(k, input),
+                           static_cast<int>(k.value(input)),
+                           kernel_externalize(k, input_rep),
+                           static_cast<int>(k.value(input_rep)),
+                           static_cast<unsigned long long>(
+                               k.unit_ids[var_of(input_rep)]));
+            }
+          }
+        }
+#else
         justified = congruence_rup_chain(k, &unit, 1, cch[0]);
+#endif
       } else {
         const std::vector<std::vector<Lit>> concl = {{unit}};
         justified =
@@ -2938,14 +3113,15 @@ ApplyResult congruence_apply(Kernel &k) {
         delete_transients(k, transient);
         continue;
       }
-      const bool refuted = record_unit(unit, cch[0]);
+      const bool refuted = record_unit(
+          unit, cch[0], value_derived_i ? "value-unit" : "gate-degeneracy");
       delete_transients(k, transient);
       if (refuted) {
         unsat = true;
         break;
       }
       if (newly_fixed)
-        reschedule_all_gates();
+        reschedule_assigned_gates();
       continue; // the gate is consumed by its own inference
     }
     if (ci == Canon::Merge) {

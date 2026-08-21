@@ -236,6 +236,19 @@ void test_unopened_proof_is_silent() {
   p.flush();
 }
 
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+void test_population_membership_uses_exact_drat_multiset() {
+  Proof p;
+  const Lit a = make_lit(0, false), b = make_lit(1, true);
+  const Lit raw[3] = {a, b, b};
+  const Lit reordered[3] = {b, a, b};
+  const Lit normalized[2] = {a, b};
+  p.seed_population(1, raw, 3);
+  assert(p.population_contains(99, reordered, 3));
+  assert(!p.population_contains(1, normalized, 2));
+}
+#endif
+
 } // namespace
 
 int main() {
@@ -252,6 +265,9 @@ int main() {
   test_lrat_multi_line_stream();
   test_tautological();
   test_unopened_proof_is_silent();
+#ifdef TACTIX_ENABLE_PROOF_SHADOW
+  test_population_membership_uses_exact_drat_multiset();
+#endif
   printf("test_proof: all proof-backend serializer cases passed\n");
   return 0;
 }

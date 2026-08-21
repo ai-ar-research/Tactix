@@ -1,5 +1,6 @@
 #include "rules/backjump/backjump.hpp"
 
+#include "policies/event_trace.hpp"
 #include "policies/heuristics.hpp" // target/best phase snapshot
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp" // analyze_eager_subsume
@@ -12,9 +13,21 @@ bool backjump_guard(const Kernel &k) {
   return k.pending.valid && !k.conflict_valid && !k.inconsistent;
 }
 
+void backjump_assign_learned_unit(Kernel &k, Lit unit) {
+  kernel_assign_unit(k, unit);
+  // Kissat marks a newly learned unit's variable fixed inside assignment,
+  // which immediately removes it from both decision structures before the
+  // analyzed stack is bumped.  Tactix retains stable kernel identities for
+  // reconstruction, so this policy-owned sub-step performs the equivalent
+  // decision-structure transition explicitly.
+  heuristics_deactivate_var(k, var_of(unit));
+  k.stats.learned_units++;
+}
+
 ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   assert(backjump_guard(k));
   PendingLearned &p = k.pending;
+  event_trace_detail(k, "analysis_tail_backjump_begin", target);
   // Chronological target (D-LEVEL-2): true-level assignment stamps the
   // asserting literal at jump_level however far the trail is cut, so any level
   // in [jump_level, level-1] is sound. The clamp keeps every legal instance
@@ -38,20 +51,25 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     if (k.h)
       heuristics_update_target_phases(k);
   }
+  event_trace_detail(k, "analysis_tail_first_unwind", k.level);
   if (target < k.level)
     kernel_backtrack(k, target);
+  event_trace_detail(k, "analysis_tail_target_unwind", k.level);
 
   // OTFS's old clause had to remain a valid reason until the analysis-level
   // literal was removed.  It is now redundant with the fresh stronger clause;
   // retire it before any later rule or propagation can observe the duplicate.
   analyze_retire_otfs_reasons(k);
+  event_trace_detail(k, "analysis_tail_otfs_retired", k.level);
 
   // Eager subsumption belongs after the backtrack: before it, every subsumable
   // candidate is still a trail reason and gets skipped. Running it before the
   // assert is equivalent to kissat's position, since asserting the UIP can
   // only make the pending clause a reason and that clause is not a candidate.
   // Mechanism in analyze.cpp; rationale in docs/implementation-notes.md §15.
+  event_trace_detail(k, "analysis_tail_eager_begin", p.lits.size());
   analyze_eager_subsume(k);
+  event_trace_detail(k, "analysis_tail_eager_end", p.lits.size());
 
   const Lit asserting = p.lits[0];
 
@@ -89,15 +107,7 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
   if (p.lits.size() == 1) {
     // Asserted as a root fact even when the solver stands higher (see the
     // unit chrono note above), so `k.level == 0` is not an invariant here.
-    kernel_assign_unit(k, asserting);
-    // Kissat marks a newly learned unit's variable fixed inside assignment,
-    // which immediately removes it from both decision structures before the
-    // analyzed stack is bumped.  Keeping the root-fixed variable in Tactix's
-    // EVSIDS heap both bumps an inactive UIP and changes the heap pose.  The
-    // kernel deliberately retains its stable identity for reconstruction;
-    // only the policy-owned decision structures are deactivated here.
-    heuristics_deactivate_var(k, var_of(asserting));
-    k.stats.learned_units++;
+    backjump_assign_learned_unit(k, asserting);
   } else if (p.lits.size() == 2) {
     // Kissat's learned-binary assertion uses assign.c, whose jump-reason path
     // is deliberately not gated by `classification.bigbig`.
@@ -106,11 +116,14 @@ ApplyResult backjump_apply_to(Kernel &k, uint32_t target) {
     assert(p.ref != INVALID_REF);
     kernel_assign_ref(k, asserting, p.ref);
   }
+  event_trace_detail(k, "analysis_tail_asserted", k.level);
   // `ConflictAnalysis` is one public atomic rule, but its internal order
   // follows Kissat's learn.c/analyze.c boundary: learn, backtrack/assert, then
   // bump the analyzed variables. Reinsertion before equal-score bumps is
   // decision-observable even though the score arithmetic is commutative.
+  event_trace_detail(k, "analysis_tail_bump_begin", k.analyzed.size());
   analyze_bump_after_backjump(k);
+  event_trace_detail(k, "analysis_tail_bump_end", k.analyzed.size());
   p.valid = false;
   return ApplyResult::Ok;
 }

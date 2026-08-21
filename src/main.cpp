@@ -655,11 +655,13 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.congruence_unjustified,
            (unsigned long long)kernel.stats.congruence_ticks,
            (unsigned long long)kernel.stats.congruence_budget_stops);
-    printf("c congy1      %llu found, %llu units, %llu binary equivalences\n",
+    printf("c congy1      %llu found, %llu units, %llu binary equivalences, "
+           "%llu ticks\n",
            (unsigned long long)kernel.stats.congruence_y1_found,
            (unsigned long long)kernel.stats.congruence_y1_units,
            (unsigned long long)
-               kernel.stats.congruence_binary_equivalences);
+               kernel.stats.congruence_binary_equivalences,
+           (unsigned long long)kernel.stats.congruence_y1_ticks);
     {
       uint64_t n_sub = 0, n_elim = 0;
       for (Var v = 0; v < kernel.nvars; v++) {
