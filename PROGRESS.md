@@ -19,14 +19,14 @@ evidence. This file is only the current resume surface.
   38, and 39** under the 16 GiB/1200 s debug contract; all nine answers
   validate and certificate residue is zero. Eleven ranks remain open.
 - Rank 27 now has the source-backed Congruence arity and Rephase/Restart
-  accounting repairs plus Kissat-shaped Vivify candidate scope, cumulative
-  tier ceilings, jumped semantic reasons, and all-terminal productivity. Final
-  trace `1637436` restores the second irredundant round, exact long-clause
-  counts and terminal totals; binary-effect jobs `1637438`/`1637440`/`1637441`
-  are exact. Release is 72/72 and matched 28B+5C job `1637369` is 66/66 valid
-  with zero residue, but its 1.241x aggregate reopens performance coupling.
-  Witness `1637437` remains UNKNOWN at 1200.004 s with its 252,706,816-byte
-  partial proof deleted, so rank 27 is open.
+  accounting repairs, the completed Vivify candidate/deduction repair, and
+  Kissat's exact TransitiveReduce activity order between the Vivify calls.
+  Diagnostic job `1637474` changes that first reduction from 0 deletions to 24
+  (Kissat retained trace: 21); early exit is inert. Release is 72/72 and
+  matched 28B+5C job `1637542` is 66/66 valid with zero residue, but its 1.259x
+  aggregate keeps performance coupling open. Witness `1637608` remains UNKNOWN
+  at 1200.004 s; its 147,849,216-byte partial proof was deleted. Rank 27 stays
+  open at the residual post-Vivify Sweep/representation split.
 - The latest soundness repair preserves sessionless Sweep binary/proof identity
   and makes RUP admission format-independent for Sweep and HyperBinaryRes.
   Release 72/72, Trace 71/71, ASAN-O3 72/72, Debug 71/71, the 26-entry
@@ -52,7 +52,7 @@ dispositions and reopening conditions are in
 `docs/scheduling-parity-ledger.md`; any newly missing/cruder reference
 mechanism, failed reopening condition, or loss of an accepted deviation's
 evidence returns verification to pending. The accepted matched iteration guard
-is 66/66 across shipped/candidate 28B+5C. The cumulative Tier-D gate closes
+is 66/66 across shipped/candidate 28B+5C (latest job `1637542`). The cumulative Tier-D gate closes
 ranks 21, 23, 24, 25, 28, 29, 34, 38, and 39 with zero residue. Later proof-
 soundness work changes no scheduling disposition.
 <!-- track-sched:end -->
@@ -61,8 +61,9 @@ soundness work changes no scheduling disposition.
 
 1. Continue Phase 4.25 Stage A with open UNSAT ranks first: 27, 31, 32, 33, 35,
    37, then 40. For rank 27, extend the paired trace only after conflict 3069's
-   accounted Vivify calls and localize the next portable divergence. In the
-   same sequential pass, localize the 1.241x guard regression on predeclared
+   accounted Vivify and TransitiveReduce calls and localize the residual
+   Sweep/retained-root representation divergence. In the same sequential pass,
+   localize the 1.259x guard regression on predeclared
    `mp1-Nb5T15`/`sted5` as a missing coupling; never restore the size cutoff.
    Make only a general source-backed repair and rerun full B+fixed C before a
    new Tier-D witness.
@@ -83,6 +84,10 @@ soundness work changes no scheduling disposition.
 
 ## Recent changes
 
+- 2026-08-21: replaced TransitiveReduce's ascending-literal default with the
+  exact activity comparator/stack-consumption order in Kissat `transitive.c`;
+  passed 72/72 and checked 28B+5C correctness, and recorded rank 27 UNKNOWN
+  with zero residue.
 - 2026-08-21: removed Vivify's invented size-100 cutoff; aligned cumulative
   tier ceilings, jumped semantic reasons, and all-terminal productivity;
   passed 72/72 and matched 28B+5C correctness; recorded rank 27 UNKNOWN and
@@ -96,8 +101,6 @@ soundness work changes no scheduling disposition.
 - 2026-08-20: removed every formula-selected Vivify disable, passed matched
   28B+5C job `1636852`, closed checked Tier-D ranks 24, 34, and 39 in cumulative
   job `1636928`, and preserved all six inherited closures with zero residue.
-- 2026-08-20: merged the Tier-D parity and soundness milestone to `main`
-  (`d9a5d1f`).
 The repository's newest timestamped completed Tier-C artifact is
 `benchmarks/runs/20260813-111513-C-cleanup-b2b8362/`; it is historical cleanup
 evidence, not a replacement for the accepted T3 report or a current campaign.

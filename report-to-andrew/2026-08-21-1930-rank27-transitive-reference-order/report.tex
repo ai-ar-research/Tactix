@@ -1,0 +1,161 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Post-Vivify TransitiveReduce Scheduling Repair}
+\author{Tactix engineering handoff}
+\date{21 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Objective and outcome}
+The requested work was to finish the Vivify parity investigation---including
+candidate scheduling, literal order, and interleaving with surrounding proof
+rules---then report the verified result.  The Vivify repair itself remains
+closed: candidate scope, cumulative tier budgets, jumped-reason deduction,
+terminal effects, and productivity match the retained Kissat evidence.  The
+first portable divergence after those calls was the TransitiveReduce pass
+between them.
+
+Tactix processed V4 sources in ascending literal order.  Kissat activity-sorts
+them, and its literal source contains an unusual but observable detail: the
+stack holds variable indices, while the comparator applies \code{IDX} again
+before reading EVSIDS/VMTF activity, sorts increasing, then pops from the back.
+Tactix now poses the equivalent rule-local order for its front-consumed array.
+No input name, hash, rank, literal, deadline, or tuned constant enters the
+solver.  Early BFS exit was tested separately and left unchanged because it
+was inert at the localized boundary.
+
+Release passes 72/72.  The required matched 28B+5C guard is 66/66 valid, with
+all SAT models and UNSAT proofs checked and no certificate residue.  The new
+rank-27 witness still returns UNKNOWN at 1,200.004 seconds, so this is a
+source/scheduling repair rather than a Tier-D closure.
+
+\section*{Frozen identities and experiment discipline}
+\begin{sloppypar}
+The immutable expected-UNSAT rank-27 input is
+\artifact{tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz},
+compressed SHA-256 \code{5435b1b2...bb4e9}.  The accepted binary is
+\code{b6c991e0...fb6f}, source \code{7b527fbc...b4b}.  The candidate is
+\code{4caa9276...02a0}, built from base \code{62f3bca8...0b97} plus source
+diff \code{110eafdf...ac85}.
+
+The branch and \code{origin/main} were synchronized before work.  Surviving
+worktrees and unrelated SLURM jobs were inspected and left untouched.  The
+frozen rank-21--40 manifest, six inherited closures, and prior reports were
+read first.  No frozen reference solver was rerun: retained Kissat traces and
+Tactix-only source-pinned diagnostics were sufficient.  Diagnostics used two
+CPUs, 16\,GiB, and 300 seconds; the guard and witness used the pre-Phase-4.5
+16\,GiB/1,200-second contract.
+\end{sloppypar}
+
+\section*{Localization from the matched Vivify state}
+The repaired trace reaches the same conflict-3069 Probe trigger and restores
+both Vivify long-clause populations and aggregate terminal effects.  The first
+later decision mismatch was traced backward from decision level 35.  EVSIDS
+scores matched, but heap topology did not: the Probe pipeline removed 369
+Kissat variables versus 33 Tactix variables.  Slot snapshots made the first
+formula owner the TransitiveReduce call between the Vivify calls.
+
+The retained source comparison separated three mechanics: mode-dependent
+activity order versus ascending literals, early destination exit versus a
+complete BFS, and Kissat's second \code{IDX} conversion on a scheduled variable
+index.  Two bounded Tactix-only experiments isolated them.
+
+Job \code{1637470} tested native order, early exit alone, an ordinary
+own-variable heuristic order, and their combination.  Early exit was
+bit-identical.  The ordinary heuristic changed work but deleted no binaries at
+the boundary, so that candidate was reverted.
+
+Job \code{1637474} then posed the literal reference comparator, both with and
+without early exit.  The two arms were identical.  The first V4 call changed
+from zero deletions to 24; the retained Kissat trace deletes 21.  Its ending
+binary counts are 751,109 Tactix and 751,102 Kissat, reducing a ten-binary
+pre-call excess to seven.  After the second Vivify they are 751,122 and
+751,112.  Later Sweep/Substitute transitions make the counts close through
+different equivalence and retained-root representations.  That is the next
+open boundary; the evidence does not reopen Vivify deduction or V4 source
+order.
+
+\section*{Implementation decision}
+The production change is deliberately narrow.
+
+\begin{itemize}
+\item Only TransitiveReduce interprets its heuristic arm through the reference
+  \code{v >> 1} activity proxy and back-to-front tie semantics.
+\item Because Tactix consumes from the front, it uses decreasing activity and
+  a decreasing-variable tie, preserving positive-then-negative sign order.
+\item The default V4 slot selects this order.  Other rules and candidate-order
+  arms retain their prior meaning.
+\item Early exit remains off because its one-at-a-time arm changed no formula
+  state at the witness boundary.
+\end{itemize}
+
+The focused regression independently computes the best reference proxy and
+requires that candidate first.  The slot test requires V4 to ship with the
+reference activity arm.  Release's 72 tests include the TransitiveReduce
+brute-force equivalence oracle and proof checks.  No unit test or fuzzing
+exposed a crash or soundness defect, so the plan's mandatory Claude
+repair-delegation trigger did not fire.
+
+\section*{Correctness and performance guard}
+Matched campaign
+\artifact{benchmarks/runs/20260821-1830-BC-transitive-reference-order/}
+ran the accepted pin and candidate on all 28 Tier-B fixtures plus the inherited
+fixed five mechanism-relevant Tier-C fixtures.
+
+The first submission, job \code{1637476}, was invalid harness setup:
+\code{matrix.tsv} had not been copied.  All tasks failed before CNF
+decompression or solver invocation, and produced no certificate residue.  The
+unchanged frozen matrix was restored; corrected job \code{1637542} completed.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Arm & valid & SAT / UNSAT & aggregate & peak RSS \\
+\midrule
+Accepted pin & 33/33 & 17 / 16 & 2202.399 s & 3.234 GiB \\
+Candidate & 33/33 & 17 / 16 & 2773.863 s & 3.360 GiB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All 34 SAT models and 32 UNSAT proofs verify.  There are no invalid,
+malformed, missing, cleanup-bad, or residual-certificate tasks.  The ratio is
+1.259473, so the earlier \code{mp1-Nb5T15}/\code{sted5} performance coupling
+remains open.  This faithful repair is not promoted as a new accepted
+performance pin.
+
+\section*{Rank-27 witness}
+Only after the full guard passed was immutable witness job \code{1637608}
+submitted.  It returned UNKNOWN at 1,200.004 seconds.  The runner recorded a
+147,849,216-byte partial proof, SHA-256
+\code{38b4c082...85033}, then deleted it and all derived scratch.  Certificate
+residue is zero.  The previous Vivify-only witness generated a
+252,706,816-byte partial proof at the same deadline; the smaller artifact is
+descriptive trajectory evidence, not a solved result or timing conclusion.
+
+\section*{Limitations and next action}
+Rank 27 remains open and is not added to the nine closed ranks.  The next
+UNSAT-first localization begins at the residual post-Vivify Sweep/equivalence
+and retained-root representation split.  It must not repeat the completed
+Vivify candidate/deduction work or the closed TransitiveReduce ordering
+attribution.  In parallel sequence, the 1.259x fixed-C/Tier-B coupling remains
+subject to mechanism localization.  Any further source repair again owes the
+complete 28B+fixed-C guard before another Tier-D witness.
+
+\begin{sloppypar}
+The durable technical report is in \artifact{benchmarks/reports/}, file
+\artifact{2026-08-21-tierd-rank27-transitive-reference-order.md}.
+The current resume surface is \artifact{PROGRESS.md}; durable mechanism
+evidence is in \artifact{docs/implementation-notes.md} and
+\artifact{docs/scheduling-parity-ledger.md}.
+\end{sloppypar}
+
+\end{document}

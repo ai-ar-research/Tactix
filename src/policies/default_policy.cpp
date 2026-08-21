@@ -823,7 +823,8 @@ uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
   return n;
 }
 
-uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst) {
+uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
+                   bool transitive_reference_order) {
   Lit l;
   if (!lit_of_instance(k, inst, &l) || var_of(l) >= k.nvars)
     return 0; // not a literal payload: leave it where the native order had it
@@ -837,14 +838,20 @@ uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst) {
   }
   case CandidateOrder::NegOccDesc:
     return ~static_cast<uint64_t>(lit_occurrences(k, negate(l), true));
-  case CandidateOrder::Heuristic:
+  case CandidateOrder::Heuristic: {
+    // transitive.c schedules variable indices but its comparator applies IDX
+    // once more before consulting activity.  Keep that literal reference
+    // behavior local to TransitiveReduce; other users of the generic arm rank
+    // the candidate's own variable as expected.
+    const Var proxy = transitive_reference_order ? v >> 1 : v;
     if (k.h->stable) {
-      const double s = k.h->scores.score[v];
+      const double s = k.h->scores.score[proxy];
       uint64_t bits = 0;
       std::memcpy(&bits, &s, sizeof bits);
       return bits;
     }
-    return k.h->links[v].stamp;
+    return k.h->links[proxy].stamp;
+  }
   default:
     return 0;
   }
@@ -874,13 +881,30 @@ void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
   }
   if (arm == CandidateOrder::Heuristic && !k.h)
     return;
+  const std::vector<RuleVTable> &rules = tactix_rules();
+  const bool transitive_reference_order =
+      arm == CandidateOrder::Heuristic && rule < rules.size() &&
+      !std::strcmp(rules[rule].name, "TransitiveReduce");
   scratch_.resize(n);
   for (uint32_t i = 0; i < n; i++)
-    scratch_[i] = {order_key(k, arm, insts[i]), insts[i]};
+    scratch_[i] = {order_key(k, arm, insts[i], transitive_reference_order),
+                   insts[i]};
   std::stable_sort(
       scratch_.begin(), scratch_.end(),
-      [](const std::pair<uint64_t, uint64_t> &a,
-         const std::pair<uint64_t, uint64_t> &b) { return a.first < b.first; });
+      [transitive_reference_order](
+          const std::pair<uint64_t, uint64_t> &a,
+          const std::pair<uint64_t, uint64_t> &b) {
+        if (a.first != b.first)
+          return transitive_reference_order ? a.first > b.first
+                                            : a.first < b.first;
+        if (transitive_reference_order) {
+          Lit al, bl;
+          if (lit_of_instance(a.second, &al) &&
+              lit_of_instance(b.second, &bl) && var_of(al) != var_of(bl))
+            return var_of(al) > var_of(bl);
+        }
+        return false;
+      });
   for (uint32_t i = 0; i < n; i++)
     insts[i] = scratch_[i].second;
 }
@@ -1494,6 +1518,11 @@ void DefaultInprocessScheduler::build(Kernel &k) {
         SlotEntry e;
         e.defer_preprocess = !std::strcmp(nm, "BVE");
         e.rule = i;
+        // Kissat transitive.c activity-sorts its variable stack and consumes
+        // it from the back.  The dedicated comparator path above also retains
+        // its exact IDX-on-variable reference behavior.
+        if (!std::strcmp(nm, "TransitiveReduce"))
+          e.order = CandidateOrder::Heuristic;
         e.enabled = on;
         {
           size_t norder = 0;
