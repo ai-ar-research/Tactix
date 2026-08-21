@@ -6,12 +6,17 @@
 #include "policies/default_policy.hpp"
 #include "rules/propagate/propagate.hpp"
 
+#include "proof/proof.hpp"
+
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <vector>
+
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -57,6 +62,10 @@ static void test_variable_compaction() {
     heuristics_deactivate_var(k, v);
     k.unassigned_active--;
   }
+  // Kissat remaps (rather than resets) the focused queue search cache during
+  // compact_queue.  Preserve the same external candidate across renumbering.
+  hg.h.search_idx = 4;
+  hg.h.search_stamp = hg.h.links[4].stamp;
   assert(kernel_should_compact_variables(k, 10));
   assert(kernel_compact_variables(k));
 
@@ -66,6 +75,7 @@ static void test_variable_compaction() {
          std::vector<Var>({0, INVALID_VAR, 1, INVALID_VAR, 2}));
   assert(kernel_internalize(k, 3) == make_lit(1, false));
   assert(kernel_externalize(k, make_lit(2, true)) == -5);
+  assert(kernel_externalize(k, make_lit(hg.h.search_idx, false)) == 5);
   assert(lit_instance(k, make_lit(2, false)) == stable_instance);
   assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
   const Clause *c = clause_at(k.arena, 0);
@@ -101,6 +111,110 @@ static void test_variable_compaction() {
 
   kernel_extend_model(k);
   assert(k.model_values[internalize(2)] > 0);
+}
+
+static void test_compaction_counts_root_fixed_and_rewatches() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 11);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  const Lit target[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, target, 3, false, 0);
+  kernel_assign_unit(k, internalize(-1));
+  kernel_assign_unit(k, internalize(11));
+  hg.h.search_idx = 2;
+  hg.h.search_stamp = hg.h.links[2].stamp;
+  assert(kernel_should_compact_variables(k, 10));
+  assert(kernel_compact_variables(k));
+  assert(k.nvars == 11 && k.stats.variable_compactions == 1);
+  assert(hg.h.search_idx == 2 && hg.h.search_stamp == hg.h.links[2].stamp);
+  const Clause *clause = clause_at(k.arena, 0);
+  assert(clause->lits[0] != internalize(1) &&
+         "a compacting collection must rewatch the whole arena");
+}
+
+// Kissat moves each surviving literal's watch vector wholesale during variable
+// compaction.  The directed binary prefix must therefore retain its own
+// encounter order; rebuilding it from numerically enumerated undirected pairs
+// can reverse a shared endpoint even though the formula is unchanged.
+static void test_variable_compaction_preserves_directed_binary_order() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 5);
+  const Lit shared = internalize(5);
+  kernel_add_binary_clause(k, internalize(3), shared);
+  kernel_add_binary_clause(k, internalize(1), shared);
+
+  const auto external_partners = [&] {
+    std::vector<int> result;
+    const Lit current_shared = kernel_internalize(k, 5);
+    for (const WatchEntry watch : k.watches.entries(current_shared))
+      if (watch.binary())
+        result.push_back(kernel_externalize(k, watch.other()));
+    return result;
+  };
+  assert((external_partners() == std::vector<int>{3, 1}));
+
+  // Retire an unrelated variable so all binary endpoints remain live while
+  // their internal identities move.
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, 1);
+  k.unassigned_active--;
+  assert(kernel_compact_variables(k));
+  assert((external_partners() == std::vector<int>{3, 1}));
+  kernel_check_invariants(k);
+}
+
+// Variable compaction is not an arena-policy checkpoint.  Kissat keeps a
+// replacement at its source clause's position during compacting collection;
+// Tactix appends the replacement and retains that native position in the
+// inherited clause-order key.  Compaction must replay the logical source order
+// and must not leak an independently configured inprocessing order.
+static void test_variable_compaction_replays_inherited_arena_order() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(7);
+  const Lit source[3] = {shared, internalize(3), internalize(4)};
+  const Lit middle[3] = {shared, internalize(5), internalize(6)};
+  const Lit later[3] = {shared, internalize(4), internalize(5)};
+  const Lit replacement[3] = {shared, internalize(3), internalize(6)};
+  const Ref source_ref = kernel_add_large_clause(k, source, 3, false, 0, 101);
+  kernel_add_large_clause(k, middle, 3, false, 0, 102);
+  kernel_add_large_clause(k, later, 3, false, 0, 103);
+  kernel_add_large_clause(k, replacement, 3, false, 0, 104);
+  kernel_inherit_clause_order(k, 104, 101);
+  kernel_delete_clause(k, clause_at(k.arena, source_ref));
+
+  const auto watched_ids = [&] {
+    std::vector<uint64_t> ids;
+    const Lit current_shared = kernel_internalize(k, 7);
+    for (const WatchEntry watch : k.watches.entries(current_shared))
+      if (!watch.binary() && !clause_at(k.arena, watch.ref())->garbage())
+        ids.push_back(clause_at(k.arena, watch.ref())->id());
+    return ids;
+  };
+  assert((watched_ids() == std::vector<uint64_t>{102, 103, 104}));
+
+  struct ReverseOrder final : ArenaOrdering {
+    void order(const Kernel &, std::vector<Ref> &refs) override {
+      std::reverse(refs.begin(), refs.end());
+    }
+  } reverse;
+  k.arena_ordering = &reverse;
+
+  // Retire an unrelated variable.  Physical append order is 102,103,104 and
+  // the posed policy would reverse it to 104,103,102.  The distinct result is
+  // 104,102,103 because replacement 104 inherits source position 101.
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, 1);
+  k.unassigned_active--;
+  assert(kernel_compact_variables(k));
+  assert(k.arena_ordering == &reverse);
+  assert((watched_ids() == std::vector<uint64_t>{104, 102, 103}));
+  kernel_check_invariants(k);
 }
 
 static void test_compaction_defers_retired_jumped_reason() {
@@ -302,6 +416,214 @@ static void test_sparse_collection_flushes_fixed_prefix_watch() {
     live_watch |= !w.binary();
   assert(!fixed_watch && "Kissat flushes prefix watches of fixed literals");
   assert(live_watch);
+  kernel_check_invariants(k);
+}
+
+// Kissat's sparse collector keeps the unswept prefix, then stably partitions
+// a mixed swept tail into irredundant and redundant clauses before rewatching
+// it.  The partition is a collection invariant, not an arena policy choice.
+static void test_sparse_collection_partitions_mixed_tail() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(1);
+  const Lit prefix[3] = {shared, internalize(2), internalize(3)};
+  const Lit red_first[3] = {shared, internalize(3), internalize(4)};
+  const Lit irred_first[3] = {shared, internalize(4), internalize(5)};
+  const Lit red_second[3] = {shared, internalize(5), internalize(6)};
+  const Lit irred_second[3] = {shared, internalize(6), internalize(7)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 201);
+  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 202);
+  kernel_add_large_clause(k, irred_first, 3, false, 0, 203);
+  kernel_add_large_clause(k, red_second, 3, true, 8, 204);
+  kernel_add_large_clause(k, irred_second, 3, false, 0, 205);
+
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse;
+  kernel_collect_garbage(k, start);
+  assert(k.arena_ordering == &reverse);
+
+  std::vector<uint64_t> arena_ids;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    arena_ids.push_back(c->id());
+    ref += clause_words(c->size);
+  }
+  assert((arena_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
+
+  std::vector<uint64_t> watched_ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((watched_ids == arena_ids));
+  kernel_check_invariants(k);
+}
+
+// The same partition must compose with root shortening: replacements retain
+// their source position within their redundancy class, then the two stable
+// classes form Kissat's rewatched sparse tail.
+static void test_root_sparse_collection_partitions_rewritten_tail() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  kernel_assign_unit(k, internalize(1));
+  const Lit shared = internalize(2);
+  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
+  const Lit red_rewritten[4] = {internalize(-1), shared, internalize(4),
+                                internalize(5)};
+  const Lit irred_first[3] = {shared, internalize(5), internalize(6)};
+  const Lit red_second[3] = {shared, internalize(6), internalize(7)};
+  const Lit irred_second[3] = {shared, internalize(7), internalize(8)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 301);
+  const Ref start =
+      kernel_add_large_clause(k, red_rewritten, 4, true, 7, 302);
+  kernel_add_large_clause(k, irred_first, 3, false, 0, 303);
+  kernel_add_large_clause(k, red_second, 3, true, 8, 304);
+  kernel_add_large_clause(k, irred_second, 3, false, 0, 305);
+
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse;
+  assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::Changed);
+  assert(k.arena_ordering == &reverse);
+
+  std::vector<uint64_t> arena_ids;
+  std::vector<bool> redundant;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    arena_ids.push_back(c->id());
+    redundant.push_back(c->redundant());
+    ref += clause_words(c->size);
+  }
+  assert((arena_ids == std::vector<uint64_t>{301, 303, 305, 1, 304}));
+  assert((redundant == std::vector<bool>{false, false, false, true, true}));
+
+  std::vector<uint64_t> watched_ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((watched_ids == arena_ids));
+  kernel_check_invariants(k);
+}
+
+// Reduce has already marked its victims when it enters the root-aware sparse
+// collector.  Pre-existing garbage alone must therefore trigger the sweep and
+// rewatch; it must not depend on an unrelated root shortening in the same pass.
+static void test_root_sparse_collection_collects_existing_garbage() {
+  Kernel k;
+  kernel_reserve_vars(k, 9);
+  kernel_assign_unit(k, internalize(1));
+  const Lit shared = internalize(2);
+  const Lit prefix[3] = {shared, internalize(3), internalize(4)};
+  const Lit red_first[3] = {shared, internalize(4), internalize(5)};
+  const Lit source_lits[3] = {shared, internalize(5), internalize(6)};
+  const Lit victim_lits[3] = {shared, internalize(6), internalize(7)};
+  const Lit middle_lits[3] = {shared, internalize(7), internalize(8)};
+  const Lit replacement_lits[3] = {shared, internalize(8), internalize(9)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 401);
+  const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 402);
+  const Ref source =
+      kernel_add_large_clause(k, source_lits, 3, false, 0, 403);
+  const Ref victim =
+      kernel_add_large_clause(k, victim_lits, 3, true, 8, 404);
+  kernel_add_large_clause(k, middle_lits, 3, false, 0, 405);
+  kernel_add_large_clause(k, replacement_lits, 3, false, 0, 406);
+  kernel_inherit_clause_order(k, 406, 403);
+  kernel_delete_clause(k, clause_at(k.arena, source));
+  kernel_delete_clause(k, clause_at(k.arena, victim));
+  const uint64_t generation = k.arena_generation;
+
+  // The root assignment is deliberately absent from every live clause, so
+  // collecting the already-marked victim is the only reason to compact.
+  assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::NoChange);
+  assert(k.arena_generation == generation + 1);
+
+  std::vector<uint64_t> arena_ids;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    arena_ids.push_back(c->id());
+    ref += clause_words(c->size);
+  }
+  assert((arena_ids == std::vector<uint64_t>{401, 406, 405, 402}));
+
+  std::vector<uint64_t> watched_ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((watched_ids == arena_ids));
+  kernel_check_invariants(k);
+}
+
+// A retired clause must be retired exactly ONCE on the proof channel too. A
+// checker retires one clause per `d` line and, under DRAT, selects it by the
+// literals, so a second deletion of an already-garbage record silently retires
+// the live duplicate the solver keeps — after which the next lemma resolving
+// through it is not RUP. Regression for the certificate rejected on
+// tierC/asconhashv12 (benchmarks/runs/20260818-1930-BC-inherited-sparse).
+static void test_repeated_clause_deletion_emits_one_proof_line() {
+  Kernel k;
+  ScopedHeuristics _hg(k);
+  Proof proof;
+  const std::string path = "/tmp/tactix-delete-idempotence-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".drat";
+  assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+  k.proof = &proof;
+  kernel_reserve_vars(k, 4);
+  const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+  // Two live records with the SAME literals: exactly the state in which a
+  // surplus deletion is silent rather than a checker warning.
+  const Ref first = kernel_add_large_clause(k, lits, 3, true, 3, 11);
+  const Ref duplicate = kernel_add_large_clause(k, lits, 3, true, 3, 12);
+  kernel_delete_clause(k, clause_at(k.arena, first));
+  kernel_delete_clause(k, clause_at(k.arena, first)); // idempotent re-delete
+  assert(clause_at(k.arena, first)->garbage());
+  assert(!clause_at(k.arena, duplicate)->garbage());
+  proof.flush();
+  FILE *f = fopen(path.c_str(), "r");
+  assert(f);
+  char buf[256];
+  int dels = 0;
+  while (fgets(buf, sizeof buf, f))
+    if (buf[0] == 'd')
+      dels++;
+  fclose(f);
+  remove(path.c_str());
+  assert(dels == 1); // the surviving duplicate stays in the checker
+  k.proof = nullptr;
+}
+
+// `searched` carries a forwarding pointer only for a record the collection
+// COPIED. An OTFS reason retired before Backjump drains the register keeps its
+// search cursor there, so forwarding it unconditionally lands inside another
+// clause's literals; the register's own consumer already skips a garbage
+// record, so the collector must drop it.
+static void test_garbage_collection_drops_retired_otfs_reason() {
+  Kernel k;
+  ScopedHeuristics _hg(k);
+  kernel_reserve_vars(k, 8);
+  const Lit lead[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit retired[3] = {internalize(2), internalize(3), internalize(4)};
+  const Lit live[3] = {internalize(4), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, lead, 3, false, 0, 21);
+  const Ref stale = kernel_add_large_clause(k, retired, 3, true, 4, 22);
+  const Ref kept = kernel_add_large_clause(k, live, 3, true, 4, 23);
+  k.otfs_retired = {stale, kept};
+  // Some other rule retires the register entry before Backjump reaches it.
+  kernel_delete_clause(k, clause_at(k.arena, stale));
+  const uint32_t cursor = clause_at(k.arena, stale)->searched;
+  assert(cursor < clause_words(3)); // a cursor, not a record start
+
+  kernel_collect_garbage(k);
+
+  assert(k.otfs_retired.size() == 1);
+  const Ref forwarded = k.otfs_retired[0];
+  assert(clause_at(k.arena, forwarded)->id() == 23);
+  // Every surviving entry is a real record START, which is what the register's
+  // consumer dereferences.
+  bool is_record_start = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    is_record_start |= ref == forwarded;
+    ref += clause_words(clause_at(k.arena, ref)->size);
+  }
+  assert(is_record_start);
   kernel_check_invariants(k);
 }
 
@@ -654,6 +976,9 @@ static void test_canonical_binary_watch_rebuild() {
   }
   assert(after == std::vector<Lit>({lower0, lower1, lower2, higher}));
   assert(saw_large);
+  assert(k.watches.heads[pivot].binaries_first);
+  assert(kernel_binary_copies(k, pivot, higher) == 1);
+  assert(kernel_binary_copies(k, pivot, internalize(6)) == 0);
   assert(k.stats.congruence_binary_rebuilds == 1);
   kernel_check_invariants(k);
 
@@ -712,6 +1037,8 @@ static void test_propagate_beyond_conflicts_for_warmup() {
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
   const uint64_t decisions = k.stats.decisions;
+  const uint64_t ticks_before = k.stats.ticks;
+  const uint64_t search_ticks_before = k.stats.search_ticks;
   k.warming = true;
   kernel_propagate_beyond_conflicts(k);
   k.warming = false;
@@ -720,6 +1047,12 @@ static void test_propagate_beyond_conflicts_for_warmup() {
   assert(k.h->saved[2] == 1);
   assert(k.stats.warming_conflicts > 0);
   assert(k.stats.warming_propagations == 1);
+  // Kissat propbeyond.c charges warm-up work to total ticks only.  In
+  // particular it must not shorten the stable-mode search-tick interval.
+  assert(k.stats.ticks > ticks_before);
+  assert(k.stats.search_ticks == search_ticks_before);
+  kernel_charge_ticks(k, 7);
+  assert(k.stats.search_ticks == search_ticks_before + 7);
   assert(k.stats.decisions == decisions);
   assert(!k.conflict_valid && !k.inconsistent);
   kernel_backtrack(k, 0);
@@ -792,6 +1125,9 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
 int main() {
   test_variable_identity_maps();
   test_variable_compaction();
+  test_compaction_counts_root_fixed_and_rewatches();
+  test_variable_compaction_preserves_directed_binary_order();
+  test_variable_compaction_replays_inherited_arena_order();
   test_compaction_defers_retired_jumped_reason();
   test_compaction_drops_unassigned_stale_reason();
   test_lit_encoding();
@@ -801,6 +1137,11 @@ int main() {
   test_root_sparse_collection_ignores_nonroot_values();
   test_root_sparse_collection_rewrites_nonroot_reason();
   test_sparse_collection_flushes_fixed_prefix_watch();
+  test_sparse_collection_partitions_mixed_tail();
+  test_root_sparse_collection_partitions_rewritten_tail();
+  test_root_sparse_collection_collects_existing_garbage();
+  test_repeated_clause_deletion_emits_one_proof_line();
+  test_garbage_collection_drops_retired_otfs_reason();
   test_large_clause_propagation();
   test_root_conflict_is_unsat();
   test_backtrack_restores();

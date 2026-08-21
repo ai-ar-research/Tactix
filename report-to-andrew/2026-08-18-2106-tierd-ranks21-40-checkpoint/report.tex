@@ -1,0 +1,2508 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Tier-D Ranks 21--40: Rank 29 Closure and N2 Checkpoint}
+\author{Tactix engineering handoff}
+\date{18 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Objective and current outcome}
+The active round is the frozen set of twenty Kissat-over-Tactix gaps at ranks
+21--40 under the pre-Phase-4.5 contract: one solver thread, 16\,GiB process
+limit, and 1,200-second solve limit. The objective remains to close all twenty
+with checked Tactix answers while preserving N1--N4, all 28 Tier-B instances,
+the fixed five Tier-C guards, and zero certificate residue.
+
+This checkpoint closes Rank 29's first traced representation mismatches and
+produces a checked SAT solve in 130.767 seconds, versus the frozen eligible
+Kissat result of 294.468 seconds. The cumulative pin checks six of twenty
+ranks: 21, 23, 25, 28, 29, and 38. It is nevertheless rejected because the
+paired Tier-C guard found an N2 proof failure on \code{asconhashv12}. No
+performance promotion is claimed from a pin that fails correctness.
+
+\section*{Rank 29: portable compaction-order repair}
+Before conflict 1000, Tactix and Kissat had the same directed binary order.
+Reduce-time variable compaction reconstructed both directions from one
+undirected stream and reversed the order. Preserving each directed prefix
+repaired that frontier, but the run still timed out. Continued common-state
+tracing exposed two later representation defects.
+
+First, a replacement inherited its source's stable position but remained
+physically appended behind later clauses. Second, Reduce marked victims before
+sparse collection, while the collector ran only when root simplification
+changed some other clause. Thus pre-existing garbage could survive and the
+expected rewatch never happen. The accepted general repair collects for either
+pre-existing garbage or root rewriting, replays the swept tail by persistent
+source-position key, and stably partitions irredundant before redundant
+clauses. Tests use synthetic mixed tails and contain no benchmark, rank,
+literal, conflict, hash, or deadline identity.
+
+Trace job \code{1634075} matches all 61,653 portable semantic records and all
+297,047 normalized-watch records through conflict 2400. Runtime job
+\code{1634074} checks the resulting Rank-29 model. The code checkpoint is
+commit \code{9869a43}; the exact validation narrative is in \code{PROGRESS.md}.
+
+\section*{Cumulative evidence and the blocking correctness result}
+Job \code{1634095}, in
+\artifact{benchmarks/runs/20260818-1930-tierd-ranks21-40-inherited-sparse/},
+finishes all twenty tasks. Six answers validate (five SAT and one UNSAT),
+fourteen time out, peak RSS is 6,909,372 KiB, and certificate residue is empty.
+Ranks 23 and 29 are newly closed relative to the preceding cumulative pin, and
+no previously closed rank is lost.
+
+Job \code{1634094}, in
+\artifact{benchmarks/runs/20260818-1930-BC-inherited-sparse/}, is 28/28 on Tier
+B and 4/5 on the fixed Tier-C subset. \code{asconhashv12} reports UNSAT in
+101.224 seconds, but drat-trim rejects the 15,605,586-byte certificate at the
+unit \code{-1997}. Every task still completes certificate cleanup, so residue
+is zero. The job manifest explicitly rejects the pin and requires soundness
+diagnosis before promotion.
+
+\section*{First N2 hypothesis and focused falsification}
+The rejected proof contains hundreds of deletion lines for clauses the checker
+no longer holds. The common large-clause retirement primitive wrote a proof
+deletion before testing whether its arena record was already garbage. A second
+retirement was therefore an idempotent solver-state no-op but a second checker
+mutation. This is especially dangerous in DRAT: deletion is keyed by literals,
+so the surplus line can consume a different live duplicate and make a later
+unit cease to be RUP.
+
+The first production repair checks the garbage bit before emitting the
+deletion, making the whole retirement transition idempotent. Sparse collection
+also drops a deferred OTFS reason if another rule already retired it; its dead
+\code{searched} word is a cursor, not a forwarding reference. Generic tests
+cover exactly one deletion for duplicate literals and safe collection of a
+retired deferred reason.
+
+An optional diagnostic build feature shadows the checker's live clause
+population and aborts at the first unbacked deletion. It is armed only after
+the frontend has seeded the full input population, and production builds
+compile its emission hooks out. The rebuilt shadow suite passes 72/72; Release,
+Trace, and ASAN-O3 pass 72/72, 71/71, and 72/72.
+
+Focused job \code{1634219} falsifies this as the complete Ascon cause. The
+production and shadow arms finish in 96.988 and 97.438 seconds and emit the
+same 15,605,586-byte certificate as the rejected predecessor; drat-trim again
+rejects unit \code{-1997}. The shadow does not abort. The warned surplus
+deletions therefore precede the point at which the frontend arms the oracle,
+during input finalization, or are absent from the seeded population. The
+production pin remains rejected. Both tasks remove all certificate scratch.
+
+The extended oracle now seeds every raw DIMACS clause before normalization.
+It identifies the first real divergence on the generic \code{dupbinary.cnf}
+microcase: the parser stores normalized binary \code{-4 3} from raw clause
+\code{-4 3 3}, but DRAT had never been given the normalized multiset. Sparse
+collection later deletes \code{-4 3}; that deletion is unbacked even though the
+two clauses are set-equivalent. The prior assumption that DRAT required no
+input restatement was therefore false: additions use logical semantics, but
+deletions match the exact literal multiset.
+
+The general repair queues narrowed stored clauses for both formats and adds
+their exact normalized form at \code{finish\_input}. Native LRAT retains its
+explicit root-unit and original-id hints; DRAT lets the checker discover the
+same RUP justification. The shadow suite is now 72/72 clean, including all
+binary/ascii DRAT and native-LRAT microproofs. The repaired Release, Trace, and
+ASAN-O3 suites pass 72/72, 71/71, and 72/72. This is a local proof gate only;
+Ascon has not yet reverified, so the production pin remains rejected.
+
+Focused job \code{1634231} then falsifies input restatement as the Ascon
+blocker. Both arms report 643 restatements, solve in 96.588 and 97.139 seconds,
+and emit the same 15,610,721-byte proof. Drat-trim still rejects unit
+\code{-1997}, now at proof line 768571 modulo deletion errors. The extended
+shadow does not abort, proving every emitted deletion has a backing clause in
+the checker's exact raw-input-derived population. All proof scratch is removed.
+The input repair is retained as a general N2 correction, but does not promote
+the production pin.
+
+Forward-mode diagnostic job \code{1634233} verifies every preceding addition
+and proves that unit \code{-1997} itself is the first invalid inference, at
+checker clause id 1354312 and proof line 768571. Its neighboring additions are
+equivalence binaries, while solver statistics report 39 units from the V6a/Y1
+binary-resolution channel. Congruence is therefore the leading emitter to
+isolate, though this adjacency is not yet a causal proof. The 94.929-second
+solve and 55.770-second forward check leave no certificate residue.
+
+Isolation job \code{1634236} makes the causal test: it disables only the
+existing V6a/Y1 channel. Ascon still solves UNSAT in 107.956 seconds, and
+drat-trim verifies the 63,635,534-byte proof in 60.224 seconds. The run reports
+zero Y1 findings/units and removes all certificate scratch. Thus Y1 is the
+necessary upstream channel on the bad trajectory. This is diagnostic evidence,
+not a promotion of the off arm: V6a remains retained by the T105/N4 result.
+
+Premise-shadow job \code{1634243} then reaches the unchanged failure in 95.771
+seconds without aborting. Both exact binary premises of every direct Y1 unit
+remain in the checker's population. Direct Y1 premise loss is therefore
+falsified: disabling Y1 changes the upstream root trajectory and avoids a bad
+unit emitted later within Congruence. The actual unit-emission channel still
+needs an origin label. Certificate residue is zero.
+
+Unit-origin job \code{1634245} supplies that label: \code{-1997} is a
+\code{value-unit}, emitted from \code{Canon::Unit} after value-derived gate
+canonicalization. It is not a direct Y1 unit. The run takes 95.686 seconds,
+reproduces the same certificate, and cleans all scratch. The next distinction
+is whether speculative RUP replay rejects the structural inference in the
+solver's own database or succeeds there and thereby proves a remaining
+solver/checker formula divergence.
+
+A compile-time shadow-only diagnostic now forces that replay for every
+value-derived unit and prints its gate family plus pass/fail result. The Shadow
+and Release suites each pass 72/72 locally. The production build contains no
+runtime diagnostic branch, and no new production pin is promoted. The focused
+Ascon shadow task is campaign
+\artifact{20260818-2212-ascon-value-unit-replay}, Slurm job \code{1634264},
+pinned from commit \code{1a53ba3} with shadow binary \code{ef58cf2e...}.
+Resume by reading its \code{forced-rup} label, checked result, and certificate
+cleanup state.
+
+Job \code{1634264} completes the distinction. The bad unit is labeled
+\code{value-unit -1997 kind=xor forced-rup=fail}: it is not RUP even in
+Tactix's own clause database. The shadow drops that one unjustified inference,
+then solves UNSAT in 95.785 seconds; drat-trim verifies the 15,604,302-byte
+proof in 57.775 seconds. All certificate scratch is removed. This localizes a
+solver-side XOR \code{Canon::Unit} correctness defect, not checker-population
+divergence. The shadow's fail-closed replay is diagnostic only; the production
+repair must correct the canonicalization/root-value reasoning itself.
+
+The next shadow refinement dumps the failed gate's output plus every original
+input, union-find representative, root value, and unit reason id. This will
+distinguish a stale extracted gate from incorrect parity/value folding before
+any production edit. The pinned campaign is Slurm job \code{1634270}, from
+commit \code{cdf3109} and shadow binary \code{79843e74...}:
+\begin{center}\small\artifact{20260818-2220-ascon-xor-gate-dump}\end{center}
+
+Job \code{1634270} identifies the exact shape:
+\code{1997=XOR(341,1562,1844)}, where \code{341=0} and
+\code{1562} is equivalent to \code{1844}. The equivalent pair cancels, but the
+separate valued input made the implementation bypass the mandatory
+parity-elimination ladder. The repair routes every XOR with a nonempty
+cancelled set through that ladder, including mixed valued-plus-cancelled gates.
+A native-LRAT regression covers this generic shape. Release, Shadow, Trace,
+and ASAN-O3 pass 72/72, 72/72, 71/71, and 72/72 respectively. Focused
+production Ascon verification is campaign
+\artifact{20260818-2235-ascon-xor-ladder-repair}, Slurm job \code{1634293},
+from commit \code{ddc2ce4} and release pin \code{494b8bd...}.
+
+Job \code{1634293} passes: production solves UNSAT in 95.680 seconds and
+drat-trim verifies the 15,610,817-byte proof in 57.220 seconds. Congruence
+reports eight units and zero unjustified inferences; all certificate scratch is
+removed. The focused blocker is cleared, so the paired 28B+5C and frozen ranks
+21--40 cumulative guards are next. No production pin is promoted until both
+complete.
+
+Both guards are submitted from the exact focused-verified pin
+\code{494b8bd...}. The 28B+5C campaign is job \code{1634307}:
+\begin{center}\small\artifact{20260818-2240-BC-xor-ladder}\end{center}
+The frozen ranks 21--40 campaign is job \code{1634294}:
+\begin{center}\small\artifact{20260818-2240-tierd-ranks21-40-xor-ladder}\end{center}
+Neither array has a throttle or node constraint.
+
+The 28B+5C array completes 33/33 valid: Tier B is 28/28 (14 SAT, 14
+UNSAT), and Tier C is 5/5 (3 SAT, 2 UNSAT). Every answer is model/proof
+checked and certificate residue is zero. Ascon checks UNSAT again in 122.306
+seconds plus 63.054 seconds verification. This accepts the paired correctness
+half; ranks 39--40 are the only Tier-D tasks still running.
+
+The Tier-D array also completes cleanly. It closes the same six ranks as its
+predecessor---21, 23, 25, 28, 29, and 38---with no gains and no losses. All six
+answers check; the other fourteen tasks time out at 1,200 seconds. Peak RSS is
+6,919,528 KiB and certificate residue is zero. The paired cumulative guards
+therefore accept release pin \code{494b8bd...}; the proof repair changes no
+Tier-D coverage. Rank 22 is the first still-open frozen target and becomes the
+next divergence diagnosis.
+
+The initial paired rank-22 semantic trace is Slurm job \code{1634369}:
+\begin{center}\small\artifact{20260818-2324-tierd-rank22-regression-trace}\end{center}
+It uses immutable Kissat/Tactix trace pins, 16 GiB, a 300-second
+solver limit, two unthrottled tasks, and no node constraint. Resume by comparing
+its portable streams with \artifact{tools/bench/compare\_event\_trace.py}.
+
+Job \code{1634369} is not yet causal evidence. Kissat spends all 300 seconds
+emitting 309,592,064 bytes of watch detail inside early Lucky and never reaches
+the first shared macro boundary; Tactix used watch/imply/heap suppression and
+reaches search before its 306,472,422-byte trace truncates. Cleanup is clean,
+but the observer contracts differ. Both arms must be rerun with symmetric
+watch/imply/heap suppression before comparison.
+
+The symmetric low-volume rerun is Slurm job \code{1634385}:
+\begin{center}\small\artifact{20260818-2331-tierd-rank22-low-volume-trace}\end{center}
+It uses the same pins and resources. Both arms now suppress
+watch, implication, and heap detail. Both arms time out cleanly: Kissat at
+300.129 seconds with a 262,586,368-byte trace, and Tactix at 300.133 seconds
+with a 306,472,422-byte truncated trace. Certificate residue is zero. Both
+reach search and their first two decisions agree.
+
+The stock semantic comparison still stops before a causal claim, but now for
+observer-vocabulary reasons: Tactix suppresses the initial \code{top32} field
+while Kissat retains it, Tactix omits propagation-cursor records, and one pin
+reports binary minimization at a finer tick granularity. These differences do
+not establish a solver
+state divergence. Resume by normalizing or filtering those observer-only
+records, then compare decisions, conflicts, learned clauses, and macro
+boundaries to locate the first portable semantic mismatch.
+
+After normalizing those records and Kissat's 4,095-byte per-record payload
+limit, every available decision and conflict agrees: 9,906 shared control
+records through conflict 527 and decision 9,389. Thus the apparent
+conflict-seven learned-clause mismatch was payload truncation, not solver
+divergence. The trace budget was instead consumed by 1,449,229 Tactix random
+draw records and by analysis ticks in both arms.
+
+The next symmetric control trace is Slurm job \code{1634396}:
+\begin{center}\small\artifact{20260818-2347-tierd-rank22-control-trace}\end{center}
+It suppresses random-draw and analysis-tick observations while retaining
+decisions, conflicts, and learned-clause stages. The immutable solver pins,
+16\,GiB limit, 300-second solver limit, unthrottled two-task array, and lack of
+a node constraint are unchanged. Trace trajectories run without proof mode;
+any emitted UNSAT answer is independently replayed with a proof and checked,
+and any SAT answer is model checked before it is accepted.
+
+Job \code{1634396} completes with clean 300-second timeouts and zero
+certificate residue. Suppression reduces the stable traces to 9,576,448 bytes
+for Kissat and 19,008,305 bytes for Tactix; neither hits the record cap. The
+streams match for 10,051 decision/conflict records, including conflicts 532
+and 533, then diverge at decision 9,529 on level 2,037: Kissat chooses external
+variable 3,859,653 while Tactix chooses 3,813,932.
+
+This frontier is now causal enough to choose the next observer. Conflict 533,
+its four-literal learned clause, and its backtrack level are identical.
+Kissat's analysis-end snapshot names 3,813,932 as both the search candidate
+and heap top, yet its next decision is 3,859,653; Tactix selects the named
+candidate. The evidence therefore points to Kissat taking a random-decision
+branch that Tactix does not take, rather than to conflict analysis, clause
+minimization, score bumping, or heap order. Resume by tracing the random
+decision scheduler and draw acceptance immediately after conflict 533.
+
+Trace-only commit \code{982fa9b} adds the missing Kissat random-draw observer;
+it reports the raw 32-bit value, modulo slot, external variable, and acceptance
+under the same conflict-window control already used by Tactix. The overlay
+materializes and builds cleanly from Kissat commit \code{8af8e56...}; the new
+Kissat diagnostic pin has SHA-256 prefix \code{54eef62c}. Focused Slurm job
+\code{1634399} is:
+\begin{center}\small\artifact{20260819-0001-tierd-rank22-randec-window}\end{center}
+It observes only conflicts 532--533, suppresses watch, implication, heap, and
+analysis-tick detail, and caps each trace at 200,000 records. Both tasks remain
+unthrottled at 16\,GiB with no node constraint. Compare the raw draw sequences,
+slots, external identities, and acceptance immediately before decision 9,529.
+
+Job \code{1634399} completes cleanly and resolves the scheduler branch. Kissat
+emits 162,294 random-draw records in the window, while Tactix emits none.
+Immediately after conflict 533, Kissat rejects 1,419 draws and accepts raw
+value 2,423,939,830 at slot 3,859,651, mapping to external variable 3,859,653.
+Tactix's random sequence is inactive and it takes the ranked candidate.
+Therefore the mismatch precedes the LCG, modulo mapping, and acceptance test:
+it is in random-sequence start/countdown lifetime. Both traces time out cleanly
+with zero certificate residue and neither reaches its record cap.
+
+The common history shows a focused restart after conflict 523, backtracking
+from level 286 to root, followed by the start of a random sequence. Resume by
+observing the sequence ordinal, computed length, remaining-conflict countdown,
+and next deadline at that start and after conflict 533. This will distinguish
+an ordinal/rounding mismatch from an off-by-one countdown mismatch before any
+production repair is attempted.
+
+Trace-only commit \code{13cb7e1} adds that state observer to both solvers and
+marks it auxiliary in semantic comparison. Release passes 72/72 tests, Trace
+passes 71/71, and a freshly materialized Kissat overlay builds cleanly.
+Focused Slurm job \code{1634404} is:
+\begin{center}\small\artifact{20260819-0014-tierd-rank22-randec-state}\end{center}
+It observes conflicts 520--533 while suppressing the high-volume draw stream.
+The 50,000-record cap, immutable pins, 16\,GiB limit, unthrottled two-task
+array, no node constraint, independent answer checks, and cleanup contract are
+recorded in the manifest.
+
+Job \code{1634404} completes as two clean 300-second UNKNOWN timeouts with
+zero certificate residue, but it is observer-invalid. Both solvers' existing
+\code{SEARCH\_ONLY} allowlists filtered the new \code{randec\_state} event, so
+the traces contain zero state records. The manifest records Kissat's
+1,269,760-byte trace and Tactix's 1,412,735-byte trace, with both full SHA-256
+identities.
+No production conclusion is permitted. Resume by adding the event symmetrically
+to both search/control allowlists, rebuilding and testing both trace binaries,
+then rerunning the identical frozen conflict-520--533 contract. That symmetric
+repair now builds cleanly in Tactix and a fresh Kissat overlay. The existing
+full Release 72/72 and Trace 71/71 suites pass; focused runtime/static
+regressions additionally require the state event to survive the compact
+filters. Commit \code{9fc6971} records that recovery point. The identical
+frozen-window rerun is now Slurm job \code{1634409}:
+\begin{center}\small\artifact{20260819-0025-tierd-rank22-randec-state-rerun}\end{center}
+Its manifest records fresh immutable Tactix/Kissat trace pins, the same
+conflict-520--533 window, suppressed random-draw detail, 50,000-record cap,
+16\,GiB and 300-second solver limits, unthrottled two-task array, no node
+constraint, independent answer replay/checking, and cleanup contract.
+
+Job \code{1634409} fails immediately and safely as infrastructure-invalid:
+campaign materialization set every copied pin to mode 0444, so both tasks
+report \code{PermissionError(13)} before solver execution. No trace or answer
+was produced; both scratch directories were deleted and certificate residue
+is zero. Its manifest records the failure and forbids a production conclusion.
+The pin bytes were recopied into a new campaign, every declared SHA-256 and
+mode 0555 was validated, and both solver pins passed executable version smoke
+checks. Corrected Slurm job \code{1634412} is:
+\begin{center}\small\artifact{20260819-0028-tierd-rank22-randec-state-rerun2}\end{center}
+All solver, trace, resource, answer-check, and cleanup contracts otherwise
+remain identical.
+
+Job \code{1634412} completes validly as two expected 300-second UNKNOWN
+timeouts. Neither trace truncates; random-draw detail remains suppressed;
+Kissat emits 3,059 state records and Tactix 6,144. The trace identities are
+recorded in the manifest. Both tasks delete scratch state with zero certificate
+residue.
+
+The state evidence resolves the cause. At conflict 523 both solvers start
+sequence 1, compute length 10, and set the next deadline to 1,023. At conflict
+533 Kissat still reports \code{remaining=1} and takes the random branch, while
+Tactix reports \code{until=533}, declares the sequence inactive, and takes the
+ranked candidate. The intervening conflict labeled 526 is produced during
+conflict analysis/OTFS, without a new decision or search-propagation call.
+Kissat decrements its counter only for conflicts returned by
+\code{kissat\_search\_propagate}; Tactix's absolute global-conflict deadline
+incorrectly charges the analysis conflict and expires one search-propagation
+conflict early. The production repair should replace that absolute lifetime
+with a remaining counter charged only by search-propagation conflicts, while
+preserving the already matching sequence ordinal, computed length, next
+deadline, LCG, slot mapping, and acceptance behavior.
+
+That repair is now implemented without changing a proof rule. The branching
+subpolicy exposes a default no-op search-propagation-conflict hook; the default
+brancher decrements its remaining random-sequence counter there. Analyze's
+internal OTFS conflicts therefore advance the global solver statistics but not
+the random lifetime. A focused unit regression models one charged propagation
+conflict followed by an uncharged OTFS conflict, then checks random selection
+through exact counter expiry. Release passes 72/72 tests and Trace passes
+71/71. The next step is a focused symmetric trace replay through conflict 533,
+followed by the rank-22 checked solver run and cumulative guards if the portable
+prefix now extends.
+
+Commit \code{a9f751c} records the tested repair. Focused symmetric replay job
+\code{1634419} is:
+\begin{center}\small\artifact{20260819-0040-tierd-rank22-randec-lifetime-replay}\end{center}
+It retains the frozen input and conflict-520--533 observer window, suppresses
+the draw stream, and uses freshly validated immutable pin hashes and executable
+modes. The 16\,GiB/300-second unthrottled two-task contract, no node constraint,
+answer replay/checking, and residue cleanup remain unchanged.
+
+Job \code{1634419} validates the focused repair. Both arms reach their expected
+300-second UNKNOWN timeout, neither trace truncates, and both clean scratch
+state with zero certificate residue. At conflict 533 both report one remaining
+random-sequence conflict and decision 9,529 selects external variable
+3,859,653. Projecting conflicts 523--533 onto decision/conflict records gives
+2,908 records from each solver; normalized event type, conflict count, decision
+count, and payload are byte-identical. The generic whole-trace comparator still
+reports the already known startup representation/macro asymmetries and a final
+Kissat timeout-flush partial record, so this result closes only the declared
+bounded causal frontier. The manifest records both trace hashes and that scope.
+Proceed to a checked 1,200-second production run on frozen rank 22.
+
+That production run is now Slurm job \code{1634423}:
+\begin{center}\small\artifact{20260819-0049-tierd-rank22-randec-lifetime-runtime}\end{center}
+It pins the Release binary from repair commit \code{a9f751c}, the frozen UNSAT
+instance and hash, and independent \code{drat-trim}/model checkers. The single
+task has a 16\,GiB process limit, 1,200-second solver limit, 4,800-second proof
+checker limit, no throttle or node constraint, and mandatory scratch/certificate
+cleanup before atomic result publication.
+
+Job \code{1634423} does not close rank 22. The candidate reaches the declared
+1,200.004-second limit without a final answer. It had written a 104,857,600-byte
+partial proof (SHA-256 recorded in the manifest), but UNKNOWN cannot be checked
+as UNSAT; the runner deletes that proof and all scratch state, leaving zero
+residue. Frozen Kissat remains checked UNSAT at 196.556 seconds. Thus the repair
+is accepted only as a focused parity correction: rank 22 stays open, the
+accepted release pin is unchanged, and divergence analysis resumes immediately
+after the now-matching conflict-533 frontier.
+
+That continuation is Slurm job \code{1634432}:
+\begin{center}\small\artifact{20260819-0112-tierd-rank22-post533-control-trace}\end{center}
+It freezes conflicts 534--560, suppresses random draws plus watch, implication,
+heap, and analysis-tick detail symmetrically, and raises the cap to 200,000
+records so state observations cannot hide the next control mismatch. Both arms
+complete as valid UNKNOWN timeouts without truncation and delete all scratch
+state, leaving zero certificate residue. Each bounded projection contains 399
+decisions and 18 conflicts; all 417 normalized event, conflict-count,
+decision-count, and payload records match byte-for-byte. The repaired portable
+prefix therefore extends through conflict 560. Rank 22 remains open; continue
+with a frozen window beginning at conflict 561, and authorize no production
+edit from an observer-only difference.
+
+The frozen extension through conflict 1,000 is Slurm job \code{1634434}:
+\begin{center}\small\artifact{20260819-0121-tierd-rank22-control-561-1000}\end{center}
+It reuses the exact immutable pins and symmetric suppression contract, with a
+500,000-record cap sized for the wider state-event window. Both tasks complete
+as valid, untruncated UNKNOWN timeouts and delete all scratch state, leaving
+zero certificate residue. Each projection contains 13,753 decisions and 421
+search-conflict records; all 14,174 normalized records match byte-for-byte
+through global conflict 1,000. Combined with job \code{1634432}, the post-repair
+prefix has 14,591 matched control records after conflict 533. Rank 22 remains
+open; extend the bounded observer from conflict 1,001.
+
+That extension is Slurm job \code{1634436}:
+\begin{center}\small\artifact{20260819-0129-tierd-rank22-control-1001-3000}\end{center}
+It freezes conflicts 1,001--3,000 under the identical immutable pins and
+symmetric event suppression, raising the cap to 2,500,000 records for the
+wider window. Both arms publish valid UNKNOWN results without hitting the cap
+and delete all scratch state, leaving zero certificate residue. Their common
+projection matches through conflict 1,005, conflict 1,006 itself, and decisions
+23,745--23,747. At stable-mode level four and global decision 23,748, Kissat
+selects external variable 28 while Tactix selects 10. Kissat's random state is
+inactive (remaining zero, next deadline 1,023, sequence one), and both solvers
+are stable, so this is an EVSIDS heap candidate/topology mismatch rather than
+another random-lifetime error. Resume with a narrow heap-score/top observer
+immediately before decision 23,748; no production edit is yet authorized.
+
+That observer is Slurm job \code{1634438}:
+\begin{center}\small\artifact{20260819-0138-tierd-rank22-heap-1005-1006}\end{center}
+It enables the existing symmetric stable-heap score/top events only for
+conflicts 1,005--1,006 while retaining suppression of watch, implication,
+analysis-tick, and random-draw detail. Both valid UNKNOWN arms are untruncated
+and clean all scratch. They learn the same unit \code{-10848} and share score
+bumps 5896, 5893, 5894, 10, 5931, 5928, 5930, and 5929. Kissat alone then bumps
+28, 14, 15, and 70; both finish with 13785 and 13793. Consequently Kissat
+raises variable 28 from 2.1107952244 to 3.3385328876, while Tactix leaves it
+below variable 10 at 3.3107551098. This missing-bump set, not heap tie handling,
+causes decision 23,748. Resume by exposing variable 10848's assignment reason
+and nearby implication clauses in conflicts 1,005--1,006; no production edit
+is yet authorized.
+
+That reason observer is Slurm job \code{1634440}:
+\begin{center}\small\artifact{20260819-0147-tierd-rank22-reason10848}\end{center}
+It freezes conflicts 1,004--1,006, selects external variable 10848 for the
+assignment observer, and enables implication records while retaining all other
+low-volume suppressions. The immutable pins, one-million-record cap,
+16\,GiB/300-second unthrottled tasks, no node constraint, answer checks, and
+cleanup contract are recorded in the manifest. Both traces reach the cap, but
+the selected records occur before truncation. At conflict 1,005 both solvers
+assign \code{-10848} from binary reason \code{-3722682}; at conflict 1,006
+both imply \code{10848} from the identical ternary reason
+\code{10848,13785,13793}. That direct reason accounts only for their shared
+final bumps 13785 and 13793. Kissat's extra 28, 14, 15, and 70 must therefore
+enter its main conflict-analysis set earlier in the traversal. The diagnostic
+Kissat arm emitted UNSAT in 230.121 seconds and replayed it in 196.292 seconds,
+but its 741,475,845-byte proof checker timed out at 600.104 seconds; that answer
+is explicitly invalid and the proof was deleted. Tactix timed out UNKNOWN at
+300.504 seconds. Both arms leave zero certificate residue. Resume by comparing
+main-analysis admissions and binary/jumped reason traversal at conflict 1,006;
+no production edit is yet authorized.
+
+That traversal observer is Slurm job \code{1634442}:
+\begin{center}\small\artifact{20260819-0214-tierd-rank22-analysis1006}\end{center}
+It records every newly admitted main-analysis literal, resolved trail literal,
+stored binary endpoint, Tactix jumped-over endpoint, and nonbinary reason
+literal at conflict 1,006. The trace-only sources pass Release 72/72 and Trace
+71/71; the Kissat overlay materializes and compiles. Immutable pins, a
+200,000-record cap, paired 16\,GiB/300-second tasks, independent answer checks,
+and cleanup are predeclared. The accepted production source remains
+\code{a9f751c}. Both arms finish as valid, untruncated UNKNOWN timeouts and
+leave zero residue. Their traversals match through the first three nonbinary
+resolutions and three binary resolutions to endpoint \code{-10848}. The first
+difference is assigned literal 10: Kissat stores ternary reason
+\code{10,28,-14}, while Tactix stores jumped binary endpoint \code{-10848}
+over direct antecedent \code{3825735}. Kissat consequently enters the
+\code{28 -> 14 -> 15 -> 70} reason subgraph; Tactix skips it. This explains
+all four missing bumps exactly and exonerates bump/heap handling. Resume by
+localizing why propagation chooses those different reasons, beginning with
+trail positions and binary-watch order around \code{-10848}; no production
+edit is yet authorized.
+
+The bounded implication follow-up is Slurm job \code{1634444}:
+\begin{center}\small\artifact{20260819-0226-tierd-rank22-implications1006}\end{center}
+It enables the existing implication stream at conflict 1,006 only. Its
+400,000-record cap avoids re-emitting preceding conflicts. Both focus prefixes
+are complete before later truncation and both tasks clean all scratch. Relative
+to 10848, both append 15 at +1, 70 at +926, -28 at +325716, and 14 at +326470
+with identical reasons; -3825735 appears at +325723 in Kissat and +325726 in
+Tactix from the same binary. Kissat appends 10 immediately after 14 at +326471
+from \code{-14,10,28}; Tactix appends it 72 entries later at +326542 with
+virtual reason \code{-10848,10}, whose direct antecedent is 3825735. Thus the
+owning divergence is propagation/watch pose around ternary
+\code{10,28,-14}. Kissat's traced UNSAT at 226.965 seconds is invalid: replay
+reproduces it, but the checker times out at 600.096 seconds. Its repeated
+741,475,845-byte proof is deleted; Tactix is valid UNKNOWN at 300.496 seconds.
+
+The filtered binary-origin journal is Slurm job \code{1634446}:
+\begin{center}\small\artifact{20260819-0240-tierd-rank22-binary-journal}\end{center}
+It selects external variable 10 at root conflict zero, caps output at 5,000
+transactions, and runs the validated 72/72 journal build for at most 180
+seconds. Its target is derived pair \code{(10,3825735)}, absent from the input.
+The single 16\,GiB task has no throttle or node constraint and cleans scratch;
+it times out cleanly with a 12-record, 3,099-byte journal and zero residue. No
+conflict-zero journaled transaction adds a binary involving variable 10. The
+pair is also absent both as an input binary and as two literals of any one
+original clause, so root transaction and direct root-shortening origins are
+excluded.
+
+The first search-learning follow-up was Slurm job \code{1634447}:
+\begin{center}\small\artifact{20260819-0245-tierd-rank22-analyze-journal}\end{center}
+It timed out cleanly in 300.319 seconds, left zero scratch residue, and wrote
+only the two 203-byte journal headers (SHA-256 \code{42ceb79f22961744d...}),
+with no transactions. This is a selector miss, not negative evidence:
+\code{Analyze} is not registered, while the atomic rule is
+\code{ConflictAnalysis}. Corrected Slurm job \code{1634448} preserved the
+validated binary, conflicts 1--1,005, external variable 10, 2,000-record cap,
+and single 16\,GiB/300-second unconstrained task:
+\begin{center}\small\artifact{20260819-0254-tierd-rank22-conflictanalysis-journal}\end{center}
+It timed out after 302.922 seconds with zero residue and an untruncated
+51,215-byte journal (SHA-256 \code{3223c873b0c47a1b...}). The corrected rule
+selector emits 87 transactions through conflict 89. Its only variable-10
+binary additions are \code{(-3826318,-10)} at conflict 5 and
+\code{(-10,3724608)} at conflict 64; target \code{(10,3825735)} is absent from
+that prefix. Full-formula pre/post digests and enormous learned-clause
+serialization prevented coverage of conflicts 90--1,005, so later search
+learning remains unresolved.
+
+The lower-overhead follow-up was Slurm job \code{1634449}:
+\begin{center}\small\artifact{20260819-0302-tierd-rank22-watchpose1006}\end{center}
+Both arms return valid UNKNOWN timeouts, untruncated traces, and zero residue.
+Kissat writes 516,096 bytes (SHA-256 \code{114d19ed2fcae93c...}); Tactix writes
+335,966 bytes (SHA-256 \code{f6d6d65f2d8385ef...}). Crucially, both
+conflict-1,006 \code{analysis\_end} snapshots list 3825735 as a live binary
+partner of literal 10. Binary availability is therefore exonerated. The scans
+that assigned variable 10 occurred before conflict 1,006 was detected, while
+the counter still read 1,005, so the 1,006-only window did not capture the
+competing triggers.
+
+Corrected Slurm job \code{1634451} expands only that boundary:
+\begin{center}\small\artifact{20260819-0310-tierd-rank22-watchrace1005-1006}\end{center}
+Both independent arms again return valid UNKNOWN timeouts, untruncated traces,
+and zero residue. Kissat writes 581,632 bytes (SHA-256
+\code{3d22734636698ea9...}); Tactix writes 397,078 bytes (SHA-256
+\code{211a5132f6aaed9b...}). At conflict counter 1,005 and decision 23,744,
+Kissat scans ternary set \code{\{-14,10,28\}} in pose
+\code{(28,10,-14)}, with block 10, and then immediately scans the shared
+binary. The ternary therefore owns variable 10's reason. Tactix first scans
+the ternary in pose \code{(-14,28,10)}, with block $-14$; scans the binary 316
+propagations later, assigning 10 from it; and only later scans and rotates the
+ternary to \code{(-14,10,28)}. The first causal mismatch is thus the derived
+ternary's pre-existing watched pose: Kissat watches \code{(28,10)}, while
+Tactix watches \code{(-14,28)} and leaves 10 unwatched.
+
+Tactix clause id 13,469,364 inherits logical order 13,360,199. That input
+ordinal contains \code{-3825772}, \code{3820676}, and \code{-3820680}, not the target set, so the
+ternary is a substitution-derived image. Commit \code{2847d78} adds a
+disabled-by-default exact-clause-set pose probe to both trace implementations.
+It reports every matching live clause's physical literal order at macro
+snapshots and accepts a conflict ceiling; the rank-22 run limits its arena scan
+to conflict zero. Release passes 72/72, Trace passes 71/71, the production
+zero-overhead guard passes, and the materialized pinned Kissat overlay compiles
+cleanly. Slurm job \code{1634453} now runs the two independent 16\,GiB/300-second
+arms from immutable pins:
+\begin{center}\small\artifact{20260819-0327-tierd-rank22-clause-pose-origin}\end{center}
+Its exact target is \code{\{-14,10,28\}}; all detailed search records are
+disabled so the traces retain root preprocessing macro boundaries. Both arms
+return valid UNKNOWN timeouts with zero residue and untruncated traces. Kissat
+writes 466,944 bytes (SHA-256 \code{bb9180760e7f619c...}); Tactix writes
+169,730 bytes (SHA-256 \code{8e7405cb03eb6668...}). Kissat first exposes the
+target after sweep in pose \code{(28,10,-14)}. Tactix has no corresponding
+inner macro snapshot, but its preprocessing-end record exposes clause id
+13,469,364/order 13,360,199 in the same pose. Both late-lucky end snapshots
+then expose the same rotated pose \code{(10,-14,28)}. Clause creation and root
+preprocessing pose are therefore exonerated: search-time propagation introduces
+the watched-pose mismatch before conflict 1,006. Resume with exact-set
+\code{analysis\_end} snapshots to bracket the first search conflict whose poses
+differ, then trace only that propagation interval.
+
+The direct follow-up is Slurm job \code{1634455}:
+\begin{center}\small\artifact{20260819-0338-tierd-rank22-watchhistory0-1005}\end{center}
+It reuses the immutable observer pins and records only watch scans of clauses
+containing variable 10 from root through conflict 1,005. The 500,000-record cap,
+16\,GiB/300-second allocation, independent answer checks, and cleanup contract
+are predeclared. Both arms reach the cap at conflict 248 because search-only
+mode still admits non-tick analysis records. Nevertheless, both traces contain
+exactly 63 target-clause watch records, and every scan literal, blocking
+literal, searched value, and physical pose matches through conflict 137. The
+Tactix arm is a valid UNKNOWN timeout with zero residue. Kissat reports UNSAT
+in 266.320 seconds and reproduces it in 191.930 seconds with a 741,475,845-byte
+proof (SHA-256 \code{473f644267a72758...}), but \code{drat-trim} times out after
+600.097 seconds. That answer is unaccepted under the campaign contract. Both
+tasks remove their scratch and leave zero residue; the checker timeout is an
+unsolved answer, not evidence of a soundness defect.
+
+Commit \code{77f3954} adds a disabled-by-default true watch-only gate: macro
+snapshots and watch records remain, while all nonsnapshot analysis traffic is
+discarded. Release passes 72/72, Trace passes 71/71, the production
+zero-overhead guard passes, and the materialized Kissat overlay compiles.
+Slurm job \code{1634457} resumes only the unproven conflict range 138--1,005:
+\begin{center}\small\artifact{20260819-0351-tierd-rank22-watchonly138-1005}\end{center}
+Its 100,000-record cap is ample relative to the 3,832 watch records observed
+through conflict 248. Both arms return valid UNKNOWN timeouts with zero residue
+and untruncated traces. Kissat writes 1,572,864 bytes (SHA-256
+\code{fa41c072cb40e0cc...}); Tactix writes 1,205,550 bytes (SHA-256
+\code{c7fc442479821b2d...}). The last common target record is conflict 611,
+decision 11,410: both scan literal 14 with block 28 and pre-scan pose
+\code{(-14,28,10)}. Kissat's next target scan is at conflict 1,005, already in
+pose \code{(28,10,-14)}. Tactix instead scans at conflict 1,004 and 1,005 while
+retaining the old pose, then rotates after a second conflict-1,005 scan. The
+first latent pose divergence is therefore after the common conflict-611 scan
+and before Tactix's conflict-1,004 scan. Confirm the unobserved post-state with
+an exact-clause \code{analysis\_end} snapshot at conflict 612; if it differs,
+record the three literal values at the conflict-611 scan.
+
+Commit \code{8310f33} adds a lower conflict bound to the exact-clause observer;
+Release passes 72/72, Trace passes 71/71, the zero-overhead guard passes, and
+the materialized Kissat overlay compiles. Slurm job \code{1634459} now scans
+the clause arena only at conflict 612 and records its \code{analysis\_end} pose:
+\begin{center}\small\artifact{20260819-0402-tierd-rank22-pose612}\end{center}
+The two 16\,GiB/300-second arms use immutable pins, a 10,000-record cap, full
+width, independent answer checks, and cleanup. Resume by comparing the two
+\code{clause\_poses} fields; do not infer the post-scan pose from the pre-scan
+watch record alone.
+
+Both conflict-612 \code{analysis\_end} records are present and show the same
+pose \code{(-14,28,10)}. Tactix is a valid UNKNOWN timeout in 300.419 seconds.
+Kissat solves UNSAT in 294.474 seconds and reproduces that result in 189.569
+seconds, but its independent DRAT check reaches the 600-second limit; the
+answer is therefore not accepted. Both traces are terminal and untruncated,
+and both tasks leave zero certificate residue. The common conflict-611 scan
+therefore does not create the latent mismatch.
+
+The next mutation-capable boundary without another target watch scan is
+Kissat's conflict-1,000 reduction/collection, which Tactix does not enter.
+Slurm job \code{1634461} scans the exact clause only at that conflict and
+records the pre/post-reduce and shared switch snapshots:
+\begin{center}\small\artifact{20260819-0411-tierd-rank22-pose1000}\end{center}
+It reuses the validated immutable pins. Each arm has 16\,GiB and a 300-second
+solver limit, plus the usual answer-check and cleanup contract. Resume by
+finding the first conflict-1,000 snapshot whose pose differs.
+
+Both arms return valid UNKNOWN timeouts with zero residue and untruncated
+traces. Kissat writes 532,480 bytes (SHA-256 \code{4977aecd1a5dfb4c...});
+Tactix writes 443,628 bytes (SHA-256 \code{861876122d642578...}). Kissat retains
+pose \code{(-14,28,10)} at \code{analysis\_end}, \code{reduce\_begin}, and
+\code{reduce\_tiers}; \code{reduce\_end} changes it to \code{(28,10,-14)},
+which persists through mode switch. Tactix emits no reduction at conflict
+1,000 and retains \code{(-14,28,10)} through its switch. At the same boundary,
+Kissat's live redundant population falls from 679 to 661 and its binary count
+from 3,909,712 to 3,377,914; Tactix enters switch with 679 redundant and
+3,909,628 binaries. The first causal pose divergence is therefore Kissat's
+conflict-1,000 reduction/collection boundary, absent in Tactix. Resume by
+comparing the first-reduction trigger and retained-clause collection/rewatch
+semantics against pinned Kissat, then implement the smallest source-backed
+parity repair.
+
+Source comparison identifies the trigger defect. Tactix's
+\code{reset\_schedule} chooses the 2,000-conflict arithmetic recurrence delta
+as the first deadline whenever the formula profile disables square-root
+cadence. Pinned Kissat initializes the first deadline unconditionally from
+\code{reduceinit=1000}; only \emph{after} a completed reduction does its
+recurrence apply. Rank 22 selects Tactix's legacy arithmetic profile, so this
+mistake exactly explains the absent conflict-1,000 boundary. The retained
+clause path is already source-backed: \code{reduce\_apply\_refs} invokes the
+same sparse tail collection and rewatch operation. The candidate repair now
+always seeds the first deadline from \code{initial\_interval} and adds a
+regression proving that an arithmetic recurrence cannot replace that initial
+deadline. The focused Release/Trace regression passes, followed by complete
+72/72 Release and 71/71 Trace suites; the report rebuilds cleanly at 12 pages.
+The repair is committed as \code{c5a6928}. One-arm confirmation campaign
+\begin{center}\small\artifact{20260819-0424-tierd-rank22-reduceinit1000}\end{center}
+runs as Slurm job \code{1634463} with 16\,GiB, a 300-second solver limit, no
+array throttle or node constraint, and independent checking of any answer. It
+reuses the predecessor's immutable Kissat boundary. Accept only if Tactix now
+emits \code{reduce\_begin}/\code{reduce\_end} at conflict 1,000 and the target
+pose changes from \code{(-14,28,10)} to \code{(28,10,-14)} at the latter.
+Do not start production timing until this exact pose check passes.
+
+Job \code{1634463} completes as a valid 300.368-second UNKNOWN timeout with
+zero residue and a terminal, untruncated 190,891-byte trace (SHA-256
+\code{c8cfb576262127a...}). The schedule repair works: Tactix now emits
+\code{reduce\_begin} and \code{reduce\_end} at conflict 1,000 before switching
+mode. The pose acceptance fails, however: the target remains
+\code{(-14,28,10)} through \code{reduce\_end}. Tactix's redundant population
+falls 679 to 652, whereas pinned Kissat falls 679 to 661. Its binary population
+falls 3,909,628 to 3,377,830; this is exactly Kissat's binary delta while
+preserving the pre-existing 84-entry offset. Thus scheduling and binary flush
+are repaired, but Tactix deletes nine extra redundant clauses and does not
+rewatch the irredundant target. Resume by comparing the conflict-1,000
+\code{first\_reducible} watermark and the retained/deleted clause set; determine
+why Kissat includes the target in the collected tail while Tactix preserves it
+as prefix. Production timing remains blocked.
+
+The apparent watermark defect is a formula-profile defect one level above the
+collector. This exact 3,859,779-variable shape selects
+\code{LegacyStartupFactorOnly}, which correctly suppresses repeated
+search-time inprocessing but also inherited obsolete whole-search overrides:
+flat 75\% reduction, static tiers, arithmetic cadence, and compaction off.
+Thus Tactix uses tiers \code{(2,6)} where Kissat's first Reduce uses
+\code{(3,6)}, deletes 27 rather than 18 clauses, and never admits Kissat's
+compacting whole-arena collection. The new candidate confines formula profiles
+to inprocessing, restoring every typed default search policy. It also computes
+\code{compactlim} from the union of retired and root-fixed variables, matching
+Kissat's inactive population; stable public identities remain distinct, but a
+due compaction still rewatches the whole arena and compacts the policy-owned
+random-index permutation. Focused kernel and strategy regressions pass, then
+the complete Release and Trace suites pass 72/72 and 71/71 respectively; the
+zero-overhead and documentation gates are included, and this report rebuilds
+cleanly at 12 pages. The candidate is committed as \code{9645e25}. Immutable
+one-arm campaign
+\begin{center}\small\artifact{20260819-0437-tierd-rank22-profile-search-defaults}\end{center}
+runs as Slurm job \code{1634464}, again with 16\,GiB, a 300-second solver
+limit, no throttle or node constraint, and independent checking of any answer.
+Accept only conflict-1,000 tiers \code{(3,6)}, exactly 18 redundant deletions,
+and target pose \code{(28,10,-14)} at \code{reduce\_end}.
+
+Job \code{1634464} passes all three checks. It is a valid 300.368-second
+UNKNOWN timeout with zero residue and a terminal, untruncated 358,395-byte
+trace (SHA-256 \code{951c2304eab80e5d...}). Tactix's conflict-940 tier
+snapshot is focused \code{(3,4)} and stable \code{(2,6)}, hence the intended
+Reduce hybrid \code{(3,6)}. At conflict 1,000 the redundant population changes
+679 to 661, exactly Kissat's 18 deletions. Binary watches change 3,909,628 to
+3,377,830, the same 531,798-entry drop as Kissat while preserving the known
+84-entry pre-boundary offset. Most importantly, the target is
+\code{(-14,28,10)} through \code{reduce\_begin}, becomes
+\code{(28,10,-14)} at \code{reduce\_end}, and persists through both switch
+snapshots. The localized divergence is closed. Resume with one 1,200-second
+production timing arm under the normal independent answer-check and cleanup
+contract; do not run broad guards until that focused result is accepted.
+
+The immutable production campaign is
+\begin{center}\small\artifact{20260819-0445-tierd-rank22-profile-search-runtime}\end{center}
+with Release SHA-256 \code{39175031e7f7e729...} from repair commit
+\code{9645e25}. Slurm job \code{1634465} has 16\,GiB, two CPUs, a
+1,200-second solver timeout, no throttle or node constraint, and a 4,800-second
+checker allowance. SAT requires the pinned model checker; UNSAT requires the
+pinned DRAT checker; all certificate scratch is deleted before result
+publication. Resume by waiting for this job. Close rank 22 only for a checked
+answer; otherwise localize the earliest new divergence before broad guards.
+
+Job \code{1634465} completes UNKNOWN at the 1,200.004-second cutoff, so rank
+22 remains open and the accepted release pin is unchanged. The runner records
+an 80,740,352-byte partial certificate (SHA-256
+\code{ae74cf31366460b...}) only as diagnostic evidence; no final answer was
+emitted, so it is not checked. All certificate and derived scratch is deleted,
+with \code{cleanup\_pending=false}. Resume by comparing the already-captured
+post-conflict-1,000 macro traces and localizing their earliest new boundary;
+do not replay the closed admission/profile/compaction chain and do not start
+broad guards.
+
+The saved traces localize that boundary without another run. At
+\code{reduce\_begin(1000)}, both solvers' VMTF search cursor names external
+variable 3,824,785. Kissat's \code{compact\_queue} maps and preserves this
+cursor through compacting collection, and its \code{reduce\_end} snapshot
+still names 3,824,785. Tactix instead rebuilt its queue and unconditionally
+reset the cursor to the tail, changing the same field to 3,722,682 immediately
+at \code{reduce\_end}; later retier and decision drift are downstream. The
+general repair maps the old cursor through variable compaction and falls back
+to the tail only if the cursor does not survive. Regression fixtures cover
+both real renumbering and Tactix's identity-preserving root-fixed compaction;
+Release passes 72/72 and Trace passes 71/71. Resume with one focused Slurm
+confirmation of conflict 1,000 before another production attempt.
+
+That immutable confirmation is campaign
+\begin{center}\small\artifact{20260819-0513-tierd-rank22-search-cursor}\end{center}
+at source commit \code{bcfe4a0}, with Trace binary SHA-256
+\code{e7cecaabb2376d6b...}. Slurm job \code{1634466} has one task, 16\,GiB,
+two CPUs, a 300-second solver limit, no throttle and no node constraint.
+Resume by waiting for this job and checking that \code{search\_external}
+remains 3,824,785 through \code{reduce\_end(1000)} with a terminal,
+untruncated trace and zero certificate residue.
+
+Job \code{1634466} confirms the repair. It is a valid UNKNOWN timeout in
+300.419 seconds with zero residue and a terminal, untruncated 358,395-byte
+trace (SHA-256 \code{327f6b46979d30e...}). Tactix now keeps
+\code{search\_external=3824785} at analysis end, Reduce begin/end, both mode
+switch snapshots, and both conflict-1,001 Rephase snapshots, exactly matching
+Kissat. The same aligned boundary exposes the next frontier: Kissat's live
+irredundant count changes 8,701,390 to 8,701,220 during compacting collection,
+whereas Tactix remains at 8,701,390. Localize those 170 root-satisfied clauses
+before another production timing run; do not replay the closed cursor arm.
+
+Source inspection pins the mechanism to Kissat \code{reduce.c}: it samples
+\code{compactlim} before victim deletion and selects sparse-collection start
+as \code{compact ? 0 : first\_reducible}. Tactix sampled compaction only after
+the Reduce rule had already collected from \code{first\_reducible}, so its
+irredundant prefix could not be root-flushed. The general repair makes the
+pre-deletion admission explicit, passes it into Reduce, and reuses the same
+decision for variable compaction. A regression proves that compacting Reduce
+deletes a root-satisfied irredundant prefix that ordinary tail collection
+preserves. Release passes 72/72 and Trace passes 71/71; resume with one focused
+conflict-1,000 confirmation before any production run.
+
+The immutable confirmation campaign is
+\begin{center}\small\artifact{20260819-0524-tierd-rank22-compact-start0}\end{center}
+at source commit \code{115f40e}, with Trace binary SHA-256
+\code{0ebef95861061041...}. Slurm job \code{1634467} has one task, 16\,GiB,
+two CPUs, a 300-second solver limit, no throttle and no node constraint.
+Resume by waiting for this job and checking for irredundant 8,701,390 to
+8,701,220 at \code{reduce\_end(1000)}, while retaining the already-closed
+cursor, redundant population, target pose, terminal trace, and cleanup gates.
+
+Job \code{1634467} closes this boundary. It is a valid UNKNOWN timeout in
+300.369 seconds with zero residue and a terminal, untruncated 484,714-byte
+trace (SHA-256 \code{bdd9dc994ffa2075...}). At conflict 1,000 Tactix now
+matches Kissat on every targeted field: irredundant 8,701,390 to 8,701,220,
+redundant 679 to 661, binary 3,909,628 to 3,377,914, cursor 3,824,785, and
+target pose \code{(-14,28,10)} to \code{(28,10,-14)}. The next saved macro
+frontier is stable-mode retier timing: Tactix first retiers at conflict 1,254,
+versus Kissat at 1,293. Localize the decision-rate/retier clocks before another
+production run; do not replay the closed collection chain.
+
+Because Kissat tests the retier deadline only on an internal OTFS conflict,
+the 1,254-versus-1,293 macro difference is downstream evidence, not yet the
+causal boundary. Campaign
+\begin{center}\small\artifact{20260819-0532-tierd-rank22-post1001-search}\end{center}
+therefore compares pinned Kissat and Tactix decision/analysis records for
+conflicts 1,001--1,010 from the matched Rephase state. Slurm job
+\code{1634468} has two unthrottled tasks, each with 16\,GiB, two CPUs, and a
+300-second solver limit, with no node constraint. Resume by waiting for both
+tasks, validating terminal/untruncated traces and cleanup, then compare the
+portable decision, conflict, and learned streams for their first divergence.
+
+Job \code{1634468} excludes an immediate search divergence. Both requested
+windows are complete and untruncated, and both tasks leave zero residue.
+Across conflicts 1,001--1,010 the solvers have identical 194 decisions, nine
+conflicts, 7,161 analysis admissions, 10,880 reason literals, 7,169 score
+bumps, and eight final learned clauses. At conflict 1,005 Tactix emits one
+extra raw resolution of external variable 10 and its jumped binary endpoint
+before both resolve 14,548; this is the known virtual jumped-reason
+representation. It changes no admission, bump, learned clause, or subsequent
+decision. The next observer should suppress high-volume internal analysis
+records and extend the portable trajectory comparison from conflict 1,011 to
+the first retier boundary.
+
+That compact observer is now implemented symmetrically and remains disabled
+unless the new trajectory-only environment toggle is set for the selected
+solver. Macro snapshots are retained, while detailed output is
+restricted to decisions, random/phase choices, conflicts, analysis
+transactions, and learned-clause stages. A focused regression proves that
+score bumps and analysis internals are suppressed without losing those
+portable records. Release passes 72/72 and Trace passes 71/71. The fresh
+observer binaries are pinned by SHA-256 prefixes \code{daf10cb6} (Tactix) and
+\code{38f0df0e} (Kissat), from source commit \code{f91a928}. Immutable campaign
+\begin{center}\small\artifact{20260819-0547-tierd-rank22-trajectory-to1293}\end{center}
+runs as Slurm job \code{1634471}. Its two unthrottled tasks each have 16\,GiB,
+two CPUs, a 300-second solver limit, and no node constraint; the trace cap is
+100,000 records. Resume by waiting for both tasks, verifying trace completeness
+and zero residue, then comparing decisions, conflicts, analysis boundaries,
+and learned stages for the first mismatch.
+
+Job \code{1634471} provides a valid partial localization. Both arms time out
+UNKNOWN with untruncated traces, independent result validation, and zero
+residue. The shared complete prefix through conflict 1,058 contains exactly
+matching 773 decisions, 38 conflicts, 38 analysis begins, and 38 analysis-end
+ranking snapshots. The Tactix arm then spends its remaining time formatting a
+very large learned clause at conflict 1,059, whereas Kissat's observer silently
+truncates learned payloads at 4,095 bytes. Consequently Tactix does not reach
+the requested retier boundary; this is an observer-cost/representation defect,
+not evidence of a solver trajectory or soundness defect. The next increment is
+to encode trajectory-only learned records as symmetric size, ordered-hash, and
+set-hash summaries, validate both implementations, and rerun conflicts
+1,059--1,293. Do not invoke a solver repair or broad guard from this partial
+observer result.
+
+The constant-size learned summary is now implemented symmetrically. In
+trajectory-only mode each learned stage records its clause size, a 64-bit hash
+of external literals in order, and a second hash after sorting the external
+literals; ordinary detailed tracing remains unchanged. The focused regression
+checks this encoding, Release passes 72/72, Trace passes 71/71, and both fresh
+Kissat and Tactix observer builds complete. Their SHA-256 prefixes are
+\code{4fe71d17} and \code{5e6ff832}, from source commit \code{9d27e72}.
+Immutable continuation campaign
+\begin{center}\small\artifact{20260819-0559-tierd-rank22-trajectory-digest}\end{center}
+runs as Slurm job \code{1634473}. Its two unthrottled tasks each have 16\,GiB,
+two CPUs, a 300-second solver limit, no node constraint, and conflict window
+1,059--1,293. Resume by waiting for both tasks, verifying trace completeness
+and zero residue, then locating the first portable mismatch.
+
+Job \code{1634473} validates the digest encoding and moves the causal frontier.
+Both arms are valid untruncated UNKNOWN timeouts with zero residue. Conflicts
+1,059--1,073 have identical 34 decisions, 15 conflicts, 15 complete analysis
+transactions, and all four learned-stage digests. At conflict 1,074, the
+conflict and raw, sorted, shrunk, and final learned summaries also match; the
+final clause has size 1,343, ordered hash \code{ff7bac91198aff96}, and set hash
+\code{007f47a73518e914}. Tactix then times out before \code{analysis\_end},
+while Kissat continues through conflict 1,293. The first incomplete boundary
+is therefore after the policy emits the learned clause and before backjump
+completion. Resume by adding disabled stage markers around glue observation,
+chronological target selection, trail unwind, eager subsumption, assertion,
+and analyzed-variable bumping, then run one Tactix conflict-1,074 probe. This is
+a performance localization, not a soundness failure.
+
+The narrow Tactix-only stage observer now brackets learned emission, policy
+clock updates, target choice, both trail unwinds, OTFS retirement, eager
+subsumption, assertion, and analyzed-variable bumping. These records remain
+disabled outside event-trace builds and are retained by trajectory-only mode.
+The focused observer regression passes, followed by Release 72/72 and Trace
+71/71; the fresh Trace binary has SHA-256 prefix \code{4459e81e}, from source
+commit \code{80a18b5}. Immutable campaign
+\begin{center}\small\artifact{20260819-0609-tierd-rank22-backjump-stage}\end{center}
+runs as Slurm job \code{1634477}. Its one Tactix task has 16\,GiB, two CPUs, a
+300-second solver limit, no throttle or node constraint, and conflict window
+1,074 only. Resume by waiting for the result, verifying the trace and zero
+residue, then reading the last emitted tail stage to identify the blocking
+sub-operation.
+
+Job \code{1634477} disproves a post-learning stall. It is a valid
+300.369-second UNKNOWN timeout with a terminal, untruncated 486,852-byte trace
+(SHA-256 prefix \code{69477411}) and zero residue. Every conflict-1,074 stage
+completes: target 465, both unwinds, OTFS retirement, eager subsumption,
+assertion, the 19,446-entry analyzed bump/reset, backjump return, and analysis
+end. The one-arm process then reaches conflict 8,756. The predecessor's missing
+analysis end was therefore a cutoff artifact: its two memory-heavy arms shared
+\code{node017} and Tactix reached conflict 1,074 only near 300 seconds. Resume
+with one Tactix-only trajectory window over conflicts 1,075--1,293, then compare
+it with the already-saved Kissat digest trace from job \code{1634473}. Do not
+treat co-scheduled diagnostic throughput as a solver regression.
+
+The isolated continuation campaign is
+\begin{center}\small\artifact{20260819-0618-tierd-rank22-tactix-to1293}\end{center}
+at source commit \code{c2fd235}, reusing immutable Trace SHA-256 prefix
+\code{4459e81e}. Slurm job \code{1634478} has one Tactix task, 16\,GiB, two
+CPUs, a 300-second solver limit, no throttle or node constraint, and conflict
+window 1,075--1,293. Job \code{1634478} is a valid 310.089-second UNKNOWN
+timeout with an untruncated 126,412-byte trace (SHA-256 prefix
+\code{8142a529}) and zero certificate residue. It completes conflict 1,091 and
+stops during the conflict-1,092 analyzed-variable bump. Normalized comparison
+with the saved Kissat trace finds all 189 portable records for conflicts
+1,075--1,091 exact: decisions, conflicts, analysis boundaries, and all four
+learned-clause digests. The conflict-1,092 common prefix also matches; Tactix
+lacks only \code{analysis\_end} at cutoff. Source inspection identifies the
+dominant observer cost: trajectory mode made every analysis end scan the full
+multi-million-variable state and stably sort the active ranking for a snapshot;
+the scalar tail marker at cutoff is not causal. Trajectory-only analysis ends
+now remain portable records without full snapshots, and temporary
+\code{analysis\_tail\_*} records are filtered. The focused regression passes,
+followed by Release 72/72 and Trace 71/71. Resume by pinning this observer in an
+isolated continuation toward conflict 1,293 and comparing against job
+\code{1634473}. This is observer overhead, not a solver or soundness defect.
+
+The compact observer is committed as \code{1002120}; its immutable Trace binary
+has SHA-256 prefix \code{34946c0b}. Continuation campaign
+\begin{center}\small\artifact{20260819-0630-tierd-rank22-compact-to1293}\end{center}
+runs as Slurm job \code{1634479}. Its one full-width Tactix task has 16\,GiB,
+two CPUs, a 300-second solver limit, no throttle or node constraint, and traces
+conflicts 1,092--1,293. Resume by waiting for this job, validating its result,
+trace completeness, and zero residue, then comparing portable records with the
+saved Kissat trace from job \code{1634473}. Ignore \code{top32} on compact
+analysis-end records; choices, conflict counters, levels, payloads, and all
+learned-clause digests remain directly comparable.
+
+Job \code{1634479} is a valid 310.088-second UNKNOWN timeout with an
+untruncated 555,223-byte trace (SHA-256 prefix \code{bcb5cd6e}) and zero
+certificate residue. The compact observer completes analysis through conflict
+1,206, then records conflict 1,207 and all four learned-clause digests before
+cutoff. Resume by comparing conflicts 1,092--1,206 and the conflict-1,207
+learned transaction with saved Kissat job \code{1634473}, ignoring
+\code{top32} only on compact analysis-end records. The normalized portable
+trajectory is exact from conflict 1,092 through conflict 1,198. Its first
+semantic mismatch is at conflict 1,199, decision 25,781, level 469: Tactix
+chooses external literal $-3782027$, while Kissat chooses $-3782012$. Both
+solvers first complete the conflict-1,199 learned transaction identically and
+choose $-3779280$ at decision 25,780; the mismatch is therefore after the
+conflict-1,199 analysis state. Preserve the exact prefix and discriminate
+score, queue/heap position, assignment, or phase before extending toward
+conflict 1,293.
+
+Focused campaign
+\begin{center}\small\artifact{20260819-0640-tierd-rank22-c1199-heap}\end{center}
+runs as Slurm job \code{1634482}. Its paired full-width search-only arms use the
+same immutable Kissat and Tactix observer pins, 16\,GiB and two CPUs each, a
+300-second solver limit, no throttle or node constraint, and detail conflict
+1,199 only. Resume by waiting for both tasks, validating traces and cleanup,
+then comparing \code{heap\_scores} immediately after analysis and after decision
+25,780. The decisive evidence is each candidate's score and heap position just
+before decision 25,781.
+
+Job \code{1634482} produces two terminal, untruncated, residue-free diagnostic
+traces. Kissat's 1,060,271-byte trace has SHA-256 prefix \code{0ab76385}; its
+initial UNSAT run takes 296.719 seconds and reproduces in 186.872 seconds with a
+741,475,845-byte proof, but \code{drat-trim} reaches its 600.09-second limit, so
+the answer is not independently verified. Tactix's 898,260-byte trace has
+SHA-256 prefix \code{470bb5d9} and a valid 300.419-second UNKNOWN timeout. This
+campaign is diagnostic only and does not close rank 22. Resume by comparing the
+completed heap-score records at the two declared boundaries; do not treat the
+checker timeout as solver soundness evidence.
+
+The heap comparison excludes score arithmetic, phase, and bump order. Both
+candidate variables have exactly score \code{25774.157807429845} in both
+solvers; both selected phases are negative; and all 38 conflict-1,199
+score-bump variables occur in the same order. The remaining cause is heap pose
+among equal-score candidates: Kissat exposes 3,782,012 first, while Tactix
+exposes 3,782,027. Resume by adding a symmetric external-variable full-heap
+digest to diagnostic \code{heap\_scores}, validating both observers, and
+locating the earliest pose divergence before conflict 1,199. Do not impose a
+global tie break without proving that it preserves the already-exact decisions.
+
+The diagnostic observers now prefix \code{heap\_scores} with the same FNV-style
+digest over the full external-variable heap pose. Tactix trajectory-only mode
+also returns before computing a heap record that its filter will discard. The
+focused regression passes, followed by Release 72/72 and Trace 71/71. Fresh
+observer SHA-256 prefixes are \code{3c6c29e0} for Tactix and \code{e92bf9a0}
+for Kissat. Resume with narrow conflict endpoints to locate the earliest digest
+divergence; ordinary solver behavior is unchanged.
+
+Immutable survey campaign
+\begin{center}\small\artifact{20260819-0706-tierd-rank22-heap-digest-survey}\end{center}
+runs as Slurm job \code{1634485}. Fourteen full-width tasks pair Kissat and
+Tactix at conflicts 1,000, 1,050, 1,100, 1,150, 1,175, 1,190, and 1,199. Each
+has 16\,GiB, two CPUs, a 120-second solver limit, no throttle or node constraint,
+and an immutable observer pin. Resume by validating which endpoints were
+reached, then comparing each pair's final aligned post-analysis full-heap
+digest to bracket the first pose divergence. Record the bracket before adding
+any more detailed heap operation observer.
+
+Job \code{1634485} is clean but non-comparable. All 14 tasks are valid UNKNOWN
+timeouts with untruncated traces and zero residue. Every Tactix arm reaches its
+requested endpoint, while the seven concurrent memory-heavy Kissat arms each
+reach only conflict 58 in 120 seconds. This is an allocation-contention
+artifact and supplies no heap-pose bracket. Resume with one isolated Kissat
+conflict-1,000 task using the same pin, compare it against saved Tactix task 1,
+and advance adaptively only if the digest matches. Do not repeat the seven-arm
+Kissat concurrency pattern.
+
+Isolated continuation campaign
+\begin{center}\small\artifact{20260819-0711-tierd-rank22-kissat-c1000-heap}\end{center}
+runs as Slurm job \code{1634499}. Its sole Kissat task has 16\,GiB, two CPUs, a
+120-second solver limit, no throttle or node constraint, and detail conflict
+1,000 only. Resume by validating endpoint coverage and comparing its aligned
+post-analysis digest with saved Tactix task 1 from job \code{1634485}.
+
+Job \code{1634499} is a valid 120.117-second UNKNOWN timeout with an
+untruncated 16,384-byte trace (SHA-256 prefix \code{1ae775f7}) and zero residue,
+but it reaches only conflict 58. Thus the concurrent survey's miss was not
+solely contention; conflict 1,000 lies after a long prefix. Resume with one
+isolated 180-second Kissat endpoint, still below the frozen 196.556-second solve
+time, and require actual conflict-1,000 coverage before comparison.
+
+The 180-second isolated continuation is campaign
+\begin{center}\small\artifact{20260819-0715-tierd-rank22-kissat-c1000-heap180}\end{center}
+and Slurm job \code{1634500}. Resume by requiring actual conflict-1,000
+coverage, validating cleanup, and comparing its aligned heap digest with saved
+Tactix task 1 from job \code{1634485}.
+
+Job \code{1634505} validates the endpoint-only mechanism: it exits by the
+intentional SIGTERM after 26.379 seconds with a valid UNKNOWN result, zero
+residue, and an untruncated 3,322,340-byte trace (SHA-256 prefix
+\code{9ac5f48e}). It reaches conflict 1,000 and emits exactly one heap digest.
+That digest, \code{14650fb0739d0383}, is nevertheless not comparable: the
+analysis ends in focused mode, where Kissat's score heap is inactive. Saved
+Tactix task 1 emits its conflict-1,000 score-heap digest only after the
+immediate switch to stable mode (\code{4a915e9c2980d3a9}). Resume by moving
+the stop to the first stable \code{heap\_scores} call at or after the selected
+conflict, rebuilding and testing, then rerunning conflict 1,000 for the aligned
+post-switch hash.
+
+The pending-stop refinement records a focused analysis-end without stopping,
+suppresses the expensive mode-switch snapshots, and terminates only on the
+first subsequent stable heap callback; a stable analysis-end still emits its
+final digest directly, so intermediate score bumps cannot trigger the stop.
+The static regression and fresh optimized build pass; observer SHA-256 prefix
+is \code{5f098b86}. Resume with one isolated conflict-1,000 rerun.
+
+The aligned continuation is campaign
+\begin{center}\small\artifact{20260819-0752-tierd-rank22-kissat-c1000-stable}\end{center}
+and Slurm job \code{1634508}, again one 16\,GiB/two-CPU task with no throttle
+or node constraint. Resume by requiring the focused conflict-1,000
+\code{analysis\_end} followed by exactly one stable \code{heap\_scores}, then
+compare its ordered hash with \code{4a915e9c2980d3a9} from saved Tactix task 1.
+
+Job \code{1634508} succeeds: intentional-SIGTERM UNKNOWN in 27.131 seconds,
+zero residue, and an untruncated 3,323,389-byte trace (SHA-256 prefix
+\code{beb151c4}). After the focused analysis-end, it emits exactly one stable
+heap digest. Kissat and Tactix hashes are both
+\code{4a915e9c2980d3a9}, and their top-32 score entries match. Thus the complete
+ordered stable heap pose is exact at conflict 1,000 and the divergence begins
+later. Resume with isolated conflict 1,050; saved Tactix task 3's final stable
+hash is \code{8bc36fc3f7d4250d}.
+
+The next bracket point is campaign
+\begin{center}\small\artifact{20260819-0755-tierd-rank22-kissat-c1050-stable}\end{center}
+and Slurm job \code{1634511}. Resume by requiring one final stable
+conflict-1,050 heap digest, an untruncated trace and zero residue, then compare
+with saved Tactix task 3 hash \code{8bc36fc3f7d4250d}.
+
+Job \code{1634511} exits intentionally after 28.029 seconds with a valid
+UNKNOWN result, zero residue, and an untruncated 6,754-byte trace (SHA-256
+prefix \code{1c116966}). Its final stable heap hash is
+\code{a5865471262a60e9}, differing from Tactix
+\code{8bc36fc3f7d4250d}. Yet both analysis-end ranked top-32 lists are exact.
+Thus score semantics remain aligned while only latent heap-array pose differs;
+together with exact conflict 1,000, the first pose change lies in conflicts
+1,001--1,050. Resume with a paired conflict-1,025 endpoint and bisect by the
+ordered full-heap hash.
+
+The paired midpoint is campaign
+\begin{center}\small\artifact{20260819-0758-tierd-rank22-c1025-paired}\end{center}
+and Slurm job \code{1634516}, tasks 0--1. Both use immutable observer pins,
+16\,GiB and two CPUs with no throttle or node constraint; Kissat self-stops at
+the endpoint, while Tactix retains the validated 120-second diagnostic cutoff.
+Resume by validating both conflict-1,025 traces and cleanup, comparing final
+stable hashes, and halving the surviving interval.
+
+Job \code{1634516} completes cleanly. Kissat self-stops in 30.179 seconds;
+Tactix reaches the endpoint and takes its valid 120.418-second diagnostic
+timeout. Both traces are untruncated and residue-free. Their final stable
+hashes differ: Kissat \code{d07ff09f458843c0}, Tactix
+\code{2550fac265c50b26}; their analysis-end ranked top-32 remains exact. The
+first latent heap-pose change is therefore in conflicts 1,001--1,025. Resume
+with paired conflict 1,012.
+
+The next midpoint is campaign
+\begin{center}\small\artifact{20260819-0803-tierd-rank22-c1012-paired}\end{center}
+and Slurm job \code{1634525}, tasks 0--1 under the same paired diagnostic
+contract. Resume by validating both conflict-1,012 traces and cleanup,
+comparing final stable hashes, and halving the surviving interval.
+
+Job \code{1634525} completes with two valid, untruncated, residue-free UNKNOWN
+results. Kissat takes 30.230 seconds and Tactix 120.469 seconds. Anchoring each
+final heap record immediately before conflict-1,012 \code{analysis\_end}
+gives Kissat \code{d35e14dd6e45ddf0} and Tactix
+\code{50040146ca81cd64}; later Tactix records at the same conflict count belong
+to subsequent decisions and are excluded. The learned transaction and ranked
+top-32 remain exact. The first pose change is in conflicts 1,001--1,012;
+resume with paired conflict 1,006.
+
+The next midpoint is campaign
+\begin{center}\small\artifact{20260819-0808-tierd-rank22-c1006-paired}\end{center}
+and Slurm job \code{1634528}, tasks 0--1 under the same paired contract.
+Resume by validating both conflict-1,006 endpoints and halving either
+1,001--1,006 or 1,007--1,012 by the final stable hashes.
+
+Job \code{1634528} completes with valid, untruncated, residue-free UNKNOWN
+results: Kissat 30.681 seconds, Tactix 120.369 seconds. Final conflict-1,006
+hashes differ, Kissat \code{cb7647e239c08a03} versus Tactix
+\code{6ff40460694245dd}, while decisions, scores, and ranked top-32 remain
+exact. The first pose change is in conflicts 1,001--1,006. To avoid assuming
+that a pose mismatch cannot reconverge, resume with paired endpoints for every
+remaining conflict 1,001--1,005 in one campaign.
+
+The exhaustive endpoint campaign is
+\begin{center}\small\artifact{20260819-0812-tierd-rank22-c1001-1005-paired}\end{center}
+and Slurm job \code{1634531}, tasks 0--9. It pairs both immutable observers at
+each remaining conflict without a throttle or node constraint. Resume by
+validating all ten traces and cleanup, anchoring the final heap record before
+each analysis-end, and naming the first conflict whose ordered hashes differ.
+
+Job \code{1634531} is residue-free and every trace is untruncated, but only
+three new pairs are complete endpoints. Conflicts 1,003--1,005 all differ:
+Kissat/Tactix hashes are respectively \code{2cc932e10ca5ec55}/
+\code{830a0608aaffcf4f}, \code{c347670f0d35b6c8}/
+\code{b50a01843bc30f92}, and \code{f630e2a89e515c73}/
+\code{6e2f172ab66acac9}. Conflict 1,002 is not an analysis-end state: that
+transaction starts with counter 1,002 and ends with counter 1,003. Conflict
+1,001 is a very large stable analysis; endpoint-only Kissat finishes with hash
+\code{915ba6872db85d6e}, but Tactix's older observer hashes after every bump and
+times out before analysis-end. Thus the remaining question is whether 1,001
+already differs or the 1,002-to-1,003 transaction creates the first mismatch.
+Resume by adding endpoint-only Tactix stop mode and rerunning only conflict
+1,001.
+
+Tactix now has the same disabled-by-default endpoint-only stop contract. Under
+\code{TACTIX\_EVENT\_TRACE\_STOP\_AFTER\_CONFLICT}, it suppresses
+intermediate full-heap hashes, emits one final stable digest at analysis-end
+(or defers across a focused-to-stable switch), flushes, and terminates by
+SIGTERM. Ordinary runs are unchanged. The static regression, Trace 71/71, and
+Release 72/72 pass; fresh observer SHA-256 prefix is \code{68be1ac2}. Resume
+with the isolated paired conflict-1,001 rerun.
+
+The decisive endpoint rerun is campaign
+\begin{center}\small\artifact{20260819-0821-tierd-rank22-c1001-endpoint-pair}\end{center}
+and Slurm job \code{1634542}, tasks 0--1. Both endpoint-only observers use
+immutable pins, 16\,GiB and two CPUs with no throttle or node constraint.
+Resume by requiring both conflict-1,001 analysis-end records and exactly one
+final heap digest each, then compare against Kissat
+\code{915ba6872db85d6e}.
+
+Job \code{1634542} resolves the boundary. Kissat self-terminates in 29.690
+seconds; Tactix handles SIGTERM gracefully, emits its terminal record, and
+exits 0 in 84.813 seconds. Both results are valid, untruncated and residue-free.
+Their complete ordered heap hashes are exactly
+\code{915ba6872db85d6e}, with matching top-32 scores. Therefore the first pose
+mismatch is created inside the next transaction, which begins with conflict
+counter 1,002 and ends with counter 1,003. Resume by recording aligned
+full-heap hashes before and after every score bump in that transaction and
+identifying the first operation with different pose evolution.
+
+Both endpoint observers now support an additional disabled-by-default
+per-bump heap-digest mode for exactly that transaction. Pre-target snapshots
+remain suppressed; once the selected counter is reached, each score-bump
+callback emits the same external-variable ordered full-heap digest, followed
+by the ordinary final endpoint digest and stop. Static observer coverage,
+Trace 71/71, and Release 72/72 pass. The fresh Tactix and Kissat diagnostic
+SHA-256 prefixes are respectively \code{73123c8b} and \code{623fd02f}.
+Resume by launching the paired counter-1,002--1,003 capture under the existing
+16\,GiB, two-CPU, unthrottled diagnostic contract, then align each digest with
+its preceding bumped variable.
+
+That capture is campaign
+\begin{center}\small\artifact{20260819-0831-tierd-rank22-c1002-bump-heaps}\end{center}
+and Slurm job \code{1634545}, tasks 0--1. Resume by waiting for both tasks,
+requiring valid untruncated traces and zero cleanup residue, then aligning each
+\code{heap\_scores} digest with its immediately preceding \code{score\_bump}.
+
+Job \code{1634545} completes cleanly. Kissat self-stops in 30.479 seconds;
+Tactix exits 0 with a terminal record in 83.946 seconds. Both results are valid
+UNKNOWNs with untruncated traces and zero cleanup residue. Their seven bump
+variables and scores are exact. The first post-bump digest, after variable
+3,820,024, already differs: Kissat \code{7a5db3480369f497} versus Tactix
+\code{9e7504332cc8c629}; every later comparable digest also differs. Tactix
+records pre-bump digest \code{b068116e76aa70af}, but the Kissat overlay lacks
+that symmetric checkpoint. This run therefore cannot yet distinguish a pose
+change during the intervening removals from one caused by the first bump.
+Resume by adding a per-bump-mode-only Kissat pre-bump digest and rerunning this
+same endpoint pair.
+
+That symmetric Kissat checkpoint is now implemented only when the explicit
+per-bump endpoint mode is active; ordinary observer output is unchanged. The
+static overlay test, Trace 71/71, Release 72/72, and fresh optimized Kissat
+build pass. The new Kissat SHA-256 prefix is \code{a05d3072}; the unchanged
+Tactix pin remains \code{73123c8b}. Resume with the same two-task endpoint
+pair and compare the first digest before any score bump.
+
+The rerun is campaign
+\begin{center}\small\artifact{20260819-0840-tierd-rank22-c1002-prebump-pair}\end{center}
+and Slurm job \code{1634548}, tasks 0--1. Resume by waiting for both tasks,
+checking trace completeness and residue, then comparing their first
+\code{heap\_scores} records before consuming any \code{score\_bump}.
+
+Job \code{1634548} completes cleanly: Kissat self-stops in 30.679 seconds and
+Tactix exits 0 with a terminal record in 84.003 seconds. Both valid UNKNOWN
+traces are untruncated and residue-free. The pre-bump heap already differs:
+Kissat \code{fa9ad0428dc1e7d9} versus Tactix
+\code{b068116e76aa70af}. Thus the seven score bumps are exonerated. Conflict
+1,001 ended with exact heap \code{915ba6872db85d6e} at decision 23,721; the
+next conflict begins at decision 23,731. The first pose mismatch is created by
+one of those ten intervening decision/removal operations. Resume by hashing
+after decisions 23,722--23,731 while suppressing the large conflict-1,001 bump
+loop, then identify the first differing removal.
+
+Both observers now accept a disabled decision-count threshold for intermediate
+heap digests while retaining the later conflict-count stop. Setting that
+threshold to decision 23,722 suppresses all hashes from conflict 1,001's large
+bump loop but retains the existing hash callback after each of the ten next
+decisions. Static coverage, Trace 71/71, Release 72/72, and the optimized
+Kissat build pass. Fresh Tactix/Kissat SHA-256 prefixes are
+\code{fd2143c6}/\code{7d6c8e21}. Resume with one paired capture from conflict
+1,001 through the conflict-1,002 endpoint.
+
+That capture is campaign
+\begin{center}\small\artifact{20260819-0847-tierd-rank22-decision-heaps}\end{center}
+and Slurm job \code{1634551}, tasks 0--1. Resume by waiting for both tasks,
+validating trace completeness and cleanup, then pairing each decision literal
+with the immediately following full-heap digest to find the first mismatch.
+
+Job \code{1634551} captures all ten required decisions in both untruncated,
+residue-free traces. Kissat reaches the 120.127-second ceiling only after that
+coverage; Tactix self-stops in 87.312 seconds. The very first decision, 23,722,
+selects literal \code{-3826966} in both solvers from the exact
+\code{915ba6872db85d6e} starting heap. Immediately afterward, however, Kissat's
+heap is \code{0c02c94ab22cef2d} and Tactix's is
+\code{3f0b92d9fb905b7d}. This originally suggested that the first decision's
+lazy heap-pop/removal path created the mismatch; job \code{1634554} below
+disproves that interpretation. The relevant mutation is the preceding
+level-551-to-root backtrack and heap reinsertion stream.
+
+The targeted path observer now records each lazy pop's removed maximum and
+last element, every selected child move with both exact scores and positions,
+and a full digest after each completed pop. A heap-pop-only filter suppresses
+all unrelated analysis detail. Both controls are disabled by default. Static
+coverage, Trace 71/71, Release 72/72, and the optimized Kissat build pass;
+fresh Tactix/Kissat SHA-256 prefixes are
+\code{1cd42ec0}/\code{8ce35871}. Resume with one paired capture targeting
+Kissat decision 23,722 and Tactix's pre-increment count 23,721.
+
+That capture is campaign
+\begin{center}\small\artifact{20260819-0857-tierd-rank22-first-pop-path}\end{center}
+and Slurm job \code{1634554}, tasks 0--1. Both tasks are valid UNKNOWN runs,
+untruncated and residue-free. Kissat reaches its 120.117-second limit with an
+empty filtered trace; Tactix self-stops in 86.691 seconds with an 11,895-byte
+trace (SHA-256 prefix \code{e58ce3d1}). Neither trace contains a
+\code{heap\_pop}. Reading this result against the event sequence resolves the
+apparent paradox: after conflict 1,001 both solvers backtrack from level 551 to
+root and reinsert newly unassigned variables; the resulting root is already
+unassigned, so selecting decision 23,722 does not pop it. Thus the first-pop
+hypothesis is disproved. Resume by comparing a bounded count and rolling digest
+of the c1,001 heap-reinsertion stream, then instrument only the first differing
+insertion path if the external reinsertion sequence itself agrees.
+
+That comparison is campaign
+\begin{center}\small\artifact{20260819-0905-tierd-rank22-reinsert-sequence}\end{center}
+and Slurm job \code{1634558}, tasks 0--1; scheduler dry run \code{1634557}
+passed. It reuses the pinned \code{8ce35871}/\code{1cd42ec0} observers, requests
+two CPUs and 16\,GiB independently per task with no throttle or node constraint,
+stops at conflict 1,002, and caps each control-only trace at 100,000 records.
+Resume by validating both UNKNOWN outcomes, trace truncation and scratch cleanup,
+then extracting the conflict-1,001 \code{heap\_reinsert} payloads in order. The
+first unequal identity localizes the trail-order divergence; complete equality
+instead calls for a per-insertion heap-pose checkpoint.
+
+Both tasks are valid, untruncated, and residue-free UNKNOWN runs. Kissat reaches
+the 120.133-second limit after all required coverage with an 11,034,624-byte
+trace (SHA-256 prefix \code{8dee55ad}); Tactix self-stops terminally in 87.326
+seconds with 10,260,808 bytes (prefix \code{555fa94d}). Both c1,001 streams
+contain exactly 32,690 variables and their sorted payloads have the same
+\code{28b4db00} digest, proving equal membership. Their order digests differ,
+however: Kissat \code{43c83964}, Tactix \code{7f847d91}. Items 1--42 agree;
+item 43 is \code{3858960} in Kissat and \code{3858955} in Tactix, followed by
+two permutations of the same small blocks. This trail-order difference is the
+first demonstrated cause of the heap-pose split. Resume by querying those two
+variables' true levels, trail positions, and reasons at conflict 1,001, then
+localize the earlier assignment-order divergence.
+
+That four-way query is campaign
+\begin{center}\small\artifact{20260819-0914-tierd-rank22-assignment-pair}\end{center}
+and Slurm job \code{1634561}, tasks 0--3; scheduler dry run \code{1634560}
+passed. Each solver/variable pair is independent at two CPUs and 16\,GiB, with
+no throttle or node constraint, and stops at conflict 1,001. Resume by
+validating the four outcomes and cleanup, then align each selected variable's
+\code{assignment} record (true level, trail index, binary flag, and reason).
+
+All four runs are valid, untruncated, and residue-free UNKNOWN outcomes. Kissat
+self-terminates on the requested signal in 33.899/33.194 seconds; Tactix emits
+terminal records and exits zero in 89.872/89.866 seconds. Both variables are
+level-1 binary implications of the same external reason literal
+\code{-3722682} in both solvers. Kissat places \code{3858960} at trail position
+334,399 before \code{3858955} at 334,630; Tactix reverses them, placing
+\code{3858955} at 583,800 before \code{3858960} at 583,809 (both Tactix
+assignments are marked jumped). Therefore the reinsertion mismatch inherits a
+binary-propagation ordering difference, not a different implication reason or
+level. Resume by capturing the ordered binary watch list for \code{-3722682}
+at conflict 1,001 and locating the two consequents within it.
+
+That paired snapshot is campaign
+\begin{center}\small\artifact{20260819-0919-tierd-rank22-binary-watch-order}\end{center}
+and Slurm job \code{1634566}, tasks 0--1; scheduler dry run \code{1634565}
+passed. The existing disabled-by-default annotation externalizes binary watch
+partners in stored order. Each task uses two CPUs and 16\,GiB independently,
+with no throttle or node constraint, and stops at conflict 1,001. Resume by
+validating both outcomes and cleanup, then compare the annotated lists and the
+positions of \code{3858960} and \code{3858955}.
+
+Both tasks are valid, untruncated, and residue-free UNKNOWN runs. Kissat exits
+on the requested signal in 29.933 seconds with 6,625,794 trace bytes (SHA-256
+prefix \code{b29b9263}); Tactix emits a terminal record and exits zero in
+84.812 seconds with 6,529,678 bytes (prefix \code{e72f479b}). Both ordered
+binary annotations are exactly
+\code{-15,3722637,-3722690,-306062}; neither contains \code{3858960} or
+\code{3858955}. Source inspection resolves this negative result: binary reason
+jumping replaces the immediate antecedent with its ancestor, and
+\code{-3722682} is that stored virtual reason. Its equal watch list is
+exonerated. Resume by adding a disabled selected-consequence observer at binary
+assignment time that records the immediate other-false literal, whether reason
+jumping fired, and the final stored reason in both solvers.
+
+That observer is now implemented symmetrically and remains disabled unless a
+selected external consequence is configured. It records the assigned literal,
+the immediate other-false literal seen by propagation, whether reason jumping
+fired, and the final stored reason. Static overlay coverage, Trace 71/71,
+Release 72/72, and a fresh optimized Kissat build pass. The fresh Tactix/Kissat
+SHA-256 prefixes are \code{7f18c827}/\code{dab54f97}. Resume by pinning those
+binaries and running the two selected variables against both solvers through
+conflict 1,001.
+
+That four-way capture is campaign
+\begin{center}\small\artifact{20260819-0929-tierd-rank22-binary-immediate}\end{center}
+and Slurm job \code{1634569}, tasks 0--3; scheduler dry run \code{1634568}
+passed. Each task uses two CPUs and 16\,GiB independently, with no throttle or
+node constraint, and stops at conflict 1,001. All four outcomes are valid
+UNKNOWN; all traces are untruncated and residue-free, and cleanup completed.
+The two per-variable record counts agree exactly across solvers (123 and 134).
+For both variables, the final assignment occurs at conflict 611, decision
+11,410, level 1, with immediate antecedent \code{-28}, reason jumping enabled,
+and stored reason \code{-3722682}. Their recent semantic event sequences also
+match. Thus neither immediate-reason construction nor jumping explains the
+reversed trail order: it lies in ordered scanning of \code{-28}'s binary watch
+list. Resume by adding a compact disabled observer that reports the complete
+list count/hash and the positions of 3858960 and 3858955 at conflict 611.
+
+That observer is now implemented symmetrically under the common
+\code{SAT\_EVENT\_TRACE\_WATCH\_TARGETS} control. When selected, it suppresses
+the unbounded literal rendering and emits only the binary count, a full ordered
+hash, and each requested target's one-based position plus signed literal. A
+generic two-entry fixture pins ordering, sign, and compactness. Trace passes
+71/71, Release passes 72/72, static overlay coverage passes, and fresh optimized
+Kissat construction passes. The fresh Tactix/Kissat SHA-256 prefixes are
+\code{63445c15}/\code{8933faa7}. Resume by pinning these binaries and running a
+paired conflict-611 snapshot for watch literal \code{-28} and targets 3858960,
+3858955.
+
+That paired capture is campaign
+\begin{center}\small\artifact{20260819-0942-tierd-rank22-watch-positions}\end{center}
+and Slurm job \code{1634574}, tasks 0--1; scheduler dry run \code{1634573}
+passed. Each independent task has two CPUs and 16\,GiB, with no throttle or node
+constraint, and stops at conflict 611. Resume by waiting for both tasks, then
+validate answer, truncation, and cleanup before comparing \code{binary\_count},
+\code{binary\_hash}, and both signed one-based target positions.
+
+Both tasks completed as valid UNKNOWN resource timeouts with untruncated traces,
+no residue, and completed cleanup. Their conflict-611 snapshots are decisive:
+both \code{-28} lists contain 261 binaries, but Kissat's ordered hash prefix is
+\code{8d014614}, with \code{-3858960} at position 9 and \code{-3858955} at
+246; Tactix's is \code{bf9f3d21}, with the same literals at 248 and 235. This
+directly explains the reversed propagation and trail order. The diagnostic also
+exposed a focused-mode observer defect: the requested stop marked a pending
+stop but never raised the signal, so both arms continued to the 120-second
+resource bound. The requested snapshots remain valid. Resume by repairing that
+observer-only stop contract, then capture the same compact summaries at
+preprocessing/rule boundaries to locate where the 261-entry order first splits.
+
+The symmetric observer stop contract is repaired: every selected
+\code{analysis\_end} now flushes and raises \code{SIGTERM} immediately in both
+search modes, after the optional stable heap snapshot. The unreachable pending
+state and its repeated focused snapshots are removed. A forked runtime unit
+test requires focused mode to die by the selected signal. Trace passes 71/71,
+Release passes 72/72, static overlay coverage passes, and fresh optimized Kissat
+construction passes. The new Tactix/Kissat SHA-256 prefixes are
+\code{bfcd50f0}/\code{4652be26}. Resume with the preprocessing-boundary capture;
+the diagnostic repair does not change solver behavior or the job-1634574
+finding.
+
+The boundary capture is campaign
+\begin{center}\small\artifact{20260819-0952-tierd-rank22-watch-boundaries}\end{center}
+and Slurm job \code{1634577}, tasks 0--1; scheduler dry run \code{1634576}
+passed. Each task has two CPUs and 16\,GiB independently, with no throttle or
+node constraint. It deliberately omits a conflict stop so startup and
+preprocessing snapshots remain visible, while detailed search is restricted to
+conflict zero. Resume by validating both outcomes and cleanup, aligning common
+boundary names, and identifying the first differing count/hash or target pose.
+
+Both tasks are valid UNKNOWN runs with untruncated traces, no residue, and
+completed cleanup. At Sweep begin, both solvers have exactly six \code{-28}
+binary partners, ordered hash \code{a1cf11345e8485b0}, and neither target. Sweep
+creates the first split: Kissat ends it with 264 entries, hash prefix
+\code{9db104b9}, and target positions 11/251; Tactix ends it with 260 entries,
+hash prefix \code{7ff52c81}, and positions 248/235. Substitute then leaves 261
+entries in both but preserves the prior order split. Resume by adding a
+disabled selected-literal binary-add observer at the symmetric new-binary
+insertion points and compare every runtime addition involving \code{-28}
+through preprocessing.
+
+That selected binary-add observer is now implemented at the symmetric actual
+insertion points. Under \code{SAT\_EVENT\_TRACE\_BINARY\_ADD=-28}, it emits only
+new binary clauses containing that exact signed literal and is otherwise
+erased/disabled. A runtime fixture checks signed pair payloads; static coverage
+pins both insertion hooks. Trace passes 71/71, Release passes 72/72 in an
+isolated full run, and fresh optimized Kissat construction passes. The new
+Tactix/Kissat SHA-256 prefixes are \code{fa186938}/\code{b65aecfe}. Resume by
+pinning these binaries and capturing the conflict-zero preprocessing addition
+sequence for \code{-28} in both solvers.
+
+That paired add-sequence capture is campaign
+\begin{center}\small\artifact{20260819-1002-tierd-rank22-binary-adds}\end{center}
+and Slurm job \code{1634580}, tasks 0--1; scheduler dry run \code{1634579}
+passed. Each task has two CPUs and 16\,GiB independently, with no throttle or
+node constraint. Resume by validating both outcomes and cleanup, then isolate
+the \code{binary\_add} records between Sweep begin/end and compare length,
+ordered/set hashes, the first mismatch, and both target addition ordinals.
+
+Both tasks completed as valid UNKNOWN resource timeouts with untruncated
+traces, deleted solver artifacts, and no pending cleanup. Kissat's run is
+120.117 seconds with a 90,112-byte trace (SHA-256 prefix \code{d8dbc884});
+Tactix's is 120.468 seconds with a 21,173-byte trace (prefix
+\code{8b0c5202}). Between Sweep begin/end, both solvers publish exactly the
+same four direct additions, in the same order:
+\code{(-28,3825745)}, \code{(-28,-39)}, \code{(-28,-48)}, and
+\code{(-28,5913)}. Thus the six-to-264/260 watch-list growth is not a
+new-binary insertion mismatch: Sweep equivalence substitution moves or
+republishes pre-existing binary occurrences onto representative \code{-28}.
+Resume by tracing that representative's retiring-source classes and comparing
+source emission order, each source stream's encounter order, and the four
+members present only in Kissat's Sweep-end list.
+
+The selected-representative stream observer is implemented in commit
+\code{afd154d}. Under \code{SAT\_EVENT\_TRACE\_SWEEP\_REWRITE=-28}, each
+solver now records only binary occurrences actually appended to representative
+\code{-28}, naming the retiring source literal, its unified-stream position,
+and the resulting partner. Search-only mode retains these records; the option
+is otherwise disabled and production compilation erases the Tactix calls. The
+complete Trace suite passes 71/71, the isolated Release suite passes 72/72,
+static actual-hook assertions pass, and a fresh optimized Kissat overlay builds
+cleanly. The Tactix/Kissat observer SHA-256 prefixes are
+\code{5b1857eb}/\code{b0591cea}. Resume by pinning them in a two-arm Slurm
+campaign and comparing moved-stream counts, exact partner order, source-block
+order, first mismatch, and the four Kissat-only members.
+
+The paired stream capture is campaign
+\begin{center}\small\artifact{20260819-1016-tierd-rank22-sweep-streams}\end{center}
+and Slurm job \code{1634583}, tasks 0--1; scheduler dry run \code{1634582}
+passed. Each independent task has two CPUs, 16\,GiB, and a 120-second solver
+ceiling, with no throttle or node constraint. The immutable Tactix/Kissat pins
+have SHA-256 prefixes \code{5b1857eb}/\code{b0591cea}. Resume by waiting for
+job \code{1634583}, requiring valid outcomes, untruncated traces, and complete
+cleanup, then comparing moved counts, exact partner order, retiring-source
+blocks, first mismatch, both target ordinals, and the Kissat-only members.
+
+Both tasks completed as valid UNKNOWN resource timeouts with untruncated traces
+and complete cleanup. Kissat ran 120.118 seconds and wrote 131,072 bytes
+(SHA-256 prefix \code{69913119}); Tactix ran 120.468 seconds and wrote 59,207
+bytes (prefix \code{4a6ef83b}). Kissat records 254 moved binaries and Tactix
+255. Both use the same source-block order, \code{-3825745}, \code{39}, then
+\code{-5913}, with counts 12/240/2 versus 13/239/3. Both targets occur at the
+same global move ordinals, 4 and 243. The first mismatch is ordinal 12:
+Kissat moves \code{-3825772} from source position 25, while Tactix moves
+\code{-3859674} from position 11. The complete multiset delta is small:
+Kissat alone has \code{-132} and \code{-3825772}; Tactix alone has
+\code{-30}, \code{-3859674}, and \code{-3859764}. Partner-sequence SHA-256
+prefixes are \code{c4607a15}/\code{f75e2c65}. Resume by inspecting the
+physical binary-watch rewrite against the already source-ordered Sweep ledger
+and explaining why Tactix's 255 logged moves produce only 250 net new physical
+\code{-28} entries before changing behavior.
+
+The resulting repair is commit \code{1e0fa6d}. Tactix already computed the
+reference emission order and used it for the logical dense Sweep ledger, but
+the physical binary-watch reconstruction independently walked retiring
+literals in global import order. That left later Sweep environments correct
+through the ledger while sparse search consumed a different physical order.
+The connected Sweep rewrite now snapshots directed binary images in the
+session's retiring-source order; canonical Substitute retains its existing
+import-order traversal. The former ledger-only emission-order regression now
+also requires the physical representative list to contain the same source
+blocks. Trace passes 71/71 and isolated Release passes 72/72. Resume with a
+focused Slurm verification requiring the Sweep-end \code{-28} target pose to
+move toward Kissat and the conflict-611 assignment/trail order to converge;
+retain the repair only if both guards stay clean.
+
+The focused verification is campaign
+\begin{center}\small\artifact{20260819-1026-tierd-rank22-emission-order-verify}\end{center}
+and Slurm job \code{1634586}; scheduler dry run \code{1634585} passed. One
+immutable Tactix observer pin (SHA-256 prefix \code{01f62a79}) runs with two
+CPUs, 16\,GiB, a 120-second solver ceiling, no throttle, and no node constraint.
+It retains both the Sweep-end compact watch summary and conflict-611 detail,
+then stops immediately after the selected analysis. Resume by requiring a valid
+UNKNOWN stop, an untruncated trace, complete cleanup, and both summaries; compare
+them with saved Kissat jobs \code{1634577} and \code{1634574} respectively.
+
+Job \code{1634586} completes by the selected stop in 82.55 seconds as a valid
+UNKNOWN with a 27,104-byte untruncated trace (SHA-256 prefix
+\code{b1e86d5c}), deleted artifact, and no pending cleanup. At conflict 611,
+the repaired Tactix list still has 261 binaries but \code{-3858960} moves from
+position 248 to 9, exactly Kissat's position; \code{-3858955} moves from 235
+to 248, versus Kissat 246. The formerly reversed target order is therefore
+repaired. Decision 11409, selected external variable 3730173, and the complete
+stable top-32 order match saved Kissat, although the full watch hash and wider
+state digest remain unequal. Endpoint-only stop suppression deliberately omits
+the pre-target Sweep-end snapshot; the stronger conflict-611 endpoint is
+present. Retain the repair for a proof-producing production rank-22 arm under
+the iteration resource contract, then require the paired retained-rank guard
+before acceptance.
+
+The production validation is campaign
+\begin{center}\small\artifact{20260819-1031-tierd-rank22-production}\end{center}
+and Slurm job \code{1634588}; scheduler dry run \code{1634587} passed. One
+immutable optimized Tactix pin (SHA-256 prefix \code{d0069191}) runs with two
+CPUs, 16\,GiB, a 1,200-second solver ceiling, no throttle, and no node
+constraint. The frozen reference result is UNSAT in 196.556 seconds. Acceptance
+requires Tactix to report UNSAT, independent \code{drat-trim} verification,
+measured wall/RSS, deleted proof/input scratch, and no pending cleanup. Resume
+by waiting for job \code{1634588}; if it passes, run the paired retained-rank
+guard before accepting \code{1e0fa6d}.
+
+Job \code{1634588} is a valid clean timeout, not a recovered solve. The
+optimized candidate reaches the 1,200-second ceiling at 1,200.004 seconds and
+reports UNKNOWN. Its incomplete 108,003,328-byte proof artifact (SHA-256 prefix
+\code{4e846c61}) is not checked or accepted; the decompressed input, partial
+proof, and scratch are deleted, with no pending cleanup. Thus the
+emission-order repair corrects the known conflict-611 target ordering but is
+insufficient to close frozen rank 22 under the iteration contract. Do not run
+the retained-rank guard or accept the repair yet. Keep rank 22 open and resume
+paired semantic divergence tracing immediately after the now-aligned
+conflict-611 target order.
+
+That paired trace is prepared as campaign
+\begin{center}\small\artifact{20260819-1056-tierd-rank22-post611-trajectory}\end{center}
+It freezes the repaired Tactix observer (SHA-256 prefix \code{01f62a79}) and
+the unchanged Kissat trajectory observer (prefix \code{4fe71d17}) over
+conflicts 612--1,200. Both independent tasks request two CPUs, 16\,GiB, a
+300-second solver ceiling, no throttle, and no node constraint. Trajectory-only
+mode retains decisions, conflicts, analysis boundaries, random/phase choices,
+and constant-size learned-clause summaries while suppressing watch and
+implication volume. Resume by dry-validating and submitting the array, then
+require valid outcomes, untruncated traces, complete cleanup, and the first
+normalized portable mismatch. The prior frontier was exact through conflict
+1,198; this campaign determines how the conflict-611 physical-order repair
+changes that frontier.
+Scheduler dry validation passed as job \code{1634591}; the two-task campaign
+is now Slurm job \code{1634592}. Resume by waiting for both tasks, validating
+the outcomes, trace completeness, and cleanup, then locating the first
+normalized portable mismatch.
+
+Both job \code{1634592} tasks are valid, clean UNKNOWN timeouts. Kissat runs
+300.125 seconds and publishes a 5,177,344-byte trace (SHA-256 prefix
+\code{8908bf1c}); Tactix runs 300.380 seconds and publishes a terminal
+8,235,567-byte trace (prefix \code{581ea521}). The complete requested windows
+reach conflict 1,200 without a truncation marker, and both tasks delete all
+scratch with no pending cleanup. After ignoring the known compact
+\code{analysis\_end} snapshot asymmetry, each window has 18,322 normalized
+decision, conflict, analysis-boundary, and learned-summary records. They match
+through conflict 1,199 analysis and its first decision \code{-3779280}. The
+next decision is the unchanged frontier: at decision 25,781 and level 469,
+Kissat selects \code{-3782012} while Tactix selects \code{-3782027}. Thus the
+conflict-611 physical-order edit fixes its targeted list ordering, but search
+reconverges by conflict 612 and the later causal frontier does not advance.
+Keep \code{1e0fa6d} unaccepted and rank 22 open. Resume by comparing the full
+repaired conflict-611 \code{-28} list with Kissat, beginning with the residual
+two-position offset of \code{-3858955}, and test whether it preserves the
+known conflict-1,001 reinsertion/heap mismatch.
+
+Comparing the saved Sweep rewrite streams reduces the residual further. After
+dropping set-only entries, all 252 common binary partners occur in exactly the
+same relative order, including both target partners. Kissat alone moves
+\code{-3825772} from source \code{-3825745} and \code{-132} from source
+\code{39}; Tactix alone moves \code{-3859674} and \code{-3859764} from
+\code{-3825745}, plus \code{-30} from \code{-5913}. The latter three pairs
+are literal input binaries, so representative-map filtering rather than
+another common-partner ordering error is now the leading discriminator.
+Search-only tracing now retains the already-existing \code{sweep\_equivalence}
+event symmetrically; the Kissat materializer inserts its corresponding hook.
+Focused/static tests pass, followed by Trace 71/71 and Release 72/72, and a
+fresh Kissat overlay builds. Observer SHA-256 prefixes are \code{e06a764b}
+(Tactix) and \code{bfea3d25} (Kissat). Resume with a paired conflict-zero
+search-only trace that records equivalence pairs alongside the existing
+\code{-28} rewrite stream, then map the five set-only partners to their class
+representatives before considering any solver edit.
+
+The immutable paired campaign is prepared at
+\begin{center}\small\artifact{20260819-1113-tierd-rank22-sweep-equivalences}\end{center}
+It combines both equivalence streams with the existing selected
+\code{sweep\_rewrite\_binary} stream at conflict zero. Each task requests two
+CPUs, 16\,GiB, a 120-second solver ceiling, no throttle, and no node
+constraint. Resume by scheduler dry validation and submission, then require
+valid outcomes, untruncated traces, deleted scratch, and representative chains
+for all five set-only partners.
+Scheduler dry validation passed as job \code{1634594}; the recorded two-task
+campaign is now Slurm job \code{1634595}. Resume by waiting for both arms,
+validating trace completeness and cleanup, then mapping all five partners.
+
+Both job \code{1634595} tasks are valid, residue-free UNKNOWN timeouts with
+untruncated traces and deleted scratch. Kissat runs 120.118 seconds and emits
+248 equivalence plus 254 selected rewrite records in 163,840 bytes (SHA-256
+prefix \code{bd41bf23}); Tactix runs 120.418 seconds and emits 229 plus 255
+records in a terminal 86,999-byte trace (prefix \code{64152642}). After
+normalizing endpoint orientation and mirror polarity, every Tactix equivalence
+appears in Kissat; Kissat alone emits 19. The first missing cluster is
+\code{(3825774,-3825776)}, \code{(-3820683,3825774)}, and
+\code{(3826332,-3820683)}. A later five-pair class includes
+\code{(-30,-3809178)}, explaining why Kissat retires input binary
+\code{(-5913,-30)} before \code{-5913} merges into \code{-28}, while Tactix
+moves it. Both streams do contain the common classes connecting
+\code{3825772} and \code{132} to the eventual \code{-28} class. Thus Tactix's
+equivalence set is a strict subset and clause-retirement timing explains the
+membership residual; common-partner order is exonerated. This is
+simplification-performance evidence, not a soundness finding. Resume by adding
+a symmetric search-only seed record, identify the reference seed owning the
+first missing triple, and compare only that seed's environment/candidate path.
+
+Search-only tracing now also retains \code{sweep\_seed}. Tactix emits the
+existing seed hook; the Kissat materializer inserts the symmetric event at
+\code{sweep\_variable} entry before environment construction. Focused and
+static coverage pass, followed by Trace 71/71, Release 72/72, and a fresh
+Kissat build. Observer SHA-256 prefixes are \code{9437950a} (Tactix) and
+\code{f865ce98} (Kissat). Resume with one paired conflict-zero seed/equivalence
+trace and attach each extra Kissat pair to the immediately preceding seed.
+
+That paired capture is campaign
+\begin{center}\small\artifact{20260819-1123-tierd-rank22-sweep-seeds}\end{center}
+with two CPUs and 16\,GiB per independent task, a 120-second ceiling, no
+throttle, and no node constraint. Scheduler dry validation passed as job
+\code{1634600}. Resume by submitting the pair, then validate and bind each
+equivalence to its preceding seed.
+The pair is now Slurm job \code{1634601}; resume by waiting for both tasks and
+performing the recorded validation and binding.
+
+Both job \code{1634601} arms are valid, untruncated, residue-free UNKNOWN
+timeouts with complete cleanup. Kissat runs 120.118 seconds and publishes a
+188,416-byte trace (SHA-256 prefix \code{8219b1c2}); Tactix runs 120.418
+seconds and publishes a terminal 114,017-byte trace (prefix \code{b1473f8c}).
+Both visit exactly 243 external seeds in identical order. Only seed ordinals
+51--57 and 77 have different equivalence groups, always Kissat-only additions.
+At the first differing group, seed \code{3826352}, both emit
+\code{(-3826352,-3826351)} and \code{(-3859775,-3859774)}; Kissat alone then
+emits \code{(-3825776,3825774)}, \code{(-3825774,3820683)}, and
+\code{(-3826332,3820683)}. Seed scheduling and prior representative
+rescheduling are therefore exonerated. Resume with a symmetric search-only
+environment-size record for seed \code{3826352}; if counts match, compare its
+initial candidate partition and selected queries.
+
+The symmetric search-only \code{sweep\_environment} observer is now implemented
+without changing solver semantics. Tactix retains its existing environment
+event; the Kissat materializer emits external seed, variable count, and encoded
+clause count immediately after environment construction. Focused/static tests,
+Trace 71/71, Release 72/72, and a fresh Kissat observer build all pass. SHA-256
+prefixes are \code{5bad7b9b} (Tactix) and \code{5edbacca} (Kissat). Resume with
+one paired conflict-zero capture and compare the environment counts at external
+seed \code{3826352}; only if they match should the next observer expose content
+or candidate/model/query selection.
+
+The predeclared paired capture is campaign
+\begin{center}\small\artifact{20260819-1133-tierd-rank22-sweep-environments}\end{center}
+with immutable observer pins, two CPUs and 16\,GiB per independent task, a
+120-second solver ceiling, no throttle, and no node constraint. Scheduler dry
+validation passed as job \code{1634607}. Resume by submitting the pair, then
+validate both results and compare only external seed, environment variable
+count, and encoded-clause count at seed \code{3826352}.
+The submitted pair is Slurm job \code{1634608}. Resume by waiting for both
+array tasks, performing the recorded validity/cleanup checks, and making that
+three-field comparison before adding any broader content observer.
+
+Both job \code{1634608} arms completed as valid, residue-free UNKNOWN timeouts
+with untruncated traces and complete scratch cleanup. Kissat ran 120.117 seconds
+and emitted 229,376 bytes (SHA-256 prefix \code{35d2ad39}); Tactix ran 120.418
+seconds and emitted a terminal 151,892 bytes (prefix \code{73ca2099}). All 243
+ordered triples of external seed, environment-variable count, and encoded-clause
+count match exactly. At external seed \code{3826352}, each environment contains
+26 variables and 38 clauses. Environment cardinality and construction schedule
+are therefore exonerated. Resume with a bounded symmetric comparison of that
+seed's environment content/order, then initial model/candidate/query selection.
+
+The next observer reuses Tactix's existing seed-filtered
+\code{sweep\_environment\_clause} hook and adds the symmetric Kissat record at
+the exact handoff of each selected clause to Kitten. It records clause ordinal
+and external literal order only for the seed selected by
+\code{SAT\_EVENT\_TRACE\_SWEEP\_CLAUSES}; search-only mode now retains the
+event. Focused/static coverage, Trace 71/71, Release 72/72, and a fresh Kissat
+build pass. Observer SHA-256 prefixes are \code{dc1c33a9} (Tactix) and
+\code{5fb5409d} (Kissat). This is bounded diagnostic instrumentation, not a
+solver-semantic or soundness change. Resume with one paired seed-3826352 clause
+capture and compare ordered clauses first, then clause sets if order differs.
+
+That paired capture is campaign
+\begin{center}\small\artifact{20260819-1143-tierd-rank22-sweep-clauses}\end{center}
+with the common seed filter set to \code{3826352}, two CPUs and 16\,GiB per
+independent task, a 120-second ceiling, no throttle, and no node constraint.
+Scheduler dry validation passed as job \code{1634613}. Resume by submitting the
+pair, validating both arms, and comparing the 38 ordered environment clauses;
+if order differs, separately compare their normalized literal sets.
+The submitted pair is Slurm job \code{1634614}. Resume by waiting for both
+tasks, applying the recorded validity and cleanup checks, and performing those
+ordered and set-normalized clause comparisons.
+
+Both job \code{1634614} arms are valid, residue-free UNKNOWN timeouts with
+untruncated traces and complete scratch cleanup. Kissat runs 120.118 seconds
+and emits 229,376 bytes (SHA-256 prefix \code{617be092}); Tactix runs 120.519
+seconds and emits a terminal 163,076 bytes (prefix \code{56d1191d}). Each arm
+records 38 environment clauses for seed \code{3826352}. Every clause ordinal,
+every external literal, and every within-clause position matches exactly; the
+normalized clause sequence and multiset are therefore exact as well.
+Environment membership and both levels of encoding order are exonerated.
+Resume with a symmetric seed-filtered initial Kitten result/model record, then
+compare the candidate-query sequence only if that initial state matches.
+
+Search-only tracing now retains Tactix's existing seed-filtered
+\code{sweep\_query} and \code{sweep\_query\_model} events. The Kissat overlay
+adds the symmetric records around every Sweep subsolver call: initial,
+backbone, forward equivalence, and reverse equivalence. Kissat results are
+normalized from \code{10/20/0} to Tactix's \code{Sat/Unsat/Budget=0/1/2};
+candidate and model literals are externalized, and model order follows the
+environment variable stream. Focused/static coverage, Trace 71/71, Release
+72/72, and a fresh Kissat build pass. Observer SHA-256 prefixes are
+\code{b19a3f4b} (Tactix) and \code{b4e0d93d} (Kissat). Resume with one paired
+seed-3826352 query/model capture and locate the first mismatch while ignoring
+implementation-specific tick totals.
+
+That paired capture is campaign
+\begin{center}\small\artifact{20260819-1153-tierd-rank22-sweep-queries}\end{center}
+with common clause and query filters set to \code{3826352}, two CPUs and
+16\,GiB per independent task, a 120-second ceiling, no throttle, and no node
+constraint. Scheduler dry validation passed as job \code{1634616}. Resume by
+submitting the pair, validating both arms, and comparing ordinal, kind,
+candidate literals, normalized result, and model while ignoring ticks and
+implementation-specific conflict counters.
+The submitted pair is Slurm job \code{1634617}. Resume by waiting for both
+tasks, performing the recorded validity/cleanup checks, and locating the first
+query or model mismatch under that normalization.
+
+Both job \code{1634617} arms are valid, residue-free UNKNOWN timeouts with
+untruncated traces and complete cleanup. Kissat runs 120.118 seconds and emits
+237,568 bytes (SHA-256 prefix \code{0feb9b16}); Tactix runs 120.419 seconds and
+emits a terminal 163,971 bytes (prefix \code{c46a6d47}). All 22 query records
+match exactly in ordinal, kind, candidate literals, and normalized result, and
+all eight SAT models match exactly as ordered external signed-literal streams.
+At ordinals 16--21 both solvers refute both directions of
+\code{(3825774,-3825776)}, \code{(-3820683,3825774)}, and
+\code{(3826332,-3820683)}, yet only Kissat commits those equivalences. The first
+divergence is therefore after semantic refutation, in Tactix's captured-proof
+selection/translation or consequence-commit path. Resume with a conflict-zero
+Sweep rule-journal capture filtered to candidate
+\code{3825774,-3825776} and inspect its structured decline.
+
+The predeclared one-arm diagnostic is campaign
+\begin{center}\small\artifact{20260819-1159-tierd-rank22-sweep-commit-journal}\end{center}
+using the validated immutable Tactix trace pin, two CPUs, 16\,GiB, a 120-second
+solver ceiling, no throttle, and no node constraint. The existing rule journal
+is restricted to rule \code{Sweep}, conflict zero, candidate
+\code{3825774,-3825776}, and 20 records. Scheduler dry validation passed as job
+\code{1634619}. Resume by submitting the task, validating cleanup and journal
+integrity, then reading its consequence-select/commit decline fields.
+The submitted diagnostic is Slurm job \code{1634620}. Resume by waiting for
+the task and carrying out exactly those journal-integrity and decline checks.
+
+Job \code{1634620} completes as a valid, residue-free UNKNOWN timeout in
+121.370 seconds with a terminal untruncated 153,020-byte event trace (SHA-256
+prefix \code{bf077246}), but creates no journal; the result metadata correctly
+records null journal bytes, hash, and record count. Inspection shows that the
+pinned \code{build/trace} binary enables event tracing but has
+\code{TACTIX\_ENABLE\_RULE\_JOURNAL=OFF}; only the standalone journal test
+defines it. This is an observer-configuration miss and supports no solver
+conclusion. Resume by building and validating a combined event-trace plus
+rule-journal pin, then rerun the identical candidate-filtered task.
+
+A separate \code{build/trace-journal} is now configured with both
+\code{TACTIX\_ENABLE\_EVENT\_TRACE=ON} and
+\code{TACTIX\_ENABLE\_RULE\_JOURNAL=ON}. Its complete 72-test suite passes,
+including the journal-enabled default-policy integration test. The corrected
+binary's SHA-256 prefix is \code{b3cf12b4}. Resume by pinning this binary into
+a fresh immutable campaign and rerunning the identical conflict-zero candidate
+filter; do not reinterpret job \code{1634620}.
+
+The corrected campaign is
+\begin{center}\small\artifact{20260819-1207-tierd-rank22-sweep-commit-journal}\end{center}
+and its manifest explicitly records both enabled compile flags and pin hash.
+It keeps the same candidate, conflict-zero, 20-record, 2-CPU, 16\,GiB, and
+120-second contracts, with no throttle or node constraint. Scheduler dry
+validation passed as job \code{1634621}. Resume by submitting this corrected
+task, then validate and interpret its journal artifact.
+The submitted corrected diagnostic is Slurm job \code{1634622}. Resume by
+waiting for the task, validating journal bytes/hash/record count and cleanup,
+then reading the candidate's structured selection and commit disposition.
+
+Job \code{1634622} completes as a valid, residue-free UNKNOWN timeout in
+121.070 seconds with a terminal untruncated 153,020-byte event trace (SHA-256
+prefix \code{bf077246}). The corrected binary creates a valid 203-byte journal
+(prefix \code{42ceb79f}), but it contains only the two headers and zero data
+records. Thus the assumed candidate spelling/order did not match the stored
+journal key, or this path emitted no candidate record; no commitment conclusion
+follows. Resume with the same conflict-zero \code{Sweep} journal without a
+candidate filter, bounded to 200 records, then identify the target spelling and
+structured decline from that finite stream.
+
+The replacement campaign is
+\begin{center}\small\artifact{20260819-1213-tierd-rank22-sweep-commit-journal-all}\end{center}
+using the same combined pin and resource contract. It retains rule
+\code{Sweep} and conflict zero but removes the candidate filter, with a hard
+200-record bound. Scheduler dry validation passed as job \code{1634623}.
+Resume by submitting, validating, then finding records whose candidate literal
+set is \code{\{3825774,-3825776\}} independent of stored order.
+The submitted bounded task is Slurm job \code{1634624}. Resume by waiting for
+it, validating journal integrity and cleanup, then carrying out that
+order-independent candidate lookup.
+
+Job \code{1634624} completes as a valid, residue-free UNKNOWN timeout in
+120.769 seconds with the same terminal untruncated 153,020-byte trace and a
+valid 203-byte journal, but the unfiltered, 200-record-bounded journal still has
+zero data records. Therefore no conflict-zero Sweep consequence reaches the
+journaled selection/general-plan path in this run. The target exits earlier:
+fixed/no-proof unit collapse, degenerate/known handling, root-state gating, or
+a successful direct commit whose event semantics omit that branch. Resume by
+adding a pair-filtered Tactix \code{sweep\_commit} event at entry and each
+pre-journal branch for unordered pair \code{\{3825774,-3825776\}}, recording
+both endpoint root values and the selected outcome.
+
+That bounded observer is now implemented behind
+\code{SAT\_EVENT\_TRACE\_SWEEP\_COMMIT}. It accepts the unordered external
+pair, records endpoint values, proof mode, and entry/early-exit/commit outcome,
+and remains available in search-only traces; without the environment filter it
+emits nothing. The focused test and the full 72/72 release plus 71/71 trace
+regressions pass. Resume by committing the observer and this checkpoint, then
+preparing, dry-validating, and submitting one 16\,GiB rank-22 branch trace.
+
+The observer is committed as \code{893dda7}; its immutable trace binary has
+SHA-256 prefix \code{8e14dfdb}. Campaign
+\begin{center}\small\artifact{20260819-1225-tierd-rank22-sweep-commit-branch}\end{center}
+pins that binary and the checked rank-22 input, requests 16\,GiB and two CPUs
+with a 120-second solver ceiling, no throttle, and no node constraint. Scheduler
+dry validation passed as job \code{1634625}. Resume by submitting the single
+task, recording its job ID, and waiting for the terminal validated result.
+
+The actual one-task diagnostic is Slurm job \code{1634626}. Resume by waiting
+for it, then require a valid checked answer or clean UNKNOWN timeout, a terminal
+untruncated trace, at least one pair-filtered \code{sweep\_commit} record, and
+confirmed scratch cleanup before interpreting the branch.
+
+Job \code{1634626} completes as a valid, residue-free UNKNOWN timeout in
+120.519 seconds with a terminal untruncated 117,447-byte trace (SHA-256 prefix
+\code{d7ade4d8}). The target produces exactly two branch records: entry with
+\code{av=1}, \code{bv=1}, \code{proof=0}, followed by
+\code{fixed-no-proof-no-unit}. Both endpoints are already root-true. Tactix
+does retain this compatible fixed pair in the emitted-equivalence substitution
+batch; only its early branch omits the \code{sweep\_equivalence} event. Thus
+the apparent first missing consequence is observer-semantic asymmetry, not a
+discarded solver consequence. Resume by emitting that semantic event whenever
+the branch appends the pair, validating both suites, and rerunning the bounded
+source-order comparison to find the next genuine mismatch.
+
+The observer correction now emits \code{sweep\_equivalence} exactly when the
+fixed/no-proof branch appends the compatible pair to the substitution batch;
+incompatible fixed pairs remain unreported and uncommitted. Focused Sweep and
+event-trace tests pass. Resume by completing the full release and trace suites,
+then commit and rerun the bounded rank-22 source-order comparison.
+
+The complete validation is green: 72/72 release tests and 71/71 event-trace
+tests. Resume by committing this observer-only semantic correction, pinning the
+fresh trace binary, and rerunning the rank-22 conflict-zero source-order stream
+against the saved immutable Kissat task from job \code{1634595}.
+
+The correction is committed as \code{470b33f}; fresh Tactix trace binary
+SHA-256 prefix \code{1734a826}. Campaign
+\begin{center}\small\artifact{20260819-1233-tierd-rank22-sweep-equivalences-corrected}\end{center}
+uses one 16\,GiB, two-CPU, 120-second unthrottled task and compares it with the
+saved Kissat trace SHA-256 prefix \code{bd41bf23}. Scheduler dry validation
+passed as job \code{1634627}. Resume by submitting and waiting for the corrected
+Tactix task, then normalize and compare both equivalence streams.
+
+The actual corrected-stream task is Slurm job \code{1634628}. Resume by
+waiting for it, validating answer/trace/cleanup integrity, and comparing its
+normalized \code{sweep\_equivalence} sequence with the saved Kissat stream.
+
+Job \code{1634628} completes as a valid, residue-free UNKNOWN timeout in
+120.419 seconds with a terminal untruncated 120,872-byte trace (SHA-256 prefix
+\code{cf6e915c}). Corrected Tactix and the immutable Kissat reference each emit
+248 normalized Sweep equivalences. The normalized sets and the complete
+normalized sequence are exact, with no duplicates and no one-sided pairs.
+Therefore the former 19-pair strict-subset result was entirely observer-semantic
+asymmetry. Detection and retained-equivalence source order are exonerated; the
+remaining rank-22 divergence is downstream in substitution/rewrite application
+or later search. Resume at the exact equivalence boundary by comparing the
+selected \code{-28} rewrite stream under the corrected source-order build.
+
+The saved job-\code{1634595} selected-rewrite streams remain valid because the
+observer correction changes only equivalence reporting. Ignoring position
+shifts, Kissat alone moves \code{(-3825745,-28,-3825772)} and
+\code{(39,-28,-132)}; Tactix alone moves the two high-variable partners from
+source \code{-3825745} plus \code{(-5913,-28,-30)}. The now-exact pair order
+and source code identify the architectural boundary: Kissat substitutes each
+proved pair immediately, while Tactix applies one final-class batch and then
+reconstructs source order. That residual does not change the portable search
+trajectory before the known post-analysis conflict-1199 decision frontier.
+Resume with symmetric endpoint-stop traces at conflict 1199, capturing the full
+stable heap immediately after analysis and before divergent decision 25,781.
+
+Campaign
+\begin{center}\small\artifact{20260819-1243-tierd-rank22-c1199-heap-endpoint}\end{center}
+pins the validated Kissat trajectory observer (SHA-256 prefix \code{4fe71d17})
+and corrected Tactix observer (prefix \code{1734a826}). Its two independent,
+unthrottled tasks each request 16\,GiB, two CPUs, and a 300-second ceiling, then
+stop immediately after conflict-1199 analysis. Scheduler dry validation passed
+as job \code{1634630}. Resume by submitting, waiting, and comparing the stable
+heap hashes, top order, and scores of externals 3782012 and 3782027.
+
+The actual symmetric endpoint array is Slurm job \code{1634631}. Resume by
+waiting for both tasks and applying the recorded endpoint integrity checks
+before interpreting either heap.
+
+Job \code{1634631} is a partial diagnostic result. Tactix stops correctly at
+conflict 1199 in 97.863 seconds with a terminal untruncated 218,712-byte trace
+(SHA-256 prefix \code{ee836a11}), stable heap hash
+\code{2dcd85762dac1a9f}, and complete cleanup. The selected Kissat pin crosses
+the target but its endpoint control fails to terminate: it emits repeated heaps,
+continues to conflict 65,820, and hits the Slurm limit without a structured
+result. This is an observer-control miss, not solver evidence. Preserve the
+valid Tactix endpoint and retry only Kissat with the already validated endpoint
+pin SHA-256 prefix \code{682a4e7c} from job \code{1634505}; then compare the
+single target heap with the saved Tactix result.
+
+The one-task retry campaign is
+\begin{center}\small\artifact{20260819-1255-tierd-rank22-kissat-c1199-heap-retry}\end{center}
+using validated endpoint pin \code{682a4e7c}, 16\,GiB, two CPUs, a 300-second
+solver ceiling, no throttle, and no node constraint. Scheduler dry validation
+passed as job \code{1634635}. Resume by submitting and waiting for this Kissat
+task only, then compare it with immutable Tactix trace \code{ee836a11}.
+
+The actual one-task retry is Slurm job \code{1634636}. Resume by waiting for
+it and applying the endpoint integrity checks before the saved-trace comparison.
+
+Job \code{1634636} succeeds in 29.132 seconds as a valid intentional-stop
+UNKNOWN with an untruncated 222,387-byte trace (SHA-256 prefix
+\code{cee2bb3a}) and complete cleanup. At conflict 1199 both endpoints have
+decision count 25,779, level 467, and exactly the same normalized top-32
+candidate order; external 3782012 immediately precedes 3782027. Their raw heap
+hashes differ: Kissat \code{259d1d77227e9979}, Tactix
+\code{2dcd85762dac1a9f}. Both next choose \code{-3779280} at decision 25,780,
+then split. The earliest live discriminator is therefore the lazy heap
+removal/sift after that common decision, not analysis-end score ranking. Resume
+with heap-pop-only traces for Kissat decision 25,781 and Tactix's corresponding
+pre-increment decision 25,780.
+
+Campaign
+\begin{center}\small\artifact{20260819-1259-tierd-rank22-d25781-heap-pop}\end{center}
+pins the two current observers and retains only the targeted lazy-pop path at
+conflict 1199: Kissat decision 25,781 and Tactix pre-increment decision 25,780.
+Both tasks use 16\,GiB, two CPUs, a 120-second ceiling, no throttle, and no node
+constraint. Scheduler dry validation passed as job \code{1634637}. Resume by
+submitting, waiting, then comparing begin/move/end identities, scores, and heap
+indices.
+
+The actual two-task heap-pop array is Slurm job \code{1634638}. Resume by
+waiting for both tasks and validating trace/cleanup integrity before comparing
+the filtered pop paths.
+
+Job \code{1634638} produces two valid, residue-free UNKNOWN timeouts and
+untruncated traces, but zero \code{heap\_pop} records on both sides. The target
+was late. Immediately after conflict-1199 analysis, restart-reuse policy asks
+for the next unassigned heap variable while the decision counter is still
+25,779; that call lazily removes the assigned maximum before either next
+decision is counted. This is a targeting miss, not solver evidence. Resume by
+repeating the heap-pop-only comparison with counter 25,779 for both solvers.
+
+The corrected campaign is
+\begin{center}\small\artifact{20260819-1305-tierd-rank22-restart-reuse-heap-pop}\end{center}
+with the same immutable pins and resources but counter 25,779 on both tasks.
+Scheduler dry validation passed as job \code{1634640}. Resume by submitting,
+waiting, and comparing the restart-reuse pop paths.
+
+The actual corrected array is Slurm job \code{1634641}. Resume by waiting for
+both tasks and validating the two filtered paths plus cleanup.
+
+Job \code{1634641} is also clean and empty. The counter was not tested:
+\code{heap\_pop\_only} passes the event through its first filter, but
+\code{search\_only} then drops \code{heap\_pop} because it is not whitelisted.
+The two target attempts have identical per-solver trace hashes, confirming a
+configuration miss. Resume with the original Kissat-25,781/Tactix-25,780
+targets, heap-pop-only enabled, and search-only disabled.
+
+The corrected visible-event campaign is
+\begin{center}\small\artifact{20260819-1311-tierd-rank22-d25781-heap-pop-visible}\end{center}
+using the original decision targets, heap-pop-only filtering, and no search-only
+filter. Scheduler dry validation passed as job \code{1634643}; the actual array
+is job \code{1634644}. Resume by waiting and comparing the retained paths.
+
+Job \code{1634644} completed as two clean, bounded UNKNOWN timeouts with
+independent scratch cleanup. Kissat ran 120.118 seconds and wrote an
+untruncated 704,512-byte trace (SHA-256 prefix \code{4bb0ab8d}) but retained no
+\code{heap\_pop} records: immutable pin \code{4fe71d17} predates that hook.
+Tactix ran 120.318 seconds and wrote an untruncated 833,558-byte trace (SHA-256
+prefix \code{d933d462}) containing 28 consecutive lazy pops before the split.
+Its final pop promotes external variable 3,782,027 ahead of 3,782,012 even
+though both scores are exactly 25774.157807429845. Preserve that valid Tactix
+trace and resume by rerunning only Kissat with heap-pop-capable pin
+\code{8ce35871} from the 08:57 campaign, then compare the first differing pop
+path.
+
+That isolated continuation is campaign
+\begin{center}\small\artifact{20260819-1318-tierd-rank22-kissat-d25781-heap-pop-retry}\end{center}
+with the heap-pop-capable Kissat pin, one task, the original decision-25,781
+target, heap-pop-only filtering, and no search-only filter. Scheduler dry
+validation passed as job \code{1634646}. Resume by submitting this campaign,
+waiting for its bounded result, and comparing its begin/move/end path with the
+saved Tactix trace whose SHA-256 prefix is \code{d933d462}.
+
+The actual isolated retry is Slurm job \code{1634647}. Resume by waiting for
+that task, validating its bounded answer, trace integrity, and scratch cleanup,
+then comparing its retained pop path with the saved Tactix trace.
+
+Job \code{1634647} is a valid clean bounded UNKNOWN: 120.119 seconds, an
+untruncated 851,968-byte trace (SHA-256 prefix \code{12194e9b}), deleted
+artifact, and no pending cleanup. Kissat and the saved Tactix arm each lazily
+pop 28 variables, and the popped-variable sets are identical. Their first pop
+paths agree through seven child moves; the next move is Kissat variable
+3,778,844 from index 410 to 204 versus Tactix variable 3,778,692 from index
+408 to 203. Pop-root order first differs at operation 12. On the final relevant
+promotion, Kissat moves 3,782,012 above equal-score 3,782,027 while Tactix moves
+3,782,027 above 3,782,012; both scores are 25774.157807429845. This exonerates
+the heap comparator and score values: the decision split is caused by the raw
+heap pose already known to differ. Resume by comparing the repaired Tactix and
+Kissat conflict-1,001 heap-reinsertion streams to locate the earlier ordering
+mutation that creates this pose.
+
+That comparison is campaign
+\begin{center}\small\artifact{20260819-1325-tierd-rank22-repaired-reinsert-sequence}\end{center}
+using immutable Kissat/Tactix observer pins \code{8ce35871}/\code{1734a826},
+two CPUs and 16\,GiB independently per task, a 120-second solver ceiling, no
+throttle, and no node constraint. Scheduler dry validation passed as job
+\code{1634648}; the actual pair is Slurm job \code{1634649}. Resume by waiting
+for both arms, validating answer/trace/cleanup integrity, then comparing
+conflict-1,001 \code{heap\_reinsert} counts, membership, ordered hashes, and
+the first mismatch against the pre-repair item-43 split.
+
+Both job \code{1634649} tasks are valid, untruncated, and residue-free UNKNOWN
+outcomes. Kissat times out cleanly in 120.136 seconds with 11,034,624 trace
+bytes (SHA-256 prefix \code{8dee55ad}); Tactix stops terminally in 96.980
+seconds with 10,260,808 bytes (prefix \code{8528cc81}). Each conflict-1,001
+reinsertion stream has 32,690 external variables. Their membership and exact
+order match, with ordered SHA-256 prefix \code{50a4ab54}; variables 3,858,960
+and 3,858,955 are at positions 43 and 48 in both. Before the repair, Tactix put
+them at positions 51 and 43 and first differed at item 43. Thus the repair fully
+fixes this causal checkpoint, but the raw heap later diverges again. Resume by
+binary-searching raw heap endpoint hashes between the exact post-conflict-1,001
+state and the known conflict-1,199 mismatch.
+
+The coarse endpoint array is campaign
+\begin{center}\small\artifact{20260819-1331-tierd-rank22-heap-endpoint-coarse}\end{center}
+at paired conflicts 1,002, 1,050, 1,100, 1,150, and 1,198. All ten immutable
+tasks run independently with two CPUs and 16\,GiB, a 120-second solver ceiling,
+no throttle, and no node constraint. Scheduler dry validation passed as job
+\code{1634652}; the actual array is Slurm job \code{1634653}. Resume by waiting
+for every task, validating answer/trace/cleanup integrity, and bracketing the
+first unequal raw heap hash while requiring normalized top-32 parity.
+
+All ten job \code{1634653} tasks have valid UNKNOWN answers, untruncated
+traces, deleted artifacts, and no pending cleanup. The conflict-1,002 Kissat
+arm reaches 120.117 seconds before publishing its endpoint because observer
+pin \code{8ce35871} snapshots that large selected analysis; Tactix's stop lands
+at conflict 1,003 instead, so the earliest pair is inconclusive. Every later
+sample already differs: the Kissat/Tactix raw hashes at conflicts 1,050, 1,100,
+1,150, and 1,198 are respectively \code{a5865471}/\code{a388013c},
+\code{c9f3cf06}/\code{ab50a012}, \code{4baf98c4}/\code{750314cd}, and
+\code{c9daee7b}/\code{70a2a5ee}. Their top-32 poses also differ, although the
+known conflict-1,199 top-32 later reconverges while its raw pose remains
+different. Resume by refining conflicts 1,003--1,050 with lighter validated
+Kissat endpoint pin \code{682a4e7c} and the same repaired Tactix pin.
+
+The refinement campaign is
+\begin{center}\small\artifact{20260819-1336-tierd-rank22-heap-endpoint-refine}\end{center}
+It runs the lighter Kissat pin at conflict 1,003 against the saved Tactix
+endpoint, then pairs conflicts 1,010, 1,020, 1,030, and 1,040. Nine immutable
+tasks retain the same independent two-CPU/16-GiB contract, with no throttle or
+node constraint. Scheduler dry validation passed as job \code{1634664}; the
+actual array is Slurm job \code{1634665}. Resume by waiting for every task,
+validating answer/trace/cleanup integrity, and bracketing the first unequal
+endpoint between conflicts 1,003 and 1,050.
+
+All nine job \code{1634665} tasks have valid UNKNOWN answers, untruncated
+traces, deleted artifacts, and no pending cleanup. Kissat's conflict-1,003 raw
+heap hash \code{2cc932e10ca5ec55} exactly matches the saved Tactix endpoint.
+By conflict 1,010 the hashes differ, \code{c69bd8a2baab90fe} versus
+\code{79dc1ce4f6f0fae4}, and top-32 order first differs at position 2.
+Conflicts 1,020 and 1,040 also differ. The conflict-1,030 pair publishes no
+exact-target endpoint because the selected analysis/stop semantics overshoot,
+but it lies outside the proven bracket. Resume by sampling every conflict from
+1,004 through 1,009 with the same lighter endpoint pins.
+
+The exact-conflict campaign is
+\begin{center}\small\artifact{20260819-1341-tierd-rank22-first-heap-mismatch}\end{center}
+and pairs every endpoint from conflict 1,004 through 1,009. Twelve immutable
+tasks use the same independent two-CPU/16-GiB contract, with no throttle or
+node constraint. Scheduler dry validation passed as job \code{1634674}; the
+actual array is Slurm job \code{1634675}. Resume by waiting for all tasks,
+validating answer/trace/cleanup integrity, and selecting the first unequal
+paired endpoint as the causal conflict.
+
+All twelve job \code{1634675} tasks are valid intentional-stop UNKNOWNs with
+untruncated traces, deleted artifacts, and no pending cleanup. Raw heap hashes
+match exactly at conflicts 1,004, 1,005, and 1,006:
+\code{c347670f0d35b6c8}, \code{f630e2a89e515c73}, and
+\code{cb7647e239c08a03}. The first mismatch is conflict 1,007, where Kissat has
+\code{2dc7247556f5f30b} and Tactix has \code{d059788fa9995d69}; conflicts 1,008
+and 1,009 remain unequal. The complete conflict-1,007 top-32 identity order is
+still exact. Resume inside conflict 1,007 by comparing the pre-bump heap pose,
+ordered score-bump identities, and any backtrack reinsertion stream; the first
+unequal internal checkpoint is the next repair target.
+
+The per-bump comparison is campaign
+\begin{center}\small\artifact{20260819-1347-tierd-rank22-c1007-bump-heaps}\end{center}
+It enables the existing diagnostic-only heap checkpoint before bumping and
+after each common variable 749,485, 743,678, 742,665, and 746,437. Both
+immutable tasks retain the independent two-CPU/16-GiB contract, no throttle,
+and no node constraint. Scheduler dry validation passed as job
+\code{1634687}; the actual pair is Slurm job \code{1634688}. Resume by waiting
+for both arms, validating answer/trace/cleanup integrity, then aligning the
+pre-bump and four post-bump raw hashes.
+
+Both job \code{1634688} tasks are valid, untruncated, and residue-free UNKNOWN
+outcomes. Kissat stops intentionally in 30.628 seconds with 59,061 trace bytes
+(SHA-256 prefix \code{a530b9cc}); Tactix stops terminally in 94.177 seconds
+with 59,713 bytes (prefix \code{68cc8d74}). The pre-bump raw heaps already
+differ, \code{f18f4c4f7262a867} versus \code{29fc4824782cd181}. The four
+common bumps preserve that split and end at the known hashes; there are no
+conflict-1,007 heap reinserts. Conflict 1,006 ends with an exact heap at
+decision count 23,744, while conflict 1,007 analysis begins at 23,786. Resume
+by hashing after each of those 42 common intervening decisions; the first
+unequal decision/lazy-pop endpoint is causal.
+
+That decision sequence is campaign
+\begin{center}\small\artifact{20260819-1353-tierd-rank22-c1007-decision-heaps}\end{center}
+It opens detail at conflict 1,006, starts decision heap hashing at count 23,745,
+and stops at conflict 1,007. Both immutable tasks use two CPUs and 16\,GiB
+independently, with no throttle or node constraint. Scheduler dry validation
+passed as job \code{1634690}; the actual pair is Slurm job \code{1634691}.
+Resume by waiting for both arms, validating answer/trace/cleanup integrity,
+then pairing each common decision with its following hash and selecting the
+first mismatch.
+
+Both job \code{1634691} tasks are valid, untruncated, and residue-free UNKNOWN
+outcomes. Kissat stops intentionally in 54.935 seconds with 5,017,839 trace
+bytes (SHA-256 prefix \code{b98bdd3c}); Tactix stops terminally in 115.161
+seconds with 4,943,538 bytes (prefix \code{e448f6ea}). All 42 decision literals
+are identical. The raw hashes cannot yet support a causal claim: the presumed
+exact conflict-1,006 Kissat checkpoint came from older pin \code{682a4e7c},
+whereas this run uses \code{8ce35871}. At decision 23,745 it publishes
+\code{56e0c19070e1f1b3}; Tactix publishes both the unchanged pre-cleanup
+\code{cb7647e239c08a03} and post-cleanup \code{da71039987aa00be}, reflecting
+different event timing. Resume by building one fresh current Kissat observer
+from the frozen source and current overlay, then use only that pin for the
+conflict-1,004--1,007 endpoint/pre-bump sequence before attributing a mutation.
+
+A fresh current Kissat observer was built from frozen source
+\code{8af8e56f174b} and the current overlay. The optimized build and static
+overlay test pass; its immutable SHA-256 prefix is \code{9a2b8a88}. The
+same-pin endpoint replay is campaign
+\begin{center}\small\artifact{20260819-1400-tierd-rank22-current-pin-endpoints}\end{center}
+at conflicts 1,004--1,007. Eight immutable tasks use two CPUs and 16\,GiB
+independently, with no throttle or node constraint. Scheduler dry validation
+passed as job \code{1634693}; the actual array is Slurm job \code{1634694}.
+Resume by waiting for every task, validating answer/trace/cleanup integrity,
+and identifying the first unequal endpoint without cross-pin inference.
+
+All eight job \code{1634694} tasks are valid intentional-stop UNKNOWNs with
+untruncated traces, deleted artifacts, and no pending cleanup. With the fresh
+current Kissat pin, raw heap hashes match exactly at conflicts 1,004, 1,005,
+and 1,006: \code{c347670f0d35b6c8}, \code{f630e2a89e515c73}, and
+\code{cb7647e239c08a03}. They first differ at conflict 1,007:
+\code{2dc7247556f5f30b} versus \code{d059788fa9995d69}. This reproduces the
+frontier without cross-pin inference. The continuous trace places the mutation
+after conflict-1,006 analysis and before decision 23,745, during propagation of
+the asserting assignment. Resume by tracing activation/general heap-push
+operations in that interval; score bumps and backtrack reinserts are already
+exonerated.
+
+The next diagnostic observer is now implemented at the central score-heap
+insertion primitive in both solvers. It records the inserted external
+variable, exact score, append position, and final bubbled position only while
+stable detail tracing is active; production builds erase the hook. Release
+passes 72/72 tests, Trace passes 71/71, and the Kissat overlay static test
+passes. Resume by building a fresh immutable Kissat observer from this
+overlay, then run one independent two-CPU/16-GiB pair through conflict 1,007
+and compare only insertions after conflict-1,006 analysis and before decision
+23,745. Rank 22 remains open; this is localization evidence, not a repair.
+
+The fresh heap-insertion observer pins are Kissat SHA-256 prefix
+\code{8ae2afa2} and Tactix prefix \code{24c47384}. The immutable campaign is
+\begin{center}\small\artifact{20260819-1412-tierd-rank22-c1006-heap-inserts}\end{center}
+Its two tasks independently use two CPUs and 16\,GiB, with no array throttle
+or node constraint; detail is restricted to conflict 1,006 and execution stops
+at conflict 1,007. Scheduler dry validation passed as job \code{1634702}; the
+actual array is Slurm job \code{1634703}. Resume by waiting for both tasks,
+requiring a valid answer, untruncated trace, deleted scratch, and no pending
+cleanup, then align the ordered \code{heap\_insert} payloads after
+conflict-1,006 analysis and before decision 23,745.
+
+Job \code{1634703} exonerates the central heap-insertion stream but does not
+produce two valid terminal arms. Tactix stops intentionally in 97.468 seconds
+with 46,331 trace bytes (SHA-256 prefix \code{3b88a2b6}); Kissat reaches all
+42 decisions through 23,786, then unrestricted retained Sweep detail fills
+essentially the 100,000-record cap and the task times out at 180.137 seconds
+with 14,475,264 bytes (prefix \code{4d6092d3}). Both tasks delete scratch and
+leave no cleanup pending. Before that cap, both contain the complete 140-event
+score-heap insertion stream before conflict-1,006 analysis ends. Every payload
+matches in order, with common sequence SHA-256 prefix \code{2efcc434}; neither
+solver inserts between that analysis endpoint and decision 23,745. Treat only
+this completed target stream as diagnostic evidence, not the Kissat terminal
+arm. Resume with heap-pop-only detail for the first decision, using decision
+counter 23,745 in Kissat and 23,744 in Tactix because the solvers increment on
+opposite sides of variable selection.
+
+That counter-aligned pop comparison is campaign
+\begin{center}\small\artifact{20260819-1419-tierd-rank22-d23745-heap-pop}\end{center}
+It reuses pins \code{8ae2afa2}/\code{24c47384}, retains only heap-pop,
+heap-score, decision, and analysis-end records, and stops at conflict 1,007.
+The two tasks independently use two CPUs and 16\,GiB with no throttle or node
+constraint. Scheduler dry validation passed as job \code{1634705}; the actual
+pair is Slurm job \code{1634706}. Resume by waiting for both tasks, validating
+answer/trace/cleanup integrity, then aligning the begin/move/end payloads for
+the logical decision 23,745 selection.
+
+Job \code{1634706} is invalid as a cross-solver comparison. Both tasks delete
+scratch and leave no cleanup pending. Tactix reaches the intended stop in
+97.811 seconds with 6,332 bytes (SHA-256 prefix \code{31acecc4}) and records
+no lazy-pop event for the first logical decision. Kissat times out at 180.068
+seconds and leaves an empty buffered trace. The pop-only filter drops
+\code{heap\_insert} records only after their payload has been formatted, so
+the millions of filtered calls still dominate the Kissat arm; its stream is
+also not line-buffered. Do not infer pop parity from this pair. The remaining
+source-backed candidate is arbitrary heap removal during root-variable
+deactivation, implemented by Kissat's \code{pop\_heap} and Tactix's
+\code{heap\_remove}, not the observed lazy pop-max path. Resume by making
+filtered insertions cheap, line-buffering Kissat, and tracing those arbitrary
+removals at conflict 1,006/decision count 23,744.
+
+The arbitrary-removal observer is now implemented symmetrically at the two
+central heap primitives. It records removed and replacement variables with
+exact scores, the removed slot, replacement source slot, and final bubbled
+slot, restricted by an exact decision counter. The pop-only mode now rejects
+insertions before payload formatting, and Kissat is line-buffered. Release
+passes 72/72 tests, Trace passes 71/71, the overlay static test passes, and a
+fresh optimized Kissat overlay build passes. The fresh immutable SHA-256
+prefixes are Kissat \code{fac07c1f} and Tactix \code{d7eaf69c}. Resume by
+pinning these binaries and tracing conflict 1,006 at decision count 23,744.
+
+The immutable removal campaign is
+\begin{center}\small\artifact{20260819-1431-tierd-rank22-c1006-heap-removes}\end{center}
+It restricts removal records to conflict 1,006/decision count 23,744 and stops
+at conflict 1,007. Two tasks independently use two CPUs and 16\,GiB, with no
+array throttle or node constraint. Scheduler dry validation passed as job
+\code{1634708}; the actual pair is Slurm job \code{1634709}. Resume by waiting
+for both tasks, requiring valid answers, untruncated line-buffered traces,
+deleted scratch, and no pending cleanup, then align the ordered removal
+payloads from the last exact heap checkpoint.
+
+Job \code{1634709} isolates the first policy-state mutation mismatch. Tactix
+reaches its intentional UNKNOWN stop in 97.128 seconds with 6,534 trace bytes
+(SHA-256 prefix \code{3a60dbe5}); Kissat times out after 180.067 seconds with
+a usable, untruncated, line-buffered 64,981-byte prefix (prefix
+\code{d0e4cb15}). Both delete scratch and leave no cleanup pending. The Kissat
+arm is not terminal-valid, but it contains the complete target stream and all
+42 decisions through count 23,786. Both solvers first remove variable 10,848
+with the exact same score, slot, replacement variable, and final slot. After
+conflict-1,006 analysis, Kissat makes 264 additional arbitrary removals before
+logical decision 23,745, beginning with variable 10,967 and ending with
+3,538,779 as the replacement source shrinks from 3,442,789 to 3,442,526;
+Tactix makes none. The next 42 decision literals nevertheless remain exact.
+
+The source explains that measured asymmetry. Kissat's inline assignment marks
+every true-level-zero assignment fixed and immediately deactivates the variable
+from its VMTF queue and score heap. Tactix already deactivates the shared
+learned root unit, but its Propagate proof rule retains the 264 root implications
+in policy rankings. This is a policy-lifecycle mismatch, not a proof-rule or
+soundness defect. The first repair attempt correctly changed the observed unit
+behavior but violated the enforced rule/policy dependency boundary. The revised
+implementation keeps Propagate independent and makes DefaultPolicy consume all
+new true-level-zero assignments after each propagation application. A focused
+regression covers the transition; Release passes 72/72 and Trace passes 71/71,
+including the rule-policy boundary check. Resume by replaying the window with a
+fresh immutable Tactix pin; the expected witness is the same ordered 265
+removals.
+
+The immutable repair replay is
+\begin{center}\small\artifact{20260819-1445-tierd-rank22-root-fixed-replay}\end{center}
+It retains Kissat observer SHA-256 prefix \code{fac07c1f} and pins the repaired
+Tactix Trace binary at prefix \code{60d971f6}. Both tasks independently receive
+two CPUs, 16\,GiB, and a 180-second solver ceiling; the array is full-width with
+no throttle or node constraint. Runner compilation, pin hashes, Release 72/72,
+Trace 71/71, and the rule-policy boundary check pass. Scheduler dry validation
+is job \code{1634711}; the actual array is job \code{1634712}. Resume by waiting
+for both tasks and requiring valid results, untruncated traces, decision-23,786
+coverage, deleted scratch, no pending cleanup, exactly 265 identical ordered
+removal payloads, and the same next 42 decision literals.
+
+Job \code{1634712} accepts the focused repair replay exactly. Tactix reaches
+the intentional UNKNOWN stop in 98.315 seconds with an untruncated 62,057-byte
+trace (SHA-256 prefix \code{77ab63f6}); Kissat again times out after 180.067
+seconds, but its untruncated 64,981-byte line-buffered prefix contains the full
+predeclared target. Both scratch artifacts are deleted and neither cleanup is
+pending. Each trace contains exactly 265 arbitrary-removal payloads; the two
+ordered streams are byte-equal with canonical payload SHA-256 prefix
+\code{2b29dd38}. Each then contains the same 42 decision literals from
+\code{-3814641} through \code{1206696}, with common sequence prefix
+\code{b46d874d} and final counter 23,786. This validates the causal repair but
+does not close rank 22, because the Kissat arm is not terminal-valid and no
+production answer was attempted. Resume by replaying the repaired
+conflict-1,007 raw heap endpoint and advancing only if that state is exact.
+
+That fresh matched endpoint campaign is
+\begin{center}\small\artifact{20260819-1453-tierd-rank22-repaired-c1007-endpoint}\end{center}
+It uses the same immutable Kissat/Tactix prefixes \code{fac07c1f}/
+\code{60d971f6}, with two CPUs, 16\,GiB, a 180-second solver ceiling, a
+full-width two-task array, no throttle, and no node constraint. Runner and pin
+validation pass; scheduler dry validation is job \code{1634714} and the actual
+pair is job \code{1634715}. Resume by requiring valid intentional-stop UNKNOWN
+results, untruncated terminal conflict-1,007 records, deleted scratch, no
+pending cleanup, and byte-equal raw heap hash plus ordered top-32 payloads.
+
+Job \code{1634715} accepts the endpoint comparison. Kissat and Tactix reach
+their intended UNKNOWN stops in 41.407 and 93.521 seconds with untruncated
+840,911-byte and 689,789-byte traces. Both scratch artifacts are deleted and
+neither cleanup is pending. Each trace contains exactly one conflict-1,007
+heap endpoint; the full payloads are byte-equal, including raw heap hash
+\code{2dc7247556f5f30b} and every ordered top-32 variable/score pair. The first
+known raw heap divergence therefore moves beyond conflict 1,007. This is the
+focused acceptance gate for the repair, not a rank closure. Resume with one
+checked 16\,GiB/1,200-second repaired Release attempt on frozen rank 22; close
+only for an independently checked SAT or UNSAT answer.
+
+The checked production campaign is
+\begin{center}\small\artifact{20260819-1458-tierd-rank22-root-fixed-production}\end{center}
+It pins optimized repaired Tactix at SHA-256 prefix \code{16eff1de}, with two
+CPUs, 16\,GiB, a 1,200-second solver ceiling, a 4,800-second checker ceiling,
+no array throttle, and no node constraint. The runner and pin checks pass;
+Release 72/72, Trace 71/71, removal replay \code{1634712}, and endpoint pair
+\code{1634715} are its prerequisites. Scheduler dry validation is job
+\code{1634717}; the actual production job is \code{1634718}. Resume by waiting
+through the solver and any independent checker. Accept only a checked answer
+with the decompressed input, proof, and scratch deleted and no cleanup pending.
+
+Job \code{1634718} does not close rank 22. The repaired Release pin returns
+UNKNOWN at the exact 1,200.004-second solver timeout. Its partial certificate
+is 57,671,680 bytes with SHA-256 prefix \code{931ad114}; no proof checker runs
+and no answer is accepted. The runner deletes the decompressed input, partial
+proof, and scratch before publishing the result, with both artifact-deletion
+flags true and \code{cleanup\_pending=false}. Thus \code{a56c674} remains an
+accepted mechanism repair because its focused gates are exact, but it is
+insufficient for rank closure. Keep rank 22 open and resume with a repaired
+current-pin conflict-1,199 raw heap endpoint, the next previously identified
+frontier after conflict 1,007.
+
+The repaired conflict-1,199 endpoint campaign is
+\begin{center}\small\artifact{20260819-1521-tierd-rank22-repaired-c1199-endpoint}\end{center}
+It reuses current immutable observer prefixes \code{fac07c1f}/\code{60d971f6}
+with two CPUs, 16\,GiB, a 300-second solver ceiling, full-width array, no
+throttle, and no node constraint. Runner and pin checks pass; scheduler dry
+validation is job \code{1634720}, and the actual pair is job \code{1634721}.
+Resume by requiring one untruncated terminal conflict-1,199 heap endpoint per
+task, valid intentional-stop UNKNOWN results, deleted scratch, and no cleanup
+pending. An exact payload moves the frontier later; a clean mismatch selects
+conflict 1,199 for the next mutation-level trace.
+
+Job \code{1634721} accepts the exact branch. Kissat and Tactix reach valid
+intentional UNKNOWN stops in 42.703 and 94.826 seconds with untruncated
+327,507-byte and 226,200-byte traces. Both delete scratch and leave no cleanup
+pending. Each contains exactly one conflict-1,199 heap endpoint, and the full
+payloads are byte-equal: raw heap hash \code{259d1d77227e9979} plus every
+ordered top-32 variable/score pair at decision count 25,779. The prior
+conflict-1,199 mismatch was downstream of the conflict-1,007 fixed-variable
+lifecycle defect, not an independent frontier. Resume with a predeclared
+coarse current-pin endpoint grid beyond conflict 1,199, then refine the first
+mismatching interval. Rank 22 remains open.
+
+Job \code{1634500} is another valid, untruncated, residue-free UNKNOWN timeout:
+180.117 seconds, 24,576 bytes, SHA-256 prefix \code{9a8cdd49}, and conflict 70
+only. Resume with one isolated 292-second cutoff, below the observed
+296.719-second traced solve, and still require actual conflict-1,000 coverage.
+
+The 292-second isolated continuation is campaign
+\begin{center}\small\artifact{20260819-0720-tierd-rank22-kissat-c1000-heap292}\end{center}
+and Slurm job \code{1634501}. Resume by requiring conflict-1,000 coverage and comparing
+with saved Tactix task 1 from \code{1634485}.
+
+Job \code{1634501} is clean but still incomplete: valid UNKNOWN, 292.118
+seconds, an untruncated 24,576-byte trace with SHA-256 prefix
+\code{9a8cdd49}, zero residue, and conflict 70 only. Timeout-only capture is
+therefore unreliable. Resume with the disabled-by-default Kissat observer
+control that flushes and terminates after a selected conflict's analysis; run
+long enough to cross the c70 operation and stop precisely after conflict 1,000.
+
+The stop control is committed as \code{d465475}; fresh Kissat observer SHA-256
+prefix \code{9b5ee8fc} builds and passes the overlay regression. Campaign
+\begin{center}\small\artifact{20260819-0728-tierd-rank22-kissat-c1000-stop}\end{center}
+runs as Slurm job \code{1634502}, isolated with a 600-second ceiling and an
+explicit flush/stop after conflict-1,000 analysis. Resume by requiring the
+analysis-end and heap digest, then compare saved Tactix task 1.
+
+Job \code{1634502} completes as a valid, residue-free UNKNOWN timeout after
+600.117 seconds. Its 32,768-byte trace is untruncated (SHA-256 prefix
+\code{2704cd67}) but reaches only conflict 584, so neither the conflict-1,000
+analysis-end nor its digest exists. This isolates a diagnostic-observer cost:
+the detail window already suppresses pre-target heap hashes, but every macro
+snapshot still scans roughly 3.9 million variables and stable top-32 selection
+repeats that scan. Endpoint-only stop mode now suppresses pre-target macro
+snapshots and intermediate heap hashes, emits one final heap digest immediately
+before the selected analysis-end, then stops. Its static regression and fresh
+O3 observer build pass; binary SHA-256 prefix is \code{682a4e7c}. Resume by
+rerunning one isolated conflict-1,000 arm and comparing its endpoint digest
+with saved Tactix task 1 from job \code{1634485}.
+
+The endpoint-only continuation is campaign
+\begin{center}\small\artifact{20260819-0745-tierd-rank22-kissat-c1000-endpoint}\end{center}
+and Slurm job \code{1634505}. It runs one immutable Kissat observer pin with
+16\,GiB, two CPUs, a 600-second solver ceiling, no array throttle, and no node
+constraint. Resume by requiring exactly one conflict-1,000 \code{heap\_scores}
+record immediately before \code{analysis\_end}, checking an untruncated trace
+and zero cleanup residue, then comparing its ordered heap hash with saved
+Tactix task 1 from job \code{1634485}.
+
+\section*{Limitations and resume instructions}
+The next shadow arm forces RUP replay on value-derived units. Exact population
+tracking has excluded unbacked deletion and missing direct-Y1 premises. The
+complete evidence
+is under \artifact{benchmarks/runs/}, in campaign
+\begin{center}\small\artifact{20260818-2136-ascon-drat-input-restatement}\end{center}
+Do not rerun the complete 28B+5C or ranks 21--40 arrays until a focused proof
+verifies. If those
+later gates pass, resume divergence analysis at the earliest portable
+mismatch of the next still-open frozen rank. Ranks 22, 24, 26, 27, 30--37,
+39, and 40 remain open. The 16\,GiB/1,200-second results are iteration evidence,
+not replacements for the canonical 32\,GiB/5,000-second gates.
+
+\end{document}

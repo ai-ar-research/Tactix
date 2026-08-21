@@ -6,8 +6,10 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/substitute/substitute.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <vector>
 
 using namespace tactix;
 
@@ -221,12 +223,14 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   kernel_reserve_vars(k, 6);
   const Lit before[3] = {internalize(3), internalize(4), internalize(5)};
   const Lit touched[3] = {internalize(2), internalize(4), internalize(6)};
-  const Lit after[3] = {internalize(-3), internalize(5), internalize(6)};
+  const Lit after[3] = {internalize(-3), internalize(4), internalize(6)};
   kernel_add_large_clause(k, before, 3, false, 0);
   kernel_add_large_clause(k, touched, 3, false, 0);
   kernel_add_large_clause(k, after, 3, false, 0);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
 
   const std::vector<std::pair<Lit, Lit>> equivalences = {
       {internalize(1), internalize(2)}};
@@ -235,6 +239,18 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   assert(substitute_apply_sweep_equivalences(k, equivalences, session) ==
          ApplyResult::Ok);
   assert(session.changed);
+
+  // The next environment is built before the session's final collection.
+  // Its live x4 occurrences must already retain before/touched/after order;
+  // appending the touched image here changes capped Sweep semantics.
+  std::vector<Lit> live_dense_first;
+  for (const Ref ref : occ.large[internalize(4)]) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage())
+      live_dense_first.push_back(c->lits[0]);
+  }
+  assert(live_dense_first ==
+         std::vector<Lit>({internalize(3), internalize(1), internalize(-3)}));
   assert(session.collect(k) > 0);
 
   std::vector<Lit> first_literals;
@@ -248,6 +264,360 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   assert(first_literals[0] == internalize(3));
   assert(first_literals[1] == internalize(1));
   assert(first_literals[2] == internalize(-3));
+}
+
+// In Kissat's dense Sweep list, a large clause that collapses to a binary
+// replaces the stable endpoint's occurrence in place but appends the moved
+// representative's direction. The resulting large/binary interleaving is
+// observed by the very next bounded environment.
+static void test_sweep_preserves_cross_kind_dense_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit before[3] = {internalize(1), internalize(3), internalize(5)};
+  const Lit collapse[3] = {internalize(2), internalize(1), internalize(4)};
+  const Lit after[3] = {internalize(1), internalize(-3), internalize(-5)};
+  kernel_add_large_clause(k, before, 3, false, 0);
+  kernel_add_large_clause(k, collapse, 3, false, 0);
+  kernel_add_large_clause(k, after, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  SweepSubstitutionSession session;
+  session.begin(k);
+  const std::vector<std::pair<Lit, Lit>> equivalences = {
+      {internalize(1), internalize(2)}};
+  assert(substitute_apply_sweep_equivalences(k, equivalences, session) ==
+         ApplyResult::Ok);
+
+  const auto &ordered = session.dense_occurrences[internalize(1)];
+  assert(ordered.size() == 3);
+  assert(!ordered[0].binary && !ordered[1].binary);
+  assert(ordered[2].binary && ordered[2].payload == internalize(4));
+  assert(session.collect(k) > 0);
+}
+
+// The logical dense ledger follows Kissat's cross-kind order, while Tactix's
+// physical binary watches can retain a different order after an inline
+// rewrite. Synchronization matches the old multiset and appends only the new
+// binary; treating the physical list as a prefix corrupts release builds.
+static void test_sweep_syncs_new_binaries_by_multiset() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit one = internalize(1);
+  kernel_add_binary_clause(k, one, internalize(2));
+  kernel_add_binary_clause(k, one, internalize(3));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+  std::swap(session.dense_occurrences[one][0],
+            session.dense_occurrences[one][1]);
+
+  kernel_add_binary_clause(k, one, internalize(4));
+  session.sync_new_binaries(k, {{one, internalize(4)}});
+  const auto &ordered = session.dense_occurrences[one];
+  assert(ordered.size() == 3);
+  assert(ordered[0].payload == internalize(3));
+  assert(ordered[1].payload == internalize(2));
+  assert(ordered[2].payload == internalize(4));
+}
+
+// The session's contract (substitute.hpp): for every literal the ledger's
+// binary sub-multiset is exactly that literal's physical binary watch multiset,
+// and its large entries name exactly the live irredundant records `Kernel::
+// dense` holds for it. Membership belongs to the kernel; the ledger only adds
+// Kissat's dense stream order. A ledger claiming a clause the formula does not
+// hold puts a phantom clause into the next environment, and one missing a
+// clause hides a real one, so both directions are checked.
+static void assert_ledger_mirrors_kernel(const Kernel &k,
+                                         const SweepSubstitutionSession &s) {
+  assert(k.dense);
+  assert(s.dense_occurrences.size() == 2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    std::vector<Lit> ledger_binaries, watch_binaries;
+    std::vector<Ref> ledger_large, dense_large;
+    for (const auto occurrence : s.dense_occurrences[lit]) {
+      if (occurrence.binary)
+        ledger_binaries.push_back(static_cast<Lit>(occurrence.payload));
+      else if (!clause_at(k.arena, occurrence.payload)->garbage())
+        ledger_large.push_back(occurrence.payload);
+    }
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary())
+        watch_binaries.push_back(watch.other());
+    for (const Ref ref : k.dense->large[lit]) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !c->redundant())
+        dense_large.push_back(ref);
+    }
+    const auto sorted = [](std::vector<Lit> v) {
+      std::sort(v.begin(), v.end());
+      return v;
+    };
+    const auto sorted_refs = [](std::vector<Ref> v) {
+      std::sort(v.begin(), v.end());
+      return v;
+    };
+    assert(sorted(ledger_binaries) == sorted(watch_binaries));
+    assert(sorted_refs(ledger_large) == sorted_refs(dense_large));
+  }
+}
+
+// Kissat retires one literal at a time and walks its single unified watch
+// stream, so the binaries and the large clauses that stream releases reach the
+// representative interleaved, in the order they were met — not all binaries
+// and then all large clauses. Only a source whose large occurrence precedes
+// one of its binaries can tell the two rules apart, and a moved binary lands
+// behind the larges already indexed for that literal, so the discriminating
+// stream is the one a previous substitution built.
+static void test_sweep_flushes_one_source_stream_at_a_time() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  const Lit one = internalize(1), two = internalize(2), three = internalize(3);
+  // x1's own large clause: untouched by both classes, so it keeps its slot and
+  // the moves have to land behind it.
+  const Lit resident[3] = {internalize(1), internalize(7), internalize(8)};
+  // x2's large clause: it survives as a large clause and introduces x1.
+  const Lit connected[3] = {internalize(2), internalize(6), internalize(7)};
+  kernel_add_large_clause(k, resident, 3, false, 0);
+  kernel_add_large_clause(k, connected, 3, false, 0);
+  kernel_add_binary_clause(k, three, internalize(5));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  SweepSubstitutionSession session;
+  session.begin(k);
+  // First class x2 = x3: x3's binary moves to x2 and is appended behind x2's
+  // large clause, which is exactly the stream shape Kissat then walks.
+  kernel_add_binary_clause(k, negate(two), three);
+  kernel_add_binary_clause(k, two, negate(three));
+  assert(substitute_apply_sweep_equivalences(k, {{two, three}}, session) ==
+         ApplyResult::Ok);
+  assert_ledger_mirrors_kernel(k, session);
+  {
+    const auto &source = session.dense_occurrences[two];
+    assert(source.size() == 2);
+    assert(!source[0].binary); // the large clause was met first
+    assert(source[1].binary && source[1].payload == internalize(5));
+  }
+
+  // Second class x1 = x2 retires that whole stream into x1: the large clause
+  // must arrive before the binary that sat behind it.
+  kernel_add_binary_clause(k, negate(one), two);
+  kernel_add_binary_clause(k, one, negate(two));
+  assert(substitute_apply_sweep_equivalences(k, {{one, two}}, session) ==
+         ApplyResult::Ok);
+  assert_ledger_mirrors_kernel(k, session);
+
+  const auto &ordered = session.dense_occurrences[one];
+  assert(ordered.size() == 3);
+  assert(!ordered[0].binary); // x1's own resident clause keeps its slot
+  const Clause *const kept = clause_at(k.arena, ordered[0].payload);
+  assert(!kept->garbage() && std::find(kept->begin(), kept->end(),
+                                       internalize(8)) != kept->end());
+  assert(!ordered[1].binary); // then x2's large clause, rewritten to x1
+  const Clause *const inherited = clause_at(k.arena, ordered[1].payload);
+  assert(!inherited->garbage() && inherited->size == 3);
+  assert(std::find(inherited->begin(), inherited->end(), internalize(6)) !=
+         inherited->end());
+  assert(std::find(inherited->begin(), inherited->end(), one) !=
+         inherited->end());
+  assert(ordered[2].binary && ordered[2].payload == internalize(5));
+  assert(session.collect(k) > 0);
+  kernel_dense_disconnect(k);
+}
+
+// Two retiring literals can share one representative. Kissat empties them in
+// the order `sweep_equivalence` proved them, one complete stream at a time;
+// walking the class in import order instead interleaves two sources that the
+// reference keeps contiguous and in the opposite order.
+static void test_sweep_flushes_sources_in_emission_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit one = internalize(1), two = internalize(2), three = internalize(3);
+  kernel_add_binary_clause(k, two, internalize(6));
+  kernel_add_binary_clause(k, three, internalize(7));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  SweepSubstitutionSession session;
+  session.begin(k);
+  // x1 wins both merges by import order, so x3 and x2 both retire into it.
+  // The batch proves x1 = x3 first, which is not import order.
+  kernel_add_binary_clause(k, negate(one), three);
+  kernel_add_binary_clause(k, one, negate(three));
+  kernel_add_binary_clause(k, negate(one), two);
+  kernel_add_binary_clause(k, one, negate(two));
+  assert(substitute_apply_sweep_equivalences(k, {{one, three}, {one, two}},
+                                             session) == ApplyResult::Ok);
+  assert_ledger_mirrors_kernel(k, session);
+
+  const auto &ordered = session.dense_occurrences[one];
+  assert(ordered.size() == 2);
+  assert(ordered[0].binary && ordered[0].payload == internalize(7)); // from x3
+  assert(ordered[1].binary && ordered[1].payload == internalize(6)); // from x2
+  std::vector<Lit> physical;
+  for (const WatchEntry watch : k.watches.entries(one))
+    if (watch.binary())
+      physical.push_back(watch.other());
+  assert(physical == std::vector<Lit>({internalize(7), internalize(6)}));
+  kernel_dense_disconnect(k);
+}
+
+// Sweep publishes both implication binaries before asking for the rewrite, so
+// the ledger owes them a stream position whatever the classes turn out to be.
+// Declining every class is a normal outcome — a unit emitted by the same batch
+// can fix an endpoint — and returning before the sync left those binaries live
+// in the watch lists but invisible to every later environment.
+static void test_sweep_records_binaries_of_a_declined_batch() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit a = internalize(1), b = internalize(2);
+  const Lit spectator[3] = {internalize(2), internalize(3), internalize(4)};
+  kernel_add_large_clause(k, spectator, 3, false, 0);
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+
+  // Sweep's own emission, then the endpoint is fixed by the same batch's unit.
+  kernel_add_binary_clause(k, negate(a), b);
+  kernel_add_binary_clause(k, a, negate(b));
+  kernel_assign_unit(k, a);
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  assert(substitute_apply_sweep_equivalences(k, {{a, b}}, session) ==
+         ApplyResult::NoOp);
+  assert_ledger_mirrors_kernel(k, session);
+  kernel_dense_disconnect(k);
+}
+
+// A class member the rewrite declines — root-fixed or already retired — must be
+// declined by the ledger too. Mirroring the requested class instead of the
+// applied one moved ledger entries the watch lists never moved, and the next
+// batch then reconciled a stream that no longer described the formula.
+static void test_sweep_ledger_declines_the_same_members_as_the_rewrite() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit live_a = internalize(1), live_b = internalize(2);
+  const Lit fixed_a = internalize(3), fixed_b = internalize(4);
+  const Lit carrier[3] = {internalize(2), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, carrier, 3, false, 0);
+  kernel_add_binary_clause(k, live_b, internalize(6));
+  kernel_add_binary_clause(k, fixed_b, internalize(6));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+
+  // Sweep proves and publishes both pairs, then a unit of the same batch fixes
+  // the second one's endpoints.
+  kernel_add_binary_clause(k, negate(live_a), live_b);
+  kernel_add_binary_clause(k, live_a, negate(live_b));
+  kernel_add_binary_clause(k, negate(fixed_a), fixed_b);
+  kernel_add_binary_clause(k, fixed_a, negate(fixed_b));
+  kernel_assign_unit(k, fixed_a); // the second pair is no longer substitutable
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  assert(substitute_apply_sweep_equivalences(
+             k, {{live_a, live_b}, {fixed_a, fixed_b}}, session) ==
+         ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(live_b)));
+  assert(!kernel_var_retired(k, var_of(fixed_b)));
+  assert_ledger_mirrors_kernel(k, session);
+  assert(session.collect(k) > 0);
+  kernel_dense_disconnect(k);
+}
+
+// A redundant large clause is absent from the dense stream, but the binary its
+// collapse publishes is a full member of that stream: Kissat's dense watch
+// lists carry every binary regardless of the clause it came from. Skipping the
+// whole transition for a redundant source left a live binary unreachable.
+static void test_sweep_records_binary_collapsed_from_redundant_clause() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit redundant[3] = {internalize(2), internalize(3), internalize(4)};
+  kernel_add_large_clause(k, redundant, 3, /*redundant=*/true, /*glue=*/2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  kernel_assign_unit(k, internalize(-3)); // the ternary collapses to a binary
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+  k.stats.conflicts = 1; // search-time Sweep: the pass sees redundant clauses
+
+  assert(substitute_apply_sweep_equivalences(
+             k, {{internalize(1), internalize(2)}}, session) ==
+         ApplyResult::Ok);
+  assert(kernel_binary_live(k, internalize(1), internalize(4)));
+  assert_ledger_mirrors_kernel(k, session);
+  kernel_dense_disconnect(k);
+}
+
+// A search-time Sweep pass streams the whole arena, so a redundant clause does
+// reach the replacement path — while `kernel_add_large_clause` deliberately
+// never indexed it. Deciding the transition from the wrong record made the
+// reverse occurrence search run off the front of the buffer, which a release
+// build turns into heap corruption rather than a failed lookup.
+static void test_sweep_inherits_redundant_replacement_without_indexing() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit redundant[4] = {internalize(2), internalize(3), internalize(4),
+                            internalize(5)};
+  const Lit irredundant[3] = {internalize(2), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, redundant, 4, /*redundant=*/true, /*glue=*/3);
+  kernel_add_large_clause(k, irredundant, 3, /*redundant=*/false, /*glue=*/0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+  k.stats.conflicts = 1; // search-time Sweep: the pass sees redundant clauses
+
+  assert(substitute_apply_sweep_equivalences(
+             k, {{internalize(1), internalize(2)}}, session) ==
+         ApplyResult::Ok);
+  // Both replacements exist, but only the irredundant one is indexed.
+  uint32_t replacements = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() &&
+        std::find(c->begin(), c->end(), internalize(1)) != c->end())
+      replacements++;
+    ref += clause_words(c->size);
+  }
+  assert(replacements == 2);
+  assert(occ.large[internalize(1)].size() == 1);
+  assert(!clause_at(k.arena, occ.large[internalize(1)][0])->redundant());
+  assert_ledger_mirrors_kernel(k, session);
+  assert(session.collect(k) > 0);
+  kernel_dense_disconnect(k);
+}
+
+// Redundant clauses share the arena-order bridge but are absent from Kissat's
+// dense Sweep occurrence stream. Rewriting one must inherit its arena rank
+// without trying to find an occurrence that was deliberately never indexed.
+static void test_sweep_does_not_index_redundant_replacement() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit redundant[3] = {internalize(2), internalize(3), internalize(4)};
+  kernel_add_large_clause(k, redundant, 3, true, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  SweepSubstitutionSession session;
+  session.begin(k);
+
+  assert(substitute_apply_sweep_equivalences(
+             k, {{internalize(1), internalize(2)}}, session) ==
+         ApplyResult::Ok);
+  assert(session.collect(k) > 0);
 }
 
 static void test_canonical_substitution_preserves_large_clause_position() {
@@ -328,6 +698,61 @@ static void test_substitution_rewrites_stable_watch_in_place() {
   const std::vector<Lit> expected = {internalize(4), internalize(1),
                                      internalize(1), internalize(5)};
   assert(binary_watch_others(k, stable) == expected);
+}
+
+// Kissat moves a retired literal's binary watches to its representative in
+// the retiring watch list's order.  The stable partners' literal order must
+// not reorder that appended suffix: x6 lists x4 before x2 even though x2 is
+// visited before x4 by an undirected lower-endpoint snapshot.
+static void test_substitution_appends_moved_watches_in_source_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  // x1 == x6, with x1 the import-order representative.
+  kernel_add_binary_clause(k, internalize(-1), internalize(6));
+  kernel_add_binary_clause(k, internalize(-6), internalize(1));
+
+  const Lit representative = internalize(1);
+  const Lit retired = internalize(6);
+  kernel_add_binary_clause(k, representative, internalize(7));
+  kernel_add_binary_clause(k, retired, internalize(4));
+  kernel_add_binary_clause(k, retired, internalize(2));
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  const std::vector<Lit> watches =
+      binary_watch_others(k, representative);
+  const auto four = std::find(watches.begin(), watches.end(), internalize(4));
+  const auto two = std::find(watches.begin(), watches.end(), internalize(2));
+  assert(four != watches.end());
+  assert(two != watches.end());
+  assert(four < two);
+}
+
+// When both endpoints retire, Kissat moves the two directed watches
+// independently.  The x8 source list says x7 before x6, so representative x1
+// must receive x2 before x3 even though the undirected clauses are first seen
+// from x6 and x7 in the opposite order.
+static void test_substitution_moves_both_directions_independently() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  kernel_add_binary_clause(k, internalize(-1), internalize(8));
+  kernel_add_binary_clause(k, internalize(-8), internalize(1));
+  kernel_add_binary_clause(k, internalize(-2), internalize(7));
+  kernel_add_binary_clause(k, internalize(-7), internalize(2));
+  kernel_add_binary_clause(k, internalize(-3), internalize(6));
+  kernel_add_binary_clause(k, internalize(-6), internalize(3));
+
+  kernel_add_binary_clause(k, internalize(8), internalize(7));
+  kernel_add_binary_clause(k, internalize(8), internalize(6));
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  const std::vector<Lit> watches =
+      binary_watch_others(k, internalize(1));
+  const auto two = std::find(watches.begin(), watches.end(), internalize(2));
+  const auto three =
+      std::find(watches.begin(), watches.end(), internalize(3));
+  assert(two != watches.end());
+  assert(three != watches.end());
+  assert(two < three);
 }
 
 // Model reconstruction through ρ: a model of the reduced formula with x2 at the
@@ -457,10 +882,21 @@ int main() {
   test_apply_substitutes();
   test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
+  test_sweep_preserves_cross_kind_dense_order();
+  test_sweep_flushes_one_source_stream_at_a_time();
+  test_sweep_flushes_sources_in_emission_order();
+  test_sweep_syncs_new_binaries_by_multiset();
+  test_sweep_records_binaries_of_a_declined_batch();
+  test_sweep_ledger_declines_the_same_members_as_the_rewrite();
+  test_sweep_records_binary_collapsed_from_redundant_clause();
+  test_sweep_inherits_redundant_replacement_without_indexing();
+  test_sweep_does_not_index_redundant_replacement();
   test_canonical_substitution_preserves_large_clause_position();
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
   test_substitution_rewrites_stable_watch_in_place();
+  test_substitution_appends_moved_watches_in_source_order();
+  test_substitution_moves_both_directions_independently();
   test_model_reconstruction();
   test_size_collapse_unit();
   test_apply_instance_one_class();

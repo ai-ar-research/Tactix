@@ -123,10 +123,39 @@ static void test_input_units_propagate_before_later_clauses() {
   kernel_check_invariants(k);
 }
 
+static void test_header_only_variables_are_not_search_variables() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  FILE *file = std::tmpfile();
+  assert(file);
+  const char *dimacs =
+      "p cnf 8 2\n"
+      "1 3 0\n"
+      "-3 1 0\n";
+  assert(std::fputs(dimacs, file) >= 0);
+  std::rewind(file);
+  assert(parse_dimacs(file, k) == nullptr);
+  std::fclose(file);
+
+  assert(k.nvars == 8); // stable DIMACS identities remain available
+  assert(k.unassigned == 8);
+  assert(k.unassigned_active == 2);
+  assert(k.var_status.size() == 8);
+  for (const Var v : {Var{0}, Var{2}})
+    assert(k.var_status[v] == VarStatus::Active);
+  for (const Var v : {Var{1}, Var{3}, Var{4}, Var{5}, Var{6}, Var{7}}) {
+    assert(k.var_status[v] == VarStatus::Eliminated);
+    assert(!heuristics_var_active(k, v));
+  }
+  assert(kernel_num_output_vars(k) == 8);
+  kernel_check_invariants(k);
+}
+
 int main() {
   test_tumble_preserves_file_literal_order();
   test_root_units_normalize_later_input_clauses();
   test_input_units_propagate_before_later_clauses();
+  test_header_only_variables_are_not_search_variables();
   puts("test_parse OK");
   return 0;
 }

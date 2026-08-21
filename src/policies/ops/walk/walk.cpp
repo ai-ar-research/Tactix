@@ -420,6 +420,11 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
       std::fputc('\n', stderr);
     }
   }
+  // Kissat's non-null dense entry removes repeated binary watches before it
+  // saves the irredundant pairs consumed by Walk.  Deduplicate at the same
+  // boundary so copies neither skew the local-search counters nor survive the
+  // sparse-resume rebuild as extra live clauses.
+  kernel_deduplicate_binary_watches(k);
   Walker w;
   w.k = &k;
   w.rng = k.walk_random_seed ^ k.stats.walks;

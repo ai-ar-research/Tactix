@@ -161,7 +161,7 @@ bool emit(Kernel &k, const Resolvent &r, std::vector<uint64_t> &chain) {
     return false; // root-fixed since the probe; the binary is not news
   if (kernel_binary_live(k, lits[0], lits[1]))
     return false; // already present
-  if (!congruence_replay_rup(k, lits, 2, chain)) {
+  if (!congruence_replay_rup(k, lits, 2, chain, RupReplay::Decide)) {
     k.stats.hbr_declined++;
     return false;
   }

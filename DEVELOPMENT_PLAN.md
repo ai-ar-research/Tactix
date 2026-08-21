@@ -371,6 +371,12 @@ and are used to prioritize and measure general repairs; they are not promoted
 into the regression set, and a repair need not affect all ten through one
 mechanism.  Keep the set cumulative where practical so fixes already obtained
 remain visible while the remaining gaps receive divergence analysis.
+An N4 repair is accepted only as a general mechanism: the witness may reveal
+the gap, but must not parameterize the fix.  Instance names/hashes, tier ranks,
+per-instance default arms, deadline shifts, and tuned constants are forbidden.
+The implementation must follow a reference execution path or carry an explicit
+strength argument and accepted-deviation disposition, with focused mechanism
+coverage plus the full Tier-B/selected-Tier-C iteration guard.
 Choose the Tier C subset from existing causal evidence and include, where the
 mechanism has them, a productive witness, its worst measured cost case, and a
 low- or zero-yield case; record the exact membership in the campaign manifest
@@ -399,6 +405,18 @@ degenerate inputs with recorded seeds. Random-policy and targeted stress-policy
 legs exercise legal schedules; validate every oracle with known-bad artifacts.
 Shrink failures and retain minimal regressions. Cadence and commands live in the
 `fuzz`, `proof-check`, and `stress-policy` skills.
+
+**External debugging escalation.** Invoke Claude when fuzzing or unit testing
+discovers a soundness defect or a crash. The primary agent owns performance
+divergence, runtime regression, mechanism-fidelity work, and ordinary
+implementation debugging without delegating the fix to Claude. If an ordinary
+investigation later produces a fuzz/unit-test reproducer that demonstrates
+unsoundness or a crash, escalate at that point; the trigger is the reproduced
+failure class, not the difficulty of the repair.
+For every such escalation, the Codex agent must launch Claude with permission
+to edit the workspace, provide the reproducer and bounded repair scope, and
+wait until the Claude agent finishes. Codex then reviews and validates Claude's
+changes and remains responsible for all soundness gates and final integration.
 
 ### 8.3 Performance gates
 

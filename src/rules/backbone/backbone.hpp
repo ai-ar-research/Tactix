@@ -1,11 +1,11 @@
 // V2 Backbone (plan §5.2): the binary-implication backbone — failed-literal
-// probing restricted to binary-only propagation. Assume a head literal p of the
-// binary implication graph, propagate through that graph alone
-// (`kernel_propagate_binary`); a conflict proves p cannot hold, so {¬p} is a
-// RUP root unit. Same shape, proof delta and round structure as V1 Probe, the
-// one difference being the propagation engine, so its units are a SUBSET of
-// V1's: the value is speed — binary propagation touches no large clause — which
-// makes it a distinct, cheaper scheduling arm, not a source of extra units.
+// probing restricted to binary-only propagation.  Unlike V1 Probe, successful
+// assumptions remain on one round trail.  A later binary conflict is resolved
+// backwards to its first repeated implication predecessor; that false endpoint
+// is a RUP root unit, with the reversed binary-reason path as its LRAT chain.
+// Units are replayed at root after the round and the schedule repeats to a
+// bounded fixpoint.  This is the chained binary-UIP algorithm in Kissat
+// `backbone.c` and CaDiCaL `backbone.cpp`, not independent failed-literal scans.
 // Precondition, effect, soundness: `docs/calculus.md` §V2; references and the
 // lineage split: `docs/design/independent-lineage-survey.md`.
 #pragma once
@@ -27,11 +27,10 @@ void backbone_candidates(const Kernel &, std::vector<Lit> &out);
 
 ApplyResult backbone_try(Kernel &, Lit p); // one binary probe
 
-// Canonical: the full round. Every round property V1 Probe records applies
-// verbatim (probe.hpp): no rule-side budget, both polarities probed
-// independently under a once-forced-per-round mark, and a collect-then-batch
-// round against one clean root that leaves the cascade, the root-unit id
-// emission and any refutation to M1 Propagate.
+// Canonical: chained binary-UIP rounds, internally respecting `work_budget` in
+// private Backbone ticks.  The literal instance surface remains the independent
+// single-probe operation required by N1; DefaultPolicy admits this canonical
+// batch so its trail persists across candidates.
 ApplyResult backbone_apply(Kernel &);
 
 } // namespace tactix

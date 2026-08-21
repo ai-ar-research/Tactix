@@ -3,6 +3,7 @@
 #include "kernel/kernel.hpp"
 #include "policies/default_policy.hpp"
 #include "policies/heuristics.hpp"
+#include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -96,15 +97,108 @@ static void test_learned_unit() {
   kernel_assign_decision(k, internalize(1));
   assert(propagate_apply(k) == ApplyResult::Conflict);
   assert(analyze_apply(k) == ApplyResult::Ok);
-  assert(k.pending.lits.size() == 1);
-  assert(k.pending.lits[0] == internalize(-1));
-  assert(k.pending.jump_level == 0);
-  assert(backjump_apply(k) == ApplyResult::Ok);
+  // Level-one failed analysis owns its root-unit batch inside atomic M3; it
+  // never exposes the ordinary Analyze -> Backjump pending handoff.
+  assert(!k.pending.valid);
   assert(k.level == 0);
   assert(k.values[internalize(-1)] > 0);
   assert(k.stats.learned_units == 1);
   assert(!heuristics_heap_contains(k, 0));
   assert(k.h->scores.score[0] == unit_score);
+}
+
+static void test_bump_admission_order_is_not_cleanup_order() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 4);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+
+  // Variable 0 models a literal touched first as minimization scratch and
+  // admitted to the bump set only after 1 and 2.  Cleanup order must not move
+  // that late admission ahead of them.  Equal EVSIDS increments make the
+  // stable heap root an exact, witness-independent observation of the order.
+  k.analyzed = {0, 1, 2};
+  k.bump_order = {1, 2, 0};
+  k.seen[0] = k.seen[1] = k.seen[2] = 1; // analysis-side bump mark
+  k.analyzed_seen = 3;
+  analyze_bump_after_backjump(k);
+
+  assert(heuristics_heap_next_unassigned(k) == 1);
+  assert(k.analyzed.empty());
+  assert(k.bump_order.empty());
+  assert(!k.seen[0] && !k.seen[1] && !k.seen[2]);
+}
+
+// Kissat's level-one failed-literal analysis walks the implication graph past
+// every singleton frontier, rather than stopping after one ordinary 1-UIP.
+// Under decision 1, literal 2 implies both 3 and 4, whose binary conflict
+// proves first -2 and then -1. Both become true root units before the analyzed
+// variables are bumped, so neither can re-enter the focused decision queue.
+static void test_level_one_failed_literal_batch() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 5); // variable 5 remains as a decision witness
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  kernel_add_binary_clause(k, internalize(-3), internalize(-4));
+  // Prove the no-pending path refreshes the external-policy observation.
+  k.pending.glue = UINT32_MAX;
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+  assert(k.level == 1);
+  assert(analyze_apply(k) == ApplyResult::Ok);
+
+  assert(!k.pending.valid);
+  assert(k.pending.glue == 0);
+  assert(k.level == 0);
+  assert(k.values[internalize(-2)] > 0);
+  assert(k.values[internalize(-1)] > 0);
+  assert(k.assigned[var_of(internalize(-2))].level == 0);
+  assert(k.assigned[var_of(internalize(-1))].level == 0);
+  assert(k.unit_ids[var_of(internalize(-2))] != 0);
+  assert(k.unit_ids[var_of(internalize(-1))] != 0);
+  assert(k.stats.learned == 1);
+  assert(k.stats.learned_units == 2);
+  assert(!heuristics_var_active(k, var_of(internalize(1))));
+  assert(!heuristics_var_active(k, var_of(internalize(2))));
+  const Var next = heuristics_queue_next_unassigned(k);
+  assert(next != var_of(internalize(1)) && next != var_of(internalize(2)));
+  assert(default_solve(k) == 10);
+}
+
+// Proof-producing twin of the batch fixture.  The first four clauses produce
+// the two-unit failed-literal batch under decision 1; the final two make the
+// opposite branch inconsistent, so root propagation closes a complete UNSAT
+// proof that an external LRAT checker can replay.
+static void write_level_one_failed_literal_lrat(const char *path) {
+  Proof proof;
+  assert(proof.open(path, ProofFormat::Lrat));
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 5);
+  proof.bind_variable_map(&k.internal_to_external);
+  k.proof = &proof;
+  kernel_add_binary_clause(k, internalize(-1), internalize(2), 1);
+  kernel_add_binary_clause(k, internalize(-2), internalize(3), 2);
+  kernel_add_binary_clause(k, internalize(-2), internalize(4), 3);
+  kernel_add_binary_clause(k, internalize(-3), internalize(-4), 4);
+  kernel_add_binary_clause(k, internalize(1), internalize(5), 5);
+  kernel_add_binary_clause(k, internalize(1), internalize(-5), 6);
+  k.next_clause_id = 6;
+
+  kernel_assign_decision(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Conflict);
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.learned_units == 2);
+  assert(k.values[internalize(-2)] > 0);
+  assert(k.values[internalize(-1)] > 0);
+  assert(propagate_apply(k) == ApplyResult::Unsat);
+  assert(k.inconsistent);
+  proof.flush();
+  k.proof = nullptr;
 }
 
 static void test_shrink() {
@@ -234,11 +328,11 @@ static void test_shrink_processes_lower_blocks_first() {
   assert(k.pending.jump_level == 2);
 }
 
-static Kernel singleton_minimization_fixture() {
+static Kernel singleton_block_fixture() {
   // At level 2, c follows from a through (-a c).  The conflict learns
   // (-d -c -a), where -c is the sole literal on its level and is redundant
-  // through -a.  Kissat shrink=3 skips that singleton block; Tactix's
-  // stronger rule minimizes it.
+  // through -a.  Kissat shrink=3 skips that singleton block, so reference
+  // parity requires retaining -c without dereferencing its reason.
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_assign_decision(k, internalize(1));
@@ -257,26 +351,33 @@ static Kernel singleton_minimization_fixture() {
   return k;
 }
 
-static void test_singleton_minimization_stronger() {
-  Kernel stronger = singleton_minimization_fixture();
-  assert(stronger.pending.lits.size() == 2);
-  assert(stronger.pending.lits[0] == internalize(-4));
-  assert(stronger.pending.lits[1] == internalize(-1));
-  assert(stronger.pending.jump_level == 1);
+static void test_singleton_block_skips_minimization() {
+  Kernel k = singleton_block_fixture();
+  assert(k.pending.lits.size() == 3);
+  assert(k.pending.lits[0] == internalize(-4));
+  assert(k.pending.lits[1] == internalize(-3));
+  assert(k.pending.lits[2] == internalize(-1));
+  assert(k.pending.jump_level == 2);
+  assert(k.stats.minimized == 0);
 }
 
 static Kernel minimization_depth_fixture(uint32_t chain, bool binary) {
   // a is the learned anchor, z is a root-false side literal in every large
-  // reason, b only opens level 2, and x[0..chain) imply one another from a.
-  // The conflict's singleton -x.back() is redundant exactly when the reason
-  // walk reaches the already-learned -a before the depth cap.
+  // reason, and x[0..chain) imply one another from a.  The second level-2
+  // literal y depends on the absent lower-level decision c, which makes block
+  // shrinking fail and admits literal-by-literal minimization.  Thus -x.back()
+  // is redundant exactly when its reason walk reaches the already-learned -a
+  // before the depth cap, while -y remains in the clause.
   assert(chain > 0);
-  const uint32_t a = 1, z = 2, b = 3, first_x = 4;
-  const uint32_t d = first_x + chain;
+  const uint32_t a = 1, z = 2, c = 3, b = 4, first_x = 5;
+  const uint32_t y = first_x + chain, d = y + 1;
   Kernel k;
   kernel_reserve_vars(k, d);
   kernel_assign_unit(k, internalize(z));
   kernel_assign_decision(k, internalize(a));
+  // White-box N1 schedule: a second decision-reason assignment at level 1
+  // gives y a valid but non-redundant lower-level endpoint.
+  kernel_assign(k, internalize(c), 1, DECISION_REASON, false);
   kernel_assign_decision(k, internalize(b));
   uint32_t previous = a;
   for (uint32_t i = 0; i < chain; i++) {
@@ -295,11 +396,16 @@ static Kernel minimization_depth_fixture(uint32_t chain, bool binary) {
     }
     previous = current;
   }
+  kernel_add_binary_clause(k, internalize(-static_cast<int>(c)),
+                           internalize(static_cast<int>(y)));
+  kernel_assign(k, internalize(static_cast<int>(y)), 2,
+                internalize(-static_cast<int>(c)), true);
   kernel_assign_decision(k, internalize(static_cast<int>(d)));
-  const Lit conflict[3] = {internalize(-static_cast<int>(d)),
+  const Lit conflict[4] = {internalize(-static_cast<int>(d)),
                            internalize(-static_cast<int>(previous)),
+                           internalize(-static_cast<int>(y)),
                            internalize(-static_cast<int>(a))};
-  k.conflict_ref = kernel_add_large_clause(k, conflict, 3, false, 0);
+  k.conflict_ref = kernel_add_large_clause(k, conflict, 4, false, 0);
   k.conflict_valid = true;
   assert(analyze_apply(k) == ApplyResult::Ok);
   return k;
@@ -307,20 +413,20 @@ static Kernel minimization_depth_fixture(uint32_t chain, bool binary) {
 
 static void test_minimization_depth_matches_kissat() {
   // Binary runs do not spend recursive depth in Kissat.  This exceeds the
-  // recursive cap yet must still reach -a and remove the singleton.
+  // recursive cap yet must still reach -a and remove the chain literal.
   Kernel binary = minimization_depth_fixture(1100, true);
-  assert(binary.pending.lits.size() == 2);
+  assert(binary.pending.lits.size() == 3);
   assert(binary.stats.minimized == 1);
   assert(binary.stats.minimize_depth_cutoffs == 0);
 
   // For large reasons the deepest x is entered at depth chain-1.  Kissat
   // admits depth 999 and rejects depth 1000 with minimizedepth=1000.
   Kernel admitted = minimization_depth_fixture(1000, false);
-  assert(admitted.pending.lits.size() == 2);
+  assert(admitted.pending.lits.size() == 3);
   assert(admitted.stats.minimized == 1);
   assert(admitted.stats.minimize_depth_cutoffs == 0);
   Kernel rejected = minimization_depth_fixture(1001, false);
-  assert(rejected.pending.lits.size() == 3);
+  assert(rejected.pending.lits.size() == 4);
   assert(rejected.stats.minimized == 0);
   assert(rejected.stats.minimize_depth_cutoffs == 1);
 }
@@ -857,15 +963,19 @@ static void test_eager_subsume() {
   }
 }
 
-int main() {
+int main(int argc, char **argv) {
   test_uip();
   test_conflictanalysis_atomic();
   test_learned_unit();
+  test_bump_admission_order_is_not_cleanup_order();
+  test_level_one_failed_literal_batch();
+  if (argc == 2)
+    write_level_one_failed_literal_lrat(argv[1]);
   test_shrink();
   test_shrink_accepts_lower_learned_literal();
   test_shrink_crosses_unmarked_lower_level();
   test_shrink_processes_lower_blocks_first();
-  test_singleton_minimization_stronger();
+  test_singleton_block_skips_minimization();
   test_minimization_depth_matches_kissat();
   test_learned_level_stable_order();
   test_otfs();

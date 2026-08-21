@@ -402,8 +402,7 @@ int tactix_status(tactix_solver *s) {
   // backjumped one (pending.valid) means the assignment still falsifies a
   // clause even though the propagation head moved on.
   if (s->kernel.unassigned == 0 && !s->kernel.conflict_valid &&
-      !s->kernel.pending.valid &&
-      s->kernel.propagate_head == s->kernel.trail.size())
+      !s->kernel.pending.valid && kernel_propagation_fixpoint(s->kernel))
     return 10;
   return 0;
 }

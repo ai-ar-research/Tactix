@@ -7,8 +7,11 @@
 #include "rules/lucky/lucky.hpp"
 #include "rules/registry.hpp"
 
+#include <array>
 #include <cassert>
 #include <cstdio>
+#include <cstdlib>
+#include <vector>
 
 using namespace tactix;
 
@@ -119,6 +122,166 @@ static void test_unsat_probes_commit_root_consequences() {
   assert(off.stats.lucky_late_calls == 0 && off.stats.lucky_late_sat == 0);
 }
 
+// Retire external 3 through BVE's own public instance so the identity stays
+// mapped: its sole occurrence is positive, so elimination adds no resolvent.
+// Externals 1 and 2 are left with the pair that refutes `-2`.
+static void build_retired_head_fixture(Kernel &k) {
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(2), internalize(1));
+  kernel_add_binary_clause(k, internalize(2), internalize(-1));
+  kernel_add_binary_clause(k, internalize(3), internalize(1));
+  const RuleVTable &bve = tactix_rules()[tactix_rule_id("BVE")];
+  assert(bve.apply_instance(k, lit_instance(internalize(3))) ==
+         ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(3))));
+  assert(!kernel_var_retired(k, var_of(internalize(2))));
+}
+
+// A retired identity is not a probe opportunity (kissat lucky.c:203-208 skips
+// `import.eliminated` and `!ACTIVE` before assuming anything). Assuming one
+// spends a probe level on a variable the formula no longer mentions, which
+// pushes the next genuine failed literal past the first probe level, where the
+// sweep flips it instead of committing it. Retired identities stay mapped
+// whenever compaction is declined, so the INVALID_VAR holes compaction leaves
+// cannot stand in for the check.
+static void test_backward_sweep_skips_retired_identity() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  build_retired_head_fixture(k);
+  // External 3 is retired and highest, so a backward sweep reaches it first
+  // and external 2 second, at the level where `-2` is refutable.
+  assert(lucky_apply_probe(k, LUCKY_BACKWARD_FALSE) == ApplyResult::Sat);
+  assert(k.values[internalize(2)] > 0);
+  assert(k.assigned[var_of(internalize(2))].level == 0);
+  assert(k.unit_ids[var_of(internalize(2))] != 0);
+  assert(k.values[internalize(3)] == 0); // never assumed
+
+  // The constant loops filter the same way (kissat lucky.c:324-325).
+  Kernel c;
+  ScopedHeuristics _hg_c(c);
+  build_retired_head_fixture(c);
+  assert(lucky_apply_probe(c, LUCKY_ALL_TRUE) == ApplyResult::Sat);
+  assert(c.unassigned_active == 0);
+  assert(c.values[internalize(3)] == 0);
+}
+
+// Both endpoints of a binary polarity scan must be active (kissat lucky.c:29
+// and :37): a binary an inactive endpoint already satisfies no longer forces
+// that polarity on the active formula. Here `-3` is fixed at the root, so
+// `(-1 -3)` is satisfied and must not veto the all-true constant.
+static void test_constant_scan_skips_inactive_binary_endpoint() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-3));
+  kernel_assign_unit(k, internalize(-3));
+  assert(lucky_apply_probe(k, LUCKY_ALL_TRUE) == ApplyResult::Sat);
+  assert(k.values[internalize(1)] > 0 && k.values[internalize(2)] > 0);
+  assert(k.unassigned_active == 0);
+}
+
+using Ternary = std::array<int, 3>;
+
+// Four clauses unsatisfiable unless `guard` takes `releasing_phase`, whose
+// refutation needs a decision on `a` rather than propagation: a sweep that
+// assumes the guard the other way conflicts on both phases of `a` above its
+// first probe level and must abandon (kissat lucky.c:307).
+static void add_guarded_core(std::vector<Ternary> &out, int guard,
+                             bool releasing_phase, int a, int b, int c) {
+  const int g = releasing_phase ? guard : -guard;
+  out.push_back({g, a, b});
+  out.push_back({g, a, -b});
+  out.push_back({g, -a, c});
+  out.push_back({g, -a, -c});
+}
+
+// Blocks of sixteen variables that defeat all six probes: an all-negative and
+// an all-positive clause kill the constants, a guard-before-core pair abandons
+// both forward sweeps, and its mirror image abandons both backward ones.
+// Satisfiable for every block by releasing both guards.
+static std::vector<Ternary> lucky_resistant_formula(uint32_t blocks) {
+  std::vector<Ternary> out;
+  for (uint32_t block = 0; block < blocks; block++) {
+    const int base = static_cast<int>(block * 16) + 1;
+    add_guarded_core(out, base + 0, true, base + 1, base + 2, base + 3);
+    add_guarded_core(out, base + 4, false, base + 5, base + 6, base + 7);
+    add_guarded_core(out, base + 11, true, base + 8, base + 9, base + 10);
+    add_guarded_core(out, base + 15, false, base + 12, base + 13, base + 14);
+  }
+  return out;
+}
+
+// Every original clause satisfied by the extended model, checked against the
+// input rather than the preprocessed kernel copy: a newly reached late Lucky
+// runs after BVE and Substitute have pushed reconstruction obligations.
+static bool model_satisfies(Kernel &k, const std::vector<Ternary> &formula) {
+  kernel_extend_model(k);
+  for (const Ternary &clause : formula) {
+    bool satisfied = false;
+    for (const int literal : clause) {
+      const Var v = static_cast<Var>((literal < 0 ? -literal : literal) - 1);
+      const bool positive = k.model_values[make_lit(v, false)] > 0;
+      if (positive == (literal > 0)) {
+        satisfied = true;
+        break;
+      }
+    }
+    if (!satisfied)
+      return false;
+  }
+  return true;
+}
+
+// Formula profiles may dose individual inprocessing entries; they must not
+// withdraw either the search-time Probe pipeline or late Lucky, which Kissat
+// offers on every formula. Search-wide random diversification also remains
+// independently enabled.
+static void test_late_call_survives_formula_classification() {
+  const uint32_t blocks = 57;
+  const uint32_t vars = blocks * 16;
+  const uint64_t clauses = uint64_t{blocks} * 16;
+
+  Kernel shape;
+  shape.original_external_vars = vars;
+  shape.original_input_clauses = clauses;
+  DefaultPolicy classifier;
+  classifier.classify_formula_strategy(shape);
+  const auto &profiled = classifier.strategy_config();
+  assert(!profiled.inprocess.preprocess_only &&
+         profiled.branching.random_sequences && profiled.rephase.late_lucky);
+
+  const std::vector<Ternary> formula = lucky_resistant_formula(blocks);
+  assert(formula.size() == clauses);
+  const auto build = [&](Kernel &k) {
+    kernel_reserve_vars(k, vars);
+    for (const Ternary &triple : formula) {
+      const Lit lits[3] = {internalize(triple[0]), internalize(triple[1]),
+                           internalize(triple[2])};
+      kernel_add_large_clause(k, lits, 3, false, 0);
+    }
+    k.original_input_clauses = clauses;
+  };
+
+  Kernel on;
+  ScopedHeuristics _hg_on(on);
+  build(on);
+  assert(default_solve(on) == 10);
+  assert(on.stats.lucky_early_calls == 1 && on.stats.lucky_late_calls == 1);
+  assert(model_satisfies(on, formula));
+
+  // The same fixture with the opportunity declined: without this arm the
+  // assertion above could hold for a fixture the late call never reaches.
+  Kernel off;
+  ScopedHeuristics _hg_off(off);
+  build(off);
+  assert(setenv("TACTIX_LUCKY_LATE", "0", 1) == 0);
+  const int off_result = default_solve(off);
+  assert(unsetenv("TACTIX_LUCKY_LATE") == 0);
+  assert(off_result == 10);
+  assert(off.stats.lucky_early_calls == 1 && off.stats.lucky_late_calls == 0);
+  assert(model_satisfies(off, formula));
+}
+
 static void test_registry_surface() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -153,6 +316,9 @@ int main() {
   test_sweep();
   test_first_level_conflict_commits_failed_literal();
   test_unsat_probes_commit_root_consequences();
+  test_backward_sweep_skips_retired_identity();
+  test_constant_scan_skips_inactive_binary_endpoint();
+  test_late_call_survives_formula_classification();
   test_registry_surface();
   test_guard_needs_quiescent_root();
   puts("test_lucky OK");

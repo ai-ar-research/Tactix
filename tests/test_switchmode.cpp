@@ -36,16 +36,22 @@ static void test_heap_basic() {
   assert(heuristics_heap_next_unassigned(k) == 1);
 }
 
-static void test_heap_uses_tumbled_internal_order_for_ties() {
+static void test_heap_uses_import_not_activation_order_for_ties() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
-  k.h->random_order = {2, 4, 1, 3}; // v0 was declared but never imported
+  // Import happens as each literal reaches kissat_add, even if the containing
+  // clause later proves tautological and never activates that variable.  Thus
+  // the stable heap's all_variables(idx) insertion order is independent of
+  // the activation population used by random decisions and initial scores.
+  for (const Var v : std::vector<Var>{2, 4, 1, 3})
+    kernel_record_import(k, v);
+  k.h->random_order = {1, 3, 2, 4};
   heuristics_update_scores(k);
 
   // With equal scores, push/bubble is stable.  This is the exact heap pose
-  // Kissat gets from its tumbled internal indices; external variable order is
-  // deliberately different.
+  // Kissat gets from its tumbled import indices.  The never-imported direct-API
+  // variable is the policy-neutral total-model backstop and follows them.
   assert(k.h->scores.stack == std::vector<Var>({2, 4, 1, 3, 0}));
   kernel_assign_unit(k, make_lit(2, false));
   assert(heuristics_heap_next_unassigned(k) == 0);
@@ -178,7 +184,7 @@ static void test_default_policy_solves_across_modes() {
 
 int main() {
   test_heap_basic();
-  test_heap_uses_tumbled_internal_order_for_ties();
+  test_heap_uses_import_not_activation_order_for_ties();
   test_rescale();
   test_switchmode_rule();
   test_stable_decide_and_target_phases();

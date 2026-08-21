@@ -71,6 +71,12 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
   `{¬u} ∪ B`, where `u` is the first UIP. Recursive minimization and all-UIP shrinking may remove
   literals from `B` but preserve that asserting form. Write the final clause as `L = {¬u} ∪ B` and
   define `j = max({level(l) | l ∈ B} ∪ {0})`.
+- **Level-one failed-literal construction:** if `d=1` and `K₀` has more than one level-one literal,
+  walk the marked implication graph backwards instead of stopping at one UIP. Whenever the unresolved
+  frontier has one true literal `q`, record the root unit `¬q`; stop when a reason contains the negated
+  decision, then record that literal too. This is one size-one/glue-zero learned result even when the
+  traversal exposes several units. The whole batch is asserted at level zero before the analyzed set is
+  bumped; root-fixed variables therefore leave both decision structures before any equal-score move.
 - **Effect (one atomic transition):** add `L` to `R`; choose a backtrack target `t` in
   `[j,d−1]` (canonically `t=j`); truncate `τ` through level `t`; then append `¬u` with reason `L` and
   **true level** `j`. OTFS may replace a reason `C` by a strict RUP subset `C′` in the same
@@ -88,13 +94,17 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
   every eagerly subsumed recent clause `D`. Root refutation is `add_rup(∅,h_⊥)` in LRAT (not a
   dedicated empty line) and `add_empty` in DRAT. Backtracking and assertion emit no line, except that a
   learned unit contradicting a root unit emits the resulting empty clause and returns `Unsat`.
+- **Level-one proof δ:** emit one `add_rup({¬q},h_q)` for every singleton frontier, where `h_q` is the
+  already-resolved suffix in increasing trail order followed by the conflict. Rebuild the full conflict
+  reason walk for the final negated-decision unit; then backtrack once and assert the batch.
 - **Soundness:** the 1-UIP clause is `F`-entailed (RUP-checkable); minimization/shrinking/OTFS preserve
   entailment; eager subsumption inherits S2's (deleting from `R` is equisatisfiability-preserving, and a
   `del` needs no chain — the subsumer is already in the proof, so no later RUP check is made harder);
   the assert is a sound unit propagation of the learned clause at `jump_level`. The backjump
   target may be any level in `[jump_level, level-1]`; the asserting literal is stamped at its true level
   `jump_level` regardless, so a higher chronological target keeps the intervening decisions without
-  stranding the assertion.
+  stranding the assertion. In the level-one case, unit propagation from each singleton frontier reaches
+  the recorded conflict, so every emitted unit is RUP and their root-level batch is sound.
 
 ### M4 · Backjump — folded into M3
 
@@ -212,10 +222,18 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Soundness:** `¬p` is RUP: assume `p`, the recorded reason chain propagates to the conflict.
 
 ### V2 · Backbone — binary-only failed-literal probing
-- **Precondition (abstract):** as V1, restricted to binary propagation (the BIG); the derived units are
-  a **subset** of V1's — the value is speed, a cheaper distinct arm.
-- **Effect / Proof δ:** as V1, with `kernel_propagate_binary` as the engine.
-- **Soundness:** as V1 (the binary reason chain is a special case).
+- **Precondition (abstract):** as V1, restricted to binary propagation (the BIG). If an accumulated
+  assumption trail reaches a binary conflict, its first repeated implication predecessor `u` also satisfies
+  `F ∧ M ∧ u ⊢₁ ⊥`; thus `¬u` is a binary failed-literal unit and remains a subset of V1's conclusions.
+- **Effect:** the canonical round retains successful candidate assumptions. On conflict it walks the binary
+  reasons backwards to that repeated predecessor, assigns `¬u` at the saved speculative level, binary-propagates
+  its closure at the current accumulated-assumption level, and continues. At round end it unwinds the complete
+  speculative suffix, asserts the proved unit batch at root, propagates that root closure, and may repeat. The
+  public one-literal instance remains V1-shaped.
+- **Proof δ:** `add_rup({¬u}, reversed binary conflict/reason-id chain)`. The reversal is the checker's
+  propagation order under assumption `u`; DRAT records the same unit without hints.
+- **Soundness:** negating `¬u` replays the cited BIG path to the binary conflict. Retaining other assumptions is
+  only a schedule for discovering `u`; they do not occur in the unit's replay chain.
 
 ### V3 · Substitute — equivalent-literal substitution over the BIG
 - **Precondition (abstract):** in the BIG (edge `p→q` for each binary `(¬p∨q)`), a non-trivial SCC of
@@ -354,6 +372,11 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Effect:** collect-then-batch, into the SAME batch as the degeneracy units above — nothing is
   asserted mid-sweep, so the closure that follows sees an unchanged trail and M1 owns the cascade.
   Deriving both `l` and `¬l` in one round is a refutation (the two units resolve to ∅).
+- **Canonical dose:** every admitted V6 application performs exactly one complete linear scan of the
+  active variables and their binary watches. V6a owns that structural allowance: spending the shared
+  Congruence gate-extraction budget cannot truncate it. A global termination request may stop the
+  scan, soundly dropping only the remaining optional inferences. `congruence_y1_ticks` accounts for
+  the scan and any proof replay without turning the completeness guarantee into a tuned constant.
 - **Proof δ:** `add_rup({l}, chain)` per unit, the chain **replayed** rather than assembled from the two
   binary ids — assuming `¬l` at a probing scope and reading the antecedents off the conflict gives the
   chain in the checker's own propagation order by construction, which a hand-built pair silently gets
@@ -363,7 +386,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   entailed, and it is RUP, which is what the emitted chain certifies.
 - **Why it lives in V6 rather than in a rule of its own:** the reference couples the two at exactly
   this rate (`congruence.c:4613`), and the units it derives seed the value cascade V6's unit channel
-  needs. The open question is dosing, not soundness — ledger `SP-CONG-UNITS-1`.
+  needs. The retained dose and its T105 ablation are ledger `SP-CONG-UNITS-1`.
 
 ## 6b. Variable elimination and addition (E1–E2)
 

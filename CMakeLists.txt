@@ -11,6 +11,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # conflict hot paths contain no runtime trace branch.
 option(TACTIX_ENABLE_EVENT_TRACE "Compile semantic event tracing" OFF)
 option(TACTIX_ENABLE_RULE_JOURNAL "Compile semantic rule journaling" OFF)
+# N2 population oracle: every emitted proof deletion must be backed by a clause
+# the checker still holds. Production pins compile none of it (the emission
+# sites are #ifdef-ed out and `Proof::population_shadow()` folds to false).
+option(TACTIX_ENABLE_PROOF_SHADOW "Compile the proof-population oracle" OFF)
 
 # Kernel discipline (plan §5): C-style core, no exceptions/RTTI anywhere in
 # the solver library or binary.
@@ -49,6 +53,11 @@ endif()
 if(TACTIX_ENABLE_RULE_JOURNAL)
   target_sources(tactix_lib PRIVATE src/diagnostics/rule_journal.cpp)
   target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_RULE_JOURNAL=1)
+endif()
+if(TACTIX_ENABLE_PROOF_SHADOW)
+  target_compile_definitions(tactix_lib PUBLIC TACTIX_ENABLE_PROOF_SHADOW=1)
+  # backtrace_symbols_fd names the emitting rule without a debugger.
+  target_link_options(tactix_lib PUBLIC -rdynamic)
 endif()
 target_include_directories(tactix_lib PUBLIC src include)
 

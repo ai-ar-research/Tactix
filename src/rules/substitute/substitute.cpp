@@ -449,59 +449,460 @@ struct CanonicalSubstitutionOrder final : ArenaOrdering {
   }
 };
 
-// Sweep rewrites each connected clause in place (`sweep.c`'s
-// `substitute_connected_clauses`).  Tactix clauses cannot shrink in place: the
-// arena record has no separate allocation-size field, so a replacement is
-// appended and the old record is garbaged.  Preserve the same *logical* pose at
-// collection time by assigning every large replacement the ordinal of its old
-// record.  This is a general representation bridge, not a candidate-order
-// heuristic: all untouched clauses keep their ordinal and binary/unit
-// collapses simply leave a hole.
+// Sweep rewrites connected clauses in place. Tactix arena records cannot
+// shrink, so replacements append and garbage their source. Assign every large
+// replacement its source ordinal at collection: untouched clauses keep their
+// logical pose, while binary and unit collapses leave holes.
+
+// Mirror the rewrite's member predicate: root-fixed or retired members have
+// left the active implication graph and are declined, matching Kissat's
+// `add_representative_equivalences`. Otherwise the logical dense stream can
+// drift from the physical watch lists.
+inline bool substitution_member_live(const Kernel &k,
+                                     const std::vector<uint8_t> &members,
+                                     Lit l) {
+  return l < members.size() && members[l] && k.values[l] == 0 &&
+         !kernel_var_retired(k, var_of(l));
+}
+
+// The dense Sweep indexes are maintained by this session alone, so every lookup
+// below is an invariant of the session, never a property of the input. Assert
+// it, but never mutate through a failed lookup: `erase(end())` and
+// `erase(begin() - 1)` both memmove outside the allocation, which turns a
+// bookkeeping slip into heap corruption far from its cause.
+bool dense_erase_first(std::vector<Ref> &occ, Ref ref) {
+  const auto at = std::find(occ.begin(), occ.end(), ref);
+  assert(at != occ.end() && "dense occurrence list lost its clause");
+  if (at == occ.end())
+    return false;
+  occ.erase(at);
+  return true;
+}
+
+bool dense_erase_last(std::vector<Ref> &occ, Ref ref) {
+  const auto at = std::find(occ.rbegin(), occ.rend(), ref);
+  assert(at != occ.rend() && "dense occurrence list lost its clause");
+  if (at == occ.rend())
+    return false;
+  occ.erase(std::next(at).base());
+  return true;
+}
+
+bool dense_replace_first(std::vector<Ref> &occ, Ref from, Ref to) {
+  const auto at = std::find(occ.begin(), occ.end(), from);
+  assert(at != occ.end() && "dense occurrence list lost its clause");
+  if (at == occ.end())
+    return false;
+  *at = to;
+  return true;
+}
 } // namespace
+
+// The ledger slot naming `ref` in `lit`'s stream, or null when the session never
+// indexed it. Callers must test the result before writing through it, for the
+// reason given on `dense_erase_first`.
+SweepSubstitutionSession::DenseOccurrence *
+SweepSubstitutionSession::find_large(Lit lit, Ref ref) {
+  if (lit >= dense_occurrences.size())
+    return nullptr;
+  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+  for (DenseOccurrence &occurrence : ordered)
+    if (!occurrence.binary && occurrence.payload == ref)
+      return &occurrence;
+  assert(false && "sweep ledger lost a large occurrence");
+  return nullptr;
+}
+
+void SweepSubstitutionSession::erase_large(Lit lit, Ref ref) {
+  DenseOccurrence *const at = find_large(lit, ref);
+  if (!at)
+    return;
+  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+  ordered.erase(ordered.begin() + (at - ordered.data()));
+}
 
 void SweepSubstitutionSession::begin(const Kernel &k) {
   original_words = static_cast<Ref>(k.arena.size());
   changed = false;
   origin.clear();
   latest.clear();
+  reset_transaction();
+  dense_occurrences.clear();
+  if (k.dense) {
+    dense_occurrences.resize(2 * k.nvars);
+    for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+      std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+      ordered.reserve(k.watches.size(lit) + k.dense->large[lit].size());
+      for (const WatchEntry watch : k.watches.entries(lit))
+        if (watch.binary())
+          ordered.push_back({true, watch.other()});
+      for (const Ref ref : k.dense->large[lit]) {
+        const Clause *clause = clause_at(k.arena, ref);
+        if (!clause->garbage() && !clause->redundant())
+          ordered.push_back({false, ref});
+      }
+    }
+  }
 }
 
-void SweepSubstitutionSession::inherit(Ref replacement, Ref source) {
-    const auto inherited = origin.find(source);
-    const Ref original = inherited == origin.end() ? source : inherited->second;
-    origin.insert_or_assign(replacement, original);
-    latest.insert_or_assign(original, replacement);
+void SweepSubstitutionSession::sync_new_binaries(
+    const Kernel &k,
+    const std::vector<std::pair<Lit, Lit>> &equivalences) {
+  if (dense_occurrences.empty())
+    return;
+  std::vector<Lit> touched;
+  touched.reserve(4 * equivalences.size());
+  for (const auto &eq : equivalences)
+    touched.insert(touched.end(),
+                   {eq.first, negate(eq.first), eq.second, negate(eq.second)});
+  std::sort(touched.begin(), touched.end());
+  touched.erase(std::unique(touched.begin(), touched.end()), touched.end());
+  for (const Lit lit : touched) {
+    if (lit >= dense_occurrences.size())
+      continue;
+    // The watch lists are the authority on which binaries exist; the ledger
+    // only adds Kissat's dense stream order on top of them. Reconcile both
+    // directions so the two agree exactly afterwards. The physical sub-list can
+    // be permuted relative to the ledger by a prior inline substitution, so
+    // match the multiset rather than a prefix.
+    std::unordered_map<Lit, size_t> unmatched;
+    for (const DenseOccurrence occurrence : dense_occurrences[lit])
+      if (occurrence.binary)
+        unmatched[static_cast<Lit>(occurrence.payload)]++;
+    size_t stale = unmatched.size();
+    for (const WatchEntry watch : k.watches.entries(lit)) {
+      if (!watch.binary())
+        continue;
+      const auto found = unmatched.find(watch.other());
+      if (found != unmatched.end() && found->second) {
+        if (!--found->second)
+          stale--;
+        continue;
+      }
+      // Only unmatched watches are new, in the creation order observed here.
+      dense_occurrences[lit].push_back({true, watch.other()});
+    }
+    // Every producer of a binary updates this ledger, so nothing may be left:
+    // a residue means a binary was published behind the session's back. Purge
+    // it rather than let a phantom clause reach a later environment, since the
+    // ledger must not claim a clause the formula no longer contains.
+    assert(!stale && "sweep ledger holds a binary absent from the watches");
+    if (stale)
+      purge_stale_binaries(lit, unmatched);
+  }
+}
+
+void SweepSubstitutionSession::purge_stale_binaries(
+    Lit lit, std::unordered_map<Lit, size_t> &unmatched) {
+  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+  size_t kept = 0;
+  for (const DenseOccurrence occurrence : ordered) {
+    if (occurrence.binary) {
+      const auto found = unmatched.find(static_cast<Lit>(occurrence.payload));
+      if (found != unmatched.end() && found->second) {
+        found->second--;
+        continue;
+      }
+    }
+    ordered[kept++] = occurrence;
+  }
+  ordered.resize(kept);
+}
+
+void SweepSubstitutionSession::reset_transaction() {
+  delayed_moves.clear();
+  retiring.clear();
+  retiring_repr.clear();
+  retiring_rank.clear();
+  retiring_position.clear();
+}
+
+// A retiring literal's large occurrences move with its binaries, but only the
+// clause rewrite knows what each one became, so the stream index is stored
+// under the pair that identifies it while the stream is still intact.
+static uint64_t sweep_stream_key(Lit lit, Ref source) {
+  return (static_cast<uint64_t>(lit) << 32) | source;
+}
+
+// The retiring literal whose stream releases this clause to `representative`.
+// Kissat introduces a representative into a clause during the first
+// `substitute_connected_clauses` call that rewrites one of the clause's own
+// literals to it; every later call for the same clause finds it already
+// watched and appends nothing. Tactix rewrites the whole class at once, so
+// pick that same first call: the lowest-ranked retiring member of the source
+// clause whose representative is this one.
+bool SweepSubstitutionSession::move_origin(const Clause &old,
+                                           Lit representative, Ref source,
+                                           uint32_t &rank,
+                                           uint32_t &position) const {
+  rank = UINT32_MAX;
+  for (const Lit lit : old) {
+    const auto found = retiring_rank.find(lit);
+    if (found == retiring_rank.end() ||
+        retiring_repr[found->second] != representative)
+      continue;
+    rank = std::min(rank, found->second);
+  }
+  if (rank == UINT32_MAX)
+    return false;
+  const auto at = retiring_position.find(sweep_stream_key(retiring[rank],
+                                                          source));
+  // A redundant source clause never entered the dense stream, so its collapse
+  // has no recorded position; it follows that literal's other occurrences.
+  position = at == retiring_position.end() ? UINT32_MAX : at->second;
+  return true;
+}
+
+void SweepSubstitutionSession::push_move(const Clause &old,
+                                         Lit representative, Ref source,
+                                         DenseOccurrence image) {
+  uint32_t rank = 0, position = 0;
+  if (move_origin(old, representative, source, rank, position))
+    delayed_moves.push_back({representative, rank, position, image});
+  else
+    dense_occurrences[representative].push_back(image);
+}
+
+void SweepSubstitutionSession::rewrite_binary_occurrences(
+    const Kernel &k, const std::vector<Lit> &repr,
+    const std::vector<uint8_t> &members, const std::vector<Lit> &sources) {
+  reset_transaction();
+  // Ask the rewrite's own member question rather than the requested class map:
+  // a member already root-fixed or retired is declined by `do_substitution`,
+  // and mirroring it here would move ledger entries the watch lists keep.
+  const auto image_of = [&](Lit l) {
+    return substitution_member_live(k, members, l) ? repr[l] : l;
+  };
+  // The retiring list is the transaction's membership, not a view of the dense
+  // ledger: `do_substitution` reads it to decide which watch lists to snapshot
+  // before it drops every binary incident to a retiring literal. Record it even
+  // when this session holds no ledger (Sweep with the dense occurrence index
+  // disconnected), or that rewrite loses each mirror while the opposite
+  // direction survives in place, leaving a half-watched clause that still
+  // propagates but has no proof identity.
+  for (const Lit source : sources) {
+    if (!substitution_member_live(k, members, source))
+      continue; // declined here exactly as the rewrite declines it
+    if (retiring_rank.emplace(source,
+                              static_cast<uint32_t>(retiring.size())).second) {
+      retiring.push_back(source);
+      retiring_repr.push_back(repr[source]);
+    }
+  }
+  if (dense_occurrences.empty())
+    return; // no dense stream to re-pose; the membership above still stands
+  std::vector<Var> variable_order(k.nvars);
+  kernel_vars_in_import_order(k, variable_order);
+  for (const Var variable : variable_order)
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit owner = make_lit(variable, sign != 0);
+      const Lit target_owner = image_of(owner);
+      const auto rank = retiring_rank.find(owner);
+      const bool retires = rank != retiring_rank.end();
+      std::vector<DenseOccurrence> &ordered = dense_occurrences[owner];
+      size_t kept = 0;
+      for (size_t at = 0; at < ordered.size(); at++) {
+        DenseOccurrence occurrence = ordered[at];
+        if (!occurrence.binary) {
+          if (retires)
+            retiring_position.emplace(
+                sweep_stream_key(owner, static_cast<Ref>(occurrence.payload)),
+                static_cast<uint32_t>(at));
+          ordered[kept++] = occurrence;
+          continue;
+        }
+        const Lit other = static_cast<Lit>(occurrence.payload);
+        const Lit target_other = image_of(other);
+        if (target_owner == target_other ||
+            target_owner == negate(target_other))
+          continue;
+        if (target_owner == owner) {
+          occurrence.payload = target_other;
+          ordered[kept++] = occurrence;
+        } else {
+          // Every literal the rewrite retires lost exactly one merge, so the
+          // caller's source list names it. Keep an unranked move reachable
+          // rather than dropping it: membership is the ledger's contract and
+          // order is only the pose.
+          assert(retires && "sweep ledger moved an unranked source stream");
+          delayed_moves.push_back({target_owner,
+                                   retires ? rank->second : UINT32_MAX,
+                                   static_cast<uint32_t>(at),
+                                   {true, target_other}});
+        }
+      }
+      ordered.resize(kept);
+    }
+}
+
+void SweepSubstitutionSession::flush_moves(const Kernel &k) {
+#ifndef TACTIX_ENABLE_EVENT_TRACE
+  (void)k;
+#endif
+  // One retiring literal's `delayed` stack is flushed before the next literal
+  // is walked, so a representative sees each source's occurrences contiguously
+  // and in that source's own encounter order, binaries and large clauses
+  // interleaved exactly as the single watch stream met them.
+  std::stable_sort(delayed_moves.begin(), delayed_moves.end(),
+                   [](const DelayedMove &a, const DelayedMove &b) {
+                     if (a.source != b.source)
+                       return a.source < b.source;
+                     return a.position < b.position;
+                   });
+  for (const DelayedMove &move : delayed_moves) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (move.image.binary && move.source < retiring.size())
+      event_trace_sweep_rewrite_binary(
+          k, retiring[move.source], move.representative, move.position,
+          static_cast<Lit>(move.image.payload));
+#endif
+    dense_occurrences[move.representative].push_back(move.image);
+  }
+  reset_transaction();
+}
+
+void SweepSubstitutionSession::remove_large(Kernel &k, Ref source) {
+  const Clause *const old = clause_at(k.arena, source);
+  if (old->redundant())
+    return; // dense Sweep indexes irredundant clauses only
+  for (const Lit lit : *old) {
+    if (k.dense)
+      dense_erase_first(k.dense->large[lit], source);
+    if (!dense_occurrences.empty())
+      erase_large(lit, source);
+  }
+}
+
+void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
+                                                         Lit a, Lit b,
+                                                         bool append_a,
+                                                         bool append_b) {
+  const Clause *const old = clause_at(k.arena, source);
+  // Kissat's dense stream holds every binary but only the irredundant large
+  // clauses, so a redundant source has no large occurrence to retire — while
+  // the binary the kernel just published is a real member of that stream and
+  // must still be recorded, or the next environment cannot see the clause.
+  const bool indexed = !old->redundant();
+  if (indexed)
+    for (const Lit lit : *old) {
+      if (k.dense)
+        dense_erase_first(k.dense->large[lit], source);
+      if (dense_occurrences.empty())
+        continue;
+      DenseOccurrence *const at = find_large(lit, source);
+      if (!at)
+        continue;
+      // The endpoint the substitution introduced takes Kissat's appended
+      // `delayed` watch; the endpoint that survived from the source clause
+      // takes its in-place replacement (`kissat_substitute_large_watch`).
+      if (lit == a && !append_a)
+        *at = {true, b};
+      else if (lit == b && !append_b)
+        *at = {true, a};
+      else {
+        std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+        ordered.erase(ordered.begin() + (at - ordered.data()));
+      }
+    }
+  if (dense_occurrences.empty())
+    return;
+  const auto rewritten_in_place = [&](Lit lit, bool append) {
+    if (append || !indexed)
+      return false;
+    return std::find(old->begin(), old->end(), lit) != old->end();
+  };
+  if (!rewritten_in_place(a, append_a))
+    push_move(*old, a, source, {true, b});
+  if (!rewritten_in_place(b, append_b))
+    push_move(*old, b, source, {true, a});
+}
+
+void SweepSubstitutionSession::inherit(Kernel &k, Ref replacement, Ref source) {
+  const Clause *const old = clause_at(k.arena, source);
+  const Clause *const image = clause_at(k.arena, replacement);
+  // `kernel_add_large_clause` appends the replacement to every dense
+  // occurrence list.  Kissat rewrites the source allocation in place:
+  // literals retained by the image therefore keep the source occurrence,
+  // removed literals disappear, and only a newly introduced representative
+  // is appended.  Restore that pose immediately, not merely at the final
+  // arena collection, because later environments in this same Sweep pass
+  // traverse the live dense lists and their structural caps make the order
+  // semantic.  A replacement inherits the source's redundancy and
+  // `kernel_add_large_clause` indexes only irredundant records, so one
+  // predicate decides whether either index holds this clause at all.
+  const bool indexed = !old->redundant();
+  const auto image_holds = [&](Lit lit) {
+    return std::find(image->begin(), image->end(), lit) != image->end();
+  };
+  const auto source_held = [&](Lit lit) {
+    return std::find(old->begin(), old->end(), lit) != old->end();
+  };
+  if (k.dense && indexed) {
+    // Remove the append performed by `kernel_add_large_clause`; the loop below
+    // puts each image occurrence at its Kissat position.
+    for (const Lit lit : *image)
+      dense_erase_last(k.dense->large[lit], replacement);
+    for (const Lit lit : *old) {
+      if (image_holds(lit))
+        dense_replace_first(k.dense->large[lit], source, replacement);
+      else
+        dense_erase_first(k.dense->large[lit], source);
+    }
+    for (const Lit lit : *image)
+      if (!source_held(lit))
+        k.dense->large[lit].push_back(replacement);
+  }
+  if (indexed && !dense_occurrences.empty()) {
+    for (const Lit lit : *old) {
+      DenseOccurrence *const at = find_large(lit, source);
+      if (!at)
+        continue;
+      if (image_holds(lit))
+        at->payload = replacement;
+      else {
+        std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+        ordered.erase(ordered.begin() + (at - ordered.data()));
+      }
+    }
+    for (const Lit lit : *image)
+      if (!source_held(lit))
+        push_move(*old, lit, source, {false, replacement});
+  }
+  const auto inherited = origin.find(source);
+  const Ref original = inherited == origin.end() ? source : inherited->second;
+  origin.insert_or_assign(replacement, original);
+  latest.insert_or_assign(original, replacement);
 }
 
 void SweepSubstitutionSession::order(const Kernel &k,
                                      std::vector<Ref> &refs) {
-    // Every original clause position owns one rank, and replacement clauses
-    // inherit that rank after the old record is garbaged.  Thus live ranked
-    // records form a partial permutation: restore it in linear time instead of
-    // comparison-sorting the complete formula after every productive Sweep
-    // environment.  The tail is defensive for unranked/duplicate records and
-    // retains their incoming arena order, matching the old stable-sort tie.
-    std::vector<Ref> ordered;
-    ordered.reserve(refs.size());
-    for (Ref ref = 0; ref < original_words;) {
-      const Clause *clause = clause_at(k.arena, ref);
-      if (!clause->garbage()) {
-        ordered.push_back(ref);
-      } else {
-        const auto replacement = latest.find(ref);
-        if (replacement != latest.end()) {
-          const Clause *live = clause_at(k.arena, replacement->second);
-          if (!live->garbage())
-            ordered.push_back(replacement->second);
-        }
+  // Every original clause position owns one rank, and replacement clauses
+  // inherit that rank after the old record is garbaged.  Thus live ranked
+  // records form a partial permutation: restore it in linear time instead of
+  // comparison-sorting the complete formula after every productive Sweep
+  // environment.  The tail is defensive for unranked/duplicate records and
+  // retains their incoming arena order, matching the old stable-sort tie.
+  std::vector<Ref> ordered;
+  ordered.reserve(refs.size());
+  for (Ref ref = 0; ref < original_words;) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (!clause->garbage()) {
+      ordered.push_back(ref);
+    } else {
+      const auto replacement = latest.find(ref);
+      if (replacement != latest.end()) {
+        const Clause *live = clause_at(k.arena, replacement->second);
+        if (!live->garbage())
+          ordered.push_back(replacement->second);
       }
-      ref += clause_words(clause->size);
     }
-    // New clauses which are not replacements retain their append order.
-    for (const Ref ref : refs)
-      if (ref >= original_words && !origin.count(ref))
-        ordered.push_back(ref);
-    refs.swap(ordered);
+    ref += clause_words(clause->size);
+  }
+  // New clauses which are not replacements retain their append order.
+  for (const Ref ref : refs)
+    if (ref >= original_words && !origin.count(ref))
+      ordered.push_back(ref);
+  refs.swap(ordered);
 }
 
 uint64_t SweepSubstitutionSession::collect(Kernel &k) {
@@ -543,8 +944,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // time (F) owes it a witness — retired-without-witness answers a wrong SAT.
   std::vector<uint8_t> live_sub = std::move(sub);
   for (Lit l = 0; l < nlits; l++)
-    live_sub[l] = static_cast<uint8_t>(live_sub[l] && k.values[l] == 0 &&
-                                       !kernel_var_retired(k, var_of(l)));
+    live_sub[l] = static_cast<uint8_t>(substitution_member_live(k, live_sub, l));
   substitute_stage_trace(k, "rewrite-live-sub", live_sub.size(),
                          live_sub.capacity());
   auto substitutable = [&](Lit l) { return l < nlits && live_sub[l]; };
@@ -729,6 +1129,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       substitute_stage_trace(k, "rewrite-large-first-image", out.size(),
                              out.capacity(), chain.capacity());
     if (sat) { // satisfied/tautology -> delete only (deletions are proof-free)
+      if (session)
+        session->remove_large(k, ref);
       kernel_delete_clause(k, c); // cid == c->id()
       changed = true;
       return ApplyResult::Ok;
@@ -757,13 +1159,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                              k.arena.size(), k.arena.capacity());
       traced_large_replacement = true;
     }
-    switch (kernel_replace_clause(
+    const ReplaceOutcome replacement = kernel_replace_clause(
         k, c, id, out.data(), static_cast<uint32_t>(out.size()), credundant,
         credundant ? kernel_shrunken_glue(
                          k, cglue, static_cast<uint32_t>(out.size()))
                    : 0,
         arena_order != SubstitutionArenaOrder::Policy ? &replacement_ref
-                                                       : nullptr)) {
+                                                       : nullptr);
+    switch (replacement) {
     case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
       return ApplyResult::Unsat;  // quiescent root)
     case ReplaceOutcome::Unit:
@@ -773,10 +1176,25 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     default:
       break;
     }
+    if (session) {
+      if (replacement == ReplaceOutcome::Binary) {
+        bool append_first = false, append_second = false;
+        for (const Lit old_lit : *clause_at(k.arena, ref))
+          if (substitutable(old_lit)) {
+            append_first |= r.repr[old_lit] == out[0];
+            append_second |= r.repr[old_lit] == out[1];
+          }
+        session->collapse_large_to_binary(k, ref, out[0], out[1],
+                                          append_first, append_second);
+      } else if (replacement == ReplaceOutcome::Unit ||
+                 replacement == ReplaceOutcome::Refuted) {
+        session->remove_large(k, ref);
+      }
+    }
     if (replacement_ref != INVALID_REF) {
       assert(arena_order != SubstitutionArenaOrder::Policy);
       if (session)
-        session->inherit(replacement_ref, ref);
+        session->inherit(k, replacement_ref, ref);
       else
         local_order.inherit(k, replacement_ref, ref);
     }
@@ -1170,6 +1588,54 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   }
   substitute_stage_trace(k, "rewrite-stable-directions");
 
+  // Proof and clause identity use the one-image-per-undirected-clause order
+  // above.  Sparse reconstruction is directed in Kissat: each retired
+  // literal appends its own watch sequence to its representative only after
+  // that complete source list has been visited (substitute.c:294-363).  Reuse
+  // the released image storage for those directed moves so two retired
+  // endpoints can land in their two independently correct destination orders.
+  std::deque<BinaryImage>().swap(images);
+  const auto snapshot_directed = [&](Lit lit) {
+    assert(substitutable(lit));
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary())
+        images.push_back({lit, watch.other()});
+  };
+  if (session) {
+    // Sweep retires one source at a time in equivalence-emission order.  The
+    // session already computed that order to replay its logical dense stream;
+    // use the same order for the physical watch mirrors that search will later
+    // consume.  Import-order reconstruction gave the next Sweep environments
+    // the right ledger but left search with a different binary propagation
+    // order once sparse mode resumed.
+    for (const Lit lit : session->retiring_sources())
+      snapshot_directed(lit);
+#ifndef NDEBUG
+    // Contract, not an optimization: the compaction below drops EVERY binary
+    // incident to a substitutable literal, and only a snapshotted direction is
+    // rebuilt.  A literal the session fails to name therefore loses its mirror
+    // while the opposite direction survives, rewritten in place — a
+    // half-watched clause that still propagates but owns no proof identity.
+    {
+      std::vector<uint8_t> named(nlits, 0);
+      for (const Lit lit : session->retiring_sources())
+        named[lit] = 1;
+      for (Lit l = 0; l < nlits; l++)
+        assert((!substitutable(l) || named[l]) &&
+               "sweep session omitted a substitutable literal");
+    }
+#endif
+  } else {
+    for (const Var variable : variable_order)
+      for (uint32_t sign = 0; sign < 2; sign++) {
+        const Lit lit = make_lit(variable, sign != 0);
+        if (substitutable(lit))
+          snapshot_directed(lit);
+      }
+  }
+  substitute_stage_trace(k, "rewrite-directed-images", images.size(), 0,
+                         sizeof(BinaryImage));
+
   if (connected_only) {
     // Every snapshotted image is exactly one binary with at least one marked
     // endpoint. Remove moved/retired directions in one pass over each watch
@@ -1202,15 +1668,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
-    const bool stable_a = !substitutable(image.source_a);
-    const bool stable_b = !substitutable(image.source_b);
-    if (stable_a != stable_b) {
-      const Lit moved = stable_a ? image.target_b : image.target_a;
-      k.watches.reserve_batch_word(moved);
-    } else {
-      k.watches.reserve_batch_word(image.target_a);
-      k.watches.reserve_batch_word(image.target_b);
-    }
+    assert(substitutable(image.source_a));
+    k.watches.reserve_batch_word(image.target_a);
   }
   k.watches.finish_batch_reserve(false);
   substitute_stage_trace(k, "rewrite-binary-reserved", k.watches.arena.size(),
@@ -1220,7 +1679,11 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
-    uint64_t id;
+    const bool moved_other = substitutable(image.source_b);
+    const bool publish =
+        !moved_other || kernel_import_lit_order(k, image.source_a) <
+                            kernel_import_lit_order(k, image.source_b);
+    uint64_t id = 0;
     if (lrat) {
       const uint64_t target =
           kernel_binary_key(image.target_a, image.target_b);
@@ -1229,24 +1692,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       assert(it != target_keys.end() && *it == target);
       id = target_ids[static_cast<size_t>(it - target_keys.begin())];
       assert(id);
-    } else {
-      const bool changed_image =
-          kernel_binary_key(image.source_a, image.source_b) !=
-          kernel_binary_key(image.target_a, image.target_b);
-      id = changed_image
-               ? ++k.next_clause_id
-               : kernel_binary_id(k, image.source_a, image.source_b);
-    }
-    const bool stable_a = !substitutable(image.source_a);
-    const bool stable_b = !substitutable(image.source_b);
-    if (stable_a != stable_b) {
-      // The stable mirror already exists in-place. Complete only its moved
-      // endpoint so a full stable list never doubles for a transient append.
-      const Lit stable = stable_a ? image.target_a : image.target_b;
-      const Lit moved = stable_a ? image.target_b : image.target_a;
-      kernel_add_binary_mirror(k, stable, moved, id);
-    } else
-      kernel_add_binary_clause(k, image.target_a, image.target_b, id);
+    } else if (publish)
+      id = ++k.next_clause_id;
+    const bool already_live =
+        kernel_binary_copies(k, image.target_a, image.target_b, 1) ||
+        kernel_binary_copies(k, image.target_b, image.target_a, 1);
+    k.watches.push_binary(image.target_a, image.target_b);
+    if (publish)
+      kernel_publish_binary_clause(k, image.target_a, image.target_b, id,
+                                   !already_live);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (!(++rebuilt_images % 1000000))
       substitute_stage_trace(k, "rewrite-binary-progress", rebuilt_images,
@@ -1509,6 +1963,13 @@ ApplyResult substitute_apply_sweep_equivalences(
     return ApplyResult::NoOp;
   assert(k.level == 0 && !k.conflict_valid);
 
+  // Sweep published both implication binaries before calling in, so the ledger
+  // owes them a stream position whatever the classes below decide.  Declining
+  // every class is a normal outcome — a proved endpoint can be root-fixed by
+  // the units of the same batch — and returning first left those binaries live
+  // in the watch lists but invisible to every later environment.
+  session.sync_new_binaries(k, equivalences);
+
   // Sweep has just inserted both implication binaries for every pair.  Its
   // resumable loop needs those identities substituted before choosing the next
   // seed, but a whole-formula Tarjan pass here makes that bridge O(seeds * F).
@@ -1549,6 +2010,14 @@ ApplyResult substitute_apply_sweep_equivalences(
     }
     return root;
   };
+  // Kissat proves one equivalence at a time and substitutes it before the next
+  // is even attempted, so the retiring literal of each merge releases its whole
+  // watch stream into the winner's, in merge order (sweep.c `sweep_equivalence`
+  // -> `substitute_connected_clauses`). A literal that lost an earlier merge of
+  // the same batch therefore travels inside the block of the literal it lost
+  // to, not as a peer of it. Record the merge forest here, and read that order
+  // back below; the final representative map alone cannot express it.
+  std::vector<std::vector<Lit>> absorbed(members.size());
   const auto unite = [&](Lit a, Lit b) {
     uint32_t ra = find(index_of(a)), rb = find(index_of(b));
     if (ra == rb)
@@ -1557,6 +2026,7 @@ ApplyResult substitute_apply_sweep_equivalences(
         kernel_import_lit_order(k, members[ra]))
       std::swap(ra, rb);
     parent[rb] = ra;
+    absorbed[ra].push_back(members[rb]);
   };
   for (const auto &eq : equivalences) {
     const Lit a = eq.first, b = eq.second;
@@ -1594,12 +2064,40 @@ ApplyResult substitute_apply_sweep_equivalences(
       k.stats.substitute_scc_lits++;
     }
 
+  // Pre-order walk of the merge forest: a retiring literal is followed by
+  // everything it had already absorbed, which is exactly the stream Kissat
+  // hands to `substitute_connected_clauses` at the moment that literal retires.
+  // Both polarities are separate roots and their streams never mix, so the
+  // relative order of the two halves is not observable.
+  std::vector<Lit> sources;
+  sources.reserve(members.size());
+  {
+    std::vector<uint32_t> pending;
+    const auto descend = [&](uint32_t node) {
+      for (auto it = absorbed[node].rbegin(); it != absorbed[node].rend(); ++it)
+        pending.push_back(index_of(*it));
+    };
+    for (uint32_t i = 0; i < members.size(); i++) {
+      if (find(i) != i)
+        continue; // reached from the root that absorbed it
+      descend(i);
+      while (!pending.empty()) {
+        const uint32_t node = pending.back();
+        pending.pop_back();
+        sources.push_back(members[node]);
+        descend(node);
+      }
+    }
+  }
+
+  session.rewrite_binary_occurrences(k, r.repr, sub, sources);
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(
       k, r, std::move(sub), SubstitutionArenaOrder::PreserveClausePosition,
       &session);
   k.arena_ordering = saved_order;
+  session.flush_moves(k);
   return result;
 }
 

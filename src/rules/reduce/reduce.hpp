@@ -43,9 +43,11 @@ void reduce_retier_from_histogram(Kernel &, uint32_t mode,
                                   uint32_t tier2_relative_permille);
 
 // delete exactly refs[0..n) (re-validating: reasons/garbage are skipped),
-// emit proof deletes, then collect garbage. The CHOICE of n is the
-// policy's (plan §5: ReductionPolicy sub-policy).
-ApplyResult reduce_apply_refs(Kernel &, const Ref *refs, size_t n);
+// emit proof deletes, then collect garbage. The CHOICE of n and whether a due
+// compacting collection starts at arena offset zero are the policy's (plan §5:
+// ReductionPolicy sub-policy; Kissat reduce.c `compact ? 0 : first_reducible`).
+ApplyResult reduce_apply_refs(Kernel &, const Ref *refs, size_t n,
+                              bool compact_collect = false);
 ApplyResult reduce_apply(Kernel &);
 
 // Canonical deletion volume, kissat's default fraction of the ranked

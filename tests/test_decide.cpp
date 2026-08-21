@@ -110,11 +110,29 @@ static void test_canonical_decide_is_policy_independent() {
   assert(k.value(make_lit(2, false)) == 0);
 }
 
+// DefaultPolicy mirrors Kissat's fixed-variable lifecycle after Propagate.
+// The identity remains in Tactix's kernel for N1, but the policy consumer must
+// remove each new true-level-zero implication from both ranking structures.
+static void test_policy_consumes_root_implications() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  ScopedHeuristics h(k);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_assign_unit(k, internalize(1));
+  assert(heuristics_var_active(k, var_of(internalize(2))));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  assert(k.assigned[var_of(internalize(2))].level == 0);
+  heuristics_consume_root_assignments(k, 1);
+  assert(!heuristics_var_active(k, var_of(internalize(2))));
+  assert(!heuristics_heap_contains(k, var_of(internalize(2))));
+}
+
 int main() {
   test_decide_guard_is_pure_off_fixpoint();
   test_off_fixpoint_decide_then_backtrack_no_escape();
   test_retired_unassigned_var_stays_selectable();
   test_canonical_decide_is_policy_independent();
+  test_policy_consumes_root_implications();
   puts("test_decide OK");
   return 0;
 }

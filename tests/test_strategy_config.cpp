@@ -87,16 +87,18 @@ int main() {
   assert(!mp.inprocess.factor_repeated_enabled &&
          !mp.inprocess.vivify_enabled);
   const auto stconn = classified(936, 6488);
-  assert(stconn.inprocess.preprocess_only &&
-         !stconn.branching.random_sequences && stconn.reorder.mode == 0 &&
-         !stconn.reduction.dynamic_tiers);
+  assert(!stconn.inprocess.preprocess_only &&
+         stconn.branching.random_sequences &&
+         stconn.reorder.mode == defaults.reorder.mode &&
+         stconn.reduction.dynamic_tiers ==
+             defaults.reduction.dynamic_tiers);
   const auto grain105 = classified(3094431, 10684799);
-  assert(grain105.inprocess.preprocess_only &&
+  assert(!grain105.inprocess.preprocess_only &&
          grain105.branching.random_sequences);
   const auto grain87 = classified(3165161, 10917078);
-  assert(grain87.inprocess.preprocess_only &&
+  assert(!grain87.inprocess.preprocess_only &&
          !grain87.inprocess.factor_repeated_enabled &&
-         !grain87.branching.random_sequences);
+         grain87.branching.random_sequences);
   const auto dense_small = classified(862, 855716);
   assert(!dense_small.inprocess.bve_enabled &&
          dense_small.inprocess.forward_midround_budget &&
@@ -116,6 +118,79 @@ int main() {
   assert(schedules_startup_factor(450, 20035));
   assert(schedules_startup_factor(6360, 25200));
   assert(schedules_startup_factor(3165161, 10917078));
+
+  // Formula classification may lighten repeated Factor, but the reference
+  // Probe clock remains live along with every search-wide mechanism.
+  const auto grain_late = classified(3859779, 13462874);
+  assert(!grain_late.inprocess.preprocess_only &&
+         !grain_late.inprocess.factor_repeated_enabled &&
+         grain_late.branching.random_sequences &&
+         grain_late.reorder.mode == defaults.reorder.mode &&
+         grain_late.reduction.square_root_cadence &&
+         grain_late.reduction.ramp_fraction &&
+         grain_late.reduction.dynamic_tiers &&
+         grain_late.reduction.compact_variables &&
+         grain_late.rephase.walk_permille ==
+             defaults.rephase.walk_permille &&
+         grain_late.rephase.late_lucky);
+  // A profile may dose or decline an inprocessing slot; none may withdraw the
+  // late Lucky opportunity, which both references offer on every formula
+  // (kissat search.c:188, options.h:79).  Sweeping the classification space
+  // rather than a witness list is the point: the defect this pins made the
+  // closed late call unreachable for whole formula classes at once.
+  static const uint64_t GRID_VARS[] = {
+      1,       2,       127,     128,     129,     299,      300,
+      301,     499,     500,     501,     799,     800,      801,
+      862,     899,     900,     901,     936,     999,      1000,
+      1001,    1499,    1500,    1999,    2000,    2999,     3000,
+      3032,    3999,    4000,    4999,    5000,    5999,     6000,
+      6360,    6499,    6500,    6999,    7000,    9999,     10000,
+      14999,   15000,   19999,   20000,   24999,   25000,    31999,
+      32000,   39999,   40000,   49999,   50000,   69999,    70000,
+      119999,  120000,  199999,  200000,  299999,  300000,   499999,
+      500000,  799999,  800000,  1000000, 2999999, 3000000,  3094431,
+      3129999, 3130000, 3165161, 3859779, 9999999, 10000000, 20000000};
+  static const uint64_t GRID_RATIOS[] = {0,  1,  3,  4,  5,  6,   9,
+                                         10, 11, 19, 20, 21, 49,  50,
+                                         51, 59, 60, 61, 89, 90,  91,
+                                         199, 200, 201, 499, 500, 501, 1000};
+  for (const uint64_t shape_vars : GRID_VARS)
+    for (const uint64_t ratio : GRID_RATIOS)
+      for (const int64_t nudge : {int64_t{-1}, int64_t{0}, int64_t{1}}) {
+        const int64_t shape_clauses =
+            static_cast<int64_t>(ratio * shape_vars) + nudge;
+        if (shape_clauses < 0)
+          continue;
+        const auto shaped = classified(static_cast<uint32_t>(shape_vars),
+                                       static_cast<uint64_t>(shape_clauses));
+        assert(!shaped.inprocess.preprocess_only &&
+               "formula shape must not suppress Kissat's Probe pipeline");
+        assert(shaped.rephase.late_lucky);
+        assert(shaped.branching.random_sequences);
+      }
+  assert(grain87.rephase.late_lucky && stconn.rephase.late_lucky &&
+         dense_small.rephase.late_lucky && dense_large.rephase.late_lucky &&
+         mp.rephase.late_lucky);
+
+  // Formula shape never chooses the reference-disagreement arm.  A caller
+  // can still select CaDiCaL's randec-off policy explicitly, and
+  // classification must preserve that typed choice.
+  DefaultStrategyConfig profile_no_random = defaults;
+  profile_no_random.branching.random_sequences = false;
+  DefaultPolicy no_random_profile(profile_no_random);
+  Kernel legacy_shape;
+  legacy_shape.original_external_vars = 3859779;
+  legacy_shape.original_input_clauses = 13462874;
+  no_random_profile.classify_formula_strategy(legacy_shape);
+  assert(!no_random_profile.strategy_config().branching.random_sequences);
+
+  // The startup-only arm remains explicit and typed for bounded attribution;
+  // classification preserves a caller selection but never selects it itself.
+  DefaultStrategyConfig startup_only = defaults;
+  startup_only.inprocess.preprocess_only = true;
+  DefaultPolicy explicit_startup_only(startup_only);
+  explicit_startup_only.classify_formula_strategy(legacy_shape);
+  assert(explicit_startup_only.strategy_config().inprocess.preprocess_only);
 
   // Kissat rotates two focused epochs through forced initial/opposite phases.
   // This applies equally to ranked and random decisions.
@@ -246,7 +321,31 @@ int main() {
   switched_random.reset(1500); // ordinary deadline 2000: not due yet
   switched_random.start_random_sequence(switched);
   if (switched.stats.random_sequences != 1 ||
-      switched_random.randec_until != 1854)
+      switched_random.randec_remaining != 10)
+    return 1;
+
+  // Kissat charges random-sequence lifetime only when search propagation
+  // returns a conflict. An OTFS conflict added inside analysis advances the
+  // global conflict count but does not consume the sequence counter.
+  switched_random.on_search_propagation_conflict();
+  switched.stats.conflicts++;
+  if (switched_random.randec_remaining != 9)
+    return 1;
+  switched.stats.conflicts++; // analysis/OTFS conflict: deliberately uncharged
+  if (switched_random.randec_remaining != 9)
+    return 1;
+  for (unsigned i = 0; i != 8; ++i)
+    switched_random.on_search_propagation_conflict();
+  if (switched_random.randec_remaining != 1)
+    return 1;
+  const uint64_t random_decisions_before = switched.stats.random_decisions;
+  (void)switched_random.pick(switched);
+  if (switched.stats.random_decisions != random_decisions_before + 1)
+    return 1;
+  switched_random.on_search_propagation_conflict();
+  (void)switched_random.pick(switched);
+  if (switched_random.randec_remaining ||
+      switched.stats.random_decisions != random_decisions_before + 1)
     return 1;
 
   DefaultStrategyConfig custom = defaults;
@@ -278,6 +377,14 @@ int main() {
   assert(snapshot.find("inprocess.sweep_skip_embedded_fixed=0") !=
          std::string::npos);
   assert(snapshot.find("inprocess.sweep_resume=0") != std::string::npos);
+
+  // The arithmetic cadence changes only deadlines after a reduction.  Kissat
+  // always seeds the first deadline from `reduceinit`.
+  custom.reduction.square_root_cadence = false;
+  custom.reduction.arithmetic_interval = 91;
+  DefaultPolicy arithmetic(custom);
+  arithmetic.reset_schedule(k);
+  assert(arithmetic.reduce.next_conflicts == 37);
 
   // Environment arms overlay the typed profile and remain visible in its
   // readback rather than becoming hidden use-site constants.

@@ -7,6 +7,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "proof/proof.hpp"
+#include "rules/congruence/congruence.hpp" // congruence_replay_rup, RupReplay
 #include "rules/propagate/propagate.hpp"
 #include "rules/sweep/sweep.hpp"
 
@@ -539,6 +540,101 @@ void test_resumable_schedule() {
   assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
+// Kissat reschedules a proved pair's REPRESENTATIVE — `schedule_inner
+// (sweeper, repr_idx)` in `sweep_equivalence_candidates`, where the
+// representative is the endpoint with the smaller internal index, i.e. Tactix's
+// import order. Reading it off "whichever endpoint escaped retirement" happens
+// to agree only while a substitution actually lands, and names nothing at all
+// when the pair is declined. Both import orders are exercised because the
+// representative is not a function of the external numbering.
+void test_reschedules_pair_representative_by_import_order() {
+  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+  for (uint32_t flipped = 0; flipped < 2; flipped++) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_record_import(k, flipped ? 1 : 0);
+    kernel_record_import(k, flipped ? 0 : 1);
+    kernel_record_import(k, 2);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(-2), internalize(1),
+                             ++k.next_clause_id);
+    assert(sweep_apply(k) == ApplyResult::Ok);
+
+    const Var representative = flipped ? 1u : 0u;
+    assert(!kernel_var_retired(k, representative));
+    assert(kernel_var_retired(k, flipped ? 0u : 1u));
+    assert(k.stats.sweep_rescheduled == 1);
+    assert(k.sweep_tail_next < k.sweep_tail.size());
+    assert(k.sweep_tail[k.sweep_tail_next] ==
+           k.internal_to_external[representative]);
+  }
+  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
+}
+
+// One environment can prove several pairs, and every pair is rescheduled on
+// its own representative. When those pairs share a class, only the class
+// minimum survives: an intermediate representative is retired by the same
+// batch and `schedule_inner` declines an inactive variable (kissat flags.c
+// `kissat_mark_fixed_literal` deactivates a fixed one the same way). Reading
+// the representative off the pair, as Kissat does, is what makes this case
+// reachable at all — and rescheduling a retired identity would seed a variable
+// that no longer occurs in F.
+//
+// The chain x1 = x2 = x3 is proved from a single environment, so one of the
+// two pairs names x2 — which the same batch then retires into x1.
+void test_reschedule_declines_a_retired_representative() {
+  assert(setenv("TACTIX_SWEEP_SEEDS", "1", 1) == 0);
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  // Four ternaries state the equivalence without handing unit propagation a
+  // binary, so detection has to prove it and the pair is not already known.
+  const auto equate = [&](int left, int right, int helper) {
+    for (uint32_t mask = 0; mask < 4; mask++) {
+      const int sign = (mask & 1) ? 1 : -1;
+      const int h = (mask & 2) ? helper : -helper;
+      const Lit clause[3] = {internalize(-sign * left),
+                             internalize(sign * right), internalize(h)};
+      kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+    }
+  };
+  equate(1, 2, 4);
+  equate(2, 3, 5);
+
+  assert(sweep_apply(k) == ApplyResult::Ok);
+  const Var minimum = var_of(internalize(1));
+  const Var intermediate = var_of(internalize(2));
+  assert(k.stats.sweep_equivalences == 2);
+  assert(!kernel_var_retired(k, minimum));
+  assert(kernel_var_retired(k, intermediate));
+  assert(kernel_var_retired(k, var_of(internalize(3))));
+  // Two pairs, one live representative: the retired one is declined.
+  assert(k.stats.sweep_rescheduled == 1);
+  assert(k.sweep_tail_next < k.sweep_tail.size());
+  // The retired identity keeps its original schedule slot, where the seed
+  // loop skips it; what it must not do is take the pop end from the live
+  // representative.
+  assert(k.sweep_tail[k.sweep_tail_next] == k.internal_to_external[minimum]);
+  assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
+}
+
+// A productive dense environment is a transaction boundary, not just a
+// detector boundary.  Its proved unit can force variables outside a depth-zero
+// environment; Kissat propagates that trail before choosing/building the next
+// seed, so those variables must never become later environments.
+void test_resumable_closes_root_between_environments() {
+  Kernel k;
+  build(k, 6,
+        {{1, 2}, {-1, 2}, {-2, 3}, {-3, 4}, {-4, 5}, {-5, 6}});
+  assert(setenv("TACTIX_SWEEP_DEPTH", "0", 1) == 0);
+  assert(sweep_apply(k) == ApplyResult::Ok);
+  assert(unsetenv("TACTIX_SWEEP_DEPTH") == 0);
+  for (Var v = 1; v < 6; v++)
+    assert(kernel_root_value(k, make_lit(v, false)) > 0);
+  assert(k.stats.sweep_environments == 1 &&
+         "root consequences must close before the next environment");
+}
+
 // --- 7. an environment that refutes the formula outright ---------------------
 void test_env_unsat() {
   // (1)(¬1) is caught before sweeping, so use a refutation the environment
@@ -605,6 +701,62 @@ static void test_sd_declines_non_rup(void) {
   printf("  S-d: non-RUP pairs declined, F unchanged\n");
 }
 
+// "Is this line RUP over F?" is a question about the FORMULA. Its answer cannot
+// depend on which certificate format the run happens to be writing, so the
+// primitive Sweep admits with must give one verdict in all of them. It used to
+// short-circuit to `true` whenever the proof was not native LRAT, which turned
+// Sweep's admission test into an unconditional yes and let it emit an
+// unreplayable binary under DRAT (corpus 026).
+static void test_rup_admission_is_format_independent(void) {
+  // Neither direction of the fixture's `1 == 2` is RUP -- that is the premise
+  // the whole general path exists for -- so `Decide` must refuse all three.
+  const std::vector<std::vector<int>> non_rup = non_rup_formula();
+  // ...against a control that is RUP: assume -1 and the two binaries clash.
+  const std::vector<std::vector<int>> rup = {{1, 2}, {1, -2}};
+
+  struct Mode {
+    const char *name;
+    bool proof;
+    ProofFormat format;
+  };
+  const Mode modes[] = {{"no-proof", false, ProofFormat::DratAscii},
+                        {"DRAT", true, ProofFormat::DratAscii},
+                        {"LRAT", true, ProofFormat::Lrat}};
+  for (const Mode &mode : modes) {
+    Proof proof;
+    if (mode.proof)
+      assert(proof.open("/dev/null", mode.format));
+
+    Kernel hard;
+    build(hard, 4, non_rup);
+    if (mode.proof)
+      hard.proof = &proof;
+    const Lit x = internalize(1), y = internalize(2);
+    const Lit entailed[2] = {negate(x), y};
+    std::vector<uint64_t> chain;
+    assert(!congruence_replay_rup(hard, entailed, 2, chain,
+                                  RupReplay::Decide) &&
+           "an entailed but non-RUP lemma must be declined in every format");
+    // The opposite purpose is a deliberate asymmetry, not an oversight:
+    // Congruence's own lemmas are RUP by construction, so outside LRAT -- where
+    // there is no chain to read -- the replay is pure cost and is skipped.
+    assert(congruence_replay_rup(hard, entailed, 2, chain,
+                                 RupReplay::ChainOnly) ==
+               (mode.proof && mode.format == ProofFormat::Lrat ? false : true) &&
+           "ChainOnly replays exactly when a chain is written");
+
+    Kernel easy;
+    build(easy, 2, rup);
+    if (mode.proof)
+      easy.proof = &proof;
+    const Lit unit = internalize(1);
+    assert(congruence_replay_rup(easy, &unit, 1, chain, RupReplay::Decide) &&
+           "a genuinely RUP lemma must be admitted in every format");
+    printf("  admission: %s agrees (non-RUP declined, RUP admitted)\n",
+           mode.name);
+  }
+}
+
 // --- the general path, and its reachability ---------------------------------
 // `non_rup_formula()` carries an equivalence unit propagation cannot refute in
 // either direction, so only the captured sub-solver refutation can justify it.
@@ -657,6 +809,56 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(k.stats.substitute_vars >= 1);
   assert(k.stats.sweep_general >= 1);
+}
+
+// A Sweep session that holds no dense ledger still retires literals, and the
+// substitution it drives drops every binary incident to a retiring literal
+// before rebuilding the ones the session names. If the session names none, a
+// binary with one retiring endpoint keeps the direction the rewrite patched in
+// place and loses its mirror -- it still propagates from the surviving side
+// while owning no `binary_ids` identity, so an LRAT chain that cites it goes
+// out truncated -- and a binary with two retiring endpoints disappears from the
+// formula altogether, which can answer a wrong SAT.
+//
+// The check is the two structural invariants, not a verdict: mirrored watches
+// and a named id for every live pair.
+static void test_sessionless_substitution_keeps_binaries_whole(void) {
+  std::vector<std::vector<int>> cls = non_rup_formula(); // 1 == 2, vars 1..4
+  // One binary per shape the rewrite treats differently: a retiring endpoint
+  // against a stable one in each polarity -- the stable direction is patched in
+  // place and only the snapshot rebuilds the mirror -- plus a pair whose image
+  // is a tautology, which must be dropped whole rather than half.
+  cls.push_back({2, 5});
+  cls.push_back({-2, 6});
+  cls.push_back({1, -2});
+  Kernel k;
+  build(k, 6, cls);
+  assert(k.dense == nullptr); // the state this regression is about
+
+  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
+  const ApplyResult r = sweep_apply(k);
+  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
+  assert(r == ApplyResult::Ok);
+  assert(k.stats.substitute_vars >= 1 &&
+         "the substitution under test never ran");
+
+  size_t live_pairs = 0;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (!w.binary())
+        continue;
+      const Lit other = w.other();
+      assert(kernel_binary_copies(k, other, lit, 1) == 1 &&
+             "substitution left a half-watched binary");
+      assert(kernel_binary_id(k, lit, other) != 0 &&
+             "live binary has no proof identity");
+      live_pairs++;
+    }
+  assert(live_pairs >= 2 && "no binary survived; nothing was checked");
+  kernel_check_invariants(k);
+  printf("  substitution without a dense session kept %zu binary watches "
+         "whole\n",
+         live_pairs);
 }
 
 // --- the emitted proof, through a real checker ------------------------------
@@ -761,11 +963,16 @@ int main(int argc, char **argv) {
   test_known_equivalence();
   test_seeds();
   test_resumable_schedule();
+  test_reschedules_pair_representative_by_import_order();
+  test_reschedule_declines_a_retired_representative();
+  test_resumable_closes_root_between_environments();
   test_env_unsat();
   test_sd_emits_rup_equivalence();
   test_sd_declines_non_rup();
+  test_rup_admission_is_format_independent();
   test_se_general_path_emits();
   test_inline_bridge_refreshes_owned_occurrences();
+  test_sessionless_substitution_keeps_binaries_whole();
   test_brute_force_oracle(rounds);
   printf("test_sweep: all tests passed\n");
   return 0;

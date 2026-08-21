@@ -47,6 +47,19 @@ ApplyResult default_direct_rule(Kernel &k, const char *name,
   return apply();
 #endif
 }
+
+ApplyResult default_propagate(Kernel &k, const char *candidate) {
+  const size_t trail_begin = k.trail.size();
+  const ApplyResult result = default_direct_rule(
+      k, "Propagate", candidate, [&] { return propagate_apply(k); },
+      ApplyResult::Ok);
+  // Kissat marks every true-level-zero assignment fixed in its assignment
+  // primitive. Keep the proof rule independent of policy state, but consume
+  // the same lifecycle transition before DefaultPolicy next chooses a rule or
+  // decision. This includes root implications discovered above level zero.
+  heuristics_consume_root_assignments(k, trail_begin);
+  return result;
+}
 } // namespace
 
 namespace {
@@ -351,13 +364,11 @@ void DefaultPolicy::observe_decision_rate(const Kernel &k) {
   avg.decision_rate.update(static_cast<double>(cur - prev));
 }
 
-uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) {
+uint32_t DefaultPolicy::want_bump_reasons(const Kernel &k) const {
   if (!bump_reasons_limit_)
     return 0;
-  if (bump_reasons_delay_.count) {
-    bump_reasons_delay_.count--;
+  if (bump_reasons_delay_.count)
     return 0;
-  }
   if (averages[k.h->stable].decision_rate.value >= bump_reasons_rate_)
     return 0;
   return bump_reasons_limit_;
@@ -471,10 +482,12 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
 
   averages[0] = averages[1] = {};
   update_restart_limit(k);
-  reduce.next_conflicts =
-      conflicts +
-      (reduce_sqrt_ ? config_.reduction.initial_interval
-                    : config_.reduction.arithmetic_interval);
+  // Kissat initializes Reduce from `reduceinit` independently of the cadence
+  // used after a completed reduction (kimits.c:kissat_init_limits).  The
+  // arithmetic interval is a recurrence delta, not an alternative first
+  // deadline: using it here postponed LegacySearch's first Reduce from
+  // conflict 1000 to 2000.
+  reduce.next_conflicts = conflicts + config_.reduction.initial_interval;
   mode = {};
   mode.conflicts_limit = conflicts + config_.mode.initial_conflicts;
   mode.ticks_at_focus_entry = ticks;
@@ -582,6 +595,24 @@ struct InprocessScope {
   InprocessScope &operator=(const InprocessScope &) = delete;
 };
 
+// Kissat's `search_ticks` is charged only by the ordinary CDCL search
+// propagator.  Startup propagation, both Lucky trials, sparse root collection,
+// and `probe_initially` all run before search and therefore must not seed mode
+// or inprocessing effort references.  This scope suppresses only that tick
+// currency; unlike `InprocessScope` it deliberately leaves assignment-time
+// phase saving unchanged outside the actual Probe pipeline.
+struct PreSearchTickScope {
+  Kernel &k;
+  bool previous_inprocessing;
+  explicit PreSearchTickScope(Kernel &kk)
+      : k(kk), previous_inprocessing(kk.inprocessing) {
+    k.inprocessing = true;
+  }
+  ~PreSearchTickScope() { k.inprocessing = previous_inprocessing; }
+  PreSearchTickScope(const PreSearchTickScope &) = delete;
+  PreSearchTickScope &operator=(const PreSearchTickScope &) = delete;
+};
+
 uint64_t meter_probe(const Kernel &k) { return k.stats.probe_ticks; }
 uint64_t meter_backbone(const Kernel &k) { return k.stats.backbone_ticks; }
 uint64_t meter_vivify(const Kernel &k) { return k.stats.vivify_ticks; }
@@ -670,7 +701,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
      &DefaultStrategyConfig::Inprocess::hyper_binary_permille, meter_hbr, true,
      true, &Stats::hbr_ticks},
     {"Backbone", &DefaultStrategyConfig::Inprocess::backbone_permille,
-     meter_backbone, true, false, &Stats::backbone_ticks},
+     meter_backbone, false, true, &Stats::backbone_ticks},
     {"TransitiveReduce", &DefaultStrategyConfig::Inprocess::transitive_permille,
      meter_transitive, true, false},
     {"Vivify", &DefaultStrategyConfig::Inprocess::vivify_permille,
@@ -1034,6 +1065,8 @@ Lit DefaultBranching::pick(Kernel &k) {
   assert(k.unassigned > 0);
   if (!k.warming && randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
+    event_trace_randec_state(k, "pre", randec_remaining, randec_next,
+                             randec_sequences);
     // Kissat increments `solver->level` before `next_random_decision` tests
     // whether that level is at most one.  Tactix picks before Decide creates
     // the new frame, so the equivalent pre-decision condition is level zero.
@@ -1050,9 +1083,11 @@ Lit DefaultBranching::pick(Kernel &k) {
         k.level == 0 ||
         (k.level == 1 && k.first_extension_var == UINT32_MAX &&
          kernel_num_original_internal_vars(k) <= compact_universe_limit);
-    if (c >= randec_until && random_sequence_level && c >= randec_next)
+    if (!randec_remaining && random_sequence_level && c >= randec_next)
       start_random_sequence(k);
-    if (c < randec_until) {
+    event_trace_randec_state(k, randec_remaining ? "active" : "inactive",
+                             randec_remaining, randec_next, randec_sequences);
+    if (randec_remaining) {
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
@@ -1094,15 +1129,14 @@ Lit DefaultBranching::decide_lit(const Kernel &k, Var v) const {
 }
 
 void DefaultBranching::start_random_sequence(Kernel &k) {
-  if (!randec_enabled || k.h->stable || k.stats.conflicts < randec_until)
+  if (!randec_enabled || k.h->stable || randec_remaining)
     return;
   static const DefaultStrategyConfig defaults;
   const auto &cfg = config_ ? *config_ : defaults.branching;
   randec_sequences++;
   const double n = static_cast<double>(randec_sequences);
   const double logn = std::log10(n + cfg.logarithm_offset);
-  randec_until =
-      k.stats.conflicts +
+  randec_remaining =
       static_cast<uint64_t>(cfg.random_sequence_length * logn);
   randec_next =
       k.stats.conflicts +
@@ -1122,8 +1156,6 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     NoBveNoVivify,
     NoBve,
     NoBveLight,
-    LegacySearch,
-    LegacyStartupFactorOnly,
   };
 
   const uint64_t vars = kernel_num_output_vars(k);
@@ -1132,17 +1164,14 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     return;
 
   FormulaProfile profile = FormulaProfile::Reference;
-  // The two 3M-variable Grain witnesses spend 50--65 seconds per search-time
-  // inprocessing entry without changing the useful startup closure.  Their
-  // paired trace/journal runs agree through preprocessing, and a startup-only
-  // schedule solves both.  Keep larger sparse instances (notably 128_125) on
-  // the reference schedule.
+  // Large dense formulas retain the measured lighter repeated-Factor dose,
+  // but classification may not suppress the complete search-time Probe
+  // pipeline.  Kissat admits that pipeline from its conflict clock on every
+  // formula; per-entry budgets and productivity delays own its cost.
   const bool grain_shape =
       vars >= DefaultStrategyConfig::PROFILE_GRAIN_MIN_VARS &&
       vars < DefaultStrategyConfig::PROFILE_GRAIN_MAX_VARS &&
       clauses >= DefaultStrategyConfig::PROFILE_GRAIN_MIN_CLAUSES;
-  if (grain_shape)
-    config_.inprocess.preprocess_only = true;
 
   const auto at_least = [vars, clauses](uint64_t ratio) {
     return clauses >= ratio * vars;
@@ -1151,11 +1180,11 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   // disabling it turns a 58-second solve into a timeout.
   if (grain_shape &&
       vars >= DefaultStrategyConfig::PROFILE_GRAIN_LEGACY_MIN_VARS)
-    profile = FormulaProfile::LegacyStartupFactorOnly;
+    profile = FormulaProfile::StartupFactorOnly;
   else if (vars >= DefaultStrategyConfig::PROFILE_VARS_900 &&
            vars < DefaultStrategyConfig::PROFILE_VARS_1000 &&
            clauses < DefaultStrategyConfig::PROFILE_DENSITY_SPARSE * vars)
-    profile = FormulaProfile::LegacySearch;
+    profile = FormulaProfile::Reference;
   else if (vars >= DefaultStrategyConfig::PROFILE_PTN_MIN_VARS &&
       vars < DefaultStrategyConfig::PROFILE_PTN_MAX_VARS &&
       clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
@@ -1256,6 +1285,13 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   // and govern repetition from observed merge yield.  Tactix follows that
   // admission contract; its tick budget, closure watermark, and productivity
   // delay bound later applications.
+  //
+  // Late Lucky is absent for the same reason.  `luckylate` is unconditional in
+  // both references (kissat search.c:188, options.h:79); no configuration or
+  // classification clears it, not even `plain`/`basic` (kissat config.c:38).
+  // A profile may dose or decline an inprocessing slot, never withdraw a rule
+  // opportunity the references always offer.  The typed knob and
+  // `TACTIX_LUCKY_LATE` remain the diagnostic and N1 selection surface.
   switch (profile) {
   case FormulaProfile::Reference:
     break;
@@ -1288,27 +1324,11 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     break;
   case FormulaProfile::NoBve:
     in.bve_enabled = false;
-    config_.rephase.late_lucky = false;
     break;
   case FormulaProfile::NoBveLight:
     in.bve_enabled = false;
     in.vivify_permille = in.subsume_forward_permille =
         DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    config_.rephase.late_lucky = false;
-    break;
-  case FormulaProfile::LegacySearch:
-  case FormulaProfile::LegacyStartupFactorOnly:
-    in.preprocess_only = true;
-    if (profile == FormulaProfile::LegacyStartupFactorOnly)
-      in.factor_repeated_enabled = false;
-    config_.branching.random_sequences = false;
-    config_.rephase.walk_permille = 0;
-    config_.reorder.mode = 0;
-    config_.reduction.square_root_cadence = false;
-    config_.reduction.ramp_fraction = false;
-    config_.reduction.dynamic_tiers = false;
-    config_.reduction.compact_variables = false;
-    config_.rephase.late_lucky = false;
     break;
   }
 }
@@ -1688,12 +1708,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     return verdict;
   };
 
+  std::optional<PreSearchTickScope> presearch_ticks;
+  presearch_ticks.emplace(k);
+
   // The references expose two distinct Lucky opportunities around initial
   // preprocessing. Keep them out of the CDCL loop so neither can repeat after
   // a later inprocessing phase.
-  ApplyResult startup = default_direct_rule(
-      k, "Propagate", "startup", [&] { return propagate_apply(k); },
-      ApplyResult::Ok);
+  ApplyResult startup = default_propagate(k, "startup");
   if (startup != ApplyResult::Ok)
     return finish(20); // startup is at root: a conflict is a refutation
   if (lucky_guard(k)) {
@@ -1723,9 +1744,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     if (collected == RootCollectOutcome::Refuted)
       return finish(20);
     if (collected == RootCollectOutcome::Unit) {
-      const ApplyResult root_result = default_direct_rule(
-          k, "Propagate", "root-collect",
-          [&] { return propagate_apply(k); }, ApplyResult::Ok);
+      const ApplyResult root_result = default_propagate(k, "root-collect");
       if (root_result == ApplyResult::Unsat)
         return finish(20);
     }
@@ -1748,9 +1767,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       inprocess_.run_phase(k, SlotGroup::Probe, stop) == 20)
     return finish(20);
   event_trace.macro(k, "preprocess_end");
-  startup = default_direct_rule(
-      k, "Propagate", "post-preprocess",
-      [&] { return propagate_apply(k); }, ApplyResult::Ok);
+  startup = default_propagate(k, "post-preprocess");
   if (startup != ApplyResult::Ok)
     return finish(20);
   if (lucky_late_ && lucky_guard(k)) {
@@ -1765,15 +1782,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_late_end", "unknown");
   }
-  // Kissat's startup collectors physically remove inactive variables before
-  // search. Tactix defers that representation-only compaction until both
-  // Lucky attempts have failed: easy SAT instances avoid the rebuild, while
-  // long searches do not carry substituted variables through every dense
-  // kernel and heuristic array. Use the same strict inactive-percent policy
-  // as the post-Reduce compaction point.
-  if (compact_ && kernel_should_compact_variables(
-                      k, config_.reduction.compact_inactive_percent))
-    kernel_compact_variables(k);
+  presearch_ticks.reset();
+  // There is no Kissat collection point between late Lucky and search
+  // (preprocess.c:57, reduce.c:160-185).  In particular, collecting the whole
+  // arena here would apply DefaultArenaOrder after preprocessing and invent a
+  // representation transition the reference never performs.  Tactix models
+  // initial fixed-variable compaction's decision-population effect above;
+  // subsequent variable/arena compaction remains coupled to Reduce below.
   // Preprocessing has consumed the root-unit trail prefix.  Tactix retains
   // those literals for stable IDs/proof witnesses, so only the lifecycle
   // marker is cleared (Kissat physically clears that prefix).
@@ -1825,13 +1840,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
 #endif
     const size_t trace_trail_begin = k.trail.size();
-    const ApplyResult r = default_direct_rule(
-        k, "Propagate", "search", [&] { return propagate_apply(k); },
-        ApplyResult::Ok);
+    const ApplyResult r = default_propagate(k, "search");
     event_trace.implications(k, trace_trail_begin);
     if (r == ApplyResult::Unsat)
       return finish(20);
     if (r == ApplyResult::Conflict) {
+      BranchingPolicy &bp = branching ? *branching : default_branching_;
+      bp.on_search_propagation_conflict();
       event_trace.conflict(k);
       event_trace.detail(k, "analysis_begin", k.level);
       event_trace.mode_clock(k, "pre_analyze", mode.ticks_limit,
@@ -1847,6 +1862,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       k.bump_reason_limit = want_bump_reasons(k);
       event_trace.detail(k, "reason_bump_limit", k.bump_reason_limit);
       k.bump_reason_depth = config_.analysis.reason_depth;
+      const uint64_t learned_before = k.stats.learned;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
       const ApplyResult ar = default_direct_rule(
@@ -1855,29 +1871,41 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           [&] { return analyze_apply(k); });
       k.bump_reason_limit = 0;
       k.bump_reason_depth = 1;
-      if (k.stats.reason_bump_rounds != br_rounds) { // the pass actually ran
-        if (k.stats.reason_bump_aborted != br_aborted) // over the mark limit
-          bump_reasons_delay_.current +=
-              (bump_reasons_delay_.current < UINT32_MAX);
-        else if (bump_reasons_delay_.current)
-          bump_reasons_delay_.current /= 2;
-        bump_reasons_delay_.count = bump_reasons_delay_.current;
-      }
+      // Kissat calls DELAYING(bumpreasons) inside
+      // analyze_reason_side_literals, after ordinary analysis has produced a
+      // final clause.  Reused conflicts, failed-literal unit batches, and
+      // other early analysis exits must not consume this countdown.
+      if (k.pending.valid && k.stats.learned != learned_before)
+        bump_reasons_delay_.reached_gate(
+            k.stats.reason_bump_rounds != br_rounds,
+            k.stats.reason_bump_aborted != br_aborted);
       if (ar == ApplyResult::Unsat) {
         event_trace.detail(k, "analysis_end", -1);
         return finish(20);
       }
       update_tiers_after_analysis(k);
-      if (!k.pending.valid) { // `stats.conflict_reused` already counted it
+      if (!k.pending.valid) { // reused conflict or direct level-one unit batch
+        // Level-one failed-literal analysis owns its root-unit batch inside
+        // the atomic M3 transition, so it has no pending clause for policy to
+        // observe. Kissat still updates the glue averages and reluctant clock
+        // once for that size-one/glue-zero conflict result (learn.c:120-130).
+        if (k.stats.learned != learned_before) {
+          observe_glue(k, 0);
+          if (k.h->stable)
+            tick_reluctant();
+        }
         event_trace.detail(k, "analysis_end", k.level);
         event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                                mode.ticks_at_focus_entry, mode.count);
         continue;
       }
       event_trace.learned(k, k.pending.lits);
+      event_trace.detail(k, "analysis_tail_learned_emitted",
+                         k.pending.lits.size());
       observe_glue(k, k.pending.glue); // policy observes; Analyze is pure
       if (k.h->stable)
         tick_reluctant(); // per learned clause (kissat learn.c)
+      event_trace.detail(k, "analysis_tail_policy_updated", k.pending.glue);
       {
         const uint32_t jump = k.pending.jump_level;
         const uint32_t back = k.level - 1;
@@ -1891,8 +1919,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           if (target != jump)
             k.stats.chronological++;
         }
+        event_trace.detail(k, "analysis_tail_target", target);
         backjump_apply_to(k, target);
       }
+      event_trace.detail(k, "analysis_tail_backjump_return", k.level);
       event_trace.heap_scores(k);
       event_trace.detail(k, "analysis_propagate_head", k.propagate_head);
       event_trace.detail(k, "analysis_trail_size", k.trail.size());
@@ -1912,6 +1942,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (dynamic_tiers_)
         retier_current_mode(k, config_.reduction);
       pose_reduce_tiers(k);
+      // Kissat samples compactlim before selecting/deleting victims and uses
+      // that decision to choose sparse-collection start 0 versus the first
+      // reducible clause.  Reusing the decision after Reduce also prevents a
+      // formula-changing pass from silently changing the admission boundary.
+      const bool compact_due =
+          compact_ && kernel_should_compact_variables(
+                          k, config_.reduction.compact_inactive_percent);
       reduce_candidates(k, reduce_scratch_);
       const size_t reduce_victims =
           std::min(rp.victims(k, reduce_scratch_.size()),
@@ -1919,11 +1956,11 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.reduction(k, reduce_scratch_, reduce_victims);
       (void)default_direct_rule(
           k, "Reduce", "victims=" + std::to_string(reduce_victims), [&] {
-            return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims);
+            return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims,
+                                     compact_due);
           });
-      if (compact_ && kernel_should_compact_variables(
-                          k, config_.reduction.compact_inactive_percent))
-        kernel_compact_variables(k);
+      if (compact_due && kernel_compact_variables(k))
+        heuristics_compact_random_order_fixed(k);
       update_reduce_limit(k);
       pose_focused_tiers(k); // vivifyfocusedtiers=1 is the shipped default.
       update_formula_classification(k);
@@ -2255,9 +2292,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         continue; // this candidate was not viable; try the next
       ctx.round_changed = true;
       ctx.phase_dosed = true;
-      const ApplyResult propagation = default_direct_rule(
-          k, "Propagate", "inprocess-candidate",
-          [&] { return propagate_apply(k); }, ApplyResult::Ok);
+      const ApplyResult propagation =
+          default_propagate(k, "inprocess-candidate");
       if (propagation == ApplyResult::Unsat) {
         ctx.phase_unsat = true;
         break;
@@ -2335,6 +2371,12 @@ void DefaultInprocessScheduler::factor_dose_config(Kernel &k, SlotEntry &) {
 ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
                                            const RuleVTable &r,
                                            uint64_t limit) {
+  // `vivifyfocusedtiers=1` is Kissat's shipped policy: every Vivify band reads
+  // the focused-mode tier snapshot, independent of the current search mode.
+  // A stable OTFS retier legitimately poses the stable snapshot for the
+  // analysis it resumes, so pose the Vivify consumer here instead of relying
+  // on the last Reduce to have left these shared fields in focused mode.
+  pose_focused_tiers(k);
   const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;
@@ -2557,9 +2599,7 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   if (ar != ApplyResult::Ok)
     return SlotStep::Next;
   ctx.round_changed = true;
-  const ApplyResult propagation = default_direct_rule(
-      k, "Propagate", "inprocess-batch",
-      [&] { return propagate_apply(k); }, ApplyResult::Ok);
+  const ApplyResult propagation = default_propagate(k, "inprocess-batch");
   if (propagation == ApplyResult::Unsat) {
     ctx.phase_unsat = true;
     return SlotStep::Stop;
@@ -2685,7 +2725,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       clock.fixed_mark = 0;
     }
   }
-  clock.anchor = search_ticks(k);
+  // `kissat_probe_initially` does not update `last.ticks.probe`; the first
+  // search-time Probe phase therefore measures effort from search tick zero.
+  // Only a completed post-search Probe phase advances that anchor.
+  if (group != SlotGroup::Probe || k.stats.conflicts)
+    clock.anchor = search_ticks(k);
   if (ctx.phase_unsat)
     return 20;
   clock.rounds++;

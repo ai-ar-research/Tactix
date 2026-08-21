@@ -48,7 +48,7 @@ conjunct.
 | V1 Probe, V2 Backbone | `root · !conflict_valid` | **D-ROOT:** `level==0`. `!conflict_valid` is *abstract* — failed-literal reasoning assumes `p` atop a consistent `M`. |
 | V3 Substitute, V4 TransitiveReduce | `root` | **D-ROOT:** `level==0`. V3's LRAT rewrite strips a root-false literal citing its unit id unconditionally: "root-fixed implies it has a unit id" is a kernel invariant (§3), not a per-consumer test. |
 | E1 BVE | `root` | **D-ROOT:** `level==0`. (Design `docs/design/e1-bve-design.md`.) BVE also **skips extension variables** — a within-rule *scheduling* filter, not a guard conjunct (§4); eliminating one is sound but reverses E2, so it is excluded like `BVE_OCCLIM` blow-ups (§5). R10's definition extraction adds no conjunct either: the sub-solve runs inside `apply`, and its tick ceiling (`Kernel::bve_definition_budget`) is within-rule *scope* — an exhausted budget yields no gate, i.e. the full cross product, which is the pre-R10 behaviour. It only ever WIDENS what the bound accepts, so `instances()` is unchanged (N1). |
-| V5 Sweep | `!inconsistent · level==0` | **D-ROOT:** `level==0`. Otherwise pure — the environment cites level-0 unit ids and reads the watch lists, and both mean what they say only at a drained root; the apply completes that closure itself (`inprocess_reach_root`) rather than demanding a fixpoint in the guard. Emission is two-path and **declines rather than emits** whenever it cannot name a chain (RUP-first S-d not RUP → S-e; S-e untranslatable or captured before a live-formula mutation → skip the pair), the D-CONG-SKIP discipline. The environment's `touch_epoch` snapshot is carried by every general proof because an inline Substitute can invalidate its clause ids while the embedded solver continues on the old environment; this closed the 2026-08-11 Tier A N2 breach (regression 015). Sub-solver ↔ kernel literals share the `2v\|negated` encoding and the decode must carry the parity through unchanged (`sweep_kernel_lit`) — inverting it is silent, since the negated lemma is still well-formed and the pair still lands in `F`; that was the 2026-08-05 N2 breach (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`). |
+| V5 Sweep | `!inconsistent · level==0` | **D-ROOT:** `level==0`. Otherwise pure — the environment cites level-0 unit ids and reads the watch lists, and both mean what they say only at a drained root; the apply completes that closure itself (`inprocess_reach_root`) rather than demanding a fixpoint in the guard. Emission is two-path and **declines rather than emits** whenever it cannot name a chain (RUP-first S-d not RUP → S-e; S-e untranslatable or captured before a live-formula mutation → skip the pair), the D-CONG-SKIP discipline. S-d's admission replay asks about the formula, not the certificate, so it runs in every proof format (`RupReplay::Decide`); only its chain is LRAT's (`benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`). The environment's `touch_epoch` snapshot is carried by every general proof because an inline Substitute can invalidate its clause ids while the embedded solver continues on the old environment; this closed the 2026-08-11 Tier A N2 breach (regression 015). Sub-solver ↔ kernel literals share the `2v\|negated` encoding and the decode must carry the parity through unchanged (`sweep_kernel_lit`) — inverting it is silent, since the negated lemma is still well-formed and the pair still lands in `F`; that was the 2026-08-05 N2 breach (`benchmarks/reports/2026-08-05-sweep-se-polarity-fix.md`). |
 | V6 Congruence | `root` | **D-ROOT:** `level==0`. Live effect deviations are D-CONG-SKIP and D-CONG-TAUT (§2); budget stops are within-round scope. `N1-CONG-INSTANCES` **closed 2026-08-12 by specification**: V6's effect is the closure (calculus §6 V6), so one merge is a prefix of an application, not an application, and the canonical round is the entire legal instance space. The per-equivalence choice is V3's surface over the binaries V6 adds. Pinned by `tests/test_congruence.cpp` and the canonical-only set in `tests/test_api_instances.c`. |
 | X2 HyperTernaryRes | `!inconsistent · root` | **D-ROOT:** `level==0`. Otherwise pure — "resolvent ≤ 3 literals, non-tautological, not already present" is the abstract precondition itself (`calculus.md` §6c), not a guard. |
 | X1 BCE | `!inconsistent · root` | **D-ROOT:** `level==0`; `!inconsistent` is *abstract* (terminality). Otherwise pure — blockedness is the abstract precondition (`calculus.md` §6c), tested per candidate. Irredundant-only and "units are not candidates" are within-rule scope choices (§4), not guards. **Judge it with X2/X4, never alone:** measured negative ALONE (Tier B 21.79 vs 8.05) but near-neutral beside them (9.22) — the families repair each other (`benchmarks/reports/2026-07-28-all-rules-on.md`). |
@@ -71,7 +71,7 @@ an obligation with a removal path, not a note.
 | D-CONG-SKIP | Under native LRAT, V6 **drops an AND congruence whose bridging chain cannot be built** rather than emitting it unjustified (`congruence_unjustified` counts these; expected 0). LRAT-path completeness only — DRAT emits a bare add the checker searches for itself. | V6 | Deliberate, with C1 (2026-07-21). Before it, a failed `build()` emitted an LRAT line with an EMPTY hint list and continued — rejected by every checker (measured on lrat-check and cake_lpr), i.e. an unverifiable proof produced silently. **Dropping an inference is sound; emitting an unverifiable certificate violates N2**, so the trade is forced. `build()` can fail when a bridging BIG path runs only through a root-assigned literal, which C3's unit channel makes reachable. | Make `build()` total: when the BIG path is blocked by a root-fixed literal, discharge the bridge from that literal's unit id. Until then the counter is the alarm — nonzero `congruence_unjustified` means real inferences are being dropped. |
 | D-CONG-TAUT | V6 **skips any merge whose ladder would emit a TAUTOLOGICAL lemma** (ITE case-split where the condition coincides with a merged output; an XOR rung whose cancelled literal reappears in the conclusion). Both formats bail, so DRAT and LRAT keep the same trajectory. | V6 | Found 2026-07-27 on `tierC/T105.2.0` (ITE chain emitted `309268 -309268 -309297`). **A tautology is checker-divergent**: DRAT accepts it for free (negating it self-conflicts, so RUP passes without touching the formula) while every LRAT checker walks the hints, finds them already satisfied, and rejects the whole proof (cake_lpr "Checking failed at line 762952"; lrat-check "NOT VERIFIED"). The DRAT proof of the same solve verified — so the defect was invisible to every DRAT-checked tier run and to fuzz legs with only small congruence instances. | Derive the equivalence binaries without the degenerate rung (the tautological case-split carries no information — the non-degenerate half already closes both binaries) instead of dropping the merge. Until then `congruence_unjustified` counts these. Guarded durably by a debug assert in `Proof::add_rup`/`add_rat` (`Proof::tautological`), so a regressing rule trips in the debug fuzz legs. |
 | D-STRENGTHEN-BUDGET | C1/C2 have an ENTRY budget (100 per mille = kissat's `forwardeffort`) but no mid-round stop by default. **The interruptible framing is MEASURED DEAD**, and **the dose landed 2026-08-07**: both entries now meter the SUM of `strengthen_visits` and `forward_visits` against ONE shared per-phase allowance, because kissat's `forwardeffort` = 100 per mille governs a single pass that subsumes and strengthens together (`forward.c:539/554`) — billed 100 each, the pair drew twice the reference. What survives of this row is the CURRENCY: partner visits here, `forward_steps` there. | C1, C2 | Making the round interruptible was implemented, gated and **reverted 2026-08-03**: same-window A/B (`20260803-231532-B` / `20260803-231548-C`) gave Tier B 72.22 vs 70.51 and Tier C **366.58 vs 353.26** at identical solve counts, worsening both T3 halves, and was **inert on its own sentinel** (`DivS_862_11` 102.4 s on vs 103.2 s off, where C2 owns 89.7 % of the solve). Mechanism: at 100 per mille the budget binds ~once per solve and a stopped round just defers its candidates to the next one — the work is rescheduled, not saved. Report `benchmarks/reports/2026-08-04-midround-budget-negative.md`. | **Re-scoped closer: DOSE C1/C2, do not re-try interruptibility.** Forcing 1 per mille takes `DivS_862_11` from ~103 s to **11.5 s** with the slot at 33.1 % instead of 98.3 %, so the dose axis is live where the interruptibility axis is dead. The mechanism stays behind `TACTIX_MIDROUND_BUDGET=1` as a §5.6 dosing arm; `c budgetstop` is its reachability witness. Gate any dose on a Tier B+C pair. **Two later results sharpen this row, neither of them a retry of the dead axis.** (1) `SCHED-H1` added §6 TERMINATION polling to the same loops — a different mechanism on a different axis (SIGTERM latency, not effort), always-on, with `c budgetstop` as its own witness; a real SIGTERM interrupted a C1 round at 1.97 G partner visits, so the latency defect was real even though the budget one was not. (2) `SCHED-G2` says WHICH of the two to dose down: C2 absorbs 698,341 of C1's 698,351 subsumptions, so **C1's share is the duplicated one**. |
-| D-VIVIFY-SCHED | Candidate sorting, probe order, and cross-candidate trail-prefix reuse are implemented. Neither reference retries the same candidate at its shipped default (`vivifyretry` is off in CaDiCaL), so the former within-candidate retry obligation was false. | C3 Vivify | The remaining experiment is only whether the existing cross-candidate reuse and tier schedule produce measurable reach/yield. It is not a parity gap; reopen only on a traced missing default-enabled reference wire. |
+| D-VIVIFY-SCHED | Candidate sorting, probe order, cross-candidate trail-prefix reuse, and focused dynamic-tier posing are implemented. Neither reference retries the same candidate at its shipped default (`vivifyretry` is off in CaDiCaL), so the former within-candidate retry obligation was false. | C3 Vivify | The Rank-30 trace found a default-enabled reference wire: after a stable OTFS retier, Tactix's shared live tier fields held stable 19/46 even though focused 20/38 matched Kissat; shipped `vivifyfocusedtiers=1` therefore admitted a glue-20 clause in Kissat's first band but Tactix's second. DefaultPolicy now re-poses the focused snapshot at every Vivify dose entry, with a synthetic stable-retier-before-Vivify regression. Reopen only on another traced missing default-enabled reference wire. |
 | D-CCE-SCOPE | X3 CCE's candidate set is narrower than cadical's: **binaries are not candidates** (cadical `coverminclslim`=2 admits them). Not a guard. **The rotation half of this row is CLOSED** — see below. | X3 | Landed with the rule (R6). Binaries: they have no arena identity in this kernel (watch lists only), and the duplicated-pair hazard `kernel_delete_binary_all_copies` guards is the one X1 BCE shipped a crash on; X1 already covers blocked-on-a-binary and ships ON. | Binaries: admit them once the deletion goes through the same `kernel_delete_binary_all_copies` path X1 uses, with X1's duplicated-pair skip — small, and gated on the same fuzz legs. Cost/yield only — it cannot make a deletion unjustified. |
 | D-CCE-FILTER | X3's repetition filter reads **vars(C)** through `kernel_changed_since`, not C's whole ALA/CLA closure, and the substrate stamps no REDUNDANT clause traffic — while the CLA side must quantify over redundant clauses (header deviation 2). So a blockedness created by a Reduce, or by a change confined to a CLA-added literal, is not seen until something irredundant in C moves. | X3 | The exact filter would have to run the closure, i.e. do the work it is deciding whether to skip; and stamping Reduce's deletions per variable would mark everything every round, which is the flood `kernel_mark_garbage` already refuses for `bve_retry`/`removed`. Yield-only in both directions: the filter decides what to TRY, and `cover_clause` re-reads the live index for every test that passes it, so no deletion can become unjustified. | A fourth stamp array for redundant removals, read by X3 alone — the same split `touched_kept` made for C2's adds, and cheap now that the pattern exists. Until then `c cce2`'s `skipped`/`advances` pair against `cce_tried` is the alarm: all-skipped means the filter has gone further than this row claims. |
 | D-C1C2-VICTIM | C1/C2's canonical ROUND is narrower than the abstract precondition on the VICTIM: C2 admits a redundant clause inside the likely-kept tier band with `Kernel::touch_redundant` on (SHIPS ON), while C1's round admits none. CaDiCaL scopes the same loop on `likely_to_be_kept_clause` (`subsume.cpp:388`) with the band ON. Neither is a guard, and the INSTANCE surface is complete over victims either way. | C1, C2 | The abstract precondition constrains only the subsumer/partner (calculus §C1/C2), so this is scope, not soundness. C1: `SCHED-G2` measures C2 absorbing 698,341 of C1's 698,351 subsumptions, so widening C1 would maintain a fifth mechanism on the absorbed half of a fused pass. C2 now follows the reference-first default directive; `TACTIX_TOUCH_REDUNDANT=0` retains the narrower attribution arm. There is no PROMOTION path — CaDiCaL turns a redundant SUBSUMER irredundant (`subsume.cpp:133-149`); we keep subsumers irredundant instead, which is stricter. | Price the default-on band cumulatively and reopen if proof/model checks fail or its cost dominates without measurable yield. C1 remains closed by measurement. Promotion remains conditional on a measured yield gap and would require a `strengthen`-style proof line plus a redundant→irredundant kernel transition. |
@@ -110,9 +110,8 @@ requirements:
   watch scans cannot leave an escaped unit. Propagation reaches a clause only through a literal it is
   currently scanning off the trail, so adding one at the root behind that cursor rewinds it
   (`kernel_rearm_propagation`, corpus 018); above the root ConflictAnalysis owns the reset.
-- Under native LRAT a root-fixed literal carries its unit line's id: 0 is the terminator, so a chain
-  citing an unnamed one is truncated, not wrong. Every propagation entry point names what it fixed
-  (`kernel_emit_root_units`); `kernel_check_invariants` asserts it at each rule boundary.
+- `propagate_head` credits a literal with having had every clause it watches inspected, so binary-only propagation records the prefix it covered in `Kernel::binary_only_head` and the next full propagation pulls the cursor back over it; the debt is inert for a speculative caller that retracts everything it scanned. `kernel_propagation_fixpoint` is the one fixpoint predicate for verdicts, guards and the invariant oracle.
+- Under native LRAT a root-fixed literal carries its unit line's id: 0 is the terminator, so a chain citing an unnamed one is truncated, not wrong. Every propagation entry point names what it fixed (`kernel_emit_root_units`, which also rejects a binary reason whose pair has no id); `kernel_check_invariants` asserts it at each rule boundary.
 - A stored arena `Ref` is valid only within one `Kernel::arena_generation`. Whoever keeps one across a
   possible `kernel_collect_garbage` compares that counter instead of reasoning about the call graph.
 - Analyze and Backjump are atomic at the public boundary (§4).
@@ -125,9 +124,10 @@ requirements:
 
 M3 is one public operation. Private pending state must be consumed before control returns to policy code.
 
-- The learned clause is asserting at `target_level ∈ [0, conflict_level)`; the target agrees with the
-  maximum level among its non-asserting literals.
+- The learned clause is asserting at `target_level ∈ [0, conflict_level)`; the target agrees with the maximum level among its non-asserting literals.
+- A conflict with several level-one literals takes Kissat's failed-literal sub-path: Analyze records every singleton-frontier unit and the negated decision; Backjump asserts/deactivates the root batch; only then does Analyze bump surviving implication variables. Shared `backjump_assign_learned_unit` keeps ordinary and batched units identical at the rule/policy boundary.
 - True-level reasoning may lower the asserting literal's stored level without changing its meaning.
+- The Kissat-shaped `shrink=3` pipeline admits only multi-literal learned-level blocks to shrink/minimize; retaining singletons is an engineering reference-clock rule, not an M3 soundness precondition.
 - Eager subsumption runs after the backtrack and before the next propagation.
 - No policy may observe a half-analyzed conflict or schedule Backjump separately.
 
@@ -214,7 +214,9 @@ M3 is one public operation. Private pending state must be consumed before contro
   representative: it rewrites that stable watch in place and appends only the missing mirror. Before rebuilding,
   it counts exact per-literal appends and packs surviving prefixes into final slices. Ordinary kernel additions
   then publish the same metadata and encounter order without arena growth or a duplicate stable watch. Packing
-  retains already-paid global capacity until the final rewrite image, avoiding a first-post-batch doubling.
+  retains already-paid global capacity until the final rewrite image, avoiding a first-post-batch doubling. Capture
+  asymmetric images from the retiring directed list: Kissat appends that source order, not stable-partner order.
+- Canonical Backbone schedules unassigned persistent per-polarity survivors before other unassigned first-import literals, retains the falsified candidate stack across no-unit rounds, and resolves a binary conflict to its first repeated predecessor on one assumption trail. Derived units and their binary closures stay at the saved speculative level until the complete round suffix is unwound; only then are they replayed at root. Successful binary scans charge Backbone's private meter through the fetched first large-watch word, while a conflicting scan and post-round general root propagation do not, matching Kissat's return and meter boundaries. The round ramp remains 100 per computation capped at 1,000; `backbone_try` remains the independent N1 operation.
 - The canonical large-clause pass streams refs to a captured pre-rewrite end, reacquiring each clause pointer. Replacement
   clauses append beyond that end, so a full ref snapshot carries no information; Sweep retains its non-prefix
   selected refs. Since Tactix appends where Kissat shrinks in place, a read-only image pass derives and reserves
@@ -226,6 +228,7 @@ M3 is one public operation. Private pending state must be consumed before contro
 ### Search representation and BVE scratch
 
 - After late Lucky fails, DefaultPolicy uses the normal strict inactive-percent compaction threshold: delaying this representation-only rebuild lets easy Lucky SAT exits avoid it while long search sheds retired entries from every dense array. Lucky walks the permanent external-to-internal map directly in both directions, skipping retired holes without changing order or making a dense high-water copy.
+- Startup root propagation, both Lucky trials, sparse root collection, and initial Probe advance global work but not `search_ticks`. Initial Probe deliberately leaves its search-tick anchor at zero; only a completed search-time Probe phase advances it, matching Kissat's `probe_initially`/`last.ticks.probe` lifecycle.
 - BVE's two literal-to-binary indexes clear only touched entries, while binary gathering and resolvent dedup share one restored literal-mark image. Thread-local rule scratch persists across one-variable scheduler admissions like other non-reentrant dense rules; candidate order, gates, resolvents, proof, and reconstruction are unchanged.
 
 ### Budgets and scope
@@ -301,14 +304,14 @@ M3 is one public operation. Private pending state must be consumed before contro
 
 ### Input/proof identity and shared mechanics
 
-- Input clause position is its checker id. Normalization removes repeats and already-root-false
-  literals (root-true drops the clause); defer restatement to `finish_input`, with root-unit hints then
-  the file id, and store the new id. Parse-time refutation is deferred for the same reason.
-- Tautologies, duplicate units/binaries, and post-refutation input clauses still consume their input id.
-  Parse-time binary dedup is safe because no binary has yet been deleted.
-- Use the shared proof primitives for contradictory-unit empty emission, pending-unit batching, clause
-  replacement, and clause deletion. Large-clause garbage marking and proof deletion stay inseparable in
-  `kernel_delete_clause`.
+- Input clause position is its checker id. Normalization removes repeats/root-false literals (root-true
+  drops the clause); at `finish_input`, add the exact normalized clause. LRAT cites root units then the
+  file id and stores its fresh checker id; id-less DRAT searches for the justification without changing
+  solver ids. Exact DRAT addition is required because deletion matches a literal multiset, not set
+  semantics. Parse-time refutation is deferred for the same namespace reason.
+- Tautologies, duplicate units/binaries, and post-refutation clauses still consume an input id; parse-time binary dedup is safe because no binary has yet been deleted.
+- Shared proof primitives own empty emission, pending units, replacement, and deletion; garbage marking and proof deletion stay inseparable in `kernel_delete_clause`, and an already-garbage record emits no second deletion (LRAT names one id; a surplus DRAT line can silently retire a live literal-identical duplicate).
+- The optional `TACTIX_ENABLE_PROOF_SHADOW` build seeds raw clauses, tracks additions, checks deletion/Y1-premise backing, labels Congruence unit origins, forces RUP replay for value-derived units, and dumps the original/representative value map for a failed gate; production builds compile out its hooks. XOR canonicalization uses its parity-elimination ladder whenever representatives cancel, even if a different input was root-valued: folding that root does not make the cancellation conclusion directly RUP.
 - Every trajectory-affecting comparator is a strict total order, and trajectory code must not depend on
   unordered-container iteration order.
 
@@ -353,10 +356,10 @@ diagnostic was slower because a separate candidate comparator defect reordered t
 Saved phases update on every non-probing assignment (`inlineassign.h`); probing assignments are
 excluded. Focused decisions use the typed `0,+1,0,-1,0,0,0,0` two-switch epoch pattern from
 `decide.c`. The former unassign-only/no-override arm caused opposite phases at a mode boundary.
-The rephase rotation is `B, B+W, I, B, B+W, O`: Walk augments Best rather than replacing it.
-
-Walk slots run Kissat's root decision/propagation warm-up through conflicts, save each assigned phase,
-then backtrack without undoing it. Measured-better `B+W` remains the documented rotation deviation.
+The shipped rephase rotation is Kissat's `B, W, I, B, W, O`; only an explicit diagnostic augments Walk with Best. Walk first runs the root decision/propagation
+warm-up through conflicts, saves each assigned phase, then backtracks without undoing it. Its non-null
+dense transition saves root-open binaries from the lower compact/import literal in encounter order and
+replays that unsorted stack on sparse resume before reconnecting large clauses in arena order.
 
 ## 9. Design decision: reason-side bumping and dynamic tiers
 
@@ -367,11 +370,11 @@ decision is joint because either alone measured negative while the pair measured
 - Reason bumping visits one reason level, is capped, and rolls back all-or-nothing on overflow.
   `analyzed_seen` is the cap population; use `SEEN|REASON_BUMP`, and clear an explicit
   `reason_bumped` list on every exit rather than assuming marked variables form a stack suffix.
-- Dynamic tiers are the 50%/90% integer quantiles of glue among used learned clauses, with explicit
-  empty/degenerate fallbacks.
+- Dynamic tiers are the 50%/90% integer quantiles of glue among used learned clauses, with explicit empty/degenerate fallbacks.
 - The rule/kernel owns the bump set and tier computation; policy owns timing. Re-anchor the decision-rate
   EMA on mode switches and retier at reductions and the capped doubling interval.
-- Reduction ships with Kissat's `1000·sqrt(reductions)` cadence/ramp; rollback is `TACTIX_REDUCE_CADENCE=arith TACTIX_REDUCE_RAMP=0` (former 2000+300n / flat 75%).
+- Shared live tier fields may pose the current mode for OTFS or the focused/stable hybrid for Reduce; DefaultPolicy re-poses focused tiers at every Vivify dose, matching shipped `vivifyfocusedtiers=1` rather than inheriting the last consumer's fields.
+- Reduction always seeds its first deadline from Kissat `reduceinit=1000`; thereafter it ships with Kissat's `1000·sqrt(reductions)` cadence/ramp. Formula-shape profiles dose inprocessing only and cannot override cadence, ramp, dynamic tiers, or compacting collection. `compactlim` counts the union of retired and root-fixed variables as Kissat's inactive population; when due, Reduce samples it before deletion and sparse-collects from arena offset zero (otherwise from `first_reducible`), deleting root-satisfied irredundant clauses too. Tactix retains stable fixed identities but performs the whole-arena rewatch, compacts the random-index permutation, and maps the VMTF search cursor instead of resetting it. Rollback is `TACTIX_REDUCE_CADENCE=arith TACTIX_REDUCE_RAMP=0` (the 2000+300n / flat-75% recurrence never replaces `reduceinit`).
 
 ## 10. Design decision: Reorder
 
@@ -382,9 +385,9 @@ Reorder is an H-only policy operation and ships in both modes, matching Kissat's
 The first default-on run exposed retired identities sorted after disconnection from H, so stale links
 corrupted VMTF. Source filters now exclude retired Analyze bumps and Substitute SCC edges, but
 independent formula rules can still report the same retirement before the policy drain. Heuristic
-deactivation is idempotent: it counts already-disconnected reports and never dequeues through sentinel
-links. Reorder sorts non-retired variables, clears removed links, and refreshes stable H from the
-connected queue. This preserves N1 and Kissat's `ACTIVE` filters; `reorder_eligible` / `reordered`
+deactivation is idempotent. After each DefaultPolicy Propagate, its policy-owned consumer also removes every newly assigned true-level-zero variable from VMTF and EVSIDS, matching Kissat's inline fixed transition without coupling the public proof rule to H.
+Reorder sorts non-retired variables, clears removed links, and refreshes stable H from the
+connected queue. Both transitions preserve N1 and Kissat's `ACTIVE` filters; `reorder_eligible` / `reordered`
 distinguish reach / apply. The dated Tier B retirement-divergence report owns the paired evidence.
 
 For each open irredundant-clause occurrence, literal weight adds `2^-(size-2)` with size clamped to
@@ -418,8 +421,7 @@ the conflict clause as reason, without learning or emitting proof.
   the clause is live and watched by the named literal, delayed propagation is empty, and no probing
   scope is recording.
 - The rule selects the level-ranked watched pair. Repair runs only when the shortcut will fire.
-  First-round reuse remains the priced policy arm. After OTFS, Tactix retains its stronger minimization:
-  a strict subclause is learned, while an exact copy of the already-materialized replacement is reused.
+  First-round reuse remains the priced policy arm. After OTFS, a strict minimize/shrink result is learned; an exact copy of the materialized replacement is reused.
 - The shortcut is reachable chiefly after chronological backtracking, so tests must force that shape.
 - If reuse clears pending state, DefaultPolicy must stop the learn/backjump tail rather than analyze
   stale state. An OTFS-round reuse retires the replaced reason inside Analyze because no Backjump follows.
@@ -442,11 +444,11 @@ reconstruction witness; reasons may not be deleted while live. If a redundant-bi
 reopen the representation, reduction, reason-locking, proof-deletion, and regression-test decisions
 together.
 
-Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue. The binary-id map is a
-size-monotone proof-identity archive, not a live-clause statistic; counting it advanced the first
-post-preprocessing Probe deadline from Kissat's conflict 2553 to 2541 on the Tier B `sted5` witness.
-Scaled probe/eliminate guards are strict (`limit < conflicts`), with only the explicit round-zero Probe
-invitation exempt so startup preprocessing still runs.
+Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue, not the size-monotone
+proof-identity archive. Scaled guards are strict (`limit < conflicts`); only the explicit round-zero
+Probe invitation is exempt so startup preprocessing still runs.
+
+Formula classification may adjust individual entry membership or dose, but never the whole-slot `preprocess_only` guard, which remains explicit and diagnostic-only.
 
 Named Congruence and Sweep productivity delays update after preprocessing as well as search-time
 calls, exactly like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`. Thus an unproductive startup call can skip
@@ -515,46 +517,43 @@ representability argument.
 
 ## 18. Design decision: structured rule journal
 
-The rule journal is convergence infrastructure for diagnostic Tactix and Kissat
-builds. It does not replace DRAT/LRAT: a proof certifies the final answer, while
-the journal explains why each control choice and semantic transaction was or
-was not attempted. Every implemented proof rule is in scope; policy operations
-may emit control records but are not proof-rule transactions.
+The rule journal is diagnostic convergence infrastructure, not a DRAT/LRAT
+replacement. It explains control choices and semantic transactions; proofs
+remain the correctness oracle. Its ordered TSV v1 row is shared by both solvers:
+`solver, seq, kind, rule, event, conflicts, candidate, trigger, context, formula_epoch,
+root_epoch, pre_digest, guards, antecedents, outcome, decline, deltas, witnesses,
+effort, budget, post_digest`.
 
-The canonical TSV v1 row is ordered and shared by both solvers:
+- Literals use external identities; clauses use proof IDs or a stable creation ordinal plus external content.
+- Control rows cover triggers, order, budgets, modes, and restarts; transaction rows cover every applied or declined outcome.
+- The operation and serializer consume the evaluator's same structured guard result; logging never reimplements eligibility.
+- Epochs and digests delimit mutations. Replay re-executes and stops at the first field mismatch; it never injects a transformation.
+- Selectors apply before expensive digests, so bounded traces do not alter the selected execution.
+- Production builds contain no journal code or hot-path branch; instrumented Kissat is diagnostic, never a baseline.
 
-`solver, seq, kind, rule, event, conflicts, candidate, trigger, context,
-formula_epoch, root_epoch, pre_digest, guards, antecedents, outcome, decline,
-deltas, witnesses, effort, budget, post_digest`.
+Detailed coverage starts with Sweep consequence commitment and
+Congruence/Substitute. A generic envelope is insufficient until the evaluator
+supplies its rule-specific guards, candidates, antecedents, deltas, and witnesses.
 
-- Candidate literals use external identities. Clauses use their stable proof
-  IDs where the solver has them; a diagnostic reference adapter without native
-  clause IDs uses a stable creation ordinal plus external literal content.
-- `kind=control` records scheduling triggers, order, budgets, mode changes, and
-  restarts. `kind=transaction` records every attempted semantic rule outcome:
-  applied, declined with a precise reason, no-op, budget-exhausted, conflict,
-  SAT, or refuted.
-- A guard/precondition evaluator returns a structured result. The operation
-  consumes that same result and the serializer writes it; the logger must never
-  reimplement eligibility logic. Antecedents, proof cores, mutation deltas, and
-  reconstruction witnesses follow the same ownership rule.
-- Formula/root epochs identify mutation boundaries. Pre/post digests cover the
-  externally named formula and root assignment; successful replay reproduces
-  the same ordered semantic deltas and digests.
-- Replay re-executes the recorded run, compares every field in order, and
-  aborts at the first differing field with expected and actual values. It is a
-  deterministic diagnostic verifier, not a way to trust or inject a recorded
-  transformation.
-- Rule, candidate/seed, conflict-window, and record-limit selectors are applied
-  before constructing expensive digests. Detailed traces are therefore bounded
-  without changing the selected rule's execution.
-- Production builds do not compile the implementation. Their linked binaries
-  contain no journal symbol, protocol marker, environment-variable marker, or
-  hot-path runtime branch. Instrumented Kissat binaries are diagnostic only and
-  are never performance baselines.
+## 19. Congruence closure indices and sparse-header identities
 
-The initial detailed vocabulary is Sweep detection → consequence commitment →
-Congruence/Substitute. The generic transaction envelope is not considered full
-coverage for a rule until its actual evaluator supplies the rule-specific guard
-facts, stable candidates/antecedents, precise decline reasons, semantic deltas,
-and witnesses required above.
+Congruence owns a scoped exact live-binary index. `Kernel::binary_ids` is a
+size-monotone proof-ID archive and must not answer liveness queries; add/delete
+hooks maintain the scoped index, and ordered binary prefixes stop at large watches.
+
+An immutable occurrence index covers every gate input and output. New root
+assignments requeue only gates mentioning either polarity; all gates are already
+queued initially. Reopening every gate would turn occurrence-driven closure into
+quadratic work.
+
+Structural lemmas emit directly in proofless/DRAT modes, as in Kissat; whole-proof
+DRAT checking is authoritative. Only native LRAT pays for speculative replay to
+construct antecedent chains. Checked rank-12 witness:
+`benchmarks/runs/20260817-1505-tierd-rank12-direct-drat/`.
+
+A never-imported DIMACS-header variable keeps its external identity but retires
+from DefaultPolicy search at `finish_input`. It occurs nowhere, needs no witness,
+and total model extension supplies an arbitrary value. Checked rank-16 witness:
+`benchmarks/runs/20260817-1625-tierd-rank16-header-only-checked/`.
+
+T105's paired removal (`20260818-0110-T105-backbone-v6a-ablation`) retains V6a: Backbone finds 0 units, V6a finds 501, and off is 430.693 s versus 365.861 s. Each admitted Congruence application therefore completes one linear V6a binary-watch pass independently of prior gate-budget spending; only global termination may soundly cut it. `congruence_y1_ticks` accounts for scan/replay work while `congruence_ticks` remains inclusive, and the focused test exhausts the shared budget before requiring the unit.
