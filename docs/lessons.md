@@ -68,3 +68,8 @@ designs, logs, and Git preserve history. `PROGRESS.md` owns status.
   Carry an exact dense transaction view across environments and cross the host
   representation bridge once at the call boundary; retain immediate collection
   only for callers that actually hold raw relocatable references.
+- **L30 · A budget comparator belongs to its polling layer.** An inclusive
+  embedded limit and a strict enclosing limit are not interchangeable: changing
+  either can move one item across a session boundary, reset deterministic state,
+  and reorder a much larger later trajectory. Pin equality and session identity,
+  not only aggregate work.

@@ -454,6 +454,8 @@ The generic `CandidateOrder::Heuristic` meaning is unchanged for every other rul
 
 Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`; Substitute has no Kissat delay object, so its local closure backoff is search-time-only.
 
+Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases.
+
 ## 15. Design decision: eager subsumption after analysis
 
 Eager subsumption is an M3 sub-step, not a separately schedulable proof rule.
