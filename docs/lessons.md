@@ -62,3 +62,9 @@ designs, logs, and Git preserve history. `PROGRESS.md` owns status.
 - **L28 · No reference schedule supports our BCE constants.** The rate, slot, round cap, and effort floor
   are local choices and must be labeled as such. `mod4block` nevertheless has a measured dependency on
   BCE deletions through the downstream X2 resolvent/conflict mechanism.
+- **L29 · Separate semantic allowance from representation accounting.** A host-only
+  arena rebuild still belongs in the rule's scheduler cost, but charging it to
+  Kissat's Kitten-only live ceiling can truncate a productive semantic tail.
+  Carry an exact dense transaction view across environments and cross the host
+  representation bridge once at the call boundary; retain immediate collection
+  only for callers that actually hold raw relocatable references.

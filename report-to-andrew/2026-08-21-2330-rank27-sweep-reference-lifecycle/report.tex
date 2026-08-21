@@ -1,0 +1,160 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Vivify and Sweep Lifecycle Repair}
+\author{Tactix engineering handoff}
+\date{21 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Executive outcome}
+The suspicious variable-range Vivify policy was real and has been removed.
+Vivify now follows the retained Kissat evidence for candidate scope, cumulative
+tier allowance, jumped-reason deduction, terminal effects, productivity, and
+its interleaving with the surrounding Probe pipeline.  The first later portable
+divergences were then repaired in sequence: TransitiveReduce source order and
+Sweep's semantic-dose/representation lifecycle.
+
+The Sweep defect was a category error rather than another benchmark gate.
+Tactix charged a whole-arena representation rebuild to the current live Sweep
+allowance, while Kissat's source limits that call only by embedded
+\code{kitten\_ticks}.  The rebuild ended a productive retained tail after the
+first equivalence batch.  Tactix now uses Kitten ticks for the live semantic
+ceiling, continues to price representation work in later scheduler accounting,
+and carries one dense substitution ledger across productive environments before
+collecting the arena once at call exit.
+
+Release passes 72/72.  The required matched 28B+5C guard passes 66/66 with all
+models and proofs checked and zero certificate residue.  The first meter-only
+candidate had timed out on the fixed Tier-C \code{T105.2.0} guard; the complete
+lifecycle repair proves it UNSAT in 1,043.578 seconds.  Immutable rank 27 still
+returns UNKNOWN at 1,200.004 seconds, so rank 27 remains open.
+
+\section*{What was wrong}
+At the common conflict-3069 state, retained Kissat evidence continues the
+second Sweep call through 2,303 resumed seeds and derives 343 equivalences.
+Tactix's original live meter was
+\[
+  \texttt{sweep\_ticks\_sub}+\texttt{sweep\_ticks\_repr}.
+\]
+After the first productive environment, Tactix crossed its variable-width
+arena bridge.  That one collection charged roughly 18.8 million representation
+words against a 19.19-million semantic dose and stopped the call.  Kissat has
+no corresponding charge: \code{sweep.c} sets and tests the outer allowance in
+cumulative \code{kitten\_ticks} alone.
+
+Separating the live meter restored the semantic tail exactly, but initially
+exposed a second host-representation cost: Tactix collected the entire arena
+after every productive environment.  The resulting call charged
+1,100,956,356 representation words, took 53.072 seconds, and failed the full
+guard.  This failed guard correctly blocked a Tier-D witness.
+
+The existing \code{SweepSubstitutionSession} supplied the general repair.  Its
+ordered dense occurrence ledger is updated by every substitution transaction,
+so the next environment already sees the previous environment's consequences.
+The dense call therefore needs one collection at exit, not one collection per
+productive environment.  Sessionless/public calls retain immediate collection
+because they own raw arena references and must refresh them after relocation.
+
+\section*{Implementation and focused evidence}
+The source change has three parts.
+
+\begin{itemize}
+\item \code{sweep\_semantic\_effort} is the cumulative Kitten counter used by
+  the current call's ceiling and remaining per-environment allowance.
+\item \code{sweep\_effort} remains Kitten ticks plus representation words for
+  policy scheduling, so real host work is not hidden.
+\item A connected dense call collects once after its ordered environment
+  sequence; a sessionless call keeps its immediate collection and generation
+  refresh.
+\end{itemize}
+
+No benchmark name, hash, rank, literal, deadline, variable range, or tuned
+constant enters solver behavior.  A focused two-environment test requires at
+least two equivalences and substitutions but exactly one arena generation
+increment under a connected dense index.  The existing sessionless test pins
+the opposite correctness-required lifecycle.
+
+Candidate-only job \code{1637687} gives the following bounded comparison.
+
+\begin{center}
+\begin{tabular}{lrr}
+\toprule
+Measure & per-environment collection & one call collection \\
+\midrule
+Equivalences & 343 & 343 \\
+Emitted binaries & 686 & 686 \\
+Retired variables & 369 & 369 \\
+Representation words & 1,100,956,356 & 4,720,714 \\
+Sweep time & 53.072 s & 24.570 s \\
+Final active / unassigned & 429,499 / 429,303 & 429,499 / 429,303 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The optimized call visits 2,306 retained seeds rather than 2,303.  The extra
+three are zero-effect: the equivalence set, binary count, retirements, and final
+slot state are unchanged.  This count is stated as the next scheduling detail,
+not hidden or claimed exact.
+
+\section*{Full correctness guard}
+Matched campaign
+\artifact{benchmarks/runs/20260821-2145-BC-sweep-deferred-bridge/}, job
+\code{1637688}, ran the accepted pin and candidate on all 28 Tier-B fixtures
+plus the fixed five mechanism-relevant Tier-C fixtures under 16\,GiB and
+1,200 seconds.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Arm & valid & SAT / UNSAT & aggregate & peak RSS \\
+\midrule
+Accepted pin & 33/33 & 17 / 16 & 2205.151 s & 3.234 GiB \\
+Candidate & 33/33 & 17 / 16 & 2924.991 s & 3.081 GiB \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+All 34 SAT models and 32 UNSAT proofs verify.  There are no invalid, missing,
+malformed, cleanup-bad, or residual-certificate tasks.  The candidate ratio is
+1.326436, so this is not promoted as a new accepted performance pin.  It does,
+however, remove the solve loss that rejected the first candidate:
+\code{T105.2.0} is proof-verified UNSAT in 1,043.578 seconds, compared with the
+accepted pin's 790.936 seconds.  Both proofs were deleted after checking.
+
+\section*{Immutable rank-27 witness}
+Only after the complete guard passed was job \code{1637757} submitted.  It
+returned UNKNOWN at 1,200.004 seconds.  The runner recorded a
+196,083,712-byte partial proof, SHA-256
+\code{b5383d30...54a15}, then deleted it and all checker scratch.  Certificate
+residue is zero.  Rank 27 is not added to the nine closed ranks.
+
+\section*{Experiment discipline and next action}
+The immutable input SHA-256 is \code{5435b1b2...bb4e9}; the accepted binary is
+\code{b6c991e0...fb6f}; the candidate is \code{f9206a95...d82bb9}.  The branch
+and \code{origin/main} were synchronized before work, surviving worktrees and
+unrelated jobs were left untouched, and no frozen reference solver was rerun.
+Diagnostics used the retained Kissat trace and candidate-only Tactix jobs.
+
+The next rank-27 localization retains the closed Vivify, TransitiveReduce, and
+Sweep consequence/transaction repairs.  It begins with the three zero-effect
+retained seeds, then follows the earliest downstream common-state divergence.
+Any further source change again owes the complete 28B+fixed-C guard before a
+Tier-D witness.
+
+\begin{sloppypar}
+The durable technical report is
+\artifact{benchmarks/reports/2026-08-21-tierd-rank27-sweep-reference-lifecycle.md}.
+The current resume surface is \artifact{PROGRESS.md}; mechanism decisions are
+in \artifact{docs/implementation-notes.md} and
+\artifact{docs/scheduling-parity-ledger.md}.
+\end{sloppypar}
+
+\end{document}

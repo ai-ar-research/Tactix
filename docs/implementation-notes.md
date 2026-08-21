@@ -240,9 +240,7 @@ M3 is one public operation. Private pending state must be consumed before contro
   witness, merely removing the three extra Probe-family entries changed 149.22 s to 133.34 s;
   matching both Kissat pipelines changed it to 52.75 s with a verified model. This is a
   control-membership repair, not a semantic guard or removal of any rule.
-- `work_budget=0` is unbounded. A scoped canonical round may stop at a prefix in its own deterministic currency: Vivify uses
-  propagation ticks, Factor uses the exact dense-watch scan currency above,
-  and Sweep uses Kitten ticks plus arena words rebuilt by Tactix's variable-width bridge. The Sweep deviation prices work absent from Kissat's in-place rewrite. Clear after apply.
+- `work_budget=0` is unbounded. Vivify uses propagation ticks and Factor uses the dense-watch currency above. Sweep's live dose uses only Kitten ticks, while its policy account also prices arena words. A connected dense substitution ledger crosses that bridge once at call exit; sessionless calls collect immediately and refresh `arena_generation`. Evidence: `benchmarks/reports/2026-08-21-tierd-rank27-sweep-reference-lifecycle.md`. Clear after apply.
 - `vivify_scope=0` enumerates all bands; 1–5 select the documented tier bands. The setter accepts 0–5
   and ignores invalid values rather than mapping them to another band.
 - Canonical Vivify commits its count-sorted probe pose to full-size scheduled

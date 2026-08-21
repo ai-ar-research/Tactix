@@ -296,7 +296,12 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   nothing, and a pair becomes an equivalence only after both opposing assumptions are refuted as above.
 - **Effect:** for `B→={¬a,b}` and `B←={a,¬b}`, add both binaries. Proof δ is an all-or-nothing pair:
   `add_rup(B→,h→) · add_rup(B←,h←)`, with no deletion; `F` grows and `R/τ/ρ` are untouched. A pair the
-  formula already states is skipped.
+  formula already states is skipped. Consequences from one environment are
+  committed before constructing the next. In Tactix's variable-width host
+  representation, a connected dense call records every such rewrite in one
+  ordered occurrence ledger and collects the arena once after the call; a
+  sessionless/public call that owns raw arena references must instead collect
+  immediately and refresh those references before the next environment.
 - **Emission (why entailment is not enough):** the checker knows nothing of the environment, so
   each binary must be justified over `F`. Two strategies. **Fast path:** negate `B`, propagate the main
   formula, and let `h` be its reason clauses in propagation order followed by the conflict. **General
