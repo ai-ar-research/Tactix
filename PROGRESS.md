@@ -18,15 +18,20 @@ evidence. This file is only the current resume surface.
   cumulative Vivify-admission pin closes ranks **21, 23, 24, 25, 28, 29, 34,
   38, and 39** under the 16 GiB/1200 s debug contract; all nine answers
   validate and certificate residue is zero. Eleven ranks remain open.
-- Rank 27 now has the source-backed Congruence arity and Rephase/Restart
-  accounting repairs, the completed Vivify candidate/deduction repair, and
-  Kissat's exact TransitiveReduce activity order between the Vivify calls.
-  Diagnostic job `1637474` changes that first reduction from 0 deletions to 24
-  (Kissat retained trace: 21); early exit is inert. Release is 72/72 and
-  matched 28B+5C job `1637542` is 66/66 valid with zero residue, but its 1.259x
-  aggregate keeps performance coupling open. Witness `1637608` remains UNKNOWN
-  at 1200.004 s; its 147,849,216-byte partial proof was deleted. Rank 27 stays
-  open at the residual post-Vivify Sweep/representation split.
+- Rank 27 now also has the source-backed Sweep lifecycle repair. Its live dose
+  follows Kissat's Kitten-only ceiling while scheduler accounting still prices
+  Tactix's representation work; one dense call carries its ordered substitution
+  ledger across productive environments and collects the variable-width arena
+  once at call exit. Diagnostic job `1637687` restores the retained semantic
+  boundary (343 equivalences, 686 binaries, 369 retirements) and reduces Sweep
+  from 53.072 s / 1,100,956,356 representation words to 24.570 s / 4,720,714
+  words. It visits three additional zero-effect retained seeds, the next open
+  scheduling detail. Release is 72/72 and matched 28B+5C job `1637688` is
+  66/66 valid with zero residue; candidate ratio 1.326. It recovers checked
+  `T105.2.0` UNSAT at 1043.578 s after the first dose-only arm timed out.
+  Witness `1637757` remains UNKNOWN at 1200.004 s; its 196,083,712-byte partial
+  proof was deleted. Rank 27 remains open after Sweep at the next downstream
+  common-state divergence.
 - The latest soundness repair preserves sessionless Sweep binary/proof identity
   and makes RUP admission format-independent for Sweep and HyperBinaryRes.
   Release 72/72, Trace 71/71, ASAN-O3 72/72, Debug 71/71, the 26-entry
@@ -52,7 +57,7 @@ dispositions and reopening conditions are in
 `docs/scheduling-parity-ledger.md`; any newly missing/cruder reference
 mechanism, failed reopening condition, or loss of an accepted deviation's
 evidence returns verification to pending. The accepted matched iteration guard
-is 66/66 across shipped/candidate 28B+5C (latest job `1637542`). The cumulative Tier-D gate closes
+is 66/66 across shipped/candidate 28B+5C (latest job `1637688`). The cumulative Tier-D gate closes
 ranks 21, 23, 24, 25, 28, 29, 34, 38, and 39 with zero residue. Later proof-
 soundness work changes no scheduling disposition.
 <!-- track-sched:end -->
@@ -60,13 +65,13 @@ soundness work changes no scheduling disposition.
 ## Immediate work
 
 1. Continue Phase 4.25 Stage A with open UNSAT ranks first: 27, 31, 32, 33, 35,
-   37, then 40. For rank 27, extend the paired trace only after conflict 3069's
-   accounted Vivify and TransitiveReduce calls and localize the residual
-   Sweep/retained-root representation divergence. In the same sequential pass,
-   localize the 1.259x guard regression on predeclared
-   `mp1-Nb5T15`/`sted5` as a missing coupling; never restore the size cutoff.
-   Make only a general source-backed repair and rerun full B+fixed C before a
-   new Tier-D witness.
+   37, then 40. For rank 27, retain the closed Vivify, TransitiveReduce, and
+   Sweep semantic-consequence boundary. Localize the three zero-effect retained
+   seeds and then the earliest downstream common-state divergence after Sweep;
+   do not restore representation charging to the live semantic ceiling or
+   repeat whole-arena collection per productive environment. Make only a
+   general source-backed repair and rerun full B+fixed C before a new Tier-D
+   witness.
 2. Return to rank 22 later. Backbone is exact through the conflict-4487 early
    call and both solvers leave it with 3,442,398 semantic variables; Vivify is
    the first later owner. Do not repeat the completed Backbone investigation.
@@ -84,6 +89,10 @@ soundness work changes no scheduling disposition.
 
 ## Recent changes
 
+- 2026-08-21: separated Sweep's Kitten semantic ceiling from representation
+  accounting and deferred dense-session arena collection to the call boundary;
+  passed 72/72 and checked 28B+5C correctness, recovered the prior Tier-C
+  timeout as verified UNSAT, and recorded rank 27 UNKNOWN with zero residue.
 - 2026-08-21: replaced TransitiveReduce's ascending-literal default with the
   exact activity comparator/stack-consumption order in Kissat `transitive.c`;
   passed 72/72 and checked 28B+5C correctness, and recorded rank 27 UNKNOWN
@@ -98,9 +107,6 @@ soundness work changes no scheduling disposition.
 - 2026-08-21: aligned Congruence's AND arity with the 1,000,000 default shipped
   by both references, restored rank 27's 132 missing opening classes, passed
   72/72 Release and matched 28B+5C, and recorded that rank 27 still times out.
-- 2026-08-20: removed every formula-selected Vivify disable, passed matched
-  28B+5C job `1636852`, closed checked Tier-D ranks 24, 34, and 39 in cumulative
-  job `1636928`, and preserved all six inherited closures with zero residue.
 The repository's newest timestamped completed Tier-C artifact is
 `benchmarks/runs/20260813-111513-C-cleanup-b2b8362/`; it is historical cleanup
 evidence, not a replacement for the accepted T3 report or a current campaign.

@@ -25,6 +25,7 @@ static void test_effort_prices_embedded_and_representation_ticks() {
   k.stats.sweep_ticks_sub = 17;
   k.stats.sweep_ticks_repr = 1000;
   assert(sweep_effort(k) == 1017);
+  assert(sweep_semantic_effort(k) == 17);
 }
 
 namespace {
@@ -811,6 +812,32 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   assert(k.stats.sweep_general >= 1);
 }
 
+// The canonical dense path carries an ordered occurrence ledger across the
+// whole Sweep call. Two disjoint productive environments must therefore cause
+// one final arena collection, not one whole-formula bridge apiece. The
+// sessionless test above retains the opposite, correctness-required behavior.
+static void test_dense_call_collects_once_across_productive_environments() {
+  std::vector<std::vector<int>> cls = non_rup_formula();
+  for (const std::vector<int> &source : non_rup_formula()) {
+    std::vector<int> shifted;
+    for (const int lit : source)
+      shifted.push_back(lit > 0 ? lit + 4 : lit - 4);
+    cls.push_back(std::move(shifted));
+  }
+  Kernel k;
+  build(k, 8, cls);
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  const uint64_t generation = k.arena_generation;
+  assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
+  assert(sweep_apply(k) == ApplyResult::Ok);
+  assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
+  assert(k.stats.sweep_equivalences >= 2);
+  assert(k.stats.substitute_vars >= 2);
+  assert(k.arena_generation == generation + 1);
+  kernel_dense_disconnect(k);
+}
+
 // A Sweep session that holds no dense ledger still retires literals, and the
 // substitution it drives drops every binary incident to a retiring literal
 // before rebuilding the ones the session names. If the session names none, a
@@ -972,6 +999,7 @@ int main(int argc, char **argv) {
   test_rup_admission_is_format_independent();
   test_se_general_path_emits();
   test_inline_bridge_refreshes_owned_occurrences();
+  test_dense_call_collects_once_across_productive_environments();
   test_sessionless_substitution_keeps_binaries_whole();
   test_brute_force_oracle(rounds);
   printf("test_sweep: all tests passed\n");

@@ -1321,24 +1321,24 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
   k.stats.sweep_rounds++;
   sweep_round_begin(k, r);
   sweep_seeds(k, r.seeds);
-  const uint64_t start = sweep_effort(k);
+  const uint64_t start = sweep_semantic_effort(k);
   uint32_t found = 0, seeds = 0;
   for (const Var v : r.seeds) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
-        sweep_effort(k) - start > lim.round_ticks)
+        sweep_semantic_effort(k) - start > lim.round_ticks)
       break;
     seeds++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t before = sweep_effort(k);
+    const uint64_t before = sweep_semantic_effort(k);
     const uint64_t solves_before = k.stats.sweep_solves;
     const uint32_t external = static_cast<uint32_t>(
         kernel_externalize(k, make_lit(v, false)));
 #endif
     SweepLimits seed_lim = lim;
     if (lim.round_ticks) {
-      const uint64_t spent = sweep_effort(k) - start;
+      const uint64_t spent = sweep_semantic_effort(k) - start;
       const uint64_t remaining =
           spent < lim.round_ticks ? lim.round_ticks - spent : 1;
       if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
@@ -1346,7 +1346,7 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
     }
     found += sweep_detect_seed(k, v, seed_lim, r);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t spent = sweep_effort(k) - before;
+    const uint64_t spent = sweep_semantic_effort(k) - before;
     if (spent)
       event_trace_sweep_effort(k, external, spent, r.env.solver.ticks(),
                                k.stats.sweep_solves - solves_before);
@@ -1429,14 +1429,14 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     k.stats.sweep_scheduled += k.sweep_tail.size();
   }
 
-  const uint64_t start = sweep_effort(k);
+  const uint64_t start = sweep_semantic_effort(k);
   uint32_t seeds = 0;
   ApplyResult result = ApplyResult::NoOp;
   while (k.sweep_tail_next < k.sweep_tail.size()) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
-        sweep_effort(k) - start > lim.round_ticks)
+        sweep_semantic_effort(k) - start > lim.round_ticks)
       break;
     const Var external = k.sweep_tail[k.sweep_tail_next++];
     if (external >= k.external_to_internal.size())
@@ -1448,12 +1448,12 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
       k.stats.sweep_resumed++;
     seeds++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t before = sweep_effort(k);
+    const uint64_t before = sweep_semantic_effort(k);
     const uint64_t solves_before = k.stats.sweep_solves;
 #endif
     SweepLimits seed_lim = lim;
     if (lim.round_ticks) {
-      const uint64_t spent = sweep_effort(k) - start;
+      const uint64_t spent = sweep_semantic_effort(k) - start;
       const uint64_t remaining =
           spent < lim.round_ticks ? lim.round_ticks - spent : 1;
       if (!seed_lim.env_ticks || remaining < seed_lim.env_ticks)
@@ -1462,7 +1462,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     const uint64_t emissions_before = r.emission_batches;
     (void)sweep_process_seed(k, v, seed_lim, r, true);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-    const uint64_t spent = sweep_effort(k) - before;
+    const uint64_t spent = sweep_semantic_effort(k) - before;
     if (spent)
       event_trace_sweep_effort(k, external + 1, spent, r.env.solver.ticks(),
                                k.stats.sweep_solves - solves_before);
@@ -2402,13 +2402,14 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
                                             round.substitution);
     if (substituted == ApplyResult::Unsat)
       return substituted;
-    if ((!k.dense || k.stats.conflicts > 0) &&
-        round.substitution.changed) {
-      // The reference-ordered multi-environment commitment is a preprocessing
-      // lifecycle.  Search-time Sweep calls keep the ordinary representation-
-      // aware per-environment boundary so a later dose cannot turn one search
-      // allowance into thousands of whole-formula rewrites.  Standalone Sweep
-      // likewise owns an occurrence snapshot that needs the generation bump.
+    if (!k.dense && round.substitution.changed) {
+      // Without the dense session ledger, the next environment owns raw arena
+      // Refs and needs the generation bump immediately.  A canonical dense
+      // call instead keeps every replacement visible through
+      // `dense_occurrences` and crosses the variable-width arena bridge once,
+      // after the reference-ordered consequence sequence.  This is the same
+      // semantic transaction boundary as Kissat's in-place rewrites without
+      // charging one whole-formula collection per productive environment.
       k.stats.sweep_ticks_repr += round.substitution.collect(k);
       round.substitution.begin(k);
     }

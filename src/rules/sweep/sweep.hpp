@@ -56,17 +56,21 @@ struct SweepLimits {
   bool resume = true;
 };
 
-// Sweep owns the deterministic currency consumed inside a caller-provided
-// allowance. Policies choose the allowance; they do not reconstruct which
-// internal representation work the rule has to price.
+// Sweep owns both currencies.  The policy prices their sum when scheduling a
+// later call, while the live semantic dose follows Kissat's Kitten-only limit.
+// Keeping these meanings separate matters after a productive environment:
+// Tactix has to rebuild a variable-width arena, but that representation bridge
+// must not consume the remaining reference-ordered candidate tail.
 inline uint64_t sweep_effort(const Kernel &k) {
-  // The embedded solver is only part of Tactix's cost.  A productive
-  // environment immediately crosses the variable-width representation bridge
-  // to commit its equivalences, so omitting that rebuild lets one allowance
-  // perform an unbounded number of whole-formula substitutions.  Keep both
-  // currencies in the rule-owned meter; the scheduler must not reconstruct
-  // this implementation detail.
+  // The embedded solver is only part of Tactix's cost.  A dense call crosses
+  // the variable-width representation bridge once after its ordered
+  // environment sequence; a sessionless call does so after each productive
+  // environment.  Keep that real host work in the rule-owned scheduler meter.
   return k.stats.sweep_ticks_sub + k.stats.sweep_ticks_repr;
+}
+
+inline uint64_t sweep_semantic_effort(const Kernel &k) {
+  return k.stats.sweep_ticks_sub;
 }
 
 constexpr uint32_t SWEEP_NO_SUB_VAR = UINT32_MAX;
