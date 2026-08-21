@@ -96,7 +96,7 @@ Git and frozen reports own chronology; these records retain only the landed inva
 - **D-CONG-LRAT:** XOR/ITE chains replay canonical lemmas in checker propagation order.
 - **D-CONG-UNIT:** AND/XOR degeneracies emit their unit/merge chains with order-preserving hint dedup;
   deliberate ITE/literal residuals remain specified in calculus V6.
-- **D-CONG-DELETE:** transient Congruence lemmas are proof-deleted newest first.
+- **D-CONG-DELETE / D-CONG-ARITY:** transient lemmas are proof-deleted newest first; AND extraction uses both references' 1,000,000-input default, with the round budget governing effort and a 65-input pair pinning the former cutoff.
 - **D-FACTOR-LRAT:** Factor emits real `add_rat`; dividers precede quotients and grid deletion
   (`calculus.md` E2).
 ## 3. Closed deviation families and standing invariants

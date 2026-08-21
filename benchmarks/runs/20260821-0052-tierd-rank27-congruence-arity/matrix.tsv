@@ -1,0 +1,2 @@
+task	arm	tier	rank	instance	expected
+0	candidate	D-target-frozen20	27	tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz	UNSAT

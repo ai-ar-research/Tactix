@@ -1,0 +1,27 @@
+{
+  "campaign": "20260821-0125-tierd-rank27-repaired-congruence-count",
+  "purpose": "Confirm the exact opening Congruence merge count after the reference-wide AND arity repair.",
+  "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+  "instance_sha256": "5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9",
+  "candidate_sha256": "46a483ee4e3032391dbccc6f006e93f1e67c5bff98731ea3923ec07767b47699",
+  "contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus": 2,
+    "memory_gib": 16,
+    "wall_seconds": 120,
+    "solver_timeout_seconds": 15,
+    "node_pin": null,
+    "throttle": null
+  },
+  "outcome": {
+    "job": 1637040,
+    "slurm_state": "COMPLETED",
+    "opening_and_merges": 55658,
+    "opening_xor_merges": 2995,
+    "opening_binary_equivalences": 69,
+    "opening_total_merges": 58722,
+    "solver_exit": 124,
+    "certificate_residue": false,
+    "disposition": "opening Congruence merge categories match the retained Kissat diagnostic exactly"
+  }
+}

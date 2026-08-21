@@ -1,0 +1,174 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Congruence Scope Repair after the Vivify Audit}
+\author{Tactix engineering handoff}
+\date{21 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Objective and outcome}
+The immediate objective was to continue the immutable Tier-D ranks 21--40
+campaign in UNSAT-first order at rank 27.  The user correctly rejected the
+formula-range Vivify disable as an instance-shaped policy; that repair was
+completed in the preceding increment and is documented in
+\artifact{report-to-andrew/2026-08-20-2357-vivify-admission-rank24/}.
+This increment then compared Tactix and Kissat from rank 27's latest common
+semantic state, including Vivify scheduling, candidate order, and rule
+interleaving, while looking for the earliest portable divergence.
+
+The earliest divergence turned out to precede Vivify and search.  Tactix
+silently excluded AND gates above arity 64 from opening Congruence; both Kissat
+and CaDiCaL ship the same option at 1,000,000.  Raising only that scope value
+restores exactly 132 opening equivalence classes that Tactix was missing.  A
+new arity-65 unit fixture pins the first old exclusion.
+
+The repair passes the full required correctness and iteration guard, but rank
+27 itself remains open: the repaired candidate times out UNKNOWN at
+1,200.004 seconds.  Thus this is a verified semantic-parity repair, not a
+Tier-D closure claim.
+
+\section*{Frozen identities and non-negotiables}
+\begin{sloppypar}
+Rank 27 is the immutable UNSAT instance
+\artifact{tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz},
+compressed SHA-256
+\code{5435b1b2...bb4e9}.  Frozen Kissat solves it in 278.187 seconds.  That
+reference performance result was not rerun; only a pinned-source diagnostic
+build was instrumented.
+
+The accepted predecessor binary is \code{b6c991e0...fb6f}, inherited from the
+nine checked ranks-21--40 closures.  The repaired candidate is
+\code{46a483ee...699}, built from commit \code{7b527fbc...204b} plus source
+diff \code{b2885a47...0c81}.  The solver contains no benchmark name, hash,
+rank, filename, deadline, selected literal, per-instance arm, or locally tuned
+threshold.  The value 1,000,000 is the shared shipped reference default already
+recorded in the repository's scheduling-parity ledger.
+\end{sloppypar}
+
+\section*{Localization from consumer to producer}
+The retained pre-repair traces agreed through decision 69,892.  At decision
+69,893, Tactix selected variable 392,211 and Kissat selected 392,214 at the
+same activity score.  This made stable-heap shape the first visible search
+boundary.  The consumer was then ruled out:
+
+\begin{itemize}
+\item conflict 1532, its bumped-variable stream, and its top-32 heap were exact;
+\item all 35,887 heap reinsertions through conflict 1532 matched in order;
+\item Tactix and Kissat use the same strict activity comparison, equal-score
+  stopping rule, and left-child preference.
+\end{itemize}
+
+The opening producer state was already different.  Kissat's Congruence merged
+58,722 variables: 55,658 through AND gates, 2,995 through XOR gates, and 69
+through paired binary equivalences.  Tactix merged 58,590: 55,526 AND, 2,995
+XOR, and 69 binary.  The entire 132-variable population difference was
+therefore in AND processing, and it explained the later heap-shape tie without
+requiring a downstream tie breaker.
+
+Diagnostic Slurm job \code{1636967} measured Tactix's gate-kind funnel.  Job
+\code{1636968} instrumented the unchanged Kissat semantics and showed that
+ITE-to-AND conversions contributed zero of Kissat's opening AND merges.  Job
+\code{1636970} dumped both final representative partitions; they differed on
+exactly 132 variables.  The first witness was
+\code{93231 == -93230} in Kissat while Tactix left 93231 singleton.
+
+The defining clauses form matching 72-input gates.  Selected-gate job
+\code{1636972} showed that Tactix never created the high-fan-in gate: its
+\code{CONG\_ARITY\_LIMIT = 64} test rejected the base clause before the
+worklist.  This matched correction C7 in
+\artifact{docs/scheduling-parity-ledger.md}, which had already identified the
+64-versus-1,000,000 value gap and named the exact reference-parity repair.
+
+\section*{Implementation decision}
+The production change is one scope value in
+\artifact{src/rules/congruence/congruence.cpp}: AND arity 64 becomes
+1,000,000.  Tactix retains its separately documented mid-round work budget as
+the effort governor.  The gate representation, extraction order, union-find,
+proof construction, scheduling, and public rule surface do not change.
+
+\artifact{tests/test_congruence.cpp} now builds two congruent 65-input AND
+gates and requires their outputs to merge.  Arity 65 is deliberately the
+first old exclusion.  The fixture is independent of rank 27 and would catch a
+future silent narrowing of the reference-wide opportunity.
+
+\section*{Correctness and matched iteration guard}
+Release passes 72/72 tests, including native LRAT and DRAT micro-proofs and the
+new wide-AND regression.  No unit test or fuzz check exposed a soundness defect
+or crash, so the development plan's mandatory Claude repair-delegation trigger
+did not fire.
+
+Matched job \code{1636973} ran the accepted predecessor and repaired candidate
+in the same window on all 28 Tier-B fixtures and the predeclared fixed five
+Congruence-relevant Tier-C fixtures.  The exact contract was two CPUs,
+16\,GiB process memory, 1,200-second solver timeout, no node pin, and no array
+throttle.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Arm & Tier B & Tier C & checked total & PAR-2 / wall \\
+\midrule
+Accepted predecessor & 28/28 & 5/5 & 33/33 & 2228.698 s \\
+Repaired candidate & 28/28 & 5/5 & 33/33 & 2239.817 s \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The candidate ratio is 1.004989.  There is no solve loss: each arm returns 17
+SAT and 16 UNSAT answers.  All 34 SAT models and 32 UNSAT proofs across both
+arms verify.  Candidate peak RSS is 3.228\,GiB.  Every task reports deleted
+scratch and derived artifacts, and the aggregate finds no certificate residue.
+The campaign is
+\artifact{benchmarks/runs/20260821-0035-BC-congruence-arity/}.
+
+Post-repair diagnostic job \code{1637040} directly confirms the corrected
+opening counts: 55,658 AND merges, 2,995 XOR merges, and 69 paired-binary
+merges, 58,722 total.  Its deliberate 15-second timeout deletes the partial
+proof and leaves no residue.  The compact campaign is
+\artifact{benchmarks/runs/20260821-0125-tierd-rank27-repaired-congruence-count/}.
+
+\section*{Rank-27 result}
+Only after the matched guard passed was the immutable witness submitted as job
+\code{1637039}.  The repaired candidate reaches the 1,200-second solver limit
+and returns UNKNOWN.  The runner observed a 128,974,848-byte partial DRAT file,
+deleted it with the scratch directory, and published zero cleanup residue.
+Scheduler peak RSS was 496,616\,KiB.  The campaign is
+\artifact{benchmarks/runs/20260821-0052-tierd-rank27-congruence-arity/}.
+
+This result means the semantic repair should land, but rank 27 must not be
+listed as closed.  The cumulative accepted Tier-D set remains ranks 21, 23,
+24, 25, 28, 29, 34, 38, and 39.
+
+\section*{Limitations, risks, and next action}
+The repaired opening Congruence partition now matches Kissat in the dimension
+that caused the previous search split, but no claim is made that all later
+semantic state is exact.  The old decision-69,893 boundary depended on the
+132-variable population gap and is obsolete for the repaired source.  Rank 27
+also shows that restoring a missing proof opportunity need not improve the
+overall search trajectory by itself.
+
+The next concrete action is to build a fresh semantic-trace pin and compare it
+with the retained diagnostic Kissat build beginning after the corrected
+58,722-merge opening Congruence/Substitute state.  The first new portable
+semantic, scheduling, or representation divergence should be localized before
+any further edit.  Any new candidate again owes the full Tier-B plus
+predeclared Tier-C guard before another rank-27 witness.
+
+\begin{sloppypar}
+The durable technical narrative is
+\artifact{benchmarks/reports/2026-08-21-tierd-rank27-congruence-arity.md}.
+Current handoff state is in \artifact{PROGRESS.md}; the repaired reference
+scope and reopening evidence are in
+\artifact{docs/scheduling-parity-ledger.md} and
+\artifact{docs/implementation-notes.md}.
+\end{sloppypar}
+
+\end{document}

@@ -80,6 +80,32 @@ static void test_and_congruent() {
   assert(equivalence_added(k, 3, 4)); // a ≡ b
 }
 
+// Reference parity: Kissat and CaDiCaL both admit AND gates well beyond the
+// old local arity-64 cutoff.  Pin the first excluded arity so a silent scope
+// regression cannot strand equivalent high-fan-in outputs.
+static void test_and_arity_above_old_cutoff() {
+  constexpr int arity = 65;
+  constexpr int first_output = arity + 1;
+  constexpr int second_output = arity + 2;
+  Kernel k;
+  kernel_reserve_vars(k, second_output);
+  const auto add_gate = [&](int output) {
+    std::vector<Lit> base;
+    base.reserve(arity + 1);
+    base.push_back(internalize(output));
+    for (int input = 1; input <= arity; input++) {
+      kernel_add_binary_clause(k, internalize(-output), internalize(input));
+      base.push_back(internalize(-input));
+    }
+    kernel_add_large_clause(k, base.data(), static_cast<uint32_t>(base.size()),
+                            /*redundant=*/false, /*glue=*/0);
+  };
+  add_gate(first_output);
+  add_gate(second_output);
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(equivalence_added(k, first_output, second_output));
+}
+
 // XOR merging exercises the parity ladder.
 static void test_xor_congruent() {
   Kernel k;
@@ -531,6 +557,7 @@ static void test_round_is_the_instance_and_substitute_owns_the_choice() {
 int main() {
   test_budget_stops_round();
   test_and_congruent();
+  test_and_arity_above_old_cutoff();
   test_xor_congruent();
   test_ite_congruent();
   test_no_congruence();
