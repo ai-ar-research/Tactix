@@ -361,8 +361,9 @@ unsoundness or a crash, escalate at that point; the trigger is the reproduced
 failure class, not the difficulty of the repair.
 For every such escalation, the Codex agent must launch Claude with permission
 to edit the workspace, provide the reproducer and bounded repair scope, and
-wait until the Claude agent finishes. Codex then reviews and validates Claude's
-changes and remains responsible for all soundness gates and final integration.
+wait until the Claude agent finishes. Codex should not check on Claude's intermediate
+progress, and should trust the outcome achieved by Claude (i.e., no need to
+rerun experiments to validate).
 
 ### 8.3 Performance gates
 
