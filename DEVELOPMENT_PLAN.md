@@ -47,55 +47,39 @@ goals. A soundness regression is never staged.
 
 ## 2. Landscape and reference policy
 
-Top sequential solvers are predominantly Kissat/CaDiCaL derivatives augmented
-with techniques such as MAB scheduling and circuit preprocessing. The frozen
-SC24–26 reference set is Kissat 4.0.4, kissat-sc2024, AE-Kissat-MAB,
-Satsuma+Kissat, and LymphoSAT; LymphoSAT is a SAT-only target. CaDiCaL, Glucose,
-and CryptoMiniSat remain mechanism references, not Tier-D performance arms.
+The frozen SC24–26 performance set is Kissat 4.0.4, kissat-sc2024,
+AE-Kissat-MAB, Satsuma+Kissat, and SAT-only LymphoSAT. CaDiCaL, Glucose, and
+CryptoMiniSat remain mechanism references, not Tier-D arms.
 
-For DefaultPolicy, transliterate the references' mechanism and effect, never
-their code. Read Kissat and CaDiCaL; choose the stronger mechanism and use
-Kissat as the tie-break when equivalent. Preserve a reference-faithful baseline
-when adding a stronger design. An unbacked constant is removed or derived, not
-tuned. Proof generation is part of every measured workload. Port gaps are
-repaired on the reference source's evidence alone: benchmarks measure a
-faithful port but never select what gets repaired, and a regression on a
-faithful port indicts the implementation or a missing coupled mechanism, never
-the reference mechanism.
+For DefaultPolicy, transliterate mechanism and effect, never code. Read Kissat
+and CaDiCaL, choose the stronger mechanism, and use Kissat as the tie-break for
+equivalent designs. Preserve a faithful baseline beside any stronger design;
+derive or remove unbacked constants, never tune them. Proof generation belongs
+in every measured workload. Reference source selects port repairs and
+benchmarks measure them, never the reverse; a faithful-port regression
+indicates an implementation error or missing coupled mechanism, not a reason
+to weaken the reference.
 
-The implementation boundary is the smallest complete semantic unit in the
-reference, not the nearest local branch.  A port includes every piece of state
-that determines that branch's meaning—such as its analysis result, retained
-trail, candidate classification, conditional predecessors and follow-ups, and
-proof/model transition.  A locally sound proxy or positional heuristic is not
-a faithful baseline and must not ship as an approximation.  If the complete
-unit cannot land in one increment, keep the gap open and use trace-only
-instrumentation until its coupled contract is understood.
+Port the smallest complete semantic unit, including all state that gives an
+observed branch meaning: analysis result, retained trail, candidate class,
+conditional predecessors/follow-ups, and proof/model transition. A local proxy
+or positional heuristic is not a faithful baseline. If the unit cannot land
+whole, keep the gap open and trace until its contract is understood. For each
+mismatch, retain and specify a provably stronger Tactix effect under the same
+correctness contract; otherwise repair it. If source, trace, proof/model
+evidence, and semantics establish neither conclusion, ask the project owner.
 
-For every observed reference mismatch, first classify whether Tactix's current
-effect is strictly stronger under the same correctness contract.  Keep and
-specify a strict improvement; otherwise repair the mismatch.  If neither claim
-can be established from source, trace, proof/model evidence, and the rule
-semantics, stop and ask the project owner rather than silently choosing one.
+Add a configuration arm only for a concrete time-bounded question with a
+removal condition; prefer trace-only instrumentation and remove neutral,
+superseded, or completed arms. A permanent knob needs a distinct continuing
+use beyond the shipped default and temporary instrumentation; historical
+behavior alone is insufficient.
 
-Configuration arms are deliberately scarce. Add an arm only for a concrete,
-time-bounded attribution or benchmark question, record that question and its
-removal condition, and prefer trace-only instrumentation when it can answer the
-same question. Remove an arm as soon as it is neutral, superseded, or its
-experiment closes. A permanent knob must support a distinct, continuing use
-that cannot be covered by the shipped default plus short-lived experimental
-instrumentation; historical behavior alone is not sufficient justification.
-
-Feature-off projections are an encouraged divergence-localization tool. Prefer
-disabling the same semantic mechanism in Tactix and a reference solver and
-compare those matched trajectories one configuration at a time; this both
-tests robustness and exposes causal dimensions hidden by the all-default run.
-A one-sided disable is also allowed when it answers a narrower attribution
-question. Each projection must name the semantic gate, hypothesis, fixture,
-trace anchor, and removal condition. It is diagnostic evidence, not permission
-to ship a disabled required mechanism, shrink its budget until inert, retain a
-permanent experimental arm, or replace the default-on trajectory and
-performance gates.
+Prefer matched feature-off projections in Tactix and the reference, with a
+one-sided disable allowed for narrow attribution. Name the semantic gate,
+hypothesis, fixture, trace anchor, and removal condition. A projection is
+diagnostic: it cannot justify shipping a required mechanism disabled or inert,
+retaining an experimental arm, or replacing default-on performance gates.
 
 DefaultPolicy contains no magic strategy numbers. Every numeric value that can
 change action choice, order, admission, timing, repetition, effort, candidate
@@ -241,25 +225,23 @@ unrelated kernel, policy, rule, or proof-backend edits, repair the architecture.
 
 ### 5.4 Revamp discipline
 
-At every phase gate, and when profiles or recurring invariants identify a
-structural bottleneck, evaluate a coherent redesign through the `revamp` skill.
-Define measurable success, preserve N1–N4, revalidate both default and dynamic
-policies, and treat revert as a valid outcome.
+At phase gates or structural bottlenecks, use `revamp` to define measurable
+redesign success, preserve N1–N4, revalidate default and dynamic policies, and
+treat revert as valid.
 
 ### 5.5 Codebase hygiene
 
-At every gate and after major features, use `revisit-codebase` to remove dead or
-duplicated machinery and route structural issues to §5.4. N1 capability is not
-speculative generality and N1–N4 are never traded for simplicity.
+At gates and after major features, use `revisit-codebase` to remove dead or
+duplicated machinery and route structural issues to §5.4. Never trade N1
+capability or N1–N4 for simplicity.
 
 ### 5.6 Learned proof-rule scheduling
 
-Phase 7 learns rule/batch choice online within one solving run. DefaultPolicy is
-a permanent arm. Learning never re-solves subproblems, discards solver state, or
-creates a separate tuning phase. Begin with replay-validated reward proxies and
-windowed UCB over macro choice points, then add tabular context and composed
-batch experiments under explicit kill criteria. LearnedPolicy joins proof/model
-fuzzing and must remain anytime. Gates are in §8.5.
+Phase 7 learns rule/batch choice online within one run, with DefaultPolicy a
+permanent arm. It never re-solves or discards state. Start with replay-validated
+reward proxies and windowed UCB, then tabular context and composed batches under
+kill criteria. LearnedPolicy joins proof/model fuzzing and remains anytime;
+gates are in §8.5 and sequencing in §9.4.
 
 ## 6. Competition compliance
 
@@ -270,55 +252,42 @@ contract in `tools/compete/check.sh` through the `compete` skill.
 
 ## 7. Performance strategy
 
-Match reference data-structure discipline, profiling before structural changes.
-Implement reference-faithful scheduling before tuning. Optimize hot paths without
-weakening the API. Evaluate search, clause quality, inprocessing yield, proof
-cost, and memory separately. Novel engineering follows phase-4 parity in the
-pinned phase 4.5 pass.
+Profile before structural changes; preserve reference data-structure discipline
+and scheduling before tuning. Optimize without weakening the API, measuring
+search, inprocessing, proof, and memory costs separately. Novel engineering
+starts only in Phase 4.5.
 
 ## 8. Evaluation plan
 
 ### 8.1 Benchmark tiers
 
-All solver executions use SLURM partition `cpu-dense-hwulab-q`; one
-single-threaded solver per array task. Tiers A–C use 32 GB provisioned as four
-CPUs at 8 GB/core. Tier D uses the same 32 GB process limit and a 5000 s solve
-limit. Record allocation shape; submitted arrays own immutable builds and
-manifests. Every UNSAT result is independently proof-checked and every SAT
-result model-checked.
+All solver executions use SLURM partition `cpu-dense-hwulab-q`, with one
+single-threaded solver per task. Tiers A–C use 32 GB provisioned as four CPUs at
+8 GB/core; Tier D uses a 32 GB process limit and 5000 s solve limit. Record the
+allocation shape, independently check every UNSAT proof and SAT model, and keep
+these execution invariants:
 
-Concurrent solver arms use distinct immutable `build/pin-*` directories; each
-manifest records the source commit and binary hash. A queued or running job's
-pin is never rebuilt, renamed, or shared with another arm. After the owning
-campaign is terminal and aggregated, remove an ephemeral pin only after
-confirming that no queued/running job or retained manifest references it.
-Long-lived development builds are limited to `build/release` and `build/debug`;
-durable frozen campaigns carry their own pins under the campaign directory.
-
-A single benchmark task atomically entails solve, proof/model check when a
-verdict exists, durable recording of verdict, solve/check time and peak memory,
-certificate size/hash and checker provenance, then deletion of the certificate
-and every checker-derived proof artifact. Deletion is mandatory after success,
-checker failure, timeout, crash, cancellation, or an unclassified result; a
-partial proof is not diagnostic authority. No task is complete and no campaign
-may be scored while a certificate remains outside its live solver run's scratch
-directory. Each checker stage deletes its consumed input immediately; the task
-deletes the remaining scratch before publishing its result. Experimental
-runners and aggregate checks enforce this
-contract; diagnosis reproduces from the pinned solver and manifest.
-
-An early process exit without a valid SAT/UNSAT result is a blocking incident,
-not an ordinary performance loss. Preserve its raw exit status, signal, and
-diagnostic output; first distinguish the configured timeout, scheduler
-cancellation/preemption, and an enforced memory limit or confirmed OOM. If
-those do not explain the exit—such as a crash, assertion failure, sanitizer
-finding, or unexplained nonzero status—all unrelated development and
-performance interpretation pause, and owned in-flight performance jobs whose
-results depend on the faulty binary are stopped. Resume only after the same
-immutable-pin fixture has a causal reproducer, the defect is fixed and covered
-by a regression test, its SAT model or UNSAT proof validates, and the affected
-smoke/correctness gate is clean. Benchmark tooling must not flatten this class
-into an undifferentiated `UNKNOWN` that can be mistaken for a timeout.
+- Concurrent arms own distinct immutable `build/pin-*` directories and
+  manifests recording source commit and binary hash. Never mutate or share a
+  queued/running pin. Remove an ephemeral pin only after its campaign is
+  terminal and aggregated and no job or retained manifest references it.
+  Long-lived development builds are only `build/release` and `build/debug`;
+  frozen campaigns retain pins under their campaign directories.
+- A task atomically solves, checks any verdict, records verdict, solve/check
+  time, peak memory, certificate size/hash, and checker provenance, then deletes
+  every certificate and checker derivative on every exit path. A task with
+  residue is incomplete and its campaign is unscorable; reproduce diagnostics
+  from the immutable pin and manifest, not a retained partial proof. Each
+  checker deletes its consumed input immediately, and the task clears remaining
+  scratch before publishing its result.
+- An early exit without a valid result is a blocking incident, not a performance
+  loss. Preserve its status, signal, and diagnostics; distinguish timeout,
+  scheduler cancellation/preemption, and enforced or confirmed OOM. A crash,
+  assertion, sanitizer finding, or unexplained nonzero exit pauses unrelated
+  development and performance interpretation and stops dependent owned jobs
+  until the pinned fixture has a causal reproducer, regression-tested fix,
+  validated proof/model, and clean affected correctness gate. Tooling must not
+  flatten this class to `UNKNOWN`.
 
 | Tier | Purpose | Set and limit | Cadence |
 |---|---|---|---|
@@ -327,70 +296,47 @@ into an undifferentiated `UNKNOWN` that can be mistaken for a timeout.
 | C | scheduling signal | 30 frozen instances, 1200 s, 32 GB | weekly/major change |
 | D | gate scale | SC24+SC25+SC26 union, 1166 unique, 5000 s, 32 GB | frozen reference + phase gates |
 
-The three annual memberships (1200 total) are scoring views over the 1166
-unique runs. Never tune on Tier A or mix set versions or resource contracts.
-Per-instance results remain authoritative; PROGRESS carries only a headline.
+The three annual memberships (1200 total) are scoring views over 1166 unique
+runs. Never tune on Tier A or mix set versions or resource contracts.
+Per-instance results are authoritative; PROGRESS carries only a headline.
 
-The five reference solvers run exactly once per valid frozen campaign. A run
-invalidated by infrastructure or storage failure is not result authority and
-is replaced in a new campaign directory rather than repaired in place. Their
-immutable authority is
-`benchmarks/baselines/sc24-26-32g-5000s/`, containing manifests, pins,
-per-instance solve/check metrics, integrity metadata, and a compact generated
-LaTeX/PDF report under `report-to-andrew/`, but no successfully checked
-certificates. The report is a view of the frozen tables, never a second result
-authority. Future time caps are exact truncations of these records.
-Lower memory caps are simulations from recorded high-water data and must be
-labeled as such; a peak alone cannot determine when memory was crossed. Never
-rerun a frozen reference to fill a missing metric—record the limitation.
+The five reference solvers run once per valid frozen campaign. Infrastructure-
+or storage-invalidated runs are replaced in a new directory, never repaired in
+place. `benchmarks/baselines/sc24-26-32g-5000s/` owns their manifests, pins,
+per-instance metrics, and integrity metadata; its generated Andrew report is a
+view, not result authority, and checked certificates are deleted. Derive future
+time caps by exact truncation. Label lower-memory projections as simulations
+from peak RSS: they neither locate the crossing time nor prove OOM. Never rerun
+a frozen reference to fill a missing metric.
 
-Until Phase 4.5 begins, divergence repair and convergence iteration use a
-separate **debug comparison contract**: new Tactix campaign tasks receive a
-16 GiB process limit (two CPUs at 8 GiB/core) and a 1200 s solver timeout. Do
-not rerun any reference solver. Instead, derive the matched reference view from
-the immutable 32 GiB/5000 s baseline records: truncate solve times exactly at
-1200 s, and count a validated baseline solve as eligible under the simulated
-16 GiB cap only when its recorded peak RSS is at most 16 GiB. Label every such
-comparison as simulated; a result above the recorded memory threshold is a
-simulated non-solve, not evidence of the exact crossing time or of an OOM.
-This debug contract accelerates iteration and does not replace the canonical
-32 GiB/5000 s Tier-D gates.
+Before Phase 4.5, the **debug comparison contract** gives new Tactix tasks two
+CPUs, a 16 GiB process limit, and 1200 s solver timeout. Derive the matched
+reference view without rerunning: truncate the immutable 32 GiB/5000 s record
+at 1200 s and admit a validated solve under the simulated 16 GiB cap only when
+recorded peak RSS is at most 16 GiB. Label the projection and any memory-based
+non-solve as simulated. This iteration contract never replaces canonical gates.
+Submit full-width arrays without `%N` or hard node constraints, including
+`node017,node018`, while retaining one solver per task, immutable pins,
+certificate cleanup, and enough checker wall time.
 
-Submit these debug arrays without an array-concurrency throttle (no `%N`
-suffix) or a hard node constraint. Expose the full task array so SLURM can use
-all available capacity, including `node017,node018`. Keep one single-threaded
-solver per task, the immutable-build and certificate-cleanup contracts, and
-enough job wall time for post-solve proof/model checking.
+Every debug candidate passes full Tier B plus a predeclared mechanism-relevant
+Tier C subset before targeted Tier D. A round may carry up to ten predeclared
+Kissat-over-Tactix improvement witnesses; they prioritize general
+repairs but do not become regressions or require one shared mechanism. The
+witness may reveal an N4 gap but never parameterize its repair: names, hashes,
+ranks, per-instance arms, deadline shifts, and tuned constants are forbidden.
+Follow a reference path or document a stronger effect and accepted deviation,
+then require focused coverage and the Tier-B/Tier-C guard. Keep witnesses
+cumulative where practical. Predeclare Tier C from causal evidence with
+productive, worst-cost, and low/no-yield cases where available, recording exact
+membership in the manifest before submission; compare shipped and candidate
+Tactix in the same window. Validate all proofs/models; an unexplained solve
+loss blocks promotion. This subset and rule-neutral projections are
+diagnostics, never full Tier C/D replacements.
 
-This resource contract applies to the whole pre-Phase-4.5 debugging phase. Every
-candidate must pass the full frozen Tier B and a predeclared, mechanism-relevant
-Tier C regression subset before it advances to the targeted Tier-D witnesses.
-Each debugging round may carry up to ten predeclared Tier-D improvement
-witnesses.  These witnesses are selected from matched Kissat-over-Tactix gaps
-and are used to prioritize and measure general repairs; they are not promoted
-into the regression set, and a repair need not affect all ten through one
-mechanism.  Keep the set cumulative where practical so fixes already obtained
-remain visible while the remaining gaps receive divergence analysis.
-An N4 repair is accepted only as a general mechanism: the witness may reveal
-the gap, but must not parameterize the fix.  Instance names/hashes, tier ranks,
-per-instance default arms, deadline shifts, and tuned constants are forbidden.
-The implementation must follow a reference execution path or carry an explicit
-strength argument and accepted-deviation disposition, with focused mechanism
-coverage plus the full Tier-B/selected-Tier-C iteration guard.
-Choose the Tier C subset from existing causal evidence and include, where the
-mechanism has them, a productive witness, its worst measured cost case, and a
-low- or zero-yield case; record the exact membership in the campaign manifest
-before submission. Compare candidate and shipped Tactix in the same allocation
-window. Every SAT model and UNSAT proof must validate, and an unexplained solve
-loss blocks the candidate. The selected Tier C subset is an iteration guard,
-not a replacement for the complete Tier C or canonical Tier-D gates.
-
-Every instance in a frozen tier remains in its scored population. Replication,
-leave-one-out sensitivity, and unrelated-perturbation tests control confidence
-and causal attribution only; they never create a may-not-gate exemption, erase
-a solve loss, or waive the obligation to pursue every instance that original
-Kissat solves under the matched resource contract. A rule-neutral view may
-isolate mechanism parity, but it never replaces the full-tier solved-count gate.
+Every frozen-tier instance remains scored. Replication, leave-one-out, and
+unrelated perturbations improve confidence and attribution; they create no
+gate exemption and never waive a matched Kissat solve.
 
 ### 8.2 Correctness
 
@@ -492,17 +438,60 @@ branching without kernel edits. Ablations use configuration, not forks.
 | 6 | competition packaging | T5/best effort + submission ready |
 | 7 | learned scheduling | L-safe then L-win |
 
-Phase 4.20 writes `docs/design/phase-4.20-proof-rule-survey.md` and
-`docs/design/phase-4.20-solving-strategy-survey.md`. A proof-rule candidate must
-state calculus precondition/effect, DRAT/LRAT delta, reconstruction impact,
-rule/strategy ownership, and N1/N2 tests. A strategy candidate must state its
-features, decision point, reference source, cost model, attribution experiment,
-and kill criterion. Only reviewed candidates enter 4.25/4.5 implementation.
+Phase 4.20 owns the two surveys in `docs/design/`. A reviewed proof-rule
+candidate states its calculus effect, proof/reconstruction impact, ownership,
+and N1/N2 tests; a strategy candidate states features, decision point, source,
+cost model, attribution experiment, and kill criterion. The roadmap items below
+are candidates, not promises: each requires its owning review, correctness and
+reach gates, a bounded experiment, cumulative measurement, and a removal
+criterion. No performance feature enters implementation before its review and
+the applicable Tier-D comparison and divergence plan are reviewed.
 
-Phase 4.5 candidates include proof-event correlation, richer Sweep consequences,
-extended resolution, faster Factor matching, and `egg`-style batched Congruence
-rebuilding at safe root boundaries. Each must preserve the legal rule surface
-and independently checkable native proofs and earn a measured time/memory gain.
+### 9.1 Phase 4.5 — engineering beyond reference parity
+
+T4-VBS gates entry. Every candidate preserves the legal rule surface and
+independently checkable native proofs and must earn a measured time/memory gain.
+
+- Add proof-event correlation from each emitting rule/application to its proof
+  lines or byte range; this is a fixed Phase-4.5 prerequisite.
+- Decide P1's N1 compound-instance surface during survey review; after entry,
+  implement generic definitional extension with checked DRAT/LRAT and correct
+  model projection.
+- Evaluate a zero-copy embedded-`SubSolver` view with local watches, trail,
+  compact variables, and proof mapping over immutable main-formula clauses.
+- Disposition all seven independent-lineage candidates: binary-resolution
+  minimization, blocking restarts, adaptive Reduce intervals, usage-count
+  ranking, branch/restart/polarity rotation, `best_inv`, and schedule strings.
+- Optimize `Substitute` without changing its equivalent-literal rule or
+  proof/reconstruction behavior.
+- Factor a shared RUP-consequence emitter and evaluate richer Sweep harvesting:
+  units, one-way implications, and equivalence pairs.
+- Evaluate substantially faster Factor matching, including the
+  [SAT 2026 approach](https://drops.dagstuhl.de/storage/00lipics/lipics-vol377-sat2026/LIPIcs.SAT.2026.29/LIPIcs.SAT.2026.29.pdf),
+  and `egg`-style batched Congruence rebuilding at safe root boundaries, with
+  native-proof and time/memory gates.
+- Concretize Phase 4.5 scope and exit criteria before implementing candidates.
+
+### 9.2 Phase 5 — tuning, bindings, and extensibility
+
+- Decide O16's PR/SR-learning proof story.
+- Add reviewed policy presets/MAB scheduling, Python bindings, and
+  external-branching demonstrations.
+- Pass the at-most-5% hardcoded-twin overhead gate and CCE pure-plugin test.
+
+### 9.3 Phase 6 — competition readiness
+
+- Complete and rehearse the §6 competition contract; decide O7 and O8.
+- Exit on T5 or publish the best fully verified effort.
+
+### 9.4 Phase 7 — learned scheduling
+
+- Validate replay and reward proxies offline, then implement RL1 windowed UCB
+  with DefaultPolicy as a permanent arm and LearnedPolicy in proof/model fuzzing.
+- Pass L-safe before contextual RL2 or composed-batch RL3; retain kill criteria
+  and an arbitrary-interruption anytime test.
+- Add offline per-family presets, measure L-win across at least two Tier-D
+  families, and decide whether to distill stable schedules (O13).
 
 ## 10. Risks and mitigations
 
