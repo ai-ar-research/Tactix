@@ -359,7 +359,7 @@ excluded. Focused decisions use the typed `0,+1,0,-1,0,0,0,0` two-switch epoch p
 The shipped rephase rotation is Kissat's `B, W, I, B, W, O`; only an explicit diagnostic augments Walk with Best. Walk first runs the root decision/propagation
 warm-up through conflicts, saves each assigned phase, then backtracks without undoing it. Its non-null
 dense transition saves root-open binaries from the lower compact/import literal in encounter order and
-replays that unsorted stack on sparse resume before reconnecting large clauses in arena order.
+replays that unsorted stack on sparse resume before reconnecting large clauses in arena order. Rephase's root clear uses the neutral `restart_backtrack_to`; only canonical `restart_apply_to` advances restart/reuse statistics and focused cadence.
 
 ## 9. Design decision: reason-side bumping and dynamic tiers
 

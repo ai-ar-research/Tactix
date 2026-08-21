@@ -3,8 +3,11 @@
 // its watermark. Deviations, ledgered in docs/implementation-notes.md: (1)
 // kissat couples a backtrack-to-root plus trail flush into kissat_rephase, but
 // that composition belongs to the policy, keeping this rule pure `H` so any
-// legal schedule may apply it mid-trail; (2) kissat's W slots replace Best with
-// a walk, while DefaultPolicy's rotation augments Best with one.
+// legal schedule may apply it mid-trail.  The policy uses Restart's shared
+// backtrack mechanism without advancing the canonical restart schedule counter,
+// just as kissat_rephase does not increment `statistics.restarts`; (2) kissat's
+// W slots replace Best with a walk, while DefaultPolicy's rotation augments
+// Best with one.
 #include "policies/ops/rephase/rephase.hpp"
 #include "policies/heuristics.hpp"
 

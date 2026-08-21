@@ -16,16 +16,24 @@ RuleEligibility restart_guard(const Kernel &k) {
       .fact("nonroot-level", k.level > 0);
 }
 
-ApplyResult restart_apply_to(Kernel &k, uint32_t keep_level) {
+ApplyResult restart_backtrack_to(Kernel &k, uint32_t keep_level) {
   assert(restart_guard(k));
   if (keep_level > k.level)
     keep_level = k.level; // keep at most the whole trail
-  if (keep_level > 0)
-    k.stats.restarts_reused++;
   if (keep_level < k.level)
     kernel_backtrack(k, keep_level);
-  k.stats.restarts++;
   return ApplyResult::Ok;
+}
+
+ApplyResult restart_apply_to(Kernel &k, uint32_t keep_level) {
+  assert(restart_guard(k));
+  if (keep_level > k.level)
+    keep_level = k.level;
+  if (keep_level > 0)
+    k.stats.restarts_reused++;
+  const ApplyResult result = restart_backtrack_to(k, keep_level);
+  k.stats.restarts++;
+  return result;
 }
 
 ApplyResult restart_apply(Kernel &k) {

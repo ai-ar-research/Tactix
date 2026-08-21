@@ -6,6 +6,7 @@
 #include "policies/default_policy.hpp"
 #include "rules/registry.hpp"
 #include "policies/ops/rephase/rephase.hpp"
+#include "rules/restart/restart.hpp"
 
 #include <cassert>
 #include <cstdio>
@@ -111,11 +112,36 @@ static void test_policy_trigger() {
   assert(p.rephase.next_conflicts == one_event);
 }
 
+static void test_rephase_backtrack_preserves_restart_cadence() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 2);
+  kernel_assign_decision(k, internalize(1));
+
+  // Kissat's logarithmic focused-restart interval first grows from one to two
+  // at the 91st canonical restart.  A Rephase trail clear must not cross that
+  // source-defined boundary.
+  k.stats.conflicts = 2000;
+  k.stats.restarts = 90;
+  assert(restart_backtrack_to(k, 0) == ApplyResult::Ok);
+  assert(k.level == 0 && k.stats.restarts == 90);
+  DefaultPolicy p;
+  p.update_restart_limit(k);
+  assert(p.restart.next_conflicts == 2001);
+
+  kernel_assign_decision(k, internalize(2));
+  assert(restart_apply_to(k, 0) == ApplyResult::Ok);
+  assert(k.level == 0 && k.stats.restarts == 91);
+  p.update_restart_limit(k);
+  assert(p.restart.next_conflicts == 2002);
+}
+
 int main() {
   test_best_snapshot();
   test_types();
   test_registry_surface();
   test_policy_trigger();
+  test_rephase_backtrack_preserves_restart_cadence();
   puts("test_rephase OK");
   return 0;
 }
