@@ -421,177 +421,37 @@ All are closed, the last three by §13.2's later traces; Lucky and follow-up
 composition are closed mechanisms whose performance belongs to P4-CVG/T3, and
 the post-BVE Instantiate/BCE/CCE tail is one accepted deviation, not three.
 
-### 13.8 N4 verification record (2026-08-18)
+### 13.8 N4 verification record (2026-08-20)
 
-N4 is **complete** at the accepted debug pin. The final reconciliation did not
-discover a new source gap; it found stale dispositions that predated later
-repairs and validation:
+N4 is **complete** at the accepted parity pin. All HIGH rows are closed by
+code or by a documented accepted deviation, and every remaining
+`WE_ARE_CRUDER`, partial-completeness, or reference-disagreement entry has
+measurement plus a reopening/removal path in §2 or §13.3.
 
-- `SP-REDUCE-SPARSE-GC-1` is shipped after its held checkpoint was repaired in
-  `e74ee5c`; focused sparse-collection tests and the full suite cover its former
-  crash modes and prefix-watch invariants.
-- `REDUCE-CANDIDATE-1`, opened by the former 905-versus-633 survivor mismatch,
-  is closed by exact per-mode tiers, retier checkpoint, and stable tie order;
-  jobs `1606179`/`1606180` have 678 survivors on both sides and an identical
-  conflict-1000--1020 trajectory.
-- `SP-VIVIFY-ORDER-1`, `SP-FACTOR-2`, and `SP-SWEEP-2` had obsolete "validation
-  owed" language. Their focused evidence remains in their rows and subsequent
-  complete Tier B/C correctness gates are clean.
-- `SP-CONG-UNITS-1` is now disposed by the T105 removal experiment: V6a is
-  independently productive after repaired Backbone and is retained with one
-  structurally complete linear pass, rather than a gate-budget remainder.
+The final general repairs cover the level-one Analyze transition, configured
+random-decision schedule, post-Lucky compaction lifecycle, focused Vivify
+tiers, Walk compact-order binary replay, and Reduce/variable-compaction replay
+by persistent inherited source order within the required redundancy
+partition. They contain no benchmark identity, rank, literal, conflict, hash,
+deadline, or adjusted scheduling constant.
 
-The closing candidate passes the complete local 72-test suite and Slurm job
-`1631978`: 28/28 Tier B plus the frozen 5/5 Tier C subset, all proofs/models
-checked and all certificate scratch removed.
+The accepted cumulative guard is Slurm job `1634307`: 28/28 Tier B plus the
+fixed 5/5 Tier C subset, with every proof/model checked. Tier-D job `1634294`
+retains ranks 21, 23, 25, 28, 29, and 38 with no gains/losses and zero
+certificate residue. This supersedes the rejected physical-order, optional-
+arena-order, inert tail-partition, and pre-soundness candidates formerly
+narrated here; their detailed chronology remains in Git history and the
+associated run artifacts.
 
-Every remaining `WE_ARE_CRUDER`, partial-completeness, or reference-disagreement
-entry is an explicit accepted deviation in §2 or §13.3 with a measurement and
-reopening/removal path; it is not an unrecorded scheduling mechanism. N4
-reopens if a new missing/cruder mechanism appears, a closed row violates its
-reopening condition, or an accepted deviation loses its stated disposition.
+The later proof-soundness repair (`dab7908`) changes no scheduling
+disposition. It closes sessionless Sweep substitution identity and
+format-independent RUP admission with Release 72/72, Trace 71/71, ASAN-O3
+72/72, Debug 71/71, the 26-entry regression corpus, 2,000 local fuzz cases,
+and independent Slurm job `1636794` with 10,000 cases. Evidence:
+`benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`.
 
-**Reopened finding `ORDER-ANALYZE-L1-1` (2026-08-18; validation pending).**
-Rank-22 common-state traces match through conflict 4, where Kissat takes its
-hard-coded `analyze_failed_literal` transition and Tactix formerly used ordinary
-1-UIP. Both derive the final unit `-3826321`, but Kissat walks the full
-level-one implication graph, root-assigns the resulting unit batch, deactivates
-it, and only then bumps its analyzed set. Tactix's different bump population
-made its next external decision `3826320`; Kissat chose `10`. The candidate
-ports that complete source transition for every multi-literal level-one
-conflict, including one glue/reluctant observation, shared learned-unit
-deactivation, and per-unit native-LRAT chains. The repaired trace chooses `10`
-at the same frontier; the two-unit focused regression and its complete native
-LRAT refutation pass `lrat-check`, and the 69-test non-demo suite is clean.
-Closure still requires the frozen 28B+5C iteration guard and a checked Rank-22
-run under the 16 GiB/1200 s debug contract; until then N4 verification is
-pending, not complete.
-
-**Reopened finding `SP-RANDEC-1` formula-profile override (2026-08-18;
-validation pending).** Rank-22 traces reach a common root restart at conflict
-523, where Kissat begins its shipped random-decision sequence and the
-legacy-shape Tactix profile formerly forced that mechanism off. Enabling the
-existing general arm reproduces Kissat's first draw and 1,273 subsequent
-external decisions exactly. The repair removes the implicit formula-shape
-selection while retaining the explicit typed/environment off arm; it contains
-no instance identity, rank, fingerprint, deadline, or adjusted constant.
-Release is 72/72 and focused Debug is clean. Jobs `1633204` (28B+fixed5C) and
-`1633236` (the frozen Tier-D ranks 21--40) are the closing gates; N4
-verification remains pending until they finish checked and residue-free.
-
-**Reopened finding `SP-COMPACT-1` post-Lucky lifecycle (2026-08-18;
-validation pending).** Rank-27 lifecycle traces are identical through late
-Lucky, but the first search scan at conflict 78 reverses two large clauses.
-The generic `TACTIX_NO_COMPACT=1` diagnostic restores Kissat's exact
-`binary,binary,A,B` watch sequence; candidate job `1633264` reproduces that
-exact sequence through the repaired production path. No Reduce has occurred,
-so the removed operation is uniquely the Tactix-only whole-arena/variable
-compaction between late Lucky and search. Kissat's source admits initial collection before Probe
-and the later strict compaction check inside Reduce, but no collection at this
-boundary. Commit `dbd3e36` removes only the extra lifecycle point and retains
-the Reduce arm. The focused test fails on the old code, Release is 72/72, and
-focused Debug is clean. The remaining closing gates are 28B+fixed5C job
-`1633265` and frozen ranks 21--40 job `1633266`; N4 remains pending.
-
-**Reopened finding `SP-WALK-WATCH-1` compact-order binary replay
-(2026-08-18; validation pending).** The cumulative guard above finished 28/28
-Tier B but only 4/5 fixed Tier C: `mp1-Nb5T15` timed out. Its paired trace is
-exact through conflict 2005; at conflict 2006 both binary clauses are false,
-but Kissat visits `(3462,6540)` before `(3402,6540)` and Tactix visits them in
-the opposite order. The corrected lifecycle trace localizes the first change:
-both leave preprocessing with `3402,3462`; Kissat's conflict-2003 Walk rephase
-replays `3462,3402`, while Tactix retained the old pose. Source confirms Walk
-uses a **non-null** dense-entry stack: `flush_large_watches` scans compact
-literals globally, saves each pair only at its lower compact endpoint, and
-`resume_watching_irredundant_binaries` replays the stack without sorting
-(`kissat/src/dense.c:13-88,113-139`; `walk.c:872-893`). Tactix now uses its
-permanent import-literal order as that compact key. A synthetic three-variable
-test makes stable IDs disagree with import order and exercises the real Walk
-resume; it has no witness constants. Repaired job `1633433` poses
-`3462,3402`, makes all 66 normalized analysis records through conflict 2008
-identical, and solves SAT in 24.708 s. Full checked 28B+5C and frozen-20 gates
-remain required; N4 is not promoted on this trace alone.
-
-**Reopened finding `SP-COMPACT-2` Reduce remap and arena-order isolation
-(2026-08-18; validation pending).** Rank-29 traces first remain identical
-through conflict 998, then the conflict-1000 Reduce changes one directed binary
-watch list from Kissat's `-169,-106,-46,-369` to
-`-46,-106,-169,-369`. Tactix rebuilt both directed lists from one undirected
-pair stream; Kissat moves each surviving directed binary prefix in encounter
-order. Preserving those prefixes repairs the binary frontier. It exposes a
-second mismatch at conflict 1006: Tactix's variable compaction called its
-solve-scoped `DefaultArenaOrder` during a representation-only whole collection,
-whereas Kissat retains the compacting collector's current arena sequence before
-rewatching the large tail. The accepted repair temporarily excludes the
-optional arena policy from variable compaction and rebuilds large watches from
-that retained arena order.
-
-This is a general lifecycle invariant, not a witness patch. The focused test
-installs an arbitrary reverse `ArenaOrdering`, retires an unrelated variable,
-and proves that compaction preserves the ordering object and current clause
-sequence; the directed-binary test independently pins encounter order. There
-are no benchmark, rank, literal, conflict, hash, or deadline conditions. A
-broader experiment that preserved complete directed large-watch vectors was
-rejected because it moved the first semantic divergence backwards to conflict
-1003 despite a checked Rank-29 solve (`1633697`/`1633698`). With the narrower
-source-backed repair, job `1633732` matches 16,032 normalized semantic records
-over conflicts 980--1100 and 4,666 score bumps over conflicts 980--1044,
-including both repaired scan orders. Release is 72/72, Trace is 71/71, and
-ASAN-O3 is 72/72. Focused runtime job `1633733` nevertheless times out at
-1200.004 s after 27,240,776 conflicts, so this candidate is rejected rather
-than promoted from its early exact prefix. The completed 28B+5C job `1633745`
-independently rejects it: Tier B is 28/28, but `mp1-Nb5T15` drops from a
-checked 14.349 s SAT solve to timeout (4/5 Tier C), and `mod4block` rises from
-305.421 s to 790.619 s. Trace job `1633808` covers conflicts 1080--1400 to
-locate the first later mismatch. Tier-D job `1633760` remains useful cumulative
-evidence but cannot promote this pin; it completed only 4/20 and lost ranks 23
-and 26. N4 remains pending.
-
-**Candidate update `SP-COMPACT-2` inherited source order (2026-08-18;
-validation pending).** Job `1633808` shows 40,382 portable semantic records
-identical through conflict 1400, but the first watch-list divergence occurs at
-conflict 1211 on scan `846`. Tactix visits clause ID 92811 before replacement
-92812 even though 92812 inherits source position 92810; Kissat retains the
-replacement at that earlier source position and visits it first. This also
-reconciles the earlier conflict-1005 pair: their inherited positions are the
-ordinary 92483 then 92489, whereas the rejected VMTF policy reversed them.
-Commit `0af7c15` makes compaction replay every live clause by the existing
-inherited source-position relation, with no witness identity in production or
-tests; its synthetic order is distinct from both physical and posed-policy
-order. Release, Trace, and ASAN-O3 are clean. Job `1633836` matches 53,910
-portable and 223,125 normalized-watch records through conflict 1400, including
-the repaired conflict-1211 frontier. The old order becomes semantic only at
-conflict 2272. Runtime job `1633837` nevertheless times out at 1200.004 s and
-28,656,897 conflicts, so no cumulative arrays are launched. Continuation job
-`1633890` localizes the next cause to conflict-2001 Reduce: Kissat's sparse
-collector stably partitions the swept tail as irredundant then redundant before
-rewatching, while Tactix retained the interleaving; conflict 2272 is downstream.
-Job `1633950` proves the first collector patch inert: root assignments select
-`kernel_sparse_collect_root`, whose source-position replay bypassed it; runtime
-`1633951` was cancelled. The follow-up composes source position within each
-redundancy class with the stable class partition. Generic non-root and
-rewritten-root mixed-tail tests plus Release 72/72, Trace 71/71, and ASAN-O3
-72/72 pass. Job `1633964` still reaches the identical conflict-2001 watch
-mismatch and rejects that follow-up; runtime `1633965` was cancelled with zero
-residue. The newly exposed lifecycle cause is more fundamental: Reduce's
-victims are already garbage before `kernel_sparse_collect_root` runs, while
-that function admitted collection only when root simplification itself changed
-a clause. A reduction with victims but no coincident root rewrite therefore
-performed no sweep or rewatch at all. The current general candidate admits the
-collector on either pre-existing garbage or root simplification. Its synthetic
-test makes garbage the only trigger under an unrelated root assignment and
-pins the ensuing stable tail replay. Job `1633999` closes the semantic frontier
-(61,653/61,653 portable records exact through conflict 2400) but finds that a
-replacement inherited before the pass remains physically behind later clauses;
-runtime `1634000` was cancelled cleanly. The accepted candidate decorates each
-swept clause once with its persistent source key, stably replays those keys,
-then stably partitions irredundant before redundant. The generic fixture
-distinguishes appended physical order from inherited order. Release 72/72,
-Trace 71/71, ASAN-O3 72/72, and concurrent trace-isolation stress are clean.
-Focused trace `1634075` exactly matches all 61,653 portable and 297,047
-normalized-watch records through conflict 2400. Checked runtime `1634074`
-solves SAT in 130.767 s at 68,524 KiB, verifies the model, and leaves zero
-residue; frozen eligible Kissat is 294.468 s. Cumulative 28B+5C job `1634094`
-and ranks-21--40 job `1634095` are the remaining N4 gate.
-
+N4 reopens if a new missing/cruder reference mechanism appears, a closed row
+violates its reopening condition, an accepted deviation loses its evidence,
+or a future scheduling change fails the required correctness and cumulative
+guards.
 <!-- parity-ledger:end -->
