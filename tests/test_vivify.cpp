@@ -57,6 +57,26 @@ static void test_implied_literal_strengthens() {
   assert(default_solve(k) == 10);
 }
 
+// Reason jumping records the virtual resolvent (1 v 2) while retaining 4 as
+// the resolved-away proof antecedent.  Vivify must use the virtual reason for
+// semantic subsumption and expand through 4 only when emitting a proof chain.
+static void test_jumped_binary_reason_subsumes_candidate() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  k.jump_reasons_bigbig = true;
+  const Lit candidate_lits[3] = {internalize(1), internalize(2),
+                                 internalize(3)};
+  kernel_add_large_clause(k, candidate_lits, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(4));
+  kernel_add_binary_clause(k, internalize(-4), internalize(2));
+
+  assert(vivify_apply(k) == ApplyResult::Ok);
+  assert(k.stats.vivify_subsumed == 1);
+  assert(k.stats.vivify_shrunken == 0 && k.stats.vivified == 0);
+  assert(live_large(k) == 0 && k.level == 0 && !k.conflict_valid);
+  assert(default_solve(k) == 10);
+}
+
 static void test_implied_negation_removes() {
   // assuming ¬1 propagates ¬2, so literal 2 is redundant in C
   Kernel k;
@@ -539,6 +559,42 @@ static void test_kissat_candidate_count_vector_ties() {
   }
 }
 
+// Kissat has no per-candidate clause-size cutoff: the propagation-tick budget
+// bounds the round.  A skipped large probe would also skip its retained-prefix
+// and watch-order effects on the next candidate, even if it derived nothing.
+static void test_large_candidate_has_no_invented_cutoff() {
+  Kernel k;
+  static constexpr uint32_t size = 101;
+  kernel_reserve_vars(k, size);
+  std::vector<Lit> lits;
+  for (uint32_t i = 1; i <= size; i++)
+    lits.push_back(internalize(static_cast<int>(i)));
+  const Ref candidate =
+      kernel_add_large_clause(k, lits.data(), size, false, 0);
+  k.vivify_scope = 2;
+  std::vector<Ref> candidates;
+  vivify_candidates(k, candidates);
+  assert(candidates.size() == 1 && candidates[0] == candidate);
+  assert(vivify_try(k, candidate) == ApplyResult::NoOp);
+  assert(k.stats.vivify_checked == 1 && k.level == 0);
+}
+
+// A later tier can enter after an earlier tier exceeded the cumulative
+// ceiling.  Kissat still builds that tier's schedule but tries no candidate;
+// zero cannot fall back to Tactix's ordinary "unbounded" convention.
+static void test_precharged_cumulative_budget_stops_before_candidate() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, lits, 3, false, 0);
+  k.vivify_scope = 2;
+  k.work_budget_bounded = true;
+  k.work_budget = 0;
+  k.work_budget_offset = 1;
+  assert(vivify_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.vivify_checked == 0 && k.level == 0);
+}
+
 // The termination poll is cadence-free: a raised stop is both reached and
 // honoured on the first candidate, before any work.
 static void test_termination_poll() {
@@ -562,6 +618,7 @@ static void test_termination_poll() {
 
 int main() {
   test_implied_literal_strengthens();
+  test_jumped_binary_reason_subsumes_candidate();
   test_implied_negation_removes();
   test_probe_conflict_strengthens();
   test_terminal_dispatch();
@@ -578,6 +635,8 @@ int main() {
   test_schedule_flush_partition();
   test_schedule_root_false_ternary_becomes_binary();
   test_kissat_candidate_count_vector_ties();
+  test_large_candidate_has_no_invented_cutoff();
+  test_precharged_cumulative_budget_stops_before_candidate();
   test_termination_poll();
   puts("test_vivify OK");
   return 0;

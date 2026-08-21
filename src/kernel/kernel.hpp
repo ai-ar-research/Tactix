@@ -844,6 +844,10 @@ struct Kernel {
   std::vector<int8_t> *saved_phases = nullptr;
   bool phase_saving_suppressed = false; // true only for probing assignments
   uint64_t work_budget = 0;
+  // Work already charged before a rule call against a cumulative dose.
+  // Vivify uses this to pose Kissat's successive absolute tier ceilings.
+  uint64_t work_budget_offset = 0;
+  bool work_budget_bounded = false;
   uint8_t vivify_scope = 0;
   bool vivify_reuse = true;
   bool vivify_flush = false;
