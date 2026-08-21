@@ -583,7 +583,40 @@ static void test_default_slot_membership_matches_kissat(void) {
            "production membership must be exactly the original-Kissat "
            "pipeline; non-Kissat proof rules remain explicitly poseable");
   }
-  std::printf("  slot membership: original Kissat; six extra rules poseable\n");
+
+  // Pin the exact two Kissat Probe poses.  Vivify is deliberately absent from
+  // `probe_initially` (probe.c:54-139), but is unconditional between the
+  // early Backbone and Sweep in every search-time Probe (probe.c:35-43).
+  static constexpr const char *SEARCH_PROBE[] = {
+      "Congruence",       "Substitute", "Backbone",
+      "Vivify",          "Sweep",      "Substitute",
+      "TransitiveReduce", "Backbone",   "Factor",
+  };
+  static constexpr const char *INITIAL_PROBE[] = {
+      "Congruence", "Substitute", "Backbone",
+      "Sweep",      "Substitute", "Factor",
+  };
+  std::vector<const char *> search_probe, initial_probe;
+  for (const auto &entry : p.inprocess().entries) {
+    if (!entry.enabled || entry.group != SlotGroup::Probe)
+      continue;
+    const char *name = rules[entry.rule].name;
+    search_probe.push_back(name);
+    if (entry.preprocess)
+      initial_probe.push_back(name);
+  }
+  assert(search_probe.size() ==
+         sizeof SEARCH_PROBE / sizeof *SEARCH_PROBE);
+  for (size_t i = 0; i < search_probe.size(); i++)
+    assert(!std::strcmp(search_probe[i], SEARCH_PROBE[i]) &&
+           "search-time Probe interleaving diverged from Kissat");
+  assert(initial_probe.size() ==
+         sizeof INITIAL_PROBE / sizeof *INITIAL_PROBE);
+  for (size_t i = 0; i < initial_probe.size(); i++)
+    assert(!std::strcmp(initial_probe[i], INITIAL_PROBE[i]) &&
+           "startup Probe interleaving diverged from Kissat");
+  std::printf("  slot membership/order: exact Kissat startup/search Probe; "
+              "six extra rules poseable\n");
 }
 
 // --- the two clocks are actually two ----------------------------------------

@@ -85,7 +85,7 @@ int main() {
   // Pin the causal Phase-4 admission witnesses rather than their filenames.
   const auto mp = classified(6360, 25200);
   assert(!mp.inprocess.factor_repeated_enabled &&
-         !mp.inprocess.vivify_enabled);
+         mp.inprocess.vivify_enabled);
   const auto stconn = classified(936, 6488);
   assert(!stconn.inprocess.preprocess_only &&
          stconn.branching.random_sequences &&
@@ -165,6 +165,8 @@ int main() {
                                        static_cast<uint64_t>(shape_clauses));
         assert(!shaped.inprocess.preprocess_only &&
                "formula shape must not suppress Kissat's Probe pipeline");
+        assert(shaped.inprocess.vivify_enabled &&
+               "formula shape must not suppress Kissat's Vivify slot");
         assert(shaped.rephase.late_lucky);
         assert(shaped.branching.random_sequences);
       }
@@ -183,6 +185,14 @@ int main() {
   legacy_shape.original_input_clauses = 13462874;
   no_random_profile.classify_formula_strategy(legacy_shape);
   assert(!no_random_profile.strategy_config().branching.random_sequences);
+
+  // Formula classification must likewise preserve an explicit caller choice
+  // to disable Vivify while never selecting that non-reference arm itself.
+  DefaultStrategyConfig profile_no_vivify = defaults;
+  profile_no_vivify.inprocess.vivify_enabled = false;
+  DefaultPolicy no_vivify_profile(profile_no_vivify);
+  no_vivify_profile.classify_formula_strategy(legacy_shape);
+  assert(!no_vivify_profile.strategy_config().inprocess.vivify_enabled);
 
   // The startup-only arm remains explicit and typed for bounded attribution;
   // classification preserves a caller selection but never selects it itself.

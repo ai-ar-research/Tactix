@@ -1148,12 +1148,9 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   enum class FormulaProfile {
     Reference,
     StartupFactorOnly,
-    StartupFactorOnlyNoVivify,
-    NoVivify,
-    Dose5NoVivify,
+    Dose5,
     Dose5Vivify5,
-    Factor5NoVivify,
-    NoBveNoVivify,
+    Factor5,
     NoBve,
     NoBveLight,
   };
@@ -1176,8 +1173,9 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   const auto at_least = [vars, clauses](uint64_t ratio) {
     return clauses >= ratio * vars;
   };
-  // Ptn-7824 is a compact, low-density exception where full Vivify is causal:
-  // disabling it turns a 58-second solve into a timeout.
+  // Classification may dose mechanisms, but never withdraw Vivify: Kissat's
+  // Probe pipeline admits it on every formula and its effort/productivity
+  // controls decide how much work is performed.
   if (grain_shape &&
       vars >= DefaultStrategyConfig::PROFILE_GRAIN_LEGACY_MIN_VARS)
     profile = FormulaProfile::StartupFactorOnly;
@@ -1188,23 +1186,23 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   else if (vars >= DefaultStrategyConfig::PROFILE_PTN_MIN_VARS &&
       vars < DefaultStrategyConfig::PROFILE_PTN_MAX_VARS &&
       clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
-    profile = FormulaProfile::StartupFactorOnlyNoVivify;
+    profile = FormulaProfile::StartupFactorOnly;
   else if (vars >= DefaultStrategyConfig::PROFILE_VARS_6000 &&
            vars < DefaultStrategyConfig::PROFILE_VARS_7000 &&
            clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
-    profile = FormulaProfile::StartupFactorOnlyNoVivify;
+    profile = FormulaProfile::StartupFactorOnly;
   else if (vars >= DefaultStrategyConfig::PROFILE_VARS_10000 &&
            vars < DefaultStrategyConfig::PROFILE_VARS_15000 &&
            clauses < DefaultStrategyConfig::PROFILE_DENSITY_CONTEXT_MAX * vars)
     profile = FormulaProfile::Reference;
   else if (vars < DefaultStrategyConfig::PROFILE_TINY_MAX_VARS)
-    profile = FormulaProfile::Dose5NoVivify;
+    profile = FormulaProfile::Dose5;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_EXTREME))
     profile = vars < DefaultStrategyConfig::PROFILE_VARS_1000
                   ? FormulaProfile::NoBveLight
                   : FormulaProfile::NoBve;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_VERY_HIGH))
-    profile = FormulaProfile::StartupFactorOnlyNoVivify;
+    profile = FormulaProfile::StartupFactorOnly;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_HIGH))
     profile = FormulaProfile::Reference;
   else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_MEDIUM)) {
@@ -1212,12 +1210,12 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
         vars < DefaultStrategyConfig::PROFILE_VARS_900)
       profile = FormulaProfile::StartupFactorOnly;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_900)
-      profile = FormulaProfile::StartupFactorOnlyNoVivify;
+      profile = FormulaProfile::StartupFactorOnly;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_1000 &&
              at_least(DefaultStrategyConfig::PROFILE_DENSITY_FACTOR_ONLY))
       profile = FormulaProfile::StartupFactorOnly;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_1500)
-      profile = FormulaProfile::Dose5NoVivify;
+      profile = FormulaProfile::Dose5;
     else
       profile = FormulaProfile::StartupFactorOnly;
   } else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_LOW)) {
@@ -1226,19 +1224,19 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_1000)
       profile = FormulaProfile::StartupFactorOnly;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_4000)
-      profile = FormulaProfile::StartupFactorOnlyNoVivify;
+      profile = FormulaProfile::StartupFactorOnly;
     else
       profile = FormulaProfile::Dose5Vivify5;
   } else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_SPARSE)) {
     if (vars < DefaultStrategyConfig::PROFILE_VARS_500)
-      profile = FormulaProfile::NoBveNoVivify;
+      profile = FormulaProfile::NoBve;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_5000)
-      profile = FormulaProfile::Factor5NoVivify;
+      profile = FormulaProfile::Factor5;
     else if (vars < DefaultStrategyConfig::PROFILE_VARS_10000)
-      profile = FormulaProfile::StartupFactorOnlyNoVivify;
+      profile = FormulaProfile::StartupFactorOnly;
     else if (vars >= DefaultStrategyConfig::PROFILE_VARS_20000 &&
              vars < DefaultStrategyConfig::PROFILE_VARS_25000)
-      profile = FormulaProfile::StartupFactorOnlyNoVivify;
+      profile = FormulaProfile::StartupFactorOnly;
     else
       profile = FormulaProfile::Dose5Vivify5;
   } else if (vars < DefaultStrategyConfig::PROFILE_VARS_500)
@@ -1246,81 +1244,61 @@ void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_2000)
     profile = FormulaProfile::Dose5Vivify5;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_6500)
-    profile = FormulaProfile::NoVivify;
+    profile = FormulaProfile::Reference;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_10000)
-    profile = FormulaProfile::Factor5NoVivify;
+    profile = FormulaProfile::Factor5;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_25000)
-    profile = FormulaProfile::StartupFactorOnlyNoVivify;
+    profile = FormulaProfile::StartupFactorOnly;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_32000)
-    profile = FormulaProfile::Factor5NoVivify;
+    profile = FormulaProfile::Factor5;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_40000)
-    profile = FormulaProfile::Dose5NoVivify;
+    profile = FormulaProfile::Dose5;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_50000)
       profile = FormulaProfile::StartupFactorOnly;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_70000)
     profile = clauses < DefaultStrategyConfig::PROFILE_DENSITY_VERY_SPARSE *
                             vars
                   ? FormulaProfile::Reference
-                  : FormulaProfile::StartupFactorOnlyNoVivify;
+                  : FormulaProfile::StartupFactorOnly;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_120000)
     profile = FormulaProfile::StartupFactorOnly;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_200000)
-    profile = FormulaProfile::NoVivify;
+    profile = FormulaProfile::Reference;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_300000)
-    profile = FormulaProfile::NoBveNoVivify;
+    profile = FormulaProfile::NoBve;
   else if (vars < DefaultStrategyConfig::PROFILE_VARS_800000)
     profile = vars < DefaultStrategyConfig::PROFILE_VARS_500000
-                  ? FormulaProfile::StartupFactorOnlyNoVivify
+                  ? FormulaProfile::StartupFactorOnly
                   : clauses >=
                             DefaultStrategyConfig::PROFILE_DENSITY_VERY_SPARSE *
                                 vars
-                        ? FormulaProfile::StartupFactorOnlyNoVivify
-                        : FormulaProfile::Dose5NoVivify;
+                        ? FormulaProfile::StartupFactorOnly
+                        : FormulaProfile::Dose5;
 
   auto &in = config_.inprocess;
   in.forward_midround_budget =
       at_least(DefaultStrategyConfig::PROFILE_DENSITY_EXTREME);
-  // Congruence is deliberately absent from these static profiles.  Kissat
-  // 4.0.4 and CaDiCaL 3.0 both admit their startup closure on every formula
-  // and govern repetition from observed merge yield.  Tactix follows that
-  // admission contract; its tick budget, closure watermark, and productivity
-  // delay bound later applications.
-  //
-  // Late Lucky is absent for the same reason.  `luckylate` is unconditional in
-  // both references (kissat search.c:188, options.h:79); no configuration or
-  // classification clears it, not even `plain`/`basic` (kissat config.c:38).
-  // A profile may dose or decline an inprocessing slot, never withdraw a rule
-  // opportunity the references always offer.  The typed knob and
-  // `TACTIX_LUCKY_LATE` remain the diagnostic and N1 selection surface.
+  // Static formula profiles never withdraw universally admitted Congruence,
+  // Vivify, or late Lucky opportunities; they only dose their later work.
+  // Source evidence and the diagnostic/N1 surfaces live in
+  // docs/implementation-notes.md (`Formula classification`).
   switch (profile) {
   case FormulaProfile::Reference:
     break;
   case FormulaProfile::StartupFactorOnly:
     in.factor_repeated_enabled = false;
     break;
-  case FormulaProfile::StartupFactorOnlyNoVivify:
-    in.factor_repeated_enabled = false;
-    in.vivify_enabled = false;
-    break;
-  case FormulaProfile::NoVivify:
-    in.vivify_enabled = false;
-    break;
-  case FormulaProfile::Dose5NoVivify:
+  case FormulaProfile::Dose5:
     in.bve_permille = in.factor_permille = in.subsume_forward_permille =
         DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    in.vivify_enabled = false;
     break;
   case FormulaProfile::Dose5Vivify5:
     in.bve_permille = in.factor_permille = in.subsume_forward_permille =
         DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
     in.vivify_permille = DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
     break;
-  case FormulaProfile::Factor5NoVivify:
+  case FormulaProfile::Factor5:
     in.factor_permille = DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    in.vivify_enabled = false;
-    break;
-  case FormulaProfile::NoBveNoVivify:
-    in.bve_enabled = in.vivify_enabled = false;
     break;
   case FormulaProfile::NoBve:
     in.bve_enabled = false;

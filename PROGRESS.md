@@ -15,9 +15,9 @@ evidence. This file is only the current resume surface.
   `DEVELOPMENT_PLAN.md` section 8.3.
 - The immutable Tier-D ranks 21--40 eligible view and target manifest are in
   `benchmarks/runs/20260818-0120-tierd-ranks21-30-predeclared/`. The accepted
-  cumulative pin closes ranks **21, 23, 25, 28, 29, and 38** under the
-  16 GiB/1200 s debug contract; all six answers validate and certificate
-  residue is zero. Fourteen ranks remain open.
+  cumulative Vivify-admission pin closes ranks **21, 23, 24, 25, 28, 29, 34,
+  38, and 39** under the 16 GiB/1200 s debug contract; all nine answers
+  validate and certificate residue is zero. Eleven ranks remain open.
 - The latest soundness repair preserves sessionless Sweep binary/proof identity
   and makes RUP admission format-independent for Sweep and HyperBinaryRes.
   Release 72/72, Trace 71/71, ASAN-O3 72/72, Debug 71/71, the 26-entry
@@ -28,25 +28,30 @@ evidence. This file is only the current resume surface.
   compound-instance API decision remain open. The completed LymphoSAT
   attribution is in
   `benchmarks/reports/2026-08-20-lymphosat-module-attribution.md`.
-- NOTHING IN FLIGHT. Rank 22 is deliberately parked at the first common-input
+- NOTHING IN FLIGHT. Rank 22 is deliberately parked at its first common-input
   Vivify boundary; its ignored diagnostic artifacts remain local and unbanked.
+  Formula classification no longer disables Vivify for any shape. Matched job
+  `1636852` is checked 28B+5C on both arms, targeted rank-24 job `1636927`
+  verifies UNSAT in 356.2 s, and cumulative job `1636928` preserves all six
+  predecessors while adding ranks 24, 34, and 39.
 
 <!-- track-sched:begin -->
 N4 verification is complete at the accepted parity pin. The living mechanism
 dispositions and reopening conditions are in
 `docs/scheduling-parity-ledger.md`; any newly missing/cruder reference
 mechanism, failed reopening condition, or loss of an accepted deviation's
-evidence returns verification to pending. The accepted cumulative rank gate is
-33/33 on 28B+5C and closes Tier-D ranks 21, 23, 25, 28, 29, and 38 with zero
-residue. Later proof-soundness work changes no scheduling disposition.
+evidence returns verification to pending. The accepted matched iteration guard
+is 66/66 across shipped/candidate 28B+5C. The cumulative Tier-D gate closes
+ranks 21, 23, 24, 25, 28, 29, 34, 38, and 39 with zero residue. Later proof-
+soundness work changes no scheduling disposition.
 <!-- track-sched:end -->
 
 ## Immediate work
 
-1. Continue Phase 4.25 Stage A on an open frozen rank other than 22. Localize
-   the earliest portable divergence, make only a general source-backed repair,
-   and apply the plan's Tier B plus predeclared Tier C iteration guard before
-   the targeted Tier-D witness.
+1. Continue Phase 4.25 Stage A with the open UNSAT ranks first: 27, 31, 32, 33,
+   35, 37, then 40. Localize the earliest portable divergence, make only a
+   general source-backed repair, and apply the plan's Tier B plus predeclared
+   Tier C iteration guard before each targeted Tier-D witness.
 2. Return to rank 22 later. Backbone is exact through the conflict-4487 early
    call and both solvers leave it with 3,442,398 semantic variables; Vivify is
    the first later owner. Do not repeat the completed Backbone investigation.
@@ -64,6 +69,9 @@ residue. Later proof-soundness work changes no scheduling disposition.
 
 ## Recent changes
 
+- 2026-08-20: removed every formula-selected Vivify disable, passed matched
+  28B+5C job `1636852`, closed checked Tier-D ranks 24, 34, and 39 in cumulative
+  job `1636928`, and preserved all six inherited closures with zero residue.
 - 2026-08-20: merged the Tier-D parity and soundness milestone to `main`
   (`d9a5d1f`).
 - 2026-08-20: closed Sweep/HBR proof-admission regressions and the 10,000-case
@@ -71,7 +79,6 @@ residue. Later proof-soundness work changes no scheduling disposition.
 - 2026-08-20: accepted the rank-29 compaction/source-order repair; the frozen
   21--40 set now has six checked closures with no predecessor loss.
 - 2026-08-20: parked rank 22 after localizing the next divergence to Vivify.
-- 2026-08-20: froze the 1,166-instance LymphoSAT module attribution and report.
 
 The repository's newest timestamped completed Tier-C artifact is
 `benchmarks/runs/20260813-111513-C-cleanup-b2b8362/`; it is historical cleanup
