@@ -883,6 +883,10 @@ static uint32_t detect_full_partition(
 
   std::vector<SubLit> &assumptions = r.assumptions;
   while (!r.backbone.empty()) {
+    // Kissat's outer refinement poll is inclusive even though the inner flip
+    // loop permits an overrun (`kitten_ticks_limit_hit`, sweep.c:1369-1382).
+    if (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks)
+      break;
     // As in the equivalence loop below, Kissat runs the complete flip pass at
     // the top of every outer iteration.  In particular, a successful retry of
     // one popped candidate returns here before the next candidate is chosen;
@@ -894,7 +898,7 @@ static uint32_t detect_full_partition(
 #endif
                   lim, r);
     if (r.backbone.empty() ||
-        (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
+        (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks))
       break;
     const Lit lit = r.backbone.back();
     r.backbone.pop_back();
@@ -957,6 +961,8 @@ static uint32_t detect_full_partition(
   uint32_t found = 0, solved = 0;
   while (!r.partition.empty() &&
          (!lim.max_candidates || solved < lim.max_candidates)) {
+    if (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks)
+      break;
     // Kissat runs the whole partition-flip pass at the top of *every*
     // equivalence-loop iteration, not only after SAT refinement.  A successful
     // endpoint flip, or a proved equivalence, mutates the embedded model and
@@ -968,7 +974,7 @@ static uint32_t detect_full_partition(
 #endif
                    lim, r);
     if (r.partition.empty() ||
-        (lim.env_ticks && e.solver.kitten_ticks() > lim.env_ticks))
+        (lim.env_ticks && e.solver.kitten_ticks() >= lim.env_ticks))
       break;
     std::vector<Lit> &c = r.partition.back();
     const Lit a = c[c.size() - 2], b = c.back();

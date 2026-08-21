@@ -769,7 +769,12 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
     const uint64_t spent = tick_mode_ == SubTickMode::Kitten
                                ? kitten_ticks_
                                : ticks_;
-    return budget_ && spent > budget_;
+    // Kitten polls its absolute tick limit with `>=` before choosing another
+    // decision (`kitten.c:1572`).  The legacy entry meter predates that port
+    // and retains its historical strict-overrun contract for BVE.
+    return budget_ && (tick_mode_ == SubTickMode::Kitten
+                           ? spent >= budget_
+                           : spent > budget_);
   };
   conflicts_ = 0;
   if (inconsistent_) {

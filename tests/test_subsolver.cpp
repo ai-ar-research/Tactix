@@ -221,6 +221,18 @@ void test_budget_and_determinism() {
   build();
   assert(s.solve({}, kitten_full / 2, SubTickMode::Kitten) ==
          SubResult::Budget);
+
+  // Kitten stops before another decision when its counter is exactly the
+  // absolute limit.  A strict-overrun check makes one extra decision and can
+  // move a Sweep call one environment past the reference boundary.
+  s.start_kitten_session();
+  s.reset(3, SubSearchMode::Kitten);
+  s.add_clause(
+      {sub_lit(0, false), sub_lit(1, false), sub_lit(2, false)});
+  s.randomize_phases();
+  assert(s.kitten_ticks() == 1);
+  assert(s.solve({}, 2, SubTickMode::Kitten) == SubResult::Budget);
+  assert(s.kitten_ticks() == 2);
 }
 
 void test_model_flip() {
