@@ -398,6 +398,41 @@ static void test_order_arms_reorder(void) {
            "arm did not reorder anything -- it would be untestable");
   }
   {
+    // Kissat transitive.c pushes variable indices, but its comparator applies
+    // IDX once more before reading activity, and the sorted stack is popped
+    // from the back.  Pin that exact reference pose independently of the
+    // implementation's sorting code.
+    size_t best = 0;
+    Lit best_lit;
+    assert(lit_of_instance(k, before[best], &best_lit));
+    for (size_t i = 1; i < before.size(); i++) {
+      Lit lit;
+      assert(lit_of_instance(k, before[i], &lit));
+      const Var proxy = var_of(lit) >> 1;
+      const Var best_proxy = var_of(best_lit) >> 1;
+      const double score = k.h->scores.score[proxy];
+      const double best_score = k.h->scores.score[best_proxy];
+      if (score > best_score ||
+          (score == best_score && var_of(lit) > var_of(best_lit))) {
+        best = i;
+        best_lit = lit;
+      }
+    }
+    DefaultCandidateOrder co;
+    co.arms.assign(tactix_rules().size(), CandidateOrder::Native);
+    co.arms[v4->id] = CandidateOrder::Heuristic;
+    DefaultPolicy q;
+    q.inprocess().candidate_order = &co;
+    DefaultInprocessScheduler::SlotEntry qe;
+    qe.rule = static_cast<int>(v4->id);
+    qe.dosed = true;
+    qe.order = CandidateOrder::Heuristic;
+    std::vector<uint64_t> out = before;
+    q.inprocess().order_candidates(k, qe, out.data(), n);
+    assert(out.front() == before[best] &&
+           "TransitiveReduce must consume Kissat's reference activity pose");
+  }
+  {
     DefaultPolicy q; // no attached policy, arm stays Native
     DefaultInprocessScheduler::SlotEntry qe;
     qe.rule = static_cast<int>(v4->id);
@@ -650,6 +685,9 @@ static void test_default_slot_membership_matches_kissat(void) {
     assert(entry.enabled != posed_only &&
            "production membership must be exactly the original-Kissat "
            "pipeline; non-Kissat proof rules remain explicitly poseable");
+    if (!std::strcmp(name, "TransitiveReduce"))
+      assert(entry.order == CandidateOrder::Heuristic &&
+             "TransitiveReduce must ship with the reference activity order");
   }
 
   // Pin the exact two Kissat Probe poses.  Vivify is deliberately absent from

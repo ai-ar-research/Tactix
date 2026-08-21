@@ -449,12 +449,12 @@ Scaled guards are strict (`limit < conflicts`); only round-zero Probe is exempt 
 
 ### Formula classification
 
-Classification may dose entries but never selects whole-slot `preprocess_only` or disables Vivify: Kissat calls
-`kissat_vivify` between early Backbone and Sweep in every search-time Probe, with effort, 3/3/1+irredundant shares,
-and productivity governing work; startup omits it. Tactix matches both orders. Explicit typed/environment off remains N1/diagnostic-only.
+Classification may dose entries but never selects whole-slot `preprocess_only` or disables Vivify: Kissat calls `kissat_vivify` between early Backbone and Sweep in every search-time Probe, with effort, 3/3/1+irredundant shares, and productivity governing work; startup omits it. Tactix matches both orders. Explicit typed/environment off remains N1/diagnostic-only.
 
-Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's
-`BUMP_DELAY`/`REDUCE_DELAY`; Substitute has no Kissat delay object, so its local closure backoff is search-time-only.
+TransitiveReduce ships in that pipeline with Kissat's activity-ranked source order: the reference pushes variable indices, applies its `IDX` conversion again inside the EVSIDS/VMTF comparator, sorts increasing, then consumes the stack from the back. Tactix's front-consumed V4-only comparator uses the corresponding decreasing key and decreasing-variable tie while preserving positive-then-negative sign order.
+The generic `CandidateOrder::Heuristic` meaning is unchanged for every other rule. Early destination exit remains off: the isolated rank-27 arm changed no formula state, while exact source order restored the intervening reduction.
+
+Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`; Substitute has no Kissat delay object, so its local closure backoff is search-time-only.
 
 ## 15. Design decision: eager subsumption after analysis
 
