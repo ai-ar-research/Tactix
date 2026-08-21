@@ -1,0 +1,28 @@
+{
+  "arm": "candidate",
+  "artifact_deleted": true,
+  "certificate_bytes": 190840832,
+  "certificate_sha256": "583c9f0b42a5de5d0f67008f4d190cc7cb3fef026697a4e7567004275647ca7b",
+  "cleanup_pending": false,
+  "derived_artifacts_deleted": true,
+  "expected": "UNSAT",
+  "expected_match": false,
+  "finished_at": "2026-08-21T03:52:23.077006+00:00",
+  "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+  "model_check": null,
+  "node": "node017",
+  "proof_check": null,
+  "schema": "tactix-matched-debug-regression-result-v1",
+  "solve": {
+    "exit_code": null,
+    "peak_rss_kb": null,
+    "timed_out": true,
+    "wall_seconds": 1200.004
+  },
+  "solver_statistics": [],
+  "solver_stderr_tail": [],
+  "task": 6,
+  "tier": "D-target-frozen20",
+  "valid": false,
+  "verdict": "UNKNOWN"
+}

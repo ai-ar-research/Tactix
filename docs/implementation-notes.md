@@ -444,16 +444,17 @@ reconstruction witness; reasons may not be deleted while live. If a redundant-bi
 reopen the representation, reduction, reason-locking, proof-deletion, and regression-test decisions
 together.
 
-Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue, not the size-monotone
-proof-identity archive. Scaled guards are strict (`limit < conflicts`); only the explicit round-zero
-Probe invitation is exempt so startup preprocessing still runs.
+Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue, not the size-monotone proof-identity archive.
+Scaled guards are strict (`limit < conflicts`); only round-zero Probe is exempt so startup preprocessing runs.
 
-Formula classification may adjust individual entry membership or dose, but never the whole-slot `preprocess_only` guard, which remains explicit and diagnostic-only.
+### Formula classification
 
-Named Congruence and Sweep productivity delays update after preprocessing as well as search-time
-calls, exactly like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`. Thus an unproductive startup call can skip
-the first scheduled search-time attempt. Substitute has no Kissat delay object; its local closure
-backoff remains search-time-only.
+Classification may dose entries but never selects whole-slot `preprocess_only` or disables Vivify: Kissat calls
+`kissat_vivify` between early Backbone and Sweep in every search-time Probe, with effort, 3/3/1+irredundant shares,
+and productivity governing work; startup omits it. Tactix matches both orders. Explicit typed/environment off remains N1/diagnostic-only.
+
+Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's
+`BUMP_DELAY`/`REDUCE_DELAY`; Substitute has no Kissat delay object, so its local closure backoff is search-time-only.
 
 ## 15. Design decision: eager subsumption after analysis
 

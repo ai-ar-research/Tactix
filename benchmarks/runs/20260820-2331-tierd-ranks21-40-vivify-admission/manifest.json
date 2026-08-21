@@ -1,0 +1,266 @@
+{
+  "baseline_policy": {
+    "reason": "Use the frozen simulated 16 GiB/1200 s Kissat view.",
+    "rerun": false
+  },
+  "created_at": "2026-08-20T23:31:36-04:00",
+  "correctness": {
+    "cleanup": "delete all certificate scratch before publishing result",
+    "sat": "pinned checkmodel plus modelcheck.py against original CNF",
+    "unsat": "pinned drat-trim against original CNF"
+  },
+  "freeze_manifest_path": "benchmarks/runs/20260818-0142-tierd-ranks21-40-predeclared/manifest.json",
+  "freeze_manifest_sha256": "d02a9cf33e83398803246398e3ca134032d109f33ec5237345902565ef230e21",
+  "input_sha256": {
+    "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz": "960f0bd90daf7eac3dc1da0bfec80b3edc591183bff6bd0df88ba3b8901cbc7a",
+    "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz": "1ddcff26a1f5b1fa0723a2c6c9fd27650d0c46f687ef982330ed2f78087506db",
+    "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+    "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz": "e5154585c040e790b266d83e8ccef82eb1377ddb41c30f57fd945efab1b9aae4",
+    "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz": "3ee6c6db49c2d64d13121d47a59e4783ae5525d96c9668ba72c1e1ff6d75b5e0",
+    "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz": "32011f483030197306b88c9cc705630a2f1ab47a02263ae87af132f5ed40d528",
+    "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz": "ff8adaab784f0655ac2e249bf18d36bfb80fa1c812f48d690ac5c27208c65fcc",
+    "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz": "b593364c559acab10fed9546371efe2f96683fd2c21021439dc340d6fa1ea85c",
+    "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz": "d8558976bb5b8a291b5d1ca9c997470b502f8e8bfc1abb84e7ac547c5069a620",
+    "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz": "798e6a21073247e52119a379c76bb8ffddc0e0ce663d2a4ccf84e012eb1a5167",
+    "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+    "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz": "5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9",
+    "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+    "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+    "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz": "da8c2a27aa6ad3550c6ee749ca342ce8378fab26fc559125498e0ebc2543b31c",
+    "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz": "847cb416d3ff8302fd950e6b2ea16e4220514723854448b28648291733311015",
+    "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz": "d9d0a31a3e8efa334e8f1d3140e38e908aca019d03b2fb5922f0f71618e892b5",
+    "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz": "06d9e02115e51ffb435729ebf0784227a0b64354900dde5362a1055171d9fdd3",
+    "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz": "9e3c14afd394f18ee5550fd3b63a622a49c98b35438f44287fb8ce9af7915e03",
+    "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450"
+  },
+  "pins": {
+    "checkmodel": {
+      "path": "pins/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    },
+    "drat-trim": {
+      "path": "pins/drat-trim",
+      "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    "modelcheck.py": {
+      "path": "pins/modelcheck.py",
+      "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+    },
+    "tactix-candidate": {
+      "path": "pins/tactix-candidate",
+      "sha256": "b6c991e099f4fa9cc635bacb20d7aa44ff3fdc23d0af78974b12998cecd6fb6f",
+      "source_commit": "b7df39f8cd99ae19253337d72c20b93ce41b6985",
+      "source_diff_sha256": "180bf8a8a400a27bef69d6e7884f343ae978c8a483688fe404156ae53c5399f1"
+    }
+  },
+  "predecessor": "../20260820-2322-tierd-rank24-vivify-admission",
+  "purpose": "Cumulative immutable ranks-21-40 validation after the general Kissat-source-backed Vivify admission repair; preserve six inherited closures, add checked rank 24, and leave zero certificate residue.",
+  "n4": "The frozen ranks are measurement witnesses only. Production and unit-test behavior is independent of rank, instance, trace, literal, clause, conflict, hash, and deadline identity.",
+  "resource_contract": {
+    "array_throttle": null,
+    "job": 1636928,
+    "checker_timeout_seconds": 4800,
+    "cpus_per_task": 2,
+    "mem_per_cpu_gib": 8,
+    "node_constraint": null,
+    "partition": "cpu-dense-hwulab-q",
+    "process_memory_gib": 16,
+    "solver_timeout_seconds": 1200
+  },
+  "schema": "tactix-tierd-frozen-twenty-vivify-admission-v1",
+  "source_commit": "b7df39f8cd99ae19253337d72c20b93ce41b6985",
+  "source_diff_sha256": "180bf8a8a400a27bef69d6e7884f343ae978c8a483688fe404156ae53c5399f1",
+  "source_files_changed": [
+    "src/policies/default_policy.cpp",
+    "src/rules/vivify/vivify.cpp",
+    "tests/test_scheduling.cpp",
+    "tests/test_strategy_config.cpp"
+  ],
+  "task_count": 20,
+  "outcome": {
+    "slurm_state": "COMPLETED",
+    "valid": 6,
+    "total": 20,
+    "sat": 5,
+    "unsat": 1,
+    "unknown": 14,
+    "closed_ranks": [
+      21,
+      23,
+      25,
+      28,
+      29,
+      38
+    ],
+    "newly_closed_vs_predecessor": [],
+    "lost_vs_predecessor": [],
+    "answered_solve_wall_seconds": 1794.286,
+    "par2_seconds": 35394.286,
+    "peak_rss_kb": 6919528,
+    "cleanup_pending": 0,
+    "certificate_residue": false,
+    "disposition": "accepted cumulative pin with paired 33/33 B/C guard; no Tier-D gains or losses, continue at rank 22"
+  },
+  "tasks": [
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+      "rank": 21,
+      "task": 0,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz",
+      "rank": 22,
+      "task": 1,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+      "rank": 23,
+      "task": 2,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz",
+      "rank": 24,
+      "task": 3,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz",
+      "rank": 25,
+      "task": 4,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+      "rank": 26,
+      "task": 5,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+      "rank": 27,
+      "task": 6,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz",
+      "rank": 28,
+      "task": 7,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz",
+      "rank": 29,
+      "task": 8,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz",
+      "rank": 30,
+      "task": 9,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+      "rank": 31,
+      "task": 10,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+      "rank": 32,
+      "task": 11,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+      "rank": 33,
+      "task": 12,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz",
+      "rank": 34,
+      "task": 13,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+      "rank": 35,
+      "task": 14,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "SAT",
+      "instance": "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz",
+      "rank": 36,
+      "task": 15,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+      "rank": 37,
+      "task": 16,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz",
+      "rank": 38,
+      "task": 17,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+      "rank": 39,
+      "task": 18,
+      "tier": "D-target-frozen20"
+    },
+    {
+      "arm": "candidate",
+      "expected": "UNSAT",
+      "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+      "rank": 40,
+      "task": 19,
+      "tier": "D-target-frozen20"
+    }
+  ]
+}

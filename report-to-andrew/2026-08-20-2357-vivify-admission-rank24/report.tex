@@ -1,0 +1,170 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Vivify Admission Repair and Tier-D Rank-24 Closure}
+\author{Tactix engineering handoff}
+\date{20 August 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Objective and outcome}
+The objective was to start the next immutable Tier-D closure at rank 24,
+compare Tactix and Kissat from the latest common semantic state, and repair
+only the earliest portable scheduling, representation, or semantic
+divergence.  The investigation specifically audited Vivify admission,
+cadence, candidate ordering, tier shares, and its placement among adjacent
+proof rules.
+
+The accepted repair removes every formula-selected Vivify disable.  It is a
+general source-parity correction: formula classification may dose BVE,
+Factor, forward work, and Vivify effort, but cannot remove the Vivify
+opportunity that Kissat offers in every search-time Probe phase.  The repair
+closes rank 24 UNSAT in 356.205 seconds with an independently verified proof.
+The cumulative ranks-21--40 gate preserves all six inherited closures and
+also closes rank 34 SAT and rank 39 UNSAT.  The accepted set is now ranks 21,
+23, 24, 25, 28, 29, 34, 38, and 39; eleven ranks remain open.
+
+\section*{Root cause and design decision}
+The immutable rank-24 formula contains 167,755 variables and 473,169 clauses.
+The old formula classifier placed every formula in the 120,000--199,999
+variable range into a \code{NoVivify} profile.  During scheduler construction,
+that profile omitted the Vivify entry from all search-time Probe phases.
+
+Kissat has no equivalent variable-range or density-range admission policy.
+Its \code{probe.c} calls \code{kissat\_vivify} unconditionally between the
+early Backbone and Sweep calls in every search-time Probe.  The
+\code{vivify} option, 100-per-mille effort, 3/3/1 redundant-tier shares,
+irredundant share, and irredundant productivity delay bound the work inside
+that opportunity.  Kissat's reduced startup Probe intentionally omits
+Vivify.  Thus the earliest portable divergence was policy admission at the
+first due search-time Probe, not a Vivify rule-side guard.
+
+The classifier's former \code{*NoVivify} variants now collapse onto the same
+profiles with only their independently supported BVE, Factor, forward, and
+dose dimensions retained.  No benchmark name, hash, rank, deadline, literal,
+conflict, per-instance arm, or new tuned constant appears in the solver.
+Explicit typed configuration and \code{TACTIX\_SLOT\_DISABLE=Vivify} remain
+available as diagnostic and N1 selection surfaces.
+
+\section*{Vivify parity audit}
+The repair is admission-only because the surrounding machinery is already
+source-aligned and regression-pinned.  The exact default orders are:
+
+\begin{description}
+\item[Startup Probe.] Congruence, Substitute, Backbone, Sweep, Substitute,
+Factor.
+\item[Search-time Probe.] Congruence, Substitute, Backbone, Vivify, Sweep,
+Substitute, TransitiveReduce, Backbone, Factor.
+\end{description}
+
+Within Vivify, Tactix uses the focused dynamic tier limits; 3/3/1 redundant
+shares followed by the irredundant share; Kissat's leftover priority and
+whole-scope re-arm; occurrence-ranked candidate and literal order with the
+descending raw-literal tie; committed clause pose and rebuilt large watches;
+cross-candidate trail-prefix reuse; earliest implied-literal selection;
+deduction precedence; and the one-percent irredundant productivity delay.
+The stale source comment suggesting that \code{better\_implied} was absent
+was corrected: the later trail-order scan already implements it.
+
+\code{test\_scheduling} now pins both complete default sequences.
+\code{test\_strategy\_config} sweeps every formula-profile boundary and
+requires default Vivify admission, while separately proving that a caller's
+explicit disable remains intact.  Existing focused Vivify order, deduction,
+tier, N1, and proof tests remain unchanged.
+
+Diagnostic Slurm job \code{1636836} ran the frozen rank-24 input through
+instrumented Kissat and the preceding Tactix source with symmetric trace
+controls.  Both diagnostic tasks timed out at 1,200 seconds and left no
+certificate residue.  The trace identifies Kissat's search-time Vivify
+boundary; the source classifier identifies why Tactix could not take it.  No
+frozen reference performance result was rerun.
+
+\section*{Correctness and iteration guard}
+Release passes 72/72 tests, including native LRAT and DRAT micro-proof replay.
+No fuzz or unit test exposed a soundness defect or crash, so the development
+plan's mandatory Claude repair delegation was not triggered.
+
+Matched Slurm job \code{1636852} ran current shipped and candidate binaries in
+the same window under the pre-Phase-4.5 contract: two CPUs, 16\,GiB,
+1,200-second solver timeout, no node constraint, and no array throttle.  It
+covered all 28 Tier-B fixtures and the predeclared fixed five
+mechanism-relevant Tier-C fixtures.
+
+\begin{center}
+\begin{tabular}{lrrrr}
+\toprule
+Tier & shipped checked & candidate checked & shipped wall & candidate wall \\
+\midrule
+B & 28/28 & 28/28 & 1228.741 s & 649.578 s \\
+C & 5/5 & 5/5 & 1790.271 s & 1586.259 s \\
+Total & 33/33 & 33/33 & 3019.012 s & 2235.837 s \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+There is no solve loss.  The largest improvement is \code{mod4block}, from
+718.396 seconds to 95.820 seconds.  The largest slowdown is
+\code{SC25\_Timetable}, from 18.908 seconds to 67.615 seconds; it remains a
+checked SAT solve.  The hard Tier-C \code{T105.2.0} UNSAT case is neutral at
+807.998 versus 811.605 seconds.  Every SAT model and UNSAT proof verifies, and
+all 66 tasks delete their scratch and certificate artifacts.
+
+\begin{sloppypar}
+The immutable manifest is
+\artifact{benchmarks/runs/20260820-2306-BC-vivify-admission/manifest.json}
+(SHA-256 \code{f230612e...6216}).  The candidate binary is
+\code{b6c991e0...fb6f}, from source commit \code{b7df39f8...b6985} plus
+source diff \code{180bf8a8...9f1}.
+\end{sloppypar}
+
+\section*{Rank-24 and cumulative Tier-D evidence}
+Targeted job \code{1636927} proves rank 24 UNSAT in 356.205 seconds.  Vivify
+runs 208 times, checks 702,223 candidates, and performs 177,032
+vivifications.  \code{drat-trim} verifies the 1,398,139,701-byte proof in
+94.099 seconds: 1,746,149 of 8,524,960 lemmas enter the core, with 31,608,568
+resolution steps and zero RAT core lemmas.  The runner then deletes the proof
+and scratch directory.  Its manifest is
+\artifact{benchmarks/runs/20260820-2322-tierd-rank24-vivify-admission/manifest.json}
+(\code{a7bc9530...e6be}).
+
+Cumulative job \code{1636928} runs all frozen ranks 21--40.  Nine answers are
+independently checked: ranks 21, 23, 24, 25, 28, 29, 34, 38, and 39.  The six
+predecessors are preserved; ranks 24 and 39 are UNSAT gains and rank 34 is an
+incidental SAT gain.  The other eleven tasks are clean 1,200-second UNKNOWN
+timeouts.  All 20 tasks complete without infrastructure failure or
+certificate residue.  Its manifest is
+\artifact{benchmarks/runs/20260820-2331-tierd-ranks21-40-vivify-admission/manifest.json}
+(\code{65e2c85f...550}).
+
+\begin{sloppypar}
+The full frozen narrative and reopening condition are in
+\artifact{benchmarks/reports/2026-08-20-tierd-rank24-vivify-admission.md}.
+Durable policy ownership is recorded in
+\artifact{docs/implementation-notes.md}; T4 and the accepted N4 evidence pin
+are updated in \artifact{docs/scheduling-parity-ledger.md}.
+\end{sloppypar}
+
+\section*{Limitations, risks, and next actions}
+This repair does not claim exact runtime parity with Kissat, and it does not
+erase formula-profile dosing for independently measured mechanisms.  One
+Tier-B instance slows substantially, although aggregate B and C time improves
+and coverage is unchanged.  Candidate-order and deduction parity remain
+subject to their existing ledger reopening conditions.
+
+Rank 22 remains parked at its previously localized common-input Vivify
+boundary; this admission repair does not by itself close that much larger
+instance.  Following the requested UNSAT-first order, the next open targets
+are ranks 27, 31, 32, 33, 35, 37, and 40.  Each future change still owes the
+full Tier-B plus predeclared mechanism-relevant Tier-C guard before its Tier-D
+witness.  Reopen this repair if any formula classifier again clears
+\code{vivify\_enabled}, if either default Probe sequence changes, if a checked
+predecessor is lost, or if proof/model validation or cleanup fails.
+
+\end{document}

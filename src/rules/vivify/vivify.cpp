@@ -1199,8 +1199,10 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
     // Eager implied literal (kissat vivify.c:1078-1090): scan what this
     // assumption propagated for another literal of the candidate, giving
     // (probes[0..i], implied) — stronger than waiting for position j > i.
-    // kissat's `better_implied` refinement (vivify.c:1101-1117) is not
-    // ported; the first in trail order is taken.
+    // Kissat's `better_implied` refinement is completed below after the
+    // assumption loop: this eager scan only discovers that an implication
+    // exists, while the later scan selects the earliest candidate literal in
+    // trail order (vivify.c:1101-1117).
     // From before + 1: trail[before] is the assumption itself, a marked
     // literal's negation and never an implied one.
     for (uint32_t t = before + 1; t < k.trail.size(); t++)
