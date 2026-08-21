@@ -18,21 +18,15 @@ evidence. This file is only the current resume surface.
   cumulative Vivify-admission pin closes ranks **21, 23, 24, 25, 28, 29, 34,
   38, and 39** under the 16 GiB/1200 s debug contract; all nine answers
   validate and certificate residue is zero. Eleven ranks remain open.
-- Rank 27's earliest portable gap was Congruence's local AND-arity 64 scope
-  versus both references' 1,000,000 default. Raising only that source-backed
-  scope restores the 132 missing opening equivalence classes. Release is
-  72/72 and matched job `1636973` is checked 66/66 across 28B+5C at 1.005x
-  accepted-pin PAR-2 with zero residue. The repaired rank-27 witness job
-  `1637039` remains UNKNOWN at 1200.004 s, so rank 27 is not closed.
-- From that corrected opening state, Tactix and Kissat match through decision
-  741,305 and conflict 2027 analysis. The first new split was lifecycle
-  accounting: Rephase cleared the Tactix trail through canonical Restart and
-  incorrectly advanced its restart counter, while Kissat's Rephase backtrack
-  does not. The neutral-backtrack repair restores the exact conflict-2027
-  Restart and matches through conflict 2028. Release is 69/69; matched job
-  `1637061` is checked 66/66 across 28B+5C at 0.786x accepted-pin aggregate
-  time with zero residue. Witness job `1637131` remains UNKNOWN at 1200.004 s,
-  so rank 27 is still open.
+- Rank 27 now has the source-backed Congruence arity and Rephase/Restart
+  accounting repairs plus Kissat-shaped Vivify candidate scope, cumulative
+  tier ceilings, jumped semantic reasons, and all-terminal productivity. Final
+  trace `1637436` restores the second irredundant round, exact long-clause
+  counts and terminal totals; binary-effect jobs `1637438`/`1637440`/`1637441`
+  are exact. Release is 72/72 and matched 28B+5C job `1637369` is 66/66 valid
+  with zero residue, but its 1.241x aggregate reopens performance coupling.
+  Witness `1637437` remains UNKNOWN at 1200.004 s with its 252,706,816-byte
+  partial proof deleted, so rank 27 is open.
 - The latest soundness repair preserves sessionless Sweep binary/proof identity
   and makes RUP admission format-independent for Sweep and HyperBinaryRes.
   Release 72/72, Trace 71/71, ASAN-O3 72/72, Debug 71/71, the 26-entry
@@ -48,9 +42,9 @@ evidence. This file is only the current resume surface.
   Formula classification no longer disables Vivify for any shape. Matched job
   `1636852` is checked 28B+5C on both arms, targeted rank-24 job `1636927`
   verifies UNSAT in 356.2 s, and cumulative job `1636928` preserves all six
-  predecessors while adding ranks 24, 34, and 39. Rank 27 now has the
-  reference-wide AND extraction scope and corrected Rephase/Restart accounting;
-  its next trace must begin after the now-exact conflict-2028 lifecycle.
+  predecessors while adding ranks 24, 34, and 39. Rank 27's next trace starts
+  after the now-accounted conflict-3069 Vivify calls; do not repeat candidate
+  scope, cumulative-budget, jumped-reason, or productivity investigations.
 
 <!-- track-sched:begin -->
 N4 verification is complete at the accepted parity pin. The living mechanism
@@ -65,13 +59,13 @@ soundness work changes no scheduling disposition.
 
 ## Immediate work
 
-1. Continue Phase 4.25 Stage A with the open UNSAT ranks first: 27, 31, 32, 33,
-   35, 37, then 40. For rank 27, extend the paired trace only beyond the exact
-   conflict-2028 transaction and localize the first later portable divergence;
-   do not repeat the arity, reinsertion-history, old decision-69893, or
-   Rephase-accounting investigations. Make only a general source-backed repair,
-   and apply the plan's Tier B plus predeclared Tier C iteration guard before
-   each targeted Tier-D witness.
+1. Continue Phase 4.25 Stage A with open UNSAT ranks first: 27, 31, 32, 33, 35,
+   37, then 40. For rank 27, extend the paired trace only after conflict 3069's
+   accounted Vivify calls and localize the next portable divergence. In the
+   same sequential pass, localize the 1.241x guard regression on predeclared
+   `mp1-Nb5T15`/`sted5` as a missing coupling; never restore the size cutoff.
+   Make only a general source-backed repair and rerun full B+fixed C before a
+   new Tier-D witness.
 2. Return to rank 22 later. Backbone is exact through the conflict-4487 early
    call and both solvers leave it with 3,442,398 semantic variables; Vivify is
    the first later owner. Do not repeat the completed Backbone investigation.
@@ -89,6 +83,10 @@ soundness work changes no scheduling disposition.
 
 ## Recent changes
 
+- 2026-08-21: removed Vivify's invented size-100 cutoff; aligned cumulative
+  tier ceilings, jumped semantic reasons, and all-terminal productivity;
+  passed 72/72 and matched 28B+5C correctness; recorded rank 27 UNKNOWN and
+  the candidate's 1.241x performance reopening.
 - 2026-08-21: separated Rephase's neutral root clear from canonical Restart
   accounting, restored rank 27's exact conflict-2027 Restart lifecycle, passed
   69/69 Release and matched 28B+5C, and recorded that rank 27 still times out.
@@ -100,8 +98,6 @@ soundness work changes no scheduling disposition.
   job `1636928`, and preserved all six inherited closures with zero residue.
 - 2026-08-20: merged the Tier-D parity and soundness milestone to `main`
   (`d9a5d1f`).
-- 2026-08-20: closed Sweep/HBR proof-admission regressions and the 10,000-case
-  independent fuzz gate (`dab7908`).
 The repository's newest timestamped completed Tier-C artifact is
 `benchmarks/runs/20260813-111513-C-cleanup-b2b8362/`; it is historical cleanup
 evidence, not a replacement for the accepted T3 report or a current campaign.

@@ -50,6 +50,10 @@ TABLE = {
     "bve_track_min_bound":     ("POLICY", "ramp bookkeeping"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
+    "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
+                                          "Vivify tier ceiling"),
+    "work_budget_bounded":     ("POLICY", "distinguishes a zero cumulative Vivify "
+                                          "ceiling from an unbounded rule call"),
     "vivify_scope":            ("POLICY", "which clause tier Vivify may touch; SCHED-G3 "
                                           "splits the redundant side into kissat's "
                                           "tier1/tier2/tier3 (C10 hand-off H3)"),

@@ -529,6 +529,74 @@ static void test_vivify_dose_poses_focused_tiers(void) {
   std::printf("  vivify tiers: stable retier -> focused 20/38 at dose entry\n");
 }
 
+// Kissat's tier limits are cumulative absolute ceilings.  With no tier-1 or
+// tier-2 candidates, their unused 3/10 + 3/10 shares therefore remain
+// available to tier 3 instead of being discarded before that call.
+static void test_vivify_dose_carries_early_tier_budget(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 160);
+  ScopedHeuristics h(k);
+  k.stats.conflicts = 1;
+  for (uint32_t clause = 0; clause < 8; clause++) {
+    Lit lits[20];
+    for (uint32_t i = 0; i < 20; i++)
+      lits[i] = make_lit(clause * 20 + i, true);
+    kernel_add_large_clause(k, lits, 20, true, 20, 0);
+  }
+
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.minimum_effort_ticks = 1000;
+  cfg.inprocess.phase_rounds = 1;
+  cfg.inprocess.vivify_permille = 1000;
+  DefaultPolicy p(cfg);
+  p.inprocess().build(k);
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries)
+    e.enabled = !std::strcmp(rules[e.rule].name, "Vivify");
+
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  std::printf("  vivify cumulative tiers: checked=%llu tier3=%llu ticks=%llu\n",
+              (unsigned long long)k.stats.vivify_checked,
+              (unsigned long long)k.stats.vivify_tier3,
+              (unsigned long long)k.stats.vivify_ticks);
+  assert(k.stats.vivify_tier3 == 8 &&
+         "tier 3 lost the unused cumulative tier-1/tier-2 allowance");
+}
+
+// Kissat's irredundant productivity numerator counts every changed candidate,
+// including a pure subsumption.  Counting only replacement clauses would
+// raise vivifyirr's delay after a maximally productive subsumption-only dose.
+static void test_vivify_subsumption_reduces_irredundant_delay(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  ScopedHeuristics h(k);
+  k.stats.conflicts = 1;
+  const Lit clause[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, clause, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.minimum_effort_ticks = 1000;
+  cfg.inprocess.phase_rounds = 1;
+  cfg.inprocess.vivify_permille = 1000;
+  DefaultPolicy p(cfg);
+  p.inprocess().build(k);
+  DefaultInprocessScheduler::SlotEntry *vivify = nullptr;
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries) {
+    const bool selected = !std::strcmp(rules[e.rule].name, "Vivify");
+    e.enabled = selected;
+    if (selected)
+      vivify = &e;
+  }
+  assert(vivify);
+
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(k.stats.vivify_subsumed == 1 && k.stats.vivify_shrunken == 0);
+  assert(vivify->delay_current == 0 && vivify->delay_count == 0 &&
+         "a successful subsumption was omitted from Vivify productivity");
+}
+
 // --- the authored slot order covers the registry ----------------------------
 // The slot order is data (default_slot_order), and an unnamed rule is still
 // scheduled — appended in registry order — so its position becomes an accident.
@@ -1071,6 +1139,8 @@ int main() {
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
   test_vivify_dose_poses_focused_tiers();
+  test_vivify_dose_carries_early_tier_budget();
+  test_vivify_subsumption_reduces_irredundant_delay();
   test_authored_slot_order_covers_registry();
   test_default_slot_membership_matches_kissat();
   test_two_slot_clocks_diverge();

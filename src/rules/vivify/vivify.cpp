@@ -253,9 +253,12 @@ static bool in_scope(const Kernel &k, const Clause *c) {
   }
 }
 
-// candidate: live, 3 <= size <= lim, not root-satisfied; in the scope's band
+// Kissat has no clause-size cutoff here: the round's propagation-tick budget
+// is its only work bound (vivify.c:1254-1327).  In particular a large probe
+// still updates the retained prefix and watch/search state even when it makes
+// no formula edit, so silently omitting it also changes later candidates.
 static bool is_candidate(const Kernel &k, const Clause *c) {
-  if (c->garbage() || c->size > VIVIFY_CLSLIM || c->size < 3)
+  if (c->garbage() || c->size < 3)
     return false;
   // The live tier, not the static default (kissat `vivify_tier2_limit`,
   // vivify.c:132, whose `vivifyfocusedtiers` ships on). The cut binds only for
@@ -1001,7 +1004,13 @@ static VivifyDeduction deduce(Kernel &k, Ref cref,
     }
     const Lit true_lit = negate(false_lit);
     if (a.binary) {
-      const Lit other = a.jumped ? k.jumped_over[v] : a.reason;
+      // Kissat's Vivify walks the assignment's semantic binary reason, which
+      // can be a virtual resolvent produced by reason jumping (vivify.c:
+      // 525-542).  Using jumped_over here expands that resolvent too early:
+      // it can hide a binary reason wholly contained in the candidate and
+      // turn a subsumption into a binary rewrite.  Native proof walks still
+      // expand the virtual reason through jumped_over in kernel_reason_walk.
+      const Lit other = a.reason;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       journal_reason("binary(" +
                      std::to_string(kernel_externalize(k, other)) + ')');
@@ -1481,6 +1490,10 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool *ended_round,
 // canonical instance: one full round over the tier-aware schedule
 ApplyResult vivify_apply(Kernel &k) {
   assert(vivify_guard(k));
+  // The caller poses Kissat's cumulative ceiling before entering the round.
+  // Scheduling and watch rebuilding consume that same probing-tick allowance;
+  // do not restart the relative clock after the schedule has been built.
+  const uint64_t tick_start = k.stats.ticks;
   // D-LEVEL guard purification: complete the root closure U (no-op at a
   // fixpoint); a root conflict during the drain refutes.
   if (inprocess_reach_root(k))
@@ -1510,15 +1523,19 @@ ApplyResult vivify_apply(Kernel &k) {
   uint64_t changed = sched.flushed + sched.root_changed;
   bool ended = false;
   const bool reuse = k.vivify_reuse;
-  // k.work_budget in Vivify's currency (propagation ticks); 0 = unbounded
-  const uint64_t tick_start = k.stats.ticks;
+  // k.work_budget is the cumulative Vivify ceiling in propagation ticks.
+  // Zero is unbounded only when work_budget_bounded is false.
   uint64_t ordinal = 0;
   VivifyArenaOrder arena_order(k);
   if (sched.root_changed)
     arena_order.retire();
   for (const Ref cref : candidates) {
-    if (k.work_budget && k.stats.ticks - tick_start > k.work_budget)
-      break;
+    if (k.work_budget_bounded || k.work_budget) {
+      const uint64_t used = k.stats.ticks - tick_start;
+      if (k.work_budget_offset > k.work_budget ||
+          used > k.work_budget - k.work_budget_offset)
+        break;
+    }
     // Termination poll on every candidate (kissat vivify.c:1291), with no
     // `!(++tick & 255)` window: a window an instance never reaches makes the
     // abort path vacuous. The two counters are separate on purpose.

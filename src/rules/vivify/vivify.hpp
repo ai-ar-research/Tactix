@@ -18,7 +18,6 @@
 
 namespace tactix {
 
-constexpr uint32_t VIVIFY_CLSLIM = 100; // probe-cost bound per candidate
 // Static fallback only: the live bound is `Kernel::tier2`, recomputed from the
 // glue distribution at every reduce. This is that field's initial value, and
 // also kissat's `TIER2` constant.

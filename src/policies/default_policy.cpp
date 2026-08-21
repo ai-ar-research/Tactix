@@ -2358,24 +2358,35 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   const auto &cfg = config();
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
   const uint64_t remaining = remaining0 ? remaining0 : 1;
+  const uint64_t dose_start = e.meter(k);
   const bool irr_delayed = k.stats.conflicts > 0 && e.delay_count > 0;
   if (irr_delayed)
     e.delay_count--;
   const char *no_t3 = std::getenv("TACTIX_VIVIFY_TIER3");
   const bool split = !(no_t3 && *no_t3 == '0');
   ApplyResult ar = ApplyResult::NoOp;
-  const uint64_t red = irr_delayed
-                           ? remaining
-                           : remaining * cfg.vivify_redundant_share /
-                                 cfg.vivify_total_share;
+  // Kissat advances one cumulative probing-tick ceiling by each band's
+  // proportional share (vivify.c:1455-1490).  Keep the same ledger here:
+  // unused work from an early tier belongs to every later tier, while an
+  // overrun is precharged rather than granting the next call a fresh dose.
+  const uint64_t denominator = irr_delayed ? cfg.vivify_redundant_share
+                                           : cfg.vivify_total_share;
+  auto share = [&](uint32_t weight) {
+    return remaining / denominator * weight +
+           remaining % denominator * weight / denominator;
+  };
+  uint64_t cumulative_budget = 0;
+  k.work_budget_bounded = true;
   const uint32_t passes =
       split ? static_cast<uint32_t>(cfg.vivify_tier_scopes.size()) : 1u;
   for (uint32_t p = 0; p < passes && ar != ApplyResult::Unsat && !k.inconsistent;
        p++) {
     k.vivify_scope = split ? cfg.vivify_tier_scopes[p] : uint8_t{1};
-    const uint64_t tier_share =
-        red * cfg.vivify_tier_shares[p] / cfg.vivify_redundant_share;
-    k.work_budget = std::max<uint64_t>(1, split ? tier_share : red);
+    cumulative_budget +=
+        share(split ? cfg.vivify_tier_shares[p]
+                    : cfg.vivify_redundant_share);
+    k.work_budget = cumulative_budget;
+    k.work_budget_offset = e.meter(k) - dose_start;
     TickSinkScope sink(k, e.tick_counter);
     const ApplyResult a = apply_rule(r, k);
     if (a == ApplyResult::Unsat ||
@@ -2383,13 +2394,21 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
       ar = a;
   }
   if (!irr_delayed && ar != ApplyResult::Unsat && !k.inconsistent) {
-    const uint64_t spent = e.meter(k);
-    const uint64_t irr_budget =
-        spent < limit ? std::max<uint64_t>(1, limit - spent) : 1;
+    cumulative_budget += share(cfg.vivify_total_share -
+                               cfg.vivify_redundant_share);
     const uint64_t tried_before = k.stats.vivify_checked;
-    const uint64_t produced_before = k.stats.vivified + k.stats.vivify_deleted;
+    const auto produced = [&] {
+      // Kissat increments vivifier.vivified for every successful candidate
+      // terminal, not only learned replacements (vivify.c:1129-1217,
+      // 1313-1315).  Root-schedule cleanup is outside the tried population.
+      return k.stats.vivify_subsumed + k.stats.vivify_shrunken +
+             k.stats.vivify_implied + k.stats.vivify_asymmetric +
+             k.stats.vivify_instantiated;
+    };
+    const uint64_t produced_before = produced();
     k.vivify_scope = 2;
-    k.work_budget = irr_budget;
+    k.work_budget = cumulative_budget;
+    k.work_budget_offset = e.meter(k) - dose_start;
     const ApplyResult ar2 = [&] {
       TickSinkScope sink(k, e.tick_counter);
       return apply_rule(r, k);
@@ -2400,10 +2419,9 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
       ar = ar2;
     if (k.stats.conflicts > 0) {
       const uint64_t tried = k.stats.vivify_checked - tried_before;
-      const uint64_t produced =
-          k.stats.vivified + k.stats.vivify_deleted - produced_before;
+      const uint64_t produced_now = produced() - produced_before;
       if (tried == 0 ||
-          produced * PERCENT_SCALE <
+          produced_now * PERCENT_SCALE <
               tried * cfg.vivify_irredundant_productivity_percent) {
         e.delay_current += (e.delay_current < UINT32_MAX);
         e.delay_count = e.delay_current;
@@ -2415,6 +2433,8 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   }
   k.vivify_scope = 0;
   k.work_budget = 0;
+  k.work_budget_offset = 0;
+  k.work_budget_bounded = false;
   return ar;
 }
 
