@@ -2427,6 +2427,27 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
 }
 } // namespace
 
+void sweep_order_retirement_suffix(Kernel &k, size_t retired_begin,
+                                   size_t substituted_begin) {
+  // Kissat's inline Sweep rewrite only fills `sweeper->reprs`.  The single
+  // Substitute call after Sweep later deactivates their union through
+  // `for (all_variables (idx))` (probe.c, substitute.c
+  // `remove_representative_equivalences`).  Tactix must retire inline because
+  // each variable-width rewrite needs a reconstruction witness immediately,
+  // but its per-environment batches must not leak into the eventual heuristic
+  // removal order.  Kissat's compact internal indices are Tactix's permanent
+  // first-import order.
+  const auto imported_before = [&](Var a, Var b) {
+    return kernel_import_var_order(k, a) < kernel_import_var_order(k, b);
+  };
+  assert(retired_begin <= k.retired_events.size());
+  assert(substituted_begin <= k.substituted_events.size());
+  std::sort(k.retired_events.begin() + retired_begin, k.retired_events.end(),
+            imported_before);
+  std::sort(k.substituted_events.begin() + substituted_begin,
+            k.substituted_events.end(), imported_before);
+}
+
 ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   // TACTIX_NO_SWEEP: diagnostic kill switch, so a fuzz leg can run with V5
   // inert. It stays because Sweep shares the RUP-replay primitive with
@@ -2448,17 +2469,24 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
     return ApplyResult::NoOp;
   SweepRound round;
   SweepLimits lim = sweep_limits_from_env(base);
+  const size_t retired_begin = k.retired_events.size();
+  const size_t substituted_begin = k.substituted_events.size();
   // Honour the effort ledger. `round_ticks` defaults to 0 = unbounded,
   // which is right for the diagnostic probe and catastrophic for a scheduled
   // rule; `Kernel::work_budget` is what the policy hands a budget-aware rule.
   if (k.work_budget)
     lim.round_ticks = k.work_budget;
-  if (lim.resume)
-    return sweep_apply_resumable(k, lim, round);
-  const uint32_t found = sweep_detect_round(k, lim, round);
-  const ApplyResult result = sweep_emit_round(k, round, found);
+  ApplyResult result;
+  if (lim.resume) {
+    result = sweep_apply_resumable(k, lim, round);
+  } else {
+    const uint32_t found = sweep_detect_round(k, lim, round);
+    result = sweep_emit_round(k, round, found);
+    if (result != ApplyResult::Unsat)
+      k.stats.sweep_ticks_repr += round.substitution.collect(k);
+  }
   if (result != ApplyResult::Unsat)
-    k.stats.sweep_ticks_repr += round.substitution.collect(k);
+    sweep_order_retirement_suffix(k, retired_begin, substituted_begin);
   return result;
 }
 

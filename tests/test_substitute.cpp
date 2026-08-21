@@ -40,16 +40,26 @@ static void test_representative_uses_import_order() {
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_record_import(k, 1); // external x2 appears before x1
+  kernel_record_import(k, 2);
   kernel_record_import(k, 0);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  kernel_add_binary_clause(k, internalize(-3), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
 
   const SccResult r = substitute_find_sccs(k);
   assert(r.repr[internalize(1)] == internalize(2));
   assert(r.repr[internalize(-1)] == internalize(-2));
+  assert(r.repr[internalize(3)] == internalize(2));
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(kernel_var_retired(k, 0));
   assert(!kernel_var_retired(k, 1));
+  assert(kernel_var_retired(k, 2));
+  // Kissat's `remove_representative_equivalences` scans its compact internal
+  // variables, which are first-import ordered.  Stable external-backed Var
+  // numbers would retire x1 before x3 and mutate an equal-score heap
+  // differently.
+  assert(k.retired_events == std::vector<Var>({2, 0}));
 }
 
 // a one-way implication x1 -> x2 (no return edge) forms no non-trivial SCC
@@ -453,6 +463,10 @@ static void test_sweep_flushes_sources_in_emission_order() {
   assert(substitute_apply_sweep_equivalences(k, {{one, three}, {one, two}},
                                              session) == ApplyResult::Ok);
   assert_ledger_mirrors_kernel(k, session);
+  // Clause streams follow pair-emission order, but Kissat delays variable
+  // deactivation to Substitute's first-import-order scan.
+  assert(k.retired_events ==
+         std::vector<Var>({var_of(two), var_of(three)}));
 
   const auto &ordered = session.dense_occurrences[one];
   assert(ordered.size() == 2);

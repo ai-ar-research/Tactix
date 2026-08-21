@@ -802,7 +802,10 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   Kernel k;
   build(k, 7, cls);
   assert(k.dense == nullptr);
-  k.sweep_tail = {k.internal_to_external[0], k.internal_to_external[4]};
+  // Force the later-import environment first. Kissat records all Sweep
+  // representatives and the following single Substitute call retires their
+  // union in compact internal-index (first-import) order.
+  k.sweep_tail = {k.internal_to_external[4], k.internal_to_external[0]};
   k.sweep_tail_next = 0;
 
   assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
@@ -810,6 +813,9 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(k.stats.substitute_vars >= 1);
   assert(k.stats.sweep_general >= 1);
+  for (size_t i = 1; i < k.retired_events.size(); i++)
+    assert(kernel_import_var_order(k, k.retired_events[i - 1]) <
+           kernel_import_var_order(k, k.retired_events[i]));
 }
 
 // The canonical dense path carries an ordered occurrence ledger across the
@@ -828,6 +834,8 @@ static void test_dense_call_collects_once_across_productive_environments() {
   build(k, 8, cls);
   OccIndex occ;
   kernel_dense_connect(k, occ);
+  k.sweep_tail = {k.internal_to_external[4], k.internal_to_external[0]};
+  k.sweep_tail_next = 0;
   const uint64_t generation = k.arena_generation;
   assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
   assert(sweep_apply(k) == ApplyResult::Ok);
@@ -835,6 +843,9 @@ static void test_dense_call_collects_once_across_productive_environments() {
   assert(k.stats.sweep_equivalences >= 2);
   assert(k.stats.substitute_vars >= 2);
   assert(k.arena_generation == generation + 1);
+  for (size_t i = 1; i < k.retired_events.size(); i++)
+    assert(kernel_import_var_order(k, k.retired_events[i - 1]) <
+           kernel_import_var_order(k, k.retired_events[i]));
   kernel_dense_disconnect(k);
 }
 

@@ -224,6 +224,12 @@ ApplyResult sweep_apply(Kernel &);
 // defaults above; both retain the same proof-rule semantics.
 ApplyResult sweep_apply_with_limits(Kernel &, const SweepLimits &);
 
+// Tactix commits Sweep equivalences per environment, while Kissat's following
+// Substitute deactivates the complete union in one internal-variable scan.
+// Re-pose the still-unconsumed event suffix at that transaction boundary.
+void sweep_order_retirement_suffix(Kernel &, size_t retired_begin,
+                                   size_t substituted_begin);
+
 // Read the SweepLimits overrides from the environment. Lives here rather than
 // in the policy so the probe hook and the tests configure the detector alike.
 SweepLimits sweep_limits_from_env(SweepLimits base = SweepLimits{});

@@ -2669,6 +2669,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   SlotPhaseCtx ctx{group, stop};
   const std::vector<RuleVTable> &rules = tactix_rules();
   uint64_t active_before = active_variables(k);
+  size_t sweep_retired_begin = SIZE_MAX;
+  size_t sweep_substituted_begin = SIZE_MAX;
   const int rounds =
       k.stats.conflicts == 0 ? 1 : static_cast<int>(config().phase_rounds);
   for (ctx.outer = 0;
@@ -2703,14 +2705,31 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         }
       }
       event_trace_slot_boundary(k, r.name, "begin");
+      const bool sweep = !std::strcmp(r.name, "Sweep");
+      const size_t retired_before = sweep ? k.retired_events.size() : 0;
+      const size_t substituted_before = sweep ? k.substituted_events.size() : 0;
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
                                 ? run_dosed_entry(k, e, r, ctx)
                                 : run_batch_entry(k, e, r, ctx);
       event_trace_slot_boundary(k, r.name, "end");
       if (!std::strcmp(r.name, "Congruence"))
         ctx.congruence_changed = ctx.last_result == ApplyResult::Ok;
-      else if (!std::strcmp(r.name, "Sweep"))
+      else if (sweep) {
         ctx.sweep_changed = ctx.last_result == ApplyResult::Ok;
+        if (ctx.sweep_changed) {
+          sweep_retired_begin = retired_before;
+          sweep_substituted_begin = substituted_before;
+        }
+      } else if (substitute && sweep_retired_begin != SIZE_MAX) {
+        // Kissat's post-Sweep Substitute scans one union containing both the
+        // representatives proved by Sweep and any older SCC exposed by their
+        // binaries.  Sweep has already ordered its own portion; extend that
+        // same scan boundary across this mandated follow-up before H consumes
+        // either portion at phase exit.
+        sweep_order_retirement_suffix(k, sweep_retired_begin,
+                                      sweep_substituted_begin);
+        sweep_retired_begin = sweep_substituted_begin = SIZE_MAX;
+      }
       if (step == SlotStep::Stop)
         break;
     }

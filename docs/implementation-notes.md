@@ -454,7 +454,7 @@ The generic `CandidateOrder::Heuristic` meaning is unchanged for every other rul
 
 Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`; Substitute has no Kissat delay object, so its local closure backoff is search-time-only.
 
-Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases.
+Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases. Sweep and its mandatory follow-up Substitute form one retirement transaction for heuristic state: Kissat rewrites clauses and records representatives per environment, then deactivates the complete union in a variable-index Substitute pass. Tactix retains per-environment proof/reconstruction work but publishes the combined retirement suffix to `H` in permanent import order after that Substitute, preserving the earlier Vivify prefix. Equal semantic scores thus see the same removal pose without changing formula effects.
 
 ## 15. Design decision: eager subsumption after analysis
 
