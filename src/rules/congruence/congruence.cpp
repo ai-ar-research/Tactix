@@ -25,9 +25,10 @@ namespace tactix {
 
 namespace {
 
-// Arity cap: an AND gate over more inputs is skipped (kissat caps too), which
-// bounds extraction and the equivalence proof chain.
-constexpr uint32_t CONG_ARITY_LIMIT = 64;
+// Both Kissat (`congruenceandarity`) and CaDiCaL ship one million as the AND
+// arity limit.  The matching proof chain is linear in the arity; the separate
+// round work budget bounds extraction effort.
+constexpr uint32_t CONG_ARITY_LIMIT = 1000000;
 // safety cap on gates extracted per round.
 constexpr size_t CONG_GATE_LIMIT = 20000000;
 // Max inputs of an extracted XOR gate; the match proof chain is O(2^arity), so

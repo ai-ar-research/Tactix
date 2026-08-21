@@ -79,27 +79,20 @@
   "task_count": 1,
   "outcome": {
     "slurm_state": "COMPLETED",
-    "valid": 6,
-    "total": 20,
-    "sat": 5,
+    "valid": 1,
+    "total": 1,
+    "sat": 0,
     "unsat": 1,
-    "unknown": 14,
-    "closed_ranks": [
-      21,
-      23,
-      25,
-      28,
-      29,
-      38
-    ],
-    "newly_closed_vs_predecessor": [],
-    "lost_vs_predecessor": [],
-    "answered_solve_wall_seconds": 1794.286,
-    "par2_seconds": 35394.286,
-    "peak_rss_kb": 6919528,
+    "unknown": 0,
+    "closed_ranks": [24],
+    "solve_wall_seconds": 356.205,
+    "proof_check_wall_seconds": 94.099,
+    "certificate_bytes": 1398139701,
+    "certificate_sha256": "afa3878dab497093a0afc12bbd7c7da85a5e66bb6e2b57927743bf12bc0ef765",
+    "peak_rss_kb": 224920,
     "cleanup_pending": 0,
     "certificate_residue": false,
-    "disposition": "accepted cumulative pin with paired 33/33 B/C guard; no Tier-D gains or losses, continue at rank 22"
+    "disposition": "rank-24 UNSAT witness checked after the passed matched B/C guard"
   },
   "tasks": [
     {

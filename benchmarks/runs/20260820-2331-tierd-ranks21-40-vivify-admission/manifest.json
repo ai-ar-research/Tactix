@@ -79,27 +79,30 @@
   "task_count": 20,
   "outcome": {
     "slurm_state": "COMPLETED",
-    "valid": 6,
+    "valid": 9,
     "total": 20,
-    "sat": 5,
-    "unsat": 1,
-    "unknown": 14,
+    "sat": 6,
+    "unsat": 3,
+    "unknown": 11,
     "closed_ranks": [
       21,
       23,
+      24,
       25,
       28,
       29,
-      38
+      34,
+      38,
+      39
     ],
-    "newly_closed_vs_predecessor": [],
+    "newly_closed_vs_predecessor": [24, 34, 39],
     "lost_vs_predecessor": [],
-    "answered_solve_wall_seconds": 1794.286,
-    "par2_seconds": 35394.286,
-    "peak_rss_kb": 6919528,
+    "answered_solve_wall_seconds": 3700.056,
+    "par2_seconds": 30100.056,
+    "peak_rss_kb": 5919948,
     "cleanup_pending": 0,
     "certificate_residue": false,
-    "disposition": "accepted cumulative pin with paired 33/33 B/C guard; no Tier-D gains or losses, continue at rank 22"
+    "disposition": "accepted cumulative pin preserving six predecessor closures and adding ranks 24, 34, and 39"
   },
   "tasks": [
     {

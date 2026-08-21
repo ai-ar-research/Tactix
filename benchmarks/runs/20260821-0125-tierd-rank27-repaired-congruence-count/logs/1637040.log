@@ -1,0 +1,106 @@
+[cong-probe] degeneracies (AND/XOR/clash DRAWN since C3b; ITE-share still a discard): AND=0 ITE-share=137118 XOR-cancel=362 | contradictory merges (refuted): 0
+[cong-probe] closure funnel (cumulative, per kind)
+[cong-probe] kind     canon_ok   canon_skip       insert      collide        stale already_eq chain_fail     merged     val_gate
+[cong-probe] and        385030            8       329360        55670            0         12          0      55658            0
+[cong-probe] xor        206857            0       197691         9166            0       6171          0       2995            0
+[cong-probe] ite            72       137118           36           36            0         36          0          0            0
+[cong-probe] value channel: root-assigned at entry 1 / at exit 0 | merges with a valued participant 0 | units 181
+[cong-probe] degeneracies (AND/XOR/clash DRAWN since C3b; ITE-share still a discard): AND=0 ITE-share=137118 XOR-cancel=362 | contradictory merges (refuted): 0
+[cong-probe] closure funnel (cumulative, per kind)
+[cong-probe] kind     canon_ok   canon_skip       insert      collide        stale already_eq chain_fail     merged     val_gate
+[cong-probe] and        385285            8       329615        55670            0         12          0      55658            0
+[cong-probe] xor        206857            0       197691         9166            0       6171          0       2995            0
+[cong-probe] ite            72       137118           36           36            0         36          0          0            0
+[cong-probe] value channel: root-assigned at entry 196 / at exit 190 | merges with a valued participant 0 | units 181
+c tactix 0.1.0
+c input       0 clauses restated (normalized literals)
+c decisions   5811975 (0 via API)
+c conflicts   6939
+c propagations 90919488 (73289335 search, 17630153 inprocess)
+c learned     6362 (3 units)
+c learnedsize 21.15 avg lits, 18.81 avg glue
+c reduction   13.5% of resolved lits removed by minimize+shrink
+c minimized   1169 lits
+c min-depth   0 cutoffs
+c shrunken    19859 lits
+c reasonbump  0 vars in 0 rounds (0 depth2, 0 aborted)
+c otfs        285 strengthened (0 conflicts subsumed)
+c eagersub    417 subsumed of 14692 tried (0 kept as reason), register 4
+c shrinkglue  97 promoted (clamp size-1)
+c tumble      488590 vars seeded (activation order)
+c sparsecol   5 runs, 11 clauses
+c vivify      8 rounds, 8332 vivified, 0 deleted, 0 flushed, 114960 checked
+c vivify2     19046 reused, 432234 probes, 0 full, 285 tier3, 1093193 prio, 7 rearm, 114960 polls, 0 term
+c vivify3     45 subsumed, 0 promoted, 8320 shrunken, 314 implied, 0 asym, 12 instantiated, 106269 noop
+c probe       0 rounds, 0 probed, 0 failed
+c backbone    38 rounds, 2055380 probed, 0 failed
+c transitive  0 rounds, 23599 checked, 2 deleted, 0 failed, 282924877 ticks, 23599 polls, 0 terminated
+c substitute  9 rounds, 8436064 ticks, 56366 non-trivial SCCs (117506 lits), 58753 vars substituted, 0 rounds skipped / 0 partial (0 lits poisoned) on the hazard check
+c bce         0 rounds, 0 deleted, 0 ticks
+c cce         0 rounds, 0 tried, 0 deleted (0 blocked / 0 ata), 0 ala, 0 cla, 0 ticks
+c cce2        0 skipped / 0 advances / 0 rearmed
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c sweep       2 rounds, 880 environments (86323 clauses), 7528 solves, 4142 candidates, 7 equivalences, 0 units (0 already binary), 0 env-unsat, 1 budget, 2546919 ticks
+c sweepdiag   259125 env-lits, 0 root-false (0 stripped, 0 FREE), 0 units, 125201 cand-seeded, 7100 refined, 6188 dir-sat, 459 dir-unsat
+c sweepflip   190441 attempts, 106917 successful
+c sweepback   167736 candidates, 104428 flipped
+c sweepcost   90192 dedup ticks, 1936940 sub-solver ticks, 18779525 representation words; closure 0/0 occurrences, 0/0 vars whole
+c sweepemit   14 binaries, 0 not-rup, 7 general pairs, 0 strip units cited
+c sweepsched  429671 scheduled, 7 rescheduled, 286 resumed, 0 completed, 428791 tail; limits 256 vars, 1024 clauses, depth 2
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+c hbr         0 rounds, 0 probes, 0 binaries, 0 subsumed, 0 declined, 0 ticks
+c chrono      3392 chronological, 0 stale backjumps, 0 propagation re-arms
+c reuse       292 conflicts reused, 39 needed watch repair
+c jumpreason  31472548 binary reasons jumped, 7 classifications, 7 big-binary; gate on
+c binprop     8689666 scans, 8689666 flagged, 16250821 words, 16799088 skipped, 0 residual-ordered, 0 residual-large
+c inprocess   2 phases
+c conggates   580307 and, 201030 xor, 137190 ite
+c congruence  2 rounds, 2 binary rebuilds, 918527 gates, 58737 merges, 181 units, 0 unjustified, 175992085 ticks, 1 budget stops
+c congy1      0 found, 0 units, 84 binary equivalences, 10076182 ticks
+c retired     31 vars (31 substituted, 0 eliminated) of 429868
+c compact     1 passes removed 58722 internal variables
+c deactivate  58759 deactivations, 0 repeated reports, 0 re-bumps of retired vars
+c substdec    0 decisions on substituted vars (0.00% of 5811975)
+c extension   0 vars added, 0 decisions on them (0.00% of 5811975)
+c interrupt   0 rule applications aborted on the stop flag (0 stress fires)
+c extbumps    0 of 234988 bumps on extension vars (0.00%), 0 reason-side only (0.00% of those)
+c factor      0 factorings, 0 large remainders offered, 0 ticks
+c factor-bnd  0 grids rejected by the coupled bound
+c factor-dem  0 demotions, 0 fresh vars demoted
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units
+c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved
+c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling
+c restarts    358 (77 reused a trail prefix)
+c reductions  4 (101 clauses deleted, 326 promoted)
+c tiers       3/7 live after 15 retiers (retention band 2656 clause-visits dynamic vs 2456 static)
+c redscan     0 scans, 0 arena words walked, 0 skippable by a first_reducible watermark (0.00%)
+c mode        stable after 3 switches (297551264 ticks, 874 target phases saved)
+c rephased    3 (12 best phases saved)
+c reordered   0 eligible, 0 decision re-rankings
+c lucky       1 early, 1 late (0 SAT), 12 probes
+c walk        1 walks (1 improved, 42563 flips, 9560713 steps)
+c randec      2 sequences, 1667 random decisions
+c subsume     0 rounds (0 checked, 0 visits, 0 subsumed)
+c strengthen  0 rounds (0 checked, 0 visits, 0 strengthened, 0 subsumed)
+c budgetstop  0 C1 rounds, 0 C2 rounds stopped mid-round
+c c1shadow    0 observed, 0 deleted + 0 rewritten by C2, 0 residual
+c touch       5778779 marks, 5887296 epoch; C1 0 skipped / 0 advances / 0 rearmed, C2 0 skipped / 0 advances / 0 rearmed
+c subhold     0 elimination rounds held open by C1/C2
+c touch3      BCE 0 skipped / 0 rearmed, X2 0 skipped / 0 rearmed, X4 0 skipped / 0 rearmed
+c interrupt3  BCE 0, X2 0, X4 0 aborts
+c interrupt2  C1 0, C2 0 aborts
+c touchred    3504 redundant creations in scope (dynamic) vs 3205 (static tier2=6), 108517 band marks; band ON
+c f7band      C2 0 band candidates checked / 0 skipped, 0 subsumed / 0 strengthened
+c touch4      Factor 0 seeds skipped / 0 rearmed
+c timing      14603 ms solve
+c timing      7520 ms (51.5%) inprocessing slot, 7084 ms (48.5%) search+scaffolding outside it
+c timing        TransitiveReduce      2416 ms ( 16.5%) in 887 applications
+c timing        Vivify                1570 ms ( 10.7%) in 8 applications
+c timing        Congruence            1232 ms (  8.4%) in 2 applications
+c timing        Sweep                 1055 ms (  7.2%) in 2 applications
+c timing        Substitute             682 ms (  4.7%) in 4 applications
+c timing        Backbone               387 ms (  2.6%) in 5 applications
+c timing        (unattributed)         178 ms (  1.2%)
+s UNKNOWN
+solver_exit=124
