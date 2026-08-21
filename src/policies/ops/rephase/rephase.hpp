@@ -2,8 +2,9 @@
 // instance space is the phase type (payloads below) and the canonical instance
 // is Best. Pure `H`, no proof delta, sound in any non-refuted state. When to
 // rephase and which type rotation to use are policy state; the kissat-coupled
-// root backtrack is likewise the policy's, composed from the same rule
-// vocabulary (Restart with keep-level 0) rather than baked in here.
+// root backtrack is likewise the policy's, composed from Restart's shared
+// backtrack mechanism rather than baked in here.  It is not a scheduled
+// Restart and therefore does not advance restart cadence accounting.
 #pragma once
 
 #include "rules/registry.hpp"

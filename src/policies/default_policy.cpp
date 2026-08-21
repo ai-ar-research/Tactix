@@ -2005,7 +2005,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       if (restart_guard(k)) {
         heuristics_update_target_phases(k);
         (void)default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
-                                  [&] { return restart_apply_to(k, 0); });
+                                  [&] { return restart_backtrack_to(k, 0); });
       }
       k.unflushed_root = 0; // Kissat Rephase flushes the root trail here.
       static constexpr uint64_t WALK_SLOT = UINT64_MAX;
