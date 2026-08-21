@@ -73,3 +73,9 @@ designs, logs, and Git preserve history. `PROGRESS.md` owns status.
   either can move one item across a session boundary, reset deterministic state,
   and reorder a much larger later trajectory. Pin equality and session identity,
   not only aggregate work.
+- **L31 · Do not expose internal batch boundaries to heuristic state.** Two
+  implementations can derive the same substitution union yet diverge because one
+  publishes retirements per environment while the reference publishes the whole
+  union in a later variable-order pass. Preserve each batch's proof and
+  reconstruction witness, but normalize the externally observable `H` transaction
+  at the reference lifecycle boundary.

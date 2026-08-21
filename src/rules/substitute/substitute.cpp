@@ -1747,13 +1747,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   size_t witness_vars = 0;
   for (Var v = 0; v < k.nvars; v++)
     witness_vars += substitutable(make_lit(v, false));
+  std::vector<Var> witness_order;
+  kernel_vars_in_import_order(k, witness_order);
   k.retired_events.reserve(k.retired_events.size() + witness_vars);
   k.substituted_events.reserve(k.substituted_events.size() + witness_vars);
   k.reconstruction.reserve(k.reconstruction.size() + 6 * witness_vars);
   substitute_stage_trace(k, "rewrite-witness-reserved", witness_vars,
                          k.reconstruction.capacity(),
                          k.retired_events.capacity());
-  for (Var v = 0; v < k.nvars; v++) {
+  for (const Var v : witness_order) {
     const Lit l = make_lit(v, false);
     if (!substitutable(l))
       continue;
