@@ -14,7 +14,8 @@ own experimental detail and history.
 - `.claude/worktrees/tierd-next10` is clean. The historical
   `.claude/worktrees/vivify-unit-crash` is dirty and must remain untouched.
   SLURM job `1638010` is unrelated. Post-repair fuzz jobs `1641365`--`1641368`
-  are accepted and clean. **NOTHING IN FLIGHT** for this project.
+  are accepted and clean. Full Tier-D array `1641379` and dependent aggregate
+  `1641380` are active; Rank-27 endpoint array `1641492` uses four reserved CPUs.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -234,19 +235,15 @@ without contradictory evidence.
 
 ## Next actions
 
-1. Finalize the accepted post-repair fuzz manifest and Andrew report, commit
-   and push the checked increment, then prepare/compute-validate/launch a fresh
-   1800 s/16 GiB current-commit campaign over all 1,166 instances. At the
-   user's explicit request, throttle it to 89 simultaneous tasks: the two-node
-   partition is memory-limited to 92 tasks at 16 GiB each, so this leaves three
-   complete 2-CPU/16-GiB Rank-27 debug slots (about six CPU threads plus the
-   required 48 GiB). Record this exception and basis in the manifest. The earlier
-   pre-repair preparation was never validated or launched and was moved intact
-   to `/tmp/20260823-1730-tierd-current-head-16g-1800s-pre-repair-97e1447-prepared`.
-   The submitted solver must be an independent read-only campaign copy with its
-   hash sealed in the manifest, never a hard link to `build/release/tactix`;
-   all Rank-27 observers and rebuilds use separate pins.
-2. Without waiting for that campaign, localize when and why Tactix loses the
+1. Do not wait for full Tier-D campaign
+   `20260823-1745-tierd-current-head-16g-1800s`: array `1641379` runs
+   `0-1165%89` at 1800 s/16 GiB and aggregate `1641380` is dependent. Its
+   commit `0997356…78c8` binary is an independent read-only inode, SHA-256
+   `cb6fdaa9…6c7a4`; compute-node SAT/model and UNSAT/proof validation passed
+   with zero residue. Inspect the aggregate when terminal.
+2. Endpoint array `1641492` compares latest committed Tactix and current Kissat
+   at ten clause-lifetime checkpoints with `%2` throttle. Localize why Tactix
+   loses the
    redundant focal clause that Kissat still carries at c5471; distinguish
    creation, strengthening, reduction, and representation lifecycle.
 3. Repair only a general source-backed semantic, scheduling, or representation
