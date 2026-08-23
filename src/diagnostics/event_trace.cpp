@@ -1847,8 +1847,15 @@ void EventTrace::substitute_map(const Kernel &k, Lit lit, Lit representative) {
   if (!want_detail(k) || emitted_ >= limit_)
     return;
   const char *selected = std::getenv("TACTIX_EVENT_TRACE_SUBSTITUTE_LITERAL");
+  const char *selected_representative =
+      std::getenv("SAT_EVENT_TRACE_SUBSTITUTE_REPRESENTATIVE");
   if (selected) {
     if (std::atoi(selected) != kernel_externalize(k, lit))
+      return;
+  } else if (selected_representative) {
+    if (representative == INVALID_LIT ||
+        std::atoi(selected_representative) !=
+            kernel_externalize(k, representative))
       return;
   } else {
     const char *all = std::getenv("SAT_EVENT_TRACE_SUBSTITUTE_ALL");

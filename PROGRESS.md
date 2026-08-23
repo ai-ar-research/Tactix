@@ -15,8 +15,8 @@ own experimental detail and history.
   `.claude/worktrees/vivify-unit-crash` is dirty and must remain untouched.
   SLURM job `1638010` is unrelated. Post-repair fuzz jobs `1641365`--`1641368`
   are accepted and clean. Full Tier-D array `1641379` and dependent aggregate
-  `1641380` are active; corrected Rank-27 sparse formula-checkpoint array
-  `1641589` completed and released its four reserved CPUs.
+  `1641380` are active. Paired Rank-27 c3069 source-handoff observer job
+  `1641810` completed and released its four reserved CPUs.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -235,6 +235,42 @@ without contradictory evidence.
   Kissat Substitute emits/retains the glue-2 focal ternary while Tactix remains
   absent, and that split persists through c3200. Compare representative maps
   and the rewritten source-clause transaction next; Analyze/OTFS is excluded.
+  Six-task paired job `1641694` traces c3069 maps for all three focal literals.
+  Each remains an active identity representative in every observed round in
+  both solvers. Thus Tactix does not map a focal literal away; invert the general
+  diagnostic filter to find source literals mapped into those representatives.
+  Disabled-by-default output-representative job `1641720` finds exactly one
+  discriminating inverse map: final-round Kissat maps `121304 -> 121233` while
+  Tactix never does. Late Substitute is only the consumer; the semantic owner
+  is the preceding final Sweep equivalence. Paired job `1641738` then shows all
+  343 canonical equivalences exact. Target seed 121232 has the same 256 vars,
+  325 clauses, 10,704 ticks, 24 solves, and consequence in both. The worse owner
+  is the representation handoff: Kissat late Substitute consumes
+  `121304 -> 121233`, while Tactix inline Sweep substitution does not
+  materialize the focal ternary. Trace unit tests pass; Tier-D is untouched.
+  Endpoint job `1641748` observes the expected source ternary identically in
+  both at c3069 entry. Kissat is untruncated; Tactix's endpoint row precedes a
+  signal-drain trace cap, but `HEAP_POP_ONLY` retry `1641761` is a one-row,
+  untruncated exact repeat. A missing input clause is excluded. Tactix's dense
+  Sweep session explicitly skips redundant large clauses while priming rewrite
+  occurrences. Paired job `1641772` proves that this is not a divergence: each
+  solver rewrites the same ordered 16 connected occurrences of `-121304`
+  (eight binary, then eight large), and neither visits the common redundant
+  source `(-121304,-475857,-208918)`. Both traces are untruncated and residue
+  free; SHAs are Tactix `1576f65…d0e1`, Kissat `ba7142d…5c`. Retract the
+  suspected Sweep occurrence-ledger repair. The open owner is persistence or
+  consumption of the proved equivalence between Sweep and late Substitute.
+  Source-handoff job `1641810` closes that question. At the productive final
+  Sweep exit, both still hold the common redundant preimage with identical
+  metadata. Kissat's Sweep retires zero variables and its following Substitute
+  retires 345, removes the preimage, and produces the focal image. Tactix's
+  Sweep prematurely retires 343 variables; its following Substitute sees only
+  two, leaves the preimage unchanged, and never produces the image. Both traces
+  are untruncated and residue-free (Tactix `67fa544…8fed`, Kissat
+  `2829de4…bf2a`). The general repair is to preserve Sweep's proved
+  equivalence binaries and active classes through its exact connected
+  irredundant rewrite so the mandated Substitute owns residual learned-clause
+  cleanup and complete retirement, as in Kissat.
   These observers do not mutate the candidate.
 
 ## Exact convergence contract
@@ -262,13 +298,14 @@ without contradictory evidence.
    commit `0997356…78c8` binary is an independent read-only inode, SHA-256
    `cb6fdaa9…6c7a4`; compute-node SAT/model and UNSAT/proof validation passed
    with zero residue. Inspect the aggregate when terminal.
-2. At the final c3069 late Substitute application, compare latest committed
-   Tactix and current Kissat representative maps and the source-clause rewrite
-   that yields Kissat-only focal clause `{-475857,-208918,-121233}` despite
-   byte-exact ordinary learning and common absence at the preceding Sweep exit.
-3. Repair only a general source-backed semantic, scheduling, or representation
-   owner while keeping proof/reconstruction in rules and cadence/admission/
-   effort in strategy. Repeat the mandatory guard before the next witness.
+2. Lift Kissat's general two-stage ownership: Sweep keeps its exact connected
+   irredundant rewrite but preserves the two equivalence binaries and does not
+   retire their active members; the immediately following Substitute
+   rediscovers the complete union, rewrites residual redundant clauses, and
+   owns proof/reconstruction plus retirement. Add a benchmark-independent unit
+   regression for the residual redundant-clause handoff.
+3. Keep proof/reconstruction in rules and cadence/admission/effort in strategy.
+   Repeat the mandatory full B28+fixed-C5 guard before the next Rank-27 witness.
 4. At the next coherent successful increment, update this resume surface and
    the parity ledger, generate the required Andrew TeX/PDF report, commit, push,
    and leave `main` clean and synchronized.
