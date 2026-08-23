@@ -79,7 +79,7 @@ static void test_c1_redundant_victim_is_reachable() {
     for (Ref r = 0; r < k.arena.size();) {
       const Clause *c = clause_at(k.arena, r);
       live += !c->garbage();
-      r += clause_words(c->size);
+      r += clause_actual_words(c);
     }
     assert(live == 1 && "the redundant victim was subsumed away");
     assert(k.stats.forward_subsumed == 1);
@@ -105,7 +105,7 @@ static void test_c2_redundant_victim_is_reachable() {
     const Clause *c = clause_at(k.arena, r);
     if (!c->garbage() && c->redundant() && c->size == 3)
       saw_red3 = true;
-    r += clause_words(c->size);
+    r += clause_actual_words(c);
   }
   assert(saw_red3);
 }

@@ -297,11 +297,13 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Effect:** for `B→={¬a,b}` and `B←={a,¬b}`, add both binaries. Proof δ is an all-or-nothing pair:
   `add_rup(B→,h→) · add_rup(B←,h←)`, with no deletion; `F` grows and `R/τ/ρ` are untouched. A pair the
   formula already states is skipped. Consequences from one environment are
-  committed before constructing the next. In Tactix's variable-width host
-  representation, a connected dense call records every such rewrite in one
-  ordered occurrence ledger and collects the arena once after the call; a
-  sessionless/public call that owns raw arena references must instead collect
-  immediately and refresh those references before the next environment.
+  committed before constructing the next. Tactix's connected dense path keeps
+  a large clause at its arena reference and allocation span while changing its
+  semantic size, and materializes a literal's binary/large mixed occurrence
+  view only when the environment or rewrite reaches that literal. Collapsed or
+  deleted records become ordinary lazy garbage; no Sweep-boundary arena
+  collection is required. A sessionless/public call that owns raw arena
+  references retains its immediate collection/refresh contract.
 - **Emission (why entailment is not enough):** the checker knows nothing of the environment, so
   each binary must be justified over `F`. Two strategies. **Fast path:** negate `B`, propagate the main
   formula, and let `h` be its reason clauses in propagation order followed by the conflict. **General
@@ -333,6 +335,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
     the parity constant.
   - **a merge with no second gate** — a unary gate `AND(x)` / `XOR(x)` (the latter signed by the folded
     parity), or an ITE whose branches coincide (`then ≡ else` ⇒ `out ↔ then`).
+  - **a root input unit from a valued gate** — after representative values and cancellations leave one
+    effective input, the fixed output forces that input (for XOR, the conclusion still depends on every
+    independently cancelled representative even though those representatives vanished from the key).
   - **a smaller gate of another kind**, which re-enters the closure under that kind: an ITE with `then ≡
     ¬else` is the XOR `¬out = cond ⊕ then`, and an ITE whose `cond` shares a variable with a branch is a
     2-input AND/OR (`cond ≡ then` ⇒ `out = cond ∨ else`; `cond ≡ ¬then` ⇒ `out = ¬cond ∧ else`; `cond ≡
@@ -353,7 +358,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   one rhs variable per level, at each level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for
   all sign patterns; every lemma is RUP over the current DB, the two size-0 lemmas are the binaries. ITE
   — a fixed **6-clause case-split on cond**: `{a,¬b,±cond}`, `{¬a,b,±cond}` then the two binaries. A
-  **degeneracy** conclusion (unit or unary merge) is likewise not RUP on its own — the parity clauses
+  **degeneracy** conclusion (output unit, input unit, or unary merge) is likewise not RUP on its own — the parity clauses
   propagate nothing until all but one of their literals is assigned — and needs its own ladder,
   quantified over the **cancelled** representatives rather than over a shared rhs: for `size =
   |cancelled| … 1`, every sign pattern over `cancelled[0..size-1]` appended to each conclusion; the

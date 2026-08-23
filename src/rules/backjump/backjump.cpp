@@ -1,6 +1,6 @@
 #include "rules/backjump/backjump.hpp"
 
-#include "policies/event_trace.hpp"
+#include "diagnostics/event_trace.hpp"
 #include "policies/heuristics.hpp" // target/best phase snapshot
 #include "proof/proof.hpp"
 #include "rules/analyze/analyze.hpp" // analyze_eager_subsume

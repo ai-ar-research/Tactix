@@ -47,9 +47,10 @@ struct DefaultStrategyConfig {
   // currency used by its startup probing pipeline.
   static constexpr uint64_t INPROCESS_PREPROCESS_EFFORT_DEFAULT = 10000000;
   static constexpr uint32_t INPROCESS_PHASE_ROUNDS_DEFAULT = 2;
+  // Kissat `substituterounds=2`: this is a per-call SCC closure cap, distinct
+  // from `proberounds`, which repeats the complete probing pipeline.
+  static constexpr uint32_t SUBSTITUTE_ROUNDS_DEFAULT = 2;
   static constexpr uint64_t FACTOR_INITIAL_EFFORT_DEFAULT = 700000000ull;
-  static constexpr uint64_t CONGRUENCE_INITIAL_EFFORT_DEFAULT =
-      1000000000000ull;
   static constexpr uint32_t TIER_RELATIVE_SCALE = 1000;
   static constexpr uint64_t SMALL_CLAUSE_LIMIT_DEFAULT = 100000;
   static constexpr uint32_t BIG_BINARY_FRACTION_PERMILLE_DEFAULT = 990;
@@ -196,8 +197,8 @@ struct DefaultStrategyConfig {
     uint64_t minimum_effort_ticks = INPROCESS_MINIMUM_EFFORT_DEFAULT;
     uint64_t preprocess_initial_ticks = INPROCESS_PREPROCESS_EFFORT_DEFAULT;
     uint32_t phase_rounds = INPROCESS_PHASE_ROUNDS_DEFAULT;
+    uint32_t substitute_rounds = SUBSTITUTE_ROUNDS_DEFAULT;
     uint64_t factor_initial_ticks = FACTOR_INITIAL_EFFORT_DEFAULT;
-    uint64_t congruence_initial_ticks = CONGRUENCE_INITIAL_EFFORT_DEFAULT;
     double logarithm_offset = 9.0;
     double scale_quadratic = 4.5;
     double scale_constant = 25.0;
@@ -230,7 +231,6 @@ struct DefaultStrategyConfig {
     uint32_t cce_permille = 4;
     uint32_t instantiate_permille = 20;
     uint32_t sweep_permille = 100;
-    uint32_t congruence_permille = 100;
     uint32_t substitute_permille = 10;
 
     // Kissat Sweep environment and growth options (options.h).  These belong

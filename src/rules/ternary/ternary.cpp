@@ -62,7 +62,7 @@ void collect(const Kernel &k, Lit l, std::vector<Tern> &out) {
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (ternary_candidate(k, c) && has_lit(c, l))
       take(c);
     ref += words;
@@ -85,7 +85,7 @@ bool ternary_exists(const Kernel &k, Lit a, Lit b, Lit c) {
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *x = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(x->size);
+    const uint32_t words = clause_actual_words(x);
     if (!x->garbage() && x->size == 3 && same(x))
       return true;
     ref += words;
@@ -136,7 +136,7 @@ void ternary_pivots(const Kernel &k, std::vector<Lit> &out,
   // the base for the max-add governor below (as cadical's htrs_limit is)
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage())
       clauses++;
     if (ternary_candidate(k, c))

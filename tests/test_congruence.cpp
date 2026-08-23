@@ -276,6 +276,92 @@ static void test_xor_value_plus_cancel_uses_ladder() {
   std::remove(path.c_str());
 }
 
+// D-CONG-INPUT-UNIT: a root-false XOR output with an independently cancelled
+// pair forces the one remaining unvalued input, and that conclusion is not RUP
+// directly — the parity clauses propagate nothing while the cancelled pair is
+// unassigned — so Canon::InputUnit must run the same cancellation ladder as
+// Canon::Unit. The output owns the smallest variable so its gate pops first
+// and the InputUnit channel, not the sibling Unit gate, draws the inference.
+// Pre-repair, native LRAT declined the sound unit (congruence_unjustified)
+// while DRAT emitted it without the justifying rungs.
+static void test_xor_input_unit_with_cancel_uses_ladder() {
+  const auto run = [](ProofFormat format, const std::string &path) {
+    Proof proof;
+    assert(proof.open(path.c_str(), format));
+    Kernel k;
+    kernel_reserve_vars(k, 6); // out=1 a=2 x=3 y=4 p=5 q=6
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+
+    k.unit_ids[var_of(internalize(-1))] = ++k.next_clause_id;
+    kernel_assign_unit(k, internalize(-1)); // out=0; input a stays unvalued
+    const auto add_and = [&](int out, int lhs, int rhs) {
+      kernel_add_binary_clause(k, internalize(-out), internalize(lhs),
+                               ++k.next_clause_id);
+      kernel_add_binary_clause(k, internalize(-out), internalize(rhs),
+                               ++k.next_clause_id);
+      const Lit base[3] = {internalize(out), internalize(-lhs),
+                           internalize(-rhs)};
+      kernel_add_large_clause(k, base, 3, false, 0, ++k.next_clause_id);
+    };
+    add_and(3, 5, 6);
+    add_and(4, 5, 6); // closure proves x == y
+
+    // out = a XOR x XOR y: all eight odd-negation clauses over the relation.
+    const int vars[4] = {1, 2, 3, 4};
+    for (unsigned mask = 0; mask < 16; mask++) {
+      if (!(__builtin_popcount(mask) & 1))
+        continue;
+      Lit clause[4];
+      for (unsigned j = 0; j < 4; j++)
+        clause[j] = internalize((mask & (1u << j)) ? -vars[j] : vars[j]);
+      kernel_add_large_clause(k, clause, 4, false, 0, ++k.next_clause_id);
+    }
+
+    assert(congruence_apply(k) == ApplyResult::Ok);
+    assert(k.value(internalize(-2)) > 0 && "the ladder derives -a");
+    assert(k.stats.congruence_units >= 1);
+    assert(k.stats.congruence_unjustified == 0 &&
+           "the sound input unit must not be declined");
+    proof.flush();
+    k.proof = nullptr;
+  };
+
+  const std::string base = "/tmp/tactix-congruence-input-unit-" +
+                           std::to_string(static_cast<long>(getpid()));
+  const std::string lrat_path = base + ".lrat";
+  run(ProofFormat::Lrat, lrat_path);
+  std::remove(lrat_path.c_str());
+
+  // DRAT admission: the unit line must be preceded by both top-level ladder
+  // rungs over the cancelled representative (x ≡ y, so either variable), or
+  // the certificate states an unsupported unit and the checker rejects it.
+  const std::string drat_path = base + ".drat";
+  run(ProofFormat::DratAscii, drat_path);
+  {
+    FILE *f = std::fopen(drat_path.c_str(), "r");
+    assert(f);
+    char buf[256];
+    bool rung_pos = false, rung_neg = false, unit_line = false;
+    while (std::fgets(buf, sizeof buf, f)) {
+      const std::string line(buf);
+      if (line == "-2 0\n") {
+        unit_line = true;
+        break;
+      }
+      if (line == "3 -2 0\n" || line == "4 -2 0\n")
+        rung_pos = true;
+      if (line == "-3 -2 0\n" || line == "-4 -2 0\n")
+        rung_neg = true;
+    }
+    std::fclose(f);
+    assert(unit_line && "the unit must be in the DRAT proof");
+    assert(rung_pos && rung_neg &&
+           "both ladder rungs must justify the unit before it is added");
+  }
+  std::remove(drat_path.c_str());
+}
+
 // A late unit must revisit an already-consumed gate that mentions it, without
 // reopening every unrelated gate.  AND gates are extracted before XOR gates:
 // the dependent gate is therefore indexed first, then the XOR cancellation
@@ -460,6 +546,46 @@ static void test_extracted_binary_suffix_is_sorted() {
   assert(partners[partners.size() - 1] == p);
 }
 
+// When closure propagation finds an equivalence, Kissat enters dense mode a
+// second time for representative-aware forward subsumption.  That transition
+// saves the complete population (including the extracted suffix) and resumes
+// it in compact pair order.  Thus a newly extracted lower-ranked partner moves
+// before an older lower partner, while partners above the watched literal keep
+// their first-resume order.  Preserving the whole suffix or sorting every
+// partner would each leak the wrong propagation order into search.
+static void test_forward_dense_resume_reorders_complete_binary_population() {
+  Kernel k;
+  kernel_reserve_vars(k, 10); // a new old c hi-new hi-old x y out1 out2
+  const Lit a = internalize(1), c = internalize(4);
+  const Lit newer = internalize(2), older = internalize(3);
+  const Lit higher_newer = internalize(5), higher_older = internalize(6);
+  kernel_add_binary_clause(k, negate(a), c, ++k.next_clause_id);
+  kernel_add_binary_clause(k, c, older, ++k.next_clause_id);
+  kernel_add_binary_clause(k, c, higher_older, ++k.next_clause_id);
+  Lit strengthen[3] = {a, c, newer};
+  kernel_add_large_clause(k, strengthen, 3, false, 0, ++k.next_clause_id);
+  Lit strengthen_higher[3] = {a, c, higher_newer};
+  kernel_add_large_clause(k, strengthen_higher, 3, false, 0,
+                          ++k.next_clause_id);
+  and_gate(k, 9, 7, 8);
+  and_gate(k, 10, 7, 8); // forces a merge and therefore the forward transition
+
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(kernel_binary_live(k, c, newer));
+  const std::vector<Lit> partners = binary_partners(k, c);
+  const auto newer_pos = std::find(partners.begin(), partners.end(), newer);
+  const auto older_pos = std::find(partners.begin(), partners.end(), older);
+  const auto higher_newer_pos =
+      std::find(partners.begin(), partners.end(), higher_newer);
+  const auto higher_older_pos =
+      std::find(partners.begin(), partners.end(), higher_older);
+  assert(newer_pos != partners.end() && older_pos != partners.end());
+  assert(higher_newer_pos != partners.end() &&
+         higher_older_pos != partners.end());
+  assert(newer_pos < older_pos);
+  assert(higher_older_pos < higher_newer_pos);
+}
+
 // Input binaries need not precede large watches in a sparse list.  The
 // candidate pass snapshots live binary membership before scanning ternaries,
 // rather than repeatedly walking a high-occurrence mixed list.  Keep the
@@ -526,6 +652,25 @@ static void test_budget_stops_round() {
   assert(again.stats.congruence_budget_stops == 0);
 }
 
+// Kissat's ternary-to-binary extraction is a mandatory pre-pass and has no
+// Congruence effort limit.  The Tactix-only gate-cost compensator must not cut
+// that semantic frontier even when its allowance is already one tick.
+static void test_binary_extraction_precedes_gate_budget() {
+  Kernel k;
+  kernel_reserve_vars(k, 10);
+  for (unsigned i = 0; i < 300; i++)
+    add3(k, 7, 8, 9);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  add3(k, 1, 2, 3);
+  k.stop_fuzz = 1000000000u; // poll every step; never globally terminate
+  k.work_budget = 1;
+  (void)congruence_apply(k);
+  assert(kernel_binary_live(k, internalize(2), internalize(3)) &&
+         "the complete reference pre-pass must extract its tail candidate");
+  assert(k.stats.congruence_budget_stops == 1 &&
+         "the gate-cost compensator remains live after the pre-pass");
+}
+
 // `N1-CONG-INSTANCES` (disposition: docs/calculus.md §6 V6). V6's effect is the
 // closure, so a single merge is a prefix of one application rather than an
 // application, and the canonical round is the whole legal instance space. The
@@ -556,6 +701,7 @@ static void test_round_is_the_instance_and_substitute_owns_the_choice() {
 
 int main() {
   test_budget_stops_round();
+  test_binary_extraction_precedes_gate_budget();
   test_and_congruent();
   test_and_arity_above_old_cutoff();
   test_xor_congruent();
@@ -568,6 +714,7 @@ int main() {
   test_binary_resolution_refutes();
   test_xor_cancel_learns_unit();
   test_xor_value_plus_cancel_uses_ladder();
+  test_xor_input_unit_with_cancel_uses_ladder();
   test_unit_reschedules_only_affected_gate();
   test_xor_cancel_refutes();
   test_and_clash_learns_unit();
@@ -577,6 +724,7 @@ int main() {
   test_xor_output_sign_odd_relation();
   test_xor_output_sign_odd_arity();
   test_extracted_binary_suffix_is_sorted();
+  test_forward_dense_resume_reorders_complete_binary_population();
   test_binary_extraction_from_mixed_watch_lists();
   test_round_is_the_instance_and_substitute_owns_the_choice();
   std::printf("test_congruence: all passed\n");

@@ -1,4 +1,4 @@
-// Disabled-by-default semantic event tracing for DefaultPolicy diagnostics.
+// Disabled-by-default semantic event tracing for solver diagnostics.
 // The TSV format uses permanent external variable identities so traces remain
 // meaningful across variable compaction and can be normalized against a
 // reference solver.  No file is opened and no state is scanned unless
@@ -29,11 +29,23 @@ public:
   // propagation/clause records remain bounded by the global record limit.
   void detail(const Kernel &, const char *event, int64_t payload = 0);
   void detail_text(const Kernel &, const char *event, const char *payload);
+  void vivify_candidate(const Kernel &, const char *event, uint64_t ordinal,
+                         Ref, uint64_t ticks, uint64_t limit);
+  void vivify_counts(const Kernel &, const uint32_t *counts, size_t size);
   void watch_scan(const Kernel &, Lit propagated);
+  void watch_scan_post(const Kernel &, Lit propagated);
+  void watch_cost(const Kernel &, Lit propagated, uint64_t words_before,
+                  uint64_t words_after, uint64_t base,
+                  uint64_t binary_assignments, uint64_t large_dereferences,
+                  uint64_t relocations, uint64_t large_assignments,
+                  uint64_t total);
   void implications(const Kernel &, size_t trail_begin);
   void conflict(const Kernel &);
   void learned(const Kernel &, const std::vector<Lit> &);
   void learned_stage(const Kernel &, const char *, const std::vector<Lit> &);
+  void clause_glue(const Kernel &, const char *source, const Clause *,
+                   uint32_t old_glue, uint32_t new_glue);
+  void clause_used(const Kernel &, const Clause *, uint32_t mode);
   void analyzed(const Kernel &, const std::vector<Var> &,
                 const std::vector<uint8_t> &, uint8_t bump_mask);
   void analyzed_post(const Kernel &, const std::vector<Var> &);
@@ -55,6 +67,7 @@ public:
   void phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
                   int8_t result);
   void target_save(const Kernel &);
+  void target_state(const Kernel &, const char *stage, uint32_t assigned);
   void phase_save(const Kernel &, Lit);
   void slot_boundary(const Kernel &, const char *name, const char *stage);
   void sweep_seed(const Kernel &, Var);
@@ -68,12 +81,17 @@ public:
   void sweep_flip(const Kernel &, Var, const char *, Lit, bool, uint64_t);
   void sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t, uint64_t);
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t);
+  void sweep_binary_attempt(const Kernel &, Var, uint32_t, Lit, Lit, int32_t,
+                            int32_t, const char *);
   void sweep_watch(const Kernel &, Var, uint32_t, Lit);
   void sweep_equivalence(const Kernel &, Lit a, Lit b);
   void sweep_commit(const Kernel &, Lit a, Lit b, int8_t av, int8_t bv,
                     const char *stage);
   void sweep_rewrite_binary(const Kernel &, Lit source, Lit representative,
                             uint32_t position, Lit other);
+  void sweep_rewrite_occurrence(const Kernel &, Lit source,
+                                Lit representative, uint32_t position,
+                                bool binary, uint32_t payload);
   void sweep_unit(const Kernel &, Lit);
   void substitute_map(const Kernel &, Lit, Lit);
   void factor_seed(const Kernel &, Lit, uint32_t score, uint32_t remainders);
@@ -106,7 +124,18 @@ public:
   void factor_grid(const Kernel &, Lit, uint32_t factors,
                    uint32_t remainders, int delta);
   void factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
-  void bve_candidate(const Kernel &, Var);
+  void bve_candidate(const Kernel &, Var, const char *stage, uint64_t ticks,
+                     uint64_t limit, bool applied);
+  void bve_plan(const Kernel &, Var, uint32_t side0, uint32_t side1,
+                uint32_t gate_kind, uint32_t gate0, uint32_t gate1,
+                uint64_t charged, bool resolve_gate);
+  void bve_pair(const Kernel &, Var, uint32_t ordinal, const Lit *side0,
+                uint32_t size0, Ref ref0, uint64_t id0, const Lit *side1,
+                uint32_t size1, Ref ref1, uint64_t id1, const char *outcome);
+  void bve_heap(const Kernel &, const char *stage, Var trigger, Var subject,
+                double score, uint32_t position, Var root, uint32_t size);
+  void eliminate_cleanup(const Kernel &, const char *stage);
+  void formula_checkpoint(const Kernel &);
   void checkpoint(const Kernel &);
   void reorder_begin(const Kernel &);
   void reorder_end(const Kernel &);
@@ -116,6 +145,8 @@ public:
 private:
   void emit(const Kernel &, const char *, const char *, bool snapshot);
   void emit_heap_scores(const Kernel &);
+  void watch_state(const Kernel &, Lit propagated, const char *event,
+                   bool emit_summary);
   bool want_detail(const Kernel &);
 
   std::FILE *out_ = nullptr;
@@ -142,8 +173,15 @@ private:
   bool keep_snapshots_ = false;
   bool search_only_ = false;
   bool control_only_ = false;
+  bool glue_only_ = false;
+  bool phase_only_ = false;
   bool trajectory_only_ = false;
+  bool sweep_only_ = false;
   bool watch_only_ = false;
+  bool watch_cost_ = false;
+  bool watch_within_vivify_ = false;
+  bool vivify_watch_active_ = false;
+  uint64_t vivify_watch_ordinal_ = 0;
   bool heap_each_bump_ = false;
   bool heap_pop_only_ = false;
   bool truncated_ = false;
@@ -160,11 +198,20 @@ public:
   void macro(const Kernel &, const char *, const char * = "-") {}
   void detail(const Kernel &, const char *, int64_t = 0) {}
   void detail_text(const Kernel &, const char *, const char *) {}
+  void vivify_candidate(const Kernel &, const char *, uint64_t, Ref, uint64_t,
+                         uint64_t) {}
+  void vivify_counts(const Kernel &, const uint32_t *, size_t) {}
   void watch_scan(const Kernel &, Lit) {}
+  void watch_scan_post(const Kernel &, Lit) {}
+  void watch_cost(const Kernel &, Lit, uint64_t, uint64_t, uint64_t, uint64_t,
+                  uint64_t, uint64_t, uint64_t, uint64_t) {}
   void implications(const Kernel &, size_t) {}
   void conflict(const Kernel &) {}
   void learned(const Kernel &, const std::vector<Lit> &) {}
   void learned_stage(const Kernel &, const char *, const std::vector<Lit> &) {}
+  void clause_glue(const Kernel &, const char *, const Clause *, uint32_t,
+                   uint32_t) {}
+  void clause_used(const Kernel &, const Clause *, uint32_t) {}
   void analyzed(const Kernel &, const std::vector<Var> &,
                 const std::vector<uint8_t> &, uint8_t) {}
   void analyzed_post(const Kernel &, const std::vector<Var> &) {}
@@ -176,6 +223,7 @@ public:
   void randec_draw(const Kernel &, uint32_t, uint32_t, Var, bool) {}
   void phase_pick(const Kernel &, Var, int8_t, int8_t, int8_t) {}
   void target_save(const Kernel &) {}
+  void target_state(const Kernel &, const char *, uint32_t) {}
   void phase_save(const Kernel &, Lit) {}
   void slot_boundary(const Kernel &, const char *, const char *) {}
   void sweep_seed(const Kernel &, Var) {}
@@ -189,6 +237,8 @@ public:
   void sweep_flip(const Kernel &, Var, const char *, Lit, bool, uint64_t) {}
   void sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t, uint64_t) {}
   void sweep_environment_var(const Kernel &, Var, uint32_t, Var, uint32_t) {}
+  void sweep_binary_attempt(const Kernel &, Var, uint32_t, Lit, Lit, int32_t,
+                            int32_t, const char *) {}
   void sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
   void sweep_equivalence(const Kernel &, Lit, Lit) {}
   void sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t, const char *) {}
@@ -216,7 +266,17 @@ public:
   void factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t) {}
   void factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int) {}
   void factor_grid_member(const Kernel &, uint32_t, Lit) {}
-  void bve_candidate(const Kernel &, Var) {}
+  void bve_candidate(const Kernel &, Var, const char *, uint64_t, uint64_t,
+                     bool) {}
+  void bve_plan(const Kernel &, Var, uint32_t, uint32_t, uint32_t, uint32_t,
+                uint32_t, uint64_t, bool) {}
+  void bve_pair(const Kernel &, Var, uint32_t, const Lit *, uint32_t,
+                Ref, uint64_t, const Lit *, uint32_t, Ref, uint64_t,
+                const char *) {}
+  void bve_heap(const Kernel &, const char *, Var, Var, double, uint32_t, Var,
+                uint32_t) {}
+  void eliminate_cleanup(const Kernel &, const char *) {}
+  void formula_checkpoint(const Kernel &) {}
   void checkpoint(const Kernel &) {}
   void reorder_begin(const Kernel &) {}
   void reorder_end(const Kernel &) {}
@@ -227,9 +287,25 @@ public:
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void event_trace_detail(const Kernel &, const char *event, int64_t payload);
+void event_trace_vivify_candidate(const Kernel &, const char *event,
+                                  uint64_t ordinal, Ref, uint64_t ticks,
+                                  uint64_t limit);
+void event_trace_vivify_counts(const Kernel &, const uint32_t *counts,
+                               size_t size);
 void event_trace_watch_scan(const Kernel &, Lit propagated);
+void event_trace_watch_scan_post(const Kernel &, Lit propagated);
+void event_trace_watch_cost(const Kernel &, Lit propagated,
+                            uint64_t words_before, uint64_t words_after,
+                            uint64_t base, uint64_t binary_assignments,
+                            uint64_t large_dereferences,
+                            uint64_t relocations,
+                            uint64_t large_assignments, uint64_t total);
 void event_trace_learned_stage(const Kernel &, const char *,
                                const std::vector<Lit> &);
+void event_trace_clause_glue(const Kernel &, const char *source,
+                             const Clause *, uint32_t old_glue,
+                             uint32_t new_glue);
+void event_trace_clause_used(const Kernel &, const Clause *, uint32_t mode);
 void event_trace_retier(const Kernel &, uint32_t mode,
                         const uint64_t *used_glue);
 void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
@@ -245,6 +321,11 @@ void event_trace_binary_assignment(const Kernel &, Lit assigned,
                                    Lit immediate_reason, Lit stored_reason,
                                    bool jumped);
 void event_trace_binary_add(const Kernel &, Lit a, Lit b);
+void event_trace_binary_lifecycle(const Kernel &, const char *event, Lit a,
+                                  Lit b, uint64_t id, uint32_t copies);
+void event_trace_binary_collapse(const Kernel &, Ref source, Lit a, Lit b);
+const char *event_trace_rule_enter(const char *rule);
+void event_trace_rule_leave(const char *previous);
 void event_trace_randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                              bool accepted);
 void event_trace_randec_state(const Kernel &, const char *stage,
@@ -253,6 +334,8 @@ void event_trace_randec_state(const Kernel &, const char *stage,
 void event_trace_phase_pick(const Kernel &, Var, int8_t target, int8_t saved,
                             int8_t result);
 void event_trace_target_save(const Kernel &);
+void event_trace_target_state(const Kernel &, const char *stage,
+                              uint32_t assigned);
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_slot_boundary(const Kernel &, const char *name,
                                const char *stage);
@@ -266,10 +349,12 @@ void event_trace_sweep_query(const Kernel &, Var, uint32_t, const char *, Lit,
 void event_trace_sweep_model(const Kernel &, Var, uint32_t, const Var *,
                              const int8_t *, uint32_t);
 void event_trace_sweep_effort(const Kernel &, uint32_t external,
-                              uint64_t kitten_ticks, uint64_t entry_ticks,
+                              uint64_t ticks_before, uint64_t ticks_after,
                               uint64_t solves);
 void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
                                        uint32_t);
+void event_trace_sweep_binary_attempt(const Kernel &, Var, uint32_t, Lit, Lit,
+                                      int32_t, int32_t, const char *);
 void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit a, Lit b);
 void event_trace_sweep_commit(const Kernel &, Lit a, Lit b, int8_t av,
@@ -277,6 +362,10 @@ void event_trace_sweep_commit(const Kernel &, Lit a, Lit b, int8_t av,
 void event_trace_sweep_rewrite_binary(const Kernel &, Lit source,
                                       Lit representative, uint32_t position,
                                       Lit other);
+void event_trace_sweep_rewrite_occurrence(const Kernel &, Lit source,
+                                          Lit representative,
+                                          uint32_t position, bool binary,
+                                          uint32_t payload);
 void event_trace_sweep_unit(const Kernel &, Lit);
 void event_trace_substitute_map(const Kernel &, Lit, Lit);
 void event_trace_factor_seed(const Kernel &, Lit, uint32_t score,
@@ -315,12 +404,34 @@ void event_trace_factor_update(const Kernel &, Lit grid_seed,
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t factors,
                              uint32_t remainders, int delta);
 void event_trace_factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
-void event_trace_bve_candidate(const Kernel &, Var);
+void event_trace_bve_candidate(const Kernel &, Var, const char *, uint64_t,
+                               uint64_t, bool);
+void event_trace_bve_plan(const Kernel &, Var, uint32_t side0, uint32_t side1,
+                          uint32_t gate_kind, uint32_t gate0, uint32_t gate1,
+                          uint64_t charged, bool resolve_gate);
+void event_trace_bve_pair(const Kernel &, Var, uint32_t ordinal, const Lit *,
+                          uint32_t, Ref, uint64_t, const Lit *, uint32_t, Ref,
+                          uint64_t, const char *outcome);
+void event_trace_bve_heap(const Kernel &, const char *stage, Var trigger,
+                          Var subject, double score, uint32_t position,
+                          Var root, uint32_t size);
+void event_trace_eliminate_cleanup(const Kernel &, const char *stage);
 #else
 inline void event_trace_detail(const Kernel &, const char *, int64_t) {}
+inline void event_trace_vivify_candidate(const Kernel &, const char *,
+                                         uint64_t, Ref, uint64_t, uint64_t) {}
+inline void event_trace_vivify_counts(const Kernel &, const uint32_t *,
+                                      size_t) {}
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
+inline void event_trace_watch_scan_post(const Kernel &, Lit) {}
+inline void event_trace_watch_cost(const Kernel &, Lit, uint64_t, uint64_t,
+                                   uint64_t, uint64_t, uint64_t, uint64_t,
+                                   uint64_t, uint64_t) {}
 inline void event_trace_learned_stage(const Kernel &, const char *,
                                       const std::vector<Lit> &) {}
+inline void event_trace_clause_glue(const Kernel &, const char *,
+                                    const Clause *, uint32_t, uint32_t) {}
+inline void event_trace_clause_used(const Kernel &, const Clause *, uint32_t) {}
 inline void event_trace_retier(const Kernel &, uint32_t, const uint64_t *) {}
 inline void event_trace_analyzed(const Kernel &, const std::vector<Var> &,
                                  const std::vector<uint8_t> &, uint8_t) {}
@@ -335,6 +446,11 @@ inline void event_trace_heap_pop(const Kernel &, const char *, Var, Var,
 inline void event_trace_binary_assignment(const Kernel &, Lit, Lit, Lit,
                                           bool) {}
 inline void event_trace_binary_add(const Kernel &, Lit, Lit) {}
+inline void event_trace_binary_lifecycle(const Kernel &, const char *, Lit,
+                                         Lit, uint64_t, uint32_t) {}
+inline void event_trace_binary_collapse(const Kernel &, Ref, Lit, Lit) {}
+inline const char *event_trace_rule_enter(const char *) { return nullptr; }
+inline void event_trace_rule_leave(const char *) {}
 inline void event_trace_randec_draw(const Kernel &, uint32_t, uint32_t, Var,
                                     bool) {}
 inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
@@ -342,6 +458,7 @@ inline void event_trace_randec_state(const Kernel &, const char *, uint64_t,
 inline void event_trace_phase_pick(const Kernel &, Var, int8_t, int8_t,
                                    int8_t) {}
 inline void event_trace_target_save(const Kernel &) {}
+inline void event_trace_target_state(const Kernel &, const char *, uint32_t) {}
 inline void event_trace_phase_save(const Kernel &, Lit) {}
 inline void event_trace_slot_boundary(const Kernel &, const char *,
                                       const char *) {}
@@ -359,12 +476,17 @@ inline void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t,
                                      uint64_t, uint64_t) {}
 inline void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t,
                                               Var, uint32_t) {}
+inline void event_trace_sweep_binary_attempt(const Kernel &, Var, uint32_t,
+                                             Lit, Lit, int32_t, int32_t,
+                                             const char *) {}
 inline void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit) {}
 inline void event_trace_sweep_equivalence(const Kernel &, Lit, Lit) {}
 inline void event_trace_sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t,
                                      const char *) {}
 inline void event_trace_sweep_rewrite_binary(const Kernel &, Lit, Lit,
                                              uint32_t, Lit) {}
+inline void event_trace_sweep_rewrite_occurrence(const Kernel &, Lit, Lit,
+                                                 uint32_t, bool, uint32_t) {}
 inline void event_trace_sweep_unit(const Kernel &, Lit) {}
 inline void event_trace_substitute_map(const Kernel &, Lit, Lit) {}
 inline void event_trace_factor_seed(const Kernel &, Lit, uint32_t,
@@ -398,7 +520,17 @@ inline void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit,
 inline void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t,
                                     int) {}
 inline void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit) {}
-inline void event_trace_bve_candidate(const Kernel &, Var) {}
+inline void event_trace_bve_candidate(const Kernel &, Var, const char *,
+                                      uint64_t, uint64_t, bool) {}
+inline void event_trace_bve_plan(const Kernel &, Var, uint32_t, uint32_t,
+                                 uint32_t, uint32_t, uint32_t, uint64_t,
+                                 bool) {}
+inline void event_trace_bve_pair(const Kernel &, Var, uint32_t, const Lit *,
+                                 uint32_t, Ref, uint64_t, const Lit *,
+                                 uint32_t, Ref, uint64_t, const char *) {}
+inline void event_trace_bve_heap(const Kernel &, const char *, Var, Var,
+                                 double, uint32_t, Var, uint32_t) {}
+inline void event_trace_eliminate_cleanup(const Kernel &, const char *) {}
 #endif
 
 } // namespace tactix

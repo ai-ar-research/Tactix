@@ -1,5 +1,5 @@
 #undef NDEBUG
-#include "policies/event_trace.hpp"
+#include "diagnostics/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
 #include <cassert>
@@ -43,7 +43,14 @@ int main() {
 
   setenv("TACTIX_EVENT_TRACE", path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_POSE", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_COST", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM", "7", 1);
+  setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO", "7", 1);
   setenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION", "0", 1);
+  setenv("SAT_EVENT_TRACE_VIVIFY_LITERALS", "-3,1", 1);
+  setenv("SAT_EVENT_TRACE_VIVIFY_CLAUSES", "1", 1);
+  setenv("SAT_EVENT_TRACE_SUBSTITUTE_ALL", "1", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
@@ -63,6 +70,8 @@ int main() {
     trace.factor_seed(k, internalize(-2), 17, 9);
     trace.factor_grid(k, internalize(-2), 3, 4, 5);
     trace.factor_grid_member(k, 0, internalize(-2));
+    trace.substitute_map(k, internalize(2), internalize(2));
+    trace.substitute_map(k, internalize(2), internalize(-3));
     trace.detail(k, "analysis_begin", 2);
     kernel_assign_decision(k, internalize(1));
     const size_t trail_begin = k.trail.size();
@@ -72,12 +81,22 @@ int main() {
     k.conflict_ref = kernel_add_large_clause(k, conflict, 3, false, 0);
     k.conflict_valid = true;
     clause_at(k.arena, k.conflict_ref)->searched = 3;
-    trace.watch_scan(k, internalize(3));
-    trace.conflict(k);
-    trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
+    const uint32_t vivify_counts[6] = {11, 12, 13, 14, 15, 16};
+    trace.vivify_counts(k, vivify_counts, 6);
     setenv("SAT_EVENT_TRACE_CLAUSE_SET", "-3,1,-2", 1);
     setenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_FROM", "0", 1);
     setenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO", "0", 1);
+    trace.vivify_candidate(k, "vivify_candidate", 6, k.conflict_ref, 10, 99);
+    trace.watch_cost(k, internalize(1), 33, 31, 3, 1, 2, 1, 0, 7);
+    trace.vivify_candidate(k, "vivify_candidate", 7, k.conflict_ref, 10, 99);
+    trace.watch_cost(k, internalize(1), 33, 31, 3, 1, 2, 1, 0, 7);
+    trace.watch_scan(k, internalize(3));
+    trace.vivify_candidate(k, "vivify_candidate_end", 7, k.conflict_ref, 17,
+                           99);
+    trace.watch_cost(k, internalize(1), 1, 1, 2, 0, 0, 0, 0, 2);
+    trace.conflict(k);
+    trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
+    trace.clause_glue(k, "fixture", clause_at(k.arena, k.conflict_ref), 3, 2);
     trace.detail(k, "analysis_end", 1);
     k.tier1 = 3;
     k.tier2 = 8;
@@ -91,7 +110,14 @@ int main() {
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_POSE");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_COST");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY");
+  unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM");
+  unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO");
   unsetenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION");
+  unsetenv("SAT_EVENT_TRACE_VIVIFY_LITERALS");
+  unsetenv("SAT_EVENT_TRACE_VIVIFY_CLAUSES");
+  unsetenv("SAT_EVENT_TRACE_SUBSTITUTE_ALL");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_FROM");
   unsetenv("SAT_EVENT_TRACE_CLAUSE_SET_CONFLICT_TO");
@@ -129,18 +155,45 @@ int main() {
   assert(text.find("ordinal=0|external=-2") != std::string::npos);
   assert(text.find("external=-2|factors=3|remainders=4|delta=5") !=
          std::string::npos);
+  assert(text.find("\tsubstitute_map\t") != std::string::npos);
+  assert(text.find("external=2|representative=-3") != std::string::npos);
+  assert(text.find("external=2|representative=2") == std::string::npos);
   assert(text.find("\tanalysis_begin\t") != std::string::npos);
   assert(text.find("\timply\t") != std::string::npos);
   assert(text.find("\tlit=2|level=1|reason=-1,2\n") != std::string::npos);
   assert(text.find("\tconflict\t") != std::string::npos);
+  const size_t watch_cost_pos = text.find("\twatch_cost\t");
+  assert(watch_cost_pos != std::string::npos);
+  assert(text.find("ordinal=7|scan=1|words_before=33|words_after=31|base=3"
+                   "|binary_assign=1|large_deref=2|relocate=1"
+                   "|large_assign=0|total=7",
+                   watch_cost_pos) != std::string::npos);
+  assert(text.find("ordinal=6|scan=1") == std::string::npos);
+  assert(text.find("|clause=-3,-2,1|pose=-3,1,-2|priority=") !=
+         std::string::npos);
+  assert(text.find("\tvivify_counts\t") != std::string::npos);
+  assert(text.find("\tvivify_occurrence_clause\t") != std::string::npos);
+  assert(text.find("literal=-3|hash=") != std::string::npos);
+  assert(text.find("literals=-3:16@raw=5@import=5@compact=5,"
+                   "1:11@raw=0@import=0@compact=0") != std::string::npos);
+  assert(text.find("ordinal=7|ticks=10|limit=99|size=3") !=
+             std::string::npos &&
+         text.find("|clause_poses=id=0,order=0,searched=3,redundant=0,glue=0,used=0,priority=0,"
+                   "pose=-3,1,-2") != std::string::npos);
   assert(text.find("|searched=3|pose=-3,1,-2\n") != std::string::npos);
   assert(text.find("\torder=-3,1,-2|set=-3,-2,1|") != std::string::npos);
+  assert(text.find("|ref=0|id=0|glue=0|used=0|redundant=0") !=
+         std::string::npos);
   assert(text.find("\tlearned\t") != std::string::npos);
   assert(text.find("\tretier\t") != std::string::npos);
   assert(text.find("focused=3,8|stable=2,6|posed=3,8|used="
                    "0:0,1:0,2:0,3:5,") !=
          std::string::npos);
-  assert(text.find("\torder=3,-1,2|set=-1,2,3\n") != std::string::npos);
+  assert(text.find("\torder=3,-1,2|set=-1,2,3|levels=0,1,1"
+                   "|nonasserting_glue=1\n") != std::string::npos);
+  assert(text.find("\treason_glue\t") != std::string::npos);
+  assert(text.find("source=fixture|id=0|old=3|new=2|pose=-3,1,-2"
+                   "|set=-3,-2,1") != std::string::npos);
   const size_t analysis = text.find("\tanalysis_end\t");
   assert(analysis != std::string::npos);
   const size_t line_end = text.find('\n', analysis);
@@ -151,9 +204,32 @@ int main() {
   assert(analysis_line.find("\t3\t3\t1") != std::string::npos &&
          "focused top32 must retain queue-tail decision order");
   assert(analysis_line.find("|clause_set=-3,1,-2|clause_poses="
-                            "id=0,order=0,searched=3,redundant=0,"
+                            "id=0,order=0,searched=3,redundant=0,glue=0,used=0,priority=0,"
                             "pose=-3,1,-2") != std::string::npos);
   std::remove(path.c_str());
+
+  const std::string glue_only_path = trace_path("event-glue-only");
+  std::remove(glue_only_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", glue_only_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_GLUE_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.macro(k, "must_be_filtered");
+    trace.clause_glue(k, "fixture", clause_at(k.arena, k.conflict_ref), 3, 2);
+    trace.detail(k, "analysis_end", 1);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_GLUE_ONLY");
+  std::ifstream glue_only_input(glue_only_path);
+  const std::string glue_only_text(
+      (std::istreambuf_iterator<char>(glue_only_input)),
+      std::istreambuf_iterator<char>());
+  assert(glue_only_text.find("\treason_glue\t") != std::string::npos);
+  assert(glue_only_text.find("\tanalysis_end\t") != std::string::npos);
+  assert(glue_only_text.find("must_be_filtered") == std::string::npos);
+  assert(glue_only_text.find("\ttrace_begin\t") == std::string::npos);
+  std::remove(glue_only_path.c_str());
 
   // Stable top32 is a portable reference comparison, not a rendering of
   // Tactix's dense variable indices.  Kissat assigns those indices in first
@@ -498,6 +574,58 @@ int main() {
   assert(trajectory_text.find("\tscore_bump\t") == std::string::npos);
   assert(trajectory_text.find("\tanalysis_mark\t") == std::string::npos);
   std::remove(trajectory_path.c_str());
+
+  const std::string sweep_only_path = trace_path("event-sweep-only");
+  std::remove(sweep_only_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", sweep_only_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_SWEEP_ONLY", "1", 1);
+  setenv("SAT_EVENT_TRACE_SWEEP_CLAUSES", "2", 1);
+  setenv("SAT_EVENT_TRACE_SWEEP_QUERIES", "2", 1);
+  setenv("SAT_EVENT_TRACE_SWEEP_VARS", "2", 1);
+  setenv("SAT_EVENT_TRACE_SWEEP_BINARIES", "2", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "analysis_begin", 2);
+    trace.sweep_seed(k, 1);
+    trace.sweep_environment_var(k, 1, 0, 2, 1);
+    trace.sweep_binary_attempt(k, 1, 0, internalize(1), internalize(-2), 1,
+                               2, "add");
+    const Lit clause[2] = {internalize(1), internalize(-2)};
+    trace.sweep_environment_clause(k, 1, 0, clause, 2);
+    trace.sweep_query(k, 1, 0, "initial", INVALID_LIT, INVALID_LIT, 0, 7,
+                      0);
+    trace.sweep_effort(k, 2, 17, 31, 5);
+    trace.macro(k, "sweep_end");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_SWEEP_ONLY");
+  unsetenv("SAT_EVENT_TRACE_SWEEP_CLAUSES");
+  unsetenv("SAT_EVENT_TRACE_SWEEP_QUERIES");
+  unsetenv("SAT_EVENT_TRACE_SWEEP_VARS");
+  unsetenv("SAT_EVENT_TRACE_SWEEP_BINARIES");
+  std::ifstream sweep_only_input(sweep_only_path);
+  const std::string sweep_only_text(
+      (std::istreambuf_iterator<char>(sweep_only_input)),
+      std::istreambuf_iterator<char>());
+  assert(sweep_only_text.find("\tanalysis_begin\t") == std::string::npos);
+  assert(sweep_only_text.find("\tsweep_seed\t") != std::string::npos);
+  assert(sweep_only_text.find("\tsweep_environment_var\t") !=
+         std::string::npos);
+  assert(sweep_only_text.find("\tsweep_binary_attempt\t") !=
+         std::string::npos);
+  assert(sweep_only_text.find("lit_depth=1|other_depth=2|disposition=add") !=
+         std::string::npos);
+  assert(sweep_only_text.find("\tsweep_environment_clause\t") !=
+         std::string::npos);
+  assert(sweep_only_text.find("\tsweep_query\t") != std::string::npos);
+  assert(sweep_only_text.find(
+             "external=2|before=17|after=31|delta=14|solves=5") !=
+         std::string::npos);
+  assert(sweep_only_text.find("\tsweep_end\t") != std::string::npos);
+  std::remove(sweep_only_path.c_str());
 
   const std::string reduce_path = trace_path("reduce-trace");
   std::remove(reduce_path.c_str());

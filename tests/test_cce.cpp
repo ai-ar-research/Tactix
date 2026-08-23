@@ -157,7 +157,7 @@ static void test_filter_and_resume() {
           armed++;
           break;
         }
-    r += clause_words(c->size);
+    r += clause_actual_words(c);
   }
   assert(armed > 0 && "the next round must still see the tail");
 }
@@ -217,7 +217,7 @@ static void test_reconstruction_exhaustive() {
           cl.push_back(externalize(l));
         surviving.push_back(cl);
       }
-      ref += clause_words(c->size);
+      ref += clause_actual_words(c);
     }
 
     const std::vector<int8_t> saved(k.values.begin(), k.values.end());

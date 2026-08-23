@@ -2,13 +2,27 @@
 // target/best phase snapshots, and their per-variable growth. See
 // heuristics.hpp for the ownership rule.
 #include "policies/heuristics.hpp"
-#include "policies/event_trace.hpp"
+#include "diagnostics/event_trace.hpp"
 
 #include <algorithm> // std::max (rescale_scores)
 #include <cassert>
 #include <type_traits>
 
 namespace tactix {
+
+namespace {
+
+void rebuild_compact_import_position(Kernel &k, uint32_t nvars) {
+  k.compact_import_position.assign(nvars, INVALID_VAR);
+  for (Var position = 0; position < k.compact_import_order.size(); position++) {
+    const Var v = k.compact_import_order[position];
+    assert(v < nvars);
+    assert(k.compact_import_position[v] == INVALID_VAR);
+    k.compact_import_position[v] = position;
+  }
+}
+
+} // namespace
 
 void heuristics_consume_rule_advice(Kernel &k) {
   if (!k.h) {
@@ -55,7 +69,8 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   // and lets preprocessing assignments leak into the first search trajectory.
   k.h->saved.resize(nvars, 0);
   for (Var v = old; v < nvars; ++v)
-    k.h->random_order.push_back(v);
+    k.compact_import_order.push_back(v);
+  rebuild_compact_import_position(k, nvars);
   k.h->links.resize(nvars);
   k.h->scores.pos.resize(nvars, UINT32_MAX);
   k.h->scores.score.resize(nvars, 0.0);
@@ -109,14 +124,15 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   if (!h.walk_prev.empty())
     compact_values(h.walk_prev, int8_t{0});
 
-  std::vector<Var> random_order;
-  random_order.reserve(h.random_order.size());
-  for (const Var old : h.random_order) {
+  std::vector<Var> compact_import_order;
+  compact_import_order.reserve(k.compact_import_order.size());
+  for (const Var old : k.compact_import_order) {
     const Var now = old_to_new[old];
     if (now != INVALID_VAR)
-      random_order.push_back(now);
+      compact_import_order.push_back(now);
   }
-  h.random_order.swap(random_order);
+  k.compact_import_order.swap(compact_import_order);
+  rebuild_compact_import_position(k, new_nvars);
   if (h.fixed_representative != INVALID_VAR)
     h.fixed_representative = old_to_new[h.fixed_representative];
 
@@ -168,8 +184,19 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
     h.scores.pos[h.scores.stack[i]] = i;
 
   h.nvars = new_nvars;
+  // Kissat compact.c:compact_best_and_target_values recomputes both
+  // high-water marks from the phase entries that survive variable mapping.
+  // Resetting them to zero is not conservative: the next stable backtrack can
+  // then accept a shallower trail as a new record and overwrite target phases
+  // that compaction preserved correctly.  In Tactix every variable retained
+  // by old_to_new remains in the compact assigned currency, so count the
+  // remapped nonzero entries directly.
   h.target_assigned = 0;
   h.best_assigned = 0;
+  for (Var v = 0; v < new_nvars; ++v) {
+    h.target_assigned += h.target[v] != 0;
+    h.best_assigned += h.best[v] != 0;
+  }
 }
 
 // Kissat's `tumble` (default 1): both rankings are seeded in first-activation
@@ -181,7 +208,8 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
 void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) {
   if (!k.h || order.empty())
     return;
-  k.h->random_order = order;
+  k.compact_import_order = order;
+  rebuild_compact_import_position(k, k.nvars);
   // Last activated ends at the queue tail, the most-preferred end. A variable
   // in no stored clause is never bumped and falls to the front; kissat never
   // imports one at all, so its position is unconstrained.
@@ -201,7 +229,7 @@ void heuristics_compact_random_order_fixed(Kernel &k) {
   if (!k.h || !kernel_root_fixed(k))
     return;
   bool kept_fixed = false;
-  auto &order = k.h->random_order;
+  auto &order = k.compact_import_order;
   order.erase(std::remove_if(order.begin(), order.end(), [&](Var v) {
                 const bool fixed = k.values[make_lit(v, false)] != 0 &&
                                    k.assigned[v].level == 0;
@@ -215,6 +243,7 @@ void heuristics_compact_random_order_fixed(Kernel &k) {
                 return true;
               }),
               order.end());
+  rebuild_compact_import_position(k, k.nvars);
 }
 
 static uint32_t append_unranked_decision_candidates(
@@ -700,7 +729,7 @@ void heuristics_update_scores(Kernel &k) {
   // activation.  Those orders differ when a variable first occurs in a
   // tautological/satisfied clause: import.c assigns its index immediately,
   // while internal.c activates it only when a retained clause closes.  The
-  // activation permutation in `random_order` is therefore right for random
+  // activation permutation in `compact_import_order` is therefore right for random
   // decisions and initial scores but wrong for this all_variables(idx) loop.
   // Equal scores preserve heap insertion pose, so use the permanent import
   // ranks that emulate Kissat's compact internal-index order.
@@ -728,13 +757,27 @@ void heuristics_update_target_phases(Kernel &k) {
   // kissat backtrack.c kissat_update_target_and_best_phases, stable only
   if (!k.h->stable)
     return;
-  const uint32_t assigned = static_cast<uint32_t>(k.trail.size());
+  // Kissat's high-water currency is `kissat_assigned = VARS - unassigned`
+  // (internal.h:261-264).  Its `kissat_mark_eliminated_variable` removes an
+  // unassigned retired identity from `unassigned` immediately, even though
+  // that identity remains in VARS until the next compaction.  Tactix preserves
+  // that identity in `compact_import_order` over the same interval and tracks
+  // the matching live unassigned population in `unassigned_active`; global
+  // `unassigned` deliberately still includes the reconstructible retired
+  // identity.  Thus compact VARS minus active-unassigned is the portable
+  // currency.  Physical trail height is representation-local too, since
+  // compacted root identities remain on Tactix's trail.
+  assert(k.compact_import_order.size() >= k.unassigned_active);
+  const uint32_t assigned = static_cast<uint32_t>(
+      k.compact_import_order.size() - k.unassigned_active);
   if (k.h->target_assigned < assigned) {
+    event_trace_target_state(k, "target-save-pre", assigned);
     event_trace_target_save(k);
     k.h->target_assigned = assigned;
     for (const Lit lit : k.trail)
       k.h->target[var_of(lit)] = negated(lit) ? -1 : 1;
     k.stats.target_saved++;
+    event_trace_target_state(k, "target-save-post", assigned);
   }
   if (k.h->best_assigned < assigned) {
     k.h->best_assigned = assigned;
@@ -755,13 +798,18 @@ void heuristics_check(const Kernel &k) {
   // walks off the end.
   assert(k.h->nvars == k.nvars);
   assert(k.h->saved.size() == k.nvars);
-  assert(!k.nvars || !k.h->random_order.empty());
+  assert(!k.nvars || !k.compact_import_order.empty());
+  assert(k.compact_import_position.size() == k.nvars);
   std::vector<uint8_t> random_ordered(k.nvars, 0);
-  for (const Var v : k.h->random_order) {
+  for (Var position = 0; position < k.compact_import_order.size(); position++) {
+    const Var v = k.compact_import_order[position];
     assert(v < k.nvars);
     assert(!random_ordered[v]);
     random_ordered[v] = 1;
+    assert(k.compact_import_position[v] == position);
   }
+  for (Var v = 0; v < k.nvars; v++)
+    assert(random_ordered[v] || k.compact_import_position[v] == INVALID_VAR);
   assert(k.h->links.size() == k.nvars);
   assert(k.h->scores.pos.size() == k.nvars);
   assert(k.h->scores.score.size() == k.nvars);

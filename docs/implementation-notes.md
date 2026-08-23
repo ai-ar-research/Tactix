@@ -1,39 +1,21 @@
 # Tactix implementation notes — guards, deviation ledger, design decisions
 
-> **Companion to `docs/calculus.md`.** `calculus.md` states the *abstract* proof rules (precondition /
-> effect / proof-δ / soundness). This file holds the **engineering layer**: the *implemented* guards
-> (which may be stronger than the abstract precondition), the **deviation ledger** — every place the code diverges from the calculus, with a removal path — and standalone design decisions.
->
-> **Sync:** whenever a rule's guard or a deviation changes, update this file in the same commit as the
-> code and `calculus.md` (the `calculus` skill enforces it). The N1 rationale — why a guard must be a
-> *pure* soundness precondition and an engineering-narrowed guard is an N1 leak — is stated in
-> `calculus.md` §1.
+> **Companion to `docs/calculus.md`.** That file owns abstract proof rules; this file owns implemented guards, engineering deviations and durable design decisions.
+> **Sync:** update both with code when a guard or deviation changes. The N1 rationale for pure soundness guards is in `calculus.md` §1.
 
 ## 1. Implemented guards, per rule
 
-A guard conjunct is either `[abstract]` (a pure soundness precondition, stated in the rule's
-`calculus.md` entry) or an **engineering deviation** tagged by family (§2). Each guard is the first
-function in its rule's `.cpp`.
+A guard conjunct is either `[abstract]` (a pure soundness precondition, stated in the rule's `calculus.md` entry) or an **engineering deviation** tagged by family (§2). Each guard is the first function in its rule's `.cpp`.
 
-`root` abbreviates the shared inprocessing guard `!inconsistent · level==0`. It once also carried
-`!pending.valid` (D-SPLIT-1), `!conflict_valid` on the pure `F`-rewrites (D-SPLIT-3) and
-`propagate_head==|τ|` on every inprocessing rule + S5 (D-LEVEL) — all removed (§2); those rules now
-**drain the root closure `U` at apply entry** via `inprocess_reach_root`/`propagate_service`, so the
-fixpoint is reached inside the rule, not demanded by the guard. V1/V2/S5 keep `!conflict_valid` as a
-genuine abstract precondition.
+`root` abbreviates `!inconsistent · level==0`. Former pending/conflict/fixpoint conjuncts D-SPLIT-1/3 and D-LEVEL are closed (§2): rules drain root closure `U` at apply entry via `inprocess_reach_root`/`propagate_service`. V1/V2/S5 retain abstract `!conflict_valid`.
 
-**Policy operations are not in this table** (decision (191ed95)): S3 `Rephase`, S4 `SwitchMode`, S6 `Walk`, S7 `Reorder`
-are `H`-only (plan decisions `93d206d` and `b6839d9`, §5.2)—no proof obligation or guard to classify here; their trivial
-`!inconsistent` applicability lives with the sub-policy surface (Track H, `docs/design/h-relocation-design.md`).
+**Policy operations are not in this table:** S3 `Rephase`, S4 `SwitchMode`, S6 `Walk`, and S7 `Reorder` are `H`-only (§5.2); their `!inconsistent` applicability lives with the sub-policy surface (`docs/design/h-relocation-design.md`).
 
-**Every implemented proof rule is SCHEDULED in DefaultPolicy** (user directive 2026-07-28; enabling
-commit `3fb85bd` — all `Inprocess`-tier rules ON (13 then; 16 today), `default_policy.cpp`; price +1.3 Tier B / +35 Tier C
-PAR-2, no solves lost, and the X1 arm numbers below: `benchmarks/reports/2026-07-28-all-rules-on.md`).
-Ablation surface: `TACTIX_SLOT_DISABLE=<Name>` / `TACTIX_SLOT_ENABLE`, `TACTIX_NO_BVE` /
-`TACTIX_NO_FACTOR`. A rule-off arm is a *diagnostic for a scheduling defect*, never a shipped default;
-the Track R "ships OFF until its own A/B pays" convention is dead
-(`benchmarks/reports/2026-07-29-review-post-track-r.md`, commit `3daef1a`). Scheduling is never a guard
-conjunct.
+**Every implemented proof rule is scheduled in DefaultPolicy** (`3fb85bd`; evidence:
+`benchmarks/reports/2026-07-28-all-rules-on.md`). Ablations use
+`TACTIX_SLOT_DISABLE=<Name>` / `TACTIX_SLOT_ENABLE`, `TACTIX_NO_BVE`, and
+`TACTIX_NO_FACTOR`; rule-off is diagnostic, never the shipped default
+(`benchmarks/reports/2026-07-29-review-post-track-r.md`). Scheduling is not a guard.
 
 | Rule | Implemented guard conjuncts | Engineering deviations (else pure) |
 |---|---|---|
@@ -77,10 +59,9 @@ an obligation with a removal path, not a note.
 | D-C1C2-VICTIM | C1/C2's canonical ROUND is narrower than the abstract precondition on the VICTIM: C2 admits a redundant clause inside the likely-kept tier band with `Kernel::touch_redundant` on (SHIPS ON), while C1's round admits none. CaDiCaL scopes the same loop on `likely_to_be_kept_clause` (`subsume.cpp:388`) with the band ON. Neither is a guard, and the INSTANCE surface is complete over victims either way. | C1, C2 | The abstract precondition constrains only the subsumer/partner (calculus §C1/C2), so this is scope, not soundness. C1: `SCHED-G2` measures C2 absorbing 698,341 of C1's 698,351 subsumptions, so widening C1 would maintain a fifth mechanism on the absorbed half of a fused pass. C2 now follows the reference-first default directive; `TACTIX_TOUCH_REDUNDANT=0` retains the narrower attribution arm. There is no PROMOTION path — CaDiCaL turns a redundant SUBSUMER irredundant (`subsume.cpp:133-149`); we keep subsumers irredundant instead, which is stricter. | Price the default-on band cumulatively and reopen if proof/model checks fail or its cost dominates without measurable yield. C1 remains closed by measurement. Promotion remains conditional on a measured yield gap and would require a `strengthen`-style proof line plus a redundant→irredundant kernel transition. |
 | D-NOOP | `¬conflict_valid` (dangling `conflict_ref`), `level>0` no-op | S1, S2 | GC forwards `pending.ref` but not `conflict_ref`; restart-at-root is a no-op | forward/clear `conflict_ref` in GC, or drop the no-op guard; benign, low priority |
 
-**Pure already:** M1 Propagate, M2 Decide, M3 ConflictAnalysis. **The only remaining inprocessing GUARD
-deviation is D-ROOT** (`level==0`); D-NOOP is the other open guard deviation (S1/S2), and D-CONG-SKIP /
-D-CONG-TAUT are effect branches — D-CONG-SKIP on the LRAT path only, D-CONG-TAUT in BOTH formats
-(deliberately, to keep the two proof modes trajectory-identical; `congruence.cpp:792/802/969`).
+**Pure already:** M1 Propagate, M2 Decide, M3 ConflictAnalysis. The only remaining
+inprocessing guard deviation is D-ROOT; D-NOOP is the other open guard deviation,
+and D-CONG-SKIP/D-CONG-TAUT are effect branches (`congruence.cpp:792/802/969`).
 
 ### Closed
 
@@ -96,6 +77,10 @@ Git and frozen reports own chronology; these records retain only the landed inva
 - **D-CONG-LRAT:** XOR/ITE chains replay canonical lemmas in checker propagation order.
 - **D-CONG-UNIT:** AND/XOR degeneracies emit their unit/merge chains with order-preserving hint dedup;
   deliberate ITE/literal residuals remain specified in calculus V6.
+- **D-CONG-INPUT-UNIT:** a valued XOR with cancelled representatives proves its surviving input unit
+  through the same degeneracy ladder as `Canon::Unit`; every remaining direct input-unit replays with
+  `RupReplay::Decide`, so admission is proof-format independent. The pre-fix-failing LRAT/DRAT regression
+  and formerly invalid Ascon proof pass; full 28B+fixed5C guard `1639948` is 66/66 with zero residue.
 - **D-CONG-DELETE / D-CONG-ARITY:** transient lemmas are proof-deleted newest first; AND extraction uses both references' 1,000,000-input default, with the round budget governing effort and a 65-input pair pinning the former cutoff.
 - **D-FACTOR-LRAT:** Factor emits real `add_rat`; dividers precede quotients and grid deletion
   (`calculus.md` E2).
@@ -151,11 +136,10 @@ M3 is one public operation. Private pending state must be consumed before contro
   `no_ext_decisions` is diagnostic only: excluding extension variables from Decide would violate N1.
 - BVE does not schedule extension variables because it would immediately reverse Factor. This is policy,
   not a soundness precondition.
-- Factor's dense entry keeps the first watch for each binary partner, flushes duplicates, and proof-deletes
-  root-satisfied binary pairs before matching, as Kissat's dense connection does; dense exit rebuilds
-  large watches in arena order while binaries keep encounter order. Selected grids apply
-  last-factor first (`q -> prev`), and each large quotient copies that row's literal pose after removing
-  the factor; the interned sorted remainder is only a comparison key, never the emitted watch pose.
+- Factor's dense entry keeps the first watch per binary partner, flushes duplicates,
+  and proof-deletes root-satisfied pairs; exit rebuilds large watches in arena order
+  while binaries keep encounter order. Grids apply last-factor first (`q -> prev`);
+  emitted quotients retain row pose, while sorted remainders are comparison keys only.
 - Factor has no within-rule admission gate. Formula profiles may suppress only
   repeated post-search calls; they do not remove the startup entry. Independent
   resource governors still decline before rule dispatch: DefaultPolicy
@@ -165,22 +149,18 @@ M3 is one public operation. Private pending state must be consumed before contro
 - Grid selection crosses a rule-owned `FactorSelection` interface; the default scheduler scopes a
   `FactorMatchPolicy` adapter while Factor owns the proof-bearing
   grid rewrite, positive-gain floor and effort budget. Clear the policy pointer after the phase.
-- Factor's budget meter is the reference dense-scan meter, not clause size:
-  quotient-stack and watch-list cache lines plus every inspected live large
-  occurrence.  The two reference quit points are after each current quotient
-  occurrence and before each seed.  This boundary is scheduling state: on the
-  `sted5` witness it splits one probe phase into the same 23-grid then 11-grid
-  Factor doses as original Kissat, allowing the intervening Vivify pass to see
-  the same clause population.
-- Factor's binary-grid matcher uses the dense index as a relation, not as a
-  source for per-remainder hash tables. After selecting the next factor it
-  stamps that factor's live binary partners once and filters all unit
-  remainders by the stamp. Dense watch degree is cached exactly and updated by
-  Factor's own divider/quotient additions and grid deletions, matching Kissat's
-  constant-time watch-stack size for heap scores and tie breaks. Both changes
-  preserve candidate counts, scores, encounter order, and the emitted grid;
-  they remove allocator and repeated adjacency-scan costs only.
-- Factor next-factor matching: the counting pass reserves each live large occurrence once across the whole quotient (kissat marks it and pushes `qlauses`), while the second matching pass re-scans and reserves only against the chosen factor, so the matched column count can exceed the count that selected it. Kissat has no second pass — `flush_unmatched_clauses` filters the reserved `qlauses` — so its two agree by construction. Grid-choice fidelity only: the grid, its delta and every accepted factoring come from the matched columns. Repair: memoize the counting pass's (candidate, ref) discoveries per column and consume that memo.
+- Factor's budget is the reference dense-scan meter: quotient/watch cache lines
+  plus inspected live large occurrences, with quit points after each current
+  quotient and before each seed. On `sted5` this yields Kissat's 23-grid then
+  11-grid doses and the same intervening Vivify population.
+- Factor's binary-grid matcher treats the dense index as a relation: it stamps
+  the selected factor's live binary partners once and filters unit remainders.
+  Exact cached watch degree tracks Factor additions/deletions for Kissat-shaped
+  heap scores and ties. Candidate counts, order, and emitted grids are unchanged.
+- Factor next-factor matching currently counts each live large occurrence once
+  across a quotient, then re-scans only the chosen factor; its matched column
+  count can exceed the selecting count. Kissat filters the reserved `qlauses`
+  without a second pass. Memoize and consume the counting-pass discoveries.
 - Proof order is E2's divider-then-quotient-then-grid-deletion order. BVE skips extension variables; no reconstruction witness is pushed because output projection removes them.
 
 ### Binary identity and watch-arena memory
@@ -216,14 +196,25 @@ M3 is one public operation. Private pending state must be consumed before contro
   then publish the same metadata and encounter order without arena growth or a duplicate stable watch. Packing
   retains already-paid global capacity until the final rewrite image, avoiding a first-post-batch doubling. Capture
   asymmetric images from the retiring directed list: Kissat appends that source order, not stable-partner order.
+- Sweep's proved-equivalence commit is a rule-internal connected substitution
+  transaction, not a policy arm. It has no cadence, admission, effort, or formula
+  classifier. After V5 proves and publishes a pair, it rewrites the retiring
+  literals' binary and irredundant dense occurrences with V3's proof/reconstruction
+  obligations; redundant large clauses wait for the phase-exit retirement flush.
+  Scratch is sized by the proved class/neighbourhood. A surviving large image
+  retains its Ref and allocation span; one `INVALID_LIT` tail marker lets ordinary
+  collection pack its semantic words. Collapse/deletion leave lazy garbage, so
+  Sweep owes no exit collection. Its binary-then-large mixed view is materialized
+  only for reached literals and retained for the call, an output-sensitive view of
+  Kissat's unified watch stream. Public V3/V5 guards and instance surfaces remain
+  complete; DefaultPolicy alone schedules V5 and supplies its rule budget.
 - Canonical Backbone schedules unassigned persistent per-polarity survivors before other unassigned first-import literals, retains the falsified candidate stack across no-unit rounds, and resolves a binary conflict to its first repeated predecessor on one assumption trail. Derived units and their binary closures stay at the saved speculative level until the complete round suffix is unwound; only then are they replayed at root. Successful binary scans charge Backbone's private meter through the fetched first large-watch word, while a conflicting scan and post-round general root propagation do not, matching Kissat's return and meter boundaries. The round ramp remains 100 per computation capped at 1,000; `backbone_try` remains the independent N1 operation.
-- The canonical large-clause pass streams refs to a captured pre-rewrite end, reacquiring each clause pointer. Replacement
-  clauses append beyond that end, so a full ref snapshot carries no information; Sweep retains its non-prefix
-  selected refs. Since Tactix appends where Kissat shrinks in place, a read-only image pass derives and reserves
-  exact clause/watch additions after root closure. A garbage source's dead `searched` word forwards its replacement
-  at collection, replacing the former two-entry hash ledger; dense scratch is released before that witness/GC suffix.
-  Garbage collection reserves exact live words and clause count, not the garbage-inclusive arena. Proof order and
-  the actual replacement traversal remain unchanged.
+- The canonical large-clause pass streams refs to a captured pre-rewrite end;
+  appended replacements lie beyond it, and a read-only image pass reserves exact
+  additions. Dead `searched` words forward replacements at collection. Sweep is
+  the source-backed exception: connected images shrink at stable Refs. Collection
+  advances by allocation span, copies semantic words, clears the shrink marker,
+  and preserves proof/replacement order.
 
 ### Search representation and BVE scratch
 
@@ -243,20 +234,17 @@ M3 is one public operation. Private pending state must be consumed before contro
 - `work_budget=0` is unbounded. Vivify uses propagation ticks and Factor uses the dense-watch currency above. Sweep's live dose uses only Kitten ticks, while its policy account also prices arena words. A connected dense substitution ledger crosses that bridge once at call exit; sessionless calls collect immediately and refresh `arena_generation`. Evidence: `benchmarks/reports/2026-08-21-tierd-rank27-sweep-reference-lifecycle.md`. Clear after apply.
 - `vivify_scope=0` enumerates all bands; 1–5 select the documented tier bands. The setter accepts 0–5
   and ignores invalid values rather than mapping them to another band.
-- Canonical Vivify commits its count-sorted probe pose to full-size scheduled
-  clauses and rebuilds large watches before propagation, matching Kissat's
-  `sort_scheduled_candidate_literals` → `watch_large_clauses` boundary. Keeping
-  the order only in a side vector matched candidate order but selected a
-  different conflict/reason on `sted5` candidate 9 (`-58` left the learned
-  frontier), causing the first unequal rule outcome.
-- Clause order is semantic scheduling state. Ordinary large additions use their
-  monotone proof id as the arena-order key; input restatements and packed-arena
-  replacements inherit the source key. This sparse alias preserves Kissat's
-  in-place OTFS/Strengthen/Vivify position without enlarging every clause header.
-  Vivify uses the key for reference ties and restores physical arena order at
-  its collection boundary. On `sted5`, appending an OTFS replacement at
-  conflict 392 had otherwise inserted an extra first irredundant candidate at
-  conflict 2553 even though both solvers had derived the same clause.
+- Canonical Vivify commits its count-sorted probe pose to scheduled clauses and
+  rebuilds large watches before propagation. A side-vector-only pose changed the
+  first conflict/reason on `sted5`, despite matching candidate order.
+- Clause order is semantic scheduling state. Large additions use their monotone
+  proof id as arena-order key; restatements and packed replacements inherit the
+  source key, preserving Kissat's in-place OTFS/Strengthen/Vivify position.
+  Vivify uses it for ties and restores physical arena order at collection.
+- OTFS replacement metadata is also logically in-place: preserve the reason's
+  glue, clamp only to size-1, then independently inherit a better redundant
+  conflict glue. Never recompute the base glue from transient conflict levels.
+  Replay `1640777` matches 2,773 uses and the derived c5580 Retier histogram.
 - Canonical Vivify performs Kissat's root simplification while building each
   band schedule. Root-satisfied clauses are deleted and root-false literals
   are stripped through the shared proof-bearing replacement primitive before
@@ -383,7 +371,11 @@ Reorder is an H-only policy operation and ships in both modes, matching Kissat's
 The first default-on run exposed retired identities sorted after disconnection from H, so stale links
 corrupted VMTF. Source filters now exclude retired Analyze bumps and Substitute SCC edges, but
 independent formula rules can still report the same retirement before the policy drain. Heuristic
-deactivation is idempotent. After each DefaultPolicy Propagate, its policy-owned consumer also removes every newly assigned true-level-zero variable from VMTF and EVSIDS, matching Kissat's inline fixed transition without coupling the public proof rule to H.
+deactivation is idempotent. After each DefaultPolicy rule, its policy-owned consumer also removes every newly assigned true-level-zero variable from VMTF and EVSIDS before consuming that rule's retirement events, matching Kissat's inline fixed transition without coupling public proof rules to H. This matters inside rules such as Substitute that can derive root units before deactivating equivalence-class members; delaying either half to phase exit changes equal-score heap topology even when formula semantics agree.
+
+Stable target/best phase snapshots use Kissat's exact assigned-height currency, `VARS - unassigned`, not physical trail length. Tactix's `compact_import_order.size()` is the maintained `VARS` analogue and `unassigned_active` is the matching unassigned population: Kissat decrements `unassigned` when an unassigned variable is eliminated even though `VARS` retains it until compaction, while Tactix deliberately keeps that reconstructible identity in global `unassigned`. The physical trail is representation-local too because it retains compacted root identities. Rank-27 paired phase traces were exact through conflict 3059, then Kissat's first post-retirement deeper target save at conflict 4243 was missing under the global counter.
+
+Probe entry is a separate lifecycle boundary. `kissat_probe` sets `solver->probing` before its root backtrack, and `kissat_update_target_and_best_phases` returns immediately while probing. Tactix therefore suppresses the target/best snapshot on the Probe scheduler's entry restart; the Eliminate scheduler retains it because Kissat elimination is not probing. This distinction closed an otherwise extra conflict-9449 snapshot after 60 post-analysis propagations changed the watched target phase.
 Reorder sorts non-retired variables, clears removed links, and refreshes stable H from the
 connected queue. Both transitions preserve N1 and Kissat's `ACTIVE` filters; `reorder_eligible` / `reordered`
 distinguish reach / apply. The dated Tier B retirement-divergence report owns the paired evidence.
@@ -426,11 +418,9 @@ the conflict clause as reason, without learning or emitting proof.
 
 ## 13. The scheduling-parity ledger (evidence for N4 verification)
 
-Moved to `docs/scheduling-parity-ledger.md`, which owns the N4 gate, the
-open/closed/accepted dispositions, the SCHED-A3 coverage arithmetic and the
-application-order audit. Section and row identifiers are unchanged, so a
-historical citation of `implementation-notes.md §13.x` reads as §13.x there.
-`tools/docs/check-option-coverage.py` parses that file.
+`docs/scheduling-parity-ledger.md` owns the N4 gate, dispositions, SCHED-A3
+coverage arithmetic, and application-order audit. Its stable section/row ids
+serve historical §13.x citations and `check-option-coverage.py`.
 
 ## 14. Design decision: binary-clause lifecycle
 
@@ -442,8 +432,14 @@ reconstruction witness; reasons may not be deleted while live. If a redundant-bi
 reopen the representation, reduction, reason-locking, proof-deletion, and regression-test decisions
 together.
 
-Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue, not the size-monotone proof-identity archive.
-Scaled guards are strict (`limit < conflicts`); only round-zero Probe is exempt so startup preprocessing runs.
+Formula-size-scaled scheduling uses the live `BINIRR_CLAUSES` analogue, not the
+size-monotone proof archive. Kissat passes `C + 1` to `kissat_logn`, whose
+offset 9 makes the quadratic scale `log10(C + 10)`. Guards are strict
+(`limit < conflicts`), except round-zero Probe. Effort doses scale the complete
+tick reference and truncate once like `SET_EFFORT_LIMIT`; dividing first can
+lose up to 999 ticks. Omitting the log offset moved `mp1-Nb5T15` Probe round two
+from conflict 8,279 to 8,280; the faithful scale restores it without a profile
+or scheduling constant.
 
 ### Formula classification
 
@@ -452,9 +448,9 @@ Classification may dose entries but never selects whole-slot `preprocess_only` o
 TransitiveReduce ships in that pipeline with Kissat's activity-ranked source order: the reference pushes variable indices, applies its `IDX` conversion again inside the EVSIDS/VMTF comparator, sorts increasing, then consumes the stack from the back. Tactix's front-consumed V4-only comparator uses the corresponding decreasing key and decreasing-variable tie while preserving positive-then-negative sign order.
 The generic `CandidateOrder::Heuristic` meaning is unchanged for every other rule. Early destination exit remains off: the isolated rank-27 arm changed no formula state, while exact source order restored the intervening reduction.
 
-Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`; Substitute has no Kissat delay object, so its local closure backoff is search-time-only.
+Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`. Substitute has no Kissat delay or material-watermark object. Each authored call therefore executes an unconditional first SCC round; a productive round's own cache-line delta is compared with 10‰ of the Probe search-tick reference solely to decide whether that call receives its optional second round. This per-call `substituterounds=2` cap is distinct from `proberounds=2`, which repeats the complete probing pipeline.
 
-Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases. Sweep and its mandatory follow-up Substitute form one retirement transaction for heuristic state: Kissat rewrites clauses and records representatives per environment, then deactivates the complete union in a variable-index Substitute pass. Tactix retains per-environment proof/reconstruction work but publishes the combined retirement suffix to `H` in permanent import order after that Substitute, preserving the earlier Vivify prefix. Equal semantic scores thus see the same removal pose without changing formula effects.
+Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases. Sweep and its mandatory follow-up Substitute form one retirement transaction for heuristic state: Kissat rewrites clauses and records representatives per environment, then deactivates the complete union in a variable-index Substitute pass. Tactix retains per-environment proof/reconstruction work but publishes the combined retirement suffix to `H` in permanent import order immediately after that Substitute, preserving the earlier Vivify prefix. Newly root-fixed variables are published first, matching Kissat's assignment-before-`remove_representative_equivalences` order. Equal semantic scores thus see the same removal pose without changing formula effects.
 
 ## 15. Design decision: eager subsumption after analysis
 
@@ -526,15 +522,15 @@ root_epoch, pre_digest, guards, antecedents, outcome, decline, deltas, witnesses
 effort, budget, post_digest`.
 
 - Literals use external identities; clauses use proof IDs or a stable creation ordinal plus external content.
-- Control rows cover triggers, order, budgets, modes, and restarts; transaction rows cover every applied or declined outcome.
+- Control rows cover triggers, order, budgets, modes, and restarts; each inprocessing invocation names its source currency and records reference, allowance, entry/exit, delta, overshoot, and terminal comparison.
 - The operation and serializer consume the evaluator's same structured guard result; logging never reimplements eligibility.
 - Epochs and digests delimit mutations. Replay re-executes and stops at the first field mismatch; it never injects a transformation.
 - Selectors apply before expensive digests, so bounded traces do not alter the selected execution.
 - Production builds contain no journal code or hot-path branch; instrumented Kissat is diagnostic, never a baseline.
 
-Detailed coverage starts with Sweep consequence commitment and
-Congruence/Substitute. A generic envelope is insufficient until the evaluator
-supplies its rule-specific guards, candidates, antecedents, deltas, and witnesses.
+The scheduler ledger covers every inprocessing family. Candidate-oriented
+depth remains rule-owned: each evaluator must supply portable order, guards,
+antecedents, deltas, witnesses, and semantic pose rather than infer them later.
 
 ## 19. Congruence closure indices and sparse-header identities
 
@@ -557,4 +553,4 @@ from DefaultPolicy search at `finish_input`. It occurs nowhere, needs no witness
 and total model extension supplies an arbitrary value. Checked rank-16 witness:
 `benchmarks/runs/20260817-1625-tierd-rank16-header-only-checked/`.
 
-T105's paired removal (`20260818-0110-T105-backbone-v6a-ablation`) retains V6a: Backbone finds 0 units, V6a finds 501, and off is 430.693 s versus 365.861 s. Each admitted Congruence application therefore completes one linear V6a binary-watch pass independently of prior gate-budget spending; only global termination may soundly cut it. `congruence_y1_ticks` accounts for scan/replay work while `congruence_ticks` remains inclusive, and the focused test exhausts the shared budget before requiring the unit.
+T105's paired removal (`20260818-0110-T105-backbone-v6a-ablation`) retains V6a: Backbone finds 0 units, V6a finds 501, and off is 430.693 s versus 365.861 s. Each admitted Congruence application therefore completes one linear V6a binary-watch pass independently of any caller-owned gate-budget spending; only global termination may soundly cut it. DefaultPolicy no longer hands Congruence a budget (`SP-CONG-BUDGET-1`, job `1640986`); `congruence_y1_ticks` and inclusive `congruence_ticks` remain diagnostic, and the focused public-budget test still exhausts the gate scope before requiring the unit.

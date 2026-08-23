@@ -35,7 +35,7 @@ static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
         found |= all;
       }
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   if (lits)
     assert(found);
@@ -133,7 +133,7 @@ static void test_terminal_dispatch() {
     for (Ref r = 0; r < k.arena.size();) {
       const Clause *c = clause_at(k.arena, r);
       saw_irredundant |= !c->garbage() && !c->redundant();
-      r += clause_words(c->size);
+      r += clause_actual_words(c);
     }
     assert(saw_irredundant && default_solve(k) == 10);
   }
@@ -371,6 +371,21 @@ static void test_replacement_watch_pose_scans_unassigned_tail() {
   assert(replacement == expected);
 }
 
+// Kissat rechecks the two selected watches after every Vivify terminal.  Two
+// false watches at levels 5 and 4 require retaining only levels below 4; merely
+// trimming a six-literal conflict replacement to size-2 leaves one stale
+// assumption level and changes the next candidate's reused prefix.
+static void test_replacement_watch_invariant_backtracks_below_false_pair() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  for (int i = 1; i <= 5; ++i)
+    kernel_assign_decision(k, internalize(-i));
+  const Lit replacement[4] = {internalize(5), internalize(4), internalize(3),
+                              internalize(2)};
+  vivify_reestablish_watch_invariant(k, replacement, 4);
+  assert(k.level == 3 && k.trail.size() == 3);
+}
+
 // Large instantiation is not an ordinary learned-clause rebuild.  Kissat
 // removes the reversed literal in the candidate's physical order, retains the
 // first size-2 assumption levels, and chooses watches in that state.  This
@@ -391,7 +406,7 @@ static void test_large_instantiation_retains_candidate_pose() {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage() && c->size == 3)
       replacement = c;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   assert(replacement);
   assert(replacement->lits[0] == internalize(3));
@@ -497,6 +512,39 @@ static void test_schedule_root_false_ternary_becomes_binary() {
   assert(kernel_binary_live(k, internalize(2), internalize(3)));
 }
 
+// Kissat fixes a candidate's tier membership before root simplification.  A
+// tier-2 clause whose root-false literal is removed can therefore acquire a
+// tier-1 glue while remaining in the current tier-2 schedule.  Tactix allocates
+// a replacement record and must carry that pass-time membership explicitly.
+static void test_schedule_root_shrink_preserves_pass_time_tier() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  k.tier1 = 2;
+  k.tier2 = 6;
+  k.vivify_scope = 4;
+  const Lit clause[4] = {internalize(-1), internalize(2), internalize(3),
+                         internalize(4)};
+  kernel_add_large_clause(k, clause, 4, true, /*glue=*/3, 1);
+  kernel_assign_unit(k, internalize(1));
+  assert(!kernel_propagate(k));
+  volatile sig_atomic_t stop = 1;
+  k.stop = &stop; // inspect the committed schedule before candidate dispatch
+  assert(vivify_apply(k) == ApplyResult::Ok);
+  assert(k.stats.vivify_checked == 0);
+  assert(k.stats.vivify_reprioritized == 1);
+  assert(k.stats.vivify_prioritized == 1);
+  bool found = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      found = true;
+      assert(c->size == 3 && c->glue() == 2 && c->vivify());
+    }
+    ref += clause_actual_words(c);
+  }
+  assert(found);
+}
+
 static void test_kissat_candidate_count_vector_ties() {
   { // Irredundant uses Kissat's one-count key; the stable radix tie is ref.
     Kernel k;
@@ -595,6 +643,76 @@ static void test_precharged_cumulative_budget_stops_before_candidate() {
   assert(k.stats.vivify_checked == 0 && k.level == 0);
 }
 
+// Every Kissat Vivify dose starts with the null-stack dense flush. Duplicate
+// binaries created by an earlier dose are collapsed before scheduling and the
+// surviving large clauses are then rewatched. A stop on the first candidate
+// isolates those round-entry representation effects from probing semantics.
+static void test_round_entry_flushes_large_and_deduplicates_binaries() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit a = internalize(1), b = internalize(-2);
+  kernel_add_binary_clause(k, a, b);
+  kernel_add_binary_clause(k, a, b);
+  kernel_add_binary_clause(k, a, b);
+  const Lit candidate[3] = {internalize(3), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, candidate, 3, false, 0);
+  assert(kernel_binary_copies(k, a, b) == 3);
+
+  volatile sig_atomic_t stop = 1;
+  k.stop = &stop;
+  assert(vivify_apply(k) == ApplyResult::NoOp);
+  k.stop = nullptr;
+
+  assert(k.stats.vivify_checked == 0);
+  assert(kernel_binary_copies(k, a, b) == 1);
+  assert(live_large(k, candidate, 3) == 1);
+  kernel_check_invariants(k);
+}
+
+// Kissat propagates a Vivify-learned root unit and continues the already-built
+// schedule.  Candidate references stay valid until the round-end collection;
+// each later candidate rechecks the new root values before probing.
+static void test_unit_rewrite_continues_schedule() {
+  Kernel k;
+  kernel_reserve_vars(k, 10); // the fixture ranges through variable 10
+  const Lit final_lits[3] = {internalize(4), internalize(5), internalize(8)};
+  const Ref final = kernel_add_large_clause(k, final_lits, 3, false, 0);
+  const Lit satisfied_lits[3] = {internalize(3), internalize(9),
+                                 internalize(10)};
+  const Ref satisfied =
+      kernel_add_large_clause(k, satisfied_lits, 3, false, 0);
+  const Lit prefix_lits[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref prefix = kernel_add_large_clause(k, prefix_lits, 3, false, 0);
+  const Lit unit_lits[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref unit = kernel_add_large_clause(k, unit_lits, 3, false, 0);
+  // Priority creates the exact four-candidate transaction: learn a root unit,
+  // retain a prefix on an independent clause, delete a now-root-satisfied
+  // scheduled clause, then reuse that prefix on the final clause.
+  clause_at(k.arena, unit)->set_vivify(true);
+  clause_at(k.arena, prefix)->set_vivify(true);
+  // Equal occurrence counts put literal 3 first.  Under its probe assumption
+  // ¬3 these non-subsuming binaries force both 7 and ¬7, so conflict
+  // analysis learns the candidate-prefix unit 3.
+  kernel_add_binary_clause(k, internalize(3), internalize(7));
+  kernel_add_binary_clause(k, internalize(3), internalize(-7));
+  std::vector<Ref> candidates;
+  vivify_candidates(k, candidates);
+  assert(candidates.size() == 4 && candidates[0] == unit &&
+         candidates[1] == prefix && candidates[2] == satisfied &&
+         candidates[3] == final);
+  assert(vivify_apply(k) == ApplyResult::Ok);
+  assert(kernel_root_value(k, internalize(3)) > 0);
+  assert(k.stats.vivify_shrunken == 1);
+  assert(k.stats.vivify_deleted == 1 && k.stats.vivify_checked == 3);
+  assert(k.stats.vivify_reused == 1);
+  // Round-end collection drops the rewritten and satisfied candidates while
+  // retaining both independent no-op clauses.
+  assert(live_large(k, prefix_lits, 3) == 2);
+  assert(live_large(k, final_lits, 3) == 2);
+  assert(k.level == 0 && kernel_propagation_fixpoint(k));
+  assert(default_solve(k) == 10);
+}
+
 // The termination poll is cadence-free: a raised stop is both reached and
 // honoured on the first candidate, before any work.
 static void test_termination_poll() {
@@ -629,14 +747,18 @@ int main() {
   test_trail_reuse();
   test_large_rewrite_unwatches_candidate();
   test_replacement_watch_pose_scans_unassigned_tail();
+  test_replacement_watch_invariant_backtracks_below_false_pair();
   test_large_instantiation_retains_candidate_pose();
   test_large_rewrite_trims_without_implied_literal();
   test_schedule_prefix_flush();
   test_schedule_flush_partition();
   test_schedule_root_false_ternary_becomes_binary();
+  test_schedule_root_shrink_preserves_pass_time_tier();
   test_kissat_candidate_count_vector_ties();
   test_large_candidate_has_no_invented_cutoff();
   test_precharged_cumulative_budget_stops_before_candidate();
+  test_round_entry_flushes_large_and_deduplicates_binaries();
+  test_unit_rewrite_continues_schedule();
   test_termination_poll();
   puts("test_vivify OK");
   return 0;

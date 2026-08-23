@@ -3,6 +3,7 @@
 #undef NDEBUG
 #include "kernel/kernel.hpp"
 #include "kernel/watch.hpp"
+#include "policies/heuristics.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
@@ -45,6 +46,7 @@ static void add_bin(Kernel &k, int ea, int eb) {
 // (a ∨ b), (¬b ∨ c), (a ∨ c): the third is redundant. Vars: a=1, b=2, c=3
 static void test_transitive_redundancy() {
   Kernel k;
+  assert(k.transitive_early_exit); // Kissat's candidate termination semantics
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2);  // ¬a → b
   add_bin(k, -2, 3); // b → c
@@ -95,12 +97,13 @@ static void test_mutual_dependency() {
 // and ¬d, so ¬a is failed and nothing is deleted. Vars: a=1, b=2, c=3, d=4
 static void test_failed_literal_deferred() {
   Kernel k;
+  k.transitive_early_exit = false; // exhaustive diagnostic owns this behavior
   kernel_reserve_vars(k, 4);
   add_bin(k, 1, 2);   // ¬a → b
   add_bin(k, 1, 3);   // ¬a → c
   add_bin(k, -2, 4);  // b → d
   add_bin(k, -2, -4); // b → ¬d   (so ¬a → b → d ∧ ¬d)
-  assert(transitive_reduce_apply(k) == ApplyResult::NoOp);
+  assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::NoOp);
   assert(k.stats.transitive_failed == 1);  // handed to V1 Probe
   assert(k.stats.transitive_deleted == 0); // delta stays delete-only
   assert(live(k, 1, 2) && live(k, 1, 3));
@@ -120,17 +123,17 @@ static void test_no_contrapositive_self_justification() {
   assert(live(k, 1, 2) && live(k, -2, -3) && live(k, 1, 3));
 }
 
-// A duplicate pair is not a candidate (hpp deviation 8): `binary_ids` holds one
-// id per pair, and the duplicate slot is itself the alternate path.
-static void test_duplicate_pair_skipped() {
+// Kissat processes physical duplicates independently: the second copy proves
+// the first redundant, then survives when re-evaluated after that tombstone.
+static void test_duplicate_pair_processed_per_copy() {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2); // ¬a → b   (id 1)
   add_bin(k, 1, 2); // ¬a → b   again (id 2) — two live copies of one pair
   add_bin(k, 1, 3); // a second distinct out-edge, so the source is enumerated
-  assert(transitive_reduce_apply(k) == ApplyResult::NoOp);
-  assert(k.stats.transitive_deleted == 0);
-  assert(copies(k, internalize(1), internalize(2)) == 2); // both survive
+  assert(transitive_reduce_apply(k) == ApplyResult::Ok);
+  assert(k.stats.transitive_deleted == 1);
+  assert(copies(k, internalize(1), internalize(2)) == 1);
   assert(live(k, 1, 2));
 }
 
@@ -157,15 +160,75 @@ static void test_instance_surface() {
   add_bin(k, 1, 3);
   std::vector<Lit> srcs;
   transitive_reduce_sources(k, srcs);
-  // ¬a is the only literal with 2 binary out-edges and a canonical candidate
-  assert(srcs.size() == 1);
-  assert(srcs[0] == internalize(1));
-  // a literal that is not a source is a total no-op (payload totality)
+  // Kissat schedules both active polarities even when their source list cannot
+  // produce a candidate; the rule charges the scan and returns a total no-op.
+  assert(srcs.size() == 6);
+  for (Lit lit = 0; lit < 6; lit++)
+    assert(srcs[lit] == lit);
   assert(transitive_reduce_try(k, internalize(3)) == ApplyResult::NoOp);
   assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::Ok);
   assert(!live(k, 1, 3));
   // out-of-range payloads are rejected, not asserted on
   assert(transitive_reduce_try(k, internalize(99)) == ApplyResult::NoOp);
+}
+
+// V4's one-endpoint ownership is a compact-representation decision. Tactix
+// keeps stable internal identities, so H's live reference permutation must
+// still select the same source Kissat's compact literals select.
+static void test_reference_compact_order_owns_binary_candidates() {
+  Kernel k;
+  ScopedHeuristics heuristics(k);
+  kernel_reserve_vars(k, 3);
+  heuristics_seed_activation_order(k, {2, 0, 1});
+  add_bin(k, 1, 3);
+  add_bin(k, 2, 3);
+  std::vector<Lit> sources;
+  transitive_reduce_sources(k, sources);
+  assert(kernel_compact_import_lit_order(k, internalize(3)) <
+         kernel_compact_import_lit_order(k, internalize(1)));
+  assert(kernel_compact_import_lit_order(k, internalize(1)) <
+         kernel_compact_import_lit_order(k, internalize(2)));
+}
+
+// Kissat prices the raw 4-byte watch vector, not the number of semantic watch
+// entries.  A watched large clause occupies blocker+reference in both engines,
+// so 17 large watches are 34 words and cross the 32-word cache-line boundary.
+static void test_raw_watch_word_tick_boundary() {
+  Kernel k;
+  kernel_reserve_vars(k, 19);
+  const Lit source = internalize(1);
+  for (int other = 2; other <= 18; other++) {
+    const Lit clause[3] = {source, internalize(other), internalize(19)};
+    kernel_add_large_clause(k, clause, 3, false, 0, ++k.next_clause_id);
+  }
+  assert(k.watches.size(source) == 34);
+  assert(transitive_reduce_try(k, source) == ApplyResult::NoOp);
+  assert(k.stats.transitive_ticks == 3); // 1 + ceil(34 / 32)
+}
+
+// Kissat still runs the walk for a single owned candidate.  It cannot prove
+// that edge redundant, but the invocation and its logical cost consume effort.
+static void test_single_candidate_walk_is_charged() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  add_bin(k, 1, 2);
+  assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::NoOp);
+  assert(k.stats.transitive_checked == 1);
+  assert(k.stats.transitive_ticks == 4); // source scan 2 + root scan 2
+  assert(live(k, 1, 2));
+}
+
+// A source is one policy instance but Kissat polls its effort ceiling after
+// each candidate.  The crossing candidate runs; the remaining tail does not.
+static void test_candidate_budget_stops_after_charged_walk() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  add_bin(k, 1, 2);
+  add_bin(k, 1, 3);
+  k.work_budget = 1;
+  assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::NoOp);
+  assert(k.stats.transitive_checked == 1);
+  assert(live(k, 1, 2) && live(k, 1, 3));
 }
 
 // Guard: pure quiescent-root precondition, no fixpoint (ledger row D-LEVEL).
@@ -187,9 +250,13 @@ int main() {
   test_mutual_dependency();
   test_failed_literal_deferred();
   test_no_contrapositive_self_justification();
-  test_duplicate_pair_skipped();
+  test_duplicate_pair_processed_per_copy();
   test_root_fixed_skipped();
   test_instance_surface();
+  test_reference_compact_order_owns_binary_candidates();
+  test_raw_watch_word_tick_boundary();
+  test_single_candidate_walk_is_charged();
+  test_candidate_budget_stops_after_charged_walk();
   test_guard();
   puts("test_transitive_reduce OK");
   return 0;

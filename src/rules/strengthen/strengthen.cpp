@@ -56,7 +56,7 @@ void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
     const Clause *c = clause_at(k.arena, ref);
     if (complete ? is_victim(k, c) : in_round_scope(k, c))
       cands.push_back({ref, c->size, c->redundant()});
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   // Irredundant first, then size ascending. The band is the larger population
   // by orders of magnitude and its clauses are small, so a plain size-ascending
@@ -384,7 +384,7 @@ ApplyResult strengthen_apply(Kernel &k) {
   for (Ref ref = 0; ref < k.arena.size();) {
     if (poll())
       break;
-    const uint32_t words = clause_words(clause_at(k.arena, ref)->size);
+    const uint32_t words = clause_actual_words(clause_at(k.arena, ref));
     Ref cur = ref;
     if (!clause_at(k.arena, ref)->garbage()) {
       const int r = flush_root(k, &cur, &changed);
@@ -619,7 +619,7 @@ static ApplyResult strengthen_apply_instance(Kernel &k, uint64_t inst) {
       return strengthen_try(k, ref);
     if (ref > inst)
       break;
-    ref += clause_words(clause_at(k.arena, ref)->size);
+    ref += clause_actual_words(clause_at(k.arena, ref));
   }
   return ApplyResult::NoOp;
 }

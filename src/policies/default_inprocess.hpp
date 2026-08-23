@@ -52,6 +52,14 @@ enum class CandidateOrder : uint8_t {
 const char *candidate_order_name(CandidateOrder);
 bool parse_candidate_order(const char *, CandidateOrder *);
 
+// Kissat eliminate.c `variable_score`: preserve its named binary64
+// intermediates (`prod`, `sum`, structural `score`, and `occlim2`).  Flattening
+// the algebraically equivalent subtractions can move an equal-score candidate
+// by one ULP and therefore changes mutable-heap topology.
+double kissat_bve_variable_score(double relevance, uint64_t positive,
+                                 uint64_t negative,
+                                 uint64_t occurrence_limit);
+
 class DefaultCandidateOrder final : public CandidateOrderPolicy {
 public:
   const char *name() const override { return "per-rule-arms"; }
@@ -105,8 +113,6 @@ public:
       DefaultStrategyConfig::INPROCESS_PHASE_ROUNDS_DEFAULT;
   static constexpr uint64_t FACTOR_INIT_TICKS =
       DefaultStrategyConfig::FACTOR_INITIAL_EFFORT_DEFAULT;
-  static constexpr uint64_t CONGRUENCE_INIT_TICKS =
-      DefaultStrategyConfig::CONGRUENCE_INITIAL_EFFORT_DEFAULT;
 
   DefaultInprocessScheduler() = default;
   explicit DefaultInprocessScheduler(
@@ -158,6 +164,13 @@ public:
     uint32_t doses = 0;
     uint32_t delay_count = 0;
     uint32_t delay_current = 0;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+    uint64_t journal_reference = 0;
+    uint64_t journal_allowance = 0;
+    uint64_t journal_last_round_spent = 0;
+    uint32_t journal_rounds = 0;
+    bool journal_round_budget_break = false;
+#endif
   };
 
   struct SlotClock {
@@ -180,6 +193,7 @@ public:
   void reset(const Kernel &);
   void configure_from_env();
   void build(Kernel &);
+  void initialize_search_limits(const Kernel &);
   bool want_phase(const Kernel &, SlotGroup);
   int run_phase(Kernel &, SlotGroup, volatile sig_atomic_t *stop);
   void update_limit(const Kernel &, SlotGroup);
@@ -226,7 +240,6 @@ private:
   bool slot_order_legacy_ = false;
   bool closure_delay_ = true;
   uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;
-  uint64_t congruence_init_ticks_ = CONGRUENCE_INIT_TICKS;
   uint32_t bve_level_ = 0;
   uint32_t bve_level_idx_ = 0;
   bool bve_ran_this_phase_ = false;
@@ -239,6 +252,7 @@ private:
   bool preprocess_followups_ = true;
   bool preprocess_only_ = false;
   bool initialized_ = false;
+  bool search_limits_initialized_ = false;
   const DefaultStrategyConfig::Inprocess *config_ = nullptr;
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;

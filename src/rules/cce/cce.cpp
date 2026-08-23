@@ -64,7 +64,7 @@ void build_index(const Kernel &k, CceIndex &idx) {
   idx.cands.clear();
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (relevant(k, c)) {
       relevant_clauses.push_back(ref);
       if (candidate_clause(k, c))

@@ -27,6 +27,12 @@ enum BveGate : uint32_t {
   BVE_GATE_DEFINITION = 1u << 4,
 };
 
+// Gate families present in Kissat 4.0.4's elimination pipeline.  Tactix keeps
+// its independently supported XOR detector selectable, but the shipped CLI
+// strategy does not enable a recognizer whose reference has no analogue.
+constexpr uint32_t BVE_GATE_KISSAT_DEFAULT =
+    BVE_GATE_EQUIV | BVE_GATE_AND_OR | BVE_GATE_ITE | BVE_GATE_DEFINITION;
+
 // XOR arity ceiling (cadical `elimxorlim`, default 5): a parity relation over
 // the pivot and m inputs needs all 2^m clauses. Any value is sound.
 constexpr uint32_t BVE_XOR_ARITY_LIMIT = 5;
@@ -51,9 +57,19 @@ struct BveOccurrences {
 };
 void bve_build_occurrences(const Kernel &, BveOccurrences &);
 
-// Candidate variables to eliminate, ranked fewest-resolutions-first (ascending
-// occ(x)·occ(¬x); kissat `variable_score`) — the BVE instance space, one
-// instance per candidate variable. It does not consult the retry filter
+// Mutable-schedule occurrence count in the current dense representation.
+// During Kissat elimination, removed large-clause references remain connected
+// until the round-level flush, while binaries are disconnected immediately.
+// The policy heap therefore scores the raw dense list plus live binary watches,
+// distinct from the legal/live occurrence count used by the public rule.
+uint32_t bve_schedule_occurrence_count(const Kernel &, Lit);
+
+// Candidate variables to eliminate, ranked by Kissat's policy-independent
+// structural score occ(x)·occ(¬x)-occ(x)-occ(¬x), ascending. DefaultPolicy
+// adds search relevancy and dynamic heap updates. Extension variables remain
+// legal candidates: suppressing them would narrow N1's instance surface and
+// diverge from Kissat, even though eliminating one can reverse Factor. The
+// surface has one instance per candidate variable and does not consult retry
 // (`Kernel::bve_retry`) even though this rule maintains that bit: reading it
 // here would narrow the instance surface a policy enumerates, and "when to
 // retry" is scheduling. See docs/implementation-notes.md §6.

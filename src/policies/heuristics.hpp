@@ -9,8 +9,9 @@
 namespace tactix {
 
 // Consume formula-rule advice without giving rules access to policy state.
-// Retirement is separate because DefaultPolicy removes variables at phase
-// exit, while stress policies react after each application.
+// Retirement is separate because DefaultPolicy publishes it at the matching
+// rule boundary (with Sweep held through its follow-up Substitute), while
+// stress policies react after each application.
 void heuristics_consume_rule_advice(Kernel &);
 void heuristics_consume_retirements(Kernel &);
 void heuristics_discard_rule_events(Kernel &);
@@ -21,14 +22,9 @@ struct Heuristics {
   // trips an assert rather than reading out of bounds later.
   uint32_t nvars = 0;
   std::vector<int8_t> saved; // by var: saved phase (+1/-1)
-  // External Tactix variable reached by a Kissat internal random index.
-  // Kissat's default tumble imports variables in first-activation order;
-  // retaining that permutation lets random decisions match without renumbering
-  // kernel variables or changing the public Decide instance identity.
-  std::vector<Var> random_order;
   // The one root-fixed identity retained by initial sparse compaction. Later
-  // preprocessing units remain in random_order (Kissat's random modulus) but
-  // are inactive in its stable heap.
+  // preprocessing units remain in Kernel::compact_import_order (Kissat's
+  // random modulus) but are inactive in its stable heap.
   Var fixed_representative = INVALID_VAR;
 
   // VMTF (focused-mode decision heuristic; kissat queue.h)

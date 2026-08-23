@@ -31,6 +31,9 @@ So this checker does three things a unit test cannot:
             own `meter_*` function reads — i.e. the currency the schedule is
             actually denominated in, not merely some plausible work counter.
             A newly dosed rule therefore fails here until its pair is exposed.
+            A deliberately unmetered rule (no `EFFORT_SPECS` row) keeps its
+            pair in DIAGNOSTIC_PAIRS, priced by the journal-only meter it
+            names; a PAIRS row without an `EFFORT_SPECS` row is stale.
 
     tools/docs/check-stat-ids.py            report; exit 1 on any failure
 """
@@ -80,10 +83,21 @@ PAIRS = {
     "CCE":              ("TACTIX_STAT_CCE_DELETED", "TACTIX_STAT_CCE_TICKS"),
     "Instantiate":      ("TACTIX_STAT_INSTANTIATED", "TACTIX_STAT_INSTANTIATE_TICKS"),
     "Sweep":            ("TACTIX_STAT_SWEEP_EQUIVALENCES", "TACTIX_STAT_SWEEP_TICKS"),
-    "Congruence":       ("TACTIX_STAT_CONGRUENCE_MERGES", "TACTIX_STAT_CONGRUENCE_TICKS"),
     "Substitute":       ("TACTIX_STAT_SUBSTITUTE_VARS", "TACTIX_STAT_SUBSTITUTE_TICKS"),
 }
 PROXY_PAIRS = {}
+
+# Rules the slot schedules WITHOUT an EFFORT_SPECS row (check-effort-specs.py
+# classifies them ALTERNATE-GOVERNOR) but whose (yield, effort) pair stays
+# exposed as a diagnostic: the learner can still read what a round bought.
+# The third field names the meter that prices the pair in the compile-time
+# rule journal; it is behavior-neutral and lives outside EFFORT_SPECS on
+# purpose. Gaining an EFFORT_SPECS row moves the rule to PAIRS — a diagnostic
+# row is not allowed to hide a newly dosed rule from the PAIRING contract.
+DIAGNOSTIC_PAIRS = {
+    "Congruence":       ("TACTIX_STAT_CONGRUENCE_MERGES", "TACTIX_STAT_CONGRUENCE_TICKS",
+                         "meter_congruence"),
+}
 
 
 def read(rel):
@@ -132,11 +146,14 @@ def brace_body(s, open_at):
 
 
 def effort_meters():
-    """rule name -> the Stats counter its EFFORT_SPECS meter reads."""
+    """(rule name -> the Stats counter its EFFORT_SPECS meter reads,
+    meter function name -> the Stats counters it reads, for every meter_*
+    defined in the policy whether or not an EFFORT_SPECS row names it)."""
     s = re.sub(r"//[^\n]*", "", read(POLICY_REL))
     meters = {}
     for m in re.finditer(r"uint64_t (meter_\w+)\(const Kernel &\w*\)\s*\{", s):
-        # every k.stats.X the meter can return (meter_transitive has an env arm)
+        # every k.stats.X the meter can return (meter_transitive has a
+        # kernel-flag arm)
         body = brace_body(s, m.end() - 1)
         meters[m.group(1)] = set(re.findall(r"k\.stats\.(\w+)", body))
     body = s[s.index("EFFORT_SPECS[]"):]
@@ -146,7 +163,7 @@ def effort_meters():
     for m in re.finditer(r'\{\s*"(\w+)"\s*,\s*' + field +
                          r'\s*,\s*(meter_\w+)', body):
         out[m.group(1)] = meters.get(m.group(2), set())
-    return out
+    return out, meters
 
 
 def tokens(macro):
@@ -157,7 +174,7 @@ def main():
     fails = []
     ids = header_ids()
     cases, has_default = api_cases()
-    meters = effort_meters()
+    meters, meter_fns = effort_meters()
 
     if not ids:
         fails.append(f"no TACTIX_STAT_* macros parsed out of {HEADER_REL} — the "
@@ -261,12 +278,44 @@ def main():
                          f"cost-per-unit-output if the effort id is the currency "
                          f"the schedule spends.")
 
+    # --- diagnostic pairs -------------------------------------------------
+    here = os.path.relpath(__file__, ROOT)
+    for rule, (y, e, meter) in sorted(DIAGNOSTIC_PAIRS.items()):
+        if rule in PAIRS or rule in PROXY_PAIRS:
+            fails.append(f"`{rule}` is listed in both PAIRS and DIAGNOSTIC_PAIRS "
+                         f"({here}); a rule is metered or it is not.")
+        if rule in meters:
+            fails.append(f"`{rule}` is a DIAGNOSTIC_PAIRS row ({here}) but now "
+                         f"HAS an EFFORT_SPECS row in {POLICY_REL}. The slot "
+                         f"doses it, so move the pair to PAIRS — the diagnostic "
+                         f"row must not hide a metered rule from PAIRING.")
+        for macro in (y, e):
+            if macro not in ids:
+                fails.append(f"`{rule}`'s diagnostic pair names `{macro}`, which "
+                             f"{HEADER_REL} does not define.")
+        counters = meter_fns.get(meter)
+        if counters is None:
+            fails.append(f"`{rule}`'s DIAGNOSTIC_PAIRS row names `{meter}`, but "
+                         f"{POLICY_REL} defines no such meter function — the "
+                         f"rule journal can no longer price the pair, so the "
+                         f"row is stale or the meter was dropped.")
+            continue
+        if e not in ids:
+            continue
+        expr = cases.get(ids[e][0], ("", "", -1))[0]
+        if counters and not any(f"k.stats.{c}" == expr for c in counters):
+            fails.append(f"`{rule}`'s EFFORT id `{e}` returns `{expr}`, but its "
+                         f"diagnostic meter `{meter}` reads {sorted(counters)} "
+                         f"({POLICY_REL}). The journal's inclusive effort and "
+                         f"the public id must be the same currency.")
+
     for f in fails:
         print(f"FAIL: {f}\n")
     n = len(ids)
     print(f"check-stat-ids: {n} ids, {len(cases)} cases, "
-          f"{len(PAIRS) + len(PROXY_PAIRS)} rule pairs "
-          f"({len(PROXY_PAIRS)} proxy) — {len(fails)} failure(s)")
+          f"{len(PAIRS) + len(PROXY_PAIRS) + len(DIAGNOSTIC_PAIRS)} rule pairs "
+          f"({len(PROXY_PAIRS)} proxy, {len(DIAGNOSTIC_PAIRS)} diagnostic) — "
+          f"{len(fails)} failure(s)")
     return 1 if fails else 0
 
 

@@ -5,6 +5,7 @@
 // See docs/design/e1-bve-design.md and bve.hpp.
 #include "rules/bve/bve.hpp"
 
+#include "diagnostics/event_trace.hpp"
 #include "engine/subsolver.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -12,6 +13,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <numeric>
 #include <utility>
 
 namespace tactix {
@@ -58,7 +60,7 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
         for (const Lit l : *c)
           if (k.values[l] == 0) // active-variable literals only
             occ.counts[l]++;
-      ref += clause_words(c->size);
+      ref += clause_actual_words(c);
     }
   }
   // binaries: one watch-list scan per active literal. They have an
@@ -72,16 +74,30 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   }
 }
 
+uint32_t bve_schedule_occurrence_count(const Kernel &k, Lit lit) {
+  assert(lit < 2 * k.nvars);
+  uint64_t count = 0;
+  if (k.dense) {
+    count = k.dense->large[lit].size();
+  } else {
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !c->redundant())
+        for (const Lit other : *c)
+          count += other == lit;
+      ref += clause_actual_words(c);
+    }
+  }
+  for (const WatchEntry w : k.watches.entries(lit))
+    count += w.binary();
+  return static_cast<uint32_t>(std::min<uint64_t>(count, UINT32_MAX));
+}
+
 void bve_schedule(Kernel &k, std::vector<Var> &out) {
   BveOccurrences occ;
   bve_build_occurrences(k, occ);
-  std::vector<std::pair<uint64_t, Var>> ranked; // (score, var), ascending
+  std::vector<std::pair<int64_t, Var>> ranked; // structural score, ascending
   for (Var v = 0; v < k.nvars; v++) {
-    // Extension variables (E2 Factor) must never be eliminated: resolving x's
-    // dividers against its quotients rebuilds the original m·n grid, exactly
-    // reversing Factor's compression, so the two rules would thrash.
-    if (v >= kernel_num_original_internal_vars(k))
-      continue;
     // The retry bitmap (Kernel::bve_retry) is deliberately not consulted here:
     // this rule maintains the advice, the policy reads it. See bve.hpp and
     // docs/implementation-notes.md §6.
@@ -91,7 +107,10 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
     const uint32_t p = occ.count(pl), n = occ.count(make_lit(v, true));
     if (p == 0 && n == 0) // occurs in no elimination clause: nothing to do
       continue;
-    ranked.emplace_back(static_cast<uint64_t>(p) * n, v);
+    // Kissat's variable_score uses p*n-p-n before adding search relevancy.
+    // Keep that policy-independent structural component here; DefaultPolicy
+    // supplies the current EVSIDS/VMTF term and the dynamic heap pose.
+    ranked.emplace_back(static_cast<int64_t>(p) * n - p - n, v);
   }
   std::stable_sort(ranked.begin(), ranked.end());
   out.clear();
@@ -857,75 +876,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
 
-  // ---- gather x's large clauses ----
-  // tautology / redundant / root-satisfied → delete-only; otherwise
-  // materialize the active literals into pos (has px) or neg (has nx)
-  auto classify = [&](Ref ref, const Clause *c, bool has_px, bool has_nx) {
-    if ((has_px && has_nx) || c->redundant()) {
-      del_large.push_back(ref);
-      return;
-    }
-    MClause m;
-    m.id = c->id();
-    m.ref = ref;
-    bool satisfied = false;
-    for (const Lit l : *c) {
-      const int8_t v = k.value(l);
-      if (v > 0) { // root-true → clause satisfied → delete-only, no witness
-        satisfied = true;
-        break;
-      }
-      if (v < 0) { // root-false → drop (cite its unit)
-        if (lrat)
-          m.absorbed.push_back(k.unit_ids[var_of(l)]);
-        continue;
-      }
-      m.active.push_back(l);
-    }
-    if (satisfied)
-      del_large.push_back(ref);
-    else
-      (has_px ? pos : neg).push_back(std::move(m));
-  };
-  if (k.dense) {
-    // dense fast-path: x's large clauses are exactly dense->large[px] ∪ [nx],
-    // irredundant only, sound because a dense phase runs at a quiescent root
-    // with no learned clauses yet. A clause holding both px and nx is in both
-    // lists and is handled in the px pass.
-    auto has_lit = [](const Clause *c, Lit t) {
-      for (const Lit l : *c)
-        if (l == t)
-          return true;
-      return false;
-    };
-    for (const Ref ref : k.dense->large[px]) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage())
-        classify(ref, c, true, has_lit(c, nx));
-    }
-    for (const Ref ref : k.dense->large[nx]) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage() && !has_lit(c, px)) // px-side already handled tautologies
-        classify(ref, c, false, true);
-    }
-  } else {
-    // N1 fallback: one arena scan (any state, no phase index).
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_words(c->size);
-      if (!c->garbage()) {
-        bool has_px = false, has_nx = false;
-        for (const Lit l : *c) {
-          has_px |= (l == px);
-          has_nx |= (l == nx);
-        }
-        if (has_px || has_nx)
-          classify(ref, c, has_px, has_nx);
-      }
-      ref += words;
-    }
-  }
-
   // ---- gather x's binaries (watch scan, deduplicated) ----
   // Duplicate copies of a pair are one logical clause: they share a single
   // binary_ids id (kernel.hpp invariant), the witness wants one entry, and
@@ -963,8 +913,84 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     for (const Lit o : touched_bin) // clear for the other polarity's gather
       literal_marks[o] = 0;
   };
-  gather_bin(px, pos);
-  gather_bin(nx, neg);
+
+  // ---- gather x's large clauses ----
+  // tautology / redundant / root-satisfied → delete-only; otherwise
+  // materialize the active literals into pos (has px) or neg (has nx)
+  auto classify = [&](Ref ref, const Clause *c, bool has_px, bool has_nx) {
+    if ((has_px && has_nx) || c->redundant()) {
+      del_large.push_back(ref);
+      return;
+    }
+    MClause m;
+    m.id = c->id();
+    m.ref = ref;
+    bool satisfied = false;
+    for (const Lit l : *c) {
+      const int8_t v = k.value(l);
+      if (v > 0) { // root-true → clause satisfied → delete-only, no witness
+        satisfied = true;
+        break;
+      }
+      if (v < 0) { // root-false → drop (cite its unit)
+        if (lrat)
+          m.absorbed.push_back(k.unit_ids[var_of(l)]);
+        continue;
+      }
+      m.active.push_back(l);
+    }
+    if (satisfied)
+      del_large.push_back(ref);
+    else
+      (has_px ? pos : neg).push_back(std::move(m));
+  };
+  if (k.dense) {
+    // Kissat enters dense mode by retaining its binary watch entries, then
+    // appending full large-clause occurrences. Preserve that single-list pose
+    // in the materialized side vectors: pair order is part of bounded effort.
+    gather_bin(px, pos);
+    gather_bin(nx, neg);
+    // dense fast-path: x's large clauses are exactly dense->large[px] ∪ [nx],
+    // irredundant only, sound because a dense phase runs at a quiescent root
+    // with no learned clauses yet. A clause holding both px and nx is in both
+    // lists and is handled in the px pass.
+    auto has_lit = [](const Clause *c, Lit t) {
+      for (const Lit l : *c)
+        if (l == t)
+          return true;
+      return false;
+    };
+    for (const Ref ref : k.dense->large[px]) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage())
+        classify(ref, c, true, has_lit(c, nx));
+    }
+    for (const Ref ref : k.dense->large[nx]) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !has_lit(c, px)) // px-side already handled tautologies
+        classify(ref, c, false, true);
+    }
+  } else {
+    // N1 fallback: one arena scan (any state, no phase index).
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_actual_words(c);
+      if (!c->garbage()) {
+        bool has_px = false, has_nx = false;
+        for (const Lit l : *c) {
+          has_px |= (l == px);
+          has_nx |= (l == nx);
+        }
+        if (has_px || has_nx)
+          classify(ref, c, has_px, has_nx);
+      }
+      ref += words;
+    }
+    // The public non-dense path has no reference connected-list pose; retain
+    // its historical arena-first order and append binary watches afterward.
+    gather_bin(px, pos);
+    gather_bin(nx, neg);
+  }
 
   if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty()) {
     return ApplyResult::NoOp; // x occurs nowhere resolvable
@@ -1004,15 +1030,19 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   assert((!resolve_gate || gate_kind == BVE_GATE_DEFINITION) &&
          "a syntactic gate asked for its gate x gate resolvents back: its "
          "detection is no longer exact, so (star) must be re-argued");
+  uint32_t gp = 0, gn = 0;
+  uint64_t charged = static_cast<uint64_t>(pos.size()) * neg.size();
   if (gate) {
     // The gate shrinks the resolvent set the growth bound is applied to, so
     // the pairs it removes are what the bound's meaning changes by. Counted
     // per attempt: an over-budget attempt is where the lever matters.
-    const size_t gp = size_t(std::count(pos_gate.begin(), pos_gate.end(), 1));
-    const size_t gn = size_t(std::count(neg_gate.begin(), neg_gate.end(), 1));
-    const size_t charged =
-        gp * (neg.size() - gn) + (pos.size() - gp) * gn +
-        (resolve_gate ? gp * gn : 0);
+    gp = static_cast<uint32_t>(
+        std::count(pos_gate.begin(), pos_gate.end(), 1));
+    gn = static_cast<uint32_t>(
+        std::count(neg_gate.begin(), neg_gate.end(), 1));
+    charged = static_cast<uint64_t>(gp) * (neg.size() - gn) +
+              static_cast<uint64_t>(pos.size() - gp) * gn +
+              (resolve_gate ? static_cast<uint64_t>(gp) * gn : 0);
     k.stats.bve_gate_pairs_saved += pos.size() * neg.size() - charged;
     switch (gate_kind) {
     case BVE_GATE_EQUIV: k.stats.bve_gates_equiv++; break;
@@ -1022,8 +1052,23 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     default: k.stats.bve_gates_definition++; break;
     }
   }
+  event_trace_bve_plan(k, x, static_cast<uint32_t>(pos.size()),
+                       static_cast<uint32_t>(neg.size()), gate_kind, gp, gn,
+                       charged, resolve_gate);
 
-  // ---- generate resolvents (gate×antecedent, else full cross product) + bound ----
+  // Preserve the extracted lists as ordered lists, not only membership bits.
+  // Kissat's gates.c/get_antecedents keep each list in connected-watch order,
+  // and resolve.c consumes those lists in three distinct stages.  Flattening
+  // this plan into a filtered Cartesian product preserves the resolvent set but
+  // changes clause insertion and dynamic elimination-heap update order.
+  std::vector<uint32_t> pos_gate_order, neg_gate_order;
+  std::vector<uint32_t> pos_antecedent_order, neg_antecedent_order;
+  for (uint32_t i = 0; i < pos.size(); ++i)
+    (pos_gate[i] ? pos_gate_order : pos_antecedent_order).push_back(i);
+  for (uint32_t i = 0; i < neg.size(); ++i)
+    (neg_gate[i] ? neg_gate_order : neg_antecedent_order).push_back(i);
+
+  // ---- generate resolvents (ordered gate stages or full cross product) + bound ----
   struct Resolvent {
     std::vector<Lit> lits;
     std::vector<uint64_t> chain;
@@ -1031,71 +1076,111 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<Resolvent> resolvents;
   const size_t base = pos.size() + neg.size();
   const size_t commit_limit = base + bve_bound(k); // eliminate iff ≤ this
-  // Needed-bound tracking: resolve past the commit slack to the ramp ceiling,
-  // caching a rejected variable's exact needed slack in Kernel::bve_min_bound
-  // so the policy can skip it at every lower slack instead of re-resolving.
-  // Off unless the policy asked, and then identical to the plain abort.
-  const size_t gen_limit =
-      k.bve_track_min_bound
-          ? base + std::max<uint32_t>(bve_bound(k), BVE_MAX_BOUND)
-          : commit_limit;
+  // Kissat aborts at the FIRST non-tautological resolvent beyond the current
+  // bound.  Do not resolve ahead to a later ramp ceiling: those extra attempts
+  // spend shared effort now and alter the dynamic heap trajectory.  The first
+  // overflow still supplies the only sound retry hint available at this level
+  // (`current bound + 1`); a later ramp level recomputes, as the reference does.
+  const size_t gen_limit = commit_limit;
   bool oversized = false; // a resolvent exceeded BVE_CLSLIM → never eliminable
   bool over_gen = false;  // resolvent count passed gen_limit → needs > ceiling
+  uint32_t pair_ordinal = 0;
   // The binary gather above restored every touched mark. Reuse the same
   // round-owned literal image for resolvent deduplication and tautology tests.
   std::vector<uint8_t> &seen = literal_marks;
-  for (size_t ci = 0; ci < pos.size() && !oversized && !over_gen; ++ci) {
-    const MClause &c = pos[ci];
-    for (const Lit l : c.active)
-      if (l != px)
-        seen[l] = 1;
-    for (size_t di = 0; di < neg.size(); ++di) {
-      if (gate) {
-        // resolve gate×antecedent; gate×gate only for an incomplete gate
-        // (resolve_gate), antecedent×antecedent never (entailed by the gate).
-        const bool cg = pos_gate[ci], dg = neg_gate[di];
-        if (!((cg != dg) || (cg && dg && resolve_gate)))
-          continue;
-      }
-      const MClause &d = neg[di];
-      k.stats.bve_resolutions++; // one resolvent attempt (kissat resolve.c:157)
-      Resolvent r;
-      bool taut = false;
+  const auto generate_pairs = [&](const std::vector<MClause> &first,
+                                  Lit first_pivot,
+                                  const std::vector<uint32_t> &first_order,
+                                  const std::vector<MClause> &second,
+                                  Lit second_pivot,
+                                  const std::vector<uint32_t> &second_order) {
+    for (const uint32_t ci : first_order) {
+      if (oversized || over_gen)
+        break;
+      const MClause &c = first[ci];
       for (const Lit l : c.active)
-        if (l != px)
+        if (l != first_pivot)
+          seen[l] = 1;
+      for (const uint32_t di : second_order) {
+        const MClause &d = second[di];
+        k.stats.bve_resolutions++; // one attempt (kissat resolve.c:157)
+        const uint32_t ordinal = pair_ordinal++;
+        Resolvent r;
+        bool taut = false;
+        // Kissat resolve.c first copies the second antecedent's literals not
+        // already marked by the first, then appends the first antecedent. This
+        // order is observable when connect_resolvents updates heap scores.
+        for (const Lit l : d.active) {
+          if (l == second_pivot)
+            continue;
+          if (seen[l]) // duplicate with c
+            continue;
+          if (seen[negate(l)]) { // l and ¬l both present → tautology
+            taut = true;
+            break;
+          }
           r.lits.push_back(l);
-      for (const Lit l : d.active) {
-        if (l == nx)
+        }
+        if (!taut)
+          for (const Lit l : c.active)
+            if (l != first_pivot)
+              r.lits.push_back(l);
+        if (taut) {
+          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                               c.ref, c.id, d.active.data(), d.active.size(),
+                               d.ref, d.id, "tautology");
           continue;
-        if (seen[l]) // duplicate with c
-          continue;
-        if (seen[negate(l)]) { // l and ¬l both present → tautology
-          taut = true;
+        }
+        if (r.lits.size() > BVE_CLSLIM) {
+          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                               c.ref, c.id, d.active.data(), d.active.size(),
+                               d.ref, d.id, "oversized");
+          oversized = true;
           break;
         }
-        r.lits.push_back(l);
+        if (lrat) {
+          r.chain = c.absorbed;
+          r.chain.insert(r.chain.end(), d.absorbed.begin(), d.absorbed.end());
+          r.chain.push_back(c.id);
+          r.chain.push_back(d.id);
+        }
+        const bool unit = r.lits.size() == 1;
+        resolvents.push_back(std::move(r));
+        if (resolvents.size() > gen_limit) {
+          event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                               c.ref, c.id, d.active.data(), d.active.size(),
+                               d.ref, d.id,
+                               unit ? "bound-unit" : "bound");
+          over_gen = true;
+          break;
+        }
+        event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
+                             c.ref, c.id, d.active.data(), d.active.size(),
+                             d.ref, d.id,
+                             unit ? "unit-buffered" : "kept");
       }
-      if (taut)
-        continue;
-      if (r.lits.size() > BVE_CLSLIM) { // oversized resolvent: abort the variable
-        oversized = true;
-        break;
-      }
-      if (lrat) {
-        r.chain = c.absorbed;
-        r.chain.insert(r.chain.end(), d.absorbed.begin(), d.absorbed.end());
-        r.chain.push_back(c.id);
-        r.chain.push_back(d.id);
-      }
-      resolvents.push_back(std::move(r));
-      if (resolvents.size() > gen_limit) { // past the generation ceiling: stop
-        over_gen = true;
-        break;
-      }
+      for (const Lit l : c.active)
+        if (l != first_pivot)
+          seen[l] = 0;
     }
-    for (const Lit l : c.active)
-      if (l != px)
-        seen[l] = 0;
+  };
+
+  std::vector<uint32_t> pos_all, neg_all;
+  if (gate) {
+    // resolve.c: gates[0]×antecedents[1], gates[1]×antecedents[0], then the
+    // gate cross-product only for an incomplete/general definition.
+    generate_pairs(pos, px, pos_gate_order, neg, nx,
+                   neg_antecedent_order);
+    generate_pairs(neg, nx, neg_gate_order, pos, px,
+                   pos_antecedent_order);
+    if (resolve_gate)
+      generate_pairs(pos, px, pos_gate_order, neg, nx, neg_gate_order);
+  } else {
+    pos_all.resize(pos.size());
+    neg_all.resize(neg.size());
+    std::iota(pos_all.begin(), pos_all.end(), 0u);
+    std::iota(neg_all.begin(), neg_all.end(), 0u);
+    generate_pairs(pos, px, pos_all, neg, nx, neg_all);
   }
   // Growth decision: eliminate iff not oversized and within the commit slack.
   // An oversized resolvent or growth past the ceiling caches UINT16_MAX,

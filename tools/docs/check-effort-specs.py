@@ -59,6 +59,10 @@ EV_DELAY = r"closure_delay_ && \(e\.closure \|\| delay_spec"
 # And the no-row default is what carries an ALTERNATE-GOVERNOR rule onto that
 # path at all, so its disappearance is a failure too.
 EV_CLOSURE_DEFAULT = r"e\.closure = true;"
+# Congruence's named ladder (kissat congruence.c, `delay.congruence`): the
+# DELAY_SPECS row keyed on its merge yield is what `delay_spec(r.name)` finds.
+EV_CONGRUENCE_LADDER = (r'\{"Congruence", \[\]\(const Kernel &k\) '
+                        r'\{ return k\.stats\.congruence_merges; \}')
 
 # Every rule the slot schedules, classified. The justification is the point of
 # the row — for ALTERNATE-GOVERNOR it must NAME the mechanism.
@@ -78,12 +82,15 @@ TABLE = {
     "CCE":              (METERED, "cadical covereffort 4 permille, cce_ticks currency"),
     "Instantiate":      (METERED, "20 permille, tick currency"),
     "Sweep":            (METERED, "kissat sweepeffort 100 permille; the currency is\n                               sweep_effort() = sweep_ticks_sub + sweep_ticks_repr"),
-    # Metered as well as closure-gated: "a single closure pass is bounded by
-    # the formula" is measurably false for Congruence, whose passes have
-    # reached half a tier-C solve. The ledger bounds one round; the watermark
-    # and the delay ladder bound how often a round starts.
-    "Congruence":       (METERED, "100 permille, congruence_ticks currency, "
-                                  "budget_aware; ALSO closure-gated"),
+    # Kissat has no Congruence effort row (congruence.c runs one closure to
+    # completion).  The source-native new-material watermark and the named
+    # productivity delay ladder bound how often a round starts; a single
+    # round is bounded by the formula.  An EFFORT_SPECS row here is a
+    # non-reference ceiling and fails below, not a governor to restore.
+    "Congruence":       (ALT, "new-material watermark plus the exact Kissat "
+                              "productivity delay ladder",
+                         [EV_MATERIAL, EV_DELAY, EV_CLOSURE_DEFAULT,
+                          EV_CONGRUENCE_LADDER]),
     "Substitute":       (METERED, "hand-rolled 10 permille, substitute_ticks "
                                    "currency, no minimum-effort floor; ALSO "
                                    "closure-gated"),

@@ -150,7 +150,7 @@ static bool no_all_polarity_clauses(const Kernel &k, bool want_negated) {
       if (!ok)
         return false; // this clause needs the other polarity
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   // binaries live only in watch lists: scan each variable's
   // `want_negated`-polarity literal for a partner of the same polarity. Both

@@ -7,7 +7,7 @@
 // soundness may not depend on the schedule; and singleton-level literals still
 // get minimized (see the block pass).
 #include "rules/analyze/analyze.hpp"
-#include "policies/event_trace.hpp"
+#include "diagnostics/event_trace.hpp"
 #include "policies/heuristics.hpp"
 
 #include "proof/proof.hpp"
@@ -154,6 +154,7 @@ static void mark_used(Kernel &k, Clause *c) {
   if (old_glue > 1) {
     const uint32_t glue = count_glue(k, c->lits, c->size, old_glue);
     if (glue < old_glue) {
+      event_trace_clause_glue(k, "analyze", c, old_glue, glue);
       c->set_glue(glue);
       k.stats.promoted++;
     }
@@ -161,6 +162,7 @@ static void mark_used(Kernel &k, Clause *c) {
   // per-mode histogram of the glues actually used, post-promotion (kissat
   // deduce.c:20-22); Reduce's dynamic tiers are quantiles of it
   const uint32_t mode = (k.h && k.h->stable) ? 1u : 0u;
+  event_trace_clause_used(k, c, mode);
   k.stats.used_glue[mode][std::min<uint32_t>(c->glue(), Stats::MAX_GLUE_USED)]++;
 }
 
@@ -582,11 +584,15 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   kernel_inherit_clause_order(k, id, reason->id());
 
   bool subsume = false, subsumed_irredundant = false;
+  uint32_t subsumed_glue = UINT32_MAX;
   if (subsumed_ref != INVALID_REF) {
     const Clause *d = clause_at(k.arena, subsumed_ref);
     assert(!d->garbage());
+    assert(subsumed_ref != reason_ref);
     subsume = true;
     subsumed_irredundant = !d->redundant();
+    if (!subsumed_irredundant)
+      subsumed_glue = d->glue();
   }
   // the resolvent keeps the reason's redundancy, but must become irredundant
   // if it replaces an irredundant conflict (kissat otfs_subsume_clause)
@@ -635,13 +641,13 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
         std::swap(lits[w], lits[best]);
       }
     }
-    // The site kissat's strengthen.c:42-43 covers. The exact LBD is recomputed
-    // where kissat clamps the old glue — a stronger input to the same
-    // post-shrink promotion, so an all-distinct-level resolvent still lands a
-    // band lower.
+    // Kissat shortens the reason in place and keeps its existing glue unless
+    // the new physical size forces the size-1 clamp (strengthen.c:35-43).
+    // Recomputing LBD from the transient conflict levels can make an already
+    // better reason worse merely because Tactix represents the strengthening
+    // with a fresh packed record.
     const uint32_t glue = kernel_shrunken_glue(
-        k, count_glue(k, lits.data(), static_cast<uint32_t>(lits.size())),
-        static_cast<uint32_t>(lits.size()));
+        k, reason->glue(), static_cast<uint32_t>(lits.size()));
     // reason may dangle after this allocation; it is not used again
     k.conflict_ref = kernel_add_large_clause(
         k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue,
@@ -649,6 +655,22 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     if (keep_surviving_watch)
       kernel_swap_large_watch_refs(k, surviving_watch, reason_ref,
                                    k.conflict_ref, t, lits[1]);
+
+    // Kissat's `kissat_on_the_fly_subsume` transfers a better LBD from a
+    // redundant conflict to the strengthened redundant reason.  This happens
+    // after the reason has been shortened (and after its size clamp), so it is
+    // a real promotion of the replacement rather than a property of the
+    // deleted conflict.  Omitting it can move the same live clause into a
+    // later reduction/Vivify tier even when the two analyses are otherwise
+    // literal-for-literal identical.
+    Clause *replacement = clause_at(k.arena, k.conflict_ref);
+    if (subsumed_glue < replacement->glue()) {
+      const uint32_t old_glue = replacement->glue();
+      event_trace_clause_glue(k, "analyze", replacement, old_glue,
+                              subsumed_glue);
+      replacement->set_glue(subsumed_glue);
+      k.stats.promoted++;
+    }
   }
 
   // The replacement assumes the old reason's eager-register identity.  A
@@ -1350,6 +1372,10 @@ ApplyResult analyze_apply(Kernel &k) {
         assert(a.reason != DECISION_REASON && a.reason != UNIT_REASON);
         Clause *reason = clause_at(k.arena, a.reason);
         mark_used(k, reason);
+        event_trace_detail(k, "analysis_reason_ref", a.reason);
+        event_trace_detail(k, "analysis_reason_id", reason->id());
+        event_trace_detail(k, "analysis_reason_order",
+                           kernel_clause_order(k, reason->id()));
         event_trace_detail(k, "analysis_reason_size", reason->size);
         uint32_t antecedent = 1; // t's own slot in the reason
         for (const Lit l : *reason)

@@ -71,7 +71,7 @@ void subsume_forward_candidates(const Kernel &k, std::vector<Ref> &out,
     const Clause *c = clause_at(k.arena, ref);
     if (complete ? is_victim(k, c) : is_round_candidate(k, c))
       cands.push_back({ref, c->size});
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   std::sort(cands.begin(), cands.end(), [](const Cand &a, const Cand &b) {
     if (a.size != b.size)
@@ -406,7 +406,7 @@ static ApplyResult subsume_forward_apply_instance(Kernel &k, uint64_t inst) {
       return subsume_forward_try(k, ref);
     if (ref > inst)
       break;
-    ref += clause_words(clause_at(k.arena, ref)->size);
+    ref += clause_actual_words(clause_at(k.arena, ref));
   }
   return ApplyResult::NoOp;
 }

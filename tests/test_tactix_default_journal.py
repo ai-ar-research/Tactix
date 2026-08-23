@@ -60,4 +60,42 @@ with tempfile.TemporaryDirectory(prefix="tactix-default-journal-") as tmp:
     env["TACTIX_RULE_JOURNAL_LIMIT"] = "20000"
     run(cnf, env)
 
+    # Every inprocessing family is measured in its source-defined local
+    # currency at the scheduler boundary.  Exercise one batch family here;
+    # candidate-oriented families share the same wrapper and have focused
+    # rule tests for their portable candidate identities.
+    inprocess = root / "inprocess.tsv"
+    env = os.environ.copy()
+    env["TACTIX_SLOT_DISABLE"] = disabled.replace("Congruence,", "")
+    env["TACTIX_RULE_JOURNAL"] = str(inprocess)
+    env["TACTIX_RULE_JOURNAL_RULE"] = "Congruence"
+    env["TACTIX_RULE_JOURNAL_LIMIT"] = "20000"
+    run(cnf, env)
+    inprocess_text = inprocess.read_text()
+    invocation = next(
+        line for line in inprocess_text.splitlines()
+        if "\tinprocess-invocation\t" in line)
+    assert "currency=congruence-ticks" in invocation
+    for field in ("reference=", "allowance=", "entry=", "exit=",
+                  "delta=", "overshoot=", "terminal="):
+        assert field in invocation, invocation
+    # Congruence has no EFFORT_SPECS row: the journal meter is diagnostic
+    # only, so the record is inclusive (exit - entry in the rule's own
+    # counter) and never bounded, overshot, or exhausted.
+    context = next(f for f in invocation.split("\t") if "currency=" in f)
+    kv = dict(item.split("=", 1) for item in context.split(";"))
+    assert kv["bounded"] == "0", context
+    assert kv["allowance"] == "0", context
+    assert kv["terminal"] == "unbounded", context
+    assert kv["overshoot"] == "0", context
+    assert int(kv["delta"]) == int(kv["exit"]) - int(kv["entry"]), context
+    assert int(kv["delta"]) > 0, context
+    # The rule's own attempt record is priced in the same diagnostic currency
+    # (column 18 is effort): both sides of the slot boundary read the
+    # inclusive congruence counter, so the efforts agree exactly.
+    attempts = [line.split("\t") for line in inprocess_text.splitlines()
+                if "\tCongruence\trule-attempt\t" in line]
+    assert len(attempts) == 1, inprocess_text[:2000]
+    assert int(attempts[0][18]) == int(kv["delta"]), (attempts[0][18], kv)
+
 print("test_tactix_default_journal OK")

@@ -46,7 +46,7 @@ static void test_heap_uses_import_not_activation_order_for_ties() {
   // the activation population used by random decisions and initial scores.
   for (const Var v : std::vector<Var>{2, 4, 1, 3})
     kernel_record_import(k, v);
-  k.h->random_order = {1, 3, 2, 4};
+  k.compact_import_order = {1, 3, 2, 4};
   heuristics_update_scores(k);
 
   // With equal scores, push/bubble is stable.  This is the exact heap pose
@@ -114,6 +114,39 @@ static void test_stable_decide_and_target_phases() {
   assert(heuristics_decide_lit(k, 0) == internalize(1));
   switchmode_apply(k); // focused: saved wins again
   assert(heuristics_decide_lit(k, 0) == internalize(-1));
+}
+
+static void test_target_high_water_uses_compact_assigned_count() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  k.h->stable = true;
+  kernel_assign_unit(k, internalize(1));
+  kernel_assign_unit(k, internalize(2));
+  assert(k.trail.size() == 2 && k.unassigned == 3);
+
+  // Kissat compacts all but one root-fixed identity: VARS becomes four while
+  // one variable is assigned in that compact representation.  Tactix keeps
+  // both kernel identities and both trail entries, so trail.size() would
+  // incorrectly pose a high-water mark of two.
+  heuristics_compact_random_order_fixed(k);
+  assert(k.compact_import_order.size() == 4);
+  heuristics_update_target_phases(k);
+  assert(k.h->target_assigned == 1 && k.h->best_assigned == 1);
+  assert(k.stats.target_saved == 1 && k.stats.best_saved == 1);
+
+  // Kissat decrements `unassigned` as soon as an unassigned variable is
+  // eliminated, while VARS retains that identity until the next compaction.
+  // Tactix's global counter intentionally retains reconstructible retired
+  // identities; `unassigned_active` is the matching compact counter.
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[2] = VarStatus::Substituted;
+  assert(k.values[make_lit(2, false)] == 0 && k.unassigned_active == 3);
+  k.unassigned_active--;
+  heuristics_deactivate_var(k, 2);
+  heuristics_update_target_phases(k);
+  assert(k.h->target_assigned == 2 && k.h->best_assigned == 2);
+  assert(k.stats.target_saved == 2 && k.stats.best_saved == 2);
 }
 
 static void test_stable_trail_reuse() {
@@ -188,6 +221,7 @@ int main() {
   test_rescale();
   test_switchmode_rule();
   test_stable_decide_and_target_phases();
+  test_target_high_water_uses_compact_assigned_count();
   test_stable_trail_reuse();
   test_policy_schedule();
   test_default_policy_solves_across_modes();

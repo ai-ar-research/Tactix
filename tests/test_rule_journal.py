@@ -27,6 +27,16 @@ with tempfile.TemporaryDirectory(prefix="tactix-rule-journal-") as tmp:
     assert "reconstruct(witness=1;rest=-2)" in text
     assert "rup(id=17;chain=3,5,8)" in text
 
+    filtered = pathlib.Path(tmp) / "filtered.tsv"
+    env = os.environ.copy()
+    env["TACTIX_RULE_JOURNAL"] = str(filtered)
+    env["TACTIX_RULE_JOURNAL_CANDIDATE_CONTAINS"] = "cline"
+    subprocess.run([str(binary)], env=env, check=True)
+    filtered_records = [line for line in filtered.read_text().splitlines()
+                        if not line.startswith("#")]
+    assert len(filtered_records) == 1
+    assert "\tdeclined\t" in filtered_records[0]
+
     env = os.environ.copy()
     env["TACTIX_RULE_JOURNAL_REPLAY"] = str(journal)
     subprocess.run([str(binary)], env=env, check=True)

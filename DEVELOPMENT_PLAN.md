@@ -385,6 +385,64 @@ Tactix is demonstrably stronger or the deviation is explicitly accepted; then
 rerun the instance and cumulative guards. Record context, cause, relative
 strength, evidence, reproducer, owner, and reopening condition. Feature-off
 projections diagnose one semantic mechanism but never replace a full gate.
+
+**Proof-rule/strategy boundary during convergence.** A repair may enlarge a
+rule's general calculus or the kernel's proof-neutral representation machinery,
+but it must not move candidate admission, cadence, effort allowance, deadlines,
+or benchmark-conditioned choice into that rule or kernel primitive. The rule
+owns preconditions, semantic effect, proof/reconstruction delta, and legal
+instances; the strategy owns when and how much of that legal surface to invoke.
+Representation optimizations must preserve this separation even when they are
+first motivated by one scheduled inprocessing rule, and the automated
+rule/policy boundary check remains a required focused guard.
+
+**Worse-side-first divergence priority.** The journal must record every exact
+portable mismatch, but investigation and repair effort prioritizes the earliest
+divergence at which Tactix is measurably worse along either of two axes:
+
+1. **Throughput:** at a common semantic state, Tactix performs the same
+   normalized logical work but takes materially more wall time, CPU time, or
+   memory traffic to do it.
+2. **Work quality:** over comparable elapsed time or normalized cost, Tactix
+   produces a weaker result--for example fewer useful learned clauses, longer
+   learned clauses at comparable validity and scope, fewer eliminations or
+   simplifications, less pruning, weaker retained state, or a worse validated
+   solve trajectory.
+
+Compare both axes for each localized rule invocation: matching ticks alone does
+not establish parity when their real cost differs, and matching runtime alone
+does not establish parity when the resulting state is weaker. Raw counts are
+diagnostic rather than intrinsically better; judge their utility by portable
+semantic consequence and downstream validated trajectory. Also record greater
+logical work, later scheduling, and higher retained memory when they explain a
+worse result. A Tactix-stronger or behaviorally neutral mismatch is documented
+and may be accepted without convergence; do not spend a campaign making it
+reference-identical unless it blocks localization of the first worse boundary,
+violates an exact contract, causes a cumulative regression, or lacks a sound
+general justification. When several mismatches coexist, compare their
+downstream impact and pursue the earliest causal worse boundary rather than the
+earliest difference in raw trace order.
+
+**Exact inprocessing effort parity.** The diagnostic contract covers every
+inprocessing rule, not only the rule implicated by the current witness. At each
+common portable semantic state, its normalized ledger records the rule and
+invocation, effort reference and scaled allowance, entry/exit logical ticks,
+overshoot, and terminal budget comparison. Candidate-oriented rules also record
+portable candidate identity and order, candidate entry/exit ticks and exact
+delta, disposition, cost-category totals where the reference exposes them, and
+the semantic set, physical pose, and lineage of every rewrite. Clause ids,
+arena references, benchmark identities, and wall time are diagnostic metadata,
+never alignment keys or solver controls. Require exact candidate frontier and
+logical-cost agreement with the reference while states remain common; after a
+semantic or representation divergence, first localize that owner rather than
+forcing counters to agree across different work. Keep this instrumentation
+compile-time gated and disabled by default, with replay/normalization tests.
+For every matched invocation also record elapsed CPU/wall time and normalized
+yield (learned-clause count and length distribution, eliminations,
+simplifications, pruning, and retained-state deltas where applicable), so a
+rule that matches logical ticks but runs slower--or consumes similar time while
+producing weaker work--is treated as a first-class divergence.
+
 After the complete T4-K pass, the first divergence set is at most twelve
 coverage losses where validated Kissat finishes within 300 s and Tactix does
 not finish within 5000 s, balanced across SAT and UNSAT when possible and then

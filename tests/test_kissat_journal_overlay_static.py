@@ -9,7 +9,7 @@ root = pathlib.Path(__file__).resolve().parents[1]
 prepare = (root / "tools/solvers/variants/kissat-event-trace/prepare.py").read_text()
 journal = (root / "tools/solvers/variants/kissat-event-trace/overlay/rulejournal.c").read_text()
 eventtrace = (root / "tools/solvers/variants/kissat-event-trace/overlay/eventtrace.c").read_text()
-tactix_trace = (root / "src/policies/event_trace.cpp").read_text()
+tactix_trace = (root / "src/diagnostics/event_trace.cpp").read_text()
 tactix_analyze = (root / "src/rules/analyze/analyze.cpp").read_text()
 
 # These are Kissat's scheduled semantic families in search, elimination and the
@@ -52,6 +52,43 @@ assert 'trace_stop_pending' not in eventtrace
 assert 'TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT' in tactix_trace
 assert 'TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS' in eventtrace
+assert 'const bool snapshot = !trace_trajectory_only && analysis_end;' in eventtrace, (
+    "trajectory-only analysis_end must not scan and rank the full solver state")
+assert 'const bool stop_here = analysis_end && stop != UINT64_MAX' in eventtrace, (
+    "trajectory-only analysis_end must retain the stop contract")
+assert '!strcmp (event, "randec_state") || !strcmp (event, "phase_pick")' in eventtrace
+assert 'strcmp (event, "phase_pick")' in eventtrace
+assert 'strcmp (event, "phase_save")' in eventtrace
+assert 'kissat_event_trace_phase_pick (solver, idx, value);' in prepare
+assert 'kissat_event_trace_phase_save (solver, lit);' in prepare
+assert 'SAT_EVENT_TRACE_PHASE_VAR' in eventtrace
+assert 'SAT_EVENT_TRACE_PHASE_VAR' in tactix_trace
+assert 'append_sorted_clause (solver, candidate, &p, &left);' in eventtrace
+assert 'written = snprintf (p, left, "|pose=");' in eventtrace
+assert 'for (all_literals_in_clause (lit, candidate))' in eventtrace
+assert 'annotate_clause_set (solver, payload, sizeof payload);' in eventtrace
+assert 'used=%u,priority=%u,pose=' in eventtrace
+assert 'c->used, c->vivify' in eventtrace
+assert 'SAT_EVENT_TRACE_VIVIFY_LITERALS' in eventtrace
+assert 'SAT_EVENT_TRACE_VIVIFY_CLAUSES' in eventtrace
+assert '"vivify_occurrence_clause"' in eventtrace
+assert 'kissat_event_trace_vivify_counts (solver, vivifier->counts);' in prepare
+assert 'strncmp (event, "vivify_", 7)' in eventtrace
+assert 'KISSAT_CONGRUENCE_BINARY_TRACE' in eventtrace
+assert 'kissat_congruence_binary_trace_begin' in prepare
+assert 'kissat_congruence_sparse_binary_trace (solver, "sparse-entry")' in prepare
+assert 'kissat_congruence_binary_trace_end (solver, "exit")' in prepare
+assert 'KISSAT_CONGRUENCE_BINARY_TRACE_STOP' in eventtrace
+assert 'solver, "post-binary-extraction", trace_binary_ordinal++' in prepare
+assert 'solver, "exit", trace_binary_ordinal++' in prepare
+assert 'TACTIX_CONGRUENCE_BINARY_TRACE' in (
+    root / "src/rules/congruence/congruence.cpp").read_text()
+assert 'KISSAT_CONGRUENCE_CANDIDATE_TRACE' in eventtrace
+assert 'kissat_congruence_candidate_trace_begin (solver);' in prepare
+assert 'candidate_duplicate ? "entry-duplicate" : "extract"' in prepare
+assert 'kissat_congruence_candidate_trace_end (solver, true, extracted);' in prepare
+assert 'TACTIX_CONGRUENCE_CANDIDATE_TRACE' in (
+    root / "src/rules/congruence/congruence.cpp").read_text()
 assert 'if (stop_here && k.h && k.h->stable)\n    emit_heap_scores(k);' in tactix_trace
 assert 'if (stop_after_conflict_ != UINT64_MAX) {' in tactix_trace, (
     "Tactix stop-mode must gate intermediate full-heap hashes")
@@ -82,6 +119,17 @@ assert 'event_trace_heap_remove(k, v, last' in (
     root / "src/policies/heuristics.cpp").read_text()
 assert 'KISSAT_EVENT_TRACE_BINARY_ASSIGNMENT' in eventtrace
 assert 'TACTIX_EVENT_TRACE_BINARY_ASSIGNMENT' in tactix_trace
+assert 'SAT_EVENT_TRACE_SUBSTITUTE_ALL' in eventtrace
+assert 'SAT_EVENT_TRACE_SUBSTITUTE_ALL' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_COMPACT_PROBE' in eventtrace
+assert 'KISSAT_BINARY_LIFECYCLE_TRACE' in eventtrace
+assert 'TACTIX_BINARY_LIFECYCLE_TRACE' in tactix_trace
+assert 'kissat_event_trace_binary_delete (solver, a, b);' in prepare
+assert 'KISSAT_TRANSITIVE_TRACE' in eventtrace
+assert 'TACTIX_TRANSITIVE_TRACE' in (
+    root / "src/rules/transitive_reduce/transitive_reduce.cpp").read_text()
+assert 'kissat_transitive_trace_source_begin' in prepare
+assert 'kissat_transitive_trace_candidate' in prepare
 assert 'SAT_EVENT_TRACE_WATCH_TARGETS' in eventtrace
 assert 'SAT_EVENT_TRACE_WATCH_TARGETS' in tactix_trace
 assert 'SAT_EVENT_TRACE_BINARY_ADD' in eventtrace
@@ -90,6 +138,11 @@ assert 'SAT_EVENT_TRACE_SWEEP_REWRITE' in eventtrace
 assert 'SAT_EVENT_TRACE_SWEEP_REWRITE' in tactix_trace
 assert 'strcmp (event, "sweep_equivalence")' in eventtrace
 assert 'std::strcmp(event, "sweep_equivalence")' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_SWEEP_ONLY' in eventtrace
+assert 'TACTIX_EVENT_TRACE_SWEEP_ONLY' in tactix_trace
+assert 'kissat_event_trace (solver, "sweep_effort", payload, false);' in prepare
+assert 'trace_ticks_after - trace_ticks_before' in prepare
+assert '"|before=" + std::to_string(ticks_before)' in tactix_trace
 assert 'strcmp (event, "sweep_seed")' in eventtrace
 assert 'std::strcmp(event, "sweep_seed")' in tactix_trace
 assert 'strcmp (event, "sweep_environment")' in eventtrace
@@ -110,6 +163,10 @@ assert 'kissat_event_trace (solver, "sweep_seed", payload, false);' in prepare
 assert 'kissat_event_trace (solver, "sweep_environment", payload, false);' in prepare
 assert 'kissat_event_trace_sweep_environment_clause (\\n' in prepare
 assert 'kissat_event_trace (solver, "sweep_environment_clause", payload, false);' in eventtrace
+assert 'kissat_event_trace_sweep_environment_var (\\n' in prepare
+assert 'kissat_event_trace (solver, "sweep_environment_var", payload, false);' in eventtrace
+assert 'kissat_event_trace_sweep_binary_attempt (\\n' in prepare
+assert 'kissat_event_trace (solver, "sweep_binary_attempt", payload, false);' in eventtrace
 assert 'kissat_event_trace_sweep_query (\\n' in prepare
 assert 'kissat_event_trace (solver, "sweep_query", payload, false);' in eventtrace
 assert 'kissat_event_trace_sweep_query_model (\\n' in prepare

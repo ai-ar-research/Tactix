@@ -67,7 +67,7 @@ void build_index(const Kernel &k, BceIndex &idx) {
   std::vector<Ref> relevant;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (opposite_relevant(k, c))
       relevant.push_back(ref);
     ref += words;

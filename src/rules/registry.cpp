@@ -1,4 +1,5 @@
 #include "rules/registry.hpp"
+#include "diagnostics/event_trace.hpp"
 #include "diagnostics/rule_journal.hpp"
 
 #include <algorithm>
@@ -69,7 +70,7 @@ void journal_dispatch(const RuleVTable &vt, const Kernel &k,
     record.deltas = "state-digest-change";
   record.antecedents = rule_journal_transaction_antecedents();
   record.witnesses = rule_journal_transaction_witnesses();
-  record.effort = k.stats.ticks - effort_before;
+  record.effort = rule_journal_effort(k) - effort_before;
   record.budget = k.work_budget;
   record.post_digest = post_digest;
   rule_journal_emit(k, record);
@@ -133,7 +134,7 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     formula_epoch = k.arena_generation;
     root_epoch = k.touch_fixed_head;
     pre_digest = rule_journal_digest(k);
-    effort_before = k.stats.ticks;
+    effort_before = rule_journal_effort(k);
     eligibility = vt.guard(k);
     if (!eligibility) {
       journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,
@@ -144,6 +145,12 @@ ApplyResult dispatch_rule(const RuleVTable &vt, Kernel &k,
     rule_journal_transaction_begin(vt.name, candidate);
   }
 #endif
+  struct ScopedTraceRule {
+    const char *previous;
+    explicit ScopedTraceRule(const char *name)
+        : previous(event_trace_rule_enter(name)) {}
+    ~ScopedTraceRule() { event_trace_rule_leave(previous); }
+  } trace_rule(vt.name);
   ApplyResult result;
   if (vt.id >= Stats::MAX_TIMED_RULES) {
     result = apply();
@@ -195,7 +202,7 @@ ApplyResult journal_direct_rule(Kernel &k, const char *name,
   const uint64_t formula_epoch = k.arena_generation;
   const uint64_t root_epoch = k.touch_fixed_head;
   const uint64_t pre_digest = rule_journal_digest(k);
-  const uint64_t effort_before = k.stats.ticks;
+  const uint64_t effort_before = rule_journal_effort(k);
   const RuleEligibility eligibility = vt.guard(k);
   if (!eligibility) {
     journal_dispatch(vt, k, candidate.c_str(), pre_digest, formula_epoch,

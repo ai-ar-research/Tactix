@@ -80,7 +80,7 @@ static void test_collect_accepts_policy_order() {
   kernel_collect_garbage(k);
   const Clause *front = clause_at(k.arena, 0);
   assert(front->lits[0] == last[0]);
-  const Ref second = clause_words(front->size);
+  const Ref second = clause_actual_words(front);
   assert(clause_at(k.arena, second)->lits[0] == first[0]);
 }
 

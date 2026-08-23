@@ -36,6 +36,12 @@ struct RuleJournalRecord {
 uint64_t rule_journal_digest(const Kernel &);
 bool rule_journal_wants(const Kernel &, const char *rule,
                         const std::string &candidate);
+using RuleJournalMeter = uint64_t (*)(const Kernel &);
+// The scheduler installs the rule's source-defined logical currency around
+// registry dispatch.  Generic proof-rule records therefore charge the local
+// meter instead of the unrelated global propagation counter.
+void rule_journal_set_effort_meter(RuleJournalMeter);
+uint64_t rule_journal_effort(const Kernel &);
 int rule_journal_selected_literal();
 uint64_t rule_journal_selected_clause_id();
 void rule_journal_emit(const Kernel &, const RuleJournalRecord &);

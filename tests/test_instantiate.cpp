@@ -31,7 +31,7 @@ static Ref find_ref(const Kernel &k, uint32_t size) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage() && c->size == size)
       return ref;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   return INVALID_REF;
 }
@@ -41,7 +41,7 @@ static const Clause *find_clause(const Kernel &k, uint32_t size) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage() && c->size == size)
       return c;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   return nullptr;
 }
