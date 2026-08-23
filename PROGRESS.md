@@ -15,7 +15,8 @@ own experimental detail and history.
   `.claude/worktrees/vivify-unit-crash` is dirty and must remain untouched.
   SLURM job `1638010` is unrelated. Post-repair fuzz jobs `1641365`--`1641368`
   are accepted and clean. Full Tier-D array `1641379` and dependent aggregate
-  `1641380` are active; Rank-27 endpoint array `1641492` uses four reserved CPUs.
+  `1641380` are active; corrected Rank-27 sparse formula-checkpoint array
+  `1641589` completed and released its four reserved CPUs.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -214,7 +215,27 @@ without contradictory evidence.
   inconclusive: the formula snapshot hook emitted only its detailed c5471
   endpoint, not the ten earlier requested checkpoints. It repeats the c5471
   result without truncation or residue and supports no lifetime claim. Use one
-  bounded endpoint per task next. These observers do not mutate the candidate.
+  bounded endpoint per task next. Corrected job `1641492` proves common absence
+  through c3000 and Kissat-only presence by c4000 (persistent through c5000),
+  then stops the later redundant tasks. Paired job `1641531` further narrows
+  the split to `(3000,3200]`: Tactix is absent at c3200 while Kissat carries
+  the focal glue-2 clause at `used=31`; later tasks were cancelled. Correction:
+  Analyze also resets used clauses to 31, so this does not alone prove fresh
+  creation. Paired trajectory-only job `1641547` records c3001--c3200 while
+  omitting millions of matched decisions. All 175 ordinary learned transactions
+  match exactly at raw, sorted, shrunk, and final stages, and none is the focal
+  clause. The formula split therefore lies in a side transaction such as OTFS
+  strengthening/representation rather than worse ordinary clause learning.
+  Attempted paired job `1641563` computed formula hashes but omitted
+  `KEEP_SNAPSHOTS`, so its intermediate rows were suppressed. It was cancelled
+  at 7m38s and supports no presence claim. Corrected job `1641589` retains
+  reachable checkpoints c3100/c3150/c3175/c3200 with the same frozen observers.
+  It localizes the owner to the final late Substitute application inside the
+  shared c3069 inprocessing phase: both are absent at the preceding Sweep exit;
+  Kissat Substitute emits/retains the glue-2 focal ternary while Tactix remains
+  absent, and that split persists through c3200. Compare representative maps
+  and the rewritten source-clause transaction next; Analyze/OTFS is excluded.
+  These observers do not mutate the candidate.
 
 ## Exact convergence contract
 
@@ -241,11 +262,10 @@ without contradictory evidence.
    commit `0997356…78c8` binary is an independent read-only inode, SHA-256
    `cb6fdaa9…6c7a4`; compute-node SAT/model and UNSAT/proof validation passed
    with zero residue. Inspect the aggregate when terminal.
-2. Endpoint array `1641492` compares latest committed Tactix and current Kissat
-   at ten clause-lifetime checkpoints with `%2` throttle. Localize why Tactix
-   loses the
-   redundant focal clause that Kissat still carries at c5471; distinguish
-   creation, strengthening, reduction, and representation lifecycle.
+2. At the final c3069 late Substitute application, compare latest committed
+   Tactix and current Kissat representative maps and the source-clause rewrite
+   that yields Kissat-only focal clause `{-475857,-208918,-121233}` despite
+   byte-exact ordinary learning and common absence at the preceding Sweep exit.
 3. Repair only a general source-backed semantic, scheduling, or representation
    owner while keeping proof/reconstruction in rules and cadence/admission/
    effort in strategy. Repeat the mandatory guard before the next witness.
