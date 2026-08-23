@@ -13,9 +13,8 @@ own experimental detail and history.
   synchronized with `origin/main` before the line began. Do not discard it.
 - `.claude/worktrees/tierd-next10` is clean. The historical
   `.claude/worktrees/vivify-unit-crash` is dirty and must remain untouched.
-  SLURM job `1638010` is unrelated. **NOTHING IN FLIGHT** for this project.
-  Final c5492 assignment-pose job `1641293` is complete, untruncated, and
-  residue-free.
+  SLURM job `1638010` is unrelated. Post-repair fuzz jobs `1641365`--`1641368`
+  are accepted and clean. **NOTHING IN FLIGHT** for this project.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -114,12 +113,49 @@ without contradictory evidence.
 
 ### Validation state
 
+- Current-HEAD soundness campaign
+  `20260823-1700-current-head-fuzz` is blocked on two native-LRAT rejections in
+  the existing Substitute stress scenario: seeds 20261465 and 20265342 in job
+  `1641326`, after 894,743 directly counted target applications. The default
+  DRAT+converted-LRAT leg `1641325` passes 10,000 cases with 9,631 verdicts.
+  Per `DEVELOPMENT_PLAN.md` §8.2, the bounded Claude repair protocol is
+  mandatory before the prepared Tier-D campaign may be submitted.
+- Claude localized the native-LRAT defect to `kernel_reason_walk`: it re-walked
+  a retained clause reason for a root-fixed literal after Vivify could delete
+  that root-satisfied clause, emitting a deleted LRAT hint. The general kernel
+  repair collapses every root-level reason to its already-emitted unit id, as
+  Analyze already does; no strategy code changes. Codex source review and
+  independent validation pass 13/13 relevant ASan/UBSan tests, 27/27 corpus
+  entries, both Substitute witnesses, and three additional random-policy LRAT
+  witnesses. Full post-repair jobs `1641365`--`1641368` accept the repair and
+  unblock Tier-D preparation.
+- All four post-repair fuzz legs are terminal and clean: random native LRAT job
+  `1641365` has 10,000 cases, 0 failures, and 8,772 verdicts with Sweep in
+  2,535 and Substitute in 4,280 cases; Substitute-stress native LRAT job
+  `1641366` has 10,000 cases, 0 failures, 8,768 verdicts, and 895,214 directly
+  counted Substitute applications; default DRAT-to-LRAT job `1641368` has
+  10,000 cases, 0 failures, and 9,631 verdicts with Sweep in 2,401 and
+  Substitute in 2,312 cases. Forced-Sweep DRAT job `1641367` completes all
+  10,000 cases with 0 failures, 7,006 checked verdicts, and 1,438,080 target
+  applications. Its predeclared corpus-026 nontermination ran no oracle and is
+  not counted as a soundness pass.
+- The reusable Tier-D comparison runner's historical rejected/UNKNOWN path
+  contradicted the current §8.1 zero-retention authority by moving partial
+  certificates into `retained/`. It now requires the manifest's `retention:
+  none` contract, hashes models and partial proofs, records diagnostic tails,
+  deletes each consumed checker input stage-by-stage, clears every remaining
+  certificate/derivative before its sole result publication, and counts any
+  legacy retained file as aggregate residue. A new integration regression
+  covers UNKNOWN partial proof, rejected UNSAT plus partial LRAT derivative,
+  and rejected SAT model paths; all three pass with empty scratch/retention.
+  The successor Tactix campaign inherits the stable non-`v1` baseline's
+  certificate policy and custom 1800 s/16 GiB resource contract.
 - Two debug crashes exposed by focused unit tests were repaired through the
   required bounded Claude protocol and source-reviewed: the accidental
   `clause_actual_words` self-recursion, and lazy-stream initialization after a
   touched large clause had already been removed. Claude's ASan/UBSan focused
   suites passed; no performance repair was delegated.
-- The post-compaction Release rebuild and complete suite pass 72/72, including
+- The post-compaction Release rebuild and complete suite pass 74/74, including
   proof/model, Sweep proofs, documentation, trace-zero-overhead, and static
   rule/policy boundary coverage. `check-progress` and `check-doc-size` have zero
   errors; only reserve warnings remain for the two long-lived semantic docs.
@@ -138,82 +174,46 @@ without contradictory evidence.
   claimed and residue is zero. Resume latest-current Tactix versus current
   instrumented Kissat from the retained common Rank-27 boundary; Sweep's exact
   semantic/throughput closure and the proof-rule/strategy boundary stay closed.
-- Current-Tactix-only macro campaign
-  `20260823-1530-tierd-rank27-current-c10000-macro`, job `1641169`, completes
-  cleanly. Macro schedule, decisions, and search state remain common through the
-  exact conflict-5,580 Retier; at conflict 7,150 Tactix is first visibly three
-  decisions and one level ahead. Phase-only campaign
-  `20260823-1540-tierd-rank27-current-phase-5580-7150`, job `1641170`, compares
-  1,118 normalized target/best records exactly with retained current Kissat.
-  Headers remain exact through c6734; at c6787 search is one decision/level
-  apart while the complete phase payload remains exact. Phase saving,
-  target/best watermarks, and the mp1 compaction repair are excluded as owner;
-  paired current/current trajectory job `1641171` now localizes the first split:
-  every portable transaction is exact through logical decision 5,374,229, then
-  at c6786 stable-heap decision 5,374,230 Tactix chooses external `74855` while
-  Kissat chooses `388954`, both with positive target/saved phase. The following
-  learned hashes remain exact, but Tactix reaches c6787 one decision/level
-  higher. Analysis, learning, phase, and random-decision admission are excluded;
-  distinguish score arithmetic from equal-score heap pose next.
-- Aligned heap-pop job `1641173` closes that classification: both decision
-  candidates have exact score `1.2323120049784528e+101`, eligibility and phase
-  agree, and the first pop starts at equal heap size 379,722. Tactix places
-  external `74855` above `388954` at path positions 19/39; Kissat has the same
-  pair reversed. The first owner is latent stable-heap representation pose, not
-  arithmetic or policy. Localize the first post-analysis heap-hash mismatch
-  after the exact c5580 macro boundary before changing heuristics.
-- Full-heap checkpoint job `1641175` keeps the external-variable stack hash
-  exact through c5149 (`3db93bfc10e8210e`) and first observes an unequal hash
-  at c5580 (`d20e83b8d02564fe` vs `d9e9e31d8ede9780`) while decisions, level,
-  and the complete top-32 score payload remain exact. Tactix and Kissat's heap
-  bubble algorithms are source-identical, so narrow the ordered mutation input
-  (analysis bump or lazy pop/reinsert) in `(5149,5580]`.
-- Narrowing job `1641207` keeps the full heap exact through c5450
-  (`b93f6708fdea450b`) and finds it unequal at c5550
-  (`393dbe9166313da5` vs `3dca4f1f96a9e831`) under identical decisions, level,
-  and mode. Requested counters 5500 and 5579 have no ordinary analysis endpoint
-  and support no claim. Continue on reachable conflicts in `(5450,5550]`.
-- Reachable-checkpoint job `1641241` keeps the full heap exact at c5490
-  (`23740694b4412e4a`) and finds it unequal by c5499
-  (`717b8c82c6c4b1f0` vs `f25710113d00d122`) with identical search headers.
-  The exact ordered-mutation owner lies in `(5490,5499]`.
-- Dense job `1641261` keeps c5491 exact (`f8e1f974e15233a5`) and first samples
-  an unequal hash at c5493 (`429ea61fb1df9f7f` vs `037d1a46181fc919`), but its
-  predeclared list accidentally omitted c5492. The later complete trajectory
-  proves c5492 has a matched ordinary `analysis_end`; the earlier no-endpoint
-  interpretation is retracted. c5493 is only the first *sampled* unequal end.
-- c5493 bump/heap job `1641277` excludes that analysis as owner. Before its
-  first bump the full heap is already unequal (`962618624955c3d9` vs
-  `837b5fa45aacabb3`) while top-32 scores are exact; conflict, every learned
-  stage, and all nine ordered bump identities are exact. The owner lies after
-  exact c5491 and before c5493 analysis, in c5492's special transaction or a
-  decision-time lazy pop.
-- Complete trajectory job `1641279` compares all 1,059 portable records exactly:
-  521 decisions, 521 phase picks, three conflict/analysis transactions, and two
-  learned transactions. c5492 is a matched no-learn analysis/backtrack from
-  level 3970 to 3452, followed by the exact same 521 decisions through c5493.
-  Sample the c5492 full-heap endpoint directly; if exact, binary-search the
-  following decision-time lazy pops. Both traces are complete and residue-free.
-- Direct endpoint job `1641281` makes c5492 decisive: the formerly exact heap
-  becomes Tactix `205428df3fbd4cf5` versus Kissat `765a211140867827`, while
-  both heaps have size 406,567 and the full portable top-32 score payload is
-  exact. The first owner is ordered reinsertion during c5492's matched no-learn
-  backtrack, not later lazy decision pops. Trace the ordered inserted variables
-  and their final poses without changing Analyze/Backjump proof semantics.
-- Ordered reinsertion job `1641283` compares 1,006 insertions per solver. The
-  first 121 are exact; at index 121 Tactix reinserts external 475810 while
-  Kissat reinserts 475857 from the same heap size and to the same pose. Locally
-  Tactix orders `475808,475810,475814,475857,475918,475863`, versus Kissat
-  `475808,475857,475810,475814,475918,475863`. The source-identical heap
-  algorithm is excluded; inspect the two assignments' trail positions and
-  reasons at the common c5492 conflict.
-- Final provenance job `1641293` identifies the inherited owner. External
-  475810 is level 3490 with binary reason `-475808` in both solvers (Tactix's
-  trail pose carries the known retained-identity offset). External 475857 is
-  also level 3490, but Kissat assigns it earlier from a large clause while
-  Tactix assigns it later from binary `-475808`. This reason/propagation-order
-  split explains the swapped reinsertion order. Localize the Kissat large-watch
-  transaction; do not change the heap algorithm or Analyze/Backjump calculus.
+- Rank-27 campaign chain `20260823-1530` through `20260823-1720` first traced
+  the visible c6786 equal-score stable-heap split backward to c5492's matched
+  no-learn backtrack. The heap algorithms, scores, eligibility, phase payload,
+  learned transactions, and ordered bump identities are exact; the reinsertion
+  order differs because Kissat had propagated external 475857 earlier from a
+  large clause while Tactix later uses binary `-475808`. Frozen manifests own
+  every intermediate checkpoint and the retracted "full common semantic state"
+  interpretation.
+- Reason checkpoints `1641297`, `1641329`, and `1641349` narrow the causal
+  reassignment to `(c5471 analysis_end,c5472 conflict entry]`: 475810 has the
+  common binary reason, but 475857 has Kissat large-clause ref 1179665 versus
+  Tactix binary `-475808`. All paired endpoints are untruncated and residue-free.
+- Paired implication job `1641369` completes from separate read-only pins with
+  both c5472 endpoints, zero truncation/residue, and trace bundle SHA-256
+  `1f38163e64772ab44fe87cad7b2b1af85379fea56628fc70a7abebb22aee6e28`.
+  After c5471 all 89 decisions and the first 3,617 implications are exact. At
+  implication index 3,617 Kissat immediately derives `-475857` at level 3486
+  from large clause `(-475857,-208918,-121233)`, while Tactix next derives
+  `-121237` from the common `477074` binary frontier. Tactix derives `-475857`
+  only 19 implication positions later from binary `(-475857,-475808)`. This is
+  the first portable worse-side propagation divergence; filter the watch pose
+  for the `121233` scan next. Paired filtered watch-pose job `1641371` completes
+  without truncation/residue; trace bundle SHA-256 is
+  `84e7b7540c696b603c4a76f0e0cda3eaceff4c8f0666fc5f87ae2109c23f5a84`.
+  Kissat has the focal large clause in pose
+  `(-121233,-475857,-208918)` on that list and assigns `-475857`; Tactix has no
+  selected entry. The scan differs by exactly one large-watch pair: Tactix is
+  58→30 words, 17 dereferences, 3 large assignments, and 60 ticks versus
+  Kissat 60→32, 18, 4, and 62. Binary assignments (23) and relocations (14)
+  match. Clause-set snapshot job `1641373` then shows this is not a displaced
+  watch inside a shared clause: Tactix has no live focal clause at c5471, while
+  Kissat retains redundant glue-2 clause `(-121233,-475857,-208918)` with
+  `searched=2`, `used=29`, and that watched pair. Trace bundle SHA-256 is
+  `acfef3fbc27c11cad1ee202ad4e6d45f11bcdfe2ce3c08e40e5e2a72c8a17030`.
+  Localize the earlier clause creation/strengthening/deletion lineage before
+  changing propagation. Sparse lifetime observer job `1641376` is
+  inconclusive: the formula snapshot hook emitted only its detailed c5471
+  endpoint, not the ten earlier requested checkpoints. It repeats the c5471
+  result without truncation or residue and supports no lifetime claim. Use one
+  bounded endpoint per task next. These observers do not mutate the candidate.
 
 ## Exact convergence contract
 
@@ -234,23 +234,36 @@ without contradictory evidence.
 
 ## Next actions
 
-1. Trace external 475857's earlier Kissat large-clause implication and Tactix's
-   corresponding watch state; localize the first portable propagation owner.
-2. Repair only a general source-backed semantic, scheduling, or representation
+1. Finalize the accepted post-repair fuzz manifest and Andrew report, commit
+   and push the checked increment, then prepare/compute-validate/launch a fresh
+   1800 s/16 GiB current-commit campaign over all 1,166 instances. At the
+   user's explicit request, throttle it to 89 simultaneous tasks: the two-node
+   partition is memory-limited to 92 tasks at 16 GiB each, so this leaves three
+   complete 2-CPU/16-GiB Rank-27 debug slots (about six CPU threads plus the
+   required 48 GiB). Record this exception and basis in the manifest. The earlier
+   pre-repair preparation was never validated or launched and was moved intact
+   to `/tmp/20260823-1730-tierd-current-head-16g-1800s-pre-repair-97e1447-prepared`.
+   The submitted solver must be an independent read-only campaign copy with its
+   hash sealed in the manifest, never a hard link to `build/release/tactix`;
+   all Rank-27 observers and rebuilds use separate pins.
+2. Without waiting for that campaign, localize when and why Tactix loses the
+   redundant focal clause that Kissat still carries at c5471; distinguish
+   creation, strengthening, reduction, and representation lifecycle.
+3. Repair only a general source-backed semantic, scheduling, or representation
    owner while keeping proof/reconstruction in rules and cadence/admission/
    effort in strategy. Repeat the mandatory guard before the next witness.
-3. At the next coherent successful increment, update this resume surface and
+4. At the next coherent successful increment, update this resume surface and
    the parity ledger, generate the required Andrew TeX/PDF report, commit, push,
    and leave `main` clean and synchronized.
 
 ## Recent changes
 
-- 2026-08-23 — Localized the first Rank-27 physical heap mismatch to c5492's
-  matched no-learn backtrack/reinsertion transaction.
-- 2026-08-23 — Traced that pose mismatch to an earlier reason-class/order split:
-  Kissat large-clause-propagates 475857 before Tactix's binary implication.
-- 2026-08-23 — Proved the split is equal-score heap pose: candidate score and
-  eligibility agree, but external variables `74855`/`388954` are reversed.
+- 2026-08-23 — Proved the Rank-27 missing watch is a clause-lifecycle split:
+  Kissat retains the focal ternary at c5471 while Tactix has no matching clause.
+- 2026-08-23 — Localized the first worse-side propagation divergence: Tactix
+  derives 475857 19 implications later from a weaker binary reason.
+- 2026-08-23 — Traced the visible equal-score heap split back through c5492's
+  reinsertion order to that earlier reason-class/propagation-order divergence.
 - 2026-08-23 — Closed the 9,379-seed Sweep mixed-occurrence semantic stream at
   the shared T105 state; accepted trace hash is `a70a89d…17de1`.
 - 2026-08-23 — Lifted Kissat's stable-allocation in-place large-clause shrink

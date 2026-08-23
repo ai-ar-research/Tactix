@@ -1109,11 +1109,13 @@ void kernel_promote_watched_lit(Kernel &, Ref ref, uint32_t slot,
                                 uint32_t from);
 
 // Retire any trail reason naming this clause, so a delete never leaves a
-// literal whose reason is a dropped clause: a later reason walk would put that
-// id into an LRAT chain and the checker rejects it as a deleted hint. Only for
-// callers deleting at a quiescent root, where the propagated literal is
-// root-fixed and already carries its own unit id. The kernel's own root flush
-// instead lets the collector's pass do this at the end of the same call.
+// literal whose reason is a dropped clause. Proof chains no longer depend on
+// this: kernel_reason_walk cites a root-fixed literal's unit id and never
+// enters its retained reason. Retiring keeps the trail's reason state honest
+// for the non-proof readers. Only for callers deleting at a quiescent root,
+// propagated literal is root-fixed and already carries its own unit id. The
+// kernel's own root flush instead lets the collector's pass do this at the
+// end of the same call.
 inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
   for (const Lit lit : *c) {
     Assigned &a = k.assigned[var_of(lit)];
