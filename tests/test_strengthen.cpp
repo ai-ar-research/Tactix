@@ -35,7 +35,7 @@ static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
         found |= all;
       }
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   if (lits)
     assert(found);

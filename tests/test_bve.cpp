@@ -54,8 +54,9 @@ static void test_occurrences_skip_redundant() {
   assert(occ.count(internalize(1)) == 0); // redundant clause not counted
 }
 
-// schedule: fewest-resolutions-first (ascending occ(x)·occ(¬x)); a pure-ish var
-// (one polarity absent → score 0) ranks first.
+// schedule: Kissat's structural score p*n-p-n. Here all three variables score
+// -1, so the rule-local surface retains variable order; DefaultPolicy adds the
+// search-relevancy tie-break and dynamic heap pose.
 static void test_schedule_order() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -65,10 +66,9 @@ static void test_schedule_order() {
   std::vector<Var> cand;
   bve_schedule(k, cand);
   assert(cand.size() == 3);
-  assert(cand[0] == var_of(internalize(3))); // score 0 ranks first
-  // the two score-1 vars follow in stable (variable) order: D1 then D2
-  assert(cand[1] == var_of(internalize(1)));
-  assert(cand[2] == var_of(internalize(2)));
+  assert(cand[0] == var_of(internalize(1)));
+  assert(cand[1] == var_of(internalize(2)));
+  assert(cand[2] == var_of(internalize(3)));
 }
 
 // assigned variables and variables in no elimination clause are not candidates.
@@ -85,6 +85,21 @@ static void test_schedule_excludes() {
     assert(v != var_of(internalize(3))); // assigned
     assert(v != var_of(internalize(4))); // in no elimination clause
   }
+}
+
+// N1 and Kissat parity: an extension variable is still a legal BVE candidate.
+// DefaultPolicy may pay for reversing Factor, but the rule surface cannot hide
+// that sound elimination and Kissat's elimination heap does not hide it.
+static void test_schedule_includes_extension_variable() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  k.first_extension_var = 2;
+  kernel_add_binary_clause(k, internalize(3), internalize(1));
+  kernel_add_binary_clause(k, internalize(-3), internalize(2));
+  std::vector<Var> cand;
+  bve_schedule(k, cand);
+  assert(std::find(cand.begin(), cand.end(), var_of(internalize(3))) !=
+         cand.end());
 }
 
 // N1 surface: candidates are enumerated, an out-of-range payload is a NoOp.
@@ -202,6 +217,30 @@ static void test_bound_skip() {
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);                               // 36 > 28: kept
   assert(has_binary(k, internalize(1), internalize(2)));   // var 1 still present
+}
+
+// The policy may cache the next useful ramp bound, but it must not resolve
+// ahead to that future level. Kissat stops on the first non-tautological
+// resolvent beyond pos+neg+CURRENT bound: 2*9 with bound 0 has base 11 and
+// therefore charges exactly 12 attempts before declining.
+static void test_bound_tracking_does_not_spend_future_work() {
+  Kernel k;
+  kernel_reserve_vars(k, 12); // x=1, positive partners 2..3, negative 4..12
+  for (int i = 2; i <= 3; i++)
+    kernel_add_binary_clause(k, internalize(1), internalize(i));
+  for (int j = 4; j <= 12; j++)
+    kernel_add_binary_clause(k, internalize(-1), internalize(j));
+  k.bve_gate_mask = 0;
+  k.bve_bound = 0;
+  k.bve_track_min_bound = true;
+  const Var x = var_of(internalize(1));
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::NoOp);
+  assert(k.stats.bve_resolutions == 12 &&
+         "bound-0 BVE must stop at the first over-limit resolvent");
+  assert(k.bve_min_bound[x] == 1 &&
+         "the first overflow rearms the candidate at the next ramp bound");
 }
 
 // An AND/OR gate x↔OR(a₁..a₆) lets BVE resolve only gate×antecedent, dropping
@@ -361,7 +400,25 @@ static bool has_large(const Kernel &k, std::vector<int> want) {
       if (got == want)
         return true;
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
+  }
+  return false;
+}
+
+// A live large clause with exactly this stored literal order. BVE occurrence
+// notifications follow that order, so set equality is not enough for source
+// parity with Kissat's connect_resolvents path.
+static bool has_large_ordered(const Kernel &k, const std::vector<int> &want) {
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->size == want.size()) {
+      bool equal = true;
+      for (uint32_t i = 0; i < c->size; ++i)
+        equal &= externalize(c->lits[i]) == want[i];
+      if (equal)
+        return true;
+    }
+    ref += clause_actual_words(c);
   }
   return false;
 }
@@ -414,6 +471,8 @@ static void test_gate_definition_fires() {
     assert(!has_binary(k, internalize(5), internalize(9))); // ant×ant skipped
     // the resolve_gate witness: a gate×gate resolvent that is NOT a tautology
     assert(has_large(k, {2, -3, -4}) && "gate x gate resolvent (a∨¬b∨¬c)");
+    assert(has_large_ordered(k, {-3, -4, 2}) &&
+           "resolve.c copies the second antecedent before the first");
   }
 }
 
@@ -502,7 +561,7 @@ static void test_definition_reconstruction_exhaustive() {
           lits.push_back(externalize(l));
         surviving.push_back(lits);
       }
-      ref += clause_words(cl->size);
+      ref += clause_actual_words(cl);
     }
 
     const auto sat = [&k](const std::vector<int> &cl) {
@@ -727,11 +786,13 @@ int main() {
   test_occurrences_skip_redundant();
   test_schedule_order();
   test_schedule_excludes();
+  test_schedule_includes_extension_variable();
   test_instance_surface();
   test_eliminate_basic();
   test_eliminate_reconstruction();
   test_eliminate_frozen_pivot_reconstruction();
   test_bound_skip();
+  test_bound_tracking_does_not_spend_future_work();
   test_gate_and_or_fires();
   test_gate_equivalence_substitution();
   test_gate_ite_fires();

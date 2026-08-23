@@ -66,6 +66,12 @@ static void test_substitute_hand_rolled_budget() {
          "Substitute's 10-per-mille budget must not use the 1e7 floor");
 }
 
+// The budget knob must not be inert: with a zero allowance, the round-local
+// effort comparison (kissat substitute.c substitute_rounds) suppresses the
+// optional second round of the call, while the first round stays mandatory —
+// there is no call-entry effort gate, so dec_budget stays 0 and the break is
+// visible as the call left incomplete. phase_rounds=1 isolates one authored
+// call; each later call would own a fresh mandatory round.
 static void test_substitute_budget_stops_second_round() {
   Kernel k;
   Heuristics h;
@@ -76,7 +82,9 @@ static void test_substitute_budget_stops_second_round() {
   k.stats.conflicts = 1;
   k.stats.search_ticks = 1; // 10 per mille rounds down to zero, with no floor
 
-  DefaultPolicy p;
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.phase_rounds = 1;
+  DefaultPolicy p(cfg);
   p.inprocess().build(k);
   const uint32_t i = slot_index(p, "Substitute");
   assert(i != UINT32_MAX);
@@ -84,10 +92,15 @@ static void test_substitute_budget_stops_second_round() {
     p.inprocess().entries[j].enabled = j == i;
   assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) != 20);
   const auto &e = p.inprocess().entries[i];
-  assert(k.stats.substitute_rounds == 1);
+  assert(k.stats.substitute_rounds == 1 &&
+         "an over-budget productive first round must suppress only the "
+         "optional second round of the same call");
   assert(k.stats.substitute_ticks > 0);
-  assert(e.tm.dec_budget == 1 &&
-         "an over-budget first round must suppress the second round");
+  assert(e.tm.admitted == 1 && e.tm.dec_budget == 0 &&
+         "Substitute has no call-entry effort gate");
+  assert(e.tm.handed == 0 && e.tm.completed == 0 &&
+         "the zero allowance must land on the entry and mark the "
+         "over-budget call incomplete");
 }
 
 // --- posed BVE ladder drives Factor's phase snapshot -----------------------
@@ -286,9 +299,21 @@ static void check_authored_order(DefaultPolicy &p, Kernel &) {
 }
 
 static void check_knobs(DefaultPolicy &p, Kernel &) {
-  const uint32_t c = slot_index(p, "Congruence");
-  assert(p.inprocess().entries[c].permille == 7 &&
+  const uint32_t sw = slot_index(p, "Sweep");
+  assert(sw != UINT32_MAX);
+  assert(p.inprocess().entries[sw].meter != nullptr &&
+         "the PERMILLE knob must be checked on a metered entry");
+  assert(p.inprocess().entries[sw].permille == 7 &&
          "TACTIX_SLOT_PERMILLE did not reach the entry");
+  // Congruence is unmetered like Kissat's: no EFFORT_SPECS row, so the
+  // per-mille knob cannot reach it and closure/delay remain its only governors.
+  const uint32_t c = slot_index(p, "Congruence");
+  assert(c != UINT32_MAX);
+  assert(p.inprocess().entries[c].meter == nullptr &&
+         p.inprocess().entries[c].permille == 0 &&
+         p.inprocess().entries[c].closure &&
+         "Congruence must stay unmetered and closure-gated; "
+         "TACTIX_SLOT_PERMILLE must not meter it");
   assert(p.inprocess().entries[c].max_applies == 1 &&
          "TACTIX_SLOT_MAX_APPLIES did not reach the entry");
   const uint32_t pr = slot_index(p, "Probe");
@@ -317,7 +342,7 @@ int main() {
   with_env(legacy, 2, check_legacy_order);
   std::printf("  TACTIX_SLOT_ORDER=legacy moves BVE/Factor to the back\n");
 
-  const char *knobs[] = {"TACTIX_SLOT_PERMILLE",   "Congruence:7",
+  const char *knobs[] = {"TACTIX_SLOT_PERMILLE",   "Sweep:7,Congruence:7",
                          "TACTIX_SLOT_MAX_APPLIES", "Congruence:1",
                          "TACTIX_CURSOR_PROBE",     "0",
                          "TACTIX_ORDER_PROBE",      "reverse"};

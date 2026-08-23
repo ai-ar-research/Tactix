@@ -5,7 +5,7 @@
 // in Kernel::binary_ids). Header:
 //   word0  size
 //   word1  bit0 garbage | bit1 redundant | bit2 reason | bits3-7 used
-//          | bit8 vivify | bits9.. glue
+//          | bit8 vivify | bit9 shrunken | bits10.. glue
 //   word2  searched (index of last replacement-scan position, >= 2)
 //   word3  id_lo   (proof clause id, low word — native LRAT hints;
 //   word4  id_hi    CaDiCaL stores int64 ids the same way)
@@ -51,13 +51,20 @@ struct Clause {
   // `glue`'s span: set_glue saturates and glue is bounded by clause size, so 23
   // bits (8.4M) is as unreachable as 24 was.
   static constexpr uint32_t VIVIFY = 1u << 8;
-  static constexpr uint32_t GLUE_SHIFT = 9;
+  // A shrunken clause retains its original arena allocation.  The semantic
+  // size remains `size`; INVALID_LIT at the original final literal records the
+  // stable allocation boundary exactly as in Kissat's `clause::shrunken`.
+  // This is representation metadata only: proof and rule semantics never
+  // inspect it.
+  static constexpr uint32_t SHRUNKEN = 1u << 9;
+  static constexpr uint32_t GLUE_SHIFT = 10;
   static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
   bool garbage() const { return flags & GARBAGE; }
   bool redundant() const { return flags & REDUNDANT; }
   bool reason() const { return flags & REASON; }
   bool vivify() const { return flags & VIVIFY; }
+  bool shrunken() const { return flags & SHRUNKEN; }
   void set_redundant(bool v) {
     flags = v ? (flags | REDUNDANT) : (flags & ~REDUNDANT);
     if (!v)
@@ -86,6 +93,19 @@ constexpr uint32_t CLAUSE_HEADER_WORDS = 5;
 
 inline uint32_t clause_words(uint32_t size) {
   return CLAUSE_HEADER_WORDS + size;
+}
+
+// Arena traversal must advance over the allocation, not the current semantic
+// clause.  On the first in-place shrink the original last literal is replaced
+// by INVALID_LIT; subsequent shrinks retain that same boundary marker.
+inline uint32_t clause_actual_words(const Clause *c) {
+  if (!c->shrunken())
+    return clause_words(c->size);
+  const Lit *p = c->end();
+  while (*p++ != INVALID_LIT)
+    ;
+  return static_cast<uint32_t>(reinterpret_cast<const uint32_t *>(p) -
+                               reinterpret_cast<const uint32_t *>(c));
 }
 
 using Arena = std::vector<uint32_t>;

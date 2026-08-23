@@ -104,6 +104,22 @@ static void test_duplicate_pair_refused() {
   assert(k.stats.binaries_deleted == 0);
 }
 
+static void test_delete_one_duplicate_copy_keeps_pair_named() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(2);
+  kernel_add_binary_clause(k, a, b, 3);
+  kernel_add_binary_clause(k, a, b, 4);
+  assert(kernel_delete_binary_one_copy(k, a, b));
+  assert(kernel_binary_copies(k, a, b) == 1);
+  assert(kernel_binary_live(k, a, b));
+  assert(kernel_binary_id(k, a, b) == 4);
+  assert(k.stats.binaries_deleted == 1);
+  assert(kernel_delete_binary_one_copy(k, a, b));
+  assert(!kernel_binary_live(k, a, b));
+  assert(k.stats.binaries_deleted == 2);
+}
+
 // deleting an absent binary is a no-op (idempotent)
 static void test_delete_idempotent() {
   Kernel k;
@@ -168,6 +184,7 @@ int main() {
   test_readd_after_delete_installs_fresh_id();
   test_add_missing_mirror_does_not_duplicate_stable_direction();
   test_duplicate_pair_refused();
+  test_delete_one_duplicate_copy_keeps_pair_named();
   test_delete_idempotent();
   test_reason_binary_retired_to_unit();
   test_jumped_reason_protects_its_antecedent();

@@ -19,8 +19,12 @@ RuleEligibility transitive_reduce_guard(const Kernel &);
 
 // Instance space (plan §5.1): payload = a source literal, sign-extended DIMACS
 // int; one instance = one source = all its candidate edges, since a walk is
-// rooted at ¬src. Canonical order: active literals whose ¬src has >= 2 binary
-// out-edges, ascending by literal code. INSTANCE_CANONICAL = the full round.
+// rooted at ¬src. The instance space contains both unfixed polarities of every
+// active variable, including sources with no admissible edge: Kissat charges
+// their source-list scan before returning. Each undirected pair is owned by its
+// lower live reference-compact endpoint through Kernel's compact import map;
+// policy-neutral callers fall back to permanent import order.
+// INSTANCE_CANONICAL = the full round.
 void transitive_reduce_sources(const Kernel &, std::vector<Lit> &out);
 
 // One source: walk every candidate (src ∨ dst), delete the transitively
@@ -36,11 +40,13 @@ void transitive_reduce_sources(const Kernel &, std::vector<Lit> &out);
 ApplyResult transitive_reduce_try(Kernel &, Lit src);
 
 // Canonical: the full round. Failed literals are left to V1 Probe, keeping the
-// delta delete-only, and a duplicated pair is never deleted since `binary_ids`
-// holds one id per literal pair. No effort budget in the rule, though the walk
+// delta delete-only. Duplicate physical copies are processed independently;
+// removing a non-final copy retains its proof clause and pair id. No effort
+// budget is computed in the rule, though the walk
 // charges cache-line traffic to stats.transitive_ticks so a policy budget can
-// be honest, and it runs to exhaustion rather than stopping at dst — the early
-// exit is measured negative (`Kernel::transitive_early_exit`).
+// be honest. As in Kissat, the walk stops as soon as dst is reached; the
+// `Kernel::transitive_early_exit` diagnostic arm can restore exhaustive failed-
+// literal discovery, but that is a deliberate non-reference experiment.
 ApplyResult transitive_reduce_apply(Kernel &);
 
 } // namespace tactix

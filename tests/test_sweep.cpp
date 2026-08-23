@@ -28,6 +28,28 @@ static void test_effort_prices_embedded_and_representation_ticks() {
   assert(sweep_semantic_effort(k) == 17);
 }
 
+static void test_dense_entry_flushes_only_irredundant_satisfied_clauses() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit root = internalize(1);
+  k.unit_ids[var_of(root)] = ++k.next_clause_id;
+  kernel_assign_unit(k, root);
+  const Lit irred_lits[3] = {root, internalize(2), internalize(3)};
+  const Lit red_lits[3] = {root, internalize(3), internalize(4)};
+  const Ref irred = kernel_add_large_clause(
+      k, irred_lits, 3, false, 0, ++k.next_clause_id);
+  const Ref red = kernel_add_large_clause(k, red_lits, 3, true, 2,
+                                          ++k.next_clause_id);
+
+  SweepRound round;
+  SweepLimits limits;
+  limits.max_seeds = 1;
+  (void)sweep_detect_round(k, limits, round);
+
+  assert(clause_at(k.arena, irred)->garbage());
+  assert(!clause_at(k.arena, red)->garbage());
+}
+
 namespace {
 
 // Build a kernel from DIMACS-style clauses, ids in input order as the parser
@@ -770,7 +792,6 @@ static void test_se_general_path_emits(void) {
   assert(!is_rup_binary(k, negate(x), y)); // premise: S-d cannot do this
   assert(!is_rup_binary(k, x, negate(y)));
 
-  const uint64_t arena_words_before = k.arena.size();
   assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
   const ApplyResult r = sweep_apply(k);
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
@@ -782,8 +803,10 @@ static void test_se_general_path_emits(void) {
   // the proved class immediately; the retired variable and witness are the
   // persistent effect, not two stale equivalence clauses.
   assert(k.stats.substitute_vars >= 1);
-  assert(k.stats.sweep_ticks_repr >= arena_words_before &&
-         "one productive call prices its deferred arena rebuild once");
+  // Surviving large clauses are rewritten in place at their Ref, so a
+  // productive call no longer owes (or prices) a deferred arena rebuild.
+  assert(k.stats.sweep_ticks_repr == 0 &&
+         "in-place replacement leaves no representation debt to price");
   assert(kernel_var_retired(k, var_of(x)) ||
          kernel_var_retired(k, var_of(y)));
   printf("  S-e: general path emitted %llu binaries for a non-RUP equivalence\n",
@@ -819,8 +842,9 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
 }
 
 // The canonical dense path carries an ordered occurrence ledger across the
-// whole Sweep call. Two disjoint productive environments must therefore cause
-// one final arena collection, not one whole-formula bridge apiece. The
+// whole Sweep call, and surviving large clauses are rewritten in place at
+// their Ref. Two disjoint productive environments must therefore cause no
+// whole-formula arena collection at all, not one bridge apiece. The
 // sessionless test above retains the opposite, correctness-required behavior.
 static void test_dense_call_collects_once_across_productive_environments() {
   std::vector<std::vector<int>> cls = non_rup_formula();
@@ -842,7 +866,7 @@ static void test_dense_call_collects_once_across_productive_environments() {
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(k.stats.sweep_equivalences >= 2);
   assert(k.stats.substitute_vars >= 2);
-  assert(k.arena_generation == generation + 1);
+  assert(k.arena_generation == generation);
   for (size_t i = 1; i < k.retired_events.size(); i++)
     assert(kernel_import_var_order(k, k.retired_events[i - 1]) <
            kernel_import_var_order(k, k.retired_events[i]));
@@ -990,6 +1014,7 @@ int main(int argc, char **argv) {
   const uint32_t rounds =
       argc > 1 ? static_cast<uint32_t>(strtoul(argv[1], nullptr, 10)) : 20000;
   test_effort_prices_embedded_and_representation_ticks();
+  test_dense_entry_flushes_only_irredundant_satisfied_clauses();
   test_non_rup_equivalence();
   test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();

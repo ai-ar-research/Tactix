@@ -302,7 +302,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     std::vector<Ref> cand;
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_words(c->size);
+      const uint32_t words = clause_actual_words(c);
       if (!c->garbage() && !c->redundant() && c->size >= 3 &&
           c->size <= max_size) {
         cand.push_back(ref);
@@ -350,7 +350,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
       for (const Lit l : *c) {
         idx.occ[l].push_back(ref);
@@ -640,7 +640,7 @@ void dump_factored_and_exit(const Kernel &k, const char *path) {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage()) { std::vector<int> cl; for (const Lit l : *c) cl.push_back(dl(l)); cls.push_back(cl); }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   FILE *f = std::fopen(path, "w");
   std::fprintf(f, "p cnf %u %zu\n", k.nvars, cls.size());

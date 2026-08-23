@@ -221,6 +221,8 @@ void event_trace_sweep_effort(const Kernel &, uint32_t, uint64_t, uint64_t,
                               uint64_t);
 void event_trace_sweep_environment_var(const Kernel &, Var, uint32_t, Var,
                                        uint32_t);
+void event_trace_sweep_binary_attempt(const Kernel &, Var, uint32_t, Lit, Lit,
+                                      int32_t, int32_t, const char *);
 void event_trace_sweep_watch(const Kernel &, Var, uint32_t, Lit);
 void event_trace_sweep_equivalence(const Kernel &, Lit, Lit);
 void event_trace_sweep_commit(const Kernel &, Lit, Lit, int8_t, int8_t,
@@ -618,6 +620,12 @@ struct AnalysisConflictCheckpoint {
 
 struct Kernel;
 using AnalysisConflictHook = void (*)(Kernel &, void *);
+// Policy-only observer for Kissat's mutable BVE schedule. Clause mutations
+// remain kernel operations; while a BVE dose owns a live heap it installs this
+// non-owning hook so each affected variable is rescored at the same mutation
+// boundary. `reinsert` distinguishes removed material (which rearms a popped
+// candidate) from added material (which only changes an entry still present).
+using BveScoreUpdateHook = void (*)(Kernel &, void *, Var, bool reinsert);
 
 struct Kernel {
   uint32_t nvars = 0;
@@ -627,6 +635,12 @@ struct Kernel {
   // back to the permanent DIMACS/proof variable that names it.
   std::vector<Var> internal_to_external;
   std::vector<Var> external_to_internal;
+  // Kissat-style live compact identity, represented as a permutation over
+  // stable kernel variables plus its inverse.  This is formula representation
+  // state rather than search guidance: proof rules may compare these identities
+  // without importing the policy-owned heuristic object.
+  std::vector<Var> compact_import_order;
+  std::vector<Var> compact_import_position;
   uint32_t original_external_vars = UINT32_MAX;
   // Declared DIMACS clause population, captured before preprocessing mutates
   // the formula.  Strategy classification uses this stable input feature;
@@ -800,6 +814,8 @@ struct Kernel {
   uint32_t kept_size = 0;
   std::vector<uint16_t> bve_min_bound;
   bool bve_track_min_bound = false;
+  BveScoreUpdateHook bve_score_update_hook = nullptr;
+  void *bve_score_update_state = nullptr;
 
   uint32_t bve_gate_mask = ~0u;
   uint32_t bve_bound = 16;
@@ -811,8 +827,9 @@ struct Kernel {
   uint32_t bce_occ_limit = 0;
   bool midround_budget = false;
   uint32_t factor_size = 5;
-  bool transitive_early_exit = false;
+  bool transitive_early_exit = true;
   bool transitive_live_meter = true;
+  bool transitive_budget_checked = false;
   uint32_t ternary_occ_limit = 100;      // cadical ternaryocclim: skip a pivot
   uint32_t ternary_max_add_percent = 1000; // cadical ternarymaxadd: stop a round
   FactorSelection *factor_selection = nullptr;
@@ -882,6 +899,7 @@ void kernel_reserve_vars(Kernel &, uint32_t nvars);
 void kernel_record_import(Kernel &, Var);
 uint64_t kernel_import_var_order(const Kernel &, Var);
 uint64_t kernel_import_lit_order(const Kernel &, Lit);
+uint64_t kernel_compact_import_lit_order(const Kernel &, Lit);
 void kernel_vars_in_import_order(const Kernel &, std::vector<Var> &);
 void kernel_vars_in_external_order(const Kernel &, std::vector<Var> &);
 void kernel_update_target_phases(Kernel &);
@@ -962,6 +980,15 @@ ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
                                      bool redundant, uint32_t glue,
                                      Ref *large_ref); // nullable
 
+// Representation-only large-clause replacement.  The caller has already
+// proved and emitted the replacement addition; this transition emits the old
+// proof deletion, preserves the arena Ref and allocation span, and updates the
+// kernel's watches/derived indexes.  It contains no scheduling or rule policy.
+// Both source and image are large and the image may not grow.
+void kernel_replace_large_clause_in_place(Kernel &, Ref source, uint64_t id,
+                                          const Lit *lits, uint32_t size,
+                                          uint32_t glue);
+
 // Proof-safe root-unit consumption shared by startup sparse collection and C2.
 // The clause form does not collect the arena; callers can continue scanning by
 // the original clause width. The whole-arena form collects once at its exit.
@@ -974,6 +1001,10 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &, Ref start = 0);
 inline void kernel_mark_bve_retry(Kernel &k, Var v) {
   k.bve_retry[v] = 1;
   k.stats.bve_marks++; // events, not bit flips — see Stats::bve_marks
+}
+inline void kernel_notify_bve_score(Kernel &k, Var v, bool reinsert) {
+  if (k.bve_score_update_hook)
+    k.bve_score_update_hook(k, k.bve_score_update_state, v, reinsert);
 }
 void kernel_bve_retry_sync_fixed(Kernel &);
 
@@ -1035,6 +1066,10 @@ void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
 void kernel_publish_binary_clause(Kernel &, Lit a, Lit b, uint64_t id,
                                   bool new_pair);
 bool kernel_delete_binary(Kernel &, Lit a, Lit b);
+// Remove exactly one physical copy. If another identical copy survives, its
+// proof clause remains a valid reason and the optional proof deletion is
+// omitted; the final copy delegates to the ordinary named-pair deletion.
+bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 
 inline uint64_t kernel_binary_key(Lit a, Lit b);
@@ -1113,6 +1148,7 @@ inline void kernel_delete_clause(Kernel &k, Clause *c) {
     for (const Lit l : *c) {
       kernel_mark_bve_retry(k, var_of(l));
       kernel_removed_var(k, var_of(l)); // BCE's side of the substrate
+      kernel_notify_bve_score(k, var_of(l), true);
     }
 }
 
@@ -1393,7 +1429,10 @@ uint64_t kernel_conflict_reason_walk(
 // in arena order. The default performs a whole-arena rebuild.
 void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
                             bool apply_sparse_order = false);
-void kernel_rebuild_large_watches(Kernel &);
+// Kissat's null-stack dense entry: disconnect every large watch and retain
+// only the first binary watch for each partner in each literal list.
+void kernel_flush_large_watches(Kernel &);
+void kernel_rebuild_large_watches(Kernel &, bool inherited_source_order = false);
 void kernel_resume_walk_watches(Kernel &);
 void kernel_canonicalize_binary_watches(Kernel &,
                                         bool count_congruence_rebuild = true,

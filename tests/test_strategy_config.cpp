@@ -37,6 +37,8 @@ int main() {
   assert(defaults.mode.interval == DefaultPolicy::MODE_INTERVAL);
   assert(defaults.inprocess.eliminate_interval ==
          DefaultInprocessScheduler::SUBSUME_INTERVAL);
+  assert(defaults.inprocess.substitute_rounds ==
+         DefaultStrategyConfig::SUBSTITUTE_ROUNDS_DEFAULT);
   assert(defaults.analysis.bump_reason_rate ==
          DefaultPolicy::BUMP_REASONS_RATE);
   assert(defaults.reduction.tier1_default == TIER1_STATIC);
@@ -260,7 +262,7 @@ int main() {
   late_tumbled.input_activation_order = {0, 2, 4};
   {
     ScopedHeuristics late_heuristics(late_tumbled);
-    if (late_heuristics.h.random_order != std::vector<Var>({0, 2, 4}) ||
+    if (late_tumbled.compact_import_order != std::vector<Var>({0, 2, 4}) ||
         !late_tumbled.input_activation_order.empty())
       return 1;
   }
@@ -272,7 +274,7 @@ int main() {
   kernel_assign_unit(compacted_random, make_lit(0, false));
   kernel_assign_unit(compacted_random, make_lit(1, true));
   heuristics_compact_random_order_fixed(compacted_random);
-  if (compacted_heuristics.h.random_order !=
+  if (compacted_random.compact_import_order !=
           std::vector<Var>({2, 0, 4, 3}) ||
       compacted_heuristics.h.fixed_representative != 0)
     return 1;
@@ -282,7 +284,7 @@ int main() {
   // is fixed too, so Kissat excludes it from the heap as well.
   kernel_assign_unit(compacted_random, make_lit(3, false));
   heuristics_update_scores(compacted_random);
-  if (compacted_heuristics.h.random_order !=
+  if (compacted_random.compact_import_order !=
           std::vector<Var>({2, 0, 4, 3}) ||
       heuristics_heap_contains(compacted_random, 0) ||
       heuristics_heap_contains(compacted_random, 3))

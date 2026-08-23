@@ -157,7 +157,7 @@ bool build_table(Walker &w, Kernel &k) {
         emit(c->lits, c->size);
       }
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
 
   w.nclauses = static_cast<uint32_t>(w.cl_beg.size() - 1);

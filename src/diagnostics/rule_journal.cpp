@@ -27,6 +27,7 @@ struct JournalState {
   uint64_t conflict_to = UINT64_MAX;
   std::string rule;
   std::string candidate;
+  std::string candidate_contains;
   int literal = 0;
   uint64_t clause_id = 0;
   std::string replay_line;
@@ -44,6 +45,7 @@ struct TransactionState {
 };
 
 thread_local TransactionState transaction;
+thread_local RuleJournalMeter effort_meter;
 
 static uint64_t mix(uint64_t hash, uint64_t value) {
   return (hash ^ value) * UINT64_C(1099511628211);
@@ -79,6 +81,9 @@ static void open_journal() {
   if (const char *candidate =
           std::getenv("TACTIX_RULE_JOURNAL_CANDIDATE"))
     state.candidate = candidate;
+  if (const char *candidate_contains =
+          std::getenv("TACTIX_RULE_JOURNAL_CANDIDATE_CONTAINS"))
+    state.candidate_contains = candidate_contains;
   if (const char *literal =
           std::getenv("TACTIX_RULE_JOURNAL_LITERAL"))
     state.literal = std::atoi(literal);
@@ -214,7 +219,7 @@ uint64_t rule_journal_digest(const Kernel &k) {
         item = mix(item, static_cast<uint64_t>(static_cast<int64_t>(lit)));
       facts.push_back(item);
     }
-    ref += clause_words(clause->size);
+    ref += clause_actual_words(clause);
   }
   std::sort(facts.begin(), facts.end());
   for (const uint64_t fact : facts)
@@ -234,7 +239,18 @@ bool rule_journal_wants(const Kernel &k, const char *rule,
     return false;
   if (!state.candidate.empty() && state.candidate != candidate)
     return false;
+  if (!state.candidate_contains.empty() &&
+      candidate.find(state.candidate_contains) == std::string::npos)
+    return false;
   return true;
+}
+
+void rule_journal_set_effort_meter(RuleJournalMeter meter) {
+  effort_meter = meter;
+}
+
+uint64_t rule_journal_effort(const Kernel &k) {
+  return effort_meter ? effort_meter(k) : k.stats.ticks;
 }
 
 int rule_journal_selected_literal() {

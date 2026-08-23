@@ -37,7 +37,7 @@ static size_t live_clauses(const Kernel &k) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage())
       n++;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   return n;
 }
@@ -254,7 +254,7 @@ static void test_touch_resume_rearms_the_tail() {
     if (!c->garbage() &&
         kernel_clause_new_material(k, c, k.subsume_touch_mark))
       armed++;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   assert(armed > 0 && "the next round must still see the tail");
 

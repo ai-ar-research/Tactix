@@ -1,7 +1,7 @@
 #include "kernel/kernel.hpp"
 
 #include "diagnostics/rule_journal.hpp"
-#include "policies/event_trace.hpp"
+#include "diagnostics/event_trace.hpp"
 
 #include "policies/heuristics.hpp" // the opaque `H`: Kernel's ctor/dtor + calls
 #include "proof/proof.hpp" // kernel_delete_binary emits the delta atomically
@@ -122,6 +122,24 @@ uint64_t kernel_import_lit_order(const Kernel &k, Lit lit) {
   return 2 * kernel_import_var_order(k, var_of(lit)) + negated(lit);
 }
 
+uint64_t kernel_compact_import_lit_order(const Kernel &k, Lit lit) {
+  const Var v = var_of(lit);
+  if (v < k.compact_import_position.size()) {
+    const Var position = k.compact_import_position[v];
+    if (position != INVALID_VAR && position < k.compact_import_order.size() &&
+        k.compact_import_order[position] == v)
+      return 2ull * position + negated(lit);
+    // Diagnostic and external-policy clients may replace the order directly;
+    // keep that representation observable even before they rebuild the inverse.
+    const auto it = std::find(k.compact_import_order.begin(),
+                              k.compact_import_order.end(), v);
+    if (it != k.compact_import_order.end())
+      return 2ull * static_cast<uint64_t>(it - k.compact_import_order.begin()) +
+             negated(lit);
+  }
+  return kernel_import_lit_order(k, lit);
+}
+
 void kernel_vars_in_import_order(const Kernel &k, std::vector<Var> &order) {
   order.resize(k.nvars);
   // Before variable compaction, finish_input gives every live variable one
@@ -235,6 +253,9 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
       k.factor_marks[lits[i]] = 1;
       if (k.dense)
         k.dense->large[lits[i]].push_back(ref);
+      // Kissat updates an already-scheduled variable after adding a
+      // resolvent, but does not reinsert a candidate popped earlier.
+      kernel_notify_bve_score(k, var_of(lits[i]), false);
     }
   // The redundant half of the touch substrate (see Kernel::touch_redundant).
   // Counted both ways even when stamping is off, because a single count cannot
@@ -283,6 +304,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
   // (removal-only marking measured and rejected — see kernel_add_large_clause).
   kernel_mark_bve_retry(k, var_of(a));
   kernel_mark_bve_retry(k, var_of(b));
+  kernel_notify_bve_score(k, var_of(a), false);
+  kernel_notify_bve_score(k, var_of(b), false);
   // Touched-epoch substrate: a binary is the strongest subsumer/partner there
   // is, so both variables are new material for every consumer (kissat
   // new_binary_clause marks both unconditionally, clause.c:71-72 — including
@@ -294,6 +317,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_binary_add(k, a, b, id);
 #endif
+  event_trace_binary_lifecycle(k, new_pair ? "add-new" : "add-copy", a, b,
+                               id, kernel_binary_copies(k, a, b));
 }
 
 void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
@@ -380,8 +405,46 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // BVE retry filter (kissat clause.c kissat_delete_binary -> mark_removed)
   kernel_mark_bve_retry(k, var_of(a));
   kernel_mark_bve_retry(k, var_of(b));
+  kernel_notify_bve_score(k, var_of(a), true);
+  kernel_notify_bve_score(k, var_of(b), true);
   kernel_removed_var(k, var_of(a)); // BCE's side of the touched-epoch substrate
   kernel_removed_var(k, var_of(b));
+  event_trace_binary_lifecycle(k, "delete", a, b,
+                               kernel_binary_id(k, a, b), 0);
+  return true;
+}
+
+bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
+  const uint32_t copies = kernel_binary_copies(k, a, b);
+  if (copies <= 1)
+    return copies && kernel_delete_binary(k, a, b);
+  // An identical clause remains, so every assignment reason and the pair's
+  // retained proof id remain valid. Remove one matching slot from each mirror
+  // list, preserving the relative order of every survivor as Kissat's source
+  // compaction does.
+  for (const Lit x : {a, b}) {
+    const Lit other = x == a ? b : a;
+    bool removed = false;
+    k.watches.compact(x, [&](WatchEntry w) {
+      if (removed || !w.binary() || w.other() != other)
+        return true;
+      removed = true;
+      return false;
+    });
+    assert(removed);
+  }
+  // DRAT/LRAT deletions are optional. Without a per-copy id ledger, emitting
+  // the pair's current id here could retire the id later reasons cite; retain
+  // it in the checker until the final physical copy is removed instead.
+  k.stats.binaries_deleted++;
+  kernel_mark_bve_retry(k, var_of(a));
+  kernel_mark_bve_retry(k, var_of(b));
+  kernel_notify_bve_score(k, var_of(a), true);
+  kernel_notify_bve_score(k, var_of(b), true);
+  kernel_removed_var(k, var_of(a));
+  kernel_removed_var(k, var_of(b));
+  event_trace_binary_lifecycle(k, "delete-copy", a, b,
+                               kernel_binary_id(k, a, b), copies - 1);
   return true;
 }
 
@@ -424,8 +487,12 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   k.stats.binaries_deleted += copies;
   kernel_mark_bve_retry(k, var_of(a)); // BVE retry filter (see above)
   kernel_mark_bve_retry(k, var_of(b));
+  kernel_notify_bve_score(k, var_of(a), true);
+  kernel_notify_bve_score(k, var_of(b), true);
   kernel_removed_var(k, var_of(a));
   kernel_removed_var(k, var_of(b));
+  event_trace_binary_lifecycle(k, "delete-all", a, b,
+                               kernel_binary_id(k, a, b), 0);
   return true;
 }
 
@@ -519,18 +586,23 @@ void kernel_bve_retry_sync_fixed(Kernel &k) {
     if (k.assigned[v].level != 0)
       continue; // an out-of-order literal above the root frame is not fixed yet
     kernel_mark_bve_retry(k, v);
+    kernel_notify_bve_score(k, v, true);
     for (const Lit l : {make_lit(v, false), make_lit(v, true)}) {
       // binaries: the partner's neighbourhood changed
       for (const WatchEntry w : k.watches.entries(l))
-        if (w.binary())
+        if (w.binary()) {
           kernel_mark_bve_retry(k, var_of(w.other()));
+          kernel_notify_bve_score(k, var_of(w.other()), true);
+        }
       if (k.dense)
         for (const Ref ref : k.dense->large[l]) {
           const Clause *c = clause_at(k.arena, ref);
           if (c->garbage())
             continue;
-          for (const Lit m : *c)
+          for (const Lit m : *c) {
             kernel_mark_bve_retry(k, var_of(m));
+            kernel_notify_bve_score(k, var_of(m), true);
+          }
         }
     }
   }
@@ -540,7 +612,7 @@ void kernel_bve_retry_sync_fixed(Kernel &k) {
   // contains one of the newly fixed variables.
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage() && !c->redundant()) {
       bool touched = false;
       for (const Lit m : *c) {
@@ -552,8 +624,10 @@ void kernel_bve_retry_sync_fixed(Kernel &k) {
         }
       }
       if (touched)
-        for (const Lit m : *c)
+        for (const Lit m : *c) {
           kernel_mark_bve_retry(k, var_of(m));
+          kernel_notify_bve_score(k, var_of(m), true);
+        }
     }
     ref += words;
   }
@@ -773,6 +847,13 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // primitive prefixes its LRAT deletion line with. That was an unstated,
   // uncheckable invariant while this site passed `id` by hand; assert it.
   assert(id == k.next_clause_id);
+  // Large redundant-clause rewrites model Kissat's in-place shrink operations
+  // even though Tactix appends a packed replacement record.  Recency belongs
+  // to that logical clause: save it before the arena-mutating add so the
+  // representation cannot rejuvenate an aged clause.  Other metadata is
+  // caller-specific (in particular Sweep's `vivify` bit) and is restored by
+  // the source-backed caller that owns that in-place rewrite.
+  const uint32_t inherited_used = c->used();
   kernel_inherit_clause_order(k, id, c->id());
   kernel_delete_clause(k, c); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
@@ -786,9 +867,95 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
     return ReplaceOutcome::Binary;
   }
   const Ref r = kernel_add_large_clause(k, lits, size, redundant, glue, id);
+  if (redundant)
+    clause_at(k.arena, r)->set_used(inherited_used);
   if (large_ref)
     *large_ref = r;
   return ReplaceOutcome::Large;
+}
+
+void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
+                                          const Lit *lits, uint32_t size,
+                                          uint32_t glue) {
+  Clause *c = clause_at(k.arena, ref);
+  assert(!c->garbage());
+  assert(id == k.next_clause_id);
+  assert(size >= 3 && size <= c->size);
+  assert(!k.delayed_used);
+  assert(!kernel_probing_rollback_active(k));
+
+  const uint32_t old_size = c->size;
+  const uint32_t old_flags = c->flags;
+  const uint64_t old_id = c->id();
+  const Lit old_first = c->lits[0], old_second = c->lits[1];
+  const bool redundant = c->redundant();
+
+  // Update the optional dense membership while the old semantic image is
+  // still readable.  Retained literals keep the same Ref and therefore their
+  // exact occurrence position; only a genuinely new literal is appended.
+  if (k.dense && !redundant) {
+    const auto in_new = [&](Lit lit) {
+      return std::find(lits, lits + size, lit) != lits + size;
+    };
+    const auto in_old = [&](Lit lit) {
+      return std::find(c->lits, c->lits + old_size, lit) !=
+             c->lits + old_size;
+    };
+    for (uint32_t i = 0; i < old_size; i++) {
+      const Lit lit = c->lits[i];
+      if (in_new(lit))
+        continue;
+      std::vector<Ref> &occ = k.dense->large[lit];
+      const auto at = std::find(occ.begin(), occ.end(), ref);
+      assert(at != occ.end());
+      occ.erase(at);
+    }
+    for (uint32_t i = 0; i < size; i++)
+      if (!in_old(lits[i]))
+        k.dense->large[lits[i]].push_back(ref);
+  }
+
+  // A live in-place record cannot retain stale watch entries.  Removing them
+  // before the semantic overwrite also avoids depending on cached blockers.
+  kernel_unwatch_large(k, old_first, ref);
+  kernel_unwatch_large(k, old_second, ref);
+  kernel_inherit_clause_order(k, id, old_id);
+  kernel_delete_clause(k, c);
+
+  kernel_rearm_propagation(k, lits, size);
+  std::copy(lits, lits + size, c->lits);
+  if (size < old_size && !(old_flags & Clause::SHRUNKEN))
+    c->lits[old_size - 1] = INVALID_LIT;
+  c->size = size;
+  c->flags = old_flags & ~Clause::GARBAGE;
+  if (size < old_size)
+    c->flags |= Clause::SHRUNKEN;
+  c->set_glue(redundant ? glue : 0);
+  c->searched = 2;
+  c->set_id(id);
+
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  rule_journal_note_large_add(k, lits, size, id, redundant,
+                              redundant ? glue : 0);
+#endif
+  k.watches.push_large(lits[0], lits[1], ref);
+  k.watches.push_large(lits[1], lits[0], ref);
+
+  if (!redundant)
+    for (uint32_t i = 0; i < size; i++) {
+      kernel_mark_bve_retry(k, var_of(lits[i]));
+      kernel_touch_var(k, var_of(lits[i]));
+      k.factor_marks[lits[i]] = 1;
+      kernel_notify_bve_score(k, var_of(lits[i]), false);
+    }
+  else {
+    const bool dyn = kernel_likely_kept(k, true, glue, size);
+    k.stats.touch_redundant_dynamic += dyn;
+    k.stats.touch_redundant_static6 += (glue <= 6);
+    if (dyn && k.touch_redundant)
+      for (uint32_t i = 0; i < size; i++)
+        kernel_touch_kept_var(k, var_of(lits[i]));
+  }
 }
 
 RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
@@ -978,7 +1145,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
       root_order.desired.push_back(ref);
     else
       has_garbage = true;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   const size_t prefix_clauses = root_order.desired.size();
 
@@ -1020,8 +1187,15 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
 
   const Ref original_end = static_cast<Ref>(k.arena.size());
   for (Ref ref = start; ref < original_end;) {
-    const uint32_t words = clause_words(clause_at(k.arena, ref)->size);
-    if (!clause_at(k.arena, ref)->garbage()) {
+    Clause *const source = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(source);
+    if (!source->garbage() && start && !source->redundant()) {
+      // Kissat's `start` follows its complete irredundant prefix.  A physical
+      // CaDiCaL permutation can put the same logical-prefix clause beyond the
+      // Ref in Tactix; do not invent a root sweep of it merely because storage
+      // order differs.  Its live watch and search cursor are forwarded below.
+      root_order.desired.push_back(ref);
+    } else if (!source->garbage()) {
       Ref current = ref;
       const RootFlushOutcome flushed =
           kernel_flush_root_clause(k, &current, &changed);
@@ -1159,7 +1333,11 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   // large-clause assignment (:174). A deterministic memory-traffic proxy, and
   // the currency `search_ticks` is denominated in — which is the reference
   // every effort budget takes its per-mille of.
-  uint64_t ticks = 1 + kernel_cache_lines(end - p);
+  const uint64_t words_before = end - p;
+  const uint64_t base_ticks = 1 + kernel_cache_lines(words_before);
+  uint64_t binary_assignments = 0, large_dereferences = 0;
+  uint64_t relocations = 0, large_assignments = 0;
+  uint64_t ticks = base_ticks;
 
   while (p != end) {
     const Watch head{*q++ = *p++};
@@ -1180,6 +1358,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         continue;
       }
       kernel_assign_binary(k, blocking, not_lit);
+      binary_assignments++;
       ticks++;
       k.stats.propagations++;
     } else {
@@ -1187,6 +1366,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
       if (blocking_value > 0)
         continue;
       ticks++;
+      large_dereferences++;
       Clause *c = clause_at(arena, ref);
       if (c->garbage()) {
         if constexpr (RECORD)
@@ -1245,6 +1425,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         k.delayed[k.delayed_used++] = other;
         k.delayed[k.delayed_used++] = ref;
         ticks++;
+        relocations++;
       } else if (other_value < 0) { // conflict
         // Kissat tests the ignored candidate only after performing any legal
         // watch relocation above.  Skipping at dereference time preserves a
@@ -1261,6 +1442,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         if (ref == ignore)
           continue;
         kernel_assign_ref(k, other, ref);
+        large_assignments++;
         ticks++;
         k.stats.propagations++;
       }
@@ -1270,8 +1452,15 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
     *q++ = *p++;
   // no snapshot needed here: q != begin + size only if an entry was dropped
   // above, and every drop site snapshots first
-  k.watches.truncate(not_lit, static_cast<uint32_t>(q - begin));
+  const uint64_t words_after = q - begin;
+  k.watches.truncate(not_lit, static_cast<uint32_t>(words_after));
   flush_delayed<RECORD>(k);
+  if constexpr (!RECORD)
+    event_trace_watch_scan_post(k, lit);
+  if constexpr (!RECORD)
+    event_trace_watch_cost(k, lit, words_before, words_after, base_ticks,
+                           binary_assignments, large_dereferences, relocations,
+                           large_assignments, ticks);
   kernel_charge_ticks(k, ticks);
   return conflict;
 }
@@ -1518,9 +1707,12 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
 // live clauses into a fresh arena in order, leave a forwarding pointer in
 // the old header (`searched` is dead there), then fix reasons and rebuild
 // the large-watch entries. Rebuilt clauses select their best current watched
-// pair into lits[0]/lits[1]. With a nonzero watermark, match Kissat's sparse
-// collector: retain the existing watches for the live, unmoved prefix and only
-// rebuild watches for the relocated tail.
+// pair into lits[0]/lits[1]. With a nonzero Reduce watermark, match Kissat's
+// logical sparse split: retain every live irredundant watch (including its
+// cached blocker) and rebuild the redundant suffix. Kissat's arena invariant
+// puts all irredundant clauses before `first_reducible`; Tactix's accepted
+// CaDiCaL arena permutation can place them physically after that Ref, so the
+// redundancy bit, not the physical offset alone, represents the prefix here.
 static int8_t move_best_watch_to_front(Kernel &k, Clause *c, uint32_t start,
                                        bool satisfied_is_enough) {
   Lit a = c->lits[start];
@@ -1567,6 +1759,30 @@ static void sort_clause_watches_like_kissat(Kernel &k, Clause *c) {
     move_best_watch_to_front(k, c, 1, first >= 0);
 }
 
+static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
+  occ.large.assign(2 * k.nvars, {});
+  std::vector<Ref> order;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && !c->redundant())
+      order.push_back(ref);
+    ref += clause_actual_words(c);
+  }
+  // Kissat's dense lists follow its irredundant arena prefix. Tactix keeps an
+  // independent CaDiCaL-style physical arena pose, but proof/source identities
+  // retain the corresponding Kissat order, including replacement aliases.
+  std::stable_sort(order.begin(), order.end(), [&k](Ref a, Ref b) {
+    const Clause *ca = clause_at(k.arena, a);
+    const Clause *cb = clause_at(k.arena, b);
+    const uint64_t ao = ca->id() ? kernel_clause_order(k, ca->id()) : a;
+    const uint64_t bo = cb->id() ? kernel_clause_order(k, cb->id()) : b;
+    return ao < bo;
+  });
+  for (const Ref ref : order)
+    for (const Lit lit : *clause_at(k.arena, ref))
+      occ.large[lit].push_back(ref);
+}
+
 void kernel_collect_garbage(Kernel &k, Ref watch_start,
                             bool apply_sparse_order) {
   // No probing scope may be open: this relocates every Ref, so an outstanding
@@ -1590,7 +1806,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     watch_start = 0;
   for (Ref ref = 0; ref < watch_start;) {
     const Clause *c = clause_at(k.arena, ref);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
     if (ref > watch_start) {
       watch_start = 0;
       break;
@@ -1599,9 +1815,11 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   size_t live_words = 0, live_clauses = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage()) {
-      live_words += words;
+      // Collection packs the semantic image and retires any stable-allocation
+      // tail left by an in-place shrink.
+      live_words += clause_words(c->size);
       live_clauses++;
     }
     ref += words;
@@ -1611,7 +1829,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   order.reserve(live_clauses);
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage())
       order.push_back(ref);
     ref += words;
@@ -1645,19 +1863,9 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     assert(c->garbage() || seen[ref]);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
 #endif
-  // In Kissat the live prefix occupies exactly `watch_start` words.  Prefix
-  // garbage is a Tactix representation difference, so compute where the tail
-  // begins after that garbage is omitted from the fresh arena.
-  Ref rewatch_start = 0;
-  if (watch_start)
-    for (const Ref ref : order) {
-      if (ref >= watch_start)
-        break;
-      rewatch_start += clause_words(clause_at(k.arena, ref)->size);
-    }
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
@@ -1667,11 +1875,14 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // Kissat's sparse sweep starts at `watch_start`: the irredundant prefix
     // is neither copied nor rewatched there, so its replacement-search cursor
     // remains search-visible state.  Tactix copies the whole arena into
-    // `fresh`, so the same prefix cursor must survive while the relocated tail
-    // reconnected below resets.  Whole-arena collection has
-    // `watch_start == 0` and still resets every clause.
-    clause_at(fresh, nref)->searched =
-        ref < watch_start ? c->searched : 2;
+    // `fresh`, so the same logical-prefix cursor must survive while rebuilt
+    // redundant clauses reset. Whole-arena collection has `watch_start == 0`
+    // and still resets every clause.
+    const bool retained_sparse_watch =
+        watch_start && (ref < watch_start || !c->redundant());
+    Clause *const packed = clause_at(fresh, nref);
+    packed->flags &= ~Clause::SHRUNKEN;
+    packed->searched = retained_sparse_watch ? c->searched : 2;
     c->searched = nref;
   }
   for (const Lit lit : k.trail) {
@@ -1721,10 +1932,17 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   }
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     k.watches.compact(lit, [&k, watch_start, lit](WatchEntry w) {
-      return w.binary() ||
-             (kernel_root_value(k, lit) == 0 && w.ref() < watch_start &&
-              !clause_at(k.arena, w.ref())->garbage());
+      if (w.binary())
+        return true;
+      const Clause *c = clause_at(k.arena, w.ref());
+      return kernel_root_value(k, lit) == 0 && !c->garbage() && watch_start &&
+             (w.ref() < watch_start || !c->redundant());
     });
+    // `compact` is stable: every logical-prefix irredundant entry keeps its
+    // exact position and cached blocker.  Kissat gets this from its physical
+    // all-irredundant prefix.  Tactix's arena policy may interleave the same
+    // clauses physically, but the redundancy bit recovers the logical split;
+    // sorting these survivors would erase search-visible watch relocation.
     k.watches.map_large_refs(lit, [&k](Ref ref) {
       return clause_at(k.arena, ref)->searched;
     });
@@ -1738,18 +1956,20 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     k.dense->large.assign(2 * k.nvars, {});
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (ref >= rewatch_start) {
+    if (!watch_start || c->redundant()) {
       // collect.c:rewatch_clauses selects the best current watched pair before
       // appending the relocated clause to its two watch lists.
       sort_clause_watches_like_kissat(k, c);
       k.watches.push_large(c->lits[0], c->lits[1], ref);
       k.watches.push_large(c->lits[1], c->lits[0], ref);
     }
-    if (k.dense && !c->redundant())
-      for (const Lit l : *c)
-        k.dense->large[l].push_back(ref);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
+  // Subsume/Strengthen collection can occur between dense phase entry and BVE.
+  // Rebuild after every relocation so it cannot overwrite the source-order
+  // pose installed at entry with Tactix's physical arena permutation.
+  if (k.dense)
+    rebuild_dense_large_occurrences(k, *k.dense);
   // Every surviving binary was kept in place by the strip above and every large
   // entry was appended after it, so the binary-first layout now holds — the
   // same way kissat gets it out of `kissat_watch_large_clauses`
@@ -1761,25 +1981,36 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
 // dense-mode simplifiers flush large watches and `kissat_watch_large_clauses`
 // rebuilds them on resume; retaining the pre-phase lists instead leaks Lucky
 // and simplifier scan order into the following search trajectory.
-void kernel_rebuild_large_watches(Kernel &k) {
+void kernel_rebuild_large_watches(Kernel &k, bool inherited_source_order) {
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
+  std::vector<Ref> order;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
-    if (!c->garbage()) {
+    const uint32_t words = clause_actual_words(c);
+    if (!c->garbage())
+      order.push_back(ref);
+    ref += words;
+  }
+  if (inherited_source_order)
+    std::stable_sort(order.begin(), order.end(), [&k](Ref a, Ref b) {
+      const Clause *ca = clause_at(k.arena, a);
+      const Clause *cb = clause_at(k.arena, b);
+      const uint64_t ao = ca->id() ? kernel_clause_order(k, ca->id()) : a;
+      const uint64_t bo = cb->id() ? kernel_clause_order(k, cb->id()) : b;
+      return ao < bo;
+    });
+  for (const Ref ref : order) {
+    Clause *c = clause_at(k.arena, ref);
       // `kissat_watch_large_clauses` does not merely reconnect the existing
       // pair: it first runs `kissat_sort_literals` under the current root
-      // assignment.  In particular, root-false literals must not remain in
-      // front of unassigned literals after Probe/Eliminate.  The selected
-      // pair is search-visible state and can control which of several valid
-      // antecedents propagation records.
+      // assignment. In particular, root-false literals must not remain in
+      // front of unassigned literals after Probe/Eliminate. The selected pair
+      // is search-visible state and can control which valid antecedent records.
       sort_clause_watches_like_kissat(k, c);
       c->searched = 2;
       k.watches.push_large(c->lits[0], c->lits[1], ref);
       k.watches.push_large(c->lits[1], c->lits[0], ref);
-    }
-    ref += words;
   }
 }
 
@@ -1839,7 +2070,7 @@ void kernel_resume_walk_watches(Kernel &k) {
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage()) {
       sort_clause_watches_like_kissat(k, c);
       c->searched = 2;
@@ -1868,7 +2099,7 @@ void kernel_resume_walk_watches(Kernel &k) {
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage()) {
       const Lit first = c->lits[0], second = c->lits[1];
       push_word(first, blocking_watch(second).raw);
@@ -1919,6 +2150,14 @@ void kernel_canonicalize_binary_watches(Kernel &k,
         if (!w.binary())
           continue;
         const Lit other = w.other();
+        // Kissat's Congruence dense entry keeps only binaries whose endpoints
+        // are both root-unassigned (`dense.c:flush_large_watches`).  Any
+        // assigned live binary is already satisfied at a closed root.  Drop
+        // it from the rebuilt watch representation together with duplicates;
+        // retaining its optional proof clause is sound and avoids inventing a
+        // proof-id choice when several watch copies share one archived id.
+        if (k.value(lit) || k.value(other))
+          continue;
         if (kernel_import_lit_order(k, lit) >=
                 kernel_import_lit_order(k, other) ||
             seen[other])
@@ -1973,7 +2212,7 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage()) {
       sort_clause_watches_like_kissat(k, c);
       c->searched = 2;
@@ -2018,7 +2257,7 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage()) {
       const Lit first = c->lits[0], second = c->lits[1];
       push_word(first, blocking_watch(second).raw);
@@ -2034,7 +2273,7 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     k.stats.congruence_binary_rebuilds++;
 }
 
-void kernel_deduplicate_binary_watches(Kernel &k) {
+static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
   // Kissat's null-stack dense entry (`watch.c:kissat_flush_large_watches`)
   // retains the first watch for each partner in each literal list, including
   // root-satisfied binaries.  The latter is load-bearing for Sweep and Factor:
@@ -2052,7 +2291,7 @@ void kernel_deduplicate_binary_watches(Kernel &k) {
     }
     k.watches.compact(lit, [&](WatchEntry watch) {
       if (!watch.binary())
-        return true;
+        return keep_large;
       const Lit other = watch.other();
       if (seen[other] == epoch)
         return false;
@@ -2060,20 +2299,19 @@ void kernel_deduplicate_binary_watches(Kernel &k) {
       return true;
     });
   }
+}
 
+void kernel_flush_large_watches(Kernel &k) {
+  kernel_compact_dense_entry_watches(k, /*keep_large=*/false);
+}
+
+void kernel_deduplicate_binary_watches(Kernel &k) {
+  kernel_compact_dense_entry_watches(k, /*keep_large=*/true);
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {
   assert(k.level == 0);
-  occ.large.assign(2 * k.nvars, {});
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
-    if (!c->garbage() && !c->redundant())
-      for (const Lit l : *c)
-        occ.large[l].push_back(ref);
-    ref += words;
-  }
+  rebuild_dense_large_occurrences(k, occ);
   k.dense = &occ;
 }
 
@@ -2119,7 +2357,7 @@ bool kernel_compact_variables(Kernel &k) {
       for (const Lit l : *c)
         if (old_to_new[var_of(l)] == INVALID_VAR)
           return false;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   for (Lit l = 0; l < 2 * old_nvars; l++)
     for (const WatchEntry w : k.watches.entries(l))
@@ -2196,7 +2434,7 @@ bool kernel_compact_variables(Kernel &k) {
     Clause *c = clause_at(k.arena, ref);
     for (Lit &l : *c)
       l = map_lit(l);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
 
   WatchLists watches;
@@ -2222,7 +2460,7 @@ bool kernel_compact_variables(Kernel &k) {
     watches.reserve_batch_word(c->lits[0]);
     watches.reserve_batch_word(c->lits[1]);
     watches.reserve_batch_word(c->lits[1]);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   watches.finish_batch_reserve(false);
   for (Lit old_lit = 0; old_lit < 2 * old_nvars; old_lit++) {
@@ -2254,7 +2492,7 @@ bool kernel_compact_variables(Kernel &k) {
     const Clause *c = clause_at(k.arena, ref);
     watches.push_large(c->lits[0], c->lits[1], ref);
     watches.push_large(c->lits[1], c->lits[0], ref);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   std::vector<int8_t> values(2 * new_nvars, 0);
   std::vector<Assigned> assigned(new_nvars);
@@ -2410,7 +2648,7 @@ void kernel_flush_retired_redundant(Kernel &k) {
     return;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage() && c->redundant())
       for (const Lit l : *c)
         if (kernel_var_retired(k, var_of(l))) {
@@ -2583,7 +2821,7 @@ uint64_t kernel_irredundant_clauses(const Kernel &k) {
     const Clause *c = clause_at(k.arena, ref);
     if (!c->garbage() && !c->redundant())
       n++;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   return n;
 }
@@ -2690,7 +2928,7 @@ void kernel_check_invariants(const Kernel &k) {
                "clause not watched on a watched literal");
       }
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   {
     uint32_t eager_live = 0;
@@ -2787,7 +3025,7 @@ void kernel_check_invariants(const Kernel &k) {
         assert((nonfalse != 1 || k.values[last] > 0) &&
                "unit large clause escaped propagation");
       }
-      ref += clause_words(c->size);
+      ref += clause_actual_words(c);
     }
   }
 }

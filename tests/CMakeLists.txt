@@ -54,7 +54,7 @@ else()
   # Exercise the diagnostic implementation even though the production object
   # library deliberately omits it in the default build.
   add_executable(test_event_trace test_event_trace.cpp
-                 ${CMAKE_SOURCE_DIR}/src/policies/event_trace.cpp)
+                 ${CMAKE_SOURCE_DIR}/src/diagnostics/event_trace.cpp)
   target_compile_definitions(test_event_trace PRIVATE
                              TACTIX_ENABLE_EVENT_TRACE=1)
 endif()

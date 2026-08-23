@@ -84,6 +84,7 @@ TABLE = {
     "factor_size":             ("ENV", "TACTIX_FACTOR_SIZE"),
     "transitive_early_exit":   ("ENV", "TACTIX_V4_EARLY_EXIT"),
     "transitive_live_meter":   ("ENV", "TACTIX_TRANSITIVE_LIVE_METER"),
+    "transitive_budget_checked": ("ENV", "TACTIX_V4_METER=checked diagnostic currency"),
     # R10: the per-attempt sub-solver ceiling for definition extraction. NOT
     # POLICY — kissat treats `definitionticks` as a fixed option and moves
     # nothing per phase, so a writer in default_policy.* would be the fake

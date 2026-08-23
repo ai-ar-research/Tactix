@@ -180,6 +180,13 @@ struct SweepRound {
   std::vector<Lit> backbone;
   std::vector<std::vector<Lit>> partition;
   std::vector<SubLit> sub_scratch, assumptions;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  // Diagnostic stopped-state wall-clock attribution. Production omits both
+  // these fields and every timing branch.
+  uint64_t time_kitten = 0, time_dense = 0, time_occ = 0, time_ledger = 0,
+           time_repr = 0, time_schedule = 0, time_process = 0,
+           time_post_seed = 0, time_collect = 0;
+#endif
 };
 
 // Guard: quiescent root, consistent. A pure precondition — the environment

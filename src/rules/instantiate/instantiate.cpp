@@ -41,7 +41,7 @@ static void occurrence_counts(const Kernel &k, std::vector<uint32_t> &occ) {
   occ.assign(2 * k.nvars, 0);
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (!c->garbage() && !c->redundant())
       for (const Lit l : *c)
         occ[l]++;
@@ -70,7 +70,7 @@ void instantiate_candidates(const Kernel &k, std::vector<Ref> &out) {
   occurrence_counts(k, occ);
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (is_candidate(k, c) && has_eligible(k, c, occ))
       out.push_back(ref);
     ref += words;
@@ -241,7 +241,7 @@ ApplyResult instantiate_apply(Kernel &k) {
   std::vector<Ref> candidates;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
+    const uint32_t words = clause_actual_words(c);
     if (is_candidate(k, c) && has_eligible(k, c, occ))
       candidates.push_back(ref);
     ref += words;
@@ -342,7 +342,7 @@ static ApplyResult instantiate_apply_instance(Kernel &k, uint64_t inst) {
       return instantiate_try(k, ref);
     if (ref > inst)
       break;
-    ref += clause_words(clause_at(k.arena, ref)->size);
+    ref += clause_actual_words(clause_at(k.arena, ref));
   }
   return ApplyResult::NoOp;
 }

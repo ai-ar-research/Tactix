@@ -51,7 +51,7 @@ static uint32_t count_live_large(Kernel &k, std::initializer_list<Lit> lits) {
       std::sort(actual.begin(), actual.end());
       result += actual == expected;
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   return result;
 }

@@ -87,6 +87,27 @@ for path in sorted((root / "src/rules").glob("*/*")):
     if re.search(r"\bstats\.sweep_ticks_repr\s*(?:\+\+|--|[+\-*/]?=)", text):
         bad.append(f"{path.relative_to(root)} writes Sweep's effort currency")
 
+# A strategy may ask Substitute to consume a proved Sweep equivalence, but it
+# must not bypass that proof rule and invoke the kernel's representation
+# primitive directly.  Keep the primitive general and its one rule-side owner
+# explicit even though Sweep motivated the optimization.
+in_place_primitive = "kernel_replace_large_clause_in_place"
+allowed_in_place_owners = {
+    Path("src/kernel/kernel.hpp"),
+    Path("src/kernel/kernel.cpp"),
+    Path("src/rules/substitute/substitute.cpp"),
+}
+for path in sorted((root / "src").glob("**/*")):
+    if path.suffix not in {".cpp", ".hpp"}:
+        continue
+    if in_place_primitive in path.read_text():
+        relative = path.relative_to(root)
+        if relative not in allowed_in_place_owners:
+            bad.append(
+                f"{relative} bypasses Substitute through "
+                f"`{in_place_primitive}`"
+            )
+
 factor = (root / "src/rules/factor/factor.cpp").read_text()
 if "TACTIX_FACTOR_FORCE" in factor or "factor_admit" in factor:
     bad.append("src/rules/factor/factor.cpp contains a rule-side admission gate")

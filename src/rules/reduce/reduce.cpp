@@ -159,7 +159,7 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
       if (!keep)
         candidates.push_back({ref, glue, c->size});
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   if (!seen_redundant && measure) // no live redundant clause: all skippable
     k.stats.reduce_skippable_words += k.arena.size();
@@ -205,7 +205,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
       k.stats.tier2_band_dynamic += (glue <= k.tier2);
       k.stats.tier2_band_static += (glue <= TIER2_STATIC);
     }
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   lock_reasons(k, true);
   size_t deleted = 0;
@@ -234,7 +234,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
         if (c->size > sz)
           sz = c->size;
       }
-      ref += clause_words(c->size);
+      ref += clause_actual_words(c);
     }
     k.kept_glue = g;
     k.kept_size = sz;

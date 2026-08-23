@@ -52,7 +52,7 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
   // every clause is visited exactly once.
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
     if (c->garbage() || c->redundant())
       continue;
     uint32_t open = 0;

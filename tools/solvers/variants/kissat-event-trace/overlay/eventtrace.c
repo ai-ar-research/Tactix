@@ -20,18 +20,141 @@ static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
             trace_skip_decisions, trace_skip_randec_draws,
             trace_skip_analysis_ticks, trace_keep_snapshots,
             trace_search_only, trace_control_only,
-            trace_trajectory_only, trace_watch_only;
+            trace_glue_only, trace_phase_only,
+            trace_trajectory_only, trace_sweep_only, trace_compact_probe,
+            trace_watch_only, trace_watch_cost,
+            trace_watch_within_vivify, trace_vivify_watch_active;
+static uint64_t trace_vivify_watch_ordinal;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
 static uint64_t trace_heap_from_decision = UINT64_MAX;
 static uint64_t trace_heap_pop_decision = UINT64_MAX;
 static uint64_t trace_heap_remove_decision = UINT64_MAX;
+static bool trace_bve_heap_initialized;
+static unsigned trace_bve_heap_vars[8], trace_bve_heap_last_pos[8];
+static double trace_bve_heap_last_score[8];
+static size_t trace_bve_heap_vars_size;
 static FILE *reduce_trace_file;
 static bool reduce_trace_initialized;
 static uint64_t reduce_trace_from, reduce_trace_to = UINT64_MAX;
+static FILE *congruence_binary_trace_file;
+static bool congruence_binary_trace_initialized;
+static uint64_t congruence_binary_trace_conflict = UINT64_MAX;
+static FILE *congruence_candidate_trace_file;
+static bool congruence_candidate_trace_initialized;
+static uint64_t congruence_candidate_trace_conflict = UINT64_MAX;
+static uint64_t congruence_candidate_trace_ordinal;
+static uint64_t congruence_candidate_trace_ticks;
+static FILE *binary_lifecycle_file;
+static bool binary_lifecycle_initialized;
+static uint64_t binary_lifecycle_sequence;
+static int binary_lifecycle_pairs[64][2];
+static size_t binary_lifecycle_pairs_size;
+static FILE *transitive_trace_file;
+static bool transitive_trace_initialized;
+static uint64_t transitive_trace_source_sequence;
+static int transitive_trace_pairs[64][2];
+static size_t transitive_trace_pairs_size;
+static bool transitive_trace_all;
 static int compare_external_literals (const void *, const void *);
+static void append_sorted_clause (kissat *, clause *, char **, size_t *);
 static void emit_heap_scores (kissat *);
+static uint64_t eliminate_cleanup_clause_hash (kissat *, clause *);
+
+static bool formula_checkpoint_selected (const char *spec,
+                                         uint64_t conflict) {
+  if (!spec || !*spec)
+    return false;
+  while (*spec) {
+    char *end = 0;
+    const uint64_t selected = strtoull (spec, &end, 10);
+    if (end == spec)
+      return false;
+    if (selected == conflict)
+      return true;
+    spec = *end == ',' ? end + 1 : end;
+    if (*end && *end != ',')
+      return false;
+  }
+  return false;
+}
+
+static void formula_checkpoint (kissat *solver) {
+  if (!formula_checkpoint_selected (
+          getenv ("KISSAT_EVENT_TRACE_FORMULA_CONFLICTS"),
+          solver->statistics.conflicts))
+    return;
+  uint64_t irredundant = 0, redundant = 0;
+  uint64_t irredundant_hash = 0, redundant_hash = 0;
+  ward *const arena = BEGIN_STACK (solver->arena);
+  clause *c = (clause *) arena;
+  const clause *const end = (clause *) END_STACK (solver->arena);
+  while (c != end) {
+    if (!c->garbage) {
+      const uint64_t hash = eliminate_cleanup_clause_hash (solver, c);
+      if (c->redundant) {
+        redundant++;
+        redundant_hash += hash;
+      } else {
+        irredundant++;
+        irredundant_hash += hash;
+      }
+    }
+    c = kissat_next_clause (c);
+  }
+  char payload[256];
+  snprintf (payload, sizeof payload,
+            "irredundant=%" PRIu64 "|redundant=%" PRIu64
+            "|irredundant_hash=%016" PRIx64
+            "|redundant_hash=%016" PRIx64,
+            irredundant, redundant, irredundant_hash, redundant_hash);
+  kissat_event_trace (solver, "formula_checkpoint", payload, true);
+}
+
+static void open_transitive_trace (void) {
+  if (transitive_trace_initialized)
+    return;
+  transitive_trace_initialized = true;
+  const char *path = getenv ("KISSAT_TRANSITIVE_TRACE");
+  const char *spec = getenv ("KISSAT_TRANSITIVE_TRACE_PAIRS");
+  if (!path || !*path || !spec || !*spec)
+    return;
+  const char *cursor = spec;
+  while (*cursor && transitive_trace_pairs_size != 64) {
+    char *end = 0;
+    const long first = strtol (cursor, &end, 10);
+    if (end == cursor || *end != ',')
+      return;
+    cursor = end + 1;
+    const long second = strtol (cursor, &end, 10);
+    if (end == cursor || (*end && *end != ';'))
+      return;
+    int a = (int) first, b = (int) second;
+    if (b < a) {
+      const int tmp = a;
+      a = b;
+      b = tmp;
+    }
+    transitive_trace_pairs[transitive_trace_pairs_size][0] = a;
+    transitive_trace_pairs[transitive_trace_pairs_size++][1] = b;
+    cursor = *end ? end + 1 : end;
+  }
+  transitive_trace_file = fopen (path, "w");
+  if (!transitive_trace_file)
+    return;
+  setvbuf (transitive_trace_file, 0, _IOLBF, 0);
+  transitive_trace_all = getenv ("KISSAT_TRANSITIVE_TRACE_ALL") != 0;
+  fputs ("# tactix-transitive-trace\t2\n", transitive_trace_file);
+  fputs ("# solver\tevent\tsource_sequence\tconflicts\tsource\t"
+         "candidate_ordinal\tdestination\tticks_before\tticks_after\t"
+         "redundant\tfailed\tcandidate_count\tout_degree\t"
+         "source_internal\tdestination_internal\tsource_import\t"
+         "destination_import\tsource_reference\tdestination_reference\t"
+         "source_active\tdestination_active\tsource_value\t"
+         "destination_value\tcopies\tskip_reason\n",
+         transitive_trace_file);
+}
 
 static uint64_t stop_after_conflict (void) {
   const char *stop = getenv ("KISSAT_EVENT_TRACE_STOP_AFTER_CONFLICT");
@@ -79,6 +202,451 @@ static unsigned external_variable (kissat *solver, unsigned idx) {
 static int external_literal (kissat *solver, unsigned lit) {
   const int external = (int) external_variable (solver, IDX (lit));
   return NEGATED (lit) ? -external : external;
+}
+
+bool kissat_transitive_trace_pair_selected (kissat *solver, unsigned first,
+                                            unsigned second) {
+  open_transitive_trace ();
+  if (!transitive_trace_file)
+    return false;
+  int a = external_literal (solver, first);
+  int b = external_literal (solver, second);
+  if (b < a) {
+    const int tmp = a;
+    a = b;
+    b = tmp;
+  }
+  size_t i = 0;
+  while (i != transitive_trace_pairs_size &&
+         (transitive_trace_pairs[i][0] != a ||
+          transitive_trace_pairs[i][1] != b))
+    i++;
+  return i != transitive_trace_pairs_size;
+}
+
+bool kissat_transitive_trace_all_sources (void) {
+  return transitive_trace_all;
+}
+
+static bool transitive_trace_endpoint_selected (int external) {
+  for (size_t i = 0; i != transitive_trace_pairs_size; i++)
+    if (external == transitive_trace_pairs[i][0] ||
+        external == transitive_trace_pairs[i][1])
+      return true;
+  return false;
+}
+
+void kissat_transitive_trace_endpoints (kissat *solver) {
+  open_transitive_trace ();
+  if (!transitive_trace_file)
+    return;
+  for (unsigned lit = 0; lit != LITS; lit++) {
+    const int external = external_literal (solver, lit);
+    if (!transitive_trace_endpoint_selected (external))
+      continue;
+    fprintf (transitive_trace_file,
+             "kissat\tendpoint\t0\t%" PRIu64
+             "\t%d\t0\t0\t0\t0\t0\t0\t0\t0\t%u\t%u\t%u\t%u\t%u\t%u"
+             "\t%d\t0\t%d\t0\t0\t-\n",
+             solver->statistics.conflicts, external, lit, INVALID_LIT, lit,
+             INVALID_LIT, lit, INVALID_LIT, ACTIVE (IDX (lit)),
+             solver->values[lit]);
+  }
+}
+
+void kissat_transitive_trace_admission (kissat *solver, unsigned src,
+                                         unsigned dst, unsigned copies,
+                                         const char *skip_reason) {
+  if (!kissat_transitive_trace_pair_selected (solver, src, dst))
+    return;
+  fprintf (transitive_trace_file,
+           "kissat\tadmission\t0\t%" PRIu64
+           "\t%d\t0\t%d\t0\t0\t0\t0\t0\t0\t%u\t%u\t%u\t%u\t%u\t%u"
+           "\t%d\t%d\t%d\t%d\t%u\t%s\n",
+           solver->statistics.conflicts, external_literal (solver, src),
+           external_literal (solver, dst), src, dst, src, dst, src, dst,
+           ACTIVE (IDX (src)), ACTIVE (IDX (dst)), solver->values[src],
+           solver->values[dst], copies, skip_reason);
+}
+
+void kissat_transitive_trace_walk_node (
+    kissat *solver, unsigned src, unsigned dst, unsigned node, size_t ordinal,
+    uint64_t ticks_before, uint64_t ticks_after, size_t watch_entries) {
+  if (!kissat_transitive_trace_pair_selected (solver, src, dst))
+    return;
+  char node_payload[48];
+  snprintf (node_payload, sizeof node_payload, "node=%d",
+            external_literal (solver, node));
+  fprintf (transitive_trace_file,
+           "kissat\twalk-node\t0\t%" PRIu64
+           "\t%d\t%zu\t%d\t%" PRIu64 "\t%" PRIu64
+           "\t0\t0\t0\t0\t%u\t%u\t%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d\t%zu\t%s\n",
+           solver->statistics.conflicts, external_literal (solver, src),
+           ordinal, external_literal (solver, dst), ticks_before, ticks_after,
+           node, dst, node, dst, node, dst, ACTIVE (IDX (node)),
+           ACTIVE (IDX (dst)), solver->values[node], solver->values[dst],
+           watch_entries, node_payload);
+}
+
+void kissat_transitive_trace_walk_entries (kissat *solver, unsigned src,
+                                            unsigned dst, unsigned node,
+                                            unsigned watched) {
+  if (!kissat_transitive_trace_pair_selected (solver, src, dst))
+    return;
+  const char *selected = getenv ("KISSAT_TRANSITIVE_TRACE_WATCH_LITERAL");
+  if (!selected || atoi (selected) != external_literal (solver, watched))
+    return;
+  size_t ordinal = 0;
+  const watch *p = BEGIN_WATCHES (WATCHES (watched));
+  const watch *const end = END_WATCHES (WATCHES (watched));
+  while (p != end) {
+    char payload[4096];
+    unsigned other = INVALID_LIT;
+    uint64_t id = 0;
+    const watch head = *p++;
+    int written;
+    if (head.type.binary) {
+      other = head.binary.lit;
+      written = snprintf (
+          payload, sizeof payload,
+          "node=%d;watch=%d;kind=binary;clause=%d,%d",
+          external_literal (solver, node), external_literal (solver, watched),
+          external_literal (solver, watched),
+          external_literal (solver, other));
+    } else {
+      assert (p != end);
+      const unsigned blocker = head.blocking.lit;
+      const watch tail = *p++;
+      id = tail.large.ref;
+      clause *c = kissat_dereference_clause (solver, tail.large.ref);
+      written = snprintf (payload, sizeof payload,
+                          "node=%d;watch=%d;kind=large;blocker=%d;clause=",
+                          external_literal (solver, node),
+                          external_literal (solver, watched),
+                          external_literal (solver, blocker));
+      if (written > 0 && (size_t) written < sizeof payload) {
+        char *p = payload + written;
+        size_t left = sizeof payload - (size_t) written;
+        append_sorted_clause (solver, c, &p, &left);
+      }
+    }
+    fprintf (
+        transitive_trace_file,
+        "kissat\twalk-watch\t0\t%" PRIu64
+        "\t%d\t%zu\t%d\t0\t0\t%d\t0\t0\t0\t%u\t%u\t%u\t%u\t%u\t%u"
+        "\t%d\t%d\t%d\t%d\t%" PRIu64 "\t%s\n",
+        solver->statistics.conflicts, external_literal (solver, watched),
+        ordinal, other == INVALID_LIT ? 0 : external_literal (solver, other),
+        head.type.binary ? 0 : 1, watched, other, watched, other, watched,
+        other, ACTIVE (IDX (watched)),
+        other != INVALID_LIT && ACTIVE (IDX (other)), solver->values[watched],
+        other == INVALID_LIT ? 0 : solver->values[other], id, payload);
+    ordinal++;
+  }
+}
+
+static void transitive_trace_row (
+    kissat *solver, const char *event, uint64_t sequence, unsigned source,
+    size_t ordinal, unsigned destination, uint64_t ticks_before,
+    uint64_t ticks_after, bool redundant, bool failed, size_t candidate_count,
+    unsigned out_degree) {
+  if (!transitive_trace_file || sequence == UINT64_MAX)
+    return;
+  const int external_destination =
+      destination == INVALID_LIT ? 0 : external_literal (solver, destination);
+  fprintf (transitive_trace_file,
+           "kissat\t%s\t%" PRIu64 "\t%" PRIu64
+           "\t%d\t%zu\t%d\t%" PRIu64 "\t%" PRIu64
+           "\t%d\t%d\t%zu\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%d\t%d\t%d\t%d"
+           "\t0\t-\n",
+           event, sequence, solver->statistics.conflicts,
+           external_literal (solver, source), ordinal, external_destination,
+           ticks_before, ticks_after, redundant, failed, candidate_count,
+           out_degree, source,
+           destination == INVALID_LIT ? INVALID_LIT : destination, source,
+           destination == INVALID_LIT ? INVALID_LIT : destination, source,
+           destination == INVALID_LIT ? INVALID_LIT : destination,
+           ACTIVE (IDX (source)),
+           destination != INVALID_LIT && ACTIVE (IDX (destination)),
+           solver->values[source],
+           destination == INVALID_LIT ? 0 : solver->values[destination]);
+}
+
+uint64_t kissat_transitive_trace_source_begin (
+    kissat *solver, bool selected, unsigned source, uint64_t ticks_before,
+    size_t candidate_count, unsigned out_degree) {
+  if (!selected || !transitive_trace_file)
+    return UINT64_MAX;
+  const uint64_t sequence = transitive_trace_source_sequence++;
+  transitive_trace_row (solver, "source-begin", sequence, source, 0,
+                        INVALID_LIT, ticks_before,
+                        solver->statistics.transitive_ticks, false, false,
+                        candidate_count, out_degree);
+  return sequence;
+}
+
+void kissat_transitive_trace_candidate (
+    kissat *solver, uint64_t sequence, unsigned source, size_t ordinal,
+    unsigned destination, uint64_t ticks_before, uint64_t ticks_after,
+    bool redundant, bool failed, size_t candidate_count,
+    unsigned out_degree) {
+  transitive_trace_row (solver, "candidate", sequence, source, ordinal,
+                        destination, ticks_before, ticks_after, redundant,
+                        failed, candidate_count, out_degree);
+}
+
+void kissat_transitive_trace_source_end (
+    kissat *solver, uint64_t sequence, unsigned source, size_t ordinal,
+    uint64_t ticks_before, uint64_t ticks_after, bool changed,
+    size_t candidate_count, unsigned out_degree) {
+  transitive_trace_row (solver, "source-end", sequence, source, ordinal,
+                        INVALID_LIT, ticks_before, ticks_after, changed, false,
+                        candidate_count, out_degree);
+}
+
+static void binary_lifecycle_event_with_clause (kissat *solver,
+                                                const char *event,
+                                                unsigned first,
+                                                unsigned second,
+                                                clause *source) {
+  if (!binary_lifecycle_initialized) {
+    binary_lifecycle_initialized = true;
+    const char *path = getenv ("KISSAT_BINARY_LIFECYCLE_TRACE");
+    const char *spec = getenv ("KISSAT_BINARY_LIFECYCLE_PAIRS");
+    if (path && *path && spec && *spec) {
+      const char *cursor = spec;
+      while (*cursor && binary_lifecycle_pairs_size != 64) {
+        char *end = 0;
+        const long first_external = strtol (cursor, &end, 10);
+        if (end == cursor || *end != ',')
+          return;
+        cursor = end + 1;
+        const long second_external = strtol (cursor, &end, 10);
+        if (end == cursor || (*end && *end != ';'))
+          return;
+        int a = (int) first_external, b = (int) second_external;
+        if (b < a) {
+          const int tmp = a;
+          a = b;
+          b = tmp;
+        }
+        binary_lifecycle_pairs[binary_lifecycle_pairs_size][0] = a;
+        binary_lifecycle_pairs[binary_lifecycle_pairs_size++][1] = b;
+        cursor = *end ? end + 1 : end;
+      }
+      binary_lifecycle_file = fopen (path, "w");
+      if (binary_lifecycle_file) {
+        setvbuf (binary_lifecycle_file, 0, _IOLBF, 0);
+        fputs ("# tactix-binary-lifecycle\t3\n", binary_lifecycle_file);
+        fputs ("# solver\tseq\tevent\tconflicts\tsearch_ticks\t"
+               "probing_ticks\ta\tb\tvalue_a\tvalue_b\tid\tcopies\t"
+               "payload\n",
+               binary_lifecycle_file);
+      }
+    }
+  }
+  if (!binary_lifecycle_file)
+    return;
+  int a = external_literal (solver, first);
+  int b = external_literal (solver, second);
+  if (b < a) {
+    const int tmp = a;
+    a = b;
+    b = tmp;
+    const unsigned tmp_lit = first;
+    first = second;
+    second = tmp_lit;
+  }
+  size_t selected = 0;
+  while (selected != binary_lifecycle_pairs_size &&
+         (binary_lifecycle_pairs[selected][0] != a ||
+          binary_lifecycle_pairs[selected][1] != b))
+    selected++;
+  if (selected == binary_lifecycle_pairs_size)
+    return;
+  fprintf (binary_lifecycle_file,
+           "kissat\t%" PRIu64 "\t%s\t%" PRIu64 "\t%" PRIu64 "\t%" PRIu64
+           "\t%d\t%d\t%d\t%d\t0\t0\t",
+           binary_lifecycle_sequence++, event, solver->statistics.conflicts,
+           solver->statistics.search_ticks, solver->statistics.probing_ticks,
+           a, b, (int) solver->values[first], (int) solver->values[second]);
+  if (!source)
+    fputc ('-', binary_lifecycle_file);
+  else {
+    fprintf (binary_lifecycle_file, "source=");
+    bool first_lit = true;
+    for (all_literals_in_clause (lit, source)) {
+      fprintf (binary_lifecycle_file, "%s%d", first_lit ? "" : ",",
+               external_literal (solver, lit));
+      first_lit = false;
+    }
+  }
+  fputc ('\n', binary_lifecycle_file);
+}
+
+static void binary_lifecycle_event (kissat *solver, const char *event,
+                                    unsigned first, unsigned second) {
+  binary_lifecycle_event_with_clause (solver, event, first, second, 0);
+}
+
+static bool congruence_binary_trace_enabled (kissat *solver) {
+  if (!congruence_binary_trace_initialized) {
+    congruence_binary_trace_initialized = true;
+    const char *path = getenv ("KISSAT_CONGRUENCE_BINARY_TRACE");
+    const char *conflict =
+        getenv ("KISSAT_CONGRUENCE_BINARY_TRACE_CONFLICT");
+    if (path && *path && conflict && *conflict) {
+      congruence_binary_trace_conflict = strtoull (conflict, 0, 10);
+      congruence_binary_trace_file = fopen (path, "w");
+      if (congruence_binary_trace_file) {
+        setvbuf (congruence_binary_trace_file, 0, _IOLBF, 0);
+        fputs ("# tactix-congruence-binaries\t1\n",
+               congruence_binary_trace_file);
+        fputs ("# solver\tkind\tstage\tconflicts\tordinal\ta\tb\t"
+               "internal_a\tinternal_b\tticks\n",
+               congruence_binary_trace_file);
+      }
+    }
+  }
+  return congruence_binary_trace_file &&
+         solver->statistics.conflicts == congruence_binary_trace_conflict;
+}
+
+void kissat_congruence_binary_trace_begin (kissat *solver, const char *stage,
+                                           size_t count) {
+  if (!congruence_binary_trace_enabled (solver))
+    return;
+  fprintf (congruence_binary_trace_file,
+           "kissat\tboundary\t%s\t%" PRIu64 "\t%zu\t-\t-\t-\t-\t%" PRIu64
+           "\n",
+           stage, solver->statistics.conflicts, count,
+           solver->statistics.probing_ticks);
+}
+
+void kissat_congruence_binary_trace_pair (kissat *solver, const char *stage,
+                                          size_t ordinal, unsigned first,
+                                          unsigned second) {
+  if (!congruence_binary_trace_enabled (solver))
+    return;
+  int a = external_literal (solver, first);
+  int b = external_literal (solver, second);
+  if (b < a) {
+    const int tmp = a;
+    a = b;
+    b = tmp;
+  }
+  fprintf (congruence_binary_trace_file,
+           "kissat\tpair\t%s\t%" PRIu64 "\t%zu\t%d\t%d\t%u\t%u\t%" PRIu64
+           "\n",
+           stage, solver->statistics.conflicts, ordinal, a, b, first, second,
+           solver->statistics.probing_ticks);
+}
+
+void kissat_congruence_sparse_binary_trace (kissat *solver,
+                                             const char *stage) {
+  if (!congruence_binary_trace_enabled (solver))
+    return;
+  size_t count = 0;
+  for (all_literals (lit))
+    for (all_binary_large_watches (watch, WATCHES (lit)))
+      count += watch.type.binary && lit < watch.binary.lit;
+  kissat_congruence_binary_trace_begin (solver, stage, count);
+  size_t ordinal = 0;
+  for (all_literals (lit))
+    for (all_binary_large_watches (watch, WATCHES (lit)))
+      if (watch.type.binary && lit < watch.binary.lit)
+        kissat_congruence_binary_trace_pair (
+            solver, stage, ordinal++, lit, watch.binary.lit);
+}
+
+void kissat_congruence_binary_trace_end (kissat *solver, const char *stage) {
+  if (!congruence_binary_trace_enabled (solver))
+    return;
+  fflush (congruence_binary_trace_file);
+  if (!strcmp (stage, "exit") &&
+      getenv ("KISSAT_CONGRUENCE_BINARY_TRACE_STOP"))
+    raise (SIGTERM);
+}
+
+static bool congruence_candidate_trace_enabled (kissat *solver) {
+  if (!congruence_candidate_trace_initialized) {
+    congruence_candidate_trace_initialized = true;
+    const char *path = getenv ("KISSAT_CONGRUENCE_CANDIDATE_TRACE");
+    const char *conflict =
+        getenv ("KISSAT_CONGRUENCE_CANDIDATE_TRACE_CONFLICT");
+    if (path && *path && conflict && *conflict) {
+      congruence_candidate_trace_conflict = strtoull (conflict, 0, 10);
+      congruence_candidate_trace_file = fopen (path, "w");
+      if (congruence_candidate_trace_file) {
+        setvbuf (congruence_candidate_trace_file, 0, _IOLBF, 0);
+        fputs ("# tactix-congruence-candidates\t1\n",
+               congruence_candidate_trace_file);
+        fputs ("# solver\tkind\tconflicts\tordinal\tpose_a\tpose_b\t"
+               "pose_c\tkey_a\tkey_b\tkey_c\tx\ty\tentry\texit\t"
+               "delta\tdisposition\n",
+               congruence_candidate_trace_file);
+      }
+    }
+  }
+  return congruence_candidate_trace_file &&
+         solver->statistics.conflicts == congruence_candidate_trace_conflict;
+}
+
+void kissat_congruence_candidate_trace_begin (kissat *solver) {
+  if (!congruence_candidate_trace_enabled (solver))
+    return;
+  congruence_candidate_trace_ordinal = 0;
+  congruence_candidate_trace_ticks = 0;
+  fprintf (congruence_candidate_trace_file,
+           "kissat\tbegin\t%" PRIu64 "\t-\t-\t-\t-\t-\t-\t-\t-\t-"
+           "\t0\t0\t0\t-\n",
+           solver->statistics.conflicts);
+}
+
+void kissat_congruence_candidate_trace (kissat *solver,
+                                         const unsigned *lits, unsigned x,
+                                         unsigned y,
+                                         const char *disposition) {
+  if (!congruence_candidate_trace_enabled (solver))
+    return;
+  int pose[3] = {external_literal (solver, lits[0]),
+                 external_literal (solver, lits[1]),
+                 external_literal (solver, lits[2])};
+  int key[3] = {pose[0], pose[1], pose[2]};
+  qsort (key, 3, sizeof *key, compare_external_literals);
+  const uint64_t entry = congruence_candidate_trace_ticks;
+  congruence_candidate_trace_ticks += 3;
+  fprintf (congruence_candidate_trace_file,
+           "kissat\tcandidate\t%" PRIu64 "\t%" PRIu64
+           "\t%d\t%d\t%d\t%d\t%d\t%d\t",
+           solver->statistics.conflicts,
+           congruence_candidate_trace_ordinal++, pose[0], pose[1], pose[2],
+           key[0], key[1], key[2]);
+  if (x == INVALID_LIT)
+    fputs ("-\t-\t", congruence_candidate_trace_file);
+  else
+    fprintf (congruence_candidate_trace_file, "%d\t%d\t",
+             external_literal (solver, x), external_literal (solver, y));
+  fprintf (congruence_candidate_trace_file,
+           "%" PRIu64 "\t%" PRIu64 "\t3\t%s\n", entry,
+           congruence_candidate_trace_ticks, disposition);
+}
+
+void kissat_congruence_candidate_trace_end (kissat *solver, bool complete,
+                                             size_t extracted) {
+  if (!congruence_candidate_trace_enabled (solver))
+    return;
+  fprintf (congruence_candidate_trace_file,
+           "kissat\tend\t%" PRIu64 "\t%" PRIu64
+           "\t-\t-\t-\t-\t-\t-\t-\t-\t0\t%" PRIu64
+           "\t%" PRIu64 "\tcomplete=%u;extracted=%zu;production_ticks=%" PRIu64
+           "\n",
+           solver->statistics.conflicts, congruence_candidate_trace_ordinal,
+           congruence_candidate_trace_ticks, congruence_candidate_trace_ticks,
+           complete ? 1u : 0u, extracted, solver->statistics.probing_ticks);
+  fflush (congruence_candidate_trace_file);
+  if (getenv ("KISSAT_CONGRUENCE_CANDIDATE_TRACE_STOP"))
+    raise (SIGTERM);
 }
 
 static size_t parse_clause_set (const char *spec, int *selected,
@@ -155,10 +723,11 @@ static void annotate_clause_set (kissat *solver, char *payload,
         matched[i] = true;
       }
       if (same) {
-        written = snprintf (payload + used, capacity - used,
-                            "%ssearched=%u,redundant=%u,pose=",
-                            matches ? ";" : "", c->searched,
-                            c->redundant);
+        written = snprintf (
+            payload + used, capacity - used,
+            "%ssearched=%u,redundant=%u,glue=%u,used=%u,priority=%u,pose=",
+            matches ? ";" : "", c->searched, c->redundant, c->glue,
+            c->used, c->vivify);
         if (written <= 0 || (size_t) written >= capacity - used)
           return;
         used += (size_t) written;
@@ -374,9 +943,16 @@ static void open_trace (void) {
       getenv ("KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS") != 0;
   trace_search_only = getenv ("KISSAT_EVENT_TRACE_SEARCH_ONLY") != 0;
   trace_control_only = getenv ("KISSAT_EVENT_TRACE_CONTROL_ONLY") != 0;
+  trace_glue_only = getenv ("KISSAT_EVENT_TRACE_GLUE_ONLY") != 0;
+  trace_phase_only = getenv ("KISSAT_EVENT_TRACE_PHASE_ONLY") != 0;
   trace_trajectory_only =
       getenv ("KISSAT_EVENT_TRACE_TRAJECTORY_ONLY") != 0;
+  trace_sweep_only = getenv ("KISSAT_EVENT_TRACE_SWEEP_ONLY") != 0;
+  trace_compact_probe = getenv ("KISSAT_EVENT_TRACE_COMPACT_PROBE") != 0;
   trace_watch_only = getenv ("KISSAT_EVENT_TRACE_WATCH_ONLY") != 0;
+  trace_watch_cost = getenv ("KISSAT_EVENT_TRACE_WATCH_COST") != 0;
+  trace_watch_within_vivify =
+      getenv ("KISSAT_EVENT_TRACE_WATCH_WITHIN_VIVIFY") != 0;
   trace_file = fopen (path, "w");
   if (!trace_file)
     return;
@@ -401,6 +977,71 @@ static bool detail_enabled (kissat *solver) {
   return trace_detail_from <= conflicts && conflicts <= trace_detail_to;
 }
 
+static bool selected_phase_variable (kissat *solver, unsigned idx) {
+  const char *spec = getenv ("SAT_EVENT_TRACE_PHASE_VAR");
+  if (!spec || !*spec)
+    return true;
+  const int selected = atoi (spec);
+  const int external = external_literal (solver, LIT (idx));
+  return abs (selected) == abs (external);
+}
+
+void kissat_event_trace_phase_pick (kissat *solver, unsigned idx,
+                                    int result) {
+  if (!detail_enabled (solver) || !selected_phase_variable (solver, idx))
+    return;
+  const int base = external_literal (solver, LIT (idx));
+  const int sign = base < 0 ? -1 : 1;
+  char payload[192];
+  snprintf (payload, sizeof payload,
+            "external=%d|target=%d|saved=%d|result=%d", abs (base),
+            sign * solver->phases.target[idx],
+            sign * solver->phases.saved[idx], sign * result);
+  kissat_event_trace (solver, "phase_pick", payload, false);
+}
+
+void kissat_event_trace_phase_save (kissat *solver, unsigned lit) {
+  const unsigned idx = IDX (lit);
+  if (!detail_enabled (solver) || !selected_phase_variable (solver, idx))
+    return;
+  char payload[64];
+  snprintf (payload, sizeof payload, "lit=%d",
+            external_literal (solver, lit));
+  kissat_event_trace (solver, "phase_save", payload, false);
+}
+
+void kissat_event_trace_target_state (kissat *solver, const char *stage,
+                                      unsigned assigned) {
+  open_trace ();
+  if (!trace_phase_only)
+    return;
+  int watched = 0;
+  const char *spec = getenv ("SAT_EVENT_TRACE_PHASE_VAR");
+  if (spec && *spec)
+    watched = atoi (spec);
+  int target = 0, saved = 0, value = 0, active = 0;
+  if (watched > 0 && (size_t) watched < SIZE_STACK (solver->import)) {
+    const import *const imported = &PEEK_STACK (solver->import, watched);
+    if (imported->imported && !imported->eliminated) {
+      const unsigned lit = imported->lit;
+      const unsigned idx = IDX (lit);
+      const int sign = NEGATED (lit) ? -1 : 1;
+      target = sign * solver->phases.target[idx];
+      saved = sign * solver->phases.saved[idx];
+      value = sign * solver->values[LIT (idx)];
+      active = ACTIVE (idx);
+    }
+  }
+  char payload[512];
+  snprintf (payload, sizeof payload,
+            "stage=%s|assigned=%u|target_assigned=%u|best_assigned=%u"
+            "|compact_vars=%u|physical_vars=%u|watch=%d|watch_target=%d"
+            "|watch_saved=%d|watch_value=%d|watch_active=%d",
+            stage, assigned, solver->target_assigned, solver->best_assigned,
+            solver->vars, solver->vars, watched, target, saved, value, active);
+  kissat_event_trace (solver, "target_state", payload, false);
+}
+
 void kissat_event_trace (kissat *solver, const char *event,
                          const char *payload, bool snapshot) {
   open_trace ();
@@ -416,7 +1057,16 @@ void kissat_event_trace (kissat *solver, const char *event,
       solver->statistics.conflicts < stop &&
       strcmp (event, "analysis_end"))
     return;
-  if (trace_skip_watch && !strcmp (event, "watch"))
+  if (trace_glue_only && strcmp (event, "reason_glue") &&
+      strcmp (event, "reason_used") &&
+      strcmp (event, "retier") &&
+      strcmp (event, "analysis_end"))
+    return;
+  if (trace_phase_only && strcmp (event, "trace_begin") &&
+      strcmp (event, "target_state") && strcmp (event, "phase_pick") &&
+      strcmp (event, "phase_save") && strcmp (event, "formula_checkpoint"))
+    return;
+  if (trace_skip_watch && !strncmp (event, "watch", 5))
     return;
   if (trace_skip_imply && !strcmp (event, "imply"))
     return;
@@ -425,13 +1075,26 @@ void kissat_event_trace (kissat *solver, const char *event,
     return;
   if (trace_skip_decisions &&
       (!strcmp (event, "decision") || !strcmp (event, "randec_draw") ||
-       !strcmp (event, "phase_pick")))
+       !strcmp (event, "randec_state") || !strcmp (event, "phase_pick")))
     return;
   if (trace_skip_randec_draws && !strcmp (event, "randec_draw"))
     return;
   if (trace_skip_analysis_ticks && !strncmp (event, "analysis_tick", 13))
     return;
-  if (trace_watch_only && !snapshot && strcmp (event, "watch"))
+  if (trace_watch_only && !snapshot && strcmp (event, "watch") &&
+      strcmp (event, "watch_post") &&
+      strcmp (event, "watch_post_summary") &&
+      strcmp (event, "watch_cost") &&
+      strcmp (event, "reason_glue") &&
+      strcmp (event, "vivify_candidate") &&
+      strcmp (event, "vivify_candidate_end") &&
+      strcmp (event, "vivify_budget_stop"))
+    return;
+  if (trace_compact_probe && strcmp (event, "trace_begin") &&
+      strcmp (event, "probe_begin") && strcmp (event, "probe_end") &&
+      strcmp (event, "preprocess_begin") &&
+      strcmp (event, "preprocess_end") &&
+      strncmp (event, "substitute_", 11))
     return;
   if (trace_search_only && !snapshot && strcmp (event, "decision") &&
       strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&
@@ -452,7 +1115,8 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "sweep_query_model") &&
       strcmp (event, "sweep_equivalence") &&
       strcmp (event, "sweep_rewrite_binary") &&
-      strcmp (event, "watch") && strcmp (event, "imply") &&
+      strcmp (event, "watch") && strcmp (event, "watch_post") &&
+      strcmp (event, "watch_post_summary") && strcmp (event, "imply") &&
       strcmp (event, "conflict") &&
       strcmp (event, "analyzed") && strncmp (event, "analysis_", 9) &&
       strncmp (event, "reason_", 7) &&
@@ -464,16 +1128,33 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "heap_scores") &&
       strcmp (event, "assignment") &&
       strcmp (event, "heap_reinsert") &&
-      strcmp (event, "watch") &&
+      strcmp (event, "watch") && strcmp (event, "watch_post") &&
+      strcmp (event, "watch_post_summary") &&
       strcmp (event, "conflict") &&
       strcmp (event, "analyzed") && strncmp (event, "analysis_", 9) &&
       strncmp (event, "learned", 7) && strncmp (event, "factor_", 7) &&
+      strncmp (event, "vivify_", 7) &&
       strncmp (event, "reason_", 7))
     return;
   // Minimal portable search trajectory.  Keep macro/snapshot boundaries and
   // only the choices plus learned-clause transaction needed to locate the
   // first semantic divergence before enabling the high-volume internals.
-  if (trace_trajectory_only && !snapshot && strcmp (event, "decision") &&
+  if (trace_sweep_only && !snapshot && strcmp (event, "sweep_seed") &&
+      strcmp (event, "sweep_environment") &&
+      strcmp (event, "sweep_environment_clause") &&
+      strcmp (event, "sweep_environment_var") &&
+      strcmp (event, "sweep_binary_attempt") &&
+      strcmp (event, "sweep_effort") &&
+      strcmp (event, "sweep_query") &&
+      strcmp (event, "sweep_query_model") &&
+      strcmp (event, "sweep_equivalence") &&
+      strcmp (event, "sweep_rewrite_binary") &&
+      strcmp (event, "sweep_rewrite_occurrence") &&
+      strcmp (event, "sweep_unit"))
+    return;
+  if (trace_trajectory_only && !snapshot &&
+      !(trace_sweep_only && !strncmp (event, "sweep_", 6)) &&
+      strcmp (event, "decision") &&
       strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&
       strcmp (event, "phase_pick") && strcmp (event, "conflict") &&
       strcmp (event, "analysis_begin") &&
@@ -525,6 +1206,34 @@ void kissat_event_trace (kissat *solver, const char *event,
   snprintf (annotated_payload, sizeof annotated_payload, "%s",
             payload ? payload : "-");
   if (snapshot) {
+    if (getenv ("KISSAT_EVENT_TRACE_FORMULA_MACRO")) {
+      uint64_t formula_irredundant = 0, formula_redundant = 0;
+      uint64_t formula_irredundant_hash = 0, formula_redundant_hash = 0;
+      ward *const arena = BEGIN_STACK (solver->arena);
+      clause *c = (clause *) arena;
+      const clause *const end = (clause *) END_STACK (solver->arena);
+      while (c != end) {
+        if (!c->garbage) {
+          const uint64_t hash = eliminate_cleanup_clause_hash (solver, c);
+          if (c->redundant) {
+            formula_redundant++;
+            formula_redundant_hash += hash;
+          } else {
+            formula_irredundant++;
+            formula_irredundant_hash += hash;
+          }
+        }
+        c = kissat_next_clause (c);
+      }
+      const size_t used = strlen (annotated_payload);
+      snprintf (annotated_payload + used, sizeof annotated_payload - used,
+                "|formula_irredundant=%" PRIu64
+                "|formula_redundant=%" PRIu64
+                "|formula_irredundant_hash=%016" PRIx64
+                "|formula_redundant_hash=%016" PRIx64,
+                formula_irredundant, formula_redundant,
+                formula_irredundant_hash, formula_redundant_hash);
+    }
     const char *selected = getenv ("SAT_EVENT_TRACE_WATCH_LIST");
     if (selected && *selected) {
       const int wanted = atoi (selected);
@@ -633,9 +1342,12 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   // Match Tactix's diagnostic post-analysis ranking snapshot.  This localizes
   // a latent bump-order difference at the conflict that creates it rather
   // than at the later decision that exposes it.
-  const bool snapshot = !strcmp (event, "analysis_end");
+  const bool analysis_end = !strcmp (event, "analysis_end");
+  const bool snapshot = !trace_trajectory_only && analysis_end;
+  if (analysis_end)
+    formula_checkpoint (solver);
   const uint64_t stop = stop_after_conflict ();
-  const bool stop_here = snapshot && stop != UINT64_MAX &&
+  const bool stop_here = analysis_end && stop != UINT64_MAX &&
                          solver->statistics.conflicts >= stop;
   // A conflict counter may skip the exact end of a narrow detail window (for
   // example, a root-level unit can advance the counter without emitting the
@@ -654,6 +1366,287 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   if (stop_here) {
     fflush (trace_file);
     raise (SIGTERM);
+  }
+}
+
+void kissat_event_trace_bve_candidate (kissat *solver, unsigned idx,
+                                       const char *stage, uint64_t ticks,
+                                       uint64_t limit, bool applied) {
+  open_trace ();
+  if (!trace_file || !detail_enabled (solver))
+    return;
+  char payload[192];
+  snprintf (payload, sizeof payload,
+            "external=%u|stage=%s|ticks=%" PRIu64 "|limit=%" PRIu64
+            "|applied=%u",
+            external_variable (solver, idx), stage, ticks, limit, applied);
+  kissat_event_trace (solver, "bve_candidate", payload, false);
+}
+
+static uint64_t eliminate_cleanup_clause_hash (kissat *solver, clause *c) {
+  int *external = malloc (c->size * sizeof *external);
+  unsigned size = 0;
+  for (all_literals_in_clause (lit, c))
+    external[size++] = external_literal (solver, lit);
+  qsort (external, size, sizeof *external, compare_external_literals);
+  uint64_t hash = UINT64_C (1469598103934665603);
+  for (unsigned i = 0; i != size; i++) {
+    hash ^= (uint32_t) external[i];
+    hash *= UINT64_C (1099511628211);
+  }
+  free (external);
+  return hash;
+}
+
+void kissat_event_trace_eliminate_cleanup (kissat *solver,
+                                           const char *stage) {
+  open_trace ();
+  if (!trace_file || !detail_enabled (solver))
+    return;
+  uint64_t live_irredundant = 0, live_redundant = 0;
+  uint64_t root_irredundant = 0, root_redundant = 0;
+  uint64_t retired_irredundant = 0, retired_redundant = 0;
+  uint64_t both_irredundant = 0, both_redundant = 0;
+  uint64_t root_hash = 0, retired_hash = 0, collect_hash = 0;
+  uint64_t live_redundant_hash = 0;
+  int *retired_external = malloc (solver->vars * sizeof *retired_external);
+  size_t retired_variables = 0;
+  for (all_variables (idx))
+    if (solver->flags[idx].eliminated)
+      retired_external[retired_variables++] = external_variable (solver, idx);
+  qsort (retired_external, retired_variables, sizeof *retired_external,
+         compare_external_literals);
+  uint64_t retired_variables_hash = UINT64_C (1469598103934665603);
+  for (size_t i = 0; i != retired_variables; i++) {
+    retired_variables_hash ^= retired_external[i];
+    retired_variables_hash *= UINT64_C (1099511628211);
+  }
+  free (retired_external);
+  ward *const arena = BEGIN_STACK (solver->arena);
+  clause *c = (clause *) arena;
+  const clause *const end = (clause *) END_STACK (solver->arena);
+  while (c != end) {
+    if (!c->garbage) {
+      const bool redundant = c->redundant;
+      if (redundant)
+        live_redundant++;
+      else
+        live_irredundant++;
+      const uint64_t clause_hash =
+          redundant ? eliminate_cleanup_clause_hash (solver, c) : 0;
+      live_redundant_hash += clause_hash;
+      bool root = false, retired = false;
+      for (all_literals_in_clause (lit, c)) {
+        root |= solver->values[lit] > 0;
+        retired |= solver->flags[IDX (lit)].eliminated;
+      }
+      if (root || retired) {
+        const uint64_t hash =
+            clause_hash ? clause_hash : eliminate_cleanup_clause_hash (solver, c);
+        collect_hash += hash;
+        if (root) {
+          root_hash += hash;
+          if (redundant)
+            root_redundant++;
+          else
+            root_irredundant++;
+        }
+        if (retired) {
+          retired_hash += hash;
+          if (redundant)
+            retired_redundant++;
+          else
+            retired_irredundant++;
+        }
+        if (root && retired) {
+          if (redundant)
+            both_redundant++;
+          else
+            both_irredundant++;
+        }
+      }
+    }
+    c = kissat_next_clause (c);
+  }
+  char payload[640];
+  snprintf (payload, sizeof payload,
+            "stage=%s|live_irredundant=%" PRIu64
+            "|live_redundant=%" PRIu64 "|root_irredundant=%" PRIu64
+            "|root_redundant=%" PRIu64 "|retired_irredundant=%" PRIu64
+            "|retired_redundant=%" PRIu64 "|both_irredundant=%" PRIu64
+            "|both_redundant=%" PRIu64 "|root_hash=%016" PRIx64
+            "|retired_hash=%016" PRIx64 "|collect_hash=%016" PRIx64
+            "|live_redundant_hash=%016" PRIx64
+            "|retired_variables=%zu|retired_variables_hash=%016" PRIx64,
+            stage, live_irredundant, live_redundant, root_irredundant,
+            root_redundant, retired_irredundant, retired_redundant,
+            both_irredundant, both_redundant, root_hash, retired_hash,
+            collect_hash, live_redundant_hash, retired_variables,
+            retired_variables_hash);
+  kissat_event_trace (solver, "eliminate_cleanup", payload, false);
+
+  const char *clauses = getenv ("KISSAT_EVENT_TRACE_ELIMINATE_CLAUSES");
+  if (strcmp (stage, "before") || !clauses || strcmp (clauses, "1"))
+    return;
+  c = (clause *) arena;
+  while (c != end) {
+    if (!c->garbage && c->redundant) {
+      bool root = false, retired = false;
+      for (all_literals_in_clause (lit, c)) {
+        root |= solver->values[lit] > 0;
+        retired |= solver->flags[IDX (lit)].eliminated;
+      }
+      char clause_payload[192];
+      snprintf (clause_payload, sizeof clause_payload,
+                "hash=%016" PRIx64 "|size=%u|root=%u|retired=%u",
+                eliminate_cleanup_clause_hash (solver, c), c->size, root,
+                retired);
+      kissat_event_trace (solver, "eliminate_cleanup_clause", clause_payload,
+                          false);
+    }
+    c = kissat_next_clause (c);
+  }
+}
+
+void kissat_event_trace_bve_plan (kissat *solver, unsigned idx,
+                                  unsigned side0, unsigned side1, bool gate,
+                                  size_t gate0, size_t gate1, uint64_t charged,
+                                  bool resolve_gate) {
+  open_trace ();
+  if (!trace_file || !detail_enabled (solver))
+    return;
+  char payload[224];
+  snprintf (payload, sizeof payload,
+            "external=%u|side0=%u|side1=%u|gate=%u|gate0=%zu|gate1=%zu|"
+            "charged=%" PRIu64 "|resolve_gate=%u",
+            external_variable (solver, idx), side0, side1, gate, gate0,
+            gate1, charged, resolve_gate);
+  kissat_event_trace (solver, "bve_plan", payload, false);
+}
+
+static int compare_bve_external_literals (const void *a, const void *b) {
+  const int x = *(const int *) a, y = *(const int *) b;
+  return (x > y) - (x < y);
+}
+
+static uint64_t bve_clause_hash (kissat *solver, clause *c,
+                                 unsigned *active_size) {
+  int external[101];
+  unsigned size = 0;
+  for (all_literals_in_clause (lit, c))
+    if (solver->values[lit] >= 0)
+      external[size++] = external_literal (solver, lit);
+  qsort (external, size, sizeof *external, compare_bve_external_literals);
+  uint64_t hash = UINT64_C (1469598103934665603);
+  for (unsigned i = 0; i < size; i++) {
+    hash ^= (uint32_t) external[i];
+    hash *= UINT64_C (1099511628211);
+  }
+  *active_size = size;
+  return hash;
+}
+
+void kissat_event_trace_bve_pair (kissat *solver, unsigned idx,
+                                  uint32_t ordinal, clause *side0,
+                                  clause *side1, const char *outcome) {
+  const char *selected = getenv ("KISSAT_EVENT_TRACE_BVE_EXTERNAL");
+  if (!selected || atoi (selected) != (int) external_variable (solver, idx))
+    return;
+  open_trace ();
+  if (!trace_file || !detail_enabled (solver))
+    return;
+  unsigned size0, size1;
+  const uint64_t hash0 = bve_clause_hash (solver, side0, &size0);
+  const uint64_t hash1 = bve_clause_hash (solver, side1, &size1);
+  char ref0[32], ref1[32];
+  if (side0->size > 2)
+    snprintf (ref0, sizeof ref0, "%u",
+              kissat_reference_clause (solver, side0));
+  else
+    strcpy (ref0, "-");
+  if (side1->size > 2)
+    snprintf (ref1, sizeof ref1, "%u",
+              kissat_reference_clause (solver, side1));
+  else
+    strcpy (ref1, "-");
+  char payload[512];
+  snprintf (payload, sizeof payload,
+            "external=%u|ordinal=%u|side0_size=%u|side0_hash=%016" PRIx64
+            "|side0_ref=%s|side1_size=%u|side1_hash=%016" PRIx64
+            "|side1_ref=%s|outcome=%s",
+            external_variable (solver, idx), ordinal, size0, hash0, ref0,
+            size1, hash1, ref1, outcome);
+  kissat_event_trace (solver, "bve_pair", payload, false);
+}
+
+void kissat_event_trace_bve_heap (kissat *solver, const char *stage,
+                                  heap *schedule, unsigned trigger) {
+  const char *selected = getenv ("KISSAT_EVENT_TRACE_BVE_HEAP");
+  if (!selected || !*selected)
+    return;
+  if (!trace_bve_heap_initialized) {
+    trace_bve_heap_initialized = true;
+    const char *p = selected;
+    while (*p && trace_bve_heap_vars_size < 8) {
+      char *end;
+      const long external = strtol (p, &end, 10);
+      if (end == p)
+        break;
+      for (all_variables (idx))
+        if ((long) external_variable (solver, idx) == external) {
+          const size_t i = trace_bve_heap_vars_size++;
+          trace_bve_heap_vars[i] = idx;
+          trace_bve_heap_last_pos[i] = UINT_MAX;
+          trace_bve_heap_last_score[i] = 0;
+          break;
+        }
+      p = *end ? end + 1 : end;
+    }
+  }
+  open_trace ();
+  if (!trace_file || !detail_enabled (solver))
+    return;
+  const unsigned root = EMPTY_STACK (schedule->stack)
+                            ? UINT_MAX
+                            : PEEK_STACK (schedule->stack, 0);
+  for (size_t i = 0; i < trace_bve_heap_vars_size; i++) {
+    const unsigned subject = trace_bve_heap_vars[i];
+    const unsigned position = kissat_heap_contains (schedule, subject)
+                                  ? schedule->pos[subject]
+                                  : UINT_MAX;
+    const double score = schedule->score[subject];
+    const double relevance = solver->stable
+                                 ? solver->scores.score[subject]
+                                 : (double) LINK (subject).stamp;
+    const size_t positive = SIZE_WATCHES (WATCHES (LIT (subject)));
+    const size_t negative = SIZE_WATCHES (WATCHES (NOT (LIT (subject))));
+    if (position == trace_bve_heap_last_pos[i] &&
+        score == trace_bve_heap_last_score[i])
+      continue;
+    char payload[512];
+    if (position == UINT_MAX)
+      snprintf (payload, sizeof payload,
+                "stage=%s|trigger=%u|subject=%u|score=%.17g|score_hex=%a|"
+                "relevance=%.17g|relevance_hex=%a|positive=%zu|negative=%zu|"
+                "pos=-|root=%u|size=%zu",
+                stage, trigger == UINT_MAX ? 0 : external_variable (solver, trigger),
+                external_variable (solver, subject), score, score, relevance,
+                relevance, positive, negative,
+                root == UINT_MAX ? 0 : external_variable (solver, root),
+                SIZE_STACK (schedule->stack));
+    else
+      snprintf (payload, sizeof payload,
+                "stage=%s|trigger=%u|subject=%u|score=%.17g|score_hex=%a|"
+                "relevance=%.17g|relevance_hex=%a|positive=%zu|negative=%zu|"
+                "pos=%u|root=%u|size=%zu",
+                stage, trigger == UINT_MAX ? 0 : external_variable (solver, trigger),
+                external_variable (solver, subject), score, score, relevance,
+                relevance, positive, negative, position,
+                root == UINT_MAX ? 0 : external_variable (solver, root),
+                SIZE_STACK (schedule->stack));
+    kissat_event_trace (solver, "bve_heap", payload, false);
+    trace_bve_heap_last_pos[i] = position;
+    trace_bve_heap_last_score[i] = score;
   }
 }
 
@@ -689,13 +1682,21 @@ static int compare_external_literals (const void *a, const void *b) {
   return (x > y) - (x < y);
 }
 
-void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
-  if (!detail_enabled (solver) || trace_emitted >= trace_limit)
+static void emit_watch_state (kissat *solver, unsigned propagated,
+                              const char *event, bool emit_summary) {
+  open_trace ();
+  if ((trace_watch_within_vivify && !trace_vivify_watch_active) ||
+      !detail_enabled (solver) || trace_emitted >= trace_limit)
+    return;
+  const char *selected_scan = getenv ("KISSAT_EVENT_TRACE_WATCH_SCAN_LITERAL");
+  if (selected_scan &&
+      external_literal (solver, propagated) != atoi (selected_scan))
     return;
   const unsigned watched = NOT (propagated);
   watches entries = WATCHES (watched);
   const watch *p = BEGIN_WATCHES (entries);
   const watch *const end = END_WATCHES (entries);
+  size_t selected_entries = 0;
   while (p != end) {
     if (trace_emitted >= trace_limit)
       return;
@@ -729,6 +1730,7 @@ void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
         continue;
       }
     }
+    selected_entries++;
     qsort (external, size, sizeof *external, compare_external_literals);
     char payload[4096];
     int written = snprintf (payload, sizeof payload,
@@ -759,10 +1761,71 @@ void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
           left -= (size_t) written;
         }
       }
+      if (getenv ("KISSAT_EVENT_TRACE_WATCH_VALUES")) {
+        written = snprintf (q, left, "|values=");
+        if (written >= 0 && (size_t) written < left) {
+          q += written;
+          left -= written;
+          size_t i = 0;
+          for (all_literals_in_clause (lit, large)) {
+            written = snprintf (q, left, "%s%d", i++ ? "," : "",
+                                (int) solver->values[lit]);
+            if (written < 0 || (size_t) written >= left)
+              break;
+            q += written;
+            left -= written;
+          }
+        }
+      }
     }
     free (external);
-    kissat_event_trace (solver, "watch", payload, false);
+    kissat_event_trace (solver, event, payload, false);
   }
+  if (emit_summary) {
+    char payload[192];
+    snprintf (payload, sizeof payload, "scan=%d|selected=%zu|entries=%zu",
+              external_literal (solver, propagated), selected_entries,
+              SIZE_WATCHES (entries));
+    kissat_event_trace (solver, "watch_post_summary", payload, false);
+  }
+}
+
+void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
+  emit_watch_state (solver, propagated, "watch", false);
+}
+
+void kissat_event_trace_watch_scan_post (kissat *solver,
+                                         unsigned propagated) {
+  if (!getenv ("KISSAT_EVENT_TRACE_WATCH_POST"))
+    return;
+  emit_watch_state (solver, propagated, "watch_post", true);
+}
+
+void kissat_event_trace_watch_cost (kissat *solver, unsigned propagated,
+                                    uint64_t words_before,
+                                    uint64_t words_after, uint64_t base,
+                                    uint64_t binary_assignments,
+                                    uint64_t large_dereferences,
+                                    uint64_t relocations,
+                                    uint64_t large_assignments,
+                                    uint64_t total) {
+  open_trace ();
+  if (!trace_watch_cost ||
+      (trace_watch_within_vivify && !trace_vivify_watch_active) ||
+      !detail_enabled (solver))
+    return;
+  char payload[512];
+  snprintf (payload, sizeof payload,
+            "ordinal=%" PRIu64 "|scan=%d|words_before=%" PRIu64
+            "|words_after=%" PRIu64 "|base=%" PRIu64
+            "|binary_assign=%" PRIu64 "|large_deref=%" PRIu64
+            "|relocate=%" PRIu64 "|large_assign=%" PRIu64
+            "|total=%" PRIu64,
+            trace_vivify_watch_ordinal,
+            external_literal (solver, propagated), words_before, words_after,
+            base, binary_assignments, large_dereferences, relocations,
+            large_assignments, total);
+  kissat_event_trace (solver, "watch_cost", payload, false);
 }
 
 void kissat_event_trace_propagate_cursor (kissat *solver) {
@@ -876,6 +1939,14 @@ void kissat_event_trace_conflict (kissat *solver, clause *conflict) {
       break;
     p += written;
     left -= (size_t) written;
+  }
+  const reference ref = kissat_reference_clause (solver, conflict);
+  written = snprintf (p, left,
+                      "|ref=%u|glue=%u|used=%u|redundant=%u", ref,
+                      conflict->glue, conflict->used, conflict->redundant);
+  if (written < 0 || (size_t) written >= left) {
+    free (external);
+    return;
   }
   free (external);
   kissat_event_trace (solver, "conflict", payload, false);
@@ -1033,6 +2104,7 @@ void kissat_event_trace_binary_assignment (kissat *solver, unsigned assigned,
 
 void kissat_event_trace_binary_add (kissat *solver, unsigned first,
                                     unsigned second) {
+  binary_lifecycle_event (solver, "add", first, second);
   if (!trace_file)
     return;
   const char *selected = getenv ("SAT_EVENT_TRACE_BINARY_ADD");
@@ -1047,6 +2119,30 @@ void kissat_event_trace_binary_add (kissat *solver, unsigned first,
   snprintf (payload, sizeof payload, "a=%d|b=%d", external_first,
             external_second);
   kissat_event_trace (solver, "binary_add", payload, false);
+}
+
+void kissat_event_trace_binary_delete (kissat *solver, unsigned first,
+                                       unsigned second) {
+  binary_lifecycle_event (solver, "delete", first, second);
+}
+
+void kissat_event_trace_binary_collapse (kissat *solver, unsigned first,
+                                         unsigned second, clause *source) {
+  binary_lifecycle_event_with_clause (solver, "sweep-large-collapse-source",
+                                      first, second, source);
+}
+
+void kissat_event_trace_binary_rewrite (kissat *solver,
+                                        unsigned source_first,
+                                        unsigned source_second,
+                                        unsigned target_first,
+                                        unsigned target_second) {
+  char event[96];
+  snprintf (event, sizeof event, "sweep-binary-rewrite-from=%d,%d",
+            external_literal (solver, source_first),
+            external_literal (solver, source_second));
+  binary_lifecycle_event_with_clause (solver, event, target_first,
+                                      target_second, 0);
 }
 
 void kissat_event_trace_sweep_rewrite_binary (kissat *solver,
@@ -1067,6 +2163,42 @@ void kissat_event_trace_sweep_rewrite_binary (kissat *solver,
             external_literal (solver, source), external_representative,
             position, external_literal (solver, other));
   kissat_event_trace (solver, "sweep_rewrite_binary", payload, false);
+}
+
+void kissat_event_trace_sweep_rewrite_occurrence (
+    kissat *solver, unsigned source, unsigned representative, size_t position,
+    bool binary, unsigned other, clause *large) {
+  const char *selected = getenv ("SAT_EVENT_TRACE_SWEEP_REWRITE");
+  if (!selected || !*selected)
+    return;
+  const int external_representative =
+      external_literal (solver, representative);
+  if (external_representative != atoi (selected))
+    return;
+  char payload[4096];
+  int written = snprintf (
+      payload, sizeof payload, "source=%d|repr=%d|position=%zu|kind=%s",
+      external_literal (solver, source), external_representative, position,
+      binary ? "binary" : "large");
+  if (binary)
+    snprintf (payload + written, sizeof payload - (size_t) written,
+              "|other=%d", external_literal (solver, other));
+  else {
+    written += snprintf (payload + written,
+                         sizeof payload - (size_t) written, "|clause=");
+    bool first = true;
+    for (all_literals_in_clause (lit, large)) {
+      const int delta = snprintf (payload + written,
+                                  sizeof payload - (size_t) written,
+                                  "%s%d", first ? "" : ",",
+                                  external_literal (solver, lit));
+      if (delta < 0 || (size_t) delta >= sizeof payload - (size_t) written)
+        break;
+      written += delta;
+      first = false;
+    }
+  }
+  kissat_event_trace (solver, "sweep_rewrite_occurrence", payload, false);
 }
 
 void kissat_event_trace_clause (kissat *solver, const char *event) {
@@ -1122,12 +2254,106 @@ void kissat_event_trace_clause (kissat *solver, const char *event) {
     p += written;
     left -= (size_t) written;
   }
+  written = snprintf (p, left, "|levels=");
+  if (written < 0 || (size_t) written >= left) {
+    free (external);
+    return;
+  }
+  p += written;
+  left -= (size_t) written;
+  unsigned *nonasserting_levels = malloc (size * sizeof *nonasserting_levels);
+  size_t nonasserting_glue = 0;
+  i = 0;
+  for (all_stack (unsigned, lit, solver->clause)) {
+    const unsigned level = LEVEL (lit);
+    written = snprintf (p, left, "%s%u", i ? "," : "", level);
+    if (written < 0 || (size_t) written >= left)
+      break;
+    p += written;
+    left -= (size_t) written;
+    if (i) {
+      bool found = false;
+      for (size_t j = 0; j != nonasserting_glue; ++j)
+        found |= nonasserting_levels[j] == level;
+      if (!found)
+        nonasserting_levels[nonasserting_glue++] = level;
+    }
+    i++;
+  }
+  written = snprintf (p, left, "|nonasserting_glue=%zu",
+                      nonasserting_glue);
+  if (written < 0 || (size_t) written >= left) {
+    free (nonasserting_levels);
+    free (external);
+    return;
+  }
+  free (nonasserting_levels);
   free (external);
   kissat_event_trace (solver, event, payload, false);
 }
 
 void kissat_event_trace_learned (kissat *solver) {
   kissat_event_trace_clause (solver, "learned");
+}
+
+void kissat_event_trace_clause_glue (kissat *solver, clause *candidate,
+                                     unsigned old_glue,
+                                     unsigned new_glue) {
+  if (!detail_enabled (solver) || trace_emitted >= trace_limit)
+    return;
+  char payload[4096];
+  const reference ref = (ward *) candidate - BEGIN_STACK (solver->arena);
+  int written = snprintf (payload, sizeof payload,
+                          "source=promote|ref=%u|old=%u|new=%u|pose=",
+                          ref, old_glue, new_glue);
+  if (written < 0 || (size_t) written >= sizeof payload)
+    return;
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  size_t i = 0;
+  for (all_literals_in_clause (lit, candidate)) {
+    written = snprintf (p, left, "%s%d", i++ ? "," : "",
+                        external_literal (solver, lit));
+    if (written < 0 || (size_t) written >= left)
+      return;
+    p += written;
+    left -= (size_t) written;
+  }
+  written = snprintf (p, left, "|set=");
+  if (written < 0 || (size_t) written >= left)
+    return;
+  p += written;
+  left -= (size_t) written;
+  append_sorted_clause (solver, candidate, &p, &left);
+  kissat_event_trace (solver, "reason_glue", payload, false);
+}
+
+void kissat_event_trace_clause_used (kissat *solver, clause *candidate) {
+  if (!detail_enabled (solver) || trace_emitted >= trace_limit)
+    return;
+  char payload[4096];
+  int written = snprintf (payload, sizeof payload, "mode=%u|glue=%u|pose=",
+                          solver->stable, candidate->glue);
+  if (written < 0 || (size_t) written >= sizeof payload)
+    return;
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  size_t i = 0;
+  for (all_literals_in_clause (lit, candidate)) {
+    written = snprintf (p, left, "%s%d", i++ ? "," : "",
+                        external_literal (solver, lit));
+    if (written < 0 || (size_t) written >= left)
+      return;
+    p += written;
+    left -= (size_t) written;
+  }
+  written = snprintf (p, left, "|set=");
+  if (written < 0 || (size_t) written >= left)
+    return;
+  p += written;
+  left -= (size_t) written;
+  append_sorted_clause (solver, candidate, &p, &left);
+  kissat_event_trace (solver, "reason_used", payload, false);
 }
 
 void kissat_event_trace_factor_grid (kissat *solver, size_t factors,
@@ -1233,6 +2459,190 @@ static void append_sorted_clause (kissat *solver, clause *c, char **p,
   free (external);
 }
 
+void kissat_event_trace_vivify_candidate (kissat *solver, const char *event,
+                                          size_t ordinal, clause *candidate,
+                                          uint64_t ticks, uint64_t limit) {
+  bool selected = true;
+  const char *from = getenv ("KISSAT_EVENT_TRACE_VIVIFY_CANDIDATE_FROM");
+  if (from && *from && ordinal < strtoull (from, 0, 10))
+    selected = false;
+  const char *to = getenv ("KISSAT_EVENT_TRACE_VIVIFY_CANDIDATE_TO");
+  if (to && *to && ordinal > strtoull (to, 0, 10))
+    selected = false;
+  const bool start = !strcmp (event, "vivify_candidate");
+  const bool end = !strcmp (event, "vivify_candidate_end");
+  open_trace ();
+  if (trace_watch_within_vivify && start) {
+    trace_vivify_watch_active = selected;
+    trace_vivify_watch_ordinal = ordinal;
+  }
+  if (!detail_enabled (solver) || !selected) {
+    if (trace_watch_within_vivify && end)
+      trace_vivify_watch_active = false;
+    return;
+  }
+  char payload[4096];
+  int written = snprintf (payload, sizeof payload,
+                          "ordinal=%zu|ticks=%" PRIu64 "|limit=%" PRIu64
+                          "|size=%u|redundant=%u|glue=%u|garbage=%u|clause=",
+                          ordinal, ticks, limit, candidate->size,
+                          candidate->redundant, candidate->glue,
+                          candidate->garbage);
+  if (written < 0 || (size_t) written >= sizeof payload)
+    return;
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  append_sorted_clause (solver, candidate, &p, &left);
+  if (left) {
+    written = snprintf (p, left, "|pose=");
+    if (written < 0 || (size_t) written >= left)
+      left = 0;
+    else
+      p += written, left -= (size_t) written;
+  }
+  size_t pose_ordinal = 0;
+  for (all_literals_in_clause (lit, candidate)) {
+    if (!left)
+      break;
+    written = snprintf (p, left, "%s%d", pose_ordinal++ ? "," : "",
+                        external_literal (solver, lit));
+    if (written < 0 || (size_t) written >= left)
+      left = 0;
+    else
+      p += written, left -= (size_t) written;
+  }
+  if (left) {
+    const reference ref = (ward *) candidate - BEGIN_STACK (solver->arena);
+    written = snprintf (p, left,
+                        "|priority=%u|arena_order=%" PRIu64
+                        "|ref=%u|decisions=",
+                        candidate->vivify, (uint64_t) ref, ref);
+    if (written < 0 || (size_t) written >= left)
+      left = 0;
+    else
+      p += written, left -= (size_t) written;
+  }
+  for (unsigned level = 1; level <= solver->level && left; ++level) {
+    written = snprintf (p, left, "%s%d", level == 1 ? "" : ",",
+                        external_literal (solver, FRAME (level).decision));
+    if (written < 0 || (size_t) written >= left)
+      left = 0;
+    else
+      p += written, left -= (size_t) written;
+  }
+  annotate_clause_set (solver, payload, sizeof payload);
+  kissat_event_trace (solver, event, payload, false);
+  if (trace_watch_within_vivify && end)
+    trace_vivify_watch_active = false;
+}
+
+void kissat_event_trace_vivify_counts (kissat *solver,
+                                       const unsigned *counts) {
+  const char *spec = getenv ("SAT_EVENT_TRACE_VIVIFY_LITERALS");
+  if (!spec || !*spec || !detail_enabled (solver))
+    return;
+  char payload[4096];
+  size_t used = (size_t) snprintf (payload, sizeof payload, "literals=");
+  const char *cursor = spec;
+  size_t selected = 0;
+  while (*cursor && selected++ != 64 && used < sizeof payload) {
+    char *end = 0;
+    const long wanted = strtol (cursor, &end, 10);
+    if (end == cursor || (*end && *end != ','))
+      return;
+    unsigned found = INVALID_LIT;
+    for (all_literals (lit))
+      if (external_literal (solver, lit) == wanted) {
+        found = lit;
+        break;
+      }
+    int written;
+    if (found == INVALID_LIT)
+      written = snprintf (payload + used, sizeof payload - used,
+                          "%s%ld:absent", selected == 1 ? "" : ",",
+                          wanted);
+    else
+      written = snprintf (payload + used, sizeof payload - used,
+                          "%s%ld:%u@raw=%u", selected == 1 ? "" : ",",
+                          wanted, counts[found], found);
+    if (written <= 0 || (size_t) written >= sizeof payload - used)
+      return;
+    used += (size_t) written;
+    if (found != INVALID_LIT &&
+        getenv ("SAT_EVENT_TRACE_VIVIFY_CLAUSES")) {
+      ward *const arena = BEGIN_STACK (solver->arena);
+      clause *c = (clause *) arena;
+      const clause *const arena_end = (clause *) END_STACK (solver->arena);
+      while (c != arena_end) {
+        bool contains = false;
+        if (!c->garbage)
+          for (all_literals_in_clause (member, c))
+            contains |= member == found;
+        if (contains) {
+          int *semantic = malloc (c->size * sizeof *semantic);
+          size_t semantic_size = 0;
+          for (all_literals_in_clause (member, c))
+            semantic[semantic_size++] = external_literal (solver, member);
+          qsort (semantic, semantic_size, sizeof *semantic,
+                 compare_external_literals);
+          uint64_t hash = UINT64_C (1469598103934665603);
+          for (size_t i = 0; i != semantic_size; i++)
+            hash = mix (hash, (uint64_t) (int64_t) semantic[i]);
+          hash = mix (hash, c->size);
+          char clause_payload[4096];
+          int clause_written = snprintf (
+              clause_payload, sizeof clause_payload,
+              "literal=%ld|hash=%016" PRIx64 "|size=%u|redundant=%u"
+              "|glue=%u|clause=",
+              wanted, hash, c->size, c->redundant, c->glue);
+          size_t clause_used = clause_written > 0 ? (size_t) clause_written : 0;
+          for (size_t i = 0; i != semantic_size; i++) {
+            if (clause_used < sizeof clause_payload) {
+              clause_written = snprintf (
+                  clause_payload + clause_used,
+                  sizeof clause_payload - clause_used, "%s%d",
+                  i ? "," : "", semantic[i]);
+              if (clause_written > 0 &&
+                  (size_t) clause_written < sizeof clause_payload - clause_used)
+                clause_used += (size_t) clause_written;
+              else
+                clause_used = sizeof clause_payload;
+            }
+          }
+          if (clause_used < sizeof clause_payload) {
+            clause_written = snprintf (clause_payload + clause_used,
+                                       sizeof clause_payload - clause_used,
+                                       "|pose=");
+            if (clause_written > 0)
+              clause_used += (size_t) clause_written;
+          }
+          size_t pose_ordinal = 0;
+          for (all_literals_in_clause (member, c)) {
+            if (clause_used >= sizeof clause_payload)
+              break;
+            clause_written = snprintf (
+                clause_payload + clause_used,
+                sizeof clause_payload - clause_used, "%s%d",
+                pose_ordinal++ ? "," : "",
+                external_literal (solver, member));
+            if (clause_written <= 0)
+              break;
+            clause_used += (size_t) clause_written;
+          }
+          free (semantic);
+          kissat_event_trace (solver, "vivify_occurrence_clause",
+                              clause_payload, false);
+        }
+        c = kissat_next_clause (c);
+      }
+    }
+    cursor = *end ? end + 1 : end;
+  }
+  if (*cursor)
+    return;
+  kissat_event_trace (solver, "vivify_counts", payload, false);
+}
+
 void kissat_event_trace_factor_score_entries (kissat *solver, unsigned seed,
                                               size_t depth,
                                               unsigned candidate) {
@@ -1327,9 +2737,17 @@ void kissat_event_trace_factor_literal_state (kissat *solver, unsigned lit,
 
 void kissat_event_trace_substitute_map (kissat *solver, unsigned lit,
                                         unsigned representative) {
-  const char *selected = getenv ("KISSAT_EVENT_TRACE_SUBSTITUTE_LITERAL");
-  if (!selected || atoi (selected) != external_literal (solver, lit))
+  if (!detail_enabled (solver))
     return;
+  const char *selected = getenv ("KISSAT_EVENT_TRACE_SUBSTITUTE_LITERAL");
+  if (selected) {
+    if (atoi (selected) != external_literal (solver, lit))
+      return;
+  } else {
+    const char *all = getenv ("SAT_EVENT_TRACE_SUBSTITUTE_ALL");
+    if (!all || !atoi (all) || representative == lit)
+      return;
+  }
   char payload[192];
   snprintf (payload, sizeof payload,
             "external=%d|representative=%d|active=%d|value=%d",
@@ -1400,6 +2818,38 @@ void kissat_event_trace_sweep_environment_clause (
                          external_literal (solver, lits[i]));
   kissat_event_trace (solver, "sweep_environment_clause", payload, false);
   free (payload);
+}
+
+void kissat_event_trace_sweep_environment_var (kissat *solver, unsigned seed,
+                                               unsigned ordinal, unsigned idx,
+                                               unsigned depth) {
+  const char *selected = getenv ("SAT_EVENT_TRACE_SWEEP_VARS");
+  const int external_seed = external_literal (solver, seed);
+  if (!selected || strtol (selected, 0, 10) != external_seed)
+    return;
+  char payload[160];
+  snprintf (payload, sizeof payload,
+            "seed=%d|ordinal=%u|external=%u|depth=%u", external_seed,
+            ordinal, external_variable (solver, idx), depth);
+  kissat_event_trace (solver, "sweep_environment_var", payload, false);
+}
+
+void kissat_event_trace_sweep_binary_attempt (
+    kissat *solver, unsigned seed, unsigned ordinal, unsigned lit,
+    unsigned other, int lit_depth, int other_depth,
+    const char *disposition) {
+  const char *selected = getenv ("SAT_EVENT_TRACE_SWEEP_BINARIES");
+  const int external_seed = external_literal (solver, seed);
+  if (!selected || strtol (selected, 0, 10) != external_seed)
+    return;
+  char payload[224];
+  snprintf (payload, sizeof payload,
+            "seed=%d|ordinal=%u|lit=%d|other=%d|lit_depth=%d|"
+            "other_depth=%d|disposition=%s",
+            external_seed, ordinal, external_literal (solver, lit),
+            external_literal (solver, other), lit_depth, other_depth,
+            disposition);
+  kissat_event_trace (solver, "sweep_binary_attempt", payload, false);
 }
 
 static bool selected_sweep_query_seed (kissat *solver, unsigned seed) {
@@ -1489,14 +2939,29 @@ void kissat_event_trace_checkpoint (kissat *solver) {
 }
 
 void kissat_event_trace_close (void) {
-  if (!trace_file)
-    return;
-  fflush (trace_file);
-  fclose (trace_file);
-  trace_file = 0;
+  if (trace_file) {
+    fflush (trace_file);
+    fclose (trace_file);
+    trace_file = 0;
+  }
   if (reduce_trace_file) {
     fflush (reduce_trace_file);
     fclose (reduce_trace_file);
     reduce_trace_file = 0;
+  }
+  if (congruence_binary_trace_file) {
+    fflush (congruence_binary_trace_file);
+    fclose (congruence_binary_trace_file);
+    congruence_binary_trace_file = 0;
+  }
+  if (binary_lifecycle_file) {
+    fflush (binary_lifecycle_file);
+    fclose (binary_lifecycle_file);
+    binary_lifecycle_file = 0;
+  }
+  if (transitive_trace_file) {
+    fflush (transitive_trace_file);
+    fclose (transitive_trace_file);
+    transitive_trace_file = 0;
   }
 }

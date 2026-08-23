@@ -561,6 +561,101 @@ static void test_large_otfs_retires_replaced_reason() {
   assert(default_solve(k) == 10);
 }
 
+static void test_otfs_subsumption_inherits_better_conflict_glue() {
+  // Kissat's on-the-fly subsumption transfers a better redundant-conflict LBD
+  // to the strengthened redundant reason (strengthen.c:
+  // kissat_on_the_fly_subsume).  The assignment levels deliberately leave the
+  // strengthened reason with exact LBD 4, while the subsumed conflict already
+  // carries glue 3, so only that transfer can produce the expected result.
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit reason[7] = {internalize(7),  internalize(-4),
+                         internalize(-6), internalize(-3),
+                         internalize(-5), internalize(-2),
+                         internalize(-1)};
+  const Lit conflict[7] = {internalize(-7), internalize(-4),
+                           internalize(-6), internalize(-3),
+                           internalize(-5), internalize(-2),
+                           internalize(-1)};
+  const Ref reason_ref = kernel_add_large_clause(k, reason, 7, true, 4);
+  const Ref conflict_ref = kernel_add_large_clause(k, conflict, 7, true, 3);
+
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  kernel_assign(k, internalize(5), 2, internalize(-2), true);
+  kernel_assign_decision(k, internalize(3));
+  kernel_assign(k, internalize(6), 3, internalize(-3), true);
+  kernel_assign_decision(k, internalize(4));
+  kernel_assign(k, internalize(7), 4, reason_ref, false);
+  k.conflict_ref = conflict_ref;
+  k.conflict_valid = true;
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.otfs_strengthened == 1);
+  assert(k.stats.otfs_subsumed == 1);
+  assert(k.stats.promoted == 1);
+
+  bool found = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->redundant() && c->size == 6) {
+      assert(!found);
+      found = true;
+      assert(c->glue() == 3);
+    }
+    ref += clause_actual_words(c);
+  }
+  assert(found);
+  assert(default_solve(k) == 10);
+}
+
+static void test_otfs_strengthening_preserves_better_reason_glue() {
+  // Kissat's large_on_the_fly_strengthen mutates the reason in place.  Its
+  // existing glue survives when it is already below the new size, even if the
+  // current assignment levels would recompute to a worse LBD.  A packed
+  // replacement must preserve that logical metadata before considering the
+  // independent better-conflict transfer pinned above.
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit reason[7] = {internalize(7),  internalize(-4),
+                         internalize(-6), internalize(-3),
+                         internalize(-5), internalize(-2),
+                         internalize(-1)};
+  const Lit conflict[7] = {internalize(-7), internalize(-4),
+                           internalize(-6), internalize(-3),
+                           internalize(-5), internalize(-2),
+                           internalize(-1)};
+  const Ref reason_ref = kernel_add_large_clause(k, reason, 7, true, 2);
+  const Ref conflict_ref = kernel_add_large_clause(k, conflict, 7, true, 6);
+
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  kernel_assign(k, internalize(5), 2, internalize(-2), true);
+  kernel_assign_decision(k, internalize(3));
+  kernel_assign(k, internalize(6), 3, internalize(-3), true);
+  kernel_assign_decision(k, internalize(4));
+  kernel_assign(k, internalize(7), 4, reason_ref, false);
+  k.conflict_ref = conflict_ref;
+  k.conflict_valid = true;
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.otfs_strengthened == 1);
+  assert(k.stats.otfs_subsumed == 1);
+
+  bool found = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->redundant() && c->size == 6) {
+      assert(!found);
+      found = true;
+      assert(c->glue() == 2);
+    }
+    ref += clause_actual_words(c);
+  }
+  assert(found);
+  assert(default_solve(k) == 10);
+}
+
 static void test_chrono_backjump_clamps_to_jump_level() {
   // D-LEVEL-2: a chronological target above the assertion level is honored,
   // and true-level assignment stamps the UIP at jump_level whatever the target,
@@ -981,6 +1076,8 @@ int main(int argc, char **argv) {
   test_otfs();
   test_otfs_reuse_honors_chronological_gap();
   test_large_otfs_retires_replaced_reason();
+  test_otfs_subsumption_inherits_better_conflict_glue();
+  test_otfs_strengthening_preserves_better_reason_glue();
   test_chrono_backjump_clamps_to_jump_level();
   test_backjump_target_clamps();
   test_conflict_reuse_repairs_watches();

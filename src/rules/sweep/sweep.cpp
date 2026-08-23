@@ -9,12 +9,17 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstdio>
 #include <cstdlib>
 #include <utility>
 
 namespace tactix {
 
 namespace {
+
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+static const bool sweep_time = std::getenv("TACTIX_SWEEP_TIME") != nullptr;
+#endif
 
 SubResult sweep_solve(SweepEnv &e, const std::vector<SubLit> &assumptions,
                       uint64_t budget) {
@@ -359,7 +364,7 @@ static void sweep_build_occurrences(Kernel &k, SweepRound &r) {
     r.occ_owned.assign(2 * k.nvars, {});
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
-      const uint32_t words = clause_words(c->size);
+      const uint32_t words = clause_actual_words(c);
       if (!c->garbage() && !c->redundant())
         for (const Lit l : *c)
           r.occ_owned[l].push_back(ref);
@@ -382,8 +387,13 @@ static void sweep_enter_dense(Kernel &k) {
   kernel_deduplicate_binary_watches(k);
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_words(c->size);
-    if (!c->garbage()) {
+    const uint32_t words = clause_actual_words(c);
+    // `kissat_connect_irredundant_large_clauses` stops at the irredundant
+    // prefix and explicitly skips redundant clauses.  Root-satisfied learned
+    // clauses remain for the following late Substitute; retiring them here
+    // moves a semantic delta from Substitute into Sweep and changes exact
+    // per-rule accounting.
+    if (!c->garbage() && !c->redundant()) {
       bool satisfied = false;
       for (const Lit lit : *c)
         if (k.value(lit) > 0) {
@@ -406,7 +416,7 @@ static void sweep_enter_dense(Kernel &k) {
       if (!c->garbage() && !c->redundant())
         for (const Lit lit : *c)
           k.dense->large[lit].push_back(ref);
-      ref += clause_words(c->size);
+      ref += clause_actual_words(c);
     }
   }
 }
@@ -422,10 +432,25 @@ static void sweep_refresh_occurrences(Kernel &k, SweepRound &r) {
 }
 
 void sweep_round_begin(Kernel &k, SweepRound &r) {
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  uint64_t t0 = sweep_time ? now_nanos() : 0;
+#endif
   r.env.solver.start_kitten_session();
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  uint64_t t1 = sweep_time ? now_nanos() : 0;
+#endif
   sweep_enter_dense(k);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  uint64_t t2 = sweep_time ? now_nanos() : 0;
+#endif
   sweep_build_occurrences(k, r);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  uint64_t t3 = sweep_time ? now_nanos() : 0;
+#endif
   r.substitution.begin(k);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  uint64_t t4 = sweep_time ? now_nanos() : 0;
+#endif
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Var v = 0; v < k.nvars; v++) {
     uint32_t ordinal = 0;
@@ -438,6 +463,16 @@ void sweep_round_begin(Kernel &k, SweepRound &r) {
   r.repr.resize(2 * k.nvars);
   for (Lit l = 0; l < 2 * k.nvars; l++)
     r.repr[l] = l; // O(nlits) once per ROUND, never per environment
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  const uint64_t t5 = sweep_time ? now_nanos() : 0;
+  if (sweep_time) {
+    r.time_kitten += t1 - t0;
+    r.time_dense += t2 - t1;
+    r.time_occ += t3 - t2;
+    r.time_ledger += t4 - t3;
+    r.time_repr += t5 - t4;
+  }
+#endif
   r.found.clear();
   // `proofs` is parallel to `found` (`sweep_apply` indexes both by the same
   // `idx`), so it must be reset with it: clearing one and not the other leaves
@@ -460,6 +495,9 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
     return false;
   env_var(e, seed, 0);
   uint64_t ticks = 0;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  uint32_t binary_attempt_ordinal = 0;
+#endif
   // Breadth-first over the clause neighbourhood (kissat sweep.c
   // sweep_binary/sweep_reference). `vars` doubles as the BFS queue, appended in
   // non-decreasing depth; fixed variables carry UINT32_MAX, so the frontier
@@ -476,11 +514,33 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
       const Lit l = make_lit(v, pol != 0);
       ticks += k.watches.size(l);
       const auto process_binary = [&](Lit o) {
-        if (k.values[l] > 0 || k.values[o] > 0)
-          return;
         const uint32_t other_sub = e.sub_of_var[var_of(o)];
-        if (other_sub != SWEEP_NO_SUB_VAR && e.depth[other_sub] < d)
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        const int32_t other_depth =
+            other_sub == SWEEP_NO_SUB_VAR ? -1
+                                          : static_cast<int32_t>(e.depth[other_sub]);
+#endif
+        if (k.values[l] > 0 || k.values[o] > 0) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+          event_trace_sweep_binary_attempt(
+              k, seed, binary_attempt_ordinal++, l, o,
+              static_cast<int32_t>(d), other_depth, "skip-satisfied");
+#endif
           return;
+        }
+        if (other_sub != SWEEP_NO_SUB_VAR && e.depth[other_sub] < d) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+          event_trace_sweep_binary_attempt(
+              k, seed, binary_attempt_ordinal++, l, o,
+              static_cast<int32_t>(d), other_depth, "skip-shallower");
+#endif
+          return;
+        }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        event_trace_sweep_binary_attempt(
+            k, seed, binary_attempt_ordinal++, l, o,
+            static_cast<int32_t>(d), other_depth, "add");
+#endif
         const Lit pair[2] = {l, o};
         env_add_clause(k, e, pair, 2, kernel_binary_key(l, o),
                        kernel_binary_id(k, l, o), d + 1, lim, &ticks, false);
@@ -511,8 +571,8 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
         env_add_clause(k, e, c->begin(), c->size, KEY_LARGE | ref, c->id(),
                        d + 1, lim, &ticks);
       };
-      if (!r.substitution.dense_occurrences.empty()) {
-        for (const auto occurrence : r.substitution.dense_occurrences[l]) {
+      if (r.substitution.has_dense_occurrences()) {
+        for (const auto occurrence : r.substitution.occurrences(k, l)) {
           if (occurrence.binary)
             process_binary(static_cast<Lit>(occurrence.payload));
           else
@@ -1354,7 +1414,8 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t spent = sweep_semantic_effort(k) - before;
     if (spent)
-      event_trace_sweep_effort(k, external, spent, r.env.solver.ticks(),
+      event_trace_sweep_effort(k, external, before,
+                               sweep_semantic_effort(k),
                                k.stats.sweep_solves - solves_before);
 #endif
   }
@@ -1425,6 +1486,9 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   sweep_round_begin(k, r);
 
   const bool retained = k.sweep_tail_next < k.sweep_tail.size();
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  const uint64_t schedule_t0 = sweep_time ? now_nanos() : 0;
+#endif
   if (!retained) {
     k.sweep_tail.clear();
     k.sweep_tail_next = 0;
@@ -1434,6 +1498,10 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
         k.sweep_tail.push_back(k.internal_to_external[v]);
     k.stats.sweep_scheduled += k.sweep_tail.size();
   }
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  if (sweep_time)
+    r.time_schedule += now_nanos() - schedule_t0;
+#endif
 
   const uint64_t start = sweep_semantic_effort(k);
   uint32_t seeds = 0;
@@ -1466,11 +1534,20 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
         seed_lim.env_ticks = remaining;
     }
     const uint64_t emissions_before = r.emission_batches;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    const uint64_t process_t0 = sweep_time ? now_nanos() : 0;
+#endif
     (void)sweep_process_seed(k, v, seed_lim, r, true);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    if (sweep_time)
+      r.time_process += now_nanos() - process_t0;
+    const uint64_t post_seed_t0 = sweep_time ? now_nanos() : 0;
+#endif
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t spent = sweep_semantic_effort(k) - before;
     if (spent)
-      event_trace_sweep_effort(k, external + 1, spent, r.env.solver.ticks(),
+      event_trace_sweep_effort(k, external + 1, before,
+                               sweep_semantic_effort(k),
                                k.stats.sweep_solves - solves_before);
 #endif
     std::vector<std::pair<Var, Var>> external_pairs;
@@ -1498,6 +1575,10 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     r.units.clear();
     r.units_emitted = 0;
     r.equivalences_emitted = 0;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    if (sweep_time)
+      r.time_post_seed += now_nanos() - post_seed_t0;
+#endif
   }
   if (k.sweep_tail_next == k.sweep_tail.size()) {
     k.sweep_tail.clear();
@@ -1511,7 +1592,14 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   // has observed its predecessor's consequences.  Charging here records the
   // real host cost without letting that representation detail postpone the
   // next semantic Sweep transaction.
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  const uint64_t collect_t0 = sweep_time ? now_nanos() : 0;
+#endif
   k.stats.sweep_ticks_repr += r.substitution.collect(k);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  if (sweep_time)
+    r.time_collect += now_nanos() - collect_t0;
+#endif
   // The per-environment drains above normally leave no work.  Keep the final
   // closure for the unproductive/early-exit tail and as a lifecycle guard.
   if (inprocess_reach_root(k))
@@ -2271,6 +2359,11 @@ ApplyResult sweep_emit_round(Kernel &k, SweepRound &round, uint32_t found) {
 #endif
       continue;
     }
+    // The proof paths below may publish the pair immediately.  Prime only
+    // these four connected streams first so a fresh binary is appended after
+    // their pre-existing mixed occurrences, matching Kissat without an eager
+    // all-literals ledger build.
+    round.substitution.prime_equivalence(k, e.a, e.b);
     const SweepPairSelection selection = sweep_select_pair(round, idx, e.a, e.b);
     bool emitted =
         !force_general && sweep_commit_equiv_without_proof(k, e.a, e.b);
@@ -2487,6 +2580,18 @@ ApplyResult sweep_apply_with_limits(Kernel &k, const SweepLimits &base) {
   }
   if (result != ApplyResult::Unsat)
     sweep_order_retirement_suffix(k, retired_begin, substituted_begin);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  if (sweep_time)
+    std::fprintf(stderr,
+                 "[sweep-time] ms: kitten %.0f dense %.0f occ %.0f ledger "
+                 "%.0f repr %.0f schedule %.0f process %.0f post-seed %.0f "
+                 "collect %.0f\n",
+                 round.time_kitten / 1e6, round.time_dense / 1e6,
+                 round.time_occ / 1e6, round.time_ledger / 1e6,
+                 round.time_repr / 1e6, round.time_schedule / 1e6,
+                 round.time_process / 1e6, round.time_post_seed / 1e6,
+                 round.time_collect / 1e6);
+#endif
   return result;
 }
 

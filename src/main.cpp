@@ -104,7 +104,7 @@ int main(int argc, char **argv) {
   bool no_heuristics = false; // run with H detached (unguided)
   const char *trace_path = nullptr;  // --trace=FILE: record the rule sequence
   const char *replay_path = nullptr; // --replay=FILE: apply exactly that one
-  uint32_t bve_gate_mask = ~0u; // BVE gate-type selection (E1d); all gates on
+  uint32_t bve_gate_mask = BVE_GATE_KISSAT_DEFAULT;
   unsigned long long random_seed = 20260710;
 
   for (int i = 1; i < argc; i++) {
@@ -253,10 +253,12 @@ int main(int argc, char **argv) {
     kernel.bve_backward = (*bw != '0');
   if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
-  if (getenv("TACTIX_V4_EARLY_EXIT"))
-    kernel.transitive_early_exit = true;
+  if (const char *ee = getenv("TACTIX_V4_EARLY_EXIT"))
+    kernel.transitive_early_exit = (*ee != '0');
   if (const char *lm = getenv("TACTIX_TRANSITIVE_LIVE_METER"))
     kernel.transitive_live_meter = (*lm != '0');
+  if (const char *meter = getenv("TACTIX_V4_METER"))
+    kernel.transitive_budget_checked = !std::strcmp(meter, "checked");
   // Touched-epoch round filters ship ON; =0 restores unfiltered candidates.
   if (const char *tm = getenv("TACTIX_TOUCH_MARKS"))
     kernel.touch_filter = (*tm != '0');

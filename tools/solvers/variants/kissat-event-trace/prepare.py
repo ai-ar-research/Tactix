@@ -37,6 +37,273 @@ def main():
     shutil.copy2(overlay / "rulejournal.c", dest / "src" / "rulejournal.c")
     shutil.copy2(overlay / "rulejournal.h", dest / "src" / "rulejournal.h")
 
+    dense = dest / "src" / "dense.c"
+    replace_once(dense, '#include "dense.h"\n',
+                 '#include "dense.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        dense,
+        'resume_watching_large_clauses_after_elimination (kissat *solver) {\n',
+        'resume_watching_large_clauses_after_elimination (kissat *solver) {\n'
+        '  kissat_event_trace_eliminate_cleanup (solver, "before");\n')
+    replace_once(
+        dense,
+        '  LOG ("resumed watching %zu irredundant and %zu redundant large clauses",\n'
+        '       resumed_watching_irredundant, resumed_watching_redundant);\n'
+        '}\n',
+        '  LOG ("resumed watching %zu irredundant and %zu redundant large clauses",\n'
+        '       resumed_watching_irredundant, resumed_watching_redundant);\n'
+        '  kissat_event_trace_eliminate_cleanup (solver, "after");\n'
+        '}\n')
+
+    # Expose the two Congruence dense-to-sparse resumes as ordinary snapshot
+    # events.  The shared SAT_EVENT_TRACE_CLAUSE_SET observer can then compare
+    # a clause pose at each lifecycle boundary without changing solver state.
+    congruence = dest / "src" / "congruence.c"
+    replace_once(congruence, '#include "dense.h"\n',
+                 '#include "dense.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        congruence,
+        '  kissat_enter_dense_mode (solver, &closure->binaries);\n',
+        '  kissat_event_trace (solver, "congruence_dense_entry", "-", true);\n'
+        '  kissat_congruence_sparse_binary_trace (solver, "sparse-entry");\n'
+        '  kissat_enter_dense_mode (solver, &closure->binaries);\n'
+        '  size_t trace_binary_ordinal = 0;\n'
+        '  kissat_congruence_binary_trace_begin (\n'
+        '      solver, "entry", SIZE_STACK (closure->binaries));\n'
+        '  for (all_stack (litpair, pair, closure->binaries))\n'
+        '    kissat_congruence_binary_trace_pair (\n'
+        '        solver, "entry", trace_binary_ordinal++,\n'
+        '        pair.lits[0], pair.lits[1]);\n')
+    replace_once(
+        congruence,
+        '  extract_binaries (closure);\n'
+        '  assert (!solver->inconsistent);\n',
+        '  extract_binaries (closure);\n'
+        '  size_t trace_binary_ordinal = 0;\n'
+        '  kissat_congruence_binary_trace_begin (\n'
+        '      solver, "post-binary-extraction",\n'
+        '      SIZE_STACK (closure->binaries));\n'
+        '  for (all_stack (litpair, pair, closure->binaries))\n'
+        '    kissat_congruence_binary_trace_pair (\n'
+        '        solver, "post-binary-extraction", trace_binary_ordinal++,\n'
+        '        pair.lits[0], pair.lits[1]);\n'
+        '  assert (!solver->inconsistent);\n')
+    replace_once(
+        congruence,
+        '  const value *const values = solver->values;\n'
+        '  for (all_clauses (d)) {\n',
+        '  const value *const values = solver->values;\n'
+        '  kissat_congruence_candidate_trace_begin (solver);\n'
+        '  for (all_clauses (d)) {\n')
+    replace_once(
+        congruence,
+        '    else\n'
+        '      continue;\n'
+        '    LOGCLS (d, "strengthening");\n'
+        '    if (!find_binary (solver, binaries, offsetsize, l, k)) {\n',
+        '    else {\n'
+        '      kissat_congruence_candidate_trace (\n'
+        '          solver, lits, INVALID_LIT, INVALID_LIT, "no-antecedent");\n'
+        '      continue;\n'
+        '    }\n'
+        '    LOGCLS (d, "strengthening");\n'
+        '    const bool candidate_duplicate =\n'
+        '        find_binary (solver, binaries, offsetsize, l, k);\n'
+        '    kissat_congruence_candidate_trace (\n'
+        '        solver, lits, l, k,\n'
+        '        candidate_duplicate ? "entry-duplicate" : "extract");\n'
+        '    if (!candidate_duplicate) {\n')
+    replace_once(
+        congruence,
+        '  kissat_verbose (solver, "extracted %zu binaries (plus %zu duplicated)",\n'
+        '                  extracted, duplicated);\n'
+        '  STOP (extractbinaries);\n',
+        '  kissat_verbose (solver, "extracted %zu binaries (plus %zu duplicated)",\n'
+        '                  extracted, duplicated);\n'
+        '  kissat_congruence_candidate_trace_end (solver, true, extracted);\n'
+        '  STOP (extractbinaries);\n')
+    replace_once(
+        congruence,
+        '  kissat_resume_sparse_mode (solver, false, &closure->binaries);\n'
+        '  RELEASE_STACK (closure->binaries);\n',
+        '  size_t trace_binary_ordinal = 0;\n'
+        '  kissat_congruence_binary_trace_begin (\n'
+        '      solver, "exit", SIZE_STACK (closure->binaries));\n'
+        '  for (all_stack (litpair, pair, closure->binaries))\n'
+        '    kissat_congruence_binary_trace_pair (\n'
+        '        solver, "exit", trace_binary_ordinal++,\n'
+        '        pair.lits[0], pair.lits[1]);\n'
+        '  kissat_resume_sparse_mode (solver, false, &closure->binaries);\n'
+        '  kissat_event_trace (solver, "congruence_dense_first", "-", true);\n'
+        '  kissat_congruence_binary_trace_end (solver, "exit");\n'
+        '  RELEASE_STACK (closure->binaries);\n')
+    replace_once(
+        congruence,
+        '  kissat_enter_dense_mode (solver, &binaries);\n',
+        '  kissat_event_trace (solver, "congruence_dense_second_entry",\n'
+        '                      "-", true);\n'
+        '  kissat_enter_dense_mode (solver, &binaries);\n')
+    replace_once(
+        congruence,
+        '  kissat_resume_sparse_mode (solver, false, &binaries);\n'
+        '  RELEASE_STACK (candidates);\n',
+        '  kissat_resume_sparse_mode (solver, false, &binaries);\n'
+        '  kissat_event_trace (solver, "congruence_dense_second", "-", true);\n'
+        '  RELEASE_STACK (candidates);\n')
+
+    vivify = dest / "src" / "vivify.c"
+    replace_once(vivify, '#include "terminate.h"\n',
+                 '#include "terminate.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        vivify,
+        '  kissat_flush_large_watches (solver);\n\n'
+        '  schedule_vivification_candidates (vivifier);\n',
+        '  kissat_event_trace (solver, "vivify_dense_entry", "-", true);\n'
+        '  kissat_flush_large_watches (solver);\n\n'
+        '  schedule_vivification_candidates (vivifier);\n'
+        '  kissat_event_trace_vivify_counts (solver, vivifier->counts);\n')
+    replace_once(
+        vivify,
+        '  kissat_watch_large_clauses (solver);\n#ifndef QUIET\n',
+        '  kissat_watch_large_clauses (solver);\n'
+        '  kissat_event_trace (solver, "vivify_dense_resume", "-", true);\n'
+        '#ifndef QUIET\n')
+    replace_once(
+        vivify,
+        '  assert (!vivifier->vivified);\n'
+        '  assert (!vivifier->tried);\n'
+        '  while (!EMPTY_STACK (vivifier->schedule)) {\n',
+        '  assert (!vivifier->vivified);\n'
+        '  assert (!vivifier->tried);\n'
+        '  unsigned trace_candidate_ordinal = 0;\n'
+        '  while (!EMPTY_STACK (vivifier->schedule)) {\n')
+    replace_once(
+        vivify,
+        '      break;\n'
+        '    }\n'
+        '    if (TERMINATED (vivify_terminated_1))\n',
+        '      const reference trace_ref = TOP_STACK (vivifier->schedule);\n'
+        '      clause *trace_candidate =\n'
+        '          kissat_dereference_clause (solver, trace_ref);\n'
+        '      kissat_event_trace_vivify_candidate (\n'
+        '          solver, "vivify_budget_stop", trace_candidate_ordinal,\n'
+        '          trace_candidate, probing_ticks, limit);\n'
+        '      break;\n'
+        '    }\n'
+        '    if (TERMINATED (vivify_terminated_1))\n')
+    replace_once(
+        vivify,
+        '    clause *candidate = kissat_dereference_clause (solver, ref);\n'
+        '    assert (!candidate->garbage);\n'
+        '    vivifier->tried++;\n',
+        '    clause *candidate = kissat_dereference_clause (solver, ref);\n'
+        '    assert (!candidate->garbage);\n'
+        '    kissat_event_trace_vivify_candidate (\n'
+        '        solver, "vivify_candidate", trace_candidate_ordinal++,\n'
+        '        candidate, probing_ticks, limit);\n'
+        '    vivifier->tried++;\n')
+    replace_once(
+        vivify,
+        '    if (vivify_clause (vivifier, candidate))\n'
+        '      vivifier->vivified++;\n',
+        '    if (vivify_clause (vivifier, candidate))\n'
+        '      vivifier->vivified++;\n'
+        '    kissat_event_trace_vivify_candidate (\n'
+        '        solver, "vivify_candidate_end", trace_candidate_ordinal - 1,\n'
+        '        candidate, solver->statistics.probing_ticks, limit);\n')
+
+    eliminate = dest / "src" / "eliminate.c"
+    replace_once(eliminate, '#include "dense.h"\n',
+                 '#include "dense.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        eliminate,
+        '      if (eliminate_variable (solver, idx))\n'
+        '        last_round_eliminated++;\n',
+        '      const uint64_t trace_entry = s->eliminate_resolutions;\n'
+        '      kissat_event_trace_bve_candidate (\n'
+        '          solver, idx, "begin", trace_entry, resolution_limit, false);\n'
+        '      const bool trace_applied = eliminate_variable (solver, idx);\n'
+        '      kissat_event_trace_bve_candidate (\n'
+        '          solver, idx, "end", s->eliminate_resolutions,\n'
+        '          resolution_limit, trace_applied);\n'
+        '      if (trace_applied)\n'
+        '        last_round_eliminated++;\n')
+    replace_once(
+        eliminate,
+        '  kissat_update_heap (solver, schedule, idx, -new_score);\n',
+        '  kissat_update_heap (solver, schedule, idx, -new_score);\n'
+        '  kissat_event_trace_bve_heap (solver, "update", schedule, idx);\n')
+    replace_once(
+        eliminate,
+        '  return scheduled;\n}\n\nvoid kissat_flush_units_while_connected',
+        '  kissat_event_trace_bve_heap (solver, "initial", &solver->schedule,\n'
+        '                               UINT_MAX);\n'
+        '  return scheduled;\n}\n\nvoid kissat_flush_units_while_connected')
+    replace_once(
+        eliminate,
+        '      unsigned idx = kissat_pop_max_heap (solver, &solver->schedule);\n'
+        '      if (!can_eliminate_variable (solver, idx))\n',
+        '      unsigned idx = kissat_pop_max_heap (solver, &solver->schedule);\n'
+        '      kissat_event_trace_bve_heap (solver, "pop", &solver->schedule,\n'
+        '                                   idx);\n'
+        '      if (!can_eliminate_variable (solver, idx))\n')
+
+    resolve = dest / "src" / "resolve.c"
+    replace_once(resolve, '#include "eliminate.h"\n',
+                 '#include "eliminate.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        resolve,
+        '  uint64_t limit;\n\n  {\n',
+        '  uint64_t limit;\n'
+        '  unsigned trace_side0 = 0, trace_side1 = 0;\n\n'
+        '  {\n')
+    replace_once(
+        resolve,
+        '    const unsigned occlim = GET_OPTION (eliminateocclim);\n'
+        '    limit = pos_count + (uint64_t) neg_count;\n',
+        '    trace_side0 = pos_count;\n'
+        '    trace_side1 = neg_count;\n'
+        '    const unsigned occlim = GET_OPTION (eliminateocclim);\n'
+        '    limit = pos_count + (uint64_t) neg_count;\n')
+    replace_once(
+        resolve,
+        '  statches *const antecedents1 = &solver->antecedents[1];\n\n'
+        '  if (gates) {\n',
+        '  statches *const antecedents1 = &solver->antecedents[1];\n\n'
+        '  const size_t trace_gate0 = SIZE_STACK (*gates0);\n'
+        '  const size_t trace_gate1 = SIZE_STACK (*gates1);\n'
+        '  const uint64_t trace_charged =\n'
+        '      gates ? trace_gate0 * SIZE_STACK (*antecedents1) +\n'
+        '                  trace_gate1 * SIZE_STACK (*antecedents0) +\n'
+        '                  (solver->resolve_gate ? trace_gate0 * trace_gate1 : 0)\n'
+        '            : (uint64_t) SIZE_STACK (*antecedents0) *\n'
+        '                  SIZE_STACK (*antecedents1);\n'
+        '  kissat_event_trace_bve_plan (\n'
+        '      solver, idx, trace_side0, trace_side1, gates, trace_gate0,\n'
+        '      trace_gate1, trace_charged, solver->resolve_gate);\n\n'
+        '  if (gates) {\n')
+    replace_once(
+        resolve,
+        '      INC (eliminate_resolutions);\n\n'
+        '      for (all_literals_in_clause (other, d)) {\n',
+        '      INC (eliminate_resolutions);\n'
+        '      const uint32_t trace_pair_ordinal =\n'
+        '          (uint32_t) solver->statistics.eliminate_resolutions;\n'
+        '      kissat_event_trace_bve_pair (solver, IDX (lit),\n'
+        '                                    trace_pair_ordinal, c, d, "begin");\n\n'
+        '      for (all_literals_in_clause (other, d)) {\n')
+    replace_once(
+        resolve,
+        '      if (size_resolvent == 1) {\n'
+        '        const unsigned unit = PEEK_STACK (solver->resolvents, saved);\n'
+        '        INC (eliminate_units);\n',
+        '      if (size_resolvent == 1) {\n'
+        '        const unsigned unit = PEEK_STACK (solver->resolvents, saved);\n'
+        '        kissat_event_trace_bve_pair (\n'
+        '            solver, IDX (lit), trace_pair_ordinal, c, d,\n'
+        '            "unit-immediate");\n'
+        '        INC (eliminate_units);\n')
+
     search = dest / "src" / "search.c"
     replace_once(search, '#include "eliminate.h"\n',
                  '#include "eliminate.h"\n#include "eventtrace.h"\n'
@@ -583,6 +850,22 @@ def main():
         '  kissat_event_trace_literal (solver, "decision", lit);\n'
         '  kissat_event_trace_heap_scores (solver);\n'
         '  STOP (decide);\n')
+    replace_once(
+        decide,
+        '  const value value = kissat_decide_phase (solver, idx);\n',
+        '  const value value = kissat_decide_phase (solver, idx);\n'
+        '  kissat_event_trace_phase_pick (solver, idx, value);\n')
+
+    inlineassign = dest / "src" / "inlineassign.h"
+    replace_once(inlineassign, '#define _inlineassign_h_INLCUDED\n',
+                 '#define _inlineassign_h_INLCUDED\n\n#include "eventtrace.h"\n')
+    replace_once(
+        inlineassign,
+        '    value *saved = &SAVED (idx);\n'
+        '    *saved = new_value;\n',
+        '    value *saved = &SAVED (idx);\n'
+        '    *saved = new_value;\n'
+        '    kissat_event_trace_phase_save (solver, lit);\n')
 
     inlineheap = dest / "src" / "inlineheap.h"
     replace_once(inlineheap, '#include "internal.h"\n',
@@ -700,6 +983,118 @@ def main():
         '  kissat_event_trace_binary_add (solver, first, second);\n'
         '  if (watch)\n'
         '    kissat_watch_binary (solver, first, second);\n')
+    replace_once(
+        clause,
+        'void kissat_delete_binary (kissat *solver, unsigned a, unsigned b) {\n'
+        '  LOGBINARY (a, b, "delete");\n',
+        'void kissat_delete_binary (kissat *solver, unsigned a, unsigned b) {\n'
+        '  kissat_event_trace_binary_delete (solver, a, b);\n'
+        '  LOGBINARY (a, b, "delete");\n')
+
+    transitive = dest / "src" / "transitive.c"
+    replace_once(transitive, '#include "terminate.h"\n',
+                 '#include "terminate.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        transitive,
+        '  const size_t size_src_watches = SIZE_WATCHES (*src_watches);\n'
+        '  const unsigned src_ticks =\n',
+        '  const size_t size_src_watches = SIZE_WATCHES (*src_watches);\n'
+        '  const uint64_t event_trace_source_ticks_before =\n'
+        '      solver->statistics.transitive_ticks;\n'
+        '  bool event_trace_source_selected =\n'
+        '      kissat_transitive_trace_all_sources ();\n'
+        '  size_t event_trace_candidate_count = 0;\n'
+        '  unsigned event_trace_out_degree = 0;\n'
+        '  for (const watch *q = begin_src; q != end_src; q++) {\n'
+        '    const watch source_watch = *q;\n'
+        '    if (!source_watch.type.binary)\n'
+        '      break;\n'
+        '    const unsigned destination = source_watch.binary.lit;\n'
+        '    event_trace_out_degree++;\n'
+        '    unsigned event_trace_copies = 0;\n'
+        '    for (const watch *r = begin_src; r != end_src; r++) {\n'
+        '      const watch copy = *r;\n'
+        '      if (!copy.type.binary)\n'
+        '        break;\n'
+        '      event_trace_copies += copy.binary.lit == destination;\n'
+        '    }\n'
+        '    const char *event_trace_skip =\n'
+        '        destination < src ? "ownership"\n'
+        '        : VALUE (destination) ? "destination-fixed"\n'
+        '        : event_trace_copies > 1 ? "duplicate" : "admitted";\n'
+        '    if (kissat_transitive_trace_pair_selected (solver, src,\n'
+        '                                                destination)) {\n'
+        '      event_trace_source_selected = true;\n'
+        '      kissat_transitive_trace_admission (\n'
+        '          solver, src, destination, event_trace_copies,\n'
+        '          event_trace_skip);\n'
+        '    }\n'
+        '    if (destination < src || VALUE (destination))\n'
+        '      continue;\n'
+        '    event_trace_candidate_count++;\n'
+        '  }\n'
+        '  const uint64_t event_trace_source_sequence =\n'
+        '      kissat_transitive_trace_source_begin (\n'
+        '          solver, event_trace_source_selected, src,\n'
+        '          event_trace_source_ticks_before, event_trace_candidate_count,\n'
+        '          event_trace_out_degree);\n'
+        '  size_t event_trace_candidate_ordinal = 0;\n'
+        '  const unsigned src_ticks =\n')
+    replace_once(
+        transitive,
+        '  START (transitive);\n'
+        '  INC (transitive_reductions);\n',
+        '  START (transitive);\n'
+        '  INC (transitive_reductions);\n'
+        '  kissat_transitive_trace_endpoints (solver);\n')
+    replace_once(
+        transitive,
+        '    assert (kissat_propagated (solver));\n'
+        '    unsigned *saved = solver->propagate;\n',
+        '    const size_t event_trace_ordinal = event_trace_candidate_ordinal++;\n'
+        '    const uint64_t event_trace_candidate_ticks_before =\n'
+        '        solver->statistics.transitive_ticks;\n'
+        '    assert (kissat_propagated (solver));\n'
+        '    unsigned *saved = solver->propagate;\n')
+    replace_once(
+        transitive,
+        '      const size_t size_lit_watches = SIZE_WATCHES (*lit_watches);\n'
+        '      inner_ticks +=\n'
+        '          1 + kissat_cache_lines (size_lit_watches, sizeof (watch));\n'
+        '      for (const watch *q = begin_lit; q != end_lit; q++) {\n',
+        '      const size_t size_lit_watches = SIZE_WATCHES (*lit_watches);\n'
+        '      const uint64_t event_trace_node_ticks_before =\n'
+        '          solver->statistics.transitive_ticks + inner_ticks;\n'
+        '      inner_ticks +=\n'
+        '          1 + kissat_cache_lines (size_lit_watches, sizeof (watch));\n'
+        '      kissat_transitive_trace_walk_node (\n'
+        '          solver, src, dst, lit, propagate - solver->propagate - 1,\n'
+        '          event_trace_node_ticks_before,\n'
+        '          solver->statistics.transitive_ticks + inner_ticks,\n'
+        '          size_lit_watches);\n'
+        '      kissat_transitive_trace_walk_entries (\n'
+        '          solver, src, dst, lit, not_lit);\n'
+        '      for (const watch *q = begin_lit; q != end_lit; q++) {\n')
+    replace_once(
+        transitive,
+        '    transitive_backtrack (solver, saved);\n\n'
+        '    if (transitive) {\n',
+        '    transitive_backtrack (solver, saved);\n'
+        '    kissat_transitive_trace_candidate (\n'
+        '        solver, event_trace_source_sequence, src, event_trace_ordinal,\n'
+        '        dst, event_trace_candidate_ticks_before,\n'
+        '        solver->statistics.transitive_ticks, transitive, failed,\n'
+        '        event_trace_candidate_count, event_trace_out_degree);\n\n'
+        '    if (transitive) {\n')
+    replace_once(
+        transitive,
+        '  return res;\n}\n\nstatic inline bool less_stable_transitive',
+        '  kissat_transitive_trace_source_end (\n'
+        '      solver, event_trace_source_sequence, src,\n'
+        '      event_trace_candidate_ordinal, event_trace_source_ticks_before,\n'
+        '      solver->statistics.transitive_ticks, res,\n'
+        '      event_trace_candidate_count, event_trace_out_degree);\n'
+        '  return res;\n}\n\nstatic inline bool less_stable_transitive')
 
     bump = dest / "src" / "bump.c"
     replace_once(bump, '#include "analyze.h"\n',
@@ -728,10 +1123,49 @@ def main():
         '    kissat_event_trace_literal (solver, "heap_reinsert", LIT (idx));\n'
         '    kissat_push_heap (solver, scores, idx);\n'
         '  }\n')
+    replace_once(
+        backtrack,
+        '  if (solver->target_assigned < assigned) {\n'
+        '    kissat_extremely_verbose (solver,\n',
+        '  if (solver->target_assigned < assigned) {\n'
+        '    kissat_event_trace_target_state (solver, "target-save-pre",\n'
+        '                                     assigned);\n'
+        '    kissat_extremely_verbose (solver,\n')
+    replace_once(
+        backtrack,
+        '    kissat_save_target_phases (solver);\n'
+        '    INC (target_saved);\n'
+        '  }\n',
+        '    kissat_save_target_phases (solver);\n'
+        '    INC (target_saved);\n'
+        '    kissat_event_trace_target_state (solver, "target-save-post",\n'
+        '                                     assigned);\n'
+        '  }\n')
+
+    compact = dest / "src" / "compact.c"
+    replace_once(compact, '#include "compact.h"\n',
+                 '#include "compact.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        compact,
+        '  compact_best_and_target_values (solver, vars);\n\n'
+        '  solver->vars = vars;\n',
+        '  kissat_event_trace_target_state (solver, "compact-pre",\n'
+        '                                   kissat_assigned (solver));\n'
+        '  compact_best_and_target_values (solver, vars);\n\n'
+        '  solver->vars = vars;\n'
+        '  kissat_event_trace_target_state (solver, "compact-post",\n'
+        '                                   kissat_assigned (solver));\n')
 
     deduce = dest / "src" / "deduce.c"
     replace_once(deduce, '#include "deduce.h"\n',
                  '#include "deduce.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        deduce,
+        '  unsigned glue = MIN (c->glue, MAX_GLUE_USED);\n'
+        '  solver->statistics.used[solver->stable].glue[glue]++;\n',
+        '  unsigned glue = MIN (c->glue, MAX_GLUE_USED);\n'
+        '  kissat_event_trace_clause_used (solver, c);\n'
+        '  solver->statistics.used[solver->stable].glue[glue]++;\n')
     replace_once(
         deduce,
         '  kissat_push_analyzed (solver, all_assigned, idx);\n'
@@ -827,6 +1261,14 @@ def main():
         '    INC (search_ticks);\n'
         '  }\n')
 
+    promote = dest / "src" / "promote.c"
+    replace_once(promote, '#include "promote.h"\n',
+                 '#include "promote.h"\n#include "eventtrace.h"\n')
+    replace_once(promote,
+        '  c->glue = new_glue;\n',
+        '  kissat_event_trace_clause_glue (solver, c, old_glue, new_glue);\n'
+        '  c->glue = new_glue;\n')
+
     shrink = dest / "src" / "shrink.c"
     replace_once(shrink, '#include "shrink.h"\n',
                  '#include "shrink.h"\n#include "eventtrace.h"\n')
@@ -849,6 +1291,55 @@ def main():
         '  const unsigned not_lit = NOT (lit);\n\n'
         '  kissat_event_trace_watch_scan (solver, lit);\n'
         '  assert (not_lit < LITS);\n')
+    replace_once(proplit,
+        '  const size_t size_watches = SIZE_WATCHES (*watches);\n'
+        '  uint64_t ticks = 1 + kissat_cache_lines (size_watches, sizeof (watch));\n',
+        '  const size_t size_watches = SIZE_WATCHES (*watches);\n'
+        '  const uint64_t base_ticks =\n'
+        '      1 + kissat_cache_lines (size_watches, sizeof (watch));\n'
+        '  uint64_t binary_assignments = 0, large_dereferences = 0;\n'
+        '  uint64_t relocations = 0, large_assignments = 0;\n'
+        '  uint64_t ticks = base_ticks;\n')
+    replace_once(proplit,
+        '        kissat_fast_binary_assign (solver, probing, level, values, assigned,\n'
+        '                                   blocking, not_lit);\n'
+        '        ticks++;\n',
+        '        kissat_fast_binary_assign (solver, probing, level, values, assigned,\n'
+        '                                   blocking, not_lit);\n'
+        '        binary_assignments++;\n'
+        '        ticks++;\n')
+    replace_once(proplit,
+        '      clause *const c = (clause *) (arena + ref);\n'
+        '      ticks++;\n',
+        '      clause *const c = (clause *) (arena + ref);\n'
+        '      large_dereferences++;\n'
+        '      ticks++;\n')
+    replace_once(proplit,
+        '        kissat_delay_watching_large (solver, delayed, replacement, other,\n'
+        '                                     ref);\n'
+        '        ticks++;\n',
+        '        kissat_delay_watching_large (solver, delayed, replacement, other,\n'
+        '                                     ref);\n'
+        '        relocations++;\n'
+        '        ticks++;\n')
+    replace_once(proplit,
+        '        kissat_fast_assign_reference (solver, values, assigned, other, ref,\n'
+        '                                      c);\n'
+        '        ticks++;\n',
+        '        kissat_fast_assign_reference (solver, values, assigned, other, ref,\n'
+        '                                      c);\n'
+        '        large_assignments++;\n'
+        '        ticks++;\n')
+    replace_once(proplit,
+        '  kissat_watch_large_delayed (solver, all_watches, delayed);\n\n'
+        '  return res;\n',
+        '  kissat_watch_large_delayed (solver, all_watches, delayed);\n'
+        '  kissat_event_trace_watch_scan_post (solver, lit);\n'
+        '  kissat_event_trace_watch_cost (\n'
+        '      solver, lit, size_watches, SIZE_WATCHES (*watches), base_ticks,\n'
+        '      binary_assignments, large_dereferences, relocations,\n'
+        '      large_assignments, ticks);\n\n'
+        '  return res;\n')
 
     reduce = dest / "src" / "reduce.c"
     replace_once(reduce, '#include "collect.h"\n',
@@ -902,7 +1393,7 @@ def main():
         '  unsigned encoded;\n'
         '  unsigned save;\n',
         '  unsigned encoded;\n'
-        '  unsigned trace_seed, trace_query_ordinal;\n'
+        '  unsigned trace_seed, trace_query_ordinal, trace_binary_ordinal;\n'
         '  unsigned save;\n')
     replace_once(sweep,
         '  return res;\n'
@@ -936,12 +1427,82 @@ def main():
         '  kitten_clause (solver->kitten, SIZE_STACK (sweeper->clause),\n'
         '                 BEGIN_STACK (sweeper->clause));\n')
     replace_once(sweep,
+        '          const unsigned second = POP_STACK (solver->clause);\n'
+        '          const unsigned first = POP_STACK (solver->clause);\n'
+        '          LOGCLS (c, "reduces to binary clause %s %s", LOGLIT (first),\n',
+        '          const unsigned second = POP_STACK (solver->clause);\n'
+        '          const unsigned first = POP_STACK (solver->clause);\n'
+        '          kissat_event_trace_binary_collapse (solver, first, second, c);\n'
+        '          LOGCLS (c, "reduces to binary clause %s %s", LOGLIT (first),\n')
+    replace_once(sweep,
+        '        CHECK_AND_ADD_BINARY (repr, other);\n'
+        '        ADD_BINARY_TO_PROOF (repr, other);\n',
+        '        kissat_event_trace_binary_rewrite (solver, lit, other, repr,\n'
+        '                                           other);\n'
+        '        CHECK_AND_ADD_BINARY (repr, other);\n'
+        '        ADD_BINARY_TO_PROOF (repr, other);\n')
+    replace_once(sweep,
         '  const unsigned start = LIT (idx);\n'
         '  if (sweeper->reprs[start] != start)\n',
         '  const unsigned start = LIT (idx);\n'
         '  sweeper->trace_seed = start;\n'
         '  sweeper->trace_query_ordinal = 0;\n'
+        '  sweeper->trace_binary_ordinal = 0;\n'
         '  if (sweeper->reprs[start] != start)\n')
+    replace_once(sweep,
+        'static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,\n'
+        '                          unsigned other) {\n'
+        '  if (sweep_repr (sweeper, lit) != lit)\n'
+        '    return;\n'
+        '  if (sweep_repr (sweeper, other) != other)\n'
+        '    return;\n',
+        'static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,\n'
+        '                          unsigned other) {\n'
+        '  if (sweep_repr (sweeper, lit) != lit) {\n'
+        '    kissat_event_trace_sweep_binary_attempt (\n'
+        '        sweeper->solver, sweeper->trace_seed,\n'
+        '        sweeper->trace_binary_ordinal++, lit, other, (int) depth, -1,\n'
+        '        "skip-lit-repr");\n'
+        '    return;\n'
+        '  }\n'
+        '  if (sweep_repr (sweeper, other) != other) {\n'
+        '    kissat_event_trace_sweep_binary_attempt (\n'
+        '        sweeper->solver, sweeper->trace_seed,\n'
+        '        sweeper->trace_binary_ordinal++, lit, other, (int) depth, -1,\n'
+        '        "skip-other-repr");\n'
+        '    return;\n'
+        '  }\n')
+    replace_once(sweep,
+        '  if (other_value > 0) {\n'
+        '    LOGBINARY (lit, other, "skipping satisfied");\n'
+        '    return;\n'
+        '  }\n',
+        '  if (other_value > 0) {\n'
+        '    LOGBINARY (lit, other, "skipping satisfied");\n'
+        '    kissat_event_trace_sweep_binary_attempt (\n'
+        '        solver, sweeper->trace_seed, sweeper->trace_binary_ordinal++,\n'
+        '        lit, other, (int) depth, -1, "skip-satisfied");\n'
+        '    return;\n'
+        '  }\n')
+    replace_once(sweep,
+        '  if (other_depth && other_depth < lit_depth) {\n'
+        '    LOGBINARY (lit, other, "skipping depth %u copied", other_depth);\n'
+        '    return;\n'
+        '  }\n'
+        '  assert (!other_value);\n',
+        '  if (other_depth && other_depth < lit_depth) {\n'
+        '    LOGBINARY (lit, other, "skipping depth %u copied", other_depth);\n'
+        '    kissat_event_trace_sweep_binary_attempt (\n'
+        '        solver, sweeper->trace_seed, sweeper->trace_binary_ordinal++,\n'
+        '        lit, other, (int) lit_depth - 1, (int) other_depth - 1,\n'
+        '        "skip-shallower");\n'
+        '    return;\n'
+        '  }\n'
+        '  kissat_event_trace_sweep_binary_attempt (\n'
+        '      solver, sweeper->trace_seed, sweeper->trace_binary_ordinal++,\n'
+        '      lit, other, (int) lit_depth - 1,\n'
+        '      other_depth ? (int) other_depth - 1 : -1, "add");\n'
+        '  assert (!other_value);\n')
     replace_once(sweep,
         '  int res = sweep_solve (sweeper);\n'
         '  LOG ("sub-solver returns \'%d\'", res);\n',
@@ -973,6 +1534,13 @@ def main():
         '  kissat_extremely_verbose (solver,\n',
         '  ADD (sweep_environment, SIZE_STACK (sweeper->vars));\n'
         '  {\n'
+        '    unsigned trace_ordinal = 0;\n'
+        '    for (all_stack (unsigned, trace_idx, sweeper->vars))\n'
+        '      kissat_event_trace_sweep_environment_var (\n'
+        '          solver, sweeper->trace_seed, trace_ordinal++, trace_idx,\n'
+        '          sweeper->depths[trace_idx] - 1);\n'
+        '  }\n'
+        '  {\n'
         '    char payload[128];\n'
         '    snprintf (payload, sizeof payload,\n'
         '              "external=%d|vars=%zu|clauses=%u",\n'
@@ -992,6 +1560,32 @@ def main():
         '    kissat_event_trace (solver, "sweep_seed", payload, false);\n'
         '  }\n\n'
         '  LOG ("sweeping %s", LOGVAR (idx));\n')
+    replace_once(sweep,
+        '#ifndef QUIET\n'
+        '    const char *res =\n'
+        '#endif\n'
+        '        sweep_variable (&sweeper, idx);\n'
+        '    kissat_extremely_verbose (\n',
+        '    const uint64_t trace_ticks_before = statistics->kitten_ticks;\n'
+        '    const uint64_t trace_solves_before = statistics->sweep_solved;\n'
+        '    const int trace_external =\n'
+        '        kissat_export_literal (solver, LIT (idx));\n'
+        '#ifndef QUIET\n'
+        '    const char *res =\n'
+        '#endif\n'
+        '        sweep_variable (&sweeper, idx);\n'
+        '    const uint64_t trace_ticks_after = statistics->kitten_ticks;\n'
+        '    if (trace_ticks_after != trace_ticks_before) {\n'
+        '      char payload[256];\n'
+        '      snprintf (payload, sizeof payload,\n'
+        '                "external=%d|before=%" PRIu64 "|after=%" PRIu64\n'
+        '                "|delta=%" PRIu64 "|solves=%" PRIu64,\n'
+        '                trace_external, trace_ticks_before, trace_ticks_after,\n'
+        '                trace_ticks_after - trace_ticks_before,\n'
+        '                statistics->sweep_solved - trace_solves_before);\n'
+        '      kissat_event_trace (solver, "sweep_effort", payload, false);\n'
+        '    }\n'
+        '    kissat_extremely_verbose (\n')
     replace_once(sweep,
         '  LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));\n'
         '  INC (sweep_equivalences);\n',
@@ -1020,8 +1614,26 @@ def main():
         '        watch src = {.raw = head.raw};\n',
         '        kissat_event_trace_sweep_rewrite_binary (\n'
         '            solver, lit, repr, current_trace_position, other);\n'
+        '        kissat_event_trace_sweep_rewrite_occurrence (\n'
+        '            solver, lit, repr, current_trace_position, true, other, 0);\n'
         '        PUSH_STACK (*delayed, head.raw);\n'
         '        watch src = {.raw = head.raw};\n')
+    replace_once(sweep,
+        '          dst.binary.lit = other;\n'
+        '          PUSH_STACK (*delayed, dst.raw);\n',
+        '          dst.binary.lit = other;\n'
+        '          kissat_event_trace_sweep_rewrite_occurrence (\n'
+        '              solver, lit, repr, current_trace_position, true, other, 0);\n'
+        '          PUSH_STACK (*delayed, dst.raw);\n')
+    replace_once(sweep,
+        '        if (!repr_already_watched)\n'
+        '          PUSH_STACK (*delayed, head.raw);\n',
+        '        if (!repr_already_watched) {\n'
+        '          kissat_event_trace_sweep_rewrite_occurrence (\n'
+        '              solver, lit, repr, current_trace_position, false,\n'
+        '              INVALID_LIT, c);\n'
+        '          PUSH_STACK (*delayed, head.raw);\n'
+        '        }\n')
     replace_once(sweep,
         '  unsigned *q = BEGIN_STACK (*core);\n'
         '  const unsigned *const end_core = END_STACK (*core), *p = q;\n\n'

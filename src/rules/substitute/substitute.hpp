@@ -67,11 +67,10 @@ ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds = 2);
 ApplyResult substitute_apply_equivalences(
     Kernel &, const std::vector<std::pair<Lit, Lit>> &);
 
-// Tactix's variable-width arena cannot shrink a clause in place.  Sweep keeps
-// one of these ledgers across all productive environments in a call: each
-// connected replacement inherits its source pose, garbage is collected once
-// after the reference-ordered consequence sequence, and the resulting arena
-// has the same logical clause order it had before the call.
+// Sweep keeps one session across all productive environments in a call. Its
+// connected replacements retain source pose and allocation span, while the
+// output-sensitive mixed-occurrence view supplies Kissat's stream order only
+// for literals reached by the environment or rewrite.
 struct SweepSubstitutionSession final : ArenaOrdering {
   struct DenseOccurrence {
     bool binary = false;
@@ -93,6 +92,20 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // and `Kernel::dense` own membership. A ledger that claims a clause the
   // formula does not hold puts a phantom clause into the next environment.
   std::vector<std::vector<DenseOccurrence>> dense_occurrences;
+  // Kissat has no all-literals shadow build: it reads the one connected watch
+  // stream when a literal is reached.  Tactix materializes the equivalent
+  // binary-then-large view lazily and retains it only for literals touched in
+  // this Sweep call.  The vector storage is retained across calls so giant
+  // formulas do not repeatedly construct/destroy millions of empty vectors.
+  std::vector<uint8_t> dense_initialized;
+  std::vector<Lit> dense_initialized_lits;
+  bool dense_enabled = false;
+  // Directed owners whose ordered binary substream was changed by the current
+  // inline transaction. Reconciled against physical watches before the next
+  // Sweep seed consumes the ledger: a dirty substream is a prediction the
+  // physical rewrite may supersede, so only there may `sync_new_binaries`
+  // meet a ledger-only binary; on any other owner that residue is a defect.
+  std::vector<Lit> dirty_binary_owners;
 
   // Kissat retires one literal at a time: `substitute_connected_clauses` walks
   // that literal's single unified watch stream and pushes every occurrence it
@@ -109,24 +122,44 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   };
 
   void begin(const Kernel &);
+  bool has_dense_occurrences() const { return dense_enabled; }
+  std::vector<DenseOccurrence> &occurrences(const Kernel &, Lit);
+  // Must precede publication of a fresh equivalence pair so a newly appended
+  // binary remains after the pre-existing mixed stream, as in Kissat.
+  void prime_equivalence(const Kernel &, Lit a, Lit b);
   // Adopt the binaries Sweep published for this batch. Must run for every
   // emitted batch, including one whose classes are all declined below, because
   // the binaries are already in the watch lists by then.
   void sync_new_binaries(
       const Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
-  // `members` is the requested class map. The rewrite this mirrors declines a
+  // `map` is the sparse requested literal-to-representative map. The rewrite
+  // this mirrors declines a
   // member that is already root-fixed or retired, so this applies the same
   // predicate rather than the map; mirroring the map instead moves ledger
   // entries the kernel leaves in place. `sources` is every retiring literal in
   // the order `sweep_equivalence` hands it to `substitute_connected_clauses`;
   // it opens the transaction that `flush_moves` closes.
-  void rewrite_binary_occurrences(const Kernel &, const std::vector<Lit> &repr,
-                                  const std::vector<uint8_t> &members,
-                                  const std::vector<Lit> &sources);
+  void rewrite_binary_occurrences(
+      const Kernel &, const std::vector<std::pair<Lit, Lit>> &map,
+      const std::vector<Lit> &sources);
   const std::vector<Lit> &retiring_sources() const { return retiring; }
+  bool substitutes(Lit) const;
+  Lit representative(Lit) const;
+  uint32_t retiring_index(Lit) const;
+  // Materialize the streams of every literal of an irredundant connected
+  // clause before the kernel rewrites, collapses or retires it. The ledger
+  // entry points below locate the source by its pre-rewrite pose; a stream
+  // first built after the kernel has marked the record garbage, dropped it
+  // from `Kernel::dense`, or published its binary image cannot contain it.
+  void prime_large(const Kernel &, Ref source);
   void remove_large(Kernel &, Ref source);
   void collapse_large_to_binary(Kernel &, Ref source, Lit a, Lit b,
                                 bool append_a, bool append_b);
+  // Mirror the ordered mixed-occurrence effect before the kernel overwrites a
+  // surviving large clause at the same Ref.  This changes only Sweep's
+  // traversal ledger; the general kernel primitive owns physical indexes.
+  void rewrite_large_in_place(const Kernel &, Ref source, const Lit *image,
+                              uint32_t size);
   void inherit(Kernel &, Ref replacement, Ref source);
   // Append the transaction's moved occurrences to their representatives, one
   // retiring literal's stream at a time. Runs once per emission batch, after
@@ -136,13 +169,14 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   uint64_t collect(Kernel &);
 
 private:
-  DenseOccurrence *find_large(Lit, Ref);
-  void erase_large(Lit, Ref);
+  DenseOccurrence *find_large(const Kernel &, Lit, Ref);
+  void erase_large(const Kernel &, Lit, Ref);
   void purge_stale_binaries(Lit, std::unordered_map<Lit, size_t> &);
   void reset_transaction();
   bool move_origin(const Clause &, Lit representative, Ref source,
+                   bool final_binary,
                    uint32_t &rank, uint32_t &position) const;
-  void push_move(const Clause &, Lit representative, Ref source,
+  void push_move(const Kernel &, const Clause &, Lit representative, Ref source,
                  DenseOccurrence image);
 
   std::vector<DelayedMove> delayed_moves;

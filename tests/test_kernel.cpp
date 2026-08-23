@@ -66,6 +66,13 @@ static void test_variable_compaction() {
   // compact_queue.  Preserve the same external candidate across renumbering.
   hg.h.search_idx = 4;
   hg.h.search_stamp = hg.h.links[4].stamp;
+  // Kissat recomputes compacted target/best high-water marks from the
+  // surviving nonzero phase entries.  Retired x2/x4 must not count, while the
+  // mapped entries for x1/x3/x5 must retain both their values and population.
+  hg.h.target = {1, -1, -1, 1, 0};
+  hg.h.best = {0, 1, -1, -1, 1};
+  hg.h.target_assigned = 4;
+  hg.h.best_assigned = 4;
   assert(kernel_should_compact_variables(k, 10));
   assert(kernel_compact_variables(k));
 
@@ -76,6 +83,10 @@ static void test_variable_compaction() {
   assert(kernel_internalize(k, 3) == make_lit(1, false));
   assert(kernel_externalize(k, make_lit(2, true)) == -5);
   assert(kernel_externalize(k, make_lit(hg.h.search_idx, false)) == 5);
+  assert((hg.h.target == std::vector<int8_t>{1, -1, 0}));
+  assert((hg.h.best == std::vector<int8_t>{0, -1, 1}));
+  assert(hg.h.target_assigned == 2);
+  assert(hg.h.best_assigned == 2);
   assert(lit_instance(k, make_lit(2, false)) == stable_instance);
   assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
   const Clause *c = clause_at(k.arena, 0);
@@ -335,9 +346,9 @@ static void test_root_sparse_collection_keeps_native_order() {
   kernel_add_large_clause(k, second, 3, false, 0, 13);
   assert(kernel_sparse_collect_root(k) == RootCollectOutcome::Changed);
   const Clause *a = clause_at(k.arena, 0);
-  const Clause *b = clause_at(k.arena, clause_words(a->size));
-  const Clause *c = clause_at(k.arena, clause_words(a->size) +
-                                           clause_words(b->size));
+  const Clause *b = clause_at(k.arena, clause_actual_words(a));
+  const Clause *c = clause_at(k.arena, clause_actual_words(a) +
+                                           clause_actual_words(b));
   assert(a->id() == 11 && b->id() == 1 && c->id() == 13);
   kernel_check_invariants(k);
 }
@@ -364,7 +375,7 @@ static void test_root_sparse_collection_ignores_nonroot_values() {
     const Clause *c = clause_at(k.arena, ref);
     saw_root |= c->id() == 101;
     saw_search |= c->id() == 102;
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   assert(!saw_root);
   assert(saw_search && "a decision-level true literal is not a root fact");
@@ -419,9 +430,40 @@ static void test_sparse_collection_flushes_fixed_prefix_watch() {
   kernel_check_invariants(k);
 }
 
-// Kissat's sparse collector keeps the unswept prefix, then stably partitions
-// a mixed swept tail into irredundant and redundant clauses before rewatching
-// it.  The partition is a collection invariant, not an arena policy choice.
+// DefaultArenaOrder may physically place an irredundant clause after the first
+// redundant record.  Kissat's logical arena invariant still keeps that clause
+// in the unswept prefix, so a Reduce collection must not root-flush it merely
+// because the stronger physical order crossed the watermark.
+static void test_root_sparse_collection_retains_logical_irredundant_prefix() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit root = internalize(1);
+  kernel_assign_unit(k, root);
+  const Lit prefix[3] = {internalize(2), internalize(3), internalize(4)};
+  const Lit victim_lits[3] = {internalize(3), internalize(4),
+                              internalize(5)};
+  const Lit logical_prefix[3] = {root, internalize(6), internalize(7)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 151);
+  const Ref start =
+      kernel_add_large_clause(k, victim_lits, 3, true, 7, 152);
+  kernel_add_large_clause(k, logical_prefix, 3, false, 0, 153);
+  kernel_delete_clause(k, clause_at(k.arena, start));
+
+  assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::NoChange);
+  bool retained = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    retained |= c->id() == 153;
+    ref += clause_actual_words(c);
+  }
+  assert(retained);
+  kernel_check_invariants(k);
+}
+
+// Kissat's sparse collector keeps the unswept logical irredundant prefix,
+// including its already-mutated watch-list order, then stably partitions and
+// rewatches the redundant tail.  The partition is a collection invariant,
+// not an arena policy choice, but it must not sort retained watches by arena.
 static void test_sparse_collection_partitions_mixed_tail() {
   Kernel k;
   kernel_reserve_vars(k, 7);
@@ -433,9 +475,15 @@ static void test_sparse_collection_partitions_mixed_tail() {
   const Lit irred_second[3] = {shared, internalize(6), internalize(7)};
   kernel_add_large_clause(k, prefix, 3, false, 0, 201);
   const Ref start = kernel_add_large_clause(k, red_first, 3, true, 7, 202);
-  kernel_add_large_clause(k, irred_first, 3, false, 0, 203);
+  const Ref irred_first_ref =
+      kernel_add_large_clause(k, irred_first, 3, false, 0, 203);
   kernel_add_large_clause(k, red_second, 3, true, 8, 204);
   kernel_add_large_clause(k, irred_second, 3, false, 0, 205);
+
+  // Model a search relocation before Reduce: retained irredundant watches keep
+  // this exact order even though collection moves their clause records.
+  kernel_unwatch_large(k, shared, irred_first_ref);
+  k.watches.push_large(shared, internalize(4), irred_first_ref);
 
   ReverseArenaOrder reverse;
   k.arena_ordering = &reverse;
@@ -446,7 +494,7 @@ static void test_sparse_collection_partitions_mixed_tail() {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     arena_ids.push_back(c->id());
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
 
@@ -454,7 +502,42 @@ static void test_sparse_collection_partitions_mixed_tail() {
   for (const WatchEntry watch : k.watches.entries(shared))
     if (!watch.binary())
       watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
-  assert((watched_ids == arena_ids));
+  assert((watched_ids == std::vector<uint64_t>{201, 205, 203, 202, 204}));
+  kernel_check_invariants(k);
+}
+
+// A watch relocation may leave the opposite entry caching the old watched
+// literal.  Kissat retains that exact two-word entry for every irredundant
+// prefix clause during Reduce.  Rebuilding a physically interleaved
+// irredundant clause changes the cache to the new watched partner and can
+// change a later propagation even though the clause pose is unchanged.
+static void test_sparse_collection_preserves_irredundant_blocker() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 7);
+  const Lit a = internalize(1), b = internalize(2), c = internalize(3);
+  const Lit prefix[3] = {internalize(4), internalize(5), internalize(6)};
+  const Lit redundant[3] = {internalize(4), internalize(6), internalize(7)};
+  const Lit focal[3] = {a, b, c};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 161);
+  const Ref start = kernel_add_large_clause(k, redundant, 3, true, 7, 162);
+  const Ref focal_ref = kernel_add_large_clause(k, focal, 3, false, 0, 163);
+
+  kernel_assign_decision(k, negate(a));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+  const Clause *posed = clause_at(k.arena, focal_ref);
+  assert(posed->lits[0] == b && posed->lits[1] == c);
+
+  const auto blocker_for = [&](Lit watched, uint64_t id) {
+    for (const WatchEntry watch : k.watches.entries(watched))
+      if (!watch.binary() && clause_at(k.arena, watch.ref())->id() == id)
+        return watch.blocking();
+    return INVALID_LIT;
+  };
+  assert(blocker_for(b, 163) == a);
+
+  kernel_collect_garbage(k, start);
+  assert(blocker_for(b, 163) == a);
   kernel_check_invariants(k);
 }
 
@@ -490,7 +573,7 @@ static void test_root_sparse_collection_partitions_rewritten_tail() {
     const Clause *c = clause_at(k.arena, ref);
     arena_ids.push_back(c->id());
     redundant.push_back(c->redundant());
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{301, 303, 305, 1, 304}));
   assert((redundant == std::vector<bool>{false, false, false, true, true}));
@@ -539,7 +622,7 @@ static void test_root_sparse_collection_collects_existing_garbage() {
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     arena_ids.push_back(c->id());
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   assert((arena_ids == std::vector<uint64_t>{401, 406, 405, 402}));
 
@@ -547,7 +630,9 @@ static void test_root_sparse_collection_collects_existing_garbage() {
   for (const WatchEntry watch : k.watches.entries(shared))
     if (!watch.binary())
       watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
-  assert((watched_ids == arena_ids));
+  // The inherited source key restores arena enumeration, but the live
+  // irredundant watches preserve their pre-collection relocation order.
+  assert((watched_ids == std::vector<uint64_t>{401, 405, 406, 402}));
   kernel_check_invariants(k);
 }
 
@@ -621,7 +706,7 @@ static void test_garbage_collection_drops_retired_otfs_reason() {
   bool is_record_start = false;
   for (Ref ref = 0; ref < k.arena.size();) {
     is_record_start |= ref == forwarded;
-    ref += clause_words(clause_at(k.arena, ref)->size);
+    ref += clause_actual_words(clause_at(k.arena, ref));
   }
   assert(is_record_start);
   kernel_check_invariants(k);
@@ -703,7 +788,7 @@ static BookKeeping bookkeeping(const Kernel &k) {
     s.clauses.push_back(c->searched);
     for (const Lit x : *c)
       s.clauses.push_back(x);
-    ref += clause_words(c->size);
+    ref += clause_actual_words(c);
   }
   return s;
 }
@@ -867,6 +952,128 @@ static void test_rebuild_large_watches_restores_arena_order() {
   kernel_check_invariants(k);
 }
 
+static void test_phase_rebuild_large_watches_restores_source_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(-1);
+  const Lit a[3] = {shared, internalize(2), internalize(3)};
+  const Lit b[3] = {shared, internalize(4), internalize(5)};
+  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
+  kernel_add_large_clause(k, a, 3, false, 0, 301);
+  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  kernel_inherit_clause_order(k, 303, 299);
+
+  kernel_rebuild_large_watches(k, /*inherited_source_order=*/true);
+
+  std::vector<uint64_t> ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((ids == std::vector<uint64_t>{303, 301, 302}));
+  kernel_check_invariants(k);
+}
+
+static void test_dense_occurrences_keep_source_order_across_collection() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(-1);
+  const Lit a[3] = {shared, internalize(2), internalize(3)};
+  const Lit b[3] = {shared, internalize(4), internalize(5)};
+  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
+  kernel_add_large_clause(k, a, 3, false, 0, 301);
+  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  kernel_inherit_clause_order(k, 303, 299);
+
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  const auto dense_ids = [&] {
+    std::vector<uint64_t> ids;
+    for (const Ref ref : occ.large[shared])
+      ids.push_back(clause_at(k.arena, ref)->id());
+    return ids;
+  };
+  assert((dense_ids() == std::vector<uint64_t>{303, 301, 302}));
+
+  ReverseArenaOrder reverse;
+  k.arena_ordering = &reverse;
+  kernel_collect_garbage(k);
+  assert((dense_ids() == std::vector<uint64_t>{303, 301, 302}) &&
+         "dense reconnect must not inherit the physical arena policy");
+  kernel_dense_disconnect(k);
+  kernel_check_invariants(k);
+}
+
+static void test_large_replacement_preserves_redundant_recency() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit original[4] = {internalize(1), internalize(-2), internalize(3),
+                           internalize(-4)};
+  const Ref old_ref = kernel_add_large_clause(
+      k, original, 4, true, 3, ++k.next_clause_id);
+  Clause *old = clause_at(k.arena, old_ref);
+  old->set_used(Clause::MAX_USED - 2);
+  kernel_unwatch_large(k, old->lits[0], old_ref);
+  kernel_unwatch_large(k, old->lits[1], old_ref);
+
+  const Lit shortened[3] = {original[0], original[1], original[2]};
+  Ref replacement = INVALID_REF;
+  const ReplaceOutcome outcome = kernel_replace_clause(
+      k, old, ++k.next_clause_id, shortened, 3, true, 2, &replacement);
+
+  assert(outcome == ReplaceOutcome::Large);
+  assert(replacement != INVALID_REF);
+  const Clause *rewritten = clause_at(k.arena, replacement);
+  assert(rewritten->used() == Clause::MAX_USED - 2);
+  assert(!rewritten->vivify());
+  assert(rewritten->glue() == 2);
+  kernel_check_invariants(k);
+}
+
+static void test_in_place_large_replacement_preserves_allocation_span() {
+  Kernel k;
+  kernel_reserve_vars(k, 9);
+  const Lit original[6] = {internalize(1), internalize(2), internalize(3),
+                           internalize(4), internalize(5), internalize(6)};
+  const Ref ref = kernel_add_large_clause(k, original, 6, false, 0,
+                                          ++k.next_clause_id);
+  const Lit tail[3] = {internalize(7), internalize(8), internalize(9)};
+  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, false, 0,
+                                               ++k.next_clause_id);
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  const Lit first_image[4] = {original[0], original[2], original[4], tail[0]};
+  kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id,
+                                       first_image, 4, 0);
+  const Clause *c = clause_at(k.arena, ref);
+  assert(c->size == 4 && c->shrunken());
+  assert(clause_actual_words(c) == clause_words(6));
+  assert(ref + clause_actual_words(c) == tail_ref);
+  assert(std::find(occ.large[original[1]].begin(),
+                   occ.large[original[1]].end(), ref) ==
+         occ.large[original[1]].end());
+  assert(occ.large[tail[0]].back() == ref);
+
+  const Lit second_image[3] = {first_image[0], first_image[2], first_image[3]};
+  kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id,
+                                       second_image, 3, 0);
+  c = clause_at(k.arena, ref);
+  assert(c->size == 3 && c->shrunken());
+  assert(clause_actual_words(c) == clause_words(6));
+  assert(ref + clause_actual_words(c) == tail_ref);
+  kernel_check_invariants(k);
+
+  kernel_collect_garbage(k);
+  c = clause_at(k.arena, 0);
+  assert(c->size == 3 && !c->shrunken());
+  assert(clause_actual_words(c) == clause_words(3));
+  assert(k.arena.size() == 2 * clause_words(3));
+  kernel_dense_disconnect(k);
+  kernel_check_invariants(k);
+}
+
 static void test_rebuild_large_watches_reselects_root_false_pair() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -954,6 +1161,9 @@ static void test_canonical_binary_watch_rebuild() {
   kernel_add_binary_clause(k, pivot, lower2);
   kernel_add_binary_clause(k, pivot, lower0);
   kernel_add_binary_clause(k, pivot, lower1);
+  const Lit root_satisfied = internalize(6);
+  kernel_add_binary_clause(k, root_satisfied, higher);
+  kernel_assign_unit(k, root_satisfied);
   const Lit large[3] = {pivot, internalize(4), internalize(6)};
   kernel_add_large_clause(k, large, 3, false, 0);
 
@@ -978,6 +1188,8 @@ static void test_canonical_binary_watch_rebuild() {
   assert(saw_large);
   assert(k.watches.heads[pivot].binaries_first);
   assert(kernel_binary_copies(k, pivot, higher) == 1);
+  assert(kernel_binary_copies(k, root_satisfied, higher) == 0 &&
+         "Congruence dense entry drops root-satisfied binaries like Kissat");
   assert(kernel_binary_copies(k, pivot, internalize(6)) == 0);
   assert(k.stats.congruence_binary_rebuilds == 1);
   kernel_check_invariants(k);
@@ -1137,7 +1349,9 @@ int main() {
   test_root_sparse_collection_ignores_nonroot_values();
   test_root_sparse_collection_rewrites_nonroot_reason();
   test_sparse_collection_flushes_fixed_prefix_watch();
+  test_root_sparse_collection_retains_logical_irredundant_prefix();
   test_sparse_collection_partitions_mixed_tail();
+  test_sparse_collection_preserves_irredundant_blocker();
   test_root_sparse_collection_partitions_rewritten_tail();
   test_root_sparse_collection_collects_existing_garbage();
   test_repeated_clause_deletion_emits_one_proof_line();
@@ -1150,6 +1364,10 @@ int main() {
   test_delayed_relocation_scratch_is_output_sensitive();
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
+  test_phase_rebuild_large_watches_restores_source_order();
+  test_dense_occurrences_keep_source_order_across_collection();
+  test_large_replacement_preserves_redundant_recency();
+  test_in_place_large_replacement_preserves_allocation_span();
   test_rebuild_large_watches_reselects_root_false_pair();
   test_watch_repair_primitive();
   test_canonical_binary_watch_rebuild();

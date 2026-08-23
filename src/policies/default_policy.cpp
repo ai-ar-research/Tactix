@@ -1,9 +1,11 @@
 #include "policies/default_policy.hpp"
-#include "policies/event_trace.hpp"
+#include "diagnostics/event_trace.hpp"
+#include "diagnostics/rule_journal.hpp"
 #include "policies/heuristics.hpp"
 
 #include "rules/analyze/analyze.hpp"
 #include "rules/backjump/backjump.hpp"
+#include "rules/bve/bve.hpp"
 #include "rules/decide/decide.hpp"
 #include "rules/lucky/lucky.hpp"
 #include "rules/propagate/propagate.hpp"
@@ -20,6 +22,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <csignal>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -28,6 +31,19 @@
 #include <utility>
 
 namespace tactix {
+
+double kissat_bve_variable_score(double relevance, uint64_t positive,
+                                 uint64_t negative,
+                                 uint64_t occurrence_limit) {
+  positive = std::min(positive, occurrence_limit);
+  negative = std::min(negative, occurrence_limit);
+  const double product = positive * negative;
+  const double sum = positive + negative;
+  const double occurrence_limit_squared =
+      occurrence_limit * static_cast<double>(occurrence_limit);
+  const double structural_score = product - sum;
+  return relevance + structural_score - occurrence_limit_squared;
+}
 
 namespace {
 template <class Apply>
@@ -65,6 +81,16 @@ ApplyResult default_propagate(Kernel &k, const char *candidate) {
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
+
+// Kissat's SET_EFFORT_LIMIT converts the per-mille option to a scale factor
+// and only truncates after multiplying by the complete reference.  Splitting
+// the quotient and remainder keeps that floor exact without overflowing the
+// uint64_t product for the supported 0..1000 per-mille range.
+static uint64_t scale_permille(uint64_t reference, uint32_t permille) {
+  assert(permille <= PERMILLE_SCALE);
+  return reference / PERMILLE_SCALE * permille +
+         reference % PERMILLE_SCALE * permille / PERMILLE_SCALE;
+}
 constexpr uint64_t PERCENT_SCALE = 100;
 constexpr uint32_t MODES_PER_CYCLE = 2;
 constexpr uint32_t REORDER_STABLE_ONLY = 2;
@@ -174,9 +200,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.preprocess_initial_ticks="
       << inprocess.preprocess_initial_ticks
       << " inprocess.phase_rounds=" << inprocess.phase_rounds
+      << " inprocess.substitute_rounds=" << inprocess.substitute_rounds
       << " inprocess.factor_initial_ticks=" << inprocess.factor_initial_ticks
-      << " inprocess.congruence_initial_ticks="
-      << inprocess.congruence_initial_ticks
       << " inprocess.logarithm_offset=" << inprocess.logarithm_offset
       << " inprocess.scale_quadratic=" << inprocess.scale_quadratic
       << " inprocess.scale_constant=" << inprocess.scale_constant
@@ -211,7 +236,6 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.cce_permille=" << inprocess.cce_permille
       << " inprocess.instantiate_permille=" << inprocess.instantiate_permille
       << " inprocess.sweep_permille=" << inprocess.sweep_permille
-      << " inprocess.congruence_permille=" << inprocess.congruence_permille
       << " inprocess.substitute_permille=" << inprocess.substitute_permille
       << " inprocess.sweep_depth=" << inprocess.sweep_depth
       << " inprocess.sweep_max_depth=" << inprocess.sweep_max_depth
@@ -516,8 +540,13 @@ static uint64_t active_variables(const Kernel &k) {
 static uint64_t scale_inprocessing_delta(
     const Kernel &k, uint64_t delta,
     const DefaultStrategyConfig::Inprocess &config) {
+  // kimits.c calls `kissat_logn(C + 1)`, while kissat_logn(count) computes
+  // log10(count + 9).  Preserve both additions: the scale is therefore based
+  // on log10(C + 10), not log10(C + 1).  The distinction crosses an integer
+  // deadline at common states (for example 22,575 clauses and probe round 2).
   const double f =
-      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1) -
+      std::log10(static_cast<double>(kernel_irredundant_clauses(k)) + 1.0 +
+                 config.logarithm_offset) -
       config.scale_log_shift;
   return static_cast<uint64_t>((config.scale_quadratic * f * f +
                                 config.scale_constant) *
@@ -573,6 +602,17 @@ struct TickSinkScope {
   TickSinkScope &operator=(const TickSinkScope &) = delete;
 };
 
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+struct RuleJournalMeterScope {
+  explicit RuleJournalMeterScope(RuleJournalMeter meter) {
+    rule_journal_set_effort_meter(meter);
+  }
+  ~RuleJournalMeterScope() { rule_journal_set_effort_meter(nullptr); }
+  RuleJournalMeterScope(const RuleJournalMeterScope &) = delete;
+  RuleJournalMeterScope &operator=(const RuleJournalMeterScope &) = delete;
+};
+#endif
+
 struct InprocessScope {
   Kernel &k;
   bool previous_inprocessing;
@@ -622,11 +662,8 @@ uint64_t meter_forward_pair(const Kernel &k) {
   return k.stats.strengthen_visits + k.stats.forward_visits;
 }
 uint64_t meter_transitive(const Kernel &k) {
-  static const bool checked = [] {
-    const char *e = std::getenv("TACTIX_V4_METER");
-    return e && !std::strcmp(e, "checked");
-  }();
-  return checked ? k.stats.transitive_checked : k.stats.transitive_ticks;
+  return k.transitive_budget_checked ? k.stats.transitive_checked
+                                     : k.stats.transitive_ticks;
 }
 uint64_t meter_factor(const Kernel &k) { return k.stats.factor_ticks; }
 uint64_t meter_ternary(const Kernel &k) { return k.stats.ternary_ticks; }
@@ -634,7 +671,12 @@ uint64_t meter_hbr(const Kernel &k) { return k.stats.hbr_ticks; }
 uint64_t meter_bce(const Kernel &k) { return k.stats.bce_ticks; }
 uint64_t meter_cce(const Kernel &k) { return k.stats.cce_ticks; }
 uint64_t meter_sweep(const Kernel &k) { return sweep_effort(k); }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+// Congruence has no shipped effort ceiling in Kissat.  Keep its inclusive
+// logical counter available to compile-time rule journals without placing it
+// back in EFFORT_SPECS (which would make the meter behavior-affecting).
 uint64_t meter_congruence(const Kernel &k) { return k.stats.congruence_ticks; }
+#endif
 uint64_t meter_substitute(const Kernel &k) { return k.stats.substitute_ticks; }
 
 SweepLimits configured_sweep_limits(
@@ -703,7 +745,7 @@ constexpr EffortSpec EFFORT_SPECS[] = {
     {"Backbone", &DefaultStrategyConfig::Inprocess::backbone_permille,
      meter_backbone, false, true, &Stats::backbone_ticks},
     {"TransitiveReduce", &DefaultStrategyConfig::Inprocess::transitive_permille,
-     meter_transitive, true, false},
+     meter_transitive, true, true},
     {"Vivify", &DefaultStrategyConfig::Inprocess::vivify_permille,
      meter_vivify, false, true, &Stats::vivify_ticks},
     {"Strengthen", &DefaultStrategyConfig::Inprocess::strengthen_permille,
@@ -724,10 +766,8 @@ constexpr EffortSpec EFFORT_SPECS[] = {
      meter_instantiate, false, true, &Stats::instantiate_ticks},
     {"Sweep", &DefaultStrategyConfig::Inprocess::sweep_permille, meter_sweep,
      false, true},
-    {"Congruence", &DefaultStrategyConfig::Inprocess::congruence_permille,
-     meter_congruence, false, true, nullptr, true},
     {"Substitute", &DefaultStrategyConfig::Inprocess::substitute_permille,
-     meter_substitute, false, true, nullptr, true},
+     meter_substitute, false, true},
 };
 
 const EffortSpec *effort_spec(const char *name) {
@@ -735,6 +775,70 @@ const EffortSpec *effort_spec(const char *name) {
     if (!std::strcmp(s.name, name))
       return &s;
   return nullptr; // all-or-nothing rule: no titration, no meter
+}
+
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+const char *effort_currency(const char *name) {
+  if (!std::strcmp(name, "BVE"))
+    return "resolutions";
+  if (!std::strcmp(name, "Strengthen") ||
+      !std::strcmp(name, "SubsumeForward"))
+    return "forward-plus-strengthen-visits";
+  if (!std::strcmp(name, "Sweep"))
+    return "sweep-scheduled-effort";
+  if (!std::strcmp(name, "TransitiveReduce"))
+    return "transitive-cache-lines";
+  if (!std::strcmp(name, "Congruence"))
+    return "congruence-ticks";
+  if (!std::strcmp(name, "Substitute"))
+    return "substitute-cache-lines";
+  return "probing-rule-ticks";
+}
+
+const char *journal_result(ApplyResult result) {
+  switch (result) {
+  case ApplyResult::Ok:
+    return "applied";
+  case ApplyResult::NoOp:
+    return "no-op";
+  case ApplyResult::Conflict:
+    return "conflict";
+  case ApplyResult::Sat:
+    return "sat";
+  case ApplyResult::Unsat:
+    return "refuted";
+  }
+  return "unknown";
+}
+#endif
+
+template <class Apply>
+ApplyResult metered_rule_apply(Kernel &k,
+                               uint64_t (*meter)(const Kernel &),
+                               Apply &&apply) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  RuleJournalMeterScope journal_meter(meter);
+#else
+  (void)meter;
+#endif
+  (void)k;
+  return apply();
+}
+
+// The meter the compile-time journal prices an entry in.  For every metered
+// rule this is the ledger meter; Congruence has none, so the journal alone
+// reads its inclusive counter.  Scheduling never consults this function, so
+// production binaries see exactly `e.meter`.
+uint64_t (*journal_effort_meter(
+    const DefaultInprocessScheduler::SlotEntry &e,
+    const RuleVTable &r))(const Kernel &) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  if (!e.meter && !std::strcmp(r.name, "Congruence"))
+    return meter_congruence;
+#else
+  (void)r;
+#endif
+  return e.meter;
 }
 
 constexpr SlotOrderRow AUTHORED_SLOT_ORDER[] = {
@@ -824,7 +928,9 @@ uint32_t lit_occurrences(const Kernel &k, Lit l, bool binary_only) {
 }
 
 uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
-                   bool transitive_reference_order) {
+                   bool transitive_reference_order,
+                   const std::vector<Var> *reference_compact_order,
+                   const std::vector<Var> *reference_compact_position) {
   Lit l;
   if (!lit_of_instance(k, inst, &l) || var_of(l) >= k.nvars)
     return 0; // not a literal payload: leave it where the native order had it
@@ -843,7 +949,15 @@ uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
     // once more before consulting activity.  Keep that literal reference
     // behavior local to TransitiveReduce; other users of the generic arm rank
     // the candidate's own variable as expected.
-    const Var proxy = transitive_reference_order ? v >> 1 : v;
+    Var proxy = transitive_reference_order ? v >> 1 : v;
+    if (transitive_reference_order && reference_compact_order &&
+        reference_compact_position &&
+        v < reference_compact_position->size()) {
+      const Var compact = (*reference_compact_position)[v];
+      if (compact != INVALID_VAR &&
+          (compact >> 1) < reference_compact_order->size())
+        proxy = (*reference_compact_order)[compact >> 1];
+    }
     if (k.h->stable) {
       const double s = k.h->scores.score[proxy];
       uint64_t bits = 0;
@@ -855,6 +969,365 @@ uint64_t order_key(const Kernel &k, CandidateOrder arm, uint64_t inst,
   default:
     return 0;
   }
+}
+
+template <class Less>
+void kissat_reference_sort(std::vector<Var> &values, Less less) {
+  const size_t n = values.size();
+  if (n <= 1)
+    return;
+
+  auto greater_swap = [&](size_t p, size_t q) {
+    if (less(values[q], values[p]))
+      std::swap(values[p], values[q]);
+  };
+
+  constexpr size_t quick_sort_limit = 10;
+  size_t left = 0, right = n - 1;
+  std::vector<std::pair<size_t, size_t>> pending;
+  if (right - left > quick_sort_limit) {
+    for (;;) {
+      const size_t middle = left + (right - left) / 2;
+      std::swap(values[middle], values[right - 1]);
+      greater_swap(left, right - 1);
+      greater_swap(left, right);
+      greater_swap(right - 1, right);
+
+      size_t i = left;
+      size_t j = right - 1;
+      const Var pivot = values[j];
+      for (;;) {
+        while (less(values[++i], pivot))
+          ;
+        while (less(pivot, values[--j]))
+          if (j == left)
+            break;
+        if (i >= j)
+          break;
+        std::swap(values[i], values[j]);
+      }
+      std::swap(values[i], values[right - 1]);
+
+      size_t other_left, other_right;
+      if (i - left < right - i) {
+        other_left = i + 1;
+        other_right = right;
+        right = i - 1;
+      } else {
+        other_left = left;
+        other_right = i - 1;
+        left = i + 1;
+      }
+      if (right - left > quick_sort_limit) {
+        assert(other_right - other_left > quick_sort_limit);
+        pending.emplace_back(other_left, other_right);
+      } else if (other_right - other_left > quick_sort_limit) {
+        left = other_left;
+        right = other_right;
+      } else if (!pending.empty()) {
+        left = pending.back().first;
+        right = pending.back().second;
+        pending.pop_back();
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Kissat finishes the whole array with the same sentinel-seeded insertion
+  // sort after quicksort partitions it (sort.h:83-104).
+  for (size_t i = n - 1; i > 0; i--)
+    greater_swap(i - 1, i);
+  for (size_t i = 2; i < n; i++) {
+    const Var pivot = values[i];
+    size_t j = i;
+    while (less(pivot, values[j - 1])) {
+      values[j] = values[j - 1];
+      j--;
+    }
+    values[j] = pivot;
+  }
+}
+
+bool rank_transitive_reference(const Kernel &k, uint64_t *insts,
+                               uint32_t n) {
+  if (!k.h || k.compact_import_order.empty())
+    return false;
+  std::vector<Var> compact_position(k.nvars, INVALID_VAR);
+  for (Var compact = 0; compact < k.compact_import_order.size(); compact++)
+    compact_position[k.compact_import_order[compact]] = compact;
+
+  std::vector<uint64_t> positive(k.nvars, UINT64_MAX);
+  std::vector<uint64_t> negative(k.nvars, UINT64_MAX);
+  std::vector<Var> compact_candidates;
+  std::vector<uint8_t> seen(k.compact_import_order.size(), 0);
+  for (uint32_t i = 0; i < n; i++) {
+    Lit lit;
+    if (!lit_of_instance(k, insts[i], &lit) || var_of(lit) >= k.nvars)
+      return false;
+    const Var v = var_of(lit);
+    const Var compact = compact_position[v];
+    if (compact == INVALID_VAR)
+      return false;
+    (negated(lit) ? negative[v] : positive[v]) = insts[i];
+    if (!seen[compact]) {
+      seen[compact] = 1;
+      compact_candidates.push_back(compact);
+    }
+  }
+  // Kissat's `all_variables` seeds the stack in current compact-index order.
+  std::sort(compact_candidates.begin(), compact_candidates.end());
+  auto less = [&](Var a, Var b) {
+    const Var i = a >> 1, j = b >> 1; // transitive.c's second IDX
+    const Var iv = k.compact_import_order[i], jv = k.compact_import_order[j];
+    if (k.h->stable) {
+      const double s = k.h->scores.score[iv];
+      const double t = k.h->scores.score[jv];
+      if (s < t)
+        return true;
+      if (s > t)
+        return false;
+      return i < j;
+    }
+    return k.h->links[iv].stamp < k.h->links[jv].stamp;
+  };
+  kissat_reference_sort(compact_candidates, less);
+
+  uint32_t out = 0;
+  for (auto it = compact_candidates.rbegin(); it != compact_candidates.rend();
+       ++it) {
+    const Var v = k.compact_import_order[*it];
+    if (positive[v] != UINT64_MAX)
+      insts[out++] = positive[v];
+    if (negative[v] != UINT64_MAX)
+      insts[out++] = negative[v];
+  }
+  assert(out == n);
+  return true;
+}
+
+// Kissat's elimination schedule is a mutable indexed max-heap.  It stores the
+// negated elimination score, inserts candidates in compact-variable order,
+// stops bubble-up at equality, and prefers the left child at equality while
+// bubbling down.  Those topology rules are semantic scheduling state: after
+// one candidate mutates several occurrence lists, a global re-sort can choose
+// a different equal-score variable even when every scalar score is correct.
+class BveCandidateHeap {
+public:
+  void initialize(Kernel &k, const uint64_t *insts, uint32_t n) {
+    kernel_ = &k;
+    stack_.clear();
+    pos_.assign(k.nvars, UINT32_MAX);
+    score_.assign(k.nvars, 0.0);
+    payload_.assign(k.nvars, INSTANCE_CANONICAL);
+    eligible_.assign(k.nvars, 0);
+    std::vector<uint8_t> inserted(k.nvars, 0);
+    for (uint32_t i = 0; i < n; i++) {
+      Lit lit;
+      if (!lit_of_instance(k, insts[i], &lit) || var_of(lit) >= k.nvars)
+        continue;
+      const Var v = var_of(lit);
+      eligible_[v] = 1;
+      payload_[v] = insts[i];
+    }
+    // `all_variables` in Kissat walks current compact internal indices.
+    for (const Var v : k.compact_import_order)
+      if (v < k.nvars && eligible_[v]) {
+        insert_initial(v);
+        inserted[v] = 1;
+      }
+    // Stable identities normally all occur in compact_import_order.  Preserve
+    // a deterministic complete fallback for bare API kernels that have no H.
+    for (Var v = 0; v < k.nvars; v++)
+      if (eligible_[v] && !inserted[v])
+        insert_initial(v);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (const char *selected = std::getenv("TACTIX_EVENT_TRACE_BVE_HEAP")) {
+      const char *p = selected;
+      while (*p) {
+        char *end = nullptr;
+        const long external = std::strtol(p, &end, 10);
+        if (end == p)
+          break;
+        for (Var v = 0; v < k.nvars; v++)
+          if (static_cast<long>(k.internal_to_external[v] + 1) == external) {
+            trace_vars_.push_back(v);
+            break;
+          }
+        p = *end ? end + 1 : end;
+      }
+    }
+#endif
+    trace_last_pos_.assign(trace_vars_.size(), UINT32_MAX);
+    trace_last_score_.assign(trace_vars_.size(), 0.0);
+    trace_selected("initial", INVALID_VAR, true);
+  }
+
+  bool empty() const { return stack_.empty(); }
+
+  uint64_t pop_max() {
+    assert(!stack_.empty());
+    const Var result = stack_[0];
+    const Var last = stack_.back();
+    stack_.pop_back();
+    pos_[result] = UINT32_MAX;
+    if (!stack_.empty()) {
+      stack_[0] = last;
+      pos_[last] = 0;
+      bubble_down(last);
+    }
+    trace_selected("pop", result, false);
+    return payload_[result];
+  }
+
+  static void update_hook(Kernel &, void *state, Var v, bool reinsert) {
+    static_cast<BveCandidateHeap *>(state)->update(v, reinsert);
+  }
+
+private:
+  bool contains(Var v) const {
+    return v < pos_.size() && pos_[v] != UINT32_MAX;
+  }
+
+  bool active(Var v) const {
+    const Kernel &k = *kernel_;
+    return v < k.nvars && k.values[make_lit(v, false)] == 0 &&
+           !kernel_var_retired(k, v);
+  }
+
+  double schedule_score(Var v) const {
+    const Kernel &k = *kernel_;
+    const double relevance =
+        k.h ? (k.h->stable ? k.h->scores.score[v] : k.h->links[v].stamp) : 0;
+    const double reference = kissat_bve_variable_score(
+        relevance, bve_schedule_occurrence_count(k, make_lit(v, false)),
+        bve_schedule_occurrence_count(k, make_lit(v, true)),
+        k.bve_occurrence_limit);
+    return -reference; // Kissat stores the negated score in a max-heap.
+  }
+
+  void insert_initial(Var v) {
+    const Kernel &k = *kernel_;
+    if (!active(v) || v >= k.bve_retry.size() || !k.bve_retry[v])
+      return;
+    score_[v] = schedule_score(v);
+    pos_[v] = static_cast<uint32_t>(stack_.size());
+    stack_.push_back(v);
+    bubble_up(v);
+  }
+
+  void update(Var v, bool reinsert) {
+    if (v >= eligible_.size() || !eligible_[v] || !active(v))
+      return;
+    const double old = score_[v];
+    const double now = schedule_score(v);
+    score_[v] = now;
+    if (contains(v)) {
+      if (now > old)
+        bubble_up(v);
+      else if (now < old)
+        bubble_down(v);
+    } else if (reinsert && v < kernel_->bve_retry.size() &&
+               kernel_->bve_retry[v]) {
+      pos_[v] = static_cast<uint32_t>(stack_.size());
+      stack_.push_back(v);
+      bubble_up(v);
+    }
+    trace_selected(reinsert ? "update-reinsert" : "update-add", v, false);
+  }
+
+  void trace_selected(const char *stage, Var trigger, bool force) {
+    const Var root = stack_.empty() ? INVALID_VAR : stack_[0];
+    for (size_t i = 0; i < trace_vars_.size(); i++) {
+      const Var v = trace_vars_[i];
+      const uint32_t position = contains(v) ? pos_[v] : UINT32_MAX;
+      const double score = score_[v];
+      if (!force && position == trace_last_pos_[i] &&
+          score == trace_last_score_[i])
+        continue;
+      event_trace_bve_heap(*kernel_, stage, trigger, v, score, position, root,
+                           static_cast<uint32_t>(stack_.size()));
+      trace_last_pos_[i] = position;
+      trace_last_score_[i] = score;
+    }
+  }
+
+  void bubble_up(Var v) {
+    uint32_t at = pos_[v];
+    while (at) {
+      const uint32_t parent_at = (at - 1) / 2;
+      const Var parent = stack_[parent_at];
+      if (score_[parent] >= score_[v])
+        break;
+      stack_[at] = parent;
+      pos_[parent] = at;
+      at = parent_at;
+    }
+    stack_[at] = v;
+    pos_[v] = at;
+  }
+
+  void bubble_down(Var v) {
+    uint32_t at = pos_[v];
+    for (;;) {
+      uint32_t child_at = 2 * at + 1;
+      if (child_at >= stack_.size())
+        break;
+      Var child = stack_[child_at];
+      const uint32_t sibling_at = child_at + 1;
+      if (sibling_at < stack_.size() &&
+          score_[stack_[sibling_at]] > score_[child]) {
+        child_at = sibling_at;
+        child = stack_[child_at];
+      }
+      if (score_[child] <= score_[v])
+        break;
+      stack_[at] = child;
+      pos_[child] = at;
+      at = child_at;
+    }
+    stack_[at] = v;
+    pos_[v] = at;
+  }
+
+  Kernel *kernel_ = nullptr;
+  std::vector<Var> stack_;
+  std::vector<uint32_t> pos_;
+  std::vector<double> score_;
+  std::vector<uint64_t> payload_;
+  std::vector<uint8_t> eligible_;
+  std::vector<Var> trace_vars_;
+  std::vector<uint32_t> trace_last_pos_;
+  std::vector<double> trace_last_score_;
+};
+
+bool rank_bve_reference(const Kernel &k, uint64_t *insts, uint32_t n) {
+  if (!k.h)
+    return false;
+  BveOccurrences occ;
+  bve_build_occurrences(k, occ);
+  std::vector<std::pair<double, uint64_t>> ranked;
+  ranked.reserve(n);
+  const uint64_t occurrence_limit = k.bve_occurrence_limit;
+  for (uint32_t i = 0; i < n; i++) {
+    Lit lit;
+    if (!lit_of_instance(k, insts[i], &lit) || var_of(lit) >= k.nvars)
+      return false;
+    const Var v = var_of(lit);
+    const double relevance =
+        k.h->stable ? k.h->scores.score[v] : k.h->links[v].stamp;
+    const double score = kissat_bve_variable_score(
+        relevance, occ.count(make_lit(v, false)),
+        occ.count(make_lit(v, true)), occurrence_limit);
+    ranked.emplace_back(score, insts[i]);
+  }
+  std::stable_sort(ranked.begin(), ranked.end(),
+                   [](const auto &a, const auto &b) {
+                     return a.first < b.first;
+                   });
+  for (uint32_t i = 0; i < n; i++)
+    insts[i] = ranked[i].second;
+  return true;
 }
 
 } // namespace
@@ -885,13 +1358,34 @@ void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
   const bool transitive_reference_order =
       arm == CandidateOrder::Heuristic && rule < rules.size() &&
       !std::strcmp(rules[rule].name, "TransitiveReduce");
+  const bool bve_reference_order =
+      arm == CandidateOrder::Heuristic && rule < rules.size() &&
+      !std::strcmp(rules[rule].name, "BVE");
+  if (transitive_reference_order && rank_transitive_reference(k, insts, n))
+    return;
+  if (bve_reference_order && rank_bve_reference(k, insts, n))
+    return;
+  std::vector<Var> compact_position;
+  const bool has_reference_compact_order =
+      transitive_reference_order && k.h && !k.compact_import_order.empty();
+  if (has_reference_compact_order) {
+    compact_position.assign(k.nvars, INVALID_VAR);
+    for (Var i = 0; i < k.compact_import_order.size(); i++)
+      compact_position[k.compact_import_order[i]] = i;
+  }
   scratch_.resize(n);
   for (uint32_t i = 0; i < n; i++)
-    scratch_[i] = {order_key(k, arm, insts[i], transitive_reference_order),
+    scratch_[i] = {order_key(k, arm, insts[i], transitive_reference_order,
+                                has_reference_compact_order
+                                    ? &k.compact_import_order
+                                    : nullptr,
+                                has_reference_compact_order ? &compact_position
+                                                            : nullptr),
                    insts[i]};
   std::stable_sort(
       scratch_.begin(), scratch_.end(),
-      [transitive_reference_order](
+      [transitive_reference_order, has_reference_compact_order,
+       &compact_position](
           const std::pair<uint64_t, uint64_t> &a,
           const std::pair<uint64_t, uint64_t> &b) {
         if (a.first != b.first)
@@ -900,8 +1394,27 @@ void DefaultCandidateOrder::rank(const Kernel &k, uint32_t rule,
         if (transitive_reference_order) {
           Lit al, bl;
           if (lit_of_instance(a.second, &al) &&
-              lit_of_instance(b.second, &bl) && var_of(al) != var_of(bl))
-            return var_of(al) > var_of(bl);
+              lit_of_instance(b.second, &bl)) {
+            const Var av = var_of(al), bv = var_of(bl);
+            const Var ac = has_reference_compact_order &&
+                                   av < compact_position.size() &&
+                                   compact_position[av] != INVALID_VAR
+                               ? compact_position[av]
+                               : av;
+            const Var bc = has_reference_compact_order &&
+                                   bv < compact_position.size() &&
+                                   compact_position[bv] != INVALID_VAR
+                               ? compact_position[bv]
+                               : bv;
+            // The second IDX maps each adjacent pair of compact candidate
+            // variables to one activity owner.  Kissat's sort/pop pose consumes
+            // the lower compact candidate first inside that equal-key pair;
+            // See benchmarks/reports/2026-08-21-tierd-rank27-transitive-reference-order.md.
+            if ((ac >> 1) != (bc >> 1))
+              return (ac >> 1) < (bc >> 1);
+            if (ac != bc)
+              return ac < bc;
+          }
         }
         return false;
       });
@@ -949,14 +1462,18 @@ bool DefaultInprocessScheduler::want_phase(const Kernel &k, SlotGroup g) {
   if (k.stats.conflicts == 0 && g == SlotGroup::Eliminate)
     return false;
   SlotClock &c = g == SlotGroup::Probe ? probe_clock : elim_clock;
-  // Kissat's probe/eliminate guards are `limit < conflicts`: reaching the
-  // stored deadline itself is not enough to enter a search-time phase.  The
-  // round-zero probe clock is the explicit startup-preprocessing invitation,
-  // not such a deadline, and remains due at conflict zero.
+  // Kissat's two guards deliberately differ.  Probe tests
+  // `limit < conflicts` (probe.c:kissat_probing), while Eliminate declines
+  // only for `limit > conflicts` (eliminate.c:kissat_eliminating) and is due
+  // at equality.  The round-zero probe clock is the explicit startup-
+  // preprocessing invitation, not such a deadline, and remains due at zero.
   const bool startup_probe =
       g == SlotGroup::Probe && c.rounds == 0 &&
       k.stats.conflicts == c.next_conflicts;
-  if (!startup_probe && k.stats.conflicts <= c.next_conflicts)
+  const bool before_deadline =
+      g == SlotGroup::Probe ? k.stats.conflicts <= c.next_conflicts
+                            : k.stats.conflicts < c.next_conflicts;
+  if (!startup_probe && before_deadline)
     return false;
   const bool gated =
       slot_watermark_ && c.rounds != 0 &&
@@ -1052,7 +1569,7 @@ void DefaultPolicy::update_formula_classification(Kernel &k) const {
     const Clause *clause = clause_at(k.arena, ref);
     if (!clause->garbage() && !clause->redundant())
       large++;
-    ref += clause_words(clause->size);
+    ref += clause_actual_words(clause);
   }
   const uint64_t clauses = binaries + large;
   const auto &cfg = config_.analysis;
@@ -1115,9 +1632,9 @@ Lit DefaultBranching::pick(Kernel &k) {
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
         const uint32_t random = static_cast<uint32_t>(randec_rng >> 32);
-        assert(!k.h->random_order.empty());
-        const uint32_t slot = random % k.h->random_order.size();
-        const Var v = k.h->random_order[slot];
+        assert(!k.compact_import_order.empty());
+        const uint32_t slot = random % k.compact_import_order.size();
+        const Var v = k.compact_import_order[slot];
         const bool accepted = k.values[make_lit(v, true)] == 0 &&
                               !kernel_var_retired(k, v);
         event_trace_randec_draw(k, random, slot, v, accepted);
@@ -1441,9 +1958,6 @@ void DefaultInprocessScheduler::configure_from_env() {
   factor_init_ticks_ = cfg.factor_initial_ticks;
   if (const char *fi = std::getenv("TACTIX_FACTOR_INIT_TICKS"))
     factor_init_ticks_ = std::strtoull(fi, nullptr, 10);
-  congruence_init_ticks_ = cfg.congruence_initial_ticks;
-  if (const char *ci = std::getenv("TACTIX_CONG_INIT_TICKS"))
-    congruence_init_ticks_ = std::strtoull(ci, nullptr, 10);
   preprocess_followups_ = cfg.preprocess_followups;
   preprocess_only_ = cfg.preprocess_only ||
                      std::getenv("TACTIX_PREPROCESS_ONLY") != nullptr;
@@ -1453,6 +1967,7 @@ void DefaultInprocessScheduler::configure_from_env() {
 
 void DefaultInprocessScheduler::reset(const Kernel &k) {
   initialized_ = false;
+  search_limits_initialized_ = false;
   const uint64_t ticks = search_ticks(k);
   probe_clock = elim_clock = {};
   probe_clock.anchor = elim_clock.anchor = ticks;
@@ -1521,7 +2036,7 @@ void DefaultInprocessScheduler::build(Kernel &k) {
         // Kissat transitive.c activity-sorts its variable stack and consumes
         // it from the back.  The dedicated comparator path above also retains
         // its exact IDX-on-variable reference behavior.
-        if (!std::strcmp(nm, "TransitiveReduce"))
+        if (!std::strcmp(nm, "TransitiveReduce") || !std::strcmp(nm, "BVE"))
           e.order = CandidateOrder::Heuristic;
         e.enabled = on;
         {
@@ -1658,18 +2173,34 @@ void DefaultInprocessScheduler::build(Kernel &k) {
     for (const SlotEntry &se : entries)
       default_candidate_order_.arms[se.rule] = se.order;
   }
+  // `eliminateocclim` is a Kissat option, so `variable_score` reads the same
+  // bound wherever it runs, not only inside an elimination round.  Install it
+  // when the scheduler attaches to the kernel: the candidate order is a public
+  // action surface and may be consulted before the first phase, and the
+  // kernel's unlimited default squares to a magnitude that cancels every
+  // score difference in `kissat_bve_variable_score`.
+  k.bve_occurrence_limit = config().bve_occurrence_limit;
   if (!initialized_) {
     initialized_ = true;
-    // The probe clock is due immediately because it owns initial
-    // preprocessing.  Elimination is not part of that pipeline: Kissat seeds
-    // its first search-time occurrence at scale(eliminateinit=500)
-    // (kimits.c kissat_init_limits), then applies NLOG2N only after a phase.
-    // update_limit with rounds==0 uses n=1 and therefore gives that exact
-    // initial interval.  Seeding both clocks at zero used to run the entire
-    // elimination pipeline immediately after the first conflict.
+    // Probe is due immediately because it owns initial preprocessing.
+    // Eliminate is not part of that pipeline.  Kissat initializes its first
+    // Eliminate deadline in start_search, after preprocessing has established
+    // the formula population used by kissat_scale_delta.  Keep it unreachable
+    // until initialize_search_limits observes that same lifecycle boundary.
     probe_clock.next_conflicts = k.stats.conflicts;
-    update_limit(k, SlotGroup::Eliminate);
+    elim_clock.next_conflicts = UINT64_MAX;
   }
+}
+
+void DefaultInprocessScheduler::initialize_search_limits(const Kernel &k) {
+  if (search_limits_initialized_)
+    return;
+  // kimits.c:kissat_init_limits runs from search.c:start_search, after
+  // preprocessing, late Lucky, and classification.  rounds==0 makes the
+  // existing NLOG2N updater use n=1, i.e. eliminateinit=500 with the exact
+  // post-preprocessing BINIRR_CLAUSES scaling population.
+  update_limit(k, SlotGroup::Eliminate);
+  search_limits_initialized_ = true;
 }
 
 int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
@@ -1706,6 +2237,17 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   inprocess_.build(k);
   EventTrace event_trace;
   event_trace.open_from_env(k);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  uint64_t diagnostic_stop_conflict = UINT64_MAX;
+  if (const char *stop = std::getenv("TACTIX_STOP_AFTER_CONFLICT"))
+    diagnostic_stop_conflict = std::strtoull(stop, nullptr, 10);
+  const auto diagnostic_conflict_stop = [&] {
+    if (k.stats.conflicts >= diagnostic_stop_conflict)
+      std::raise(SIGTERM);
+  };
+#else
+  const auto diagnostic_conflict_stop = [] {};
+#endif
   event_trace.macro(k, "startup_begin");
   auto finish = [&](int verdict) {
     char payload[16];
@@ -1760,7 +2302,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // onto one representative.  Tactix preserves kernel identities for its
   // universal rule surface, but the random brancher's index permutation is
   // policy state and must use the same compacted population and ordering.
+  event_trace_target_state(k, "startup-compact-pre",
+                           static_cast<uint32_t>(k.trail.size()));
   heuristics_compact_random_order_fixed(k);
+  event_trace_target_state(
+      k, "startup-compact-post",
+      static_cast<uint32_t>(k.compact_import_order.size() -
+                            k.unassigned_active));
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   for (Var v = 0; v < k.nvars; v++) {
     uint32_t ordinal = 0;
@@ -1827,6 +2375,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   // classification lifetime match the reference exactly.
   update_formula_classification(k);
   update_formula_classification(k);
+
+  // Kissat initializes the first search-time Eliminate limit only from
+  // start_search, after startup simplification has changed BINIRR_CLAUSES.
+  inprocess_.initialize_search_limits(k);
 
   // Kissat initializes the first focused-mode tick anchor in `start_search`,
   // after Lucky and preprocessing.  Tactix's schedule object is reset before
@@ -1904,6 +2456,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         event_trace.detail(k, "analysis_end", k.level);
         event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                                mode.ticks_at_focus_entry, mode.count);
+        diagnostic_conflict_stop();
         continue;
       }
       event_trace.learned(k, k.pending.lits);
@@ -1936,6 +2489,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.detail(k, "analysis_end", k.level);
       event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                              mode.ticks_at_focus_entry, mode.count);
+      diagnostic_conflict_stop();
       continue;
     }
     if (k.retire_enabled ? k.unassigned_active == 0 : k.unassigned == 0)
@@ -1966,8 +2520,18 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims,
                                      compact_due);
           });
+      if (compact_due)
+        event_trace_target_state(
+            k, "reduce-compact-pre",
+            static_cast<uint32_t>(k.compact_import_order.size() -
+                                  k.unassigned_active));
       if (compact_due && kernel_compact_variables(k))
         heuristics_compact_random_order_fixed(k);
+      if (compact_due)
+        event_trace_target_state(
+            k, "reduce-compact-post",
+            static_cast<uint32_t>(k.compact_import_order.size() -
+                                  k.unassigned_active));
       update_reduce_limit(k);
       pose_focused_tiers(k); // vivifyfocusedtiers=1 is the shipped default.
       update_formula_classification(k);
@@ -2079,8 +2643,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         uint64_t reference = search_ticks(k) - walk_anchor;
         if (reference < config_.inprocess.minimum_effort_ticks)
           reference = config_.inprocess.minimum_effort_ticks;
-        k.work_budget =
-            reference / PERMILLE_SCALE * config_.rephase.walk_permille;
+        k.work_budget = scale_permille(reference, config_.rephase.walk_permille);
         // Kissat seeds the walker from the search policy's shared generator.
         // DefaultBranching owns that generator in Tactix; snapshot it here so
         // the H-only Walk operation need not reach back into its caller.
@@ -2244,14 +2807,28 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     const uint32_t n =
         r.instances(k, payloads_.data(),
                     static_cast<uint32_t>(payloads_.size()));
-    order_candidates(k, e, payloads_.data(), n);
+    const bool dynamic_bve =
+        bve_entry && !candidate_order && e.order == CandidateOrder::Heuristic;
+    BveCandidateHeap bve_heap;
+    if (dynamic_bve)
+      bve_heap.initialize(k, payloads_.data(), n);
+    else
+      order_candidates(k, e, payloads_.data(), n);
     if (std::getenv("TACTIX_SLOT_TRACE"))
       std::fprintf(stderr,
                    "[slot]   %s pass=%u n=%u bve_bound=%u meter=%llu "
                    "limit=%llu\n",
                    r.name, pass, n, k.bve_bound,
                    (unsigned long long)e.meter(k), (unsigned long long)limit);
-    for (uint32_t i = 0; i < n; i++) {
+    if (dynamic_bve) {
+      assert(!k.bve_score_update_hook);
+      k.bve_score_update_hook = BveCandidateHeap::update_hook;
+      k.bve_score_update_state = &bve_heap;
+    }
+    uint32_t i = 0;
+    while (dynamic_bve ? !bve_heap.empty() : i < n) {
+      const uint64_t payload =
+          dynamic_bve ? bve_heap.pop_max() : payloads_[i++];
       if (e.meter(k) > limit) {
         break; // dose spent
       }
@@ -2260,7 +2837,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       }
       if (use_retry || ramp) {
         Lit rl;
-        if (lit_of_instance(k, payloads_[i], &rl) &&
+        if (lit_of_instance(k, payload, &rl) &&
             var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)] &&
             (!ramp || k.bve_min_bound[var_of(rl)] > k.bve_bound))
           continue;
@@ -2268,7 +2845,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (ctx.stop && *ctx.stop)
         break; // §6: a dose can enumerate thousands of candidates
       if (e.cursor_enabled) {
-        e.cursor = instance_key(payloads_[i]) + 1;
+        e.cursor = instance_key(payload) + 1;
         e.ord.advanced++;
       }
       const bool hand_residual = e.budget_aware && e.meter;
@@ -2279,13 +2856,25 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       const ApplyResult ar = [&] {
         TickSinkScope sink(k, e.tick_counter);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
+        Var trace_bve_var = INVALID_VAR;
         if (bve_entry) {
           Lit candidate;
-          if (lit_of_instance(k, payloads_[i], &candidate))
-            event_trace_bve_candidate(k, var_of(candidate));
+          if (lit_of_instance(k, payload, &candidate)) {
+            trace_bve_var = var_of(candidate);
+            event_trace_bve_candidate(k, trace_bve_var, "begin", e.meter(k),
+                                      limit, false);
+          }
         }
 #endif
-        return apply_rule_instance(r, k, payloads_[i]);
+        const ApplyResult result = metered_rule_apply(k, e.meter, [&] {
+          return apply_rule_instance(r, k, payload);
+        });
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        if (trace_bve_var != INVALID_VAR)
+          event_trace_bve_candidate(k, trace_bve_var, "end", e.meter(k),
+                                    limit, result == ApplyResult::Ok);
+#endif
+        return result;
       }();
       ctx.last_result = ar;
       heuristics_consume_rule_advice(k);
@@ -2305,6 +2894,10 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         ctx.phase_unsat = true;
         break;
       }
+    }
+    if (dynamic_bve) {
+      k.bve_score_update_hook = nullptr;
+      k.bve_score_update_state = nullptr;
     }
   }
   k.bve_track_min_bound = false; // scope the caching to this ramp
@@ -2417,7 +3010,8 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     k.work_budget = cumulative_budget;
     k.work_budget_offset = e.meter(k) - dose_start;
     TickSinkScope sink(k, e.tick_counter);
-    const ApplyResult a = apply_rule(r, k);
+    const ApplyResult a =
+        metered_rule_apply(k, e.meter, [&] { return apply_rule(r, k); });
     if (a == ApplyResult::Unsat ||
         (a == ApplyResult::Ok && ar != ApplyResult::Unsat))
       ar = a;
@@ -2440,7 +3034,8 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     k.work_budget_offset = e.meter(k) - dose_start;
     const ApplyResult ar2 = [&] {
       TickSinkScope sink(k, e.tick_counter);
-      return apply_rule(r, k);
+      return metered_rule_apply(k, e.meter,
+                                [&] { return apply_rule(r, k); });
     }();
     if (ar2 == ApplyResult::Unsat)
       ar = ar2;
@@ -2472,8 +3067,20 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
                                               uint64_t limit,
                                               bool factor_entry) {
   const uint64_t remaining0 = ledger_remaining(e, k, limit);
-  const uint64_t handed = remaining0 ? remaining0 : 1;
+  const bool substitute = !std::strcmp(r.name, "Substitute");
+  // Substitute's effort is tested after an indivisible productive round.
+  // A zero allowance still admits that mandatory first round; other
+  // budget-aware rules retain a one-tick hand-off so they can make progress.
+  const uint64_t handed = substitute ? remaining0
+                                     : (remaining0 ? remaining0 : 1);
   const uint64_t spent_before = e.meter(k);
+  bool substitute_round_budget_break = false;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  uint32_t substitute_rounds_run = 0;
+  e.journal_last_round_spent = 0;
+  e.journal_rounds = 0;
+  e.journal_round_budget_break = false;
+#endif
   if (factor_entry)
     factor_dose_config(k, e);
   k.work_budget = handed;
@@ -2497,18 +3104,48 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;
       }
-    } else if (k.stats.conflicts == 0 &&
-               !std::strcmp(r.name, "Substitute")) {
-      // `complete=true` ignores the per-round effort break during initial
-      // probing, while retaining the configured two-round cap.
+    } else if (substitute) {
+      // kissat substitute.c:568-602 runs round one of every authored call
+      // unconditionally.  Only after that round retires a variable does its
+      // own tick delta get compared with 10 per mille of the Probe reference;
+      // an overrun suppresses the optional next round, never a later call.
+      // `complete=true` during initial probing ignores the comparison.
       const uint64_t t0 = now_nanos();
-      ar = substitute_apply_complete(k);
+      ar = ApplyResult::NoOp;
+      const bool complete = k.stats.conflicts == 0;
+      for (uint32_t round = 0; round < config().substitute_rounds; round++) {
+        const uint64_t active_before = active_variables(k);
+        const uint64_t round_entry = e.meter(k);
+        const ApplyResult current = substitute_apply(k);
+        const uint64_t round_spent = e.meter(k) - round_entry;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+        substitute_rounds_run++;
+        e.journal_rounds = substitute_rounds_run;
+        e.journal_last_round_spent = round_spent;
+#endif
+        if (current == ApplyResult::Unsat) {
+          ar = current;
+          break;
+        }
+        if (current == ApplyResult::Ok)
+          ar = current;
+        const bool productive = active_variables(k) < active_before;
+        if (!productive)
+          break;
+        if (!complete && round_spent > handed) {
+          substitute_round_budget_break = true;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+          e.journal_round_budget_break = true;
+#endif
+          break;
+        }
+      }
       if (r.id < Stats::MAX_TIMED_RULES) {
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;
       }
     } else {
-      ar = apply_rule(r, k);
+      ar = metered_rule_apply(k, e.meter, [&] { return apply_rule(r, k); });
     }
   }
   k.midround_budget = previous_midround_budget;
@@ -2519,7 +3156,8 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   e.tm.spent += spent;
   if (spent > 0)
     e.doses++;
-  if (spent > 0 && spent <= handed) {
+  if (spent > 0 &&
+      (substitute ? !substitute_round_budget_break : spent <= handed)) {
     e.tm.completed++;
     e.binaries_mark = k.binary_ids.size();
     e.arena_mark = k.arena.size();
@@ -2533,7 +3171,15 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
                                SlotPhaseCtx &ctx) {
   const uint64_t limit = e.limit;
   ctx.last_result = ApplyResult::NoOp;
-  if (e.meter && e.meter(k) > limit) {
+  const bool substitute = !std::strcmp(r.name, "Substitute");
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  e.journal_last_round_spent = 0;
+  e.journal_rounds = 0;
+  e.journal_round_budget_break = false;
+#endif
+  // Substitute has no call-entry effort gate in Kissat. Its first round is
+  // mandatory and the round-local comparison lives in run_budgeted_batch.
+  if (!substitute && e.meter && e.meter(k) > limit) {
     e.tm.dec_budget++;
     return SlotStep::Next;
   }
@@ -2581,7 +3227,8 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
         k.stats.rule_calls[r.id]++;
       }
     } else {
-      ar = apply_rule(r, k);
+      ar = metered_rule_apply(k, journal_effort_meter(e, r),
+                              [&] { return apply_rule(r, k); });
     }
   }
   ctx.last_result = ar;
@@ -2653,7 +3300,12 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   const uint64_t phase_nanos_at_entry = now_nanos();
   k.stats.inprocess_phases++;
   if (k.level > 0 && restart_guard(k)) {
-    heuristics_update_target_phases(k);
+    // `kissat_probe` sets `solver->probing` before `probe` enters
+    // `kissat_backtrack_propagate_and_flush_trail`; the target/best updater
+    // explicitly returns in probing mode.  Eliminate enters the same root
+    // restart without that flag and therefore retains the snapshot.
+    if (group != SlotGroup::Probe)
+      heuristics_update_target_phases(k);
     (void)default_direct_rule(k, "Restart", "keep-level=0;inprocess=1",
                               [&] { return restart_apply_to(k, 0); });
   }
@@ -2680,7 +3332,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     ctx.round_changed = false;
     k.subsume_complete = true;
     k.strengthen_complete = true;
-    for (SlotEntry &e : entries) {
+    for (size_t slot = 0; slot < entries.size(); slot++) {
+      SlotEntry &e = entries[slot];
       if (e.group != group)
         continue; // the other clock's pipeline: not offered here at all
       if (stop && *stop)
@@ -2697,39 +3350,153 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         continue;
       const bool substitute = !std::strcmp(r.name, "Substitute");
       if (e.enabled && e.meter) {
-        if (substitute) {
-          if (ctx.outer == 0 || e.meter(k) <= e.limit)
-            set_entry_limit(e, k);
-        } else if (group == SlotGroup::Probe || ctx.outer == 0) {
+        if (substitute || group == SlotGroup::Probe || ctx.outer == 0) {
           set_entry_limit(e, k);
         }
       }
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      const std::string invocation =
+          std::string("group=") +
+          (group == SlotGroup::Probe ? "probe" : "eliminate") +
+          ";phase=" + std::to_string(clock.rounds) +
+          ";round=" + std::to_string(ctx.outer) +
+          ";slot=" + std::to_string(slot) +
+          ";occasion=" + std::to_string(e.tm.occasions);
+      const bool journal_invocation =
+          rule_journal_wants(k, r.name, invocation);
+      const auto invocation_meter = journal_effort_meter(e, r);
+      const uint64_t invocation_entry =
+          journal_invocation && invocation_meter ? invocation_meter(k) : 0;
+      const uint64_t invocation_pre_digest =
+          journal_invocation ? rule_journal_digest(k) : 0;
+      const uint64_t invocation_formula_epoch = k.arena_generation;
+      const uint64_t invocation_root_epoch = k.touch_fixed_head;
+      const SlotEntry::Telem invocation_tm = e.tm;
+#endif
       event_trace_slot_boundary(k, r.name, "begin");
       const bool sweep = !std::strcmp(r.name, "Sweep");
-      const size_t retired_before = sweep ? k.retired_events.size() : 0;
+      const size_t trail_before = k.trail.size();
+      const size_t retired_before = k.retired_events.size();
       const size_t substituted_before = sweep ? k.substituted_events.size() : 0;
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
                                 ? run_dosed_entry(k, e, r, ctx)
                                 : run_batch_entry(k, e, r, ctx);
-      event_trace_slot_boundary(k, r.name, "end");
+      // Kissat's root assignment primitive marks a variable fixed and removes
+      // it from both decision rankings immediately.  Formula rules remain
+      // policy-agnostic in Tactix, so publish that same lifecycle at the rule
+      // boundary, before consuming the rule's eliminated/substituted events.
+      // This ordering is observable for equal-score heaps: Substitute can
+      // derive roots while rewriting and only then deactivates its class
+      // members (substitute.c remove_representative_equivalences).
+      heuristics_consume_root_assignments(k, trail_before);
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+      if (journal_invocation) {
+        const bool admitted = e.tm.admitted != invocation_tm.admitted;
+        const char *decline = "none";
+        if (!admitted) {
+          if (e.tm.dec_budget != invocation_tm.dec_budget)
+            decline = "budget";
+          else if (e.tm.dec_guard != invocation_tm.dec_guard)
+            decline = "guard";
+          else if (e.tm.dec_delay != invocation_tm.dec_delay)
+            decline = "delay";
+          else if (e.tm.dec_material != invocation_tm.dec_material)
+            decline = "material";
+          else if (e.tm.dec_warmup != invocation_tm.dec_warmup)
+            decline = "warmup";
+          else if (e.tm.dec_profile != invocation_tm.dec_profile)
+            decline = "profile";
+          else
+            decline = "scheduler";
+        }
+        const bool bounded = e.meter != nullptr;
+        const uint64_t exit =
+            invocation_meter ? invocation_meter(k) : invocation_entry;
+        const uint64_t delta = exit - invocation_entry;
+        const uint64_t terminal_spent = substitute
+                                            ? e.journal_last_round_spent
+                                            : delta;
+        const uint64_t overshoot = bounded && terminal_spent > e.journal_allowance
+                                       ? terminal_spent - e.journal_allowance
+                                       : 0;
+        const uint64_t post_digest = rule_journal_digest(k);
+        const char *terminal =
+            !bounded ? "unbounded"
+            : overshoot ? "overshot"
+                      : terminal_spent == e.journal_allowance ? "exhausted"
+                                                              : "within";
+        RuleJournalRecord record;
+        record.kind = "schedule";
+        record.rule = r.name;
+        record.event = "inprocess-invocation";
+        record.candidate = invocation;
+        record.trigger = "default-inprocess-scheduler";
+        record.context =
+            std::string("currency=") + effort_currency(r.name) +
+            ";reference=" + std::to_string(e.journal_reference) +
+            ";allowance=" + std::to_string(e.journal_allowance) +
+            ";bounded=" + (bounded ? "1" : "0") +
+            ";entry=" + std::to_string(invocation_entry) +
+            ";exit=" + std::to_string(exit) +
+            ";delta=" + std::to_string(delta) +
+            ";overshoot=" + std::to_string(overshoot) +
+            ";terminal=" + terminal +
+            (substitute
+                 ? ";rounds=" + std::to_string(e.journal_rounds) +
+                       ";last-round=" +
+                       std::to_string(e.journal_last_round_spent) +
+                       ";round-budget-break=" +
+                       (e.journal_round_budget_break ? "1" : "0")
+                 : "");
+        record.formula_epoch = invocation_formula_epoch;
+        record.root_epoch = invocation_root_epoch;
+        record.pre_digest = invocation_pre_digest;
+        record.guards = std::string("admitted=") + (admitted ? '1' : '0');
+        record.antecedents = "slot-ledger";
+        record.outcome = admitted ? journal_result(ctx.last_result) : "declined";
+        record.decline = decline;
+        record.deltas = invocation_pre_digest == post_digest
+                            ? "none"
+                            : "state-digest-change";
+        record.witnesses = "rule-owned";
+        record.effort = delta;
+        record.budget = bounded ? e.limit : 0;
+        record.post_digest = post_digest;
+        rule_journal_emit(k, record);
+      }
+#endif
       if (!std::strcmp(r.name, "Congruence"))
         ctx.congruence_changed = ctx.last_result == ApplyResult::Ok;
-      else if (sweep) {
+      if (sweep) {
         ctx.sweep_changed = ctx.last_result == ApplyResult::Ok;
         if (ctx.sweep_changed) {
           sweep_retired_begin = retired_before;
           sweep_substituted_begin = substituted_before;
+        } else if (sweep_retired_begin == SIZE_MAX) {
+          heuristics_consume_retirements(k);
         }
-      } else if (substitute && sweep_retired_begin != SIZE_MAX) {
-        // Kissat's post-Sweep Substitute scans one union containing both the
-        // representatives proved by Sweep and any older SCC exposed by their
-        // binaries.  Sweep has already ordered its own portion; extend that
-        // same scan boundary across this mandated follow-up before H consumes
-        // either portion at phase exit.
-        sweep_order_retirement_suffix(k, sweep_retired_begin,
-                                      sweep_substituted_begin);
-        sweep_retired_begin = sweep_substituted_begin = SIZE_MAX;
+      } else {
+        if (substitute && sweep_retired_begin != SIZE_MAX) {
+          // Kissat's post-Sweep Substitute scans one union containing both the
+          // representatives proved by Sweep and any older SCC exposed by
+          // their binaries.  Sweep has already ordered its own portion;
+          // extend that same scan boundary across this mandated follow-up
+          // before H consumes either portion at this call boundary.
+          sweep_order_retirement_suffix(k, sweep_retired_begin,
+                                        sweep_substituted_begin);
+          sweep_retired_begin = sweep_substituted_begin = SIZE_MAX;
+        }
+        if (sweep_retired_begin == SIZE_MAX) {
+          // All other Kissat rule-local eliminations are active-flag
+          // transitions owned by that call.  Do not let their arbitrary heap
+          // removals drift to phase exit.  A productive Sweep is the sole
+          // exception: its inline rewrites deliberately wait for the
+          // mandatory follow-up Substitute to retire the complete
+          // import-ordered union.
+          heuristics_consume_retirements(k);
+        }
       }
+      event_trace_slot_boundary(k, r.name, "end");
       if (step == SlotStep::Stop)
         break;
     }
@@ -2743,17 +3510,26 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       break; // outer fixpoint: the round retired and created nothing
     active_before = active_now;
   }
+  if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
+    event_trace_eliminate_cleanup(k, "before");
   if (ctx.phase_dosed && !ctx.phase_unsat)
     kernel_collect_garbage(k);
   if (!ctx.phase_unsat)
     kernel_flush_retired_redundant(k);
+  if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
+    event_trace_eliminate_cleanup(k, "after");
   heuristics_consume_retirements(k);
   kernel_dense_disconnect(k);
   // Kissat leaves every probe/eliminate pipeline by rebuilding sparse large
   // watches.  This is ordering state, not optional garbage collection: in
   // particular it resets the mutations made by unsuccessful early Lucky
   // trials before late Lucky and first search.
-  kernel_rebuild_large_watches(k);
+  // The full dense-mode exit corresponds to Kissat's arena-order reconnect.
+  // Tactix may have physically permuted that arena through its independent
+  // CaDiCaL-derived policy; replay the persistent source positions here.  The
+  // rule-local Vivify, Congruence, and Factor reconnects keep their own arena
+  // contexts and deliberately use the default physical traversal.
+  kernel_rebuild_large_watches(k, /*inherited_source_order=*/true);
   k.factor_selection = nullptr;
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
@@ -2799,12 +3575,11 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
     reference = config().preprocess_initial_ticks;
   else if (!substitute && reference < config().minimum_effort_ticks)
     reference = config().minimum_effort_ticks;
-  const uint64_t delta = substitute
-                             ? reference / PERMILLE_SCALE * e.permille +
-                                   reference % PERMILLE_SCALE * e.permille /
-                                       PERMILLE_SCALE
-                             : reference / PERMILLE_SCALE * e.permille;
+  const uint64_t delta = scale_permille(reference, e.permille);
   e.limit = e.meter(k) + delta;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  e.journal_reference = reference;
+#endif
   if (std::getenv("TACTIX_SLOT_TRACE"))
     std::fprintf(stderr,
                  "[slot-limit] %s now=%llu anchor=%llu reference=%llu "
@@ -2827,9 +3602,10 @@ void DefaultInprocessScheduler::set_entry_limit(SlotEntry &e, Kernel &k) {
   if (e.doses == 0 && e.budget_aware &&
       !std::strcmp(rules[e.rule].name, "Factor"))
     e.limit = e.meter(k) + factor_init_ticks_;
-  if (e.doses == 0 && e.budget_aware &&
-      !std::strcmp(rules[e.rule].name, "Congruence"))
-    e.limit = e.meter(k) + congruence_init_ticks_;
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  const uint64_t entry = e.meter(k);
+  e.journal_allowance = e.limit >= entry ? e.limit - entry : 0;
+#endif
 }
 
 void DefaultInprocessScheduler::report(const Kernel &k) const {
