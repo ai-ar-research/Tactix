@@ -2669,11 +2669,10 @@ void kernel_build_lrat_chain(
   for (const auto &e : entries) {
     // 0 is LRAT's line terminator, so a zero antecedent does not produce a
     // wrong chain — it produces a TRUNCATED one, silently dropping every
-    // later antecedent. `unit_ids[v] == 0` means "this literal has no unit
-    // clause in the proof yet", which any direct citation site must have
-    // ruled out before getting here (the reason-walk sites cannot hit it:
-    // they only read unit_ids under `reason == UNIT_REASON`). Cheap
-    // permanent guard, same family as Proof::add_rup's no-tautology and
+    // later antecedent. `unit_ids[v] == 0` means no proof unit exists yet, so
+    // citation sites must exclude it; root-level reason walks assert this when
+    // collapsing to the named unit. Cheap permanent guard, same family as
+    // Proof::add_rup's no-tautology and
     // no-empty-chain asserts: those two are what make a whole class of
     // certificate defects visible to the debug fuzz legs, since the permissive
     // format hides them — a congruence bug emitting `<id> <lits> 0 0` sat
@@ -2764,7 +2763,17 @@ void kernel_reason_walk(Kernel &k, Var start, std::vector<uint8_t> &seen,
     const Assigned &a = k.assigned[v];
     if (a.reason == DECISION_REASON)
       continue; // probe assumption: the negation of the emitted clause
-    if (a.reason == UNIT_REASON) {
+    if (a.reason == UNIT_REASON || a.level == 0) {
+      // A root-fixed literal is a named unit clause in the proof by the time
+      // any rule walks reasons (every propagation wrapper runs
+      // kernel_emit_root_units before returning; asserted units get their ids
+      // at the source), so cite that unit and stop — the same scheme as
+      // analyze's chain_record_root. Re-walking the retained clause reason
+      // instead cites a clause a rule may have deleted since (a root-satisfied
+      // candidate is garbage the moment a unit satisfies it), which the
+      // checker rejects as a deleted hint.
+      assert(k.unit_ids[v] &&
+             "root-fixed literal walked before its unit id exists");
       out.emplace_back(a.trail, k.unit_ids[v]);
       continue;
     }

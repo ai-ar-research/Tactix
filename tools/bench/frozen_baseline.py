@@ -212,6 +212,13 @@ def prepare(campaign):
         "schema": 1, "campaign": campaign.name,
         "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "once_only": True, "requeue": False,
+        "certificate_policy": {
+            "aggregate_orphan_check": True,
+            "retention": "none",
+            "stage_cleanup": "delete-input-after-consuming-checker-stage",
+            "storage": "live-campaign-scratch",
+            "terminal_cleanup": "delete-before-result-publication",
+        },
         "limits": {"solve_wall_seconds": SOLVE_LIMIT,
                    "checker_pipeline_wall_seconds": CHECK_LIMIT,
                    "process_memory_gib": MEM_GIB},
@@ -266,10 +273,13 @@ def prepare(campaign):
     print(f"prepared {len(tasks)} tasks: {len(instances)} instances x {len(solvers)} solvers")
 
 
-def limits():
-    os.setsid()
-    b = MEM_GIB << 30
-    resource.setrlimit(resource.RLIMIT_AS, (b, b))
+def resource_limits(memory_gib):
+    """Return a zero-argument pre-exec hook for the manifest's process cap."""
+    def apply():
+        os.setsid()
+        b = memory_gib << 30
+        resource.setrlimit(resource.RLIMIT_AS, (b, b))
+    return apply
 
 
 def parse_rss(path):
@@ -284,13 +294,15 @@ def parse_rss(path):
 _active_process = None
 
 
-def measured(cmd, stdout, stderr, timeout, metric, env=None):
+def measured(cmd, stdout, stderr, timeout, metric, env=None,
+             memory_gib=MEM_GIB):
     global _active_process
     wrapped = [str(TIME), "-f", "max_rss_kb=%M", "-o", str(metric), "--", *map(str, cmd)]
     start = time.monotonic()
     timed_out = False
     with open(stdout, "wb") as out, open(stderr, "wb") as err:
-        p = subprocess.Popen(wrapped, stdout=out, stderr=err, preexec_fn=limits,
+        p = subprocess.Popen(wrapped, stdout=out, stderr=err,
+                             preexec_fn=resource_limits(memory_gib),
                              env=env)
         _active_process = p
         try:
@@ -366,6 +378,10 @@ def checker_ok(name, rc, stdout, stderr):
 
 def check_proof(man, campaign, solver, cnf, proof, work):
     """Run the solver-selected SC2026 frontend and verified backend."""
+    resource_contract = man.get("limits", {})
+    check_limit = resource_contract.get(
+        "checker_pipeline_wall_seconds", CHECK_LIMIT)
+    memory_gib = resource_contract.get("process_memory_gib", MEM_GIB)
     fmt = solver["certificate"]
     amendment_path = campaign / "checker-amendment-1.json"
     amendment = json.loads(amendment_path.read_text()) if amendment_path.exists() else None
@@ -412,25 +428,29 @@ def check_proof(man, campaign, solver, cnf, proof, work):
         ]
     started = time.monotonic()
     stages = []
+    derived_records = {}
+    consumed = [Path(proof), *derived]
     for number, spec in enumerate(specs, 1):
         name, cmd, *redirect = spec
         stdout = work / f"checker-{number}.stdout"
         stderr = work / f"checker-{number}.stderr"
-        remaining = max(1, CHECK_LIMIT - int(time.monotonic() - started))
+        remaining = max(1, check_limit - int(time.monotonic() - started))
         actual_stdout = redirect[0] if redirect else stdout
         stage_env = None
-        if name in ("cake-lpr", "cake-pb-cnf"):
+        stage_environment = {}
+        if name in ("cake-lpr", "cake-pb-cnf") and memory_gib >= 32:
             # CakeML's shipped 4 GiB heap is smaller than the SC2026 32 GiB
             # process contract and can reject a valid large translated proof.
             # Keep 4 GiB for its default stack and further address-space slack.
             stage_env = os.environ.copy()
             stage_env["CML_HEAP_SIZE"] = "24576"  # MiB
+            stage_environment = {"CML_HEAP_SIZE_MIB": 24576}
         measured_stage = measured(cmd, actual_stdout, stderr, remaining,
-                                  work / f"checker-{number}.time", stage_env)
+                                  work / f"checker-{number}.time", stage_env,
+                                  memory_gib)
         measured_stage.update({
             "name": name,
-            "environment": ({"CML_HEAP_SIZE_MIB": 24576}
-                            if stage_env is not None else {}),
+            "environment": stage_environment,
             "provenance": (man["provenance"].get(name) or
                            (amendment or {}).get("provenance", {}).get(name)),
             "result": "verified" if checker_ok(
@@ -439,7 +459,34 @@ def check_proof(man, campaign, solver, cnf, proof, work):
             "stderr_tail": tail(stderr),
         })
         stages.append(measured_stage)
+        produced = derived[number - 1] if number <= len(derived) else None
+        if produced is not None and produced.is_file():
+            key = str(produced.relative_to(campaign))
+            derived_records[key] = {
+                "path": key,
+                "bytes": produced.stat().st_size,
+                "sha256": sha256(produced),
+                "deleted": False,
+            }
+
+        # A checker stage has finished consuming this input.  Deleting it here
+        # bounds live proof storage and makes the manifest's stage-cleanup
+        # contract true even when a later stage rejects or times out.
+        consumed_path = consumed[number - 1]
+        measured_stage["input_artifact_deleted"] = not consumed_path.exists()
+        if consumed_path.exists():
+            consumed_path.unlink()
+            measured_stage["input_artifact_deleted"] = True
+        consumed_key = str(consumed_path.relative_to(campaign))
+        if consumed_key in derived_records:
+            derived_records[consumed_key]["deleted"] = True
+
         if measured_stage["result"] != "verified":
+            # A rejected stage can still leave a partial output.  It is useful
+            # only through the recorded size/hash and must not survive.
+            if produced is not None and produced.exists():
+                produced.unlink()
+                derived_records[str(produced.relative_to(campaign))]["deleted"] = True
             break
     return {
         "pipeline": (amendment["pipeline"] if fmt == "dsr" and amendment
@@ -456,10 +503,7 @@ def check_proof(man, campaign, solver, cnf, proof, work):
             stage["name"] in ("cake-lpr", "cake-pb-cnf") for stage in stages)
             else None),
         "stages": stages,
-        "derived_artifacts": [{"path": str(path.relative_to(campaign)),
-                               "bytes": path.stat().st_size,
-                               "sha256": sha256(path)}
-                              for path in derived if path.is_file()],
+        "derived_artifacts": list(derived_records.values()),
     }, derived
 
 
@@ -473,7 +517,12 @@ def tail(path, lines=8):
 def run_one(campaign, index):
     campaign = campaign.resolve()
     man = json.loads((campaign / "manifest.json").read_text())
+    if man.get("certificate_policy", {}).get("retention") != "none":
+        raise SystemExit("campaign must declare zero certificate retention")
     task = man["tasks"][index]
+    resource_contract = man.get("limits", {})
+    solve_limit = resource_contract.get("solve_wall_seconds", SOLVE_LIMIT)
+    memory_gib = resource_contract.get("process_memory_gib", MEM_GIB)
     inst, solver = man["instances"][task["instance"]], man["solvers"][task["solver"]]
     result_path = campaign / "results" / f"{index:05d}.json"
     claim = campaign / "claims" / f"{index:05d}.json"
@@ -504,7 +553,8 @@ def run_one(campaign, index):
             cmd = [executable, cnf, proof]
         else:
             cmd = [executable, cnf, proof_dir]
-        solve = measured(cmd, stdout, stderr, SOLVE_LIMIT, work / "solve.time")
+        solve = measured(cmd, stdout, stderr, solve_limit,
+                         work / "solve.time", memory_gib=memory_gib)
         answer = verdict(solve["exit_code"], stdout)
         result = {
             "task": index, "solver": solver["name"], "instance": inst["rel"],
@@ -530,9 +580,12 @@ def run_one(campaign, index):
             else:
                 result["proof_ok"] = False
         elif answer == "SAT":
+            result["certificate_bytes"] = stdout.stat().st_size
+            result["certificate_sha256"] = sha256(stdout)
             model_check = measured([campaign / man["checkers"]["checkmodel"], cnf, stdout],
                                    work / "model-check.stdout", work / "model-check.stderr",
-                                   600, work / "model-check.time")
+                                   600, work / "model-check.time",
+                                   memory_gib=memory_gib)
             result["model_check"] = model_check
             result["model_protocol_ok"] = sat_output_protocol_ok(stdout)
             result["model_ok"] = (model_check["exit_code"] == 0 and
@@ -542,50 +595,35 @@ def run_one(campaign, index):
             result["model_check"]["stdout_tail"] = tail(work / "model-check.stdout")
             result["model_check"]["stderr_tail"] = tail(work / "model-check.stderr")
             result["model_checker"] = man["provenance"]["checkmodel"]
+        elif proof.is_file() and proof.stat().st_size:
+            result["certificate_bytes"] = proof.stat().st_size
+            result["certificate_sha256"] = sha256(proof)
 
         valid = (answer == "SAT" and result["model_ok"] is True or
                  answer == "UNSAT" and result["proof_ok"] is True)
         accepted = valid and result["expected_match"]
         result["valid"] = accepted
-        artifact = proof if answer == "UNSAT" else stdout
-        if answer in ("SAT", "UNSAT") and not accepted:
-            suffix = solver["certificate"] if answer == "UNSAT" else "model"
-            result["retained_artifact"] = retain(artifact,
-                campaign / "retained" / f"{index:05d}.{suffix}")
-            if result["retained_artifact"]:
-                result["retained_artifacts"].append(result["retained_artifact"])
-            if answer == "UNSAT" and derived is not None:
-                for number, path in enumerate(derived):
-                    if path.is_file():
-                        kept = retain(path, campaign / "retained" /
-                                      f"{index:05d}.derived-{number}{path.suffix}")
-                        if kept:
-                            result["retained_artifacts"].append(kept)
-            result["cleanup_pending"] = bool(result["retained_artifacts"])
-        elif answer == "UNKNOWN" and proof.is_file() and proof.stat().st_size:
-            result["certificate_bytes"] = proof.stat().st_size
-            result["certificate_sha256"] = sha256(proof)
-            result["retained_artifact"] = retain(
-                proof, campaign / "retained" / f"{index:05d}.partial-{solver['certificate']}")
-            if result["retained_artifact"]:
-                result["retained_artifacts"].append(result["retained_artifact"])
-            result["cleanup_pending"] = True
+        result["solver_stdout_tail"] = tail(stdout)
+        result["solver_stderr_tail"] = tail(stderr)
 
-        # First durable classification: it contains the proof hash/size/checker
-        # result while the certificate still exists.
-        atomic_json(result_path, result)
-        if accepted and artifact.exists():
-            artifact.unlink()
-            result["artifact_deleted"] = True
-            if answer == "UNSAT" and derived is not None:
-                for path in derived:
-                    if path.exists():
-                        path.unlink()
-                result["derived_artifacts_deleted"] = True
-            if proof != artifact and proof.exists():
-                proof.unlink()
-            atomic_json(result_path, result)
+        # Preserve only diagnostic metadata.  The SAT stdout is the model
+        # certificate; an UNKNOWN proof is a partial certificate; and a failed
+        # checker can leave partial derivatives.  All are removed regardless
+        # of acceptance before the sole result publication.
+        certificate_paths = [proof, *(derived or [])]
+        if answer == "SAT":
+            certificate_paths.append(stdout)
+        for path in certificate_paths:
+            if path.exists():
+                path.unlink()
+        result["artifact_deleted"] = all(not path.exists()
+                                         for path in (proof, stdout)
+                                         if answer == "SAT" or path == proof)
+        result["derived_artifacts_deleted"] = all(
+            not path.exists() for path in (derived or []))
         shutil.rmtree(work)
+        result["scratch_deleted"] = not work.exists()
+        atomic_json(result_path, result)
         return 0 if result["valid"] or answer == "UNKNOWN" else 1
     finally:
         shutil.rmtree(local, ignore_errors=True)
@@ -604,11 +642,18 @@ def aggregate(campaign):
     claimed = {int(p.stem) for p in (campaign / "claims").glob("*.json")}
     interrupted = sorted(claimed - {r["task"] for r in results})
     orphan_artifacts = []
+    certificate_suffixes = {".drat", ".dsr", ".lrat", ".lsr", ".pbp"}
     for i in interrupted:
         scratch = campaign / "scratch" / f"{i:05d}"
         if scratch.exists():
             orphan_artifacts.extend(str(p.relative_to(campaign)) for p in scratch.rglob("*")
-                                    if p.is_file() and ("proof" in p.name or "certificate" in p.name))
+                                    if p.is_file() and ("proof" in p.name or
+                                                        "certificate" in p.name or
+                                                        p.suffix in certificate_suffixes))
+    retained = campaign / "retained"
+    if retained.exists():
+        orphan_artifacts.extend(str(p.relative_to(campaign))
+                                for p in retained.rglob("*") if p.is_file())
     summary = {"schema": 1, "manifest_sha256": sha256(campaign / "manifest.json"),
                "complete": not missing, "task_count": len(man["tasks"]),
                "result_count": len(results), "missing_tasks": missing,
@@ -636,6 +681,9 @@ def validate(campaign):
     if record_path.exists():
         raise SystemExit("validation already recorded; refusing repeat")
     man = json.loads((campaign / "manifest.json").read_text())
+    if man.get("certificate_policy", {}).get("retention") != "none":
+        raise SystemExit("campaign must declare zero certificate retention")
+    memory_gib = man.get("limits", {}).get("process_memory_gib", MEM_GIB)
     work = campaign / "validation-scratch"
     work.mkdir(exist_ok=False)
     unsat = work / "unsat.cnf"
@@ -654,7 +702,7 @@ def validate(campaign):
         cmd = ([executable, unsat, proof] if solver["kind"] == "positional"
                else [executable, unsat, proof_dir])
         solve_u = measured(cmd, sw / "unsat.stdout", sw / "unsat.stderr", 120,
-                           sw / "unsat.time")
+                           sw / "unsat.time", memory_gib=memory_gib)
         answer_u = verdict(solve_u["exit_code"], sw / "unsat.stdout")
         check, derived = ({"result": "not-run", "stages": []}, [])
         if answer_u == "UNSAT" and proof.is_file():
@@ -665,11 +713,12 @@ def validate(campaign):
         cmd = ([executable, sat, sat_proof] if solver["kind"] == "positional"
                else [executable, sat, sat_proof_dir])
         solve_s = measured(cmd, sw / "sat.stdout", sw / "sat.stderr", 120,
-                           sw / "sat.time")
+                           sw / "sat.time", memory_gib=memory_gib)
         answer_s = verdict(solve_s["exit_code"], sw / "sat.stdout")
         model = measured([campaign / man["checkers"]["checkmodel"], sat,
                           sw / "sat.stdout"], sw / "model.stdout",
-                         sw / "model.stderr", 120, sw / "model.time")
+                         sw / "model.stderr", 120, sw / "model.time",
+                         memory_gib=memory_gib)
         row = {
             "solver": solver["name"], "unsat_verdict": answer_u,
             "unsat_solve": solve_u, "certificate_bytes": proof.stat().st_size
@@ -678,24 +727,28 @@ def validate(campaign):
             "proof_check": check, "sat_verdict": answer_s, "sat_solve": solve_s,
             "model_exit_code": model["exit_code"],
             "model_protocol_ok": sat_output_protocol_ok(sw / "sat.stdout"),
+            "unsat_stdout_tail": tail(sw / "unsat.stdout"),
+            "unsat_stderr_tail": tail(sw / "unsat.stderr"),
+            "sat_stdout_tail": tail(sw / "sat.stdout"),
+            "sat_stderr_tail": tail(sw / "sat.stderr"),
+            "model_stdout_tail": tail(sw / "model.stdout"),
+            "model_stderr_tail": tail(sw / "model.stderr"),
         }
         row["passed"] = (answer_u == "UNSAT" and check["result"] == "verified" and
                          answer_s == "SAT" and model["exit_code"] == 0 and
                          row["model_protocol_ok"])
         rows.append(row)
         all_artifacts.extend([proof, sat_proof, sw / "sat.stdout", *derived])
+    for path in all_artifacts:
+        if path.exists():
+            path.unlink()
+    shutil.rmtree(work)
     record = {"schema": 1, "manifest_sha256": sha256(campaign / "manifest.json"),
               "node": os.environ.get("SLURMD_NODENAME", os.uname().nodename),
               "passed": all(row["passed"] for row in rows), "solvers": rows,
-              "artifacts_deleted": False}
+              "artifacts_deleted": all(not path.exists() for path in all_artifacts),
+              "scratch_deleted": not work.exists()}
     atomic_json(record_path, record, exclusive=True)
-    if record["passed"]:
-        for path in all_artifacts:
-            if path.exists():
-                path.unlink()
-        shutil.rmtree(work)
-        record["artifacts_deleted"] = True
-        atomic_json(record_path, record)
     print(json.dumps({"passed": record["passed"], "node": record["node"]}, indent=2))
     return 0 if record["passed"] else 1
 
