@@ -2740,8 +2740,14 @@ void kissat_event_trace_substitute_map (kissat *solver, unsigned lit,
   if (!detail_enabled (solver))
     return;
   const char *selected = getenv ("KISSAT_EVENT_TRACE_SUBSTITUTE_LITERAL");
+  const char *selected_representative =
+      getenv ("SAT_EVENT_TRACE_SUBSTITUTE_REPRESENTATIVE");
   if (selected) {
     if (atoi (selected) != external_literal (solver, lit))
+      return;
+  } else if (selected_representative) {
+    if (atoi (selected_representative) !=
+        external_literal (solver, representative))
       return;
   } else {
     const char *all = getenv ("SAT_EVENT_TRACE_SUBSTITUTE_ALL");
