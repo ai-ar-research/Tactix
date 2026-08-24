@@ -654,3 +654,40 @@ certificate, or staged-input residue entered SLURM evidence. These closures
 leave the per-list watch-head/flat-arena addressing and relocation population
 as the next source-backed representation boundary; they do not reopen any
 proof rule, semantic schedule, or N1--N4 capability.
+
+## 23. Congruence first-literal membership directory
+
+Congruence's immutable `ClauseIndex` stores canonical small-clause records in
+lexicographic literal order. XOR and ITE extraction repeatedly ask whether a
+sorted small key exists, and every such key's first literal therefore selects
+one contiguous interval of the record vector. A scoped `uint32_t` offset
+directory narrows `lower_bound` to that interval. It is only an accelerator:
+record construction, deduplication, iteration, equality, gate and candidate
+order, logical ticks/costs, scheduling, proof transactions, and resulting
+learning/pruning remain unchanged. The directory is rebuilt with its owning
+index and is not a live-clause authority or a strategy input.
+
+Rank-27 observer `1645800` localizes 635 of 849 ITE-extraction milliseconds to
+conditional-equivalence collection, versus 68 ms preparing admitted pairs and
+76 ms evaluating them. Exact-state stage gate `1645801` preserves every
+non-timing statistic while reducing ITE extraction 1007→550 ms, XOR extraction
+168→91 ms, complete Congruence 2853→2259 ms, and the conflict-9450 prefix
+16869→16512 ms. Paired cycles job `1645803` confirms zero lost samples and
+reduces complete cycles 64.668B→63.456B; gate extraction plus the separately
+materialized ITE membership lambda falls 2.914B→1.355B. Trace job `1645805`
+is byte-identical for all 64 rows (SHA-256 `7a6216bb…7cc1`), including exact
+candidate/order, tick/cost, schedule, boundary state, learning, and pruning.
+The complete frozen B28 plus fixed-C5 guard `1645806`/`1645872` passes 66/66
+with independently checked 17 SAT models and 16 UNSAT proofs per arm, no solve
+loss or invalidity, and zero certificate residue; candidate/shipped PAR-2 is
+0.9971663x. Exact-source ASan/UBSan native-LRAT fuzz `1645874` passes 10,000
+cases with zero failures: 2,620 SAT models and 3,482 UNSAT proofs are checked,
+Congruence fires in 3,556 cases for 1,246,344 target applications, and
+certificate/job-temporary residue is zero. The one predeclared corpus-only
+nontermination is the Sweep-specific setup closure from invalid predecessor
+`1645873`, not solver correctness evidence. Checked two-CPU Rank-27 witness
+`1645875` preserves every non-timing statistic and the byte-identical
+1,514,395,111-byte DRAT proof, which pinned `drat-trim` verifies before deletion.
+Internal time improves 407.006→403.855 seconds and Congruence
+18.130→16.910 seconds with zero residue. The representation repair is promoted,
+but Rank 27 remains open because the valid result still misses 300 seconds.

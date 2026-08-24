@@ -8,11 +8,11 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. The validated reserved-trail
-  source, regression, design note, and report landed as
-  `2c86274d91574fd860d22f178aaf584b97ad793c`, directly on synchronized base
-  `80f281a5e98b10884f53611777e4999037b39cd8`. At handoff both that increment
-  and this living authority are pushed; the shared worktree is clean.
+- Worktree `/home/hwu/SAT-solving`, branch `main`. The synchronized base before
+  this increment is `fff43d69f3aaa1e7828b3d23669466fbe8c6b3de`. The accepted
+  Congruence first-literal directory is frozen as Release binary SHA-256
+  `b81bb832…1b83` from source-diff SHA-256 `283d6cce…b9d`; its final report and
+  wrap-up commit are the current handoff artifacts.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -24,25 +24,26 @@ own experimental detail and history.
   1,165 (689 valid, 476 invalid); both are explicitly non-scorable. Their
   `cancellation.json` records own the exact disposition. Pending, retained,
   scratch, and certificate residue are zero in both campaigns.
-- The linear import-order repair passed full B28+fixed-C5
-  `1645550`/`1645557` and exact-source ASan/UBSan native-LRAT fuzz `1645587`.
-  Checked Rank-27 campaign `20260824-1155-tierd-rank27-import-order-linear-witness`
-  is valid UNSAT as job `1645699`: 413.830 s internal / 414.375 s wall with
-  byte-identical proof and non-time counters, verified and residue-free. This
-  is a 134.815-second same-trajectory recovery but still misses 300 seconds.
-- Full paired profile `1645700` reproduces both accepted full trajectories and
-  localizes the next portable throughput gap to assignment/propagation: Tactix
-  spends approximately 215.5 sampled cycles per printed propagation versus
-  current instrumented Kissat's 174.2. The first narrow source owner is
-  Tactix's out-of-line generic vector push on its already reserved trail.
-  ReservedTrail profile `1645702` preserves every conflict-9450 counter while
-  reducing 17.372→16.624 s and sampled cycles by 4.31%; trace `1645704` is
-  byte-identical for all 64 rows (SHA `7a6216bb…7cc1`). Mandatory full guard
-  `1645705`/`1645771` passes 66/66 and exact-source 10k ASan/UBSan native-LRAT
-  fuzz `1645772` passes with zero failures; both are residue-free. Checked
-  Rank-27 job `1645778` is valid trajectory-exact UNSAT in 407.006 s internal /
-  407.497 s wall, recovering 6.824 s from the prior pin while still missing the
-  300 s target at 1.357x. Its byte-identical proof verifies and cleanup is zero.
+- Observer `1645800` localizes 635/849 ms of Rank-27 ITE extraction to repeated
+  small-clause membership collection. The first-literal range directory is a
+  representation-only repair. Exact stage/profile jobs `1645801`/`1645803`
+  preserve every non-time counter, reduce complete Congruence 2853→2259 ms and
+  total cycles 64.668B→63.456B, and cut the extraction owner 2.914B→1.355B
+  cycles. Event trace `1645805` is byte-identical for all 64 rows (SHA
+  `7a6216bb…7cc1`), including candidate/order, tick/cost, scheduling, and
+  pruning.
+- Full B28+fixed-C5 guard `1645806`/`1645872` passes 66/66 independently
+  checked tasks, candidate/shipped PAR-2 ratio 0.9971663, and zero residue.
+  Corrected exact-source ASan/UBSan native-LRAT fuzz `1645874` passes 10,000
+  cases with zero failures, 2,620 SAT models, 3,482 UNSAT proofs, 3,556 cases
+  reaching Congruence, 1,246,344 target applications, and zero certificate or
+  job-temporary residue. Predecessor `1645873` is frozen setup-invalid and
+  supplies no correctness evidence.
+- Checked two-CPU Rank-27 job `1645875` is valid trajectory-exact UNSAT in
+  403.855 s internal / 404.395 s wall. Pinned `drat-trim` verifies the
+  byte-identical 1,514,395,111-byte proof SHA `0f99f55a…8bb2d` against the
+  original CNF and cleanup is zero. This repair recovers 3.151 internal seconds
+  from `1645778`, but Rank 27 remains open at 1.346x the 300-second target.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -62,10 +63,10 @@ own experimental detail and history.
   used only as a source observer; its result is not scoring evidence.
 - The accepted regression comparator remains the `tactix-shipped` pin frozen
   by the guard manifests; it is not the current-Kissat divergence target.
-  Latest accepted full B28+fixed-C5 authority is reserved-trail campaign
-  `20260824-1420-BC-reserved-trail-guard`, array/aggregate
-  `1645705`/`1645771`: 66/66 checked, zero residue, candidate/comparator PAR-2
-  ratio 0.757396. Its summary SHA-256 is `c2ceadd2…7909`.
+  Latest accepted full B28+fixed-C5 authority is first-literal-range campaign
+  `20260824-1685-BC-first-literal-range-guard`, array/aggregate
+  `1645806`/`1645872`: 66/66 checked, zero residue, candidate/comparator PAR-2
+  ratio 0.9971662967. Its summary SHA-256 is `e94a30b5…25cc`.
 - The newest canonical completed Tier-C `results.json` window remains
   `20260813-111513-C-cleanup-b2b8362`; later targeted and B/C guard manifests
   above supersede it only for the current regression/guard question, not T3.
@@ -902,6 +903,18 @@ without contradictory evidence.
   changing behavior. Required three-page Andrew handoff is
   `report-to-andrew/2026-08-24-1615-rank27-propagation-closures/`, TeX SHA
   `5920d4bd…7da`, PDF SHA `0d8b4c46…975`, with no final-pass LaTeX warning.
+- 2026-08-24 — Promoted Congruence's general first-literal membership range
+  directory after exact stage/profile/trace parity (`1645800`--`1645805`), full
+  checked B28+C5 guard `1645806`/`1645872`, and corrected exact-source fuzz
+  `1645874` (10k/0). Checked Rank-27 `1645875` verifies the byte-identical
+  1.514 GB proof with zero residue and improves internal time
+  407.006→403.855 seconds, still above 300. Frozen full Tier-D remains canceled
+  and non-scorable. The Andrew handoff is
+  `report-to-andrew/2026-08-24-1815-rank27-congruence-first-literal-range/`;
+  TeX SHA `a495b4a1…fc5d`, PDF SHA `b749b7c2…9043`, three pages, and no final-pass
+  LaTeX box warning. Final Release is 73/74; only the pre-existing opt-in
+  documentation-size debt fails (PROGRESS and implementation notes remain over
+  their long-lived budgets; calculus has a reserve warning).
 - 2026-08-23 — Repaired and exactly closed the Sweep→Substitute bridge,
   retirement, c3069 environment, and c5471 implication streams.
 - 2026-08-23 — Closed decision parity through c10000 and opened the c15385 BVE
@@ -912,9 +925,12 @@ without contradictory evidence.
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism
 dispositions and reopening conditions are in `docs/scheduling-parity-ledger.md`.
-The current Sweep semantic and throughput owner is closed at the shared T105
-state, but promotion remains blocked until the candidate passes the mandatory
-full B28+fixed-C5 guard and then the checked Rank-27 witness.
+The Sweep semantic/throughput, counted directed bridge, BVE antecedent-admission,
+reserved-trail, and Congruence first-literal representation closures remain
+accepted. Rank 27 is still open after valid checked job `1645875`; resume
+current Tactix versus current instrumented Kissat at the earliest common-state
+weaker-work or slower-comparable-work divergence without rerunning frozen
+references.
 <!-- track-sched:end -->
 
 ## Gates

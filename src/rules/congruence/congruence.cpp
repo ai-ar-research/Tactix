@@ -1077,14 +1077,38 @@ public:
                       return compare(a, b) == 0;
                     }),
         records_.end());
+    // Every membership probe already has a sorted key.  Its first literal
+    // therefore selects one contiguous record interval; searching that range
+    // avoids repeating a full-index binary search for each XOR/ITE clause
+    // probe.  The directory is only an accelerator over `records_`: record and
+    // iteration order, key equality, extraction order, and work charging stay
+    // unchanged.
+    if (!records_.empty()) {
+      assert(records_.size() <= UINT32_MAX);
+      const size_t end_literal =
+          static_cast<size_t>(records_.back().lits[0]) + 1;
+      first_literal_offsets_.resize(end_literal + 1);
+      uint32_t position = 0;
+      for (size_t literal = 0; literal <= end_literal; literal++) {
+        while (position < records_.size() &&
+               records_[position].lits[0] < literal)
+          position++;
+        first_literal_offsets_[literal] = position;
+      }
+    }
   }
   bool contains(const SmallKey &key) const {
+    const size_t first = key.lits[0];
+    if (first + 1 >= first_literal_offsets_.size())
+      return false;
+    const auto begin = records_.begin() + first_literal_offsets_[first];
+    const auto end = records_.begin() + first_literal_offsets_[first + 1];
     const auto it = std::lower_bound(
-        records_.begin(), records_.end(), key,
+        begin, end, key,
         [&](const Record &record, const SmallKey &wanted) {
           return compare(record, wanted) < 0;
         });
-    return it != records_.end() && compare(*it, key) == 0;
+    return it != end && compare(*it, key) == 0;
   }
   size_t size() const { return records_.size(); }
 
@@ -1163,6 +1187,7 @@ private:
 
   std::vector<Record> records_;
   PagedVector<Lit> tails_;
+  std::vector<uint32_t> first_literal_offsets_;
 };
 
 // Iterating a hash table is implementation-ordered, and gate emission order
