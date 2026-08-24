@@ -1,0 +1,192 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\usepackage[hidelinks]{hyperref}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Linear Import-Order Reconstruction}
+\author{Tactix engineering handoff}
+\date{24 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive outcome}
+Current/current Rank-27 profiling localized a portable common-state throughput
+loss in Kernel representation: after variable compaction, Tactix repeatedly
+comparison-sorted every live variable to reconstruct the permanent DIMACS
+first-occurrence order.  At the exact conflict-9450 boundary this helper alone
+accounted for 3.2251\% of production cycles.  The general repair records the
+inverse first-occurrence permutation once, retains retired external identities
+as holes, and resolves surviving entries through the existing
+external-to-internal compaction map.  Direct Kernel clients keep the previous
+fallback order.  No proof rule, strategy decision, scheduling cadence, effort
+budget, or benchmark-specific arm changes.
+
+The repaired profile preserves every non-time counter and removes 411 ms total
+and 402 ms inprocessing by conflict 9450.  Its event trace is byte-identical to
+the accepted current-Tactix trace, including exact rule boundaries,
+candidate/order images, logical ticks and costs, scheduling order, and resulting
+learning and pruning.  The mandatory full frozen Tier B plus five predeclared
+mechanism-relevant Tier C guard passes 66/66 with independently checked models
+and proofs, no solve loss, and zero certificate residue.  Exact-source sanitizer
+fuzz passes 10,000 cases with zero failures.  The checked immutable Rank-27
+witness preserves every non-time counter and identical proof bytes while
+improving 548.645 to 413.830 internal seconds.  This is a 134.815-second
+same-trajectory recovery, but the 300-second objective remains open.
+
+\section*{Frozen authority and localization}
+The immutable Rank-27 input is
+\artifact{tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz},
+SHA-256
+\hashcode{5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9}.
+Frozen Kissat 4.0.4 proves UNSAT in 278.187 seconds and was not rerun.  The
+accepted current-Kissat diagnostic is 286.30 seconds, with 188.64 seconds in
+search, 26.19 in Vivify, 16.32 in elimination, 10.42 in Substitute, and 5.91 in
+Congruence.  The preceding checked current Tactix is valid UNSAT in 548.645
+internal / 549.172 wall seconds, with 335.055 seconds in search and
+66.680/36.947/36.659/21.752 seconds in Vivify/BVE/Substitute/Congruence.
+Those full-run totals are localization leads across different trajectories, not
+same-state proof of a rule defect.
+
+The accepted common-state chain is narrower.  Campaigns \code{0321}--\code{0323}
+establish exact current/current state through conflict 9449 and the second
+Vivify entry: 5,761,854 decisions, all 4,915 candidates in identical order,
+equal per-candidate logical work, the same 19 binary additions, exact scheduling,
+and equal portable pruning.  The only extra Tactix deletion is normalization of
+an inherited duplicate; that Vivify semantic lead remains closed.
+
+Observer-free current-Tactix profile
+\artifact{benchmarks/runs/20260824-1121-tierd-rank27-current-vivify-production-profile/}
+stops at conflict 9450 in 21.051 seconds total, 10.029 seconds inprocessing, and
+11.022 seconds search/scaffolding.  It emits 5,795,248 decisions, 9,450
+conflicts, and 96,338,812 propagations.  A zero-loss \code{cycles:u} profile
+assigns 3.2251\% to the comparison sort inside
+\code{kernel_vars_in_import_order}.  Source inspection shows the sort merely
+reconstructs an order that input parsing had already assigned permanently; no
+rule or policy owns that representation work.
+
+\section*{General repair and exact-state evidence}
+Kernel now stores an inverse vector from permanent import rank to external
+variable, complementing its existing external-rank vector.  First import
+appends one external identity.  Reconstruction traverses that stable vector, skips retired
+holes through \code{external_to_internal}, then appends any unrecorded live
+direct-client variables in stable external order.  The previous semantics are
+therefore unchanged before and after compaction, but the recurring
+$O(n\log n)$ comparison sort becomes a linear image traversal.  A focused
+Kernel regression imports variables in non-numeric order, retires one imported
+and one unrecorded identity, compacts, and checks the exact surviving order and
+all Kernel invariants.
+
+Production campaign
+\artifact{benchmarks/runs/20260824-1136-tierd-rank27-import-order-linear-profile/},
+job \code{1645537}, uses a separate read-only Release diagnostic pin and the
+same 16 GiB / two-CPU contract.  All non-time statistics match the predecessor
+at conflict 9450.  Total time is 20.640 seconds, inprocessing 9.627, and
+search/scaffolding 11.012: reductions of 411, 402, and 10 ms respectively.
+The comparison-sort symbol disappears from 4,209 sampled cycles with zero lost
+samples.  The next sampled owners are propagation 28.87\%, backtrack 4.93\%,
+garbage collection 4.51\%, heap bubbling 4.07\%, vector growth 3.48\%, and
+Congruence gate extraction 3.30\%; none is yet an authorized behavioral repair.
+
+Exact event-trace campaign
+\artifact{benchmarks/runs/20260824-1142-tierd-rank27-import-order-linear-trace/},
+job \code{1645547}, emits 64 untruncated rows.  They are byte-identical to the
+accepted current-Tactix predecessor, SHA-256
+\hashcode{7a6216bb86c236512dea03de76c4c9ab2ffdd745bd7ca7b9fa5507e708987cc1}.
+Thus every observed rule boundary, formula state, candidate identity and order,
+normalized tick/cost image, scheduling event, and pruning result remains exact
+through the conflict-9449 Probe and conflict-9450 stop.  This explicitly
+preserves the closed Sweep parity, counted directed bridge repair, BVE
+antecedent admission, and the proof-rule/strategy boundary.
+
+\section*{Mandatory guard and correctness gates}
+The exact candidate Release binary has SHA-256
+\hashcode{4247d489270604692354bbb630f8590eb9e05168f0e9086a752b4de88f9ae57c}.
+Mandatory campaign
+\artifact{benchmarks/runs/20260824-1145-BC-import-order-linear-guard/}, array
+\code{1645550} and aggregate \code{1645557}, runs all 28 frozen Tier-B inputs
+plus the fixed five Tier-C mechanism guards under 16 GiB, 1,200 seconds, and two
+CPUs.  Both candidate and shipped arms validate 17 SAT models and 16 UNSAT
+proofs: 66/66 results, zero invalid, missing, regression, cleanup, or residue
+entries.  Candidate PAR-2 is 1,734.944 seconds versus 2,443.861 shipped, ratio
+0.709919263.  Summary SHA-256 is
+\hashcode{925e4b3074b73bbefb9808a19ae5854ada3dc5cf3fa833c32ff17829407bf6eb}.
+
+The cumulative Release suite is 73/74.  Every executable, proof/model,
+configuration, trace, static rule/policy boundary, and campaign cleanup test
+passes; only \code{doc_size} fails on the already recorded living-document debt.
+Focused ASan/UBSan \code{test_kernel} passes.  Repository authority makes
+documentation compaction opt-in, so no evidence is silently removed to
+manufacture a green count.
+
+% FUZZ_RESULT_BEGIN
+Exact-source native-LRAT sanitizer campaign
+\artifact{benchmarks/runs/20260824-1150-import-order-linear-fuzz/}, job
+\code{1645587}, completes 10,000 cases with ASan and UBSan while stressing BVE,
+Substitute, and Sweep across retirement.  It has zero failures: 5,044 checked
+SAT models, 3,381 checked native-LRAT UNSAT proofs, and 1,575 declared
+five-second nonterminations.  The three target rules fire in 5,823, 4,804, and
+2,471 cases respectively, totaling 1,329,770 stress-target applications.
+Twenty-five bounded-timeout CNFs are retained as diagnostic inputs; no proof,
+LRAT, checker, or certificate residue remains.  Random generation did not
+reach VariableCompaction, so the exact ASan/UBSan Kernel regression remains the
+direct compaction-with-holes authority.  No soundness, rejected proof/model,
+sanitizer, crash, or invariant trigger fired; the Claude workflow was not
+invoked.
+% FUZZ_RESULT_END
+
+\section*{Tier-D cancellation and checked Rank 27}
+At user direction, full current Tier-D array/aggregate
+\code{1645240}/\code{1645241} and surviving predecessor
+\code{1642950}/\code{1642951} were canceled to release capacity for fuzzing and
+convergence.  No frozen reference solver was rerun.  Current campaign
+\code{0343} preserves 294 classified rows: 103 checked SAT models, 84 checked
+UNSAT proofs, 98 solver timeouts, three \code{bad_alloc} resource exits, and six
+CakeML heap-exhaustion checker exits after \code{drat-trim} verification.  The
+predecessor preserves 1,165 classified rows.  Cancellation and resource/checker
+exits are not solver correctness failures; both partial campaigns are
+non-scorable.  Published JSON and logs remain, while exact result-less canceled
+scratch was deleted under zero retention.  Pending, retained, scratch, and
+certificate residue are zero in both campaigns; each has a frozen
+\code{cancellation.json} disposition.
+
+% WITNESS_RESULT_BEGIN
+The checked immutable Rank-27 campaign
+\artifact{benchmarks/runs/20260824-1155-tierd-rank27-import-order-linear-witness/}
+uses the candidate SHA above, immutable input hash, two CPUs, 16 GiB, a
+1,200-second solver limit, pinned \code{drat-trim}, and zero retention.  Job
+\code{1645699} returns UNSAT in 413.830 internal / 414.375 wall seconds versus
+548.645 / 549.172 for the preceding checked pin: 134.815 internal and 134.797
+wall seconds recovered.  All 3,813,669 conflicts, 175,272,633 decisions,
+2,512,356,477 propagations, rule yields, and every other non-time statistic are
+exact.  The 1,514,395,111-byte proof is also byte-identical, SHA-256
+\hashcode{0f99f55ac55571d6f83fe53ec8cb4a6a4c8df0a6e127442e50f47e25bea8bb2d}.
+Pinned \code{drat-trim} verifies it in 112.340 seconds with 20,047,408
+resolution steps and zero RAT lemmas in the core.  Proof, decompressed input,
+checker derivatives, and scratch are deleted before result publication.
+
+The savings span every repeated reconstruction after compaction: inprocessing
+falls 213.590 to 167.753 seconds and search/scaffolding 335.055 to 246.078,
+while Vivify/BVE/Substitute/Congruence fall to 55.877/31.122/21.951/18.072
+seconds.  This validates the persistent linear representation mechanism far
+beyond the early 411-ms profile prefix without attributing changed search: the
+trajectory and proof are exact.  At 413.830 seconds, however, Rank 27 still
+misses the 300-second target and frozen Kissat's 278.187 seconds.
+% WITNESS_RESULT_END
+
+The repair is a validated general representation improvement, not an argument
+to reopen completed semantic investigations.  If the checked witness remains
+above 300 seconds, the next worse-first step is to compare the leading
+propagation/backtrack/garbage/heap owners against current Kissat at an exact
+common state, preserving exact tick/cost, candidate order, scheduling order,
+and resulting pruning before changing behavior.
+
+\end{document}
