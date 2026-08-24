@@ -619,3 +619,38 @@ statistic and the byte-identical verified DRAT proof while reducing internal
 time 413.830→407.006 seconds. This is a general Kernel representation repair;
 no proof rule, strategy schedule, effort currency, formula identity, or tuned
 instance constant depends on it.
+
+## 22. Post-trail propagation representation closures
+
+Full exact-pin profile `1645779` runs the checked reserved-trail binary to
+completion without rerunning either frozen reference. Ordinary watched
+propagation remains the leading owner at approximately 195.780 sampled cycles
+per printed propagation, compared with 174.239 for the accepted current-source
+Kissat diagnostic. That ratio is a localization lead across different complete
+trajectories; every repair is priced at the exact shared conflict-9450 Tactix
+state before it can influence behavior.
+
+Six source-shaped representation experiments preserve all printed non-time
+counters, rule work, logical ticks/costs, candidate and scheduling order,
+learning, and pruning. Moving proof IDs behind the clause literals
+(`1645781`) changes the intended offsets but improves propagation only 0.99x
+and worsens total cycles. Specializing active assignment (`1645783`), hoisting
+binary-source metadata (`1645785`), and snapshotting saved-phase state
+(`1645787`) do not move their intended owner. Compiling away probing-ignore
+checks (`1645789`) lowers combined propagation cycles 19.011B→18.778B, but
+complete time and cycles both regress. Appending each delayed two-word large
+watch under one capacity decision (`1645791`) is neutral at 0.9989x local and
+0.9988x total cycles. All six are rejected and reverted; an owner-local win is
+not promotion evidence when the exact whole prefix does not improve.
+
+The initial atomic-watch prototype also proves why two-word capacity cannot be
+inferred from one doubling: exact batch/defragmented slices can have
+`capacity == size == 1`, and `grow` may clamp capacity again. Its focused
+`solve_reset` crash triggered the mandatory bounded Claude workflow before any
+submission. The repaired loop and exact-capacity regression pass Claude's full
+73-test code suite and independent Release plus ASan/UBSan Kernel/reset checks;
+the correct candidate was then priced, rejected, and fully reverted. No crash,
+certificate, or staged-input residue entered SLURM evidence. These closures
+leave the per-list watch-head/flat-arena addressing and relocation population
+as the next source-backed representation boundary; they do not reopen any
+proof rule, semantic schedule, or N1--N4 capability.
