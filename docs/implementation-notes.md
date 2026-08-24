@@ -593,3 +593,29 @@ the public rule, and `DefaultPolicy` installs the typed source-default value.
 The proof rule merely observes that bound before any mutation. This preserves
 the proof-rule/strategy separation and does not add formula identities,
 instance arms, elapsed-time tests, or a newly tuned constant.
+
+## 21. Assignment-trail reserved backing store
+
+Search assigns at most one literal per variable, and every variable-growth path
+reserves trail capacity before an assignment can mention the new identity.
+`ReservedTrail` makes that existing invariant the representation contract: a
+pre-sized `std::vector<Lit>` owns storage and a separate logical end owns the
+live range. Push is therefore one asserted indexed store rather than the generic
+grow-capable vector routine. Backtrack only shrinks the logical end. Variable
+compaction adopts its already-built replacement vector and extends the backing
+size to the adopted allocation capacity before search resumes. Iteration,
+indexing, conversion for diagnostics, and the public Kernel trail semantics
+remain the live prefix only.
+
+Rank-27 paired profile `1645700` localized the portable owner against current
+instrumented Kissat; exact-state profile `1645702` removes the propagation-path
+call and reduces sampled conflict-9450 cycles 66.659B→63.787B while every
+non-time counter remains exact. Event trace `1645704` is byte-identical for all
+64 rows, including rule/candidate order, logical ticks and costs, scheduling,
+and pruning. Full B28+fixed-C5 guard `1645705`/`1645771` passes 66/66 and 10k
+ASan/UBSan native-LRAT fuzz `1645772` passes with zero failures; both leave zero
+certificate residue. Checked Rank-27 `1645778` preserves every non-time
+statistic and the byte-identical verified DRAT proof while reducing internal
+time 413.830→407.006 seconds. This is a general Kernel representation repair;
+no proof rule, strategy schedule, effort currency, formula identity, or tuned
+instance constant depends on it.

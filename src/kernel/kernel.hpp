@@ -629,6 +629,83 @@ using AnalysisConflictHook = void (*)(Kernel &, void *);
 // candidate) from added material (which only changes an entry still present).
 using BveScoreUpdateHook = void (*)(Kernel &, void *, Var, bool reinsert);
 
+// Search assigns at most one literal per variable, and every variable-growth
+// path reserves the trail before an assignment can mention the new identity.
+// Keep that invariant explicit instead of paying std::vector's generic
+// grow-capable push call for every propagation.  The backing vector is sized to
+// the reservation while `used_` is the logical end, matching Kissat's reserved
+// raw trail stack without exposing allocation policy to search or rules.
+class ReservedTrail {
+public:
+  using iterator = std::vector<Lit>::iterator;
+  using const_iterator = std::vector<Lit>::const_iterator;
+
+  size_t size() const { return used_; }
+  size_t capacity() const { return storage_.size(); }
+  bool empty() const { return !used_; }
+
+  iterator begin() { return storage_.begin(); }
+  const_iterator begin() const { return storage_.begin(); }
+  iterator end() { return storage_.begin() + used_; }
+  const_iterator end() const { return storage_.begin() + used_; }
+
+  Lit &operator[](size_t i) {
+    assert(i < used_);
+    return storage_[i];
+  }
+  const Lit &operator[](size_t i) const {
+    assert(i < used_);
+    return storage_[i];
+  }
+  Lit &back() {
+    assert(used_);
+    return storage_[used_ - 1];
+  }
+  const Lit &back() const {
+    assert(used_);
+    return storage_[used_ - 1];
+  }
+
+  void reserve(size_t n) {
+    if (storage_.size() < n)
+      storage_.resize(n);
+  }
+  [[gnu::always_inline]] void push_back(Lit lit) {
+    assert(used_ < storage_.size());
+    storage_[used_++] = lit;
+  }
+  void pop_back() {
+    assert(used_);
+    --used_;
+  }
+  void resize(size_t n) {
+    assert(n <= used_);
+    used_ = n;
+  }
+
+  // Variable compaction already builds the replacement trail in a temporary
+  // std::vector.  Adopt its allocation, then expose its spare reservation as
+  // backing size so the direct push invariant remains true afterward.
+  void swap(std::vector<Lit> &other) {
+    const size_t next_used = other.size();
+    storage_.swap(other);
+    used_ = next_used;
+    storage_.resize(storage_.capacity());
+  }
+
+  operator std::vector<Lit>() const {
+    return std::vector<Lit>(begin(), end());
+  }
+  bool operator==(const std::vector<Lit> &other) const {
+    return size() == other.size() &&
+           std::equal(begin(), end(), other.begin());
+  }
+
+private:
+  std::vector<Lit> storage_;
+  size_t used_ = 0;
+};
+
 struct Kernel {
   uint32_t nvars = 0;
   // Stable external identities are separate from the dense indices used by
@@ -655,7 +732,7 @@ struct Kernel {
   std::vector<Assigned> assigned; // by var
   std::vector<Lit> jumped_over;
 
-  std::vector<Lit> trail;
+  ReservedTrail trail;
   uint32_t propagate_head = 0;
   // Lowest trail position that BINARY-ONLY propagation moved `propagate_head`
   // past and full propagation has not re-covered; UINT32_MAX means none.
