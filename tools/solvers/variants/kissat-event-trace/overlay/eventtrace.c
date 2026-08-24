@@ -1455,9 +1455,10 @@ void kissat_event_trace_bve_candidate (kissat *solver, unsigned idx,
     return;
   char payload[192];
   snprintf (payload, sizeof payload,
-            "external=%u|stage=%s|ticks=%" PRIu64 "|limit=%" PRIu64
-            "|applied=%u",
-            external_variable (solver, idx), stage, ticks, limit, applied);
+            "external=%u|stage=%s|pivot_value=%d|ticks=%" PRIu64
+            "|limit=%" PRIu64 "|applied=%u",
+            external_variable (solver, idx), stage, solver->values[LIT (idx)],
+            ticks, limit, applied);
   kissat_event_trace (solver, "bve_candidate", payload, false);
 }
 

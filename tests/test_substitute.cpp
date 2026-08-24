@@ -11,6 +11,7 @@
 #include <cassert>
 #include <cstdio>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -962,6 +963,115 @@ static void test_drat_keeps_transient_equivalence_lemmas() {
   assert(deletions == 2);
 }
 
+// A preserved bridge's transformed pair can coincide with an ordinary live
+// binary (chained same-batch merges compose bridge endpoints onto arbitrary
+// intermediate members). The proof pass rewrites or deletes that ordinary
+// copy per image, so the physical pass must consume it too: protecting every
+// pair-matching watch entry retains a live kernel clause whose checker copies
+// are later exhausted, and the first lemma propagating through the survivor
+// fails RUP (goldcrest-and-11, campaign 20260824-0337). Bridge entries are
+// protected per directed entry, exactly one unit per bridge image.
+static void test_sweep_bridge_target_pair_collision_consumes_ordinary_copy() {
+  const std::string path = "/tmp/tactix-substitute-bridge-collision-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".proof";
+  std::remove(path.c_str());
+  const auto pair_lines = [&](int ea, int eb) {
+    std::ifstream input(path);
+    assert(input.good());
+    uint32_t additions = 0, deletions = 0;
+    for (std::string line; std::getline(input, line);) {
+      if (line.empty())
+        continue;
+      std::istringstream tokens(line);
+      std::string first;
+      tokens >> first;
+      const bool deletion = first == "d";
+      std::vector<int> lits;
+      int value = 0;
+      if (!deletion)
+        lits.push_back(std::stoi(first));
+      while (tokens >> value && value != 0)
+        lits.push_back(value);
+      if (lits.size() != 2)
+        continue;
+      std::sort(lits.begin(), lits.end());
+      if (lits[0] != std::min(ea, eb) || lits[1] != std::max(ea, eb))
+        continue;
+      (deletion ? deletions : additions)++;
+    }
+    return std::make_pair(additions, deletions);
+  };
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    // Ordinary binary equal to the transformed bridge target below.
+    kernel_add_binary_clause(k, internalize(-3), internalize(2));
+    OccIndex occ;
+    kernel_dense_connect(k, occ);
+    SweepSubstitutionSession session;
+    session.begin(k);
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+    k.proof = &proof;
+    // Sweep publishes both implication binaries per proved pair. Merge order
+    // (2,1), (3,4), (4,2) makes the (3,4) bridge's moved endpoint compose to
+    // the intermediate member 2 — (¬3 ∨ 4) is preserved as (¬3 ∨ 2), the
+    // ordinary pair above — while 2 itself retires to root 1.
+    kernel_add_binary_clause(k, internalize(-2), internalize(1),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(2), internalize(-1),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(-3), internalize(4),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(3), internalize(-4),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(-4), internalize(2),
+                             ++k.next_clause_id);
+    kernel_add_binary_clause(k, internalize(4), internalize(-2),
+                             ++k.next_clause_id);
+    assert(substitute_apply_sweep_equivalences(
+               k,
+               {{internalize(2), internalize(1)},
+                {internalize(3), internalize(4)},
+                {internalize(4), internalize(2)}},
+               session) == ApplyResult::Ok);
+    // The transformed bridge is the only surviving physical copy of (¬3, 2);
+    // the colliding ordinary copy collapsed to a tautology and must be gone
+    // from both directed watch lists.
+    assert(kernel_binary_copies(k, internalize(-3), internalize(2)) == 1);
+    assert(kernel_binary_copies(k, internalize(2), internalize(-3)) == 1);
+    assert(kernel_binary_copies(k, internalize(-3), internalize(4)) == 0);
+    assert(kernel_binary_copies(k, internalize(3), internalize(-2)) == 1);
+    assert(kernel_binary_copies(k, internalize(3), internalize(-4)) == 0);
+    // Untouched bridges stay in place for canonical Substitute.
+    assert(kernel_binary_copies(k, internalize(-2), internalize(1)) == 1);
+    assert(kernel_binary_copies(k, internalize(2), internalize(-1)) == 1);
+    assert(kernel_binary_copies(k, internalize(-4), internalize(2)) == 1);
+    assert(kernel_binary_copies(k, internalize(4), internalize(-2)) == 1);
+    assert_ledger_mirrors_kernel(k, session);
+    assert(!kernel_var_retired(k, var_of(internalize(2))));
+    (void)session.collect(k);
+    assert(substitute_apply(k) == ApplyResult::Ok);
+    assert(kernel_var_retired(k, var_of(internalize(2))));
+    assert(kernel_var_retired(k, var_of(internalize(3))));
+    assert(kernel_var_retired(k, var_of(internalize(4))));
+    assert(kernel_binary_copies(k, internalize(-3), internalize(2)) == 0);
+    assert(kernel_binary_copies(k, internalize(2), internalize(-3)) == 0);
+    k.proof = nullptr;
+    kernel_dense_disconnect(k);
+  }
+  // DRAT population balance for the colliding pair: the kernel started with
+  // one live copy the checker holds from the input, so deletions may exceed
+  // proof additions by exactly that one copy — never more. An extra deletion
+  // is the checker-divergence this regression pins.
+  const auto [additions, deletions] = pair_lines(-3, 2);
+  assert(deletions <= additions + 1);
+  assert(additions + 1 - deletions ==
+         0 /* no live copy of the pair survives above */);
+  std::remove(path.c_str());
+}
+
 static void test_substitution_rewrites_stable_watch_in_place() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -1177,6 +1287,7 @@ int main() {
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
   test_drat_keeps_transient_equivalence_lemmas();
+  test_sweep_bridge_target_pair_collision_consumes_ordinary_copy();
   test_substitution_rewrites_stable_watch_in_place();
   test_substitution_appends_moved_watches_in_source_order();
   test_substitution_moves_both_directions_independently();

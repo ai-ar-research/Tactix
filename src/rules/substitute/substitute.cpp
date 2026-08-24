@@ -694,7 +694,6 @@ void SweepSubstitutionSession::reset_transaction() {
   retiring_rank.clear();
   retiring_position.clear();
   equivalence_bridges.clear();
-  equivalence_bridge_images.clear();
 }
 
 // A retiring literal's large occurrences move with its binaries, but only the
@@ -768,8 +767,6 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
            bridge.target_a != negate(bridge.target_b));
     equivalence_bridges.emplace(kernel_binary_key(bridge.a, bridge.b),
                                 bridge);
-    equivalence_bridge_images.insert(
-        kernel_binary_key(bridge.target_a, bridge.target_b));
   }
   dirty_binary_owners.clear();
   // Ask the rewrite's own member question rather than the requested class map:
@@ -938,12 +935,6 @@ bool SweepSubstitutionSession::equivalence_bridge_targets(Lit a, Lit b,
     *target_b = bridge.target_a;
   }
   return true;
-}
-
-bool SweepSubstitutionSession::is_equivalence_bridge_image(Lit a,
-                                                            Lit b) const {
-  return equivalence_bridge_images.find(kernel_binary_key(a, b)) !=
-         equivalence_bridge_images.end();
 }
 
 void SweepSubstitutionSession::flush_moves(const Kernel &k) {
@@ -2013,6 +2004,21 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // the released image storage for those directed moves so two retired
   // endpoints can land in their two independently correct destination orders.
   std::vector<Lit> affected_binary_owners;
+  // Bridge entries that already carry their final endpoints must survive the
+  // directed snapshot and compaction below: an unchanged bridge keeps both
+  // directions, and a one-moved-endpoint bridge keeps exactly the stable
+  // direction the in-place pass just rewrote (its mirror is rebuilt after
+  // compaction).  Protection is counted per directed entry, one unit per
+  // bridge image, never by literal pair: an ordinary binary whose pair merely
+  // coincides with a bridge target was rewritten or deleted by the proof pass
+  // above, and retaining it by pair identity leaves the kernel holding a live
+  // clause whose every checker copy is later consumed — the DRAT population
+  // then under-runs and a later lemma citing the survivor fails RUP.
+  std::unordered_map<uint64_t, uint32_t> bridge_keep_snapshot;
+  std::unordered_map<uint64_t, uint32_t> bridge_keep_compact;
+  const auto directed_entry_key = [](Lit from, Lit to) {
+    return (static_cast<uint64_t>(from) << 32) | to;
+  };
   if (session) {
     affected_binary_owners.reserve(2 * images.size());
     for (const BinaryImage &image : images) {
@@ -2025,15 +2031,47 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         std::unique(affected_binary_owners.begin(),
                     affected_binary_owners.end()),
         affected_binary_owners.end());
+    for (const BinaryImage &stored : images) {
+      if (stored.bridge_target_a == INVALID_LIT)
+        continue;
+      const ExpandedBinaryImage image = expand_image(stored);
+      assert(!image.tautological && image.target_a != image.target_b);
+      const bool stable_a = image.source_a == image.target_a;
+      const bool stable_b = image.source_b == image.target_b;
+      if (stable_a && stable_b) {
+        // Untouched bridge: both physical directions stay in place.
+        bridge_keep_snapshot[directed_entry_key(image.target_a,
+                                                image.target_b)]++;
+        bridge_keep_snapshot[directed_entry_key(image.target_b,
+                                                image.target_a)]++;
+      } else if (stable_a != stable_b) {
+        // The in-place pass rewrote the stable direction to the bridge
+        // endpoints; only that entry exists before the rebuild below.
+        const Lit stable = stable_a ? image.target_a : image.target_b;
+        const Lit moved = stable_a ? image.target_b : image.target_a;
+        bridge_keep_snapshot[directed_entry_key(stable, moved)]++;
+      }
+      // Both endpoints moved: nothing survives compaction; both directions
+      // are rebuilt from the directed images after it.
+    }
+    bridge_keep_compact = bridge_keep_snapshot;
   }
   std::deque<BinaryImage>().swap(images);
   const auto snapshot_directed = [&](Lit lit) {
     assert(substitutable(lit));
-    for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary() &&
-          !(session &&
-            session->is_equivalence_bridge_image(lit, watch.other())))
-        images.push_back(make_image(lit, watch.other()));
+    for (const WatchEntry watch : k.watches.entries(lit)) {
+      if (!watch.binary())
+        continue;
+      if (session) {
+        const auto keep =
+            bridge_keep_snapshot.find(directed_entry_key(lit, watch.other()));
+        if (keep != bridge_keep_snapshot.end() && keep->second) {
+          keep->second--;
+          continue;
+        }
+      }
+      images.push_back(make_image(lit, watch.other()));
+    }
   };
   if (session) {
     // Sweep retires one source at a time in equivalence-emission order.  The
@@ -2077,10 +2115,20 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     // endpoints and stays at its original position.
     const auto compact_owner = [&](Lit lit) {
         k.watches.compact(lit, [&](WatchEntry watch) {
-          return !watch.binary() ||
-                 (session && session->is_equivalence_bridge_image(
-                                 lit, watch.other())) ||
-                 (!substitutable(lit) && !substitutable(watch.other()));
+          if (!watch.binary())
+            return true;
+          if (session) {
+            // Same first-N consumption order as the snapshot above: the lists
+            // are untouched between the two passes, so identical counters
+            // protect identical entries.
+            const auto keep = bridge_keep_compact.find(
+                directed_entry_key(lit, watch.other()));
+            if (keep != bridge_keep_compact.end() && keep->second) {
+              keep->second--;
+              return true;
+            }
+          }
+          return !substitutable(lit) && !substitutable(watch.other());
         });
     };
     if (session)

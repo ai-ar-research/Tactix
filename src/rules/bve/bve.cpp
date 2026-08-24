@@ -1079,6 +1079,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<MClause> pos, neg;            // live irredundant: resolved + witnessed
   std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
+  bool antecedent_oversized = false;
 
   // ---- gather x's binaries (watch scan, deduplicated) ----
   // Duplicate copies of a pair are one logical clause: they share a single
@@ -1122,7 +1123,19 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // tautology / redundant / root-satisfied → delete-only; otherwise
   // materialize the active literals into pos (has px) or neg (has nx)
   auto classify = [&](Ref ref, const Clause *c, bool has_px, bool has_nx) {
-    if ((has_px && has_nx) || c->redundant()) {
+    if (c->redundant()) {
+      del_large.push_back(ref);
+      return;
+    }
+    // Kissat resolve.c::occurrences_literal applies `eliminateclslim` to each
+    // live irredundant antecedent before inspecting assignments or extracting
+    // a gate/definition.  This is candidate admission owned by policy, not a
+    // proof transformation: an unrestricted public-rule call keeps UINT_MAX.
+    if (c->size > k.bve_clause_size_limit) {
+      antecedent_oversized = true;
+      return;
+    }
+    if (has_px && has_nx) {
       del_large.push_back(ref);
       return;
     }
@@ -1195,6 +1208,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     gather_bin(px, pos);
     gather_bin(nx, neg);
   }
+
+  if (antecedent_oversized)
+    return ApplyResult::NoOp;
 
   if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty()) {
     return ApplyResult::NoOp; // x occurs nowhere resolvable

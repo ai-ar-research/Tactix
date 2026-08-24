@@ -2208,7 +2208,10 @@ void EventTrace::bve_candidate(const Kernel &k, Var var, const char *stage,
     return;
   const std::string payload =
       "external=" + std::to_string(k.internal_to_external[var] + 1) +
-      "|stage=" + stage + "|ticks=" + std::to_string(ticks) +
+      "|stage=" + stage +
+      "|pivot_value=" +
+      std::to_string(static_cast<int>(k.value(make_lit(var, false)))) +
+      "|ticks=" + std::to_string(ticks) +
       "|limit=" + std::to_string(limit) +
       "|applied=" + (applied ? "1" : "0");
   emit(k, "bve_candidate", payload.c_str(), false);
