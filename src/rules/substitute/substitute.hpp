@@ -162,7 +162,6 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // still-active class member. False means an ordinary binary.
   bool equivalence_bridge_targets(Lit a, Lit b, Lit *target_a,
                                   Lit *target_b) const;
-  bool is_equivalence_bridge_image(Lit, Lit) const;
   // Materialize the streams of every literal of an irredundant connected
   // clause before the kernel rewrites, collapses or retires it. The ledger
   // entry points below locate the source by its pre-rewrite pose; a stream
@@ -201,7 +200,6 @@ private:
   std::vector<Lit> retiring_repr; // by rank
   std::unordered_map<Lit, uint32_t> retiring_rank;
   std::unordered_map<uint64_t, EquivalenceBridge> equivalence_bridges;
-  std::unordered_set<uint64_t> equivalence_bridge_images;
   // (retiring literal, source ref) -> that occurrence's stream index.
   std::unordered_map<uint64_t, uint32_t> retiring_position;
 };

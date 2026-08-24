@@ -208,6 +208,7 @@ struct DefaultStrategyConfig {
     std::array<uint32_t, 6> bve_bounds{{0, 1, 2, 4, 8, 16}};
     uint32_t bve_default_ceiling = 8;
     uint32_t bve_occurrence_limit = 2000; // kissat eliminateocclim
+    uint32_t bve_clause_size_limit = 100; // kissat eliminateclslim
     uint32_t factor_decade_round_cap = 14;
     uint32_t factor_decade_cap = 19;
     uint32_t factor_decade_offset = 5;

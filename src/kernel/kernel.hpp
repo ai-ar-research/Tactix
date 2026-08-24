@@ -827,6 +827,11 @@ struct Kernel {
   // Policy-owned BVE occurrence cap.  UINT32_MAX leaves the public rule
   // unrestricted; DefaultPolicy installs its named strategy configuration.
   uint32_t bve_occurrence_limit = UINT32_MAX;
+  // Policy-owned antecedent-size admission bound (`eliminateclslim`).  Kissat
+  // declines the candidate before gate/definition extraction if either dense
+  // occurrence list contains a live irredundant clause above this size.  The
+  // public rule remains unrestricted until a strategy installs the bound.
+  uint32_t bve_clause_size_limit = UINT32_MAX;
   // Optional CaDiCaL-derived eager tail. Current Kissat defers this work to
   // its next forward pass; that reference-aligned strategy is the default,
   // while the proof rule remains available through TACTIX_BVE_BACKWARD=1.

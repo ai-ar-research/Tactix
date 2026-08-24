@@ -254,6 +254,7 @@ int main() {
       (std::istreambuf_iterator<char>(compact_input)),
       std::istreambuf_iterator<char>());
   assert(compact_text.find("\tbve_candidate\t") != std::string::npos);
+  assert(compact_text.find("pivot_value=") != std::string::npos);
   assert(compact_text.find("\tbve_plan\t") != std::string::npos);
   assert(compact_text.find("\teliminate_cleanup\t") != std::string::npos);
   assert(compact_text.find("\tdecision\t") == std::string::npos);

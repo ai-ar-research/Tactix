@@ -47,6 +47,8 @@ TABLE = {
     "bve_bound":               ("POLICY", "growth-slack ramp (BveBoundPolicy)"),
     "bve_occurrence_limit":    ("POLICY", "named DefaultStrategyConfig cap installed "
                                           "at each inprocessing phase"),
+    "bve_clause_size_limit":   ("POLICY", "named DefaultStrategyConfig antecedent "
+                                          "cap installed at each inprocessing phase"),
     "bve_track_min_bound":     ("POLICY", "ramp bookkeeping"),
     "bve_definition_session":  ("POLICY", "embedded Kitten create/release lifetime; "
                                            "advanced once per BVE slot"),

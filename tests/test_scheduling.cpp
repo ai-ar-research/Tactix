@@ -1265,6 +1265,7 @@ static void test_inprocess_does_not_save_probe_phases(void) {
 
   DefaultStrategyConfig cfg;
   cfg.inprocess.bve_occurrence_limit = 37;
+  cfg.inprocess.bve_clause_size_limit = 41;
   DefaultPolicy p(cfg);
   p.inprocess().build(k);
   const auto &rules = tactix_rules();
@@ -1280,6 +1281,8 @@ static void test_inprocess_does_not_save_probe_phases(void) {
   assert(!k.phase_saving_suppressed && !k.inprocessing);
   assert(k.bve_occurrence_limit == 37 &&
          "DefaultPolicy must wire the named BVE occurrence limit");
+  assert(k.bve_clause_size_limit == 41 &&
+         "DefaultPolicy must wire the named BVE antecedent-size limit");
   std::printf("  inprocess phases: probe assignments leave saved phases unset\n");
 }
 

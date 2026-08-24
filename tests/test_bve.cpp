@@ -168,6 +168,34 @@ static void test_instance_surface() {
          ApplyResult::NoOp); // out of range
 }
 
+// Kissat's `eliminateclslim` applies to input antecedents before definition
+// extraction, not only to generated resolvents.  Keep it strategy-owned so an
+// unrestricted public rule remains legal, but once installed a 101-literal
+// antecedent must decline without mutating the formula or spending Kitten work.
+static void test_antecedent_clause_size_limit() {
+  Kernel k;
+  kernel_reserve_vars(k, 102);
+  std::vector<Lit> long_clause;
+  long_clause.reserve(101);
+  long_clause.push_back(internalize(1));
+  for (int dimacs = 2; dimacs <= 101; ++dimacs)
+    long_clause.push_back(internalize(dimacs));
+  kernel_add_large_clause(k, long_clause.data(), long_clause.size(), false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(102));
+  k.bve_clause_size_limit = 100;
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense);
+  const size_t arena_before = k.arena.size();
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::NoOp);
+  assert(k.arena.size() == arena_before);
+  assert(!kernel_var_retired(k, var_of(internalize(1))));
+  assert(k.stats.bve_definitions_checked == 0);
+  kernel_dense_disconnect(k);
+}
+
 static bool has_binary(const Kernel &k, Lit a, Lit b) {
   const uint32_t *ws = k.watches.arena.data() + k.watches.heads[a].offset;
   for (uint32_t i = 0; i < k.watches.heads[a].size;) {
@@ -884,6 +912,7 @@ int main() {
   test_schedule_excludes();
   test_schedule_includes_extension_variable();
   test_instance_surface();
+  test_antecedent_clause_size_limit();
   test_eliminate_basic();
   test_eliminate_reconstruction();
   test_eliminate_frozen_pivot_reconstruction();

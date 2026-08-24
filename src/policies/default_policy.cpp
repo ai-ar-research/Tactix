@@ -213,6 +213,8 @@ std::string DefaultStrategyConfig::serialize() const {
   out << " inprocess.bve_default_ceiling=" << inprocess.bve_default_ceiling
       << " inprocess.bve_occurrence_limit="
       << inprocess.bve_occurrence_limit
+      << " inprocess.bve_clause_size_limit="
+      << inprocess.bve_clause_size_limit
       << " inprocess.factor_decade_round_cap="
       << inprocess.factor_decade_round_cap
       << " inprocess.factor_decade_cap=" << inprocess.factor_decade_cap
@@ -2209,6 +2211,7 @@ void DefaultInprocessScheduler::build(Kernel &k) {
   // kernel's unlimited default squares to a magnitude that cancels every
   // score difference in `kissat_bve_variable_score`.
   k.bve_occurrence_limit = config().bve_occurrence_limit;
+  k.bve_clause_size_limit = config().bve_clause_size_limit;
   if (!initialized_) {
     initialized_ = true;
     // Probe is due immediately because it owns initial preprocessing.
@@ -3329,6 +3332,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   forward_pair_limit_ = 0; // the pair's shared allowance is per phase
   bve_ran_this_phase_ = false;
   k.bve_occurrence_limit = config().bve_occurrence_limit;
+  k.bve_clause_size_limit = config().bve_clause_size_limit;
   factor_bound_snapshot_ =
       couple_factor_bound_
           ? (std::getenv("TACTIX_NO_BVE_RAMP") ? k.bve_bound : bve_level_)
