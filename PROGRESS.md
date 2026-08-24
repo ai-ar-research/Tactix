@@ -274,7 +274,12 @@ without contradictory evidence.
   now owns residual learned cleanup, reconstruction, and retirement. Independent
   review confirms the rule/strategy boundary and LRAT identities; focused
   ASan/UBSan, 74/74 release tests, and all 44 external proof checks pass. No
-  benchmark witness has yet been run on this repair.
+  benchmark witness has yet been run on this repair. Paired semantic job
+  `1642305` closes the exact handoff: final Sweep loses zero active variables
+  and ends at 751,798 binaries in both solvers; late Substitute retires 345 and
+  ends at 751,108, consuming the common preimage. Tactix-only focal job
+  `1642495` directly observes the exact glue-2 image with inherited source order
+  and metadata (trace `a1ec171…3489`); both jobs are untruncated and residue-free.
   These observers do not mutate the candidate.
 
 ## Exact convergence contract
@@ -302,9 +307,10 @@ without contradictory evidence.
    commit `0997356…78c8` binary is an independent read-only inode, SHA-256
    `cb6fdaa9…6c7a4`; compute-node SAT/model and UNSAT/proof validation passed
    with zero residue. Inspect the aggregate when terminal.
-2. Freeze a production repair binary and run the mandatory full B28+fixed-C5
-   16-GiB/1200-s guard; validate every SAT model and UNSAT proof with zero
-   residue before any Rank-27 performance witness.
+2. Mandatory B28+fixed-C5 guard `20260823-2025-BC-sweep-substitute-handoff-guard`
+   is running as array `1642276` (`%2`) plus aggregate `1642282`. Its read-only
+   commit-`c6672e7` binary SHA is `7b451f0e…10d8`; validate all 66 tasks and zero
+   residue before any witness. The repaired c3069 semantic handoff is exact.
 3. If all guard solves remain, run the checked Rank-27 witness and compare the
    repaired c3069 Sweep→Substitute handoff directly with current Kissat. Keep
    cadence/admission/effort outside the proof rules.
