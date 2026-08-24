@@ -8,11 +8,11 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. The last pushed wrap-up is
-  `e9c161c9f13e457c34306e5f3ce396c14ae6a7e6`, exactly synchronized with
-  `origin/main` before this line began. The shared worktree is intentionally
-  dirty only with the general linear import-order reconstruction repair, its
-  focused Kernel regression, and current living evidence. Do not discard it.
+- Worktree `/home/hwu/SAT-solving`, branch `main`. The validated reserved-trail
+  source, regression, design note, and report landed as
+  `2c86274d91574fd860d22f178aaf584b97ad793c`, directly on synchronized base
+  `80f281a5e98b10884f53611777e4999037b39cd8`. At handoff both that increment
+  and this living authority are pushed; the shared worktree is clean.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -24,12 +24,25 @@ own experimental detail and history.
   1,165 (689 valid, 476 invalid); both are explicitly non-scorable. Their
   `cancellation.json` records own the exact disposition. Pending, retained,
   scratch, and certificate residue are zero in both campaigns.
-- The linear import-order repair has passed full B28+fixed-C5
+- The linear import-order repair passed full B28+fixed-C5
   `1645550`/`1645557` and exact-source ASan/UBSan native-LRAT fuzz `1645587`.
   Checked Rank-27 campaign `20260824-1155-tierd-rank27-import-order-linear-witness`
   is valid UNSAT as job `1645699`: 413.830 s internal / 414.375 s wall with
   byte-identical proof and non-time counters, verified and residue-free. This
   is a 134.815-second same-trajectory recovery but still misses 300 seconds.
+- Full paired profile `1645700` reproduces both accepted full trajectories and
+  localizes the next portable throughput gap to assignment/propagation: Tactix
+  spends approximately 215.5 sampled cycles per printed propagation versus
+  current instrumented Kissat's 174.2. The first narrow source owner is
+  Tactix's out-of-line generic vector push on its already reserved trail.
+  ReservedTrail profile `1645702` preserves every conflict-9450 counter while
+  reducing 17.372→16.624 s and sampled cycles by 4.31%; trace `1645704` is
+  byte-identical for all 64 rows (SHA `7a6216bb…7cc1`). Mandatory full guard
+  `1645705`/`1645771` passes 66/66 and exact-source 10k ASan/UBSan native-LRAT
+  fuzz `1645772` passes with zero failures; both are residue-free. Checked
+  Rank-27 job `1645778` is valid trajectory-exact UNSAT in 407.006 s internal /
+  407.497 s wall, recovering 6.824 s from the prior pin while still missing the
+  300 s target at 1.357x. Its byte-identical proof verifies and cleanup is zero.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -49,11 +62,10 @@ own experimental detail and history.
   used only as a source observer; its result is not scoring evidence.
 - The accepted regression comparator remains the `tactix-shipped` pin frozen
   by the guard manifests; it is not the current-Kissat divergence target.
-  Latest accepted full B28+fixed-C5 authority is final-source campaign
-  `20260824-0340-BC-bve-bridge-final-guard`, array/aggregate
-  `1645170`/`1645236`: 66/66 checked, zero residue, candidate/comparator PAR-2
-  ratio 0.771578. Current campaign `1145` must independently repeat that full
-  contract for the linear import-order repair before promotion.
+  Latest accepted full B28+fixed-C5 authority is reserved-trail campaign
+  `20260824-1420-BC-reserved-trail-guard`, array/aggregate
+  `1645705`/`1645771`: 66/66 checked, zero residue, candidate/comparator PAR-2
+  ratio 0.757396. Its summary SHA-256 is `c2ceadd2…7909`.
 - The newest canonical completed Tier-C `results.json` window remains
   `20260813-111513-C-cleanup-b2b8362`; later targeted and B/C guard manifests
   above supersede it only for the current regression/guard question, not T3.
@@ -837,6 +849,35 @@ without contradictory evidence.
   calculus reserve warning). Final three-page Andrew report is
   `report-to-andrew/2026-08-24-1215-rank27-import-order-linear/`, TeX SHA
   `07a23253…fe6f`, PDF SHA `a60adf3a…8594`, with no LaTeX box warning.
+- 2026-08-24 — Full paired cycles profile `1645700` exactly reproduces current
+  Tactix's checked trajectory and current-source Kissat's accepted diagnostic
+  counters with zero lost samples/residue. Watched propagation leads both;
+  sampled cycles per printed propagation are approximately 215.5 Tactix versus
+  174.2 Kissat. Source/disassembly narrows the first portable representation
+  owner to Tactix's generic out-of-line vector push on the already capacity-
+  reserved assignment trail. A Kernel-owned pre-sized backing store plus
+  logical end removes that call without changing the public trail operations.
+  Simultaneous conflict-9450 profile `1645702` preserves every non-time counter
+  and lowers 17.372→16.624 s, sampled cycles 66.659B→63.787B, and the shared
+  vector-push owner 2.78%→0.63%. Event trace `1645704` is byte-identical for all
+  64 rows (SHA `7a6216bb…7cc1`), freezing exact rule/candidate/order, tick/cost,
+  scheduling, and pruning state. Release is 73/74; only known opt-in `doc_size`
+  debt fails (`PROGRESS.md` 903/350 lines and 63/5 recent entries;
+  implementation notes 621/560; calculus reserve warning). Focused ASan/UBSan
+  Kernel coverage is green. Full B28+fixed-C5 guard
+  `1645705`/`1645771` passes all 66 checked tasks at 0.757396x shipped PAR-2
+  with zero residue. Exact-source 10k native-LRAT sanitizer fuzz `1645772`
+  passes with 5,188 SAT models, 3,577 UNSAT proofs, 1,235 bounded
+  nonterminations, every target rule reached, zero failures, and zero residue.
+  Checked Rank-27 `1645778` preserves every non-time statistic and the exact
+  1,514,395,111-byte proof SHA `0f99f55a…8bb2d`; pinned `drat-trim` verifies it
+  in 112.088 s and cleanup is zero. Internal/wall time improves
+  413.830/414.375→407.006/407.497 s, so the general representation repair is
+  promoted but Rank 27 remains open at 1.357x the 300-second target. Final
+  four-page Andrew report is
+  `report-to-andrew/2026-08-24-1515-rank27-reserved-trail/`, TeX SHA
+  `dfc5c106…babb`, PDF SHA `671586fc…9c8e`, with no LaTeX box warning. Source,
+  regression, design note, and report landed as `2c86274d…793c`.
 - 2026-08-23 — Repaired and exactly closed the Sweep→Substitute bridge,
   retirement, c3069 environment, and c5471 implication streams.
 - 2026-08-23 — Closed decision parity through c10000 and opened the c15385 BVE
