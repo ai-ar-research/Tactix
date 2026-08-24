@@ -454,6 +454,8 @@ The generic `CandidateOrder::Heuristic` meaning is unchanged for every other rul
 
 Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`. Substitute has no Kissat delay or material-watermark object. Each authored call therefore executes an unconditional first SCC round; a productive round's own cache-line delta is compared with 10‰ of the Probe search-tick reference solely to decide whether that call receives its optional second round. This per-call `substituterounds=2` cap is distinct from `proberounds=2`, which repeats the complete probing pipeline.
 
+Preserved equivalence bridges survive the session's directed snapshot and compaction per directed watch entry, one protection unit per bridge image — never by literal pair. An unchanged bridge keeps both directions, a one-moved-endpoint bridge keeps exactly the stable direction its in-place rewrite produced, and a both-moved bridge is rebuilt entirely after compaction. Pair-keyed protection instead retained ordinary binaries whose pair coincided with a chained bridge target after the proof pass had rewritten or deleted them, so the kernel kept live clauses whose DRAT literal-multiset population was later exhausted and a subsequent lemma failed RUP; native LRAT hid this because deletions are id-named (`goldcrest-and-11`, campaign `20260824-0337`; regression `test_sweep_bridge_target_pair_collision_consumes_ordinary_copy`). Exact repaired-source replay `20260824-0339` verifies the 1,031,181,788-byte ordinary DRAT proof with zero certificate residue.
+
 Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases. Sweep and its mandatory follow-up Substitute form one retirement transaction for heuristic state: Sweep performs proof-safe connected irredundant rewrites and retains equivalence bridges; canonical Substitute consumes their complete union, residual learned clauses, reconstruction, and deactivation in variable-index order. Tactix publishes that retirement suffix to `H` in permanent import order immediately after Substitute, preserving the earlier Vivify prefix. Newly root-fixed variables are published first, matching Kissat's assignment-before-`remove_representative_equivalences` order. Equal semantic scores thus see the same removal pose without changing formula effects.
 
 ## 15. Design decision: eager subsumption after analysis
@@ -576,3 +578,18 @@ from search at `finish_input`; it needs no witness and total model extension giv
 an arbitrary value. Checked rank-16 witness: `20260817-1625-tierd-rank16-header-only-checked`.
 
 T105's paired removal (`20260818-0110-T105-backbone-v6a-ablation`) retains V6a: Backbone finds 0 units, V6a finds 501, and off is 430.693 s versus 365.861 s. Each admitted Congruence application therefore completes one linear V6a binary-watch pass independently of any caller-owned gate-budget spending; only global termination may soundly cut it. DefaultPolicy no longer hands Congruence a budget (`SP-CONG-BUDGET-1`, job `1640986`); `congruence_y1_ticks` and inclusive `congruence_ticks` remain diagnostic, and the focused public-budget test still exhausts the gate scope before requiring the unit.
+
+## 20. BVE antecedent-size admission
+
+Kissat applies `eliminateclslim=100` twice: first to every live irredundant
+input antecedent in `resolve.c::occurrences_literal`, then to generated
+resolvents. Tactix previously implemented only the second check. Rank-27
+campaigns `20260824-0332`/`0333` localized the consequence at external 396947:
+both heaps expose the same 2+2 population and both pivots remain unassigned,
+but its 338- and 403-literal antecedents make Kissat decline before definition
+extraction while Tactix imports a 666-variable subproblem and spends 674 ticks.
+The antecedent bound is strategy-owned: `Kernel` defaults to unrestricted for
+the public rule, and `DefaultPolicy` installs the typed source-default value.
+The proof rule merely observes that bound before any mutation. This preserves
+the proof-rule/strategy separation and does not add formula identities,
+instance arms, elapsed-time tests, or a newly tuned constant.
