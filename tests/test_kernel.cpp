@@ -20,6 +20,31 @@
 
 using namespace tactix;
 
+static void test_reserved_trail_stack_contract() {
+  ReservedTrail trail;
+  trail.reserve(5);
+  assert(trail.empty() && trail.capacity() == 5);
+  trail.push_back(7);
+  trail.push_back(3);
+  trail.push_back(9);
+  assert(trail.size() == 3 && trail.back() == 9);
+  assert((std::vector<Lit>(trail) == std::vector<Lit>{7, 3, 9}));
+
+  trail.resize(2);
+  trail.push_back(11);
+  trail.pop_back();
+  assert((std::vector<Lit>(trail) == std::vector<Lit>{7, 3}));
+
+  std::vector<Lit> compacted;
+  compacted.reserve(4);
+  compacted.push_back(5);
+  compacted.push_back(1);
+  trail.swap(compacted);
+  assert(trail.capacity() == 4);
+  trail.push_back(8);
+  assert((std::vector<Lit>(trail) == std::vector<Lit>{5, 1, 8}));
+}
+
 static void test_variable_identity_maps() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -1420,6 +1445,7 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
 }
 
 int main() {
+  test_reserved_trail_stack_contract();
   test_variable_identity_maps();
   test_import_order_survives_compaction_linearly();
   test_variable_compaction();
