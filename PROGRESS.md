@@ -878,6 +878,30 @@ without contradictory evidence.
   `report-to-andrew/2026-08-24-1515-rank27-reserved-trail/`, TeX SHA
   `dfc5c106…babb`, PDF SHA `671586fc…9c8e`, with no LaTeX box warning. Source,
   regression, design note, and report landed as `2c86274d…793c`.
+- 2026-08-24 — Exact-pin full profile `1645779` confirms the reserved-trail
+  trajectory at 403.887 internal seconds and leaves ordinary propagation at
+  approximately 195.780 sampled cycles per printed propagation versus current
+  instrumented Kissat's accepted 174.239 (1.12362x); frozen Kissat was not
+  rerun. Six simultaneous conflict-9450 source experiments preserve every
+  non-time counter, logical tick/cost, candidate/order, scheduling, learning,
+  and pruning aggregate. Cold proof-ID clause layout `1645781`, active-only
+  assignment `1645783`, binary-source snapshot `1645785`, saved-phase snapshot
+  `1645787`, no-ignore specialization `1645789`, and atomic large-watch append
+  `1645791` are all rejected and reverted: none improves both complete elapsed
+  time and complete cycles materially. The no-ignore arm alone lowers its
+  propagation owner 1.22% but regresses the whole prefix; do not reopen any of
+  these six without contradictory whole-prefix evidence. The first atomic
+  append prototype exposed a `solve_reset` heap corruption on an exact
+  one-word-capacity slice. Mandatory bounded Claude repair replaced one grow
+  with a checked growth loop and added a reproducer; Claude's 73 code tests and
+  independent Release plus ASan/UBSan Kernel/reset checks pass. The repaired
+  candidate is neutral and fully reverted, no crashing binary was submitted,
+  and every campaign has zero staged-CNF/certificate residue. Accepted code
+  remains synchronized at `21aa151b…3465`; next compare the per-list
+  watch-head/arena indirection and relocation population against Kissat before
+  changing behavior. Required three-page Andrew handoff is
+  `report-to-andrew/2026-08-24-1615-rank27-propagation-closures/`, TeX SHA
+  `5920d4bd…7da`, PDF SHA `0d8b4c46…975`, with no final-pass LaTeX warning.
 - 2026-08-23 — Repaired and exactly closed the Sweep→Substitute bridge,
   retirement, c3069 environment, and c5471 implication streams.
 - 2026-08-23 — Closed decision parity through c10000 and opened the c15385 BVE

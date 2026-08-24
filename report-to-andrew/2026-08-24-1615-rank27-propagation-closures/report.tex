@@ -1,0 +1,170 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Post-Trail Propagation Closures}
+\author{Tactix Development Project}
+\date{24 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive summary}
+The accepted reserved assignment-trail repair remains the latest solver change
+at synchronized commit
+\hashcode{21aa151bdaf6e881ece0a273ff918f6bf4693465}.  A fresh exact-pin full
+profile, job \code{1645779}, completes the same checked Rank-27 trajectory in
+403.887 internal seconds.  Ordinary watched propagation remains the leading
+owner at approximately 195.780 sampled cycles per printed propagation, versus
+174.239 for the already accepted current-source Kissat diagnostic.  Frozen
+Kissat 4.0.4 was not rerun, and current Kissat remains diagnostic-only.
+
+Six source-backed Tactix experiments were therefore priced simultaneously with
+the accepted predecessor at the exact conflict-9450 common state.  Every arm
+preserves all printed non-time counters, rule work, logical ticks and costs,
+candidate and scheduling order, learning, and pruning.  None improves both
+complete elapsed time and complete sampled cycles materially.  All six are
+rejected and fully reverted.  One experiment did reduce its intended
+propagation owner by 1.22\%, but regressed the complete prefix; it is not a
+promotion candidate.
+
+The first atomic large-watch prototype also exposed a reproducible heap
+corruption before submission.  The repository-mandated bounded Claude workflow
+repaired and regression-tested the exact-capacity defect, and independent
+Release plus ASan/UBSan checks passed.  The repaired candidate was then measured
+as neutral and reverted.  No crashing binary reached SLURM, and every campaign
+has zero certificate or staged-input residue.  The next convergence boundary is
+the per-list watch-head/flat-arena addressing and relocation population, not a
+reopening of the six closed assignment/clause micro-hypotheses.
+
+\section{Authority and full-run localization}
+The immutable Rank-27 input is
+\artifact{tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz},
+SHA-256
+\hashcode{5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9}.
+All Rank-27 jobs use two CPUs.  The frozen checked Rank-27 target remains 300
+seconds; the accepted reserved-trail witness, job \code{1645778}, is valid
+UNSAT in 407.006 internal seconds with its byte-identical 1,514,395,111-byte
+DRAT proof independently verified and deleted.
+
+Campaign
+\artifact{benchmarks/runs/20260824-1520-tierd-rank27-reserved-trail-full-profile/},
+job \code{1645779}, profiles the exact accepted binary SHA-256
+\hashcode{b6c1623b89477b140cabddb3cb139ca797778a871aeb67ab35fc708c3cd87851}.
+It returns the expected UNSAT verdict in 403.887 internal / 404.57 profiled
+wall seconds with 3,813,669 conflicts, 175,272,633 decisions, and
+2,512,356,477 propagations.  The cycles profile records 80,464 samples,
+approximately 1.51993 trillion cycles, and zero lost samples.  Ordinary full
+propagation owns 32.36\%, or 491,868,070,611 sampled cycles.  Normalized by the
+printed propagation count this is approximately 195.780 cycles per propagation;
+the accepted current-Kissat task from job \code{1645700} is 174.239.  The
+remaining 1.12362 ratio motivates exact-state representation tests, but is not
+itself behavioral repair authority because the complete solver trajectories
+differ.
+
+\section{Exact common-state dispositions}
+Each campaign below uses the same immutable input, predecessor SHA
+\hashcode{68a2ae6bb444fd5461048541bff366926a19f3c642815a6fe65d212091e5b9d1},
+two CPUs, 16 GiB, a 300-second task timeout, and a conflict-9450 stop.  Both
+arms always report 9,450 conflicts, 5,795,248 decisions, and 96,338,812
+propagations.  No proof is requested for these diagnostic profiles; both staged
+CNFs are removed on every exit.
+
+\begin{center}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+Job & Representation hypothesis & Complete result & Disposition \\
+\midrule
+1645781 & cold clause proof ID & cycles 1.01933x & reject \\
+1645783 & active-only assignment & owner 0.99913x & reject \\
+1645785 & binary-source snapshot & owner 1.00026x & reject \\
+1645787 & saved-phase snapshot & owner 1.00927x & reject \\
+1645789 & no-ignore scan & total 1.00321x & reject \\
+1645791 & atomic large-watch push & total 0.99882x & neutral/reject \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Clause and assignment representation.}
+Campaign
+\artifact{benchmarks/runs/20260824-1535-tierd-rank27-cold-clause-id-profile/}
+moves proof-ID words behind semantic literals, making Tactix's watched literal
+offsets match Kissat's 12/16-byte positions.  Propagation cycles improve only
+19.023B to 18.835B while total cycles rise 64.298B to 65.541B and elapsed time
+rises 16.763 to 17.034 seconds.  The active-only assignment arm
+(\code{1645783}) removes a retired-variable test only from DefaultPolicy search,
+preserving N1's general retired-variable decision surface.  Its intended owner
+is unchanged at 0.99913x.  Hoisting the immutable binary source assignment
+(\code{1645785}) is likewise flat at 1.00026x propagation cycles; the compiler
+already retained that metadata effectively.
+
+\paragraph{Control and relocation representation.}
+The saved-phase snapshot arm (\code{1645787}) resolves ownership and suppression
+once per scan, but the prepared-call shape raises propagation cycles 1.00927x
+and complete cycles 1.01003x.  The no-ignore arm (\code{1645789}) follows
+Kissat's compile-time separation between ordinary and probing propagation.  It
+does move the intended owner: combined propagation cycles fall 19.011B to
+18.778B, or 0.98777x.  Complete elapsed time nevertheless rises 16.799 to
+16.853 seconds and complete cycles rise 1.00321x.  A local improvement that
+does not improve the exact whole prefix does not justify duplicated hot code.
+
+Finally, job \code{1645791} appends a delayed two-word large watch after one
+common-path capacity decision while retaining exact blocking-word/reference
+order.  The repaired form is neutral: 16.820 versus 16.822 seconds,
+64.518B versus 64.442B total cycles, and 18.788B versus 18.767B propagation
+cycles.  The 0.1\% changes are below materiality and the simpler two-push code
+is restored.
+
+\section{Crash escalation and independent validation}
+The initial atomic-watch prototype assumed that one doubling always leaves two
+free words.  Exact batch rebuilds and defragmentation can instead leave
+\code{capacity == size == 1}; one growth then produces capacity two and only one
+free word.  The prototype wrote past the arena and made \code{solve_reset}
+segfault after its matching reused/fresh solve summaries.
+
+This reproduced crash triggered DEVELOPMENT\_PLAN \S8.2's mandatory bounded
+Claude escalation.  Claude was granted workspace edit permission and restricted
+to the two-word append, its reproducer, and focused checks.  The repair loops
+until two words actually fit, retains one common-path capacity decision, and
+adds an exact one-word-slice regression.  Claude reports all 73 code tests
+passing; only the pre-existing opt-in documentation-size check fails.
+
+Codex independently reviewed the patch and reran Release \code{kernel} plus
+\code{solve_reset}; both pass.  Rebuilt ASan/UBSan versions of the same two
+tests pass with \code{ASAN_OPTIONS=detect_leaks=0}; LeakSanitizer itself cannot
+run under this execution wrapper and fails before evaluating solver memory.
+The corrected candidate, not the crashing prototype, is the immutable binary
+measured by job \code{1645791}.  It is correct but neutral and was fully
+reverted after measurement.  No crash artifact, staged CNF, proof, or checker
+derivative remains.
+
+\section{Decision and next actions}
+No solver behavior or default changes in this increment.  The accepted branch
+still contains the reserved-trail representation and all earlier Sweep,
+directed-bridge, BVE-admission, proof, and N1--N4 closures.  The six new
+campaigns are reopening barriers: they require contradictory owner-local and
+whole-prefix evidence, not merely another timing sample.
+
+The next source comparison should price Tactix's per-literal 16-byte
+\code{WatchHead} plus flat-arena offset arithmetic against Kissat's direct
+begin/end vector representation.  First measure scan-entry indirection and the
+population/cost of delayed relocations without changing watch order.  Any
+candidate must again preserve exact logical ticks/costs, candidate order,
+scheduling order, learning and pruning at common state.  A material winner then
+requires exact event-trace parity, full Release and sanitizer coverage, the
+complete frozen B28 plus predeclared C5 guard with checked models/proofs and zero
+residue, exact-source fuzzing, and a checked two-CPU Rank-27 witness.  Frozen
+reference solvers remain untouched.
+
+\end{document}
