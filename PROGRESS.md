@@ -267,10 +267,14 @@ without contradictory evidence.
   Sweep prematurely retires 343 variables; its following Substitute sees only
   two, leaves the preimage unchanged, and never produces the image. Both traces
   are untruncated and residue-free (Tactix `67fa544…8fed`, Kissat
-  `2829de4…bf2a`). The general repair is to preserve Sweep's proved
-  equivalence binaries and active classes through its exact connected
-  irredundant rewrite so the mandated Substitute owns residual learned-clause
-  cleanup and complete retirement, as in Kissat.
+  `2829de4…bf2a`). The repair now preserves Sweep's proved equivalence binaries
+  and active classes through its exact connected irredundant rewrite. Same-batch
+  bridge endpoints are suffix-composed as sequential Kissat merges them, so an
+  intermediate class winner cannot lose its only link. Canonical Substitute
+  now owns residual learned cleanup, reconstruction, and retirement. Independent
+  review confirms the rule/strategy boundary and LRAT identities; focused
+  ASan/UBSan, 74/74 release tests, and all 44 external proof checks pass. No
+  benchmark witness has yet been run on this repair.
   These observers do not mutate the candidate.
 
 ## Exact convergence contract
@@ -298,22 +302,20 @@ without contradictory evidence.
    commit `0997356…78c8` binary is an independent read-only inode, SHA-256
    `cb6fdaa9…6c7a4`; compute-node SAT/model and UNSAT/proof validation passed
    with zero residue. Inspect the aggregate when terminal.
-2. Lift Kissat's general two-stage ownership: Sweep keeps its exact connected
-   irredundant rewrite but preserves the two equivalence binaries and does not
-   retire their active members; the immediately following Substitute
-   rediscovers the complete union, rewrites residual redundant clauses, and
-   owns proof/reconstruction plus retirement. Add a benchmark-independent unit
-   regression for the residual redundant-clause handoff.
-3. Keep proof/reconstruction in rules and cadence/admission/effort in strategy.
-   Repeat the mandatory full B28+fixed-C5 guard before the next Rank-27 witness.
+2. Freeze a production repair binary and run the mandatory full B28+fixed-C5
+   16-GiB/1200-s guard; validate every SAT model and UNSAT proof with zero
+   residue before any Rank-27 performance witness.
+3. If all guard solves remain, run the checked Rank-27 witness and compare the
+   repaired c3069 Sweep→Substitute handoff directly with current Kissat. Keep
+   cadence/admission/effort outside the proof rules.
 4. At the next coherent successful increment, update this resume surface and
    the parity ledger, generate the required Andrew TeX/PDF report, commit, push,
    and leave `main` clean and synchronized.
 
 ## Recent changes
 
-- 2026-08-23 — Proved the Rank-27 missing watch is a clause-lifecycle split:
-  Kissat retains the focal ternary at c5471 while Tactix has no matching clause.
+- 2026-08-23 — Repaired Sweep→Substitute ownership with suffix-composed
+  equivalence bridges; sanitizer, full-suite, and proof checks pass locally.
 - 2026-08-23 — Localized the first worse-side propagation divergence: Tactix
   derives 475857 19 implications later from a weaker binary reason.
 - 2026-08-23 — Traced the visible equal-score heap split back through c5492's

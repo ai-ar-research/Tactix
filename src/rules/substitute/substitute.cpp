@@ -693,6 +693,8 @@ void SweepSubstitutionSession::reset_transaction() {
   retiring_repr.clear();
   retiring_rank.clear();
   retiring_position.clear();
+  equivalence_bridges.clear();
+  equivalence_bridge_images.clear();
 }
 
 // A retiring literal's large occurrences move with its binaries, but only the
@@ -756,8 +758,19 @@ void SweepSubstitutionSession::push_move(const Kernel &k, const Clause &old,
 
 void SweepSubstitutionSession::rewrite_binary_occurrences(
     const Kernel &k, const std::vector<std::pair<Lit, Lit>> &map,
-    const std::vector<Lit> &sources) {
+    const std::vector<Lit> &sources,
+    const std::vector<EquivalenceBridge> &bridges) {
   reset_transaction();
+  for (const EquivalenceBridge &bridge : bridges) {
+    assert(bridge.a != INVALID_LIT && bridge.b != INVALID_LIT &&
+           bridge.target_a != INVALID_LIT && bridge.target_b != INVALID_LIT);
+    assert(bridge.target_a != bridge.target_b &&
+           bridge.target_a != negate(bridge.target_b));
+    equivalence_bridges.emplace(kernel_binary_key(bridge.a, bridge.b),
+                                bridge);
+    equivalence_bridge_images.insert(
+        kernel_binary_key(bridge.target_a, bridge.target_b));
+  }
   dirty_binary_owners.clear();
   // Ask the rewrite's own member question rather than the requested class map:
   // a member already root-fixed or retired is declined by `do_substitution`,
@@ -815,8 +828,6 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
       std::unique(affected_owners.begin(), affected_owners.end()),
       affected_owners.end());
   for (const Lit owner : affected_owners) {
-    const Lit target_owner =
-        member_live(owner) ? requested_image(owner) : owner;
     const auto rank = retiring_rank.find(owner);
     const bool retires = rank != retiring_rank.end();
     std::vector<DenseOccurrence> &ordered = occurrences(k, owner);
@@ -832,8 +843,12 @@ void SweepSubstitutionSession::rewrite_binary_occurrences(
         continue;
       }
       const Lit other = static_cast<Lit>(occurrence.payload);
-      const Lit target_other =
-          member_live(other) ? requested_image(other) : other;
+      Lit target_owner, target_other;
+      if (!equivalence_bridge_targets(owner, other, &target_owner,
+                                      &target_other)) {
+        target_owner = member_live(owner) ? requested_image(owner) : owner;
+        target_other = member_live(other) ? requested_image(other) : other;
+      }
       if (target_owner == target_other ||
           target_owner == negate(target_other)) {
         // This directed occurrence is actually removed. Identity entries
@@ -902,6 +917,33 @@ uint32_t SweepSubstitutionSession::retiring_index(Lit lit) const {
 Lit SweepSubstitutionSession::representative(Lit lit) const {
   const auto it = retiring_rank.find(lit);
   return it == retiring_rank.end() ? lit : retiring_repr[it->second];
+}
+
+bool SweepSubstitutionSession::equivalence_bridge_targets(Lit a, Lit b,
+                                                          Lit *target_a,
+                                                          Lit *target_b) const {
+  const auto found = equivalence_bridges.find(kernel_binary_key(a, b));
+  if (found == equivalence_bridges.end())
+    return false;
+  const EquivalenceBridge &bridge = found->second;
+  // The undirected key is injective on literal pairs, so the query names the
+  // stored pair; only its orientation can differ.
+  if (a == bridge.a) {
+    assert(b == bridge.b);
+    *target_a = bridge.target_a;
+    *target_b = bridge.target_b;
+  } else {
+    assert(a == bridge.b && b == bridge.a);
+    *target_a = bridge.target_b;
+    *target_b = bridge.target_a;
+  }
+  return true;
+}
+
+bool SweepSubstitutionSession::is_equivalence_bridge_image(Lit a,
+                                                            Lit b) const {
+  return equivalence_bridge_images.find(kernel_binary_key(a, b)) !=
+         equivalence_bridge_images.end();
 }
 
 void SweepSubstitutionSession::flush_moves(const Kernel &k) {
@@ -1573,9 +1615,9 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                          k.arena.capacity());
   // Kissat's Sweep stays in dense mode and `substitute_connected_clauses`
   // visits only the retiring literal's unified binary/irredundant stream.
-  // Redundant clauses are deliberately absent and are flushed after retired
-  // variables leave the probing phase.  A search-time fallback to the complete
-  // arena is therefore both semantically non-reference and O(F) per productive
+  // Redundant clauses are deliberately absent and are consumed by the
+  // immediately following canonical Substitute. A search-time fallback to the
+  // complete arena is therefore both semantically non-reference and O(F) per productive
   // environment.  The session names the exact retiring frontier; collect its
   // irredundant refs sparsely without an arena-sized membership bitmap.
   if (session && k.dense) {
@@ -1637,13 +1679,29 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
 
   struct BinaryImage {
     Lit source_a, source_b;
+    // Bridge endpoints when the source is a preserved equivalence binary:
+    // the emitted pair under every later merge, not the final representative.
+    Lit bridge_target_a = INVALID_LIT;
+    Lit bridge_target_b = INVALID_LIT;
   };
   struct ExpandedBinaryImage {
     Lit source_a, source_b;
     Lit target_a, target_b;
     bool tautological;
   };
+  const auto make_image = [&](Lit lit, Lit other) {
+    BinaryImage image{lit, other, INVALID_LIT, INVALID_LIT};
+    if (session)
+      (void)session->equivalence_bridge_targets(
+          lit, other, &image.bridge_target_a, &image.bridge_target_b);
+    return image;
+  };
   const auto expand_image = [&](const BinaryImage &source) {
+    if (source.bridge_target_a != INVALID_LIT)
+      return ExpandedBinaryImage{
+          source.source_a, source.source_b, source.bridge_target_a,
+          source.bridge_target_b,
+          source.bridge_target_a == negate(source.bridge_target_b)};
     const Lit a = substitutable(source.source_a)
                       ? representative(source.source_a)
                       : source.source_a;
@@ -1675,11 +1733,11 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
             kernel_import_lit_order(k, lit) >=
                 kernel_import_lit_order(k, other))
           continue;
-        images.push_back({lit, other});
+        images.push_back(make_image(lit, other));
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
-        const Lit a = substitutable(lit) ? representative(lit) : lit;
-        const Lit b = substitutable(other) ? representative(other) : other;
-        rule_journal_note_binary_rewrite(k, lit, other, a, b);
+        const ExpandedBinaryImage noted = expand_image(images.back());
+        rule_journal_note_binary_rewrite(k, lit, other, noted.target_a,
+                                         noted.target_b);
 #endif
       }
   };
@@ -1823,11 +1881,26 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       const uint64_t source =
           kernel_binary_key(image.source_a, image.source_b);
       std::vector<uint64_t> ch;
-      if (substitutable(image.source_a))
-        ch.push_back(lemma_id(image.source_a));
-      if (substitutable(image.source_b))
-        ch.push_back(lemma_id(image.source_b));
-      ch.push_back(k.binary_ids.at(source));
+      if (stored.bridge_target_a != INVALID_LIT) {
+        // A transformed bridge's endpoints can be intermediate class members,
+        // so the source-literal lemmas (which map to the final representative)
+        // are not unit along this clause. The mirror lemmas of the image
+        // endpoints close the RUP directly: each forces its own class root,
+        // and the two roots are complementary. A root endpoint has no lemma
+        // and needs none — its assumed negation is the forced literal.
+        assert(image.target_a != image.target_b && !image.tautological);
+        if (substitutable(negate(image.target_a)))
+          ch.push_back(lemma_id(negate(image.target_a)));
+        if (substitutable(negate(image.target_b)))
+          ch.push_back(lemma_id(negate(image.target_b)));
+        assert(!ch.empty() && "a changed bridge image joins two class trees");
+      } else {
+        if (image.source_a != image.target_a)
+          ch.push_back(lemma_id(image.source_a));
+        if (image.source_b != image.target_b)
+          ch.push_back(lemma_id(image.source_b));
+        ch.push_back(k.binary_ids.at(source));
+      }
 
       if (image.target_a == image.target_b) {
         if (!first_emitted_unit(image.target_a))
@@ -1888,8 +1961,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
-    const bool stable_a = !substitutable(image.source_a);
-    const bool stable_b = !substitutable(image.source_b);
+    const bool stable_a = image.source_a == image.target_a;
+    const bool stable_b = image.source_b == image.target_b;
     if (stable_a == stable_b)
       continue;
     const Lit stable = stable_a ? image.source_a : image.source_b;
@@ -1957,8 +2030,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   const auto snapshot_directed = [&](Lit lit) {
     assert(substitutable(lit));
     for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary())
-        images.push_back({lit, watch.other()});
+      if (watch.binary() &&
+          !(session &&
+            session->is_equivalence_bridge_image(lit, watch.other())))
+        images.push_back(make_image(lit, watch.other()));
   };
   if (session) {
     // Sweep retires one source at a time in equivalence-emission order.  The
@@ -2003,6 +2078,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const auto compact_owner = [&](Lit lit) {
         k.watches.compact(lit, [&](WatchEntry watch) {
           return !watch.binary() ||
+                 (session && session->is_equivalence_bridge_image(
+                                 lit, watch.other())) ||
                  (!substitutable(lit) && !substitutable(watch.other()));
         });
     };
@@ -2048,7 +2125,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const ExpandedBinaryImage image = expand_image(stored);
     if (image.tautological || image.target_a == image.target_b)
       continue;
-    const bool moved_other = substitutable(image.source_b);
+    const bool moved_other = image.source_b != image.target_b;
     const bool publish =
         !moved_other || kernel_import_lit_order(k, image.source_a) <
                             kernel_import_lit_order(k, image.source_b);
@@ -2123,18 +2200,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // ¬l and {l, ¬s} witnessed by l, so kernel_extend_model recovers l's value
   // from s regardless of any search assignment to l.
   std::vector<Var> witness_order;
-  if (session) {
-    witness_order.reserve(session->retiring_sources().size() / 2);
-    for (const Lit l : session->retiring_sources())
-      if (!negated(l))
-        witness_order.push_back(var_of(l));
-    std::sort(witness_order.begin(), witness_order.end(), [&](Var a, Var b) {
-      return kernel_import_var_order(k, a) < kernel_import_var_order(k, b);
-    });
-    witness_order.erase(
-        std::unique(witness_order.begin(), witness_order.end()),
-        witness_order.end());
-  } else {
+  if (!session) {
     kernel_vars_in_import_order(k, witness_order);
   }
   size_t witness_vars = 0;
@@ -2422,23 +2488,69 @@ ApplyResult substitute_apply_sweep_equivalences(
   // to, not as a peer of it. Record the merge forest here, and read that order
   // back below; the final representative map alone cannot express it.
   std::vector<std::vector<Lit>> absorbed(members.size());
-  const auto unite = [&](Lit a, Lit b) {
+  const auto unite = [&](Lit a, Lit b) -> int {
     uint32_t ra = find(index_of(a)), rb = find(index_of(b));
     if (ra == rb)
-      return;
+      return -1;
+    const uint32_t root_a = ra;
     if (kernel_import_lit_order(k, members[rb]) <
         kernel_import_lit_order(k, members[ra]))
       std::swap(ra, rb);
+    const int losing_side = rb == root_a ? 0 : 1;
     parent[rb] = ra;
     absorbed[ra].push_back(members[rb]);
+    return losing_side;
   };
+  struct ProductivePair {
+    Lit a, b;
+    int losing_side;
+  };
+  std::vector<ProductivePair> productive;
+  productive.reserve(equivalences.size());
   for (const auto &eq : equivalences) {
     const Lit a = eq.first, b = eq.second;
     if (a >= nlits || b >= nlits || a == b || a == negate(b) ||
         k.value(a) != 0 || k.value(b) != 0)
       continue;
-    unite(a, b);
-    unite(negate(a), negate(b));
+    const int losing_side = unite(a, b);
+    const int mirror_losing_side = unite(negate(a), negate(b));
+    assert(losing_side == mirror_losing_side);
+    (void)mirror_losing_side;
+    if (losing_side < 0)
+      continue;
+    productive.push_back({a, b, losing_side});
+  }
+  // Sweep emitted (not a v b) and (a v not b) for each productive pair, and
+  // Kissat exempts them only from their own pair's substitution: every later
+  // merge still rewrites both endpoints (`substitute_connected_clauses` skips
+  // exactly `other == NOT (repr)`). Replay that suffix composition backwards
+  // so each preserved bridge carries the endpoints the sequential process
+  // leaves behind. Jumping an endpoint straight to the final representative
+  // instead drops the chain link owed to a class winner that loses a later
+  // merge which never names it, and the mandated Substitute can no longer
+  // rediscover the complete union.
+  std::vector<SweepSubstitutionSession::EquivalenceBridge> bridges;
+  bridges.reserve(2 * productive.size());
+  {
+    std::unordered_map<Lit, Lit> suffix; // identity where absent
+    const auto suffix_image = [&](Lit l) {
+      const auto it = suffix.find(l);
+      return it == suffix.end() ? l : it->second;
+    };
+    for (size_t i = productive.size(); i--;) {
+      const ProductivePair &pair = productive[i];
+      bridges.push_back({negate(pair.a), pair.b,
+                         suffix_image(negate(pair.a)),
+                         suffix_image(pair.b)});
+      bridges.push_back({pair.a, negate(pair.b), suffix_image(pair.a),
+                         suffix_image(negate(pair.b))});
+      const Lit loser = pair.losing_side ? pair.b : pair.a;
+      const Lit winner = pair.losing_side ? pair.a : pair.b;
+      const Lit winner_image = suffix_image(winner);
+      const Lit winner_mirror = suffix_image(negate(winner));
+      suffix[loser] = winner_image;
+      suffix[negate(loser)] = winner_mirror;
+    }
   }
 
   SccResult r;
@@ -2496,7 +2608,7 @@ ApplyResult substitute_apply_sweep_equivalences(
     }
   }
 
-  session.rewrite_binary_occurrences(k, sparse_map, sources);
+  session.rewrite_binary_occurrences(k, sparse_map, sources, bridges);
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(

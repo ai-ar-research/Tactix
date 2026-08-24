@@ -59,11 +59,10 @@ ApplyResult substitute_apply(Kernel &); // canonical: full round
 // The shipped reference cap is two rounds (`substituterounds=2`).
 ApplyResult substitute_apply_complete(Kernel &, uint32_t max_rounds = 2);
 
-// Mechanism helper for Sweep's reference-inline application: rewrite only the
-// SCC classes named by equivalence binaries that the caller has just proved
-// and added. This is not a scheduling call to the Substitute rule; it is the
-// same proof-safe add-before-delete kernel used by that rule, restricted to
-// the supplied classes.
+// Mechanism helper for callers that consume named equivalence classes
+// immediately. Sweep uses the session-aware entry point below instead so it
+// can retain the proved bridges and defer class retirement to canonical
+// Substitute.
 ApplyResult substitute_apply_equivalences(
     Kernel &, const std::vector<std::pair<Lit, Lit>> &);
 
@@ -75,6 +74,14 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   struct DenseOccurrence {
     bool binary = false;
     uint32_t payload = 0; // other literal for binary, arena Ref otherwise
+  };
+  struct EquivalenceBridge {
+    Lit a = INVALID_LIT; // the emitted equivalence binary, as Sweep proved it
+    Lit b = INVALID_LIT;
+    // The endpoints the binary keeps until canonical Substitute: the emitted
+    // pair rewritten by every LATER merge of the batch, never by its own.
+    Lit target_a = INVALID_LIT;
+    Lit target_b = INVALID_LIT;
   };
 
   Ref original_words = 0;
@@ -133,19 +140,29 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   void sync_new_binaries(
       const Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
   // `map` is the sparse requested literal-to-representative map. The rewrite
-  // this mirrors declines a
-  // member that is already root-fixed or retired, so this applies the same
+  // this mirrors declines a member that is already root-fixed or retired, so
+  // this applies the same
   // predicate rather than the map; mirroring the map instead moves ledger
-  // entries the kernel leaves in place. `sources` is every retiring literal in
+  // entries the kernel leaves in place. `sources` is every losing literal in
   // the order `sweep_equivalence` hands it to `substitute_connected_clauses`;
   // it opens the transaction that `flush_moves` closes.
   void rewrite_binary_occurrences(
       const Kernel &, const std::vector<std::pair<Lit, Lit>> &map,
-      const std::vector<Lit> &sources);
+      const std::vector<Lit> &sources,
+      const std::vector<EquivalenceBridge> &bridges);
   const std::vector<Lit> &retiring_sources() const { return retiring; }
   bool substitutes(Lit) const;
   Lit representative(Lit) const;
   uint32_t retiring_index(Lit) const;
+  // If (a, b) is a freshly proved equivalence binary, write its preserved
+  // endpoints oriented to the query and return true. Kissat exempts such a
+  // binary only from its own pair's `substitute_connected_clauses` call, so
+  // the preserved image is the emitted pair under every later merge of the
+  // batch; the transformed bridges let canonical Substitute rediscover every
+  // still-active class member. False means an ordinary binary.
+  bool equivalence_bridge_targets(Lit a, Lit b, Lit *target_a,
+                                  Lit *target_b) const;
+  bool is_equivalence_bridge_image(Lit, Lit) const;
   // Materialize the streams of every literal of an irredundant connected
   // clause before the kernel rewrites, collapses or retires it. The ledger
   // entry points below locate the source by its pre-rewrite pose; a stream
@@ -162,7 +179,7 @@ struct SweepSubstitutionSession final : ArenaOrdering {
                               uint32_t size);
   void inherit(Kernel &, Ref replacement, Ref source);
   // Append the transaction's moved occurrences to their representatives, one
-  // retiring literal's stream at a time. Runs once per emission batch, after
+  // losing literal's stream at a time. Runs once per emission batch, after
   // the large-clause rewrite has decided what each large occurrence became.
   void flush_moves(const Kernel &);
   void order(const Kernel &, std::vector<Ref> &) override;
@@ -183,13 +200,16 @@ private:
   std::vector<Lit> retiring;      // by rank
   std::vector<Lit> retiring_repr; // by rank
   std::unordered_map<Lit, uint32_t> retiring_rank;
+  std::unordered_map<uint64_t, EquivalenceBridge> equivalence_bridges;
+  std::unordered_set<uint64_t> equivalence_bridge_images;
   // (retiring literal, source ref) -> that occurrence's stream index.
   std::unordered_map<uint64_t, uint32_t> retiring_position;
 };
 
-// Sweep commits consequences while its dense pass is still in flight.  Kissat
-// rewrites the proved class immediately but does not propagate newly created
-// root units until the Sweep call ends.  This entry point preserves that
+// Sweep commits consequences while its dense pass is still in flight. Kissat
+// rewrites the proved class through connected binary/irredundant occurrences,
+// but retains the equivalence binaries and active members for the following
+// whole-formula Substitute pass. This entry point preserves that two-stage
 // lifecycle: the caller must be at level zero and owns the eventual root
 // closure.
 ApplyResult substitute_apply_sweep_equivalences(

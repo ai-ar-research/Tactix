@@ -199,8 +199,12 @@ M3 is one public operation. Private pending state must be consumed before contro
 - Sweep's proved-equivalence commit is a rule-internal connected substitution
   transaction, not a policy arm. It has no cadence, admission, effort, or formula
   classifier. After V5 proves and publishes a pair, it rewrites the retiring
-  literals' binary and irredundant dense occurrences with V3's proof/reconstruction
-  obligations; redundant large clauses wait for the phase-exit retirement flush.
+  literals' binary and irredundant dense occurrences with V3's proof obligations,
+  but keeps a suffix-composed equivalence-binary bridge and leaves every class
+  member active. The mandatory canonical Substitute rediscovers the complete
+  union, rewrites residual redundant clauses, and alone owns reconstruction and
+  retirement. A bridge is exempt only from its own merge; later pairs rewrite its
+  endpoints exactly as sequential Kissat does, including intermediate winners.
   Scratch is sized by the proved class/neighbourhood. A surviving large image
   retains its Ref and allocation span; one `INVALID_LIT` tail marker lets ordinary
   collection pack its semantic words. Collapse/deletion leave lazy garbage, so
@@ -450,7 +454,7 @@ The generic `CandidateOrder::Heuristic` meaning is unchanged for every other rul
 
 Named Congruence and Sweep productivity delays update after preprocessing and search-time calls like Kissat's `BUMP_DELAY`/`REDUCE_DELAY`. Substitute has no Kissat delay or material-watermark object. Each authored call therefore executes an unconditional first SCC round; a productive round's own cache-line delta is compared with 10‰ of the Probe search-tick reference solely to decide whether that call receives its optional second round. This per-call `substituterounds=2` cap is distinct from `proberounds=2`, which repeats the complete probing pipeline.
 
-Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases. Sweep and its mandatory follow-up Substitute form one retirement transaction for heuristic state: Kissat rewrites clauses and records representatives per environment, then deactivates the complete union in a variable-index Substitute pass. Tactix retains per-environment proof/reconstruction work but publishes the combined retirement suffix to `H` in permanent import order immediately after that Substitute, preserving the earlier Vivify prefix. Newly root-fixed variables are published first, matching Kissat's assignment-before-`remove_representative_equivalences` order. Equal semantic scores thus see the same removal pose without changing formula effects.
+Sweep's limit has two boundaries: Kitten decisions and outer refinement stop at equality (`>=`), while the enclosing seed loop and BVE's older entry meter stop after an overrun (`>`); mixing them shifts environments across sessions and changes deterministic phases. Sweep and its mandatory follow-up Substitute form one retirement transaction for heuristic state: Sweep performs proof-safe connected irredundant rewrites and retains equivalence bridges; canonical Substitute consumes their complete union, residual learned clauses, reconstruction, and deactivation in variable-index order. Tactix publishes that retirement suffix to `H` in permanent import order immediately after Substitute, preserving the earlier Vivify prefix. Newly root-fixed variables are published first, matching Kissat's assignment-before-`remove_representative_equivalences` order. Equal semantic scores thus see the same removal pose without changing formula effects.
 
 ## 15. Design decision: eager subsumption after analysis
 
