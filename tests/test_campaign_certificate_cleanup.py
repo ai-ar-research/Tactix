@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise zero-retention paths in the shared Tier-D campaign runner."""
 
+import errno
 import importlib.util
 import json
 import lzma
@@ -26,7 +27,8 @@ with tempfile.TemporaryDirectory(prefix="tactix-certificate-cleanup-") as tmp:
     campaign = base / "campaign"
     cache = base / "cache"
     cache.mkdir()
-    for directory in ("claims", "pins", "results", "scratch", "retained"):
+    for directory in ("claims", "pending", "pins", "results", "scratch",
+                      "retained"):
         (campaign / directory).mkdir(parents=True, exist_ok=True)
 
     cnf = b"p cnf 1 1\n1 0\n"
@@ -49,7 +51,9 @@ else:
     print("s SATISFIABLE")
     print("v 1 -1 0")
 '''
-    for mode in ("unknown", "invalid-unsat", "invalid-sat"):
+    modes = ("unknown", "invalid-unsat", "invalid-sat", "retry-unknown",
+             "recover-unknown")
+    for mode in modes:
         executable(campaign / "pins" / mode, solver_body)
 
     executable(campaign / "pins/drat-trim", r'''
@@ -69,7 +73,7 @@ raise SystemExit(1)
         "certificate": "drat",
         "checker_pipeline": "drat-cake-lpr",
         "vbs_eligible": "SAT+UNSAT",
-    } for mode in ("unknown", "invalid-unsat", "invalid-sat")]
+    } for mode in modes]
     manifest = {
         "certificate_policy": {"retention": "none"},
         "limits": {
@@ -97,9 +101,64 @@ raise SystemExit(1)
     for index, rc in enumerate(expected_rc):
         assert FROZEN.run_one(campaign, index) == rc
 
+    real_rmtree = FROZEN.shutil.rmtree
+    real_sleep = FROZEN.time.sleep
+    retry_work = campaign / "scratch/00003"
+    retry_attempts = [0]
+
+    def transient_rmtree(path, *args, **kwargs):
+        if Path(path) == retry_work and retry_attempts[0] < 2:
+            retry_attempts[0] += 1
+            raise OSError(errno.EBUSY, "simulated NFS silly rename")
+        return real_rmtree(path, *args, **kwargs)
+
+    FROZEN.shutil.rmtree = transient_rmtree
+    FROZEN.time.sleep = lambda _seconds: None
+    try:
+        assert FROZEN.run_one(campaign, 3) == 0
+    finally:
+        FROZEN.shutil.rmtree = real_rmtree
+        FROZEN.time.sleep = real_sleep
+    assert retry_attempts[0] == 2
+    retry_result = json.loads((campaign / "results/00003.json").read_text())
+    assert retry_result["cleanup_retries"] == 2
+    assert not (campaign / "pending/00003.json").exists()
+
+    blocked_work = campaign / "scratch/00004"
+
+    def blocked_rmtree(path, *args, **kwargs):
+        if Path(path) == blocked_work:
+            raise OSError(errno.ENOTEMPTY, "simulated persistent NFS directory")
+        return real_rmtree(path, *args, **kwargs)
+
+    FROZEN.shutil.rmtree = blocked_rmtree
+    FROZEN.time.sleep = lambda _seconds: None
+    try:
+        try:
+            FROZEN.run_one(campaign, 4)
+            raise AssertionError("persistent cleanup failure was ignored")
+        except OSError as error:
+            assert error.errno == errno.ENOTEMPTY
+    finally:
+        FROZEN.shutil.rmtree = real_rmtree
+        FROZEN.time.sleep = real_sleep
+    assert not (campaign / "results/00004.json").exists()
+    pending = json.loads((campaign / "pending/00004.json").read_text())
+    assert pending["cleanup_pending"] is True
+    # A crash after finalizing the journal but before its atomic promotion is
+    # also recoverable: the journal's location, not this flag, is authoritative.
+    pending["cleanup_pending"] = False
+    FROZEN.atomic_json(campaign / "pending/00004.json", pending)
+    assert FROZEN.resume_cleanup(campaign, 4) == 0
+    recovered = json.loads((campaign / "results/00004.json").read_text())
+    assert recovered["cleanup_pending"] is False
+    assert recovered["scratch_deleted"] is True
+    assert not (campaign / "pending/00004.json").exists()
+
     results = [json.loads((campaign / "results" / f"{i:05d}.json").read_text())
-               for i in range(3)]
-    assert [row["verdict"] for row in results] == ["UNKNOWN", "UNSAT", "SAT"]
+               for i in range(5)]
+    assert [row["verdict"] for row in results] == [
+        "UNKNOWN", "UNSAT", "SAT", "UNKNOWN", "UNKNOWN"]
     assert all(row["cleanup_pending"] is False for row in results)
     assert all(row["retained_artifacts"] == [] for row in results)
     assert all(row["artifact_deleted"] for row in results)
@@ -116,6 +175,7 @@ raise SystemExit(1)
                                                       ".lsr", ".pbp"})]
     assert residue == [], residue
     assert not any((campaign / "scratch").iterdir())
+    assert not any((campaign / "pending").iterdir())
     assert not any((campaign / "retained").iterdir())
 
     validation_campaign = base / "validation-campaign"

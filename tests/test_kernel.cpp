@@ -185,7 +185,7 @@ static void test_variable_compaction_preserves_directed_binary_order() {
 static void test_variable_compaction_replays_inherited_arena_order() {
   Kernel k;
   ScopedHeuristics h(k);
-  kernel_reserve_vars(k, 7);
+  kernel_reserve_vars(k, 13);
   const Lit shared = internalize(7);
   const Lit source[3] = {shared, internalize(3), internalize(4)};
   const Lit middle[3] = {shared, internalize(5), internalize(6)};
@@ -768,6 +768,7 @@ static void test_probing_does_not_save_phases() {
 // back watch lists, literal order and `searched` byte-identical.
 struct BookKeeping {
   std::vector<std::vector<uint32_t>> lists;
+  std::vector<uint32_t> binary_counts;
   std::vector<uint8_t> list_order;
   std::vector<uint32_t> clauses;
 };
@@ -775,9 +776,11 @@ struct BookKeeping {
 static BookKeeping bookkeeping(const Kernel &k) {
   BookKeeping s;
   s.lists.resize(2 * k.nvars);
+  s.binary_counts.resize(2 * k.nvars);
   s.list_order.resize(2 * k.nvars);
   for (Lit l = 0; l < 2 * k.nvars; l++) {
     const WatchHead &h = k.watches.heads[l];
+    s.binary_counts[l] = k.watches.binary_size(l);
     s.list_order[l] = static_cast<uint8_t>(h.has_large) |
                       static_cast<uint8_t>(h.binaries_first) << 1;
     const uint32_t *const b = k.watches.arena.data() + h.offset;
@@ -794,7 +797,8 @@ static BookKeeping bookkeeping(const Kernel &k) {
 }
 
 static bool same(const BookKeeping &a, const BookKeeping &b) {
-  return a.lists == b.lists && a.list_order == b.list_order &&
+  return a.lists == b.lists && a.binary_counts == b.binary_counts &&
+         a.list_order == b.list_order &&
          a.clauses == b.clauses;
 }
 
@@ -1001,6 +1005,52 @@ static void test_dense_occurrences_keep_source_order_across_collection() {
   kernel_collect_garbage(k);
   assert((dense_ids() == std::vector<uint64_t>{303, 301, 302}) &&
          "dense reconnect must not inherit the physical arena policy");
+  kernel_dense_disconnect(k);
+  kernel_check_invariants(k);
+}
+
+static void test_dense_occurrences_reuse_capacity_and_full_width_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 13);
+  const Lit shared = internalize(-1);
+  const Lit a[3] = {shared, internalize(2), internalize(3)};
+  const Lit b[3] = {shared, internalize(4), internalize(5)};
+  const Lit c[3] = {shared, internalize(6), internalize(7)};
+  const Lit d[3] = {shared, internalize(8), internalize(9)};
+  const Lit e[3] = {shared, internalize(10), internalize(11)};
+  const Lit f[3] = {shared, internalize(12), internalize(13)};
+  kernel_add_large_clause(k, a, 3, false, 0, 513);
+  kernel_add_large_clause(k, b, 3, false, 0, 514);
+  kernel_add_large_clause(k, c, 3, false, 0, 515);
+  kernel_add_large_clause(k, d, 3, false, 0, (uint64_t{1} << 40) + 3);
+  kernel_add_large_clause(k, e, 3, false, 0, (uint64_t{1} << 56) + 1);
+  kernel_add_large_clause(k, f, 3, false, 0, (uint64_t{1} << 32) + 7);
+  kernel_inherit_clause_order(k, 513, 512);
+  kernel_inherit_clause_order(k, 514, 1);
+  kernel_inherit_clause_order(k, 515, 255);
+
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  std::vector<uint64_t> ids;
+  for (const Ref ref : occ.large[shared])
+    ids.push_back(clause_at(k.arena, ref)->id());
+  const std::vector<uint64_t> expected{514, 515, 513,
+                                       (uint64_t{1} << 32) + 7,
+                                       (uint64_t{1} << 40) + 3,
+                                       (uint64_t{1} << 56) + 1};
+  assert(ids == expected &&
+         "logical clause order must compare every key byte");
+  const Ref *const allocation = occ.large[shared].data();
+  const size_t capacity = occ.large[shared].capacity();
+
+  kernel_dense_disconnect(k);
+  kernel_dense_connect(k, occ);
+  assert(occ.large[shared].data() == allocation);
+  assert(occ.large[shared].capacity() == capacity);
+  ids.clear();
+  for (const Ref ref : occ.large[shared])
+    ids.push_back(clause_at(k.arena, ref)->id());
+  assert(ids == expected);
   kernel_dense_disconnect(k);
   kernel_check_invariants(k);
 }
@@ -1304,6 +1354,9 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
   watches.push_large(0, 2, 17);
   watches.push_binary(1, 0);
   watches.push_binary(2, 3);
+  assert(watches.binary_size(0) == 1);
+  assert(watches.binary_size(1) == 1);
+  assert(watches.binary_size(2) == 1);
 
   const std::vector<uint32_t> prefix0(watches.begin(0), watches.end(0));
   const std::vector<uint32_t> prefix1(watches.begin(1), watches.end(1));
@@ -1321,6 +1374,8 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
   const size_t arena_size = watches.arena.size();
   watches.push_large(0, 3, 23);
   watches.push_binary(1, 2);
+  assert(watches.binary_size(0) == 1);
+  assert(watches.binary_size(1) == 2);
   assert(watches.arena.size() == arena_size);
   assert(watches.heads[0].size == watches.heads[0].capacity);
   assert(watches.heads[1].size == watches.heads[1].capacity);
@@ -1331,6 +1386,7 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
   const size_t exact_size = watches.arena.size();
   assert(watches.arena.capacity() == exact_size);
   watches.push_binary(0, 1);
+  assert(watches.binary_size(0) == 2);
   assert(watches.arena.capacity() >= exact_size + (exact_size + 2) / 3);
 }
 
@@ -1366,6 +1422,7 @@ int main() {
   test_rebuild_large_watches_restores_arena_order();
   test_phase_rebuild_large_watches_restores_source_order();
   test_dense_occurrences_keep_source_order_across_collection();
+  test_dense_occurrences_reuse_capacity_and_full_width_order();
   test_large_replacement_preserves_redundant_recency();
   test_in_place_large_replacement_preserves_allocation_span();
   test_rebuild_large_watches_reselects_root_false_pair();

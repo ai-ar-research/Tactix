@@ -7,6 +7,7 @@
 #include "proof/proof.hpp" // kernel_delete_binary emits the delta atomically
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <numeric>
 #include <type_traits>
@@ -251,8 +252,10 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
       kernel_mark_bve_retry(k, var_of(lits[i]));
       kernel_touch_var(k, var_of(lits[i]));
       k.factor_marks[lits[i]] = 1;
-      if (k.dense)
+      if (k.dense) {
         k.dense->large[lits[i]].push_back(ref);
+        kernel_bve_occurrence_add(k, lits[i]);
+      }
       // Kissat updates an already-scheduled variable after adding a
       // resolvent, but does not reinsert a candidate popped earlier.
       kernel_notify_bve_score(k, var_of(lits[i]), false);
@@ -273,8 +276,9 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 }
 
 uint64_t kernel_clause_order(const Kernel &k, uint64_t id) {
-  const auto found = k.clause_order_alias.find(id);
-  return found == k.clause_order_alias.end() ? id : found->second;
+  if (id < k.clause_order_alias.size() && k.clause_order_alias[id])
+    return k.clause_order_alias[id];
+  return id;
 }
 
 void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
@@ -286,8 +290,10 @@ void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
   // id-less clause (vivify.cpp VivifyArenaOrder::order).
   if (!replacement_id || !source_id)
     return;
-  k.clause_order_alias.insert_or_assign(replacement_id,
-                                        kernel_clause_order(k, source_id));
+  assert(replacement_id < SIZE_MAX);
+  if (replacement_id >= k.clause_order_alias.size())
+    k.clause_order_alias.resize(static_cast<size_t>(replacement_id) + 1, 0);
+  k.clause_order_alias[replacement_id] = kernel_clause_order(k, source_id);
 }
 
 static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
@@ -327,6 +333,8 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
+  kernel_bve_occurrence_add(k, a);
+  kernel_bve_occurrence_add(k, b);
   note_binary_add(k, a, b, id, new_pair);
 }
 
@@ -334,6 +342,7 @@ void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
   // The stable list already contains (stable -> moved), rewritten in place by
   // the caller. Adding the opposite direction restores the mirrored-watch
   // invariant without appending and immediately discarding a stable duplicate.
+  assert(!k.bve_occurrence_count_image);
   kernel_rearm_propagation(k, stable, moved);
   k.watches.push_binary(moved, stable);
   note_binary_add(k, stable, moved, id, false);
@@ -341,6 +350,7 @@ void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
 
 void kernel_publish_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
                                   bool new_pair) {
+  assert(!k.bve_occurrence_count_image);
   kernel_rearm_propagation(k, a, b);
   note_binary_add(k, a, b, id, new_pair);
 }
@@ -389,6 +399,8 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
     });
     assert(removed);
   }
+  kernel_bve_occurrence_remove(k, a);
+  kernel_bve_occurrence_remove(k, b);
   if (k.binary_liveness)
     k.binary_liveness->remove(kernel_binary_key(a, b));
   // (4) proof delete (chain-free; deletions do not consume an id).
@@ -433,6 +445,8 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
     });
     assert(removed);
   }
+  kernel_bve_occurrence_remove(k, a);
+  kernel_bve_occurrence_remove(k, b);
   // DRAT/LRAT deletions are optional. Without a per-copy id ledger, emitting
   // the pair's current id here could retire the id later reasons cite; retain
   // it in the checker until the final physical copy is removed instead.
@@ -477,6 +491,8 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
       return !(w.binary() && w.other() == other);
     });
   }
+  kernel_bve_occurrence_remove(k, a, copies);
+  kernel_bve_occurrence_remove(k, b, copies);
   if (k.binary_liveness)
     k.binary_liveness->remove(kernel_binary_key(a, b));
   if (k.proof) {
@@ -909,10 +925,13 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
       const auto at = std::find(occ.begin(), occ.end(), ref);
       assert(at != occ.end());
       occ.erase(at);
+      kernel_bve_occurrence_remove(k, lit);
     }
     for (uint32_t i = 0; i < size; i++)
-      if (!in_old(lits[i]))
+      if (!in_old(lits[i])) {
         k.dense->large[lits[i]].push_back(ref);
+        kernel_bve_occurrence_add(k, lits[i]);
+      }
   }
 
   // A live in-place record cannot retain stale watch entries.  Removing them
@@ -1273,7 +1292,8 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
   const WatchHead &h = k.watches.heads[l];
   const uint32_t *const b = k.watches.arena.data() + h.offset;
   lg.lists.push_back({l, static_cast<uint32_t>(lg.words.size()), h.size,
-                      h.has_large, h.binaries_first});
+                      k.watches.binary_size(l), h.has_large,
+                      h.binaries_first});
   lg.words.insert(lg.words.end(), b, b + h.size);
   // S3: snapshot traffic is real memory work — charge it to the tick
   // currency (same cache-line unit as the scan at :602) so the effort
@@ -1628,6 +1648,7 @@ void kernel_probing_end(Kernel &k) {
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
       WatchHead &h = k.watches.heads[s.lit];
       h.size = s.size;
+      k.watches.binary_counts[s.lit] = s.binaries;
       h.has_large = s.has_large;
       h.binaries_first = s.binaries_first;
       kernel_charge_ticks(k, 1 + kernel_cache_lines(s.size));
@@ -1759,8 +1780,73 @@ static void sort_clause_watches_like_kissat(Kernel &k, Clause *c) {
     move_best_watch_to_front(k, c, 1, first >= 0);
 }
 
+static uint64_t logical_clause_order(const Kernel &k, Ref ref) {
+  const Clause *c = clause_at(k.arena, ref);
+  return c->id() ? kernel_clause_order(k, c->id()) : ref;
+}
+
+// Stable LSD radix ordering over the exact clause-order key.  Kissat obtains
+// this order for free by traversing its physical irredundant arena prefix.
+// Tactix keeps an independent CaDiCaL-style physical arena and therefore has
+// to reconstruct the logical order after append-only replacements.  The
+// direct ID image makes a fixed-width stable radix pass the corresponding
+// linear representation operation; comparison sorting the multi-million
+// clause image made dense entry and sparse resume dominate useful rule work.
+static void sort_refs_by_logical_clause_order(const Kernel &k,
+                                              std::vector<Ref> &refs) {
+  if (refs.size() < 2)
+    return;
+
+  std::vector<uint64_t> keys;
+  keys.reserve(refs.size());
+  bool ordered = true;
+  uint64_t previous = 0;
+  for (size_t i = 0; i < refs.size(); ++i) {
+    const uint64_t key = logical_clause_order(k, refs[i]);
+    keys.push_back(key);
+    if (i && key < previous)
+      ordered = false;
+    previous = key;
+  }
+  if (ordered)
+    return;
+
+  std::vector<Ref> ref_scratch(refs.size());
+  std::vector<uint64_t> key_scratch(keys.size());
+  for (unsigned shift = 0; shift < 64; shift += 8) {
+    std::array<size_t, 256> offsets{};
+    for (const uint64_t key : keys)
+      offsets[(key >> shift) & 0xffu]++;
+    size_t sum = 0;
+    for (size_t &offset : offsets) {
+      const size_t count = offset;
+      offset = sum;
+      sum += count;
+    }
+    for (size_t i = 0; i < refs.size(); ++i) {
+      const size_t bucket = (keys[i] >> shift) & 0xffu;
+      const size_t dst = offsets[bucket]++;
+      ref_scratch[dst] = refs[i];
+      key_scratch[dst] = keys[i];
+    }
+    refs.swap(ref_scratch);
+    keys.swap(key_scratch);
+  }
+}
+
+static void clear_dense_large_occurrences(OccIndex &occ, size_t nlits) {
+  if (occ.large.size() != nlits)
+    occ.large.resize(nlits);
+  // Kissat empties each persistent watch vector by resetting its end pointer
+  // and then reconnects in arena order.  Retain the per-literal allocations in
+  // exactly that way: rebuilding a dense phase must not destroy and reallocate
+  // the entire occurrence population.
+  for (std::vector<Ref> &refs : occ.large)
+    refs.clear();
+}
+
 static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
-  occ.large.assign(2 * k.nvars, {});
+  clear_dense_large_occurrences(occ, 2 * static_cast<size_t>(k.nvars));
   std::vector<Ref> order;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -1771,13 +1857,7 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
   // Kissat's dense lists follow its irredundant arena prefix. Tactix keeps an
   // independent CaDiCaL-style physical arena pose, but proof/source identities
   // retain the corresponding Kissat order, including replacement aliases.
-  std::stable_sort(order.begin(), order.end(), [&k](Ref a, Ref b) {
-    const Clause *ca = clause_at(k.arena, a);
-    const Clause *cb = clause_at(k.arena, b);
-    const uint64_t ao = ca->id() ? kernel_clause_order(k, ca->id()) : a;
-    const uint64_t bo = cb->id() ? kernel_clause_order(k, cb->id()) : b;
-    return ao < bo;
-  });
+  sort_refs_by_logical_clause_order(k, order);
   for (const Ref ref : order)
     for (const Lit lit : *clause_at(k.arena, ref))
       occ.large[lit].push_back(ref);
@@ -1785,6 +1865,7 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
 
 void kernel_collect_garbage(Kernel &k, Ref watch_start,
                             bool apply_sparse_order) {
+  assert(!k.bve_occurrence_count_image);
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
   // over the compacted arena. Long an implicit assumption of the probing log;
@@ -1948,12 +2029,10 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     });
   }
   k.arena.swap(fresh);
-  // GC relocated every Ref: the dense occurrence index (increment 2) must be
+  // GC relocated every Ref: the dense occurrence index (increment 2) is
   // rebuilt from the compacted arena in lock-step with the watches below (it
-  // held offsets into the old arena, now stale). Clearing here also drops the
-  // garbage Refs that accumulated lazily during the phase.
-  if (k.dense)
-    k.dense->large.assign(2 * k.nvars, {});
+  // held offsets into the old arena, now stale).  The rebuild clears logical
+  // sizes while retaining Kissat-shaped per-literal allocation capacity.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (!watch_start || c->redundant()) {
@@ -1993,13 +2072,7 @@ void kernel_rebuild_large_watches(Kernel &k, bool inherited_source_order) {
     ref += words;
   }
   if (inherited_source_order)
-    std::stable_sort(order.begin(), order.end(), [&k](Ref a, Ref b) {
-      const Clause *ca = clause_at(k.arena, a);
-      const Clause *cb = clause_at(k.arena, b);
-      const uint64_t ao = ca->id() ? kernel_clause_order(k, ca->id()) : a;
-      const uint64_t bo = cb->id() ? kernel_clause_order(k, cb->id()) : b;
-      return ao < bo;
-    });
+    sort_refs_by_logical_clause_order(k, order);
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
       // `kissat_watch_large_clauses` does not merely reconnect the existing
@@ -2064,9 +2137,12 @@ void kernel_resume_walk_watches(Kernel &k) {
   k.watches.holes = 0;
   for (WatchHead &head : k.watches.heads)
     head = WatchHead{};
+  std::fill(k.watches.binary_counts.begin(), k.watches.binary_counts.end(), 0);
   for (const auto &[a, b] : binaries) {
     k.watches.heads[a].size++;
     k.watches.heads[b].size++;
+    k.watches.binary_counts[a]++;
+    k.watches.binary_counts[b]++;
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
@@ -2201,9 +2277,12 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   k.watches.holes = 0;
   for (WatchHead &head : k.watches.heads)
     head = WatchHead{};
+  std::fill(k.watches.binary_counts.begin(), k.watches.binary_counts.end(), 0);
   for (const auto &binary : binaries) {
     k.watches.heads[binary.first].size++;
     k.watches.heads[binary.second].size++;
+    k.watches.binary_counts[binary.first]++;
+    k.watches.binary_counts[binary.second]++;
   }
   if (binary_suffix)
     for (const auto &[a, b] : *binary_suffix) {
@@ -2310,12 +2389,16 @@ void kernel_deduplicate_binary_watches(Kernel &k) {
 }
 
 void kernel_dense_connect(Kernel &k, OccIndex &occ) {
+  assert(!k.bve_occurrence_count_image);
   assert(k.level == 0);
   rebuild_dense_large_occurrences(k, occ);
   k.dense = &occ;
 }
 
-void kernel_dense_disconnect(Kernel &k) { k.dense = nullptr; }
+void kernel_dense_disconnect(Kernel &k) {
+  assert(!k.bve_occurrence_count_image);
+  k.dense = nullptr;
+}
 
 bool kernel_should_compact_variables(const Kernel &k, uint32_t percent) {
   if (k.var_status.empty() || k.nvars == 0)
@@ -2948,15 +3031,22 @@ void kernel_check_invariants(const Kernel &k) {
   }
   // A set per-list order bit permits the binary propagator's early break.
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    uint32_t binaries = 0;
     if (k.watches.heads[lit].binaries_first) {
       bool large = false;
       for (const WatchEntry w : k.watches.entries(lit)) {
-        if (w.binary())
+        if (w.binary()) {
+          binaries++;
           assert(!large && "binary watch after a large one under binary-first");
-        else
+        } else
           large = true;
       }
+    } else {
+      for (const WatchEntry w : k.watches.entries(lit))
+        binaries += w.binary();
     }
+    assert(binaries == k.watches.binary_size(lit) &&
+           "stale binary watch population");
     for (const WatchEntry w : k.watches.entries(lit)) {
       if (w.binary())
         continue;

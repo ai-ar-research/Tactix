@@ -3,13 +3,18 @@
 // is the implication p → q. See docs/calculus.md §V3.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
+#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/substitute/substitute.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <fstream>
+#include <string>
 #include <vector>
+
+#include <unistd.h>
 
 using namespace tactix;
 
@@ -923,6 +928,40 @@ static void test_substitution_preserves_binary_multiplicity() {
   assert(kernel_binary_copies(k, internalize(1), internalize(3)) == 3);
 }
 
+// A DRAT deletion names a literal multiset, not the clause id.  The temporary
+// equivalence lemmas are deliberately identical to the SCC source binaries;
+// deleting both the physical source and the temporary proof line would make a
+// checker consume an identity the solver did not select.  Only native LRAT can
+// retire the temporary lines by id, so DRAT emits the two source deletions and
+// keeps its two RUP lemmas live.
+static void test_drat_keeps_transient_equivalence_lemmas() {
+  const std::string path = "/tmp/tactix-substitute-drat-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".proof";
+  std::remove(path.c_str());
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 2);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2));
+    kernel_add_binary_clause(k, internalize(-2), internalize(1));
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::DratAscii));
+    k.proof = &proof;
+    assert(substitute_apply(k) == ApplyResult::Ok);
+  }
+  std::ifstream input(path);
+  assert(input.good());
+  uint32_t additions = 0, deletions = 0;
+  for (std::string line; std::getline(input, line);)
+    if (line.rfind("d ", 0) == 0)
+      deletions++;
+    else if (!line.empty())
+      additions++;
+  std::remove(path.c_str());
+  assert(additions == 2);
+  assert(deletions == 2);
+}
+
 static void test_substitution_rewrites_stable_watch_in_place() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -1137,6 +1176,7 @@ int main() {
   test_canonical_substitution_preserves_large_clause_position();
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
+  test_drat_keeps_transient_equivalence_lemmas();
   test_substitution_rewrites_stable_watch_in_place();
   test_substitution_appends_moved_watches_in_source_order();
   test_substitution_moves_both_directions_independently();

@@ -282,6 +282,13 @@ static void check_enable_over_ablation(DefaultPolicy &p, Kernel &) {
          "TACTIX_SLOT_ENABLE must override the TACTIX_NO_BVE ablation knob");
 }
 
+static void check_enable_default_off(DefaultPolicy &p, Kernel &) {
+  const uint32_t i = slot_index(p, "SubsumeForward");
+  assert(i != UINT32_MAX);
+  assert(p.inprocess().entries[i].enabled &&
+         "TACTIX_SLOT_ENABLE must expose default-off standalone C1");
+}
+
 static void check_legacy_order(DefaultPolicy &p, Kernel &) {
   const size_t n = p.inprocess().entries.size();
   assert(n >= 2);
@@ -336,6 +343,10 @@ int main() {
   const char *enable[] = {"TACTIX_NO_BVE", "1", "TACTIX_SLOT_ENABLE", "BVE"};
   with_env(enable, 4, check_enable_over_ablation);
   std::printf("  TACTIX_SLOT_ENABLE overrides TACTIX_NO_BVE\n");
+
+  const char *enable_c1[] = {"TACTIX_SLOT_ENABLE", "SubsumeForward"};
+  with_env(enable_c1, 2, check_enable_default_off);
+  std::printf("  TACTIX_SLOT_ENABLE exposes default-off SubsumeForward\n");
 
   with_env(nullptr, 0, check_authored_order);
   const char *legacy[] = {"TACTIX_SLOT_ORDER", "legacy"};

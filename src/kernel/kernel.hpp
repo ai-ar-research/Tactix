@@ -563,6 +563,7 @@ struct Stats {
   uint64_t bve_gates_definition = 0;    // ... that found a definition
   uint64_t bve_definition_ticks = 0;
   uint64_t bve_definition_budget = 0;   // attempts the per-attempt tick ceiling
+  uint64_t bve_definition_units = 0;    // one-sided cores / failed pivots
   uint64_t bve_gate_pairs_saved = 0; // resolvent pairs the gate reduction
 };
 
@@ -591,6 +592,7 @@ struct ProbingLog {
   struct ListSnap {
     Lit lit;
     uint32_t off, size; // offset into `words`, and the list's original length
+    uint32_t binaries;
     bool has_large, binaries_first;
   };
   std::vector<ListSnap> lists;
@@ -675,12 +677,11 @@ struct Kernel {
   uint64_t walk_random_seed = 0; // policy RNG snapshot for a faithful Walk
 
   Arena arena;
-  // Most clause ids are allocated in the same order as arena records and are
-  // therefore their own stable arena-order key.  A packed-arena rewrite has
-  // to append its replacement, while Kissat shortens the original record in
-  // place.  Only those exceptional ids need an alias to the source key.
-  // Keeping this sparse avoids adding a word to every hot Clause header.
-  std::unordered_map<uint64_t, uint64_t> clause_order_alias;
+  // Most clause ids are their own stable arena-order key. A packed rewrite is
+  // appended while Kissat shortens in place, so its new id stores the source
+  // key here. Zero means identity. Reference-ordered scans are hot and mostly
+  // sequential; a direct image avoids a hash probe for every ordinary clause.
+  std::vector<uint64_t> clause_order_alias;
   WatchLists watches;
   ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
@@ -816,14 +817,27 @@ struct Kernel {
   bool bve_track_min_bound = false;
   BveScoreUpdateHook bve_score_update_hook = nullptr;
   void *bve_score_update_state = nullptr;
+  // Optional strategy-owned physical dense-occurrence image.  Dynamic BVE
+  // attaches it only while its candidate heap is live; kernel mutation
+  // primitives mirror the exact watch/list lifecycle before score callbacks.
+  std::vector<uint32_t> *bve_occurrence_count_image = nullptr;
 
   uint32_t bve_gate_mask = ~0u;
   uint32_t bve_bound = 16;
   // Policy-owned BVE occurrence cap.  UINT32_MAX leaves the public rule
   // unrestricted; DefaultPolicy installs its named strategy configuration.
   uint32_t bve_occurrence_limit = UINT32_MAX;
-  bool bve_backward = true;
-  uint64_t bve_definition_budget = 10000;
+  // Optional CaDiCaL-derived eager tail. Current Kissat defers this work to
+  // its next forward pass; that reference-aligned strategy is the default,
+  // while the proof rule remains available through TACTIX_BVE_BACKWARD=1.
+  bool bve_backward = false;
+  // Kissat `definitionticks`: first-core Kitten ticks per candidate.
+  uint64_t bve_definition_budget = 1000000;
+  // Kissat `definitioncores`: refine once after the first extracted core.
+  uint32_t bve_definition_cores = 2;
+  // Strategy-owned lifetime of the embedded definition Kitten. Kissat creates
+  // one per elimination invocation and clears it between candidates.
+  uint64_t bve_definition_session = 0;
   uint32_t bce_occ_limit = 0;
   bool midround_budget = false;
   uint32_t factor_size = 5;
@@ -1005,6 +1019,23 @@ inline void kernel_mark_bve_retry(Kernel &k, Var v) {
 inline void kernel_notify_bve_score(Kernel &k, Var v, bool reinsert) {
   if (k.bve_score_update_hook)
     k.bve_score_update_hook(k, k.bve_score_update_state, v, reinsert);
+}
+inline void kernel_bve_occurrence_add(Kernel &k, Lit lit, uint32_t count = 1) {
+  if (!k.bve_occurrence_count_image)
+    return;
+  assert(k.dense && lit < k.bve_occurrence_count_image->size());
+  uint32_t &current = (*k.bve_occurrence_count_image)[lit];
+  assert(UINT32_MAX - current >= count);
+  current += count;
+}
+inline void kernel_bve_occurrence_remove(Kernel &k, Lit lit,
+                                         uint32_t count = 1) {
+  if (!k.bve_occurrence_count_image)
+    return;
+  assert(k.dense && lit < k.bve_occurrence_count_image->size());
+  uint32_t &current = (*k.bve_occurrence_count_image)[lit];
+  assert(current >= count);
+  current -= count;
 }
 void kernel_bve_retry_sync_fixed(Kernel &);
 

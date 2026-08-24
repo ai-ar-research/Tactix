@@ -253,6 +253,9 @@ int main(int argc, char **argv) {
     kernel.bve_backward = (*bw != '0');
   if (const char *dt = getenv("TACTIX_BVE_DEF_TICKS"))
     kernel.bve_definition_budget = strtoull(dt, nullptr, 10);
+  if (const char *dc = getenv("TACTIX_BVE_DEF_CORES"))
+    kernel.bve_definition_cores = std::clamp<uint32_t>(
+        static_cast<uint32_t>(strtoul(dc, nullptr, 10)), 1, 100);
   if (const char *ee = getenv("TACTIX_V4_EARLY_EXIT"))
     kernel.transitive_early_exit = (*ee != '0');
   if (const char *lm = getenv("TACTIX_TRANSITIVE_LIVE_METER"))
@@ -753,10 +756,11 @@ int main(int argc, char **argv) {
     // `checked` proves the sub-solve path runs, `definition` above that it
     // finds something, and `budget` whether TACTIX_BVE_DEF_TICKS binds.
     printf("c bve-def     %llu checked, %llu ticks, %llu hit the tick "
-           "ceiling\n",
+           "ceiling, %llu units\n",
            (unsigned long long)kernel.stats.bve_definitions_checked,
            (unsigned long long)kernel.stats.bve_definition_ticks,
-           (unsigned long long)kernel.stats.bve_definition_budget);
+           (unsigned long long)kernel.stats.bve_definition_budget,
+           (unsigned long long)kernel.stats.bve_definition_units);
     printf("c restarts    %llu (%llu reused a trail prefix)\n",
            (unsigned long long)kernel.stats.restarts,
            (unsigned long long)kernel.stats.restarts_reused);

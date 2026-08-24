@@ -27,6 +27,13 @@ struct BinaryLifecycleState {
 BinaryLifecycleState binary_lifecycle;
 thread_local const char *binary_lifecycle_rule = "-";
 
+struct BinarySetSnapshotState {
+  bool initialized = false;
+  FILE *out = nullptr;
+  uint64_t sequence = 0;
+};
+BinarySetSnapshotState binary_set_snapshot;
+
 void open_binary_lifecycle() {
   if (binary_lifecycle.initialized)
     return;
@@ -265,6 +272,58 @@ uint64_t live_binary_clause_count(const Kernel &k) {
   return result;
 }
 
+void emit_binary_set_snapshot(const Kernel &k, const char *event,
+                              const char *payload) {
+  const char *path = std::getenv("SAT_EVENT_TRACE_BINARY_SET_PATH");
+  const char *match = std::getenv("SAT_EVENT_TRACE_BINARY_SET_MATCH");
+  const char *conflict = std::getenv("SAT_EVENT_TRACE_BINARY_SET_CONFLICT");
+  if (!path || !*path || !match || !*match || !conflict || !*conflict)
+    return;
+  char *end = nullptr;
+  const uint64_t selected = std::strtoull(conflict, &end, 10);
+  if (end == conflict || *end || selected != k.stats.conflicts)
+    return;
+  const std::string selector =
+      std::string(event) + "|" + (payload ? payload : "-");
+  if (selector.find(match) == std::string::npos)
+    return;
+  if (!binary_set_snapshot.initialized) {
+    binary_set_snapshot.initialized = true;
+    binary_set_snapshot.out = std::fopen(path, "w");
+    if (!binary_set_snapshot.out)
+      return;
+    std::fputs("# tactix-binary-set-snapshot\t1\n", binary_set_snapshot.out);
+    std::fputs("# snapshot\ta\tb\n", binary_set_snapshot.out);
+  }
+  if (!binary_set_snapshot.out)
+    return;
+  std::vector<std::pair<int, int>> pairs;
+  pairs.reserve(live_binary_clause_count(k));
+  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit)) {
+      if (!watch.binary() || lit >= watch.other())
+        continue;
+      int a = kernel_externalize(k, lit);
+      int b = kernel_externalize(k, watch.other());
+      if (b < a)
+        std::swap(a, b);
+      pairs.emplace_back(a, b);
+    }
+  std::sort(pairs.begin(), pairs.end());
+  const uint64_t snapshot = binary_set_snapshot.sequence++;
+  std::fprintf(binary_set_snapshot.out,
+               "# begin\t%llu\ttactix\t%s\t%llu\t%zu\t%s\n",
+               (unsigned long long)snapshot, event,
+               (unsigned long long)k.stats.conflicts, pairs.size(),
+               payload ? payload : "-");
+  for (const auto &pair : pairs)
+    std::fprintf(binary_set_snapshot.out, "%llu\t%d\t%d\n",
+                 (unsigned long long)snapshot, pair.first, pair.second);
+  std::fprintf(binary_set_snapshot.out, "# end\t%llu\n",
+               (unsigned long long)snapshot);
+  std::fflush(binary_set_snapshot.out);
+}
+
 } // namespace
 
 static uint64_t eliminate_cleanup_clause_hash(const Kernel &, const Clause &);
@@ -358,6 +417,8 @@ void EventTrace::close() {
 
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
+  if (snapshot)
+    emit_binary_set_snapshot(k, event, payload);
   if (!out_)
     return;
   if (heap_pop_only_ && std::strcmp(event, "heap_pop") &&
@@ -491,6 +552,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "slot_boundary") &&
       std::strncmp(event, "factor_", 7) &&
       std::strncmp(event, "bve_", 4) &&
+      std::strncmp(event, "eliminate_", 10) &&
       std::strncmp(event, "substitute_", 11))
     return;
   if (emitted_ >= limit_) {
@@ -2156,6 +2218,39 @@ void event_trace_bve_candidate(const Kernel &k, Var var, const char *stage,
                                uint64_t ticks, uint64_t limit, bool applied) {
   if (active_trace)
     active_trace->bve_candidate(k, var, stage, ticks, limit, applied);
+}
+
+void event_trace_bve_definition(const Kernel &k, Var var, uint64_t attempt,
+                                uint32_t core, const char *outcome,
+                                uint64_t ticks, uint64_t budget,
+                                uint64_t generator, uint32_t variables,
+                                uint32_t side0, uint32_t side1,
+                                const uint32_t *ids, uint32_t size) {
+  if (!active_trace)
+    return;
+  const char *selected = std::getenv("TACTIX_EVENT_TRACE_BVE_EXTERNAL");
+  if (selected && std::atoi(selected) !=
+                      static_cast<int>(k.internal_to_external[var] + 1))
+    return;
+  uint64_t hash = 1469598103934665603ull;
+  uint32_t core0 = 0, core1 = 0;
+  for (uint32_t i = 0; i < size; ++i) {
+    hash ^= ids[i];
+    hash *= 1099511628211ull;
+    core0 += ids[i] <= side0;
+    core1 += ids[i] > side0;
+  }
+  char payload[512];
+  std::snprintf(payload, sizeof payload,
+                "external=%u|attempt=%llu|core=%u|outcome=%s|ticks=%llu|"
+                "budget=%llu|generator=%016llx|variables=%u|side0=%u|"
+                "side1=%u|core_size=%u|core0=%u|core1=%u|core_hash=%016llx",
+                k.internal_to_external[var] + 1,
+                (unsigned long long)attempt, core, outcome,
+                (unsigned long long)ticks, (unsigned long long)budget,
+                (unsigned long long)generator, variables, side0, side1, size,
+                core0, core1, (unsigned long long)hash);
+  active_trace->detail_text(k, "bve_definition", payload);
 }
 
 void EventTrace::bve_plan(const Kernel &k, Var var, uint32_t side0,

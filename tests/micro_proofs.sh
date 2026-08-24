@@ -181,6 +181,43 @@ if [ -x "$LRAT_CHECK" ]; then
          exit 1; }
 fi
 
+# ---- BVE one-sided definition core. The four x-side clauses reduce to the
+# no-UP enum2 refutation, so the embedded proof has to be lifted lemma by lemma
+# to derive x; (not x v c) keeps a nonempty opposite side. The independent
+# d/e enum2 tail makes the whole input UNSAT without pre-fixing x. Structural
+# score/order selects x first under the BVE stress policy.
+printf 'p cnf 6 9\n1 2 3 0\n1 2 -3 0\n1 -2 3 0\n1 -2 -3 0\n-1 4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' \
+  > "$T/bvedefunit.cnf"
+cnf="$T/bvedefunit.cnf"
+for mode in binary ascii; do
+  proof="$cnf.$mode.drat"
+  extra=""
+  [ "$mode" = ascii ] && extra="--no-binary"
+  # shellcheck disable=SC2086
+  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def $extra "$cnf" "$proof" \
+    > "$T/out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] || { echo "FAIL: bvedefunit not UNSAT (rc=$rc)"; exit 1; }
+  grep -qE '^c bve-def .* [1-9][0-9]* units$' "$T/out" \
+    || { echo "FAIL: no one-sided definition unit extracted"; \
+         grep '^c bve' "$T/out"; exit 1; }
+  "$DRAT_TRIM" "$cnf" "$proof" > "$T/check" 2>&1 || true
+  grep -q 's VERIFIED' "$T/check" \
+    || { echo "FAIL: one-sided definition proof ($mode) rejected"; \
+         cat "$T/check"; exit 1; }
+done
+if [ -x "$LRAT_CHECK" ]; then
+  proof="$cnf.lrat"
+  TACTIX_STRESS_RULES=BVE "$TACTIX" --stress-policy --bve-gates=def --lrat "$cnf" "$proof" \
+    > "$T/out" && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] || { echo "FAIL: bvedefunit not UNSAT under --lrat"; exit 1; }
+  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+    || { echo "FAIL: native LRAT of one-sided definition rejected"; \
+         cat "$T/check"; exit 1; }
+  grep -q 'c VERIFIED' "$T/check" \
+    || { echo "FAIL: lrat-check gave no verdict on bvedefunit"; \
+         cat "$T/check"; exit 1; }
+fi
+
 # ---- Factor (BVA) native-LRAT: dividers emit vacuous add-RAT (fresh pivot, no
 # ¬x clauses yet → empty hints) and quotients emit add-RAT with one resolution
 # group per divider (the resolvent (fᵢ∨rⱼ) discharged by the still-live

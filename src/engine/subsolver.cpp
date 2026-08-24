@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 
 namespace tactix {
 
@@ -28,13 +29,54 @@ constexpr uint64_t KITTEN_RANDOM_INCREMENT = 1442695040888963407ull;
 } // namespace
 
 void SubSolver::start_kitten_session() {
-  kitten_initialized_ = 0;
+  // An embedded Kitten is initialized once at construction (generator 0,
+  // initialized 1), then every Sweep environment or BVE definition starts
+  // with `kitten_clear`, which consumes the next seed.  SubSolver::reset is
+  // that clear boundary, so its first seed must be 1 rather than 0.
+  kitten_initialized_ = 1;
   kitten_capacity_vars_ = 0;
 }
 
+uint64_t SubSolver::next_kitten_random() {
+  kitten_generator_ *= KITTEN_RANDOM_MULTIPLIER;
+  kitten_generator_ += KITTEN_RANDOM_INCREMENT;
+  return kitten_generator_;
+}
+
+uint32_t SubSolver::pick_kitten_random(uint32_t begin, uint32_t end) {
+  assert(begin <= end);
+  if (begin == end)
+    return begin;
+  const uint32_t delta = end - begin;
+  const uint32_t random = static_cast<uint32_t>(next_kitten_random() >> 32);
+  const double fraction = random / 4294967296.0;
+  const uint32_t scaled = static_cast<uint32_t>(delta * fraction);
+  assert(scaled < delta);
+  return begin + scaled;
+}
+
 void SubSolver::reset(uint32_t nvars, SubSearchMode mode) {
+  reset_impl(nvars, mode, false);
+}
+
+void SubSolver::reset_compact_kitten(uint32_t nvars) {
+  reset_impl(nvars, SubSearchMode::Kitten, true);
+}
+
+void SubSolver::reset_impl(uint32_t nvars, SubSearchMode mode,
+                           bool compact_identity) {
+  assert(!compact_identity || mode == SubSearchMode::Kitten);
+  // `kitten_clear` clears watch stacks only through the previous environment's
+  // active literal count (`kitten->lits`), while retaining the outer array and
+  // every stack capacity up to its historical allocation size.  Remember that
+  // active prefix before resetting the import count below.
+  const size_t previous_active_lits =
+      2 * static_cast<size_t>(imported_vars_);
+  assert(previous_active_lits <= watches_.size());
   nvars_ = nvars;
-  imported_vars_ = mode == SubSearchMode::Fixed ? nvars : 0;
+  compact_identity_ = compact_identity;
+  imported_vars_ =
+      mode == SubSearchMode::Fixed || compact_identity ? nvars : 0;
   phase_capacity_vars_ =
       mode == SubSearchMode::Fixed ? nvars : kitten_capacity_vars_;
   search_mode_ = mode;
@@ -46,14 +88,43 @@ void SubSolver::reset(uint32_t nvars, SubSearchMode mode) {
   solved_ = false;
   model_valid_ = false;
   arena_.clear();
-  watches_.assign(2 * static_cast<size_t>(nvars), {});
-  occurrences_.assign(2 * static_cast<size_t>(nvars), {});
+  // `kitten_clear` empties every per-literal stack but retains its allocation.
+  // Definition extraction can reset this engine millions of times, so
+  // destroying the nested vectors here turns identical logical work into
+  // allocator traffic.  Keep the high-water outer image and clear only its
+  // contents; all consumers index through the current `nvars_` bound.
+  for (size_t lit = 0; lit < previous_active_lits; ++lit)
+    watches_[lit].clear();
+  // The occurrence index is a safety net for Fixed-mode model flips.  Kitten
+  // uses only its watched clauses for that operation (as does upstream
+  // `flip_literal`) and never reads `occurrences_`; clearing and rebuilding a
+  // second per-literal index for every BVE definition was pure representation
+  // cost.  If this object returns to Fixed mode, clear the retained high-water
+  // image before repopulating it below.
+  if (mode == SubSearchMode::Fixed)
+    for (std::vector<SubRef> &occs : occurrences_)
+      occs.clear();
+  const size_t nlits = 2 * static_cast<size_t>(nvars);
+  if (watches_.size() < nlits)
+    watches_.resize(nlits);
+  if (mode == SubSearchMode::Fixed && occurrences_.size() < nlits)
+    occurrences_.resize(nlits);
+  imported_clause_.clear();
+  for (const SubVar v : clause_touched_)
+    clause_marks_[v] = 0;
+  clause_touched_.clear();
+  if (clause_marks_.size() < nvars)
+    clause_marks_.resize(nvars, 0);
   values_.assign(2 * static_cast<size_t>(nvars), 0);
   model_.assign(nvars, 1);
   phase_.assign(std::max(nvars, phase_capacity_vars_), 0);
-  import_.assign(nvars, 0);
+  if (compact_identity)
+    import_.clear();
+  else
+    import_.assign(nvars, 0);
   export_.clear();
-  export_.reserve(nvars);
+  if (!compact_identity)
+    export_.reserve(nvars);
   units_.clear();
   queue_prev_.assign(nvars, NO_VAR);
   queue_next_.assign(nvars, NO_VAR);
@@ -65,6 +136,21 @@ void SubSolver::reset(uint32_t nvars, SubSearchMode mode) {
       import_[v] = v + 1;
       export_.push_back(v);
     }
+  else if (compact_identity) {
+    // This is exactly what first-occurrence `import_literal` would construct
+    // for dense ids 0..nvars-1, without writing or consulting an identity map
+    // for every clause literal.
+    for (SubVar v = 0; v < nvars; ++v)
+      queue_enqueue(v);
+    queue_update_search(queue_last_);
+    if (nvars && !phase_capacity_vars_)
+      phase_capacity_vars_ = 2;
+    while (phase_capacity_vars_ < nvars)
+      phase_capacity_vars_ *= 2;
+    kitten_capacity_vars_ = phase_capacity_vars_;
+    if (phase_.size() < phase_capacity_vars_)
+      phase_.resize(phase_capacity_vars_, 0);
+  }
   trail_.clear();
   frames_.assign(1, 0);
   level_.assign(nvars, 0);
@@ -140,7 +226,7 @@ void SubSolver::queue_bump_analyzed() {
 SubLit SubSolver::import_literal(SubLit external) {
   const SubVar ev = sub_var_of(external);
   assert(ev < nvars_);
-  if (search_mode_ == SubSearchMode::Fixed)
+  if (search_mode_ == SubSearchMode::Fixed || compact_identity_)
     return external;
   uint32_t mapped = import_[ev];
   if (!mapped) {
@@ -163,6 +249,10 @@ SubLit SubSolver::import_literal(SubLit external) {
 
 SubLit SubSolver::export_literal(SubLit internal) const {
   const SubVar iv = sub_var_of(internal);
+  if (compact_identity_) {
+    assert(iv < nvars_);
+    return internal;
+  }
   assert(iv < export_.size());
   return sub_lit(export_[iv], (internal & 1u) != 0);
 }
@@ -178,9 +268,7 @@ SubSolver::export_literals(const std::vector<SubLit> &internal) const {
 
 void SubSolver::randomize_phases() {
   assert(search_mode_ == SubSearchMode::Kitten);
-  kitten_generator_ *= KITTEN_RANDOM_MULTIPLIER;
-  kitten_generator_ += KITTEN_RANDOM_INCREMENT;
-  uint64_t random = kitten_generator_;
+  uint64_t random = next_kitten_random();
   uint32_t i = 0;
   const uint32_t blocks = phase_capacity_vars_ & ~63u;
   while (i != blocks) {
@@ -188,9 +276,7 @@ void SubSolver::randomize_phases() {
       for (uint32_t byte = 0; byte < 8; byte++)
         phase_[i + 8 * bit + byte] =
             static_cast<uint8_t>((random >> (bit + 8 * byte)) & 1u);
-    kitten_generator_ *= KITTEN_RANDOM_MULTIPLIER;
-    kitten_generator_ += KITTEN_RANDOM_INCREMENT;
-    random = kitten_generator_;
+    random = next_kitten_random();
     i += 64;
   }
   uint32_t shift = 0;
@@ -240,30 +326,46 @@ uint32_t SubSolver::add_clause(const std::vector<SubLit> &lits) {
     return id;
   // Dedup and drop tautologies. Nothing is shrunk against the root assignment:
   // the clause DB must hold the clauses the caller named, since the returned
-  // core indexes them.
-  std::vector<SubLit> c;
+  // core indexes them.  Kitten does this with one signed mark per variable
+  // (`kitten_clause_with_id_and_exception`); a nested scan of `c` is quadratic
+  // on long definition clauses and used to dominate BVE's real wall time.
+  // Kitten reuses `eclause` across imports.  This scratch is likewise owned by
+  // the sub-solver session: the arena receives its own copy below, so clearing
+  // it for the next clause cannot alter clause identity or literal order.
+  std::vector<SubLit> &c = imported_clause_;
+  c.clear();
   c.reserve(lits.size());
+  assert(clause_touched_.empty());
+  const auto clear_clause_marks = [&] {
+    for (const SubVar v : clause_touched_)
+      clause_marks_[v] = 0;
+    clause_touched_.clear();
+  };
   for (const SubLit external : lits) {
     assert(sub_var_of(external) < nvars_);
     const SubLit l = import_literal(external);
-    bool dup = false;
-    for (const SubLit o : c) {
-      if (o == l) {
-        dup = true;
-        break;
-      }
-      if (o == sub_negate(l))
-        return id; // tautology: keeps its id, never attached, never cited
+    const SubVar v = sub_var_of(l);
+    const int8_t sign = (l & 1u) ? -1 : 1;
+    const int8_t mark = clause_marks_[v];
+    if (mark == sign)
+      continue; // same-sign duplicate: keep its first position
+    if (mark == -sign) {
+      clear_clause_marks();
+      return id; // tautology: keeps its id, never attached, never cited
     }
-    if (!dup)
-      c.push_back(l);
+    assert(mark == 0);
+    clause_marks_[v] = sign;
+    clause_touched_.push_back(v);
+    c.push_back(l);
   }
+  clear_clause_marks();
   arena_.push_back(id);
   arena_.push_back(static_cast<SubLit>(c.size()));
   const SubRef ref = static_cast<SubRef>(arena_.size());
   arena_.insert(arena_.end(), c.begin(), c.end());
-  for (const SubLit l : c)
-    occurrences_[l].push_back(ref);
+  if (search_mode_ == SubSearchMode::Fixed)
+    for (const SubLit l : c)
+      occurrences_[l].push_back(ref);
   if (c.empty()) { // the empty clause, stated outright
     inconsistent_ = true;
     pending_refutation_ = ref; // the target is built at the first solve, once
@@ -299,8 +401,9 @@ SubSolver::SubRef SubSolver::add_derived(const std::vector<SubLit> &lits,
   arena_.push_back(static_cast<SubLit>(lits.size()));
   const SubRef ref = static_cast<SubRef>(arena_.size());
   arena_.insert(arena_.end(), lits.begin(), lits.end());
-  for (const SubLit l : lits)
-    occurrences_[l].push_back(ref);
+  if (search_mode_ == SubSearchMode::Fixed)
+    for (const SubLit l : lits)
+      occurrences_[l].push_back(ref);
   if (lits.size() >= 2)
     attach(ref);
   else if (search_mode_ == SubSearchMode::Kitten)
@@ -497,6 +600,11 @@ void SubSolver::refute_empty(SubRef conflict) {
   const SubLit *c = clause_lits(conflict);
   for (uint32_t i = 0; i < size; i++)
     record_cone(sub_var_of(c[i]), nullptr);
+  // Kitten materializes a root conflict as a learned empty clause, and
+  // `new_reference` charges one tick.  A stated original empty clause is
+  // already `inconsistent` and does not allocate that lemma.
+  if (search_mode_ == SubSearchMode::Kitten && clause_size(conflict))
+    kitten_ticks_++;
   target_ = {next_id_++, {}, chain_build(conflict)};
   have_derivation_ = true;
   target_is_derived_ = false;
@@ -859,7 +967,7 @@ SubResult SubSolver::solve(const std::vector<SubLit> &assumptions,
     const SubLit d = next_decision();
     if (d == NO_LIT) { // every variable is assigned: a total model
       for (SubVar v = 0; v < imported_vars_; v++)
-        model_[export_[v]] =
+        model_[compact_identity_ ? v : export_[v]] =
             values_[sub_lit(v, false)] > 0 ? 1 : -1;
       model_valid_ = true;
       return SubResult::Sat;
@@ -876,9 +984,10 @@ bool SubSolver::flip_model_literal(SubLit lit) {
   if (!model_valid_)
     return false; // Kissat: `kitten_status (kitten) != 10`
   const SubVar external = sub_var_of(lit);
-  if (external >= nvars_ || !import_[external])
+  if (external >= nvars_ ||
+      (!compact_identity_ && !import_[external]))
     return false;
-  const SubVar v = import_[external] - 1;
+  const SubVar v = compact_identity_ ? external : import_[external] - 1;
   if (level_[v] == 0)
     return false;
   lit = sub_lit(v, model_[external] < 0);
@@ -956,14 +1065,115 @@ bool SubSolver::flip_model_literal(SubLit lit) {
 
 int8_t SubSolver::fixed_literal(SubLit lit) const {
   const SubVar external = sub_var_of(lit);
-  if (external >= nvars_ || !import_[external])
+  if (external >= nvars_ ||
+      (!compact_identity_ && !import_[external]))
     return 0;
-  const SubVar internal = import_[external] - 1;
+  const SubVar internal =
+      compact_identity_ ? external : import_[external] - 1;
   const SubLit mapped = sub_lit(internal, (lit & 1u) != 0);
   const int8_t value = values_[mapped];
   if (!value || level_[internal] != 0)
     return 0;
   return value;
+}
+
+void SubSolver::shrink_to_clausal_core(const std::vector<uint32_t> &core) {
+  assert(search_mode_ == SubSearchMode::Kitten);
+  assert(solved_ && have_derivation_ && !core.empty());
+
+  // `kitten_shrink_to_clausal_core` retains the current literal orientation
+  // of each core original, but drops all non-core originals and every learned
+  // clause. Preserve caller-visible original ids even when the compacted arena
+  // has gaps in that id space.
+  if (core_keep_.size() <= original_clauses_)
+    core_keep_.resize(static_cast<size_t>(original_clauses_) + 1, 0);
+  assert(core_touched_.empty());
+  for (const uint32_t id : core) {
+    assert(id && id <= original_clauses_);
+    if (!core_keep_[id]) {
+      core_keep_[id] = 1;
+      core_touched_.push_back(id);
+    }
+  }
+  clear_assignments();
+  size_t write = 0;
+  for (size_t read = 0; read < arena_.size();) {
+    const uint32_t id = arena_[read];
+    const uint32_t size = arena_[read + 1];
+    const size_t next = read + 2 + size;
+    assert(next <= arena_.size());
+    if (id <= original_clauses_ && core_keep_[id]) {
+      const size_t words = next - read;
+      if (write != read)
+        std::memmove(arena_.data() + write, arena_.data() + read,
+                     words * sizeof(SubLit));
+      write += words;
+    }
+    read = next;
+  }
+  arena_.resize(write);
+  for (const uint32_t id : core_touched_)
+    core_keep_[id] = 0;
+  core_touched_.clear();
+
+  const size_t active_lits = 2 * static_cast<size_t>(imported_vars_);
+  assert(active_lits <= watches_.size());
+  for (size_t lit = 0; lit < active_lits; ++lit)
+    watches_[lit].clear();
+  units_.clear();
+  inconsistent_ = false;
+  pending_refutation_ = NO_REF;
+  for (size_t off = 0; off < arena_.size();) {
+    const uint32_t size = arena_[off + 1];
+    const SubRef ref = static_cast<SubRef>(off + 2);
+    if (!size) {
+      inconsistent_ = true;
+      pending_refutation_ = ref;
+    } else {
+      if (size == 1)
+        units_.push_back(ref);
+      else
+        attach(ref);
+    }
+    off += 2 + size;
+  }
+
+  // Learned ids may be reused because the first derivation is discarded and
+  // only the final refined derivation is exported. Original ids remain fixed.
+  next_id_ = original_clauses_ + 1;
+  derived_.clear();
+  target_ = {};
+  have_derivation_ = false;
+  target_is_derived_ = false;
+  conflict_ref_ = NO_REF;
+  model_valid_ = false;
+  solved_ = false;
+  queue_update_search(queue_last_);
+}
+
+void SubSolver::shuffle_clauses() {
+  assert(search_mode_ == SubSearchMode::Kitten && !solved_);
+
+  // Exact `kitten_shuffle_clauses` order: VMTF queue, literal-indexed watch
+  // stacks, then units. Its picker uses [begin,end), so each position i>0 is
+  // exchanged with an earlier position and i==0 consumes no random number.
+  for (SubVar i = 0; i < imported_vars_; ++i) {
+    const SubVar v = pick_kitten_random(0, imported_vars_);
+    queue_move_to_front(v);
+  }
+  queue_update_search(queue_last_);
+  const auto shuffle = [&](auto &items) {
+    for (uint32_t i = 0; i < items.size(); ++i) {
+      const uint32_t j = pick_kitten_random(0, i);
+      if (j != i)
+        std::swap(items[i], items[j]);
+    }
+  };
+  const size_t active_lits = 2 * static_cast<size_t>(imported_vars_);
+  assert(active_lits <= watches_.size());
+  for (size_t lit = 0; lit < active_lits; ++lit)
+    shuffle(watches_[lit]);
+  shuffle(units_);
 }
 
 bool SubSolver::derivation(SubDerivation &out) const {

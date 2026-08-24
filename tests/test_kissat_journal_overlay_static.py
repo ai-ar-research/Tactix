@@ -173,6 +173,11 @@ assert 'kissat_event_trace_sweep_query_model (\\n' in prepare
 assert 'kissat_event_trace (solver, "sweep_query_model", payload, false);' in eventtrace
 assert 'binary_count=%zu|binary_hash=%016' in eventtrace
 assert 'binary_count=%zu|binary_hash=%016llx' in tactix_trace
+assert 'SAT_EVENT_TRACE_BINARY_SET_PATH' in eventtrace
+assert 'SAT_EVENT_TRACE_BINARY_SET_MATCH' in eventtrace
+assert 'SAT_EVENT_TRACE_BINARY_SET_CONFLICT' in eventtrace
+assert '# kissat-binary-set-snapshot\\t1' in eventtrace
+assert 'emit_binary_set_snapshot (solver, event, payload);' in eventtrace
 assert 'kissat_event_trace_binary_assignment (solver, lit, immediate_reason,' in prepare
 assert 'event_trace_binary_assignment(k, lit, other_false' in (
     root / "src/kernel/kernel.hpp").read_text()

@@ -37,6 +37,159 @@ def main():
     shutil.copy2(overlay / "rulejournal.c", dest / "src" / "rulejournal.c")
     shutil.copy2(overlay / "rulejournal.h", dest / "src" / "rulejournal.h")
 
+    # Definition-core parity needs Kitten's otherwise opaque deterministic
+    # state.  These accessors exist only in the diagnostic materialization.
+    kitten_h = dest / "src" / "kitten.h"
+    replace_once(
+        kitten_h,
+        'void kitten_set_ticks_limit (kitten *, uint64_t);\n',
+        'void kitten_set_ticks_limit (kitten *, uint64_t);\n'
+        'uint64_t kitten_trace_generator (kitten *);\n'
+        'uint64_t kitten_trace_initialized (kitten *);\n'
+        'unsigned kitten_trace_variables (kitten *);\n')
+    kitten_c = dest / "src" / "kitten.c"
+    kitten_c.write_text(
+        kitten_c.read_text() +
+        '\nuint64_t kitten_trace_generator (kitten *kitten) {\n'
+        '  return kitten->generator;\n'
+        '}\n'
+        'uint64_t kitten_trace_initialized (kitten *kitten) {\n'
+        '  return kitten->initialized;\n'
+        '}\n'
+        'unsigned kitten_trace_variables (kitten *kitten) {\n'
+        '  return kitten->lits / 2;\n'
+        '}\n')
+
+    definition = dest / "src" / "definition.c"
+    replace_once(definition, '#include "definition.h"\n',
+                 '#include "definition.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        definition,
+        'struct definition_extractor {\n'
+        '  unsigned lit;\n'
+        '  kissat *solver;\n'
+        '  watches *watches[2];\n'
+        '};\n',
+        'struct definition_extractor {\n'
+        '  unsigned lit;\n'
+        '  kissat *solver;\n'
+        '  watches *watches[2];\n'
+        '};\n\n'
+        'typedef struct definition_trace_core definition_trace_core;\n'
+        'struct definition_trace_core {\n'
+        '  uint64_t hash;\n'
+        '  unsigned side0, size, core0, core1;\n'
+        '};\n\n'
+        'static uint64_t definition_trace_attempt;\n\n'
+        'static void traverse_definition_trace_core (void *state, unsigned id) {\n'
+        '  definition_trace_core *trace = state;\n'
+        '  const unsigned normalized = id + 1;\n'
+        '  trace->hash ^= normalized;\n'
+        '  trace->hash *= UINT64_C (1099511628211);\n'
+        '  trace->size++;\n'
+        '  if (id < trace->side0) trace->core0++; else trace->core1++;\n'
+        '}\n\n'
+        'static void trace_definition_core (\n'
+        '    kissat *solver, kitten *kitten, unsigned lit, uint64_t attempt,\n'
+        '    unsigned core, const char *outcome, uint64_t ticks_entry,\n'
+        '    uint64_t budget, unsigned side0, unsigned side1, bool traverse) {\n'
+        '  definition_trace_core trace;\n'
+        '  trace.hash = UINT64_C (1469598103934665603);\n'
+        '  trace.side0 = side0, trace.size = trace.core0 = trace.core1 = 0;\n'
+        '  if (traverse)\n'
+        '    kitten_traverse_core_ids (kitten, &trace,\n'
+        '                              traverse_definition_trace_core);\n'
+        '  const uint64_t ticks = solver->statistics.kitten_ticks - ticks_entry;\n'
+        '  int external = kissat_export_literal (solver, lit);\n'
+        '  if (external < 0) external = -external;\n'
+        '  char payload[512];\n'
+        '  snprintf (payload, sizeof payload,\n'
+        '            "external=%d|attempt=%llu|core=%u|outcome=%s|ticks=%llu|"\n'
+        '            "budget=%llu|generator=%016llx|variables=%u|side0=%u|"\n'
+        '            "side1=%u|core_size=%u|core0=%u|core1=%u|core_hash=%016llx",\n'
+        '            external, (unsigned long long) attempt, core, outcome,\n'
+        '            (unsigned long long) ticks, (unsigned long long) budget,\n'
+        '            (unsigned long long) kitten_trace_generator (kitten),\n'
+        '            kitten_trace_variables (kitten), side0, side1, trace.size,\n'
+        '            trace.core0, trace.core1, (unsigned long long) trace.hash);\n'
+        '  kissat_event_trace (solver, "bve_definition", payload, false);\n'
+        '}\n')
+    replace_once(
+        definition,
+        '  START (definition);\n'
+        '  struct kitten *kitten = solver->kitten;\n',
+        '  START (definition);\n'
+        '  const uint64_t trace_ticks_entry = solver->statistics.kitten_ticks;\n'
+        '  struct kitten *kitten = solver->kitten;\n')
+    replace_once(
+        definition,
+        '  unsigned exported = 0;\n',
+        '  unsigned exported = 0;\n'
+        '  unsigned trace_occs[2] = {0, 0};\n')
+    replace_once(
+        definition,
+        '#if !defined(QUIET) || !defined(NDEBUG)\n'
+        '      occs[sign]++;\n'
+        '#endif\n'
+        '      exported++;\n',
+        '#if !defined(QUIET) || !defined(NDEBUG)\n'
+        '      occs[sign]++;\n'
+        '#endif\n'
+        '      trace_occs[sign]++;\n'
+        '      exported++;\n')
+    replace_once(
+        definition,
+        '  INC (definitions_checked);\n'
+        '  const size_t limit = GET_OPTION (definitionticks);\n',
+        '  const uint64_t trace_attempt = ++definition_trace_attempt;\n'
+        '  trace_definition_core (solver, kitten, lit, trace_attempt, 0,\n'
+        '                         "imported", trace_ticks_entry,\n'
+        '                         GET_OPTION (definitionticks), trace_occs[0],\n'
+        '                         trace_occs[1], false);\n'
+        '  INC (definitions_checked);\n'
+        '  const size_t limit = GET_OPTION (definitionticks);\n')
+    replace_once(
+        definition,
+        '    LOG ("1st sub-solver core of size %u original clauses out of %u",\n'
+        '         reduced, exported);\n',
+        '    LOG ("1st sub-solver core of size %u original clauses out of %u",\n'
+        '         reduced, exported);\n'
+        '    trace_definition_core (solver, kitten, lit, trace_attempt, 1,\n'
+        '                           "unsat", trace_ticks_entry, limit,\n'
+        '                           trace_occs[0], trace_occs[1], true);\n')
+    replace_once(
+        definition,
+        '      if (!tmp) {\n'
+        '        LOG ("aborting core extraction");\n'
+        '        goto ABORT;\n'
+        '      }\n',
+        '      if (!tmp) {\n'
+        '        trace_definition_core (solver, kitten, lit, trace_attempt, i,\n'
+        '                               "budget", trace_ticks_entry, 10 * limit,\n'
+        '                               trace_occs[0], trace_occs[1], false);\n'
+        '        LOG ("aborting core extraction");\n'
+        '        goto ABORT;\n'
+        '      }\n')
+    replace_once(
+        definition,
+        '      LOG ("%s sub-solver core of size %u original clauses out of %u",\n'
+        '           FORMAT_ORDINAL (i), reduced, exported);\n',
+        '      LOG ("%s sub-solver core of size %u original clauses out of %u",\n'
+        '           FORMAT_ORDINAL (i), reduced, exported);\n'
+        '      trace_definition_core (solver, kitten, lit, trace_attempt, i,\n'
+        '                             "unsat", trace_ticks_entry, 10 * limit,\n'
+        '                             trace_occs[0], trace_occs[1], true);\n')
+    replace_once(
+        definition,
+        '  } else {\n'
+        '  ABORT:\n',
+        '  } else {\n'
+        '    trace_definition_core (solver, kitten, lit, trace_attempt, 1,\n'
+        '                           status == 10 ? "sat" : "budget",\n'
+        '                           trace_ticks_entry, limit,\n'
+        '                           trace_occs[0], trace_occs[1], false);\n'
+        '  ABORT:\n')
+
     dense = dest / "src" / "dense.c"
     replace_once(dense, '#include "dense.h"\n',
                  '#include "dense.h"\n#include "eventtrace.h"\n')

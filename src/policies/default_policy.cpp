@@ -1116,6 +1116,20 @@ class BveCandidateHeap {
 public:
   void initialize(Kernel &k, const uint64_t *insts, uint32_t n) {
     kernel_ = &k;
+    assert(k.dense && !k.bve_occurrence_count_image);
+    // Kissat eliminate.c::variable_score reads SIZE_WATCHES for each polarity:
+    // one physical dense-stack length containing binary and large entries.
+    // Tactix stores those populations separately, so materialize their exact
+    // sum once and let the kernel mirror subsequent physical mutations.
+    occurrence_counts_.assign(2 * static_cast<size_t>(k.nvars), 0);
+    for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+      uint64_t count = k.dense->large[lit].size();
+      for (const WatchEntry watch : k.watches.entries(lit))
+        count += watch.binary();
+      occurrence_counts_[lit] =
+          static_cast<uint32_t>(std::min<uint64_t>(count, UINT32_MAX));
+    }
+    k.bve_occurrence_count_image = &occurrence_counts_;
     stack_.clear();
     pos_.assign(k.nvars, UINT32_MAX);
     score_.assign(k.nvars, 0.0);
@@ -1197,6 +1211,14 @@ private:
 
   double schedule_score(Var v) const {
     const Kernel &k = *kernel_;
+#ifndef NDEBUG
+    for (const Lit lit : {make_lit(v, false), make_lit(v, true)}) {
+      uint64_t physical = k.dense->large[lit].size();
+      for (const WatchEntry watch : k.watches.entries(lit))
+        physical += watch.binary();
+      assert(physical == occurrence_counts_[lit]);
+    }
+#endif
     const double relevance =
         k.h ? (k.h->stable ? k.h->scores.score[v] : k.h->links[v].stamp) : 0;
     const double reference = kissat_bve_variable_score(
@@ -1293,6 +1315,7 @@ private:
   Kernel *kernel_ = nullptr;
   std::vector<Var> stack_;
   std::vector<uint32_t> pos_;
+  std::vector<uint32_t> occurrence_counts_;
   std::vector<double> score_;
   std::vector<uint64_t> payload_;
   std::vector<uint8_t> eligible_;
@@ -2021,7 +2044,13 @@ void DefaultInprocessScheduler::build(Kernel &k) {
             !std::strcmp(nm, "HyperTernaryRes") ||
             !std::strcmp(nm, "Instantiate") || !std::strcmp(nm, "BCE") ||
             !std::strcmp(nm, "CCE");
-        bool on = !non_kissat_pipeline &&
+        // Strengthen is the one fused Kissat forward pass: it subsumes and
+        // self-subsumes under the shared allowance.  Keep standalone C1 fully
+        // registered/poseable, but do not run the duplicated decomposition in
+        // the reference-shaped default strategy.
+        const bool duplicated_decomposition =
+            !std::strcmp(nm, "SubsumeForward");
+        bool on = !non_kissat_pipeline && !duplicated_decomposition &&
                   !( !config().bve_enabled && !std::strcmp(nm, "BVE")) &&
                   !( !config().vivify_enabled && !std::strcmp(nm, "Vivify")) &&
                   !(bve_off && !std::strcmp(nm, "BVE")) &&
@@ -2784,6 +2813,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Next; // the one shot is consumed
   if (bve_entry && ctx.outer > 0 && std::getenv("TACTIX_BVE_CADENCE"))
     return SlotStep::Next;
+  // Kissat constructs one embedded Kitten at the beginning of each
+  // `eliminate` invocation and releases it at the end.  Candidate-to-candidate
+  // clears advance its deterministic seed, while a later BVE slot restarts
+  // that lifetime.  The policy owns this phase boundary; BVE and SubSolver own
+  // only definition and legal core-refinement mechanics.
+  if (bve_entry)
+    k.bve_definition_session = k.bve_definition_session + 1;
   BveBoundPolicy *ramp = nullptr;
   if (bve_entry && !std::getenv("TACTIX_NO_BVE_RAMP"))
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
@@ -2898,6 +2934,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     if (dynamic_bve) {
       k.bve_score_update_hook = nullptr;
       k.bve_score_update_state = nullptr;
+      assert(k.bve_occurrence_count_image);
+      k.bve_occurrence_count_image = nullptr;
     }
   }
   k.bve_track_min_bound = false; // scope the caching to this ramp

@@ -170,6 +170,20 @@ void test_degenerate() {
   s.reset(2);
   s.add_clause({sub_lit(0, false), sub_lit(0, false)}); // duplicate: a unit
   assert(s.solve({sub_lit(0, true)}, 0) == SubResult::Unsat);
+  // A late opposite-sign duplicate used to make clause import quadratic in
+  // this prefix length.  It is still a dropped tautology, and its touched-mark
+  // cleanup must not contaminate the following unit clause.
+  constexpr uint32_t long_size = 4096;
+  s.reset(long_size);
+  std::vector<SubLit> long_tautology;
+  long_tautology.reserve(long_size + 1);
+  for (SubVar v = 0; v < long_size; ++v)
+    long_tautology.push_back(sub_lit(v, false));
+  long_tautology.push_back(sub_lit(long_size - 1, true));
+  s.add_clause(long_tautology);
+  s.add_clause({sub_lit(0, true)});
+  assert(s.solve({}, 0) == SubResult::Sat);
+  assert(s.model()[0] < 0);
   s.reset(2);
   s.add_clause({sub_lit(0, false)});
   s.add_clause({sub_lit(0, true)}); // directly inconsistent
@@ -245,6 +259,22 @@ void test_model_flip() {
   assert(!s.flip_model_literal(sub_lit(1, false)));
   assert(s.model()[1] > 0);
 
+  // The Fixed-only all-occurrences safety image must remain reusable after a
+  // Kitten environment, even though Kitten deliberately does not maintain
+  // that second index.  Switching modes clears any older Fixed contents and
+  // repopulates the next formula rather than exposing stale clause refs.
+  s.start_kitten_session();
+  s.reset(3, SubSearchMode::Kitten);
+  s.add_clause({sub_lit(0, false), sub_lit(1, false),
+                sub_lit(2, false)});
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  s.reset(2, SubSearchMode::Fixed);
+  s.add_clause({sub_lit(0, false), sub_lit(1, false)});
+  assert(s.solve({}, 0) == SubResult::Sat);
+  assert(s.flip_model_literal(sub_lit(0, false)));
+  assert(!s.flip_model_literal(sub_lit(1, false)));
+
   s.reset(2);
   s.add_clause({sub_lit(0, false)});
   assert(s.solve({}, 0) == SubResult::Sat);
@@ -271,32 +301,33 @@ void test_kitten_search_state() {
   s.start_kitten_session();
 
   // Clause order imports external variable 1 before 0. Kitten decides from
-  // the newest end of that queue. With generator 0, both initial phase bits
-  // are negative, so external 0 is decided false and the clause propagates
-  // external 1 true.
-  s.reset(2, SubSearchMode::Kitten);
-  s.add_clause({sub_lit(1, false), sub_lit(0, false)});
-  s.randomize_phases();
-  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
-  assert(s.model()[0] < 0 && s.model()[1] > 0);
-  assert(s.fixed_literal(sub_lit(0, false)) == 0);
-  assert(s.fixed_literal(sub_lit(1, false)) == 0);
-
-  // Clearing the same embedded Kitten advances the deterministic environment
-  // seed. Generator 1 gives both variables a positive phase in this fixture.
+  // the newest end of that queue. An embedded Kitten is constructed with seed
+  // 0 and its first clear advances to generator 1; both phase bits are
+  // positive in this fixture.
   s.reset(2, SubSearchMode::Kitten);
   s.add_clause({sub_lit(1, false), sub_lit(0, false)});
   s.randomize_phases();
   assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
   assert(s.model()[0] > 0 && s.model()[1] > 0);
+  assert(s.fixed_literal(sub_lit(0, false)) == 0);
+  assert(s.fixed_literal(sub_lit(1, false)) == 0);
 
-  // A new Sweep invocation starts with generator 0 again.
+  // Clearing the same embedded Kitten advances the deterministic environment
+  // seed. Generator 2 makes external 0 positive and external 1 negative.
+  s.reset(2, SubSearchMode::Kitten);
+  s.add_clause({sub_lit(1, false), sub_lit(0, false)});
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  assert(s.model()[0] > 0 && s.model()[1] < 0);
+
+  // A new Sweep invocation constructs seed 0 and starts its first cleared
+  // environment with generator 1 again.
   s.start_kitten_session();
   s.reset(2, SubSearchMode::Kitten);
   s.add_clause({sub_lit(1, false), sub_lit(0, false)});
   s.randomize_phases();
   assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
-  assert(s.model()[0] < 0 && s.model()[1] > 0);
+  assert(s.model()[0] > 0 && s.model()[1] > 0);
 
   s.start_kitten_session();
   s.reset(2, SubSearchMode::Kitten);
@@ -325,6 +356,50 @@ void test_kitten_search_state() {
   for (SubVar v = 0; v < 3; v++)
     s.add_clause({sub_lit(v, false)});
   assert(s.kitten_phase_capacity() == 4);
+}
+
+void test_compact_kitten_identity() {
+  SubSolver mapped, compact;
+  mapped.start_kitten_session();
+  compact.start_kitten_session();
+  mapped.reset(4, SubSearchMode::Kitten);
+  compact.reset_compact_kitten(4);
+
+  // First appearances are already 0,1,2,3, exactly BVE's compact-map
+  // contract. Both entry points must construct the same VMTF/search state.
+  const Formula f{4, {
+      {sub_lit(0, false), sub_lit(1, false)},
+      {sub_lit(1, true), sub_lit(2, false)},
+      {sub_lit(2, true), sub_lit(3, false)},
+      {sub_lit(3, true), sub_lit(0, true)},
+      {sub_lit(0, false), sub_lit(2, true)},
+      {sub_lit(1, false), sub_lit(3, true)},
+  }};
+  for (const auto &clause : f.clauses) {
+    mapped.add_clause(clause);
+    compact.add_clause(clause);
+  }
+  mapped.randomize_phases();
+  compact.randomize_phases();
+  assert(mapped.kitten_generator() == compact.kitten_generator());
+  const SubResult a = mapped.solve({}, 0, SubTickMode::Kitten);
+  const SubResult b = compact.solve({}, 0, SubTickMode::Kitten);
+  assert(a == b);
+  assert(mapped.kitten_ticks() == compact.kitten_ticks());
+  assert(mapped.conflicts() == compact.conflicts());
+  if (a == SubResult::Sat)
+    assert(mapped.model() == compact.model());
+  else {
+    SubDerivation da, db;
+    assert(mapped.derivation(da) && compact.derivation(db));
+    assert(da.core == db.core);
+    assert(da.steps.size() == db.steps.size());
+    for (size_t i = 0; i < da.steps.size(); ++i) {
+      assert(da.steps[i].id == db.steps[i].id);
+      assert(da.steps[i].lits == db.steps[i].lits);
+      assert(da.steps[i].chain == db.steps[i].chain);
+    }
+  }
 }
 
 void test_kitten_against_brute_force(uint32_t iterations) {
@@ -679,6 +754,7 @@ int main(int argc, char **argv) {
   test_budget_and_determinism();
   test_model_flip();
   test_kitten_search_state();
+  test_compact_kitten_identity();
   test_kitten_against_brute_force(iterations / 5);
   test_against_brute_force(iterations);
   test_derivation_edge_cases();

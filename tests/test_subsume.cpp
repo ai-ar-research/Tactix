@@ -112,6 +112,28 @@ static void test_redundant_excluded() {
   assert(live_clauses(k2) == 2);
 }
 
+static void test_complete_dense_population_caps_connection() {
+  Kernel k;
+  kernel_reserve_vars(k, 1300);
+  add(k, {1, 2, 3});
+  add(k, {1, 2, 3, 4});
+  int next = 5;
+  for (int anchor = 1; anchor <= 3; ++anchor)
+    for (uint32_t i = 0; i <= SUBSUME_OCCLIM; ++i) {
+      const Lit filler[5] = {internalize(anchor), internalize(next),
+                             internalize(next + 1), internalize(next + 2),
+                             internalize(next + 3)};
+      next += 4;
+      kernel_add_large_clause(k, filler, 5, false, 0, ++k.next_clause_id);
+    }
+  OccIndex dense;
+  kernel_dense_connect(k, dense);
+  assert(subsume_forward_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.forward_subsumed == 0);
+  assert(live_clauses(k) == 2 + 3 * (SUBSUME_OCCLIM + 1));
+  kernel_dense_disconnect(k);
+}
+
 static void test_root_modulo_semantics() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -513,6 +535,7 @@ int main() {
   test_basic_subsume();
   test_duplicates_and_binary();
   test_redundant_excluded();
+  test_complete_dense_population_caps_connection();
   test_root_modulo_semantics();
   test_reason_never_victim();
   test_registry_instance_surface();

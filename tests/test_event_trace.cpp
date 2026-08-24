@@ -231,6 +231,34 @@ int main() {
   assert(glue_only_text.find("\ttrace_begin\t") == std::string::npos);
   std::remove(glue_only_path.c_str());
 
+  // Compact inprocessing traces are the matched-cost surface for all
+  // candidate-oriented rules.  In particular BVE and its phase cleanup must
+  // survive this filter in both Tactix and the Kissat observer overlay; losing
+  // either silently turns an exact parity campaign into a one-sided trace.
+  const std::string compact_path = trace_path("event-compact-inprocess");
+  std::remove(compact_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", compact_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_COMPACT_PROBE", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.bve_candidate(k, 0, "begin", 11, 19, false);
+    trace.bve_plan(k, 0, 2, 3, 0, 0, 0, 6, false);
+    trace.eliminate_cleanup(k, "before");
+    trace.detail(k, "decision", 1);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_COMPACT_PROBE");
+  std::ifstream compact_input(compact_path);
+  const std::string compact_text(
+      (std::istreambuf_iterator<char>(compact_input)),
+      std::istreambuf_iterator<char>());
+  assert(compact_text.find("\tbve_candidate\t") != std::string::npos);
+  assert(compact_text.find("\tbve_plan\t") != std::string::npos);
+  assert(compact_text.find("\teliminate_cleanup\t") != std::string::npos);
+  assert(compact_text.find("\tdecision\t") == std::string::npos);
+  std::remove(compact_path.c_str());
+
   // Stable top32 is a portable reference comparison, not a rendering of
   // Tactix's dense variable indices.  Kissat assigns those indices in first
   // import order, which can disagree with both external and current compact
@@ -315,6 +343,38 @@ int main() {
          std::string::npos);
   assert(watch_positions_text.find("|binary=") == std::string::npos);
   std::remove(watch_positions_path.c_str());
+
+  const std::string binary_set_path = trace_path("event-binary-set");
+  const std::string binary_set_event_path =
+      trace_path("event-binary-set-events");
+  std::remove(binary_set_path.c_str());
+  std::remove(binary_set_event_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", binary_set_event_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_BINARY_SET_PATH", binary_set_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_BINARY_SET_MATCH", "selected-snapshot", 1);
+  setenv("SAT_EVENT_TRACE_BINARY_SET_CONFLICT", "0", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(watch_kernel));
+    trace.macro(watch_kernel, "other-snapshot");
+    trace.macro(watch_kernel, "selected-snapshot");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("SAT_EVENT_TRACE_BINARY_SET_PATH");
+  unsetenv("SAT_EVENT_TRACE_BINARY_SET_MATCH");
+  unsetenv("SAT_EVENT_TRACE_BINARY_SET_CONFLICT");
+  std::ifstream binary_set_input(binary_set_path);
+  const std::string binary_set_text(
+      (std::istreambuf_iterator<char>(binary_set_input)),
+      std::istreambuf_iterator<char>());
+  assert(binary_set_text.find(
+             "# begin\t0\ttactix\tselected-snapshot\t0\t2\t-") !=
+         std::string::npos);
+  assert(binary_set_text.find("0\t-3\t-1\n") != std::string::npos);
+  assert(binary_set_text.find("0\t-1\t2\n") != std::string::npos);
+  assert(binary_set_text.find("other-snapshot") == std::string::npos);
+  std::remove(binary_set_path.c_str());
+  std::remove(binary_set_event_path.c_str());
 
   const std::string focused_stop_path = trace_path("event-focused-stop");
   std::remove(focused_stop_path.c_str());
