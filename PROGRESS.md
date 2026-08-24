@@ -21,6 +21,10 @@ own experimental detail and history.
   commit-`0997356` solver and repaired, campaign-owned runner pins. Paired
   Rank-27 c3069 source-handoff observer job
   `1641810` completed and released its four reserved CPUs.
+- Current `main` and `origin/main` are synchronized at `fd30d9d`; the shared
+  worktree is intentionally dirty with the general BVE antecedent-size repair,
+  its diagnostics/tests, and this living evidence. Allocation `1638010` ends
+  at 12:32 EDT. Begin final validation/handoff triage no later than 11:30.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -616,6 +620,182 @@ without contradictory evidence.
   crash trigger fired, so the authorized Claude path was not invoked. Together
   with the 66/66 guard, this authorizes checked Rank 27 and the frozen current
   Tier-D run.
+- 2026-08-24 — Committed and pushed the cumulative validated checkpoint as
+  `fd30d9d` on synchronized `main`. Frozen current-head Tier-D campaign
+  `20260824-0330` passed compute-node SAT/UNSAT validation and was submitted as
+  array `1644721` plus aggregate `1644722`: 1,166 tasks, 1,800 s, 16 GiB,
+  `-c 2`, throttle 85, independent read-only solver inode 70916851 and SHA
+  `960b31b4…90e7`. It runs asynchronously. Checked Rank-27 campaign
+  `20260824-0331` freezes the same source in a separate inode and is ready under
+  the 1,200 s / 16 GiB / `-c 2` debug contract; submitted as job `1644832`.
+- 2026-08-24 — Complete terminal-BVE aggregation sharpens the remaining
+  comparable-work gap. In that invocation, current Kissat makes 292,771
+  definition attempts for 18,112,153 terminal ticks; current Tactix makes
+  369,081 for 280,614,670. Tactix's 32,932 attempts above 1,024 imported
+  variables consume 249,343,427 ticks, while Kissat has none in that band.
+  The earliest Tactix attempt above 256 variables is external 396947: four
+  clauses span 666 variables and cost 674 embedded ticks, whereas Kissat
+  declines the same candidate. Paired selected-occurrence campaign
+  `20260824-0332` will determine whether this is the first upstream
+  long-clause/occurrence representation owner; no admission cap is authorized.
+  Submitted as paired c2 job `1644851` without a current-Kissat scoring rerun.
+- 2026-08-24 — Selected-occurrence job `1644851` rules out an occurrence cap:
+  both solvers carry the same 2+2 physical population, select external 151858
+  immediately before 396947, and eliminate 151858 for two charged pairs.
+  Kissat then declines 396947 at tick 685 before definition extraction or a
+  plan, while Tactix imports four clauses spanning 666 variables, spends 674
+  embedded ticks proving SAT, and reaches a rejected oversized pair at tick
+  689. Targeted job `1644883` proves both pivots remain unassigned and both
+  151858 pairs have identical clause hashes and are tautologies. The exact
+  owner is Kissat's source `eliminateclslim=100` input guard: its 338/403-literal
+  antecedents make `occurrences_literal` return `UINT_MAX`; Tactix had ported
+  the same limit only for generated resolvents. The repair adds a general
+  policy-owned antecedent-size bound, leaving the public rule unrestricted;
+  focused Release and ASan/UBSan BVE/scheduling/event-overlay tests pass.
+  Required full-width B28+fixed-C5 guard `1644893`/aggregate `1644900` and
+  exact-source native-LRAT fuzz `1644936` are submitted from independent frozen
+  pins. No repaired Rank-27 witness may run until the 66-task guard passes.
+- 2026-08-24 — Checked compact-pin repetition `1644832` is valid UNSAT and its
+  1,633,208,191-byte proof verifies with the exact prior SHA; all 3,747,797
+  conflicts, 177,941,301 decisions, and non-timing counters match the 504.297 s
+  witness. Wall is 721.076 s only because it shared node017 with the throttle-85
+  Tier-D load: steady-clock search/scaffolding rose 249.410→417.332 s while BVE
+  rose just 94.389→100.339 s. This directly closes the suspected pinned-run
+  regression as resource contention, not a solver-source regression. Proof,
+  staged CNF, and checker scratch are deleted with zero certificate residue.
+- 2026-08-24 — The asynchronous frozen current-head Tier-D array has 84 valid
+  terminal results among its first 90, but task 21 (`goldcrest-and-11`) emits a
+  968,410,268-byte DRAT proof rejected at proof line 13,564,647; unlike two
+  separate Cake-LPR heap-capacity failures, this is a correctness incident.
+  Older accepted pins verify this instance, so it is not a checker limitation.
+  Exact immutable-pin campaign `20260824-0337`, job `1644976`, reruns paired
+  DRAT and native LRAT under 16 GiB/1200 s and deletes all proof scratch. Rank-27
+  promotion is paused pending classification. A reproduced proof failure will
+  enter the repository's bounded Claude repair workflow after a regression is
+  established; performance conclusions do not override N1 correctness.
+- 2026-08-24 — Goldcrest campaign `20260824-0337` byte-reproduces the rejected
+  DRAT stream (968,410,268 bytes, SHA `0a1cef73…6472`) and independently
+  verifies native LRAT (10,207,175,603 bytes, SHA `dfb8e9e0…e34a`) in 110.22 s.
+  Both scratch proofs and decompressed inputs are deleted. This proves the
+  UNSAT derivation is sound and localizes the blocker to DRAT's deletion-by-
+  literal identity. Authorized Claude Code is performing the bounded repair;
+  Codex will review and validate it independently. Campaign `20260824-0338`
+  replayed the same byte-identical DRAT proof in deletion-ignoring plain mode,
+  but keeping the complete active population made drat-trim exceed 1,200 s;
+  that auxiliary result is inconclusive and all scratch was deleted.
+- 2026-08-24 — The invalidated frozen current-head Tier-D array `1644721` and
+  aggregate `1644722` were canceled at 10:03 EDT after 286 durable results;
+  its manifest now records disposition `rejected-canceled-correctness-failure`
+  and names goldcrest result 21 as the invalidator. The cancellation removed
+  163,312,830,491 scratch bytes; scratch and retained-certificate residue are
+  both zero. Preserve the partial campaign only as rejected diagnostic evidence
+  and never use it for scoring or promotion.
+- 2026-08-24 — Claude's bounded goldcrest investigation localized the DRAT
+  defect to Sweep bridge representation, added a focused collision regression,
+  and left a general repair before its account quota stopped the session at
+  10:13. Pair-wide `equivalence_bridge_images` protection had retained every
+  ordinary physical binary whose literals coincided with a preserved bridge
+  target, even though Substitute's proof pass had consumed those ordinary
+  copies. The repair counts exact directed bridge entries and lets coincident
+  ordinary copies follow the normal rewrite/removal path. Release and
+  ASan/UBSan Substitute+Sweep tests pass. Exact combined-source campaign
+  `20260824-0339` is replaying goldcrest under 16 GiB/1200 s; no B/C or Rank-27
+  promotion is authorized until its ordinary DRAT proof verifies.
+- 2026-08-24 — The pre-proof-fix BVE antecedent-limit guard completed 66/66
+  valid and residue-free: both arms have 17 SAT models and 16 UNSAT proofs.
+  Candidate/comparator PAR-2 is 1743.764/2394.097 = 0.728. The repair
+  improves mp1 from shipped 437.966 s to 277.765 s, with 9,050,802→5,429,547
+  conflicts and learned-clause length 58.48→55.55. Candidate T105 verifies at
+  480.267 s versus shipped 913.729 s. Exact-source sanitizer fuzz completed
+  10,000 cases with zero failures: 5,184 SAT plus 3,569 UNSAT checked verdicts,
+  1,247 explicit bounded non-terminations, 1,453,888 stress applications, and
+  zero certificate residue. These results
+  establish promise only: the complete B/C guard and fuzz must be repeated from
+  the final post-Claude source before any Rank-27 witness is authorized.
+- 2026-08-24 — Final-source validation is staged without consuming the Rank-27
+  reservation. Exact goldcrest replay `20260824-0339` is running in allocation
+  `1638010` from frozen Release SHA `5813aca3…5ca9`; its ordinary DRAT proof is
+  the sole current gate. Full-width B28+fixed-C5 campaign `20260824-0340` and
+  ASan/UBSan native-LRAT fuzz `20260824-0341` are prepared from the same source
+  (the latter stresses BVE, Substitute, and Sweep), but remain deliberately
+  unsubmitted until goldcrest verifies. On success they launch concurrently;
+  Rank 27 follows only after the complete guard is valid and residue-free.
+- 2026-08-24 — The counted directed-entry Sweep bridge repair passes its exact
+  blocking witness. Goldcrest returns UNSAT and ordinary `drat-trim` verifies
+  the 1,031,181,788-byte DRAT proof (SHA `c4f93869…ab513`) in 261.516 s; proof,
+  decompressed input, and checker scratch are absent afterward. This closes the
+  DRAT population defect without weakening deletion checking. Final-source
+  full-width B28+fixed-C5 guard `1645170`/aggregate `1645236` and ASan/UBSan
+  BVE+Substitute+Sweep native-LRAT fuzz `1645237` are now running concurrently.
+  Rank 27 remains blocked until all 66 guard tasks are valid and residue-free.
+- 2026-08-24 — Independent exact-source Release suite is 73/74: all solver,
+  proof/model, bridge regression, configuration, static-boundary, trace, and
+  campaign-cleanup tests pass. Only `doc_size` fails on the already recorded
+  living-document debt (`PROGRESS.md` 753/350 lines and 51/5 recent entries;
+  implementation notes 595/560); repository authority forbids silently
+  discarding the resume/evidence surface to manufacture a green count.
+- 2026-08-24 — Worktree audit is cleanly narrowed. Claude's temporary
+  `goldcrest-proof-debug` worktree was removed after its lifecycle evidence was
+  preserved in campaign `0339`. The dirty `vivify-unit-crash` branch is an
+  ancestor of `main`; its watch-invariant/continue-after-unit repair and tests
+  landed in `97e1447` and were subsequently strengthened, so that redundant
+  worktree was removed after comparison. Only clean historical
+  `.claude/worktrees/tierd-next10` survives.
+- 2026-08-24 — Final-source mandatory guard `1645170`/`1645236` passes
+  66/66: each arm validates 17 SAT models and 16 UNSAT proofs with no invalid,
+  regression, missing, cleanup, or certificate-residue entry. Candidate PAR-2
+  is 1,670.643 s versus shipped 2,165.228 s (0.771578 ratio); candidate T105
+  verifies in 420.837 s and candidate mp1 in 260.633 s. Summary SHA-256 is
+  `d65b8e67…4456c`. This authorizes the independently frozen checked Rank-27
+  witness while final-source fuzz continues; any later fuzz correctness
+  trigger invalidates use of that performance result.
+- 2026-08-24 — Final checked Rank-27 job `1645239` is valid UNSAT but remains
+  open: 549.172 s wall / 548.645 s internal, 1.831x the 300 s target. Its
+  1,514,395,111-byte DRAT proof (SHA `0f99f55a…8bb2d`) verifies in 123.572 s;
+  proof, decompressed CNF, and checker scratch are deleted. The preceding
+  `1645238` attempt failed in one second before solver launch because the new
+  campaign lacked its runner-owned `claims/` directory; adding that standard
+  directory changed no pin and produced no certificate.
+- 2026-08-24 — The BVE admission repair is nevertheless a decisive mechanism
+  win on Rank 27: definition ticks fall 2,505,837,432→115,624,070, definition
+  checks 1,223,465→873,301, and BVE 94.389→36.947 s. Total inprocessing falls
+  254.377→213.590 s, but search/scaffolding rises 249.410→335.055 s on a changed
+  trajectory (3,747,797→3,813,669 conflicts), making total wall 44.875 s worse.
+  Against current Kissat's 286.30 s diagnostic run, the next worse-side owner
+  is broad throughput: Tactix spends 335.055 s outside inprocessing versus
+  Kissat's 188.64 s search despite fewer conflicts, decisions, and propagations;
+  Vivify is 66.680 versus 26.19 s, Substitute 36.659 versus 10.42 s,
+  Congruence 21.752 versus 5.91 s, and BVE still 36.947 versus 16.32 s. These
+  cross-trajectory totals are localization leads, not same-state repair proof.
+- 2026-08-24 — Final exact-source ASan/UBSan native-LRAT fuzz `1645237`
+  passes 10,000 cases with zero failures: 5,188 SAT plus 3,575 UNSAT checked
+  verdicts, 1,237 explicit bounded non-terminations, and 1,458,184 stress
+  applications. Coverage reaches BVE in 6,161 cases, Substitute in 5,139, and
+  Sweep in 2,753. Twenty-five timeout CNFs are retained as diagnostic inputs;
+  there is zero proof/certificate residue. No soundness, sanitizer, or crash
+  trigger fired, so the checked Rank-27 miss is final evidence for this pin.
+- 2026-08-24 — Validated source/tests landed and pushed as `26a2d9c`. Frozen
+  full Tier-D successor `20260824-0343` passed compute-node SAT/model and
+  UNSAT/DRAT→Cake-LPR preflight, then launched asynchronously as 1,166-task
+  array `1645240` plus aggregate `1645241`: 1,800 s, 16 GiB, `-c 2`, throttle
+  85, independent read-only solver SHA `5813aca3…5ca9`, manifest SHA
+  `82b56c26…8cff`, and zero retention. Do not wait for it before resuming
+  convergence; inspect its aggregate and any correctness trigger first.
+- 2026-08-24 — Wrap-up hygiene now requires an active-job/reference/evidence
+  audit of `benchmarks/`, exact-path removal of proven-obsolete scaffolds and
+  residue, and a post-delete scan. This pass preserves every frozen or active
+  campaign and removes the 1,330,575-byte superseded never-submitted `0336`
+  scaffold. The documentation process remains opt-in `compact-docs`: unique
+  evidence moves to run manifests/reports or verbatim `docs/log/` archives,
+  then PROGRESS is reduced to current authorities/gates/jobs/next action and
+  at most five recent one-liners.
+- 2026-08-24 — Early asynchronous Tier-D audit at 48 results finds zero
+  retained/pending-cleanup artifacts and two invalid resource exits: task 41
+  (expected SAT) aborts on `std::bad_alloc` at 13,390,560 KiB RSS and task 74
+  (baseline UNKNOWN) at 14,732,416 KiB; both partial proofs are hashed/deleted.
+  No wrong SAT/UNSAT claim or proof rejection is present in those rows. Keep
+  the array running, but its final aggregate must classify the task-41 solve
+  loss and any later invalid before the campaign can support coverage/scoring.
 - 2026-08-23 — Repaired and exactly closed the Sweep→Substitute bridge,
   retirement, c3069 environment, and c5471 implication streams.
 - 2026-08-23 — Closed decision parity through c10000 and opened the c15385 BVE

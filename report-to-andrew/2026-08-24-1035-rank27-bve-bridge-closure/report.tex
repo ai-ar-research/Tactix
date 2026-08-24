@@ -1,0 +1,207 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\usepackage[hidelinks]{hyperref}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 BVE Admission and Sweep Bridge Correctness Closure}
+\author{Tactix engineering handoff}
+\date{24 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive outcome}
+The current cumulative Tactix source contains two general repairs.  First, BVE
+now restores Kissat's source-default \code{eliminateclslim=100} admission on
+each live irredundant input antecedent, not only on generated resolvents.
+Second, Substitute preserves Sweep equivalence bridges by counted directed
+physical entries rather than protecting every binary with the same target
+pair.  The first repair removes a large, objectively worse definition-work
+tail on immutable Rank 27.  The second fixes a DRAT population error exposed
+by the full Tier-D run; it changes no proof rule or strategy decision.
+
+Exact goldcrest replay now returns UNSAT and ordinary \code{drat-trim} verifies
+its 1,031,181,788-byte proof.  The complete final-source Tier B plus fixed
+mechanism-relevant Tier C guard passes all 66 tasks with zero residue; exact-source
+ASan/UBSan native-LRAT fuzz passes 10,000 cases with zero failures.  Final
+Rank 27 is valid UNSAT in 549.172 seconds, so the BVE mechanism win is accepted
+but the 300-second engineering objective remains open.  No benchmark identity, rank, hash,
+deadline, elapsed-time arm, per-instance switch, or newly tuned constant enters
+the solver.
+
+\section*{Frozen authority and worse-side localization}
+The immutable Rank-27 input is
+\artifact{benchmarks/cache/tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz},
+SHA-256
+\hashcode{5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9}.
+Frozen Kissat 4.0.4 proves UNSAT in 278.187 seconds; it was not rerun.  A
+separately pinned current-Kissat diagnostic build takes 286.30 seconds and
+16.32 seconds in elimination.  The preceding checked Tactix compact-core pin
+takes 503.787 internal seconds and 94.389 seconds in BVE while following its
+accepted search trajectory.
+
+Terminal BVE traces named the comparable-work defect.  Current Kissat makes
+292,771 definition attempts for 18,112,153 embedded ticks.  Tactix makes
+369,081 attempts for 280,614,670 ticks; 32,932 attempts above 1,024 imported
+variables alone consume 249,343,427 ticks.  Paired campaign
+\artifact{benchmarks/runs/20260824-0332-tierd-rank27-current-bve-396947-occurrence/}
+finds the first concrete long case at external pivot 396947.  Both solvers
+carry the same $2+2$ physical occurrences, choose and eliminate the same
+predecessor, and leave both pivots unassigned.  Kissat then declines 396947
+before definition extraction; Tactix imports four clauses spanning 666
+variables and spends 674 embedded ticks.
+
+Source inspection resolves the boundary without inference from a benchmark.
+Kissat's \code{resolve.c::occurrences_literal} rejects a candidate when any
+live irredundant antecedent exceeds \code{eliminateclslim}; the two relevant
+clauses contain 338 and 403 literals.  Tactix had implemented the same named
+limit only for generated resolvents.  The repaired public BVE rule defaults to
+unrestricted; \code{DefaultPolicy} installs the source-default value through
+\code{DefaultStrategyConfig}, and BVE observes it before formula mutation,
+gate discovery, or definition extraction.  This keeps proof behavior and
+strategy ownership separate.
+
+The pre-proof-fix guard already established the performance signal: all 66
+candidate/comparator tasks validate with zero residue, candidate/comparator
+PAR-2 is 1,743.764/2,394.097 seconds (0.728 ratio), mp1 improves from 437.966
+to 277.765 seconds with conflicts falling 9.05M to 5.43M, and T105 verifies in
+480.267 versus 913.729 seconds.  These figures are supporting evidence only;
+the post-proof-repair source is governed by the final guard below.
+
+\section*{DRAT bridge-population defect and repair}
+The first frozen current-head Tier-D run was canceled after task 21,
+\code{goldcrest-and-11}, emitted a 968,410,268-byte DRAT proof rejected at line
+13,564,647.  Exact campaign
+\artifact{benchmarks/runs/20260824-0337-tierd-goldcrest-proof-reproducer/}
+reproduces that DRAT stream byte-for-byte while native LRAT independently
+verifies a 10.207-GB proof.  Thus the UNSAT derivation is sound and the defect
+is DRAT's deletion-by-literal population, not a solver contradiction or
+checker limitation.  All large certificates and decompressed inputs were
+deleted after checking.
+
+Under the repository's required soundness workflow, authorized Claude Code
+instrumented the binary lifecycle and localized the defect before its account
+quota stopped the session.  Sweep can create a preserved equivalence bridge
+whose transformed target pair coincides with an ordinary binary.  The proof
+pass consumes that ordinary copy, but old physical compaction exempted every
+entry sharing the bridge pair.  The kernel therefore retained a clause after
+the checker population had exhausted all of its copies, and a later lemma
+using the survivor failed RUP.
+
+The repair counts exact directed entries.  An unchanged bridge protects its
+two physical directions, a bridge with one moved endpoint protects only the
+stable direction created by the in-place rewrite, and a bridge with both
+endpoints moved protects none before rebuilding.  Ordinary copies that merely
+share a literal pair follow the normal rewrite/removal path.  Regression
+\code{test_sweep_bridge_target_pair_collision_consumes_ordinary_copy} checks
+both kernel multiplicity and DRAT population balance.  Release and ASan/UBSan
+Substitute and Sweep tests pass independently.
+
+Exact repaired-source campaign
+\artifact{benchmarks/runs/20260824-0339-goldcrest-bridge-count-repair/}
+returns UNSAT and ordinary \code{drat-trim} verifies the
+1,031,181,788-byte proof, SHA-256
+\hashcode{c4f93869031ea1327c585906ebdb6f14c8730b6d4be4cb53af1ca4f478cab513},
+in 261.516 seconds.  It uses 242,652,058 resolution steps, reports zero RAT
+lemmas in the core, and leaves no proof, decompressed input, checker product,
+or scratch residue.  Claude's small lifecycle trace is preserved and hashed;
+its partial proof, input, and throwaway worktree are removed.
+
+\section*{Final-source validation}
+The mandatory exact-source full-width campaign is
+\artifact{benchmarks/runs/20260824-0340-BC-final-bve-bridge-guard/}, array
+\code{1645170} and aggregate \code{1645236}.  Each arm validates 17 SAT models
+and 16 UNSAT proofs with no invalid, regression, missing, cleanup, or residue
+entry.  Candidate PAR-2 is 1,670.643 seconds versus 2,165.228 seconds shipped,
+a 0.771578 ratio; candidate T105 verifies in 420.837 seconds and candidate mp1
+in 260.633 seconds.  Summary SHA-256 is
+\hashcode{d65b8e67d7fefdbd672a29b7be3f7bf15249e710a8138e635530e4eb1fc4456c}.  Every
+SAT claim is checked against the original CNF, every UNSAT claim is checked by
+the pinned \code{drat-trim}, and consumed certificates, checker derivatives,
+and decompressed inputs are deleted before atomic result publication.
+
+The cumulative Release suite is 73/74.  All executable, proof/model, bridge,
+configuration, event-trace, static rule/policy boundary, and campaign-cleanup
+tests pass.  Only \code{doc_size} fails on the already recorded living-document
+debt; repository authority forbids silently deleting the resume and evidence
+surface to manufacture a green count.  \code{git diff --check} is clean.
+
+Final-source fuzz campaign
+\artifact{benchmarks/runs/20260824-0341-final-bve-bridge-fuzz/}, job
+\code{1645237}, runs the frozen ASan/UBSan debug binary under native LRAT while
+forcing BVE, Substitute, and Sweep with periodic normal scheduling.
+It completes 10,000 cases with zero failures: 5,188 SAT plus 3,575 UNSAT
+checked verdicts, 1,237 explicit bounded non-terminations, and 1,458,184 stress
+applications.  BVE fires in 6,161 cases, Substitute in 5,139, and Sweep in
+2,753.  Twenty-five timeout CNFs are retained as diagnostic inputs; no proof or
+checker artifact remains.  A soundness failure, invalid proof, sanitizer finding,
+or crash invalidates subsequent performance evidence and re-enters the bounded
+Claude repair workflow.
+
+\section*{Checked Rank 27 and operational handoff}
+Frozen campaign
+\artifact{benchmarks/runs/20260824-0342-tierd-rank27-final-bve-bridge-witness/}
+uses a separate read-only solver inode, two CPUs, 16 GiB, a 1,200-second solver
+limit, and ordinary DRAT verification against the original CNF.
+It returns UNSAT in 548.645 internal / 549.172 wall seconds with 3,813,669
+conflicts, 175,272,633 decisions, and peak solver RSS 646,608 KiB.  Its
+1,514,395,111-byte proof, SHA-256
+\hashcode{0f99f55ac55571d6f83fe53ec8cb4a6a4c8df0a6e127442e50f47e25bea8bb2d},
+verifies in 123.572 seconds and is deleted with all checker scratch.
+
+The intended BVE tail collapses: definition ticks fall from 2,505,837,432 to
+115,624,070, definition checks from 1,223,465 to 873,301, and BVE time from
+94.389 to 36.947 seconds.  Total inprocessing improves 254.377 to 213.590
+seconds.  The overall target still misses because search/scaffolding rises
+249.410 to 335.055 seconds on a changed trajectory.  Current Kissat spends
+188.64 seconds in search despite more conflicts, decisions, and propagations;
+its Vivify/Substitute/Congruence/Eliminate times are 26.19/10.42/5.91/16.32
+seconds versus Tactix's 66.680/36.659/21.752/36.947.  These cross-trajectory
+totals identify throughput leads, not a same-state authorization to patch any
+one rule.  The next analysis must localize their earliest common-state cost or
+yield divergence.
+
+After fuzz passes, the same committed Release source is frozen independently
+for the requested full SC24--26 Tier-D union under 1,800 seconds, 16 GiB, two
+CPUs per task, and throttle 85.  That array uses the accepted baseline harness,
+validates every model and proof, retains no certificate, and runs
+asynchronously so it does not block convergence work.
+
+The successor is
+\artifact{benchmarks/runs/20260824-0343-tierd-final-bve-bridge-16g-1800s/},
+array \code{1645240} and dependent aggregate \code{1645241}.  It contains
+1,166 tasks, uses an independent read-only solver inode with SHA-256
+\hashcode{5813aca3eb1041ab3d1f398e2f6a17fd3918e3375595aa86a443679bb8445ca9},
+and records manifest SHA-256
+\hashcode{82b56c2662b53a1264004cc1f3eed067a57e912e7a1ead1656ec02ba83298cff}.
+Compute-node SAT/model and UNSAT/DRAT-to-Cake-LPR preflight passes with scratch
+deleted.  The array is active and is not awaited here.
+An early 48-result audit has zero retained or pending-cleanup artifacts but two
+resource failures: task 41 (expected SAT) aborts on \code{std::bad_alloc} at
+13,390,560 KiB RSS, and task 74 (baseline UNKNOWN) does likewise at 14,732,416
+KiB.  Both partial proofs are hashed and deleted.  These are solve-loss/memory
+findings, not accepted solver verdicts; the final aggregate must classify their
+coverage effect and any later correctness failure before the campaign is used.
+
+The validated source and tests are committed and pushed as \code{26a2d9c} only
+after the guard and checked witness establish a coherent boundary; this report
+and living-document closure follow separately.  The wrap-up benchmark hygiene
+pass removes the 1,330,575-byte superseded, never-submitted pre-proof-fix
+Rank-27 scaffold and preserves every active or evidence-bearing campaign.
+Rank 22 remains
+parked at its known Vivify boundary; no completed Backbone, Sweep, or Vivify
+investigation is reopened.  If Rank 27 meets 300 seconds, close it and resume
+the remaining frozen UNSAT ranks from their preserved common-state ledgers.
+If it misses, keep the accepted BVE admission and bridge repairs and localize
+the earliest remaining current/current worse-side event; do not undo the exact
+Kissat effort formula or any prior checked closure.
+
+\end{document}
