@@ -1,0 +1,173 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Congruence Membership-Range Repair}
+\author{Tactix Development Project}
+\date{24 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive summary}
+This increment promotes a general representation repair in Congruence's
+immutable small-clause index.  Canonical records are already lexicographically
+sorted, so a queried key's first literal identifies one contiguous interval.
+The new directory restricts the existing binary search to that interval.  It
+does not alter record or gate order, candidate admission, logical ticks or
+costs, scheduling, proof transactions, learning, pruning, or N1--N4.
+
+The exact conflict-9450 Rank-27 profile reduces complete sampled cycles from
+64.668B to 63.456B and the intended extraction owner from 2.914B to 1.355B.
+All 64 event-trace rows are byte-identical.  The complete frozen B28 plus fixed
+C5 guard passes 66/66 independently checked tasks, and corrected exact-source
+ASan/UBSan native-LRAT fuzz passes 10,000 cases with zero failures.  Checked
+Rank-27 job \code{1645875} verifies the byte-identical 1,514,395,111-byte DRAT
+proof and removes it, improving internal time 407.006 to 403.855 seconds.
+The repair is accepted, but Rank 27 remains open because the frozen target is
+300 seconds.
+
+Frozen Kissat 4.0.4 and all other frozen reference solvers were not rerun.
+The user-canceled full Tier-D arrays remain frozen, non-scorable, and
+residue-free; this increment uses only the predeclared Rank-27 input and
+mandatory promotion guards.
+
+\section{Authority and localization}
+The immutable input is
+\artifact{tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz},
+SHA-256
+\hashcode{5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9}.
+Every Rank-27 job uses two CPUs and the 16 GiB/1200 s contract.  The accepted
+predecessor is checked job \code{1645778}: 407.006 seconds internal, 407.497
+seconds wall, and proof SHA-256
+\hashcode{0f99f55ac55571d6f83fe53ec8cb4a6a4c8df0a6e127442e50f47e25bea8bb2d}.
+Current instrumented Kissat is source-observer evidence only; its accepted
+diagnostic run is not a scoring baseline.
+
+An initial Kissat-shaped complementary-condition pair index was not retained.
+Paired stage control \code{1645798} preserved the state but made ITE extraction
+928 to 974 ms, complete Congruence 2739 to 2783 ms, and the whole prefix 16.940
+to 17.041 seconds.  This rejects pair-list sorting absent contradictory
+population evidence.
+
+Temporary observer \code{1645800} then divided ITE extraction without changing
+behavior.  Of 849 cumulative milliseconds, conditional-equivalence collection
+owned 635 ms (74.8\%), canonical pair preparation 68 ms, and admitted-pair
+evaluation 76 ms.  Source tracing found that collection performs repeated
+full-index membership searches for canonical XOR/ITE clause keys.  Because
+each key is sorted, its first literal is a portable pre-existing partition of
+the sorted record vector.
+
+\section{Repair and exact common-state evidence}
+After index construction and deduplication, the candidate builds one
+\code{uint32_t} boundary per internal literal.  \code{contains} applies the
+unchanged comparator and \code{lower_bound} only between the two boundaries
+for the key's first literal.  The directory is scoped to its immutable index;
+it is neither a live-clause authority nor a policy input.  Frozen Release pin
+SHA-256 is
+\hashcode{b81bb832b81350e5269fd9ff750013c929320e8a9c141a00cd7c04e581c51b83},
+from base \code{fff43d69} and source-diff SHA-256
+\hashcode{283d6cce79848e230ccd2ddf5a1647e0a5b4c18702d6c155522fbf4c0af1eb9d}.
+
+\begin{center}
+\small
+\begin{tabular}{@{}llll@{}}
+\toprule
+Evidence & Predecessor & Candidate & Result \\
+\midrule
+ITE extraction, ms & 1007 & 550 & 0.54618x \\
+XOR extraction, ms & 168 & 91 & 0.54167x \\
+Complete Congruence, ms & 2853 & 2259 & 0.79180x \\
+Conflict-9450 solve, ms & 16869 & 16512 & 0.97884x \\
+Complete sampled cycles & 64.668B & 63.456B & 0.98125x \\
+Extraction-owner cycles & 2.914B & 1.355B & 0.46494x \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Stage job \code{1645801} and cycles job \code{1645803} run paired arms at the
+same conflict-9450 state.  Every printed non-time statistic is exact, including
+9,450 conflicts, 5,795,248 decisions, 96,338,812 propagations, 1,734,747 gates,
+58,738 merges, 181 units, 445,868,596 Congruence ticks, and 1,744,090 closure
+items.  Both cycle profiles report zero lost samples.  The eight-millisecond
+index-build increase is dominated by the 594-millisecond complete-Congruence
+reduction.
+
+Trace job \code{1645805} records 64 untruncated rows from both arms.  The files
+are byte-identical with SHA-256
+\hashcode{7a6216bb86c236512dea03de76c4c9ab2ffdd745bd7ca7b9fa5507e708987cc1}.
+Thus rule-boundary digest, candidate identity and order, exact tick/cost image,
+scheduling order, learning, pruning, and resulting state remain common through
+the conflict-9449 Probe and conflict-9450 stop.
+
+\section{Correctness and regression gates}
+Release validation passes 73 of 74 tests.  The only failure is the previously
+recorded opt-in documentation-size debt; all behavioral, proof/model, cleanup,
+trace, API, N1, and rule/policy-boundary tests pass.  Focused Debug ASan/UBSan
+Kernel, Congruence, event-trace, random-policy, micro-proof, solve-reset, and
+rule/policy-boundary tests pass with leak detection disabled because the
+execution wrapper prevents LeakSanitizer startup.
+
+Full-width campaign
+\artifact{benchmarks/runs/20260824-1685-BC-first-literal-range-guard/}, array
+\code{1645806} and aggregate \code{1645872}, validates both immutable arms on
+all 28 Tier-B and five predeclared mechanism-relevant Tier-C instances.  Each
+arm passes 17 SAT models and 16 UNSAT proofs; there is no solve loss, invalidity,
+regression, cleanup failure, or certificate residue.  After timing lines are
+removed, all 33 paired solver-statistic files are byte-identical.  Candidate
+PAR-2 is 1700.709 versus 1705.542 seconds, ratio 0.9971663.  Aggregate summary
+SHA-256 is
+\hashcode{e94a30b5e30e009b12539f370cd3c761fa370689eb88ce0fb6f53eee258025cc}.
+
+The first targeted fuzz submission, \code{1645873}, is frozen setup-invalid:
+Congruence-only stress starved one Sweep-specific corpus proof case, and the
+harness correctly refused to begin random fuzzing.  It had zero corpus
+failures and no solver correctness finding.  Corrected job \code{1645874}
+pre-registers exactly that corpus-only nontermination and retains strict random
+validation.  It completes in 01:11:16 with 10,000 cases and zero failures:
+2,620 checked SAT models, 3,482 checked native-LRAT UNSAT proofs, and 3,898
+bounded five-second nonterminations on which no oracle claim is made.
+Congruence fires in 3,556 cases for 1,246,344 target applications.  There is no
+sanitizer finding, rejected model/proof, crash, certificate residue, or job
+temporary residue.  The 25 retained timeout CNFs are declared diagnostic inputs,
+not certificates.  Log SHA-256 is
+\hashcode{8d33c4a4a438181587d8d5d466bd7c2f19bf201fdeab4fe10484642b47a3db16}.
+
+\section{Checked Rank-27 result and disposition}
+Immutable campaign
+\artifact{benchmarks/runs/20260824-1695-tierd-rank27-first-literal-range-witness/},
+job \code{1645875}, completes on two CPUs in 00:08:40.  Tactix reports UNSAT in
+403.855 internal / 404.395 wall seconds with 613,652 KiB peak solver RSS.
+Pinned \code{drat-trim} reads the original CNF and the 1,514,395,111-byte proof,
+reports \code{s VERIFIED}, and exits zero after 112.308 internal / 112.489 wall
+seconds.  The proof SHA is byte-identical to the predecessor.  Proof, CNF,
+checker derivatives, and scratch are deleted before the atomic valid result;
+all cleanup flags are true and residue is zero.
+
+Removing timing lines makes every solver statistic byte-identical to
+\code{1645778}, normalized SHA-256
+\hashcode{8cd3eda481799871a179e1483a57413622bc7832c09432df705b2308bafc2da7}.
+Internal/wall improves 407.006/407.497 to 403.855/404.395 seconds, a recovery of
+3.151/3.102 seconds on the exact trajectory.  Congruence timing falls 18.130
+to 16.910 seconds.  The repair therefore passes promotion; it does not close
+Rank 27, whose checked result remains 1.346x the 300-second target.
+
+Next work returns to current Tactix versus current instrumented Kissat and the
+earliest common-state event where Tactix performs slower comparable work or
+retains weaker state.  The broad search/Vivify throughput lead remains open.
+All prior Sweep semantic/throughput, counted directed-bridge, BVE antecedent-
+admission, proof-rule/strategy, reserved-trail, rejected propagation, and
+N1--N4 closures remain in force.  Frozen references and canceled full Tier-D
+campaigns remain untouched.
+
+\end{document}
