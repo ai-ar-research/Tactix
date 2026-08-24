@@ -38,6 +38,35 @@ static void test_variable_identity_maps() {
   assert(kernel_internalize(k, 5) == make_lit(4, false));
 }
 
+static void test_import_order_survives_compaction_linearly() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 6);
+  kernel_record_import(k, 4);
+  kernel_record_import(k, 1);
+  kernel_record_import(k, 5);
+
+  std::vector<Var> order;
+  kernel_vars_in_import_order(k, order);
+  assert((order == std::vector<Var>{4, 1, 5, 0, 2, 3}));
+
+  // Retire the earliest imported identity and one unrecorded identity.  The
+  // surviving imported variables keep their first-occurrence order, followed
+  // by surviving unrecorded variables in external order, after remapping to
+  // compact internal identities.
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  for (const Var v : {Var{4}, Var{2}}) {
+    k.var_status[v] = VarStatus::Eliminated;
+    heuristics_deactivate_var(k, v);
+    k.unassigned_active--;
+  }
+  assert(kernel_compact_variables(k));
+  assert((k.internal_to_external == std::vector<Var>{0, 1, 3, 5}));
+  kernel_vars_in_import_order(k, order);
+  assert((order == std::vector<Var>{1, 3, 0, 2}));
+  kernel_check_invariants(k);
+}
+
 static void test_variable_compaction() {
   Kernel k;
   ScopedHeuristics hg(k);
@@ -1392,6 +1421,7 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
 
 int main() {
   test_variable_identity_maps();
+  test_import_order_survives_compaction_linearly();
   test_variable_compaction();
   test_compaction_counts_root_fixed_and_rewatches();
   test_variable_compaction_preserves_directed_binary_order();

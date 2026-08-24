@@ -760,6 +760,11 @@ struct Kernel {
   // identities stable and consults this equivalent order at reference-ordered
   // traversals instead.
   std::vector<uint32_t> external_import_rank;
+  // Inverse of `external_import_rank` in permanent first-occurrence order.
+  // Retired external identities remain here as holes and are resolved through
+  // `external_to_internal`, allowing live import order to be reconstructed in
+  // linear time after variable compaction.
+  std::vector<Var> import_rank_to_external;
   uint32_t next_import_rank = 0;
   bool input_refuted = false;
   uint64_t input_refutation_id = 0; // the refuting input clause

@@ -8,23 +8,28 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. This convergence checkpoint
-  descends from `f41cf483da211b7550ff97a12a211d4d45138f20`, which was exactly
-  synchronized with `origin/main` before the line began. Do not discard it.
-- `.claude/worktrees/tierd-next10` is clean. The historical
-  `.claude/worktrees/vivify-unit-crash` is dirty and must remain untouched.
-  SLURM `1638010` is this shell (ends 12:32; plan handoff from 08:32). Fuzz
-  jobs `1641365`--`1641368` are accepted. Tier-D array `1641379` was canceled and its noisy
-  campaign removed after NFS cleanup failures prevented durable results;
-  dependent aggregate `1641380` consequently exited incomplete. Replacement
-  array `1642950` and aggregate `1642951` are active with the byte-identical
-  commit-`0997356` solver and repaired, campaign-owned runner pins. Paired
-  Rank-27 c3069 source-handoff observer job
-  `1641810` completed and released its four reserved CPUs.
-- Current `main` and `origin/main` are synchronized at `fd30d9d`; the shared
-  worktree is intentionally dirty with the general BVE antecedent-size repair,
-  its diagnostics/tests, and this living evidence. Allocation `1638010` ends
-  at 12:32 EDT. Begin final validation/handoff triage no later than 11:30.
+- Worktree `/home/hwu/SAT-solving`, branch `main`. The last pushed wrap-up is
+  `e9c161c9f13e457c34306e5f3ce396c14ae6a7e6`, exactly synchronized with
+  `origin/main` before this line began. The shared worktree is intentionally
+  dirty only with the general linear import-order reconstruction repair, its
+  focused Kernel regression, and current living evidence. Do not discard it.
+- `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
+  is clean. No repository commit, push, solver campaign, or benchmark campaign
+  occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
+  is the current interactive shell allocation, not a solver submission.
+- On user direction, full Tier-D array/aggregate `1645240`/`1645241` and the
+  surviving predecessor `1642950`/`1642951` were canceled at 15:58:01 UTC to
+  free capacity for fuzzing and convergence. Current campaign `0343` preserves
+  294 classified rows (187 valid, 107 invalid) and predecessor `0010` preserves
+  1,165 (689 valid, 476 invalid); both are explicitly non-scorable. Their
+  `cancellation.json` records own the exact disposition. Pending, retained,
+  scratch, and certificate residue are zero in both campaigns.
+- The linear import-order repair has passed full B28+fixed-C5
+  `1645550`/`1645557` and exact-source ASan/UBSan native-LRAT fuzz `1645587`.
+  Checked Rank-27 campaign `20260824-1155-tierd-rank27-import-order-linear-witness`
+  is valid UNSAT as job `1645699`: 413.830 s internal / 414.375 s wall with
+  byte-identical proof and non-time counters, verified and residue-free. This
+  is a 134.815-second same-trajectory recovery but still misses 300 seconds.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -42,17 +47,13 @@ own experimental detail and history.
 
 - Never rerun frozen scoring references. Current instrumented Kissat may be
   used only as a source observer; its result is not scoring evidence.
-- The inherited comparator is `tactix-shipped`, source
-  `7b527fbc711d664898af8e9c5a9655c3bdf4204b`, binary SHA-256
-  `b6c991e099f4fa9cc635bacb20d7aa44ff3fdc23d0af78974b12998cecd6fb6f`.
-  Accepted full B28+fixed-C5 guard job `1639948` is 66/66 checked,
-  candidate/comparator PAR-2 0.967, with mp1 SAT in 15.048 s and T105 UNSAT in
-  1089.328 s. This pin is the regression comparator, not the divergence target.
-- The latest pre-lift mandatory guard is
-  `benchmarks/runs/20260823-1040-BC-congruence-unmetered-guard/`, job `1640987`:
-  65/66 valid and residue-free. Current candidate mp1 is recovered at 22.712 s,
-  but T105 times out at 1200.004 s while the comparator proves UNSAT in
-  785.626 s. Candidate/comparator PAR-2 is 2.030, so promotion is blocked.
+- The accepted regression comparator remains the `tactix-shipped` pin frozen
+  by the guard manifests; it is not the current-Kissat divergence target.
+  Latest accepted full B28+fixed-C5 authority is final-source campaign
+  `20260824-0340-BC-bve-bridge-final-guard`, array/aggregate
+  `1645170`/`1645236`: 66/66 checked, zero residue, candidate/comparator PAR-2
+  ratio 0.771578. Current campaign `1145` must independently repeat that full
+  contract for the linear import-order repair before promotion.
 - The newest canonical completed Tier-C `results.json` window remains
   `20260813-111513-C-cleanup-b2b8362`; later targeted and B/C guard manifests
   above supersede it only for the current regression/guard question, not T3.
@@ -796,6 +797,46 @@ without contradictory evidence.
   No wrong SAT/UNSAT claim or proof rejection is present in those rows. Keep
   the array running, but its final aggregate must classify the task-41 solve
   loss and any later invalid before the campaign can support coverage/scoring.
+- 2026-08-24 — Resume audit at pushed checkpoint `e9c161c` found `main` exactly
+  synchronized with `origin/main`, only the clean `tierd-next10` secondary
+  worktree surviving, and no intervening repository or solver-campaign work.
+  The expanded `0343` audit reached 294 classifications: 103 checked SAT, 84
+  checked UNSAT, 98 solver timeouts, three `bad_alloc` resource exits, and six
+  CakeML heap-exhaustion checker exits after `drat-trim` verification. On user
+  direction, arrays/aggregates `1645240`/`1645241` and predecessor
+  `1642950`/`1642951` were canceled to free capacity. Two terminal cleanup
+  journals were promoted without solver reruns; all result-less interrupted
+  proof scratch was deleted. Both frozen partial campaigns are non-scorable and
+  have zero pending, retained, scratch, or certificate residue; their new
+  `cancellation.json` records preserve exact counts and disposition.
+- 2026-08-24 — Common-state production profile `1645436` assigned 3.2251% of
+  conflict-9450 cycles to repeatedly sorting the post-compaction live-variable
+  image back into permanent input order. The general Kernel repair stores the
+  inverse first-occurrence rank once and resolves its retired holes through the
+  existing external-to-internal compaction map. Profile `1645537` preserves
+  every non-time counter and removes that owner: exact-state total is
+  21.051→20.640 s and inprocessing 10.029→9.627 s. Event-trace `1645547` is
+  byte-identical for all 64 rows (SHA `7a6216bb…7cc1`), preserving exact rule,
+  candidate/order, tick/cost, scheduling, and pruning images through the second
+  Vivify. Full B28+fixed-C5 guard `1645550`/`1645557` passes 66/66 checked with
+  zero invalid, regression, cleanup, or residue entry and candidate/shipped
+  PAR-2 ratio 0.709919. Exact-source ASan/UBSan native-LRAT fuzz `1645587`
+  passes 10,000 cases with zero failures: 5,044 SAT models, 3,381 UNSAT proofs,
+  1,575 declared five-second nonterminations, 1,329,770 stress applications,
+  all BVE/Substitute/Sweep targets reached, and zero certificate residue.
+  Authorized immutable `-c 2` Rank-27 witness `1645699` is checked UNSAT in
+  413.830 s internal / 414.375 s wall versus 548.645/549.172 s before. Every
+  non-time statistic and the 1,514,395,111-byte proof SHA `0f99f55a…8bb2d`
+  are exact; `drat-trim` verifies in 112.340 s and cleanup is zero. The linear
+  inverse recovers 134.815 internal seconds on the identical trajectory:
+  inprocessing 213.590→167.753 s and search/scaffolding 335.055→246.078 s.
+  Rank 27 remains open at 1.379x the 300-second target; next localize the leading
+  remaining full-run source owner without reopening propagation counter batching.
+  Exact Release is 73/74; only known opt-in documentation debt fails
+  (`PROGRESS.md` 862/350 and 62/5 recent entries, implementation notes 595/560;
+  calculus reserve warning). Final three-page Andrew report is
+  `report-to-andrew/2026-08-24-1215-rank27-import-order-linear/`, TeX SHA
+  `07a23253…fe6f`, PDF SHA `a60adf3a…8594`, with no LaTeX box warning.
 - 2026-08-23 — Repaired and exactly closed the Sweep→Substitute bridge,
   retirement, c3069 environment, and c5471 implication streams.
 - 2026-08-23 — Closed decision parity through c10000 and opened the c15385 BVE

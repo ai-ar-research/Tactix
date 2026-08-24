@@ -104,8 +104,11 @@ void kernel_record_import(Kernel &k, Var v) {
   if (k.external_import_rank.size() <= external)
     k.external_import_rank.resize(external + 1, UINT32_MAX);
   uint32_t &rank = k.external_import_rank[external];
-  if (rank == UINT32_MAX)
+  if (rank == UINT32_MAX) {
     rank = k.next_import_rank++;
+    assert(rank == k.import_rank_to_external.size());
+    k.import_rank_to_external.push_back(external);
+  }
 }
 
 uint64_t kernel_import_var_order(const Kernel &k, Var v) {
@@ -142,24 +145,34 @@ uint64_t kernel_compact_import_lit_order(const Kernel &k, Lit lit) {
 }
 
 void kernel_vars_in_import_order(const Kernel &k, std::vector<Var> &order) {
-  order.resize(k.nvars);
-  // Before variable compaction, finish_input gives every live variable one
-  // dense import rank.  Invert that permutation in linear time: comparison
-  // sorting tens of millions of stable identities only reconstructs the same
-  // order Kissat already has in its compact internal indices.
-  if (k.next_import_rank == k.nvars) {
-    for (Var v = 0; v < k.nvars; v++) {
-      const uint64_t rank = kernel_import_var_order(k, v);
-      assert(rank < k.nvars);
-      order[rank] = v;
-    }
-    return;
+  order.clear();
+  order.reserve(k.nvars);
+  assert(k.next_import_rank == k.import_rank_to_external.size());
+  // Resolve the permanent first-occurrence permutation through the current
+  // external-to-compact map.  Compaction retires identities but never changes
+  // this order, so skipping its holes is equivalent to sorting live variables
+  // by `kernel_import_var_order` without rebuilding the same permutation.
+  for (const Var external : k.import_rank_to_external) {
+    assert(external < k.external_import_rank.size());
+    assert(k.external_import_rank[external] < k.next_import_rank);
+    if (external >= k.external_to_internal.size())
+      continue;
+    const Var internal = k.external_to_internal[external];
+    if (internal != INVALID_VAR)
+      order.push_back(internal);
   }
-  // Compaction can leave holes in the permanent external import ranks.
-  std::iota(order.begin(), order.end(), 0);
-  std::sort(order.begin(), order.end(), [&](Var a, Var b) {
-    return kernel_import_var_order(k, a) < kernel_import_var_order(k, b);
-  });
+  // Direct kernel clients need no input finalization.  Their unrecorded live
+  // variables follow recorded imports in stable external order, exactly as in
+  // `kernel_import_var_order`.
+  for (Var external = 0; external < k.external_to_internal.size(); external++) {
+    const Var internal = k.external_to_internal[external];
+    if (internal == INVALID_VAR)
+      continue;
+    if (external >= k.external_import_rank.size() ||
+        k.external_import_rank[external] == UINT32_MAX)
+      order.push_back(internal);
+  }
+  assert(order.size() == k.nvars);
 }
 
 void kernel_vars_in_external_order(const Kernel &k, std::vector<Var> &order) {
