@@ -244,13 +244,16 @@ void test_full_partition_finds_nonseed_pair() {
   assert(unsetenv("TACTIX_SWEEP_PARTITION") == 0);
 }
 
-// Existing implication binaries make an equivalence cheap to detect, but do
-// not make its variable merge redundant. Kissat still substitutes the class.
+// Existing implication binaries make an equivalence cheap to detect. Sweep
+// keeps the class active and the bridge live; the following Substitute owns
+// whole-formula cleanup and retirement.
 static void test_known_equivalence_still_substitutes() {
   Kernel k;
   build(k, 3, {{-1, 2}, {-2, 1}});
   assert(sweep_apply(k) == ApplyResult::Ok);
   assert(k.stats.sweep_known >= 1);
+  assert(!kernel_var_retired(k, 0) && !kernel_var_retired(k, 1));
+  assert(substitute_apply(k) == ApplyResult::Ok);
   assert(kernel_var_retired(k, 0) || kernel_var_retired(k, 1));
 }
 
@@ -546,10 +549,14 @@ void test_resumable_schedule() {
   // four calls after a productive first seed.
   assert(on.sweep_tail.size() >= 4 && on.sweep_tail_next == 1);
   assert(on.stats.sweep_scheduled == 4 && on.stats.sweep_resumed == 0);
+  (void)substitute_apply(on); // mandatory post-Sweep phase owner
   sweep_apply(on);
   assert(on.sweep_tail_next >= 2 && on.stats.sweep_resumed >= 1);
-  for (uint32_t calls = 0; !on.sweep_passes_completed && calls < 16; calls++)
+  (void)substitute_apply(on);
+  for (uint32_t calls = 0; !on.sweep_passes_completed && calls < 16; calls++) {
     sweep_apply(on);
+    (void)substitute_apply(on);
+  }
   assert(on.sweep_tail.empty() && on.sweep_tail_next == 0);
   assert(on.sweep_passes_completed == 1 && on.stats.sweep_completed == 1);
   assert(on.stats.sweep_limit_vars == 256 &&
@@ -586,11 +593,13 @@ void test_reschedules_pair_representative_by_import_order() {
 
     const Var representative = flipped ? 1u : 0u;
     assert(!kernel_var_retired(k, representative));
-    assert(kernel_var_retired(k, flipped ? 0u : 1u));
+    assert(!kernel_var_retired(k, flipped ? 0u : 1u));
     assert(k.stats.sweep_rescheduled == 1);
     assert(k.sweep_tail_next < k.sweep_tail.size());
-    assert(k.sweep_tail[k.sweep_tail_next] ==
+  assert(k.sweep_tail[k.sweep_tail_next] ==
            k.internal_to_external[representative]);
+    assert(substitute_apply(k) == ApplyResult::Ok);
+    assert(kernel_var_retired(k, flipped ? 0u : 1u));
   }
   assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
@@ -629,8 +638,8 @@ void test_reschedule_declines_a_retired_representative() {
   const Var intermediate = var_of(internalize(2));
   assert(k.stats.sweep_equivalences == 2);
   assert(!kernel_var_retired(k, minimum));
-  assert(kernel_var_retired(k, intermediate));
-  assert(kernel_var_retired(k, var_of(internalize(3))));
+  assert(!kernel_var_retired(k, intermediate));
+  assert(!kernel_var_retired(k, var_of(internalize(3))));
   // Two pairs, one live representative: the retired one is declined.
   assert(k.stats.sweep_rescheduled == 1);
   assert(k.sweep_tail_next < k.sweep_tail.size());
@@ -638,6 +647,9 @@ void test_reschedule_declines_a_retired_representative() {
   // loop skips it; what it must not do is take the pop end from the live
   // representative.
   assert(k.sweep_tail[k.sweep_tail_next] == k.internal_to_external[minimum]);
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, intermediate));
+  assert(kernel_var_retired(k, var_of(internalize(3))));
   assert(unsetenv("TACTIX_SWEEP_SEEDS") == 0);
 }
 
@@ -799,14 +811,16 @@ static void test_se_general_path_emits(void) {
   assert(k.stats.sweep_general >= 1 &&
          "S-e NEVER FIRED -- the general path is unreachable and untested");
   assert(k.stats.sweep_binaries >= 2 && "an equivalence is two binaries");
-  // Reference-inline application consumes the transient binaries by rewriting
-  // the proved class immediately; the retired variable and witness are the
-  // persistent effect, not two stale equivalence clauses.
-  assert(k.stats.substitute_vars >= 1);
+  // Connected irredundant rewriting is immediate, but the equivalence binaries
+  // and active class are the durable bridge to the following Substitute.
+  assert(k.stats.substitute_vars == 0);
   // Surviving large clauses are rewritten in place at their Ref, so a
   // productive call no longer owes (or prices) a deferred arena rebuild.
   assert(k.stats.sweep_ticks_repr == 0 &&
          "in-place replacement leaves no representation debt to price");
+  assert(!kernel_var_retired(k, var_of(x)) &&
+         !kernel_var_retired(k, var_of(y)));
+  assert(substitute_apply(k) == ApplyResult::Ok);
   assert(kernel_var_retired(k, var_of(x)) ||
          kernel_var_retired(k, var_of(y)));
   printf("  S-e: general path emitted %llu binaries for a non-RUP equivalence\n",
@@ -834,8 +848,10 @@ static void test_inline_bridge_refreshes_owned_occurrences(void) {
   assert(setenv("TACTIX_SWEEP_FORCE_GENERAL", "1", 1) == 0);
   assert(sweep_apply(k) == ApplyResult::Ok);
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
-  assert(k.stats.substitute_vars >= 1);
+  assert(k.stats.substitute_vars == 0);
   assert(k.stats.sweep_general >= 1);
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(k.stats.substitute_vars >= 1);
   for (size_t i = 1; i < k.retired_events.size(); i++)
     assert(kernel_import_var_order(k, k.retired_events[i - 1]) <
            kernel_import_var_order(k, k.retired_events[i]));
@@ -865,22 +881,22 @@ static void test_dense_call_collects_once_across_productive_environments() {
   assert(sweep_apply(k) == ApplyResult::Ok);
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(k.stats.sweep_equivalences >= 2);
-  assert(k.stats.substitute_vars >= 2);
+  assert(k.stats.substitute_vars == 0);
   assert(k.arena_generation == generation);
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(k.stats.substitute_vars >= 2);
   for (size_t i = 1; i < k.retired_events.size(); i++)
     assert(kernel_import_var_order(k, k.retired_events[i - 1]) <
            kernel_import_var_order(k, k.retired_events[i]));
   kernel_dense_disconnect(k);
 }
 
-// A Sweep session that holds no dense ledger still retires literals, and the
-// substitution it drives drops every binary incident to a retiring literal
-// before rebuilding the ones the session names. If the session names none, a
-// binary with one retiring endpoint keeps the direction the rewrite patched in
-// place and loses its mirror -- it still propagates from the surviving side
-// while owning no `binary_ids` identity, so an LRAT chain that cites it goes
-// out truncated -- and a binary with two retiring endpoints disappears from the
-// formula altogether, which can answer a wrong SAT.
+// A Sweep session without a dense ledger still rewrites its connected binary
+// frontier while retaining the equivalence bridges and active class for the
+// following canonical Substitute. If the session omits a losing literal, the
+// connected rewrite can keep only the stable direction of a binary and lose
+// its mirror -- it still propagates from the surviving side while owning no
+// `binary_ids` identity -- or lose a two-moving-endpoint binary altogether.
 //
 // The check is the two structural invariants, not a verdict: mirrored watches
 // and a named id for every live pair.
@@ -901,8 +917,8 @@ static void test_sessionless_substitution_keeps_binaries_whole(void) {
   const ApplyResult r = sweep_apply(k);
   assert(unsetenv("TACTIX_SWEEP_FORCE_GENERAL") == 0);
   assert(r == ApplyResult::Ok);
-  assert(k.stats.substitute_vars >= 1 &&
-         "the substitution under test never ran");
+  assert(k.stats.sweep_equivalences >= 1 &&
+         "the connected Sweep substitution under test never ran");
 
   size_t live_pairs = 0;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
@@ -918,6 +934,8 @@ static void test_sessionless_substitution_keeps_binaries_whole(void) {
     }
   assert(live_pairs >= 2 && "no binary survived; nothing was checked");
   kernel_check_invariants(k);
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(k.stats.substitute_vars >= 1);
   printf("  substitution without a dense session kept %zu binary watches "
          "whole\n",
          live_pairs);
@@ -1005,10 +1023,138 @@ static void emit_unit_case(const char *dir) {
   printf("emitted the Sweep-unit case to %s\n", dir);
 }
 
+// A chained emission batch whose middle winner is named by no later pair: the
+// first pair's preserved bridge must carry the intermediate winner (the suffix
+// image of its emitted binary), and the following canonical Substitute owns
+// the complete retirement. The derived bridge images use mirror-lemma LRAT
+// chains, which only an external checker validates.
+static void emit_bridge_chain_case(const char *dir) {
+  const std::vector<std::vector<int>> input = {
+      {1, 5},  {2, 5},  {3, 6},  {4, 6},  // one occurrence per class member
+      {-3, 4}, {3, -4},                    // pair x3 = x4
+      {-3, 2}, {3, -2},                    // pair x3 = x2
+      {-4, 1}, {4, -1},                    // pair x4 = x1
+  };
+  const uint64_t ID_P5 = 11, ID_NP5 = 12; // checker-only contradictory units
+
+  char path[512];
+  snprintf(path, sizeof path, "%s/bridge-chain.cnf", dir);
+  FILE *cnf = fopen(path, "w");
+  assert(cnf);
+  fprintf(cnf, "p cnf 6 %u\n", static_cast<unsigned>(input.size()) + 2);
+  for (const auto &c : input) {
+    for (const int e : c)
+      fprintf(cnf, "%d ", e);
+    fprintf(cnf, "0\n");
+  }
+  fprintf(cnf, "5 0\n-5 0\n"); // checker-only clauses 11 and 12
+  fclose(cnf);
+
+  for (int fmt = 0; fmt < 2; fmt++) {
+    const bool lrat = fmt == 1;
+    snprintf(path, sizeof path, "%s/bridge-chain.%s", dir,
+             lrat ? "lrat" : "drat");
+    Proof proof;
+    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    Kernel k;
+    build(k, 6, input);
+    k.next_clause_id = ID_NP5; // no lemma may reuse the checker-only ids
+    k.proof = &proof;
+    OccIndex occ;
+    kernel_dense_connect(k, occ);
+    SweepSubstitutionSession session;
+    session.begin(k);
+    const Lit one = internalize(1), two = internalize(2),
+              three = internalize(3), four = internalize(4);
+    assert(substitute_apply_sweep_equivalences(
+               k, {{three, four}, {three, two}, {four, one}}, session) ==
+           ApplyResult::Ok);
+    assert(k.retired_events.empty());
+    assert(substitute_apply(k) == ApplyResult::Ok);
+    assert(kernel_var_retired(k, var_of(two)) &&
+           kernel_var_retired(k, var_of(three)) &&
+           kernel_var_retired(k, var_of(four)) &&
+           "the bridge chain must let Substitute rediscover the whole class");
+    (void)session.collect(k);
+    kernel_dense_disconnect(k);
+
+    const uint64_t empty_chain[2] = {ID_P5, ID_NP5};
+    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.flush();
+  }
+  printf("emitted the bridge-chain case to %s\n", dir);
+}
+
+// A batch whose pair stream renames an absorbed literal maps both endpoints
+// of an early bridge to intermediate members: {-6, 7} becomes {-4, 7} with
+// neither x4 nor x7 the class root. Its LRAT chain needs both mirror lemmas,
+// which only an external checker walks.
+static void emit_bridge_two_hint_case(const char *dir) {
+  const std::vector<std::vector<int>> input = {
+      {3, 8},  {4, 8},  {6, 8},  {7, 8},  // one occurrence per class member
+      {-6, 7}, {6, -7},                    // pair x6 = x7
+      {-3, 4}, {3, -4},                    // pair x3 = x4
+      {-4, 6}, {4, -6},                    // pair x4 = x6
+  };
+  const uint64_t ID_P8 = 11, ID_NP8 = 12; // checker-only contradictory units
+
+  char path[512];
+  snprintf(path, sizeof path, "%s/bridge-two-hint.cnf", dir);
+  FILE *cnf = fopen(path, "w");
+  assert(cnf);
+  fprintf(cnf, "p cnf 8 %u\n", static_cast<unsigned>(input.size()) + 2);
+  for (const auto &c : input) {
+    for (const int e : c)
+      fprintf(cnf, "%d ", e);
+    fprintf(cnf, "0\n");
+  }
+  fprintf(cnf, "8 0\n-8 0\n"); // checker-only clauses 11 and 12
+  fclose(cnf);
+
+  for (int fmt = 0; fmt < 2; fmt++) {
+    const bool lrat = fmt == 1;
+    snprintf(path, sizeof path, "%s/bridge-two-hint.%s", dir,
+             lrat ? "lrat" : "drat");
+    Proof proof;
+    assert(proof.open(path, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
+    Kernel k;
+    build(k, 8, input);
+    k.next_clause_id = ID_NP8; // no lemma may reuse the checker-only ids
+    k.proof = &proof;
+    OccIndex occ;
+    kernel_dense_connect(k, occ);
+    SweepSubstitutionSession session;
+    session.begin(k);
+    const Lit three = internalize(3), four = internalize(4),
+              six = internalize(6), seven = internalize(7);
+    assert(substitute_apply_sweep_equivalences(
+               k, {{six, seven}, {three, four}, {four, six}}, session) ==
+           ApplyResult::Ok);
+    assert(k.retired_events.empty());
+    assert(kernel_binary_live(k, negate(four), seven) &&
+           kernel_binary_live(k, four, negate(seven)) &&
+           "the early bridge must carry both intermediate members");
+    assert(substitute_apply(k) == ApplyResult::Ok);
+    assert(kernel_var_retired(k, var_of(four)) &&
+           kernel_var_retired(k, var_of(six)) &&
+           kernel_var_retired(k, var_of(seven)) &&
+           !kernel_var_retired(k, var_of(three)));
+    (void)session.collect(k);
+    kernel_dense_disconnect(k);
+
+    const uint64_t empty_chain[2] = {ID_P8, ID_NP8};
+    proof.add_empty(++k.next_clause_id, empty_chain, 2);
+    proof.flush();
+  }
+  printf("emitted the bridge two-hint case to %s\n", dir);
+}
+
 int main(int argc, char **argv) {
   if (argc > 2 && !strcmp(argv[1], "--emit")) {
     emit_se_case(argv[2]);
     emit_unit_case(argv[2]);
+    emit_bridge_chain_case(argv[2]);
+    emit_bridge_two_hint_case(argv[2]);
     return 0;
   }
   const uint32_t rounds =

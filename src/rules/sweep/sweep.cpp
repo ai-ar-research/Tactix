@@ -1429,7 +1429,8 @@ namespace {
 // stable-external tail is the same stack written forwards: remove any stale
 // occurrence, then insert each representative at the consumed boundary.
 static void sweep_reschedule_representatives(
-    Kernel &k, const std::vector<std::pair<Var, Var>> &external_pairs) {
+    Kernel &k, SweepRound &round,
+    const std::vector<std::pair<Var, Var>> &external_pairs) {
   std::vector<Var> representatives;
   for (const auto &pair : external_pairs) {
     Var endpoints[2] = {INVALID_VAR, INVALID_VAR};
@@ -1457,8 +1458,10 @@ static void sweep_reschedule_representatives(
     // `schedule_inner` declines a variable that is no longer ACTIVE, and a
     // root-fixed variable is deactivated the moment it is assigned
     // (kissat flags.c `kissat_mark_fixed_literal`), not only a retired one.
+    const Lit representative_lit = make_lit(representative, false);
     if (root_fixed(k, representative) ||
-        kernel_var_retired(k, representative))
+        kernel_var_retired(k, representative) ||
+        repr_find(round, representative_lit) != representative_lit)
       continue;
     // Do not deduplicate: Kissat's `schedule_inner` is a move-to-pop-end for
     // every proved equivalence.  If A, B, A are discovered in that order, the
@@ -1568,7 +1571,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
       return ApplyResult::Unsat;
     if (r.emission_batches != emissions_before) {
       result = ApplyResult::Ok;
-      sweep_reschedule_representatives(k, external_pairs);
+      sweep_reschedule_representatives(k, r, external_pairs);
     }
     r.found.clear();
     r.proofs.clear();

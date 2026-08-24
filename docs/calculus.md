@@ -297,7 +297,11 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
 - **Effect:** for `B→={¬a,b}` and `B←={a,¬b}`, add both binaries. Proof δ is an all-or-nothing pair:
   `add_rup(B→,h→) · add_rup(B←,h←)`, with no deletion; `F` grows and `R/τ/ρ` are untouched. A pair the
   formula already states is skipped. Consequences from one environment are
-  committed before constructing the next. Tactix's connected dense path keeps
+  committed before constructing the next. The connected rewrite keeps the
+  proved binary pair (rewritten only by later same-batch merges) and leaves its
+  class active; the mandatory following V3 pass consumes the complete union,
+  residual redundant clauses, reconstruction, and retirement. Thus V5 itself
+  still has no reconstruction effect. Tactix's connected dense path keeps
   a large clause at its arena reference and allocation span while changing its
   semantic size, and materializes a literal's binary/large mixed occurrence
   view only when the environment or rewrite reaches that literal. Collapsed or

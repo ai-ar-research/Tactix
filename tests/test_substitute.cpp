@@ -325,7 +325,11 @@ static void test_sweep_preserves_cross_kind_dense_order() {
   assert(substitute_apply_sweep_equivalences(k, equivalences, session) ==
          ApplyResult::Ok);
 
-  const auto &ordered = session.occurrences(k, internalize(1));
+  const auto &with_bridge = session.occurrences(k, internalize(1));
+  std::vector<SweepSubstitutionSession::DenseOccurrence> ordered;
+  for (const auto occurrence : with_bridge)
+    if (!(occurrence.binary && occurrence.payload == internalize(-2)))
+      ordered.push_back(occurrence);
   assert(ordered.size() == 3);
   assert(!ordered[0].binary && !ordered[1].binary);
   assert(ordered[2].binary && ordered[2].payload == internalize(4));
@@ -389,7 +393,7 @@ static void test_sweep_identity_rewrite_has_no_dirty_binary_owners() {
   SweepSubstitutionSession session;
   session.begin(k);
 
-  session.rewrite_binary_occurrences(k, {}, {});
+  session.rewrite_binary_occurrences(k, {}, {}, {});
   assert(session.dirty_binary_owners.empty());
   session.flush_moves(k);
   assert_ledger_mirrors_kernel(k, session);
@@ -469,7 +473,11 @@ static void test_sweep_flushes_one_source_stream_at_a_time() {
          ApplyResult::Ok);
   assert_ledger_mirrors_kernel(k, session);
   {
-    const auto &source = session.occurrences(k, two);
+    const auto &with_bridge = session.occurrences(k, two);
+    std::vector<SweepSubstitutionSession::DenseOccurrence> source;
+    for (const auto occurrence : with_bridge)
+      if (!(occurrence.binary && var_of(occurrence.payload) == var_of(three)))
+        source.push_back(occurrence);
     assert(source.size() == 2);
     assert(!source[0].binary); // the large clause was met first
     assert(source[1].binary && source[1].payload == internalize(5));
@@ -483,7 +491,11 @@ static void test_sweep_flushes_one_source_stream_at_a_time() {
          ApplyResult::Ok);
   assert_ledger_mirrors_kernel(k, session);
 
-  const auto &ordered = session.occurrences(k, one);
+  const auto &with_bridges = session.occurrences(k, one);
+  std::vector<SweepSubstitutionSession::DenseOccurrence> ordered;
+  for (const auto occurrence : with_bridges)
+    if (!(occurrence.binary && var_of(occurrence.payload) <= var_of(three)))
+      ordered.push_back(occurrence);
   assert(ordered.size() == 3);
   assert(!ordered[0].binary); // x1's own resident clause keeps its slot
   const Clause *const kept = clause_at(k.arena, ordered[0].payload);
@@ -497,6 +509,60 @@ static void test_sweep_flushes_one_source_stream_at_a_time() {
   assert(std::find(inherited->begin(), inherited->end(), one) !=
          inherited->end());
   assert(ordered[2].binary && ordered[2].payload == internalize(5));
+  (void)session.collect(k);
+  kernel_dense_disconnect(k);
+}
+
+// A class winner can lose a later merge of the same emission batch through a
+// pair that never names it. Kissat's `substitute_connected_clauses` exempts a
+// fresh equivalence binary only from its own pair's substitution; every later
+// merge still rewrites both of its endpoints, so the preserved bridge of an
+// early pair carries the intermediate winner, not the final representative.
+// Pinning one endpoint and jumping the other to the final representative
+// leaves such a winner with no preserved equivalence binary at all: the
+// mandated Substitute cannot rediscover it, and an active variable whose
+// occurrences were all rewritten away answers wrong models.
+static void test_sweep_bridges_link_intermediate_representative() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit one = internalize(1), two = internalize(2), three = internalize(3),
+            four = internalize(4);
+  kernel_add_binary_clause(k, one, internalize(5));
+  kernel_add_binary_clause(k, two, internalize(5));
+  kernel_add_binary_clause(k, three, internalize(6));
+  kernel_add_binary_clause(k, four, internalize(6));
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+
+  SweepSubstitutionSession session;
+  session.begin(k);
+  // Emission order: x3 absorbs x4, then x2 absorbs {x3, x4}, and x1 absorbs
+  // the whole class through the pair (x4, x1). x2 wins its own pair and is
+  // named by no later one.
+  kernel_add_binary_clause(k, negate(three), four);
+  kernel_add_binary_clause(k, three, negate(four));
+  kernel_add_binary_clause(k, negate(three), two);
+  kernel_add_binary_clause(k, three, negate(two));
+  kernel_add_binary_clause(k, negate(four), one);
+  kernel_add_binary_clause(k, four, negate(one));
+  assert(substitute_apply_sweep_equivalences(
+             k, {{three, four}, {three, two}, {four, one}}, session) ==
+         ApplyResult::Ok);
+  assert_ledger_mirrors_kernel(k, session);
+  assert(k.retired_events.empty());
+  // The suffix images of the three emitted pairs: x4 = x1 and x3 = x2 keep
+  // their own binaries, and the first pair's binaries carry x2 = x1.
+  assert(kernel_binary_live(k, negate(four), one));
+  assert(kernel_binary_live(k, four, negate(one)));
+  assert(kernel_binary_live(k, negate(three), two));
+  assert(kernel_binary_live(k, three, negate(two)));
+  assert(kernel_binary_live(k, negate(two), one));
+  assert(kernel_binary_live(k, two, negate(one)));
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(!kernel_var_retired(k, var_of(one)));
+  assert(kernel_var_retired(k, var_of(two)));
+  assert(kernel_var_retired(k, var_of(three)));
+  assert(kernel_var_retired(k, var_of(four)));
   (void)session.collect(k);
   kernel_dense_disconnect(k);
 }
@@ -525,20 +591,27 @@ static void test_sweep_flushes_sources_in_emission_order() {
   assert(substitute_apply_sweep_equivalences(k, {{one, three}, {one, two}},
                                              session) == ApplyResult::Ok);
   assert_ledger_mirrors_kernel(k, session);
-  // Clause streams follow pair-emission order, but Kissat delays variable
-  // deactivation to Substitute's first-import-order scan.
-  assert(k.retired_events ==
-         std::vector<Var>({var_of(two), var_of(three)}));
+  // Clause streams follow pair-emission order. The class remains active and
+  // the equivalence bridge remains live until canonical Substitute performs
+  // Kissat's first-import-order deactivation scan.
+  assert(k.retired_events.empty());
 
-  const auto &ordered = session.occurrences(k, one);
+  const auto &with_bridges = session.occurrences(k, one);
+  std::vector<SweepSubstitutionSession::DenseOccurrence> ordered;
+  for (const auto occurrence : with_bridges)
+    if (!(occurrence.binary && var_of(occurrence.payload) <= var_of(three)))
+      ordered.push_back(occurrence);
   assert(ordered.size() == 2);
   assert(ordered[0].binary && ordered[0].payload == internalize(7)); // from x3
   assert(ordered[1].binary && ordered[1].payload == internalize(6)); // from x2
   std::vector<Lit> physical;
   for (const WatchEntry watch : k.watches.entries(one))
-    if (watch.binary())
+    if (watch.binary() && var_of(watch.other()) > var_of(three))
       physical.push_back(watch.other());
   assert(physical == std::vector<Lit>({internalize(7), internalize(6)}));
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(k.retired_events ==
+         std::vector<Var>({var_of(two), var_of(three)}));
   kernel_dense_disconnect(k);
 }
 
@@ -652,16 +725,19 @@ static void test_sweep_ledger_declines_the_same_members_as_the_rewrite() {
   assert(substitute_apply_sweep_equivalences(
              k, {{live_a, live_b}, {fixed_a, fixed_b}}, session) ==
          ApplyResult::Ok);
-  assert(kernel_var_retired(k, var_of(live_b)));
+  assert(!kernel_var_retired(k, var_of(live_b)));
   assert(!kernel_var_retired(k, var_of(fixed_b)));
   assert_ledger_mirrors_kernel(k, session);
   (void)session.collect(k);
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(live_b)));
   kernel_dense_disconnect(k);
 }
 
 // Kissat's dense Sweep stream excludes redundant large clauses.  Search-time
-// Sweep must therefore leave this clause alone; phase-exit retired-variable
-// flushing owns its deletion instead of manufacturing a connected binary.
+// Sweep must therefore leave this clause alone; the mandated whole-formula
+// Substitute owns its rewrite instead of Sweep manufacturing a connected
+// binary early.
 static void test_sweep_leaves_redundant_clause_outside_dense_transaction() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -679,7 +755,7 @@ static void test_sweep_leaves_redundant_clause_outside_dense_transaction() {
 
   assert(substitute_apply_sweep_equivalences(
              k, {{internalize(1), internalize(2)}}, session) ==
-         ApplyResult::Ok);
+         ApplyResult::NoOp);
   assert(!kernel_binary_live(k, internalize(1), internalize(4)));
   uint32_t live_redundant = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
@@ -690,6 +766,10 @@ static void test_sweep_leaves_redundant_clause_outside_dense_transaction() {
   }
   assert(live_redundant == 1);
   assert_ledger_mirrors_kernel(k, session);
+  assert(!kernel_var_retired(k, var_of(internalize(2))));
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(2))));
+  assert(kernel_binary_live(k, internalize(1), internalize(4)));
   kernel_dense_disconnect(k);
 }
 
@@ -728,12 +808,28 @@ static void test_sweep_rewrites_only_connected_irredundant_clause() {
   assert(!clause_at(k.arena, occ.large[internalize(1)][0])->redundant());
   assert_ledger_mirrors_kernel(k, session);
   (void)session.collect(k);
+  assert(!kernel_var_retired(k, var_of(internalize(2))));
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(2))));
+  replacements = 0;
+  bool redundant_image = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() &&
+        std::find(c->begin(), c->end(), internalize(1)) != c->end()) {
+      replacements++;
+      redundant_image |= c->redundant();
+    }
+    ref += clause_actual_words(c);
+  }
+  assert(replacements == 2 && redundant_image);
   kernel_dense_disconnect(k);
 }
 
-// A redundant-only neighbourhood is a no-op for the connected large-clause
-// half, while binary equivalence publication/retirement can still make the
-// overall substitution productive.
+// A redundant-only neighbourhood is a no-op for Sweep's connected
+// large-clause half. The retained equivalence bridge makes the following
+// canonical Substitute productive and gives it sole ownership of the residual
+// redundant rewrite and variable retirement.
 static void test_sweep_does_not_rewrite_redundant_only_neighbourhood() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -748,7 +844,19 @@ static void test_sweep_does_not_rewrite_redundant_only_neighbourhood() {
 
   assert(substitute_apply_sweep_equivalences(
              k, {{internalize(1), internalize(2)}}, session) ==
-         ApplyResult::Ok);
+         ApplyResult::NoOp);
+  assert(!kernel_var_retired(k, var_of(internalize(2))));
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(internalize(2))));
+  bool rewritten = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->redundant())
+      rewritten = std::find(c->begin(), c->end(), internalize(1)) != c->end() &&
+                  std::find(c->begin(), c->end(), internalize(2)) == c->end();
+    ref += clause_actual_words(c);
+  }
+  assert(rewritten);
   (void)session.collect(k);
 }
 
@@ -1016,6 +1124,7 @@ int main() {
   test_sweep_equivalence_preserves_large_clause_position();
   test_sweep_preserves_cross_kind_dense_order();
   test_sweep_flushes_one_source_stream_at_a_time();
+  test_sweep_bridges_link_intermediate_representative();
   test_sweep_flushes_sources_in_emission_order();
   test_sweep_chained_collapse_uses_last_mixed_stream();
   test_sweep_syncs_new_binaries_by_multiset();
