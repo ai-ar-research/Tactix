@@ -13,9 +13,13 @@ own experimental detail and history.
   synchronized with `origin/main` before the line began. Do not discard it.
 - `.claude/worktrees/tierd-next10` is clean. The historical
   `.claude/worktrees/vivify-unit-crash` is dirty and must remain untouched.
-  SLURM job `1638010` is unrelated. Post-repair fuzz jobs `1641365`--`1641368`
-  are accepted and clean. Full Tier-D array `1641379` and dependent aggregate
-  `1641380` are active. Paired Rank-27 c3069 source-handoff observer job
+  SLURM `1638010` is this shell (ends 12:32; plan handoff from 08:32). Fuzz
+  jobs `1641365`--`1641368` are accepted. Tier-D array `1641379` was canceled and its noisy
+  campaign removed after NFS cleanup failures prevented durable results;
+  dependent aggregate `1641380` consequently exited incomplete. Replacement
+  array `1642950` and aggregate `1642951` are active with the byte-identical
+  commit-`0997356` solver and repaired, campaign-owned runner pins. Paired
+  Rank-27 c3069 source-handoff observer job
   `1641810` completed and released its four reserved CPUs.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
@@ -27,8 +31,8 @@ own experimental detail and history.
 - Rank 27 is immutable input
   `tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz`,
   SHA-256 `5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9`.
-  Frozen Kissat 4.0.4 proves UNSAT in 278.187 s. The current target is checked
-  Tactix UNSAT within 300 s/16 GiB through a general divergence repair.
+  Frozen Kissat 4.0.4 proves UNSAT in 278.187 s. Target checked Tactix UNSAT
+  within 300 s/16 GiB via a general repair; every Rank-27 job uses `-c 2`.
 
 ## Immutable guard and comparator
 
@@ -115,32 +119,10 @@ without contradictory evidence.
 
 ### Validation state
 
-- Current-HEAD soundness campaign
-  `20260823-1700-current-head-fuzz` is blocked on two native-LRAT rejections in
-  the existing Substitute stress scenario: seeds 20261465 and 20265342 in job
-  `1641326`, after 894,743 directly counted target applications. The default
-  DRAT+converted-LRAT leg `1641325` passes 10,000 cases with 9,631 verdicts.
-  Per `DEVELOPMENT_PLAN.md` §8.2, the bounded Claude repair protocol is
-  mandatory before the prepared Tier-D campaign may be submitted.
-- Claude localized the native-LRAT defect to `kernel_reason_walk`: it re-walked
-  a retained clause reason for a root-fixed literal after Vivify could delete
-  that root-satisfied clause, emitting a deleted LRAT hint. The general kernel
-  repair collapses every root-level reason to its already-emitted unit id, as
-  Analyze already does; no strategy code changes. Codex source review and
-  independent validation pass 13/13 relevant ASan/UBSan tests, 27/27 corpus
-  entries, both Substitute witnesses, and three additional random-policy LRAT
-  witnesses. Full post-repair jobs `1641365`--`1641368` accept the repair and
-  unblock Tier-D preparation.
-- All four post-repair fuzz legs are terminal and clean: random native LRAT job
-  `1641365` has 10,000 cases, 0 failures, and 8,772 verdicts with Sweep in
-  2,535 and Substitute in 4,280 cases; Substitute-stress native LRAT job
-  `1641366` has 10,000 cases, 0 failures, 8,768 verdicts, and 895,214 directly
-  counted Substitute applications; default DRAT-to-LRAT job `1641368` has
-  10,000 cases, 0 failures, and 9,631 verdicts with Sweep in 2,401 and
-  Substitute in 2,312 cases. Forced-Sweep DRAT job `1641367` completes all
-  10,000 cases with 0 failures, 7,006 checked verdicts, and 1,438,080 target
-  applications. Its predeclared corpus-026 nontermination ran no oracle and is
-  not counted as a soundness pass.
+- The earlier Substitute native-LRAT reason-lifetime defect was repaired through
+  the mandatory bounded Claude protocol, independently reviewed, and accepted
+  by four 10k post-repair fuzz legs (`1641365`--`1641368`) with zero failures.
+  Frozen campaign manifests own the seeds, coverage, and proof-check details.
 - The reusable Tier-D comparison runner's historical rejected/UNKNOWN path
   contradicted the current §8.1 zero-retention authority by moving partial
   certificates into `retained/`. It now requires the manifest's `retention:
@@ -152,23 +134,18 @@ without contradictory evidence.
   and rejected SAT model paths; all three pass with empty scratch/retention.
   The successor Tactix campaign inherits the stable non-`v1` baseline's
   certificate policy and custom 1800 s/16 GiB resource contract.
-- Two debug crashes exposed by focused unit tests were repaired through the
-  required bounded Claude protocol and source-reviewed: the accidental
-  `clause_actual_words` self-recursion, and lazy-stream initialization after a
-  touched large clause had already been removed. Claude's ASan/UBSan focused
-  suites passed; no performance repair was delegated.
+- Two earlier debug crashes also followed the required Claude repair/review
+  path; frozen reports own their focused sanitizer evidence.
 - The post-compaction Release rebuild and complete suite pass 74/74, including
   proof/model, Sweep proofs, documentation, trace-zero-overhead, and static
   rule/policy boundary coverage. `check-progress` and `check-doc-size` have zero
   errors; only reserve warnings remain for the two long-lived semantic docs.
-- Mandatory full-width B28+fixed-C5 guard
-  `20260823-1510-BC-sweep-representation-guard`, job `1641102`, is complete:
-  66/66 valid, 17 model-verified SAT plus 16 proof-verified UNSAT per arm, and
-  zero residue. Candidate T105 recovers to 1165.385 s and mp1 remains 22.017 s.
-  The no-coverage-loss iteration criterion passes, permitting Rank 27, but this
-  is not a performance promotion: candidate/comparator PAR-2 is 1.460, with
-  open costs on mod4block (622.404/95.317 s), T105 (1165.385/804.843 s), and
-  sted5 (256.125/35.991 s).
+- Handoff guard `20260823-2025-BC-sweep-substitute-handoff-guard` first lost
+  T105 at 1200 s; the causal extra Sweep environments were repaired by matching
+  Kissat's non-representative-endpoint decline. The exact current replacement
+  guard is `20260824-0020-BC-bve-one-sided-unit-lrat-guard`, array `1642853`
+  plus aggregate `1642857`; it remains the only Rank-27 promotion authority.
+  It is 64/66 valid and residue-free; candidate mp1 is 18.848 versus 400.680 s.
 - Immutable proof-producing Rank-27 campaign
   `20260823-1520-tierd-rank27-sweep-representation-witness`, job `1641168`,
   times out UNKNOWN at 1200.004 s, so it misses the 300-second target. The
@@ -301,35 +278,350 @@ without contradictory evidence.
 
 ## Next actions
 
-1. Do not wait for full Tier-D campaign
-   `20260823-1745-tierd-current-head-16g-1800s`: array `1641379` runs
-   `0-1165%89` at 1800 s/16 GiB and aggregate `1641380` is dependent. Its
-   commit `0997356…78c8` binary is an independent read-only inode, SHA-256
-   `cb6fdaa9…6c7a4`; compute-node SAT/model and UNSAT/proof validation passed
-   with zero residue. Inspect the aggregate when terminal.
-2. Mandatory B28+fixed-C5 guard `20260823-2025-BC-sweep-substitute-handoff-guard`
-   is running as array `1642276` (`%2`) plus aggregate `1642282`. Its read-only
-   commit-`c6672e7` binary SHA is `7b451f0e…10d8`; validate all 66 tasks and zero
-   residue before any witness. The repaired c3069 semantic handoff is exact.
-3. If all guard solves remain, run the checked Rank-27 witness and compare the
-   repaired c3069 Sweep→Substitute handoff directly with current Kissat. Keep
-   cadence/admission/effort outside the proof rules.
-4. At the next coherent successful increment, update this resume surface and
-   the parity ledger, generate the required Andrew TeX/PDF report, commit, push,
-   and leave `main` clean and synchronized.
+1. Do not wait for Tier-D replacement `20260824-0010-tierd-pin099-harness-nfs-16g-1800s`: array `1642950` is `0-1165%85` at 1800 s/16 GiB; aggregate `1642951` depends on it.
+   Its commit-`0997356` solver is an independent read-only inode (70873282, mode 0550), SHA `cb6fdaa9…6c7a4`; both repaired runners are separately frozen read-only.
+   Compute validation `1642949` passed both verdicts with zero residue. At 575 durable results, eight UNSAT proofs pass `drat-trim` before Cake-LPR exhausts its fixed heap, two trivial proofs print VERIFIED but exit 1, and one 2.15 GB proof exhausts `drat-trim`'s 16 GiB task before conversion; all eleven remain checker-invalid. These are checker/harness failures, not soundness failures; all artifacts are deleted.
+   Durable journals/NFS retries precede publication; cleanup cannot rerun work. Dedicated tests pass. Reuse no result from removed array `1641379`.
+2. The non-representative Sweep-bridge repair closes all 2,303 c3069
+   environments, all 3,701 c5471 implications, and every decision through
+   c10000. Guard `1642670` exposed a DRAT-only duplicate-population deletion on
+   `square.2.0.i.smt2-cvc4.cnf.xz`; native LRAT verified. Proof-shadow localized
+   it to Substitute phase E deleting a transient equivalence lemma identical to
+   a live source/bridge binary. DRAT now retains that harmless lemma, LRAT still
+   deletes by exact id, and DRAT/LRAT/shadow plus 74/74 tests pass. Superseded
+   arrays `1642757` and `1642814` plus their aggregates were canceled after
+   preserving completed results; only final-source `1642853` may promote.
+3. The untruncated c10000--c20000 control (`1642725`) first exchanges two
+   equal-score decisions at c14456 and materially diverges at c15385. Tactix
+   reports 553,691 BVE applications / 265,013 eliminations / 509.965 s versus
+   Kissat 570,204 attempts / 271,829 eliminations / 4.76 s: comparable work and
+   yield, so this is the first strong throughput lead. No-trace control
+   `1642748` (independent read-only SHA `7891309e…1ae4`) confirms it: identical
+  semantic counters, 516.069 s total and 479.747 s BVE. Flat profile `1642749`
+  assigns 85.28% of samples to `SubSolver::add_clause`'s quadratic import scan.
+  The general signed-mark import repair passes sanitizers and 74/74; frozen job
+  `1642755` preserves every BVE counter and cuts BVE 479.747→42.677 s (11.24x).
+  Compact exact job `1642753` keeps candidate order through ordinal 89,153 and
+  localizes the first cost/pruning loss much earlier, ordinal 627/ext 396947:
+  both enter at tick 685; Kissat's one-sided definition core learns a unit and
+  exits before a plan, while old Tactix plans four pairs and spends two ticks.
+  Source lift `1642803` confirms ownership at the identical decision/conflict
+  endpoint: one unit, exactly two fewer resolutions, one fewer later candidate,
+  and unchanged 265,013 eliminations. DRAT retains identity-ambiguous temporary
+  lemmas; native LRAT deletes them by exact id after the unit, as Kissat does.
+4. All cumulative sanitizer fuzz legs are clean. Exact-source native-LRAT job
+   `1642864` completed 10,000 cases with 0 failures and 8,355 checked verdicts;
+   Release is 74/74. Final B28+fixed-C5 guard `1642853` completed 66/66 but is
+   rejected: candidate T105 timed out at 1200.004 s versus shipped 852.488 s.
+   Its partial proof was deleted with zero residue; no Rank-27 witness is legal.
+5. `SP-BVE-OCC-1` now caches Kissat's physical dense-stack sizes at the BVE
+   strategy/representation boundary instead of rescanning every binary watch
+   twice per heap update (22.57% of the repaired profile). Binary mutations and
+   large membership edits update the image before score callbacks; lazy large
+   garbage remains counted. BVE proof semantics are unaware. Release 74/74 and
+   focused ASan/UBSan pass. Checked terminal `1643270` preserves every counter
+   and the identical proof SHA while cutting BVE 335.575→253.438 s and total
+   1427.564→1362.569 s, still above 1200 (frozen Kissat: 261.089 s). Profile `1643271` assigns 46.21% to clause-order hashing. Radix-only `1643292` and complete no-sort `1643344` time out cleanly; direct ID-order gate `1643383` preserves every counter/proof byte, verifies UNSAT, and cuts total to 712.210 s; repeat `1643407` confirms. Fuzz `1643265` is clean. Current/current `1643493` names equal-yield elimination cost (Tactix BVE+forward 291.4 s vs Kissat 90.2 s). Dense-capacity/radix gate `1643546` is exact checked UNSAT at 639.990 s with the same proof bytes/counters, 72.220 s faster; DWARF `1643504` attributes 20.63% of cycles to `bve_backward`'s per-elimination full scratch reset. Dense lifecycle fuzz `1643568` is clean (8,744 checked verdicts, 1,446,762 target applications; backward not reached). Touched-only persistent marks preserve that proof rule; 74/74 plus focused sanitizers pass, and exact gate `1643660` is checked UNSAT at 507.293 s with BVE 95.065 s versus 247.859 s, identical non-timing statistics/proof SHA, and zero residue (132.697 s wall recovered). Scratch-specific fuzz `1643661` runs. Fused-forward arm `1643685` is proof-clean and moves to 410,779 conflicts with 657,618 subsumptions plus 975,452 strengthenings, but regresses wall 507.293→545.285 s because Strengthen costs 55.971 s versus current Kissat's 6.50 s; admission-only promotion is rejected. Frozen callgraph `1643763` assigns 8.31% of all cycles inclusive (6.62% self) to `find_partner`, versus negligible candidate sorting/allocation. Kissat locally accumulates forward steps before publishing; Tactix did a shared-stat/budget reload for every partner, so the same local-ledger representation now passes 74/74 plus focused sanitizers and checked fused gate `1643790` runs. Direct-order guard `1643451`/`1643456` passed 66/66, zero residue, ratio 1.071, but its prepared Rank-27 witness is superseded and will not run; the latest cumulative pin still needs its own guard.
 
 ## Recent changes
-
-- 2026-08-23 — Repaired Sweep→Substitute ownership with suffix-composed
-  equivalence bridges; sanitizer, full-suite, and proof checks pass locally.
-- 2026-08-23 — Localized the first worse-side propagation divergence: Tactix
-  derives 475857 19 implications later from a weaker binary reason.
-- 2026-08-23 — Traced the visible equal-score heap split back through c5492's
-  reinsertion order to that earlier reason-class/propagation-order divergence.
-- 2026-08-23 — Closed the 9,379-seed Sweep mixed-occurrence semantic stream at
-  the shared T105 state; accepted trace hash is `a70a89d…17de1`.
-- 2026-08-23 — Lifted Kissat's stable-allocation in-place large-clause shrink
-  into a general Kernel primitive used only through Substitute.
+- 2026-08-24 — Complete-dense forward repair passes random native-LRAT fuzz `1644278` (10k/0, 8,763 oracle verdicts, C1/C2 in 2,430/2,409, zero residue); frozen pin `9574b9…a555` guard `1644281`/`1644284` now passes 66/66 (33/33 each arm, 17 SAT+16 UNSAT, no regression/residue, 0.7702× PAR-2). Same-phase-only `1644279` is rejected/reverted for worse pruning/total. Old-pin guard `1644056`/`1644059` passes 66/66 at 0.701× PAR-2. Exact guarded Rank-27 `1644280` is checked UNSAT in 726.736 s, proof verified/deleted, so misses 300 s. Terminal current-Kissat `1644331` makes BVE the exact same-work/slower owner: 1,605,224 Tactix applications/350,597 eliminations/288.549 s versus 1,621,010 Kissat attempts/364,315 eliminations/26.16 s (11.03×); Tactix has fewer conflicts, 3.25M versus 4.12M. DWARF `1644319` localizes definition marshalling: `bve_find_definition` self 13.65%, ascending var sort 6.14%, malloc 5.69% (4.13% from import), reset 2.25%, import self 2.05%, embedded solve only 0.32%, backward tail 0.19%. Scratch-only checked T105 `1644348` is exact positive: proof/counters unchanged, wall 451.657→423.326 s and BVE 106.744→98.626 s, zero residue. Exact radix/direct-map gate `1644352` preserves every counter and proof byte; BVE is 97.495 s versus 98.626 s but noisy total wall is 436.342 s versus 423.326 s, so T105 throughput is inconclusive while the Rank-27 profile remains its source authority. Checked cumulative backward-off `1644353` verifies UNSAT with zero residue and reproduces the earlier positive trajectory (444,439 conflicts, 3.706M decisions, 2.286M fused pruning actions); internal time is 430.749 s versus simultaneous on-arm 433.305 s. Exact first-core Kitten search `1644355` is checked positive at 435.493 s wall / 97.253 s BVE, 441,522 conflicts and 1.843B saved pairs. Initial two-core `1644356` is proof-clean but negative at 500.451 s / 131.884 s BVE, 474,453 conflicts and 1.221B saved pairs. New current/current mp1 core tracing localizes the cause before the first second core: Tactix started the cleared embedded Kitten at seed 0 rather than Kissat's seed 1 and omitted the learned-empty `new_reference` tick. The general engine/strategy repair restarts the embedded lifetime per BVE slot and charges that tick; all 16,395 common-state definition rows now exactly match candidate, import, core hashes, ticks, budgets and generator. Frozen-source fuzz `1644354` is complete green and older two-core fuzz `1644357` remains green past 7,300/10,000; exact-source fuzz `1644359` and repaired checked T105 `1644358` are running. Exact pin `8048eec…f7e` is frozen into prepared B28+fixed-C5 guard `20260824-0265` and blocked Rank-27 witness `20260824-0270`; neither may run until T105 is non-negative and exact-source fuzz is green.
+- 2026-08-24 — Repaired checked T105 `1644358` is positive and proof-clean at
+  418.251 s wall / 415.394 s internal / 112.447 s BVE and 351,851 conflicts,
+  versus 435.493 s / 441,522 for first-core, 500.451 s / 474,453 for the bad
+  lifecycle, and current Kissat's diagnostic 453.92 s / 393,595. The extra
+  two-core work is locally dearer but produces a stronger trajectory. Exact-source
+  fuzz `1644359` is now the only gate blocker for frozen pin `8048eec…f7e`;
+  B28+fixed-C5 guard `20260824-0265` and Rank-27 witness `20260824-0270`
+  remain prepared and blocked on that fuzz result.
+- 2026-08-24 — Exact-source lifecycle fuzz `1644359` passes 10,000 cases with
+  8,758 checked verdicts, 1,455,446 BVE stress applications, zero failures,
+  and zero certificate residue. The exact pin `8048eec…f7e` B28+fixed-C5
+  guard is now array `1644360` at `%2` with dependent aggregate `1644361`;
+  the Rank-27 witness remains blocked until that aggregate passes 66/66.
+- 2026-08-24 — Guard task 63 validates exact-candidate `mp1-Nb5T15` SAT but
+  reopens its performance closer: 240.787 s, 5,429,547 conflicts and 33.48M
+  decisions versus the earlier accepted-source 18.848 s and frozen Kissat
+  76.688 s. BVE's aggregate yield counts remain identical (2,925 eliminated,
+  124,834 resolutions, 2,925 definitions, 5,850 saved pairs), and exact
+  common-state definition records match current Kissat, so this may not be
+  recovered by reverting the Kissat effort/lifecycle repair. After Rank-27
+  pricing, localize the earliest downstream current/current worse-side event.
+- 2026-08-24 — Exact lifecycle guard `1644360`/`1644361` passes 66/66
+  (candidate and shipped each 17 SAT + 16 UNSAT), zero residue and no coverage
+  loss; candidate PAR-2 1513.879 s versus shipped 2060.188 s (0.73483×).
+  Candidate T105 is 393.968 s versus shipped 781.349 s. This authorizes exact
+  pin `8048eec…f7e`; proof-producing Rank-27 witness `1644427` is running at
+  2 CPUs, 16 GiB and 1200 s against immutable input `5435b1…b4e9`.
+- 2026-08-24 — Exact guarded Rank-27 `1644427` is valid checked UNSAT in
+  579.772 s with its 1.633-GB proof verified in 104.877 s and deleted with zero
+  residue. This improves `1644280` by 146.964 s and BVE 288.549→174.204 s,
+  but misses the 300-s objective and frozen Kissat's 278.187 s. Current/current
+  BVE remains same-scale/slower: 1.710M Tactix applications in 174.204 s versus
+  1.621M Kissat attempts in 26.16 s. On mp1, exact candidates/plans/definitions
+  and 2,925 retired variables still lead Tactix to collect only 5,957 redundant
+  clauses versus Kissat's 5,985, leaving exactly 28 extra clauses; localize this
+  first post-BVE worse-side semantic boundary without reverting accepted work.
+- 2026-08-24 — mp1 cleanup dump `1644428` retracts a new-retirement-bug
+  hypothesis: only 5,732/7,613 redundant clause hash/size entries are common,
+  with 1,881 solver-specific clauses per side; Tactix-only has 1,647 retired +
+  234 surviving versus Kissat-only 1,675 + 206, explaining the net 28. This is
+  downstream confirmation of frozen authority `20260823-0840`, which localized
+  the first formula split to Tactix's stronger redundant Strengthen band, and
+  `20260823-0850`, which rejected disabling it (Tactix >300 s, current Kissat
+  103.40 s). Do not duplicate/unfix that arm; return to Rank-27 BVE throughput.
+- 2026-08-24 — Exact-pin Rank-27 DWARF `1644430` finishes UNSAT in 581.432 s
+  under perf with 1.710M BVE applications / 177.221 s and no residue. BVE
+  definition remains the comparable-work/slower owner: `SubSolver::reset`
+  5.40% self, add 3.43%, shuffle 3.38%, core shrink 2.72%, radix map 2.37%, but
+  embedded solve only 0.98%. Line samples split reset between watch clearing
+  (46.36%) and an all-clause occurrence index (51.96%) that Kitten mode never
+  reads. The general candidate now keeps that safety index only for Fixed-mode
+  flips, matching upstream Kitten's watched-clause representation; Release is
+  73/74 with only the pre-existing documentation-size gate outstanding, the
+  two-mode 100k oracle and focused sanitizer proof tests pass. Exact-source
+  fuzz `1644431` and full-width B28+fixed-C5 guard `1644432`/`1644498` now gate
+  Rank-27 pricing of frozen binary `19593e…be64`.
+- 2026-08-24 — While that frozen pin validates, the next independent
+  representation increment removes BVE's measured 2.37% radix renumbering:
+  its already-deduplicated variables remain in first clause/literal occurrence
+  order, exactly the order Kitten then re-imports, and the same vector reverses
+  proof literals to kernel variables. Focused Release and ASan/UBSan proof
+  suites pass; bounded Tactix-only mp1 trace `1644499` matches all 16,395
+  payloads byte-for-byte to the existing exact common-state trace (normalized
+  SHA `10d8f14f…278cd`) without rerunning Kissat, and leaves zero residue.
+- 2026-08-24 — Source comparison exposes the larger retained-watch mismatch:
+  upstream `kitten_clear`, core shrink, and shuffle visit only the previous or
+  current active literal prefix while preserving high-water capacities;
+  Tactix visited every historical outer-vector entry. The follow-on candidate
+  now uses the same active prefix (empty tail lists consumed no random draws),
+  passes focused Release and sanitizer proof tests, and exact trace `1644500`
+  matches the unchanged 16,395-row payload image (same normalized/whole-trace
+  SHAs as the frozen exact run) with zero residue.
+- 2026-08-24 — The frozen occurrence-only guard's candidate T105 task 65 is
+  valid checked UNSAT with zero residue and preserves the lifecycle pin's exact
+  351,851 conflicts, 4,047,685 decisions, 796,773,998-byte proof, and proof SHA
+  `8aeeae6e…dd4`.  The representation specialization cuts internal solve
+  415.394→367.591 s and BVE 112.447→99.644 s (checked wall 418.251→370.588
+  s).  This is positive source-backed throughput evidence, but the exact guard
+  still awaits its final shipped T105 task and aggregate, and frozen-source fuzz
+  is still running; neither the occurrence-only nor cumulative Rank-27 witness
+  is yet authorized.
+- 2026-08-24 — The cumulative occurrence + first-occurrence + active-watch pin
+  is now immutable as Release SHA `03d80329…ce0` / debug SHA `5c9220ee…7e5`
+  against source-diff SHA `0f1d42c3…446`.  Release remains 73/74 with only the
+  documentation-size gate, focused debug proof tests are green, and frozen
+  native-LRAT fuzz `1644501` plus the full-width B28+fixed-C5 guard
+  `1644502`/`1644568` are running.  Its Rank-27 witness remains blocked until
+  both exact-pin gates pass.
+- 2026-08-24 — `SP-BVE-DEF-COMPACT-1` removes the next redundant
+  representation layer: BVE's proof-reversible variables are already dense in
+  first clause/literal occurrence order, so an engine-owned compact-Kitten
+  entry point constructs the identical VMTF queue directly and skips a second
+  identity import/export map on every clause literal. Sweep retains its real
+  external mapping; proof-rule and strategy ownership are unchanged. Focused
+  Release/debug proof suites pass, and bounded mp1 `1644569` preserves all
+  16,395 exact definition payloads plus normalized/whole trace SHAs
+  `10d8f14f…278cd` / `268d35ec…601`, with zero residue. This follow-on is not
+  part of the already frozen `03d80329…ce0` guard pin.
+- 2026-08-24 — Occurrence-only guard `1644432`/`1644498` passes 66/66:
+  both arms are 17 SAT + 16 UNSAT, candidate PAR-2 1659.465 s versus shipped
+  2139.493 s (0.77563×), no regressions/coverage loss, summary SHA
+  `be59e040…6eb`, and zero residue. Candidate T105 is checked at 370.588 s
+  versus shipped 777.863 s. Its separate fuzz is still running, and this pin's
+  Rank-27 witness is superseded by the stronger cumulative pin rather than
+  duplicated.
+- 2026-08-24 — The exact compact-Kitten follow-on is frozen as Release SHA
+  `85f74f24…996` / debug SHA `f3abd5cf…2b8` against source-diff SHA
+  `d4b918aa…c53`. Native-LRAT fuzz `1644570` and its mandatory full-width
+  B28+fixed-C5 guard `1644571`/`1644637` are running. This is now the only
+  candidate authorized to advance to a new checked Rank-27 witness after both
+  gates pass.
+- 2026-08-24 — Occurrence-only sanitizer fuzz `1644431` completes 10,000/0
+  with 8,762 checked verdicts (5,188 SAT + 3,574 proof-checked UNSAT), 6,160
+  BVE-reaching cases and 1,458,583 target applications. The standard 1,238
+  five-second nonterminating cases retain 25 diagnostic CNFs, but no proof,
+  LRAT, or staged-input residue remains; log SHA is `53f45eab…fd5`. Together
+  with its 66/66 guard this closes that positive increment, now superseded for
+  Rank-27 pricing by the compact pin.
+- 2026-08-24 — First-occurrence + active-watch guard `1644502`/`1644568`
+  passes 66/66 (17 SAT + 16 UNSAT per arm), candidate PAR-2 1663.615 s versus
+  shipped 2221.552 s (0.74885×), no regression/coverage loss, summary SHA
+  `b11ea947…39a`, and zero residue. Its candidate T105 BVE is 99.625 s versus
+  occurrence-only 99.644 s with every semantic counter fixed; the 404.989
+  versus 370.588 s total is broad node noise across all rules, not a negative
+  BVE effect. Compact-Kitten remains the only live Rank-27 candidate.
+- 2026-08-24 — `SP-BVE-DEF-SHRINK-1` lifts Kitten's next measured
+  representation detail without entering the frozen compact pin: second-core
+  membership bytes persist, and the clause arena compacts in place instead of
+  allocating a bitmap plus duplicate arena on every refinement. Tactix keeps
+  the parallel byte image only because its proof-visible two-word header has
+  no Kitten flag word. Focused Release/debug proof tests pass; mp1 `1644638`
+  preserves all 16,395 exact definition payloads and both frozen trace SHAs,
+  with zero residue. It remains an independently validated follow-on pending
+  pricing after the already-gated compact Rank-27 witness.
+- 2026-08-24 — Compact-Kitten guard `1644571`/`1644637` passes 66/66
+  (17 SAT + 16 UNSAT per arm), candidate PAR-2 1660.549 s versus shipped
+  2122.581 s (0.78233×), no regression/coverage loss, summary SHA
+  `c874c55f…fde`, and zero residue. Candidate T105 remains byte-exact at
+  351,851 conflicts and proof SHA `8aeeae6e…dd4`; direct identity consumption
+  lowers BVE 99.625→94.831 s. Exact-source fuzz `1644570` is now the sole
+  blocker for prepared checked Rank-27 campaign `20260824-0306`.
+- 2026-08-24 — Corrected current-Kissat performance authority: optimized O3
+  metrics observer `1644639` preserves the prior current-source trajectory
+  (4,120,691 conflicts, 1,621,010 elimination attempts, 364,315 eliminated)
+  but solves diagnostic Rank-27 in 286.30 s process / 287.72 s wall with
+  Eliminate at 16.32 s. The earlier event-trace-capable observer's 637.43 s /
+  26.16 s was build/instrumentation overhead and remains semantic evidence
+  only, not a speed reference. Current optimized Kissat is therefore close to
+  frozen checked Kissat 4.0.4 at 278.187 s. It performs 1,137,044 general
+  definition checks versus lifecycle Tactix's 1,223,465 (only 7.6% fewer), so
+  excess call volume cannot explain Tactix's 174.204 s BVE cost. Observer
+  `1644640` now measures the missing exact aggregate definition ticks.
+- 2026-08-24 — Exact compact-Kitten sanitizer fuzz `1644570` passes
+  10,000/0 with 8,761 checked verdicts (5,187 SAT + 3,574 proof-checked
+  UNSAT), 6,158 BVE-reaching cases, 1,457,675 target applications, and zero
+  proof/LRAT residue; 25 standard timeout CNFs remain diagnostic only. Log SHA
+  is `9323bfff…d65`. Together with guard `1644571`/`1644637`, this authorizes
+  immutable proof-producing Rank-27 campaign `20260824-0306` at 2 CPUs,
+  16 GiB, and the 1200-second solver contract.
+- 2026-08-24 — Current-Kissat tick observer `1644640` preserves the exact
+  optimized trajectory and reports 160,758,923 aggregate definition ticks over
+  1,137,044 checks. Lifecycle Tactix uses 2,505,837,432 over 1,223,465:
+  15.588× total and 14.487× per check. Calls differ by only 7.6%, so the
+  residual Rank-27 BVE owner is much harder per-definition logical work after
+  semantic divergence, not mainly raw SubSolver throughput. Log SHA is
+  `1078e4e…650`, zero residue. Checked compact witness `1644641` is now running
+  from the exact guarded pin; next localization must find the earliest portable
+  per-definition tick explosion from the last common state.
+- 2026-08-24 — First-occurrence + active-watch sanitizer fuzz `1644501`
+  completes 10,000/0 with 8,760 checked verdicts (5,187 SAT + 3,573
+  proof-checked UNSAT), 6,158 BVE-reaching cases, 1,457,675 target
+  applications, and zero proof/LRAT residue; the standard timeout corpus keeps
+  25 diagnostic CNFs. Log SHA is `8743664a…46b`. Its 66/66 guard and fuzz now
+  fully close that exact positive pin, superseded by compact-Kitten.
+- 2026-08-24 — Current/current conflict-15345 definition campaign `1644642`
+  yields a complete reusable current-Kissat trace (2,654,950 rows, 789,879
+  definition rows, terminal attempt 292,771; SHA `018811df…74d6`) but only
+  three Tactix header rows: the obsolete compact-probe filter suppressed the
+  newer Tactix definition event. This is an observer-filter failure, not a
+  solver crash or soundness defect. Campaign `20260824-0315` / job `1644644`
+  reruns only the missing exact-pin Tactix side with validated high-volume
+  skip filters; the preserved Kissat side is deliberately not duplicated.
+- 2026-08-24 — Tactix-only retry `1644644` completes cleanly in 55 s but
+  records zero definition events through Tactix conflict 15,345. Thus the
+  accepted repairs shifted Tactix's terminal elimination phase before that
+  conflict label; current Kissat still runs its comparable phase at 15,345.
+  Conflict-number alignment is no longer a common-state contract. Campaign
+  `20260824-0316` captures the complete current-Tactix compact BVE stream and
+  will align the terminal phase by entry decisions, candidate order, and
+  definition environment before applying the required worse-side comparison.
+- 2026-08-24 — Checked compact-Kitten Rank-27 witness `1644641` is a valid
+  UNSAT but remains a target miss: 504.297 s wall / 503.787 s internal versus
+  the 300 s engineering threshold. Its 1,633,208,191-byte proof (SHA
+  `7a9c2c04…1885`) verifies in 106.339 s and is deleted with all scratch.
+  The semantic trajectory is exact to the lifecycle witness at 3,747,797
+  conflicts, 61,793,863 BVE resolutions, 1,223,465 definition checks, and
+  2,505,837,432 definition ticks. The representation repairs therefore deliver
+  a clean positive increment—BVE 174.204→94.389 s and internal solve
+  579.268→503.787 s—without changing pruning, but leave Rank 27 open at
+  1.681× target. Complete-BVE trace `1644645` continues localization against
+  current Kissat's 160,758,923 aggregate definition ticks.
+- 2026-08-24 — Complete current-Tactix BVE capture `1644645` finishes
+  untruncated with 988,372 definition rows. The terminal streams start with
+  identical candidates and byte-exact definition attempts 1–8, but entry is
+  already different: Tactix is at conflict 15,344 / 5,956,353 decisions versus
+  current Kissat at 15,345 / 5,932,210. Attempt 9 is the first payload mismatch
+  (different external candidate), so its 7-versus-6 ticks are downstream and
+  not a portable same-environment defect. Campaign `20260824-0317` moves back
+  to the preserved common conflict-10,000 trajectory and reruns only current
+  Tactix to find the earlier worse-side owner; Kissat is not rerun.
+- 2026-08-24 — Exact in-place-core follow-on is frozen independently as
+  Release SHA `960b31b4…90e7` / debug SHA `4b5c7c94…b0d8` against production
+  source-diff SHA `5e015d57…04a3`. Native-LRAT fuzz `1644647` and the required
+  full-width B28+fixed-C5 guard `1644648` / aggregate `1644714` are running.
+  Exact mp1 parity is already closed by `1644638`; this pin cannot advance to
+  Tier D unless fuzz and all 66 checked guard tasks pass with zero residue.
+- 2026-08-24 — Current trajectory `1644646` confirms that the cumulative
+  latest Tactix no longer shares the old conflict-10,000 learned stream, so the
+  prior c14,456 terminal-search lead is stale for this pin. This does not make
+  c10,000 itself the owner because both window traces begin mid-search.
+  Macro-only campaign `20260824-0320` reuses the frozen current-Kissat macro
+  trace and will locate the earliest changed lifecycle boundary from startup;
+  only then will a bounded detailed current/current window be opened.
+- 2026-08-24 — Macro recheck `1644715` restores the correct common boundary:
+  current Tactix matches current Kissat schedule/decisions through the
+  conflict-9,449 second-Probe entry (5,761,854 decisions), including exact
+  conflict-7,150 Reduce timing. The Probe exit is weaker: Tactix retains 225
+  root-fixed-but-not-retired variables and one fewer binary, despite exact
+  irredundant/redundant counts, then reaches c10,000 with 598 fewer decisions
+  on a different learned trajectory. Campaign `20260824-0321` now applies the
+  established compact slot-boundary trace to name the first worse rule.
+- 2026-08-24 — Current c9,449 slot trace `1644716` closes portable population
+  parity through first Vivify, Sweep/Substitute, Transitive, Backbone, Factor,
+  second Congruence, and second early Substitute. The first weaker yield is
+  second Vivify: Tactix ends at 574,136 irredundant / 1,902 redundant /
+  753,322 binary versus Kissat's exact large-clause counts but 753,323 binary.
+  This was initially classified as weaker yield; full multiset campaign
+  `20260824-0323` below corrects that net-count inference. Candidate windows
+  `20260824-0322` reused frozen current-Kissat Vivify traces with no reference
+  rerun. Across all 4,915 paired candidates in the predeclared 0--500 and
+  500--1,000 windows, candidate identity/order, decision/probe stream, and
+  within-dose cumulative logical-tick deltas are exact. Source-clause payloads
+  retain the already known packed-replacement versus in-place representation
+  difference, but no paired terminal in these windows directly names the
+  missing binary. Thus scheduling and logical effort are closed for these
+  scopes; the next owner is the exact pre/post second-Vivify binary-set delta
+  and the terminal emission transaction for that pair.
+- 2026-08-24 — Added a disabled-by-default, portable binary-multiset snapshot
+  to both semantic observers and covered the Tactix path with the event-trace
+  unit test plus the Kissat overlay static test. Campaign `20260824-0323`
+  freezes both current diagnostic binaries and will enumerate all Vivify
+  entry/exit pairs at c9,449. This is an observer-only current/current run,
+  not a frozen benchmark-reference rerun; it is designed to replace the
+  ambiguous net-count comparison with the exact missing terminal pair.
+- 2026-08-24 — The mandatory full-width B28 plus fixed-C5 guard for
+  `SP-BVE-DEF-SHRINK-1` is closed: all 66 candidate/comparator tasks are valid
+  (17 SAT models and 16 UNSAT proofs in each arm), with zero invalid, missing,
+  regression, cleanup, or certificate-residue entries. Candidate PAR-2 is
+  1,640.738 s versus 2,223.039 s shipped (0.738061 ratio), so the compact-core
+  repair is positive on the complete iteration guard. Native-LRAT fuzz remains
+  the only validation prerequisite before its checked Tier-D submission.
+- 2026-08-24 — Full c9,449 binary-multiset campaign `1644719` closes the
+  apparent second-Vivify weakness without a solver repair. Both solvers add
+  the exact same 19 binary copies. Tactix deletes 12 versus Kissat 11 solely
+  because Tactix enters with two copies of `(-354369,-354368)` and Kissat with
+  one; both exit with one. The rule therefore has equal portable pruning, and
+  the 753,322-versus-753,323 net count was duplicate normalization, not a lost
+  consequence. Per worse-first analysis, do not pursue this Vivify lead. The
+  live owner returns to comparable-work throughput: the exact Rank-27 search
+  trajectory takes 503.787 s current Tactix versus 286.30 s current Kissat,
+  including 94.389 s versus 16.32 s in elimination.
+- 2026-08-24 — Rebuilt current Release after the general binary-set observer
+  addition. The suite is 73/74: all executable, proof, configuration, overlay,
+  campaign-cleanup, and hygiene tests pass. Only `doc_size` fails at
+  `PROGRESS.md` 621/350 lines and 37/5 recent entries plus implementation notes
+  578/560; calculus has a reserve warning. Repository authority forbids silent
+  documentation compaction, so this known policy failure remains explicit.
+- 2026-08-24 — Generated and validated the required three-page Andrew handoff
+  report at `report-to-andrew/2026-08-24-0915-rank27-compact-vivify-closure/`.
+  It records the checked 504.297 s compact witness, 66/66 guard, exact Vivify
+  multiset closure, current/current 503.787 versus 286.30 s gap, and the
+  long-definition-image throughput lead for the next agent.
+- 2026-08-24 — Exact-source native-LRAT sanitizer fuzz `1644647` passes:
+  10,000 cases, zero failures, 5,188 SAT plus 3,576 UNSAT terminating checked
+  verdicts (8,764/10,000 oracle coverage), 1,236 explicit five-second
+  non-terminations, and 1,459,984 stress-target applications including BVE in
+  6,162 cases. Twenty-five bounded timeout CNFs are retained as diagnostic
+  inputs; there is zero proof/certificate residue. No soundness, sanitizer, or
+  crash trigger fired, so the authorized Claude path was not invoked. Together
+  with the 66/66 guard, this authorizes checked Rank 27 and the frozen current
+  Tier-D run.
+- 2026-08-23 — Repaired and exactly closed the Sweep→Substitute bridge,
+  retirement, c3069 environment, and c5471 implication streams.
+- 2026-08-23 — Closed decision parity through c10000 and opened the c15385 BVE
+  throughput lead with a separately pinned no-trace cost control.
+- 2026-08-23 — Repaired linear SubSolver import and DRAT transient-lemma
+  identity; opened the one-sided-definition-unit divergence at c15345.
 
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism

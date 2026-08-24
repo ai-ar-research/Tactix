@@ -498,17 +498,19 @@ static void test_order_arms_reorder(void) {
 // under-prices exactly the expensive rounds.
 static void test_subsume_meters_partner_visits(void) {
   Kernel k;
-  kernel_reserve_vars(k, 96);
-  // Large clauses (binaries are not candidates) sharing one hot literal, so a
-  // single candidate faces many partners.
-  const Lit hot = make_lit(0, true);
-  for (uint32_t i = 2; i < 60; i++) {
-    const Lit c4[4] = {hot, make_lit(1, true), make_lit(i, true),
-                       make_lit(i + 1, true)};
-    kernel_add_large_clause(k, c4, 4, false, 0, 0);
-  }
-  const Lit c3[3] = {hot, make_lit(1, true), make_lit(2, true)};
-  kernel_add_large_clause(k, c3, 3, false, 0, 0); // subsumes one of the above
+  kernel_reserve_vars(k, 8);
+  // All 4-subsets of eight literals: every complete physical population is 35
+  // (below the accepted cap), while each candidate shares several literals
+  // with earlier partners.  This reaches the partner meter without relying on
+  // the historical growing-index connection bug.
+  for (uint32_t a = 0; a < 5; ++a)
+    for (uint32_t b = a + 1; b < 6; ++b)
+      for (uint32_t c = b + 1; c < 7; ++c)
+        for (uint32_t d = c + 1; d < 8; ++d) {
+          const Lit c4[4] = {make_lit(a, true), make_lit(b, true),
+                             make_lit(c, true), make_lit(d, true)};
+          kernel_add_large_clause(k, c4, 4, false, 0, 0);
+        }
 
   const RuleVTable *c1 = nullptr;
   for (const RuleVTable &r : tactix_rules())
@@ -825,7 +827,7 @@ static void test_default_slot_membership_matches_kissat(void) {
   const auto &rules = tactix_rules();
   static constexpr const char *POSED_ONLY[] = {
       "HyperBinaryRes", "Probe", "HyperTernaryRes",
-      "Instantiate",    "BCE",   "CCE",
+      "Instantiate",    "BCE",   "CCE", "SubsumeForward",
   };
   for (const auto &entry : p.inprocess().entries) {
     const char *name = rules[entry.rule].name;
@@ -872,7 +874,7 @@ static void test_default_slot_membership_matches_kissat(void) {
     assert(!std::strcmp(initial_probe[i], INITIAL_PROBE[i]) &&
            "startup Probe interleaving diverged from Kissat");
   std::printf("  slot membership/order: exact Kissat startup/search Probe; "
-              "six extra rules poseable\n");
+              "seven extra rules poseable\n");
 }
 
 // --- the two clocks are actually two ----------------------------------------

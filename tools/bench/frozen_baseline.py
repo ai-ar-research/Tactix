@@ -9,6 +9,7 @@ after an fsync'd classification record exists.
 
 import argparse
 import datetime as dt
+import errno
 import hashlib
 import json
 import math
@@ -23,7 +24,8 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(os.environ.get(
+    "TACTIX_REPO_ROOT", Path(__file__).resolve().parents[2])).resolve()
 DEFAULT_CAMPAIGN = ROOT / "benchmarks/baselines/sc24-26-32g-5000s-v1"
 CACHE = ROOT / "benchmarks/cache/tierD24-26"
 TIME = Path("/usr/bin/time")
@@ -34,6 +36,9 @@ SOLVE_LIMIT = 5000
 CHECK_LIMIT = 45000
 MEM_GIB = 32
 PARTITION = "cpu-dense-hwulab-q"
+CLEANUP_RETRY_ATTEMPTS = 20
+CLEANUP_RETRY_INITIAL_SECONDS = 0.05
+CLEANUP_RETRY_MAX_SECONDS = 2.0
 
 
 def sha256(path):
@@ -42,6 +47,14 @@ def sha256(path):
         for block in iter(lambda: f.read(1024 * 1024), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def fsync_directory(path):
+    dfd = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(dfd)
+    finally:
+        os.close(dfd)
 
 
 def atomic_json(path, value, exclusive=False):
@@ -62,11 +75,44 @@ def atomic_json(path, value, exclusive=False):
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp, path)
-    dfd = os.open(path.parent, os.O_RDONLY)
-    try:
-        os.fsync(dfd)
-    finally:
-        os.close(dfd)
+    fsync_directory(path.parent)
+
+
+def remove_tree_nfs_safe(path, attempts=CLEANUP_RETRY_ATTEMPTS,
+                         initial_delay=CLEANUP_RETRY_INITIAL_SECONDS,
+                         max_delay=CLEANUP_RETRY_MAX_SECONDS):
+    """Remove a tree despite transient NFS silly-rename cleanup failures."""
+    path = Path(path)
+    delay = initial_delay
+    retries = 0
+    for attempt in range(attempts):
+        if not path.exists():
+            return retries
+        try:
+            shutil.rmtree(path)
+            return retries
+        except FileNotFoundError:
+            return retries
+        except OSError as error:
+            transient = error.errno in (errno.EBUSY, errno.ENOTEMPTY)
+            if not transient or attempt + 1 == attempts:
+                raise
+            retries += 1
+            time.sleep(delay)
+            delay = min(max_delay, delay * 2)
+    raise AssertionError("unreachable cleanup retry loop")
+
+
+def promote_pending_result(pending_path, result_path, result):
+    """Atomically turn a durable, non-scoring journal into a final result."""
+    pending_path, result_path = Path(pending_path), Path(result_path)
+    if result_path.exists():
+        raise FileExistsError(f"result already exists: {result_path}")
+    atomic_json(pending_path, result)
+    result_path.parent.mkdir(parents=True, exist_ok=True)
+    os.replace(pending_path, result_path)
+    fsync_directory(pending_path.parent)
+    fsync_directory(result_path.parent)
 
 
 def command_version(cmd):
@@ -215,9 +261,10 @@ def prepare(campaign):
         "certificate_policy": {
             "aggregate_orphan_check": True,
             "retention": "none",
+            "result_publication": "pending-journal-then-atomic-promotion",
             "stage_cleanup": "delete-input-after-consuming-checker-stage",
             "storage": "live-campaign-scratch",
-            "terminal_cleanup": "delete-before-result-publication",
+            "terminal_cleanup": "bounded-nfs-retry-before-result-publication",
         },
         "limits": {"solve_wall_seconds": SOLVE_LIMIT,
                    "checker_pipeline_wall_seconds": CHECK_LIMIT,
@@ -525,6 +572,7 @@ def run_one(campaign, index):
     memory_gib = resource_contract.get("process_memory_gib", MEM_GIB)
     inst, solver = man["instances"][task["instance"]], man["solvers"][task["solver"]]
     result_path = campaign / "results" / f"{index:05d}.json"
+    pending_path = campaign / "pending" / f"{index:05d}.json"
     claim = campaign / "claims" / f"{index:05d}.json"
     atomic_json(claim, {"task": index, "host": os.uname().nodename,
                         "started_utc": dt.datetime.now(dt.timezone.utc).isoformat()}, exclusive=True)
@@ -606,6 +654,14 @@ def run_one(campaign, index):
         result["solver_stdout_tail"] = tail(stdout)
         result["solver_stderr_tail"] = tail(stderr)
 
+        # Journal the completed classification before deleting certificates.
+        # This is deliberately outside results/: it is recoverable cleanup
+        # state, not a scoreable campaign result.
+        result["cleanup_pending"] = True
+        result["scratch_deleted"] = False
+        result["cleanup_retries"] = 0
+        atomic_json(pending_path, result, exclusive=True)
+
         # Preserve only diagnostic metadata.  The SAT stdout is the model
         # certificate; an UNKNOWN proof is a partial certificate; and a failed
         # checker can leave partial derivatives.  All are removed regardless
@@ -621,12 +677,42 @@ def run_one(campaign, index):
                                          if answer == "SAT" or path == proof)
         result["derived_artifacts_deleted"] = all(
             not path.exists() for path in (derived or []))
-        shutil.rmtree(work)
+        result["cleanup_retries"] = remove_tree_nfs_safe(work)
         result["scratch_deleted"] = not work.exists()
-        atomic_json(result_path, result)
+        result["cleanup_pending"] = False
+        promote_pending_result(pending_path, result_path, result)
         return 0 if result["valid"] or answer == "UNKNOWN" else 1
     finally:
         shutil.rmtree(local, ignore_errors=True)
+
+
+def resume_cleanup(campaign, index):
+    """Finish a journaled cleanup without rerunning its solver or checker."""
+    campaign = campaign.resolve()
+    man = json.loads((campaign / "manifest.json").read_text())
+    if man.get("certificate_policy", {}).get("retention") != "none":
+        raise SystemExit("campaign must declare zero certificate retention")
+    pending_path = campaign / "pending" / f"{index:05d}.json"
+    result_path = campaign / "results" / f"{index:05d}.json"
+    if result_path.exists():
+        raise SystemExit("result already exists; cleanup is not resumable")
+    if not pending_path.is_file():
+        raise SystemExit("no cleanup journal exists for this task")
+    result = json.loads(pending_path.read_text())
+    if result.get("task") != index:
+        raise SystemExit("cleanup journal does not describe this task")
+    if result.get("retained_artifact") or result.get("retained_artifacts"):
+        raise SystemExit("cleanup journal violates zero-retention contract")
+
+    work = campaign / "scratch" / f"{index:05d}"
+    retries = remove_tree_nfs_safe(work)
+    result["cleanup_retries"] = result.get("cleanup_retries", 0) + retries
+    result["artifact_deleted"] = True
+    result["derived_artifacts_deleted"] = True
+    result["scratch_deleted"] = not work.exists()
+    result["cleanup_pending"] = False
+    promote_pending_result(pending_path, result_path, result)
+    return 0 if result.get("valid") or result.get("verdict") == "UNKNOWN" else 1
 
 
 def aggregate(campaign):
@@ -640,6 +726,7 @@ def aggregate(campaign):
         else:
             missing.append(i)
     claimed = {int(p.stem) for p in (campaign / "claims").glob("*.json")}
+    pending = sorted(int(p.stem) for p in (campaign / "pending").glob("*.json"))
     interrupted = sorted(claimed - {r["task"] for r in results})
     orphan_artifacts = []
     certificate_suffixes = {".drat", ".dsr", ".lrat", ".lsr", ".pbp"}
@@ -658,8 +745,9 @@ def aggregate(campaign):
                "complete": not missing, "task_count": len(man["tasks"]),
                "result_count": len(results), "missing_tasks": missing,
                "interrupted_claims": interrupted,
+               "pending_cleanup_tasks": pending,
                "cleanup_pending": (sum(bool(r.get("cleanup_pending")) for r in results)
-                                   + len(orphan_artifacts)),
+                                   + len(pending) + len(orphan_artifacts)),
                "retained_artifacts": (sum(bool(r.get("retained_artifact")) for r in results)
                                       + len(orphan_artifacts)),
                "orphan_artifact_paths": orphan_artifacts,
@@ -742,12 +830,13 @@ def validate(campaign):
     for path in all_artifacts:
         if path.exists():
             path.unlink()
-    shutil.rmtree(work)
+    cleanup_retries = remove_tree_nfs_safe(work)
     record = {"schema": 1, "manifest_sha256": sha256(campaign / "manifest.json"),
               "node": os.environ.get("SLURMD_NODENAME", os.uname().nodename),
               "passed": all(row["passed"] for row in rows), "solvers": rows,
               "artifacts_deleted": all(not path.exists() for path in all_artifacts),
-              "scratch_deleted": not work.exists()}
+              "scratch_deleted": not work.exists(),
+              "cleanup_retries": cleanup_retries}
     atomic_json(record_path, record, exclusive=True)
     print(json.dumps({"passed": record["passed"], "node": record["node"]}, indent=2))
     return 0 if record["passed"] else 1
@@ -866,6 +955,7 @@ def main():
     group.add_argument("--submit", action="store_true")
     group.add_argument("--validate", action="store_true")
     group.add_argument("--recheck", type=int)
+    group.add_argument("--resume-cleanup", type=int)
     args = ap.parse_args()
     if args.prepare:
         return prepare(args.campaign)
@@ -877,6 +967,8 @@ def main():
         return validate(args.campaign)
     if args.recheck is not None:
         return recheck(args.campaign, args.recheck)
+    if args.resume_cleanup is not None:
+        return resume_cleanup(args.campaign, args.resume_cleanup)
     return submit(args.campaign)
 
 

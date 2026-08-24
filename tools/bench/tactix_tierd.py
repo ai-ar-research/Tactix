@@ -19,7 +19,8 @@ import shutil
 import subprocess
 import sys
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(os.environ.get(
+    "TACTIX_REPO_ROOT", Path(__file__).resolve().parents[2])).resolve()
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import frozen_baseline as frozen  # noqa: E402
 
@@ -66,16 +67,16 @@ def slurm_array_spec(count, throttle):
     return spec + (f"%{throttle}" if throttle else "")
 
 
-def prepare(campaign, binary, source_commit, solve_limit, memory_gib,
+def prepare(campaign, binary, source_commit, source_tree, solve_limit, memory_gib,
             array_throttle, array_throttle_reason):
     if campaign.exists():
         raise SystemExit(f"campaign already exists: {campaign}")
-    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, check=True,
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=source_tree, check=True,
                           capture_output=True, text=True).stdout.strip()
     if head != source_commit:
         raise SystemExit(f"HEAD {head} differs from requested pin {source_commit}")
     if subprocess.run(["git", "diff", "--quiet", source_commit, "--", "src", "include"],
-                      cwd=ROOT).returncode:
+                      cwd=source_tree).returncode:
         raise SystemExit(f"production source differs from pinned commit {source_commit}")
     if not binary.is_file():
         raise SystemExit(f"missing Tactix release binary: {binary}")
@@ -92,9 +93,14 @@ def prepare(campaign, binary, source_commit, solve_limit, memory_gib,
         raise SystemExit("frozen baseline manifest no longer matches its launch hash")
 
     campaign.mkdir(parents=True)
-    for directory in ("claims", "logs", "pins", "results", "scratch", "retained"):
+    for directory in ("claims", "logs", "pending", "pins", "results", "scratch",
+                      "retained"):
         (campaign / directory).mkdir()
     copy_frozen_binary(binary, campaign / "pins/tactix")
+    copy_frozen_binary(Path(frozen.__file__).resolve(),
+                       campaign / "pins/frozen_baseline.py")
+    copy_frozen_binary(Path(__file__).resolve(),
+                       campaign / "pins/tactix_tierd.py")
     wrapper = campaign / "pins/run-tactix.sh"
     wrapper.write_text(
         "#!/usr/bin/env bash\n"
@@ -131,7 +137,11 @@ def prepare(campaign, binary, source_commit, solve_limit, memory_gib,
         "dataset_sha256": reference["dataset_sha256"],
         "instances_list_sha256": reference["instances_list_sha256"],
         "cache_manifest_sha256": reference["cache_manifest_sha256"],
-        "certificate_policy": reference["certificate_policy"],
+        "certificate_policy": {
+            **reference["certificate_policy"],
+            "result_publication": "pending-journal-then-atomic-promotion",
+            "terminal_cleanup": "bounded-nfs-retry-before-result-publication",
+        },
         "limits": limits,
         "slurm": slurm,
         "policy": reference["policy"],
@@ -158,14 +168,17 @@ def prepare(campaign, binary, source_commit, solve_limit, memory_gib,
             "binary_sha256": sha256(campaign / "pins/tactix"),
             "binary_pin": "independent read-only campaign copy",
             "cmake_build_type": "Release",
+            "source_verification": "clean worktree at exact git commit",
         },
         "measurement_runner": {
-            "path": str(Path(frozen.__file__).resolve().relative_to(ROOT)),
-            "sha256": sha256(Path(frozen.__file__).resolve()),
+            "path": "pins/frozen_baseline.py",
+            "sha256": sha256(campaign / "pins/frozen_baseline.py"),
+            "pin": "independent read-only campaign copy",
         },
         "campaign_runner": {
-            "path": str(Path(__file__).resolve().relative_to(ROOT)),
-            "sha256": sha256(Path(__file__).resolve()),
+            "path": "pins/tactix_tierd.py",
+            "sha256": sha256(campaign / "pins/tactix_tierd.py"),
+            "pin": "independent read-only campaign copy",
         },
     }
     atomic_json(campaign / "manifest.json", manifest, exclusive=True)
@@ -174,7 +187,15 @@ def prepare(campaign, binary, source_commit, solve_limit, memory_gib,
 
 
 def validate(campaign):
-    return frozen.validate(campaign)
+    manifest = json.loads((campaign / "manifest.json").read_text())
+    runner = campaign / manifest["measurement_runner"]["path"]
+    if sha256(runner) != manifest["measurement_runner"]["sha256"]:
+        raise SystemExit("pinned measurement runner hash mismatch")
+    env = dict(os.environ)
+    env["TACTIX_REPO_ROOT"] = str(ROOT)
+    return subprocess.run(
+        [sys.executable, runner, "--campaign", campaign, "--validate"],
+        env=env).returncode
 
 
 def aggregate(campaign):
@@ -187,6 +208,8 @@ def aggregate(campaign):
         else:
             missing.append(index)
     claimed = {int(path.stem) for path in (campaign / "claims").glob("*.json")}
+    pending = sorted(int(path.stem)
+                     for path in (campaign / "pending").glob("*.json"))
     interrupted = sorted(claimed - {row["task"] for row in results})
     orphan_artifacts = []
     certificate_suffixes = {".drat", ".dsr", ".lrat", ".lsr", ".pbp"}
@@ -210,8 +233,9 @@ def aggregate(campaign):
         "result_count": len(results),
         "missing_tasks": missing,
         "interrupted_claims": interrupted,
+        "pending_cleanup_tasks": pending,
         "cleanup_pending": (sum(bool(row.get("cleanup_pending")) for row in results)
-                            + len(orphan_artifacts)),
+                            + len(pending) + len(orphan_artifacts)),
         "orphan_artifact_paths": orphan_artifacts,
         "invalid": sum(row.get("valid") is False for row in results),
         "results": results,
@@ -224,11 +248,12 @@ def aggregate(campaign):
 
 def submit(campaign):
     manifest = json.loads((campaign / "manifest.json").read_text())
-    runner = Path(frozen.__file__).resolve()
+    runner = campaign / manifest["measurement_runner"]["path"]
     if sha256(runner) != manifest["measurement_runner"]["sha256"]:
-        raise SystemExit("measurement runner changed after validation; reprepare")
-    if sha256(Path(__file__).resolve()) != manifest["campaign_runner"]["sha256"]:
-        raise SystemExit("campaign runner changed after validation; reprepare")
+        raise SystemExit("pinned measurement runner hash mismatch")
+    campaign_runner = campaign / manifest["campaign_runner"]["path"]
+    if sha256(campaign_runner) != manifest["campaign_runner"]["sha256"]:
+        raise SystemExit("pinned campaign runner hash mismatch")
     validation = campaign / "validation.json"
     if not validation.is_file() or not json.loads(validation.read_text()).get("passed"):
         raise SystemExit("successful compute-node validation is required")
@@ -248,6 +273,7 @@ def submit(campaign):
 #SBATCH --array={array_spec}
 #SBATCH --no-requeue
 #SBATCH --output={campaign}/logs/task-%a.log
+export TACTIX_REPO_ROOT={ROOT}
 exec {sys.executable} {runner} --campaign {campaign} --run-one "$SLURM_ARRAY_TASK_ID"
 """)
     aggregate.write_text(f"""#!/usr/bin/env bash
@@ -258,7 +284,8 @@ exec {sys.executable} {runner} --campaign {campaign} --run-one "$SLURM_ARRAY_TAS
 #SBATCH --time=01:00:00
 #SBATCH --no-requeue
 #SBATCH --output={campaign}/logs/aggregate.log
-exec {sys.executable} {Path(__file__).resolve()} --campaign {campaign} --aggregate
+export TACTIX_REPO_ROOT={ROOT}
+exec {sys.executable} {campaign_runner} --campaign {campaign} --aggregate
 """)
     array_id = subprocess.run(["sbatch", "--parsable", array], check=True,
                               capture_output=True, text=True).stdout.strip().split(";")[0]
@@ -277,6 +304,7 @@ def main():
     parser.add_argument("--campaign", type=Path, default=DEFAULT_CAMPAIGN)
     parser.add_argument("--binary", type=Path, default=ROOT / "build/release/tactix")
     parser.add_argument("--source-commit", default=PIN)
+    parser.add_argument("--source-tree", type=Path, default=ROOT)
     parser.add_argument("--solve-limit", type=int, default=frozen.SOLVE_LIMIT)
     parser.add_argument("--memory-gib", type=int, default=frozen.MEM_GIB)
     parser.add_argument("--array-throttle", type=int)
@@ -289,7 +317,8 @@ def main():
     args = parser.parse_args()
     if args.prepare:
         return prepare(args.campaign.resolve(), args.binary.resolve(),
-                       args.source_commit, args.solve_limit, args.memory_gib,
+                       args.source_commit, args.source_tree.resolve(),
+                       args.solve_limit, args.memory_gib,
                        args.array_throttle, args.array_throttle_reason)
     if args.validate:
         return validate(args.campaign.resolve())

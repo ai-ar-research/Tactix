@@ -1,0 +1,163 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\usepackage[hidelinks]{hyperref}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Compact Definition Core and Vivify Multiset Closure}
+\author{Tactix engineering handoff}
+\date{24 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive outcome}
+The latest cumulative Tactix pin keeps the accepted Rank-27 search trajectory
+and cuts checked wall time from 579.772 to 504.297 seconds.  BVE falls from
+174.204 to 94.389 seconds.  The repaired 1.633-GB DRAT certificate verifies and
+is deleted, but the result remains 1.681 times the 300-second objective and
+1.76 times the 286.30-second current-Kissat diagnostic control.
+
+The improvement comes from general representation fidelity to Kitten.  BVE's
+definition variables are already dense in first-import order, so the shared
+subsolver no longer rebuilds an identical outer map.  It stores only the
+watched occurrence structure that Kitten's model-flip path reads.  Finally,
+second-core membership uses persistent scratch and retained original clauses
+compact in place, matching \code{kitten_shrink_to_clausal_core} without
+changing Tactix's proof-visible clause header.  No benchmark identity, rank,
+hash, deadline, per-instance arm, or tuned constant enters the solver.
+
+The apparent next semantic lead in conflict-9,449 Vivify is now closed as a
+false positive.  Candidate order, decisions, and normalized logical ticks are
+exact over 4,915 paired candidates.  Full binary-multiset snapshots show that
+both solvers derive the same 19 binaries.  Tactix's scalar count ends one lower
+only because it enters with two copies of one pair and normalizes to one,
+whereas Kissat enters and exits with one.  No Vivify repair is justified.
+
+\section*{Frozen authorities and checked Rank-27 witness}
+The immutable input is
+\artifact{benchmarks/cache/tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz},
+SHA-256
+\hashcode{5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9}.
+No frozen scoring reference was rerun.  The current-Kissat 286.30-second value
+comes from a separately pinned diagnostic build at the latest common semantic
+state.
+
+Checked campaign
+\artifact{benchmarks/runs/20260824-0306-tierd-rank27-bve-definition-compact-kitten-witness/}
+returns UNSAT in 503.787 internal and 504.297 wall seconds with peak solver RSS
+654,816 KiB.  It preserves exactly 3,747,797 conflicts, 177,941,301 decisions,
+61,793,863 BVE resolutions, 1,223,465 definition checks,
+2,505,837,432 definition ticks, and 352,186 eliminated variables.  Its
+1,633,208,191-byte proof has SHA-256
+\hashcode{7a9c2c04c8dc143ae498eb972ec403566cb9287d29adf8559b77a2aeb5cf1885};
+\code{drat-trim} verifies it in 106.339 seconds.  The proof, checker products,
+and decompressed input are deleted, leaving zero certificate residue.
+
+\section*{Compact-core representation repair}
+Three nested copies were removed without changing logical ownership.
+\code{reset_compact_kitten} consumes BVE's existing dense first-occurrence
+image directly.  Fixed-mode-only all-clause occurrence lists are absent in the
+Kitten path because upstream Kitten's flip predicate scans watched clauses.
+The second-core pass retains a parallel membership byte---Tactix's two-word
+proof header has no spare flag---and compacts original clauses in the existing
+arena instead of allocating a second arena.
+
+The complete mp1 observer remains byte-exact over all 16,395 paired definition
+records, including candidate and clause import order, variable/side counts,
+both core size/split/hash values, cumulative ticks, allowance, generator, and
+terminal outcome.  Thus these changes are engine representation, not a new BVE
+proof rule or a policy shortcut.
+
+The exact-source B28 plus fixed mechanism-relevant C5 guard is
+\artifact{benchmarks/runs/20260824-0319-BC-bve-definition-inplace-core-guard/}.
+All 66 candidate/comparator tasks validate: each arm has 17 SAT models and 16
+UNSAT proofs, with no invalid, missing, regression, cleanup, or residue entry.
+Candidate PAR-2 is 1,640.738 seconds versus 2,223.039 seconds shipped, a
+0.738061 ratio.  The summary SHA-256 is
+\hashcode{747bddf6bd507dd76aa1e2d95cb5e161a146b090ad1ea2d9ec6cf3c7b6cccc22}.
+
+\section*{Why the Vivify count was not a pruning loss}
+Macro and rule-boundary traces agree through the second conflict-9,449 Vivify
+entry.  Tactix exits with 753,322 binary copies and Kissat with 753,323, while
+both have 574,136 irredundant and 1,902 redundant large clauses.  A scalar
+reading therefore suggested that Tactix learned one fewer binary.
+
+Campaign
+\artifact{benchmarks/runs/20260824-0323-tierd-rank27-current-vivify9449-binary-sets/}
+enumerates sorted permanent-external-literal multisets at every Vivify
+boundary.  During the second invocation each solver adds the exact same 19
+copies.  Kissat deletes 11 and Tactix deletes 12.  The sole extra Tactix
+deletion is pair $(-354369,-354368)$: Tactix has two copies at entry and one at
+exit; Kissat has one at both boundaries.  The two terminal multisets retain a
+separate, inherited equivalent-representative difference, but the Vivify delta
+contains no lost consequence.  This demonstrates why worse-first divergence
+analysis must compare exact deltas, not only populations.
+
+The diagnostic snapshot is disabled by default and exists only in event-trace
+builds.  It retains duplicate copies, sorts by permanent external literals,
+and changes neither proof rules nor scheduling.  Its Tactix path has a unit
+test; the Kissat overlay has a static construction test.  Both diagnostic jobs
+complete in under 47 seconds and leave no staged input or certificate.
+
+\section*{Remaining worse-side throughput owner}
+The 300-second objective is still open.  Current Tactix and current Kissat
+reach the same terminal Rank-27 search trajectory, yet Tactix needs 503.787
+seconds internally versus 286.30 seconds.  Elimination alone is 94.389 versus
+16.32 seconds.  This is the preferred divergence class: the same useful work
+is executed much more slowly.
+
+The complete terminal-BVE observers give a sharper next lead.  In that phase,
+Kissat has 292,771 definition attempts and 18,112,153 terminal embedded ticks;
+Tactix has 369,081 attempts and 280,614,670 ticks.  Tactix has 32,932 attempts
+whose imported variable image exceeds 1,024 variables, accounting for
+249,343,427 ticks; Kissat has none in that band.  The first Tactix attempt above
+256 variables is external candidate 396947: four long occurrence clauses span
+666 variables and cost 674 embedded ticks, while current Kissat declines the
+same candidate without a definition attempt.  Because the formula states have
+already diverged, this is a localization lead, not permission to patch BVE
+admission.  The next trace must identify the upstream clause/representation
+transaction that leaves Tactix with these long pivot clauses.
+
+\section*{Correctness and operational state}
+The cumulative Release suite is 73/74: every executable, proof, configuration,
+and hygiene test passes; only the known documentation-size policy fails because
+the living progress and implementation notes exceed their advisory limits.
+Repository authority forbids silent compaction, so no history was deleted.
+Focused event-trace tests pass, and \code{git diff --check} is clean.
+
+The exact-source native-LRAT fuzz campaign
+\artifact{benchmarks/runs/20260824-0318-bve-definition-inplace-core-fuzz/}
+passes 10,000 cases with zero failures: 5,188 SAT plus 3,576 UNSAT
+terminating checked verdicts, 1,236 explicit five-second non-terminations, and
+1,459,984 stress-target applications.  Twenty-five bounded timeout CNFs are
+retained as diagnostic inputs, while no proof or checker artifact remains.  No
+unit or fuzz soundness/crash trigger required the authorized Claude repair
+path.
+
+The prior full Tier-D comparison remains independent and continues without
+blocking Rank-27 work.  After the fuzz gate, the current Release binary is
+frozen as an independent read-only campaign copy for a new SC24--26 union run
+under 1,800 seconds, 16 GiB, two CPUs per task, and array throttle 85.  Its
+runner validates every SAT model and UNSAT certificate, deletes all certificate
+artifacts, and aggregates asynchronously; Rank-27 work continues rather than
+waiting for that array.
+
+\section*{Clean handoff boundary}
+The current interactive allocation expires roughly four hours after this
+checkpoint.  A safe handoff is: finish fuzz; freeze and submit the current
+Tier-D campaign; run the checked current Rank-27 witness; record whether
+in-place core compaction reduces the 249-million-tick large-image tail; and
+only then open the selected long-clause lineage trace.  Commit and push the
+source, tests, documentation, and this PDF with a clean synchronized worktree.
+Do not reopen Vivify from its scalar binary count and do not tune a candidate
+admission threshold to external 396947.
+
+\end{document}

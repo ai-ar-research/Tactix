@@ -48,6 +48,8 @@ TABLE = {
     "bve_occurrence_limit":    ("POLICY", "named DefaultStrategyConfig cap installed "
                                           "at each inprocessing phase"),
     "bve_track_min_bound":     ("POLICY", "ramp bookkeeping"),
+    "bve_definition_session":  ("POLICY", "embedded Kitten create/release lifetime; "
+                                           "advanced once per BVE slot"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
     "work_budget":             ("POLICY", "per-round budget handed to budget-aware rules"),
     "work_budget_offset":      ("POLICY", "work already charged against a cumulative "
@@ -78,7 +80,7 @@ TABLE = {
                                          "solver->probing for assign-time phases"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
-    "bve_backward":            ("ENV", "TACTIX_BVE_BACKWARD (cadical elimbackward; ships ON)"),
+    "bve_backward":            ("ENV", "TACTIX_BVE_BACKWARD (optional cadical elimbackward; ships OFF like kissat)"),
     "bce_occ_limit":           ("ENV", "TACTIX_BCE_OCC_LIMIT"),
     "midround_budget":         ("ENV", "TACTIX_MIDROUND_BUDGET (measured negative)"),
     "factor_size":             ("ENV", "TACTIX_FACTOR_SIZE"),
@@ -89,9 +91,10 @@ TABLE = {
     # POLICY — kissat treats `definitionticks` as a fixed option and moves
     # nothing per phase, so a writer in default_policy.* would be the fake
     # wiring this check exists to expose. Pricing it is phase-4 dosing.
-    "bve_definition_budget":   ("ENV", "TACTIX_BVE_DEF_TICKS; ships 1e4 (kissat "
-                                       "`definitionticks` is 1e6 in another "
-                                       "currency)"),
+    "bve_definition_budget":   ("ENV", "TACTIX_BVE_DEF_TICKS; ships kissat's "
+                                       "1e6 first-core Kitten ticks"),
+    "bve_definition_cores":    ("ENV", "TACTIX_BVE_DEF_CORES; ships kissat's "
+                                       "two refined definition cores"),
     "ternary_occ_limit":       ("ENV", "TACTIX_TERNARY_OCC_LIMIT"),
     "ternary_max_add_percent": ("ENV", "TACTIX_TERNARY_MAXADD"),
     # Default-on with an `=0` revert hatch: the touched-epoch filters are

@@ -257,6 +257,35 @@ static void test_known_equivalence_still_substitutes() {
   assert(kernel_var_retired(k, 0) || kernel_var_retired(k, 1));
 }
 
+// The live Sweep representative map, not Kernel retirement, suppresses the
+// two preserved implication bridges from every later local environment.
+// Kissat's `sweep_binary` declines either a non-representative owner or other
+// endpoint before satisfaction/depth handling.  Since Sweep deliberately keeps
+// the class active for canonical Substitute, omitting this check imports the
+// losing variable and both bridge clauses into the winner's next environment.
+static void test_environment_skips_nonrepresentative_bridges() {
+  Kernel k;
+  build(k, 3, {{1, 3}, {-1, -3}});
+  SweepRound round;
+  SweepLimits limits;
+  sweep_round_begin(k, round);
+
+  const Lit one = internalize(1), two = internalize(2);
+  kernel_add_binary_clause(k, negate(one), two, ++k.next_clause_id);
+  kernel_add_binary_clause(k, one, negate(two), ++k.next_clause_id);
+  const ApplyResult rewritten = substitute_apply_sweep_equivalences(
+      k, {{one, two}}, round.substitution);
+  assert(rewritten == ApplyResult::Ok || rewritten == ApplyResult::NoOp);
+  round.repr[two] = one;
+  round.repr[negate(two)] = negate(one);
+
+  assert(sweep_env_build(k, var_of(one), limits, round));
+  assert(round.env.vars.size() == 2);
+  assert(round.env.nclauses() == 2);
+  for (const Lit lit : round.env.clause_lits)
+    assert(var_of(lit) != var_of(two));
+}
+
 // Sweep commits backbone units before its equivalence batch. If one member of
 // a proved class is fixed by that batch, the class implies a unit on the other
 // member; dropping the pair loses a core consequence.
@@ -1165,6 +1194,7 @@ int main(int argc, char **argv) {
   test_seed_symmetry();
   test_full_partition_finds_nonseed_pair();
   test_known_equivalence_still_substitutes();
+  test_environment_skips_nonrepresentative_bridges();
   test_equivalence_with_new_unit_forces_partner();
   test_env_provenance();
   test_equal_depth_binary_encounters();

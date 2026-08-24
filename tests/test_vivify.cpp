@@ -286,6 +286,7 @@ static void test_leftover_priority() {
   for (const Ref r : refs)
     assert(!clause_at(k.arena, r)->vivify());
   clause_at(k.arena, refs[2])->set_vivify(true); // armed candidates come first
+  k.vivify_scope = 2; // exercise the large-irredundant radix/reverse path
   vivify_candidates(k, cands);
   assert(cands.size() == 3 && cands[0] == refs[2]);
 }
@@ -601,6 +602,7 @@ static void test_kissat_candidate_count_vector_ties() {
         kernel_add_large_clause(k, old_lits, 3, false, 0, 3);
     assert(replacement > later); // physical append differs from logical pose
     std::vector<Ref> cands;
+    k.vivify_scope = 2; // radix must reconstruct Kissat's old in-place order
     vivify_candidates(k, cands);
     assert(cands.size() == 2);
     assert(cands[0] == later && cands[1] == replacement);

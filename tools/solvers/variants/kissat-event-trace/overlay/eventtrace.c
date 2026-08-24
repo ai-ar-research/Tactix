@@ -51,6 +51,9 @@ static bool binary_lifecycle_initialized;
 static uint64_t binary_lifecycle_sequence;
 static int binary_lifecycle_pairs[64][2];
 static size_t binary_lifecycle_pairs_size;
+static FILE *binary_set_snapshot_file;
+static bool binary_set_snapshot_initialized;
+static uint64_t binary_set_snapshot_sequence;
 static FILE *transitive_trace_file;
 static bool transitive_trace_initialized;
 static uint64_t transitive_trace_source_sequence;
@@ -202,6 +205,75 @@ static unsigned external_variable (kissat *solver, unsigned idx) {
 static int external_literal (kissat *solver, unsigned lit) {
   const int external = (int) external_variable (solver, IDX (lit));
   return NEGATED (lit) ? -external : external;
+}
+
+struct binary_set_pair {
+  int a, b;
+};
+
+static int compare_binary_set_pairs (const void *p, const void *q) {
+  const struct binary_set_pair *a = p, *b = q;
+  if (a->a != b->a)
+    return a->a < b->a ? -1 : 1;
+  return a->b == b->b ? 0 : a->b < b->b ? -1 : 1;
+}
+
+static void emit_binary_set_snapshot (kissat *solver, const char *event,
+                                      const char *payload) {
+  const char *path = getenv ("SAT_EVENT_TRACE_BINARY_SET_PATH");
+  const char *match = getenv ("SAT_EVENT_TRACE_BINARY_SET_MATCH");
+  const char *conflict = getenv ("SAT_EVENT_TRACE_BINARY_SET_CONFLICT");
+  if (!path || !*path || !match || !*match || !conflict || !*conflict)
+    return;
+  char *end = 0;
+  const uint64_t selected = strtoull (conflict, &end, 10);
+  if (end == conflict || *end || selected != solver->statistics.conflicts)
+    return;
+  if (!strstr (event, match) && (!payload || !strstr (payload, match)))
+    return;
+  if (!binary_set_snapshot_initialized) {
+    binary_set_snapshot_initialized = true;
+    binary_set_snapshot_file = fopen (path, "w");
+    if (!binary_set_snapshot_file)
+      return;
+    fputs ("# kissat-binary-set-snapshot\t1\n", binary_set_snapshot_file);
+    fputs ("# snapshot\ta\tb\n", binary_set_snapshot_file);
+  }
+  if (!binary_set_snapshot_file)
+    return;
+  size_t size = 0;
+  for (all_literals (lit))
+    for (all_binary_large_watches (watch, WATCHES (lit)))
+      size += watch.type.binary && lit < watch.binary.lit;
+  struct binary_set_pair *pairs = malloc (size * sizeof *pairs);
+  if (!pairs && size)
+    return;
+  size_t used = 0;
+  for (all_literals (lit))
+    for (all_binary_large_watches (watch, WATCHES (lit))) {
+      if (!watch.type.binary || lit >= watch.binary.lit)
+        continue;
+      int a = external_literal (solver, lit);
+      int b = external_literal (solver, watch.binary.lit);
+      if (b < a) {
+        const int tmp = a;
+        a = b;
+        b = tmp;
+      }
+      pairs[used++] = (struct binary_set_pair) {a, b};
+    }
+  qsort (pairs, used, sizeof *pairs, compare_binary_set_pairs);
+  const uint64_t snapshot = binary_set_snapshot_sequence++;
+  fprintf (binary_set_snapshot_file,
+           "# begin\t%" PRIu64 "\tkissat\t%s\t%" PRIu64 "\t%zu\t%s\n",
+           snapshot, event, solver->statistics.conflicts, used,
+           payload ? payload : "-");
+  for (size_t i = 0; i != used; ++i)
+    fprintf (binary_set_snapshot_file, "%" PRIu64 "\t%d\t%d\n", snapshot,
+             pairs[i].a, pairs[i].b);
+  fprintf (binary_set_snapshot_file, "# end\t%" PRIu64 "\n", snapshot);
+  fflush (binary_set_snapshot_file);
+  free (pairs);
 }
 
 bool kissat_transitive_trace_pair_selected (kissat *solver, unsigned first,
@@ -1044,6 +1116,8 @@ void kissat_event_trace_target_state (kissat *solver, const char *stage,
 
 void kissat_event_trace (kissat *solver, const char *event,
                          const char *payload, bool snapshot) {
+  if (snapshot)
+    emit_binary_set_snapshot (solver, event, payload);
   open_trace ();
   if (!trace_file)
     return;
@@ -1094,6 +1168,10 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "probe_begin") && strcmp (event, "probe_end") &&
       strcmp (event, "preprocess_begin") &&
       strcmp (event, "preprocess_end") &&
+      strcmp (event, "slot_boundary") &&
+      strncmp (event, "factor_", 7) &&
+      strncmp (event, "bve_", 4) &&
+      strncmp (event, "eliminate_", 10) &&
       strncmp (event, "substitute_", 11))
     return;
   if (trace_search_only && !snapshot && strcmp (event, "decision") &&

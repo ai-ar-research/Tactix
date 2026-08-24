@@ -547,16 +547,6 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
   // selection lives in the compile-time event observer, never in the solver.
   event_trace_vivify_counts(k, ord.counts.data(), ord.counts.size());
 
-  // The occurrence counts are complete only after the second arena pass has
-  // been counted.  Sort each pass-time literal snapshot now.  Redundant
-  // clauses later commit this pose; irredundant clauses use it only as the
-  // imprecise COUNTREF key and keep their physical pose unchanged.
-  if (k.vivify_reuse)
-    for (const Cand &cand : cands)
-      std::sort(keys.begin() + cand.key_off,
-                keys.begin() + cand.key_off + cand.key_len,
-                [&ord](Lit a, Lit b) { return ord(a, b); });
-
   uint64_t live_irredundant = 0, live_redundant = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -564,6 +554,20 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
       (c->redundant() ? live_redundant : live_irredundant)++;
     ref += clause_actual_words(c);
   }
+  const bool radix_reverse_irredundant =
+      k.vivify_scope == 2 && !k.vivify_flush &&
+      live_irredundant / 10 > live_redundant;
+
+  // The occurrence counts are complete only after the second arena pass has
+  // been counted. Sort each pass-time snapshot only when Kissat sorts this
+  // schedule. In the large-irredundant regime it deliberately skips global
+  // literal and candidate sorting; vivify_one still sorts the probe stack of
+  // each clause that the tick budget actually reaches.
+  if (k.vivify_reuse && !radix_reverse_irredundant)
+    for (const Cand &cand : cands)
+      std::sort(keys.begin() + cand.key_off,
+                keys.begin() + cand.key_off + cand.key_len,
+                [&ord](Lit a, Lit b) { return ord(a, b); });
   // kissat vivify.c:296-301: an empty leftover set re-arms the whole scope.
   // The bit is a priority mechanism and never a suppressor.
   const bool rearm = prioritized == 0 && !cands.empty();
@@ -645,8 +649,53 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
     cands.resize(write);
   }
 
-  std::sort(cands.begin(), cands.end(),
-            [&](const Cand &a, const Cand &b) {
+  // Kissat skips candidate sorting entirely when irredundant clauses outnumber
+  // redundant clauses by more than 10:1: its arena is stable, so popping the
+  // schedule already gives reverse arena order. Tactix appends replacements
+  // and records their old in-place position in `arena_order`; comparison-
+  // sorting millions of clauses merely reconstructed that same order. Restore
+  // it with a stable radix pass instead. Priority pass zero precedes pass one,
+  // so partitioning in ascending order and reversing reproduces Kissat's pop.
+  if (radix_reverse_irredundant && cands.size() > 1) {
+    uint64_t max_order = 0;
+    for (const Cand &cand : cands)
+      max_order = std::max(max_order, cand.arena_order);
+    std::vector<Cand> scratch(cands.size());
+    std::vector<size_t> counts(size_t{1} << 16);
+    bool data_in_cands = true;
+    for (unsigned shift = 0; shift < 64; shift += 16) {
+      std::fill(counts.begin(), counts.end(), 0);
+      const std::vector<Cand> &src = data_in_cands ? cands : scratch;
+      std::vector<Cand> &dst = data_in_cands ? scratch : cands;
+      for (const Cand &cand : src)
+        counts[(cand.arena_order >> shift) & 0xffffu]++;
+      size_t offset = 0;
+      for (size_t &count : counts) {
+        const size_t next = offset + count;
+        count = offset;
+        offset = next;
+      }
+      for (const Cand &cand : src)
+        dst[counts[(cand.arena_order >> shift) & 0xffffu]++] = cand;
+      data_in_cands = !data_in_cands;
+      if (shift == 48 || !(max_order >> (shift + 16)))
+        break;
+    }
+    if (!data_in_cands)
+      cands.swap(scratch);
+    scratch.clear();
+    scratch.reserve(cands.size());
+    for (const Cand &cand : cands)
+      if (!cand.prioritized)
+        scratch.push_back(cand);
+    for (const Cand &cand : cands)
+      if (cand.prioritized)
+        scratch.push_back(cand);
+    cands.swap(scratch);
+    std::reverse(cands.begin(), cands.end());
+  } else {
+    std::sort(cands.begin(), cands.end(),
+              [&](const Cand &a, const Cand &b) {
               if (a.prioritized != b.prioritized)
                 return a.prioritized > b.prioritized; // leftovers first
               if (!k.vivify_reuse) {
@@ -696,7 +745,8 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
               if (ao != bo)
                 return ao > bo;
               return a.arena_order > b.arena_order;
-            });
+              });
+  }
   out.reserve(cands.size());
   for (const Cand &c : cands)
     out.push_back(c.ref);

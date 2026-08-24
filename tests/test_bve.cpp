@@ -43,6 +43,51 @@ static void test_occurrences() {
   assert(occ.count(internalize(3)) == 1);
 }
 
+// Dynamic BVE caches Kissat's physical dense-stack sizes so score updates are
+// O(1). Binary slots change eagerly; a garbage large Ref remains counted until
+// dense compaction, while an in-place membership rewrite changes only the
+// literals that actually leave or enter the physical occurrence lists.
+static void test_schedule_occurrence_image_lifecycle() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit a = internalize(1), b = internalize(2);
+  const Lit c = internalize(3), d = internalize(4);
+  kernel_add_binary_clause(k, a, b);
+  const Lit first_lits[3] = {a, c, d};
+  const Ref first_ref = kernel_add_large_clause(k, first_lits, 3, false, 0);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense);
+  std::vector<uint32_t> image(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    image[lit] = bve_schedule_occurrence_count(k, lit);
+  k.bve_occurrence_count_image = &image;
+  assert(image[a] == 2 && image[b] == 1 && image[c] == 1 && image[d] == 1);
+
+  kernel_add_binary_clause(k, a, b);
+  assert(image[a] == 3 && image[b] == 2);
+  assert(kernel_delete_binary_one_copy(k, a, b));
+  assert(image[a] == 2 && image[b] == 1);
+  assert(kernel_delete_binary_all_copies(k, a, b));
+  assert(image[a] == 1 && image[b] == 0);
+
+  const Ref second_ref =
+      kernel_add_large_clause(k, first_lits, 3, false, 0);
+  assert(image[a] == 2 && image[c] == 2 && image[d] == 2);
+  const Lit replacement[3] = {a, b, d};
+  kernel_replace_large_clause_in_place(k, second_ref, ++k.next_clause_id,
+                                       replacement, 3, 0);
+  assert(image[a] == 2 && image[b] == 1 && image[c] == 1 && image[d] == 2);
+
+  kernel_delete_clause(k, clause_at(k.arena, first_ref));
+  assert(image[a] == 2 && image[c] == 1 && image[d] == 2 &&
+         "lazy large garbage remains a physical dense occurrence");
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    assert(bve_schedule_occurrence_count(k, lit) == image[lit]);
+  k.bve_occurrence_count_image = nullptr;
+  kernel_dense_disconnect(k);
+}
+
 // redundant (learned) large clauses are not in the elimination set.
 static void test_occurrences_skip_redundant() {
   Kernel k;
@@ -458,6 +503,10 @@ static void test_gate_definition_fires() {
   }
   { // definitions on and nothing else → the sub-solver extracts the gate
     Kernel k;
+    assert(k.bve_definition_budget == 1000000 &&
+           "definitionticks must match Kissat's first-core allowance");
+    assert(k.bve_definition_cores == 2 &&
+           "definitioncores must match Kissat's refined-core default");
     k.bve_gate_mask = BVE_GATE_DEFINITION;
     build(k);
     assert(vt.apply_instance(k, x) == ApplyResult::Ok);
@@ -474,6 +523,50 @@ static void test_gate_definition_fires() {
     assert(has_large_ordered(k, {-3, -4, 2}) &&
            "resolve.c copies the second antecedent before the first");
   }
+  { // thread-local allocation scratch must not carry Kitten session state
+    uint64_t ticks[2] = {0, 0}, saved[2] = {0, 0}, resolutions[2] = {0, 0};
+    for (uint32_t repeat = 0; repeat < 2; ++repeat) {
+      Kernel k;
+      k.bve_gate_mask = BVE_GATE_DEFINITION;
+      build(k);
+      assert(vt.apply_instance(k, x) == ApplyResult::Ok);
+      ticks[repeat] = k.stats.bve_definition_ticks;
+      saved[repeat] = k.stats.bve_gate_pairs_saved;
+      resolutions[repeat] = k.stats.bve_resolutions;
+    }
+    assert(ticks[0] == ticks[1] && saved[0] == saved[1] &&
+           resolutions[0] == resolutions[1] &&
+           "fresh kernels must restart Kitten's deterministic session seed");
+  }
+}
+
+// Kissat definition.c: if the embedded UNSAT core uses only one pivot side,
+// lift its learned refutation by appending the pivot and commit the final unit
+// before any resolvent planning. The four positive reduced clauses are the
+// smallest no-UP refutation of all assignments to a,b, so deriving x requires
+// learned intermediate clauses rather than a direct main-formula RUP.
+static void test_definition_one_sided_core_emits_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 4); // x=1, a=2, b=3, c=4
+  const int positive[4][3] = {
+      {1, 2, 3}, {1, 2, -3}, {1, -2, 3}, {1, -2, -3}};
+  for (const auto &clause : positive) {
+    Lit lits[3] = {internalize(clause[0]), internalize(clause[1]),
+                   internalize(clause[2])};
+    kernel_add_large_clause(k, lits, 3, false, 0);
+  }
+  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  k.bve_gate_mask = BVE_GATE_DEFINITION;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  assert(k.value(internalize(1)) > 0 && "one-sided core proves the pivot");
+  assert(k.stats.bve_definition_units == 1);
+  assert(k.stats.bve_gates_definition == 1 &&
+         "the successful extractor is counted even without a pair plan");
+  assert(k.stats.bve_eliminated == 0 && "unit extraction is not elimination");
+  assert(has_binary(k, internalize(-1), internalize(4)) &&
+         "resolve.c exits before deleting the pivot clauses");
 }
 
 // Model reconstruction through a definition-derived elimination. Random
@@ -713,6 +806,7 @@ static void test_retry_filter() {
 // the bve_backward unit-drop entry).
 static void test_backward_strengthen_to_unit_asserts() {
   Kernel k;
+  k.bve_backward = true; // explicitly exercise the optional proof rule
   kernel_reserve_vars(k, 6);
   auto L = [](int d) { return internalize(d); };
   auto add3 = [&](int a, int b, int c) {
@@ -751,6 +845,7 @@ static void test_backward_strengthen_to_unit_asserts() {
 // the victim pair leaves the watch lists.
 static void test_backward_binary_victim_strengthen_to_unit() {
   Kernel k;
+  k.bve_backward = true; // explicitly exercise the optional proof rule
   kernel_reserve_vars(k, 6);
   auto L = [](int d) { return internalize(d); };
   auto add3 = [&](int a, int b, int c) {
@@ -783,6 +878,7 @@ static void test_backward_binary_victim_strengthen_to_unit() {
 int main() {
   test_guard();
   test_occurrences();
+  test_schedule_occurrence_image_lifecycle();
   test_occurrences_skip_redundant();
   test_schedule_order();
   test_schedule_excludes();
@@ -798,6 +894,7 @@ int main() {
   test_gate_ite_fires();
   test_gate_xor_fires();
   test_gate_definition_fires();
+  test_definition_one_sided_core_emits_unit();
   test_definition_reconstruction_exhaustive();
   test_gate_mask();
   test_retry_filter();

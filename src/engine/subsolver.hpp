@@ -72,6 +72,14 @@ public:
   void reset(uint32_t nvars,
              SubSearchMode mode = SubSearchMode::Fixed);
 
+  // Reset Kitten over an input whose variable ids are already dense and whose
+  // ascending ids are their first clause/literal occurrence order. BVE's
+  // reversible proof map has exactly that representation, so rebuilding a
+  // second identical import/export map inside the engine is unnecessary.
+  // Search, ticks, generator use, clauses, cores, and exported literals remain
+  // identical to `reset(nvars, SubSearchMode::Kitten)` followed by that order.
+  void reset_compact_kitten(uint32_t nvars);
+
   // A Kissat Sweep invocation constructs one embedded Kitten and clears it
   // between environments. Clear advances Kitten's deterministic generator;
   // starting a new invocation resets that sequence.
@@ -101,6 +109,13 @@ public:
   // `Proof::add_rup`'s assert catches, DRAT accepting it for free.
   bool derivation(SubDerivation &out) const;
 
+  // Kitten definition-core refinement: retain only the original clauses in a
+  // computed core, discard learned state, then deterministically shuffle the
+  // carried VMTF queue, watch lists, and units before a second solve. Original
+  // clause ids and external literal identities remain available to proof lift.
+  void shrink_to_clausal_core(const std::vector<uint32_t> &core);
+  void shuffle_clauses();
+
   // Model, by variable: +1 true, -1 false (valid only after `Sat`).
   const std::vector<int8_t> &model() const { return model_; }
   // Flip `lit` in the current SAT model while holding every other variable
@@ -115,6 +130,7 @@ public:
   // `transitive_ticks` / `ternary_ticks` / `bce_ticks` use.
   uint64_t ticks() const { return ticks_; }
   uint64_t kitten_ticks() const { return kitten_ticks_; }
+  uint64_t kitten_generator() const { return kitten_generator_; }
   uint32_t kitten_phase_capacity() const { return phase_capacity_vars_; }
   // Reported beside `ticks()` as Sweep's (yield, effort) pair.
   uint64_t conflicts() const { return conflicts_; }
@@ -145,6 +161,8 @@ private:
   bool analyze();              // false when the conflict cannot be analyzed
   void fail_assumptions(const std::vector<SubLit> &);
   SubLit next_decision();
+  void reset_impl(uint32_t nvars, SubSearchMode mode,
+                  bool compact_identity);
   SubLit import_literal(SubLit);
   SubLit export_literal(SubLit) const;
   std::vector<SubLit> export_literals(const std::vector<SubLit> &) const;
@@ -153,6 +171,8 @@ private:
   void queue_move_to_front(SubVar);
   void queue_update_search(SubVar);
   void queue_bump_analyzed();
+  uint64_t next_kitten_random();
+  uint32_t pick_kitten_random(uint32_t begin, uint32_t end);
   void clear_assignments();
   bool propagate_units();
   void attach(SubRef ref);
@@ -190,7 +210,24 @@ private:
 
   std::vector<SubLit> arena_;
   std::vector<std::vector<SubWatch>> watches_; // by literal
-  std::vector<std::vector<SubRef>> occurrences_; // flip safety index
+  // Fixed-mode-only flip safety index. Kitten's flip follows watched clauses
+  // exactly and neither allocates nor reads this second literal index.
+  std::vector<std::vector<SubRef>> occurrences_;
+  // Persistent clause-import stack, mirroring Kitten's `eclause`: imported
+  // literals are copied into `arena_`, so this storage is safe to reuse.
+  std::vector<SubLit> imported_clause_;
+  // Persistent second-core membership scratch. Upstream Kitten stores the
+  // mark in each clause header and compacts its arena in place; keeping this
+  // parallel byte image preserves Tactix's proof-visible header while avoiding
+  // a fresh bitmap and duplicate arena for every refinement.
+  std::vector<uint8_t> core_keep_;
+  std::vector<uint32_t> core_touched_;
+  // Clause-import duplicate/tautology image.  Kissat's Kitten uses one signed
+  // mark per variable and clears only the variables touched by the current
+  // clause.  Keeping that representation here preserves first-occurrence
+  // order while avoiding a quadratic scan of the already-imported prefix.
+  std::vector<int8_t> clause_marks_;       // 0 / positive / negative
+  std::vector<SubVar> clause_touched_;     // marks to restore after one clause
   std::vector<int8_t> values_;                 // by literal: 1/-1/0
   std::vector<int8_t> model_;                  // by variable: +1/-1
   std::vector<uint8_t> phase_;                 // by internal variable: sign
@@ -234,6 +271,7 @@ private:
   uint32_t original_clauses_ = 0;
   SubVar decision_cursor_ = 0; // fixed decision order (design §3: VSIDS-free)
   SubSearchMode search_mode_ = SubSearchMode::Fixed;
+  bool compact_identity_ = false;
   uint64_t kitten_generator_ = 0;
   uint64_t kitten_initialized_ = 0;
   uint64_t ticks_ = 0;

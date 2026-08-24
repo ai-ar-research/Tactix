@@ -406,6 +406,12 @@ void event_trace_factor_grid(const Kernel &, Lit, uint32_t factors,
 void event_trace_factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
 void event_trace_bve_candidate(const Kernel &, Var, const char *, uint64_t,
                                uint64_t, bool);
+void event_trace_bve_definition(const Kernel &, Var, uint64_t attempt,
+                                uint32_t core, const char *outcome,
+                                uint64_t ticks, uint64_t budget,
+                                uint64_t generator, uint32_t variables,
+                                uint32_t side0, uint32_t side1,
+                                const uint32_t *ids, uint32_t size);
 void event_trace_bve_plan(const Kernel &, Var, uint32_t side0, uint32_t side1,
                           uint32_t gate_kind, uint32_t gate0, uint32_t gate1,
                           uint64_t charged, bool resolve_gate);
@@ -522,6 +528,10 @@ inline void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t,
 inline void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit) {}
 inline void event_trace_bve_candidate(const Kernel &, Var, const char *,
                                       uint64_t, uint64_t, bool) {}
+inline void event_trace_bve_definition(const Kernel &, Var, uint64_t,
+                                       uint32_t, const char *, uint64_t,
+                                       uint64_t, uint64_t, uint32_t, uint32_t,
+                                       uint32_t, const uint32_t *, uint32_t) {}
 inline void event_trace_bve_plan(const Kernel &, Var, uint32_t, uint32_t,
                                  uint32_t, uint32_t, uint32_t, uint64_t,
                                  bool) {}

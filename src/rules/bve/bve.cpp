@@ -76,6 +76,10 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
 
 uint32_t bve_schedule_occurrence_count(const Kernel &k, Lit lit) {
   assert(lit < 2 * k.nvars);
+  if (k.bve_occurrence_count_image) {
+    assert(k.dense && k.bve_occurrence_count_image->size() == 2 * k.nvars);
+    return (*k.bve_occurrence_count_image)[lit];
+  }
   uint64_t count = 0;
   if (k.dense) {
     count = k.dense->large[lit].size();
@@ -162,14 +166,21 @@ struct SparseBinaryIndex {
 // fallback used by direct rule consumers.
 struct BveDefScratch {
   SubSolver solver;
-  std::vector<Var> vars;    // sorted distinct non-pivot vars = the sub var space
+  // Distinct non-pivot variables in first clause/literal occurrence order.
+  // SubSolver's Kitten mode imports by that same first occurrence, so this is
+  // both the direct reversible proof map and the source search identity.
+  std::vector<Var> vars;
+  std::vector<uint32_t> var_to_sub; // kernel var -> compact sub var + 1
+  std::vector<Var> var_touched; // entries to restore in var_to_sub
   std::vector<SubLit> lits; // one reduced clause, being encoded
   SubDerivation deriv;
   SparseBinaryIndex pos_bin, neg_bin;
   std::vector<uint8_t> literal_marks;
   uint64_t ticks = 0;    // ticks the last attempt spent (0 if none was made)
+  Lit unit = INVALID_LIT; // one-sided core's failed pivot literal, if any
   bool checked = false;  // an attempt was made at all
   bool exhausted = false; // ...and the tick ceiling cut it short
+  uint64_t session = UINT64_MAX; // strategy-owned embedded-Kitten lifetime
 };
 
 // ---- gate detection (equivalence, AND/OR, ITE, XOR, general definition) ----
@@ -263,12 +274,14 @@ inline GateSig bve_sig2(Lit a, Lit b) {
 // pivot's occurrence lists, each clause minus the pivot literal, to the
 // sub-solver: refuting that set is exactly (★) for G⁺ = P, G⁻ = N, and the
 // core names the sub-multiset the refutation used, so (★) holds for the core
-// alone and the core is the gate (kissat `definition.c`). Nothing from the
-// sub-solver enters the proof: the core only picks which resolvents are
-// generated, each still a resolution of two clauses of F. Not ported:
-// `definitioncores` > 1 (a fixed decision order and no shuffle make a second
-// solve reproduce the first core), and the one-sided-core failed literal,
-// whose forced unit is entailed but not RUP.
+// alone and the core is the gate (kissat `definition.c`). The sub-solver uses
+// Kitten's first-import VMTF order and tick currency. Nothing from it normally
+// enters the proof except through the core selecting
+// resolvents. A one-sided core is different: it proves a failed pivot literal,
+// and its learned clauses are lifted below by appending that literal, exactly
+// as Kissat's `traverse_one_sided_core_lemma` does. Kissat's default second
+// core shrinks to the first core, deterministically shuffles Kitten's carried
+// VMTF/watch/unit state, and resolves under a tenfold allowance below.
 uint32_t bve_find_definition(const Kernel &k, Lit px,
                              const std::vector<MClause> &pos,
                              const std::vector<MClause> &neg,
@@ -280,23 +293,56 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
   if (pos.empty() || neg.empty())
     return 0;
   const Var pv = var_of(px);
+  for (const Var v : s.var_touched)
+    s.var_to_sub[v] = 0;
+  s.var_touched.clear();
+  if (s.var_to_sub.size() < k.nvars)
+    s.var_to_sub.resize(k.nvars, 0);
   s.vars.clear();
   for (const std::vector<MClause> *side : {&pos, &neg})
     for (const MClause &m : *side)
       for (const Lit l : m.active)
-        if (var_of(l) != pv)
-          s.vars.push_back(var_of(l));
-  std::sort(s.vars.begin(), s.vars.end());
-  s.vars.erase(std::unique(s.vars.begin(), s.vars.end()), s.vars.end());
+        if (const Var v = var_of(l); v != pv && !s.var_to_sub[v]) {
+          // UINT32_MAX is only a seen marker until first-occurrence compact
+          // ids are assigned below. Every touched entry is restored at the
+          // next attempt, matching the persistent signed-mark discipline.
+          s.var_to_sub[v] = UINT32_MAX;
+          s.var_touched.push_back(v);
+          s.vars.push_back(v);
+        }
   if (s.vars.empty())
     return 0; // every clause reduces to the empty clause: not a real pivot
+  for (uint32_t i = 0; i < s.vars.size(); ++i)
+    s.var_to_sub[s.vars[i]] = i + 1;
+#ifndef NDEBUG
+  for (uint32_t i = 0; i < s.vars.size(); ++i) {
+    assert(s.var_to_sub[s.vars[i]] == i + 1);
+  }
+#endif
   const auto sub_of = [&s](Lit l) {
-    const auto it = std::lower_bound(s.vars.begin(), s.vars.end(), var_of(l));
-    return sub_lit(static_cast<SubVar>(it - s.vars.begin()), negated(l));
+    const uint32_t mapped = s.var_to_sub[var_of(l)];
+    assert(mapped && mapped != UINT32_MAX);
+    return sub_lit(mapped - 1, negated(l));
   };
 
+  // The one-instance rule entry keeps allocation scratch thread-local across
+  // Kernel objects. Kitten's initialized counter is solver-session state, not
+  // allocator state: reset it at the first real definition attempt of each
+  // fresh Kernel so API clients cannot inherit another solver's shuffle seed.
+  if (!k.stats.bve_definitions_checked ||
+      s.session != k.bve_definition_session) {
+    s.solver.start_kitten_session();
+    s.session = k.bve_definition_session;
+  }
   s.checked = true;
-  s.solver.reset(static_cast<uint32_t>(s.vars.size()));
+  // Kissat imports external variables on their first clause occurrence and
+  // decides from the newest end of Kitten's VMTF queue. The first-occurrence
+  // compact external ids above are a reversible proof map; Kitten mode assigns
+  // the same internal ids directly from this unchanged clause/literal stream.
+  // The reversible outer map is already dense in first clause/literal
+  // occurrence order. Let the shared engine consume that compact identity
+  // directly instead of rebuilding the same map once per definition attempt.
+  s.solver.reset_compact_kitten(static_cast<uint32_t>(s.vars.size()));
   // Ids are handed out from 1 in add order, so id ∈ [1, |pos|] names
   // pos[id-1] and the rest neg[id-|pos|-1]. That mapping holds because
   // `add_clause` consumes an id even for a clause it drops as a tautology.
@@ -309,20 +355,172 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
       s.solver.add_clause(s.lits);
     }
   }
-  const SubResult res = s.solver.solve({}, k.bve_definition_budget);
-  s.ticks = s.solver.ticks();
+  const uint64_t attempt = k.stats.bve_definitions_checked + 1;
+  event_trace_bve_definition(
+      k, pv, attempt, 0, "imported", s.solver.kitten_ticks(),
+      k.bve_definition_budget, s.solver.kitten_generator(),
+      static_cast<uint32_t>(s.vars.size()), static_cast<uint32_t>(pos.size()),
+      static_cast<uint32_t>(neg.size()), nullptr, 0);
+  SubResult res = s.solver.solve({}, k.bve_definition_budget,
+                                 SubTickMode::Kitten);
+  s.ticks = s.solver.kitten_ticks();
   s.exhausted = res == SubResult::Budget;
   if (res != SubResult::Unsat || !s.solver.derivation(s.deriv) ||
-      s.deriv.core.empty())
+      s.deriv.core.empty()) {
+    event_trace_bve_definition(
+        k, pv, attempt, 1,
+        res == SubResult::Budget ? "budget" :
+        res == SubResult::Sat ? "sat" : "no-derivation",
+        s.ticks, k.bve_definition_budget, s.solver.kitten_generator(),
+        static_cast<uint32_t>(s.vars.size()),
+        static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
+        nullptr, 0);
     return 0;
-  const uint32_t np = static_cast<uint32_t>(pos.size());
-  for (const uint32_t id : s.deriv.core) {
-    if (id <= np)
-      pos_gate[id - 1] = 1;
-    else
-      neg_gate[id - np - 1] = 1;
   }
+  event_trace_bve_definition(
+      k, pv, attempt, 1, "unsat", s.ticks, k.bve_definition_budget,
+      s.solver.kitten_generator(), static_cast<uint32_t>(s.vars.size()),
+      static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
+      s.deriv.core.data(), static_cast<uint32_t>(s.deriv.core.size()));
+  for (uint32_t core = 2; core <= k.bve_definition_cores; ++core) {
+    s.solver.shrink_to_clausal_core(s.deriv.core);
+    s.solver.shuffle_clauses();
+    uint64_t ceiling = 0; // SubSolver's public zero means unlimited.
+    if (k.bve_definition_budget) {
+      const uint64_t delta =
+          k.bve_definition_budget > UINT64_MAX / 10
+              ? UINT64_MAX
+              : 10 * k.bve_definition_budget;
+      const uint64_t current = s.solver.kitten_ticks();
+      ceiling = UINT64_MAX - delta <= current ? UINT64_MAX : current + delta;
+    }
+    res = s.solver.solve({}, ceiling, SubTickMode::Kitten);
+    s.ticks = s.solver.kitten_ticks();
+    s.exhausted = res == SubResult::Budget;
+    assert(res != SubResult::Sat && "an UNSAT core subset became SAT");
+    if (res != SubResult::Unsat || !s.solver.derivation(s.deriv) ||
+        s.deriv.core.empty()) {
+      event_trace_bve_definition(
+          k, pv, attempt, core,
+          res == SubResult::Budget ? "budget" :
+          res == SubResult::Sat ? "sat" : "no-derivation",
+          s.ticks, k.bve_definition_budget > UINT64_MAX / 10
+                       ? UINT64_MAX
+                       : 10 * k.bve_definition_budget,
+          s.solver.kitten_generator(),
+          static_cast<uint32_t>(s.vars.size()),
+          static_cast<uint32_t>(pos.size()),
+          static_cast<uint32_t>(neg.size()), nullptr, 0);
+      return 0;
+    }
+    event_trace_bve_definition(
+        k, pv, attempt, core, "unsat", s.ticks,
+        k.bve_definition_budget > UINT64_MAX / 10
+            ? UINT64_MAX
+            : 10 * k.bve_definition_budget,
+        s.solver.kitten_generator(), static_cast<uint32_t>(s.vars.size()),
+        static_cast<uint32_t>(pos.size()), static_cast<uint32_t>(neg.size()),
+        s.deriv.core.data(), static_cast<uint32_t>(s.deriv.core.size()));
+  }
+  const uint32_t np = static_cast<uint32_t>(pos.size());
+  uint32_t cp = 0, cn = 0;
+  for (const uint32_t id : s.deriv.core) {
+    if (id <= np) {
+      pos_gate[id - 1] = 1;
+      cp++;
+    } else {
+      neg_gate[id - np - 1] = 1;
+      cn++;
+    }
+  }
+  if (!cp)
+    s.unit = negate(px);
+  else if (!cn)
+    s.unit = px;
   return BVE_GATE_DEFINITION;
+}
+
+// Lift the embedded refutation of one reduced pivot side into the main proof.
+// Each sub-lemma L becomes (unit v L). Original sub-clause ids map to the
+// corresponding live pivot clauses; LRAT additionally cites root units whose
+// false literals were stripped on import. The final empty sub-lemma becomes
+// the failed-literal unit. These are proof-only lemmas: DRAT retains the
+// intermediates because literal-multiset deletion is ambiguous when a lemma
+// duplicates a live clause; native LRAT retires them by exact id after the
+// unit is installed, matching Kissat's temporary-lemma lifecycle.
+static void bve_emit_definition_unit(Kernel &k, Lit unit,
+                                     const std::vector<MClause> &pos,
+                                     const std::vector<MClause> &neg,
+                                     BveDefScratch &s) {
+  assert(unit != INVALID_LIT && k.value(unit) == 0);
+  assert(!s.deriv.steps.empty() && s.deriv.steps.back().lits.empty());
+  const bool lrat = k.proof && k.proof->lrat();
+  const uint32_t np = static_cast<uint32_t>(pos.size());
+  const uint32_t originals = np + static_cast<uint32_t>(neg.size());
+  uint32_t max_sub_id = originals;
+  for (const SubStep &step : s.deriv.steps)
+    max_sub_id = std::max(max_sub_id, step.id);
+  std::vector<uint64_t> id_of(static_cast<size_t>(max_sub_id) + 1, 0);
+  for (uint32_t i = 0; i < np; i++)
+    id_of[i + 1] = pos[i].id;
+  for (uint32_t i = 0; i < neg.size(); i++)
+    id_of[np + i + 1] = neg[i].id;
+
+  const auto source = [&](uint32_t id) -> const MClause & {
+    assert(id >= 1 && id <= originals);
+    return id <= np ? pos[id - 1] : neg[id - np - 1];
+  };
+  const auto kernel_lit = [&](SubLit sl) {
+    assert(sub_var_of(sl) < s.vars.size());
+    return make_lit(s.vars[sub_var_of(sl)], (sl & 1u) != 0);
+  };
+
+  std::vector<Lit> lifted;
+  std::vector<uint64_t> chain;
+  struct Transient {
+    uint64_t id;
+    std::vector<Lit> lits;
+  };
+  std::vector<Transient> transients;
+  uint64_t last_id = 0;
+  for (size_t si = 0; si < s.deriv.steps.size(); si++) {
+    const SubStep &step = s.deriv.steps[si];
+    lifted.clear();
+    lifted.push_back(unit);
+    for (const SubLit sl : step.lits)
+      lifted.push_back(kernel_lit(sl));
+    assert(!Proof::tautological(lifted.data(),
+                               static_cast<uint32_t>(lifted.size())));
+    chain.clear();
+    if (lrat)
+      for (const uint32_t antecedent : step.chain) {
+        assert(antecedent < id_of.size() && id_of[antecedent]);
+        if (antecedent <= originals) {
+          const MClause &m = source(antecedent);
+          chain.insert(chain.end(), m.absorbed.begin(), m.absorbed.end());
+        }
+        chain.push_back(id_of[antecedent]);
+      }
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, lifted.data(),
+                       static_cast<uint32_t>(lifted.size()),
+                       lrat ? chain.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    id_of[step.id] = id;
+    last_id = id;
+    if (lrat && si + 1 != s.deriv.steps.size())
+      transients.push_back({id, lifted});
+  }
+  assert(last_id);
+  k.unit_ids[var_of(unit)] = last_id;
+  kernel_assign_unit(k, unit);
+  k.stats.bve_definition_units++;
+  if (k.proof && lrat)
+    for (size_t i = transients.size(); i-- > 0;)
+      k.proof->del(k.next_clause_id, transients[i].id,
+                   transients[i].lits.data(),
+                   static_cast<uint32_t>(transients[i].lits.size()));
 }
 
 // Returns the BVE_GATE_* bit of the type found, or 0 for "no gate". `k` is
@@ -546,10 +744,15 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
 // catches it — a `del` is unchecked, so the certificate verifies while the
 // solver answers SAT on an UNSAT formula.
 static void bve_backward(Kernel &k, std::vector<Ref> &queue,
-                         std::vector<std::pair<Lit, Lit>> &fresh_bin) {
+                         std::vector<std::pair<Lit, Lit>> &fresh_bin,
+                         std::vector<uint8_t> &marks) {
   if (!k.dense || k.inconsistent)
     return; // N1: the index is an acceleration, and the rule runs without it
-  std::vector<uint8_t> marks(2 * static_cast<size_t>(k.nvars) + 2, 0);
+  // The candidate gather/resolution pass has already restored this persistent
+  // literal image. Reuse it and clear only each subsumer's touched literals:
+  // allocating and zeroing 2*nvars bytes once per successful elimination can
+  // dominate its local work; see docs/implementation-notes.md section 18.
+  assert(marks.size() >= 2 * static_cast<size_t>(k.nvars));
   std::vector<Lit> clits, dlits;
   std::vector<Ref> victims;
   std::vector<Lit> bin_victims;
@@ -581,6 +784,7 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
       if (v > 0) { satisfied = true; break; }
       if (v < 0)
         continue; // root-false: absorbed, and never marked
+      assert(!marks[l] && "BVE backward scratch leaked a prior mark");
       marks[l] = 1;
       size++;
       const size_t n = occ_len(l);
@@ -1015,6 +1219,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     def->checked = false;
     def->exhausted = false;
     def->ticks = 0;
+    def->unit = INVALID_LIT;
   }
   const uint32_t gate_kind = bve_detect_gate(k, px, nx, pos, neg, pos_gate,
                                              neg_gate, resolve_gate, def);
@@ -1023,6 +1228,12 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     k.stats.bve_definitions_checked++;
     k.stats.bve_definition_ticks += def->ticks;
     k.stats.bve_definition_budget += def->exhausted ? 1 : 0;
+  }
+  if (def && def->unit != INVALID_LIT) {
+    assert(gate_kind == BVE_GATE_DEFINITION);
+    k.stats.bve_gates_definition++;
+    bve_emit_definition_unit(k, def->unit, pos, neg, *def);
+    return ApplyResult::Ok;
   }
   // (★) needs every pair holding a gate clause. A syntactic shape may drop the
   // gate×gate pairs only because they are tautologies; pinning which types may
@@ -1326,7 +1537,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // cadical drains here: after the resolvents are connected and the pivot's
   // own clauses are garbage, so the antecedents are skipped (elim.cpp:731).
   if (k.bve_backward)
-    bve_backward(k, fresh, fresh_bin);
+    bve_backward(k, fresh, fresh_bin, literal_marks);
 
   k.stats.bve_eliminated++;
   // The drain can refute (a strengthened victim's unit contradicting a root

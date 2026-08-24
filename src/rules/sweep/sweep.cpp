@@ -514,6 +514,23 @@ bool sweep_env_build(Kernel &k, Var seed, const SweepLimits &lim,
       const Lit l = make_lit(v, pol != 0);
       ticks += k.watches.size(l);
       const auto process_binary = [&](Lit o) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        if (repr_find(r, l) != l) {
+          event_trace_sweep_binary_attempt(
+              k, seed, binary_attempt_ordinal++, l, o,
+              static_cast<int32_t>(d), -1, "skip-lit-repr");
+          return;
+        }
+        if (repr_find(r, o) != o) {
+          event_trace_sweep_binary_attempt(
+              k, seed, binary_attempt_ordinal++, l, o,
+              static_cast<int32_t>(d), -1, "skip-other-repr");
+          return;
+        }
+#else
+        if (repr_find(r, l) != l || repr_find(r, o) != o)
+          return;
+#endif
         const uint32_t other_sub = e.sub_of_var[var_of(o)];
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         const int32_t other_depth =

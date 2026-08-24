@@ -118,9 +118,13 @@ static void mark_candidate(const Kernel &k, std::vector<uint8_t> &marks,
 
 static bool watch_population_within(const Kernel &k, Lit lit, bool binary,
                                     uint32_t limit) {
+  if (binary)
+    return k.watches.binary_size(lit) <= limit;
   uint32_t count = 0;
+  // Large entries still require the complete entry-aware walk: unlike the
+  // exact binary population, lazy garbage remains part of this physical cap.
   for (const WatchEntry w : k.watches.entries(lit))
-    if (w.binary() == binary && ++count > limit)
+    if (!w.binary() && ++count > limit)
       return false;
   return true;
 }
@@ -133,6 +137,19 @@ struct Partner {
   std::vector<uint64_t> absorbed; // unit ids of root-falsified partner lits
 };
 
+// Kissat's forward_literal accumulates `steps` in a local scalar and publishes
+// it once after the watch scan (forward.c:197-303).  Keep the same hot-loop
+// representation while preserving Tactix's stricter per-partner budget cut:
+// every return, including UNSAT exits after a found partner, commits the exact
+// scalar through this scope guard.
+struct StrengthenVisitCounter {
+  uint64_t &published;
+  uint64_t value;
+  explicit StrengthenVisitCounter(uint64_t &counter)
+      : published(counter), value(counter) {}
+  ~StrengthenVisitCounter() { published = value; }
+};
+
 // scan the candidate's watch lists (both phases) for binary partners and the
 // round's occurrence lists (both phases) for large ones. occs == nullptr
 // selects the watch-list-only discovery the single-candidate instance surface
@@ -140,13 +157,14 @@ struct Partner {
 static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
                             const Clause *c,
                             const std::vector<std::vector<Ref>> *occs,
-                            Ref self, uint64_t check_start,
+                            Ref self, uint64_t &visits, uint64_t visit_start,
+                            bool bounded, uint64_t visit_budget,
                             bool *budget_exhausted) {
   Partner p;
   const bool lrat = k.proof && k.proof->lrat();
   const auto budget_cut = [&]() {
-    if (!budget_exhausted || !k.midround_budget || !k.work_budget ||
-        k.stats.strengthen_visits - check_start < k.work_budget)
+    if (!budget_exhausted || !bounded ||
+        visits - visit_start < visit_budget)
       return false;
     *budget_exhausted = true;
     return true;
@@ -159,12 +177,16 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       // binaries through the watch lists: (probe, o). probe == l is a
       // same-phase anchor; probe == ¬l anchors the flip on l itself.
       if (watch_population_within(k, probe, true, STRENGTHEN_BINLIM)) {
+        const bool stop_at_large = k.watches.heads[probe].binaries_first;
         for (const WatchEntry w : k.watches.entries(probe)) {
-          if (!w.binary())
+          if (!w.binary()) {
+            if (stop_at_large)
+              break;
             continue;
+          }
           if (budget_cut())
             return p;
-          k.stats.strengthen_visits++; // a binary partner compared
+          visits++; // a binary partner compared
           const Lit o = w.other();
           if (phase == 0) {
             // no redundancy check on the binary partner: the binary-subsumer
@@ -199,7 +221,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       for (const Ref dref : os) {
         if (budget_cut())
           return p;
-        k.stats.strengthen_visits++;
+        visits++;
         const Clause *d = clause_at(k.arena, dref);
         const CheckResult r = check_marked(k, marks, d);
         if (r.kind == CheckResult::NONE)
@@ -235,7 +257,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
           continue;
         if (budget_cut())
           return p;
-        k.stats.strengthen_visits++;
+        visits++;
         const Clause *d = clause_at(k.arena, dref);
         if (d->garbage() || d->redundant() || d->size > c->size)
           continue;
@@ -402,16 +424,42 @@ ApplyResult strengthen_apply(Kernel &k) {
     strengthen_candidates(k, candidates);
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<Ref>> occs(2 * k.nvars);
+  // Kissat's `connect_subsuming` chooses against SIZE_WATCHES in the already
+  // complete dense formula, not against the forward index while that index is
+  // still growing (forward.c:467-507).  DefaultPolicy supplies that complete
+  // image as `k.dense`.  Keep the canonical rule surface complete outside a
+  // policy phase too by materializing the same irredundant occurrence counts
+  // once; this fallback affects only connection strategy, never the proof
+  // rule.  Counts intentionally include lazy garbage in a dense phase, just as
+  // the physical occurrence vectors and the accepted cap do.
+  std::vector<uint32_t> fallback_population;
+  if (!k.dense) {
+    fallback_population.assign(2 * k.nvars, 0);
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !c->redundant())
+        for (const Lit l : *c)
+          fallback_population[l]++;
+      ref += clause_actual_words(c);
+    }
+  }
+  const auto large_population = [&](Lit l) -> size_t {
+    return k.dense ? k.dense->large[l].size() : fallback_population[l];
+  };
   // `k.work_budget` in this rule's own currency (partner visits). An entry
   // budget alone bounds how often a round runs, never how much one round does,
   // which lets a single uninterruptible round own most of a solve; cadical
   // bounds the same family per round (`subsumeeffort`, options.hpp:218-221).
   // Stopping early loses no work — survivors stay candidates. 0 = unbounded.
   // Ledger row D-STRENGTHEN-BUDGET.
-  const uint64_t check_start = k.stats.strengthen_visits;
-  // Connect a survivor at its least-occurring free literal. Shared by the
-  // checked path and by the filter's skip path, so the round's partner index
-  // stays complete and the filter costs no strengthening.
+  StrengthenVisitCounter visits(k.stats.strengthen_visits);
+  const uint64_t check_start = visits.value;
+  const bool visit_bounded = k.midround_budget && k.work_budget;
+  const uint64_t visit_budget = k.work_budget;
+  // Connect a survivor at its least-occurring free literal in the complete
+  // dense population. Shared by the checked path and by the filter's skip
+  // path, so the round's partner index stays complete and the filter costs no
+  // strengthening.
   //
   // Redundant survivors are NOT indexed: `occs` is the partner index, a partner
   // justifies deleting or rewriting another clause, so it must not be
@@ -427,7 +475,7 @@ ApplyResult strengthen_apply(Kernel &k) {
     for (const Lit l : *c) {
       if (k.value(l) != 0)
         continue;
-      const size_t n = occs[l].size();
+      const size_t n = large_population(l);
       if (min_lit == INVALID_LIT || n < min_occs) {
         min_lit = l;
         min_occs = n;
@@ -442,8 +490,8 @@ ApplyResult strengthen_apply(Kernel &k) {
   const uint64_t produced_before = k.stats.strengthened;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     Ref cref = candidates[ci];
-    if (k.midround_budget && k.work_budget &&
-        k.stats.strengthen_visits - check_start >= k.work_budget) {
+    if (visit_bounded &&
+        visits.value - check_start >= visit_budget) {
       k.stats.budget_stops_c2++;
       stopped_at = ci;
       break;
@@ -472,7 +520,8 @@ ApplyResult strengthen_apply(Kernel &k) {
       Clause *c = clause_at(k.arena, cref);
       k.stats.strengthen_checked++;
       mark_candidate(k, marks, c, 1);
-      const Partner p = find_partner(k, marks, c, &occs, cref, check_start,
+      const Partner p = find_partner(k, marks, c, &occs, cref, visits.value,
+                                     check_start, visit_bounded, visit_budget,
                                      &budget_exhausted);
       mark_candidate(k, marks, clause_at(k.arena, cref), 0);
       if (budget_exhausted)
@@ -583,7 +632,9 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   k.stats.strengthen_checked++;
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   mark_candidate(k, marks, c, 1);
-  const Partner p = find_partner(k, marks, c, nullptr, candidate, 0, nullptr);
+  StrengthenVisitCounter visits(k.stats.strengthen_visits);
+  const Partner p = find_partner(k, marks, c, nullptr, candidate, visits.value,
+                                 visits.value, false, 0, nullptr);
   mark_candidate(k, marks, clause_at(k.arena, candidate), 0);
   uint64_t changed = 0;
   Ref ref = candidate;

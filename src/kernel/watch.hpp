@@ -33,6 +33,8 @@ struct WatchHead {
   bool has_large = false;
   bool binaries_first = true;
 };
+static_assert(sizeof(WatchHead) == 16,
+              "hot watch heads must remain four words");
 
 // One ENTRY of a watch list, as seen by a reader. A binary entry is one word, a
 // large entry two (blocking word, then the arena ref), so a reader must step per
@@ -79,13 +81,21 @@ struct WatchRange {
 struct WatchLists {
   std::vector<uint32_t> arena;
   std::vector<WatchHead> heads; // by lit
+  // Exact entry counts live beside, rather than inside, the hot 16-byte heads:
+  // forward needs O(1) populations, while propagation benefits from compact
+  // headers and never reads this side image.
+  std::vector<uint32_t> binary_counts; // by lit; `WatchHead::size` is words
   uint64_t holes = 0;           // dead words left by relocations
 
-  void resize_lits(size_t nlits) { heads.resize(nlits); }
+  void resize_lits(size_t nlits) {
+    heads.resize(nlits);
+    binary_counts.resize(nlits);
+  }
 
   uint32_t *begin(Lit l) { return arena.data() + heads[l].offset; }
   uint32_t *end(Lit l) { return begin(l) + heads[l].size; }
   uint32_t size(Lit l) const { return heads[l].size; }
+  uint32_t binary_size(Lit l) const { return binary_counts[l]; }
 
   // Entry-aware read-only walk of l's list — the one iteration primitive every
   // reader outside the propagation engines goes through (§5.3 puts watch
@@ -103,14 +113,17 @@ struct WatchLists {
     uint32_t *q = b;
     const uint32_t *p = b;
     const uint32_t *const e = end(l);
+    uint32_t binaries = 0;
     bool has_large = false, binaries_first = true;
     while (p != e) {
       const bool bin = Watch{*p}.binary();
       if (keep(WatchEntry{p})) {
-        if (bin)
+        if (bin) {
+          binaries++;
           binaries_first = binaries_first && !has_large;
-        else
+        } else {
           has_large = true;
+        }
         *q++ = *p++;
         if (!bin)
           *q++ = *p++;
@@ -121,6 +134,7 @@ struct WatchLists {
     truncate(l, static_cast<uint32_t>(q - b));
     heads[l].has_large = has_large;
     heads[l].binaries_first = binaries_first;
+    binary_counts[l] = binaries;
   }
 
   // Rewrite the clause reference of every retained large entry in place.
@@ -203,6 +217,7 @@ struct WatchLists {
     if (h.has_large)
       h.binaries_first = false;
     push(l, binary_watch(other).raw);
+    binary_counts[l]++;
   }
   void push_large(Lit l, Lit blocking, Ref ref) {
     push(l, blocking_watch(blocking).raw);

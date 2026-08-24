@@ -88,6 +88,34 @@ static void test_large_partner_and_cascade() {
   assert(default_solve(k) == 10);
 }
 
+static void test_complete_dense_population_caps_connection() {
+  Kernel k;
+  kernel_reserve_vars(k, 1300);
+  const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
+                         internalize(4)};
+  kernel_add_large_clause(k, partner, 3, false, 0);
+  kernel_add_large_clause(k, victim, 4, false, 0);
+  int next = 5;
+  for (int anchor = 1; anchor <= 3; ++anchor)
+    for (uint32_t i = 0; i <= STRENGTHEN_OCCLIM; ++i) {
+      const Lit filler[5] = {internalize(anchor), internalize(next),
+                             internalize(next + 1), internalize(next + 2),
+                             internalize(next + 3)};
+      next += 4;
+      kernel_add_large_clause(k, filler, 5, false, 0);
+    }
+  OccIndex dense;
+  kernel_dense_connect(k, dense);
+  // Every partner literal is physically above the accepted long-occurrence
+  // cap, so Kissat-shaped connection declines it.  A growing local index would
+  // still see the first partner at population zero and wrongly connect it.
+  assert(strengthen_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.strengthen_subsumed == 0);
+  assert(live_large(k) == 2 + 3 * (STRENGTHEN_OCCLIM + 1));
+  kernel_dense_disconnect(k);
+}
+
 static void test_unit_producing_strengthen_ends_round() {
   // The flush pre-pass strips both root-falsified literals to the unit (3) and
   // ends the pass; only the flush can produce a unit.
@@ -326,6 +354,7 @@ int main() {
   test_binary_strengthens_large();
   test_fused_subsumption();
   test_large_partner_and_cascade();
+  test_complete_dense_population_caps_connection();
   test_unit_producing_strengthen_ends_round();
   test_partner_budget_rearms_current_candidate();
   test_instance_surface();
