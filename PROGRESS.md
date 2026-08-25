@@ -632,6 +632,24 @@ own experimental detail and history.
   rather than bypass the mandatory crash workflow. Collection remains open on
   the documented eager-call/whole-arena owners; safe read-only localization of
   the next ordered gap may continue while external Claude connectivity is down.
+  Substitute direct-localization stage `1647662` completes both sequential
+  two-CPU arms 0:0 on node017 with zero lost samples and zero residue. Tactix
+  preserves the exact accepted conflict-9450 image `3b87bb36...92c5f` and
+  takes 1,766 ms across 13 canonical SCC rounds in nine applications: SCC 601,
+  mark 3, and rewrite 1,159 ms. Current Kissat completes ten rounds in nine
+  calls: SCC 570.808 ms, non-SCC round work 237.056 ms, rewatch 122.520 ms,
+  and total 931.761 ms. Its completed Substitute work is authoritative even
+  though the built-in limiter performs one later stable propagation beyond the
+  frozen endpoint; all other 129 common metrics and the formula endpoint are
+  exact. Exact Kissat work counts are frozen in the manifest. SCC traversal is
+  not the owner. Tactix's rewrite/maintenance path explains about 798 ms of the
+  834 ms gap: its 250 rewrite/session rows total snapshot 221, binary 265,
+  large 190, post-large 34, and collection 419 ms. The first bounded portable
+  candidate is a canonical-call import-order image: whole-prefix perf assigns
+  792.9M cycles (1.18%) to repeated `kernel_import_lit_order` indirections, and
+  source shows repeated calls while snapshotting/rebuilding binary images.
+  Preserve Sweep/session behavior and all ordering exactly; test this isolated
+  representation repair before attempting a larger streaming rewrite.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
