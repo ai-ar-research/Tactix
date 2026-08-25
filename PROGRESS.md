@@ -9,11 +9,11 @@ own experimental detail and history.
 ## Resume anchor
 
 - Worktree `/home/hwu/SAT-solving`, branch `main`. The synchronized accepted
-  base before the active increment is batched-ITE wrap-up
-  `8001b7f86d08c35e05e6807c415456b295a81b14`. Its accepted comparator is
-  frozen as Release binary SHA-256 `9e9f0dab…defa`. The accepted batched ITE
-  sign-mask repair is source-diff SHA-256 `4c2cd4a6…591a`, Release binary
-  SHA-256 `9e9f0dab…defa`, and ASan/UBSan binary SHA-256 `1e02dd46…fb7c`.
+  base is active-decision wrap-up `508342d977b6430db0074a19443f63cf05815bce`;
+  its validated cumulative Release binary is SHA-256 `94784f16…8503`.
+  BVE flat-slice landed separately at `a07bc935`; active-decision then landed
+  separately at `508342d`. Collection/rewatching work is observer-only and has
+  not changed main source.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -34,7 +34,7 @@ own experimental detail and history.
   submission. The campaign is not yet scorable: dependent aggregate `1646295`
   owns complete validity, solve-loss, independent-check, and cleanup
   classification after every array task terminates.
-  Latest audit at 12:50 EDT finds four tasks still running on node017 (indices
+  Latest audit at 13:25 EDT finds four tasks still running on node017 (indices
   488, 540, 743, and 1128); aggregate `1646295` remains
   dependency-pending. Partial task exits, including resource/checker failures,
   carry no scoring or solver-correctness interpretation before the aggregate's
@@ -545,6 +545,82 @@ own experimental detail and history.
   warning. The isolated source diff over pushed BVE base is
   `a5662046...4ad0`, and the validated cumulative Release binary remains
   `94784f16...8503`.
+  Active-decision is now committed and pushed separately at `508342d`, with
+  main clean and synchronized. The next collection/rewatching increment freezes
+  that accepted Release (`94784f16...8503`) and current instrumented Kissat
+  comparator commit `8af8e56` / binary `b6a9b1d0...644d5` in
+  `benchmarks/runs/20260825-1315-rank27-collection-rewatch-baseline/`. The
+  immutable Rank-27 input, exact Tactix conflict-9450 image
+  `3b87bb36...92c5f`, and 64-row trace `7a6216bb...7cc1` remain the common-state
+  authorities; Kissat's conflict-10000 result is a conservative localization
+  envelope, not a scoring reference. Before any fusion prototype, trace arena
+  scanning/copying, watch compaction, metadata reconstruction, large-reference
+  forwarding, sparse collection, rewatching, and dense reconstruction,
+  normalized by calls, literal lists, entries, words, clauses, and literals
+  processed. No Substitute or residual Congruence source work is mixed in.
+  Observer-only conflict-9450 collection population job `1647658` from
+  `20260825-1320-rank27-collection-substage-trace` completes 0:0 on node017 in
+  19 seconds with two CPUs. Removing timing and the observer-only row gives the
+  accepted exact common-prefix SHA `3b87bb36...92c5f`; perf has 3,636 samples,
+  about 67.990B cycles and zero lost samples, and staged-input/certificate
+  residue is zero. Across 36 collection calls, 31,537,716 literal lists carry
+  55,263,788 binary plus 42,098,107 large entries. Stable compaction retains
+  every binary and 5,759,788 large entries while dropping 36,338,319 large
+  entries; the separate forwarding pass then revisits all 5,759,788 survivors.
+  Its isolated compact and forward owners cost 1.724B and 0.367B cycles. Arena
+  collection scans 42,102,056 records / 344,622,498 words and retains
+  20,906,868 / 170,998,079 semantic words; rewatching covers 18,026,974 clauses
+  / 57,342,390 literals and dense reconstruction emits 56,958,251 occurrences.
+  This exact observation authorizes corresponding current-Kissat population
+  tracing and a bounded simultaneous fused traversal prototype, not promotion.
+  Current-Kissat observer job `1647659` is submitted from the clean detached
+  `8af8e56` source through the conservative conflict-10000 envelope with two
+  CPUs, 16 GiB, and a 300-second bound. Its isolated metrics-only pin
+  `345a6630...1acc` counts sparse collection calls, watch-list input/survivors,
+  arena clauses/words/literals, and rewatch clauses/literals. It must preserve
+  all pre-existing job-`1647653` semantic metrics after removing observer rows,
+  have zero lost samples and residue, and remains non-scoring because its 550
+  extra conflicts are not the exact Tactix common-state endpoint.
+  Job `1647659` completes 0:0 on node017 in 16 seconds at exactly 10,000
+  conflicts. All 270 integer metrics common to clean current Kissat and frozen
+  job `1647653` match exactly; the older metrics overlay alone prints an
+  unrelated zero `definition_ticks` row. perf has 2,890 samples / about
+  54.006B cycles and zero lost samples, and residue is zero. Its seven sparse
+  collections visit 6,251,150 literal lists with 10,818,424 binary + 8,244,150
+  large entries, retaining 10,818,314 + 5,759,788; they scan 1,311,434 tail
+  clauses / 2,687,531 wards / 4,301,466 literals and rewatch 1,241,263 clauses
+  / 3,992,216 literals. Entries per call are nearly identical to Tactix
+  (2,704,497 versus 2,723,225, ratio 0.9931), but Tactix calls collection 36
+  versus 7 and scans 5.1075x as many aggregate watch entries. Both retain
+  exactly 5,759,788 large entries in total. Source/application accounting
+  decomposes Tactix's 36 as seven sparse-root, sixteen Vivify, nine Substitute,
+  three Congruence, and one whole compact call; Kissat defers/reuses collection
+  across those rule boundaries. Tactix also performs a live-size prepass and a
+  second whole-arena scan/copy even for sparse-tail collection, whereas Kissat
+  preserves the prefix and sweeps only the tail. Invocation frequency and the
+  whole-arena sparse path are therefore larger demonstrated collection owners
+  than the isolated second forwarding traversal. Keep the predeclared bounded
+  fused arm exact and isolated, but do not mistake it for collection closure.
+  Bounded fused compact-and-forward prefix stage `1647660` is submitted from
+  `20260825-1322-rank27-collection-fused-stage` as a sequential `0-1%1` array,
+  with two CPUs and 16 GiB per arm. The predecessor is exact observer pin
+  `0a55e600...e412`; candidate `056adb35...7405` maps each retained large Ref
+  while stable compaction copies the two-word entry. A focused mixed-entry unit
+  image and six boundary/scheduling/reset tests pass 7/7. Require both arms'
+  exact accepted conflict-9450 image, identical collection populations, zero
+  lost samples/residue, and a material compact-plus-forward and complete-prefix
+  reduction. This isolated source is not in main and does not alter the larger
+  eager-call/whole-arena findings.
+  Both sequential arms `1647660_0/1` complete exact on node017. Their complete
+  normalized images equal accepted SHA `3b87bb36...92c5f`, collection population
+  rows are byte-identical, both perf profiles have zero lost samples, and
+  residue is zero. Predecessor compact+forward costs 1.8025B+0.3343B=2.1368B
+  cycles; fused candidate costs 2.1341B, only -0.1245%, while complete prefix
+  cycles regress 67.405B→67.691B (+0.4236%) and solve time 17.551→17.657 s.
+  Reject this bounded fusion as neutral/noisy without touching main or invoking
+  Claude fuzz. The second pass sees only 5,759,788 survivors versus 97,361,895
+  entries handled by compaction; eager call frequency and the whole-arena
+  sparse path remain the first material demonstrated collection owners.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
