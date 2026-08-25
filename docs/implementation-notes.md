@@ -236,6 +236,15 @@ M3 is one public operation. Private pending state must be consumed before contro
   ownership without changing antecedent, pair, literal, proof-chain, tick,
   bound, candidate, or commit order.  Every registered BVE entry supplies the
   persistent scratch object; the rule asserts that lifetime contract.
+- DefaultPolicy's ordinary solve and warm-up decision sites call the active-
+  invariant queue/heap selectors only after their existing
+  `unassigned_active > 0` guard.  Those selectors preserve the ranked queue or
+  heap traversal, lazy heap pops, trace hooks, and queue cursor updates, but
+  assert instead of carrying the policy-neutral end-of-structure fallback
+  through every scan.  The generic decision selector remains total for N1 and
+  injected policies, and the no-extension diagnostic retains its total path;
+  the optimization therefore belongs to DefaultPolicy strategy, not the
+  public Decide rule.
 
 ### Budgets and scope
 

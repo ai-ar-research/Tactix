@@ -522,6 +522,19 @@ Var heuristics_queue_next_unassigned(Kernel &k) {
   return v;
 }
 
+Var heuristics_queue_next_active_unassigned(Kernel &k) {
+  assert(k.unassigned_active > 0);
+  Var v = k.h->search_idx;
+  assert(v != INVALID_VAR);
+  while (k.values[make_lit(v, false)] != 0) {
+    v = k.h->links[v].prev;
+    assert(v != INVALID_VAR);
+  }
+  k.h->search_idx = v;
+  k.h->search_stamp = k.h->links[v].stamp;
+  return v;
+}
+
 // See the header. Diagnostic: prefer any non-extension unassigned variable,
 // scanning the ACTIVE order (heap in stable, queue in focused) and falling back
 // to the ordinary choice when only extension vars remain.
@@ -751,6 +764,19 @@ Var heuristics_heap_next_unassigned(Kernel &k) {
     event_trace_heap_scores(k);
   }
   return heuristics_any_unassigned(k); // see the backstop above
+}
+
+Var heuristics_heap_next_active_unassigned(Kernel &k) {
+  assert(k.unassigned_active > 0);
+  assert(!k.h->scores.stack.empty());
+  Var v = k.h->scores.stack[0];
+  while (k.values[make_lit(v, false)] != 0) {
+    heap_pop_max(k);
+    event_trace_heap_scores(k);
+    assert(!k.h->scores.stack.empty());
+    v = k.h->scores.stack[0];
+  }
+  return v;
 }
 
 void heuristics_update_target_phases(Kernel &k) {

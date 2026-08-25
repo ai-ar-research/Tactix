@@ -145,6 +145,7 @@ void heuristics_score_set(Kernel &, Var v, double score);
 void heuristics_rescale_scores(Kernel &);
 void heuristics_update_scores(Kernel &);       // push all missing vars (enter stable)
 Var heuristics_heap_next_unassigned(Kernel &); // max-score unassigned (lazy pop)
+Var heuristics_heap_next_active_unassigned(Kernel &);
 inline bool heuristics_heap_contains(const Kernel &k, Var v) {
   return k.h->scores.pos[v] != UINT32_MAX;
 }
@@ -160,11 +161,23 @@ void heuristics_update_target_phases(Kernel &);
 // Never shippable — it narrows the policy's action space, which N1 forbids.
 Var heuristics_next_decision_var_no_ext(Kernel &k);
 
+Var heuristics_queue_next_active_unassigned(Kernel &);
+
 inline Var heuristics_next_decision_var(Kernel &k) {
   if (k.no_ext_decisions && k.first_extension_var != UINT32_MAX)
     return heuristics_next_decision_var_no_ext(k);
   return k.h->stable ? heuristics_heap_next_unassigned(k)
                      : heuristics_queue_next_unassigned(k);
+}
+
+// DefaultPolicy's solve/warm-up guards prove that at least one active variable
+// remains. Kissat relies on the same invariant and therefore does not carry the
+// policy-neutral N1 fallback checks through every ranked decision scan.
+inline Var heuristics_next_active_decision_var(Kernel &k) {
+  if (k.no_ext_decisions && k.first_extension_var != UINT32_MAX)
+    return heuristics_next_decision_var_no_ext(k);
+  return k.h->stable ? heuristics_heap_next_active_unassigned(k)
+                     : heuristics_queue_next_active_unassigned(k);
 }
 // Phase priority (kissat decide.c kissat_decide_phase): target (stable only),
 // then saved, then the positive initial phase.  A zero saved entry means the

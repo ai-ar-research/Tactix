@@ -1670,7 +1670,7 @@ Lit DefaultBranching::pick(Kernel &k) {
       }
     }
   }
-  const Var v = heuristics_next_decision_var(k);
+  const Var v = heuristics_next_active_decision_var(k);
   return decide_lit(k, v);
 }
 
