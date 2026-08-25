@@ -650,6 +650,51 @@ own experimental detail and history.
   source shows repeated calls while snapshotting/rebuilding binary images.
   Preserve Sweep/session behavior and all ordering exactly; test this isolated
   representation repair before attempting a larger streaming rewrite.
+  Exact-prefix import-order-image stage `1647664` is submitted sequentially
+  from `20260825-1350-rank27-substitute-import-order-stage`. Frozen predecessor
+  `6f7e44e...902d` and candidate `b926d0dc...2861` use identical Release
+  conflict-stop/observer configuration, two CPUs, 16 GiB, and conflict 9450.
+  The candidate resolves exact permanent import rank once per current variable
+  for canonical binary snapshot/publication only; sparse Sweep sessions remain
+  unchanged. Focused proof/rule/schedule/reset tests pass 12/12 in both Release
+  configurations. Require exact normalized state/work, zero lost samples and
+  residue, material Substitute/import-order improvement, and no whole-prefix
+  regression before any trace or promotion.
+  Both sequential `1647664` arms complete 0:0 on node017 with exact accepted
+  normalized SHA `3b87bb36...92c5f`, identical round/image/tick/effect
+  populations, zero lost samples, and zero residue. The intended owner improves:
+  snapshot 201→148 ms (-26.37%), `kernel_import_lit_order` 528.8M→263.9M
+  sampled cycles (-50.10%), and canonical Substitute 1,610→1,574 ms (-2.24%).
+  The short complete prefix drifts the other way, 62.447B→63.064B cycles
+  (+0.99%) and 16.257→16.427 s; approximately 0.48B of the increase is in
+  unchanged propagation. This is neither promotion nor rejection under the
+  user-required longer-horizon contract. Require byte-identical event trace,
+  then price the frozen pair over full Rank 27 and predeclared mechanism-
+  relevant B+C instances. Only a longer positive result may advance to the
+  complete checked B28+C5 gate.
+  Candidate-only event-trace job `1647666` is submitted from
+  `20260825-1355-rank27-substitute-import-order-trace` with two CPUs and the
+  established conflict-9449/stop-9450 observer contract. It compares exactly
+  64 rows against frozen SHA `7a6216bb...7cc1` without rerunning the accepted
+  predecessor. Event-trace Release tests pass 4/4; longer pricing remains
+  blocked until the trace is byte-identical and residue-free.
+  Job `1647666` completes 0:0 on node017 with exactly 64 untruncated rows and
+  SHA `7a6216bb...7cc1`, byte-identical to the frozen authority. Exact rule/
+  candidate order, scheduling, tick/cost, learning, pruning, and resulting
+  state are preserved; staged-input and certificate residue are zero. This
+  authorizes only the predeclared longer Rank-27 plus mechanism-relevant B+C
+  pricing stage, not the full gate or promotion.
+  Longer evaluation is now frozen and submitted. Same-allocation full Rank-27
+  job `1647667` runs accepted Release `94784f16...8503` then candidate
+  `bafb4522...639a` sequentially on one node with two CPUs, 16 GiB, and 1,200 s
+  per arm. Checked B+C mechanism screen array `1647668` plus after-any aggregate
+  `1647675` pairs four Tier B (FmlaEquivChain, PRP, DivS, b22) and two Tier C
+  (500-gate circuit, T105) selected before submission from accepted guard
+  `1647586` as the highest Substitute time/share cases. All 12 tasks use two
+  CPUs, 16 GiB, 1,200 s, independent SAT-model/UNSAT-proof validation, atomic
+  cleanup, and zero-retention policy. Neither submission nor partial state is
+  a result; complete B28+C5, Claude fuzz, report, or source promotion remains
+  unauthorized pending both terminal classifications.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
