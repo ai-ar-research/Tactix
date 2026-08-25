@@ -225,6 +225,17 @@ M3 is one public operation. Private pending state must be consumed before contro
 - After late Lucky fails, DefaultPolicy uses the normal strict inactive-percent compaction threshold: delaying this representation-only rebuild lets easy Lucky SAT exits avoid it while long search sheds retired entries from every dense array. Lucky walks the permanent external-to-internal map directly in both directions, skipping retired holes without changing order or making a dense high-water copy.
 - Startup root propagation, both Lucky trials, sparse root collection, and initial Probe advance global work but not `search_ticks`. Initial Probe deliberately leaves its search-tick anchor at zero; only a completed search-time Probe phase advances it, matching Kissat's `probe_initially`/`last.ticks.probe` lifecycle.
 - BVE's two literal-to-binary indexes clear only touched entries, while binary gathering and resolvent dedup share one restored literal-mark image. Thread-local rule scratch persists across one-variable scheduler admissions like other non-reentrant dense rules; candidate order, gates, resolvents, proof, and reconstruction are unchanged.
+- BVE materializes one candidate's positive/negative antecedents and generated
+  resolvents into reusable append-only literal and LRAT-chain pools.  Clause and
+  resolvent records retain offset/length slices rather than pointers, so pool
+  growth cannot invalidate them; the pools are cleared only at the next
+  candidate after the preceding slices have been consumed.  A satisfied large
+  antecedent rewinds both pools to its captured starts, and a tautological or
+  oversized resolvent rewinds the literal pool before continuing or aborting.
+  This mirrors Kissat's raw candidate stacks and removes per-small-vector heap
+  ownership without changing antecedent, pair, literal, proof-chain, tick,
+  bound, candidate, or commit order.  Every registered BVE entry supplies the
+  persistent scratch object; the rule asserts that lifetime contract.
 
 ### Budgets and scope
 

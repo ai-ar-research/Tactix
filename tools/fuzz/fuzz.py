@@ -304,6 +304,12 @@ REACH_SPECS = [
     # clause-order sort. `rounds` alone cannot witness that path: a round that
     # strengthens nothing skips the collection.
     ("VivifyChanged", r"^c vivify\s+\d+ rounds, (\d+) vivified"),
+    # PATH row: a committed elimination is exactly what consumes BVE's
+    # materialized resolvent literal/LRAT-chain images into kernel clauses and
+    # proof additions. `resolutions` alone cannot witness that path: a
+    # candidate can generate resolvents and then abort at its bound without
+    # ever committing one.
+    ("BveEliminated", r"^c bve\s+\d+ rounds, (\d+) eliminated"),
 ]
 _REACH_RES = [(label, re.compile(pat, re.M)) for label, pat in REACH_SPECS]
 _STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)

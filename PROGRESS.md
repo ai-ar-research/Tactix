@@ -34,12 +34,34 @@ own experimental detail and history.
   submission. The campaign is not yet scorable: dependent aggregate `1646295`
   owns complete validity, solve-loss, independent-check, and cleanup
   classification after every array task terminates.
+  Audit at 11:40 EDT finds seven tasks still running on node017 (indices 81,
+  290, 488, 540, 743, 1128, and 1154); aggregate `1646295` remains
+  dependency-pending. Partial task exits, including resource/checker failures,
+  carry no scoring or solver-correctness interpretation before the aggregate's
+  complete validity/solve-loss classification. The campaign remains active
+  and non-scorable; convergence work continues without waiting for it.
 - Fuzzing ownership is now explicit in `DEVELOPMENT_PLAN.md` §8.2: Claude Code
   prepares, submits, monitors, inspects, and reports every solver fuzz job.
   Codex does not probe fuzz logs or artifacts and accepts Claude's terminal
   pass/failure report; failure returns directly to Claude's bounded repair
   workflow. Benchmark guards, proof witnesses, and performance diagnostics
   retain their separate independent-validation contracts.
+- The user-directed convergence order is now fixed. First close and separately
+  commit/push the staged BVE increment, then separately apply, Claude-fuzz,
+  prove, report, commit, and push the already guarded active-decision repair.
+  Only from that newly accepted baseline, freeze the current-Tactix/current-
+  Kissat comparison and localize collection/rewatching by watch compaction,
+  reference forwarding, metadata reconstruction, sparse collection, and
+  rewatching, normalized by entries and literals processed. Evaluate any fused
+  compact-and-forward repair first at exact common-prefix state/order/ticks/
+  scheduling/learning/pruning, then over full Rank 27 and mechanism-relevant
+  B+C, and finally through the full checked gate and Claude fuzz before a
+  separate wrap-up. Next localize matched Substitute invocations (SCC graph
+  and traversal, limits, representatives/retirement, clause effects, proof/
+  reconstruction, and downstream state), repair only its first demonstrated
+  worse-side owner, then revisit the smaller residual Congruence difference
+  (historically about 1.953 versus 1.644 s) before continuing broad search-
+  quality convergence. Do not mix these increments or stop at 300 seconds.
 - 2026-08-25 active Vivify convergence checkpoint — Compact propagation-only
   watch spans are closed negative and reverted by exact common-state job
   `1646178`: all non-time work is identical, but Rank-27 conflict-9450 total
@@ -275,6 +297,240 @@ own experimental detail and history.
   `338b66b1…49a`. This closes the BVE guard but is deliberately parked: no BVE
   Rank-27 run or promotion occurs until corrected clean Vivify control
   `1647411` resolves the higher-priority 399-second behavior.
+  The clean Vivify correction is now closed and pushed at `4777da6`, so the
+  frozen flat-slice source has been restored byte-for-byte and rebuilt to the
+  already-guarded candidate SHA `aeb14e2a…7f62`; focused Release validation is
+  again 5/5. Immutable proofless Rank-27 serial control `1647569` now runs
+  promoted-Vivify predecessor `067f7f3a…70bd` then BVE candidate
+  `aeb14e2a…7f62` in one allocation at two CPUs, 16 GiB, and 1,200 s per arm.
+  Require terminal exact-state UNSAT, byte-identical complete non-time images,
+  material BVE-owned savings, no total/RSS regression, and zero residue before
+  pricing. Even a positive control does not promote: Claude Code exclusively
+  owns the required exact-source fuzz, followed by an independently checked
+  Rank-27 proof witness.
+  Rank-27 control `1647569` is decisively positive and exact. Both serial arms
+  return UNSAT and their complete normalized non-time images are byte-identical
+  at SHA `14f7da2d…6194`, including 346,693 eliminations, 64,242,959
+  resolutions, every BVE gate/definition/tick/bound/effect counter, all rule
+  scheduling, search, learning, pruning, and retained state. Candidate versus
+  predecessor is 419.772/498.082 s internal (-78.310, ratio 0.842777), BVE
+  16.229/37.975 s (-57.26%), and inprocessing 150.772/182.996 s. RSS rises a
+  bounded 5,564 KiB (0.88%) from reusable retained capacity; cleanup and
+  certificate residue are zero. Serial outside-rule timing is not causally
+  assigned, but the exact same-work BVE owner now reaches the approximately
+  16.32-second current-instrumented-Kissat level that motivated the repair.
+  This authorizes an independently checked Rank-27 proof witness. Promotion
+  remains blocked only on that witness and Claude Code's authoritative fuzz
+  terminal report; Codex does not inspect fuzz job `1647571` or its artifacts.
+  Immutable proof-producing witness `1647572` is now submitted with candidate
+  SHA `aeb14e2a…7f62`, pinned `drat-trim`, the exact Rank-27 input, two CPUs,
+  16 GiB, a 1,200-second solver limit, and a 4,800-second checker limit. It must
+  verify the complete UNSAT proof against the original decompressed CNF and
+  atomically publish zero proof/input/checker/scratch residue; submission alone
+  carries no correctness or promotion claim.
+  On explicit user direction, standalone causal job `1647573` now runs exact
+  BVE candidate `aeb14e2a…7f62` on node018 at two CPUs, 16 GiB, and 1,200 s.
+  It is node-constrained and non-scoring. Require the accepted exact non-time
+  SHA and zero residue, then compare directly with same-node promoted-Vivify
+  `1647466` at 386.665 s / 30.069 s BVE and historical clean `1647447` at
+  394.107 s / 30.719 s BVE; also report the identical candidate's node017
+  `1647569` result without assigning cross-node causality to the source.
+  Checked Rank-27 witness `1647572` passes. Candidate returns exact-trajectory
+  UNSAT in 573.973 s internal / 574.542 s wall in proof mode; pinned
+  `drat-trim` verifies the 1,514,395,111-byte proof in 146.366 s with
+  `s VERIFIED`. Proof SHA `0f99f55a…8bb2d` and complete normalized proof-mode
+  non-time SHA `8cd3eda4…c2da7` are byte-identical to the accepted promoted-
+  Vivify witness. Result SHA is `44cd9580…c4d`; all proof, decompressed input,
+  checker output, and scratch are deleted with zero residue. Full Release is
+  73/74 with every executable/correctness/proof/boundary/cleanup test green and
+  only the known documentation-size policy debt failing. BVE promotion now
+  awaits only Claude Code's authoritative terminal fuzz report.
+  User-directed node018 BVE arm `1647573` is exact-state UNSAT in 371.711 s
+  internal / 372.18 s wall, the best clean result on the current accepted
+  Rank-27 trajectory. Its complete non-time SHA is the accepted
+  `14f7da2d…6194`. Versus same-node promoted-Vivify `1647466`, total improves
+  386.665→371.711 s (-14.954, ratio 0.961326), BVE 30.069→15.470 s (-48.55%),
+  inprocessing 153.326→139.130 s, and outside time is flat
+  (233.339→232.581 s); RSS rises only 4,784 KiB (0.76%). Versus historical
+  clean `60fe8e…` job `1647447`, total improves 394.107→371.711 s (-22.396).
+  The identical candidate's node017/node018 spread (419.772 vs 371.711 s) is
+  environmental and non-scoring. The BVE repair accounts for essentially the
+  full same-node gain, but Rank 27 remains 71.711 s above the 300-second
+  milestone. Cleanup and certificate residue are zero.
+  User-directed exact-binary node018 repeat `1647575` confirms that result:
+  the candidate again returns the accepted complete non-time SHA
+  `14f7da2d…6194` in 375.797 s internal / 376.27 s wall with BVE 15.500 s.
+  It is 4.086 s (1.10%) slower than the best BVE observation `1647573`, but
+  BVE differs by only 0.030 s and 3.416 s of the variation is outside
+  inprocessing. Against the same-node promoted-Vivify baseline `1647466`, the
+  repeat is still 10.868 s faster overall and 14.569 s faster in BVE; against
+  historical clean `1647447`, it is 18.310 s faster. Thus `1647573` remains
+  the best observed clean Rank-27 result at 371.711 s, while the repeat
+  independently confirms the causal BVE throughput gain. Staged input,
+  certificate, checker, scratch, and temporary residue are zero.
+  At the user's request, a third exact-pin node018 control is submitted as job
+  `1647654` from
+  `benchmarks/runs/20260825-1147-tierd-rank27-bve-node018-third/`. It uses the
+  byte-identical BVE Release pin `aeb14e2a...7f62`, immutable Rank-27 input,
+  two CPUs, 16 GiB, and the 1,200-second solver contract. Compare only after
+  accepted non-time SHA `14f7da2d...6194`, UNSAT exit 20, and zero residue;
+  the direct prior observations are 371.711 s (`1647573`) and 375.797 s
+  (`1647575`). This node-constrained repeat is causal evidence, not frozen-tier
+  scoring.
+  Job `1647654` completes exact-state UNSAT in 372.969 s internal / 373.45 s
+  wall with BVE 15.472 s, inprocessing 139.291 s, outside-rule 233.678 s, and
+  637,044 KiB peak RSS. Its complete normalized non-time SHA is the accepted
+  `14f7da2d...6194`; cleanup and certificate residue are zero. It is 1.258 s
+  (0.34%) slower than best job `1647573`, but BVE differs by only 0.002 s and
+  1.097 s of the whole-run delta lies outside inprocessing. It is 2.828 s
+  faster than repeat `1647575`. Across the three node018 BVE observations,
+  median total is 372.969 s, range is 4.086 s, mean BVE is 15.481 s, and the
+  BVE range is only 0.030 s. Thus `1647573` remains the single best at
+  371.711 s, while three independent runs confirm the BVE-owned throughput
+  reduction versus promoted Vivify's 30.069 s BVE owner.
+  Wrap-up preparation is durable: the flat-slice lifetime/order invariant is
+  recorded in `docs/implementation-notes.md`; the final three-page Andrew
+  TeX/PDF is `report-to-andrew/2026-08-25-1215-rank27-bve-flat-slice/` (TeX
+  SHA `b8e0c489...19a21`, PDF SHA `11d397ba...b25f`); and a
+  fresh clean Release run is 73/74 with every executable/correctness/proof/
+  model/trace/boundary/cleanup test green and only the pre-existing opt-in
+  documentation-size policy failing. Claude Code retry at 11:18 EDT reached
+  its account session limit without inspecting the campaign and reports reset
+  at noon. Codex did not inspect fuzz logs or artifacts. Claude Code's
+  authoritative terminal report now classifies exact-source ASan/UBSan native-
+  LRAT fuzz job `1647571` PASS. Corpus is 27/27 and random fuzz is
+  10,000/10,000 with zero failures: 5,097 independently checked SAT models,
+  3,463 independently accepted UNSAT native-LRAT proofs, 1,440 bounded five-
+  second nonterminations carrying no oracle claim, and zero model/proof
+  rejection or Kissat differential disagreement. Required reach counts are
+  BVE 5,959, BveEliminated 5,937, and Propagate 5,940, with 1,377,525 target
+  applications. Claude reports zero sanitizer finding, crash, abort, invariant
+  failure, certificate residue, or scratch residue. The 25 retained diagnostic
+  timeout CNFs and seed ledger are inputs only, not failures or certificates.
+  This closes the BVE fuzz gate; do not rerun or independently reinterpret the
+  campaign. Full-profile follow-up
+  exact-prefix array `1647576` prices an isolated all-binary watch-list fast
+  path using the existing exact-negative `WatchHead.has_large` certificate.
+  Every conflict-9450 counter is byte-identical (normalized SHA
+  `3b87bb36…c5f`), including 5,795,248 decisions, 96,338,812 propagations, all
+  rule ticks/effects, ordering, scheduling, learning, and pruning. Candidate /
+  predecessor sampled cycles are 71.048/71.367 billion (-0.447%), but the
+  intended ordinary-propagation owner is only 22.309/22.348 billion (-0.175%).
+  This is below a material portable gain, so the isolated prototype is rejected
+  as neutral and never enters main source, tracing, or B/C gates. It also
+  demonstrates that the existing all-binary certificate does not cover enough
+  hot work to explain the remaining propagation gap; do not reopen it without
+  contradictory hardware evidence. Both staged CNFs and certificate residue
+  are zero.
+  Source comparison then retests Kissat's bulk propagation-statistics update
+  against Tactix's source-level per-implication increment. Repository audit
+  after completion found this was already closed by frozen job `1645516`, so
+  array `1647578` is an unnecessary independent reconfirmation and must not be
+  repeated. It again preserves normalized SHA `3b87bb36…c5f`, but candidate /
+  predecessor total cycles are 71.554/71.368 billion (+0.261%) and ordinary
+  propagation is 22.545/22.478 billion (+0.298%). The compiler therefore
+  already removes any material machine-level shared-counter penalty from the
+  predecessor. This isolated arm is rejected negative/neutral and never enters
+  main source, tracing, or gates; do not reopen it without contradictory
+  disassembly or hardware evidence. Cleanup and certificate residue are zero.
+  A frozen-profile normalization audit then corrects the asserted remaining
+  propagation gap without rerunning either solver. Tactix's
+  `propagate_literal<false,false>` owner includes both search and probing, but
+  the published 174.239 Kissat cycles/propagation divided only
+  `kissat_search_propagate`'s 464.511B cycles by all 2.666B propagations,
+  including 730.505M probing propagations. The owner-matched Kissat numerator
+  is search 464.511B + probing 57.247B + warming 0.757B = 522.515B, or
+  195.998 cycles/propagation. Accepted post-reserved-trail Tactix is 195.780,
+  not 1.12362x worse. That later comparison is cross-run and function
+  boundaries still differ, so it is localization-only rather than a claim
+  that Tactix is faster; critically, the old 1.12362x worse-side claim is
+  invalid and superseded. Current evidence establishes no residual portable
+  propagation gap after reserved-trail removal. Resume source-backed residual
+  Vivify/common-state localization instead of mining the environmentally
+  inflated job-`1647574` total. Audit manifest is
+  `20260825-1050-tierd-rank27-propagation-normalization-audit`.
+  Residual Vivify is likewise not a demonstrated same-work loss: after the
+  accepted arena-order repair, exact common-state job `1646181` spends 1.865 s
+  in Vivify through conflict 9450, below current Kissat's frozen conservative
+  1.96-second comparator through conflict 10000. The later 47.8/26.2-second
+  full timers belong to different trajectories and cannot authorize another
+  Vivify behavior change. The next source-backed broad-search candidate instead
+  hoists invariant stable/focused mode dispatch out of the backtrack trail
+  loop, matching Kissat's split loops. Exact-prefix array `1647580` preserves
+  normalized SHA `3b87bb36…c5f` and lowers the intended backtrack owner
+  4.064B→3.860B sampled cycles (-5.00%), but complete cycles regress
+  71.526B→71.884B (+0.50%) and elapsed rises 79 ms. It therefore fails the
+  predeclared whole-prefix acceptance contract and is rejected without main
+  source, trace, or B/C promotion. Cleanup and certificate residue are zero.
+  The next portable candidate uses DefaultPolicy's existing active-variable
+  guard to call Kissat-shaped queue/heap pickers without the generic N1
+  end-of-structure fallback; the policy-neutral total picker remains unchanged.
+  Exact-prefix array `1647582` preserves normalized SHA `3b87bb36…c5f` while
+  combined next-unassigned owners fall 1.458B→1.097B cycles (-24.73%), focused
+  queue selection falls 1.306B→0.946B (-27.59%), complete cycles fall
+  71.737B→71.420B (-0.442%), and elapsed falls 91 ms. This is a positive exact
+  stage only; candidate-only event tracing against the frozen common-state
+  trace is next, with no main-source or promotion claim yet. Cleanup and
+  certificate residue are zero.
+  Candidate-only trace job `1647584` produces exactly 64 untruncated rows with
+  SHA `7a6216bb…7cc1`, byte-identical to the frozen common-state authority.
+  Decision/rule/candidate order, exact tick/cost, scheduling, learning,
+  pruning, and resulting state are therefore exact. Advance the isolated pin
+  to a full Rank-27 node018 control against exact BVE baselines `1647573` and
+  `1647575`; full B28+C5 remains blocked until the longer result is positive.
+  Full node018 job `1647585` is now exact-state UNSAT with accepted complete
+  non-time SHA `14f7da2d…6194`, zero staged-input/certificate residue, and
+  373.696 s internal / 374.18 s wall. Against the immediately preceding exact
+  BVE repeat `1647575`, total falls 375.797→373.696 s (-2.101, ratio 0.994410)
+  entirely outside inprocessing (235.997→233.889 s); BVE and inprocessing are
+  flat at 15.500→15.522 and 139.800→139.807 s. It is still 1.985 s slower than
+  the single best `1647573` observation, so one noisy whole-run result is not
+  a promotion claim. Together with the exact prefix owner reduction and exact
+  trace, it is sufficient to authorize the predeclared full frozen B28+C5
+  guard `20260825-1110-BC-active-decision-guard`, comparing exact BVE pin
+  `aeb14e2a…7f62` with candidate `94784f16…8503` under two CPUs, 16 GiB, and
+  1,200 s plus independent SAT-model/UNSAT-proof validation. Promotion remains
+  blocked on that complete guard and independent fuzz authority. Full-width
+  array `1647586` and after-any aggregate `1647652` are now submitted; neither
+  submission nor partial task state carries a validation claim. The aggregate
+  is now complete and passed: 66/66 valid results, with each arm independently
+  checking 17 SAT models and 16 UNSAT proofs, no invalidity or solve loss,
+  paired normalized non-time images exact on all 33 instances, and zero
+  cleanup/certificate residue. Candidate/predecessor PAR-2 is
+  1592.114/1599.173 s (ratio 0.995586), with equal 2.917 GiB maximum RSS.
+  This closes the mandatory B28+C5 safety/performance guard. Active-decision
+  source promotion remains deliberately ordered after the staged BVE wrap-up
+  and requires Claude-owned fuzz authority; no second behavioral change is
+  opened meanwhile.
+  Read-only source/profile review names whole-arena collection as the next
+  possible broad-search representation owner after active decision: exact
+  conflict-9450 Tactix assigns 4.91% of sampled cycles to
+  `kernel_collect_garbage`, while the already accepted full current-Kissat
+  profile distributes markedly less across compact/collect/rewatch functions.
+  Because the latter full trajectories differ, this is localization only.
+  Current-instrumented-Kissat job `1647653` is submitted at conflict 10000
+  under two CPUs/16 GiB to measure the conservative common-state envelope and
+  confirm both solvers perform the same compact phase; it does not rerun a
+  frozen scoring reference and cannot authorize a behavioral change alone.
+  It completes intentional UNKNOWN at exactly 10000 conflicts with zero lost
+  samples and residue. The initial same-compact premise is corrected: Kissat
+  performs seven sparse collections and two literal compactions, versus the
+  shorter Tactix prefix's one printed compact pass. Even with 550 extra Kissat
+  conflicts, explicit collection/flush/rewatch owners total 4.521B sampled
+  cycles; the corresponding shorter-prefix Tactix family totals 7.451B
+  (1.648x), excluding generic search-time `move_best_watch_to_front` from the
+  Tactix sum. Function boundaries differ and the Kissat metrics overlay carries
+  unrelated observer overhead, so this is credible localization, not a repair
+  claim. After the two validated increments land, trace exact collection
+  substages and source operations before pricing any exact representation arm.
+  Existing exact-profile disassembly now places about 60% of
+  `kernel_collect_garbage` local samples in its per-literal watch maintenance:
+  `WatchLists::compact` stably retains entries and recomputes head metadata,
+  then `map_large_refs` walks every retained entry again solely to forward
+  large-clause Refs. The first bounded successor hypothesis is one stable fused
+  compact-and-forward primitive preserving blockers, entry order, binary
+  counts/flags, sparse-prefix semantics, and forwarding. This remains queued
+  behind the BVE and active-decision wraps; no source prototype exists yet.
 - Current/current exact-state jobs `1645876`/`1645878` localize the earliest
   Rank-27 common-state loss inside Congruence: complete Tactix/current-Kissat is
   2346/1644 ms, AND 283/568 and XOR 89/269 ms favor Tactix, but ITE is 630/117
