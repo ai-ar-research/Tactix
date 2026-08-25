@@ -298,6 +298,12 @@ REACH_SPECS = [
     ("VariableCompaction", r"^c compact\s+(\d+) passes"),
     ("VivifyFlush",
      r"^c vivify\s+\d+ rounds, \d+ vivified, \d+ deleted, (\d+) flushed"),
+    # PATH row: a strengthened (vivified) clause is exactly what arms
+    # VivifyArenaOrder (retire/inherit -> changed) and therefore forces the
+    # round-end ordered arena collection through the kernel's logical
+    # clause-order sort. `rounds` alone cannot witness that path: a round that
+    # strengthens nothing skips the collection.
+    ("VivifyChanged", r"^c vivify\s+\d+ rounds, (\d+) vivified"),
 ]
 _REACH_RES = [(label, re.compile(pat, re.M)) for label, pat in REACH_SPECS]
 _STATS_BANNER_RE = re.compile(r"^c tactix ", re.M)

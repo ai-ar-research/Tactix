@@ -1,0 +1,160 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.92in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 Vivify Arena-Order Representation Repair}
+\author{Tactix Development Project}
+\date{25 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive summary}
+This increment promotes a general representation repair in Vivify without
+changing Vivify's semantics.  Tactix allocates a fresh variable-width arena
+record when Vivify strengthens a clause, then restores the surviving database
+to inherited logical arena order.  The old implementation used
+\code{std::stable_sort}; every comparison recovered both clauses' logical
+keys.  Kernel already owned an exact cached-key stable LSD radix pass for the
+same order.  Vivify now delegates to that primitive.
+
+Candidate order, rule and scheduling order, exact logical ticks and costs,
+proof effects, learning, pruning, retained state, and N1--N4 are unchanged.
+The production source diff has SHA-256
+\hashcode{65e9489b66344023c245a1450b12e9d76fa178e7926cf68cf5ac0f02ce442824};
+the validated Release binary has SHA-256
+\hashcode{067f7f3a0566cce6a52c90d78228b51cc7444adadb464402d5339f07ed5070bd}.
+No benchmark identity, rank, deadline, per-instance arm, or tuned constant is
+present in the solver.
+
+The exact conflict-9450 stage lowers Vivify 2.106 to 1.865 seconds.  The
+complete frozen B28 plus mechanism-relevant C5 gate passes 66/66 independently
+checked arms and lowers aggregate Vivify 18.07\%, with candidate/shipped PAR-2
+ratio 0.978814.  A checked Rank-27 proof witness and Claude-owned exact-source
+sanitizer/native-LRAT fuzz both pass with zero residue.
+
+An apparent Rank-27 regression from the accepted approximately 399 seconds to
+over 500 seconds required a separate causal audit before promotion.  The
+unchanged accepted predecessor also reproduced approximately 580 seconds.
+The final two-node crossover then measured both binaries once on each node:
+node-local candidate deltas had opposite signs, while the balanced candidate
+average was 2.198 seconds faster, Vivify was 11.52\% faster, and inprocessing
+was 7.744 seconds faster.  Thus the current 399-to-580-second absolute drift is
+environmental, not caused by the Vivify repair.  The repair is promoted; Rank
+27 and broader convergence remain open.
+
+\section{Repair and exact common-state evidence}
+Clause order is semantic scheduling state in Tactix.  New large clauses use a
+monotone proof identity as their logical order key, while restatements and
+packed replacements inherit the source key.  Vivify's collection hook must
+therefore restore the exact stable sequence ordered by logical key and then by
+the existing Ref.  The repair exposes Kernel's existing cached-key radix
+primitive and calls it from \code{VivifyArenaOrder}; physical arena addresses
+remain neither proof authority nor strategy input.
+
+Exact paired stage \code{1646181} keeps every normalized non-time line
+identical and changes Vivify 2.106 to 1.865 seconds (0.88557x), inprocessing
+16.019 to 15.775 seconds, and wall time 16.51 to 16.25 seconds.  Peak RSS is
+unchanged.  Event job \code{1646183} emits all 64 untruncated rows with the
+frozen byte-identical SHA-256
+\hashcode{7a6216bb86c236512dea03de76c4c9ab2ffdd745bd7ca7b9fa5507e708987cc1}.
+This directly freezes rule identity, candidate and scheduling order, exact
+tick/cost fields, boundary state, learning, pruning, and resulting state.
+
+The full-width frozen B28+C5 campaign \code{1646184}/\code{1646250} validates
+17 SAT models and 16 UNSAT proofs on each arm.  All 33 paired normalized
+non-time images are exact; invalidity, solve loss, cleanup failure, and
+certificate residue are zero.  Aggregate Vivify falls 198.247 to 162.431
+seconds (0.81933x), and candidate PAR-2 is 0.978814x shipped.  Aggregate
+summary SHA-256 is
+\hashcode{18a60d2f61ef9281dabe6e6fb9aa976f34b5bb7970e9c3f8f801e00d79e5eb6c}.
+
+Proof-producing Rank-27 job \code{1646346} returns UNSAT on the exact accepted
+trajectory.  Pinned \code{drat-trim} verifies the 1,514,395,111-byte proof,
+SHA-256
+\hashcode{0f99f55ac55571d6f83fe53ec8cb4a6a4c8df0a6e127442e50f47e25bea8bb2d},
+before all proof, decompressed input, and checker scratch are deleted.  Claude
+Code's authoritative terminal report for exact-source job \code{1646352} is
+PASS: corpus 27/27 and random 10,000/10,000, with 4,966 checked SAT models,
+3,451 checked UNSAT proofs, 1,583 declared bounded nonterminations, direct
+reach in 5,865 Vivify and 4,306 changed-Vivify cases, zero sanitizer/crash/
+invariant failure, and zero residue.
+
+\section{Resolving the apparent whole-run regression}
+Sequential Rank-27 pair \code{1646251} lowered Vivify 64.399 to 58.191 seconds
+and inprocessing 192.415 to 186.927 seconds, but total time moved 515.505 to
+520.897 seconds.  That pair could not price the change: its unchanged control
+was already roughly 116 seconds slower than the accepted 399.152-second run.
+A separate candidate-only run \code{1647203} then took 583.796 seconds, so the
+repair was reopened under the user-directed 500-second criterion.
+
+The identical standalone wrapper with the immutable unchanged predecessor,
+job \code{1647229}, took 580.077 seconds.  Both runs used their CPUs fully and
+all non-time lines were byte-identical.  Candidate versus predecessor was only
++3.719 seconds, while candidate Vivify improved 70.742 to 60.910 seconds and
+inprocessing improved 204.559 to 194.157 seconds.  This disproved Vivify as
+the cause of the absolute jump, but a clean total comparison was still needed.
+Exclusive-node submission was rejected by the partition before allocation, so
+no solver or artifact was created.
+
+Final campaign
+\artifact{benchmarks/runs/20260825-0840-tierd-rank27-vivify-radix-cross-node-control/},
+job \code{1647252}, reserves one two-CPU/16 GiB task on each available node.
+Phase 1 runs predecessor on rank 0 and candidate on rank 1; phase 2 swaps the
+binaries without changing rank-to-node placement.  No two Tactix processes
+share a node.  All four runs return exact-state UNSAT at 99\% CPU with zero
+residue.
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Placement & Predecessor & Candidate & Candidate delta \\
+\midrule
+node017 total, s & 583.044 & 556.510 & $-26.534$ \\
+node018 total, s & 450.091 & 472.229 & $+22.138$ \\
+balanced total, s & 516.5675 & 514.3695 & $-2.198$ \\
+balanced Vivify, s & 64.5305 & 57.0970 & $-7.4335$ \\
+balanced inprocessing, s & 191.2535 & 183.5095 & $-7.744$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The opposing node-local signs show that node/phase conditions dominate any
+single total comparison.  Under the additive crossover estimator, node and
+phase biases cancel: candidate total is 0.995745x predecessor, Vivify is
+0.884807x, and inprocessing improves 7.744 seconds.  The remaining outside-
+inprocessing average moves by 5.546 seconds, smaller than the environmental
+crossovers and not accompanied by any state change.  The approximately
+399-second historical result is currently reproducible by neither binary and
+cannot be used to reject this exact-state repair.
+
+\section{Disposition and next work}
+The final BVE-free Release build reproduces the validated binary pin.  The
+complete suite passes 73/74: every executable, solver, proof/model, trace,
+campaign-cleanup, proof-rule/strategy-boundary, and solve-reset test passes;
+only the already-recorded opt-in documentation-size policy fails.  Frozen
+reference solvers were not rerun and all campaign certificate residue is zero.
+
+The Vivify radix arena-order repair is therefore promoted.  It does not claim
+that Vivify convergence is globally complete; it closes one portable common-
+state representation owner.  Rank 27 remains above the 300-second milestone,
+and reaching that milestone will not stop justified convergence.  The paused
+residual-BVE flat-slice prototype is preserved separately and is not part of
+this source.  After this checkpoint lands cleanly, resume that staged BVE
+comparison, then continue broad search quality/throughput localization.  The
+accepted Sweep, directed bridge, BVE antecedent-admission, Congruence, and
+prior Vivify semantic closures remain closed absent contradictory exact-state
+evidence.
+
+\end{document}
