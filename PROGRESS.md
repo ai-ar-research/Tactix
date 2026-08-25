@@ -140,6 +140,85 @@ own experimental detail and history.
   three-page Andrew report is
   `report-to-andrew/2026-08-25-0825-rank27-vivify-radix-order/`, TeX SHA
   `13bb9a62…2240`, PDF SHA `331591c1…5385`, with no LaTeX box warning.
+  **Correction / promotion reopened:** the `7c5a38…` predecessor used by the
+  later Vivify controls is not build-equivalent to the 399.152-second witness
+  binary `60fe8e…`. Binary strings and symbols prove `7c5a38…` contains
+  compiled `TACTIX_STOP_AFTER_CONFLICT` / `TACTIX_SWEEP_TIME` diagnostics;
+  neither `60fe8e…` nor clean candidate `067f7f…` contains them. A fresh
+  Release-default build from an archive of commit `a4b11964` reproduces
+  `60fe8e…` bit-for-bit (1,260,152 bytes), proving the committed production
+  source exactly represents the 399-second binary and there was no hidden
+  pre-commit solver-source change. Thus exact-state/proof/fuzz correctness and
+  the Vivify-local speedups survive, but the B+C total comparison and all
+  whole-Run controls against `7c5a38…` are build-confounded. The Andrew report
+  above is a frozen historical artifact superseded on that promotion claim.
+  Reclose only with a direct clean `60fe8e…` versus clean `067f7f…` Rank-27
+  control under the same allocation; BVE may finish its already-running guard
+  but must not advance to Rank 27 or promotion meanwhile.
+  Corrected clean-control job `1647411` now runs those exact immutable binaries
+  serially in one allocation on the same node: predecessor first, then
+  candidate, two CPUs, 16 GiB, 1,200 s each, no compiled conflict-stop strings,
+  and zero proof generation. Require exact non-time state and terminal UNSAT;
+  the predecessor's absolute result tests current reproducibility of 399.152 s,
+  while the same-allocation delta is the only admissible whole-run Vivify price.
+  Serial clean result is exact-state positive: both arms' complete non-time
+  images have SHA `14f7da2d…6194`; predecessor/candidate is
+  553.948/551.564 s internal (-2.384, ratio 0.995696), Vivify
+  68.196/60.155 s (-11.79%), and inprocessing 198.858/192.124 s (-6.734).
+  Outside-inprocessing varies +4.351 s, RSS is effectively flat, and residue
+  is zero. This removes the `7c5a38…` build confound and establishes a clean
+  non-regressive whole-run Vivify delta under the shared node017 allocation.
+  Exact `60fe8e…` predecessor has now returned exact-state UNSAT in 553.948 s
+  internal / 554.47 s wall on node017, proving the identical executable's
+  399→554 jump is not a source or build change. Candidate `067f7f…` continues
+  serially in that allocation. On explicit user direction, standalone causal
+  job `1647447` runs the same exact `60fe8e…` artifact on node018 under the
+  same two-CPU/16 GiB/1,200 s contract. Its node constraint makes it
+  non-scoring; require exact state and zero residue before comparing absolute
+  time to both historical 399.152 s and contemporaneous node017 553.948 s.
+  Node018 job `1647447` returns exact `60fe8e…` UNSAT in 394.107 s internal /
+  394.59 s wall, recovering and slightly improving the historical behavior.
+  The identical binary's contemporaneous node017/node018 spread is 159.841 s,
+  conclusively assigning the absolute 399→554 jump to execution environment /
+  load rather than a pre-`a4b11964` source regression. Cleanup/residue are
+  zero. Immediate clean companion `067f7f…` job `1647466` is now running on
+  node018 with the same user-directed causal contract; require exact non-time
+  state and price its total/Vivify delta against `1647447` before disposition.
+  Clean node018 companion `1647466` is exact-state UNSAT in 386.665 s internal
+  / 387.17 s wall. Its complete normalized non-time image is byte-identical to
+  `60fe8e…` at SHA `14f7da2d…6194`. Candidate/predecessor is
+  386.665/394.107 s (-7.442, ratio 0.981117), Vivify 47.798/53.908 s
+  (-11.33%), inprocessing 153.326/160.522 s (-7.196), and outside time is flat
+  (-0.247); RSS differs by only +72 KiB and residue is zero. Thus the clean
+  Vivify candidate both recovers the ~399-second behavior and improves it.
+  Together with the exact serial node017 delta, proof/fuzz correctness, and
+  full gate, this recloses Vivify promotion; the superseding correction must
+  be reported and committed before any BVE Rank-27 work resumes.
+  Because the earlier Vivify B+C comparator was the instrumented `7c5a38…`
+  build, corrected clean-pin full-width B28+C5 array `1647483` and aggregate
+  `1647536` are now running with exact `60fe8e…` predecessor and exact
+  `067f7f…` candidate. All 66 tasks retain the frozen two-CPU/16 GiB/1,200 s
+  contract and independent model/proof checks. Final correction remains open
+  until this aggregate reports 66/66 validity, exact paired non-time images,
+  no solve loss, and zero cleanup/certificate residue.
+  Corrected aggregate `1647536` passes: 66/66 valid, each clean arm has 17
+  independently checked SAT models and 16 independently checked UNSAT proofs,
+  all 33 paired normalized non-time images are exact, and invalidity, solve
+  loss, cleanup failure, and certificate residue are zero. Clean
+  candidate/predecessor PAR-2 is 1542.691/1576.572 s (0.978510); summary SHA
+  is `440ba892…3baa`. This fully supersedes the instrumented-predecessor gate
+  and closes the last Vivify promotion requirement.
+  Final BVE-free Release validation is 73/74: all executable, solver,
+  proof/model, trace, cleanup, proof-rule/strategy-boundary, and solve-reset
+  tests pass; only the already-recorded documentation-size policy fails on
+  `PROGRESS.md` / implementation-notes line budgets. The superseding
+  three-page Andrew report is
+  `report-to-andrew/2026-08-25-0935-rank27-vivify-clean-build-correction/`,
+  TeX SHA `189fab4b…cf20`, PDF SHA `361add15…ebf`, compiled twice without box
+  warnings. It records the essential correction: the approximately 399-second
+  behavior was recovered by running the exact unchanged `60fe8e…` executable
+  on node018, not by a source repair; clean `067f7f…` then improves that result
+  to 386.665 s with the exact accepted logical image.
 - 2026-08-25 residual-BVE resume checkpoint — User directed convergence to
   continue with BVE while Claude closes the independent Vivify fuzz report.
   Accepted full profiles remain the source authority: on the current
@@ -164,6 +243,38 @@ own experimental detail and history.
   promoted Vivify source. Resume with local Release/sanitizer checks and one
   exact paired BVE-heavy Tier-C T105 mechanism test; do not launch a full B+C
   or Rank-27 BVE campaign until that stage is positive.
+  The frozen prototype has now been restored byte-for-byte on promoted commit
+  `fbb2850` (BVE source SHA `49b72a…0b77`, diff SHA `63ea569e…def`) and again
+  passes the focused Release proof/scheduling/event-trace/BVE/solve-reset set
+  5/5. Full-length proofless T105 stage `1647289` runs the immutable promoted
+  Vivify predecessor then candidate in one two-CPU/16 GiB allocation with a
+  1,200-second limit per arm. Require identical terminal/non-time state and
+  zero residue before interpreting BVE and total timing; no full guard or
+  Rank-27 BVE job is authorized by submission alone.
+  Terminal T105 result is decisively positive. Both arms return exact-state
+  UNSAT, and removing timing lines gives byte-identical complete solver SHA
+  `7f9530cc…bd34`, including 6,178,985 BVE applications and every exact
+  tick/bound, effect, schedule, learning, pruning, and retained-state counter.
+  BVE falls 108.667→52.943 s (-51.28%), inprocessing 286.971→228.413 s,
+  internal total 426.944→364.015 s (-14.74%), wall 430.00→367.09 s, and RSS is
+  flat/slightly lower. Staged input, scratch, and certificate residue are zero.
+  This authorizes the predeclared frozen B28+C5 guard; Rank 27 and promotion
+  remain blocked on that complete independently checked result.
+  Full-width frozen B28+C5 array `1647325` plus after-any aggregate `1647380`
+  are now running from immutable predecessor/candidate/checker pins. All 66
+  tasks use two CPUs, 16 GiB, and 1,200 s with no node constraint or throttle;
+  each SAT model and UNSAT proof is independently checked and deleted before
+  atomic result publication. Do not interpret partial timing or launch Rank 27
+  until the aggregate reports every result, invalidity, solve loss, cleanup,
+  and certificate-residue classification.
+  Aggregate `1647380` is now complete-passed: 66/66 valid, each arm has 17
+  independently checked SAT models and 16 independently checked UNSAT proofs,
+  all 33 normalized non-time pairs are exact, and invalidity, solve loss,
+  cleanup failure, and certificate residue are zero. Candidate/predecessor
+  PAR-2 is 1514.815/1539.885 s (0.983720); summary SHA is
+  `338b66b1…49a`. This closes the BVE guard but is deliberately parked: no BVE
+  Rank-27 run or promotion occurs until corrected clean Vivify control
+  `1647411` resolves the higher-priority 399-second behavior.
 - Current/current exact-state jobs `1645876`/`1645878` localize the earliest
   Rank-27 common-state loss inside Congruence: complete Tactix/current-Kissat is
   2346/1644 ms, AND 283/568 and XOR 89/269 ms favor Tactix, but ITE is 630/117
