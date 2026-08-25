@@ -728,6 +728,47 @@ own experimental detail and history.
   making `kernel_import_var_order` a direct read globally with no Substitute
   allocation. Require fresh exact prefix/trace and longer controls before any
   promotion.
+  The distinct general candidate is frozen in
+  `20260825-1430-rank27-import-rank-inverse-stage`: external rank remains the
+  permanent proof/reconstruction authority, while `internal_import_rank` is
+  initialized at growth, set on first import, and remapped at compaction.
+  `kernel_import_var_order` becomes one direct current-identity read for
+  imported variables and retains the exact unrecorded stable-external fallback.
+  Release and conflict-stop builds pass 14/14 focused tests each, including a
+  new pre/post-compaction rank-image assertion. Sequential exact-prefix job
+  `1647683` compares accepted `6f7e44e...902d` with candidate
+  `b8829dc7...1e03`, two CPUs, 16 GiB, conflict 9450, identical Substitute
+  timers, and perf. Require exact state/work, zero residue, material helper/
+  Substitute improvement, no whole-prefix regression, and no large RSS rise.
+  Both sequential `1647683` arms complete 0:0 on node017 with exact accepted
+  normalized SHA `3b87bb36...92c5f`, identical 13 canonical rounds, 250 total
+  rewrite/session rows, 335,924 images, ticks/effects/schedules, zero lost
+  samples, and zero residue. The intended helper falls 448.8M→302.8M sampled
+  cycles (-32.53%), snapshot 199→186 ms, and Substitute 1,623→1,599 ms. Unlike
+  the rejected local vector, complete cycles also fall 63.189B→62.206B
+  (-1.55%) and elapsed 16.456→16.208 s. This is a positive exact stage only;
+  candidate-only comparison against frozen 64-row trace `7a6216bb...7cc1` is
+  next, with no long-run/full-gate/fuzz/promotion claim yet.
+  Candidate-only event-trace job `1647685` is submitted from
+  `20260825-1433-rank27-import-rank-inverse-trace`, two CPUs, 16 GiB, using the
+  established conflict-9449/stop-9450 contract. It must produce exactly 64
+  rows at frozen SHA `7a6216bb...7cc1` without rerunning the accepted trace;
+  event-trace Release tests pass 5/5. Longer evaluation remains blocked until
+  exact trace and zero residue are terminal.
+  Job `1647685` completes 0:0 on node017 with exactly 64 untruncated rows at
+  SHA `7a6216bb...7cc1`, byte-identical to the frozen authority. Exact rule/
+  candidate order, scheduling, tick/cost, learning, pruning, and state are
+  preserved; residue is zero. Advance only to the same frozen six-instance
+  checked B+C mechanism screen and a dependency-serialized same-allocation
+  full Rank-27 pair, not the complete gate or fuzz.
+  The same predeclared six-instance checked B+C screen is submitted for the
+  general inverse as array `1647686` plus after-any aggregate `1647693`: 12
+  two-CPU tasks, 16 GiB/1,200 s, independent model/proof validation and atomic
+  zero-retention cleanup. Same-allocation full Rank-27 pair `1647694` is held
+  on `afterok:1647693`; it runs accepted Release `94784f16...8503` then exact
+  candidate `c7c46bfa...57d4` on one node with two CPUs and 1,200 s per arm.
+  Neither submission nor partial state is a result; full B28+C5/fuzz/report/
+  promotion remain unauthorized pending both terminal classifications.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
