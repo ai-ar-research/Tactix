@@ -695,6 +695,14 @@ own experimental detail and history.
   cleanup, and zero-retention policy. Neither submission nor partial state is
   a result; complete B28+C5, Claude fuzz, report, or source promotion remains
   unauthorized pending both terminal classifications.
+  Initial full-pair allocation `1647667` was canceled by the submitter after 43
+  seconds, before either solver emitted output, because it began on node017
+  concurrently with the six-wide mechanism screen and would expose the first
+  arm to a transient load confound. EXIT removed its staged CNF; only three
+  preserved zero-byte placeholders and its scheduler log remain, with no
+  verdict/certificate/score authority. The unchanged pair is resubmitted as
+  job `1647680` with `afterok:1647675`, so it starts only after the checked B+C
+  aggregate succeeds. Do not use `1647667` for any comparison.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
