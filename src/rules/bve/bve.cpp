@@ -125,15 +125,53 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
 
 namespace {
 
+// A slice into one candidate's reusable flat storage.  Kissat keeps pivot
+// clauses and resolvents in raw stacks; giving every small clause its own
+// std::vector instead made allocator ownership part of BVE's hot path.  The
+// vector object is stable while its backing store grows, so slices retain
+// offsets rather than pointers.  Logical order is unchanged.
+template <typename T> struct PoolSlice {
+  const std::vector<T> *pool = nullptr;
+  uint32_t offset = 0;
+  uint32_t length = 0;
+
+  using const_iterator = typename std::vector<T>::const_iterator;
+  const_iterator begin() const {
+    assert(pool && offset <= pool->size());
+    return pool->cbegin() + offset;
+  }
+  const_iterator end() const { return begin() + length; }
+  size_t size() const { return length; }
+  bool empty() const { return !length; }
+  const T *data() const { return length ? pool->data() + offset : nullptr; }
+  const T &operator[](size_t i) const {
+    assert(i < length);
+    return (*pool)[offset + i];
+  }
+};
+
+template <typename T>
+PoolSlice<T> pool_slice(const std::vector<T> &pool, size_t begin) {
+  assert(begin <= pool.size());
+  assert(begin <= UINT32_MAX && pool.size() - begin <= UINT32_MAX);
+  return PoolSlice<T>{&pool, static_cast<uint32_t>(begin),
+                      static_cast<uint32_t>(pool.size() - begin)};
+}
+
 // A materialized clause on the pivot: its active literals (root-false dropped,
 // their unit ids kept in `absorbed` for LRAT), its proof id, and a delete
 // handle. `active` includes the pivot.
 struct MClause {
-  std::vector<Lit> active;
-  std::vector<uint64_t> absorbed;
+  PoolSlice<Lit> active;
+  PoolSlice<uint64_t> absorbed;
   uint64_t id = 0;
   Ref ref = INVALID_REF; // INVALID_REF => binary
   Lit ba = INVALID_LIT, bb = INVALID_LIT;
+};
+
+struct BveResolvent {
+  PoolSlice<Lit> lits;
+  PoolSlice<uint64_t> chain;
 };
 
 // Sparse literal-to-clause lookup for one candidate. The dense value image is
@@ -166,6 +204,15 @@ struct SparseBinaryIndex {
 // fallback used by direct rule consumers.
 struct BveDefScratch {
   SubSolver solver;
+  // Candidate materialization is one reusable append-only image.  MClause and
+  // BveResolvent keep slices into these pools, avoiding one heap allocation per
+  // antecedent/resolvent without changing any observable order.
+  std::vector<MClause> pos, neg;
+  std::vector<Lit> clause_lits;
+  std::vector<uint64_t> clause_absorbed;
+  std::vector<BveResolvent> resolvents;
+  std::vector<Lit> resolvent_lits;
+  std::vector<uint64_t> resolvent_chains;
   // Distinct non-pivot variables in first clause/literal occurrence order.
   // SubSolver's Kitten mode imports by that same first occurrence, so this is
   // both the direct reversible proof map and the source search identity.
@@ -218,7 +265,7 @@ void bve_build_sig_index(const std::vector<MClause> &side, Lit pivot,
                          SigIndex &out) {
   out.clear();
   for (size_t i = 0; i < side.size(); ++i) {
-    const std::vector<Lit> &a = side[i].active;
+    const PoolSlice<Lit> &a = side[i].active;
     if (a.size() < 3 || a.size() > BVE_SIG_MAX + 1)
       continue;
     GateSig s;
@@ -1069,6 +1116,7 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
 // the caller may try another candidate. Unsat on an empty resolvent or
 // contradictory collapsed units.
 ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
+  assert(def && "BVE candidate scratch is required by every registered entry");
   const bool lrat = k.proof && k.proof->lrat();
   const Lit px = make_lit(x, false), nx = make_lit(x, true);
   // Retire the retry bit before doing the work, so a variable whose resolvents
@@ -1076,7 +1124,15 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // eliminate.c eliminate_variable, same position).
   k.bve_retry[x] = 0;
 
-  std::vector<MClause> pos, neg;            // live irredundant: resolved + witnessed
+  std::vector<MClause> &pos = def->pos; // live irredundant: resolved + witnessed
+  std::vector<MClause> &neg = def->neg;
+  pos.clear();
+  neg.clear();
+  def->clause_lits.clear();
+  def->clause_absorbed.clear();
+  def->resolvents.clear();
+  def->resolvent_lits.clear();
+  def->resolvent_chains.clear();
   std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
   bool antecedent_oversized = false;
@@ -1112,7 +1168,12 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       m.ba = lit;
       m.bb = o;
       m.id = kernel_binary_id(k, lit, o);
-      m.active = {lit, o};
+      const size_t begin = def->clause_lits.size();
+      def->clause_lits.push_back(lit);
+      def->clause_lits.push_back(o);
+      m.active = pool_slice(def->clause_lits, begin);
+      m.absorbed = pool_slice(def->clause_absorbed,
+                              def->clause_absorbed.size());
       live.push_back(std::move(m));
     }
     for (const Lit o : touched_bin) // clear for the other polarity's gather
@@ -1142,6 +1203,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     MClause m;
     m.id = c->id();
     m.ref = ref;
+    const size_t active_begin = def->clause_lits.size();
+    const size_t absorbed_begin = def->clause_absorbed.size();
     bool satisfied = false;
     for (const Lit l : *c) {
       const int8_t v = k.value(l);
@@ -1151,15 +1214,20 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       }
       if (v < 0) { // root-false → drop (cite its unit)
         if (lrat)
-          m.absorbed.push_back(k.unit_ids[var_of(l)]);
+          def->clause_absorbed.push_back(k.unit_ids[var_of(l)]);
         continue;
       }
-      m.active.push_back(l);
+      def->clause_lits.push_back(l);
     }
-    if (satisfied)
+    if (satisfied) {
+      def->clause_lits.resize(active_begin);
+      def->clause_absorbed.resize(absorbed_begin);
       del_large.push_back(ref);
-    else
+    } else {
+      m.active = pool_slice(def->clause_lits, active_begin);
+      m.absorbed = pool_slice(def->clause_absorbed, absorbed_begin);
       (has_px ? pos : neg).push_back(std::move(m));
+    }
   };
   if (k.dense) {
     // Kissat enters dense mode by retaining its binary watch entries, then
@@ -1296,11 +1364,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     (neg_gate[i] ? neg_gate_order : neg_antecedent_order).push_back(i);
 
   // ---- generate resolvents (ordered gate stages or full cross product) + bound ----
-  struct Resolvent {
-    std::vector<Lit> lits;
-    std::vector<uint64_t> chain;
-  };
-  std::vector<Resolvent> resolvents;
+  std::vector<BveResolvent> &resolvents = def->resolvents;
   const size_t base = pos.size() + neg.size();
   const size_t commit_limit = base + bve_bound(k); // eliminate iff ≤ this
   // Kissat aborts at the FIRST non-tautological resolvent beyond the current
@@ -1332,7 +1396,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         const MClause &d = second[di];
         k.stats.bve_resolutions++; // one attempt (kissat resolve.c:157)
         const uint32_t ordinal = pair_ordinal++;
-        Resolvent r;
+        const size_t lits_begin = def->resolvent_lits.size();
         bool taut = false;
         // Kissat resolve.c first copies the second antecedent's literals not
         // already marked by the first, then appends the first antecedent. This
@@ -1346,33 +1410,42 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
             taut = true;
             break;
           }
-          r.lits.push_back(l);
+          def->resolvent_lits.push_back(l);
         }
         if (!taut)
           for (const Lit l : c.active)
             if (l != first_pivot)
-              r.lits.push_back(l);
+              def->resolvent_lits.push_back(l);
         if (taut) {
+          def->resolvent_lits.resize(lits_begin);
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                                c.ref, c.id, d.active.data(), d.active.size(),
                                d.ref, d.id, "tautology");
           continue;
         }
-        if (r.lits.size() > BVE_CLSLIM) {
+        const size_t lits_size = def->resolvent_lits.size() - lits_begin;
+        if (lits_size > BVE_CLSLIM) {
+          def->resolvent_lits.resize(lits_begin);
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                                c.ref, c.id, d.active.data(), d.active.size(),
                                d.ref, d.id, "oversized");
           oversized = true;
           break;
         }
+        const size_t chain_begin = def->resolvent_chains.size();
         if (lrat) {
-          r.chain = c.absorbed;
-          r.chain.insert(r.chain.end(), d.absorbed.begin(), d.absorbed.end());
-          r.chain.push_back(c.id);
-          r.chain.push_back(d.id);
+          def->resolvent_chains.insert(def->resolvent_chains.end(),
+                                       c.absorbed.begin(), c.absorbed.end());
+          def->resolvent_chains.insert(def->resolvent_chains.end(),
+                                       d.absorbed.begin(), d.absorbed.end());
+          def->resolvent_chains.push_back(c.id);
+          def->resolvent_chains.push_back(d.id);
         }
-        const bool unit = r.lits.size() == 1;
-        resolvents.push_back(std::move(r));
+        BveResolvent r;
+        r.lits = pool_slice(def->resolvent_lits, lits_begin);
+        r.chain = pool_slice(def->resolvent_chains, chain_begin);
+        const bool unit = lits_size == 1;
+        resolvents.push_back(r);
         if (resolvents.size() > gen_limit) {
           event_trace_bve_pair(k, x, ordinal, c.active.data(), c.active.size(),
                                c.ref, c.id, d.active.data(), d.active.size(),
@@ -1433,7 +1506,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     return pending.record(k, u, id) == PendingUnits::Outcome::Refuted;
   };
 
-  for (Resolvent &r : resolvents) {
+  for (const BveResolvent &r : resolvents) {
     if (r.lits.empty()) { // unreachable at a drained root; defensive
       if (k.proof) {
         if (lrat)

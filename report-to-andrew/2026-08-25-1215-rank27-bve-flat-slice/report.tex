@@ -1,0 +1,167 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.92in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+\newcommand{\artifact}[1]{\path{#1}}
+
+\title{Rank-27 BVE Flat-Slice Representation Repair}
+\author{Tactix Development Project}
+\date{25 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive summary}
+This increment removes per-clause heap ownership from BVE candidate
+materialization without changing BVE's proof rule or scheduling.  Positive and
+negative antecedents, generated resolvents, and their LRAT chains now occupy
+reusable append-only flat pools.  Small records retain offset/length slices,
+not pointers, so pool growth cannot invalidate them.  The production diff has
+SHA-256
+\hashcode{63ea569e4d504964b14bd49a647a6bba13b187367cd28a1da4b171f664cdadef};
+the validated Release binary has SHA-256
+\hashcode{aeb14e2a075c58db313187df98de807fb9c9a3a5abccb8fbaab57eb42a677f62}.
+
+Every exact-stage image preserves antecedent, candidate, pair, literal,
+proof-chain, tick, cost, bound, scheduling, learning, pruning, and retained-state
+order.  No benchmark identity, rank, deadline, per-instance arm, or tuned
+constant appears in the solver.  T105 cuts BVE time 108.667 to 52.943 seconds;
+the complete frozen B28+C5 gate passes 66/66 at 0.983720x predecessor PAR-2;
+and the serial Rank-27 control cuts BVE 37.975 to 16.229 seconds and total time
+498.082 to 419.772 seconds.  Three same-node controls measure 371.711,
+375.797, and 372.969 seconds, versus the 386.665-second promoted-Vivify
+baseline.  Their median is 372.969 seconds; BVE averages 15.481 seconds with
+only a 0.030-second range.  The 300-second milestone remains open and will not
+stop further portable convergence work.
+
+Claude Code's authoritative terminal report classifies exact-source fuzz job
+\code{1647571} PASS: 27/27 corpus entries and 10,000/10,000 random cases have
+zero failures, rejected models or proofs, differential disagreements,
+sanitizer findings, crashes, aborts, or invariant failures.  All required BVE,
+BveEliminated, and Propagate reach rows fired, and certificate/scratch residue
+is zero.
+
+\section{Representation and boundary preservation}
+The prior implementation stored every materialized antecedent and every
+generated resolvent in its own \code{std::vector}.  Rank 27 performs 1.699
+million BVE applications and 64.243 million resolution attempts on the
+accepted trajectory, making allocator ownership an avoidable part of the hot
+path.  Kissat instead uses raw reusable stacks for the same lifetime.
+
+Tactix now keeps four reusable payload pools in the existing per-rule
+\code{BveDefScratch}: antecedent literals, absorbed root-unit proof IDs,
+resolvent literals, and resolvent LRAT chains.  Antecedent and resolvent records
+carry a pool pointer plus 32-bit offset and length.  Offsets remain valid across
+vector relocation.  Pools are cleared only when the next candidate begins,
+after the prior candidate has committed or declined.  A satisfied large
+antecedent rewinds both captured pool starts; tautological and oversized
+resolvents rewind their literal start before the old control flow continues.
+
+This is an allocation representation change, not a new rule.  The existing
+antecedent admission, gate classification, pair traversal, resolvent-size and
+growth bounds, proof transaction, elimination reconstruction, and policy
+schedule are untouched.  Every registered BVE entry already owns the persistent
+scratch; a debug assertion makes that lifetime requirement explicit.  The
+public N1 operation remains complete, N2 retains independently checked models
+and proofs, and neither N3 nor N4 is weakened.
+
+\section{Exact mechanism and correctness gates}
+The first full-length mechanism witness is T105 job \code{1647289}.  Removing
+timing lines makes predecessor and candidate byte-identical at SHA-256
+\hashcode{7f9530cc51c77fcee0bf93ce108b540c997bc1338fc9cc49d580f626f99ebd34}.
+That image includes 461,267 conflicts, 6,178,985 BVE applications, every
+resolution/effect/tick/bound counter, the complete rule schedule, learning,
+pruning, and the terminal UNSAT verdict.  The measured change is:
+
+\begin{center}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+T105 measure & Predecessor & Candidate & Delta \\
+\midrule
+Internal solve, s & 426.944 & 364.015 & $-62.929$ \\
+BVE, s & 108.667 & 52.943 & $-55.724$ \\
+Inprocessing, s & 286.971 & 228.413 & $-58.558$ \\
+Peak RSS, KiB & 3,079,004 & 3,078,884 & $-120$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Frozen full-width campaign \code{1647325}/\code{1647380} executes the complete
+Tier B plus predeclared mechanism-relevant C5 under two CPUs, 16 GiB, and the
+1,200-second solver contract.  All 66 tasks are valid.  Each arm independently
+checks 17 SAT models and 16 UNSAT proofs against the original decompressed CNF;
+all 33 paired normalized non-time images match.  Candidate PAR-2 is 1514.815
+seconds versus 1539.885, ratio 0.9837196.  Invalidity, solve loss, cleanup
+failure, and certificate residue are zero.  Summary SHA-256 is
+\hashcode{338b66b1fb7c66bbfdccfc7e1a3cdac5902475b51adddc47b4dbefd54ee6549a}.
+
+Proof-producing Rank-27 job \code{1647572} follows the same exact trajectory.
+Pinned \code{drat-trim} verifies the 1,514,395,111-byte proof in 146.366
+seconds with \code{s VERIFIED}.  Proof SHA-256 is
+\hashcode{0f99f55ac55571d6f83fe53ec8cb4a6a4c8df0a6e127442e50f47e25bea8bb2d};
+the normalized proof-mode image is byte-identical to the accepted predecessor.
+The proof, decompressed input, checker output, and scratch are deleted after
+verification, leaving zero residue.
+
+\section{Rank-27 performance and disposition}
+Serial exact-state campaign \code{1647569} compares the promoted-Vivify pin and
+the BVE candidate in one allocation.  Both complete non-time outputs have
+SHA-256
+\hashcode{14f7da2d94153a2afd1776ecab8e7e49e5c2c0613dc26c43714471b7ecbe6194}.
+Thus all 346,693 eliminations, 64,242,959 resolutions, definition/gate/tick and
+bound counters, rule schedule, search, learning, pruning, and retained state
+are exact.  BVE falls 37.975 to 16.229 seconds (0.42736x), inprocessing falls
+182.996 to 150.772 seconds, and internal solve falls 498.082 to 419.772 seconds.
+The 5,564-KiB RSS increase is 0.88\% and remains far below the 16-GiB contract;
+it is the bounded retained pool capacity.  Cross-node outside-rule time is not
+assigned causally.
+
+The user-directed same-node control \code{1647573} provides the cleanest causal
+comparison.  The BVE candidate reaches exact-state UNSAT in 371.711 seconds
+with 15.470 seconds in BVE, versus promoted-Vivify job \code{1647466} at
+386.665 and 30.069 seconds.  Total improves 14.954 seconds and BVE improves
+14.599 seconds; outside-inprocessing time is flat.  Exact-binary repeat
+\code{1647575} completes in 375.797 seconds with 15.500 seconds in BVE.  Its
+4.086-second variation from the best run contains only 0.030 seconds of BVE
+variation and independently confirms the owner-specific gain.  All staged
+inputs and certificate/checker scratch are absent.  Third exact-pin job
+\code{1647654} lies between them at 372.969 seconds total and 15.472 seconds
+in BVE.  It is 1.258 seconds slower than the best, but only 0.002 seconds of
+that delta is in BVE; 1.097 seconds lies outside inprocessing.  Across all
+three runs the whole-run range is 4.086 seconds and the BVE range is 0.030
+seconds, so job \code{1647573} remains the single best while the causal BVE
+gain is repeatable.
+
+The clean Release suite passes 73/74: every executable, solver, proof/model,
+trace, N1, proof-rule/strategy-boundary, campaign-cleanup, and solve-reset test
+passes.  The sole failure is the pre-existing opt-in documentation-size policy;
+the repository authority forbids automatic compaction.  The asynchronous full
+Kissat Tier-D campaign remains non-scorable until its aggregate classifies all
+invalidity and solve loss; this increment neither waits for it nor interprets
+partial resource exits as solver failures.
+
+The authoritative fuzz PASS completes the BVE promotion evidence.  The
+already-frozen active-decision representation is the next
+portable search increment: it preserves the exact Rank-27 image, completes in
+373.696 seconds, and passes its own full B28+C5 guard 66/66 at 0.995586x PAR-2.
+It remains separate from this commit until the BVE checkpoint lands.  Beyond
+that increment, freeze the newly accepted baseline and current-Kissat
+comparator, then localize collection/rewatching by substages and normalize by
+entries/literals processed before evaluating the bounded fused
+compact-and-forward traversal.  Next localize matched Substitute invocations,
+then revisit the smaller residual Congruence difference and continue broad
+search-quality convergence.  Each remains a separate prefix--Rank-27/B+C--full
+gate--Claude fuzz--report increment.  Do not reopen the closed Sweep, counted
+directed bridge, BVE antecedent-admission, accepted Congruence, or accepted
+Vivify repairs without contradictory exact-state evidence.
+
+\end{document}
