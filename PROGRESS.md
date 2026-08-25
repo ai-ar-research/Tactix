@@ -769,6 +769,18 @@ own experimental detail and history.
   candidate `c7c46bfa...57d4` on one node with two CPUs and 1,200 s per arm.
   Neither submission nor partial state is a result; full B28+C5/fuzz/report/
   promotion remain unauthorized pending both terminal classifications.
+  Screen `1647686`/`1647693` completes correctness-clean 12/12: each arm has
+  three checked SAT models and three checked UNSAT proofs, every paired
+  non-time statistic image is exact, and invalidity/solve-loss/cleanup/residue
+  are zero. Timing is environmentally inconclusive: candidate/predecessor
+  PAR-2 is 725.029/716.779 (1.011510) and summed Substitute 51.306/49.483 s,
+  but DivS swings 33.496 s toward candidate while T105 swings 38.637 s toward
+  predecessor, with unrelated rule times scaling in the same directions. The
+  other four instances sum to only +73 ms Substitute. Peak RSS is
+  2.9305/2.9166 GiB, consistent with the four-byte per-current-var inverse.
+  Treat this as exact high-exposure correctness coverage, neither performance
+  win nor candidate-specific regression. Dependency-released same-allocation
+  Rank-27 job `1647694` is now running on node017 as the causal long control.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
