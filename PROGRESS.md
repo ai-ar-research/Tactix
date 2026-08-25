@@ -9,10 +9,11 @@ own experimental detail and history.
 ## Resume anchor
 
 - Worktree `/home/hwu/SAT-solving`, branch `main`. The synchronized base before
-  this increment is `fff43d69f3aaa1e7828b3d23669466fbe8c6b3de`. The accepted
-  Congruence first-literal directory is frozen as Release binary SHA-256
-  `b81bb832…1b83` from source-diff SHA-256 `283d6cce…b9d`; its final report and
-  wrap-up commit are the current handoff artifacts.
+  this increment is first-literal-directory wrap-up
+  `44fbf706fca3b449de0013265f65a9fbd54f170e`. The accepted predecessor is
+  frozen as Release binary SHA-256 `b81bb832…1b83`. The accepted batched ITE
+  sign-mask repair is source-diff SHA-256 `4c2cd4a6…591a`, Release binary
+  SHA-256 `9e9f0dab…defa`, and ASan/UBSan binary SHA-256 `1e02dd46…fb7c`.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -24,26 +25,40 @@ own experimental detail and history.
   1,165 (689 valid, 476 invalid); both are explicitly non-scorable. Their
   `cancellation.json` records own the exact disposition. Pending, retained,
   scratch, and certificate residue are zero in both campaigns.
-- Observer `1645800` localizes 635/849 ms of Rank-27 ITE extraction to repeated
-  small-clause membership collection. The first-literal range directory is a
-  representation-only repair. Exact stage/profile jobs `1645801`/`1645803`
-  preserve every non-time counter, reduce complete Congruence 2853→2259 ms and
-  total cycles 64.668B→63.456B, and cut the extraction owner 2.914B→1.355B
-  cycles. Event trace `1645805` is byte-identical for all 64 rows (SHA
-  `7a6216bb…7cc1`), including candidate/order, tick/cost, scheduling, and
-  pruning.
-- Full B28+fixed-C5 guard `1645806`/`1645872` passes 66/66 independently
-  checked tasks, candidate/shipped PAR-2 ratio 0.9971663, and zero residue.
-  Corrected exact-source ASan/UBSan native-LRAT fuzz `1645874` passes 10,000
-  cases with zero failures, 2,620 SAT models, 3,482 UNSAT proofs, 3,556 cases
-  reaching Congruence, 1,246,344 target applications, and zero certificate or
-  job-temporary residue. Predecessor `1645873` is frozen setup-invalid and
-  supplies no correctness evidence.
-- Checked two-CPU Rank-27 job `1645875` is valid trajectory-exact UNSAT in
-  403.855 s internal / 404.395 s wall. Pinned `drat-trim` verifies the
+- Current/current exact-state jobs `1645876`/`1645878` localize the earliest
+  Rank-27 common-state loss inside Congruence: complete Tactix/current-Kissat is
+  2346/1644 ms, AND 283/568 and XOR 89/269 ms favor Tactix, but ITE is 630/117
+  ms. Tactix performed six exact ternary membership probes for each canonical
+  record; Kissat obtains the same sign combinations from literal-local dense
+  watches. A compact per-key hash is rejected and reverted by exact-state job
+  `1645880` because it worsens ITE 646→938 ms and Congruence 2355→2715 ms.
+- The accepted representation repair batches the eight exact ternary sign
+  patterns per unsigned three-variable prefix while retaining canonical record
+  iteration. Exact stage/profile jobs `1645882`/`1645884` preserve every
+  non-time counter, cut the membership lambda 475.813M→130.659M cycles,
+  gate extraction 983.981M→714.124M cycles, and total sampled cycles
+  63.890B→63.485B. Candidate trace `1645886` is byte-identical for all 64 rows
+  to accepted SHA `7a6216bb…7cc1`, including rule/candidate order, exact
+  tick/cost, scheduling, learning, pruning, and resulting state.
+- Full B28+fixed-C5 guard `1645888`/`1645954` passes 66/66 independently
+  checked tasks: each arm has 17 valid SAT models and 16 valid UNSAT proofs,
+  all 33 pairwise non-time statistic images match, candidate/shipped PAR-2 is
+  1.0073877x, and invalidity, solve loss, cleanup failure, and certificate
+  residue are zero. Summary SHA-256 is `4bc3326c…a7488`.
+- Exact-source ASan/UBSan native-LRAT fuzz `1645887` passes 10,000 cases with
+  zero failures: 2,628 SAT models and 3,490 UNSAT proofs are checked,
+  Congruence fires in 3,570 verdict cases for 1,259,092 target applications,
+  and sanitizer/model/proof/crash findings plus certificate/job-temporary
+  residue are zero. The 3,882 five-second nonterminations make no oracle claim;
+  25 retained CNFs are declared diagnostic inputs only.
+- Checked two-CPU Rank-27 job `1645956` is valid trajectory-exact UNSAT in
+  409.438 s internal / 409.957 s wall. Pinned `drat-trim` verifies the
   byte-identical 1,514,395,111-byte proof SHA `0f99f55a…8bb2d` against the
-  original CNF and cleanup is zero. This repair recovers 3.151 internal seconds
-  from `1645778`, but Rank 27 remains open at 1.346x the 300-second target.
+  original CNF and cleanup is zero. Congruence improves 16.910→16.154 s; the
+  +5.583 s total delta is identical-trajectory timing noise outside that owner,
+  consistent with exact common-state cycles falling 0.64%. The repair is
+  promoted, Rank 27 remains above the 300-second milestone, and convergence
+  continues across every justified current-Kissat gap.
 - Phase-4 N1/N2/N4 and P4-CVG are complete. T3 passed checked Tier B/C at
   1.036x/1.067x Kissat PAR-2. N3, T4-K, T4-VBS, and T5 remain open under
   `DEVELOPMENT_PLAN.md` §8.3.
@@ -54,8 +69,10 @@ own experimental detail and history.
 - Rank 27 is immutable input
   `tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz`,
   SHA-256 `5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9`.
-  Frozen Kissat 4.0.4 proves UNSAT in 278.187 s. Target checked Tactix UNSAT
-  within 300 s/16 GiB via a general repair; every Rank-27 job uses `-c 2`.
+  Frozen Kissat 4.0.4 proves UNSAT in 278.187 s. A checked Tactix UNSAT within
+  300 s/16 GiB is the current engineering milestone, not a stop condition:
+  continue merging every justified portable current-Kissat gap after crossing
+  it. Every Rank-27 job uses `-c 2`.
 
 ## Immutable guard and comparator
 
@@ -63,10 +80,11 @@ own experimental detail and history.
   used only as a source observer; its result is not scoring evidence.
 - The accepted regression comparator remains the `tactix-shipped` pin frozen
   by the guard manifests; it is not the current-Kissat divergence target.
-  Latest accepted full B28+fixed-C5 authority is first-literal-range campaign
-  `20260824-1685-BC-first-literal-range-guard`, array/aggregate
-  `1645806`/`1645872`: 66/66 checked, zero residue, candidate/comparator PAR-2
-  ratio 0.9971662967. Its summary SHA-256 is `e94a30b5…25cc`.
+  Latest accepted full B28+fixed-C5 authority is ITE-sign-mask campaign
+  `20260824-1852-BC-ite-sign-mask-guard`, array/aggregate
+  `1645888`/`1645954`: 66/66 checked, zero residue, all 33 non-time images
+  exact, and candidate/comparator PAR-2 ratio 1.0073877283. Its summary SHA-256
+  is `4bc3326c…a7488`.
 - The newest canonical completed Tier-C `results.json` window remains
   `20260813-111513-C-cleanup-b2b8362`; later targeted and B/C guard manifests
   above supersede it only for the current regression/guard question, not T3.
@@ -342,6 +360,21 @@ without contradictory evidence.
    1427.564→1362.569 s, still above 1200 (frozen Kissat: 261.089 s). Profile `1643271` assigns 46.21% to clause-order hashing. Radix-only `1643292` and complete no-sort `1643344` time out cleanly; direct ID-order gate `1643383` preserves every counter/proof byte, verifies UNSAT, and cuts total to 712.210 s; repeat `1643407` confirms. Fuzz `1643265` is clean. Current/current `1643493` names equal-yield elimination cost (Tactix BVE+forward 291.4 s vs Kissat 90.2 s). Dense-capacity/radix gate `1643546` is exact checked UNSAT at 639.990 s with the same proof bytes/counters, 72.220 s faster; DWARF `1643504` attributes 20.63% of cycles to `bve_backward`'s per-elimination full scratch reset. Dense lifecycle fuzz `1643568` is clean (8,744 checked verdicts, 1,446,762 target applications; backward not reached). Touched-only persistent marks preserve that proof rule; 74/74 plus focused sanitizers pass, and exact gate `1643660` is checked UNSAT at 507.293 s with BVE 95.065 s versus 247.859 s, identical non-timing statistics/proof SHA, and zero residue (132.697 s wall recovered). Scratch-specific fuzz `1643661` runs. Fused-forward arm `1643685` is proof-clean and moves to 410,779 conflicts with 657,618 subsumptions plus 975,452 strengthenings, but regresses wall 507.293→545.285 s because Strengthen costs 55.971 s versus current Kissat's 6.50 s; admission-only promotion is rejected. Frozen callgraph `1643763` assigns 8.31% of all cycles inclusive (6.62% self) to `find_partner`, versus negligible candidate sorting/allocation. Kissat locally accumulates forward steps before publishing; Tactix did a shared-stat/budget reload for every partner, so the same local-ledger representation now passes 74/74 plus focused sanitizers and checked fused gate `1643790` runs. Direct-order guard `1643451`/`1643456` passed 66/66, zero residue, ratio 1.071, but its prepared Rank-27 witness is superseded and will not run; the latest cumulative pin still needs its own guard.
 
 ## Recent changes
+- 2026-08-24 — Promoted batched exact ITE ternary sign-pattern membership after
+  current/current localization `1645876`/`1645878`, rejecting/reverting the
+  negative compact hash `1645880`, and exact stage/profile/trace evidence
+  `1645882`/`1645884`/`1645886`. Both prototype unit failures followed the
+  mandatory bounded Claude workflow and independent Release/ASan/UBSan review.
+  Full B28+C5 guard `1645888`/`1645954` passes 66/66, exact-source native-LRAT
+  fuzz `1645887` passes 10k/0, and checked Rank-27 `1645956` verifies the exact
+  1.514 GB proof with zero residue. Congruence improves 16.910→16.154 s on the
+  exact trajectory; total 409.438 s remains above the 300-second milestone due
+  broad timing noise outside the owner. Per user direction, crossing 300 will
+  not stop work while portable current-Kissat gaps remain. The four-page Andrew
+  handoff is
+  `report-to-andrew/2026-08-24-2015-rank27-congruence-ite-sign-mask/`;
+  TeX SHA `204bc73f…6e63`, PDF SHA `861a1ed8…6e8`, with no final-pass LaTeX
+  box warning.
 - 2026-08-24 — Complete-dense forward repair passes random native-LRAT fuzz `1644278` (10k/0, 8,763 oracle verdicts, C1/C2 in 2,430/2,409, zero residue); frozen pin `9574b9…a555` guard `1644281`/`1644284` now passes 66/66 (33/33 each arm, 17 SAT+16 UNSAT, no regression/residue, 0.7702× PAR-2). Same-phase-only `1644279` is rejected/reverted for worse pruning/total. Old-pin guard `1644056`/`1644059` passes 66/66 at 0.701× PAR-2. Exact guarded Rank-27 `1644280` is checked UNSAT in 726.736 s, proof verified/deleted, so misses 300 s. Terminal current-Kissat `1644331` makes BVE the exact same-work/slower owner: 1,605,224 Tactix applications/350,597 eliminations/288.549 s versus 1,621,010 Kissat attempts/364,315 eliminations/26.16 s (11.03×); Tactix has fewer conflicts, 3.25M versus 4.12M. DWARF `1644319` localizes definition marshalling: `bve_find_definition` self 13.65%, ascending var sort 6.14%, malloc 5.69% (4.13% from import), reset 2.25%, import self 2.05%, embedded solve only 0.32%, backward tail 0.19%. Scratch-only checked T105 `1644348` is exact positive: proof/counters unchanged, wall 451.657→423.326 s and BVE 106.744→98.626 s, zero residue. Exact radix/direct-map gate `1644352` preserves every counter and proof byte; BVE is 97.495 s versus 98.626 s but noisy total wall is 436.342 s versus 423.326 s, so T105 throughput is inconclusive while the Rank-27 profile remains its source authority. Checked cumulative backward-off `1644353` verifies UNSAT with zero residue and reproduces the earlier positive trajectory (444,439 conflicts, 3.706M decisions, 2.286M fused pruning actions); internal time is 430.749 s versus simultaneous on-arm 433.305 s. Exact first-core Kitten search `1644355` is checked positive at 435.493 s wall / 97.253 s BVE, 441,522 conflicts and 1.843B saved pairs. Initial two-core `1644356` is proof-clean but negative at 500.451 s / 131.884 s BVE, 474,453 conflicts and 1.221B saved pairs. New current/current mp1 core tracing localizes the cause before the first second core: Tactix started the cleared embedded Kitten at seed 0 rather than Kissat's seed 1 and omitted the learned-empty `new_reference` tick. The general engine/strategy repair restarts the embedded lifetime per BVE slot and charges that tick; all 16,395 common-state definition rows now exactly match candidate, import, core hashes, ticks, budgets and generator. Frozen-source fuzz `1644354` is complete green and older two-core fuzz `1644357` remains green past 7,300/10,000; exact-source fuzz `1644359` and repaired checked T105 `1644358` are running. Exact pin `8048eec…f7e` is frozen into prepared B28+fixed-C5 guard `20260824-0265` and blocked Rank-27 witness `20260824-0270`; neither may run until T105 is non-negative and exact-source fuzz is green.
 - 2026-08-24 — Repaired checked T105 `1644358` is positive and proof-clean at
   418.251 s wall / 415.394 s internal / 112.447 s BVE and 351,851 conflicts,
@@ -926,11 +959,12 @@ without contradictory evidence.
 N4 verification remains complete at the accepted parity pin. Living mechanism
 dispositions and reopening conditions are in `docs/scheduling-parity-ledger.md`.
 The Sweep semantic/throughput, counted directed bridge, BVE antecedent-admission,
-reserved-trail, and Congruence first-literal representation closures remain
-accepted. Rank 27 is still open after valid checked job `1645875`; resume
-current Tactix versus current instrumented Kissat at the earliest common-state
-weaker-work or slower-comparable-work divergence without rerunning frozen
-references.
+reserved-trail, Congruence first-literal, and batched ITE sign-mask
+representation closures remain accepted. Rank 27 remains above the milestone
+after valid checked job `1645956`; resume current Tactix versus current
+instrumented Kissat at the earliest common-state weaker-work or
+slower-comparable-work divergence without rerunning frozen references. Reaching
+300 seconds does not end convergence while justified portable gaps remain.
 <!-- track-sched:end -->
 
 ## Gates
