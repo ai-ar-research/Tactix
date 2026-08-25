@@ -621,6 +621,17 @@ own experimental detail and history.
   Claude fuzz. The second pass sees only 5,759,788 survivors versus 97,361,895
   entries handled by compaction; eager call frequency and the whole-arena
   sparse path remain the first material demonstrated collection owners.
+  A follow-on isolated arena-scan hypothesis combined the live-size prepass
+  with the existing relocation-order traversal, but local Release
+  `solve_reset` then segfaulted once after six other focused tests passed.
+  Main source was never changed. Per §8.2 the candidate was immediately
+  quarantined and handed to Claude Code with edit permission and a bounded
+  reproduce/repair/test scope. Three complete Claude invocations ended without
+  a verdict at the same external API/DNS `ENOTFOUND`; Codex did not inspect or
+  modify Claude's intermediate workspace. Reject and quarantine this candidate
+  rather than bypass the mandatory crash workflow. Collection remains open on
+  the documented eager-call/whole-arena owners; safe read-only localization of
+  the next ordered gap may continue while external Claude connectivity is down.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
