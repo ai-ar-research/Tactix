@@ -34,8 +34,8 @@ own experimental detail and history.
   submission. The campaign is not yet scorable: dependent aggregate `1646295`
   owns complete validity, solve-loss, independent-check, and cleanup
   classification after every array task terminates.
-  Audit at 11:40 EDT finds seven tasks still running on node017 (indices 81,
-  290, 488, 540, 743, 1128, and 1154); aggregate `1646295` remains
+  Latest audit at 12:50 EDT finds four tasks still running on node017 (indices
+  488, 540, 743, and 1128); aggregate `1646295` remains
   dependency-pending. Partial task exits, including resource/checker failures,
   carry no scoring or solver-correctness interpretation before the aggregate's
   complete validity/solve-loss classification. The campaign remains active
@@ -502,6 +502,49 @@ own experimental detail and history.
   source promotion remains deliberately ordered after the staged BVE wrap-up
   and requires Claude-owned fuzz authority; no second behavioral change is
   opened meanwhile.
+  BVE is now closed and pushed at `a07bc93`. The isolated active-decision files
+  are applied byte-for-byte to main over that clean baseline; rebuilt Release
+  SHA is the already guarded `94784f16...8503`, and focused Release policy/N1/
+  trace/reset validation passes 8/8. Claude Code now exclusively owns a new
+  exact-source active-decision fuzz campaign from preparation through terminal
+  PASS/FAIL; Codex will not inspect its fuzz logs or artifacts. Independent
+  Rank-27 proof witness `1647655` is separately submitted with that exact pin,
+  immutable input SHA `5435b1b2...bb4e9`, two CPUs, 16 GiB, 1,200-second solver
+  and 4,800-second checker limits, and pinned `drat-trim`. Require UNSAT, a
+  verified complete proof, accepted proof-mode non-time image, and atomic zero
+  proof/input/checker/scratch residue before promotion. No collection,
+  Substitute, or Congruence source work begins before this increment is
+  reported, committed, and pushed.
+  Proof witness `1647655` passes: exact candidate returns UNSAT in 522.462 s
+  internal / 522.994 s wall with 624,272 KiB RSS; pinned `drat-trim` verifies
+  the 1,514,395,111-byte proof in 128.730 s with `s VERIFIED`. Proof SHA
+  `0f99f55a...8bb2d` and complete proof-mode normalized non-time SHA
+  `8cd3eda4...c2da7` are byte-identical to the accepted BVE witness, preserving
+  all proof effects and retained state. Proof, decompressed input, checker
+  output, and scratch are deleted with zero residue. Active-decision promotion
+  now awaits only Claude's terminal fuzz report and final report/wrap-up. A
+  fresh full Release suite is 73/74: every functional, proof/model, trace, N1,
+  proof-rule/strategy-boundary, cleanup, and reset test passes; only the known
+  opt-in documentation-size policy debt fails.
+  Claude Code's authoritative terminal report classifies exact-source ASan/
+  UBSan native-LRAT fuzz job `1647657` PASS. Corpus replay is 27/27 with zero
+  failures and zero semantic nonterminations. Random fuzz is 10,000/10,000
+  with zero failures: 5,667 independently checked SAT models, 3,906 native-
+  LRAT proofs accepted by pinned `lrat-check`, and zero Kissat differential
+  disagreement across all 9,573 verdict cases. The remaining 427 cases hit the
+  declared five-second quick bound and carry no oracle claim; their seed ledger
+  and 25 capped diagnostic CNF bundles are inputs only, not failures or
+  certificates. Required reach counts are Decide 1,280, SwitchMode 395, and
+  Propagate 7,280, exercising both focused and stable active pickers. Claude
+  reports zero sanitizer finding, crash, invariant assertion, model/proof
+  rejection, certificate residue, or scratch residue. This closes the active-
+  decision fuzz gate; do not rerun or independently reinterpret the campaign.
+  Final three-page Andrew handoff is
+  `report-to-andrew/2026-08-25-1300-rank27-active-decision/`; TeX SHA
+  `b464f052...7d90`, PDF SHA `cb6a7961...3845`, with no final-pass LaTeX box
+  warning. The isolated source diff over pushed BVE base is
+  `a5662046...4ad0`, and the validated cumulative Release binary remains
+  `94784f16...8503`.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
