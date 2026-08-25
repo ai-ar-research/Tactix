@@ -245,6 +245,15 @@ M3 is one public operation. Private pending state must be consumed before contro
   proof id as arena-order key; restatements and packed replacements inherit the
   source key, preserving Kissat's in-place OTFS/Strengthen/Vivify position.
   Vivify uses it for ties and restores physical arena order at collection.
+  That restoration delegates to Kernel's cached-key stable LSD radix pass,
+  the same primitive used by dense occurrence and inherited-watch rebuilds.
+  It produces exactly the prior `(logical order, Ref)` stable sequence without
+  repeatedly resolving keys through a comparison sort. Exact stage `1646181`,
+  byte-identical event trace `1646183`, complete B28+C5 guard
+  `1646184`/`1646250`, and balanced Rank-27 crossover `1647252` preserve every
+  non-time effect while reducing Vivify-owned time. This is a representation
+  repair; arena order remains semantic and neither proof nor strategy reads
+  physical addresses.
 - OTFS replacement metadata is also logically in-place: preserve the reason's
   glue, clamp only to size-1, then independently inherit a better redundant
   conflict glue. Never recompute the base glue from transient conflict levels.

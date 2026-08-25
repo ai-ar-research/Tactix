@@ -875,13 +875,7 @@ struct VivifyArenaOrder final : ArenaOrdering {
   void inherit(Ref, Ref) { changed = true; }
 
   void order(const Kernel &k, std::vector<Ref> &refs) override {
-    std::stable_sort(refs.begin(), refs.end(), [&](Ref a, Ref b) {
-      const uint64_t aid = clause_at(k.arena, a)->id();
-      const uint64_t bid = clause_at(k.arena, b)->id();
-      const uint64_t ao = aid ? kernel_clause_order(k, aid) : a;
-      const uint64_t bo = bid ? kernel_clause_order(k, bid) : b;
-      return ao == bo ? a < b : ao < bo;
-    });
+    kernel_sort_refs_by_logical_clause_order(k, refs);
   }
 
   void collect(Kernel &k) {

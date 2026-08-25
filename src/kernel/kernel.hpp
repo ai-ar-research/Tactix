@@ -1172,6 +1172,10 @@ void kernel_touch_sync_fixed(Kernel &);
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id = 0);
 uint64_t kernel_clause_order(const Kernel &, uint64_t id);
+// Restore the stable logical arena order after append-only replacements.  The
+// implementation caches each key and uses a linear stable radix pass.
+void kernel_sort_refs_by_logical_clause_order(const Kernel &,
+                                              std::vector<Ref> &);
 void kernel_inherit_clause_order(Kernel &, uint64_t replacement_id,
                                  uint64_t source_id);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);

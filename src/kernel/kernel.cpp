@@ -1805,7 +1805,7 @@ static uint64_t logical_clause_order(const Kernel &k, Ref ref) {
 // direct ID image makes a fixed-width stable radix pass the corresponding
 // linear representation operation; comparison sorting the multi-million
 // clause image made dense entry and sparse resume dominate useful rule work.
-static void sort_refs_by_logical_clause_order(const Kernel &k,
+void kernel_sort_refs_by_logical_clause_order(const Kernel &k,
                                               std::vector<Ref> &refs) {
   if (refs.size() < 2)
     return;
@@ -1870,7 +1870,7 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
   // Kissat's dense lists follow its irredundant arena prefix. Tactix keeps an
   // independent CaDiCaL-style physical arena pose, but proof/source identities
   // retain the corresponding Kissat order, including replacement aliases.
-  sort_refs_by_logical_clause_order(k, order);
+  kernel_sort_refs_by_logical_clause_order(k, order);
   for (const Ref ref : order)
     for (const Lit lit : *clause_at(k.arena, ref))
       occ.large[lit].push_back(ref);
@@ -2085,7 +2085,7 @@ void kernel_rebuild_large_watches(Kernel &k, bool inherited_source_order) {
     ref += words;
   }
   if (inherited_source_order)
-    sort_refs_by_logical_clause_order(k, order);
+    kernel_sort_refs_by_logical_clause_order(k, order);
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
       // `kissat_watch_large_clauses` does not merely reconnect the existing

@@ -25,12 +25,145 @@ own experimental detail and history.
   1,165 (689 valid, 476 invalid); both are explicitly non-scorable. Their
   `cancellation.json` records own the exact disposition. Pending, retained,
   scratch, and certificate residue are zero in both campaigns.
+- On later user direction, a fresh frozen Kissat 4.0.4 Tier-D reference campaign
+  `20260825-0010-tierd-kissat-4.0.4-16g-1800s` was submitted asynchronously as
+  array/aggregate `1646252`/`1646295`. Its 1,166 tasks use the accepted Kissat
+  binary SHA-256 `3aa8e41f…d49c`, two CPUs, 16 GiB, an exact 1,800-second solver
+  timeout, no node constraint, and array throttle `0-1165%40`. Fixed local SAT
+  model and UNSAT DRAT→LRAT→Cake validation passed with zero residue before
+  submission. The campaign is not yet scorable: dependent aggregate `1646295`
+  owns complete validity, solve-loss, independent-check, and cleanup
+  classification after every array task terminates.
 - Fuzzing ownership is now explicit in `DEVELOPMENT_PLAN.md` §8.2: Claude Code
   prepares, submits, monitors, inspects, and reports every solver fuzz job.
   Codex does not probe fuzz logs or artifacts and accepts Claude's terminal
   pass/failure report; failure returns directly to Claude's bounded repair
   workflow. Benchmark guards, proof witnesses, and performance diagnostics
   retain their separate independent-validation contracts.
+- 2026-08-25 active Vivify convergence checkpoint — Compact propagation-only
+  watch spans are closed negative and reverted by exact common-state job
+  `1646178`: all non-time work is identical, but Rank-27 conflict-9450 total
+  time regresses 16.35→17.72 s, Vivify 2.029→2.308 s, and RSS rises. The
+  surviving general repair instead exposes Kernel's accepted cached-key stable
+  radix Ref ordering to Vivify, removing its residual comparison stable-sort.
+  Exact stage `1646181` preserves every non-time counter and lowers Vivify
+  2.106→1.865 s; event trace `1646183` is byte-identical for all 64 rows to
+  frozen SHA `7a6216bb…7cc1`, fixing rule/candidate order, exact tick/cost,
+  scheduling, learning, pruning, and resulting state. Complete frozen B28+C5
+  array/aggregate `1646184`/`1646250` passes 66/66 independently checked tasks:
+  each arm has 17 valid SAT models and 16 valid UNSAT proofs, all 33 normalized
+  non-time pairs match, invalidity/solve-loss/cleanup/residue are zero, Vivify
+  falls 198.247→162.431 s (18.07%), and candidate/shipped PAR-2 is 0.978814.
+  Summary SHA is `18a60d2f…9e5eb6c`. Dependency-serialized complete Rank-27
+  pair `1646251` is exact-state UNSAT on both arms and lowers Vivify
+  64.399→58.191 s (9.64%) and inprocessing 192.415→186.927 s. Its total
+  515.505→520.897 s sequential delta is invalid for whole-run pricing: the
+  unchanged predecessor itself drifted roughly 116 s above the accepted
+  approximately 399-second witness, while about 40 tasks from independently
+  submitted Tier-D array `1646252` shared the nodes. That concurrent load is a
+  plausible environmental cause, not a proved attribution, and the candidate's
+  later 5.392-second delta is neither a demonstrated regression nor a win.
+  RSS falls 631,500→630,336 KiB and cleanup is zero. Proof-producing Rank-27
+  witness `1646346` is valid exact-trajectory UNSAT in 535.225 s internal /
+  535.781 s wall under the same external contention. Pinned `drat-trim`
+  verifies the byte-identical 1,514,395,111-byte proof SHA
+  `0f99f55a…8bb2d` in 131.493 s; cleanup and certificate residue are zero.
+  Claude Code's terminal report closes exact-source ASan/UBSan native-LRAT
+  fuzz job `1646352` as PASS: corpus 27/27 and random 10,000/10,000 have zero
+  failures, with 4,966 checked SAT models, 3,451 checked UNSAT proofs, direct
+  reachability in 5,865 Vivify / 4,306 VivifyChanged / 6,127 Propagate cases,
+  zero sanitizer/crash/invariant finding, and zero certificate/job residue.
+  Codex accepted that report without inspecting fuzz artifacts. Candidate base
+  is `a4b11964…37da4276`, source-diff SHA `65e9489b…442824`, Release pin SHA
+  `067f7f3a…5070bd`. Proof and fuzz correctness requirements are closed.
+  Whole-run promotion remains open because job `1646251` used sequential arms
+  with a badly drifting predecessor control. Initial control allocation
+  `1647189` failed before either solver launch because its
+  nested `srun` steps inherited mutually exclusive SLURM memory variables; the
+  corrected wrapper starts both arms directly inside the same reserved
+  four-CPU allocation. Corrected paired job `1647195` started both arms in the
+  same second, but was canceled on user clarification that concurrent Tactix
+  processes invalidate the requested standalone absolute-time observation; it
+  has no terminal claim and zero residue. Standalone immutable Vivify-only
+  Rank-27 job `1647203` now runs Release without tracing or proof, with two
+  CPUs, 16 GiB, and 1,200 s. Require exact effects/state; repeated >500 s
+  reopens the implementation under the user criterion, while a return near the
+  accepted approximately 399 s rejects the earlier absolute timing as
+  non-reproducible.
+  Terminal result: valid UNSAT in 583.796 s internal / 584.33 s wall at
+  651,808 KiB, so the candidate fails the user-directed >500 s reopening
+  threshold. Every normalized non-time line remains byte-identical, including
+  Vivify's 300 rounds / 198,109 vivified / 91 deleted / 1,046,683 checked and
+  every detailed effect, search, learning, pruning, scheduling, BVE, and
+  retained-state counter. Thus no unintended Vivify semantic/effect change is
+  present, but promotion is blocked. Run the immutable unchanged predecessor
+  standalone under the identical wrapper next: near 399 s rejects/reverts the
+  Vivify repair; near 584 s proves the current load reproduces independently
+  and requires a clean-load control before decision.
+  Immutable unchanged-`a4b11964` standalone causal control `1647229` is now
+  submitted with the identical proofless Release wrapper, two CPUs, 16 GiB,
+  and 1,200 s. Do not resume BVE until its terminal timing/state separates
+  candidate causality from the continuing cluster environment.
+  Control result: unchanged predecessor is exact-state UNSAT in 580.077 s
+  internal / 580.60 s wall, so the >500 s absolute slowdown reproduces without
+  Vivify. Candidate/predecessor is 583.796/580.077 (+0.641%); candidate Vivify
+  is 60.910/70.742 (-13.90%) and inprocessing 194.157/204.559 (-10.402 s),
+  while outside-rule search/scaffolding varies +14.122 s. All non-time lines
+  are byte-identical. SLURM TotalCPU is 581.774/578.196 s over 586/582 s
+  elapsed, ruling out CPU descheduling; the node remains saturated by roughly
+  40 independent Tier-D tasks, so frequency/cache/memory-bandwidth contention
+  remains plausible. Absolute causality is closed against Vivify, but its
+  +0.641% total is not promotion-quality: run a clean/exclusive two-arm control
+  before acceptance or BVE resumption.
+  The partition rejected an exclusive-node request before assigning a job
+  because that configuration is unavailable under the frozen two-CPU/16 GiB
+  request. Replacement two-node crossover `1647252` preserves the contract and
+  uses no node constraint: phase 1 places one arm per node, phase 2 swaps the
+  binaries on the same rank-to-node mapping. No two Tactix processes share a
+  node; exact per-node and aggregate comparisons will close the residual
+  +0.641% timing ambiguity. Exclusive attempt created no allocation/artifact.
+  Crossover `1647252` closes the ambiguity with four exact-state UNSAT arms at
+  99% CPU and zero residue. Node017 candidate/predecessor is
+  556.510/583.044 s (-26.534), while node018 is 472.229/450.091 s (+22.138):
+  opposite signs prove node/phase conditions dominate a single whole-run
+  comparison. The balanced crossover cancels additive node and phase bias:
+  candidate/predecessor is 514.3695/516.5675 s (-2.198, ratio 0.995745),
+  Vivify 57.097/64.5305 s (-11.52%), and inprocessing
+  183.5095/191.2535 s (-7.744). Every non-time/effect image is byte-identical.
+  Therefore Vivify did not cause the 399→580 jump; the historical absolute
+  time is currently unreproducible by either binary. Combined with exact
+  prefix/profile, complete B+C ratio 0.978814, checked proof, and Claude fuzz
+  PASS, the general radix-order representation is promoted. The final
+  BVE-free Release rebuild reproduces candidate SHA `067f7f3a…5070bd`; the
+  suite is 73/74 with every executable/correctness/boundary/cleanup test green
+  and only the recorded opt-in documentation-size debt failing. Required
+  three-page Andrew report is
+  `report-to-andrew/2026-08-25-0825-rank27-vivify-radix-order/`, TeX SHA
+  `13bb9a62…2240`, PDF SHA `331591c1…5385`, with no LaTeX box warning.
+- 2026-08-25 residual-BVE resume checkpoint — User directed convergence to
+  continue with BVE while Claude closes the independent Vivify fuzz report.
+  Accepted full profiles remain the source authority: on the current
+  3,813,669-conflict trajectory Tactix spends about 30--39 s in BVE versus
+  current optimized Kissat's 16.32 s, while the antecedent-size admission,
+  definition tick/session lifecycle, compact Kitten map/core, and optional
+  backward-tail investigations are already closed. Source comparison names a
+  remaining representation asymmetry before proof or strategy: Kissat keeps
+  pivot antecedents and generated resolvents as references/slices in reusable
+  raw stacks, whereas Tactix still gives every materialized antecedent and
+  every retained resolvent separate `std::vector` literal/proof-chain
+  ownership. The accepted callgraph already identified allocation/marshalling
+  as the dominant historical BVE class, and the current flat profile still
+  carries material allocator/memmove cost. Price a reusable flat-slice arena
+  first, preserving antecedent order, pair order, exact ticks/bounds, proof
+  chains, candidate heap/schedule, pruning, and resulting state; no admission
+  cap or completed proof rule is reopened.
+  Per subsequent user direction this remained a narrow staged prototype while
+  Vivify's whole-run comparison was unresolved. That blocker is now closed.
+  Its source is preserved immutably in
+  `benchmarks/runs/20260825-0729-bve-flat-slice-prototype/` and absent from the
+  promoted Vivify source. Resume with local Release/sanitizer checks and one
+  exact paired BVE-heavy Tier-C T105 mechanism test; do not launch a full B+C
+  or Rank-27 BVE campaign until that stage is positive.
 - Current/current exact-state jobs `1645876`/`1645878` localize the earliest
   Rank-27 common-state loss inside Congruence: complete Tactix/current-Kissat is
   2346/1644 ms, AND 283/568 and XOR 89/269 ms favor Tactix, but ITE is 630/117
