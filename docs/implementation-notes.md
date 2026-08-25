@@ -691,3 +691,82 @@ nontermination is the Sweep-specific setup closure from invalid predecessor
 Internal time improves 407.006→403.855 seconds and Congruence
 18.130→16.910 seconds with zero residue. The representation repair is promoted,
 but Rank 27 remains open because the valid result still misses 300 seconds.
+
+## 24. Batched ITE ternary sign-pattern membership
+
+At the exact Rank-27 conflict-9450 state, current/current stage observers
+`1645876` and `1645878` make Congruence the earliest slower scheduled rule and
+ITE extraction its portable owner. Tactix/current-Kissat complete Congruence is
+2346/1644 ms. Tactix is already faster for AND (283/568 ms) and XOR
+(89/269 ms), while ITE is 630/117 ms: canonical Tactix extraction asked six
+exact ternary membership questions for every record, whereas Kissat forms the
+same conditional pairs from literal-local dense-watch ranges. These runs share
+9450 conflicts and 5,795,248 decisions, and the inherited exact event trace
+fixes candidate order, tick/cost, scheduling, pruning, and resulting state.
+
+A compact record-id hash is not an acceptable substitute. Exact-state job
+`1645880` preserves the complete non-time image but worsens ITE 646→938 ms,
+Congruence 2355→2715 ms, and wall 16.93→17.57 seconds; it is rejected and
+reverted. Its initial budget-truncated index crash invoked the mandatory bounded
+Claude workflow. The repaired empty-directory path restored the prior
+conservative false result, passed independent Release and ASan/UBSan focused
+checks, and was removed with the negative feature. Incident manifest
+`20260824-1829-congruence-ternary-directory-unit-crash` remains the authority.
+
+`SP-CONG-ITE-MASK-1` instead batches only work that all six probes share. After
+the immutable ClauseIndex is sorted and deduplicated, a temporary vector of
+record ordinals is sorted by the unsigned first-three-variable prefix. Each
+group accumulates one bit for each of the eight exact size-three sign patterns,
+then publishes that byte beside records in their original canonical order. ITE
+collection reads the byte only for distinct-variable records in the same
+prefix; repeated-variable degeneracies and the later cross-prefix four-clause
+candidate verification use the authoritative first-literal range lookup. The
+temporary four-byte ordinal per record is released at index finish; the scoped
+index retains one byte per canonical record. No live-clause authority, proof
+transaction, strategy input, elapsed-time branch, benchmark identity, or tuned
+constant is introduced.
+
+The first sign-mask prototype retained the final record's mask during later
+candidate verification and failed the focused ITE unit. Mandatory bounded
+Claude repair reset that collection-only state before verification. Independent
+review confirmed exact sign grouping, degenerate fallback, conservative
+unfinished-index behavior, direct candidate verification, and unchanged
+candidate/tick/schedule sites; Release 8/8 and focused ASan/UBSan 5/5 pass.
+Incident manifest `20260824-1840-congruence-sign-mask-ite-unit-failure` owns the
+repair evidence.
+
+Exact-state stage/profile jobs `1645882`/`1645884` preserve every non-time
+counter. ITE falls 669→530 ms while index construction rises 131→181 ms;
+complete Congruence falls 2395→2336 ms. The membership lambda falls
+475,813,458→130,659,304 sampled cycles, complete gate extraction
+983,980,740→714,124,083, and total cycles
+63,890,309,956→63,484,607,915 with zero lost samples. The new ordinal sort is
+151,130,287 cycles, so it does not displace the membership gain. Trace job
+`1645886` emits all 64 rows byte-identical to accepted SHA-256
+`7a6216bb…7cc1`, proving exact rule/candidate order, tick/cost, schedule,
+learning, pruning, and state. Full B28+fixed-C5 guard `1645888`/`1645954`
+passes 66/66 with independently checked 17 SAT models and 16 UNSAT proofs per
+arm, all 33 pairwise non-time images exact, PAR-2 ratio 1.0073877, and zero
+invalidity, solve loss, cleanup failure, or certificate residue. Exact-source
+ASan/UBSan native-LRAT fuzz `1645887` passes 10,000 random cases with zero
+failures: 2,628 checked SAT models, 3,490 checked UNSAT proofs, 3,570 verdict
+cases reaching Congruence, 1,259,092 target applications, and zero sanitizer,
+model, proof, crash, certificate, or job-temporary finding. Its 3,882 declared
+five-second nonterminations make no oracle claim; the 25 retained CNFs are
+diagnostic inputs only.
+
+Proof-producing immutable Rank-27 job `1645956` is valid UNSAT on two CPUs.
+Pinned `drat-trim` verifies the byte-identical 1,514,395,111-byte proof SHA-256
+`0f99f55a…8bb2d` against the original CNF in 112.415 seconds; proof, staged
+input, checker derivatives, and scratch are deleted before atomic publication,
+with zero residue. Every non-timing solver statistic is byte-identical to
+predecessor `1645875`, normalized SHA-256 `8cd3eda4…2da7`. Congruence improves
+16.910→16.154 seconds (0.955293x), while total internal time is
+403.855→409.438 seconds because identical-trajectory search/scaffolding is
+5.259 seconds noisier; inprocessing differs by only +0.323 seconds. The exact
+common-state profile independently lowers total cycles 0.64% and the intended
+membership lambda 72.54%, so broad elapsed noise outside the changed owner is
+not an unexplained solve loss. The general representation repair is promoted.
+Rank 27 remains above the 300-second milestone, but that milestone is not a
+stop condition: convergence continues across residual Congruence, Vivify,
+Substitute, BVE, and search gaps while portable source evidence justifies them.

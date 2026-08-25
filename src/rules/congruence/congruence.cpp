@@ -1095,6 +1095,57 @@ public:
           position++;
         first_literal_offsets_[literal] = position;
       }
+      // ITE asks six membership questions that only flip signs among the
+      // first three variables of each canonical record.  Batch that common
+      // structural work once: group record ordinals by their unsigned
+      // three-variable prefix, accumulate the eight possible ternary sign
+      // patterns, then publish the group's byte beside every record in the
+      // original canonical order.  The temporary ordinal sort cannot affect
+      // iteration/candidate order; XOR and degenerate repeated-variable
+      // prefixes continue to use the first-literal membership ranges above.
+      std::vector<uint32_t> order(records_.size());
+      for (uint32_t i = 0; i < records_.size(); i++)
+        order[i] = i;
+      const auto prefix_literal = [&](uint32_t record, uint32_t i) {
+        return records_[record].lits[i] & ~Lit{1};
+      };
+      const auto prefix_less = [&](uint32_t a, uint32_t b) {
+        for (uint32_t i = 0; i < 3; i++) {
+          const Lit x = prefix_literal(a, i), y = prefix_literal(b, i);
+          if (x != y)
+            return x < y;
+        }
+        return a < b;
+      };
+      std::sort(order.begin(), order.end(), prefix_less);
+      ternary_presence_.assign(records_.size(), 0);
+      for (size_t begin = 0; begin < order.size();) {
+        size_t end = begin + 1;
+        while (end < order.size()) {
+          bool same = true;
+          for (uint32_t i = 0; i < 3; i++)
+            same = same && prefix_literal(order[begin], i) ==
+                               prefix_literal(order[end], i);
+          if (!same)
+            break;
+          end++;
+        }
+        uint8_t presence = 0;
+        for (size_t i = begin; i < end; i++) {
+          const Record &record = records_[order[i]];
+          if (size(record) != 3 ||
+              var_of(record.lits[0]) == var_of(record.lits[1]) ||
+              var_of(record.lits[1]) == var_of(record.lits[2]))
+            continue;
+          const uint8_t signs = static_cast<uint8_t>(
+              negated(record.lits[0]) | (negated(record.lits[1]) << 1) |
+              (negated(record.lits[2]) << 2));
+          presence |= static_cast<uint8_t>(1u << signs);
+        }
+        for (size_t i = begin; i < end; i++)
+          ternary_presence_[order[i]] = presence;
+        begin = end;
+      }
     }
   }
   bool contains(const SmallKey &key) const {
@@ -1111,6 +1162,13 @@ public:
     return it != end && compare(*it, key) == 0;
   }
   size_t size() const { return records_.size(); }
+  uint8_t ternary_presence(size_t position) const {
+    // A budget/termination stop can leave the index unfinished.  Its existing
+    // membership ranges then answer false; an absent presence byte must do the
+    // same while the caller walks the conservatively retained records.
+    return position < ternary_presence_.size() ? ternary_presence_[position]
+                                               : 0;
+  }
 
   class Iterator {
   public:
@@ -1188,6 +1246,7 @@ private:
   std::vector<Record> records_;
   PagedVector<Lit> tails_;
   std::vector<uint32_t> first_literal_offsets_;
+  std::vector<uint8_t> ternary_presence_;
 };
 
 // Iterating a hash table is implementation-ordered, and gate emission order
@@ -1883,14 +1942,26 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
                             const ClauseIndex &sorted,
                             std::vector<CongGate> &out) {
   (void)k;
+  uint8_t presence = 0;
+  bool direct_presence = false;
   auto has = [&](Lit a, Lit b, Lit c) -> bool {
     const Lit probe[3] = {a, b, c};
-    return index.contains(small_key(probe, 3));
+    const SmallKey key = small_key(probe, 3);
+    if (!direct_presence)
+      return index.contains(key);
+    const uint8_t signs = static_cast<uint8_t>(
+        negated(key.lits[0]) | (negated(key.lits[1]) << 1) |
+        (negated(key.lits[2]) << 2));
+    return presence & static_cast<uint8_t>(1u << signs);
   };
   // collect conditional equivalences per lhs literal
   std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
   uint32_t xtick = 0;
+  size_t record_position = 0;
   for (const SmallKey &cl : sorted) {
+    presence = sorted.ternary_presence(record_position++);
+    direct_presence = var_of(cl.lits[0]) != var_of(cl.lits[1]) &&
+                      var_of(cl.lits[1]) != var_of(cl.lits[2]);
     // sorted; only the first 3 literals are scanned
     if (k.stop_fuzz || !(++xtick & 255)) {
       if (kernel_terminating(k)) {
@@ -1912,6 +1983,11 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
         ce[L].push_back({negate(B), negate(A)});
     }
   }
+  // The presence byte answers only the per-record questions above, which stay
+  // inside one record's variable prefix.  The four verification probes below
+  // span a candidate's two prefixes, so they must ask the index directly.
+  presence = 0;
+  direct_presence = false;
   SmallKeySet seen;
   std::vector<Lit> ce_keys; // canonical order (see sorted_keys)
   ce_keys.reserve(ce.size());
