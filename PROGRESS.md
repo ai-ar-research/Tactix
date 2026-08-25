@@ -703,6 +703,19 @@ own experimental detail and history.
   verdict/certificate/score authority. The unchanged pair is resubmitted as
   job `1647680` with `afterok:1647675`, so it starts only after the checked B+C
   aggregate succeeds. Do not use `1647667` for any comparison.
+  Mechanism screen `1647668`/`1647675` passes correctness and cleanup 12/12:
+  each arm independently validates three SAT models and three UNSAT proofs,
+  every paired non-time statistic image is byte-identical, and solve loss/
+  invalidity/residue are zero. Candidate/predecessor PAR-2 is 691.931/734.113
+  (0.942540) and summed Substitute is 48.731/51.794 s. Performance attribution
+  remains open: T105 alone contributes 41.330 of the 42.182-second wall gain
+  and 3.021 of the 3.063-second Substitute gain, while all its major unrelated
+  rules scale faster too; the other five instances sum to Substitute
+  22.292→22.250 s (-0.19%). Treat the screen as exact, correctness-clean longer
+  coverage with environmentally dominated positive timing, not a causal win.
+  Dependency-released same-allocation Rank-27 job `1647680` is now running on
+  node017; use it as the causal long control before deciding whether one
+  sequential T105 pair is required.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
