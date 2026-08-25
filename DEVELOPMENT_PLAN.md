@@ -352,6 +352,20 @@ legs exercise legal schedules; validate every oracle with known-bad artifacts.
 Shrink failures and retain minimal regressions. Cadence and commands live in the
 `fuzz`, `proof-check`, and `stress-policy` skills.
 
+**Claude-owned fuzzing.** Every time a solver fuzz job is needed, the Codex
+agent must invoke Claude Code to prepare and submit that job and to own its
+monitoring, artifact inspection, oracle interpretation, cleanup audit, and
+terminal report. Codex supplies the bounded candidate, immutable pins, stress
+scope, resource contract, and acceptance criteria, then waits without probing
+the fuzz job, its logs, retained cases, or intermediate/final artifacts and
+without independently recomputing or reinterpreting the report. Claude's
+terminal report is authoritative: `pass` closes the fuzz gate; `failure`
+immediately invokes or continues the bounded Claude repair workflow on the
+reported reproducer and failure class. Codex does not rerun a passing fuzz
+campaign for confirmation. This ownership rule is specific to fuzzing; normal
+unit tests, benchmark guards, proof witnesses, and performance diagnostics keep
+their existing independent-validation contracts.
+
 **External debugging escalation.** Invoke Claude when fuzzing or unit testing
 discovers a soundness defect or a crash. The primary agent owns performance
 divergence, runtime regression, mechanism-fidelity work, and ordinary
@@ -361,9 +375,10 @@ unsoundness or a crash, escalate at that point; the trigger is the reproduced
 failure class, not the difficulty of the repair.
 For every such escalation, the Codex agent must launch Claude with permission
 to edit the workspace, provide the reproducer and bounded repair scope, and
-wait until the Claude agent finishes. Codex should not check on Claude's intermediate
-progress, and should trust the outcome achieved by Claude (i.e., no need to
-rerun experiments to validate).
+wait until the Claude agent finishes. Codex should not check on Claude's
+intermediate progress and should trust Claude's terminal outcome; the
+Claude-owned fuzzing rule above additionally forbids Codex from probing or
+independently auditing fuzz artifacts and reports.
 
 ### 8.3 Performance gates
 

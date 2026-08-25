@@ -770,3 +770,48 @@ not an unexplained solve loss. The general representation repair is promoted.
 Rank 27 remains above the 300-second milestone, but that milestone is not a
 stop condition: convergence continues across residual Congruence, Vivify,
 Substitute, BVE, and search gaps while portable source evidence justifies them.
+
+## 25. Dense literal ownership for ITE conditional lists
+
+After batched sign membership, exact residual observer `1645957` attributes
+210 of 415 cumulative ITE milliseconds to inserting 4,585,536 conditional
+pairs through an `unordered_map<Lit, vector<pair<Lit,Lit>>>`. That collection
+alone is 1.79 times the inherited current-Kissat complete ITE stage. The active
+representation candidate exploits the already-dense literal universe: a
+two-entries-per-variable `uint32_t` image maps each touched literal to one
+sparse owned pair vector, while a separate sparse key list records first touch.
+The key list is sorted before consumption exactly as before, and every owned
+list retains append order. Thus record traversal, candidate pairing and
+verification, ticks, budget stops, gates, merges, units, schedule, proof
+transactions, learning, pruning, and strategy inputs are unchanged.
+
+Focused Release checks pass 7/7 and focused ASan/UBSan checks pass 5/5. Exact
+conflict-9450 job `1645958` preserves normalized solver SHA-256
+`3b87bb36…2c5f`, including 5,795,248 decisions, 445,868,596 Congruence ticks,
+and all candidate/result aggregates, while reducing ITE 572→184 ms, complete
+Congruence 2383→1953 ms, the solve prefix 16517→16147 ms, and peak RSS
+406028→394776 KiB. Paired profile `1645960` lowers total sampled cycles
+65,038,405,342→62,875,953,119 and the materialized ITE membership lambda
+414,600,299→163,409,696; 366,782,892 predecessor cycles in unordered-map node
+insertion disappear. Event trace `1645961` emits 64 rows byte-identical to
+frozen SHA-256 `7a6216bb…7cc1`, fixing exact candidate/order, cost, scheduling,
+and resulting pruning. The mandatory frozen B28+fixed-C5 guard
+`1645964`/`1646030` passes 66/66 with independently checked 17 SAT models and
+16 UNSAT proofs per arm, all 33 non-time pairs exact, PAR-2 ratio 1.0126918,
+and zero invalidity, solve loss, cleanup failure, or certificate residue.
+Exact-source native-LRAT fuzz `1645963`, completed before fuzz ownership moved
+exclusively to Claude Code, reports 10,000 random cases and zero failures:
+2,624 checked SAT models, 3,484 checked UNSAT proofs, 3,564 verdict cases
+reaching Congruence, 1,253,848 target applications, and zero certificate or job
+residue.
+
+Proof-producing immutable Rank-27 witness `1646031` is valid UNSAT on two
+CPUs. Pinned `drat-trim` verifies the byte-identical 1,514,395,111-byte proof
+SHA-256 `0f99f55a…8bb2d` against the original CNF in 106.719 seconds before the
+runner deletes the proof, decompressed input, checker derivatives, and scratch.
+Every non-time statistic is byte-identical to predecessor `1645956`, normalized
+SHA-256 `8cd3eda4…2da7`. Congruence improves 16.154→14.720 seconds, internal
+solve time 409.438→399.152 seconds, wall 409.957→399.668 seconds, and solver
+peak RSS 643,976→604,272 KiB. This promotes the general representation repair.
+Rank 27 remains above the 300-second milestone, so current-Kissat convergence
+continues without reopening closed semantic or scheduling leads.

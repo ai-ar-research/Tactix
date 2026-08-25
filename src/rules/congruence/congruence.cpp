@@ -1954,8 +1954,30 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
         (negated(key.lits[2]) << 2));
     return presence & static_cast<uint8_t>(1u << signs);
   };
-  // collect conditional equivalences per lhs literal
-  std::unordered_map<Lit, std::vector<std::pair<Lit, Lit>>> ce;
+  // Collect conditional equivalences per lhs literal.  The literal universe is
+  // already dense, while only touched literals need an owned pair vector.  A
+  // direct literal-to-sparse-slot image avoids millions of hash probes without
+  // constructing a vector header for every literal.  `ce_keys` is still sorted
+  // before consumption and each sparse list preserves append order, so the
+  // canonical candidate sequence below is unchanged.
+  const size_t literal_count = static_cast<size_t>(k.nvars) * 2;
+  std::vector<uint32_t> ce_slot(literal_count, UINT32_MAX);
+  std::vector<Lit> ce_keys;
+  std::vector<std::vector<std::pair<Lit, Lit>>> ce_lists;
+  const size_t sparse_limit = std::min(sorted.size(), literal_count);
+  ce_keys.reserve(sparse_limit);
+  ce_lists.reserve(sparse_limit);
+  const auto add_conditional = [&](Lit lhs, Lit cond, Lit rhs) {
+    assert(lhs < ce_slot.size());
+    uint32_t &slot = ce_slot[lhs];
+    if (slot == UINT32_MAX) {
+      assert(ce_lists.size() < UINT32_MAX);
+      slot = static_cast<uint32_t>(ce_lists.size());
+      ce_keys.push_back(lhs);
+      ce_lists.emplace_back();
+    }
+    ce_lists[slot].push_back({cond, rhs});
+  };
   uint32_t xtick = 0;
   size_t record_position = 0;
   for (const SmallKey &cl : sorted) {
@@ -1977,10 +1999,10 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
                 B = cl.lits[(li + 2) % 3];
       // (A∨B∨L) + (A∨¬B∨¬L) ⇒ L≡¬B when ¬A
       if (has(A, negate(B), negate(L)))
-        ce[L].push_back({negate(A), negate(B)});
+        add_conditional(L, negate(A), negate(B));
       // (A∨B∨L) + (¬A∨B∨¬L) ⇒ L≡¬A when ¬B
       if (has(negate(A), B, negate(L)))
-        ce[L].push_back({negate(B), negate(A)});
+        add_conditional(L, negate(B), negate(A));
     }
   }
   // The presence byte answers only the per-record questions above, which stay
@@ -1989,15 +2011,13 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
   presence = 0;
   direct_presence = false;
   SmallKeySet seen;
-  std::vector<Lit> ce_keys; // canonical order (see sorted_keys)
-  ce_keys.reserve(ce.size());
-  for (const auto &kv : ce)
-    ce_keys.push_back(kv.first);
+  // Canonical order (see sorted_keys), independent of first-touch order above.
   std::sort(ce_keys.begin(), ce_keys.end());
   for (const Lit L : ce_keys) {
     if (cong_budget.over(k))
       return; // budget stop — read-only, fewer gates
-    auto &lst = ce[L];
+    assert(ce_slot[L] != UINT32_MAX);
+    auto &lst = ce_lists[ce_slot[L]];
     if (lst.size() > 256)
       continue; // bound the O(n²) pairing on pathological hubs
     k.stats.congruence_ticks += lst.size() * lst.size() / 2 + 1;
