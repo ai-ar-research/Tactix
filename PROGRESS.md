@@ -716,6 +716,18 @@ own experimental detail and history.
   Dependency-released same-allocation Rank-27 job `1647680` is now running on
   node017; use it as the causal long control before deciding whether one
   sequential T105 pair is required.
+  Same-allocation Rank-27 pair `1647680` completes both arms UNSAT exit 20 on
+  node017 with exact non-time SHA `14f7da2d...6194` and zero residue. The local
+  vector candidate lowers Substitute only 23.711→23.554 s (-0.157, -0.66%) but
+  regresses complete internal time 453.199→461.583 s (+8.384, +1.85%):
+  inprocessing rises 0.444 s, unchanged search/scaffolding rises 7.940 s, and
+  peak RSS rises 637,064→665,952 KiB. Reject this per-call allocation/fill
+  implementation; no full gate or fuzz is authorized. The demonstrated helper
+  owner remains open to one distinct general representation repair: maintain
+  current-internal first-import rank in Kernel across growth/record/compaction,
+  making `kernel_import_var_order` a direct read globally with no Substitute
+  allocation. Require fresh exact prefix/trace and longer controls before any
+  promotion.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
