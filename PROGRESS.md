@@ -8,12 +8,15 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. The accepted base is the
-  Kernel internal-import-rank wrap-up `dc77614`; its validated cumulative
-  Release binary is SHA-256 `c7c46bfa…057d4`. BVE flat-slice landed separately
-  at `a07bc935`, active-decision at `508342d`, and the general import-rank
-  representation repair at `dc77614`. Collection/rewatching is next and has
-  not yet changed source.
+- Worktree `/home/hwu/SAT-solving`, branch `main`. This wrap-up promotes the
+  isolated Vivify cross-band reclamation repair on top of clean checkpoint
+  `23a3a15`; its validated cumulative Release binary is SHA-256
+  `4b3f7467…bc5e6a`, and its exact source-diff SHA is `a8cd5650…5fdd`. BVE
+  flat-slice, active-decision, and the general import-rank representation
+  repair remain accepted predecessors. The next increment is broad
+  search-quality convergence against the accepted current-Kissat comparator;
+  it begins from this frozen binary and does not reopen rejected collection,
+  Substitute, BVE, or Congruence guesses without new exact owner evidence.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -49,22 +52,333 @@ own experimental detail and history.
   pass/failure report; failure returns directly to Claude's bounded repair
   workflow. Benchmark guards, proof witnesses, and performance diagnostics
   retain their separate independent-validation contracts.
-- The user-directed convergence order is fixed. BVE, active-decision, and the
-  first matched Substitute representation owner are now separately guarded,
-  proved, Claude-fuzzed, reported, committed, and pushed. From accepted
-  `dc77614`, freeze the current-Tactix/current-
-  Kissat comparison and localize collection/rewatching by watch compaction,
-  reference forwarding, metadata reconstruction, sparse collection, and
-  rewatching, normalized by entries and literals processed. Evaluate any fused
-  compact-and-forward repair first at exact common-prefix state/order/ticks/
-  scheduling/learning/pruning, then over full Rank 27 and mechanism-relevant
-  B+C, and finally through the full checked gate and Claude fuzz before a
-  separate wrap-up. Next localize matched Substitute invocations (SCC graph
-  and traversal, limits, representatives/retirement, clause effects, proof/
-  reconstruction, and downstream state), repair only its first demonstrated
-  worse-side owner, then revisit the smaller residual Congruence difference
-  (historically about 1.953 versus 1.644 s) before continuing broad search-
-  quality convergence. Do not mix these increments or stop at 300 seconds.
+- The user-directed consolidation sequence is complete. Vivify/collection
+  produced the sole supported repair and passed the complete gate plus one
+  Claude-owned fuzz campaign. The isolated Substitute deferral regressed full
+  Rank 27 and is reverted; residual BVE has no current common-state worse-side
+  owner; two Congruence closure layouts were exact but negative and are
+  reverted. Broad search-quality convergence is now first: freeze current
+  Tactix and current instrumented Kissat, then find the earliest portable
+  common-state divergence where equal work costs more or equal cost produces
+  weaker learning, pruning, simplification, or retained state. Preserve exact
+  tick/cost, candidate order, scheduling order, and resulting pruning through
+  the common prefix. Do not stop at 300 seconds, and do not reopen closed arms
+  without contradictory source-backed evidence.
+- 2026-08-25 23:23 EDT consolidation checkpoint — `main` and `origin/main`
+  remain synchronized at clean checkpoint `23a3a15`; the only tracked source
+  delta is the isolated, explicitly unfuzzed Vivify cross-band reclamation
+  candidate (source-diff SHA `a8cd5650…5fdd`). The user-authorized workflow now
+  continues Vivify/collection, Substitute, residual BVE, and Congruence as
+  separate investigation increments without fuzzing: each owns immutable pins,
+  a manifest, focused tests, and performance evidence, and none may be called
+  promoted or final. At consolidation, compose only supported repairs, run the
+  complete combined B28+C5 checked gate, then one Claude-owned fuzz campaign
+  before report/commit/push. Any intervening correctness failure still enters
+  the mandatory Claude repair workflow. Every solver invocation is its own
+  SLURM job or array task; never serialize two solvers in one allocation, and
+  prefer node018 for targeted diagnostics. The eventual consolidation fuzz
+  plus report/commit/push is a checkpoint, not an endpoint: immediately
+  continue from that accepted pin with the next demonstrated current-Tactix/
+  current-Kissat gap.
+- The isolated Vivify batching candidate passes its focused Vivify/N1,
+  scheduling, trace, strategy, solve-reset, proof-rule-boundary, and proof-sync
+  tests. Exact Rank-27 prefix jobs `1647788`/`1647790` preserve the accepted
+  64-row event trace SHA `7a6216bb…7cc1` and lower prefix Vivify
+  1.730→1.146 s. The checked B+C screen `1647791`/`1647798` is 12/12 valid
+  (three SAT models plus three UNSAT proofs per arm), residue-free, and lowers
+  Vivify on all six witnesses, but several complete trajectories are nonexact.
+  Correct independent full Rank-27 jobs `1647806`/`1647807` are valid UNSAT and
+  residue-free on node017: candidate/predecessor wall is 427.29/433.41 s,
+  Vivify 38.473/52.515 s, inprocessing 142.955/151.328 s, and RSS
+  606,616/688,076 KiB. All printed effects match except final search-mode ticks
+  10,353,221,162/10,353,221,174 (-12), so the result is positive investigation
+  evidence but fails exact-state acceptance. Earlier sequential jobs `1647799`
+  and partial `1647805` are archived and excluded from every claim.
+- Independent PRP traces `1647808`/`1647809` localize the earliest nonexact
+  effect before BVE semantic work: at conflict 14,770 the formula, state,
+  Strengthen effects, BVE candidate order, first pivot 112675, and starting BVE
+  ticks are identical, but the policy limit is 1,498,367 predecessor versus
+  1,498,368 candidate. Source inspection assigns that allowance to
+  `DefaultInprocessScheduler::set_entry_limit` and its search-tick
+  now/anchor/reference computation. Observer-only independent jobs
+  `1647810`/`1647811` completed SAT on preferred node018; both complete models
+  independently verify and residue is zero. They prove the BVE difference is
+  exactly the search-tick reference 14,983,678→14,983,680, not BVE formula or
+  representation population. The first earlier meter differences appear after
+  the phase-2 outer-0 Vivify dose: candidate Substitute +1, Vivify +6, and
+  TransitiveReduce -1. Independent semantic-candidate traces
+  `1647812`/`1647813` each ran one solver on node018 and both returned SAT.
+  Their wrappers failed only because the copied checker launcher lacked its
+  adjacent Python module; after restoring that immutable module, both saved
+  models independently satisfy all 1,060,646 clauses, with zero residue and no
+  solver rerun. The 158,607-row traces per arm localize the first cumulative
+  difference at conflict 2,958, irredundant Vivify ordinal 26: same clause,
+  pose, candidate order, decisions, formula/result state, and propagation
+  count, but cumulative ticks are 192,565 candidate versus 192,567 predecessor.
+  Exact watch trace `1647814`/`1647815` assigns the saving to one fewer large
+  dereference and relocation at scan 177388 (373 versus 375 total ticks over
+  the candidate), with identical pruning. Current Kissat performs no collection
+  inside `kissat_vivify`, so this avoided eager relocation is source-aligned.
+  The first unfavorable cumulative crossing occurs at ordinal 36: exact
+  node018 watch jobs `1647816`/`1647817` are checked SAT and residue-free; both
+  scan the same 67 literals and end with the same 435 watch words, 18 binary
+  assignments, 48 large assignments, garbage result, and propagation count.
+  Candidate enters with 447 versus 443 watch words, performs 55/5 versus 53/3
+  large dereferences/relocations, and costs 249 versus 245 ticks, moving the
+  cumulative delta from -2 to +2. This is a bounded cost tradeoff from keeping
+  in-round, reference-aligned watch state, not weaker learning or pruning.
+  Complete PRP effects remain identical and candidate Vivify time under trace
+  falls 8.438→7.124 s. Together with the valid long Rank-27 and B+C evidence,
+  retain this isolated batching repair as supported but explicitly unfuzzed
+  consolidation material; it is not promoted or final. No fuzz campaign is
+  active or due. Substitute residual stage `20260825-2350` freezes current
+  Tactix observer SHA `531a7972…2134` separately and reuses current Kissat's
+  accepted `1647662` observer evidence without rerunning it. Single-solver job
+  `1647818` is submitted to preferred node018 with two CPUs, 16 GiB, a
+  conflict-9450 stop, substage/allocation tracing, and perf. The promoted
+  internal-import-rank repair remains closed. The leading residual hypothesis
+  is the 325 ms of changed-round arena collection left in Tactix's exact stage:
+  Kissat performs no collection inside `substitute_rounds` and instead rewatches
+  once after the call. Submission is not a result, source is unchanged, and
+  this stage remains explicitly unfuzzed.
+- Residual observer `1647818` completed 0:0 on node018 in 18 seconds with the
+  exact accepted conflict-9450 semantic counters: 13 canonical rounds, 335,924
+  images, 21,568,289 Substitute ticks, 59,108 substituted variables, and zero
+  residue. Current substage totals are snapshot 162 ms, binaries 334 ms, large
+  clauses 189 ms, post-large 38 ms, and changed-round collection 286 ms;
+  `kernel_collect_garbage` remains a 2.83% complete-prefix cycles owner with no
+  lost samples. The isolated call-level reclamation candidate now uses existing
+  persistent clause-order aliases to traverse later rounds in exact logical
+  order and collect once at call exit, matching Kissat's no-collection-inside-
+  `substitute_rounds` lifecycle. Focused Release guards pass 16/16. Independent
+  one-solver jobs `1647819` predecessor and `1647820` candidate are submitted
+  in parallel to preferred node018 with identical conflict-9449 trace,
+  Substitute substage, and perf observers. The candidate is unfuzzed and not
+  promoted or final; exact common-prefix parity is required before longer
+  Rank-27/B+C evaluation.
+- Jobs `1647819`/`1647820` completed independently on node018 with intentional
+  conflict-9450 UNKNOWN and zero residue. Both arms retain identical semantic
+  counters and byte-identical 64-row trace SHA `7a6216bb…7cc1`, fixing common-
+  prefix rule/candidate/scheduling, learning, pruning, and result state. The
+  candidate removes 336 ms of per-round collection and lowers rewrite substage
+  total 1,357→1,039 ms, but one call-end collection remains inside reported
+  rule time and the heavy observer shows neutral total/Substitute timing. More
+  importantly, Substitute ticks rise exactly 21,568,289→21,570,089 (+1,800):
+  Tarjan charges cache lines for complete watch-list sizes as current Kissat
+  does, and the first retained physical population difference is +128 global
+  watch words before canonical SCC round 5. SCCs, representatives, images,
+  retirements, and pruning are unchanged, so this is a source-lifecycle cost
+  difference rather than weaker work, but it prevents exact-cost acceptance.
+  Keep the repair isolated and unfuzzed; per the required long-horizon policy,
+  price its frozen production pair over full Rank 27 and the predeclared six
+  high-Substitute B+C instances before disposition. No full gate or fuzz is
+  authorized yet. The residual observer manifest is now terminal with its
+  exact counters, artifact hashes, and zero-residue outcome. Frozen long-run
+  production SHA `ad8fe07f…c6ad6f` is running against isolated Vivify
+  predecessor `4b3f7467…bc5e6a`: B+C array `1647821` has twelve independent
+  one-solver tasks on node018 plus non-solver aggregate `1647828`; full
+  Rank-27 predecessor `1647822` and candidate `1647823` are independent
+  node018 jobs. Both now complete UNSAT with zero residue, and reject the
+  Substitute batch decisively: candidate/predecessor internal time is
+  562.824/552.836 s, wall 563.34/553.35 s, Substitute 28.651/27.347 s, and
+  solver RSS 768,996/606,948 KiB. The candidate also changes conflicts,
+  decisions, propagations, Substitute work/effects, scheduling, Sweep, BVE,
+  Congruence, learning, pruning, and retained state. This fails N4 and
+  whole-run acceptance; the Substitute-only source delta has been removed,
+  the independent Vivify candidate remains, and the reverted build plus 13
+  focused N1/N4/rule/proof/reset tests are green. The still-running immutable
+  T105 tasks will be classified and aggregated, but cannot rescue this repair.
+  They now complete with aggregate `1647828`: all 12/12 B+C tasks are valid
+  (three checked SAT models and three verified UNSAT proofs per arm), with no
+  invalidity, cleanup failure, or residue. Candidate/shipped PAR-2 is a neutral
+  767.397/768.797 s (0.998179), but the intended owner is not repaired: T105
+  Substitute worsens 32.888→33.671 s despite an unrelated changed-trajectory
+  total gain, and the circuit's Substitute saving accompanies a total loss.
+  Summary SHA is `36fc72a2…7a1844`. Correctness passes; causal performance and
+  exact-state acceptance fail, so no full combined gate or fuzz is authorized
+  for this rejected Substitute increment.
+- Residual BVE disposition `20260826-0015` reuses frozen authorities and makes
+  no source change. Current Vivify-only Tactix job `1647807` spends 15.958 s
+  across 1,699,306 BVE applications, 346,693 eliminations, 873,301 definition
+  checks, and 115,624,070 definition ticks; frozen optimized current Kissat
+  jobs `1644639`/`1644640` spend 16.32 s across 1,621,010 attempts, 364,315
+  eliminations, 1,137,044 checks, and 160,758,923 definition ticks. The full
+  trajectories differ, so the yield totals cannot prove a same-state weakness;
+  throughput is not worse, and the last exact worse-side event was the already
+  closed antecedent-size admission defect. N4 therefore authorizes no residual
+  BVE edit. Reopen only on a new exact common-state tick/order/yield divergence
+  or comparable-work profile loss; proceed to the larger frozen residual
+  Congruence closure representation owner.
+- Residual Congruence observer campaign `20260826-0020` freezes current
+  Vivify-only semantic observer SHA `531a7972…2134` and submits single-solver
+  node018 job `1647836`. It uses the existing allocation trace only—no source
+  or behavior delta—to refresh exact conflict-9450 gate, immutable value-index,
+  representative-index, work/reschedule, closure-table, memory, and timing
+  populations. Frozen current-Kissat job `1645878` and accepted funnel/DWARF
+  traces remain the comparator; rejected page-tail and key-borrow arms stay
+  closed. No Congruence prototype is authorized until this exact current
+  population is classified. Job `1647836` now completes 0:0 in 17 s and
+  reproduces 9,450 conflicts, 5,795,248 decisions, 96,338,812 propagations,
+  1,734,747 gates, 58,738 merges, 181 units, and 445,868,596 ticks; cumulative
+  Congruence is 1.830 s. The three rounds build 2,434,835 / 1,651,958 /
+  1,580,832 immutable value nodes. Round 1 runs 729,809 items (9,343
+  reschedules) and already holds 1,135,883 representative nodes at item
+  500,000; later rounds have no closure reschedules. Trace SHA is
+  `898ccb3c…0733e2`, residue zero. This confirms duplicate populations but not
+  yet a safe mutable-list design. Observer-only key-shape job `1647837` now
+  measures exact canonical-size bins and final table/node populations on
+  node018; its focused N1/N4/proof/reset suite is 6/6.
+  Job `1647837` completes exact and residue-free. Across 1,606,240 Canon::Ok
+  keys, 1,472,153 are size two and 102,123+216 are size three: 98.01% fit
+  three literals. The tables copy 3,395,476 key literals into 1,541,114
+  records, while representative indices allocate 3,565,639 nodes; only round
+  1 reschedules (9,343). This authorizes a source-semantic three-inline-literal
+  record (natural ITE arity) with paged tails for longer keys and smaller paged
+  allocations. It must retain identical hashes/equality, insertion/replacement
+  order, ticks, candidates, proof behavior, and resulting state. Observer log
+  SHA is `144b7af8…1d48f`; trace SHA `e95eb099…1e049`; observer source is removed
+  before the isolated representation prototype.
+- Isolated Congruence prototype `20260826-0021` implements the authorized
+  source-semantic table representation: the natural three-literal prefix is
+  inline in each closure record, only longer-key suffixes spill into paged
+  storage, and allocation requests are bounded to 1.5 MiB record / 1 MiB tail
+  pages. Hashing, equality, table insertion/replacement, traversal, gate ids,
+  ticks, proofs, and scheduling are unchanged by construction. Release builds
+  cleanly and the selected Kernel/proof/scheduling/strategy/event-trace/
+  Congruence/API/reset suite passes 8/8; the Congruence test includes an
+  arity-65 AND and therefore exercises the spilled tail. Immutable event-trace
+  pins are predecessor `531a7972…2134` and candidate `5596fffa…420a`.
+  Independent one-solver jobs `1647838`/`1647839` are submitted in parallel to
+  node018 with the same conflict-9450 stop, compact conflict-9449 trace, exact
+  counters, and memory/timing stages. Require exact candidate/order/tick/
+  scheduling/learning/pruning/result state before pricing the representation.
+  This repair remains isolated and unfuzzed, so it is neither promoted nor
+  final.
+  Both jobs complete 0:0 together on node018 with intentional UNKNOWN and zero
+  residue. Exact state is preserved: all semantic counters match, all 270
+  logical memory-stage rows match after removing only RSS/VM, and both 64-row
+  event traces are byte-identical at accepted SHA `7a6216bb…7cc1`. The
+  three-inline layout is rejected on its owner: first-round closure-loop RSS
+  falls 375,716→367,392 KiB and VM 452,752→387,216 KiB, but whole-process peak
+  is 395,460→398,488 KiB, closure is 628→635 ms, and Congruence is
+  1,984→2,039 ms. No long run or fuzz is warranted for a same-prefix negative.
+  The frozen size distribution supports a distinct two-inline layout: 91.65%
+  of keys remain fully inline, records shrink 24→20 bytes, and only 313,248
+  cumulative suffix literals spill. Test that separately against the same
+  predecessor before any long evaluation.
+  Separate inline-two campaign `20260826-0023` freezes predecessor observer
+  `531a7972…2134` and candidate `e35f2df8…3edd`; Release and the same eight
+  focused guards are green. Independent single-solver jobs `1647840`/`1647841`
+  are submitted together to node018 under the exact conflict-9450 trace and
+  memory/timing contract. The candidate is isolated and unfuzzed.
+  Both jobs start together and complete 0:0 in 44 seconds with intentional
+  UNKNOWN and zero residue. The 64-row traces are byte-identical at
+  `7a6216bb…7cc1`, all semantic counters match, and all 270 logical memory rows
+  match after removing only RSS/VM. The intended owner is directionally
+  positive: first-round closure-loop RSS 377,208→367,392 KiB and VM
+  452,752→387,216 KiB, whole-process peak 398,488→396,952 KiB, cumulative
+  closure 639→624 ms (match/table/proof 252→234 ms), Congruence
+  1,998→1,983 ms, and total prefix 39,940→39,655 ms. This small exact-stage
+  result authorizes only independent full Rank-27 arms plus a predeclared
+  checked six-instance B+C high-Congruence screen; no full gate or fuzz yet.
+  Long evaluation is frozen in separate campaigns. Independent proofless
+  Rank-27 jobs `1647844` predecessor and `1647843` candidate each run exactly
+  one Release solver on node018 with two CPUs, 16 GiB, and 1,200 seconds.
+  Checked B+C array `1647842` plus after-any aggregate `1647849` runs twelve
+  one-solver tasks at throttle four on node018. The six instances were selected
+  before submission from frozen accepted guard `20260824-2332` as the top four
+  Tier-B and top two Tier-C Congruence-time exposures: PRP, hwmcc17, veer,
+  DivS, T105, and the 500-gate circuit. Each arm must independently validate
+  three SAT models and three UNSAT proofs with no loss or residue. Submissions
+  are not results; the repair remains isolated and unfuzzed.
+  Both long controls are terminal and reject the two-inline representation.
+  The checked screen passes 12/12 (three verified SAT plus three verified UNSAT
+  per arm), zero invalidity/loss/cleanup/residue, and every paired non-time
+  statistics image is exact. Summed Congruence improves only
+  44,964→44,605 ms (-0.80%; four of six improve), while PAR-2 regresses
+  742.033→747.082 s. Independent Rank-27 jobs start together and are exact at
+  normalized SHA `10372d94…ffd0`, but Congruence worsens
+  18.088→18.171 s, internal/wall 544.007/544.52→546.175/546.69 s, and observed
+  RSS 606,620→690,300 KiB. This does not close the current-Kissat gap and is
+  not robustly positive over the required horizon. Reject and revert only this
+  isolated Congruence delta; no combined gate or fuzz is authorized for it.
+  **Open residual Congruence issue:** the refreshed current-Tactix
+  conflict-9450 observer is about 1.830 s versus the accepted current-Kissat
+  comparator at 1.644 s (approximately 186 ms / 11% slower). The three-inline
+  and two-inline ClosureTable record layouts are closed negative above and must
+  not be reopened as generic key-layout guesses: both preserve exact state, but
+  neither improves full Rank 27, and both are fully reverted. Reopen Congruence
+  only by tracing the next exact common-state worse-side owner inside closure
+  matching/maintenance (canonical keys, table probes/equality, proof work,
+  representative occurrence maintenance, rescheduling, and forwarding), with
+  exact ticks/order/state and a positive full Rank-27 plus B+C result before
+  consolidation. Current solver behavior is unchanged by these experiments.
+  Congruence source is now exactly clean, the rebuilt Release returns to
+  Vivify-only SHA `4b3f7467…bc5e6a`, and eight focused tests pass. This reaches
+  the user-authorized consolidation point with Vivify as the sole supported
+  repair; rejected Substitute, residual BVE, and Congruence candidates are not
+  mixed into it. Complete frozen B28+C5 checked array `1647857` plus after-any
+  aggregate `1647866` is submitted to node018 as 66 independent one-solver
+  tasks (`0-65%8`), two CPUs, 16 GiB, 1,200 s solver and 4,800 s checker
+  contracts. It compares accepted predecessor `c7c46bfa…57d4` with exact
+  candidate `4b3f7467…bc5e6a`; matrix SHA is `9cc79541…0e2`. Require 17 checked
+  SAT plus 16 verified UNSAT per arm, no solve loss/invalidity/cleanup/residue,
+  and PAR-2 at most 1.10. Submission is not a result. Only a terminal PASS
+  authorizes one Claude-owned fuzz campaign before report/commit/push, after
+  which convergence must immediately resume at the next Kissat gap.
+- 2026-08-26 Claude-owned consolidation fuzz campaign
+  `20260826-0103-vivify-crossband-reclamation-fuzz` — authorized by the
+  terminal-PASS consolidation gate `20260826-0040-BC-vivify-batch-consolidation`
+  (66/66 valid, 17 checked SAT + 16 verified UNSAT per arm, zero
+  invalidity/loss/cleanup/residue, PAR-2 0.9688, summary SHA `4ef52978…9925`).
+  Prep job `1647924` is terminal PASS on node017: exact source identity (base
+  `23a3a15`, src/tests diff SHA `a8cd5650…5fdd`) verified before and after a
+  fresh ASan/UBSan Debug pin build (pin SHA `93997df9…ecc4`, mode 0550),
+  focused ctest 10/10, and the reachability probe proved every fatal row: 13
+  of 1,500 deterministic quick-budget DefaultPolicy cases fire Vivify with
+  vivified≥1, gdb direct-trace witnesses on five of them hit the changed
+  cross-band deferred rebuild (vivify.cpp:1646 if batch.changed) and dose-end
+  batched collect (default_policy.cpp:3111 if reclamation.changed) in 5/5,
+  and stress/random shapes fire their rows. Four independent SLURM jobs are
+  submitted from that immutable pin: DefaultPolicy native-LRAT leg `1647925`,
+  Vivify-targeted stress native-LRAT leg `1647926`, random-policy native-LRAT
+  leg `1647927` (each corpus + 10,000 generated cases, kissat differential,
+  independent model/proof oracles, fatal reach rows), and gdb cross-band
+  reach phase `1647928` with full per-case oracles. Submission is not a
+  result; Claude Code exclusively owns monitoring, artifact inspection, and
+  the terminal report, and Codex does not probe fuzz artifacts.
+  Claude Code's authoritative terminal report now classifies the campaign
+  TERMINAL FUZZ PASS. All four jobs completed 0:0; source identity and both
+  binary identities re-verified at terminal inspection. Corpus is 81/81
+  replays (27 per leg) and generated fuzz 30,000/30,000 with zero failures:
+  15,797 independently checked SAT models, 10,889 native LRAT proofs accepted
+  by pinned `lrat-check`, kissat differential agreement on all 26,686 verdict
+  cases, and 3,314 bounded five-second nonterminations carrying no oracle
+  claim. Fatal reach rows are satisfied at the source in every leg (default
+  Vivify/VivifyChanged 99, stress 5,869/4,310 with 2,282,598 target
+  applications, random Vivify 2,458), and the changed cross-band path is
+  directly witnessed: 8/8 gdb reach cases hit the deferred inherited-order
+  rebuild (31 hits) and dose-end batched collect (11 hits), each oracle-clean.
+  Zero sanitizer/crash/invariant findings, zero model/proof rejections, zero
+  certificate or job residue. Terminal authority is
+  `benchmarks/runs/20260826-0103-vivify-crossband-reclamation-fuzz/`
+  (manifest `status: terminal-pass`). This closes the consolidation fuzz
+  gate; Codex accepted Claude's report without probing fuzz artifacts.
+- 2026-08-26 09:45 EDT Vivify wrap-up — frozen B28+C5 manifest
+  `20260826-0040-BC-vivify-batch-consolidation` is terminal PASS with summary
+  SHA `4ef52978…9925`: 66/66 valid, 17 checked SAT models plus 16 verified
+  UNSAT proofs per arm, candidate/predecessor PAR-2
+  1477.077/1524.592 seconds (0.968834x), and zero invalidity, solve loss,
+  cleanup failure, or certificate residue. Claude's terminal fuzz PASS above
+  completes the one authorized consolidation campaign. A fresh Release build
+  reproduces candidate SHA `4b3f7467…bc5e6a`; CTest is functionally 73/74,
+  with only the already recorded opt-in documentation-size debt failing.
+  Final three-page Andrew report is
+  `report-to-andrew/2026-08-26-0945-rank27-vivify-crossband-reclamation/`;
+  TeX SHA is `e77d3f51…fc911`, PDF SHA is `51322aa6…e6b28`, and the second
+  LaTeX pass has no box or undefined-reference warning. This coherent Vivify
+  increment is ready to commit and push; afterward immediately freeze that
+  commit as the broad search-quality baseline.
 - 2026-08-25 active Vivify convergence checkpoint — Compact propagation-only
   watch spans are closed negative and reverted by exact common-state job
   `1646178`: all non-time work is identical, but Rank-27 conflict-9450 total

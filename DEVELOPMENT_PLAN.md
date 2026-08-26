@@ -273,6 +273,12 @@ these execution invariants:
   terminal and aggregated and no job or retained manifest references it.
   Long-lived development builds are only `build/release` and `build/debug`;
   frozen campaigns retain pins under their campaign directories.
+- One SLURM job or array task may execute only one solver invocation. Never
+  serialize predecessor and candidate solver runs back-to-back inside one
+  allocation; submit independent arms so they remain parallelizable subject to
+  available resources. Targeted Phase-4.25 diagnostics should prefer
+  `node018` when it is available, while full-width arrays retain the no-hard-
+  node-constraint contract below.
 - A task atomically solves, checks any verdict, records verdict, solve/check
   time, peak memory, certificate size/hash, and checker provenance, then deletes
   every certificate and checker derivative on every exit path. A task with
@@ -400,6 +406,21 @@ Tactix is demonstrably stronger or the deviation is explicitly accepted; then
 rerun the instance and cumulative guards. Record context, cause, relative
 strength, evidence, reproducer, owner, and reopening condition. Feature-off
 projections diagnose one semantic mechanism but never replace a full gate.
+
+**Phase-4.25 consolidation workflow.** Vivify/collection, Substitute, residual
+BVE, and Congruence investigations may proceed without an intervening fuzz
+campaign only while every repair remains isolated behind its own immutable
+pins, manifest, focused tests, and performance evidence. Such a repair is
+explicitly *unfuzzed investigation material*: it is neither promoted nor final.
+At the consolidation point, compose only the independently supported repairs,
+run the complete B28 plus predeclared C5 checked gate on that combined
+candidate, and then invoke one Claude-owned fuzz campaign before the required
+report, commit, and push. That fuzz/wrap-up checkpoint does not terminate
+convergence: immediately resume the next demonstrated current-Tactix/current-
+Kissat gap from the newly accepted pin. A soundness defect, crash, sanitizer failure,
+rejected SAT model, or rejected UNSAT proof discovered at any earlier stage
+immediately interrupts this batching and triggers the mandatory bounded Claude
+repair workflow in §8.2.
 
 **Proof-rule/strategy boundary during convergence.** A repair may enlarge a
 rule's general calculus or the kernel's proof-neutral representation machinery,
