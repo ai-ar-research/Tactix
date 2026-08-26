@@ -573,6 +573,19 @@ own experimental detail and history.
   only leak detection makes the identical binaries pass, with no sanitizer or
   solver failure reported. Claude's cluster campaign remains the authoritative
   full sanitizer/fuzz gate.
+- Claude's resource-shape audit finds the current consolidation campaign
+  under-parallelized: its six independent generated/stress leg jobs each use
+  `-c 2` and two workers, for about six physical cores at peak, with no arrays
+  or throttle. This does not reduce case/oracle coverage, but it stretches two
+  stress legs to roughly four hours. Because those legs were already at
+  8,700/10,000 and 9,000/10,000 with zero failures when discovered, retain and
+  finish them rather than discard valid work or repeat fuzzing. Allocation-only
+  probe `1648629` validates the future 50-physical-core shape: `-c 100`,
+  `--mem=400000M`, mask `0-49,96-145`, and 50 workers. The generic fuzz wrapper
+  now makes physical cores explicit and no longer mistakes its old 50 logical
+  CPUs for 50 physical cores. Future Claude-owned generated fuzz legs use this
+  contract when capacity permits; narrower prep/reach work requires a recorded
+  reason. No solver ran in the probe.
 - 2026-08-26 timing-stability investigation — The complete cluster study is
   preserved in
   `benchmarks/reports/2026-08-26-rank27-timing-stability.md` and its Andrew

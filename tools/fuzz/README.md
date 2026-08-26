@@ -5,6 +5,10 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 - `run.sh --quick --solver CMD` — per-commit gate: regression corpus + 10,000
   seeded cases; `--nightly` = 200,000 cases + LRAT chain. These counts are
   owned by `run.sh`; keep this summary synchronized with its defaults.
+- `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2
+  nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers.  `--physical-cores
+  P` changes all three coherently.  A worker count is parallelism within one
+  fuzz campaign, not repeated fuzzing.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
   `coverage:` counts cases that reached a verdict — a case that times out runs
   NO oracle, and the non-terminating population is printed on its own line,
