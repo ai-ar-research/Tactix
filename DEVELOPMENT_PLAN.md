@@ -405,9 +405,11 @@ to accept or reject a solver repair runs as three independent paired waves.
 Each wave submits the candidate and its exact-state baseline as two separate,
 concurrent one-solver jobs; never serialize arms in one allocation, and cross
 their node/L3 placement over the three waves when practical. On the current
-EPYC 9454 nodes, each timed job requests 12 logical CPUs and 48 GiB from SLURM
-so its mask owns one complete six-physical-core L3 domain and its scheduler
-memory reservation matches the partition's 8-GiB-per-physical-core capacity.
+EPYC 9454 nodes, each timed job requests 12 logical CPUs and 48,000 MiB from
+SLURM so its mask owns one complete six-physical-core L3 domain and its scheduler
+memory reservation matches the partition's effective 8,000-MiB-per-physical-
+core capacity. The exact MiB request lets all 16 L3 domains fit within the
+node's configured 769,024 MiB; do not round it up to `--mem=48G`.
 The solver itself remains single-threaded, bound to one granted hardware
 thread, and retains the applicable 16-GiB process limit; the larger allocation
 is capacity accounting, not a larger solver-memory contract. Stage inputs,

@@ -46,8 +46,8 @@ I/O is not the present solver bottleneck because proofs and inputs reside on
 node-local NVMe; the repository is NFS but receives only compact evidence.
 
 The approved policy uses ordinary shared-node \code{-c 12} allocations with
-48 GiB of scheduler memory while retaining the 16-GiB solver process limit,
-simultaneous separate candidate/baseline jobs, three independent paired waves
+exactly 48,000 MiB of scheduler memory while retaining the 16-GiB solver
+process limit, simultaneous separate candidate/baseline jobs, three independent paired waves
 for decision-grade performance claims, and median ratio/full-spread reporting.
 Fuzzing remains one Claude-owned campaign and is not repeated by this policy.
 Future whole-node isolation is prohibited.
@@ -200,10 +200,12 @@ putting proof or CNF traffic on NFS would create a different protocol.
 The user-approved stable contract is:
 \begin{enumerate}
 \item Routine timing uses separate one-solver candidate/baseline jobs,
-\code{-c 12}, a 48-GiB SLURM allocation, no whole-node exclusivity or all-memory
-reservation, and the applicable 16-GiB solver process limit.  The allocation
-matches six physical cores at 8 GiB/core; it does not raise the solver limit or
-reserve memory bandwidth.  Require each CPU mask to cover one complete L3
+\code{-c 12}, an exact 48,000-MiB SLURM allocation, no whole-node exclusivity
+or all-memory reservation, and the applicable 16-GiB solver process limit.  The allocation
+matches six physical cores at the effective 8,000 MiB/core; it does not raise
+the solver limit or reserve memory bandwidth.  The exact MiB spelling permits
+16 jobs within configured node memory 769,024 MiB; \code{48G} would round up
+and permit only 15.  Require each CPU mask to cover one complete L3
 domain.  Launch both arms in the same wave as separate jobs; never serialize
 them in one allocation.  \code{-c 4} remains valid for functional work, not
 timing.
@@ -232,6 +234,14 @@ occupancy, perf service-rate evidence, and naturally observed load windows.
 Full-width tier arrays retain their existing eligible-width/no-node-constraint
 contract and use aggregate paired evidence.
 \end{enumerate}
+
+Allocation-only probe \code{1648628} verifies
+\code{SLURM_CPUS_PER_TASK=12}, \code{SLURM_MEM_PER_NODE=48000}, and CPU mask
+\code{0-5,96-101}, exactly one L3 domain.  Its wrapper exits nonzero only after
+recording that evidence because this cgroup-v1 cluster lacks the optional
+cgroup-v2 \code{memory.max} path; no solver ran.  Initial probe \code{1648627}
+is infrastructure-invalid because its log was placed on compute-local scratch.
+Neither probe is solver or fuzz evidence.
 
 For the accepted pin, 367.045--372.354 internal seconds (median 368.307) is the
 supported ordinary shared-node \code{-c 12} calibration.  Routine development
