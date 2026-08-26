@@ -832,6 +832,23 @@ own experimental detail and history.
   gives proof-off any warm/page-cache advantage. Both arms must be exact-state
   UNSAT; the proof must reproduce the accepted SHA, pass pinned `drat-trim`,
   and leave zero residue. Submission is not a result and changes no behavior.
+  Claude Code's authoritative terminal report now classifies exact-source
+  ASan/UBSan native-LRAT fuzz PASS. Prep `1647778`, main leg `1647779`, and
+  compaction-reach phase `1647781` preserve source-diff SHA
+  `681d17c9...ee1b6`; attempts `1647776`/`1647777` were pre-submission stale-
+  pin/probe failures and `1647780` was an unhandled wrapper timeout after 14
+  clean cases, not solver failures. Corpus is 27/27 and random fuzz is
+  10,000/10,000 with zero failures: all 5,668 SAT models and 3,906 UNSAT native-
+  LRAT proofs validate independently, and pinned Kissat agrees on every one of
+  the 9,574 verdict cases. The 426 bounded five-second semantic
+  nonterminations carry no oracle claim. Dedicated reach validation adds 8 SAT
+  and 10 UNSAT checked cases and reaches VariableCompaction in 17/17 passes;
+  Substitute reaches 2,252 main-leg plus 18 reach cases. Claude reports no
+  sanitizer finding, crash, invariant abort, rejected model/proof, differential
+  disagreement, repair trigger, or certificate/scratch residue. Codex accepts
+  this report without inspecting fuzz artifacts. This closes the final
+  correctness gate; only the user-requested proof-mode timing control and final
+  report/commit remain before promotion.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
