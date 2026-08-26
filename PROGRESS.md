@@ -25,21 +25,24 @@ own experimental detail and history.
   1,165 (689 valid, 476 invalid); both are explicitly non-scorable. Their
   `cancellation.json` records own the exact disposition. Pending, retained,
   scratch, and certificate residue are zero in both campaigns.
-- On later user direction, a fresh frozen Kissat 4.0.4 Tier-D reference campaign
-  `20260825-0010-tierd-kissat-4.0.4-16g-1800s` was submitted asynchronously as
-  array/aggregate `1646252`/`1646295`. Its 1,166 tasks use the accepted Kissat
-  binary SHA-256 `3aa8e41f…d49c`, two CPUs, 16 GiB, an exact 1,800-second solver
-  timeout, no node constraint, and array throttle `0-1165%40`. Fixed local SAT
-  model and UNSAT DRAT→LRAT→Cake validation passed with zero residue before
-  submission. The campaign is not yet scorable: dependent aggregate `1646295`
-  owns complete validity, solve-loss, independent-check, and cleanup
-  classification after every array task terminates.
-  Latest audit at 13:25 EDT finds four tasks still running on node017 (indices
-  488, 540, 743, and 1128); aggregate `1646295` remains
-  dependency-pending. Partial task exits, including resource/checker failures,
-  carry no scoring or solver-correctness interpretation before the aggregate's
-  complete validity/solve-loss classification. The campaign remains active
-  and non-scorable; convergence work continues without waiting for it.
+- On later user direction, frozen Kissat 4.0.4 Tier-D reference campaign
+  `20260825-0010-tierd-kissat-4.0.4-16g-1800s` ran as array/aggregate
+  `1646252`/`1646295`. Its 1,166 tasks use accepted Kissat SHA
+  `3aa8e41f…d49c`, two CPUs, 16 GiB, an exact 1,800-second solver timeout, no
+  node constraint, and throttle `0-1165%40`. Fixed local SAT model and UNSAT
+  DRAT→LRAT→Cake validation passed with zero residue before submission.
+  Complete `results.json` classifies all 1,166 tasks before aggregate `1646295`
+  fails only in presentation because the campaign omitted
+  `year-membership.tsv`. There are 758 valid rows (405 SAT + 353 UNSAT) and 408
+  invalid rows: 367 solver timeouts, three solver OOM exits 134, and 38
+  certificate-pipeline failures (23 CakeML heap exhaustion, nine drat-trim
+  memory exhaustion, three drat-trim timeout outputs, two trivial-UNSAT
+  drat-trim exit-1 rows despite `s VERIFIED`, and one CakeML DIMACS parse
+  failure). Resource and checker invalidities are excluded, not solver
+  correctness failures. Missing tasks, interrupted claims, pending cleanup,
+  retained artifacts, orphan artifacts, and certificate residue are all zero.
+  Results SHA is `9489bfcf...69ac`. No frozen solver/checker is rerun; any use
+  must retain this validity filter and the comparison-only/once-only contract.
 - Fuzzing ownership is now explicit in `DEVELOPMENT_PLAN.md` §8.2: Claude Code
   prepares, submits, monitors, inspects, and reports every solver fuzz job.
   Codex does not probe fuzz logs or artifacts and accepts Claude's terminal
