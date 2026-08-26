@@ -866,27 +866,34 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
 // band-end collection: the next Vivify band rebuilds every large watch in
 // arena order, so this is semantic state rather than a storage detail.
 struct VivifyArenaOrder final : ArenaOrdering {
-  bool changed = false;
+  VivifyReclamationBatch &batch;
 
-  explicit VivifyArenaOrder(const Kernel &) {}
+  explicit VivifyArenaOrder(VivifyReclamationBatch &b) : batch(b) {}
 
-  void retire() { changed = true; }
+  void retire() { batch.changed = true; }
 
-  void inherit(Ref, Ref) { changed = true; }
+  void inherit(Ref, Ref) { batch.changed = true; }
 
   void order(const Kernel &k, std::vector<Ref> &refs) override {
     kernel_sort_refs_by_logical_clause_order(k, refs);
   }
 
-  void collect(Kernel &k) {
-    if (!changed)
-      return;
-    ArenaOrdering *const saved = k.arena_ordering;
-    k.arena_ordering = this;
-    kernel_collect_garbage(k);
-    k.arena_ordering = saved;
-  }
 };
+
+void VivifyReclamationBatch::collect(Kernel &k) {
+  if (!changed)
+    return;
+  struct LogicalOrder final : ArenaOrdering {
+    void order(const Kernel &kernel, std::vector<Ref> &refs) override {
+      kernel_sort_refs_by_logical_clause_order(kernel, refs);
+    }
+  } logical_order;
+  ArenaOrdering *const saved = k.arena_ordering;
+  k.arena_ordering = &logical_order;
+  kernel_collect_garbage(k);
+  k.arena_ordering = saved;
+  changed = false;
+}
 
 // Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
 // form the LRAT chain. The replacement keeps the candidate's redundancy and
@@ -1598,7 +1605,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
 }
 
 // canonical instance: one full round over the tier-aware schedule
-ApplyResult vivify_apply(Kernel &k) {
+ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
   assert(vivify_guard(k));
   // The caller poses Kissat's cumulative ceiling before entering the round.
   // Scheduling and watch rebuilding consume that same probing-tick allowance;
@@ -1633,7 +1640,10 @@ ApplyResult vivify_apply(Kernel &k) {
   // clauses after committing the candidate literal order.  The resulting
   // watch pose controls which conflict/reason a probing propagation records.
   event_trace_slot_boundary(k, "vivify-dense-resume", "entry");
-  kernel_rebuild_large_watches(k);
+  // A preceding band would normally have collected into logical clause
+  // order.  While reclamation is deferred, reproduce that exact rewatch stream
+  // from the persistent source-position keys without moving any arena record.
+  kernel_rebuild_large_watches(k, batch.changed);
   event_trace_slot_boundary(k, "vivify-dense-resume", "resume");
   k.stats.vivify_prioritized += sched.prioritized;
   k.stats.vivify_reprioritized += sched.rearmed;
@@ -1643,7 +1653,7 @@ ApplyResult vivify_apply(Kernel &k) {
   // k.work_budget is the cumulative Vivify ceiling in propagation ticks.
   // Zero is unbounded only when work_budget_bounded is false.
   uint64_t ordinal = 0;
-  VivifyArenaOrder arena_order(k);
+  VivifyArenaOrder arena_order(batch);
   if (sched.root_changed)
     arena_order.retire();
   for (const Ref cref : candidates) {
@@ -1732,19 +1742,27 @@ ApplyResult vivify_apply(Kernel &k) {
                     // schedule completion all leave through here
   if (!changed)
     return ApplyResult::NoOp;
-  arena_order.collect(k);
   return ApplyResult::Ok;
+}
+
+ApplyResult vivify_apply(Kernel &k) {
+  VivifyReclamationBatch batch;
+  const ApplyResult result = vivify_apply_batched(k, batch);
+  if (result != ApplyResult::Unsat && !k.inconsistent)
+    batch.collect(k);
+  return result;
 }
 
 ApplyResult vivify_try(Kernel &k, Ref candidate) {
   assert(vivify_guard(k));
-  VivifyArenaOrder arena_order(k);
+  VivifyReclamationBatch batch;
+  VivifyArenaOrder arena_order(batch);
   // Standalone: its own root-to-root probing scope, no retained trail — the N1
   // surface must not depend on a round having run first.
   const ApplyResult r =
       vivify_one(k, candidate, /*reuse=*/false, arena_order);
   if (r == ApplyResult::Ok)
-    arena_order.collect(k);
+    batch.collect(k);
   return r;
 }
 

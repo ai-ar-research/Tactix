@@ -35,6 +35,19 @@ void vivify_reestablish_watch_invariant(Kernel &, const Lit *, uint32_t);
 // Exact prefix trim that precedes the watch selection for a large rewrite.
 void vivify_trim_replacement_prefix(Kernel &, Lit implied,
                                     uint32_t replacement_size);
+
+// One DefaultPolicy dose consists of several independently budgeted tier
+// bands.  Kissat keeps shortened records in place across those bands and
+// reclaims once after the dose.  Tactix's accepted proof rule still appends a
+// packed replacement, so this rule-owned transaction records whether a later
+// logical-order collection is required.  Public/canonical Vivify creates and
+// drains its own transaction, preserving the complete N1 action surface.
+struct VivifyReclamationBatch {
+  bool changed = false;
+  void collect(Kernel &);
+};
+
+ApplyResult vivify_apply_batched(Kernel &, VivifyReclamationBatch &);
 ApplyResult vivify_try(Kernel &, Ref candidate); // one candidate
 ApplyResult vivify_apply(Kernel &);              // canonical: full round
 

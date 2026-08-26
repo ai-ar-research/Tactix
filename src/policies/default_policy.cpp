@@ -17,6 +17,7 @@
 #include "rules/registry.hpp"
 #include "rules/substitute/substitute.hpp"
 #include "rules/sweep/sweep.hpp"
+#include "rules/vivify/vivify.hpp"
 #include "policies/ops/switchmode/switchmode.hpp"
 
 #include <algorithm>
@@ -3028,6 +3029,11 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   const char *no_t3 = std::getenv("TACTIX_VIVIFY_TIER3");
   const bool split = !(no_t3 && *no_t3 == '0');
   ApplyResult ar = ApplyResult::NoOp;
+  VivifyReclamationBatch reclamation;
+  const auto apply_band = [](Kernel &kernel, void *state) {
+    return vivify_apply_batched(
+        kernel, *static_cast<VivifyReclamationBatch *>(state));
+  };
   // Kissat advances one cumulative probing-tick ceiling by each band's
   // proportional share (vivify.c:1455-1490).  Keep the same ledger here:
   // unused work from an early tier belongs to every later tier, while an
@@ -3052,7 +3058,9 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     k.work_budget_offset = e.meter(k) - dose_start;
     TickSinkScope sink(k, e.tick_counter);
     const ApplyResult a =
-        metered_rule_apply(k, e.meter, [&] { return apply_rule(r, k); });
+        metered_rule_apply(k, e.meter, [&] {
+          return apply_rule_with(r, k, apply_band, &reclamation);
+        });
     if (a == ApplyResult::Unsat ||
         (a == ApplyResult::Ok && ar != ApplyResult::Unsat))
       ar = a;
@@ -3076,7 +3084,10 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     const ApplyResult ar2 = [&] {
       TickSinkScope sink(k, e.tick_counter);
       return metered_rule_apply(k, e.meter,
-                                [&] { return apply_rule(r, k); });
+                                [&] {
+                                  return apply_rule_with(
+                                      r, k, apply_band, &reclamation);
+                                });
     }();
     if (ar2 == ApplyResult::Unsat)
       ar = ar2;
@@ -3096,6 +3107,8 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
       }
     }
   }
+  if (ar != ApplyResult::Unsat && !k.inconsistent)
+    reclamation.collect(k);
   k.vivify_scope = 0;
   k.work_budget = 0;
   k.work_budget_offset = 0;
