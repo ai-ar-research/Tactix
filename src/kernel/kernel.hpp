@@ -837,6 +837,11 @@ struct Kernel {
   // identities stable and consults this equivalent order at reference-ordered
   // traversals instead.
   std::vector<uint32_t> external_import_rank;
+  // Direct image of the same permanent rank in current compact identities.
+  // UINT32_MAX means the variable has not occurred in input yet. Variable
+  // compaction remaps this image with every other per-current-variable field;
+  // the external rank remains the permanent proof/reconstruction authority.
+  std::vector<uint32_t> internal_import_rank;
   // Inverse of `external_import_rank` in permanent first-occurrence order.
   // Retired external identities remain here as holes and are resolved through
   // `external_to_internal`, allowing live import order to be reconstructed in

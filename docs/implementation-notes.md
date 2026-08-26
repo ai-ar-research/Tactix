@@ -190,6 +190,17 @@ M3 is one public operation. Private pending state must be consumed before contro
   import traversal, proof order, multiplicity, and representative selection
   while avoiding contiguous-growth copies and redundant target fields on
   formulas with tens of millions of literals.
+- Permanent `external_import_rank` remains the proof/reconstruction authority
+  for first-occurrence order. Kernel also maintains the same rank as a direct
+  `internal_import_rank` image over current compact variable identities:
+  first import writes both views, variable growth uses `UINT32_MAX` for an
+  unrecorded variable, and compaction remaps the internal image with every
+  other per-variable field. Reference-ordered hot traversals therefore avoid
+  translating each current id through the permanent external map; unrecorded
+  public-API variables retain their stable external-order fallback. Kernel
+  invariants check equality of both views after every remap. This is a general
+  representation cache only: candidate order, proof order, ticks, scheduling,
+  learning, pruning, and reconstruction identities do not change.
 - Substitute follows Kissat's asymmetric binary update when exactly one source endpoint is already a
   representative: it rewrites that stable watch in place and appends only the missing mirror. Before rebuilding,
   it counts exact per-literal appends and packs surviving prefixes into final slices. Ordinary kernel additions

@@ -70,6 +70,8 @@ static void test_import_order_survives_compaction_linearly() {
   kernel_record_import(k, 4);
   kernel_record_import(k, 1);
   kernel_record_import(k, 5);
+  assert((k.internal_import_rank ==
+          std::vector<uint32_t>{UINT32_MAX, 1, UINT32_MAX, UINT32_MAX, 0, 2}));
 
   std::vector<Var> order;
   kernel_vars_in_import_order(k, order);
@@ -87,6 +89,8 @@ static void test_import_order_survives_compaction_linearly() {
   }
   assert(kernel_compact_variables(k));
   assert((k.internal_to_external == std::vector<Var>{0, 1, 3, 5}));
+  assert((k.internal_import_rank ==
+          std::vector<uint32_t>{UINT32_MAX, 1, UINT32_MAX, 2}));
   kernel_vars_in_import_order(k, order);
   assert((order == std::vector<Var>{1, 3, 0, 2}));
   kernel_check_invariants(k);

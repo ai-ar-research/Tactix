@@ -37,6 +37,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     k.external_to_internal.push_back(v);
   }
   k.external_import_rank.resize(k.external_to_internal.size(), UINT32_MAX);
+  k.internal_import_rank.resize(nvars, UINT32_MAX);
   // --- σ-state + derived-index growth (kernel-owned) ---
   k.values.resize(2 * nvars, 0);
   k.assigned.resize(nvars);
@@ -109,14 +110,19 @@ void kernel_record_import(Kernel &k, Var v) {
     assert(rank == k.import_rank_to_external.size());
     k.import_rank_to_external.push_back(external);
   }
+  assert(k.internal_import_rank.size() == k.nvars);
+  k.internal_import_rank[v] = rank;
 }
 
 uint64_t kernel_import_var_order(const Kernel &k, Var v) {
   assert(v < k.nvars);
+  assert(k.internal_import_rank.size() == k.nvars);
+  const uint32_t direct = k.internal_import_rank[v];
+  if (direct != UINT32_MAX)
+    return direct;
   const Var external = k.internal_to_external[v];
-  if (external < k.external_import_rank.size() &&
-      k.external_import_rank[external] != UINT32_MAX)
-    return k.external_import_rank[external];
+  assert(external >= k.external_import_rank.size() ||
+         k.external_import_rank[external] == UINT32_MAX);
   // Direct kernel clients need no input finalization. Put their unrecorded
   // variables after recorded imports in stable external order.
   return static_cast<uint64_t>(k.next_import_rank) + external;
@@ -2656,6 +2662,7 @@ bool kernel_compact_variables(Kernel &k) {
   compact_by_var(k.touched, uint64_t{0});
   compact_by_var(k.removed, uint64_t{0});
   compact_by_var(k.touched_kept, uint64_t{0});
+  compact_by_var(k.internal_import_rank, uint32_t{UINT32_MAX});
 
   std::vector<Var> internal_to_external(new_nvars);
   for (Var old = 0; old < old_nvars; old++) {
@@ -2935,10 +2942,16 @@ uint64_t kernel_irredundant_clauses(const Kernel &k) {
 void kernel_check_invariants(const Kernel &k) {
   heuristics_check(k); // `H` sized to nvars (catches a missed Factor growth)
   assert(k.internal_to_external.size() == k.nvars);
+  assert(k.internal_import_rank.size() == k.nvars);
   for (Var internal = 0; internal < k.nvars; internal++) {
     const Var external = k.internal_to_external[internal];
     assert(external < k.external_to_internal.size());
     assert(k.external_to_internal[external] == internal);
+    const uint32_t external_rank =
+        external < k.external_import_rank.size()
+            ? k.external_import_rank[external]
+            : UINT32_MAX;
+    assert(k.internal_import_rank[internal] == external_rank);
   }
   for (Var external = 0; external < k.external_to_internal.size(); external++) {
     const Var internal = k.external_to_internal[external];
