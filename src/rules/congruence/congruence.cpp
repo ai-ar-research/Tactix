@@ -2636,13 +2636,18 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     occ.push_back(least, candidate.ref);
   }
 
-  if (deleted) {
-    ArenaOrdering *const saved_order = k.arena_ordering;
-    k.arena_ordering = nullptr;
-    kernel_collect_garbage(k);
-    k.arena_ordering = saved_order;
-  } else
-    kernel_rebuild_large_watches(k);
+  // Forward subsumption runs inside a dense inprocessing phase.  Its caller
+  // already owns a phase-boundary collection, while the next rules need only
+  // the live large-watch image.  Rebuilding that image here skips garbage in
+  // the same physical order that the former null-order collection packed and
+  // rewatched, but avoids relocating the whole arena twice when a following
+  // rule (notably Substitute) reclaims its own rewrites.  Keeping Refs stable
+  // until that existing boundary is also the lifecycle used by Kissat's
+  // Congruence pass.  Proof deletions and the candidate traversal above are
+  // unchanged; reclamation, Ref forwarding, and arena-generation invalidation
+  // remain owned by the established phase boundary.
+  (void)deleted;
+  kernel_rebuild_large_watches(k);
   // This pass is Kissat's second dense transition in one Congruence call.
   // Unlike gate extraction's old-population / extracted-suffix resume, it
   // saves the now-complete binary population by its smaller compact endpoint

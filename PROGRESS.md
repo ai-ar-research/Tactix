@@ -8,17 +8,17 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. Accepted checkpoint
-  `d8da6a1` and `origin/main` contain the validated Vivify cross-band
-  reclamation repair; its production Release SHA is `4b3f7467…bc5e6a`.
-  Broad-search convergence has one separately frozen, explicitly unfuzzed
-  retained candidate on top: lazy construction of rule-journal decision text,
-  source-diff SHA `2ca62f4b…3b9d`, production SHA `fd22885a…e0950`. It changes
-  no solver state and is not promoted or final. BVE flat-slice,
-  active-decision, and the general import-rank representation remain accepted
-  predecessors. Continue current-Tactix/current-Kissat localization from this
-  source without reopening rejected collection, Substitute, BVE, Congruence,
-  or equal-score heap-tie guesses absent new exact owner evidence.
+- Worktree `/home/hwu/SAT-solving`, branch `main`. This wrap-up promotes the
+  cumulative decision-journal, deferred-Congruence-collection, and
+  Substitute-affected-owner source over accepted Vivify checkpoint `d8da6a1`.
+  Production Release SHA is `acf9e716…2e013` and exact source/test diff SHA is
+  `ee5351da…1411`. Complete B28+C5 and Claude-owned fuzz gates are terminal
+  PASS with zero solve loss, correctness failure, or certificate residue.
+  After push, freeze this source as the next current-Tactix baseline. First
+  close the newly exposed fuzz-harness immutable-snapshot tooling defect, then
+  resume current-Tactix/current-Kissat broad search-quality localization. Do
+  not reopen rejected collection, Substitute, residual BVE, Congruence-layout,
+  or equal-score heap-tie guesses absent new exact worse-side evidence.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -586,6 +586,38 @@ own experimental detail and history.
   CPUs for 50 physical cores. Future Claude-owned generated fuzz legs use this
   contract when capacity permits; narrower prep/reach work requires a recorded
   reason. No solver ran in the probe.
+- Claude's 18:00 ownership audit reports Sweep-stress job `1648217` completed
+  its corpus 27/27 and generated 10,000/10,000 with zero failures before SLURM
+  recorded wrapper exit 127. All 2,541 SAT models and 3,451 UNSAT proofs in its
+  5,992 verdict cases passed their independent oracles; 4,008 bounded
+  nonterminations carry no oracle claim, every required rule reached, and the
+  target fired 893,020 times. The post-fuzz exit is an infrastructure artifact:
+  commit `8a9c8f7` changed only a comment length in live `tools/fuzz/run.sh`
+  while Bash was blocked inside `fuzz.py`; on return its stale file offset
+  entered the shifted final line and treated `--require-reached` as a command.
+  This is not a solver, sanitizer, model, proof, or fuzz-acceptance failure.
+  Congruence-stress `1648215` is 9,800/10,000 with zero failures and is expected
+  to encounter the same benign post-summary wrapper exit. Do not touch the live
+  script again until it terminates. After Claude's terminal audit, make future
+  fuzz submissions execute an immutable harness snapshot so repository edits
+  cannot alter a running job.
+- Claude's authoritative terminal report classifies campaign
+  `20260826-1330-decision-congruence-substitute-consolidation-fuzz` PASS and
+  updates its manifest to `terminal-pass`. All five generated legs complete
+  50,000/50,000 with zero failures: 20,927 SAT models and 17,727 native-LRAT
+  UNSAT proofs validate independently, and pinned Kissat agrees on all 38,654
+  verdict cases. Corpus is 135/135 with zero failures; 40/40 dedicated reach
+  cases are oracle-clean and exceed every lazy-journal, deferred-collection,
+  affected-owner, productive/zero-image, and session floor. Claude reports no
+  sanitizer finding, crash, invariant abort, rejected model/proof, or
+  differential disagreement. Bounded five-second nonterminations carry no
+  oracle claim; exactly 25 diagnostic inputs per leg are retained. Certificate,
+  proof, model, checker, and node-local scratch residue are zero. No job was
+  cancelled or replaced. Stress jobs `1648215`/`1648217` end 127 only after
+  their complete accepted fuzz summaries because the live `run.sh` byte-offset
+  shifted during commit `8a9c8f7`; Claude records this as a post-oracle
+  infrastructure artifact, not a fuzz failure. The complete B28+C5 gate plus
+  this PASS authorizes source promotion and immediate continuation.
 - 2026-08-26 timing-stability investigation — The complete cluster study is
   preserved in
   `benchmarks/reports/2026-08-26-rank27-timing-stability.md` and its Andrew

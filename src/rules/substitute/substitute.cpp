@@ -1661,11 +1661,31 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // the formula seen by the following SCC/Sweep passes byte-for-byte aligned
   // with the no-proof/Kissat path without weakening DRAT or LRAT.
   std::vector<Var> variable_order;
+  std::vector<uint8_t> canonical_binary_affected;
   substitute_stage_trace(k, "rewrite-variable-order", variable_order.size(),
                          variable_order.capacity());
   if (!session) {
     variable_order.resize(k.nvars);
     kernel_vars_in_import_order(k, variable_order);
+    // Canonical Substitute changes only binaries incident to a retiring
+    // literal.  Name those source owners and their mirror owners first, then
+    // retain the existing global import-order traversal over precisely that
+    // induced population.  This preserves the former candidate and per-list
+    // order byte-for-byte while avoiding a scan and later compaction of every
+    // unrelated watch list—particularly important for root-cleanup rounds
+    // whose SCC map produces no binary image.  Kissat's in-place substitution
+    // has the same connected-stream boundary.
+    canonical_binary_affected.assign(nlits, 0);
+    for (const Var variable : variable_order)
+      for (uint32_t sign = 0; sign < 2; sign++) {
+        const Lit lit = make_lit(variable, sign != 0);
+        if (!substitutable(lit))
+          continue;
+        canonical_binary_affected[lit] = 1;
+        for (const WatchEntry watch : k.watches.entries(lit))
+          if (watch.binary())
+            canonical_binary_affected[watch.other()] = 1;
+      }
   }
 
   struct BinaryImage {
@@ -1742,6 +1762,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     for (const Var variable : variable_order)
       for (uint32_t sign = 0; sign < 2; sign++) {
         const Lit lit = make_lit(variable, sign != 0);
+        if (!canonical_binary_affected[lit])
+          continue;
         for (const WatchEntry w : k.watches.entries(lit)) {
           if (!w.binary() || kernel_import_lit_order(k, lit) >=
                                  kernel_import_lit_order(k, w.other()))
@@ -2137,7 +2159,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     else
       for (const Var variable : variable_order)
         for (uint32_t sign = 0; sign < 2; sign++)
-          compact_owner(make_lit(variable, sign != 0));
+          if (canonical_binary_affected[make_lit(variable, sign != 0)])
+            compact_owner(make_lit(variable, sign != 0));
   } else {
     for (const Var variable : variable_order)
       for (uint32_t sign = 0; sign < 2; sign++)
@@ -2147,6 +2170,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   substitute_stage_trace(k, "rewrite-binary-compact", k.watches.arena.size(),
                          k.watches.holes);
   std::vector<Var>().swap(variable_order);
+  std::vector<uint8_t>().swap(canonical_binary_affected);
   if (session)
     sparse_seen.clear();
   else
