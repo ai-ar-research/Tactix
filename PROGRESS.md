@@ -824,6 +824,14 @@ own experimental detail and history.
   pending, and certificate residue is zero. The independent proof obligation
   is closed; promotion still awaits Claude's terminal fuzz verdict and final
   Andrew report/commit.
+  User-requested diagnostic `1647782` now controls the anomalous independent
+  Rank-27 solver timings (proof-off `1647694` 450.21 s versus proof-on witness
+  `1647775` 380.749 s). One 2-CPU/16-GiB allocation runs the exact same
+  `c7c46bfa...057d4` Release pin and staged immutable input proof-on first, then
+  proof-off, with the checker only after both solver phases. This deliberately
+  gives proof-off any warm/page-cache advantage. Both arms must be exact-state
+  UNSAT; the proof must reproduce the accepted SHA, pass pinned `drat-trim`,
+  and leave zero residue. Submission is not a result and changes no behavior.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
