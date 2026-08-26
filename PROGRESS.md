@@ -8,12 +8,12 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. The synchronized accepted
-  base is active-decision wrap-up `508342d977b6430db0074a19443f63cf05815bce`;
-  its validated cumulative Release binary is SHA-256 `94784f16…8503`.
-  BVE flat-slice landed separately at `a07bc935`; active-decision then landed
-  separately at `508342d`. Collection/rewatching work is observer-only and has
-  not changed main source.
+- Worktree `/home/hwu/SAT-solving`, branch `main`. The accepted base is the
+  Kernel internal-import-rank wrap-up `dc77614`; its validated cumulative
+  Release binary is SHA-256 `c7c46bfa…057d4`. BVE flat-slice landed separately
+  at `a07bc935`, active-decision at `508342d`, and the general import-rank
+  representation repair at `dc77614`. Collection/rewatching is next and has
+  not yet changed source.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -46,10 +46,10 @@ own experimental detail and history.
   pass/failure report; failure returns directly to Claude's bounded repair
   workflow. Benchmark guards, proof witnesses, and performance diagnostics
   retain their separate independent-validation contracts.
-- The user-directed convergence order is now fixed. First close and separately
-  commit/push the staged BVE increment, then separately apply, Claude-fuzz,
-  prove, report, commit, and push the already guarded active-decision repair.
-  Only from that newly accepted baseline, freeze the current-Tactix/current-
+- The user-directed convergence order is fixed. BVE, active-decision, and the
+  first matched Substitute representation owner are now separately guarded,
+  proved, Claude-fuzzed, reported, committed, and pushed. From accepted
+  `dc77614`, freeze the current-Tactix/current-
   Kissat comparison and localize collection/rewatching by watch compaction,
   reference forwarding, metadata reconstruction, sparse collection, and
   rewatching, normalized by entries and literals processed. Evaluate any fused
@@ -874,8 +874,8 @@ own experimental detail and history.
   `c7c46bfa...057d4`. Exact prefix/trace, full Rank 27, complete checked B28+C5,
   independently verified Rank-27 proof, full functional Release suite, Claude-
   owned fuzz PASS, zero certificate residue, and the requested mode-control
-  diagnosis are all closed. The isolated Kernel representation repair is ready
-  for promotion before collection/rewatching begins.
+  diagnosis are all closed. The isolated Kernel representation repair lands at
+  `dc77614`; collection/rewatching begins only from that accepted baseline.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
