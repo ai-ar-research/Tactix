@@ -4,7 +4,7 @@
 #   run.sh --nightly --solver CMD    ~200k cases + LRAT chain
 #   run.sh [fuzz.py args...]         pass-through
 # Sizes are the cluster scale (10x the workstation defaults); submit
-# via tools/fuzz/slurm.sh (50 threads), never in the session shell.
+# via tools/fuzz/slurm.sh (50 physical cores/workers), never in the session shell.
 # Default oracle: kissat (cadical when the solver under test IS kissat).
 
 set -euo pipefail

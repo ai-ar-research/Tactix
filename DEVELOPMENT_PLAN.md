@@ -372,6 +372,16 @@ campaign for confirmation. This ownership rule is specific to fuzzing; normal
 unit tests, benchmark guards, proof witnesses, and performance diagnostics keep
 their existing independent-validation contracts.
 
+Each generated fuzz leg uses 50 physical cores when cluster capacity permits,
+not 50 SMT threads: on the current SMT-2 nodes this is 100 logical CPUs,
+400,000 MiB of scheduler memory, and 50 harness workers (one per physical
+core). Claude records the requested allocation, worker count, and achieved
+concurrency in its terminal report. Preparation, small fixed-corpus checks, and
+intrinsically narrower reachability probes may use less with a recorded reason;
+a generated fuzz leg may not silently fall back to one or two workers. This is
+parallelism within the one required campaign, not campaign replication, and it
+does not change seeds, case counts, or acceptance oracles.
+
 **External debugging escalation.** Invoke Claude when fuzzing or unit testing
 discovers a soundness defect or a crash. The primary agent owns performance
 divergence, runtime regression, mechanism-fidelity work, and ordinary
