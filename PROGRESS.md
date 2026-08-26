@@ -8,15 +8,17 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. This wrap-up promotes the
-  isolated Vivify cross-band reclamation repair on top of clean checkpoint
-  `23a3a15`; its validated cumulative Release binary is SHA-256
-  `4b3f7467…bc5e6a`, and its exact source-diff SHA is `a8cd5650…5fdd`. BVE
-  flat-slice, active-decision, and the general import-rank representation
-  repair remain accepted predecessors. The next increment is broad
-  search-quality convergence against the accepted current-Kissat comparator;
-  it begins from this frozen binary and does not reopen rejected collection,
-  Substitute, BVE, or Congruence guesses without new exact owner evidence.
+- Worktree `/home/hwu/SAT-solving`, branch `main`. Accepted checkpoint
+  `d8da6a1` and `origin/main` contain the validated Vivify cross-band
+  reclamation repair; its production Release SHA is `4b3f7467…bc5e6a`.
+  Broad-search convergence has one separately frozen, explicitly unfuzzed
+  retained candidate on top: lazy construction of rule-journal decision text,
+  source-diff SHA `2ca62f4b…3b9d`, production SHA `fd22885a…e0950`. It changes
+  no solver state and is not promoted or final. BVE flat-slice,
+  active-decision, and the general import-rank representation remain accepted
+  predecessors. Continue current-Tactix/current-Kissat localization from this
+  source without reopening rejected collection, Substitute, BVE, Congruence,
+  or equal-score heap-tie guesses absent new exact owner evidence.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
   is clean. No repository commit, push, solver campaign, or benchmark campaign
   occurred after the `e9c161c` wrap-up before this line began; SLURM `1645399`
@@ -379,6 +381,216 @@ own experimental detail and history.
   LaTeX pass has no box or undefined-reference warning. This coherent Vivify
   increment is ready to commit and push; afterward immediately freeze that
   commit as the broad search-quality baseline.
+- 2026-08-26 11:31 EDT broad-search decision-journal checkpoint — Exact
+  common-profile source/disassembly localizes a production-only equal-work
+  owner: with `TACTIX_ENABLE_RULE_JOURNAL` compiled out, the default decision
+  path still constructed `"literal=" + to_string(external decision)` before
+  the journal helper discarded it on every decision. A lazy helper now
+  evaluates this diagnostic description only in journal builds and invokes
+  the unchanged decision transaction directly otherwise. Journal-off focused
+  tests pass; journal-on record/replay still emits the exact `literal=` entry.
+  Prefix job `1647957` preserves accepted normalized SHA `3b87bb36…92c5f`
+  and lowers sampled cycles 50.902B→50.405B; exact trace job `1647959` is all
+  64 rows byte-identical at accepted SHA `7a6216bb…7cc1`. Full independent
+  Rank-27 job `1647961` is exact UNSAT at normalized SHA `10372d94…ffd0` and
+  improves internal/wall 365.249/365.72→359.799/360.29 s; all 175,272,633
+  decisions and every printed effect/tick/state field match, while search plus
+  scaffolding falls 233.567→228.324 s. Predeclared highest-decision B+C screen
+  `1647963`/`1647964` passes 12/12: two checked SAT models and four verified
+  UNSAT proofs per arm, every paired non-time image exact, candidate/shipped
+  632.261/635.585 s (0.994770), all six pairs faster, and zero invalidity,
+  solve loss, cleanup failure, or certificate residue. Retain this isolated
+  source repair for the later combined B28+C5 gate and one Claude-owned fuzz
+  campaign, but do not call it promoted/final. The equal-score Rank-27 heap
+  split observed by `1647955` has identical scores/bump order and only
+  pre-existing heap topology, so it is neutral and closed without behavior
+  change. Resume the next exact current-Kissat worse-side owner immediately.
+- 2026-08-26 11:42 EDT current collection-lifecycle checkpoint — Read-only
+  source backtraces in campaign `20260826-1140` classify all 24 collection
+  entries reached through Rank-27 conflict 9449: seven sparse-root, two
+  Congruence, eight Substitute, four Vivify, two phase-tail, and one whole
+  variable-compaction call. The accepted Vivify cross-band repair therefore
+  removed twelve of the old sixteen Vivify calls and reduced the frozen
+  Tactix population from 36 to 24, while current Kissat's accepted envelope
+  remains seven sparse collections. The 17 remaining maintenance traversals
+  are chronologically source-owned; the earliest extra one is Congruence
+  forward subsumption at conflict zero. Corrected GDB job `1647977` reached
+  the complete observed call population but GNU timeout sent SIGTERM at 300 s
+  before the conflict-9450 stop could print a verdict/statistics image, so it
+  is ownership evidence only—not solver correctness, exact terminal state, or
+  performance evidence. Initial job `1647976` failed before solver execution
+  on an inlined debugger expression. Both attempts leave zero staged-input,
+  scratch, proof/model, checker, and certificate residue; trace SHA is
+  `9efc4b04…498b8`. Continue with frozen exact Congruence/common-state evidence
+  and source substages; do not reopen the rejected key layouts, fused
+  compact-forward arm, quarantined arena prepass, or Substitute deferral.
+- 2026-08-26 12:08 EDT isolated Congruence collection-lifecycle stage — Source
+  and frozen stage evidence show the first productive Congruence forward pass
+  packs about 587 thousand live arena words, then the immediately following
+  Substitute packs the arena again; current Kissat reconnects Congruence
+  watches without rule-local collection. The isolated general candidate now
+  rebuilds the live large-watch image in the same physical live-clause order
+  and leaves reclamation/Ref forwarding/generation invalidation to the
+  existing phase boundary. It contains no benchmark condition or strategy,
+  tick, proof, candidate, or schedule change; 15/15 focused N1–N4, proof,
+  Congruence/Substitute/Sweep, trace, boundary, and reset guards pass. Exact
+  node018 prefix array `1648078` reproduces accepted normalized SHA
+  `3b87bb36…92c5f` in both arms and removes exactly the two productive
+  Congruence collections (current population 24→22). Normal prefix timing is
+  neutral/noisy at 13.097→13.094 s and sampled cycles rise 0.52%, while
+  independent trace array `1648079` is byte-identical for all 64 rows at
+  `7a6216bb…7cc1` and under trace overhead lowers Congruence
+  1.804→1.686 s and total 37.158→36.963 s. Per the required long-horizon
+  policy, neither accept nor reject from this short disagreement. Production
+  predecessor/candidate SHAs are `fd22885a…e0950` / `184a6536…92a7a`;
+  independent full Rank-27 array `1648082` and checked six-instance
+  Congruence-relevant B+C array/aggregate `1648083`/`1648085` are submitted to
+  node018. Every task invokes one solver; the screen requires three checked
+  SAT models plus three verified UNSAT proofs per arm and zero invalidity,
+  solve loss, cleanup failure, or certificate residue. Candidate remains
+  isolated, unfuzzed, and not promoted/final.
+- The Congruence lifecycle long controls are now terminal and retain the
+  isolated repair. Full Rank-27 array `1648082` is exact UNSAT in both arms at
+  normalized SHA `10372d94…ffd0`: candidate/predecessor internal time is
+  356.788/358.115 s, Congruence 13.366/14.432 s (-1.066 s, -7.39%), and
+  inprocessing 129.640/131.202 s; all 175,272,633 decisions and every printed
+  work/tick/effect/state field match. Checked B+C array/aggregate
+  `1648083`/`1648085` is terminal PASS 12/12 with three verified SAT models
+  and three verified UNSAT proofs per arm, byte-identical paired non-time
+  images, and zero invalidity/loss/cleanup/residue. Congruence improves on all
+  six instances and sums 43.935→42.004 s (-1.931 s, -4.40%); total time is
+  noisy-negative 698.780→702.401 s (+0.52%) despite exact work, while maximum
+  RSS falls 2.931→2.914 GiB. Together with the exact Rank-27 owner/total win,
+  retain this general repair as supported unfuzzed consolidation material;
+  it is not promoted/final. A strengthened standalone Congruence N1 test now
+  proves stable Refs, no watches into garbage before the deferred boundary,
+  and correct later forwarding/reclamation. Next frozen Substitute evidence
+  identifies a separate candidate: six of thirteen canonical rounds produce
+  zero binary images, yet canonical Substitute still walks/compacts the global
+  binary-watch population. Preserve exact global import order while visiting
+  only affected owners; do not mix this next edit into the already frozen
+  Congruence pins.
+- 2026-08-26 12:43 EDT isolated Substitute affected-owner stage — The
+  canonical path now marks retiring literals plus their binary mirror owners,
+  then retains the former global import/sign and per-list order over only that
+  induced population. Sweep/session behavior, proof work, candidate set,
+  ticks, scheduling, large rewriting, and collection are untouched. Focused
+  guards pass 16/16. Initial prefix array `1648097` completed both exact solver
+  runs but failed only when its wrapper tried to copy an event-trace-only file
+  compiled out of Release; corrected immutable-pin array `1648101` is terminal
+  exact. Both arms reproduce normalized SHA `3b87bb36…92c5f`; total
+  13.071→12.830 s, Substitute 1.413→1.176 s (-16.8%), and sampled cycles
+  50.458B→49.430B (-2.04%) with zero loss. Intended substages fall snapshot
+  161→50 ms and binary rewrite/compaction 248→127 ms; lemmas, large work,
+  collection, and all semantic effects remain equal. Independent trace array
+  `1648098` is byte-identical for 64 rows at `7a6216bb…7cc1` and lowers traced
+  Substitute 3.645→3.350 s. Production predecessor/candidate pins are
+  `184a6536…92a7a` / `acf9e716…2e013`; full Rank-27 array `1648103` and checked
+  high-Substitute B+C array/aggregate `1648104`/`1648106` are submitted to
+  node018. Each task invokes one solver; the screen requires three checked SAT
+  plus three verified UNSAT claims per arm and zero invalidity/loss/residue.
+  Candidate remains isolated, unfuzzed, and not promoted/final.
+- The Substitute long controls are terminal and retain the isolated repair.
+  Full Rank-27 array `1648103` is exact UNSAT in both arms at normalized SHA
+  `10372d94…ffd0`: internal time falls 358.157→354.539 s (-3.618 s,
+  -1.01%), Substitute 21.704→18.528 s (-14.63%), inprocessing
+  129.997→126.653 s, and maximum RSS 672,116→608,084 KiB; all
+  175,272,633 decisions and every printed rule work/tick/effect, scheduling,
+  learning, pruning, and retained-state field match. Checked B+C
+  array/aggregate `1648104`/`1648106` is terminal PASS 12/12 with three
+  independently checked SAT models and three verified UNSAT proofs per arm,
+  zero invalidity, solve loss, cleanup failure, or certificate residue, and
+  candidate/predecessor total 716.174/720.387 s (0.994152x). Substitute time
+  improves on all six instances: 1126→945, 2031→1801, 1739→1625,
+  579→462, 15236→14304, and 31860→28433 ms. Four paired non-time
+  images are byte-identical. FmlaEquivChain differs only by one residual
+  binary-propagation pricing classification; the circuit differs only by nine
+  such classifications and their 28 logical mode ticks. A source audit fixes
+  the cause: omitted unrelated-list `compact()` calls no longer incidentally
+  refresh conservative `binaries_first` metadata, while watch contents/order,
+  decisions, conflicts, propagations, every inprocessing effect, schedule,
+  learning, pruning, verdict, and semantic state stay equal. This bounded
+  cost-only delta does not weaken the solver; retain the general repair for the
+  combined B28+C5 consolidation gate. It remains unfuzzed and not
+  promoted/final.
+- 2026-08-26 12:39 EDT combined consolidation gate submitted — The accepted
+  Vivify baseline (`4b3f7467…bc5e6a`, commit `d8da6a1`) and exact combined
+  decision-journal + Congruence-lifecycle + Substitute-affected-owner candidate
+  (`acf9e716…2e013`, source diff `f052afee…a90cc`) are frozen in campaign
+  `20260826-1300-BC-decision-congruence-substitute-consolidation`. Immutable
+  matrix SHA is `9cc79541…c30e2`; all 28 Tier-B and five predeclared Tier-C
+  input hashes plus pinned validators are recorded in its manifest. Complete
+  66-task checked array `1648120` and after-success aggregate `1648129` are
+  submitted to node018 with one solver invocation per task, `-c 2`, 16 GiB,
+  and 1,200 s solver limit. Passing requires 17 independently checked SAT
+  models and 16 verified UNSAT proofs per arm, no solve loss/invalidity,
+  complete cleanup, zero certificate residue, and at most 1.10x frozen PAR-2.
+  The source remains unfuzzed and not promoted/final; terminal PASS authorizes
+  exactly one Claude-owned exact-source fuzz campaign.
+- The combined consolidation gate is terminal PASS. Array `1648120` completed
+  all 66 independent tasks 0:0 on node018 and aggregate `1648129` completed
+  0:0. Each arm has 33/33 valid results: 17 independently checked SAT models
+  and 16 independently verified UNSAT proofs. Invalidity, missing tasks, solve
+  loss, cleanup failure, and certificate residue are all zero. Candidate/
+  accepted-baseline PAR-2 is 1446.060/1449.704 s (0.997486x), and peak RSS is
+  2.914/2.930 GiB; summary SHA is `b57977a…eec4`. A fresh local Release build
+  is byte-identical to candidate `acf9e716…2e013`; the complete suite is
+  functionally 73/74, with only the already recorded opt-in documentation-size
+  debt failing. Gate PASS now authorizes the one Claude-owned exact-source
+  fuzz campaign. The repairs remain unfuzzed and not promoted/final until
+  Claude's authoritative terminal verdict.
+- 2026-08-26 13:56 EDT consolidation-fuzz handoff remains open — Claude Code
+  prepared and owns the exact-source campaign, but three continuation attempts
+  ended at the Claude API boundary with DNS `ENOTFOUND` before returning a
+  terminal report. This is neither PASS nor FAIL. Codex has not inspected fuzz
+  jobs, logs, results, or artifacts. Independent current-source Release remains
+  functionally 73/74 (all 73 solver/proof/model/N1–N4/boundary/cleanup tests
+  pass; only known documentation-size debt fails), and candidate SHA remains
+  `acf9e716…2e013`. The separate Andrew consolidation report is compiled as a
+  pending handoff; source is still unpromoted and must not be committed until
+  Claude supplies its authoritative terminal verdict.
+- Claude subsequently reconnected with external-network permission. Its own
+  report classifies prep attempt 1 as green except for an unsatisfiable
+  recipe-reach check—not a solver correctness, sanitizer, crash, model, or
+  proof failure—and says its temporary build directories were removed. Claude
+  owns repaired prep job `1648211`, which uses the same-case deferred
+  Congruence-rebuild/collection witness and deciding-case lazy-journal selector;
+  its live watcher has not yet returned a terminal verdict. Codex has not
+  queried that job or opened any fuzz artifact. Continue the same Claude
+  session through probe PASS, five fuzz legs plus reach phase, cleanup audit,
+  and authoritative terminal PASS/FAIL before promotion.
+- 2026-08-26 timing-stability investigation — The complete cluster study is
+  preserved in
+  `benchmarks/reports/2026-08-26-rank27-timing-stability.md` and its Andrew
+  TeX/PDF draft. Isolated current Tactix proof-off median is 367.312 s and
+  proof-on 370.893 s; deliberate node co-residency adds 52 s / 14.23% cycles
+  at unchanged instructions. Local-NVMe staging, page-fault, filesystem, and
+  proof-write evidence excludes I/O as the 300–500 s cause. User review rejects
+  whole-node reservation even for diagnosis: the completed isolation controls
+  remain historical causal evidence, but no future job may request
+  `--exclusive=user --mem=0`. Exact frozen Kissat 4.0.4 itself varies
+  278.187→320.307 s (+15.14%) on the same input while producing the identical
+  independently verified 1,320,603,112-byte proof. New exact-work Kissat
+  campaign `20260826-1430-rank27-kissat-c4-timing-variation` proves the
+  placement mechanism: simultaneous packed `-c 4` runs span 253.90–321.32 s
+  as three solvers share one six-core L3 domain, while three separated `-c 4`
+  controls span only 258.60–260.12 s. Reserving exactly one L3 domain with
+  ordinary shared-node `-c 12` collapses six simultaneous Kissat controls to
+  252.75–260.76 s. The same `-c 12` remedy on accepted Tactix array `1648205`
+  reproduces exact normalized trajectory SHA `10372d94…f1ffd0` in
+  367.045–372.354 internal seconds, median 368.307 and 1.441% full range; all
+  six are below 400 s and residue-free. The user-approved policy now uses
+  `-c 12` and a 48-GiB scheduler allocation per timed job, while preserving
+  the 16-GiB solver process limit, one bound hardware thread, and node-local
+  scratch. A decision-grade comparison consists of three independent paired
+  waves: one separate candidate job and one separate baseline job run
+  concurrently per wave, with placement crossed where practical. Report the
+  median paired ratio/full spread; >2% per-arm spread rejects an absolute
+  claim. This repetition applies only to performance evidence used to accept
+  or reject a repair. Fuzzing remains exactly one Claude-owned campaign and is
+  not repeated; correctness gates and ordinary probes retain their existing
+  contracts. `-c 4` remains ordinary functional capacity but is rejected for
+  long timing. Proof generation and checking remain separate.
 - 2026-08-25 active Vivify convergence checkpoint — Compact propagation-only
   watch spans are closed negative and reverted by exact common-state job
   `1646178`: all non-time work is identical, but Rank-27 conflict-9450 total
