@@ -781,6 +781,28 @@ own experimental detail and history.
   Treat this as exact high-exposure correctness coverage, neither performance
   win nor candidate-specific regression. Dependency-released same-allocation
   Rank-27 job `1647694` is now running on node017 as the causal long control.
+  Same-allocation `1647694` completes both arms UNSAT exit 20 on node017 with
+  exact non-time SHA `14f7da2d...6194` and zero residue. Candidate improves
+  internal/wall 458.387/458.89→449.707/450.21 s (-8.680, -1.89%): inprocessing
+  155.770→154.830 s, outside-inprocessing 302.617→294.877 s, and Substitute
+  23.576→23.504 s. Rank-27 RSS rises 637,064→688,080 KiB, anomalously above
+  the designed 1.7 MiB image; the larger six-instance screen's measured maximum
+  rises only 14.6 MiB, exactly the four-byte-per-current-var cost, and both are
+  far below 16 GiB. The exact prefix/helper win, byte-identical trace,
+  correctness-clean B+C screen, and positive causal long control authorize the
+  complete checked B28+C5 gate plus Claude-owned exact-source fuzz. No source
+  promotion or checked proof witness is claimed yet.
+  Complete full-width B28+C5 array `1647702` and aggregate `1647768` are now
+  terminal PASS under the frozen 2-CPU/16-GiB/1200-s contract: 66/66 valid,
+  with 17 independently checked SAT models and 16 independently checked UNSAT
+  proofs per arm, no missing/malformed/invalid result, no solve loss, and zero
+  cleanup failure or certificate residue. Candidate/shipped PAR-2 is
+  1550.813/1537.768 s = 1.008483, inside the predeclared 1.10 guard; peak RSS
+  is 2.9317/2.9166 GiB. This closes the mandatory complete B+C guard for source
+  diff `681d17c9...ee1b6`. Claude Code is re-invoked after its earlier quota-only
+  exit to own the still-required exact-source ASan/UBSan native-LRAT fuzz from
+  preparation through terminal verdict; no fuzz PASS/FAIL was produced by the
+  quota exit, and Codex does not inspect fuzz artifacts.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
