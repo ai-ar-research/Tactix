@@ -832,6 +832,23 @@ own experimental detail and history.
   gives proof-off any warm/page-cache advantage. Both arms must be exact-state
   UNSAT; the proof must reproduce the accepted SHA, pass pinned `drat-trim`,
   and leave zero residue. Submission is not a result and changes no behavior.
+  Controlled pair `1647782` completes both solver phases and the checker on
+  node017; its scheduler `FAILED 1:0` is only a post-validation wrapper
+  classification error because anchored `rg` did not accept `drat-trim`'s
+  carriage-return-formatted `s VERIFIED` line. Proof-on first is UNSAT exit 20
+  at 405.375 s internal / 405.86 s wall and 669,180 KiB; proof-off second is
+  UNSAT exit 20 at 376.843/377.31 s and 640,736 KiB. Thus same-allocation proof
+  generation costs 28.532/28.55 s (+7.57%) even though the later proof-off arm
+  receives the warm-state advantage. Checking adds 106.37 s, so the complete
+  proof pipeline is 512.23 s. Proof-off and proof-on reproduce their accepted
+  non-time SHAs `14f7da2d...6194` and `8cd3eda4...c2da7`; all common logical
+  state is exact, with only the expected proof-sink-dependent 432 versus 0
+  Sweep general-pair emission count. The 1,514,395,111-byte proof reproduces
+  accepted SHA `0f99f55a...8bb2d` and pinned `drat-trim` exits 0 VERIFIED.
+  EXIT cleanup leaves zero certificate/input/checker residue. This establishes
+  that the earlier independent 380.749-versus-450.21 inversion was cross-run
+  environmental variation, not a proof-mode speedup; no rerun or solver repair
+  is required.
   Claude Code's authoritative terminal report now classifies exact-source
   ASan/UBSan native-LRAT fuzz PASS. Prep `1647778`, main leg `1647779`, and
   compaction-reach phase `1647781` preserve source-diff SHA
@@ -849,6 +866,16 @@ own experimental detail and history.
   this report without inspecting fuzz artifacts. This closes the final
   correctness gate; only the user-requested proof-mode timing control and final
   report/commit remain before promotion.
+  The proof-mode control is now classified above and the final three-page
+  Andrew handoff is `report-to-andrew/2026-08-25-2100-rank27-import-rank-inverse/`:
+  TeX SHA `41628697...035a`, PDF SHA `83f26ba2...5fd`, 160,789 bytes. It compiles
+  in two LaTeX passes with no underfull/overfull box warning. Final source-diff
+  SHA remains `681d17c9...ee1b6` and clean Release binary SHA remains
+  `c7c46bfa...057d4`. Exact prefix/trace, full Rank 27, complete checked B28+C5,
+  independently verified Rank-27 proof, full functional Release suite, Claude-
+  owned fuzz PASS, zero certificate residue, and the requested mode-control
+  diagnosis are all closed. The isolated Kernel representation repair is ready
+  for promotion before collection/rewatching begins.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
