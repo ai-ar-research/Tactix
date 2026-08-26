@@ -809,6 +809,21 @@ own experimental detail and history.
   cleanup. It must return checked UNSAT with the accepted normalized proof-mode
   state and zero residue; submission is not yet a result and does not substitute
   for Claude's fuzz verdict.
+  A fresh exact-source full Release run is 73/74: every functional, solver,
+  proof/model, trace, N1, rule/policy boundary, solve-reset, cleanup, campaign,
+  and hygiene test passes. Only the pre-existing opt-in `doc_size` policy debt
+  fails on the already-recorded PROGRESS/implementation-notes budgets; this is
+  not a solver, proof, or candidate regression.
+  Rank-27 proof witness `1647775` is now terminal valid UNSAT on node017:
+  380.749 s wall, 669,880 KiB peak RSS, solver exit 20. Pinned `drat-trim`
+  verifies the complete 1,514,395,111-byte proof in 112.291 s with exit 0 and
+  `s VERIFIED`. Proof SHA `0f99f55a...8bb2d` and normalized proof-mode non-time
+  SHA `8cd3eda4...c2da7` are byte-identical to the accepted active-decision
+  witness. The result publishes only after proof/input/checker/scratch cleanup;
+  artifact and derived-artifact deletion are true, cleanup is no longer
+  pending, and certificate residue is zero. The independent proof obligation
+  is closed; promotion still awaits Claude's terminal fuzz verdict and final
+  Andrew report/commit.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
