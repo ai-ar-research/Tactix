@@ -65,6 +65,27 @@ ApplyResult default_direct_rule(Kernel &k, const char *name,
 #endif
 }
 
+// Candidate descriptions are diagnostic rule-journal data, not part of the
+// production rule transition.  Keep dynamic descriptions lazy so a build
+// without the journal does not allocate and shift a string for every hot-path
+// application (in particular, every decision).
+template <class Candidate, class Apply>
+ApplyResult default_direct_rule_lazy(
+    Kernel &k, const char *name, Candidate &&candidate, Apply &&apply,
+    ApplyResult declined_result = ApplyResult::NoOp) {
+#ifdef TACTIX_ENABLE_RULE_JOURNAL
+  return journal_direct_rule(k, name, candidate(),
+                             std::function<ApplyResult()>(apply),
+                             declined_result);
+#else
+  (void)k;
+  (void)name;
+  (void)candidate;
+  (void)declined_result;
+  return apply();
+#endif
+}
+
 ApplyResult default_propagate(Kernel &k, const char *candidate) {
   const size_t trail_begin = k.trail.size();
   const ApplyResult result = default_direct_rule(
@@ -2711,9 +2732,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       return finish(0);
     BranchingPolicy &bp = branching ? *branching : default_branching_;
     const Lit decision = bp.pick(k);
-    (void)default_direct_rule(
+    (void)default_direct_rule_lazy(
         k, "Decide",
-        "literal=" + std::to_string(kernel_externalize(k, decision)),
+        [&] {
+          return "literal=" +
+                 std::to_string(kernel_externalize(k, decision));
+        },
         [&] { return decide_apply(k, decision, false); });
     event_trace.detail(k, "decision", kernel_externalize(k, decision));
     event_trace.heap_scores(k);

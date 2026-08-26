@@ -42,6 +42,25 @@ static std::vector<Lit> binary_partners(const Kernel &k, Lit lit) {
   return result;
 }
 
+static size_t garbage_clauses(const Kernel &k) {
+  size_t result = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *const clause = clause_at(k.arena, ref);
+    result += clause->garbage();
+    ref += clause_actual_words(clause);
+  }
+  return result;
+}
+
+static void assert_large_watches_are_live(const Kernel &k) {
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (!watch.binary()) {
+        assert(watch.ref() < k.arena.size());
+        assert(!clause_at(k.arena, watch.ref())->garbage());
+      }
+}
+
 static void add3(Kernel &k, int a, int b, int c) {
   Lit lits[3] = {internalize(a), internalize(b), internalize(c)};
   kernel_add_large_clause(k, lits, 3, /*redundant=*/false, /*glue=*/0);
@@ -570,7 +589,14 @@ static void test_forward_dense_resume_reorders_complete_binary_population() {
   and_gate(k, 9, 7, 8);
   and_gate(k, 10, 7, 8); // forces a merge and therefore the forward transition
 
+  const uint64_t generation = k.arena_generation;
   assert(congruence_apply(k) == ApplyResult::Ok);
+  // Congruence reconnects the live image but leaves physical reclamation to
+  // the caller's established phase boundary.  Standalone V6 must therefore
+  // remain immediately usable with stable Refs and no watch into garbage.
+  assert(k.arena_generation == generation);
+  assert(garbage_clauses(k) > 0);
+  assert_large_watches_are_live(k);
   assert(kernel_binary_live(k, c, newer));
   const std::vector<Lit> partners = binary_partners(k, c);
   const auto newer_pos = std::find(partners.begin(), partners.end(), newer);
@@ -584,6 +610,11 @@ static void test_forward_dense_resume_reorders_complete_binary_population() {
          higher_older_pos != partners.end());
   assert(newer_pos < older_pos);
   assert(higher_older_pos < higher_newer_pos);
+
+  kernel_collect_garbage(k);
+  assert(k.arena_generation == generation + 1);
+  assert(garbage_clauses(k) == 0);
+  assert_large_watches_are_live(k);
 }
 
 // Input binaries need not precede large watches in a sparse list.  The

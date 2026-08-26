@@ -1,0 +1,160 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.92in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{seqsplit}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+
+\title{Rank-27 Decision, Congruence, and Substitute Consolidation}
+\author{Tactix Development Project}
+\date{26 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Status}
+The combined source, complete checked Tier-B plus predeclared Tier-C gate, and
+mandatory Claude-owned exact-source sanitizer fuzz campaign are terminal PASS.
+The source is ready for promotion as one isolated increment; no next solver
+repair has been mixed into it.
+
+The candidate is SHA-256
+\hashcode{acf9e716e78ea8bded71ee5121a975223f3510fcc72f84fab79865903aa2e013}
+on top of accepted solver-source commit
+\code{d8da6a17dc536b4a1c399d487582bcca48476b35}; later repository commits before
+this promotion contain documentation and fuzz-resource tooling only.
+Its three general implementation changes remove avoidable diagnostic and
+maintenance work without introducing benchmark identity, rank, deadline, or
+per-instance policy.
+
+\section{Changes and boundaries}
+\paragraph{Decision journal.}
+Production builds no longer construct and shift the dynamic
+\code{literal=} candidate string for every decision when the rule journal is
+compiled out.  Journal-enabled builds construct the same string lazily and
+retain exact record/replay identity.  The decision transaction, branching
+policy, heap state, scheduling, and proof behavior are unchanged.
+
+\paragraph{Congruence lifecycle.}
+Forward subsumption reconnects the live large-watch image and defers physical
+arena reclamation to the caller's established phase boundary.  This removes a
+duplicate full-arena pack immediately before Substitute.  The live clause
+order is unchanged, stable references remain usable, no watch points into
+garbage, and the later boundary still owns forwarding and arena-generation
+invalidation.  A strengthened standalone test checks both pre-boundary and
+post-collection states.
+
+\paragraph{Substitute affected owners.}
+Canonical Substitute marks every retiring literal and every binary mirror
+owner incident to it.  It retains the former global import/sign order and
+per-list order over precisely that induced population, avoiding global scans
+and compactions of unrelated watch lists.  Sweep/session behavior, SCC work,
+proof work, candidate order, large-clause rewriting, and collection remain
+unchanged.
+
+These remain representation and lifecycle repairs below the proof-rule/
+strategy boundary.  N1--N4, exact logical tick/cost, candidate order,
+scheduling order, learning, pruning, and retained semantic state remain the
+acceptance surface.
+
+\section{Exact-state evidence}
+The decision repair preserves the accepted 64-row event trace SHA-256
+\code{7a6216bb...7cc1} and all 175,272,633 Rank-27 decisions while lowering
+internal time 365.249 to 359.799 seconds.  Its predeclared B+C screen passes
+12/12 checked results and lowers paired total 635.585 to 632.261 seconds.
+
+The Congruence repair removes exactly two productive prefix collections.  Its
+full Rank-27 pair is exact at normalized SHA-256 \code{10372d94...f1ffd0};
+internal time is 358.115 to 356.788 seconds and Congruence 14.432 to 13.366
+seconds.  The six-instance checked B+C screen passes 12/12; Congruence improves
+on all six and sums 43.935 to 42.004 seconds.  Total B+C time is noisy-negative
+by 0.52\%, so retention relies on the exact Rank-27 owner/total win and the
+demonstrated duplicate lifecycle, not the short aggregate alone.
+
+The Substitute repair preserves the same full Rank-27 normalized hash and
+lowers internal time 358.157 to 354.539 seconds.  Substitute falls 21.704 to
+18.528 seconds and maximum RSS falls 672,116 to 608,084 KiB.  Its checked B+C
+screen passes 12/12 and improves Substitute on all six instances.  The two
+nonexact cost images differ only because omitted unrelated-list compactions no
+longer refresh conservative binary-first metadata; formula, watch contents and
+order, decisions, conflicts, propagations, rule effects, schedule, learning,
+pruning, and verdict remain equal.
+
+All focused Release/N1--N4/proof/boundary/reset guards pass for each isolated
+increment.  The final exact-source Release suite is functionally 73/74: all 73
+solver, proof/model, scheduling, trace, boundary, and cleanup tests pass.  Only
+the already recorded documentation-size budget fails.
+
+\section{Complete consolidation gate}
+Frozen campaign
+\code{20260826-1300-BC-decision-congruence-substitute-consolidation} owns all
+28 Tier-B and five predeclared Tier-C identities, immutable matrix SHA-256
+\code{9cc79541...c30e2}, candidate and accepted pins, and validators.  Array
+\code{1648120} and aggregate \code{1648129} are terminal PASS.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrr}
+\toprule
+Gate property & Candidate & Accepted baseline \\
+\midrule
+Valid results & 33/33 & 33/33 \\
+SAT models independently checked & 17 & 17 \\
+UNSAT proofs independently verified & 16 & 16 \\
+PAR-2 / solve total (s) & 1446.060 & 1449.704 \\
+Peak RSS (GiB) & 2.914 & 2.930 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Candidate/baseline PAR-2 ratio is 0.997486.  Missing tasks, invalidity, solve
+loss, regressions, cleanup failures, and certificate residue are all zero.
+Summary SHA-256 is \code{b57977a...eec4}.  Every solver invocation is an
+independent SLURM task under the 16-GiB/1200-second contract.
+
+\section{Claude-owned fuzz gate}
+Claude Code's authoritative terminal report classifies campaign
+\hashcode{20260826-1330-decision-congruence-substitute-consolidation-fuzz} PASS and
+updates its manifest to \code{terminal-pass}.  Codex accepted this report
+without inspecting fuzz logs or artifacts.
+
+All five generated legs complete 50,000/50,000 cases with zero failures.
+Claude reports 20,927 independently checked SAT models, 17,727 native-LRAT
+UNSAT proofs accepted by the pinned checker, and Kissat agreement on all 38,654
+verdict cases.  Corpus replay is 135/135 with zero failures.  The dedicated
+reach phase terminates 40/40 oracle-clean cases and exceeds every required
+lazy-journal, deferred-collection, affected-owner, productive/zero-image, and
+session floor.  There is no sanitizer finding, crash, invariant abort, rejected
+model/proof, or differential disagreement.  Bounded five-second
+nonterminations carry no oracle claim; exactly 25 diagnostic inputs per leg are
+retained.  Certificate, proof, model, checker, and node-local scratch residue
+are zero.
+
+No job was cancelled or replaced.  Congruence- and Sweep-stress jobs
+\code{1648215}/\code{1648217} complete their full accepted summaries before
+SLURM records exit 127.  This is a post-oracle infrastructure artifact: commit
+\code{8a9c8f7} changed a comment length in the live \code{run.sh} while both
+Bash interpreters were blocked inside \code{fuzz.py}; their stale byte offsets
+then entered the shifted final line after \code{fuzz.py} had exited zero.
+Claude records this as neither a solver nor fuzz-acceptance failure.  Future
+fuzz jobs must execute an immutable harness snapshot.
+
+\section{Promotion and next action}
+The complete B+C and fuzz gates authorize promotion, report completion,
+commit, and push.  First close the newly exposed immutable-harness-snapshot
+tooling defect without changing solver behavior.  Then freeze the promoted pin
+and immediately resume the next demonstrated current-Tactix/current-Kissat
+common-state gap.
+
+The separate cluster timing study is not part of this source increment.  Its
+approved \code{-c 12}/48,000-MiB, three-paired-wave decision-grade policy is
+already committed; fuzzing remains one campaign and is not repeated by that
+timing rule.
+
+\end{document}
