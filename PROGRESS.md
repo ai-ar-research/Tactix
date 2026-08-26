@@ -803,6 +803,12 @@ own experimental detail and history.
   exit to own the still-required exact-source ASan/UBSan native-LRAT fuzz from
   preparation through terminal verdict; no fuzz PASS/FAIL was produced by the
   quota exit, and Codex does not inspect fuzz artifacts.
+  Independently proof-producing immutable Rank-27 witness `1647775` is also
+  submitted from the same candidate pin with exactly 2 CPUs, 16 GiB, 1200 s
+  solver / 4800 s checker limits, pinned `drat-trim`, and atomic certificate
+  cleanup. It must return checked UNSAT with the accepted normalized proof-mode
+  state and zero residue; submission is not yet a result and does not substitute
+  for Claude's fuzz verdict.
   Read-only source/profile review names whole-arena collection as the next
   possible broad-search representation owner after active decision: exact
   conflict-9450 Tactix assigns 4.91% of sampled cycles to
