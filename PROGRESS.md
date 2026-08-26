@@ -555,10 +555,24 @@ own experimental detail and history.
   proof failure—and says its temporary build directories were removed. Claude
   owns repaired prep job `1648211`, which uses the same-case deferred
   Congruence-rebuild/collection witness and deciding-case lazy-journal selector;
-  its live watcher has not yet returned a terminal verdict. Codex has not
-  queried that job or opened any fuzz artifact. Continue the same Claude
-  session through probe PASS, five fuzz legs plus reach phase, cleanup audit,
-  and authoritative terminal PASS/FAIL before promotion.
+  its live watcher has not yet returned a terminal verdict. After reconnecting,
+  Claude's own interim audit reports every completed corpus leg 27/27 with zero
+  failures, exactly 25 diagnostic timeout input bundles retained per completed
+  leg, zero certificate residue, and two original campaign legs still running.
+  This is not a second campaign or a repeated timing experiment. Codex has not
+  queried the jobs or opened any fuzz artifact. Continue the same Claude-owned
+  campaign through those last legs, terminal identity/cleanup audit, and
+  authoritative PASS/FAIL before promotion.
+- Independent exact-source review rebuilds ordinary Release to the frozen
+  consolidation candidate SHA `acf9e716…2e013`; the full Release suite remains
+  73/74, with every functional/N1–N4/proof/model/cleanup test passing and only
+  the pre-existing documentation-size debt failing. Fresh Debug focused
+  journal/Substitute/Congruence/boundary/solve-reset tests pass 5/5 under
+  ASan/UBSan. An initial local LeakSanitizer invocation was infrastructure-
+  invalid because LSan cannot run under the container ptrace wrapper; disabling
+  only leak detection makes the identical binaries pass, with no sanitizer or
+  solver failure reported. Claude's cluster campaign remains the authoritative
+  full sanitizer/fuzz gate.
 - 2026-08-26 timing-stability investigation — The complete cluster study is
   preserved in
   `benchmarks/reports/2026-08-26-rank27-timing-stability.md` and its Andrew
@@ -580,9 +594,9 @@ own experimental detail and history.
   reproduces exact normalized trajectory SHA `10372d94…f1ffd0` in
   367.045–372.354 internal seconds, median 368.307 and 1.441% full range; all
   six are below 400 s and residue-free. The user-approved policy now uses
-  `-c 12` and a 48-GiB scheduler allocation per timed job, while preserving
-  the 16-GiB solver process limit, one bound hardware thread, and node-local
-  scratch. A decision-grade comparison consists of three independent paired
+  `-c 12` and an exact 48,000-MiB scheduler allocation per timed job, while
+  preserving the 16-GiB solver process limit, one bound hardware thread, and
+  node-local scratch. A decision-grade comparison consists of three independent paired
   waves: one separate candidate job and one separate baseline job run
   concurrently per wave, with placement crossed where practical. Report the
   median paired ratio/full spread; >2% per-arm spread rejects an absolute
@@ -591,6 +605,14 @@ own experimental detail and history.
   not repeated; correctness gates and ordinary probes retain their existing
   contracts. `-c 4` remains ordinary functional capacity but is rejected for
   long timing. Proof generation and checking remain separate.
+- Allocation-only probe `1648628` verifies the final resource spelling:
+  `SLURM_CPUS_PER_TASK=12`, `SLURM_MEM_PER_NODE=48000`, and mask
+  `0-5,96-101`, exactly one six-core L3 domain. `48000M` permits 16 timing
+  allocations within configured node memory 769,024 MiB; `48G` would round up
+  and permit only 15. The probe wrapper's only nonzero step was an optional
+  cgroup-v2 `memory.max` read on this cgroup-v1 cluster; no solver ran. Initial
+  probe `1648627` wrote its log to compute-local scratch and is
+  infrastructure-invalid. Neither probe is solver or fuzz evidence.
 - 2026-08-25 active Vivify convergence checkpoint — Compact propagation-only
   watch spans are closed negative and reverted by exact common-state job
   `1646178`: all non-time work is identical, but Rank-27 conflict-9450 total

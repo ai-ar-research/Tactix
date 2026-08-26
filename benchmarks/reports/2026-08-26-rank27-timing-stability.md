@@ -15,9 +15,9 @@ but whole-node reservation is not a viable future policy for a two-node
 cluster: reserving 96 physical cores for one single-threaded solver trades
 timing stability for an unacceptable loss of throughput.  No future timing or
 diagnostic job should request whole-node isolation.  Routine development
-decisions instead reserve one L3 domain per timed solver with `-c 12` and a
-48-GiB scheduler allocation while retaining the 16-GiB solver process limit,
-use fixed-core affinity and local scratch, and use simultaneous paired
+decisions instead reserve one L3 domain per timed solver with `-c 12` and an
+exact 48,000-MiB scheduler allocation while retaining the 16-GiB solver
+process limit, use fixed-core affinity and local scratch, and use simultaneous paired
 candidate/baseline jobs with replicated ratio/spread reporting on ordinarily
 shared nodes.  Six such current-Tactix controls reproduce the exact accepted
 trajectory in 367.045--372.354 internal seconds, median 368.307 and 1.441%
@@ -213,11 +213,13 @@ inputs to NFS would create a different, invalid timing protocol.
 
 The user approved the following policy for the development plan:
 
-1. Routine candidate/baseline timing uses separate one-solver jobs, `-c 12`, a
-   48-GiB SLURM allocation, no whole-node exclusivity or all-memory reservation,
-   and the applicable 16-GiB solver process limit.  The allocation matches six
-   physical cores at the partition's 8-GiB-per-core capacity; it neither gives
-   the solver more memory nor reserves memory bandwidth.  On the current nodes,
+1. Routine candidate/baseline timing uses separate one-solver jobs, `-c 12`, an
+   exact 48,000-MiB SLURM allocation, no whole-node exclusivity or all-memory
+   reservation, and the applicable 16-GiB solver process limit.  The allocation matches six
+   physical cores at the partition's effective 8,000-MiB-per-core capacity; it
+   neither gives the solver more memory nor reserves memory bandwidth.  The
+   exact MiB spelling permits 16 jobs within configured node memory 769,024
+   MiB; `48G` would round up and permit only 15.  On the current nodes,
    require each resulting CPU mask to cover one complete six-core L3 domain.
    Launch the two arms in the same wave so they see the closest practical
    shared-node conditions; never serialize them in one allocation.  `-c 4`
@@ -261,3 +263,11 @@ calibration is 367.045--372.354 internal seconds, median 368.307.  Routine
 measurements decide changes by paired ratios; a future exact-state absolute
 run outside this band is investigated rather than compared to a cherry-picked
 historical minimum.
+
+Allocation-only SLURM probe `1648628` verifies the final request as
+`SLURM_CPUS_PER_TASK=12`, `SLURM_MEM_PER_NODE=48000`, with CPU mask
+`0-5,96-101`, exactly one complete L3 domain.  Its wrapper exits nonzero only
+after recording that evidence because this cgroup-v1 cluster lacks the optional
+cgroup-v2 `/sys/fs/cgroup/memory.max` path; no solver ran.  Initial probe
+`1648627` is infrastructure-invalid because its log was placed on compute-local
+scratch.  Neither probe contributes solver or fuzz evidence.
