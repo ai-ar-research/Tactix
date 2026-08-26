@@ -1,0 +1,244 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.90in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{seqsplit}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+
+\title{Rank-27 Cluster Timing Stability}
+\author{Tactix Development Project}
+\date{26 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Executive summary}
+The 300--580 second Rank-27 spread is execution-environment noise, not solver
+nondeterminism, and Kissat exhibits the same effect.  Immutable runs perform
+the same logical work and essentially the same instructions, but solvers
+sharing one L3 domain consume materially more cycles at lower IPC.  An exact
+contemporary Tactix control needs 367.312 seconds at
+the isolated median and 419.659 seconds when only one other Rank-27 solver
+shares the node.  Instructions change 0.025\%, while cycles rise 14.231\% and
+IPC falls 1.805 to 1.580.  Shared cache and memory service rate is the owner;
+CPU descheduling, migrations, average frequency, and proofless I/O are not.
+
+The completed node-isolation experiment is causal evidence, not a future
+timing or diagnostic policy on a two-node cluster.  Seven isolated proof-off
+observations span 365.171--371.637
+seconds; three primary repeats have median 367.312 and 1.237\% range.  Three
+isolated proof-on observations have median 370.893 and 0.437\% range.  More
+importantly for future policy, six ordinary shared-node
+\code{-c 12} controls, each reserving one complete L3 domain, reproduce the
+accepted Tactix trajectory in 367.045--372.354 internal seconds (median
+368.307, full range 1.441\%).  Every run is below 400 seconds.
+
+Proof production itself costs only 3.581 seconds at the isolated median
+(0.975\%), not the historical unstable estimate of 28.532 seconds.  Proof
+checking is separate: median 112.03 seconds.  All proof jobs reproduce the
+current candidate's 1,514,395,111-byte proof and pass pinned \code{drat-trim}.
+I/O is not the present solver bottleneck because proofs and inputs reside on
+node-local NVMe; the repository is NFS but receives only compact evidence.
+
+The approved policy uses ordinary shared-node \code{-c 12} allocations with
+48 GiB of scheduler memory while retaining the 16-GiB solver process limit,
+simultaneous separate candidate/baseline jobs, three independent paired waves
+for decision-grade performance claims, and median ratio/full-spread reporting.
+Fuzzing remains one Claude-owned campaign and is not repeated by this policy.
+Future whole-node isolation is prohibited.
+
+\section{Evidence and cause}
+The immutable binary pin is SHA-256 \code{4b3f7467...bc5e6a} from pushed
+commit \code{d8da6a1}.  The input SHA-256 is \code{5435b1b2...f7bb4e9}.
+Raw authority is the 10:30 Rank-27 timing-stability campaign of 26 August; its
+summary SHA-256 is \code{99c43cf1...abab0b}.  The manifest records the full
+campaign name and immutable identities.
+
+Historical SLURM accounting was reconstructed across every partition sharing
+node017 and node018.  The exact \code{60fe8e} binary takes 553.948 seconds on
+node017 while overlapping 79.50 other allocated CPUs, but 394.107 seconds on
+idle node018.  The exact BVE pin takes 419.772 seconds with 60.92 other CPUs on
+node017 and 371.711, 375.797, and 372.969 seconds across three idle-node018
+runs.  The original 399.152-second witness itself ran on idle node017, so the
+node label is not causal.  The measured slow intervals used
+\code{cpu-dense-hwulab-q}; no selected interval had a preempt-partition
+co-tenant, but both partitions use the same physical nodes and must be audited.
+
+Frozen Kissat 4.0.4 supplies an independent exact-binary reproduction.  On the
+same immutable input it takes 278.187 seconds in a \code{-c 4} job and 320.307
+seconds in a \code{-c 2} job, a 15.14\% spread.  Both runs generate the same
+1,320,603,112-byte proof at SHA-256 \code{ca29c36...d6d3f}; both pass the
+independent DRAT-to-Cake pipeline and leave zero residue.  The faster run
+actually overlaps more allocated CPUs (88.00 versus 73.90), proving that raw
+node occupancy is not a sufficient predictor.
+
+All twelve current jobs complete 0:0, each with one solver invocation.  There
+is no node constraint or task throttle.  Every solver returns UNSAT exit 20.
+All proof-off runs share normalized no-timing SHA-256
+\hashcode{10372d94d2cb1ae86893408435e0c3ffa2338053b11b7012c2107a3bebf1ffd0};
+all proof-on runs share their mode-specific SHA-256
+\hashcode{4cfab3ac1e0041219c6d5a5a201d9672d4f2b5983a15705e373b674e998df3f0}.
+Residue is zero.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrrr}
+\toprule
+Proof-off condition & Internal s & Cycles & Instructions & IPC \\
+\midrule
+Isolated median (three) & 367.312 & $1.390\times10^{12}$ & $2.509\times10^{12}$ & 1.805 \\
+Two simultaneous, node017 & 419.659 & $1.588\times10^{12}$ & $2.509\times10^{12}$ & 1.580 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The shared run adds 52.347 seconds and 14.231\% cycles with only 0.025\%
+additional instructions.  Both have one CPU migration and approximately
+3.781-GHz average frequency.  The modest cache-miss-count change coupled with
+the large IPC loss is consistent with longer shared-miss and bandwidth service,
+not changed search, frequency collapse, or loss of scheduled CPU time.
+
+\section{Kissat reproduction and shared-L3 remedy}
+Campaign \code{20260826-1430-rank27-kissat-c4-timing-variation} runs 15
+proofless controls from exact instrumented Kissat SHA-256
+\code{b6a9b1d0...644d5}.  All return UNSAT exit 20 and reproduce 4,120,691
+conflicts, 171,577,295 decisions, 2,665,923,683 propagations, and every selected
+inprocessing counter.  Inputs are staged on local NVMe; cleanup and residue are
+zero.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+Kissat protocol & Median s & Min--max s & Range / median \\
+\midrule
+Six simultaneous \code{-c 4} & 298.11 & 253.90--321.32 & 22.62\% \\
+Three separated \code{-c 4} & 260.02 & 258.60--260.12 & 0.585\% \\
+Six simultaneous \code{-c 12} & 259.13 & 252.75--260.76 & 3.09\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The topology probe explains the packed \code{-c 4} failure.  One EPYC 9454 L3
+domain covers six physical cores.  On lightly allocated node018, solvers pinned
+to cores 0, 2, and 4 share one L3 and take 297.74--300.11 seconds at IPC
+1.825--1.841; simultaneous core 6 lands in the next L3 and takes 259.66 seconds
+at IPC 2.110.  A separated core-0 repeat recovers to 258.60 seconds and IPC
+2.120.  Instructions remain about $2.071\times10^{12}$ while IPC spans
+1.706--2.159: exact work receives different cache/memory service.
+
+Ordinary \code{-c 12} masks such as \code{0-5,96-101} reserve exactly one L3
+domain without reserving a node.  The nodes contain 16 such domains, permitting
+16 simultaneous timed solvers per node.  Six accepted-Tactix controls under the
+same policy reproduce normalized no-timing SHA-256
+\code{10372d94...f1ffd0}.  Their internal times are 367.045, 372.354, 368.016,
+368.450, 368.164, and 368.731 seconds: median 368.307, full range 5.309 seconds
+or 1.441\%.  All are below 400 seconds and residue-free.  This is the measured
+shared-node remedy.
+
+\section{Diagnostic calibration and CPU allocation}
+Bare \code{--exclusive} is unavailable on this partition.  The supported
+combination \code{--exclusive=user --mem=0} provides effective isolation:
+exclusive-user ownership excludes other users across partitions, and reserving
+all memory prevents another same-user job fitting.  A shell \code{ulimit}
+independently retains the actual 16-GiB solver contract.  Node snapshots show
+one timing job, node owner \code{hwu}, and all 751 GiB reserved.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrr}
+\toprule
+Mode and protocol & Observations (s) & Median & Range \\
+\midrule
+Isolated proof-off & 367.092, 371.637, 367.312 & 367.312 & 4.545 (1.237\%) \\
+Isolated proof-on & 370.893, 369.785, 371.407 & 370.893 & 1.622 (0.437\%) \\
+All isolated proof-off variants & 365.171--371.637 (seven) & 367.295 & 6.466 (1.761\%) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The EPYC 9454 nodes have two hardware threads per core.  Ordinary \code{-c 2}
+exposes \code{0,96}, one physical core; ordinary \code{-c 4} exposes
+\code{0-1,96-97}, two cores.  On this cluster, \code{-c 2} plus
+\code{--hint=nomultithread} also exposes the two-core mask.  Isolated ordinary
+\code{-c 2} runs are 366.609 and 365.171 seconds; isolated ordinary
+\code{-c 4} runs are 368.081 and 367.295.  Their medians differ 0.49\%, which
+is immaterial.  Tactix is single-threaded: \code{-c 4} is a clearer ordinary
+allocation, not computational parallelism.  It reserves two physical cores
+and matches the partition's 16-GiB-per-two-core convention, but does not reserve
+shared cache or memory bandwidth.  It is suitable for functional work but not
+long-instance timing.  \code{-c 12} is the minimum scheduler-visible allocation
+that reserves a complete six-core L3 domain on these nodes.  It retains the
+16-GiB process contract and ordinary shared scheduling.
+
+\section{Proof and I/O decomposition}
+Proof-on median minus proof-off median is 3.581 seconds, 0.975\%.  Median cycles
+rise 0.980\% and instructions 1.336\%.  Every proof has 1,514,395,111 bytes and
+SHA-256
+\hashcode{7bcb3d8db7fe5827daa6af18281684b1f82f79c4f28468046a88b2ab326ac47e};
+pinned \code{drat-trim} accepts all four.  Isolated checker walls are 112.12,
+112.03, and 107.11 seconds, median 112.03.  The median proof-on solver plus
+checker pipeline is 482.923 seconds; checker time is validation overhead, not
+solver score.
+
+Scratch is local NVMe XFS, while the repository is NFS over RDMA.  The staged
+CNF, proof, and checker input remain local.  Proofless output is negligible.
+Writing the 1.514-GB proof adds about one second of system time and negligible
+I/O PSI.  Checking sees cached pages and reports no physical filesystem input.
+Thus current solver timing is not I/O-bound.  Local staging remains mandatory;
+putting proof or CNF traffic on NFS would create a different protocol.
+
+\section{Approved policy and disposition}
+The user-approved stable contract is:
+\begin{enumerate}
+\item Routine timing uses separate one-solver candidate/baseline jobs,
+\code{-c 12}, a 48-GiB SLURM allocation, no whole-node exclusivity or all-memory
+reservation, and the applicable 16-GiB solver process limit.  The allocation
+matches six physical cores at 8 GiB/core; it does not raise the solver limit or
+reserve memory bandwidth.  Require each CPU mask to cover one complete L3
+domain.  Launch both arms in the same wave as separate jobs; never serialize
+them in one allocation.  \code{-c 4} remains valid for functional work, not
+timing.
+\item Bind each solver to one granted hardware thread and record occupancy
+across all partitions.  Occupancy is a covariate and rejection diagnostic, not
+a reason to reserve an otherwise idle 96-core node.
+\item Require verified node-local scratch for CNF, proof, and checker work.
+Record node, CPU mask, time, cycles/instructions/IPC/migrations, load/PSI,
+proof identity, checker time, and cleanup.
+\item For a performance claim that accepts or rejects a repair, require three
+independent exact-state paired waves.  Each wave concurrently runs one separate
+candidate job and one separate baseline job, crossing arm placement over
+node/L3 positions when practical.  Report the median paired
+candidate/baseline ratio and its full range, never best-of.  An absolute
+headline is secondary and allowed only when both arms' complete ranges are at
+most 2\%; otherwise it is environmentally invalid, not a solver regression.
+This requirement does not repeat fuzzing: each fuzz checkpoint remains one
+Claude-owned campaign.  Correctness gates and ordinary diagnostic probes keep
+their existing predeclared contracts.
+\item Keep proof-on solver time, proof-off diagnostic time, and checker time as
+three separate quantities.  Never subtract unmatched shared-node runs to price
+proof generation.
+\item Never request \code{--exclusive=user --mem=0} or another whole-node
+reservation for timing or diagnosis.  Use paired ratios, cross-partition
+occupancy, perf service-rate evidence, and naturally observed load windows.
+Full-width tier arrays retain their existing eligible-width/no-node-constraint
+contract and use aggregate paired evidence.
+\end{enumerate}
+
+For the accepted pin, 367.045--372.354 internal seconds (median 368.307) is the
+supported ordinary shared-node \code{-c 12} calibration.  Routine development
+decisions use paired ratios.  A stable paired slowdown is real solver evidence
+even if both arms exceed 400; an unstable absolute observation is not.
+The technical report and campaign are complete, and the approved contract is
+now reflected in the Development Plan.  Phase 4.25 broad search-quality
+convergence resumes after the pending consolidation fuzz verdict and wrap-up.
+
+\end{document}

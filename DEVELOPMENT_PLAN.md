@@ -400,6 +400,36 @@ independently auditing fuzz artifacts and reports.
   the union; LymphoSAT contributes SAT results only. This gates Phase 4.5.
 - **T5:** exceed the frozen VBS or ship the best verified effort.
 
+**Targeted timing measurement.** A long-instance performance comparison used
+to accept or reject a solver repair runs as three independent paired waves.
+Each wave submits the candidate and its exact-state baseline as two separate,
+concurrent one-solver jobs; never serialize arms in one allocation, and cross
+their node/L3 placement over the three waves when practical. On the current
+EPYC 9454 nodes, each timed job requests 12 logical CPUs and 48 GiB from SLURM
+so its mask owns one complete six-physical-core L3 domain and its scheduler
+memory reservation matches the partition's 8-GiB-per-physical-core capacity.
+The solver itself remains single-threaded, bound to one granted hardware
+thread, and retains the applicable 16-GiB process limit; the larger allocation
+is capacity accounting, not a larger solver-memory contract. Stage inputs,
+proofs, and checker work on verified node-local scratch, and record topology,
+cross-partition occupancy, perf service-rate counters, proof/check identities,
+and cleanup. Decide primarily from the median of the three paired
+candidate/baseline ratios and report its complete range, never best-of. An
+absolute runtime headline is admissible only when each arm's complete
+shared-node range is at most 2%; otherwise retain the paired result but reject
+the absolute observation as environmentally unstable. Proof-on solver time,
+proof-off diagnostic time, and checker time are separate measurements and may
+not be priced by subtracting unmatched runs. Never request whole-node
+exclusivity or all-memory reservation for timing or diagnosis.
+
+This three-wave rule applies only to decision-grade performance evidence. It
+does not repeat or multiply fuzzing: each required fuzz checkpoint remains one
+Claude-owned campaign under §8.2. It likewise does not multiply correctness
+gates or ordinary diagnostic probes; those retain their predeclared contracts.
+Full-width tier arrays retain their no-throttle, no-node-constraint allocation
+contract and are interpreted through aggregate evidence rather than this
+targeted timing protocol.
+
 **Causal convergence.** For every coverage or runtime gap, localize the earliest
 portable semantic divergence with the structured rule journal. Repair it unless
 Tactix is demonstrably stronger or the deviation is explicitly accepted; then
