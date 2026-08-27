@@ -20,6 +20,67 @@
 
 using namespace tactix;
 
+static void test_compact_watch_head_encoding_is_full_width() {
+  WatchHead head;
+  head.size = UINT32_MAX;
+  head.set_layout(UINT32_MAX);
+  assert(head.binary_count() == UINT32_MAX);
+  assert(head.binaries_first());
+  assert(!head.has_large());
+
+  head.set_layout(UINT32_MAX - 2, false);
+  assert(head.binary_count() == UINT32_MAX - 2);
+  assert(!head.binaries_first());
+  assert(head.has_large());
+
+  head.set_layout(UINT32_MAX, false);
+  assert(head.binary_count() == UINT32_MAX);
+  assert(!head.binaries_first());
+  assert(!head.has_large());
+
+  head.size = UINT32_MAX - 1;
+  head.set_layout(UINT32_MAX - 3, false);
+  assert(head.binary_count() == UINT32_MAX - 3);
+  assert(!head.binaries_first());
+  assert(head.has_large());
+
+  WatchLists lists;
+  lists.resize_lits(1);
+  lists.heads[0].size = 3;
+  lists.heads[0].set_layout(1, false);
+  lists.truncate_large(0, 1);
+  assert(lists.heads[0].binary_count() == 1);
+  assert(!lists.heads[0].binaries_first());
+  assert(!lists.heads[0].has_large());
+}
+
+static void test_clause_order_alias_pages_are_exact_and_sparse() {
+  ClauseOrderAliases aliases;
+  assert(aliases.get(7) == 0);
+  aliases.set(7, 3);
+  aliases.set((uint64_t{1} << 20) + 11, UINT64_C(0xfedcba9876543210));
+  assert(aliases.get(7) == 3);
+  assert(aliases.get(8) == 0);
+  assert(aliases.get(uint64_t{1} << 20) == 0);
+  assert(aliases.get((uint64_t{1} << 20) + 11) ==
+         UINT64_C(0xfedcba9876543210));
+}
+
+static void test_binary_liveness_filter_has_no_false_negatives() {
+  BinaryLivenessIndex filter;
+  filter.reserve(3);
+  const uint64_t first = kernel_binary_key(2, 9);
+  const uint64_t second = kernel_binary_key(4, 11);
+  filter.add(first);
+  filter.add(second);
+  assert(filter.maybe(first));
+  assert(filter.maybe(second));
+  // Deletion deliberately leaves a stale positive: exact watch-list
+  // confirmation owns liveness and prevents a stale bit changing semantics.
+  filter.remove(first);
+  assert(filter.maybe(first));
+}
+
 static void test_reserved_trail_stack_contract() {
   ReservedTrail trail;
   trail.reserve(5);
@@ -839,8 +900,8 @@ static BookKeeping bookkeeping(const Kernel &k) {
   for (Lit l = 0; l < 2 * k.nvars; l++) {
     const WatchHead &h = k.watches.heads[l];
     s.binary_counts[l] = k.watches.binary_size(l);
-    s.list_order[l] = static_cast<uint8_t>(h.has_large) |
-                      static_cast<uint8_t>(h.binaries_first) << 1;
+    s.list_order[l] = static_cast<uint8_t>(h.has_large()) |
+                      static_cast<uint8_t>(h.binaries_first()) << 1;
     const uint32_t *const b = k.watches.arena.data() + h.offset;
     s.lists[l].assign(b, b + h.size);
   }
@@ -1294,7 +1355,7 @@ static void test_canonical_binary_watch_rebuild() {
   }
   assert(after == std::vector<Lit>({lower0, lower1, lower2, higher}));
   assert(saw_large);
-  assert(k.watches.heads[pivot].binaries_first);
+  assert(k.watches.heads[pivot].binaries_first());
   assert(kernel_binary_copies(k, pivot, higher) == 1);
   assert(kernel_binary_copies(k, root_satisfied, higher) == 0 &&
          "Congruence dense entry drops root-satisfied binaries like Kissat");
@@ -1449,6 +1510,9 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
 }
 
 int main() {
+  test_compact_watch_head_encoding_is_full_width();
+  test_clause_order_alias_pages_are_exact_and_sparse();
+  test_binary_liveness_filter_has_no_false_negatives();
   test_reserved_trail_stack_contract();
   test_variable_identity_maps();
   test_import_order_survives_compaction_linearly();

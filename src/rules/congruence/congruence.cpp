@@ -2441,7 +2441,7 @@ static void install_congruence_binary_candidates(
     uint32_t *out = begin + binary_prefix;
     out = std::copy(new_binaries.begin(), new_binaries.end(), out);
     std::copy(large_words.begin(), large_words.end(), out);
-    k.watches.heads[lit].binaries_first = true;
+    k.watches.heads[lit].set_binaries_first(true);
   }
 }
 
@@ -2837,9 +2837,10 @@ ApplyResult congruence_apply(Kernel &k) {
   congruence_stage_trace(k, "root-end");
   // Kissat enters dense mode before extraction and keeps the live binaries in
   // closure->binaries, where find_binary answers every later membership query
-  // without touching large-watch tails.  Build the corresponding exact index
-  // once for the whole Tactix application.  It follows additions and deletions
-  // through the kernel hooks, while k.binary_ids remains the proof-id archive.
+  // without touching large-watch tails.  Build a compact no-false-negative
+  // filter once for the whole Tactix application.  A positive filter result is
+  // confirmed against the authoritative watch list, so stale positives after
+  // deletions affect cost only while k.binary_ids remains the proof-id archive.
   struct ScopedBinaryLiveness {
     Kernel &kernel;
     BinaryLivenessIndex index;
@@ -2973,40 +2974,19 @@ ApplyResult congruence_apply(Kernel &k) {
 
   // Kissat indexes every gate by RHS literal and propagates a root unit only
   // through gates containing that literal (congruence.c
-  // simplify_gates/propagate_unit).  This immutable value index includes the
-  // output too.  It is separate from the representative-occurrence index
-  // below, whose keys change as equivalence classes merge.
+  // simplify_gates/propagate_unit). This immutable value index includes the
+  // output too. Delay its representation until the closure actually derives
+  // a new root value: the initial gate queue already contains every gate, so
+  // units found by the binary pre-pass require no rescheduling. Building it at
+  // the first later unit preserves the identical registration and traversal
+  // order while making no-unit rounds output-sensitive.
   struct OccNode {
     uint32_t gate;
     uint32_t next;
   };
   const uint32_t nlits = 2 * k.nvars;
-  PagedLiteralTails value_occ_tails(nlits);
+  std::unique_ptr<PagedLiteralTails> value_occ_tails;
   PagedVector<OccNode> value_occ_nodes;
-  size_t value_occurrences = gates.size();
-  for (const CongGate &g : gates)
-    value_occurrences += g.inputs.size();
-  value_occ_nodes.reserve(value_occurrences);
-  const auto add_value_occurrence = [&](Lit lit, uint32_t gate) {
-    assert(value_occ_nodes.size() < UINT32_MAX);
-    const uint32_t node = static_cast<uint32_t>(value_occ_nodes.size());
-    uint32_t &tail = value_occ_tails.get_or_create(lit);
-    if (tail == UINT32_MAX) {
-      value_occ_nodes.push_back({gate, node});
-    } else {
-      const uint32_t head = value_occ_nodes[tail].next;
-      value_occ_nodes.push_back({gate, head});
-      value_occ_nodes[tail].next = node;
-    }
-    tail = node;
-  };
-  for (uint32_t gate = 0; gate < gates.size(); gate++) {
-    for (const Lit input : gates[gate].inputs)
-      add_value_occurrence(input, gate);
-    add_value_occurrence(gates[gate].output, gate);
-  }
-  congruence_stage_trace(k, "value-occurrences-end", gates.size(),
-                         value_occ_nodes.size());
 
   // The binary-resolution unit sweep follows binary and gate extraction; its
   // immediate root closure seeds value-driven gate simplification below.
@@ -3312,11 +3292,41 @@ ApplyResult congruence_apply(Kernel &k) {
   // mention a newly root-assigned variable.  Scan both signs because one root
   // assignment changes the value view of its complement too.
   size_t value_trail_head = k.trail.size();
+  const auto ensure_value_occurrences = [&]() {
+    if (value_occ_tails)
+      return;
+    value_occ_tails.reset(new PagedLiteralTails(nlits));
+    size_t value_occurrences = gates.size();
+    for (const CongGate &g : gates)
+      value_occurrences += g.inputs.size();
+    value_occ_nodes.reserve(value_occurrences);
+    const auto add_value_occurrence = [&](Lit lit, uint32_t gate) {
+      assert(value_occ_nodes.size() < UINT32_MAX);
+      const uint32_t node = static_cast<uint32_t>(value_occ_nodes.size());
+      uint32_t &tail = value_occ_tails->get_or_create(lit);
+      if (tail == UINT32_MAX) {
+        value_occ_nodes.push_back({gate, node});
+      } else {
+        const uint32_t head = value_occ_nodes[tail].next;
+        value_occ_nodes.push_back({gate, head});
+        value_occ_nodes[tail].next = node;
+      }
+      tail = node;
+    };
+    for (uint32_t gate = 0; gate < gates.size(); gate++) {
+      for (const Lit input : gates[gate].inputs)
+        add_value_occurrence(input, gate);
+      add_value_occurrence(gates[gate].output, gate);
+    }
+    congruence_stage_trace(k, "value-occurrences-end", gates.size(),
+                           value_occ_nodes.size());
+  };
   const auto reschedule_assigned_gates = [&]() {
+    ensure_value_occurrences();
     while (value_trail_head < k.trail.size()) {
       const Lit assigned = k.trail[value_trail_head++];
       for (const Lit side : {assigned, negate(assigned)}) {
-        const uint32_t tail = value_occ_tails.get(side);
+        const uint32_t tail = value_occ_tails->get(side);
         if (tail == UINT32_MAX)
           continue;
         uint32_t node = value_occ_nodes[tail].next;

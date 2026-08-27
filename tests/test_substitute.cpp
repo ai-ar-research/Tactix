@@ -398,8 +398,10 @@ static void test_sweep_identity_rewrite_has_no_dirty_binary_owners() {
   kernel_dense_connect(k, occ);
   SweepSubstitutionSession session;
   session.begin(k);
+  assert(session.dense_occurrences.empty());
 
   session.rewrite_binary_occurrences(k, {}, {}, {});
+  assert(session.dense_occurrences.empty());
   assert(session.dirty_binary_owners.empty());
   session.flush_moves(k);
   assert_ledger_mirrors_kernel(k, session);
@@ -414,9 +416,9 @@ static void test_sweep_identity_rewrite_has_no_dirty_binary_owners() {
 // hold puts a phantom clause into the next environment, and one missing a
 // clause hides a real one, so both directions are checked.
 static void assert_ledger_mirrors_kernel(Kernel &k,
-                                         SweepSubstitutionSession &s) {
+  SweepSubstitutionSession &s) {
   assert(k.dense);
-  assert(s.dense_occurrences.size() == 2 * k.nvars);
+  assert(s.dense_occurrences.size() <= 2 * k.nvars);
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     std::vector<Lit> ledger_binaries, watch_binaries;
     std::vector<Ref> ledger_large, dense_large;

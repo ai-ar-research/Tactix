@@ -83,7 +83,7 @@ static void test_add_missing_mirror_does_not_duplicate_stable_direction() {
   const uint32_t stable_size = k.watches.size(stable);
   assert(k.watches.size(moved) == 1);
   k.watches.heads[moved].size = 0; // pose an in-place rewritten stable watch
-  k.watches.binary_counts[moved] = 0;
+  k.watches.heads[moved].set_layout(0);
 
   kernel_add_binary_mirror(k, stable, moved, 17);
   assert(k.watches.size(stable) == stable_size);

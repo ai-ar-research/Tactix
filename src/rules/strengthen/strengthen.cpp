@@ -177,7 +177,7 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       // binaries through the watch lists: (probe, o). probe == l is a
       // same-phase anchor; probe == ¬l anchors the flip on l itself.
       if (watch_population_within(k, probe, true, STRENGTHEN_BINLIM)) {
-        const bool stop_at_large = k.watches.heads[probe].binaries_first;
+        const bool stop_at_large = k.watches.heads[probe].binaries_first();
         for (const WatchEntry w : k.watches.entries(probe)) {
           if (!w.binary()) {
             if (stop_at_large)
