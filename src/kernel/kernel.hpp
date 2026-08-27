@@ -81,6 +81,11 @@ public:
   bool empty() const { return size_ == 0; }
   bool tracks_keys() const { return track_keys_; }
   bool tracks_values() const { return track_values_; }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  size_t diagnostic_storage_bytes() const {
+    return (keys_.capacity() + values_.capacity()) * sizeof(uint64_t);
+  }
+#endif
 
   void discard_storage() {
     assert(size_ == 0 && "proof-id mode is fixed before binary import");
@@ -200,6 +205,11 @@ class BinaryLivenessIndex {
   }
 
 public:
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  size_t diagnostic_storage_bytes() const {
+    return bits_.capacity() * sizeof(uint64_t);
+  }
+#endif
   void reserve(size_t entries) {
     uint64_t target = 64;
     assert(entries <= UINT64_MAX / 4);
@@ -241,6 +251,14 @@ class ClauseOrderAliases {
   std::vector<std::vector<uint64_t>> pages_;
 
 public:
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  size_t diagnostic_storage_bytes() const {
+    size_t result = pages_.capacity() * sizeof(std::vector<uint64_t>);
+    for (const auto &page : pages_)
+      result += page.capacity() * sizeof(uint64_t);
+    return result;
+  }
+#endif
   uint64_t get(uint64_t id) const {
     const uint64_t page64 = id >> PAGE_SHIFT;
     if (page64 >= pages_.size())
@@ -770,6 +788,10 @@ private:
 
 struct Kernel {
   uint32_t nvars = 0;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  size_t diagnostic_policy_reduce_bytes = 0;
+  size_t diagnostic_policy_inprocess_bytes = 0;
+#endif
   // Stable external identities are separate from the dense indices used by
   // search.  Before the first compaction both maps are the identity.  A dead
   // external variable maps to INVALID_VAR; every live internal variable maps

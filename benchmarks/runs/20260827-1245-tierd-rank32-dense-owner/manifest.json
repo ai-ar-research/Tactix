@@ -1,0 +1,102 @@
+{
+  "schema": "tactix-tierd-rank32-dense-owner-v1",
+  "created_at": "2026-08-27T16:43:30Z",
+  "status": "terminal-valid-diagnostic",
+  "submitted_at": "2026-08-27T16:43:57Z",
+  "scoring": false,
+  "promotion_status": "trace-only diagnostic over accepted source; no solver repair",
+  "purpose": "Close the approximately 148-MiB gap between named persistent capacity and allocator-used-plus-mmap allocation by measuring the attached dense occurrence index's outer and per-literal vector capacities.",
+  "hypothesis": "The policy-owned dense occurrence index remains attached across each inprocessing phase and accounts for most of the previously unattributed live allocation.",
+  "pass_criterion": "The accepted logical trajectory remains unchanged, the UNSAT proof verifies independently, dense occurrence capacity is present at every in-phase slot boundary, and certificate plus scratch residue is zero.",
+  "input": {
+    "path": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+    "sha256": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+    "expected": "UNSAT",
+    "rank": 32
+  },
+  "input_sha256": {
+    "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3"
+  },
+  "predecessor": {
+    "persistent_owner_campaign": "benchmarks/runs/20260827-1225-tierd-rank32-persistent-owners",
+    "persistent_owner_result_sha256": "a1f6a615b980a2398565d9619580b06ebff2a948f7e224978c8e1dcabcae91ff",
+    "persistent_owner_slots_sha256": "6708f5b7e6eaade9faa04c37a04ab64e4c230693fa0f4620f33cfa2922f4ed1b",
+    "failed_scaffold": "benchmarks/runs/20260827-1240-tierd-rank32-dense-owner",
+    "failed_scaffold_reuse": false
+  },
+  "closed_mechanism": {
+    "campaign": "benchmarks/runs/20260827-0760-BC-rank32-congruence-admission-guard",
+    "disposition": "rejected and reverted under N4; this diagnostic changes no admission or behavior"
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "3b915fa72e48cfb4e7554d82b3562036c28b855705c036a156a93a3f944a014c",
+      "source_commit": "35aca7326a4e15da48f50335e04c1fd9cc677c19",
+      "build": "Release with TACTIX_ENABLE_EVENT_TRACE=ON and persistent plus dense-owner trace fields",
+      "accepted_release_sha256": "26430a9dfa2d283c1755ac64067a6fbcbcc1de23686374873cb71f9977f34845",
+      "diagnostic_source_diff_sha256": "d4c7fc950bd273678ca999a1dbd7d7b9de4dea5b09b543bd66bc63ea90d4b1dd",
+      "diagnostic_source_file_sha256": {
+        "src/diagnostics/event_trace.cpp": "0d853f056d95336a85fdcc3947759cbc79297313913ca79206bcc5cf84140d5d",
+        "src/kernel/kernel.hpp": "25c7cee68eebec825dd41950a72eca302a0cf17fdb79ff32f8b46c9d82e519bd"
+      }
+    },
+    "checkmodel": {"path": "pins/checkmodel", "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"},
+    "modelcheck.py": {"path": "pins/modelcheck.py", "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"},
+    "drat-trim": {"path": "pins/drat-trim", "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"}
+  },
+  "shared_runner": {
+    "path": "../20260827-0100-tierd-ranks1-40-slurm-memory-screen/run-one.py",
+    "sha256": "10b1605ca06e48641da3c1115ccf2bf5c1cd2846a940525fc994f51c95c59385"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0",
+    "array_throttle": null,
+    "node_constraint": null,
+    "whole_node_exclusive": false,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "proof_checker_timeout_seconds": 16000,
+    "proof_mode": "DRAT production with independent drat-trim verification"
+  },
+  "slurm": {"array_job": 1652473},
+  "terminal_evidence": {
+    "result_sha256": "2af9c43a2a1aae7f552e41f978058d52a8d78782842aaf229fe6d4752b392a93",
+    "slots_sha256": "a37277a04793e9631bcc280973fa2ba83ae47c6b37ad4071afdc3bb7d7e778c3",
+    "classification": "valid UNSAT with independently verified DRAT proof and zero certificate or scratch residue",
+    "solve_seconds": 529.386,
+    "peak_rss_kib": 566348,
+    "checker_seconds": 124.605,
+    "late_factor_end": {
+      "dense_capacity_bytes": 88538604,
+      "dense_capacity_mib": 84.437,
+      "named_plus_dense_mib": 351.999,
+      "unattributed_used_plus_mmap_mib": 63.827
+    },
+    "largest_sampled_live_rss_bve_end": {
+      "current_rss_kib": 551128,
+      "dense_capacity_bytes": 87588972,
+      "dense_capacity_mib": 83.531,
+      "named_plus_dense_mib": 375.529,
+      "unattributed_used_plus_mmap_mib": 63.683
+    },
+    "trajectory_validation": "After removing resource and dense-capacity telemetry, all 2,640 slot-boundary records are byte-identical to the persistent-owner predecessor; after removing RSS/VM telemetry, all Congruence and Substitute records are also byte-identical.",
+    "interpretation": "The separate dense occurrence index explains 84 MiB and is a concrete architectural cost of retaining Tactix's flat sparse-watch representation instead of reusing per-literal watch vectors as current Kissat does. Approximately 64 MiB remains consistently unattributed to policy buffers, allocation overhead, and process baseline. Runtime is trace-instrumented diagnostic evidence only."
+  },
+  "local_validation": {
+    "event_trace_ctest": "75/75 PASS",
+    "manifest_preflight": "required input_sha256 map present and exact",
+    "accepted_solver_source_diff": "diagnostic-only methods in src/kernel/kernel.hpp plus src/diagnostics/event_trace.cpp"
+  },
+  "harness_sha256": {
+    "array.sbatch": "46e7c95cab2b7a9514fd3b1f0425d222a33a9dcd16b95eb692f2a8d604d45219",
+    "matrix.tsv": "0c8aeacfa3865243d92bb30eac56b77b2709131e6f5719972ccb246c2231cc49",
+    "run-one.py": "a8daa0d7e7bf6b8bb12f01ce2b1e51449b3cf55f53aac37ac8b26e7f1026f9ca"
+  }
+}

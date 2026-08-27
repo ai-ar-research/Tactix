@@ -1,0 +1,105 @@
+{
+  "schema": "tactix-tierd-rank32-memory-boundaries-v1",
+  "created_at": "2026-08-27T15:30:00Z",
+  "status": "completed-valid-zero-residue",
+  "completed_at": "2026-08-27T15:41:33Z",
+  "terminal_evidence": {
+    "classification": "valid UNSAT with independently verified proof and zero certificate or scratch residue",
+    "result_sha256": "ec7007b5d1e8607490bd4f00ab77b5e4904a858a854d5ea05454f75ec3eaaf89",
+    "solve_seconds": 470.391,
+    "solve_peak_rss_kib": 566348,
+    "proof_check_seconds": 124.706,
+    "proof_check_result": "verified",
+    "slot_trace_sha256": "830839546a9b4852aedf8e1485f31360c0afc8060ab4f7d1935ff095a4acf617"
+  },
+  "submitted_at": "2026-08-27T15:31:38Z",
+  "scoring": false,
+  "promotion_status": "trace-only diagnostic over accepted source; no solver repair",
+  "purpose": "Identify the first owning rule or persistent representation behind accepted Tactix's fresh Rank-32 peak-memory excess without reopening the rejected Congruence-admission arm.",
+  "hypothesis": "Fresh accepted Tactix peaks at 582,204 KiB versus current Kissat's 299,988 KiB. Parse, rule-boundary, and full slot traces can distinguish persistent representation overhead from a transient inprocessing owner before any source change.",
+  "input": {
+    "path": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+    "sha256": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+    "expected": "UNSAT",
+    "rank": 32
+  },
+  "input_sha256": {
+    "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3"
+  },
+  "fresh_screen_authority": {
+    "campaign": "benchmarks/runs/20260827-0920-tierd-ranks1-40-accepted-fresh",
+    "tactix_task": 62,
+    "kissat_task": 63,
+    "classification": "both valid UNSAT with independently verified proofs before this diagnostic was prepared",
+    "tactix_wall_seconds": 410.828,
+    "kissat_wall_seconds": 292.637,
+    "tactix_peak_rss_kib": 582204,
+    "kissat_peak_rss_kib": 299988
+  },
+  "closed_mechanism": {
+    "campaign": "benchmarks/runs/20260827-0760-BC-rank32-congruence-admission-guard",
+    "disposition": "rejected and reverted under N4; do not reopen absent contradictory exact evidence"
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "112a13fb343294568e9b9be2262b9d667acf13c5bf3c7f3dc90e762235044f05",
+      "source_commit": "35aca7326a4e15da48f50335e04c1fd9cc677c19",
+      "source_equivalence_checked_at": "caa07bad6a03ac595c3969fcf967ceedd91c2ebf",
+      "build": "Release with TACTIX_ENABLE_EVENT_TRACE=ON",
+      "accepted_release_sha256": "26430a9dfa2d283c1755ac64067a6fbcbcc1de23686374873cb71f9977f34845"
+    },
+    "checkmodel": {
+      "path": "pins/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    },
+    "modelcheck.py": {
+      "path": "pins/modelcheck.py",
+      "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+    },
+    "drat-trim": {
+      "path": "pins/drat-trim",
+      "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    }
+  },
+  "shared_runner": {
+    "path": "../20260827-0100-tierd-ranks1-40-slurm-memory-screen/run-one.py",
+    "sha256": "10b1605ca06e48641da3c1115ccf2bf5c1cd2846a940525fc994f51c95c59385"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0",
+    "array_throttle": null,
+    "node_constraint": null,
+    "whole_node_exclusive": false,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "proof_checker_timeout_seconds": 16000,
+    "proof_mode": "DRAT production with independent drat-trim verification"
+  },
+  "slurm": {
+    "array_job": 1652456
+  },
+  "trace_environment": [
+    "TACTIX_PARSE_MEMORY_TRACE",
+    "TACTIX_CONGRUENCE_MEMORY_TRACE",
+    "TACTIX_SUBSTITUTE_MEMORY_TRACE",
+    "TACTIX_LUCKY_MEMORY_TRACE",
+    "TACTIX_SLOT_MEMORY_TRACE"
+  ],
+  "local_validation": {
+    "release_ctest": "76/76 PASS",
+    "event_trace_ctest": "75/75 PASS",
+    "source_diff_against_accepted_solver_commit": "empty"
+  },
+  "harness_sha256": {
+    "array.sbatch": "23d0af4a1a3ec18da1dd06c422d13a20a13dc55c235d2ea591f2cab3f39223fe",
+    "matrix.tsv": "0c8aeacfa3865243d92bb30eac56b77b2709131e6f5719972ccb246c2231cc49",
+    "run-one.py": "2b342f70fa4b4a3a912826cc2c016f421ef9a8d0278e09f7edbebbd6604dbc1f"
+  }
+}

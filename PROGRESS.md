@@ -160,16 +160,23 @@ session narrative; this file is only the current resume surface.
   the exact classification. It also records the prepared correction for the
   predecessor's too-short 4,800-second checker limit: keep the 1,200-second
   solver limit but allow 16,000 seconds for auxiliary DRAT validation.
-- **Active fresh replacement screen:** campaign
+- **Terminal fresh replacement screen:** campaign
   `benchmarks/runs/20260827-0920-tierd-ranks1-40-accepted-fresh/`, array
   `1652270`, and after-any aggregate `1652302` use the exact accepted pins,
   80 new claims, 12 CPUs/48,000 MB per independent solver task, no `RLIMIT_AS`,
   no node constraint/throttle, and the widened 16,000-second proof-checker
-  window. At this checkpoint 79/80 results are valid and independently checked;
-  only task 35 (current Kissat Rank 18) remains in auxiliary proof checking.
-  Do not score or select a witness until it is terminal and every solve
-  loss/invalidity is classified. The canceled `20260827-0800` partial remains
-  excluded.
+  window. All 80 results are terminal and classified. Tactix has 35 valid
+  solves (17 SAT, 18 UNSAT) and current Kissat has 40 (22 SAT, 18 UNSAT);
+  every SAT model and UNSAT proof is independently verified. Tactix ranks 15,
+  16, 19, 23, and 36 are solver timeouts. There is no OOM, correctness,
+  validation, infrastructure, cleanup, or certificate-residue failure, so the
+  campaign is scorable for witness selection. Rank 40 leads validated UNSAT
+  pairs by absolute gap at 981.277/436.640 seconds (544.637 seconds,
+  2.247336x); Rank 38 leads by ratio at 840.217/367.611 seconds (2.285614x).
+  `rank-table.md`/`.json` carry every status, runtime, measured peak RSS,
+  validation, loss class, and ratio. Summary SHA-256 is
+  `fd44f96b7983c5fd21f438ce6ef738eff30f8f496e71b9f7cdec1e78423f9ba9`.
+  The canceled `20260827-0800` partial remains excluded from selection.
 - **Promoted Rank-5 memory repair:** accepted Tactix peaked at 14,368,044 KiB
   because the 58,633,530-variable DIMACS header eagerly committed cold
   rule/search state before early Lucky returned SAT. The isolated portable
@@ -200,6 +207,27 @@ session narrative; this file is only the current resume surface.
   The residual accepted 10.733/7.728-second gap is therefore downstream or
   throughput-owned, not an immediate post-Factor-repair strategy divergence.
   Extend the frontier only with bounded source-backed windows; preserve N1--N4.
+- **Active Rank-32 memory localization:** accepted-source `20260827-1130`
+  proves retained inprocessing allocation owns the 566,348-KiB peak; rejected
+  BVE-scratch `1140` saves only 7,808 KiB and is reverted/unpromoted. Capacity
+  and allocator runs `1200`/`1210` are valid, proof-verified, zero-residue, and
+  trajectory-identical. Late allocation is 333,394 KiB used heap, 127,957 KiB
+  free heap, and 92,412 KiB mmap; retention matters, but used plus mmap remains
+  425--450 MiB versus Kissat's 299,988-KiB peak. Persistent-owner `1225` names
+  267.56 MiB late: reconstruction 86.37 MiB, clause aliases 45.37 MiB, and proof
+  indices 35.29 MiB lead. Dense-owner replacement `1245`/job `1652473` is valid
+  UNSAT/proof-verified/zero-residue and exact outside telemetry; the separate
+  dense occurrence index adds 84.44 MiB late, leaving a stable 63.8 MiB gap.
+  Its failed `1240` scaffold is frozen pre-solver/non-scorable with no reuse.
+  Policy-owner `1300`/job `1652474` is valid/proof-verified/zero-residue and
+  names only 13.31 MiB. Dense-allocation `1315`/job `1652475` is valid/proof-
+  verified/zero-residue and exact outside telemetry: 834,922 allocations use
+  92.86 MiB, 8.42 MiB above requested dense capacity. Reconstruction capacity
+  rounding can save at most 22.37 MiB (~4% peak); defer both it and a riskier
+  flat dense rewrite behind the five SAT timeout losses at ranks 15/16/19/23/36.
+  Every diagnostic uses `-c 12`/48,000 MB, no address-space cap, constraint,
+  exclusivity, or throttle, plus the 16,000-second checker; none reopens the
+  rejected Congruence lead or supplies timing evidence.
 - `.claude/worktrees/tierd-next10` is the sole historical secondary worktree
   and remains clean. The interactive shell allocation is not a solver campaign.
 

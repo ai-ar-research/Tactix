@@ -70,6 +70,12 @@ public:
     return rule < arms.size() ? arms[rule] : CandidateOrder::Native;
   }
   void reset(uint64_t seed) { rng_ = increment_ = seed; }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  size_t diagnostic_storage_bytes() const {
+    return arms.capacity() * sizeof(CandidateOrder) +
+           scratch_.capacity() * sizeof(std::pair<uint64_t, uint64_t>);
+  }
+#endif
 
 private:
   std::vector<std::pair<uint64_t, uint64_t>> scratch_;
@@ -204,6 +210,14 @@ public:
   ArenaOrdering *arena_ordering() { return &default_arena_order_; }
   void pose_initialized(bool value = true) { initialized_ = value; }
   bool initialized() const { return initialized_; }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  size_t diagnostic_non_dense_storage_bytes() const {
+    return entries.capacity() * sizeof(SlotEntry) +
+           default_candidate_order_.diagnostic_storage_bytes() +
+           payloads_.capacity() * sizeof(uint64_t) +
+           order_before_.capacity() * sizeof(uint64_t);
+  }
+#endif
 
 private:
   const DefaultStrategyConfig::Inprocess &config() const;

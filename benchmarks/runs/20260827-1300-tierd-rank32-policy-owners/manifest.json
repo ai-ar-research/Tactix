@@ -1,0 +1,99 @@
+{
+  "schema": "tactix-tierd-rank32-policy-owners-v1",
+  "created_at": "2026-08-27T16:57:39Z",
+  "status": "terminal-valid-diagnostic",
+  "submitted_at": "2026-08-27T16:58:41Z",
+  "scoring": false,
+  "promotion_status": "trace-only diagnostic over accepted source; no solver repair",
+  "purpose": "Close the stable approximately 64-MiB gap remaining after persistent kernel and dense occurrence capacities by measuring retained reduction and non-dense inprocessing policy buffers.",
+  "hypothesis": "Retained reduction candidates plus inprocessing payload, pre-order, and candidate-order scratch explain most of the remaining allocator-used-plus-mmap allocation.",
+  "pass_criterion": "The accepted logical trajectory remains unchanged, the UNSAT proof verifies independently, policy buffer capacities are present at every in-phase slot boundary, and certificate plus scratch residue is zero.",
+  "input": {
+    "path": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+    "sha256": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+    "expected": "UNSAT",
+    "rank": 32
+  },
+  "input_sha256": {
+    "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3"
+  },
+  "predecessor": {
+    "dense_owner_campaign": "benchmarks/runs/20260827-1245-tierd-rank32-dense-owner",
+    "dense_owner_result_sha256": "2af9c43a2a1aae7f552e41f978058d52a8d78782842aaf229fe6d4752b392a93",
+    "dense_owner_slots_sha256": "a37277a04793e9631bcc280973fa2ba83ae47c6b37ad4071afdc3bb7d7e778c3"
+  },
+  "closed_mechanism": {
+    "campaign": "benchmarks/runs/20260827-0760-BC-rank32-congruence-admission-guard",
+    "disposition": "rejected and reverted under N4; this diagnostic changes no admission or behavior"
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "760dafd3c79e62a2cd878c22d20788f1988ac450dd8d60dd5072b8f27e24e664",
+      "source_commit": "35aca7326a4e15da48f50335e04c1fd9cc677c19",
+      "build": "Release with TACTIX_ENABLE_EVENT_TRACE=ON and persistent, dense, plus policy-owner trace fields",
+      "accepted_release_sha256": "26430a9dfa2d283c1755ac64067a6fbcbcc1de23686374873cb71f9977f34845",
+      "diagnostic_source_diff_sha256": "1c1f8072761a3d5c42954bc9fa3abc62cd78d2eb911d55e4f054096644bc7967",
+      "diagnostic_source_file_sha256": {
+        "src/diagnostics/event_trace.cpp": "531c4979e946b34101c9ffbd446a3cd9929c713ff55433af8019999f482eb839",
+        "src/kernel/kernel.hpp": "5b55d1cfd571b5151efb00e4e9ea31d70eeadaa3add9dcc91fcd061bd2b2d2a6",
+        "src/policies/default_inprocess.hpp": "e8ca054dd59b549b6fb245568a089edb45a2ceebec4ba5778a4c9daa1cf5f0df",
+        "src/policies/default_policy.cpp": "d0f93c7f948a6cde884f65788c54b5c6c5c1948cd4378ce7199ca6fd527b41f8"
+      }
+    },
+    "checkmodel": {"path": "pins/checkmodel", "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"},
+    "modelcheck.py": {"path": "pins/modelcheck.py", "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"},
+    "drat-trim": {"path": "pins/drat-trim", "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"}
+  },
+  "shared_runner": {
+    "path": "../20260827-0100-tierd-ranks1-40-slurm-memory-screen/run-one.py",
+    "sha256": "10b1605ca06e48641da3c1115ccf2bf5c1cd2846a940525fc994f51c95c59385"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0",
+    "array_throttle": null,
+    "node_constraint": null,
+    "whole_node_exclusive": false,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "proof_checker_timeout_seconds": 16000,
+    "proof_mode": "DRAT production with independent drat-trim verification"
+  },
+  "slurm": {"array_job": 1652474},
+  "terminal_evidence": {
+    "result_sha256": "7c5b7d4a019a6dff82cbb2dc8bc3658dc51c29d71fd390f5dd7d6cc3fb72ab4a",
+    "slots_sha256": "08bfe2dd99090fa261d4c041ee0cc204aa9b849686211cee8b6b3a154f6a49c4",
+    "classification": "valid UNSAT with independently verified DRAT proof and zero certificate or scratch residue",
+    "solve_seconds": 527.024,
+    "peak_rss_kib": 566344,
+    "checker_seconds": 124.554,
+    "policy_capacity_bytes": {
+      "reduction": 146332,
+      "inprocess_non_dense": 13806994,
+      "total": 13953326,
+      "total_mib": 13.307
+    },
+    "remaining_unattributed_mib": {
+      "late_factor_end": 50.520,
+      "largest_sampled_live_rss_bve_end": 50.377
+    },
+    "trajectory_validation": "After removing resource, dense, and policy telemetry fields, all 2,640 slot records are byte-identical to the dense-owner predecessor; normalized Congruence and Substitute traces are also byte-identical.",
+    "interpretation": "Retained policy buffers explain only 13.31 MiB. The stable approximately 50.5-MiB remainder is now bounded to allocator rounding/metadata for many dense per-literal vectors, uninstrumented process baseline, and smaller owners. Runtime is trace-instrumented diagnostic evidence only."
+  },
+  "local_validation": {
+    "event_trace_ctest": "75/75 PASS",
+    "manifest_preflight": "required input_sha256 map present and exact",
+    "accepted_solver_source_diff": "diagnostic-only storage accessors and fields in kernel/policy headers plus trace assignments and emission; no release behavior change"
+  },
+  "harness_sha256": {
+    "array.sbatch": "a089cef31a3fc7be56a597558e766bf87d0ac6fd09a0c13085bb98c82b87e9b8",
+    "matrix.tsv": "0c8aeacfa3865243d92bb30eac56b77b2709131e6f5719972ccb246c2231cc49",
+    "run-one.py": "05279a98dabb99d0d0d18bb93f33d06a441e293235446294df013db4530bc59d"
+  }
+}
