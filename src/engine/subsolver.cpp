@@ -272,10 +272,24 @@ void SubSolver::randomize_phases() {
   uint32_t i = 0;
   const uint32_t blocks = phase_capacity_vars_ & ~63u;
   while (i != blocks) {
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    // Match Kitten's eight word stores.  Every byte in word 'bit' receives
+    // that bit from the corresponding byte of the random word.  memcpy keeps
+    // the stores alignment-safe for vector<uint8_t> while giving the compiler
+    // the same fixed-width expansion opportunity as upstream Kitten.
+    constexpr uint64_t BYTE_LOW_BITS = 0x0101010101010101ull;
+    uint64_t expanded[8];
+    for (uint32_t bit = 0; bit < 8; bit++)
+      expanded[bit] = (random >> bit) & BYTE_LOW_BITS;
+    std::memcpy(phase_.data() + i, expanded, sizeof expanded);
+#else
+    // Preserve the architecture-independent scalar mapping where native word
+    // byte order does not match the representation used by Kitten's fast path.
     for (uint32_t bit = 0; bit < 8; bit++)
       for (uint32_t byte = 0; byte < 8; byte++)
         phase_[i + 8 * bit + byte] =
             static_cast<uint8_t>((random >> (bit + 8 * byte)) & 1u);
+#endif
     random = next_kitten_random();
     i += 64;
   }

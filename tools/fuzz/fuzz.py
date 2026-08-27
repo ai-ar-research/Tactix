@@ -40,7 +40,12 @@ import tempfile
 import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(os.path.dirname(HERE))
+# slurm.sh executes this file from a read-only build/pin-fuzz-harness-*/fuzz
+# snapshot, where the two-dirname derivation would name <repo>/build instead
+# of the repository; the wrappers export TACTIX_REPO_ROOT for that layout,
+# and the live tools/fuzz layout still works without it.
+ROOT = os.environ.get("TACTIX_REPO_ROOT") or os.path.dirname(
+    os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from generators import generate, parse_dimacs, write_dimacs  # noqa: E402
 from modelcheck import check_files  # noqa: E402
