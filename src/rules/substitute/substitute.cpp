@@ -507,10 +507,13 @@ bool dense_replace_first(std::vector<Ref> &occ, Ref from, Ref to) {
 // unindexed, or already shadowed by its binary image.
 SweepSubstitutionSession::DenseOccurrence *
 SweepSubstitutionSession::find_large(const Kernel &k, Lit lit, Ref ref) {
-  if (!dense_enabled || lit >= dense_occurrences.size())
+  if (!dense_enabled)
     return nullptr;
-  assert(dense_initialized[lit] &&
+  const auto found = dense_occurrences.find(lit);
+  assert(found != dense_occurrences.end() && found->second.initialized &&
          "sweep ledger stream materialized after the kernel rewrite");
+  if (found == dense_occurrences.end() || !found->second.initialized)
+    return nullptr;
   std::vector<DenseOccurrence> &ordered = occurrences(k, lit);
   for (DenseOccurrence &occurrence : ordered)
     if (!occurrence.binary && occurrence.payload == ref)
@@ -523,7 +526,7 @@ void SweepSubstitutionSession::erase_large(const Kernel &k, Lit lit, Ref ref) {
   DenseOccurrence *const at = find_large(k, lit, ref);
   if (!at)
     return;
-  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit].entries;
   ordered.erase(ordered.begin() + (at - ordered.data()));
 }
 
@@ -534,28 +537,25 @@ void SweepSubstitutionSession::begin(const Kernel &k) {
   latest.clear();
   reset_transaction();
   for (const Lit lit : dense_initialized_lits) {
-    dense_occurrences[lit].clear();
-    dense_initialized[lit] = 0;
+    DenseOccurrenceList &list = dense_occurrences[lit];
+    list.entries.clear();
+    list.initialized = false;
   }
   dense_initialized_lits.clear();
   dirty_binary_owners.clear();
   dense_enabled = k.dense;
-  const size_t nlits = 2 * static_cast<size_t>(k.nvars);
-  if (dense_occurrences.size() < nlits)
-    dense_occurrences.resize(nlits);
-  if (dense_initialized.size() < nlits)
-    dense_initialized.resize(nlits);
 }
 
 std::vector<SweepSubstitutionSession::DenseOccurrence> &
 SweepSubstitutionSession::occurrences(const Kernel &k, Lit lit) {
   assert(dense_enabled && k.dense);
-  assert(lit < dense_occurrences.size());
-  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
-  if (dense_initialized[lit])
+  assert(lit < 2 * static_cast<size_t>(k.nvars));
+  DenseOccurrenceList &list = dense_occurrences[lit];
+  std::vector<DenseOccurrence> &ordered = list.entries;
+  if (list.initialized)
     return ordered;
   assert(ordered.empty());
-  dense_initialized[lit] = 1;
+  list.initialized = true;
   dense_initialized_lits.push_back(lit);
   ordered.reserve(k.watches.size(lit) + k.dense->large[lit].size());
   for (const WatchEntry watch : k.watches.entries(lit))
@@ -617,8 +617,7 @@ void SweepSubstitutionSession::sync_new_binaries(
   // neighbors is therefore redundant and can turn a local equivalence into a
   // near-whole-formula scan on a high-degree graph.
   for (const Lit lit : touched) {
-    if (lit >= dense_occurrences.size())
-      continue;
+    assert(lit < 2 * static_cast<size_t>(k.nvars));
     // The watch lists are the authority on which binaries exist; the ledger
     // only adds Kissat's dense stream order on top of them. Reconcile both
     // directions so the two agree exactly afterwards. The physical sub-list can
@@ -672,7 +671,7 @@ void SweepSubstitutionSession::sync_new_binaries(
 
 void SweepSubstitutionSession::purge_stale_binaries(
     Lit lit, std::unordered_map<Lit, size_t> &unmatched) {
-  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit];
+  std::vector<DenseOccurrence> &ordered = dense_occurrences[lit].entries;
   size_t kept = 0;
   for (const DenseOccurrence occurrence : ordered) {
     if (occurrence.binary) {

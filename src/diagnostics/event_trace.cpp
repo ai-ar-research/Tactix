@@ -13,10 +13,46 @@
 #include <unordered_map>
 #include <vector>
 
+#include <sys/resource.h>
+
 namespace tactix {
 namespace {
 
 EventTrace *active_trace;
+
+void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
+  static bool initialized = false;
+  static FILE *out = nullptr;
+  if (!initialized) {
+    initialized = true;
+    const char *path = std::getenv("TACTIX_SLOT_MEMORY_TRACE");
+    if (path && *path) {
+      out = std::fopen(path, "w");
+      if (out)
+        std::setvbuf(out, nullptr, _IOLBF, 0);
+    }
+  }
+  if (!out)
+    return;
+  rusage usage{};
+  getrusage(RUSAGE_SELF, &usage);
+  unsigned long vm_kib = 0, current_rss_kib = 0;
+  if (FILE *status = std::fopen("/proc/self/status", "r")) {
+    char line[256];
+    while (std::fgets(line, sizeof line, status)) {
+      std::sscanf(line, "VmSize: %lu kB", &vm_kib);
+      std::sscanf(line, "VmRSS: %lu kB", &current_rss_kib);
+    }
+    std::fclose(status);
+  }
+  std::fprintf(out,
+               "%s\t%s\tmax_rss_kib=%ld\tcurrent_rss_kib=%lu\t"
+               "vm_kib=%lu\tvars=%u\tarena_words=%zu\twatch_words=%zu\t"
+               "watch_capacity=%zu\n",
+               name, stage, usage.ru_maxrss, current_rss_kib, vm_kib, k.nvars,
+               k.arena.size(), k.watches.arena.size(),
+               k.watches.arena.capacity());
+}
 
 struct BinaryLifecycleState {
   bool initialized = false;
@@ -1371,6 +1407,7 @@ void EventTrace::slot_boundary(const Kernel &k, const char *name,
 
 void event_trace_slot_boundary(const Kernel &k, const char *name,
                                const char *stage) {
+  trace_slot_memory(k, name, stage);
   if (active_trace)
     active_trace->slot_boundary(k, name, stage);
 }

@@ -178,25 +178,87 @@ public:
   }
 };
 
-// Optional exact live-pair index for phases that make many binary-membership
-// queries.  BinaryIdMap cannot serve this role because proof identities are
-// deliberately retained after deletion.  Keep the common storage compact and
-// record only the usually-small deleted overlay; a re-add clears its tombstone.
+// Optional no-false-negative prefilter for phases that make many binary
+// membership queries. The watch lists remain the exact liveness authority;
+// stale bits after deletion can only cause an exact fallback scan. This avoids
+// duplicating every live pair in another full-key hash table.
 class BinaryLivenessIndex {
-  BinaryIdMap present_;
-  std::unordered_set<uint64_t> deleted_;
+  std::vector<uint64_t> bits_;
+  uint64_t mask_ = 0;
+
+  static uint64_t hash(uint64_t x) {
+    x += UINT64_C(0x9e3779b97f4a7c15);
+    x = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+    x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
+    return x ^ (x >> 31);
+  }
+  bool bit(uint64_t position) const {
+    return bits_[position >> 6] & (UINT64_C(1) << (position & 63));
+  }
+  void set_bit(uint64_t position) {
+    bits_[position >> 6] |= UINT64_C(1) << (position & 63);
+  }
 
 public:
-  BinaryLivenessIndex() { present_.discard_values(); }
-  void reserve(size_t entries) { present_.reserve(entries); }
-  bool count(uint64_t key) const {
-    return present_.count(key) && !deleted_.count(key);
+  void reserve(size_t entries) {
+    uint64_t target = 64;
+    assert(entries <= UINT64_MAX / 4);
+    const uint64_t requested = 4 * static_cast<uint64_t>(entries);
+    while (target < requested) {
+      assert(target <= UINT64_MAX / 2);
+      target <<= 1;
+    }
+    bits_.assign(static_cast<size_t>(target >> 6), 0);
+    mask_ = target - 1;
+  }
+  bool maybe(uint64_t key) const {
+    if (bits_.empty())
+      return true;
+    const uint64_t first = hash(key);
+    const uint64_t step = hash(key ^ UINT64_C(0xd6e8feb86659fd93)) | 1u;
+    return bit(first & mask_) && bit((first + step) & mask_) &&
+           bit((first + 2 * step) & mask_);
   }
   void add(uint64_t key) {
-    present_.insert_or_assign(key, 1);
-    deleted_.erase(key);
+    if (bits_.empty())
+      return;
+    const uint64_t first = hash(key);
+    const uint64_t step = hash(key ^ UINT64_C(0xd6e8feb86659fd93)) | 1u;
+    set_bit(first & mask_);
+    set_bit((first + step) & mask_);
+    set_bit((first + 2 * step) & mask_);
   }
-  void remove(uint64_t key) { deleted_.insert(key); }
+  void remove(uint64_t) {}
+};
+
+// Direct clause-order lookup without committing the empty ID prefix below the
+// first inherited replacement. Fixed pages retain exact O(1) lookup while
+// materializing only pages which contain aliases.
+class ClauseOrderAliases {
+  static constexpr unsigned PAGE_SHIFT = 12;
+  static constexpr size_t PAGE_SIZE = size_t{1} << PAGE_SHIFT;
+  static constexpr size_t PAGE_MASK = PAGE_SIZE - 1;
+  std::vector<std::vector<uint64_t>> pages_;
+
+public:
+  uint64_t get(uint64_t id) const {
+    const uint64_t page64 = id >> PAGE_SHIFT;
+    if (page64 >= pages_.size())
+      return 0;
+    const auto &page = pages_[static_cast<size_t>(page64)];
+    return page.empty() ? 0 : page[static_cast<size_t>(id) & PAGE_MASK];
+  }
+  void set(uint64_t id, uint64_t value) {
+    const uint64_t page64 = id >> PAGE_SHIFT;
+    assert(page64 < SIZE_MAX);
+    const size_t page_index = static_cast<size_t>(page64);
+    if (page_index >= pages_.size())
+      pages_.resize(page_index + 1);
+    auto &page = pages_[page_index];
+    if (page.empty())
+      page.resize(PAGE_SIZE, 0);
+    page[static_cast<size_t>(id) & PAGE_MASK] = value;
+  }
 };
 
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -758,7 +820,7 @@ struct Kernel {
   // appended while Kissat shortens in place, so its new id stores the source
   // key here. Zero means identity. Reference-ordered scans are hot and mostly
   // sequential; a direct image avoids a hash probe for every ordinary clause.
-  std::vector<uint64_t> clause_order_alias;
+  ClauseOrderAliases clause_order_alias;
   WatchLists watches;
   ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
@@ -1204,7 +1266,7 @@ inline uint64_t kernel_binary_key(Lit a, Lit b);
 inline uint32_t kernel_binary_copies(const Kernel &k, Lit a, Lit b,
                                      uint32_t cap = UINT32_MAX) {
   uint32_t n = 0;
-  const bool stop_at_large = k.watches.heads[a].binaries_first;
+  const bool stop_at_large = k.watches.heads[a].binaries_first();
   for (const WatchEntry w : k.watches.entries(a)) {
     if (!w.binary()) {
       if (stop_at_large)
@@ -1217,8 +1279,13 @@ inline uint32_t kernel_binary_copies(const Kernel &k, Lit a, Lit b,
   return n;
 }
 inline bool kernel_binary_live(const Kernel &k, Lit a, Lit b) {
-  if (k.binary_liveness)
-    return k.binary_liveness->count(kernel_binary_key(a, b));
+  if (k.binary_liveness &&
+      !k.binary_liveness->maybe(kernel_binary_key(a, b)))
+    return false;
+  // Mirror symmetry makes either endpoint authoritative. Scan the smaller
+  // exact population after the prefilter admits a possible hit.
+  if (k.watches.binary_size(b) < k.watches.binary_size(a))
+    std::swap(a, b);
   return kernel_binary_copies(k, a, b, 1) == 1;
 }
 

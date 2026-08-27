@@ -637,8 +637,8 @@ static void test_binary_extraction_from_mixed_watch_lists() {
   kernel_add_large_clause(k, second, 3, false, 0, ++k.next_clause_id);
   kernel_add_binary_clause(k, negate(a), b, ++k.next_clause_id);
   kernel_add_binary_clause(k, negate(c), b, ++k.next_clause_id);
-  assert(!k.watches.heads[negate(a)].binaries_first);
-  assert(!k.watches.heads[negate(c)].binaries_first);
+  assert(!k.watches.heads[negate(a)].binaries_first());
+  assert(!k.watches.heads[negate(c)].binaries_first());
 
   (void)congruence_apply(k);
   assert(kernel_binary_live(k, b, x));

@@ -327,7 +327,7 @@ static void test_binary_meter_charges_scanned_prefix() {
   for (unsigned i = 0; i < 40; i++)
     kernel_add_large_clause(k, large, 3, false, 0);
   kernel_collect_garbage(k);
-  assert(k.watches.heads[internalize(-1)].binaries_first);
+  assert(k.watches.heads[internalize(-1)].binaries_first());
 
   const uint64_t before = k.stats.ticks;
   kernel_assign_decision(k, internalize(1));
@@ -344,7 +344,7 @@ static void test_binary_meter_charges_first_large_word() {
   kernel_reserve_vars(k, 3);
   const Lit large[3] = {internalize(-1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, large, 3, false, 0);
-  assert(k.watches.heads[internalize(-1)].binaries_first);
+  assert(k.watches.heads[internalize(-1)].binaries_first());
 
   const uint64_t before = k.stats.ticks;
   kernel_assign_decision(k, internalize(1));
@@ -381,8 +381,8 @@ static void test_binary_order_is_per_list() {
 
   const Lit affected = internalize(-1);
   const Lit unaffected = internalize(-5);
-  assert(!k.watches.heads[affected].binaries_first);
-  assert(k.watches.heads[unaffected].binaries_first);
+  assert(!k.watches.heads[affected].binaries_first());
+  assert(k.watches.heads[unaffected].binaries_first());
 
   kernel_assign_decision(k, internalize(1));
   assert(!kernel_propagate_binary(k));

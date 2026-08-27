@@ -295,9 +295,8 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 }
 
 uint64_t kernel_clause_order(const Kernel &k, uint64_t id) {
-  if (id < k.clause_order_alias.size() && k.clause_order_alias[id])
-    return k.clause_order_alias[id];
-  return id;
+  const uint64_t alias = k.clause_order_alias.get(id);
+  return alias ? alias : id;
 }
 
 void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
@@ -309,10 +308,8 @@ void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
   // id-less clause (vivify.cpp VivifyArenaOrder::order).
   if (!replacement_id || !source_id)
     return;
-  assert(replacement_id < SIZE_MAX);
-  if (replacement_id >= k.clause_order_alias.size())
-    k.clause_order_alias.resize(static_cast<size_t>(replacement_id) + 1, 0);
-  k.clause_order_alias[replacement_id] = kernel_clause_order(k, source_id);
+  k.clause_order_alias.set(replacement_id,
+                           kernel_clause_order(k, source_id));
 }
 
 static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
@@ -1311,8 +1308,8 @@ static void probing_snapshot_list(Kernel &k, Lit l) {
   const WatchHead &h = k.watches.heads[l];
   const uint32_t *const b = k.watches.arena.data() + h.offset;
   lg.lists.push_back({l, static_cast<uint32_t>(lg.words.size()), h.size,
-                      k.watches.binary_size(l), h.has_large,
-                      h.binaries_first});
+                      k.watches.binary_size(l), h.has_large(),
+                      h.binaries_first()});
   lg.words.insert(lg.words.end(), b, b + h.size);
   // S3: snapshot traffic is real memory work — charge it to the tick
   // currency (same cache-line unit as the scan at :602) so the effort
@@ -1492,7 +1489,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
   // no snapshot needed here: q != begin + size only if an entry was dropped
   // above, and every drop site snapshots first
   const uint64_t words_after = q - begin;
-  k.watches.truncate(not_lit, static_cast<uint32_t>(words_after));
+  k.watches.truncate_large(not_lit, static_cast<uint32_t>(words_after));
   flush_delayed<RECORD>(k);
   if constexpr (!RECORD)
     event_trace_watch_scan_post(k, lit);
@@ -1561,7 +1558,7 @@ static bool propagate_literal_binary(Kernel &k, Lit lit,
   // entries this scan would skip one at a time. Sound because it drops nothing
   // a full scan would have read — this list's bit says no binary follows a
   // large entry.
-  const bool stop_early = k.watches.heads[not_lit].binaries_first;
+  const bool stop_early = k.watches.heads[not_lit].binaries_first();
   // Residual pricing (Stats::binprop_*): on the scans the flag did NOT cover,
   // `ordered` records whether the list was in fact binary-first anyway (what a
   // per-LIST order bit would add over the reference's single global flag) and
@@ -1667,9 +1664,8 @@ void kernel_probing_end(Kernel &k) {
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
       WatchHead &h = k.watches.heads[s.lit];
       h.size = s.size;
-      k.watches.binary_counts[s.lit] = s.binaries;
-      h.has_large = s.has_large;
-      h.binaries_first = s.binaries_first;
+      h.set_layout(s.binaries, s.binaries_first);
+      assert(h.has_large() == s.has_large);
       kernel_charge_ticks(k, 1 + kernel_cache_lines(s.size));
     }
   }
@@ -2156,12 +2152,9 @@ void kernel_resume_walk_watches(Kernel &k) {
   k.watches.holes = 0;
   for (WatchHead &head : k.watches.heads)
     head = WatchHead{};
-  std::fill(k.watches.binary_counts.begin(), k.watches.binary_counts.end(), 0);
   for (const auto &[a, b] : binaries) {
-    k.watches.heads[a].size++;
-    k.watches.heads[b].size++;
-    k.watches.binary_counts[a]++;
-    k.watches.binary_counts[b]++;
+    k.watches.heads[a].add_binary_word();
+    k.watches.heads[b].add_binary_word();
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
@@ -2169,8 +2162,8 @@ void kernel_resume_walk_watches(Kernel &k) {
     if (!c->garbage()) {
       sort_clause_watches_like_kissat(k, c);
       c->searched = 2;
-      k.watches.heads[c->lits[0]].size += 2;
-      k.watches.heads[c->lits[1]].size += 2;
+      k.watches.heads[c->lits[0]].add_large_words();
+      k.watches.heads[c->lits[1]].add_large_words();
     }
     ref += words;
   }
@@ -2201,8 +2194,8 @@ void kernel_resume_walk_watches(Kernel &k) {
       push_word(first, ref);
       push_word(second, blocking_watch(first).raw);
       push_word(second, ref);
-      k.watches.heads[first].has_large = true;
-      k.watches.heads[second].has_large = true;
+      assert(k.watches.heads[first].has_large());
+      assert(k.watches.heads[second].has_large());
     }
     ref += words;
   }
@@ -2296,12 +2289,9 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   k.watches.holes = 0;
   for (WatchHead &head : k.watches.heads)
     head = WatchHead{};
-  std::fill(k.watches.binary_counts.begin(), k.watches.binary_counts.end(), 0);
   for (const auto &binary : binaries) {
-    k.watches.heads[binary.first].size++;
-    k.watches.heads[binary.second].size++;
-    k.watches.binary_counts[binary.first]++;
-    k.watches.binary_counts[binary.second]++;
+    k.watches.heads[binary.first].add_binary_word();
+    k.watches.heads[binary.second].add_binary_word();
   }
   if (binary_suffix)
     for (const auto &[a, b] : *binary_suffix) {
@@ -2314,8 +2304,8 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     if (!c->garbage()) {
       sort_clause_watches_like_kissat(k, c);
       c->searched = 2;
-      k.watches.heads[c->lits[0]].size += 2;
-      k.watches.heads[c->lits[1]].size += 2;
+      k.watches.heads[c->lits[0]].add_large_words();
+      k.watches.heads[c->lits[1]].add_large_words();
     }
     ref += words;
   }
@@ -2362,8 +2352,8 @@ void kernel_canonicalize_binary_watches(Kernel &k,
       push_word(first, ref);
       push_word(second, blocking_watch(first).raw);
       push_word(second, ref);
-      k.watches.heads[first].has_large = true;
-      k.watches.heads[second].has_large = true;
+      assert(k.watches.heads[first].has_large());
+      assert(k.watches.heads[second].has_large());
     }
     ref += words;
   }
@@ -3058,7 +3048,7 @@ void kernel_check_invariants(const Kernel &k) {
   // A set per-list order bit permits the binary propagator's early break.
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     uint32_t binaries = 0;
-    if (k.watches.heads[lit].binaries_first) {
+    if (k.watches.heads[lit].binaries_first()) {
       bool large = false;
       for (const WatchEntry w : k.watches.entries(lit)) {
         if (w.binary()) {

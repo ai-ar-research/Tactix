@@ -30,8 +30,38 @@ inline Watch blocking_watch(Lit blocking) { return {blocking << 1}; }
 
 struct WatchHead {
   uint32_t offset = 0, size = 0, capacity = 0;
-  bool has_large = false;
-  bool binaries_first = true;
+  // `size = binaries + 2 * large_entries`, so the low bit of the exact
+  // binary population is already determined by `size`. Reuse that redundant
+  // bit for the only independent order flag and keep a full-width count.
+  uint32_t binary_count_and_order = 0;
+
+  uint32_t binary_count() const {
+    return (binary_count_and_order & ~uint32_t{1}) | (size & 1u);
+  }
+  bool binaries_first() const { return !(binary_count_and_order & 1u); }
+  bool has_large() const { return binary_count() != size; }
+
+  void set_layout(uint32_t binaries, bool first = true) {
+    assert(binaries <= size);
+    assert(!((size - binaries) & 1u));
+    binary_count_and_order =
+        (binaries & ~uint32_t{1}) | static_cast<uint32_t>(!first);
+  }
+  void set_binaries_first(bool first) { set_layout(binary_count(), first); }
+  void add_binary_word() {
+    const uint32_t binaries = binary_count();
+    const bool first = binaries_first();
+    assert(size < UINT32_MAX && binaries < UINT32_MAX);
+    size++;
+    set_layout(binaries + 1, first);
+  }
+  void add_large_words() {
+    const uint32_t binaries = binary_count();
+    const bool first = binaries_first();
+    assert(size <= UINT32_MAX - 2);
+    size += 2;
+    set_layout(binaries, first);
+  }
 };
 static_assert(sizeof(WatchHead) == 16,
               "hot watch heads must remain four words");
@@ -81,21 +111,14 @@ struct WatchRange {
 struct WatchLists {
   std::vector<uint32_t> arena;
   std::vector<WatchHead> heads; // by lit
-  // Exact entry counts live beside, rather than inside, the hot 16-byte heads:
-  // forward needs O(1) populations, while propagation benefits from compact
-  // headers and never reads this side image.
-  std::vector<uint32_t> binary_counts; // by lit; `WatchHead::size` is words
   uint64_t holes = 0;           // dead words left by relocations
 
-  void resize_lits(size_t nlits) {
-    heads.resize(nlits);
-    binary_counts.resize(nlits);
-  }
+  void resize_lits(size_t nlits) { heads.resize(nlits); }
 
   uint32_t *begin(Lit l) { return arena.data() + heads[l].offset; }
   uint32_t *end(Lit l) { return begin(l) + heads[l].size; }
   uint32_t size(Lit l) const { return heads[l].size; }
-  uint32_t binary_size(Lit l) const { return binary_counts[l]; }
+  uint32_t binary_size(Lit l) const { return heads[l].binary_count(); }
 
   // Entry-aware read-only walk of l's list — the one iteration primitive every
   // reader outside the propagation engines goes through (§5.3 puts watch
@@ -131,10 +154,10 @@ struct WatchLists {
         p += bin ? 1 : 2;
       }
     }
-    truncate(l, static_cast<uint32_t>(q - b));
-    heads[l].has_large = has_large;
-    heads[l].binaries_first = binaries_first;
-    binary_counts[l] = binaries;
+    WatchHead &head = heads[l];
+    head.size = static_cast<uint32_t>(q - b);
+    head.set_layout(binaries, binaries_first);
+    assert(head.has_large() == has_large);
   }
 
   // Rewrite the clause reference of every retained large entry in place.
@@ -154,10 +177,15 @@ struct WatchLists {
     }
   }
 
-  // shrink after in-place compaction (capacity is retained and reused)
-  void truncate(Lit l, uint32_t n) {
-    assert(n <= heads[l].size);
-    heads[l].size = n;
+  // Shrink after dropping only large entries (capacity is retained and
+  // reused). Binary population and relative layout are unchanged.
+  void truncate_large(Lit l, uint32_t n) {
+    WatchHead &head = heads[l];
+    assert(n <= head.size);
+    const uint32_t binaries = head.binary_count();
+    const bool first = head.binaries_first();
+    head.size = n;
+    head.set_layout(binaries, first);
   }
 
   // Batch rebuild support. A caller that knows every forthcoming per-literal
@@ -214,15 +242,20 @@ struct WatchLists {
   }
   void push_binary(Lit l, Lit other) {
     WatchHead &h = heads[l];
-    if (h.has_large)
-      h.binaries_first = false;
+    const uint32_t binaries = h.binary_count();
+    bool first = h.binaries_first();
+    if (h.has_large())
+      first = false;
     push(l, binary_watch(other).raw);
-    binary_counts[l]++;
+    h.set_layout(binaries + 1, first);
   }
   void push_large(Lit l, Lit blocking, Ref ref) {
+    WatchHead &h = heads[l];
+    const uint32_t binaries = h.binary_count();
+    const bool first = h.binaries_first();
     push(l, blocking_watch(blocking).raw);
     push(l, ref);
-    heads[l].has_large = true;
+    h.set_layout(binaries, first);
   }
 
 private:

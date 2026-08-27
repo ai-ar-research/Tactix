@@ -49,22 +49,59 @@ session narrative; this file is only the current resume surface.
   or node constraint. Frozen scoring references are not rerun. Preserve and
   classify this campaign as dual-limit diagnostic evidence, but do not use its
   apparent early OOMs to select the next target.
-- **Active replacement screen:** frozen campaign
+- **Terminal replacement screen:** frozen campaign
   `benchmarks/runs/20260827-0100-tierd-ranks1-40-slurm-memory-screen/`, array
   `1651430`, and after-any classifier `1651464` rerun all 80 arms with the same
   accepted solvers, immutable inputs, and proof/model checks. Every independent
   task uses six physical/twelve logical CPUs, exactly `--mem=48000M`, 1,200
   seconds, no throttle or node constraint, and SLURM task-cgroup memory
-  enforcement only; there is no `RLIMIT_AS`. Results also record sampled
-  VmPeak/VmHWM. Frozen scoring references are not rerun.
-- **Next action:** classify both campaigns completely, require zero certificate
-  residue, and use only the replacement aggregate to choose the next memory or
-  runtime gap. Confirm any strict
-  16-GiB claim separately with two physical/four logical CPUs and
-  `--mem=16G`. The standing priority after current evidence is Rank 4, then
-  Rank 32; a genuine new Tactix memory solve loss takes precedence. Each solver
-  repair stays isolated and receives its required gate, Claude-owned fuzz
-  verdict, report, commit, and push before the next repair is promoted.
+  enforcement only; there is no `RLIMIT_AS`. All 80 results are classified:
+  Tactix/Kissat have 33/38 valid solves, six Tactix solve timeouts, and three
+  independently identified checker timeouts, with no correctness or
+  infrastructure failure and zero cleanup/certificate residue. The campaign
+  is globally non-scorable because of those invalid rows. Its validated UNSAT
+  pairs are diagnostic only; Rank 4 is 14.690/7.728 seconds and Rank 32 is
+  416.933/293.092 seconds. Summary SHA-256 is
+  `6973ac74261e08ea8677ad64ffaa277f38a9a47af86c668851a933ddd29ff396`.
+  Frozen scoring references were
+  not rerun.
+- **Rank-10 memory diagnostic:** frozen campaign
+  `benchmarks/runs/20260827-0130-tierd-rank10-current-memory-boundaries/`
+  (`1651511_0`) completed valid SAT/model-verified on node018 at 19,886,212 KiB
+  peak RSS with zero certificate residue. Matched historical/current boundaries
+  prove a +3,766,948-KiB representation regression at essentially identical
+  logical work and state. Persistent per-variable/order images account for the
+  parse delta; the dense clause-ID alias image accounts for about 856 MiB by
+  Congruence root end; the exact scoped binary-liveness hash adds about 898
+  MiB; and value/closure indices own the remainder. Authority:
+  `benchmarks/reports/2026-08-27-rank10-memory-regression-localization.md`.
+- **Next action:** freeze the newly accepted Rank-10 memory-layout pin, confirm
+  Rank 4 with three paired timing waves, and then localize its first portable
+  common-state divergence. The first three Rank-10 layout arms are valid and
+  zero-residue: A (`1651512`) peaks at 18,302,324 KiB, B (`1651513`) at
+  18,301,456 KiB, and C (`1651514`) at 18,067,072 KiB while preserving exact
+  recorded state and reducing Congruence internal time. Candidate C's
+  Congruence peak is below 16 GiB, but a later untraced owner is not; compiled-
+  only slot-boundary diagnostic `1651515` proves Sweep alone raises high-water
+  RSS by 1,364,212 KiB. Sparse-owner arm `1651516` is valid SAT/model-verified
+  and zero-residue at 16,704,284 KiB, preserving every recorded rule counter
+  while removing the formula-wide empty-vector header image. Strict Rank-10
+  candidate/current-Kissat confirmation array `1651517` is terminal valid and
+  zero-residue: Tactix is 95.633 seconds / 16,703,740 KiB and Kissat is 83.753
+  seconds / 15,348,204 KiB. A reviewed order-bit reclassification arm
+  `1651519` is valid but rejected under N4; the final rebuild exactly matches
+  the `1651517` binary. Complete strict B28+C5 array/aggregate
+  `1651521`/`1651587` is terminal PASS: 66/66 valid, 34 checked models and 32
+  verified proofs, zero loss/invalidity/residue, and candidate/predecessor
+  PAR-2 1,372.952/1,350.169 seconds (1.016874x). Claude's authoritative
+  terminal verdict for `20260827-0230-rank10-memory-layout-fuzz` is PASS: 81/81
+  corpus and 30,000/30,000 generated cases, 12,910 independently checked SAT
+  models, 10,812 accepted native LRAT proofs, direct reach for every changed
+  path, zero correctness/sanitizer failure, and zero residue. Rank 32 remains
+  next after Rank 4. A genuine new Tactix memory solve loss takes precedence.
+  Each solver repair stays isolated and receives its required gate,
+  Claude-owned fuzz verdict, report, commit, and push before the next repair is
+  promoted.
 - `.claude/worktrees/tierd-next10` is the sole historical secondary worktree
   and remains clean. The interactive shell allocation is not a solver campaign.
 
@@ -160,8 +197,6 @@ session narrative; this file is only the current resume surface.
   waves; whole-node exclusivity is prohibited.
 - 2026-08-26 — Current collection frequency is measured but deprioritized as a
   secondary cost; closed negative collection arms remain closed.
-- 2026-08-24 — Full Tier-D predecessor/current campaigns were canceled by user
-  direction, classified non-scorable, and cleaned to zero residue.
 
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism

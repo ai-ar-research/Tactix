@@ -98,13 +98,20 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // records as `Kernel::dense`. The ledger owns only the ORDER; the watch lists
   // and `Kernel::dense` own membership. A ledger that claims a clause the
   // formula does not hold puts a phantom clause into the next environment.
-  std::vector<std::vector<DenseOccurrence>> dense_occurrences;
+  struct DenseOccurrenceList {
+    std::vector<DenseOccurrence> entries;
+    bool initialized = false;
+  };
+  // Only literals reached by a Sweep environment need a unified stream.
+  // A dense vector-of-vectors committed 24 bytes for every physical literal
+  // before one stream was touched; sparse ownership retains the same per-list
+  // order and capacity without that formula-wide header image.
+  std::unordered_map<Lit, DenseOccurrenceList> dense_occurrences;
   // Kissat has no all-literals shadow build: it reads the one connected watch
   // stream when a literal is reached.  Tactix materializes the equivalent
   // binary-then-large view lazily and retains it only for literals touched in
   // this Sweep call.  The vector storage is retained across calls so giant
   // formulas do not repeatedly construct/destroy millions of empty vectors.
-  std::vector<uint8_t> dense_initialized;
   std::vector<Lit> dense_initialized_lits;
   bool dense_enabled = false;
   // Directed owners whose ordered binary substream was changed by the current

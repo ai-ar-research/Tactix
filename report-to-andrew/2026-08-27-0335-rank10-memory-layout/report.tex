@@ -1,0 +1,204 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.8in]{geometry}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{url}
+\setlist{nosep}
+\emergencystretch=3em
+\newcommand{\ok}{\textcolor{green!50!black}{PASS}}
+\newcommand{\code}[1]{\texttt{#1}}
+\title{Phase 4.25: Rank-10 Memory Convergence and Rank 1--40 Re-screen}
+\author{Tactix development report for Andrew}
+\date{27 August 2026}
+
+\begin{document}
+\maketitle
+
+\section{Outcome}
+
+The Rank-10 memory regression is repaired and has completed the full promotion
+evidence chain.  The accepted predecessor needed 19,886,212 KiB peak RSS on
+the immutable Rank-10 input under SLURM-only memory enforcement.  The final
+candidate needs 16,703,740 KiB, completes inside the strict 16-GiB task cgroup,
+and preserves the exact recorded Rank-10 logical work.  The current
+instrumented Kissat comparator uses 15,348,204 KiB, so the residual Tactix
+excess is 8.83\%; it is now attributable to general retained import/order
+structures rather than a duplicate formula-wide image.
+
+The complete B28+C5 gate and the one Claude-owned consolidation fuzz campaign
+both pass.  No correctness repair was needed.  The fresh Rank 1--40 screen is
+also terminal and shows no memory or infrastructure exit under the corrected
+SLURM-only contract.  It is not globally scorable because some solve and proof
+checks timed out, but its individually validated pairs support the already
+declared next order: Rank 4, then Rank 32.
+
+\section{Source-backed localization and repair}
+
+Matched boundary traces separated four representation owners from solver
+behavior.  The repairs are general and contain no benchmark identity, rank,
+deadline, or per-instance control.
+
+\begin{enumerate}
+  \item \textbf{Watch metadata.}  The exact full-width binary-watch count and
+  the independent binary-first bit now share the existing 16-byte watch head.
+  The encoding uses the identity
+  \(\mathrm{words}=\mathrm{binaries}+2\,\mathrm{large}\), so count parity is
+  already determined by word length.  All accepted conservative order-bit
+  states remain representable and unchanged; this is important for N4 cost and
+  scheduling parity.
+
+  \item \textbf{Clause-order aliases.}  A mostly empty vector indexed by the
+  global proof-ID space is replaced by fixed sparse pages.  Lookup remains
+  exact and constant-time, including inherited replacement order.
+
+  \item \textbf{Congruence liveness and closure.}  The duplicate full-key live
+  binary table is replaced by a no-false-negative bit filter.  Every admitted
+  query is confirmed against the authoritative smaller watch list, so stale
+  positives after deletion affect cost only.  The exact value-occurrence index
+  is built in the original registration order only when closure derives a unit
+  requiring rescheduling; no-unit rounds omit it.
+
+  \item \textbf{Sweep ledger.}  Sweep previously committed a 24-byte empty
+  vector header for every one of 97,010,928 physical literals before reaching
+  any environment.  The ledger is now keyed only by reached literal.  The map
+  is never iterated, and each retained list preserves the same encounter order
+  and contents.
+\end{enumerate}
+
+The compiled-only slot-memory diagnostic remains useful generic instrumentation
+and has zero Release-build effect.  Unit coverage includes full-width watch
+counts, conservative order-bit preservation, sparse alias lookup, liveness
+filter false-negative exclusion, lazy Congruence behavior, and sparse Sweep
+identity behavior.  All 76 Release tests pass, including proof, scheduling,
+N1 boundary, rule-policy boundary, cleanup, and zero-overhead checks.
+
+\section{Measured memory evidence}
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Candidate & Solve wall (s) & Peak RSS (KiB) & Congruence (s) \\
+\midrule
+Accepted current trace & 105.282 & 19,886,212 & 37.212 \\
+Paged aliases + packed watches & 104.937 & 18,302,324 & 37.423 \\
+Compact filter + exact watches & 101.833 & 18,301,456 & 34.469 \\
+Lazy value occurrences & 101.839 & 18,067,072 & 33.887 \\
+Sparse Sweep ledger & 101.031 & 16,704,284 & 33.586 \\
+Strict Release candidate & 95.633 & 16,703,740 & --- \\
+Strict current Kissat & 83.753 & 15,348,204 & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The strict pair is frozen at
+\path{benchmarks/runs/20260827-0430-tierd-rank10-strict-memory}; both SAT
+models were independently checked and all derived artifacts deleted.  The
+candidate has 73,476 KiB process-RSS headroom below 16 GiB.  Its exact
+Substitute, Sweep, and Congruence tick counts are 259,331,198, 1,387,386, and
+1,464,582,538, identical to the trace candidate.  Gate binary SHA-256 is
+\code{fb79c0d9...5d16}.
+
+The remaining accepted post-historical per-variable images total 13 bytes per
+physical variable (import rank, backbone priority, and two compact-import
+maps), about 601 MiB here.  That closely bounds the candidate's 584,476-KiB
+excess over the historical Tactix close.  The historical close itself was
+771,060 KiB above this current-Kissat run.  This provides the required general
+owner for the residual difference; it is not evidence of another accidental
+formula copy.
+
+\section{Correctness, gate, and fuzz evidence}
+
+The complete strict B28+C5 campaign is
+\path{benchmarks/runs/20260827-0530-BC-rank10-memory-layout-guard}, array
+1651521 and classifier 1651587.  Its summary SHA-256 is
+\code{2372ed64...f943e}.
+
+\begin{center}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+Gate measure & Predecessor & Candidate \\
+\midrule
+Valid tasks & 33/33 & 33/33 \\
+Checked SAT models & 17 & 17 \\
+Verified UNSAT DRAT proofs & 16 & 16 \\
+PAR-2 seconds & 1,350.169 & 1,372.952 \\
+Maximum RSS (GiB) & 2.914 & 2.843 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The candidate/predecessor PAR-2 ratio is 1.016874, below the 1.10 guard.  There
+is no solve loss, invalidity, cleanup failure, or certificate residue.
+
+Under the repository's exclusive fuzz-ownership rule, Claude prepared,
+submitted, monitored, interpreted, and cleaned campaign
+\path{benchmarks/runs/20260827-0230-rank10-memory-layout-fuzz}.  Claude's
+authoritative terminal verdict is \ok.  It reports:
+
+\begin{itemize}
+  \item 81/81 corpus replays and 30,000/30,000 generated cases;
+  \item 12,910 independently checked SAT models and 10,812 accepted native
+  LRAT proofs, with differential agreement on all 23,722 verdict cases;
+  \item 50 physical cores, 100 logical CPUs, 400,000 MiB, and 50 workers on
+  every generated leg;
+  \item source-counted Congruence, Substitute, and Sweep reach in every leg,
+  plus dedicated multi-case reach for packed watch truncation/order, liveness
+  reject/admit and endpoint swap, alias read/write, deferred and skipped
+  Congruence value occurrences, and sparse Sweep ledgers; and
+  \item zero crash, sanitizer/invariant finding, rejected model/proof,
+  unexplained disagreement, or certificate/scratch residue.
+\end{itemize}
+
+Two early prep jobs were explicitly classified as harness/reach-precondition
+issues rather than solver findings.  Corrected prep and all generated/reach
+legs completed.  Bounded generated nontermination carried no oracle claim; the
+sole corpus nontermination was pre-registered.  No Claude repair turn was
+triggered.
+
+\section{Rank 1--40 screen and limitations}
+
+The replacement screen at
+\path{benchmarks/runs/20260827-0100-tierd-ranks1-40-slurm-memory-screen}
+contains all 80 independent Tactix/current-Kissat tasks at \code{-c 12},
+\code{--mem=48000M}, 1,200 seconds, and no address-space limit.  It has zero
+correctness, infrastructure, cleanup, or certificate-residue failure.  There
+are six Tactix solve timeouts and three solved-UNSAT checker timeouts; therefore
+the complete campaign is correctly marked non-scorable rather than flattening
+those invalid rows into solver losses.  Summary SHA-256 is
+\code{6973ac74...ff396}.
+
+Individually validated diagnostic UNSAT pairs include Rank 4 at
+14.690/7.728 seconds (1.901x) and Rank 32 at 416.933/293.092 seconds (1.423x).
+Larger single-screen absolute gaps exist at Ranks 40 and 38, but the project
+owner's declared iteration order remains Rank 4 first because it permits fast
+exact-state iteration, then Rank 32.  No timing repair will be accepted from
+one screen: decision-grade claims require three paired waves and less than 2\%
+within-arm spread.
+
+The strict Rank-10 margin is narrow even though it is a real cgroup pass.
+Future changes must continue to treat memory as an independent acceptance
+dimension.  The residual general import/order structures may be revisited only
+with a source-backed equal-semantics alternative; they are not silently waived.
+
+\section{Next actions}
+
+\begin{enumerate}
+  \item Commit and push this isolated, gate- and fuzz-complete memory increment,
+  leaving the repository clean and synchronized.
+  \item Freeze the new accepted Tactix pin and run three independent paired
+  Rank-4 waves, one solver per task, at \code{-c 12 --mem=48000M}, preferably
+  on node018 when available.
+  \item Trace the earliest common-state point where Tactix performs the same
+  normalized work more slowly or produces weaker retained state.  Compare
+  exact order, ticks/cost, scheduling, learning, and pruning before changing
+  behavior.
+  \item If a general Rank-4 repair survives prefix/state checks, evaluate the
+  full instance and mechanism-relevant B+C set, then apply the standard full
+  gate and Claude-owned fuzz boundary.  Proceed to Rank 32 afterward.
+\end{enumerate}
+
+\end{document}

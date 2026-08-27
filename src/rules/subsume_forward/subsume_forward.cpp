@@ -147,7 +147,7 @@ static bool subsumed_by_binary(Kernel &k,
       continue;
     if (!watch_population_within(k, l, true, SUBSUME_BINLIM))
       continue;
-    const bool stop_at_large = k.watches.heads[l].binaries_first;
+    const bool stop_at_large = k.watches.heads[l].binaries_first();
     for (const WatchEntry w : k.watches.entries(l)) {
       if (!w.binary()) {
         if (stop_at_large)
