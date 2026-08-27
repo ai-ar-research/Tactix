@@ -150,13 +150,23 @@ session narrative; this file is only the current resume surface.
   Each solver repair stays isolated and receives its required gate,
   Claude-owned fuzz verdict, report, commit, and push before the next repair is
   promoted.
-- **Next action:** in the next session, rerun immutable ranks 1--40 from
-  accepted Tactix `3c3164d` and unchanged current Kissat. Use 80 independent
-  solver tasks (one invocation per task), `-c 12 --mem=48000M`, no
-  `RLIMIT_AS`, a 1,200-second solver limit, and independent model/proof
-  validation with zero residue. Select the largest verified UNSAT gap from
-  that fresh screen, then confirm it in three paired timing waves before
-  changing behavior. Do not reopen the rejected Rank-32 admission candidate.
+- **Canceled ranks 1--40 refresh:** campaign
+  `benchmarks/runs/20260827-0800-tierd-ranks1-40-accepted-refresh/`, array
+  `1652227`, and aggregate `1652264` were canceled immediately at the user's
+  wrap-up request. Ten tasks completed with ten independently verified UNSAT
+  proofs; 30 started tasks were canceled and 40 never started. No task remains
+  pending/running, and certificate/scratch residue is zero. The partial is
+  frozen non-scorable and must not select a witness; `cancellation.json` owns
+  the exact classification. It also records the prepared correction for the
+  predecessor's too-short 4,800-second checker limit: keep the 1,200-second
+  solver limit but allow 16,000 seconds for auxiliary DRAT validation.
+- **Next action:** in the next session, create a fresh ranks 1--40 campaign
+  from accepted Tactix `3c3164d`/`f2eecac1...dcf` and current Kissat
+  `8af8e56`/`b6a9b1d0...44d5`; do not resume the canceled task claims. Use 80
+  independent tasks, `-c 12 --mem=48000M`, no `RLIMIT_AS`, no node constraint
+  or throttle, a 1,200-second solver limit, and the widened independent proof-
+  checker window. After complete validation and zero residue, select the
+  largest verified UNSAT gap and confirm it in three paired timing waves.
 - `.claude/worktrees/tierd-next10` is the sole historical secondary worktree
   and remains clean. The interactive shell allocation is not a solver campaign.
 
