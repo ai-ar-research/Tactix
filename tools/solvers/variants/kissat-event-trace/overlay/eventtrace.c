@@ -2460,6 +2460,12 @@ void kissat_event_trace_factor_seed (kissat *solver, unsigned lit,
   kissat_event_trace (solver, "factor_seed", payload, false);
 }
 
+void kissat_event_trace_factor_summary (kissat *solver, uint64_t ticks) {
+  char payload[128];
+  snprintf (payload, sizeof payload, "ticks=%" PRIu64, ticks);
+  kissat_event_trace (solver, "factor_summary", payload, false);
+}
+
 void kissat_event_trace_factor_candidate (kissat *solver, unsigned seed,
                                           size_t depth, size_t ordinal,
                                           unsigned candidate, unsigned count,
