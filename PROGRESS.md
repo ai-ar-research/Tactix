@@ -76,6 +76,30 @@ own experimental detail and history.
   run. Frozen reports are
   `benchmarks/reports/2026-08-26-immutable-fuzz-harness.md` and
   `report-to-andrew/2026-08-26-2140-immutable-fuzz-harness/`.
+- 2026-08-26 21:50 EDT broad-search collection confirmation — accepted solver
+  baseline remains `16d46d5` (repository/tooling checkpoint `498407c`) and the
+  worktree source is clean. Prior exact evidence left collection frequency and
+  sparse whole-arena relocation open: conflict-9450 Tactix scanned 5.1075x the
+  aggregate watch entries of the conservative current-Kissat conflict-10000
+  envelope, while fused compact-and-forward was neutral and rejected. Because
+  accepted Vivify and Congruence repairs deliberately removed collection
+  boundaries, observer-only campaign
+  `20260826-2200-rank27-current-collection-observer` remeasures current source
+  before any behavior change. Immutable observer pin SHA is
+  `12df42b9…fd25`; the observer source is frozen separately and main source was
+  restored byte-for-byte. Single solver job `1650175` completed on node018
+  with `-c 12`, exactly 48,000 MiB scheduler memory, a 16 GiB process cap, and
+  the immutable conflict-9450 input. It requests no proof, executes no second
+  solver, and left zero staged-input/certificate residue. It reproduces exact
+  accepted semantic SHA `3b87bb36…92c5f` and the current 22-call population.
+  Those calls scan 59,408,930 watch entries versus accepted current-Kissat job
+  `1647659`'s 19,062,574, a 3.1165x aggregate gap; per-call population is
+  already equal within 0.84%. perf loses zero samples and assigns only 0.33%
+  to the already rejected forwarding traversal. This confirms invocation
+  frequency as the remaining collection owner but provides no contradictory
+  evidence to reopen the closed Substitute deferral, stable-span Vivify,
+  fused traversal, or quarantined arena-prepass arms. Continue broad-search
+  localization outside those closures. Current Kissat was not rerun.
 - The user-directed consolidation sequence is complete. Vivify/collection
   produced the sole supported repair and passed the complete gate plus one
   Claude-owned fuzz campaign. The isolated Substitute deferral regressed full
