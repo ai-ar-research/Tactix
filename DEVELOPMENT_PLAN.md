@@ -262,10 +262,12 @@ starts only in Phase 4.5.
 ### 8.1 Benchmark tiers
 
 All solver executions use SLURM partition `cpu-dense-hwulab-q`, with one
-single-threaded solver per task. Tiers A–C use 32 GB provisioned as four CPUs at
-8 GB/core; Tier D uses a 32 GB process limit and 5000 s solve limit. Record the
-allocation shape, independently check every UNSAT proof and SAT model, and keep
-these execution invariants:
+single-threaded solver per task. Allocate 8 GiB per **physical** core. Because
+the current nodes use SMT-2, request two SLURM logical CPUs per physical core:
+for example, 32 GiB uses four physical/eight logical CPUs. Tier D uses a 32 GiB
+SLURM task-cgroup limit and 5000 s solve limit. Record the allocation shape,
+independently check every UNSAT proof and SAT model, and keep these execution
+invariants:
 
 - Concurrent arms own distinct immutable `build/pin-*` directories and
   manifests recording source commit and binary hash. Never mutate or share a
@@ -315,15 +317,26 @@ time caps by exact truncation. Label lower-memory projections as simulations
 from peak RSS: they neither locate the crossing time nor prove OOM. Never rerun
 a frozen reference to fill a missing metric.
 
-Before Phase 4.5, the **debug comparison contract** gives new Tactix tasks two
-CPUs, a 16 GiB process limit, and 1200 s solver timeout. Derive the matched
-reference view without rerunning: truncate the immutable 32 GiB/5000 s record
+Before Phase 4.5, the **debug comparison contract** gives ordinary hard-memory
+Tactix tasks two physical/four logical CPUs, a SLURM `--mem=16G` task cgroup,
+and 1200 s solver timeout. Do not add `RLIMIT_AS`: virtual reservations are not
+resident memory and can reject a task below the intended physical-memory
+ceiling. Derive the matched reference view without rerunning: truncate the
+immutable 32 GiB/5000 s record
 at 1200 s and admit a validated solve under the simulated 16 GiB cap only when
 recorded peak RSS is at most 16 GiB. Label the projection and any memory-based
 non-solve as simulated. This iteration contract never replaces canonical gates.
 Submit full-width arrays without `%N` or hard node constraints, including
 `node017,node018`, while retaining one solver per task, immutable pins,
 certificate cleanup, and enough checker wall time.
+
+Treat memory convergence as an independent acceptance dimension. On matched
+current-Tactix/current-Kissat jobs with the same input, proof mode, and resource
+contract, a Tactix solve loss or materially higher peak memory has priority over
+a runtime-only gap. Merely falling below the task-cgroup cap does not close it:
+require comparable peak and live-state ownership, or a source-backed general
+reason for any residual excess. Attribute formula, search, inprocessing, proof,
+and checker memory separately; a resource exit is not a correctness failure.
 
 Every debug candidate passes full Tier B plus a predeclared mechanism-relevant
 Tier C subset before targeted Tier D. A round may carry up to ten predeclared
@@ -429,9 +442,12 @@ SLURM so its mask owns one complete six-physical-core L3 domain and its schedule
 memory reservation matches the partition's effective 8,000-MiB-per-physical-
 core capacity. The exact MiB request lets all 16 L3 domains fit within the
 node's configured 769,024 MiB; do not round it up to `--mem=48G`.
-The solver itself remains single-threaded, bound to one granted hardware
-thread, and retains the applicable 16-GiB process limit; the larger allocation
-is capacity accounting, not a larger solver-memory contract. Stage inputs,
+The solver itself remains single-threaded and bound to one granted hardware
+thread. Do not add an address-space limit to this 48,000-MiB timing allocation;
+record peak RSS and VmPeak, score 16-GiB compatibility from measured peak RSS,
+and confirm a decision-changing hard-memory claim separately in a SLURM
+`--mem=16G` task. The larger timing allocation is capacity accounting, not
+permission to ignore memory competitiveness. Stage inputs,
 proofs, and checker work on verified node-local scratch, and record topology,
 cross-partition occupancy, perf service-rate counters, proof/check identities,
 and cleanup. Decide primarily from the median of the three paired
