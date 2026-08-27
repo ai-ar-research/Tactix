@@ -8,15 +8,13 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
-- Work in `/home/hwu/SAT-solving` on branch `main`. The accepted source is the
-  cumulative Phase-4.25 solver including the general little-endian Sweep phase-
-  word representation repair based on predecessor `ec6ef1c`. The repair uses
-  eight masked word values plus alignment-safe `memcpy` in
-  `SubSolver::randomize_phases()` and retains the scalar mapping on other byte
-  orders. Generator values, phase bytes, proof behavior, ticks, order,
-  scheduling, learning, pruning, N1--N4, and the proof-rule/strategy boundary
-  are unchanged. Evidence:
-  `benchmarks/reports/2026-08-27-rank27-sweep-phase-word.md`.
+- Work in `/home/hwu/SAT-solving` on branch `main`. Accepted solver source is
+  commit `3c3164d`, based on accepted predecessor `a8b41c6`; the following
+  wrap-up commit changes documentation only. The accepted Release binary
+  SHA-256 is
+  `f2eecac104f6b4247197bbfbe5ffe6542b21c3735a30ca5b49e27574f05c4dcf`.
+  Evidence: `benchmarks/reports/2026-08-27-rank4-factor-fresh-admission.md` and
+  `report-to-andrew/2026-08-27-0557-rank4-factor-fresh-admission/report.pdf`.
 - The complete promotion chain is terminal PASS: exact prefix array `1650366`;
   three paired Rank-27 timing waves in array `1650368`; full-width B28+C5
   array/aggregate `1650774`/`1650840`; and Claude-owned fuzz campaign
@@ -65,6 +63,40 @@ session narrative; this file is only the current resume surface.
   `6973ac74261e08ea8677ad64ffaa277f38a9a47af86c668851a933ddd29ff396`.
   Frozen scoring references were
   not rerun.
+- **Accepted Rank-4 closure:** decision-grade frozen confirmation
+  `benchmarks/runs/20260827-0400-tierd-rank4-paired-confirmation/` is stable and
+  scorable on node018: Tactix `[15.340,15.440,15.340]` seconds versus current
+  Kissat `[7.728,7.728,7.728]`, median ratio `1.984990`, with all six UNSAT
+  proofs independently verified and zero residue. Exact tracing localized the
+  first portable divergence after 284 identical accepted Factor grids. Both
+  heaps pop external literal 521 with score 5 in the same position, but
+  accepted Tactix has `armed=0` while current Kissat's per-polarity factor bit
+  admits it and applies grid `[521,-31,-32]`. Frozen diagnostics
+  `20260827-0630` through `20260827-0660` own that localization.
+- **Rank-4 repaired evidence:** Tactix now mirrors Kissat clause-add
+  lifecycle by arming exactly the new positive divider and negative quotient
+  polarities after an accepted composite grid, without scheduling either
+  directly. Frozen candidate/tick campaigns `20260827-0670` and
+  `20260827-0675` prove exact parity for all 1,251 Factor pops, 1,309 viable
+  seeds, 381 accepted grids, 1,971 ordered grid members, and 340,150 Factor
+  ticks. The first nine decisions, first conflict order/set/levels, every
+  learned-clause stage, retained counts, and top-32 order are also exact after
+  normalizing internal clause IDs and distinct inprocessing-propagation
+  accounting. Local release tests are 76/76 PASS. Three-wave release campaign
+  `20260827-0680` is decision-eligible: candidate/baseline/Kissat medians are
+  10.733/15.340/7.728 seconds, candidate/baseline is 0.699674, and the current-
+  Kissat gap falls from 1.984990x to 1.388846x. Candidate conflicts fall from
+  983,053 to 647,074 versus Kissat's 651,764. All nine UNSAT proofs verify and
+  all arm spreads are below 0.66%. Complete B28+C5 gate `20260827-0690`
+  (`1652036`/`1652102`) is 66/66 PASS with 34 checked SAT models, 32 verified
+  UNSAT proofs, no solve loss or residue, and candidate/predecessor PAR-2
+  1,382.422/1,373.376 seconds (1.006587x). Claude's authoritative verdict for
+  frozen campaign `20260827-0700-rank4-factor-fresh-admission-fuzz` is PASS:
+  81/81 corpus replays, 30,000/30,000 generated cases, 15,967 independently
+  checked SAT models, 10,968 accepted native LRAT proofs, direct reach of both
+  fresh-polarity admissions and an accepted fresh-seeded grid, zero failure,
+  and zero certificate/scratch residue. The repair is promoted at solver
+  commit `3c3164d`; no fuzz repair was required.
 - **Rank-10 memory diagnostic:** frozen campaign
   `benchmarks/runs/20260827-0130-tierd-rank10-current-memory-boundaries/`
   (`1651511_0`) completed valid SAT/model-verified on node018 at 19,886,212 KiB
@@ -75,9 +107,7 @@ session narrative; this file is only the current resume surface.
   Congruence root end; the exact scoped binary-liveness hash adds about 898
   MiB; and value/closure indices own the remainder. Authority:
   `benchmarks/reports/2026-08-27-rank10-memory-regression-localization.md`.
-- **Next action:** freeze the newly accepted Rank-10 memory-layout pin, confirm
-  Rank 4 with three paired timing waves, and then localize its first portable
-  common-state divergence. The first three Rank-10 layout arms are valid and
+- **Accepted Rank-10 closure:** the first three Rank-10 layout arms are valid and
   zero-residue: A (`1651512`) peaks at 18,302,324 KiB, B (`1651513`) at
   18,301,456 KiB, and C (`1651514`) at 18,067,072 KiB while preserving exact
   recorded state and reducing Congruence internal time. Candidate C's
@@ -102,6 +132,13 @@ session narrative; this file is only the current resume surface.
   Each solver repair stays isolated and receives its required gate,
   Claude-owned fuzz verdict, report, commit, and push before the next repair is
   promoted.
+- **Next action:** freeze solver commit `3c3164d` and the unchanged current-
+  Kissat comparator as the Rank-32 pins. Establish three paired node018 timing
+  waves with independent one-solver tasks at `-c 12 --mem=48000M`, proof/model
+  validation, no `RLIMIT_AS`, and under-2% within-arm spread. Then localize the
+  earliest common-state worse-side divergence before changing behavior. The
+  replacement screen's 416.933/293.092-second pair selects Rank 32 but is not
+  itself decision-grade evidence.
 - `.claude/worktrees/tierd-next10` is the sole historical secondary worktree
   and remains clean. The interactive shell allocation is not a solver campaign.
 
@@ -186,6 +223,9 @@ session narrative; this file is only the current resume surface.
 
 ## Recent changes
 
+- 2026-08-27 — Rank 4's fresh-polarity Factor admission repair restores exact
+  order/state/340,150-tick work, cuts median time 15.340 to 10.733 seconds, and
+  passes the full B28+C5 gate plus Claude-owned 30k fuzz.
 - 2026-08-27 — The rejected dual-limit ranks 1--40 predecessor is terminal:
   80/80 classified, zero residue, and non-scorable; its address-space exits do
   not rank solver correctness or performance.
@@ -195,15 +235,13 @@ session narrative; this file is only the current resume surface.
   policy are active; checker-root and read-only-snapshot cleanup paths are fixed.
 - 2026-08-26 — Timing policy uses `-c 12`, exactly 48,000 MiB, and three paired
   waves; whole-node exclusivity is prohibited.
-- 2026-08-26 — Current collection frequency is measured but deprioritized as a
-  secondary cost; closed negative collection arms remain closed.
-
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism
 dispositions and reopening conditions are in `docs/scheduling-parity-ledger.md`.
-The newly accepted Sweep phase-word representation changes no schedule, rule,
-candidate, tick, or policy state. The next witness is the largest validated
-UNSAT slowdown among ranks 1--40, selected without rerunning frozen references.
+The accepted Sweep and Rank-10 layout repairs change no schedule, rule,
+candidate, tick, or policy state. The accepted Rank-4 repair changes only the
+portable per-polarity admission lifecycle proven above and leaves the rule
+instance surface unchanged. Rank 32 is the active selected witness.
 <!-- track-sched:end -->
 
 ## Gates
