@@ -92,6 +92,10 @@ cleanup_fuzz_job() {
     status=\$?
     rm -rf "\$TMPDIR"
     if [ "\$status" -eq 0 ]; then
+        # The snapshot is read-only including its directories, so restore
+        # owner write permission first: rm -rf forces read-only files but
+        # cannot unlink entries from an unwritable directory.
+        chmod -R u+w "$PIN_ROOT"
         rm -rf "$PIN_ROOT"
     else
         echo "retained failed-job harness pin: $PIN_ROOT"
