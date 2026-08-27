@@ -25,6 +25,39 @@ void kernel_update_target_phases(Kernel &k) {
 // So Kernel needs no ctor/dtor for it. heuristics.hpp is still included above —
 // kernel_backtrack_impl<true> reads `k.h->…`, which needs the complete type.
 
+void kernel_defer_cold_state(Kernel &k) {
+  assert(k.nvars == 0);
+  assert(k.bve_retry.empty() && k.backbone_priority.empty());
+  assert(k.touched.empty() && k.removed.empty() && k.touched_kept.empty());
+  assert(k.bve_min_bound.empty() && k.seen.empty() && k.eager_marks.empty());
+  assert(k.marked_levels.empty() && k.probing.stamp.empty());
+  k.cold_state_deferred = true;
+}
+
+void kernel_materialize_cold_state(Kernel &k) {
+  if (!k.cold_state_deferred)
+    return;
+  // No consumer watermark can advance before startup preprocessing. Every
+  // variable has at least its activation touch, so one common current stamp is
+  // predicate-equivalent to the distinct historical stamps for the first
+  // round; later events and watermarks are recorded normally. Parsing and
+  // early Lucky do not remove clauses or create kept-band touches.
+  assert(!k.subsume_touch_mark && !k.strengthen_touch_mark &&
+         !k.bce_touch_mark && !k.ternary_touch_mark &&
+         !k.instantiate_touch_mark && !k.cce_touch_mark);
+  k.bve_retry.assign(k.nvars, 1);
+  k.backbone_priority.assign(k.nvars, 0);
+  k.touched.assign(k.nvars, k.touch_epoch);
+  k.removed.assign(k.nvars, 0);
+  k.touched_kept.assign(k.nvars, 0);
+  k.bve_min_bound.assign(k.nvars, 0);
+  k.seen.assign(k.nvars, 0);
+  k.eager_marks.assign(2 * static_cast<size_t>(k.nvars), 0);
+  k.marked_levels.assign(static_cast<size_t>(k.nvars) + 1, 0);
+  k.probing.stamp.assign(2 * static_cast<size_t>(k.nvars), 0);
+  k.cold_state_deferred = false;
+}
+
 void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   if (nvars <= k.nvars)
     return;
@@ -49,18 +82,23 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // BVE retry filter: a brand-new variable has never been attempted, so it
   // starts retry-worthy (kissat activate_variable marks it removed+added). A
   // derived index, not `H` (docs/implementation-notes.md §6) — kernel-side.
-  k.bve_retry.resize(nvars, 1);
+  if (!k.cold_state_deferred)
+    k.bve_retry.resize(nvars, 1);
   k.factor_marks.resize(2 * nvars, 0);
-  k.backbone_priority.resize(nvars, 0);
+  if (!k.cold_state_deferred)
+    k.backbone_priority.resize(nvars, 0);
   // Touched-epoch substrate: a brand-new variable has never been looked at by
   // any consumer, so it must read as touched against every existing watermark
   // — hence a real touch EVENT each, not a resize fill (kissat
   // activate_variable calls kissat_mark_added_literal for the same reason).
-  k.touched.resize(nvars, 0);
-  k.removed.resize(nvars, 0);
+  if (!k.cold_state_deferred) {
+    k.touched.resize(nvars, 0);
+    k.removed.resize(nvars, 0);
+  }
   // The band array needs no such event: a fresh variable is already touched
   // below, and C2 reads the two arrays as a union.
-  k.touched_kept.resize(nvars, 0);
+  if (!k.cold_state_deferred)
+    k.touched_kept.resize(nvars, 0);
   for (uint32_t v = old; v < nvars; v++) {
     kernel_touch_var(k, v);
     // Variable activation marks the stripped (positive) literal in Kissat;
@@ -73,11 +111,13 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     k.var_status.resize(nvars, VarStatus::Active);
   // Paired with bve_retry (init is irrelevant — the retry bit starts set, so the
   // first attempt always recomputes it before any read).
-  k.bve_min_bound.resize(nvars, 0);
-  k.seen.resize(nvars, 0);
-  k.eager_marks.resize(2 * nvars, 0); // all-zero between uses; see the field
-  k.marked_levels.resize(nvars + 1, 0);
-  k.probing.stamp.resize(2 * nvars, 0);
+  if (!k.cold_state_deferred) {
+    k.bve_min_bound.resize(nvars, 0);
+    k.seen.resize(nvars, 0);
+    k.eager_marks.resize(2 * nvars, 0); // all-zero between uses; see the field
+    k.marked_levels.resize(nvars + 1, 0);
+    k.probing.stamp.resize(2 * nvars, 0);
+  }
   // The dense occurrence index is per-literal kernel state (null outside a
   // simplification phase). A var-adding rule (E2 Factor / BVA) can grow nvars
   // WHILE dense is connected — the shared index is built once per phase and

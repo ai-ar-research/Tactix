@@ -1,0 +1,111 @@
+{
+  "schema": "tactix-tierd-rank21-bve-round-collection-v2",
+  "created_at": "2026-08-27T14:04:00Z",
+  "status": "completed-valid-rejected-n4",
+  "submitted_at": "2026-08-27T14:04:06Z",
+  "slurm_job": "1652359_0",
+  "scoring": false,
+  "promotion_status": "isolated unfuzzed diagnostic repair; not promoted or final",
+  "purpose": "Test the reference-aligned repair that collects lazy BVE garbage at the end of each authored elimination round instead of carrying it into the following Strengthen round.",
+  "input": {
+    "path": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+    "sha256": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450",
+    "expected": "SAT",
+    "rank": 21
+  },
+  "input_sha256": {
+    "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450"
+  },
+  "predecessor_evidence": {
+    "campaign": "benchmarks/runs/20260827-0945-tierd-rank21-memory-boundaries-v2",
+    "job": "1652354_0",
+    "result_sha256": "f099062c610fb9176ca755332781f12c7133e5a4430cdad54f28bd510fcec5e0",
+    "classification": "valid SAT/model-verified, 3,391,812-KiB peak RSS, zero residue",
+    "localized_boundary": "BVE grows arena 12,605,496 -> 128,535,057 words and watches 15,407,082 -> 113,689,430 words; next Strengthen reaches the high-water mark before phase-exit collection."
+  },
+  "excluded_infrastructure_attempt": {
+    "campaign": "benchmarks/runs/20260827-1000-tierd-rank21-bve-round-collect",
+    "job": "1652358_0",
+    "classification": "failed before solver because claims directory was absent; zero solver invocations and zero reusable results"
+  },
+  "reference_authority": {
+    "source": "tools/solvers/variants/kissat-event-trace/worktree/src/eliminate.c",
+    "lifecycle": "eliminate_variables calls kissat_dense_collect after every elimination round, before a following forward-subsumption round"
+  },
+  "candidate": {
+    "base_source_commit": "3c3164dcd35b4286d3fe1aea61e4731cc8545fe3",
+    "working_head": "031ab9868e6fd91729d289ec4f42edfc39667013",
+    "changed_file": "src/policies/default_policy.cpp",
+    "changed_file_sha256": "abd9d1f89187e3894fd0aecb57664ac8637c46ffa9b6de2402497805f43ad14b",
+    "patch_sha256": "25cf143f3fcd9aceda5bc0219b8d660126c4a47c6e36ebe6d192310d83c54a06",
+    "change": "Collect after an authored round that eliminated at least one BVE variable and clear the already-satisfied phase-exit reclamation flag.",
+    "proof_rule_boundary": "No proof rule, admission, effort limit, candidate order, resolvent, or proof emission changes; this is strategy-owned representation reclamation at the reference lifecycle boundary."
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "ebd6afad1b8b1e1f1ba24b1234d49da068a3167566a1408c15be8bef8e0c3389",
+      "build": "Release with TACTIX_ENABLE_EVENT_TRACE=ON"
+    },
+    "checkmodel": {
+      "path": "pins/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    },
+    "modelcheck.py": {
+      "path": "pins/modelcheck.py",
+      "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+    },
+    "drat-trim": {
+      "path": "pins/drat-trim",
+      "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    }
+  },
+  "shared_runner": {
+    "path": "../20260827-0100-tierd-ranks1-40-slurm-memory-screen/run-one.py",
+    "sha256": "10b1605ca06e48641da3c1115ccf2bf5c1cd2846a940525fc994f51c95c59385"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0",
+    "array_throttle": null,
+    "node_constraint": null,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "model_checker_timeout_seconds": 600,
+    "proof_mode": "DRAT production; SAT model independently checked"
+  },
+  "trace_environment": [
+    "TACTIX_PARSE_MEMORY_TRACE",
+    "TACTIX_CONGRUENCE_MEMORY_TRACE",
+    "TACTIX_SUBSTITUTE_MEMORY_TRACE",
+    "TACTIX_LUCKY_MEMORY_TRACE",
+    "TACTIX_SLOT_MEMORY_TRACE"
+  ],
+  "local_validation": {
+    "build_directory": "build/diag-rank21-bve-round-collect",
+    "ctest": "75/75 PASS",
+    "candidate_binary_sha256": "ebd6afad1b8b1e1f1ba24b1234d49da068a3167566a1408c15be8bef8e0c3389"
+  },
+  "harness_sha256": {
+    "array.sbatch": "9b21b05e24c0f5703aef33ad4bc38a01d47572ef189e251ea591ca31a3e220f6",
+    "matrix.tsv": "ea083070ebdf8608326951df49a665ab5dcb78939ad6d179d023859e7eae1dea",
+    "run-one.py": "f354ff7c18a9aa3eae60486161cd325d0c58993e800745446a96869c2ff53927"
+  },
+  "terminal_evidence": {
+    "completed_at": "2026-08-27T14:06:56.981999+00:00",
+    "result_sha256": "e61e262504f55eb28c35a06e3c82e5d3d371e63c1c59e427c23ba9af6f20546a",
+    "verdict": "SAT",
+    "model_validation": "verified",
+    "solver_peak_rss_kib": 3041036,
+    "predecessor_peak_rss_kib": 3391812,
+    "memory_delta_kib": -350776,
+    "artifact_cleanup": "certificate and derived artifacts deleted; zero residue",
+    "rejection": "N4 trajectory change: candidate records 64,026,876 decisions / 115,762 conflicts versus predecessor 42,968,037 / 49,107, with different compaction, BVE, Strengthen, Vivify, Substitute, and touch work. The memory gain is insufficient and is not behavior-preserving.",
+    "source_disposition": "reverted; candidate remains unfuzzed and unpromoted"
+  }
+}

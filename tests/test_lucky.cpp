@@ -34,6 +34,60 @@ static void test_all_true() {
   assert(k.stats.lucky_probes == 1);
 }
 
+static void test_default_early_lucky_keeps_cold_state_deferred() {
+  Kernel k;
+  kernel_defer_cold_state(k);
+  kernel_reserve_vars(k, 4);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  add3(k, 1, 3, 4);
+
+  assert(k.cold_state_deferred);
+  assert(k.bve_retry.empty() && k.backbone_priority.empty());
+  assert(k.touched.empty() && k.removed.empty() && k.touched_kept.empty());
+  assert(k.seen.empty() && k.eager_marks.empty() &&
+         k.marked_levels.empty() && k.probing.stamp.empty());
+  assert(!k.h && !k.saved_phases);
+  assert(default_solve(k) == 10);
+  assert(k.stats.lucky_early_calls == 1);
+  assert(k.cold_state_deferred &&
+         "an early Lucky verdict must not materialize later rule state");
+  assert(!k.h && !k.saved_phases &&
+         "an early Lucky verdict must not materialize search guidance");
+}
+
+static void test_cold_state_materialization_preserves_first_round_predicates() {
+  Kernel eager, deferred;
+  kernel_defer_cold_state(deferred);
+  kernel_reserve_vars(eager, 4);
+  kernel_reserve_vars(deferred, 4);
+  for (Kernel *k : {&eager, &deferred}) {
+    kernel_add_binary_clause(*k, internalize(1), internalize(-2));
+    add3(*k, -1, 3, 4);
+  }
+  assert(eager.touch_epoch == deferred.touch_epoch);
+  assert(eager.stats.touch_marks == deferred.stats.touch_marks);
+  assert(eager.stats.bve_marks == deferred.stats.bve_marks);
+
+  kernel_materialize_cold_state(deferred);
+  assert(!deferred.cold_state_deferred);
+  assert(deferred.bve_retry.size() == deferred.nvars);
+  assert(deferred.backbone_priority.size() == deferred.nvars);
+  assert(deferred.touched.size() == deferred.nvars);
+  assert(deferred.removed.size() == deferred.nvars);
+  assert(deferred.touched_kept.size() == deferred.nvars);
+  assert(deferred.seen.size() == deferred.nvars);
+  assert(deferred.eager_marks.size() == 2 * deferred.nvars);
+  assert(deferred.marked_levels.size() == deferred.nvars + 1);
+  assert(deferred.probing.stamp.size() == 2 * deferred.nvars);
+  for (Var v = 0; v < deferred.nvars; v++) {
+    assert(kernel_touched_since(eager, v, 0));
+    assert(kernel_touched_since(deferred, v, 0));
+    assert(!kernel_changed_since(eager, v, eager.touch_epoch));
+    assert(!kernel_changed_since(deferred, v, deferred.touch_epoch));
+    assert(deferred.bve_retry[v] == eager.bve_retry[v]);
+  }
+}
+
 static void test_all_false() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -269,6 +323,20 @@ static void test_late_call_survives_formula_classification() {
   assert(on.stats.lucky_early_calls == 1 && on.stats.lucky_late_calls == 1);
   assert(model_satisfies(on, formula));
 
+  // The shipped frontend leaves H unattached until early Lucky fails.  Its
+  // parser-retained activation order must reproduce the eager H trajectory.
+  Kernel deferred;
+  build(deferred);
+  assert(!deferred.h && !deferred.saved_phases);
+  assert(default_solve(deferred) == 10);
+  assert(!deferred.h && !deferred.saved_phases);
+  assert(deferred.stats.lucky_early_calls == on.stats.lucky_early_calls);
+  assert(deferred.stats.lucky_late_calls == on.stats.lucky_late_calls);
+  assert(deferred.stats.decisions == on.stats.decisions);
+  assert(deferred.stats.conflicts == on.stats.conflicts);
+  assert(deferred.stats.propagations == on.stats.propagations);
+  assert(model_satisfies(deferred, formula));
+
   // The same fixture with the opportunity declined: without this arm the
   // assertion above could hold for a fixture the late call never reaches.
   Kernel off;
@@ -312,6 +380,8 @@ static void test_guard_needs_quiescent_root() {
 
 int main() {
   test_all_true();
+  test_default_early_lucky_keeps_cold_state_deferred();
+  test_cold_state_materialization_preserves_first_round_predicates();
   test_all_false();
   test_sweep();
   test_first_level_conflict_commits_failed_literal();

@@ -1,0 +1,11 @@
+{
+  "submitted_at": "2026-08-27T14:40:00Z",
+  "array_job": "1652374",
+  "aggregate_job": "1652380",
+  "dependency": "afterany:1652374",
+  "array": "0-5",
+  "cpus_per_task": 12,
+  "memory": "48000M",
+  "address_space_limit": null,
+  "one_solver_invocation_per_task": true
+}

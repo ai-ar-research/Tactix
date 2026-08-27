@@ -160,13 +160,46 @@ session narrative; this file is only the current resume surface.
   the exact classification. It also records the prepared correction for the
   predecessor's too-short 4,800-second checker limit: keep the 1,200-second
   solver limit but allow 16,000 seconds for auxiliary DRAT validation.
-- **Next action:** in the next session, create a fresh ranks 1--40 campaign
-  from accepted Tactix `3c3164d`/`f2eecac1...dcf` and current Kissat
-  `8af8e56`/`b6a9b1d0...44d5`; do not resume the canceled task claims. Use 80
-  independent tasks, `-c 12 --mem=48000M`, no `RLIMIT_AS`, no node constraint
-  or throttle, a 1,200-second solver limit, and the widened independent proof-
-  checker window. After complete validation and zero residue, select the
-  largest verified UNSAT gap and confirm it in three paired timing waves.
+- **Active fresh replacement screen:** campaign
+  `benchmarks/runs/20260827-0920-tierd-ranks1-40-accepted-fresh/`, array
+  `1652270`, and after-any aggregate `1652302` use the exact accepted pins,
+  80 new claims, 12 CPUs/48,000 MB per independent solver task, no `RLIMIT_AS`,
+  no node constraint/throttle, and the widened 16,000-second proof-checker
+  window. At this checkpoint 79/80 results are valid and independently checked;
+  only task 35 (current Kissat Rank 18) remains in auxiliary proof checking.
+  Do not score or select a witness until it is terminal and every solve
+  loss/invalidity is classified. The canceled `20260827-0800` partial remains
+  excluded.
+- **Promoted Rank-5 memory repair:** accepted Tactix peaked at 14,368,044 KiB
+  because the 58,633,530-variable DIMACS header eagerly committed cold
+  rule/search state before early Lucky returned SAT. The isolated portable
+  lifecycle candidate defers 40 bytes/variable of rule state and roughly 35
+  bytes/variable of DefaultPolicy search guidance until early Lucky fails.
+  Frozen diagnostic `20260827-1040-tierd-rank5-deferred-guidance` is valid
+  SAT/model-verified and zero-residue at 10,075,752 KiB, below current Kissat's
+  preceding three-wave median 10,402,844 KiB; its result SHA-256 is
+  `d1c85448380bdcb29e2f22bec418beb5dac920ffa51a3c07391744f7c04da696`.
+  Decision-grade `20260827-1100` has Tactix/current-Kissat median peak RSS
+  10,075,752/10,402,844 KiB (0.968557x) and median runtime 21.550/29.913
+  seconds (0.717080x), with stable three-wave timing, six checked models, and
+  zero residue. Release/event suites are 76/76 and 75/75 PASS. Rank-4 guard
+  `20260827-1045` is stronger than predeclared: all 33,138 trace lines through
+  100 conflicts are byte-identical to accepted Tactix. Complete B28+C5 gate
+  `20260827-1110` (`1652381`/`1652402`) is 66/66 PASS with 34 checked models,
+  32 verified proofs, zero loss/invalidity/residue, and candidate/predecessor
+  PAR-2 1,326.154/1,329.271 seconds (0.997655x). Claude's authoritative verdict
+  for `20260827-1120-rank5-deferred-state-guidance-fuzz` is TERMINAL PASS:
+  81/81 corpus, 30,000/30,000 generated cases, 16,041 independently checked
+  SAT models, 11,035 accepted native LRAT proofs, direct positive/negative
+  lifecycle reach, zero correctness/sanitizer/invariant failure, and zero
+  residue. No repair workflow was triggered. The repair is promoted by the
+  coherent solver/evidence commit that owns this PROGRESS update.
+- **Active Rank-4 follow-up:** immutable accepted Tactix/current-Kissat bounded
+  diagnostics `20260827-1030` and `20260827-1050` show all 20,355 comparable
+  portable decision/analysis records exact through Kissat conflict 1,000.
+  The residual accepted 10.733/7.728-second gap is therefore downstream or
+  throughput-owned, not an immediate post-Factor-repair strategy divergence.
+  Extend the frontier only with bounded source-backed windows; preserve N1--N4.
 - `.claude/worktrees/tierd-next10` is the sole historical secondary worktree
   and remains clean. The interactive shell allocation is not a solver campaign.
 
@@ -251,6 +284,9 @@ session narrative; this file is only the current resume surface.
 
 ## Recent changes
 
+- 2026-08-27 — Rank-5 deferred rule/search lifecycle cuts peak memory from
+  14,368,044 to 10,075,752 KiB, below Kissat's 10,402,844-KiB median, and
+  passes three-wave confirmation, B28+C5, and Claude-owned 30k fuzz.
 - 2026-08-27 — Rank-32 Congruence gate removal improves its local median
   410.760 to 405.042 seconds but fails B28+C5 at 1.208552 PAR-2; exact tracing
   localizes the zero-yield dense-resume sensitivity, so the candidate is
@@ -263,16 +299,15 @@ session narrative; this file is only the current resume surface.
   not rank solver correctness or performance.
 - 2026-08-27 — Sweep phase-word expansion passes exact prefix, three-wave
   Rank-27 timing, complete B28+C5, and Claude-owned 30k fuzz; Rank 27 is parked.
-- 2026-08-26 — Immutable fuzz snapshots and 50-physical-core generated-leg
-  policy are active; checker-root and read-only-snapshot cleanup paths are fixed.
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism
 dispositions and reopening conditions are in `docs/scheduling-parity-ledger.md`.
-The accepted Sweep and Rank-10 layout repairs change no schedule, rule,
-candidate, tick, or policy state. The accepted Rank-4 repair changes only the
-portable per-polarity admission lifecycle proven above and leaves the rule
-instance surface unchanged. The rejected Rank-32 candidate is fully reverted;
-the next session begins with a fresh ranks 1--40 selection screen.
+The accepted Sweep, Rank-10 layout, and Rank-5 lifecycle repairs change no
+schedule, rule, candidate, tick, or policy state. The accepted Rank-4 repair
+changes only the portable per-polarity admission lifecycle proven above and
+leaves the rule instance surface unchanged. The rejected Rank-32 candidate is
+fully reverted; the fresh ranks 1--40 selection screen remains in independent
+proof checking.
 <!-- track-sched:end -->
 
 ## Gates

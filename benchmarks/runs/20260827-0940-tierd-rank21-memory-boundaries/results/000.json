@@ -1,0 +1,51 @@
+{
+  "address_space_limit": null,
+  "arm": "tactix",
+  "artifact_deleted": true,
+  "cleanup_pending": false,
+  "derived_artifacts_deleted": true,
+  "diagnostic_traces": {
+    "congruence": {
+      "exists": false,
+      "lines": 0,
+      "path": "traces/000.congruence.tsv",
+      "sha256": null
+    },
+    "lucky": {
+      "exists": false,
+      "lines": 0,
+      "path": "traces/000.lucky.tsv",
+      "sha256": null
+    },
+    "parse": {
+      "exists": false,
+      "lines": 0,
+      "path": "traces/000.parse.tsv",
+      "sha256": null
+    },
+    "slots": {
+      "exists": false,
+      "lines": 0,
+      "path": "traces/000.slots.tsv",
+      "sha256": null
+    },
+    "substitute": {
+      "exists": false,
+      "lines": 0,
+      "path": "traces/000.substitute.tsv",
+      "sha256": null
+    }
+  },
+  "error": "KeyError('input_sha256')",
+  "expected": "SAT",
+  "finished_at": "2026-08-27T13:37:31.795465+00:00",
+  "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+  "memory_enforcement": "slurm_task_cgroup",
+  "node": "node018",
+  "rank": 21,
+  "schema": "tactix-tierd-ranks1-40-slurm-memory-result-v2",
+  "task": 0,
+  "tier": "D-ranks1-40",
+  "valid": false,
+  "verdict": "INFRA_ERROR"
+}

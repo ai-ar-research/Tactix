@@ -1,0 +1,7 @@
+task	wave	arm	tier	rank	instance	expected
+0	1	tactix	D-ranks1-40	5	tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz	SAT
+1	1	kissat	D-ranks1-40	5	tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz	SAT
+2	2	tactix	D-ranks1-40	5	tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz	SAT
+3	2	kissat	D-ranks1-40	5	tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz	SAT
+4	3	tactix	D-ranks1-40	5	tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz	SAT
+5	3	kissat	D-ranks1-40	5	tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz	SAT

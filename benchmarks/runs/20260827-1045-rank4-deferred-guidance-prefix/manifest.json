@@ -1,0 +1,68 @@
+{
+  "schema": "tactix-rank4-deferred-guidance-prefix-v1",
+  "created_at": "2026-08-27T14:29:00Z",
+  "status": "completed-exact-prefix-zero-residue",
+  "submitted_at": "2026-08-27T14:30:30Z",
+  "slurm_job": "1652371",
+  "completed_at": "2026-08-27T14:31:00Z",
+  "result": {
+    "candidate_trace_sha256": "baca8a2ce6ef6aa9cd3ae9fdfa02e5443f43eb11e73b737030b3f02f367bbbc9",
+    "accepted_trace_sha256": "baca8a2ce6ef6aa9cd3ae9fdfa02e5443f43eb11e73b737030b3f02f367bbbc9",
+    "trace_lines": 33138,
+    "exact_detail_records": 1587,
+    "classification": "The complete candidate trace is byte-identical to accepted Tactix through the bounded 100-conflict observer exit, stronger than the predeclared portable-detail requirement.",
+    "correctness_scope": "bounded UNKNOWN only; no SAT/UNSAT claim",
+    "certificate_residue": 0,
+    "scratch_residue": 0
+  },
+  "scoring": false,
+  "promotion_status": "read-only bounded diagnostic for an unfuzzed candidate",
+  "purpose": "Require the deferred-guidance candidate to preserve the accepted Rank-4 portable detail trajectory through 100 conflicts.",
+  "input": {
+    "path": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+    "sha256": "1066d755132ccf69a4823d51d866a70dea0ef4a652eb49d5cb7266fc55d902e1",
+    "rank": 4,
+    "expected": "UNSAT"
+  },
+  "candidate": {
+    "path": "pins/tactix-tactix",
+    "sha256": "112a13fb343294568e9b9be2262b9d667acf13c5bf3c7f3dc90e762235044f05",
+    "base_source_commit": "3c3164dcd35b4286d3fe1aea61e4731cc8545fe3",
+    "patch_sha256": "c15d14e884319b61fea065b624ccc813e56a22b4d46bac05e1e186fa016f777b",
+    "build": "Release with TACTIX_ENABLE_EVENT_TRACE=ON"
+  },
+  "accepted_trace_authority": {
+    "path": "../20260827-1030-tierd-rank4-postrepair-search-frontier/traces/tactix.tsv",
+    "sha256": "baca8a2ce6ef6aa9cd3ae9fdfa02e5443f43eb11e73b737030b3f02f367bbbc9",
+    "source_commit": "3c3164dcd35b4286d3fe1aea61e4731cc8545fe3"
+  },
+  "trace_contract": {
+    "conflict_from": 0,
+    "conflict_to": 100,
+    "stop_after_conflict": 100,
+    "record_limit": 1000000,
+    "watch_and_implication_records": false,
+    "acceptance": "The candidate reaches bounded UNKNOWN with an untruncated trace and exact event/conflict/decision/level/payload detail records against accepted Tactix."
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "node_constraint": null,
+    "one_solver_invocation": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 300,
+    "correctness_scope": "bounded UNKNOWN observer exit; no certificate claim"
+  },
+  "local_validation": {
+    "build_directory": "build/diag-rank5-cold-state",
+    "ctest": "75/75 PASS"
+  },
+  "harness_sha256": {
+    "run.sbatch": "8d74c5c8a03adcd808c86aa7e979454ca22b6a9d15812ef354c780ebbee8e8d9",
+    "compare_detail.py": "e6a09ce65c05811615d6fe2992991a5fa1c273318bc4b4d59b88a10bba81c810"
+  },
+  "n1_n4": "The candidate changes only pre-consumer allocation lifetime; this exact-prefix guard rejects any later search pose or detail-trajectory change."
+}

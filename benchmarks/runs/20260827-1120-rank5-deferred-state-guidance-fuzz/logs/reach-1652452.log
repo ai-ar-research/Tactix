@@ -1,0 +1,89 @@
+reach snapshot sha256: 2705c5a33b680e721287fd828d41866af4b03db3ca213e2259425e99e3106320 (build/pin-20260827-1120-r5-reach-snap-eS3b5R)
+[default] scan: 3000 cases at 5.0s, 2877 terminated (known cases excluded)
+[default-early-sat] 1511 selected
+[default-early-sat] gdb seed=1100000: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100003: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=1 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100004: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100006: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100009: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100011: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100013: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100016: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100022: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-sat] gdb seed=1100023: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[default-early-unsat] 977 selected
+[default-early-unsat] gdb seed=1100002: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-early-unsat] gdb seed=1100008: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-early-unsat] gdb seed=1100012: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-early-unsat] gdb seed=1100014: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-early-unsat] gdb seed=1100018: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-early-unsat] gdb seed=1100019: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-early-unsat] gdb seed=1100020: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-early-unsat] gdb seed=1100021: dfr=1 tvd=1 mat=0 hat=0 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] 389 selected
+[default-crossed] gdb seed=1100838: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1101544: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1100423: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1101152: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1102274: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1101178: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1100714: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1102305: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1100648: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[default-crossed] gdb seed=1101829: dfr=1 tvd=1 mat=1 hat=1 hea=0 egr=0 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[bpb-stress] scan: 400 cases at 5.0s, 233 selected
+[bpb-stress] gdb seed=1103057: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=7 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[bpb-stress] gdb seed=1103307: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=4 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[bpb-stress] gdb seed=1103010: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=4 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[bpb-stress] gdb seed=1103278: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=6 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[bpb-stress] gdb seed=1103316: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=8 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[bpb-stress] gdb seed=1103147: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=7 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[random] scan: 200 cases at 5.0s, 100 selected
+[random] gdb seed=1104180: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=2 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[random] gdb seed=1104070: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=1 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[random] gdb seed=1104064: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=1 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[random] gdb seed=1104147: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=1 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+[random] gdb seed=1104071: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=2 exit=20
+  oracle: verdict=UNSAT oracle=UNSAT failures=[]
+[random] gdb seed=1104050: dfr=0 tvd=0 mat=0 hat=0 hea=1 egr=4 exit=10
+  oracle: verdict=SAT oracle=SAT failures=[]
+reach summary: 28 terminating default-floor gdb cases (0 bounded nonterminations, no claim), cases per witness: ets=8 etu=8 xbo=12 tvd=28
+REACH OK: the default-frontend defer entry, deferred touch events, early-Lucky SAT and startup-refutation terminals with cold state and guidance unmaterialized, and failed early opportunities crossing both materialization boundaries are all directly witnessed with full per-case oracles, and every deferral witness is exactly zero under the stress/random negative controls while their eager lifecycle is positively witnessed

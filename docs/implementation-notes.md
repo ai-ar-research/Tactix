@@ -133,6 +133,14 @@ pending half-analysis or schedules Backjump independently.
 
 ### Search, compaction, and BVE scratch
 
+- The shipped DefaultPolicy frontend may defer rule-cold per-variable state
+  and leave `H` unattached through startup propagation and early Lucky. A
+  terminal startup result never materializes either image. If early Lucky
+  returns unknown, the kernel materializes rule state and `ScopedHeuristics`
+  consumes the parser-retained activation order before sparse collection or
+  any later rule. Event counters/epochs advance while storage is deferred;
+  first-round predicates are reconstructed at the boundary. Bare kernels, API
+  clients, random/replay, stress, and caller-supplied `H` retain eager state.
 - Late-Lucky failure uses the normal inactive-percent variable-compaction
   threshold. Lucky walks permanent maps directly and does not construct a
   dense high-water copy.

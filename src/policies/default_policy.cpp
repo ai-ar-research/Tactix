@@ -2274,8 +2274,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   if (k.level)
     kernel_backtrack(k, 0);
   std::optional<ScopedHeuristics> owned_h;
-  if (!k.h)
-    owned_h.emplace(k);
   solves++;
   configure_from_env(k);
   k.conflict_reuse_chrono_levels = chrono_levels;
@@ -2331,6 +2329,16 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     }
     event_trace.macro(k, "lucky_early_end", "unknown");
   }
+  // The shipped frontend postpones state that neither root propagation nor
+  // early Lucky can read. A failed opportunity crosses the first consumer
+  // boundary: materialize before sparse collection and every authored rule.
+  kernel_materialize_cold_state(k);
+  // Search guidance is likewise unobservable to startup propagation and Lucky.
+  // Attach it only after the early opportunity fails. ScopedHeuristics consumes
+  // the parser's retained activation order, preserving the exact first-search
+  // pose; callers that supplied H keep their existing session-wide object.
+  if (!k.h)
+    owned_h.emplace(k);
   event_trace.macro(k, "preprocess_begin");
   // Kissat preprocess.c initially propagates, then consumes those root units
   // by sparse-collecting the whole large-clause arena before the first Probe

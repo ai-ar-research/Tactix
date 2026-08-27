@@ -1,0 +1,111 @@
+{
+  "schema": "tactix-tierd-rank5-deferred-cold-state-v1",
+  "created_at": "2026-08-27T14:10:10Z",
+  "status": "completed-valid-zero-residue",
+  "submitted_at": "2026-08-27T14:10:50Z",
+  "slurm_job": "1652360_0",
+  "completed_at": "2026-08-27T14:13:52.655594+00:00",
+  "terminal_evidence": {
+    "result_sha256": "b877931612268a78230cfdb1cbcbfd8f46313dae6a1195dcb45ebc872d1230dc",
+    "verdict": "SAT",
+    "independent_validation": "model verified",
+    "solve_wall_seconds": 22.751,
+    "solve_peak_rss_kb": 12079484,
+    "accepted_trace_peak_rss_kb": 14368044,
+    "peak_rss_reduction_kb": 2288560,
+    "certificate_cleanup": "model and derived artifacts deleted; scratch empty"
+  },
+  "scoring": false,
+  "promotion_status": "isolated unfuzzed diagnostic repair; not promoted or final",
+  "purpose": "Measure the portable memory effect of deferring state that startup propagation and early Lucky cannot consume.",
+  "input": {
+    "path": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+    "sha256": "9783e5be11cea236f13a0d6800173103e6dd8707367f7a064ec249060363b235",
+    "expected": "SAT",
+    "rank": 5
+  },
+  "input_sha256": {
+    "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz": "9783e5be11cea236f13a0d6800173103e6dd8707367f7a064ec249060363b235"
+  },
+  "predecessor_evidence": {
+    "campaign": "benchmarks/runs/20260827-0950-tierd-rank5-memory-boundaries",
+    "job": "1652355_0",
+    "result_sha256": "772dd6e425874b57be84fa0dd5c52109bb90c6fb25b21e9727dbcbe0c3bebd16",
+    "classification": "valid SAT/model-verified, 14,368,044-KiB peak RSS, zero residue",
+    "localized_boundary": "The DIMACS header commits 9,111,268 KiB for 58,633,530 variables; parsing reaches 14,368,044 KiB and early Lucky returns SAT before any inprocessing slot."
+  },
+  "candidate": {
+    "base_source_commit": "3c3164dcd35b4286d3fe1aea61e4731cc8545fe3",
+    "working_head": "031ab9868e6fd91729d289ec4f42edfc39667013",
+    "patch_sha256": "2a6c0f3dbaa6e2d31aaf866c9fb3270e33096520dc358357f0dae9418e1ad524",
+    "changed_file_sha256": {
+      "src/kernel/kernel.hpp": "895e3606cb02f55971e9e7aaddaa4e0401d86c5102f3c7696afe02b11b9af2ae",
+      "src/kernel/kernel.cpp": "4ac47c8b4ef7ea9b9c5415f9dee6fdbd1754b7d0e4523e077943f7b0ed3809c4",
+      "src/main.cpp": "6250fe22696bc5d9030f16aea73e352d83575b92d9b50354a23d842276a0863f",
+      "src/policies/default_policy.cpp": "72159516fe5d3e7e6e576cbad30374f47457b6da8b4d822dacb4bc106524ee76",
+      "tests/test_lucky.cpp": "f78cb88742654ee64f46d6a22ae084fc545115e6b94f58c6f8260ec4036cde1e"
+    },
+    "change": "The shipped DefaultPolicy frontend defers 40 bytes per variable of BVE/touch/Backbone/analysis/probing state until early Lucky fails; event counters and epochs remain exact and all later state materializes before preprocessing.",
+    "portability": "Lifecycle-only; no formula identity, rank, hash, deadline, per-instance behavior, or tuned threshold.",
+    "proof_rule_boundary": "No rule admission, proof emission, candidate order, budget, or logical transition changes. Bare kernels, API, random/replay, and stress policies retain eager state."
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "c28ae9f11b0478eb7b1d1fb102a3b8f7640b10c8ab0e2dd6b3adb7e337328ce6",
+      "build": "Release with TACTIX_ENABLE_EVENT_TRACE=ON"
+    },
+    "checkmodel": {
+      "path": "pins/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    },
+    "modelcheck.py": {
+      "path": "pins/modelcheck.py",
+      "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+    },
+    "drat-trim": {
+      "path": "pins/drat-trim",
+      "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    }
+  },
+  "shared_runner": {
+    "path": "../20260827-0100-tierd-ranks1-40-slurm-memory-screen/run-one.py",
+    "sha256": "10b1605ca06e48641da3c1115ccf2bf5c1cd2846a940525fc994f51c95c59385"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0",
+    "array_throttle": null,
+    "node_constraint": null,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "model_checker_timeout_seconds": 600,
+    "proof_mode": "DRAT production; SAT model independently checked"
+  },
+  "trace_environment": [
+    "TACTIX_PARSE_MEMORY_TRACE",
+    "TACTIX_CONGRUENCE_MEMORY_TRACE",
+    "TACTIX_SUBSTITUTE_MEMORY_TRACE",
+    "TACTIX_LUCKY_MEMORY_TRACE",
+    "TACTIX_SLOT_MEMORY_TRACE"
+  ],
+  "local_validation": {
+    "build_directory": "build/diag-rank5-cold-state",
+    "ctest": "75/75 PASS",
+    "new_tests": [
+      "early Lucky SAT leaves cold state unmaterialized",
+      "materialization preserves first-round touched predicates and event counts"
+    ],
+    "candidate_binary_sha256": "c28ae9f11b0478eb7b1d1fb102a3b8f7640b10c8ab0e2dd6b3adb7e337328ce6"
+  },
+  "harness_sha256": {
+    "array.sbatch": "3319c1dfc5eb39237a84553342884bfb0bb663e916d7194aba33c7f0c7d3cec7",
+    "matrix.tsv": "d8fc03953b0a3f2273e41665e8ed5381b88ff309e820b2971e886bd06e7ba903",
+    "run-one.py": "85e517e236888e7d21a2dc12079732df8b0c7765fc0fbdd2d9477cf0fec37b7e"
+  }
+}

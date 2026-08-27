@@ -1,0 +1,106 @@
+{
+  "schema": "tactix-tierd-rank5-cold-state-three-wave-v1",
+  "created_at": "2026-08-27T14:14:00Z",
+  "status": "completed-valid-zero-residue",
+  "submitted_at": "2026-08-27T14:16:23Z",
+  "slurm": {
+    "array_job": "1652361",
+    "aggregate_job": "1652367",
+    "dependency": "afterany:1652361"
+  },
+  "completed_at": "2026-08-27T14:19:36.797134+00:00",
+  "terminal_evidence": {
+    "summary_sha256": "e902f9f9c18841a7cedfc394a59d5c00cc4ac780bfde62319523c0cf07773796",
+    "classification": "6/6 valid independently checked SAT results; zero certificate and scratch residue",
+    "tactix_median_seconds": 22.451,
+    "kissat_median_seconds": 29.813,
+    "median_paired_time_ratio": 0.7530607453124476,
+    "tactix_median_peak_rss_kb": 12079480,
+    "kissat_median_peak_rss_kb": 10402844,
+    "median_paired_peak_rss_ratio": 1.1611709259506342,
+    "timing_decision_eligible": true,
+    "memory_decision_eligible": true,
+    "disposition": "positive but superseded by the further isolated deferred-guidance memory arm"
+  },
+  "scoring": false,
+  "promotion_status": "decision-grade target confirmation for an unfuzzed candidate; not promoted or final",
+  "purpose": "Three independent paired Release repetitions of the Rank-5 cold-state candidate and current instrumented Kissat.",
+  "input": {
+    "path": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+    "sha256": "9783e5be11cea236f13a0d6800173103e6dd8707367f7a064ec249060363b235",
+    "expected": "SAT",
+    "rank": 5
+  },
+  "input_sha256": {
+    "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz": "9783e5be11cea236f13a0d6800173103e6dd8707367f7a064ec249060363b235"
+  },
+  "diagnostic_predecessor": {
+    "campaign": "benchmarks/runs/20260827-1010-tierd-rank5-cold-state",
+    "job": "1652360_0",
+    "solver_boundary": "valid SAT/model-verified at 12,079,484 KiB versus accepted 14,368,044 KiB; zero certificate and scratch residue",
+    "result_sha256": "b877931612268a78230cfdb1cbcbfd8f46313dae6a1195dcb45ebc872d1230dc"
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "10db9c233cbe5fa134cc89449c4e959dcf56f552088a499f3743258d9160286d",
+      "base_source_commit": "3c3164dcd35b4286d3fe1aea61e4731cc8545fe3",
+      "patch_sha256": "2a6c0f3dbaa6e2d31aaf866c9fb3270e33096520dc358357f0dae9418e1ad524",
+      "build": "Release"
+    },
+    "kissat": {
+      "path": "pins/tactix-kissat",
+      "sha256": "b6a9b1d094e5f81a24d55ba6843a02ba5882cf049cc60faccb37a391bce644d5",
+      "source_commit": "8af8e56f174b778aef3aa45af9f739b2a5f492c2",
+      "meaning": "current instrumented comparator"
+    },
+    "checkmodel": {
+      "path": "pins/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    },
+    "modelcheck.py": {
+      "path": "pins/modelcheck.py",
+      "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+    },
+    "drat-trim": {
+      "path": "pins/drat-trim",
+      "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0-5",
+    "array_throttle": null,
+    "node_constraint": null,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "checker_timeout_seconds": 16000,
+    "task_wall_seconds": 18000,
+    "proof_mode": "DRAT production; every SAT model independently checked"
+  },
+  "timing_policy": {
+    "waves": 3,
+    "decision_statistics": [
+      "median paired peak-RSS ratio with full range",
+      "median paired wall-time ratio with full range"
+    ],
+    "maximum_within_arm_timing_spread": 0.02,
+    "unstable_timing_disposition": "memory evidence remains reportable; no absolute timing claim if runtime spread exceeds the stable-timing threshold"
+  },
+  "local_validation": {
+    "build_directory": "build/release-rank5-cold-state",
+    "ctest": "76/76 PASS"
+  },
+  "harness_sha256": {
+    "matrix.tsv": "431abc5de39fb59247b4097b78429f9e33fb97a84b4e2e70c7469f9e4cc475c4",
+    "run-one.py": "c8f9a3c9f7c74dde14d2f24f3bb0a1f295b0e6d832e9486a9a6bb5c7bf42e8ba",
+    "aggregate.py": "555299f7463b8d7ceaf442560e79772564213d88b84627b5945c08850b47c7e7",
+    "array.sbatch": "2b113a7fd0ad3021afe9254df915bfaba69419c9e52fc63f4bd84bab03607076",
+    "aggregate.sbatch": "e271181bdfaa7540f1d2c1cf210ec78bdfb530fe71653232979c588d714a0908"
+  }
+}
