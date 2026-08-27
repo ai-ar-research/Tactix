@@ -33,22 +33,30 @@ session narrative; this file is only the current resume surface.
   `10372d94d2cb1ae86893408435e0c3ffa2338053b11b7012c2107a3bebf1ffd0`.
   Per project-owner direction, Rank 27 is now parked rather than treated as the
   next witness.
-- **Active measurement:** frozen campaign
+- **Predecessor measurement:** frozen campaign
   `benchmarks/runs/20260826-2340-tierd-ranks1-40-current-screen/` re-evaluates
   immutable ranks 1--40 with accepted Tactix `92d9bc1`/binary `a76182a0...4d95`
   and accepted current instrumented Kissat `8af8e56`/binary
   `b6a9b1d0...644d5`. Array `1651248` has 80 independent one-solver tasks;
-  classifier `1651287` runs after all terminate. Every solver job uses `-c 12`,
+  classifier `1651287` runs after all terminate. At the replacement submission,
+  77/80 results were published and tasks 35, 42, and 43 remained in proof
+  checking. Every solver job uses `-c 12`,
   exactly `--mem=48000M`, the now-rejected 16 GiB `RLIMIT_AS`, 1,200 seconds,
   proof production, and independent proof/model checking; there is no throttle
   or node constraint. Frozen scoring references are not rerun. Preserve and
   classify this campaign as dual-limit diagnostic evidence, but do not use its
   apparent early OOMs to select the next target.
-- **Next action:** after landing the SLURM-only infrastructure decision in
-  `benchmarks/reports/2026-08-27-slurm-memory-enforcement.md`, freeze and rerun
-  all 80 rank-1--40 arms with the same accepted solvers, inputs, proof checks,
-  `-c 12`, and exactly `--mem=48000M`, but no `RLIMIT_AS`. Use the new complete
-  aggregate to choose the next memory or runtime gap. Confirm any strict
+- **Active replacement screen:** frozen campaign
+  `benchmarks/runs/20260827-0100-tierd-ranks1-40-slurm-memory-screen/`, array
+  `1651430`, and after-any classifier `1651464` rerun all 80 arms with the same
+  accepted solvers, immutable inputs, and proof/model checks. Every independent
+  task uses six physical/twelve logical CPUs, exactly `--mem=48000M`, 1,200
+  seconds, no throttle or node constraint, and SLURM task-cgroup memory
+  enforcement only; there is no `RLIMIT_AS`. Results also record sampled
+  VmPeak/VmHWM. Frozen scoring references are not rerun.
+- **Next action:** classify both campaigns completely, require zero certificate
+  residue, and use only the replacement aggregate to choose the next memory or
+  runtime gap. Confirm any strict
   16-GiB claim separately with two physical/four logical CPUs and
   `--mem=16G`. The standing priority after current evidence is Rank 4, then
   Rank 32; a genuine new Tactix memory solve loss takes precedence. Each solver
