@@ -691,13 +691,12 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // O(#queue) repair is paid once per application and threads no list.
   const Var fresh_first = k.nvars;
 
-  // Composite grids (`docs/design/s2b-composite-grids-design.md`):
-  // `k.factor_composite` widens the remainder universe to all live literals,
-  // growing as the pass applies (kissat resize_factoring). Fresh literals can
-  // participate as remainders, but never as factors in the same pass: Kissat
-  // keeps `factoring.initial` fixed and rejects `next > initial` in addition
-  // to not pushing fresh literals into the first-factor heap.  The boundary's
-  // one admitted positive fresh literal is covered by `next_factor_limit`.
+  // Composite grids widen the remainder universe as the pass applies. Kissat
+  // keeps `factoring.initial` fixed, so only the first positive fresh literal
+  // can be a next factor (`next_factor_limit`). Clause addition marks both
+  // fresh polarities without scheduling them directly; a later touched update
+  // can therefore schedule one as a first factor in the same pass. See
+  // `docs/design/s2b-composite-grids-design.md`.
   // Termination needs no var-class exclusion — every accepted grid has
   // delta >= 1, strictly decreasing the finite live-binary count. Default off:
   // composition over-applies in a preprocessing blast, and belongs to the
@@ -865,11 +864,27 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     if (forced_seed != INVALID_LIT && applied)
       break;
     const Lit seed = schedule.pop_max();
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    trace_factor_heap(k, schedule, seed, "popped");
+    if (const char *selected =
+            std::getenv("TACTIX_EVENT_TRACE_FACTOR_ADMISSION")) {
+      if (std::atoi(selected) == kernel_externalize(k, seed))
+        std::fprintf(
+            stderr,
+            "[factor-admission] external=%d internal=%u live_lits=%u "
+            "armed=%u value=%d retired=%u heap_score=%u score=%u\n",
+            kernel_externalize(k, seed), seed, live_lits,
+            seed < armed.size() ? armed[seed] : 0, k.value(seed),
+            kernel_var_retired(k, var_of(seed)), schedule.score(seed),
+            score_of(seed));
+    }
+#endif
     if (forced_seed != INVALID_LIT && seed != forced_seed)
       break;
-    // `live_lits`, not `armed.size()`: the first-factor boundary is the pass
-    // universe. An update_candidate on a divider/quotient literal can push a
-    // fresh literal into the heap, and Kissat never schedules one as a seed.
+    // `live_lits`, not `armed.size()`: the first-factor boundary is the
+    // dynamically grown pass universe. An update_candidate on a
+    // divider/quotient literal can push a fresh literal into the heap after
+    // some later factoring touches it.
     if (seed >= live_lits || !armed[seed] || k.value(seed) != 0 ||
         kernel_var_retired(k, var_of(seed)))
       continue;
@@ -1227,21 +1242,27 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       event_trace_factor_pair(k, seed, "before");
 #endif
+      const Var added_fresh = k.nvars;
       apply_factoring(k, fidx, best_F, best_R, pool, best_grid_refs);
+      assert(k.nvars == added_fresh + 1);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       event_trace_factor_pair(k, seed, "after");
 #endif
       applied++;
       k.stats.factorings++;
       // Grow the pass universe over the fresh var (kissat resize_factoring).
-      // Its divider/quotient clauses can participate in later chains through
-      // re-armed original literals, but resize_factoring does not schedule the
-      // fresh literal itself as a first factor.
+      // Clause insertion has marked both its divider and quotient polarities,
+      // but, like Kissat, do not schedule either one merely because it was
+      // created. A later update_candidate can push an armed fresh polarity.
       if (composite && static_cast<Lit>(2 * k.nvars) > live_lits) {
         live_lits = static_cast<Lit>(2 * k.nvars);
         cofactor.resize(std::max(live_lits, next_factor_limit), 0);
         armed.resize(std::max(live_lits, next_factor_limit), 0);
         binary_partner_epoch.resize(std::max(live_lits, next_factor_limit), 0);
+        const Lit fresh = make_lit(added_fresh, false);
+        const Lit not_fresh = negate(fresh);
+        assert(k.factor_marks[fresh] && k.factor_marks[not_fresh]);
+        armed[fresh] = armed[not_fresh] = 1;
       }
       // Clause addition re-arms exactly the polarities present in the new
       // definition: each factor occurs in a divider, and every remainder

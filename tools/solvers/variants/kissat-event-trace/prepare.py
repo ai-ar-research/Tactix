@@ -864,6 +864,33 @@ def main():
         '  }\n')
     replace_once(
         factor,
+        '  uint64_t *ticks = &solver->statistics.factor_ticks;\n',
+        '  uint64_t *ticks = &solver->statistics.factor_ticks;\n'
+        '  const uint64_t trace_tick_start = *ticks;\n')
+    replace_once(
+        factor,
+        '  bool completed = kissat_empty_heap (&factoring.schedule);\n'
+        '  adjust_scores_and_phases_of_fresh_variables (&factoring);\n',
+        '  bool completed = kissat_empty_heap (&factoring.schedule);\n'
+        '  kissat_event_trace_factor_summary (solver, *ticks - trace_tick_start);\n'
+        '  adjust_scores_and_phases_of_fresh_variables (&factoring);\n')
+    replace_once(
+        factor,
+        '    const unsigned first =\n'
+        '        kissat_pop_max_heap (solver, &factoring.schedule);\n',
+        '    const unsigned first =\n'
+        '        kissat_pop_max_heap (solver, &factoring.schedule);\n'
+        '    kissat_event_trace_factor_heap (solver, first,\n'
+        '                                    &factoring.schedule);\n')
+    replace_once(
+        factor,
+        '    const size_t first_count = first_factor (&factoring, first);\n'
+        '    if (first_count > 1) {\n',
+        '    const size_t first_count = first_factor (&factoring, first);\n'
+        '    if (first_count > 1) {\n'
+        '      kissat_event_trace_factor_seed (solver, first, first_count);\n')
+    replace_once(
+        factor,
         '      if (q && reduction > factoring.bound) {\n'
         '        if (apply_factoring (&factoring, q)) {\n',
         '      if (q && reduction > factoring.bound) {\n'

@@ -110,6 +110,7 @@ void kissat_event_trace_bve_heap (struct kissat *, const char *, struct heap *,
                                   unsigned);
 void kissat_event_trace_eliminate_cleanup (struct kissat *, const char *);
 void kissat_event_trace_factor_seed (struct kissat *, unsigned, size_t);
+void kissat_event_trace_factor_summary (struct kissat *, uint64_t);
 void kissat_event_trace_factor_candidate (struct kissat *, unsigned, size_t,
                                           size_t, unsigned, unsigned,
                                           unsigned);
