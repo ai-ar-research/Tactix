@@ -1,0 +1,2 @@
+task	arm	tier	rank	instance	expected
+0	tactix	D-ranks1-40	32	tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz	UNSAT

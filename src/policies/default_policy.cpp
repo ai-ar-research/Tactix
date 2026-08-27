@@ -2573,6 +2573,10 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           compact_ && kernel_should_compact_variables(
                           k, config_.reduction.compact_inactive_percent);
       reduce_candidates(k, reduce_scratch_);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      k.diagnostic_policy_reduce_bytes =
+          reduce_scratch_.capacity() * sizeof(Ref);
+#endif
       const size_t reduce_victims =
           std::min(rp.victims(k, reduce_scratch_.size()),
                    reduce_scratch_.size());
@@ -3460,6 +3464,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       const uint64_t invocation_root_epoch = k.touch_fixed_head;
       const SlotEntry::Telem invocation_tm = e.tm;
 #endif
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      k.diagnostic_policy_inprocess_bytes =
+          diagnostic_non_dense_storage_bytes();
+#endif
       event_trace_slot_boundary(k, r.name, "begin");
       const bool sweep = !std::strcmp(r.name, "Sweep");
       const size_t trail_before = k.trail.size();
@@ -3583,6 +3591,10 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
           heuristics_consume_retirements(k);
         }
       }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      k.diagnostic_policy_inprocess_bytes =
+          diagnostic_non_dense_storage_bytes();
+#endif
       event_trace_slot_boundary(k, r.name, "end");
       if (step == SlotStep::Stop)
         break;

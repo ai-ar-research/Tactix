@@ -1,0 +1,108 @@
+{
+  "schema": "tactix-tierd-rank32-persistent-owners-v2",
+  "created_at": "2026-08-27T16:24:50Z",
+  "status": "terminal-valid-diagnostic",
+  "submitted_at": "2026-08-27T16:25:26Z",
+  "scoring": false,
+  "promotion_status": "trace-only diagnostic over accepted source; no solver repair",
+  "purpose": "Attribute accepted Rank-32 live allocation to persistent kernel identity/search/input/touch/event/probing/proof-index, policy-heuristic, clause-alias, binary-liveness, delayed-watch, formula, and reconstruction capacities.",
+  "hypothesis": "The allocator run proves both material free-heap retention and 425-450 MiB of used-plus-mmap allocation; direct persistent-owner totals can identify the largest portable live representation target before any lifetime or layout repair.",
+  "pass_criterion": "The accepted logical trajectory remains unchanged, the UNSAT proof verifies independently, owner totals are present at every slot boundary, and certificate plus scratch residue is zero.",
+  "input": {
+    "path": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+    "sha256": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+    "expected": "UNSAT",
+    "rank": 32
+  },
+  "input_sha256": {
+    "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3"
+  },
+  "predecessor": {
+    "allocator_campaign": "benchmarks/runs/20260827-1210-tierd-rank32-allocator-boundaries",
+    "allocator_result_sha256": "9f402e44bb7088a8c2a6400dbd1295b25c3acd17b28f7472ed444f3b39c100be",
+    "failed_scaffold": "benchmarks/runs/20260827-1220-tierd-rank32-persistent-owners",
+    "failed_scaffold_result_sha256": "72ebb22b096fd660cbcef153234839e543fb2237e4b4e41ee129503d2e72e99f",
+    "failed_scaffold_reuse": false
+  },
+  "closed_mechanism": {
+    "campaign": "benchmarks/runs/20260827-0760-BC-rank32-congruence-admission-guard",
+    "disposition": "rejected and reverted under N4; this diagnostic changes no admission or behavior"
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "2b87d31ffd268ed90edee29117c764daf772061083b3acfee67c1cb407da3ef1",
+      "source_commit": "35aca7326a4e15da48f50335e04c1fd9cc677c19",
+      "build": "Release with TACTIX_ENABLE_EVENT_TRACE=ON and persistent-owner trace fields",
+      "accepted_release_sha256": "26430a9dfa2d283c1755ac64067a6fbcbcc1de23686374873cb71f9977f34845",
+      "diagnostic_source_diff_sha256": "8ca0a55b9a3af3995a0b1739edef2e6c89e7e19d44fbd92d85b8053ec2d4bb41",
+      "diagnostic_source_file_sha256": {
+        "src/diagnostics/event_trace.cpp": "59fb6305bb63f239fcb7ad761a78e56e474a538082add19d2c171b02f10a7612",
+        "src/kernel/kernel.hpp": "25c7cee68eebec825dd41950a72eca302a0cf17fdb79ff32f8b46c9d82e519bd"
+      }
+    },
+    "checkmodel": {"path": "pins/checkmodel", "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"},
+    "modelcheck.py": {"path": "pins/modelcheck.py", "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"},
+    "drat-trim": {"path": "pins/drat-trim", "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"}
+  },
+  "shared_runner": {
+    "path": "../20260827-0100-tierd-ranks1-40-slurm-memory-screen/run-one.py",
+    "sha256": "10b1605ca06e48641da3c1115ccf2bf5c1cd2846a940525fc994f51c95c59385"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0",
+    "array_throttle": null,
+    "node_constraint": null,
+    "whole_node_exclusive": false,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "proof_checker_timeout_seconds": 16000,
+    "proof_mode": "DRAT production with independent drat-trim verification"
+  },
+  "slurm": {"array_job": 1652469},
+  "terminal_evidence": {
+    "result_sha256": "a1f6a615b980a2398565d9619580b06ebff2a948f7e224978c8e1dcabcae91ff",
+    "slots_sha256": "6708f5b7e6eaade9faa04c37a04ab64e4c230693fa0f4620f33cfa2922f4ed1b",
+    "classification": "valid UNSAT with independently verified DRAT proof and zero certificate or scratch residue",
+    "solve_seconds": 518.452,
+    "peak_rss_kib": 566344,
+    "checker_seconds": 120.499,
+    "late_factor_end_kib": {
+      "current_rss": 508908,
+      "heap_used": 333394,
+      "heap_free": 127957,
+      "mmap": 92412,
+      "named_persistent_capacity": 273983
+    },
+    "largest_sampled_live_rss_bve_end_kib": {
+      "current_rss": 551260,
+      "heap_used": 317846,
+      "heap_free": 143689,
+      "mmap": 131908,
+      "named_persistent_capacity": 299006
+    },
+    "largest_named_late_owners": {
+      "reconstruction_mib": 86.37,
+      "clause_alias_mib": 45.37,
+      "proof_index_mib": 35.29
+    },
+    "trajectory_validation": "After removing only rss_kib and vm_kib telemetry fields, Congruence and Substitute traces are byte-identical to the predecessor allocator campaign; all non-timing solver statistics also match.",
+    "interpretation": "Named persistent capacity explains 267.56 MiB late and 292.00 MiB at the largest sampled live-RSS boundary. Approximately 148 MiB of used-plus-mmap allocation remains unattributed late; this diagnostic localizes but does not justify a solver repair. Runtime is trace-instrumented diagnostic evidence only."
+  },
+  "local_validation": {
+    "event_trace_ctest": "75/75 PASS",
+    "manifest_preflight": "required input_sha256 map present and exact",
+    "accepted_solver_source_diff": "diagnostic-only methods in src/kernel/kernel.hpp plus src/diagnostics/event_trace.cpp"
+  },
+  "harness_sha256": {
+    "array.sbatch": "d47fd02fee40fbb113fbf86093c8a64df8dff4c5d01329821b143e001ad80a88",
+    "matrix.tsv": "0c8aeacfa3865243d92bb30eac56b77b2709131e6f5719972ccb246c2231cc49",
+    "run-one.py": "2bf851844138674364178a1041f41019ea115544c44f9c3e331806b17e632155"
+  }
+}

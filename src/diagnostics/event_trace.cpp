@@ -14,11 +14,54 @@
 #include <vector>
 
 #include <sys/resource.h>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 
 namespace tactix {
 namespace {
 
 EventTrace *active_trace;
+
+template <class T> size_t capacity_bytes(const std::vector<T> &values) {
+  return values.capacity() * sizeof(T);
+}
+
+struct DenseStorage {
+  size_t capacity_bytes = 0;
+  size_t usable_bytes = 0;
+  size_t allocations = 0;
+};
+
+DenseStorage dense_storage(const OccIndex *dense) {
+  DenseStorage result;
+  if (!dense)
+    return result;
+  result.capacity_bytes = capacity_bytes(dense->large);
+  if (dense->large.data()) {
+    result.allocations++;
+#if defined(__GLIBC__)
+    result.usable_bytes +=
+        malloc_usable_size(const_cast<void *>(
+            static_cast<const void *>(dense->large.data())));
+#else
+    result.usable_bytes += capacity_bytes(dense->large);
+#endif
+  }
+  for (const auto &list : dense->large) {
+    result.capacity_bytes += capacity_bytes(list);
+    if (!list.data())
+      continue;
+    result.allocations++;
+#if defined(__GLIBC__)
+    result.usable_bytes += malloc_usable_size(
+        const_cast<void *>(static_cast<const void *>(list.data())));
+#else
+    result.usable_bytes += capacity_bytes(list);
+#endif
+  }
+  return result;
+}
 
 void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
   static bool initialized = false;
@@ -36,6 +79,69 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
     return;
   rusage usage{};
   getrusage(RUSAGE_SELF, &usage);
+  size_t heap_used_kib = 0, heap_free_kib = 0, mmap_kib = 0;
+#if defined(__GLIBC__)
+  const struct mallinfo2 allocator = mallinfo2();
+  heap_used_kib = static_cast<size_t>(allocator.uordblks) / 1024;
+  heap_free_kib = static_cast<size_t>(allocator.fordblks) / 1024;
+  mmap_kib = static_cast<size_t>(allocator.hblkhd) / 1024;
+#endif
+  const size_t identity_bytes =
+      capacity_bytes(k.internal_to_external) +
+      capacity_bytes(k.external_to_internal) +
+      capacity_bytes(k.compact_import_order) +
+      capacity_bytes(k.compact_import_position) +
+      capacity_bytes(k.external_import_rank) +
+      capacity_bytes(k.internal_import_rank) +
+      capacity_bytes(k.import_rank_to_external) + capacity_bytes(k.var_status);
+  const size_t search_bytes =
+      capacity_bytes(k.values) + capacity_bytes(k.assigned) +
+      capacity_bytes(k.jumped_over) + k.trail.capacity() * sizeof(Lit) +
+      capacity_bytes(k.frames) + capacity_bytes(k.model_values) +
+      capacity_bytes(k.pending.lits) + capacity_bytes(k.seen) +
+      capacity_bytes(k.analyzed) + capacity_bytes(k.bump_order) +
+      capacity_bytes(k.shrinkable) + capacity_bytes(k.reason_bumped) +
+      capacity_bytes(k.minimize_scratch) + capacity_bytes(k.learned_scratch) +
+      capacity_bytes(k.otfs_scratch) + capacity_bytes(k.otfs_retired) +
+      capacity_bytes(k.analysis_conflict_checkpoints) +
+      capacity_bytes(k.radix_scratch) + capacity_bytes(k.marked_levels) +
+      capacity_bytes(k.touched_levels) + capacity_bytes(k.eager_marks) +
+      capacity_bytes(k.reason_walk_stack) + capacity_bytes(k.jump_pending) +
+      capacity_bytes(k.sweep_tail);
+  const size_t input_bytes =
+      capacity_bytes(k.input_restatements) +
+      capacity_bytes(k.input_restate_lits) +
+      capacity_bytes(k.input_restate_units) +
+      capacity_bytes(k.input_activation_order) +
+      capacity_bytes(k.input_activated) +
+      capacity_bytes(k.input_refutation_units);
+  const size_t touch_bytes =
+      capacity_bytes(k.bve_retry) + capacity_bytes(k.factor_marks) +
+      capacity_bytes(k.backbone_priority) + capacity_bytes(k.touched) +
+      capacity_bytes(k.removed) + capacity_bytes(k.touched_kept) +
+      capacity_bytes(k.bve_min_bound);
+  const size_t event_bytes =
+      capacity_bytes(k.retired_events) + capacity_bytes(k.substituted_events) +
+      capacity_bytes(k.fresh_var_events);
+  const size_t probing_bytes =
+      capacity_bytes(k.probing.lists) + capacity_bytes(k.probing.words) +
+      capacity_bytes(k.probing.stamp) + capacity_bytes(k.probing.clauses);
+  const size_t proof_index_bytes =
+      capacity_bytes(k.unit_ids) + k.binary_ids.diagnostic_storage_bytes() +
+      capacity_bytes(k.lrat_entries) + capacity_bytes(k.lrat_chain);
+  size_t heuristics_bytes = 0;
+  if (k.h) {
+    heuristics_bytes =
+        capacity_bytes(k.h->saved) + capacity_bytes(k.h->links) +
+        capacity_bytes(k.h->scores.stack) + capacity_bytes(k.h->scores.pos) +
+        capacity_bytes(k.h->scores.score) + capacity_bytes(k.h->target) +
+        capacity_bytes(k.h->best) + capacity_bytes(k.h->walk_prev);
+  }
+  const size_t clause_alias_bytes =
+      k.clause_order_alias.diagnostic_storage_bytes();
+  const size_t binary_liveness_bytes =
+      k.binary_liveness ? k.binary_liveness->diagnostic_storage_bytes() : 0;
+  const DenseStorage dense = dense_storage(k.dense);
   unsigned long vm_kib = 0, current_rss_kib = 0;
   if (FILE *status = std::fopen("/proc/self/status", "r")) {
     char line[256];
@@ -47,11 +153,32 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
   }
   std::fprintf(out,
                "%s\t%s\tmax_rss_kib=%ld\tcurrent_rss_kib=%lu\t"
-               "vm_kib=%lu\tvars=%u\tarena_words=%zu\twatch_words=%zu\t"
-               "watch_capacity=%zu\n",
+               "vm_kib=%lu\tvars=%u\tarena_words=%zu\tarena_capacity=%zu\t"
+               "watch_words=%zu\twatch_capacity=%zu\twatch_heads_capacity=%zu\t"
+               "reconstruction_words=%zu\treconstruction_capacity=%zu\t"
+               "identity_capacity_bytes=%zu\tsearch_capacity_bytes=%zu\t"
+               "input_capacity_bytes=%zu\ttouch_capacity_bytes=%zu\t"
+               "event_capacity_bytes=%zu\tprobing_capacity_bytes=%zu\t"
+               "proof_index_capacity_bytes=%zu\theuristics_capacity_bytes=%zu\t"
+               "clause_alias_capacity_bytes=%zu\t"
+               "binary_liveness_capacity_bytes=%zu\tdense_capacity_bytes=%zu\t"
+               "dense_usable_bytes=%zu\tdense_allocations=%zu\t"
+               "policy_reduce_capacity_bytes=%zu\t"
+               "policy_inprocess_capacity_bytes=%zu\t"
+               "delayed_capacity_bytes=%zu\t"
+               "heap_used_kib=%zu\theap_free_kib=%zu\tmmap_kib=%zu\n",
                name, stage, usage.ru_maxrss, current_rss_kib, vm_kib, k.nvars,
-               k.arena.size(), k.watches.arena.size(),
-               k.watches.arena.capacity());
+               k.arena.size(), k.arena.capacity(), k.watches.arena.size(),
+               k.watches.arena.capacity(), k.watches.heads.capacity(),
+               k.reconstruction.size(), k.reconstruction.capacity(),
+               identity_bytes, search_bytes, input_bytes, touch_bytes,
+               event_bytes, probing_bytes, proof_index_bytes, heuristics_bytes,
+               clause_alias_bytes, binary_liveness_bytes,
+               dense.capacity_bytes, dense.usable_bytes, dense.allocations,
+               k.diagnostic_policy_reduce_bytes,
+               k.diagnostic_policy_inprocess_bytes,
+               capacity_bytes(k.delayed),
+               heap_used_kib, heap_free_kib, mmap_kib);
 }
 
 struct BinaryLifecycleState {
