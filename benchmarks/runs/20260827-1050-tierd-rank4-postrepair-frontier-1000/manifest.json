@@ -1,0 +1,61 @@
+{
+  "schema": "tactix-rank4-postrepair-frontier-1000-v1",
+  "created_at": "2026-08-27T14:33:00Z",
+  "status": "completed-common-prefix-zero-residue",
+  "submitted_at": "2026-08-27T14:34:30Z",
+  "slurm_job": "1652372",
+  "completed_at": "2026-08-27T14:35:00Z",
+  "result": {
+    "tactix_trace_sha256": "fda9c587b2cc998ca2ba1e6f810601635a863cdfe29e7b38f71cc9c5f8683f5a",
+    "kissat_trace_sha256": "9fb1d989daed51e87c864b9bc2333290ffd6446f3f57692d89e6308bbc79d30a",
+    "trace_lines": {"tactix": 407725, "kissat": 373128},
+    "classification": "All 20,355 comparable portable detail records are exact through Kissat conflict 1,000. Tactix records one further conflict because of the known opposite-side diagnostic stop observation. Both traces are untruncated and both jobs reached expected bounded UNKNOWN exits.",
+    "correctness_scope": "bounded UNKNOWN only; no SAT/UNSAT claim",
+    "certificate_residue": 0,
+    "scratch_residue": 0,
+    "next_frontier": "The remaining Rank-4 production gap is downstream of conflict 1,000 or throughput-owned."
+  },
+  "scoring": false,
+  "promotion_status": "read-only bounded diagnostic",
+  "purpose": "Extend the exact portable Rank-4 Tactix/current-Kissat detail frontier from 100 to 1,000 conflicts.",
+  "input": {
+    "path": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+    "sha256": "1066d755132ccf69a4823d51d866a70dea0ef4a652eb49d5cb7266fc55d902e1",
+    "rank": 4,
+    "expected": "UNSAT"
+  },
+  "predecessor": {
+    "campaign": "benchmarks/runs/20260827-1030-tierd-rank4-postrepair-search-frontier",
+    "classification": "1,585 portable detail records exact through Kissat conflict 100."
+  },
+  "pins": {
+    "tactix": {"path": "pins/tactix-tactix", "sha256": "e1fba858ad6913e931da4f465bc03da3cc4098d5b6a1fb8830141266ba287459", "source_commit": "3c3164dcd35b4286d3fe1aea61e4731cc8545fe3"},
+    "kissat": {"path": "pins/tactix-kissat", "sha256": "2d9886db365669ac32f0b43b81fb4a8d55103731cf6358a5cfd6cfd3dfd9557e", "source_commit": "8af8e56f174b778aef3aa45af9f739b2a5f492c2"}
+  },
+  "trace_contract": {
+    "conflict_from": 0,
+    "conflict_to": 1000,
+    "stop_after_conflict": 1000,
+    "record_limit": 1000000,
+    "watch_and_implication_records": false,
+    "acceptance": "Both independent jobs reach expected bounded UNKNOWN exits with untruncated traces and zero residue."
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0-1",
+    "node_constraint": null,
+    "one_solver_invocation_per_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 300,
+    "correctness_scope": "bounded UNKNOWN observer exit; no certificate claim"
+  },
+  "harness_sha256": {
+    "run.sbatch": "98168fde9781d31a9847e8aae90dad5c2990ea4c73dd86302b6d80c21b0bdad5",
+    "compare_detail.py": "03f5e29767a0d6e680c887c83280923cbefb587e523e2bd745811e1e6394ab1c"
+  },
+  "n1_n4": "Read-only tracing on immutable accepted binaries; no solver behavior changes."
+}

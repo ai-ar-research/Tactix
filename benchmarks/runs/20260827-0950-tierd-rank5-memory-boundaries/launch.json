@@ -1,0 +1,10 @@
+{
+  "schema": "tactix-diagnostic-launch-v1",
+  "submitted_at": "2026-08-27T13:42:15Z",
+  "array_job": "1652355",
+  "eligible_at": "2026-08-27T13:57:07Z",
+  "initial_state": "PENDING (BeginTime)",
+  "manifest_sha256": "5c892c21101a4179898753931c3ddc4d30ab24490d8bfaa01de1b79d46b9a081",
+  "one_solver_run_per_task": true,
+  "submission_delay_reason": "Avoid adding contention during the later-started fresh-screen solver windows; proof validation may continue concurrently after those windows close."
+}

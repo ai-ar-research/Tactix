@@ -1,0 +1,117 @@
+arm=tactix node=node017 allowed_cpus=30-35,126-131 bound_cpu=30
+c tactix 0.1.0
+c input       0 clauses restated (normalized literals)
+c decisions   393 (0 via API)
+c conflicts   101
+c propagations 40384 (13543 search, 26841 inprocess)
+c learned     101 (0 units)
+c learnedsize 15.33 avg lits, 9.68 avg glue
+c reduction   63.6% of resolved lits removed by minimize+shrink
+c minimized   163 lits
+c min-depth   0 cutoffs
+c shrunken    2545 lits
+c reasonbump  1544 vars in 101 rounds (0 depth2, 0 aborted)
+c otfs        0 strengthened (0 conflicts subsumed)
+c eagersub    18 subsumed of 200 tried (0 kept as reason), register 4
+c shrinkglue  0 promoted (clamp size-1)
+c tumble      450 vars seeded (activation order)
+c sparsecol   1 runs, 0 clauses
+c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked
+c vivify2     0 reused, 0 probes, 0 full, 0 tier3, 0 prio, 0 rearm, 0 polls, 0 term
+c vivify3     0 subsumed, 0 promoted, 0 shrunken, 0 implied, 0 asym, 0 instantiated, 0 noop
+c probe       0 rounds, 0 probed, 0 failed
+c backbone    80 rounds, 459 probed, 0 failed
+c transitive  0 rounds, 0 checked, 0 deleted, 0 failed, 0 ticks, 0 polls, 0 terminated
+c substitute  1 rounds, 2270 ticks, 0 non-trivial SCCs (0 lits), 0 vars substituted, 0 rounds skipped / 0 partial (0 lits poisoned) on the hazard check
+c bce         0 rounds, 0 deleted, 0 ticks
+c cce         0 rounds, 0 tried, 0 deleted (0 blocked / 0 ata), 0 ala, 0 cla, 0 ticks
+c cce2        0 skipped / 0 advances / 0 rearmed
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c sweep       1 rounds, 232 environments (178904 clauses), 2506 solves, 231 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 1 budget, 1458452 ticks
+c sweepdiag   367784 env-lits, 0 root-false (0 stripped, 0 FREE), 0 units, 55550 cand-seeded, 1442 refined, 2273 dir-sat, 0 dir-unsat
+c sweepflip   40497 attempts, 25442 successful
+c sweepback   66615 candidates, 53500 flipped
+c sweepcost   180722 dedup ticks, 1000052 sub-solver ticks, 0 representation words; closure 0/0 occurrences, 0/0 vars whole
+c sweepemit   0 binaries, 0 not-rup, 0 general pairs, 0 strip units cited
+c sweepsched  450 scheduled, 0 rescheduled, 0 resumed, 0 completed, 218 tail; limits 256 vars, 1024 clauses, depth 2
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+c hbr         0 rounds, 0 probes, 0 binaries, 0 subsumed, 0 declined, 0 ticks
+c chrono      0 chronological, 0 stale backjumps, 0 propagation re-arms
+c reuse       0 conflicts reused, 0 needed watch repair
+c jumpreason  0 binary reasons jumped, 2 classifications, 0 big-binary; gate off
+c binprop     27300 scans, 27300 flagged, 41160 words, 1110 skipped, 0 residual-ordered, 0 residual-large
+c inprocess   1 phases
+c conggates   450 and, 0 xor, 0 ite
+c congruence  1 rounds, 1 binary rebuilds, 450 gates, 0 merges, 0 units, 0 unjustified, 81104 ticks, 0 budget stops
+c congy1      0 found, 0 units, 0 binary equivalences, 40990 ticks
+c retired     0 vars (0 substituted, 0 eliminated) of 831
+c compact     0 passes removed 0 internal variables
+c deactivate  0 deactivations, 0 repeated reports, 0 re-bumps of retired vars
+c substdec    0 decisions on substituted vars (0.00% of 393)
+c extension   381 vars added, 127 decisions on them (32.32% of 393)
+c interrupt   0 rule applications aborted on the stop flag (0 stress fires)
+c extbumps    3223 of 7962 bumps on extension vars (40.48%), 985 reason-side only (30.56% of those)
+c factor      381 factorings, 0 large remainders offered, 340150 ticks
+c factor-bnd  0 grids rejected by the coupled bound
+c factor-dem  1 demotions, 381 fresh vars demoted
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units
+c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved
+c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units
+c restarts    4 (2 reused a trail prefix)
+c reductions  0 (0 clauses deleted, 32 promoted)
+c tiers       2/6 live after 0 retiers (retention band 0 clause-visits dynamic vs 0 static)
+c redscan     0 scans, 0 arena words walked, 0 skippable by a first_reducible watermark (0.00%)
+c mode        focused after 0 switches (70635 ticks, 0 target phases saved)
+c rephased    0 (0 best phases saved)
+c reordered   0 eligible, 0 decision re-rankings
+c lucky       1 early, 1 late (0 SAT), 12 probes
+c walk        0 walks (0 improved, 0 flips, 0 steps)
+c randec      0 sequences, 0 random decisions
+c subsume     0 rounds (0 checked, 0 visits, 0 subsumed)
+c strengthen  0 rounds (0 checked, 0 visits, 0 strengthened, 0 subsumed)
+c budgetstop  0 C1 rounds, 0 C2 rounds stopped mid-round
+c c1shadow    0 observed, 0 deleted + 0 rewritten by C2, 0 residual
+c touch       96811 marks, 96859 epoch; C1 0 skipped / 0 advances / 0 rearmed, C2 0 skipped / 0 advances / 0 rearmed
+c subhold     0 elimination rounds held open by C1/C2
+c touch3      BCE 0 skipped / 0 rearmed, X2 0 skipped / 0 rearmed, X4 0 skipped / 0 rearmed
+c interrupt3  BCE 0, X2 0, X4 0 aborts
+c interrupt2  C1 0, C2 0 aborts
+c touchred    5 redundant creations in scope (dynamic) vs 5 (static tier2=6), 48 band marks; band ON
+c f7band      C2 0 band candidates checked / 0 skipped, 0 subsumed / 0 strengthened
+c touch4      Factor 0 seeds skipped / 0 rearmed
+c timing      1258 ms solve
+c timing      1090 ms (86.7%) inprocessing slot, 168 ms (13.3%) search+scaffolding outside it
+c timing        Factor                 902 ms ( 71.7%) in 1 applications
+c timing        Sweep                  183 ms ( 14.5%) in 1 applications
+c timing        Backbone                 3 ms (  0.2%) in 1 applications
+c timing        Congruence               2 ms (  0.2%) in 1 applications
+c timing        Substitute               1 ms (  0.1%) in 1 applications
+c timing        (unattributed)           0 ms (  0.0%)
+s UNKNOWN
+	Command being timed: "taskset -c 30 env TACTIX_EVENT_TRACE=/tmp/r4-postrepair-frontier-1652369-0.39LPhQ/tactix.tsv TACTIX_EVENT_TRACE_LIMIT=1000000 TACTIX_EVENT_TRACE_CONFLICT_FROM=0 TACTIX_EVENT_TRACE_CONFLICT_TO=100 TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT=100 TACTIX_EVENT_TRACE_SKIP_WATCH=1 TACTIX_EVENT_TRACE_SKIP_IMPLY=1 timeout --preserve-status --signal=TERM --kill-after=5 300 /home/hwu/SAT-solving/benchmarks/runs/20260827-1030-tierd-rank4-postrepair-search-frontier/pins/tactix-tactix /tmp/r4-postrepair-frontier-1652369-0.39LPhQ/rank4.cnf"
+	User time (seconds): 1.12
+	System time (seconds): 0.14
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 0:01.27
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 12128
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 5
+	Minor (reclaiming a frame) page faults: 1682
+	Voluntary context switches: 22
+	Involuntary context switches: 6
+	Swaps: 0
+	File system inputs: 1056
+	File system outputs: 7480
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
+33138 /home/hwu/SAT-solving/benchmarks/runs/20260827-1030-tierd-rank4-postrepair-search-frontier/traces/tactix.tsv
+baca8a2ce6ef6aa9cd3ae9fdfa02e5443f43eb11e73b737030b3f02f367bbbc9  /home/hwu/SAT-solving/benchmarks/runs/20260827-1030-tierd-rank4-postrepair-search-frontier/traces/tactix.tsv
+arm=tactix stop_after_conflict=100 solver_exit=0 expected_exit=0

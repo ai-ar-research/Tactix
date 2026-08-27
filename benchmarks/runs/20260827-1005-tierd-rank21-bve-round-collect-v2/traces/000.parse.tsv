@@ -1,0 +1,5 @@
+begin	clauses=0	vars=0	rss_kib=3072	binary_count=0	watch_heads=0	watch_words=0	watch_capacity=0	watch_holes=0	arena_words=0	trail_capacity=0	frames_capacity=1	activation_capacity=0
+header	clauses=0	vars=3420218	rss_kib=667572	binary_count=0	watch_heads=6840436	watch_words=0	watch_capacity=0	watch_holes=0	arena_words=0	trail_capacity=3420218	frames_capacity=3420219	activation_capacity=0
+import	clauses=5000000	vars=3420218	rss_kib=845332	binary_count=3298518	watch_heads=6840436	watch_words=17305756	watch_capacity=26128592	watch_holes=1872183	arena_words=12496296	trail_capacity=3420218	frames_capacity=3420219	activation_capacity=2097152
+finish-begin	clauses=9206854	vars=3420218	rss_kib=1020596	binary_count=6102982	watch_heads=6840436	watch_words=29370584	watch_capacity=52257184	watch_holes=2573800	arena_words=23713560	trail_capacity=3420218	frames_capacity=3420219	activation_capacity=4194304
+finish-end	clauses=9206854	vars=3420218	rss_kib=1020596	binary_count=6102982	watch_heads=6840436	watch_words=29370584	watch_capacity=52257184	watch_holes=2573800	arena_words=23713560	trail_capacity=3420218	frames_capacity=3420219	activation_capacity=4194304

@@ -231,10 +231,17 @@ int main(int argc, char **argv) {
     return 1;
   }
   Kernel kernel;
+  const bool default_frontend =
+      !random_policy && !stress_policy && !replay_path;
+  if (default_frontend)
+    kernel_defer_cold_state(kernel);
   Heuristics heuristics; // the session owns H, the kernel holds a non-owning
                          // pointer. --no-heuristics leaves it unattached, so
                          // the whole run is H-free.
-  if (!no_heuristics) {
+  // DefaultPolicy can finish during startup propagation or early Lucky.  It
+  // owns and attaches H after that opportunity fails; random/replay/stress
+  // policies still require their session-wide H before parsing.
+  if (!no_heuristics && !default_frontend) {
     kernel.h = &heuristics;
     kernel.saved_phases = &heuristics.saved;
   }

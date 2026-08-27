@@ -1,0 +1,92 @@
+{
+  "schema": "tactix-tierd-rank5-deferred-guidance-v1",
+  "created_at": "2026-08-27T14:25:00Z",
+  "status": "completed-valid-zero-residue",
+  "submitted_at": "2026-08-27T14:27:00Z",
+  "slurm_job": "1652370_0",
+  "completed_at": "2026-08-27T14:26:10.602562+00:00",
+  "terminal_evidence": {
+    "result_sha256": "d1c85448380bdcb29e2f22bec418beb5dac920ffa51a3c07391744f7c04da696",
+    "verdict": "SAT",
+    "independent_validation": "model verified",
+    "solve_wall_seconds": 21.349,
+    "solve_peak_rss_kb": 10075752,
+    "cold_state_predecessor_median_peak_rss_kb": 12079480,
+    "current_kissat_median_peak_rss_kb": 10402844,
+    "peak_rss_reduction_from_predecessor_kb": 2003728,
+    "candidate_over_kissat_median_peak_ratio": 0.968558,
+    "certificate_cleanup": "model and derived artifacts deleted; scratch empty"
+  },
+  "scoring": false,
+  "promotion_status": "isolated unfuzzed diagnostic repair; not promoted or final",
+  "purpose": "Measure the remaining portable Rank-5 memory effect of deferring DefaultPolicy search guidance until startup propagation and early Lucky fail.",
+  "input": {
+    "path": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+    "sha256": "9783e5be11cea236f13a0d6800173103e6dd8707367f7a064ec249060363b235",
+    "expected": "SAT",
+    "rank": 5
+  },
+  "input_sha256": {
+    "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz": "9783e5be11cea236f13a0d6800173103e6dd8707367f7a064ec249060363b235"
+  },
+  "predecessor_evidence": {
+    "campaign": "benchmarks/runs/20260827-1020-tierd-rank5-cold-state-three-wave",
+    "classification": "Three valid independently checked SAT waves; median Tactix 12,079,480 KiB versus Kissat 10,402,844 KiB (1.161171x), with stable runtime and zero residue."
+  },
+  "candidate": {
+    "base_source_commit": "3c3164dcd35b4286d3fe1aea61e4731cc8545fe3",
+    "working_head": "031ab9868e6fd91729d289ec4f42edfc39667013",
+    "patch_sha256": "c15d14e884319b61fea065b624ccc813e56a22b4d46bac05e1e186fa016f777b",
+    "change": "The shipped DefaultPolicy frontend leaves its roughly 35-byte-per-variable search-guidance image unattached until early Lucky fails; parser activation order is retained and consumed on attachment. Random, replay, stress, externally supplied H, and later preprocessing/search behavior keep their existing lifecycle.",
+    "portability": "Lifecycle-only; no formula identity, rank, hash, deadline, per-instance behavior, or tuned threshold.",
+    "proof_rule_boundary": "No rule admission, proof emission, candidate order, budget, or logical transition changes."
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "26430a9dfa2d283c1755ac64067a6fbcbcc1de23686374873cb71f9977f34845",
+      "build": "Release"
+    },
+    "checkmodel": {
+      "path": "pins/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    },
+    "modelcheck.py": {
+      "path": "pins/modelcheck.py",
+      "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+    },
+    "drat-trim": {
+      "path": "pins/drat-trim",
+      "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0",
+    "array_throttle": null,
+    "node_constraint": null,
+    "one_solver_invocation_per_task": true,
+    "cpus_per_task": 12,
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "memory_enforcement": "SLURM task cgroup only",
+    "address_space_limit": null,
+    "solver_timeout_seconds": 1200,
+    "checker_timeout_seconds": 16000,
+    "task_wall_seconds": 18000,
+    "proof_mode": "DRAT production; SAT model independently checked"
+  },
+  "harness_sha256": {
+    "matrix.tsv": "46ff9072dcc7b096d9c65482ef0c5b012f00fa1cb37f69bececef8a462fd21db",
+    "run-one.py": "34f918fe5fb34f52ba20aadce3a32a1fd25fed63d8840bf97ffa16011b103c26",
+    "array.sbatch": "b327349a8f62b3210e94d7278f73884d710f5f0c94013c5ea4decc2ea81baa9a"
+  },
+  "local_validation": {
+    "build_directory": "build/release-rank5-cold-state",
+    "ctest": "76/76 PASS",
+    "new_coverage": [
+      "early Lucky SAT leaves both cold rule state and search guidance unmaterialized",
+      "failed early Lucky reproduces eager-H late-Lucky decisions, conflicts, propagations, and model"
+    ]
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "arms": {
+    "candidate": {
+      "par2": 1326.154,
+      "peak_rss_gib_max": 2.8411903381347656,
+      "results": 33,
+      "sat": 17,
+      "solve_seconds_total": 1326.154,
+      "unsat": 16,
+      "valid": 33
+    },
+    "shipped": {
+      "par2": 1329.271,
+      "peak_rss_gib_max": 2.842967987060547,
+      "results": 33,
+      "sat": 17,
+      "solve_seconds_total": 1329.271,
+      "unsat": 16,
+      "valid": 33
+    }
+  },
+  "candidate_par2_limit": 1.1,
+  "candidate_par2_ratio": 0.997655105693271,
+  "certificate_residue": [],
+  "cleanup_bad_tasks": [],
+  "complete": true,
+  "gains": [],
+  "instance_count": 33,
+  "invalid": [],
+  "malformed": [],
+  "missing_tasks": [],
+  "passed": true,
+  "regressions": [],
+  "resource_contract": {
+    "address_space_limit": null,
+    "array_throttle": null,
+    "cpus_per_task": 12,
+    "memory_enforcement": "slurm_task_cgroup",
+    "nodes": [
+      "node017",
+      "node018"
+    ],
+    "physical_cores_per_task": 6,
+    "scheduler_memory": "48000M",
+    "solver_timeout_seconds": 1200
+  },
+  "result_count": 66,
+  "schema": "tactix-matched-debug-regression-summary-v1",
+  "task_count": 66,
+  "tiers": [
+    "B",
+    "C"
+  ]
+}

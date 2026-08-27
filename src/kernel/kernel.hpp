@@ -917,6 +917,12 @@ struct Kernel {
   Proof *proof = nullptr;
   Stats stats;
 
+  // The shipped DefaultPolicy can finish at startup propagation or early
+  // Lucky, before any inprocessing/search consumer exists. Its frontend may
+  // defer this cold per-variable state until that opportunity fails. Bare
+  // kernels, API clients, random/replay policies and stress policies retain
+  // eager construction, so the public rule surface keeps its old contract.
+  bool cold_state_deferred = false;
   std::vector<uint8_t> bve_retry;
   uint32_t bve_retry_fixed_head = 0;
 
@@ -1064,6 +1070,8 @@ struct Kernel {
 };
 
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
+void kernel_defer_cold_state(Kernel &);
+void kernel_materialize_cold_state(Kernel &);
 void kernel_record_import(Kernel &, Var);
 uint64_t kernel_import_var_order(const Kernel &, Var);
 uint64_t kernel_import_lit_order(const Kernel &, Lit);
@@ -1167,7 +1175,8 @@ enum class RootCollectOutcome { NoChange, Changed, Unit, Refuted };
 RootCollectOutcome kernel_sparse_collect_root(Kernel &, Ref start = 0);
 
 inline void kernel_mark_bve_retry(Kernel &k, Var v) {
-  k.bve_retry[v] = 1;
+  if (!k.cold_state_deferred)
+    k.bve_retry[v] = 1;
   k.stats.bve_marks++; // events, not bit flips — see Stats::bve_marks
 }
 inline void kernel_notify_bve_score(Kernel &k, Var v, bool reinsert) {
@@ -1194,21 +1203,29 @@ inline void kernel_bve_occurrence_remove(Kernel &k, Lit lit,
 void kernel_bve_retry_sync_fixed(Kernel &);
 
 inline void kernel_touch_var(Kernel &k, Var v) {
-  k.touched[v] = ++k.touch_epoch;
+  const uint64_t epoch = ++k.touch_epoch;
+  if (!k.cold_state_deferred)
+    k.touched[v] = epoch;
   k.stats.touch_marks++; // events; a stamp has no flip to count
 }
 inline void kernel_removed_var(Kernel &k, Var v) {
-  k.removed[v] = ++k.touch_epoch;
+  const uint64_t epoch = ++k.touch_epoch;
+  if (!k.cold_state_deferred)
+    k.removed[v] = epoch;
   k.stats.touch_marks++;
 }
 inline bool kernel_touched_since(const Kernel &k, Var v, uint64_t since) {
+  assert(!k.cold_state_deferred);
   return k.touched[v] > since;
 }
 inline void kernel_touch_kept_var(Kernel &k, Var v) {
-  k.touched_kept[v] = ++k.touch_epoch;
+  const uint64_t epoch = ++k.touch_epoch;
+  if (!k.cold_state_deferred)
+    k.touched_kept[v] = epoch;
   k.stats.touch_kept_marks++;
 }
 inline bool kernel_kept_since(const Kernel &k, Var v, uint64_t since) {
+  assert(!k.cold_state_deferred);
   return k.touched_kept[v] > since;
 }
 inline bool kernel_likely_kept(const Kernel &k, bool redundant, uint32_t glue,
@@ -1217,6 +1234,7 @@ inline bool kernel_likely_kept(const Kernel &k, bool redundant, uint32_t glue,
          (k.kept_glue && glue <= k.kept_glue && size <= k.kept_size);
 }
 inline bool kernel_changed_since(const Kernel &k, Var v, uint64_t since) {
+  assert(!k.cold_state_deferred);
   return k.touched[v] > since || k.removed[v] > since;
 }
 inline bool kernel_clause_new_material(const Kernel &k, const Clause *c,
