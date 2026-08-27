@@ -12,6 +12,9 @@
 #   slurm.sh --name nightly -- --nightly --solver "build/release/tactix --random-policy --lrat"
 #
 # The job cd's to the repo root, so solver paths may be repo-relative.
+# Submission snapshots every harness input used by run.sh.  The batch job never
+# executes a live repository script, so later edits cannot shift Bash's saved
+# file offset while a long-running child process is active.
 # Log: tools/fuzz/slurm-<name>-<jobid>.log (same tail conventions as the
 # nightly-*.log files). TMPDIR points at node-local /tmp for the per-case
 # temp-dir churn; it is removed when the job exits.
@@ -53,6 +56,29 @@ MEM_MIB=$((PHYSICAL_CORES * MEM_MIB_PER_PHYSICAL_CORE))
 # Re-quote the run.sh args so compound --solver strings survive the batch script.
 ARGS=$(printf '%q ' "$@")
 
+# Pin only the inputs used by run.sh.  In particular, do not copy mutable logs,
+# failure output, or Python caches.  A failed job retains this exact read-only
+# snapshot for Claude's diagnosis; a successful job removes it.
+mkdir -p "$ROOT/build"
+PIN_ROOT=$(mktemp -d "$ROOT/build/pin-fuzz-harness-XXXXXX")
+case "$PIN_ROOT" in
+    "$ROOT"/build/pin-fuzz-harness-*) ;;
+    *) echo "error: unsafe fuzz harness pin path: $PIN_ROOT" >&2; exit 2 ;;
+esac
+cleanup_unsubmitted_pin() { rm -rf "$PIN_ROOT"; }
+trap cleanup_unsubmitted_pin EXIT
+PIN_FUZZ="$PIN_ROOT/fuzz"
+mkdir -p "$PIN_FUZZ"
+cp -a "$HERE/run.sh" "$HERE/fuzz.py" "$HERE/generators.py" \
+      "$HERE/modelcheck.py" "$HERE/shrink.py" "$HERE/stress.py" \
+      "$HERE/corpus" "$HERE/stress-scenarios" "$PIN_FUZZ/"
+HARNESS_SHA=$(
+    cd "$PIN_FUZZ"
+    find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum | \
+        sha256sum | cut -d' ' -f1
+)
+chmod -R a-w "$PIN_ROOT"
+
 JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
        --cpus-per-task="$ALLOC_CPUS" --mem="${MEM_MIB}M" --time="$TIME" \
        --job-name="fuzz-$NAME" --output="$HERE/slurm-$NAME-%j.log" <<EOF
@@ -60,13 +86,26 @@ JID=$(sbatch --parsable --partition="$PARTITION" --nodes=1 --ntasks=1 \
 set -euo pipefail
 cd "$ROOT"
 export TMPDIR=\$(mktemp -d /tmp/fuzz-\$SLURM_JOB_ID-XXXXXX)
-trap 'rm -rf "\$TMPDIR"' EXIT
-echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME logical-cpus=\$SLURM_CPUS_PER_TASK physical-cores=$PHYSICAL_CORES workers=$PHYSICAL_CORES mem=${MEM_MIB}M =="
-"$ROOT/tools/fuzz/run.sh" $ARGS --jobs "$PHYSICAL_CORES"
+export TACTIX_REPO_ROOT="$ROOT"
+export TACTIX_FUZZ_OUTPUT_ROOT="$HERE/failures"
+cleanup_fuzz_job() {
+    status=\$?
+    rm -rf "\$TMPDIR"
+    if [ "\$status" -eq 0 ]; then
+        rm -rf "$PIN_ROOT"
+    else
+        echo "retained failed-job harness pin: $PIN_ROOT"
+    fi
+}
+trap cleanup_fuzz_job EXIT
+echo "== fuzz job \$SLURM_JOB_ID: node=\$SLURMD_NODENAME logical-cpus=\$SLURM_CPUS_PER_TASK physical-cores=$PHYSICAL_CORES workers=$PHYSICAL_CORES mem=${MEM_MIB}M harness-sha256=$HARNESS_SHA =="
+"$PIN_FUZZ/run.sh" $ARGS --jobs "$PHYSICAL_CORES"
 EOF
 )
+trap - EXIT
 echo "submitted: $JID"
 echo "log: $HERE/slurm-$NAME-$JID.log"
+echo "harness: $HARNESS_SHA ($PIN_ROOT)"
 if [ "$WAIT" -eq 1 ]; then
     exec python3 "$ROOT/tools/slurm/wait.py" --job "$JID" \
          --log "$HERE/slurm-$NAME-$JID.log"

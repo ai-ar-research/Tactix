@@ -382,6 +382,15 @@ a generated fuzz leg may not silently fall back to one or two workers. This is
 parallelism within the one required campaign, not campaign replication, and it
 does not change seeds, case counts, or acceptance oracles.
 
+Every submitted fuzz leg owns an immutable, read-only snapshot of all harness
+scripts, Python modules, stress scenarios, and corpus inputs it executes.  Its
+job log records the snapshot's aggregate SHA-256.  A batch job must never
+execute a live repository script: editing a script while Bash is waiting for a
+child can otherwise shift the interpreter's saved file offset and turn a clean
+oracle result into a post-oracle shell failure.  Remove the snapshot only after
+a successful terminal exit; retain a failed job's snapshot for Claude-owned
+diagnosis and cleanup.
+
 **External debugging escalation.** Invoke Claude when fuzzing or unit testing
 discovers a soundness defect or a crash. The primary agent owns performance
 divergence, runtime regression, mechanism-fidelity work, and ordinary

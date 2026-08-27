@@ -8,15 +8,16 @@ own experimental detail and history.
 
 ## Resume anchor
 
-- Worktree `/home/hwu/SAT-solving`, branch `main`. This wrap-up promotes the
-  cumulative decision-journal, deferred-Congruence-collection, and
-  Substitute-affected-owner source over accepted Vivify checkpoint `d8da6a1`.
-  Production Release SHA is `acf9e716…2e013` and exact source/test diff SHA is
-  `ee5351da…1411`. Complete B28+C5 and Claude-owned fuzz gates are terminal
+- Worktree `/home/hwu/SAT-solving`, branch `main`. Accepted solver baseline
+  `16d46d5` promotes the cumulative decision-journal,
+  deferred-Congruence-collection, and Substitute-affected-owner source over
+  Vivify checkpoint `d8da6a1`. Production Release SHA is
+  `acf9e716…2e013`; complete B28+C5 and Claude-owned fuzz gates are terminal
   PASS with zero solve loss, correctness failure, or certificate residue.
-  After push, freeze this source as the next current-Tactix baseline. First
-  close the newly exposed fuzz-harness immutable-snapshot tooling defect, then
-  resume current-Tactix/current-Kissat broad search-quality localization. Do
+  Fuzz submission now pins a read-only, content-hashed copy of every executed
+  harness/corpus input, eliminating the post-oracle live-script-offset failure
+  exposed by the passing campaign. Resume current-Tactix/current-Kissat broad
+  search-quality localization from `16d46d5`. Do
   not reopen rejected collection, Substitute, residual BVE, Congruence-layout,
   or equal-score heap-tie guesses absent new exact worse-side evidence.
 - `.claude/worktrees/tierd-next10` is the sole surviving secondary worktree and
@@ -54,6 +55,27 @@ own experimental detail and history.
   pass/failure report; failure returns directly to Claude's bounded repair
   workflow. Benchmark guards, proof witnesses, and performance diagnostics
   retain their separate independent-validation contracts.
+- 2026-08-26 21:40 EDT immutable fuzz-harness closure — Claude's authoritative
+  terminal PASS for campaign
+  `20260826-1330-decision-congruence-substitute-consolidation-fuzz` classified
+  the exit-127 tails of jobs `1648215` and `1648217` as post-oracle shell
+  artifacts: a 16-byte live edit to `tools/fuzz/run.sh` shifted Bash's saved
+  file offset while it waited for `fuzz.py`, causing the resumed interpreter to
+  execute a later option as a command. Solver/oracle work was already complete
+  and clean. `tools/fuzz/slurm.sh` now copies only the required runner, Python
+  modules, stress scenarios, and corpus into a unique read-only
+  `build/pin-fuzz-harness-*` directory; the batch executes that pin, records
+  its aggregate SHA-256, deletes it only on success, and retains it on failure
+  for Claude. `run.sh` accepts explicit repository/output roots so snapshot
+  execution preserves solver/oracle and failure-bundle locations. Regression
+  test `fuzz_slurm_snapshot` proves a mocked three-physical-core submission is
+  exactly `-c 6`, `--mem=24000M`, three workers, contains no live-runner path,
+  and reproduces the reported snapshot hash. Shell syntax plus the focused
+  six-test tooling/documentation set pass. No solver behavior, fuzz seeds,
+  case count, or oracle contract changed, and no replacement fuzz campaign was
+  run. Frozen reports are
+  `benchmarks/reports/2026-08-26-immutable-fuzz-harness.md` and
+  `report-to-andrew/2026-08-26-2140-immutable-fuzz-harness/`.
 - The user-directed consolidation sequence is complete. Vivify/collection
   produced the sole supported repair and passed the complete gate plus one
   Claude-owned fuzz campaign. The isolated Substitute deferral regressed full
