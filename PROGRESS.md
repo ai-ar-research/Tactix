@@ -9,12 +9,12 @@ session narrative; this file is only the current resume surface.
 ## Resume anchor
 
 - Work in `/home/hwu/SAT-solving` on branch `main`. Accepted solver source is
-  commit `3c3164d`, based on accepted predecessor `a8b41c6`; the following
-  wrap-up commit changes documentation only. The accepted Release binary
-  SHA-256 is
-  `f2eecac104f6b4247197bbfbe5ffe6542b21c3735a30ca5b49e27574f05c4dcf`.
-  Evidence: `benchmarks/reports/2026-08-27-rank4-factor-fresh-admission.md` and
-  `report-to-andrew/2026-08-27-0557-rank4-factor-fresh-admission/report.pdf`.
+  commit `35aca7326a4e15da48f50335e04c1fd9cc677c19`, based on accepted
+  predecessor `3c3164d`; the following wrap-up commit changes documentation
+  only. The accepted Release binary SHA-256 is
+  `26430a9dfa2d283c1755ac64067a6fbcbcc1de23686374873cb71f9977f34845`.
+  Evidence: `benchmarks/reports/2026-08-27-rank5-deferred-state-guidance.md`
+  and `report-to-andrew/2026-08-27-1125-rank5-deferred-state-guidance/report.pdf`.
 - The complete promotion chain is terminal PASS: exact prefix array `1650366`;
   three paired Rank-27 timing waves in array `1650368`; full-width B28+C5
   array/aggregate `1650774`/`1650840`; and Claude-owned fuzz campaign
