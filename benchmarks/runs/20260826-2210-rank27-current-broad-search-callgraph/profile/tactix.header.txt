@@ -1,0 +1,32 @@
+# ========
+# captured on    : Wed Aug 26 21:52:42 2026
+# header version : 1
+# data offset    : 1792
+# data size      : 22551832
+# feat offset    : 22553624
+# hostname : node018
+# os release : 5.14.0-611.55.1.el9_7.x86_64
+# perf version : 5.14.0-611.55.1.el9_7.x86_64
+# arch : x86_64
+# nrcpus online : 192
+# nrcpus avail : 192
+# cpudesc : AMD EPYC 9454 48-Core Processor
+# cpuid : AuthenticAMD,25,17,1
+# total memory : 792100836 kB
+# cmdline : /usr/bin/perf record -F 199 -e cycles:u --call-graph dwarf -o /tmp/r27-current-broad-1650249.lDHCaQ/tactix.perf.data -- env TACTIX_STOP_AFTER_CONFLICT=9450 timeout 300 /home/hwu/SAT-solving/benchmarks/runs/20260826-2210-rank27-current-broad-search-callgraph/pins/tactix-current-dwarf /tmp/r27-current-broad-1650249.lDHCaQ/rank27.cnf
+# event : name = cycles:u, , id = { 7912, 7913, 7914, 7915, 7916, 7917, 7918, 7919, 7920, 7921, 7922, 7923, 7924, 7925, 7926, 7927, 7928, 7929, 7930, 7931, 7932, 7933, 7934, 7935, 7936, 7937, 7938, 7939, 7940, 7941, 7942, 7943, 7944, 7945, 7946, 7947, 7948, 7949, 7950, 7951, 7952, 7953, 7954, 7955, 7956, 7957, 7958, 7959, 7960, 7961, 7962, 7963, 7964, 7965, 7966, 7967, 7968, 7969, 7970, 7971, 7972, 7973, 7974, 7975, 7976, 7977, 7978, 7979, 7980, 7981, 7982, 7983, 7984, 7985, 7986, 7987, 7988, 7989, 7990, 7991, 7992, 7993, 7994, 7995, 7996, 7997, 7998, 7999, 8000, 8001, 8002, 8003, 8004, 8005, 8006, 8007, 8008, 8009, 8010, 8011, 8012, 8013, 8014, 8015, 8016, 8017, 8018, 8019, 8020, 8021, 8022, 8023, 8024, 8025, 8026, 8027, 8028, 8029, 8030, 8031, 8032, 8033, 8034, 8035, 8036, 8037, 8038, 8039, 8040, 8041, 8042, 8043, 8044, 8045, 8046, 8047, 8048, 8049, 8050, 8051, 8052, 8053, 8054, 8055, 8056, 8057, 8058, 8059, 8060, 8061, 8062, 8063, 8064, 8065, 8066, 8067, 8068, 8069, 8070, 8071, 8072, 8073, 8074, 8075, 8076, 8077, 8078, 8079, 8080, 8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089, 8090, 8091, 8092, 8093, 8094, 8095, 8096, 8097, 8098, 8099, 8100, 8101, 8102, 8103 }, type = 0 (PERF_TYPE_HARDWARE), size = 136, config = 0 (PERF_COUNT_HW_CPU_CYCLES), { sample_period, sample_freq } = 199, sample_type = IP|TID|TIME|ADDR|CALLCHAIN|PERIOD|REGS_USER|STACK_USER|DATA_SRC, read_format = ID|LOST, disabled = 1, inherit = 1, exclude_kernel = 1, exclude_hv = 1, mmap = 1, comm = 1, freq = 1, enable_on_exec = 1, task = 1, mmap_data = 1, sample_id_all = 1, exclude_callchain_user = 1, mmap2 = 1, comm_exec = 1, ksymbol = 1, bpf_event = 1, sample_regs_user = 0xff0fff, sample_stack_user = 8192
+# CPU_TOPOLOGY info available, use -I to display
+# NUMA_TOPOLOGY info available, use -I to display
+# pmu mappings: cpu = 4, amd_df = 12, amd_iommu_0 = 38, amd_iommu_1 = 39, amd_iommu_2 = 40, amd_iommu_3 = 41, amd_iommu_4 = 42, amd_iommu_5 = 43, amd_iommu_6 = 44, amd_iommu_7 = 45, amd_l3 = 13, amd_umc_0 = 14, amd_umc_1 = 15, amd_umc_2 = 16, amd_umc_3 = 17, amd_umc_4 = 18, amd_umc_5 = 19, amd_umc_6 = 20, amd_umc_7 = 21, amd_umc_8 = 22, amd_umc_9 = 23, amd_umc_10 = 24, amd_umc_11 = 25, amd_umc_12 = 26, amd_umc_13 = 27, amd_umc_14 = 28, amd_umc_15 = 29, amd_umc_16 = 30, amd_umc_17 = 31, amd_umc_18 = 32, amd_umc_19 = 33, amd_umc_20 = 34, amd_umc_21 = 35, amd_umc_22 = 36, amd_umc_23 = 37, breakpoint = 5, ibs_fetch = 10, ibs_op = 11, kprobe = 8, msr = 46, power = 47, power_core = 48, software = 1, tracepoint = 2, uprobe = 9
+# CACHE info available, use -I to display
+# time of first sample : 6058693.170315
+# time of last sample : 6058706.568707
+# sample duration :  13398.393 ms
+# MEM_TOPOLOGY info available, use -I to display
+# cpu pmu capabilities: branches=16, max_precise=0
+# ibs_fetch pmu capabilities: zen4_ibs_extensions=1
+# ibs_op pmu capabilities: zen4_ibs_extensions=1
+# AMD systems uses ibs_op// PMU for some precise events, e.g.: cycles:p, see the 'perf list' man page for further details.
+# missing features: TRACING_DATA BRANCH_STACK GROUP_DESC AUXTRACE STAT CLOCKID DIR_FORMAT COMPRESSED CLOCK_DATA HYBRID_TOPOLOGY
+# ========
+#

@@ -1,0 +1,87 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.95in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{seqsplit}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+\newcommand{\hashcode}[1]{\texttt{\seqsplit{#1}}}
+
+\title{Rank-27 Current Broad-Search Call-Graph Closure}
+\author{Tactix Development Project}
+\date{26 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Outcome}
+A fresh current-source call graph reproduces the exact accepted Rank-27
+conflict-9450 state and leaves zero residue, but it does not identify a new
+portable worse-side repair.  Its leading samples belong to mechanisms already
+closed by stronger normalized evidence or to components that are not slower
+than their current-Kissat counterparts.  No solver behavior changes in this
+increment.
+
+\section{Immutable observation}
+Single-solver job \code{1650249} ran on node018 with 12 logical CPUs reserved,
+exactly 48,000 MiB scheduler memory, and a 16 GiB process cap.  It completed
+\code{0:0} in 15 seconds and stopped intentionally UNKNOWN at conflict 9450.
+The semantic transcript has SHA-256
+\hashcode{3b87bb36da711bcef3ca877f3922e9fa5f8a3c6ae9d638c1ae18d4965bd92c5f},
+exactly the accepted common-state authority.  Internal/wall time is
+12.828/13.61 seconds, solver maximum RSS is 379,208 KiB, and major page faults
+are zero.
+
+The immutable RelWithDebInfo pin has SHA-256
+\hashcode{3cd454dee1942a79b23544ace94f988526d9edca9082950bbf420bca590bed87}.
+Current Kissat was not rerun; the accepted exact-boundary profile with SHA-256
+\hashcode{e506ae7f2a3660cd2dc8d8781f8ae1f6c738a0c5eb64e8d2d052c25638652924}
+remains the source comparator.
+
+\section{Profile classification}
+perf records approximately 49.751 billion cycles in 2,665 samples with zero
+lost samples.  The largest self shares are:
+
+\begin{center}
+\begin{tabular}{lr}
+\toprule
+Owner & Self share \\
+\midrule
+Ordinary watched propagation & 31.29\% \\
+Heap bubble-down & 4.35\% \\
+Substitute SCC discovery & 3.33\% \\
+Collection & 3.30\% \\
+Binary-live queries & 3.02\% \\
+Unassignment & 2.28\% \\
+Analysis application & 2.11\% \\
+Backtrack & 1.97\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+These percentages do not reopen their mechanisms.  Propagation and active
+selection have normalized current-Kissat comparisons; the first heap choice
+after the common boundary is an exact equal-score topology tie; collection's
+remaining owner is call frequency with its known alternatives closed; and the
+Substitute, Vivify, residual BVE, and Congruence candidates have exact current
+dispositions.  In particular, the earlier exact Congruence substage observer
+priced Tactix binary-liveness construction at 85 ms while current Kissat's
+broader dense-entry, binary-extraction, and dense-exit preparation cost 198 ms.
+The sampled binary-live share is therefore not contradictory source-equivalent
+evidence for another Congruence layout.
+
+\section{Next localization}
+Broad-search convergence now follows semantic quality past recorded decision
+5,795,255 without repairing its neutral equal-score tie.  The next observer
+must name the first unequal-score or candidate-set divergence, or the first
+point where comparable cost leaves Tactix with weaker learning, pruning,
+simplification, or retained state.  Exact scheduling, tick/cost, candidate
+order, learning, and pruning remain required while the states are common.
+
+The staged CNF and node-local scratch are absent.  The bounded run created no
+proof, model, checker, certificate, DRAT, or LRAT artifact.
+
+\end{document}
