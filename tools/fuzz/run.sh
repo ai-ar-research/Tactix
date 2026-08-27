@@ -9,12 +9,14 @@
 
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
+ROOT="${TACTIX_REPO_ROOT:-$(cd "$HERE/../.." && pwd)}"
+DEFAULT_OUTDIR="${TACTIX_FUZZ_OUTPUT_ROOT:-$HERE/failures}"
 
 N=10000
 EXTRA=()
 SOLVER=""
 ORACLE=""
+HAS_OUTDIR=0
 # The corpus replays whole entries under the leg's own solver command, so a
 # schedule that starves M1 can leave one of them without a verdict. That is
 # fatal by default (a replay that reaches no verdict runs no oracle); the
@@ -26,6 +28,7 @@ while [ $# -gt 0 ]; do
         --nightly) N=200000; EXTRA+=(--lrat); shift ;;
         --solver)  SOLVER="$2"; shift 2 ;;
         --oracle)  ORACLE="$2"; shift 2 ;;
+        --outdir)  HAS_OUTDIR=1; EXTRA+=("$1" "$2"); shift 2 ;;
         # corpus-only: the fuzz phase meters its non-terminating population
         # with --max-nonterminating-frac instead, and rejects this flag
         --allow-nonterminating)
@@ -34,6 +37,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 [ -n "$SOLVER" ] || { echo "usage: run.sh [--quick|--nightly] --solver CMD [fuzz.py args]" >&2; exit 2; }
+[ "$HAS_OUTDIR" -eq 1 ] || EXTRA+=(--outdir "$DEFAULT_OUTDIR")
 
 if [ -z "$ORACLE" ]; then
     ORACLE="$ROOT/tools/solvers/bin/kissat"

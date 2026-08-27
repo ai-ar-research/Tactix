@@ -1,0 +1,90 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.95in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[hidelinks]{hyperref}
+\usepackage{booktabs}
+\usepackage{microtype}
+\newcommand{\code}[1]{\texttt{\detokenize{#1}}}
+
+\title{Immutable Fuzz-Harness Submission}
+\author{Tactix Development Project}
+\date{26 August 2026}
+
+\begin{document}
+\emergencystretch=2em
+\maketitle
+
+\section*{Outcome}
+The consolidation fuzz campaign is a terminal PASS.  Claude Code reports
+50,000/50,000 generated cases and 135/135 corpus replays with zero failures,
+20,927 independently checked SAT models, 17,727 accepted native-LRAT proofs,
+complete differential agreement, and no sanitizer, crash, certificate, or
+scratch residue.
+
+Two legs nevertheless ended with SLURM exit 127 after printing their complete,
+clean summaries.  Claude localized this to a harness infrastructure defect,
+not solver behavior: a live edit shifted Bash's saved file offset while the
+script was blocked in its Python child.  Fuzz submission now executes a
+read-only, content-hashed harness snapshot, preventing recurrence.  No
+replacement fuzz campaign was necessary or submitted.
+
+\section{Cause}
+The old batch script invoked the live repository path
+\code{tools/fuzz/run.sh}.  While jobs \code{1648215} and \code{1648217} waited
+for \code{fuzz.py}, commit \code{8a9c8f7} changed a comment in that file by 16
+bytes.  When Bash resumed after the child exited successfully, its saved byte
+offset now addressed shifted text and an option was executed as a shell
+command.  This explains exit 127 after the already complete oracle summary.
+
+The solver pins, cases, proofs, models, and oracle results remained exact.
+Claude therefore classified both tails as post-oracle infrastructure artifacts
+and the overall campaign as terminal PASS.
+
+\section{Repair}
+At submission, \code{tools/fuzz/slurm.sh} now creates a unique
+\code{build/pin-fuzz-harness-*} directory containing only the runner, Python
+harness modules, stress scenarios, and regression corpus used by the leg.  It
+computes a deterministic aggregate SHA-256, makes the pin read-only, records
+the hash in the job log, and emits a batch body that executes only the pinned
+runner.  A successful job removes the snapshot; a failed job retains it for
+Claude-owned diagnosis.
+
+The pinned \code{run.sh} receives explicit repository and default-output roots.
+It therefore resolves solver and oracle paths exactly as before and preserves
+failure bundles outside the ephemeral read-only pin.  A caller-supplied
+\code{--outdir} still takes precedence.  Seeds, case counts, oracle semantics,
+and the 50-physical-core allocation policy are unchanged.
+
+Development Plan \S8.2 now requires immutable, hashed executed harness inputs
+for every fuzz leg and forbids batch execution of live repository scripts.
+
+\section{Verification}
+The new regression test submits through a mocked \code{sbatch} and verifies:
+
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Property & Observed result \\
+\midrule
+Three physical cores & six logical CPUs, 24,000 MiB, three workers \\
+Executed runner & unique read-only harness pin \\
+Live runner reference & absent from emitted batch \\
+Snapshot identity & independent SHA-256 recomputation exact \\
+Output roots & explicit repository and persistent failure directory \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Shell syntax validation passes.  The focused CTest set is 6/6: the new fuzz
+snapshot regression, Tier-D pinning, citations, section references,
+proof-rule synchronization, and the rule/policy boundary.  The test removes
+its exact temporary pin and submits no cluster job.
+
+\section{Disposition}
+Accepted solver baseline \code{16d46d5} and its terminal fuzz PASS are closed.
+This repair is an isolated tooling increment; it changes no solver source.
+Convergence resumes directly at the next measured current-Tactix/current-Kissat
+broad search-quality gap.
+
+\end{document}

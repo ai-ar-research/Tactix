@@ -8,7 +8,12 @@ Soundness pipeline per DEVELOPMENT_PLAN.md §8.2 (workflow: the `fuzz` skill).
 - `slurm.sh` reserves 50 physical cores by default on the cluster's SMT-2
   nodes: 100 logical CPUs, 400,000 MiB, and 50 fuzz workers.  `--physical-cores
   P` changes all three coherently.  A worker count is parallelism within one
-  fuzz campaign, not repeated fuzzing.
+  fuzz campaign, not repeated fuzzing.  At submission it also creates a
+  read-only `build/pin-fuzz-harness-*` snapshot of `run.sh`, the Python harness,
+  stress scenarios, and the regression corpus.  The batch job executes only
+  that snapshot and logs its aggregate SHA-256; it removes the snapshot after
+  success and retains it after failure for Claude-owned diagnosis.  Never make
+  a fuzz job execute a live repository script.
 - **Read a leg by its `coverage:` and `reached:` fields, not by `--n`.**
   `coverage:` counts cases that reached a verdict — a case that times out runs
   NO oracle, and the non-terminating population is printed on its own line,
