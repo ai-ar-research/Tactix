@@ -38,9 +38,12 @@ session narrative; this file is only the current resume surface.
   immutable ranks 1--40 with accepted Tactix `92d9bc1`/binary `a76182a0...4d95`
   and accepted current instrumented Kissat `8af8e56`/binary
   `b6a9b1d0...644d5`. Array `1651248` has 80 independent one-solver tasks;
-  classifier `1651287` runs after all terminate. At the replacement submission,
-  77/80 results were published and tasks 35, 42, and 43 remained in proof
-  checking. Every solver job uses `-c 12`,
+  classifier `1651287` is terminal. All 80 results are classified with zero
+  cleanup or certificate residue. Five `std::bad_alloc`/resource exits occurred
+  under the rejected address-space cap (Tactix ranks 5, 10, 13, and 14; Kissat
+  rank 10), six Tactix runs reached the 1,200-second solver limit, and three
+  otherwise solved UNSAT arms reached the independent checker's 4,800-second
+  limit. Every solver job used `-c 12`,
   exactly `--mem=48000M`, the now-rejected 16 GiB `RLIMIT_AS`, 1,200 seconds,
   proof production, and independent proof/model checking; there is no throttle
   or node constraint. Frozen scoring references are not rerun. Preserve and
@@ -106,14 +109,16 @@ session narrative; this file is only the current resume surface.
   solver arms in one allocation. Full-width tier arrays have no throttle and no
   node constraint; targeted diagnostics prefer node018 when available.
 - Decision-grade long timing uses three independent paired waves. Each job
-  requests `-c 12` and exactly `--mem=48000M`, retains the 16 GiB process cap,
-  binds one solver thread, and stages on verified node-local scratch. Decide
-  from the median paired ratio and full range; reject absolute claims if either
-  arm spans more than 2%. Fuzz and correctness gates are not triplicated.
+  requests `-c 12` and exactly `--mem=48000M`, installs no process address-space
+  limit, binds one solver thread, and stages on verified node-local scratch.
+  SLURM task cgroups are the sole memory enforcer. Decide from the median paired
+  ratio and full range; reject absolute claims if either arm spans more than 2%.
+  Fuzz and correctness gates are not triplicated.
 - Before promoting a repair, run the complete frozen Tier B plus predeclared
-  mechanism-relevant Tier C under the 16 GiB/1,200-second contract, independently
-  validate every SAT model and UNSAT proof, require no unexplained solve loss,
-  and leave zero certificate residue.
+  mechanism-relevant Tier C under the strict 16 GiB allocation/1,200-second
+  contract (`-c 4`, `--mem=16G`, no `RLIMIT_AS`), independently validate every
+  SAT model and UNSAT proof, require no unexplained solve loss, and leave zero
+  certificate residue.
 - Prioritize the earliest common-state point where Tactix performs equal
   normalized work materially slower or produces weaker learning, pruning,
   simplification, or retained state at comparable cost. Preserve exact rule and
@@ -144,6 +149,9 @@ session narrative; this file is only the current resume surface.
 
 ## Recent changes
 
+- 2026-08-27 — The rejected dual-limit ranks 1--40 predecessor is terminal:
+  80/80 classified, zero residue, and non-scorable; its address-space exits do
+  not rank solver correctness or performance.
 - 2026-08-27 — Sweep phase-word expansion passes exact prefix, three-wave
   Rank-27 timing, complete B28+C5, and Claude-owned 30k fuzz; Rank 27 is parked.
 - 2026-08-26 — Immutable fuzz snapshots and 50-physical-core generated-leg
