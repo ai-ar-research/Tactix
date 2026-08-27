@@ -79,7 +79,8 @@ raise SystemExit(1)
         "limits": {
             "solve_wall_seconds": 30,
             "checker_pipeline_wall_seconds": 30,
-            "process_memory_gib": 1,
+            "scheduler_memory_gib": 1,
+            "memory_enforcement": "slurm_task_cgroup",
         },
         "instances": [{"rel": "case.cnf.xz", "expected": "UNKNOWN"}],
         "solvers": solvers,
@@ -184,7 +185,8 @@ raise SystemExit(1)
     executable(validation_campaign / "pins/checkmodel", "raise SystemExit(1)\n")
     validation_manifest = {
         "certificate_policy": {"retention": "none"},
-        "limits": {"process_memory_gib": 1},
+        "limits": {"scheduler_memory_gib": 1,
+                   "memory_enforcement": "slurm_task_cgroup"},
         "solvers": [solvers[0]],
         "checkers": {"checkmodel": "pins/checkmodel"},
         "provenance": {"checkmodel": {"path": "pins/checkmodel"}},

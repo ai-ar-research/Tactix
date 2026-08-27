@@ -15,7 +15,6 @@ import json
 import math
 import os
 import re
-import resource
 import shutil
 import signal
 import subprocess
@@ -268,9 +267,11 @@ def prepare(campaign):
         },
         "limits": {"solve_wall_seconds": SOLVE_LIMIT,
                    "checker_pipeline_wall_seconds": CHECK_LIMIT,
-                   "process_memory_gib": MEM_GIB},
-        "slurm": {"partition": PARTITION, "cpus_per_task": 4,
-                  "mem_per_cpu_gib": 8, "array_throttle": None},
+                   "scheduler_memory_gib": MEM_GIB,
+                   "memory_enforcement": "slurm_task_cgroup"},
+        "slurm": {"partition": PARTITION, "physical_cores": 4,
+                  "cpus_per_task": 8, "memory_gib": MEM_GIB,
+                  "array_throttle": None},
         "dataset_sha256": sha256(dataset),
         "instances_list_sha256": sha256(campaign / "instances.list"),
         "cache_manifest_sha256": sha256(cache_manifest),
@@ -320,13 +321,14 @@ def prepare(campaign):
     print(f"prepared {len(tasks)} tasks: {len(instances)} instances x {len(solvers)} solvers")
 
 
-def resource_limits(memory_gib):
-    """Return a zero-argument pre-exec hook for the manifest's process cap."""
-    def apply():
-        os.setsid()
-        b = memory_gib << 30
-        resource.setrlimit(resource.RLIMIT_AS, (b, b))
-    return apply
+def new_process_group():
+    """Make solver/checker descendants killable as one process group.
+
+    Memory is enforced by the enclosing SLURM task cgroup.  Do not install an
+    RLIMIT_AS cap here: address-space reservations are not resident memory and
+    can reject a process below the scheduler's physical-memory limit.
+    """
+    os.setsid()
 
 
 def parse_rss(path):
@@ -341,16 +343,14 @@ def parse_rss(path):
 _active_process = None
 
 
-def measured(cmd, stdout, stderr, timeout, metric, env=None,
-             memory_gib=MEM_GIB):
+def measured(cmd, stdout, stderr, timeout, metric, env=None):
     global _active_process
     wrapped = [str(TIME), "-f", "max_rss_kb=%M", "-o", str(metric), "--", *map(str, cmd)]
     start = time.monotonic()
     timed_out = False
     with open(stdout, "wb") as out, open(stderr, "wb") as err:
         p = subprocess.Popen(wrapped, stdout=out, stderr=err,
-                             preexec_fn=resource_limits(memory_gib),
-                             env=env)
+                             preexec_fn=new_process_group, env=env)
         _active_process = p
         try:
             rc = p.wait(timeout=timeout)
@@ -428,7 +428,9 @@ def check_proof(man, campaign, solver, cnf, proof, work):
     resource_contract = man.get("limits", {})
     check_limit = resource_contract.get(
         "checker_pipeline_wall_seconds", CHECK_LIMIT)
-    memory_gib = resource_contract.get("process_memory_gib", MEM_GIB)
+    scheduler_memory_gib = resource_contract.get(
+        "scheduler_memory_gib",
+        resource_contract.get("process_memory_gib", MEM_GIB))
     fmt = solver["certificate"]
     amendment_path = campaign / "checker-amendment-1.json"
     amendment = json.loads(amendment_path.read_text()) if amendment_path.exists() else None
@@ -485,7 +487,8 @@ def check_proof(man, campaign, solver, cnf, proof, work):
         actual_stdout = redirect[0] if redirect else stdout
         stage_env = None
         stage_environment = {}
-        if name in ("cake-lpr", "cake-pb-cnf") and memory_gib >= 32:
+        if (name in ("cake-lpr", "cake-pb-cnf") and
+                scheduler_memory_gib >= 32):
             # CakeML's shipped 4 GiB heap is smaller than the SC2026 32 GiB
             # process contract and can reject a valid large translated proof.
             # Keep 4 GiB for its default stack and further address-space slack.
@@ -493,8 +496,7 @@ def check_proof(man, campaign, solver, cnf, proof, work):
             stage_env["CML_HEAP_SIZE"] = "24576"  # MiB
             stage_environment = {"CML_HEAP_SIZE_MIB": 24576}
         measured_stage = measured(cmd, actual_stdout, stderr, remaining,
-                                  work / f"checker-{number}.time", stage_env,
-                                  memory_gib)
+                                  work / f"checker-{number}.time", stage_env)
         measured_stage.update({
             "name": name,
             "environment": stage_environment,
@@ -569,7 +571,6 @@ def run_one(campaign, index):
     task = man["tasks"][index]
     resource_contract = man.get("limits", {})
     solve_limit = resource_contract.get("solve_wall_seconds", SOLVE_LIMIT)
-    memory_gib = resource_contract.get("process_memory_gib", MEM_GIB)
     inst, solver = man["instances"][task["instance"]], man["solvers"][task["solver"]]
     result_path = campaign / "results" / f"{index:05d}.json"
     pending_path = campaign / "pending" / f"{index:05d}.json"
@@ -602,7 +603,7 @@ def run_one(campaign, index):
         else:
             cmd = [executable, cnf, proof_dir]
         solve = measured(cmd, stdout, stderr, solve_limit,
-                         work / "solve.time", memory_gib=memory_gib)
+                         work / "solve.time")
         answer = verdict(solve["exit_code"], stdout)
         result = {
             "task": index, "solver": solver["name"], "instance": inst["rel"],
@@ -632,8 +633,7 @@ def run_one(campaign, index):
             result["certificate_sha256"] = sha256(stdout)
             model_check = measured([campaign / man["checkers"]["checkmodel"], cnf, stdout],
                                    work / "model-check.stdout", work / "model-check.stderr",
-                                   600, work / "model-check.time",
-                                   memory_gib=memory_gib)
+                                   600, work / "model-check.time")
             result["model_check"] = model_check
             result["model_protocol_ok"] = sat_output_protocol_ok(stdout)
             result["model_ok"] = (model_check["exit_code"] == 0 and
@@ -771,7 +771,6 @@ def validate(campaign):
     man = json.loads((campaign / "manifest.json").read_text())
     if man.get("certificate_policy", {}).get("retention") != "none":
         raise SystemExit("campaign must declare zero certificate retention")
-    memory_gib = man.get("limits", {}).get("process_memory_gib", MEM_GIB)
     work = campaign / "validation-scratch"
     work.mkdir(exist_ok=False)
     unsat = work / "unsat.cnf"
@@ -790,7 +789,7 @@ def validate(campaign):
         cmd = ([executable, unsat, proof] if solver["kind"] == "positional"
                else [executable, unsat, proof_dir])
         solve_u = measured(cmd, sw / "unsat.stdout", sw / "unsat.stderr", 120,
-                           sw / "unsat.time", memory_gib=memory_gib)
+                           sw / "unsat.time")
         answer_u = verdict(solve_u["exit_code"], sw / "unsat.stdout")
         check, derived = ({"result": "not-run", "stages": []}, [])
         if answer_u == "UNSAT" and proof.is_file():
@@ -801,12 +800,11 @@ def validate(campaign):
         cmd = ([executable, sat, sat_proof] if solver["kind"] == "positional"
                else [executable, sat, sat_proof_dir])
         solve_s = measured(cmd, sw / "sat.stdout", sw / "sat.stderr", 120,
-                           sw / "sat.time", memory_gib=memory_gib)
+                           sw / "sat.time")
         answer_s = verdict(solve_s["exit_code"], sw / "sat.stdout")
         model = measured([campaign / man["checkers"]["checkmodel"], sat,
                           sw / "sat.stdout"], sw / "model.stdout",
-                         sw / "model.stderr", 120, sw / "model.time",
-                         memory_gib=memory_gib)
+                         sw / "model.stderr", 120, sw / "model.time")
         row = {
             "solver": solver["name"], "unsat_verdict": answer_u,
             "unsat_solve": solve_u, "certificate_bytes": proof.stat().st_size
@@ -906,14 +904,15 @@ def submit(campaign):
     atomic_json(submitting, {"state": "preparing submission"}, exclusive=True)
     man = json.loads(man_path.read_text())
     count = len(man["tasks"])
+    slurm = man["slurm"]
     me = Path(__file__).resolve()
     array = campaign / "array.sbatch"
     agg = campaign / "aggregate.sbatch"
     array.write_text(f"""#!/usr/bin/env bash
 #SBATCH --partition={PARTITION}
 #SBATCH --job-name=frozen-sc24-26-baselines
-#SBATCH --nodes=1 --ntasks=1 --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
+#SBATCH --nodes=1 --ntasks=1 --cpus-per-task={slurm['cpus_per_task']}
+#SBATCH --mem={slurm.get('memory_gib', MEM_GIB)}G
 #SBATCH --time=14:15:00
 #SBATCH --array=0-{count - 1}
 #SBATCH --no-requeue

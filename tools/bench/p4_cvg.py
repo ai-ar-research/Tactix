@@ -255,7 +255,7 @@ def main():
     ap.add_argument("--timeout", type=float)
     ap.add_argument("--memory-gb", type=int,
                     help="diagnostic allocation override; requires --tier "
-                         "and preserves 8 GB/core")
+                         "and preserves 8 GiB per physical core on SMT-2")
     ap.add_argument("--repeats", type=int, default=1)
     ap.add_argument("--trace-limit", type=int, default=1000000)
     ap.add_argument("--conflict-from", type=int)
@@ -341,7 +341,8 @@ def main():
     wall_minutes = max(
         10, int((solver_count * per_solver_wall * args.repeats) / 60) + 10)
     memory_gb = args.memory_gb
-    cpus = max(1, -(-memory_gb // 8))
+    physical_cores = max(1, -(-memory_gb // 8))
+    cpus = 2 * physical_cores
     sbatch = ["sbatch", "--parsable", "--partition=cpu-dense-hwulab-q",
               f"--cpus-per-task={cpus}", f"--mem={memory_gb}G",
               f"--time={wall_minutes}",

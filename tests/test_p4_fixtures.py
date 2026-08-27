@@ -76,7 +76,7 @@ tier_c_dry = subprocess.run(
      "--dry-run"],
     check=True, text=True, stdout=subprocess.PIPE).stdout
 assert "--tier C" in tier_c_dry
-assert "--cpus-per-task=4" in tier_c_dry and "--mem=32G" in tier_c_dry
+assert "--cpus-per-task=8" in tier_c_dry and "--mem=32G" in tier_c_dry
 assert "--time=210" in tier_c_dry
 
 tactix_only_dry = subprocess.run(
@@ -95,7 +95,7 @@ large_memory_dry = subprocess.run(
      "--out", "/tmp/p4-tier-c-large-memory-dry", "--tactix-only",
      "--no-trace", "--memory-gb", "40", "--dry-run"],
     check=True, text=True, stdout=subprocess.PIPE).stdout
-assert "--cpus-per-task=5" in large_memory_dry and "--mem=40G" in large_memory_dry
+assert "--cpus-per-task=10" in large_memory_dry and "--mem=40G" in large_memory_dry
 assert "--memory-gb 40" in large_memory_dry
 
 with tempfile.TemporaryDirectory(prefix="p4-check-timeout-") as directory:

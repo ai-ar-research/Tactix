@@ -119,9 +119,15 @@ def prepare(campaign, binary, source_commit, source_tree, solve_limit, memory_gi
     tasks = [{"instance": i, "solver": 0} for i in range(len(instances))]
     limits = dict(reference["limits"])
     limits["solve_wall_seconds"] = solve_limit
-    limits["process_memory_gib"] = memory_gib
+    limits.pop("process_memory_gib", None)
+    limits["scheduler_memory_gib"] = memory_gib
+    limits["memory_enforcement"] = "slurm_task_cgroup"
     slurm = dict(reference["slurm"])
-    slurm["cpus_per_task"] = math.ceil(memory_gib / slurm["mem_per_cpu_gib"])
+    physical_cores = math.ceil(memory_gib / 8)
+    slurm.pop("mem_per_cpu_gib", None)
+    slurm["physical_cores"] = physical_cores
+    slurm["cpus_per_task"] = 2 * physical_cores
+    slurm["memory_gib"] = memory_gib
     slurm["array_throttle"] = array_throttle
     if array_throttle_reason is None:
         slurm.pop("array_throttle_reason", None)
@@ -268,7 +274,7 @@ def submit(campaign):
 #SBATCH --partition={frozen.PARTITION}
 #SBATCH --job-name=tactix-tierd-sc24-26
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task={slurm['cpus_per_task']}
-#SBATCH --mem-per-cpu={slurm['mem_per_cpu_gib']}G
+#SBATCH --mem={slurm['memory_gib']}G
 #SBATCH --time=14:15:00
 #SBATCH --array={array_spec}
 #SBATCH --no-requeue

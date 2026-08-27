@@ -104,6 +104,9 @@ add_test(NAME campaign_certificate_cleanup
 add_test(NAME tierd_campaign_pinning
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_tierd_campaign_pinning.py)
+add_test(NAME slurm_memory_enforcement
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_slurm_memory_enforcement.py)
 add_test(NAME fuzz_slurm_snapshot
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_fuzz_slurm_snapshot.py)

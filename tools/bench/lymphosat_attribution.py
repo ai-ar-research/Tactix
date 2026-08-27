@@ -18,7 +18,6 @@ import hashlib
 import json
 import os
 import re
-import resource
 import shutil
 import signal
 import subprocess
@@ -66,10 +65,9 @@ def atomic_json(path, value, exclusive=False):
         os.replace(tmp, path)
 
 
-def limits():
+def new_process_group():
+    """Make descendants killable together; SLURM enforces resident memory."""
     os.setsid()
-    b = MEM_GIB << 30
-    resource.setrlimit(resource.RLIMIT_AS, (b, b))
 
 
 def parse_rss(path):
@@ -87,7 +85,8 @@ def measured(cmd, stdout, stderr, timeout, metric):
     start = time.monotonic()
     timed_out = False
     with open(stdout, "wb") as out, open(stderr, "wb") as err:
-        p = subprocess.Popen(wrapped, stdout=out, stderr=err, preexec_fn=limits)
+        p = subprocess.Popen(wrapped, stdout=out, stderr=err,
+                             preexec_fn=new_process_group)
         try:
             rc = p.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
@@ -201,10 +200,15 @@ def prepare(campaign):
         "checking": ("attribution-only; proofs/models not re-checked; "
                      "verdicts cross-checked against the frozen campaign, "
                      "which owns validity"),
-        "limits": {"solve_seconds": SOLVE_LIMIT, "process_memory_gib": MEM_GIB},
+        "limits": {
+            "solve_seconds": SOLVE_LIMIT,
+            "scheduler_memory_gib": MEM_GIB,
+            "memory_enforcement": "slurm_task_cgroup",
+        },
         "slurm": {
             "partition": PARTITION,
-            "cpus_per_task": 4, "mem_per_cpu": "8G", "time": "02:30:00",
+            "physical_cores": 4, "cpus_per_task": 8,
+            "memory_gib": MEM_GIB, "time": "02:30:00",
             "array_throttle": 40,
             "array_throttle_reason": (
                 "user directive 2026-08-19: cap concurrent tasks at 40 to "
@@ -368,14 +372,15 @@ def submit(campaign):
     man = json.loads(man_path.read_text())
     count = len(man["instances"])
     throttle = man["slurm"]["array_throttle"]
+    slurm = man["slurm"]
     me = Path(__file__).resolve()
     array = campaign / "array.sbatch"
     agg = campaign / "aggregate.sbatch"
     array.write_text(f"""#!/usr/bin/env bash
 #SBATCH --partition={PARTITION}
 #SBATCH --job-name=lymphosat-modlog-tierd
-#SBATCH --nodes=1 --ntasks=1 --cpus-per-task=4
-#SBATCH --mem-per-cpu=8G
+#SBATCH --nodes=1 --ntasks=1 --cpus-per-task={slurm['cpus_per_task']}
+#SBATCH --mem={slurm['memory_gib']}G
 #SBATCH --time={man["slurm"]["time"]}
 #SBATCH --array=0-{count - 1}%{throttle}
 #SBATCH --no-requeue

@@ -33,17 +33,29 @@ session narrative; this file is only the current resume surface.
   `10372d94d2cb1ae86893408435e0c3ffa2338053b11b7012c2107a3bebf1ffd0`.
   Per project-owner direction, Rank 27 is now parked rather than treated as the
   next witness.
-- **Next action:** freeze the newly accepted Tactix Release and accepted current
-  instrumented Kissat comparator, re-evaluate frozen ranks 1--40 as independent
-  one-solver jobs, preserve immutable scoring references, validate every SAT
-  model and UNSAT proof, and select the UNSAT instance with the largest
-  meaningful Tactix/Kissat slowdown. Open its earliest portable common-state
-  worse-side divergence; do not return to Rank 27 or collection without new
-  contradictory evidence.
-- NOTHING IN FLIGHT. The interactive shell allocation, if present, is not a
-  solver campaign. `.claude/worktrees/tierd-next10` is the sole historical
-  secondary worktree and must remain clean unless a fresh audit proves it has
-  been removed.
+- **Active measurement:** frozen campaign
+  `benchmarks/runs/20260826-2340-tierd-ranks1-40-current-screen/` re-evaluates
+  immutable ranks 1--40 with accepted Tactix `92d9bc1`/binary `a76182a0...4d95`
+  and accepted current instrumented Kissat `8af8e56`/binary
+  `b6a9b1d0...644d5`. Array `1651248` has 80 independent one-solver tasks;
+  classifier `1651287` runs after all terminate. Every solver job uses `-c 12`,
+  exactly `--mem=48000M`, the now-rejected 16 GiB `RLIMIT_AS`, 1,200 seconds,
+  proof production, and independent proof/model checking; there is no throttle
+  or node constraint. Frozen scoring references are not rerun. Preserve and
+  classify this campaign as dual-limit diagnostic evidence, but do not use its
+  apparent early OOMs to select the next target.
+- **Next action:** after landing the SLURM-only infrastructure decision in
+  `benchmarks/reports/2026-08-27-slurm-memory-enforcement.md`, freeze and rerun
+  all 80 rank-1--40 arms with the same accepted solvers, inputs, proof checks,
+  `-c 12`, and exactly `--mem=48000M`, but no `RLIMIT_AS`. Use the new complete
+  aggregate to choose the next memory or runtime gap. Confirm any strict
+  16-GiB claim separately with two physical/four logical CPUs and
+  `--mem=16G`. The standing priority after current evidence is Rank 4, then
+  Rank 32; a genuine new Tactix memory solve loss takes precedence. Each solver
+  repair stays isolated and receives its required gate, Claude-owned fuzz
+  verdict, report, commit, and push before the next repair is promoted.
+- `.claude/worktrees/tierd-next10` is the sole historical secondary worktree
+  and remains clean. The interactive shell allocation is not a solver campaign.
 
 ## Immutable authorities
 

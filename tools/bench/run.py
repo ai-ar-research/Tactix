@@ -7,9 +7,10 @@ Usage:
   run.py --aggregate benchmarks/runs/<dir>      # re-merge a --slurm run
 
 - SLURM mode (see the slurm-jobs skill): submits one array task per
-  solver x instance to cpu-dense-hwulab-q (8 GB/core rule: cpus-per-task =
-  ceil(mem_gb/8), normally 4 cores / 32 GB; Tier D mirrors the competition's
-  16 GB cap with 2 cores), plus a dependent aggregate job that merges the
+  solver x instance to cpu-dense-hwulab-q (8 GiB per physical core, with two
+  requested logical CPUs per physical core on the current SMT-2 nodes;
+  normally 8 logical CPUs / 32 GiB, while the 16-GiB debug contract uses 4),
+  plus a dependent aggregate job that merges the
   per-task JSONs into the identical results.json a local run writes. The
   allocation shape (partition, cpus/mem per task, throttle) is recorded in
   place of the local jobs count; numbers are comparable only across identical
@@ -169,9 +170,9 @@ TIER_TIMEOUT = {
     "P4A": 30.0, "P4B": 300.0,
 }
 # A–C and the Phase-4 fixtures receive 32 GB. Tier D mirrors the competition's
-# 16 GB cap. Under the cluster's 8 GB/core rule these become four and two
-# allocated CPUs respectively; the extra CPUs buy memory capacity, not solver
-# parallelism.
+# 16 GB cap. Under the cluster's 8 GiB/physical-core and SMT-2 rule these
+# become eight and four allocated logical CPUs respectively; the extra CPUs
+# buy memory capacity, not solver parallelism.
 TIER_MEM_GB = {tier: 32 for tier in ("A", "B", "C", "P4A", "P4B")}
 TIER_MEM_GB["D"] = 16
 BASELINES = {
@@ -254,12 +255,13 @@ def check_proof(fmt, cnf, proof, budget):
     return kind == CHK_VERIFIED, msg, kind, detail
 
 
-def solve_once(argv, timeout, mem_gb):
-    """One solver invocation under the wall timeout + kernel backstops.
+def solve_once(argv, timeout):
+    """One solver invocation under the wall timeout + CPU backstop.
 
     Returns (verdict, elapsed, reached). Shared by the timed run and the §8.1 LRAT
-    re-solve so the rescue runs under exactly the same limits as the
-    measurement it is rescuing."""
+    re-solve. Memory is enforced by the enclosing SLURM task cgroup; an
+    RLIMIT_AS address-space cap is deliberately not installed because virtual
+    reservations are not resident memory."""
     def limits():
         # kernel-enforced CPU backstop: subprocess.run(timeout=) only kills the
         # child on the normal timeout path; if the parent dies abruptly the child
@@ -267,9 +269,6 @@ def solve_once(argv, timeout, mem_gb):
         # stop it regardless of parent state (slack keeps wall-timeout primary).
         cap = int(timeout) + 5
         resource.setrlimit(resource.RLIMIT_CPU, (cap, cap + 2))
-        if mem_gb:
-            b = mem_gb << 30
-            resource.setrlimit(resource.RLIMIT_AS, (b, b))
 
     t0 = time.monotonic()
     try:
@@ -295,7 +294,7 @@ def reach_counters(stdout):
     return out
 
 
-def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
+def lrat_rescue(res, cmd, cnf, proof, timeout):
     """Plan §8.1: "a proof that outruns even this [budget] is re-checked as
     native LRAT before the instance is called unsolved".
 
@@ -329,7 +328,7 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
     t0 = time.monotonic()
     try:
         verdict, solve_s, _, _ = solve_once(cmd + ["--lrat", cnf, lproof],
-                                            timeout, mem_gb)
+                                            timeout)
         if verdict != res["verdict"]:
             res["proof_rescue"] = (f"failed: --lrat re-solve answered "
                                    f"{verdict}, not {res['verdict']}")
@@ -358,7 +357,7 @@ def lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb):
 
 
 def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
-                 mem_gb=None, score_proofs=True, verify_proofs=True):
+                 score_proofs=True, verify_proofs=True):
     """`check_proofs` = hand the solver a proof path, i.e. make it write one.
     `verify_proofs` = actually run the checker over what it wrote.
     `score_proofs` = let a failed check count the instance unsolved.
@@ -408,7 +407,7 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
     proof = os.path.join(workdir, rel.replace("/", "_") + "." + fmt)
     argv = cmd + [cnf] + ([proof] if check_proofs else [])
 
-    verdict, elapsed, reached, stdout = solve_once(argv, timeout, mem_gb)
+    verdict, elapsed, reached, stdout = solve_once(argv, timeout)
     res["reached"] = reached
     res["time"] = round(elapsed, 3)
     res["verdict"] = verdict
@@ -472,7 +471,7 @@ def run_instance(cmd, rel, cnf, expected, timeout, check_proofs, workdir,
                     # `--lrat` arm has nothing left to re-check).
                     if (not ok and score_proofs and fmt == "drat"
                             and kind == CHK_TIMEOUT):
-                        ok = lrat_rescue(res, cmd, cnf, proof, timeout, mem_gb)
+                        ok = lrat_rescue(res, cmd, cnf, proof, timeout)
                     if not ok and score_proofs:  # rejected proof = unsolved (§2)
                         res["solved"] = False
     if check_proofs and os.path.exists(proof):
@@ -855,7 +854,7 @@ def slurm_run_one(outdir, idx):
     try:
         res = run_instance(s["cmd"], t["rel"], t["staged"], t["expected"],
                            man["timeout"], s["check_proofs"], workdir,
-                           man["mem_gb"], s.get("score_proofs", True),
+                           s.get("score_proofs", True),
                            # older manifests predate the split: verifying was
                            # unconditional, so default True for replayability
                            s.get("verify_proofs", True))
@@ -930,7 +929,10 @@ def slurm_aggregate(outdir):
             fragility.append(loo[1])
     meta = {"tier": man["tier"], "timeout": man["timeout"], "jobs": None,
             "slurm": man["slurm"], "git": man["git"], "date": man["date"],
-            "mem_gb": man["mem_gb"],
+            "scheduler_memory_gib": man.get(
+                "scheduler_memory_gib", man.get("mem_gb")),
+            "memory_enforcement": man.get(
+                "memory_enforcement", "legacy RLIMIT_AS plus SLURM cgroup"),
             "solvers": {s["name"]: " ".join(s["cmd"])
                         for s in man["solvers"]},
             "oracle": orc,
@@ -1054,13 +1056,18 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
         for si in range(len(solvers)):
             tasks.append({"solver": si, "rel": rel, "expected": status,
                           "staged": paths[rel]})
-    cpus = max(1, -(-(mem_gb or 8) // 8))  # 8 GB/core rule
-    shape = (f"slurm partition={args.partition} cpus/task={cpus} mem/cpu=8G"
+    physical_cores = max(1, -(-(mem_gb or 8) // 8))
+    cpus = 2 * physical_cores  # SMT-2: two logical CPUs per physical core
+    shape = (f"slurm partition={args.partition} physical-cores={physical_cores} "
+             f"cpus/task={cpus} mem={mem_gb}G"
              + (f" throttle=%{args.throttle}" if args.throttle else ""))
-    man = {"tier": args.tier, "timeout": timeout, "mem_gb": mem_gb,
+    man = {"tier": args.tier, "timeout": timeout,
+           "scheduler_memory_gib": mem_gb,
+           "memory_enforcement": "slurm_task_cgroup",
            "git": sha, "date": stamp, "shape": shape,
            "slurm": {"partition": args.partition, "cpus_per_task": cpus,
-                     "mem_per_cpu_gb": 8, "throttle": args.throttle},
+                     "physical_cores": physical_cores,
+                     "memory_gib": mem_gb, "throttle": args.throttle},
            "solvers": [{"name": n, "cmd": resolve_cmd(c), "check_proofs": k,
                         "verify_proofs": v,
                         "score_proofs": sc}
@@ -1084,7 +1091,7 @@ def slurm_submit(args, entries, solvers, paths, timeout, mem_gb, outdir,
 #SBATCH --partition={args.partition}
 #SBATCH --job-name=bench-{args.tier}-{name}
 #SBATCH --nodes=1 --ntasks=1 --cpus-per-task={cpus}
-#SBATCH --mem-per-cpu=8G
+#SBATCH --mem={mem_gb}G
 #SBATCH --time={tlimit}
 #SBATCH --array={array}
 #SBATCH --output={outdir}/logs/task-%a.log
@@ -1244,7 +1251,7 @@ def main() -> int:
             results = list(ex.map(
                 lambda e: run_instance(cmd, e[0], paths[e[0]], e[1],
                                        timeout, check_proofs, outdir,
-                                       mem_gb, score_proofs, verify_proofs),
+                                       score_proofs, verify_proofs),
                 entries))
         summary, bug = summarize(sname, results, timeout,
                                  f"jobs={args.jobs}")
@@ -1271,7 +1278,9 @@ def main() -> int:
             print(loo[0], flush=True)
             fragility.append(loo[1])
     meta = {"tier": args.tier, "timeout": timeout, "jobs": args.jobs,
-            "git": sha, "date": stamp, "mem_gb": mem_gb,
+            "git": sha, "date": stamp,
+            "scheduler_memory_gib": None,
+            "memory_enforcement": "none (local diagnostic only)",
             "solvers": {n: " ".join(c) for n, c, *_ in solvers},
             "oracle": orc,
             # Persisted next to the numbers it judges; see the aggregate path.
