@@ -1,0 +1,180 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.8in]{geometry}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{url}
+\setlist{nosep}
+\emergencystretch=3em
+\newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\pass}{\textcolor{green!50!black}{PASS}}
+\newcommand{\fail}{\textcolor{red!70!black}{FAIL}}
+\title{Phase 4.25: Rank-32 Congruence Admission Investigation}
+\author{Tactix development report for Andrew}
+\date{27 August 2026}
+
+\begin{document}
+\maketitle
+
+\section{Outcome}
+
+The isolated proposal to remove Tactix's Congruence new-material admission
+gate is rejected and reverted.  It is locally attractive on immutable Rank 32:
+the three-wave median falls from 410.760 to 405.042 seconds.  It is not safe to
+promote across the declared benchmark population: the complete B28+C5 gate has
+no correctness failure or solve loss, but its PAR-2 ratio is 1.208552, above
+the frozen 1.10 limit.  On the dominant witness, \code{mod4block}, runtime
+increases from 19.846 to 237.094 seconds and conflicts increase from 552,580 to
+5,488,183.
+
+Source-backed tracing localizes the first candidate-owned consequence.  At an
+exact common state near conflict 105525, the candidate admits one additional
+Congruence round.  Its 152 candidates are in a complete recorded order, all
+are classified \code{no-antecedent}, and the exact normalized cost is 456
+ticks.  It learns nothing and leaves the normalized logical state unchanged.
+The mandatory dense-to-sparse binary-watch replay nevertheless changes
+physical propagation order before Backbone.  The first conflict-clause
+difference follows at conflict 105527 and the first durable learned-clause
+difference at conflict 105568.
+
+This is not an implementation bug that can be repaired by suppressing the
+pose change.  Current Kissat performs the same dense resume in Congruence, and
+Tactix's replay routine deliberately implements Kissat's saved-pair order.
+Deferring or skipping it would merely restore the faster non-reference
+baseline behavior.  The change can be reconsidered after an earlier common-
+state convergence removes this sensitivity, but it cannot be accepted now.
+No fuzz campaign was run because the candidate failed the pre-fuzz gate and
+was not promoted.
+
+\section{Immutable evidence}
+
+The accepted Tactix predecessor remains source commit
+\code{3c3164dcd35b4286d3fe1aea61e4731cc8545fe3}, Release binary SHA-256
+\code{f2eecac1...dcf}.  Current instrumented Kissat remains source commit
+\code{8af8e56f174b778aef3aa45af9f739b2a5f492c2}, binary SHA-256
+\code{b6a9b1d0...44d5}.  Rank 32 uses immutable input SHA-256
+\code{038955b1...e7f3}.  The rejected solver diff SHA-256 is
+\code{7e755ac5...9953c}; its Release binary is \code{3f88c82d...d59b}.
+
+Read-only Rank-32 campaigns \code{20260827-0710}, \code{0720}, and
+\code{0731} first established that the accepted Tactix and current Kissat
+remain exact through the early search prefix, then identified both Tactix
+Congruence offers in the first consequential Probe phase as declined solely by
+the local new-material proxy.  Candidate prefix campaign \code{0740} proves
+the added round itself matches Kissat exactly for 542,604 ordered candidates,
+1,627,812 normalized ticks, candidate dispositions, resulting counts, first
+post-phase decisions, and learned records through conflict 3073.
+
+\section{Rank-32 timing}
+
+Frozen campaign
+\path{benchmarks/runs/20260827-0750-tierd-rank32-congruence-admission-timing}
+uses nine independent tasks on node018, one solver invocation per task, at
+\code{-c 12 --mem=48000M}, without \code{RLIMIT\_AS}.  All nine DRAT proofs
+verify independently, and cleanup/certificate residue is zero.
+
+\begin{center}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+Arm & Wave 1 & Wave 2 & Wave 3 & Median (s) \\
+\midrule
+Candidate & 405.042 & 402.648 & 406.604 & 405.042 \\
+Accepted baseline & 410.619 & 412.313 & 410.760 & 410.760 \\
+Current Kissat & 290.319 & 290.619 & 290.384 & 290.384 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Candidate/baseline paired ratios range from 0.976559 to 0.989882; their
+median ratio is 0.986418.  Candidate/Kissat median paired ratio is 1.395162.
+Within-arm spreads are at most 0.9767\%, so the roughly 1.4\% Rank-32 gain is
+stable, but it remains above the desired 400-second marker.  Summary SHA-256
+is \code{a855c1c1...584}.
+
+\section{Complete gate rejection}
+
+Frozen campaign
+\path{benchmarks/runs/20260827-0760-BC-rank32-congruence-admission-guard}
+uses the complete B28+C5 set under the 1200-second, 16-GiB contract.  The
+corrected array/aggregate jobs are 1652137/1652138.  The earlier dependency-
+pending jobs 1652135/1652136 were canceled before any solver task started
+because their copied aggregate lacked the declared PAR-2 assertion.
+
+All 66 corrected tasks are valid: 34 SAT models and 32 UNSAT proofs are
+independently checked.  There is no solve loss, invalidity, cleanup failure,
+or certificate residue.  Correctness is therefore \pass.  Performance is
+\fail:
+
+\begin{center}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Measure & Accepted baseline & Candidate & Candidate/baseline \\
+\midrule
+PAR-2 seconds & 1,384.008 & 1,672.646 & 1.208552 \\
+\code{mod4block} seconds & 19.846 & 237.094 & 11.947 \\
+\code{mp1-klieber} seconds & 56.356 & 109.187 & 1.938 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The candidate arms happened to run on node018 and predecessor arms on
+node017, but the \code{mod4block} candidate performs 5,488,183 conflicts and
+262.9 million propagations versus 552,580 and 23.4 million.  This deterministic
+work increase rules out placement noise as the cause.  Gate summary SHA-256 is
+\code{e948163d...012}.
+
+\section{Causal localization}
+
+Campaign \code{20260827-0770} proves candidate and accepted baseline traces
+are byte-identical through conflict 100,000: 94,555 conflict records, 91,685
+learned records, and three admitted Congruence rounds.  The current-Kissat
+comparison has a pre-existing Tactix/Kissat learned-state split at conflict
+2515, common to both Tactix pins and unrelated to this proposal.
+
+The wider observers \code{0771} and \code{0773} saturated their event limits
+before the target and are frozen with that limitation.  Checkpoint observer
+\code{0772} localizes the first candidate-only round to the next Probe: at the
+first completed boundary both arms are at conflict 120,512, but candidate has
+four Congruence rounds, 427,487 decisions, and 4,042,238 propagations versus
+baseline's three rounds, 422,586 decisions, and 4,145,226 propagations.  Both
+have zero Congruence merge and unit yield.  One terminal checkpoint task solved
+SAT before its nominal observer stop and returned valid solver exit 10 while
+the wrapper expected UNKNOWN exit 0; this is explicitly classified as a
+harness-contract mismatch, not a solver failure.
+
+Narrow campaigns \code{0774} and \code{0775} capture the exact boundary.  At
+conflict 105525 the candidate executes \code{congruence-dense-resume}; the
+baseline skips it and enters Substitute/Backbone directly.  The full candidate
+stream has 152 ordered candidates, all \code{no-antecedent}, with exactly 456
+ticks and no logical output.  Both trajectories remain exact through conflict
+105526.  The first conflict record differs at 105527; intermittent resyncs
+follow, but the first durable learned mismatch is at conflict 105568.
+
+Kissat source \code{congruence.c} calls
+\code{kissat\_resume\_sparse\_mode} after extraction, before Substitute and
+Backbone.  Tactix source \code{kernel\_canonicalize\_binary\_watches} documents
+and tests the corresponding global pair replay.  Baseline instead delays the
+same deduplication until Vivify's dense entry, after Backbone.  Thus the
+candidate's physical consequence is reference-authored.  The severe regression
+comes from applying that reference schedule to a Tactix state that already has
+an earlier logical difference; it is not a collection micro-optimization
+opportunity at this boundary.
+
+\section{Decision and next action}
+
+The production source, tests, scheduling checker, and parity ledger have been
+restored to the accepted predecessor.  The negative evidence remains in the
+frozen manifests and living progress authority.  No candidate code remains,
+so no consolidation fuzz or correctness repair workflow is applicable.
+
+Commit and push this evidence-only closure with a clean synchronized tree.
+Then rerun the immutable Rank 1--40 screen using accepted Tactix and unchanged
+current Kissat: 80 independent solver tasks, one invocation per task,
+\code{-c 12 --mem=48000M}, no \code{RLIMIT\_AS}, 1200-second solver limit,
+and independent model/proof checking.  Select the largest verified UNSAT gap
+from that fresh screen, then confirm it in three paired timing waves before
+changing behavior.
+
+\end{document}

@@ -97,6 +97,24 @@ session narrative; this file is only the current resume surface.
   fresh-polarity admissions and an accepted fresh-seeded grid, zero failure,
   and zero certificate/scratch residue. The repair is promoted at solver
   commit `3c3164d`; no fuzz repair was required.
+- **Closed Rank-32 Congruence-admission lead:** accepted Tactix
+  `3c3164d`/`f2eecac1...dcf` remains the baseline. Its three-wave Rank-32
+  median is 412.357 seconds versus current Kissat's 290.015 (1.420119x), with
+  all proofs valid and spreads below 0.57%. Removing Tactix's extra
+  Congruence new-material gate restores exact current-Kissat order/cost/state
+  for 542,604 candidates and improves the candidate median to 405.042 seconds,
+  but complete B28+C5 campaign `20260827-0760` fails the frozen performance
+  guard at 1.208552 PAR-2 despite 66/66 correctness and zero residue.
+  `mod4block` regresses from 19.846 to 237.094 seconds. Frozen diagnostics
+  `20260827-0770`--`0775` localize the first candidate-owned effect: at exact
+  common conflict 105525 an extra 152-candidate/456-tick Congruence round has
+  zero yield and no logical-state change, but its reference-authored binary
+  dense resume changes physical propagation order before Backbone; conflict
+  clauses first differ at 105527 and durable learning at 105568. Suppressing
+  that replay would restore the non-reference baseline pose, not repair an
+  implementation defect. The candidate is therefore reverted, unfuzzed, and
+  unpromoted. Full authority and limitations are in Andrew report
+  `2026-08-27-0905-rank32-congruence-admission-negative`.
 - **Rank-10 memory diagnostic:** frozen campaign
   `benchmarks/runs/20260827-0130-tierd-rank10-current-memory-boundaries/`
   (`1651511_0`) completed valid SAT/model-verified on node018 at 19,886,212 KiB
@@ -132,13 +150,13 @@ session narrative; this file is only the current resume surface.
   Each solver repair stays isolated and receives its required gate,
   Claude-owned fuzz verdict, report, commit, and push before the next repair is
   promoted.
-- **Next action:** freeze solver commit `3c3164d` and the unchanged current-
-  Kissat comparator as the Rank-32 pins. Establish three paired node018 timing
-  waves with independent one-solver tasks at `-c 12 --mem=48000M`, proof/model
-  validation, no `RLIMIT_AS`, and under-2% within-arm spread. Then localize the
-  earliest common-state worse-side divergence before changing behavior. The
-  replacement screen's 416.933/293.092-second pair selects Rank 32 but is not
-  itself decision-grade evidence.
+- **Next action:** in the next session, rerun immutable ranks 1--40 from
+  accepted Tactix `3c3164d` and unchanged current Kissat. Use 80 independent
+  solver tasks (one invocation per task), `-c 12 --mem=48000M`, no
+  `RLIMIT_AS`, a 1,200-second solver limit, and independent model/proof
+  validation with zero residue. Select the largest verified UNSAT gap from
+  that fresh screen, then confirm it in three paired timing waves before
+  changing behavior. Do not reopen the rejected Rank-32 admission candidate.
 - `.claude/worktrees/tierd-next10` is the sole historical secondary worktree
   and remains clean. The interactive shell allocation is not a solver campaign.
 
@@ -223,6 +241,10 @@ session narrative; this file is only the current resume surface.
 
 ## Recent changes
 
+- 2026-08-27 — Rank-32 Congruence gate removal improves its local median
+  410.760 to 405.042 seconds but fails B28+C5 at 1.208552 PAR-2; exact tracing
+  localizes the zero-yield dense-resume sensitivity, so the candidate is
+  reverted without fuzz or promotion.
 - 2026-08-27 — Rank 4's fresh-polarity Factor admission repair restores exact
   order/state/340,150-tick work, cuts median time 15.340 to 10.733 seconds, and
   passes the full B28+C5 gate plus Claude-owned 30k fuzz.
@@ -233,15 +255,14 @@ session narrative; this file is only the current resume surface.
   Rank-27 timing, complete B28+C5, and Claude-owned 30k fuzz; Rank 27 is parked.
 - 2026-08-26 — Immutable fuzz snapshots and 50-physical-core generated-leg
   policy are active; checker-root and read-only-snapshot cleanup paths are fixed.
-- 2026-08-26 — Timing policy uses `-c 12`, exactly 48,000 MiB, and three paired
-  waves; whole-node exclusivity is prohibited.
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism
 dispositions and reopening conditions are in `docs/scheduling-parity-ledger.md`.
 The accepted Sweep and Rank-10 layout repairs change no schedule, rule,
 candidate, tick, or policy state. The accepted Rank-4 repair changes only the
 portable per-polarity admission lifecycle proven above and leaves the rule
-instance surface unchanged. Rank 32 is the active selected witness.
+instance surface unchanged. The rejected Rank-32 candidate is fully reverted;
+the next session begins with a fresh ranks 1--40 selection screen.
 <!-- track-sched:end -->
 
 ## Gates
