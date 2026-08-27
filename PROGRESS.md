@@ -100,6 +100,30 @@ own experimental detail and history.
   evidence to reopen the closed Substitute deferral, stable-span Vivify,
   fused traversal, or quarantined arena-prepass arms. Continue broad-search
   localization outside those closures. Current Kissat was not rerun.
+- 2026-08-26 22:00 EDT current broad-search owner profile — current-source
+  RelWithDebInfo conflict-stop pin `3cd454de…ed87` passes five focused Kernel,
+  scheduling, reset, proof-rule-sync, and rule/policy-boundary tests. Single
+  Rank-27 job `1650249` is submitted to node018 with `-c 12`, exactly 48,000
+  MiB scheduler memory, a 16 GiB process cap, and one solver invocation. It
+  records a DWARF cycles call graph at the exact conflict-9450 common boundary.
+  Current Kissat is not rerun: accepted profile SHA `e506ae7f…2924` from
+  campaign `20260826-1040` remains the source-owner comparator. Exclude all
+  closed propagation, decision, equal-score heap, collection, Vivify,
+  Substitute, residual BVE, and Congruence arms; cross-run cycles are
+  localization-only. Require exact semantic SHA `3b87bb36…92c5f`, zero lost
+  samples, and zero staged-input/certificate residue before using the profile.
+  The job completed `0:0` in 15 seconds. It reproduces exact semantic SHA
+  `3b87bb36…92c5f`, reports 12.828 seconds internal / 13.61 wall, records
+  49.751B approximate cycles in 2,665 samples with zero lost, and leaves zero
+  scratch or certificate residue. The leading samples remain in already
+  closed or not-worse owner families: propagation, decision/heap selection,
+  collection, Substitute, and Congruence. In particular, sampled binary-live
+  cost does not override the stronger exact substage evidence that priced
+  Tactix binary-liveness construction at 85 ms against current Kissat's 198 ms
+  broader dense/binary preparation. No source repair is authorized. Continue
+  semantic-quality tracing beyond the neutral equal-score decision 5,795,255
+  and name the first unequal-score, candidate-set, learning, pruning, or
+  retained-state worse-side owner before changing behavior.
 - The user-directed consolidation sequence is complete. Vivify/collection
   produced the sole supported repair and passed the complete gate plus one
   Claude-owned fuzz campaign. The isolated Substitute deferral regressed full
