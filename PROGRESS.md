@@ -124,6 +124,29 @@ own experimental detail and history.
   semantic-quality tracing beyond the neutral equal-score decision 5,795,255
   and name the first unequal-score, candidate-set, learning, pruning, or
   retained-state worse-side owner before changing behavior.
+- 2026-08-26 22:40 EDT broad-search semantic-quality continuation — retained
+  control traces agree on every conflict and learned clause through conflict
+  9,459 despite the closed neutral equal-score choice at recorded decision
+  5,795,255. The first later decision mismatch is recorded decision 5,795,465:
+  Tactix chooses `-117204`, current Kissat `-117206`, after the common
+  `-117212`. Fresh current-source Tactix event-trace pin SHA is
+  `2b3a0d06…f2799`; seven focused scheduling/strategy/trace/proof-boundary/
+  reset tests pass. Campaign `20260826-2240` is prepared as two independent
+  array tasks on node018, each `-c 12`, exactly 48,000 MiB, and one solver
+  invocation as job `1650364`. It will compare exact candidate scores,
+  topology, pop path,
+  phase, and the first resulting conflict. A difference downstream of the
+  neutral tie is not an independent repair owner; no behavior change follows
+  from this observer alone.
+  Both tasks complete `0:0` simultaneously in 33 seconds. Conflict 9,459 has
+  the same learned clause, and both sides execute the same 87 score bumps in
+  the same order (payload SHA `52031fda…bda3`). At the mismatch, candidates
+  117204 and 117206 are present on both sides with the bit-identical score
+  `364280533501.80402`; both phases are negative and random choice is inactive.
+  Tactix/Kissat merely expose different members of the equal-score cohort at
+  the heap root. The later conflict-9,460 difference is downstream of these
+  neutral topology choices, not an independent weaker Tactix owner. Close this
+  arm, preserve the tie closure, and resume source-equivalent cost localization.
 - The user-directed consolidation sequence is complete. Vivify/collection
   produced the sole supported repair and passed the complete gate plus one
   Claude-owned fuzz campaign. The isolated Substitute deferral regressed full
