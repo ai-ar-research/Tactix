@@ -674,7 +674,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     return;
   if (snapshot && !keep_snapshots_ && stop_after_conflict_ != UINT64_MAX &&
       k.stats.conflicts < stop_after_conflict_ &&
-      std::strcmp(event, "analysis_end"))
+      std::strcmp(event, "analysis_end") &&
+      std::strcmp(event, "formula_checkpoint"))
     return;
   if (glue_only_ && std::strcmp(event, "reason_glue") &&
       std::strcmp(event, "reason_used") &&
@@ -1246,6 +1247,8 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
 bool EventTrace::want_detail(const Kernel &k) {
   if (!out_)
     return false;
+  // detail() invokes formula_checkpoint before consulting this gate, so
+  // formula-only can reject every expensive ordinary detail payload here.
   if (formula_only_ || conflict_only_)
     return false;
   if (detail_window_)
@@ -1303,11 +1306,47 @@ static bool formula_checkpoint_selected(const char *spec, uint64_t conflict) {
   return false;
 }
 
+static bool formula_checkpoint_threshold_reached(const char *spec,
+                                                 uint64_t conflict,
+                                                 bool &have_emitted,
+                                                 uint64_t &last_emitted) {
+  if (!spec || !*spec)
+    return false;
+  bool found = false;
+  uint64_t reached = 0;
+  while (*spec) {
+    char *end = nullptr;
+    const uint64_t threshold = std::strtoull(spec, &end, 10);
+    if (end == spec)
+      return false;
+    if (threshold <= conflict &&
+        (!have_emitted || threshold > last_emitted) &&
+        (!found || threshold > reached)) {
+      reached = threshold;
+      found = true;
+    }
+    spec = *end == ',' ? end + 1 : end;
+    if (*end && *end != ',')
+      return false;
+  }
+  if (found) {
+    have_emitted = true;
+    last_emitted = reached;
+  }
+  return found;
+}
+
 void EventTrace::formula_checkpoint(const Kernel &k) {
-  if (!out_ || emitted_ >= limit_ ||
-      !formula_checkpoint_selected(
-          std::getenv("TACTIX_EVENT_TRACE_FORMULA_CONFLICTS"),
-          k.stats.conflicts))
+  if (!out_ || emitted_ >= limit_)
+    return;
+  const bool exact = formula_checkpoint_selected(
+      std::getenv("TACTIX_EVENT_TRACE_FORMULA_CONFLICTS"),
+      k.stats.conflicts);
+  const bool threshold = formula_checkpoint_threshold_reached(
+      std::getenv("TACTIX_EVENT_TRACE_FORMULA_THRESHOLDS"),
+      k.stats.conflicts, formula_threshold_emitted_,
+      formula_threshold_last_);
+  if (!exact && !threshold)
     return;
   uint64_t irredundant = 0, redundant = 0;
   uint64_t irredundant_hash = 0, redundant_hash = 0;
@@ -1339,6 +1378,26 @@ void EventTrace::formula_checkpoint(const Kernel &k) {
       heap_score_hash = mix(heap_score_hash,
                             k.internal_to_external[v] + 1ull);
       heap_score_hash = mix(heap_score_hash, bits);
+    }
+    const char *heap_dump_path =
+        std::getenv("TACTIX_EVENT_TRACE_HEAP_DUMP");
+    if (heap_dump_path && *heap_dump_path) {
+      if (FILE *heap_dump = std::fopen(heap_dump_path, "a")) {
+        for (size_t pos = 0; pos != k.h->scores.stack.size(); ++pos) {
+          const Var v = k.h->scores.stack[pos];
+          const uint64_t compact =
+              kernel_compact_import_lit_order(k, make_lit(v, false)) >> 1;
+          const uint64_t imported = kernel_import_var_order(k, v);
+          std::fprintf(heap_dump,
+                       "tactix\t%llu\t%zu\t%u\t%u\t%llu\t%llu\t%.17g\n",
+                       (unsigned long long)k.stats.conflicts, pos,
+                       k.internal_to_external[v] + 1,
+                       v, (unsigned long long)compact,
+                       (unsigned long long)imported,
+                       k.h->scores.score[v]);
+        }
+        std::fclose(heap_dump);
+      }
     }
   }
   char checkpoint_payload[360];

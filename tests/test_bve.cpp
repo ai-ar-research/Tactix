@@ -88,6 +88,90 @@ static void test_schedule_occurrence_image_lifecycle() {
   kernel_dense_disconnect(k);
 }
 
+// Kissat compacts garbage references from the two physical occurrence stacks
+// of every attempted BVE candidate, even if that candidate is then rejected.
+// The dynamic schedule must observe the compacted count when the variable is
+// later reinserted; leaving the stale references changes equal-cost heap pose.
+static void test_candidate_gather_compacts_garbage_occurrences() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit pivot = internalize(1);
+  const Lit stale_lits[3] = {pivot, internalize(2), internalize(3)};
+  const Lit live_lits[3] = {pivot, internalize(4), internalize(5)};
+  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
+  kernel_add_large_clause(k, live_lits, 3, false, 0);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense, true);
+  std::vector<uint32_t> image(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    image[lit] = bve_schedule_occurrence_count(k, lit);
+  k.bve_occurrence_count_image = &image;
+  kernel_delete_clause(k, clause_at(k.arena, stale));
+  assert(image[pivot] == 2 && image[internalize(2)] == 1);
+
+  // The remaining live ternary exceeds this diagnostic admission ceiling, so
+  // the candidate fails after its physical occurrence stacks are inspected.
+  k.bve_clause_size_limit = 2;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
+  assert(image[pivot] == 1);
+  assert(image[internalize(2)] == 1 &&
+         "only the inspected pivot stack is compacted");
+  assert(dense.large[pivot].size() == 1 && dense.large[pivot][0] != stale);
+  bool stale_connected = false;
+  for (const OccIndex::Entry &entry : dense.ordered[pivot])
+    stale_connected |= entry.live && !entry.binary && entry.payload == stale;
+  assert(!stale_connected);
+
+  k.bve_occurrence_count_image = nullptr;
+  kernel_dense_disconnect(k);
+}
+
+struct BveScoreNotifications {
+  std::vector<std::pair<Var, bool>> events;
+};
+
+static void record_bve_score_notification(Kernel &, void *state, Var v,
+                                          bool reinsert) {
+  static_cast<BveScoreNotifications *>(state)->events.emplace_back(v,
+                                                                    reinsert);
+}
+
+static void test_candidate_gather_deletes_satisfied_binary() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit pivot = internalize(1), satisfied = internalize(2);
+  kernel_add_binary_clause(k, pivot, satisfied);
+  const Lit live_lits[3] = {pivot, internalize(4), internalize(5)};
+  kernel_add_large_clause(k, live_lits, 3, false, 0);
+  kernel_assign_unit(k, satisfied);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense, true);
+  std::vector<uint32_t> image(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    image[lit] = bve_schedule_occurrence_count(k, lit);
+  k.bve_occurrence_count_image = &image;
+  BveScoreNotifications notifications;
+  k.bve_score_update_hook = record_bve_score_notification;
+  k.bve_score_update_state = &notifications;
+
+  k.bve_clause_size_limit = 2;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
+  assert(!kernel_binary_live(k, pivot, satisfied));
+  assert(image[pivot] == 1 && image[satisfied] == 0);
+  assert(notifications.events.size() == 1);
+  assert(notifications.events[0] ==
+         std::make_pair(var_of(satisfied), true));
+
+  k.bve_score_update_hook = nullptr;
+  k.bve_score_update_state = nullptr;
+  k.bve_occurrence_count_image = nullptr;
+  kernel_dense_disconnect(k);
+}
+
 // redundant (learned) large clauses are not in the elimination set.
 static void test_occurrences_skip_redundant() {
   Kernel k;
@@ -1065,6 +1149,8 @@ int main() {
   test_guard();
   test_occurrences();
   test_schedule_occurrence_image_lifecycle();
+  test_candidate_gather_compacts_garbage_occurrences();
+  test_candidate_gather_deletes_satisfied_binary();
   test_occurrences_skip_redundant();
   test_schedule_order();
   test_schedule_excludes();

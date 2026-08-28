@@ -54,6 +54,14 @@ assert 'TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS' in eventtrace
 assert 'TACTIX_EVENT_TRACE_FORMULA_ONLY' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_FORMULA_ONLY' in eventtrace
+assert 'TACTIX_EVENT_TRACE_FORMULA_THRESHOLDS' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_FORMULA_THRESHOLDS' in eventtrace
+assert 'TACTIX_EVENT_TRACE_HEAP_DUMP' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_HEAP_DUMP' in eventtrace
+assert 'if (formula_only_ || conflict_only_)' in tactix_trace
+assert 'if (trace_formula_only)\n    return false;' in eventtrace
+assert 'std::strcmp(event, "analysis_end") &&\n      std::strcmp(event, "formula_checkpoint")' in tactix_trace
+assert 'strcmp (event, "analysis_end") &&\n      strcmp (event, "formula_checkpoint")' in eventtrace
 for event in ('trace_begin', 'formula_checkpoint', 'terminate'):
     assert f'std::strcmp(event, "{event}")' in tactix_trace
     assert f'strcmp (event, "{event}")' in eventtrace

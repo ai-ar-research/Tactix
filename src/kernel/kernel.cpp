@@ -567,6 +567,23 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
+bool kernel_delete_binary_one_copy_bve_scan(Kernel &k, Lit pivot, Lit other) {
+  // Reuse the proof-, reason-, multiplicity-, and representation-safe kernel
+  // transition, but reproduce eliminate.c::kissat_eliminate_binary's score
+  // notification: `pivot` is the stack currently being compacted and has
+  // already been popped from the schedule, while `other` is updated and may
+  // be reinserted.  Suppressing the hook does not suppress retry/touch state.
+  const BveScoreUpdateHook hook = k.bve_score_update_hook;
+  void *const state = k.bve_score_update_state;
+  k.bve_score_update_hook = nullptr;
+  const bool removed = kernel_delete_binary_one_copy(k, pivot, other);
+  k.bve_score_update_hook = hook;
+  k.bve_score_update_state = state;
+  if (removed)
+    kernel_notify_bve_score(k, var_of(other), true);
+  return removed;
+}
+
 uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
   const uint32_t copies = kernel_binary_copies(k, a, b);
   if (copies <= 1)

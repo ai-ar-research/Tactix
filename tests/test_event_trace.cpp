@@ -235,32 +235,55 @@ int main() {
   std::remove(glue_only_path.c_str());
 
   const std::string formula_only_path = trace_path("event-formula-only");
+  const std::string heap_dump_path = trace_path("event-heap-dump");
   std::remove(formula_only_path.c_str());
+  std::remove(heap_dump_path.c_str());
   setenv("TACTIX_EVENT_TRACE", formula_only_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_FORMULA_ONLY", "1", 1);
-  setenv("TACTIX_EVENT_TRACE_FORMULA_CONFLICTS", "0", 1);
+  setenv("TACTIX_EVENT_TRACE_FORMULA_THRESHOLDS", "1,10", 1);
+  setenv("TACTIX_EVENT_TRACE_HEAP_DUMP", heap_dump_path.c_str(), 1);
+  k.h->scores.stack = {0};
+  k.h->scores.pos[0] = 0;
+  k.h->scores.score[0] = 3.25;
+  const uint64_t saved_conflicts = k.stats.conflicts;
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
     trace.detail(k, "decision", 1);
     trace.macro(k, "must_be_filtered");
-    trace.formula_checkpoint(k);
+    k.stats.conflicts = 2; // first analysis end after threshold 1
+    trace.detail(k, "analysis_end", 1);
+    k.stats.conflicts = 12; // conflict counters may skip threshold 10
+    trace.detail(k, "analysis_end", 1);
     trace.macro(k, "terminate", "0");
   }
+  k.stats.conflicts = saved_conflicts;
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("TACTIX_EVENT_TRACE_FORMULA_ONLY");
-  unsetenv("TACTIX_EVENT_TRACE_FORMULA_CONFLICTS");
+  unsetenv("TACTIX_EVENT_TRACE_FORMULA_THRESHOLDS");
+  unsetenv("TACTIX_EVENT_TRACE_HEAP_DUMP");
   std::ifstream formula_only_input(formula_only_path);
   const std::string formula_only_text(
       (std::istreambuf_iterator<char>(formula_only_input)),
       std::istreambuf_iterator<char>());
   assert(formula_only_text.find("\ttrace_begin\t") != std::string::npos);
-  assert(formula_only_text.find("\tformula_checkpoint\t") !=
+  const size_t first_formula = formula_only_text.find("\tformula_checkpoint\t");
+  assert(first_formula != std::string::npos);
+  assert(formula_only_text.find("\tformula_checkpoint\t", first_formula + 1) !=
          std::string::npos);
   assert(formula_only_text.find("\tterminate\t") != std::string::npos);
   assert(formula_only_text.find("\tdecision\t") == std::string::npos);
   assert(formula_only_text.find("must_be_filtered") == std::string::npos);
+  std::ifstream heap_dump_input(heap_dump_path);
+  const std::string heap_dump_text(
+      (std::istreambuf_iterator<char>(heap_dump_input)),
+      std::istreambuf_iterator<char>());
+  assert(heap_dump_text.find("tactix\t2\t0\t1\t0\t0\t0\t3.25\n") !=
+         std::string::npos);
+  assert(heap_dump_text.find("tactix\t12\t0\t1\t0\t0\t0\t3.25\n") !=
+         std::string::npos);
   std::remove(formula_only_path.c_str());
+  std::remove(heap_dump_path.c_str());
 
   const std::string conflict_only_path = trace_path("event-conflict-only");
   std::remove(conflict_only_path.c_str());
