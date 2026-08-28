@@ -557,3 +557,4 @@ drops 175.47→159.98 s, and reports 152.705M versus Kissat's 152.707M scans.
 
 Rank 15 closed forward's duplicate/tie/action lifecycle, shortened ITE, and BVE
 retry. Jobs `1654651`/`1654652` match all binaries and 15,211 live clauses.
+Only Eliminate/BVE owns the exact mixed stream; jobs `1655087`/`1655161` provisionally reduce Rank 10 from 111.387→95.211 s and 23.05→17.08 GB.

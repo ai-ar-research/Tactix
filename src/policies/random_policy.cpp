@@ -52,7 +52,8 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
     }
   } dense_scope{k};
   if ((seed & 1) != 0 && k.level == 0) {
-    kernel_dense_connect(k, stress_occ);
+    // A dense random walk can select BVE at any later step.
+    kernel_dense_connect(k, stress_occ, true);
     dense_scope.active = true;
   }
   std::printf("c stress-dense %d\n", dense_scope.active ? 1 : 0);

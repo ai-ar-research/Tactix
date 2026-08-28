@@ -1460,6 +1460,38 @@ static void test_dense_occurrences_reuse_capacity_and_position_order() {
   kernel_check_invariants(k);
 }
 
+static void test_dense_mixed_order_is_consumer_scoped() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit binary[2] = {internalize(1), internalize(2)};
+  const Lit large[3] = {internalize(1), internalize(3), internalize(4)};
+  kernel_add_binary_clause(k, binary[0], binary[1]);
+  kernel_add_large_clause(k, large, 3, false, 0);
+
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  assert(!occ.track_order);
+  assert(occ.ordered.empty());
+  assert(occ.large[large[0]].size() == 1);
+  kernel_dense_disconnect(k);
+
+  kernel_dense_connect(k, occ, true);
+  assert(occ.track_order);
+  assert(occ.ordered.size() == 2 * k.nvars);
+  assert(occ.ordered[binary[0]].size() == 2);
+  assert(occ.ordered[binary[0]][0].binary);
+  assert(!occ.ordered[binary[0]][1].binary);
+  kernel_dense_disconnect(k);
+
+  // Returning to a Probe-shaped connection frees the optional formula-wide
+  // headers and payload instead of retaining a cold Eliminate image.
+  kernel_dense_connect(k, occ);
+  assert(!occ.track_order && occ.ordered.empty());
+  assert(occ.large[large[0]].size() == 1);
+  kernel_dense_disconnect(k);
+  kernel_check_invariants(k);
+}
+
 static void test_large_replacement_preserves_redundant_recency() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -1898,6 +1930,7 @@ int main() {
   test_phase_rebuild_large_watches_restores_source_order();
   test_dense_occurrences_keep_source_order_across_collection();
   test_dense_occurrences_reuse_capacity_and_position_order();
+  test_dense_mixed_order_is_consumer_scoped();
   test_large_replacement_preserves_redundant_recency();
   test_in_place_large_replacement_preserves_allocation_span();
   test_rebuild_large_watches_reselects_root_false_pair();

@@ -57,7 +57,7 @@ static void test_schedule_occurrence_image_lifecycle() {
   const Ref first_ref = kernel_add_large_clause(k, first_lits, 3, false, 0);
 
   OccIndex dense;
-  kernel_dense_connect(k, dense);
+  kernel_dense_connect(k, dense, true);
   std::vector<uint32_t> image(2 * k.nvars);
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
     image[lit] = bve_schedule_occurrence_count(k, lit);
@@ -185,7 +185,7 @@ static void test_antecedent_clause_size_limit() {
   k.bve_clause_size_limit = 100;
 
   OccIndex dense;
-  kernel_dense_connect(k, dense);
+  kernel_dense_connect(k, dense, true);
   const size_t arena_before = k.arena.size();
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
@@ -960,7 +960,7 @@ static void test_dense_bve_preserves_mixed_connected_order() {
   kernel_add_large_clause(k, n1, 3, false, 0);
 
   OccIndex occ;
-  kernel_dense_connect(k, occ);
+  kernel_dense_connect(k, occ, true);
   kernel_add_binary_clause(k, L(1), L(6)); // appended after p1 and p2
   k.bve_gate_mask = 0;
   k.bve_backward = false;
@@ -1015,7 +1015,7 @@ static void test_backward_strengthen_to_unit_asserts() {
   add3(3, 5, -6);
   k.bve_gate_mask = 0; // plain resolution: exactly the resolvent set above
   OccIndex occ;
-  kernel_dense_connect(k, occ);
+  kernel_dense_connect(k, occ, true);
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(L(1))) == ApplyResult::Ok);
   assert(k.value(L(-4)) > 0 && "the elimination's own unit landed");
@@ -1050,7 +1050,7 @@ static void test_backward_binary_victim_strengthen_to_unit() {
   add3(3, 5, -6);
   k.bve_gate_mask = 0; // plain resolution: exactly the resolvent above
   OccIndex occ;
-  kernel_dense_connect(k, occ);
+  kernel_dense_connect(k, occ, true);
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(L(1))) == ApplyResult::Ok);
   assert(k.stats.bve_bwd_strengthened >= 1 &&

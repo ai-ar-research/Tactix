@@ -681,6 +681,10 @@ struct OccIndex {
     bool live;
   };
   std::vector<std::vector<Entry>> ordered; // by literal; stale entries allowed
+  // Only Eliminate/BVE consumes the mixed stream. Probe's Congruence,
+  // Substitute, Sweep, and Strengthen consumers use `large` and must not pay
+  // another formula-wide vector header and payload image.
+  bool track_order = false;
 };
 
 struct ArenaOrdering {
@@ -1718,7 +1722,8 @@ void kernel_canonicalize_binary_watches(Kernel &,
                                             binary_suffix = nullptr);
 void kernel_deduplicate_binary_watches(Kernel &);
 
-void kernel_dense_connect(Kernel &, OccIndex &occ);
+void kernel_dense_connect(Kernel &, OccIndex &occ,
+                          bool track_order = false);
 void kernel_dense_disconnect(Kernel &);
 void kernel_flush_retired_redundant(Kernel &);
 

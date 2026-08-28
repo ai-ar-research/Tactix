@@ -3281,7 +3281,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // `kissat_backtrack_propagate_and_flush_trail`; dense Tactix keeps the root
   // literals but has consumed the same pending-root lifecycle state.
   k.unflushed_root = 0;
-  kernel_dense_connect(k, occurrence_index_);
+  // Only the Eliminate pipeline contains BVE, the sole consumer of Kissat's
+  // mixed binary/large connection stream. Probe consumers share the ordinary
+  // large occurrence image and do not instantiate a duplicate formula-wide
+  // ordering representation.
+  kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
   if (factor_match)
