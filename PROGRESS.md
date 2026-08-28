@@ -8,7 +8,7 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
-- **In flight — provisional 40-rank baseline and dense-binary cost repair:**
+- **In flight — provisional 40-rank baseline and dense-binary representation:**
   homogeneous campaign `20260828-1344-tierd-ranks1-40-live-active-fix`
   has all 80 solver timings. Provisional geometric-mean Tactix/Kissat ratios
   are 1.408× SAT and 1.342× UNSAT; proof checking remains independent and
@@ -16,9 +16,14 @@ session narrative; this file is only the current resume surface.
   2.382×, and SAT Rank 6 is 5.377×. A source-mapped Rank-6 profile found
   repeated linear binary-membership scans in BVE and Strengthen. The general
   dense-stream repair preserves exactly 551,149 conflicts and 5,224,515
-  decisions while reducing wall 293.372→98.730 s; the model satisfies all
-  11,099,040 clauses. Factor remains near its Kissat component cost and is not
-  the owner. Release is 76/76 and focused Release, Debug, and ASAN/UBSAN pass.
+  decisions while reducing wall 293.372→98.730 s. Compacting Strengthen's
+  ordered mixed entry from 24 to 8 bytes preserves the same trajectory and
+  independently checked model while reducing peak RSS 1,287,052→959,232 KiB;
+  Factor remains near its Kissat component cost and is not the owner. The
+  committed homogeneous follow-up has 50/80 provisional timings; its nine
+  paired UNSAT ranks are already consumed at 1.283× geometric mean despite
+  only 45/80 completed checks. Release is 76/76 and focused Release, Debug,
+  and ASAN/UBSAN pass.
   N1--N4, classification, production budgets, creation order, and the
   proof-rule/strategy boundary are unchanged; no formula/rank gate exists.
 

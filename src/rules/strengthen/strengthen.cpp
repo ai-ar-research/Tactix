@@ -156,25 +156,33 @@ struct Partner {
 // local image avoids hoisting such late binaries ahead of already-connected
 // large partners, which changes the last winning strengthener.
 struct ForwardWatch {
+  uint32_t payload = INVALID_REF;
   bool binary = false;
-  Lit other = INVALID_LIT;
-  Ref ref = INVALID_REF;
-  uint64_t id = 0;
 
-  static ForwardWatch binary_entry(Lit other, uint64_t id) {
+  static ForwardWatch binary_entry(Lit other) {
     ForwardWatch result;
+    result.payload = other;
     result.binary = true;
-    result.other = other;
-    result.id = id;
     return result;
   }
 
   static ForwardWatch large_entry(Ref ref) {
     ForwardWatch result;
-    result.ref = ref;
+    result.payload = ref;
     return result;
   }
+
+  Lit other() const {
+    assert(binary);
+    return payload;
+  }
+
+  Ref ref() const {
+    assert(!binary);
+    return payload;
+  }
 };
+static_assert(sizeof(ForwardWatch) == 8);
 
 // Kissat's forward_literal accumulates `steps` in a local scalar and publishes
 // it once after the watch scan (forward.c:197-303).  Keep the same hot-loop
@@ -218,18 +226,19 @@ static Partner find_forward_partner(
           if (budget_cut())
             return p;
           visits++;
-          if (marks[watch.other]) {
+          const Lit other = watch.other();
+          if (marks[other]) {
             p.res.kind = CheckResult::SUBSUMED;
             if (lrat)
-              p.id = watch.id;
+              p.id = kernel_binary_id(k, probe, other);
             return p;
           }
-          if (marks[negate(watch.other)]) {
+          if (marks[negate(other)]) {
             p.res.kind = CheckResult::STRENGTHEN;
-            p.res.flipped = watch.other;
+            p.res.flipped = other;
             p.absorbed.clear();
             if (lrat)
-              p.id = watch.id;
+              p.id = kernel_binary_id(k, probe, other);
             // A binary strengthener terminates this physical watch walk.
             // The opposite-phase walk for the same candidate literal still
             // follows, just as the second forward_literal call in Kissat.
@@ -240,7 +249,7 @@ static Partner find_forward_partner(
         if (budget_cut())
           return p;
         visits++;
-        const Clause *d = clause_at(k.arena, watch.ref);
+        const Clause *d = clause_at(k.arena, watch.ref());
         if (d->garbage())
           continue;
         const CheckResult r = check_marked(k, marks, d);
@@ -669,8 +678,8 @@ ApplyResult strengthen_apply(Kernel &k) {
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
     for (const WatchEntry watch : k.watches.entries(lit))
       if (watch.binary())
-        forward_watches[lit].push_back(ForwardWatch::binary_entry(
-            watch.other(), kernel_binary_id(k, lit, watch.other())));
+        forward_watches[lit].push_back(
+            ForwardWatch::binary_entry(watch.other()));
   // `k.work_budget` in this rule's own currency (partner visits). An entry
   // budget alone bounds how often a round runs, never how much one round does,
   // which lets a single uninterruptible round own most of a solve; cadical
@@ -760,9 +769,8 @@ ApplyResult strengthen_apply(Kernel &k) {
       if (r == 3) {
         const Lit a = new_binary.first, b = new_binary.second;
         assert(a != INVALID_LIT && b != INVALID_LIT);
-        const uint64_t id = kernel_binary_id(k, a, b);
-        forward_watches[a].push_back(ForwardWatch::binary_entry(b, id));
-        forward_watches[b].push_back(ForwardWatch::binary_entry(a, id));
+        forward_watches[a].push_back(ForwardWatch::binary_entry(b));
+        forward_watches[b].push_back(ForwardWatch::binary_entry(a));
       }
       if (r == 4)
         ended = true;
