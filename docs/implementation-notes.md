@@ -477,8 +477,11 @@ pins the exact seven-tick chained-unit scan.
 Pinned Kissat's fused forward pass admits irredundant victims only. Production
 Strengthen therefore leaves `Kernel::touch_redundant` off while retaining the
 complete public/N1 instance surface. `TACTIX_TOUCH_REDUNDANT=1` is the sole
-explicit CaDiCaL likely-kept redundant-band diagnostic arm; formula shape,
+explicit CaDiCaL likely-kept redundant-band diagnostic arm; its stamps and
+live/static telemetry are cold unless that arm is enabled. Formula shape,
 benchmark identity, density, size, rank, and classification cannot enable it.
+Same-CPU job `1654544` is trajectory-identical and effectively neutral
+(174.57 s cold diagnostics versus 173.01 s prior baseline).
 On SAT Rank 16, the old arm strengthened 747 redundant clauses and first changed
 search cost immediately after BVE at conflict 15,258. With the production scope
 repaired, search ticks and decisions are exact through conflict 17,352.

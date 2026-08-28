@@ -336,13 +336,14 @@ static void test_touch_redundant_scope() {
   k.tier2 = 2;
   const uint64_t e0 = k.touch_epoch;
   add(k, {1, 2, 3}, /*redundant=*/true); // glue 2 <= tier2: in scope
-  assert(k.stats.touch_redundant_dynamic == 1);
+  assert(k.stats.touch_redundant_dynamic == 0 &&
+         "disabled diagnostics must impose no production telemetry");
   assert(k.touch_epoch == e0 && "production must not stamp the diagnostic band");
 
   k.touch_redundant = true;
   const uint64_t e1 = k.touch_epoch;
   add(k, {1, 2, 4}, /*redundant=*/true);
-  assert(k.stats.touch_redundant_dynamic == 2);
+  assert(k.stats.touch_redundant_dynamic == 1);
   assert(k.touch_epoch == e1 + 3 && "the explicit arm enables band stamps");
 
   // narrowing the live tier drops the creation out of scope; static-6 counts on

@@ -393,6 +393,7 @@ static void test_tier2_band_tracks_the_live_tier() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
+  k.touch_redundant = true;
   const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, c1, 3, true, 4); // inside the static 6
   const Lit c2[3] = {internalize(4), internalize(5), internalize(6)};
