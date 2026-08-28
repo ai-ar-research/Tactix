@@ -458,16 +458,17 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
           // large circuit encodings.
           const uint64_t predicted_binaries =
               std::min<uint64_t>(clauses, 2 * n);
-          // Native LRAT always needs exact binary proof identities. DRAT does
-          // not, but retaining them on ordinary formulas preserves cheap hash
-          // deduplication and the reference input-order keys consumed by dense
-          // rules. Only omit the duplicate archive when the declaration alone
-          // predicts a large table; mirrored watches remain the exact identity
-          // authority in that mode. This resource threshold avoids both the
-          // 4-GiB rank-5 archive and quadratic scans on dense, low-variable
-          // formulas such as the rank-6 CFI witness.
+          // Native LRAT always needs exact binary proof identities. DRAT and
+          // proofless solving need only exact keys for cheap deduplication, so
+          // do not allocate the parallel value table in those modes. Only
+          // omit the key archive too when the declaration alone predicts a
+          // large table; mirrored watches remain the exact identity authority
+          // in that mode. This resource threshold avoids both the 4-GiB rank-5
+          // archive and quadratic scans on dense, low-variable formulas.
           constexpr uint64_t DRAT_BINARY_ARCHIVE_ENTRY_LIMIT = UINT64_C(1)
                                                                 << 24;
+          if (!k.proof || !k.proof->lrat())
+            k.binary_ids.discard_values();
           if (k.proof && !k.proof->lrat() &&
               predicted_binaries > DRAT_BINARY_ARCHIVE_ENTRY_LIMIT)
             k.binary_ids.discard_storage();
