@@ -163,7 +163,7 @@ static void test_large_partner_without_same_round_cascade() {
   assert(default_solve(k) == 10);
 }
 
-static void test_complete_dense_population_caps_connection() {
+static void test_connection_uses_growing_forward_population() {
   Kernel k;
   kernel_reserve_vars(k, 1300);
   const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
@@ -182,12 +182,13 @@ static void test_complete_dense_population_caps_connection() {
     }
   OccIndex dense;
   kernel_dense_connect(k, dense);
-  // Every partner literal is physically above the accepted long-occurrence
-  // cap, so Kissat-shaped connection declines it.  A growing local index would
-  // still see the first partner at population zero and wrongly connect it.
-  assert(strengthen_apply(k) == ApplyResult::NoOp);
-  assert(k.stats.strengthen_subsumed == 0);
-  assert(live_large(k) == 2 + 3 * (STRENGTHEN_OCCLIM + 1));
+  // Dense-mode entry has flushed all large references.  Kissat therefore
+  // connects the first partner against the growing forward index, before the
+  // later fillers make those literals expensive; the size-4 victim is then
+  // subsumed.  The complete BVE occurrence population must not leak here.
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.stats.strengthen_subsumed == 1);
+  assert(live_large(k) == 1 + 3 * (STRENGTHEN_OCCLIM + 1));
   kernel_dense_disconnect(k);
 }
 
@@ -211,6 +212,53 @@ static void test_binary_watches_count_toward_connection_cap() {
   assert(k.stats.strengthen_subsumed == 0);
   assert(live_large(k) == 2);
   kernel_dense_disconnect(k);
+}
+
+static void test_kissat_touch_candidate_and_connection_predicates() {
+  const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
+                         internalize(4)};
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    kernel_add_large_clause(k, partner, 3, false, 0);
+    kernel_add_large_clause(k, victim, 4, false, 0);
+    k.strengthen_touch_mark = k.touch_epoch;
+    kernel_touch_var(k, var_of(internalize(1)));
+    // Kissat schedules only clauses containing at least two armed variables.
+    assert(strengthen_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.strengthen_checked == 0);
+    assert(k.stats.strengthen_mark_skipped == 2);
+    assert(live_large(k) == 2);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    kernel_add_large_clause(k, partner, 3, false, 0);
+    kernel_add_large_clause(k, victim, 4, false, 0);
+    k.strengthen_touch_mark = k.touch_epoch;
+    kernel_touch_var(k, var_of(internalize(1)));
+    kernel_touch_var(k, var_of(internalize(2)));
+    // Two arms schedule `partner`, but connect_subsuming requires every active
+    // variable in it to be armed.  It therefore cannot subsume `victim` yet.
+    assert(strengthen_apply(k) == ApplyResult::NoOp);
+    assert(k.stats.strengthen_checked == 2);
+    assert(k.stats.strengthen_subsumed == 0);
+    assert(live_large(k) == 2);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    kernel_add_large_clause(k, partner, 3, false, 0);
+    kernel_add_large_clause(k, victim, 4, false, 0);
+    k.strengthen_touch_mark = k.touch_epoch;
+    kernel_touch_var(k, var_of(internalize(1)));
+    kernel_touch_var(k, var_of(internalize(2)));
+    kernel_touch_var(k, var_of(internalize(3)));
+    assert(strengthen_apply(k) == ApplyResult::Ok);
+    assert(k.stats.strengthen_subsumed == 1);
+    assert(live_large(k) == 1);
+  }
 }
 
 static void test_unit_producing_strengthen_ends_round() {
@@ -455,8 +503,9 @@ int main() {
   test_opposite_phase_binary_does_not_override_later_result();
   test_fused_subsumption();
   test_large_partner_without_same_round_cascade();
-  test_complete_dense_population_caps_connection();
+  test_connection_uses_growing_forward_population();
   test_binary_watches_count_toward_connection_cap();
+  test_kissat_touch_candidate_and_connection_predicates();
   test_unit_producing_strengthen_ends_round();
   test_partner_budget_rearms_current_candidate();
   test_instance_surface();

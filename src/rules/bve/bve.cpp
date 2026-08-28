@@ -1178,25 +1178,20 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
   bool antecedent_oversized = false;
 
-  // ---- gather x's binaries (physical watch order, duplicates retained) ----
-  // `definition.c` and `resolve.c` import every connected watch, including a
-  // duplicate binary produced earlier in the same elimination phase.  Each
-  // copy therefore contributes to the gate environment, growth base and
-  // resolvent stream.  The commit-side deletion below consumes those copies
-  // one at a time in the same occurrence order.
+  // ---- gather x's connected antecedents (duplicates retained) ----
+  // `definition.c` and `resolve.c` import one mixed dense-watch stream.  A
+  // binary created during the phase is appended after the arena occurrences
+  // already connected at dense entry; hoisting it back into a binary prefix
+  // preserves the formula but changes resolvent and later propagation order.
   std::vector<uint8_t> local_literal_marks;
   std::vector<uint8_t> &literal_marks =
       def ? def->literal_marks : local_literal_marks;
   if (literal_marks.size() < 2 * static_cast<size_t>(k.nvars))
     literal_marks.resize(2 * static_cast<size_t>(k.nvars), 0);
-  auto gather_bin = [&](Lit lit, std::vector<MClause> &live) {
-    for (const WatchEntry w : k.watches.entries(lit)) {
-      if (!w.binary())
-        continue;
-      const Lit o = w.other();
+  auto gather_bin = [&](Lit lit, Lit o, std::vector<MClause> &live) {
       if (k.value(o) > 0) { // satisfied
         del_bin.emplace_back(lit, o);
-        continue;
+        return;
       }
       // o root-false is impossible at a drained fixpoint (it would force `lit`).
       MClause m;
@@ -1211,7 +1206,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       m.absorbed = pool_slice(def->clause_absorbed,
                               def->clause_absorbed.size());
       live.push_back(std::move(m));
-    }
   };
 
   // ---- gather x's large clauses ----
@@ -1264,31 +1258,40 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     }
   };
   if (k.dense) {
-    // Kissat enters dense mode by retaining its binary watch entries, then
-    // appending full large-clause occurrences. Preserve that single-list pose
-    // in the materialized side vectors: pair order is part of bounded effort.
-    gather_bin(px, pos);
-    gather_bin(nx, neg);
-    // dense fast-path: x's large clauses are exactly dense->large[px] ∪ [nx],
-    // irredundant only, sound because a dense phase runs at a quiescent root
-    // with no learned clauses yet. A clause holding both px and nx is in both
-    // lists and is handled in the px pass.
+    // Consume the exact connected stream. Entries can be stale after deletion
+    // or an in-place membership rewrite; filter them against current kernel
+    // state without disturbing survivor order.
     auto has_lit = [](const Clause *c, Lit t) {
       for (const Lit l : *c)
         if (l == t)
           return true;
       return false;
     };
-    for (const Ref ref : k.dense->large[px]) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage())
-        classify(ref, c, true, has_lit(c, nx));
-    }
-    for (const Ref ref : k.dense->large[nx]) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage() && !has_lit(c, px)) // px-side already handled tautologies
-        classify(ref, c, false, true);
-    }
+    const auto gather = [&](Lit pivot, Lit opposite,
+                            std::vector<MClause> &live, bool positive) {
+      for (const OccIndex::Entry &entry : k.dense->ordered[pivot]) {
+        if (!entry.live)
+          continue;
+        if (entry.binary) {
+          if (kernel_binary_live(k, pivot, entry.payload))
+            gather_bin(pivot, entry.payload, live);
+          continue;
+        }
+        const Ref ref = entry.payload;
+        const Clause *c = clause_at(k.arena, ref);
+        if (c->garbage() || !has_lit(c, pivot))
+          continue;
+        const bool has_opposite = has_lit(c, opposite);
+        if (!positive && has_opposite)
+          continue; // positive side already handled the tautology
+        if (positive)
+          classify(ref, c, true, has_opposite);
+        else
+          classify(ref, c, false, true);
+      }
+    };
+    gather(px, nx, pos, true);
+    gather(nx, px, neg, false);
   } else {
     // N1 fallback: one arena scan (any state, no phase index).
     for (Ref ref = 0; ref < k.arena.size();) {
@@ -1307,8 +1310,12 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     }
     // The public non-dense path has no reference connected-list pose; retain
     // its historical arena-first order and append binary watches afterward.
-    gather_bin(px, pos);
-    gather_bin(nx, neg);
+    for (const WatchEntry w : k.watches.entries(px))
+      if (w.binary())
+        gather_bin(px, w.other(), pos);
+    for (const WatchEntry w : k.watches.entries(nx))
+      if (w.binary())
+        gather_bin(nx, w.other(), neg);
   }
 
   if (antecedent_oversized)

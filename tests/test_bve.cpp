@@ -945,6 +945,45 @@ static void test_large_rewrite_retries_only_removed_literals() {
   kernel_check_invariants(k);
 }
 
+// Kissat dense entry places the pre-existing binaries first, then the complete
+// arena occurrence stream. A binary resolvent created later is appended to
+// that mixed stream; it must not jump back ahead of those large antecedents.
+static void test_dense_bve_preserves_mixed_connected_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  auto L = [](int dimacs) { return internalize(dimacs); };
+  const Lit p1[3] = {L(1), L(2), L(3)};
+  const Lit p2[3] = {L(1), L(4), L(5)};
+  const Lit n1[3] = {L(-1), L(7), L(8)};
+  kernel_add_large_clause(k, p1, 3, false, 0);
+  kernel_add_large_clause(k, p2, 3, false, 0);
+  kernel_add_large_clause(k, n1, 3, false, 0);
+
+  OccIndex occ;
+  kernel_dense_connect(k, occ);
+  kernel_add_binary_clause(k, L(1), L(6)); // appended after p1 and p2
+  k.bve_gate_mask = 0;
+  k.bve_backward = false;
+  k.bve_bound = 8;
+  const Ref fresh_begin = static_cast<Ref>(k.arena.size());
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(L(1))) == ApplyResult::Ok);
+
+  std::vector<std::vector<Lit>> fresh;
+  for (Ref ref = fresh_begin; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage())
+      fresh.emplace_back(c->begin(), c->end());
+    ref += clause_actual_words(c);
+  }
+  assert(fresh.size() == 3);
+  assert((fresh[0] == std::vector<Lit>{L(2), L(3), L(7), L(8)}));
+  assert((fresh[1] == std::vector<Lit>{L(4), L(5), L(7), L(8)}));
+  assert((fresh[2] == std::vector<Lit>{L(6), L(7), L(8)}));
+  kernel_dense_disconnect(k);
+  kernel_check_invariants(k);
+}
+
 // Wrong-SAT regression: a backward strengthening that collapses a victim to
 // ONE literal must assert that unit. kernel_replace_clause deletes the victim
 // and by contract leaves unit semantics to the caller, so dropping it silently
@@ -1051,6 +1090,7 @@ int main() {
   test_gate_mask();
   test_retry_filter();
   test_large_rewrite_retries_only_removed_literals();
+  test_dense_bve_preserves_mixed_connected_order();
   test_backward_strengthen_to_unit_asserts();
   test_backward_binary_victim_strengthen_to_unit();
   puts("test_bve OK");
