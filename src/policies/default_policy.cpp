@@ -1258,7 +1258,16 @@ private:
 
   void insert_initial(Var v) {
     const Kernel &k = *kernel_;
-    if (!active(v) || v >= k.bve_retry.size() || !k.bve_retry[v])
+    if (!active(v) || v >= k.bve_retry.size())
+      return;
+    // A failed candidate clears its retry flag but records the first BVE
+    // bound that can admit it.  Kissat blanket-rearms every variable when the
+    // elimination bound grows (eliminate.c:329-348); Tactix's equivalent is
+    // to reinsert the candidate once that cached bound becomes reachable.
+    // Apply the same predicate used by run_dosed_entry here, before the
+    // dynamic heap can silently erase the candidate from the phase.
+    if (!k.bve_retry[v] &&
+        (!k.bve_track_min_bound || k.bve_min_bound[v] > k.bve_bound))
       return;
     score_[v] = schedule_score(v);
     pos_[v] = static_cast<uint32_t>(stack_.size());

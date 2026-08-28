@@ -161,7 +161,11 @@ struct DefaultStrategyConfig {
     uint64_t candidate_order_seed = 0x9e3779b97f4a7c15ull;
 
     std::array<uint32_t, 6> bve_bounds{{0, 1, 2, 4, 8, 16}};
-    uint32_t bve_default_ceiling = 8;
+    // Kissat's shipped `eliminatebound` is 16. Lower ceilings remain
+    // explicitly poseable through this typed config / TACTIX_BVE_RAMP_MAX,
+    // but production walks the complete ladder before arming its terminal
+    // new-material watermark.
+    uint32_t bve_default_ceiling = 16;
     uint32_t bve_occurrence_limit = 2000; // kissat eliminateocclim
     uint32_t bve_clause_size_limit = 100; // kissat eliminateclslim
     uint32_t factor_decade_round_cap = 14;

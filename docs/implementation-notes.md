@@ -518,6 +518,29 @@ clause pairs; they are not evidence for an ordering gate. No formula,
 benchmark, density, size, conflict, or rank selector changed, and N1--N4 plus
 the proof-rule/strategy boundary remain intact.
 
+The next Rank-16 split was an Eliminate-bound lifecycle error, not a formula
+profile. Both solvers completed their first five Eliminate phases at conflicts
+15,257, 30,646, 64,010, 117,746, and 194,103. Pinned Kissat then advanced from
+bound 8 to its shipped `eliminatebound=16`, kept both variable-admission limits
+at zero, and admitted phase six at conflict 295,173. Tactix's typed ladder
+contained 16 but its production ceiling was still 8, so it prematurely latched
+the terminal watermark and skipped that phase. Production now walks the full
+0,1,2,4,8,16 ladder; a lower typed or `TACTIX_BVE_RAMP_MAX` ceiling remains an
+explicit diagnostic arm only.
+
+The dynamic BVE heap had a second loss at the same boundary. The dose loop
+correctly re-admitted a failed candidate once its cached next-useful bound was
+reachable, but initial heap insertion filtered every cleared retry bit before
+that predicate could run. Heap construction now applies the identical
+retry-or-reachable-bound predicate. The focused fixture forces a 5x5
+resolution grid to fail through bound 8 and retire its pivot at bound 16. In
+Rank-16 job `1654379`, Tactix consequently admits Eliminate at conflict 295,173,
+eliminates the same one variable, changes the irredundant population from 7,322
+to 7,332, takes the same 72 decisions, and reaches the identical next conflict
+and learned clause. The paired reference counter probe is job `1654377`.
+Neither repair changes the public BVE instance surface, proof semantics,
+N1--N4, effort rates, formula classification, or benchmark/rank behavior.
+
 The full pre-Reorder-repair Rank 16 production pair (`1653941`) is retained as
 the honest creation-order baseline: Kissat verified SAT in 128.93 s and Tactix
 verified SAT in 1038.89 s (8.06x). Both performed zero Factor transformations;
