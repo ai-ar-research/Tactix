@@ -478,6 +478,16 @@ evidence of a general mechanism discrepancy, not as permission to mask it.
 `TACTIX_ARENA_ORDER=1` is the CaDiCaL-only diagnostic arm; no formula, benchmark
 or rank selector may activate it.
 
+The exact BVE connection stream is also consumer-scoped. Only Eliminate/BVE
+materializes the mixed binary/large `OccIndex::ordered` image; Probe consumers
+continue to use the ordinary large-occurrence image, and diagnostic random or
+trace scopes request mixed order explicitly when they can invoke BVE. This
+changes representation ownership only: BVE's creation stream, rule surface,
+schedule, options, classification consumers, and effort remain unchanged.
+Rank-10 jobs `1655087`/`1655161` reduce provisional time 111.387→95.211 s and
+peak RSS 23,053,540→17,078,024 KiB; final model validation for the candidate is
+pending repair of that campaign's checker import, not awaited for timing.
+
 The accepted cumulative guard is now matched Slurm job `1636852`: shipped and
 candidate both solve checked 28/28 Tier B plus the fixed 5/5 Tier C subset,
 with candidate aggregate wall time 2235.8 s versus 3019.0 s and zero residue.

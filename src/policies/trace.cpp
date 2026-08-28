@@ -92,7 +92,7 @@ int replay_solve(Kernel &k, const char *path, volatile sig_atomic_t *stop) {
           std::sscanf(line, "c policy %*s seed=%llu", &hseed) == 1) {
         policy_seen = true;
         if ((hseed & 1) != 0 && k.level == 0) {
-          kernel_dense_connect(k, replay_occ);
+          kernel_dense_connect(k, replay_occ, true);
           dense_scope.active = true;
         }
         // byte-for-byte with the recorded run's stdout (trace_replay.sh

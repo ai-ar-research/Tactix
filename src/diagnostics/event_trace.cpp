@@ -60,6 +60,28 @@ DenseStorage dense_storage(const OccIndex *dense) {
     result.usable_bytes += capacity_bytes(list);
 #endif
   }
+  result.capacity_bytes += capacity_bytes(dense->ordered);
+  if (dense->ordered.data()) {
+    result.allocations++;
+#if defined(__GLIBC__)
+    result.usable_bytes += malloc_usable_size(const_cast<void *>(
+        static_cast<const void *>(dense->ordered.data())));
+#else
+    result.usable_bytes += capacity_bytes(dense->ordered);
+#endif
+  }
+  for (const auto &list : dense->ordered) {
+    result.capacity_bytes += capacity_bytes(list);
+    if (!list.data())
+      continue;
+    result.allocations++;
+#if defined(__GLIBC__)
+    result.usable_bytes += malloc_usable_size(
+        const_cast<void *>(static_cast<const void *>(list.data())));
+#else
+    result.usable_bytes += capacity_bytes(list);
+#endif
+  }
   return result;
 }
 
@@ -3346,6 +3368,12 @@ void EventTrace::clause_glue(const Kernel &k, const char *source,
     payload += std::to_string(value);
     external.push_back(value);
   }
+  payload += "|levels=";
+  for (uint32_t i = 0; i < clause->size; ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(k.var_level(var_of(clause->lits[i])));
+  }
   std::sort(external.begin(), external.end());
   payload += "|set=";
   for (size_t i = 0; i != external.size(); ++i) {
@@ -3371,6 +3399,12 @@ void EventTrace::clause_used(const Kernel &k, const Clause *clause,
     const int value = kernel_externalize(k, lit);
     payload += std::to_string(value);
     external.push_back(value);
+  }
+  payload += "|levels=";
+  for (uint32_t i = 0; i < clause->size; ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(k.var_level(var_of(clause->lits[i])));
   }
   std::sort(external.begin(), external.end());
   payload += "|set=";

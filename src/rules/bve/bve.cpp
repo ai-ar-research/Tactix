@@ -1258,6 +1258,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     }
   };
   if (k.dense) {
+    assert(k.dense->track_order);
     // Consume the exact connected stream. Entries can be stale after deletion
     // or an in-place membership rewrite; filter them against current kernel
     // state without disturbing survivor order.

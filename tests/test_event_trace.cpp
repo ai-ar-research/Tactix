@@ -97,6 +97,7 @@ int main() {
     trace.conflict(k);
     trace.learned(k, {internalize(3), internalize(-1), internalize(2)});
     trace.clause_glue(k, "fixture", clause_at(k.arena, k.conflict_ref), 3, 2);
+    trace.clause_used(k, clause_at(k.arena, k.conflict_ref), 0);
     trace.detail(k, "analysis_end", 1);
     k.tier1 = 3;
     k.tier2 = 8;
@@ -193,6 +194,8 @@ int main() {
                    "|nonasserting_glue=1\n") != std::string::npos);
   assert(text.find("\treason_glue\t") != std::string::npos);
   assert(text.find("source=fixture|id=0|old=3|new=2|pose=-3,1,-2"
+                   "|levels=0,1,1|set=-3,-2,1") != std::string::npos);
+  assert(text.find("mode=0|glue=0|pose=-3,1,-2|levels=0,1,1"
                    "|set=-3,-2,1") != std::string::npos);
   const size_t analysis = text.find("\tanalysis_end\t");
   assert(analysis != std::string::npos);
