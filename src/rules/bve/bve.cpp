@@ -1178,6 +1178,64 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
   bool antecedent_oversized = false;
 
+  auto has_lit = [](const Clause *c, Lit target) {
+    for (const Lit l : *c)
+      if (l == target)
+        return true;
+    return false;
+  };
+
+  // `resolve.c::occurrences_literal` compacts each candidate-polarity dense
+  // watch stack before it counts antecedents.  In particular, garbage large
+  // references disappear even when this candidate later fails its bound.
+  // That physical compaction is scheduling state: a later clause mutation can
+  // reinsert the popped variable with the newly exposed occurrence count.
+  // Tactix keeps the mixed connected order and the large-reference index in
+  // separate vectors, so compact both images here while preserving survivor
+  // order.  Do not touch the other literals of a garbage clause: Kissat only
+  // cleans the two stacks it is currently inspecting.
+  if (k.dense) {
+    for (const Lit pivot : {px, nx}) {
+      // A binary satisfied by a root-true partner is deleted while Kissat
+      // compacts this stack, before candidate admission or resolution.  Take
+      // a snapshot because the kernel transition marks the corresponding
+      // mixed-order entries dead on both polarities.
+      std::vector<Lit> satisfied_binary;
+      if (k.dense->track_order)
+        for (const OccIndex::Entry &entry : k.dense->ordered[pivot])
+          if (entry.live && entry.binary && k.value(entry.payload) > 0)
+            satisfied_binary.push_back(entry.payload);
+      for (const Lit other : satisfied_binary) {
+        const bool removed =
+            kernel_delete_binary_one_copy_bve_scan(k, pivot, other);
+        assert(removed);
+        (void)removed;
+      }
+
+      std::vector<Ref> &refs = k.dense->large[pivot];
+      size_t out = 0;
+      for (const Ref ref : refs) {
+        const Clause *c = clause_at(k.arena, ref);
+        if (c->garbage() || !has_lit(c, pivot))
+          continue;
+        refs[out++] = ref;
+      }
+      const uint32_t removed = static_cast<uint32_t>(refs.size() - out);
+      refs.resize(out);
+      if (removed && k.bve_occurrence_count_image)
+        kernel_bve_occurrence_remove(k, pivot, removed);
+
+      if (k.dense->track_order)
+        for (OccIndex::Entry &entry : k.dense->ordered[pivot]) {
+          if (!entry.live || entry.binary)
+            continue;
+          const Clause *c = clause_at(k.arena, entry.payload);
+          if (c->garbage() || !has_lit(c, pivot))
+            entry.live = false;
+        }
+    }
+  }
+
   // ---- gather x's connected antecedents (duplicates retained) ----
   // `definition.c` and `resolve.c` import one mixed dense-watch stream.  A
   // binary created during the phase is appended after the arena occurrences
@@ -1262,12 +1320,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     // Consume the exact connected stream. Entries can be stale after deletion
     // or an in-place membership rewrite; filter them against current kernel
     // state without disturbing survivor order.
-    auto has_lit = [](const Clause *c, Lit t) {
-      for (const Lit l : *c)
-        if (l == t)
-          return true;
-      return false;
-    };
     const auto gather = [&](Lit pivot, Lit opposite,
                             std::vector<MClause> &live, bool positive) {
       for (const OccIndex::Entry &entry : k.dense->ordered[pivot]) {

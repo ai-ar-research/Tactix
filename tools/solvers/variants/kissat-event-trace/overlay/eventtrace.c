@@ -27,6 +27,8 @@ static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
 static uint64_t trace_vivify_watch_ordinal;
 static uint64_t trace_sequence, trace_emitted, trace_limit = 50000;
 static uint64_t trace_checkpoint_bucket;
+static bool trace_formula_threshold_emitted;
+static uint64_t trace_formula_threshold_last;
 static uint64_t trace_detail_from, trace_detail_to = UINT64_MAX;
 static uint64_t trace_heap_from_decision = UINT64_MAX;
 static uint64_t trace_heap_pop_decision = UINT64_MAX;
@@ -129,10 +131,43 @@ static bool formula_checkpoint_selected (const char *spec,
   return false;
 }
 
+static bool formula_checkpoint_threshold_reached (const char *spec,
+                                                  uint64_t conflict) {
+  if (!spec || !*spec)
+    return false;
+  bool found = false;
+  uint64_t reached = 0;
+  while (*spec) {
+    char *end = 0;
+    const uint64_t threshold = strtoull (spec, &end, 10);
+    if (end == spec)
+      return false;
+    if (threshold <= conflict &&
+        (!trace_formula_threshold_emitted ||
+         threshold > trace_formula_threshold_last) &&
+        (!found || threshold > reached)) {
+      reached = threshold;
+      found = true;
+    }
+    spec = *end == ',' ? end + 1 : end;
+    if (*end && *end != ',')
+      return false;
+  }
+  if (found) {
+    trace_formula_threshold_emitted = true;
+    trace_formula_threshold_last = reached;
+  }
+  return found;
+}
+
 static void formula_checkpoint (kissat *solver) {
-  if (!formula_checkpoint_selected (
-          getenv ("KISSAT_EVENT_TRACE_FORMULA_CONFLICTS"),
-          solver->statistics.conflicts))
+  const bool exact = formula_checkpoint_selected (
+      getenv ("KISSAT_EVENT_TRACE_FORMULA_CONFLICTS"),
+      solver->statistics.conflicts);
+  const bool threshold = formula_checkpoint_threshold_reached (
+      getenv ("KISSAT_EVENT_TRACE_FORMULA_THRESHOLDS"),
+      solver->statistics.conflicts);
+  if (!exact && !threshold)
     return;
   uint64_t irredundant = 0, redundant = 0;
   uint64_t irredundant_hash = 0, redundant_hash = 0;
@@ -162,6 +197,20 @@ static void formula_checkpoint (kissat *solver) {
     heap_score_hash = mix (heap_score_hash,
                            external_variable (solver, idx));
     heap_score_hash = mix (heap_score_hash, bits);
+  }
+  const char *heap_dump_path = getenv ("KISSAT_EVENT_TRACE_HEAP_DUMP");
+  if (heap_dump_path && *heap_dump_path) {
+    FILE *heap_dump = fopen (heap_dump_path, "a");
+    if (heap_dump) {
+      size_t pos = 0;
+      for (all_stack (unsigned, idx, scores->stack))
+        fprintf (heap_dump,
+                 "kissat\t%" PRIu64 "\t%zu\t%u\t%u\t%u\t%u\t%.17g\n",
+                 solver->statistics.conflicts, pos++,
+                 external_variable (solver, idx), idx, idx, idx,
+                 scores->score[idx]);
+      fclose (heap_dump);
+    }
   }
   char payload[360];
   snprintf (payload, sizeof payload,
@@ -1103,6 +1152,8 @@ static bool detail_enabled (kissat *solver) {
   open_trace ();
   if (!trace_file)
     return false;
+  // kissat_event_trace_detail invokes formula_checkpoint before ordinary
+  // detail filtering, so avoid constructing all other diagnostic payloads.
   if (trace_formula_only)
     return false;
   if (!trace_detail_window)
@@ -1196,7 +1247,8 @@ void kissat_event_trace (kissat *solver, const char *event,
   const uint64_t stop = stop_after_conflict ();
   if (snapshot && !trace_keep_snapshots && stop != UINT64_MAX &&
       solver->statistics.conflicts < stop &&
-      strcmp (event, "analysis_end"))
+      strcmp (event, "analysis_end") &&
+      strcmp (event, "formula_checkpoint"))
     return;
   if (trace_glue_only && strcmp (event, "reason_glue") &&
       strcmp (event, "reason_used") &&

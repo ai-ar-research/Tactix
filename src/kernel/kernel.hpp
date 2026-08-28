@@ -1334,6 +1334,10 @@ bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // proof clause remains a valid reason and the optional proof deletion is
 // omitted; the final copy delegates to the ordinary named-pair deletion.
 bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
+// Dense BVE is already compacting `pivot`'s connected stack while it removes
+// this satisfied occurrence.  Kissat updates/reinserts only the partner's
+// elimination score at that point, not the currently popped pivot.
+bool kernel_delete_binary_one_copy_bve_scan(Kernel &, Lit pivot, Lit other);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
 // Forward.c duplicate sweep: retain the first physical copy in each mirrored
 // watch list and retire every later copy. Returns the number retired.

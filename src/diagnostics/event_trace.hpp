@@ -190,6 +190,8 @@ private:
   bool heap_each_bump_ = false;
   bool heap_pop_only_ = false;
   bool truncated_ = false;
+  bool formula_threshold_emitted_ = false;
+  uint64_t formula_threshold_last_ = 0;
 };
 #else
 // This stub is the production implementation.  Keeping it inline lets an
