@@ -2435,8 +2435,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           std::min(rp.victims(k, reduce_scratch_.size()),
                    reduce_scratch_.size());
       event_trace.reduction(k, reduce_scratch_, reduce_victims);
-      (void)default_direct_rule(
-          k, "Reduce", "victims=" + std::to_string(reduce_victims), [&] {
+      (void)default_direct_rule_lazy(
+          k, "Reduce",
+          [&] { return "victims=" + std::to_string(reduce_victims); }, [&] {
             return reduce_apply_refs(k, reduce_scratch_.data(), reduce_victims,
                                      compact_due);
           });
@@ -2493,8 +2494,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           heuristics_restart_reuse_level_for(k, var_of(next));
       if (keep < k.level)
         heuristics_update_target_phases(k);
-      (void)default_direct_rule(
-          k, "Restart", "keep-level=" + std::to_string(keep),
+      (void)default_direct_rule_lazy(
+          k, "Restart",
+          [&] { return "keep-level=" + std::to_string(keep); },
           [&] { return restart_apply_to(k, keep); });
       reluctant.trigger = false; // consumed (kissat reluctant.h)
       if (!k.h->stable) // kissat restart.c: focused-only limit update

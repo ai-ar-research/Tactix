@@ -16,7 +16,9 @@ for marker in (b"TACTIX_EVENT_TRACE", b"tactix-event-trace",
 # ConflictAnalysis's per-conflict journal candidate is deliberately lazy.  An
 # exact standalone copy means the production build evaluated the diagnostic
 # lambda and retained its dynamic string prefix in the search hot path.
-assert b"conflict=\0" not in data, "production retained hot journal candidate"
+for candidate in (b"conflict=\0", b"victims=\0", b"keep-level=\0"):
+    assert candidate not in data, \
+        f"production retained hot journal candidate {candidate!r}"
 
 symbols = subprocess.run(["nm", "-C", str(binary)], text=True,
                          capture_output=True, check=True).stdout
