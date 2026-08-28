@@ -147,6 +147,10 @@ pending half-analysis or schedules Backjump independently.
   collection materializes the replacement there and clears the alias image.
   The stable four-pass radix primitive restores `(current source position,
   Ref)` order before that boundary.
+- A packed OTFS replacement also inherits the source reason's Vivify
+  untried-tail bit. Kissat shortens the reason in place and retains this header
+  state automatically; copying only literals, glue, watches, and arena position
+  silently demotes a previously armed clause until the next global re-arm.
 - Production whole-arena collection replays those current positions, emulating
   Kissat's in-place replacement without treating immutable proof IDs as arena
   positions. Reduce's stable sparse tail partition stays authoritative across
@@ -494,20 +498,25 @@ test forces two distinct scores to underflow to the same rescaled value and
 pins Kissat's internal-index tie/update pose. No schedule, threshold, formula
 classification, effort allowance, rank, or benchmark predicate changed.
 
-The next common-state boundary is not Reorder.  Across the repaired Rank-16
-prefix, semantic irredundant/redundant formula hashes match at every thousandth
-conflict through 98,000, and learned-clause order remains exact through
-conflict 98,262.  A 25-literal glue-8 clause is learned with identical full
-order at conflict 98,163, then temporary propagation permutes its watched
-literal pose differently.  In the narrowed conflict-98,206 trace, 2,704
-propagation heads and more than 82,000 watched-clause observations are exact;
-after the same temporary level-13 prefix, Kissat resumes the enclosing level-2
-propagation at external literal 366 while Tactix resumes at 487.  The altered
-reason order first changes stable bump/heap order at conflict 98,263 and the
-decision stream at conflict 98,276.  This is retained as a general temporary
-propagation/reconstruction discrepancy.  It is not grounds for reverting
-creation order or adding a formula, benchmark, density, size, conflict, or rank
-gate.
+The next common-state boundary was not Reorder or propagation reconstruction.
+At conflict 83,783, analysis removes literal 1011 from the same armed
+seven-literal reason in both solvers. Kissat's in-place OTFS strengthening
+retains that clause's Vivify untried-tail bit. Tactix materialized the same
+six-literal packed replacement, with the same glue, watches, current arena
+position, and later formula state, but initialized the fresh header with the
+bit clear. At conflict 98,206 this one lost bit omitted the clause
+`-696,-681,-366,350,380,1010` from Tactix's priority-one Vivify band. That
+omission changed the enclosing propagation cursor and became heap-visible at
+conflict 98,263 and decision-visible at 98,276.
+
+Packed OTFS now carries the source reason's bit. In job `1654198`, both solvers
+probe that clause at exact ordinal 226 with the same literal set, candidate
+pose, priority, decision prefix, and 497-tick cost. The surrounding candidate
+stream realigns at the formerly missing boundary. Remaining differences in a
+few Vivify terminal labels predate this candidate and have effect-identical
+clause pairs; they are not evidence for an ordering gate. No formula,
+benchmark, density, size, conflict, or rank selector changed, and N1--N4 plus
+the proof-rule/strategy boundary remain intact.
 
 The full pre-Reorder-repair Rank 16 production pair (`1653941`) is retained as
 the honest creation-order baseline: Kissat verified SAT in 128.93 s and Tactix

@@ -564,6 +564,12 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
                             Ref subsumed_ref /* INVALID_REF if none */,
                             uint64_t conflict_chain_id) {
   const Clause *reason = clause_at(k.arena, reason_ref);
+  // Kissat strengthens this reason in place, so Vivify's untried-tail bit
+  // remains on the same clause header.  Tactix materializes a packed OTFS
+  // replacement and must carry that logical metadata explicitly; otherwise a
+  // clause armed by an earlier Vivify round is silently demoted until the next
+  // global re-arm.
+  const bool reason_vivify = reason->vivify();
   std::vector<Lit> &lits = k.otfs_scratch; // no per-event alloc
   lits.clear();
   lits.reserve(reason->size - 1);
@@ -664,6 +670,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     // later reduction/Vivify tier even when the two analyses are otherwise
     // literal-for-literal identical.
     Clause *replacement = clause_at(k.arena, k.conflict_ref);
+    replacement->set_vivify(reason_vivify);
     if (subsumed_glue < replacement->glue()) {
       const uint32_t old_glue = replacement->glue();
       event_trace_clause_glue(k, "analyze", replacement, old_glue,
