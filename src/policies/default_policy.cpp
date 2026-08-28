@@ -88,6 +88,7 @@ ApplyResult default_direct_rule_lazy(
 
 ApplyResult default_propagate(Kernel &k, const char *candidate) {
   const size_t trail_begin = k.trail.size();
+  const uint64_t root_assignments = k.stats.root_assignments;
   const ApplyResult result = default_direct_rule(
       k, "Propagate", candidate, [&] { return propagate_apply(k); },
       ApplyResult::Ok);
@@ -95,7 +96,8 @@ ApplyResult default_propagate(Kernel &k, const char *candidate) {
   // primitive. Keep the proof rule independent of policy state, but consume
   // the same lifecycle transition before DefaultPolicy next chooses a rule or
   // decision. This includes root implications discovered above level zero.
-  heuristics_consume_root_assignments(k, trail_begin);
+  if (k.stats.root_assignments != root_assignments)
+    heuristics_consume_root_assignments(k, trail_begin);
   return result;
 }
 } // namespace
@@ -1677,18 +1679,7 @@ Lit DefaultBranching::pick(Kernel &k) {
     // the new frame, so the equivalent pre-decision condition is level zero.
     // In particular, a restart which reuses level one must not start a due
     // random sequence for its first post-restart decision.
-    // Stronger compact-universe diversification: when the original branching
-    // universe fits within one reference random-sequence interval and no
-    // extension variables have entered it, a due sequence may replace the
-    // first ranked branch after a restart retained level one.  Larger or
-    // extended universes keep Kissat's faithful pre-decision root boundary.
-    const uint64_t compact_universe_limit =
-        config_ ? config_->random_initial_interval : RANDEC_INIT;
-    const bool random_sequence_level =
-        k.level == 0 ||
-        (k.level == 1 && k.first_extension_var == UINT32_MAX &&
-         kernel_num_original_internal_vars(k) <= compact_universe_limit);
-    if (!randec_remaining && random_sequence_level && c >= randec_next)
+    if (!randec_remaining && k.level == 0 && c >= randec_next)
       start_random_sequence(k);
     event_trace_randec_state(k, randec_remaining ? "active" : "inactive",
                              randec_remaining, randec_next, randec_sequences);
@@ -1952,7 +1943,11 @@ void DefaultInprocessScheduler::build(Kernel &k) {
               break;
             }
         }
-        e.closure = true;
+        // No production entry receives the generic closure watermark merely
+        // because it is unmetered.  In particular, Kissat calls Congruence on
+        // every admitted Probe phase subject only to its named productivity
+        // delay; it has no binary/root "new material" admission gate.
+        e.closure = false;
         if (const EffortSpec *s = effort_spec(nm)) {
           e.closure = s->closure;
           e.permille = config().*(s->permille);
@@ -3323,6 +3318,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       event_trace_slot_boundary(k, r.name, "begin");
       const bool sweep = !std::strcmp(r.name, "Sweep");
       const size_t trail_before = k.trail.size();
+      const uint64_t root_assignments_before = k.stats.root_assignments;
       const size_t retired_before = k.retired_events.size();
       const size_t substituted_before = sweep ? k.substituted_events.size() : 0;
       const SlotStep step = (e.dosed && r.instances && r.apply_instance)
@@ -3335,7 +3331,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       // This ordering is observable for equal-score heaps: Substitute can
       // derive roots while rewriting and only then deactivates its class
       // members (substitute.c remove_representative_equivalences).
-      heuristics_consume_root_assignments(k, trail_before);
+      if (k.stats.root_assignments != root_assignments_before)
+        heuristics_consume_root_assignments(k, trail_before);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       if (journal_invocation) {
         const bool admitted = e.tm.admitted != invocation_tm.admitted;

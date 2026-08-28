@@ -362,6 +362,13 @@ struct Stats {
   uint64_t ticks = 0; // propagation memory-traffic proxy (see propagate.cpp)
   uint64_t search_ticks = 0;
   uint64_t inprocess_propagations = 0; // of those, inside a simplification
+  // Monotonic policy-observation epoch.  `unflushed_root` is a transient
+  // prefix marker and can return to zero inside Propagate, so it cannot tell
+  // DefaultPolicy whether this application created a true-level-zero fact.
+  // Counting at the assignment primitive lets the policy skip a second walk
+  // over every ordinary non-root implication while retaining its rule-boundary
+  // fixed-variable handoff.
+  uint64_t root_assignments = 0;
   // clause additions that landed behind the propagation cursor and rewound it
   uint64_t propagation_rearms = 0;
   static constexpr uint32_t MAX_TIMED_RULES = 64;
@@ -1457,6 +1464,7 @@ kernel_assign(Kernel &k, Lit lit, uint32_t level, uint32_t reason, bool binary,
                    binary, jumped};
   k.trail.push_back(lit);
   if (!level) {
+    k.stats.root_assignments++;
     assert(k.unflushed_root < UINT32_MAX);
     k.unflushed_root++;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL

@@ -119,9 +119,11 @@ static void test_policy_consumes_root_implications() {
   ScopedHeuristics h(k);
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_assign_unit(k, internalize(1));
+  const uint64_t roots_before = k.stats.root_assignments;
   assert(heuristics_var_active(k, var_of(internalize(2))));
   assert(propagate_apply(k) == ApplyResult::Ok);
   assert(k.assigned[var_of(internalize(2))].level == 0);
+  assert(k.stats.root_assignments == roots_before + 1);
   heuristics_consume_root_assignments(k, 1);
   assert(!heuristics_var_active(k, var_of(internalize(2))));
   assert(!heuristics_heap_contains(k, var_of(internalize(2))));

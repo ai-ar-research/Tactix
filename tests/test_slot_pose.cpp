@@ -313,13 +313,14 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
   assert(p.inprocess().entries[sw].permille == 7 &&
          "TACTIX_SLOT_PERMILLE did not reach the entry");
   // Congruence is unmetered like Kissat's: no EFFORT_SPECS row, so the
-  // per-mille knob cannot reach it and closure/delay remain its only governors.
+  // per-mille knob cannot reach it. Kissat's named productivity delay remains
+  // its governor; the generic closure/new-material gate is not in the default.
   const uint32_t c = slot_index(p, "Congruence");
   assert(c != UINT32_MAX);
   assert(p.inprocess().entries[c].meter == nullptr &&
          p.inprocess().entries[c].permille == 0 &&
-         p.inprocess().entries[c].closure &&
-         "Congruence must stay unmetered and closure-gated; "
+         !p.inprocess().entries[c].closure &&
+         "Congruence must stay unmetered without an invented material gate; "
          "TACTIX_SLOT_PERMILLE must not meter it");
   assert(p.inprocess().entries[c].max_applies == 1 &&
          "TACTIX_SLOT_MAX_APPLIES did not reach the entry");

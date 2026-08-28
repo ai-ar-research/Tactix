@@ -208,10 +208,9 @@ int main() {
       reused.stats.random_decisions != 0)
     return 1;
 
-  // Compact original-only universes fit inside one complete reference random
-  // interval.  Letting their retained level-one prefix start the due sequence
-  // prevents every restart from replaying the same ranked tail; extension or
-  // larger universes retain the faithful boundary above.
+  // Formula size does not create another admission path.  A compact original-
+  // only universe at the same retained level-one prefix is still Kissat level
+  // two after `kissat_decide` increments the level, so it must remain ranked.
   Kernel compact_reused;
   ScopedHeuristics compact_reused_heuristics(compact_reused);
   kernel_reserve_vars(compact_reused, 3);
@@ -219,9 +218,10 @@ int main() {
   compact_reused.stats.conflicts = 855;
   DefaultBranching compact_reused_random(&defaults.branching);
   compact_reused_random.reset(0);
-  (void)compact_reused_random.pick(compact_reused);
-  if (compact_reused.stats.random_sequences != 1 ||
-      compact_reused.stats.random_decisions != 1)
+  if (kernel_externalize(compact_reused,
+                         compact_reused_random.pick(compact_reused)) != 3 ||
+      compact_reused.stats.random_sequences != 0 ||
+      compact_reused.stats.random_decisions != 0)
     return 1;
 
   // A stable->focused transition starts a sequence even above decision level
