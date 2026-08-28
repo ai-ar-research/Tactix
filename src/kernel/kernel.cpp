@@ -140,8 +140,10 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // rules run under it (§5.3). Grow it here so no later consumer indexes a new
   // literal out of bounds. New (extension) literals occur in no large clause
   // yet, so empty entries are correct; add() maintains them from there.
-  if (k.dense)
+  if (k.dense) {
     k.dense->large.resize(2 * nvars);
+    k.dense->ordered.resize(2 * nvars);
+  }
   k.unassigned += nvars - old;
   k.unassigned_active += nvars - old; // fresh variables are Active (R-a)
   // fixed-capacity trail/frames: the inlined assign hot path must never
@@ -330,6 +332,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
       k.factor_marks[lits[i]] = 1;
       if (k.dense) {
         k.dense->large[lits[i]].push_back(ref);
+        k.dense->ordered[lits[i]].push_back({ref, false, true});
         kernel_bve_occurrence_add(k, lits[i]);
       }
       // Kissat updates an already-scheduled variable after adding a
@@ -400,6 +403,10 @@ static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
   kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
+  if (k.dense) {
+    k.dense->ordered[a].push_back({b, true, true});
+    k.dense->ordered[b].push_back({a, true, true});
+  }
   kernel_bve_occurrence_add(k, a);
   kernel_bve_occurrence_add(k, b);
   note_binary_add(k, a, b, id, new_pair);
@@ -474,6 +481,16 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
       return false;
     });
     assert(removed);
+    if (k.dense) {
+      auto &ordered = k.dense->ordered[x];
+      const auto at = std::find_if(ordered.begin(), ordered.end(),
+                                   [other](const OccIndex::Entry &entry) {
+                                     return entry.live && entry.binary &&
+                                            entry.payload == other;
+                                   });
+      assert(at != ordered.end());
+      at->live = false;
+    }
   }
   kernel_bve_occurrence_remove(k, a);
   kernel_bve_occurrence_remove(k, b);
@@ -520,6 +537,16 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
       return false;
     });
     assert(removed);
+    if (k.dense) {
+      auto &ordered = k.dense->ordered[x];
+      const auto at = std::find_if(ordered.begin(), ordered.end(),
+                                   [other](const OccIndex::Entry &entry) {
+                                     return entry.live && entry.binary &&
+                                            entry.payload == other;
+                                   });
+      assert(at != ordered.end());
+      at->live = false;
+    }
   }
   kernel_bve_occurrence_remove(k, a);
   kernel_bve_occurrence_remove(k, b);
@@ -562,6 +589,21 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
       return false;
     });
     assert(kept && removed == removed_copies);
+    if (k.dense) {
+      bool retained = false;
+      uint32_t retired = 0;
+      for (OccIndex::Entry &entry : k.dense->ordered[x]) {
+        if (!entry.live || !entry.binary || entry.payload != other)
+          continue;
+        if (!retained)
+          retained = true;
+        else {
+          entry.live = false;
+          retired++;
+        }
+      }
+      assert(retained && retired == removed_copies);
+    }
   }
   kernel_bve_occurrence_remove(k, a, removed_copies);
   kernel_bve_occurrence_remove(k, b, removed_copies);
@@ -630,6 +672,15 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       k.watches.compact(x, [&](WatchEntry w) { // drop every matching copy
         return !(w.binary() && w.other() == other);
       });
+    }
+    if (k.dense) {
+      uint32_t retired = 0;
+      for (OccIndex::Entry &entry : k.dense->ordered[x])
+        if (entry.live && entry.binary && entry.payload == other) {
+          entry.live = false;
+          retired++;
+        }
+      assert(retired == copies);
     }
   }
   kernel_bve_occurrence_remove(k, a, copies);
@@ -1095,6 +1146,7 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
     for (uint32_t i = 0; i < size; i++)
       if (!in_old(lits[i])) {
         k.dense->large[lits[i]].push_back(ref);
+        k.dense->ordered[lits[i]].push_back({ref, false, true});
         kernel_bve_occurrence_add(k, lits[i]);
       }
   }
@@ -1975,10 +2027,21 @@ static void clear_dense_large_occurrences(OccIndex &occ, size_t nlits) {
   // the entire occurrence population.
   for (std::vector<Ref> &refs : occ.large)
     refs.clear();
+  if (occ.ordered.size() != nlits)
+    occ.ordered.resize(nlits);
+  for (std::vector<OccIndex::Entry> &entries : occ.ordered)
+    entries.clear();
 }
 
 static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
   clear_dense_large_occurrences(occ, 2 * static_cast<size_t>(k.nvars));
+  // Dense entry retains the current binary vectors and appends every full
+  // irredundant large occurrence.  Large sparse watches are not part of this
+  // image; later clause creation appends to both indexes in connected order.
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary())
+        occ.ordered[lit].push_back({watch.other(), true, true});
   std::vector<Ref> order;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -1991,8 +2054,10 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
   // replacement records until collection materializes it.
   kernel_sort_refs_by_logical_clause_position(k, order);
   for (const Ref ref : order)
-    for (const Lit lit : *clause_at(k.arena, ref))
+    for (const Lit lit : *clause_at(k.arena, ref)) {
       occ.large[lit].push_back(ref);
+      occ.ordered[lit].push_back({ref, false, true});
+    }
 }
 
 void kernel_collect_garbage(Kernel &k, Ref watch_start,

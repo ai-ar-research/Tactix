@@ -2593,8 +2593,8 @@ void EventTrace::bve_pair(const Kernel &k, Var var, uint32_t ordinal,
       ref0 == INVALID_REF ? INVALID_REF : kernel_clause_position(k, ref0);
   const uint64_t order1 =
       ref1 == INVALID_REF ? INVALID_REF : kernel_clause_position(k, ref1);
-  char payload[512];
-  std::snprintf(payload, sizeof payload,
+  char header[512];
+  std::snprintf(header, sizeof header,
                 "external=%u|ordinal=%u|side0_size=%u|side0_hash=%016llx|"
                 "side0_ref=%s%u|side0_id=%llu|side0_order=%llu|"
                 "side1_size=%u|side1_hash=%016llx|side1_ref=%s%u|"
@@ -2606,7 +2606,21 @@ void EventTrace::bve_pair(const Kernel &k, Var var, uint32_t ordinal,
                 (unsigned long long)bve_clause_hash(k, side1, size1),
                 ref1 == INVALID_REF ? "-" : "", ref1 == INVALID_REF ? 0 : ref1,
                 (unsigned long long)id1, (unsigned long long)order1, outcome);
-  emit(k, "bve_pair", payload, false);
+  std::string payload(header);
+  const auto append_pose = [&](const char *name, const Lit *side,
+                               uint32_t size) {
+    payload += '|';
+    payload += name;
+    payload += '=';
+    for (uint32_t i = 0; i < size; ++i) {
+      if (i)
+        payload += ',';
+      payload += std::to_string(kernel_externalize(k, side[i]));
+    }
+  };
+  append_pose("side0_pose", side0, size0);
+  append_pose("side1_pose", side1, size1);
+  emit(k, "bve_pair", payload.c_str(), false);
 }
 
 void event_trace_bve_pair(const Kernel &k, Var var, uint32_t ordinal,

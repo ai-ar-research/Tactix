@@ -670,6 +670,17 @@ struct PendingLearned {
 
 struct OccIndex {
   std::vector<std::vector<Ref>> large; // by literal; may hold stale garbage Refs
+  // Kissat dense watches are one mixed connected stream: the binary prefix
+  // present at dense entry, then arena-order large occurrences, followed by
+  // every binary or large clause created while dense.  `large` remains the
+  // cheap membership index used by other simplifiers; BVE consumes this image
+  // because resolvent insertion order is search-visible.
+  struct Entry {
+    uint32_t payload; // other literal for binary, arena Ref for large
+    bool binary;
+    bool live;
+  };
+  std::vector<std::vector<Entry>> ordered; // by literal; stale entries allowed
 };
 
 struct ArenaOrdering {

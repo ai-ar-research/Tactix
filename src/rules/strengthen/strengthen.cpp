@@ -43,6 +43,18 @@ static bool in_round_scope(const Kernel &k, const Clause *c) {
           kernel_likely_kept(k, true, c->glue(), c->size));
 }
 
+static bool touched_on_two_variables(const Kernel &k, const Clause *c,
+                                     uint64_t watermark) {
+  uint32_t touched = 0;
+  for (const Lit lit : *c)
+    if ((kernel_touched_since(k, var_of(lit), watermark) ||
+         (c->redundant() &&
+          kernel_kept_since(k, var_of(lit), watermark))) &&
+        ++touched == 2)
+      return true;
+  return false;
+}
+
 void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
                            bool complete) {
   out.clear();
@@ -137,6 +149,33 @@ struct Partner {
   std::vector<uint64_t> absorbed; // unit ids of root-falsified partner lits
 };
 
+// Kissat's forward-subsumption index is one mixed watch stream per literal.
+// Dense-mode entry first flushes every large reference, leaving the binary
+// prefix.  Survivors are then connected in candidate order and binaries made
+// by an earlier strengthening are appended at that exact point.  Keeping this
+// local image avoids hoisting such late binaries ahead of already-connected
+// large partners, which changes the last winning strengthener.
+struct ForwardWatch {
+  bool binary = false;
+  Lit other = INVALID_LIT;
+  Ref ref = INVALID_REF;
+  uint64_t id = 0;
+
+  static ForwardWatch binary_entry(Lit other, uint64_t id) {
+    ForwardWatch result;
+    result.binary = true;
+    result.other = other;
+    result.id = id;
+    return result;
+  }
+
+  static ForwardWatch large_entry(Ref ref) {
+    ForwardWatch result;
+    result.ref = ref;
+    return result;
+  }
+};
+
 // Kissat's forward_literal accumulates `steps` in a local scalar and publishes
 // it once after the watch scan (forward.c:197-303).  Keep the same hot-loop
 // representation while preserving Tactix's stricter per-partner budget cut:
@@ -149,6 +188,81 @@ struct StrengthenVisitCounter {
       : published(counter), value(counter) {}
   ~StrengthenVisitCounter() { published = value; }
 };
+
+static Partner find_forward_partner(
+    Kernel &k, const std::vector<uint8_t> &marks, const Clause *c,
+    const std::vector<std::vector<ForwardWatch>> &watches, uint64_t &visits,
+    uint64_t visit_start, bool bounded, uint64_t visit_budget,
+    bool *budget_exhausted) {
+  Partner p;
+  const bool lrat = k.proof && k.proof->lrat();
+  const auto budget_cut = [&]() {
+    if (!budget_exhausted || !bounded ||
+        visits - visit_start < visit_budget)
+      return false;
+    *budget_exhausted = true;
+    return true;
+  };
+  for (const Lit l : *c) {
+    if (k.value(l) != 0)
+      continue;
+    for (int phase = 0; phase < 2; ++phase) {
+      const Lit probe = phase ? negate(l) : l;
+      const std::vector<ForwardWatch> &stream = watches[probe];
+      if (stream.size() > STRENGTHEN_OCCLIM)
+        continue;
+      for (const ForwardWatch &watch : stream) {
+        if (watch.binary) {
+          if (phase)
+            continue;
+          if (budget_cut())
+            return p;
+          visits++;
+          if (marks[watch.other]) {
+            p.res.kind = CheckResult::SUBSUMED;
+            if (lrat)
+              p.id = watch.id;
+            return p;
+          }
+          if (marks[negate(watch.other)]) {
+            p.res.kind = CheckResult::STRENGTHEN;
+            p.res.flipped = watch.other;
+            p.absorbed.clear();
+            if (lrat)
+              p.id = watch.id;
+            // A binary strengthener terminates this physical watch walk.
+            // The opposite-phase walk for the same candidate literal still
+            // follows, just as the second forward_literal call in Kissat.
+            break;
+          }
+          continue;
+        }
+        if (budget_cut())
+          return p;
+        visits++;
+        const Clause *d = clause_at(k.arena, watch.ref);
+        if (d->garbage())
+          continue;
+        const CheckResult r = check_marked(k, marks, d);
+        if (r.kind == CheckResult::NONE)
+          continue;
+        p.res = r;
+        p.absorbed.clear();
+        if (lrat) {
+          p.id = d->id();
+          for (const Lit m : *d)
+            if (k.value(m) < 0)
+              p.absorbed.push_back(k.unit_ids[var_of(m)]);
+        }
+        if (r.kind == CheckResult::SUBSUMED)
+          return p;
+        // Large strengtheners do not stop the walk.  A later large or binary
+        // entry is allowed to overwrite the literal to remove.
+      }
+    }
+  }
+  return p;
+}
 
 // Pinned Kissat forward.c begins every pass by collapsing duplicate binaries
 // on variables whose persistent `subsume` flag is armed. Tactix's equivalent
@@ -385,7 +499,8 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
 // 1 = candidate died (subsumed), 2 = strengthened into *ref (rescan),
 // 3 = strengthened to binary (done with candidate), 4 = unit asserted
 // (round must end: values changed), 5 = empty clause derived (UNSAT)
-static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
+static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
+               std::pair<Lit, Lit> *new_binary = nullptr) {
   if (p.res.kind == CheckResult::NONE)
     return 0;
   Clause *c = clause_at(k.arena, *ref);
@@ -459,6 +574,8 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
     kernel_assign_unit(k, lits[0]);
     return 4;
   case ReplaceOutcome::Binary:
+    if (new_binary)
+      *new_binary = {lits[0], lits[1]};
     return 3;
   default:
     return 2;
@@ -536,37 +653,33 @@ ApplyResult strengthen_apply(Kernel &k) {
     ref += words;
   }
   std::vector<Ref> candidates;
-  if (!ended && !interrupted)
+  if (!ended && !interrupted) {
     strengthen_candidates(k, candidates);
-  std::vector<uint8_t> marks(2 * k.nvars, 0);
-  std::vector<std::vector<Ref>> occs(2 * k.nvars);
-  // Kissat's `connect_subsuming` chooses against SIZE_WATCHES in the already
-  // complete dense formula, not against the forward index while that index is
-  // still growing (forward.c:467-507).  DefaultPolicy supplies that complete
-  // image as `k.dense`.  Keep the canonical rule surface complete outside a
-  // policy phase too by materializing the same irredundant occurrence counts
-  // once; this fallback affects only connection strategy, never the proof
-  // rule.  Counts intentionally include lazy garbage in a dense phase, just as
-  // the physical occurrence vectors and the accepted cap do.
-  std::vector<uint32_t> fallback_population;
-  if (!k.dense) {
-    fallback_population.assign(2 * k.nvars, 0);
-    for (Ref ref = 0; ref < k.arena.size();) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage() && !c->redundant())
-        for (const Lit l : *c)
-          fallback_population[l]++;
-      ref += clause_actual_words(c);
+    if (filter) {
+      size_t kept = 0;
+      for (const Ref ref : candidates) {
+        const Clause *c = clause_at(k.arena, ref);
+        if (touched_on_two_variables(k, c, wm)) {
+          candidates[kept++] = ref;
+          continue;
+        }
+        k.stats.strengthen_mark_skipped++;
+        k.stats.strengthen_red_skipped += c->redundant();
+      }
+      candidates.resize(kept);
     }
   }
-  const auto watch_population = [&](Lit l) -> size_t {
-    const size_t large =
-        k.dense ? k.dense->large[l].size() : fallback_population[l];
-    // Kissat's SIZE_WATCHES includes binaries and connected large
-    // occurrences.  Tactix keeps those populations in separate containers
-    // during a dense phase, so reconstruct that same physical degree here.
-    return k.watches.binary_size(l) + large;
-  };
+  std::vector<uint8_t> marks(2 * k.nvars, 0);
+  std::vector<std::vector<ForwardWatch>> forward_watches(2 * k.nvars);
+  // `kissat_enter_dense_mode` flushes every large search watch before the
+  // first forward round, and each preceding elimination round flushes its
+  // dense large occurrences before the next one.  Initialize the exact
+  // surviving binary prefix; large partners are appended by `connect` below.
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary())
+        forward_watches[lit].push_back(ForwardWatch::binary_entry(
+            watch.other(), kernel_binary_id(k, lit, watch.other())));
   // `k.work_budget` in this rule's own currency (partner visits). An entry
   // budget alone bounds how often a round runs, never how much one round does,
   // which lets a single uninterruptible round own most of a solve; cadical
@@ -577,10 +690,11 @@ ApplyResult strengthen_apply(Kernel &k) {
   const uint64_t check_start = visits.value;
   const bool visit_bounded = k.midround_budget && k.work_budget;
   const uint64_t visit_budget = k.work_budget;
-  // Connect a survivor at its least-occurring free literal in the complete
-  // dense population. Shared by the checked path and by the filter's skip
-  // path, so the round's partner index stays complete and the filter costs no
-  // strengthening.
+  // Connect a scheduled survivor at its least-occurring free literal in the
+  // current mixed forward stream.  Under the canonical filter every active
+  // variable must be armed, exactly as Kissat's `connect_subsuming` requires;
+  // clauses that failed the two-variable scheduling predicate never enter the
+  // stream.
   //
   // Redundant survivors are NOT indexed: `occs` is the partner index, a partner
   // justifies deleting or rewriting another clause, so it must not be
@@ -591,12 +705,19 @@ ApplyResult strengthen_apply(Kernel &k) {
     const Clause *c = clause_at(k.arena, cr);
     if (c->redundant())
       return;
+    if (filter)
+      for (const Lit l : *c) {
+        if (k.value(l) != 0)
+          continue;
+        if (!kernel_touched_since(k, var_of(l), wm))
+          return;
+      }
     Lit min_lit = INVALID_LIT;
     size_t min_occs = 0;
     for (const Lit l : *c) {
       if (k.value(l) != 0)
         continue;
-      const size_t n = watch_population(l);
+      const size_t n = forward_watches[l].size();
       // `connect_subsuming` updates the winner on equality, hence the last
       // minimum literal in physical clause order wins.
       if (min_lit == INVALID_LIT || n <= min_occs) {
@@ -607,7 +728,7 @@ ApplyResult strengthen_apply(Kernel &k) {
     // under-derived roots (corpus 002) can leave a candidate with no free
     // literals; nothing to connect then
     if (min_lit != INVALID_LIT && min_occs <= STRENGTHEN_OCCLIM)
-      occs[min_lit].push_back(cr);
+      forward_watches[min_lit].push_back(ForwardWatch::large_entry(cr));
   };
   size_t stopped_at = candidates.size(); // index of the first unreached one
   const uint64_t produced_before = k.stats.strengthened;
@@ -623,18 +744,7 @@ ApplyResult strengthen_apply(Kernel &k) {
       stopped_at = ci;
       break;
     }
-    // A band candidate reads the band stamps too, an irredundant one does not
-    // (kernel_clause_new_material's `kept`): a redundant clause can never be a
-    // partner here, so no band event can change an irredundant candidate's
-    // outcome.
     const bool red = clause_at(k.arena, cref)->redundant();
-    if (filter &&
-        !kernel_clause_new_material(k, clause_at(k.arena, cref), wm, 2, red)) {
-      k.stats.strengthen_mark_skipped++;
-      k.stats.strengthen_red_skipped += red;
-      connect(cref);
-      continue;
-    }
     k.stats.strengthen_red_checked += red;
     const uint64_t red_sub_before = k.stats.strengthen_subsumed;
     const uint64_t red_str_before = k.stats.strengthened;
@@ -642,12 +752,13 @@ ApplyResult strengthen_apply(Kernel &k) {
     Clause *c = clause_at(k.arena, cref);
     k.stats.strengthen_checked++;
     mark_candidate(k, marks, c, 1);
-    const Partner p = find_partner(k, marks, c, &occs, cref, visits.value,
-                                   check_start, visit_bounded, visit_budget,
-                                   &budget_exhausted);
+    const Partner p = find_forward_partner(
+        k, marks, c, forward_watches, visits.value, check_start,
+        visit_bounded, visit_budget, &budget_exhausted);
     mark_candidate(k, marks, clause_at(k.arena, cref), 0);
     if (!budget_exhausted) {
-      const int r = act(k, &cref, p, &changed);
+      std::pair<Lit, Lit> new_binary{INVALID_LIT, INVALID_LIT};
+      const int r = act(k, &cref, p, &changed, &new_binary);
       if (r == 5)
         return ApplyResult::Unsat;
       // Kissat connects both an unchanged survivor and the once-strengthened
@@ -655,6 +766,13 @@ ApplyResult strengthen_apply(Kernel &k) {
       // rescan the strengthened candidate until a later forward round.
       if (r == 0 || r == 2)
         connect(cref);
+      if (r == 3) {
+        const Lit a = new_binary.first, b = new_binary.second;
+        assert(a != INVALID_LIT && b != INVALID_LIT);
+        const uint64_t id = kernel_binary_id(k, a, b);
+        forward_watches[a].push_back(ForwardWatch::binary_entry(b, id));
+        forward_watches[b].push_back(ForwardWatch::binary_entry(a, id));
+      }
       if (r == 4)
         ended = true;
     }
@@ -684,9 +802,9 @@ ApplyResult strengthen_apply(Kernel &k) {
                                : (filter ? stopped_at : candidates.size());
        ci < candidates.size(); ci++) {
     const Clause *c = clause_at(k.arena, candidates[ci]);
-    const bool red = c->redundant();
-    if (c->garbage() || !kernel_clause_new_material(k, c, wm, 2, red))
+    if (c->garbage())
       continue;
+    const bool red = c->redundant();
     for (const Lit l : *c)
       red ? kernel_touch_kept_var(k, var_of(l)) : kernel_touch_var(k, var_of(l));
     k.stats.strengthen_rearmed++;
