@@ -135,6 +135,82 @@ public:
 
 static uint64_t zero_meter(const Kernel &) { return 0; }
 
+static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
+  DefaultStrategyConfig cfg;
+  DefaultBveBoundRamp ramp(&cfg.inprocess);
+  assert(cfg.inprocess.bve_default_ceiling == 16);
+  assert(ramp.num_passes() == 6);
+  static constexpr uint32_t expected[6] = {0, 1, 2, 4, 8, 16};
+  for (uint32_t pass = 0; pass < ramp.num_passes(); pass++)
+    assert(ramp.bound(pass) == expected[pass]);
+
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  k.stats.conflicts = 1;
+  k.stats.bve_marks = 37;
+  DefaultPolicy p(cfg);
+  DefaultInprocessScheduler::SlotEntry bve;
+  bve.rule = tactix_rule_id("BVE");
+  assert(bve.rule >= 0);
+  bve.group = SlotGroup::Eliminate;
+  bve.dosed = true;
+  bve.meter = zero_meter;
+  p.inprocess().entries.push_back(bve);
+
+  // eliminate.c:set_next_elimination_bound leaves admission open after
+  // bounds 0,1,2,4,8 and latches its variable limits only after the shipped
+  // maximum 16 completes. A production cap at 8 wrongly suppresses phase 6.
+  for (uint32_t phase = 0; phase < 5; phase++) {
+    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+    assert(p.inprocess().elim_clock.marks_mark == 0);
+  }
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  assert(p.inprocess().elim_clock.marks_mark == k.stats.bve_marks);
+  std::printf("  BVE default ladder: terminal watermark only after bound 16\n");
+}
+
+static void test_dynamic_bve_heap_rearms_at_later_bound() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  kernel_reserve_vars(k, 11);
+  // Eliminating x=1 produces a full 5x5 grid: 25 resolvents against a base
+  // allowance of 10, so bounds 0..8 reject it and bound 16 admits it.
+  for (int a = 2; a <= 6; a++)
+    kernel_add_binary_clause(k, internalize(1), internalize(a));
+  for (int b = 7; b <= 11; b++)
+    kernel_add_binary_clause(k, internalize(-1), internalize(b));
+  // Keep the fixture focused on x: partner identities remain unassigned and
+  // present in the clauses, but are not separate BVE candidates whose pure
+  // elimination would erase x's 5x5 neighbourhood before the bound grows.
+  k.var_status.resize(k.nvars, VarStatus::Active);
+  for (Var v = 1; v < k.nvars; v++)
+    k.var_status[v] = VarStatus::Eliminated;
+  k.stats.conflicts = 1;
+  k.bve_gate_mask = 0;
+
+  DefaultPolicy p;
+  DefaultInprocessScheduler::SlotEntry bve;
+  bve.rule = tactix_rule_id("BVE");
+  assert(bve.rule >= 0);
+  bve.group = SlotGroup::Eliminate;
+  bve.enabled = true;
+  bve.dosed = true;
+  bve.meter = zero_meter;
+  bve.order = CandidateOrder::Heuristic; // production's dynamic BVE heap
+  p.inprocess().entries.push_back(bve);
+
+  for (uint32_t phase = 0; phase < 5; phase++) {
+    assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+    assert(!kernel_var_retired(k, 0));
+  }
+  assert(k.bve_min_bound[0] > 8 && k.bve_min_bound[0] <= 16);
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  assert(k.stats.bve_eliminated == 1 && kernel_var_retired(k, 0));
+  std::printf("  BVE dynamic heap: cached candidate rearmed at bound 16\n");
+}
+
 static void test_factor_bound_walks_posed_bve_ladder() {
   Kernel k;
   Heuristics h;
@@ -334,6 +410,8 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
 int main() {
   test_substitute_hand_rolled_budget();
   test_substitute_budget_stops_second_round();
+  test_default_bve_ladder_reaches_kissat_terminal_bound();
+  test_dynamic_bve_heap_rearms_at_later_bound();
   test_factor_bound_walks_posed_bve_ladder();
   test_pose_and_disable();
 
