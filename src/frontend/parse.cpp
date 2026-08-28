@@ -88,18 +88,17 @@ static void restate_input(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
   k.input_restatements.push_back(r);
 }
 
-// Kissat closes every new input unit immediately, so later clauses are added
-// against the resulting root assignment.  Do the same for the proof-less and
-// DRAT paths.  Native LRAT must defer this closure until all original input
-// ids have been consumed: propagation-derived units need fresh ids, and a
-// derived id may not precede a later original id in the LRAT namespace.
+// Kissat closes every new input unit immediately through
+// `kissat_search_propagate` (internal.c:363), so later clauses are added
+// against the resulting root assignment and the scan contributes to both
+// `ticks` and `search_ticks`. Do the same for the proof-less and DRAT paths.
+// Native LRAT must defer this closure until all original input ids have been
+// consumed: propagation-derived units need fresh ids, and a derived id may not
+// precede a later original id in the LRAT namespace.
 static void propagate_input_unit(Kernel &k) {
   if (k.proof && k.proof->lrat())
     return;
-  const bool was_inprocessing = k.inprocessing;
-  k.inprocessing = true; // input scans do not spend the search-tick budget
   const bool conflict = kernel_propagate(k);
-  k.inprocessing = was_inprocessing;
   if (!conflict)
     return;
   if (k.proof)

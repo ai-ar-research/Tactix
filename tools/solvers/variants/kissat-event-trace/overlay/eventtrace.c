@@ -64,6 +64,8 @@ static int compare_external_literals (const void *, const void *);
 static void append_sorted_clause (kissat *, clause *, char **, size_t *);
 static void emit_heap_scores (kissat *);
 static uint64_t eliminate_cleanup_clause_hash (kissat *, clause *);
+static unsigned external_variable (kissat *, unsigned);
+static uint64_t mix (uint64_t, uint64_t);
 
 static bool formula_checkpoint_selected (const char *spec,
                                          uint64_t conflict) {
@@ -90,6 +92,8 @@ static void formula_checkpoint (kissat *solver) {
     return;
   uint64_t irredundant = 0, redundant = 0;
   uint64_t irredundant_hash = 0, redundant_hash = 0;
+  uint64_t heap_hash = UINT64_C (1469598103934665603);
+  uint64_t heap_score_hash = UINT64_C (1469598103934665603);
   ward *const arena = BEGIN_STACK (solver->arena);
   clause *c = (clause *) arena;
   const clause *const end = (clause *) END_STACK (solver->arena);
@@ -106,12 +110,23 @@ static void formula_checkpoint (kissat *solver) {
     }
     c = kissat_next_clause (c);
   }
-  char payload[256];
+  heap *scores = SCORES;
+  for (all_stack (unsigned, idx, scores->stack)) {
+    heap_hash = mix (heap_hash, external_variable (solver, idx));
+    uint64_t bits;
+    memcpy (&bits, scores->score + idx, sizeof bits);
+    heap_score_hash = mix (heap_score_hash,
+                           external_variable (solver, idx));
+    heap_score_hash = mix (heap_score_hash, bits);
+  }
+  char payload[360];
   snprintf (payload, sizeof payload,
             "irredundant=%" PRIu64 "|redundant=%" PRIu64
             "|irredundant_hash=%016" PRIx64
-            "|redundant_hash=%016" PRIx64,
-            irredundant, redundant, irredundant_hash, redundant_hash);
+            "|redundant_hash=%016" PRIx64 "|heap=%zu|heap_hash=%016" PRIx64
+            "|heap_score_hash=%016" PRIx64,
+            irredundant, redundant, irredundant_hash, redundant_hash,
+            SIZE_STACK (scores->stack), heap_hash, heap_score_hash);
   kissat_event_trace (solver, "formula_checkpoint", payload, true);
 }
 
@@ -797,9 +812,9 @@ static void annotate_clause_set (kissat *solver, char *payload,
       if (same) {
         written = snprintf (
             payload + used, capacity - used,
-            "%ssearched=%u,redundant=%u,glue=%u,used=%u,priority=%u,pose=",
-            matches ? ";" : "", c->searched, c->redundant, c->glue,
-            c->used, c->vivify);
+            "%sref=%u,searched=%u,redundant=%u,glue=%u,used=%u,priority=%u,pose=",
+            matches ? ";" : "", (unsigned) ((ward *) c - arena), c->searched,
+            c->redundant, c->glue, c->used, c->vivify);
         if (written <= 0 || (size_t) written >= capacity - used)
           return;
         used += (size_t) written;
@@ -1235,6 +1250,8 @@ void kissat_event_trace (kissat *solver, const char *event,
       strcmp (event, "decision") &&
       strcmp (event, "randec_draw") && strcmp (event, "randec_state") &&
       strcmp (event, "phase_pick") && strcmp (event, "conflict") &&
+      strcmp (event, "mode_clock") &&
+      strcmp (event, "restart_clock") &&
       strcmp (event, "analysis_begin") &&
       strcmp (event, "analysis_end") && strncmp (event, "learned", 7))
     return;
@@ -1331,6 +1348,63 @@ void kissat_event_trace (kissat *solver, const char *event,
                               "|watch_lit=%d", wanted);
       if (written > 0)
         used += (size_t) written;
+      if (getenv ("SAT_EVENT_TRACE_WATCH_LARGE")) {
+        uint64_t hash = UINT64_C (1469598103934665603);
+        size_t count = 0;
+        if (watched != INVALID_LIT) {
+          watches entries = WATCHES (watched);
+          const watch *p = BEGIN_WATCHES (entries);
+          const watch *const end = END_WATCHES (entries);
+          while (p != end) {
+            const watch head = *p++;
+            if (head.type.binary)
+              continue;
+            const reference ref = p++->raw;
+            clause *c = kissat_dereference_clause (solver, ref);
+            hash = mix (hash, (uint64_t) (int64_t)
+                                  external_literal (solver,
+                                                    head.blocking.lit));
+            hash = mix (hash, c->size);
+            for (all_literals_in_clause (lit, c))
+              hash = mix (hash, (uint64_t) (int64_t)
+                                    external_literal (solver, lit));
+            count++;
+          }
+        }
+        written = snprintf (annotated_payload + used,
+                            sizeof annotated_payload - used,
+                            "|large_count=%zu|large_hash=%016" PRIx64,
+                            count, hash);
+        if (written > 0)
+          used += (size_t) written;
+      }
+      if (getenv ("SAT_EVENT_TRACE_WATCH_LARGE_REFS")) {
+        written = snprintf (annotated_payload + used,
+                            sizeof annotated_payload - used,
+                            "|large_refs=");
+        if (written > 0)
+          used += (size_t) written;
+        size_t count = 0;
+        if (watched != INVALID_LIT) {
+          watches entries = WATCHES (watched);
+          const watch *p = BEGIN_WATCHES (entries);
+          const watch *const end = END_WATCHES (entries);
+          while (p != end && count != 64 && used < sizeof annotated_payload) {
+            const watch head = *p++;
+            if (head.type.binary)
+              continue;
+            const reference ref = p++->raw;
+            written = snprintf (annotated_payload + used,
+                                sizeof annotated_payload - used,
+                                "%s%u", count ? "," : "", ref);
+            if (written <= 0 ||
+                (size_t) written >= sizeof annotated_payload - used)
+              break;
+            used += (size_t) written;
+            count++;
+          }
+        }
+      }
       if (compact_targets) {
         uint64_t hash = UINT64_C (1469598103934665603);
         size_t count = 0, pos_a = 0, pos_b = 0;
@@ -1565,7 +1639,7 @@ void kissat_event_trace_eliminate_cleanup (kissat *solver,
   kissat_event_trace (solver, "eliminate_cleanup", payload, false);
 
   const char *clauses = getenv ("KISSAT_EVENT_TRACE_ELIMINATE_CLAUSES");
-  if (strcmp (stage, "before") || !clauses || strcmp (clauses, "1"))
+  if (!clauses || strcmp (clauses, "1"))
     return;
   c = (clause *) arena;
   while (c != end) {
@@ -1575,11 +1649,19 @@ void kissat_event_trace_eliminate_cleanup (kissat *solver,
         root |= solver->values[lit] > 0;
         retired |= solver->flags[IDX (lit)].eliminated;
       }
-      char clause_payload[192];
-      snprintf (clause_payload, sizeof clause_payload,
-                "hash=%016" PRIx64 "|size=%u|root=%u|retired=%u",
-                eliminate_cleanup_clause_hash (solver, c), c->size, root,
-                retired);
+      char clause_payload[4096];
+      int written = snprintf (clause_payload, sizeof clause_payload,
+                "stage=%s|hash=%016" PRIx64
+                "|size=%u|root=%u|retired=%u|clause=",
+                stage, eliminate_cleanup_clause_hash (solver, c), c->size,
+                root, retired);
+      if (written < 0 || (size_t) written >= sizeof clause_payload) {
+        c = kissat_next_clause (c);
+        continue;
+      }
+      char *p = clause_payload + written;
+      size_t left = sizeof clause_payload - (size_t) written;
+      append_sorted_clause (solver, c, &p, &left);
       kissat_event_trace (solver, "eliminate_cleanup_clause", clause_payload,
                           false);
     }
@@ -1873,6 +1955,41 @@ void kissat_event_trace_watch_scan (kissat *solver, unsigned propagated) {
   emit_watch_state (solver, propagated, "watch", false);
 }
 
+void kissat_event_trace_mode_clock (kissat *solver, const char *stage) {
+  if (!getenv ("KISSAT_EVENT_TRACE_MODE_CLOCK") ||
+      !detail_enabled (solver))
+    return;
+  char payload[256];
+  snprintf (payload, sizeof payload,
+            "stage=%s|ticks=%" PRIu64 "|limit=%" PRIu64
+            "|anchor=%" PRIu64 "|count=%" PRIu64,
+            stage, solver->statistics.search_ticks, solver->limits.mode.ticks,
+            solver->mode.ticks, solver->limits.mode.count);
+  kissat_event_trace (solver, "mode_clock", payload, false);
+}
+
+void kissat_event_trace_restart_clock (kissat *solver) {
+  if (!getenv ("KISSAT_EVENT_TRACE_RESTART_CLOCK") ||
+      !detail_enabled (solver))
+    return;
+  if (solver->statistics.conflicts < solver->limits.restart.conflicts)
+    return;
+  const averages *averages = &AVERAGES;
+  const double fast = averages->fast_glue.value;
+  const double slow = averages->slow_glue.value;
+  const double margin = (100.0 + GET_OPTION (restartmargin)) / 100.0;
+  char payload[320];
+  snprintf (payload, sizeof payload,
+            "restarts=%" PRIu64 "|limit=%" PRIu64
+            "|initialized=%u|fast=%a|slow=%a|margin=%a|"
+            "threshold=%a|eligible=%u",
+            solver->statistics.restarts, solver->limits.restart.conflicts,
+            averages->initialized, fast, slow, margin, margin * slow,
+            solver->stable ? solver->reluctant.trigger
+                           : margin * slow <= fast);
+  kissat_event_trace (solver, "restart_clock", payload, false);
+}
+
 void kissat_event_trace_watch_scan_post (kissat *solver,
                                          unsigned propagated) {
   if (!getenv ("KISSAT_EVENT_TRACE_WATCH_POST"))
@@ -2115,10 +2232,14 @@ void kissat_event_trace_heap_insert (kissat *solver, heap *heap, unsigned idx,
   if (!detail_enabled (solver) || trace_heap_pop_only || !solver->stable ||
       heap != SCORES)
     return;
-  char payload[192];
+  uint64_t hash = UINT64_C (1469598103934665603);
+  for (all_stack (unsigned, member, heap->stack))
+    hash = mix (hash, external_variable (solver, member));
+  char payload[224];
   snprintf (payload, sizeof payload,
-            "var=%d|score=%.17g|from=%u|to=%u",
-            external_literal (solver, LIT (idx)), heap->score[idx], from, to);
+            "var=%d|score=%.17g|from=%u|to=%u|hash=%016" PRIx64,
+            external_literal (solver, LIT (idx)), heap->score[idx], from, to,
+            hash);
   kissat_event_trace (solver, "heap_insert", payload, false);
 }
 

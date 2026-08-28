@@ -119,6 +119,12 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
   for (Var v = 0; v < k.nvars; v++)
     if (!kernel_var_retired(k, v))
       sorted.push_back(v);
+  // Kissat rescales before `sort_active_variables_by_weight`.  The order is
+  // observable: multiplication can collapse distinct tiny scores to the same
+  // floating-point value, at which point the internal-index tiebreak owns the
+  // subsequent equal-weight update order and therefore the physical heap.
+  if (target == REORDER_HEAP)
+    heuristics_rescale_scores(k);
   // Ascending weight throughout; the tiebreak is the ranking's own current
   // order, so a reorder never gratuitously permutes equal-weight variables.
   const Heuristics &h = *k.h;
@@ -147,12 +153,9 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
     for (const Var v : sorted)
       heuristics_queue_bump(k, v);
   } else {
-    // Scores are brought back into [0,1] first so the structural weight
-    // dominates the accumulated EVSIDS order rather than the reverse. Heaviest
-    // first, as kissat pops its ascending stack: the final heap is the same
-    // either way, but the sift order fixes the layout the determinism traces
-    // compare.
-    heuristics_rescale_scores(k);
+    // Scores are already in [0,1] before sorting, exactly as in Kissat.
+    // Apply heaviest first as Kissat pops its ascending stack; equal-score
+    // update order fixes the physical layout consumed by later lazy pops.
     for (auto it = sorted.rbegin(); it != sorted.rend(); ++it)
       heuristics_score_set(k, *it, k.h->scores.score[*it] + weight[*it]);
   }

@@ -1280,10 +1280,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   if (antecedent_oversized)
     return ApplyResult::NoOp;
 
-  if (pos.empty() && neg.empty() && del_large.empty() && del_bin.empty()) {
-    return ApplyResult::NoOp; // x occurs nowhere resolvable
-  }
-
   // Occurrence blow-up (kissat `eliminateocclim` = 2000, resolve.c:282-290):
   // resolving a variable whose two polarities occur together this often costs
   // more than the elimination can repay. The cap sits HERE, on the apply, where
@@ -1296,6 +1292,13 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       pos.size() + neg.size() > k.bve_occurrence_limit)
     return ApplyResult::NoOp;
 
+  // Kissat resolve.c::kissat_generate_resolvents treats a candidate with an
+  // empty polarity as pure and commits it immediately, before gate detection.
+  // This includes a candidate whose last occurrence disappeared after it was
+  // inserted into the mutable elimination heap: zero/zero is still retired,
+  // rather than silently surviving as an active decision variable.
+  const bool pure = pos.empty() || neg.empty();
+
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
   std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);
   bool resolve_gate = false;
@@ -1305,8 +1308,9 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     def->ticks = 0;
     def->unit = INVALID_LIT;
   }
-  const uint32_t gate_kind = bve_detect_gate(k, px, nx, pos, neg, pos_gate,
-                                             neg_gate, resolve_gate, def);
+  const uint32_t gate_kind =
+      pure ? 0 : bve_detect_gate(k, px, nx, pos, neg, pos_gate, neg_gate,
+                                 resolve_gate, def);
   const bool gate = gate_kind != 0;
   if (def && def->checked) {
     k.stats.bve_definitions_checked++;
@@ -1347,9 +1351,12 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     default: k.stats.bve_gates_definition++; break;
     }
   }
-  event_trace_bve_plan(k, x, static_cast<uint32_t>(pos.size()),
-                       static_cast<uint32_t>(neg.size()), gate_kind, gp, gn,
-                       charged, resolve_gate);
+  // The reference returns from resolvent generation at the pure branch, so it
+  // has no gate/resolvent plan event for this candidate either.
+  if (!pure)
+    event_trace_bve_plan(k, x, static_cast<uint32_t>(pos.size()),
+                         static_cast<uint32_t>(neg.size()), gate_kind, gp, gn,
+                         charged, resolve_gate);
 
   // Preserve the extracted lists as ordered lists, not only membership bits.
   // Kissat's gates.c/get_antecedents keep each list in connected-watch order,

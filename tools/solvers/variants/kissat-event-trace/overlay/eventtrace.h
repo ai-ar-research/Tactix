@@ -11,6 +11,8 @@ struct heap;
 
 void kissat_event_trace (struct kissat *, const char *, const char *, bool);
 void kissat_event_trace_detail (struct kissat *, const char *, int);
+void kissat_event_trace_mode_clock (struct kissat *, const char *);
+void kissat_event_trace_restart_clock (struct kissat *);
 void kissat_event_trace_vivify_candidate (struct kissat *, const char *,
                                           size_t, struct clause *, uint64_t,
                                           uint64_t);

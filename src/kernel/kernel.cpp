@@ -2465,29 +2465,57 @@ void kernel_dense_disconnect(Kernel &k) {
 }
 
 bool kernel_should_compact_variables(const Kernel &k, uint32_t percent) {
-  if (k.var_status.empty() || k.nvars == 0)
+  if (k.nvars == 0)
     return false;
+
+  // Kissat measures `solver->vars - solver->active` after its initial sparse
+  // collection has physically removed never-activated variables and compacted
+  // every root-fixed variable onto one representative.  Tactix deliberately
+  // keeps stable kernel identities for the public rule/proof/model surface;
+  // `compact_import_order` is the corresponding dense Kissat population.
+  // Count admission on that representation, or already-consumed startup
+  // garbage would spuriously trigger another whole-arena collection at the
+  // first Reduce.
+  const bool virtual_population = !k.compact_import_order.empty();
+  const uint64_t vars =
+      virtual_population ? k.compact_import_order.size() : k.nvars;
   uint64_t inactive = 0;
-  for (Var v = 0; v < k.nvars; ++v)
-    inactive += k.var_status[v] != VarStatus::Active;
-  return 100 * inactive > static_cast<uint64_t>(percent) * k.nvars;
+  const auto count_inactive = [&](Var v) {
+    const bool retired =
+        v < k.var_status.size() && k.var_status[v] != VarStatus::Active;
+    const bool root_fixed = k.values[make_lit(v, false)] != 0 &&
+                            k.assigned[v].level == 0;
+    inactive += retired || root_fixed;
+  };
+  if (virtual_population)
+    for (const Var v : k.compact_import_order)
+      count_inactive(v);
+  else
+    for (Var v = 0; v < k.nvars; ++v)
+      count_inactive(v);
+
+  // collect.c stores the floating-point percentage product in an unsigned,
+  // then applies a strict comparison (`inactive > limit`).  Integer division
+  // reproduces that floor exactly without introducing a second threshold.
+  const uint64_t limit = static_cast<uint64_t>(percent) * vars / 100;
+  return inactive > limit;
 }
 
 bool kernel_compact_variables(Kernel &k) {
-  if (k.var_status.empty() || k.conflict_valid || k.pending.valid || k.dense ||
-      k.probing.recording || k.delayed_used)
+  if (k.conflict_valid || k.pending.valid || k.dense || k.probing.recording ||
+      k.delayed_used)
     return false;
 
   const uint32_t old_nvars = k.nvars;
   std::vector<Var> old_to_new(old_nvars, INVALID_VAR);
   uint32_t new_nvars = 0;
   for (Var old = 0; old < old_nvars; old++)
-    if (k.var_status[old] == VarStatus::Active)
+    if (k.var_status.empty() || k.var_status[old] == VarStatus::Active)
       old_to_new[old] = new_nvars++;
   // A direct compaction can still be useful when only root-fixed identities
   // remain: it rebuilds the whole arena/watch pose even when there is no
-  // retired identity to renumber.  The Reduce admission predicate above does
-  // not count those variables; Kissat's `vars - active` does not either.
+  // retired identity to renumber.  Reduce counts the one representative in
+  // `compact_import_order`, just as Kissat's compacted `vars - active` does.
   const bool root_fixed = kernel_root_fixed(k);
   if (new_nvars == old_nvars && !root_fixed)
     return false;

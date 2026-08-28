@@ -60,6 +60,8 @@ public:
   void binary_add(const Kernel &, Lit a, Lit b);
   void mode_clock(const Kernel &, const char *stage, uint64_t limit,
                   uint64_t anchor, uint64_t count);
+  void restart_clock(const Kernel &, uint64_t limit, bool initialized,
+                     double fast, double slow, double margin, bool eligible);
   void randec_draw(const Kernel &, uint32_t raw, uint32_t slot, Var,
                    bool accepted);
   void randec_state(const Kernel &, const char *stage, uint64_t remaining,
@@ -220,6 +222,8 @@ public:
   void heap_remove(const Kernel &, Var, Var, uint32_t, uint32_t, uint32_t) {}
   void mode_clock(const Kernel &, const char *, uint64_t, uint64_t,
                   uint64_t) {}
+  void restart_clock(const Kernel &, uint64_t, bool, double, double, double,
+                     bool) {}
   void randec_draw(const Kernel &, uint32_t, uint32_t, Var, bool) {}
   void phase_pick(const Kernel &, Var, int8_t, int8_t, int8_t) {}
   void target_save(const Kernel &) {}

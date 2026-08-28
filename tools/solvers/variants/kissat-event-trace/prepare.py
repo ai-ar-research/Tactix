@@ -525,6 +525,7 @@ def main():
         '        kissat_event_trace_conflict (solver, conflict);\n'
         '        kissat_event_trace_detail (solver, "analysis_begin",\n'
         '                                   (int) solver->level);\n'
+        '        kissat_event_trace_mode_clock (solver, "pre_analyze");\n'
         '        res = kissat_analyze (solver, conflict);\n'
         '        kissat_rule_journal_rule_attempt (\n'
         '            solver, "conflict-analysis", "current-conflict",\n'
@@ -533,7 +534,13 @@ def main():
         '        kissat_event_trace_heap_scores (solver);\n'
         '        kissat_event_trace_detail (solver, "analysis_end",\n'
         '                                   res == 20 ? -1 : (int) solver->level);\n'
+        '        kissat_event_trace_mode_clock (solver, "post_analyze");\n'
         '      }\n')
+    replace_once(
+        search,
+        '      else if (kissat_restarting (solver))\n',
+        '      else if ((kissat_event_trace_restart_clock (solver),\n'
+        '                kissat_restarting (solver)))\n')
     wrappers = [
         ("kissat_reduce (solver)", "reduce"),
         ("kissat_switch_search_mode (solver)", "switch"),

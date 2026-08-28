@@ -2481,6 +2481,12 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
                              mode.ticks_at_focus_entry, mode.count);
       continue;
     }
+    {
+      const ModeAverages &avg = averages[k.h->stable];
+      event_trace.restart_clock(k, restart.next_conflicts, avg.initialized,
+                                avg.fast_glue.value, avg.slow_glue.value,
+                                config_.restart.glue_margin, want_restart(k));
+    }
     if (want_restart(k) && restart_guard(k)) {
       event_trace.macro(k, "restart_begin");
       // Kissat restart.c asks `kissat_next_decision_variable` for the reuse
@@ -3246,8 +3252,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     // restart without that flag and therefore retains the snapshot.
     if (group != SlotGroup::Probe)
       heuristics_update_target_phases(k);
+    // Probe and Eliminate use Kissat's shared root-backtrack primitive, not
+    // `kissat_restart`: entering an inprocessing phase must not advance the
+    // focused-restart count or its logarithmic cadence.
     (void)default_direct_rule(k, "Restart", "keep-level=0;inprocess=1",
-                              [&] { return restart_apply_to(k, 0); });
+                              [&] { return restart_backtrack_to(k, 0); });
   }
   // Probe and Eliminate enter through
   // `kissat_backtrack_propagate_and_flush_trail`; dense Tactix keeps the root

@@ -280,8 +280,8 @@ int main(int argc, char **argv) {
     kernel.vivify_reuse = (*vr != '0');
   if (const char *vf = getenv("TACTIX_VIVIFY_FLUSH"))
     kernel.vivify_flush = (*vf != '0');
-  // CaDiCaL's likely-kept redundant band ships ON; =0 restores the narrower
-  // irredundant-only round.
+  // Pinned Kissat's forward pass is irredundant-only.  CaDiCaL's likely-kept
+  // redundant band remains available only as an explicit diagnostic arm.
   if (const char *tr = getenv("TACTIX_TOUCH_REDUNDANT"))
     kernel.touch_redundant = (*tr != '0');
   // SubsumeForward's shadow arm; the `c c1shadow` line below is its output.
