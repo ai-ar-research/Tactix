@@ -347,6 +347,42 @@ static void test_variable_compaction_replays_inherited_arena_order() {
   kernel_check_invariants(k);
 }
 
+// Kissat rewrites a shortened large clause in place. Tactix allocates its
+// packed replacement at the arena tail, so production whole-arena collection
+// must replay the inherited creation key even without an optional policy.
+static void test_whole_collection_replays_inherited_creation_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(1);
+  const Lit source[3] = {shared, internalize(2), internalize(3)};
+  const Lit middle[3] = {shared, internalize(4), internalize(5)};
+  const Lit later[3] = {shared, internalize(6), internalize(7)};
+  const Lit replacement[3] = {shared, internalize(2), internalize(7)};
+  const Ref source_ref =
+      kernel_add_large_clause(k, source, 3, false, 0, 101);
+  kernel_add_large_clause(k, middle, 3, false, 0, 102);
+  kernel_add_large_clause(k, later, 3, false, 0, 103);
+  kernel_add_large_clause(k, replacement, 3, false, 0, 104);
+  kernel_inherit_clause_order(k, 104, 101);
+  kernel_delete_clause(k, clause_at(k.arena, source_ref));
+
+  kernel_collect_garbage(k);
+
+  std::vector<uint64_t> arena_ids;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    arena_ids.push_back(c->id());
+    ref += clause_actual_words(c);
+  }
+  assert((arena_ids == std::vector<uint64_t>{104, 102, 103}));
+  std::vector<uint64_t> watched_ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert(watched_ids == arena_ids);
+  kernel_check_invariants(k);
+}
+
 static void test_compaction_defers_retired_jumped_reason() {
   Kernel k;
   ScopedHeuristics h(k);
@@ -1546,6 +1582,7 @@ int main() {
   test_compaction_excludes_root_fixed_from_admission_and_rewatches();
   test_variable_compaction_preserves_directed_binary_order();
   test_variable_compaction_replays_inherited_arena_order();
+  test_whole_collection_replays_inherited_creation_order();
   test_compaction_defers_retired_jumped_reason();
   test_compaction_drops_unassigned_stale_reason();
   test_lit_encoding();

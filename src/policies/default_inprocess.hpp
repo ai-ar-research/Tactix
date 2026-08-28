@@ -83,7 +83,7 @@ private:
   uint64_t increment_ = 0;
 };
 
-class DefaultArenaOrder final : public ArenaOrderPolicy {
+class CadicalArenaOrder final : public ArenaOrderPolicy {
 public:
   const char *name() const override { return "vmtf-phase"; }
   void order(const Kernel &, std::vector<Ref> &) override;
@@ -207,7 +207,7 @@ public:
   void set_entry_limit(SlotEntry &, Kernel &);
   void report(const Kernel &) const;
   static FollowupMode preprocessing_followup_mode(FollowupKind, bool, bool);
-  ArenaOrdering *arena_ordering() { return &default_arena_order_; }
+  ArenaOrdering *cadical_arena_ordering() { return &cadical_arena_order_; }
   void pose_initialized(bool value = true) { initialized_ = value; }
   bool initialized() const { return initialized_; }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -271,7 +271,7 @@ private:
   DefaultBveBoundRamp default_bve_ramp_;
   DefaultFactorMatch default_factor_match_;
   DefaultCandidateOrder default_candidate_order_;
-  DefaultArenaOrder default_arena_order_;
+  CadicalArenaOrder cadical_arena_order_;
   std::vector<uint64_t> payloads_;
   std::vector<uint64_t> order_before_;
 };

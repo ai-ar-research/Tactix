@@ -186,7 +186,7 @@ static void test_collect_reselects_watches_by_assignment(void) {
          "among false literals Kissat selects the higher level");
 }
 
-static void test_default_arena_order_tracks_search() {
+static void test_cadical_arena_order_tracks_search() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 6);
@@ -196,7 +196,7 @@ static void test_default_arena_order_tracks_search() {
   const Ref ro = kernel_add_large_clause(k, older, 3, false, 0);
   const Ref rf = kernel_add_large_clause(k, fresher, 3, false, 0);
   std::vector<Ref> refs = {ro, rf};
-  DefaultArenaOrder order;
+  CadicalArenaOrder order;
   order.order(k, refs);
   assert(refs.size() == 2 && refs[0] == rf && refs[1] == ro);
 }
@@ -528,7 +528,7 @@ int main() {
   test_sparse_collect_preserves_prefix_watch_order();
   test_sparse_collect_forwards_garbage_prefix_watches();
   test_collect_reselects_watches_by_assignment();
-  test_default_arena_order_tracks_search();
+  test_cadical_arena_order_tracks_search();
   test_reduce_deletes_and_logs();
   test_reduce_flushes_new_root_units_before_selection();
   test_reduce_prepare_propagates_root_before_collection();

@@ -215,8 +215,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.factor_repeated_enabled="
       << inprocess.factor_repeated_enabled
       << " inprocess.preprocess_only=" << inprocess.preprocess_only
-      << " inprocess.arena_ordering_enabled="
-      << inprocess.arena_ordering_enabled
+      << " inprocess.cadical_arena_ordering_enabled="
+      << inprocess.cadical_arena_ordering_enabled
       << " inprocess.eliminate_interval=" << inprocess.eliminate_interval
       << " inprocess.probe_interval=" << inprocess.probe_interval
       << " inprocess.minimum_effort_ticks="
@@ -347,7 +347,7 @@ uint32_t DefaultBveBoundRamp::bound(uint32_t pass) const {
   return cfg.bve_bounds[pass < cfg.bve_bounds.size() ? pass : last];
 }
 
-void DefaultArenaOrder::order(const Kernel &k, std::vector<Ref> &refs) {
+void CadicalArenaOrder::order(const Kernel &k, std::vector<Ref> &refs) {
   if (!k.h || k.h->queue_last == INVALID_VAR || refs.empty())
     return;
   std::vector<uint8_t> live(k.arena.size());
@@ -1826,7 +1826,7 @@ void DefaultPolicy::configure_from_env(const Kernel &) {
              config_.inprocess.sweep_full_partition);
   sweep_bool("TACTIX_SWEEP_RESUME", config_.inprocess.sweep_resume);
   sweep_bool("TACTIX_ARENA_ORDER",
-             config_.inprocess.arena_ordering_enabled);
+             config_.inprocess.cadical_arena_ordering_enabled);
 
   force_mode_ = config_.mode.force;
   bump_reasons_limit_ = config_.analysis.bump_reason_limit;
@@ -2117,13 +2117,13 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       },
       this);
   configure_from_env(k);
-  // CaDiCaL's VMTF arena permutation remains the accepted optimization.
-  // Kissat creation order is the explicit parity arm: it makes Reduce's
-  // physical `first_reducible` watermark exact, but the Tier-D guard rejected
-  // it as a shipped default after two solve losses and three large slowdowns.
-  ArenaOrdering *arena_ordering = config_.inprocess.arena_ordering_enabled
-                                      ? inprocess_.arena_ordering()
-                                      : nullptr;
+  // Kissat creation order is production state.  CaDiCaL's VMTF/phase arena
+  // permutation remains available only through the explicit typed/environment
+  // diagnostic arm; no formula classifier or benchmark selector controls it.
+  ArenaOrdering *arena_ordering =
+      config_.inprocess.cadical_arena_ordering_enabled
+          ? inprocess_.cadical_arena_ordering()
+          : nullptr;
   ScopedArenaOrdering arena_ordered(k, arena_ordering);
   if (k.inconsistent)
     return 20;
@@ -2260,8 +2260,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   presearch_ticks.reset();
   // There is no Kissat collection point between late Lucky and search
   // (preprocess.c:57, reduce.c:160-185).  In particular, collecting the whole
-  // arena here would apply DefaultArenaOrder after preprocessing and invent a
-  // representation transition the reference never performs.  Tactix models
+  // arena here would apply the optional CaDiCaL diagnostic order after
+  // preprocessing and invent a representation transition the reference never
+  // performs.  Tactix models
   // initial fixed-variable compaction's decision-population effect above;
   // subsequent variable/arena compaction remains coupled to Reduce below.
   // Preprocessing has consumed the root-unit trail prefix.  Tactix retains

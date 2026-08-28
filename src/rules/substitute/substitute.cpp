@@ -2485,10 +2485,10 @@ static ApplyResult substitute_apply_equivalences_impl(
         return marked != 0;
       }))
     return ApplyResult::NoOp;
-  // This path implements Kissat Sweep's connected-clause rewrite. Do not let
-  // DefaultPolicy's CaDiCaL-style VMTF arena pose reorder the whole formula at
-  // the helper's garbage collection boundary; ordinary Substitute retains
-  // that policy, while Sweep preserves the live arena traversal it inherited.
+  // This path implements Kissat Sweep's connected-clause rewrite. Preserve
+  // each rewritten clause's inherited position at the helper's garbage
+  // collection boundary; the explicit CaDiCaL diagnostic arm must not leak
+  // into this rule-local transaction.
   ArenaOrdering *const saved_order = k.arena_ordering;
   k.arena_ordering = nullptr;
   const ApplyResult result = do_substitution(

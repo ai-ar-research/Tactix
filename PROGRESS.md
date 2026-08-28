@@ -8,6 +8,20 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
+- **In flight — Kissat creation-order production baseline:** the working tree
+  makes Kissat creation order unconditional production state and retains the
+  CaDiCaL VMTF/phase permutation only as `TACTIX_ARENA_ORDER=1`. No formula,
+  density, benchmark, or rank selector can activate it. Uniform candidate-only
+  ranks 1--40 array `1653454` (`20260827-2870`) uses one immutable Release
+  binary/configuration across all 40 ranks; do not wait for proof lanes before
+  mechanism work. Paired Rank-16 observer `1653462` extends the common-state
+  comparison to conflict 200,000. The first codebase revisit found that
+  append-only replacement records retained their inherited Kissat key but
+  ordinary whole-arena collection did not replay it; focused candidate
+  `1653468` tests that general repair. Sparse Reduce collection, rule
+  admission/effort, N1--N4, and the proof-rule/strategy boundary are unchanged.
+  Release is 76/76 and the affected ASan/UBSan surface is 6/6. Never revert the
+  production order or add an ordering gate in response to a regression.
 - Work in `/home/hwu/SAT-solving` on branch `main`. Accepted solver source is
   commit `ffa05257b5963274e922b5efdc74ac8ae9364088`, based on accepted
   predecessor `be1a364d1f11ae86eda8184829f5ed9bc081e71b`; the following wrap-up
@@ -275,12 +289,13 @@ session narrative; this file is only the current resume surface.
   Substitute affected-owner traversal, import-rank inverse, reserved trail,
   Congruence first-literal/sign-mask/dense-slot indices, and the current Sweep
   phase-word repair are accepted general mechanisms.
-- Collection is a secondary lead, not the main bottleneck: exact prefix work
-  attributed about 4.91% to whole collection, and the rejected forwarding
-  traversal only 0.33%. Current Tactix invokes collection more often than the
-  accepted current-Kissat envelope, but fused-forward, arena-prepass, and
-  generic key-layout prototypes are closed negative. Reopen only on a new
-  exact call-reason owner with positive whole-run evidence.
+- Collection throughput remains a secondary lead: exact prefix work attributed
+  about 4.91% to whole collection, and the rejected forwarding traversal only
+  0.33%. Fused-forward and arena-prepass optimizations remain closed negative.
+  The current inherited-key replay is instead an architectural state repair:
+  it emulates Kissat's in-place replacement position before a later sparse
+  physical watermark can consume it. Do not generalize that repair into an
+  unrelated collection optimization without a new exact call-reason owner.
 - Residual BVE has no current comparable-state worse-side owner; Congruence's
   three-inline and two-inline table layouts and Substitute call-level deferral
   are rejected. Equal-score Rank-27 heap choices are neutral. Do not reopen any

@@ -33,7 +33,7 @@ def main():
                 "bve_enabled", "bve_permille", "factor_repeated_enabled",
                 "factor_permille", "factor_active_ceiling",
                 "subsume_forward_permille", "vivify_enabled",
-                "vivify_permille", "arena_ordering_enabled",
+                "vivify_permille", "cadical_arena_ordering_enabled",
                 "serialize() const"]
     for token in required:
         if token not in config:
