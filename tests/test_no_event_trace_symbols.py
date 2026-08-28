@@ -13,6 +13,10 @@ data = binary.read_bytes()
 for marker in (b"TACTIX_EVENT_TRACE", b"tactix-event-trace",
                b"TACTIX_RULE_JOURNAL", b"tactix-rule-journal"):
     assert marker not in data, f"production binary contains {marker!r}"
+# ConflictAnalysis's per-conflict journal candidate is deliberately lazy.  An
+# exact standalone copy means the production build evaluated the diagnostic
+# lambda and retained its dynamic string prefix in the search hot path.
+assert b"conflict=\0" not in data, "production retained hot journal candidate"
 
 symbols = subprocess.run(["nm", "-C", str(binary)], text=True,
                          capture_output=True, check=True).stdout

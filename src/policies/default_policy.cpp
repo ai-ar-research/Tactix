@@ -2340,9 +2340,9 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       const uint64_t learned_before = k.stats.learned;
       const uint64_t br_rounds = k.stats.reason_bump_rounds;
       const uint64_t br_aborted = k.stats.reason_bump_aborted;
-      const ApplyResult ar = default_direct_rule(
-          k, "ConflictAnalysis", "conflict=" +
-              std::to_string(k.stats.conflicts),
+      const ApplyResult ar = default_direct_rule_lazy(
+          k, "ConflictAnalysis",
+          [&] { return "conflict=" + std::to_string(k.stats.conflicts); },
           [&] { return analyze_apply(k); });
       k.bump_reason_limit = 0;
       k.bump_reason_depth = 1;

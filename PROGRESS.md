@@ -22,8 +22,8 @@ session narrative; this file is only the current resume surface.
   pass; binary/source-diff SHAs are `d9272f90...ac3f77`/`9a55e7e3...09350`.
   Homogeneous ranks 1--40 `1653555`/`1653556` and cumulative B28+C5
   `1653557`/`1653558` use one uniform production candidate.
-  Proof completion is non-blocking. Cursor repair `1653578` is the next checked
-  Rank-16 pin; never restore a gate or add a formula/density/benchmark/rank arm.
+  Proof is non-blocking. Rank-16 pins are cursor `1653578` and lazy journal
+  `1653586`; never restore a gate or add a formula/density/benchmark/rank arm.
 - **In flight — Kissat creation/collection-order production baseline:** the
   pushed tree makes Kissat order unconditional production state and retains the
   CaDiCaL VMTF/phase permutation only as `TACTIX_ARENA_ORDER=1`. No formula,

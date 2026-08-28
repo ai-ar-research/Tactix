@@ -364,8 +364,9 @@ conflict, portable candidate, trigger/context, formula/root epochs, pre/post
 digests, guards, antecedents, outcome/decline, deltas, witnesses, effort, and
 budget. Literals use external identities; clauses use proof ids or stable
 creation ordinals. Selectors run before expensive digests and production builds
-contain no journal branch. Replay stops at the first field mismatch and never
-injects a transformation.
+contain no journal branch. Dynamic candidate descriptions are lazy: production
+does not construct or allocate them on the search hot path. Replay stops at the
+first field mismatch and never injects a transformation.
 
 Every inprocessing family reports invocation allowance, entry/exit ticks,
 candidate frontier/order, disposition, semantic pose/lineage, elapsed time, and
