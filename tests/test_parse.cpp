@@ -3,13 +3,73 @@
 #undef NDEBUG
 #include "frontend/parse.hpp"
 #include "policies/heuristics.hpp"
+#include "proof/proof.hpp"
 #include "rules/decide/decide.hpp"
 
 #include <cassert>
 #include <cstdio>
+#include <string>
 #include <vector>
 
+#include <unistd.h>
+
 using namespace tactix;
+
+static FILE *dimacs_file(const char *text) {
+  FILE *file = std::tmpfile();
+  assert(file);
+  assert(std::fputs(text, file) >= 0);
+  std::rewind(file);
+  return file;
+}
+
+static void test_compact_input_filter_grows_and_deduplicates_exactly() {
+  Kernel k;
+  FILE *file = std::tmpfile();
+  assert(file);
+  // The advisory clause count deliberately underpredicts the 20 distinct
+  // binaries so this crosses the filter's initial 16-entry capacity. Every
+  // pair is then repeated: the filter may answer "maybe", but the watch scan
+  // must reject each duplicate exactly.
+  assert(std::fputs("p cnf 10 1\n", file) >= 0);
+  for (int a = 1, emitted = 0; a <= 10 && emitted < 20; a++)
+    for (int b = a + 1; b <= 10 && emitted < 20; b++, emitted++)
+      assert(std::fprintf(file, "%d %d 0\n", a, b) > 0);
+  for (int a = 1, emitted = 0; a <= 10 && emitted < 20; a++)
+    for (int b = a + 1; b <= 10 && emitted < 20; b++, emitted++)
+      assert(std::fprintf(file, "%d %d 0\n", a, b) > 0);
+  std::rewind(file);
+  assert(parse_dimacs(file, k) == nullptr);
+  std::fclose(file);
+  assert(!k.binary_ids.tracks_keys());
+  assert(k.binary_ids.size() == 20);
+  for (int a = 1, emitted = 0; a <= 10 && emitted < 20; a++)
+    for (int b = a + 1; b <= 10 && emitted < 20; b++, emitted++)
+      assert(kernel_binary_copies(k, internalize(a), internalize(b)) == 1);
+  kernel_check_invariants(k);
+}
+
+static void test_native_lrat_retains_binary_ids() {
+  Kernel k;
+  const std::string path = "/tmp/tactix-test-parse-lrat-" +
+                           std::to_string(static_cast<long>(getpid())) +
+                           ".proof";
+  {
+    Proof proof;
+    assert(proof.open(path.c_str(), ProofFormat::Lrat));
+    k.proof = &proof;
+    FILE *file = dimacs_file("p cnf 2 2\n1 -2 0\n1 -2 0\n");
+    assert(parse_dimacs(file, k) == nullptr);
+    std::fclose(file);
+    assert(k.binary_ids.tracks_keys());
+    assert(k.binary_ids.tracks_values());
+    assert(k.binary_ids.size() == 1);
+    assert(k.binary_ids.at(
+               kernel_binary_key(internalize(1), internalize(-2))) == 1);
+    k.proof = nullptr;
+  }
+  assert(std::remove(path.c_str()) == 0);
+}
 
 static void test_tumble_preserves_file_literal_order() {
   Kernel k;
@@ -29,9 +89,11 @@ static void test_tumble_preserves_file_literal_order() {
   std::rewind(file);
   assert(parse_dimacs(file, k) == nullptr);
   std::fclose(file);
-  assert(k.binary_ids.tracks_keys());
+  assert(!k.binary_ids.tracks_keys());
   assert(!k.binary_ids.tracks_values() &&
-         "proofless/DRAT import must not allocate LRAT id values");
+         "proofless/DRAT must release the import-only binary archive");
+  assert(k.binary_ids.size() == 2 &&
+         "dropping storage must preserve the exact material watermark");
 
   // Kissat imports variables before it recognizes a tautology, so 5 and 4
   // still occupy their first-occurrence positions even though that clause is
@@ -158,6 +220,8 @@ static void test_header_only_variables_are_not_search_variables() {
 }
 
 int main() {
+  test_compact_input_filter_grows_and_deduplicates_exactly();
+  test_native_lrat_retains_binary_ids();
   test_tumble_preserves_file_literal_order();
   test_root_units_normalize_later_input_clauses();
   test_input_units_propagate_before_later_clauses();

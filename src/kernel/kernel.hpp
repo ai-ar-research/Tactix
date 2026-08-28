@@ -88,7 +88,9 @@ public:
 #endif
 
   void discard_storage() {
-    assert(size_ == 0 && "proof-id mode is fixed before binary import");
+    // The exact pair count is a monotone scheduling watermark independent of
+    // the optional key/id archive.  DRAT can therefore release the import-time
+    // deduplication table after the input is complete while preserving size_.
     track_keys_ = false;
     track_values_ = false;
     keys_.clear();
@@ -190,6 +192,7 @@ public:
 class BinaryLivenessIndex {
   std::vector<uint64_t> bits_;
   uint64_t mask_ = 0;
+  size_t entry_capacity_ = 0;
 
   static uint64_t hash(uint64_t x) {
     x += UINT64_C(0x9e3779b97f4a7c15);
@@ -220,7 +223,9 @@ public:
     }
     bits_.assign(static_cast<size_t>(target >> 6), 0);
     mask_ = target - 1;
+    entry_capacity_ = static_cast<size_t>(target >> 2);
   }
+  bool needs_growth(size_t entries) const { return entries > entry_capacity_; }
   bool maybe(uint64_t key) const {
     if (bits_.empty())
       return true;

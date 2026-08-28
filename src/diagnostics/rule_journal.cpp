@@ -203,9 +203,26 @@ uint64_t rule_journal_digest(const Kernel &k) {
         v < k.var_status.size() ? k.var_status[v] : VarStatus::Active);
     facts.push_back((external << 4) ^ (status << 2) ^ value);
   }
-  k.binary_ids.for_each([&](uint64_t key, uint64_t id) {
-    facts.push_back(mix(mix(UINT64_C(0xB1), key), id));
-  });
+  if (k.binary_ids.tracks_keys()) {
+    k.binary_ids.for_each([&](uint64_t key, uint64_t id) {
+      facts.push_back(mix(mix(UINT64_C(0xB1), key), id));
+    });
+  } else {
+    // DRAT production does not retain an exact-key proof archive. Keep this
+    // compile-time diagnostic complete by deriving the same distinct pair set
+    // from authoritative watches, without creating a production consumer.
+    std::vector<uint64_t> binary_keys;
+    binary_keys.reserve(k.binary_ids.size());
+    for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+      for (const WatchEntry watch : k.watches.entries(lit))
+        if (watch.binary() && lit < watch.other())
+          binary_keys.push_back(kernel_binary_key(lit, watch.other()));
+    std::sort(binary_keys.begin(), binary_keys.end());
+    binary_keys.erase(std::unique(binary_keys.begin(), binary_keys.end()),
+                      binary_keys.end());
+    for (const uint64_t key : binary_keys)
+      facts.push_back(mix(mix(UINT64_C(0xB1), key), UINT64_C(1)));
+  }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
     if (!clause->garbage()) {
