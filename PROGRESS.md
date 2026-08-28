@@ -8,22 +8,20 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
-- **In flight — no-invented-gates cleanup and SAT throughput:** the careful
-  codebase pass removed two non-reference production selectors. Random-decision
-  sequence admission uses only Kissat's equivalent pre-decision level; the former compact-formula
-  exception is gone. Congruence is unmetered and admitted on every Probe phase
-  after its named Kissat productivity delay; the former binary/root
-  new-material watermark remains available only through an explicit diagnostic
-  pose. Production classification, effort budgets, and arena order are
-  unchanged. A monotonic root-assignment epoch also avoids a redundant policy
-  scan over every ordinary propagated implication while preserving the exact
-  rule-boundary heuristic handoff. One-change Rank-16 throughput diagnostic
-  `1653545` pins the epoch repair. Release 76/76 and affected ASan/UBSan 8/8
-  pass; binary/source-diff SHAs are `d9272f90...ac3f77`/`9a55e7e3...09350`.
-  Homogeneous ranks 1--40 `1653555`/`1653556` and cumulative B28+C5
-  `1653557`/`1653558` use one uniform production candidate.
-  Proof is non-blocking. Rank-16 pins are cursor `1653578` and lazy journal
-  `1653586`; never restore a gate or add a formula/density/benchmark/rank arm.
+- **In flight — provisional 40-rank baseline and dense-binary cost repair:**
+  homogeneous campaign `20260828-1344-tierd-ranks1-40-live-active-fix`
+  has all 80 solver timings. Provisional geometric-mean Tactix/Kissat ratios
+  are 1.408× SAT and 1.342× UNSAT; proof checking remains independent and
+  non-blocking. Rank 16 is 1.029×, Rank 32 UNSAT is the largest UNSAT loss at
+  2.382×, and SAT Rank 6 is 5.377×. A source-mapped Rank-6 profile found
+  repeated linear binary-membership scans in BVE and Strengthen. The general
+  dense-stream repair preserves exactly 551,149 conflicts and 5,224,515
+  decisions while reducing wall 293.372→98.730 s; the model satisfies all
+  11,099,040 clauses. Factor remains near its Kissat component cost and is not
+  the owner. Release is 76/76 and focused Release, Debug, and ASAN/UBSAN pass.
+  N1--N4, classification, production budgets, creation order, and the
+  proof-rule/strategy boundary are unchanged; no formula/rank gate exists.
+
 - **In flight — Kissat creation/collection-order production baseline:** the
   pushed tree makes Kissat order unconditional production state and retains the
   CaDiCaL VMTF/phase permutation only as `TACTIX_ARENA_ORDER=1`. No formula,
@@ -40,15 +38,6 @@ session narrative; this file is only the current resume surface.
   is 6/6. Rule admission/effort, N1--N4, and proof/strategy boundaries are unchanged.
   Proof completion is non-blocking per user direction. Never revert the
   production order or add an ordering gate in response to a regression.
-- Work in `/home/hwu/SAT-solving` on branch `main`. Accepted solver source is
-  commit `ffa05257b5963274e922b5efdc74ac8ae9364088`, based on accepted
-  predecessor `be1a364d1f11ae86eda8184829f5ed9bc081e71b`; the following wrap-up
-  commit changes `PROGRESS.md` only. The accepted Release binary SHA-256 is
-  `ecce67b3f19c67ce6a4e58db4db9b532731b4e4a803e3890337ac78b82221088`.
-  Evidence:
-  `benchmarks/reports/2026-08-27-kissat-classification-factor-throughput.md`
-  and
-  `report-to-andrew/2026-08-27-2012-kissat-classification-factor-throughput/report.pdf`.
 - **Promoted exact Kissat classification and general Factor throughput:** the
   formula-profile matrix and Dose5/Factor5/NoBve/NoBveLight/
   StartupFactorOnly profiles are removed. Pinned Kissat `small`/`bigbig`

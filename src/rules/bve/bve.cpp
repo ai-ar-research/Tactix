@@ -1274,8 +1274,16 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         if (!entry.live)
           continue;
         if (entry.binary) {
-          if (kernel_binary_live(k, pivot, entry.payload))
-            gather_bin(pivot, entry.payload, live);
+          // Dense ordered entries are maintained eagerly by every kernel
+          // binary add/delete path.  They are therefore the same live stream
+          // Kissat consumes, not a hint that needs an O(degree) watch-list
+          // membership probe for every entry.  Large entries remain lazy and
+          // are validated below because garbage and membership rewrites can
+          // leave their records stale.
+#ifndef NDEBUG
+          assert(kernel_binary_live(k, pivot, entry.payload));
+#endif
+          gather_bin(pivot, entry.payload, live);
           continue;
         }
         const Ref ref = entry.payload;
