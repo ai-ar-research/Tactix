@@ -198,8 +198,6 @@ public:
   } reluctant;
   struct { uint64_t next_conflicts = REPHASE_INTERVAL_INIT, count = 0; } rephase;
   struct { uint64_t next_conflicts = REORDER_INTERVAL_INIT, count = 0; } reorder;
-  uint64_t walk_anchor = 0;
-
   bool want_restart(const Kernel &) const;
   bool want_reduce(const Kernel &) const;
   bool want_switch_mode(const Kernel &) const;
@@ -211,6 +209,7 @@ public:
   void update_reduce_limit(const Kernel &);
   void update_rephase_limit(const Kernel &);
   void update_reorder_limit(const Kernel &);
+  uint64_t walk_effort_reference(const Kernel &) const;
   bool update_tiers_after_analysis(Kernel &);
   void update_formula_classification(Kernel &) const;
 

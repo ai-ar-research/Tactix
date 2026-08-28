@@ -158,7 +158,6 @@ static void assert_reset_is_a_noop_on_a_fresh_kernel(uint32_t nvars,
   SAME(rephase.count);
   SAME(reorder.next_conflicts);
   SAME(reorder.count);
-  SAME(walk_anchor);
   SAME(averages[0].initialized);
   SAME(averages[1].initialized);
 #undef SAME
@@ -201,7 +200,6 @@ static void assert_every_group_is_dirty_after_a_solve(const DefaultPolicy &p) {
   note(p.rephase.count != 0 ||
            p.rephase.next_conflicts != DefaultPolicy::REPHASE_INTERVAL_INIT,
        "rephase schedule");
-  note(p.walk_anchor != 0, "walk anchor");
   note(p.inprocess().initialized(), "inprocessing prime flag");
   note(p.inprocess().probe_clock.rounds != 0, "probe clock");
   note(p.inprocess().elim_clock.rounds != 0 ||
@@ -264,7 +262,6 @@ int main(int argc, char **argv) {
   DefaultPolicy posed;
   posed.reorder.next_conflicts = 12345;
   posed.reorder.count = 7;
-  posed.walk_anchor = 999999;
   const Trace after = run(posed, nvars, nclauses, "reset_posed.drat");
   assert(after == fresh &&
          "posed scheduling state survived into the solve it preceded");

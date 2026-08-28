@@ -14,12 +14,11 @@ formula/search services.
 
 The implementation follows the reference shape for assignment initialization,
 break-value updates, bounded local flips, and phase export. Before every walk,
-the policy now runs Kissat's default root decision/propagation warm-up and saves
-its assignment-time phases. The rotation remains `B+W`: on `tr-n280-s052`, a
-fresh pure-`W` rerun regressed 12.6 s to 15.7 s and exposed a walker-output
-phase mismatch immediately after the slot. Historical pre-implementation
-status, the proposed separate Track W, and contradictory “removed” language
-are retired.
+the policy runs Kissat's default root decision/propagation warm-up and saves
+its assignment-time phases. The production rotation is Kissat's exact
+`B,W,I,B,W,O`; `TACTIX_WALK_AUGMENT_BEST=1` retains the former `B+W` behavior
+only as an explicit diagnostic arm. Historical performance evidence for the
+composition does not select it automatically.
 
 ## 6. Dosing record
 
@@ -29,6 +28,12 @@ only where they retain a distinct diagnostic or scheduling use; neutral or
 superseded arms are removed under the project's arm-frugality policy. Current
 defaults, counters, and measurement evidence are owned by
 `docs/implementation-notes.md` and dated reports.
+
+`walkeffort=50‰` uses the same generic Kissat effort mechanism as the other
+simplifiers. Walk leaves `solver->probing` false, so the reference reads
+`last.ticks.eliminate`; Tactix therefore reads the Eliminate slot clock. Walk
+does not own or advance a private tick anchor. `SP-WALK-EFFORT-1` records the
+source and Rank-16 trajectory evidence.
 
 Validation remains formula/proof identity, deterministic Walk counters and
 phase output, configuration wiring, and the inventory boundary that classifies

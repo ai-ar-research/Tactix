@@ -136,12 +136,32 @@ static void test_rephase_backtrack_preserves_restart_cadence() {
   assert(p.restart.next_conflicts == 2002);
 }
 
+static void test_walk_effort_uses_eliminate_anchor() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  DefaultPolicy p;
+
+  // Walk is timed as a simplifier but does not set Kissat's semantic probing
+  // flag. Its SET_EFFORT_LIMIT reference is therefore `last.ticks.eliminate`;
+  // neither the last Walk nor the Probe clock owns this reference point.
+  k.stats.search_ticks = 50'000'000;
+  p.inprocess().probe_clock.anchor = 49'000'000;
+  p.inprocess().elim_clock.anchor = 20'000'000;
+  assert(p.walk_effort_reference(k) == 30'000'000);
+
+  // The shipped mineffort floor still applies to a recent Eliminate anchor.
+  p.inprocess().elim_clock.anchor = 45'000'000;
+  assert(p.walk_effort_reference(k) ==
+         DefaultStrategyConfig::INPROCESS_MINIMUM_EFFORT_DEFAULT);
+}
+
 int main() {
   test_best_snapshot();
   test_types();
   test_registry_surface();
   test_policy_trigger();
   test_rephase_backtrack_preserves_restart_cadence();
+  test_walk_effort_uses_eliminate_anchor();
   puts("test_rephase OK");
   return 0;
 }

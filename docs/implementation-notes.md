@@ -262,7 +262,11 @@ collection. Root consequences still emit native-LRAT unit ids.
 Saved phases update on every non-probing assignment. Focused decisions use the
 reference epoch pattern; shipped rephase rotation is `B,W,I,B,W,O`. Walk first
 warms search, saves phases, backtracks neutrally, and restores binaries in the
-reference compact/import order before large clauses.
+reference compact/import order before large clauses. Its `walkeffort=50‰`
+dose reads the Eliminate tick anchor: Kissat invokes Walk with
+`solver->probing == false`, so `SET_EFFORT_LIMIT` selects
+`last.ticks.eliminate`. Walk has no private effort anchor and does not advance
+that shared anchor; only a completed Eliminate phase does.
 
 ## 9. Reason bumping and dynamic tiers
 
@@ -528,23 +532,10 @@ the terminal watermark and skipped that phase. Production now walks the full
 0,1,2,4,8,16 ladder; a lower typed or `TACTIX_BVE_RAMP_MAX` ceiling remains an
 explicit diagnostic arm only.
 
-The dynamic BVE heap had a second loss at the same boundary. The dose loop
-correctly re-admitted a failed candidate once its cached next-useful bound was
-reachable, but initial heap insertion filtered every cleared retry bit before
-that predicate could run. Heap construction now applies the identical
-retry-or-reachable-bound predicate. The focused fixture forces a 5x5
-resolution grid to fail through bound 8 and retire its pivot at bound 16. In
-Rank-16 job `1654379`, Tactix consequently admits Eliminate at conflict 295,173,
-eliminates the same one variable, changes the irredundant population from 7,322
-to 7,332, takes the same 72 decisions, and reaches the identical next conflict
-and learned clause. The paired reference counter probe is job `1654377`.
-Neither repair changes the public BVE instance surface, proof semantics,
-N1--N4, effort rates, formula classification, or benchmark/rank behavior.
+The dynamic BVE heap had a second loss: heap insertion filtered every cleared retry before the dose loop's reachable-later-bound predicate could run. It now applies the identical predicate. The focused 5x5 grid fails through bound 8 and retires its pivot at 16. Rank-16 job `1654379` admits Eliminate at conflict 295,173, eliminates the same variable, changes irredundant clauses 7,322→7,332, and matches the next 72 decisions and conflict/learned clause. Jobs `1654383`/`1654386` extend the normalized compact stream through conflict 330,000; paired reference counters are in `1654377`. Neither repair changes the BVE instance surface, proof semantics, N1--N4, effort, classification, or benchmark/rank behavior.
 
-The full pre-Reorder-repair Rank 16 production pair (`1653941`) is retained as
-the honest creation-order baseline: Kissat verified SAT in 128.93 s and Tactix
-verified SAT in 1038.89 s (8.06x). Both performed zero Factor transformations;
-Tactix spent only 191 ms in the Factor slot. Factor is therefore not causal for
-this SAT gap, and its raw component cost is closed on this instance. The
-remaining performance work follows common-state search mechanisms rather than
-disabling Factor or restoring a formula profile.
+The next Rank-16 split was walking Rephase at conflict 356,414. Tactix measured each Walk from the previous Walk; Kissat selects `last.ticks.eliminate` because Walk leaves the semantic probing flag false. The private clock preserved the same minimum through five walks, then gave walk six 7,867,806 ticks instead of 4,149,107 and changed its exported assignment. Tactix now reads the Eliminate slot clock. Job `1654483` matches all six allowances, flips, steps, initial/minimum counts, first choices, decisions, conflicts, and learned clauses. Jobs `1654488`/`1654492` restore normalized checkpoints at conflicts 500,000/1,000,000; the latter has only one extra post-frontier `analysis_end` while Tactix completes an entered OTFS chain. The regression proves Eliminate is the consumer, Probe is ignored, and the 10-million-tick floor remains.
+
+The pre-Reorder creation-order baseline `1653941` was Kissat SAT 128.93 s versus Tactix SAT 1038.89 s. Both had zero Factor transformations, and Tactix spent 191 ms in Factor: this SAT gap is not Factor cost.
+
+The pre-Walk-clock bound-16 replay `1654380` timed Tactix out at 1,200 s / 23,999,415 conflicts / 63,249,677 decisions; Kissat verified SAT in 133.79 s / 4,777,402 conflicts / 14,441,406 decisions. Both again had zero Factor transformations and 378 eliminations. It proves Eliminate was necessary but insufficient and cannot justify a formula gate.
