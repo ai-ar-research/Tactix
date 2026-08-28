@@ -61,9 +61,53 @@ static int transitive_trace_pairs[64][2];
 static size_t transitive_trace_pairs_size;
 static bool transitive_trace_all;
 static int compare_external_literals (const void *, const void *);
+static int external_literal (kissat *, unsigned);
 static void append_sorted_clause (kissat *, clause *, char **, size_t *);
 static void emit_heap_scores (kissat *);
 static uint64_t eliminate_cleanup_clause_hash (kissat *, clause *);
+static bool formula_set_dumped;
+
+static void emit_formula_set_snapshot (kissat *solver, const char *event,
+                                       const char *payload) {
+  if (formula_set_dumped)
+    return;
+  const char *path = getenv ("SAT_EVENT_TRACE_FORMULA_SET_PATH");
+  const char *match = getenv ("SAT_EVENT_TRACE_FORMULA_SET_MATCH");
+  const char *conflict = getenv ("SAT_EVENT_TRACE_FORMULA_SET_CONFLICT");
+  if (!path || !*path || !match || !*match || !conflict || !*conflict)
+    return;
+  char *end;
+  const uint64_t selected = strtoull (conflict, &end, 10);
+  if (end == conflict || *end || selected != solver->statistics.conflicts)
+    return;
+  char selector[512];
+  snprintf (selector, sizeof selector, "%s|%s", event,
+            payload ? payload : "-");
+  if (!strstr (selector, match))
+    return;
+  FILE *out = fopen (path, "w");
+  if (!out)
+    return;
+  fputs ("# kissat-formula-set\t2\n", out);
+  fputs ("# redundant\tsize\thash\tliterals\n", out);
+  for (all_clauses (c)) {
+    if (c->garbage)
+      continue;
+    int *external = malloc (c->size * sizeof *external);
+    unsigned size = 0;
+    for (all_literals_in_clause (lit, c))
+      external[size++] = external_literal (solver, lit);
+    qsort (external, size, sizeof *external, compare_external_literals);
+    fprintf (out, "%u\t%u\t%016" PRIx64 "\t", c->redundant, c->size,
+             eliminate_cleanup_clause_hash (solver, c));
+    for (unsigned i = 0; i != size; i++)
+      fprintf (out, "%s%d", i ? "," : "", external[i]);
+    fputc ('\n', out);
+    free (external);
+  }
+  fclose (out);
+  formula_set_dumped = true;
+}
 static unsigned external_variable (kissat *, unsigned);
 static uint64_t mix (uint64_t, uint64_t);
 
@@ -1133,6 +1177,8 @@ void kissat_event_trace (kissat *solver, const char *event,
                          const char *payload, bool snapshot) {
   if (snapshot)
     emit_binary_set_snapshot (solver, event, payload);
+  if (snapshot)
+    emit_formula_set_snapshot (solver, event, payload);
   open_trace ();
   if (!trace_file)
     return;
@@ -1533,7 +1579,10 @@ void kissat_event_trace_bve_candidate (kissat *solver, unsigned idx,
             "|limit=%" PRIu64 "|applied=%u",
             external_variable (solver, idx), stage, solver->values[LIT (idx)],
             ticks, limit, applied);
-  kissat_event_trace (solver, "bve_candidate", payload, false);
+  // Symmetric trace-only checkpoint for separating a stale dense occurrence
+  // image from a live-formula divergence.  Disabled unless explicitly armed.
+  const bool formula_checkpoint = getenv ("SAT_EVENT_TRACE_BVE_FORMULA") != 0;
+  kissat_event_trace (solver, "bve_candidate", payload, formula_checkpoint);
 }
 
 static uint64_t eliminate_cleanup_clause_hash (kissat *solver, clause *c) {

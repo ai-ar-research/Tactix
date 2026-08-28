@@ -141,7 +141,7 @@ int random_solve(Kernel &k, uint64_t seed, volatile sig_atomic_t *stop,
       // INSTANCE_CANONICAL is drawn about a third of the time (always when the
       // enumeration is empty) because a canonical round emits proof deltas the
       // single instances never emit together — Probe's multi-unit batch,
-      // Strengthen's flush pre-pass plus cascade, Vivify's full round, Lucky's
+      // Strengthen's flush plus one-action round, Vivify's full round, Lucky's
       // cascade — and the proof strategy must hold under every legal schedule.
       uint64_t insts[16];
       const uint32_t m = rules[id].instances(k, insts, 16);

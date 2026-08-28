@@ -224,6 +224,22 @@ static void test_eliminate_basic() {
   assert(!k.reconstruction.empty());                       // witnesses pushed
 }
 
+static void test_elimination_retains_duplicate_binary_resolvent() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(2), internalize(3));
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  k.bve_gate_mask = 0;
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  // Kissat adds every non-tautological resolvent.  Its next forward pass, not
+  // BVE's commit path, owns duplicate-binary removal.
+  assert(kernel_binary_copies(k, internalize(2), internalize(3)) == 2);
+}
+
 // Kissat keeps candidates in a mutable elimination heap.  An earlier pure
 // elimination can remove the last clause of a candidate that was already in
 // that heap; resolve.c still classifies the resulting zero/zero candidate as
@@ -441,6 +457,34 @@ static void test_gate_ite_fires() {
     assert(k.stats.bve_gate_pairs_saved == 40);
     assert(!has_binary(k, internalize(5), internalize(11))); // ant×ant skipped
   }
+}
+
+// Pinned Kissat `ifthenelse.c` also recognizes an ITE after one of the two
+// opposite-side ternaries has shortened to a binary.  This is the exact
+// candidate-897 shape from the Rank-15 trace (renumbered): the two negative
+// ternaries define the ITE, (x∨¬6) is its shortened positive gate clause,
+// and (x∨¬3) / (¬x∨4) are antecedents whose resolvent must be skipped.
+static void test_gate_ite_accepts_shortened_binary_clause() {
+  Kernel k;
+  kernel_reserve_vars(k, 7); // x=1; trace vars 61,841,896,62,898,953 -> 2..7
+  const int large[5][3] = {{-1, -2, 3}, {-4, 2, 1}, {-1, 5, 6},
+                           {-7, -5, 1}, {-1, -5, 7}};
+  for (const auto &clause : large) {
+    Lit lits[3] = {internalize(clause[0]), internalize(clause[1]),
+                   internalize(clause[2])};
+    kernel_add_large_clause(k, lits, 3, false, 0);
+  }
+  kernel_add_binary_clause(k, internalize(-6), internalize(1));
+  kernel_add_binary_clause(k, internalize(-1), internalize(4));
+  kernel_add_binary_clause(k, internalize(-3), internalize(1));
+  k.bve_gate_mask = BVE_GATE_ITE;
+  k.bve_bound = 16;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  assert(k.stats.bve_gates_ite == 1);
+  assert(!has_binary(k, internalize(-3), internalize(4)) &&
+         "ITE reduction must not resolve antecedent against antecedent");
 }
 
 // An arity-2 XOR gate x ↔ a⊕b, same arithmetic as the ITE case. The ITE
@@ -834,15 +878,14 @@ static void test_retry_filter() {
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);
   assert(!worth_retry(x));
-  // a new irredundant clause on x is new material: retry (var 14 is unused, so
-  // this adds an occurrence without forming a gate). Deviation: kissat marks on
-  // removal only, measured negative here — see kernel.cpp.
+  // Pinned Kissat's `mark_added_literal` does not set flags->eliminate: adding
+  // an irredundant clause alone does not retry x (var 14 is otherwise unused).
   kernel_add_binary_clause(k, internalize(1), internalize(14));
-  assert(worth_retry(x));
+  assert(!worth_retry(x));
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);
   assert(!worth_retry(x));
-  // deleting one of x's clauses is new material too
+  // Semantic removal is what rearms elimination.
   assert(kernel_delete_binary(k, internalize(1), internalize(14)));
   assert(worth_retry(x));
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
@@ -857,6 +900,24 @@ static void test_retry_filter() {
   // delete-only or lose the falsified literal), so x must be retried
   kernel_assign_unit(k, internalize(-2));
   assert(worth_retry(x));
+}
+
+static void test_large_rewrite_retries_only_removed_literals() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit original[4] = {internalize(1), internalize(2), internalize(3),
+                           internalize(4)};
+  const Ref ref = kernel_add_large_clause(k, original, 4, false, 0);
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
+
+  const Lit replacement[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id,
+                                       replacement, 3, 0);
+  assert(!k.bve_retry[var_of(internalize(1))]);
+  assert(!k.bve_retry[var_of(internalize(2))]);
+  assert(!k.bve_retry[var_of(internalize(3))]);
+  assert(k.bve_retry[var_of(internalize(4))]);
+  kernel_check_invariants(k);
 }
 
 // Wrong-SAT regression: a backward strengthening that collapses a victim to
@@ -947,6 +1008,7 @@ int main() {
   test_instance_surface();
   test_antecedent_clause_size_limit();
   test_eliminate_basic();
+  test_elimination_retains_duplicate_binary_resolvent();
   test_scheduled_candidate_that_becomes_isolated_is_retired();
   test_eliminate_reconstruction();
   test_eliminate_frozen_pivot_reconstruction();
@@ -955,12 +1017,14 @@ int main() {
   test_gate_and_or_fires();
   test_gate_equivalence_substitution();
   test_gate_ite_fires();
+  test_gate_ite_accepts_shortened_binary_clause();
   test_gate_xor_fires();
   test_gate_definition_fires();
   test_definition_one_sided_core_emits_unit();
   test_definition_reconstruction_exhaustive();
   test_gate_mask();
   test_retry_filter();
+  test_large_rewrite_retries_only_removed_literals();
   test_backward_strengthen_to_unit_asserts();
   test_backward_binary_victim_strengthen_to_unit();
   puts("test_bve OK");

@@ -127,8 +127,13 @@ static void test_terminal_dispatch() {
     const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
     const Ref candidate = kernel_add_large_clause(k, lits, 3, false, 0);
     kernel_add_large_clause(k, lits, 3, true, 2);
+    const uint64_t marks_before = k.stats.bve_marks;
     assert(vivify_try(k, candidate) == ApplyResult::Ok);
     assert(k.stats.vivify_subsumed == 1 && k.stats.vivify_promoted == 1);
+    // Deleting the irredundant candidate marks its three removed literals.
+    // Promoting the redundant subsumer is added material and must not add a
+    // second set of Eliminate marks (`mark_added_literals` in pinned Kissat).
+    assert(k.stats.bve_marks - marks_before == 3);
     bool saw_irredundant = false;
     for (Ref r = 0; r < k.arena.size();) {
       const Clause *c = clause_at(k.arena, r);
