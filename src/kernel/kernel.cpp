@@ -1869,24 +1869,21 @@ static uint64_t logical_clause_order(const Kernel &k, Ref ref) {
 }
 
 // Stable LSD radix ordering over the exact clause-order key.  Kissat obtains
-// this order for free by traversing its physical irredundant arena prefix.
-// Tactix keeps an independent CaDiCaL-style physical arena and therefore has
-// to reconstruct the logical order after append-only replacements.  The
-// direct ID image makes a fixed-width stable radix pass the corresponding
-// linear representation operation; comparison sorting the multi-million
-// clause image made dense entry and sparse resume dominate useful rule work.
+// this order for free because its physical arena retains in-place replacement
+// positions.  Tactix uses append-only variable-width replacement records and
+// therefore has to reconstruct that order.  The direct ID image makes a
+// fixed-width stable radix pass the corresponding linear representation
+// operation; comparison sorting the multi-million clause image made dense
+// entry and sparse resume dominate useful rule work.
 void kernel_sort_refs_by_logical_clause_order(const Kernel &k,
                                               std::vector<Ref> &refs) {
   if (refs.size() < 2)
     return;
 
-  std::vector<uint64_t> keys;
-  keys.reserve(refs.size());
   bool ordered = true;
   uint64_t previous = 0;
   for (size_t i = 0; i < refs.size(); ++i) {
     const uint64_t key = logical_clause_order(k, refs[i]);
-    keys.push_back(key);
     if (i && key < previous)
       ordered = false;
     previous = key;
@@ -1894,6 +1891,10 @@ void kernel_sort_refs_by_logical_clause_order(const Kernel &k,
   if (ordered)
     return;
 
+  std::vector<uint64_t> keys;
+  keys.reserve(refs.size());
+  for (const Ref ref : refs)
+    keys.push_back(logical_clause_order(k, ref));
   std::vector<Ref> ref_scratch(refs.size());
   std::vector<uint64_t> key_scratch(keys.size());
   for (unsigned shift = 0; shift < 64; shift += 8) {
@@ -1937,9 +1938,9 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
       order.push_back(ref);
     ref += clause_actual_words(c);
   }
-  // Kissat's dense lists follow its irredundant arena prefix. Tactix keeps an
-  // independent CaDiCaL-style physical arena pose, but proof/source identities
-  // retain the corresponding Kissat order, including replacement aliases.
+  // Kissat's dense lists follow its irredundant arena prefix. Tactix's
+  // proof/source identities retain the corresponding order across append-only
+  // replacement records, including replacement aliases.
   kernel_sort_refs_by_logical_clause_order(k, order);
   for (const Ref ref : order)
     for (const Lit lit : *clause_at(k.arena, ref))
@@ -2016,8 +2017,17 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     std::stable_partition(tail, order.end(), [&k](Ref ref) {
       return !clause_at(k.arena, ref)->redundant();
     });
-  } else if (k.arena_ordering)
+  } else if (k.arena_ordering) {
     k.arena_ordering->order(k, order);
+  } else {
+    // Production emulates Kissat's in-place clause replacements: a packed
+    // replacement returns to its inherited creation position instead of
+    // retaining Tactix's append-only allocation position.  The explicit
+    // CaDiCaL diagnostic arm above remains the only alternative whole-arena
+    // permutation.  Sparse collection deliberately stays on the separate
+    // physical-prefix path above.
+    kernel_sort_refs_by_logical_clause_order(k, order);
+  }
 #ifndef NDEBUG
   std::vector<uint8_t> seen(k.arena.size());
   for (const Ref ref : order) {
@@ -2127,8 +2137,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     ref += clause_actual_words(c);
   }
   // Subsume/Strengthen collection can occur between dense phase entry and BVE.
-  // Rebuild after every relocation so it cannot overwrite the source-order
-  // pose installed at entry with Tactix's physical arena permutation.
+  // Rebuild after every relocation so append-only replacement allocation or a
+  // diagnostic physical permutation cannot overwrite the source-order pose.
   if (k.dense)
     rebuild_dense_large_occurrences(k, *k.dense);
   // Every surviving binary was kept in place by the strip above and every large

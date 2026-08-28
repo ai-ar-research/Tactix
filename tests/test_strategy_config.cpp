@@ -57,7 +57,8 @@ int main() {
   assert(defaults.inprocess.factor_repeated_enabled &&
          defaults.inprocess.factor_permille == 50 &&
          defaults.inprocess.factor_active_ceiling == 0);
-  assert(defaults.inprocess.arena_ordering_enabled);
+  assert(!defaults.inprocess.cadical_arena_ordering_enabled &&
+         "production must retain Kissat creation order");
   assert(defaults.inprocess.subsume_forward_permille == 100);
   assert(defaults.inprocess.vivify_enabled &&
          defaults.inprocess.vivify_permille == 100);
@@ -99,7 +100,7 @@ int main() {
   diagnostic.inprocess.vivify_enabled = false;
   diagnostic.inprocess.vivify_permille = 17;
   diagnostic.inprocess.forward_midround_budget = true;
-  diagnostic.inprocess.arena_ordering_enabled = false;
+  diagnostic.inprocess.cadical_arena_ordering_enabled = true;
   DefaultPolicy explicit_arm(diagnostic);
   const std::string diagnostic_snapshot = explicit_arm.strategy_config_snapshot();
   (void)explicit_arm.classify_formula_counts(1000000, 1);

@@ -143,9 +143,10 @@ struct DefaultStrategyConfig {
     bool vivify_enabled = true;
     bool factor_repeated_enabled = true;
     bool preprocess_only = false;
-    // Accepted CaDiCaL-style arena permutation. The false value is the
-    // explicit Kissat creation-order parity arm, never a formula classifier.
-    bool arena_ordering_enabled = true;
+    // Kissat creation order is the production default.  Enabling this switch
+    // is the explicit CaDiCaL VMTF/phase-order diagnostic arm; classification
+    // and benchmark identity never select it.
+    bool cadical_arena_ordering_enabled = false;
     uint64_t eliminate_interval = INPROCESS_ELIMINATE_INTERVAL_DEFAULT;
     uint64_t probe_interval = INPROCESS_PROBE_INTERVAL_DEFAULT;
     uint64_t minimum_effort_ticks = INPROCESS_MINIMUM_EFFORT_DEFAULT;
