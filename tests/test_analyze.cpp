@@ -627,6 +627,7 @@ static void test_otfs_strengthening_preserves_better_reason_glue() {
                            internalize(-1)};
   const Ref reason_ref = kernel_add_large_clause(k, reason, 7, true, 2);
   const Ref conflict_ref = kernel_add_large_clause(k, conflict, 7, true, 6);
+  clause_at(k.arena, reason_ref)->set_vivify(true);
 
   kernel_assign_decision(k, internalize(1));
   kernel_assign_decision(k, internalize(2));
@@ -649,6 +650,7 @@ static void test_otfs_strengthening_preserves_better_reason_glue() {
       assert(!found);
       found = true;
       assert(c->glue() == 2);
+      assert(c->vivify());
     }
     ref += clause_actual_words(c);
   }
