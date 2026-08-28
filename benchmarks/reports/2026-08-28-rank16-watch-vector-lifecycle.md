@@ -101,13 +101,44 @@ node014, Tactix takes 139.740 internal / 139.75 wall seconds and Kissat takes
 gap is 1.091x, not the former multi-fold SAT gap; RSS remains 96,032 versus
 60,012 KiB.
 
+## Allocation follow-up: rejected raw-stack candidate
+
+The 1,134-row slot-memory trace in campaign
+`20260828-1710-tierd-sat-rank16-slot-memory`, job 1654605, shows that live
+storage is not a 96 MiB representation. At the final Vivify boundary Tactix
+holds a 32 MiB watch allocation, about 9.5 MiB of clause-arena capacity, and a
+current RSS of 59,532 KiB. Its 96,600 KiB high-water mark is transient.
+
+A follow-up candidate replaced the vector backing store with the same raw
+`realloc` stack interface used by Kissat and packed the live vectors downward
+in place. Reversed same-CPU campaign
+`20260828-1740-tierd-sat-rank16-samecpu-realloc-watch-arena`, job 1654607,
+preserved every decision, conflict, propagation, and checked model. It was
+slightly faster than the vector baseline (144.145 versus 145.464 internal
+seconds), but peak RSS regressed from 96,032 to 104,224 KiB.
+
+Corrected diagnostic campaign
+`20260828-1810-tierd-sat-rank16-realloc-slot-memory`, job 1654609, localizes the
+regression. At the corresponding final Vivify boundary the raw-stack process
+retains 46,367 KiB of free heap storage versus 19,167 KiB in the vector trace;
+the following Sweep raises the high-water mark to 104,736 KiB. Thus raw
+`realloc` changes allocator retention without reducing the live formula image.
+The production candidate was rejected and the simpler vector backing retained.
+No allocator-, formula-, size-, rank-, or benchmark-specific gate was added.
+
+Job 1654608 was the first trace attempt and is non-scorable infrastructure
+evidence: its production binary lacked event-trace support, so the SAT model
+checked but the requested trace file did not exist. Job 1654609 uses a pinned
+diagnostic-only trace build and supersedes it.
+
 ## Correctness and reopening conditions
 
 The complete Release suite passes 76/76. Focused Kernel, Parse, Substitute, and
 Congruence tests pass under ASan/UBSan with leak detection disabled for the
 ptrace-constrained environment. The growth regression pins the three-word
 initial tail, doubled relocation image, usable accounting, strict 75-percent
-boundary, and post-clause-only pack.
+boundary, post-clause-only pack, and word preservation across both relocation
+and defragmentation.
 
 N1--N4, proof behavior, the proof-rule/strategy boundary, formula
 classification, and all production effort/admission settings are unchanged.

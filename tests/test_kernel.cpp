@@ -1799,6 +1799,9 @@ static void test_kissat_watch_growth_and_clause_checkpoint_defrag() {
   assert(growth.heads[0].size == 4);
   assert(growth.heads[0].capacity == 6);
   assert(growth.holes == 5); // abandoned prefix 3 + spare suffix 2
+  for (uint32_t i = 0; i < growth.size(0); i++)
+    assert(growth.arena[growth.heads[0].offset + i] ==
+           binary_watch(1).raw);
   growth.push_binary(1, 0);
   assert(growth.heads[1].offset == 9);
   assert(growth.holes == 5);
@@ -1830,6 +1833,9 @@ static void test_kissat_watch_growth_and_clause_checkpoint_defrag() {
   assert(watches.holes == 0);
   assert(watches.arena.size() == 74999);
   assert(watches.size(0) == 74999);
+  for (uint32_t i = 0; i < watches.size(0); i++)
+    assert(watches.arena[watches.heads[0].offset + i] ==
+           binary_watch(i & 1u).raw);
 }
 
 int main() {
