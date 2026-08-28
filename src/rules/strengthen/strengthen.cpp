@@ -276,6 +276,7 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t since,
     uint64_t first, second;
   };
   std::vector<UnitWitness> units;
+  std::vector<std::pair<Lit, Lit>> duplicates;
   std::vector<uint8_t> marks(2 * static_cast<size_t>(k.nvars), 0);
   std::vector<uint64_t> ids(2 * static_cast<size_t>(k.nvars), 0);
   for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
@@ -292,8 +293,16 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t since,
       if (kernel_var_retired(k, ov) || k.value(other) != 0 ||
           (filtered && !kernel_touched_since(k, ov, since)))
         continue;
-      if (marks[other])
+      if (marks[other]) {
+        // The current list itself is the exact multiplicity authority.  Record
+        // the pair while it is already in cache instead of rescanning this
+        // (potentially very high-degree) list once for every binary below.
+        // Only one mirror owns the candidate; sort/unique still protects the
+        // result from triples and later additions in the same physical list.
+        if (lit < other)
+          duplicates.emplace_back(lit, other);
         continue; // a later physical duplicate; compacted below
+      }
       if (marks[negate(other)])
         units.push_back(
             {lit, ids[negate(other)], kernel_binary_id(k, lit, other)});
@@ -306,25 +315,7 @@ static uint64_t sweep_forward_binaries(Kernel &k, uint64_t since,
       ids[other] = 0;
     }
   }
-
   uint64_t removed = 0;
-  std::vector<std::pair<Lit, Lit>> duplicates;
-  for (Lit a = 0; a < 2 * k.nvars; ++a) {
-    const Var av = var_of(a);
-    if (kernel_var_retired(k, av) || k.value(a) != 0 ||
-        (filtered && !kernel_touched_since(k, av, since)))
-      continue;
-    for (const WatchEntry w : k.watches.entries(a)) {
-      if (!w.binary())
-        continue;
-      const Lit b = w.other();
-      if (a >= b || kernel_var_retired(k, var_of(b)) || k.value(b) != 0 ||
-          (filtered && !kernel_touched_since(k, var_of(b), since)))
-        continue;
-      if (kernel_binary_copies(k, a, b, 2) > 1)
-        duplicates.emplace_back(a, b);
-    }
-  }
   std::sort(duplicates.begin(), duplicates.end());
   duplicates.erase(std::unique(duplicates.begin(), duplicates.end()),
                    duplicates.end());
