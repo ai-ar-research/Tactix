@@ -112,8 +112,26 @@ struct WatchLists {
   std::vector<uint32_t> arena;
   std::vector<WatchHead> heads; // by lit
   uint64_t holes = 0;           // dead words left by relocations
+  // Bulk import grows many literal slices in lockstep.  Defragmenting whenever
+  // their accumulated holes cross the ordinary online threshold resets every
+  // slice's geometric headroom and makes the next import wave repeat the same
+  // whole-arena copy.  Defer that global operation across the bounded import
+  // scope; individual slices still grow geometrically and remain readable.
+  bool defrag_deferred = false;
 
   void resize_lits(size_t nlits) { heads.resize(nlits); }
+
+  void begin_deferred_defrag() {
+    assert(!defrag_deferred);
+    defrag_deferred = true;
+  }
+  void finish_deferred_defrag() {
+    if (!defrag_deferred)
+      return;
+    defrag_deferred = false;
+    if (holes)
+      defrag();
+  }
 
   uint32_t *begin(Lit l) { return arena.data() + heads[l].offset; }
   uint32_t *end(Lit l) { return begin(l) + heads[l].size; }
@@ -281,7 +299,7 @@ private:
     // before crossing capacity.  Reserve the old capacity in the packed arena:
     // this pays one bounded copy and prevents an immediate second growth while
     // preserving every per-literal entry order.
-    if (arena.size() + ncap > arena.capacity() &&
+    if (!defrag_deferred && arena.size() + ncap > arena.capacity() &&
         holes >= arena.size() / 8 && arena.size() > (1u << 16))
       defrag(arena.capacity());
     const uint32_t noff = static_cast<uint32_t>(arena.size());
@@ -293,7 +311,8 @@ private:
     holes += hh.capacity;
     hh.offset = noff;
     hh.capacity = ncap;
-    if (holes > arena.size() / 2 && arena.size() > (1u << 16))
+    if (!defrag_deferred && holes > arena.size() / 2 &&
+        arena.size() > (1u << 16))
       defrag();
   }
 

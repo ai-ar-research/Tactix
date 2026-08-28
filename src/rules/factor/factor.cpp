@@ -36,6 +36,29 @@ inline void charge_factor_watch_scan(Kernel &k, uint64_t watches) {
   k.stats.factor_ticks += 1 + factor_cache_lines(watches);
 }
 
+// Factor's null-stack dense entry leaves every pre-existing watch slice
+// binary-only.  Traverse that packed four-byte image directly, as Kissat's
+// `all_binary_large_watches` does over its dense stack, instead of paying the
+// sparse reader's tag-dependent stride on every binary.  A composite factoring
+// can append a large quotient later in the same application; those mixed lists
+// deliberately fall back to the ordinary entry-aware iterator.
+template <class Visit>
+inline void for_each_factor_binary(const Kernel &k, Lit lit, Visit visit) {
+  const WatchHead &head = k.watches.heads[lit];
+  if (head.size == head.binary_count()) {
+    const uint32_t *word = k.watches.arena.data() + head.offset;
+    const uint32_t *const end = word + head.size;
+    for (; word != end; ++word) {
+      assert(Watch{*word}.binary());
+      visit(Watch{*word}.other());
+    }
+    return;
+  }
+  for (const WatchEntry watch : k.watches.entries(lit))
+    if (watch.binary())
+      visit(watch.other());
+}
+
 // --- remainder interning (`docs/design/e2-factorsize-design.md`) -------------
 // A remainder is `C \ {f}` for a grid clause C.  Content is interned so equal
 // remainders compare cheaply, but quotient columns are clause OCCURRENCES and
@@ -96,14 +119,11 @@ struct RemPool {
 // clauses are excluded because S2 Reduce could delete a grid member between
 // selection and application.
 struct FactorWatch {
-  static constexpr uint64_t DEAD_BINARY = UINT64_C(1) << 63;
-  Lit other = INVALID_LIT;
   Ref ref = INVALID_REF;
-  // Binary entries use all 64 bits for the proof clause id.  Large entries
-  // pack two 32-bit, apply-local representation keys into the same storage:
+  // Pack two 32-bit, apply-local representation keys into the same storage:
   // the immutable clause occurrence id and the lazily interned remainder id.
-  // This keeps FactorWatch at its old footprint while allowing Kissat-style
-  // dense temporary marks instead of per-column hash sets.
+  // This allows Kissat-style dense temporary marks instead of per-column hash
+  // sets. Binary entries are borrowed from Kernel::watches, never copied here.
   uint64_t payload = UINT64_MAX;
   // A large clause and the factor literal naming this dense-watch entry are
   // immutable for the lifetime of one Factor application.  Cache its interned
@@ -111,37 +131,17 @@ struct FactorWatch {
   // sorting, hashing, and comparing the same clause remainder.  UINT32_MAX
   // also covers a remainder that was not yet materialized; failures caused by
   // the moving fresh-literal boundary are deliberately not cached.
-  bool binary() const { return ref == INVALID_REF; }
-  uint64_t binary_id() const {
-    assert(binary());
-    return payload & ~DEAD_BINARY;
-  }
-  bool binary_live() const {
-    assert(binary());
-    return !(payload & DEAD_BINARY);
-  }
-  void retire_binary() {
-    assert(binary());
-    payload |= DEAD_BINARY;
-  }
   uint32_t large_id() const {
-    assert(!binary());
+    assert(ref != INVALID_REF);
     return static_cast<uint32_t>(payload);
   }
   uint32_t remainder_id() const {
-    assert(!binary());
+    assert(ref != INVALID_REF);
     return static_cast<uint32_t>(payload >> 32);
   }
   void set_remainder_id(uint32_t id) {
-    assert(!binary());
+    assert(ref != INVALID_REF);
     payload = (static_cast<uint64_t>(id) << 32) | large_id();
-  }
-  static FactorWatch binary_watch(Lit other, uint64_t id) {
-    assert(id < DEAD_BINARY);
-    FactorWatch result;
-    result.other = other;
-    result.payload = id;
-    return result;
   }
   static FactorWatch large_watch(Ref ref, uint32_t large_id) {
     FactorWatch result;
@@ -155,9 +155,11 @@ static_assert(sizeof(FactorWatch) == 16,
 
 struct FactorIndex {
   std::vector<std::vector<Ref>> occ; // by literal
-  // Kissat's dense Factor watches are one ordered stream: each binary partner
-  // surviving dense-entry deduplication, then candidate large clauses in arena
-  // order, then every divider/quotient appended during the pass.
+  // Large-clause half of Kissat's dense Factor watches, in arena/append order.
+  // Binary partners stay in the kernel's compact watch slices and are scanned
+  // there directly.  Copying each 4-byte kernel watch into a 16-byte
+  // FactorWatch on every application dominated binary-heavy SAT instances and
+  // has no counterpart in Kissat, whose dense mode reuses its watch stacks.
   std::vector<std::vector<FactorWatch>> order;
   // Exact live size of each dense Factor watch list.  Kissat obtains this in
   // O(1) from its stack header for heap scores and next-factor tie breaks.
@@ -311,9 +313,7 @@ static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
   bincount.assign(2 * k.nvars, 0);
   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++) {
     uint32_t n = 0;
-    for (const WatchEntry w : k.watches.entries(l))
-      if (w.binary())
-        n++;
+    for_each_factor_binary(k, l, [&](Lit) { n++; });
     bincount[l] = n;
   }
 }
@@ -324,12 +324,7 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   idx.live_degree.assign(2 * k.nvars, 0);
   idx.large_count = 0;
   for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
-    for (const WatchEntry watch : k.watches.entries(lit))
-      if (watch.binary()) {
-        idx.order[lit].push_back(FactorWatch::binary_watch(
-            watch.other(), kernel_binary_id(k, lit, watch.other())));
-        idx.live_degree[lit]++;
-      }
+    idx.live_degree[lit] = k.watches.binary_size(lit);
     // Factor enters Kissat's dense mode with a null binary-save stack.  That
     // flushes large watches but deliberately keeps the current sparse binary
     // sequence; unlike Congruence it does not sort/reconnect the pairs.  This
@@ -448,12 +443,6 @@ struct RemOccurrence {
   Ref ref; // INVALID_REF denotes the proof-addressable binary pair.
 };
 
-bool factor_binary_live(const Kernel &k, Lit lit, const FactorWatch &watch) {
-  (void)k;
-  (void)lit;
-  return watch.binary_live();
-}
-
 // All remainder OCCURRENCES of `l`: its unique binary partners in encounter
 // order, followed by one entry per indexed large clause containing `l`. Equal
 // large clauses deliberately yield repeated ids.
@@ -463,14 +452,13 @@ void remainder_occurrences_of(Kernel &k, FactorIndex &idx, RemPool &pool,
   out.clear();
   if (!idx.built || l >= idx.order.size())
     return;
-  for (FactorWatch &watch : idx.order[l]) {
-    if (watch.binary()) {
-      if (watch.other < limit && factor_binary_live(k, l, watch)) {
-        k.stats.factor_ticks++;
-        out.push_back({pool.intern_unit(watch.other), INVALID_REF});
-      }
-      continue;
+  for_each_factor_binary(k, l, [&](Lit other) {
+    if (other < limit) {
+      k.stats.factor_ticks++;
+      out.push_back({pool.intern_unit(other), INVALID_REF});
     }
+  });
+  for (FactorWatch &watch : idx.order[l]) {
     if (k.factor_size < 3)
       continue;
     const Ref ref = watch.ref;
@@ -510,13 +498,6 @@ bool matches_interned_remainder(const Clause *c, Lit factor, Lit limit,
   return found_factor;
 }
 
-bool contains(const std::vector<Lit> &v, Lit l) {
-  for (const Lit x : v)
-    if (x == l)
-      return true;
-  return false;
-}
-
 void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
                      const std::vector<uint32_t> &R, const RemPool &pool,
                      const std::vector<std::vector<Ref>> &grid_refs) {
@@ -530,6 +511,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
   const Lit nx = make_lit(xv, true);  // ¬x
   const bool lrat = k.proof && k.proof->lrat();
   const auto append_binary_watch = [&](Lit a, Lit b, uint64_t id) {
+    (void)id;
     if (!idx.built)
       return;
     const size_t need = static_cast<size_t>(std::max(a, b)) + 1;
@@ -537,8 +519,6 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       idx.order.resize(need);
     if (idx.live_degree.size() < need)
       idx.live_degree.resize(need, 0);
-    idx.order[a].push_back(FactorWatch::binary_watch(b, id));
-    idx.order[b].push_back(FactorWatch::binary_watch(a, id));
     idx.live_degree[a]++;
     idx.live_degree[b]++;
   };
@@ -642,28 +622,26 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
   // Delete the originals last (proof `del`), all copies: a duplicated grid
   // binary is fully replaced by the aux-var definition, while every large
   // occurrence is deleted through the exact Ref carried by the aligned grid.
-  const auto invalidate_binary_watch = [&](Lit a, Lit b) {
+  const auto delete_binary_watch = [&](Lit a, Lit b) {
+    const uint32_t copies = kernel_binary_copies(k, a, b);
+    assert(copies);
     if (!idx.built)
-      return;
-    for (FactorWatch &watch : idx.order[a])
-      if (watch.binary() && watch.binary_live() && watch.other == b) {
-        watch.retire_binary();
-        assert(idx.live_degree[a]);
-        idx.live_degree[a]--;
-      }
-    for (FactorWatch &watch : idx.order[b])
-      if (watch.binary() && watch.binary_live() && watch.other == a) {
-        watch.retire_binary();
-        assert(idx.live_degree[b]);
-        idx.live_degree[b]--;
-      }
+      return kernel_delete_binary_all_copies_known(k, a, b, copies);
+    else {
+      assert(idx.live_degree[a] >= copies);
+      assert(idx.live_degree[b] >= copies);
+      idx.live_degree[a] -= copies;
+      idx.live_degree[b] -= copies;
+      return kernel_delete_binary_all_copies_known(k, a, b, copies);
+    }
   };
   for (size_t i = F.size(); i-- > 0;)
     for (size_t column = 0; column < R.size(); column++) {
       const uint32_t rid = R[column];
       if (pool.size_of(rid) == 1) {
-        invalidate_binary_watch(F[i], pool.lit0(rid));
-        kernel_delete_binary_all_copies(k, F[i], pool.lit0(rid));
+        const bool deleted = delete_binary_watch(F[i], pool.lit0(rid));
+        assert(deleted);
+        (void)deleted;
         continue;
       }
       const Ref ref = grid_refs[i][column];
@@ -744,11 +722,14 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   assert(factor_guard(k));
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
-  // Kissat enters dense mode immediately before Factor. That transition
-  // flushes duplicate binary watches while preserving their first encounter
-  // order; Tactix's longer-lived phase occurrence index does not otherwise
-  // reproduce this boundary.
-  kernel_deduplicate_binary_watches(k);
+  // Kissat enters dense mode immediately before Factor through the null-stack
+  // `kissat_flush_large_watches` path: keep the first binary for each partner
+  // in encounter order and remove every sparse large watch.  Factor reconnects
+  // the irredundant large occurrences in its own dense index below, and sparse
+  // resume rebuilds the search watches on exit.  Keeping mixed sparse watches
+  // here made every binary quotient scan walk unrelated large entries, a
+  // representation cost absent from Kissat's dense Factor mode.
+  kernel_flush_large_watches(k);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (const char *p = std::getenv("TACTIX_DUMP_PREFACTOR"))
     dump_factored_and_exit(k, p);
@@ -812,6 +793,22 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   std::vector<uint32_t> reserved_large_epoch(fidx.large_count, 0);
   std::vector<uint32_t> used_large_epoch(fidx.large_count, 0);
   std::vector<uint32_t> counted_literal_epoch(next_factor_limit, 0);
+  // Kissat tests a byte-sized `marks[lit] & FACTOR` bit while growing a
+  // quotient.  Keep the same temporary bit and clear only the literals in F
+  // after each seed.  A 32-bit epoch fixed the old quadratic search too, but
+  // made the 733M-visit binary loop load four times the state and reload the
+  // current epoch on every candidate.
+  std::vector<uint8_t> factor_member(next_factor_limit, 0);
+  // Kissat's hot next-factor loop reads one cached `flags[idx].active` bit.
+  // Tactix otherwise reconstructs that same predicate from the literal value
+  // and variable-retirement arrays on every dense-watch visit.  Snapshot the
+  // application-stable predicate per literal; Factor does not assign or retire
+  // existing variables, and the one admitted fresh positive literal is marked
+  // when its extension variable is created below.
+  std::vector<uint8_t> factor_active(next_factor_limit, 0);
+  for (Lit lit = 0; lit < initial_lits; lit++)
+    factor_active[lit] =
+        k.value(lit) == 0 && !kernel_var_retired(k, var_of(lit));
   uint32_t reserved_epoch = 0, used_epoch = 0, counted_epoch = 0;
   const auto advance_epoch = [](std::vector<uint32_t> &marks,
                                 uint32_t &epoch) {
@@ -915,18 +912,16 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     if (selected_literal &&
         std::atoi(selected_literal) == kernel_externalize(k, l)) {
       uint32_t ordinal = 0;
-      for (const FactorWatch watch : fidx.order[l]) {
-        const Clause *clause = nullptr;
-        bool live = false;
-        if (watch.binary()) {
-          live = watch.other < live_lits && factor_binary_live(k, l, watch);
-        } else {
-          clause = clause_at(k.arena, watch.ref);
-          live = grid_clause_live(k, clause);
-        }
+      for_each_factor_binary(k, l, [&](Lit other) {
         event_trace_factor_literal_entry(
-            k, l, ordinal++, live, watch.other,
-            watch.binary() ? watch.binary_id() : clause->id(), clause);
+            k, l, ordinal++, other < live_lits, other,
+            kernel_binary_id(k, l, other), nullptr);
+      });
+      for (const FactorWatch watch : fidx.order[l]) {
+        const Clause *clause = clause_at(k.arena, watch.ref);
+        const bool live = grid_clause_live(k, clause);
+        event_trace_factor_literal_entry(
+            k, l, ordinal++, live, INVALID_LIT, clause->id(), clause);
       }
     }
 #endif
@@ -1006,6 +1001,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     if (R.size() < 2)
       continue;
     F.assign(1, seed);
+    factor_member[seed] = 1;
     int best_delta = 0;
     best_F.clear();
     best_R.clear();
@@ -1021,8 +1017,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       // also the tie-break between equal count/score candidates.
       touched.clear();
       const auto count_candidate = [&](Lit candidate) -> bool {
-        if (candidate >= next_factor_limit || k.value(candidate) != 0 ||
-            kernel_var_retired(k, var_of(candidate)) || contains(F, candidate))
+        // Predicate order follows Kissat factor.c:350-357: boundary, FACTOR
+        // mark, then ACTIVE.  `factor_active` is exactly Tactix's former
+        // value-zero plus not-retired conjunction, cached above.
+        if (candidate >= next_factor_limit ||
+            factor_member[candidate] || !factor_active[candidate])
           return false;
         if (!cofactor[candidate])
           touched.push_back(candidate);
@@ -1040,18 +1039,18 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         const Lit *remainder = pool.lits_of(rid);
         if (rn == 1) {
           const Lit q = remainder[0];
-          if (q >= fidx.order.size())
+          if (q >= static_cast<Lit>(2 * k.nvars))
             continue;
           charge_factor_watch_scan(k, reference_score_of(q));
-          for (const FactorWatch watch : fidx.order[q])
-            if (watch.binary() && factor_binary_live(k, q, watch) &&
-                count_candidate(watch.other)) {
+          for_each_factor_binary(k, q, [&](Lit other) {
+            if (count_candidate(other)) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
               event_trace_factor_candidate_binary_source(
                   k, seed, static_cast<uint32_t>(F.size()),
-                  static_cast<uint32_t>(column), q, watch.other);
+                  static_cast<uint32_t>(column), q, other);
 #endif
             }
+          });
           if (over_budget()) {
             next_factor_budget_hit = true;
             break;
@@ -1068,7 +1067,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         uint32_t scan_size = 0;
         uint32_t factors_in_clause = 0;
         for (const Lit lit : *current) {
-          if (contains(F, lit)) {
+          if (lit < factor_member.size() && factor_member[lit]) {
             factors_in_clause++;
             continue;
           }
@@ -1085,8 +1084,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         charge_factor_watch_scan(k, reference_score_of(scan));
         advance_epoch(counted_literal_epoch, counted_epoch);
         for (const FactorWatch watch : fidx.order[scan]) {
-          if (watch.binary())
-            continue;
           const Ref ref = watch.ref;
           if (ref == current_ref)
             continue;
@@ -1107,7 +1104,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           for (const Lit lit : *candidate_clause) {
             if (std::binary_search(remainder, remainder + rn, lit))
               continue;
-            if (contains(F, lit) ||
+            if ((lit < factor_member.size() && factor_member[lit]) ||
                 (lit < counted_literal_epoch.size() &&
                  counted_literal_epoch[lit] == counted_epoch) ||
                 candidate != INVALID_LIT) {
@@ -1117,8 +1114,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             candidate = lit;
           }
           if (!matches || candidate == INVALID_LIT ||
-              candidate >= next_factor_limit || k.value(candidate) != 0 ||
-              kernel_var_retired(k, var_of(candidate)))
+              candidate >= next_factor_limit || !factor_active[candidate])
             continue;
           counted_literal_epoch[candidate] = counted_epoch;
           reserved_large_epoch[large_id] = reserved_epoch;
@@ -1168,19 +1164,18 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         event_trace_factor_candidate(k, seed, static_cast<uint32_t>(F.size()),
                                      ordinal, h, c, score);
         uint32_t score_entry_ordinal = 0;
-        for (const FactorWatch watch : fidx.order[h]) {
-          const Clause *clause = nullptr;
-          bool live = false;
-          if (watch.binary()) {
-            live = watch.other < live_lits && factor_binary_live(k, h, watch);
-          } else {
-            clause = clause_at(k.arena, watch.ref);
-            live = grid_clause_live(k, clause);
-          }
+        for_each_factor_binary(k, h, [&](Lit other) {
           event_trace_factor_score_entry(
               k, seed, static_cast<uint32_t>(F.size()), h,
-              score_entry_ordinal++, live, watch.other,
-              watch.binary() ? watch.binary_id() : clause->id(), clause);
+              score_entry_ordinal++, other < live_lits, other,
+              kernel_binary_id(k, h, other), nullptr);
+        });
+        for (const FactorWatch watch : fidx.order[h]) {
+          const Clause *clause = clause_at(k.arena, watch.ref);
+          const bool live = grid_clause_live(k, clause);
+          event_trace_factor_score_entry(
+              k, seed, static_cast<uint32_t>(F.size()), h,
+              score_entry_ordinal++, live, INVALID_LIT, clause->id(), clause);
         }
 #endif
         if (c > bestc) {
@@ -1201,11 +1196,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         std::fill(binary_partner_epoch.begin(), binary_partner_epoch.end(), 0);
         binary_epoch = 1;
       }
-      if (g < fidx.order.size())
-        for (const FactorWatch watch : fidx.order[g])
-          if (watch.binary() && watch.other < binary_partner_epoch.size() &&
-              factor_binary_live(k, g, watch))
-            binary_partner_epoch[watch.other] = binary_epoch;
+      if (g < static_cast<Lit>(2 * k.nvars))
+        for_each_factor_binary(k, g, [&](Lit other) {
+          if (other < binary_partner_epoch.size())
+            binary_partner_epoch[other] = binary_epoch;
+        });
 
       // Filter every existing row through the same match indices, then append
       // g's exact clause Ref as the new row.  Iterating R in its current order
@@ -1243,7 +1238,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           uint32_t scan_size = 0;
           uint32_t factors_in_clause = 0;
           for (const Lit lit : *current) {
-            if (contains(F, lit)) {
+            if (lit < factor_member.size() && factor_member[lit]) {
               factors_in_clause++;
               continue;
             }
@@ -1259,8 +1254,6 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           charge_factor_watch_scan(k, reference_score_of(scan));
           const Lit *expected = pool.lits_of(rid);
           for (const FactorWatch watch : fidx.order[scan]) {
-            if (watch.binary())
-              continue;
             const Ref ref = watch.ref;
             if (ref == current_ref)
               continue;
@@ -1313,6 +1306,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       }
       // commit g and shrink R to newR to keep growing.
       F.push_back(g);
+      factor_member[g] = 1;
       R.swap(newR);
       grid_refs.swap(new_grid_refs);
     }
@@ -1359,9 +1353,17 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         cofactor.resize(std::max(live_lits, next_factor_limit), 0);
         armed.resize(std::max(live_lits, next_factor_limit), 0);
         binary_partner_epoch.resize(std::max(live_lits, next_factor_limit), 0);
+        factor_member.resize(std::max(live_lits, next_factor_limit), 0);
         const Lit fresh = make_lit(added_fresh, false);
         const Lit not_fresh = negate(fresh);
         assert(k.factor_marks[fresh] && k.factor_marks[not_fresh]);
+        // The fixed `next_factor_limit` admits only the first fresh positive
+        // literal of this application.  Later composite extension variables
+        // can be first-factor seeds, but can never pass next_factor's boundary
+        // and therefore have no slot in this fixed ACTIVE image.
+        if (fresh < factor_active.size())
+          factor_active[fresh] =
+              k.value(fresh) == 0 && !kernel_var_retired(k, added_fresh);
         armed[fresh] = armed[not_fresh] = 1;
       }
       // Clause addition re-arms exactly the polarities present in the new
@@ -1417,6 +1419,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       trace_factor_heap(k, schedule, seed, "updated");
 #endif
+    }
+    for (const Lit factor : F) {
+      assert(factor < factor_member.size() && factor_member[factor]);
+      factor_member[factor] = 0;
     }
   }
 
