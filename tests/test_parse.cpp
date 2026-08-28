@@ -29,6 +29,9 @@ static void test_tumble_preserves_file_literal_order() {
   std::rewind(file);
   assert(parse_dimacs(file, k) == nullptr);
   std::fclose(file);
+  assert(k.binary_ids.tracks_keys());
+  assert(!k.binary_ids.tracks_values() &&
+         "proofless/DRAT import must not allocate LRAT id values");
 
   // Kissat imports variables before it recognizes a tautology, so 5 and 4
   // still occupy their first-occurrence positions even though that clause is

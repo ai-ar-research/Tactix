@@ -17,8 +17,9 @@ session narrative; this file is only the current resume surface.
   repeated linear binary-membership scans in BVE and Strengthen. The general
   dense-stream repair preserves exactly 551,149 conflicts and 5,224,515
   decisions while reducing wall 293.372→98.730 s. Compacting Strengthen's
-  ordered mixed entry from 24 to 8 bytes preserves the same trajectory and
-  independently checked model while reducing peak RSS 1,287,052→959,232 KiB;
+  ordered mixed entry from 24 to 8 bytes and selecting the existing key-only
+  DRAT archive preserve the same trajectory and independently checked model
+  while reducing peak RSS 1,287,052→829,152 KiB (35.6%);
   Factor remains near its Kissat component cost and is not the owner. The
   committed homogeneous follow-up has 50/80 provisional timings; its nine
   paired UNSAT ranks are already consumed at 1.283× geometric mean despite
