@@ -414,39 +414,22 @@ enum class SubstitutionArenaOrder {
   PreserveAllClausePositions,
 };
 
-// A canonical Substitute pass visits every pre-pass arena record once and
-// appends at most one large replacement for it. Encode that forwarding ref in
-// the now-garbage source's otherwise-dead `searched` word. This is the same
-// logical-position ledger as SweepSubstitutionSession, without two hash-table
-// entries per replacement on giant complete passes.
+// Canonical Substitute must ignore the solve-scoped diagnostic arena policy:
+// Kissat rewrites each source in place. The kernel's generation-local position
+// alias is the single authority for that pose; do not maintain a second
+// forwarding image in garbage clauses' `searched` words.
 struct CanonicalSubstitutionOrder final : ArenaOrdering {
-  Ref original_words = 0;
-
-  void begin(const Kernel &k) {
-    original_words = static_cast<Ref>(k.arena.size());
-  }
+  void begin(const Kernel &) {}
   void inherit(Kernel &k, Ref replacement, Ref source) {
-    assert(source < original_words && replacement >= original_words);
-    Clause *old = clause_at(k.arena, source);
-    assert(old->garbage());
-    old->searched = replacement;
+    assert(clause_at(k.arena, source)->garbage());
+    assert(kernel_clause_position(k, replacement) ==
+           kernel_clause_position(k, source));
+    (void)k;
+    (void)replacement;
+    (void)source;
   }
   void order(const Kernel &k, std::vector<Ref> &refs) override {
-    size_t written = 0;
-    for (Ref ref = 0; ref < original_words;) {
-      const Clause *c = clause_at(k.arena, ref);
-      if (!c->garbage()) {
-        refs[written++] = ref;
-      } else if (c->searched >= original_words &&
-                 c->searched < k.arena.size()) {
-        const Clause *replacement = clause_at(k.arena, c->searched);
-        if (!replacement->garbage())
-          refs[written++] = c->searched;
-      }
-      ref += clause_actual_words(c);
-    }
-    assert(written == refs.size());
-    refs.resize(written);
+    kernel_sort_refs_by_logical_clause_position(k, refs);
   }
 };
 

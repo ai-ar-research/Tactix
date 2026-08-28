@@ -80,8 +80,8 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
 - **Effect (one atomic transition):** add `L` to `R`; choose a backtrack target `t` in
   `[j,d−1]` (canonically `t=j`); truncate `τ` through level `t`; then append `¬u` with reason `L` and
   **true level** `j`. OTFS may replace a reason `C` by a strict RUP subset `C′` in the same
-  irredundancy partition and delete `C`; the replacement inherits `C`'s stable clause-order
-  identity, since the reference implementation performs this rewrite in place and later
+  irredundancy partition and delete `C`; the replacement inherits `C`'s current arena
+  position, since the reference implementation performs this rewrite in place and later
   ordered rule schedules observe that position. At root (learned `∅` or a top-level conflict), set
   `inconsistent` and do not assert a literal. `pending` is internal scratch handed from learn to
   backjump *within this one apply* — never a control state at a rule boundary.
@@ -178,8 +178,8 @@ conjunct.
   independently-implied redundant deletion, asymmetric deletion, then instantiation/no-op. Root
   satisfaction deletes; collapse asserts a unit or refutes. Proof δ is `add_rup(c′)·del(c)` for
   replacement; subsumed, independently-implied and asymmetric terminal deletions emit `del(c)`.
-  A replacement inherits the source clause's stable clause-order identity even when a packed arena
-  must append its physical record; candidate ties and later arena rebuilds use that identity.
+  A replacement inherits the source clause's current arena position even when a packed arena
+  must append its physical record; candidate ties and later arena rebuilds use that position.
   Large instantiation inherits the candidate's current literal pose: remove the reversed literal in
   physical order, retain the first `|c′|-1` assumption levels, and choose watches in that valuation.
   This control state selects later reasons. Vivify also recomputes each traversed redundant reason's

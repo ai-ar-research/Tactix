@@ -137,23 +137,26 @@ pending half-analysis or schedules Backjump independently.
   deletion-free scope, the retained binary-id key map is the exact live-set
   image, so known-new binary insertion does not rescan a high-degree watch list.
   The general post-import binary API retains its live-pair check.
-- Large additions use monotone proof/source order. OTFS, Strengthen, Vivify,
-  and other in-place logical replacements inherit their source key. Kernel's
-  stable radix primitive restores `(logical key, Ref)` order.
-- Production whole-arena collection replays that inherited key, emulating
-  Kissat's in-place replacement position despite Tactix's append-only packed
-  records. The already-ordered fast path allocates no key scratch. Reduce's
-  sparse physical-prefix collection remains a separate contract.
-- Walk's sparse resume uses that logical key for its large-clause reconnect.
-  This reconstructs Kissat's source-arena traversal even when Tactix's host
-  arena appended an inherited replacement after later clauses.
-- Reduce sparse collection instead follows Kissat's physical
-  `first_reducible` watermark: only the byte prefix retains watch blockers and
-  replacement cursors, while every surviving tail record is rewatched.
-  Production retains Kissat creation order. CaDiCaL-style VMTF/phase arena
-  ordering is available only as the explicit diagnostic arm
+- Packed OTFS, Strengthen, Vivify, and other logical replacements inherit the
+  source clause's current arena position. This alias is generation-local:
+  collection materializes the replacement there and clears the alias image.
+  The stable four-pass radix primitive restores `(current source position,
+  Ref)` order before that boundary.
+- Production whole-arena collection replays those current positions, emulating
+  Kissat's in-place replacement without treating immutable proof IDs as arena
+  positions. Reduce's stable sparse tail partition stays authoritative across
+  every later whole/dense collection.
+- Walk's sparse resume uses the same current source position for its
+  large-clause reconnect when packed replacements are still pending.
+- Reduce sparse collection follows Kissat's physical `first_reducible`
+  watermark in the reference arena. Tactix maps that watermark through the
+  same generation-local positions because a pending replacement can reside at
+  its allocation tail while Kissat shortened it in the prefix. Only that
+  current prefix retains watch blockers and replacement cursors; the tail is
+  stably partitioned and rewatched, including compact collection from zero.
+  CaDiCaL-style VMTF/phase ordering is available only as the explicit diagnostic arm
   `TACTIX_ARENA_ORDER=1`; formula classification and benchmark/rank identity
-  never select it.
+  never select it, and Reduce never consumes it.
 - Reduce's `compactlim` admission counts retired identities, not root-fixed
   assignments, matching Kissat's `vars - active`. Direct kernel compaction may
   still rebuild a root-fixed-only arena when an explicit caller requests it.

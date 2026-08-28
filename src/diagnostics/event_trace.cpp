@@ -138,7 +138,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
         capacity_bytes(k.h->best) + capacity_bytes(k.h->walk_prev);
   }
   const size_t clause_alias_bytes =
-      k.clause_order_alias.diagnostic_storage_bytes();
+      k.clause_position_alias.diagnostic_storage_bytes();
   const size_t binary_liveness_bytes =
       k.binary_liveness ? k.binary_liveness->diagnostic_storage_bytes() : 0;
   const DenseStorage dense = dense_storage(k.dense);
@@ -382,6 +382,7 @@ void annotate_clause_set(const Kernel &k, std::string &payload) {
   size_t matches = 0;
   std::vector<uint8_t> matched(selected.size());
   for (Ref ref = 0; ref < k.arena.size();) {
+    const Ref clause_ref = ref;
     const Clause *clause = clause_at(k.arena, ref);
     ref += clause_actual_words(clause);
     if (clause->garbage() || clause->size != selected.size())
@@ -405,7 +406,7 @@ void annotate_clause_set(const Kernel &k, std::string &payload) {
     if (matches++)
       payload.push_back(';');
     payload += "id=" + std::to_string(clause->id()) + ",order=" +
-               std::to_string(kernel_clause_order(k, clause->id())) +
+               std::to_string(kernel_clause_position(k, clause_ref)) +
                ",searched=" + std::to_string(clause->searched) +
                ",redundant=" + std::to_string(clause->redundant()) +
                ",glue=" + std::to_string(clause->glue()) +
@@ -907,9 +908,7 @@ void EventTrace::vivify_candidate(const Kernel &k, const char *event,
   }
   payload += "|priority=" + std::to_string(clause->vivify()) +
              "|arena_order=" +
-             std::to_string(clause->id()
-                                ? kernel_clause_order(k, clause->id())
-                                : static_cast<uint64_t>(cref)) +
+             std::to_string(kernel_clause_position(k, cref)) +
              "|ref=" + std::to_string(cref) + "|decisions=";
   for (uint32_t level = 1; level <= k.level; ++level) {
     if (level != 1)
@@ -1282,7 +1281,7 @@ void EventTrace::watch_state(const Kernel &k, Lit propagated,
     if (large && std::getenv("TACTIX_EVENT_TRACE_WATCH_POSE")) {
       payload += "|id=" + std::to_string(large->id()) +
                  "|order=" +
-                 std::to_string(kernel_clause_order(k, large->id())) +
+                 std::to_string(kernel_clause_position(k, entry.ref())) +
                  "|searched=" + std::to_string(large->searched) + "|pose=";
       for (uint32_t i = 0; i < large->size; i++) {
         if (i)
@@ -2471,8 +2470,10 @@ void EventTrace::bve_pair(const Kernel &k, Var var, uint32_t ordinal,
                        static_cast<int>(k.internal_to_external[var] + 1) ||
       !want_detail(k) || emitted_ >= limit_)
     return;
-  const uint64_t order0 = id0 ? kernel_clause_order(k, id0) : ref0;
-  const uint64_t order1 = id1 ? kernel_clause_order(k, id1) : ref1;
+  const uint64_t order0 =
+      ref0 == INVALID_REF ? INVALID_REF : kernel_clause_position(k, ref0);
+  const uint64_t order1 =
+      ref1 == INVALID_REF ? INVALID_REF : kernel_clause_position(k, ref1);
   char payload[512];
   std::snprintf(payload, sizeof payload,
                 "external=%u|ordinal=%u|side0_size=%u|side0_hash=%016llx|"

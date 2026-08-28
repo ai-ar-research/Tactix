@@ -144,8 +144,8 @@ static void test_resume_uses_compact_literal_order() {
 // Kissat reconnects large clauses by scanning its physical source arena.
 // Tactix can append a replacement after later clauses while preserving the
 // replacement's inherited source position, so Walk resume has to replay the
-// logical/source key rather than Tactix's host-arena position.
-static void test_resume_large_watches_uses_logical_clause_order() {
+// generation-local source position rather than Tactix's host-arena position.
+static void test_resume_large_watches_uses_logical_clause_position() {
   Kernel k;
   ScopedHeuristics _h(k);
   kernel_reserve_vars(k, 7);
@@ -153,17 +153,18 @@ static void test_resume_large_watches_uses_logical_clause_order() {
   const Lit a[3] = {shared, internalize(2), internalize(3)};
   const Lit b[3] = {shared, internalize(4), internalize(5)};
   const Lit replacement[3] = {shared, internalize(6), internalize(7)};
-  kernel_add_large_clause(k, a, 3, false, 0, 301);
+  const Ref source = kernel_add_large_clause(k, a, 3, false, 0, 301);
   kernel_add_large_clause(k, b, 3, false, 0, 302);
+  kernel_inherit_clause_position(k, 303, source);
+  kernel_delete_clause(k, clause_at(k.arena, source));
   kernel_add_large_clause(k, replacement, 3, false, 0, 303);
-  kernel_inherit_clause_order(k, 303, 299);
 
   assert(walk_apply_steps(k, 1) != ApplyResult::Conflict);
   std::vector<uint64_t> ids;
   for (const WatchEntry watch : k.watches.entries(shared))
     if (!watch.binary())
       ids.push_back(clause_at(k.arena, watch.ref())->id());
-  assert((ids == std::vector<uint64_t>{303, 301, 302}));
+  assert((ids == std::vector<uint64_t>{303, 302}));
   kernel_check_invariants(k);
 }
 
@@ -217,7 +218,7 @@ int main() {
   test_deterministic();
   test_budget_and_noop();
   test_resume_uses_compact_literal_order();
-  test_resume_large_watches_uses_logical_clause_order();
+  test_resume_large_watches_uses_logical_clause_position();
   test_dense_entry_deduplicates_binary_pairs();
   test_registry();
   test_no_heuristics_guard();

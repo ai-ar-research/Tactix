@@ -241,10 +241,10 @@ public:
   void remove(uint64_t) {}
 };
 
-// Direct clause-order lookup without committing the empty ID prefix below the
-// first inherited replacement. Fixed pages retain exact O(1) lookup while
-// materializing only pages which contain aliases.
-class ClauseOrderAliases {
+// Direct lookup from a packed replacement's proof ID to its source clause's
+// current arena position. Aliases are generation-local: collection
+// materializes every replacement at that position, then clears this image.
+class ClausePositionAliases {
   static constexpr unsigned PAGE_SHIFT = 12;
   static constexpr size_t PAGE_SIZE = size_t{1} << PAGE_SHIFT;
   static constexpr size_t PAGE_MASK = PAGE_SIZE - 1;
@@ -276,6 +276,9 @@ public:
     if (page.empty())
       page.resize(PAGE_SIZE, 0);
     page[static_cast<size_t>(id) & PAGE_MASK] = value;
+  }
+  void clear() {
+    pages_.clear();
   }
 };
 
@@ -840,11 +843,11 @@ struct Kernel {
   uint64_t walk_random_seed = 0; // policy RNG snapshot for a faithful Walk
 
   Arena arena;
-  // Most clause ids are their own stable arena-order key. A packed rewrite is
-  // appended while Kissat shortens in place, so its new id stores the source
-  // key here. Zero means identity. Reference-ordered scans are hot and mostly
-  // sequential; a direct image avoids a hash probe for every ordinary clause.
-  ClauseOrderAliases clause_order_alias;
+  // A packed rewrite is appended while Kissat shortens in place, so its new
+  // proof id stores source-position+1 here (zero means no alias). Collection
+  // materializes this generation-local position and clears the image. This
+  // keeps later sparse-collection permutations authoritative.
+  ClausePositionAliases clause_position_alias;
   WatchLists watches;
   ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
@@ -1280,13 +1283,13 @@ void kernel_touch_sync_fixed(Kernel &);
 
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
                             bool redundant, uint32_t glue, uint64_t id = 0);
-uint64_t kernel_clause_order(const Kernel &, uint64_t id);
-// Restore the stable logical arena order after append-only replacements.  The
-// implementation caches each key and uses a linear stable radix pass.
-void kernel_sort_refs_by_logical_clause_order(const Kernel &,
-                                              std::vector<Ref> &);
-void kernel_inherit_clause_order(Kernel &, uint64_t replacement_id,
-                                 uint64_t source_id);
+uint64_t kernel_clause_position(const Kernel &, Ref);
+// Restore current Kissat arena order after append-only replacements. The
+// implementation caches each position and uses a linear stable radix pass.
+void kernel_sort_refs_by_logical_clause_position(const Kernel &,
+                                                 std::vector<Ref> &);
+void kernel_inherit_clause_position(Kernel &, uint64_t replacement_id,
+                                    Ref source_ref);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 // Bulk input has already established that this pair is absent.  Publish the
 // same clause transition without rescanning a growing high-degree watch list.
@@ -1673,9 +1676,10 @@ uint64_t kernel_conflict_reason_walk(
 
 // `watch_start` is Kissat's sparse-collection watermark: watches below it keep
 // their current order, while relocated clauses at and above it are rewatched
-// in arena order. The default performs a whole-arena rebuild.
+// in arena order. `sparse_collection` distinguishes Reduce start=0 from a
+// whole-arena rebuild; a nonzero watermark implies it for compatibility.
 void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
-                            bool apply_sparse_order = false);
+                            bool sparse_collection = false);
 // Kissat's null-stack dense entry: disconnect every large watch and retain
 // only the first binary watch for each partner in each literal list.
 void kernel_flush_large_watches(Kernel &);

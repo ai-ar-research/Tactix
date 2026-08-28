@@ -124,6 +124,7 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
   lock_reasons(k, true);
   struct Victim {
     Ref ref;
+    uint64_t position;
     uint32_t glue, size;
   };
   std::vector<Victim> candidates;
@@ -133,7 +134,7 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
   // (reduce.c:161) would skip — an upper bound, since a garbage redundant
   // clause does not pin the watermark here though a maintained one could not
   // know that.
-  bool seen_redundant = false;
+  uint64_t first_redundant_position = UINT64_MAX;
   // Measured on the apply path only: `instances()` runs the same scan to rank
   // its payloads, and an enumeration that moves a counter breaks replay
   // identity (plan §8.5).
@@ -144,11 +145,8 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant() && !c->garbage()) {
-      if (!seen_redundant) {
-        seen_redundant = true;
-        if (measure)
-          k.stats.reduce_skippable_words += ref;
-      }
+      first_redundant_position =
+          std::min(first_redundant_position, kernel_clause_position(k, ref));
       // recency protection (kissat reduce.c); the aging tick lives in
       // reduce_apply_refs, so enumeration stays side-effect-free
       const uint32_t used = c->used();
@@ -157,12 +155,15 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
           c->reason() || (glue <= t1 && used) ||
           (glue <= t2 && used >= Clause::MAX_USED - 1);
       if (!keep)
-        candidates.push_back({ref, glue, c->size});
+        candidates.push_back(
+            {ref, kernel_clause_position(k, ref), glue, c->size});
     }
     ref += clause_actual_words(c);
   }
-  if (!seen_redundant && measure) // no live redundant clause: all skippable
-    k.stats.reduce_skippable_words += k.arena.size();
+  if (measure)
+    k.stats.reduce_skippable_words +=
+        first_redundant_position == UINT64_MAX ? k.arena.size()
+                                               : first_redundant_position;
   lock_reasons(k, false);
   // canonical worst-first ranking: highest (glue, size) first
   std::sort(candidates.begin(), candidates.end(),
@@ -173,7 +174,7 @@ void reduce_candidates(Kernel &k, std::vector<Ref> &out, bool measure) {
                 return a.size > b.size;
               // Kissat's stable LSD radix sort preserves the arena scan order
               // when both rank components tie.
-              return a.ref < b.ref;
+              return a.position < b.position;
             });
   out.reserve(candidates.size());
   for (const Victim &v : candidates)
@@ -195,7 +196,10 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
   // default — what a `likely_to_be_kept` consumer would branch on.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (first_reducible == INVALID_REF && c->redundant())
+    if (c->redundant() &&
+        (first_reducible == INVALID_REF ||
+         kernel_clause_position(k, ref) <
+             kernel_clause_position(k, first_reducible)))
       first_reducible = ref;
     if (c->redundant() && !c->garbage()) {
       const uint32_t used = c->used();
@@ -254,7 +258,7 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
     if (kernel_has_root_assignment(k))
       kernel_sparse_collect_root(k, collect_start);
     else
-      kernel_collect_garbage(k, collect_start);
+      kernel_collect_garbage(k, collect_start, /*sparse_collection=*/true);
   }
   // Kissat keeps every live trail reason marked throughout sparse collection:
   // root-false stripping may relocate a large reason or turn it into a binary.
