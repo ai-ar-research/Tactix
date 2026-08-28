@@ -117,6 +117,9 @@ static void test_input_units_propagate_before_later_clauses() {
   assert(k.propagate_head == k.trail.size());
   assert(kernel_binary_live(k, internalize(5), internalize(6)));
   assert(k.stats.input_restated == 1);
+  // Kissat routes original-unit closure through its search propagator: scan
+  // 1 assigns 2, scan 2 assigns 3 (three ticks each), then scan 3 is empty.
+  assert(k.stats.search_ticks == 7);
   // x4 first appears only in the satisfied clause and must not be activated
   // there, matching Kissat's add-at-root behavior.
   assert(!k.input_activated.size()); // finish_input has released the scratch

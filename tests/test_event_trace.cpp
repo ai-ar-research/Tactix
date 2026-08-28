@@ -178,7 +178,7 @@ int main() {
                    "1:11@raw=0@import=0@compact=0") != std::string::npos);
   assert(text.find("ordinal=7|ticks=10|limit=99|size=3") !=
              std::string::npos &&
-         text.find("|clause_poses=id=0,order=0,searched=3,redundant=0,glue=0,used=0,priority=0,"
+         text.find("|clause_poses=id=0,ref=0,order=0,searched=3,redundant=0,glue=0,used=0,priority=0,"
                    "pose=-3,1,-2") != std::string::npos);
   assert(text.find("|searched=3|pose=-3,1,-2\n") != std::string::npos);
   assert(text.find("\torder=-3,1,-2|set=-3,-2,1|") != std::string::npos);
@@ -204,7 +204,7 @@ int main() {
   assert(analysis_line.find("\t3\t3\t1") != std::string::npos &&
          "focused top32 must retain queue-tail decision order");
   assert(analysis_line.find("|clause_set=-3,1,-2|clause_poses="
-                            "id=0,order=0,searched=3,redundant=0,glue=0,used=0,priority=0,"
+                            "id=0,ref=0,order=0,searched=3,redundant=0,glue=0,used=0,priority=0,"
                             "pose=-3,1,-2") != std::string::npos);
   std::remove(path.c_str());
 

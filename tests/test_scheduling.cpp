@@ -1305,6 +1305,8 @@ static void test_probe_entry_does_not_snapshot_target_phases(void) {
   k.h->target.assign(k.nvars, 1);
   k.h->target_assigned = 0;
   k.h->best_assigned = 0;
+  k.stats.restarts = 90;
+  const uint64_t restarts = k.stats.restarts;
 
   DefaultPolicy p;
   p.inprocess().build(k);
@@ -1312,6 +1314,8 @@ static void test_probe_entry_does_not_snapshot_target_phases(void) {
     e.enabled = false;
   assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
   assert(k.level == 0);
+  assert(k.stats.restarts == restarts &&
+         "Probe's lifecycle root clear is not a scheduled Restart");
   assert(k.stats.target_saved == 0 && k.stats.best_saved == 0);
   assert(k.h->target[0] == 1 && k.h->target[1] == 1 &&
          "Kissat enters Probe with solver->probing set, so its root restart "

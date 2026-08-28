@@ -279,17 +279,19 @@ static void test_variable_compaction() {
   assert(k.model_values[internalize(2)] > 0);
 }
 
-static void test_compaction_excludes_root_fixed_from_admission_and_rewatches() {
+static void test_compaction_collapses_root_fixed_admission_and_rewatches() {
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 11);
-  k.var_status.assign(k.nvars, VarStatus::Active);
   const Lit target[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, target, 3, false, 0);
   kernel_assign_unit(k, internalize(-1));
   kernel_assign_unit(k, internalize(11));
   hg.h.search_idx = 2;
   hg.h.search_stamp = hg.h.links[2].stamp;
+  // Kissat's initial sparse collection maps both root-fixed variables onto one
+  // dense representative before any Reduce can sample compactlim.
+  heuristics_compact_random_order_fixed(k);
   assert(!kernel_should_compact_variables(k, 10));
   assert(kernel_compact_variables(k));
   assert(k.nvars == 11 && k.stats.variable_compactions == 1);
@@ -297,6 +299,42 @@ static void test_compaction_excludes_root_fixed_from_admission_and_rewatches() {
   const Clause *clause = clause_at(k.arena, 0);
   assert(clause->lits[0] != internalize(1) &&
          "a compacting collection must rewatch the whole arena");
+}
+
+static void test_compaction_admission_uses_post_startup_population() {
+  Kernel k;
+  ScopedHeuristics hg(k);
+  kernel_reserve_vars(k, 25);
+
+  // Model a sparse DIMACS header: Kissat imported only the first 20 variables,
+  // while Tactix retains five absent external identities for its public model
+  // surface.  They have already been consumed by the virtual initial compact
+  // population and must never become fresh compactlim debt.
+  std::vector<Var> imported;
+  for (Var v = 0; v < 20; v++)
+    imported.push_back(v);
+  heuristics_seed_activation_order(k, imported);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  for (Var v = 20; v < 25; v++) {
+    k.var_status[v] = VarStatus::Eliminated;
+    heuristics_deactivate_var(k, v);
+    k.unassigned_active--;
+  }
+
+  // Three startup units become one Kissat fixed representative: virtual vars
+  // is 18, virtual active is 17, and strict compactlim is 1 > floor(1.8), false.
+  for (int external : {1, 2, 3})
+    kernel_assign_unit(k, internalize(external));
+  heuristics_compact_random_order_fixed(k);
+  assert(k.compact_import_order.size() == 18);
+  assert(!kernel_should_compact_variables(k, 10));
+
+  // A retirement after that baseline is real new debt.  Two inactive of 18 is
+  // strictly above floor(10% * 18), exactly Kissat's admission boundary.
+  k.var_status[3] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, 3);
+  k.unassigned_active--;
+  assert(kernel_should_compact_variables(k, 10));
 }
 
 // Kissat moves each surviving literal's watch vector wholesale during variable
@@ -1778,7 +1816,8 @@ int main() {
   test_variable_identity_maps();
   test_import_order_survives_compaction_linearly();
   test_variable_compaction();
-  test_compaction_excludes_root_fixed_from_admission_and_rewatches();
+  test_compaction_collapses_root_fixed_admission_and_rewatches();
+  test_compaction_admission_uses_post_startup_population();
   test_variable_compaction_preserves_directed_binary_order();
   test_variable_compaction_replays_inherited_arena_order();
   test_whole_collection_replays_inherited_creation_order();

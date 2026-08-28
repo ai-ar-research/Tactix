@@ -117,6 +117,34 @@ static void test_heap_ranking() {
   assert(heuristics_heap_next_unassigned(k) == var_of(internalize(1)));
 }
 
+// Kissat rescales before sorting stable Reorder candidates.  A large inactive
+// score can make two distinct active scores underflow to the same value; the
+// resulting internal-index tie then determines the equal-weight update order
+// and the physical heap pose.  Sorting the pre-rescale values reverses it.
+static void test_heap_sort_observes_rescaled_scores() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  kernel_reserve_vars(k, 3);
+  addn(k, {2, 3}); // equal structural weight for variables 2 and 3
+  k.h->stable = true;
+  heuristics_update_scores(k);
+  heuristics_score_set(k, var_of(internalize(1)), 1e150);
+  heuristics_score_set(k, var_of(internalize(2)), 1e-200);
+  heuristics_score_set(k, var_of(internalize(3)), 2e-200);
+
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[var_of(internalize(1))] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, var_of(internalize(1)));
+  assert(k.h->scores.stack.size() == 2);
+  assert(k.h->scores.stack[0] == var_of(internalize(3)));
+
+  assert(reorder_apply(k) == ApplyResult::Ok);
+  assert(k.h->scores.score[var_of(internalize(2))] == 1.0);
+  assert(k.h->scores.score[var_of(internalize(3))] == 1.0);
+  assert(k.h->scores.stack[0] == var_of(internalize(2)) &&
+         k.h->scores.stack[1] == var_of(internalize(3)));
+}
+
 // Kissat reorders ACTIVE variables only. Retired variables are disconnected
 // from both rankings; feeding them back through queue_bump follows stale links
 // and used to corrupt the focused queue on the first 10k-conflict Reorder.
@@ -253,6 +281,7 @@ int main() {
   test_queue_ranking();
   test_search_cache_survives_mid_trail();
   test_heap_ranking();
+  test_heap_sort_observes_rescaled_scores();
   test_retired_variables_stay_disconnected();
   test_instance_surface();
   test_guard();

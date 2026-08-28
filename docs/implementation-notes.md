@@ -46,7 +46,7 @@ poseable; rule-off controls are diagnostic, never changes to the public surface.
 | D-VIVIFY-SCHED | Vivify policy is source-shaped but its cumulative performance remains an N3 concern | Candidate order, reference 100‰ cumulative band budget, focused tiers, persistent pose, productivity, and cleanup are implemented. Formula profiles do not dose this allowance. Reopen behavior only on exact weaker-work evidence. |
 | D-CCE-SCOPE | CCE omits binary victims | Admit only through the duplicate-safe binary deletion path with X1-shaped regression/fuzz coverage. |
 | D-CCE-FILTER | CCE change filter lacks redundant-removal stamps | Add a separate redundant-removal epoch only if `c cce2` proves all-skipped starvation. |
-| D-C1C2-VICTIM | Canonical victim scope is narrower than the abstract surface | C2 follows CaDiCaL's likely-kept redundant band; C1 remains narrow because fused C2 absorbs its work. Public instances remain complete. |
+| D-C1C2-VICTIM | Canonical victim scope is narrower than the abstract surface | Production C2 follows pinned Kissat's irredundant-only forward scope. CaDiCaL's likely-kept redundant band remains only under explicit `TACTIX_TOUCH_REDUNDANT=1`; C1 remains narrow because fused C2 absorbs its work. Public instances remain complete (N1). |
 | D-NOOP | Restart/Reduce reject dangling conflict or root no-op states | Forward/clear `conflict_ref` across collection or remove the no-op guard. |
 
 ### Closed
@@ -99,8 +99,9 @@ pending half-analysis or schedules Backjump independently.
   models, and are demoted once per Factor apply. Earlier extension literals may
   be factors; a call snapshots the current literal universe.
 - `factor_size=5` and `factor_cand_rounds=2` are source-backed within-rule
-  scope. BVE does not schedule extension variables because that would reverse
-  Factor, but public BVE remains sound.
+  scope. BVE includes extension variables in both its production heap and its
+  public instance surface, as Kissat does; reversing Factor is ordinary model
+  reconstruction, not an admission reason.
 - Dense entry keeps one binary watch per partner and exits with binaries in
   encounter order plus large clauses in arena order. Candidate matching uses
   exact cached physical degrees and the reference cache-line effort currency.
@@ -161,8 +162,13 @@ pending half-analysis or schedules Backjump independently.
   CaDiCaL-style VMTF/phase ordering is available only as the explicit diagnostic arm
   `TACTIX_ARENA_ORDER=1`; formula classification and benchmark/rank identity
   never select it, and Reduce never consumes it.
-- Reduce's `compactlim` admission counts retired identities, not root-fixed
-  assignments, matching Kissat's `vars - active`. Direct kernel compaction may
+- Reduce's `compactlim` admission is measured on `compact_import_order`, the
+  kernel-owned image of Kissat's dense `VARS` population.  Initial sparse
+  collection has already removed never-activated identities and collapsed all
+  root-fixed variables onto one inactive representative; only that
+  representative plus later retirements contribute to `vars - active`.
+  Admission uses Kissat's strict `inactive > floor(percent*vars/100)` boundary.
+  Stable external identities remain untouched, and direct kernel compaction may
   still rebuild a root-fixed-only arena when an explicit caller requests it.
 - `external_import_rank` is permanent proof/reconstruction authority;
   `internal_import_rank` is its direct current-identity cache and is remapped
@@ -266,6 +272,12 @@ tiers before every Vivify dose.
 Reorder is H-only and ships in both modes (`TACTIX_REORDER=2`). It filters
 retired identities, consumes root assignments before retirements, and rebuilds
 focused/stable order from active variables using irredundant-clause weights.
+Stable Reorder rescales EVSIDS scores before sorting candidates, matching
+Kissat's `reorder_stable` call order.  This ordering is semantic for the search
+trajectory: rescaling can collapse distinct tiny scores into an exact tie, so
+the internal-index tiebreak changes the subsequent equal-weight update order
+and physical heap pose.  Sorting the pre-rescale values was the owner of SAT
+Rank 16's first post-common-state heap divergence at conflict 49,390.
 Target/best snapshots use active assigned height, not physical trail length;
 Probe entry suppresses the snapshot while Eliminate retains it.
 
@@ -388,6 +400,15 @@ and generated resolvents. Kernel/public BVE defaults to unrestricted. This is
 strategy-owned admission before mutation; proof-rule semantics and N1 remain
 unchanged. Rank-27 campaigns `20260824-0332`/`0333` own the exact witness.
 
+Kissat classifies a scheduled BVE candidate as pure whenever either current
+occurrence side is empty. It returns before gate/definition extraction and
+retires the variable even when both sides became empty after the candidate was
+inserted into the mutable elimination heap. Tactix follows that lifecycle: a
+stale zero/zero candidate is a successful elimination with no resolvents or
+reconstruction witnesses, not a no-op. This does not add isolated variables to
+the initial public schedule; it preserves the effect of an already-enumerated
+instance after earlier candidates mutate its occurrences.
+
 ## 21. Reserved assignment trail
 
 The trail's pre-sized vector plus logical end removes grow-capable push from
@@ -436,3 +457,62 @@ retain the scalar mapping. Random draws, all 64 phase bytes, Kitten/Sweep ticks,
 candidate and decision order, proof, schedule, learning, and pruning are exact.
 Frozen report `benchmarks/reports/2026-08-27-rank27-sweep-phase-word.md` owns
 prefix, three-wave Rank-27, B28+C5, and Claude-owned fuzz evidence.
+
+## 27. Original-unit ticks and forward victim scope
+
+Kissat closes each original unit through `kissat_search_propagate`
+(`internal.c:363`), so those watch scans advance both total and search ticks.
+Tactix does the same for proof-less and DRAT parsing; native LRAT still defers
+closure until the original input-id namespace is complete. The parser fixture
+pins the exact seven-tick chained-unit scan.
+
+Pinned Kissat's fused forward pass admits irredundant victims only. Production
+Strengthen therefore leaves `Kernel::touch_redundant` off while retaining the
+complete public/N1 instance surface. `TACTIX_TOUCH_REDUNDANT=1` is the sole
+explicit CaDiCaL likely-kept redundant-band diagnostic arm; formula shape,
+benchmark identity, density, size, rank, and classification cannot enable it.
+On SAT Rank 16, the old arm strengthened 747 redundant clauses and first changed
+search cost immediately after BVE at conflict 15,258. With the production scope
+repaired, search ticks and decisions are exact through conflict 17,352.
+
+Probe and Eliminate enter at root through the neutral Restart backtrack
+primitive. This is lifecycle scaffolding, not a scheduled Restart: it does not
+increment the canonical restart count, the reused-trail count, or the
+logarithmic focused-restart cadence. Rephase and Reduce follow the same
+accounting distinction. The complete public Restart instance surface remains
+unchanged.
+
+Rank 16 then exposed a separate stable-Reorder lifecycle mismatch. Pinned
+Kissat calls `kissat_rescale_scores` before
+`sort_active_variables_by_weight`; Tactix formerly sorted first. At the
+conflict-49,389 Reorder boundary both formulas and physical heaps were exact,
+but pre-rescale sorting produced a different equal-score heap at conflict
+49,390 and eventually permuted the first stable decisions at conflict 61,855.
+The corrected source order restores exact formula, decision, mode, top-rank,
+and full physical-heap checkpoints through conflict 98,262. The focused unit
+test forces two distinct scores to underflow to the same rescaled value and
+pins Kissat's internal-index tie/update pose. No schedule, threshold, formula
+classification, effort allowance, rank, or benchmark predicate changed.
+
+The next common-state boundary is not Reorder.  Across the repaired Rank-16
+prefix, semantic irredundant/redundant formula hashes match at every thousandth
+conflict through 98,000, and learned-clause order remains exact through
+conflict 98,262.  A 25-literal glue-8 clause is learned with identical full
+order at conflict 98,163, then temporary propagation permutes its watched
+literal pose differently.  In the narrowed conflict-98,206 trace, 2,704
+propagation heads and more than 82,000 watched-clause observations are exact;
+after the same temporary level-13 prefix, Kissat resumes the enclosing level-2
+propagation at external literal 366 while Tactix resumes at 487.  The altered
+reason order first changes stable bump/heap order at conflict 98,263 and the
+decision stream at conflict 98,276.  This is retained as a general temporary
+propagation/reconstruction discrepancy.  It is not grounds for reverting
+creation order or adding a formula, benchmark, density, size, conflict, or rank
+gate.
+
+The full pre-Reorder-repair Rank 16 production pair (`1653941`) is retained as
+the honest creation-order baseline: Kissat verified SAT in 128.93 s and Tactix
+verified SAT in 1038.89 s (8.06x). Both performed zero Factor transformations;
+Tactix spent only 191 ms in the Factor slot. Factor is therefore not causal for
+this SAT gap, and its raw component cost is closed on this instance. The
+remaining performance work follows common-state search mechanisms rather than
+disabling Factor or restoring a formula profile.

@@ -405,7 +405,8 @@ void annotate_clause_set(const Kernel &k, std::string &payload) {
       continue;
     if (matches++)
       payload.push_back(';');
-    payload += "id=" + std::to_string(clause->id()) + ",order=" +
+    payload += "id=" + std::to_string(clause->id()) + ",ref=" +
+               std::to_string(clause_ref) + ",order=" +
                std::to_string(kernel_clause_position(k, clause_ref)) +
                ",searched=" + std::to_string(clause->searched) +
                ",redundant=" + std::to_string(clause->redundant()) +
@@ -704,6 +705,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "randec_draw") &&
       std::strcmp(event, "randec_state") &&
       std::strcmp(event, "phase_pick") && std::strcmp(event, "conflict") &&
+      std::strcmp(event, "mode_clock") &&
+      std::strcmp(event, "restart_clock") &&
       std::strcmp(event, "analysis_begin") &&
       std::strcmp(event, "analysis_end") &&
       std::strncmp(event, "backbone_", 9) &&
@@ -787,6 +790,44 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
           break;
         }
       annotated_payload += "|watch_lit=" + std::to_string(wanted);
+      if (std::getenv("SAT_EVENT_TRACE_WATCH_LARGE")) {
+        uint64_t hash = 1469598103934665603ull;
+        size_t count = 0;
+        if (watched != INVALID_LIT)
+          for (const WatchEntry entry : k.watches.entries(watched)) {
+            if (entry.binary())
+              continue;
+            const Clause *clause = clause_at(k.arena, entry.ref());
+            hash = mix(hash, static_cast<uint64_t>(static_cast<int64_t>(
+                                 kernel_externalize(k, entry.blocking()))));
+            hash = mix(hash, clause->size);
+            for (const Lit lit : *clause)
+              hash = mix(hash, static_cast<uint64_t>(static_cast<int64_t>(
+                                   kernel_externalize(k, lit))));
+            ++count;
+          }
+        char large[96];
+        std::snprintf(large, sizeof large,
+                      "|large_count=%zu|large_hash=%016llx", count,
+                      (unsigned long long)hash);
+        annotated_payload += large;
+      }
+      if (std::getenv("SAT_EVENT_TRACE_WATCH_LARGE_REFS")) {
+        annotated_payload += "|large_refs=";
+        size_t count = 0;
+        if (watched != INVALID_LIT)
+          for (const WatchEntry entry : k.watches.entries(watched)) {
+            if (entry.binary())
+              continue;
+            if (count++)
+              annotated_payload += ',';
+            annotated_payload += std::to_string(entry.ref()) + '@' +
+                                 std::to_string(
+                                     kernel_clause_position(k, entry.ref()));
+            if (count == 64)
+              break;
+          }
+      }
       if (compact_targets) {
         uint64_t hash = 1469598103934665603ull;
         size_t count = 0, pos_a = 0, pos_b = 0;
@@ -1182,6 +1223,9 @@ void EventTrace::formula_checkpoint(const Kernel &k) {
     return;
   uint64_t irredundant = 0, redundant = 0;
   uint64_t irredundant_hash = 0, redundant_hash = 0;
+  uint64_t heap_hash = 1469598103934665603ull;
+  uint64_t heap_score_hash = 1469598103934665603ull;
+  size_t heap_size = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *clause = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(clause);
@@ -1197,14 +1241,29 @@ void EventTrace::formula_checkpoint(const Kernel &k) {
     }
     ref += words;
   }
-  char checkpoint_payload[256];
+  if (k.h) {
+    heap_size = k.h->scores.stack.size();
+    for (const Var v : k.h->scores.stack) {
+      heap_hash = mix(heap_hash, k.internal_to_external[v] + 1ull);
+      uint64_t bits;
+      static_assert(sizeof bits == sizeof k.h->scores.score[v]);
+      std::memcpy(&bits, &k.h->scores.score[v], sizeof bits);
+      heap_score_hash = mix(heap_score_hash,
+                            k.internal_to_external[v] + 1ull);
+      heap_score_hash = mix(heap_score_hash, bits);
+    }
+  }
+  char checkpoint_payload[360];
   std::snprintf(checkpoint_payload, sizeof checkpoint_payload,
                 "irredundant=%llu|redundant=%llu|irredundant_hash=%016llx|"
-                "redundant_hash=%016llx",
+                "redundant_hash=%016llx|heap=%zu|heap_hash=%016llx|"
+                "heap_score_hash=%016llx",
                 (unsigned long long)irredundant,
                 (unsigned long long)redundant,
                 (unsigned long long)irredundant_hash,
-                (unsigned long long)redundant_hash);
+                (unsigned long long)redundant_hash, heap_size,
+                (unsigned long long)heap_hash,
+                (unsigned long long)heap_score_hash);
   emit(k, "formula_checkpoint", checkpoint_payload, true);
 }
 
@@ -2635,7 +2694,7 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
   emit(k, "eliminate_cleanup", payload, false);
 
   const char *clauses = std::getenv("TACTIX_EVENT_TRACE_ELIMINATE_CLAUSES");
-  if (std::strcmp(stage, "before") || !clauses || *clauses != '1')
+  if (!clauses || *clauses != '1')
     return;
   for (Ref ref = 0; ref < k.arena.size() && emitted_ < limit_;) {
     const Clause *clause = clause_at(k.arena, ref);
@@ -2646,13 +2705,25 @@ void EventTrace::eliminate_cleanup(const Kernel &k, const char *stage) {
         root |= k.values[lit] > 0;
         retired |= kernel_var_retired(k, var_of(lit));
       }
-      char clause_payload[192];
-      std::snprintf(clause_payload, sizeof clause_payload,
-                    "hash=%016llx|size=%u|root=%u|retired=%u",
+      char prefix[192];
+      std::snprintf(prefix, sizeof prefix,
+                    "stage=%s|hash=%016llx|size=%u|root=%u|retired=%u|clause=",
+                    stage,
                     (unsigned long long)eliminate_cleanup_clause_hash(
                         k, *clause),
                     clause->size, root, retired);
-      emit(k, "eliminate_cleanup_clause", clause_payload, false);
+      std::vector<int32_t> external;
+      external.reserve(clause->size);
+      for (const Lit lit : *clause)
+        external.push_back(kernel_externalize(k, lit));
+      std::sort(external.begin(), external.end());
+      std::string clause_payload(prefix);
+      for (size_t i = 0; i != external.size(); ++i) {
+        if (i)
+          clause_payload.push_back(',');
+        clause_payload += std::to_string(external[i]);
+      }
+      emit(k, "eliminate_cleanup_clause", clause_payload.c_str(), false);
     }
     ref += words;
   }
@@ -2759,11 +2830,15 @@ void EventTrace::heap_insert(const Kernel &k, Var v, uint32_t from,
                              uint32_t to) {
   if (!out_ || heap_pop_only_ || !k.h || !k.h->stable || !want_detail(k))
     return;
-  char payload[192];
+  uint64_t hash = 1469598103934665603ull;
+  for (const Var member : k.h->scores.stack)
+    hash = mix(hash, k.internal_to_external[member] + 1ull);
+  char payload[224];
   std::snprintf(payload, sizeof payload,
-                "var=%d|score=%.17g|from=%u|to=%u",
+                "var=%d|score=%.17g|from=%u|to=%u|hash=%016llx",
                 kernel_externalize(k, make_lit(v, false)),
-                k.h->scores.score[v], from, to);
+                k.h->scores.score[v], from, to,
+                (unsigned long long)hash);
   emit(k, "heap_insert", payload, false);
 }
 
@@ -2852,6 +2927,23 @@ void EventTrace::mode_clock(const Kernel &k, const char *stage, uint64_t limit,
       "|limit=" + std::to_string(limit) + "|anchor=" +
       std::to_string(anchor) + "|count=" + std::to_string(count);
   emit(k, "mode_clock", payload.c_str(), false);
+}
+
+void EventTrace::restart_clock(const Kernel &k, uint64_t limit,
+                               bool initialized, double fast, double slow,
+                               double margin, bool eligible) {
+  if (!std::getenv("TACTIX_EVENT_TRACE_RESTART_CLOCK") || !want_detail(k))
+    return;
+  if (k.stats.conflicts < limit)
+    return;
+  char payload[320];
+  std::snprintf(payload, sizeof payload,
+                "restarts=%llu|limit=%llu|initialized=%u|fast=%a|slow=%a|margin=%a|"
+                "threshold=%a|eligible=%u",
+                (unsigned long long)k.stats.restarts,
+                (unsigned long long)limit, unsigned(initialized), fast, slow,
+                margin, margin * slow, unsigned(eligible));
+  emit(k, "restart_clock", payload, false);
 }
 
 void event_trace_analyzed(const Kernel &k, const std::vector<Var> &analyzed,

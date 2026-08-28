@@ -326,25 +326,24 @@ static void test_touch_producers() {
   assert(k.touch_epoch == after_del + 1);
 }
 
-// The redundant half of the substrate, before a consumer is wired to it: the
-// stamps fire only when TACTIX_TOUCH_REDUNDANT is on, the scope moves with
-// `k.tier2`, and the third disjunct (the reduce survivor envelope) is live.
+// The redundant half of the substrate is a diagnostic CaDiCaL arm: production
+// defaults to Kissat's irredundant-only forward scope, while explicitly
+// enabling the arm still exercises its live tier and survivor-envelope reads.
 static void test_touch_redundant_scope() {
   Kernel k;
   kernel_reserve_vars(k, 6);
-  assert(k.touch_redundant && "CaDiCaL's likely-kept band defaults on");
+  assert(!k.touch_redundant && "Kissat's irredundant-only scope is default");
   k.tier2 = 2;
   const uint64_t e0 = k.touch_epoch;
   add(k, {1, 2, 3}, /*redundant=*/true); // glue 2 <= tier2: in scope
   assert(k.stats.touch_redundant_dynamic == 1);
-  assert(k.touch_epoch == e0 + 3 && "stamping is on by default");
+  assert(k.touch_epoch == e0 && "production must not stamp the diagnostic band");
 
-  k.touch_redundant = false;
+  k.touch_redundant = true;
   const uint64_t e1 = k.touch_epoch;
   add(k, {1, 2, 4}, /*redundant=*/true);
   assert(k.stats.touch_redundant_dynamic == 2);
-  assert(k.touch_epoch == e1 && "the =0 arm suppresses redundant stamps");
-  k.touch_redundant = true;
+  assert(k.touch_epoch == e1 + 3 && "the explicit arm enables band stamps");
 
   // narrowing the live tier drops the creation out of scope; static-6 counts on
   k.tier2 = 1;

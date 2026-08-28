@@ -994,7 +994,9 @@ struct Kernel {
   bool strengthen_complete = true;
   bool touch_filter = true;
   bool subsume_holds_elim = true;
-  bool touch_redundant = true;
+  // Kissat forward.c only admits irredundant victims.  The CaDiCaL
+  // likely-kept redundant band remains an explicit diagnostic arm.
+  bool touch_redundant = false;
   bool subsume_shadow = false;
   std::unordered_set<uint64_t> shadow_victims;
   uint32_t kept_glue = 0;

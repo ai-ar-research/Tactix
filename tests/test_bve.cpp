@@ -224,6 +224,39 @@ static void test_eliminate_basic() {
   assert(!k.reconstruction.empty());                       // witnesses pushed
 }
 
+// Kissat keeps candidates in a mutable elimination heap.  An earlier pure
+// elimination can remove the last clause of a candidate that was already in
+// that heap; resolve.c still classifies the resulting zero/zero candidate as
+// pure and retires it.  The saved public instance models that stale heap entry.
+static void test_scheduled_candidate_that_becomes_isolated_is_retired() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  const Lit x = internalize(1), y = internalize(2);
+  kernel_add_binary_clause(k, x, y);
+
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  uint64_t candidates[2];
+  assert(vt.instances(k, candidates, 2) == 2);
+  const uint64_t saved_x = lit_instance(x);
+
+  // Eliminating pure y deletes (x ∨ y), leaving scheduled x isolated.
+  assert(vt.apply_instance(k, lit_instance(y)) == ApplyResult::Ok);
+  assert(!kernel_binary_live(k, x, y));
+  assert(!kernel_var_retired(k, var_of(x)));
+  const size_t witnesses_before = k.reconstruction.size();
+
+  assert(vt.apply_instance(k, saved_x) == ApplyResult::Ok);
+  assert(kernel_var_retired(k, var_of(x)));
+  assert(k.stats.bve_eliminated == 2);
+  assert(k.reconstruction.size() == witnesses_before &&
+         "an isolated pivot needs no reconstruction witness");
+
+  // Missing retired values are completed by the standard model extension;
+  // the one original clause must still be satisfied.
+  kernel_extend_model(k);
+  assert(k.values[x] > 0 || k.values[y] > 0);
+}
+
 // Model reconstruction through ρ: hand back a model of the reduced formula
 // with 1 at the wrong value, and every original clause must survive extend.
 static void test_eliminate_reconstruction() {
@@ -914,6 +947,7 @@ int main() {
   test_instance_surface();
   test_antecedent_clause_size_limit();
   test_eliminate_basic();
+  test_scheduled_candidate_that_becomes_isolated_is_retired();
   test_eliminate_reconstruction();
   test_eliminate_frozen_pivot_reconstruction();
   test_bound_skip();
