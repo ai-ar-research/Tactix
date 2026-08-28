@@ -215,6 +215,8 @@ std::string DefaultStrategyConfig::serialize() const {
       << " inprocess.factor_repeated_enabled="
       << inprocess.factor_repeated_enabled
       << " inprocess.preprocess_only=" << inprocess.preprocess_only
+      << " inprocess.arena_ordering_enabled="
+      << inprocess.arena_ordering_enabled
       << " inprocess.eliminate_interval=" << inprocess.eliminate_interval
       << " inprocess.probe_interval=" << inprocess.probe_interval
       << " inprocess.minimum_effort_ticks="
@@ -1604,7 +1606,28 @@ bool DefaultPolicy::update_tiers_after_analysis(Kernel &k) {
   return updated;
 }
 
-void DefaultPolicy::update_formula_classification(Kernel &k) const {
+FormulaClassification DefaultPolicy::classify_formula_counts(
+    uint64_t binaries, uint64_t irredundant_large) const {
+  const uint64_t clauses = binaries + irredundant_large;
+  FormulaClassification result;
+  result.small = clauses <= config_.analysis.small_clause_limit;
+  if (result.small)
+    return result;
+
+  // This intentionally preserves Kissat's unit mismatch: `kissat_percent`
+  // returns 0..100 while `bigbigfraction` is divided by 1000.0. Thus the
+  // shipped 990 threshold is 0.99%, not 99%.
+  const unsigned __int128 lhs =
+      static_cast<unsigned __int128>(100000) * binaries;
+  const unsigned __int128 rhs =
+      static_cast<unsigned __int128>(
+          config_.analysis.big_binary_fraction_permille) *
+      clauses;
+  result.bigbig = lhs >= rhs;
+  return result;
+}
+
+FormulaClassification DefaultPolicy::classify_formula(const Kernel &k) const {
   uint64_t binary_words = 0;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     for (const WatchEntry w : k.watches.entries(lit))
@@ -1618,22 +1641,16 @@ void DefaultPolicy::update_formula_classification(Kernel &k) const {
       large++;
     ref += clause_actual_words(clause);
   }
-  const uint64_t clauses = binaries + large;
-  const auto &cfg = config_.analysis;
-  bool bigbig = false;
-  if (clauses > cfg.small_clause_limit && clauses) {
-    // `kissat_percent` returns 0..100 while bigbigfraction is per mille:
-    // 100*binaries/clauses >= fraction/1000.
-    const unsigned __int128 lhs =
-        static_cast<unsigned __int128>(100000) * binaries;
-    const unsigned __int128 rhs =
-        static_cast<unsigned __int128>(cfg.big_binary_fraction_permille) *
-        clauses;
-    bigbig = lhs >= rhs;
-  }
-  k.jump_reasons_bigbig = bigbig;
+  return classify_formula_counts(binaries, large);
+}
+
+void DefaultPolicy::update_formula_classification(Kernel &k) const {
+  const FormulaClassification classification = classify_formula(k);
+  // `classification.small` is write-only in pinned Kissat. Do not invent a
+  // second consumer: only `bigbig` gates ordinary fast binary assignment.
+  k.jump_reasons_bigbig = classification.bigbig;
   k.stats.jump_reason_classifications++;
-  k.stats.jump_reason_bigbig += bigbig;
+  k.stats.jump_reason_bigbig += classification.bigbig;
 }
 
 size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
@@ -1732,181 +1749,13 @@ void DefaultBranching::start_random_sequence(Kernel &k) {
   k.stats.random_sequences++;
 }
 
-void DefaultPolicy::classify_formula_strategy(const Kernel &k) {
-  enum class FormulaProfile {
-    Reference,
-    StartupFactorOnly,
-    Dose5,
-    Dose5Vivify5,
-    Factor5,
-    NoBve,
-    NoBveLight,
-  };
-
-  const uint64_t vars = kernel_num_output_vars(k);
-  const uint64_t clauses = k.original_input_clauses;
-  if (!vars || clauses == UINT64_MAX)
-    return;
-
-  FormulaProfile profile = FormulaProfile::Reference;
-  // Large dense formulas retain the measured lighter repeated-Factor dose,
-  // but classification may not suppress the complete search-time Probe
-  // pipeline.  Kissat admits that pipeline from its conflict clock on every
-  // formula; per-entry budgets and productivity delays own its cost.
-  const bool grain_shape =
-      vars >= DefaultStrategyConfig::PROFILE_GRAIN_MIN_VARS &&
-      vars < DefaultStrategyConfig::PROFILE_GRAIN_MAX_VARS &&
-      clauses >= DefaultStrategyConfig::PROFILE_GRAIN_MIN_CLAUSES;
-
-  const auto at_least = [vars, clauses](uint64_t ratio) {
-    return clauses >= ratio * vars;
-  };
-  // Classification may dose mechanisms, but never withdraw Vivify: Kissat's
-  // Probe pipeline admits it on every formula and its effort/productivity
-  // controls decide how much work is performed.
-  if (grain_shape &&
-      vars >= DefaultStrategyConfig::PROFILE_GRAIN_LEGACY_MIN_VARS)
-    profile = FormulaProfile::StartupFactorOnly;
-  else if (vars >= DefaultStrategyConfig::PROFILE_VARS_900 &&
-           vars < DefaultStrategyConfig::PROFILE_VARS_1000 &&
-           clauses < DefaultStrategyConfig::PROFILE_DENSITY_SPARSE * vars)
-    profile = FormulaProfile::Reference;
-  else if (vars >= DefaultStrategyConfig::PROFILE_PTN_MIN_VARS &&
-      vars < DefaultStrategyConfig::PROFILE_PTN_MAX_VARS &&
-      clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
-    profile = FormulaProfile::StartupFactorOnly;
-  else if (vars >= DefaultStrategyConfig::PROFILE_VARS_6000 &&
-           vars < DefaultStrategyConfig::PROFILE_VARS_7000 &&
-           clauses < DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE * vars)
-    profile = FormulaProfile::StartupFactorOnly;
-  else if (vars >= DefaultStrategyConfig::PROFILE_VARS_10000 &&
-           vars < DefaultStrategyConfig::PROFILE_VARS_15000 &&
-           clauses < DefaultStrategyConfig::PROFILE_DENSITY_CONTEXT_MAX * vars)
-    profile = FormulaProfile::Reference;
-  else if (vars < DefaultStrategyConfig::PROFILE_TINY_MAX_VARS)
-    profile = FormulaProfile::Dose5;
-  else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_EXTREME))
-    profile = vars < DefaultStrategyConfig::PROFILE_VARS_1000
-                  ? FormulaProfile::NoBveLight
-                  : FormulaProfile::NoBve;
-  else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_VERY_HIGH))
-    profile = FormulaProfile::StartupFactorOnly;
-  else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_HIGH))
-    profile = FormulaProfile::Reference;
-  else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_MEDIUM)) {
-    if (vars >= DefaultStrategyConfig::PROFILE_VARS_800 &&
-        vars < DefaultStrategyConfig::PROFILE_VARS_900)
-      profile = FormulaProfile::StartupFactorOnly;
-    else if (vars < DefaultStrategyConfig::PROFILE_VARS_900)
-      profile = FormulaProfile::StartupFactorOnly;
-    else if (vars < DefaultStrategyConfig::PROFILE_VARS_1000 &&
-             at_least(DefaultStrategyConfig::PROFILE_DENSITY_FACTOR_ONLY))
-      profile = FormulaProfile::StartupFactorOnly;
-    else if (vars < DefaultStrategyConfig::PROFILE_VARS_1500)
-      profile = FormulaProfile::Dose5;
-    else
-      profile = FormulaProfile::StartupFactorOnly;
-  } else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_LOW)) {
-    if (vars < DefaultStrategyConfig::PROFILE_VARS_300)
-      profile = FormulaProfile::NoBve;
-    else if (vars < DefaultStrategyConfig::PROFILE_VARS_1000)
-      profile = FormulaProfile::StartupFactorOnly;
-    else if (vars < DefaultStrategyConfig::PROFILE_VARS_4000)
-      profile = FormulaProfile::StartupFactorOnly;
-    else
-      profile = FormulaProfile::Dose5Vivify5;
-  } else if (at_least(DefaultStrategyConfig::PROFILE_DENSITY_SPARSE)) {
-    if (vars < DefaultStrategyConfig::PROFILE_VARS_500)
-      profile = FormulaProfile::NoBve;
-    else if (vars < DefaultStrategyConfig::PROFILE_VARS_5000)
-      profile = FormulaProfile::Factor5;
-    else if (vars < DefaultStrategyConfig::PROFILE_VARS_10000)
-      profile = FormulaProfile::StartupFactorOnly;
-    else if (vars >= DefaultStrategyConfig::PROFILE_VARS_20000 &&
-             vars < DefaultStrategyConfig::PROFILE_VARS_25000)
-      profile = FormulaProfile::StartupFactorOnly;
-    else
-      profile = FormulaProfile::Dose5Vivify5;
-  } else if (vars < DefaultStrategyConfig::PROFILE_VARS_500)
-    profile = FormulaProfile::Dose5Vivify5;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_2000)
-    profile = FormulaProfile::Dose5Vivify5;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_6500)
-    profile = FormulaProfile::Reference;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_10000)
-    profile = FormulaProfile::Factor5;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_25000)
-    profile = FormulaProfile::StartupFactorOnly;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_32000)
-    profile = FormulaProfile::Factor5;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_40000)
-    profile = FormulaProfile::Dose5;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_50000)
-      profile = FormulaProfile::StartupFactorOnly;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_70000)
-    profile = clauses < DefaultStrategyConfig::PROFILE_DENSITY_VERY_SPARSE *
-                            vars
-                  ? FormulaProfile::Reference
-                  : FormulaProfile::StartupFactorOnly;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_120000)
-    profile = FormulaProfile::StartupFactorOnly;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_200000)
-    profile = FormulaProfile::Reference;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_300000)
-    profile = FormulaProfile::NoBve;
-  else if (vars < DefaultStrategyConfig::PROFILE_VARS_800000)
-    profile = vars < DefaultStrategyConfig::PROFILE_VARS_500000
-                  ? FormulaProfile::StartupFactorOnly
-                  : clauses >=
-                            DefaultStrategyConfig::PROFILE_DENSITY_VERY_SPARSE *
-                                vars
-                        ? FormulaProfile::StartupFactorOnly
-                        : FormulaProfile::Dose5;
-
-  auto &in = config_.inprocess;
-  in.forward_midround_budget =
-      at_least(DefaultStrategyConfig::PROFILE_DENSITY_EXTREME);
-  // Static formula profiles never withdraw universally admitted Congruence,
-  // Vivify, or late Lucky opportunities; they only dose their later work.
-  // Source evidence and the diagnostic/N1 surfaces live in
-  // docs/implementation-notes.md (`Formula classification`).
-  switch (profile) {
-  case FormulaProfile::Reference:
-    break;
-  case FormulaProfile::StartupFactorOnly:
-    in.factor_repeated_enabled = false;
-    break;
-  case FormulaProfile::Dose5:
-    in.bve_permille = in.factor_permille = in.subsume_forward_permille =
-        DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    break;
-  case FormulaProfile::Dose5Vivify5:
-    in.bve_permille = in.factor_permille = in.subsume_forward_permille =
-        DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    in.vivify_permille = DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    break;
-  case FormulaProfile::Factor5:
-    in.factor_permille = DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    break;
-  case FormulaProfile::NoBve:
-    in.bve_enabled = false;
-    break;
-  case FormulaProfile::NoBveLight:
-    in.bve_enabled = false;
-    in.vivify_permille = in.subsume_forward_permille =
-        DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE;
-    break;
-  }
-}
-
-void DefaultPolicy::configure_from_env(const Kernel &k) {
+void DefaultPolicy::configure_from_env(const Kernel &) {
   config_ = base_config_;
   // Preserve the pre-existing white-box policy pose surface: callers and
   // focused tests may set these public members before solve().
   config_.analysis.chronological_levels = chrono_levels;
   config_.analysis.reuse_ranked_trail_suffix = chrono_reuse_trail_;
   config_.branching.random_sequences = default_branching_.randec_enabled;
-  classify_formula_strategy(k);
   if (const char *fm = std::getenv("TACTIX_FORCE_MODE")) {
     if (!std::strcmp(fm, "focused"))
       config_.mode.force = 1;
@@ -1976,6 +1825,8 @@ void DefaultPolicy::configure_from_env(const Kernel &k) {
   sweep_bool("TACTIX_SWEEP_PARTITION",
              config_.inprocess.sweep_full_partition);
   sweep_bool("TACTIX_SWEEP_RESUME", config_.inprocess.sweep_resume);
+  sweep_bool("TACTIX_ARENA_ORDER",
+             config_.inprocess.arena_ordering_enabled);
 
   force_mode_ = config_.mode.force;
   bump_reasons_limit_ = config_.analysis.bump_reason_limit;
@@ -2265,7 +2116,15 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         static_cast<DefaultPolicy *>(state)->update_tiers_after_analysis(kernel);
       },
       this);
-  ScopedArenaOrdering arena_ordered(k, inprocess_.arena_ordering());
+  configure_from_env(k);
+  // CaDiCaL's VMTF arena permutation remains the accepted optimization.
+  // Kissat creation order is the explicit parity arm: it makes Reduce's
+  // physical `first_reducible` watermark exact, but the Tier-D guard rejected
+  // it as a shipped default after two solve losses and three large slowdowns.
+  ArenaOrdering *arena_ordering = config_.inprocess.arena_ordering_enabled
+                                      ? inprocess_.arena_ordering()
+                                      : nullptr;
+  ScopedArenaOrdering arena_ordered(k, arena_ordering);
   if (k.inconsistent)
     return 20;
   // A solve always starts from the root closure.  Besides matching the
@@ -2275,7 +2134,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
     kernel_backtrack(k, 0);
   std::optional<ScopedHeuristics> owned_h;
   solves++;
-  configure_from_env(k);
   k.conflict_reuse_chrono_levels = chrono_levels;
   if (reset_schedule_per_solve) {
     for (uint32_t mode = 0; mode != 2; ++mode) {
@@ -2992,23 +2850,16 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
 
 bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry &e) {
   const auto &cfg = config();
-  // Formula profiles may suppress repeated Factor work, but never the startup
-  // entry. Kissat 4.0.4 admits `preprocessfactor` independently of formula
-  // shape; keeping the entry prevents density classification from hiding
-  // productive BVA. The resource and decade governors below remain separate
-  // policy decisions and may still decline before rule dispatch.
+  // This remains an explicit typed diagnostic arm. Formula classification
+  // never changes it; production admits both startup and repeated Factor work.
   if (k.stats.conflicts > 0 && !cfg.factor_repeated_enabled) {
     e.tm.dec_profile++;
     return true;
   }
   const uint64_t active = active_variables(k);
-  // Factor's 700M-tick first dose can dominate an entire P4 allocation after
-  // one BVE round relaxes the reference factordelay exponent.  Keep that
-  // startup population as a permanent ceiling: smaller formulas preserve the
-  // reference round-dependent admission exactly, while large hardware
-  // encodings continue through search instead of spending the gate in a
-  // candidate scan that yields no factorization.
-  if (active >= cfg.factor_active_ceiling)
+  // A nonzero ceiling is an explicit diagnostic arm. Production leaves it at
+  // zero and follows Kissat's factordelay predicate below for every formula.
+  if (cfg.factor_active_ceiling && active >= cfg.factor_active_ceiling)
     factor_large_formula_ = true;
   if (factor_large_formula_) {
     e.tm.dec_warmup++;

@@ -286,11 +286,9 @@ static bool model_satisfies(Kernel &k, const std::vector<Ternary> &formula) {
   return true;
 }
 
-// Formula profiles may dose individual inprocessing entries; they must not
-// withdraw either the search-time Probe pipeline or late Lucky, which Kissat
-// offers on every formula. Search-wide random diversification also remains
-// independently enabled.
-static void test_late_call_survives_formula_classification() {
+// Formula classification has no scheduling consumers in Kissat, so it cannot
+// withdraw the search-time Probe pipeline or late Lucky.
+static void test_late_call_is_formula_shape_invariant() {
   const uint32_t blocks = 57;
   const uint32_t vars = blocks * 16;
   const uint64_t clauses = uint64_t{blocks} * 16;
@@ -298,9 +296,8 @@ static void test_late_call_survives_formula_classification() {
   Kernel shape;
   shape.original_external_vars = vars;
   shape.original_input_clauses = clauses;
-  DefaultPolicy classifier;
-  classifier.classify_formula_strategy(shape);
-  const auto &profiled = classifier.strategy_config();
+  DefaultPolicy policy;
+  const auto &profiled = policy.strategy_config();
   assert(!profiled.inprocess.preprocess_only &&
          profiled.branching.random_sequences && profiled.rephase.late_lucky);
 
@@ -388,7 +385,7 @@ int main() {
   test_unsat_probes_commit_root_consequences();
   test_backward_sweep_skips_retired_identity();
   test_constant_scan_skips_inactive_binary_endpoint();
-  test_late_call_survives_formula_classification();
+  test_late_call_is_formula_shape_invariant();
   test_registry_surface();
   test_guard_needs_quiescent_root();
   puts("test_lucky OK");

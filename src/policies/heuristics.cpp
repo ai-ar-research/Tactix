@@ -68,9 +68,13 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   // untouched variable indistinguishable from one actually assigned positive
   // and lets preprocessing assignments leak into the first search trajectory.
   k.h->saved.resize(nvars, 0);
-  for (Var v = old; v < nvars; ++v)
+  k.compact_import_position.resize(nvars, INVALID_VAR);
+  for (Var v = old; v < nvars; ++v) {
+    const Var position = static_cast<Var>(k.compact_import_order.size());
     k.compact_import_order.push_back(v);
-  rebuild_compact_import_position(k, nvars);
+    assert(k.compact_import_position[v] == INVALID_VAR);
+    k.compact_import_position[v] = position;
+  }
   k.h->links.resize(nvars);
   k.h->scores.pos.resize(nvars, UINT32_MAX);
   k.h->scores.score.resize(nvars, 0.0);

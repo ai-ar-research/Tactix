@@ -243,7 +243,7 @@ static void test_variable_compaction() {
   assert(k.model_values[internalize(2)] > 0);
 }
 
-static void test_compaction_counts_root_fixed_and_rewatches() {
+static void test_compaction_excludes_root_fixed_from_admission_and_rewatches() {
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 11);
@@ -254,7 +254,7 @@ static void test_compaction_counts_root_fixed_and_rewatches() {
   kernel_assign_unit(k, internalize(11));
   hg.h.search_idx = 2;
   hg.h.search_stamp = hg.h.links[2].stamp;
-  assert(kernel_should_compact_variables(k, 10));
+  assert(!kernel_should_compact_variables(k, 10));
   assert(kernel_compact_variables(k));
   assert(k.nvars == 11 && k.stats.variable_compactions == 1);
   assert(hg.h.search_idx == 2 && hg.h.search_stamp == hg.h.links[2].stamp);
@@ -549,11 +549,10 @@ static void test_sparse_collection_flushes_fixed_prefix_watch() {
   kernel_check_invariants(k);
 }
 
-// DefaultArenaOrder may physically place an irredundant clause after the first
-// redundant record.  Kissat's logical arena invariant still keeps that clause
-// in the unswept prefix, so a Reduce collection must not root-flush it merely
-// because the stronger physical order crossed the watermark.
-static void test_root_sparse_collection_retains_logical_irredundant_prefix() {
+// A physically interleaved irredundant clause after the Reduce watermark is
+// part of Kissat's swept tail. Root collection must flush it even though its
+// redundancy bit would have classified it as part of a logical prefix.
+static void test_root_sparse_collection_sweeps_physical_irredundant_tail() {
   Kernel k;
   kernel_reserve_vars(k, 7);
   const Lit root = internalize(1);
@@ -568,21 +567,20 @@ static void test_root_sparse_collection_retains_logical_irredundant_prefix() {
   kernel_add_large_clause(k, logical_prefix, 3, false, 0, 153);
   kernel_delete_clause(k, clause_at(k.arena, start));
 
-  assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::NoChange);
+  assert(kernel_sparse_collect_root(k, start) == RootCollectOutcome::Changed);
   bool retained = false;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     retained |= c->id() == 153;
     ref += clause_actual_words(c);
   }
-  assert(retained);
+  assert(!retained);
   kernel_check_invariants(k);
 }
 
-// Kissat's sparse collector keeps the unswept logical irredundant prefix,
-// including its already-mutated watch-list order, then stably partitions and
-// rewatches the redundant tail.  The partition is a collection invariant,
-// not an arena policy choice, but it must not sort retained watches by arena.
+// Kissat's sparse collector keeps only the unswept physical prefix, then
+// stably partitions and rewatches every record in the physical tail.  An
+// arena policy can put irredundant clauses in that tail; they are rebuilt too.
 static void test_sparse_collection_partitions_mixed_tail() {
   Kernel k;
   kernel_reserve_vars(k, 7);
@@ -599,8 +597,8 @@ static void test_sparse_collection_partitions_mixed_tail() {
   kernel_add_large_clause(k, red_second, 3, true, 8, 204);
   kernel_add_large_clause(k, irred_second, 3, false, 0, 205);
 
-  // Model a search relocation before Reduce: retained irredundant watches keep
-  // this exact order even though collection moves their clause records.
+  // Model a search relocation before Reduce.  Both irredundant clauses are in
+  // the physical tail, so collection discards this order and rewatches them.
   kernel_unwatch_large(k, shared, irred_first_ref);
   k.watches.push_large(shared, internalize(4), irred_first_ref);
 
@@ -621,16 +619,14 @@ static void test_sparse_collection_partitions_mixed_tail() {
   for (const WatchEntry watch : k.watches.entries(shared))
     if (!watch.binary())
       watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
-  assert((watched_ids == std::vector<uint64_t>{201, 205, 203, 202, 204}));
+  assert((watched_ids == std::vector<uint64_t>{201, 203, 205, 202, 204}));
   kernel_check_invariants(k);
 }
 
 // A watch relocation may leave the opposite entry caching the old watched
-// literal.  Kissat retains that exact two-word entry for every irredundant
-// prefix clause during Reduce.  Rebuilding a physically interleaved
-// irredundant clause changes the cache to the new watched partner and can
-// change a later propagation even though the clause pose is unchanged.
-static void test_sparse_collection_preserves_irredundant_blocker() {
+// literal.  If that irredundant clause lies in the physical Reduce tail,
+// Kissat rebuilds it and restores the current watched partner as blocker.
+static void test_sparse_collection_rebuilds_tail_irredundant_blocker() {
   Kernel k;
   ScopedHeuristics h(k);
   kernel_reserve_vars(k, 7);
@@ -656,7 +652,7 @@ static void test_sparse_collection_preserves_irredundant_blocker() {
   assert(blocker_for(b, 163) == a);
 
   kernel_collect_garbage(k, start);
-  assert(blocker_for(b, 163) == a);
+  assert(blocker_for(b, 163) == c);
   kernel_check_invariants(k);
 }
 
@@ -743,14 +739,14 @@ static void test_root_sparse_collection_collects_existing_garbage() {
     arena_ids.push_back(c->id());
     ref += clause_actual_words(c);
   }
-  assert((arena_ids == std::vector<uint64_t>{401, 406, 405, 402}));
+  assert((arena_ids == std::vector<uint64_t>{401, 405, 406, 402}));
 
   std::vector<uint64_t> watched_ids;
   for (const WatchEntry watch : k.watches.entries(shared))
     if (!watch.binary())
       watched_ids.push_back(clause_at(k.arena, watch.ref())->id());
-  // The inherited source key restores arena enumeration, but the live
-  // irredundant watches preserve their pre-collection relocation order.
+  // The inherited source key restores arena enumeration, and every physical
+  // tail clause is rewatched in that resulting order.
   assert((watched_ids == std::vector<uint64_t>{401, 405, 406, 402}));
   kernel_check_invariants(k);
 }
@@ -1517,7 +1513,7 @@ int main() {
   test_variable_identity_maps();
   test_import_order_survives_compaction_linearly();
   test_variable_compaction();
-  test_compaction_counts_root_fixed_and_rewatches();
+  test_compaction_excludes_root_fixed_from_admission_and_rewatches();
   test_variable_compaction_preserves_directed_binary_order();
   test_variable_compaction_replays_inherited_arena_order();
   test_compaction_defers_retired_jumped_reason();
@@ -1529,9 +1525,9 @@ int main() {
   test_root_sparse_collection_ignores_nonroot_values();
   test_root_sparse_collection_rewrites_nonroot_reason();
   test_sparse_collection_flushes_fixed_prefix_watch();
-  test_root_sparse_collection_retains_logical_irredundant_prefix();
+  test_root_sparse_collection_sweeps_physical_irredundant_tail();
   test_sparse_collection_partitions_mixed_tail();
-  test_sparse_collection_preserves_irredundant_blocker();
+  test_sparse_collection_rebuilds_tail_irredundant_blocker();
   test_root_sparse_collection_partitions_rewritten_tail();
   test_root_sparse_collection_collects_existing_garbage();
   test_repeated_clause_deletion_emits_one_proof_line();

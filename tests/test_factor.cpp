@@ -95,6 +95,13 @@ static void test_extension_var_boundary() {
   assert(k.nvars == 8);
   assert(k.first_extension_var == 5);          // boundary unchanged
   assert(kernel_num_output_vars(k) == 5);
+  for (Var v = 8; v < 40; v++) {
+    assert(kernel_new_extension_vars(k, 1) == v);
+    assert(k.compact_import_order[v] == v);
+    assert(k.compact_import_position[v] == v);
+  }
+  assert(k.internal_to_external.capacity() > k.nvars &&
+         "single-variable extension growth must retain spare capacity");
 }
 
 // A 2×3 grid factors to 2 dividers + 3 quotients over a fresh x.
@@ -352,6 +359,11 @@ static void test_duplicate_large_remainder_occurrences() {
   assert(count_live_large(k, {a, p, q}) == 0);
   assert(count_live_large(k, {b, p, q}) == 0);
   assert(count_live_large(k, {nx, p, q}) == 3);
+  assert(k.stats.factor_large_remainders > 0);
+  assert(k.stats.factor_remainders_materialized > 0);
+  assert(k.stats.factor_remainders_materialized +
+             k.stats.factor_remainders_reused <=
+         k.stats.factor_large_remainders);
 }
 
 // Kissat's dense-mode transition flushes repeated binary watch pairs before
