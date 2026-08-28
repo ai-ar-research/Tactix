@@ -224,6 +224,31 @@ static void test_eliminate_basic() {
   assert(!k.reconstruction.empty());                       // witnesses pushed
 }
 
+static void test_large_resolvent_is_irredundant_with_zero_glue() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit positive[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit negative[3] = {internalize(-1), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, positive, 3, false, 0);
+  kernel_add_large_clause(k, negative, 3, false, 0);
+  k.bve_gate_mask = 0;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  size_t live = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    ref += clause_actual_words(c);
+    if (c->garbage())
+      continue;
+    live++;
+    assert(c->size == 4);
+    assert(!c->redundant());
+    assert(c->glue() == 0);
+  }
+  assert(live == 1);
+}
+
 static void test_elimination_retains_duplicate_binary_resolvent() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -1008,6 +1033,7 @@ int main() {
   test_instance_surface();
   test_antecedent_clause_size_limit();
   test_eliminate_basic();
+  test_large_resolvent_is_irredundant_with_zero_glue();
   test_elimination_retains_duplicate_binary_resolvent();
   test_scheduled_candidate_that_becomes_isolated_is_retired();
   test_eliminate_reconstruction();
