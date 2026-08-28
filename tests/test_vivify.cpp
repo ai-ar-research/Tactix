@@ -596,7 +596,7 @@ static void test_kissat_candidate_count_vector_ties() {
     const Lit later_lits[3] = {internalize(4), internalize(5), internalize(6)};
     const Ref old = kernel_add_large_clause(k, old_lits, 3, false, 0, 1);
     const Ref later = kernel_add_large_clause(k, later_lits, 3, false, 0, 2);
-    kernel_inherit_clause_order(k, 3, clause_at(k.arena, old)->id());
+    kernel_inherit_clause_position(k, 3, old);
     kernel_delete_clause(k, clause_at(k.arena, old));
     const Ref replacement =
         kernel_add_large_clause(k, old_lits, 3, false, 0, 3);

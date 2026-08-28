@@ -453,7 +453,7 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
     for (const Lit lit : *c)
       keys.push_back(lit);
     cands.push_back({ref,
-                     c->id() ? kernel_clause_order(k, c->id()) : ref,
+                     kernel_clause_position(k, ref),
                      priority ? 1u : 0u,
                      c->redundant() ? 1u : 0u, band, c->size, key_off,
                      c->size});
@@ -861,8 +861,8 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
 }
 
 // Kissat shortens large clauses inside their existing arena records. Tactix's
-// packed replacement is appended physically but inherits the source's stable
-// order key in kernel_replace_clause. Restore those logical positions at the
+// packed replacement is appended physically but inherits the source's current
+// position in kernel_replace_clause. Restore those logical positions at the
 // band-end collection: the next Vivify band rebuilds every large watch in
 // arena order, so this is semantic state rather than a storage detail.
 struct VivifyArenaOrder final : ArenaOrdering {
@@ -875,7 +875,7 @@ struct VivifyArenaOrder final : ArenaOrdering {
   void inherit(Ref, Ref) { batch.changed = true; }
 
   void order(const Kernel &k, std::vector<Ref> &refs) override {
-    kernel_sort_refs_by_logical_clause_order(k, refs);
+    kernel_sort_refs_by_logical_clause_position(k, refs);
   }
 
 };
@@ -885,7 +885,7 @@ void VivifyReclamationBatch::collect(Kernel &k) {
     return;
   struct LogicalOrder final : ArenaOrdering {
     void order(const Kernel &kernel, std::vector<Ref> &refs) override {
-      kernel_sort_refs_by_logical_clause_order(kernel, refs);
+      kernel_sort_refs_by_logical_clause_position(kernel, refs);
     }
   } logical_order;
   ArenaOrdering *const saved = k.arena_ordering;

@@ -581,7 +581,6 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   }
   assert(lits.size() >= 2);
   const uint64_t id = ++k.next_clause_id;
-  kernel_inherit_clause_order(k, id, reason->id());
 
   bool subsume = false, subsumed_irredundant = false;
   uint32_t subsumed_glue = UINT32_MAX;
@@ -614,6 +613,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
   } else {
+    kernel_inherit_clause_position(k, id, reason_ref);
     if (keep_surviving_watch) {
       // Kissat keeps the reason's other old watch and selects only its new
       // partner, taking the first literal on a level tie.  Re-selecting both
@@ -1375,7 +1375,7 @@ ApplyResult analyze_apply(Kernel &k) {
         event_trace_detail(k, "analysis_reason_ref", a.reason);
         event_trace_detail(k, "analysis_reason_id", reason->id());
         event_trace_detail(k, "analysis_reason_order",
-                           kernel_clause_order(k, reason->id()));
+                           kernel_clause_position(k, a.reason));
         event_trace_detail(k, "analysis_reason_size", reason->size);
         uint32_t antecedent = 1; // t's own slot in the reason
         for (const Lit l : *reason)

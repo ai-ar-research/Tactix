@@ -346,6 +346,29 @@ static void test_reduce_equal_rank_preserves_arena_order() {
          "equal Kissat ranks must retain the arena scan order");
 }
 
+static void test_reduce_equal_rank_uses_pending_replacement_position() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 9);
+  const Lit prefix[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit source[3] = {internalize(4), internalize(5), internalize(6)};
+  const Lit later[3] = {internalize(7), internalize(8), internalize(9)};
+  const Lit replacement[3] = {internalize(4), internalize(6), internalize(9)};
+  kernel_add_large_clause(k, prefix, 3, false, 0, 201);
+  const Ref source_ref =
+      kernel_add_large_clause(k, source, 3, true, 9, 202);
+  const Ref later_ref = kernel_add_large_clause(k, later, 3, true, 9, 203);
+  const Ref replacement_ref =
+      kernel_add_large_clause(k, replacement, 3, true, 9, 204);
+  kernel_inherit_clause_position(k, 204, source_ref);
+  kernel_delete_clause(k, clause_at(k.arena, source_ref));
+
+  std::vector<Ref> candidates;
+  reduce_candidates(k, candidates);
+  assert((candidates == std::vector<Ref>{replacement_ref, later_ref}) &&
+         "Reduce rank ties follow Kissat's current clause position");
+}
+
 static void test_compacting_reduce_collects_irredundant_prefix() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -536,6 +559,7 @@ int main() {
   test_root_propagation_consumes_unflushed_marker();
   test_reduce_used_retention();
   test_reduce_equal_rank_preserves_arena_order();
+  test_reduce_equal_rank_uses_pending_replacement_position();
   test_compacting_reduce_collects_irredundant_prefix();
   test_tier2_band_tracks_the_live_tier();
   test_retier_uses_kissat_truncation();

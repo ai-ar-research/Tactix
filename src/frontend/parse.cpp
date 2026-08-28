@@ -349,7 +349,9 @@ void finish_input(Kernel &k) {
     } else {
       Clause *c = clause_at(k.arena, r.ref);
       assert(c->id() == r.id);
-      kernel_inherit_clause_order(k, nid, r.id);
+      // LRAT restatement changes only the proof identity. The clause stays in
+      // its existing arena record, so no packed-replacement position alias is
+      // needed.
       c->set_id(nid);
     }
   }

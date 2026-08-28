@@ -346,22 +346,21 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   return ref;
 }
 
-uint64_t kernel_clause_order(const Kernel &k, uint64_t id) {
-  const uint64_t alias = k.clause_order_alias.get(id);
-  return alias ? alias : id;
+uint64_t kernel_clause_position(const Kernel &k, Ref ref) {
+  const Clause *c = clause_at(k.arena, ref);
+  const uint64_t alias = c->id() ? k.clause_position_alias.get(c->id()) : 0;
+  return alias ? alias - 1 : ref;
 }
 
-void kernel_inherit_clause_order(Kernel &k, uint64_t replacement_id,
-                                 uint64_t source_id) {
+void kernel_inherit_clause_position(Kernel &k, uint64_t replacement_id,
+                                    Ref source_ref) {
   // Id 0 is "no proof identity", the documented default of the clause-add API
-  // (kernel.hpp) and the state every kernel built without a proof is in. The
-  // alias map is keyed by clause id, so there is nothing to key and nothing to
-  // inherit; the order consumers already fall back to the arena Ref for an
-  // id-less clause (vivify.cpp VivifyArenaOrder::order).
-  if (!replacement_id || !source_id)
+  // (kernel.hpp), so there is no key under which to retain the position.
+  if (!replacement_id)
     return;
-  k.clause_order_alias.set(replacement_id,
-                           kernel_clause_order(k, source_id));
+  const uint64_t position = kernel_clause_position(k, source_ref);
+  assert(position < UINT64_MAX);
+  k.clause_position_alias.set(replacement_id, position + 1);
 }
 
 static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
@@ -974,7 +973,8 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // caller-specific (in particular Sweep's `vivify` bit) and is restored by
   // the source-backed caller that owns that in-place rewrite.
   const uint32_t inherited_used = c->used();
-  kernel_inherit_clause_order(k, id, c->id());
+  const Ref source_ref = static_cast<Ref>(
+      reinterpret_cast<const uint32_t *>(c) - k.arena.data());
   kernel_delete_clause(k, c); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
     k.inconsistent = true; // emitted IS the refutation
@@ -986,6 +986,7 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
     kernel_add_binary_clause(k, lits[0], lits[1], id);
     return ReplaceOutcome::Binary;
   }
+  kernel_inherit_clause_position(k, id, source_ref);
   const Ref r = kernel_add_large_clause(k, lits, size, redundant, glue, id);
   if (redundant)
     clause_at(k.arena, r)->set_used(inherited_used);
@@ -1006,7 +1007,8 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
 
   const uint32_t old_size = c->size;
   const uint32_t old_flags = c->flags;
-  const uint64_t old_id = c->id();
+  const uint64_t old_position_alias =
+      c->id() ? k.clause_position_alias.get(c->id()) : 0;
   const Lit old_first = c->lits[0], old_second = c->lits[1];
   const bool redundant = c->redundant();
 
@@ -1042,8 +1044,9 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   // before the semantic overwrite also avoids depending on cached blockers.
   kernel_unwatch_large(k, old_first, ref);
   kernel_unwatch_large(k, old_second, ref);
-  kernel_inherit_clause_order(k, id, old_id);
   kernel_delete_clause(k, c);
+  if (old_position_alias)
+    k.clause_position_alias.set(id, old_position_alias);
 
   kernel_rearm_propagation(k, lits, size);
   std::copy(lits, lits + size, c->lits);
@@ -1231,46 +1234,10 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   k.stats.sparse_collections++;
   if (!kernel_has_root_assignment(k))
     return RootCollectOutcome::NoChange;
-  // Rewrites allocate a new variable-width record, but Kissat's collector
-  // emits that record at the old clause's position. Preserve the same relative
-  // order explicitly; otherwise tens of thousands of shortened clauses move
-  // to the arena tail and change every capped downstream environment.
-  struct RootArenaOrder final : ArenaOrdering {
-    std::vector<Ref> desired;
-    void order(const Kernel &k, std::vector<Ref> &refs) override {
-      if (refs.size() != desired.size())
-        return; // defensive: never drop an unaccounted live clause
-#ifndef NDEBUG
-      std::vector<uint8_t> seen(k.arena.size());
-      for (const Ref ref : refs)
-        seen[ref] = 1;
-      for (const Ref ref : desired)
-        if (ref >= seen.size() || !seen[ref])
-          return;
-        else
-          seen[ref] = 0;
-#else
-      (void)k;
-#endif
-      refs = desired;
-    }
-  } root_order;
   uint64_t changed = 0;
   bool has_garbage = false;
   RootCollectOutcome outcome = RootCollectOutcome::NoChange;
-
-  // A Reduce collection starts at the first redundant clause.  The live
-  // irredundant prefix is copied byte-for-byte and is not root-flushed, just
-  // as in Kissat's `sparse_sweep_garbage_clauses(start)`.
-  for (Ref ref = 0; ref < start;) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage())
-      root_order.desired.push_back(ref);
-    else
-      has_garbage = true;
-    ref += clause_actual_words(c);
-  }
-  const size_t prefix_clauses = root_order.desired.size();
+  const uint64_t sparse_cut = start ? kernel_clause_position(k, start) : 0;
 
   // Kissat's sparse collector flushes watched binaries before sweeping the
   // large-clause arena (collect.c:flush_watched_clauses_by_literal).  In
@@ -1308,11 +1275,18 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
     outcome = RootCollectOutcome::Changed;
   }
 
+  // A Reduce collection starts at the first redundant clause in Kissat's
+  // current arena. Tactix can have an appended packed replacement whose
+  // generation-local position lies before that cut. Classify every original
+  // record by that position: the logical prefix remains byte-for-byte
+  // untouched, while every logical-tail record is root-flushed.
   const Ref original_end = static_cast<Ref>(k.arena.size());
-  for (Ref ref = start; ref < original_end;) {
+  for (Ref ref = 0; ref < original_end;) {
     Clause *const source = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(source);
-    if (!source->garbage()) {
+    if (source->garbage()) {
+      has_garbage = true;
+    } else if (kernel_clause_position(k, ref) >= sparse_cut) {
       Ref current = ref;
       const RootFlushOutcome flushed =
           kernel_flush_root_clause(k, &current, &changed);
@@ -1325,11 +1299,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
       else if (flushed != RootFlushOutcome::None &&
                outcome == RootCollectOutcome::NoChange)
         outcome = RootCollectOutcome::Changed;
-      if (flushed == RootFlushOutcome::None ||
-          flushed == RootFlushOutcome::Rewritten)
-        root_order.desired.push_back(current);
-    } else
-      has_garbage = true;
+    }
     ref += words;
   }
   k.stats.sparse_collected += changed;
@@ -1339,19 +1309,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   // collection.  `changed` only describes root simplification, so it cannot
   // by itself be the collection admission predicate.
   if ((changed || has_garbage) && outcome != RootCollectOutcome::Refuted) {
-    // Root shortening appends packed replacement records, while Kissat writes
-    // them at the swept source position. `desired` restores those physical
-    // positions before composing the collector's stable move of tail
-    // irredundant clauses ahead of tail redundant clauses. The unswept prefix
-    // remains untouched; no logical-source reorder occurs in sparse collect.
-    const auto tail = root_order.desired.begin() + prefix_clauses;
-    std::stable_partition(tail, root_order.desired.end(), [&k](Ref ref) {
-      return !clause_at(k.arena, ref)->redundant();
-    });
-    ArenaOrdering *const saved = k.arena_ordering;
-    k.arena_ordering = &root_order;
-    kernel_collect_garbage(k, start, /*apply_sparse_order=*/true);
-    k.arena_ordering = saved;
+    kernel_collect_garbage(k, start, /*sparse_collection=*/true);
   }
   return outcome;
 }
@@ -1863,27 +1821,22 @@ static void sort_clause_watches_like_kissat(Kernel &k, Clause *c) {
     move_best_watch_to_front(k, c, 1, first >= 0);
 }
 
-static uint64_t logical_clause_order(const Kernel &k, Ref ref) {
-  const Clause *c = clause_at(k.arena, ref);
-  return c->id() ? kernel_clause_order(k, c->id()) : ref;
-}
-
-// Stable LSD radix ordering over the exact clause-order key.  Kissat obtains
-// this order for free because its physical arena retains in-place replacement
-// positions.  Tactix uses append-only variable-width replacement records and
-// therefore has to reconstruct that order.  The direct ID image makes a
-// fixed-width stable radix pass the corresponding linear representation
-// operation; comparison sorting the multi-million clause image made dense
+// Stable LSD radix ordering over each clause's current logical position.
+// Kissat obtains this order for free because its arena shortens clauses in
+// place. Tactix appends variable-width replacements and records their source
+// position until the next collection materializes it. Unlike immutable proof
+// IDs, these positions naturally retain every earlier sparse-collection
+// partition. Comparison sorting the multi-million clause image made dense
 // entry and sparse resume dominate useful rule work.
-void kernel_sort_refs_by_logical_clause_order(const Kernel &k,
-                                              std::vector<Ref> &refs) {
+void kernel_sort_refs_by_logical_clause_position(const Kernel &k,
+                                                 std::vector<Ref> &refs) {
   if (refs.size() < 2)
     return;
 
   bool ordered = true;
   uint64_t previous = 0;
   for (size_t i = 0; i < refs.size(); ++i) {
-    const uint64_t key = logical_clause_order(k, refs[i]);
+    const uint64_t key = kernel_clause_position(k, refs[i]);
     if (i && key < previous)
       ordered = false;
     previous = key;
@@ -1894,10 +1847,12 @@ void kernel_sort_refs_by_logical_clause_order(const Kernel &k,
   std::vector<uint64_t> keys;
   keys.reserve(refs.size());
   for (const Ref ref : refs)
-    keys.push_back(logical_clause_order(k, ref));
+    keys.push_back(kernel_clause_position(k, ref));
   std::vector<Ref> ref_scratch(refs.size());
   std::vector<uint64_t> key_scratch(keys.size());
-  for (unsigned shift = 0; shift < 64; shift += 8) {
+  // Positions are arena `Ref`s, hence exactly 32 bits. Four passes are enough;
+  // the former proof-ID key needed eight.
+  for (unsigned shift = 0; shift < 32; shift += 8) {
     std::array<size_t, 256> offsets{};
     for (const uint64_t key : keys)
       offsets[(key >> shift) & 0xffu]++;
@@ -1938,17 +1893,17 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
       order.push_back(ref);
     ref += clause_actual_words(c);
   }
-  // Kissat's dense lists follow its irredundant arena prefix. Tactix's
-  // proof/source identities retain the corresponding order across append-only
-  // replacement records, including replacement aliases.
-  kernel_sort_refs_by_logical_clause_order(k, order);
+  // Kissat's dense lists follow its current irredundant arena order. Tactix's
+  // generation-local source positions retain that order across append-only
+  // replacement records until collection materializes it.
+  kernel_sort_refs_by_logical_clause_position(k, order);
   for (const Ref ref : order)
     for (const Lit lit : *clause_at(k.arena, ref))
       occ.large[lit].push_back(ref);
 }
 
 void kernel_collect_garbage(Kernel &k, Ref watch_start,
-                            bool apply_sparse_order) {
+                            bool sparse_collection) {
   assert(!k.bve_occurrence_count_image);
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
@@ -1977,6 +1932,9 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       break;
     }
   }
+  sparse_collection |= watch_start != 0;
+  const uint64_t sparse_cut =
+      watch_start ? kernel_clause_position(k, watch_start) : 0;
   size_t live_words = 0, live_clauses = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -2012,8 +1970,15 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // surviving irredundant clauses in that tail (collect.c:
   // move_redundant_clauses_to_the_end).  This partition is observable when
   // the tail is rewatched, and is independent of the optional policy order.
-  if (watch_start && !apply_sparse_order) {
-    const auto tail = std::lower_bound(order.begin(), order.end(), watch_start);
+  if (sparse_collection) {
+    // Reduce is not an arena-policy checkpoint. Even the explicit CaDiCaL
+    // diagnostic arm must leave Kissat's sparse order alone.
+    kernel_sort_refs_by_logical_clause_position(k, order);
+    const auto tail = std::lower_bound(
+        order.begin(), order.end(), sparse_cut,
+        [&k](Ref ref, uint64_t cut) {
+          return kernel_clause_position(k, ref) < cut;
+        });
     std::stable_partition(tail, order.end(), [&k](Ref ref) {
       return !clause_at(k.arena, ref)->redundant();
     });
@@ -2021,12 +1986,12 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     k.arena_ordering->order(k, order);
   } else {
     // Production emulates Kissat's in-place clause replacements: a packed
-    // replacement returns to its inherited creation position instead of
-    // retaining Tactix's append-only allocation position.  The explicit
+    // replacement returns to its source's current position instead of
+    // retaining Tactix's append-only allocation position. The explicit
     // CaDiCaL diagnostic arm above remains the only alternative whole-arena
-    // permutation.  Sparse collection deliberately stays on the separate
-    // physical-prefix path above.
-    kernel_sort_refs_by_logical_clause_order(k, order);
+    // permutation. Sparse collection deliberately stays on the separate
+    // current-position path above.
+    kernel_sort_refs_by_logical_clause_position(k, order);
   }
 #ifndef NDEBUG
   std::vector<uint8_t> seen(k.arena.size());
@@ -2044,17 +2009,19 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
-    if (watch_start && ref < watch_start) {
+    const bool retained_sparse_watch =
+        sparse_collection && kernel_clause_position(k, ref) < sparse_cut;
+    if (retained_sparse_watch) {
       assert(packed_watch_start <= UINT32_MAX - words);
       packed_watch_start += words;
     }
     const Ref nref = static_cast<Ref>(fresh.size());
     fresh.insert(fresh.end(), k.arena.begin() + ref,
                  k.arena.begin() + ref + words);
-    // Kissat's sparse sweep starts at the physical `watch_start`: only that
-    // byte prefix avoids rewatching and keeps its replacement-search cursor.
+    // Kissat's sparse sweep starts at `watch_start` in its current arena: only
+    // that logical prefix avoids rewatching and keeps its replacement-search
+    // cursor. A packed Tactix replacement can physically live at the tail.
     // Whole-arena collection has `watch_start == 0` and resets every clause.
-    const bool retained_sparse_watch = watch_start && ref < watch_start;
     Clause *const packed = clause_at(fresh, nref);
     packed->flags &= ~Clause::SHRUNKEN;
     packed->searched = retained_sparse_watch ? c->searched : 2;
@@ -2106,14 +2073,16 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     k.otfs_retired.resize(kept);
   }
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    k.watches.compact(lit, [&k, watch_start, lit](WatchEntry w) {
+    k.watches.compact(lit, [&k, sparse_collection, sparse_cut,
+                            lit](WatchEntry w) {
       if (w.binary())
         return true;
       const Clause *c = clause_at(k.arena, w.ref());
-      return kernel_root_value(k, lit) == 0 && !c->garbage() && watch_start &&
-             w.ref() < watch_start;
+      return kernel_root_value(k, lit) == 0 && !c->garbage() &&
+             sparse_collection &&
+             kernel_clause_position(k, w.ref()) < sparse_cut;
     });
-    // `compact` is stable: every physical-prefix entry keeps its exact
+    // `compact` is stable: every current-prefix entry keeps its exact
     // position and cached blocker. Sorting these survivors would erase
     // search-visible watch relocation.
     k.watches.map_large_refs(lit, [&k](Ref ref) {
@@ -2121,13 +2090,18 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     });
   }
   k.arena.swap(fresh);
+  // Every replacement alias named a position in the old arena. The packed
+  // arena now embodies the selected order directly; retaining aliases would
+  // make a later sparse partition snap clauses back to a superseded
+  // generation. All rebuilds below therefore consume the new physical arena.
+  k.clause_position_alias.clear();
   // GC relocated every Ref: the dense occurrence index (increment 2) is
   // rebuilt from the compacted arena in lock-step with the watches below (it
   // held offsets into the old arena, now stale).  The rebuild clears logical
   // sizes while retaining Kissat-shaped per-literal allocation capacity.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (!watch_start || ref >= packed_watch_start) {
+    if (!sparse_collection || ref >= packed_watch_start) {
       // collect.c:rewatch_clauses selects the best current watched pair before
       // appending the relocated clause to its two watch lists.
       sort_clause_watches_like_kissat(k, c);
@@ -2137,8 +2111,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     ref += clause_actual_words(c);
   }
   // Subsume/Strengthen collection can occur between dense phase entry and BVE.
-  // Rebuild after every relocation so append-only replacement allocation or a
-  // diagnostic physical permutation cannot overwrite the source-order pose.
+  // Rebuild after every relocation so append-only replacement allocation is
+  // materialized in the selected current arena order.
   if (k.dense)
     rebuild_dense_large_occurrences(k, *k.dense);
   // Every surviving binary was kept in place by the strip above and every large
@@ -2164,7 +2138,7 @@ void kernel_rebuild_large_watches(Kernel &k, bool inherited_source_order) {
     ref += words;
   }
   if (inherited_source_order)
-    kernel_sort_refs_by_logical_clause_order(k, order);
+    kernel_sort_refs_by_logical_clause_position(k, order);
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
       // `kissat_watch_large_clauses` does not merely reconnect the existing
@@ -2242,10 +2216,10 @@ void kernel_resume_walk_watches(Kernel &k) {
     ref += words;
   }
   // Kissat resumes by scanning its physical arena.  Tactix's physical arena
-  // can differ after append-only replacements, while the inherited logical
-  // key is the exact source-arena position.  Reconstruct that order before
+  // can differ after append-only replacements, while the generation-local
+  // alias is the exact current source-arena position. Reconstruct that order before
   // sizing and filling the exact watch image.
-  kernel_sort_refs_by_logical_clause_order(k, large_order);
+  kernel_sort_refs_by_logical_clause_position(k, large_order);
   for (const Ref ref : large_order) {
     Clause *c = clause_at(k.arena, ref);
     sort_clause_watches_like_kissat(k, c);
@@ -2564,20 +2538,12 @@ bool kernel_compact_variables(Kernel &k) {
   // optional policy-ordering checkpoint in Kissat: its sparse collector walks
   // the current arena while remapping variables.  Tactix can append a
   // replacement that Kissat emitted at the source clause's position; the
-  // inherited clause-order key is the permanent representation of that native
-  // position.  Replay that logical arena order here instead of either physical
-  // append order or the solve-scoped inprocessing policy.
+  // generation-local alias represents that current native position until the
+  // next collection. Replay it here instead of either physical append order
+  // or the solve-scoped inprocessing policy.
   struct CompactionArenaOrder final : ArenaOrdering {
     void order(const Kernel &kernel, std::vector<Ref> &refs) override {
-      std::stable_sort(refs.begin(), refs.end(), [&](Ref a, Ref b) {
-        const Clause *ca = clause_at(kernel.arena, a);
-        const Clause *cb = clause_at(kernel.arena, b);
-        const uint64_t ao =
-            ca->id() ? kernel_clause_order(kernel, ca->id()) : a;
-        const uint64_t bo =
-            cb->id() ? kernel_clause_order(kernel, cb->id()) : b;
-        return ao < bo;
-      });
+      kernel_sort_refs_by_logical_clause_position(kernel, refs);
     }
   } compaction_order;
   ArenaOrdering *const saved_arena_ordering = k.arena_ordering;

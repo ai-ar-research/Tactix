@@ -8,19 +8,21 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
-- **In flight — Kissat creation-order production baseline:** the working tree
-  makes Kissat creation order unconditional production state and retains the
+- **In flight — Kissat creation/collection-order production baseline:** the
+  pushed tree makes Kissat order unconditional production state and retains the
   CaDiCaL VMTF/phase permutation only as `TACTIX_ARENA_ORDER=1`. No formula,
-  density, benchmark, or rank selector can activate it. Uniform candidate-only
-  ranks 1--40 array `1653454` (`20260827-2870`) uses one immutable Release
-  binary/configuration across all 40 ranks; do not wait for proof lanes before
-  mechanism work. Paired Rank-16 observer `1653462` extends the common-state
-  comparison to conflict 200,000. The first codebase revisit found that
-  append-only replacement records retained their inherited Kissat key but
-  ordinary whole-arena collection did not replay it; focused candidate
-  `1653468` tests that general repair. Sparse Reduce collection, rule
-  admission/effort, N1--N4, and the proof-rule/strategy boundary are unchanged.
-  Release is 76/76 and the affected ASan/UBSan surface is 6/6. Never revert the
+  density, benchmark, or rank selector can activate it. Jobs `1653454`,
+  `1653462`, and `1653468` retain the earlier baselines. The source revisit
+  replaced an immutable proof-ID key—which could undo a prior sparse Reduce
+  partition—with generation-local current source positions. Collection now
+  materializes and clears those positions; Reduce rank ties, root sweep,
+  prefix watch retention, zero-watermark compact collection, and the stable
+  `{I,R,I,R}`→`{I,I,R,R}` partition share that contract. Jobs `1653494`--
+  `1653499` pin the preceding repair and remain immutable. Final-tree Rank-16
+  trace `1653529`, homogeneous ranks 1--40 `1653530`/`1653531`, and B28+C5
+  `1653532`/`1653534` are submitted. Release is 76/76 and affected ASan/UBSan
+  is 6/6. Rule admission/effort, N1--N4, and proof/strategy boundaries are unchanged.
+  Proof completion is non-blocking per user direction. Never revert the
   production order or add an ordering gate in response to a regression.
 - Work in `/home/hwu/SAT-solving` on branch `main`. Accepted solver source is
   commit `ffa05257b5963274e922b5efdc74ac8ae9364088`, based on accepted
@@ -292,7 +294,7 @@ session narrative; this file is only the current resume surface.
 - Collection throughput remains a secondary lead: exact prefix work attributed
   about 4.91% to whole collection, and the rejected forwarding traversal only
   0.33%. Fused-forward and arena-prepass optimizations remain closed negative.
-  The current inherited-key replay is instead an architectural state repair:
+  The current generation-local position replay is an architectural state repair:
   it emulates Kissat's in-place replacement position before a later sparse
   physical watermark can consume it. Do not generalize that repair into an
   unrelated collection optimization without a new exact call-reason owner.
