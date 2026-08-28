@@ -1288,6 +1288,10 @@ void kernel_sort_refs_by_logical_clause_order(const Kernel &,
 void kernel_inherit_clause_order(Kernel &, uint64_t replacement_id,
                                  uint64_t source_id);
 void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
+// Bulk input has already established that this pair is absent.  Publish the
+// same clause transition without rescanning a growing high-degree watch list.
+// Unlike the general API, duplicate callers violate this function's contract.
+void kernel_add_new_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
 // Complete a pair whose `stable` direction was rewritten in place: append only
 // the missing mirror (to `moved`'s list), then publish the normal add metadata.
 void kernel_add_binary_mirror(Kernel &, Lit stable, Lit moved,
@@ -1302,6 +1306,11 @@ bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // omitted; the final copy delegates to the ordinary named-pair deletion.
 bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
+// Factor's null-stack dense entry has already counted and deduplicated the
+// selected grid pair.  Consume that exact count without rescanning its watch
+// list before the Kissat-style eager removal.
+bool kernel_delete_binary_all_copies_known(Kernel &, Lit a, Lit b,
+                                           uint32_t copies);
 
 inline uint64_t kernel_binary_key(Lit a, Lit b);
 

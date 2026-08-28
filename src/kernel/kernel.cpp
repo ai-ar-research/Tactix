@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <cstdio>
 #include <numeric>
 #include <type_traits>
@@ -394,8 +395,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
                                id, kernel_binary_copies(k, a, b));
 }
 
-void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
-  const bool new_pair = !kernel_binary_live(k, a, b);
+static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
+                              bool new_pair) {
   event_trace_binary_add(k, a, b);
   kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
@@ -403,6 +404,15 @@ void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   kernel_bve_occurrence_add(k, a);
   kernel_bve_occurrence_add(k, b);
   note_binary_add(k, a, b, id, new_pair);
+}
+
+void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
+  add_binary_clause(k, a, b, id, !kernel_binary_live(k, a, b));
+}
+
+void kernel_add_new_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
+  assert(!kernel_binary_live(k, a, b));
+  add_binary_clause(k, a, b, id, true);
 }
 
 void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
@@ -536,8 +546,8 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
 // copy survives, and Factor no-ops under native LRAT (D-FACTOR-LRAT), so that
 // ambiguity never reaches a checker. Only Factor's exact grid pairs are
 // removed. Emits one DRAT `del` per copy, and returns true iff any was removed.
-bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
-  const uint32_t copies = kernel_binary_copies(k, a, b);
+static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
+                                     uint32_t copies) {
   if (copies == 0)
     return false; // absent (idempotent)
   // retire a live ROOT reason before removing the clause(s) that name it (a no-op
@@ -551,12 +561,29 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
       ax.reason = UNIT_REASON;
     }
   }
-  // remove ALL matching mirror watch entries by in-place compaction
+  // Remove every matching mirror.  Factor's null-stack dense entry makes each
+  // original pair unique and leaves binary-only slices.  Kissat removes that
+  // exact case by finding the word and moving only its suffix
+  // (`factor.c:eagerly_remove_watch`); use the same representation operation.
+  // Duplicated or mixed sparse lists retain the general stable compaction.
   for (const Lit x : {a, b}) {
     const Lit other = (x == a) ? b : a;
-    k.watches.compact(x, [&](WatchEntry w) { // drop every matching copy
-      return !(w.binary() && w.other() == other);
-    });
+    WatchHead &head = k.watches.heads[x];
+    if (copies == 1 && head.size == head.binary_count()) {
+      uint32_t *const begin = k.watches.begin(x);
+      uint32_t *const end = k.watches.end(x);
+      uint32_t *word = std::find(begin, end, binary_watch(other).raw);
+      assert(word != end);
+      if (word != end - 1)
+        std::memmove(word, word + 1,
+                     static_cast<size_t>(end - word - 1) * sizeof(*word));
+      head.size--;
+      head.set_layout(head.size, true);
+    } else {
+      k.watches.compact(x, [&](WatchEntry w) { // drop every matching copy
+        return !(w.binary() && w.other() == other);
+      });
+    }
   }
   kernel_bve_occurrence_remove(k, a, copies);
   kernel_bve_occurrence_remove(k, b, copies);
@@ -577,6 +604,16 @@ bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
   event_trace_binary_lifecycle(k, "delete-all", a, b,
                                kernel_binary_id(k, a, b), 0);
   return true;
+}
+
+bool kernel_delete_binary_all_copies(Kernel &k, Lit a, Lit b) {
+  return delete_binary_all_copies(k, a, b, kernel_binary_copies(k, a, b));
+}
+
+bool kernel_delete_binary_all_copies_known(Kernel &k, Lit a, Lit b,
+                                           uint32_t copies) {
+  assert(kernel_binary_copies(k, a, b) == copies);
+  return delete_binary_all_copies(k, a, b, copies);
 }
 
 // --- watch repair ----------------------------------------------------------

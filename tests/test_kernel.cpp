@@ -1505,6 +1505,36 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
   assert(watches.arena.capacity() >= exact_size + (exact_size + 2) / 3);
 }
 
+static void test_deferred_watch_defrag_packs_once_without_reordering() {
+  WatchLists watches;
+  constexpr Lit nlits = 32;
+  constexpr uint32_t per_lit = 5000;
+  watches.resize_lits(nlits);
+  watches.begin_deferred_defrag();
+  for (uint32_t ordinal = 0; ordinal < per_lit; ordinal++)
+    for (Lit lit = 0; lit < nlits; lit++)
+      watches.push_binary(lit, (lit + ordinal + 1) % nlits);
+
+  assert(watches.defrag_deferred);
+  assert(watches.holes > 0);
+  std::vector<std::vector<uint32_t>> before(nlits);
+  for (Lit lit = 0; lit < nlits; lit++)
+    before[lit].assign(watches.begin(lit), watches.end(lit));
+
+  watches.finish_deferred_defrag();
+
+  assert(!watches.defrag_deferred);
+  assert(watches.holes == 0);
+  assert(watches.arena.size() == static_cast<size_t>(nlits) * per_lit);
+  for (Lit lit = 0; lit < nlits; lit++) {
+    assert(std::vector<uint32_t>(watches.begin(lit), watches.end(lit)) ==
+           before[lit]);
+    assert(watches.heads[lit].size == per_lit);
+    assert(watches.heads[lit].capacity == per_lit);
+    assert(watches.binary_size(lit) == per_lit);
+  }
+}
+
 int main() {
   test_compact_watch_head_encoding_is_full_width();
   test_clause_order_alias_pages_are_exact_and_sparse();
@@ -1552,6 +1582,7 @@ int main() {
   test_propagate_beyond_conflicts_for_warmup();
   test_pending_units_borrow_and_restore_literal_marks();
   test_watch_batch_reserve_preserves_prefixes_and_fills_exactly();
+  test_deferred_watch_defrag_packs_once_without_reordering();
   puts("test_kernel OK");
   return 0;
 }

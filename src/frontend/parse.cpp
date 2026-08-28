@@ -248,17 +248,18 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     kernel_assign_unit(k, u);
     propagate_input_unit(k);
   } else if (scratch.size() == 2) {
-    // Duplicate binary: id consumed, never stored, following the duplicate-unit
-    // precedent — the checker keeps its never-referenced input copy and no
-    // proof line is emitted. Nothing is deleted during parse, so presence in
-    // binary_ids is equivalent to a live stored copy. Kissat's dense mode
-    // likewise dedups before inprocessing runs; duplicated pairs otherwise
-    // inflate Factor's watch-score seeds and block BVE through the
-    // singular-delete hazard, and on an input carrying six figures of them this
-    // deduplication alone is worth an order of magnitude.
-    if (kernel_binary_live(k, scratch[0], scratch[1]))
+    // A duplicate binary consumes its input id but is not stored or proved.
+    // No deletion occurs during import, so retained BinaryIdMap keys are the
+    // exact live-set image and avoid a linear high-degree watch scan. Very
+    // large DRAT inputs may discard keys and retain watches as exact authority.
+    // Evidence: benchmarks/reports/2026-08-27-sat-factor-marks-search-localization.md.
+    const uint64_t key = kernel_binary_key(scratch[0], scratch[1]);
+    const bool duplicate = k.binary_ids.tracks_keys()
+                               ? k.binary_ids.count(key)
+                               : kernel_binary_live(k, scratch[0], scratch[1]);
+    if (duplicate)
       return;
-    kernel_add_binary_clause(k, scratch[0], scratch[1], id);
+    kernel_add_new_binary_clause(k, scratch[0], scratch[1], id);
     if (shrunk)
       restate_input(k, id, scratch, root_units, 0);
   } else {
@@ -394,6 +395,27 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
   std::vector<Lit> scratch;
   ParseMemoryTrace memory_trace;
   memory_trace.emit(k, "begin");
+  // Kissat imports into independently growing watch vectors.  Tactix stores
+  // those vectors as slices of one arena; its ordinary online hole threshold
+  // would repeatedly repack that complete arena while a binary-heavy input is
+  // still growing every slice.  Keep per-slice geometric growth during this
+  // bounded bulk phase and perform one stable packing at its end.  Reads and
+  // input-unit propagation remain valid throughout, and no clause or watch
+  // encounter order changes.
+  struct DeferredWatchDefrag {
+    WatchLists &watches;
+    bool active = true;
+    explicit DeferredWatchDefrag(WatchLists &w) : watches(w) {
+      watches.begin_deferred_defrag();
+    }
+    void finish() {
+      if (!active)
+        return;
+      watches.finish_deferred_defrag();
+      active = false;
+    }
+    ~DeferredWatchDefrag() { finish(); }
+  } deferred_watch_defrag(k.watches);
   // Parsing is single-threaded and owns `f`. Pull a block at a time rather than
   // entering stdio for every byte; a three-gigabyte binary CNF otherwise pays
   // tens of millions of calls even with the stream lock disabled.
@@ -507,6 +529,7 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
   if (!scratch.empty()) // tolerate a missing final 0
     ingest_clause(k, scratch);
   memory_trace.emit(k, "finish-begin");
+  deferred_watch_defrag.finish();
   finish_input(k);
   memory_trace.emit(k, "finish-end");
   return nullptr;

@@ -104,6 +104,16 @@ pending half-analysis or schedules Backjump independently.
   remainder ids. Repeated seed visits reuse the canonical remainder, and
   quotient intersections use epoch marks rather than per-column hash sets;
   these are representation changes only and add no admission predicate.
+- Factor enters through the same null-stack dense transition as Kissat: sparse
+  large watches are flushed, binary partners are borrowed directly from the
+  remaining packed watch slices, and only large occurrences need an apply-local
+  Factor record. While growing a quotient, membership in the selected factor
+  set uses one byte per literal, matching Kissat's temporary `FACTOR` bit; the
+  application-stable active predicate is likewise cached as Kissat's byte-sized
+  `ACTIVE` flag. Known-unique binary grid members are removed by one find plus
+  suffix move instead of two general compactions. These changes preserve the
+  selected grids, encounter order, logical ticks, and N1--N4 while removing
+  representation work absent from Kissat's Factor loop.
 - Extension-variable growth is amortized: kernel identity/trail/frame storage
   grows geometrically, while the compact import order and inverse append one
   fresh identity incrementally. This removes quadratic reserve/rebuild work
@@ -121,6 +131,12 @@ pending half-analysis or schedules Backjump independently.
 - Per-literal watches occupy one flat arena. Growth may first pack holes;
   capacity and entry order survive. Two-word appends must grow in a loop because
   a packed slice may have exact one-word capacity.
+- DIMACS import defers global watch-arena packing until the bounded input scope
+  ends. Individual literal slices retain geometric growth and remain readable;
+  the final stable pack preserves every directed watch order. During that same
+  deletion-free scope, the retained binary-id key map is the exact live-set
+  image, so known-new binary insertion does not rescan a high-degree watch list.
+  The general post-import binary API retains its live-pair check.
 - Large additions use monotone proof/source order. OTFS, Strengthen, Vivify,
   and other in-place logical replacements inherit their source key. Kernel's
   stable radix primitive restores `(logical key, Ref)` order.
