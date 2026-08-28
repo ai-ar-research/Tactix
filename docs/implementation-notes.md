@@ -133,15 +133,21 @@ pending half-analysis or schedules Backjump independently.
 - Native LRAT uses the exact binary-pair proof-id archive. Large declared DRAT
   inputs may use mirrored watches as identity authority to avoid an oversized
   archive; API and LRAT behavior are unchanged.
-- Per-literal watches occupy one flat arena. Growth may first pack holes;
-  capacity and entry order survive. Two-word appends must grow in a loop because
-  a packed slice may have exact one-word capacity.
-- DIMACS import defers global watch-arena packing until the bounded input scope
-  ends. Individual literal slices retain geometric growth and remain readable;
-  the final stable pack preserves every directed watch order. During that same
-  deletion-free scope, the retained binary-id key map is the exact live-set
-  image, so known-new binary insertion does not rescan a high-degree watch list.
-  The general post-import binary API retains its live-pair check.
+- Per-literal watches follow pinned Kissat's flat-vector lifecycle. A vector at
+  the global tail extends in place while stack allocation remains; otherwise it
+  relocates to a doubled slice. `watch_holes` counts both abandoned words and
+  unused slice capacity, matching `vectors.usable`. Defragmentation is checked
+  only at the same generic `new_clause` consumers as Kissat—original import,
+  learned clauses, BVE resolvents, large Factor quotients, and binary Vivify
+  replacements—with the shipped `defragsize=2^18` and strict `usable > 75%`
+  boundary. Specialized binary constructors and delayed propagation rewatches
+  never trigger a whole-arena pack. Per-list entry order survives every
+  relocation and pack.
+- DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only
+  packing exception. During the deletion-free scope, the retained binary-id
+  key map remains the exact live-set image, so known-new binary insertion does
+  not rescan a high-degree watch list. The general post-import binary API
+  retains its live-pair check.
 - Packed OTFS, Strengthen, Vivify, and other logical replacements inherit the
   source clause's current arena position. This alias is generation-local:
   collection materializes the replacement there and clears the alias image.

@@ -1600,8 +1600,10 @@ ApplyResult analyze_apply(Kernel &k) {
     p.ref = kernel_add_large_clause(k, p.lits.data(),
                                     static_cast<uint32_t>(p.lits.size()),
                                     true, glue, learned_id);
+    k.watches.defrag_if_needed();
   } else if (learned.size() == 2) {
     kernel_add_binary_clause(k, p.lits[0], p.lits[1], learned_id);
+    k.watches.defrag_if_needed();
   } else {
     // learned unit: give the var its unit id (Backjump asserts it)
     k.unit_ids[var_of(p.lits[0])] = learned_id;
