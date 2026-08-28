@@ -599,6 +599,8 @@ struct Stats {
   mutable uint64_t congruence_budget_stops = 0; // rounds cut by `work_budget`
   uint64_t factorings = 0;         // Factor/BVA applications — grids replaced
   uint64_t factor_large_remainders = 0; // remainders offered by the widened
+  uint64_t factor_remainders_materialized = 0; // immutable clause remainders
+  uint64_t factor_remainders_reused = 0; // ... served from the dense watch
   uint64_t factor_demotions = 0;    // demotion calls that moved something
   uint64_t factor_demoted_vars = 0; // extension vars pushed to the queue front
   uint64_t factor_ticks = 0;   // Factor's budget currency (kissat
@@ -788,10 +790,10 @@ private:
 
 struct Kernel {
   uint32_t nvars = 0;
-#ifdef TACTIX_ENABLE_EVENT_TRACE
+  // Keep the Kernel ABI identical when the standalone event-trace test links
+  // the production object library (`tests/CMakeLists.txt`).
   size_t diagnostic_policy_reduce_bytes = 0;
   size_t diagnostic_policy_inprocess_bytes = 0;
-#endif
   // Stable external identities are separate from the dense indices used by
   // search.  Before the first compaction both maps are the identity.  A dead
   // external variable maps to INVALID_VAR; every live internal variable maps

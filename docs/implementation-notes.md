@@ -43,7 +43,7 @@ poseable; rule-off controls are diagnostic, never changes to the public surface.
 | D-CONG-SKIP | Native-LRAT Congruence drops a merge when its bridge chain cannot be built | Dropping is sound; emitting an unverifiable line violates N2. Make bridge construction total using root-unit ids. Nonzero `congruence_unjustified` is the alarm. |
 | D-CONG-TAUT | Both proof modes skip a merge whose ladder would emit a tautological lemma | DRAT/LRAT checkers disagree on such ladders. Derive the nondegenerate half instead; debug proof code rejects tautological RUP/RAT additions. |
 | D-STRENGTHEN-BUDGET | C1/C2 share one reference allowance but default rounds do not stop mid-round | Interruptible effort was negative and is closed. Dose the fused pass, not its interruptibility; preserve termination polling. |
-| D-VIVIFY-SCHED | Vivify policy is source-shaped but its cumulative performance remains an N3 concern | Candidate order, cumulative band budgets, focused tiers, persistent pose, productivity, and cleanup are implemented. Reopen behavior only on exact weaker-work evidence. |
+| D-VIVIFY-SCHED | Vivify policy is source-shaped but its cumulative performance remains an N3 concern | Candidate order, reference 100‰ cumulative band budget, focused tiers, persistent pose, productivity, and cleanup are implemented. Formula profiles do not dose this allowance. Reopen behavior only on exact weaker-work evidence. |
 | D-CCE-SCOPE | CCE omits binary victims | Admit only through the duplicate-safe binary deletion path with X1-shaped regression/fuzz coverage. |
 | D-CCE-FILTER | CCE change filter lacks redundant-removal stamps | Add a separate redundant-removal epoch only if `c cce2` proves all-skipped starvation. |
 | D-C1C2-VICTIM | Canonical victim scope is narrower than the abstract surface | C2 follows CaDiCaL's likely-kept redundant band; C1 remains narrow because fused C2 absorbs its work. Public instances remain complete. |
@@ -100,6 +100,15 @@ pending half-analysis or schedules Backjump independently.
 - Dense entry keeps one binary watch per partner and exits with binaries in
   encounter order plus large clauses in arena order. Candidate matching uses
   exact cached physical degrees and the reference cache-line effort currency.
+- Dense Factor entries carry compact apply-local clause ids and lazily interned
+  remainder ids. Repeated seed visits reuse the canonical remainder, and
+  quotient intersections use epoch marks rather than per-column hash sets;
+  these are representation changes only and add no admission predicate.
+- Extension-variable growth is amortized: kernel identity/trail/frame storage
+  grows geometrically, while the compact import order and inverse append one
+  fresh identity incrementally. This removes quadratic reserve/rebuild work
+  without changing the extension order, Factor selection, or any N1--N4
+  surface.
 - `FactorSelection` is strategy-owned; Factor owns proof-bearing grid rewrite,
   positive gain, and its effort transaction. Proof order is dividers,
   quotients, then grid deletion; no reconstruction witness is needed.
@@ -115,6 +124,17 @@ pending half-analysis or schedules Backjump independently.
 - Large additions use monotone proof/source order. OTFS, Strengthen, Vivify,
   and other in-place logical replacements inherit their source key. Kernel's
   stable radix primitive restores `(logical key, Ref)` order.
+- Walk's sparse resume uses that logical key for its large-clause reconnect.
+  This reconstructs Kissat's source-arena traversal even when Tactix's host
+  arena appended an inherited replacement after later clauses.
+- Reduce sparse collection instead follows Kissat's physical
+  `first_reducible` watermark: only the byte prefix retains watch blockers and
+  replacement cursors, while every surviving tail record is rewatched.
+  CaDiCaL-style VMTF/phase arena ordering remains the accepted optimization;
+  `TACTIX_ARENA_ORDER=0` selects Kissat creation order as the parity arm.
+- Reduce's `compactlim` admission counts retired identities, not root-fixed
+  assignments, matching Kissat's `vars - active`. Direct kernel compaction may
+  still rebuild a root-fixed-only arena when an explicit caller requests it.
 - `external_import_rank` is permanent proof/reconstruction authority;
   `internal_import_rank` is its direct current-identity cache and is remapped
   through variable compaction. Kernel invariants assert equality.
@@ -171,8 +191,9 @@ pending half-analysis or schedules Backjump independently.
 - Substitute publishes Sweep plus SCC retirement as one import-ordered
   heuristic transaction. Root-fixed variables are consumed first.
 - Reduce begins at conflict 1,000, then uses `1000*sqrt(reductions)` and the
-  dynamic tier/compaction lifecycle. Formula profiles may dose work but may not
-  replace cadence, tiers, or collection policy.
+  dynamic tier/compaction lifecycle. Formula profiles may dose independently
+  measured work but may not dose Vivify or replace cadence, tiers, or collection
+  policy.
 
 ### Input and proof identity
 
@@ -245,11 +266,21 @@ uses the live binary count, `log10(C+10)` scaling, and exact per-mille effort
 arithmetic. Adding redundant-binary lifecycle reopens representation,
 reason-locking, reduction, proof deletion, and regressions together.
 
-Formula classification may dose entries but does not remove the original
-Kissat pipeline. Congruence/Sweep productivity delays and Substitute's optional
-second SCC round remain policy-owned. Directed Sweep bridges are protected per
-physical entry, never by pair, so coincident ordinary copies follow normal
-proof deletion.
+Formula classification is the exact pinned-Kissat pair `(small, bigbig)` over
+the live binary plus irredundant-large clause population. `small` is write-only;
+`bigbig` gates only ordinary fast binary assignment for jump reasons. It does
+not select a scheduling profile. Production BVE, Factor, forward-subsumption,
+and Vivify remain enabled at 100‰, 50‰, 100‰, and 100‰ respectively for every
+formula size and density. Typed overrides remain diagnostic arms.
+The permanent strategy-config checker requires each of these controls in
+`DefaultStrategyConfig` and rejects benchmark-identity literals/APIs in
+`DefaultPolicy`; no environment or classifier path may synthesize a production
+exception.
+
+Congruence/Sweep productivity delays and Substitute's optional second SCC
+round remain policy-owned. Directed Sweep bridges are protected per physical
+entry, never by pair, so coincident ordinary copies follow normal proof
+deletion.
 
 ## 15. Eager subsumption
 

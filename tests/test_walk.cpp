@@ -141,6 +141,32 @@ static void test_resume_uses_compact_literal_order() {
   assert((partners() == std::vector<Lit>{internalize(2), internalize(1)}));
 }
 
+// Kissat reconnects large clauses by scanning its physical source arena.
+// Tactix can append a replacement after later clauses while preserving the
+// replacement's inherited source position, so Walk resume has to replay the
+// logical/source key rather than Tactix's host-arena position.
+static void test_resume_large_watches_uses_logical_clause_order() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  kernel_reserve_vars(k, 7);
+  const Lit shared = internalize(-1);
+  const Lit a[3] = {shared, internalize(2), internalize(3)};
+  const Lit b[3] = {shared, internalize(4), internalize(5)};
+  const Lit replacement[3] = {shared, internalize(6), internalize(7)};
+  kernel_add_large_clause(k, a, 3, false, 0, 301);
+  kernel_add_large_clause(k, b, 3, false, 0, 302);
+  kernel_add_large_clause(k, replacement, 3, false, 0, 303);
+  kernel_inherit_clause_order(k, 303, 299);
+
+  assert(walk_apply_steps(k, 1) != ApplyResult::Conflict);
+  std::vector<uint64_t> ids;
+  for (const WatchEntry watch : k.watches.entries(shared))
+    if (!watch.binary())
+      ids.push_back(clause_at(k.arena, watch.ref())->id());
+  assert((ids == std::vector<uint64_t>{303, 301, 302}));
+  kernel_check_invariants(k);
+}
+
 // Kissat's Walk dense entry retains only the first copy of a binary pair.
 // Mirrored watch entries are not duplicates; two complete insertions are.
 static void test_dense_entry_deduplicates_binary_pairs() {
@@ -191,6 +217,7 @@ int main() {
   test_deterministic();
   test_budget_and_noop();
   test_resume_uses_compact_literal_order();
+  test_resume_large_watches_uses_logical_clause_order();
   test_dense_entry_deduplicates_binary_pairs();
   test_registry();
   test_no_heuristics_guard();

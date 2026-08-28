@@ -1350,6 +1350,19 @@ static void test_jump_reason_formula_classification(void) {
   assert(large.stats.jumped_reasons == 1);
   assert(large.stats.jump_reason_classifications == 1);
   assert(large.stats.jump_reason_bigbig == 1);
+
+  // Kissat's second jumpreasons site (learned-binary assertion and conflict
+  // reuse) deliberately bypasses classification.bigbig.
+  Kernel learned;
+  kernel_reserve_vars(learned, 3);
+  const Lit p = internalize(1), q = internalize(2), r = internalize(3);
+  kernel_assign_decision(learned, negate(p));
+  kernel_assign_binary(learned, q, p);
+  assert(!learned.assigned[var_of(q)].jumped);
+  kernel_assign_binary(learned, r, negate(q), /*require_bigbig=*/false);
+  assert(!learned.jump_reasons_bigbig);
+  assert(learned.assigned[var_of(r)].jumped);
+  assert(learned.assigned[var_of(r)].reason == p);
   std::printf("  jump reasons: Kissat small/bigbig classification gates search\n");
 }
 

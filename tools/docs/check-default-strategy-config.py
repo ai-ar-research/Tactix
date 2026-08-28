@@ -30,6 +30,10 @@ def main():
                 "sweep_vars", "sweep_max_vars", "sweep_clauses",
                 "sweep_max_clauses", "sweep_candidate_pairs",
                 "sweep_flip_rounds", "sweep_environment_ticks",
+                "bve_enabled", "bve_permille", "factor_repeated_enabled",
+                "factor_permille", "factor_active_ceiling",
+                "subsume_forward_permille", "vivify_enabled",
+                "vivify_permille", "arena_ordering_enabled",
                 "serialize() const"]
     for token in required:
         if token not in config:
@@ -50,7 +54,32 @@ def main():
             failures.append(f"{path.relative_to(ROOT)}:{line}: strategy literal "
                             f"`{match.group()}` belongs in {CONFIG.name}")
 
-    policy = code_only(USES[0].read_text())
+    raw_policy = USES[0].read_text()
+    policy = code_only(raw_policy)
+    # Pinned Kissat classification has no scheduling consumer. Production
+    # policy must not regain a benchmark-, size-, or density-shaped profile.
+    for token in ("FormulaProfile", "PROFILE_", "original_external_vars",
+                  "original_input_clauses", "kernel_num_output_vars"):
+        if token in policy:
+            failures.append(
+                f"default_policy.cpp contains forbidden formula-profile "
+                f"token `{token}`")
+    for token in ("Dose5", "Factor5", "NoBve", "NoBveLight",
+                  "StartupFactorOnly"):
+        if token in policy or token in config:
+            failures.append(f"unsupported production profile `{token}` remains")
+    # DefaultPolicy has no benchmark identity input. Reject the obvious ways
+    # one could smuggle an instance exception into this source in the future.
+    if re.search(r'"(?:[^"\\]|\\.)*\.cnf', raw_policy):
+        failures.append(
+            "default_policy.cpp contains a benchmark-specific CNF literal")
+    for token in ('"tierA', '"tierB', '"tierC', '"tierD',
+                  "instance_name", "benchmark_identity"):
+        if token in raw_policy:
+            failures.append(
+                f"default_policy.cpp contains benchmark-specific token "
+                f"`{token}`")
+
     effort = policy[policy.index("EFFORT_SPECS[]"):]
     effort = effort[:effort.index("\n};")]
     for row in re.finditer(r'\{\s*"(\w+)"\s*,\s*([^,]+)', effort):

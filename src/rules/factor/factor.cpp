@@ -12,7 +12,6 @@
 #include <numeric>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -97,12 +96,62 @@ struct RemPool {
 // clauses are excluded because S2 Reduce could delete a grid member between
 // selection and application.
 struct FactorWatch {
+  static constexpr uint64_t DEAD_BINARY = UINT64_C(1) << 63;
   Lit other = INVALID_LIT;
   Ref ref = INVALID_REF;
-  uint64_t id = 0;
-  bool live = true;
+  // Binary entries use all 64 bits for the proof clause id.  Large entries
+  // pack two 32-bit, apply-local representation keys into the same storage:
+  // the immutable clause occurrence id and the lazily interned remainder id.
+  // This keeps FactorWatch at its old footprint while allowing Kissat-style
+  // dense temporary marks instead of per-column hash sets.
+  uint64_t payload = UINT64_MAX;
+  // A large clause and the factor literal naming this dense-watch entry are
+  // immutable for the lifetime of one Factor application.  Cache its interned
+  // remainder id in that entry: repeated seed visits then avoid copying,
+  // sorting, hashing, and comparing the same clause remainder.  UINT32_MAX
+  // also covers a remainder that was not yet materialized; failures caused by
+  // the moving fresh-literal boundary are deliberately not cached.
   bool binary() const { return ref == INVALID_REF; }
+  uint64_t binary_id() const {
+    assert(binary());
+    return payload & ~DEAD_BINARY;
+  }
+  bool binary_live() const {
+    assert(binary());
+    return !(payload & DEAD_BINARY);
+  }
+  void retire_binary() {
+    assert(binary());
+    payload |= DEAD_BINARY;
+  }
+  uint32_t large_id() const {
+    assert(!binary());
+    return static_cast<uint32_t>(payload);
+  }
+  uint32_t remainder_id() const {
+    assert(!binary());
+    return static_cast<uint32_t>(payload >> 32);
+  }
+  void set_remainder_id(uint32_t id) {
+    assert(!binary());
+    payload = (static_cast<uint64_t>(id) << 32) | large_id();
+  }
+  static FactorWatch binary_watch(Lit other, uint64_t id) {
+    assert(id < DEAD_BINARY);
+    FactorWatch result;
+    result.other = other;
+    result.payload = id;
+    return result;
+  }
+  static FactorWatch large_watch(Ref ref, uint32_t large_id) {
+    FactorWatch result;
+    result.ref = ref;
+    result.payload = (static_cast<uint64_t>(UINT32_MAX) << 32) | large_id;
+    return result;
+  }
 };
+static_assert(sizeof(FactorWatch) == 16,
+              "Factor's dense scan requires a compact watch record");
 
 struct FactorIndex {
   std::vector<std::vector<Ref>> occ; // by literal
@@ -114,6 +163,7 @@ struct FactorIndex {
   // O(1) from its stack header for heap scores and next-factor tie breaks.
   // Re-walking every dense list here makes a tied m-by-n grid cubic.
   std::vector<uint32_t> live_degree;
+  uint32_t large_count = 0;
   bool built = false;
 };
 
@@ -272,12 +322,12 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
   idx.occ.assign(2 * k.nvars, {});
   idx.order.assign(2 * k.nvars, {});
   idx.live_degree.assign(2 * k.nvars, 0);
+  idx.large_count = 0;
   for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++) {
     for (const WatchEntry watch : k.watches.entries(lit))
       if (watch.binary()) {
-        idx.order[lit].push_back(
-            {watch.other(), INVALID_REF,
-             kernel_binary_id(k, lit, watch.other()), true});
+        idx.order[lit].push_back(FactorWatch::binary_watch(
+            watch.other(), kernel_binary_id(k, lit, watch.other())));
         idx.live_degree[lit]++;
       }
     // Factor enters Kissat's dense mode with a null binary-save stack.  That
@@ -339,24 +389,28 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
       live = now;
     }
     for (size_t i = 0; i < cand.size(); i++)
-      if (alive[i])
+      if (alive[i]) {
+        const uint32_t large_id = idx.large_count++;
         for (const Lit l : *clause_at(k.arena, cand[i])) {
           idx.occ[l].push_back(cand[i]);
-          idx.order[l].push_back({INVALID_LIT, cand[i], 0, true});
+          idx.order[l].push_back(FactorWatch::large_watch(cand[i], large_id));
           idx.live_degree[l]++;
         }
+      }
     idx.built = true;
     return;
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
-    if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size)
+    if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size) {
+      const uint32_t large_id = idx.large_count++;
       for (const Lit l : *c) {
         idx.occ[l].push_back(ref);
-        idx.order[l].push_back({INVALID_LIT, ref, 0, true});
+        idx.order[l].push_back(FactorWatch::large_watch(ref, large_id));
         idx.live_degree[l]++;
       }
+    }
     ref += words;
   }
   idx.built = true;
@@ -397,19 +451,19 @@ struct RemOccurrence {
 bool factor_binary_live(const Kernel &k, Lit lit, const FactorWatch &watch) {
   (void)k;
   (void)lit;
-  return watch.live;
+  return watch.binary_live();
 }
 
 // All remainder OCCURRENCES of `l`: its unique binary partners in encounter
 // order, followed by one entry per indexed large clause containing `l`. Equal
 // large clauses deliberately yield repeated ids.
-void remainder_occurrences_of(Kernel &k, const FactorIndex &idx, RemPool &pool,
+void remainder_occurrences_of(Kernel &k, FactorIndex &idx, RemPool &pool,
                               Lit l, Lit limit, std::vector<Lit> &rem_scratch,
                               std::vector<RemOccurrence> &out) {
   out.clear();
   if (!idx.built || l >= idx.order.size())
     return;
-  for (const FactorWatch watch : idx.order[l]) {
+  for (FactorWatch &watch : idx.order[l]) {
     if (watch.binary()) {
       if (watch.other < limit && factor_binary_live(k, l, watch)) {
         k.stats.factor_ticks++;
@@ -424,13 +478,36 @@ void remainder_occurrences_of(Kernel &k, const FactorIndex &idx, RemPool &pool,
     if (!grid_clause_live(k, c))
       continue;
     k.stats.factor_ticks++;
+    k.stats.factor_large_remainders++;
+    if (watch.remainder_id() != UINT32_MAX) {
+      out.push_back({watch.remainder_id(), ref});
+      k.stats.factor_remainders_reused++;
+      continue;
+    }
     if (!remainder_of(k, c, l, limit, rem_scratch))
       continue;
-    const uint32_t rid =
-        pool.intern(rem_scratch.data(), static_cast<uint32_t>(rem_scratch.size()));
-    out.push_back({rid, ref});
-    k.stats.factor_large_remainders++;
+    watch.set_remainder_id(
+        pool.intern(rem_scratch.data(), static_cast<uint32_t>(rem_scratch.size())));
+    out.push_back({watch.remainder_id(), ref});
+    k.stats.factor_remainders_materialized++;
   }
+}
+
+// Match C ∖ {factor} against an already-canonical remainder without
+// materializing C's remainder. Clause literals are unique, and |C|=|R|+1,
+// so membership plus the factor occurrence proves exact multiset equality.
+bool matches_interned_remainder(const Clause *c, Lit factor, Lit limit,
+                                const Lit *expected, uint32_t size) {
+  bool found_factor = false;
+  for (const Lit lit : *c) {
+    if (lit == factor) {
+      found_factor = true;
+      continue;
+    }
+    if (lit >= limit || !std::binary_search(expected, expected + size, lit))
+      return false;
+  }
+  return found_factor;
 }
 
 bool contains(const std::vector<Lit> &v, Lit l) {
@@ -460,8 +537,8 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       idx.order.resize(need);
     if (idx.live_degree.size() < need)
       idx.live_degree.resize(need, 0);
-    idx.order[a].push_back({b, INVALID_REF, id, true});
-    idx.order[b].push_back({a, INVALID_REF, id, true});
+    idx.order[a].push_back(FactorWatch::binary_watch(b, id));
+    idx.order[b].push_back(FactorWatch::binary_watch(a, id));
     idx.live_degree[a]++;
     idx.live_degree[b]++;
   };
@@ -552,9 +629,10 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
           idx.order.resize(static_cast<size_t>(2 * k.nvars));
         if (idx.live_degree.size() < static_cast<size_t>(2 * k.nvars))
           idx.live_degree.resize(static_cast<size_t>(2 * k.nvars), 0);
+        const uint32_t large_id = idx.large_count++;
         for (const Lit l : qlits) {
           idx.occ[l].push_back(qref);
-          idx.order[l].push_back({INVALID_LIT, qref, 0, true});
+          idx.order[l].push_back(FactorWatch::large_watch(qref, large_id));
           idx.live_degree[l]++;
         }
       }
@@ -568,14 +646,14 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
     if (!idx.built)
       return;
     for (FactorWatch &watch : idx.order[a])
-      if (watch.live && watch.binary() && watch.other == b) {
-        watch.live = false;
+      if (watch.binary() && watch.binary_live() && watch.other == b) {
+        watch.retire_binary();
         assert(idx.live_degree[a]);
         idx.live_degree[a]--;
       }
     for (FactorWatch &watch : idx.order[b])
-      if (watch.live && watch.binary() && watch.other == a) {
-        watch.live = false;
+      if (watch.binary() && watch.binary_live() && watch.other == a) {
+        watch.retire_binary();
         assert(idx.live_degree[b]);
         idx.live_degree[b]--;
       }
@@ -727,6 +805,21 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // already-deduplicated Factor index contains exactly the required relation.
   std::vector<uint32_t> binary_partner_epoch(next_factor_limit, 0);
   uint32_t binary_epoch = 0;
+  // Kissat uses temporary clause/literal marks while intersecting dense watch
+  // lists.  Compact FactorWatch ids provide the same behavior without rebuilding
+  // unordered sets for every quotient column.  Epoch rollover is vanishingly
+  // rare but handled so the representation remains exact.
+  std::vector<uint32_t> reserved_large_epoch(fidx.large_count, 0);
+  std::vector<uint32_t> used_large_epoch(fidx.large_count, 0);
+  std::vector<uint32_t> counted_literal_epoch(next_factor_limit, 0);
+  uint32_t reserved_epoch = 0, used_epoch = 0, counted_epoch = 0;
+  const auto advance_epoch = [](std::vector<uint32_t> &marks,
+                                uint32_t &epoch) {
+    if (++epoch == 0) {
+      std::fill(marks.begin(), marks.end(), 0);
+      epoch = 1;
+    }
+  };
   std::vector<Lit> touched, F, best_F;
   std::vector<uint32_t> R, newR, best_R;
   std::vector<RemOccurrence> occurrences;
@@ -833,7 +926,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         }
         event_trace_factor_literal_entry(
             k, l, ordinal++, live, watch.other,
-            watch.binary() ? watch.id : clause->id(), clause);
+            watch.binary() ? watch.binary_id() : clause->id(), clause);
       }
     }
 #endif
@@ -938,7 +1031,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       };
       charge_factor_watch_scan(k, R.size());
       bool next_factor_budget_hit = false;
-      std::unordered_set<Ref> reserved_large_refs;
+      if (reserved_large_epoch.size() < fidx.large_count)
+        reserved_large_epoch.resize(fidx.large_count, 0);
+      advance_epoch(reserved_large_epoch, reserved_epoch);
       for (size_t column = 0; column < R.size(); column++) {
         const uint32_t rid = R[column];
         const uint32_t rn = pool.size_of(rid);
@@ -988,7 +1083,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           continue;
 
         charge_factor_watch_scan(k, reference_score_of(scan));
-        std::unordered_set<Lit> counted_for_current;
+        advance_epoch(counted_literal_epoch, counted_epoch);
         for (const FactorWatch watch : fidx.order[scan]) {
           if (watch.binary())
             continue;
@@ -1001,7 +1096,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           // Kissat charges every live large entry reached by the dense scan,
           // including occurrences already reserved by an earlier column.
           k.stats.factor_ticks++;
-          if (reserved_large_refs.count(ref))
+          const uint32_t large_id = watch.large_id();
+          if (reserved_large_epoch[large_id] == reserved_epoch)
             continue;
           if (candidate_clause->size != current->size ||
               !grid_clause_live(k, candidate_clause))
@@ -1011,7 +1107,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           for (const Lit lit : *candidate_clause) {
             if (std::binary_search(remainder, remainder + rn, lit))
               continue;
-            if (contains(F, lit) || counted_for_current.count(lit) ||
+            if (contains(F, lit) ||
+                (lit < counted_literal_epoch.size() &&
+                 counted_literal_epoch[lit] == counted_epoch) ||
                 candidate != INVALID_LIT) {
               matches = false;
               break;
@@ -1022,8 +1120,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
               candidate >= next_factor_limit || k.value(candidate) != 0 ||
               kernel_var_retired(k, var_of(candidate)))
             continue;
-          counted_for_current.insert(candidate);
-          reserved_large_refs.insert(ref);
+          counted_literal_epoch[candidate] = counted_epoch;
+          reserved_large_epoch[large_id] = reserved_epoch;
           if (count_candidate(candidate)) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
             event_trace_factor_candidate_source(
@@ -1082,7 +1180,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           event_trace_factor_score_entry(
               k, seed, static_cast<uint32_t>(F.size()), h,
               score_entry_ordinal++, live, watch.other,
-              watch.binary() ? watch.id : clause->id(), clause);
+              watch.binary() ? watch.binary_id() : clause->id(), clause);
         }
 #endif
         if (c > bestc) {
@@ -1115,7 +1213,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       newR.clear();
       std::vector<size_t> matched_columns;
       std::vector<Ref> next_refs;
-      std::unordered_set<Ref> used_large_refs;
+      if (used_large_epoch.size() < fidx.large_count)
+        used_large_epoch.resize(fidx.large_count, 0);
+      advance_epoch(used_large_epoch, used_epoch);
       charge_factor_watch_scan(k, R.size());
       for (size_t column = 0; column < R.size(); column++) {
         const uint32_t rid = R[column];
@@ -1168,16 +1268,16 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             if (!grid_clause_live(k, candidate))
               continue;
             k.stats.factor_ticks++;
-            if (used_large_refs.count(ref))
+            const uint32_t large_id = watch.large_id();
+            if (used_large_epoch[large_id] == used_epoch)
               continue;
             if (candidate->size != rn + 1 || !grid_clause_live(k, candidate))
               continue;
-            if (!remainder_of(k, candidate, g, live_lits, rem_scratch) ||
-                rem_scratch.size() != rn ||
-                !std::equal(rem_scratch.begin(), rem_scratch.end(), expected))
+            if (!matches_interned_remainder(candidate, g, live_lits, expected,
+                                            rn))
               continue;
             matched_ref = ref;
-            used_large_refs.insert(ref);
+            used_large_epoch[large_id] = used_epoch;
             break;
           }
           if (matched_ref == INVALID_REF)

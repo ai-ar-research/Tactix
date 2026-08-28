@@ -63,7 +63,18 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     return;
   const uint32_t old = k.nvars;
   k.nvars = nvars;
-  k.internal_to_external.reserve(nvars);
+  // Parsing normally grows once to the declared header. Variable-adding rules
+  // instead append one extension at a time; exact reserve(nvars) on every call
+  // copies the whole identity/trail backing store quadratically. Preserve the
+  // fixed-capacity hot-path invariant with amortized geometric growth.
+  const auto reserve_amortized = [](auto &values, size_t need) {
+    if (values.capacity() >= need)
+      return;
+    const size_t current = values.capacity();
+    const size_t grown = current + std::max<size_t>(current / 2, 1);
+    values.reserve(std::max(need, grown));
+  };
+  reserve_amortized(k.internal_to_external, nvars);
   for (Var v = old; v < nvars; v++) {
     const Var external = static_cast<Var>(k.external_to_internal.size());
     k.internal_to_external.push_back(external);
@@ -130,8 +141,8 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   k.unassigned_active += nvars - old; // fresh variables are Active (R-a)
   // fixed-capacity trail/frames: the inlined assign hot path must never
   // reallocate, and its push_back capacity branch becomes always-false
-  k.trail.reserve(nvars);
-  k.frames.reserve(nvars + 1);
+  reserve_amortized(k.trail, nvars);
+  reserve_amortized(k.frames, static_cast<size_t>(nvars) + 1);
   // --- search-guidance (`H`) growth: the extracted seam ---
   // Conditional on `H` being present (H5): an unguided solver (`k.h == nullptr`)
   // has no per-var `H` state to grow. DefaultPolicy always has `H` → unchanged.
@@ -1264,13 +1275,7 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   for (Ref ref = start; ref < original_end;) {
     Clause *const source = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(source);
-    if (!source->garbage() && start && !source->redundant()) {
-      // Kissat's `start` follows its complete irredundant prefix.  A physical
-      // CaDiCaL permutation can put the same logical-prefix clause beyond the
-      // Ref in Tactix; do not invent a root sweep of it merely because storage
-      // order differs.  Its live watch and search cursor are forwarded below.
-      root_order.desired.push_back(ref);
-    } else if (!source->garbage()) {
+    if (!source->garbage()) {
       Ref current = ref;
       const RootFlushOutcome flushed =
           kernel_flush_root_clause(k, &current, &changed);
@@ -1298,25 +1303,11 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   // by itself be the collection admission predicate.
   if ((changed || has_garbage) && outcome != RootCollectOutcome::Refuted) {
     // Root shortening appends packed replacement records, while Kissat writes
-    // them at the swept source position.  `desired` restores those positions.
-    // Replacements inherited before this collection can already be physically
-    // appended, so replay every swept record's persistent source-position key
-    // before composing the collector's stable move of tail irredundant clauses
-    // ahead of tail redundant clauses.  The unswept prefix remains untouched.
+    // them at the swept source position. `desired` restores those physical
+    // positions before composing the collector's stable move of tail
+    // irredundant clauses ahead of tail redundant clauses. The unswept prefix
+    // remains untouched; no logical-source reorder occurs in sparse collect.
     const auto tail = root_order.desired.begin() + prefix_clauses;
-    std::vector<std::pair<uint64_t, Ref>> source_order;
-    source_order.reserve(root_order.desired.end() - tail);
-    for (auto it = tail; it != root_order.desired.end(); ++it) {
-      const Clause *c = clause_at(k.arena, *it);
-      source_order.emplace_back(
-          c->id() ? kernel_clause_order(k, c->id()) : *it, *it);
-    }
-    std::stable_sort(source_order.begin(), source_order.end(),
-                     [](const auto &a, const auto &b) {
-                       return a.first < b.first;
-                     });
-    for (size_t i = 0; i < source_order.size(); ++i)
-      tail[i] = source_order[i].second;
     std::stable_partition(tail, root_order.desired.end(), [&k](Ref ref) {
       return !clause_at(k.arena, ref)->redundant();
     });
@@ -1784,11 +1775,11 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
 // the old header (`searched` is dead there), then fix reasons and rebuild
 // the large-watch entries. Rebuilt clauses select their best current watched
 // pair into lits[0]/lits[1]. With a nonzero Reduce watermark, match Kissat's
-// logical sparse split: retain every live irredundant watch (including its
-// cached blocker) and rebuild the redundant suffix. Kissat's arena invariant
-// puts all irredundant clauses before `first_reducible`; Tactix's accepted
-// CaDiCaL arena permutation can place them physically after that Ref, so the
-// redundancy bit, not the physical offset alone, represents the prefix here.
+// physical sparse split exactly: retain watches only for records before
+// `first_reducible`, then rebuild every surviving record in the physical tail.
+// An arena policy can place irredundant clauses in that tail, but Kissat still
+// flushes and rewatches them; treating redundancy as the boundary preserves a
+// different blocker order and replacement cursor.
 static int8_t move_best_watch_to_front(Kernel &k, Clause *c, uint32_t start,
                                        bool satisfied_is_enough) {
   Lit a = c->lits[start];
@@ -1976,6 +1967,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // collection; the live-word prepass is the exact Kissat-style compacted
   // image and also prevents geometric growth while copying it.
   fresh.reserve(live_words);
+  uint32_t packed_watch_start = 0;
   // Arena-order policies belong to whole-arena/inprocessing collection.
   // Kissat's sparse collector preserves the prefix, sweeps the tail in its
   // existing order, then stably moves surviving redundant clauses behind all
@@ -2005,17 +1997,17 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_words(c->size);
+    if (watch_start && ref < watch_start) {
+      assert(packed_watch_start <= UINT32_MAX - words);
+      packed_watch_start += words;
+    }
     const Ref nref = static_cast<Ref>(fresh.size());
     fresh.insert(fresh.end(), k.arena.begin() + ref,
                  k.arena.begin() + ref + words);
-    // Kissat's sparse sweep starts at `watch_start`: the irredundant prefix
-    // is neither copied nor rewatched there, so its replacement-search cursor
-    // remains search-visible state.  Tactix copies the whole arena into
-    // `fresh`, so the same logical-prefix cursor must survive while rebuilt
-    // redundant clauses reset. Whole-arena collection has `watch_start == 0`
-    // and still resets every clause.
-    const bool retained_sparse_watch =
-        watch_start && (ref < watch_start || !c->redundant());
+    // Kissat's sparse sweep starts at the physical `watch_start`: only that
+    // byte prefix avoids rewatching and keeps its replacement-search cursor.
+    // Whole-arena collection has `watch_start == 0` and resets every clause.
+    const bool retained_sparse_watch = watch_start && ref < watch_start;
     Clause *const packed = clause_at(fresh, nref);
     packed->flags &= ~Clause::SHRUNKEN;
     packed->searched = retained_sparse_watch ? c->searched : 2;
@@ -2072,13 +2064,11 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
         return true;
       const Clause *c = clause_at(k.arena, w.ref());
       return kernel_root_value(k, lit) == 0 && !c->garbage() && watch_start &&
-             (w.ref() < watch_start || !c->redundant());
+             w.ref() < watch_start;
     });
-    // `compact` is stable: every logical-prefix irredundant entry keeps its
-    // exact position and cached blocker.  Kissat gets this from its physical
-    // all-irredundant prefix.  Tactix's arena policy may interleave the same
-    // clauses physically, but the redundancy bit recovers the logical split;
-    // sorting these survivors would erase search-visible watch relocation.
+    // `compact` is stable: every physical-prefix entry keeps its exact
+    // position and cached blocker. Sorting these survivors would erase
+    // search-visible watch relocation.
     k.watches.map_large_refs(lit, [&k](Ref ref) {
       return clause_at(k.arena, ref)->searched;
     });
@@ -2090,7 +2080,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // sizes while retaining Kissat-shaped per-literal allocation capacity.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (!watch_start || c->redundant()) {
+    if (!watch_start || ref >= packed_watch_start) {
       // collect.c:rewatch_clauses selects the best current watched pair before
       // appending the relocated clause to its two watch lists.
       sort_clause_watches_like_kissat(k, c);
@@ -2196,16 +2186,25 @@ void kernel_resume_walk_watches(Kernel &k) {
     k.watches.heads[a].add_binary_word();
     k.watches.heads[b].add_binary_word();
   }
+  std::vector<Ref> large_order;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
-    if (!c->garbage()) {
-      sort_clause_watches_like_kissat(k, c);
-      c->searched = 2;
-      k.watches.heads[c->lits[0]].add_large_words();
-      k.watches.heads[c->lits[1]].add_large_words();
-    }
+    if (!c->garbage())
+      large_order.push_back(ref);
     ref += words;
+  }
+  // Kissat resumes by scanning its physical arena.  Tactix's physical arena
+  // can differ after append-only replacements, while the inherited logical
+  // key is the exact source-arena position.  Reconstruct that order before
+  // sizing and filling the exact watch image.
+  kernel_sort_refs_by_logical_clause_order(k, large_order);
+  for (const Ref ref : large_order) {
+    Clause *c = clause_at(k.arena, ref);
+    sort_clause_watches_like_kissat(k, c);
+    c->searched = 2;
+    k.watches.heads[c->lits[0]].add_large_words();
+    k.watches.heads[c->lits[1]].add_large_words();
   }
   uint64_t total_words = 0;
   for (WatchHead &head : k.watches.heads) {
@@ -2225,19 +2224,15 @@ void kernel_resume_walk_watches(Kernel &k) {
     push_word(a, binary_watch(b).raw);
     push_word(b, binary_watch(a).raw);
   }
-  for (Ref ref = 0; ref < k.arena.size();) {
+  for (const Ref ref : large_order) {
     Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    if (!c->garbage()) {
-      const Lit first = c->lits[0], second = c->lits[1];
-      push_word(first, blocking_watch(second).raw);
-      push_word(first, ref);
-      push_word(second, blocking_watch(first).raw);
-      push_word(second, ref);
-      assert(k.watches.heads[first].has_large());
-      assert(k.watches.heads[second].has_large());
-    }
-    ref += words;
+    const Lit first = c->lits[0], second = c->lits[1];
+    push_word(first, blocking_watch(second).raw);
+    push_word(first, ref);
+    push_word(second, blocking_watch(first).raw);
+    push_word(second, ref);
+    assert(k.watches.heads[first].has_large());
+    assert(k.watches.heads[second].has_large());
   }
 }
 
@@ -2453,11 +2448,8 @@ bool kernel_should_compact_variables(const Kernel &k, uint32_t percent) {
   if (k.var_status.empty() || k.nvars == 0)
     return false;
   uint64_t inactive = 0;
-  for (Var v = 0; v < k.nvars; ++v) {
-    const bool fixed = k.values[make_lit(v, false)] != 0 &&
-                       k.assigned[v].level == 0;
-    inactive += k.var_status[v] != VarStatus::Active || fixed;
-  }
+  for (Var v = 0; v < k.nvars; ++v)
+    inactive += k.var_status[v] != VarStatus::Active;
   return 100 * inactive > static_cast<uint64_t>(percent) * k.nvars;
 }
 
@@ -2472,10 +2464,10 @@ bool kernel_compact_variables(Kernel &k) {
   for (Var old = 0; old < old_nvars; old++)
     if (k.var_status[old] == VarStatus::Active)
       old_to_new[old] = new_nvars++;
-  // Tactix keeps distinct public identities for root-fixed variables, while
-  // Kissat maps them onto one representative.  They still count as inactive
-  // for `compactlim`, and a due compacting collection must rebuild the whole
-  // arena/watch pose even when there is no retired identity to renumber.
+  // A direct compaction can still be useful when only root-fixed identities
+  // remain: it rebuilds the whole arena/watch pose even when there is no
+  // retired identity to renumber.  The Reduce admission predicate above does
+  // not count those variables; Kissat's `vars - active` does not either.
   const bool root_fixed = kernel_root_fixed(k);
   if (new_nvars == old_nvars && !root_fixed)
     return false;

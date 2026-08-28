@@ -5,6 +5,11 @@
 
 namespace tactix {
 
+struct FormulaClassification {
+  bool small = false;
+  bool bigbig = false;
+};
+
 class DefaultBranching final : public BranchingPolicy {
 public:
   explicit DefaultBranching(
@@ -113,9 +118,11 @@ public:
 
   int solve(Kernel &, volatile sig_atomic_t *stop = nullptr) override;
   void reset_schedule(const Kernel &);
-  // White-box admission seam: pure over stable DIMACS shape and the current
-  // typed config. Production calls it once before environment overlays.
-  void classify_formula_strategy(const Kernel &);
+  // White-box seams for Kissat's exact `classify.c` predicates. The count
+  // overload pins threshold behavior without constructing 100k clauses.
+  FormulaClassification classify_formula_counts(
+      uint64_t binary_clauses, uint64_t irredundant_large_clauses) const;
+  FormulaClassification classify_formula(const Kernel &) const;
   DefaultInprocessScheduler &inprocess() { return inprocess_; }
   const DefaultInprocessScheduler &inprocess() const { return inprocess_; }
 

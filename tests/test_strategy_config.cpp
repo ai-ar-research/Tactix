@@ -50,159 +50,60 @@ int main() {
   if (defaults.branching.focused_phase_pattern != focused_phases)
     return 1;
 
-  const auto classified = [](uint32_t vars, uint64_t clauses) {
-    Kernel shape;
-    shape.original_external_vars = vars;
-    shape.original_input_clauses = clauses;
-    DefaultPolicy policy;
-    policy.classify_formula_strategy(shape);
-    return policy.strategy_config();
-  };
-  const auto schedules_congruence = [](uint32_t vars, uint64_t clauses) {
-    Kernel shape;
-    shape.original_external_vars = vars;
-    shape.original_input_clauses = clauses;
-    DefaultPolicy policy;
-    policy.classify_formula_strategy(shape);
-    policy.inprocess().build(shape);
-    const auto &rules = tactix_rules();
-    for (const auto &entry : policy.inprocess().entries)
-      if (std::string(rules[entry.rule].name) == "Congruence")
-        return entry.enabled && entry.preprocess;
-    return false;
-  };
-  const auto schedules_startup_factor = [](uint32_t vars, uint64_t clauses) {
-    Kernel shape;
-    shape.original_external_vars = vars;
-    shape.original_input_clauses = clauses;
-    DefaultPolicy policy;
-    policy.classify_formula_strategy(shape);
-    policy.inprocess().build(shape);
-    const auto &rules = tactix_rules();
-    for (const auto &entry : policy.inprocess().entries)
-      if (std::string(rules[entry.rule].name) == "Factor")
-        return entry.enabled && entry.preprocess;
-    return false;
-  };
-  // Pin the causal Phase-4 admission witnesses rather than their filenames.
-  const auto mp = classified(6360, 25200);
-  assert(!mp.inprocess.factor_repeated_enabled &&
-         mp.inprocess.vivify_enabled);
-  const auto stconn = classified(936, 6488);
-  assert(!stconn.inprocess.preprocess_only &&
-         stconn.branching.random_sequences &&
-         stconn.reorder.mode == defaults.reorder.mode &&
-         stconn.reduction.dynamic_tiers ==
-             defaults.reduction.dynamic_tiers);
-  const auto grain105 = classified(3094431, 10684799);
-  assert(!grain105.inprocess.preprocess_only &&
-         grain105.branching.random_sequences);
-  const auto grain87 = classified(3165161, 10917078);
-  assert(!grain87.inprocess.preprocess_only &&
-         !grain87.inprocess.factor_repeated_enabled &&
-         grain87.branching.random_sequences);
-  const auto dense_small = classified(862, 855716);
-  assert(!dense_small.inprocess.bve_enabled &&
-         dense_small.inprocess.forward_midround_budget &&
-         dense_small.inprocess.vivify_permille ==
-             DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE &&
-         dense_small.inprocess.subsume_forward_permille ==
-             DefaultStrategyConfig::PROFILE_LIGHT_PERMILLE);
-  const auto dense_large = classified(3032, 2000000);
-  assert(!dense_large.inprocess.bve_enabled &&
-         dense_large.inprocess.forward_midround_budget &&
-         dense_large.inprocess.vivify_permille ==
-             DefaultStrategyConfig::Inprocess{}.vivify_permille);
-  assert(!mp.inprocess.forward_midround_budget);
-  assert(schedules_congruence(6360, 25200));
-  assert(schedules_congruence(862, 855716));
-  assert(schedules_congruence(3032, 2000000));
-  assert(schedules_startup_factor(450, 20035));
-  assert(schedules_startup_factor(6360, 25200));
-  assert(schedules_startup_factor(3165161, 10917078));
+  assert(defaults.analysis.small_clause_limit == 100000);
+  assert(defaults.analysis.big_binary_fraction_permille == 990);
+  assert(defaults.inprocess.bve_enabled &&
+         defaults.inprocess.bve_permille == 100);
+  assert(defaults.inprocess.factor_repeated_enabled &&
+         defaults.inprocess.factor_permille == 50 &&
+         defaults.inprocess.factor_active_ceiling == 0);
+  assert(defaults.inprocess.arena_ordering_enabled);
+  assert(defaults.inprocess.subsume_forward_permille == 100);
+  assert(defaults.inprocess.vivify_enabled &&
+         defaults.inprocess.vivify_permille == 100);
 
-  // Formula classification may lighten repeated Factor, but the reference
-  // Probe clock remains live along with every search-wide mechanism.
-  const auto grain_late = classified(3859779, 13462874);
-  assert(!grain_late.inprocess.preprocess_only &&
-         !grain_late.inprocess.factor_repeated_enabled &&
-         grain_late.branching.random_sequences &&
-         grain_late.reorder.mode == defaults.reorder.mode &&
-         grain_late.reduction.square_root_cadence &&
-         grain_late.reduction.ramp_fraction &&
-         grain_late.reduction.dynamic_tiers &&
-         grain_late.reduction.compact_variables &&
-         grain_late.rephase.walk_permille ==
-             defaults.rephase.walk_permille &&
-         grain_late.rephase.late_lucky);
-  // A profile may dose or decline an inprocessing slot; none may withdraw the
-  // late Lucky opportunity, which both references offer on every formula
-  // (kissat search.c:188, options.h:79).  Sweeping the classification space
-  // rather than a witness list is the point: the defect this pins made the
-  // closed late call unreachable for whole formula classes at once.
-  static const uint64_t GRID_VARS[] = {
-      1,       2,       127,     128,     129,     299,      300,
-      301,     499,     500,     501,     799,     800,      801,
-      862,     899,     900,     901,     936,     999,      1000,
-      1001,    1499,    1500,    1999,    2000,    2999,     3000,
-      3032,    3999,    4000,    4999,    5000,    5999,     6000,
-      6360,    6499,    6500,    6999,    7000,    9999,     10000,
-      14999,   15000,   19999,   20000,   24999,   25000,    31999,
-      32000,   39999,   40000,   49999,   50000,   69999,    70000,
-      119999,  120000,  199999,  200000,  299999,  300000,   499999,
-      500000,  799999,  800000,  1000000, 2999999, 3000000,  3094431,
-      3129999, 3130000, 3165161, 3859779, 9999999, 10000000, 20000000};
-  static const uint64_t GRID_RATIOS[] = {0,  1,  3,  4,  5,  6,   9,
-                                         10, 11, 19, 20, 21, 49,  50,
-                                         51, 59, 60, 61, 89, 90,  91,
-                                         199, 200, 201, 499, 500, 501, 1000};
-  for (const uint64_t shape_vars : GRID_VARS)
-    for (const uint64_t ratio : GRID_RATIOS)
-      for (const int64_t nudge : {int64_t{-1}, int64_t{0}, int64_t{1}}) {
-        const int64_t shape_clauses =
-            static_cast<int64_t>(ratio * shape_vars) + nudge;
-        if (shape_clauses < 0)
-          continue;
-        const auto shaped = classified(static_cast<uint32_t>(shape_vars),
-                                       static_cast<uint64_t>(shape_clauses));
-        assert(!shaped.inprocess.preprocess_only &&
-               "formula shape must not suppress Kissat's Probe pipeline");
-        assert(shaped.inprocess.vivify_enabled &&
-               "formula shape must not suppress Kissat's Vivify slot");
-        assert(shaped.rephase.late_lucky);
-        assert(shaped.branching.random_sequences);
-      }
-  assert(grain87.rephase.late_lucky && stconn.rephase.late_lucky &&
-         dense_small.rephase.late_lucky && dense_large.rephase.late_lucky &&
-         mp.rephase.late_lucky);
+  DefaultPolicy classifier;
+  const auto at_limit = classifier.classify_formula_counts(100000, 0);
+  assert(at_limit.small && !at_limit.bigbig);
+  const auto above_below_fraction =
+      classifier.classify_formula_counts(990, 100001 - 990);
+  assert(!above_below_fraction.small && !above_below_fraction.bigbig);
+  const auto above_at_fraction =
+      classifier.classify_formula_counts(991, 100001 - 991);
+  assert(!above_at_fraction.small && above_at_fraction.bigbig);
 
-  // Formula shape never chooses the reference-disagreement arm.  A caller
-  // can still select CaDiCaL's randec-off policy explicitly, and
-  // classification must preserve that typed choice.
-  DefaultStrategyConfig profile_no_random = defaults;
-  profile_no_random.branching.random_sequences = false;
-  DefaultPolicy no_random_profile(profile_no_random);
-  Kernel legacy_shape;
-  legacy_shape.original_external_vars = 3859779;
-  legacy_shape.original_input_clauses = 13462874;
-  no_random_profile.classify_formula_strategy(legacy_shape);
-  assert(!no_random_profile.strategy_config().branching.random_sequences);
+  // Kissat's `classification.small` is write-only and `bigbig` has exactly
+  // one consumer: ordinary fast binary assignment. Classification therefore
+  // cannot mutate any typed strategy field or create a formula profile.
+  const std::string production_snapshot = classifier.strategy_config_snapshot();
+  static const uint64_t GRID_VARS[] = {1, 128, 862, 1042, 6360, 126152,
+                                       3000000, 10000000};
+  static const uint64_t GRID_RATIOS[] = {0, 1, 4, 10, 50, 500, 1000};
+  for (const uint64_t vars : GRID_VARS)
+    for (const uint64_t ratio : GRID_RATIOS) {
+      const uint64_t clauses = vars * ratio;
+      (void)classifier.classify_formula_counts(clauses / 2,
+                                               clauses - clauses / 2);
+      assert(classifier.strategy_config_snapshot() == production_snapshot &&
+             "formula size/density must not change production strategy");
+    }
 
-  // Formula classification must likewise preserve an explicit caller choice
-  // to disable Vivify while never selecting that non-reference arm itself.
-  DefaultStrategyConfig profile_no_vivify = defaults;
-  profile_no_vivify.inprocess.vivify_enabled = false;
-  DefaultPolicy no_vivify_profile(profile_no_vivify);
-  no_vivify_profile.classify_formula_strategy(legacy_shape);
-  assert(!no_vivify_profile.strategy_config().inprocess.vivify_enabled);
-
-  // The startup-only arm remains explicit and typed for bounded attribution;
-  // classification preserves a caller selection but never selects it itself.
-  DefaultStrategyConfig startup_only = defaults;
-  startup_only.inprocess.preprocess_only = true;
-  DefaultPolicy explicit_startup_only(startup_only);
-  explicit_startup_only.classify_formula_strategy(legacy_shape);
-  assert(explicit_startup_only.strategy_config().inprocess.preprocess_only);
+  // Explicit typed overrides remain diagnostic arms and classification must
+  // neither activate nor erase them.
+  DefaultStrategyConfig diagnostic = defaults;
+  diagnostic.inprocess.bve_enabled = false;
+  diagnostic.inprocess.factor_repeated_enabled = false;
+  diagnostic.inprocess.bve_permille = 7;
+  diagnostic.inprocess.factor_permille = 11;
+  diagnostic.inprocess.subsume_forward_permille = 13;
+  diagnostic.inprocess.vivify_enabled = false;
+  diagnostic.inprocess.vivify_permille = 17;
+  diagnostic.inprocess.forward_midround_budget = true;
+  diagnostic.inprocess.arena_ordering_enabled = false;
+  DefaultPolicy explicit_arm(diagnostic);
+  const std::string diagnostic_snapshot = explicit_arm.strategy_config_snapshot();
+  (void)explicit_arm.classify_formula_counts(1000000, 1);
+  assert(explicit_arm.strategy_config_snapshot() == diagnostic_snapshot);
 
   // Kissat rotates two focused epochs through forced initial/opposite phases.
   // This applies equally to ranked and random decisions.
