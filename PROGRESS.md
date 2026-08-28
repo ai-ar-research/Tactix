@@ -8,25 +8,28 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
-- **In flight — provisional 40-rank baseline and dense-binary representation:**
-  homogeneous campaign `20260828-1344-tierd-ranks1-40-live-active-fix`
-  has all 80 solver timings. Provisional geometric-mean Tactix/Kissat ratios
-  are 1.408× SAT and 1.342× UNSAT; proof checking remains independent and
-  non-blocking. Rank 16 is 1.029×, Rank 32 UNSAT is the largest UNSAT loss at
-  2.382×, and SAT Rank 6 is 5.377×. A source-mapped Rank-6 profile found
-  repeated linear binary-membership scans in BVE and Strengthen. The general
-  dense-stream repair preserves exactly 551,149 conflicts and 5,224,515
-  decisions while reducing wall 293.372→98.730 s. Compacting Strengthen's
-  ordered mixed entry from 24 to 8 bytes and selecting the existing key-only
-  DRAT archive preserve the same trajectory and independently checked model
-  while reducing peak RSS 1,287,052→829,152 KiB (35.6%);
-  Factor remains near its Kissat component cost and is not the owner. The
-  committed homogeneous follow-up has 50/80 provisional timings; its nine
-  paired UNSAT ranks are already consumed at 1.283× geometric mean despite
-  only 45/80 completed checks. Release is 76/76 and focused Release, Debug,
-  and ASAN/UBSAN pass.
-  N1--N4, classification, production budgets, creation order, and the
-  proof-rule/strategy boundary are unchanged; no formula/rank gate exists.
+- **Closed implementation item — Factor fresh-variable activation lifecycle;
+  stop after revisit.** Tactix now mirrors Kissat's two-stage state production:
+  every Factor extension receives the ordinary cumulative activation score and
+  stable-heap insertion before the existing reverse zero-score demotion and
+  VMTF rewrite. The policy consumes Factor's existing exact `[first,end)` event;
+  no rule gained access to `H`, and no new consumer, formula/size/density gate,
+  benchmark exception, rank exception, or tuned conflict boundary exists.
+  Rank 15's physical heap and score hashes now match Kissat at the former
+  conflict-494,000 split and all retained checkpoints through conflict
+  1,566,544. The remaining `-17,-30` versus `-30,-17` decision swap occurs
+  while selecting through assigned variables from that common heap, so the
+  next owner is assigned-state/reconstruction input, not Factor scoring.
+  Release is 76/76; focused Debug and ASAN/UBSAN Analyze/SwitchMode/EventTrace/
+  Factor tests pass; micro proofs pass. The preceding homogeneous `a8b03e5`
+  candidate is solver-complete 40/40 and checked 39/40, with provisional
+  geometric-mean candidate/accepted ratios 1.0775x SAT, 1.0190x UNSAT, and
+  1.0507x overall; candidate/Kissat is 1.4076x overall. This lifecycle repair
+  has no new cluster campaign. Full audit, evidence, performance context, and
+  the exact next resume point are in
+  `benchmarks/reports/2026-08-28-factor-fresh-activation-revisit.md`. Preserve
+  Kissat creation order and the 100/50/100/100 production efforts; do not add
+  a selector to address the residual regression.
 
 - **In flight — Kissat creation/collection-order production baseline:** the
   pushed tree makes Kissat order unconditional production state and retains the

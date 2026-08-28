@@ -132,9 +132,10 @@ int main() {
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
   assert(text.find("\theap_insert\t") != std::string::npos);
-  assert(text.find("var=2|score=0|from=17|to=4") != std::string::npos);
+  assert(text.find("var=2|score=0.5|from=17|to=4") != std::string::npos);
   assert(text.find("\theap_remove\t") != std::string::npos);
-  assert(text.find("removed=2:0|removed_pos=17|last=3:0|from=20|to=4") !=
+  assert(text.find("removed=2:0.5|removed_pos=17|last=3:0.66666666666666674|"
+                   "from=20|to=4") !=
          std::string::npos);
   assert(text.find("\tslot_boundary\t") != std::string::npos);
   assert(text.find("name=Sweep|stage=begin") != std::string::npos);
@@ -372,6 +373,8 @@ int main() {
   kernel_record_import(import_tie_kernel, 0);
   kernel_record_import(import_tie_kernel, 2);
   ScopedHeuristics import_tie_h(import_tie_kernel);
+  for (Var v = 0; v < import_tie_kernel.nvars; ++v)
+    heuristics_score_set(import_tie_kernel, v, 0.0);
   import_tie_kernel.h->stable = true;
   setenv("TACTIX_EVENT_TRACE", import_tie_path.c_str(), 1);
   {

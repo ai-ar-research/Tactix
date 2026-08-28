@@ -480,6 +480,47 @@ static void test_demote_fresh_order() {
            k.h->links[v].stamp > k.h->links[11].stamp);
 }
 
+// Kissat activates a fresh Factor variable with its ordinary cumulative
+// activation score, inserts it into the stable heap, and only then demotes it
+// to zero.  The transient up/down sift is part of the resulting physical heap
+// state even though the final score is zero.
+static void test_demote_fresh_stable_heap_lifecycle() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  k.input_activation_order = {0, 1, 2, 3};
+  ScopedHeuristics _hg_k(k);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+
+  kernel_reserve_vars(k, 5);
+  assert(k.h->activation_count == 5);
+  assert(k.h->scores.score[4] == 0.8);
+  assert(k.h->scores.stack.front() == 4);
+
+  k.fresh_var_events.push_back({4, 5});
+  heuristics_consume_rule_advice(k);
+  assert(k.h->scores.score[4] == 0.0);
+  assert(k.h->scores.stack.front() == 3);
+  assert((k.h->scores.stack == std::vector<Var>{3, 2, 1, 0, 4}));
+}
+
+static void test_demote_fresh_uses_recorded_end() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  k.input_activation_order = {0, 1};
+  ScopedHeuristics _hg_k(k);
+  k.h->stable = true;
+  heuristics_update_scores(k);
+
+  kernel_reserve_vars(k, 3);
+  k.fresh_var_events.push_back({2, 3});
+  kernel_reserve_vars(k, 4); // unrelated later extension
+  heuristics_consume_rule_advice(k);
+  assert(k.h->scores.score[2] == 0.0);
+  assert(k.h->scores.score[3] == 0.75);
+  assert(k.stats.factor_demoted_vars == 1);
+}
+
 // The per-literal seed marks are policy and must not wedge: a watermark past
 // everything suppresses the round, and the next binary add re-arms it.
 static void test_touch_filter_is_policy_only() {
@@ -535,6 +576,8 @@ int main() {
   test_fresh_large_quotients_do_not_become_factors();
   test_touch_filter_is_policy_only();
   test_demote_fresh_order();
+  test_demote_fresh_stable_heap_lifecycle();
+  test_demote_fresh_uses_recorded_end();
   std::printf("test_factor: all passed\n");
   return 0;
 }

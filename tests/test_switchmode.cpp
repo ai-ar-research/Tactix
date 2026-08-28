@@ -19,6 +19,8 @@ static void test_heap_basic() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 5);
+  for (Var v = 0; v < k.nvars; ++v)
+    heuristics_score_set(k, v, 0.0);
   heuristics_update_scores(k); // push all five
   for (Var v = 0; v < 5; v++)
     assert(heuristics_heap_contains(k, v));
@@ -47,6 +49,8 @@ static void test_heap_uses_import_not_activation_order_for_ties() {
   for (const Var v : std::vector<Var>{2, 4, 1, 3})
     kernel_record_import(k, v);
   k.compact_import_order = {1, 3, 2, 4};
+  for (Var v = 0; v < k.nvars; ++v)
+    heuristics_score_set(k, v, 0.0);
   heuristics_update_scores(k);
 
   // With equal scores, push/bubble is stable.  This is the exact heap pose
@@ -153,6 +157,8 @@ static void test_stable_trail_reuse() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 4);
+  for (Var v = 0; v < k.nvars; ++v)
+    heuristics_score_set(k, v, 0.0);
   switchmode_apply(k);
   // scores: v0 > v1 > v2 > v3 (bump under growing scinc, reverse order)
   heuristics_score_bump(k, 3);

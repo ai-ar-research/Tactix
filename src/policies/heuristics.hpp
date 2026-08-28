@@ -21,6 +21,11 @@ struct Heuristics {
   // Kernel::nvars and every per-var vector is sized to it, so a missed growth
   // trips an assert rather than reading out of bounds later.
   uint32_t nvars = 0;
+  // Cumulative Kissat `variables_activated` rank.  Fresh Factor variables are
+  // first inserted with the ordinary activation score 1-1/rank and only then
+  // demoted to zero; skipping that transient score changes equal-score heap
+  // topology even though the final score vector is identical.
+  uint64_t activation_count = 0;
   std::vector<int8_t> saved; // by var: saved phase (+1/-1)
   // The one root-fixed identity retained by initial sparse compaction. Later
   // preprocessing units remain in Kernel::compact_import_order (Kissat's
@@ -109,10 +114,10 @@ void heuristics_queue_bump(Kernel &, Var v); // move to front (most recent)
 Var heuristics_queue_next_unassigned(Kernel &); // last-enqueued unassigned var
 // reset the queue search cache to the queue tail (entering focused mode)
 void heuristics_reset_queue_search(Kernel &);
-// Demote the extension variables [first, nvars) to the bottom of the decision
-// queue (kissat factor.c adjust_scores_and_phases_of_fresh_varaibles).
+// Demote the extension variables [first, end) to the bottom of the decision
+// queue (kissat factor.c adjust_scores_and_phases_of_fresh_variables).
 // O(#queue) per call, so call it once per variable-adding rule application.
-void heuristics_demote_fresh_vars(Kernel &, Var first);
+void heuristics_demote_fresh_vars(Kernel &, Var first, Var end);
 // The same for a scattered set: move every marked variable to the
 // least-preferred end of the VMTF queue, preserving relative order, and floor
 // its EVSIDS score. Ranking advice only, every variable stays decidable (N1).
