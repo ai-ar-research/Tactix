@@ -112,8 +112,9 @@ with tempfile.TemporaryDirectory() as tmp:
     binary_conflict = run(a, b, "--mode", "semantic", "--require-closed")
     assert binary_conflict.returncode == 0, binary_conflict
 
-    # Large-clause metadata remains semantic evidence.  In particular this
-    # catches an irredundant clause carrying stale non-zero glue.
+    # Glue/use-age are redundant-clause metadata. Pinned Kissat can expose a
+    # non-zero physical glue bit on an irredundant conflict, but it has no
+    # tier/reduction consumer and must not mask a later semantic divergence.
     a.write_text(HEADER + common +
                  row("tactix", 1, "conflict", payload=
                      "order=1,-2,3|set=-2,1,3|levels=1:3,-2:3,3:1|"
@@ -124,7 +125,7 @@ with tempfile.TemporaryDirectory() as tmp:
                      "ref=91|glue=0|used=0|redundant=0"))
     large_conflict = run(a, b, "--mode", "semantic")
     assert large_conflict.returncode == 1, large_conflict
-    assert "glue=4" in large_conflict.stdout
+    assert "first divergence: no divergence" in large_conflict.stdout
 
     # Cross-solver auxiliary diagnostics have different observation
     # boundaries and payload schemas.  They remain visible in exact mode but

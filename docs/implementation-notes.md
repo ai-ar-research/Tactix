@@ -549,12 +549,10 @@ The pre-Reorder creation-order baseline `1653941` was Kissat SAT 128.93 s versus
 
 The pre-Walk-clock bound-16 replay `1654380` timed Tactix out at 1,200 s / 23,999,415 conflicts / 63,249,677 decisions; Kissat verified SAT in 133.79 s / 4,777,402 conflicts / 14,441,406 decisions. Both again had zero Factor transformations and 378 eliminations. It proves Eliminate was necessary but insufficient and cannot justify a formula gate.
 
-Pinned Kissat counts propagation when a trail literal's watches are consumed,
-then publishes cursor and tick deltas once per call. Tactix formerly counted new
-implications and wrote global counters inside the scan. The shared kernel now
-uses Kissat's definition and bulk boundary; Rank 16 remains search-identical,
-drops 175.47→159.98 s, and reports 152.705M versus Kissat's 152.707M scans.
+Pinned Kissat counts propagation when a trail literal's watches are consumed, then publishes cursor and tick deltas once per call. Tactix formerly counted new implications and wrote global counters inside the scan. The shared kernel now uses Kissat's definition and bulk boundary; Rank 16 remains search-identical, drops 175.47→159.98 s, and reports 152.705M versus Kissat's 152.707M scans.
 
-Rank 15 closed forward's duplicate/tie/action lifecycle, shortened ITE, and BVE
-retry. Jobs `1654651`/`1654652` match all binaries and 15,211 live clauses.
-Only Eliminate/BVE owns the exact mixed stream; jobs `1655087`/`1655161` provisionally reduce Rank 10 from 111.387→95.211 s and 23.05→17.08 GB.
+Rank 15 closed forward's duplicate/tie/action lifecycle, shortened ITE, and BVE retry. Jobs `1654651`/`1654652` match all binaries and 15,211 live clauses. Only Eliminate/BVE owns the exact mixed stream; jobs `1655087`/`1655161` provisionally reduce Rank 10 from 111.387→95.211 s and 23.05→17.08 GB.
+
+Rank 15 then exposed a Probe fixed-point error after Factor. Pinned Kissat tests current `solver->active`; Tactix reconstructed that population from cumulative root-fixed, BVE, and Substitute counters. Compaction makes those histories non-invertible, and the proxy missed Factor's newly active extension variable, so Tactix skipped the second `proberounds` pipeline pass. DefaultPolicy now counts live non-retired state. Boundary job `1655202` enters round two and matches Kissat at Probe exit: 6,103 irredundant, 25,183 redundant, and 334 binary clauses, including the top-32 order. Formula-independent provisional job `1655204` improves Rank 15 from 520.937 s to 310.540 s, still 3.854× Kissat's 80.585 s. Factor took 96 ms for 24 factorizations; the remaining gap belongs to the next common-state search/mechanism divergence. Proof checking does not block provisional timing but remains a promotion gate; N1--N4 are unchanged.
+
+The pre-repair homogeneous campaign `20260828-2030-tierd-ranks1-40-forward-stream-final` completed all 80 solver runs. Its 18 UNSAT pairs have provisional geometric-mean Tactix/Kissat ratio 1.428× (arithmetic mean 1.466×), recorded independently of the proof-check queue; 75/80 results were checked at the timing snapshot. This is evidence for a general gap, not a selector: formula size, density, classification, benchmark identity, and rank do not alter production strategy.

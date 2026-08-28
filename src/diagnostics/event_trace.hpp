@@ -166,6 +166,7 @@ private:
   bool saw_reorder_ = false;
   bool detail_window_ = false;
   bool compact_probe_ = false;
+  bool boundary_only_ = false;
   bool skip_watch_ = false;
   bool skip_imply_ = false;
   bool skip_heap_ = false;
@@ -179,6 +180,7 @@ private:
   bool phase_only_ = false;
   bool formula_only_ = false;
   bool trajectory_only_ = false;
+  bool conflict_only_ = false;
   bool sweep_only_ = false;
   bool watch_only_ = false;
   bool watch_cost_ = false;

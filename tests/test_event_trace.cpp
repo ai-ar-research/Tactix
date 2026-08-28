@@ -262,6 +262,31 @@ int main() {
   assert(formula_only_text.find("must_be_filtered") == std::string::npos);
   std::remove(formula_only_path.c_str());
 
+  const std::string conflict_only_path = trace_path("event-conflict-only");
+  std::remove(conflict_only_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", conflict_only_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "decision", 1);
+    trace.conflict(k);
+    trace.macro(k, "must_be_filtered");
+    trace.macro(k, "terminate", "0");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_ONLY");
+  std::ifstream conflict_only_input(conflict_only_path);
+  const std::string conflict_only_text(
+      (std::istreambuf_iterator<char>(conflict_only_input)),
+      std::istreambuf_iterator<char>());
+  assert(conflict_only_text.find("\ttrace_begin\t") != std::string::npos);
+  assert(conflict_only_text.find("\tconflict\t") != std::string::npos);
+  assert(conflict_only_text.find("\tterminate\t") != std::string::npos);
+  assert(conflict_only_text.find("\tdecision\t") == std::string::npos);
+  assert(conflict_only_text.find("must_be_filtered") == std::string::npos);
+  std::remove(conflict_only_path.c_str());
+
   // Compact inprocessing traces are the matched-cost surface for all
   // candidate-oriented rules.  In particular BVE and its phase cleanup must
   // survive this filter in both Tactix and the Kissat observer overlay; losing
@@ -290,6 +315,27 @@ int main() {
   assert(compact_text.find("\teliminate_cleanup\t") != std::string::npos);
   assert(compact_text.find("\tdecision\t") == std::string::npos);
   std::remove(compact_path.c_str());
+
+  const std::string boundary_path = trace_path("event-boundary-only");
+  std::remove(boundary_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", boundary_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_BOUNDARY_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.slot_boundary(k, "Vivify", "begin");
+    trace.factor_seed(k, 0, 3, 2);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_BOUNDARY_ONLY");
+  std::ifstream boundary_input(boundary_path);
+  const std::string boundary_text(
+      (std::istreambuf_iterator<char>(boundary_input)),
+      std::istreambuf_iterator<char>());
+  assert(boundary_text.find("\tslot_boundary\t") != std::string::npos);
+  assert(boundary_text.find("name=Vivify|stage=begin") != std::string::npos);
+  assert(boundary_text.find("\tfactor_seed\t") == std::string::npos);
+  std::remove(boundary_path.c_str());
 
   // Stable top32 is a portable reference comparison, not a rendering of
   // Tactix's dense variable indices.  Kissat assigns those indices in first

@@ -589,6 +589,7 @@ bool EventTrace::open_from_env(const Kernel &k) {
           std::getenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION"))
     heap_remove_decision_ = std::strtoull(decision, nullptr, 10);
   compact_probe_ = std::getenv("TACTIX_EVENT_TRACE_COMPACT_PROBE") != nullptr;
+  boundary_only_ = std::getenv("TACTIX_EVENT_TRACE_BOUNDARY_ONLY") != nullptr;
   skip_watch_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_WATCH") != nullptr;
   skip_imply_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_IMPLY") != nullptr;
   skip_heap_ = std::getenv("TACTIX_EVENT_TRACE_SKIP_HEAP") != nullptr;
@@ -612,6 +613,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_FORMULA_ONLY") != nullptr;
   trajectory_only_ =
       std::getenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY") != nullptr;
+  conflict_only_ =
+      std::getenv("TACTIX_EVENT_TRACE_CONFLICT_ONLY") != nullptr;
   sweep_only_ = std::getenv("TACTIX_EVENT_TRACE_SWEEP_ONLY") != nullptr;
   watch_only_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_ONLY") != nullptr;
   watch_cost_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_COST") != nullptr;
@@ -651,6 +654,9 @@ void EventTrace::close() {
 
 void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
+  if (conflict_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "conflict") && std::strcmp(event, "terminate"))
+    return;
   if (snapshot)
     emit_binary_set_snapshot(k, event, payload);
   if (snapshot)
@@ -797,6 +803,12 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strncmp(event, "eliminate_", 10) &&
       std::strncmp(event, "substitute_", 11))
     return;
+  if (boundary_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "probe_begin") && std::strcmp(event, "probe_end") &&
+      std::strcmp(event, "preprocess_begin") &&
+      std::strcmp(event, "preprocess_end") &&
+      std::strcmp(event, "slot_boundary"))
+    return;
   if (emitted_ >= limit_) {
     if (!truncated_) {
       std::fprintf(out_, "# truncated at %llu records\n",
@@ -813,8 +825,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     live_clause_counts(k, irred, red);
     binary = live_binary_clause_count(k);
     digest = state_digest(k);
-    for (Var v = 0; v < k.nvars; v++)
-      active += !kernel_var_retired(k, v);
+    active = kernel_active_variables(k);
   }
   int search_external = 0;
   if (k.h && k.h->search_idx != INVALID_VAR &&
@@ -1235,7 +1246,7 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
 bool EventTrace::want_detail(const Kernel &k) {
   if (!out_)
     return false;
-  if (formula_only_)
+  if (formula_only_ || conflict_only_)
     return false;
   if (detail_window_)
     return k.stats.conflicts >= detail_conflict_from_ &&
@@ -3210,7 +3221,12 @@ void EventTrace::implications(const Kernel &k, size_t trail_begin) {
 }
 
 void EventTrace::conflict(const Kernel &k) {
-  if (!want_detail(k) || !k.conflict_valid)
+  const bool in_conflict_window =
+      out_ && (!detail_window_ ||
+               (k.stats.conflicts >= detail_conflict_from_ &&
+                k.stats.conflicts <= detail_conflict_to_));
+  if (!(conflict_only_ ? in_conflict_window : want_detail(k)) ||
+      !k.conflict_valid)
     return;
   const Lit *lits;
   uint32_t size;
