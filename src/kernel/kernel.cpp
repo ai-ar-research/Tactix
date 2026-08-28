@@ -306,7 +306,11 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   c->size = size;
   // redundant clauses start fully "used" (kissat learn.c: used = MAX_USED)
   c->flags = redundant ? (Clause::REDUNDANT | Clause::USED_MASK) : 0;
-  c->set_glue(glue);
+  // Kissat's clause header assigns glue only to redundant clauses.  Keep that
+  // representation invariant at the arena boundary: proof rules such as BVE
+  // may price an irredundant resolvent by its size, but that price is not LBD
+  // metadata and must never leak into later conflict/reason handling.
+  c->set_glue(redundant ? glue : 0);
   c->searched = 2;
   c->set_id(id);
   for (uint32_t i = 0; i < size; i++)

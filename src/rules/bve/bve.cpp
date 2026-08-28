@@ -1589,7 +1589,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     } else {
       fresh.push_back(kernel_add_large_clause(
           k, r.lits.data(), static_cast<uint32_t>(r.lits.size()),
-          /*redundant=*/false, static_cast<uint32_t>(r.lits.size()), id));
+          /*redundant=*/false, /*glue=*/0, id));
       k.watches.defrag_if_needed();
       // Adding a large clause may reallocate the arena, but the Refs held in
       // pos/neg/del_large are offsets and survive a resize; only a Clause*

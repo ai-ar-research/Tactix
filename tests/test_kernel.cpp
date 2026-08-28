@@ -20,6 +20,20 @@
 
 using namespace tactix;
 
+static void test_irredundant_clause_never_stores_glue() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref irred =
+      kernel_add_large_clause(k, lits, 3, /*redundant=*/false, /*glue=*/7);
+  const Ref red =
+      kernel_add_large_clause(k, lits, 3, /*redundant=*/true, /*glue=*/7);
+  assert(!clause_at(k.arena, irred)->redundant());
+  assert(clause_at(k.arena, irred)->glue() == 0);
+  assert(clause_at(k.arena, red)->redundant());
+  assert(clause_at(k.arena, red)->glue() == 7);
+}
+
 static void test_compact_watch_head_encoding_is_full_width() {
   WatchHead head;
   head.size = UINT32_MAX;
@@ -1839,6 +1853,7 @@ static void test_kissat_watch_growth_and_clause_checkpoint_defrag() {
 }
 
 int main() {
+  test_irredundant_clause_never_stores_glue();
   test_compact_watch_head_encoding_is_full_width();
   test_clause_position_alias_pages_are_exact_and_sparse();
   test_binary_liveness_filter_has_no_false_negatives();

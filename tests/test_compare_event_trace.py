@@ -97,6 +97,35 @@ with tempfile.TemporaryDirectory() as tmp:
     snapshotless = run(a, b, "--mode", "semantic", "--require-closed")
     assert snapshotless.returncode == 0, snapshotless
 
+    # A binary conflict is materialized as an arena clause by Kissat but lives
+    # only in Tactix's watch lists.  Cross-solver semantic comparison owns that
+    # representation normalization; callers must not preprocess trace files.
+    a.write_text(HEADER + common +
+                 row("tactix", 1, "conflict", payload=
+                     "order=1,-2|set=-2,1|levels=1:3,-2:3|ref=binary") +
+                 row("tactix", 2, "terminate", payload="20"))
+    b.write_text(HEADER + common.replace("tactix", "kissat") +
+                 row("kissat", 1, "conflict", payload=
+                     "order=1,-2|set=-2,1|levels=1:3,-2:3|ref=91|"
+                     "glue=0|used=0|redundant=0") +
+                 row("kissat", 2, "terminate", payload="20"))
+    binary_conflict = run(a, b, "--mode", "semantic", "--require-closed")
+    assert binary_conflict.returncode == 0, binary_conflict
+
+    # Large-clause metadata remains semantic evidence.  In particular this
+    # catches an irredundant clause carrying stale non-zero glue.
+    a.write_text(HEADER + common +
+                 row("tactix", 1, "conflict", payload=
+                     "order=1,-2,3|set=-2,1,3|levels=1:3,-2:3,3:1|"
+                     "ref=7|id=8|glue=4|used=0|redundant=0"))
+    b.write_text(HEADER + common.replace("tactix", "kissat") +
+                 row("kissat", 1, "conflict", payload=
+                     "order=1,-2,3|set=-2,1,3|levels=1:3,-2:3,3:1|"
+                     "ref=91|glue=0|used=0|redundant=0"))
+    large_conflict = run(a, b, "--mode", "semantic")
+    assert large_conflict.returncode == 1, large_conflict
+    assert "glue=4" in large_conflict.stdout
+
     # Cross-solver auxiliary diagnostics have different observation
     # boundaries and payload schemas.  They remain visible in exact mode but
     # cannot mask the first portable semantic edge.
@@ -105,7 +134,9 @@ with tempfile.TemporaryDirectory() as tmp:
                  row("tactix", 2, "mode_clock", payload="ticks=12") +
                  row("tactix", 3, "analyzed", payload="vars=1") +
                  row("tactix", 4, "randec_draw", payload="raw=1") +
-                 row("tactix", 5, "terminate", payload="20"))
+                 row("tactix", 5, "backbone_computation", payload="8") +
+                 row("tactix", 6, "backbone_round_end", payload="0") +
+                 row("tactix", 7, "terminate", payload="20"))
     b.write_text(HEADER + common.replace("tactix", "kissat") +
                  row("kissat", 1, "reduce_tiers", payload="tier1=7") +
                  row("kissat", 2, "retier", payload="tier1=7") +

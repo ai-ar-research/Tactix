@@ -37,6 +37,13 @@ AUXILIARY_EVENTS = {
     "sweep_unit", "root_assign", "analysis_trail_size",
     "analysis_propagate_head", "reason_bump_rate_milli",
     "reason_bump_limit", "reason_bump_delay_before",
+    # Tactix exposes the internal failed-literal batches used by Backbone.
+    # The pinned Kissat overlay currently observes only the surrounding rule
+    # boundary.  Search consequences remain covered by the portable decision,
+    # conflict, learned-clause, and analysis streams.
+    "backbone_computation", "backbone_scheduled", "backbone_prioritized",
+    "backbone_hash_lo", "backbone_hash_hi", "backbone_round_begin",
+    "backbone_round_end", "backbone_round_units",
 }
 # Detailed records normally carry zeroes in the expensive snapshot fields.
 # Analysis-end is the deliberate exception: both overlays snapshot ranking
@@ -80,6 +87,23 @@ def normalize_semantic_rows(rows):
             if shared and stage in ("begin", "end"):
                 row["event"] = f"{shared}_{stage}"
                 row["payload"] = "-"
+        if row["event"] == "conflict":
+            # Clause references and proof ids are representation identities,
+            # not conflict semantics.  Kissat materializes binary clauses in
+            # its arena and therefore also exposes a zeroed clause header;
+            # Tactix stores the same binary only in watch lists.  Preserve the
+            # header fields for large clauses (they can reveal a real tier/LBD
+            # discrepancy), but compare a binary conflict by literals/levels.
+            parts = row["payload"].split("|")
+            order = next((part[6:] for part in parts
+                          if part.startswith("order=")), "")
+            binary = bool(order) and order.count(",") == 1
+            ignored = {"ref", "id"}
+            if binary:
+                ignored.update(("glue", "used", "redundant"))
+            row["payload"] = "|".join(
+                part for part in parts
+                if part.split("=", 1)[0] not in ignored)
         normalized.append(row)
     # Input normalization differs deliberately: Kissat retains duplicate
     # binary occurrences until its startup pipeline, while Tactix deduplicates
