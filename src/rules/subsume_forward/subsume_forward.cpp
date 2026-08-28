@@ -210,8 +210,10 @@ ApplyResult subsume_forward_apply(Kernel &k) {
       ref += clause_actual_words(c);
     }
   }
-  const auto large_population = [&](Lit l) -> size_t {
-    return k.dense ? k.dense->large[l].size() : fallback_population[l];
+  const auto watch_population = [&](Lit l) -> size_t {
+    const size_t large =
+        k.dense ? k.dense->large[l].size() : fallback_population[l];
+    return k.watches.binary_size(l) + large;
   };
   uint64_t deleted = 0;
   // `k.work_budget` in this rule's own currency, polled in PARTNER visits;
@@ -316,8 +318,10 @@ ApplyResult subsume_forward_apply(Kernel &k) {
     for (const Lit l : *c) {
       if (k.value(l) != 0)
         continue;
-      const size_t n = large_population(l);
-      if (min_lit == INVALID_LIT || n < min_occs) {
+      const size_t n = watch_population(l);
+      // Kissat updates the minimum on equality, choosing the last tied literal
+      // in the clause's physical order.
+      if (min_lit == INVALID_LIT || n <= min_occs) {
         min_lit = l;
         min_occs = n;
       }

@@ -1018,7 +1018,8 @@ static void promote_irredundant(Kernel &k, Ref ref) {
 #endif
   c->set_redundant(false);
   for (const Lit l : *c) {
-    kernel_mark_bve_retry(k, var_of(l));
+    // Pinned Kissat promotes this clause through `mark_added_literals`, which
+    // arms forward subsumption and Factor but deliberately not Eliminate.
     kernel_touch_var(k, var_of(l));
     k.factor_marks[l] = 1;
     if (k.dense)

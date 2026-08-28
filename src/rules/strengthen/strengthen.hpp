@@ -44,9 +44,11 @@ ApplyResult strengthen_try(Kernel &, Ref candidate);
 // finds one, so the default slot schedules this rule instead of SubsumeForward
 // while C1 stays registered and N1-exposed. Strengthened clauses are rebuilt
 // fresh from the candidate's free literals minus the resolved one, with
-// root-falsified literals stripped and their unit ids joining the chain, and a
-// result of size >= 3 is re-scanned since strengthening cascades. A unit result
-// is asserted at the root and ends the round; an empty result refutes, which is
+// root-falsified literals stripped and their unit ids joining the chain.  As in
+// Kissat's forward pass, a candidate gets at most one action per round; a
+// strengthened large survivor is connected for later candidates and re-armed
+// for a later round. A unit result is asserted at the root and ends the round;
+// an empty result refutes, which is
 // reachable because an N1 history can leave a root engine-quiescent yet
 // semantically under-derived (corpus 002).
 ApplyResult strengthen_apply(Kernel &);

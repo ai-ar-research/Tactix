@@ -112,6 +112,10 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   if (!k.cold_state_deferred)
     k.touched_kept.resize(nvars, 0);
   for (uint32_t v = old; v < nvars; v++) {
+    // Kissat activates a variable by setting both its eliminate and subsume
+    // flags.  Clause addition below only owns the latter; this is the unique
+    // initial BVE-retry event for a newly imported/extended variable.
+    kernel_mark_bve_retry(k, v);
     kernel_touch_var(k, v);
     // Variable activation marks the stripped (positive) literal in Kissat;
     // actual clause polarities are marked below by clause addition.
@@ -312,15 +316,12 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 #endif
   k.watches.push_large(lits[0], lits[1], ref);
   k.watches.push_large(lits[1], lits[0], ref);
-  // Irredundant clauses only, for all three consumers: the dense index (Refs
-  // are arena offsets, stable across the resize above), the BVE retry filter,
-  // and the touched-epoch substrate. Redundant clauses are excluded on purpose
-  // — BVE does not resolve them and learned-clause traffic would mark
-  // everything (kissat marks the same population, clause.c:98). Deviation:
-  // kissat marks on REMOVAL only, which is measured negative here.
+  // Irredundant clauses feed the dense index and the added-material consumers
+  // (forward subsumption and Factor).  Pinned Kissat's `mark_added_literal`
+  // does NOT set `flags.eliminate`: BVE retry is armed by variable activation
+  // and semantic removal only, never by clause creation.
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
-      kernel_mark_bve_retry(k, var_of(lits[i]));
       kernel_touch_var(k, var_of(lits[i]));
       k.factor_marks[lits[i]] = 1;
       if (k.dense) {
@@ -370,11 +371,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
   k.binary_ids.insert_or_assign_known(kernel_binary_key(a, b), id, new_pair);
   if (k.binary_liveness)
     k.binary_liveness->add(kernel_binary_key(a, b));
-  // BVE retry filter: binaries have an irredundant lifecycle in this kernel,
-  // so every added pair is new elimination material for both variables
-  // (removal-only marking measured and rejected — see kernel_add_large_clause).
-  kernel_mark_bve_retry(k, var_of(a));
-  kernel_mark_bve_retry(k, var_of(b));
+  // Like large-clause creation, a new binary is added material for forward
+  // subsumption and Factor, but not for Kissat's elimination flag.
   kernel_notify_bve_score(k, var_of(a), false);
   kernel_notify_bve_score(k, var_of(b), false);
   // Touched-epoch substrate: a binary is the strongest subsumer/partner there
@@ -536,13 +534,61 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   return true;
 }
 
-// DRAT-only variant for E2 Factor: remove EVERY copy of the pair (a,b). A
-// factoring replaces its whole grid with the aux-var definition, so a
-// duplicated grid binary must go entirely, where plain kernel_delete_binary
-// refuses copies != 1 to protect a surviving copy's later LRAT chain. Here no
-// copy survives, and Factor no-ops under native LRAT (D-FACTOR-LRAT), so that
-// ambiguity never reaches a checker. Only Factor's exact grid pairs are
-// removed. Emits one DRAT `del` per copy, and returns true iff any was removed.
+uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
+  const uint32_t copies = kernel_binary_copies(k, a, b);
+  if (copies <= 1)
+    return 0;
+  const uint32_t removed_copies = copies - 1;
+  // Pinned forward.c compacts each directed watch vector in place and retains
+  // its first occurrence.  Do the same on both mirrors; deleting one copy at
+  // a time through the general primitive would retain the last occurrence and
+  // change later propagation/occurrence order.
+  for (const Lit x : {a, b}) {
+    const Lit other = x == a ? b : a;
+    bool kept = false;
+    uint32_t removed = 0;
+    k.watches.compact(x, [&](WatchEntry w) {
+      if (!w.binary() || w.other() != other)
+        return true;
+      if (!kept) {
+        kept = true;
+        return true;
+      }
+      removed++;
+      return false;
+    });
+    assert(kept && removed == removed_copies);
+  }
+  kernel_bve_occurrence_remove(k, a, removed_copies);
+  kernel_bve_occurrence_remove(k, b, removed_copies);
+  // DRAT names clauses by literals and can mirror Kissat's one deletion per
+  // retired copy. Native LRAT keeps only the newest id for an identical pair;
+  // deletions are optional, so retain those checker clauses and keep that id
+  // available to later reasons.
+  if (k.proof && !k.proof->lrat()) {
+    const Lit lits2[2] = {a, b};
+    for (uint32_t i = 0; i < removed_copies; ++i)
+      k.proof->del(k.next_clause_id, 0, lits2, 2);
+  }
+  k.stats.binaries_deleted += removed_copies;
+  for (uint32_t i = 0; i < removed_copies; ++i) {
+    kernel_mark_bve_retry(k, var_of(a));
+    kernel_mark_bve_retry(k, var_of(b));
+    kernel_removed_var(k, var_of(a));
+    kernel_removed_var(k, var_of(b));
+  }
+  kernel_notify_bve_score(k, var_of(a), true);
+  kernel_notify_bve_score(k, var_of(b), true);
+  event_trace_binary_lifecycle(k, "deduplicate", a, b,
+                               kernel_binary_id(k, a, b), 1);
+  return removed_copies;
+}
+
+// Remove EVERY physical copy of the pair (a,b).  DRAT can retire each copy by
+// literal multiset.  Native LRAT stores only the latest id for a duplicated
+// pair, so deleting that id repeatedly would be invalid; when multiple copies
+// exist, retain their proof clauses in the checker (deletions are optional)
+// while removing the complete internal watch multiset.
 static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
                                      uint32_t copies) {
   if (copies == 0)
@@ -586,7 +632,7 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
   kernel_bve_occurrence_remove(k, b, copies);
   if (k.binary_liveness)
     k.binary_liveness->remove(kernel_binary_key(a, b));
-  if (k.proof) {
+  if (k.proof && (!k.proof->lrat() || copies == 1)) {
     const Lit lits2[2] = {a, b};
     for (uint32_t i = 0; i < copies; i++)
       k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
@@ -971,9 +1017,20 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   // caller-specific (in particular Sweep's `vivify` bit) and is restored by
   // the source-backed caller that owns that in-place rewrite.
   const uint32_t inherited_used = c->used();
+  const bool semantic_irredundant = !c->redundant();
   const Ref source_ref = static_cast<Ref>(
       reinterpret_cast<const uint32_t *>(c) - k.arena.data());
-  kernel_delete_clause(k, c); // before any arena-mutating add below
+  // This is one semantic rewrite, not a deletion of every old literal followed
+  // by an unrelated addition.  Kissat arms elimination only for literals that
+  // actually disappear from the clause.
+  if (semantic_irredundant)
+    for (const Lit old : *c)
+      if (std::find(lits, lits + size, old) == lits + size) {
+        kernel_mark_bve_retry(k, var_of(old));
+        kernel_removed_var(k, var_of(old));
+        kernel_notify_bve_score(k, var_of(old), true);
+      }
+  kernel_delete_clause(k, c, false); // before any arena-mutating add below
   if (size == 0) { // under-derived root only (corpus 002): the ADD just
     k.inconsistent = true; // emitted IS the refutation
     return ReplaceOutcome::Refuted;
@@ -1042,7 +1099,16 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   // before the semantic overwrite also avoids depending on cached blockers.
   kernel_unwatch_large(k, old_first, ref);
   kernel_unwatch_large(k, old_second, ref);
-  kernel_delete_clause(k, c);
+  if (!redundant)
+    for (uint32_t i = 0; i < old_size; ++i) {
+      const Lit old = c->lits[i];
+      if (std::find(lits, lits + size, old) != lits + size)
+        continue;
+      kernel_mark_bve_retry(k, var_of(old));
+      kernel_removed_var(k, var_of(old));
+      kernel_notify_bve_score(k, var_of(old), true);
+    }
+  kernel_delete_clause(k, c, false);
   if (old_position_alias)
     k.clause_position_alias.set(id, old_position_alias);
 
@@ -1067,7 +1133,6 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
 
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
-      kernel_mark_bve_retry(k, var_of(lits[i]));
       kernel_touch_var(k, var_of(lits[i]));
       k.factor_marks[lits[i]] = 1;
       kernel_notify_bve_score(k, var_of(lits[i]), false);

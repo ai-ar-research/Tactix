@@ -42,9 +42,9 @@ void subsume_forward_candidates(const Kernel &, std::vector<Ref> &out,
 // Argument: `docs/implementation-notes.md` §14.
 ApplyResult subsume_forward_try(Kernel &, Ref candidate);
 
-// Canonical: the full round. kissat's round-entry duplicate-binary sweep stays
-// dropped — it deletes binaries by multiset position, which `binary_ids` (one
-// id per literal pair) cannot name. No effort budget in the rule.
+// Canonical: the standalone diagnostic C1 round. The production fused
+// Strengthen pass owns Kissat forward.c's round-entry duplicate-binary sweep;
+// do not duplicate that consumer here. No effort budget in the rule.
 ApplyResult subsume_forward_apply(Kernel &);
 
 } // namespace tactix

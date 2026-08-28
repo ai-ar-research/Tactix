@@ -1315,6 +1315,9 @@ bool kernel_delete_binary(Kernel &, Lit a, Lit b);
 // omitted; the final copy delegates to the ordinary named-pair deletion.
 bool kernel_delete_binary_one_copy(Kernel &, Lit a, Lit b);
 bool kernel_delete_binary_all_copies(Kernel &, Lit a, Lit b);
+// Forward.c duplicate sweep: retain the first physical copy in each mirrored
+// watch list and retire every later copy. Returns the number retired.
+uint32_t kernel_remove_duplicate_binary_copies(Kernel &, Lit a, Lit b);
 // Factor's null-stack dense entry has already counted and deduplicated the
 // selected grid pair.  Consume that exact count without rescanning its watch
 // list before the Kissat-style eager removal.
@@ -1380,7 +1383,8 @@ inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
   }
 }
 
-inline void kernel_delete_clause(Kernel &k, Clause *c) {
+inline void kernel_delete_clause(Kernel &k, Clause *c,
+                                 bool semantic_removal = true) {
   // The proof delta belongs INSIDE the retirement transition, not in front of
   // it. A deletion names one clause: DRAT by its literals, LRAT by its id, and
   // in both formats the checker retires exactly one copy per `d` line. Emitting
@@ -1400,7 +1404,7 @@ inline void kernel_delete_clause(Kernel &k, Clause *c) {
                                       c->id());
 #endif
   c->flags |= Clause::GARBAGE;
-  if (!c->redundant())
+  if (semantic_removal && !c->redundant())
     for (const Lit l : *c) {
       kernel_mark_bve_retry(k, var_of(l));
       kernel_removed_var(k, var_of(l)); // BCE's side of the substrate

@@ -251,10 +251,10 @@ pending half-analysis or schedules Backjump independently.
 
 ## 6. BVE retry advice
 
-`bve_retry[v]` is policy advice, not a guard. It tracks irredundant binary/large
-changes, root fixing, and variable creation; redundant traffic and collection
-do not mark it. Public BVE instances remain complete. Removal-only retry was
-negative and is not a live arm.
+`bve_retry[v]` is policy advice, not a guard: activation initializes it, an
+attempt clears it, and irredundant semantic removal re-arms it. Clause creation
+or promotion arms only forward/Factor; replacement marks disappearing literals.
+Redundant traffic and collection do not mark it; public instances stay complete.
 
 ## 7. Probing scopes
 
@@ -554,3 +554,6 @@ then publishes cursor and tick deltas once per call. Tactix formerly counted new
 implications and wrote global counters inside the scan. The shared kernel now
 uses Kissat's definition and bulk boundary; Rank 16 remains search-identical,
 drops 175.47→159.98 s, and reports 152.705M versus Kissat's 152.707M scans.
+
+Rank 15 closed forward's duplicate/tie/action lifecycle, shortened ITE, and BVE
+retry. Jobs `1654651`/`1654652` match all binaries and 15,211 live clauses.

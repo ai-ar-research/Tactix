@@ -150,6 +150,97 @@ struct StrengthenVisitCounter {
   ~StrengthenVisitCounter() { published = value; }
 };
 
+// Pinned Kissat forward.c begins every pass by collapsing duplicate binaries
+// on variables whose persistent `subsume` flag is armed. Tactix's equivalent
+// flag image is the Strengthen touch watermark. The same scan detects
+// (l∨a),(l∨¬a), whose hyper-unary resolvent is l, before compacting later
+// copies. Returns the number of retired copies, or UINT64_MAX on refutation.
+static uint64_t sweep_forward_binaries(Kernel &k, uint64_t since,
+                                       bool filtered) {
+  struct UnitWitness {
+    Lit unit;
+    uint64_t first, second;
+  };
+  std::vector<UnitWitness> units;
+  std::vector<uint8_t> marks(2 * static_cast<size_t>(k.nvars), 0);
+  std::vector<uint64_t> ids(2 * static_cast<size_t>(k.nvars), 0);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+    const Var v = var_of(lit);
+    if (kernel_var_retired(k, v) || k.value(lit) != 0 ||
+        (filtered && !kernel_touched_since(k, v, since)))
+      continue;
+    std::vector<Lit> touched;
+    for (const WatchEntry w : k.watches.entries(lit)) {
+      if (!w.binary())
+        continue;
+      const Lit other = w.other();
+      const Var ov = var_of(other);
+      if (kernel_var_retired(k, ov) || k.value(other) != 0 ||
+          (filtered && !kernel_touched_since(k, ov, since)))
+        continue;
+      if (marks[other])
+        continue; // a later physical duplicate; compacted below
+      if (marks[negate(other)])
+        units.push_back(
+            {lit, ids[negate(other)], kernel_binary_id(k, lit, other)});
+      marks[other] = 1;
+      ids[other] = kernel_binary_id(k, lit, other);
+      touched.push_back(other);
+    }
+    for (const Lit other : touched) {
+      marks[other] = 0;
+      ids[other] = 0;
+    }
+  }
+
+  uint64_t removed = 0;
+  std::vector<std::pair<Lit, Lit>> duplicates;
+  for (Lit a = 0; a < 2 * k.nvars; ++a) {
+    const Var av = var_of(a);
+    if (kernel_var_retired(k, av) || k.value(a) != 0 ||
+        (filtered && !kernel_touched_since(k, av, since)))
+      continue;
+    for (const WatchEntry w : k.watches.entries(a)) {
+      if (!w.binary())
+        continue;
+      const Lit b = w.other();
+      if (a >= b || kernel_var_retired(k, var_of(b)) || k.value(b) != 0 ||
+          (filtered && !kernel_touched_since(k, var_of(b), since)))
+        continue;
+      if (kernel_binary_copies(k, a, b, 2) > 1)
+        duplicates.emplace_back(a, b);
+    }
+  }
+  std::sort(duplicates.begin(), duplicates.end());
+  duplicates.erase(std::unique(duplicates.begin(), duplicates.end()),
+                   duplicates.end());
+  for (const auto &[a, b] : duplicates)
+    removed += kernel_remove_duplicate_binary_copies(k, a, b);
+
+  for (const UnitWitness &w : units) {
+    const int8_t value = k.value(w.unit);
+    if (value > 0)
+      continue;
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof) {
+      const uint64_t chain[2] = {w.first, w.second};
+      k.proof->add_rup(k.proof->lrat() ? id : 0, &w.unit, 1,
+                       k.proof->lrat() ? chain : nullptr,
+                       k.proof->lrat() ? 2 : 0);
+    }
+    if (value < 0) {
+      kernel_emit_empty_from_pair(k, id, k.unit_ids[var_of(w.unit)]);
+      return UINT64_MAX;
+    }
+    k.unit_ids[var_of(w.unit)] = id;
+    kernel_assign_unit(k, w.unit);
+    removed++;
+  }
+  if (!units.empty() && inprocess_reach_root(k))
+    return UINT64_MAX;
+  return removed;
+}
+
 // scan the candidate's watch lists (both phases) for binary partners and the
 // round's occurrence lists (both phases) for large ones. occs == nullptr
 // selects the watch-list-only discovery the single-candidate instance surface
@@ -174,10 +265,15 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
       continue;
     for (int phase = 0; phase < 2; phase++) {
       const Lit probe = phase ? negate(l) : l;
-      // binaries through the watch lists: (probe, o). probe == l is a
-      // same-phase anchor; probe == ¬l anchors the flip on l itself.
-      if (watch_population_within(k, probe, true, STRENGTHEN_BINLIM)) {
+      // Kissat scans binaries only in `forward_literal(lit, true)`.  Its
+      // opposite-phase `forward_literal(NOT(lit), false)` walk considers large
+      // occurrences only.  Opposite-phase binary discovery is logically
+      // redundant (the same binary is reachable from its same-phase literal)
+      // but changes which of several valid strengtheners wins first.
+      if (phase == 0 &&
+          watch_population_within(k, probe, true, STRENGTHEN_BINLIM)) {
         const bool stop_at_large = k.watches.heads[probe].binaries_first();
+        bool strengthened_by_binary = false;
         for (const WatchEntry w : k.watches.entries(probe)) {
           if (!w.binary()) {
             if (stop_at_large)
@@ -200,18 +296,19 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
             if (marks[negate(o)]) { // (l ∨ o), candidate has ¬o: drop ¬o
               p.res.kind = CheckResult::STRENGTHEN;
               p.res.flipped = o;
+              p.absorbed.clear();
               if (lrat)
                 p.id = kernel_binary_id(k, probe, o);
-              return p;
+              // Kissat breaks this one `forward_literal` watch walk, but
+              // carries `remove` into the remaining candidate literals where
+              // a later strengthener may overwrite it.
+              strengthened_by_binary = true;
+              break;
             }
-          } else if (marks[o]) { // (¬l ∨ o), candidate has l, o: drop l
-            p.res.kind = CheckResult::STRENGTHEN;
-            p.res.flipped = probe;
-            if (lrat)
-              p.id = kernel_binary_id(k, probe, o);
-            return p;
           }
         }
+        if (strengthened_by_binary)
+          continue;
       }
       if (!occs) // instance surface: large partners via watch lists below
         continue;
@@ -227,13 +324,17 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         if (r.kind == CheckResult::NONE)
           continue;
         p.res = r;
+        p.absorbed.clear();
         if (lrat) {
           p.id = d->id();
           for (const Lit m : *d)
             if (k.value(m) < 0)
               p.absorbed.push_back(k.unit_ids[var_of(m)]);
         }
-        return p;
+        if (r.kind == CheckResult::SUBSUMED)
+          return p;
+        // Large strengtheners do not break `forward_literal`; the last valid
+        // one in the remaining physical occurrence scans wins.
       }
     }
   }
@@ -265,13 +366,15 @@ static Partner find_partner(Kernel &k, const std::vector<uint8_t> &marks,
         if (r.kind == CheckResult::NONE)
           continue;
         p.res = r;
+        p.absorbed.clear();
         if (lrat) {
           p.id = d->id();
           for (const Lit m : *d)
             if (k.value(m) < 0)
               p.absorbed.push_back(k.unit_ids[var_of(m)]);
         }
-        return p;
+        if (r.kind == CheckResult::SUBSUMED)
+          return p;
       }
     }
   }
@@ -337,6 +440,15 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed) {
   const bool redundant = c->redundant();
   const uint32_t glue = kernel_shrunken_glue(
       k, c->glue(), static_cast<uint32_t>(lits.size()));
+  if (lits.size() >= 3) {
+    // Kissat shrinks this record in place.  Preserve its arena/dense-occurrence
+    // position instead of letting Tactix's packed append representation turn a
+    // rewrite into new BVE material and a different later occurrence order.
+    kernel_replace_large_clause_in_place(
+        k, *ref, id, lits.data(), static_cast<uint32_t>(lits.size()),
+        redundant ? glue : 0);
+    return 2;
+  }
   switch (kernel_replace_clause(k, c, id, lits.data(),
                                 static_cast<uint32_t>(lits.size()), redundant,
                                 redundant ? glue : 0, ref)) {
@@ -384,13 +496,17 @@ ApplyResult strengthen_apply(Kernel &k) {
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
   const uint64_t wm = k.strengthen_touch_mark;
-  uint64_t changed = 0;
+  const uint64_t binary_removed = sweep_forward_binaries(k, wm, filter);
+  if (binary_removed == UINT64_MAX)
+    return ApplyResult::Unsat;
+  uint64_t changed = binary_removed;
   bool ended = false;
-  // §6 termination polling, at all THREE unbounded loops — the flush pre-pass,
-  // the candidate loop, and the cascade over one shrinking candidate — since
-  // one round can own most of a solve and a poll in only one still ignores the
-  // interrupt for minutes. Every site aborts between candidates or clauses,
-  // never mid-rewrite, so an interrupted round is exactly an incomplete round.
+  // §6 termination polling at both unbounded loops — the flush pre-pass and
+  // the candidate loop.  Like Kissat's `forward_subsume_all_clauses`, one
+  // candidate gets at most one subsume-or-strengthen action in a round, so
+  // there is no same-candidate cascade to poll.  Every site aborts between
+  // candidates or clauses, never mid-rewrite, so an interrupted round is
+  // exactly an incomplete round.
   // No tick cadence at any of them (see subsume_forward.cpp).
   bool interrupted = false;
   const auto poll = [&]() {
@@ -443,8 +559,13 @@ ApplyResult strengthen_apply(Kernel &k) {
       ref += clause_actual_words(c);
     }
   }
-  const auto large_population = [&](Lit l) -> size_t {
-    return k.dense ? k.dense->large[l].size() : fallback_population[l];
+  const auto watch_population = [&](Lit l) -> size_t {
+    const size_t large =
+        k.dense ? k.dense->large[l].size() : fallback_population[l];
+    // Kissat's SIZE_WATCHES includes binaries and connected large
+    // occurrences.  Tactix keeps those populations in separate containers
+    // during a dense phase, so reconstruct that same physical degree here.
+    return k.watches.binary_size(l) + large;
   };
   // `k.work_budget` in this rule's own currency (partner visits). An entry
   // budget alone bounds how often a round runs, never how much one round does,
@@ -475,8 +596,10 @@ ApplyResult strengthen_apply(Kernel &k) {
     for (const Lit l : *c) {
       if (k.value(l) != 0)
         continue;
-      const size_t n = large_population(l);
-      if (min_lit == INVALID_LIT || n < min_occs) {
+      const size_t n = watch_population(l);
+      // `connect_subsuming` updates the winner on equality, hence the last
+      // minimum literal in physical clause order wins.
+      if (min_lit == INVALID_LIT || n <= min_occs) {
         min_lit = l;
         min_occs = n;
       }
@@ -516,35 +639,24 @@ ApplyResult strengthen_apply(Kernel &k) {
     const uint64_t red_sub_before = k.stats.strengthen_subsumed;
     const uint64_t red_str_before = k.stats.strengthened;
     bool budget_exhausted = false;
-    for (;;) { // strengthening cascades on the same candidate
-      Clause *c = clause_at(k.arena, cref);
-      k.stats.strengthen_checked++;
-      mark_candidate(k, marks, c, 1);
-      const Partner p = find_partner(k, marks, c, &occs, cref, visits.value,
-                                     check_start, visit_bounded, visit_budget,
-                                     &budget_exhausted);
-      mark_candidate(k, marks, clause_at(k.arena, cref), 0);
-      if (budget_exhausted)
-        break;
+    Clause *c = clause_at(k.arena, cref);
+    k.stats.strengthen_checked++;
+    mark_candidate(k, marks, c, 1);
+    const Partner p = find_partner(k, marks, c, &occs, cref, visits.value,
+                                   check_start, visit_bounded, visit_budget,
+                                   &budget_exhausted);
+    mark_candidate(k, marks, clause_at(k.arena, cref), 0);
+    if (!budget_exhausted) {
       const int r = act(k, &cref, p, &changed);
       if (r == 5)
         return ApplyResult::Unsat;
-      if (r == 0) { // survivor
+      // Kissat connects both an unchanged survivor and the once-strengthened
+      // candidate for use as a partner by later candidates.  It does not
+      // rescan the strengthened candidate until a later forward round.
+      if (r == 0 || r == 2)
         connect(cref);
-        break;
-      }
-      if (r == 2) {
-        // The cascade is bounded by the clause's size, but at CLSLIM that is a
-        // thousand full partner scans on one candidate, so it polls too. The
-        // rewrite that produced `cref` is complete and logged; stopping here
-        // only skips further shrinking of a clause that is already sound.
-        if (poll())
-          break;
-        continue; // rescan the shrunken clause
-      }
       if (r == 4)
         ended = true;
-      break; // 1 (died) or 3 (became binary) or 4
     }
     if (red) { // the band's YIELD, read against `strengthen_red_checked`
       k.stats.strengthen_red_subsumed +=

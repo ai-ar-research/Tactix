@@ -493,6 +493,51 @@ void emit_binary_set_snapshot(const Kernel &k, const char *event,
 
 static uint64_t eliminate_cleanup_clause_hash(const Kernel &, const Clause &);
 
+void emit_formula_set_snapshot(const Kernel &k, const char *event,
+                               const char *payload) {
+  static bool dumped = false;
+  if (dumped)
+    return;
+  const char *path = std::getenv("SAT_EVENT_TRACE_FORMULA_SET_PATH");
+  const char *match = std::getenv("SAT_EVENT_TRACE_FORMULA_SET_MATCH");
+  const char *conflict = std::getenv("SAT_EVENT_TRACE_FORMULA_SET_CONFLICT");
+  if (!path || !*path || !match || !*match || !conflict || !*conflict)
+    return;
+  char *end = nullptr;
+  const uint64_t selected = std::strtoull(conflict, &end, 10);
+  if (end == conflict || *end || selected != k.stats.conflicts)
+    return;
+  const std::string selector =
+      std::string(event) + "|" + (payload ? payload : "-");
+  if (selector.find(match) == std::string::npos)
+    return;
+  FILE *out = std::fopen(path, "w");
+  if (!out)
+    return;
+  std::fprintf(out, "# tactix-formula-set\t2\n");
+  std::fprintf(out, "# redundant\tsize\thash\tliterals\n");
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (!clause->garbage()) {
+      std::vector<int32_t> external;
+      external.reserve(clause->size);
+      for (const Lit lit : *clause)
+        external.push_back(kernel_externalize(k, lit));
+      std::sort(external.begin(), external.end());
+      std::fprintf(out, "%u\t%u\t%016llx\t", clause->redundant(),
+                   clause->size,
+                   (unsigned long long)eliminate_cleanup_clause_hash(
+                       k, *clause));
+      for (size_t i = 0; i != external.size(); ++i)
+        std::fprintf(out, "%s%d", i ? "," : "", external[i]);
+      std::fputc('\n', out);
+    }
+    ref += clause_actual_words(clause);
+  }
+  std::fclose(out);
+  dumped = true;
+}
+
 EventTrace::~EventTrace() { close(); }
 
 bool EventTrace::open_from_env(const Kernel &k) {
@@ -584,6 +629,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
                       bool snapshot) {
   if (snapshot)
     emit_binary_set_snapshot(k, event, payload);
+  if (snapshot)
+    emit_formula_set_snapshot(k, event, payload);
   if (!out_)
     return;
   if (heap_pop_only_ && std::strcmp(event, "heap_pop") &&
@@ -2436,7 +2483,12 @@ void EventTrace::bve_candidate(const Kernel &k, Var var, const char *stage,
       "|ticks=" + std::to_string(ticks) +
       "|limit=" + std::to_string(limit) +
       "|applied=" + (applied ? "1" : "0");
-  emit(k, "bve_candidate", payload.c_str(), false);
+  // A trace-only checkpoint used to distinguish a stale dense occurrence
+  // image from an already-diverged live formula.  Keeping this opt-in avoids
+  // the full arena walk and ranking snapshot on ordinary event traces.
+  const bool formula_checkpoint =
+      std::getenv("SAT_EVENT_TRACE_BVE_FORMULA") != nullptr;
+  emit(k, "bve_candidate", payload.c_str(), formula_checkpoint);
 }
 
 void event_trace_bve_candidate(const Kernel &k, Var var, const char *stage,

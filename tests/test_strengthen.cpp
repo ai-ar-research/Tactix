@@ -1,4 +1,4 @@
-// C2 Strengthen: fused subsume-or-strengthen round, cascades, unit-producing
+// C2 Strengthen: fused one-action-per-candidate rounds, unit-producing
 // strengthen, instance surface, and the registry-driven inprocessing slot.
 #undef NDEBUG
 #include "kernel/kernel.hpp"
@@ -42,6 +42,41 @@ static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
   return count;
 }
 
+static bool has_binary(const Kernel &k, Lit a, Lit b) {
+  for (const WatchEntry watch : k.watches.entries(a))
+    if (watch.binary() && watch.other() == b)
+      return true;
+  return false;
+}
+
+static void test_round_entry_deduplicates_binaries() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(2);
+  kernel_add_binary_clause(k, a, internalize(3));
+  kernel_add_binary_clause(k, a, b);
+  kernel_add_binary_clause(k, a, b);
+  kernel_add_binary_clause(k, a, b);
+  assert(kernel_binary_copies(k, a, b) == 3);
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(kernel_binary_copies(k, a, b) == 1);
+  assert(k.stats.binaries_deleted == 2);
+  assert(strengthen_apply(k) == ApplyResult::NoOp);
+  kernel_check_invariants(k);
+}
+
+static void test_round_entry_hyper_unary_binary_pair() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  const Lit x = internalize(1), a = internalize(2);
+  kernel_add_binary_clause(k, x, a);
+  kernel_add_binary_clause(k, x, negate(a));
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.value(x) > 0 && k.assigned[var_of(x)].level == 0);
+  assert(!k.inconsistent);
+  kernel_check_invariants(k);
+}
+
 static void test_binary_strengthens_large() {
   // resolving c = (1 2 3) on 1 against (-1 2) leaves the binary (2 3)
   Kernel k;
@@ -59,6 +94,38 @@ static void test_binary_strengthens_large() {
   assert(default_solve(k) == 10);
 }
 
+static void test_binary_partner_uses_kissat_last_strengthener() {
+  // Both binaries can strengthen the candidate.  Kissat carries `remove`
+  // across the whole marked-clause scan, so the later literal-3 walk
+  // overwrites the literal-2 result and removes 1.
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, c, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  kernel_add_binary_clause(k, internalize(2), internalize(-3));
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  const Lit expected[2] = {internalize(2), internalize(3)};
+  assert(has_binary(k, expected[0], expected[1]));
+  assert(!has_binary(k, internalize(1), internalize(2)));
+}
+
+static void test_opposite_phase_binary_does_not_override_later_result() {
+  // (-1,2) is first found from same-phase literal 2 and removes 1.  The later
+  // (-2,3) result removes 2.  When the scan finally reaches literal 1, Kissat
+  // does not rescan binaries from the opposite phase, so (-1,2) cannot
+  // overwrite the later result.
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit c[3] = {internalize(2), internalize(3), internalize(1)};
+  kernel_add_large_clause(k, c, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(3));
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(has_binary(k, internalize(1), internalize(3)));
+  assert(!has_binary(k, internalize(2), internalize(3)));
+}
+
 static void test_fused_subsumption() {
   // c = (1 2 3) subsumed by the binary (1 2): fused round deletes it
   Kernel k;
@@ -72,8 +139,11 @@ static void test_fused_subsumption() {
   assert(live_large(k) == 0);
 }
 
-static void test_large_partner_and_cascade() {
-  // (1 2 3 4) -> (2 3 4) via (-1 2 3), then -> (3 4) via (-2 3): one cascade
+static void test_large_partner_without_same_round_cascade() {
+  // Kissat checks each scheduled candidate once.  The size-3 clause first
+  // becomes binary (-1 3).  On the size-4 candidate, same-phase binary order
+  // still reaches the older (-2 3) first and changes it to (1 3 4).  The new
+  // (-1 3) opportunity must wait for the next round.
   Kernel k;
   kernel_reserve_vars(k, 4);
   const Lit c[4] = {internalize(1), internalize(2), internalize(3),
@@ -83,8 +153,13 @@ static void test_large_partner_and_cascade() {
   kernel_add_large_clause(k, d, 3, false, 0);
   kernel_add_binary_clause(k, internalize(-2), internalize(3));
   assert(strengthen_apply(k) == ApplyResult::Ok);
-  // d is itself strengthened by (-2 3) to (-1 3), so one round acts twice
-  assert(k.stats.strengthened >= 2);
+  assert(k.stats.strengthened == 2);
+  const Lit once[3] = {internalize(1), internalize(3), internalize(4)};
+  live_large(k, once, 3);
+  assert(!k.strengthen_complete);
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.stats.strengthened == 3);
+  assert(live_large(k) == 0); // second round produces binary (3 4)
   assert(default_solve(k) == 10);
 }
 
@@ -113,6 +188,28 @@ static void test_complete_dense_population_caps_connection() {
   assert(strengthen_apply(k) == ApplyResult::NoOp);
   assert(k.stats.strengthen_subsumed == 0);
   assert(live_large(k) == 2 + 3 * (STRENGTHEN_OCCLIM + 1));
+  kernel_dense_disconnect(k);
+}
+
+static void test_binary_watches_count_toward_connection_cap() {
+  Kernel k;
+  kernel_reserve_vars(k, 400);
+  const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
+                         internalize(4)};
+  kernel_add_large_clause(k, partner, 3, false, 0);
+  kernel_add_large_clause(k, victim, 4, false, 0);
+  int next = 5;
+  for (int anchor = 1; anchor <= 3; ++anchor)
+    for (uint32_t i = 0; i <= STRENGTHEN_OCCLIM; ++i)
+      kernel_add_binary_clause(k, internalize(anchor), internalize(next++));
+  OccIndex dense;
+  kernel_dense_connect(k, dense);
+  // Kissat's SIZE_WATCHES population includes the binaries, so no literal of
+  // `partner` is eligible for the round-local subsumer index.
+  assert(strengthen_apply(k) == ApplyResult::NoOp);
+  assert(k.stats.strengthen_subsumed == 0);
+  assert(live_large(k) == 2);
   kernel_dense_disconnect(k);
 }
 
@@ -265,8 +362,8 @@ static void test_root_flush() {
   assert(default_solve(k) == 10);
 }
 
-// C2 polls for interrupt at four sites — flush pre-pass, candidate loop,
-// cascade, single-instance entry — with no cadence. The flush runs first and
+// C2 polls for interrupt at three sites — flush pre-pass, candidate loop, and
+// single-instance entry — with no cadence. The flush runs first and
 // catches any pre-set flag; the later sites need the stress cadence, with
 // `strengthen_checked > 0` at the abort as the witness they were reached.
 static void fill_interrupt_case(Kernel &k, int n) {
@@ -325,7 +422,7 @@ static void test_interrupt() {
     assert(t.stats.strengthen_subsumed == 1 &&
            t.stats.strengthen_interrupted == 0);
   }
-  { // (3) past the flush: the candidate loop / cascade. The stress cadence
+  { // (3) past the flush: the candidate loop. The stress cadence
     // fires on a deterministic 1-in-m draw, so sweeping m walks the first fire
     // past the flush pass; a sweep that finds none must fail loudly here.
     bool past_flush = false;
@@ -351,10 +448,15 @@ static void test_interrupt() {
 }
 
 int main() {
+  test_round_entry_deduplicates_binaries();
+  test_round_entry_hyper_unary_binary_pair();
   test_binary_strengthens_large();
+  test_binary_partner_uses_kissat_last_strengthener();
+  test_opposite_phase_binary_does_not_override_later_result();
   test_fused_subsumption();
-  test_large_partner_and_cascade();
+  test_large_partner_without_same_round_cascade();
   test_complete_dense_population_caps_connection();
+  test_binary_watches_count_toward_connection_cap();
   test_unit_producing_strengthen_ends_round();
   test_partner_budget_rearms_current_candidate();
   test_instance_surface();

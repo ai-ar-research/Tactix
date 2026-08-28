@@ -234,9 +234,9 @@ struct BveDefScratch {
 // Mark the clauses of a functional gate defining x in pos_gate/neg_gate
 // (1 = gate, 0 = antecedent). Every detector must establish condition (★) of
 // docs/calculus.md §6b E1 exactly; a false gate drops needed resolvents. Only
-// the definition type sets `resolve_gate` (its gate×gate resolvents are real);
-// the four syntactic types are exact CNFs of x↔φ, so ITE and XOR are matched
-// exactly and kissat's shortened-clause `match_ternary_ref` path is not ported.
+// The definition type and a shortened ITE set `resolve_gate`: their gate×gate
+// resolvents are real.  The ITE matcher below follows Kissat's
+// `ifthenelse.c`, including its binary/root-shortened opposite-side clauses.
 
 // Sorted signature of a clause's non-pivot active literals, for the exact
 // lookups ITE and XOR need. Only clauses with 2..BVE_XOR_ARITY_LIMIT non-pivot
@@ -664,61 +664,102 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   bve_build_sig_index(pos, px, psig);
   bve_build_sig_index(neg, nx, nsig);
 
-  // (3) ITE: two pivot-side ternaries whose non-pivot pairs clash on exactly
-  // the condition literal, plus the matching pair on the other side (kissat
-  // ifthenelse.c kissat_find_if_then_else_gate). One pass over the pos side
-  // suffices, the shape being symmetric in the pivot sign. Work bound (kissat
-  // ifthenelse.c:105-113), sound at any value.
-  auto try_ite = [&]() -> bool {
-    // the index sorts on `n` first, so the ternaries are a prefix of psig
-    size_t nter = 0;
-    while (nter < psig.size() && psig[nter].first.n == 2)
-      nter++;
-    if (uint64_t(nter) * nter > k.bve_occurrence_limit)
+  // (3) ITE, transliterated from pinned Kissat `ifthenelse.c`.  Two live
+  // ternaries on one pivot side name the condition and branches.  Each
+  // opposite-side clause may already have shortened to a binary (or a large
+  // clause with fewer than three active literals); Kissat accepts that shape
+  // and asks resolve.c to generate the otherwise non-tautological gate×gate
+  // pairs.  Both pivot orientations are tried, in that order.
+  auto try_ite_side = [&](Lit pivot, const std::vector<MClause> &side,
+                          std::vector<uint8_t> &side_gate, Lit other_pivot,
+                          const std::vector<MClause> &other,
+                          std::vector<uint8_t> &other_gate) -> bool {
+    uint64_t large_clauses = 0;
+    for (const MClause &m : side)
+      large_clauses += m.ref != INVALID_REF;
+    const uint64_t limit = k.bve_occurrence_limit;
+    if (large_clauses * large_clauses > limit)
       return false;
-    uint64_t steps = 0;
-    for (size_t i = 0; i + 1 < nter &&
-                       steps < k.bve_occurrence_limit; ++i) {
-      const Lit u0 = psig[i].first.l[0], u1 = psig[i].first.l[1];
-      for (size_t j = i + 1;
-           j < nter && steps < k.bve_occurrence_limit; ++j) {
+
+    const auto ternary = [](const MClause &m, Lit pivot, Lit &a, Lit &b,
+                            Lit &c) {
+      if (m.ref == INVALID_REF || m.active.size() != 3)
+        return false;
+      a = m.active[0], b = m.active[1], c = m.active[2];
+      if (b == pivot)
+        std::swap(a, b);
+      if (c == pivot)
+        std::swap(a, c);
+      return a == pivot;
+    };
+    const auto find_match = [&](uint64_t &steps, Lit a, Lit b,
+                                Lit c) -> int32_t {
+      assert(a == other_pivot);
+      for (size_t i = 0; i < other.size(); ++i) {
         steps++;
-        const Lit w0 = psig[j].first.l[0], w1 = psig[j].first.l[1];
-        // the pairs must clash on exactly one literal (the condition) and the
-        // branch literals must be on different variables — equal ones make
-        // this an XOR/equivalence, not an ITE (cadical's `abs` reject)
-        Lit c = INVALID_LIT, t = INVALID_LIT, e = INVALID_LIT;
-        if (u0 == negate(w0)) {
-          c = u0, t = u1, e = w1;
-        } else if (u0 == negate(w1)) {
-          c = u0, t = u1, e = w0;
-        } else if (u1 == negate(w0)) {
-          c = u1, t = u0, e = w1;
-        } else if (u1 == negate(w1)) {
-          c = u1, t = u0, e = w0;
-        } else {
+        const MClause &m = other[i];
+        if (m.ref == INVALID_REF) {
+          assert(m.active.size() == 2);
+          const Lit o = m.active[0] == a ? m.active[1] : m.active[0];
+          if (o == b || o == c) {
+            resolve_gate = true;
+            return static_cast<int32_t>(i);
+          }
           continue;
         }
-        if (var_of(t) == var_of(e))
+        uint32_t found = 0;
+        bool matches = true;
+        for (const Lit lit : m.active) {
+          if (lit != a && lit != b && lit != c) {
+            matches = false;
+            break;
+          }
+          found++;
+        }
+        if (matches) {
+          if (found < 3)
+            resolve_gate = true;
+          return static_cast<int32_t>(i);
+        }
+      }
+      return -1;
+    };
+
+    uint64_t steps = 0;
+    for (size_t i = 0; i + 1 < side.size() && steps < limit; ++i) {
+      Lit a1, b1, c1;
+      if (!ternary(side[i], pivot, a1, b1, c1))
+        continue;
+      for (size_t j = i + 1; j < side.size() && steps < limit; ++j) {
+        Lit a2, b2, c2;
+        if (!ternary(side[j], pivot, a2, b2, c2))
           continue;
-        steps += 2;
-        const int d1 = bve_find_sig(nsig, bve_sig2(c, negate(t)));
-        if (d1 < 0)
+        if (var_of(b1) == var_of(c2))
+          std::swap(b2, c2);
+        if (var_of(c1) == var_of(c2) || b1 != negate(b2))
           continue;
-        const int d2 = bve_find_sig(nsig, bve_sig2(negate(c), negate(e)));
-        if (d2 < 0)
+        resolve_gate = false;
+        const int32_t p3 =
+            find_match(steps, other_pivot, b1, negate(c1));
+        if (p3 < 0)
           continue;
-        pos_gate[psig[i].second] = 1;
-        pos_gate[psig[j].second] = 1;
-        neg_gate[size_t(d1)] = 1;
-        neg_gate[size_t(d2)] = 1;
+        const int32_t p4 =
+            find_match(steps, other_pivot, b2, negate(c2));
+        if (p4 < 0)
+          continue;
+        side_gate[i] = side_gate[j] = 1;
+        other_gate[static_cast<size_t>(p3)] = 1;
+        other_gate[static_cast<size_t>(p4)] = 1;
         return true;
       }
     }
     return false;
   };
-  if ((k.bve_gate_mask & BVE_GATE_ITE) && try_ite())
-    return BVE_GATE_ITE;
+  if (k.bve_gate_mask & BVE_GATE_ITE) {
+    if (try_ite_side(px, pos, pos_gate, nx, neg, neg_gate) ||
+        try_ite_side(nx, neg, neg_gate, px, pos, pos_gate))
+      return BVE_GATE_ITE;
+  }
 
   // (4) XOR: all 2^m parity clauses over the pivot and m other variables must
   //     be present (cadical gates.cpp find_xor_gate). A base clause fixes the
@@ -1118,7 +1159,7 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
 ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   assert(def && "BVE candidate scratch is required by every registered entry");
   const bool lrat = k.proof && k.proof->lrat();
-  const Lit px = make_lit(x, false), nx = make_lit(x, true);
+  Lit px = make_lit(x, false), nx = make_lit(x, true);
   // Retire the retry bit before doing the work, so a variable whose resolvents
   // blow the bound is not re-tried until its clauses change (kissat
   // eliminate.c eliminate_variable, same position).
@@ -1137,27 +1178,22 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
   bool antecedent_oversized = false;
 
-  // ---- gather x's binaries (watch scan, deduplicated) ----
-  // Duplicate copies of a pair are one logical clause: they share a single
-  // binary_ids id (kernel.hpp invariant), the witness wants one entry, and
-  // kernel_delete_binary_all_copies removes them all. Dedup also makes `base`
-  // count distinct clauses, matching kissat's deduped dense occurrences.
+  // ---- gather x's binaries (physical watch order, duplicates retained) ----
+  // `definition.c` and `resolve.c` import every connected watch, including a
+  // duplicate binary produced earlier in the same elimination phase.  Each
+  // copy therefore contributes to the gate environment, growth base and
+  // resolvent stream.  The commit-side deletion below consumes those copies
+  // one at a time in the same occurrence order.
   std::vector<uint8_t> local_literal_marks;
   std::vector<uint8_t> &literal_marks =
       def ? def->literal_marks : local_literal_marks;
   if (literal_marks.size() < 2 * static_cast<size_t>(k.nvars))
     literal_marks.resize(2 * static_cast<size_t>(k.nvars), 0);
-  std::vector<Lit> touched_bin;
   auto gather_bin = [&](Lit lit, std::vector<MClause> &live) {
-    touched_bin.clear();
     for (const WatchEntry w : k.watches.entries(lit)) {
       if (!w.binary())
         continue;
       const Lit o = w.other();
-      if (literal_marks[o]) // duplicate copy: same logical clause, same id
-        continue;
-      literal_marks[o] = 1;
-      touched_bin.push_back(o);
       if (k.value(o) > 0) { // satisfied
         del_bin.emplace_back(lit, o);
         continue;
@@ -1176,8 +1212,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
                               def->clause_absorbed.size());
       live.push_back(std::move(m));
     }
-    for (const Lit o : touched_bin) // clear for the other polarity's gather
-      literal_marks[o] = 0;
   };
 
   // ---- gather x's large clauses ----
@@ -1292,6 +1326,16 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       pos.size() + neg.size() > k.bve_occurrence_limit)
     return ApplyResult::NoOp;
 
+  // `resolve.c::kissat_generate_resolvents` makes the smaller physical
+  // polarity `lit` before gate detection, antecedent extraction and pair
+  // generation.  Equal populations retain the positive/internal-first side.
+  // Keeping the side vectors and their pivot literals aligned makes the rest
+  // of this symmetric transaction follow that exact orientation.
+  if (pos.size() > neg.size()) {
+    std::swap(pos, neg);
+    std::swap(px, nx);
+  }
+
   // Kissat resolve.c::kissat_generate_resolvents treats a candidate with an
   // empty polarity as pure and commits it immediately, before gate detection.
   // This includes a candidate whose last occurrence disappeared after it was
@@ -1326,7 +1370,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // (★) needs every pair holding a gate clause. A syntactic shape may drop the
   // gate×gate pairs only because they are tautologies; pinning which types may
   // makes an inexact matcher a deliberate edit rather than a silent one.
-  assert((!resolve_gate || gate_kind == BVE_GATE_DEFINITION) &&
+  assert((!resolve_gate || gate_kind == BVE_GATE_DEFINITION ||
+          gate_kind == BVE_GATE_ITE) &&
          "a syntactic gate asked for its gate x gate resolvents back: its "
          "detection is no longer exact, so (star) must be re-argued");
   uint32_t gp = 0, gn = 0;
@@ -1525,10 +1570,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       k.inconsistent = true;
       return ApplyResult::Unsat;
     }
-    // a size-2 resolvent already present is subsumed — skip (avoid a duplicate
-    // pair that would block a later elimination).
-    if (r.lits.size() == 2 && kernel_binary_live(k, r.lits[0], r.lits[1]))
-      continue;
     const uint64_t id = ++k.next_clause_id;
     if (k.proof) {
       if (lrat)
@@ -1590,9 +1631,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   k.retired_events.push_back(x); // the policy deactivates its own H from this
 
   // delete every clause on x: live (pos/neg) plus delete-only (redundant,
-  // satisfied, tautology). Large → proof del + garbage; binary →
-  // kernel_delete_binary_all_copies, called once per pair since the gathers
-  // are deduplicated.
+  // satisfied, tautology). Large → proof del + garbage; each connected binary
+  // occurrence → one physical-copy deletion in the same side/list order.
   auto del_large_ref = [&](Ref ref) {
     Clause *c = clause_at(k.arena, ref);
     if (c->garbage())
@@ -1604,7 +1644,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       if (m.ref != INVALID_REF) {
         del_large_ref(m.ref);
       } else {
-        const bool ok = kernel_delete_binary_all_copies(k, m.ba, m.bb);
+        // One connected occurrence removes one physical copy.  This preserves
+        // Kissat's per-copy score-update sequence while the kernel helper
+        // withholds an ambiguous LRAT deletion until the final copy.
+        const bool ok = kernel_delete_binary_one_copy(k, m.ba, m.bb);
         assert(ok);
         (void)ok;
       }
@@ -1615,7 +1658,8 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   for (const Ref ref : del_large)
     del_large_ref(ref);
   for (const auto &pr : del_bin) {
-    const bool ok = kernel_delete_binary_all_copies(k, pr.first, pr.second);
+    const bool ok =
+        kernel_delete_binary_one_copy(k, pr.first, pr.second);
     assert(ok);
     (void)ok;
   }
