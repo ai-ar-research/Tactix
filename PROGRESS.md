@@ -9,60 +9,36 @@ session narrative; this file is only the current resume surface.
 ## Resume anchor
 
 - Work in `/home/hwu/SAT-solving` on branch `main`. Accepted solver source is
-  commit `35aca7326a4e15da48f50335e04c1fd9cc677c19`, based on accepted
-  predecessor `3c3164d`; the following wrap-up commit changes documentation
-  only. The accepted Release binary SHA-256 is
-  `26430a9dfa2d283c1755ac64067a6fbcbcc1de23686374873cb71f9977f34845`.
-  Evidence: `benchmarks/reports/2026-08-27-rank5-deferred-state-guidance.md`
-  and `report-to-andrew/2026-08-27-1125-rank5-deferred-state-guidance/report.pdf`.
-- The complete promotion chain is terminal PASS: exact prefix array `1650366`;
-  three paired Rank-27 timing waves in array `1650368`; full-width B28+C5
-  array/aggregate `1650774`/`1650840`; and Claude-owned fuzz campaign
-  `20260827-0040-sweep-phase-word-fuzz` with prep `1651241`, generated legs
-  `1651243`/`1651244`/`1651247`, and reach `1651246`. The gate checked 17 SAT
-  models and 16 UNSAT proofs per arm with no solve loss; Claude reported
-  81/81 corpus and 30,000/30,000 generated cases, 13,914 checked SAT models,
-  10,955 accepted native LRAT proofs, zero failures, and zero certificate or
-  scratch residue.
-- Decision-grade Rank-27 candidate/predecessor internal seconds are
-  358.542/358.587, 357.916/358.759, and 357.941/359.460. Median paired ratio is
-  0.997650, range 0.995774--0.999875; both arms have under-0.25% absolute
-  spread and every candidate run is below 400 seconds. Full semantic SHA is
-  `10372d94d2cb1ae86893408435e0c3ffa2338053b11b7012c2107a3bebf1ffd0`.
-  Per project-owner direction, Rank 27 is now parked rather than treated as the
-  next witness.
-- **Predecessor measurement:** frozen campaign
-  `benchmarks/runs/20260826-2340-tierd-ranks1-40-current-screen/` re-evaluates
-  immutable ranks 1--40 with accepted Tactix `92d9bc1`/binary `a76182a0...4d95`
-  and accepted current instrumented Kissat `8af8e56`/binary
-  `b6a9b1d0...644d5`. Array `1651248` has 80 independent one-solver tasks;
-  classifier `1651287` is terminal. All 80 results are classified with zero
-  cleanup or certificate residue. Five `std::bad_alloc`/resource exits occurred
-  under the rejected address-space cap (Tactix ranks 5, 10, 13, and 14; Kissat
-  rank 10), six Tactix runs reached the 1,200-second solver limit, and three
-  otherwise solved UNSAT arms reached the independent checker's 4,800-second
-  limit. Every solver job used `-c 12`,
-  exactly `--mem=48000M`, the now-rejected 16 GiB `RLIMIT_AS`, 1,200 seconds,
-  proof production, and independent proof/model checking; there is no throttle
-  or node constraint. Frozen scoring references are not rerun. Preserve and
-  classify this campaign as dual-limit diagnostic evidence, but do not use its
-  apparent early OOMs to select the next target.
-- **Terminal replacement screen:** frozen campaign
-  `benchmarks/runs/20260827-0100-tierd-ranks1-40-slurm-memory-screen/`, array
-  `1651430`, and after-any classifier `1651464` rerun all 80 arms with the same
-  accepted solvers, immutable inputs, and proof/model checks. Every independent
-  task uses six physical/twelve logical CPUs, exactly `--mem=48000M`, 1,200
-  seconds, no throttle or node constraint, and SLURM task-cgroup memory
-  enforcement only; there is no `RLIMIT_AS`. All 80 results are classified:
-  Tactix/Kissat have 33/38 valid solves, six Tactix solve timeouts, and three
-  independently identified checker timeouts, with no correctness or
-  infrastructure failure and zero cleanup/certificate residue. The campaign
-  is globally non-scorable because of those invalid rows. Its validated UNSAT
-  pairs are diagnostic only; Rank 4 is 14.690/7.728 seconds and Rank 32 is
-  416.933/293.092 seconds. Summary SHA-256 is
-  `6973ac74261e08ea8677ad64ffaa277f38a9a47af86c668851a933ddd29ff396`.
-  Frozen scoring references were
-  not rerun.
+  commit `ffa05257b5963274e922b5efdc74ac8ae9364088`, based on accepted
+  predecessor `be1a364d1f11ae86eda8184829f5ed9bc081e71b`; the following wrap-up
+  commit changes `PROGRESS.md` only. The accepted Release binary SHA-256 is
+  `ecce67b3f19c67ce6a4e58db4db9b532731b4e4a803e3890337ac78b82221088`.
+  Evidence:
+  `benchmarks/reports/2026-08-27-kissat-classification-factor-throughput.md`
+  and
+  `report-to-andrew/2026-08-27-2012-kissat-classification-factor-throughput/report.pdf`.
+- **Promoted exact Kissat classification and general Factor throughput:** the
+  formula-profile matrix and Dose5/Factor5/NoBve/NoBveLight/
+  StartupFactorOnly profiles are removed. Pinned Kissat `small`/`bigbig`
+  predicates and boundaries are exact; `small` is write-only and `bigbig`
+  gates only ordinary fast binary jump-reason assignment, while the learned-
+  binary path remains ungated. BVE/Factor/forward-subsume/Vivify production
+  effort is formula-invariant at 100/50/100/100 permille. Typed diagnostic arms
+  remain explicit and cannot be selected by formula shape, benchmark, or rank.
+  Compact Factor watches/remainders, epoch marks, geometric kernel growth, and
+  incremental heuristic import state reduce Rank-9 Factor time from 52.335 to
+  6.746 seconds without changing its 51,357 factorings or adding a gate.
+  Release is 76/76 PASS. B28+C5 is performance-complete 66/66 under the user's
+  non-blocking proof-pass assumption at candidate/predecessor PAR-2
+  1,433.058/1,329.014 seconds (1.078287x). Homogeneous ranks 1--40 are complete
+  for performance: 36 candidate solves, timeouts 15/26/30/36, PAR-2 22,116.682
+  seconds, 9.551624% better than the exact-classification pre-repair candidate
+  and 2.813095% better than accepted Tactix; current Kissat remains ahead at
+  7,682.181 seconds. Claude's `20260827-2550` verdict is PASS: 81/81 corpus,
+  30,000/30,000 generated, 15,979 checked SAT models, 10,974 accepted native
+  LRAT proofs, direct repaired-path reach, N1--N4 preserved, and zero failure
+  or residue. Residual Rank-20 search quality is tracked as a general selected-
+  Factor-grid/post-Factor-state discrepancy; never restore a formula gate.
 - **Accepted Rank-4 closure:** decision-grade frozen confirmation
   `benchmarks/runs/20260827-0400-tierd-rank4-paired-confirmation/` is stable and
   scorable on node018: Tactix `[15.340,15.440,15.340]` seconds versus current
@@ -312,6 +288,9 @@ session narrative; this file is only the current resume surface.
 
 ## Recent changes
 
+- 2026-08-27 — Exact pinned-Kissat classification replaces all formula profiles;
+  invariant default inprocessing budgets and a general Factor throughput repair
+  pass Release, B28+C5, homogeneous ranks 1--40, and Claude-owned 30k fuzz.
 - 2026-08-27 — Rank-5 deferred rule/search lifecycle cuts peak memory from
   14,368,044 to 10,075,752 KiB, below Kissat's 10,402,844-KiB median, and
   passes three-wave confirmation, B28+C5, and Claude-owned 30k fuzz.
@@ -322,14 +301,17 @@ session narrative; this file is only the current resume surface.
 - 2026-08-27 — Rank 4's fresh-polarity Factor admission repair restores exact
   order/state/340,150-tick work, cuts median time 15.340 to 10.733 seconds, and
   passes the full B28+C5 gate plus Claude-owned 30k fuzz.
-- 2026-08-27 — The rejected dual-limit ranks 1--40 predecessor is terminal:
-  80/80 classified, zero residue, and non-scorable; its address-space exits do
-  not rank solver correctness or performance.
 - 2026-08-27 — Sweep phase-word expansion passes exact prefix, three-wave
   Rank-27 timing, complete B28+C5, and Claude-owned 30k fuzz; Rank 27 is parked.
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism
 dispositions and reopening conditions are in `docs/scheduling-parity-ledger.md`.
+Exact Kissat classification adds no scheduling consumer: `small` is write-only
+and `bigbig` affects only ordinary binary jump-reason assignment. The removed
+formula profiles cannot alter BVE, Factor, forward-subsume, or Vivify admission
+or effort. The accepted Factor representation/growth repair preserves selected
+work and policy while the open Rank-20 quality row owns the next general
+mechanism comparison.
 The accepted Sweep, Rank-10 layout, and Rank-5 lifecycle repairs change no
 schedule, rule, candidate, tick, or policy state. The accepted Rank-4 repair
 changes only the portable per-polarity admission lifecycle proven above and
