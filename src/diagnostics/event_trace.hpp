@@ -177,6 +177,7 @@ private:
   bool control_only_ = false;
   bool glue_only_ = false;
   bool phase_only_ = false;
+  bool formula_only_ = false;
   bool trajectory_only_ = false;
   bool sweep_only_ = false;
   bool watch_only_ = false;

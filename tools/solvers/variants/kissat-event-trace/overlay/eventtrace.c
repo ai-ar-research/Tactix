@@ -20,7 +20,7 @@ static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
             trace_skip_decisions, trace_skip_randec_draws,
             trace_skip_analysis_ticks, trace_keep_snapshots,
             trace_search_only, trace_control_only,
-            trace_glue_only, trace_phase_only,
+            trace_glue_only, trace_phase_only, trace_formula_only,
             trace_trajectory_only, trace_sweep_only, trace_compact_probe,
             trace_watch_only, trace_watch_cost,
             trace_watch_within_vivify, trace_vivify_watch_active;
@@ -1076,6 +1076,7 @@ static void open_trace (void) {
   trace_control_only = getenv ("KISSAT_EVENT_TRACE_CONTROL_ONLY") != 0;
   trace_glue_only = getenv ("KISSAT_EVENT_TRACE_GLUE_ONLY") != 0;
   trace_phase_only = getenv ("KISSAT_EVENT_TRACE_PHASE_ONLY") != 0;
+  trace_formula_only = getenv ("KISSAT_EVENT_TRACE_FORMULA_ONLY") != 0;
   trace_trajectory_only =
       getenv ("KISSAT_EVENT_TRACE_TRAJECTORY_ONLY") != 0;
   trace_sweep_only = getenv ("KISSAT_EVENT_TRACE_SWEEP_ONLY") != 0;
@@ -1101,6 +1102,8 @@ static void open_trace (void) {
 static bool detail_enabled (kissat *solver) {
   open_trace ();
   if (!trace_file)
+    return false;
+  if (trace_formula_only)
     return false;
   if (!trace_detail_window)
     return true;
@@ -1181,6 +1184,9 @@ void kissat_event_trace (kissat *solver, const char *event,
     emit_formula_set_snapshot (solver, event, payload);
   open_trace ();
   if (!trace_file)
+    return;
+  if (trace_formula_only && strcmp (event, "trace_begin") &&
+      strcmp (event, "formula_checkpoint") && strcmp (event, "terminate"))
     return;
   if (trace_heap_pop_only && strcmp (event, "heap_pop") &&
       strcmp (event, "heap_remove") &&

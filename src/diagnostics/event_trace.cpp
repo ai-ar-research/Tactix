@@ -586,6 +586,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
   control_only_ = std::getenv("TACTIX_EVENT_TRACE_CONTROL_ONLY") != nullptr;
   glue_only_ = std::getenv("TACTIX_EVENT_TRACE_GLUE_ONLY") != nullptr;
   phase_only_ = std::getenv("TACTIX_EVENT_TRACE_PHASE_ONLY") != nullptr;
+  formula_only_ =
+      std::getenv("TACTIX_EVENT_TRACE_FORMULA_ONLY") != nullptr;
   trajectory_only_ =
       std::getenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY") != nullptr;
   sweep_only_ = std::getenv("TACTIX_EVENT_TRACE_SWEEP_ONLY") != nullptr;
@@ -632,6 +634,10 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   if (snapshot)
     emit_formula_set_snapshot(k, event, payload);
   if (!out_)
+    return;
+  if (formula_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "formula_checkpoint") &&
+      std::strcmp(event, "terminate"))
     return;
   if (heap_pop_only_ && std::strcmp(event, "heap_pop") &&
       std::strcmp(event, "heap_remove") &&
@@ -1206,6 +1212,8 @@ void EventTrace::reduction(const Kernel &k, const std::vector<Ref> &candidates,
 
 bool EventTrace::want_detail(const Kernel &k) {
   if (!out_)
+    return false;
+  if (formula_only_)
     return false;
   if (detail_window_)
     return k.stats.conflicts >= detail_conflict_from_ &&

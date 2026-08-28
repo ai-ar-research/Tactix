@@ -52,6 +52,11 @@ assert 'trace_stop_pending' not in eventtrace
 assert 'TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT' in tactix_trace
 assert 'TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS' in eventtrace
+assert 'TACTIX_EVENT_TRACE_FORMULA_ONLY' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_FORMULA_ONLY' in eventtrace
+for event in ('trace_begin', 'formula_checkpoint', 'terminate'):
+    assert f'std::strcmp(event, "{event}")' in tactix_trace
+    assert f'strcmp (event, "{event}")' in eventtrace
 assert 'const bool snapshot = !trace_trajectory_only && analysis_end;' in eventtrace, (
     "trajectory-only analysis_end must not scan and rank the full solver state")
 assert 'const bool stop_here = analysis_end && stop != UINT64_MAX' in eventtrace, (
