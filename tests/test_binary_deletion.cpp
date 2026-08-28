@@ -43,6 +43,22 @@ static void test_storage_free_drat_archive_counts_distinct_adds() {
   assert(kernel_binary_live(k, a, b));
 }
 
+static void test_populated_archive_can_release_storage_without_losing_count() {
+  BinaryIdMap ids;
+  ids.discard_values();
+  const uint64_t ab = kernel_binary_key(internalize(1), internalize(2));
+  const uint64_t ac = kernel_binary_key(internalize(1), internalize(3));
+  ids.insert_or_assign(ab, 7);
+  ids.insert_or_assign(ac, 8);
+  assert(ids.size() == 2 && ids.count(ab) && ids.count(ac));
+  ids.discard_storage();
+  assert(!ids.tracks_keys() && !ids.tracks_values());
+  assert(ids.size() == 2);
+  ids.insert_or_assign_known(kernel_binary_key(internalize(2), internalize(3)),
+                             9, true);
+  assert(ids.size() == 3);
+}
+
 // delete drops exactly one slot from each mirror list; the map keeps the key
 static void test_delete_shrinks_both_lists() {
   Kernel k;
@@ -181,6 +197,7 @@ static void test_jumped_reason_protects_its_antecedent() {
 int main() {
   test_compact_drat_binary_table_keeps_keys_without_ids();
   test_storage_free_drat_archive_counts_distinct_adds();
+  test_populated_archive_can_release_storage_without_losing_count();
   test_delete_shrinks_both_lists();
   test_readd_after_delete_installs_fresh_id();
   test_add_missing_mirror_does_not_duplicate_stable_direction();

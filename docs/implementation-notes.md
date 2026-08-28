@@ -401,11 +401,11 @@ campaigns and reports; living code retains only accepted invariants above.
 
 ## 19. Congruence indices
 
-Congruence owns scoped live-binary and immutable gate-occurrence indices;
-`binary_ids` is proof history, not liveness. Root assignments requeue only
-affected gates. DRAT emits structural lemmas directly; native LRAT constructs
-antecedents by replay. Header-only variables retain external identities but are
-retired from search without witnesses.
+Congruence owns scoped live-binary and gate-occurrence indices; `binary_ids` is
+proof history, not liveness. Native LRAT retains exact pair-to-id state;
+DRAT/proofless input uses a compact filter plus exact mirrored-watch checks and
+retains only the monotone material count. No formula shape selects this. Root
+assignments requeue affected gates; header-only identities retire unwitnessed.
 
 ## 20. BVE antecedent admission
 

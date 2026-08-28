@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <memory>
 #include <sys/resource.h>
 
 namespace tactix {
@@ -56,6 +57,15 @@ struct ParseMemoryTrace {
 };
 
 } // namespace
+
+static void grow_input_binary_liveness(Kernel &k, size_t entries) {
+  assert(k.binary_liveness);
+  k.binary_liveness->reserve(entries);
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (watch.binary() && lit < watch.other())
+        k.binary_liveness->add(kernel_binary_key(lit, watch.other()));
+}
 
 // N2 input identity: the checker numbers raw file clauses by position, so any
 // normalization can diverge from the stored clause. Add each exact narrowed
@@ -248,9 +258,10 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
     propagate_input_unit(k);
   } else if (scratch.size() == 2) {
     // A duplicate binary consumes its input id but is not stored or proved.
-    // No deletion occurs during import, so retained BinaryIdMap keys are the
-    // exact live-set image and avoid a linear high-degree watch scan. Very
-    // large DRAT inputs may discard keys and retain watches as exact authority.
+    // No deletion occurs during import. Native LRAT's BinaryIdMap is therefore
+    // the exact live-set image. DRAT/proofless import first asks its compact
+    // no-false-negative filter, then confirms possible hits against mirrored
+    // watches, which remain the exact identity authority after input.
     // Evidence: benchmarks/reports/2026-08-27-sat-factor-marks-search-localization.md.
     const uint64_t key = kernel_binary_key(scratch[0], scratch[1]);
     const bool duplicate = k.binary_ids.tracks_keys()
@@ -258,6 +269,9 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
                                : kernel_binary_live(k, scratch[0], scratch[1]);
     if (duplicate)
       return;
+    if (!k.binary_ids.tracks_keys() && k.binary_liveness &&
+        k.binary_liveness->needs_growth(k.binary_ids.size() + 1))
+      grow_input_binary_liveness(k, k.binary_ids.size() + 1);
     kernel_add_new_binary_clause(k, scratch[0], scratch[1], id);
     // Kissat's original-clause constructor checks vector defragmentation only
     // after the complete clause has joined the watch database.
@@ -361,6 +375,14 @@ void finish_input(Kernel &k) {
   k.input_restatements.clear();
   k.input_restate_lits.clear();
   k.input_restate_units.clear();
+  // Native LRAT needs an exact live proof id for every binary pair.  DRAT
+  // names clauses by literals and proofless solving has no clause identities,
+  // so their key archive has no consumer after import deduplication.  Release
+  // it for every such input, independent of formula size or shape; size_ is
+  // retained as the monotone material watermark and later exact liveness
+  // checks use the mirrored watch lists.
+  if (!k.proof || !k.proof->lrat())
+    k.binary_ids.discard_storage();
   if (k.proof && k.proof->population_shadow())
     k.proof->arm_population_shadow();
   // The decision order is `H` state.  If `H` is already attached, publish the
@@ -400,6 +422,23 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
   std::vector<Lit> scratch;
   ParseMemoryTrace memory_trace;
   memory_trace.emit(k, "begin");
+  struct ScopedInputBinaryLiveness {
+    Kernel &kernel;
+    std::unique_ptr<BinaryLivenessIndex> index;
+    explicit ScopedInputBinaryLiveness(Kernel &k) : kernel(k) {}
+    ~ScopedInputBinaryLiveness() {
+      if (index) {
+        assert(kernel.binary_liveness == index.get());
+        kernel.binary_liveness = nullptr;
+      }
+    }
+    void arm(size_t entries) {
+      assert(!index && !kernel.binary_liveness);
+      index = std::make_unique<BinaryLivenessIndex>();
+      index->reserve(entries);
+      kernel.binary_liveness = index.get();
+    }
+  } input_liveness(k);
   // Parsing is single-threaded and owns `f`. Pull a block at a time rather than
   // entering stdio for every byte; a three-gigabyte binary CNF otherwise pays
   // tens of millions of calls even with the stream lock disabled.
@@ -458,21 +497,16 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
           // large circuit encodings.
           const uint64_t predicted_binaries =
               std::min<uint64_t>(clauses, 2 * n);
-          // Native LRAT always needs exact binary proof identities. DRAT and
-          // proofless solving need only exact keys for cheap deduplication, so
-          // do not allocate the parallel value table in those modes. Only
-          // omit the key archive too when the declaration alone predicts a
-          // large table; mirrored watches remain the exact identity authority
-          // in that mode. This resource threshold avoids both the 4-GiB rank-5
-          // archive and quadratic scans on dense, low-variable formulas.
-          constexpr uint64_t DRAT_BINARY_ARCHIVE_ENTRY_LIMIT = UINT64_C(1)
-                                                                << 24;
-          if (!k.proof || !k.proof->lrat())
-            k.binary_ids.discard_values();
-          if (k.proof && !k.proof->lrat() &&
-              predicted_binaries > DRAT_BINARY_ARCHIVE_ENTRY_LIMIT)
+          // Native LRAT retains exact binary proof identities. DRAT and
+          // proofless solving instead use a compact no-false-negative filter
+          // backed by exact mirrored-watch confirmation during input.  The
+          // filter grows by load, never by formula identity or a size gate.
+          if (!k.proof || !k.proof->lrat()) {
             k.binary_ids.discard_storage();
-          k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
+            input_liveness.arm(static_cast<size_t>(predicted_binaries));
+          } else {
+            k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
+          }
           memory_trace.emit(k, "header");
           while (c != '\n' && c != EOF)
             c = reader.next();
