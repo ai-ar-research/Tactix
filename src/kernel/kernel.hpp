@@ -832,9 +832,10 @@ struct Kernel {
   uint32_t propagate_head = 0;
   // Lowest trail position that BINARY-ONLY propagation moved `propagate_head`
   // past and full propagation has not re-covered; UINT32_MAX means none.
-  // `propagate_head` means "every clause watched by this literal has been
-  // inspected", which the binary propagator does not establish: it skips every
-  // large watch. A literal it covered that STAYS on the trail is then credited
+  // `propagate_head` means full propagation has consumed the literal, either by
+  // completing its watch scan or by finding the current conflict. The binary
+  // propagator cannot establish that contract because it skips every large
+  // watch. A literal it covered that STAYS on the trail is otherwise credited
   // forever, so the trail can reach a claimed fixpoint that still hides a large
   // unit or conflict, and a total assignment built on it falsifies a clause.
   // The next full propagation pulls the cursor back to this debt and rescans.

@@ -65,6 +65,10 @@ poseable; rule-off controls are diagnostic, never changes to the public surface.
   levels because the trail need not be level-sorted.
 - Off-fixpoint Decide taints propagation; search backtrack or root additions
   rearm the cursor. `kernel_propagation_fixpoint` is the sole fixpoint oracle.
+- Search, probing, and binary propagation post-increment the trail cursor before
+  scanning, so a conflict publishes the consumed literal exactly like Kissat.
+  Backtrack alone rewinds to the surviving frame; binary-only debt still forces
+  a later full scan of every skipped large watch.
 - Binary-only propagation records its covered prefix in `binary_only_head` so
   later full propagation pays outstanding work.
 - Every root-fixed literal has a native-LRAT unit id. All propagation entry

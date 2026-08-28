@@ -1541,15 +1541,13 @@ static void kernel_settle_binary_only_debt(Kernel &k) {
 bool kernel_propagate(Kernel &k, Ref ignore) {
   kernel_settle_binary_only_debt(k);
   while (k.propagate_head < k.trail.size()) {
-    const Lit lit = k.trail[k.propagate_head];
-    if (propagate_literal<false>(k, lit, ignore)) {
-      // do NOT advance past a literal whose scan broke on the conflict:
-      // if a later backjump keeps this literal, the unscanned tail of its
-      // watch list must be revisited — otherwise its implications are
-      // lost forever
+    // Pinned Kissat post-increments its local trail cursor before scanning the
+    // literal and publishes that cursor even when the scan finds a conflict
+    // (propsearch.c:37-40). Backtrack, not Propagate, owns any required rewind
+    // to the surviving frame boundary.
+    const Lit lit = k.trail[k.propagate_head++];
+    if (propagate_literal<false>(k, lit, ignore))
       return true;
-    }
-    k.propagate_head++;
   }
   return false;
 }
@@ -1716,15 +1714,16 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
     conflict = kernel_propagate(k, ignore); // no open scope: nothing to record
   } else {
     while (k.propagate_head < k.trail.size()) {
-      const Lit lit = k.trail[k.propagate_head];
+      // proprobe.c uses the same post-increment-before-scan cursor contract as
+      // search propagation.
+      const Lit lit = k.trail[k.propagate_head++];
       const bool found = k.probing.rollback_pose
                              ? propagate_literal<true, false>(k, lit, ignore)
                              : propagate_literal<false, false>(k, lit, ignore);
       if (found) {
-        conflict = true; // same "do not advance past the conflicting scan" rule
+        conflict = true;
         break;
       }
-      k.propagate_head++;
     }
   }
   if (lrat)
@@ -1753,12 +1752,12 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   const bool lrat = k.proof && k.proof->lrat();
   bool conflict = false;
   while (k.propagate_head < k.trail.size()) {
-    const Lit lit = k.trail[k.propagate_head];
+    // backbone.c also publishes its post-incremented local cursor on conflict.
+    const Lit lit = k.trail[k.propagate_head++];
     if (propagate_literal_binary(k, lit, use_current_level)) {
       conflict = true;
       break;
     }
-    k.propagate_head++;
   }
   if (lrat)
     kernel_emit_root_units(k, assigned_before);

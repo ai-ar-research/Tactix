@@ -106,6 +106,42 @@ static void test_reserved_trail_stack_contract() {
   assert((std::vector<Lit>(trail) == std::vector<Lit>{5, 1, 8}));
 }
 
+static Kernel binary_conflict_kernel() {
+  Kernel k;
+  kernel_reserve_vars(k, 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  kernel_assign_decision(k, internalize(1));
+  kernel_assign_decision(k, internalize(2));
+  assert(k.propagate_head == 0 && k.trail.size() == 2);
+  return k;
+}
+
+static void test_conflicting_propagation_consumes_trail_literal() {
+  {
+    Kernel k = binary_conflict_kernel();
+    assert(kernel_propagate(k));
+    assert(k.propagate_head == 1 &&
+           "search propagation must publish Kissat's post-incremented cursor");
+    kernel_backtrack(k, 0);
+    assert(k.propagate_head == 0 &&
+           "backtrack, not the conflict scan, owns the surviving-frame rewind");
+  }
+  {
+    Kernel k = binary_conflict_kernel();
+    kernel_probing_begin(k, false);
+    assert(kernel_propagate_probing(k));
+    assert(k.propagate_head == 1 &&
+           "probing propagation must publish Kissat's post-incremented cursor");
+    kernel_probing_end(k);
+  }
+  {
+    Kernel k = binary_conflict_kernel();
+    assert(kernel_propagate_binary(k));
+    assert(k.propagate_head == 1 && k.binary_only_head == 0 &&
+           "binary propagation must advance while retaining its full-scan debt");
+  }
+}
+
 static void test_variable_identity_maps() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -1738,6 +1774,7 @@ int main() {
   test_clause_position_alias_pages_are_exact_and_sparse();
   test_binary_liveness_filter_has_no_false_negatives();
   test_reserved_trail_stack_contract();
+  test_conflicting_propagation_consumes_trail_literal();
   test_variable_identity_maps();
   test_import_order_survives_compaction_linearly();
   test_variable_compaction();
