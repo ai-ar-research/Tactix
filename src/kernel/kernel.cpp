@@ -331,15 +331,13 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
       // resolvent, but does not reinsert a candidate popped earlier.
       kernel_notify_bve_score(k, var_of(lits[i]), false);
     }
-  // The redundant half of the touch substrate (see Kernel::touch_redundant).
-  // Counted both ways even when stamping is off, because a single count cannot
-  // show the predicate tracks the live tier. The stamp goes to `touched_kept`,
-  // never to `touched` — the split keeps the other consumers' filters intact.
-  if (redundant) {
+  // The redundant half is an explicit CaDiCaL diagnostic arm.  Keep both its
+  // telemetry and stamps out of Kissat-default learned-clause creation.
+  if (redundant && k.touch_redundant) {
     const bool dyn = kernel_likely_kept(k, true, glue, size);
     k.stats.touch_redundant_dynamic += dyn;
     k.stats.touch_redundant_static6 += (glue <= 6); // reduce.hpp TIER2_STATIC
-    if (dyn && k.touch_redundant)
+    if (dyn)
       for (uint32_t i = 0; i < size; i++)
         kernel_touch_kept_var(k, var_of(lits[i]));
   }
@@ -1074,11 +1072,11 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
       k.factor_marks[lits[i]] = 1;
       kernel_notify_bve_score(k, var_of(lits[i]), false);
     }
-  else {
+  else if (k.touch_redundant) {
     const bool dyn = kernel_likely_kept(k, true, glue, size);
     k.stats.touch_redundant_dynamic += dyn;
     k.stats.touch_redundant_static6 += (glue <= 6);
-    if (dyn && k.touch_redundant)
+    if (dyn)
       for (uint32_t i = 0; i < size; i++)
         kernel_touch_kept_var(k, var_of(lits[i]));
   }

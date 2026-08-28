@@ -191,9 +191,9 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
   Ref first_reducible = INVALID_REF;
   // aging tick (kissat reduce.c decrements `used` once per reduction):
   // selection already happened on the pre-aging values, matching kissat's
-  // read-then-decrement order. The same walk samples the tier2 retention band
-  // both ways (Stats::tier2_band_dynamic/static), live tier against static
-  // default — what a `likely_to_be_kept` consumer would branch on.
+  // read-then-decrement order.  The explicit CaDiCaL redundant-band arm also
+  // samples its live and static tier predicates in this existing walk; the
+  // Kissat-default path pays no diagnostic counter traffic.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     if (c->redundant() &&
@@ -205,9 +205,11 @@ ApplyResult reduce_apply_refs(Kernel &k, const Ref *refs, size_t n,
       const uint32_t used = c->used();
       if (used)
         c->set_used(used - 1);
-      const uint32_t glue = c->glue();
-      k.stats.tier2_band_dynamic += (glue <= k.tier2);
-      k.stats.tier2_band_static += (glue <= TIER2_STATIC);
+      if (k.touch_redundant) {
+        const uint32_t glue = c->glue();
+        k.stats.tier2_band_dynamic += (glue <= k.tier2);
+        k.stats.tier2_band_static += (glue <= TIER2_STATIC);
+      }
     }
     ref += clause_actual_words(c);
   }
