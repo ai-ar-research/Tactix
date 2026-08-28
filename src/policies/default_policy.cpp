@@ -528,6 +528,20 @@ void DefaultPolicy::update_rephase_limit(const Kernel &k) {
                                std::pow(lg, config_.rephase.logarithm_power));
 }
 
+uint64_t DefaultPolicy::walk_effort_reference(const Kernel &k) const {
+  // Kissat runs Walk from the search loop with `solver->probing == false`.
+  // SET_EFFORT_LIMIT therefore reads `last.ticks.eliminate`, shared with the
+  // Eliminate pipeline.  Entering the simplifier timing profile does not flip
+  // that semantic flag, and Walk does not own or advance an independent
+  // anchor.
+  const uint64_t now = search_ticks(k);
+  const uint64_t anchor = inprocess_.elim_clock.anchor;
+  uint64_t reference = now >= anchor ? now - anchor : 0;
+  if (reference < config_.inprocess.minimum_effort_ticks)
+    reference = config_.inprocess.minimum_effort_ticks;
+  return reference;
+}
+
 void DefaultPolicy::reset_schedule(const Kernel &k) {
   const uint64_t conflicts = k.stats.conflicts;
   const uint64_t ticks = search_ticks(k);
@@ -548,7 +562,6 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
   rephase.next_conflicts = conflicts + config_.rephase.initial_interval;
   reorder = {};
   reorder.next_conflicts = conflicts + config_.reorder.initial_interval;
-  walk_anchor = ticks;
   bump_reasons_delay_ = {};
   retier_.next_conflicts = config_.reduction.retier_initial_interval;
   retier_.interval = config_.reduction.retier_initial_interval;
@@ -2577,9 +2590,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         if (k.level)
           kernel_backtrack(k, 0);
         k.warming = false;
-        uint64_t reference = search_ticks(k) - walk_anchor;
-        if (reference < config_.inprocess.minimum_effort_ticks)
-          reference = config_.inprocess.minimum_effort_ticks;
+        const uint64_t reference = walk_effort_reference(k);
         k.work_budget = scale_permille(reference, config_.rephase.walk_permille);
         // Kissat seeds the walker from the search policy's shared generator.
         // DefaultBranching owns that generator in Tactix; snapshot it here so
@@ -2587,7 +2598,6 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         k.walk_random_seed = default_branching_.randec_rng;
         walk_apply(k);
         k.work_budget = 0;
-        walk_anchor = search_ticks(k);
       } else {
         rephase_apply_type(k, type == WALK_SLOT ? REPHASE_BEST : type);
       }
