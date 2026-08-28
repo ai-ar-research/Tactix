@@ -1,14 +1,10 @@
-// Watch scheme (transliterated from kissat/src/watch.h + vectors.c, MIT):
-// watch lists are slices of one flat uint32_t arena, addressed by per-literal
-// {offset, size, capacity} heads — no per-list heap objects, contiguous hot
-// data. A binary clause occupies ONE slot (other literal, low-bit tag); a large
-// clause TWO consecutive slots (blocking literal, then arena clause ref).
-//
-// Growth relocates a list to the arena end (amortized doubling) and leaves a
-// hole; when holes exceed half the arena it is defragmented. Because a push can
-// therefore move any list, or the whole arena on reallocation, pushes must
-// never happen while a list is being scanned — propagation delays its watch
-// relocations and flushes them after each scan (kissat's `delayed`).
+// Kissat watch/vector scheme (watch.h, inlinevector.h, vector.c; MIT): literal
+// lists are slices of one uint32_t arena. A binary uses one word; a large watch
+// uses a blocking-literal word plus a clause-ref word. Tail vectors extend in
+// place while the global allocation has room; otherwise they relocate to a
+// doubled slice. Dead and spare words match `vectors.usable`, and only the
+// post-clause checkpoint may defragment. A scan therefore delays relocations
+// until its input pointers are closed (proplit.h's `delayed` stack).
 #pragma once
 
 #include "kernel/types.hpp"
@@ -111,26 +107,27 @@ struct WatchRange {
 struct WatchLists {
   std::vector<uint32_t> arena;
   std::vector<WatchHead> heads; // by lit
-  uint64_t holes = 0;           // dead words left by relocations
-  // Bulk import grows many literal slices in lockstep.  Defragmenting whenever
-  // their accumulated holes cross the ordinary online threshold resets every
-  // slice's geometric headroom and makes the next import wave repeat the same
-  // whole-arena copy.  Defer that global operation across the bounded import
-  // scope; individual slices still grow geometrically and remain readable.
-  bool defrag_deferred = false;
+  // Exact analogue of Kissat's `vectors.usable`: dead relocated words plus
+  // unused capacity inside every live literal slice.
+  uint64_t holes = 0;
 
   void resize_lits(size_t nlits) { heads.resize(nlits); }
 
-  void begin_deferred_defrag() {
-    assert(!defrag_deferred);
-    defrag_deferred = true;
-  }
-  void finish_deferred_defrag() {
-    if (!defrag_deferred)
+  // collect.h defaults: inspect only after creating a clause, only above
+  // 2^18 words, and only when strictly more than 75% of the allocated vector
+  // stack is unusable.  In particular propagation itself never defragments.
+  void defrag_if_needed() {
+    constexpr size_t SIZE_LIMIT = size_t{1} << 18;
+    // Kissat reserves stack offset zero as the empty-vector sentinel.  Tactix
+    // has an explicit empty head and omits that stored word, so add it back
+    // only for the pinned SIZE_STACK predicate.
+    const size_t stack_size = arena.empty() ? 0 : arena.size() + 1;
+    if (stack_size <= SIZE_LIMIT)
       return;
-    defrag_deferred = false;
-    if (holes)
-      defrag();
+    const uint64_t usable_limit = (uint64_t{stack_size} * 75) / 100;
+    if (holes <= usable_limit)
+      return;
+    defrag();
   }
 
   uint32_t *begin(Lit l) { return arena.data() + heads[l].offset; }
@@ -173,7 +170,9 @@ struct WatchLists {
       }
     }
     WatchHead &head = heads[l];
+    const uint32_t old_size = head.size;
     head.size = static_cast<uint32_t>(q - b);
+    holes += old_size - head.size;
     head.set_layout(binaries, binaries_first);
     assert(head.has_large() == has_large);
   }
@@ -202,8 +201,24 @@ struct WatchLists {
     assert(n <= head.size);
     const uint32_t binaries = head.binary_count();
     const bool first = head.binaries_first();
+    holes += head.size - n;
     head.size = n;
     head.set_layout(binaries, first);
+  }
+
+  // Restore or shrink a snapshotted list while keeping its existing capacity.
+  // Growing consumes invalid tail words; shrinking creates them.
+  void resize_live(Lit l, uint32_t n) {
+    WatchHead &head = heads[l];
+    assert(n <= head.capacity);
+    if (n > head.size) {
+      const uint32_t delta = n - head.size;
+      assert(holes >= delta);
+      holes -= delta;
+    } else {
+      holes += head.size - n;
+    }
+    head.size = n;
   }
 
   // Batch rebuild support. A caller that knows every forthcoming per-literal
@@ -240,7 +255,10 @@ struct WatchLists {
     }
     assert(next == total);
     arena.swap(fresh);
-    holes = 0;
+    size_t live = 0;
+    for (const WatchHead &head : heads)
+      live += head.size;
+    holes = total - live;
   }
 
   // make room for `n` words in l's slice without changing its contents.
@@ -256,6 +274,8 @@ struct WatchLists {
     WatchHead &h = heads[l];
     if (h.size == h.capacity)
       grow(l);
+    assert(holes);
+    holes--;
     arena[heads[l].offset + heads[l].size++] = word;
   }
   void push_binary(Lit l, Lit other) {
@@ -279,53 +299,76 @@ struct WatchLists {
 private:
   void grow(Lit l) {
     WatchHead &h = heads[l];
-    const uint32_t ncap = h.capacity ? 2 * h.capacity : 4;
-    // An exact batch image has no holes or tail room. Letting vector::resize
-    // handle its first later relocation would normally double the complete
-    // flat arena while retaining the old image during the copy. Reserve only
-    // the S/3 append budget needed to reach the defrag threshold instead. A
-    // sequence of list grows appends 2H words and creates H holes; defrag arms
-    // at H >= (S + 2H) / 8, i.e. H >= S/6. Delaying this reserve until an
-    // actual relocation also keeps it out of memory-critical batch rewrites.
-    if (arena.size() + ncap > arena.capacity() && !holes &&
-        arena.size() == arena.capacity()) {
-      const size_t reserve_target = std::min<size_t>(
-          UINT32_MAX, arena.size() + (arena.size() + 2) / 3);
-      arena.reserve(std::max(arena.size() + ncap, reserve_target));
+    assert(h.size == h.capacity);
+    if (arena.capacity() == 0)
+      // Kissat's first unsigned-stack allocation has four words, one of which
+      // is the offset-zero empty-vector sentinel omitted by this representation.
+      arena.reserve(3);
+    // inlinevector.h: a vector ending at the global stack end consumes one
+    // more stack word directly whenever the stack allocation has room.
+    if (static_cast<size_t>(h.offset) + h.size == arena.size() &&
+        arena.size() < arena.capacity()) {
+      arena.resize(arena.size() + 1);
+      h.capacity++;
+      holes++;
+      return;
     }
-    // A global vector reallocation otherwise holds the entire old watch arena
-    // beside its doubled replacement.  Binary-heavy inputs can have hundreds
-    // of millions of dead slice words below `holes > size/2`, so compact them
-    // before crossing capacity.  Reserve the old capacity in the packed arena:
-    // this pays one bounded copy and prevents an immediate second growth while
-    // preserving every per-literal entry order.
-    if (!defrag_deferred && arena.size() + ncap > arena.capacity() &&
-        holes >= arena.size() / 8 && arena.size() > (1u << 16))
-      defrag(arena.capacity());
+    const uint32_t ncap = h.size ? 2 * h.size : 1;
+    assert(static_cast<uint64_t>(arena.size()) + ncap <= UINT32_MAX);
+    const size_t needed = arena.size() + ncap;
+    if (needed > arena.capacity()) {
+      // ENLARGE_STACK doubles its power-of-two allocation.  The physical
+      // Tactix vector omits the sentinel, so each mapped capacity is 2^k-1.
+      size_t stack_capacity = 4;
+      while (stack_capacity - 1 < needed)
+        stack_capacity *= 2;
+      arena.reserve(stack_capacity - 1);
+    }
     const uint32_t noff = static_cast<uint32_t>(arena.size());
     arena.resize(arena.size() + ncap);
     // h may dangle after resize; re-index
     WatchHead &hh = heads[l];
     std::copy(arena.begin() + hh.offset, arena.begin() + hh.offset + hh.size,
               arena.begin() + noff);
-    holes += hh.capacity;
+    // The old live image and the unused half of the new image are both usable,
+    // exactly the accounting in vector.c:kissat_enlarge_vector.
+    holes += ncap;
     hh.offset = noff;
     hh.capacity = ncap;
-    if (!defrag_deferred && holes > arena.size() / 2 &&
-        arena.size() > (1u << 16))
-      defrag();
   }
 
-  void defrag(size_t reserve_floor = 0) {
+  void defrag() {
+    std::vector<Lit> order;
+    order.reserve(heads.size());
+    for (Lit lit = 0; lit < heads.size(); lit++)
+      if (heads[lit].size)
+        order.push_back(lit);
+    std::sort(order.begin(), order.end(), [&](Lit a, Lit b) {
+      return heads[a].offset < heads[b].offset;
+    });
+    size_t live = 0;
+    for (const Lit lit : order)
+      live += heads[lit].size;
+    // SHRINK_STACK keeps the smallest power-of-two stack containing the
+    // offset-zero sentinel and all live words (unlike first allocation, this
+    // may be one or two words).
+    size_t stack_capacity = 1;
+    while (stack_capacity < live + 1)
+      stack_capacity *= 2;
     std::vector<uint32_t> fresh;
-    fresh.reserve(std::max(arena.size() - holes, reserve_floor));
-    for (WatchHead &h : heads) {
+    if (live)
+      fresh.reserve(stack_capacity - 1);
+    for (const Lit lit : order) {
+      WatchHead &h = heads[lit];
       const uint32_t noff = static_cast<uint32_t>(fresh.size());
       fresh.insert(fresh.end(), arena.begin() + h.offset,
                    arena.begin() + h.offset + h.size);
       h.offset = noff;
       h.capacity = h.size;
     }
+    for (WatchHead &h : heads)
+      if (!h.size)
+        h = WatchHead{};
     arena.swap(fresh);
     holes = 0;
   }

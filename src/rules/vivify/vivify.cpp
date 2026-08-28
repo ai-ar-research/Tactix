@@ -946,6 +946,11 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
       return ApplyResult::Unsat;
     return ApplyResult::Ok;
   case ReplaceOutcome::Binary:
+    // Kissat creates Vivify's binary replacement through `new_clause`, which
+    // is a defragmentation checkpoint.  Large Vivify rewrites stay in place
+    // there and specialized binary constructors in other rules are not
+    // consumers of this checkpoint.
+    k.watches.defrag_if_needed();
     arena_order.retire();
     return ApplyResult::Ok;
   case ReplaceOutcome::Large:

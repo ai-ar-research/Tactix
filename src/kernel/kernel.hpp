@@ -1499,9 +1499,8 @@ inline void kernel_assign_unit(Kernel &k, Lit lit) { // root level
   kernel_assign(k, lit, 0, UNIT_REASON, false);
 }
 [[gnu::always_inline]] inline void
-kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
-                     bool require_bigbig = true) {
-  const Assigned &a = k.assigned[var_of(other_false)];
+kernel_assign_binary_from(Kernel &k, Lit lit, Lit other_false,
+                          const Assigned &a, bool require_bigbig = true) {
   const uint32_t level = a.level;
   if (k.jump_reasons && (!require_bigbig || k.jump_reasons_bigbig) && level &&
       a.binary) {
@@ -1517,6 +1516,12 @@ kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
   event_trace_binary_assignment(k, lit, other_false, other_false, false);
 #endif
   kernel_assign(k, lit, level, other_false, true);
+}
+[[gnu::always_inline]] inline void
+kernel_assign_binary(Kernel &k, Lit lit, Lit other_false,
+                     bool require_bigbig = true) {
+  const Assigned &a = k.assigned[var_of(other_false)];
+  kernel_assign_binary_from(k, lit, other_false, a, require_bigbig);
 }
 [[gnu::always_inline]] inline void kernel_assign_ref(Kernel &k, Lit lit,
                                                      Ref reason) {

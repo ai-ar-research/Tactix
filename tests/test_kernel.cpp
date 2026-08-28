@@ -1780,37 +1780,56 @@ static void test_watch_batch_reserve_preserves_prefixes_and_fills_exactly() {
   assert(watches.arena.capacity() == exact_size);
   watches.push_binary(0, 1);
   assert(watches.binary_size(0) == 2);
-  assert(watches.arena.capacity() >= exact_size + (exact_size + 2) / 3);
+  assert(watches.arena.capacity() > exact_size);
 }
 
-static void test_deferred_watch_defrag_packs_once_without_reordering() {
+static void test_kissat_watch_growth_and_clause_checkpoint_defrag() {
+  WatchLists growth;
+  growth.resize_lits(2);
+  for (uint32_t i = 0; i < 3; i++)
+    growth.push_binary(0, 1);
+  // Kissat's four-word initial stack spends one word on its sentinel, leaving
+  // exactly three tail words before the first relocation.
+  assert(growth.arena.size() == 3);
+  assert(growth.arena.capacity() == 3);
+  assert(growth.holes == 0);
+  growth.push_binary(0, 1);
+  assert(growth.arena.size() == 9);
+  assert(growth.heads[0].offset == 3);
+  assert(growth.heads[0].size == 4);
+  assert(growth.heads[0].capacity == 6);
+  assert(growth.holes == 5); // abandoned prefix 3 + spare suffix 2
+  growth.push_binary(1, 0);
+  assert(growth.heads[1].offset == 9);
+  assert(growth.holes == 5);
+
   WatchLists watches;
-  constexpr Lit nlits = 32;
-  constexpr uint32_t per_lit = 5000;
-  watches.resize_lits(nlits);
-  watches.begin_deferred_defrag();
-  for (uint32_t ordinal = 0; ordinal < per_lit; ordinal++)
-    for (Lit lit = 0; lit < nlits; lit++)
-      watches.push_binary(lit, (lit + ordinal + 1) % nlits);
-
-  assert(watches.defrag_deferred);
-  assert(watches.holes > 0);
-  std::vector<std::vector<uint32_t>> before(nlits);
-  for (Lit lit = 0; lit < nlits; lit++)
-    before[lit].assign(watches.begin(lit), watches.end(lit));
-
-  watches.finish_deferred_defrag();
-
-  assert(!watches.defrag_deferred);
+  watches.resize_lits(2);
+  // inlinevector.h extends a vector at the global stack tail one word at a
+  // time without abandoning its prefix or creating usable space. Tactix omits
+  // Kissat's stored offset-zero sentinel, but maps its capacity and predicates.
+  watches.arena.reserve(300000);
+  for (uint32_t i = 0; i < 300000; i++)
+    watches.push_binary(0, i & 1u);
+  assert(watches.arena.size() == 300000);
   assert(watches.holes == 0);
-  assert(watches.arena.size() == static_cast<size_t>(nlits) * per_lit);
-  for (Lit lit = 0; lit < nlits; lit++) {
-    assert(std::vector<uint32_t>(watches.begin(lit), watches.end(lit)) ==
-           before[lit]);
-    assert(watches.heads[lit].size == per_lit);
-    assert(watches.heads[lit].capacity == per_lit);
-    assert(watches.binary_size(lit) == per_lit);
-  }
+
+  // Dropping exactly 75% is not enough (`usable <= limit` in collect.h).
+  uint32_t retained = 0;
+  watches.compact(0, [&](WatchEntry) { return retained++ < 75000; });
+  assert(watches.size(0) == 75000 && watches.holes == 225000);
+  watches.defrag_if_needed();
+  assert(watches.arena.size() == 300000);
+
+  // More than 75% unusable above 2^18 words packs only at the explicit
+  // post-clause checkpoint; propagation-time push/grow never calls it.
+  retained = 0;
+  watches.compact(0, [&](WatchEntry) { return retained++ < 74999; });
+  assert(watches.holes == 225001);
+  watches.defrag_if_needed();
+  assert(watches.holes == 0);
+  assert(watches.arena.size() == 74999);
+  assert(watches.size(0) == 74999);
 }
 
 int main() {
@@ -1867,7 +1886,7 @@ int main() {
   test_propagate_beyond_conflicts_for_warmup();
   test_pending_units_borrow_and_restore_literal_marks();
   test_watch_batch_reserve_preserves_prefixes_and_fills_exactly();
-  test_deferred_watch_defrag_packs_once_without_reordering();
+  test_kissat_watch_growth_and_clause_checkpoint_defrag();
   puts("test_kernel OK");
   return 0;
 }

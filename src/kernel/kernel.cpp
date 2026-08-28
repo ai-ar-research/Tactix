@@ -574,7 +574,7 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       if (word != end - 1)
         std::memmove(word, word + 1,
                      static_cast<size_t>(end - word - 1) * sizeof(*word));
-      head.size--;
+      k.watches.resize_live(x, head.size - 1);
       head.set_layout(head.size, true);
     } else {
       k.watches.compact(x, [&](WatchEntry w) { // drop every matching copy
@@ -1382,6 +1382,10 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
   uint32_t *q = begin;
   const uint32_t *p = q;
   const uint32_t *const end = k.watches.end(not_lit);
+  // proplit.h hoists the propagated literal's assignment once per watch scan
+  // and passes its level/reason metadata to every binary implication.  The
+  // source variable cannot be reassigned while this scan is active.
+  const Assigned &binary_source = k.assigned[var_of(lit)];
   // Retain the largest backing store across scans and write through a raw
   // cursor.  Grow it only when a relocation is actually delayed: Kissat's
   // stack has that output-sensitive behavior, while reserving one triple for
@@ -1418,7 +1422,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
         }
         continue;
       }
-      kernel_assign_binary(k, blocking, not_lit);
+      kernel_assign_binary_from(k, blocking, not_lit, binary_source);
       binary_assignments++;
       ticks++;
     } else {
@@ -1698,7 +1702,7 @@ void kernel_probing_end(Kernel &k) {
       std::copy(lg.words.begin() + s.off, lg.words.begin() + s.off + s.size,
                 k.watches.arena.begin() + k.watches.heads[s.lit].offset);
       WatchHead &h = k.watches.heads[s.lit];
-      h.size = s.size;
+      k.watches.resize_live(s.lit, s.size);
       h.set_layout(s.binaries, s.binaries_first);
       assert(h.has_large() == s.has_large);
       kernel_charge_ticks(k, 1 + kernel_cache_lines(s.size));
@@ -2433,6 +2437,9 @@ void kernel_canonicalize_binary_watches(Kernel &k,
     }
     ref += words;
   }
+  k.watches.holes = 0;
+  for (const WatchHead &head : k.watches.heads)
+    k.watches.holes += head.capacity - head.size;
   if (count_congruence_rebuild)
     k.stats.congruence_binary_rebuilds++;
 }

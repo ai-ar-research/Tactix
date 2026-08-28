@@ -597,6 +597,7 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
           kernel_add_large_clause(k, qlits.data(),
                                   static_cast<uint32_t>(qlits.size()),
                                   /*redundant=*/false, /*glue=*/0, id);
+      k.watches.defrag_if_needed();
       // Kissat inserts every quotient into its dense Factor watch lists before
       // continuing the same pass.  Keep this apply-local index live too: the
       // fresh clause can change later seed scores and can complete a composite

@@ -1543,11 +1543,13 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         return ApplyResult::Unsat;
     } else if (r.lits.size() == 2) {
       kernel_add_binary_clause(k, r.lits[0], r.lits[1], id);
+      k.watches.defrag_if_needed();
       fresh_bin.emplace_back(r.lits[0], r.lits[1]);
     } else {
       fresh.push_back(kernel_add_large_clause(
           k, r.lits.data(), static_cast<uint32_t>(r.lits.size()),
           /*redundant=*/false, static_cast<uint32_t>(r.lits.size()), id));
+      k.watches.defrag_if_needed();
       // Adding a large clause may reallocate the arena, but the Refs held in
       // pos/neg/del_large are offsets and survive a resize; only a Clause*
       // would dangle, and every use below re-fetches through clause_at.
