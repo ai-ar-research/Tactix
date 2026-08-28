@@ -539,3 +539,9 @@ The next Rank-16 split was walking Rephase at conflict 356,414. Tactix measured 
 The pre-Reorder creation-order baseline `1653941` was Kissat SAT 128.93 s versus Tactix SAT 1038.89 s. Both had zero Factor transformations, and Tactix spent 191 ms in Factor: this SAT gap is not Factor cost.
 
 The pre-Walk-clock bound-16 replay `1654380` timed Tactix out at 1,200 s / 23,999,415 conflicts / 63,249,677 decisions; Kissat verified SAT in 133.79 s / 4,777,402 conflicts / 14,441,406 decisions. Both again had zero Factor transformations and 378 eliminations. It proves Eliminate was necessary but insufficient and cannot justify a formula gate.
+
+Pinned Kissat counts propagation when a trail literal's watches are consumed,
+then publishes cursor and tick deltas once per call. Tactix formerly counted new
+implications and wrote global counters inside the scan. The shared kernel now
+uses Kissat's definition and bulk boundary; Rank 16 remains search-identical,
+drops 175.47→159.98 s, and reports 152.705M versus Kissat's 152.707M scans.

@@ -122,6 +122,8 @@ static void test_conflicting_propagation_consumes_trail_literal() {
     assert(kernel_propagate(k));
     assert(k.propagate_head == 1 &&
            "search propagation must publish Kissat's post-incremented cursor");
+    assert(k.stats.propagations == 1 &&
+           "propagations count scanned trail literals, not implications");
     kernel_backtrack(k, 0);
     assert(k.propagate_head == 0 &&
            "backtrack, not the conflict scan, owns the surviving-frame rewind");
@@ -132,6 +134,7 @@ static void test_conflicting_propagation_consumes_trail_literal() {
     assert(kernel_propagate_probing(k));
     assert(k.propagate_head == 1 &&
            "probing propagation must publish Kissat's post-incremented cursor");
+    assert(k.stats.propagations == 1);
     kernel_probing_end(k);
   }
   {
@@ -139,6 +142,7 @@ static void test_conflicting_propagation_consumes_trail_literal() {
     assert(kernel_propagate_binary(k));
     assert(k.propagate_head == 1 && k.binary_only_head == 0 &&
            "binary propagation must advance while retaining its full-scan debt");
+    assert(k.stats.propagations == 1);
   }
 }
 
@@ -1695,7 +1699,9 @@ static void test_propagate_beyond_conflicts_for_warmup() {
   assert(k.values[internalize(3)] > 0);
   assert(k.h->saved[2] == 1);
   assert(k.stats.warming_conflicts > 0);
-  assert(k.stats.warming_propagations == 1);
+  // propbeyond.c counts every consumed trail literal: the two decisions and
+  // the implication appended while their watches are scanned.
+  assert(k.stats.warming_propagations == 3);
   // Kissat propbeyond.c charges warm-up work to total ticks only.  In
   // particular it must not shorten the stable-mode search-tick interval.
   assert(k.stats.ticks > ticks_before);
