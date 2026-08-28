@@ -1364,7 +1364,8 @@ template <bool RECORD> static inline void flush_delayed(Kernel &k) {
 // Kissat's probing propagator retains relocation and `searched` churn, so the
 // production probing path deliberately uses the false instantiation too.
 template <bool RECORD, bool BEYOND = false>
-static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
+static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
+                              uint64_t &total_ticks) {
   const Lit not_lit = negate(lit);
   if constexpr (!RECORD)
     event_trace_watch_scan(k, lit);
@@ -1422,7 +1423,6 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
       kernel_assign_binary(k, blocking, not_lit);
       binary_assignments++;
       ticks++;
-      k.stats.propagations++;
     } else {
       const Ref ref = *q++ = *p++;
       if (blocking_value > 0)
@@ -1506,7 +1506,6 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
         kernel_assign_ref(k, other, ref);
         large_assignments++;
         ticks++;
-        k.stats.propagations++;
       }
     }
   }
@@ -1523,7 +1522,7 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore) {
     event_trace_watch_cost(k, lit, words_before, words_after, base_ticks,
                            binary_assignments, large_dereferences, relocations,
                            large_assignments, ticks);
-  kernel_charge_ticks(k, ticks);
+  total_ticks += ticks;
   return conflict;
 }
 
@@ -1540,27 +1539,41 @@ static void kernel_settle_binary_only_debt(Kernel &k) {
 
 bool kernel_propagate(Kernel &k, Ref ignore) {
   kernel_settle_binary_only_debt(k);
+  const uint32_t saved_propagate = k.propagate_head;
+  uint64_t ticks = 0;
+  bool conflict = false;
   while (k.propagate_head < k.trail.size()) {
     // Pinned Kissat post-increments its local trail cursor before scanning the
     // literal and publishes that cursor even when the scan finds a conflict
     // (propsearch.c:37-40). Backtrack, not Propagate, owns any required rewind
     // to the surviving frame boundary.
     const Lit lit = k.trail[k.propagate_head++];
-    if (propagate_literal<false>(k, lit, ignore))
-      return true;
+    // Kissat's propagation statistic counts trail literals whose watch lists
+    // are scanned, including the literal that exposes a conflict.  It does not
+    // count implications at assignment time (propsearch.c:14-23).
+    if (propagate_literal<false>(k, lit, ignore, ticks)) {
+      conflict = true;
+      break;
+    }
   }
-  return false;
+  k.stats.propagations += k.propagate_head - saved_propagate;
+  kernel_charge_ticks(k, ticks);
+  return conflict;
 }
 
 void kernel_propagate_beyond_conflicts(Kernel &k) {
   assert(k.warming);
   kernel_settle_binary_only_debt(k); // full scans, conflicts included
   const uint64_t before = k.stats.propagations;
+  const uint32_t saved_propagate = k.propagate_head;
+  uint64_t ticks = 0;
   while (k.propagate_head < k.trail.size()) {
     const Lit lit = k.trail[k.propagate_head++];
-    if (propagate_literal<false, true>(k, lit, INVALID_REF))
+    if (propagate_literal<false, true>(k, lit, INVALID_REF, ticks))
       k.stats.warming_conflicts++;
   }
+  k.stats.propagations += k.propagate_head - saved_propagate;
+  kernel_charge_ticks(k, ticks);
   k.stats.warming_propagations += k.stats.propagations - before;
 }
 
@@ -1571,7 +1584,8 @@ void kernel_propagate_beyond_conflicts(Kernel &k) {
 // full engine; the units it derives are a subset of full propagation's. A
 // binary conflict (not_lit, other) is recorded exactly like the full engine.
 static bool propagate_literal_binary(Kernel &k, Lit lit,
-                                     bool use_current_level) {
+                                     bool use_current_level,
+                                     uint64_t &total_ticks) {
   const Lit not_lit = negate(lit);
   const int8_t *const values = k.values.data();
   const uint32_t *const begin = k.watches.begin(not_lit);
@@ -1624,9 +1638,8 @@ static bool propagate_literal_binary(Kernel &k, Lit lit,
       kernel_assign(k, other, k.level, not_lit, true);
     else
       kernel_assign_binary(k, other, not_lit);
-    k.stats.propagations++;
   }
-  kernel_charge_ticks(k, 1 + kernel_cache_lines(p - begin));
+  total_ticks += 1 + kernel_cache_lines(p - begin);
   // Accounted over the prefix actually scanned. `ordered` and `large` describe
   // only the scans the flag did not cover, so they stay the residual measure
   // once the early break is doing its work.
@@ -1713,18 +1726,24 @@ bool kernel_propagate_probing(Kernel &k, Ref ignore) {
   if (!k.probing.recording) {
     conflict = kernel_propagate(k, ignore); // no open scope: nothing to record
   } else {
+    const uint32_t saved_propagate = k.propagate_head;
+    uint64_t ticks = 0;
     while (k.propagate_head < k.trail.size()) {
       // proprobe.c uses the same post-increment-before-scan cursor contract as
       // search propagation.
       const Lit lit = k.trail[k.propagate_head++];
       const bool found = k.probing.rollback_pose
-                             ? propagate_literal<true, false>(k, lit, ignore)
-                             : propagate_literal<false, false>(k, lit, ignore);
+                             ? propagate_literal<true, false>(k, lit, ignore,
+                                                              ticks)
+                             : propagate_literal<false, false>(k, lit, ignore,
+                                                               ticks);
       if (found) {
         conflict = true;
         break;
       }
     }
+    k.stats.propagations += k.propagate_head - saved_propagate;
+    kernel_charge_ticks(k, ticks);
   }
   if (lrat)
     kernel_emit_root_units(k, assigned_before);
@@ -1751,14 +1770,18 @@ bool kernel_propagate_binary(Kernel &k, bool use_current_level) {
   const size_t assigned_before = k.trail.size();
   const bool lrat = k.proof && k.proof->lrat();
   bool conflict = false;
+  const uint32_t saved_propagate = k.propagate_head;
+  uint64_t ticks = 0;
   while (k.propagate_head < k.trail.size()) {
     // backbone.c also publishes its post-incremented local cursor on conflict.
     const Lit lit = k.trail[k.propagate_head++];
-    if (propagate_literal_binary(k, lit, use_current_level)) {
+    if (propagate_literal_binary(k, lit, use_current_level, ticks)) {
       conflict = true;
       break;
     }
   }
+  k.stats.propagations += k.propagate_head - saved_propagate;
+  kernel_charge_ticks(k, ticks);
   if (lrat)
     kernel_emit_root_units(k, assigned_before);
   return conflict;
