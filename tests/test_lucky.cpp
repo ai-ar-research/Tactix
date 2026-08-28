@@ -293,9 +293,6 @@ static void test_late_call_is_formula_shape_invariant() {
   const uint32_t vars = blocks * 16;
   const uint64_t clauses = uint64_t{blocks} * 16;
 
-  Kernel shape;
-  shape.original_external_vars = vars;
-  shape.original_input_clauses = clauses;
   DefaultPolicy policy;
   const auto &profiled = policy.strategy_config();
   assert(!profiled.inprocess.preprocess_only &&
@@ -310,7 +307,6 @@ static void test_late_call_is_formula_shape_invariant() {
                            internalize(triple[2])};
       kernel_add_large_clause(k, lits, 3, false, 0);
     }
-    k.original_input_clauses = clauses;
   };
 
   Kernel on;

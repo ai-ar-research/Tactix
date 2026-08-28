@@ -817,10 +817,6 @@ struct Kernel {
   std::vector<Var> compact_import_order;
   std::vector<Var> compact_import_position;
   uint32_t original_external_vars = UINT32_MAX;
-  // Declared DIMACS clause population, captured before preprocessing mutates
-  // the formula.  Strategy classification uses this stable input feature;
-  // UINT64_MAX means an API caller supplied no DIMACS header.
-  uint64_t original_input_clauses = UINT64_MAX;
   uint32_t first_extension_var = UINT32_MAX;
   bool inconsistent = false; // root-level conflict happened
 

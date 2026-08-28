@@ -465,14 +465,13 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
             clauses = clauses * 10 + (c - '0');
             c = reader.next();
           }
-          k.original_input_clauses = clauses;
           // Avoid repeated multi-gigabyte rehashes on binary-dominated inputs.
           // Binary encodings commonly contain almost nothing else.  Reserve up
-          // to the declared clause count, capped by three times the variable
+          // to the declared clause count, capped by twice the variable
           // population so a huge long-clause input does not reserve a giant
           // binary table it will never use.  Two binaries per declared
           // variable is a deliberately non-binding prediction: the table
-          // still grows exactly when an input exceeds it, while a conservative
+          // still grows exactly when an input exceeds it, while the former
           // three-times estimate needlessly crossed a power-of-two boundary on
           // large circuit encodings.
           const uint64_t predicted_binaries =
