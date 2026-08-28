@@ -98,9 +98,16 @@ def normalize_semantic_rows(rows):
             order = next((part[6:] for part in parts
                           if part.startswith("order=")), "")
             binary = bool(order) and order.count(",") == 1
+            irredundant = "redundant=0" in parts
             ignored = {"ref", "id"}
-            if binary:
+            if binary or irredundant:
+                # Glue and use-age are redundant-clause lifecycle metadata.
+                # Pinned Kissat can expose non-zero physical header bits for
+                # an irredundant conflict, but no tier/reduction consumer reads
+                # them.  Preserve `redundant` itself and all clause semantics.
                 ignored.update(("glue", "used", "redundant"))
+                if irredundant and not binary:
+                    ignored.remove("redundant")
             row["payload"] = "|".join(
                 part for part in parts
                 if part.split("=", 1)[0] not in ignored)

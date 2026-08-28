@@ -1450,6 +1450,13 @@ inline bool kernel_var_retired(const Kernel &k, Var v) {
   return v < k.var_status.size() && k.var_status[v] != VarStatus::Active;
 }
 
+inline uint64_t kernel_active_variables(const Kernel &k) {
+  uint64_t active = 0;
+  for (Var v = 0; v < k.nvars; v++)
+    active += !kernel_var_retired(k, v);
+  return active;
+}
+
 inline uint64_t kernel_cache_lines(uint64_t n) { return (n + 31u) >> 5; }
 
 inline void kernel_charge_ticks(Kernel &k, uint64_t n) {

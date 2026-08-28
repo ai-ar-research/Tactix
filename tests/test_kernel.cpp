@@ -34,6 +34,24 @@ static void test_irredundant_clause_never_stores_glue() {
   assert(clause_at(k.arena, red)->glue() == 7);
 }
 
+static void test_active_population_is_live_state() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_materialize_cold_state(k);
+  assert(kernel_active_variables(k) == 4);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  k.var_status[1] = VarStatus::Eliminated;
+  // Historical counters survive compaction and therefore are intentionally
+  // not a source of truth for Kissat's live `solver->active` predicate.
+  k.stats.bve_eliminated = 100;
+  k.stats.substitute_vars = 100;
+  assert(kernel_active_variables(k) == 3);
+  const Var fresh = kernel_new_extension_vars(k, 1);
+  assert(fresh == 4);
+  assert(kernel_active_variables(k) == 4 &&
+         "Factor's fresh activation must trigger Probe round two");
+}
+
 static void test_compact_watch_head_encoding_is_full_width() {
   WatchHead head;
   head.size = UINT32_MAX;
@@ -1886,6 +1904,7 @@ static void test_kissat_watch_growth_and_clause_checkpoint_defrag() {
 
 int main() {
   test_irredundant_clause_never_stores_glue();
+  test_active_population_is_live_state();
   test_compact_watch_head_encoding_is_full_width();
   test_clause_position_alias_pages_are_exact_and_sparse();
   test_binary_liveness_filter_has_no_false_negatives();

@@ -572,10 +572,10 @@ void DefaultPolicy::reset_schedule(const Kernel &k) {
 }
 
 static uint64_t active_variables(const Kernel &k) {
-  const uint64_t retired = static_cast<uint64_t>(kernel_root_fixed(k)) +
-                           k.stats.bve_eliminated + k.stats.substitute_vars;
-  const uint64_t n = k.nvars;
-  return n > retired ? n - retired : 0;
+  // Kissat's `solver->active` is live state.  Cumulative retirement counters
+  // cannot reconstruct it after compaction and also miss Factor's fresh
+  // activation, which is precisely what makes `proberounds` enter round two.
+  return kernel_active_variables(k);
 }
 
 static uint64_t scale_inprocessing_delta(
