@@ -32,7 +32,7 @@ void heuristics_consume_rule_advice(Kernel &k) {
   }
   if (k.factor_demote_fresh)
     for (const Kernel::FreshVars &event : k.fresh_var_events)
-      heuristics_demote_fresh_vars(k, event.first);
+      heuristics_demote_fresh_vars(k, event.first, event.end);
   k.fresh_var_events.clear();
 
   if (k.subst_demote && !k.substituted_events.empty()) {
@@ -82,6 +82,9 @@ void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   k.h->best.resize(nvars, 0);
   // enqueue new vars into the VMTF queue (most recent = preferred)
   for (Var v = old; v < nvars; v++) {
+    const double activation_score =
+        1.0 - 1.0 / static_cast<double>(++k.h->activation_count);
+    k.h->scores.score[v] = activation_score;
     Link &l = k.h->links[v];
     l.prev = k.h->queue_last;
     l.next = UINT32_MAX;
@@ -223,9 +226,16 @@ void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) 
   // one, so the heap ranks unactivated variables no higher than any other.
   // The heap is not built until the first stable entry, matching kissat's
   // `stable`-guarded parse-time push.
+  // `heuristics_reserve_vars` gives every newly allocated identity a normal
+  // activation score so extension variables can be inserted at the exact
+  // score Kissat uses.  Initial parsing can allocate identities that Kissat
+  // never activates, though, so reset the parse-time image and seed only the
+  // retained first-activation order here.
+  std::fill(k.h->scores.score.begin(), k.h->scores.score.end(), 0.0);
   uint64_t rank = 0;
   for (const Var v : order)
     heuristics_score_set(k, v, 1.0 - 1.0 / static_cast<double>(++rank));
+  k.h->activation_count = rank;
   k.stats.tumble_seeded = order.size();
 }
 
@@ -372,13 +382,22 @@ static void queue_restamp(Kernel &k) {
 // creates must be the least attractive decision candidates, not the most.
 // heuristics_reserve_vars appends each new var at `queue_last`, where the VMTF
 // decision search starts, so without this every variable Factor adds jumps to
-// the head of the decision order. Focused mode only — stable mode's heap push
-// uses score 0.0, already the bottom of a max-heap. O(#queue) per call, so call
-// it once per rule application, never once per fresh variable.
-void heuristics_demote_fresh_vars(Kernel &k, Var first) {
-  if (!k.h || first >= k.h->nvars)
+// the head of the decision order. Stable mode additionally needs Kissat's
+// transient activation-score insertion followed by reverse zero demotion.
+// O(#queue) per call, so call it once per rule application, never once per
+// fresh variable.
+void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
+  if (!k.h || first >= end || first >= k.h->nvars)
     return;
-  for (Var v = first; v < k.h->nvars; v++)
+  end = std::min(end, k.h->nvars);
+  // Kissat factor.c::adjust_scores_and_phases_of_fresh_variables walks the
+  // fresh stack backwards and updates every stable-heap score to zero before
+  // changing the VMTF queue.  The downward sift is observable: inserting a
+  // fresh variable at zero directly produces a different physical heap among
+  // later equal-score candidates.
+  for (Var v = end; v-- > first;)
+    heuristics_score_set(k, v, 0.0);
+  for (Var v = first; v < end; v++)
     queue_dequeue(k, v);
   // Re-insert at the front (least preferred) in creation order, so the var
   // created last is least preferred of the block. Ascending is load-bearing:
@@ -387,7 +406,7 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first) {
   // factor.cpp:799-802, `bury` = prepend, queue.hpp:61). Descending mirrors
   // them and leaves the demotion nearly inert once every original variable is
   // assigned, which is common.
-  for (Var v = first; v < k.h->nvars; v++) {
+  for (Var v = first; v < end; v++) {
     Link &l = k.h->links[v];
     l.prev = UINT32_MAX;
     l.next = k.h->queue_first;
@@ -399,7 +418,7 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first) {
   }
   // Reachability, counted at the site (see Kernel::Stats::factor_demotions).
   k.stats.factor_demotions++;
-  k.stats.factor_demoted_vars += k.h->nvars - first;
+  k.stats.factor_demoted_vars += end - first;
   queue_restamp(k); // renumber in queue order + reset the search cache
 }
 

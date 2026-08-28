@@ -202,10 +202,10 @@ pending half-analysis or schedules Backjump independently.
   and leave `H` unattached through startup propagation and early Lucky. A
   terminal startup result never materializes either image. If early Lucky
   returns unknown, the kernel materializes rule state and `ScopedHeuristics`
-  consumes the parser-retained activation order before sparse collection or
-  any later rule. Event counters/epochs advance while storage is deferred;
-  first-round predicates are reconstructed at the boundary. Bare kernels, API
-  clients, random/replay, stress, and caller-supplied `H` retain eager state.
+  consumes the parser-retained activation order before any later rule. Factor
+  extensions receive the normal cumulative activation score on stable-heap
+  insertion, then Factor demotes that score to zero exactly as Kissat does.
+  Bare kernels, API clients, random/replay, stress, and supplied `H` stay eager.
 - Late-Lucky failure uses the normal inactive-percent variable-compaction
   threshold. Lucky walks permanent maps directly and does not construct a
   dense high-water copy.

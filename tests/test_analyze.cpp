@@ -111,6 +111,8 @@ static void test_bump_admission_order_is_not_cleanup_order() {
   Kernel k;
   ScopedHeuristics hg(k);
   kernel_reserve_vars(k, 4);
+  for (Var v = 0; v < k.nvars; ++v)
+    heuristics_score_set(k, v, 0.0);
   k.h->stable = true;
   heuristics_update_scores(k);
 
