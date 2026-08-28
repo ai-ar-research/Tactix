@@ -16,12 +16,10 @@ rule is a performance regression, not a soundness one.
 
     METERED             has an `EFFORT_SPECS` row. The default expectation, and
                         what a new inprocessing rule should almost always be.
-    ALTERNATE-GOVERNOR  deliberately unmetered; something else bounds it, named
-                        here, and its mechanism must still be present in the
-                        source (`evidence`). Legitimate only for a rule whose
-                        single round is inherently bounded — the unmetered
-                        governors bound how often a round starts, never how much
-                        one round does.
+    ALTERNATE-GOVERNOR  deliberately unmetered; a reference-authored mechanism
+                        bounds its call frequency, named here, and that mechanism
+                        must still be present in the source (`evidence`). A single
+                        round remains structurally bounded by the finite formula.
 
 As in check-config-wiring.py, the second half matters as much as the first: a
 scheduled rule missing from the table fails, so classification happens when the
@@ -47,18 +45,10 @@ RULE_DIRS = [os.path.join(ROOT, "src")]
 METERED = "METERED"
 ALT = "ALTERNATE-GOVERNOR"
 
-# The two unmetered governors live on the `e.closure` path in the slot loop.
-# `closure` is separate from `!e.meter` because a rule can be both metered and
-# closure-gated, and the two bound different things (how much one round does vs
-# how often a round starts). A rule with no EFFORT_SPECS row still gets
-# `closure = true` by default in the slot build, so an ALTERNATE-GOVERNOR rule
-# reaches both declines. These are the `evidence` regexes such a row must match:
-# deleting a governor must fail here, not silently unbound the rule.
-EV_MATERIAL = r"e\.closure && k\.stats\.conflicts > 0 &&[^;]*e\.binaries_mark"
+# The named delay path is independent of the optional generic closure watermark.
+# Deleting a registered reference governor must fail here, but this checker must
+# not require an invented admission predicate merely because a rule is unmetered.
 EV_DELAY = r"closure_delay_ && \(e\.closure \|\| delay_spec"
-# And the no-row default is what carries an ALTERNATE-GOVERNOR rule onto that
-# path at all, so its disappearance is a failure too.
-EV_CLOSURE_DEFAULT = r"e\.closure = true;"
 # Congruence's named ladder (kissat congruence.c, `delay.congruence`): the
 # DELAY_SPECS row keyed on its merge yield is what `delay_spec(r.name)` finds.
 EV_CONGRUENCE_LADDER = (r'\{"Congruence", \[\]\(const Kernel &k\) '
@@ -83,14 +73,12 @@ TABLE = {
     "Instantiate":      (METERED, "20 permille, tick currency"),
     "Sweep":            (METERED, "kissat sweepeffort 100 permille; the currency is\n                               sweep_effort() = sweep_ticks_sub + sweep_ticks_repr"),
     # Kissat has no Congruence effort row (congruence.c runs one closure to
-    # completion).  The source-native new-material watermark and the named
-    # productivity delay ladder bound how often a round starts; a single
-    # round is bounded by the formula.  An EFFORT_SPECS row here is a
-    # non-reference ceiling and fails below, not a governor to restore.
-    "Congruence":       (ALT, "new-material watermark plus the exact Kissat "
-                              "productivity delay ladder",
-                         [EV_MATERIAL, EV_DELAY, EV_CLOSURE_DEFAULT,
-                          EV_CONGRUENCE_LADDER]),
+    # completion). Its named productivity delay ladder governs call frequency;
+    # it has no binary/root new-material admission predicate. An EFFORT_SPECS
+    # row here is a non-reference ceiling and fails below, not a governor to
+    # restore.
+    "Congruence":       (ALT, "the exact Kissat productivity delay ladder",
+                         [EV_DELAY, EV_CONGRUENCE_LADDER]),
     "Substitute":       (METERED, "hand-rolled 10 permille, substitute_ticks "
                                    "currency, no minimum-effort floor; ALSO "
                                    "closure-gated"),
@@ -163,6 +151,12 @@ def main():
     rules = registered_rules()
     src = squash(strip_comments(open(POLICY).read()))
     specs = effort_specs()
+
+    if re.search(r"e\.closure\s*=\s*true\s*;", src):
+        fails.append("the slot builder again defaults an unmetered entry to the "
+                     "generic closure/new-material gate; production gates must "
+                     "be reference-authored per rule, not inferred from the "
+                     "absence of an EFFORT_SPECS row")
 
     if not re.search(SLOT_PREDICATE, src):
         fails.append(f"the slot's admission predicate `{SLOT_PREDICATE}` is gone "

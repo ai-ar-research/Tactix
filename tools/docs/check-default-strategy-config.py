@@ -59,7 +59,8 @@ def main():
     # Pinned Kissat classification has no scheduling consumer. Production
     # policy must not regain a benchmark-, size-, or density-shaped profile.
     for token in ("FormulaProfile", "PROFILE_", "original_external_vars",
-                  "original_input_clauses", "kernel_num_output_vars"):
+                  "original_input_clauses", "kernel_num_output_vars",
+                  "kernel_num_original_internal_vars"):
         if token in policy:
             failures.append(
                 f"default_policy.cpp contains forbidden formula-profile "

@@ -1063,13 +1063,22 @@ static void test_congruence_preprocess_bumps_first_search_delay(void) {
   assert(congruence->delay_current == 1 && congruence->delay_count == 1 &&
          "Kissat bumps an unproductive Congruence delay during preprocessing");
 
-  // New formula material makes the closure watermark eligible, but the named
-  // delay must be consumed before Congruence does any setup.
+  // New formula material does not bypass the named delay. Congruence has no
+  // separate production closure/new-material admission gate in Kissat.
   kernel_add_binary_clause(k, internalize(1), internalize(2), 51);
   k.stats.conflicts = 1;
   assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
   assert(congruence->tm.admitted == 1 && congruence->tm.dec_delay == 1);
   assert(congruence->delay_count == 0);
+
+  // Once the named delay is consumed, the next admitted Probe phase calls
+  // Congruence even though no additional binary or root material appeared.
+  // A generic closure watermark here would be an extra production consumer
+  // absent from Kissat.
+  k.stats.conflicts = 2;
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(congruence->tm.admitted == 2);
+  assert(congruence->tm.dec_material == 0);
 }
 
 // --- the elapsed interval is necessary, not sufficient ----------------------

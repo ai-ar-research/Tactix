@@ -303,9 +303,19 @@ The permanent strategy-config checker requires each of these controls in
 exception.
 
 Congruence/Sweep productivity delays and Substitute's optional second SCC
-round remain policy-owned. Directed Sweep bridges are protected per physical
-entry, never by pair, so coincident ordinary copies follow normal proof
-deletion.
+round remain policy-owned. Congruence has no production effort meter or generic
+binary/root new-material watermark: every admitted Probe phase calls it after
+its named Kissat productivity delay. The generic closure watermark remains an
+explicit diagnostic pose only. Random-decision admission likewise uses the
+reference-equivalent level predicate without a formula-size exception.
+Directed Sweep bridges are protected per physical entry, never by pair, so
+coincident ordinary copies follow normal proof deletion.
+
+Policy root-assignment consumption is guarded by a monotonic assignment epoch.
+The epoch changes at the assignment primitive only for true level-zero facts,
+so ordinary non-root propagation avoids a second trail walk while root facts
+still reach heuristics at the same Propagate and inprocessing boundaries. It is
+an observation accelerator, not an admission, effort, or ordering predicate.
 
 ## 15. Eager subsumption
 

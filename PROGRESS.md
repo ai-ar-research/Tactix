@@ -8,6 +8,22 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
+- **In flight — no-invented-gates cleanup and SAT throughput:** the careful
+  codebase pass removed two non-reference production selectors. Random-decision
+  sequence admission uses only Kissat's equivalent pre-decision level; the former compact-formula
+  exception is gone. Congruence is unmetered and admitted on every Probe phase
+  after its named Kissat productivity delay; the former binary/root
+  new-material watermark remains available only through an explicit diagnostic
+  pose. Production classification, effort budgets, and arena order are
+  unchanged. A monotonic root-assignment epoch also avoids a redundant policy
+  scan over every ordinary propagated implication while preserving the exact
+  rule-boundary heuristic handoff. One-change Rank-16 throughput diagnostic
+  `1653545` pins the epoch repair. Release 76/76 and affected ASan/UBSan 8/8
+  pass; binary/source-diff SHAs are `d9272f90...ac3f77`/`9a55e7e3...09350`.
+  Homogeneous ranks 1--40 `1653555`/`1653556` and cumulative B28+C5
+  `1653557`/`1653558` use one uniform production candidate.
+  Proof completion is non-blocking. Never respond to a regression by restoring
+  either gate or adding a formula, density, benchmark, or rank arm.
 - **In flight — Kissat creation/collection-order production baseline:** the
   pushed tree makes Kissat order unconditional production state and retains the
   CaDiCaL VMTF/phase permutation only as `TACTIX_ARENA_ORDER=1`. No formula,
@@ -89,7 +105,7 @@ session narrative; this file is only the current resume surface.
   fresh-polarity admissions and an accepted fresh-seeded grid, zero failure,
   and zero certificate/scratch residue. The repair is promoted at solver
   commit `3c3164d`; no fuzz repair was required.
-- **Closed Rank-32 Congruence-admission lead:** accepted Tactix
+- **Historical Rank-32 Congruence-admission evidence:** accepted Tactix
   `3c3164d`/`f2eecac1...dcf` remains the baseline. Its three-wave Rank-32
   median is 412.357 seconds versus current Kissat's 290.015 (1.420119x), with
   all proofs valid and spreads below 0.57%. Removing Tactix's extra
@@ -104,8 +120,12 @@ session narrative; this file is only the current resume surface.
   dense resume changes physical propagation order before Backbone; conflict
   clauses first differ at 105527 and durable learning at 105568. Suppressing
   that replay would restore the non-reference baseline pose, not repair an
-  implementation defect. The candidate is therefore reverted, unfuzzed, and
-  unpromoted. Full authority and limitations are in Andrew report
+  implementation defect. The candidate was therefore reverted under the old
+  cumulative disposition. The 2026-08-28 no-invented-gates architectural
+  requirement supersedes that disposition: the Kissat-authored call is now
+  production behavior, and the measured regression is evidence of a general
+  dense-resume/propagation-order mechanism discrepancy to repair rather than a
+  reason to suppress Congruence. Full historical authority and limitations are in Andrew report
   `2026-08-27-0905-rank32-congruence-admission-negative`.
 - **Rank-10 memory diagnostic:** frozen campaign
   `benchmarks/runs/20260827-0130-tierd-rank10-current-memory-boundaries/`
@@ -303,23 +323,6 @@ session narrative; this file is only the current resume surface.
   are rejected. Equal-score Rank-27 heap choices are neutral. Do not reopen any
   of these without contradictory exact source-backed evidence.
 
-## Recent changes
-
-- 2026-08-27 — Exact pinned-Kissat classification replaces all formula profiles;
-  invariant default inprocessing budgets and a general Factor throughput repair
-  pass Release, B28+C5, homogeneous ranks 1--40, and Claude-owned 30k fuzz.
-- 2026-08-27 — Rank-5 deferred rule/search lifecycle cuts peak memory from
-  14,368,044 to 10,075,752 KiB, below Kissat's 10,402,844-KiB median, and
-  passes three-wave confirmation, B28+C5, and Claude-owned 30k fuzz.
-- 2026-08-27 — Rank-32 Congruence gate removal improves its local median
-  410.760 to 405.042 seconds but fails B28+C5 at 1.208552 PAR-2; exact tracing
-  localizes the zero-yield dense-resume sensitivity, so the candidate is
-  reverted without fuzz or promotion.
-- 2026-08-27 — Rank 4's fresh-polarity Factor admission repair restores exact
-  order/state/340,150-tick work, cuts median time 15.340 to 10.733 seconds, and
-  passes the full B28+C5 gate plus Claude-owned 30k fuzz.
-- 2026-08-27 — Sweep phase-word expansion passes exact prefix, three-wave
-  Rank-27 timing, complete B28+C5, and Claude-owned 30k fuzz; Rank 27 is parked.
 <!-- track-sched:begin -->
 N4 verification remains complete at the accepted parity pin. Living mechanism
 dispositions and reopening conditions are in `docs/scheduling-parity-ledger.md`.
@@ -332,9 +335,9 @@ mechanism comparison.
 The accepted Sweep, Rank-10 layout, and Rank-5 lifecycle repairs change no
 schedule, rule, candidate, tick, or policy state. The accepted Rank-4 repair
 changes only the portable per-polarity admission lifecycle proven above and
-leaves the rule instance surface unchanged. The rejected Rank-32 candidate is
-fully reverted; the fresh ranks 1--40 selection screen remains in independent
-proof checking.
+leaves the rule instance surface unchanged. Congruence now retains the exact
+Kissat call surface; its known dense-resume regression is a mechanism lead, not
+authority for a non-reference admission gate.
 <!-- track-sched:end -->
 
 ## Gates
