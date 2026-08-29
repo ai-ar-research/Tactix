@@ -2852,6 +2852,7 @@ bool kernel_compact_variables(Kernel &k) {
     ref += clause_actual_words(c);
   }
   std::vector<int8_t> values(2 * new_nvars, 0);
+  std::vector<uint8_t> factor_marks(2 * new_nvars, 0);
   std::vector<Assigned> assigned(new_nvars);
   std::vector<Lit> jumped_over(new_nvars, INVALID_LIT);
   std::vector<uint64_t> unit_ids(new_nvars, 0);
@@ -2862,6 +2863,14 @@ bool kernel_compact_variables(Kernel &k) {
     const Lit opos = make_lit(old, false), npos = make_lit(now, false);
     values[npos] = k.values[opos];
     values[negate(npos)] = k.values[negate(opos)];
+    // Kissat's per-polarity Factor flag is part of the compacted variable
+    // flags.  It survives renumbering with the literal; clearing or leaving
+    // this vector in the old numbering changes the next incremental Factor
+    // candidate heap after a collection.  The separate marked-literal
+    // statistic is cumulative and deliberately is not reduced when retired
+    // literals disappear here.
+    factor_marks[npos] = k.factor_marks[opos];
+    factor_marks[negate(npos)] = k.factor_marks[negate(opos)];
     // Backtracking clears the value/trail but deliberately leaves Assigned
     // metadata behind.  It is inert while the variable is unassigned and must
     // not become representation state again: stale jumped=true commonly pairs
@@ -2936,6 +2945,7 @@ bool kernel_compact_variables(Kernel &k) {
   k.nvars = new_nvars;
   k.internal_to_external.swap(internal_to_external);
   k.values.swap(values);
+  k.factor_marks.swap(factor_marks);
   k.assigned.swap(assigned);
   k.jumped_over.swap(jumped_over);
   k.unit_ids.swap(unit_ids);
@@ -3198,6 +3208,7 @@ void kernel_check_invariants(const Kernel &k) {
   heuristics_check(k); // `H` sized to nvars (catches a missed Factor growth)
   assert(k.internal_to_external.size() == k.nvars);
   assert(k.internal_import_rank.size() == k.nvars);
+  assert(k.factor_marks.size() == 2 * k.nvars);
   for (Var internal = 0; internal < k.nvars; internal++) {
     const Var external = k.internal_to_external[internal];
     assert(external < k.external_to_internal.size());
