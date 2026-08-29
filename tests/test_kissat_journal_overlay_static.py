@@ -58,7 +58,8 @@ assert 'TACTIX_EVENT_TRACE_FORMULA_THRESHOLDS' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_FORMULA_THRESHOLDS' in eventtrace
 assert 'TACTIX_EVENT_TRACE_HEAP_DUMP' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_HEAP_DUMP' in eventtrace
-assert 'if (formula_only_ || conflict_only_)' in tactix_trace
+assert 'if (formula_only_ || conflict_only_ || checkpoint_only_)' in tactix_trace, (
+    "all summary-only trace modes must reject expensive ordinary detail payloads")
 assert 'if (trace_formula_only)\n    return false;' in eventtrace
 assert 'std::strcmp(event, "analysis_end") &&\n      std::strcmp(event, "formula_checkpoint")' in tactix_trace
 assert 'strcmp (event, "analysis_end") &&\n      strcmp (event, "formula_checkpoint")' in eventtrace

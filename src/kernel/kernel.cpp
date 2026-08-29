@@ -1619,6 +1619,8 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
         lits[0] = other;
         lits[1] = replacement;
         *r = not_lit;
+        if constexpr (!RECORD)
+          event_trace_watch_move(k, lit, replacement, other, c);
         q -= 2;
         if (k.delayed_used + 3 > k.delayed.size()) {
           const size_t grown =
@@ -2314,7 +2316,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
 // dense-mode simplifiers flush large watches and `kissat_watch_large_clauses`
 // rebuilds them on resume; retaining the pre-phase lists instead leaks Lucky
 // and simplifier scan order into the following search trajectory.
-void kernel_rebuild_large_watches(Kernel &k, bool inherited_source_order) {
+void kernel_rebuild_large_watches(Kernel &k) {
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
   std::vector<Ref> order;
@@ -2325,8 +2327,14 @@ void kernel_rebuild_large_watches(Kernel &k, bool inherited_source_order) {
       order.push_back(ref);
     ref += words;
   }
-  if (inherited_source_order)
-    kernel_sort_refs_by_logical_clause_position(k, order);
+  // Kissat traverses its current physical arena. Tactix implements the same
+  // in-place rewrite semantics with append-only replacement records plus a
+  // generation-local source-position alias. Thus the logical position is the
+  // current Kissat arena position at every reconnect, not only after selected
+  // phases or after a Vivify band has already changed the database. Using raw
+  // allocation order here reverses otherwise identical clauses and makes
+  // propagation select a different unit/reason.
+  kernel_sort_refs_by_logical_clause_position(k, order);
   for (const Ref ref : order) {
     Clause *c = clause_at(k.arena, ref);
       // `kissat_watch_large_clauses` does not merely reconnect the existing

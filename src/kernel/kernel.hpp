@@ -1746,7 +1746,10 @@ void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
 // Kissat's null-stack dense entry: disconnect every large watch and retain
 // only the first binary watch for each partner in each literal list.
 void kernel_flush_large_watches(Kernel &);
-void kernel_rebuild_large_watches(Kernel &, bool inherited_source_order = false);
+// Reconnect every live large clause in its current Kissat-equivalent arena
+// order. Packed replacements retain their source position until collection,
+// exactly as Kissat's in-place rewrites do.
+void kernel_rebuild_large_watches(Kernel &);
 void kernel_resume_walk_watches(Kernel &);
 void kernel_canonicalize_binary_watches(Kernel &,
                                         bool count_congruence_rebuild = true,
