@@ -119,7 +119,7 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     kernel_touch_var(k, v);
     // Variable activation marks the stripped (positive) literal in Kissat;
     // actual clause polarities are marked below by clause addition.
-    k.factor_marks[make_lit(v, false)] = 1;
+    kernel_mark_factor_literal(k, make_lit(v, false));
   }
   // Retirement status: a brand-new variable is Active (design R-a). Only grown
   // once something has retired a variable, so the common case stays empty.
@@ -330,7 +330,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
       kernel_touch_var(k, var_of(lits[i]));
-      k.factor_marks[lits[i]] = 1;
+      kernel_mark_factor_literal(k, lits[i]);
       if (k.dense) {
         k.dense->large[lits[i]].push_back(ref);
         if (k.dense->track_order)
@@ -390,8 +390,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
   // learned binaries, which is where this over-touches on purpose).
   kernel_touch_var(k, var_of(a));
   kernel_touch_var(k, var_of(b));
-  k.factor_marks[a] = 1;
-  k.factor_marks[b] = 1;
+  kernel_mark_factor_literal(k, a);
+  kernel_mark_factor_literal(k, b);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_binary_add(k, a, b, id);
 #endif
@@ -1210,7 +1210,7 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
       kernel_touch_var(k, var_of(lits[i]));
-      k.factor_marks[lits[i]] = 1;
+      kernel_mark_factor_literal(k, lits[i]);
       kernel_notify_bve_score(k, var_of(lits[i]), false);
     }
   else if (k.touch_redundant) {
