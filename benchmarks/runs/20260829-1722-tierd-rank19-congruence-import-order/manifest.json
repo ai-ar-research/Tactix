@@ -1,0 +1,43 @@
+{
+  "campaign": "20260829-1722-tierd-rank19-congruence-import-order",
+  "purpose": "Focused production Rank 19 solve after restoring Kissat compact creation order in Congruence's Y1 sweep.",
+  "hypothesis": "The general creation-order repair closes the conflict-3140 heap divergence and materially improves or solves Rank 19 without a formula, benchmark, rank, size, density, or conflict gate.",
+  "scope": {
+    "rank": 19,
+    "instance": "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz",
+    "expected": "SAT",
+    "arms": ["tactix"],
+    "solve_timeout_seconds": 1200,
+    "model_check": "frozen checkmodel"
+  },
+  "input_sha256": {
+    "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz": "cc3ed14357ee4977140c2da1a456d011ea2ec4991f3bee42f9fa035b2bbb8271"
+  },
+  "pins": {
+    "tactix_sha256": "ff7315cbb80ceda50a770b2ab78f2ab71f47479b887b6c27d8d9d0063a6a842b",
+    "checkmodel_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "modelcheck_py_sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "drat_trim_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+  },
+  "causal_predecessor": "benchmarks/runs/20260829-1300-tierd-rank19-next-decision/manifest.json",
+  "n1_n4": "One homogeneous production binary; no diagnostic strategy arm or input-dependent selector. N1-N4 remain unchanged.",
+  "first_attempt": {
+    "slurm_job_id": 1655964,
+    "verdict": "SAT",
+    "solve_wall_seconds": 831.739,
+    "process_tree_rss_peak_kb": 544932,
+    "expected_match": true,
+    "checker_status": "infrastructure error: copied checkmodel wrapper was missing its pinned modelcheck.py dependency",
+    "preserved_result": "attempts/000-solve-modelcheck-infra.json"
+  },
+  "rerun_slurm_job_id": 1655967,
+  "verified_result": {
+    "verdict": "SAT",
+    "valid": true,
+    "solve_wall_seconds": 831.538,
+    "process_tree_rss_peak_kb": 545460,
+    "model_check": "verified: 1297025 clauses satisfied, 126152 vars assigned",
+    "artifact_deleted": true
+  },
+  "status": "complete-verified-rank19-sat"
+}

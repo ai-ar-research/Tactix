@@ -873,6 +873,9 @@ struct Kernel {
   // keeps later sparse-collection permutations authoritative.
   ClausePositionAliases clause_position_alias;
   WatchLists watches;
+  // Kissat's `watching` is false while a dense/Vivify phase has disconnected
+  // every large watch. Binary watches remain live in both states.
+  bool large_watches_connected = true;
   ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
   // Scratch capacity for delayed large-watch relocations.  `delayed_used`,

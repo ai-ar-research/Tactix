@@ -1126,8 +1126,14 @@ void EventTrace::vivify_counts(const Kernel &k, const uint32_t *counts,
               "literal=" + std::to_string(external) + "|hash=" + hex +
               "|size=" + std::to_string(clause->size) + "|redundant=" +
               std::to_string(clause->redundant()) + "|glue=" +
-              std::to_string(clause->glue()) + "|clause=" + set +
-              "|pose=" + pose;
+              std::to_string(clause->glue()) + "|priority=" +
+              std::to_string(clause->vivify()) + "|id=" +
+              std::to_string(clause->id()) + "|ref=" +
+              std::to_string(ref - clause_actual_words(clause)) +
+              "|arena_order=" +
+              std::to_string(kernel_clause_position(
+                  k, ref - clause_actual_words(clause))) +
+              "|clause=" + set + "|pose=" + pose;
           emit(k, "vivify_occurrence_clause", clause_payload.c_str(), false);
         }
       }
@@ -1136,6 +1142,31 @@ void EventTrace::vivify_counts(const Kernel &k, const uint32_t *counts,
   }
   if (*cursor)
     return;
+  uint64_t irredundant = 0, redundant = 0;
+  uint64_t irredundant_hash = 0, redundant_hash = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    ref += clause_actual_words(clause);
+    if (clause->garbage())
+      continue;
+    const uint64_t hash = eliminate_cleanup_clause_hash(k, *clause);
+    if (clause->redundant()) {
+      redundant++;
+      redundant_hash += hash;
+    } else {
+      irredundant++;
+      irredundant_hash += hash;
+    }
+  }
+  char summary[160];
+  std::snprintf(summary, sizeof summary,
+                "|irredundant=%llu|redundant=%llu|"
+                "irredundant_hash=%016llx|redundant_hash=%016llx",
+                (unsigned long long)irredundant,
+                (unsigned long long)redundant,
+                (unsigned long long)irredundant_hash,
+                (unsigned long long)redundant_hash);
+  payload += summary;
   emit(k, "vivify_counts", payload.c_str(), false);
 }
 

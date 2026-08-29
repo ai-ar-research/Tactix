@@ -148,19 +148,20 @@ pending half-analysis or schedules Backjump independently.
   key map remains the exact live-set image, so known-new binary insertion does
   not rescan a high-degree watch list. The general post-import binary API
   retains its live-pair check.
-- Packed OTFS, Strengthen, Vivify, and other logical replacements inherit the
-  source clause's current arena position. This alias is generation-local:
-  collection materializes the replacement there and clears the alias image.
-  The stable four-pass radix primitive restores `(current source position,
-  Ref)` order before that boundary.
+- Surviving large Strengthen, Vivify, root-flush, Sweep, and Substitute rewrites
+  stay in place, retaining Ref, allocation span, header, occurrence, and watch
+  pose; while a dense/Vivify phase has globally disconnected large watches,
+  an in-place rewrite leaves them disconnected until the common rebuild.
+  Unit/binary collapses retire the record. Packed OTFS and any remaining packed
+  replacements instead inherit a generation-local source position that
+  collection materializes and clears; radix restores `(position, Ref)` order.
 - A packed OTFS replacement also inherits the source reason's Vivify
   untried-tail bit. Kissat shortens the reason in place and retains this header
   state automatically; copying only literals, glue, watches, and arena position
   silently demotes a previously armed clause until the next global re-arm.
-- Production whole-arena collection replays those current positions, emulating
-  Kissat's in-place replacement without treating immutable proof IDs as arena
-  positions. Reduce's stable sparse tail partition stays authoritative across
-  every later whole/dense collection.
+- Whole-arena collection replays positions only for remaining packed cases;
+  proof IDs are never arena positions. Reduce's sparse tail partition remains
+  authoritative across later whole/dense collection.
 - Walk's sparse resume uses the same current source position for its
   large-clause reconnect when packed replacements are still pending.
 - Reduce sparse collection follows Kissat's physical `first_reducible`
@@ -183,10 +184,9 @@ pending half-analysis or schedules Backjump independently.
 - `external_import_rank` is permanent proof/reconstruction authority;
   `internal_import_rank` is its direct current-identity cache and is remapped
   through variable compaction. Kernel invariants assert equality.
-- Substitute snapshots binaries in global import/sign order, preserves
-  asymmetric in-place updates, and publishes exact mirrored metadata. Its
-  append-only literal/LRAT pools use offset-length slices and persistent
-  scratch; no pointer may survive pool growth.
+- Substitute snapshots binaries in import/sign order, preserves asymmetric
+  updates, and overwrites surviving large images in place. Its append-only
+  pools use offset-length slices; no pointer may survive growth.
 - Sweep's connected substitution is proof-rule-internal and policy-free. It
   rewrites reached irredundant occurrences, preserves directed bridge images,
   leaves classes active, and lets mandatory Substitute own learned cleanup,

@@ -1599,6 +1599,70 @@ static void test_in_place_large_replacement_preserves_allocation_span() {
   kernel_check_invariants(k);
 }
 
+static void test_in_place_large_replacement_respects_disconnected_watches() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit original[4] = {internalize(1), internalize(2), internalize(3),
+                           internalize(4)};
+  const Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
+                                          ++k.next_clause_id);
+  kernel_add_binary_clause(k, internalize(5), internalize(6));
+
+  // Vivify and dense phases keep binary watches live while all large watches
+  // are disconnected.  A Kissat-style in-place shrink must preserve that
+  // lifecycle instead of reconnecting one clause ahead of the global rebuild.
+  kernel_flush_large_watches(k);
+  assert(!k.large_watches_connected);
+  const Lit image[3] = {original[0], original[2], original[3]};
+  kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id, image, 3,
+                                       0);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    assert(!k.watches.heads[lit].has_large());
+  assert(k.watches.binary_size(internalize(5)) == 1);
+  assert(k.watches.binary_size(internalize(6)) == 1);
+  kernel_check_invariants(k);
+
+  kernel_rebuild_large_watches(k);
+  assert(k.large_watches_connected);
+  assert(watched_by(k, image[0], ref));
+  assert(watched_by(k, image[1], ref));
+  kernel_check_invariants(k);
+}
+
+static void test_large_root_flush_preserves_ref_span_and_priority() {
+  Kernel k;
+  kernel_reserve_vars(k, 8);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  const Lit original[5] = {internalize(-1), internalize(2), internalize(3),
+                           internalize(4), internalize(5)};
+  Ref ref = kernel_add_large_clause(k, original, 5, true, 4,
+                                    ++k.next_clause_id);
+  Clause *candidate = clause_at(k.arena, ref);
+  candidate->set_vivify(true);
+  candidate->set_used(Clause::MAX_USED - 3);
+  const uint64_t old_id = candidate->id();
+
+  const Lit tail[3] = {internalize(6), internalize(7), internalize(8)};
+  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, false, 0,
+                                               ++k.next_clause_id);
+  uint64_t changed = 0;
+  assert(kernel_flush_root_clause(k, &ref, &changed) ==
+         RootFlushOutcome::Rewritten);
+  assert(changed == 1 && ref + clause_words(5) == tail_ref);
+
+  const Clause *shortened = clause_at(k.arena, ref);
+  assert(ref == 0 && !shortened->garbage());
+  assert(shortened->id() != old_id && shortened->size == 4);
+  assert(shortened->shrunken() && shortened->vivify());
+  assert(shortened->used() == Clause::MAX_USED - 3);
+  assert(clause_actual_words(shortened) == clause_words(5));
+  assert(ref + clause_actual_words(shortened) == tail_ref);
+  assert(!clause_at(k.arena, tail_ref)->garbage());
+  kernel_check_invariants(k);
+}
+
 static void test_rebuild_large_watches_reselects_root_false_pair() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -1972,6 +2036,8 @@ int main() {
   test_dense_mixed_order_is_consumer_scoped();
   test_large_replacement_preserves_redundant_recency();
   test_in_place_large_replacement_preserves_allocation_span();
+  test_in_place_large_replacement_respects_disconnected_watches();
+  test_large_root_flush_preserves_ref_span_and_priority();
   test_rebuild_large_watches_reselects_root_false_pair();
   test_watch_repair_primitive();
   test_canonical_binary_watch_rebuild();

@@ -1374,12 +1374,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return false;
   };
 
-  // (D) rewrite large clauses. Snapshot the original refs first (adds append to
-  // the arena only for Sweep's connected subset. The canonical pass streams to
-  // a captured original arena end, just as Kissat's `all_clauses` traversal
-  // does: refs survive vector relocation, and every Clause* is reacquired.
-  // Vivify's ordering: add_rup, del and the garbage mark all read the clause
-  // before the arena-mutating add, so the Clause* never dangles.
+  // (D) rewrite large clauses. The canonical pass streams to a captured
+  // original arena end, just as Kissat's `all_clauses` traversal does. Every
+  // surviving large image is written back into that source allocation; only
+  // unit/binary collapses retire the large record.
   std::vector<Lit> out;
   std::vector<uint64_t> chain;
   size_t large_visited = 0, large_touched = 0;
@@ -1411,12 +1409,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     const bool credundant = c->redundant();
     const uint32_t cglue = c->glue();
     const uint64_t cid = c->id();
-    // Sweep's reference implementation rewrites this connected clause in
-    // place (`sweep.c:substitute_connected_clauses`) and therefore leaves its
-    // Vivify-leftover priority bit untouched.  The shared non-Sweep
-    // substitution path has different source semantics, so preserve the bit
-    // only for an active Sweep session.
-    const bool cvivify = session && c->vivify();
     const bool sat = rewrite_lits(c->lits, c->size, out, chain);
     if (large_touched <= 5)
       substitute_stage_trace(k, "rewrite-large-first-image", out.size(),
@@ -1440,10 +1432,12 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       }
     }
     changed = true;
-    // Shared proof-rule replacement tail.  Sweep selects the general
-    // stable-allocation representation for a surviving large image; ordinary
-    // Substitute retains its existing append/collect representation.  The
-    // choice changes neither the derived clause nor the proof transition.
+    // Both Kissat substitution paths overwrite surviving large images in the
+    // source allocation (`substitute.c:substitute_clauses` and
+    // `sweep.c:substitute_connected_clauses`). Besides keeping the Ref and
+    // allocation span, this retains header state such as Vivify's leftover
+    // priority bit. Unit and binary terminals still use the shared collapse
+    // path below.
     // Clamped on cadical's rule (decompose.cpp:629 -> shrink_clause); kissat's
     // substitute.c does not clamp here at all. Deviation:
     // docs/scheduling-parity-ledger.md section 13.3.
@@ -1460,9 +1454,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
                                    static_cast<uint32_t>(out.size()))
             : 0;
     ReplaceOutcome replacement;
-    if (session && out.size() >= 3) {
-      session->rewrite_large_in_place(k, ref, out.data(),
-                                      static_cast<uint32_t>(out.size()));
+    if (out.size() >= 3) {
+      if (session)
+        session->rewrite_large_in_place(k, ref, out.data(),
+                                        static_cast<uint32_t>(out.size()));
       kernel_replace_large_clause_in_place(
           k, ref, id, out.data(), static_cast<uint32_t>(out.size()),
           replacement_glue);
@@ -1474,10 +1469,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
           replacement_glue,
           arena_order != SubstitutionArenaOrder::Policy ? &replacement_ref
                                                          : nullptr);
-    }
-    if (session && replacement == ReplaceOutcome::Large) {
-      assert(replacement_ref != INVALID_REF);
-      clause_at(k.arena, replacement_ref)->set_vivify(cvivify);
     }
     switch (replacement) {
     case ReplaceOutcome::Refuted: // all-false rewrite (unreachable at a
@@ -1530,11 +1521,11 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return touched && !rewrite_lits(c->lits, c->size, out, chain);
   };
 
-  // Tactix represents a large replacement by appending a new arena record,
-  // while Kissat shrinks the existing allocation in place. Derive the exact
-  // append image before mutating anything so neither the clause arena nor its
-  // two watch slices can hit an amortized doubling in the memory-critical
-  // pass. `visit` must enumerate the same immutable refs in both calls.
+  // Derive each image before mutating anything so the rewritten clauses' two
+  // watch slices cannot hit an amortized doubling in the memory-critical pass.
+  // Surviving large images stay in their source allocations and therefore
+  // require no clause-arena reservation. `visit` enumerates the same immutable
+  // refs in both calls.
   const auto reserve_large_replacements = [&](const auto &visit) {
     // Sweep owns an exact connected snapshot and defers one global collection
     // to the call boundary. Exact reservation here would copy the complete
@@ -1543,22 +1534,18 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     // connected-vector appends, and arena Refs survive vector relocation.
     if (session)
       return;
-    size_t arena_words = 0, watch_words = 0;
+    size_t watch_words = 0;
     visit([&](Ref ref) {
       if (!make_large_image(ref))
         return;
       if (out.size() == 2)
         watch_words += 2;
       else if (out.size() >= 3) {
-        arena_words += clause_words(static_cast<uint32_t>(out.size()));
         watch_words += 4;
       }
     });
-    assert(k.arena.size() + arena_words <= UINT32_MAX);
-    substitute_stage_trace(k, "rewrite-large-reserve-plan", arena_words,
+    substitute_stage_trace(k, "rewrite-large-reserve-plan", 0,
                            watch_words, k.arena.capacity());
-    if (k.arena.capacity() < k.arena.size() + arena_words)
-      k.arena.reserve(k.arena.size() + arena_words);
     if (watch_words) {
       k.watches.begin_batch_reserve();
       visit([&](Ref ref) {

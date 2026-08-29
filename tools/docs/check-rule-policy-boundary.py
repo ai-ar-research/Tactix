@@ -88,16 +88,18 @@ for path in sorted((root / "src/rules").glob("*/*")):
         bad.append(f"{path.relative_to(root)} writes Sweep's effort currency")
 
 # A proof rule may invoke the kernel's representation-only replacement after it
-# has proved and emitted its own large-to-large rewrite.  Keep every rule-side
-# owner explicit: Substitute consumes proved equivalences and Strengthen owns
-# its self-subsuming-resolution proof.  Strategy code and unrelated rules must
-# not use the primitive as a semantic shortcut.
+# has proved and emitted its own large-to-large rewrite. Keep every rule-side
+# owner explicit: Substitute consumes proved equivalences, Strengthen owns its
+# self-subsuming-resolution proof, and Vivify owns its probing-derived RUP
+# rewrite. Strategy code and unrelated rules must not use the primitive as a
+# semantic shortcut.
 in_place_primitive = "kernel_replace_large_clause_in_place"
 allowed_in_place_owners = {
     Path("src/kernel/kernel.hpp"),
     Path("src/kernel/kernel.cpp"),
     Path("src/rules/strengthen/strengthen.cpp"),
     Path("src/rules/substitute/substitute.cpp"),
+    Path("src/rules/vivify/vivify.cpp"),
 }
 for path in sorted((root / "src").glob("**/*")):
     if path.suffix not in {".cpp", ".hpp"}:
@@ -106,8 +108,8 @@ for path in sorted((root / "src").glob("**/*")):
         relative = path.relative_to(root)
         if relative not in allowed_in_place_owners:
             bad.append(
-                f"{relative} bypasses Substitute through "
-                f"`{in_place_primitive}`"
+                f"{relative} uses `{in_place_primitive}` without explicit "
+                "proof-rule ownership"
             )
 
 factor = (root / "src/rules/factor/factor.cpp").read_text()

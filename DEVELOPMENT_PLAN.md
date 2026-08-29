@@ -69,6 +69,27 @@ mismatch, retain and specify a provably stronger Tactix effect under the same
 correctness contract; otherwise repair it. If source, trace, proof/model
 evidence, and semantics establish neither conclusion, ask the project owner.
 
+For convergence work, equivalent sets or terminal results are not enough when
+the reference consumes order or physical state. Compare the earliest common
+state before a trajectory split and include every decision-observable part of
+the mechanism: iteration and admission order, retained clause/watch layout,
+propagation order, heuristic update order and values, heap/queue topology, and
+the clocks charged by the operation. Do not infer a cause from a later semantic
+divergence while an earlier common-state mismatch remains unexplained. A
+repaired discrepancy lands with a differential regression test for the exact
+state transition that was wrong. Performance evidence promotes the repair only
+after that mechanism check; it does not excuse or conceal an upstream parity
+gap.
+
+Once source and common-state evidence establish a sound, general reference
+repair, retain it through downstream performance regressions and investigate
+the next coupled mechanism from that honest baseline. A regression can expose
+another missing state transition, ordering rule, or representation cost; it is
+not by itself evidence that the established repair was wrong. Discard such a
+repair only if stronger evidence disproves its reference fidelity, correctness,
+generality, or an N1--N4 obligation. Record and bound diagnostic alternatives,
+but do not restore an older compensating behavior as the production default.
+
 Add a configuration arm only for a concrete time-bounded question with a
 removal condition; prefer trace-only instrumentation and remove neutral,
 superseded, or completed arms. A permanent knob needs a distinct continuing
