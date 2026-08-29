@@ -264,6 +264,16 @@ static void test_variable_compaction() {
   hg.h.best = {0, 1, -1, -1, 1};
   hg.h.target_assigned = 4;
   hg.h.best_assigned = 4;
+  // Factor marks are persistent per-polarity variable flags in Kissat.  Two
+  // surviving asymmetric marks must follow their external literals through
+  // renumbering, while a mark on retired x4 disappears.  The material
+  // watermark remains cumulative rather than recounting the compacted flags.
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  k.factor_literals_marked = 0;
+  kernel_mark_factor_literal(k, internalize(-1));
+  kernel_mark_factor_literal(k, internalize(3));
+  kernel_mark_factor_literal(k, internalize(-4));
+  assert(k.factor_literals_marked == 3);
   assert(kernel_should_compact_variables(k, 10));
   assert(kernel_compact_variables(k));
 
@@ -278,6 +288,14 @@ static void test_variable_compaction() {
   assert((hg.h.best == std::vector<int8_t>{0, -1, 1}));
   assert(hg.h.target_assigned == 2);
   assert(hg.h.best_assigned == 2);
+  assert(k.factor_marks.size() == 2 * k.nvars);
+  assert(k.factor_marks[kernel_internalize(k, -1)]);
+  assert(k.factor_marks[kernel_internalize(k, 3)]);
+  assert(k.factor_literals_marked == 3);
+  uint32_t compacted_factor_marks = 0;
+  for (const uint8_t marked : k.factor_marks)
+    compacted_factor_marks += marked != 0;
+  assert(compacted_factor_marks == 2);
   assert(lit_instance(k, make_lit(2, false)) == stable_instance);
   assert(kernel_binary_live(k, make_lit(0, false), make_lit(2, false)));
   const Clause *c = clause_at(k.arena, 0);

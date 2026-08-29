@@ -8,27 +8,30 @@ session narrative; this file is only the current resume surface.
 
 ## Resume anchor
 
-- **Stopped after accepting the homogeneous post-Factor candidate and repairing
-  Rank 29.** The accepted 40-rank baseline is
-  `benchmarks/runs/20260828-1900-tierd-ranks1-40-post-factor-fresh`.
-  Candidate/previous-accepted geometric means are 1.085182x SAT, 0.970383x
-  UNSAT, and 1.031931x overall; candidate/Kissat is 1.453686x SAT, 1.271973x
-  UNSAT, and 1.368907x overall. All 80 solver timings completed. SAT models
-  were checked; UNSAT timings remain provisional under the user's explicit
-  direction not to wait for proof-tail completion.
-- **Rank 29 is closed by a general Kissat mechanism repair.** Both solvers
-  accepted the same 1,139 startup Factor grids, but accepted Tactix scanned the
-  surviving per-literal bits and alone invoked Factor again at conflict 2969,
-  accepting ten extra grids. Pinned Kissat instead gates calls with cumulative
-  `literals_factor` versus `limits.factor.marked` and snapshots the counter only
-  after a completed call, after its own additions. Tactix now implements that
-  exact lifecycle uniformly. The repaired solver returns SAT/model-verified in
-  363.350 seconds and 115,160 KiB versus the accepted 1,200.004-second timeout;
-  Kissat takes 298.194 seconds and 65,988 KiB. Repaired Tactix and Kissat have
-  exactly 32,532,310 decisions and 10,609,587 conflicts.
-- Full evidence, the complete 40-rank runtime/RSS table, the codebase revisit,
-  and the exact reopening rule are in
-  `benchmarks/reports/2026-08-28-rank29-factor-watermark-final-revisit.md`.
+- **Stopped after repairing Factor's literal-mark state across variable
+  compaction and localizing Rank 36 beyond an exact ~127k-conflict frontier.**
+  Kissat compacts its per-polarity Factor bits with each variable; Tactix mapped
+  every neighboring persistent field but left `factor_marks` in old numbering.
+  The kernel now maps both polarities of every surviving variable, drops marks
+  on retired variables, and preserves the separate cumulative material count.
+- **The repair closes the observed Factor divergence, not Rank 36's runtime.**
+  Repaired Tactix and Kissat have exact Factor seed order, grid summaries, and
+  grid members at conflicts 0, 16,005, 27,298, 59,676, and 105,874, with grid
+  counts 5,913 / 105 / 68 / 14 / 2. The normalized search trajectory has no
+  divergence through the repaired trace extent (~127k conflicts). Nevertheless
+  repaired Tactix reaches 1,200.14 seconds UNKNOWN versus same-core Kissat SAT
+  in 420.86 seconds; the next owner is later downstream search state.
+- **The fresh homogeneous watermark candidate is neutral overall.** Campaign
+  `20260828-2200-tierd-ranks1-40-factor-watermark-fresh` completed all 80 solver
+  timings. Fresh/previous geometric means are 1.003758x SAT, 0.987593x UNSAT,
+  and 0.996451x overall; fresh/Kissat is 1.459425x SAT, 1.265117x UNSAT, and
+  1.368544x overall. Rank 29 improves from timeout to 306.942-second SAT, while
+  Rank 36 regresses from 365.851-second SAT to timeout and Rank 20 from 317.014
+  to 467.965 seconds. Nineteen unfinished UNSAT proof tails are explicitly
+  assumed-pass per user direction, not labeled independently verified.
+- Full evidence, the complete fresh runtime/RSS table, codebase revisit, and
+  exact reopening rule are in
+  `benchmarks/reports/2026-08-28-factor-mark-compaction-rank36-divergence-revisit.md`.
 
 ## Architectural contract
 
@@ -52,51 +55,56 @@ session narrative; this file is only the current resume surface.
 
 ## Verification at the stop point
 
-- Release: 76/76 PASS, including micro-proofs, configuration wiring,
-  classification/default-strategy checks, rule-policy boundary, N1, and solve
-  reset.
-- Focused Debug ASAN/UBSAN scheduling and Factor tests PASS with leak detection
-  disabled for the harness.
-- The cumulative factor counter advances only on bit zero-to-one transitions.
-  Clause-producing lifecycle code is its sole writer; Factor reports whether
-  its schedule drained; Default inprocessing is the only policy consumer.
-- Rank 29 bounded replay is exact through the former conflict-2969 divergence.
-  The final SAT run is independently model-verified and leaves no certificate
-  or scratch residue.
-- No new 40-rank campaign was submitted for the one-line mechanism validation.
-  The accepted homogeneous campaign remains the only selection evidence; Rank
-  29 is a fixed diagnostic witness, not a production selector.
+- Release: 73/73 PASS in the current build configuration, including
+  micro-proofs, configuration wiring, classification/default-strategy checks,
+  rule-policy boundary, N1, Factor, compaction, and solve reset.
+- Focused Debug ASAN/UBSAN kernel, scheduling, and Factor tests PASS with leak
+  detection disabled because LeakSanitizer cannot operate under the harness's
+  tracing environment.
+- The compaction test pins asymmetric positive/negative Factor marks, removal
+  of a retired marked variable, and preservation of the cumulative watermark.
+  A Debug invariant pins the literal-mark vector to `2 * nvars`.
+- Rank 36's pinned Kissat SAT model is independently checked. Repaired Tactix
+  and Kissat traces are exact through the five retained Factor calls and show
+  no normalized search divergence through ~127k conflicts.
+- No proof/certificate residue remains. No diagnostic cluster job remains;
+  only the user's pre-existing interactive allocation is active.
 
 ## Open performance work
 
-- Rank 29 now has exact search counts but remains 1.218x slower and uses 1.745x
-  Kissat RSS. Resume only with common-state throughput and retained-
-  representation profiling; do not alter Factor admission or search policy.
-- Rank 15 remains the largest clear SAT search-quality gap in the accepted
-  table (521.347 versus 80.697 seconds). Its repaired Factor heap and score
-  hashes are exact through the former split; the next owner is assigned-state
-  or lazy heap-removal input.
-- Rank 34 is 1,003.155 versus 344.520 seconds and is the next unlocalized SAT
-  outlier after Rank 15. Rank 5/7/8/10/13/14 retain large absolute memory costs.
+- Rank 36 is the immediate divergence target. Resume after the exact ~127k
+  frontier and compare the next reconstruction, propagation order,
+  inprocessing output, clause tiers, decision heap, and search trajectory.
+  The timeout run spends only 1.092 seconds in Factor; the wall loss is
+  downstream search amplification, not direct Factor cost.
+- Rank 15 remains the largest clear SAT search-quality gap (503.081 versus
+  80.697 seconds), followed by Rank 34 (992.149 versus 344.718) and Rank 20
+  (467.965 versus 137.379). Rank 16 is near time parity and has zero factorings
+  in both solvers, so Factor is not its owner.
+- Rank 29 now takes 306.942 versus Kissat's 299.001 seconds in the fresh run and
+  retains the completed-call watermark closure. Do not reopen its admission
+  lifecycle absent a changed call boundary.
 - Representation and memory remain generally higher than Kissat. Treat equal-
   trajectory gaps as implementation/representation leads, not reasons for
   formula-dependent strategy.
-- Factor grid selection/order is exact on the Rank 29 startup pass. Reopen the
-  general Factor-quality row only on a changed selected grid/order or fresh-
-  variable state at a common boundary.
+- Factor grid selection/order is exact on Rank 36 through conflict 105,874.
+  Reopen the implementation row only on a later changed grid/order or fresh-
+  variable state at a common boundary; never restore a formula/rank gate.
 
 ## Immutable authorities
 
 - Current pinned Kissat source comparator: commit
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`.
-- Accepted pre-watermark source base:
-  `670578514b7b0335dd80b13dcfb384b3765813fb`.
-- Rank 29 input:
-  `tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz`,
+- Accepted watermark source base:
+  `db79dbff05a196cef20adb8877433f4a15b3360b`.
+- Rank 36 input is
+  `tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz`,
   SHA-256
-  `3ee6c6db49c2d64d13121d47a59e4783ae5525d96c9668ba72c1e1ff6d75b5e0`.
-- Rank 29 causal diagnostics are frozen under campaigns `20260828-2000`
-  through `20260828-2100`; validation is `20260828-2130` / job `1655741`.
+  `da8c2a27aa6ad3550c6ee749ca342ce8378fab26fc559125498e0ebc2543b31c`.
+- Rank 36 causal traces are frozen in
+  `20260828-2130-tierd-rank36-factor-mark-compaction-frontier`; same-core
+  runtime evidence is in
+  `20260828-2140-tierd-rank36-factor-mark-compaction-runtime`.
 - Do not rerun a frozen comparator merely to fill a missing diagnostic field.
   New measurements need immutable pins, independent validation, and cleanup.
 
@@ -105,7 +113,9 @@ N4 remains complete at the accepted parity pin. Exact classification has only
 the pinned Kissat consumers, production efforts are invariant, and Kissat
 creation order is unconditional. The Factor completed-call watermark repair is
 a general cross-mechanism wire between rule-produced material state and the
-existing Factor scheduler; it introduces no new consumer or selector.
+existing Factor scheduler; it introduces no new consumer or selector. Variable
+compaction now transports the same persistent per-polarity Factor flag that
+Kissat transports, again without adding any admission or formula selector.
 <!-- track-sched:end -->
 
 ## Gates
