@@ -892,6 +892,36 @@ static void test_canonical_substitution_preserves_large_clause_position() {
          std::vector<Lit>({internalize(3), internalize(1), internalize(-3)}));
 }
 
+// Kissat's ordinary `substitute_clauses` compacts a surviving large clause in
+// its existing header. A root-false shortening must therefore retain the
+// Vivify-leftover priority bit just as a representative rewrite does.
+static void test_canonical_root_shrink_preserves_vivify_priority() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit lits[4] = {internalize(1), internalize(2), internalize(3),
+                       internalize(4)};
+  const Ref source =
+      kernel_add_large_clause(k, lits, 4, /*redundant=*/true, /*glue=*/3);
+  clause_at(k.arena, source)->set_vivify(true);
+  kernel_assign_unit(k, internalize(-1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  const Clause *rewritten = nullptr;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      assert(!rewritten);
+      rewritten = c;
+    }
+    ref += clause_actual_words(c);
+  }
+  assert(rewritten && rewritten->size == 3);
+  assert(rewritten->vivify());
+  assert(std::find(rewritten->begin(), rewritten->end(), internalize(1)) ==
+         rewritten->end());
+}
+
 // Connected substitution must not rebuild an unrelated binary watch list.
 // Besides avoiding a whole-formula snapshot on very large inputs, retaining
 // this order is semantic: later bounded scans consume candidates in watch
@@ -1286,6 +1316,7 @@ int main() {
   test_sweep_rewrites_only_connected_irredundant_clause();
   test_sweep_does_not_rewrite_redundant_only_neighbourhood();
   test_canonical_substitution_preserves_large_clause_position();
+  test_canonical_root_shrink_preserves_vivify_priority();
   test_substitution_preserves_unrelated_binary_watch_order();
   test_substitution_preserves_binary_multiplicity();
   test_drat_keeps_transient_equivalence_lemmas();

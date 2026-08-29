@@ -860,19 +860,15 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                    static_cast<uint32_t>(k.lrat_chain.size()));
 }
 
-// Kissat shortens large clauses inside their existing arena records. Tactix's
-// packed replacement is appended physically but inherits the source's current
-// position in kernel_replace_clause. Restore those logical positions at the
-// band-end collection: the next Vivify band rebuilds every large watch in
-// arena order, so this is semantic state rather than a storage detail.
+// Unit and binary terminals retire their old large record. Batch those
+// genuinely reclaimable records across the four Vivify bands. Large Vivify
+// terminals themselves stay in place, exactly as in Kissat.
 struct VivifyArenaOrder final : ArenaOrdering {
   VivifyReclamationBatch &batch;
 
   explicit VivifyArenaOrder(VivifyReclamationBatch &b) : batch(b) {}
 
   void retire() { batch.changed = true; }
-
-  void inherit(Ref, Ref) { batch.changed = true; }
 
   void order(const Kernel &k, std::vector<Ref> &refs) override {
     kernel_sort_refs_by_logical_clause_position(k, refs);
@@ -917,21 +913,23 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                        nullptr, 0);
   }
   k.stats.vivified++;
-  // Kissat rewrites a large candidate in place: it explicitly removes the
-  // candidate's two old large watches before installing the shortened pair.
-  // Tactix allocates a replacement clause, so do the same unwatch here before
-  // kernel_replace_clause marks the old arena record garbage.  Leaving those
-  // two dead entries for propagation to discover changed the tick ledger by a
-  // few ticks per later candidate and moved the budget boundary.
+  // Kissat overwrites a large candidate inside its existing arena allocation.
+  // This is search-visible: retaining only a logical-position alias still
+  // changes the physical references and allocation boundaries consumed by the
+  // next Vivify dose.  Tactix already has the same shrunken-record primitive;
+  // use it here instead of reconstructing the apparent order after the fact.
   if (lits.size() > 2) {
-    kernel_unwatch_large(k, c->lits[0], cref);
-    kernel_unwatch_large(k, c->lits[1], cref);
+    kernel_replace_large_clause_in_place(
+        k, cref, id, lits.data(), static_cast<uint32_t>(lits.size()),
+        redundant ? glue : 0);
+    c = clause_at(k.arena, cref);
+    vivify_reestablish_watch_invariant(k, c->lits, c->size);
+    return ApplyResult::Ok;
   }
   // shared replacement tail; glue is a redundant-clause concept, 0 otherwise
-  Ref replacement_ref = INVALID_REF;
   switch (kernel_replace_clause(k, c, id, lits.data(),
                                 static_cast<uint32_t>(lits.size()), redundant,
-                                redundant ? glue : 0, &replacement_ref)) {
+                                redundant ? glue : 0, nullptr)) {
   case ReplaceOutcome::Refuted:
     return ApplyResult::Unsat;
   case ReplaceOutcome::Unit:
@@ -954,16 +952,8 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
     arena_order.retire();
     return ApplyResult::Ok;
   case ReplaceOutcome::Large:
-    arena_order.inherit(replacement_ref, cref);
-    // Kissat first shrinks and rewatches the live candidate in place, then
-    // repairs the watched-pair invariant at the common terminal.  Tactix's
-    // packed replacement changes the Ref, so perform the same repair on the
-    // new live record after kernel_replace_clause has installed it.  Doing
-    // this before replacement reverses the source lifecycle: it backtracks
-    // while the old clause is still live and only then mutates the database.
-    c = clause_at(k.arena, replacement_ref);
-    vivify_reestablish_watch_invariant(k, c->lits, c->size);
-    return ApplyResult::Ok;
+    assert(false);
+    return ApplyResult::Unsat;
   default:
     assert(false);
     return ApplyResult::Unsat;
@@ -1637,11 +1627,6 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
   vivify_schedule(k, candidates, &sched);
   if (sched.refuted)
     return ApplyResult::Unsat;
-  if (sched.root_unit) {
-    if (inprocess_reach_root(k))
-      return ApplyResult::Unsat;
-    return ApplyResult::Ok;
-  }
   // Kissat flushes large watches before scheduling and reconnects all live
   // clauses after committing the candidate literal order.  The resulting
   // watch pose controls which conflict/reason a probing propagation records.
@@ -1652,6 +1637,11 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
   // a packed replacement at a different allocation position.
   kernel_rebuild_large_watches(k);
   event_trace_slot_boundary(k, "vivify-dense-resume", "resume");
+  if (sched.root_unit) {
+    if (inprocess_reach_root(k))
+      return ApplyResult::Unsat;
+    return ApplyResult::Ok;
+  }
   k.stats.vivify_prioritized += sched.prioritized;
   k.stats.vivify_reprioritized += sched.rearmed;
   k.stats.vivify_flushed += sched.flushed;

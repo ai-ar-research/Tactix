@@ -37,11 +37,10 @@ void vivify_trim_replacement_prefix(Kernel &, Lit implied,
                                     uint32_t replacement_size);
 
 // One DefaultPolicy dose consists of several independently budgeted tier
-// bands.  Kissat keeps shortened records in place across those bands and
-// reclaims once after the dose.  Tactix's accepted proof rule still appends a
-// packed replacement, so this rule-owned transaction records whether a later
-// logical-order collection is required.  Public/canonical Vivify creates and
-// drains its own transaction, preserving the complete N1 action surface.
+// bands. Large rewrites stay in place like Kissat; unit/binary collapses and
+// deletions can still leave reclaimable records. This rule-owned transaction
+// defers their collection until the dose ends. Public/canonical Vivify creates
+// and drains its own transaction, preserving the complete N1 action surface.
 struct VivifyReclamationBatch {
   bool changed = false;
   void collect(Kernel &);

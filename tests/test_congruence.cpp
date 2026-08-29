@@ -192,6 +192,29 @@ static void test_binary_resolution_unit() {
   assert(k.stats.congruence_gates == 0 && "no gate was extracted");
 }
 
+// Kissat's `all_variables` follows compact internal creation order. Stable
+// Tactix variable IDs can disagree with that order after parsing/compaction,
+// so two independent Y1 units must be discovered in permanent import order,
+// not raw variable-number order.
+static void test_binary_resolution_unit_uses_import_order() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_record_import(k, 2); // x3 is created before externally smaller x1.
+  kernel_record_import(k, 3);
+  kernel_record_import(k, 0);
+  kernel_record_import(k, 1);
+  kernel_add_binary_clause(k, internalize(3), internalize(4));
+  kernel_add_binary_clause(k, internalize(3), internalize(-4));
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(k.stats.congruence_y1_units == 2);
+  assert(k.trail.size() >= 2);
+  assert(k.trail[0] == internalize(3));
+  assert(k.trail[1] == internalize(1));
+}
+
 static void test_binary_resolution_no_unit() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -740,6 +763,7 @@ int main() {
   test_no_congruence();
   test_kind_isolation();
   test_binary_resolution_unit();
+  test_binary_resolution_unit_uses_import_order();
   test_binary_resolution_no_unit();
   test_binary_equivalence_channel();
   test_binary_resolution_refutes();

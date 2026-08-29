@@ -1173,8 +1173,10 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
 
   // A live in-place record cannot retain stale watch entries.  Removing them
   // before the semantic overwrite also avoids depending on cached blockers.
-  kernel_unwatch_large(k, old_first, ref);
-  kernel_unwatch_large(k, old_second, ref);
+  if (k.large_watches_connected) {
+    kernel_unwatch_large(k, old_first, ref);
+    kernel_unwatch_large(k, old_second, ref);
+  }
   if (!redundant)
     for (uint32_t i = 0; i < old_size; ++i) {
       const Lit old = c->lits[i];
@@ -1204,8 +1206,10 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
   rule_journal_note_large_add(k, lits, size, id, redundant,
                               redundant ? glue : 0);
 #endif
-  k.watches.push_large(lits[0], lits[1], ref);
-  k.watches.push_large(lits[1], lits[0], ref);
+  if (k.large_watches_connected) {
+    k.watches.push_large(lits[0], lits[1], ref);
+    k.watches.push_large(lits[1], lits[0], ref);
+  }
 
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
@@ -1323,6 +1327,19 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   k.stats.flushed++;
   if (changed)
     (*changed)++;
+  if (kept.size() >= 3) {
+    // Kissat's root simplifiers shorten a surviving large clause inside its
+    // existing arena record.  Besides preserving reference/occurrence order,
+    // this retains header state such as `vivify`, `used`, and `reason`.
+    // Appending a packed replacement here silently cleared Vivify's leftover
+    // priority between doses and could postpone the clause past the next
+    // cumulative effort boundary despite an identical semantic formula.
+    kernel_replace_large_clause_in_place(
+        k, original_ref, id, kept.data(), static_cast<uint32_t>(kept.size()),
+        redundant ? glue : 0);
+    *ref = original_ref;
+    return RootFlushOutcome::Rewritten;
+  }
   switch (kernel_replace_clause(k, c, id, kept.data(),
                                 static_cast<uint32_t>(kept.size()), redundant,
                                 redundant ? glue : 0, ref)) {
@@ -1354,16 +1371,8 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
     assert(!k.pending.valid || k.pending.ref != original_ref);
     return RootFlushOutcome::Binary;
   case ReplaceOutcome::Large:
-    if (reason_var != INVALID_VAR) {
-      Assigned &a = k.assigned[reason_var];
-      a.reason = *ref;
-      clause_at(k.arena, *ref)->flags |= Clause::REASON;
-    }
-    if (k.pending.valid && k.pending.ref == original_ref) {
-      k.pending.ref = *ref;
-      clause_at(k.arena, *ref)->flags |= Clause::REASON;
-    }
-    return RootFlushOutcome::Rewritten;
+    assert(false);
+    return RootFlushOutcome::Refuted;
   }
   assert(false);
   return RootFlushOutcome::Refuted;
@@ -2347,6 +2356,7 @@ void kernel_rebuild_large_watches(Kernel &k) {
       k.watches.push_large(c->lits[0], c->lits[1], ref);
       k.watches.push_large(c->lits[1], c->lits[0], ref);
   }
+  k.large_watches_connected = true;
 }
 
 void kernel_resume_walk_watches(Kernel &k) {
@@ -2645,7 +2655,9 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
 }
 
 void kernel_flush_large_watches(Kernel &k) {
+  assert(k.large_watches_connected);
   kernel_compact_dense_entry_watches(k, /*keep_large=*/false);
+  k.large_watches_connected = false;
 }
 
 void kernel_deduplicate_binary_watches(Kernel &k) {
@@ -3301,7 +3313,7 @@ void kernel_check_invariants(const Kernel &k) {
     for (const Ref r : k.eager_recent)
       if (r == ref)
         eager_seen++; // a live clause START; see the count check below
-    if (!c->garbage()) {
+    if (!c->garbage() && k.large_watches_connected) {
       // ...except on a ROOT-ASSIGNED watched literal. The sparse root collect
       // sweeps only from its watermark while its watch flush drops every large
       // entry of a fixed literal (kissat collect.c
@@ -3356,6 +3368,9 @@ void kernel_check_invariants(const Kernel &k) {
         blocker_is_member |= member == w.blocking();
       assert(blocker_is_member && "large-watch blocker outside its clause");
     }
+    if (!k.large_watches_connected)
+      assert(!k.watches.heads[lit].has_large() &&
+             "large watch retained while globally disconnected");
   }
   // binary watch symmetry: every binary entry (l -> other) must have its
   // mirror (other -> l); losing one side silently kills the clause

@@ -4,13 +4,25 @@
 **Sources:** Tactix, Kissat 4.0.4 (`kissat/`), and the four winner trees under
 `winners/`. Frozen results, not source reputation, decide priority in Phase 4.25.
 
+**2026-08-29 contract update:** the former content-profile and LymphoSAT-style
+preset-selection proposals in this survey are withdrawn. Production is one
+homogeneous Kissat-aligned default. Formula size, density, classification,
+benchmark identity, rank, literal identity, and conflict count do not select a
+strategy. Pinned Kissat's `classification.small` has no consumer;
+`classification.bigbig` gates only ordinary fast binary jump-reason assignment.
+Production BVE, Factor, forward subsumption, and Vivify remain enabled at
+100‰, 50‰, 100‰, and 100‰ for every formula. Kissat creation order is the
+default; `TACTIX_ARENA_ORDER=1` is a manually selected CaDiCaL diagnostic arm.
+An experimental mechanism may remain explicit while it is measured, but an
+accepted mechanism must ship uniformly or not ship at all.
+
 ## Result and order
 
 Stage A should first remove local avoidable cost and close divergences against
 Kissat 4.0.4. Later winner mechanisms enter only at their cumulative stage:
-SC24 initial fast elimination, AE's VSIDS/CHB bandit, Satsuma symmetry breaking,
-then LymphoSAT-style content features for SAT. This order prevents a portfolio
-layer from masking a weaker core solver.
+SC24 initial fast elimination, AE's VSIDS/CHB bandit, then Satsuma symmetry
+breaking. They are candidate general mechanisms, not formula selectors. This
+order prevents an experimental layer from masking a weaker core solver.
 
 ## Tactix source findings
 
@@ -63,8 +75,8 @@ resumption are strategy even when a reference implements them inside a rule.
 Use frozen per-instance gaps in descending coverage/PAR impact. For each, the
 rule journal identifies the earliest portable divergence before any tuning.
 Candidate families are the A0 costs above, remaining N4 accepted deviations,
-and reference mechanism mismatches. A content profile may select among already
-validated Tactix presets, but Stage A may not use benchmark identity.
+and reference mechanism mismatches. Every production candidate uses one
+uniform configuration over the complete evaluation set.
 
 Exit remains every Kissat solve plus ≤1.10× PAR-2 on SC24, SC25, SC26, and
 their union. If a mechanism does not move its causal fixture, remove the arm.
@@ -76,11 +88,12 @@ amid numerous later public fixes: SC24 defaults `fastel=1` and removes the
 `factordelay` option. Tactix currently excludes elimination from preprocessing
 (`default_policy.cpp:2116`) and carries a measured Factor admission deviation.
 
-First test an explicit initial-fast-elimination pose matching SC24's small
+First test an explicit initial-fast-elimination diagnostic pose matching SC24's
 occurrence/resolvent limits; record its formula delta, proof/model cost, and
-downstream effect. Test Factor timing separately. Do not port SC24's reversed
-fresh-variable ordering or congruence defects visible in the source diff; those
-are not strategy improvements.
+downstream effect. If accepted, it becomes the uniform default for every
+formula; formula shape cannot activate it. Test Factor timing separately. Do
+not port SC24's reversed fresh-variable ordering or congruence defects visible
+in the source diff; those are not strategy improvements.
 
 ## Stage C — AE-Kissat-MAB
 
@@ -105,25 +118,27 @@ rule. Therefore Stage D depends on P3 in the proof-rule survey. Until a native
 DRAT/LRAT story exists, collect symmetry features/yield only and do not mutate
 the formula.
 
-## Stage E — LymphoSAT SAT target
+## Withdrawn Stage E — LymphoSAT content selection
 
 LymphoSAT profiles clause-length, polarity, Horn, binary-graph, occurrence,
 span, and block-structure features, then checks 126 ordered threshold matchers
 before a Kissat fallback. The matchers use content, but many windows are narrow
 enough to act as family fingerprints (for example Purdom variable/clause ranges).
 
-Tactix should reuse a small, cheap, versioned feature vector to choose among
-proof-clean strategy presets inside one solver, not copy 126 direct solvers or
-family names. Train/tune on the SC24–26 union intentionally, report matcher
-coverage/false positives, use perturbation tests, and reserve SC27 as the first
-clean holdout. Stage E scores LymphoSAT SAT solves only; UNSAT does not influence
-its target or VBS contribution.
+That selection architecture is outside the current project contract. Even a
+small feature vector would make production behavior depend on formula content
+through predicates pinned Kissat does not use. LymphoSAT remains useful as a
+source of general search mechanisms and as a frozen VBS comparator, but Tactix
+will not add content matchers, family fingerprints, or automatically selected
+presets. A generally useful mechanism must be evaluated as one homogeneous
+candidate and, if accepted, become part of the uniform default.
 
 ## Implementation queue after frozen results
 
 1. Rank Stage-A misses from frozen Kissat data and profile the first causal path.
 2. Apply the smallest A0 optimization or semantic repair that addresses it.
 3. Close Stage A before activating the SC24 fast-elimination experiment.
-4. Add AE, Satsuma, and LymphoSAT mechanisms only at Stages C, D, and E.
-5. Preserve one feature-driven binary and cumulative correctness/performance
-   guards throughout.
+4. Add AE or Satsuma mechanisms only at Stages C and D, and only as candidates
+   for one uniform default.
+5. Preserve one homogeneous binary and cumulative correctness/performance
+   guards throughout; never add a content/rank/benchmark selector.

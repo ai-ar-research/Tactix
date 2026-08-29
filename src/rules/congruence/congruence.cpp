@@ -2690,7 +2690,13 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
     mark.resize(nlits, 0);
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<uint64_t> chain;
-  for (Var v = 0; v < k.nvars; v++) {
+  // Kissat's `all_variables` walks compact internal indices. Those indices are
+  // allocated on first import and compaction preserves their relative order,
+  // so this is a creation-order scan—not external-number order. Tactix keeps
+  // stable variable IDs across collections; recover the same order explicitly.
+  std::vector<Var> variable_order;
+  kernel_vars_in_import_order(k, variable_order);
+  for (const Var v : variable_order) {
     // V6a owns one complete linear pass.  The shared Congruence allowance may
     // truncate gate extraction or closure, but must not starve this pass after
     // they have already spent it.  Only a global termination request can cut

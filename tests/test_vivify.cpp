@@ -327,23 +327,29 @@ static void test_trail_reuse() {
   assert(k.level == 0 && k2.level == 0 && !k.conflict_valid); // root is clean
 }
 
-// A successful LARGE shrink allocates a replacement in Tactix.  Kissat edits
-// the candidate in place, so parity requires explicitly removing the old
-// candidate's watch pair before the arena record becomes garbage.  The public
-// transaction compacts the arena before returning; validate the resulting
-// live-watch graph (the journal regression separately pins the pre-collection
-// propagation tick boundary).
-static void test_large_rewrite_unwatches_candidate() {
+// Kissat shortens a successful large Vivify candidate in place.  Preserve the
+// exact Ref and original allocation boundary; appending a packed replacement
+// and later sorting it back into logical order is not equivalent for the next
+// Vivify dose's reference and occurrence state.
+static void test_large_rewrite_stays_in_place() {
   Kernel k;
-  kernel_reserve_vars(k, 4);
+  kernel_reserve_vars(k, 7);
   const Lit candidate[4] = {internalize(1), internalize(2), internalize(3),
                             internalize(4)};
   const Ref rewritten = kernel_add_large_clause(k, candidate, 4, false, 0);
+  const Lit tail[3] = {internalize(5), internalize(6), internalize(7)};
+  const Ref tail_ref = kernel_add_large_clause(k, tail, 3, false, 0);
   kernel_add_binary_clause(k, internalize(1), internalize(-2));
 
   assert(vivify_try(k, rewritten) == ApplyResult::Ok);
   assert(k.stats.vivify_shrunken == 1);
-  assert(live_large(k) == 1);
+  assert(live_large(k) == 2);
+  const Clause *shortened = clause_at(k.arena, rewritten);
+  assert(!shortened->garbage() && shortened->size == 3);
+  assert(shortened->shrunken());
+  assert(clause_actual_words(shortened) == clause_words(4));
+  assert(rewritten + clause_actual_words(shortened) == tail_ref);
+  assert(!clause_at(k.arena, tail_ref)->garbage());
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     for (const WatchEntry watch : k.watches.entries(lit))
       if (!watch.binary()) {
@@ -520,8 +526,8 @@ static void test_schedule_root_false_ternary_becomes_binary() {
 
 // Kissat fixes a candidate's tier membership before root simplification.  A
 // tier-2 clause whose root-false literal is removed can therefore acquire a
-// tier-1 glue while remaining in the current tier-2 schedule.  Tactix allocates
-// a replacement record and must carry that pass-time membership explicitly.
+// tier-1 glue while remaining in the current tier-2 schedule. Tactix must carry
+// that pass-time membership through the in-place root rewrite explicitly.
 static void test_schedule_root_shrink_preserves_pass_time_tier() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -539,6 +545,7 @@ static void test_schedule_root_shrink_preserves_pass_time_tier() {
   assert(k.stats.vivify_checked == 0);
   assert(k.stats.vivify_reprioritized == 1);
   assert(k.stats.vivify_prioritized == 1);
+  assert(k.large_watches_connected);
   bool found = false;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -752,7 +759,7 @@ int main() {
   test_tier3_scope();
   test_leftover_priority();
   test_trail_reuse();
-  test_large_rewrite_unwatches_candidate();
+  test_large_rewrite_stays_in_place();
   test_replacement_watch_pose_scans_unassigned_tail();
   test_replacement_watch_invariant_backtracks_below_false_pair();
   test_large_instantiation_retains_candidate_pose();
