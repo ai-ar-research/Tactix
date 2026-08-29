@@ -114,6 +114,14 @@
       "final_checked_results": 29,
       "geomean_candidate_over_immediate_predecessor_on_joint_solves": 0.9895490413971315,
       "classification": "Partial only. Rank 19 is SAT in 769.186 seconds and Rank 36 is SAT in 385.461 seconds; Ranks 31, 37, 38, and 40 remain in solver execution."
+    },
+    {
+      "recorded_at": "2026-08-29T19:26:00Z",
+      "provisional_solver_results": 40,
+      "expected_verdicts": 40,
+      "final_checked_results": 31,
+      "remaining_nonblocking_checks": 9,
+      "classification": "Solver complete and accepted. Rank 39 proof checking has also completed; the nine remaining UNSAT proof jobs continue independently."
     }
   ],
   "purpose": "Final homogeneous Rank 1-40 validation of the exact production binary after the general disconnected-large-watch lifecycle repair found by the sanitizer revisit.",

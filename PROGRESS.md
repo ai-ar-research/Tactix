@@ -78,6 +78,12 @@ session narrative; this file is only the current resume surface.
   Final solver coverage is 40/40. PAR-2 is 11,215.788 seconds, 0.9945x the
   immediate predecessor and 0.9043x the earlier 39/40 accepted baseline;
   all-rank geometric mean is 0.9897x the predecessor and 1.4313x Kissat.
+- **Accepted source is committed locally as `bad5cbf`.** The requested push to
+  `origin/main` was rejected by the environment's private-repository egress
+  policy, which requires explicit authorization of this exact commit and
+  destination. Do not bypass it. At the post-commit checkpoint the final
+  campaign is 31/40 checked (Rank 39 completed) and the predecessor is 39/40;
+  all remaining proof jobs are still running.
 
 ## Architectural contract
 
