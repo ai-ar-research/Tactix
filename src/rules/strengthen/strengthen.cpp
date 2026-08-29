@@ -1,13 +1,34 @@
 // See strengthen.hpp for the rule's contract.
 #include "rules/strengthen/strengthen.hpp"
 
+#include "diagnostics/event_trace.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "proof/proof.hpp"
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 
 namespace tactix {
+
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+static uint64_t selected_strengthen_clause_id() {
+  const char *value =
+      std::getenv("TACTIX_EVENT_TRACE_STRENGTHEN_CLAUSE_ID");
+  return value ? std::strtoull(value, nullptr, 10) : 0;
+}
+
+static bool selected_strengthen_clause(const Clause *clause) {
+  const uint64_t selected = selected_strengthen_clause_id();
+  return selected && clause->id() == selected;
+}
+
+static bool selected_strengthen_pair(int *first, int *second) {
+  const char *value = std::getenv("TACTIX_EVENT_TRACE_STRENGTHEN_PAIR");
+  return value && std::sscanf(value, "%d,%d", first, second) == 2;
+}
+#endif
 
 RuleEligibility strengthen_guard(const Kernel &k) {
   // Quiescent root. No ¬conflict_valid conjunct: a pure F-rewrite is sound
@@ -655,6 +676,20 @@ ApplyResult strengthen_apply(Kernel &k) {
   std::vector<Ref> candidates;
   if (!ended && !interrupted) {
     strengthen_candidates(k, candidates);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    for (const Ref ref : candidates) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!selected_strengthen_clause(c))
+        continue;
+      uint32_t touched = 0;
+      for (const Lit lit : *c)
+        touched += kernel_touched_since(k, var_of(lit), wm);
+      event_trace_detail(k, "strengthen_selected_pre_filter", 1);
+      event_trace_detail(k, "strengthen_selected_touched", touched);
+      event_trace_detail(k, "strengthen_selected_size", c->size);
+      break;
+    }
+#endif
     if (filter) {
       size_t kept = 0;
       for (const Ref ref : candidates) {
@@ -668,6 +703,13 @@ ApplyResult strengthen_apply(Kernel &k) {
       }
       candidates.resize(kept);
     }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    bool retained = false;
+    for (const Ref ref : candidates)
+      retained |= selected_strengthen_clause(clause_at(k.arena, ref));
+    if (selected_strengthen_clause_id())
+      event_trace_detail(k, "strengthen_selected_retained", retained);
+#endif
   }
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   std::vector<std::vector<ForwardWatch>> forward_watches(2 * k.nvars);
@@ -750,11 +792,50 @@ ApplyResult strengthen_apply(Kernel &k) {
     const uint64_t red_str_before = k.stats.strengthened;
     bool budget_exhausted = false;
     Clause *c = clause_at(k.arena, cref);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    const bool selected = selected_strengthen_clause(c);
+    if (selected) {
+      event_trace_detail(k, "strengthen_selected_index", ci);
+      Lit scan = INVALID_LIT, positive = INVALID_LIT;
+      int scan_external = 0, other_external = 0;
+      if (selected_strengthen_pair(&scan_external, &other_external)) {
+        for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+          const int external = kernel_externalize(k, lit);
+          if (external == scan_external)
+            scan = lit;
+          else if (external == other_external)
+            positive = lit;
+        }
+      }
+      if (scan != INVALID_LIT && positive != INVALID_LIT) {
+        const Lit other = positive;
+        uint32_t stream_matches = 0;
+        for (const ForwardWatch &watch : forward_watches[scan])
+          stream_matches += watch.binary && watch.other() == other;
+        event_trace_detail(k, "strengthen_selected_binary_copies",
+                           kernel_binary_copies(k, scan, other));
+        event_trace_detail(k, "strengthen_selected_stream_size",
+                           forward_watches[scan].size());
+        event_trace_detail(k, "strengthen_selected_stream_matches",
+                           stream_matches);
+      }
+    }
+#endif
     k.stats.strengthen_checked++;
     mark_candidate(k, marks, c, 1);
     const Partner p = find_forward_partner(
         k, marks, c, forward_watches, visits.value, check_start,
         visit_bounded, visit_budget, &budget_exhausted);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (selected) {
+      event_trace_detail(k, "strengthen_selected_result", p.res.kind);
+      event_trace_detail(
+          k, "strengthen_selected_flipped",
+          p.res.flipped == INVALID_LIT
+              ? 0
+              : kernel_externalize(k, p.res.flipped));
+    }
+#endif
     mark_candidate(k, marks, clause_at(k.arena, cref), 0);
     if (!budget_exhausted) {
       std::pair<Lit, Lit> new_binary{INVALID_LIT, INVALID_LIT};

@@ -3506,11 +3506,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // particular it resets the mutations made by unsuccessful early Lucky
   // trials before late Lucky and first search.
   // The full dense-mode exit corresponds to Kissat's arena-order reconnect.
-  // Tactix may have physically permuted that arena through its independent
-  // CaDiCaL-derived policy; replay the persistent source positions here.  The
-  // rule-local Vivify, Congruence, and Factor reconnects keep their own arena
-  // contexts and deliberately use the default physical traversal.
-  kernel_rebuild_large_watches(k, /*inherited_source_order=*/true);
+  // Packed Tactix replacements replay their persistent source positions, as
+  // every rule-local reconnect does, until collection materializes the order.
+  kernel_rebuild_large_watches(k);
   k.factor_selection = nullptr;
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;

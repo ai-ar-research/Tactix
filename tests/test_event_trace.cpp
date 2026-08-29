@@ -45,6 +45,7 @@ int main() {
   setenv("TACTIX_EVENT_TRACE_WATCH_POSE", "1", 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_COST", "1", 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_MOVE_CLAUSE_SET", "-3,-2,1", 1);
   setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM", "7", 1);
   setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO", "7", 1);
   setenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION", "0", 1);
@@ -81,6 +82,8 @@ int main() {
     k.conflict_ref = kernel_add_large_clause(k, conflict, 3, false, 0);
     k.conflict_valid = true;
     clause_at(k.arena, k.conflict_ref)->searched = 3;
+    trace.watch_move(k, internalize(3), internalize(2), internalize(1),
+                     clause_at(k.arena, k.conflict_ref));
     const uint32_t vivify_counts[6] = {11, 12, 13, 14, 15, 16};
     trace.vivify_counts(k, vivify_counts, 6);
     setenv("SAT_EVENT_TRACE_CLAUSE_SET", "-3,1,-2", 1);
@@ -113,6 +116,7 @@ int main() {
   unsetenv("TACTIX_EVENT_TRACE_WATCH_POSE");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_COST");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_MOVE_CLAUSE_SET");
   unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM");
   unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO");
   unsetenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION");
@@ -131,6 +135,7 @@ int main() {
   assert(text.find("\tlucky_early_begin\t") != std::string::npos);
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
+  assert(text.find("\twatch_move\t") != std::string::npos);
   assert(text.find("\theap_insert\t") != std::string::npos);
   assert(text.find("var=2|score=0.5|from=17|to=4") != std::string::npos);
   assert(text.find("\theap_remove\t") != std::string::npos);
@@ -557,6 +562,7 @@ int main() {
   std::remove(watch_only_path.c_str());
   setenv("TACTIX_EVENT_TRACE", watch_only_path.c_str(), 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_CLAUSE_SET", "2,3;-3,-2,1", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
@@ -567,6 +573,7 @@ int main() {
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_CLAUSE_SET");
   std::ifstream watch_only_input(watch_only_path);
   const std::string watch_only_text(
       (std::istreambuf_iterator<char>(watch_only_input)),

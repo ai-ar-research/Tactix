@@ -34,6 +34,8 @@ public:
   void vivify_counts(const Kernel &, const uint32_t *counts, size_t size);
   void watch_scan(const Kernel &, Lit propagated);
   void watch_scan_post(const Kernel &, Lit propagated);
+  void watch_move(const Kernel &, Lit propagated, Lit target, Lit blocking,
+                  const Clause *);
   void watch_cost(const Kernel &, Lit propagated, uint64_t words_before,
                   uint64_t words_after, uint64_t base,
                   uint64_t binary_assignments, uint64_t large_dereferences,
@@ -157,6 +159,8 @@ private:
   uint64_t limit_ = 50000;
   uint64_t post_reorder_details_ = 0;
   uint64_t checkpoint_bucket_ = 0;
+  uint64_t checkpoint_interval_ = 1000;
+  uint64_t checkpoint_from_ = 0;
   uint64_t detail_conflict_from_ = 0;
   uint64_t detail_conflict_to_ = UINT64_MAX;
   uint64_t stop_after_conflict_ = UINT64_MAX;
@@ -181,6 +185,7 @@ private:
   bool formula_only_ = false;
   bool trajectory_only_ = false;
   bool conflict_only_ = false;
+  bool checkpoint_only_ = false;
   bool sweep_only_ = false;
   bool watch_only_ = false;
   bool watch_cost_ = false;
@@ -210,6 +215,7 @@ public:
   void vivify_counts(const Kernel &, const uint32_t *, size_t) {}
   void watch_scan(const Kernel &, Lit) {}
   void watch_scan_post(const Kernel &, Lit) {}
+  void watch_move(const Kernel &, Lit, Lit, Lit, const Clause *) {}
   void watch_cost(const Kernel &, Lit, uint64_t, uint64_t, uint64_t, uint64_t,
                   uint64_t, uint64_t, uint64_t, uint64_t) {}
   void implications(const Kernel &, size_t) {}
@@ -303,6 +309,8 @@ void event_trace_vivify_counts(const Kernel &, const uint32_t *counts,
                                size_t size);
 void event_trace_watch_scan(const Kernel &, Lit propagated);
 void event_trace_watch_scan_post(const Kernel &, Lit propagated);
+void event_trace_watch_move(const Kernel &, Lit propagated, Lit target,
+                            Lit blocking, const Clause *);
 void event_trace_watch_cost(const Kernel &, Lit propagated,
                             uint64_t words_before, uint64_t words_after,
                             uint64_t base, uint64_t binary_assignments,
@@ -439,6 +447,8 @@ inline void event_trace_vivify_counts(const Kernel &, const uint32_t *,
                                       size_t) {}
 inline void event_trace_watch_scan(const Kernel &, Lit) {}
 inline void event_trace_watch_scan_post(const Kernel &, Lit) {}
+inline void event_trace_watch_move(const Kernel &, Lit, Lit, Lit,
+                                   const Clause *) {}
 inline void event_trace_watch_cost(const Kernel &, Lit, uint64_t, uint64_t,
                                    uint64_t, uint64_t, uint64_t, uint64_t,
                                    uint64_t, uint64_t) {}

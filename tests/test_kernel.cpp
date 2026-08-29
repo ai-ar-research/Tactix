@@ -1393,7 +1393,7 @@ static void test_rebuild_large_watches_restores_arena_order() {
   kernel_check_invariants(k);
 }
 
-static void test_phase_rebuild_large_watches_restores_source_order() {
+static void test_rebuild_large_watches_restores_source_order() {
   Kernel k;
   kernel_reserve_vars(k, 7);
   const Lit shared = internalize(-1);
@@ -1406,7 +1406,9 @@ static void test_phase_rebuild_large_watches_restores_source_order() {
   kernel_delete_clause(k, clause_at(k.arena, source));
   kernel_add_large_clause(k, replacement, 3, false, 0, 303);
 
-  kernel_rebuild_large_watches(k, /*inherited_source_order=*/true);
+  // No phase- or caller-specific arm is needed: every Kissat reconnect walks
+  // the replacement at its inherited in-place arena position.
+  kernel_rebuild_large_watches(k);
 
   std::vector<uint64_t> ids;
   for (const WatchEntry watch : k.watches.entries(shared))
@@ -1964,7 +1966,7 @@ int main() {
   test_delayed_relocation_scratch_is_output_sensitive();
   test_default_solve_sat();
   test_rebuild_large_watches_restores_arena_order();
-  test_phase_rebuild_large_watches_restores_source_order();
+  test_rebuild_large_watches_restores_source_order();
   test_dense_occurrences_keep_source_order_across_collection();
   test_dense_occurrences_reuse_capacity_and_position_order();
   test_dense_mixed_order_is_consumer_scoped();

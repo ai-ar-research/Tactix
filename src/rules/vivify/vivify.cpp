@@ -1646,10 +1646,11 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
   // clauses after committing the candidate literal order.  The resulting
   // watch pose controls which conflict/reason a probing propagation records.
   event_trace_slot_boundary(k, "vivify-dense-resume", "entry");
-  // A preceding band would normally have collected into logical clause
-  // order.  While reclamation is deferred, reproduce that exact rewatch stream
-  // from the persistent source-position keys without moving any arena record.
-  kernel_rebuild_large_watches(k, batch.changed);
+  // Reproduce Kissat's current arena-order rewatch stream from the persistent
+  // source-position keys without moving any arena record. This applies to the
+  // first band too: earlier in-place-equivalent rewrites can already have left
+  // a packed replacement at a different allocation position.
+  kernel_rebuild_large_watches(k);
   event_trace_slot_boundary(k, "vivify-dense-resume", "resume");
   k.stats.vivify_prioritized += sched.prioritized;
   k.stats.vivify_reprioritized += sched.rearmed;

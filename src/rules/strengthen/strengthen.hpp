@@ -16,7 +16,9 @@
 namespace tactix {
 
 constexpr uint32_t STRENGTHEN_CLSLIM = 1000;
-constexpr uint32_t STRENGTHEN_OCCLIM = 100;
+// Pinned Kissat options.h `subsumeocclim`: one limit for the complete mixed
+// dense watch stream (binary and large entries alike).
+constexpr uint32_t STRENGTHEN_OCCLIM = 1000;
 constexpr uint32_t STRENGTHEN_BINLIM = 10000;
 
 // Guard: quiescent root, C1's argument — value semantics plus no in-flight

@@ -579,6 +579,13 @@ bool EventTrace::open_from_env(const Kernel &k) {
   if (const char *stop =
           std::getenv("TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT"))
     stop_after_conflict_ = std::strtoull(stop, nullptr, 10);
+  if (const char *interval =
+          std::getenv("TACTIX_EVENT_TRACE_CHECKPOINT_INTERVAL"))
+    checkpoint_interval_ =
+        std::max<uint64_t>(1, std::strtoull(interval, nullptr, 10));
+  if (const char *from =
+          std::getenv("TACTIX_EVENT_TRACE_CHECKPOINT_FROM"))
+    checkpoint_from_ = std::strtoull(from, nullptr, 10);
   if (const char *decision =
           std::getenv("TACTIX_EVENT_TRACE_HEAP_FROM_DECISION"))
     heap_from_decision_ = std::strtoull(decision, nullptr, 10);
@@ -615,6 +622,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY") != nullptr;
   conflict_only_ =
       std::getenv("TACTIX_EVENT_TRACE_CONFLICT_ONLY") != nullptr;
+  checkpoint_only_ =
+      std::getenv("TACTIX_EVENT_TRACE_CHECKPOINT_ONLY") != nullptr;
   sweep_only_ = std::getenv("TACTIX_EVENT_TRACE_SWEEP_ONLY") != nullptr;
   watch_only_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_ONLY") != nullptr;
   watch_cost_ = std::getenv("TACTIX_EVENT_TRACE_WATCH_COST") != nullptr;
@@ -663,6 +672,9 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     emit_formula_set_snapshot(k, event, payload);
   if (!out_)
     return;
+  if (checkpoint_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "checkpoint") && std::strcmp(event, "terminate"))
+    return;
   if (formula_only_ && std::strcmp(event, "trace_begin") &&
       std::strcmp(event, "formula_checkpoint") &&
       std::strcmp(event, "terminate"))
@@ -688,7 +700,8 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "phase_save") &&
       std::strcmp(event, "formula_checkpoint"))
     return;
-  if (skip_watch_ && !std::strncmp(event, "watch", 5))
+  if (skip_watch_ && !std::strncmp(event, "watch", 5) &&
+      std::strcmp(event, "watch_move"))
     return;
   if (skip_imply_ && !std::strcmp(event, "imply"))
     return;
@@ -707,6 +720,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
   if (watch_only_ && !snapshot && std::strcmp(event, "watch") &&
       std::strcmp(event, "watch_post") &&
       std::strcmp(event, "watch_post_summary") &&
+      std::strcmp(event, "watch_move") &&
       std::strcmp(event, "watch_cost") &&
       std::strcmp(event, "reason_glue") &&
       std::strcmp(event, "vivify_candidate") &&
@@ -1249,7 +1263,7 @@ bool EventTrace::want_detail(const Kernel &k) {
     return false;
   // detail() invokes formula_checkpoint before consulting this gate, so
   // formula-only can reject every expensive ordinary detail payload here.
-  if (formula_only_ || conflict_only_)
+  if (formula_only_ || conflict_only_ || checkpoint_only_)
     return false;
   if (detail_window_)
     return k.stats.conflicts >= detail_conflict_from_ &&
@@ -1473,8 +1487,43 @@ void EventTrace::watch_state(const Kernel &k, Lit propagated,
       if (!contains)
         continue;
     }
-    selected_entries++;
     std::sort(clause.begin(), clause.end());
+    if (const char *selected_clause =
+            std::getenv("TACTIX_EVENT_TRACE_WATCH_CLAUSE_SET")) {
+      bool matched = false;
+      for (const char *alternative = selected_clause; *alternative;) {
+        const char *separator = std::strchr(alternative, ';');
+        const char *const alternative_end =
+            separator ? separator : alternative + std::strlen(alternative);
+        const char *cursor = alternative;
+        bool same = true;
+        for (size_t i = 0; i != clause.size(); ++i) {
+          char *end = nullptr;
+          const long wanted = std::strtol(cursor, &end, 10);
+          if (end == cursor || end > alternative_end ||
+              wanted != clause[i]) {
+            same = false;
+            break;
+          }
+          cursor = end;
+          if (i + 1 != clause.size()) {
+            if (cursor == alternative_end || *cursor != ',') {
+              same = false;
+              break;
+            }
+            cursor++;
+          }
+        }
+        if (same && cursor == alternative_end) {
+          matched = true;
+          break;
+        }
+        alternative = separator ? separator + 1 : alternative_end;
+      }
+      if (!matched)
+        continue;
+    }
+    selected_entries++;
     std::string payload =
         "scan=" + std::to_string(kernel_externalize(k, propagated)) +
         "|block=" + std::to_string(kernel_externalize(k, entry.other())) +
@@ -1524,6 +1573,40 @@ void EventTrace::watch_scan_post(const Kernel &k, Lit propagated) {
   watch_state(k, propagated, "watch_post", true);
 }
 
+void EventTrace::watch_move(const Kernel &k, Lit propagated, Lit target,
+                            Lit blocking, const Clause *clause) {
+  if (!want_detail(k) || emitted_ >= limit_)
+    return;
+  const char *selected =
+      std::getenv("TACTIX_EVENT_TRACE_WATCH_MOVE_CLAUSE_SET");
+  if (!selected || !*selected)
+    return;
+  std::vector<int> external;
+  external.reserve(clause->size);
+  for (const Lit lit : *clause)
+    external.push_back(kernel_externalize(k, lit));
+  std::sort(external.begin(), external.end());
+  std::string key;
+  for (const int lit : external) {
+    if (!key.empty())
+      key.push_back(',');
+    key += std::to_string(lit);
+  }
+  if (key != selected)
+    return;
+  std::string payload =
+      "scan=" + std::to_string(kernel_externalize(k, propagated)) +
+      "|target=" + std::to_string(kernel_externalize(k, target)) +
+      "|block=" + std::to_string(kernel_externalize(k, blocking)) +
+      "|searched=" + std::to_string(clause->searched) + "|pose=";
+  for (uint32_t i = 0; i != clause->size; ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(kernel_externalize(k, clause->lits[i]));
+  }
+  emit(k, "watch_move", payload.c_str(), false);
+}
+
 void EventTrace::watch_cost(const Kernel &k, Lit propagated,
                             uint64_t words_before, uint64_t words_after,
                             uint64_t base, uint64_t binary_assignments,
@@ -1557,6 +1640,12 @@ void event_trace_watch_scan(const Kernel &k, Lit propagated) {
 void event_trace_watch_scan_post(const Kernel &k, Lit propagated) {
   if (active_trace)
     active_trace->watch_scan_post(k, propagated);
+}
+
+void event_trace_watch_move(const Kernel &k, Lit propagated, Lit target,
+                            Lit blocking, const Clause *clause) {
+  if (active_trace)
+    active_trace->watch_move(k, propagated, target, blocking, clause);
 }
 
 void event_trace_watch_cost(const Kernel &k, Lit propagated,
@@ -3494,7 +3583,9 @@ void EventTrace::clause_used(const Kernel &k, const Clause *clause,
 void EventTrace::checkpoint(const Kernel &k) {
   if (!out_ || !saw_reorder_)
     return;
-  const uint64_t bucket = k.stats.conflicts / 1000;
+  if (k.stats.conflicts < checkpoint_from_)
+    return;
+  const uint64_t bucket = k.stats.conflicts / checkpoint_interval_;
   if (bucket <= checkpoint_bucket_)
     return;
   checkpoint_bucket_ = bucket;
@@ -3505,7 +3596,7 @@ void EventTrace::reorder_begin(const Kernel &k) {
   macro(k, "reorder_begin");
   saw_reorder_ = true;
   post_reorder_details_ = 1024;
-  checkpoint_bucket_ = k.stats.conflicts / 1000;
+  checkpoint_bucket_ = k.stats.conflicts / checkpoint_interval_;
 }
 
 void EventTrace::reorder_end(const Kernel &k) { macro(k, "reorder_end"); }

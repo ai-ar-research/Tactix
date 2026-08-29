@@ -13,7 +13,7 @@
 
 using namespace tactix;
 
-static_assert(STRENGTHEN_OCCLIM == 100 && STRENGTHEN_BINLIM == 10000);
+static_assert(STRENGTHEN_OCCLIM == 1000 && STRENGTHEN_BINLIM == 10000);
 
 // count live large clauses; if `lits`/`n` given, require one matching
 static uint32_t live_large(Kernel &k, const Lit *lits = nullptr,
@@ -94,6 +94,24 @@ static void test_binary_strengthens_large() {
   assert(default_solve(k) == 10);
 }
 
+static void test_kissat_mixed_occurrence_limit_admits_binary_strengthener() {
+  // Kissat's default subsumeocclim is 1000, applied to the whole mixed watch
+  // stream.  A stream just above CaDiCaL's 100-entry large-occurrence default
+  // must therefore still be scanned in the production fused forward pass.
+  Kernel k;
+  kernel_reserve_vars(k, 110);
+  const Lit candidate[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, candidate, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  for (int var = 4; var <= 105; ++var)
+    kernel_add_binary_clause(k, internalize(1), internalize(var));
+  assert(k.watches.heads[internalize(1)].size > 100 &&
+         k.watches.heads[internalize(1)].size <= STRENGTHEN_OCCLIM);
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.stats.strengthened == 1);
+  assert(has_binary(k, internalize(1), internalize(3)));
+}
+
 static void test_binary_partner_uses_kissat_last_strengthener() {
   // Both binaries can strengthen the candidate.  Kissat carries `remove`
   // across the whole marked-clause scan, so the later literal-3 walk
@@ -165,7 +183,7 @@ static void test_large_partner_without_same_round_cascade() {
 
 static void test_connection_uses_growing_forward_population() {
   Kernel k;
-  kernel_reserve_vars(k, 1300);
+  kernel_reserve_vars(k, 12 * (STRENGTHEN_OCCLIM + 1) + 4);
   const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
                          internalize(4)};
@@ -194,7 +212,7 @@ static void test_connection_uses_growing_forward_population() {
 
 static void test_binary_watches_count_toward_connection_cap() {
   Kernel k;
-  kernel_reserve_vars(k, 400);
+  kernel_reserve_vars(k, 3 * (STRENGTHEN_OCCLIM + 1) + 4);
   const Lit partner[3] = {internalize(1), internalize(2), internalize(3)};
   const Lit victim[4] = {internalize(1), internalize(2), internalize(3),
                          internalize(4)};
@@ -499,6 +517,7 @@ int main() {
   test_round_entry_deduplicates_binaries();
   test_round_entry_hyper_unary_binary_pair();
   test_binary_strengthens_large();
+  test_kissat_mixed_occurrence_limit_admits_binary_strengthener();
   test_binary_partner_uses_kissat_last_strengthener();
   test_opposite_phase_binary_does_not_override_later_result();
   test_fused_subsumption();
