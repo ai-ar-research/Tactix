@@ -93,22 +93,23 @@ pending half-analysis or schedules Backjump independently.
 
 ### Factor and extension variables
 
-- External identities never change; dense internal maps serve search and are
-  translated at proof/API/reconstruction boundaries.
-- Factor variables form `[first_extension_var,nvars)`, are projected from
-  models, and are demoted once per Factor apply. Earlier extension literals may
-  be factors; a call snapshots the current literal universe.
+- External identities never change; dense search maps translate only at
+  proof/API/reconstruction boundaries.
+- Factor variables form `[first_extension_var,nvars)`, are model-projected and
+  demoted once per apply; a call snapshots its literal universe.
 - `factor_size=5` and `factor_cand_rounds=2` are source-backed within-rule
-  scope. BVE includes extension variables in both its production heap and its
-  public instance surface, as Kissat does; reversing Factor is ordinary model
-  reconstruction, not an admission reason.
-- Dense entry keeps one binary watch per partner and exits with binaries in
-  encounter order plus large clauses in arena order. Candidate matching uses
-  exact cached physical degrees and the reference cache-line effort currency.
-- Dense Factor entries carry compact apply-local clause ids and lazily interned
-  remainder ids. Repeated seed visits reuse the canonical remainder, and
-  quotient intersections use epoch marks rather than per-column hash sets;
-  these are representation changes only and add no admission predicate.
+  scope. BVE includes extension variables in production and public instances;
+  reversing Factor is ordinary model reconstruction, not an admission reason.
+- Factor admission uses Kissat's cumulative material lifecycle. A zero-to-one
+  factor-bit transition increments `factor_literals_marked`; a fully drained
+  call snapshots it after its own additions. Interrupted calls remain
+  retryable, while Factor output cannot automatically schedule another call.
+- Dense entry retains one binary watch per partner and exits in binary
+  encounter order then large-clause arena order; cached physical degrees drive
+  matching and the reference cache-line effort currency.
+- Dense Factor entries use compact apply-local clause ids and lazy canonical
+  remainder ids. Epoch quotient marks replace per-column hash sets; these are
+  representation changes only and add no admission predicate.
 - Factor enters through the same null-stack dense transition as Kissat: sparse
   large watches are flushed, binary partners are borrowed directly from the
   remaining packed watch slices, and only large occurrences need an apply-local
@@ -124,9 +125,8 @@ pending half-analysis or schedules Backjump independently.
   fresh identity incrementally. This removes quadratic reserve/rebuild work
   without changing the extension order, Factor selection, or any N1--N4
   surface.
-- `FactorSelection` is strategy-owned; Factor owns proof-bearing grid rewrite,
-  positive gain, and its effort transaction. Proof order is dividers,
-  quotients, then grid deletion; no reconstruction witness is needed.
+- `FactorSelection` is strategy-owned; Factor owns proof-bearing rewrite, gain,
+  and effort. Proof order is dividers, quotients, then grid deletion.
 
 ### Binary/watch and clause-order identity
 

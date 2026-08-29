@@ -251,6 +251,7 @@ private:
 
   uint32_t bve_rounds_run_ = 0;
   bool factor_large_formula_ = false;
+  uint64_t factor_marked_watermark_ = 0;
   bool slot_order_legacy_ = false;
   bool closure_delay_ = true;
   uint64_t factor_init_ticks_ = FACTOR_INIT_TICKS;

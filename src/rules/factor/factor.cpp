@@ -721,6 +721,7 @@ RuleEligibility factor_guard(const Kernel &k) {
 // literal (`N1-FACTOR-INSTANCES`; instance surface at the bottom of this file).
 static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   assert(factor_guard(k));
+  k.factor_completed = false;
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
   // Kissat enters dense mode immediately before Factor through the null-stack
@@ -1426,6 +1427,12 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       factor_member[factor] = 0;
     }
   }
+
+  // Kissat advances its call-level material watermark only when the mutable
+  // schedule is empty.  Keep this result distinct from the per-literal bits:
+  // Factor's own divider/quotient additions can leave bits armed even though
+  // their cumulative events belong to the just-completed call.
+  k.factor_completed = schedule.empty();
 
   // A budget cut needs no tail repair: unpopped literal bits remain set in
   // `factor_marks`, exactly as Kissat leaves them for the next occasion.

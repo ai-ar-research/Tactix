@@ -80,6 +80,10 @@ TABLE = {
     "kept_size":               ("RULE", "reduce.cpp survivor envelope (cadical lim.keptsize)"),
     "phase_saving_suppressed": ("RULE", "Lucky probe bracket; mirrors kissat "
                                          "solver->probing for assign-time phases"),
+    "factor_literals_marked":  ("RULE", "cumulative Kissat factor-bit zero-to-one "
+                                        "counter maintained by clause-producing rules"),
+    "factor_completed":        ("RULE", "Factor reports whether its current schedule "
+                                        "drained before policy advances the watermark"),
     # --- A/B or diagnostic knobs; shipped value is the kernel.hpp default --
     "bve_gate_mask":           ("ENV", "--bve-gates"),
     "bve_backward":            ("ENV", "TACTIX_BVE_BACKWARD (optional cadical elimbackward; ships OFF like kissat)"),

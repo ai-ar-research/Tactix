@@ -982,6 +982,14 @@ struct Kernel {
   // shared per-variable touch epochs, this does not spuriously arm the opposite
   // polarity.
   std::vector<uint8_t> factor_marks;
+  // Kissat's cumulative `literals_factor` watermark.  It advances only on a
+  // zero-to-one factor-bit transition and is intentionally not decremented
+  // when Factor consumes the bit.
+  uint64_t factor_literals_marked = 0;
+  // Result of the most recent Factor application.  DefaultPolicy copies the
+  // cumulative watermark only after a complete schedule drain, matching
+  // `factor.c::run_factorization` / `limits.factor.marked`.
+  bool factor_completed = false;
 
   // Kissat retains the surviving Backbone candidate polarities between
   // computations and schedules that priority set before all other literals.
@@ -1121,6 +1129,14 @@ struct Kernel {
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };
+
+inline void kernel_mark_factor_literal(Kernel &k, Lit lit) {
+  assert(lit < k.factor_marks.size());
+  if (!k.factor_marks[lit]) {
+    k.factor_marks[lit] = 1;
+    k.factor_literals_marked++;
+  }
+}
 
 void kernel_reserve_vars(Kernel &, uint32_t nvars);
 void kernel_defer_cold_state(Kernel &);

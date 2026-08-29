@@ -1884,6 +1884,7 @@ void DefaultInprocessScheduler::reset(const Kernel &k) {
   probe_clock.anchor = elim_clock.anchor = ticks;
   bve_rounds_run_ = 0;
   factor_large_formula_ = false;
+  factor_marked_watermark_ = 0;
   bve_level_ = 0;
   bve_level_idx_ = 0;
   default_candidate_order_.reset(config().candidate_order_seed);
@@ -2899,17 +2900,13 @@ bool DefaultInprocessScheduler::factor_entry_declines(const Kernel &k, SlotEntry
     e.tm.dec_warmup++;
     return true;
   }
-  // Kissat's call-level watermark is exactly the population represented by
-  // `flags->factor`: a clause addition sets a literal's bit and Factor clears
-  // it when that seed is popped (factor.c:1093-1117).  The old proxy compared
-  // monotone binary-map/arena sizes and root units.  An elimination can replace
-  // thousands of clauses while leaving all three proxy values below their
-  // previous highs, delaying Factor by a whole probe phase even though the
-  // precise per-literal marks say new material exists.
-  const bool no_marked_literal =
-      std::none_of(k.factor_marks.begin(), k.factor_marks.end(),
-                   [](uint8_t marked) { return marked != 0; });
-  if (k.stats.conflicts > 0 && no_marked_literal) {
+  // `limits.factor.marked >= statistics.literals_factor` is a call-level
+  // cumulative watermark, not a scan of the current `flags->factor` bits.
+  // A completed Factor call records the counter *after* creating its own
+  // divider/quotient clauses, so those self-produced marks do not schedule an
+  // otherwise material-free second call.  An interrupted call leaves the
+  // watermark unchanged and therefore remains retryable.
+  if (factor_marked_watermark_ >= k.factor_literals_marked) {
     e.tm.dec_material++;
     return true;
   }
@@ -3112,6 +3109,8 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
       ar = metered_rule_apply(k, e.meter, [&] { return apply_rule(r, k); });
     }
   }
+  if (factor_entry && k.factor_completed)
+    factor_marked_watermark_ = k.factor_literals_marked;
   k.midround_budget = previous_midround_budget;
   k.work_budget = 0;
   k.factor_composite = false;

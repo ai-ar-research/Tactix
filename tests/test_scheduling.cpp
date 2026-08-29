@@ -94,6 +94,7 @@ static void test_factor_material_gate_uses_literal_marks(void) {
   kernel_reserve_vars(k, 8);
   k.stats.conflicts = 1; // search-time call: the material gate is live
   std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  k.factor_literals_marked = 0;
 
   DefaultPolicy p;
   p.inprocess().build(k);
@@ -114,10 +115,18 @@ static void test_factor_material_gate_uses_literal_marks(void) {
   factor->binaries_mark = k.binary_ids.size();
   factor->arena_mark = k.arena.size();
   factor->root_fixed_mark = kernel_root_fixed(k);
-  k.factor_marks[make_lit(3, true)] = 1;
+  kernel_mark_factor_literal(k, make_lit(3, true));
+  kernel_mark_factor_literal(k, make_lit(3, true));
+  assert(k.factor_literals_marked == 1 &&
+         "only a factor-bit zero-to-one transition advances the counter");
   assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
   assert(factor->tm.dec_material == 1 && factor->tm.admitted == 1);
-  std::printf("  factor material gate: exact per-literal Kissat marks\n");
+  // The completed call consumed the new cumulative event even though its
+  // local bit state is an implementation detail.  With no later addition,
+  // Kissat's `limits.factor.marked` suppresses the next call.
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  assert(factor->tm.dec_material == 2 && factor->tm.admitted == 1);
+  std::printf("  factor material gate: cumulative Kissat watermark\n");
 }
 
 static void test_large_formula_factor_decline_is_solve_latched(void) {
