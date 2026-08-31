@@ -89,6 +89,29 @@ def main():
         '    kissat_mark_added_literal_with_source (solver, lits[i], source);\n'
         '}\n')
 
+    clause_h = dest / "src" / "clause.h"
+    replace_once(
+        clause_h,
+        'void kissat_mark_clause_as_garbage (struct kissat *, clause *);\n',
+        'void kissat_mark_clause_as_garbage_with_source (\n'
+        '    struct kissat *, clause *, const char *);\n'
+        '#define kissat_mark_clause_as_garbage(SOLVER, CLAUSE) \\\n'
+        '  kissat_mark_clause_as_garbage_with_source ( \\\n'
+        '      (SOLVER), (CLAUSE), __func__)\n')
+    clause_c = dest / "src" / "clause.c"
+    replace_once(clause_c, '#include "collect.h"\n',
+                 '#include "collect.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        clause_c,
+        'void kissat_mark_clause_as_garbage (kissat *solver, clause *c) {\n'
+        '  assert (!c->garbage);\n'
+        '  mark_clause_as_garbage (solver, c);\n',
+        'void kissat_mark_clause_as_garbage_with_source (\n'
+        '    kissat *solver, clause *c, const char *source) {\n'
+        '  assert (!c->garbage);\n'
+        '  kissat_event_trace_clause_garbage (solver, c, source);\n'
+        '  mark_clause_as_garbage (solver, c);\n')
+
     # Definition-core parity needs Kitten's otherwise opaque deterministic
     # state.  These accessors exist only in the diagnostic materialization.
     kitten_h = dest / "src" / "kitten.h"
@@ -452,6 +475,79 @@ def main():
         '  kissat_event_trace_vivify_factor_image (\n'
         '      solver, c, new_size, BEGIN_STACK (*learned));\n'
         '  memcpy (lits, BEGIN_STACK (*learned), new_size * sizeof *lits);\n')
+
+    forward = dest / "src" / "forward.c"
+    replace_once(forward, '#include "forward.h"\n',
+                 '#include "forward.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        forward,
+        '    if (c->size > clslim)\n'
+        '      continue;\n'
+        '    assert (c->size > 2);\n',
+        '    if (c->size > clslim)\n'
+        '      continue;\n'
+        '    assert (c->size > 2);\n'
+        '    kissat_event_trace_forward_clause (solver, c, "discover", 0);\n')
+    replace_once(
+        forward,
+        '    if (c->garbage)\n'
+        '      continue;\n'
+        '    if (subsume < 2)\n'
+        '      continue;\n'
+        '    const unsigned ref = kissat_reference_clause (solver, c);\n',
+        '    if (c->garbage) {\n'
+        '      kissat_event_trace_forward_clause (\n'
+        '          solver, c, "discover-satisfied", -1);\n'
+        '      continue;\n'
+        '    }\n'
+        '    if (subsume < 2) {\n'
+        '      kissat_event_trace_forward_clause (\n'
+        '          solver, c, "discover-filtered", (int) subsume);\n'
+        '      continue;\n'
+        '    }\n'
+        '    kissat_event_trace_forward_clause (\n'
+        '        solver, c, "discover-scheduled", (int) subsume);\n'
+        '    const unsigned ref = kissat_reference_clause (solver, c);\n')
+    replace_once(
+        forward,
+        '  assert (!c->garbage);\n'
+        '  LOGCLS2 (c, "trying to forward subsume");\n',
+        '  assert (!c->garbage);\n'
+        '  kissat_event_trace_forward_clause (solver, c, "check-begin", 0);\n'
+        '  LOGCLS2 (c, "trying to forward subsume");\n')
+    replace_once(
+        forward,
+        '  if (c->garbage)\n'
+        '    return false;\n'
+        '\n'
+        '  if (!non_false) {\n',
+        '  if (c->garbage) {\n'
+        '    kissat_event_trace_forward_clause (\n'
+        '        solver, c, "result-satisfied", -1);\n'
+        '    return false;\n'
+        '  }\n'
+        '\n'
+        '  if (!non_false) {\n')
+    replace_once(
+        forward,
+        '  for (all_literals_in_clause (lit, c))\n'
+        '    marks[lit] = 0;\n'
+        '\n'
+        '  if (subsume) {\n',
+        '  for (all_literals_in_clause (lit, c))\n'
+        '    marks[lit] = 0;\n'
+        '\n'
+        '  if (subsume)\n'
+        '    kissat_event_trace_forward_clause (\n'
+        '        solver, c, "result-subsumed", -1);\n'
+        '  else if (remove != INVALID_LIT)\n'
+        '    kissat_event_trace_forward_clause (\n'
+        '        solver, c, "result-strengthened",\n'
+        '        (int) remove);\n'
+        '  else\n'
+        '    kissat_event_trace_forward_clause (solver, c, "result-noop", 0);\n'
+        '\n'
+        '  if (subsume) {\n')
 
     eliminate = dest / "src" / "eliminate.c"
     replace_once(eliminate, '#include "dense.h"\n',
@@ -905,6 +1001,49 @@ def main():
         '}\n')
 
     factor = dest / "src" / "factor.c"
+    replace_once(
+        factor,
+        '  uint64_t limit;\n',
+        '  uint64_t limit;\n'
+        '  size_t trace_update_ordinal;\n')
+    replace_once(
+        factor,
+        '  const unsigned factor = q->factor;\n'
+        '  update_candidate (factoring, factor);\n'
+        '  update_candidate (factoring, NOT (factor));\n',
+        '  const unsigned factor = q->factor;\n'
+        '  kissat_event_trace_factor_update (\n'
+        '      solver, factoring->trace_update_ordinal++, factor);\n'
+        '  update_candidate (factoring, factor);\n'
+        '  kissat_event_trace_factor_update (\n'
+        '      solver, factoring->trace_update_ordinal++, NOT (factor));\n'
+        '  update_candidate (factoring, NOT (factor));\n')
+    replace_once(
+        factor,
+        '      const unsigned other = watch.binary.lit;\n'
+        '      update_candidate (factoring, other);\n',
+        '      const unsigned other = watch.binary.lit;\n'
+        '      kissat_event_trace_factor_update (\n'
+        '          solver, factoring->trace_update_ordinal++, other);\n'
+        '      update_candidate (factoring, other);\n')
+    replace_once(
+        factor,
+        '      for (all_literals_in_clause (lit, c))\n'
+        '        if (lit != factor)\n'
+        '          update_candidate (factoring, lit);\n',
+        '      for (all_literals_in_clause (lit, c))\n'
+        '        if (lit != factor) {\n'
+        '          kissat_event_trace_factor_update (\n'
+        '              solver, factoring->trace_update_ordinal++, lit);\n'
+        '          update_candidate (factoring, lit);\n'
+        '        }\n')
+    replace_once(
+        factor,
+        '  for (quotient *p = q; p; p = p->prev)\n'
+        '    update_factored (factoring, p);\n',
+        '  factoring->trace_update_ordinal = 0;\n'
+        '  for (quotient *p = q; p; p = p->prev)\n'
+        '    update_factored (factoring, p);\n')
     replace_once(factor, '#include "factor.h"\n',
                  '#include "factor.h"\n#include "eventtrace.h"\n')
 
@@ -1025,7 +1164,7 @@ def main():
         '        kissat_pop_max_heap (solver, &factoring.schedule);\n',
         '    const unsigned first =\n'
         '        kissat_pop_max_heap (solver, &factoring.schedule);\n'
-        '    kissat_event_trace_factor_heap (solver, first,\n'
+        '    kissat_event_trace_factor_heap (solver, first, "popped",\n'
         '                                    &factoring.schedule);\n')
     replace_once(
         factor,
@@ -1046,7 +1185,18 @@ def main():
         '          kissat_event_trace_factor_grid_member (solver, p->id,\n'
         '                                                 p->factor);\n'
         '        if (apply_factoring (&factoring, q)) {\n'
+        '          unsigneds trace_factors;\n'
+        '          INIT_STACK (trace_factors);\n'
+        '          for (quotient *p = q; p; p = p->prev)\n'
+        '            PUSH_STACK (trace_factors, p->factor);\n'
+        '          kissat_event_trace_factor_fresh (\n'
+        '              solver, TOP_STACK (factoring.fresh),\n'
+        '              BEGIN_STACK (trace_factors),\n'
+        '              SIZE_STACK (trace_factors), SIZE_STACK (q->clauses),\n'
+        '              reduction);\n'
+        '          RELEASE_STACK (trace_factors);\n'
         '          kissat_event_trace_factor_heap (solver, q->factor,\n'
+        '                                          "updated",\n'
         '                                          &factoring.schedule);\n')
     replace_once(
         factor,

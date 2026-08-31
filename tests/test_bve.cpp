@@ -98,10 +98,9 @@ static void record_bve_score_notification(Kernel &, void *state, Var v,
                                                                     reinsert);
 }
 
-// Kissat compacts garbage references from the two physical occurrence stacks
-// of every attempted BVE candidate, even if that candidate is then rejected.
-// The dynamic schedule must observe the compacted count, but Kissat's heap
-// update does not reinsert the popped variable whose eliminate bit was cleared.
+// Kissat compacts garbage references encountered before an oversized clause,
+// even though that candidate is then rejected.  The failed polarity scan does
+// not request a heap-score update for the already-popped variable.
 static void test_candidate_gather_compacts_garbage_occurrences() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -137,9 +136,85 @@ static void test_candidate_gather_compacts_garbage_occurrences() {
     stale_connected |= !entry.binary && entry.payload == stale;
   assert(!stale_connected);
   assert(!k.bve_retry[var_of(pivot)]);
-  assert(notifications.events.size() == 1);
-  assert(notifications.events[0] ==
-         std::make_pair(var_of(pivot), false));
+  assert(notifications.events.empty());
+
+  k.bve_score_update_hook = nullptr;
+  k.bve_score_update_state = nullptr;
+  k.bve_occurrence_count_image = nullptr;
+  kernel_dense_disconnect(k);
+}
+
+// `occurrences_literal` stops at the first live oversized clause.  Garbage
+// later in that same physical polarity is not inspected or compacted, and a
+// failed scan does not request a score update for the already-popped pivot.
+static void test_candidate_gather_stops_before_late_garbage() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit pivot = internalize(1);
+  const Lit oversized_lits[3] = {pivot, internalize(2), internalize(3)};
+  const Lit stale_lits[3] = {pivot, internalize(4), internalize(5)};
+  kernel_add_large_clause(k, oversized_lits, 3, false, 0);
+  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense, true);
+  std::vector<uint32_t> image(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    image[lit] = bve_schedule_occurrence_count(k, lit);
+  k.bve_occurrence_count_image = &image;
+  kernel_delete_clause(k, clause_at(k.arena, stale));
+  assert(image[pivot] == 2);
+
+  BveScoreNotifications notifications;
+  k.bve_score_update_hook = record_bve_score_notification;
+  k.bve_score_update_state = &notifications;
+  k.bve_clause_size_limit = 2;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
+  assert(image[pivot] == 2);
+  assert(dense.large[pivot].size() == 2);
+  bool stale_connected = false;
+  for (const OccIndex::Entry &entry : dense.ordered[pivot])
+    stale_connected |= !entry.binary && entry.payload == stale;
+  assert(stale_connected);
+  assert(notifications.events.empty());
+
+  k.bve_score_update_hook = nullptr;
+  k.bve_score_update_state = nullptr;
+  k.bve_occurrence_count_image = nullptr;
+  kernel_dense_disconnect(k);
+}
+
+// If either polarity returns UINT_MAX for an oversized antecedent,
+// kissat_generate_resolvents returns at its occurrence-limit guard.  It does
+// not publish the update flag accumulated by successful compaction of the
+// other polarity because that flag belongs only to a later resolution failure.
+static void test_oversized_polarity_suppresses_other_compaction_rescore() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit pivot = internalize(1), opposite = internalize(-1);
+  const Lit stale_lits[3] = {pivot, internalize(2), internalize(3)};
+  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
+  const Lit oversized_lits[3] = {opposite, internalize(4), internalize(5)};
+  kernel_add_large_clause(k, oversized_lits, 3, false, 0);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense, true);
+  std::vector<uint32_t> image(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    image[lit] = bve_schedule_occurrence_count(k, lit);
+  k.bve_occurrence_count_image = &image;
+  kernel_delete_clause(k, clause_at(k.arena, stale));
+
+  BveScoreNotifications notifications;
+  k.bve_score_update_hook = record_bve_score_notification;
+  k.bve_score_update_state = &notifications;
+  k.bve_clause_size_limit = 2;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
+  assert(image[pivot] == 0 && image[opposite] == 1);
+  assert(notifications.events.empty() &&
+         "an oversized polarity bypasses the later failed-resolution rescore");
 
   k.bve_score_update_hook = nullptr;
   k.bve_score_update_state = nullptr;
@@ -171,11 +246,9 @@ static void test_candidate_gather_deletes_satisfied_binary() {
   assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
   assert(!kernel_binary_live(k, pivot, satisfied));
   assert(image[pivot] == 1 && image[satisfied] == 0);
-  assert(notifications.events.size() == 2);
+  assert(notifications.events.size() == 1);
   assert(notifications.events[0] ==
          std::make_pair(var_of(satisfied), true));
-  assert(notifications.events[1] ==
-         std::make_pair(var_of(pivot), false));
 
   k.bve_score_update_hook = nullptr;
   k.bve_score_update_state = nullptr;
@@ -519,6 +592,41 @@ static void test_bound_does_not_spend_future_work() {
          ApplyResult::NoOp);
   assert(k.stats.bve_resolutions == 12 &&
          "bound-0 BVE must stop at the first over-limit resolvent");
+}
+
+// resolve.c learns a unit as soon as a pair collapses, before it knows whether
+// the candidate's later pairs fit the growth bound.  That root and any large
+// antecedent it satisfies survive a later NoOp; only buffered non-unit
+// resolvents are discarded.  This is the small form of the Rank-33 divergence.
+static void test_bound_failure_retains_immediate_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 9); // x=1, u=2, a=3..5, b=6..8, z=9
+  const Lit x = internalize(1), nx = internalize(-1);
+  const Lit u = internalize(2), z = internalize(9);
+  kernel_add_binary_clause(k, x, u); // first positive antecedent
+  for (int a = 3; a <= 5; ++a)
+    kernel_add_binary_clause(k, x, internalize(a));
+  const Lit unit_partner[3] = {nx, u, z};
+  const Ref satisfied =
+      kernel_add_large_clause(k, unit_partner, 3, false, 0);
+  for (int b = 6; b <= 8; ++b)
+    kernel_add_binary_clause(k, nx, internalize(b));
+  kernel_assign_unit(k, internalize(-9)); // d1's active image is (¬x ∨ u)
+
+  k.bve_gate_mask = 0;
+  k.bve_backward = false;
+  k.bve_bound = 0; // base 4+4=8; the ninth resolvent rejects the pivot
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(x)) == ApplyResult::NoOp);
+  assert(k.value(u) > 0 &&
+         "the immediate resolvent unit must survive the later bound failure");
+  assert(!kernel_var_retired(k, var_of(x)) &&
+         "the rejected pivot itself must remain active");
+  assert(clause_at(k.arena, satisfied)->garbage() &&
+         "a large antecedent satisfied by the immediate unit is deleted now");
+  assert(k.stats.bve_resolutions == 10 &&
+         "the first satisfied pair costs an attempt, then its garbage large "
+         "antecedent is skipped by later rows");
 }
 
 // An AND/OR gate x↔OR(a₁..a₆) lets BVE resolve only gate×antecedent, dropping
@@ -1321,6 +1429,8 @@ int main() {
   test_occurrences();
   test_schedule_occurrence_image_lifecycle();
   test_candidate_gather_compacts_garbage_occurrences();
+  test_candidate_gather_stops_before_late_garbage();
+  test_oversized_polarity_suppresses_other_compaction_rescore();
   test_candidate_gather_deletes_satisfied_binary();
   test_flush_units_while_connected();
   test_occurrences_skip_redundant();
@@ -1337,6 +1447,7 @@ int main() {
   test_eliminate_frozen_pivot_reconstruction();
   test_bound_skip();
   test_bound_does_not_spend_future_work();
+  test_bound_failure_retains_immediate_unit();
   test_gate_and_or_fires();
   test_gate_and_or_retains_duplicate_binary_gate_copies();
   test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent();

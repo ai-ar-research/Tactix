@@ -14,6 +14,10 @@
 static FILE *trace_file;
 static bool trace_initialized, trace_truncated, trace_saw_reorder;
 static bool trace_target_only;
+static bool trace_factor_fresh_only;
+static bool trace_factor_update_only;
+static bool trace_factor_literal_only;
+static bool trace_clause_lifecycle_only;
 static const char *trace_exit_match;
 static bool trace_detail_window;
 static bool trace_heap_each_bump;
@@ -23,6 +27,7 @@ static bool trace_imply_only;
 static int trace_imply_literals[16];
 static size_t trace_imply_literals_size;
 static bool trace_bve_heap_only;
+static bool trace_bve_pop_only;
 static int trace_heap_vars[16];
 static size_t trace_heap_vars_size;
 static bool trace_skip_watch, trace_skip_imply, trace_skip_heap,
@@ -1197,6 +1202,14 @@ static void open_trace (void) {
       getenv ("KISSAT_EVENT_TRACE_TRAJECTORY_ONLY") != 0;
   trace_learned_only = getenv ("KISSAT_EVENT_TRACE_LEARNED_ONLY") != 0;
   trace_imply_only = getenv ("KISSAT_EVENT_TRACE_IMPLY_ONLY") != 0;
+  trace_factor_fresh_only =
+      getenv ("SAT_EVENT_TRACE_FACTOR_FRESH_ONLY") != 0;
+  trace_factor_update_only =
+      getenv ("SAT_EVENT_TRACE_FACTOR_UPDATE_ONLY") != 0;
+  trace_factor_literal_only =
+      getenv ("SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY") != 0;
+  trace_clause_lifecycle_only =
+      getenv ("SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY") != 0;
   const char *imply_literals = getenv ("SAT_EVENT_TRACE_IMPLY_LITERALS");
   while (imply_literals && *imply_literals &&
          trace_imply_literals_size != 16) {
@@ -1210,6 +1223,7 @@ static void open_trace (void) {
       break;
   }
   trace_bve_heap_only = getenv ("KISSAT_EVENT_TRACE_BVE_HEAP_ONLY") != 0;
+  trace_bve_pop_only = getenv ("KISSAT_EVENT_TRACE_BVE_POP_ONLY") != 0;
   trace_sweep_only = getenv ("KISSAT_EVENT_TRACE_SWEEP_ONLY") != 0;
   trace_compact_probe = getenv ("KISSAT_EVENT_TRACE_COMPACT_PROBE") != 0;
   trace_watch_only = getenv ("KISSAT_EVENT_TRACE_WATCH_ONLY") != 0;
@@ -1236,12 +1250,124 @@ static bool detail_enabled (kissat *solver) {
     return false;
   // kissat_event_trace_detail invokes formula_checkpoint before ordinary
   // detail filtering, so avoid constructing all other diagnostic payloads.
-  if (trace_formula_only || trace_learned_only || trace_heap_vars_only)
+  if (trace_formula_only || trace_learned_only || trace_heap_vars_only ||
+      trace_factor_fresh_only || trace_factor_update_only ||
+      trace_factor_literal_only || trace_clause_lifecycle_only)
     return false;
   if (!trace_detail_window)
     return true;
   const uint64_t conflicts = solver->statistics.conflicts;
   return trace_detail_from <= conflicts && conflicts <= trace_detail_to;
+}
+
+static bool selected_external_clause (kissat *solver, clause *c,
+                                      const char *spec) {
+  if (!spec || !*spec)
+    return false;
+  int selected[64];
+  const size_t selected_size =
+      parse_clause_set (spec, selected, sizeof selected / sizeof *selected);
+  if (!selected_size || c->size != selected_size)
+    return false;
+  bool matched[64] = {false};
+  for (all_literals_in_clause (lit, c)) {
+    const int external = external_literal (solver, lit);
+    size_t i = 0;
+    while (i != selected_size &&
+           (matched[i] || selected[i] != external))
+      i++;
+    if (i == selected_size)
+      return false;
+    matched[i] = true;
+  }
+  return true;
+}
+
+static bool selected_forward_clause (kissat *solver, clause *c) {
+  return selected_external_clause (
+      solver, c, getenv ("KISSAT_EVENT_TRACE_FORWARD_CLAUSE"));
+}
+
+void kissat_event_trace_forward_clause (kissat *solver, clause *c,
+                                         const char *stage, int detail) {
+  if (!detail_enabled (solver) || !selected_forward_clause (solver, c))
+    return;
+  char payload[1024];
+  const reference ref = kissat_reference_clause (solver, c);
+  int written = snprintf (payload, sizeof payload,
+                          "stage=%s|detail=%d|ref=%u|size=%u|garbage=%u"
+                          "|values=",
+                          stage, detail, ref, c->size, c->garbage);
+  if (written < 0 || (size_t) written >= sizeof payload)
+    return;
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  bool first = true;
+  for (all_literals_in_clause (lit, c)) {
+    written = snprintf (p, left, "%s%d:%d", first ? "" : ",",
+                        external_literal (solver, lit), solver->values[lit]);
+    if (written < 0 || (size_t) written >= left)
+      return;
+    p += written;
+    left -= (size_t) written;
+    first = false;
+  }
+  written = snprintf (p, left, "|clause=");
+  if (written < 0 || (size_t) written >= left)
+    return;
+  p += written;
+  left -= (size_t) written;
+  append_sorted_clause (solver, c, &p, &left);
+  const char *event = !strncmp (stage, "result-", 7)
+                          ? "forward_clause_result"
+                          : "forward_clause";
+  kissat_event_trace (solver, event, payload, false);
+}
+
+void kissat_event_trace_clause_garbage (kissat *solver, clause *c,
+                                         const char *source) {
+  if (!detail_enabled (solver))
+    return;
+  const reference ref = kissat_reference_clause (solver, c);
+  const char *ref_spec = getenv ("KISSAT_EVENT_TRACE_CLAUSE_REF");
+  if (ref_spec && *ref_spec) {
+    char *end = 0;
+    const unsigned long selected = strtoul (ref_spec, &end, 10);
+    if (end == ref_spec || *end || selected != ref)
+      return;
+  } else if (!selected_external_clause (
+                 solver, c,
+                 getenv ("KISSAT_EVENT_TRACE_CLAUSE_LIFECYCLE")))
+    return;
+  char payload[1280];
+  int written = snprintf (payload, sizeof payload,
+                          "source=%s|ref=%u|size=%u|redundant=%u|values=",
+                          source, ref, c->size, c->redundant);
+  if (written < 0 || (size_t) written >= sizeof payload)
+    return;
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  bool first = true;
+  for (all_literals_in_clause (lit, c)) {
+    const unsigned idx = IDX (lit);
+    const flags *f = solver->flags + idx;
+    written = snprintf (p, left, "%s%d:%d:%u:%u:%u",
+                        first ? "" : ",", external_literal (solver, lit),
+                        solver->values[lit], f->active, f->fixed,
+                        f->eliminated);
+    if (written < 0 || (size_t) written >= left)
+      return;
+    p += written;
+    left -= (size_t) written;
+    first = false;
+  }
+  written = snprintf (p, left, "|clause=");
+  if (written < 0 || (size_t) written >= left)
+    return;
+  p += written;
+  left -= (size_t) written;
+  append_sorted_clause (solver, c, &p, &left);
+  kissat_event_trace (solver, "clause_garbage", payload, false);
 }
 
 static bool selected_phase_variable (kissat *solver, unsigned idx) {
@@ -1318,6 +1444,30 @@ void kissat_event_trace (kissat *solver, const char *event,
        trace_exit_conflict == solver->statistics.conflicts);
   if (trace_target_only && !exit_after_match)
     return;
+  if (trace_factor_fresh_only && strcmp (event, "trace_begin") &&
+      strcmp (event, "factor_fresh"))
+    return;
+  if (trace_factor_update_only && strcmp (event, "trace_begin") &&
+      strcmp (event, "factor_update") && strcmp (event, "factor_heap") &&
+      strcmp (event, "factor_fresh"))
+    return;
+  if (trace_factor_literal_only && strcmp (event, "trace_begin") &&
+      strcmp (event, "factor_literal_state") &&
+      strcmp (event, "factor_literal_entry") &&
+      strcmp (event, "factor_fresh"))
+    return;
+  if (trace_clause_lifecycle_only && !snapshot &&
+      strcmp (event, "trace_begin") &&
+      strcmp (event, "forward_clause") &&
+      strcmp (event, "forward_clause_result") &&
+      strcmp (event, "clause_garbage") &&
+      strcmp (event, "eliminate_cleanup") &&
+      strcmp (event, "factor_literal_state"))
+    return;
+  if (trace_clause_lifecycle_only && snapshot && trace_detail_window &&
+      (solver->statistics.conflicts < trace_detail_from ||
+       solver->statistics.conflicts > trace_detail_to))
+    return;
   if (snapshot)
     emit_binary_set_snapshot (solver, event, payload);
   if (snapshot)
@@ -1335,6 +1485,11 @@ void kissat_event_trace (kissat *solver, const char *event,
     return;
   if (trace_imply_only && strcmp (event, "trace_begin") &&
       strcmp (event, "imply") && strcmp (event, "terminate"))
+    return;
+  if (trace_bve_pop_only && strcmp (event, "trace_begin") &&
+      strcmp (event, "bve_schedule") &&
+      strcmp (event, "bve_pop_checkpoint") && strcmp (event, "bve_pop") &&
+      strcmp (event, "terminate"))
     return;
   if (trace_bve_heap_only && strcmp (event, "trace_begin") &&
       strcmp (event, "bve_heap") && strcmp (event, "bve_schedule") &&
@@ -1793,7 +1948,8 @@ void kissat_event_trace_detail (kissat *solver, const char *event, int payload) 
   // a latent bump-order difference at the conflict that creates it rather
   // than at the later decision that exposes it.
   const bool analysis_end = !strcmp (event, "analysis_end");
-  const bool snapshot = !trace_trajectory_only && analysis_end;
+  const bool snapshot =
+      !trace_trajectory_only && !trace_clause_lifecycle_only && analysis_end;
   if (analysis_end && !trace_learned_only)
     formula_checkpoint (solver);
   const uint64_t stop = stop_after_conflict ();
@@ -3367,6 +3523,56 @@ void kissat_event_trace_factor_grid_member (kissat *solver, size_t ordinal,
   kissat_event_trace (solver, "factor_grid_member", payload, false);
 }
 
+void kissat_event_trace_factor_fresh (kissat *solver, unsigned fresh,
+                                      const unsigned *reverse_members,
+                                      size_t factors, size_t remainders,
+                                      size_t delta) {
+  open_trace ();
+  if (trace_factor_update_only) {
+    const char *selected = getenv ("SAT_EVENT_TRACE_FACTOR_UPDATE_ORDINAL");
+    if (!selected || strtoull (selected, 0, 10) + 1 !=
+                         solver->statistics.factored)
+      return;
+  }
+  char payload[4096];
+  int written = snprintf (
+      payload, sizeof payload,
+      "fresh=%d|ordinal=%" PRIu64 "|seed=%d|factors=%zu|remainders=%zu"
+      "|delta=%zu|members=",
+      external_literal (solver, fresh), solver->statistics.factored,
+      external_literal (solver, reverse_members[factors - 1]), factors,
+      remainders, delta);
+  if (written < 0 || (size_t) written >= sizeof payload)
+    return;
+  char *p = payload + written;
+  size_t left = sizeof payload - (size_t) written;
+  for (size_t i = factors; i-- > 0;) {
+    written = snprintf (p, left, "%s%d", i + 1 == factors ? "" : ",",
+                        external_literal (solver, reverse_members[i]));
+    if (written < 0 || (size_t) written >= left)
+      return;
+    p += written;
+    left -= (size_t) written;
+  }
+  if (trace_factor_literal_only && trace_exit_match && *trace_exit_match &&
+      !exit_selector_matches ("factor_fresh", payload, trace_exit_match))
+    return;
+  kissat_event_trace (solver, "factor_fresh", payload, false);
+}
+
+void kissat_event_trace_factor_update (kissat *solver, size_t ordinal,
+                                       unsigned lit) {
+  const char *selected = getenv ("SAT_EVENT_TRACE_FACTOR_UPDATE_ORDINAL");
+  if (!selected || strtoull (selected, 0, 10) != solver->statistics.factored)
+    return;
+  char payload[192];
+  snprintf (payload, sizeof payload,
+            "factor=%" PRIu64 "|ordinal=%zu|external=%d|score=%zu",
+            solver->statistics.factored, ordinal,
+            external_literal (solver, lit), SIZE_WATCHES (solver->watches[lit]));
+  kissat_event_trace (solver, "factor_update", payload, false);
+}
+
 void kissat_event_trace_factor_seed (kissat *solver, unsigned lit,
                                      size_t remainders) {
   char payload[128];
@@ -3984,7 +4190,30 @@ void kissat_event_trace_sweep_query_model (kissat *solver, unsigned seed,
 }
 
 void kissat_event_trace_factor_heap (kissat *solver, unsigned seed,
+                                     const char *stage,
                                      const heap *schedule) {
+  static bool heap_set_dumped;
+  const char *selected_ordinal =
+      getenv ("SAT_EVENT_TRACE_FACTOR_HEAP_ORDINAL");
+  if (selected_ordinal &&
+      strtoull (selected_ordinal, 0, 10) != solver->statistics.factored)
+    return;
+  const char *heap_set_path =
+      getenv ("SAT_EVENT_TRACE_FACTOR_HEAP_SET_PATH");
+  if (!heap_set_dumped && heap_set_path && *heap_set_path &&
+      selected_ordinal && !strcmp (stage, "updated")) {
+    FILE *out = fopen (heap_set_path, "w");
+    if (out) {
+      fputs ("# solver\tposition\texternal\tscore\n", out);
+      size_t position = 0;
+      for (all_stack (unsigned, lit, schedule->stack))
+        fprintf (out, "kissat\t%zu\t%d\t%.0f\n", position++,
+                 external_literal (solver, lit),
+                 kissat_get_heap_score (schedule, lit));
+      fclose (out);
+      heap_set_dumped = true;
+    }
+  }
   const char *selected = getenv ("KISSAT_EVENT_TRACE_FACTOR_HEAP");
   int external_a = 0, external_b = 0;
   if (!selected || sscanf (selected, "%d,%d", &external_a, &external_b) != 2)
@@ -4001,8 +4230,10 @@ void kissat_event_trace_factor_heap (kissat *solver, unsigned seed,
     return;
   char payload[256];
   snprintf (payload, sizeof payload,
-            "seed=%d|a=%d|a_pos=%u|a_score=%.0f|b=%d|b_pos=%u|b_score=%.0f|size=%zu",
-            external_literal (solver, seed), external_a,
+            "factor=%" PRIu64 "|seed=%d|stage=%s|a=%d|a_pos=%u|"
+            "a_score=%.0f|b=%d|b_pos=%u|b_score=%.0f|size=%zu",
+            solver->statistics.factored, external_literal (solver, seed),
+            stage, external_a,
             kissat_get_heap_pos (schedule, a),
             kissat_get_heap_score (schedule, a), external_b,
             kissat_get_heap_pos (schedule, b),

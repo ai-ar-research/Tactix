@@ -178,6 +178,7 @@ class FactorHeap {
 public:
   bool empty() const { return stack_.empty(); }
   uint32_t size() const { return static_cast<uint32_t>(stack_.size()); }
+  const std::vector<Lit> &members() const { return stack_; }
   uint32_t position(Lit lit) const {
     return contains(lit) ? pos_[lit] : UINT32_MAX;
   }
@@ -285,6 +286,27 @@ private:
 #ifdef TACTIX_ENABLE_EVENT_TRACE
 void trace_factor_heap(const Kernel &k, const FactorHeap &heap, Lit grid_seed,
                        const char *stage) {
+  static bool heap_set_dumped = false;
+  const char *heap_set_path =
+      std::getenv("SAT_EVENT_TRACE_FACTOR_HEAP_SET_PATH");
+  const char *selected_ordinal =
+      std::getenv("SAT_EVENT_TRACE_FACTOR_HEAP_ORDINAL");
+  if (!heap_set_dumped && heap_set_path && *heap_set_path &&
+      selected_ordinal &&
+      std::strtoull(selected_ordinal, nullptr, 10) == k.stats.factorings &&
+      !std::strcmp(stage, "updated")) {
+    if (FILE *out = std::fopen(heap_set_path, "w")) {
+      std::fputs("# solver\tposition\texternal\tscore\n", out);
+      const auto &members = heap.members();
+      for (size_t position = 0; position != members.size(); ++position) {
+        const Lit lit = members[position];
+        std::fprintf(out, "tactix\t%zu\t%d\t%u\n", position,
+                     kernel_externalize(k, lit), heap.score(lit));
+      }
+      std::fclose(out);
+      heap_set_dumped = true;
+    }
+  }
   const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_HEAP");
   int external_a = 0, external_b = 0;
   if (!selected || std::sscanf(selected, "%d,%d", &external_a, &external_b) !=
@@ -383,15 +405,31 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
         break;
       live = now;
     }
-    for (size_t i = 0; i < cand.size(); i++)
-      if (alive[i]) {
-        const uint32_t large_id = idx.large_count++;
-        for (const Lit l : *clause_at(k.arena, cand[i])) {
-          idx.occ[l].push_back(cand[i]);
-          idx.order[l].push_back(FactorWatch::large_watch(cand[i], large_id));
-          idx.live_degree[l]++;
+    // Kissat does not connect the last round's survivor bitmap directly.
+    // Its separate connection pass tests every survivor against the counts
+    // produced by that last round (factor.c:1098-1119).  This is one more
+    // eligibility test, without another count rebuild.  Omitting it retains
+    // the final shell of a cascading peel and can expose a physical clause to
+    // Factor that the reference deliberately leaves disconnected.
+    for (size_t i = 0; i < cand.size(); i++) {
+      if (!alive[i])
+        continue;
+      const Clause *c = clause_at(k.arena, cand[i]);
+      bool connect = true;
+      for (const Lit l : *c)
+        if (bincount[l] + largecount[l] < 2) {
+          connect = false;
+          break;
         }
+      if (!connect)
+        continue;
+      const uint32_t large_id = idx.large_count++;
+      for (const Lit l : *c) {
+        idx.occ[l].push_back(cand[i]);
+        idx.order[l].push_back(FactorWatch::large_watch(cand[i], large_id));
+        idx.live_degree[l]++;
       }
+    }
     idx.built = true;
     return;
   }
@@ -1349,6 +1387,12 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
 #endif
       applied++;
       k.stats.factorings++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      event_trace_factor_fresh(k, seed, added_fresh, best_F.data(),
+                               static_cast<uint32_t>(best_F.size()),
+                               static_cast<uint32_t>(best_R.size()),
+                               best_delta);
+#endif
       // Grow the pass universe over the fresh var (kissat resize_factoring).
       // Clause insertion has marked both its divider and quotient polarities,
       // but, like Kissat, do not schedule either one merely because it was

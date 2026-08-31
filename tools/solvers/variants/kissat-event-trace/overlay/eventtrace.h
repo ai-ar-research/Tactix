@@ -107,6 +107,10 @@ void kissat_event_trace_factor_grid (struct kissat *, size_t, size_t,
                                      size_t);
 void kissat_event_trace_factor_grid_member (struct kissat *, size_t,
                                             unsigned);
+void kissat_event_trace_factor_fresh (struct kissat *, unsigned,
+                                      const unsigned *, size_t, size_t,
+                                      size_t);
+void kissat_event_trace_factor_update (struct kissat *, size_t, unsigned);
 void kissat_event_trace_bve_candidate (struct kissat *, unsigned,
                                        const char *, uint64_t, uint64_t,
                                        bool);
@@ -120,6 +124,10 @@ void kissat_event_trace_bve_heap (struct kissat *, const char *, struct heap *,
                                   unsigned);
 void kissat_event_trace_bve_schedule (struct kissat *, struct heap *);
 void kissat_event_trace_eliminate_cleanup (struct kissat *, const char *);
+void kissat_event_trace_forward_clause (struct kissat *, struct clause *,
+                                        const char *, int);
+void kissat_event_trace_clause_garbage (struct kissat *, struct clause *,
+                                        const char *);
 void kissat_event_trace_factor_seed (struct kissat *, unsigned, size_t);
 void kissat_event_trace_factor_summary (struct kissat *, uint64_t);
 void kissat_event_trace_factor_schedule (struct kissat *, size_t, unsigned,
@@ -162,7 +170,7 @@ void kissat_event_trace_factor_candidate_source (
     struct clause *);
 void kissat_event_trace_factor_candidate_binary_source (
     struct kissat *, unsigned, size_t, unsigned, unsigned);
-void kissat_event_trace_factor_heap (struct kissat *, unsigned,
+void kissat_event_trace_factor_heap (struct kissat *, unsigned, const char *,
                                      const struct heap *);
 void kissat_event_trace_close (void);
 void kissat_reduce_trace_clause (struct kissat *, struct clause *, unsigned,

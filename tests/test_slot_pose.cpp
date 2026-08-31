@@ -183,10 +183,53 @@ static void test_productive_bve_round_does_not_collect_again_at_phase_exit() {
   assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
   assert(k.stats.bve_eliminated > 0);
   const uint64_t rounds = p.inprocess().entries[0].tm.admitted;
-  assert(rounds > 0);
+  assert(rounds == DefaultStrategyConfig::INPROCESS_PHASE_ROUNDS_DEFAULT &&
+         "a productive first BVE round must reach the phase's second "
+         "elimination round");
+  assert(k.bve_definition_session == 1 &&
+         "all BVE rounds in one Eliminate phase must share one embedded "
+         "Kitten generator lifetime");
   assert(k.arena_generation == generation + rounds &&
          "one collection per round leaves no extra phase-exit collection");
   std::printf("  productive BVE round collects exactly once\n");
+}
+
+// A rejected BVE candidate is still allowed to have learned a root while
+// generating its prefix of resolvents.  Kissat flushes after every candidate,
+// not only successful eliminations; the scheduler must therefore propagate
+// that root before moving to the next heap member even though ApplyResult is
+// NoOp.
+static void test_declined_bve_candidate_flushes_immediate_unit() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  kernel_reserve_vars(k, 9); // x=1, u=2, a=3..5, b=6..8, implied=9
+  const Lit x = internalize(1), nx = internalize(-1), u = internalize(2);
+  kernel_add_binary_clause(k, x, u);
+  for (int a = 3; a <= 5; ++a)
+    kernel_add_binary_clause(k, x, internalize(a));
+  kernel_add_binary_clause(k, nx, u);
+  for (int b = 6; b <= 8; ++b)
+    kernel_add_binary_clause(k, nx, internalize(b));
+  kernel_add_binary_clause(k, internalize(-2), internalize(9));
+  k.stats.conflicts = 1;
+  k.bve_gate_mask = 0;
+  k.bve_backward = false;
+
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.phase_rounds = 1;
+  DefaultPolicy p(cfg);
+  auto entry = posed_bve_entry();
+  p.inprocess().entries.push_back(entry);
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0});
+  k.bve_retry[var_of(x)] = 1;
+
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  assert(k.stats.bve_eliminated == 0 && !kernel_var_retired(k, var_of(x)));
+  assert(k.value(u) > 0 && k.value(internalize(9)) > 0 &&
+         "the declined candidate's unit and its implication must be drained");
+  assert(k.propagate_head == k.trail.size());
+  std::printf("  declined BVE candidate flushes its immediate unit\n");
 }
 
 static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
@@ -490,6 +533,7 @@ int main() {
   test_substitute_budget_stops_second_round();
   test_bve_round_collects_once_even_without_elimination();
   test_productive_bve_round_does_not_collect_again_at_phase_exit();
+  test_declined_bve_candidate_flushes_immediate_unit();
   test_default_bve_ladder_reaches_kissat_terminal_bound();
   test_dynamic_bve_heap_rearms_all_at_later_bound();
   test_incomplete_bve_round_drops_remaining_retry_flags();
