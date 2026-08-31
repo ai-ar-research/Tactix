@@ -1366,23 +1366,18 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   if (k.dense) {
     assert(k.dense->track_order);
     for (const Lit pivot : {px, nx}) {
-      // Binary deletion mutates both ordered polarity vectors, so traverse a
-      // value snapshot of this polarity's original stream.  The opposite
-      // polarity snapshot is taken only after this scan, matching Kissat's
-      // two sequential `occurrences_literal` calls.
-      const std::vector<OccIndex::Entry> connected =
-          k.dense->ordered[pivot];
-      bool changed = false;
+      // First identify the mutable prefix without copying the occurrence
+      // stack.  Apply its deletions before inspecting the opposite polarity,
+      // preserving Kissat's two sequential `occurrences_literal` calls.
+      // Garbage has no score side effect of its own, so it can be compacted in
+      // one stable pass after the satisfied binaries have been retired.
+      std::vector<Lit> satisfied_binaries;
+      std::vector<Ref> garbage_prefix;
       bool failed = false;
-      for (const OccIndex::Entry entry : connected) {
+      for (const OccIndex::Entry entry : k.dense->ordered[pivot]) {
         if (entry.binary) {
-          if (k.value(entry.payload) <= 0)
-            continue;
-          const bool removed =
-              kernel_delete_binary_one_copy_bve_scan(k, pivot, entry.payload);
-          assert(removed);
-          changed |= removed;
-          (void)removed;
+          if (k.value(entry.payload) > 0)
+            satisfied_binaries.push_back(entry.payload);
           continue;
         }
         const Ref ref = entry.payload;
@@ -1394,21 +1389,45 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
           }
           continue;
         }
-        std::vector<Ref> &refs = k.dense->large[pivot];
-        const auto rat = std::find(refs.begin(), refs.end(), ref);
-        if (rat != refs.end()) {
-          refs.erase(rat);
-          kernel_bve_occurrence_remove(k, pivot);
-        }
-        std::vector<OccIndex::Entry> &ordered = k.dense->ordered[pivot];
-        const auto oat = std::find_if(
-            ordered.begin(), ordered.end(), [ref](const OccIndex::Entry &e) {
-              return !e.binary && e.payload == ref;
-        });
-        assert(oat != ordered.end());
-        ordered.erase(oat);
-        changed = true;
+        garbage_prefix.push_back(ref);
       }
+      for (const Lit other : satisfied_binaries) {
+        const bool removed =
+            kernel_delete_binary_one_copy_bve_scan(k, pivot, other);
+        assert(removed);
+        (void)removed;
+      }
+      if (!garbage_prefix.empty()) {
+        std::vector<Ref> &refs = k.dense->large[pivot];
+        size_t garbage = 0, out = 0;
+        for (const Ref ref : refs) {
+          if (garbage < garbage_prefix.size() &&
+              ref == garbage_prefix[garbage]) {
+            garbage++;
+            continue;
+          }
+          refs[out++] = ref;
+        }
+        assert(garbage == garbage_prefix.size());
+        refs.resize(out);
+        kernel_bve_occurrence_remove(
+            k, pivot, static_cast<uint32_t>(garbage_prefix.size()));
+
+        std::vector<OccIndex::Entry> &ordered = k.dense->ordered[pivot];
+        garbage = out = 0;
+        for (const OccIndex::Entry entry : ordered) {
+          if (!entry.binary && garbage < garbage_prefix.size() &&
+              entry.payload == garbage_prefix[garbage]) {
+            garbage++;
+            continue;
+          }
+          ordered[out++] = entry;
+        }
+        assert(garbage == garbage_prefix.size());
+        ordered.resize(out);
+      }
+      const bool changed =
+          !satisfied_binaries.empty() || !garbage_prefix.empty();
       antecedent_oversized |= failed;
       if (!failed && changed)
         rescore_popped_candidate = true;

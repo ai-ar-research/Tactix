@@ -256,6 +256,62 @@ static void test_candidate_gather_deletes_satisfied_binary() {
   kernel_dense_disconnect(k);
 }
 
+// Mutating the connected stack while scanning must neither skip the successor
+// of a deleted binary nor inspect entries beyond the first oversized clause.
+// This is the ordered transition used by the linear prefix compaction scan.
+static void test_candidate_gather_mutating_prefix_boundary() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit pivot = internalize(1), early = internalize(2);
+  const Lit late = internalize(5);
+  kernel_add_binary_clause(k, pivot, early);
+  const Lit stale_lits[3] = {pivot, internalize(3), internalize(4)};
+  const Ref stale = kernel_add_large_clause(k, stale_lits, 3, false, 0);
+  const Lit oversized[3] = {pivot, internalize(3), internalize(4)};
+  kernel_add_large_clause(k, oversized, 3, false, 0);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense, true);
+  // Dense entry creates the binary-prefix/arena order.  A binary created
+  // while connected is then appended after that oversized arena occurrence.
+  kernel_add_binary_clause(k, pivot, late);
+  assert(dense.ordered[pivot].size() == 4);
+  assert(dense.ordered[pivot][0].binary &&
+         dense.ordered[pivot][0].payload == early);
+  assert(!dense.ordered[pivot][1].binary &&
+         dense.ordered[pivot][1].payload == stale);
+  assert(!dense.ordered[pivot][2].binary);
+  assert(dense.ordered[pivot][3].binary &&
+         dense.ordered[pivot][3].payload == late);
+  kernel_assign_unit(k, early);
+  kernel_assign_unit(k, late);
+  std::vector<uint32_t> image(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    image[lit] = bve_schedule_occurrence_count(k, lit);
+  k.bve_occurrence_count_image = &image;
+  kernel_delete_clause(k, clause_at(k.arena, stale));
+  BveScoreNotifications notifications;
+  k.bve_score_update_hook = record_bve_score_notification;
+  k.bve_score_update_state = &notifications;
+
+  k.bve_clause_size_limit = 2;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
+  assert(!kernel_binary_live(k, pivot, early));
+  assert(kernel_binary_live(k, pivot, late) &&
+         "the suffix beyond the oversized occurrence remains untouched");
+  assert(image[pivot] == 2 && image[early] == 0 && image[late] == 1);
+  assert(dense.large[pivot].size() == 1 &&
+         dense.large[pivot][0] != stale);
+  assert(notifications.events.size() == 1);
+  assert(notifications.events[0] == std::make_pair(var_of(early), true));
+
+  k.bve_score_update_hook = nullptr;
+  k.bve_score_update_state = nullptr;
+  k.bve_occurrence_count_image = nullptr;
+  kernel_dense_disconnect(k);
+}
+
 static void test_flush_units_while_connected() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -1432,6 +1488,7 @@ int main() {
   test_candidate_gather_stops_before_late_garbage();
   test_oversized_polarity_suppresses_other_compaction_rescore();
   test_candidate_gather_deletes_satisfied_binary();
+  test_candidate_gather_mutating_prefix_boundary();
   test_flush_units_while_connected();
   test_occurrences_skip_redundant();
   test_schedule_order();

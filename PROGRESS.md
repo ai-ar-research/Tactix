@@ -8,7 +8,7 @@ resume surface.
 
 ## Current resume anchor
 
-- Checkpoint `3ff1d43ec6a24a1250bfdb9e7213e95c4bc55a08` is the last local
+- Checkpoint `2338c1700c70c985038497e863dc2f1124c0c508` is the last local
   commit; pinned Kissat is
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`.
 - Keep every current general repair. Latest closure: live active state excludes
@@ -73,6 +73,12 @@ resume surface.
   Rank 1--40 has all 40 expected solver verdicts in
   10,848.684 s: 1.054266x preceding, 0.966657x accepted, and 1.413466x Kissat;
   all 22 SAT models and 18 UNSAT proofs verify, and all 40 rows are clean.
+
+## Rank-25 current localization
+
+- Rank 25 regresses 270.955→760.379 s with exact search/BVE work but BVE time 13,803→509,433 ms over the same 3,296,386 applications: an implementation-unit-cost regression.
+- Matched campaign `20260831-4290-tierd-rank25-bve-unit-cost`, job `1657922`, is valid/clean: previous 263.337 s / 13,779 ms BVE versus current 755.590 s / 507,738 ms, with exact work and verified models.
+- Streaming cleanup passes three waves at median 0.348100x current; Rank33 and B+C are checked/clean (B+C 0.996294x shipped), while homogeneous `1658000` at 10,266.505 s has 6 proofs continuing asynchronously.
 
 ## Tests and correctness
 
