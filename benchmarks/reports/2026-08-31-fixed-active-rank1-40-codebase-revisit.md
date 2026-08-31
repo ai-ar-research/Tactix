@@ -17,9 +17,8 @@ Slurm job `1657639`, uses Release SHA
 for every rank. All 40 provisional solver records have the expected verdict;
 the total is 10,290.269 seconds versus 10,573.791 for the immediately
 preceding homogeneous candidate. Geometric mean improves 2.6%. All 22 SAT
-models and 16 of 18 UNSAT proofs are independently verified at this report
-snapshot; the remaining two proof checks continue without blocking the solver
-comparison. Every completed checker record is valid and clean.
+models and all 18 UNSAT proofs are independently verified. Every checker
+record is valid and clean.
 
 The candidate is a general positive increment and should be retained. It does
 not close all convergence work: Rank 33 regresses sharply, Rank 17 remains

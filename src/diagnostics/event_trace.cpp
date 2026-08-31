@@ -704,6 +704,14 @@ bool EventTrace::open_from_env(const Kernel &k) {
       std::getenv("TACTIX_EVENT_TRACE_LEARNED_ONLY") != nullptr;
   imply_only_ =
       std::getenv("TACTIX_EVENT_TRACE_IMPLY_ONLY") != nullptr;
+  factor_fresh_only_ =
+      std::getenv("SAT_EVENT_TRACE_FACTOR_FRESH_ONLY") != nullptr;
+  factor_update_only_ =
+      std::getenv("SAT_EVENT_TRACE_FACTOR_UPDATE_ONLY") != nullptr;
+  factor_literal_only_ =
+      std::getenv("SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY") != nullptr;
+  clause_lifecycle_only_ =
+      std::getenv("SAT_EVENT_TRACE_CLAUSE_LIFECYCLE_ONLY") != nullptr;
   if (const char *spec = std::getenv("SAT_EVENT_TRACE_IMPLY_LITERALS")) {
     const char *cursor = spec;
     while (*cursor) {
@@ -719,6 +727,8 @@ bool EventTrace::open_from_env(const Kernel &k) {
   }
   bve_heap_only_ =
       std::getenv("TACTIX_EVENT_TRACE_BVE_HEAP_ONLY") != nullptr;
+  bve_pop_only_ =
+      std::getenv("TACTIX_EVENT_TRACE_BVE_POP_ONLY") != nullptr;
   conflict_only_ =
       std::getenv("TACTIX_EVENT_TRACE_CONFLICT_ONLY") != nullptr;
   checkpoint_only_ =
@@ -767,6 +777,32 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       (exit_conflict_ == UINT64_MAX || exit_conflict_ == k.stats.conflicts);
   if (target_only_ && !exit_after_match)
     return;
+  if (factor_fresh_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "factor_fresh"))
+    return;
+  if (factor_update_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "factor_update") &&
+      std::strcmp(event, "factor_heap") &&
+      std::strcmp(event, "factor_fresh"))
+    return;
+  if (factor_literal_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "factor_literal_state") &&
+      std::strcmp(event, "factor_literal_entry") &&
+      std::strcmp(event, "factor_fresh"))
+    return;
+  // Selected-clause lifecycle traces retain macro snapshots to follow arena
+  // relocation, but reject ordinary search detail before it can consume the
+  // row cap or dominate solver time.
+  if (clause_lifecycle_only_ && !snapshot &&
+      std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "eliminate_cleanup") &&
+      std::strcmp(event, "factor_literal_state") &&
+      std::strcmp(event, "terminate"))
+    return;
+  if (clause_lifecycle_only_ && snapshot && detail_window_ &&
+      (k.stats.conflicts < detail_conflict_from_ ||
+       k.stats.conflicts > detail_conflict_to_))
+    return;
   // A narrow Sweep observer must not pay for global macro snapshots before
   // reaching its selected conflict.  Sweep detail is emitted explicitly by
   // the rule; allowing unrelated snapshots to bypass the detail window made a
@@ -790,6 +826,14 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
     return;
   if (imply_only_ && std::strcmp(event, "trace_begin") &&
       std::strcmp(event, "imply") && std::strcmp(event, "terminate"))
+    return;
+  // Cumulative BVE-pop checkpoints are sufficient to locate a dynamic heap
+  // split.  Keep this surface separate from BVE_HEAP_ONLY, which deliberately
+  // retains candidate plans and can produce hundreds of thousands of rows.
+  if (bve_pop_only_ && std::strcmp(event, "trace_begin") &&
+      std::strcmp(event, "bve_schedule") &&
+      std::strcmp(event, "bve_pop_checkpoint") &&
+      std::strcmp(event, "bve_pop") && std::strcmp(event, "terminate"))
     return;
   if (bve_heap_only_ && std::strcmp(event, "trace_begin") &&
       std::strcmp(event, "bve_heap") &&
@@ -1530,7 +1574,8 @@ bool EventTrace::want_detail(const Kernel &k) {
   // Learned-only is a low-perturbation trajectory observer.  Reject other
   // detailed helpers before they construct payloads; learned_stage applies
   // the same conflict window directly below.
-  if (learned_only_ || heap_vars_only_)
+  if (learned_only_ || heap_vars_only_ || factor_fresh_only_ ||
+      factor_update_only_ || factor_literal_only_ || clause_lifecycle_only_)
     return false;
   // detail() invokes formula_checkpoint before consulting this gate, so
   // formula-only can reject every expensive ordinary detail payload here.
@@ -2181,6 +2226,14 @@ void EventTrace::slot_boundary(const Kernel &k, const char *name,
     emit_binary_set_snapshot(k, "slot_boundary", payload.c_str());
     emit_formula_set_snapshot(k, "slot_boundary", payload.c_str());
   }
+  // Clause-lifecycle mode deliberately rejects ordinary detail payloads, but
+  // its purpose includes locating the first inprocessing rule that rewrites
+  // or deletes a selected clause.  Slot boundaries are bounded snapshots and
+  // therefore belong to that mode just like outer macro boundaries.
+  if (clause_lifecycle_only_) {
+    emit(k, "slot_boundary", payload.c_str(), true);
+    return;
+  }
   if (!want_detail(k))
     return;
   const bool exit_after_match = exit_selector_matches(
@@ -2755,7 +2808,8 @@ void event_trace_factor_score_entry(const Kernel &k, Lit seed, uint32_t depth,
 void EventTrace::factor_literal_state(const Kernel &k, Lit lit, bool marked,
                                       bool retired, int value,
                                       uint32_t score) {
-  if (!want_detail(k) || emitted_ >= limit_)
+  if ((!factor_literal_only_ && !clause_lifecycle_only_ && !want_detail(k)) ||
+      emitted_ >= limit_)
     return;
   const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL");
   if (!selected || std::atoi(selected) != kernel_externalize(k, lit))
@@ -2824,7 +2878,7 @@ void event_trace_substitute_map(const Kernel &k, Lit lit, Lit representative) {
 void EventTrace::factor_literal_entry(const Kernel &k, Lit selected_lit,
                                       uint32_t ordinal, bool live, Lit other,
                                       uint64_t id, const Clause *clause) {
-  if (!want_detail(k) || emitted_ >= limit_)
+  if ((!factor_literal_only_ && !want_detail(k)) || emitted_ >= limit_)
     return;
   const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL");
   if (!selected ||
@@ -2981,12 +3035,18 @@ void EventTrace::factor_heap(const Kernel &k, Lit grid_seed,
                              const char *stage, Lit a, uint32_t pos_a,
                              uint32_t score_a, Lit b, uint32_t pos_b,
                              uint32_t score_b, uint32_t size) {
-  if (!want_detail(k) || emitted_ >= limit_)
+  const char *selected =
+      std::getenv("SAT_EVENT_TRACE_FACTOR_HEAP_ORDINAL");
+  if (selected &&
+      std::strtoull(selected, nullptr, 10) != k.stats.factorings)
+    return;
+  if ((!factor_update_only_ && !want_detail(k)) || emitted_ >= limit_)
     return;
   const int grid = grid_seed == INVALID_LIT ? 0
                                             : kernel_externalize(k, grid_seed);
   const std::string payload =
-      "grid=" + std::to_string(grid) + "|stage=" + stage +
+      "factor=" + std::to_string(k.stats.factorings) +
+      "|grid=" + std::to_string(grid) + "|stage=" + stage +
       "|a=" + std::to_string(kernel_externalize(k, a)) +
       "|pos_a=" +
       std::to_string(pos_a == UINT32_MAX ? -1 : static_cast<int64_t>(pos_a)) +
@@ -3048,13 +3108,20 @@ void event_trace_factor_mark_transition(const Kernel &k, Lit lit, bool marked,
 
 void EventTrace::factor_update(const Kernel &k, Lit grid_seed,
                                uint32_t ordinal, Lit lit, uint32_t score) {
-  if (!want_detail(k) || emitted_ >= limit_)
+  const char *selected_ordinal =
+      std::getenv("SAT_EVENT_TRACE_FACTOR_UPDATE_ORDINAL");
+  if (selected_ordinal &&
+      std::strtoull(selected_ordinal, nullptr, 10) != k.stats.factorings)
+    return;
+  if ((!factor_update_only_ && !want_detail(k)) || emitted_ >= limit_)
     return;
   const char *selected = std::getenv("TACTIX_EVENT_TRACE_FACTOR_UPDATE");
-  if (!selected || std::atoi(selected) != kernel_externalize(k, grid_seed))
+  if (!selected_ordinal &&
+      (!selected || std::atoi(selected) != kernel_externalize(k, grid_seed)))
     return;
   const std::string payload =
-      "grid=" + std::to_string(kernel_externalize(k, grid_seed)) +
+      "factor=" + std::to_string(k.stats.factorings) +
+      "|grid=" + std::to_string(kernel_externalize(k, grid_seed)) +
       "|ordinal=" + std::to_string(ordinal) +
       "|external=" + std::to_string(kernel_externalize(k, lit)) +
       "|score=" + std::to_string(score);
@@ -3099,6 +3166,48 @@ void event_trace_factor_grid_member(const Kernel &k, uint32_t ordinal,
                                     Lit factor) {
   if (active_trace)
     active_trace->factor_grid_member(k, ordinal, factor);
+}
+
+void EventTrace::factor_fresh(const Kernel &k, Lit seed, Var fresh,
+                              const Lit *factors, uint32_t factor_count,
+                              uint32_t remainders, int delta) {
+  if (factor_update_only_) {
+    const char *selected =
+        std::getenv("SAT_EVENT_TRACE_FACTOR_UPDATE_ORDINAL");
+    if (!selected || std::strtoull(selected, nullptr, 10) + 1 !=
+                         k.stats.factorings)
+      return;
+  }
+  if ((!factor_fresh_only_ && !factor_update_only_ &&
+       !factor_literal_only_ && !want_detail(k)) ||
+      emitted_ >= limit_)
+    return;
+  std::string payload =
+      "fresh=" +
+      std::to_string(kernel_externalize(k, make_lit(fresh, false))) +
+      "|ordinal=" + std::to_string(k.stats.factorings) +
+      "|seed=" + std::to_string(kernel_externalize(k, seed)) +
+      "|factors=" + std::to_string(factor_count) +
+      "|remainders=" + std::to_string(remainders) +
+      "|delta=" + std::to_string(delta) + "|members=";
+  for (uint32_t i = 0; i != factor_count; ++i) {
+    if (i)
+      payload.push_back(',');
+    payload += std::to_string(kernel_externalize(k, factors[i]));
+  }
+  if (factor_literal_only_ && !exit_match_.empty() &&
+      !exit_selector_matches("factor_fresh", payload.c_str(),
+                             exit_match_.c_str()))
+    return;
+  emit(k, "factor_fresh", payload.c_str(), false);
+}
+
+void event_trace_factor_fresh(const Kernel &k, Lit seed, Var fresh,
+                              const Lit *factors, uint32_t factor_count,
+                              uint32_t remainders, int delta) {
+  if (active_trace)
+    active_trace->factor_fresh(k, seed, fresh, factors, factor_count,
+                               remainders, delta);
 }
 
 void EventTrace::bve_candidate(const Kernel &k, Var var, const char *stage,

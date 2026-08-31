@@ -8,8 +8,8 @@ resume surface.
 
 ## Current resume anchor
 
-- Checkpoint `79dc3bfacb2715d1864cf8d9c3e55aec2cee87f3` evaluates a Release
-  binary built on `1c719fc8...`; pinned Kissat is
+- Checkpoint `3ff1d43ec6a24a1250bfdb9e7213e95c4bc55a08` is the last local
+  commit; pinned Kissat is
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`.
 - Keep every current general repair. Latest closure: live active state excludes
   retained semantic level-zero fixed identities but includes non-root search
@@ -22,19 +22,22 @@ resume surface.
 - Production BVE/Factor/forward-subsume/Vivify remain uniformly enabled at
   100/50/100/100 permille. Removed Dose5, Factor5, NoBve, NoBveLight, and
   StartupFactorOnly profiles stay removed.
-- Homogeneous campaign `20260831-3630-tierd-ranks1-40-transitive-unit`, job
-  `1657564`, is complete: 40/40 expected verdicts, all 22 SAT models and all 18
-  UNSAT proofs verified, with zero residue. Andrew-facing catch-up report:
-  `report-to-andrew/2026-08-31-0140-transitive-unit-and-rank1-40-revisit/`.
+- Homogeneous campaign `20260831-3760-tierd-ranks1-40-fixed-active`, job
+  `1657639`, is complete: 40/40 expected verdicts, all 22 SAT models and all 18
+  UNSAT proofs verified, with zero residue. Rank 36 remains closed.
+- Current increment contains general BVE lifecycle and Factor candidate-filter
+  repairs plus bounded observers. Valid paired job `1657793` proves the selected
+  ternary survives BVE, forward processing, Eliminate, search, arena relocation,
+  and conflict-19,378 Probe entry. Full trace:
+  `2026-08-31-rank33-factor-lifecycle-handoff.md`.
 
 ## Latest candidate performance
 
 - Release SHA `5743b0a...03698`, homogeneous job `1657639`, provisionally solves
   40/40 in 10,290.269 s: 0.973186x preceding, 0.916900x accepted, and 1.340710x
   Kissat; geometric-mean ratios are 0.973948x, 0.930427x, and 1.330300x.
-- SAT/UNSAT totals are 4,520.427/5,769.842 s. All 22 SAT models and 16/18 UNSAT
-  proofs are independently verified at the snapshot; two checks continue
-  nonblocking, with no invalidity or residue. Full table/revisit: campaign
+- SAT/UNSAT totals are 4,520.427/5,769.842 s. All 22 SAT models and all 18 UNSAT
+  proofs are independently verified, with no invalidity or residue. Full table/revisit: campaign
   `3760` `comparison-live.md` and `2026-08-31-fixed-active-rank1-40-codebase-revisit.md`.
 - Jobs `1657634`/`1657636` prove Rank 17's old 944,336 active count included
   616,255 retained roots; the repair changes only that field to 328,081 at
@@ -44,46 +47,37 @@ resume surface.
   its downstream trajectory. Rank 36 remains closed at 385.209 s versus
   Kissat's 368.510 s. Peak RSS remains Rank 10 at 16,987,860 KiB.
 
-## Rank-32 causal closure
+## Rank-33 current localization
 
-- Complete first pre-Congruence formula comparison proved both solvers had
-  585,717 identical live large clauses. The first semantic mismatch was a
-  Tactix-only XOR degeneracy equivalence `174966 <-> 174968`.
-- Gate 397861 was XOR output 174966 over inputs 174968 and 174970. Tactix
-  indexed the original clause shape even though 174970 was root-false; Kissat
-  simplified before candidate admission and treated the encoding as
-  effectively binary. The root-effective index repair removes that mismatch.
-- After that repair, the first early-Substitute and early-Backbone binary
-  states are exact. At first pre-Sweep, both arms have 756,245 binary copies
-  with canonical SHA `358a6bd5...483c4`, plus 580,534 irredundant and 3,436
-  redundant large clauses with canonical SHA `7e0dea9e...c681`.
-- Sweep seed tracing then found identical first-round seed/environment order,
-  but Tactix stopped after 588 seeds at 1,000,001 ticks while Kissat was exactly
-  at 1,000,000 and admitted seed 34979. Per-seed behavior differed from the
-  first seed 881.
-- Selected seed 881 imported the same 256 variables, 235 clauses in the same
-  order, and 142 binary attempts. The initial solve cost 312 ticks on both
-  sides but returned different SAT models. Source audit found Tactix began the
-  fresh Kitten at seed 1 while Kissat begins at seed 0.
-- After the lifecycle repair, campaign
-  `20260830-1110-tierd-rank32-sweep-seed0-validation`, job `1656759`, matches
-  Kissat byte-for-byte on environment order, every query, every model, and
-  seed-881 effort (5,745 ticks). Tactix processes the same 589 initial seeds.
-- Carry-forward campaign `20260830-1120-tierd-rank32-seed0-target-boundary`,
-  job `1656760`, ends at the diagnostic 120-second ceiling before its requested
-  conflict-9,464 endpoint, so the whole observer is not acceptance-valid. Its
-  selected boundary is complete: all 583,970 large clauses, both binary
-  snapshots (756,245 and 755,972 copies), all 1,681 seeds, environment sizes,
-  and per-seed tick/solve deltas match Kissat. Both find 159 equivalences.
-  Three event rows reverse endpoint print order only; post-Sweep clauses match.
-- The causal discrepancy is closed at common input, mechanism trajectory, and
-  output state. Detailed chronology is in
-  `benchmarks/reports/2026-08-30-codebase-revisit-and-otfs-candidate.md`.
+- At BVE conflict 15,347 both solvers generate ternary
+  `(-237373,-237365,-145)` from the same 2x8 transaction. Valid jobs `4140` and
+  `4170` prove both forward passes retain it; invalid observer jobs are
+  classified clean and make no claim.
+- Job `4210` follows the same clause through conflict-17,312 relocation and to
+  Probe entry with exact decisions, heap prefix, formula counts, pose, and
+  metadata. Job `4220` proves every Probe subrule retains it and confines the
+  score 2-versus-1 split to Factor's dense candidate construction.
+- Source comparison found Tactix omitted Kissat's separate final survivor
+  recheck against the last `factorcandrounds` count rebuild. The uniform recheck
+  and a three-layer peel regression are implemented. Causal job `1657806`
+  (`4240`) now matches `-237365` active=1, marked=1, value=0, degree=1 in both
+  solvers. Job `4230` is invalid/clean and contributes no paired claim.
+- Proceed to Release, Rank-33, and Tier-B+C validation. Do not restore a profile
+  or add a formula/rank selector. Release passes 76/76; Rank-33 job `1657808`
+  is valid and clean at 468.533 s, with its 2.137 GB DRAT independently verified.
+  Fixed
+  B28+C5 job `1657809` and homogeneous Rank-1--40 job `1657810` are running
+  from the same immutable Release pin. B28+C5 has all 66 expected solver
+  verdicts and checked artifacts at 2,010.962/2,444.835 s candidate/shipped
+  (0.822535x PAR-2): all 66 rows are valid and clean, so the gate passes.
+  Rank 1--40 has all 40 expected solver verdicts in
+  10,848.684 s: 1.054266x preceding, 0.966657x accepted, and 1.413466x Kissat;
+  all 22 SAT models and 18 UNSAT proofs verify, and all 40 rows are clean.
 
 ## Tests and correctness
 
-- Full trace SubSolver oracle passes 100,000 randomized formulas; focused event
-  trace/overlay checks and the complete 76/76 Release suite pass. Configuration
+- Full trace SubSolver oracle passes 100,000 randomized formulas; the complete
+  75/75 Trace and 76/76 Release suites pass. Configuration
   wiring has zero failures; campaign pins are hash-checked per task.
 - Two observer campaigns were correctly disqualified after their SAT checker
   bundle omitted `modelcheck.py`. Tier-D preparation now pins that runtime

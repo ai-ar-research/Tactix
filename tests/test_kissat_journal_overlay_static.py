@@ -57,6 +57,35 @@ assert 'KISSAT_EVENT_TRACE_LEARNED_ONLY' in eventtrace
 assert 'TACTIX_EVENT_TRACE_LEARNED_ONLY' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_BVE_HEAP_ONLY' in eventtrace
 assert 'TACTIX_EVENT_TRACE_BVE_HEAP_ONLY' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_BVE_POP_ONLY' in eventtrace
+assert 'TACTIX_EVENT_TRACE_BVE_POP_ONLY' in tactix_trace
+assert 'kissat_event_trace_factor_fresh (' in eventtrace
+assert 'kissat_event_trace_factor_fresh (\\n' in prepare
+assert 'event_trace_factor_fresh(k, seed, added_fresh' in (
+    root / "src/rules/factor/factor.cpp").read_text()
+assert 'SAT_EVENT_TRACE_FACTOR_FRESH_ONLY' in eventtrace
+assert ('trace_heap_vars_only ||\n      trace_factor_fresh_only' in eventtrace)
+assert ('trace_factor_fresh_only && strcmp (event, "trace_begin")' in
+        eventtrace)
+assert ('factor_fresh_only_ && std::strcmp(event, "trace_begin")' in
+        tactix_trace)
+assert 'factor_fresh_only_' in tactix_trace
+assert 'SAT_EVENT_TRACE_FACTOR_UPDATE_ONLY' in eventtrace
+assert 'kissat_event_trace_factor_update (' in eventtrace
+assert 'factoring->trace_update_ordinal++' in prepare
+assert 'trace_factor_update_only && strcmp (event, "trace_begin")' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_HEAP_ORDINAL' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_HEAP_SET_PATH' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_HEAP_SET_PATH' in (
+    root / "src/rules/factor/factor.cpp").read_text()
+assert 'first, "popped"' in prepare
+assert '"updated"' in prepare
+assert 'factor_update_only_' in tactix_trace
+assert 'SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY' in eventtrace
+assert ('trace_factor_literal_only && strcmp (event, "trace_begin")' in
+        eventtrace)
+assert ('factor_literal_only_ && std::strcmp(event, "trace_begin")' in
+        tactix_trace)
 assert ('trace_bve_heap_only && strcmp (event, "trace_begin")' in eventtrace)
 assert ('bve_heap_only_ && std::strcmp(event, "trace_begin")' in tactix_trace)
 assert 'strcmp (event, "bve_schedule")' in eventtrace
@@ -79,20 +108,29 @@ assert 'TACTIX_EVENT_TRACE_HEAP_DUMP' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_HEAP_DUMP' in eventtrace
 assert 'if (formula_only_ || conflict_only_ || checkpoint_only_)' in tactix_trace, (
     "all summary-only trace modes must reject expensive ordinary detail payloads")
-assert ('if (trace_formula_only || trace_learned_only || '
-        'trace_heap_vars_only)\n    return false;') in eventtrace
+assert ('if (trace_formula_only || trace_learned_only || trace_heap_vars_only ||\n'
+        '      trace_factor_fresh_only || trace_factor_update_only ||\n'
+        '      trace_factor_literal_only || trace_clause_lifecycle_only)\n'
+        '    return false;') in eventtrace
+assert 'trace_clause_lifecycle_only && !snapshot' in eventtrace
+assert 'clause_lifecycle_only_ && !snapshot' in tactix_trace
+assert 'trace_clause_lifecycle_only && snapshot && trace_detail_window' in eventtrace
+assert 'clause_lifecycle_only_ && snapshot && detail_window_' in tactix_trace
 assert 'std::strcmp(event, "analysis_end") &&\n      std::strcmp(event, "formula_checkpoint")' in tactix_trace
 assert 'strcmp (event, "analysis_end") &&\n      strcmp (event, "formula_checkpoint")' in eventtrace
 for event in ('trace_begin', 'formula_checkpoint', 'terminate'):
     assert f'std::strcmp(event, "{event}")' in tactix_trace
     assert f'strcmp (event, "{event}")' in eventtrace
-assert 'const bool snapshot = !trace_trajectory_only && analysis_end;' in eventtrace, (
-    "trajectory-only analysis_end must not scan and rank the full solver state")
-assert 'trace_formula_only || trace_learned_only || trace_heap_vars_only' in eventtrace, (
+assert ('!trace_trajectory_only && !trace_clause_lifecycle_only && analysis_end' in
+        eventtrace), (
+    "trajectory/lifecycle-only analysis_end must not scan and rank full state")
+assert 'trace_formula_only || trace_learned_only || trace_heap_vars_only ||' in eventtrace, (
     "learned-only must reject non-learned payloads at the helper gate")
 assert 'trace_learned_only && strcmp (event, "learned")' in eventtrace
 assert 'learned_only_ && std::strcmp(event, "learned")' in tactix_trace
-assert 'if (learned_only_ || heap_vars_only_)\n    return false;' in tactix_trace, (
+assert ('if (learned_only_ || heap_vars_only_ || factor_fresh_only_ ||\n'
+        '      factor_update_only_ || factor_literal_only_ || clause_lifecycle_only_)\n'
+        '    return false;') in tactix_trace, (
     "Tactix learned-only must reject non-learned payloads at the helper gate")
 assert 'trace_learned_only && !stop_here' in eventtrace, (
     "learned-only must retain analysis-end solely for the stop contract")

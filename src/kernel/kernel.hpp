@@ -347,6 +347,8 @@ void event_trace_factor_mark_transition(const Kernel &, Lit, bool,
 void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t);
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int);
 void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit);
+void event_trace_factor_fresh(const Kernel &, Lit, Var, const Lit *, uint32_t,
+                              uint32_t, int);
 #endif
 
 struct FactorSelection;

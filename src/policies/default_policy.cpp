@@ -1345,8 +1345,14 @@ private:
         bubble_up(v);
       else if (now < old)
         bubble_down(v);
-    } else if (reinsert && v < kernel_->bve_retry.size() &&
-               kernel_->bve_retry[v]) {
+    } else if (reinsert) {
+      // eliminate.c::update_after_removing_variable pushes an active variable
+      // which is absent from the physical schedule without consulting its
+      // `flags.eliminate` bit.  A previously failed candidate can therefore
+      // re-enter the heap as a ghost: can_eliminate_variable rejects it when it
+      // is popped, but its interim presence and bubble path are observable heap
+      // topology.  `bve_retry` is the flag image used at initial scheduling and
+      // at the pre-apply guard; it must not suppress this physical reinsertion.
       pos_[v] = static_cast<uint32_t>(stack_.size());
       stack_.push_back(v);
       bubble_up(v);
@@ -2784,13 +2790,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     return SlotStep::Next; // the one shot is consumed
   if (bve_entry && ctx.outer > 0 && std::getenv("TACTIX_BVE_CADENCE"))
     return SlotStep::Next;
-  // Kissat constructs one embedded Kitten at the beginning of each
-  // `eliminate` invocation and releases it at the end.  Candidate-to-candidate
-  // clears advance its deterministic seed, while a later BVE slot restarts
-  // that lifetime.  The policy owns this phase boundary; BVE and SubSolver own
-  // only definition and legal core-refinement mechanics.
-  if (bve_entry)
-    k.bve_definition_session = k.bve_definition_session + 1;
   BveBoundPolicy *ramp = nullptr;
   if (bve_entry && !std::getenv("TACTIX_NO_BVE_RAMP"))
     ramp = bve_bound ? bve_bound : &default_bve_ramp_;
@@ -2867,6 +2866,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       // when the final formula and scores are identical.
       const size_t candidate_trail_before = k.trail.size();
       const uint64_t candidate_roots_before = k.stats.root_assignments;
+      const uint32_t bve_flush_from = k.propagate_head;
       const ApplyResult ar = [&] {
         TickSinkScope sink(k, e.tick_counter);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -2910,11 +2910,19 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         ctx.phase_unsat = true;
         break;
       }
-      if (ar != ApplyResult::Ok)
+      const bool bve_learned_root_on_decline =
+          bve_entry && ar != ApplyResult::Ok &&
+          k.stats.root_assignments != candidate_roots_before;
+      if (ar != ApplyResult::Ok && !bve_learned_root_on_decline)
         continue; // this candidate was not viable; try the next
-      ctx.round_changed = true;
-      ctx.phase_dosed = true;
-      const uint32_t bve_flush_from = k.propagate_head;
+      if (ar == ApplyResult::Ok) {
+        ctx.round_changed = true;
+        ctx.phase_dosed = true;
+      }
+      // resolve.c can learn a unit immediately and then reject the same BVE
+      // candidate on its later growth bound.  eliminate.c nevertheless flushes
+      // that unit after every candidate.  A NoOp therefore is not permission to
+      // skip root propagation when the attempt changed the root trail.
       const size_t propagation_trail_before = k.trail.size();
       const ApplyResult propagation =
           default_propagate(k, "inprocess-candidate");
@@ -3360,6 +3368,13 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   forward_pair_limit_ = 0; // the pair's shared allowance is per phase
   bve_ran_this_phase_ = false;
   bve_complete_this_phase_ = true;
+  // Kissat constructs one embedded Kitten at the beginning of the complete
+  // `eliminate()` invocation and releases it after all of that invocation's
+  // elimination rounds. `run_phase(Eliminate)` is that lifetime boundary;
+  // its outer fixpoint rounds must reuse the same deterministic generator
+  // sequence instead of restarting it at each BVE slot visit.
+  if (group == SlotGroup::Eliminate)
+    k.bve_definition_session = k.bve_definition_session + 1;
   k.bve_occurrence_limit = config().bve_occurrence_limit;
   k.bve_clause_size_limit = config().bve_clause_size_limit;
   factor_bound_snapshot_ =

@@ -135,6 +135,8 @@ public:
   void factor_grid(const Kernel &, Lit, uint32_t factors,
                    uint32_t remainders, int delta);
   void factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
+  void factor_fresh(const Kernel &, Lit seed, Var fresh, const Lit *factors,
+                    uint32_t factor_count, uint32_t remainders, int delta);
   void bve_candidate(const Kernel &, Var, const char *stage, uint64_t ticks,
                      uint64_t limit, bool applied);
   void bve_occurrences(const Kernel &, Var, uint32_t pos_ordered,
@@ -211,8 +213,13 @@ private:
   bool trajectory_only_ = false;
   bool learned_only_ = false;
   bool imply_only_ = false;
+  bool factor_fresh_only_ = false;
+  bool factor_update_only_ = false;
+  bool factor_literal_only_ = false;
+  bool clause_lifecycle_only_ = false;
   std::vector<int> imply_literals_;
   bool bve_heap_only_ = false;
+  bool bve_pop_only_ = false;
   bool conflict_only_ = false;
   bool checkpoint_only_ = false;
   bool sweep_only_ = false;
@@ -314,6 +321,8 @@ public:
   void factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t) {}
   void factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int) {}
   void factor_grid_member(const Kernel &, uint32_t, Lit) {}
+  void factor_fresh(const Kernel &, Lit, Var, const Lit *, uint32_t, uint32_t,
+                    int) {}
   void bve_candidate(const Kernel &, Var, const char *, uint64_t, uint64_t,
                      bool) {}
   void bve_occurrences(const Kernel &, Var, uint32_t, uint32_t, uint32_t,
@@ -463,6 +472,9 @@ void event_trace_factor_update(const Kernel &, Lit grid_seed,
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t factors,
                              uint32_t remainders, int delta);
 void event_trace_factor_grid_member(const Kernel &, uint32_t ordinal, Lit);
+void event_trace_factor_fresh(const Kernel &, Lit seed, Var fresh,
+                              const Lit *factors, uint32_t factor_count,
+                              uint32_t remainders, int delta);
 void event_trace_bve_candidate(const Kernel &, Var, const char *, uint64_t,
                                uint64_t, bool);
 void event_trace_bve_occurrences(const Kernel &, Var, uint32_t pos_ordered,
@@ -608,6 +620,8 @@ inline void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit,
 inline void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t,
                                     int) {}
 inline void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit) {}
+inline void event_trace_factor_fresh(const Kernel &, Lit, Var, const Lit *,
+                                     uint32_t, uint32_t, int) {}
 inline void event_trace_bve_candidate(const Kernel &, Var, const char *,
                                       uint64_t, uint64_t, bool) {}
 inline void event_trace_bve_occurrences(const Kernel &, Var, uint32_t,

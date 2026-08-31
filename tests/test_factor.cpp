@@ -386,6 +386,40 @@ static void test_duplicate_binary_occurrences_are_flushed() {
   assert(kernel_binary_copies(k, b, p) == 1);
 }
 
+// `factorcandrounds=2` rebuilds candidate counts twice, then Kissat's separate
+// connection pass checks survivors once more against the second rebuild.  A
+// three-layer peel makes that final check observable: C0 drops in round one,
+// C1 in round two, and C2 only at connection.  Directly connecting the round-2
+// bitmap incorrectly gives seed `a` one large remainder beside its binary.
+static void test_candidate_reduction_final_connection_check() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 11);
+  k.factor_size = 3;
+  k.factor_cand_rounds = 2;
+  const Lit u = make_lit(0, false), x = make_lit(1, false);
+  const Lit y = make_lit(2, false), a = make_lit(3, false);
+  const Lit z0 = make_lit(4, false), z1 = make_lit(5, false);
+  const Lit z2 = make_lit(6, false);
+  const Lit p0 = make_lit(7, false), p1 = make_lit(8, false);
+  const Lit p2 = make_lit(9, false), pa = make_lit(10, false);
+
+  add_large(k, {u, x, z0}); // round 1: unique `u` removes C0
+  add_large(k, {x, y, z1}); // round 2: C0's loss removes C1 through `x`
+  add_large(k, {y, a, z2}); // connection: C1's loss removes C2 through `y`
+  kernel_add_binary_clause(k, z0, p0, ++k.next_clause_id);
+  kernel_add_binary_clause(k, z1, p1, ++k.next_clause_id);
+  kernel_add_binary_clause(k, z2, p2, ++k.next_clause_id);
+  kernel_add_binary_clause(k, a, pa, ++k.next_clause_id);
+
+  const int factor_id = tactix_rule_id("Factor");
+  assert(factor_id >= 0);
+  const RuleVTable &factor = tactix_rules()[factor_id];
+  assert(factor.apply_instance(k, lit_instance(k, a)) == ApplyResult::NoOp);
+  assert(k.stats.factor_large_remainders == 0 &&
+         "the final peeled clause must not enter Factor's dense index");
+}
+
 // Factor's dense-mode lifecycle ends by rebuilding every live large watch in
 // arena order, even when no profitable grid was found.  Kissat does this in
 // `kissat_resume_sparse_mode`; retaining the incoming sparse order changes
@@ -572,6 +606,7 @@ int main() {
   test_large_quotient_preserves_last_factor_pose();
   test_duplicate_large_remainder_occurrences();
   test_duplicate_binary_occurrences_are_flushed();
+  test_candidate_reduction_final_connection_check();
   test_sparse_resume_rebuilds_large_watch_order();
   test_fresh_large_quotients_do_not_become_factors();
   test_touch_filter_is_policy_only();
