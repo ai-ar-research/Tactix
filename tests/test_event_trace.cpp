@@ -572,6 +572,39 @@ int main() {
   assert(learned_only_text.find("must_be_filtered") == std::string::npos);
   std::remove(learned_only_path.c_str());
 
+  // The generic post-Reorder detail budget bounds verbose internals, but a
+  // trajectory-only observer must retain every portable analysis boundary.
+  // Otherwise 1024 filtered detail calls manufacture a Tactix/Kissat stream
+  // divergence even while decisions and learned clauses remain identical.
+  const std::string trajectory_reorder_path =
+      trace_path("event-trajectory-reorder");
+  std::remove(trajectory_reorder_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", trajectory_reorder_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.reorder_begin(k);
+    trace.reorder_end(k);
+    for (unsigned i = 0; i != 1024; ++i)
+      trace.detail(k, "analysis_mark", i);
+    trace.detail(k, "analysis_begin", 2);
+    trace.detail(k, "analysis_end", 1);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY");
+  std::ifstream trajectory_reorder_input(trajectory_reorder_path);
+  const std::string trajectory_reorder_text(
+      (std::istreambuf_iterator<char>(trajectory_reorder_input)),
+      std::istreambuf_iterator<char>());
+  assert(trajectory_reorder_text.find("\tanalysis_begin\t") !=
+         std::string::npos);
+  assert(trajectory_reorder_text.find("\tanalysis_end\t") !=
+         std::string::npos);
+  assert(trajectory_reorder_text.find("\tanalysis_mark\t") ==
+         std::string::npos);
+  std::remove(trajectory_reorder_path.c_str());
+
   // Pop localization must not inherit BVE_HEAP_ONLY's candidate/plan volume.
   // Both implementations expose this same diagnostic-only filter so a full
   // first schedule costs one summary plus one row per selected/checkpoint pop.

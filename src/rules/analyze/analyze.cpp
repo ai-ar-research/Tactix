@@ -14,6 +14,7 @@
 #include "rules/backjump/backjump.hpp" // backjump_apply: the fused rule's 2nd step
 
 #include <algorithm>
+#include <cstdlib>
 #include <iterator>
 
 namespace tactix {
@@ -949,6 +950,9 @@ static bool eager_is_reason(const Kernel &k, Ref ref, const Clause *c) {
 // clause is never deleted, nor is the clause about to be inserted.
 static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
   uint8_t *const marks = k.eager_marks.data();
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  const bool trace_eager = std::getenv("TACTIX_EVENT_TRACE_EAGER_SUBSUME");
+#endif
   for (uint32_t i = 0; i < size; i++)
     marks[lits[i]] = 1;
   bool subsumed_any = false;
@@ -957,6 +961,14 @@ static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
     if (ref == INVALID_REF)
       continue;
     Clause *c = clause_at(k.arena, ref);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (trace_eager) {
+      event_trace_detail(k, "eager_slot", s);
+      event_trace_detail(k, "eager_ref", ref);
+      event_trace_detail(k, "eager_id", c->id());
+      event_trace_detail(k, "eager_size", c->size);
+    }
+#endif
     if (c->garbage() || !c->redundant() || c->size <= size)
       continue;
     k.stats.eager_tried++;
@@ -975,9 +987,17 @@ static void eager_subsume_recent(Kernel &k, const Lit *lits, uint32_t size) {
     if (needed)
       continue;
     if (eager_is_reason(k, ref, c)) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      if (trace_eager)
+        event_trace_detail(k, "eager_reason_skip", c->id());
+#endif
       k.stats.eager_reason_skipped++;
       continue;
     }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (trace_eager)
+      event_trace_detail(k, "eager_delete", c->id());
+#endif
     kernel_delete_clause(k, c);
     k.eager_recent[s] = INVALID_REF;
     k.stats.eager_subsumed++;
@@ -1016,8 +1036,17 @@ void analyze_eager_subsume(Kernel &k) {
     return;
   const PendingLearned &p = k.pending;
   eager_subsume_recent(k, p.lits.data(), static_cast<uint32_t>(p.lits.size()));
-  if (p.ref != INVALID_REF)
+  if (p.ref != INVALID_REF) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (std::getenv("TACTIX_EVENT_TRACE_EAGER_SUBSUME")) {
+      const Clause *const c = clause_at(k.arena, p.ref);
+      event_trace_detail(k, "eager_insert_ref", p.ref);
+      event_trace_detail(k, "eager_insert_id", c->id());
+      event_trace_detail(k, "eager_insert_size", c->size);
+    }
+#endif
     eager_insert_recent(k, p.ref);
+  }
 }
 
 // Kissat analyze.c:390-520 handles a conflict at decision level one as a

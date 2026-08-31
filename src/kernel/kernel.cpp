@@ -2053,7 +2053,8 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
 }
 
 void kernel_collect_garbage(Kernel &k, Ref watch_start,
-                            bool sparse_collection) {
+                            bool sparse_collection,
+                            bool preserve_eager_recent) {
   assert(!k.bve_occurrence_count_image);
   // No probing scope may be open: this relocates every Ref, so an outstanding
   // snapshot would roll pre-collection watch words (and ClauseSnap refs) back
@@ -2061,14 +2062,16 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // stated here because the per-list order bits rest on it too: restoring an
   // older snapshot after collection could otherwise invalidate them.
   assert(!k.probing.recording);
-  // The eager-subsumption register holds raw arena Refs and this function
-  // relocates every one of them, so it is reset here rather than forwarded —
-  // kissat does exactly the same at each of its three collect sites
-  // (kissat_reset_last_learned, collect.c:274/514/702). Forwarding instead
-  // would buy at most four extra candidates and would need `searched` read off
-  // a possibly-garbage clause, the corpus-003 shape.
-  for (Ref &r : k.eager_recent)
-    r = INVALID_REF;
+  // Genuine Kissat collections reset the raw-reference recent-learned
+  // register (collect.c:274/514/702).  Some Tactix rules need an additional
+  // packing pass solely because replacements are append-only here; if the
+  // corresponding Kissat operation does not collect, preserve its register
+  // semantics by forwarding live entries through that implementation-only
+  // pass.  Garbage entries must never read `searched` as a forwarding pointer
+  // (the corpus-003 shape), so they are invalidated below.
+  if (!preserve_eager_recent)
+    for (Ref &r : k.eager_recent)
+      r = INVALID_REF;
   // A sparse watermark must fall exactly on an arena-record boundary.  Prefix
   // garbage is legal in Tactix because clauses retired by an earlier rule can
   // remain marked until Reduce; its live watch entries are forwarded below.
@@ -2209,6 +2212,13 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     assert(!c->garbage() && "pending learned clause retired before Backjump");
     k.pending.ref = c->searched;
   }
+  if (preserve_eager_recent)
+    for (Ref &ref : k.eager_recent) {
+      if (ref == INVALID_REF)
+        continue;
+      const Clause *const c = clause_at(k.arena, ref);
+      ref = c->garbage() ? INVALID_REF : c->searched;
+    }
   {
     // An OTFS reason can be retired by another rule before Backjump drains the
     // register; `analyze_retire_otfs_reasons` already skips a garbage record,

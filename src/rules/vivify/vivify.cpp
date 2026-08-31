@@ -886,7 +886,11 @@ void VivifyReclamationBatch::collect(Kernel &k) {
   } logical_order;
   ArenaOrdering *const saved = k.arena_ordering;
   k.arena_ordering = &logical_order;
-  kernel_collect_garbage(k);
+  // Kissat does not collect at Vivify exit.  This packing pass only reclaims
+  // Tactix's append-only unit/binary replacements, so forward the recent-
+  // learned register that the reference solver keeps intact across Vivify.
+  kernel_collect_garbage(k, 0, /*sparse_collection=*/false,
+                         /*preserve_eager_recent=*/true);
   k.arena_ordering = saved;
   changed = false;
 }
