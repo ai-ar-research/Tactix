@@ -8,12 +8,12 @@ resume surface.
 
 ## Current resume anchor
 
-- This retained checkpoint builds on
-  `1c719fc8e23c94868164a9559491f2c3550efac1`. Pinned Kissat is
+- Checkpoint `79dc3bfacb2715d1864cf8d9c3e55aec2cee87f3` evaluates a Release
+  binary built on `1c719fc8...`; pinned Kissat is
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`.
-- Keep every current general repair. Latest closure: TransitiveReduce retains
-  prior deletions, learns a failed-source unit with its native-LRAT BFS chain,
-  and reaches root/H at Kissat's per-source boundary. The earlier Congruence,
+- Keep every current general repair. Latest closure: live active state excludes
+  retained semantic level-zero fixed identities but includes non-root search
+  assignments, matching Kissat flags. TransitiveReduce, Congruence,
   random-index, BVE, reconstruction, and creation-order repairs remain active.
 - No retained repair has a formula, rank, benchmark, identity, size, density,
   admission, effort, classification, or strategy gate. Preserve N1--N4.
@@ -22,26 +22,27 @@ resume surface.
 - Production BVE/Factor/forward-subsume/Vivify remain uniformly enabled at
   100/50/100/100 permille. Removed Dose5, Factor5, NoBve, NoBveLight, and
   StartupFactorOnly profiles stay removed.
-- Homogeneous campaign `20260830-2710-tierd-ranks1-40-randec-import-order`, job
-  `1657091`, is complete: 40/40 expected verdicts, all 22 SAT models and all 18
+- Homogeneous campaign `20260831-3630-tierd-ranks1-40-transitive-unit`, job
+  `1657564`, is complete: 40/40 expected verdicts, all 22 SAT models and all 18
   UNSAT proofs verified, with zero residue. Andrew-facing catch-up report:
-  `report-to-andrew/2026-08-30-1925-ranks1-40-closure-and-rank34-parity/`.
+  `report-to-andrew/2026-08-31-0140-transitive-unit-and-rank1-40-revisit/`.
 
 ## Latest candidate performance
 
-- Evaluated Release SHA `c7831464...e4066` solves all 40 in 10,573.791 s:
-  1.136239x the preceding 9,305.953-s candidate, 0.942163x accepted Tactix,
-  and 1.377650x pinned Kissat; geometric-mean ratios are 1.102516x, 0.955315x,
-  and 1.365884x respectively. It is not a performance promotion.
-- SAT/UNSAT totals are 5,034.213/5,539.578 s. Job `1657564` has 22/22 SAT
-  models and 17/18 UNSAT proofs verified; one proof checker remains nonblocking.
-  Full revisit: `2026-08-31-transitive-unit-rank1-40-codebase-revisit.md`.
-- Rank 34's exact TransitiveReduce split is closed; checked runtime improves
-  1,014.550→804.709 s but remains above 616.624 and Kissat's 344.045 s.
-  Rank 36 remains closed at 386.217 s versus Kissat's 368.510 s.
-- Rank-19 jobs `1657604`/`1657610`/`1657614` localize its 160.9→452.7-s
-  jump to removing Strengthen's non-reference whole-arena root-false flush.
-  Retain the Kissat-correct repair; localize the downstream consumer next.
+- Release SHA `5743b0a...03698`, homogeneous job `1657639`, provisionally solves
+  40/40 in 10,290.269 s: 0.973186x preceding, 0.916900x accepted, and 1.340710x
+  Kissat; geometric-mean ratios are 0.973948x, 0.930427x, and 1.330300x.
+- SAT/UNSAT totals are 4,520.427/5,769.842 s. All 22 SAT models and 16/18 UNSAT
+  proofs are independently verified at the snapshot; two checks continue
+  nonblocking, with no invalidity or residue. Full table/revisit: campaign
+  `3760` `comparison-live.md` and `2026-08-31-fixed-active-rank1-40-codebase-revisit.md`.
+- Jobs `1657634`/`1657636` prove Rank 17's old 944,336 active count included
+  616,255 retained roots; the repair changes only that field to 328,081 at
+  first BVE entry. Rank 17 improves 449.150→314.130 s, Rank 19 452.403→166.486,
+  Rank 31 628.742→461.093, and Rank 34 807.219→692.338.
+- Rank 33 regresses 395.771→753.767 s; retain the general repair and localize
+  its downstream trajectory. Rank 36 remains closed at 385.209 s versus
+  Kissat's 368.510 s. Peak RSS remains Rank 10 at 16,987,860 KiB.
 
 ## Rank-32 causal closure
 

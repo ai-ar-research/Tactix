@@ -540,6 +540,17 @@ format-independent RUP admission with Release 72/72, Trace 71/71, ASAN-O3
 and independent Slurm job `1636794` with 10,000 cases. Evidence:
 `benchmarks/reports/2026-08-20-sweep-drat-admission-gate.md`.
 
+The 2026-08-31 active-state closure completes `SP-FACTOR-1`'s population
+definition. Pinned `flags.c::kissat_mark_fixed_literal` immediately clears
+`active`; non-root search assignment does not. Tactix's retained level-zero
+identities are now excluded by `kernel_active_variables`, while search-assigned
+variables remain included. Existing consumers are exactly Factor factordelay,
+Substitute progress, Probe/Eliminate fixed points, and Trace output. Causal job
+`1657636` changes only Rank 17's first-BVE `active` field 944,336→328,081;
+homogeneous job `1657639` solves 40/40 in 10,290.269 s versus 10,573.791
+previously. No option, classifier, formula/rank selector, admission, or effort
+consumer was added; Release 76/76 and Trace 75/75 pass.
+
 N4 reopens if a new missing/cruder reference mechanism appears, a closed row
 violates its reopening condition, an accepted deviation loses its evidence,
 or a future scheduling change fails the required correctness and cumulative

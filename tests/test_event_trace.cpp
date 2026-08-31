@@ -610,6 +610,58 @@ int main() {
   std::remove(binary_set_path.c_str());
   std::remove(binary_set_event_path.c_str());
 
+  // The standalone BVE schedule observer must not require a global event
+  // stream: Rank-17 preprocessing made even target-only global tracing too
+  // expensive to reach this boundary.  It emits one row and exits before the
+  // first candidate, leaving production and ordinary Trace behavior untouched.
+  const std::string bve_schedule_path =
+      trace_path("standalone-bve-schedule");
+  std::remove(bve_schedule_path.c_str());
+  const pid_t bve_schedule_child = fork();
+  assert(bve_schedule_child >= 0);
+  if (!bve_schedule_child) {
+    unsetenv("TACTIX_EVENT_TRACE");
+    setenv("TACTIX_BVE_SCHEDULE_TRACE", bve_schedule_path.c_str(), 1);
+    setenv("SAT_BVE_SCHEDULE_MEMBERS", "1", 1);
+    std::vector<uint32_t> occurrence_counts(2 * watch_kernel.nvars, 0);
+    occurrence_counts[make_lit(0, false)] = 7;
+    occurrence_counts[make_lit(0, true)] = 11;
+    occurrence_counts[make_lit(2, false)] = 13;
+    occurrence_counts[make_lit(2, true)] = 17;
+    watch_kernel.bve_occurrence_count_image = &occurrence_counts;
+    const Var members[2] = {0, 2};
+    const double scores[3] = {-3.0, 0.0, -5.0};
+    event_trace_bve_schedule(watch_kernel, members, scores, 2, 0,
+                             0x123456789abcdef0ull);
+    _exit(99);
+  }
+  int bve_schedule_status = 0;
+  assert(waitpid(bve_schedule_child, &bve_schedule_status, 0) ==
+         bve_schedule_child);
+  assert(WIFEXITED(bve_schedule_status));
+  assert(WEXITSTATUS(bve_schedule_status) == 0);
+  std::ifstream bve_schedule_input(bve_schedule_path);
+  const std::string bve_schedule_text(
+      (std::istreambuf_iterator<char>(bve_schedule_input)),
+      std::istreambuf_iterator<char>());
+  assert(bve_schedule_text.find("# bve-schedule-observer\t1\n") !=
+         std::string::npos);
+  assert(bve_schedule_text.find("tactix\tbound=0|scheduled=2|") !=
+         std::string::npos);
+  assert(bve_schedule_text.find("|conflicts=0|decisions=0|propagations=") !=
+         std::string::npos);
+  assert(bve_schedule_text.find("|active=3|vars=3|trail=") !=
+         std::string::npos);
+  assert(bve_schedule_text.find(
+             "|insertion_hash=123456789abcdef0|") != std::string::npos);
+  assert(bve_schedule_text.find(
+             "member\texternal=1\tposition=0\tpositive=7\tnegative=11\t") !=
+         std::string::npos);
+  assert(bve_schedule_text.find(
+             "member\texternal=3\tposition=1\tpositive=13\tnegative=17\t") !=
+         std::string::npos);
+  std::remove(bve_schedule_path.c_str());
+
   const std::string matched_exit_path = trace_path("event-matched-exit");
   std::remove(matched_exit_path.c_str());
   const pid_t matched_exit_child = fork();

@@ -1,0 +1,3 @@
+task	arm	tier	rank	instance	expected
+0	before3220	D-rank17-diagnostic	17	tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz	SAT
+1	after3240	D-rank17-diagnostic	17	tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz	SAT

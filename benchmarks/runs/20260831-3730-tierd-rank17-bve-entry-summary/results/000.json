@@ -1,0 +1,21 @@
+{
+  "arm": "tactix",
+  "artifact_deleted": true,
+  "child_maxrss_kib": 965524,
+  "derived_artifacts_deleted": true,
+  "expected_input_sha256": "dc26f207a97200e5b52a46a62477381055b7f0ad41b962492f22a901ed1d1049",
+  "expected_solver_sha256": "2cd9bc4f5a50526662466cbfb88ade24f16ed88de4b966cd8d6739873e8ab69a",
+  "finished_at_epoch": 1788164710.3299246,
+  "intentional_pre_solve_exit": true,
+  "observer_sha256": "b7cbfeb9389699f07694609c9a3ba3aa9d840a650d13273c9a0a204812ea723e",
+  "returncode": 0,
+  "schedule_row": "tactix\tbound=0|scheduled=328081|external_sum=0000002b22fa85f3|set_xor=ffaec45218c30579|set_sum=10b09d96dfb01beb|insertion_hash=9af47b8d02c6fb1c|topology_hash=86e04db692ea45ee|score_xor=456f61eebc65114f|score_sum=b5e924b2171a8b85|conflicts=18268|decisions=1524970|propagations=130653068|active=944336|vars=944336|trail=616255|irred=1910024|red=8114|binary=66106",
+  "schema": "tactix-tierd-rank17-standalone-bve-schedule-result-v1",
+  "scoring": false,
+  "stderr_tail": [],
+  "stdout_tail": [],
+  "task": 0,
+  "timed_out": false,
+  "valid": true,
+  "wall_seconds": 42.759
+}

@@ -1,15 +1,16 @@
 {
   "schema": "tactix-tierd-ranks1-40-transitive-unit-v1",
   "created_at": "2026-08-31T05:11:18Z",
-  "status": "solver-complete-validation-running",
+  "status": "completed-valid-clean",
   "submitted_at": "2026-08-31T05:13:16Z",
   "slurm_job_id": 1657564,
   "solver_completed_at": "2026-08-31T05:28:20Z",
   "solver_completion": "40/40 expected verdicts, no solver timeout",
+  "completed_at": "2026-08-31T07:28:17.723663+00:00",
   "validation_snapshot": {
-    "recorded_at": "2026-08-31T05:50:21Z",
+    "recorded_at": "2026-08-31T07:28:17.723663+00:00",
     "sat_models": "22/22 verified",
-    "unsat_proofs": "10/18 verified; 8 running",
+    "unsat_proofs": "18/18 verified",
     "invalid": 0,
     "residue": 0
   },
