@@ -1,0 +1,7 @@
+task	arm	tier	rank	instance	expected
+0	base2710	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
+1	congruence2820	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
+2	factor2980	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
+3	bve_retry3310	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
+4	bve_inline3520	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT
+5	transitive3620	D-rank19-diagnostic	19	tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz	SAT

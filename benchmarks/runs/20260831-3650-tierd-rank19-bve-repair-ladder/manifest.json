@@ -1,0 +1,56 @@
+{
+  "schema": "tactix-tierd-rank19-bve-repair-ladder-v1",
+  "campaign": "20260831-3650-tierd-rank19-bve-repair-ladder",
+  "created_at": "2026-08-31T06:23:28Z",
+  "status": "completed-localized-one-timeout",
+  "submitted_at": "2026-08-31T06:24:58Z",
+  "completed_at": "2026-08-31T06:39:51.904332+00:00",
+  "slurm_job_id": 1657610,
+  "scoring": false,
+  "purpose": "Bisect the factor2980-to-bve_retry3310 Rank 19 regression using immutable intermediate BVE-repair binaries after campaign 3640 exonerated Congruence, Factor state, inline-H, and TransitiveReduce.",
+  "input_sha256": {
+    "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz": "cc3ed14357ee4977140c2da1a456d011ea2ec4991f3bee42f9fa035b2bbb8271"
+  },
+  "expected": "SAT",
+  "arms": [
+    {"task": 0, "name": "input3080", "sha256": "1130b4b43191f1fe33b19eb283bb3761fea68761d92d8e053acc9335590a7175", "authority": "20260830-3080-tierd-rank34-bve-input-type-repair-pivot1043", "boundary": "physical-binary gate input repair"},
+    {"task": 1, "name": "unit3170", "sha256": "b72eba50f7f4c725d83e4ec13d88b5424df30fae489715c31cb74c16e3b833a3", "authority": "20260830-3170-tierd-rank34-bve-unit-flush-full-phase", "boundary": "occurrence compaction plus immediate BVE unit flush"},
+    {"task": 2, "name": "round3220", "sha256": "64d6ffcb8e998765df26a24e59e40512eb86949b3fd18413612cdb133f527540", "authority": "20260830-3220-tierd-rank34-bve-round2-occurrence-members", "boundary": "embedded definition seed reset and second-round physical occurrence state"},
+    {"task": 3, "name": "retry3270", "sha256": "299307269056c9c87eda1b28b98e0acfdefec0ffd2bca231eb2553ddd471f10f", "authority": "20260830-3270-tierd-rank34-bve-retry-fixed1042", "boundary": "Strengthen producer lifecycle plus corrected BVE retry"}
+  ],
+  "checkers": {
+    "checkmodel_sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "modelcheck_py_sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "drat_trim_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+  },
+  "harness": {
+    "run_one_sha256": "a352a512486b8ce99d7680da22981dcfddd272c87823db923a573601ca9539fd",
+    "array_sbatch_sha256": "ce04cde455a573b6b56c398e08d8b85777da5331d19f87f863dc0d543101f011",
+    "matrix_sha256": "971c20d004e7b203ef842ddc5b3623afb455cba5765202e2fdd104c438ae674d"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0-3",
+    "node_constraint": null,
+    "one_solver_run_per_task": true,
+    "cpus_per_task": 12,
+    "scheduler_memory": "48000M",
+    "solver_timeout_seconds": 900,
+    "task_wall_seconds": 1200
+  },
+  "validation_contract": "Every arm must return SAT, pass the independently pinned model checker, and delete its task-local solver/model artifact before trajectory counts are compared.",
+  "result": {
+    "valid_models": "3/4",
+    "timeouts": ["retry3270"],
+    "residue": 0,
+    "wall_seconds": {
+      "input3080": 199.167,
+      "unit3170": 203.532,
+      "round3220": 202.296,
+      "retry3270": 900.005
+    },
+    "exact_fast_trajectory": "input3080, unit3170, and round3220 each reproduce factor2980's 27288576 decisions, 750813 conflicts, and 1737041537 propagations",
+    "classification": "retry3270 is an observer timeout and is not scored. Its scratch, 3.63-GB output, and derivatives were deleted. The first trajectory-changing interval is 3220-to-3270; the next two-arm diagnostic tests the intermediate Strengthen checkpoints 3240 and 3260."
+  },
+  "n1_n4": "This is a bounded historical-binary diagnostic, not a candidate or production selector. No formula/rank/benchmark gate, runtime rollback option, proof-rule change, admission change, or effort change is introduced."
+}

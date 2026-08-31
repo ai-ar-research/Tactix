@@ -33,15 +33,15 @@ resume surface.
   1.136239x the preceding 9,305.953-s candidate, 0.942163x accepted Tactix,
   and 1.377650x pinned Kissat; geometric-mean ratios are 1.102516x, 0.955315x,
   and 1.365884x respectively. It is not a performance promotion.
-- SAT total is 5,034.213 s: 1.232953x preceding and 1.240591x Kissat.
-  UNSAT total is 5,539.578 s: 1.060633x preceding and 1.531403x Kissat.
-  Largest regressions are ranks 17, 19, 21, 27, 34, and 35.
+- SAT/UNSAT totals are 5,034.213/5,539.578 s. Job `1657564` has 22/22 SAT
+  models and 17/18 UNSAT proofs verified; one proof checker remains nonblocking.
+  Full revisit: `2026-08-31-transitive-unit-rank1-40-codebase-revisit.md`.
 - Rank 34's exact TransitiveReduce split is closed; checked runtime improves
   1,014.550→804.709 s but remains above 616.624 and Kissat's 344.045 s.
   Rank 36 remains closed at 386.217 s versus Kissat's 368.510 s.
-- Homogeneous job `1657564` has 40/40 expected solver verdicts and 22/22 SAT
-  models verified; 10/18 UNSAT proofs are verified and eight continue nonblocking.
-  Full report: `2026-08-31-transitive-unit-rank1-40-codebase-revisit.md`.
+- Rank-19 jobs `1657604`/`1657610`/`1657614` localize its 160.9→452.7-s
+  jump to removing Strengthen's non-reference whole-arena root-false flush.
+  Retain the Kissat-correct repair; localize the downstream consumer next.
 
 ## Rank-32 causal closure
 
