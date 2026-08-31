@@ -1082,7 +1082,24 @@ static void test_eager_subsume() {
     assert(k.eager_recent[0] == INVALID_REF);
     kernel_check_invariants(k); // the stale-register assertion
   }
-  { // (e) eager_subsume = 0 is byte-identical to not having the mechanism
+  { // (e) an implementation-only packing pass forwards live entries and
+    // invalidates garbage ones, matching a reference operation with no GC
+    Kernel k;
+    fresh(k, 8);
+    const Lit a[3] = {internalize(1), internalize(2), internalize(3)};
+    const Lit b[3] = {internalize(4), internalize(5), internalize(6)};
+    const Ref dead = kernel_add_large_clause(k, a, 3, true, 3, 101);
+    const Ref live = kernel_add_large_clause(k, b, 3, true, 3, 102);
+    k.eager_recent[0] = live;
+    k.eager_recent[1] = dead;
+    kernel_delete_clause(k, clause_at(k.arena, dead));
+    kernel_collect_garbage(k, 0, /*sparse_collection=*/false,
+                           /*preserve_eager_recent=*/true);
+    assert(k.eager_recent[0] == 0); // `live` moved from offset 8 to offset 0
+    assert(k.eager_recent[1] == INVALID_REF);
+    kernel_check_invariants(k);
+  }
+  { // (f) eager_subsume = 0 is byte-identical to not having the mechanism
     Kernel k;
     fresh(k, 8);
     k.eager_subsume = 0;
@@ -1097,7 +1114,7 @@ static void test_eager_subsume() {
     assert(k.stats.eager_tried == 0 && k.stats.eager_subsumed == 0);
     assert(!clause_at(k.arena, victim)->garbage());
   }
-  { // (f) reachability under DefaultPolicy, so the arm is not vacuous where it
+  { // (g) reachability under DefaultPolicy, so the arm is not vacuous where it
     // actually ships. Same random-3-SAT bed as the conflict-reuse test.
     uint64_t subsumed = 0, tried = 0;
     for (int seed = 1; seed <= 6; seed++) {

@@ -8,7 +8,7 @@ resume surface.
 
 ## Current resume anchor
 
-- Checkpoint `2338c1700c70c985038497e863dc2f1124c0c508` is the last local
+- Checkpoint `daa4e129b45e6ee81610fe1ca5b5dcad195e5352` is the last local
   commit; pinned Kissat is
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`.
 - Keep every current general repair. Latest closure: live active state excludes
@@ -80,6 +80,85 @@ resume surface.
 - Matched campaign `20260831-4290-tierd-rank25-bve-unit-cost`, job `1657922`, is valid/clean: previous 263.337 s / 13,779 ms BVE versus current 755.590 s / 507,738 ms, with exact work and verified models.
 - Streaming cleanup passes three waves at median 0.348100x current; Rank33 and B+C are checked/clean (B+C 0.996294x shipped), while homogeneous `1658000` at 10,266.505 s has 6 proofs continuing asynchronously.
 
+## Rank-38 current localization
+
+- Homogeneous Rank 38 is a stable search-work loss: candidate 790.264 s versus
+  pinned Kissat 366.258 s, with 35,907,678/47,372,472 conflicts/decisions
+  versus 18,430,710/24,657,248.  Its accepted/current times are essentially
+  unchanged, so it is the next general search-trajectory owner rather than a
+  volatile downstream rank.
+- Fresh pinned trace binaries and the fixed Rank-38 input match exactly through
+  conflict 50,000: all 458,818 common portable decisions, conflicts, analysis
+  boundaries, and learned-clause stages agree.  Candidate job `1658059`
+  (`20260831-4361-tierd-rank38-trajectory-prefix`) is valid and untruncated;
+  Tactix's eight-row suffix is solely its stop landing at conflict 50,001.
+- Predecessor job `1658057` is observer-invalid, not a solver divergence.  A
+  Tactix-only generic 1,024-call post-Reorder detail budget suppressed compact
+  `analysis_begin`/`analysis_end` rows after conflict 10,043 while Kissat kept
+  them.  Trajectory mode now retains every portable analysis boundary, with a
+  regression that exhausts the old budget.  The repair is diagnostic-only and
+  N4 read-only.
+- Learned-only campaign `20260831-4362-tierd-rank38-learned-prefix1m`, job
+  `1658061`, first differed at conflict 136,869.  Narrow mode-clock traces
+  localized the cause to one extra Tactix search tick at conflict 128,927:
+  scan `+367` had identical 1,501-entry watch order, clause poses, `searched`
+  cursors, and values, but Tactix charged 160 relocations while Kissat charged
+  159.  Both removed 160 large entries; the remaining Kissat removal was the
+  garbage 21-literal clause later identified as Tactix clause ID 147584.
+- Kissat retires that clause at conflict 128,927 through
+  `eagerly_subsume_last_learned`.  Tactix had inserted the exact clause into
+  its recent-learned register at conflict 128,925, then cleared the register
+  during Vivify's Tactix-only reclamation collection.  Pinned Kissat does not
+  collect at Vivify exit, so its register survives.  The general repair adds
+  an explicit collector mode that forwards live recent-learned refs (and
+  invalidates garbage refs) only for implementation-only Vivify reclamation;
+  genuine Kissat-equivalent collections retain their unconditional reset.
+  This is rule/mechanism dependent only and adds no formula or workload gate.
+- Focused Analyze/EventTrace tests pass.  After repair, clause ID 147584 is
+  preserved and eagerly deleted at conflict 128,927; scan `+367` is exact at
+  159 relocations and 429 ticks.  A fresh local learned-only run matches all
+  996,949 pinned-Kissat final learned records exactly through conflict
+  1,000,000.  Release 76/76 and Trace 75/75 pass.  Rank-33 campaign
+  `20260831-4370-tierd-rank33-vivify-eager-register`, job `1658063`, returns
+  expected UNSAT provisionally in 466.840 s (prior valid 467.925 s); its proof
+  check continues nonblocking.  Full fixed B28+C5 campaign
+  `20260831-4380-BC-vivify-eager-register`, job `1658064`, is submitted with
+  shipped/candidate SHA pins `c18133ce...cab00` / `9b53e154...52ab6`.
+  All 66 provisional verdicts are expected: candidate 2,007.209 s versus
+  shipped 2,000.647 s (1.003280x), inside the 1.10 guard; final validation
+  continues.  Uniform Rank-1--40 campaign
+  `20260831-4390-tierd-ranks1-40-vivify-eager-register` first had an
+  infrastructure-only job `1658130`: all tasks stopped before solver invocation
+  because the fresh runner directories were absent; its logs are retained.
+  After creating those empty directories, job `1658170` is the sole solver
+  execution from the same candidate pin, with no comparator rerun or selector;
+  proof checks may finish asynchronously.  Its repaired Rank 38 is expected
+  UNSAT in 388.117 s / 18,197,625 conflicts, versus the preceding 790.264 s /
+  35,907,678 and pinned Kissat's 366.258 s / 18,430,710: search work converges,
+  leaving a roughly 6% implementation-cost gap on this witness.  The full
+  solver phase is 40/40 expected in 9,758.178 s (SAT 4,473.787; UNSAT
+  5,284.391): 0.950487x the preceding candidate, 0.869489x accepted Tactix,
+  and 1.271385x pinned Kissat.  Model/proof checks and zero-residue
+  classification continue asynchronously.
+
+## Next attribution gate
+
+- After the active validation and checkpoint commit, first classify the largest
+  remaining gaps as search-work, matched-work runtime/RSS, or mixed.  Inventory
+  implementation-only arena collections and their bytes/time/state effects as
+  read-only evidence, not as a presupposed production rewrite.
+- Preserve independent immutable proof identities, N1--N4, and unconditional
+  Kissat creation order.  Select physical representation convergence only if
+  attribution shows it dominates; otherwise resume the leading general search
+  mechanism.  Any stage needs focused differential tests and isolated evidence
+  before cumulative B+C and homogeneous validation.
+- Initial immutable-authority attribution favors search localization: the
+  remaining aggregate gap is 2,082.942 s; Ranks 27/31/34 contribute 1,202.346 s
+  with 3.067x/2.201x/1.757x conflicts, and adding Ranks 22/37/21 reaches
+  1,867.295 s (89.65% of the gap) with material work divergence.  Keep bounded
+  representation measurements on matched-work witnesses, but do not promote a
+  broad arena refactor ahead of the leading stable search discrepancy.
+
 ## Tests and correctness
 
 - Full trace SubSolver oracle passes 100,000 randomized formulas; the complete
@@ -96,53 +175,9 @@ resume surface.
 
 ## Open work
 
-1. Historical Rank-33 localization after the exact Kitten seed repair:
-   repair rather than reverting it or adding a shape gate. Two-arm Rank-33
-   conflict-10k prefix campaign `20260830-2320-tierd-rank33-prefix10k`, job
-   `1656867`, reached conflicts 2,012/2,003 under its 300-second ceiling. After
-   masking one missing Kissat observer row at conflict 1,171, every portable
-   event in the overlap is exact. Startup, preprocessing, and early search are
-   excluded. Two-arm continuation `20260830-2330-tierd-rank33-post2003`, job
-   `1656869`, reached conflicts 3,809/3,071. After masking one observer-only
-   row at 2,106, the whole portable overlap is still exact with no macro-state
-   divergence. Next use learned-only tracing from conflict 3,000, then reopen a
-   narrow full-detail window at the first learned mismatch. That learned-only
-   cut, campaign `20260830-2340-tierd-rank33-learned250k`, job `1656871`, is
-   valid through conflict 250,000. Learned streams are exact through conflict
-   15,347. At 15,348 Tactix has two fewer decisions/levels and learns a
-   different size-22 clause. Full-detail conflicts 15,347--15,349 campaign
-   `20260830-2350-tierd-rank33-window15347`, job `1656873`, is valid. The
-   first 14 post-conflict decisions match; recorded decision 5,646,489 picks
-   variable 19,823 in Tactix versus -12,222 in Kissat. Heap cut
-   `20260830-2360-tierd-rank33-heap-pop5646489`, job `1656875`, proves the
-   score of 19,823 is exact: Kissat skips it because it is assigned, while
-   Tactix does not. Propagation cut `20260830-2370-tierd-rank33-imply19825`,
-   job `1656877`, traces the assignment to level 11 after common decision
-   -25,805. Propagation order already differs immediately after the first
-   common post-conflict decision, although conflict 15,347 and its learned
-   clause are exact. Portable non-root assignment hashes in campaign
-   `20260830-2390-tierd-rank33-assignment-hash-nonroot`, job `1656881`, are
-   exact at analysis end (15,052 assignments, hash `05910eef13c8073e`) and
-   immediately after common decision +9,908. Its propagation produces 21
-   assignments in each solver but different sets: Tactix alone has 10,166 and
-   Kissat alone has 9,912. Next compare exactly the ordered watch list scanned
-   for +9,908 and those two binary clauses; Reorder and later trail retention
-   are excluded at this boundary. That watch cut, campaign
-   `20260830-2400-tierd-rank33-watch9908` (job `1656883`), finds 19 binary
-   watches in both solvers. Every common binary retains the same order, but
-   Tactix has `(-9908,10166)` where Kissat has `(-9908,9912)`; the large-watch
-   sets also differ. The lifecycle cut proves both binaries initially exist in
-   Tactix and that BVE deletes `(-9908,9912)` at conflict 15,347. Kissat's
-   lifecycle arm records both initial additions but times out before the BVE
-   phase because that observer is too expensive, so it is not accepted as a
-   completed diagnostic. A diagnostic-only narrow BVE heap observer passes
-   focused tests. Campaign `20260830-2420-tierd-rank33-bve-heap9912-10166`
-   (job `1656887`) is valid in both arms and narrows the owner: target candidate
-   scores and their initial positions match, then the selected-variable heap
-   trajectories diverge and Tactix eliminates 9,912 while Kissat eliminates
-   10,166. The then-reported 310,880 Kissat “schedule size” was only the heap
-   size at the last selected-variable insertion event, not the completed
-   schedule. Job `1656891` corrects that interpretation below. The
+1. Historical Rank-33 prefix, heap, watch, and early BVE localization is closed
+   and retained in its dated reports; the current Rank-33 resume state is the
+   compact section above. The
    non-reference `bve_min_bound` selective admission cache is removed;
    `bve_retry` now mirrors Kissat's eliminate flag, including blanket re-arm
    only when the bound advances. The first changed-arm validation (job
@@ -280,48 +315,8 @@ resume surface.
 4. Andrew report `2026-08-31-0140-transitive-unit-and-rank1-40-revisit`
    records the Rank-34 closure and homogeneous validation. Required gates pass;
    record remote publication only after independently verifying it.
-5. SAT Rank 20 historical mechanism closure: Tactix was 594.433 s versus
-   Kissat 140.142 s. Full-row pre-Factor job `1657022` was observer-invalid:
-   Tactix hit 600 s exporting 13.5M rows; job `1657024` also hit 600 s by
-   rescanning at every boundary. Job `1657026` exposed a pre-/post-admission
-   boundary mismatch and its Tactix task was canceled. Tactix-only job
-   `1657028` completed the exact pre-admission boundary: both solvers have
-   1,011,733 irredundant large clauses, 12,553,619 binary copies, identical
-   duplicate-sensitive clause/binary hashes, 1,591,244 unassigned variables,
-   and 3,888,736 propagations. Kissat's lower root counter is compaction of
-   parse-fixed variables, not a semantic mismatch. Both decline startup Factor
-   under equivalent `factordelay`. Job `1657029` was canceled when the old
-   trace cap was proven to suppress its terminal event. The shared observer
-   now has a tested target-only fast path and terminal-cap bypass; two-task
-   replacement `1657031` then hit 1,200-second trace-overhead caps without a
-   boundary row. Job `1657033` found Factor offers exact at conflicts 0, 4,547,
-   and 14,005, then Tactix/Kissat at 28,690/28,694 and 48,921/48,925. Tactix
-   first admits at 48,921, after the four-conflict trajectory split. Kissat's
-   generic Probe journal incorrectly used probing rather than Factor ticks;
-   one-task correction `1657035` confirms 197,079,650 Kissat ticks versus
-   197,034,943 Tactix ticks (0.023% difference). Compare the still-common
-   conflict-14,005 pre-Factor state after Probe phase 2 next. Two-task job
-   `1657036` also hit full-trace overhead caps. Replacement `1657038` keeps
-   tracing unopened until that exact boundary, then reuses the same one-row
-   fingerprint. It completed in 34/55 seconds and proves the state already
-   differs: Tactix/Kissat decisions are 318,296/284,845, propagations are
-   215.7M/233.1M, and formula counts, hashes, and top-32 order disagree.
-   Factor is downstream. Narrow once to the preceding common offer at conflict
-   4,547 with two-task late-open job `1657040`, then inspect the owning
-   inprocessing/search mechanism. It also differs before Factor: decisions are
-   233,628/210,133, propagations 169.4M/194.0M, and formula hashes disagree.
-   Two-task job `1657042` compares conflict-4,547 Probe entry before
-   Congruence. It proves the irredundant formula is still exact but search has
-   already accumulated 89 extra Tactix learned clauses and one extra binary.
-   Job `1657044` proves the trajectory exact through conflict 50. Jobs
-   `1657046`/`1657048` then localize the first split to conflict 502, decision
-   62,811: RNG word and slot are exact, but slot 490,347 maps to Tactix
-   external 573,525 versus Kissat 2,745. Repair the general compact random-index
-   order (import order, not activation order); checkpoint `1657049` now maps
-   the exact shared slot to 2,745. Job `1657050` is 123.02 s versus 594.433 s
-   and Kissat 140.142 s, with exact Kissat conflicts/decisions/Factor/BVE.
-   Uniform job `1657091` is the preceding 40/40 authority at 9,305.953 s. Later Rank-34 jobs close Eliminate formula/watch order, all 571 BVE removal ordinals, and the second TransitiveReduce pass, where immediate failed-source units retain two binaries Tactix previously deleted.
-   Checked job `1657561` is SAT in 804.709 s; uniform job `1657564` solves 40/40 in 10,573.791 s. The 13.6% total regression is downstream trajectory evidence, not grounds to revert general parity or add a selector. Release 76/76, Trace 75/75, native LRAT, and focused ASan/UBSan pass; N1--N4 remain intact.
+5. Historical Rank-20 random-index and Rank-34 TransitiveReduce closures are
+   retained; their dated reports own the full causal evidence and validation.
 
 ## Architectural contract
 

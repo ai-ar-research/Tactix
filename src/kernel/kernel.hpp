@@ -1780,8 +1780,11 @@ uint64_t kernel_conflict_reason_walk(
 // their current order, while relocated clauses at and above it are rewatched
 // in arena order. `sparse_collection` distinguishes Reduce start=0 from a
 // whole-arena rebuild; a nonzero watermark implies it for compatibility.
+// `preserve_eager_recent` is reserved for Tactix-only reclamation passes whose
+// reference Kissat operation does not collect the arena at all.
 void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
-                            bool sparse_collection = false);
+                            bool sparse_collection = false,
+                            bool preserve_eager_recent = false);
 // Kissat's null-stack dense entry: disconnect every large watch and retain
 // only the first binary watch for each partner in each literal list.
 void kernel_flush_large_watches(Kernel &);

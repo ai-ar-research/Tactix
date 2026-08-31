@@ -1653,7 +1653,12 @@ void EventTrace::detail(const Kernel &k, const char *event, int64_t payload) {
                   (unsigned long long)hash);
     emit(k, "assignment", state, false);
   }
-  if (!detail_window_ && saw_reorder_) {
+  // The compact trajectory contract retains every analysis boundary.  The
+  // generic post-Reorder detail budget exists only to bound high-volume
+  // internals; applying it here dropped analysis_begin/analysis_end records
+  // after 1024 detail calls and manufactured a semantic divergence against
+  // Kissat even while decisions and learned clauses still matched.
+  if (!trajectory_only_ && !detail_window_ && saw_reorder_) {
     if (!post_reorder_details_)
       return;
     post_reorder_details_--;
@@ -1910,6 +1915,7 @@ void EventTrace::watch_state(const Kernel &k, Lit propagated,
       payload += "|id=" + std::to_string(large->id()) +
                  "|order=" +
                  std::to_string(kernel_clause_position(k, entry.ref())) +
+                 "|garbage=" + std::to_string(large->garbage()) +
                  "|searched=" + std::to_string(large->searched) + "|pose=";
       for (uint32_t i = 0; i < large->size; i++) {
         if (i)

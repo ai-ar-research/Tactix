@@ -228,7 +228,9 @@ pending half-analysis or schedules Backjump independently.
 - Vivify scope 0 spans every tier; 1--5 select bands. Canonical Vivify uses
   focused tiers, persistent probing pose, cumulative shares, root
   simplification, prioritized two-pass counts, physical candidate pose, glue
-  promotion, and logical-order reclamation once per dose.
+  promotion, and logical-order reclamation once per dose. That Tactix-only
+  packing pass forwards live eager-recent refs and invalidates retired ones;
+  genuine Kissat-equivalent collections reset the register instead.
 - Sweep uses exact inclusive embedded limits and strict enclosing limits,
   resumes its retained tail, and grows its 256/1024/2 environment bounds only
   on exhaustion toward 8192/32768/3.
