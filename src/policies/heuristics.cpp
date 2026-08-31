@@ -206,16 +206,28 @@ void heuristics_compact_vars(Kernel &k, const std::vector<Var> &old_to_new,
   }
 }
 
-// Kissat's `tumble` (default 1): both rankings are seeded in first-activation
-// order, so each prefers the LAST-activated variable — the VMTF queue enqueues
-// in that order and the k-th activated variable scores 1 − 1/k. Ported as an
-// ORDER, not as kissat's internal renumbering, which variable identity here
-// forbids; docs/scheduling-parity-ledger.md §13 carries the argument and the
-// deviation.
+// Kissat's `tumble` (default 1) gives two related orders distinct owners.
+// Queue/score seeding follows first activation, while compact internal indices
+// follow first import with never-activated variables filtered out.  Random
+// decisions and `all_variables` consumers index the latter.  Tactix keeps
+// stable public identities, so retain that compact image as a permutation.
 void heuristics_seed_activation_order(Kernel &k, const std::vector<Var> &order) {
   if (!k.h || order.empty())
     return;
-  k.compact_import_order = order;
+  std::vector<uint8_t> activated(k.nvars, 0);
+  for (const Var v : order) {
+    assert(v < k.nvars);
+    assert(!activated[v]);
+    activated[v] = 1;
+  }
+  std::vector<Var> import_order;
+  kernel_vars_in_import_order(k, import_order);
+  k.compact_import_order.clear();
+  k.compact_import_order.reserve(order.size());
+  for (const Var v : import_order)
+    if (activated[v])
+      k.compact_import_order.push_back(v);
+  assert(k.compact_import_order.size() == order.size());
   rebuild_compact_import_position(k, k.nvars);
   // Last activated ends at the queue tail, the most-preferred end. A variable
   // in no stored clause is never bumped and falls to the front; kissat never
@@ -765,10 +777,9 @@ void heuristics_update_scores(Kernel &k) {
   // activation.  Those orders differ when a variable first occurs in a
   // tautological/satisfied clause: import.c assigns its index immediately,
   // while internal.c activates it only when a retained clause closes.  The
-  // activation permutation in `compact_import_order` is therefore right for random
-  // decisions and initial scores but wrong for this all_variables(idx) loop.
-  // Equal scores preserve heap insertion pose, so use the permanent import
-  // ranks that emulate Kissat's compact internal-index order.
+  // `compact_import_order` is the filtered compact index image used by random
+  // decisions. Equal scores preserve heap insertion pose, so permanent import
+  // ranks emulate the same current internal-index order here.
   std::vector<Var> import_order;
   kernel_vars_in_import_order(k, import_order);
   for (const Var v : import_order)

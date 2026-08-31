@@ -386,10 +386,10 @@ void finish_input(Kernel &k) {
   if (k.proof && k.proof->population_shadow())
     k.proof->arm_population_shadow();
   // The decision order is `H` state.  If `H` is already attached, publish the
-  // imported-variable permutation now.  Otherwise retain it until
-  // ScopedHeuristics attaches at solve entry: Kissat's random brancher samples
-  // `VARS` (the imported population), not every variable admitted by the DIMACS
-  // header, so dropping this order also changes the RNG modulus.
+  // activation population now. Otherwise retain it until ScopedHeuristics
+  // attaches at solve entry. The seeding routine combines it with permanent
+  // first-import ranks: Kissat's random brancher samples compact `VARS`, not
+  // activation order or every variable admitted by the DIMACS header.
   heuristics_seed_activation_order(k, k.input_activation_order);
   if (k.h) {
     k.input_activation_order.clear();

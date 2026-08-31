@@ -301,33 +301,41 @@ void test_kitten_search_state() {
   s.start_kitten_session();
 
   // Clause order imports external variable 1 before 0. Kitten decides from
-  // the newest end of that queue. An embedded Kitten is constructed with seed
-  // 0 and its first clear advances to generator 1; both phase bits are
-  // positive in this fixture.
+  // the newest end of that queue. A fresh embedded Kitten uses generator 0
+  // directly for this first environment; it is not cleared first.
   s.reset(2, SubSearchMode::Kitten);
+  assert(s.kitten_generator() == 0);
   s.add_clause({sub_lit(1, false), sub_lit(0, false)});
   s.randomize_phases();
   assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
-  assert(s.model()[0] > 0 && s.model()[1] > 0);
+  assert(s.model()[0] < 0 && s.model()[1] > 0);
   assert(s.fixed_literal(sub_lit(0, false)) == 0);
   assert(s.fixed_literal(sub_lit(1, false)) == 0);
 
   // Clearing the same embedded Kitten advances the deterministic environment
-  // seed. Generator 2 makes external 0 positive and external 1 negative.
+  // seed to 1.
   s.reset(2, SubSearchMode::Kitten);
-  s.add_clause({sub_lit(1, false), sub_lit(0, false)});
-  s.randomize_phases();
-  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
-  assert(s.model()[0] > 0 && s.model()[1] < 0);
-
-  // A new Sweep invocation constructs seed 0 and starts its first cleared
-  // environment with generator 1 again.
-  s.start_kitten_session();
-  s.reset(2, SubSearchMode::Kitten);
+  assert(s.kitten_generator() == 1);
   s.add_clause({sub_lit(1, false), sub_lit(0, false)});
   s.randomize_phases();
   assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
   assert(s.model()[0] > 0 && s.model()[1] > 0);
+
+  // A new Sweep invocation constructs another fresh generator-0 environment.
+  s.start_kitten_session();
+  s.reset(2, SubSearchMode::Kitten);
+  assert(s.kitten_generator() == 0);
+  s.add_clause({sub_lit(1, false), sub_lit(0, false)});
+  s.randomize_phases();
+  assert(s.solve({}, 0, SubTickMode::Kitten) == SubResult::Sat);
+  assert(s.model()[0] < 0 && s.model()[1] > 0);
+
+  // Eliminate constructs the same embedded Kitten but clears it before its
+  // first definition environment, so initialization's seed 0 is already
+  // consumed and the first reset must start at seed 1.
+  s.start_kitten_session(/*clear_before_first_environment=*/true);
+  s.reset(2, SubSearchMode::Kitten);
+  assert(s.kitten_generator() == 1);
 
   s.start_kitten_session();
   s.reset(2, SubSearchMode::Kitten);

@@ -1,8 +1,8 @@
 // V4 TransitiveReduce (plan §5.2): delete a binary (src ∨ dst) — the binary
 // implication graph edge ¬src → dst — when dst is still reachable from ¬src
-// along other binaries. Proof delta: `del` only, chain-free, so the redundancy
-// argument is a solver-soundness obligation discharged by the walk rather than
-// a proof obligation. Precondition, effect, and soundness:
+// along other binaries. Proof delta: chain-free `del` for redundancy; when the
+// same walk reaches both polarities, add the RUP unit {src} using the BFS's
+// binary-reason order. Precondition, effect, and soundness:
 // `docs/calculus.md` §V4; binary lifecycle: `docs/implementation-notes.md` §14.
 #pragma once
 
@@ -39,10 +39,11 @@ void transitive_reduce_sources(const Kernel &, std::vector<Lit> &out);
 // failed-literal check firing first).
 ApplyResult transitive_reduce_try(Kernel &, Lit src);
 
-// Canonical: the full round. Failed literals are left to V1 Probe, keeping the
-// delta delete-only. Duplicate physical copies are processed independently;
-// removing a non-final copy retains its proof clause and pair id. No effort
-// budget is computed in the rule, though the walk
+// Canonical: the full round. Failed-source units are committed and propagated
+// before the next source, matching pinned Kissat; any earlier redundant
+// candidates from that source remain deleted. Duplicate physical copies are
+// processed independently; removing a non-final copy retains its proof clause
+// and pair id. No effort budget is computed in the rule, though the walk
 // charges cache-line traffic to stats.transitive_ticks so a policy budget can
 // be honest. As in Kissat, the walk stops as soon as dst is reached; the
 // `Kernel::transitive_early_exit` diagnostic arm can restore exhaustive failed-

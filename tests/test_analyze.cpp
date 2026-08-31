@@ -8,6 +8,7 @@
 #include "rules/backjump/backjump.hpp"
 #include "rules/propagate/propagate.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdio>
 
@@ -526,7 +527,10 @@ static void test_otfs_reuse_honors_chronological_gap() {
 static void test_large_otfs_retires_replaced_reason() {
   // The five-literal reason is strengthened to four literals.  It must stay a
   // valid reason during Analyze's white-box half, but not survive the fused
-  // backjump alongside its strict replacement.
+  // backjump alongside its strict replacement.  The redundant conflict keeps
+  // its deletion out of the irredundant mark image, exposing the source
+  // reason's exact Kissat OTFS lifecycle: remove only the resolved literal and
+  // add only the surviving tail, not the retained first watch.
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Lit r[5] = {internalize(5), internalize(-2), internalize(-3),
@@ -534,7 +538,7 @@ static void test_large_otfs_retires_replaced_reason() {
   const Lit d[5] = {internalize(-1), internalize(-2), internalize(-3),
                     internalize(-4), internalize(-5)};
   const Ref rref = kernel_add_large_clause(k, r, 5, false, 0);
-  const Ref dref = kernel_add_large_clause(k, d, 5, false, 0);
+  const Ref dref = kernel_add_large_clause(k, d, 5, true, 3);
 
   // Keep three replacement literals on level 2, so the second analysis round
   // cannot reuse the strengthened conflict and the Analyze/Backjump lifetime
@@ -548,17 +552,85 @@ static void test_large_otfs_retires_replaced_reason() {
   kernel_assign(k, internalize(5), 2, rref, false);
   k.conflict_ref = dref;
   k.conflict_valid = true;
+  std::fill(k.touched.begin(), k.touched.end(), 0);
+  std::fill(k.removed.begin(), k.removed.end(), 0);
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
+  const uint64_t touch_before = k.touch_epoch;
   assert(analyze_apply(k) == ApplyResult::Ok);
   assert(k.stats.otfs_strengthened == 1);
   assert(k.stats.conflict_reused == 0);
   assert(k.pending.valid);
   assert(!clause_at(k.arena, rref)->garbage());
   assert(k.otfs_retired.size() == 1 && k.otfs_retired[0] == rref);
+  // Epoch +1 is the removed resolved literal.  OTFS then marks the three
+  // source-tail literals at +2..+4.  The ordinary learned binary later touches
+  // -2 and -1 at +5,+6; in particular, the retained first watch -2 was not an
+  // OTFS added-material event ahead of the tail.
+  assert(k.touched[var_of(internalize(-3))] == touch_before + 2);
+  assert(k.touched[var_of(internalize(-4))] == touch_before + 3);
+  assert(k.touched[var_of(internalize(-2))] == touch_before + 5);
+  assert(k.touched[var_of(internalize(-1))] == touch_before + 6);
+  assert(!kernel_touched_since(k, var_of(internalize(5)), touch_before));
+  assert(k.factor_marks[internalize(-3)]);
+  assert(k.factor_marks[internalize(-4)]);
+  assert(k.factor_marks[internalize(-1)]);
+  assert(!k.factor_marks[internalize(5)]);
+  for (Var v = 0; v < k.nvars; ++v)
+    assert(k.bve_retry[v] == (v == var_of(internalize(5))));
   kernel_check_invariants(k); // both old reason and replacement are valid
 
   assert(backjump_apply(k) == ApplyResult::Ok);
   assert(clause_at(k.arena, rref)->garbage());
   assert(k.otfs_retired.empty());
+  kernel_check_invariants(k);
+  assert(default_solve(k) == 10);
+}
+
+static void test_large_otfs_retains_root_false_first_watch() {
+  // In Kissat's large OTFS path the surviving old first watch is retained even
+  // when root-false.  Only the binary path drops every root literal.  Packed
+  // reconstruction must therefore use the non-root antecedent size to choose
+  // the path, then restore this watched literal to the large replacement.
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  kernel_assign_unit(k, internalize(1));
+  const Lit reason[5] = {internalize(-1), internalize(5), internalize(-2),
+                         internalize(-3), internalize(-4)};
+  const Lit conflict[4] = {internalize(-5), internalize(-2),
+                           internalize(-3), internalize(-4)};
+  const Ref reason_ref = kernel_add_large_clause(k, reason, 5, false, 0);
+  const Ref conflict_ref = kernel_add_large_clause(k, conflict, 4, true, 3);
+
+  kernel_assign_decision(k, internalize(6));
+  kernel_assign_decision(k, internalize(2));
+  kernel_assign(k, internalize(3), 2, internalize(-2), true);
+  kernel_assign(k, internalize(4), 2, internalize(-2), true);
+  kernel_assign(k, internalize(5), 2, reason_ref, false);
+  k.conflict_ref = conflict_ref;
+  k.conflict_valid = true;
+
+  assert(analyze_apply(k) == ApplyResult::Ok);
+  assert(k.stats.otfs_strengthened == 1);
+  bool found = false;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && c->size == 4) {
+      bool have[5] = {};
+      for (const Lit lit : *c) {
+        assert(negated(lit));
+        have[var_of(lit)] = true;
+      }
+      if (have[0] && have[1] && have[2] && have[3]) {
+        assert(!found);
+        found = true;
+      }
+    }
+    ref += clause_actual_words(c);
+  }
+  assert(found);
+  assert(backjump_apply(k) == ApplyResult::Ok);
+  assert(clause_at(k.arena, reason_ref)->garbage());
   kernel_check_invariants(k);
   assert(default_solve(k) == 10);
 }
@@ -1080,6 +1152,7 @@ int main(int argc, char **argv) {
   test_otfs();
   test_otfs_reuse_honors_chronological_gap();
   test_large_otfs_retires_replaced_reason();
+  test_large_otfs_retains_root_false_first_watch();
   test_otfs_subsumption_inherits_better_conflict_glue();
   test_otfs_strengthening_preserves_better_reason_glue();
   test_chrono_backjump_clamps_to_jump_level();

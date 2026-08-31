@@ -1458,9 +1458,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       if (session)
         session->rewrite_large_in_place(k, ref, out.data(),
                                         static_cast<uint32_t>(out.size()));
+      // Pinned Kissat has deliberately different consumer wiring here.
+      // sweep.c::substitute_connected_clauses marks every surviving literal
+      // in an irredundant image, while substitute.c::substitute_clauses only
+      // overwrites it and does not call mark_added_literals.  Do not let the
+      // shared representation primitive erase that distinction.
       kernel_replace_large_clause_in_place(
           k, ref, id, out.data(), static_cast<uint32_t>(out.size()),
-          replacement_glue);
+          replacement_glue, session ? "sweep_substitute" : "substitute",
+          /*mark_added_material=*/session != nullptr);
       replacement = ReplaceOutcome::Large;
       replacement_ref = ref;
     } else {

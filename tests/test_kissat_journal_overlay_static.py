@@ -37,7 +37,8 @@ assert eventtrace.count('strcmp (event, "randec_state")') >= 2, (
 assert 'solver->statistics.conflicts < stop' in eventtrace, (
     "stop-mode must suppress expensive snapshots before its endpoint")
 assert re.search(
-    r'if \(stop_here && solver->stable\)\s*emit_heap_scores \(solver\);',
+    r'if \(stop_here && solver->stable && !trace_heap_vars_only\)\s*'
+    r'emit_heap_scores \(solver\);',
     eventtrace), "stable analysis-end must emit one endpoint heap digest"
 assert re.search(
     r'if \(!stop_here && trace_detail_window &&\s*'
@@ -52,6 +53,24 @@ assert 'trace_stop_pending' not in eventtrace
 assert 'TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT' in tactix_trace
 assert 'TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS' in eventtrace
+assert 'KISSAT_EVENT_TRACE_LEARNED_ONLY' in eventtrace
+assert 'TACTIX_EVENT_TRACE_LEARNED_ONLY' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_BVE_HEAP_ONLY' in eventtrace
+assert 'TACTIX_EVENT_TRACE_BVE_HEAP_ONLY' in tactix_trace
+assert ('trace_bve_heap_only && strcmp (event, "trace_begin")' in eventtrace)
+assert ('bve_heap_only_ && std::strcmp(event, "trace_begin")' in tactix_trace)
+assert 'strcmp (event, "bve_schedule")' in eventtrace
+assert 'std::strcmp(event, "bve_schedule")' in tactix_trace
+assert 'kissat_event_trace_bve_schedule (solver, &solver->schedule);' in prepare
+assert 'event_trace_bve_schedule(k, stack_.data()' in (
+    root / "src/policies/default_policy.cpp").read_text()
+assert 'insertion_hash=' in eventtrace and 'topology_hash=' in eventtrace
+assert 'score_xor=' in eventtrace and 'score_sum=' in eventtrace
+assert 'SAT_EVENT_TRACE_BVE_POP_FROM' in eventtrace
+assert 'SAT_EVENT_TRACE_BVE_POP_FROM' in tactix_trace
+assert 'bve_pop_checkpoint' in eventtrace and 'bve_pop_checkpoint' in tactix_trace
+assert 'strcmp (event, "bve_candidate")' in eventtrace
+assert 'std::strcmp(event, "bve_candidate")' in tactix_trace
 assert 'TACTIX_EVENT_TRACE_FORMULA_ONLY' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_FORMULA_ONLY' in eventtrace
 assert 'TACTIX_EVENT_TRACE_FORMULA_THRESHOLDS' in tactix_trace
@@ -60,7 +79,8 @@ assert 'TACTIX_EVENT_TRACE_HEAP_DUMP' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_HEAP_DUMP' in eventtrace
 assert 'if (formula_only_ || conflict_only_ || checkpoint_only_)' in tactix_trace, (
     "all summary-only trace modes must reject expensive ordinary detail payloads")
-assert 'if (trace_formula_only)\n    return false;' in eventtrace
+assert ('if (trace_formula_only || trace_learned_only || '
+        'trace_heap_vars_only)\n    return false;') in eventtrace
 assert 'std::strcmp(event, "analysis_end") &&\n      std::strcmp(event, "formula_checkpoint")' in tactix_trace
 assert 'strcmp (event, "analysis_end") &&\n      strcmp (event, "formula_checkpoint")' in eventtrace
 for event in ('trace_begin', 'formula_checkpoint', 'terminate'):
@@ -68,6 +88,16 @@ for event in ('trace_begin', 'formula_checkpoint', 'terminate'):
     assert f'strcmp (event, "{event}")' in eventtrace
 assert 'const bool snapshot = !trace_trajectory_only && analysis_end;' in eventtrace, (
     "trajectory-only analysis_end must not scan and rank the full solver state")
+assert 'trace_formula_only || trace_learned_only || trace_heap_vars_only' in eventtrace, (
+    "learned-only must reject non-learned payloads at the helper gate")
+assert 'trace_learned_only && strcmp (event, "learned")' in eventtrace
+assert 'learned_only_ && std::strcmp(event, "learned")' in tactix_trace
+assert 'if (learned_only_ || heap_vars_only_)\n    return false;' in tactix_trace, (
+    "Tactix learned-only must reject non-learned payloads at the helper gate")
+assert 'trace_learned_only && !stop_here' in eventtrace, (
+    "learned-only must retain analysis-end solely for the stop contract")
+assert 'analysis_end && !learned_only_' in tactix_trace
+assert 'analysis_end && !trace_learned_only' in eventtrace
 assert 'const bool stop_here = analysis_end && stop != UINT64_MAX' in eventtrace, (
     "trajectory-only analysis_end must retain the stop contract")
 assert '!strcmp (event, "randec_state") || !strcmp (event, "phase_pick")' in eventtrace
@@ -103,7 +133,8 @@ assert 'candidate_duplicate ? "entry-duplicate" : "extract"' in prepare
 assert 'kissat_congruence_candidate_trace_end (solver, true, extracted);' in prepare
 assert 'TACTIX_CONGRUENCE_CANDIDATE_TRACE' in (
     root / "src/rules/congruence/congruence.cpp").read_text()
-assert 'if (stop_here && k.h && k.h->stable)\n    emit_heap_scores(k);' in tactix_trace
+assert ('if (stop_here && k.h && k.h->stable && !heap_vars_only_)\n'
+        '    emit_heap_scores(k);') in tactix_trace
 assert 'if (stop_after_conflict_ != UINT64_MAX) {' in tactix_trace, (
     "Tactix stop-mode must gate intermediate full-heap hashes")
 assert tactix_trace.count('std::raise(SIGTERM);') == 1, (
@@ -119,6 +150,12 @@ assert 'KISSAT_EVENT_TRACE_HEAP_POP_DECISION' in eventtrace
 assert 'TACTIX_EVENT_TRACE_HEAP_POP_DECISION' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_HEAP_POP_ONLY' in eventtrace
 assert 'TACTIX_EVENT_TRACE_HEAP_POP_ONLY' in tactix_trace
+assert 'SAT_EVENT_TRACE_ASSIGNMENT_HASH_CONFLICT' in eventtrace
+assert 'SAT_EVENT_TRACE_ASSIGNMENT_HASH_FROM_DECISION' in eventtrace
+assert 'SAT_EVENT_TRACE_ASSIGNMENT_HASH_TO_DECISION' in eventtrace
+assert 'SAT_EVENT_TRACE_ASSIGNMENT_HASH_CONFLICT' in tactix_trace
+assert 'SAT_EVENT_TRACE_ASSIGNMENT_HASH_FROM_DECISION' in tactix_trace
+assert 'SAT_EVENT_TRACE_ASSIGNMENT_HASH_TO_DECISION' in tactix_trace
 assert 'kissat_event_trace_heap_pop (solver, "move"' in prepare
 assert 'event_trace_heap_pop(k, "move"' in tactix_analyze or (
     'event_trace_heap_pop(k, "move"' in
@@ -192,6 +229,46 @@ assert 'SAT_EVENT_TRACE_BINARY_SET_MATCH' in eventtrace
 assert 'SAT_EVENT_TRACE_BINARY_SET_CONFLICT' in eventtrace
 assert '# kissat-binary-set-snapshot\\t1' in eventtrace
 assert 'emit_binary_set_snapshot (solver, event, payload);' in eventtrace
+assert 'SAT_EVENT_TRACE_HEAP_SET_PATH' in eventtrace
+assert 'SAT_EVENT_TRACE_HEAP_SET_CONFLICT' in eventtrace
+assert 'SAT_EVENT_TRACE_HEAP_SET_DECISION' in eventtrace
+assert '# kissat-heap-set\\t1' in eventtrace
+assert 'emit_heap_set_snapshot (solver);' in eventtrace
+assert 'KISSAT_EVENT_TRACE_HEAP_VARS_ONLY' in eventtrace
+assert 'SAT_EVENT_TRACE_HEAP_VARS' in eventtrace
+assert 'selected_heap_variable (kissat *solver, unsigned idx)' in eventtrace
+assert 'trace_heap_vars_only ? !selected' in eventtrace
+assert 'TACTIX_EVENT_TRACE_HEAP_VARS_ONLY' in tactix_trace
+assert 'SAT_EVENT_TRACE_HEAP_VARS' in tactix_trace
+assert 'heap_vars_only_ ? !selected' in tactix_trace
+assert 'kissat_event_trace_root_assign (solver, lit, binary, reason);' in prepare
+assert 'void kissat_event_trace_root_assign (kissat *solver, unsigned lit,' in eventtrace
+assert 'strcmp (event, "root_assign")' in eventtrace
+assert 'std::strcmp(event, "root_assign")' in tactix_trace
+assert 'active_trace->root_assign(k, lit);' in tactix_trace
+assert 'strcmp (event, "substitute_map")' in eventtrace
+assert 'std::strcmp(event, "substitute_map")' in tactix_trace
+assert 'selected_heap_variable (solver, IDX (lit))' in eventtrace
+assert 'heap_var_selected(k, var_of(lit))' in tactix_trace
+assert 'emit_binary_set_snapshot(k, "slot_boundary", payload.c_str());' in tactix_trace
+assert 'emit_formula_set_snapshot(k, "slot_boundary", payload.c_str());' in tactix_trace
+assert 'kissat_event_trace (solver, "factor_admitted", "-", true);' in prepare
+assert 'kissat_event_trace (solver, "factor_applied", "-", true);' in prepare
+assert 'trace_emitted >= trace_limit && !exit_after_match' in eventtrace
+assert 'emitted_ >= limit_ && !exit_after_match' in tactix_trace
+assert 'SAT_EVENT_TRACE_TARGET_ONLY' in eventtrace
+assert 'SAT_EVENT_TRACE_TARGET_ONLY' in tactix_trace
+assert 'SAT_EVENT_TRACE_EXIT_CONFLICT' in eventtrace
+assert 'SAT_EVENT_TRACE_EXIT_CONFLICT' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_LATE_PATH' in eventtrace
+assert 'TACTIX_EVENT_TRACE_LATE_PATH' in tactix_trace
+assert 'kissat_event_trace_late (solver, "factor_begin", "-", true);' in prepare
+assert 'kissat_event_trace_late (solver, NAME "_begin", "-", true);' in prepare
+assert 'SAT_RULE_JOURNAL_SKIP_DIGEST' in journal
+assert 'SAT_RULE_JOURNAL_SKIP_DIGEST' in (
+    root / "src/diagnostics/rule_journal.cpp").read_text()
+assert '? &solver->statistics.factor_ticks' in prepare
+assert 'journal_effort, *journal_meter, 0' in prepare
 assert 'kissat_event_trace_binary_assignment (solver, lit, immediate_reason,' in prepare
 assert 'event_trace_binary_assignment(k, lit, other_false' in (
     root / "src/kernel/kernel.hpp").read_text()

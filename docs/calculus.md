@@ -274,8 +274,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   iff `dst` is reachable from `¬src` along *other* binaries; that surviving path is a resolution
   derivation of `e`, so `F \ {e} ⊨ e` — deleting it is equivalence-preserving.
 - **Effect:** delete transitively-redundant edges (round-local tombstone so no edge is justified by an
-  edge being deleted in the same round); failed literals are deferred to V1. Proof δ: `del` only
-  (chain-free).
+  edge being deleted in the same round). If the same binary walk reaches both polarities under `¬src`,
+  retain all earlier deletions from that source, add the RUP unit `{src}` from the BFS reason chain, and
+  propagate it at root before the next source. Proof δ: chain-free `del` plus add-RUP for that unit.
 - **Soundness:** each deletion is equivalence-preserving; the tombstone prevents the mutual-redundancy
   double-deletion that would gain a model.
 

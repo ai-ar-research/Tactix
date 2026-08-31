@@ -57,6 +57,11 @@ struct BveOccurrences {
 };
 void bve_build_occurrences(const Kernel &, BveOccurrences &);
 
+// Pinned eliminate.c flushes every newly propagated root unit while the dense
+// occurrence representation is still connected.  This retires satisfied large
+// clauses and updates the mutable candidate heap before the next pop.
+void bve_flush_units_while_connected(Kernel &, uint32_t trail_from);
+
 // Mutable-schedule occurrence count in the current dense representation.
 // During Kissat elimination, removed large-clause references remain connected
 // until the round-level flush, while binaries are disconnected immediately.

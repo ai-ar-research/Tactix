@@ -67,6 +67,8 @@ void kissat_rule_journal_literals (kissat *solver, const unsigned *lits,
 uint64_t kissat_rule_journal_digest (kissat *solver) {
   if (!journal_requested ())
     return 0;
+  if (getenv ("SAT_RULE_JOURNAL_SKIP_DIGEST"))
+    return 0;
   uint64_t hash = UINT64_C (1469598103934665603);
   hash = mix (hash, solver->level);
   hash = mix (hash, SIZE_ARRAY (solver->trail));

@@ -30,7 +30,7 @@ void kernel_defer_cold_state(Kernel &k) {
   assert(k.nvars == 0);
   assert(k.bve_retry.empty() && k.backbone_priority.empty());
   assert(k.touched.empty() && k.removed.empty() && k.touched_kept.empty());
-  assert(k.bve_min_bound.empty() && k.seen.empty() && k.eager_marks.empty());
+  assert(k.seen.empty() && k.eager_marks.empty());
   assert(k.marked_levels.empty() && k.probing.stamp.empty());
   k.cold_state_deferred = true;
 }
@@ -51,7 +51,6 @@ void kernel_materialize_cold_state(Kernel &k) {
   k.touched.assign(k.nvars, k.touch_epoch);
   k.removed.assign(k.nvars, 0);
   k.touched_kept.assign(k.nvars, 0);
-  k.bve_min_bound.assign(k.nvars, 0);
   k.seen.assign(k.nvars, 0);
   k.eager_marks.assign(2 * static_cast<size_t>(k.nvars), 0);
   k.marked_levels.assign(static_cast<size_t>(k.nvars) + 1, 0);
@@ -119,16 +118,13 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
     kernel_touch_var(k, v);
     // Variable activation marks the stripped (positive) literal in Kissat;
     // actual clause polarities are marked below by clause addition.
-    kernel_mark_factor_literal(k, make_lit(v, false));
+    kernel_mark_factor_literal(k, make_lit(v, false), "activate");
   }
   // Retirement status: a brand-new variable is Active (design R-a). Only grown
   // once something has retired a variable, so the common case stays empty.
   if (!k.var_status.empty())
     k.var_status.resize(nvars, VarStatus::Active);
-  // Paired with bve_retry (init is irrelevant — the retry bit starts set, so the
-  // first attempt always recomputes it before any read).
   if (!k.cold_state_deferred) {
-    k.bve_min_bound.resize(nvars, 0);
     k.seen.resize(nvars, 0);
     k.eager_marks.resize(2 * nvars, 0); // all-zero between uses; see the field
     k.marked_levels.resize(nvars + 1, 0);
@@ -300,7 +296,8 @@ static void kernel_rearm_propagation(Kernel &k, Lit a, Lit b) {
 }
 
 Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
-                            bool redundant, uint32_t glue, uint64_t id) {
+                            bool redundant, uint32_t glue, uint64_t id,
+                            bool mark_added_material) {
   assert(size >= 3);
   kernel_rearm_propagation(k, lits, size);
   const Ref ref = static_cast<Ref>(k.arena.size());
@@ -329,12 +326,15 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   // and semantic removal only, never by clause creation.
   if (!redundant)
     for (uint32_t i = 0; i < size; i++) {
-      kernel_touch_var(k, var_of(lits[i]));
-      kernel_mark_factor_literal(k, lits[i]);
+      if (mark_added_material) {
+        kernel_touch_var(k, var_of(lits[i]));
+        kernel_mark_factor_literal(k, lits[i], "add_large");
+      }
       if (k.dense) {
         k.dense->large[lits[i]].push_back(ref);
         if (k.dense->track_order)
-          k.dense->ordered[lits[i]].push_back({ref, false, true});
+          k.dense->ordered[lits[i]].push_back(
+              OccIndex::Entry::from_large(ref));
         kernel_bve_occurrence_add(k, lits[i]);
       }
       // Kissat updates an already-scheduled variable after adding a
@@ -390,8 +390,8 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
   // learned binaries, which is where this over-touches on purpose).
   kernel_touch_var(k, var_of(a));
   kernel_touch_var(k, var_of(b));
-  kernel_mark_factor_literal(k, a);
-  kernel_mark_factor_literal(k, b);
+  kernel_mark_factor_literal(k, a, "add_binary");
+  kernel_mark_factor_literal(k, b, "add_binary");
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_binary_add(k, a, b, id);
 #endif
@@ -406,8 +406,8 @@ static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
   if (k.dense && k.dense->track_order) {
-    k.dense->ordered[a].push_back({b, true, true});
-    k.dense->ordered[b].push_back({a, true, true});
+    k.dense->ordered[a].push_back(OccIndex::Entry::from_binary(b));
+    k.dense->ordered[b].push_back(OccIndex::Entry::from_binary(a));
   }
   kernel_bve_occurrence_add(k, a);
   kernel_bve_occurrence_add(k, b);
@@ -487,11 +487,11 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
       auto &ordered = k.dense->ordered[x];
       const auto at = std::find_if(ordered.begin(), ordered.end(),
                                    [other](const OccIndex::Entry &entry) {
-                                     return entry.live && entry.binary &&
+                                     return entry.binary &&
                                             entry.payload == other;
                                    });
       assert(at != ordered.end());
-      at->live = false;
+      ordered.erase(at);
     }
   }
   kernel_bve_occurrence_remove(k, a);
@@ -543,11 +543,11 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
       auto &ordered = k.dense->ordered[x];
       const auto at = std::find_if(ordered.begin(), ordered.end(),
                                    [other](const OccIndex::Entry &entry) {
-                                     return entry.live && entry.binary &&
+                                     return entry.binary &&
                                             entry.payload == other;
                                    });
       assert(at != ordered.end());
-      at->live = false;
+      ordered.erase(at);
     }
   }
   kernel_bve_occurrence_remove(k, a);
@@ -609,18 +609,23 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
     });
     assert(kept && removed == removed_copies);
     if (k.dense && k.dense->track_order) {
+      auto &ordered = k.dense->ordered[x];
       bool retained = false;
       uint32_t retired = 0;
-      for (OccIndex::Entry &entry : k.dense->ordered[x]) {
-        if (!entry.live || !entry.binary || entry.payload != other)
-          continue;
-        if (!retained)
-          retained = true;
-        else {
-          entry.live = false;
-          retired++;
+      size_t out = 0;
+      for (const OccIndex::Entry entry : ordered) {
+        if (entry.binary && entry.payload == other) {
+          if (!retained) {
+            retained = true;
+            ordered[out++] = entry;
+          } else {
+            retired++;
+          }
+        } else {
+          ordered[out++] = entry;
         }
       }
+      ordered.resize(out);
       assert(retained && retired == removed_copies);
     }
   }
@@ -693,12 +698,17 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       });
     }
     if (k.dense && k.dense->track_order) {
+      auto &ordered = k.dense->ordered[x];
       uint32_t retired = 0;
-      for (OccIndex::Entry &entry : k.dense->ordered[x])
-        if (entry.live && entry.binary && entry.payload == other) {
-          entry.live = false;
+      size_t out = 0;
+      for (const OccIndex::Entry entry : ordered) {
+        if (entry.binary && entry.payload == other) {
           retired++;
+        } else {
+          ordered[out++] = entry;
         }
+      }
+      ordered.resize(out);
       assert(retired == copies);
     }
   }
@@ -805,69 +815,6 @@ void kernel_promote_watched_lit(Kernel &k, Ref ref, uint32_t slot,
   // for any member (kissat leaves the same staleness behind for the same
   // reason). `c->searched` stays in [2, size) and is likewise only a hint.
   k.watches.push_large(promoted, c->lits[slot ^ 1], ref);
-}
-
-// See kernel.hpp for the contract. Two occurrence sources, mirroring how BVE
-// itself reads the formula: binaries from the watch lists, irredundant large
-// clauses from the shared dense index when a simplification phase has attached
-// one, else one arena scan. Redundant clauses are irrelevant — BVE never
-// resolves them, so a fixed literal inside one changes nothing it computes.
-void kernel_bve_retry_sync_fixed(Kernel &k) {
-  const uint32_t fixed = kernel_root_fixed(k);
-  if (k.bve_retry_fixed_head >= fixed)
-    return;
-  const uint32_t from = k.bve_retry_fixed_head;
-  k.bve_retry_fixed_head = fixed;
-  for (uint32_t i = from; i < fixed; i++) {
-    const Var v = var_of(k.trail[i]);
-    if (k.assigned[v].level != 0)
-      continue; // an out-of-order literal above the root frame is not fixed yet
-    kernel_mark_bve_retry(k, v);
-    kernel_notify_bve_score(k, v, true);
-    for (const Lit l : {make_lit(v, false), make_lit(v, true)}) {
-      // binaries: the partner's neighbourhood changed
-      for (const WatchEntry w : k.watches.entries(l))
-        if (w.binary()) {
-          kernel_mark_bve_retry(k, var_of(w.other()));
-          kernel_notify_bve_score(k, var_of(w.other()), true);
-        }
-      if (k.dense)
-        for (const Ref ref : k.dense->large[l]) {
-          const Clause *c = clause_at(k.arena, ref);
-          if (c->garbage())
-            continue;
-          for (const Lit m : *c) {
-            kernel_mark_bve_retry(k, var_of(m));
-            kernel_notify_bve_score(k, var_of(m), true);
-          }
-        }
-    }
-  }
-  if (k.dense)
-    return;
-  // no phase index: one arena scan, marking every irredundant large clause that
-  // contains one of the newly fixed variables.
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    if (!c->garbage() && !c->redundant()) {
-      bool touched = false;
-      for (const Lit m : *c) {
-        const Var mv = var_of(m);
-        if (k.values[m] != 0 && k.assigned[mv].level == 0 &&
-            k.assigned[mv].trail >= from) {
-          touched = true;
-          break;
-        }
-      }
-      if (touched)
-        for (const Lit m : *c) {
-          kernel_mark_bve_retry(k, var_of(m));
-          kernel_notify_bve_score(k, var_of(m), true);
-        }
-    }
-    ref += words;
-  }
 }
 
 // See kernel.hpp for the contract, and for why this stops at the fixed
@@ -1126,7 +1073,9 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
 
 void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
                                           const Lit *lits, uint32_t size,
-                                          uint32_t glue) {
+                                          uint32_t glue,
+                                          const char *source_tag,
+                                          bool mark_added_material) {
   Clause *c = clause_at(k.arena, ref);
   assert(!c->garbage());
   assert(id == k.next_clause_id);
@@ -1166,7 +1115,8 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
       if (!in_old(lits[i])) {
         k.dense->large[lits[i]].push_back(ref);
         if (k.dense->track_order)
-          k.dense->ordered[lits[i]].push_back({ref, false, true});
+          k.dense->ordered[lits[i]].push_back(
+              OccIndex::Entry::from_large(ref));
         kernel_bve_occurrence_add(k, lits[i]);
       }
   }
@@ -1211,10 +1161,10 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
     k.watches.push_large(lits[1], lits[0], ref);
   }
 
-  if (!redundant)
+  if (!redundant && mark_added_material)
     for (uint32_t i = 0; i < size; i++) {
       kernel_touch_var(k, var_of(lits[i]));
-      kernel_mark_factor_literal(k, lits[i]);
+      kernel_mark_factor_literal(k, lits[i], source_tag);
       kernel_notify_bve_score(k, var_of(lits[i]), false);
     }
   else if (k.touch_redundant) {
@@ -1336,7 +1286,7 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
     // cumulative effort boundary despite an identical semantic formula.
     kernel_replace_large_clause_in_place(
         k, original_ref, id, kept.data(), static_cast<uint32_t>(kept.size()),
-        redundant ? glue : 0);
+        redundant ? glue : 0, "root_flush");
     *ref = original_ref;
     return RootFlushOutcome::Rewritten;
   }
@@ -2081,7 +2031,8 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
     for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
       for (const WatchEntry watch : k.watches.entries(lit))
         if (watch.binary())
-          occ.ordered[lit].push_back({watch.other(), true, true});
+          occ.ordered[lit].push_back(
+              OccIndex::Entry::from_binary(watch.other()));
   std::vector<Ref> order;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
@@ -2097,7 +2048,7 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
     for (const Lit lit : *clause_at(k.arena, ref)) {
       occ.large[lit].push_back(ref);
       if (occ.track_order)
-        occ.ordered[lit].push_back({ref, false, true});
+        occ.ordered[lit].push_back(OccIndex::Entry::from_large(ref));
     }
 }
 
@@ -2325,13 +2276,24 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
 // dense-mode simplifiers flush large watches and `kissat_watch_large_clauses`
 // rebuilds them on resume; retaining the pre-phase lists instead leaks Lucky
 // and simplifier scan order into the following search trajectory.
-void kernel_rebuild_large_watches(Kernel &k) {
+void kernel_rebuild_large_watches(Kernel &k, bool flush_eliminated) {
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
   std::vector<Ref> order;
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
+    if (flush_eliminated && !c->garbage()) {
+      bool collect = false;
+      for (const Lit lit : *c)
+        if (kernel_root_value(k, lit) > 0 ||
+            kernel_var_retired(k, var_of(lit))) {
+          collect = true;
+          break;
+        }
+      if (collect)
+        kernel_delete_clause(k, c);
+    }
     if (!c->garbage())
       order.push_back(ref);
     ref += words;
@@ -2941,7 +2903,6 @@ bool kernel_compact_variables(Kernel &k) {
     values_by_var.swap(fresh);
   };
   compact_by_var(k.bve_retry, uint8_t{0});
-  compact_by_var(k.bve_min_bound, uint16_t{0});
   compact_by_var(k.backbone_priority, uint8_t{0});
   compact_by_var(k.touched, uint64_t{0});
   compact_by_var(k.removed, uint64_t{0});
@@ -2958,7 +2919,6 @@ bool kernel_compact_variables(Kernel &k) {
       internal_to_external[now] = external;
   }
 
-  const uint32_t old_bve_head = k.bve_retry_fixed_head;
   const uint32_t old_touch_head = k.touch_fixed_head;
   heuristics_compact_vars(k, old_to_new, new_nvars);
 
@@ -2989,7 +2949,6 @@ bool kernel_compact_variables(Kernel &k) {
       }
   }
 
-  k.bve_retry_fixed_head = trail_prefix[old_bve_head];
   k.touch_fixed_head = trail_prefix[old_touch_head];
   k.seen.assign(new_nvars, 0);
   k.eager_marks.assign(2 * new_nvars, 0);

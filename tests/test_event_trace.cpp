@@ -42,6 +42,7 @@ int main() {
   assert(!absent.good());
 
   setenv("TACTIX_EVENT_TRACE", path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_FORMULA_MACRO", "1", 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_POSE", "1", 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_COST", "1", 1);
   setenv("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY", "1", 1);
@@ -49,6 +50,7 @@ int main() {
   setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM", "7", 1);
   setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO", "7", 1);
   setenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION", "0", 1);
+  setenv("TACTIX_EVENT_TRACE_FACTOR_MARK", "-2", 1);
   setenv("SAT_EVENT_TRACE_VIVIFY_LITERALS", "-3,1", 1);
   setenv("SAT_EVENT_TRACE_VIVIFY_CLAUSES", "1", 1);
   setenv("SAT_EVENT_TRACE_SUBSTITUTE_ALL", "1", 1);
@@ -71,6 +73,7 @@ int main() {
     trace.factor_seed(k, internalize(-2), 17, 9);
     trace.factor_grid(k, internalize(-2), 3, 4, 5);
     trace.factor_grid_member(k, 0, internalize(-2));
+    kernel_mark_factor_literal(k, internalize(-2), "fixture");
     trace.substitute_map(k, internalize(2), internalize(2));
     trace.substitute_map(k, internalize(2), internalize(-3));
     trace.detail(k, "analysis_begin", 2);
@@ -113,6 +116,7 @@ int main() {
     trace.macro(k, "terminate", "10");
   }
   unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_FORMULA_MACRO");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_POSE");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_COST");
   unsetenv("TACTIX_EVENT_TRACE_WATCH_WITHIN_VIVIFY");
@@ -120,6 +124,7 @@ int main() {
   unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM");
   unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO");
   unsetenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION");
+  unsetenv("TACTIX_EVENT_TRACE_FACTOR_MARK");
   unsetenv("SAT_EVENT_TRACE_VIVIFY_LITERALS");
   unsetenv("SAT_EVENT_TRACE_VIVIFY_CLAUSES");
   unsetenv("SAT_EVENT_TRACE_SUBSTITUTE_ALL");
@@ -144,6 +149,9 @@ int main() {
          std::string::npos);
   assert(text.find("\tslot_boundary\t") != std::string::npos);
   assert(text.find("name=Sweep|stage=begin") != std::string::npos);
+  assert(text.find("|formula_binary_hash=") != std::string::npos);
+  assert(text.find("|root_fixed=") != std::string::npos);
+  assert(text.find("|root_fixed_hash=") != std::string::npos);
   assert(text.find("\tsweep_seed\t") != std::string::npos);
   assert(text.find("external=2") != std::string::npos);
   assert(text.find("\tsweep_environment\t") != std::string::npos);
@@ -161,6 +169,9 @@ int main() {
   assert(text.find("\tfactor_grid_member\t") != std::string::npos);
   assert(text.find("ordinal=0|external=-2") != std::string::npos);
   assert(text.find("external=-2|factors=3|remainders=4|delta=5") !=
+         std::string::npos);
+  assert(text.find("\tfactor_mark_transition\t") != std::string::npos);
+  assert(text.find("external=-2|marked=1|source=fixture") !=
          std::string::npos);
   assert(text.find("\tsubstitute_map\t") != std::string::npos);
   assert(text.find("external=2|representative=-3") != std::string::npos);
@@ -216,6 +227,56 @@ int main() {
                             "id=0,ref=0,order=0,searched=3,redundant=0,glue=0,used=0,priority=0,"
                             "pose=-3,1,-2") != std::string::npos);
   std::remove(path.c_str());
+
+  const std::string heap_vars_path = trace_path("event-heap-vars-only");
+  std::remove(heap_vars_path.c_str());
+  k.h->stable = true;
+  setenv("TACTIX_EVENT_TRACE", heap_vars_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY", "1", 1);
+  setenv("SAT_EVENT_TRACE_HEAP_VARS", "2", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "decision", 99);
+    trace.heap_insert(k, 0, 8, 4);
+    trace.heap_insert(k, 1, 7, 3);
+    trace.heap_remove(k, 1, 2, 3, 9, 5);
+    trace.heap_pop(k, "begin", 1, 0, 7, 0);
+    trace.substitute_map(k, internalize(1), internalize(1));
+    trace.substitute_map(k, internalize(2), internalize(-1));
+    Kernel root;
+    kernel_reserve_vars(root, 2);
+    ScopedHeuristics root_h(root);
+    kernel_assign_unit(root, internalize(1));
+    kernel_assign_unit(root, internalize(2));
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY");
+  unsetenv("SAT_EVENT_TRACE_HEAP_VARS");
+  std::ifstream heap_vars_input(heap_vars_path);
+  const std::string heap_vars_text(
+      (std::istreambuf_iterator<char>(heap_vars_input)),
+      std::istreambuf_iterator<char>());
+  assert(heap_vars_text.find("\tdecision\t") == std::string::npos);
+  assert(heap_vars_text.find("\theap_insert\t") != std::string::npos);
+  assert(heap_vars_text.find("var=2|") != std::string::npos);
+  assert(heap_vars_text.find("var=1|") == std::string::npos);
+  assert(heap_vars_text.find("\theap_remove\t") != std::string::npos);
+  assert(heap_vars_text.find("removed=2:") != std::string::npos);
+  assert(heap_vars_text.find("\theap_pop\t") != std::string::npos);
+  assert(heap_vars_text.find("stage=begin|held=2:") != std::string::npos);
+  assert(heap_vars_text.find("\troot_assign\t") != std::string::npos);
+  assert(heap_vars_text.find("lit=2|warming=0|trail_after=") !=
+         std::string::npos);
+  assert(heap_vars_text.find("|reason=unit") != std::string::npos);
+  assert(heap_vars_text.find("lit=1|warming=") == std::string::npos);
+  assert(heap_vars_text.find("\tsubstitute_map\t") != std::string::npos);
+  assert(heap_vars_text.find("external=2|representative=-1|") !=
+         std::string::npos);
+  assert(heap_vars_text.find("external=1|representative=1|") ==
+         std::string::npos);
+  std::remove(heap_vars_path.c_str());
+  k.h->stable = false;
 
   const std::string glue_only_path = trace_path("event-glue-only");
   std::remove(glue_only_path.c_str());
@@ -316,6 +377,51 @@ int main() {
   assert(conflict_only_text.find("must_be_filtered") == std::string::npos);
   std::remove(conflict_only_path.c_str());
 
+  const std::string learned_only_path = trace_path("event-learned-only");
+  std::remove(learned_only_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", learned_only_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_LEARNED_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_FROM", "2", 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_TO", "2", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    k.stats.conflicts = 1;
+    trace.learned(k, {internalize(1), internalize(-2)});
+    k.stats.conflicts = 2;
+    trace.detail(k, "decision", 1);
+    trace.conflict(k);
+    trace.macro(k, "must_be_filtered");
+    trace.learned_stage(k, "learned_raw",
+                        {internalize(-1), internalize(3)});
+    trace.learned(k, {internalize(1), internalize(-2)});
+    k.stats.conflicts = 3;
+    trace.learned(k, {internalize(2), internalize(-3)});
+    trace.macro(k, "terminate", "0");
+  }
+  k.stats.conflicts = saved_conflicts;
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_LEARNED_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_TRAJECTORY_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_FROM");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_TO");
+  std::ifstream learned_only_input(learned_only_path);
+  const std::string learned_only_text(
+      (std::istreambuf_iterator<char>(learned_only_input)),
+      std::istreambuf_iterator<char>());
+  assert(learned_only_text.find("\ttrace_begin\t") != std::string::npos);
+  assert(learned_only_text.find("\tlearned\t2\t") != std::string::npos);
+  assert(learned_only_text.find("size=2|order_hash=") != std::string::npos);
+  assert(learned_only_text.find("\tterminate\t3\t") != std::string::npos);
+  assert(learned_only_text.find("\tlearned\t1\t") == std::string::npos);
+  assert(learned_only_text.find("\tlearned\t3\t") == std::string::npos);
+  assert(learned_only_text.find("\tdecision\t") == std::string::npos);
+  assert(learned_only_text.find("\tconflict\t") == std::string::npos);
+  assert(learned_only_text.find("\tlearned_raw\t") == std::string::npos);
+  assert(learned_only_text.find("must_be_filtered") == std::string::npos);
+  std::remove(learned_only_path.c_str());
+
   // Compact inprocessing traces are the matched-cost surface for all
   // candidate-oriented rules.  In particular BVE and its phase cleanup must
   // survive this filter in both Tactix and the Kissat observer overlay; losing
@@ -371,7 +477,9 @@ int main() {
   // import order, which can disagree with both external and current compact
   // order.  Equal scores must therefore retain that permanent permutation.
   const std::string import_tie_path = trace_path("event-import-tie");
+  const std::string heap_set_path = trace_path("event-heap-set");
   std::remove(import_tie_path.c_str());
+  std::remove(heap_set_path.c_str());
   Kernel import_tie_kernel;
   kernel_reserve_vars(import_tie_kernel, 3);
   kernel_record_import(import_tie_kernel, 1);
@@ -381,13 +489,21 @@ int main() {
   for (Var v = 0; v < import_tie_kernel.nvars; ++v)
     heuristics_score_set(import_tie_kernel, v, 0.0);
   import_tie_kernel.h->stable = true;
+  heuristics_update_scores(import_tie_kernel);
   setenv("TACTIX_EVENT_TRACE", import_tie_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_HEAP_SET_PATH", heap_set_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_HEAP_SET_CONFLICT", "0", 1);
+  setenv("SAT_EVENT_TRACE_HEAP_SET_DECISION", "0", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(import_tie_kernel));
+    trace.heap_scores(import_tie_kernel);
     trace.detail(import_tie_kernel, "analysis_end", 0);
   }
   unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("SAT_EVENT_TRACE_HEAP_SET_PATH");
+  unsetenv("SAT_EVENT_TRACE_HEAP_SET_CONFLICT");
+  unsetenv("SAT_EVENT_TRACE_HEAP_SET_DECISION");
   std::ifstream import_tie_input(import_tie_path);
   const std::string import_tie_text(
       (std::istreambuf_iterator<char>(import_tie_input)),
@@ -402,7 +518,16 @@ int main() {
                              import_tie_end - import_tie_analysis);
   assert(import_tie_line.find("\t2,1,3\t0") != std::string::npos &&
          "stable score ties must follow Kissat's first-import index order");
+  std::ifstream heap_set_input(heap_set_path);
+  const std::string heap_set_text(
+      (std::istreambuf_iterator<char>(heap_set_input)),
+      std::istreambuf_iterator<char>());
+  assert(heap_set_text.find("# tactix-heap-set\t1\n") != std::string::npos);
+  assert(heap_set_text.find("2\t0\t0\t0\t1\n") != std::string::npos);
+  assert(heap_set_text.find("1\t1\t0\t0\t1\n") != std::string::npos);
+  assert(heap_set_text.find("3\t2\t0\t0\t1\n") != std::string::npos);
   std::remove(import_tie_path.c_str());
+  std::remove(heap_set_path.c_str());
 
   const std::string watch_positions_path =
       trace_path("event-watch-positions");
@@ -484,6 +609,72 @@ int main() {
   assert(binary_set_text.find("other-snapshot") == std::string::npos);
   std::remove(binary_set_path.c_str());
   std::remove(binary_set_event_path.c_str());
+
+  const std::string matched_exit_path = trace_path("event-matched-exit");
+  std::remove(matched_exit_path.c_str());
+  const pid_t matched_exit_child = fork();
+  assert(matched_exit_child >= 0);
+  if (!matched_exit_child) {
+    setenv("TACTIX_EVENT_TRACE_LATE_PATH", matched_exit_path.c_str(), 1);
+    // A zero cap plus target-only mode proves the selected boundary bypasses
+    // both ordinary event work and the cap at its public entry point.
+    setenv("TACTIX_EVENT_TRACE_LIMIT", "0", 1);
+    setenv("SAT_EVENT_TRACE_TARGET_ONLY", "1", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_AFTER_MATCH",
+           "slot_boundary|name=selected|stage=begin", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_CONFLICT", "0", 1);
+    event_trace_slot_boundary(watch_kernel, "other", "begin");
+    event_trace_slot_boundary(watch_kernel, "selected", "begin");
+    _exit(99);
+  }
+  int matched_exit_status = 0;
+  assert(waitpid(matched_exit_child, &matched_exit_status, 0) ==
+         matched_exit_child);
+  assert(WIFEXITED(matched_exit_status));
+  assert(WEXITSTATUS(matched_exit_status) == 0);
+  std::ifstream matched_exit_input(matched_exit_path);
+  const std::string matched_exit_text(
+      (std::istreambuf_iterator<char>(matched_exit_input)),
+      std::istreambuf_iterator<char>());
+  assert(matched_exit_text.find("\tother\t") == std::string::npos);
+  assert(matched_exit_text.find(
+             "\tslot_boundary\t") != std::string::npos);
+  assert(matched_exit_text.find("name=selected|stage=begin") !=
+         std::string::npos);
+  std::remove(matched_exit_path.c_str());
+
+  const std::string randec_exit_path = trace_path("event-randec-late-exit");
+  std::remove(randec_exit_path.c_str());
+  const pid_t randec_exit_child = fork();
+  assert(randec_exit_child >= 0);
+  if (!randec_exit_child) {
+    setenv("TACTIX_EVENT_TRACE_LATE_PATH", randec_exit_path.c_str(), 1);
+    setenv("TACTIX_EVENT_TRACE_LIMIT", "0", 1);
+    setenv("SAT_EVENT_TRACE_TARGET_ONLY", "1", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_AFTER_MATCH", "randec_draw", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_CONFLICT", "0", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_DECISION", "42", 1);
+    watch_kernel.stats.decisions = 41;
+    event_trace_randec_draw(watch_kernel, 17, 0, 0, true);
+    watch_kernel.stats.decisions = 42;
+    event_trace_randec_draw(watch_kernel, 19, 1, 1, true);
+    _exit(99);
+  }
+  int randec_exit_status = 0;
+  assert(waitpid(randec_exit_child, &randec_exit_status, 0) ==
+         randec_exit_child);
+  assert(WIFEXITED(randec_exit_status));
+  assert(WEXITSTATUS(randec_exit_status) == 0);
+  std::ifstream randec_exit_input(randec_exit_path);
+  const std::string randec_exit_text(
+      (std::istreambuf_iterator<char>(randec_exit_input)),
+      std::istreambuf_iterator<char>());
+  assert(randec_exit_text.find("\trandec_draw\t0\t42\t") !=
+         std::string::npos);
+  assert(randec_exit_text.find("raw=19|slot=1|external=2|accepted=1") !=
+         std::string::npos);
+  assert(randec_exit_text.find("raw=17") == std::string::npos);
+  std::remove(randec_exit_path.c_str());
 
   const std::string focused_stop_path = trace_path("event-focused-stop");
   std::remove(focused_stop_path.c_str());

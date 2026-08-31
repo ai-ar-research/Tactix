@@ -421,6 +421,31 @@ static void test_unit_reschedules_only_affected_gate() {
          "the affected earlier gate must be revisited after x becomes false");
 }
 
+// A representative merge must also revisit a gate that was not an ordinary
+// hash key on its first pop.  With out=0, `out = a & b` is initially only the
+// residual clause (¬x∨¬b), so Canon::Skip consumes it.  Two earlier input
+// merges have already moved its raw y/z occurrences to x/b. A unit-producing
+// sibling then fixes out=0, and a value-rescheduled XOR proves x==b. Kissat's
+// all-RHS occurrence index follows both earlier moves and revisits the skipped
+// target as unary `false = x`; indexing only Canon::Ok keys strands it.
+static void test_merge_reschedules_skipped_valued_and() {
+  Kernel k;
+  // x=1 y=2 b=3 z=4 out=5 p=6 q=7 r=8 s=9
+  kernel_reserve_vars(k, 9);
+  and_gate(k, 5, 2, -1); // after y==x, forces out=0
+  and_gate(k, 5, 2, 4);  // target: later becomes false = x & b
+  and_gate(k, 1, 6, 7);
+  and_gate(k, 2, 6, 7); // y == x
+  and_gate(k, 3, 8, 9);
+  and_gate(k, 4, 8, 9); // z == b
+  xor_gate(k, 3, 1, 5); // out=0 later makes b == x
+  assert(congruence_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(-5)) > 0);
+  assert(k.value(internalize(-1)) > 0 &&
+         "the skipped valued AND must be revisited after its inputs merge");
+  assert(k.stats.congruence_units >= 1);
+}
+
 // Opposite-sign units derived in one round must refute, not assign.
 static void test_xor_cancel_refutes() {
   Kernel k;
@@ -561,6 +586,28 @@ static void test_xor_output_sign_odd_arity() {
   }
   assert_xor_gate_output(k, {1, 2, 3}, 4);
   assert_xor_gate_output(k, {2, 3, 4}, 1);
+}
+
+// Kissat indexes XOR candidates after removing root-false literals and skips
+// an effectively binary clause.  Keeping the original ternary shapes would
+// fabricate a unary XOR gate and publish out == residual during Congruence;
+// the reference leaves that residual relation to Substitute.
+static void test_root_false_input_makes_binary_xor_ineligible() {
+  Kernel k;
+  kernel_reserve_vars(k, 3); // out=1, residual=2, fixed=3
+  xor_gate(k, 1, 2, 3);
+  kernel_assign_unit(k, internalize(-3));
+
+  std::vector<CongGate> gates;
+  congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
+  for (const CongGate &gate : gates)
+    assert(!(gate.kind == GateKind::Xor &&
+             var_of(gate.output) == var_of(internalize(1))) &&
+           "an effectively binary XOR must not enter Congruence");
+
+  (void)congruence_apply(k);
+  assert(!equivalence_added(k, 1, 2) &&
+         "Congruence must not publish the residual unary equivalence");
 }
 
 // Congruence emits extracted binaries in arena order for the proof, then
@@ -771,6 +818,7 @@ int main() {
   test_xor_value_plus_cancel_uses_ladder();
   test_xor_input_unit_with_cancel_uses_ladder();
   test_unit_reschedules_only_affected_gate();
+  test_merge_reschedules_skipped_valued_and();
   test_xor_cancel_refutes();
   test_and_clash_learns_unit();
   test_and_idempotent_unary_merge();
@@ -778,6 +826,7 @@ int main() {
   test_xor_output_sign_even_arity();
   test_xor_output_sign_odd_relation();
   test_xor_output_sign_odd_arity();
+  test_root_false_input_makes_binary_xor_ineligible();
   test_extracted_binary_suffix_is_sorted();
   test_forward_dense_resume_reorders_complete_binary_population();
   test_binary_extraction_from_mixed_watch_lists();

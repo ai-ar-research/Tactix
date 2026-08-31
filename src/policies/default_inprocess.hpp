@@ -258,6 +258,7 @@ private:
   uint32_t bve_level_ = 0;
   uint32_t bve_level_idx_ = 0;
   bool bve_ran_this_phase_ = false;
+  bool bve_complete_this_phase_ = true;
   uint32_t factor_bound_snapshot_ = 0;
   bool couple_factor_bound_ = true;
   OccIndex occurrence_index_;

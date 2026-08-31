@@ -306,6 +306,49 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   assert(first_literals[2] == internalize(-3));
 }
 
+// Pinned Kissat's two large-clause substitution paths have different added-
+// material wiring. Canonical substitute.c overwrites a surviving image
+// without re-arming Factor, while Sweep's connected rewrite explicitly marks
+// every surviving irredundant literal. The shared Tactix rewrite primitive
+// must preserve that distinction.
+static void test_substitution_factor_marks_match_calling_path() {
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2));
+    kernel_add_binary_clause(k, internalize(-2), internalize(1));
+    const Lit clause[3] = {internalize(2), internalize(3), internalize(4)};
+    kernel_add_large_clause(k, clause, 3, false, 0);
+    std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+    k.factor_literals_marked = 0;
+
+    assert(substitute_apply(k) == ApplyResult::Ok);
+    assert(!k.factor_marks[internalize(3)]);
+    assert(!k.factor_marks[internalize(4)]);
+  }
+
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    const Lit clause[3] = {internalize(2), internalize(3), internalize(4)};
+    kernel_add_large_clause(k, clause, 3, false, 0);
+    kernel_add_binary_clause(k, internalize(-1), internalize(2));
+    kernel_add_binary_clause(k, internalize(1), internalize(-2));
+    OccIndex occ;
+    kernel_dense_connect(k, occ);
+    SweepSubstitutionSession session;
+    session.begin(k);
+    std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+    k.factor_literals_marked = 0;
+
+    assert(substitute_apply_sweep_equivalences(
+               k, {{internalize(1), internalize(2)}}, session) ==
+           ApplyResult::Ok);
+    assert(k.factor_marks[internalize(3)]);
+    assert(k.factor_marks[internalize(4)]);
+  }
+}
+
 // In Kissat's dense Sweep list, a large clause that collapses to a binary
 // replaces the stable endpoint's occurrence in place but appends the moved
 // representative's direction. The resulting large/binary interleaving is
@@ -1303,6 +1346,7 @@ int main() {
   test_apply_substitutes();
   test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
+  test_substitution_factor_marks_match_calling_path();
   test_sweep_preserves_cross_kind_dense_order();
   test_sweep_flushes_one_source_stream_at_a_time();
   test_sweep_bridges_link_intermediate_representative();

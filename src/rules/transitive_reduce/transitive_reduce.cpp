@@ -3,6 +3,7 @@
 // and the root-reason retirement.
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
+#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 
 #include "diagnostics/event_trace.hpp"
@@ -305,6 +306,11 @@ struct Walk {
   std::vector<uint32_t> seen;   // per-walk source-copy ordinal by destination
   std::vector<Lit> seen_list;   // touched entries of `seen`
   std::vector<Lit> cands;       // physical source-watch candidate order
+  // LRAT propagation order for the current BFS.  Each newly reached literal
+  // contributes the binary which forced it; when the opposite polarity was
+  // already reached, the last binary is the falsified closing clause.  The
+  // chain therefore proves the failed-source unit without re-running Probe.
+  std::vector<uint64_t> proof_chain;
   uint64_t ticks = 0;           // cache lines scanned; reduce_source flushes
                                 // into stats.transitive_ticks (const-walk
                                 // helpers charge here instead of the kernel)
@@ -334,7 +340,9 @@ uint64_t transitive_watch_ticks(const Kernel &k, Lit lit,
 // edge whose clause is one of this source's excluded (src ∨ x) pairs, in either
 // direction — that is what keeps a candidate out of its own justifying path.
 // Read-only. Returns true iff dst is reached; sets *failed when some literal is
-// reached with its negation, i.e. ¬src is a failed literal, deferred to V1.
+// reached with its negation, i.e. ¬src is a failed literal.  Pinned Kissat
+// commits {src} immediately; the BFS records the same binary propagation as an
+// LRAT chain so the caller can apply that unit without crossing into V1 Probe.
 bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
   *failed = false;
   for (const Lit l : w.touched)
@@ -344,6 +352,7 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
   for (const Lit lit : w.seen_list)
     w.seen[lit] = 0;
   w.seen_list.clear();
+  w.proof_chain.clear();
 
   const Lit root = negate(src);
   w.reached[root] = 1;
@@ -394,6 +403,11 @@ bool walk_reaches(const Kernel &k, Walk &w, Lit src, Lit dst, bool *failed) {
         continue;
       if (w.reached[q])
         continue;
+      if (k.proof && k.proof->lrat()) {
+        const uint64_t reason = kernel_binary_id(k, nl, q);
+        assert(reason && "TransitiveReduce walk edge has no proof id");
+        w.proof_chain.push_back(reason);
+      }
       w.reached[q] = 1;
       w.touched.push_back(q);
       if (w.reached[negate(q)]) {
@@ -476,6 +490,7 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
   }
 
   size_t candidate_ordinal = 0;
+  bool failed_source = false;
   for (const Lit dst : w.cands) {
     // Poll per dst walk, as kissat does (transitive.c:181-183): a source's
     // candidate set is unbounded, so a poll only between sources leaves both
@@ -506,17 +521,14 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
                            redundant, failed, w.cands.size(), out_degree);
     candidate_ordinal++;
     if (failed) {
-      // ¬src is a failed literal: V1 Probe owns the unit and its chain, and
-      // once src is fixed C2's flush removes these binaries anyway. Abort the
-      // source — nothing has been deleted yet, only tombstoned
-      k.stats.transitive_failed++;
+      // Pinned Kissat retains every earlier transitive deletion from this
+      // source, then learns {src} and propagates it at root.  The current
+      // candidate did not prove redundancy, so release only its exclusion;
+      // the prior tombstones remain queued for the mutation block below.
+      k.stats.transitive_units++;
       w.dead[dst]--;
-      for (const Lit d : w.dead_list)
-        w.dead[d]--;
-      w.dead_list.clear();
-      k.stats.transitive_ticks += w.ticks;
-      w.ticks = 0;
-      return ApplyResult::NoOp;
+      failed_source = true;
+      break;
     }
     if (redundant)
       w.dead_list.push_back(dst); // this copy stays tombstoned for later walks
@@ -552,6 +564,17 @@ ApplyResult reduce_source(Kernel &k, Lit src, Walk &w) {
   w.dead_list.clear();
   k.stats.transitive_ticks += w.ticks;
   w.ticks = 0;
+  if (failed_source) {
+    const bool lrat = k.proof && k.proof->lrat();
+    const uint64_t id = ++k.next_clause_id;
+    if (k.proof)
+      k.proof->add_rup(lrat ? id : 0, &src, 1,
+                       lrat ? w.proof_chain.data() : nullptr,
+                       lrat ? static_cast<uint32_t>(w.proof_chain.size()) : 0);
+    k.unit_ids[var_of(src)] = id;
+    kernel_assign_unit(k, src);
+    res = ApplyResult::Ok;
+  }
   if (trace_source)
     transitive_trace_row(k, "source-end", trace_sequence, src,
                          candidate_ordinal, INVALID_LIT, source_ticks_before,
@@ -610,10 +633,17 @@ ApplyResult transitive_reduce_apply(Kernel &k) {
   w.init(k);
   ApplyResult res = ApplyResult::NoOp;
   for (const Lit src : sources) {
-    // a source can go stale as earlier sources delete edges (never assigned:
-    // V4 changes no values); reduce_source re-derives everything it needs
-    if (reduce_source(k, src, w) == ApplyResult::Ok)
+    // Earlier sources can now fix and propagate variables, exactly as
+    // transitive.c does after a failed walk.  The canonical surface owns that
+    // immediate root closure itself; DefaultPolicy's dosed instance surface
+    // performs the same propagation after each successful candidate.
+    if (k.values[src] != 0 || kernel_var_retired(k, var_of(src)))
+      continue;
+    if (reduce_source(k, src, w) == ApplyResult::Ok) {
       res = ApplyResult::Ok;
+      if (inprocess_reach_root(k))
+        return ApplyResult::Unsat;
+    }
   }
   return res;
 }

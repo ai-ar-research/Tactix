@@ -1171,6 +1171,8 @@ public:
           static_cast<uint32_t>(std::min<uint64_t>(count, UINT32_MAX));
     }
     k.bve_occurrence_count_image = &occurrence_counts_;
+    pop_ordinal_ = 0;
+    pop_hash_ = 1469598103934665603ull;
     stack_.clear();
     pos_.assign(k.nvars, UINT32_MAX);
     score_.assign(k.nvars, 0.0);
@@ -1212,10 +1214,52 @@ public:
         p = *end ? end + 1 : end;
       }
     }
+    if (std::getenv("SAT_EVENT_TRACE_BVE_SCHEDULE_OCCURRENCES")) {
+      const char *selected = std::getenv("TACTIX_EVENT_TRACE_BVE_EXTERNAL");
+      if (selected && *selected) {
+        const long external = std::strtol(selected, nullptr, 10);
+        for (Var v = 0; v < k.nvars; ++v) {
+          if (static_cast<long>(k.internal_to_external[v] + 1) != external)
+            continue;
+          for (uint32_t side = 0; side != 2; ++side) {
+            const Lit lit = make_lit(v, side != 0);
+            uint32_t ordinal = side ? 0x40000000u : 0;
+            for (const OccIndex::Entry entry : k.dense->ordered[lit]) {
+              ++ordinal;
+              if (entry.binary) {
+                const Lit binary[2] = {lit, entry.payload};
+                event_trace_bve_pair(
+                    k, v, ordinal, binary, 2, INVALID_REF, 0, nullptr, 0,
+                    INVALID_REF, 0,
+                    side ? "schedule-negative-binary"
+                         : "schedule-positive-binary");
+              } else {
+                const Clause *c = clause_at(k.arena, entry.payload);
+                event_trace_bve_pair(
+                    k, v, ordinal, c->lits, c->size, entry.payload, c->id(),
+                    nullptr, 0, INVALID_REF, 0,
+                    side ? "schedule-negative-large"
+                         : "schedule-positive-large");
+              }
+            }
+          }
+          break;
+        }
+      }
+    }
 #endif
     trace_last_pos_.assign(trace_vars_.size(), UINT32_MAX);
     trace_last_score_.assign(trace_vars_.size(), 0.0);
     trace_selected("initial", INVALID_VAR, true);
+    uint64_t insertion_hash = 1469598103934665603ull;
+    for (const Var v : k.compact_import_order)
+      if (v < k.nvars && contains(v)) {
+        insertion_hash ^= k.internal_to_external[v] + 1ull;
+        insertion_hash *= 1099511628211ull;
+      }
+    event_trace_bve_schedule(k, stack_.data(), score_.data(),
+                             static_cast<uint32_t>(stack_.size()), k.bve_bound,
+                             insertion_hash);
   }
 
   bool empty() const { return stack_.empty(); }
@@ -1231,6 +1275,12 @@ public:
       pos_[last] = 0;
       bubble_down(last);
     }
+    pop_ordinal_++;
+    pop_hash_ ^= kernel_->internal_to_external[result] + 1ull;
+    pop_hash_ *= 1099511628211ull;
+    event_trace_bve_pop(*kernel_, pop_ordinal_, pop_hash_, result,
+                        score_[result], stack_.empty() ? INVALID_VAR : stack_[0],
+                        static_cast<uint32_t>(stack_.size()));
     trace_selected("pop", result, false);
     return payload_[result];
   }
@@ -1273,14 +1323,10 @@ private:
     const Kernel &k = *kernel_;
     if (!active(v) || v >= k.bve_retry.size())
       return;
-    // A failed candidate clears its retry flag but records the first BVE
-    // bound that can admit it.  Kissat blanket-rearms every variable when the
-    // elimination bound grows (eliminate.c:329-348); Tactix's equivalent is
-    // to reinsert the candidate once that cached bound becomes reachable.
-    // Apply the same predicate used by run_dosed_entry here, before the
-    // dynamic heap can silently erase the candidate from the phase.
-    if (!k.bve_retry[v] &&
-        (!k.bve_track_min_bound || k.bve_min_bound[v] > k.bve_bound))
+    // Kissat's schedule contains exactly the active variables whose
+    // `flags.eliminate` bit is set.  `bve_retry` is that bit's kernel image;
+    // bound growth rearms it for every variable at the phase boundary below.
+    if (!k.bve_retry[v])
       return;
     score_[v] = schedule_score(v);
     pos_[v] = static_cast<uint32_t>(stack_.size());
@@ -1372,6 +1418,8 @@ private:
   std::vector<Var> trace_vars_;
   std::vector<uint32_t> trace_last_pos_;
   std::vector<double> trace_last_score_;
+  uint64_t pop_ordinal_ = 0;
+  uint64_t pop_hash_ = 1469598103934665603ull;
 };
 
 bool rank_bve_reference(const Kernel &k, uint64_t *insts, uint32_t n) {
@@ -1887,6 +1935,7 @@ void DefaultInprocessScheduler::reset(const Kernel &k) {
   factor_marked_watermark_ = 0;
   bve_level_ = 0;
   bve_level_idx_ = 0;
+  bve_complete_this_phase_ = true;
   default_candidate_order_.reset(config().candidate_order_seed);
   for (SlotEntry &e : entries) {
     e.limit = 0;
@@ -2749,7 +2798,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
   const uint32_t passes = level_mode ? 1 : ramp ? ramp->num_passes() : 1;
   uint64_t elim_at_last_pass = k.stats.bve_eliminated;
   const bool use_retry = bve_entry && !ramp;
-  k.bve_track_min_bound = ramp != nullptr;
   bool engaged = false; // a pass got past the budget break and ran instances
   for (uint32_t pass = 0; pass < passes && !ctx.phase_unsat; pass++) {
     if (ramp && e.meter(k) > limit) {
@@ -2759,8 +2807,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     if (ramp)
       k.bve_bound = level_mode ? bve_level_ : ramp->bound(pass);
     elim_at_last_pass = k.stats.bve_eliminated; // fixpoint test above
-    if (bve_entry)
-      kernel_bve_retry_sync_fixed(k);
     payloads_.resize(2 * static_cast<size_t>(k.nvars) + 1);
     const uint32_t n =
         r.instances(k, payloads_.data(),
@@ -2796,8 +2842,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       if (use_retry || ramp) {
         Lit rl;
         if (lit_of_instance(k, payload, &rl) &&
-            var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)] &&
-            (!ramp || k.bve_min_bound[var_of(rl)] > k.bve_bound))
+            var_of(rl) < k.nvars && !k.bve_retry[var_of(rl)])
           continue;
       }
       if (ctx.stop && *ctx.stop)
@@ -2811,10 +2856,22 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         const uint64_t remaining = ledger_remaining(e, k, limit);
         k.work_budget = remaining ? remaining : 1;
       }
+      // Kissat mutates H at the same points as each BVE candidate: units
+      // produced while generating/connecting resolvents become fixed first,
+      // then a successfully eliminated pivot is removed, and only afterward
+      // can propagation fix more variables.  Formula rules publish those
+      // effects to the policy as trail and retirement events, so remember the
+      // candidate boundary and consume the two streams in that same order.
+      // Deferring all BVE retirements to the slot boundary batches hundreds
+      // of arbitrary score-heap removals and changes the physical heap even
+      // when the final formula and scores are identical.
+      const size_t candidate_trail_before = k.trail.size();
+      const uint64_t candidate_roots_before = k.stats.root_assignments;
       const ApplyResult ar = [&] {
         TickSinkScope sink(k, e.tick_counter);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         Var trace_bve_var = INVALID_VAR;
+        const uint64_t trace_bve_eliminated_before = k.stats.bve_eliminated;
         if (bve_entry) {
           Lit candidate;
           if (lit_of_instance(k, payload, &candidate)) {
@@ -2830,12 +2887,23 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         if (trace_bve_var != INVALID_VAR)
           event_trace_bve_candidate(k, trace_bve_var, "end", e.meter(k),
-                                    limit, result == ApplyResult::Ok);
+                                    limit,
+                                    k.stats.bve_eliminated !=
+                                        trace_bve_eliminated_before);
 #endif
         return result;
       }();
       ctx.last_result = ar;
       heuristics_consume_rule_advice(k);
+      // Every dosed Kissat rule which learns a root unit fixes/removes that
+      // variable from H before its ensuing propagation.  BVE was the first
+      // producer wired here; TransitiveReduce's failed-source unit uses the
+      // same general lifecycle rather than waiting for the whole slot.
+      if (k.stats.root_assignments != candidate_roots_before)
+        heuristics_consume_root_assignments(k, candidate_trail_before);
+      if (bve_entry) {
+        heuristics_consume_retirements(k);
+      }
       if (hand_residual)
         k.work_budget = 0;
       if (ar == ApplyResult::Unsat || k.inconsistent) {
@@ -2846,21 +2914,34 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         continue; // this candidate was not viable; try the next
       ctx.round_changed = true;
       ctx.phase_dosed = true;
+      const uint32_t bve_flush_from = k.propagate_head;
+      const size_t propagation_trail_before = k.trail.size();
       const ApplyResult propagation =
           default_propagate(k, "inprocess-candidate");
       if (propagation == ApplyResult::Unsat) {
         ctx.phase_unsat = true;
         break;
       }
+      if (bve_entry && k.trail.size() != propagation_trail_before)
+        heuristics_consume_root_assignments(k, propagation_trail_before);
+      if (bve_entry)
+        bve_flush_units_while_connected(k, bve_flush_from);
     }
     if (dynamic_bve) {
+      const bool complete = bve_heap.empty();
+      bve_complete_this_phase_ &= complete;
+      if (!complete) {
+        // eliminate.c drops every still-set eliminate flag when a resolution
+        // limit leaves members in the schedule.  This includes the candidate
+        // popped immediately before the limit check.
+        std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0});
+      }
       k.bve_score_update_hook = nullptr;
       k.bve_score_update_state = nullptr;
       assert(k.bve_occurrence_count_image);
       k.bve_occurrence_count_image = nullptr;
     }
   }
-  k.bve_track_min_bound = false; // scope the caching to this ramp
   if (level_mode && engaged && !ctx.phase_unsat)
     bve_ran_this_phase_ = true;
   (void)elim_at_last_pass;
@@ -2868,6 +2949,20 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     bve_rounds_run_++;
   if (bve_oneshot)
     e.doses++; // consume the one shot (skipped hereafter)
+  if (bve_entry && !ctx.phase_unsat) {
+    // Kissat flushes and densely collects after every completed elimination
+    // round, including a round which schedules candidates but eliminates
+    // none (eliminate.c:416-509).  The dosed scheduler is Tactix's authored
+    // elimination round; deferring its lazy garbage until phase exit carries
+    // a much larger arena into the following Strengthen round and changes the
+    // physical state from which that common consumer reconstructs.
+    kernel_collect_garbage(k);
+    // This round has already satisfied the generic dosed-phase reclamation
+    // obligation.  BVE is the last enabled dosed entry in the production
+    // Eliminate pipeline; a later productive authored round sets the flag
+    // again before collecting at this same boundary.
+    ctx.phase_dosed = false;
+  }
   e.tm.admitted++; // the dosed branch ran; it exits here, not below
   return SlotStep::Next;
 }
@@ -3149,6 +3244,12 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   const bool factor_entry = e.budget_aware && !std::strcmp(r.name, "Factor");
   if (factor_entry && factor_entry_declines(k, e))
     return SlotStep::Next;
+  // The ordinary begin boundary is before Kissat's call-entry predicates.
+  // This second observer-only boundary is the exact point after factordelay
+  // and the cumulative marked-material watermark admit the call, but before
+  // Factor changes representation or formula state.
+  if (factor_entry)
+    event_trace_slot_boundary(k, r.name, "admitted");
   if (e.closure && k.stats.conflicts > 0 &&
       k.binary_ids.size() <= e.binaries_mark &&
       kernel_root_fixed(k) <= e.root_fixed_mark) {
@@ -3196,6 +3297,11 @@ DefaultInprocessScheduler::run_batch_entry(Kernel &k, SlotEntry &e, const RuleVT
   }
   ctx.last_result = ar;
   heuristics_consume_rule_advice(k);
+  // Match Kissat's post-Factor return point after sparse reconstruction and
+  // fresh-variable heuristic adjustment, but before caller propagation or a
+  // later inprocessing slot can change the semantic formula.
+  if (factor_entry)
+    event_trace_slot_boundary(k, r.name, "applied");
   if (e.closure) {
     e.binaries_mark = k.binary_ids.size();
     e.arena_mark = k.arena.size();
@@ -3253,6 +3359,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   clock.blocked = false; // a new blocking episode may now be counted
   forward_pair_limit_ = 0; // the pair's shared allowance is per phase
   bve_ran_this_phase_ = false;
+  bve_complete_this_phase_ = true;
   k.bve_occurrence_limit = config().bve_occurrence_limit;
   k.bve_clause_size_limit = config().bve_clause_size_limit;
   factor_bound_snapshot_ =
@@ -3280,6 +3387,8 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // `kissat_backtrack_propagate_and_flush_trail`; dense Tactix keeps the root
   // literals but has consumed the same pending-root lifecycle state.
   k.unflushed_root = 0;
+  if (group == SlotGroup::Eliminate)
+    event_trace_eliminate_cleanup(k, "entry");
   // Only the Eliminate pipeline contains BVE, the sole consumer of Kissat's
   // mixed binary/large connection stream. Probe consumers share the ordinary
   // large occurrence image and do not instantiate a duplicate formula-wide
@@ -3354,9 +3463,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       const uint64_t root_assignments_before = k.stats.root_assignments;
       const size_t retired_before = k.retired_events.size();
       const size_t substituted_before = sweep ? k.substituted_events.size() : 0;
-      const SlotStep step = (e.dosed && r.instances && r.apply_instance)
-                                ? run_dosed_entry(k, e, r, ctx)
-                                : run_batch_entry(k, e, r, ctx);
+      const bool dosed_instance = e.dosed && r.instances && r.apply_instance;
+      const SlotStep step = dosed_instance ? run_dosed_entry(k, e, r, ctx)
+                                           : run_batch_entry(k, e, r, ctx);
       // Kissat's root assignment primitive marks a variable fixed and removes
       // it from both decision rankings immediately.  Formula rules remain
       // policy-agnostic in Tactix, so publish that same lifecycle at the rule
@@ -3364,7 +3473,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
       // This ordering is observable for equal-score heaps: Substitute can
       // derive roots while rewriting and only then deactivates its class
       // members (substitute.c remove_representative_equivalences).
-      if (k.stats.root_assignments != root_assignments_before)
+      // Dosed entries consume direct and propagated roots at each candidate
+      // boundary inside run_dosed_entry.  Do not rescan the whole rule-local
+      // trail here; batch entries still publish their roots at this boundary.
+      if (!dosed_instance &&
+          k.stats.root_assignments != root_assignments_before)
         heuristics_consume_root_assignments(k, trail_before);
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       if (journal_invocation) {
@@ -3495,10 +3608,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     event_trace_eliminate_cleanup(k, "before");
   if (ctx.phase_dosed && !ctx.phase_unsat)
     kernel_collect_garbage(k);
-  if (!ctx.phase_unsat)
+  // Eliminate's sparse-resume pass below performs the reference's single
+  // arena-order collection of every root-satisfied or retired-variable large
+  // clause.  Other groups retain the generic redundant-retirement safeguard.
+  if (!ctx.phase_unsat && group != SlotGroup::Eliminate)
     kernel_flush_retired_redundant(k);
-  if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
-    event_trace_eliminate_cleanup(k, "after");
   heuristics_consume_retirements(k);
   kernel_dense_disconnect(k);
   // Kissat leaves every probe/eliminate pipeline by rebuilding sparse large
@@ -3508,7 +3622,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // The full dense-mode exit corresponds to Kissat's arena-order reconnect.
   // Packed Tactix replacements replay their persistent source positions, as
   // every rule-local reconnect does, until collection materializes the order.
-  kernel_rebuild_large_watches(k);
+  kernel_rebuild_large_watches(k, group == SlotGroup::Eliminate);
+  if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
+    event_trace_eliminate_cleanup(k, "after");
   k.factor_selection = nullptr;
   k.stats.inprocess_propagations +=
       k.stats.propagations - phase_props_at_entry;
@@ -3517,11 +3633,15 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;
     const uint32_t last = bramp.num_passes() - 1;
     const uint32_t blim = bramp.bound(last);
-    if (bve_level_idx_ >= last) {
+    if (!bve_complete_this_phase_ || bve_level_idx_ >= last) {
       clock.marks_mark = k.stats.bve_marks;
       clock.fixed_mark = kernel_root_fixed(k);
     } else {
       bve_level_ = std::min(bramp.bound(++bve_level_idx_), blim);
+      // eliminate.c::try_to_eliminate_all_variables_again sets the eliminate
+      // flag on every variable whenever the bound grows.  Fixed/eliminated
+      // variables are filtered when the next schedule is built.
+      std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{1});
       clock.marks_mark = 0;
       clock.fixed_mark = 0;
     }

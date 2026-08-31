@@ -67,6 +67,17 @@ def slurm_array_spec(count, throttle):
     return spec + (f"%{throttle}" if throttle else "")
 
 
+def pin_checker_bundle(reference, campaign, checkers):
+    """Pin checker CLIs together with runtime modules they import."""
+    for rel in checkers.values():
+        link_or_copy(reference / rel, campaign / rel)
+    if "checkmodel" in checkers:
+        module = reference / "pins/modelcheck.py"
+        if not module.is_file():
+            raise SystemExit(f"missing checkmodel runtime module: {module}")
+        link_or_copy(module, campaign / "pins/modelcheck.py")
+
+
 def prepare(campaign, binary, source_commit, source_tree, solve_limit, memory_gib,
             array_throttle, array_throttle_reason):
     if campaign.exists():
@@ -110,10 +121,7 @@ def prepare(campaign, binary, source_commit, source_tree, solve_limit, memory_gi
 
     needed = ("checkmodel", "drat-trim", "cake-lpr")
     checkers = {name: reference["checkers"][name] for name in needed}
-    for rel in checkers.values():
-        link_or_copy(REFERENCE / rel, campaign / rel)
-    # checkmodel is a pinned CLI plus its adjacent independent parsing module.
-    link_or_copy(REFERENCE / "pins/modelcheck.py", campaign / "pins/modelcheck.py")
+    pin_checker_bundle(REFERENCE, campaign, checkers)
 
     instances = reference["instances"]
     tasks = [{"instance": i, "solver": 0} for i in range(len(instances))]

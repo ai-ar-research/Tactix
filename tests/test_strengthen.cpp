@@ -280,8 +280,9 @@ static void test_kissat_touch_candidate_and_connection_predicates() {
 }
 
 static void test_unit_producing_strengthen_ends_round() {
-  // The flush pre-pass strips both root-falsified literals to the unit (3) and
-  // ends the pass; only the flush can produce a unit.
+  // Root propagation derives the remaining unit before forward subsumption;
+  // candidate discovery then retires the now-satisfied clause without a broad
+  // root-false stripping pass.
   Kernel k;
   kernel_reserve_vars(k, 3);
   kernel_assign_unit(k, internalize(-1));
@@ -410,27 +411,30 @@ static void test_slot_schedule_as_data() {
 }
 
 static void test_root_flush() {
-  // Flush pre-pass (kissat's sparse collection, rule-side): root-satisfied
-  // clauses die and root-falsified literals are stripped, redundant ones too.
+  // Pinned forward candidate discovery retires a root-satisfied irredundant
+  // clause, but does not sparse-collect a root-false literal from an unrelated
+  // clause. That physical triple remains available to the next BVE round.
   Kernel k;
   kernel_reserve_vars(k, 4);
   kernel_assign_unit(k, internalize(1));
   const Lit sat[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, sat, 3, false, 0); // root-satisfied: dies
   const Lit strip[3] = {internalize(-1), internalize(2), internalize(4)};
-  kernel_add_large_clause(k, strip, 3, true, 2); // -1 stripped -> binary
+  kernel_add_large_clause(k, strip, 3, false, 0); // candidate, but unchanged
   assert(propagate_apply(k) == ApplyResult::Ok);
   assert(strengthen_guard(k));
   assert(strengthen_apply(k) == ApplyResult::Ok);
-  assert(k.stats.flushed == 2);
+  assert(k.stats.flushed == 1);
   assert(k.stats.strengthened == 0); // attributed to flushed only
-  assert(live_large(k) == 0); // sat died; strip became binary (2 4)
+  assert(k.stats.strengthen_checked == 1);
+  assert(live_large(k) == 1); // sat died; (-1 2 4) stays physically large
+  assert(kernel_binary_copies(k, internalize(2), internalize(4)) == 0);
   assert(default_solve(k) == 10);
 }
 
-// C2 polls for interrupt at three sites — flush pre-pass, candidate loop, and
-// single-instance entry — with no cadence. The flush runs first and
-// catches any pre-set flag; the later sites need the stress cadence, with
+// C2 polls for interrupt at entry, in the candidate loop, and on the
+// single-instance surface — with no cadence. Entry catches a pre-set flag;
+// the later site needs the stress cadence, with
 // `strengthen_checked > 0` at the abort as the witness they were reached.
 static void fill_interrupt_case(Kernel &k, int n) {
   kernel_reserve_vars(k, 3 * n + 4);
@@ -444,7 +448,7 @@ static void fill_interrupt_case(Kernel &k, int n) {
 static void test_interrupt() {
   volatile sig_atomic_t stop = 1;
   const Lit c3[3] = {internalize(1), internalize(2), internalize(3)};
-  { // (1) the flush pre-pass, the round's first poll
+  { // (1) the round-entry poll
     Kernel k;
     kernel_reserve_vars(k, 3);
     kernel_add_large_clause(k, c3, 3, false, 0);
@@ -456,7 +460,7 @@ static void test_interrupt() {
     assert(k.stats.strengthen_interrupted == 1);
     assert(k.stats.rule_interrupted == 1);
     assert(!k.strengthen_complete);
-    // A flush-pass abort leaves `candidates` empty, so there is no tail to
+    // An entry abort leaves `candidates` empty, so there is no tail to
     // re-arm: advancing the watermark would retire the whole formula unseen.
     assert(k.strengthen_touch_mark == 0 &&
            k.stats.strengthen_mark_advances == 0);
@@ -488,24 +492,24 @@ static void test_interrupt() {
     assert(t.stats.strengthen_subsumed == 1 &&
            t.stats.strengthen_interrupted == 0);
   }
-  { // (3) past the flush: the candidate loop. The stress cadence
+  { // (3) inside the candidate loop. The stress cadence
     // fires on a deterministic 1-in-m draw, so sweeping m walks the first fire
     // past the flush pass; a sweep that finds none must fail loudly here.
-    bool past_flush = false;
-    for (uint32_t m = 100; m <= 6000 && !past_flush; m += 100) {
+    bool past_entry = false;
+    for (uint32_t m = 100; m <= 6000 && !past_entry; m += 100) {
       Kernel k;
       fill_interrupt_case(k, 200);
       k.stop_fuzz = m;
       strengthen_apply(k);
-      past_flush = k.stats.strengthen_interrupted >= 1 &&
+      past_entry = k.stats.strengthen_interrupted >= 1 &&
                    k.stats.strengthen_checked > 0;
-      if (past_flush) {
+      if (past_entry) {
         assert(!k.strengthen_complete);
         assert(k.strengthen_touch_mark == 0);
         kernel_check_invariants(k);
       }
     }
-    assert(past_flush);
+    assert(past_entry);
     Kernel c; // negative control: same formula, no knob, round completes
     fill_interrupt_case(c, 200);
     assert(strengthen_apply(c) == ApplyResult::NoOp);

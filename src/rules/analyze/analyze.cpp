@@ -564,6 +564,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
                             Ref subsumed_ref /* INVALID_REF if none */,
                             uint64_t conflict_chain_id) {
   const Clause *reason = clause_at(k.arena, reason_ref);
+  const bool reason_irredundant = !reason->redundant();
   // Kissat strengthens this reason in place, so Vivify's untried-tail bit
   // remains on the same clause header.  Tactix materializes a packed OTFS
   // replacement and must carry that logical metadata explicitly; otherwise a
@@ -586,6 +587,14 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
       lits.push_back(l);
   }
   assert(lits.size() >= 2);
+  const bool binary = lits.size() == 2;
+  // Kissat selects its binary/large OTFS path from the non-root antecedent
+  // size.  The binary path drops every root-false literal with the old reason;
+  // the large in-place path, however, retains the surviving first watch even
+  // when it is root-false (strengthen.c:18-45).  A packed replacement has to
+  // reconstruct that asymmetric image explicitly.
+  if (!binary && !keep_surviving_watch)
+    lits.insert(lits.begin(), surviving_watch);
   const uint64_t id = ++k.next_clause_id;
 
   bool subsume = false, subsumed_irredundant = false;
@@ -613,40 +622,41 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   }
   k.stats.otfs_strengthened++;
 
-  if (lits.size() == 2) {
+  // Large in-place OTFS marks the resolved literal removed before shrinking.
+  // It does not semantically delete the whole reason.  Binary OTFS does delete
+  // the old reason, handled below after publishing the new binary.  Keep these
+  // notifications explicit so Tactix's packed representation does not leak
+  // generic add/delete marks into policy state.
+  if (reason_irredundant) {
+    kernel_mark_bve_retry(k, var_of(t));
+    kernel_removed_var(k, var_of(t));
+    kernel_notify_bve_score(k, var_of(t), true);
+  }
+
+  if (binary) {
     kernel_add_binary_clause(k, lits[0], lits[1], id);
+    if (reason_irredundant)
+      for (const Lit old : *reason)
+        if (old != t) {
+          kernel_mark_bve_retry(k, var_of(old));
+          kernel_removed_var(k, var_of(old));
+          kernel_notify_bve_score(k, var_of(old), true);
+        }
     k.conflict_ref = INVALID_REF;
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
   } else {
     kernel_inherit_clause_position(k, id, reason_ref);
-    if (keep_surviving_watch) {
-      // Kissat keeps the reason's other old watch and selects only its new
-      // partner, taking the first literal on a level tie.  Re-selecting both
-      // watches was not strictly better and changed later scan order.
-      uint32_t highest = 1;
-      for (uint32_t j = 2; j < lits.size(); j++)
-        if (k.var_level(var_of(lits[j])) >
-            k.var_level(var_of(lits[highest])))
-          highest = j;
-      std::swap(lits[1], lits[highest]);
-    } else {
-      // Tactix removes a root-false surviving watch, producing a strict
-      // subclause.  With no reference watch left to preserve, choose the two
-      // latest assignments so a compacting chronological backtrack cannot
-      // strand the clause behind an older pair.
-      for (uint32_t w = 0; w < 2; w++) {
-        uint32_t best = w;
-        for (uint32_t j = w + 1; j < lits.size(); j++) {
-          const Assigned &aj = k.assigned[var_of(lits[j])];
-          const Assigned &ab = k.assigned[var_of(lits[best])];
-          if (aj.level > ab.level ||
-              (aj.level == ab.level && aj.trail > ab.trail))
-            best = j;
-        }
-        std::swap(lits[w], lits[best]);
-      }
-    }
+    // Kissat keeps the reason's other old watch even when it is root-false,
+    // and selects only its new partner, taking the first literal on a level
+    // tie.  Re-selecting both watches changes the semantic clause in the root
+    // case and changes later scan order in the ordinary case.
+    uint32_t highest = 1;
+    for (uint32_t j = 2; j < lits.size(); j++)
+      if (k.var_level(var_of(lits[j])) >
+          k.var_level(var_of(lits[highest])))
+        highest = j;
+    std::swap(lits[1], lits[highest]);
     // Kissat shortens the reason in place and keeps its existing glue unless
     // the new physical size forces the size-1 clamp (strengthen.c:35-43).
     // Recomputing LBD from the transient conflict levels can make an already
@@ -657,10 +667,19 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     // reason may dangle after this allocation; it is not used again
     k.conflict_ref = kernel_add_large_clause(
         k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue,
-        id);
-    if (keep_surviving_watch)
-      kernel_swap_large_watch_refs(k, surviving_watch, reason_ref,
-                                   k.conflict_ref, t, lits[1]);
+        id, /*mark_added_material=*/false);
+    // Pinned Kissat marks only the surviving old tail (original positions
+    // 2..), before choosing its new second watch.  The retained first watch is
+    // deliberately excluded.  A redundant reason that becomes irredundant by
+    // subsuming an irredundant conflict is excluded too: the in-place source
+    // was redundant when strengthen.c made this decision.
+    if (reason_irredundant)
+      for (uint32_t i = 1; i < lits.size(); ++i) {
+        kernel_touch_var(k, var_of(lits[i]));
+        kernel_mark_factor_literal(k, lits[i], "analyze_strengthen");
+      }
+    kernel_swap_large_watch_refs(k, surviving_watch, reason_ref,
+                                 k.conflict_ref, t, lits[1]);
 
     // Kissat's `kissat_on_the_fly_subsume` transfers a better LBD from a
     // redundant conflict to the strengthened redundant reason.  This happens
@@ -710,7 +729,10 @@ void analyze_retire_otfs_reasons(Kernel &k) {
       kernel_unwatch_large(k, first, ref);
       kernel_unwatch_large(k, second, ref);
       c = clause_at(k.arena, ref);
-      kernel_delete_clause(k, c);
+      // The large source was semantically shortened in place by Kissat; the
+      // packed old record is representation garbage only.  Binary OTFS's
+      // full old-clause removal was published explicitly at creation time.
+      kernel_delete_clause(k, c, false);
     }
   }
   k.otfs_retired.clear();

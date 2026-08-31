@@ -33,7 +33,7 @@ KERNEL_H = os.path.join(ROOT, "src", "kernel", "kernel.hpp")
 POLICY = ["src/policies/default_policy.cpp", "src/policies/default_policy.hpp",
           "src/policies/subpolicy.hpp", "src/policies/subpolicy.cpp"]
 
-# The config surface, classified. Everything from `bve_track_min_bound` down in
+# The config surface, classified. Everything from `bve_bound` down in
 # kernel.hpp — the fields that steer scheduling rather than record state.
 #
 # An ENV row is not an unwired mechanism: its shipped value is the kernel.hpp
@@ -49,7 +49,6 @@ TABLE = {
                                           "at each inprocessing phase"),
     "bve_clause_size_limit":   ("POLICY", "named DefaultStrategyConfig antecedent "
                                           "cap installed at each inprocessing phase"),
-    "bve_track_min_bound":     ("POLICY", "ramp bookkeeping"),
     "bve_definition_session":  ("POLICY", "embedded Kitten create/release lifetime; "
                                            "advanced once per BVE slot"),
     "factor_composite":        ("POLICY", "S2b composite grids, per-occasion"),
@@ -161,12 +160,12 @@ TABLE = {
 
 # Where the config surface begins in kernel.hpp. Everything below this marker
 # that looks like a scalar with a default is config and must be classified.
-CONFIG_START = "bve_retry_fixed_head"
+CONFIG_START = "cold_state_deferred"
 # Fields below the marker that are solver state, not config: the touched-epoch
 # substrate's own bookkeeping (`touch_epoch`, `touch_fixed_head`) and the
 # per-rule resumption watermarks (`*_touch_mark`) — the `transitive_cursor`
 # category, which a policy may reset but never "configures".
-NOT_CONFIG = {"bve_retry_fixed_head", "lvl", "transitive_cursor",
+NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               "warming",
               # lifecycle state: root assignments increment it and reference
               # flush boundaries clear it; no caller configures it.

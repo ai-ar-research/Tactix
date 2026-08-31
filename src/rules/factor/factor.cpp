@@ -979,6 +979,9 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         kernel_var_retired(k, var_of(seed)))
       continue;
     armed[seed] = 0;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_factor_mark_transition(k, seed, false, "factor_pop");
+#endif
     k.factor_marks[seed] = 0;
     const uint32_t now = score_of(seed);
     if (now <= 1)

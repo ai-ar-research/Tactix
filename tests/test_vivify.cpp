@@ -7,6 +7,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/vivify/vivify.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <csignal>
 #include <cstdio>
@@ -358,6 +359,28 @@ static void test_large_rewrite_stays_in_place() {
       }
   assert(k.level == 0 && !k.conflict_valid);
   assert(default_solve(k) == 10);
+}
+
+// vivify_learn_large marks its rewritten irredundant clause before reducing
+// c->size, so pinned Kissat publishes both the new prefix and the stale old
+// tail to Factor. This physical lifecycle is observable at the next Factor
+// call even though the tail is no longer part of the live clause.
+static void test_large_rewrite_marks_stale_old_tail() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit candidate[4] = {internalize(1), internalize(3), internalize(4),
+                            internalize(2)};
+  const Ref ref = kernel_add_large_clause(k, candidate, 4, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2));
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  k.factor_literals_marked = 0;
+
+  assert(vivify_try(k, ref) == ApplyResult::Ok);
+  const Clause *rewritten = clause_at(k.arena, ref);
+  assert(!rewritten->garbage() && rewritten->size == 3);
+  assert(std::find(rewritten->begin(), rewritten->end(), internalize(2)) ==
+         rewritten->end());
+  assert(k.factor_marks[internalize(2)]);
 }
 
 // After a conflict shrink, literals above the retained level are unassigned.
@@ -760,6 +783,7 @@ int main() {
   test_leftover_priority();
   test_trail_reuse();
   test_large_rewrite_stays_in_place();
+  test_large_rewrite_marks_stale_old_tail();
   test_replacement_watch_pose_scans_unassigned_tail();
   test_replacement_watch_invariant_backtracks_below_false_pair();
   test_large_instantiation_retains_candidate_pose();

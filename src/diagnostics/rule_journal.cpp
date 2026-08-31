@@ -186,6 +186,12 @@ static void verify_line(const std::string &actual) {
 } // namespace
 
 uint64_t rule_journal_digest(const Kernel &k) {
+  // Schedule-only diagnostics need conflict, admission, decline, effort, and
+  // budget fields but not an O(formula log formula) transaction digest. Keep
+  // this shared compile-time arm explicit so large late-boundary probes do not
+  // turn into formula-export benchmarks.
+  if (std::getenv("SAT_RULE_JOURNAL_SKIP_DIGEST"))
+    return 0;
   uint64_t hash = UINT64_C(1469598103934665603);
   hash = mix(hash, k.inconsistent);
   hash = mix(hash, k.level);

@@ -69,6 +69,25 @@ static void test_exclusions() {
   assert(near(w[var_of(internalize(4))], 0.5)); // the second still counts
 }
 
+// Kissat deliberately stops inspecting a large clause when the 100th open
+// literal is reached.  A satisfying root literal after that physical cutoff
+// is not observed, and the clause contributes table[100].  Continuing through
+// the tail looks equivalent mathematically but changes Reorder's exact heap.
+static void test_max_size_stops_before_late_satisfaction() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  kernel_reserve_vars(k, 101);
+  std::vector<int> clause;
+  for (int i = 1; i <= 101; i++)
+    clause.push_back(i);
+  addn(k, clause);
+  kernel_assign_unit(k, internalize(101));
+
+  std::vector<double> w;
+  reorder_weights(k, w);
+  assert(w[var_of(internalize(1))] == std::ldexp(1.0, -98));
+}
+
 // Focused: the heaviest variable must become the next decision.
 static void test_queue_ranking() {
   Kernel k;
@@ -143,6 +162,48 @@ static void test_heap_sort_observes_rescaled_scores() {
   assert(k.h->scores.score[var_of(internalize(3))] == 1.0);
   assert(k.h->scores.stack[0] == var_of(internalize(2)) &&
          k.h->scores.stack[1] == var_of(internalize(3)));
+}
+
+// Stable Reorder's final tie is Kissat's current internal index (first-import
+// order), not Tactix's stable variable identity or activation permutation.
+// With equal weights and scores, the lowest import index is updated first and
+// therefore reaches the heap root first.
+static void test_heap_tie_uses_import_order() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  kernel_reserve_vars(k, 3);
+  kernel_record_import(k, 2);
+  kernel_record_import(k, 0);
+  kernel_record_import(k, 1);
+  heuristics_seed_activation_order(k, {0, 1, 2});
+  addn(k, {1, 2, 3});
+  k.h->stable = true;
+  k.h->scores.stack = {0, 1, 2};
+  k.h->scores.pos = {0, 1, 2};
+  k.h->scores.score.assign(3, 0.0);
+
+  assert(reorder_apply(k) == ApplyResult::Ok);
+  assert(k.h->scores.stack[0] == 2);
+}
+
+// A variable imported from a later-discarded input clause can exist as a
+// stable Tactix identity without ever becoming Kissat ACTIVE. The activation
+// image defines Reorder's candidate population; such an identity keeps its
+// score even though the public decision surface remains complete.
+static void test_inactive_import_is_not_reordered() {
+  Kernel k;
+  ScopedHeuristics _h(k);
+  kernel_reserve_vars(k, 3);
+  kernel_record_import(k, 0);
+  kernel_record_import(k, 1);
+  kernel_record_import(k, 2);
+  heuristics_seed_activation_order(k, {2, 0}); // variable 1 never activates
+  addn(k, {1, 2, 3});
+  k.h->stable = true;
+  k.h->scores.score.assign(3, 0.0);
+
+  assert(reorder_apply(k) == ApplyResult::Ok);
+  assert(k.h->scores.score[1] == 0.0);
 }
 
 // Kissat reorders ACTIVE variables only. Retired variables are disconnected
@@ -278,10 +339,13 @@ static void test_solve_unaffected() {
 int main() {
   test_weight_formula();
   test_exclusions();
+  test_max_size_stops_before_late_satisfaction();
   test_queue_ranking();
   test_search_cache_survives_mid_trail();
   test_heap_ranking();
   test_heap_sort_observes_rescaled_scores();
+  test_heap_tie_uses_import_order();
+  test_inactive_import_is_not_reordered();
   test_retired_variables_stay_disconnected();
   test_instance_surface();
   test_guard();

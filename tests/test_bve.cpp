@@ -88,10 +88,20 @@ static void test_schedule_occurrence_image_lifecycle() {
   kernel_dense_disconnect(k);
 }
 
+struct BveScoreNotifications {
+  std::vector<std::pair<Var, bool>> events;
+};
+
+static void record_bve_score_notification(Kernel &, void *state, Var v,
+                                          bool reinsert) {
+  static_cast<BveScoreNotifications *>(state)->events.emplace_back(v,
+                                                                    reinsert);
+}
+
 // Kissat compacts garbage references from the two physical occurrence stacks
 // of every attempted BVE candidate, even if that candidate is then rejected.
-// The dynamic schedule must observe the compacted count when the variable is
-// later reinserted; leaving the stale references changes equal-cost heap pose.
+// The dynamic schedule must observe the compacted count, but Kissat's heap
+// update does not reinsert the popped variable whose eliminate bit was cleared.
 static void test_candidate_gather_compacts_garbage_occurrences() {
   Kernel k;
   kernel_reserve_vars(k, 5);
@@ -113,6 +123,9 @@ static void test_candidate_gather_compacts_garbage_occurrences() {
   // The remaining live ternary exceeds this diagnostic admission ceiling, so
   // the candidate fails after its physical occurrence stacks are inspected.
   k.bve_clause_size_limit = 2;
+  BveScoreNotifications notifications;
+  k.bve_score_update_hook = record_bve_score_notification;
+  k.bve_score_update_state = &notifications;
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
   assert(image[pivot] == 1);
@@ -121,21 +134,17 @@ static void test_candidate_gather_compacts_garbage_occurrences() {
   assert(dense.large[pivot].size() == 1 && dense.large[pivot][0] != stale);
   bool stale_connected = false;
   for (const OccIndex::Entry &entry : dense.ordered[pivot])
-    stale_connected |= entry.live && !entry.binary && entry.payload == stale;
+    stale_connected |= !entry.binary && entry.payload == stale;
   assert(!stale_connected);
+  assert(!k.bve_retry[var_of(pivot)]);
+  assert(notifications.events.size() == 1);
+  assert(notifications.events[0] ==
+         std::make_pair(var_of(pivot), false));
 
+  k.bve_score_update_hook = nullptr;
+  k.bve_score_update_state = nullptr;
   k.bve_occurrence_count_image = nullptr;
   kernel_dense_disconnect(k);
-}
-
-struct BveScoreNotifications {
-  std::vector<std::pair<Var, bool>> events;
-};
-
-static void record_bve_score_notification(Kernel &, void *state, Var v,
-                                          bool reinsert) {
-  static_cast<BveScoreNotifications *>(state)->events.emplace_back(v,
-                                                                    reinsert);
 }
 
 static void test_candidate_gather_deletes_satisfied_binary() {
@@ -162,9 +171,51 @@ static void test_candidate_gather_deletes_satisfied_binary() {
   assert(vt.apply_instance(k, lit_instance(pivot)) == ApplyResult::NoOp);
   assert(!kernel_binary_live(k, pivot, satisfied));
   assert(image[pivot] == 1 && image[satisfied] == 0);
-  assert(notifications.events.size() == 1);
+  assert(notifications.events.size() == 2);
   assert(notifications.events[0] ==
          std::make_pair(var_of(satisfied), true));
+  assert(notifications.events[1] ==
+         std::make_pair(var_of(pivot), false));
+
+  k.bve_score_update_hook = nullptr;
+  k.bve_score_update_state = nullptr;
+  k.bve_occurrence_count_image = nullptr;
+  kernel_dense_disconnect(k);
+}
+
+static void test_flush_units_while_connected() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit unit = internalize(1), a = internalize(2), b = internalize(3),
+            binary_other = internalize(4);
+  const Lit satisfied[3] = {unit, a, b};
+  const Ref ref = kernel_add_large_clause(k, satisfied, 3, false, 0);
+  kernel_add_binary_clause(k, unit, binary_other);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense, true);
+  std::vector<uint32_t> image(2 * k.nvars);
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    image[lit] = bve_schedule_occurrence_count(k, lit);
+  k.bve_occurrence_count_image = &image;
+  BveScoreNotifications notifications;
+  k.bve_score_update_hook = record_bve_score_notification;
+  k.bve_score_update_state = &notifications;
+
+  kernel_assign_unit(k, unit);
+  k.propagate_head = static_cast<uint32_t>(k.trail.size());
+  bve_flush_units_while_connected(k, 0);
+  assert(clause_at(k.arena, ref)->garbage());
+  assert(dense.large[unit].empty() && image[unit] == 1);
+  assert(dense.large[a].size() == 1 && dense.large[b].size() == 1 &&
+         "only the satisfying unit's dense stack is compacted");
+  assert(kernel_binary_live(k, unit, binary_other));
+  assert(std::find(notifications.events.begin(), notifications.events.end(),
+                   std::make_pair(var_of(unit), true)) ==
+         notifications.events.end());
+  for (const Var v : {var_of(a), var_of(b), var_of(binary_other)})
+    assert(std::find(notifications.events.begin(), notifications.events.end(),
+                     std::make_pair(v, true)) != notifications.events.end());
 
   k.bve_score_update_hook = nullptr;
   k.bve_score_update_state = nullptr;
@@ -450,11 +501,11 @@ static void test_bound_skip() {
   assert(has_binary(k, internalize(1), internalize(2)));   // var 1 still present
 }
 
-// The policy may cache the next useful ramp bound, but it must not resolve
-// ahead to that future level. Kissat stops on the first non-tautological
+// A failed candidate must not resolve ahead to a future ramp level. Kissat
+// stops on the first non-tautological
 // resolvent beyond pos+neg+CURRENT bound: 2*9 with bound 0 has base 11 and
 // therefore charges exactly 12 attempts before declining.
-static void test_bound_tracking_does_not_spend_future_work() {
+static void test_bound_does_not_spend_future_work() {
   Kernel k;
   kernel_reserve_vars(k, 12); // x=1, positive partners 2..3, negative 4..12
   for (int i = 2; i <= 3; i++)
@@ -463,15 +514,11 @@ static void test_bound_tracking_does_not_spend_future_work() {
     kernel_add_binary_clause(k, internalize(-1), internalize(j));
   k.bve_gate_mask = 0;
   k.bve_bound = 0;
-  k.bve_track_min_bound = true;
-  const Var x = var_of(internalize(1));
   const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
   assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
          ApplyResult::NoOp);
   assert(k.stats.bve_resolutions == 12 &&
          "bound-0 BVE must stop at the first over-limit resolvent");
-  assert(k.bve_min_bound[x] == 1 &&
-         "the first overflow rearms the candidate at the next ramp bound");
 }
 
 // An AND/OR gate x↔OR(a₁..a₆) lets BVE resolve only gate×antecedent, dropping
@@ -493,6 +540,104 @@ static void test_gate_and_or_fires() {
   assert(!has_binary(k, internalize(1), internalize(8)));    // var 1 eliminated
   assert(has_binary(k, internalize(-2), internalize(12)));   // gate×ant (¬a₁∨q₁)
   assert(!has_binary(k, internalize(8), internalize(12)));   // ant×ant (p₁∨q₁) skipped
+}
+
+// Kissat marks AND/OR inputs by literal and then copies every matching binary
+// watch into the gate stack.  Duplicate binary clauses are therefore all gate
+// members and each contributes its own resolvent; collapsing them to one index
+// changes the resolvent multiset and dynamic elimination-heap updates.
+static void test_gate_and_or_retains_duplicate_binary_gate_copies() {
+  Kernel k;
+  kernel_reserve_vars(k, 4); // x=1, inputs=2,3, antecedent=4
+  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, base, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2), 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(-3), 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(4), 4);
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  assert(kernel_binary_copies(k, internalize(-2), internalize(4)) == 2);
+  assert(kernel_binary_copies(k, internalize(-3), internalize(4)) == 1);
+}
+
+// Pinned Kissat's AND scan also has a less obvious duplicate rule: for a
+// partner not used by the base clause, the first physical watch consumes the
+// literal mark and remains an antecedent, while later copies enter the gate.
+// This changes resolvent contents even when the charged-pair count is equal.
+static void test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent() {
+  Kernel k;
+  kernel_reserve_vars(k, 5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
+  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, base, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
+  kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(4), 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(4), 4);
+  kernel_add_binary_clause(k, internalize(-1), internalize(5), 5);
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  assert(kernel_binary_copies(k, internalize(4), internalize(5)) == 1 &&
+         "the later unrelated duplicate is a Kissat gate member");
+}
+
+// Pinned Kissat scans physical large bases after root-false stripping. A base
+// may therefore have only pivot+input active and still define a gate when the
+// binary side has another distinct (antecedent) partner. The physical binary
+// equivalence detector cannot recognize this case.
+static void test_gate_and_or_accepts_root_shortened_large_base() {
+  Kernel k;
+  kernel_reserve_vars(k, 6); // x=1, input=2, ants=4,5, false base tail=6
+  Lit base[3] = {internalize(-1), internalize(2), internalize(6)};
+  kernel_add_large_clause(k, base, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
+  kernel_add_binary_clause(k, internalize(1), internalize(4), 2);
+  kernel_add_binary_clause(k, internalize(-1), internalize(5), 3);
+  kernel_assign_unit(k, internalize(-6));
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  assert(has_binary(k, internalize(-2), internalize(5)));
+  assert(has_binary(k, internalize(2), internalize(4)));
+  assert(!has_binary(k, internalize(4), internalize(5)) &&
+         "antecedent x antecedent is skipped for the shortened AND gate");
+}
+
+// Kissat permits a root-shortened physical large clause as the AND/OR base,
+// but `ands.c::kissat_mark_binaries` accepts only physical binary watches as
+// its input implications.  Treating a shortened large input as a binary can
+// invent a syntactic gate, suppress antecedent×antecedent resolvents, and
+// change the mutable BVE trajectory even though the transformation remains
+// satisfiability preserving.
+static void test_gate_and_or_rejects_root_shortened_large_inputs() {
+  Kernel k;
+  kernel_reserve_vars(k, 12); // x=1, inputs=2,3, false tails=4,5
+  const Lit base[3] = {internalize(1), internalize(-2), internalize(-3)};
+  const Lit input_a[3] = {internalize(-1), internalize(2), internalize(4)};
+  const Lit input_b[3] = {internalize(-1), internalize(3), internalize(5)};
+  kernel_add_large_clause(k, base, 3, false, 0);
+  kernel_add_large_clause(k, input_a, 3, false, 0);
+  kernel_add_large_clause(k, input_b, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(6));
+  kernel_add_binary_clause(k, internalize(1), internalize(7));
+  kernel_add_binary_clause(k, internalize(-1), internalize(8));
+  kernel_add_binary_clause(k, internalize(-1), internalize(9));
+  kernel_assign_unit(k, internalize(-4));
+  kernel_assign_unit(k, internalize(-5));
+  k.bve_gate_mask = BVE_GATE_AND_OR;
+  k.bve_bound = 0;
+  k.bve_backward = false;
+
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::NoOp);
+  assert(k.stats.bve_gates_and_or == 0);
+  assert(!kernel_var_retired(k, var_of(internalize(1))));
 }
 
 // An equivalence gate x↔y eliminates x as a substitution: antecedents get x
@@ -680,6 +825,32 @@ static bool has_large_ordered(const Kernel &k, const std::vector<int> &want) {
     ref += clause_actual_words(c);
   }
   return false;
+}
+
+// Pinned definition.c imports a physical large occurrence with only the pivot
+// removed. A root-false tail remains a free Kitten literal. Stripping it first
+// would turn (y∨f),(¬y) into an artificial UNSAT core and incorrectly skip the
+// large antecedent×antecedent resolvent below.
+static void test_definition_retains_root_false_physical_literals() {
+  Kernel k;
+  kernel_reserve_vars(k, 7); // x=1, y=2, f=3, pos ant=4,5, neg ant=6,7
+  const Lit pos_gate[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit pos_ant[3] = {internalize(1), internalize(4), internalize(5)};
+  const Lit neg_ant[3] = {internalize(-1), internalize(6), internalize(7)};
+  kernel_add_large_clause(k, pos_gate, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2));
+  kernel_add_large_clause(k, pos_ant, 3, false, 0);
+  kernel_add_large_clause(k, neg_ant, 3, false, 0);
+  kernel_assign_unit(k, internalize(-3));
+  k.bve_gate_mask = BVE_GATE_DEFINITION;
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  assert(k.stats.bve_gates_definition == 0 &&
+         "the physical Kitten environment remains satisfiable");
+  assert(has_large(k, {4, 5, 6, 7}) &&
+         "no artificial definition may skip antecedent x antecedent");
 }
 
 // A general definition, i.e. one no syntactic matcher sees: for pivot x,
@@ -963,10 +1134,7 @@ static void test_retry_filter() {
     kernel_add_binary_clause(k, internalize(-1), internalize(j));
   const Var x = var_of(internalize(1));
   // the rule's advice, which the policy consults; see `offered` for N1
-  auto worth_retry = [&](Var v) {
-    kernel_bve_retry_sync_fixed(k);
-    return k.bve_retry[v] != 0;
-  };
+  auto worth_retry = [&](Var v) { return k.bve_retry[v] != 0; };
   // N1: the enumeration still offers the variable whatever the advice says.
   auto offered = [&](Var v) {
     std::vector<Var> cand;
@@ -1005,10 +1173,13 @@ static void test_retry_filter() {
   const Lit r[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, r, 3, /*redundant=*/true, /*glue=*/3);
   assert(!worth_retry(x));
-  // fixing a neighbour changes what BVE computes for x (its clauses become
-  // delete-only or lose the falsified literal), so x must be retried
+  // A root assignment alone is not a Kissat eliminate notification. In dense
+  // mode a root-false literal stays physically in its clause, and only an
+  // actual later clause/literal removal calls mark_removed_literal. The old
+  // fixed-neighbour proxy rearmed x here and created a non-reference second
+  // BVE-schedule member on Rank 34.
   kernel_assign_unit(k, internalize(-2));
-  assert(worth_retry(x));
+  assert(!worth_retry(x));
 }
 
 static void test_large_rewrite_retries_only_removed_literals() {
@@ -1151,6 +1322,7 @@ int main() {
   test_schedule_occurrence_image_lifecycle();
   test_candidate_gather_compacts_garbage_occurrences();
   test_candidate_gather_deletes_satisfied_binary();
+  test_flush_units_while_connected();
   test_occurrences_skip_redundant();
   test_schedule_order();
   test_schedule_excludes();
@@ -1164,12 +1336,17 @@ int main() {
   test_eliminate_reconstruction();
   test_eliminate_frozen_pivot_reconstruction();
   test_bound_skip();
-  test_bound_tracking_does_not_spend_future_work();
+  test_bound_does_not_spend_future_work();
   test_gate_and_or_fires();
+  test_gate_and_or_retains_duplicate_binary_gate_copies();
+  test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent();
+  test_gate_and_or_accepts_root_shortened_large_base();
+  test_gate_and_or_rejects_root_shortened_large_inputs();
   test_gate_equivalence_substitution();
   test_gate_ite_fires();
   test_gate_ite_accepts_shortened_binary_clause();
   test_gate_xor_fires();
+  test_definition_retains_root_false_physical_literals();
   test_gate_definition_fires();
   test_definition_one_sided_core_emits_unit();
   test_definition_reconstruction_exhaustive();

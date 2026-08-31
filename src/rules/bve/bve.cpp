@@ -74,6 +74,78 @@ void bve_build_occurrences(const Kernel &k, BveOccurrences &occ) {
   }
 }
 
+void bve_flush_units_while_connected(Kernel &k, uint32_t trail_from) {
+  assert(k.dense && k.dense->track_order);
+  assert(trail_from <= k.propagate_head && k.propagate_head <= k.trail.size());
+  for (uint32_t i = trail_from; i < k.propagate_head; ++i) {
+    const Lit unit = k.trail[i];
+    assert(k.value(unit) > 0 && k.assigned[var_of(unit)].level == 0);
+    std::vector<OccIndex::Entry> &ordered = k.dense->ordered[unit];
+    for (const OccIndex::Entry entry : ordered) {
+      if (entry.binary) {
+        // eliminate.c::kissat_flush_units_while_connected keeps the satisfied
+        // binary but republishes its unassigned partner's current score.
+        if (k.value(entry.payload) == 0)
+          kernel_notify_bve_score(k, var_of(entry.payload), true);
+        continue;
+      }
+      Clause *c = clause_at(k.arena, entry.payload);
+      if (c->garbage())
+        continue;
+      bool has_unit = false;
+      for (const Lit l : *c)
+        has_unit |= l == unit;
+      if (!has_unit)
+        continue;
+
+      // `kissat_eliminate_clause (c, unit)` marks every non-fixed literal for
+      // future elimination, then updates/reinserts every clause variable except
+      // the satisfying unit.  Suppress the generic all-literal notifications
+      // while retaining its proof, garbage, retry and removal bookkeeping.
+      const BveScoreUpdateHook hook = k.bve_score_update_hook;
+      void *const state = k.bve_score_update_state;
+      k.bve_score_update_hook = nullptr;
+      kernel_delete_clause(k, c);
+      k.bve_score_update_hook = hook;
+      k.bve_score_update_state = state;
+      for (const Lit l : *c)
+        if (l != unit && k.value(l) == 0)
+          kernel_notify_bve_score(k, var_of(l), true);
+    }
+
+    // Kissat compacts only the satisfied unit's connected stack here.  Other
+    // literal stacks retain their garbage references until inspected later.
+    std::vector<Ref> &refs = k.dense->large[unit];
+    const size_t before = refs.size();
+    refs.erase(std::remove_if(refs.begin(), refs.end(), [&](Ref ref) {
+                 const Clause *c = clause_at(k.arena, ref);
+                 if (c->garbage())
+                   return true;
+                 for (const Lit l : *c)
+                   if (l == unit)
+                     return false;
+                 return true;
+               }),
+               refs.end());
+    const uint32_t removed = static_cast<uint32_t>(before - refs.size());
+    if (removed && k.bve_occurrence_count_image)
+      kernel_bve_occurrence_remove(k, unit, removed);
+    ordered.erase(
+        std::remove_if(ordered.begin(), ordered.end(), [&](const auto &entry) {
+          if (entry.binary)
+            return false;
+          const Clause *c = clause_at(k.arena, entry.payload);
+          if (c->garbage())
+            return true;
+          for (const Lit l : *c)
+            if (l == unit)
+              return false;
+          return true;
+        }),
+        ordered.end());
+  }
+}
+
 uint32_t bve_schedule_occurrence_count(const Kernel &k, Lit lit) {
   assert(lit < 2 * k.nvars);
   if (k.bve_occurrence_count_image) {
@@ -191,9 +263,13 @@ struct SparseBinaryIndex {
       values.resize(nlits, -1);
   }
   void set(Lit lit, int32_t value) {
-    if (values[lit] < 0)
+    if (values[lit] < 0) {
       touched.push_back(lit);
-    values[lit] = value;
+      // Kissat's literal mark represents the first physical binary watch.
+      // Retaining that first occurrence also lets AND/OR extraction consume
+      // exactly one antecedent copy of an unrelated duplicated partner.
+      values[lit] = value;
+    }
   }
   int32_t get(Lit lit) const { return values[lit]; }
 };
@@ -346,9 +422,24 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
   if (s.var_to_sub.size() < k.nvars)
     s.var_to_sub.resize(k.nvars, 0);
   s.vars.clear();
+  // definition.c exports each physical occurrence clause with only the pivot
+  // excepted. In particular, root-false literals remain Kitten variables;
+  // resolution's active image has already stripped them and is not the same
+  // input. Binaries cannot have a root-false partner at the drained fixpoint.
+  const auto for_definition_lits = [&](const MClause &m, const auto &visit) {
+    if (m.ref == INVALID_REF) {
+      for (const Lit l : m.active)
+        visit(l);
+    } else {
+      const Clause *physical = clause_at(k.arena, m.ref);
+      assert(!physical->garbage());
+      for (const Lit l : *physical)
+        visit(l);
+    }
+  };
   for (const std::vector<MClause> *side : {&pos, &neg})
     for (const MClause &m : *side)
-      for (const Lit l : m.active)
+      for_definition_lits(m, [&](const Lit l) {
         if (const Var v = var_of(l); v != pv && !s.var_to_sub[v]) {
           // UINT32_MAX is only a seen marker until first-occurrence compact
           // ids are assigned below. Every touched entry is restored at the
@@ -357,6 +448,7 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
           s.var_touched.push_back(v);
           s.vars.push_back(v);
         }
+      });
   if (s.vars.empty())
     return 0; // every clause reduces to the empty clause: not a real pivot
   for (uint32_t i = 0; i < s.vars.size(); ++i)
@@ -378,7 +470,7 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
   // fresh Kernel so API clients cannot inherit another solver's shuffle seed.
   if (!k.stats.bve_definitions_checked ||
       s.session != k.bve_definition_session) {
-    s.solver.start_kitten_session();
+    s.solver.start_kitten_session(/*clear_before_first_environment=*/true);
     s.session = k.bve_definition_session;
   }
   s.checked = true;
@@ -396,9 +488,10 @@ uint32_t bve_find_definition(const Kernel &k, Lit px,
   for (const std::vector<MClause> *side : {&pos, &neg}) {
     for (const MClause &m : *side) {
       s.lits.clear();
-      for (const Lit l : m.active)
+      for_definition_lits(m, [&](const Lit l) {
         if (var_of(l) != pv)
           s.lits.push_back(sub_of(l));
+      });
       s.solver.add_clause(s.lits);
     }
   }
@@ -513,10 +606,6 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
   for (uint32_t i = 0; i < neg.size(); i++)
     id_of[np + i + 1] = neg[i].id;
 
-  const auto source = [&](uint32_t id) -> const MClause & {
-    assert(id >= 1 && id <= originals);
-    return id <= np ? pos[id - 1] : neg[id - np - 1];
-  };
   const auto kernel_lit = [&](SubLit sl) {
     assert(sub_var_of(sl) < s.vars.size());
     return make_lit(s.vars[sub_var_of(sl)], (sl & 1u) != 0);
@@ -542,10 +631,10 @@ static void bve_emit_definition_unit(Kernel &k, Lit unit,
     if (lrat)
       for (const uint32_t antecedent : step.chain) {
         assert(antecedent < id_of.size() && id_of[antecedent]);
-        if (antecedent <= originals) {
-          const MClause &m = source(antecedent);
-          chain.insert(chain.end(), m.absorbed.begin(), m.absorbed.end());
-        }
+        // Definition Kitten imports the physical clause, including root-false
+        // literals. Do not cite the root units that resolution would use to
+        // derive its stripped active image: the lifted sub-lemma retains those
+        // literals and starts directly from the physical original.
         chain.push_back(id_of[antecedent]);
       }
     const uint64_t id = ++k.next_clause_id;
@@ -587,12 +676,14 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   pos_bin.begin(2 * static_cast<size_t>(k.nvars));
   neg_bin.begin(2 * static_cast<size_t>(k.nvars));
   for (size_t i = 0; i < pos.size(); ++i)
-    if (pos[i].active.size() == 2) {
+    if (pos[i].ref == INVALID_REF) {
+      assert(pos[i].active.size() == 2);
       const Lit o = pos[i].active[0] == px ? pos[i].active[1] : pos[i].active[0];
       pos_bin.set(o, static_cast<int32_t>(i));
     }
   for (size_t j = 0; j < neg.size(); ++j)
-    if (neg[j].active.size() == 2) {
+    if (neg[j].ref == INVALID_REF) {
+      assert(neg[j].active.size() == 2);
       const Lit o = neg[j].active[0] == nx ? neg[j].active[1] : neg[j].active[0];
       neg_bin.set(o, static_cast<int32_t>(j));
     }
@@ -613,13 +704,21 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
   // (2) AND/OR: a base clause on one side whose every input has the matching
   // binary on the other; the base plus those binaries fully define x.
   auto try_and_or = [&](const std::vector<MClause> &base_side, Lit base_pivot,
+                        const std::vector<MClause> &opp_side,
                         const SparseBinaryIndex &opp_bin,
                         std::vector<uint8_t> &base_gate,
                         std::vector<uint8_t> &opp_gate) -> bool {
+    // kissat_find_and_gate declines before scanning bases unless the binary
+    // side contains at least two distinct live partners.
+    if (opp_bin.touched.size() < 2)
+      return false;
     for (size_t b = 0; b < base_side.size(); ++b) {
       const MClause &base = base_side[b];
-      if (base.active.size() < 3)
-        continue; // a 2-literal base is an equivalence (handled above)
+      // The base is a physical large clause, but root-false literals may have
+      // shortened its active image to pivot plus one input. Kissat still uses
+      // that base here; its equivalence detector only sees physical binaries.
+      if (base.ref == INVALID_REF || base.active.size() < 2)
+        continue;
       bool all = true;
       for (const Lit o : base.active)
         if (o != base_pivot && opp_bin.get(negate(o)) < 0) {
@@ -629,17 +728,37 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       if (!all)
         continue;
       base_gate[b] = 1;
-      for (const Lit o : base.active)
-        if (o != base_pivot)
-          opp_gate[size_t(opp_bin.get(negate(o)))] = 1;
+      for (const Lit o : base.active) {
+        if (o == base_pivot)
+          continue;
+        opp_gate[size_t(opp_bin.get(negate(o)))] = 1;
+      }
+      // Kissat marks every distinct partner, clears the required inputs, then
+      // walks the physical binary-watch stream.  Thus every required copy is
+      // a gate.  For an unrelated duplicated partner its first watch consumes
+      // the mark as the one antecedent and each later copy becomes a gate.
+      // Reproduce that literal-mark consumption in one linear side scan.
+      for (size_t i = 0; i < opp_side.size(); ++i) {
+        const PoolSlice<Lit> &clause = opp_side[i].active;
+        if (clause.size() != 2)
+          continue;
+        const Lit other = clause[0] == negate(base_pivot)
+                              ? clause[1]
+                              : clause[0];
+        const int representative = opp_bin.get(other);
+        if (representative >= 0 &&
+            (opp_gate[size_t(representative)] ||
+             i != static_cast<size_t>(representative)))
+          opp_gate[i] = 1;
+      }
       return true;
     }
     return false;
   };
   if (k.bve_gate_mask & BVE_GATE_AND_OR) {
-    if (try_and_or(neg, nx, pos_bin, neg_gate, pos_gate))
+    if (try_and_or(neg, nx, pos, pos_bin, neg_gate, pos_gate))
       return BVE_GATE_AND_OR;
-    if (try_and_or(pos, px, neg_bin, pos_gate, neg_gate))
+    if (try_and_or(pos, px, neg, neg_bin, pos_gate, neg_gate))
       return BVE_GATE_AND_OR;
   }
 
@@ -1177,6 +1296,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
   std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
   bool antecedent_oversized = false;
+  bool compacted_pivot_occurrences = false;
 
   auto has_lit = [](const Clause *c, Lit target) {
     for (const Lit l : *c)
@@ -1184,6 +1304,56 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         return true;
     return false;
   };
+
+  if (k.dense && k.dense->track_order) {
+    struct OccurrenceAudit {
+      uint32_t ordered = 0;
+      uint32_t true_binary = 0;
+      uint32_t satisfied_large = 0;
+      uint32_t satisfied_effective_binary = 0;
+      uint32_t tautological = 0;
+    };
+    uint32_t satisfied_ordinal = 0;
+    const auto audit = [&](Lit pivot, Lit opposite) {
+      OccurrenceAudit result;
+      for (const OccIndex::Entry &entry : k.dense->ordered[pivot]) {
+        result.ordered++;
+        if (entry.binary) {
+          result.true_binary += k.value(entry.payload) > 0;
+          continue;
+        }
+        const Clause *c = clause_at(k.arena, entry.payload);
+        if (c->garbage() || !has_lit(c, pivot))
+          continue;
+        bool satisfied = false;
+        uint32_t root_nonfalse = 0;
+        std::vector<Lit> nonfalse;
+        for (const Lit l : *c)
+          if (k.value(l) >= 0) {
+            root_nonfalse++;
+            satisfied |= k.value(l) > 0;
+            nonfalse.push_back(l);
+          }
+        result.satisfied_large += satisfied;
+        result.satisfied_effective_binary += satisfied && root_nonfalse == 2;
+        if (satisfied)
+          event_trace_bve_pair(
+              k, x, 0x80000000u + satisfied_ordinal++, c->lits, c->size,
+              entry.payload, c->id(), nonfalse.data(), nonfalse.size(),
+              entry.payload, c->id(), "satisfied-occurrence-audit");
+        result.tautological += has_lit(c, opposite);
+      }
+      return result;
+    };
+    const OccurrenceAudit positive = audit(px, nx);
+    const OccurrenceAudit negative = audit(nx, px);
+    event_trace_bve_occurrences(
+        k, x, positive.ordered, negative.ordered, positive.true_binary,
+        negative.true_binary, positive.satisfied_large,
+        negative.satisfied_large, positive.satisfied_effective_binary,
+        negative.satisfied_effective_binary, positive.tautological,
+        negative.tautological);
+  }
 
   // `resolve.c::occurrences_literal` compacts each candidate-polarity dense
   // watch stack before it counts antecedents.  In particular, garbage large
@@ -1203,12 +1373,13 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       std::vector<Lit> satisfied_binary;
       if (k.dense->track_order)
         for (const OccIndex::Entry &entry : k.dense->ordered[pivot])
-          if (entry.live && entry.binary && k.value(entry.payload) > 0)
+          if (entry.binary && k.value(entry.payload) > 0)
             satisfied_binary.push_back(entry.payload);
       for (const Lit other : satisfied_binary) {
         const bool removed =
             kernel_delete_binary_one_copy_bve_scan(k, pivot, other);
         assert(removed);
+        compacted_pivot_occurrences |= removed;
         (void)removed;
       }
 
@@ -1222,19 +1393,40 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       }
       const uint32_t removed = static_cast<uint32_t>(refs.size() - out);
       refs.resize(out);
-      if (removed && k.bve_occurrence_count_image)
-        kernel_bve_occurrence_remove(k, pivot, removed);
+      if (removed) {
+        compacted_pivot_occurrences = true;
+        if (k.bve_occurrence_count_image)
+          kernel_bve_occurrence_remove(k, pivot, removed);
+      }
 
-      if (k.dense->track_order)
-        for (OccIndex::Entry &entry : k.dense->ordered[pivot]) {
-          if (!entry.live || entry.binary)
-            continue;
-          const Clause *c = clause_at(k.arena, entry.payload);
-          if (c->garbage() || !has_lit(c, pivot))
-            entry.live = false;
+      if (k.dense->track_order) {
+        std::vector<OccIndex::Entry> &ordered = k.dense->ordered[pivot];
+        size_t ordered_out = 0;
+        for (const OccIndex::Entry entry : ordered) {
+          bool keep = true;
+          if (!entry.binary) {
+            const Clause *c = clause_at(k.arena, entry.payload);
+            keep = !c->garbage() && has_lit(c, pivot);
+          }
+          if (keep)
+            ordered[ordered_out++] = entry;
         }
+        ordered.resize(ordered_out);
+      }
     }
   }
+
+  // `resolve.c::kissat_generate_resolvents` re-scores a popped candidate when
+  // `occurrences_literal` compacted either polarity and the elimination later
+  // fails.  `kissat_update_heap` deliberately leaves an absent item absent:
+  // the candidate's eliminate flag was cleared before this attempt, so this
+  // is an update-only notification, not a retry/reinsertion.  A successful
+  // candidate needs neither because it is about to retire.
+  const auto decline_after_compaction = [&]() {
+    if (compacted_pivot_occurrences)
+      kernel_notify_bve_score(k, x, false);
+    return ApplyResult::NoOp;
+  };
 
   // ---- gather x's connected antecedents (duplicates retained) ----
   // `definition.c` and `resolve.c` import one mixed dense-watch stream.  A
@@ -1323,8 +1515,6 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     const auto gather = [&](Lit pivot, Lit opposite,
                             std::vector<MClause> &live, bool positive) {
       for (const OccIndex::Entry &entry : k.dense->ordered[pivot]) {
-        if (!entry.live)
-          continue;
         if (entry.binary) {
           // Dense ordered entries are maintained eagerly by every kernel
           // binary add/delete path.  They are therefore the same live stream
@@ -1380,7 +1570,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   }
 
   if (antecedent_oversized)
-    return ApplyResult::NoOp;
+    return decline_after_compaction();
 
   // Occurrence blow-up (kissat `eliminateocclim` = 2000, resolve.c:282-290):
   // resolving a variable whose two polarities occur together this often costs
@@ -1392,7 +1582,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // lists, so this needs no second index.
   if (!pos.empty() && !neg.empty() &&
       pos.size() + neg.size() > k.bve_occurrence_limit)
-    return ApplyResult::NoOp;
+    return decline_after_compaction();
 
   // `resolve.c::kissat_generate_resolvents` makes the smaller physical
   // polarity `lit` before gate detection, antecedent extraction and pair
@@ -1602,17 +1792,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     std::iota(neg_all.begin(), neg_all.end(), 0u);
     generate_pairs(pos, px, pos_all, neg, nx, neg_all);
   }
-  // Growth decision: eliminate iff not oversized and within the commit slack.
-  // An oversized resolvent or growth past the ceiling caches UINT16_MAX,
-  // meaning "never within any ramp level".
+  // Growth decision: eliminate iff not oversized and within the current
+  // commit slack. Kissat records only the cleared per-variable eliminate bit;
+  // a later bound increase blanket-rearms every variable.
   if (oversized || resolvents.size() > commit_limit) {
-    if (k.bve_track_min_bound)
-      k.bve_min_bound[x] =
-          oversized
-              ? UINT16_MAX
-              : static_cast<uint16_t>(
-                    std::min<size_t>(resolvents.size() - base, UINT16_MAX));
-    return ApplyResult::NoOp; // no state mutated yet
+    return decline_after_compaction();
   }
 
   // ---- commit: add resolvents (RUP, add-before-delete), witnesses, delete ---
@@ -1777,7 +1961,8 @@ ApplyResult bve_apply(Kernel &k) {
       // Reclamation is the caller's cost choice, not part of the rule's
       // effect: deletes are lazy and every reader skips garbage. The canonical
       // round stays self-contained; the dosing path leaves it to the
-      // scheduler, which reclaims once per phase.
+      // scheduler, which reclaims at the end of its authored elimination
+      // round.
       kernel_collect_garbage(k);
       return ApplyResult::Ok; // eliminated one variable
     }

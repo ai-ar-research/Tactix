@@ -294,6 +294,8 @@ void event_trace_binary_assignment(const Kernel &, Lit assigned,
                                    bool jumped);
 void event_trace_phase_save(const Kernel &, Lit);
 void event_trace_root_assign(const Kernel &, Lit);
+void event_trace_sweep_schedule(const Kernel &, Var, uint64_t, uint64_t,
+                                uint64_t, uint64_t);
 void event_trace_sweep_seed(const Kernel &, Var);
 void event_trace_sweep_environment(const Kernel &, Var, uint32_t, uint32_t,
                                    uint64_t);
@@ -340,6 +342,8 @@ void event_trace_factor_pair(const Kernel &, Lit, const char *);
 void event_trace_factor_heap(const Kernel &, Lit, const char *, Lit, uint32_t,
                              uint32_t, Lit, uint32_t, uint32_t, uint32_t);
 void event_trace_factor_schedule(const Kernel &, uint32_t, Lit, uint32_t);
+void event_trace_factor_mark_transition(const Kernel &, Lit, bool,
+                                        const char *);
 void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t);
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int);
 void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit);
@@ -569,7 +573,7 @@ struct Stats {
   uint64_t ternary_ticks = 0;      // occurrence entries + pairs examined
   uint64_t transitive_ticks = 0;   // cache lines scanned by the walks (kissat
   uint64_t transitive_deleted = 0; // transitively redundant binaries deleted
-  uint64_t transitive_failed = 0;  // sources abandoned to Probe as failed (V4)
+  uint64_t transitive_units = 0;   // failed-source units committed by V4
   uint64_t transitive_polls = 0;   // kernel_terminating evaluations at the site
   uint64_t transitive_terminated = 0; // dst walks cut by an interrupt
   uint64_t substitute_rounds = 0;  // Substitute rounds — detection passes
@@ -681,10 +685,24 @@ struct OccIndex {
   // cheap membership index used by other simplifiers; BVE consumes this image
   // because resolvent insertion order is search-visible.
   struct Entry {
-    uint32_t payload; // other literal for binary, arena Ref for large
-    bool binary;
-    bool live;
+    // Exact Kissat dense-watch representation: one 31-bit literal/reference
+    // payload and one kind bit.  Binary removals compact the owning stream in
+    // place; stale large references are validated against the arena.
+    uint32_t payload : 31; // other literal for binary, arena Ref for large
+    uint32_t binary : 1;
+
+    static constexpr uint32_t MAX_PAYLOAD = UINT32_MAX >> 1;
+    static Entry from_binary(Lit other) {
+      assert(other <= MAX_PAYLOAD);
+      return {other, true};
+    }
+    static Entry from_large(Ref ref) {
+      assert(ref <= MAX_PAYLOAD);
+      return {ref, false};
+    }
   };
+  static_assert(sizeof(Entry) == sizeof(uint32_t),
+                "dense mixed entries must match Kissat's one-word watch");
   std::vector<std::vector<Entry>> ordered; // by literal; stale entries allowed
   // Only Eliminate/BVE consumes the mixed stream. Probe's Congruence,
   // Substitute, Sweep, and Strengthen consumers use `large` and must not pay
@@ -978,7 +996,6 @@ struct Kernel {
   // eager construction, so the public rule surface keeps its old contract.
   bool cold_state_deferred = false;
   std::vector<uint8_t> bve_retry;
-  uint32_t bve_retry_fixed_head = 0;
 
   // Exact persistent Kissat `flags->factor` bit, by literal polarity. Clause
   // addition sets it; Factor clears it when that literal is popped. Unlike the
@@ -1032,8 +1049,6 @@ struct Kernel {
   std::unordered_set<uint64_t> shadow_victims;
   uint32_t kept_glue = 0;
   uint32_t kept_size = 0;
-  std::vector<uint16_t> bve_min_bound;
-  bool bve_track_min_bound = false;
   BveScoreUpdateHook bve_score_update_hook = nullptr;
   void *bve_score_update_state = nullptr;
   // Optional strategy-owned physical dense-occurrence image.  Dynamic BVE
@@ -1133,11 +1148,17 @@ struct Kernel {
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };
 
-inline void kernel_mark_factor_literal(Kernel &k, Lit lit) {
+inline void kernel_mark_factor_literal(Kernel &k, Lit lit,
+                                       const char *source = "unspecified") {
   assert(lit < k.factor_marks.size());
   if (!k.factor_marks[lit]) {
     k.factor_marks[lit] = 1;
     k.factor_literals_marked++;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_factor_mark_transition(k, lit, true, source);
+#else
+    (void) source;
+#endif
   }
 }
 
@@ -1231,11 +1252,15 @@ ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
 // Representation-only large-clause replacement.  The caller has already
 // proved and emitted the replacement addition; this transition emits the old
 // proof deletion, preserves the arena Ref and allocation span, and updates the
-// kernel's watches/derived indexes.  It contains no scheduling or rule policy.
+// kernel's watches/derived indexes. `mark_added_material` distinguishes
+// consumers whose reference algorithm publishes the surviving image as new
+// subsumption/Factor material from canonical Substitute, which does not.
 // Both source and image are large and the image may not grow.
 void kernel_replace_large_clause_in_place(Kernel &, Ref source, uint64_t id,
                                           const Lit *lits, uint32_t size,
-                                          uint32_t glue);
+                                          uint32_t glue,
+                                          const char *source_tag = "unspecified",
+                                          bool mark_added_material = true);
 
 // Proof-safe root-unit consumption shared by startup sparse collection and C2.
 // The clause form does not collect the arena; callers can continue scanning by
@@ -1272,8 +1297,6 @@ inline void kernel_bve_occurrence_remove(Kernel &k, Lit lit,
   assert(current >= count);
   current -= count;
 }
-void kernel_bve_retry_sync_fixed(Kernel &);
-
 inline void kernel_touch_var(Kernel &k, Var v) {
   const uint64_t epoch = ++k.touch_epoch;
   if (!k.cold_state_deferred)
@@ -1327,7 +1350,8 @@ inline bool kernel_clause_new_material(const Kernel &k, const Clause *c,
 void kernel_touch_sync_fixed(Kernel &);
 
 Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
-                            bool redundant, uint32_t glue, uint64_t id = 0);
+                            bool redundant, uint32_t glue, uint64_t id = 0,
+                            bool mark_added_material = true);
 uint64_t kernel_clause_position(const Kernel &, Ref);
 // Restore current Kissat arena order after append-only replacements. The
 // implementation caches each position and uses a linear stable radix pass.
@@ -1751,8 +1775,10 @@ void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
 void kernel_flush_large_watches(Kernel &);
 // Reconnect every live large clause in its current Kissat-equivalent arena
 // order. Packed replacements retain their source position until collection,
-// exactly as Kissat's in-place rewrites do.
-void kernel_rebuild_large_watches(Kernel &);
+// exactly as Kissat's in-place rewrites do.  Eliminate's sparse resume passes
+// `flush_eliminated=true`: pinned Kissat first garbages, in arena order, every
+// clause satisfied at root or containing an eliminated variable.
+void kernel_rebuild_large_watches(Kernel &, bool flush_eliminated = false);
 void kernel_resume_walk_watches(Kernel &);
 void kernel_canonicalize_binary_watches(Kernel &,
                                         bool count_congruence_rebuild = true,
