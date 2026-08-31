@@ -28,6 +28,23 @@ static bool selected_strengthen_pair(int *first, int *second) {
   const char *value = std::getenv("TACTIX_EVENT_TRACE_STRENGTHEN_PAIR");
   return value && std::sscanf(value, "%d,%d", first, second) == 2;
 }
+
+static int selected_strengthen_external() {
+  const char *value =
+      std::getenv("TACTIX_EVENT_TRACE_STRENGTHEN_EXTERNAL");
+  return value ? std::abs(std::atoi(value)) : 0;
+}
+
+static bool selected_strengthen_external_in(const Kernel &k,
+                                            const Clause *clause) {
+  const int selected = selected_strengthen_external();
+  if (!selected)
+    return false;
+  for (const Lit lit : *clause)
+    if (std::abs(kernel_externalize(k, lit)) == selected)
+      return true;
+  return false;
+}
 #endif
 
 RuleEligibility strengthen_guard(const Kernel &k) {
@@ -238,9 +255,48 @@ static Partner find_forward_partner(
     for (int phase = 0; phase < 2; ++phase) {
       const Lit probe = phase ? negate(l) : l;
       const std::vector<ForwardWatch> &stream = watches[probe];
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      const bool selected = selected_strengthen_clause(c);
+      if (selected) {
+        event_trace_detail(k, "strengthen_selected_scan",
+                           kernel_externalize(k, probe));
+        event_trace_detail(k, "strengthen_selected_scan_phase", phase);
+        event_trace_detail(k, "strengthen_selected_stream_size",
+                           stream.size());
+      }
+#endif
       if (stream.size() > STRENGTHEN_OCCLIM)
         continue;
-      for (const ForwardWatch &watch : stream) {
+      for (size_t wi = 0; wi < stream.size(); ++wi) {
+        const ForwardWatch watch = stream[wi];
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        if (selected) {
+          event_trace_detail(k, "strengthen_selected_entry", wi);
+          event_trace_detail(k, "strengthen_selected_entry_binary",
+                             watch.binary);
+          if (watch.binary) {
+            event_trace_detail(k, "strengthen_selected_entry_other",
+                               kernel_externalize(k, watch.other()));
+          } else {
+            const Clause *entry = clause_at(k.arena, watch.ref());
+            event_trace_detail(k, "strengthen_selected_entry_ref",
+                               watch.ref());
+            event_trace_detail(k, "strengthen_selected_entry_garbage",
+                               entry->garbage());
+            if (!entry->garbage()) {
+              event_trace_detail(k, "strengthen_selected_entry_id",
+                                 entry->id());
+              event_trace_detail(k, "strengthen_selected_entry_order",
+                                 kernel_clause_position(k, watch.ref()));
+              event_trace_detail(k, "strengthen_selected_entry_size",
+                                 entry->size);
+              for (const Lit member : *entry)
+                event_trace_detail(k, "strengthen_selected_entry_lit",
+                                   kernel_externalize(k, member));
+            }
+          }
+        }
+#endif
         if (watch.binary) {
           if (phase)
             continue;
@@ -250,6 +306,13 @@ static Partner find_forward_partner(
           const Lit other = watch.other();
           if (marks[other]) {
             p.res.kind = CheckResult::SUBSUMED;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+            if (selected) {
+              event_trace_detail(k, "strengthen_selected_match_kind",
+                                 p.res.kind);
+              event_trace_detail(k, "strengthen_selected_match_flipped", 0);
+            }
+#endif
             if (lrat)
               p.id = kernel_binary_id(k, probe, other);
             return p;
@@ -258,6 +321,14 @@ static Partner find_forward_partner(
             p.res.kind = CheckResult::STRENGTHEN;
             p.res.flipped = other;
             p.absorbed.clear();
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+            if (selected) {
+              event_trace_detail(k, "strengthen_selected_match_kind",
+                                 p.res.kind);
+              event_trace_detail(k, "strengthen_selected_match_flipped",
+                                 kernel_externalize(k, p.res.flipped));
+            }
+#endif
             if (lrat)
               p.id = kernel_binary_id(k, probe, other);
             // A binary strengthener terminates this physical watch walk.
@@ -278,6 +349,15 @@ static Partner find_forward_partner(
           continue;
         p.res = r;
         p.absorbed.clear();
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        if (selected) {
+          event_trace_detail(k, "strengthen_selected_match_kind", r.kind);
+          event_trace_detail(
+              k, "strengthen_selected_match_flipped",
+              r.flipped == INVALID_LIT ? 0
+                                       : kernel_externalize(k, r.flipped));
+        }
+#endif
         if (lrat) {
           p.id = d->id();
           for (const Lit m : *d)
@@ -526,6 +606,13 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
     return 0;
   Clause *c = clause_at(k.arena, *ref);
   if (p.res.kind == CheckResult::SUBSUMED) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    if (selected_strengthen_external_in(k, c)) {
+      event_trace_detail(k, "strengthen_target_action", CheckResult::SUBSUMED);
+      event_trace_detail(k, "strengthen_target_clause_id", c->id());
+      event_trace_detail(k, "strengthen_target_removed", 1);
+    }
+#endif
     // C1 shadowed this clause and C2 has now deleted it on its own.
     if (kernel_shadow_retire(k, c->id()))
       k.stats.c1_shadow_deleted++;
@@ -554,6 +641,19 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
     }
     lits.push_back(l);
   }
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  if (selected_strengthen_external_in(k, c)) {
+    const int selected = selected_strengthen_external();
+    bool retained = false;
+    for (const Lit lit : lits)
+      retained |= std::abs(kernel_externalize(k, lit)) == selected;
+    event_trace_detail(k, "strengthen_target_action", CheckResult::STRENGTHEN);
+    event_trace_detail(k, "strengthen_target_clause_id", c->id());
+    event_trace_detail(k, "strengthen_target_removed", !retained);
+    event_trace_detail(k, "strengthen_target_flipped",
+                       kernel_externalize(k, p.res.flipped));
+  }
+#endif
   const uint64_t id = ++k.next_clause_id;
   if (k.proof) {
     if (lrat) {
@@ -569,10 +669,8 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
   }
   k.stats.strengthened++;
   (*changed)++;
-  // rewrites preserve redundancy (the flush pre-pass rewrites redundant clauses
-  // too) and glue can only shrink; read before the replacement garbages `c`.
-  // Reached from `act` and from `flush_root`, so root-unit stripping promotes
-  // on the same rule.
+  // Rewrites preserve redundancy and glue can only shrink; read before the
+  // replacement garbages `c`.
   const bool redundant = c->redundant();
   const uint32_t glue = kernel_shrunken_glue(
       k, c->glue(), static_cast<uint32_t>(lits.size()));
@@ -582,7 +680,7 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
     // rewrite into new BVE material and a different later occurrence order.
     kernel_replace_large_clause_in_place(
         k, *ref, id, lits.data(), static_cast<uint32_t>(lits.size()),
-        redundant ? glue : 0);
+        redundant ? glue : 0, "strengthen");
     return 2;
   }
   switch (kernel_replace_clause(k, c, id, lits.data(),
@@ -603,22 +701,6 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
   }
 }
 
-// C2 consumes root units through the same proof-safe clause primitive as the
-// startup sparse collector. Map its typed result onto act()'s local control
-// codes: 0 none, 1 deleted, 2 rewritten, 3 binary, 4 unit, 5 refuted.
-static int flush_root(Kernel &k, Ref *ref, uint64_t *changed) {
-  switch (kernel_flush_root_clause(k, ref, changed)) {
-  case RootFlushOutcome::None: return 0;
-  case RootFlushOutcome::Deleted: return 1;
-  case RootFlushOutcome::Rewritten: return 2;
-  case RootFlushOutcome::Binary: return 3;
-  case RootFlushOutcome::Unit: return 4;
-  case RootFlushOutcome::Refuted: return 5;
-  }
-  assert(false);
-  return 5;
-}
-
 ApplyResult strengthen_apply(Kernel &k) {
   assert(strengthen_guard(k));
   // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
@@ -626,10 +708,7 @@ ApplyResult strengthen_apply(Kernel &k) {
     return ApplyResult::Unsat;
   k.stats.strengthen_rounds++;
   // Repetition filter, C1's arrangement exactly (see the N1 note in
-  // subsume_forward.cpp). The snapshot is taken before the flush pre-pass on
-  // purpose: the flush rewrites every clause a root fix shortened, each rewrite
-  // is an add, so those land above the snapshot and this round already sees
-  // them as new.
+  // subsume_forward.cpp).
   kernel_touch_sync_fixed(k);
   const bool filter = k.touch_filter;
   const uint64_t snapshot = k.touch_epoch;
@@ -639,12 +718,11 @@ ApplyResult strengthen_apply(Kernel &k) {
     return ApplyResult::Unsat;
   uint64_t changed = binary_removed;
   bool ended = false;
-  // §6 termination polling at both unbounded loops — the flush pre-pass and
-  // the candidate loop.  Like Kissat's `forward_subsume_all_clauses`, one
-  // candidate gets at most one subsume-or-strengthen action in a round, so
-  // there is no same-candidate cascade to poll.  Every site aborts between
-  // candidates or clauses, never mid-rewrite, so an interrupted round is
-  // exactly an incomplete round.
+  // §6 termination polling before and inside the candidate loop. Like
+  // Kissat's `forward_subsume_all_clauses`, one candidate gets at most one
+  // subsume-or-strengthen action in a round, so there is no same-candidate
+  // cascade to poll. Every site aborts between candidates, never mid-rewrite,
+  // so an interrupted round is exactly an incomplete round.
   // No tick cadence at any of them (see subsume_forward.cpp).
   bool interrupted = false;
   const auto poll = [&]() {
@@ -653,26 +731,38 @@ ApplyResult strengthen_apply(Kernel &k) {
     interrupted = true;
     return true;
   };
-  // Flush pre-pass (see flush_root): the whole arena, before the candidate
-  // round, so the round never sees clauses with root-assigned literals. A
-  // flush-derived unit ends the pass (values changed) and the policy
-  // re-propagates. One collect at the end covers both phases.
-  for (Ref ref = 0; ref < k.arena.size();) {
-    if (poll())
-      break;
-    const uint32_t words = clause_actual_words(clause_at(k.arena, ref));
-    Ref cur = ref;
-    if (!clause_at(k.arena, ref)->garbage()) {
-      const int r = flush_root(k, &cur, &changed);
-      if (r == 5)
-        return ApplyResult::Unsat;
-      if (r == 4) {
-        ended = true;
-        break;
+  // Pinned forward.c does not run sparse root collection here. Candidate
+  // discovery retires root-satisfied irredundant clauses, while root-false
+  // literals remain physically present unless that particular clause is later
+  // strengthened. A former whole-arena root flush converted every effective
+  // binary into a physical binary before the pass and changed the next BVE
+  // schedule. Keep startup/Reduce sparse collection as the only broad
+  // root-false stripping owners.
+  interrupted = poll();
+  if (!interrupted)
+    for (Ref ref = 0; ref < k.arena.size();) {
+      Clause *c = clause_at(k.arena, ref);
+      const uint32_t words = clause_actual_words(c);
+      if (!c->garbage() && !c->redundant() &&
+          c->size <= STRENGTHEN_CLSLIM) {
+        bool satisfied = false;
+        for (const Lit lit : *c)
+          satisfied |= k.value(lit) > 0;
+        if (satisfied) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+          if (selected_strengthen_external_in(k, c)) {
+            event_trace_detail(k, "strengthen_target_action", 3);
+            event_trace_detail(k, "strengthen_target_clause_id", c->id());
+            event_trace_detail(k, "strengthen_target_removed", 1);
+          }
+#endif
+          kernel_delete_clause(k, c);
+          k.stats.flushed++;
+          changed++;
+        }
       }
+      ref += words;
     }
-    ref += words;
-  }
   std::vector<Ref> candidates;
   if (!ended && !interrupted) {
     strengthen_candidates(k, candidates);
@@ -889,10 +979,10 @@ ApplyResult strengthen_apply(Kernel &k) {
       red ? kernel_touch_kept_var(k, var_of(l)) : kernel_touch_var(k, var_of(l));
     k.stats.strengthen_rearmed++;
   }
-  // An interrupted round does not advance the watermark at all: the re-arm loop
-  // above is what makes advancing safe, and an abort inside the flush pre-pass
-  // leaves `candidates` empty, so there is no tail to re-arm and advancing
-  // would retire material this round never looked at.
+  // An interrupted round does not advance the watermark at all: the re-arm
+  // loop above is what makes advancing safe, and an entry abort leaves
+  // `candidates` empty, so advancing would retire material this round never
+  // looked at.
   if (filter && !interrupted) {
     k.strengthen_touch_mark = snapshot;
     k.stats.strengthen_mark_advances++;
@@ -900,8 +990,8 @@ ApplyResult strengthen_apply(Kernel &k) {
   // Completeness, kissat's `completed` (forward.c:664-670): nothing was
   // re-armed. Unlike C1 this rule rewrites clauses, and a rewrite is an add the
   // substrate arms, so a productive round is incomplete whatever it reached.
-  // `!ended`/`!interrupted` cover a flush pre-pass that stopped early, leaving
-  // `candidates` empty — which would otherwise read as a vacuous fixpoint.
+  // `!ended`/`!interrupted` cover an entry stop which leaves `candidates`
+  // empty and would otherwise read as a vacuous fixpoint.
   k.strengthen_complete = !ended && !interrupted &&
                           stopped_at == candidates.size() &&
                           k.stats.strengthened == produced_before;
@@ -923,17 +1013,6 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   Clause *c = clause_at(k.arena, candidate);
   if (c->garbage())
     return ApplyResult::NoOp;
-  { // per-clause root flush first (mirrors the round's pre-pass)
-    uint64_t flushed = 0;
-    Ref ref = candidate;
-    const int r = flush_root(k, &ref, &flushed);
-    if (r == 5)
-      return ApplyResult::Unsat;
-    if (r != 0) {
-      kernel_collect_garbage(k);
-      return ApplyResult::Ok;
-    }
-  }
   // The victim may be redundant on this path (N1: the instance surface is
   // complete over everything the round could accept, and more); the partner may
   // not — find_partner's `d->redundant()` skip is the load-bearing check.

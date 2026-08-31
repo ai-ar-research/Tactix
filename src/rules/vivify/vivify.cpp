@@ -919,9 +919,23 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
   // next Vivify dose.  Tactix already has the same shrunken-record primitive;
   // use it here instead of reconstructing the apparent order after the fact.
   if (lits.size() > 2) {
+    // Pinned Kissat copies the new prefix while `c->size` still names the old
+    // allocation, calls mark_added_literals through an old-size clause walk,
+    // and only then installs new_size. Thus the physical tail is intentionally
+    // re-published to forward subsumption and Factor even though it is no
+    // longer semantic clause material. Preserve that exact lifecycle locally;
+    // no other in-place rewrite path has this ordering.
+    std::vector<Lit> stale_added_tail;
+    if (!redundant)
+      for (uint32_t i = static_cast<uint32_t>(lits.size()); i < c->size; ++i)
+        stale_added_tail.push_back(c->lits[i]);
     kernel_replace_large_clause_in_place(
         k, cref, id, lits.data(), static_cast<uint32_t>(lits.size()),
-        redundant ? glue : 0);
+        redundant ? glue : 0, "vivify");
+    for (const Lit lit : stale_added_tail) {
+      kernel_touch_var(k, var_of(lit));
+      kernel_mark_factor_literal(k, lit, "vivify_stale_tail");
+    }
     c = clause_at(k.arena, cref);
     vivify_reestablish_watch_invariant(k, c->lits, c->size);
     return ApplyResult::Ok;
@@ -1011,7 +1025,7 @@ static void promote_irredundant(Kernel &k, Ref ref) {
     // Pinned Kissat promotes this clause through `mark_added_literals`, which
     // arms forward subsumption and Factor but deliberately not Eliminate.
     kernel_touch_var(k, var_of(l));
-    kernel_mark_factor_literal(k, l);
+    kernel_mark_factor_literal(k, l, "vivify_promote");
     if (k.dense)
       k.dense->large[l].push_back(ref);
   }

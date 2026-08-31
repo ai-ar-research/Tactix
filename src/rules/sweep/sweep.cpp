@@ -266,14 +266,6 @@ static uint64_t seed_literal_occurrences(const Kernel &k, Lit lit) {
   return binary + k.dense->large[lit].size();
 }
 
-static uint64_t seed_degree(const Kernel &k, Var v, bool &both_polarities) {
-  const Lit pos = make_lit(v, false), neg = make_lit(v, true);
-  const uint64_t dp = seed_literal_occurrences(k, pos);
-  const uint64_t dn = seed_literal_occurrences(k, neg);
-  both_polarities = dp && dn;
-  return dp + dn;
-}
-
 void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
   out.clear();
   for (Var v = 0; v < k.nvars; v++) {
@@ -298,8 +290,15 @@ void sweep_seeds(const Kernel &k, std::vector<Var> &out) {
   std::vector<RankedSeed> ranked;
   ranked.reserve(out.size());
   for (const Var v : out) {
-    bool both = false;
-    const uint64_t d = seed_degree(k, v, both);
+    const Lit pos = make_lit(v, false), neg = make_lit(v, true);
+    const uint64_t dp = seed_literal_occurrences(k, pos);
+    const uint64_t dn = seed_literal_occurrences(k, neg);
+    const bool both = dp && dn;
+    const uint64_t d = dp + dn;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_sweep_schedule(k, v, dp, dn, both ? d : UINT64_MAX,
+                               kernel_import_var_order(k, v));
+#endif
     ranked.push_back(
         {both ? d : UINT64_MAX, kernel_import_var_order(k, v), v});
   }

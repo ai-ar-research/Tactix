@@ -498,11 +498,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.backbone_probed,
            (unsigned long long)kernel.stats.backbone_failed);
     printf("c transitive  %llu rounds, %llu checked, %llu deleted, "
-           "%llu failed, %llu ticks, %llu polls, %llu terminated\n",
+           "%llu units, %llu ticks, %llu polls, %llu terminated\n",
            (unsigned long long)kernel.stats.transitive_rounds,
            (unsigned long long)kernel.stats.transitive_checked,
            (unsigned long long)kernel.stats.transitive_deleted,
-           (unsigned long long)kernel.stats.transitive_failed,
+           (unsigned long long)kernel.stats.transitive_units,
            (unsigned long long)kernel.stats.transitive_ticks,
            (unsigned long long)kernel.stats.transitive_polls,
            (unsigned long long)kernel.stats.transitive_terminated);

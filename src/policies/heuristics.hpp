@@ -72,12 +72,12 @@ void heuristics_reserve_vars(Kernel &, uint32_t old, uint32_t nvars);
 void heuristics_compact_vars(Kernel &, const std::vector<Var> &old_to_new,
                              uint32_t new_nvars);
 
-// Seed the initial decision order from `order` (variables in first-activation
-// order), kissat's `tumble`. No-op without `H`. See the definition for why this
-// is an ordering port and not the renumbering kissat performs.
+// Seed queue/scores from first activation and the compact-index permutation
+// from first import filtered by that activated population, the two orders
+// produced by Kissat's `tumble`. No-op without `H`.
 void heuristics_seed_activation_order(Kernel &, const std::vector<Var> &order);
 
-// Mirror Kissat's initial literal compaction in the random-index permutation:
+// Mirror Kissat's initial literal compaction in the compact-index permutation:
 // retain the first root-fixed variable as the shared fixed representative and
 // remove the rest.  Kernel identities and the public Decide surface stay
 // unchanged; only the policy-owned random modulus follows Kissat's `VARS`.

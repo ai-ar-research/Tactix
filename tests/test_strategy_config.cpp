@@ -148,12 +148,19 @@ int main() {
   Kernel tumbled;
   ScopedHeuristics tumbled_heuristics(tumbled);
   kernel_reserve_vars(tumbled, 3);
+  // Import and activation order are separate under Kissat's tumble. Compact
+  // indices preserve the former while queue/score seeding follows the latter.
+  kernel_record_import(tumbled, 1);
+  kernel_record_import(tumbled, 2);
+  kernel_record_import(tumbled, 0);
   heuristics_seed_activation_order(tumbled, {2, 0, 1});
+  if (tumbled.compact_import_order != std::vector<Var>({1, 2, 0}))
+    return 1;
   tumbled.stats.conflicts = 855;
   DefaultBranching tumbled_random(&defaults.branching);
   tumbled_random.reset(0);
-  // First seed-0 index is 1 modulo 3, which tumble maps to variable 0.
-  if (kernel_externalize(tumbled, tumbled_random.pick(tumbled)) != 1)
+  // First seed-0 index is 1 modulo 3, the second compact import (variable 2).
+  if (kernel_externalize(tumbled, tumbled_random.pick(tumbled)) != 3)
     return 1;
 
   // An API/owned-H path may parse before DefaultPolicy attaches `H`. Preserve
@@ -177,7 +184,7 @@ int main() {
   kernel_assign_unit(compacted_random, make_lit(1, true));
   heuristics_compact_random_order_fixed(compacted_random);
   if (compacted_random.compact_import_order !=
-          std::vector<Var>({2, 0, 4, 3}) ||
+          std::vector<Var>({0, 2, 3, 4}) ||
       compacted_heuristics.h.fixed_representative != 0)
     return 1;
   // A later preprocessing rule can derive another root unit. It remains in
@@ -187,7 +194,7 @@ int main() {
   kernel_assign_unit(compacted_random, make_lit(3, false));
   heuristics_update_scores(compacted_random);
   if (compacted_random.compact_import_order !=
-          std::vector<Var>({2, 0, 4, 3}) ||
+          std::vector<Var>({0, 2, 3, 4}) ||
       heuristics_heap_contains(compacted_random, 0) ||
       heuristics_heap_contains(compacted_random, 3))
     return 1;

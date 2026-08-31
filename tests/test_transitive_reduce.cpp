@@ -4,6 +4,7 @@
 #include "kernel/kernel.hpp"
 #include "kernel/watch.hpp"
 #include "policies/heuristics.hpp"
+#include "proof/proof.hpp"
 #include "rules/propagate/propagate.hpp"
 #include "rules/transitive_reduce/transitive_reduce.hpp"
 
@@ -93,32 +94,62 @@ static void test_mutual_dependency() {
   assert(transitive_reduce_apply(k) == ApplyResult::NoOp); // fixpoint
 }
 
-// A failed literal hands the source to V1 Probe (hpp deviation 5): b implies d
-// and ¬d, so ¬a is failed and nothing is deleted. Vars: a=1, b=2, c=3, d=4
-static void test_failed_literal_deferred() {
+// Pinned transitive.c commits a failed-source unit immediately: b implies d
+// and ¬d, so assuming ¬a refutes and {a} is learned. Exercise the native LRAT
+// BFS chain as well as the semantic assignment. Vars: a=1, b=2, c=3, d=4.
+static void test_failed_literal_committed() {
   Kernel k;
   k.transitive_early_exit = false; // exhaustive diagnostic owns this behavior
+  Proof proof;
+  assert(proof.open("/dev/null", ProofFormat::Lrat));
+  k.proof = &proof;
   kernel_reserve_vars(k, 4);
   add_bin(k, 1, 2);   // ¬a → b
   add_bin(k, 1, 3);   // ¬a → c
   add_bin(k, -2, 4);  // b → d
   add_bin(k, -2, -4); // b → ¬d   (so ¬a → b → d ∧ ¬d)
-  assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::NoOp);
-  assert(k.stats.transitive_failed == 1);  // handed to V1 Probe
-  assert(k.stats.transitive_deleted == 0); // delta stays delete-only
+  assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::Ok);
+  assert(k.stats.transitive_units == 1);
+  assert(k.value(internalize(1)) > 0);
+  assert(k.unit_ids[var_of(internalize(1))] != 0);
+  assert(k.stats.transitive_deleted == 0);
   assert(live(k, 1, 2) && live(k, 1, 3));
 }
 
-// No self-justification through the contrapositive (hpp deviation 2): a walk
-// for (a ∨ c) allowed the candidate's own edge ¬c → a could reach anything, so
-// the pair is excluded both ways. kissat instead reports ¬a as failed.
+// A failed walk does not undo deletions already proved for the same source.
+// With the direct (a v b) excluded, c reaches b and proves that first pair
+// redundant.  A later d candidate keeps the c path alive long enough for b to
+// reach both e and -e, proving {a}.  Pinned transitive.c compacts the earlier
+// reduction before learning the unit; this is the lifecycle Rank 34 exposed.
+static void test_failed_literal_retains_earlier_deletion() {
+  Kernel k;
+  assert(k.transitive_early_exit);
+  kernel_reserve_vars(k, 5);
+  add_bin(k, 1, 2);   // candidate b: excluded during its own walk
+  add_bin(k, 1, 3);   // -a -> c
+  add_bin(k, 1, 4);   // later candidate d
+  add_bin(k, -3, 2);  // c -> b: proves (a v b) redundant
+  add_bin(k, -2, 5);  // b -> e
+  add_bin(k, -2, -5); // b -> -e: a later walk fails
+  assert(transitive_reduce_try(k, internalize(1)) == ApplyResult::Ok);
+  assert(k.stats.transitive_deleted == 1);
+  assert(k.stats.transitive_units == 1);
+  assert(!live(k, 1, 2));
+  assert(k.value(internalize(1)) > 0);
+}
+
+// No self-justification through the contrapositive: excluding the candidate in
+// both directions prevents an invalid deletion, while the surviving path
+// still proves pinned Kissat's failed-source unit {a}.
 static void test_no_contrapositive_self_justification() {
   Kernel k;
   kernel_reserve_vars(k, 3);
   add_bin(k, 1, 2);   // ¬a → b
   add_bin(k, -2, -3); // b → ¬c
   add_bin(k, 1, 3);   // ¬a → c
-  assert(transitive_reduce_apply(k) == ApplyResult::NoOp);
+  assert(transitive_reduce_apply(k) == ApplyResult::Ok);
+  assert(k.value(internalize(1)) > 0);
+  assert(k.stats.transitive_units == 1);
   assert(k.stats.transitive_deleted == 0);
   assert(live(k, 1, 2) && live(k, -2, -3) && live(k, 1, 3));
 }
@@ -179,7 +210,12 @@ static void test_reference_compact_order_owns_binary_candidates() {
   Kernel k;
   ScopedHeuristics heuristics(k);
   kernel_reserve_vars(k, 3);
-  heuristics_seed_activation_order(k, {2, 0, 1});
+  kernel_record_import(k, 2);
+  kernel_record_import(k, 0);
+  kernel_record_import(k, 1);
+  // Deliberately disagree: compact consumers follow import, while queue/score
+  // seeding follows activation.
+  heuristics_seed_activation_order(k, {0, 1, 2});
   add_bin(k, 1, 3);
   add_bin(k, 2, 3);
   std::vector<Lit> sources;
@@ -248,7 +284,8 @@ int main() {
   test_transitive_redundancy();
   test_no_redundancy();
   test_mutual_dependency();
-  test_failed_literal_deferred();
+  test_failed_literal_committed();
+  test_failed_literal_retains_earlier_deletion();
   test_no_contrapositive_self_justification();
   test_duplicate_pair_processed_per_copy();
   test_root_fixed_skipped();

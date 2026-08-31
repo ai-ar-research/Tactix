@@ -1,0 +1,59 @@
+{
+  "schema": "tactix-tierd-rank20-randec-import-order-production-v1",
+  "created_at": "2026-08-30T18:22:00Z",
+  "status": "completed-valid-production-diagnostic",
+  "submitted_at": "2026-08-30T18:24:00Z",
+  "slurm_job_id": 1657050,
+  "completed_at": "2026-08-30T18:27:00Z",
+  "purpose": "Measure one production Rank 20 solve after the general compact random-index import-order repair.",
+  "predecessor": "../20260830-2690-tierd-rank20-randec-slot-repair",
+  "scoring": false,
+  "input": {
+    "rank": 20,
+    "expected": "SAT",
+    "path": "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz",
+    "sha256": "bd298af2f4a35c9c29581ab4bb0c7a2f24f038a4fc4508594626b99db69adf50"
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix",
+      "sha256": "1d85a694a122e3a466870b598e82159442196ffef7a5d37343912021678cb4f7"
+    },
+    "checkmodel": {
+      "path": "../../../../tools/fuzz/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    }
+  },
+  "change": "Random-index compact population is first-import order filtered by activation; activation order remains the initial queue/score seed. No option or gate.",
+  "harness_sha256": "d2bab10ed01409cfc62393aa543aae460c95be710bd0f0a3ef3cd2cece401c99",
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": null,
+    "node_constraint": null,
+    "one_solver_run_per_task": true,
+    "cpus_per_task": 12,
+    "scheduler_memory": "48000M",
+    "solver_timeout_seconds": 1200,
+    "task_wall_seconds": 1320
+  },
+  "validation": "SAT exit 10 and independent checkmodel validation passed for all 13706292 clauses and 1592305 assigned variables. Focused Trace/Release suites pass; exact conflict-502 randec checkpoint matches Kissat.",
+  "result": {
+    "verdict": "SAT",
+    "model_checked": true,
+    "wall_seconds": 123.02,
+    "user_seconds": 121.20,
+    "max_rss_kib": 1981224,
+    "conflicts": 81993,
+    "decisions": 1229783,
+    "propagations": 840278325,
+    "factorings": 493961,
+    "bve_eliminated": 21227,
+    "versus_previous_seconds": 0.20692996435775914,
+    "versus_kissat_seconds": 0.8777976606569982,
+    "previous_max_rss_kib": 2204660,
+    "kissat_max_rss_kib": 946684,
+    "solver_output_sha256": "8fd8244ca0acdc9f08096f56de7eaaaa4d7fa19846c214c707b4bc075f659dae",
+    "model_check_sha256": "039b77ae17645fd82f62cc6278d24954db6c73f0476cdeab6758b42f528dda90"
+  },
+  "n1_n4": "One proofless SAT production diagnostic. The source repair is unconditional and reference-derived; no formula, rank, benchmark, size, density, classification, admission, or effort gate."
+}

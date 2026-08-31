@@ -28,12 +28,13 @@ constexpr uint64_t KITTEN_RANDOM_MULTIPLIER = 6364136223846793005ull;
 constexpr uint64_t KITTEN_RANDOM_INCREMENT = 1442695040888963407ull;
 } // namespace
 
-void SubSolver::start_kitten_session() {
-  // An embedded Kitten is initialized once at construction (generator 0,
-  // initialized 1), then every Sweep environment or BVE definition starts
-  // with `kitten_clear`, which consumes the next seed.  SubSolver::reset is
-  // that clear boundary, so its first seed must be 1 rather than 0.
-  kitten_initialized_ = 1;
+void SubSolver::start_kitten_session(bool clear_before_first_environment) {
+  // Sweep uses a freshly constructed embedded Kitten directly: initialize
+  // consumes seed 0 and that first environment keeps generator 0. Eliminate
+  // also constructs Kitten, but every definition starts with `kitten_clear`,
+  // so its first environment consumes seed 1. Reset models the environment
+  // boundary; seed its initialized counter for the owning caller's lifecycle.
+  kitten_initialized_ = clear_before_first_environment ? 1 : 0;
   kitten_capacity_vars_ = 0;
 }
 

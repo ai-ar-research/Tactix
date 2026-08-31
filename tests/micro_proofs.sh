@@ -65,6 +65,11 @@ EOF
   # cyclic xor chain, odd total parity: 1^2=1, 2^3=1, 1^3=1 sums to 0=1
   printf 'p cnf 3 6\n1 2 0\n-1 -2 0\n2 3 0\n-2 -3 0\n1 3 0\n-1 -3 0\n' \
     > "$T/xor3.cnf"
+  # TransitiveReduce failed-source unit: assuming -1 reaches both 4 and -4.
+  # The independent full enumeration on 5,6 keeps the whole formula UNSAT so
+  # an external checker can replay the new unit chain and the search tail.
+  printf 'p cnf 6 8\n1 2 0\n1 3 0\n-2 4 0\n-2 -4 0\n5 6 0\n5 -6 0\n-5 6 0\n-5 -6 0\n' \
+    > "$T/transitive-failed.cnf"
 }
 
 make_cases
@@ -96,6 +101,27 @@ for cnf in "$T"/*.cnf; do
       || { echo "FAIL: lrat-check gave no verdict on $cnf"; cat "$T/check"; exit 1; }
   fi
 done
+
+# Drive the failed-source rule path directly and require that the independently
+# checked proof actually contains a TransitiveReduce unit, rather than passing
+# only because the independent UNSAT component was solved without the rule.
+if [ -x "$LRAT_CHECK" ]; then
+  cnf="$T/transitive-failed.cnf"
+  proof="$cnf.transitive.lrat"
+  TACTIX_STRESS_RULES=TransitiveReduce TACTIX_V4_EARLY_EXIT=0 \
+    "$TACTIX" --stress-policy --lrat "$cnf" "$proof" > "$T/out" \
+    && rc=$? || rc=$?
+  [ "$rc" -eq 20 ] \
+    || { echo "FAIL: transitive failed-source fixture not UNSAT (rc=$rc)"; exit 1; }
+  grep -Eq '^c transitive  .* [1-9][0-9]* units,' "$T/out" \
+    || { echo "FAIL: transitive failed-source fixture emitted no unit"; cat "$T/out"; exit 1; }
+  "$LRAT_CHECK" "$cnf" "$proof" > "$T/check" 2>&1 \
+    || { echo "FAIL: native LRAT of transitive failed-source unit rejected"; \
+         cat "$T/check"; exit 1; }
+  grep -q 'c VERIFIED' "$T/check" \
+    || { echo "FAIL: lrat-check gave no transitive-unit verdict"; \
+         cat "$T/check"; exit 1; }
+fi
 
 # Analyze's level-one failed-literal path can emit more than one root unit from
 # one conflict.  Drive the exact rule transition in the analysis fixture, then

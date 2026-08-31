@@ -136,21 +136,44 @@ int main(int argc, char **argv) {
       continue;
     // model set of the original formula
     const std::set<uint32_t> before = models(NV, orig, units, larges);
+    const size_t trail_before = k.trail.size();
+    bool became_unsat = false;
     if (mode == 2 || mode == 3) { // N1: per-source instances, random order
       std::vector<Lit> srcs;
       transitive_reduce_sources(k, srcs);
       std::shuffle(srcs.begin(), srcs.end(), rng);
-      for (const Lit s : srcs)
-        transitive_reduce_try(k, s);
+      for (const Lit s : srcs) {
+        // A failed source now learns a unit immediately.  The production
+        // dosed surface reaches root after that candidate before considering
+        // the next pre-enumerated source; mirror that lifecycle here instead
+        // of invoking a root-only rule after its prior unit found a conflict.
+        if (k.inconsistent || !transitive_reduce_guard(k)) {
+          became_unsat = k.inconsistent;
+          break;
+        }
+        const ApplyResult result = transitive_reduce_try(k, s);
+        if (result == ApplyResult::Unsat || k.inconsistent ||
+            (result == ApplyResult::Ok && inprocess_reach_root(k))) {
+          became_unsat = true;
+          break;
+        }
+      }
     } else {
-      transitive_reduce_apply(k);
+      became_unsat = transitive_reduce_apply(k) == ApplyResult::Unsat;
     }
+    // Learned/propagated root literals are part of the post-rule formula
+    // state even though the kernel stores them on the trail rather than in
+    // the binary watch set enumerated below.
+    for (size_t i = trail_before; i != k.trail.size(); ++i)
+      units.push_back(k.trail[i]);
     ran++;
     deleted_total += k.stats.transitive_deleted;
     if (k.stats.transitive_deleted)
       del_seen++;
     kernel_check_invariants(k); // watch lists / mirror symmetry still sane
-    const std::set<uint32_t> after = models(NV, live_binaries(k), units, larges);
+    const std::set<uint32_t> after =
+        became_unsat ? std::set<uint32_t>{}
+                     : models(NV, live_binaries(k), units, larges);
     if (before != after) {
       printf("MISMATCH iter=%d\nORIGINAL:\n", iter);
       for (auto &b : orig)

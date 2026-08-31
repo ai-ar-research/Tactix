@@ -1259,11 +1259,13 @@ static const ClauseIndex &sorted_keys(const Kernel &k,
   return index;
 }
 
-// Index every irredundant clause of size 3..CONG_XOR_ARITY+1 by its sorted
-// literals, including clauses currently satisfied or shortened by root values:
-// while present they still justify the original XOR/ITE relation, which the
-// closure simplifies under those values.  Gate clauses are never rewritten
-// within an apply, so one snapshot is valid for the whole closure.
+// Index every irredundant clause whose root-effective size is
+// 3..CONG_XOR_ARITY+1.  Kissat's XOR/ITE candidate initialization ignores
+// root-false literals and discards a clause containing a root-true literal
+// before gate matching.  In particular, a ternary XOR encoding with one fixed
+// input becomes binary and is no longer a Congruence gate; Substitute may still
+// discover the residual relation from the binary graph later.  Retaining the
+// original clause shape here over-extracts exactly those valued gates.
 void build_clause_index(const Kernel &k, ClauseIndex &index) {
   std::vector<Lit> ls;
   // Every indexed clause has at least three literals and therefore at least
@@ -1285,13 +1287,23 @@ void build_clause_index(const Kernel &k, ClauseIndex &index) {
     }
     const Clause *c = clause_at(k.arena, ref);
     ref += clause_actual_words(c);
-    if (c->garbage() || c->redundant() || c->size < 3 ||
-        c->size > CONG_XOR_ARITY + 1)
+    if (c->garbage() || c->redundant())
       continue;
-    k.stats.congruence_ticks += c->size;
     ls.clear();
-    for (const Lit l : *c)
+    bool satisfied = false;
+    for (const Lit l : *c) {
+      const int8_t value = k.value(l);
+      if (value < 0)
+        continue;
+      if (value > 0) {
+        satisfied = true;
+        break;
+      }
       ls.push_back(l);
+    }
+    if (satisfied || ls.size() < 3 || ls.size() > CONG_XOR_ARITY + 1)
+      continue;
+    k.stats.congruence_ticks += ls.size();
     index.insert(small_key(ls.data(), static_cast<uint32_t>(ls.size())));
   }
   index.finish();
@@ -2186,6 +2198,8 @@ bool add_equivalence(Kernel &k, const CongGate &ga, const CongGate &gb,
     if (k.proof)
       k.proof->add_rup(lrat ? id : 0, lits, 2, lrat ? ch.data() : nullptr,
                        lrat ? static_cast<uint32_t>(ch.size()) : 0);
+    event_trace_binary_lifecycle(k, "congruence-gate-equivalence-site", x, y,
+                                 id, kernel_binary_copies(k, x, y));
     kernel_add_binary_clause(k, x, y, id);
   };
   const bool had_fwd = kernel_binary_live(k, negate(a), b);
@@ -2227,6 +2241,9 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
     if (k.proof)
       k.proof->add_rup(lrat ? id : 0, lits, 2, lrat ? ch.data() : nullptr,
                        lrat ? static_cast<uint32_t>(ch.size()) : 0);
+    event_trace_binary_lifecycle(
+        k, "congruence-chained-equivalence-site", x, y, id,
+        kernel_binary_copies(k, x, y));
     kernel_add_binary_clause(k, x, y, id);
   };
   const bool had_fwd = kernel_binary_live(k, negate(a), b);
@@ -2277,6 +2294,9 @@ bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
       k.proof->add_rup(lrat ? id : 0, clause, 2,
                        lrat ? chain.data() : nullptr,
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
+    event_trace_binary_lifecycle(k, "congruence-representative-site",
+                                 clause[0], clause[1], id,
+                                 kernel_binary_copies(k, clause[0], clause[1]));
     kernel_add_binary_clause(k, clause[0], clause[1], id);
   };
   if (need_forward)
@@ -2399,6 +2419,8 @@ static void install_congruence_binary_candidates(
                        lrat ? static_cast<uint32_t>(chain.size()) : 0);
     note_prefix(x);
     note_prefix(y);
+    event_trace_binary_lifecycle(k, "congruence-extracted-site", x, y, id,
+                                 kernel_binary_copies(k, x, y));
     kernel_add_binary_clause(k, x, y, id);
     extracted++;
   }
@@ -3063,6 +3085,17 @@ ApplyResult congruence_apply(Kernel &k) {
     }
     tail = node;
   };
+  // Kissat connects every new gate to every RHS literal before it discovers
+  // or propagates any equivalence.  This is semantically wider than indexing
+  // only ordinary hash-table keys: a valued two-input AND is currently a
+  // residual clause (`Canon::Skip`), but an input merge can collapse it to a
+  // unary gate and force a unit.  Register the immutable raw RHS here so those
+  // skipped gates remain reachable.  Representative merges below splice the
+  // retired occurrence list onto the surviving literal, mirroring Kissat's
+  // `rewrite_gates` move without mutating the extracted gate record.
+  for (uint32_t gate = 0; gate < gates.size(); gate++)
+    for (const Lit input : gates[gate].inputs)
+      add_occurrence(input, gate);
   // The initial FIFO is exactly 0..gates.size()-1; represent that prefix
   // implicitly and store only later reschedules.  Queue membership is one bit
   // per gate, not one byte.
@@ -3176,6 +3209,25 @@ ApplyResult congruence_apply(Kernel &k) {
           break;
         node = occ_nodes[node].next;
       }
+      // The raw gate records stay immutable, so move the whole logical
+      // occurrence ring from the retired literal to its representative.
+      // Concatenation preserves the existing destination prefix followed by
+      // source registration order, the same order in which Kissat reconnects
+      // surviving rewritten gates. Duplicate gate ids are harmless: `inq`
+      // deduplicates each reschedule, as Kissat's garbage/update checks do.
+      const Lit destination = side == big ? sm : negate(sm);
+      uint32_t &source_tail = occ_tails.get_or_create(side);
+      uint32_t &destination_tail = occ_tails.get_or_create(destination);
+      if (destination_tail == UINT32_MAX)
+        destination_tail = source_tail;
+      else {
+        const uint32_t source_head = occ_nodes[source_tail].next;
+        const uint32_t destination_head = occ_nodes[destination_tail].next;
+        occ_nodes[destination_tail].next = source_head;
+        occ_nodes[source_tail].next = destination_head;
+        destination_tail = source_tail;
+      }
+      source_tail = UINT32_MAX;
     }
     // The raw-output binaries are proof scaffolding only.  Kissat keeps the
     // representative pair emitted above, not a second edge between arbitrary
@@ -3561,6 +3613,47 @@ ApplyResult congruence_apply(Kernel &k) {
         k.stats.congruence_unjustified++;
         continue; // ladder did not replay — emit nothing, drop the inference
       }
+      const char *const degeneracy_site =
+          gates[i].kind == GateKind::And
+              ? "congruence-and-degeneracy-call"
+              : gates[i].kind == GateKind::Xor
+                    ? "congruence-xor-degeneracy-call"
+                    : "congruence-ite-degeneracy-call";
+      const char *degeneracy_payload = nullptr;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      char degeneracy_payload_storage[512];
+      size_t payload_used = static_cast<size_t>(std::snprintf(
+          degeneracy_payload_storage, sizeof(degeneracy_payload_storage),
+          "gate=%u|output=%d|canonical_output=%d|residual=%d|inputs=", i,
+          kernel_externalize(k, gates[i].output),
+          kernel_externalize(k, out_i), kernel_externalize(k, other)));
+      for (size_t input_index = 0; input_index < gates[i].inputs.size();
+           input_index++)
+        payload_used += static_cast<size_t>(std::snprintf(
+            degeneracy_payload_storage + payload_used,
+            sizeof(degeneracy_payload_storage) - payload_used, "%s%d",
+            input_index ? "," : "",
+            kernel_externalize(k, gates[i].inputs[input_index])));
+      payload_used += static_cast<size_t>(std::snprintf(
+          degeneracy_payload_storage + payload_used,
+          sizeof(degeneracy_payload_storage) - payload_used, "|cancelled="));
+      for (size_t cancelled_index = 0; cancelled_index < cancelled.size();
+           cancelled_index++)
+        payload_used += static_cast<size_t>(std::snprintf(
+            degeneracy_payload_storage + payload_used,
+            sizeof(degeneracy_payload_storage) - payload_used, "%s%d",
+            cancelled_index ? "," : "",
+            kernel_externalize(k, cancelled[cancelled_index])));
+      degeneracy_payload = degeneracy_payload_storage;
+#endif
+      event_trace_binary_lifecycle(k, degeneracy_site, negate(out_i), other,
+                                   0, kernel_binary_copies(k, negate(out_i),
+                                                           other),
+                                   degeneracy_payload);
+      event_trace_binary_lifecycle(k, degeneracy_site, out_i, negate(other),
+                                   0, kernel_binary_copies(k, out_i,
+                                                           negate(other)),
+                                   degeneracy_payload);
       AddedEquivalence added;
       if (!add_equivalence_chained(k, out_i, other, cch[0], cch[1],
                                    &added)) {
@@ -3589,8 +3682,6 @@ ApplyResult congruence_apply(Kernel &k) {
       cm.val_gate += valued;
     }
     Stage table_stage(&cong_t.table);
-    for (const Lit l : key)
-      add_occurrence(l, i); // reschedule when a canonical input merges
     ClosureTable &tab = table[static_cast<int>(gates[i].kind)];
     const ClosureTable::Lookup lookup = tab.lookup_or_insert(key, i);
     if (lookup.inserted) {
@@ -3663,6 +3754,15 @@ ApplyResult congruence_apply(Kernel &k) {
         }
         continue; // no checkable chain — drop the inference, keep N2
       }
+      const char *const matching_site =
+          gates[i].kind == GateKind::Xor ? "congruence-xor-matching-call"
+                                         : "congruence-ite-matching-call";
+      event_trace_binary_lifecycle(k, matching_site, negate(out_j), out_i, 0,
+                                   kernel_binary_copies(k, negate(out_j),
+                                                           out_i));
+      event_trace_binary_lifecycle(k, matching_site, out_j, negate(out_i), 0,
+                                   kernel_binary_copies(k, out_j,
+                                                           negate(out_i)));
       AddedEquivalence added;
       if (!add_equivalence_chained(k, out_j, out_i, cf, cr, &added)) {
         k.stats.congruence_unjustified++;

@@ -1,0 +1,75 @@
+{
+  "schema": "tactix-tierd-rank34-transitive-unit-release-v1",
+  "created_at": "2026-08-31T04:54:45Z",
+  "status": "completed-valid",
+  "submitted_at": "2026-08-31T04:55:48Z",
+  "completed_at": "2026-08-31T05:09:15Z",
+  "slurm_job_id": 1657561,
+  "purpose": "Obtain provisional production-default Rank 34 timing and an independently checked SAT model after the causally validated pinned-Kissat TransitiveReduce failed-source lifecycle repair.",
+  "predecessor": "../20260831-3610-tierd-rank34-transitive-unit-causal",
+  "scoring": false,
+  "input_sha256": {
+    "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd"
+  },
+  "source": {
+    "base_commit": "1c719fc8e23c94868164a9559491f2c3550efac1",
+    "production_change": "Unconditionally retain earlier transitive deletions, learn a failed-source unit with its native-LRAT BFS chain, and consume/propagate the root at pinned-Kissat's per-source lifecycle point."
+  },
+  "pins": {
+    "tactix": {"path": "pins/tactix-tactix", "sha256": "c783146468ccd8e6d87d78efad9439555a6afe4ae503f357f4a9f0c3c60e4066", "mode": "Release"},
+    "checkmodel": {"path": "pins/checkmodel", "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"},
+    "modelcheck_py": {"path": "pins/modelcheck.py", "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"},
+    "drat_trim": {"path": "pins/drat-trim", "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"}
+  },
+  "comparators": {
+    "evaluated_candidate_seconds": 616.624,
+    "preceding_bve_lifecycle_seconds": 1014.55,
+    "kissat_seconds": 344.045
+  },
+  "correctness_gate": {
+    "release_tests": "76/76 passed; affected proof/bruteforce tests rerun after fixture strengthening",
+    "trace_tests": "75/75 passed; affected bruteforce tests rerun after fixture strengthening",
+    "asan_ubsan_affected_tests": "11/11 passed with leak detection disabled because ptrace prevents LeakSanitizer initialization",
+    "external_transitive_lrat_check": "passed",
+    "causal_binary_snapshots": "4/4 duplicate-sensitive sorted multisets exact",
+    "sat_model_check_required": true,
+    "artifact_cleanup_required": true,
+    "derived_artifact_cleanup_required": true,
+    "zero_residue_required": true
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "tasks": 1,
+    "node_constraint": null,
+    "one_solver_run_per_task": true,
+    "cpus_per_task": 12,
+    "scheduler_memory": "48000M",
+    "solver_timeout_seconds": 1200,
+    "task_wall_seconds": 1800
+  },
+  "result": {
+    "verdict": "SAT",
+    "expected_match": true,
+    "solve_wall_seconds": 804.709,
+    "timed_out": false,
+    "conflicts": 8641379,
+    "decisions": 16866288,
+    "propagations": 1793431878,
+    "transitive_units": 51,
+    "peak_rss_kib": 133756,
+    "sampled_process_tree_peak_rss_kib": 136492,
+    "slurm_batch_max_rss_kib": 136824,
+    "model_check": "verified",
+    "model_check_seconds": 0.217,
+    "artifact_deleted": true,
+    "derived_artifacts_deleted": true,
+    "cleanup_pending": false,
+    "runtime_ratios": {
+      "over_evaluated_candidate": 1.305023807,
+      "over_preceding_bve_lifecycle": 0.793168400,
+      "over_kissat": 2.338964380
+    },
+    "disposition": "Retain the causally exact general repair: it improves the current mechanism-correct Rank 34 baseline by 20.7% and lowers memory, but remains 30.5% slower than the evaluated candidate and 2.339x Kissat. Run one uniform homogeneous Rank 1-40 candidate before aggregate acceptance; do not revert or add a formula/rank gate."
+  },
+  "n1_n4": "One production-default Rank 34 task with an unconditional pinned-Kissat rule-lifecycle repair; no diagnostic arm, formula/rank/benchmark selector, admission, score, heap, effort, size, density, identity, conflict, or classification gate."
+}

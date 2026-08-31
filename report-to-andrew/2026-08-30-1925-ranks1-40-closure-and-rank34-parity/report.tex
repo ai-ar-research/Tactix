@@ -1,0 +1,198 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.8in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+\emergencystretch=3em
+\newcommand{\code}[1]{\texttt{#1}}
+\title{Phase 4.25: Complete Rank 1--40 Coverage and the Rank-34 BVE Frontier}
+\author{Tactix development report for Andrew}
+\date{30 August 2026}
+
+\begin{document}
+\maketitle
+
+\section{Executive outcome}
+
+The current homogeneous Rank 1--40 candidate solves every instance with the
+expected verdict.  All 22 SAT models and all 18 UNSAT proofs have now passed
+independent validation, and all 40 result records report certificate and
+derived-artifact cleanup with no residue.  Campaign 1657091 therefore closes
+the missing-verdict objective on this evaluation set.
+
+The candidate takes 9,305.953 seconds, versus 9,987.021 seconds for its
+immediate predecessor, 11,222.888 seconds for frozen accepted Tactix, and
+7,675.236 seconds for pinned Kissat.  It is 0.931803x the predecessor and
+0.829189x accepted Tactix, but remains 1.212466x Kissat.  SAT aggregate time is
+4,083.055 seconds versus Kissat's 4,057.914 seconds; the remaining aggregate
+gap is primarily UNSAT, where Tactix is 1.443858x Kissat by total time.
+
+This is a coverage and correctness closure, not yet the Phase-4.25 performance
+exit.  The candidate binary is immutable SHA-256
+\code{1d85a694a122e3a466870b598e82159442196ffef7a5d37343912021678cb4f7}.
+Newer Congruence and BVE parity work is deliberately unpromoted and is not
+included in these aggregate numbers.
+
+\section{Major progress since the 27 August report}
+
+\subsection{Uniform strategy and ordering contract}
+
+Production now uses Kissat creation order unconditionally.  CaDiCaL arena
+order remains available only through the explicit diagnostic arm
+\code{TACTIX\_ARENA\_ORDER=1}.  Formula-dependent production profiles and
+overrides remain removed.  BVE, Factor, forward subsumption, and Vivify are
+uniformly enabled at 100, 50, 100, and 100 permille.  No retained repair uses a
+formula, size, density, benchmark, identity, rank, classification, admission,
+or effort gate.  This preserves N1--N4 and makes regressions evidence of a
+general missing mechanism rather than grounds for restoring a selector.
+
+\subsection{General mechanism closures}
+
+The most consequential retained repairs are:
+
+\begin{itemize}
+\item Stable Reorder ties use permanent first-import rank, and scanning stops
+  at the 100th open clause literal, matching Kissat's compact order.
+\item Packed large on-the-fly strengthening now separates physical
+  reconstruction from semantic added/removed notifications.  This closes
+  Rank 15 without changing admission or effort.
+\item Duplicate AND/OR gate membership, physical large gate bases, and
+  general-definition import now follow Kissat's physical clause image.
+\item Compact random-decision slots use first-import order filtered to the
+  activated live population, while queue and score initialization retain
+  activation order.  This removes Rank 20's first search divergence.
+\item Strengthen's local mixed stream and proofless/DRAT binary-id storage were
+  reduced without changing clause order or the checked search trajectory,
+  materially lowering Rank-6 memory and runtime.
+\end{itemize}
+
+Rank 15 is now close to Kissat, Rank 20 is faster than Kissat in the homogeneous
+run, and Rank 36 remains close.  Selected final rows are:
+
+\begin{center}
+\begin{tabular}{rrrrr}
+\toprule
+Rank & Verdict & Tactix (s) & Kissat (s) & Ratio \\
+\midrule
+15 & SAT & 82.195 & 80.788 & 1.02x \\
+20 & SAT & 124.566 & 140.142 & 0.89x \\
+29 & SAT & 314.075 & 297.121 & 1.06x \\
+32 & UNSAT & 387.998 & 289.685 & 1.34x \\
+34 & SAT & 616.624 & 344.045 & 1.79x \\
+36 & SAT & 383.362 & 368.510 & 1.04x \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Codebase revisit}
+
+The retained diff was reread against pinned Kissat and audited for strategy
+ownership, physical occurrence representation, ordering, and diagnostic
+leakage.  No formula-dependent consumer was reintroduced.  The revisit also
+confirmed that the trace diagnostics are compiled out of Release and that the
+CaDiCaL order is not a hidden production fallback.  The detailed audit is in
+\path{benchmarks/reports/2026-08-30-codebase-revisit-and-otfs-candidate.md}.
+
+\section{Rank-34 causal progress}
+
+Rank 34 is the largest remaining absolute SAT gap.  The investigation began at
+the first search split and moved upstream through Substitute and Sweep to a
+Congruence closure defect.  Tactix registered only currently canonical gate
+images, so a residual valued gate could disappear from the rescheduling graph.
+Kissat registers every gate's immutable right-hand side and moves occurrence
+rings when representatives merge.  The general repair restores Kissat's 3,778
+merges and 33 total startup units, including the causal units \code{-1136} and
+\code{-574}.  It is retained even though the first full Rank-34 solve regressed
+to 744.945 seconds, because it repairs a reference invariant rather than a
+benchmark-specific choice.
+
+The next owner is BVE.  Several general physical-lifecycle mismatches have been
+closed:
+
+\begin{itemize}
+\item syntactic gate implication indices contain only physical binaries;
+\item failed candidates compact inspected physical occurrence stacks;
+\item an absent heap item receives a score update without reinsertion;
+\item newly produced root units flush their connected satisfied clauses at the
+  same point as Kissat; and
+\item BVE's embedded Kitten consumes the initialization seed before its first
+  cleared environment, while Sweep continues to use its fresh seed zero.
+\end{itemize}
+
+After these repairs, every one of the first BVE schedule's 14,582 heap pops is
+identical to Kissat.  Both solvers then create the same 249-variable second
+schedule in the same insertion order.  Its relevance image is exact, but three
+selected physical occurrence counts differ:
+
+\begin{center}
+\begin{tabular}{rrrr}
+\toprule
+External variable & Kissat positive/negative & Tactix positive/negative & Delta \\
+\midrule
+839 & 5/5 & 4/5 & one positive missing \\
+843 & 5/6 & 4/5 & one on each polarity missing \\
+845 & 4/6 & 4/5 & one negative missing \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Controls 842, 14754, and 850 are exact at 5/5, 4/6, and 7/9.  This is measured
+evidence that the remaining boundary is first-round physical clause/occurrence
+lifecycle, not Factor, EVSIDS arithmetic, heap comparison, or schedule
+admission.  The exact clause identities and their first removal/addition event
+are the next diagnostic target.
+
+\section{Correctness and provenance}
+
+The Rank 1--40 authority is
+\path{benchmarks/runs/20260830-2710-tierd-ranks1-40-randec-import-order/}.
+Its 40 result records contain expected verdicts, 22 verified models, 18
+verified DRAT proofs, and zero cleanup residue.  The generated full per-rank
+runtime/RSS comparison is \path{comparison-live.md} in that directory.
+
+The Rank-34 chronology is
+\path{benchmarks/reports/2026-08-30-rank34-sat-divergence.md}.  The complete
+first-schedule pop windows are campaigns 3060, 3190, and 3200; the selected
+second-schedule count comparison is campaign 3210, job 1657375.  These are
+bounded compile-time observer runs and do not alter Release strategy, proof,
+admission, score, or effort.
+
+The current unpromoted worktree has focused BVE and SubSolver tests passing.
+Its most recent full suite had 75 of 76 tests pass; the sole failure was the
+comment-hygiene spelling \code{AND/OR BASE}, which has been corrected but has
+not yet received the final full-suite rerun.  Thus the homogeneous candidate's
+correctness is fully established, while the later Rank-34 work remains
+explicitly pending cumulative validation.
+
+\section{Risks and decisions}
+
+\begin{itemize}
+\item Overall performance is still 1.212466x Kissat, above the 1.10 Phase-4.25
+  target.  UNSAT ranks 22, 31, and 38 remain roughly 2.2x/2.2x/2.1x Kissat.
+\item Representation and memory remain substantially higher on several large
+  SAT instances; complete coverage does not close the memory dimension.
+\item The general Congruence repair and newer BVE repairs are intentionally
+  retained through downstream regressions.  Reverting them would restore an
+  incorrect mechanism and hide the next discrepancy.
+\item No broad campaign will be started merely because a bounded trace moved
+  forward.  The next production gate is a full Release suite followed by one
+  Rank-34 model-checked timing run.
+\item The worktree remains uncommitted.  Commit and push follow a coherent,
+  cumulatively validated increment, not an intermediate observer result.
+\end{itemize}
+
+\section{Next actions}
+
+Identify the exact clauses missing from variables 839, 843, and 845 at the
+second BVE schedule, trace their first-round lifecycle, and repair only the
+general Kissat mismatch.  Then run the complete Release/correctness suite and
+one Rank-34 Release timing/model check.  If that gate is positive or clarifies
+a retained general repair, update the parity ledger and progress documents and
+decide whether one homogeneous Rank 1--40 promotion campaign is justified.
+Continue to prohibit formula, rank, benchmark, size, density, and
+classification selectors.
+
+\end{document}

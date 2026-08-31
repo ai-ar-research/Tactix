@@ -27,8 +27,10 @@ namespace tactix {
 
 namespace {
 
-// kissat reordermaxsize: clauses above this contribute the smallest weight
-// rather than an underflowed one (2^-98 is already indistinguishable from 0).
+// kissat reordermaxsize: stop inspecting a clause as soon as this many open
+// literals have been seen and contribute the smallest table weight.  This is
+// observably different from continuing to scan for a satisfying root literal
+// later in the clause (2^-98 is already indistinguishable from 0 for ranking).
 constexpr uint32_t REORDER_MAX_SIZE = 100;
 
 // weight per clause size, table[s] = 2^-(s-2) for s in [2, REORDER_MAX_SIZE]
@@ -63,8 +65,8 @@ void reorder_weights(const Kernel &k, std::vector<double> &var_weight) {
         satisfied = true;
         break;
       }
-      if (v == 0 && open < REORDER_MAX_SIZE)
-        open++;
+      if (v == 0 && open < REORDER_MAX_SIZE && ++open == REORDER_MAX_SIZE)
+        break;
     }
     if (satisfied)
       continue;
@@ -116,9 +118,15 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
   reorder_weights(k, weight);
   std::vector<Var> sorted;
   sorted.reserve(k.nvars);
-  for (Var v = 0; v < k.nvars; v++)
-    if (!kernel_var_retired(k, v))
+  std::vector<Var> compact_position(k.nvars, INVALID_VAR);
+  for (Var compact = 0; compact < k.compact_import_order.size(); ++compact) {
+    const Var v = k.compact_import_order[compact];
+    if (v >= k.nvars)
+      continue;
+    compact_position[v] = compact;
+    if (heuristics_var_active(k, v))
       sorted.push_back(v);
+  }
   // Kissat rescales before `sort_active_variables_by_weight`.  The order is
   // observable: multiplication can collapse distinct tiny scores to the same
   // floating-point value, at which point the internal-index tiebreak owns the
@@ -141,7 +149,11 @@ ApplyResult reorder_apply_target(Kernel &k, uint64_t target) {
       const double sa = h.scores.score[a], sb = h.scores.score[b];
       if (sa != sb)
         return sa < sb;
-      return b < a; // total order, so the sort is well-defined (kissat's)
+      // Kissat's final tiebreak is its current compact internal index. Tactix
+      // keeps stable identities, so permanent first-import rank (with retired
+      // holes skipped) preserves that relative index order. The separate
+      // compact_import_order is activation/random order and is not this tie.
+      return kernel_import_var_order(k, b) < kernel_import_var_order(k, a);
     });
   if (target == REORDER_QUEUE) {
     // The heaviest variable moves to the front last and so becomes the next

@@ -1519,6 +1519,20 @@ static void test_dense_mixed_order_is_consumer_scoped() {
   assert(occ.ordered[binary[0]].size() == 2);
   assert(occ.ordered[binary[0]][0].binary);
   assert(!occ.ordered[binary[0]][1].binary);
+
+  // Kissat removes a binary from the one-word dense vector by stable
+  // compaction.  A later binary is appended behind the surviving large
+  // occurrence; a tombstone would preserve the same logical scan but retain
+  // the wrong physical population and memory image.
+  assert(kernel_delete_binary(k, binary[0], binary[1]));
+  assert(occ.ordered[binary[0]].size() == 1);
+  assert(!occ.ordered[binary[0]][0].binary);
+  const Lit appended = internalize(-4);
+  kernel_add_binary_clause(k, binary[0], appended);
+  assert(occ.ordered[binary[0]].size() == 2);
+  assert(!occ.ordered[binary[0]][0].binary);
+  assert(occ.ordered[binary[0]][1].binary);
+  assert(occ.ordered[binary[0]][1].payload == appended);
   kernel_dense_disconnect(k);
 
   // Returning to a Probe-shaped connection frees the optional formula-wide
@@ -1688,6 +1702,47 @@ static void test_rebuild_large_watches_reselects_root_false_pair() {
   assert(watched_by(k, internalize(3), ref));
   assert(watched_by(k, internalize(4), ref));
   assert(!watched_by(k, negate(root), ref));
+  kernel_check_invariants(k);
+}
+
+static void test_eliminate_rebuild_flushes_root_and_retired_large_clauses() {
+  Kernel k;
+  ScopedHeuristics h(k);
+  kernel_reserve_vars(k, 10);
+  k.var_status.assign(k.nvars, VarStatus::Active);
+  kernel_assign_unit(k, internalize(1));
+  assert(propagate_apply(k) == ApplyResult::Ok);
+
+  const Lit root_redundant[3] = {internalize(1), internalize(2),
+                                 internalize(3)};
+  const Lit root_irredundant[3] = {internalize(1), internalize(4),
+                                   internalize(5)};
+  const Lit retired_irredundant[3] = {internalize(6), internalize(7),
+                                      internalize(8)};
+  const Lit live[3] = {internalize(-2), internalize(9), internalize(10)};
+  const Ref rr = kernel_add_large_clause(k, root_redundant, 3, true, 2);
+  const Ref ri = kernel_add_large_clause(k, root_irredundant, 3, false, 0);
+  const Ref ei = kernel_add_large_clause(k, retired_irredundant, 3, false, 0);
+  const Ref keep = kernel_add_large_clause(k, live, 3, false, 0);
+  k.var_status[var_of(internalize(6))] = VarStatus::Eliminated;
+  heuristics_deactivate_var(k, var_of(internalize(6)));
+  k.unassigned_active--;
+
+  // Pinned `resume_watching_large_clauses_after_elimination` walks the arena
+  // once, deleting both redundant and irredundant root-satisfied clauses and
+  // every clause that still names an eliminated variable before reconnecting.
+  kernel_rebuild_large_watches(k, true);
+
+  assert(clause_at(k.arena, rr)->garbage());
+  assert(clause_at(k.arena, ri)->garbage());
+  assert(clause_at(k.arena, ei)->garbage());
+  assert(!clause_at(k.arena, keep)->garbage());
+  assert(watched_by(k, live[0], keep));
+  assert(watched_by(k, live[1], keep));
+  for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (const WatchEntry watch : k.watches.entries(lit))
+      if (!watch.binary())
+        assert(watch.ref() == keep);
   kernel_check_invariants(k);
 }
 
@@ -2039,6 +2094,7 @@ int main() {
   test_in_place_large_replacement_respects_disconnected_watches();
   test_large_root_flush_preserves_ref_span_and_priority();
   test_rebuild_large_watches_reselects_root_false_pair();
+  test_eliminate_rebuild_flushes_root_and_retired_large_clauses();
   test_watch_repair_primitive();
   test_canonical_binary_watch_rebuild();
   test_null_stack_dense_flush_retains_root_satisfied_pairs();

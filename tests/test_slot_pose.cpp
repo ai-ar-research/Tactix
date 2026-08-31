@@ -134,6 +134,60 @@ public:
 };
 
 static uint64_t zero_meter(const Kernel &) { return 0; }
+static uint64_t one_elimination_meter(const Kernel &k) {
+  return k.stats.bve_eliminated ? 1 : 0;
+}
+
+static DefaultInprocessScheduler::SlotEntry posed_bve_entry() {
+  DefaultInprocessScheduler::SlotEntry bve;
+  bve.rule = tactix_rule_id("BVE");
+  assert(bve.rule >= 0);
+  bve.group = SlotGroup::Eliminate;
+  bve.enabled = true;
+  bve.dosed = true;
+  bve.meter = zero_meter;
+  bve.order = CandidateOrder::Heuristic;
+  return bve;
+}
+
+static void test_bve_round_collects_once_even_without_elimination() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  k.stats.conflicts = 1;
+  DefaultPolicy p;
+  p.inprocess().entries.push_back(posed_bve_entry());
+
+  const uint64_t generation = k.arena_generation;
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  assert(k.stats.bve_eliminated == 0);
+  const uint64_t rounds = p.inprocess().entries[0].tm.admitted;
+  assert(rounds == 1);
+  assert(k.arena_generation == generation + rounds &&
+         "every admitted Kissat elimination round collects, even at zero yield");
+  std::printf("  BVE zero-yield round collects exactly once\n");
+}
+
+static void test_productive_bve_round_does_not_collect_again_at_phase_exit() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-1), internalize(3));
+  k.stats.conflicts = 1;
+  DefaultPolicy p;
+  p.inprocess().entries.push_back(posed_bve_entry());
+
+  const uint64_t generation = k.arena_generation;
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  assert(k.stats.bve_eliminated > 0);
+  const uint64_t rounds = p.inprocess().entries[0].tm.admitted;
+  assert(rounds > 0);
+  assert(k.arena_generation == generation + rounds &&
+         "one collection per round leaves no extra phase-exit collection");
+  std::printf("  productive BVE round collects exactly once\n");
+}
 
 static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
   DefaultStrategyConfig cfg;
@@ -170,7 +224,7 @@ static void test_default_bve_ladder_reaches_kissat_terminal_bound() {
   std::printf("  BVE default ladder: terminal watermark only after bound 16\n");
 }
 
-static void test_dynamic_bve_heap_rearms_at_later_bound() {
+static void test_dynamic_bve_heap_rearms_all_at_later_bound() {
   Kernel k;
   Heuristics h;
   k.h = &h;
@@ -205,10 +259,34 @@ static void test_dynamic_bve_heap_rearms_at_later_bound() {
     assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
     assert(!kernel_var_retired(k, 0));
   }
-  assert(k.bve_min_bound[0] > 8 && k.bve_min_bound[0] <= 16);
   assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
   assert(k.stats.bve_eliminated == 1 && kernel_var_retired(k, 0));
-  std::printf("  BVE dynamic heap: cached candidate rearmed at bound 16\n");
+  std::printf("  BVE dynamic heap: all candidates rearmed at bound 16\n");
+}
+
+static void test_incomplete_bve_round_drops_remaining_retry_flags() {
+  Kernel k;
+  Heuristics h;
+  k.h = &h;
+  kernel_reserve_vars(k, 8);
+  for (int v = 1; v <= 8; v += 2)
+    kernel_add_binary_clause(k, internalize(v), internalize(v + 1));
+  k.stats.conflicts = 1;
+
+  DefaultPolicy p;
+  DefaultInprocessScheduler::SlotEntry bve = posed_bve_entry();
+  bve.meter = one_elimination_meter;
+  bve.permille = 0;
+  p.inprocess().entries.push_back(bve);
+
+  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
+  assert(k.stats.bve_eliminated == 1);
+  for (const uint8_t retry : k.bve_retry)
+    assert(!retry &&
+           "an incomplete Kissat elimination round drops every remaining flag");
+  assert(p.inprocess().elim_clock.marks_mark == k.stats.bve_marks &&
+         "an incomplete round must not advance and blanket-rearm the bound");
+  std::printf("  incomplete BVE round drops remaining retry flags\n");
 }
 
 static void test_factor_bound_walks_posed_bve_ladder() {
@@ -410,8 +488,11 @@ static void check_knobs(DefaultPolicy &p, Kernel &) {
 int main() {
   test_substitute_hand_rolled_budget();
   test_substitute_budget_stops_second_round();
+  test_bve_round_collects_once_even_without_elimination();
+  test_productive_bve_round_does_not_collect_again_at_phase_exit();
   test_default_bve_ladder_reaches_kissat_terminal_bound();
-  test_dynamic_bve_heap_rearms_at_later_bound();
+  test_dynamic_bve_heap_rearms_all_at_later_bound();
+  test_incomplete_bve_round_drops_remaining_retry_flags();
   test_factor_bound_walks_posed_bve_ladder();
   test_pose_and_disable();
 

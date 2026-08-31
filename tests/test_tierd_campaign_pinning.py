@@ -31,4 +31,25 @@ with tempfile.TemporaryDirectory(prefix="tactix-tierd-pin-") as tmp:
     source.write_bytes(b"later debug rebuild")
     assert target.read_bytes() == b"first release binary"
 
+    reference = base / "reference"
+    campaign = base / "checker-campaign"
+    (reference / "pins").mkdir(parents=True)
+    (campaign / "pins").mkdir(parents=True)
+    (reference / "pins/checkmodel").write_text("checker CLI\n")
+    (reference / "pins/modelcheck.py").write_text("checker module\n")
+    TIERD.pin_checker_bundle(
+        reference, campaign, {"checkmodel": "pins/checkmodel"})
+    assert (campaign / "pins/checkmodel").read_text() == "checker CLI\n"
+    assert (campaign / "pins/modelcheck.py").read_text() == "checker module\n"
+
+    missing = base / "missing-module"
+    (missing / "pins").mkdir(parents=True)
+    (missing / "pins/checkmodel").write_text("checker CLI\n")
+    try:
+        TIERD.pin_checker_bundle(
+            missing, base / "must-fail", {"checkmodel": "pins/checkmodel"})
+        raise AssertionError("checkmodel without modelcheck.py was accepted")
+    except SystemExit as error:
+        assert "missing checkmodel runtime module" in str(error)
+
 print("Tier-D campaign pinning: PASS")

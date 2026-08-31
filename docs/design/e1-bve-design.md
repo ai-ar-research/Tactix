@@ -25,6 +25,14 @@ in DefaultPolicy, private effort accounting, and the BVE-bound/Factor coupling.
 These are not specified here; the scheduling ledger owns their defaults,
 accepted deviations, counters, and reopening paths.
 
+Gate extraction has two distinct clause views. Resolution uses the active
+root-filtered parent and cites stripped root units in LRAT chains. General
+definition extraction follows Kissat's physical occurrence export: it removes
+only the pivot and retains root-false literals as embedded Kitten variables.
+AND/OR membership likewise follows the physical binary-watch stream, including
+duplicate-copy mark consumption and root-shortened physical large bases. These
+views must not be collapsed into one convenience representation.
+
 ## 3. Retired material
 
 The original pre-implementation inventory, global-tick scheduler, staged

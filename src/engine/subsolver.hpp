@@ -83,7 +83,7 @@ public:
   // A Kissat Sweep invocation constructs one embedded Kitten and clears it
   // between environments. Clear advances Kitten's deterministic generator;
   // starting a new invocation resets that sequence.
-  void start_kitten_session();
+  void start_kitten_session(bool clear_before_first_environment = false);
 
   // Kissat randomizes every active-capacity phase byte immediately before
   // every Sweep solve. Kept separate from solve because BVE shares this
