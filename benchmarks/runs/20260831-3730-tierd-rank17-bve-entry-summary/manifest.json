@@ -1,0 +1,55 @@
+{
+  "schema": "tactix-tierd-rank17-bve-entry-summary-v1",
+  "campaign": "20260831-3730-tierd-rank17-bve-entry-summary",
+  "created_at": "2026-08-31T08:23:52Z",
+  "status": "completed-valid-clean",
+  "submitted_at": "2026-08-31T08:24:36Z",
+  "slurm_job_id": 1657634,
+  "completed_at": "2026-08-31T08:25:10.329924600Z",
+  "result": {
+    "tasks": "2/2 valid intentional pre-solve exits",
+    "residue": 0,
+    "tactix": "conflicts=18268, decisions=1524970, propagations=130653068, active=944336, vars=944336, trail=616255, irred=1910024, red=8114, binary=66106, scheduled=328081",
+    "kissat": "conflicts=18269, decisions=2327221, propagations=125701690, active=328795, vars=334563, trail=5593, irred=1699758, red=7979, binary=254564, scheduled=328795",
+    "conclusion": "The first Eliminate conflict boundary is effectively shared, but formula, root-fixed, clause, and search state are already materially different. Tactix's old active count includes retained root-fixed identities; BVE schedules exactly its unassigned population."
+  },
+  "scoring": false,
+  "purpose": "Determine whether Rank 17's first BVE schedule mismatch arrives with a different search point, active/root population, or live clause population.",
+  "predecessor": {
+    "campaign": "20260831-3720-tierd-rank17-bve-schedule-members",
+    "result": "The schedules have a 11550-variable symmetric difference and 72684 physical occurrence-pair differences among common members."
+  },
+  "input": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+  "input_sha256": "dc26f207a97200e5b52a46a62477381055b7f0ad41b962492f22a901ed1d1049",
+  "pins": {
+    "tactix_trace": {
+      "path": "pins/tactix-trace",
+      "sha256": "2cd9bc4f5a50526662466cbfb88ade24f16ed88de4b966cd8d6739873e8ab69a",
+      "source_base_commit": "79dc3bfacb2715d1864cf8d9c3e55aec2cee87f3"
+    },
+    "kissat_trace": {
+      "path": "pins/kissat-trace",
+      "sha256": "acc02845ad16d75ffcb64c2df3e251a19da72c4e8e03d3f97379ee4da13470d4",
+      "source_commit": "8af8e56f174b778aef3aa45af9f739b2a5f492c2"
+    }
+  },
+  "observer": "Standalone first-schedule summary adds conflicts, decisions, propagations, active/physical variables, trail size, live irredundant/redundant clauses, and physical binaries; global event tracing remains disabled and the process exits before the first BVE candidate.",
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0-1",
+    "node_constraint": null,
+    "one_solver_run_per_task": true,
+    "cpus_per_task": 12,
+    "scheduler_memory": "48000M",
+    "solver_timeout_seconds": 360,
+    "task_wall_seconds": 420
+  },
+  "harness_sha256": {
+    "frozen_3710_run-one.py": "f8ceb784547e980eb72e5475b60a9ed32b35b881b3311c3c4d24c0e7dfcf6ab7",
+    "run-one.py": "66299d07e02f94035e0b5df9cf653bde682a95da269406c13087ac3a7aed08a3",
+    "array.sbatch": "2b3d7a5b6c1cf9ccbbf1c90c2ce47fa05c6fadb89661668599c59eda847f0429",
+    "matrix.tsv": "610a8b09be1b958ed6eef80e6a5155ede5bcd2dd50f270008fa1e6ad185fadb4"
+  },
+  "validation": "Both observer variants build, the focused Tactix fork test passes, each task hash-checks its input and immutable binary, exactly one summary row is required, and task-local data is deleted. Intentional pre-solve exits are not scored.",
+  "n1_n4": "Trace-only observation; no production option, solver mutation, formula/rank/benchmark gate, classification consumer, effort/admission change, or proof-rule change."
+}

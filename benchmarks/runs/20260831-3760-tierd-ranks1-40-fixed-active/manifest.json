@@ -1,0 +1,134 @@
+{
+  "schema": "tactix-tierd-ranks1-40-fixed-active-v1",
+  "created_at": "2026-08-31T08:54:10Z",
+  "status": "solver-complete-validation-running",
+  "submitted_at": "2026-08-31T08:58:09Z",
+  "slurm_job_id": 1657639,
+  "solver_completed_at": "2026-08-31T09:13:09.600096+00:00",
+  "solver_completion": "40/40 expected verdicts, no solver timeout",
+  "validation_snapshot": {
+    "recorded_at": "2026-08-31T10:06:38Z",
+    "sat_models": "22/22 verified",
+    "unsat_proofs": "16/18 verified; Rank 22 and Rank 33 checks continue nonblocking",
+    "invalid": 0,
+    "completed_result_residue": 0
+  },
+  "aggregate": {
+    "provisional": true,
+    "candidate_seconds": 10290.269,
+    "candidate_sat_seconds": 4520.427,
+    "candidate_unsat_seconds": 5769.842,
+    "candidate_peak_process_tree_rss_kib": 16987860,
+    "candidate_over_previous_total": 0.9731863435,
+    "candidate_over_previous_geomean": 0.9739476995,
+    "candidate_over_accepted_total": 0.9169002667,
+    "candidate_over_accepted_geomean": 0.9304266963,
+    "candidate_over_kissat_total": 1.3407104355,
+    "candidate_over_kissat_geomean": 1.3302998140,
+    "candidate_sat_over_previous_total": 0.8979411479,
+    "candidate_sat_over_kissat_total": 1.1139780192,
+    "candidate_unsat_over_previous_total": 1.0415670652,
+    "candidate_unsat_over_kissat_total": 1.5950589967,
+    "disposition": "Retain the general Kissat-consistent repair. Coverage is 40/40 and aggregate improves versus the preceding homogeneous candidate. Rank 33's 1.905x regression is a downstream trajectory owner to localize, not grounds for a selector or rollback."
+  },
+  "submission_history": [
+    {
+      "slurm_job_id": 1657639,
+      "submitted_at": "2026-08-31T08:58:09Z",
+      "status": "solver-complete-validation-running"
+    }
+  ],
+  "purpose": "One homogeneous Rank 1-40 validation of the general Kissat-consistent fixed-variable active-state repair on top of every retained parity repair.",
+  "hypothesis": "Excluding semantic level-zero fixed variables from Tactix's live-active population, while retaining their identities for proof and model reconstruction, improves fixed-point scheduling and downstream search without sacrificing any solved rank.",
+  "pass_criterion": "All 40 solver tasks return expected verdicts; all 22 SAT models validate independently; all 18 UNSAT proofs may finish independently after provisional timing; no invalidity, solve loss, or task-local residue is permitted before scoring.",
+  "n4": "One uniform production binary for every rank; no formula, rank, benchmark, size, density, literal, conflict, classification, admission, or effort gate.",
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "array": "0-39",
+    "node_constraint": null,
+    "one_solver_run_per_array_task": true,
+    "cpus_per_task": 12,
+    "scheduler_memory": "48000M",
+    "solver_timeout_seconds": 1200,
+    "checker_timeout_seconds": 16000,
+    "task_wall_seconds": 18000,
+    "proof_mode": "DRAT with independent drat-trim; provisional UNSAT timing is published before checking"
+  },
+  "pins": {
+    "tactix": {
+      "path": "pins/tactix-tactix",
+      "sha256": "5743b0a65b76b3cc92d6011b9021744d231c0544cbfc35f14350d63aa5a03698",
+      "source_base_commit": "79dc3bfacb2715d1864cf8d9c3e55aec2cee87f3",
+      "source_delta": "kernel_active_variables excludes retained semantic level-zero fixed identities while continuing to count non-root search assignments; Trace-only schedule observers do not enter this Release binary's production behavior.",
+      "mode": "Release, one uniform default binary, no diagnostic environment arms"
+    },
+    "drat-trim": {
+      "path": "pins/drat-trim",
+      "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    "checkmodel": {
+      "path": "pins/checkmodel",
+      "sha256": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf"
+    },
+    "modelcheck.py": {
+      "path": "pins/modelcheck.py",
+      "sha256": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98"
+    }
+  },
+  "comparison_authority": {
+    "previous_candidate_campaign": "20260831-3630-tierd-ranks1-40-transitive-unit",
+    "previous_candidate_status": "40/40 expected verdicts, 22/22 models verified, 18/18 proofs verified, zero residue",
+    "accepted_kissat_campaign": "20260829-1930-tierd-ranks1-40-accepted-fresh",
+    "use": "The preceding homogeneous Tactix, accepted Tactix, and pinned Kissat records are immutable comparison authorities; no comparator solver is rerun."
+  },
+  "input_sha256": {
+    "tierD24-26/05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz": "8c65ada442c615c70453193ee87f86a668de6a594a6de079562824e33d99fae2",
+    "tierD24-26/093fa3ff9f7bc9979c43f9d2310ac21d-128_125.sanitized.cnf.xz": "a5be600b3cd984b7d160450e42c8bec29bfaa58f0f3bbe987bc722c2ee90973e",
+    "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz": "960f0bd90daf7eac3dc1da0bfec80b3edc591183bff6bd0df88ba3b8901cbc7a",
+    "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz": "1ddcff26a1f5b1fa0723a2c6c9fd27650d0c46f687ef982330ed2f78087506db",
+    "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz": "dc26f207a97200e5b52a46a62477381055b7f0ad41b962492f22a901ed1d1049",
+    "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+    "tierD24-26/0f262afd5b117000f8b4734d175aadab-linked_list_swap_contents_safety_unwind73.cnf.xz": "dc064cc4c0d69376f5d53ebeeca98a597b25cfc8c0dec5c10664d01bee438b68",
+    "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz": "e5154585c040e790b266d83e8ccef82eb1377ddb41c30f57fd945efab1b9aae4",
+    "tierD24-26/1545660e72158c7e90da5ad4c877a124-hwmcc20miters-iso-rast-p06.sanitized.cnf.xz": "af2efe58212d6e1c9fcfd55e6834104e3d11abb05a0c9bdc71b11ae64f8331e3",
+    "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz": "1066d755132ccf69a4823d51d866a70dea0ef4a652eb49d5cb7266fc55d902e1",
+    "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz": "3ee6c6db49c2d64d13121d47a59e4783ae5525d96c9668ba72c1e1ff6d75b5e0",
+    "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz": "32011f483030197306b88c9cc705630a2f1ab47a02263ae87af132f5ed40d528",
+    "tierD24-26/1a20d903db74ab566efc68a35e6b0ec5-hwmcc20miters-iso-rast-p11.sanitized.cnf.xz": "d313fd7a916b91595b806e3168205076916e9b5f2cafdd9d0ec22acc924b08a5",
+    "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz": "9783e5be11cea236f13a0d6800173103e6dd8707367f7a064ec249060363b235",
+    "tierD24-26/210fe1c0ffefde5bcd03d59b1efa6984-32_325.sanitized.cnf.xz": "0a5da25410435f2b56cc7c86c2e62e3234980be07b1ad89575de30e69d8433f7",
+    "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz": "ff8adaab784f0655ac2e249bf18d36bfb80fa1c812f48d690ac5c27208c65fcc",
+    "tierD24-26/26b648475cfd06695a17ac95f4469744-128_75.sanitized.cnf.xz": "4920ce60aefe5f8ed848075ed8186398ca8278f0249170a18d130d58882d82d9",
+    "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz": "b593364c559acab10fed9546371efe2f96683fd2c21021439dc340d6fa1ea85c",
+    "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz": "d8558976bb5b8a291b5d1ca9c997470b502f8e8bfc1abb84e7ac547c5069a620",
+    "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz": "798e6a21073247e52119a379c76bb8ffddc0e0ce663d2a4ccf84e012eb1a5167",
+    "tierD24-26/3b5d7ec347010e177bfa04b298fc75cf-nla-digbench-scaling_dijkstra-u_valuebound1_transition.cnf.xz": "3ce464fb9cf39c7818d4da76def8c5a3cdf3f6a2c270eeeb4d264873e026686d",
+    "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz": "cc3ed14357ee4977140c2da1a456d011ea2ec4991f3bee42f9fa035b2bbb8271",
+    "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+    "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz": "5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9",
+    "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+    "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz": "d47ddb22e94d30541e13fa6e61c21da3e9b458919f6158a1cfc326aaaa41c5b2",
+    "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+    "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz": "da8c2a27aa6ad3550c6ee749ca342ce8378fab26fc559125498e0ebc2543b31c",
+    "tierD24-26/7a5e9bdbf9b8c025b1f986d6098b6206-cfi-rigid-t2-0048-04-or_3_shuffle_all.cnf.xz": "ae978a0ab50abedec524fa74b99c26cd868abc24355d6ab0b63b7b34937eaec3",
+    "tierD24-26/84c6d7e4a18aacf166105aaa3cd6e3de-128_100.sanitized.cnf.xz": "cec8714835867febe4451761993ec4584993925f704f368309c17d074a361394",
+    "tierD24-26/8d4b50ec0cf99097e9ab0835937afee5-hwmcc17miters-xits-iso-6s281b35.sanitized.cnf.xz": "95b11c4ece1727b5ef1486f093f3237e91cd6717b4ff52ebffb82a59d82c8c4d",
+    "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz": "64c7f897e613f0970251a37a544814160b0d8808a9f3dc601d65c6c83e72f440",
+    "tierD24-26/912ce8c21d8fb8abc491cb205ec23e9f-hwmcc20miters-iso-mul2.sanitized.cnf.xz": "3493fd265023f815793548fee82a1c141db1887c4159d319d785c4336dc68964",
+    "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz": "bd298af2f4a35c9c29581ab4bb0c7a2f24f038a4fc4508594626b99db69adf50",
+    "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz": "847cb416d3ff8302fd950e6b2ea16e4220514723854448b28648291733311015",
+    "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz": "d9d0a31a3e8efa334e8f1d3140e38e908aca019d03b2fb5922f0f71618e892b5",
+    "tierD24-26/a14d9ee17051ec08a4334ba43089502c-64_200.sanitized.cnf.xz": "0d1fefd8017a15547580418c1c9d86bb67525bfb1b2f8505b400a0b438532ea7",
+    "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz": "06d9e02115e51ffb435729ebf0784227a0b64354900dde5362a1055171d9fdd3",
+    "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz": "9e3c14afd394f18ee5550fd3b63a622a49c98b35438f44287fb8ce9af7915e03",
+    "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450"
+  },
+  "harness_sha256": {
+    "matrix.tsv": "533c6ed94aa7150a2162b23473ba84b28d83a9ba1c18ae86e25cd5ea144c29d2",
+    "run-one.py": "0b790d34e83aae3b4daefb401c9ee81f8a3aa7663134d345eb62c209af2c9f3a",
+    "array.sbatch": "0c5155d8b42f62c195200762bfd6328b18ea905b16d933ebf3eb04ef1cdc8300",
+    "aggregate.py": "6a3df829b4fcbc6438391434dbb48bdcf08a91156592cd4adb44b1d74d2e8fcf"
+  },
+  "preflight": "Release 76/76 and Trace 75/75 pass; focused ASan/UBSan kernel, scheduling, event-trace, and slot-pose tests pass; Rank 17 is model-verified SAT in 311.993 seconds versus 449.150 seconds before the repair; the causal first-entry observer changes only active=944336 to active=328081.",
+  "validation": "The runner hash-checks all four pins and exact compressed inputs, publishes provisional timing before proof checks, validates SAT models independently, validates UNSAT proofs with pinned drat-trim, and deletes task-local artifacts. Proof-checker latency does not block provisional solver scoring."
+}

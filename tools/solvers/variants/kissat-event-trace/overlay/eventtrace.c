@@ -2401,8 +2401,10 @@ static uint64_t bve_schedule_member_hash (uint64_t value) {
 }
 
 void kissat_event_trace_bve_schedule (kissat *solver, heap *schedule) {
-  open_trace ();
-  if (!trace_file)
+  const char *standalone = getenv ("KISSAT_BVE_SCHEDULE_TRACE");
+  if (!standalone || !*standalone)
+    open_trace ();
+  if ((!standalone || !*standalone) && !trace_file)
     return;
   trace_bve_pop_ordinal = 0;
   trace_bve_pop_hash = UINT64_C (1469598103934665603);
@@ -2441,6 +2443,39 @@ void kissat_event_trace_bve_schedule (kissat *solver, heap *schedule) {
             solver->bounds.eliminate.additional_clauses,
             SIZE_STACK (schedule->stack), external_sum, xor_hash, sum_hash,
             insertion_hash, topology_hash, score_xor, score_sum);
+  if (standalone && *standalone) {
+    FILE *file = fopen (standalone, "w");
+    if (!file) {
+      perror ("KISSAT_BVE_SCHEDULE_TRACE");
+      exit (2);
+    }
+    fputs ("# bve-schedule-observer\t1\n", file);
+    fprintf (file,
+             "kissat\t%s|conflicts=%" PRIu64 "|decisions=%" PRIu64
+             "|propagations=%" PRIu64 "|active=%u|vars=%u|trail=%zu"
+             "|irred=%" PRIu64 "|red=%" PRIu64 "|binary=%" PRIu64 "\n",
+             payload, solver->statistics.conflicts,
+             solver->statistics.decisions, solver->statistics.propagations,
+             solver->active, solver->vars, SIZE_ARRAY (solver->trail),
+             solver->statistics.clauses_irredundant,
+             solver->statistics.clauses_redundant,
+             solver->statistics.clauses_binary);
+    if (getenv ("SAT_BVE_SCHEDULE_MEMBERS")) {
+      size_t position = 0;
+      for (all_stack (unsigned, idx, schedule->stack)) {
+        uint64_t score_bits;
+        memcpy (&score_bits, schedule->score + idx, sizeof score_bits);
+        fprintf (file,
+                 "member\texternal=%u\tposition=%zu\tpositive=%zu\t"
+                 "negative=%zu\tscore=%016" PRIx64 "\n",
+                 external_variable (solver, idx), position++,
+                 SIZE_WATCHES (WATCHES (LIT (idx))),
+                 SIZE_WATCHES (WATCHES (NOT (LIT (idx)))), score_bits);
+      }
+    }
+    fclose (file);
+    exit (0);
+  }
   kissat_event_trace (solver, "bve_schedule", payload, false);
 }
 

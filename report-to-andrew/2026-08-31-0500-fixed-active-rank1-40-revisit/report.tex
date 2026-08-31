@@ -1,0 +1,192 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.8in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+\emergencystretch=3em
+\newcommand{\code}[1]{\texttt{#1}}
+\title{Phase 4.25: Fixed-Variable Active State and Rank 1--40 Revisit}
+\author{Tactix development report for Andrew}
+\date{31 August 2026}
+
+\begin{document}
+\maketitle
+
+\section{Executive outcome}
+
+The latest convergence pass found and repaired a general mismatch in the
+meaning of an active variable.  Pinned Kissat deactivates a variable as soon
+as it becomes fixed at level zero.  Tactix must retain the same root assignment
+and stable variable identity for proof and model reconstruction, but its shared
+population helper counted every non-retired identity as active.  It therefore
+mixed semantic liveness with physical retention.
+
+The repaired predicate excludes semantic level-zero fixed variables while
+continuing to count non-root search assignments.  It introduces no option,
+formula profile, classification consumer, or benchmark/rank gate.  A uniform
+Rank 1--40 campaign solves every instance in 10,290.269 seconds, improving the
+immediately preceding 10,573.791-second candidate by 2.7\% in total and 2.6\%
+in geometric mean.  All 22 SAT models are independently verified.  At this
+report snapshot 16 of 18 UNSAT proofs are verified and the remaining two
+continue without blocking provisional solver timing; every completed record
+is valid and residue-free.
+
+The increment is positive but not convergence-complete.  SAT time improves
+10.2\%, while UNSAT time regresses 4.2\%, chiefly because Rank 33 grows from
+395.771 to 753.767 seconds.  Rank 17 improves substantially but remains 2.58x
+Kissat.  Peak memory is unchanged and still owned by Rank 10.
+
+\section{How Rank 17 exposed the mismatch}
+
+The preceding Rank-17 investigation localized a 104.637-to-385.402-second
+trajectory change to the per-candidate Eliminate/BVE publication of root
+assignments, pivot retirements, and propagation roots into the decision heap.
+That publication matches Kissat and was retained because it had already made
+Rank 34's complete BVE removal sequence exact.  The next question was the state
+presented to that correct lifecycle.
+
+A conventional global event trace was not usable: both solvers timed out even
+at 900 seconds and emitted only a header.  The replacement is a Trace-only
+standalone observer which performs no work until the first BVE schedule, writes
+one symmetric summary and optional member rows, then exits before the first
+candidate.  It has no Release behavior or production consumer.
+
+The exact member comparison found 328,081 scheduled Tactix variables and
+328,795 Kissat variables.  They share 322,663 members; 5,418 occur only in
+Tactix and 6,132 only in Kissat.  Among common members, 72,684 have different
+physical occurrence pairs, every score differs, and 320,706 heap positions
+differ.  The schedule is therefore already different before the retained
+per-candidate publication runs.
+
+At first BVE entry the conflict boundary is nearly shared (18,268 versus
+18,269), but the physical states are not.  Tactix has a 616,255-entry retained
+root trail, 1,910,024 irredundant clauses, and 66,106 binaries; Kissat has a
+5,593-entry trail, 1,699,758 irredundant clauses, and 254,564 binaries.  Tactix
+reported 944,336 active variables although exactly 328,081 were unassigned and
+scheduled.  The retained roots account for the discrepancy.
+
+\section{Reference semantics and repair}
+
+Pinned code{flags.c::kissat\_mark\_fixed\_literal} sets the fixed flag and
+immediately calls code{deactivate\_variable}.  That transition clears active,
+decrements code{solver->active}, dequeues the variable, and removes it from
+the stable heap.  Ordinary search assignment does not perform this transition,
+so a non-root assigned variable remains active.
+
+Tactix's code{kernel\_active\_variables} now implements that semantic image
+without physically discarding retained reconstruction state.  Focused coverage
+pins both a retained root assignment as inactive and a non-root decision as
+active.
+
+The complete production-consumer audit found exactly the pre-existing Kissat
+consumers:
+
+\begin{itemize}
+\item Factor's code{factordelay} population predicate;
+\item Substitute's productive-round test; and
+\item Probe/Eliminate outer fixed-point tests.
+\end{itemize}
+
+Two additional uses are Trace output only.  Heuristic queue membership,
+variable collection population, and BVE candidate membership remain separate
+physical representations.  No new consumer was added.
+
+Causal job 1657636 proves the repair changes only the first-BVE summary from
+code{active=944336} to code{active=328081}.  Every schedule hash, formula
+count, score hash, decision count, and propagation count remains identical to
+the Tactix-before authority at that boundary.  Focused Release job 1657638 then
+solves Rank 17 with a verified model in 311.993 seconds versus 449.150 before.
+
+\section{Homogeneous Rank 1--40 result}
+
+Job 1657639 uses immutable Release SHA-256
+\code{5743b0a6\ldots a5a03698} for every rank, one solver per array task,
+without a diagnostic environment or comparator rerun.  All 40 provisional
+records return the expected verdict.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+Measure & Candidate & Preceding & Ratio & Kissat & Ratio \\
+\midrule
+Total seconds & 10,290.269 & 10,573.791 & 0.9732x & 7,675.236 & 1.3407x \\
+Geometric mean & -- & -- & 0.9739x & -- & 1.3303x \\
+SAT seconds & 4,520.427 & 5,034.213 & 0.8979x & 4,057.914 & 1.1140x \\
+UNSAT seconds & 5,769.842 & 5,539.578 & 1.0416x & 3,617.322 & 1.5951x \\
+Solved & 40/40 & 40/40 & -- & 40/40 & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The largest improvements relative to the preceding homogeneous candidate are:
+
+\begin{center}
+\begin{tabular}{lrrr}
+\toprule
+Rank & Preceding seconds & Candidate seconds & Ratio \\
+\midrule
+19 & 452.403 & 166.486 & 0.368x \\
+31 & 628.742 & 461.093 & 0.733x \\
+17 & 449.150 & 314.130 & 0.699x \\
+34 & 807.219 & 692.338 & 0.858x \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Rank 36 remains closed at 385.209 seconds versus Kissat's 368.510.  Rank 4 is
+independently verified UNSAT in 17.193 seconds.  Rank 32 remains solved UNSAT
+at 401.877 seconds, close to the preceding 401.623 and below the older accepted
+601.285.
+
+Rank 33 is the principal regression: 395.771 to 753.767 seconds, or 1.905x.
+Smaller regressions occur on Rank 37 (475.753 to 499.286), Rank 6 (86.450 to
+108.434), Rank 22 (420.106 to 436.346), and Rank 40 (420.114 to 433.339).
+These are downstream trajectory evidence.  The reference-consistent active
+repair remains retained while Rank 33 is localized from the last common state.
+
+\section{Memory and codebase revisit}
+
+Peak sampled process-tree RSS is unchanged at 16,987,860 KiB and remains Rank
+10.  This repair changes semantic population accounting, not physical storage;
+it does not remove retained clauses, watches, variable-indexed arrays, or proof
+and model identities.  Medium instances also remain commonly two or more times
+Kissat's RSS.  Rank 10 representation ownership remains the memory priority.
+
+The codebase revisit audited every active-population consumer against pinned
+Kissat and separated four concepts which should not be collapsed: semantic
+active population, physical heuristic membership, collection population, and
+BVE occurrence membership.  The production change remains deliberately small.
+The bounded schedule observer is retained only as diagnostic infrastructure;
+its environment names are absent from Release.
+
+Release passes 76/76 and Trace 75/75 after the revisit.  N1--N4, native proof
+accountability, the proof-rule/strategy boundary, Kissat creation order, and
+uniform BVE/Factor/forward-subsumption/Vivify defaults remain intact.  The
+removed Dose5, Factor5, NoBve, NoBveLight, and StartupFactorOnly profiles remain
+absent.
+
+Detailed evidence and the complete per-rank runtime/memory table are:
+
+\begin{itemize}
+\item \path{benchmarks/reports/2026-08-31-fixed-active-rank1-40-codebase-revisit.md};
+\item \path{benchmarks/reports/2026-08-31-rank17-bve-h-lifecycle-regression.md}; and
+\item \path{benchmarks/runs/20260831-3760-tierd-ranks1-40-fixed-active/comparison-live.md}.
+\end{itemize}
+
+\section{Decision and next work}
+
+Retain the active-state repair as a reference-correct and aggregate-positive
+increment.  Do not add an exception for Rank 33 or roll back the repair.  The
+next runtime owner is Rank 33's first downstream divergence; Rank 17 remains an
+upstream physical formula/root-compaction/search-state investigation.  Rank 10
+remains the first portable memory target.
+
+This checkpoint completes the requested implementation item, homogeneous
+Rank 1--40 evaluation, codebase/mechanism revisit, progress update, and major
+Andrew report.  The remaining independent proof checks continue as a final
+validation tail and do not withhold provisional timing.
+
+\end{document}

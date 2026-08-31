@@ -1504,8 +1504,18 @@ inline bool kernel_var_retired(const Kernel &k, Var v) {
 
 inline uint64_t kernel_active_variables(const Kernel &k) {
   uint64_t active = 0;
-  for (Var v = 0; v < k.nvars; v++)
-    active += !kernel_var_retired(k, v);
+  for (Var v = 0; v < k.nvars; v++) {
+    if (kernel_var_retired(k, v))
+      continue;
+    // Kissat deactivates a variable as soon as it marks the variable fixed.
+    // Tactix retains the root assignment and stable identity for proof/model
+    // reconstruction, so retirement alone is not its complete `active` image.
+    // A non-root search assignment remains active in Kissat and must remain in
+    // this count; only a semantic level-zero assignment represents `fixed`.
+    if (k.values[make_lit(v, false)] && k.assigned[v].level == 0)
+      continue;
+    active++;
+  }
   return active;
 }
 

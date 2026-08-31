@@ -3357,11 +3357,10 @@ static uint64_t bve_schedule_member_hash(uint64_t value) {
   return value ^ (value >> 31);
 }
 
-void EventTrace::bve_schedule(const Kernel &k, const Var *members,
-                              const double *scores, uint32_t size,
-                              uint32_t bound, uint64_t insertion_hash) {
-  if (emitted_ >= limit_)
-    return;
+static std::string bve_schedule_payload(const Kernel &k, const Var *members,
+                                        const double *scores, uint32_t size,
+                                        uint32_t bound,
+                                        uint64_t insertion_hash) {
   uint64_t xor_hash = 0, sum_hash = 0, external_sum = 0;
   uint64_t topology_hash = 1469598103934665603ull;
   uint64_t score_xor = 0, score_sum = 0;
@@ -3393,15 +3392,74 @@ void EventTrace::bve_schedule(const Kernel &k, const Var *members,
                 (unsigned long long)topology_hash,
                 (unsigned long long)score_xor,
                 (unsigned long long)score_sum);
+  return payload;
+}
+
+void EventTrace::bve_schedule(const Kernel &k, const Var *members,
+                              const double *scores, uint32_t size,
+                              uint32_t bound, uint64_t insertion_hash) {
+  if (emitted_ >= limit_)
+    return;
+  const std::string payload = bve_schedule_payload(
+      k, members, scores, size, bound, insertion_hash);
   // This one-row-per-round observer deliberately bypasses the detail window:
   // its purpose is to find the first schedule-set divergence before a later
   // selected conflict without tracing every intervening clause mutation.
-  emit(k, "bve_schedule", payload, false);
+  emit(k, "bve_schedule", payload.c_str(), false);
 }
 
 void event_trace_bve_schedule(const Kernel &k, const Var *members,
                               const double *scores, uint32_t size,
                               uint32_t bound, uint64_t insertion_hash) {
+  // A global event trace makes high-volume preprocessing pay for every
+  // diagnostic call even when target-only filtering discards the row.  This
+  // standalone observer performs no work until the first BVE schedule exists,
+  // writes exactly the symmetric schedule payload, and exits before the first
+  // candidate.  It is compiled only into Trace builds and has no production
+  // option or behavioral consumer.
+  if (const char *path = std::getenv("TACTIX_BVE_SCHEDULE_TRACE")) {
+    if (*path) {
+      std::FILE *out = std::fopen(path, "w");
+      if (!out) {
+        std::perror("TACTIX_BVE_SCHEDULE_TRACE");
+        std::exit(2);
+      }
+      const std::string payload = bve_schedule_payload(
+          k, members, scores, size, bound, insertion_hash);
+      uint64_t irredundant = 0, redundant = 0;
+      live_clause_counts(k, irredundant, redundant);
+      std::fprintf(out, "# bve-schedule-observer\t1\n");
+      std::fprintf(
+          out,
+          "tactix\t%s|conflicts=%llu|decisions=%llu|propagations=%llu|"
+          "active=%llu|vars=%u|trail=%zu|irred=%llu|red=%llu|binary=%zu\n",
+          payload.c_str(), (unsigned long long)k.stats.conflicts,
+          (unsigned long long)k.stats.decisions,
+          (unsigned long long)k.stats.propagations,
+          (unsigned long long)kernel_active_variables(k), k.nvars,
+          k.trail.size(), (unsigned long long)irredundant,
+          (unsigned long long)redundant, live_binary_clause_count(k));
+      if (std::getenv("SAT_BVE_SCHEDULE_MEMBERS")) {
+        assert(k.bve_occurrence_count_image);
+        for (uint32_t position = 0; position != size; ++position) {
+          const Var member = members[position];
+          uint64_t score_bits;
+          std::memcpy(&score_bits, scores + member, sizeof score_bits);
+          const uint32_t positive =
+              (*k.bve_occurrence_count_image)[make_lit(member, false)];
+          const uint32_t negative =
+              (*k.bve_occurrence_count_image)[make_lit(member, true)];
+          std::fprintf(out,
+                       "member\texternal=%u\tposition=%u\tpositive=%u\t"
+                       "negative=%u\tscore=%016llx\n",
+                       k.internal_to_external[member] + 1, position, positive,
+                       negative, (unsigned long long)score_bits);
+        }
+      }
+      std::fclose(out);
+      std::exit(0);
+    }
+  }
   if (active_trace)
     active_trace->bve_schedule(k, members, scores, size, bound,
                                insertion_hash);

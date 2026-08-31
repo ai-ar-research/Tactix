@@ -50,6 +50,15 @@ static void test_active_population_is_live_state() {
   assert(fresh == 4);
   assert(kernel_active_variables(k) == 4 &&
          "Factor's fresh activation must trigger Probe round two");
+  kernel_assign_unit(k, make_lit(0, false));
+  assert(kernel_active_variables(k) == 3 &&
+         "a root-fixed identity is inactive even while retained for N1");
+
+  Kernel search;
+  kernel_reserve_vars(search, 2);
+  kernel_assign_decision(search, make_lit(0, false));
+  assert(kernel_active_variables(search) == 2 &&
+         "a non-root search assignment remains active in Kissat");
 }
 
 static void test_compact_watch_head_encoding_is_full_width() {

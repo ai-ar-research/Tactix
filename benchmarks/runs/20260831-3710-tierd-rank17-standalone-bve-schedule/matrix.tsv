@@ -1,0 +1,3 @@
+task	arm	sha256	observer
+0	tactix	141de0045c1acf6b98b3d3993a62b14b2aba705a66cd18a475f4b1ea82d1057d	standalone first bound-0 BVE schedule
+1	kissat	5d6a8c0834a167dd4d2087e65e5f7ad98fab7655437b0aa3a6a371d8d427ad37	standalone first bound-0 BVE schedule
