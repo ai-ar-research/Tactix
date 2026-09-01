@@ -66,15 +66,16 @@ static void test_guard() {
 static void test_basic_subsume() {
   Kernel k;
   kernel_reserve_vars(k, 4);
-  add(k, {1, 2, 3, 4}); // added first, still checked size-ascending
-  const Ref small = add(k, {1, 2, 3});
+  add(k, {1, 2, 3, 4}); // checked after the smaller clause
+  add(k, {1, 2, 3});
+  const uint64_t arena_generation = k.arena_generation;
   assert(subsume_forward_apply(k) == ApplyResult::Ok);
   assert(k.stats.forward_subsumptions == 1);
   assert(k.stats.forward_checked == 2);
   assert(k.stats.forward_subsumed == 1);
   assert(live_clauses(k) == 1);
+  assert(k.arena_generation == arena_generation + 1);
   assert(clause_at(k.arena, 0)->size == 3); // the subsumer survived
-  (void)small;
   kernel_check_invariants(k);
   // idempotent: nothing left to subsume
   assert(subsume_forward_apply(k) == ApplyResult::NoOp);

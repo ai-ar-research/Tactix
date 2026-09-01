@@ -207,6 +207,52 @@ static void test_apply_substitutes() {
   assert(!k.reconstruction.empty());
 }
 
+// Canonical Kissat substitution shrinks a surviving large clause in place
+// without changing its glue. This differs deliberately from the connected
+// Sweep substitution path, which applies the usual size-1 promotion.
+static void test_canonical_substitution_preserves_glue_on_shrink() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  const Lit lits[6] = {internalize(1), internalize(2), internalize(3),
+                       internalize(4), internalize(5), internalize(6)};
+  kernel_add_large_clause(k, lits, 6, /*redundant=*/true, /*glue=*/5);
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  const Clause *rewritten = nullptr;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *candidate = clause_at(k.arena, ref);
+    ref += clause_actual_words(candidate);
+    if (!candidate->garbage() && candidate->redundant() &&
+        candidate->size == 5)
+      rewritten = candidate;
+  }
+  assert(rewritten);
+  assert(rewritten->size == 5);
+  assert(rewritten->glue() == 5);
+}
+
+// Canonical Substitute matches Kissat's physical lifecycle: a large source
+// which collapses to binary stays readable as lazy garbage until a real arena
+// owner (Reduce or Eliminate) collects it.
+static void test_canonical_substitution_leaves_collapsed_source_lazy() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  const Lit source[3] = {internalize(1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, source, 3, false, 0);
+  const uint64_t arena_generation = k.arena_generation;
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(k.arena.size() == clause_words(3));
+  assert(k.arena_generation == arena_generation);
+  assert(clause_at(k.arena, 0)->garbage());
+  assert(kernel_binary_live(k, internalize(1), internalize(3)));
+  kernel_check_invariants(k);
+}
+
 // A first equivalence rewrite can expose another equivalence by shrinking
 // large clauses to binaries. Kissat's preprocessing `complete=true` call runs
 // a second SCC round and consumes that class before search.
@@ -231,9 +277,8 @@ static void test_complete_closes_exposed_scc() {
 }
 
 // Kissat's Sweep-connected substitution rewrites a surviving large clause in
-// place. Tactix represents shrinking/replacement by appending a new arena
-// record, but the Sweep helper must restore the old logical position when it
-// collects: later capped environments observe clause order.
+// place. Tactix now does the same; the Sweep helper must also update its mixed
+// dense stream immediately because later capped environments observe order.
 static void test_sweep_equivalence_preserves_large_clause_position() {
   Kernel k;
   kernel_reserve_vars(k, 6);
@@ -277,9 +322,9 @@ static void test_sweep_equivalence_preserves_large_clause_position() {
   };
   assert(find_rewritten() && find_rewritten()->vivify());
 
-  // The next environment is built before the session's final collection.
-  // Its live x4 occurrences must already retain before/touched/after order;
-  // appending the touched image here changes capped Sweep semantics.
+  // The next environment is built before the session publishes its final
+  // mixed stream. Its live x4 occurrences must already retain
+  // before/touched/after order.
   std::vector<Lit> live_dense_first;
   for (const Ref ref : occ.large[internalize(4)]) {
     const Clause *c = clause_at(k.arena, ref);
@@ -365,7 +410,7 @@ static void test_sweep_preserves_cross_kind_dense_order() {
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   kernel_add_binary_clause(k, internalize(-2), internalize(1));
   OccIndex occ;
-  kernel_dense_connect(k, occ);
+  kernel_dense_connect(k, occ, true);
 
   SweepSubstitutionSession session;
   session.begin(k);
@@ -383,6 +428,13 @@ static void test_sweep_preserves_cross_kind_dense_order() {
   assert(!ordered[0].binary && !ordered[1].binary);
   assert(ordered[2].binary && ordered[2].payload == internalize(4));
   (void)session.collect(k);
+  const auto &published = occ.ordered[internalize(1)];
+  assert(published.size() == with_bridge.size());
+  for (size_t i = 0; i < published.size(); ++i) {
+    assert(static_cast<bool>(published[i].binary) == with_bridge[i].binary);
+    assert(published[i].payload == with_bridge[i].payload);
+  }
+  kernel_check_invariants(k);
 }
 
 // The logical dense ledger follows Kissat's cross-kind order, while Tactix's
@@ -396,7 +448,7 @@ static void test_sweep_syncs_new_binaries_by_multiset() {
   kernel_add_binary_clause(k, one, internalize(2));
   kernel_add_binary_clause(k, one, internalize(3));
   OccIndex occ;
-  kernel_dense_connect(k, occ);
+  kernel_dense_connect(k, occ, true);
   SweepSubstitutionSession session;
   session.begin(k);
   auto &one_stream = session.occurrences(k, one);
@@ -409,6 +461,11 @@ static void test_sweep_syncs_new_binaries_by_multiset() {
   assert(ordered[0].payload == internalize(3));
   assert(ordered[1].payload == internalize(2));
   assert(ordered[2].payload == internalize(4));
+  assert(occ.ordered[one].size() == ordered.size());
+  for (size_t i = 0; i < ordered.size(); ++i) {
+    assert(occ.ordered[one][i].binary == ordered[i].binary);
+    assert(occ.ordered[one][i].payload == ordered[i].payload);
+  }
 
   // A stale mirror can sit under a spectator rather than a class endpoint.
   // Mutation provenance names both directed owners, so reconciliation removes
@@ -423,6 +480,7 @@ static void test_sweep_syncs_new_binaries_by_multiset() {
     assert(!occurrence.binary || occurrence.payload != phantom_b);
   for (const auto occurrence : session.occurrences(k, phantom_b))
     assert(!occurrence.binary || occurrence.payload != phantom_a);
+  kernel_check_invariants(k);
 }
 
 static void assert_ledger_mirrors_kernel(Kernel &,
@@ -1266,6 +1324,33 @@ static void test_size_collapse_unit() {
          "binary-collapse units reach root closure before large rewrites");
 }
 
+// A failed SCC root can fix both a non-representative and its representative
+// after Tarjan has frozen the map. Pinned Kissat skips proof-equivalence and
+// variable-retirement work for that now-inactive member, but still applies the
+// complete map in substitute_binaries/substitute_clauses. Conflating those two
+// predicates leaves the equivalence pair and an unrewritten connected binary
+// in the physical formula.
+static void test_failed_root_member_still_rewrites_physical_binaries() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit rep = internalize(1), member = internalize(2);
+  const Lit witness = internalize(3), spectator = internalize(4);
+  kernel_add_binary_clause(k, negate(member), rep); // member -> rep
+  kernel_add_binary_clause(k, negate(rep), member); // rep -> member
+  // Assuming -rep forces both witness signs, so SCC detection derives rep.
+  kernel_add_binary_clause(k, rep, witness);
+  kernel_add_binary_clause(k, rep, negate(witness));
+  kernel_add_binary_clause(k, member, spectator);
+
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(k.value(rep) > 0 && k.value(member) > 0);
+  assert(!kernel_var_retired(k, var_of(member)));
+  assert(!kernel_binary_live(k, member, spectator));
+  assert(kernel_binary_live(k, rep, spectator));
+  assert(!kernel_binary_live(k, negate(member), rep));
+  assert(!kernel_binary_live(k, negate(rep), member));
+}
+
 // N1: one instance substitutes just that class; a junk payload is a total NoOp.
 static void test_apply_instance_one_class() {
   Kernel k;
@@ -1344,6 +1429,8 @@ int main() {
   test_apply_unsat();
   test_contradictory_units_refute();
   test_apply_substitutes();
+  test_canonical_substitution_preserves_glue_on_shrink();
+  test_canonical_substitution_leaves_collapsed_source_lazy();
   test_complete_closes_exposed_scc();
   test_sweep_equivalence_preserves_large_clause_position();
   test_substitution_factor_marks_match_calling_path();
@@ -1370,6 +1457,7 @@ int main() {
   test_substitution_moves_both_directions_independently();
   test_model_reconstruction();
   test_size_collapse_unit();
+  test_failed_root_member_still_rewrites_physical_binaries();
   test_apply_instance_one_class();
   test_instance_surfaces_unsat();
   test_guard();

@@ -45,6 +45,34 @@ static bool selected_strengthen_external_in(const Kernel &k,
       return true;
   return false;
 }
+
+static bool selected_forward_clause(const Kernel &k, const Clause *clause) {
+  const char *spec = std::getenv("TACTIX_EVENT_TRACE_FORWARD_CLAUSE");
+  if (!spec || !*spec)
+    return false;
+  std::vector<int> selected;
+  while (*spec) {
+    char *end = nullptr;
+    const long value = std::strtol(spec, &end, 10);
+    if (end == spec)
+      return false;
+    selected.push_back(static_cast<int>(value));
+    spec = end;
+    if (*spec == ',')
+      ++spec;
+    else if (*spec)
+      return false;
+  }
+  if (selected.size() != clause->size)
+    return false;
+  std::vector<int> actual;
+  actual.reserve(clause->size);
+  for (const Lit lit : *clause)
+    actual.push_back(kernel_externalize(k, lit));
+  std::sort(selected.begin(), selected.end());
+  std::sort(actual.begin(), actual.end());
+  return selected == actual;
+}
 #endif
 
 RuleEligibility strengthen_guard(const Kernel &k) {
@@ -98,6 +126,7 @@ void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
   out.clear();
   struct Cand {
     Ref ref;
+    uint64_t position;
     uint32_t size;
     bool redundant;
   };
@@ -105,7 +134,8 @@ void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     if (complete ? is_victim(k, c) : in_round_scope(k, c))
-      cands.push_back({ref, c->size, c->redundant()});
+      cands.push_back(
+          {ref, kernel_clause_position(k, ref), c->size, c->redundant()});
     ref += clause_actual_words(c);
   }
   // Irredundant first, then size ascending. The band is the larger population
@@ -117,7 +147,13 @@ void strengthen_candidates(const Kernel &k, std::vector<Ref> &out,
       return !a.redundant;
     if (a.size != b.size)
       return a.size < b.size;
-    return a.ref < b.ref; // total order for determinism
+    // Kissat's stable size radix retains physical arena order. Packed Tactix
+    // replacements live at a fresh Ref but carry the source record's current
+    // logical position until collection materializes it. Use that position,
+    // not the append-only host Ref, for the equal-size tie.
+    if (a.position != b.position)
+      return a.position < b.position;
+    return a.ref < b.ref; // defensive total order for aliased positions
   });
   out.reserve(cands.size());
   for (const Cand &c : cands)
@@ -185,6 +221,10 @@ struct Partner {
   CheckResult res;
   uint64_t id = 0;
   std::vector<uint64_t> absorbed; // unit ids of root-falsified partner lits
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  Ref trace_ref = INVALID_REF;
+  Lit trace_a = INVALID_LIT, trace_b = INVALID_LIT;
+#endif
 };
 
 // Kissat's forward-subsumption index is one mixed watch stream per literal.
@@ -222,39 +262,106 @@ struct ForwardWatch {
 };
 static_assert(sizeof(ForwardWatch) == 8);
 
-// Kissat's forward_literal accumulates `steps` in a local scalar and publishes
-// it once after the watch scan (forward.c:197-303).  Keep the same hot-loop
-// representation while preserving Tactix's stricter per-partner budget cut:
-// every return, including UNSAT exits after a found partner, commits the exact
-// scalar through this scope guard.
-struct StrengthenVisitCounter {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+static void trace_forward_result(const Kernel &k, const Clause *candidate,
+                                 const Partner &partner, size_t index,
+                                 const std::vector<std::vector<ForwardWatch>>
+                                     &watches) {
+  const char *path = std::getenv("TACTIX_FORWARD_CLAUSE_TRACE");
+  const char *conflict =
+      std::getenv("SAT_EVENT_TRACE_FORWARD_CLAUSE_CONFLICT");
+  if (!path || !*path || !conflict || !*conflict ||
+      std::strtoull(conflict, nullptr, 10) != k.stats.conflicts ||
+      !selected_forward_clause(k, candidate))
+    return;
+  static std::FILE *out = nullptr;
+  if (!out) {
+    out = std::fopen(path, "w");
+    if (!out)
+      std::exit(2);
+    std::fputs("# tactix-forward-clause\t1\n", out);
+  }
+  int scan_external = 0, other_external = 0;
+  if (selected_strengthen_pair(&scan_external, &other_external)) {
+    Lit scan = INVALID_LIT, other = INVALID_LIT;
+    for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
+      const int external = kernel_externalize(k, lit);
+      if (external == scan_external)
+        scan = lit;
+      if (external == other_external)
+        other = lit;
+    }
+    if (scan != INVALID_LIT && other != INVALID_LIT) {
+      uint32_t stream_matches = 0;
+      for (const ForwardWatch &watch : watches[scan])
+        stream_matches += watch.binary && watch.other() == other;
+      std::fprintf(out,
+                   "pair\tscan=%d\tother=%d\tkernel_copies=%u\t"
+                   "kernel_mirror_copies=%u\tstream_size=%zu\t"
+                   "stream_matches=%u\n",
+                   scan_external, other_external,
+                   kernel_binary_copies(k, scan, other),
+                   kernel_binary_copies(k, other, scan), watches[scan].size(),
+                   stream_matches);
+    }
+  }
+  std::fprintf(out,
+               "result\tindex=%zu\tid=%llu\taction=%d\tflipped=%d\t"
+               "partner_id=%llu\tpartner=",
+               index, (unsigned long long)candidate->id(), partner.res.kind,
+               partner.res.flipped == INVALID_LIT
+                   ? 0
+                   : kernel_externalize(k, partner.res.flipped),
+               (unsigned long long)partner.id);
+  if (partner.trace_ref != INVALID_REF) {
+    const Clause *source = clause_at(k.arena, partner.trace_ref);
+    std::fputs("large:", out);
+    for (const Lit lit : *source)
+      std::fprintf(out, "%d,", kernel_externalize(k, lit));
+  } else if (partner.trace_a != INVALID_LIT) {
+    std::fprintf(out, "binary:%d,%d", kernel_externalize(k, partner.trace_a),
+                 kernel_externalize(k, partner.trace_b));
+  } else {
+    std::fputc('-', out);
+  }
+  std::fputc('\n', out);
+  std::fclose(out);
+  out = nullptr;
+  if (std::getenv("TACTIX_FORWARD_CLAUSE_TRACE_STOP"))
+    std::exit(0);
+}
+#endif
+
+// Kissat's forward pass charges one step per candidate, then for every
+// non-empty, non-saturated watch stream charges one plus the number of assumed
+// 128-byte cache lines occupied by its 4-byte watches, and one more per large
+// watch visited.  It publishes that local scalar when the scan returns.  Keep
+// the same representation and commit it through this scope guard on every
+// exit.  The physical ForwardWatch is wider, but the reference currency is
+// deliberately based on Kissat's packed 4-byte watch: ceil(size / 32).
+struct ForwardStepCounter {
   uint64_t &published;
   uint64_t value;
-  explicit StrengthenVisitCounter(uint64_t &counter)
+  explicit ForwardStepCounter(uint64_t &counter)
       : published(counter), value(counter) {}
-  ~StrengthenVisitCounter() { published = value; }
+  ~ForwardStepCounter() { published = value; }
 };
+
+static uint64_t forward_cache_lines(size_t watches) {
+  return (watches + 31u) / 32u;
+}
 
 static Partner find_forward_partner(
     Kernel &k, const std::vector<uint8_t> &marks, const Clause *c,
-    const std::vector<std::vector<ForwardWatch>> &watches, uint64_t &visits,
-    uint64_t visit_start, bool bounded, uint64_t visit_budget,
-    bool *budget_exhausted) {
+    std::vector<std::vector<ForwardWatch>> &watches, uint64_t &steps) {
   Partner p;
   const bool lrat = k.proof && k.proof->lrat();
-  const auto budget_cut = [&]() {
-    if (!budget_exhausted || !bounded ||
-        visits - visit_start < visit_budget)
-      return false;
-    *budget_exhausted = true;
-    return true;
-  };
   for (const Lit l : *c) {
     if (k.value(l) != 0)
       continue;
     for (int phase = 0; phase < 2; ++phase) {
       const Lit probe = phase ? negate(l) : l;
-      const std::vector<ForwardWatch> &stream = watches[probe];
+      std::vector<ForwardWatch> &stream = watches[probe];
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       const bool selected = selected_strengthen_clause(c);
       if (selected) {
@@ -267,8 +374,17 @@ static Partner find_forward_partner(
 #endif
       if (stream.size() > STRENGTHEN_OCCLIM)
         continue;
-      for (size_t wi = 0; wi < stream.size(); ++wi) {
-        const ForwardWatch watch = stream[wi];
+      if (stream.empty())
+        continue;
+      steps += 1 + forward_cache_lines(stream.size());
+      size_t read = 0, write = 0;
+      bool stop_stream = false;
+      while (read < stream.size()) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        const size_t wi = read;
+#endif
+        const ForwardWatch watch = stream[read++];
+        stream[write++] = watch;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         if (selected) {
           event_trace_detail(k, "strengthen_selected_entry", wi);
@@ -300,12 +416,14 @@ static Partner find_forward_partner(
         if (watch.binary) {
           if (phase)
             continue;
-          if (budget_cut())
-            return p;
-          visits++;
           const Lit other = watch.other();
           if (marks[other]) {
             p.res.kind = CheckResult::SUBSUMED;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+            p.trace_ref = INVALID_REF;
+            p.trace_a = probe;
+            p.trace_b = other;
+#endif
 #ifdef TACTIX_ENABLE_EVENT_TRACE
             if (selected) {
               event_trace_detail(k, "strengthen_selected_match_kind",
@@ -315,12 +433,18 @@ static Partner find_forward_partner(
 #endif
             if (lrat)
               p.id = kernel_binary_id(k, probe, other);
-            return p;
+            stop_stream = true;
+            break;
           }
           if (marks[negate(other)]) {
             p.res.kind = CheckResult::STRENGTHEN;
             p.res.flipped = other;
             p.absorbed.clear();
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+            p.trace_ref = INVALID_REF;
+            p.trace_a = probe;
+            p.trace_b = other;
+#endif
 #ifdef TACTIX_ENABLE_EVENT_TRACE
             if (selected) {
               event_trace_detail(k, "strengthen_selected_match_kind",
@@ -334,21 +458,26 @@ static Partner find_forward_partner(
             // A binary strengthener terminates this physical watch walk.
             // The opposite-phase walk for the same candidate literal still
             // follows, just as the second forward_literal call in Kissat.
+            stop_stream = true;
             break;
           }
           continue;
         }
-        if (budget_cut())
-          return p;
-        visits++;
+        steps++;
         const Clause *d = clause_at(k.arena, watch.ref());
-        if (d->garbage())
+        if (d->garbage()) {
+          write--;
           continue;
+        }
         const CheckResult r = check_marked(k, marks, d);
         if (r.kind == CheckResult::NONE)
           continue;
         p.res = r;
         p.absorbed.clear();
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+        p.trace_ref = watch.ref();
+        p.trace_a = p.trace_b = INVALID_LIT;
+#endif
 #ifdef TACTIX_ENABLE_EVENT_TRACE
         if (selected) {
           event_trace_detail(k, "strengthen_selected_match_kind", r.kind);
@@ -364,11 +493,21 @@ static Partner find_forward_partner(
             if (k.value(m) < 0)
               p.absorbed.push_back(k.unit_ids[var_of(m)]);
         }
-        if (r.kind == CheckResult::SUBSUMED)
-          return p;
+        if (r.kind == CheckResult::SUBSUMED) {
+          stop_stream = true;
+          break;
+        }
         // Large strengtheners do not stop the walk.  A later large or binary
         // entry is allowed to overwrite the literal to remove.
       }
+      // `forward_literal` removes garbage encountered before its result while
+      // preserving the unscanned tail byte-for-byte.  This matters both to the
+      // next candidate's physical population cap and to its cache-line charge.
+      while (read < stream.size())
+        stream[write++] = stream[read++];
+      stream.resize(write);
+      if (stop_stream && p.res.kind == CheckResult::SUBSUMED)
+        return p;
     }
   }
   return p;
@@ -812,16 +951,16 @@ ApplyResult strengthen_apply(Kernel &k) {
       if (watch.binary())
         forward_watches[lit].push_back(
             ForwardWatch::binary_entry(watch.other()));
-  // `k.work_budget` in this rule's own currency (partner visits). An entry
-  // budget alone bounds how often a round runs, never how much one round does,
-  // which lets a single uninterruptible round own most of a solve; cadical
-  // bounds the same family per round (`subsumeeffort`, options.hpp:218-221).
-  // Stopping early loses no work — survivors stay candidates. 0 = unbounded.
-  // Ledger row D-STRENGTHEN-BUDGET.
-  StrengthenVisitCounter visits(k.stats.strengthen_visits);
-  const uint64_t check_start = visits.value;
-  const bool visit_bounded = k.midround_budget && k.work_budget;
-  const uint64_t visit_budget = k.work_budget;
+  // Kissat's `SET_EFFORT_LIMIT(forward_steps)` is tested strictly between
+  // candidates.  A candidate is indivisible even if its scans overrun the
+  // allowance; the next candidate is admitted when spent == budget and
+  // stopped only when spent > budget.  Survivors stay candidates, so the cut
+  // is resumable.  Direct rule calls remain unbounded unless explicitly given
+  // a budget; DefaultPolicy enables this uniformly for its fused forward pass.
+  ForwardStepCounter steps(k.stats.strengthen_visits);
+  const uint64_t check_start = steps.value;
+  const bool step_bounded = k.midround_budget && k.work_budget;
+  const uint64_t step_budget = k.work_budget;
   // Connect a scheduled survivor at its least-occurring free literal in the
   // current mixed forward stream.  Under the canonical filter every active
   // variable must be armed, exactly as Kissat's `connect_subsuming` requires;
@@ -866,8 +1005,7 @@ ApplyResult strengthen_apply(Kernel &k) {
   const uint64_t produced_before = k.stats.strengthened;
   for (size_t ci = 0; ci < candidates.size(); ci++) {
     Ref cref = candidates[ci];
-    if (visit_bounded &&
-        visits.value - check_start >= visit_budget) {
+    if (step_bounded && steps.value - check_start > step_budget) {
       k.stats.budget_stops_c2++;
       stopped_at = ci;
       break;
@@ -880,7 +1018,6 @@ ApplyResult strengthen_apply(Kernel &k) {
     k.stats.strengthen_red_checked += red;
     const uint64_t red_sub_before = k.stats.strengthen_subsumed;
     const uint64_t red_str_before = k.stats.strengthened;
-    bool budget_exhausted = false;
     Clause *c = clause_at(k.arena, cref);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const bool selected = selected_strengthen_clause(c);
@@ -912,10 +1049,13 @@ ApplyResult strengthen_apply(Kernel &k) {
     }
 #endif
     k.stats.strengthen_checked++;
+    steps.value++; // Kissat `INC(forward_steps)` in forward_marked_clause.
     mark_candidate(k, marks, c, 1);
-    const Partner p = find_forward_partner(
-        k, marks, c, forward_watches, visits.value, check_start,
-        visit_bounded, visit_budget, &budget_exhausted);
+    const Partner p =
+        find_forward_partner(k, marks, c, forward_watches, steps.value);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    trace_forward_result(k, c, p, ci, forward_watches);
+#endif
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     if (selected) {
       event_trace_detail(k, "strengthen_selected_result", p.res.kind);
@@ -927,35 +1067,28 @@ ApplyResult strengthen_apply(Kernel &k) {
     }
 #endif
     mark_candidate(k, marks, clause_at(k.arena, cref), 0);
-    if (!budget_exhausted) {
-      std::pair<Lit, Lit> new_binary{INVALID_LIT, INVALID_LIT};
-      const int r = act(k, &cref, p, &changed, &new_binary);
-      if (r == 5)
-        return ApplyResult::Unsat;
-      // Kissat connects both an unchanged survivor and the once-strengthened
-      // candidate for use as a partner by later candidates.  It does not
-      // rescan the strengthened candidate until a later forward round.
-      if (r == 0 || r == 2)
-        connect(cref);
-      if (r == 3) {
-        const Lit a = new_binary.first, b = new_binary.second;
-        assert(a != INVALID_LIT && b != INVALID_LIT);
-        forward_watches[a].push_back(ForwardWatch::binary_entry(b));
-        forward_watches[b].push_back(ForwardWatch::binary_entry(a));
-      }
-      if (r == 4)
-        ended = true;
+    std::pair<Lit, Lit> new_binary{INVALID_LIT, INVALID_LIT};
+    const int r = act(k, &cref, p, &changed, &new_binary);
+    if (r == 5)
+      return ApplyResult::Unsat;
+    // Kissat connects both an unchanged survivor and the once-strengthened
+    // candidate for use as a partner by later candidates.  It does not
+    // rescan the strengthened candidate until a later forward round.
+    if (r == 0 || r == 2)
+      connect(cref);
+    if (r == 3) {
+      const Lit a = new_binary.first, b = new_binary.second;
+      assert(a != INVALID_LIT && b != INVALID_LIT);
+      forward_watches[a].push_back(ForwardWatch::binary_entry(b));
+      forward_watches[b].push_back(ForwardWatch::binary_entry(a));
     }
+    if (r == 4)
+      ended = true;
     if (red) { // the band's YIELD, read against `strengthen_red_checked`
       k.stats.strengthen_red_subsumed +=
           k.stats.strengthen_subsumed - red_sub_before;
       k.stats.strengthen_red_strengthened +=
           k.stats.strengthened - red_str_before;
-    }
-    if (budget_exhausted) {
-      k.stats.budget_stops_c2++;
-      stopped_at = ci;
-      break;
     }
     if (ended || interrupted) {
       stopped_at = ci + 1; // this candidate was checked; the rest were not
@@ -997,6 +1130,11 @@ ApplyResult strengthen_apply(Kernel &k) {
                           k.stats.strengthened == produced_before;
   if (!changed)
     return ApplyResult::NoOp;
+  // Tactix still uses a packed variable-width arena. Until the remaining
+  // collapsed-source lifecycle is represented in place, this collection is
+  // the production physical boundary that prevents stale source allocation
+  // from changing later sparse watch order. The isolated lazy-forward arm is
+  // retained only in its frozen campaign, not as a default mechanism.
   kernel_collect_garbage(k);
   return ApplyResult::Ok;
 }
@@ -1021,9 +1159,10 @@ ApplyResult strengthen_try(Kernel &k, Ref candidate) {
   k.stats.strengthen_checked++;
   std::vector<uint8_t> marks(2 * k.nvars, 0);
   mark_candidate(k, marks, c, 1);
-  StrengthenVisitCounter visits(k.stats.strengthen_visits);
-  const Partner p = find_partner(k, marks, c, nullptr, candidate, visits.value,
-                                 visits.value, false, 0, nullptr);
+  uint64_t visits = k.stats.strengthen_visits;
+  const Partner p = find_partner(k, marks, c, nullptr, candidate, visits,
+                                 visits, false, 0, nullptr);
+  k.stats.strengthen_visits = visits;
   mark_candidate(k, marks, clause_at(k.arena, candidate), 0);
   uint64_t changed = 0;
   Ref ref = candidate;

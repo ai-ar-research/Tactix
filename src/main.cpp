@@ -288,8 +288,8 @@ int main(int argc, char **argv) {
   if (const char *ss = getenv("TACTIX_SUBSUME_SHADOW"))
     kernel.subsume_shadow = (*ss != '0');
   if (const char *mb = getenv("TACTIX_MIDROUND_BUDGET"))
-    kernel.midround_budget = (*mb != '0'); // default OFF, measured negative;
-                                           // see Kernel::midround_budget
+    kernel.midround_budget = (*mb != '0'); // direct-rule diagnostic override;
+                                           // policy uses its typed config
   if (const char *fs = getenv("TACTIX_FACTOR_SIZE"))
     kernel.factor_size = (uint32_t)strtoul(fs, nullptr, 10);
   // Kissat's `reduction > bound` acceptance threshold (factor.c:939), default 0

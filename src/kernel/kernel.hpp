@@ -341,14 +341,20 @@ void event_trace_factor_candidate_binary_source(const Kernel &, Lit, uint32_t,
 void event_trace_factor_pair(const Kernel &, Lit, const char *);
 void event_trace_factor_heap(const Kernel &, Lit, const char *, Lit, uint32_t,
                              uint32_t, Lit, uint32_t, uint32_t, uint32_t);
+void event_trace_factor_heap_digest(const Kernel &, Lit, uint32_t, uint64_t,
+                                    Lit, uint32_t);
 void event_trace_factor_schedule(const Kernel &, uint32_t, Lit, uint32_t);
 void event_trace_factor_mark_transition(const Kernel &, Lit, bool,
                                         const char *);
+void event_trace_bve_retry_mark(const Kernel &, Var, const char *, bool, bool,
+                                const Clause *);
 void event_trace_factor_update(const Kernel &, Lit, uint32_t, Lit, uint32_t);
 void event_trace_factor_grid(const Kernel &, Lit, uint32_t, uint32_t, int);
 void event_trace_factor_grid_member(const Kernel &, uint32_t, Lit);
 void event_trace_factor_fresh(const Kernel &, Lit, Var, const Lit *, uint32_t,
-                              uint32_t, int);
+                              uint32_t, int, uint64_t ticks, uint64_t pops,
+                              uint64_t first_ticks, uint64_t next_ticks,
+                              uint64_t match_ticks);
 #endif
 
 struct FactorSelection;
@@ -455,11 +461,11 @@ struct Stats {
   uint64_t forward_subsumed = 0; // clauses deleted by SubsumeForward
   uint64_t strengthen_rounds = 0;  // Strengthen rounds
   uint64_t strengthen_checked = 0; // Strengthen candidate checks
-  uint64_t strengthen_visits = 0;  // partner visits; see forward_visits
+  uint64_t strengthen_visits = 0;  // Kissat-compatible fused forward_steps
   uint64_t strengthened = 0;       // clauses strengthened (add+delete)
   uint64_t strengthen_subsumed = 0; // deletions by Strengthen's fused round
   uint64_t budget_stops_c1 = 0; // SubsumeForward rounds cut by `work_budget`
-  uint64_t budget_stops_c2 = 0; // Strengthen rounds cut by `work_budget`
+  uint64_t budget_stops_c2 = 0; // Strengthen rounds cut between candidates
   uint64_t subsume_interrupted = 0;
   uint64_t strengthen_interrupted = 0;
   uint64_t c1_shadow_observed = 0;  // clauses C1 would have deleted but did not
@@ -1146,6 +1152,15 @@ struct Kernel {
   bool shrink_glue_promote = true;
   bool tumble = true;
 
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  // Keep diagnostic-only storage at the final object boundary. The dedicated
+  // observer test intentionally links a trace-compiled test object against the
+  // non-trace production library; a conditional field inside Stats shifted
+  // every later Kernel member and violated that ABI prefix. Production retains
+  // neither this storage nor its updates.
+  uint64_t diagnostic_search_propagation_ticks = 0;
+#endif
+
   int8_t value(Lit l) const { return values[l]; }
   uint32_t var_level(Var v) const { return assigned[v].level; }
 };
@@ -1249,7 +1264,8 @@ enum class ReplaceOutcome { Refuted, Unit, Binary, Large };
 ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
                                      const Lit *lits, uint32_t size,
                                      bool redundant, uint32_t glue,
-                                     Ref *large_ref); // nullable
+                                     Ref *large_ref, // nullable
+                                     bool mark_added_material = true);
 
 // Representation-only large-clause replacement.  The caller has already
 // proved and emitted the replacement addition; this transition emits the old
@@ -1264,19 +1280,35 @@ void kernel_replace_large_clause_in_place(Kernel &, Ref source, uint64_t id,
                                           const char *source_tag = "unspecified",
                                           bool mark_added_material = true);
 
-// Proof-safe root-unit consumption shared by startup sparse collection and C2.
+// Proof-safe root-unit consumption shared by sparse collection and Vivify
+// scheduling. Sparse collection rewrites physical material without marking it
+// added; Kissat's Vivify simplifier instead calls new_binary_clause for a
+// size-two terminal, while still shortening larger images in place unmarked.
 // The clause form does not collect the arena; callers can continue scanning by
 // the original clause width. The whole-arena form collects once at its exit.
 enum class RootFlushOutcome { None, Deleted, Rewritten, Binary, Unit, Refuted };
 RootFlushOutcome kernel_flush_root_clause(Kernel &, Ref *ref,
-                                          uint64_t *changed = nullptr);
+                                          uint64_t *changed = nullptr,
+                                          bool mark_binary_added_material = false);
 enum class RootCollectOutcome { NoChange, Changed, Unit, Refuted };
 RootCollectOutcome kernel_sparse_collect_root(Kernel &, Ref start = 0);
 
-inline void kernel_mark_bve_retry(Kernel &k, Var v) {
+inline void kernel_mark_bve_retry(Kernel &k, Var v,
+                                  const char *source = "unspecified",
+                                  const Clause *clause = nullptr) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  const bool before = v < k.bve_retry.size() && k.bve_retry[v];
+#endif
   if (!k.cold_state_deferred)
     k.bve_retry[v] = 1;
   k.stats.bve_marks++; // events, not bit flips — see Stats::bve_marks
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  const bool after = v < k.bve_retry.size() && k.bve_retry[v];
+  event_trace_bve_retry_mark(k, v, source, before, after, clause);
+#else
+  (void)source;
+  (void)clause;
+#endif
 }
 inline void kernel_notify_bve_score(Kernel &k, Var v, bool reinsert) {
   if (k.bve_score_update_hook)
@@ -1361,7 +1393,8 @@ void kernel_sort_refs_by_logical_clause_position(const Kernel &,
                                                  std::vector<Ref> &);
 void kernel_inherit_clause_position(Kernel &, uint64_t replacement_id,
                                     Ref source_ref);
-void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0);
+void kernel_add_binary_clause(Kernel &, Lit a, Lit b, uint64_t id = 0,
+                              bool mark_added_material = true);
 // Bulk input has already established that this pair is absent.  Publish the
 // same clause transition without rescanning a growing high-degree watch list.
 // Unlike the general API, duplicate callers violate this function's contract.
@@ -1453,7 +1486,8 @@ inline void kernel_retire_root_reason(Kernel &k, const Clause *c, Ref ref) {
 }
 
 inline void kernel_delete_clause(Kernel &k, Clause *c,
-                                 bool semantic_removal = true) {
+                                 bool semantic_removal = true,
+                                 const char *retry_source = "delete-clause") {
   // The proof delta belongs INSIDE the retirement transition, not in front of
   // it. A deletion names one clause: DRAT by its literals, LRAT by its id, and
   // in both formats the checker retires exactly one copy per `d` line. Emitting
@@ -1475,7 +1509,7 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
   c->flags |= Clause::GARBAGE;
   if (semantic_removal && !c->redundant())
     for (const Lit l : *c) {
-      kernel_mark_bve_retry(k, var_of(l));
+      kernel_mark_bve_retry(k, var_of(l), retry_source, c);
       kernel_removed_var(k, var_of(l)); // BCE's side of the substrate
       kernel_notify_bve_score(k, var_of(l), true);
     }
@@ -1803,6 +1837,7 @@ void kernel_deduplicate_binary_watches(Kernel &);
 
 void kernel_dense_connect(Kernel &, OccIndex &occ,
                           bool track_order = false);
+void kernel_rebuild_dense_occurrences(Kernel &);
 void kernel_dense_disconnect(Kernel &);
 void kernel_flush_retired_redundant(Kernel &);
 

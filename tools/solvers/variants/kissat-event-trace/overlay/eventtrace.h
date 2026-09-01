@@ -39,6 +39,8 @@ void kissat_event_trace_watch_cost (struct kissat *, unsigned propagated,
                                     uint64_t relocations,
                                     uint64_t large_assignments,
                                     uint64_t total);
+void kissat_event_trace_search_propagate_begin (struct kissat *);
+void kissat_event_trace_search_propagate_end (struct kissat *);
 void kissat_event_trace_propagate_cursor (struct kissat *);
 void kissat_event_trace_implications (struct kissat *, size_t trail_begin);
 void kissat_event_trace_conflict (struct kissat *, struct clause *);
@@ -70,8 +72,12 @@ void kissat_event_trace_binary_add (struct kissat *, unsigned, unsigned);
 void kissat_event_trace_binary_delete (struct kissat *, unsigned, unsigned);
 void kissat_event_trace_binary_delete_site (struct kissat *, const char *,
                                             unsigned, unsigned);
+void kissat_event_trace_binary_add_site (struct kissat *, const char *,
+                                         unsigned, unsigned);
 void kissat_event_trace_binary_collapse (struct kissat *, unsigned, unsigned,
                                          struct clause *);
+void kissat_event_trace_substitute_binary_collapse (
+    struct kissat *, unsigned, unsigned, struct clause *);
 void kissat_event_trace_binary_rewrite (struct kissat *, unsigned, unsigned,
                                         unsigned, unsigned);
 bool kissat_transitive_trace_pair_selected (struct kissat *, unsigned,
@@ -109,7 +115,16 @@ void kissat_event_trace_factor_grid_member (struct kissat *, size_t,
                                             unsigned);
 void kissat_event_trace_factor_fresh (struct kissat *, unsigned,
                                       const unsigned *, size_t, size_t,
-                                      size_t);
+                                      size_t, uint64_t ticks, uint64_t pops,
+                                      uint64_t first_ticks,
+                                      uint64_t next_ticks,
+                                      uint64_t match_ticks);
+bool kissat_event_trace_factor_match_selected (struct kissat *, unsigned,
+                                                unsigned);
+void kissat_event_trace_factor_match_large (
+    struct kissat *, unsigned seed, unsigned next, size_t factors,
+    size_t column, struct clause *, unsigned current_factor, unsigned scan,
+    size_t degree, size_t visits, bool matched);
 void kissat_event_trace_factor_update (struct kissat *, size_t, unsigned);
 void kissat_event_trace_bve_candidate (struct kissat *, unsigned,
                                        const char *, uint64_t, uint64_t,
@@ -123,9 +138,17 @@ void kissat_event_trace_bve_pair (struct kissat *, unsigned, uint32_t,
 void kissat_event_trace_bve_heap (struct kissat *, const char *, struct heap *,
                                   unsigned);
 void kissat_event_trace_bve_schedule (struct kissat *, struct heap *);
+void kissat_event_trace_set_boundary (struct kissat *, const char *);
+void kissat_event_trace_eliminate_round_boundary (struct kissat *,
+                                                   const char *,
+                                                   const char *);
 void kissat_event_trace_eliminate_cleanup (struct kissat *, const char *);
 void kissat_event_trace_forward_clause (struct kissat *, struct clause *,
                                         const char *, int);
+void kissat_event_trace_forward_partner (struct kissat *, unsigned, unsigned,
+                                         struct clause *, const char *);
+void kissat_event_trace_forward_binary (struct kissat *, unsigned, unsigned,
+                                        struct clause *);
 void kissat_event_trace_clause_garbage (struct kissat *, struct clause *,
                                         const char *);
 void kissat_event_trace_factor_seed (struct kissat *, unsigned, size_t);
@@ -140,6 +163,8 @@ void kissat_event_trace_factor_candidate (struct kissat *, unsigned, size_t,
 void kissat_event_trace_factor_score_entries (struct kissat *, unsigned,
                                               size_t, unsigned);
 void kissat_event_trace_sweep_unit (struct kissat *, unsigned, const char *);
+void kissat_event_trace_sweep_equivalence (struct kissat *, unsigned,
+                                           unsigned);
 void kissat_event_trace_sweep_rewrite_binary (struct kissat *, unsigned,
                                               unsigned, size_t, unsigned);
 void kissat_event_trace_sweep_rewrite_occurrence (

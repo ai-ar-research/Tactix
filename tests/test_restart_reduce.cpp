@@ -126,7 +126,7 @@ static void test_sparse_collect_preserves_prefix_watch_order() {
          "rewatching the relocated tail must reset its replacement cursor");
 }
 
-static void test_sparse_collect_forwards_garbage_prefix_watches() {
+static void test_sparse_collect_retains_garbage_prefix_watches() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
   kernel_reserve_vars(k, 10);
@@ -154,15 +154,17 @@ static void test_sparse_collect_forwards_garbage_prefix_watches() {
 
   kernel_collect_garbage(k, first_reducible);
 
-  const Ref moved_r2 = r2 - clause_words(3);
-  const Ref moved_tail = 2 * clause_words(3);
+  const Ref moved_r2 = r2;
+  const Ref moved_tail = 3 * clause_words(3);
   std::vector<Ref> refs;
   for (const WatchEntry w : k.watches.entries(internalize(1)))
     if (!w.binary())
       refs.push_back(w.ref());
-  assert(refs == std::vector<Ref>({moved_r2, r1, moved_tail}) &&
-         "sparse collection must forward live prefix watches in place");
+  assert(refs ==
+             std::vector<Ref>({moved_r2, dead_prefix_ref, r1, moved_tail}) &&
+         "sparse collection must retain genuine prefix garbage watches");
   assert(clause_at(k.arena, r1)->searched == 3);
+  assert(clause_at(k.arena, dead_prefix_ref)->garbage());
   assert(clause_at(k.arena, moved_r2)->searched == 7);
   assert(clause_at(k.arena, moved_tail)->searched == 2 &&
          "the relocated tail must still be rewatched from cursor two");
@@ -550,7 +552,7 @@ int main() {
   test_collect_preserves_propagation();
   test_collect_accepts_policy_order();
   test_sparse_collect_preserves_prefix_watch_order();
-  test_sparse_collect_forwards_garbage_prefix_watches();
+  test_sparse_collect_retains_garbage_prefix_watches();
   test_collect_reselects_watches_by_assignment();
   test_cadical_arena_order_tracks_search();
   test_reduce_deletes_and_logs();

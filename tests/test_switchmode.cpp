@@ -153,6 +153,28 @@ static void test_target_high_water_uses_compact_assigned_count() {
   assert(k.stats.target_saved == 2 && k.stats.best_saved == 2);
 }
 
+static void test_root_collapse_recomputes_phase_high_water() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  kernel_assign_unit(k, internalize(1));
+  kernel_assign_unit(k, internalize(2));
+
+  // Model the intermediate state after identity-preserving physical
+  // compaction: all five immutable phase entries survive, but Kissat's compact
+  // VARS image retains only one of the two root-fixed identities.
+  std::fill(k.h->target.begin(), k.h->target.end(), int8_t{1});
+  std::fill(k.h->best.begin(), k.h->best.end(), int8_t{-1});
+  k.h->target_assigned = k.h->best_assigned = 5;
+  heuristics_compact_random_order_fixed(k);
+
+  assert(k.compact_import_order.size() == 4);
+  // Kissat retains one fixed representative in VARS but its active flag is
+  // false, so compact_best_and_target_values counts only the three live vars.
+  assert(k.h->target_assigned == 3);
+  assert(k.h->best_assigned == 3);
+}
+
 static void test_stable_trail_reuse() {
   Kernel k;
   ScopedHeuristics _hg_k(k);
@@ -228,6 +250,7 @@ int main() {
   test_switchmode_rule();
   test_stable_decide_and_target_phases();
   test_target_high_water_uses_compact_assigned_count();
+  test_root_collapse_recomputes_phase_high_water();
   test_stable_trail_reuse();
   test_policy_schedule();
   test_default_policy_solves_across_modes();

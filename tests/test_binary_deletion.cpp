@@ -96,6 +96,8 @@ static void test_add_missing_mirror_does_not_duplicate_stable_direction() {
   kernel_reserve_vars(k, 3);
   const Lit stable = internalize(1), moved = internalize(2);
   kernel_add_binary_clause(k, stable, moved, 7);
+  k.factor_marks[stable] = 0;
+  k.factor_marks[moved] = 0;
   const uint32_t stable_size = k.watches.size(stable);
   assert(k.watches.size(moved) == 1);
   k.watches.resize_live(moved, 0); // pose an in-place rewritten stable watch
@@ -105,6 +107,21 @@ static void test_add_missing_mirror_does_not_duplicate_stable_direction() {
   assert(k.watches.size(stable) == stable_size);
   assert(k.watches.size(moved) == 1);
   assert(kernel_binary_id(k, stable, moved) == 17);
+  assert(!k.factor_marks[stable] && !k.factor_marks[moved]);
+  kernel_check_invariants(k);
+}
+
+static void test_publish_rebuilt_binary_does_not_rearm_added_material() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  const Lit a = internalize(1), b = internalize(2);
+  kernel_add_binary_clause(k, a, b, 7);
+  k.factor_marks[a] = 0;
+  k.factor_marks[b] = 0;
+
+  kernel_publish_binary_clause(k, a, b, 17, false);
+  assert(kernel_binary_id(k, a, b) == 17);
+  assert(!k.factor_marks[a] && !k.factor_marks[b]);
   kernel_check_invariants(k);
 }
 
@@ -201,6 +218,7 @@ int main() {
   test_delete_shrinks_both_lists();
   test_readd_after_delete_installs_fresh_id();
   test_add_missing_mirror_does_not_duplicate_stable_direction();
+  test_publish_rebuilt_binary_does_not_rearm_added_material();
   test_duplicate_pair_refused();
   test_delete_one_duplicate_copy_keeps_pair_named();
   test_delete_idempotent();

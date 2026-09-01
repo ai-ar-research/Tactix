@@ -155,6 +155,54 @@ static void test_dense_scan_budget_boundary() {
   assert(k.stats.factor_ticks == 7);
 }
 
+// Kissat does not precheck the limit before re-entering `next_factor` after a
+// successful match. It charges one current quotient occurrence, observes the
+// overrun at that internal checkpoint, and then applies the best grid.
+static void test_next_factor_budget_check_follows_occurrence() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 5);
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  const Lit p = make_lit(2, false), q = make_lit(3, false),
+            r = make_lit(4, false);
+  for (const Lit f : {a, b})
+    for (const Lit remainder : {p, q, r})
+      kernel_add_binary_clause(k, f, remainder, ++k.next_clause_id);
+
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  k.factor_marks[a] = 1;
+  k.work_budget = 18;
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  assert(k.stats.factor_ticks == 23 &&
+         "the cutoff follows the first re-entered quotient occurrence");
+}
+
+// `new_quotient(next)` marks the chosen next factor before Kissat enters
+// `factorize_next`.  Thus a current clause already containing `next` has two
+// factor literals and is not searched as a possible remainder match.
+static void test_next_factor_mark_precedes_match_scan() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 10);
+  const Lit a = make_lit(0, false), b = make_lit(1, false);
+  for (const auto &[p, q] :
+       {std::pair{2u, 3u}, std::pair{4u, 5u}, std::pair{6u, 7u}}) {
+    add_large(k, {a, make_lit(p, false), make_lit(q, false)});
+    add_large(k, {b, make_lit(p, false), make_lit(q, false)});
+  }
+  const Lit x = make_lit(8, false), y = make_lit(9, false);
+  add_large(k, {a, b, x});
+  kernel_add_binary_clause(k, x, y, ++k.next_clause_id);
+
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  k.factor_marks[a] = 1;
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings == 1);
+  assert(k.stats.factor_ticks == 52 &&
+         "an overlap row must not pay an impossible remainder-match scan");
+}
+
 // `factoring.initial` is the current literal universe at entry, not the
 // original-variable boundary.  An extension literal created by an earlier
 // Factor application is therefore a legal factor in a later application.
@@ -199,6 +247,53 @@ static void test_binary_quotients_preserve_sparse_watch_order() {
   assert(factor_apply(k) == ApplyResult::Ok);
   const Lit nx = make_lit(5, true);
   assert((binary_watch_partners(k, nx) == std::vector<Lit>{p, q, r}));
+}
+
+// Binaries created while Factor is dense append after the already connected
+// large occurrences.  They must not be reclassified into the borrowed binary
+// prefix on a later seed in the same pass.  The first 2x3 grid below creates
+// (not-x,a) and (not-x,b); the later a/b grid must therefore emit its three
+// pre-existing large quotient columns before its appended not-x binary column.
+static void test_dynamic_binary_follows_initial_large_occurrences() {
+  Kernel k;
+  ScopedHeuristics _hg_k(k);
+  kernel_reserve_vars(k, 11);
+  k.factor_composite = true;
+  const Lit c = make_lit(0, false), d = make_lit(1, false);
+  const Lit a = make_lit(2, false), b = make_lit(3, false);
+  const Lit e = make_lit(4, false);
+
+  for (const Lit factor : {c, d})
+    for (const Lit remainder : {a, b, e})
+      kernel_add_binary_clause(k, factor, remainder, ++k.next_clause_id);
+
+  for (const auto &[u, v] :
+       {std::pair{5u, 6u}, std::pair{7u, 8u}, std::pair{9u, 10u}}) {
+    add_large(k, {a, make_lit(u, false), make_lit(v, false)});
+    add_large(k, {b, make_lit(u, false), make_lit(v, false)});
+  }
+
+  // Make c the sole initial seed.  Clause additions from its factoring then
+  // re-arm a and b for the second factoring in the same Factor application.
+  std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+  k.factor_marks[c] = 1;
+  assert(factor_apply(k) == ApplyResult::Ok);
+  assert(k.stats.factorings >= 2);
+
+  const Lit nx = make_lit(11, true);
+  const Lit ny = make_lit(12, true);
+  assert(kernel_binary_live(k, ny, nx));
+  const uint64_t binary_id = kernel_binary_id(k, ny, nx);
+  uint32_t preceding_large_quotients = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *clause = clause_at(k.arena, ref);
+    if (clause->size == 3 &&
+        std::find(clause->begin(), clause->end(), ny) != clause->end() &&
+        clause->id() < binary_id)
+      preceding_large_quotients++;
+    ref += clause_actual_words(clause);
+  }
+  assert(preceding_large_quotients == 3);
 }
 
 // Factor eligibility is per literal in Kissat.  Opposite polarities of the
@@ -596,8 +691,11 @@ int main() {
   test_extension_var_boundary();
   test_factoring_2x3();
   test_dense_scan_budget_boundary();
+  test_next_factor_budget_check_follows_occurrence();
+  test_next_factor_mark_precedes_match_scan();
   test_prior_extension_literal_is_a_later_factor();
   test_binary_quotients_preserve_sparse_watch_order();
+  test_dynamic_binary_follows_initial_large_occurrences();
   test_opposite_polarities_can_share_a_grid();
   test_factoring_beyond_former_dimension_cap();
   test_satisfied_binary_remainder_is_retained();

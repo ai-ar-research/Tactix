@@ -36,17 +36,6 @@ void vivify_reestablish_watch_invariant(Kernel &, const Lit *, uint32_t);
 void vivify_trim_replacement_prefix(Kernel &, Lit implied,
                                     uint32_t replacement_size);
 
-// One DefaultPolicy dose consists of several independently budgeted tier
-// bands. Large rewrites stay in place like Kissat; unit/binary collapses and
-// deletions can still leave reclaimable records. This rule-owned transaction
-// defers their collection until the dose ends. Public/canonical Vivify creates
-// and drains its own transaction, preserving the complete N1 action surface.
-struct VivifyReclamationBatch {
-  bool changed = false;
-  void collect(Kernel &);
-};
-
-ApplyResult vivify_apply_batched(Kernel &, VivifyReclamationBatch &);
 ApplyResult vivify_try(Kernel &, Ref candidate); // one candidate
 ApplyResult vivify_apply(Kernel &);              // canonical: full round
 

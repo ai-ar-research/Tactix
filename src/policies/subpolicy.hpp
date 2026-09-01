@@ -24,6 +24,12 @@ struct SubPolicy {
 // legal instance (N1); rules validate, choosing never bypasses the guard.
 struct BranchingPolicy : SubPolicy {
   virtual Lit pick(Kernel &) = 0;
+  // Restart trail reuse asks for the same next-variable policy without first
+  // creating a new decision frame.  Kissat's random-sequence admission sees
+  // the current level in that context, whereas an ordinary decision sees the
+  // level after it was incremented.  Policies without a contextual distinction
+  // inherit their ordinary choice.
+  virtual Lit pick_for_restart_reuse(Kernel &k) { return pick(k); }
   // Search-propagation conflicts can advance branching schedules differently
   // from conflicts synthesized inside analysis (for example OTFS restarts).
   virtual void on_search_propagation_conflict() {}

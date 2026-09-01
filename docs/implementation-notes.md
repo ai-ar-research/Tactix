@@ -39,7 +39,7 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
 | D-ROOT | Root-only inprocessing and Lucky | Framework is defined on `F|U`. Reopen only with a reviewed arbitrary-fixpoint formulation and corpus 004/005/006 proof/model coverage. |
 | D-CONG-SKIP | Native-LRAT Congruence drops a merge when its bridge chain cannot be built | Dropping is sound; emitting an unverifiable line violates N2. Make bridge construction total using root-unit ids. Nonzero `congruence_unjustified` is the alarm. |
 | D-CONG-TAUT | Both proof modes skip a merge whose ladder would emit a tautological lemma | DRAT/LRAT checkers disagree on such ladders. Derive the nondegenerate half instead; debug proof code rejects tautological RUP/RAT additions. |
-| D-STRENGTHEN-BUDGET | C1/C2 share one reference allowance but default rounds do not stop mid-round | Interruptible effort was negative and is closed. Dose the fused pass, not its interruptibility; preserve termination polling. |
+| D-STRENGTHEN-BUDGET | Fused C2 reproduces Kissat's `forward_steps` currency and strict between-candidate limit | The 2026-08-03 negative used an inexact per-partner, inside-candidate arm. Rank-27 campaigns 4481–4483 proved Kissat stopped before candidate 309201 and that exact candidate/cache-line/large-watch accounting restores the complete 162110-member BVE schedule. Standalone C1 remains poseable but is absent from the default fused pipeline. |
 | D-VIVIFY-SCHED | Vivify policy is source-shaped but its cumulative performance remains an N3 concern | Candidate order, reference 100‰ cumulative band budget, focused tiers, persistent pose, productivity, and cleanup are implemented. Formula profiles do not dose this allowance. Reopen behavior only on exact weaker-work evidence. |
 | D-CCE-SCOPE | CCE omits binary victims | Admit only through the duplicate-safe binary deletion path with X1-shaped regression/fuzz coverage. |
 | D-CCE-FILTER | CCE change filter lacks redundant-removal stamps | Add a separate redundant-removal epoch only if `c cce2` proves all-skipped starvation. |
@@ -117,6 +117,13 @@ pending half-analysis or schedules Backjump independently.
   suffix move instead of two general compactions. These changes preserve the
   selected grids, encounter order, logical ticks, and N1--N4 while removing
   representation work absent from Kissat's Factor loop.
+- Selecting a next factor publishes that literal to the temporary `FACTOR`
+  image before matching, just as `new_quotient` does. A current clause already
+  containing the selected literal therefore has two factors and is not scanned
+  as an impossible remainder row. The inner effort cutoff is checked only
+  after charging each current quotient occurrence; there is no additional
+  pre-`next_factor` cutoff. Rank-27 campaign `4588` pins all 424 accepted grids
+  and total/pop/first/next/match meters bit-exact to Kissat.
 - Extension-variable growth is amortized: kernel identity/trail/frame storage
   grows geometrically, while the compact import order and inverse append one
   fresh identity incrementally. This removes quadratic reserve/rebuild work
@@ -339,6 +346,12 @@ binary/root new-material watermark: every admitted Probe phase calls it after
 its named Kissat productivity delay. The generic closure watermark remains an
 explicit diagnostic pose only. Random-decision admission likewise uses the
 reference-equivalent level predicate without a formula-size exception.
+Every Congruence representative union publishes two fresh watched binaries,
+including physical duplicates of already-live pairs. Each publication owns a
+fresh proof identity and re-arms ordinary added-material consumers; the second
+dense transition then retains the first physical copy. Native LRAT cites the
+pre-existing identical clause when proving a duplicate and retains independent
+identities even after physical deduplication.
 Directed Sweep bridges are protected per physical entry, never by pair, so
 coincident ordinary copies follow normal proof deletion.
 

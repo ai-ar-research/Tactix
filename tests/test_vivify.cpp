@@ -707,8 +707,9 @@ static void test_round_entry_flushes_large_and_deduplicates_binaries() {
 }
 
 // Kissat propagates a Vivify-learned root unit and continues the already-built
-// schedule.  Candidate references stay valid until the round-end collection;
-// each later candidate rechecks the new root values before probing.
+// schedule. Candidate references remain valid because Vivify only marks old
+// large records garbage; each later candidate rechecks root values before
+// probing, and no implementation-only collection relocates the arena.
 static void test_unit_rewrite_continues_schedule() {
   Kernel k;
   kernel_reserve_vars(k, 10); // the fixture ranges through variable 10
@@ -722,6 +723,8 @@ static void test_unit_rewrite_continues_schedule() {
   const Ref prefix = kernel_add_large_clause(k, prefix_lits, 3, false, 0);
   const Lit unit_lits[3] = {internalize(1), internalize(2), internalize(3)};
   const Ref unit = kernel_add_large_clause(k, unit_lits, 3, false, 0);
+  const size_t arena_words = k.arena.size();
+  const uint64_t arena_generation = k.arena_generation;
   // Priority creates the exact four-candidate transaction: learn a root unit,
   // retain a prefix on an independent clause, delete a now-root-satisfied
   // scheduled clause, then reuse that prefix on the final clause.
@@ -742,8 +745,12 @@ static void test_unit_rewrite_continues_schedule() {
   assert(k.stats.vivify_shrunken == 1);
   assert(k.stats.vivify_deleted == 1 && k.stats.vivify_checked == 3);
   assert(k.stats.vivify_reused == 1);
-  // Round-end collection drops the rewritten and satisfied candidates while
-  // retaining both independent no-op clauses.
+  // Both retired records remain garbage in place while the independent no-op
+  // clauses stay live, matching Kissat's physical Vivify lifecycle.
+  assert(k.arena.size() == arena_words);
+  assert(k.arena_generation == arena_generation);
+  assert(clause_at(k.arena, unit)->garbage());
+  assert(clause_at(k.arena, satisfied)->garbage());
   assert(live_large(k, prefix_lits, 3) == 2);
   assert(live_large(k, final_lits, 3) == 2);
   assert(k.level == 0 && kernel_propagation_fixpoint(k));

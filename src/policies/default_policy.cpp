@@ -102,6 +102,27 @@ ApplyResult default_propagate(Kernel &k, const char *candidate) {
 }
 } // namespace
 
+ApplyResult default_resume_sparse_propagation(Kernel &k,
+                                              uint32_t trail_begin,
+                                              bool charge_search_ticks) {
+  assert(k.level == 0);
+  assert(trail_begin <= k.trail.size());
+  // Kissat clears its old root trail on phase entry, then resets propagation
+  // to the beginning of the suffix produced by the simplifier after sparse
+  // watches are rebuilt. Tactix retains immutable root identities, so the
+  // equivalent cursor is the saved suffix boundary, not literal trail zero.
+  k.propagate_head = trail_begin;
+  k.binary_only_head = UINT32_MAX;
+  const bool saved_inprocessing = k.inprocessing;
+  if (charge_search_ticks)
+    k.inprocessing = false;
+  const ApplyResult result =
+      default_propagate(k, charge_search_ticks ? "eliminate-sparse-resume"
+                                               : "probe-sparse-resume");
+  k.inprocessing = saved_inprocessing;
+  return result;
+}
+
 namespace {
 // Unit conversions and protocol values, not strategy parameters.
 constexpr uint64_t PERMILLE_SCALE = 1000;
@@ -1744,21 +1765,30 @@ size_t GlueTieredReduction::victims(const Kernel &k, size_t candidates) {
                              PERCENT_SCALE);
 }
 
-Lit DefaultBranching::pick(Kernel &k) {
+Lit DefaultBranching::pick(Kernel &k) { return pick_impl(k, false); }
+
+Lit DefaultBranching::pick_for_restart_reuse(Kernel &k) {
+  return pick_impl(k, true);
+}
+
+Lit DefaultBranching::pick_impl(Kernel &k, bool restart_reuse) {
   assert(k.unassigned > 0);
   if (!k.warming && randec_enabled && !k.h->stable) {
     const uint64_t c = k.stats.conflicts;
     event_trace_randec_state(k, "pre", randec_remaining, randec_next,
-                             randec_sequences);
-    // Kissat increments `solver->level` before `next_random_decision` tests
-    // whether that level is at most one.  Tactix picks before Decide creates
-    // the new frame, so the equivalent pre-decision condition is level zero.
-    // In particular, a restart which reuses level one must not start a due
-    // random sequence for its first post-restart decision.
-    if (!randec_remaining && k.level == 0 && c >= randec_next)
+                             randec_sequences, randec_rng);
+    // An ordinary kissat_decide increments `solver->level` before this test,
+    // so Tactix's pre-frame equivalent admits only level zero.  Restart trail
+    // reuse calls kissat_next_decision_variable directly, without incrementing
+    // the level, and therefore admits retained levels zero or one.  Keep that
+    // call-context distinction explicit; conflating them suppressed due random
+    // sequences at level-one restarts and changed the subsequent CDCL path.
+    const bool level_allows_start = restart_reuse ? k.level <= 1 : k.level == 0;
+    if (!randec_remaining && level_allows_start && c >= randec_next)
       start_random_sequence(k);
     event_trace_randec_state(k, randec_remaining ? "active" : "inactive",
-                             randec_remaining, randec_next, randec_sequences);
+                             randec_remaining, randec_next, randec_sequences,
+                             randec_rng);
     if (randec_remaining) {
       for (;;) {
         randec_rng = randec_rng * RANDEC_MULTIPLIER + RANDEC_INCREMENT;
@@ -1930,12 +1960,17 @@ void DefaultInprocessScheduler::configure_from_env() {
     preprocess_followups_ = std::strtoul(pf, nullptr, 10) != 0;
 }
 
-void DefaultInprocessScheduler::reset(const Kernel &k) {
+void DefaultInprocessScheduler::reset(const Kernel &) {
   initialized_ = false;
   search_limits_initialized_ = false;
-  const uint64_t ticks = search_ticks(k);
   probe_clock = elim_clock = {};
-  probe_clock.anchor = elim_clock.anchor = ticks;
+  // Kissat initializes both `last.ticks.probe` and
+  // `last.ticks.eliminate` to zero.  Input-unit closure already uses the
+  // ordinary search propagator and contributes to `search_ticks` before
+  // solve entry, so rebasing these clocks here silently removes real reference
+  // work from the first search-time Probe and Eliminate doses.  Initial
+  // preprocessing deliberately does not advance the Probe anchor; completed
+  // search-time phases update their own clock in `run_phase` below.
   bve_rounds_run_ = 0;
   factor_large_formula_ = false;
   factor_marked_watermark_ = 0;
@@ -2573,7 +2608,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       // post-restart decision.  Route through the active branching subpolicy,
       // then hand only its variable to the policy-neutral Restart rule.
       BranchingPolicy &bp = branching ? *branching : default_branching_;
-      const Lit next = bp.pick(k);
+      const Lit next = bp.pick_for_restart_reuse(k);
       const uint32_t keep =
           heuristics_restart_reuse_level_for(k, var_of(next));
       if (keep < k.level)
@@ -2638,6 +2673,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
           kernel_assign_decision(k, decision);
           k.stats.warming_decisions++;
           event_trace.detail(k, "decision", kernel_externalize(k, decision));
+          event_trace.heap_after_decision(k);
           event_trace.heap_scores(k);
           const size_t warmup_trail_begin = k.trail.size();
           kernel_propagate_beyond_conflicts(k);
@@ -2689,6 +2725,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         },
         [&] { return decide_apply(k, decision, false); });
     event_trace.detail(k, "decision", kernel_externalize(k, decision));
+    event_trace.heap_after_decision(k);
     event_trace.heap_scores(k);
   }
 }
@@ -2867,11 +2904,13 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
       const size_t candidate_trail_before = k.trail.size();
       const uint64_t candidate_roots_before = k.stats.root_assignments;
       const uint32_t bve_flush_from = k.propagate_head;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      Var trace_bve_var = INVALID_VAR;
+      const uint64_t trace_bve_eliminated_before = k.stats.bve_eliminated;
+#endif
       const ApplyResult ar = [&] {
         TickSinkScope sink(k, e.tick_counter);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-        Var trace_bve_var = INVALID_VAR;
-        const uint64_t trace_bve_eliminated_before = k.stats.bve_eliminated;
         if (bve_entry) {
           Lit candidate;
           if (lit_of_instance(k, payload, &candidate)) {
@@ -2934,6 +2973,12 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
         heuristics_consume_root_assignments(k, propagation_trail_before);
       if (bve_entry)
         bve_flush_units_while_connected(k, bve_flush_from);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      if (trace_bve_var != INVALID_VAR)
+        event_trace_bve_candidate(
+            k, trace_bve_var, "postflush", e.meter(k), limit,
+            k.stats.bve_eliminated != trace_bve_eliminated_before);
+#endif
     }
     if (dynamic_bve) {
       const bool complete = bve_heap.empty();
@@ -2966,9 +3011,7 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // physical state from which that common consumer reconstructs.
     kernel_collect_garbage(k);
     // This round has already satisfied the generic dosed-phase reclamation
-    // obligation.  BVE is the last enabled dosed entry in the production
-    // Eliminate pipeline; a later productive authored round sets the flag
-    // again before collecting at this same boundary.
+    // obligation. BVE is the last enabled dosed entry in production.
     ctx.phase_dosed = false;
   }
   e.tm.admitted++; // the dosed branch ran; it exits here, not below
@@ -3039,11 +3082,6 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   const char *no_t3 = std::getenv("TACTIX_VIVIFY_TIER3");
   const bool split = !(no_t3 && *no_t3 == '0');
   ApplyResult ar = ApplyResult::NoOp;
-  VivifyReclamationBatch reclamation;
-  const auto apply_band = [](Kernel &kernel, void *state) {
-    return vivify_apply_batched(
-        kernel, *static_cast<VivifyReclamationBatch *>(state));
-  };
   // Kissat advances one cumulative probing-tick ceiling by each band's
   // proportional share (vivify.c:1455-1490).  Keep the same ledger here:
   // unused work from an early tier belongs to every later tier, while an
@@ -3068,9 +3106,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     k.work_budget_offset = e.meter(k) - dose_start;
     TickSinkScope sink(k, e.tick_counter);
     const ApplyResult a =
-        metered_rule_apply(k, e.meter, [&] {
-          return apply_rule_with(r, k, apply_band, &reclamation);
-        });
+        metered_rule_apply(k, e.meter, [&] { return apply_rule(r, k); });
     if (a == ApplyResult::Unsat ||
         (a == ApplyResult::Ok && ar != ApplyResult::Unsat))
       ar = a;
@@ -3094,10 +3130,7 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
     const ApplyResult ar2 = [&] {
       TickSinkScope sink(k, e.tick_counter);
       return metered_rule_apply(k, e.meter,
-                                [&] {
-                                  return apply_rule_with(
-                                      r, k, apply_band, &reclamation);
-                                });
+                                [&] { return apply_rule(r, k); });
     }();
     if (ar2 == ApplyResult::Unsat)
       ar = ar2;
@@ -3117,8 +3150,6 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
       }
     }
   }
-  if (ar != ApplyResult::Unsat && !k.inconsistent)
-    reclamation.collect(k);
   k.vivify_scope = 0;
   k.work_budget = 0;
   k.work_budget_offset = 0;
@@ -3148,11 +3179,10 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
   if (factor_entry)
     factor_dose_config(k, e);
   k.work_budget = handed;
-  // These rules meter partner visits internally.  A dose is only a real
-  // scheduling bound when the implementation is allowed to stop inside a
-  // candidate; otherwise one saturated occurrence list can overrun the whole
-  // phase by orders of magnitude.  A cut is resumable: each rule re-arms the
-  // current candidate and the untouched tail for the next dose.
+  // The fused Strengthen pass reproduces Kissat's forward-step ceiling at the
+  // only reference cut point: strictly between complete candidates.  The
+  // standalone C1 decomposition retains its diagnostic per-partner budget.
+  // Both cuts are resumable through the touched-variable substrate.
   const bool previous_midround_budget = k.midround_budget;
   k.midround_budget = config().forward_midround_budget &&
                       (!std::strcmp(r.name, "SubsumeForward") ||
@@ -3365,7 +3395,7 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   clock.marks_mark = k.stats.bve_marks;
   clock.fixed_mark = kernel_root_fixed(k);
   clock.blocked = false; // a new blocking episode may now be counted
-  forward_pair_limit_ = 0; // the pair's shared allowance is per phase
+  forward_pair_limit_ = 0;
   bve_ran_this_phase_ = false;
   bve_complete_this_phase_ = true;
   // Kissat constructs one embedded Kitten at the beginning of the complete
@@ -3402,12 +3432,18 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // `kissat_backtrack_propagate_and_flush_trail`; dense Tactix keeps the root
   // literals but has consumed the same pending-root lifecycle state.
   k.unflushed_root = 0;
+  // Kissat has physically cleared the previously propagated root trail at
+  // this point. Preserve Tactix's immutable prefix but remember the equivalent
+  // beginning for its sparse-resume reset below.
+  const uint32_t sparse_resume_trail =
+      static_cast<uint32_t>(k.trail.size());
   if (group == SlotGroup::Eliminate)
     event_trace_eliminate_cleanup(k, "entry");
   // Only the Eliminate pipeline contains BVE, the sole consumer of Kissat's
   // mixed binary/large connection stream. Probe consumers share the ordinary
   // large occurrence image and do not instantiate a duplicate formula-wide
-  // ordering representation.
+  // ordering representation. Constructing either cache is not itself a
+  // physical sparse-watch transition; individual rules own those boundaries.
   kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
@@ -3424,6 +3460,13 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
        ctx.outer < rounds && !ctx.phase_unsat &&
        !(stop && *stop);
        ctx.outer++) {
+    // `SET_EFFORT_LIMIT(forward_steps)` lives inside Kissat's
+    // `forward_subsume_all_clauses`, which is called once per elimination
+    // round.  The search-tick reference is shared, but each round receives a
+    // fresh delta starting at its current forward_steps counter.  Keep the C1
+    // diagnostic decomposition and fused C2 on one allowance within a round,
+    // then discard that absolute ceiling before the next round.
+    forward_pair_limit_ = 0;
     ctx.round_changed = false;
     k.subsume_complete = true;
     k.strengthen_complete = true;
@@ -3445,7 +3488,9 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
         continue;
       const bool substitute = !std::strcmp(r.name, "Substitute");
       if (e.enabled && e.meter) {
-        if (substitute || group == SlotGroup::Probe || ctx.outer == 0) {
+        const bool forward_round = e.meter == meter_forward_pair;
+        if (substitute || group == SlotGroup::Probe || ctx.outer == 0 ||
+            forward_round) {
           set_entry_limit(e, k);
         }
       }
@@ -3638,6 +3683,19 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // Packed Tactix replacements replay their persistent source positions, as
   // every rule-local reconnect does, until collection materializes the order.
   kernel_rebuild_large_watches(k, group == SlotGroup::Eliminate);
+  if (group == SlotGroup::Eliminate && !ctx.phase_unsat) {
+    // dense.c::kissat_resume_sparse_mode resets propagation after reconnecting
+    // and, because Eliminate is not a probing scope, deliberately uses
+    // kissat_search_propagate. Its scan cost therefore contributes to the
+    // stable-mode and inprocessing `search_ticks` currency even though the
+    // enclosing simplifier remains active.
+    const ApplyResult replay = default_resume_sparse_propagation(
+        k, sparse_resume_trail, /*charge_search_ticks=*/true);
+    if (replay == ApplyResult::Unsat || k.inconsistent)
+      ctx.phase_unsat = true;
+    else
+      assert(replay == ApplyResult::Ok);
+  }
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "after");
   k.factor_selection = nullptr;
