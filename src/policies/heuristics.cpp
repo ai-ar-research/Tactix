@@ -270,6 +270,28 @@ void heuristics_compact_random_order_fixed(Kernel &k) {
               }),
               order.end());
   rebuild_compact_import_position(k, k.nvars);
+
+  // Kissat's compact_best_and_target_values counts nonzero phases only for
+  // active variables in its physically compacted VARS image.  Tactix keeps
+  // every root-fixed kernel identity for proof/model/API reconstruction, so
+  // heuristics_compact_vars has necessarily seen a larger physical phase
+  // vector at this point.  Once the random/import image above collapses those
+  // roots to Kissat's single fixed representative, recompute both watermarks
+  // over the active part of that image as well.  The representative occupies
+  // a VARS slot but, like Kissat's first fixed variable, is inactive and must
+  // not contribute.  Counting either the physical identities or that fixed
+  // slot can suppress a later genuine target snapshot even when the two
+  // search trails are otherwise identical.
+  k.h->target_assigned = 0;
+  k.h->best_assigned = 0;
+  for (const Var v : order) {
+    const bool fixed = k.values[make_lit(v, false)] != 0 &&
+                       k.assigned[v].level == 0;
+    if (kernel_var_retired(k, v) || fixed)
+      continue;
+    k.h->target_assigned += k.h->target[v] != 0;
+    k.h->best_assigned += k.h->best[v] != 0;
+  }
 }
 
 static uint32_t append_unranked_decision_candidates(

@@ -11,6 +11,7 @@ journal = (root / "tools/solvers/variants/kissat-event-trace/overlay/rulejournal
 eventtrace = (root / "tools/solvers/variants/kissat-event-trace/overlay/eventtrace.c").read_text()
 tactix_trace = (root / "src/diagnostics/event_trace.cpp").read_text()
 tactix_analyze = (root / "src/rules/analyze/analyze.cpp").read_text()
+tactix_factor = (root / "src/rules/factor/factor.cpp").read_text()
 
 # These are Kissat's scheduled semantic families in search, elimination and the
 # probe pipeline.  Search-guidance-only switch/rephase/reorder operations are
@@ -53,6 +54,14 @@ assert 'trace_stop_pending' not in eventtrace
 assert 'TACTIX_EVENT_TRACE_STOP_AFTER_CONFLICT' in tactix_trace
 assert 'TACTIX_EVENT_TRACE_KEEP_SNAPSHOTS' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_KEEP_SNAPSHOTS' in eventtrace
+assert 'KISSAT_MACRO_ACTIVE_SET' in eventtrace
+assert 'TACTIX_MACRO_ACTIVE_SET' in tactix_trace
+assert 'SAT_MACRO_ACTIVE_SET_EVENT' in eventtrace
+assert 'SAT_MACRO_ACTIVE_SET_EVENT' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_WATCH_ONLY_STRICT' in eventtrace
+assert ('trace_watch_only_strict && strcmp (event, "watch")' in eventtrace)
+assert 'TACTIX_EVENT_TRACE_WATCH_ONLY_STRICT' in tactix_trace
+assert ('watch_only_strict_ && std::strcmp(event, "watch")' in tactix_trace)
 assert 'KISSAT_EVENT_TRACE_LEARNED_ONLY' in eventtrace
 assert 'TACTIX_EVENT_TRACE_LEARNED_ONLY' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_BVE_HEAP_ONLY' in eventtrace
@@ -64,17 +73,24 @@ assert 'kissat_event_trace_factor_fresh (\\n' in prepare
 assert 'event_trace_factor_fresh(k, seed, added_fresh' in (
     root / "src/rules/factor/factor.cpp").read_text()
 assert 'SAT_EVENT_TRACE_FACTOR_FRESH_ONLY' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_FRESH_CONFLICT' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_FRESH_CONFLICT' in tactix_trace
 assert ('trace_heap_vars_only ||\n      trace_factor_fresh_only' in eventtrace)
 assert ('trace_factor_fresh_only && strcmp (event, "trace_begin")' in
         eventtrace)
+assert ('strcmp (event, "factor_fresh") && !exit_after_match' in eventtrace)
 assert ('factor_fresh_only_ && std::strcmp(event, "trace_begin")' in
         tactix_trace)
+assert ('std::strcmp(event, "factor_fresh") && !exit_after_match' in
+        tactix_trace)
+assert 'if (!want_detail(k) && !exit_after_match)' in tactix_trace
 assert 'factor_fresh_only_' in tactix_trace
 assert 'SAT_EVENT_TRACE_FACTOR_UPDATE_ONLY' in eventtrace
 assert 'kissat_event_trace_factor_update (' in eventtrace
 assert 'factoring->trace_update_ordinal++' in prepare
 assert 'trace_factor_update_only && strcmp (event, "trace_begin")' in eventtrace
 assert 'SAT_EVENT_TRACE_FACTOR_HEAP_ORDINAL' in eventtrace
+assert tactix_trace.count('SAT_EVENT_TRACE_FACTOR_HEAP_ORDINAL') >= 2
 assert 'SAT_EVENT_TRACE_FACTOR_HEAP_SET_PATH' in eventtrace
 assert 'SAT_EVENT_TRACE_FACTOR_HEAP_SET_PATH' in (
     root / "src/rules/factor/factor.cpp").read_text()
@@ -86,6 +102,8 @@ assert ('trace_factor_literal_only && strcmp (event, "trace_begin")' in
         eventtrace)
 assert ('factor_literal_only_ && std::strcmp(event, "trace_begin")' in
         tactix_trace)
+assert 'strcmp (event, "binary_add")' in eventtrace
+assert 'std::strcmp(event, "binary_add")' in tactix_trace
 assert ('trace_bve_heap_only && strcmp (event, "trace_begin")' in eventtrace)
 assert ('bve_heap_only_ && std::strcmp(event, "trace_begin")' in tactix_trace)
 assert 'strcmp (event, "bve_schedule")' in eventtrace
@@ -96,6 +114,79 @@ assert 'event_trace_bve_schedule(k, stack_.data()' in (
 assert 'insertion_hash=' in eventtrace and 'topology_hash=' in eventtrace
 assert 'score_xor=' in eventtrace and 'score_sum=' in eventtrace
 assert 'SAT_EVENT_TRACE_BVE_POP_FROM' in eventtrace
+assert 'SAT_BVE_SCHEDULE_CONFLICT' in eventtrace
+assert 'SAT_BVE_SCHEDULE_CONFLICT' in tactix_trace
+assert 'SAT_BVE_SCHEDULE_ORDINAL' in eventtrace
+assert 'SAT_BVE_SCHEDULE_ORDINAL' in tactix_trace
+assert 'KISSAT_BVE_CANDIDATE_TRACE' in eventtrace
+assert 'TACTIX_BVE_CANDIDATE_TRACE' in tactix_trace
+assert 'SAT_BVE_CANDIDATE_EXIT_AFTER_END' in eventtrace
+assert 'SAT_BVE_CANDIDATE_EXIT_AFTER_END' in tactix_trace
+assert 'SAT_BVE_CANDIDATE_EXIT_STAGE' in eventtrace
+assert 'SAT_BVE_CANDIDATE_EXIT_STAGE' in tactix_trace
+assert 'solver, idx, "postflush"' in prepare
+assert 'TACTIX_BVE_RETRY_TRACE' in tactix_trace
+assert 'SAT_BVE_RETRY_EXIT_AFTER_MARK' in tactix_trace
+assert 'SAT_BVE_SCHEDULE_SELECTED' in eventtrace
+assert 'SAT_BVE_SCHEDULE_SELECTED' in tactix_trace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_EXTERNALS' in eventtrace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_EXTERNALS' in tactix_trace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_VALUES' in eventtrace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_VALUES' in tactix_trace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_INCLUDE_GARBAGE' in eventtrace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_INCLUDE_GARBAGE' in tactix_trace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_ORDINAL' in eventtrace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_ORDINAL' in tactix_trace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_HASH' in eventtrace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_HASH' in tactix_trace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_POSE' in eventtrace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_POSE' in tactix_trace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_META' in eventtrace
+assert 'SAT_EVENT_TRACE_FORMULA_SET_META' in tactix_trace
+assert 'KISSAT_VIVIFY_COUNTS_TRACE' in eventtrace
+assert 'TACTIX_VIVIFY_COUNTS_TRACE' in tactix_trace
+assert 'SAT_VIVIFY_COUNTS_TRACE_LITERALS' in eventtrace
+assert 'SAT_VIVIFY_COUNTS_TRACE_LITERALS' in tactix_trace
+assert 'SAT_VIVIFY_COUNTS_TRACE_CLAUSE_HASH' in eventtrace
+assert 'SAT_VIVIFY_COUNTS_TRACE_CLAUSE_HASH' in tactix_trace
+assert 'SAT_EVENT_TRACE_HEAP_SET_STOP' in eventtrace
+assert 'KISSAT_INPROCESS_SCORE_TRACE' in eventtrace
+assert 'SAT_INPROCESS_SCORE_CONFLICT_FROM' in eventtrace
+assert 'SAT_INPROCESS_SCORE_CONFLICT_FROM' in tactix_trace
+assert 'KISSAT_MACRO_WATCH_TRACE' in eventtrace
+assert 'TACTIX_MACRO_WATCH_TRACE' in tactix_trace
+assert 'SAT_MACRO_WATCH_EVENT' in eventtrace
+assert 'SAT_MACRO_WATCH_EVENT' in tactix_trace
+assert 'SAT_MACRO_WATCH_EXTERNAL' in eventtrace
+assert 'SAT_MACRO_WATCH_EXTERNAL' in tactix_trace
+assert 'SAT_MACRO_WATCH_ORDINAL' in eventtrace
+assert 'SAT_MACRO_WATCH_ORDINAL' in tactix_trace
+assert 'KISSAT_MACRO_WATCH_SERIES_TRACE' in eventtrace
+assert 'TACTIX_MACRO_WATCH_SERIES_TRACE' in tactix_trace
+assert 'KISSAT_FORWARD_CLAUSE_TRACE' in eventtrace
+assert 'kissat_event_trace_forward_partner' in eventtrace
+assert 'kissat_event_trace_forward_partner' in prepare
+assert 'TACTIX_FORWARD_CLAUSE_TRACE' in (
+    root / "src/rules/strengthen/strengthen.cpp").read_text()
+assert 'SAT_EVENT_TRACE_BINARY_SET_EXTERNALS' in eventtrace
+assert 'SAT_EVENT_TRACE_BINARY_SET_EXTERNALS' in tactix_trace
+assert 'solver, "name=Strengthen|stage=begin")' in prepare
+assert 'solver, "name=Strengthen|stage=end")' in prepare
+assert 'SAT_EVENT_TRACE_SET_STOP' in eventtrace
+assert 'SAT_EVENT_TRACE_SET_STOP' in tactix_trace
+assert 'KISSAT_EVENT_TRACE_BOUNDARY_ONLY' in eventtrace
+assert 'TACTIX_EVENT_TRACE_BOUNDARY_ONLY' in tactix_trace
+assert 'KISSAT_INPROCESS_BOUNDARY_TRACE' in eventtrace
+assert 'TACTIX_INPROCESS_BOUNDARY_TRACE' in tactix_trace
+assert 'SAT_SEARCH_CHECKPOINT_INTERVAL' in eventtrace
+assert 'SAT_SEARCH_CHECKPOINT_INTERVAL' in tactix_trace
+assert 'SAT_SEARCH_CHECKPOINT_CONFLICT_FROM' in eventtrace
+assert 'SAT_SEARCH_CHECKPOINT_CONFLICT_FROM' in tactix_trace
+assert 'solver, "search_checkpoint_begin", true' in eventtrace
+assert 'emit_standalone_macro_boundary(k, "search_checkpoint")' in tactix_trace
+assert 'kissat_event_trace_eliminate_round_boundary' in eventtrace
+assert 'solver, "strengthen", "begin")' in prepare
+assert 'solver, "bve", "end")' in prepare
 assert 'SAT_EVENT_TRACE_BVE_POP_FROM' in tactix_trace
 assert 'bve_pop_checkpoint' in eventtrace and 'bve_pop_checkpoint' in tactix_trace
 assert 'strcmp (event, "bve_candidate")' in eventtrace
@@ -143,6 +234,12 @@ assert 'strcmp (event, "phase_pick")' in eventtrace
 assert 'strcmp (event, "phase_save")' in eventtrace
 assert 'kissat_event_trace_phase_pick (solver, idx, value);' in prepare
 assert 'kissat_event_trace_phase_save (solver, lit);' in prepare
+assert '!trace_phase_only || !detail_enabled (solver)' in eventtrace
+assert '!phase_only_ || !want_detail(k)' in tactix_trace
+assert 'SAT_INPROCESS_SCORE_PHASES' in eventtrace
+assert 'SAT_INPROCESS_SCORE_PHASES' in tactix_trace
+assert 'target_assigned\\tbest_assigned' in eventtrace
+assert 'target_assigned\\tbest_assigned' in tactix_trace
 assert 'SAT_EVENT_TRACE_PHASE_VAR' in eventtrace
 assert 'SAT_EVENT_TRACE_PHASE_VAR' in tactix_trace
 assert 'append_sorted_clause (solver, candidate, &p, &left);' in eventtrace
@@ -210,9 +307,20 @@ assert 'KISSAT_EVENT_TRACE_BINARY_ASSIGNMENT' in eventtrace
 assert 'TACTIX_EVENT_TRACE_BINARY_ASSIGNMENT' in tactix_trace
 assert 'SAT_EVENT_TRACE_SUBSTITUTE_ALL' in eventtrace
 assert 'SAT_EVENT_TRACE_SUBSTITUTE_ALL' in tactix_trace
+assert 'SAT_EVENT_TRACE_SUBSTITUTE_ONLY' in eventtrace
+assert 'SAT_EVENT_TRACE_SUBSTITUTE_ONLY' in tactix_trace
+assert ('trace_substitute_only && strcmp (event, "trace_begin")' in
+        eventtrace)
+assert ('substitute_only_ && std::strcmp(event, "trace_begin")' in
+        tactix_trace)
+assert 'kissat_event_trace_late (solver, NAME "_end", "-", true);' in prepare
 assert 'KISSAT_EVENT_TRACE_COMPACT_PROBE' in eventtrace
 assert 'KISSAT_BINARY_LIFECYCLE_TRACE' in eventtrace
 assert 'TACTIX_BINARY_LIFECYCLE_TRACE' in tactix_trace
+assert 'kissat_event_trace_forward_binary (' in eventtrace
+assert 'kissat_event_trace_forward_binary (solver, first, second, c);' in prepare
+assert '"strengthened-binary"' in prepare
+assert '"strengthened-large"' in prepare
 assert 'kissat_event_trace_binary_delete (solver, a, b);' in prepare
 assert 'KISSAT_TRANSITIVE_TRACE' in eventtrace
 assert 'TACTIX_TRANSITIVE_TRACE' in (
@@ -247,7 +355,17 @@ assert 'event_trace_binary_add(k, a, b);' in (root / "src/kernel/kernel.cpp").re
 assert 'kissat_event_trace_sweep_rewrite_binary (\\n' in prepare
 assert 'event_trace_sweep_rewrite_binary(\n' in (
     root / "src/rules/substitute/substitute.cpp").read_text()
-assert 'kissat_event_trace (solver, "sweep_equivalence", payload, false);' in prepare
+assert 'kissat_event_trace_sweep_equivalence (solver, lit, other);' in prepare
+assert 'SAT_EVENT_TRACE_SWEEP_COMMIT' in eventtrace
+assert 'kissat_event_trace_substitute_binary_collapse (' in prepare
+assert 'substitute-large-collapse-source' in eventtrace
+assert 'kissat_event_trace_binary_add_site' in prepare
+assert '"factor-divider"' in prepare
+assert '"congruence"' in prepare
+assert '"sweep"' in prepare
+assert '"substitute"' in prepare
+assert '"vivify"' in prepare
+assert '"strengthen"' in prepare
 assert 'kissat_event_trace (solver, "sweep_seed", payload, false);' in prepare
 assert 'kissat_event_trace (solver, "sweep_environment", payload, false);' in prepare
 assert 'kissat_event_trace_sweep_environment_clause (\\n' in prepare
@@ -279,6 +397,12 @@ assert 'trace_heap_vars_only ? !selected' in eventtrace
 assert 'TACTIX_EVENT_TRACE_HEAP_VARS_ONLY' in tactix_trace
 assert 'SAT_EVENT_TRACE_HEAP_VARS' in tactix_trace
 assert 'heap_vars_only_ ? !selected' in tactix_trace
+assert eventtrace.count(
+    'trace_heap_vars_only && trace_detail_window &&') >= 3
+assert eventtrace.count(
+    'solver->statistics.conflicts < trace_detail_from ||') >= 4
+assert tactix_trace.count(
+    'heap_vars_only_ && detail_window_ &&') >= 4
 assert 'kissat_event_trace_root_assign (solver, lit, binary, reason);' in prepare
 assert 'void kissat_event_trace_root_assign (kissat *solver, unsigned lit,' in eventtrace
 assert 'strcmp (event, "root_assign")' in eventtrace
@@ -301,7 +425,34 @@ assert 'SAT_EVENT_TRACE_EXIT_CONFLICT' in tactix_trace
 assert 'KISSAT_EVENT_TRACE_LATE_PATH' in eventtrace
 assert 'TACTIX_EVENT_TRACE_LATE_PATH' in tactix_trace
 assert 'kissat_event_trace_late (solver, "factor_begin", "-", true);' in prepare
+assert "'  kissat_event_trace_factor_heap (solver, 0, \"initial\",\\n'" in prepare
+assert "'                                  &factoring.schedule);\\n'" in prepare
+assert "'              reduction, *ticks - trace_tick_start, trace_pops,\\n'" in prepare
+assert "'              trace_first_ticks, trace_next_ticks,\\n'" in prepare
+assert "'              trace_match_ticks);\\n'" in prepare
+assert 'SAT_EVENT_TRACE_FACTOR_METER' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_METER' in tactix_trace
+assert 'SAT_EVENT_TRACE_FACTOR_METER_COMPONENTS' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_METER_COMPONENTS' in tactix_trace
+assert 'KISSAT_FACTOR_MATCH_TRACE' in eventtrace
+assert 'TACTIX_FACTOR_MATCH_TRACE' in tactix_factor
+assert 'SAT_FACTOR_MATCH_PAIR' in eventtrace
+assert 'SAT_FACTOR_MATCH_PAIR' in tactix_factor
+assert 'kissat_event_trace_factor_match_selected (' in prepare
+assert 'kissat_event_trace_factor_match_large (' in prepare
+assert 'SAT_EVENT_TRACE_FACTOR_HEAP_SET_STAGE' in eventtrace
+assert 'SAT_EVENT_TRACE_FACTOR_HEAP_SET_STAGE' in tactix_factor
+assert 'SAT_EVENT_TRACE_FACTOR_LITERAL_CONFLICT' in eventtrace
+assert tactix_trace.count('SAT_EVENT_TRACE_FACTOR_LITERAL_CONFLICT') == 2
+assert "'                                    \"factor_pop\");\\n'" in prepare
+assert re.search(
+    r'if \(selected_ordinal &&\s*'
+    r'std::strtoull\(selected_ordinal, nullptr, 10\) != k\.stats\.factorings\)\s*'
+    r'return;', tactix_factor), (
+    "selected Factor heap tracing must reject other ordinals before scanning")
 assert 'kissat_event_trace_late (solver, NAME "_begin", "-", true);' in prepare
+assert 'f\'        kissat_event_trace_late (solver, "{event}_begin", "-", true);\\n\'' in prepare
+assert 'f\'        kissat_event_trace_late (solver, "{event}_end", "-", true);\\n\'' in prepare
 assert 'SAT_RULE_JOURNAL_SKIP_DIGEST' in journal
 assert 'SAT_RULE_JOURNAL_SKIP_DIGEST' in (
     root / "src/diagnostics/rule_journal.cpp").read_text()
@@ -313,5 +464,15 @@ assert 'event_trace_binary_assignment(k, lit, other_false' in (
 assert 'kissat_event_trace_heap_before_bumps (solver);' in prepare
 assert 'void kissat_event_trace_heap_before_bumps (kissat *solver)' in eventtrace
 assert 'event_trace_heap_scores(k);\n    for (const Var v : k.bump_order)' in tactix_analyze
+assert 'TACTIX_DECISION_PREFIX_TRACE' in tactix_trace
+assert 'note_decision_prefix(k, static_cast<int>(payload));' in tactix_trace
+assert 'flush_decision_prefix(k);' in tactix_trace
+assert 'KISSAT_DECISION_PREFIX_TRACE' in eventtrace
+assert 'note_decision_prefix (solver, lit);' in eventtrace
+assert 'flush_decision_prefix (solver);' in eventtrace
+assert 'TACTIX_RANDEC_STATE_TRACE' in tactix_trace
+assert 'KISSAT_RANDEC_STATE_TRACE' in eventtrace
+assert 'randec_sequences, randec_rng' in (
+    root / "src/policies/default_policy.cpp").read_text()
 
 print("test_kissat_journal_overlay_static OK")

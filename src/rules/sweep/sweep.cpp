@@ -410,11 +410,23 @@ static void sweep_enter_dense(Kernel &k) {
   }
   if (k.dense) {
     k.dense->large.assign(2 * k.nvars, {});
+    if (k.dense->track_order) {
+      k.dense->ordered.assign(2 * k.nvars, {});
+      for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+        for (const WatchEntry watch : k.watches.entries(lit))
+          if (watch.binary())
+            k.dense->ordered[lit].push_back(
+                OccIndex::Entry::from_binary(watch.other()));
+    }
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
       if (!c->garbage() && !c->redundant())
-        for (const Lit lit : *c)
+        for (const Lit lit : *c) {
           k.dense->large[lit].push_back(ref);
+          if (k.dense->track_order)
+            k.dense->ordered[lit].push_back(
+                OccIndex::Entry::from_large(ref));
+        }
       ref += clause_actual_words(c);
     }
   }

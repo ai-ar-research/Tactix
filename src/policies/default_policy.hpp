@@ -10,6 +10,13 @@ struct FormulaClassification {
   bool bigbig = false;
 };
 
+// Sparse-resume propagation is a physical lifecycle boundary shared with the
+// reference. `charge_search_ticks` selects Kissat's ordinary-search Eliminate
+// replay versus its probing replay; the caller supplies the retained-trail
+// position corresponding to the reference's cleared trail begin.
+ApplyResult default_resume_sparse_propagation(Kernel &, uint32_t trail_begin,
+                                              bool charge_search_ticks);
+
 class DefaultBranching final : public BranchingPolicy {
 public:
   explicit DefaultBranching(
@@ -17,6 +24,7 @@ public:
       : config_(config) {}
   const char *name() const override { return "vmtf-evsids"; }
   Lit pick(Kernel &) override;
+  Lit pick_for_restart_reuse(Kernel &) override;
   static constexpr uint64_t RANDEC_INIT =
       DefaultStrategyConfig::RANDOM_INITIAL_INTERVAL_DEFAULT;
   static constexpr uint64_t RANDEC_LENGTH =
@@ -50,6 +58,7 @@ public:
   }
 
 private:
+  Lit pick_impl(Kernel &, bool restart_reuse);
   Lit decide_lit(const Kernel &, Var) const;
   const DefaultStrategyConfig::Branching *config_ = nullptr;
 };

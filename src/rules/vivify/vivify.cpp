@@ -485,7 +485,8 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
         Ref replacement = ref;
         uint64_t changed = 0;
         const RootFlushOutcome outcome =
-            kernel_flush_root_clause(mut, &replacement, &changed);
+            kernel_flush_root_clause(mut, &replacement, &changed,
+                                     /*mark_binary_added_material=*/true);
         commit->root_changed += changed;
         if (retain_priority && outcome == RootFlushOutcome::Rewritten)
           clause_at(mut.arena, replacement)->set_vivify(true);
@@ -860,41 +861,6 @@ static void emit_chain(Kernel &k, uint64_t id, const std::vector<Lit> &lits,
                    static_cast<uint32_t>(k.lrat_chain.size()));
 }
 
-// Unit and binary terminals retire their old large record. Batch those
-// genuinely reclaimable records across the four Vivify bands. Large Vivify
-// terminals themselves stay in place, exactly as in Kissat.
-struct VivifyArenaOrder final : ArenaOrdering {
-  VivifyReclamationBatch &batch;
-
-  explicit VivifyArenaOrder(VivifyReclamationBatch &b) : batch(b) {}
-
-  void retire() { batch.changed = true; }
-
-  void order(const Kernel &k, std::vector<Ref> &refs) override {
-    kernel_sort_refs_by_logical_clause_position(k, refs);
-  }
-
-};
-
-void VivifyReclamationBatch::collect(Kernel &k) {
-  if (!changed)
-    return;
-  struct LogicalOrder final : ArenaOrdering {
-    void order(const Kernel &kernel, std::vector<Ref> &refs) override {
-      kernel_sort_refs_by_logical_clause_position(kernel, refs);
-    }
-  } logical_order;
-  ArenaOrdering *const saved = k.arena_ordering;
-  k.arena_ordering = &logical_order;
-  // Kissat does not collect at Vivify exit.  This packing pass only reclaims
-  // Tactix's append-only unit/binary replacements, so forward the recent-
-  // learned register that the reference solver keeps intact across Vivify.
-  kernel_collect_garbage(k, 0, /*sparse_collection=*/false,
-                         /*preserve_eager_recent=*/true);
-  k.arena_ordering = saved;
-  changed = false;
-}
-
 // Replace `c` (at cref) by `lits`, proof add before delete; `entries`+`last`
 // form the LRAT chain. The replacement keeps the candidate's redundancy and
 // takes the shared post-shrink glue (kernel_shrunken_glue). No
@@ -902,8 +868,32 @@ void VivifyReclamationBatch::collect(Kernel &k) {
 // itself, so the rewrite is implied by F ∪ R and subsumes the original.
 static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
                            std::vector<std::pair<uint32_t, uint64_t>> &entries,
-                           uint64_t last, VivifyArenaOrder &arena_order) {
+                           uint64_t last, uint64_t candidate_ordinal) {
   Clause *c = clause_at(k.arena, cref);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  if (lits.size() == 2) {
+    std::string payload =
+        "candidate_ordinal=" + std::to_string(candidate_ordinal) +
+        "|source_ref=" + std::to_string(cref) +
+        "|source_position=" +
+        std::to_string(kernel_clause_position(k, cref)) +
+        "|source_size=" + std::to_string(c->size) +
+        "|source_redundant=" + std::to_string(c->redundant()) +
+        "|source_glue=" + std::to_string(c->glue()) +
+        "|source_vivify=" + std::to_string(c->vivify()) +
+        "|source_id=" + std::to_string(c->id()) + "|source=";
+    bool first = true;
+    for (const Lit lit : *c) {
+      if (!first)
+        payload.push_back(',');
+      payload += std::to_string(kernel_externalize(k, lit));
+      first = false;
+    }
+    event_trace_binary_lifecycle(
+        k, "vivify-binary-source", lits[0], lits[1], c->id(),
+        kernel_binary_copies(k, lits[0], lits[1]), payload.c_str());
+  }
+#endif
   const bool lrat = k.proof && k.proof->lrat();
   const bool redundant = c->redundant();
   const uint32_t glue = kernel_shrunken_glue(
@@ -957,7 +947,6 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
     // valid until the round-end collection.
     k.unit_ids[var_of(lits[0])] = id;
     kernel_assign_unit(k, lits[0]);
-    arena_order.retire();
     if (propagate_service(k) == ApplyResult::Unsat)
       return ApplyResult::Unsat;
     return ApplyResult::Ok;
@@ -967,7 +956,6 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
     // there and specialized binary constructors in other rules are not
     // consumers of this checkpoint.
     k.watches.defrag_if_needed();
-    arena_order.retire();
     return ApplyResult::Ok;
   case ReplaceOutcome::Large:
     assert(false);
@@ -1205,7 +1193,7 @@ static bool shrinkable(const Kernel &k, const std::vector<Lit> &probes,
 // path opens and closes its own scope around a root-to-root probe. In both
 // modes reset_to_root() runs before any mutation (design §3).
 static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
-                              VivifyArenaOrder &arena_order) {
+                              uint64_t candidate_ordinal) {
   Clause *c = clause_at(k.arena, cref);
   if (!is_candidate(k, c)) {
     // re-check root satisfaction for deletion (kissat/CaDiCaL delete a
@@ -1219,9 +1207,8 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
         // Kissat marks a scheduled candidate garbage as soon as a root-fixed
         // literal satisfies it and preserves the current probing prefix.  The
         // deletion neither moves the arena nor installs watches, so Tactix can
-        // do the same; the round-end reset precedes the deferred collection.
+        // do the same without relocating any later scheduled reference.
         kernel_delete_clause(k, c);
-        arena_order.retire();
         k.stats.vivify_deleted++;
         return ApplyResult::Ok;
       }
@@ -1413,7 +1400,6 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
     }
     c = clause_at(k.arena, cref);
     kernel_delete_clause(k, c);
-    arena_order.retire();
     k.stats.vivify_subsumed++;
     res = ApplyResult::Ok;
   } else {
@@ -1474,7 +1460,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
       }
 #endif
     }
-    res = rewrite(k, cref, replacement, entries, last, arena_order);
+    res = rewrite(k, cref, replacement, entries, last, candidate_ordinal);
     k.stats.vivify_shrunken++;
     } else if (implied != INVALID_LIT && c->redundant()) {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -1482,7 +1468,6 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
         vivify_journal_facts.terminal = "implied-delete";
 #endif
     kernel_delete_clause(k, clause_at(k.arena, cref));
-    arena_order.retire();
     k.stats.vivify_implied++;
     res = ApplyResult::Ok;
     } else if ((conflict || implied != INVALID_LIT) && !c->redundant() &&
@@ -1492,7 +1477,6 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
         vivify_journal_facts.terminal = "asymmetric-delete";
 #endif
     kernel_delete_clause(k, clause_at(k.arena, cref));
-    arena_order.retire();
     k.stats.vivify_asymmetric++;
     res = ApplyResult::Ok;
     } else if (implied != INVALID_LIT) {
@@ -1572,7 +1556,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
         }
       }
 #endif
-      res = rewrite(k, cref, shorter, entries, last, arena_order);
+      res = rewrite(k, cref, shorter, entries, last, candidate_ordinal);
       k.stats.vivify_instantiated++;
     } else {
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -1619,7 +1603,7 @@ static ApplyResult vivify_one(Kernel &k, Ref cref, bool reuse,
 }
 
 // canonical instance: one full round over the tier-aware schedule
-ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
+ApplyResult vivify_apply(Kernel &k) {
   assert(vivify_guard(k));
   // The caller poses Kissat's cumulative ceiling before entering the round.
   // Scheduling and watch rebuilding consume that same probing-tick allowance;
@@ -1639,7 +1623,8 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
   // root simplification, occurrence counting, and candidate scheduling.  In
   // particular duplicates learned during one dose must not survive into the
   // next dose's probing cost or physical antecedent order.
-  kernel_flush_large_watches(k);
+  if (k.large_watches_connected)
+    kernel_flush_large_watches(k);
   std::vector<Ref> candidates;
   VivifySchedule sched;
   vivify_schedule(k, candidates, &sched);
@@ -1664,13 +1649,14 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
   k.stats.vivify_reprioritized += sched.rearmed;
   k.stats.vivify_flushed += sched.flushed;
   uint64_t changed = sched.flushed + sched.root_changed;
+  uint64_t tried = 0, produced = 0;
   const bool reuse = k.vivify_reuse;
   // k.work_budget is the cumulative Vivify ceiling in propagation ticks.
   // Zero is unbounded only when work_budget_bounded is false.
   uint64_t ordinal = 0;
-  VivifyArenaOrder arena_order(batch);
-  if (sched.root_changed)
-    arena_order.retire();
+  event_trace_vivify_round(
+      k, "begin", candidates.size(), tried, produced,
+      k.work_budget_offset + (k.stats.ticks - tick_start), k.work_budget);
   for (const Ref cref : candidates) {
     if (k.work_budget_bounded || k.work_budget) {
       const uint64_t used = k.stats.ticks - tick_start;
@@ -1728,7 +1714,8 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
       journal_selected_pose_pre = vivify_journal_selected_clause_pose(k);
     }
 #endif
-    const ApplyResult r = vivify_one(k, cref, reuse, arena_order);
+    const ApplyResult r = vivify_one(k, cref, reuse, ordinal);
+    tried++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_vivify_candidate(
         k, "vivify_candidate_end", ordinal, cref,
@@ -1746,13 +1733,17 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
     ordinal++;
     // Cleared once a candidate has been tried, so a budget cut or termination
     // leaves exactly the untried tail armed for the next round (kissat
-    // vivify.c:1311). A garbage clause still has its header until the collect.
+    // vivify.c:1311). A garbage clause keeps its header until a later reference
+    // collection, so the already-built schedule remains valid.
     clause_at(k.arena, cref)->set_vivify(false);
     if (r == ApplyResult::Unsat)
       return ApplyResult::Unsat;
     if (r == ApplyResult::Ok)
-      changed++;
+      changed++, produced++;
   }
+  event_trace_vivify_round(
+      k, "end", candidates.size(), tried, produced,
+      k.work_budget_offset + (k.stats.ticks - tick_start), k.work_budget);
   reset_to_root(k); // the round's single exit: budget cut, termination, and
                     // schedule completion all leave through here
   if (!changed)
@@ -1760,25 +1751,11 @@ ApplyResult vivify_apply_batched(Kernel &k, VivifyReclamationBatch &batch) {
   return ApplyResult::Ok;
 }
 
-ApplyResult vivify_apply(Kernel &k) {
-  VivifyReclamationBatch batch;
-  const ApplyResult result = vivify_apply_batched(k, batch);
-  if (result != ApplyResult::Unsat && !k.inconsistent)
-    batch.collect(k);
-  return result;
-}
-
 ApplyResult vivify_try(Kernel &k, Ref candidate) {
   assert(vivify_guard(k));
-  VivifyReclamationBatch batch;
-  VivifyArenaOrder arena_order(batch);
   // Standalone: its own root-to-root probing scope, no retained trail — the N1
   // surface must not depend on a round having run first.
-  const ApplyResult r =
-      vivify_one(k, candidate, /*reuse=*/false, arena_order);
-  if (r == ApplyResult::Ok)
-    batch.collect(k);
-  return r;
+  return vivify_one(k, candidate, /*reuse=*/false, 0);
 }
 
 static uint32_t vivify_instances(Kernel &k, uint64_t *out, uint32_t cap) {

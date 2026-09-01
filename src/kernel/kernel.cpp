@@ -372,7 +372,7 @@ void kernel_inherit_clause_position(Kernel &k, uint64_t replacement_id,
 }
 
 static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
-                            bool new_pair) {
+                            bool new_pair, bool mark_added_material) {
   // LAST id wins. The map must always name a clause the checker still holds,
   // and kernel_delete_binary can retire this pair's id, so a re-add must
   // install its fresh one — otherwise every later LRAT chain through the pair
@@ -382,16 +382,17 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
     k.binary_liveness->add(kernel_binary_key(a, b));
   // Like large-clause creation, a new binary is added material for forward
   // subsumption and Factor, but not for Kissat's elimination flag.
-  kernel_notify_bve_score(k, var_of(a), false);
-  kernel_notify_bve_score(k, var_of(b), false);
-  // Touched-epoch substrate: a binary is the strongest subsumer/partner there
-  // is, so both variables are new material for every consumer (kissat
-  // new_binary_clause marks both unconditionally, clause.c:71-72 — including
-  // learned binaries, which is where this over-touches on purpose).
-  kernel_touch_var(k, var_of(a));
-  kernel_touch_var(k, var_of(b));
-  kernel_mark_factor_literal(k, a, "add_binary");
-  kernel_mark_factor_literal(k, b, "add_binary");
+  if (mark_added_material) {
+    kernel_notify_bve_score(k, var_of(a), false);
+    kernel_notify_bve_score(k, var_of(b), false);
+    // Touched-epoch substrate: a binary is the strongest subsumer/partner
+    // there is, so both variables are new material for every consumer
+    // (kissat new_binary_clause marks both unconditionally, clause.c:71-72).
+    kernel_touch_var(k, var_of(a));
+    kernel_touch_var(k, var_of(b));
+    kernel_mark_factor_literal(k, a, "add_binary");
+    kernel_mark_factor_literal(k, b, "add_binary");
+  }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
   rule_journal_note_binary_add(k, a, b, id);
 #endif
@@ -400,7 +401,7 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
 }
 
 static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
-                              bool new_pair) {
+                              bool new_pair, bool mark_added_material) {
   event_trace_binary_add(k, a, b);
   kernel_rearm_propagation(k, a, b);
   k.watches.push_binary(a, b);
@@ -411,16 +412,18 @@ static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
   }
   kernel_bve_occurrence_add(k, a);
   kernel_bve_occurrence_add(k, b);
-  note_binary_add(k, a, b, id, new_pair);
+  note_binary_add(k, a, b, id, new_pair, mark_added_material);
 }
 
-void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
-  add_binary_clause(k, a, b, id, !kernel_binary_live(k, a, b));
+void kernel_add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
+                              bool mark_added_material) {
+  add_binary_clause(k, a, b, id, !kernel_binary_live(k, a, b),
+                    mark_added_material);
 }
 
 void kernel_add_new_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id) {
   assert(!kernel_binary_live(k, a, b));
-  add_binary_clause(k, a, b, id, true);
+  add_binary_clause(k, a, b, id, true, true);
 }
 
 void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
@@ -430,14 +433,22 @@ void kernel_add_binary_mirror(Kernel &k, Lit stable, Lit moved, uint64_t id) {
   assert(!k.bve_occurrence_count_image);
   kernel_rearm_propagation(k, stable, moved);
   k.watches.push_binary(moved, stable);
-  note_binary_add(k, stable, moved, id, false);
+  // This is the missing physical direction of an already-published clause,
+  // not new semantic material.  Kissat's in-place/delayed substitution moves
+  // the watch without calling mark_added_literal.
+  note_binary_add(k, stable, moved, id, false, false);
 }
 
 void kernel_publish_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
                                   bool new_pair) {
   assert(!k.bve_occurrence_count_image);
   kernel_rearm_propagation(k, a, b);
-  note_binary_add(k, a, b, id, new_pair);
+  // Binary substitution has already published the logical/proof image.  This
+  // call only publishes the rebuilt physical watch pair and its identity.
+  // Pinned Kissat's substitute_binaries and Sweep connected substitution move
+  // those watches in place/delayed without mark_added_literal, even when the
+  // representative pair did not previously exist.
+  note_binary_add(k, a, b, id, new_pair, false);
 }
 
 // Does the live binary pair (x, other) ANTECEDE x's current assignment? Under
@@ -510,8 +521,8 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
   // re-add overwrites it (kernel_add_binary_clause: last id wins).
   k.stats.binaries_deleted++;
   // BVE retry filter (kissat clause.c kissat_delete_binary -> mark_removed)
-  kernel_mark_bve_retry(k, var_of(a));
-  kernel_mark_bve_retry(k, var_of(b));
+  kernel_mark_bve_retry(k, var_of(a), "delete-binary");
+  kernel_mark_bve_retry(k, var_of(b), "delete-binary");
   kernel_notify_bve_score(k, var_of(a), true);
   kernel_notify_bve_score(k, var_of(b), true);
   kernel_removed_var(k, var_of(a)); // BCE's side of the touched-epoch substrate
@@ -556,8 +567,8 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
   // the pair's current id here could retire the id later reasons cite; retain
   // it in the checker until the final physical copy is removed instead.
   k.stats.binaries_deleted++;
-  kernel_mark_bve_retry(k, var_of(a));
-  kernel_mark_bve_retry(k, var_of(b));
+  kernel_mark_bve_retry(k, var_of(a), "delete-binary-copy");
+  kernel_mark_bve_retry(k, var_of(b), "delete-binary-copy");
   kernel_notify_bve_score(k, var_of(a), true);
   kernel_notify_bve_score(k, var_of(b), true);
   kernel_removed_var(k, var_of(a));
@@ -642,8 +653,8 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
   }
   k.stats.binaries_deleted += removed_copies;
   for (uint32_t i = 0; i < removed_copies; ++i) {
-    kernel_mark_bve_retry(k, var_of(a));
-    kernel_mark_bve_retry(k, var_of(b));
+    kernel_mark_bve_retry(k, var_of(a), "deduplicate-binary");
+    kernel_mark_bve_retry(k, var_of(b), "deduplicate-binary");
     kernel_removed_var(k, var_of(a));
     kernel_removed_var(k, var_of(b));
   }
@@ -722,8 +733,8 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       k.proof->del(k.next_clause_id, kernel_binary_id(k, a, b), lits2, 2);
   }
   k.stats.binaries_deleted += copies;
-  kernel_mark_bve_retry(k, var_of(a)); // BVE retry filter (see above)
-  kernel_mark_bve_retry(k, var_of(b));
+  kernel_mark_bve_retry(k, var_of(a), "delete-all-binary");
+  kernel_mark_bve_retry(k, var_of(b), "delete-all-binary");
   kernel_notify_bve_score(k, var_of(a), true);
   kernel_notify_bve_score(k, var_of(b), true);
   kernel_removed_var(k, var_of(a));
@@ -1025,7 +1036,8 @@ void PendingUnits::refute(Kernel &k, Lit u) const {
 ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
                                      const Lit *lits, uint32_t size,
                                      bool redundant, uint32_t glue,
-                                     Ref *large_ref) {
+                                     Ref *large_ref,
+                                     bool mark_added_material) {
   // `id` is the REPLACEMENT's id, and every caller allocates it immediately
   // before calling in — so it equals `next_clause_id`, which is what the shared
   // primitive prefixes its LRAT deletion line with. That was an unstated,
@@ -1059,11 +1071,12 @@ ReplaceOutcome kernel_replace_clause(Kernel &k, Clause *c, uint64_t id,
   if (size == 1)
     return ReplaceOutcome::Unit; // caller owns unit semantics
   if (size == 2) {
-    kernel_add_binary_clause(k, lits[0], lits[1], id);
+    kernel_add_binary_clause(k, lits[0], lits[1], id, mark_added_material);
     return ReplaceOutcome::Binary;
   }
   kernel_inherit_clause_position(k, id, source_ref);
-  const Ref r = kernel_add_large_clause(k, lits, size, redundant, glue, id);
+  const Ref r = kernel_add_large_clause(k, lits, size, redundant, glue, id,
+                                        mark_added_material);
   if (redundant)
     clause_at(k.arena, r)->set_used(inherited_used);
   if (large_ref)
@@ -1109,6 +1122,16 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
       const auto at = std::find(occ.begin(), occ.end(), ref);
       assert(at != occ.end());
       occ.erase(at);
+      if (k.dense->track_order) {
+        std::vector<OccIndex::Entry> &ordered = k.dense->ordered[lit];
+        const auto ordered_at =
+            std::find_if(ordered.begin(), ordered.end(),
+                         [ref](const OccIndex::Entry entry) {
+                           return !entry.binary && entry.payload == ref;
+                         });
+        assert(ordered_at != ordered.end());
+        ordered.erase(ordered_at);
+      }
       kernel_bve_occurrence_remove(k, lit);
     }
     for (uint32_t i = 0; i < size; i++)
@@ -1178,7 +1201,8 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
 }
 
 RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
-                                          uint64_t *changed) {
+                                          uint64_t *changed,
+                                          bool mark_binary_added_material) {
   const Ref original_ref = *ref;
   Clause *c = clause_at(k.arena, *ref);
   assert(!c->garbage());
@@ -1257,6 +1281,22 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   const bool redundant = c->redundant();
   const uint32_t glue = kernel_shrunken_glue(
       k, c->glue(), static_cast<uint32_t>(kept.size()));
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  if (kept.size() == 2) {
+    std::string payload = "source_id=" + std::to_string(original_id) +
+                          "|source=";
+    bool first = true;
+    for (const Lit lit : *c) {
+      if (!first)
+        payload.push_back(',');
+      payload += std::to_string(kernel_externalize(k, lit));
+      first = false;
+    }
+    event_trace_binary_lifecycle(
+        k, "root-flush-binary-source", kept[0], kept[1], original_id,
+        kernel_binary_copies(k, kept[0], kept[1]), payload.c_str());
+  }
+#endif
   // At a root propagation fixpoint this cannot be needed above level zero: a
   // clause with one non-root-fixed literal would already have made that
   // literal root-fixed.  Keep the primitive sound for an off-fixpoint caller,
@@ -1286,13 +1326,17 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
     // cumulative effort boundary despite an identical semantic formula.
     kernel_replace_large_clause_in_place(
         k, original_ref, id, kept.data(), static_cast<uint32_t>(kept.size()),
-        redundant ? glue : 0, "root_flush");
+        redundant ? glue : 0, "root_flush",
+        /*mark_added_material=*/false);
     *ref = original_ref;
     return RootFlushOutcome::Rewritten;
   }
   switch (kernel_replace_clause(k, c, id, kept.data(),
                                 static_cast<uint32_t>(kept.size()), redundant,
-                                redundant ? glue : 0, ref)) {
+                                redundant ? glue : 0, ref,
+                                /*mark_added_material=*/
+                                    kept.size() == 2 &&
+                                        mark_binary_added_material)) {
   case ReplaceOutcome::Refuted:
     return RootFlushOutcome::Refuted;
   case ReplaceOutcome::Unit: {
@@ -1387,7 +1431,8 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
     } else if (kernel_clause_position(k, ref) >= sparse_cut) {
       Ref current = ref;
       const RootFlushOutcome flushed =
-          kernel_flush_root_clause(k, &current, &changed);
+          kernel_flush_root_clause(k, &current, &changed,
+                                   /*mark_binary_added_material=*/false);
       if (flushed == RootFlushOutcome::Refuted) {
         outcome = RootCollectOutcome::Refuted;
         break;
@@ -1661,6 +1706,10 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
     }
   }
   k.stats.propagations += k.propagate_head - saved_propagate;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  if (!k.inprocessing && !k.warming)
+    k.diagnostic_search_propagation_ticks += ticks;
+#endif
   kernel_charge_ticks(k, ticks);
   return conflict;
 }
@@ -2052,6 +2101,11 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
     }
 }
 
+void kernel_rebuild_dense_occurrences(Kernel &k) {
+  assert(k.dense);
+  rebuild_dense_large_occurrences(k, *k.dense);
+}
+
 void kernel_collect_garbage(Kernel &k, Ref watch_start,
                             bool sparse_collection,
                             bool preserve_eager_recent) {
@@ -2062,6 +2116,14 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // stated here because the per-list order bits rest on it too: restoring an
   // older snapshot after collection could otherwise invalidate them.
   assert(!k.probing.recording);
+  // The occurrence index can outlive a rule-local sparse resume.  It is only
+  // a physical dense collection while large watches are disconnected.  Once
+  // sparse watches are connected they are the authoritative representation,
+  // so collection must take the ordinary rewatch path even if the phase-local
+  // occurrence cache remains live.  Treating the cache alone as dense
+  // preserves stale clause pose and creates a transition Kissat never has.
+  const bool dense_collection =
+      k.dense != nullptr && !k.large_watches_connected;
   // Genuine Kissat collections reset the raw-reference recent-learned
   // register (collect.c:274/514/702).  Some Tactix rules need an additional
   // packing pass solely because replacements are append-only here; if the
@@ -2088,25 +2150,60 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   sparse_collection |= watch_start != 0;
   const uint64_t sparse_cut =
       watch_start ? kernel_clause_position(k, watch_start) : 0;
-  size_t live_words = 0, live_clauses = 0;
+  // Kissat's sparse sweep starts at the physical watermark and deliberately
+  // leaves garbage records in the prefix. Tactix additionally has append-only
+  // replacement sources which Kissat rewrote in place. Mark such a source in
+  // its already-dead `searched` word instead of allocating a hash node for
+  // every live clause position. The source can never be copied once marked;
+  // the live replacement receives its forwarding pointer independently below.
+  // Thus the sentinel dies with the old arena and cannot affect proof identity,
+  // clause order, or a surviving replacement-search cursor.
+  if (sparse_collection)
+    for (Ref ref = 0; ref < k.arena.size();) {
+      Clause *const c = clause_at(k.arena, ref);
+      if (!c->garbage()) {
+        const uint64_t position = kernel_clause_position(k, ref);
+        if (position != ref) {
+          assert(position <= UINT32_MAX && position < k.arena.size());
+          Clause *const source =
+              clause_at(k.arena, static_cast<Ref>(position));
+          assert(source->garbage());
+          source->searched = INVALID_REF;
+        }
+      }
+      ref += clause_actual_words(c);
+    }
+  const auto retain_record = [&k, sparse_collection,
+                              sparse_cut](Ref ref, const Clause *c) {
+    if (!c->garbage())
+      return true;
+    const uint64_t position = kernel_clause_position(k, ref);
+    assert(position <= UINT32_MAX && position < k.arena.size());
+    const Clause *const source =
+        clause_at(k.arena, static_cast<Ref>(position));
+    return sparse_collection && position < sparse_cut &&
+           source->searched != INVALID_REF;
+  };
+  size_t retained_words = 0, retained_clauses = 0;
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
-    if (!c->garbage()) {
+    if (retain_record(ref, c)) {
       // Collection packs the semantic image and retires any stable-allocation
-      // tail left by an in-place shrink.
-      live_words += clause_words(c->size);
-      live_clauses++;
+      // tail left by an in-place shrink. Sparse prefix garbage remains part of
+      // the physical image, just as it does before Kissat's sweep watermark.
+      retained_words += clause_words(c->size);
+      retained_clauses++;
     }
     ref += words;
   }
-  assert(live_words <= UINT32_MAX);
+  assert(retained_words <= UINT32_MAX);
   std::vector<Ref> order;
-  order.reserve(live_clauses);
+  order.reserve(retained_clauses);
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
-    if (!c->garbage())
+    if (retain_record(ref, c))
       order.push_back(ref);
     ref += words;
   }
@@ -2115,7 +2212,7 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // arena size here needlessly kept that suffix alive in both arenas during
   // collection; the live-word prepass is the exact Kissat-style compacted
   // image and also prevents geometric growth while copying it.
-  fresh.reserve(live_words);
+  fresh.reserve(retained_words);
   uint32_t packed_watch_start = 0;
   // Arena-order policies belong to whole-arena/inprocessing collection.
   // Kissat's sparse collector preserves the prefix, sweeps the tail in its
@@ -2150,12 +2247,12 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   std::vector<uint8_t> seen(k.arena.size());
   for (const Ref ref : order) {
     assert(ref < k.arena.size() && !seen[ref]);
-    assert(!clause_at(k.arena, ref)->garbage());
+    assert(retain_record(ref, clause_at(k.arena, ref)));
     seen[ref] = 1;
   }
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
-    assert(c->garbage() || seen[ref]);
+    assert(seen[ref] || !retain_record(ref, c));
     ref += clause_actual_words(c);
   }
 #endif
@@ -2177,7 +2274,13 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     // Whole-arena collection has `watch_start == 0` and resets every clause.
     Clause *const packed = clause_at(fresh, nref);
     packed->flags &= ~Clause::SHRUNKEN;
-    packed->searched = retained_sparse_watch ? c->searched : 2;
+    // Dense elimination collection in Kissat is a byte-semantic arena copy:
+    // it preserves both literal order and the replacement-search cursor, and
+    // reconnects full occurrences only at the beginning of the next forward
+    // round. Sparse/ordinary collection instead rewatches here and resets the
+    // cursor, except for the retained sparse prefix.
+    packed->searched =
+        (dense_collection || retained_sparse_watch) ? c->searched : 2;
     c->searched = nref;
   }
   for (const Lit lit : k.trail) {
@@ -2238,9 +2341,17 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       if (w.binary())
         return true;
       const Clause *c = clause_at(k.arena, w.ref());
-      return kernel_root_value(k, lit) == 0 && !c->garbage() &&
-             sparse_collection &&
-             kernel_clause_position(k, w.ref()) < sparse_cut;
+      const uint64_t position = kernel_clause_position(k, w.ref());
+      assert(position <= UINT32_MAX && position < k.arena.size());
+      const Clause *const source =
+          clause_at(k.arena, static_cast<Ref>(position));
+      const bool retained =
+          !c->garbage() ||
+          (sparse_collection && source->searched != INVALID_REF);
+      const bool retain_sparse_prefix =
+          sparse_collection && position < sparse_cut;
+      return kernel_root_value(k, lit) == 0 && retained &&
+             retain_sparse_prefix;
     });
     // `compact` is stable: every current-prefix entry keeps its exact
     // position and cached blocker. Sorting these survivors would erase
@@ -2261,7 +2372,8 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // sizes while retaining Kissat-shaped per-literal allocation capacity.
   for (Ref ref = 0; ref < k.arena.size();) {
     Clause *c = clause_at(k.arena, ref);
-    if (!sparse_collection || ref >= packed_watch_start) {
+    if (!dense_collection &&
+        (!sparse_collection || ref >= packed_watch_start)) {
       // collect.c:rewatch_clauses selects the best current watched pair before
       // appending the relocated clause to its two watch lists.
       sort_clause_watches_like_kissat(k, c);
@@ -2270,9 +2382,9 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     }
     ref += clause_actual_words(c);
   }
-  // Subsume/Strengthen collection can occur between dense phase entry and BVE.
-  // Rebuild after every relocation so append-only replacement allocation is
-  // materialized in the selected current arena order.
+  // Dense collection preserves clauses' own pose but relocates every Ref.
+  // Rebuild the separate full-occurrence image in compacted arena order; do
+  // not install sparse two-watches or sort literals until sparse resume.
   if (k.dense)
     rebuild_dense_large_occurrences(k, *k.dense);
   // Every surviving binary was kept in place by the strip above and every large
@@ -2594,8 +2706,21 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   k.watches.holes = 0;
   for (const WatchHead &head : k.watches.heads)
     k.watches.holes += head.capacity - head.size;
+  // Congruence's extraction ends at Kissat's dense-to-sparse resume: the
+  // packed image above contains both mirrors of every binary and both sparse
+  // watches of every live large clause.  Dense phase entry now clears this
+  // flag together with those large watches, so publish the completed resume
+  // explicitly before later Probe rules decide whether they must flush again.
+  k.large_watches_connected = true;
   if (count_congruence_rebuild)
     k.stats.congruence_binary_rebuilds++;
+  // This operation is a complete dense-to-sparse representation boundary, not
+  // a sequence of ordinary per-clause edits.  A free N1 schedule can retain an
+  // Eliminate occurrence image across it, so rebuild that image from the same
+  // canonical physical result instead of leaving pre-extraction binary copies
+  // in its ordered stream.
+  if (k.dense)
+    rebuild_dense_large_occurrences(k, *k.dense);
 }
 
 static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
@@ -2608,6 +2733,9 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
   // need not be deleted for duplicate watches: one internal pair can represent
   // any still-live identical proof clause, and `binary_ids` names the latest.
   std::vector<uint32_t> seen(2 * k.nvars, 0);
+  std::vector<uint32_t> ordered_seen;
+  if (k.dense && k.dense->track_order)
+    ordered_seen.assign(2 * k.nvars, 0);
   uint32_t epoch = 0;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     if (++epoch == 0) {
@@ -2623,6 +2751,18 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
       seen[other] = epoch;
       return true;
     });
+    if (!ordered_seen.empty()) {
+      std::vector<OccIndex::Entry> &ordered = k.dense->ordered[lit];
+      size_t out = 0;
+      for (const OccIndex::Entry entry : ordered) {
+        if (!entry.binary || ordered_seen[entry.payload] != epoch) {
+          ordered[out++] = entry;
+          if (entry.binary)
+            ordered_seen[entry.payload] = epoch;
+        }
+      }
+      ordered.resize(out);
+    }
   }
 }
 
@@ -2639,6 +2779,9 @@ void kernel_deduplicate_binary_watches(Kernel &k) {
 void kernel_dense_connect(Kernel &k, OccIndex &occ, bool track_order) {
   assert(!k.bve_occurrence_count_image);
   assert(k.level == 0);
+  // This constructs Tactix's separate phase-local occurrence image. It is not
+  // itself a Kissat physical dense-mode transition: individual rules retain
+  // ownership of their sparse-watch flush/resume boundaries.
   occ.track_order = track_order;
   rebuild_dense_large_occurrences(k, occ);
   k.dense = &occ;
@@ -3311,6 +3454,8 @@ void kernel_check_invariants(const Kernel &k) {
     assert(eager_seen == eager_live && "stale eager-subsumption register ref");
   }
   // A set per-list order bit permits the binary propagator's early break.
+  std::vector<uint32_t> physical_binary, ordered_binary;
+  std::vector<Ref> physical_large, ordered_large;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     uint32_t binaries = 0;
     if (k.watches.heads[lit].binaries_first()) {
@@ -3340,6 +3485,36 @@ void kernel_check_invariants(const Kernel &k) {
     if (!k.large_watches_connected)
       assert(!k.watches.heads[lit].has_large() &&
              "large watch retained while globally disconnected");
+
+    // Eliminate's connected image is allowed to retain garbage large refs, but
+    // it is not allowed to invent or lose physical binary copies, nor may its
+    // mixed stream and cheap large-only mirror disagree.  Checking only at the
+    // deletion sites reports the later consumer (usually BVE) instead of the
+    // bulk rewrite that corrupted the image; keep this in the random-policy
+    // boundary oracle so fuzzing attributes the first bad transition.
+    if (k.dense && k.dense->track_order) {
+      physical_binary.clear();
+      ordered_binary.clear();
+      physical_large = k.dense->large[lit];
+      ordered_large.clear();
+      for (const WatchEntry w : k.watches.entries(lit))
+        if (w.binary())
+          physical_binary.push_back(w.other());
+      for (const OccIndex::Entry entry : k.dense->ordered[lit]) {
+        if (entry.binary)
+          ordered_binary.push_back(entry.payload);
+        else
+          ordered_large.push_back(entry.payload);
+      }
+      std::sort(physical_binary.begin(), physical_binary.end());
+      std::sort(ordered_binary.begin(), ordered_binary.end());
+      std::sort(physical_large.begin(), physical_large.end());
+      std::sort(ordered_large.begin(), ordered_large.end());
+      assert(physical_binary == ordered_binary &&
+             "dense ordered stream lost a physical binary copy");
+      assert(physical_large == ordered_large &&
+             "dense ordered stream disagrees with its large mirror");
+    }
   }
   // binary watch symmetry: every binary entry (l -> other) must have its
   // mirror (other -> l); losing one side silently kills the clause

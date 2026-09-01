@@ -26,6 +26,107 @@ static std::string trace_path(const char *stem) {
 }
 
 int main() {
+  const std::string macro_path = trace_path("macro-boundary");
+  const std::string macro_state_path = trace_path("macro-state");
+  const std::string macro_active_set_path = trace_path("macro-active-set");
+  const std::string inprocess_score_path = trace_path("inprocess-score");
+  std::remove(macro_path.c_str());
+  std::remove(macro_state_path.c_str());
+  std::remove(macro_active_set_path.c_str());
+  std::remove(inprocess_score_path.c_str());
+  const pid_t macro_child = fork();
+  assert(macro_child >= 0);
+  if (!macro_child) {
+    Kernel child;
+    kernel_reserve_vars(child, 2);
+    ScopedHeuristics child_h(child);
+    child.values[make_lit(1, false)] = 1;
+    child.values[make_lit(1, true)] = -1;
+    child.assigned[1].level = 0;
+    child.stats.conflicts = 17;
+    child.stats.decisions = 23;
+    child.stats.propagations = 29;
+    child.stats.restarts = 3;
+    child.stats.reductions = 2;
+    child.stats.switched = 1;
+    child.stats.rephased = 1;
+    setenv("TACTIX_MACRO_BOUNDARY_TRACE", macro_path.c_str(), 1);
+    setenv("SAT_MACRO_BOUNDARY_CONFLICT_FROM", "17", 1);
+    setenv("SAT_MACRO_BOUNDARY_EXIT_EVENT", "probe_begin", 1);
+    setenv("SAT_SEARCH_CHECKPOINT_INTERVAL", "4", 1);
+    setenv("SAT_SEARCH_CHECKPOINT_CONFLICT_FROM", "17", 1);
+    setenv("TACTIX_MACRO_BOUNDARY_STATE", macro_state_path.c_str(), 1);
+    setenv("SAT_MACRO_BOUNDARY_STATE_EVENT", "probe_begin", 1);
+    setenv("TACTIX_MACRO_ACTIVE_SET", macro_active_set_path.c_str(), 1);
+    setenv("SAT_MACRO_ACTIVE_SET_EVENT", "probe_begin", 1);
+    setenv("SAT_MACRO_ACTIVE_SET_CONFLICT", "17", 1);
+    setenv("TACTIX_INPROCESS_SCORE_TRACE", inprocess_score_path.c_str(), 1);
+    setenv("SAT_INPROCESS_SCORE_EXTERNAL", "1", 1);
+    setenv("SAT_INPROCESS_SCORE_CONFLICT", "17", 1);
+    EventTrace trace;
+    trace.macro(child, "restart_begin");
+    trace.macro(child, "restart_end");
+    trace.checkpoint(child);
+    child.stats.conflicts = 20;
+    trace.checkpoint(child);
+    child.stats.conflicts = 21;
+    child.stats.decisions = 31;
+    trace.checkpoint(child);
+    child.stats.conflicts = 17;
+    child.stats.decisions = 23;
+    trace.macro(child, "probe_begin");
+    std::_Exit(99);
+  }
+  int macro_status = 0;
+  assert(waitpid(macro_child, &macro_status, 0) == macro_child);
+  assert(WIFEXITED(macro_status) && WEXITSTATUS(macro_status) == 0);
+  std::ifstream macro_input(macro_path);
+  const std::string macro_text(
+      (std::istreambuf_iterator<char>(macro_input)),
+      std::istreambuf_iterator<char>());
+  assert(macro_text.find("# tactix-macro-boundary\t1") !=
+         std::string::npos);
+  assert(macro_text.find("\trestart_begin\t17\t23\t29\t") !=
+         std::string::npos);
+  assert(macro_text.find("\trestart_end\t17\t23\t29\t") !=
+         std::string::npos);
+  assert(macro_text.find("\tsearch_checkpoint\t17\t23\t29\t") !=
+         std::string::npos);
+  assert(macro_text.find("\tsearch_checkpoint\t21\t31\t29\t") !=
+         std::string::npos);
+  assert(macro_text.find("\tsearch_checkpoint\t20\t") ==
+         std::string::npos);
+  assert(macro_text.find("\tprobe_begin\t17\t23\t29\t") !=
+         std::string::npos);
+  std::ifstream macro_state_input(macro_state_path);
+  const std::string macro_state_text(
+      (std::istreambuf_iterator<char>(macro_state_input)),
+      std::istreambuf_iterator<char>());
+  assert(macro_state_text.find("# tactix-macro-state\t1") !=
+         std::string::npos);
+  assert(macro_state_text.find("tactix\tprobe_begin\t17\t23\t29\t1\t2\t"
+                               "0\t0\t0\t0") != std::string::npos);
+  std::ifstream macro_active_set_input(macro_active_set_path);
+  const std::string macro_active_set_text(
+      (std::istreambuf_iterator<char>(macro_active_set_input)),
+      std::istreambuf_iterator<char>());
+  assert(macro_active_set_text.find("# tactix\tprobe_begin\t17\t1") !=
+         std::string::npos);
+  assert(macro_active_set_text.find("# external\n1\n") !=
+         std::string::npos);
+  std::ifstream inprocess_score_input(inprocess_score_path);
+  const std::string inprocess_score_text(
+      (std::istreambuf_iterator<char>(inprocess_score_input)),
+      std::istreambuf_iterator<char>());
+  assert(inprocess_score_text.find("# tactix-inprocess-score\t1") !=
+         std::string::npos);
+  assert(inprocess_score_text.find("tactix\tprobe_begin\t17\t23\t1\t0\t-\t"
+                                   "0\t1") != std::string::npos);
+  std::remove(macro_path.c_str());
+  std::remove(macro_state_path.c_str());
+  std::remove(macro_active_set_path.c_str());
+  std::remove(inprocess_score_path.c_str());
+
   const std::string path = trace_path("event-trace");
   std::remove(path.c_str());
   Kernel k;
@@ -49,6 +150,7 @@ int main() {
   setenv("TACTIX_EVENT_TRACE_WATCH_MOVE_CLAUSE_SET", "-3,-2,1", 1);
   setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM", "7", 1);
   setenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO", "7", 1);
+  setenv("TACTIX_EVENT_TRACE_MODE_CLOCK", "1", 1);
   setenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION", "0", 1);
   setenv("TACTIX_EVENT_TRACE_FACTOR_MARK", "-2", 1);
   setenv("SAT_EVENT_TRACE_VIVIFY_LITERALS", "-3,1", 1);
@@ -71,16 +173,24 @@ int main() {
     trace.sweep_equivalence(k, internalize(1), internalize(-2));
     trace.sweep_unit(k, internalize(-3));
     trace.factor_seed(k, internalize(-2), 17, 9);
+    setenv("TACTIX_EVENT_TRACE_FACTOR_SEED", "1", 1);
+    trace.factor_seed(k, internalize(-2), 18, 10);
+    trace.factor_seed(k, internalize(1), 19, 11);
+    unsetenv("TACTIX_EVENT_TRACE_FACTOR_SEED");
     trace.factor_grid(k, internalize(-2), 3, 4, 5);
     trace.factor_grid_member(k, 0, internalize(-2));
     const Lit factor_members[3] = {internalize(-2), internalize(1),
                                    internalize(3)};
     k.stats.factorings = 7;
-    trace.factor_fresh(k, internalize(-2), 2, factor_members, 3, 4, 5);
+    trace.factor_fresh(k, internalize(-2), 2, factor_members, 3, 4, 5, 0, 0,
+                       0, 0, 0);
     kernel_mark_factor_literal(k, internalize(-2), "fixture");
     trace.substitute_map(k, internalize(2), internalize(2));
     trace.substitute_map(k, internalize(2), internalize(-3));
     trace.detail(k, "analysis_begin", 2);
+    k.stats.search_ticks = 17;
+    k.diagnostic_search_propagation_ticks = 11;
+    trace.mode_clock(k, "pre_analyze", 23, 5, 3);
     kernel_assign_decision(k, internalize(1));
     const size_t trail_begin = k.trail.size();
     kernel_assign_binary(k, internalize(2), internalize(-1));
@@ -127,6 +237,7 @@ int main() {
   unsetenv("TACTIX_EVENT_TRACE_WATCH_MOVE_CLAUSE_SET");
   unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_FROM");
   unsetenv("TACTIX_EVENT_TRACE_VIVIFY_CANDIDATE_TO");
+  unsetenv("TACTIX_EVENT_TRACE_MODE_CLOCK");
   unsetenv("TACTIX_EVENT_TRACE_HEAP_REMOVE_DECISION");
   unsetenv("TACTIX_EVENT_TRACE_FACTOR_MARK");
   unsetenv("SAT_EVENT_TRACE_VIVIFY_LITERALS");
@@ -144,6 +255,9 @@ int main() {
   assert(text.find("\tlucky_early_begin\t") != std::string::npos);
   assert(text.find("\tlucky_early_end\t") != std::string::npos);
   assert(text.find("\tdecision\t") != std::string::npos);
+  assert(text.find("stage=pre_analyze|ticks=17|propagate_ticks=11|"
+                   "analysis_ticks=6|limit=23|anchor=5|count=3") !=
+         std::string::npos);
   assert(text.find("\twatch_move\t") != std::string::npos);
   assert(text.find("\theap_insert\t") != std::string::npos);
   assert(text.find("var=2|score=0.5|from=17|to=4") != std::string::npos);
@@ -169,6 +283,10 @@ int main() {
   assert(text.find("\tfactor_seed\t") != std::string::npos);
   assert(text.find("external=-2|score=17|remainders=9") !=
          std::string::npos);
+  assert(text.find("external=1|score=19|remainders=11") !=
+         std::string::npos);
+  assert(text.find("external=-2|score=18|remainders=10") ==
+         std::string::npos);
   assert(text.find("\tfactor_grid\t") != std::string::npos);
   assert(text.find("\tfactor_grid_member\t") != std::string::npos);
   assert(text.find("\tfactor_fresh\t") != std::string::npos);
@@ -193,7 +311,8 @@ int main() {
     trace.factor_update(k, internalize(-2), 3, internalize(1), 11);
     const Lit factor_members[2] = {internalize(-2), internalize(1)};
     k.stats.factorings = 8;
-    trace.factor_fresh(k, internalize(-2), 2, factor_members, 2, 3, 1);
+    trace.factor_fresh(k, internalize(-2), 2, factor_members, 2, 3, 1, 0, 0,
+                       0, 0, 0);
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("SAT_EVENT_TRACE_FACTOR_UPDATE_ONLY");
@@ -221,6 +340,8 @@ int main() {
   setenv("TACTIX_EVENT_TRACE", factor_literal_only_path.c_str(), 1);
   setenv("SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY", "1", 1);
   setenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL", "-2", 1);
+  setenv("TACTIX_EVENT_TRACE_FACTOR_MARK", "-2", 1);
+  setenv("SAT_EVENT_TRACE_BINARY_ADD", "-2", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
@@ -229,12 +350,17 @@ int main() {
     trace.factor_literal_state(k, internalize(-2), true, false, 0, 2);
     trace.factor_literal_entry(k, internalize(-2), 0, true,
                                internalize(1), 0, nullptr);
+    trace.factor_mark_transition(k, internalize(-2), true, "test_source");
+    trace.binary_add(k, internalize(-2), internalize(3));
     const Lit factor_members[2] = {internalize(-2), internalize(1)};
-    trace.factor_fresh(k, internalize(-2), 2, factor_members, 2, 3, 1);
+    trace.factor_fresh(k, internalize(-2), 2, factor_members, 2, 3, 1, 0, 0,
+                       0, 0, 0);
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("SAT_EVENT_TRACE_FACTOR_LITERAL_ONLY");
   unsetenv("TACTIX_EVENT_TRACE_FACTOR_LITERAL");
+  unsetenv("TACTIX_EVENT_TRACE_FACTOR_MARK");
+  unsetenv("SAT_EVENT_TRACE_BINARY_ADD");
   std::ifstream factor_literal_only_input(factor_literal_only_path);
   const std::string factor_literal_only_text(
       (std::istreambuf_iterator<char>(factor_literal_only_input)),
@@ -245,6 +371,14 @@ int main() {
          std::string::npos);
   assert(factor_literal_only_text.find("\tfactor_fresh\t") !=
          std::string::npos);
+  assert(factor_literal_only_text.find(
+             "\tfactor_mark_transition\t") != std::string::npos);
+  assert(factor_literal_only_text.find(
+             "external=-2|marked=1|source=test_source") !=
+         std::string::npos);
+  assert(factor_literal_only_text.find("\tbinary_add\t") !=
+         std::string::npos);
+  assert(factor_literal_only_text.find("a=-2|b=3") != std::string::npos);
   assert(factor_literal_only_text.find("\tfactor_seed\t") ==
          std::string::npos);
   assert(factor_literal_only_text.find("\trestart_begin\t") ==
@@ -296,27 +430,78 @@ int main() {
 
   setenv("TACTIX_EVENT_TRACE", factor_fresh_only_path.c_str(), 1);
   setenv("SAT_EVENT_TRACE_FACTOR_FRESH_ONLY", "1", 1);
+  setenv("SAT_EVENT_TRACE_FACTOR_METER", "1", 1);
+  setenv("SAT_EVENT_TRACE_FACTOR_METER_COMPONENTS", "1", 1);
   {
     EventTrace trace;
     assert(trace.open_from_env(k));
     trace.macro(k, "restart_begin");
     trace.factor_seed(k, internalize(-2), 17, 9);
     const Lit factor_members[2] = {internalize(-2), internalize(1)};
-    trace.factor_fresh(k, internalize(-2), 2, factor_members, 2, 3, 1);
+    trace.factor_fresh(k, internalize(-2), 2, factor_members, 2, 3, 1, 123,
+                       7, 11, 13, 17);
   }
   unsetenv("TACTIX_EVENT_TRACE");
   unsetenv("SAT_EVENT_TRACE_FACTOR_FRESH_ONLY");
+  unsetenv("SAT_EVENT_TRACE_FACTOR_METER");
+  unsetenv("SAT_EVENT_TRACE_FACTOR_METER_COMPONENTS");
   std::ifstream factor_fresh_only_input(factor_fresh_only_path);
   const std::string factor_fresh_only_text(
       (std::istreambuf_iterator<char>(factor_fresh_only_input)),
       std::istreambuf_iterator<char>());
   assert(factor_fresh_only_text.find("\tfactor_fresh\t") !=
          std::string::npos);
+  assert(factor_fresh_only_text.find("|ticks=123") != std::string::npos);
+  assert(factor_fresh_only_text.find(
+             "|pops=7|first_ticks=11|next_ticks=13|match_ticks=17") !=
+         std::string::npos);
   assert(factor_fresh_only_text.find("\tfactor_seed\t") ==
          std::string::npos);
   assert(factor_fresh_only_text.find("\trestart_begin\t") ==
          std::string::npos);
   std::remove(factor_fresh_only_path.c_str());
+
+  const std::string factor_seed_only_path =
+      trace_path("event-factor-seed-only");
+  std::remove(factor_seed_only_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", factor_seed_only_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_FACTOR_SEED_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_FACTOR_SEED", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.macro(k, "restart_begin");
+    trace.factor_seed(k, internalize(-2), 17, 9);
+    trace.factor_seed(k, internalize(1), 19, 11);
+    const Lit factor_members[2] = {internalize(1), internalize(-2)};
+    trace.factor_fresh(k, internalize(-2), 2, factor_members, 2, 3, 1, 0, 0,
+                       0, 0, 0);
+    trace.factor_fresh(k, internalize(1), 2, factor_members, 2, 3, 1, 0, 0,
+                       0, 0, 0);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("SAT_EVENT_TRACE_FACTOR_SEED_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_FACTOR_SEED");
+  std::ifstream factor_seed_only_input(factor_seed_only_path);
+  const std::string factor_seed_only_text(
+      (std::istreambuf_iterator<char>(factor_seed_only_input)),
+      std::istreambuf_iterator<char>());
+  assert(factor_seed_only_text.find("\ttrace_begin\t") != std::string::npos);
+  assert(factor_seed_only_text.find("\tfactor_seed\t") !=
+         std::string::npos);
+  assert(factor_seed_only_text.find(
+             "external=1|score=19|remainders=11") != std::string::npos);
+  assert(factor_seed_only_text.find("external=-2|score=17") ==
+         std::string::npos);
+  assert(factor_seed_only_text.find("\tfactor_fresh\t") !=
+         std::string::npos);
+  assert(factor_seed_only_text.find("seed=1|factors=2") !=
+         std::string::npos);
+  assert(factor_seed_only_text.find("seed=-2|factors=2") ==
+         std::string::npos);
+  assert(factor_seed_only_text.find("\trestart_begin\t") ==
+         std::string::npos);
+  std::remove(factor_seed_only_path.c_str());
   assert(text.find("ordinal=0|external=-2") != std::string::npos);
   assert(text.find("external=-2|factors=3|remainders=4|delta=5") !=
          std::string::npos);
@@ -426,6 +611,41 @@ int main() {
   assert(heap_vars_text.find("external=1|representative=1|") ==
          std::string::npos);
   std::remove(heap_vars_path.c_str());
+  k.h->stable = false;
+
+  const std::string heap_window_path = trace_path("event-heap-vars-window");
+  std::remove(heap_window_path.c_str());
+  k.h->stable = true;
+  const uint64_t heap_window_saved_conflicts = k.stats.conflicts;
+  const std::string selected_conflict =
+      std::to_string(heap_window_saved_conflicts + 1);
+  setenv("TACTIX_EVENT_TRACE", heap_window_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY", "1", 1);
+  setenv("SAT_EVENT_TRACE_HEAP_VARS", "2", 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_FROM", selected_conflict.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_CONFLICT_TO", selected_conflict.c_str(), 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.heap_insert(k, 1, 7, 3);
+    k.stats.conflicts++;
+    trace.heap_insert(k, 1, 7, 3);
+  }
+  k.stats.conflicts = heap_window_saved_conflicts;
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_HEAP_VARS_ONLY");
+  unsetenv("SAT_EVENT_TRACE_HEAP_VARS");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_FROM");
+  unsetenv("TACTIX_EVENT_TRACE_CONFLICT_TO");
+  std::ifstream heap_window_input(heap_window_path);
+  const std::string heap_window_text(
+      (std::istreambuf_iterator<char>(heap_window_input)),
+      std::istreambuf_iterator<char>());
+  const size_t selected_insert = heap_window_text.find("\theap_insert\t");
+  assert(selected_insert != std::string::npos);
+  assert(heap_window_text.find("\theap_insert\t", selected_insert + 1) ==
+         std::string::npos);
+  std::remove(heap_window_path.c_str());
   k.h->stable = false;
 
   const std::string glue_only_path = trace_path("event-glue-only");
@@ -837,7 +1057,10 @@ int main() {
   if (!bve_schedule_child) {
     unsetenv("TACTIX_EVENT_TRACE");
     setenv("TACTIX_BVE_SCHEDULE_TRACE", bve_schedule_path.c_str(), 1);
+    setenv("SAT_BVE_SCHEDULE_CONFLICT", "1", 1);
+    setenv("SAT_BVE_SCHEDULE_ORDINAL", "1", 1);
     setenv("SAT_BVE_SCHEDULE_MEMBERS", "1", 1);
+    setenv("SAT_BVE_SCHEDULE_SELECTED", "1,2", 1);
     std::vector<uint32_t> occurrence_counts(2 * watch_kernel.nvars, 0);
     occurrence_counts[make_lit(0, false)] = 7;
     occurrence_counts[make_lit(0, true)] = 11;
@@ -846,6 +1069,13 @@ int main() {
     watch_kernel.bve_occurrence_count_image = &occurrence_counts;
     const Var members[2] = {0, 2};
     const double scores[3] = {-3.0, 0.0, -5.0};
+    // A non-matching schedule must neither write nor terminate.  The same
+    // standalone observer selects the requested later conflict exactly.
+    event_trace_bve_schedule(watch_kernel, members, scores, 2, 0,
+                             0x123456789abcdef0ull);
+    watch_kernel.stats.conflicts = 1;
+    event_trace_bve_schedule(watch_kernel, members, scores, 2, 0,
+                             0x123456789abcdef0ull);
     event_trace_bve_schedule(watch_kernel, members, scores, 2, 0,
                              0x123456789abcdef0ull);
     _exit(99);
@@ -863,7 +1093,7 @@ int main() {
          std::string::npos);
   assert(bve_schedule_text.find("tactix\tbound=0|scheduled=2|") !=
          std::string::npos);
-  assert(bve_schedule_text.find("|conflicts=0|decisions=0|propagations=") !=
+  assert(bve_schedule_text.find("|conflicts=1|decisions=0|propagations=") !=
          std::string::npos);
   assert(bve_schedule_text.find("|active=3|vars=3|trail=") !=
          std::string::npos);
@@ -875,7 +1105,87 @@ int main() {
   assert(bve_schedule_text.find(
              "member\texternal=3\tposition=1\tpositive=13\tnegative=17\t") !=
          std::string::npos);
+  assert(bve_schedule_text.find(
+             "selected\texternal=1\tposition=0\tpositive=7\tnegative=11\t"
+             "value=0\tlevel=0\tretired=0\n") != std::string::npos);
   std::remove(bve_schedule_path.c_str());
+
+  const std::string bve_candidate_path =
+      trace_path("standalone-bve-candidate");
+  std::remove(bve_candidate_path.c_str());
+  const pid_t bve_candidate_child = fork();
+  assert(bve_candidate_child >= 0);
+  if (!bve_candidate_child) {
+    unsetenv("TACTIX_EVENT_TRACE");
+    setenv("TACTIX_BVE_CANDIDATE_TRACE", bve_candidate_path.c_str(), 1);
+    setenv("SAT_BVE_CANDIDATE_CONFLICT", "1", 1);
+    setenv("SAT_BVE_CANDIDATE_EXTERNAL", "1", 1);
+    setenv("SAT_BVE_CANDIDATE_EXIT_AFTER_END", "1", 1);
+    watch_kernel.stats.conflicts = 1;
+    watch_kernel.bve_retry.resize(watch_kernel.nvars, 0);
+    watch_kernel.bve_retry[0] = 1;
+    event_trace_bve_candidate(watch_kernel, 0, "begin", 7, 11, false);
+    watch_kernel.bve_retry[0] = 0;
+    event_trace_bve_candidate(watch_kernel, 0, "end", 9, 11, false);
+    _exit(99);
+  }
+  int bve_candidate_status = 0;
+  assert(waitpid(bve_candidate_child, &bve_candidate_status, 0) ==
+         bve_candidate_child);
+  assert(WIFEXITED(bve_candidate_status));
+  assert(WEXITSTATUS(bve_candidate_status) == 0);
+  std::ifstream bve_candidate_input(bve_candidate_path);
+  const std::string bve_candidate_text(
+      (std::istreambuf_iterator<char>(bve_candidate_input)),
+      std::istreambuf_iterator<char>());
+  assert(bve_candidate_text.find("# bve-candidate-observer\t1\n") !=
+         std::string::npos);
+  assert(bve_candidate_text.find(
+             "external=1\tstage=begin\tconflicts=1\tticks=7\tlimit=11\t"
+             "applied=0\tretry=1\tvalue=0\tretired=0\troots=0\ttrail=0\t"
+             "propagate=0\n") !=
+         std::string::npos);
+  assert(bve_candidate_text.find(
+             "external=1\tstage=end\tconflicts=1\tticks=9\tlimit=11\t"
+             "applied=0\tretry=0\tvalue=0\tretired=0\troots=0\ttrail=0\t"
+             "propagate=0\n") !=
+         std::string::npos);
+  std::remove(bve_candidate_path.c_str());
+
+  const std::string bve_retry_path = trace_path("standalone-bve-retry");
+  std::remove(bve_retry_path.c_str());
+  const pid_t bve_retry_child = fork();
+  assert(bve_retry_child >= 0);
+  if (!bve_retry_child) {
+    unsetenv("TACTIX_EVENT_TRACE");
+    setenv("TACTIX_BVE_RETRY_TRACE", bve_retry_path.c_str(), 1);
+    setenv("SAT_BVE_RETRY_CONFLICT", "1", 1);
+    setenv("SAT_BVE_RETRY_EXTERNAL", "1", 1);
+    setenv("SAT_BVE_RETRY_EXIT_AFTER_MARK", "1", 1);
+    watch_kernel.stats.conflicts = 1;
+    watch_kernel.bve_retry.resize(watch_kernel.nvars, 0);
+    watch_kernel.bve_retry[0] = 0;
+    event_trace_bve_candidate(watch_kernel, 0, "end", 9, 11, false);
+    kernel_mark_bve_retry(watch_kernel, 0, "unit-test-source");
+    _exit(99);
+  }
+  int bve_retry_status = 0;
+  assert(waitpid(bve_retry_child, &bve_retry_status, 0) == bve_retry_child);
+  assert(WIFEXITED(bve_retry_status));
+  assert(WEXITSTATUS(bve_retry_status) == 0);
+  std::ifstream bve_retry_input(bve_retry_path);
+  const std::string bve_retry_text(
+      (std::istreambuf_iterator<char>(bve_retry_input)),
+      std::istreambuf_iterator<char>());
+  assert(bve_retry_text.find("# bve-retry-observer\t1\n") !=
+         std::string::npos);
+  assert(bve_retry_text.find(
+             "external=1\tconflicts=1\tsource=unit-test-source\t"
+             "trigger=1\tbefore=0\tafter=1\tvalue=0\tretired=0\t"
+             "clause_id=0\tclause_size=0\tclause_hash=0000000000000000\t"
+             "clause_lits=-\n") !=
+         std::string::npos);
+  std::remove(bve_retry_path.c_str());
 
   const std::string matched_exit_path = trace_path("event-matched-exit");
   std::remove(matched_exit_path.c_str());
@@ -909,6 +1219,68 @@ int main() {
   assert(matched_exit_text.find("name=selected|stage=begin") !=
          std::string::npos);
   std::remove(matched_exit_path.c_str());
+
+  const std::string macro_exit_path = trace_path("event-macro-matched-exit");
+  std::remove(macro_exit_path.c_str());
+  const pid_t macro_exit_child = fork();
+  assert(macro_exit_child >= 0);
+  if (!macro_exit_child) {
+    unsetenv("TACTIX_EVENT_TRACE");
+    setenv("TACTIX_EVENT_TRACE_LATE_PATH", macro_exit_path.c_str(), 1);
+    setenv("TACTIX_EVENT_TRACE_LIMIT", "0", 1);
+    setenv("SAT_EVENT_TRACE_TARGET_ONLY", "1", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_AFTER_MATCH", "eliminate_end", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_CONFLICT", "0", 1);
+    EventTrace late_macro;
+    late_macro.macro(watch_kernel, "probe_end");
+    late_macro.macro(watch_kernel, "eliminate_end");
+    _exit(99);
+  }
+  int macro_exit_status = 0;
+  assert(waitpid(macro_exit_child, &macro_exit_status, 0) == macro_exit_child);
+  assert(WIFEXITED(macro_exit_status));
+  assert(WEXITSTATUS(macro_exit_status) == 0);
+  std::ifstream macro_exit_input(macro_exit_path);
+  const std::string macro_exit_text(
+      (std::istreambuf_iterator<char>(macro_exit_input)),
+      std::istreambuf_iterator<char>());
+  assert(macro_exit_text.find("\tprobe_end\t") == std::string::npos);
+  assert(macro_exit_text.find("\teliminate_end\t") != std::string::npos);
+  std::remove(macro_exit_path.c_str());
+
+  const std::string factor_fresh_exit_path =
+      trace_path("factor-fresh-matched-exit");
+  std::remove(factor_fresh_exit_path.c_str());
+  const pid_t factor_fresh_exit_child = fork();
+  assert(factor_fresh_exit_child >= 0);
+  if (!factor_fresh_exit_child) {
+    unsetenv("TACTIX_EVENT_TRACE_LATE_PATH");
+    unsetenv("SAT_EVENT_TRACE_TARGET_ONLY");
+    setenv("TACTIX_EVENT_TRACE", factor_fresh_exit_path.c_str(), 1);
+    setenv("SAT_EVENT_TRACE_FACTOR_FRESH_ONLY", "1", 1);
+    setenv("TACTIX_EVENT_TRACE_LIMIT", "1", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_AFTER_MATCH",
+           "slot_boundary|name=Factor|stage=end", 1);
+    setenv("SAT_EVENT_TRACE_EXIT_CONFLICT", "0", 1);
+    EventTrace trace;
+    assert(trace.open_from_env(watch_kernel));
+    trace.slot_boundary(watch_kernel, "Factor", "end");
+    _exit(99);
+  }
+  int factor_fresh_exit_status = 0;
+  assert(waitpid(factor_fresh_exit_child, &factor_fresh_exit_status, 0) ==
+         factor_fresh_exit_child);
+  assert(WIFEXITED(factor_fresh_exit_status));
+  assert(WEXITSTATUS(factor_fresh_exit_status) == 0);
+  std::ifstream factor_fresh_exit_input(factor_fresh_exit_path);
+  const std::string factor_fresh_exit_text(
+      (std::istreambuf_iterator<char>(factor_fresh_exit_input)),
+      std::istreambuf_iterator<char>());
+  assert(factor_fresh_exit_text.find("\tslot_boundary\t") !=
+         std::string::npos);
+  assert(factor_fresh_exit_text.find("name=Factor|stage=end") !=
+         std::string::npos);
+  std::remove(factor_fresh_exit_path.c_str());
 
   const std::string randec_exit_path = trace_path("event-randec-late-exit");
   std::remove(randec_exit_path.c_str());
@@ -1042,6 +1414,75 @@ int main() {
   assert(watch_only_text.find("\tanalysis_begin\t") == std::string::npos);
   std::remove(watch_only_path.c_str());
 
+  const std::string strict_watch_path =
+      trace_path("event-watch-only-strict");
+  std::remove(strict_watch_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", strict_watch_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_ONLY", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_ONLY_STRICT", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_CLAUSE_SET", "2,3;-3,-2,1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    trace.detail(k, "decision", 44);
+    trace.watch_scan(k, internalize(3));
+    trace.macro(k, "restart_begin");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_ONLY");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_ONLY_STRICT");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_CLAUSE_SET");
+  std::ifstream strict_watch_input(strict_watch_path);
+  const std::string strict_watch_text(
+      (std::istreambuf_iterator<char>(strict_watch_input)),
+      std::istreambuf_iterator<char>());
+  assert(strict_watch_text.find("\twatch\t") != std::string::npos);
+  assert(strict_watch_text.find("\trestart_begin\t") == std::string::npos);
+  assert(strict_watch_text.find("\tdecision\t") == std::string::npos);
+  assert(strict_watch_text.find("\ttrace_begin\t") == std::string::npos);
+  std::remove(strict_watch_path.c_str());
+
+  const std::string garbage_formula_path =
+      trace_path("event-formula-garbage");
+  const std::string garbage_trace_path =
+      trace_path("event-formula-garbage-trace");
+  std::remove(garbage_formula_path.c_str());
+  std::remove(garbage_trace_path.c_str());
+  Kernel garbage_kernel;
+  kernel_reserve_vars(garbage_kernel, 3);
+  const Lit garbage_lits[3] = {internalize(1), internalize(-2),
+                               internalize(3)};
+  const Ref garbage_ref =
+      kernel_add_large_clause(garbage_kernel, garbage_lits, 3, false, 0);
+  kernel_delete_clause(garbage_kernel,
+                       clause_at(garbage_kernel.arena, garbage_ref));
+  setenv("TACTIX_EVENT_TRACE", garbage_trace_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_FORMULA_SET_PATH", garbage_formula_path.c_str(), 1);
+  setenv("SAT_EVENT_TRACE_FORMULA_SET_MATCH", "fixture", 1);
+  setenv("SAT_EVENT_TRACE_FORMULA_SET_CONFLICT", "0", 1);
+  setenv("SAT_EVENT_TRACE_FORMULA_SET_INCLUDE_GARBAGE", "1", 1);
+  setenv("SAT_EVENT_TRACE_FORMULA_SET_META", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(garbage_kernel));
+    trace.macro(garbage_kernel, "fixture");
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("SAT_EVENT_TRACE_FORMULA_SET_PATH");
+  unsetenv("SAT_EVENT_TRACE_FORMULA_SET_MATCH");
+  unsetenv("SAT_EVENT_TRACE_FORMULA_SET_CONFLICT");
+  unsetenv("SAT_EVENT_TRACE_FORMULA_SET_INCLUDE_GARBAGE");
+  unsetenv("SAT_EVENT_TRACE_FORMULA_SET_META");
+  std::ifstream garbage_formula_input(garbage_formula_path);
+  const std::string garbage_formula_text(
+      (std::istreambuf_iterator<char>(garbage_formula_input)),
+      std::istreambuf_iterator<char>());
+  assert(garbage_formula_text.find(
+             "-2,1,3\tglue=0\tpriority=0\tsearched=2\tused=0"
+             "\treason=0\tshrunken=0\tgarbage=1") != std::string::npos);
+  std::remove(garbage_formula_path.c_str());
+  std::remove(garbage_trace_path.c_str());
+
   const std::string skip_ticks_path = trace_path("event-skip-analysis-ticks");
   std::remove(skip_ticks_path.c_str());
   setenv("TACTIX_EVENT_TRACE", skip_ticks_path.c_str(), 1);
@@ -1097,7 +1538,7 @@ int main() {
     trace.detail(k, "score_bump", 2);
     trace.detail(k, "reason_bump_limit", 10);
     trace.detail(k, "heap_reinsert", 1);
-    trace.randec_state(k, "pre", 523, 533, 4);
+    trace.randec_state(k, "pre", 523, 533, 4, 0x1234);
     trace.sweep_seed(k, 0);
     trace.sweep_environment(k, 0, 3, 4, 5);
     const Lit sweep_clause[2] = {internalize(1), internalize(-2)};
@@ -1255,6 +1696,37 @@ int main() {
          std::string::npos);
   assert(sweep_only_text.find("\tsweep_end\t") != std::string::npos);
   std::remove(sweep_only_path.c_str());
+
+  const std::string search_watch_cost_path =
+      trace_path("event-search-watch-cost-only");
+  std::remove(search_watch_cost_path.c_str());
+  setenv("TACTIX_EVENT_TRACE", search_watch_cost_path.c_str(), 1);
+  setenv("TACTIX_EVENT_TRACE_WATCH_COST", "1", 1);
+  setenv("TACTIX_EVENT_TRACE_SEARCH_WATCH_COST_ONLY", "1", 1);
+  {
+    EventTrace trace;
+    assert(trace.open_from_env(k));
+    k.inprocessing = true;
+    trace.watch_scan(k, internalize(1));
+    trace.watch_cost(k, internalize(1), 7, 7, 2, 1, 2, 0, 0, 5);
+    k.inprocessing = false;
+    trace.watch_scan(k, internalize(1));
+    trace.watch_cost(k, internalize(1), 7, 7, 2, 1, 2, 0, 0, 5);
+  }
+  unsetenv("TACTIX_EVENT_TRACE");
+  unsetenv("TACTIX_EVENT_TRACE_WATCH_COST");
+  unsetenv("TACTIX_EVENT_TRACE_SEARCH_WATCH_COST_ONLY");
+  std::ifstream search_watch_cost_input(search_watch_cost_path);
+  const std::string search_watch_cost_text(
+      (std::istreambuf_iterator<char>(search_watch_cost_input)),
+      std::istreambuf_iterator<char>());
+  const size_t first_watch_cost =
+      search_watch_cost_text.find("\twatch_cost\t");
+  assert(first_watch_cost != std::string::npos);
+  assert(search_watch_cost_text.find("\twatch_cost\t", first_watch_cost + 1) ==
+         std::string::npos);
+  assert(search_watch_cost_text.find("\twatch\t") == std::string::npos);
+  std::remove(search_watch_cost_path.c_str());
 
   const std::string reduce_path = trace_path("reduce-trace");
   std::remove(reduce_path.c_str());

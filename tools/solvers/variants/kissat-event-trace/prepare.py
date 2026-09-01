@@ -13,7 +13,7 @@ def replace_once(path, old, new):
     text = path.read_text()
     if text.count(old) != 1:
         raise SystemExit(f"{path}: expected one overlay anchor, found "
-                         f"{text.count(old)}")
+                         f"{text.count(old)} for {old[:96]!r}")
     path.write_text(text.replace(old, new))
 
 
@@ -481,6 +481,24 @@ def main():
                  '#include "forward.h"\n#include "eventtrace.h"\n')
     replace_once(
         forward,
+        '  INC (forward_subsumptions);\n'
+        '  assert (!solver->watching);\n',
+        '  INC (forward_subsumptions);\n'
+        '  assert (!solver->watching);\n'
+        '  kissat_event_trace_set_boundary (\n'
+        '      solver, "name=Strengthen|stage=begin");\n')
+    replace_once(
+        forward,
+        '  STOP (forward);\n'
+        '  STOP (subsume);\n'
+        '  return complete;\n',
+        '  kissat_event_trace_set_boundary (\n'
+        '      solver, "name=Strengthen|stage=end");\n'
+        '  STOP (forward);\n'
+        '  STOP (subsume);\n'
+        '  return complete;\n')
+    replace_once(
+        forward,
         '    if (c->size > clslim)\n'
         '      continue;\n'
         '    assert (c->size > 2);\n',
@@ -548,6 +566,55 @@ def main():
         '    kissat_event_trace_forward_clause (solver, c, "result-noop", 0);\n'
         '\n'
         '  if (subsume) {\n')
+    replace_once(
+        forward,
+        '      if (marks[other]) {\n'
+        '        LOGBINARY (lit, other, "forward subsuming");\n'
+        '        subsume = true;\n',
+        '      if (marks[other]) {\n'
+        '        LOGBINARY (lit, other, "forward subsuming");\n'
+        '        kissat_event_trace_forward_partner (\n'
+        '            solver, lit, other, 0, "subsumed-binary");\n'
+        '        subsume = true;\n')
+    replace_once(
+        forward,
+        '        if (marks[not_other]) {\n'
+        '          LOGBINARY (lit, other, "forward %s strengthener", LOGLIT (other));\n'
+        '          assert (!subsume);\n',
+        '        if (marks[not_other]) {\n'
+        '          LOGBINARY (lit, other, "forward %s strengthener", LOGLIT (other));\n'
+        '          kissat_event_trace_forward_partner (\n'
+        '              solver, lit, other, 0, "strengthened-binary");\n'
+        '          assert (!subsume);\n')
+    replace_once(
+        forward,
+        '      if (subsume) {\n'
+        '        LOGCLS (d, "forward subsuming");\n'
+        '        assert (subsume);\n',
+        '      if (subsume) {\n'
+        '        LOGCLS (d, "forward subsuming");\n'
+        '        kissat_event_trace_forward_partner (\n'
+        '            solver, lit, INVALID_LIT, d, "subsumed-large");\n'
+        '        assert (subsume);\n')
+    replace_once(
+        forward,
+        '      if (candidate != INVALID_LIT) {\n'
+        '        LOGCLS (d, "forward %s strengthener", LOGLIT (candidate));\n'
+        '        *remove = candidate;\n',
+        '      if (candidate != INVALID_LIT) {\n'
+        '        LOGCLS (d, "forward %s strengthener", LOGLIT (candidate));\n'
+        '        kissat_event_trace_forward_partner (\n'
+        '            solver, lit, INVALID_LIT, d, "strengthened-large");\n'
+        '        *remove = candidate;\n')
+    replace_once(
+        forward,
+        '        assert (first != INVALID_LIT);\n'
+        '        assert (second != INVALID_LIT);\n'
+        '        LOGBINARY (first, second, "forward strengthened");\n',
+        '        assert (first != INVALID_LIT);\n'
+        '        assert (second != INVALID_LIT);\n'
+        '        kissat_event_trace_forward_binary (solver, first, second, c);\n'
+        '        LOGBINARY (first, second, "forward strengthened");\n')
 
     eliminate = dest / "src" / "eliminate.c"
     replace_once(eliminate, '#include "dense.h"\n',
@@ -561,6 +628,34 @@ def main():
         '  kissat_event_trace_eliminate_cleanup (solver, "entry");\n')
     replace_once(
         eliminate,
+        '    if (forward) {\n',
+        '    kissat_event_trace_eliminate_round_boundary (\n'
+        '        solver, "strengthen", "begin");\n'
+        '    if (forward) {\n')
+    replace_once(
+        eliminate,
+        '      complete = true;\n'
+        '    }\n\n'
+        '#ifndef QUIET\n',
+        '      complete = true;\n'
+        '    }\n'
+        '    kissat_event_trace_eliminate_round_boundary (\n'
+        '        solver, "strengthen", "end");\n'
+        '    kissat_event_trace_eliminate_round_boundary (\n'
+        '        solver, "bve", "begin");\n\n'
+        '#ifndef QUIET\n')
+    replace_once(
+        eliminate,
+        '      kissat_dense_collect (solver);\n'
+        '    }\n\n'
+        '    kissat_phase (\n',
+        '      kissat_dense_collect (solver);\n'
+        '    }\n'
+        '    kissat_event_trace_eliminate_round_boundary (\n'
+        '        solver, "bve", "end");\n\n'
+        '    kissat_phase (\n')
+    replace_once(
+        eliminate,
         '      if (eliminate_variable (solver, idx))\n'
         '        last_round_eliminated++;\n',
         '      const uint64_t trace_entry = s->eliminate_resolutions;\n'
@@ -572,6 +667,21 @@ def main():
         '          resolution_limit, trace_applied);\n'
         '      if (trace_applied)\n'
         '        last_round_eliminated++;\n')
+    replace_once(
+        eliminate,
+        '      if (trace_applied)\n'
+        '        last_round_eliminated++;\n'
+        '      if (solver->inconsistent)\n'
+        '        break;\n'
+        '      kissat_flush_units_while_connected (solver);\n',
+        '      if (trace_applied)\n'
+        '        last_round_eliminated++;\n'
+        '      if (solver->inconsistent)\n'
+        '        break;\n'
+        '      kissat_flush_units_while_connected (solver);\n'
+        '      kissat_event_trace_bve_candidate (\n'
+        '          solver, idx, "postflush", s->eliminate_resolutions,\n'
+        '          resolution_limit, trace_applied);\n')
     replace_once(
         eliminate,
         '  kissat_update_heap (solver, schedule, idx, -new_score);\n',
@@ -761,9 +871,11 @@ def main():
                 '            solver->statistics.search_ticks, 0);\n'
                 if event == "restart" else "")
             new = (journal_before +
+                   f'        kissat_event_trace_late (solver, "{event}_begin", "-", true);\n'
                    f'        kissat_event_trace (solver, "{event}_begin", "-", true);\n'
                    f"        {call};\n"
                    f"{journal_after}"
+                   f'        kissat_event_trace_late (solver, "{event}_end", "-", true);\n'
                    f'        kissat_event_trace (solver, "{event}_end", "-", true);'
                    f"{after}")
         else:
@@ -780,9 +892,11 @@ def main():
                 f'            solver->statistics.search_ticks, 0);\n'
                 if proof else "")
             new = (journal_before +
+                   f'        kissat_event_trace_late (solver, "{event}_begin", "-", true);\n'
                    f'        kissat_event_trace (solver, "{event}_begin", "-", true);\n'
                    f"        res = {call};\n"
                    f"{journal_after}"
+                   f'        kissat_event_trace_late (solver, "{event}_end", "-", true);\n'
                    f'        kissat_event_trace (solver, "{event}_end", "-", true);')
         if text.count(old) != 1:
             raise SystemExit(f"{search}: expected one wrapper anchor {old!r}")
@@ -861,6 +975,7 @@ def main():
         '  kissat_rule_journal_rule_attempt ( \\\n'
         '      solver, NAME, "canonical", "probe-pipeline", journal_pre, \\\n'
         '      journal_effort, *journal_meter, 0); \\\n'
+        '  kissat_event_trace_late (solver, NAME "_end", "-", true); \\\n'
         '  kissat_event_trace (solver, NAME "_end", "-", true); \\\n'
         '} while (0)\n'
         '  TRACE_RULE (kissat_congruence (solver), "congruence");\n'
@@ -1046,6 +1161,16 @@ def main():
         '    update_factored (factoring, p);\n')
     replace_once(factor, '#include "factor.h"\n',
                  '#include "factor.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        factor,
+        '    if (!(f->factor & bit))\n'
+        '      continue;\n'
+        '    f->factor &= ~bit;\n',
+        '    if (!(f->factor & bit))\n'
+        '      continue;\n'
+        '    kissat_event_trace_factor_mark (solver, first, false,\n'
+        '                                    "factor_pop");\n'
+        '    f->factor &= ~bit;\n')
 
     substitute = dest / "src" / "substitute.c"
     replace_once(substitute, '#include "substitute.h"\n',
@@ -1064,6 +1189,16 @@ def main():
         '    kissat_event_trace_binary_delete_site (\n'
         '        solver, "substitute", lit, other);\n'
         '    kissat_delete_binary (solver, lit, other);\n')
+    replace_once(
+        substitute,
+        '        LOGCLS (c, "unsubstituted");\n'
+        '        LOGBINARY (first, second, "substituted");\n'
+        '        kissat_new_binary_clause (solver, first, second);\n',
+        '        LOGCLS (c, "unsubstituted");\n'
+        '        LOGBINARY (first, second, "substituted");\n'
+        '        kissat_event_trace_substitute_binary_collapse (\n'
+        '            solver, first, second, c);\n'
+        '        kissat_new_binary_clause (solver, first, second);\n')
 
     preprocess = dest / "src" / "preprocess.c"
     replace_once(preprocess, '#include "preprocess.h"\n',
@@ -1136,7 +1271,19 @@ def main():
         factor,
         '  uint64_t *ticks = &solver->statistics.factor_ticks;\n',
         '  uint64_t *ticks = &solver->statistics.factor_ticks;\n'
-        '  const uint64_t trace_tick_start = *ticks;\n')
+        '  const uint64_t trace_tick_start = *ticks;\n'
+        '  uint64_t trace_pops = 0;\n'
+        '  uint64_t trace_first_ticks = 0;\n'
+        '  uint64_t trace_next_ticks = 0;\n'
+        '  uint64_t trace_match_ticks = 0;\n')
+    replace_once(
+        factor,
+        '  schedule_factorization (&factoring);\n'
+        '  bool done = false;\n',
+        '  schedule_factorization (&factoring);\n'
+        '  kissat_event_trace_factor_heap (solver, 0, "initial",\n'
+        '                                  &factoring.schedule);\n'
+        '  bool done = false;\n')
     replace_once(
         factor,
         '  START (factor);\n'
@@ -1164,15 +1311,115 @@ def main():
         '        kissat_pop_max_heap (solver, &factoring.schedule);\n',
         '    const unsigned first =\n'
         '        kissat_pop_max_heap (solver, &factoring.schedule);\n'
+        '    trace_pops++;\n'
         '    kissat_event_trace_factor_heap (solver, first, "popped",\n'
         '                                    &factoring.schedule);\n')
     replace_once(
         factor,
         '    const size_t first_count = first_factor (&factoring, first);\n'
         '    if (first_count > 1) {\n',
+        '    const uint64_t trace_first_before = *ticks;\n'
         '    const size_t first_count = first_factor (&factoring, first);\n'
+        '    trace_first_ticks += *ticks - trace_first_before;\n'
         '    if (first_count > 1) {\n'
         '      kissat_event_trace_factor_seed (solver, first, first_count);\n')
+    replace_once(
+        factor,
+        '        unsigned next_count;\n'
+        '        const unsigned next = next_factor (&factoring, &next_count);\n',
+        '        unsigned next_count;\n'
+        '        const uint64_t trace_next_before = *ticks;\n'
+        '        const unsigned next = next_factor (&factoring, &next_count);\n'
+        '        trace_next_ticks += *ticks - trace_next_before;\n')
+    replace_once(
+        factor,
+        '        factorize_next (&factoring, next, next_count);\n',
+        '        const uint64_t trace_match_before = *ticks;\n'
+        '        factorize_next (&factoring, next, next_count);\n'
+        '        trace_match_ticks += *ticks - trace_match_before;\n')
+    replace_once(
+        factor,
+        '  uint64_t ticks =\n'
+        '      1 + kissat_cache_lines (SIZE_STACK (*last_clauses), sizeof (watch));\n\n'
+        '  size_t i = 0;\n',
+        '  uint64_t ticks =\n'
+        '      1 + kissat_cache_lines (SIZE_STACK (*last_clauses), sizeof (watch));\n'
+        '  const bool trace_match_selected =\n'
+        '      kissat_event_trace_factor_match_selected (\n'
+        '          solver, factoring->quotients.first->factor, next);\n\n'
+        '  size_t i = 0;\n')
+    replace_once(
+        factor,
+        '    } else {\n'
+        '      const reference c_ref = last_watch.large.ref;\n'
+        '      clause *const c = (clause *) (arena + c_ref);\n'
+        '      assert (!c->quotient);\n'
+        '      unsigned min_lit = INVALID_LIT, factors = 0;\n'
+        '      size_t min_size = 0;\n'
+        '      ticks++;\n',
+        '    } else {\n'
+        '      const reference c_ref = last_watch.large.ref;\n'
+        '      clause *const c = (clause *) (arena + c_ref);\n'
+        '      assert (!c->quotient);\n'
+        '      unsigned min_lit = INVALID_LIT, factors = 0;\n'
+        '      size_t min_size = 0, trace_visits = 0;\n'
+        '      bool trace_matched = false;\n'
+        '      ticks++;\n')
+    replace_once(
+        factor,
+        '          clause *const d = (clause *) (arena + d_ref);\n'
+        '          ticks++;\n'
+        '          if (d->quotient)\n'
+        '            continue;\n'
+        '          if (d->size != c_size)\n'
+        '            continue;\n'
+        '          for (all_literals_in_clause (other, d)) {\n'
+        '            const mark mark = marks[other];\n'
+        '            if (mark & QUOTIENT)\n'
+        '              continue;\n'
+        '            if (other != next)\n',
+        '          clause *const d = (clause *) (arena + d_ref);\n'
+        '          ticks++;\n'
+        '          trace_visits++;\n'
+        '          if (d->quotient)\n'
+        '            continue;\n'
+        '          if (d->size != c_size)\n'
+        '            continue;\n'
+        '          for (all_literals_in_clause (other, d)) {\n'
+        '            const mark mark = marks[other];\n'
+        '            if (mark & QUOTIENT)\n'
+        '              continue;\n'
+        '            if (other != next)\n')
+    replace_once(
+        factor,
+        '          LOGCLS (c, "matched");\n'
+        '          LOGCLS (d, "keeping");\n'
+        '          PUSH_STACK (*next_clauses, min_watch);\n',
+        '          LOGCLS (c, "matched");\n'
+        '          LOGCLS (d, "keeping");\n'
+        '          trace_matched = true;\n'
+        '          PUSH_STACK (*next_clauses, min_watch);\n')
+    replace_once(
+        factor,
+        '      }\n'
+        '      for (all_literals_in_clause (other, c))\n'
+        '        marks[other] &= ~QUOTIENT;\n'
+        '    }\n'
+        '    i++;\n'
+        '  }\n\n'
+        '  clear_qlauses (solver, qlauses);\n',
+        '      }\n'
+        '      if (trace_match_selected && factors == 1)\n'
+        '        kissat_event_trace_factor_match_large (\n'
+        '            solver, factoring->quotients.first->factor, next,\n'
+        '            last_quotient->id + 1, i, c, last_quotient->factor,\n'
+        '            min_lit, min_size, trace_visits, trace_matched);\n'
+        '      for (all_literals_in_clause (other, c))\n'
+        '        marks[other] &= ~QUOTIENT;\n'
+        '    }\n'
+        '    i++;\n'
+        '  }\n\n'
+        '  clear_qlauses (solver, qlauses);\n')
     replace_once(
         factor,
         '      if (q && reduction > factoring.bound) {\n'
@@ -1193,7 +1440,9 @@ def main():
         '              solver, TOP_STACK (factoring.fresh),\n'
         '              BEGIN_STACK (trace_factors),\n'
         '              SIZE_STACK (trace_factors), SIZE_STACK (q->clauses),\n'
-        '              reduction);\n'
+        '              reduction, *ticks - trace_tick_start, trace_pops,\n'
+        '              trace_first_ticks, trace_next_ticks,\n'
+        '              trace_match_ticks);\n'
         '          RELEASE_STACK (trace_factors);\n'
         '          kissat_event_trace_factor_heap (solver, q->factor,\n'
         '                                          "updated",\n'
@@ -1823,6 +2072,20 @@ def main():
         '      large_assignments, ticks);\n\n'
         '  return res;\n')
 
+    propsearch = dest / "src" / "propsearch.c"
+    replace_once(propsearch,
+        '  START (propagate);\n\n'
+        '  solver->ticks = 0;\n',
+        '  START (propagate);\n\n'
+        '  kissat_event_trace_search_propagate_begin (solver);\n'
+        '  solver->ticks = 0;\n')
+    replace_once(propsearch,
+        '  STOP (propagate);\n\n'
+        '  return conflict;\n',
+        '  kissat_event_trace_search_propagate_end (solver);\n'
+        '  STOP (propagate);\n\n'
+        '  return conflict;\n')
+
     reduce = dest / "src" / "reduce.c"
     replace_once(reduce, '#include "collect.h"\n',
                  '#include "collect.h"\n#include "eventtrace.h"\n')
@@ -2094,13 +2357,7 @@ def main():
         '  INC (sweep_equivalences);\n',
         '  LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));\n'
         '  INC (sweep_equivalences);\n'
-        '  {\n'
-        '    char payload[128];\n'
-        '    snprintf (payload, sizeof payload, "a=%d|b=%d",\n'
-        '              kissat_export_literal (solver, lit),\n'
-        '              kissat_export_literal (solver, other));\n'
-        '    kissat_event_trace (solver, "sweep_equivalence", payload, false);\n'
-        '  }\n')
+        '  kissat_event_trace_sweep_equivalence (solver, lit, other);\n')
     replace_once(sweep,
         '    watch *q = begin_watches;\n'
         '    const watch *p = q;\n\n'
@@ -2218,6 +2475,57 @@ def main():
         '        journal_old_size, false, new_size, INVALID_LIT, "applied",\n'
         '        "none", journal_pre);\n'
         '  }\n')
+
+    # Selected binary lifecycle traces need to distinguish the handful of
+    # semantic `new_binary_clause` callers.  Emit the site immediately before
+    # the shared constructor; the exact-pair filter keeps all other calls out.
+    replace_once(
+        factor,
+        '  kissat_new_binary_clause (solver, fresh, factor);\n',
+        '  kissat_event_trace_binary_add_site (solver, "factor-divider",\n'
+        '                                      fresh, factor);\n'
+        '  kissat_new_binary_clause (solver, fresh, factor);\n')
+    replace_once(
+        factor,
+        '      kissat_new_binary_clause (solver, not_fresh, other);\n',
+        '      kissat_event_trace_binary_add_site (solver, "factor-quotient",\n'
+        '                                          not_fresh, other);\n'
+        '      kissat_new_binary_clause (solver, not_fresh, other);\n')
+    replace_once(
+        congruence,
+        '  if (solver->watching)\n'
+        '    kissat_new_binary_clause (solver, a, b);\n'
+        '  else {\n',
+        '  if (solver->watching) {\n'
+        '    kissat_event_trace_binary_add_site (solver, "congruence", a, b);\n'
+        '    kissat_new_binary_clause (solver, a, b);\n'
+        '  } else {\n')
+    replace_once(
+        sweep,
+        '  kissat_new_binary_clause (solver, lit, other);\n',
+        '  kissat_event_trace_binary_add_site (solver, "sweep", lit, other);\n'
+        '  kissat_new_binary_clause (solver, lit, other);\n')
+    replace_once(
+        substitute,
+        '        kissat_new_binary_clause (solver, first, second);\n',
+        '        kissat_event_trace_binary_add_site (\n'
+        '            solver, "substitute", first, second);\n'
+        '        kissat_new_binary_clause (solver, first, second);\n')
+    replace_once(
+        vivify,
+        '    kissat_new_binary_clause (solver, first, second);\n',
+        '    kissat_event_trace_binary_add_site (solver, "vivify", first,\n'
+        '                                        second);\n'
+        '    kissat_new_binary_clause (solver, first, second);\n')
+    strengthen = dest / "src" / "strengthen.c"
+    replace_once(strengthen, '#include "strengthen.h"\n',
+                 '#include "strengthen.h"\n#include "eventtrace.h"\n')
+    replace_once(
+        strengthen,
+        '  kissat_new_binary_clause (solver, first, second);\n',
+        '  kissat_event_trace_binary_add_site (solver, "strengthen", first,\n'
+        '                                      second);\n'
+        '  kissat_new_binary_clause (solver, first, second);\n')
 
 
 if __name__ == "__main__":

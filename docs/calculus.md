@@ -358,7 +358,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   discovered equivalence to collapse into the formula is V3's instance surface over the binaries V6 adds.
 - **Proof δ:** for outputs `a,b`, write `B→={¬a,b}` and `B←={a,¬b}`. Every path emits the supporting
   transient lemmas first, then `add_rup(B→,h→) · add_rup(B←,h←)`, then deletes the transients newest
-  first. AND — each equivalence binary is RUP from the two gates’ clauses (bridged by the
+  first. Each new representative union publishes both additions even if an identical binary is already
+  live; the duplicate is RUP from that existing clause and has its own immutable proof identity. AND —
+  each equivalence binary is RUP from the two gates’ clauses (bridged by the
   equivalence binaries added earlier in the closure). XOR — a parity-elimination **ladder**: eliminate
   one rhs variable per level, at each level emit `{signed-prefix,¬a,b}` and `{signed-prefix,a,¬b}` for
   all sign patterns; every lemma is RUP over the current DB, the two size-0 lemmas are the binaries. ITE

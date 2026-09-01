@@ -152,14 +152,6 @@ uint64_t now_nanos();
 // the return value and every kernel effect are exactly vt.apply's.
 ApplyResult apply_rule(const RuleVTable &vt, Kernel &k);
 ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k, uint64_t inst);
-// Dispatch the same canonical rule transaction through an alternate rule-side
-// entry point.  This preserves registry timing, trace, guard, and journal
-// framing while a policy supplies lifecycle state that is outside the proof
-// rule itself (currently Vivify's cross-band reclamation transaction).
-using CanonicalRuleApply = ApplyResult (*)(Kernel &, void *);
-ApplyResult apply_rule_with(const RuleVTable &, Kernel &, CanonicalRuleApply,
-                           void *);
-
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
 // DefaultPolicy statically composes hot micro/macro calls in production.  A
 // journal build brackets those exact calls through this diagnostic-only

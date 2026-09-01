@@ -7,6 +7,7 @@
 #include "rules/propagate/propagate.hpp"
 #include "rules/strengthen/strengthen.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <csignal>
 #include <cstdio>
@@ -83,12 +84,15 @@ static void test_binary_strengthens_large() {
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, c, 3, false, 0);
+  const uint64_t arena_generation = k.arena_generation;
   kernel_add_binary_clause(k, internalize(-1), internalize(2));
   assert(strengthen_guard(k));
   assert(strengthen_apply(k) == ApplyResult::Ok);
   assert(k.stats.strengthened == 1);
   assert(k.stats.strengthen_subsumed == 0);
   assert(live_large(k) == 0); // (2 3) became a binary
+  assert(k.arena.empty());
+  assert(k.arena_generation == arena_generation + 1);
   assert(kernel_binary_id(k, internalize(2), internalize(3)) == 0 ||
          true); // pair exists (id 0 in proof-less tests)
   assert(default_solve(k) == 10);
@@ -150,11 +154,14 @@ static void test_fused_subsumption() {
   kernel_reserve_vars(k, 3);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, c, 3, false, 0);
+  const uint64_t arena_generation = k.arena_generation;
   kernel_add_binary_clause(k, internalize(1), internalize(2));
   assert(strengthen_apply(k) == ApplyResult::Ok);
   assert(k.stats.strengthen_subsumed == 1);
   assert(k.stats.strengthened == 0);
   assert(live_large(k) == 0);
+  assert(k.arena.empty());
+  assert(k.arena_generation == arena_generation + 1);
 }
 
 static void test_large_partner_without_same_round_cascade() {
@@ -179,6 +186,37 @@ static void test_large_partner_without_same_round_cascade() {
   assert(k.stats.strengthened == 3);
   assert(live_large(k) == 0); // second round produces binary (3 4)
   assert(default_solve(k) == 10);
+}
+
+static void test_equal_size_candidates_use_inherited_arena_position() {
+  // Kissat shrinks the first record in place. Tactix appends the packed
+  // replacement, but its inherited logical position must keep it before the
+  // equal-size victim. The source first becomes binary (1,3), which then
+  // subsumes the victim (1,3,4) in the same forward pass.
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  const Lit original[4] = {internalize(1), internalize(2), internalize(3),
+                           internalize(5)};
+  const Ref original_ref = kernel_add_large_clause(
+      k, original, 4, false, 0, ++k.next_clause_id);
+  const Lit victim[3] = {internalize(1), internalize(3), internalize(4)};
+  kernel_add_large_clause(k, victim, 3, false, 0, ++k.next_clause_id);
+  const Lit source[3] = {internalize(1), internalize(2), internalize(3)};
+  Ref source_ref = INVALID_REF;
+  assert(kernel_replace_clause(k, clause_at(k.arena, original_ref),
+                               ++k.next_clause_id, source, 3, false, 0,
+                               &source_ref) == ReplaceOutcome::Large);
+  assert(source_ref > original_ref);
+  assert(kernel_clause_position(k, source_ref) == original_ref);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2),
+                           ++k.next_clause_id);
+
+  assert(strengthen_apply(k) == ApplyResult::Ok);
+  assert(k.stats.strengthened == 1);
+  assert(k.stats.strengthen_subsumed == 1);
+  assert(kernel_binary_copies(k, internalize(1), internalize(3)) == 1);
+  assert(live_large(k) == 0);
+  kernel_check_invariants(k);
 }
 
 static void test_connection_uses_growing_forward_population() {
@@ -299,29 +337,34 @@ static void test_unit_producing_strengthen_ends_round() {
   assert(live_large(k) == 0);
 }
 
-static void test_partner_budget_rearms_current_candidate() {
+static void test_forward_step_budget_cuts_between_candidates() {
   Kernel k;
-  kernel_reserve_vars(k, 8);
+  kernel_reserve_vars(k, 12);
   const Lit c[3] = {internalize(1), internalize(2), internalize(3)};
   kernel_add_large_clause(k, c, 3, false, 0);
-  // None of these binaries acts on c, but they make its first watch scan long
-  // enough to prove that the cut happens inside a candidate, not merely
-  // between candidates.
+  const Lit d[4] = {internalize(9), internalize(10), internalize(11),
+                    internalize(12)};
+  kernel_add_large_clause(k, d, 4, false, 0);
+  // None of these binaries acts on c.  Its complete first mixed stream costs
+  // one candidate step plus one stream step plus one 128-byte cache line = 3.
+  // A budget of one must still finish c and stop only before d.
   for (int v = 4; v <= 8; ++v)
     kernel_add_binary_clause(k, internalize(1), internalize(v));
   k.midround_budget = true;
   k.work_budget = 1;
   assert(strengthen_apply(k) == ApplyResult::NoOp);
-  assert(k.stats.strengthen_visits == 1);
+  assert(k.stats.strengthen_checked == 1);
+  assert(k.stats.strengthen_visits == 3);
   assert(k.stats.budget_stops_c2 == 1);
   assert(!k.strengthen_complete);
   assert(k.stats.strengthen_rearmed > 0);
-  assert(live_large(k) == 1);
+  assert(live_large(k) == 2);
 
   k.midround_budget = false;
   k.work_budget = 0;
   assert(strengthen_apply(k) == ApplyResult::NoOp);
   assert(k.strengthen_complete);
+  assert(k.stats.strengthen_checked == 2);
   kernel_check_invariants(k);
 }
 
@@ -526,11 +569,12 @@ int main() {
   test_opposite_phase_binary_does_not_override_later_result();
   test_fused_subsumption();
   test_large_partner_without_same_round_cascade();
+  test_equal_size_candidates_use_inherited_arena_position();
   test_connection_uses_growing_forward_population();
   test_binary_watches_count_toward_connection_cap();
   test_kissat_touch_candidate_and_connection_predicates();
   test_unit_producing_strengthen_ends_round();
-  test_partner_budget_rearms_current_candidate();
+  test_forward_step_budget_cuts_between_candidates();
   test_instance_surface();
   test_slot_schedule_as_data();
   test_root_flush();

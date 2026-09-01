@@ -215,6 +215,33 @@ int main() {
       reused.stats.random_decisions != 0)
     return 1;
 
+  // Restart reuse calls Kissat's next-decision selector without first adding
+  // a frame.  At retained level one an overdue random sequence therefore
+  // starts and consumes one draw, even though an ordinary Tactix pick at the
+  // same pre-frame level must stay ranked (the case above).
+  DefaultBranching restart_reused_random(&defaults.branching);
+  restart_reused_random.reset(0);
+  const Lit restart_reused_choice =
+      restart_reused_random.pick_for_restart_reuse(reused);
+  if (reused.stats.random_sequences != 1 ||
+      reused.stats.random_decisions != 1 ||
+      restart_reused_random.randec_remaining != 10 ||
+      restart_reused_choice == INVALID_LIT)
+    return 1;
+
+  // Kissat rejects the same due sequence above retained level one.
+  Kernel deep_reused;
+  ScopedHeuristics deep_reused_heuristics(deep_reused);
+  kernel_reserve_vars(deep_reused, 3);
+  deep_reused.level = 2;
+  deep_reused.stats.conflicts = 855;
+  DefaultBranching deep_reused_random(&defaults.branching);
+  deep_reused_random.reset(0);
+  (void)deep_reused_random.pick_for_restart_reuse(deep_reused);
+  if (deep_reused.stats.random_sequences != 0 ||
+      deep_reused.stats.random_decisions != 0)
+    return 1;
+
   // Formula size does not create another admission path.  A compact original-
   // only universe at the same retained level-one prefix is still Kissat level
   // two after `kissat_decide` increments the level, so it must remain ranked.

@@ -167,6 +167,10 @@ CONFIG_START = "cold_state_deferred"
 # category, which a policy may reset but never "configures".
 NOT_CONFIG = {"cold_state_deferred", "lvl", "transitive_cursor",
               "warming",
+              # Trace-only accounting lives at Kernel's final ABI boundary so
+              # a diagnostic test can link against the non-trace library. It
+              # is compiled out of production and cannot steer scheduling.
+              "diagnostic_search_propagation_ticks",
               # lifecycle state: root assignments increment it and reference
               # flush boundaries clear it; no caller configures it.
               "unflushed_root",

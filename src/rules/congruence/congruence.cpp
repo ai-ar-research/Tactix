@@ -2262,30 +2262,30 @@ bool add_equivalence_chained(Kernel &k, Lit a, Lit b,
 // an arbitrary edge that proves the same equality: the representative-star
 // shape is exactly the graph consumed by the immediately following Substitute
 // pass.  Gate matching first makes the raw output equality live; binary
-// matching already has it.  Consequently each missing representative clause
-// is RUP here, including in LRAT mode.
+// matching already has it.  Kissat nevertheless publishes both representative
+// clauses for every new union, even when an identical pair is already live:
+// the fresh physical copies re-arm added-material consumers before dense entry
+// removes the duplicates.  Every representative clause is RUP here, including
+// a duplicate (whose existing proof identity is itself a one-hint LRAT chain).
 bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
   assert(smaller != larger && smaller != negate(larger));
   const Lit forward[2] = {negate(larger), smaller};
   const Lit reverse[2] = {larger, negate(smaller)};
-  const bool need_forward = !kernel_binary_live(k, forward[0], forward[1]);
-  const bool need_reverse = !kernel_binary_live(k, reverse[0], reverse[1]);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
+  const bool had_forward = kernel_binary_live(k, forward[0], forward[1]);
+  const bool had_reverse = kernel_binary_live(k, reverse[0], reverse[1]);
   static uint32_t traced_sparse_adds = 0;
-  const bool trace_sparse_add =
-      (need_forward || need_reverse) && traced_sparse_adds++ < 32;
+  const bool trace_sparse_add = traced_sparse_adds++ < 32;
   if (trace_sparse_add)
     congruence_stage_trace(k, "representative-binary-add-begin", smaller,
-                           larger, need_forward, need_reverse);
+                           larger, !had_forward, !had_reverse);
 #endif
   const bool lrat = k.proof && k.proof->lrat();
   std::vector<uint64_t> forward_chain, reverse_chain;
   if (lrat) {
-    if (need_forward &&
-        !congruence_rup_chain(k, forward, 2, forward_chain))
+    if (!congruence_rup_chain(k, forward, 2, forward_chain))
       return false;
-    if (need_reverse &&
-        !congruence_rup_chain(k, reverse, 2, reverse_chain))
+    if (!congruence_rup_chain(k, reverse, 2, reverse_chain))
       return false;
   }
   auto add = [&](const Lit *clause, const std::vector<uint64_t> &chain) {
@@ -2299,9 +2299,7 @@ bool add_representative_equivalence(Kernel &k, Lit smaller, Lit larger) {
                                  kernel_binary_copies(k, clause[0], clause[1]));
     kernel_add_binary_clause(k, clause[0], clause[1], id);
   };
-  if (need_forward)
-    add(forward, forward_chain);
-  if (need_reverse)
+  add(forward, forward_chain);
   add(reverse, reverse_chain);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (trace_sparse_add)

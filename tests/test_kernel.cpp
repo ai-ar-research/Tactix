@@ -558,6 +558,102 @@ static void test_whole_collection_preserves_prior_sparse_partition() {
   kernel_check_invariants(k);
 }
 
+// Kissat's dense BVE collector copies live clause records without rewatching
+// them. Literal pose and the replacement-search cursor survive until sparse
+// resume; only full occurrence references are rebuilt after relocation.
+static void test_dense_collection_preserves_clause_pose() {
+  Kernel k;
+  kernel_reserve_vars(k, 7);
+  const Lit garbage_lits[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit live_lits[4] = {internalize(7), internalize(5), internalize(4),
+                            internalize(6)};
+  const Ref garbage =
+      kernel_add_large_clause(k, garbage_lits, 3, false, 0, 201);
+  const Ref live = kernel_add_large_clause(k, live_lits, 4, false, 0, 202);
+  Clause *clause = clause_at(k.arena, live);
+  clause->searched = 3;
+  kernel_delete_clause(k, clause_at(k.arena, garbage));
+
+  kernel_flush_large_watches(k);
+  OccIndex dense;
+  kernel_dense_connect(k, dense, /*track_order=*/true);
+  const uint64_t generation = k.arena_generation;
+  kernel_collect_garbage(k);
+
+  assert(k.arena_generation == generation + 1);
+  assert(clause_at(k.arena, 0)->id() == 202);
+  clause = clause_at(k.arena, 0);
+  assert(clause->searched == 3);
+  assert(std::equal(clause->begin(), clause->end(), live_lits));
+  for (const Lit lit : live_lits) {
+    assert(dense.large[lit].size() == 1 && dense.large[lit][0] == 0);
+    bool found = false;
+    for (const OccIndex::Entry entry : dense.ordered[lit])
+      found |= !entry.binary && entry.payload == 0;
+    assert(found);
+    for (const WatchEntry watch : k.watches.entries(lit))
+      assert(watch.binary());
+  }
+  kernel_dense_disconnect(k);
+  kernel_rebuild_large_watches(k, /*flush_eliminated=*/false);
+  assert(clause_at(k.arena, 0)->searched == 2);
+  kernel_check_invariants(k);
+}
+
+// Probe retains its full-occurrence index across rule-local sparse resumes.
+// That retained cache must not make a later collection look physically dense:
+// connected sparse watches are authoritative and must be rebuilt to relocated
+// Refs through the ordinary sparse lifecycle.
+static void test_collection_after_in_phase_sparse_resume_rewatches() {
+  Kernel k;
+  kernel_reserve_vars(k, 6);
+  const Lit garbage_lits[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit live_lits[3] = {internalize(4), internalize(5), internalize(6)};
+  const Ref garbage =
+      kernel_add_large_clause(k, garbage_lits, 3, false, 0, 211);
+  const Ref live = kernel_add_large_clause(k, live_lits, 3, false, 0, 212);
+
+  OccIndex dense;
+  kernel_dense_connect(k, dense, /*track_order=*/false);
+  kernel_flush_large_watches(k);
+  assert(!k.large_watches_connected);
+  kernel_rebuild_large_watches(k, /*flush_eliminated=*/false);
+  assert(k.large_watches_connected && k.dense == &dense);
+  clause_at(k.arena, live)->searched = 3;
+  kernel_delete_clause(k, clause_at(k.arena, garbage));
+
+  kernel_collect_garbage(k);
+  assert(k.large_watches_connected);
+  assert(k.arena.size() == clause_words(3));
+  const Clause *packed = clause_at(k.arena, 0);
+  assert(packed->id() == 212 && packed->searched == 2);
+  assert(dense.large[live_lits[0]].size() == 1 &&
+         dense.large[live_lits[0]][0] == 0);
+  for (uint32_t i = 0; i != 2; ++i) {
+    bool found = false;
+    for (const WatchEntry watch : k.watches.entries(packed->lits[i]))
+      found |= !watch.binary() && watch.ref() == 0;
+    assert(found && "connected sparse watches must use relocated refs");
+  }
+  kernel_check_invariants(k);
+  kernel_dense_disconnect(k);
+}
+
+static void test_occurrence_cache_does_not_enter_physical_dense_mode() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  const Lit lits[3] = {internalize(1), internalize(2), internalize(3)};
+  const Ref ref = kernel_add_large_clause(k, lits, 3, false, 0, 213);
+
+  OccIndex cache;
+  kernel_dense_connect(k, cache, /*track_order=*/false);
+  assert(k.large_watches_connected);
+  assert(cache.large[lits[0]].size() == 1 &&
+         cache.large[lits[0]][0] == ref);
+  kernel_check_invariants(k);
+  kernel_dense_disconnect(k);
+}
+
 // Kissat's compactlim path invokes the same sparse collector with start=0.
 // It must partition the entire current arena, not silently become a dense
 // whole-arena collection merely because the watermark is numerically zero.
@@ -1441,6 +1537,7 @@ static void test_dense_occurrences_keep_source_order_across_collection() {
   kernel_add_large_clause(k, replacement, 3, false, 0, 303);
 
   OccIndex occ;
+  kernel_flush_large_watches(k);
   kernel_dense_connect(k, occ);
   const auto dense_ids = [&] {
     std::vector<uint64_t> ids;
@@ -1456,6 +1553,7 @@ static void test_dense_occurrences_keep_source_order_across_collection() {
   assert((dense_ids() == std::vector<uint64_t>{303, 302}) &&
          "dense reconnect must not inherit the physical arena policy");
   kernel_dense_disconnect(k);
+  kernel_rebuild_large_watches(k, /*flush_eliminated=*/false);
   kernel_check_invariants(k);
 }
 
@@ -1513,6 +1611,7 @@ static void test_dense_mixed_order_is_consumer_scoped() {
   const Lit binary[2] = {internalize(1), internalize(2)};
   const Lit large[3] = {internalize(1), internalize(3), internalize(4)};
   kernel_add_binary_clause(k, binary[0], binary[1]);
+  kernel_add_binary_clause(k, binary[0], binary[1]);
   kernel_add_large_clause(k, large, 3, false, 0);
 
   OccIndex occ;
@@ -1525,6 +1624,17 @@ static void test_dense_mixed_order_is_consumer_scoped() {
   kernel_dense_connect(k, occ, true);
   assert(occ.track_order);
   assert(occ.ordered.size() == 2 * k.nvars);
+  // Building the separate occurrence cache is representation-neutral. The
+  // rule-owned physical dense entry below performs Kissat's first-copy binary
+  // compaction and updates the optional mixed stream in place.
+  assert(occ.ordered[binary[0]].size() == 3);
+  assert(occ.ordered[binary[0]][0].binary);
+  assert(occ.ordered[binary[0]][1].binary);
+  assert(!occ.ordered[binary[0]][2].binary);
+  assert(kernel_binary_copies(k, binary[0], binary[1]) == 2);
+
+  kernel_deduplicate_binary_watches(k);
+  assert(kernel_binary_copies(k, binary[0], binary[1]) == 1);
   assert(occ.ordered[binary[0]].size() == 2);
   assert(occ.ordered[binary[0]][0].binary);
   assert(!occ.ordered[binary[0]][1].binary);
@@ -1590,7 +1700,8 @@ static void test_in_place_large_replacement_preserves_allocation_span() {
   const Ref tail_ref = kernel_add_large_clause(k, tail, 3, false, 0,
                                                ++k.next_clause_id);
   OccIndex occ;
-  kernel_dense_connect(k, occ);
+  kernel_flush_large_watches(k);
+  kernel_dense_connect(k, occ, true);
 
   const Lit first_image[4] = {original[0], original[2], original[4], tail[0]};
   kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id,
@@ -1603,6 +1714,14 @@ static void test_in_place_large_replacement_preserves_allocation_span() {
                    occ.large[original[1]].end(), ref) ==
          occ.large[original[1]].end());
   assert(occ.large[tail[0]].back() == ref);
+  const auto ordered_holds = [&](Lit lit) {
+    return std::any_of(occ.ordered[lit].begin(), occ.ordered[lit].end(),
+                       [ref](const OccIndex::Entry entry) {
+                         return !entry.binary && entry.payload == ref;
+                       });
+  };
+  assert(!ordered_holds(original[1]));
+  assert(ordered_holds(tail[0]));
 
   const Lit second_image[3] = {first_image[0], first_image[2], first_image[3]};
   kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id,
@@ -1619,6 +1738,7 @@ static void test_in_place_large_replacement_preserves_allocation_span() {
   assert(clause_actual_words(c) == clause_words(3));
   assert(k.arena.size() == 2 * clause_words(3));
   kernel_dense_disconnect(k);
+  kernel_rebuild_large_watches(k, /*flush_eliminated=*/false);
   kernel_check_invariants(k);
 }
 
@@ -1684,6 +1804,93 @@ static void test_large_root_flush_preserves_ref_span_and_priority() {
   assert(ref + clause_actual_words(shortened) == tail_ref);
   assert(!clause_at(k.arena, tail_ref)->garbage());
   kernel_check_invariants(k);
+}
+
+static void test_root_flush_does_not_rearm_added_material() {
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    kernel_assign_unit(k, internalize(1));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    const Lit original[4] = {internalize(-1), internalize(2),
+                             internalize(3), internalize(4)};
+    Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
+                                      ++k.next_clause_id);
+    for (uint32_t i = 1; i != 4; ++i)
+      k.factor_marks[original[i]] = 0;
+    uint64_t changed = 0;
+    assert(kernel_flush_root_clause(k, &ref, &changed) ==
+           RootFlushOutcome::Rewritten);
+    assert(changed == 1);
+    for (uint32_t i = 1; i != 4; ++i)
+      assert(!k.factor_marks[original[i]]);
+    kernel_check_invariants(k);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_assign_unit(k, internalize(1));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    const Lit original[3] = {internalize(-1), internalize(2),
+                             internalize(3)};
+    Ref ref = kernel_add_large_clause(k, original, 3, false, 0,
+                                      ++k.next_clause_id);
+    k.factor_marks[original[1]] = 0;
+    k.factor_marks[original[2]] = 0;
+    uint64_t changed = 0;
+    assert(kernel_flush_root_clause(k, &ref, &changed) ==
+           RootFlushOutcome::Binary);
+    assert(changed == 1);
+    assert(!k.factor_marks[original[1]]);
+    assert(!k.factor_marks[original[2]]);
+    assert(kernel_binary_live(k, original[1], original[2]));
+    kernel_check_invariants(k);
+  }
+}
+
+static void test_vivify_root_binary_terminal_rearms_added_material_only() {
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    kernel_assign_unit(k, internalize(1));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    const Lit original[3] = {internalize(-1), internalize(2),
+                             internalize(3)};
+    Ref ref = kernel_add_large_clause(k, original, 3, false, 0,
+                                      ++k.next_clause_id);
+    k.factor_marks[original[1]] = 0;
+    k.factor_marks[original[2]] = 0;
+    uint64_t changed = 0;
+    assert(kernel_flush_root_clause(
+               k, &ref, &changed,
+               /*mark_binary_added_material=*/true) ==
+           RootFlushOutcome::Binary);
+    assert(changed == 1);
+    assert(k.factor_marks[original[1]]);
+    assert(k.factor_marks[original[2]]);
+    kernel_check_invariants(k);
+  }
+  {
+    Kernel k;
+    kernel_reserve_vars(k, 4);
+    kernel_assign_unit(k, internalize(1));
+    assert(propagate_apply(k) == ApplyResult::Ok);
+    const Lit original[4] = {internalize(-1), internalize(2),
+                             internalize(3), internalize(4)};
+    Ref ref = kernel_add_large_clause(k, original, 4, false, 0,
+                                      ++k.next_clause_id);
+    for (uint32_t i = 1; i != 4; ++i)
+      k.factor_marks[original[i]] = 0;
+    uint64_t changed = 0;
+    assert(kernel_flush_root_clause(
+               k, &ref, &changed,
+               /*mark_binary_added_material=*/true) ==
+           RootFlushOutcome::Rewritten);
+    assert(changed == 1);
+    for (uint32_t i = 1; i != 4; ++i)
+      assert(!k.factor_marks[original[i]]);
+    kernel_check_invariants(k);
+  }
 }
 
 static void test_rebuild_large_watches_reselects_root_false_pair() {
@@ -1820,6 +2027,9 @@ static void test_canonical_binary_watch_rebuild() {
   const Lit large[3] = {pivot, internalize(4), internalize(6)};
   kernel_add_large_clause(k, large, 3, false, 0);
 
+  OccIndex dense;
+  kernel_dense_connect(k, dense, true);
+
   std::vector<Lit> before;
   for (const WatchEntry w : k.watches.entries(pivot))
     if (w.binary())
@@ -1846,6 +2056,7 @@ static void test_canonical_binary_watch_rebuild() {
   assert(kernel_binary_copies(k, pivot, internalize(6)) == 0);
   assert(k.stats.congruence_binary_rebuilds == 1);
   kernel_check_invariants(k);
+  kernel_dense_disconnect(k);
 
   // Congruence's saved binary stack is pair-sorted after extraction. Model a
   // tumbled import order in which the pivot was imported second: pairs whose
@@ -2067,6 +2278,9 @@ int main() {
   test_variable_compaction_replays_inherited_arena_order();
   test_whole_collection_replays_inherited_creation_order();
   test_whole_collection_preserves_prior_sparse_partition();
+  test_dense_collection_preserves_clause_pose();
+  test_collection_after_in_phase_sparse_resume_rewatches();
+  test_occurrence_cache_does_not_enter_physical_dense_mode();
   test_sparse_collection_from_zero_partitions_whole_arena();
   test_sparse_collection_retains_pending_prefix_replacement();
   test_compaction_defers_retired_jumped_reason();
@@ -2102,6 +2316,8 @@ int main() {
   test_in_place_large_replacement_preserves_allocation_span();
   test_in_place_large_replacement_respects_disconnected_watches();
   test_large_root_flush_preserves_ref_span_and_priority();
+  test_root_flush_does_not_rearm_added_material();
+  test_vivify_root_binary_terminal_rearms_added_material_only();
   test_rebuild_large_watches_reselects_root_false_pair();
   test_eliminate_rebuild_flushes_root_and_retired_large_clauses();
   test_watch_repair_primitive();

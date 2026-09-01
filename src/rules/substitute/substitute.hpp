@@ -70,7 +70,7 @@ ApplyResult substitute_apply_equivalences(
 // connected replacements retain source pose and allocation span, while the
 // output-sensitive mixed-occurrence view supplies Kissat's stream order only
 // for literals reached by the environment or rewrite.
-struct SweepSubstitutionSession final : ArenaOrdering {
+struct SweepSubstitutionSession final {
   struct DenseOccurrence {
     bool binary = false;
     uint32_t payload = 0; // other literal for binary, arena Ref otherwise
@@ -84,10 +84,7 @@ struct SweepSubstitutionSession final : ArenaOrdering {
     Lit target_b = INVALID_LIT;
   };
 
-  Ref original_words = 0;
   bool changed = false;
-  std::unordered_map<Ref, Ref> origin;
-  std::unordered_map<Ref, Ref> latest;
   // Kissat's dense watch lists are one ordered stream containing binaries and
   // every irredundant large occurrence. Inline substitution can append either
   // kind, so two separately ordered Tactix indexes are not enough.
@@ -145,7 +142,7 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // emitted batch, including one whose classes are all declined below, because
   // the binaries are already in the watch lists by then.
   void sync_new_binaries(
-      const Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
+      Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
   // `map` is the sparse requested literal-to-representative map. The rewrite
   // this mirrors declines a member that is already root-fixed or retired, so
   // this applies the same
@@ -183,15 +180,14 @@ struct SweepSubstitutionSession final : ArenaOrdering {
   // traversal ledger; the general kernel primitive owns physical indexes.
   void rewrite_large_in_place(const Kernel &, Ref source, const Lit *image,
                               uint32_t size);
-  void inherit(Kernel &, Ref replacement, Ref source);
   // Append the transaction's moved occurrences to their representatives, one
   // losing literal's stream at a time. Runs once per emission batch, after
   // the large-clause rewrite has decided what each large occurrence became.
   void flush_moves(const Kernel &);
-  void order(const Kernel &, std::vector<Ref> &) override;
   uint64_t collect(Kernel &);
 
 private:
+  void publish_dense_order(Kernel &);
   DenseOccurrence *find_large(const Kernel &, Lit, Ref);
   void erase_large(const Kernel &, Lit, Ref);
   void purge_stale_binaries(Lit, std::unordered_map<Lit, size_t> &);

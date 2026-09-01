@@ -223,7 +223,10 @@ struct DefaultStrategyConfig {
     bool split_clocks = true;
     bool watermarks = true;
     bool preprocess_followups = true;
-    bool forward_midround_budget = false;
+    // Kissat's fused forward pass always enforces its `forward_steps` effort
+    // ceiling between candidates.  The name is retained for serialized-config
+    // compatibility; this is not an inside-candidate interruption.
+    bool forward_midround_budget = true;
     bool couple_factor_bound = true;
   } inprocess;
 

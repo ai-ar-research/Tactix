@@ -177,13 +177,6 @@ ApplyResult apply_rule(const RuleVTable &vt, Kernel &k) {
                        [&] { return vt.apply(k); });
 }
 
-ApplyResult apply_rule_with(const RuleVTable &vt, Kernel &k,
-                           CanonicalRuleApply apply, void *state) {
-  assert(apply);
-  return dispatch_rule(vt, k, [] { return std::string("canonical"); },
-                       [&] { return apply(k, state); });
-}
-
 ApplyResult apply_rule_instance(const RuleVTable &vt, Kernel &k,
                                 uint64_t inst) {
   return dispatch_rule(vt, k,

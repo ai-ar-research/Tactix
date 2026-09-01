@@ -1188,6 +1188,67 @@ static void test_effort_limit_is_kissats(void) {
   std::printf("  effort limit: kissat's formula, phase anchor, no clamps\n");
 }
 
+static void test_first_search_effort_keeps_input_propagation_ticks(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 64);
+  // Input-unit closure happens before policy.solve but is charged by Kissat's
+  // ordinary search propagator.  Its initial Probe/Eliminate anchors are zero,
+  // so these ticks belong to the first search-time effort reference.
+  k.stats.search_ticks = 276045;
+  DefaultPolicy p;
+  p.reset_schedule(k);
+  assert(p.inprocess().probe_clock.anchor == 0 &&
+         p.inprocess().elim_clock.anchor == 0 &&
+         "solve reset must preserve Kissat's zero initial phase anchors");
+
+  k.stats.conflicts = 3654;
+  k.stats.search_ticks = 22649450;
+  DefaultInprocessScheduler::SlotEntry e;
+  e.rule = static_cast<int>(find_rule("Vivify")->id);
+  e.group = SlotGroup::Probe;
+  e.permille = 100;
+  e.meter = [](const Kernel &) -> uint64_t { return 0; };
+  p.inprocess().set_entry_limit(e, k);
+  assert(e.limit == 2264945 &&
+         "first Probe dose dropped pre-solve input-propagation ticks");
+
+  e.rule = static_cast<int>(find_rule("BVE")->id);
+  e.group = SlotGroup::Eliminate;
+  p.inprocess().set_entry_limit(e, k);
+  assert(e.limit == 2264945 &&
+         "first Eliminate dose dropped pre-solve input-propagation ticks");
+  std::printf("  initial effort anchors: input propagation remains priced\n");
+}
+
+static void test_eliminate_sparse_resume_replays_root_suffix_as_search(void) {
+  const auto run = [](bool charge_search_ticks) {
+    Kernel k;
+    kernel_reserve_vars(k, 3);
+    const Lit old_root = internalize(1);
+    const Lit suffix = internalize(2);
+    const Lit implied = internalize(3);
+    kernel_assign_unit(k, old_root);
+    assert(!kernel_propagate(k));
+    const uint32_t suffix_begin = static_cast<uint32_t>(k.trail.size());
+    kernel_add_binary_clause(k, negate(suffix), implied);
+    kernel_assign_unit(k, suffix);
+    k.inprocessing = true;
+    const uint64_t before = k.stats.search_ticks;
+    assert(default_resume_sparse_propagation(k, suffix_begin,
+                                             charge_search_ticks) ==
+           ApplyResult::Ok);
+    assert(k.inprocessing && "resume must restore the enclosing phase scope");
+    assert(k.value(implied) > 0 &&
+           "sparse resume must replay the simplifier-produced root suffix");
+    return k.stats.search_ticks - before;
+  };
+  assert(run(true) == 4 &&
+         "Eliminate resume must use Kissat's ordinary search tick currency");
+  assert(run(false) == 0 &&
+         "probing resume must keep its scans out of search tick currency");
+  std::printf("  Eliminate sparse resume: root suffix replay uses search ticks\n");
+}
+
 static void test_preprocess_is_reduced_and_bounded(void) {
   Kernel k;
   kernel_reserve_vars(k, 64);
@@ -1463,6 +1524,8 @@ int main() {
   test_large_formula_factor_decline_is_solve_latched();
   test_retier_schedule_advances_only_on_otfs_conflicts();
   test_effort_limit_is_kissats();
+  test_first_search_effort_keeps_input_propagation_ticks();
+  test_eliminate_sparse_resume_replays_root_suffix_as_search();
   test_preprocess_is_reduced_and_bounded();
   test_preprocess_followup_truth_table();
   test_preprocess_final_followup_is_observed();

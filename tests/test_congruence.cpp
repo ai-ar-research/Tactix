@@ -99,6 +99,47 @@ static void test_and_congruent() {
   assert(equivalence_added(k, 3, 4)); // a ≡ b
 }
 
+// Pinned Kissat publishes both representative binaries on every new union,
+// even when the formula already contains identical copies.  Dense forward
+// entry later keeps one physical copy, but the publication must first create
+// fresh proof identities and re-arm both Factor polarities.  The old liveness
+// shortcut skipped that complete lifecycle and lost Rank-27 candidates.
+static void test_existing_representative_pair_is_republished() {
+  for (const ProofFormat format : {ProofFormat::DratAscii, ProofFormat::Lrat}) {
+    Kernel k;
+    kernel_reserve_vars(k, 4); // x1=1 x2=2 a=3 b=4
+    and_gate(k, 3, 1, 2);
+    and_gate(k, 4, 1, 2);
+    const Lit forward[2] = {internalize(-4), internalize(3)};
+    const Lit reverse[2] = {internalize(4), internalize(-3)};
+    kernel_add_binary_clause(k, forward[0], forward[1], ++k.next_clause_id);
+    kernel_add_binary_clause(k, reverse[0], reverse[1], ++k.next_clause_id);
+    const uint64_t old_forward_id = kernel_binary_id(k, forward[0], forward[1]);
+    const uint64_t old_reverse_id = kernel_binary_id(k, reverse[0], reverse[1]);
+    std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+
+    const std::string path = "/tmp/tactix-congruence-republish-" +
+                             std::to_string(static_cast<long>(getpid())) +
+                             (format == ProofFormat::Lrat ? ".lrat" : ".drat");
+    Proof proof;
+    assert(proof.open(path.c_str(), format));
+    proof.bind_variable_map(&k.internal_to_external);
+    k.proof = &proof;
+    assert(congruence_apply(k) == ApplyResult::Ok);
+    proof.flush();
+    k.proof = nullptr;
+    std::remove(path.c_str());
+
+    for (const Lit lit : {forward[0], forward[1], reverse[0], reverse[1]})
+      assert(k.factor_marks[lit] && "representative publication must re-arm");
+    assert(kernel_binary_copies(k, forward[0], forward[1]) == 1);
+    assert(kernel_binary_copies(k, reverse[0], reverse[1]) == 1);
+    assert(kernel_binary_id(k, forward[0], forward[1]) > old_forward_id);
+    assert(kernel_binary_id(k, reverse[0], reverse[1]) > old_reverse_id);
+    assert(k.stats.congruence_unjustified == 0);
+  }
+}
+
 // Reference parity: Kissat and CaDiCaL both admit AND gates well beyond the
 // old local arity-64 cutoff.  Pin the first excluded arity so a silent scope
 // regression cannot strand equivalent high-fan-in outputs.
@@ -804,6 +845,7 @@ int main() {
   test_budget_stops_round();
   test_binary_extraction_precedes_gate_budget();
   test_and_congruent();
+  test_existing_representative_pair_is_republished();
   test_and_arity_above_old_cutoff();
   test_xor_congruent();
   test_ite_congruent();

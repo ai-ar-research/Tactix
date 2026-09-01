@@ -176,7 +176,7 @@ static void delete_subsumed(Kernel &k, Clause *c) {
 // candidates (via round-local occurrence lists), then connected at its
 // least-occurring free literal. Connected clauses are never deleted later in
 // the round, so occurrence entries stay valid, and nothing allocates in the
-// arena, so refs stay stable until the collect.
+// arena, so refs stay stable throughout the round.
 ApplyResult subsume_forward_apply(Kernel &k) {
   assert(subsume_forward_guard(k));
   // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
@@ -333,8 +333,8 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   // Resume. A cut round re-arms the variables of the candidates it never
   // reached, then advances the watermark (kissat forward.c:589-645), so the
   // next round's set is {unreached tail} ∪ {new material}. Re-arming in the
-  // substrate rather than through a positional cursor is what makes it survive
-  // `kernel_collect_garbage` below, which invalidates every Ref. A tail
+  // substrate rather than through a positional cursor also survives the later
+  // Eliminate-owned dense collection, which invalidates every Ref. A tail
   // candidate that fails the filter is not re-armed: it had no new material at
   // `wm` and the new watermark is >= `wm`. An interrupted round does neither —
   // no re-arm, no advance — which re-offers the identical candidate set without
@@ -361,6 +361,9 @@ ApplyResult subsume_forward_apply(Kernel &k) {
   k.subsume_complete = stopped_at == candidates.size();
   if (!deleted)
     return ApplyResult::NoOp;
+  // This split diagnostic rule is not part of Kissat's fused default pass,
+  // but direct callers still require Tactix's packed-arena physical boundary.
+  // Removing it is only sound after collapsed records have an in-place image.
   kernel_collect_garbage(k);
   return ApplyResult::Ok;
 }
