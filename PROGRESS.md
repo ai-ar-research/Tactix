@@ -8,28 +8,37 @@ resume surface.
 
 ## Current resume anchor
 
-- Checkpoint `f51a988` is the last local
-  commit; pinned Kissat is
-  `8af8e56f174b778aef3aa45af9f739b2a5f492c2`.
-- Keep every current general repair. Latest closure: live active state excludes
-  retained semantic level-zero fixed identities but includes non-root search
-  assignments, matching Kissat flags. TransitiveReduce, Congruence,
-  random-index, BVE, reconstruction, and creation-order repairs remain active.
+- Origin/main is `f3ac562` (pushed, fully validated): the attach-time
+  inactive-variable deactivation repair. Pinned Kissat is
+  `8af8e56f174b778aef3aa45af9f739b2a5f492c2`. Rank 27 improved 483.655 to
+  468.777 seconds; homogeneous Rank-1--40 `4701` (40/40) and B28+C5 `4702`
+  (66/66) are both FINAL valid; the thorough three-leg fuzz (200k+20k+10k) is
+  a terminal PASS.
+- `14f9417` (glue preservation on forward/root-flush shrinks) and the two
+  diagnostic-observer commits `ee54ac3`/`b70880e`/`00541e7` are LOCAL and
+  unpushed. `14f9417` is reference-verified correct (zero metadata deviation
+  at the 110,362 and 3,415 boundaries) and improves Rank 27 to a provisional
+  428.017 seconds, but its homogeneous gate `4713` is 39/40: Rank 19 (SAT)
+  times out because the repair unmasks a latent binary-propagator
+  tick-accounting divergence. B28+C5 `4714` is 66/66 valid. Do NOT revert the
+  glue repair (faithful-port rule); hold it local until the block is fixed.
+- EXACT NEXT ACTION: converge the backbone binary-propagation stop-early
+  tick flag to kissat's GLOBAL `large_clauses_watched_after_binary_clauses`
+  semantics (Tactix uses a per-list `heads[lit].binaries_first()` in
+  `propagate_literal_binary`, kernel.cpp). This is the sole Rank-19 owner
+  (proven by campaigns `4728`--`4731`): at conflict 0 the backbone schedule,
+  budget, and probe order are byte-identical and only the cumulative tick
+  counter diverges. Stage it under isolated measurement, then re-run the
+  Rank-1--40 and B+C gates on the rebased `14f9417`.
 - No retained repair has a formula, rank, benchmark, identity, size, density,
   admission, effort, classification, or strategy gate. Preserve N1--N4.
-- Production uses Kissat creation order unconditionally. CaDiCaL arena order
-  remains only the explicit `TACTIX_ARENA_ORDER=1` diagnostic arm.
-- Production BVE/Factor/forward-subsume/Vivify remain uniformly enabled at
-  100/50/100/100 permille. Removed Dose5, Factor5, NoBve, NoBveLight, and
-  StartupFactorOnly profiles stay removed.
-- Homogeneous campaign `20260831-3760-tierd-ranks1-40-fixed-active`, job
-  `1657639`, is complete: 40/40 expected verdicts, all 22 SAT models and all 18
-  UNSAT proofs verified, with zero residue. Rank 36 remains closed.
-- Current increment contains general BVE lifecycle and Factor candidate-filter
-  repairs plus bounded observers. Valid paired job `1657793` proves the selected
-  ternary survives BVE, forward processing, Eliminate, search, arena relocation,
-  and conflict-19,378 Probe entry. Full trace:
-  `2026-08-31-rank33-factor-lifecycle-handoff.md`.
+  Production uses Kissat creation order unconditionally; `TACTIX_ARENA_ORDER=1`
+  is the only CaDiCaL diagnostic arm. BVE/Factor/forward-subsume/Vivify stay
+  uniformly enabled at 100/50/100/100 permille.
+- Known debt: `PROGRESS.md` and `docs/implementation-notes.md` exceed the
+  doc-size gate (the sole failing Release test, 75/76). This session appended
+  a long localization narrative; compact via the explicit `compact-docs`
+  archive process when requested, not automatically.
 
 ## Latest candidate performance
 
