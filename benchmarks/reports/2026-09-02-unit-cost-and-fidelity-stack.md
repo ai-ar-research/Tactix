@@ -148,8 +148,17 @@ pass on the recorded units and retired the satisfied clauses there. The
 smaller irredundant total then scaled Tactix's next probe to conflict 9,493
 against Kissat's 9,570. Kissat gates that phase on the number of propagated
 equivalences (every merge schedules one; units alone do not); ported as
-ledger row `SP-CONG-MATCH-1` (working tree; journal `4799` and family
-probe `4800` pending).
+ledger row `SP-CONG-MATCH-1` (commit `c2bb80f`). Journal `4799`: Tactix now
+matches Kissat's probes at 3,139, 9,570, 19,438 and 32,876 with identical
+active, irredundant, redundant and binary counts, and solves Rank 19 in
+760.9 s under the trace. Kissat's own verbose log (`4798`, `4801`) puts its
+probe limits at 9,493 after the 3,139 probe and 50,090 after the 32,876
+probe, the same as Tactix's; both arms then fire at 9,570, but at 50,143
+(Tactix) versus 50,243 (Kissat), so the next gap is search-time divergence
+between 32,876 and 50,090. Family probe `4800` against the pin: Rank 19
+516.6 s (pin 229.9, Kissat 739.9) instead of a timeout, and -139 s net over
+the 14 ranks (Rank 34 -328, Rank 21 -165, Rank 27 -132, Rank 40 -95; Rank
+22 +203 from the sweep session, Rank 33 +53).
 
 Rank 33 (`4791`): the formula snapshots at the Eliminate entry of 60,638
 differ in exactly one clause, a 1,192-literal learned clause of glue 614
@@ -184,9 +193,10 @@ difference, OTFS, or a satisfied-by-unit flush after 58,245).
     pairs against the shipped pin, no failures on either arm.
   - Fuzz on the pinned commit: quick leg 10,000 cases / 0 failures (job
     1660667), random-policy leg 10,000 / 0 (job 1660668).
-  - Decision: keep local; `origin/main` stays at `70e3807`. Rank 19 alone
-    decides the sum and its class is located (section 3); the 39-rank
-    total already beats the pin by 408 s.
+  - Decision at the first wrap: keep local; `origin/main` stays at
+  `70e3807`. Rank 19 alone decided the sum. Its class was then closed
+  (`SP-CONG-MATCH-1`, `c2bb80f`); gates `4802`/`4803` of that tree are
+  the next decision point.
 - Unit cost still open, in order of measured excess at matching work:
   the sweep-substitution session (representation: kissat's single mixed
   watch stream in dense mode), `kernel_sparse_collect_root` at Reduce

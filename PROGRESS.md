@@ -15,7 +15,7 @@ resume surface.
   tick rescan, glue-preserving shrinks, canonical Substitute in kissat
   watch mode (drop/rewrite/reconnect), BVE persistent scratch (identity
   `4784`), Congruence sparse resume keeping closure-satisfied binaries.
-  Gates of the stack: Rank 1--40 `4792` 39 ranks 8,699.9 s vs 9,108.1 s on the pin (-408 s) but Rank 19 timed out (40-rank 9,899.9 s), so not pushed; B28+C5 `4793` PAR-2 ratio 0.554 over 33 pairs, no failures; fuzz quick/random-policy 10,000/0 each (`1660667`/`1660668`).
+  Gates of the stack at `5659765`: Rank 1--40 `4792` 39 ranks 8,699.9 s vs 9,108.1 s on the pin (-408 s) but Rank 19 timed out (40-rank 9,899.9 s), so not pushed; B28+C5 `4793` PAR-2 ratio 0.554 over 33 pairs, no failures; fuzz quick/random-policy 10,000/0 each (`1660667`/`1660668`). Rank 19's class then closed: Kissat runs Congruence's matching phase only after a propagated equivalence, never on units alone (`SP-CONG-MATCH-1`, `c2bb80f`; journal `4799` matches Kissat's probes through conflict 32,876 and solves Rank 19 in 761 s; family probe `4800` -139 s over 14 ranks with Rank 19 at 517 s). Gates of `c2bb80f`: `4802` / `4803` (jobs `1660848`/`1660849`), read them first.
   Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`.
   What the numbers establish: on the nine ranks where both solvers take
   identical conflicts Tactix is at 1.03x wall; the family's excess is
@@ -24,9 +24,12 @@ resume surface.
   Rank 19 alone swings +/-1,000 s (pin 225 s is a lucky draw, kissat 740 s).
   Principle (user, 2026-09-02): port kissat's mechanism, never pick among
   speculative variants by one rank's clock.
-  NEXT: (1) read `4787` (Rank 35 trajectory 9,457..15,400) and `4791`
-  (Rank 33 redundant clause at 60,638) with the same
-  first-divergence discipline; (2) the sweep-substitution session is an
+  NEXT: (0) aggregate `4802`/`4803` (scratch `gate_vs.py` / `pairedbc.py`
+  shapes are in the report) and apply the push rule; (1) Rank 33's deleted
+  1,192-literal learned clause (58,241..60,638, `4791`/`4795`), Rank 35's
+  search window 9,812..15,344 (`4787`), and Rank 19's search window
+  32,876..50,090 need per-conflict clause counts or deletion events on the
+  Tactix trajectory rows; (2) the sweep-substitution session is an
   order ledger kissat does not have (kissat's sweep rewrites one mixed
   watch stream in dense mode; `4783` charged 41 % of Rank 22 to the
   ledger's `find_large`): plan that representation change via
