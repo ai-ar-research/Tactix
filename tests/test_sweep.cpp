@@ -572,15 +572,17 @@ void test_resumable_schedule() {
   Kernel on;
   build(on, 4, cls);
   sweep_apply(on);
-  // Productive seeds may append their surviving representatives to the live
-  // tail, exactly as Kissat's schedule_inner does. The original four entries
-  // remain the scheduled baseline, but completion is no longer necessarily
-  // four calls after a productive first seed.
-  assert(on.sweep_tail.size() >= 4 && on.sweep_tail_next == 1);
+  // Productive seeds move their surviving representatives to the pop end
+  // (the reschedule front), exactly as Kissat's schedule_inner does. The
+  // original four entries remain the scheduled baseline, but completion is
+  // no longer necessarily four calls after a productive first seed.
+  assert(on.sweep_tail.size() == 4 && on.sweep_tail_next == 1 &&
+         on.sweep_live >= 3);
   assert(on.stats.sweep_scheduled == 4 && on.stats.sweep_resumed == 0);
   (void)substitute_apply(on); // mandatory post-Sweep phase owner
+  const uint32_t live_before = on.sweep_live;
   sweep_apply(on);
-  assert(on.sweep_tail_next >= 2 && on.stats.sweep_resumed >= 1);
+  assert(on.sweep_live < live_before && on.stats.sweep_resumed >= 1);
   (void)substitute_apply(on);
   for (uint32_t calls = 0; !on.sweep_passes_completed && calls < 16; calls++) {
     sweep_apply(on);
@@ -624,9 +626,7 @@ void test_reschedules_pair_representative_by_import_order() {
     assert(!kernel_var_retired(k, representative));
     assert(!kernel_var_retired(k, flipped ? 0u : 1u));
     assert(k.stats.sweep_rescheduled == 1);
-    assert(k.sweep_tail_next < k.sweep_tail.size());
-  assert(k.sweep_tail[k.sweep_tail_next] ==
-           k.internal_to_external[representative]);
+    assert(sweep_next_scheduled(k) == k.internal_to_external[representative]);
     assert(substitute_apply(k) == ApplyResult::Ok);
     assert(kernel_var_retired(k, flipped ? 0u : 1u));
   }
@@ -671,11 +671,10 @@ void test_reschedule_declines_a_retired_representative() {
   assert(!kernel_var_retired(k, var_of(internalize(3))));
   // Two pairs, one live representative: the retired one is declined.
   assert(k.stats.sweep_rescheduled == 1);
-  assert(k.sweep_tail_next < k.sweep_tail.size());
   // The retired identity keeps its original schedule slot, where the seed
   // loop skips it; what it must not do is take the pop end from the live
   // representative.
-  assert(k.sweep_tail[k.sweep_tail_next] == k.internal_to_external[minimum]);
+  assert(sweep_next_scheduled(k) == k.internal_to_external[minimum]);
   assert(substitute_apply(k) == ApplyResult::Ok);
   assert(kernel_var_retired(k, intermediate));
   assert(kernel_var_retired(k, var_of(internalize(3))));

@@ -599,7 +599,7 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.sweep_rescheduled,
            (unsigned long long)kernel.stats.sweep_resumed,
            (unsigned long long)kernel.stats.sweep_completed,
-           kernel.sweep_tail.size() - kernel.sweep_tail_next,
+           static_cast<size_t>(kernel.sweep_live),
            kernel.stats.sweep_limit_vars,
            kernel.stats.sweep_limit_clauses,
            kernel.stats.sweep_limit_depth);
