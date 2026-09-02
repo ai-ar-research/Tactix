@@ -545,6 +545,34 @@ resume surface.
   verifies its 1,365,581,398-byte certificate in 2,999.189 seconds with exit 0;
   proof and derived artifacts are deleted and zero residue remains. No work
   waited on the checker.
+- Checkpoint commit `02ab6f1` is local and unpushed. Submitted the identical
+  Release SHA `0bb0d7b7...b4887` to full-width B28+C5 campaign `4680` (Slurm
+  `1659167`, 66 shipped/candidate tasks) and homogeneous Rank-1--40 campaign
+  `4681` (Slurm `1659168`, 40 candidate tasks). Gather provisional solver
+  records to completion and aggregate immediately; never wait for proof
+  checking. Final proof/model and zero-residue results remain later checks.
+- The restart-reuse-randec-on homogeneous result is complete provisionally: all 40
+  statuses match, total 9,412.958 seconds, but Rank 27 regresses to 483.655
+  seconds versus the proof-verified pre-restart collection result at 344.756.
+  Submitted isolated restart-reuse-randec-off Rank-27 projection `4682` (Slurm
+  `1659276`) from detached worktree source differing only in
+  `pick_for_restart_reuse`; consume its solver timing before extending that
+  diagnostic projection to B28+C5 and Rank-1--40. Proof checking is nonblocking.
+- `4682` proves restart-reuse-randec-off recovers Rank 27 at 347.443 seconds. Its
+  complete provisional B28+C5 projection `4683` preserves all 66 statuses at
+  1,377.769/2,437.703 seconds (0.565191x candidate/shipped), but homogeneous
+  projection `4684` is rejected: it times out expected-SAT Rank 19 at 1,200
+  seconds and solves only 39/40 (PAR-2 11,645.972). Restart-reuse-randec-on solves all
+  40 in 9,412.958 seconds. Retain the general production repair; Rank-27's
+  remaining gap is a downstream interaction to localize, not grounds to revert
+  it. All proof/model checks remain nonblocking and must be inspected later.
+- `4682` confirms the projection: expected Rank-27 UNSAT in 347.443 seconds /
+  658,668 KiB, within 0.8% of pre-restart collection `4662` and far below
+  restart-reuse-randec-on 483.655 seconds. Submitted the identical detached-worktree
+  restart-reuse-randec-off arm to full-width B28+C5 `4683` (Slurm `1659277`) and
+  homogeneous Rank-1--40 `4684` (Slurm `1659278`). These are feature-off
+  diagnostic projections only; production remains `02ab6f1`. Consume solver
+  records immediately and retain later proof/model checks without waiting.
 - Rank-27 Release campaign `20260901-4490-tierd-rank27-forward-lifecycle-release`
   provisionally returns expected UNSAT in 423.068 s / 5,854,078 conflicts /
   200,851,977 decisions. This is 0.731569x the prior 578.302 s candidate, but
