@@ -992,6 +992,11 @@ resume surface.
   SESSION: converge the backbone binary-propagation stop-early flag to
   kissat's global semantics under isolated measurement, then re-run the
   Rank-1--40 and B+C gates on `14f9417`.
+- Final gate classification for `14f9417`: B28+C5 `4714` is 66/66 valid
+  (ratio 0.622292); homogeneous `4713` is 39/40 -- the ONLY failure is Rank
+  19's 1,200-second timeout, every other rank valid with checked model/proof
+  and zero residue. This isolates the block to the single Rank-19
+  representation interaction above.
 - Pushed the fully validated line: origin/main now at `f3ac562` (13 commits
   published); `14f9417` remains the only local commit, held until the
   Rank-19 watch-order interaction is closed or the gate is otherwise
