@@ -20,6 +20,10 @@ namespace tactix {
 // Returns nullptr on success, a static error string otherwise. Calls
 // finish_input before returning.
 const char *parse_dimacs(FILE *, Kernel &);
+// The same parser with an explicit input block size. Production uses the
+// 1 MiB block above; smaller blocks exist so tests can put every token and
+// line boundary on a block boundary.
+const char *parse_dimacs_with_block(FILE *, Kernel &, size_t block_bytes);
 
 // Finalize one clause given as internal literals (scratch is consumed):
 // dedupes, drops tautologies, assigns units, records empty clauses.
