@@ -43,6 +43,18 @@ resume surface.
   measurement, then re-run the Rank-1--40 and B+C gates on `14f9417`. This is
   the staged arena/watch representation item (task priority 3): do NOT rush a
   hot-path watch-layer change without full 40-rank + B+C revalidation.
+  SOURCE-LEVEL ROOT CAUSE (fully traced): kissat's canonical Substitute ends
+  with `kissat_watch_large_clauses` (watch.c), a full rebuild that appends
+  large watches after all binaries, so every list is binary-first as a side
+  effect. Tactix's canonical Substitute is deliberately in-place/lazy
+  (`substitute.cpp:1626`: "Keep them in place instead of ... rebuilding every
+  watch list ... loses the in-place and delayed positions this session exists
+  to retain") -- an ACCEPTED decision from the Rank-27 lifecycle work -- so an
+  in-place rewrite can leave a binary after a large watch on some lists (10 at
+  Rank-19 conflict 0). Resolving this is a PLAN-LEVEL tradeoff (reintroduce
+  kissat's terminal binary-first rebuild versus keep lazy Substitute), handled
+  through `revise-plan`/`calculus` with full revalidation that it does not
+  regress the Rank-27 lazy-Substitute convergence, not a mechanical edit.
 - No retained repair has a formula, rank, benchmark, identity, size, density,
   admission, effort, classification, or strategy gate. Preserve N1--N4.
   Production uses Kissat creation order unconditionally; `TACTIX_ARENA_ORDER=1`
