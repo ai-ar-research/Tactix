@@ -1799,6 +1799,36 @@ static bool propagate_literal_binary(Kernel &k, Lit lit,
       kernel_assign_binary(k, other, not_lit);
   }
   total_ticks += 1 + kernel_cache_lines(p - begin);
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  // Per-literal binary-propagation scan journal for backbone tick-parity
+  // diagnosis; dormant unless TACTIX_BINSCAN_TRACE names a path and the
+  // conflict gate matches.
+  if (const char *bs_path = std::getenv("TACTIX_BINSCAN_TRACE")) {
+    const char *bs_conflict = std::getenv("SAT_BINSCAN_CONFLICT");
+    if (*bs_path &&
+        (!bs_conflict || !*bs_conflict ||
+         std::strtoull(bs_conflict, nullptr, 10) == k.stats.conflicts)) {
+      static std::FILE *bs_out = nullptr;
+      static uint64_t bs_ordinal = 0;
+      if (!bs_out) {
+        bs_out = std::fopen(bs_path, "w");
+        if (bs_out) {
+          std::setvbuf(bs_out, nullptr, _IOLBF, 0);
+          std::fputs("# binscan\t1\n", bs_out);
+          std::fputs("# solver\tordinal\tlit\twords\tlistwords\tstop_early\n",
+                     bs_out);
+        }
+      }
+      if (bs_out)
+        std::fprintf(bs_out, "tactix\t%llu\t%d\t%llu\t%llu\t%d\n",
+                     (unsigned long long)bs_ordinal++,
+                     kernel_externalize(k, not_lit),
+                     (unsigned long long)(p - begin),
+                     (unsigned long long)(end - begin),
+                     stop_early ? 1 : 0);
+    }
+  }
+#endif
   // Accounted over the prefix actually scanned. `ordered` and `large` describe
   // only the scans the flag did not cover, so they stay the residual measure
   // once the early break is doing its work.

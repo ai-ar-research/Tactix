@@ -22,14 +22,27 @@ resume surface.
   times out because the repair unmasks a latent binary-propagator
   tick-accounting divergence. B28+C5 `4714` is 66/66 valid. Do NOT revert the
   glue repair (faithful-port rule); hold it local until the block is fixed.
-- EXACT NEXT ACTION: converge the backbone binary-propagation stop-early
-  tick flag to kissat's GLOBAL `large_clauses_watched_after_binary_clauses`
-  semantics (Tactix uses a per-list `heads[lit].binaries_first()` in
-  `propagate_literal_binary`, kernel.cpp). This is the sole Rank-19 owner
-  (proven by campaigns `4728`--`4731`): at conflict 0 the backbone schedule,
-  budget, and probe order are byte-identical and only the cumulative tick
-  counter diverges. Stage it under isolated measurement, then re-run the
-  Rank-1--40 and B+C gates on the rebased `14f9417`.
+- EXACT NEXT ACTION (Rank-19 sole owner, data-level root cause now fixed by
+  campaign `4732`): enforce Tactix's binary-first watch-list invariant to
+  match kissat. Per-literal binary-scan journals at conflict 0 show kissat
+  has ZERO non-binary-first watch lists (its lists keep all binaries before
+  any large watch, as `kissat_watch_large_clauses` guarantees), while Tactix
+  has exactly 10 lists where a binary follows a large watch. On those 10
+  lists Tactix's `propagate_literal_binary` cannot stop early and scans the
+  full list, charging extra backbone ticks locally (example: literal 16229,
+  Tactix scans 621 words / stop_early=0 versus kissat 6 words / stop_early=1);
+  this perturbs where the 200,000-tick effort limit truncates the first
+  Backbone computation and cascades. It is a watch-ORDERING invariant, not a
+  flag flip: making Tactix trust a global stop-early flag would skip the real
+  binary that sits after the large watch and be UNSOUND. It is pre-existing
+  and latent (conflict 0 is preprocessing, identical on both the pre-glue and
+  glue binaries; `f3ac562` solves Rank 19 only because its trajectory never
+  reaches the sensitive state). Find where Tactix appends a binary after a
+  large watch (or where a rebuild loses binary-first order) and enforce the
+  invariant matching `kissat_watch_large_clauses`; stage it under isolated
+  measurement, then re-run the Rank-1--40 and B+C gates on `14f9417`. This is
+  the staged arena/watch representation item (task priority 3): do NOT rush a
+  hot-path watch-layer change without full 40-rank + B+C revalidation.
 - No retained repair has a formula, rank, benchmark, identity, size, density,
   admission, effort, classification, or strategy gate. Preserve N1--N4.
   Production uses Kissat creation order unconditionally; `TACTIX_ARENA_ORDER=1`
