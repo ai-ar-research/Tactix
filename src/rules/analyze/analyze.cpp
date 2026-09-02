@@ -700,11 +700,17 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     }
   }
 
-  // The replacement assumes the old reason's eager-register identity.  A
-  // binary has no arena Ref and simply vacates the slot.
-  for (Ref &recent : k.eager_recent)
-    if (recent == reason_ref)
-      recent = k.conflict_ref;
+  // The replacement assumes the old reason's eager-register identity.  Kissat's
+  // binary path (strengthen.c binary_on_the_fly_strengthen) marks the old
+  // clause garbage but leaves its reference in last_learned, where the dead
+  // entry keeps its slot (skipped as garbage, kept by flush_last_learned)
+  // until later insertions shift it out.  Vacating the slot instead let the
+  // next flush compact older entries forward, so they survived one more
+  // insertion and subsumed clauses kissat's register no longer held.
+  if (k.conflict_ref != INVALID_REF)
+    for (Ref &recent : k.eager_recent)
+      if (recent == reason_ref)
+        recent = k.conflict_ref;
   k.otfs_retired.push_back(reason_ref);
 
   if (subsume) {
