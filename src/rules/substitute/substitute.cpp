@@ -2278,9 +2278,39 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
 
 // Canonical instance: one full round. Detect SCCs; on x ≡ ¬x refute, otherwise
 // substitute every non-trivial SCC onto its representative.
+ApplyResult substitute_reconnect_large_watches(Kernel &k,
+                                               uint32_t trail_begin) {
+  assert(!k.large_watches_connected);
+  assert(trail_begin <= k.trail.size());
+  kernel_rebuild_large_watches(k);
+  // Units assigned while the large watches were disconnected reached their
+  // closure over binaries only; replay them through the reconnected large
+  // clauses (dense.c / substitute.c: kissat_reset_propagate then
+  // kissat_probing_propagate).
+  k.propagate_head = std::min<uint32_t>(k.propagate_head, trail_begin);
+  k.binary_only_head = UINT32_MAX;
+  if (inprocess_reach_root(k))
+    return ApplyResult::Unsat;
+  return ApplyResult::Ok;
+}
+
 ApplyResult substitute_apply(Kernel &k) {
+  return substitute_apply_round(k, /*reconnect_large_watches=*/true);
+}
+
+ApplyResult substitute_apply_round(Kernel &k, bool reconnect_large_watches) {
   assert(substitute_guard(k));
   const uint64_t apply_t0 = substitute_time ? now_nanos() : 0;
+  const bool connected_at_entry = k.large_watches_connected;
+  const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
+  const auto finish = [&](ApplyResult result) {
+    if (!connected_at_entry || !reconnect_large_watches ||
+        result == ApplyResult::Unsat || k.large_watches_connected)
+      return result;
+    const ApplyResult closure =
+        substitute_reconnect_large_watches(k, trail_at_entry);
+    return closure == ApplyResult::Unsat ? closure : result;
+  };
   // D-LEVEL: drain the root closure (no-op at a fixpoint); a conflict refutes.
   if (inprocess_reach_root(k))
     return ApplyResult::Unsat;
@@ -2318,6 +2348,11 @@ ApplyResult substitute_apply(Kernel &k) {
       k.stats.substitute_scc_lits++;
     }
   const uint64_t mark_t1 = substitute_time ? now_nanos() : 0;
+  // Kissat's round-one SCC pass still sees the large watches (their words
+  // are part of its tick charge); `substitute_binaries` then drops them, so
+  // the rewrite below touches bare clause records and no watch list.
+  if (k.large_watches_connected)
+    kernel_drop_large_watches(k);
   const ApplyResult rewritten = do_substitution(k, r, std::move(sub));
   if (substitute_time) {
     const uint64_t rewrite_t1 = now_nanos();
@@ -2331,13 +2366,9 @@ ApplyResult substitute_apply(Kernel &k) {
                  (rewrite_t1 - apply_t0) / 1e6,
                  (unsigned long long)r.nontrivial_count);
   }
-  // Kissat's canonical Substitute ends with kissat_watch_large_clauses
-  // (watch.c), re-appending every large watch in arena order. Tactix keeps
-  // each survivor's lazy in-place watch pose here: an accepted deviation,
-  // measured in docs/scheduling-parity-ledger.md section 13.3.
   if (rewritten == ApplyResult::NoOp && failed == ApplyResult::Ok)
-    return ApplyResult::Ok;
-  return rewritten;
+    return finish(ApplyResult::Ok);
+  return finish(rewritten);
 }
 
 ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
@@ -2348,9 +2379,12 @@ ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
     return uint64_t{k.nvars} > retired ? uint64_t{k.nvars} - retired : 0;
   };
   ApplyResult result = ApplyResult::NoOp;
+  const bool connected_at_entry = k.large_watches_connected;
+  const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
   for (uint32_t round = 0; round < max_rounds; round++) {
     const uint64_t active_before = active();
-    const ApplyResult current = substitute_apply(k);
+    const ApplyResult current =
+        substitute_apply_round(k, /*reconnect_large_watches=*/false);
     if (current == ApplyResult::Unsat)
       return current;
     if (current == ApplyResult::Ok)
@@ -2361,6 +2395,10 @@ ApplyResult substitute_apply_complete(Kernel &k, uint32_t max_rounds) {
     if (active() == active_before)
       break;
   }
+  if (connected_at_entry && !k.large_watches_connected &&
+      substitute_reconnect_large_watches(k, trail_at_entry) ==
+          ApplyResult::Unsat)
+    return ApplyResult::Unsat;
   return result;
 }
 

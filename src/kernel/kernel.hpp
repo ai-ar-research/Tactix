@@ -1852,6 +1852,11 @@ void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
 // Kissat's null-stack dense entry: disconnect every large watch and retain
 // only the first binary watch for each partner in each literal list.
 void kernel_flush_large_watches(Kernel &);
+// Substitute's watch-mode entry (substitute.c `substitute_binaries`): every
+// large watch leaves, every binary watch stays in place, duplicates included.
+// `kernel_flush_large_watches` is kissat's dedicated flush, which also
+// retires duplicate binaries; Substitute keeps them.
+void kernel_drop_large_watches(Kernel &);
 // Reconnect every live large clause in its current Kissat-equivalent arena
 // order. Packed replacements retain their source position until collection,
 // exactly as Kissat's in-place rewrites do.  Eliminate's sparse resume passes

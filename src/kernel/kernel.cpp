@@ -2813,6 +2813,13 @@ void kernel_flush_large_watches(Kernel &k) {
   k.large_watches_connected = false;
 }
 
+void kernel_drop_large_watches(Kernel &k) {
+  assert(k.large_watches_connected);
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+    k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
+  k.large_watches_connected = false;
+}
+
 void kernel_deduplicate_binary_watches(Kernel &k) {
   kernel_compact_dense_entry_watches(k, /*keep_large=*/true);
 }

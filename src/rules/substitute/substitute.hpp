@@ -52,7 +52,21 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances = true);
 // lit_instance/lit_of_instance. A single instance substitutes the requested
 // representative's class and its mirror; INSTANCE_CANONICAL = the full round
 // (every non-trivial SCC). On x ≡ ¬x, apply refutes.
-ApplyResult substitute_apply(Kernel &); // canonical: full round
+// canonical: full round.  Kissat's `substitute_binaries` drops every large
+// watch while it rewrites the binary watches, `substitute_clauses` rewrites
+// bare clause records, and `kissat_watch_large_clauses` reconnects the large
+// watches once after the call's last round.  A call entered with large
+// watches connected flushes them after its SCC pass and, when
+// `reconnect_large_watches` holds, reconnects them before returning; a
+// multi-round driver passes false and calls
+// `substitute_reconnect_large_watches` after its last round.
+ApplyResult substitute_apply(Kernel &);
+ApplyResult substitute_apply_round(Kernel &, bool reconnect_large_watches);
+// Kissat's terminal `kissat_watch_large_clauses` + `kissat_reset_propagate` +
+// probing propagation: reconnect in arena order and complete the root closure
+// of every unit assigned since `trail_begin` through the large clauses.
+// Unsat iff that closure refutes the formula.
+ApplyResult substitute_reconnect_large_watches(Kernel &, uint32_t trail_begin);
 
 // Initial probing uses Kissat's `complete=true` contract: repeat productive
 // rounds so equivalences exposed by one rewrite are consumed by the next.

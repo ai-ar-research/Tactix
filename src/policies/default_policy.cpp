@@ -3210,10 +3210,15 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
       const uint64_t t0 = now_nanos();
       ar = ApplyResult::NoOp;
       const bool complete = k.stats.conflicts == 0;
+      // The large watches leave in round one and come back once after the
+      // call's last round (substitute.c `substitute_rounds`).
+      const bool watches_at_entry = k.large_watches_connected;
+      const uint32_t trail_at_entry = static_cast<uint32_t>(k.trail.size());
       for (uint32_t round = 0; round < config().substitute_rounds; round++) {
         const uint64_t active_before = active_variables(k);
         const uint64_t round_entry = e.meter(k);
-        const ApplyResult current = substitute_apply(k);
+        const ApplyResult current =
+            substitute_apply_round(k, /*reconnect_large_watches=*/false);
         const uint64_t round_spent = e.meter(k) - round_entry;
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
         substitute_rounds_run++;
@@ -3237,6 +3242,11 @@ ApplyResult DefaultInprocessScheduler::run_budgeted_batch(Kernel &k, SlotEntry &
           break;
         }
       }
+      if (watches_at_entry && !k.large_watches_connected &&
+          ar != ApplyResult::Unsat &&
+          substitute_reconnect_large_watches(k, trail_at_entry) ==
+              ApplyResult::Unsat)
+        ar = ApplyResult::Unsat;
       if (r.id < Stats::MAX_TIMED_RULES) {
         k.stats.rule_nanos[r.id] += now_nanos() - t0;
         k.stats.rule_calls[r.id]++;
