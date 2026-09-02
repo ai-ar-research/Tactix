@@ -988,6 +988,7 @@ struct Kernel {
   std::vector<Lit> input_restate_units;
   std::vector<Var> input_activation_order;
   std::vector<uint8_t> input_activated; // per-var membership, parse-scoped
+  std::vector<uint8_t> input_marks;     // per-lit membership, parse-scoped
   // Permanent external-variable import ranks. Kissat's tumble=1 assigns
   // internal variables on first input occurrence; Tactix keeps public internal
   // identities stable and consults this equivalent order at reference-ordered

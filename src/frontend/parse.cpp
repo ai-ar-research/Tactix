@@ -137,53 +137,44 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
 
   // Kissat's default `tumble=1` imports variables by first occurrence and
   // activates the literals of each surviving clause in that same file order
-  // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Retain
-  // that order across the set-semantics check below.  Do not publish it yet: a
-  // tautology activates nothing and returns below.
+  // (internal.c `kissat_add` -> flags.c `kissat_activate_literals`).  Record
+  // imports over the raw file literals now; activation follows below, after
+  // the set-semantics pass, which keeps first-occurrence file order.
   const size_t file_size = scratch.size();
-  std::array<Lit, 2> small_order{};
-  std::vector<Lit> large_order;
-  const Lit *file_order;
-  if (file_size <= small_order.size()) {
-    std::copy(scratch.begin(), scratch.end(), small_order.begin());
-    file_order = small_order.data();
-  } else {
-    large_order = scratch;
-    file_order = large_order.data();
-  }
-  for (size_t i = 0; i < file_size; i++)
-    kernel_record_import(k, var_of(file_order[i]));
+  for (const Lit lit : scratch)
+    kernel_record_import(k, var_of(lit));
 
-  // Set semantics: dedupe; tautologies contribute nothing.  The sorted copy
-  // is only the membership check.  Original clauses are stored in stable
-  // first-occurrence file order, as Kissat does while all literals are
-  // unassigned; sorting storage here changes the initial watched pair and the
-  // order of every affected watch list.
+  // Set semantics: dedupe; tautologies contribute nothing.  Marks decide
+  // membership, so the clause is rewritten in place in stable first-occurrence
+  // file order, as Kissat stores it while all literals are unassigned;
+  // sorting storage here would change the initial watched pair and the order
+  // of every affected watch list.
   if (file_size == 2) {
     if (scratch[0] == negate(scratch[1]))
       return;
     if (scratch[0] == scratch[1])
       scratch.resize(1);
   } else if (file_size > 2) {
-    std::sort(scratch.begin(), scratch.end());
-    scratch.erase(std::unique(scratch.begin(), scratch.end()), scratch.end());
-    for (size_t i = 1; i < scratch.size(); i++)
-      if (scratch[i] == negate(scratch[i - 1]))
-        return; // tautology
-    const std::vector<Lit> canonical = scratch;
-    std::vector<uint8_t> emitted(canonical.size(), 0);
-    scratch.clear();
-    scratch.reserve(canonical.size());
+    if (k.input_marks.size() < 2 * k.nvars)
+      k.input_marks.resize(2 * k.nvars, 0);
+    size_t kept = 0;
+    bool tautology = false;
     for (size_t i = 0; i < file_size; i++) {
-      const Lit lit = file_order[i];
-      const auto it = std::lower_bound(canonical.begin(), canonical.end(), lit);
-      assert(it != canonical.end() && *it == lit);
-      const size_t pos = static_cast<size_t>(it - canonical.begin());
-      if (!emitted[pos]) {
-        emitted[pos] = 1;
-        scratch.push_back(lit);
+      const Lit lit = scratch[i];
+      if (k.input_marks[lit])
+        continue; // repeated literal: the first occurrence stands
+      if (k.input_marks[negate(lit)]) {
+        tautology = true;
+        break;
       }
+      k.input_marks[lit] = 1;
+      scratch[kept++] = lit;
     }
+    for (size_t i = 0; i < kept; i++)
+      k.input_marks[scratch[i]] = 0;
+    if (tautology)
+      return;
+    scratch.resize(kept);
   }
   // Kissat internal.c:kissat_add normalizes every input clause against units
   // already fixed while parsing.  A root-true literal satisfies the clause;
@@ -222,12 +213,17 @@ void ingest_clause(Kernel &k, std::vector<Lit> &scratch) {
   // nothing, and first activation follows file-literal order rather than the
   // canonical sorted storage order.  input_activated removes repeated
   // literals in one clause and variables activated by an earlier clause.
+  // The normalized clause holds the unassigned distinct literals in
+  // first-occurrence file order, which is exactly the population and order
+  // the raw file literals would activate: repeats are skipped by
+  // input_activated and root-assigned variables are never activated.
   if (k.tumble) {
     if (k.input_activated.size() < k.nvars)
       k.input_activated.resize(k.nvars, 0);
-    for (size_t i = 0; i < file_size; i++) {
-      const Var v = var_of(file_order[i]);
-      if (k.values[make_lit(v, false)] == 0 && !k.input_activated[v]) {
+    for (const Lit lit : scratch) {
+      const Var v = var_of(lit);
+      assert(k.values[make_lit(v, false)] == 0);
+      if (!k.input_activated[v]) {
         k.input_activated[v] = 1;
         k.input_activation_order.push_back(v);
       }
@@ -396,6 +392,8 @@ void finish_input(Kernel &k) {
   }
   k.input_activated.clear();
   k.input_activated.shrink_to_fit();
+  k.input_marks.clear();
+  k.input_marks.shrink_to_fit();
   if (k.input_refuted) {
     k.input_refuted = false;
     if (k.proof) {

@@ -165,6 +165,7 @@ void trace_slot_memory(const Kernel &k, const char *name, const char *stage) {
       capacity_bytes(k.input_restate_units) +
       capacity_bytes(k.input_activation_order) +
       capacity_bytes(k.input_activated) +
+      capacity_bytes(k.input_marks) +
       capacity_bytes(k.input_refutation_units);
   const size_t touch_bytes =
       capacity_bytes(k.bve_retry) + capacity_bytes(k.factor_marks) +
