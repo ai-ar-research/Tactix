@@ -2626,13 +2626,14 @@ void kernel_canonicalize_binary_watches(Kernel &k,
           continue;
         const Lit other = w.other();
         // Kissat's Congruence dense entry keeps only binaries whose endpoints
-        // are both root-unassigned (`dense.c:flush_large_watches`).  Any
-        // assigned live binary is already satisfied at a closed root.  Drop
-        // it from the rebuilt watch representation together with duplicates;
-        // retaining its optional proof clause is sound and avoids inventing a
-        // proof-id choice when several watch copies share one archived id.
-        if (k.value(lit) || k.value(other))
-          continue;
+        // are both root-unassigned (`dense.c:flush_large_watches`); Tactix's
+        // Congruence drops those at its own entry.  Its sparse resume then
+        // re-appends the saved pairs without reading values
+        // (`dense.c:resume_watching_irredundant_binaries`), so a binary
+        // satisfied by a unit the closure itself derived stays watched until
+        // the next collection and keeps counting toward the irredundant
+        // clause total that scales the next probe interval.  Rebuild from
+        // the same rule: duplicates go, values are not consulted.
         if (kernel_import_lit_order(k, lit) >=
                 kernel_import_lit_order(k, other) ||
             seen[other])
