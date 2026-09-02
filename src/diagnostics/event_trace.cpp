@@ -1584,6 +1584,9 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "restart_clock") &&
       std::strcmp(event, "analysis_begin") &&
       std::strcmp(event, "analysis_end") &&
+      std::strcmp(event, "analysis_eager_subsumed") &&
+      std::strcmp(event, "analysis_otfs_strengthened") &&
+      std::strcmp(event, "analysis_otfs_subsumed") &&
       std::strncmp(event, "backbone_", 9) &&
       std::strncmp(event, "learned", 7))
     return;
