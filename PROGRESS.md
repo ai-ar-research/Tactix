@@ -695,8 +695,129 @@ resume surface.
   chaotically amplifies to -52,689 decisions by Probe 120,310/120,311. That
   Reduce-time mechanism is the next localization target after banking.
   Checked Release measurement `4699` (job `1659413`) is running.
-- Standing user directive (2026-09-02): run a thorough fuzz campaign
-  immediately after the next commit, before any new mechanism work.
+- Checked Release `4699` provisionally returns expected Rank-27 UNSAT in
+  468.777 seconds / 7,441,126 conflicts / 185,077,336 decisions on the
+  repaired binary, versus production 483.655 seconds; its DRAT checker is
+  running and nonblocking. The wall gain is modest because the single-decision
+  118,698 split still amplifies chaotically; the repair is banked on causal
+  fidelity (byte-exact BVE multisets, +8,335-conflict exact prefix), not on
+  this one timing.
+- Banked as commit `f3ac562` (Release binary
+  `b33031547de2aa1445b6c01ec567acddf20d3f84ea002c715550990cd260bb79`,
+  byte-reproduced by the fuzz pin build). Per the standing directive, the
+  thorough fuzz campaign launched immediately after the commit: nightly
+  200k+LRAT leg (job `1659414`), corpus+20k random-policy LRAT leg
+  (`1659415`), and reuse-scenario stress leg 10k (`1659416`), all on
+  `build/pin-fuzz-f3ac562`. Regression gates submitted from the identical
+  SHA: homogeneous Rank-1--40 `4701` (job `1659417`) and frozen B28+C5
+  paired gate `4702` (job `1659431`), both full-width and unthrottled.
+- Next localization target after the gates: the single-decision divergence
+  at conflict 118,698 inside the conflict-118,697 Reduce interval.
+- Fuzz legs two and three are terminal PASS: corpus+20,000 random-policy
+  cases with zero failures (17,670 verdicts; 11.7% five-second timeouts saved
+  as non-terminating with no oracle run), and 10,000 reuse-scenario stress
+  cases with zero failures and 24,450 stress-target applications. The nightly
+  200k+LRAT leg continues.
+- Randec probe `4703` (2/2 valid/clean) rules randec OUT for 118,698: both
+  arms switched to stable at conflict 111,797/8, Kissat's randec state is
+  inactive (remaining 0, sequence 22, constant RNG across eight mode-ungated
+  pre rows), and Tactix's stable-gated observer is silent by design. The
+  interval is stable-mode heap picks: first pick 145 matches, the
+  4,226-decision common-prefix hashes differ, so the first differing pick is
+  inside. Submitted 4621-style trajectory-only window `4704` (job `1659535`)
+  over conflicts 118,696--118,699.
+- Both regression gates for `f3ac562` pass provisionally with all checkers
+  nonblocking: homogeneous Rank 1--40 `4701` has 40/40 expected statuses in
+  9,596.978 seconds total (versus 9,412.958 at the prior checkpoint, +2.0%
+  trajectory wobble; Rank 27 measures 496.458 here and 468.777 in standalone
+  `4699`), and B28+C5 `4702` has all 66 expected statuses at
+  1,332.203/2,439.690 seconds, candidate/shipped ratio 0.546054 against the
+  frozen 1.10 limit. Final classification still requires every proof/model
+  check and zero residue.
+- `4704`'s window traces (both arms complete; the inherited endpoint contract
+  merely flags the +1 overshoot and Kissat's SIGTERM convention) localize the
+  118,697 interval split to one stable-mode pick: at decision 36,646,252
+  (interval position 2,080, no restart or backtrack nearby) Kissat decides
+  variable 176863 while repaired Tactix pops 148563 and never decides 176863
+  in the window; the streams realign shifted by one. With identical
+  assignments this is a scores-heap ranking difference for 176863 -- either a
+  score value or a physical tie-topology divergence. Submitted paired
+  post-decision heap snapshot `4705` (job `1659537`) at decision 36,646,251.
+- `4705` (2/2 valid/clean) exonerates the heap entirely: all 101,679 members,
+  positions, and scores are identical; the single difference is that variable
+  176863 is already ASSIGNED in Tactix and unassigned in Kissat at the
+  aligned post-decision snapshot. With identical decision prefixes, a
+  differing propagation fixpoint means the clause databases first diverge in
+  some learned clause between 110,362 and 118,697 (implication-graph /
+  watch-order dependent) without moving any decision counter. Submitted
+  learned-content comparison `4706` (job `1659539`) from conflict 0 through
+  118,698 on the repaired pin.
+- `4706` (2/2 valid/clean) exonerates learning as well: all 101,242 learned
+  clauses through conflict 118,697 match in both order and set hashes, and
+  the conflict-118,698 clause is identical too (only the known one-decision
+  counter offset). With decisions, learned clauses, eliminate outputs, and
+  heaps all exact, the remaining owner of the one-propagation split is the
+  conflict-118,697 Reduce's retention decision (glue/used metadata driven).
+  Submitted paired one-row formula fingerprint `4707` (job `1659541`) at
+  reduce_end 118,697.
+- `4707` (2/2 valid/clean) confirms it: at reduce_end 118,697 the irredundant
+  count and hash (527,801 / c39606d4...) and binary hash are exact, but the
+  redundant sets differ -- Tactix 18,623 versus Kissat 18,624 with different
+  content hashes. Reduce retained different clauses from identical learned
+  inputs, so the divergent input is per-clause retention metadata (glue/used/
+  reason bits, which depend on reason selection and therefore physical watch
+  order). Submitted late-open full metadata dump `4708` (job `1659543`) at
+  reduce_begin 118,697 to name the clause and the field.
+- `4699` is now final valid: the repaired Rank-27 UNSAT certificate verified
+  independently (3,279.308 seconds) with artifacts deleted and zero residue.
+- `4708` (2/2 valid/clean, 548k clauses per arm) shows the DBs already differ
+  at reduce BEGIN: Tactix holds one extra redundant clause
+  `(-145,175252,176747,176815,176849,176863)` -- containing exactly the
+  variable whose propagation split the trajectory -- while Kissat holds two
+  others (one shrunken=1), and 301 common redundant clauses differ only in
+  metadata (mostly the known representation-only shrunken flag, plus at least
+  one glue 5-versus-6). The clause-set divergence therefore arises between
+  110,362 and 118,697 through a non-learning mechanism (OTFS/eager
+  subsumption acting on differently-represented clauses), and the glue
+  differences feed Reduce retention. Submitted eliminate_end-110,362 content
+  dump `4709` (job `1659545`) to bound the creation window.
+- `4709` (2/2 valid/clean) pins the mechanism: at eliminate_end 110,362 the
+  clause SETS are fully identical (irredundant hash-exact, redundant
+  membership 0/0), but 15 common redundant clauses have Tactix glue = size-1
+  where Kissat keeps glue = size. Reference audit: kissat clamps glue to
+  size-1 only in search-time OTFS (strengthen.c:42), Sweep (sweep.c:1007),
+  and Vivify (vivify.c:116/755/846); its fused forward strengthen (forward.c)
+  and generic root flush (collect.c) never touch glue. Tactix wrongly applied
+  `kernel_shrunken_glue` in Strengthen's in-place rewrite and in
+  `kernel_flush_root_clause`. Repaired both (root flush now takes a
+  `clamp_glue` parameter so Vivify's schedule-time root simplification keeps
+  its reference clamp); regression `test_root_flush_preserves_glue` plus the
+  pre-existing Vivify pass-time-tier test cover both semantics. Release is
+  75/76 (doc-size only) and ASan/UBSan focused suites pass. Submitted causal
+  eliminate_end re-dump `4710` (job `1659547`) on the repaired trace pin.
+- `4710` (2/2 valid/clean) closes the glue mechanism: the eliminate_end
+  110,362 redundant state now matches pinned Kissat with ZERO membership and
+  ZERO metadata differences (16,587 clauses, all glue/priority/searched/used/
+  reason/shrunken fields equal). Submitted checked Release `4711` (job
+  `1659549`) and full boundary journal `4712` (job `1659550`) to measure the
+  stacked attach+glue repairs.
+- The thorough post-commit fuzz campaign for `f3ac562` is terminal PASS on
+  all three legs: nightly 200,000 generated cases with LRAT (job `1659414`,
+  196,421 verdicts, 1.8% five-second timeouts, VariableCompaction reached 469
+  times), corpus+20,000 random-policy LRAT cases (job `1659415`, zero
+  failures), and 10,000 reuse-scenario stress cases with 24,450 target fires
+  (job `1659416`) -- zero crash, sanitizer, invariant, model, proof, or
+  differential failures anywhere. The user's fuzz-after-commit directive is
+  discharged; the follow-on glue-preservation commit carries its own bounded
+  fuzz leg.
+- `4712` is valid/clean: the stacked repairs reach UNSAT in 5,793,285
+  conflicts (from 6,804,239 pre-glue; Kissat 4,120,691, ratio 1.406 from
+  1.65). Probe 120,310 entry is now byte-exact in conflicts/decisions and
+  formula scalars, and conflict counters stay EQUAL through the 151,982
+  Probe (decisions +0.23%); the first remaining differences are nine extra
+  Tactix redundant clauses at the 120,310 Probe exit and the decision drift
+  by 151,982. The next localization owner is inside that Probe or the
+  ensuing CDCL window.
 - Rank-27 Release campaign `20260901-4490-tierd-rank27-forward-lifecycle-release`
   provisionally returns expected UNSAT in 423.068 s / 5,854,078 conflicts /
   200,851,977 decisions. This is 0.731569x the prior 578.302 s candidate, but

@@ -808,11 +808,13 @@ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
   }
   k.stats.strengthened++;
   (*changed)++;
-  // Rewrites preserve redundancy and glue can only shrink; read before the
-  // replacement garbages `c`.
+  // Rewrites preserve redundancy; read before the replacement garbages `c`.
+  // kissat's fused forward pass (forward.c) shrinks the record in place and
+  // leaves glue untouched -- only search-time OTFS (strengthen.c), Sweep, and
+  // Vivify clamp to size-1. Preserving the old glue here keeps tier and
+  // Reduce retention on the reference trajectory.
   const bool redundant = c->redundant();
-  const uint32_t glue = kernel_shrunken_glue(
-      k, c->glue(), static_cast<uint32_t>(lits.size()));
+  const uint32_t glue = c->glue();
   if (lits.size() >= 3) {
     // Kissat shrinks this record in place.  Preserve its arena/dense-occurrence
     // position instead of letting Tactix's packed append representation turn a

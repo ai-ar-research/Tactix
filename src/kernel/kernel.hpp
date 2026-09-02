@@ -1287,9 +1287,13 @@ void kernel_replace_large_clause_in_place(Kernel &, Ref source, uint64_t id,
 // The clause form does not collect the arena; callers can continue scanning by
 // the original clause width. The whole-arena form collects once at its exit.
 enum class RootFlushOutcome { None, Deleted, Rewritten, Binary, Unit, Refuted };
+// `clamp_glue` selects the reference glue semantics for the shrink: kissat's
+// generic root flush (collect.c) leaves glue untouched, while Vivify's
+// schedule-time root simplification clamps to size-1 (vivify.c).
 RootFlushOutcome kernel_flush_root_clause(Kernel &, Ref *ref,
                                           uint64_t *changed = nullptr,
-                                          bool mark_binary_added_material = false);
+                                          bool mark_binary_added_material = false,
+                                          bool clamp_glue = false);
 enum class RootCollectOutcome { NoChange, Changed, Unit, Refuted };
 RootCollectOutcome kernel_sparse_collect_root(Kernel &, Ref start = 0);
 
