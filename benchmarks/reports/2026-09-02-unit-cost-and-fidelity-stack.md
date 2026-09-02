@@ -172,17 +172,16 @@ clause is learned at conflict 58,241 (it immediately subsumes the
 1,193-literal clause of 58,222 on both sides), a unit is learned at 58,245,
 and at 60,638 Tactix retains the 1,168- and 1,178-literal clauses but not
 the 1,192-literal one. With paired per-conflict deletion counters on both arms (commit `1ebf269`
-and the same three rows in the kissat-event-trace variant), the window
-resolves at conflict 58,214 (`4804`): Tactix performs an on-the-fly
-strengthening there that Kissat does not, while the eager-subsumption
-counts stay in step. Rank 19's search window 32,876..50,090 has the same
-class (`4805`): identical counters through 40,278, then an extra Tactix
-on-the-fly strengthening at 40,280. The trigger formula is identical on
-both arms (`deduce.c` `antecedent_size > 2 && resolvent_size <
-antecedent_size` against Tactix's `antecedent`/`resolvent_size` with the
-same root and seen skips), so the resolved literal's reason clause differs
-at that conflict, which is a watch-order (reason selection) class; `4808`
-traces the analysis rows at 58,214.
+and the same rows in the kissat-event-trace variant), the first counter
+difference in the window is at conflict 58,214 (`4804`), and Rank 19's
+search window 32,876..50,090 shows the same shape at 40,280 (`4805`):
+Tactix's `otfs_strengthened` advances, Kissat's `on_the_fly_strengthened`
+does not. That is a counting artifact, not a divergence: the analysis rows
+at 58,213 are byte-for-byte identical on both arms (`4808`), the shared
+trigger fires on both at the last resolution (a size-3 reason, resolvent
+2), and Kissat's size-3 case takes `binary_on_the_fly_strengthen`, which
+does not increment `on_the_fly_strengthened`. The variant's row now adds
+the binary path's count; the windows are rerun with the corrected rows.
 
 ## 4. Decision
 
