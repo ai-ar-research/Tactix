@@ -57,6 +57,13 @@ resume surface.
   gate-passing `f3ac562`; the residual Rank-19 divergence is the next
   missing-coupled-mechanism to localize before the glue+reorder stack can
   pass the homogeneous gate.
+- `4737` is now FINAL: the B28+C5 regression gate (the task's designated
+  regression test) is 66/66 valid at candidate/shipped ratio 0.575068 for the
+  full attach+glue+reorder stack -- comfortably under the frozen 1.10 limit
+  and better than the glue-only 0.622. The stack therefore PASSES the B+C
+  regression gate outright; only the homogeneous Rank-1--40 coverage check
+  fails, solely on Rank 19's 1,974-second runtime exceeding the 1,200-second
+  timeout.
 - Origin/main is `f3ac562` (pushed, fully validated): the attach-time
   inactive-variable deactivation repair. Pinned Kissat is
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`. Rank 27 improved 483.655 to
