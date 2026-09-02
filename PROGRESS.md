@@ -955,6 +955,43 @@ resume surface.
   `backbone_priority` versus kissat persistent `backbone0/backbone1`
   flags) at the conflict-3,139 computation entry; the divergence is in
   candidate order or priority-flag maintenance, not effort.
+- Scheduled-list campaign `4730` (jobs `1659691`; the effort journals now
+  also dump the ordered candidate list with priority bits) confirms
+  persistent-flag divergence: the two lists first differ at entry 17,652
+  where Tactix holds (-18422) PRIORITIZED and Kissat schedules it later
+  unprioritized, with 1,004,038 versus 1,004,062 total entries and 476,601
+  versus 476,595 prioritized. Those flags were written by the preprocessing
+  backbone computation at conflict 0, whose input state is uniform, so the
+  creating mechanism is inside that first computation. Submitted the same
+  paired journals at conflict 0 as `4731` (job `1659693`).
+- `4731` closes the Rank-19 chain to a single deferred mechanism. At conflict
+  0 the backbone schedule is BYTE-IDENTICAL (252,042 entries, zero order or
+  priority differences), the effort budget is identical (200,000), and both
+  arms probe the SAME externals in the SAME order; only the cumulative tick
+  counter diverges (+19 by probe 59, concentrated on one probe's scan). The
+  owner is binary-propagator tick accounting: kissat prices its backbone
+  scan with a GLOBAL `large_clauses_watched_after_binary_clauses` stop-early
+  flag (backbone.c:210), while Tactix uses a PER-LIST
+  `heads[lit].binaries_first()` (kernel.cpp propagate_literal_binary). On
+  lists where the two disagree the scanned word count differs, so
+  `1 + cache_lines(p - begin)` differs; accumulated over ~800 probes it
+  truncates the first Backbone computation at a different tick, writing
+  different persistent `backbone0/backbone1` flags, which reorders the next
+  computation's schedule, moves twelve variable fixes between Backbone
+  passes, and cascades (via one glue recompute and Reduce retention) into
+  the chaotic SAT blowup.
+- DISPOSITION: this is the staged arena/watch representation-convergence
+  item the plan sequences last, not an inprocessing or CDCL defect. The
+  glue-preservation repair `14f9417` is reference-verified correct (zero
+  metadata deviation at the 110,362 and 3,415 boundaries) and must not be
+  reverted per the faithful-port rule; it exposed a pre-existing latent
+  tick-accounting divergence that the old size-1 clamp masked on Rank 19. It
+  stays LOCAL (unpushed) until the global-versus-per-list backbone stop-early
+  tick flag is converged. Production/origin remains `f3ac562` (Rank 27
+  483.655 to 468.777 seconds, both gates final, three-leg fuzz PASS). NEXT
+  SESSION: converge the backbone binary-propagation stop-early flag to
+  kissat's global semantics under isolated measurement, then re-run the
+  Rank-1--40 and B+C gates on `14f9417`.
 - Pushed the fully validated line: origin/main now at `f3ac562` (13 commits
   published); `14f9417` remains the only local commit, held until the
   Rank-19 watch-order interaction is closed or the gate is otherwise
