@@ -27,26 +27,123 @@ static void test_compact_input_filter_grows_and_deduplicates_exactly() {
   Kernel k;
   FILE *file = std::tmpfile();
   assert(file);
-  // The advisory clause count deliberately underpredicts the 20 distinct
-  // binaries so this crosses the filter's initial 16-entry capacity. Every
-  // pair is then repeated: the filter may answer "maybe", but the watch scan
-  // must reject each duplicate exactly.
-  assert(std::fputs("p cnf 10 1\n", file) >= 0);
-  for (int a = 1, emitted = 0; a <= 10 && emitted < 20; a++)
-    for (int b = a + 1; b <= 10 && emitted < 20; b++, emitted++)
-      assert(std::fprintf(file, "%d %d 0\n", a, b) > 0);
-  for (int a = 1, emitted = 0; a <= 10 && emitted < 20; a++)
-    for (int b = a + 1; b <= 10 && emitted < 20; b++, emitted++)
-      assert(std::fprintf(file, "%d %d 0\n", a, b) > 0);
+  // The advisory clause count deliberately underpredicts the 150 distinct
+  // binaries so this crosses the filter's initial one-block (128-entry)
+  // capacity. Every pair is then repeated: the filter may answer "maybe", but
+  // the watch scan must reject each duplicate exactly.
+  constexpr int vars = 20, distinct = 150;
+  assert(std::fputs("p cnf 20 1\n", file) >= 0);
+  for (int round = 0; round < 2; round++)
+    for (int a = 1, emitted = 0; a <= vars && emitted < distinct; a++)
+      for (int b = a + 1; b <= vars && emitted < distinct; b++, emitted++)
+        assert(std::fprintf(file, "%d %d 0\n", a, b) > 0);
   std::rewind(file);
   assert(parse_dimacs(file, k) == nullptr);
   std::fclose(file);
   assert(!k.binary_ids.tracks_keys());
-  assert(k.binary_ids.size() == 20);
-  for (int a = 1, emitted = 0; a <= 10 && emitted < 20; a++)
-    for (int b = a + 1; b <= 10 && emitted < 20; b++, emitted++)
+  assert(k.binary_ids.size() == distinct);
+  for (int a = 1, emitted = 0; a <= vars && emitted < distinct; a++)
+    for (int b = a + 1; b <= vars && emitted < distinct; b++, emitted++)
       assert(kernel_binary_copies(k, internalize(a), internalize(b)) == 1);
   kernel_check_invariants(k);
+}
+
+// One string per imported formula: variable population, root values, every
+// binary (from the mirrored watch lists), every large clause in arena order,
+// the activation seed, and the normalization count.
+static std::string import_fingerprint(Kernel &k) {
+  std::string out = "n=" + std::to_string(k.nvars) + ";";
+  for (Var v = 0; v < k.nvars; v++)
+    out += std::to_string(static_cast<int>(k.values[make_lit(v, false)]));
+  out += ";b:";
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
+    for (const WatchEntry w : k.watches.entries(l))
+      if (w.binary() && l < w.other())
+        out += std::to_string(l) + "," + std::to_string(w.other()) + " ";
+  out += ";c:";
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    for (const Lit lit : *c)
+      out += std::to_string(lit) + " ";
+    out += "|";
+    ref += clause_actual_words(c);
+  }
+  out += ";a:";
+  for (const Var v : k.input_activation_order)
+    out += std::to_string(v) + " ";
+  out += ";r=" + std::to_string(k.stats.input_restated);
+  return out;
+}
+
+static std::string parse_with_block(const char *text, size_t block,
+                                    const char **error = nullptr) {
+  Kernel k;
+  k.tumble = true;
+  FILE *file = dimacs_file(text);
+  const char *err = parse_dimacs_with_block(file, k, block);
+  std::fclose(file);
+  if (error)
+    *error = err;
+  return err ? std::string("error:") + err : import_fingerprint(k);
+}
+
+// The block scanner must not care where a token, a line, or a comment ends
+// relative to a block boundary: every block size imports the same formula
+// as the production block, and the same malformed input yields the same
+// error text.
+static void test_block_boundaries_do_not_change_the_import() {
+  const char *text =
+      "c leading comment\r\n"
+      "p cnf 12 9\r\n"
+      "1 -2\t3 0\n"
+      "c mid comment with digits 4 5 6 0\n"
+      "  -4   5\r\n"
+      "6 0\n"
+      "7 7 -8 0\n"
+      "-9 9 10 0\n"
+      "11 0\n"
+      "-11 12 0\n"
+      "\n\n"
+      "1 2 3 4 5 6 7 8 9 10 11 12 0\n"
+      "10 -12"; // missing final zero and newline
+  const std::string reference = parse_with_block(text, size_t{1} << 20);
+  assert(reference.find("n=12;") == 0);
+  assert(reference.find(";r=") != std::string::npos);
+  for (size_t block = 1; block <= 40; block++)
+    assert(parse_with_block(text, block) == reference);
+  for (size_t block : {41u, 64u, 100u, 255u, 256u, 1000u, 4096u})
+    assert(parse_with_block(text, block) == reference);
+
+  struct Bad {
+    const char *text;
+    const char *error;
+  };
+  const Bad bad[] = {
+      {"p cnf 2 1\n1 x 0\n", "expected literal"},
+      {"p cnf 2 1\n1 -\n", "expected literal"},
+      {"p cnf 2 1\n1 -", "expected literal"},
+      {"p cnf 2 1\nabc 0\n", "expected literal"},
+      {"p cnf 2 1\n1 999999999999 0\n", "literal out of range"},
+      {"p cnf 999999999999 1\n1 0\n", "variable count out of range"},
+      {"p cnf 2 1\n1 2z\n", "unexpected character after literal"},
+  };
+  for (const Bad &b : bad) {
+    const char *err = nullptr;
+    parse_with_block(b.text, size_t{1} << 20, &err);
+    assert(err && std::string(err) == b.error);
+    for (size_t block = 1; block <= 24; block++) {
+      err = nullptr;
+      parse_with_block(b.text, block, &err);
+      assert(err && std::string(err) == b.error);
+    }
+  }
+  // A header without digits, a '-' followed by zero, and a comment ending at
+  // end of file are all accepted, at every block size.
+  const char *odd = "p\n1 -0\n2 -3 0\nc trailing";
+  const std::string odd_reference = parse_with_block(odd, size_t{1} << 20);
+  assert(odd_reference.find("error:") == std::string::npos);
+  for (size_t block = 1; block <= 30; block++)
+    assert(parse_with_block(odd, block) == odd_reference);
 }
 
 static void test_native_lrat_retains_binary_ids() {
@@ -226,6 +323,7 @@ int main() {
   test_root_units_normalize_later_input_clauses();
   test_input_units_propagate_before_later_clauses();
   test_header_only_variables_are_not_search_variables();
+  test_block_boundaries_do_not_change_the_import();
   puts("test_parse OK");
   return 0;
 }

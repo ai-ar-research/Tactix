@@ -4,7 +4,6 @@
 #include "proof/proof.hpp"
 
 #include <algorithm>
-#include <array>
 #include <cstdlib>
 #include <memory>
 #include <sys/resource.h>
@@ -418,7 +417,8 @@ void finish_input(Kernel &k) {
   }
 }
 
-const char *parse_dimacs(FILE *f, Kernel &k) {
+const char *parse_dimacs_with_block(FILE *f, Kernel &k, size_t block_bytes) {
+  assert(block_bytes > 0);
   std::vector<Lit> scratch;
   ParseMemoryTrace memory_trace;
   memory_trace.emit(k, "begin");
@@ -439,80 +439,112 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
       kernel.binary_liveness = index.get();
     }
   } input_liveness(k);
-  // Parsing is single-threaded and owns `f`. Pull a block at a time rather than
-  // entering stdio for every byte; a three-gigabyte binary CNF otherwise pays
-  // tens of millions of calls even with the stream lock disabled.
-  struct Reader {
-    FILE *file;
-    std::array<unsigned char, 1 << 20> buffer{};
-    size_t pos = 0, end = 0;
-    int next() {
-      if (pos == end) {
-        end = fread(buffer.data(), 1, buffer.size(), file);
-        pos = 0;
-        if (!end)
-          return EOF;
-      }
-      return buffer[pos++];
+  // Parsing is single-threaded and owns `f`. Scan one block at a time with the
+  // cursor and limit held in locals, so the whitespace and digit loops stay
+  // register-resident and stdio is entered once per block, never per byte.
+  // A token may straddle a block boundary: every scanning loop refills before
+  // it concludes that the input ended.
+  std::unique_ptr<unsigned char[]> block(new unsigned char[block_bytes]);
+  const unsigned char *p = block.get();
+  const unsigned char *e = p;
+  const auto refill = [&]() -> bool {
+    const size_t got = std::fread(block.get(), 1, block_bytes, f);
+    p = block.get();
+    e = p + got;
+    return got != 0;
+  };
+  const auto is_space = [](unsigned char ch) {
+    return ch == ' ' || ch == '\t' || ch == '\r' || ch == '\n';
+  };
+  const auto is_digit = [](unsigned char ch) { return ch >= '0' && ch <= '9'; };
+  // Leaves p at the first non-blank byte; false means the input ended.
+  const auto skip_space = [&]() -> bool {
+    for (;;) {
+      while (p != e && is_space(*p))
+        ++p;
+      if (p != e)
+        return true;
+      if (!refill())
+        return false;
     }
-  } reader{f};
-  int c = reader.next();
+  };
+  // Leaves p at the next '\n' (unconsumed) or at the end of input.
+  const auto skip_line = [&]() {
+    for (;;) {
+      while (p != e && *p != '\n')
+        ++p;
+      if (p != e || !refill())
+        return;
+    }
+  };
+  // Accumulates the digit run at p into n, checking the 2^28 bound after every
+  // digit when bounded; false reports that bound. Leaves p at the first
+  // non-digit or at the end of input.
+  const auto read_digits = [&](uint64_t &n, bool bounded) -> bool {
+    for (;;) {
+      while (p != e && is_digit(*p)) {
+        n = n * 10 + static_cast<uint64_t>(*p - '0');
+        if (bounded && n > (1u << 28))
+          return false;
+        ++p;
+      }
+      if (p != e || !refill())
+        return true;
+    }
+  };
   for (;;) {
-    // Skip whitespace.
-    while (c == ' ' || c == '\t' || c == '\r' || c == '\n')
-      c = reader.next();
-    if (c == EOF)
+    if (!skip_space())
       break;
+    const unsigned char c = *p;
     if (c == 'c') { // comment line
-      while (c != '\n' && c != EOF)
-        c = reader.next();
+      skip_line();
       continue;
     }
     if (c == 'p') { // header: "p cnf <vars> <clauses>" (counts advisory)
-      while (c != '\n' && c != EOF) {
-        if (c >= '0' && c <= '9') { // first number = declared variables
-          uint64_t n = 0;
-          while (c >= '0' && c <= '9') {
-            n = n * 10 + (c - '0');
-            if (n > (1u << 28))
-              return "variable count out of range";
-            c = reader.next();
-          }
-          kernel_reserve_vars(k, static_cast<uint32_t>(n));
-          while (c == ' ' || c == '\t' || c == '\r')
-            c = reader.next();
-          uint64_t clauses = 0;
-          while (c >= '0' && c <= '9') {
-            clauses = clauses * 10 + (c - '0');
-            c = reader.next();
-          }
-          // Avoid repeated multi-gigabyte rehashes on binary-dominated inputs.
-          // Binary encodings commonly contain almost nothing else.  Reserve up
-          // to the declared clause count, capped by twice the variable
-          // population so a huge long-clause input does not reserve a giant
-          // binary table it will never use.  Two binaries per declared
-          // variable is a deliberately non-binding prediction: the table
-          // still grows exactly when an input exceeds it, while the former
-          // three-times estimate needlessly crossed a power-of-two boundary on
-          // large circuit encodings.
-          const uint64_t predicted_binaries =
-              std::min<uint64_t>(clauses, 2 * n);
-          // Native LRAT retains exact binary proof identities. DRAT and
-          // proofless solving instead use a compact no-false-negative filter
-          // backed by exact mirrored-watch confirmation during input.  The
-          // filter grows by load, never by formula identity or a size gate.
-          if (!k.proof || !k.proof->lrat()) {
-            k.binary_ids.discard_storage();
-            input_liveness.arm(static_cast<size_t>(predicted_binaries));
-          } else {
-            k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
-          }
-          memory_trace.emit(k, "header");
-          while (c != '\n' && c != EOF)
-            c = reader.next();
+      ++p;
+      // The first digit run on the line is the declared variable count.
+      for (;;) {
+        while (p != e && *p != '\n' && !is_digit(*p))
+          ++p;
+        if (p != e || !refill())
           break;
+      }
+      if (p != e && is_digit(*p)) {
+        uint64_t n = 0;
+        if (!read_digits(n, true))
+          return "variable count out of range";
+        kernel_reserve_vars(k, static_cast<uint32_t>(n));
+        for (;;) {
+          while (p != e && (*p == ' ' || *p == '\t' || *p == '\r'))
+            ++p;
+          if (p != e || !refill())
+            break;
         }
-        c = reader.next();
+        uint64_t clauses = 0;
+        read_digits(clauses, false);
+        // Avoid repeated multi-gigabyte rehashes on binary-dominated inputs.
+        // Binary encodings commonly contain almost nothing else.  Reserve up
+        // to the declared clause count, capped by twice the variable
+        // population so a huge long-clause input does not reserve a giant
+        // binary table it will never use.  Two binaries per declared
+        // variable is a deliberately non-binding prediction: the table
+        // still grows exactly when an input exceeds it, while the former
+        // three-times estimate needlessly crossed a power-of-two boundary on
+        // large circuit encodings.
+        const uint64_t predicted_binaries =
+            std::min<uint64_t>(clauses, 2 * n);
+        // Native LRAT retains exact binary proof identities. DRAT and
+        // proofless solving instead use a compact no-false-negative filter
+        // backed by exact mirrored-watch confirmation during input.  The
+        // filter grows by load, never by formula identity or a size gate.
+        if (!k.proof || !k.proof->lrat()) {
+          k.binary_ids.discard_storage();
+          input_liveness.arm(static_cast<size_t>(predicted_binaries));
+        } else {
+          k.binary_ids.reserve(static_cast<size_t>(predicted_binaries));
+        }
+        memory_trace.emit(k, "header");
+        skip_line();
       }
       continue;
     }
@@ -520,28 +552,25 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
     bool neg = false;
     if (c == '-') {
       neg = true;
-      c = reader.next();
+      ++p;
+      if (p == e && !refill())
+        return "expected literal";
     }
-    if (c < '0' || c > '9')
+    if (!is_digit(*p))
       return "expected literal";
     uint64_t n = 0;
-    while (c >= '0' && c <= '9') {
-      n = n * 10 + (c - '0');
-      if (n > (1u << 28))
-        return "literal out of range";
-      c = reader.next();
-    }
-    if (c != ' ' && c != '\t' && c != '\r' && c != '\n' && c != EOF)
+    if (!read_digits(n, true))
+      return "literal out of range";
+    if (p != e && !is_space(*p))
       return "unexpected character after literal";
     if (n == 0) {
       ingest_clause(k, scratch);
       scratch.clear();
       memory_trace.maybe(k);
+    } else if (neg) {
+      scratch.push_back(internalize(-static_cast<int>(n)));
     } else {
-      if (neg)
-        scratch.push_back(internalize(-static_cast<int>(n)));
-      else
-        scratch.push_back(internalize(static_cast<int>(n)));
+      scratch.push_back(internalize(static_cast<int>(n)));
     }
   }
   if (!scratch.empty()) // tolerate a missing final 0
@@ -550,6 +579,10 @@ const char *parse_dimacs(FILE *f, Kernel &k) {
   finish_input(k);
   memory_trace.emit(k, "finish-end");
   return nullptr;
+}
+
+const char *parse_dimacs(FILE *f, Kernel &k) {
+  return parse_dimacs_with_block(f, k, size_t{1} << 20);
 }
 
 } // namespace tactix

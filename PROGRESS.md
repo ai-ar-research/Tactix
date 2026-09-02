@@ -23,6 +23,16 @@ resume surface.
   zero conflicts (15.1 s versus Kissat lucky 4.7 s), (4) BVE unit cost on
   Rank 9 (29.7 s versus 13.4 s). Profile first on SLURM, fix unit cost with
   no scheduling change, gate with Rank 1--40 + B28+C5.
+- FRONT-END UNIT COST, increment 1 (local): `parse_dimacs` now scans one
+  input block at a time with register-resident cursor/limit locals
+  (`parse_dimacs_with_block` exposes the block size so tests place every
+  token and line boundary on a block edge), and `BinaryLivenessIndex` is a
+  blocked filter whose three probe bits share one cache line. Same-window
+  identity probe `4748` (job `1659934`, Ranks 1/4/5/10/12 vs the `4701` pin):
+  byte-identical proofs, models, and counters on every rank; parse 35.8 ->
+  27.9 s on Rank 5 and 30.3 -> 22.8 s on Rank 10, whose Congruence also
+  drops 2.5 s. Decomposition authority: `4746` (same-window vs Kissat) and
+  `4747` (source-line profile). Not yet gated or fuzzed.
 - GATE OUTCOME for the no-glue + watch-match binary `1a705dbf`: Rank 1--40
   `4744` is 40/40 (Rank 19 SAT in 1,010.4 s) but totals 10,054.8 s versus
   the accepted 9,597.0 s (Rank 35 +306 s, Rank 19 +759 s, Rank 17 +145 s;

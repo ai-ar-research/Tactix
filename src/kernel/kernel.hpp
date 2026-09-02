@@ -190,8 +190,13 @@ public:
 // stale bits after deletion can only cause an exact fallback scan. This avoids
 // duplicating every live pair in another full-key hash table.
 class BinaryLivenessIndex {
+  // Blocked layout: a key's three probe bits all lie inside one 512-bit block
+  // (one cache line), so a membership test or an insertion touches a single
+  // line rather than three random ones. The block count is a power of two.
+  static constexpr uint64_t BLOCK_BITS = 512;
+  static constexpr uint64_t BLOCK_WORDS = BLOCK_BITS / 64;
   std::vector<uint64_t> bits_;
-  uint64_t mask_ = 0;
+  uint64_t block_mask_ = 0;
   size_t entry_capacity_ = 0;
 
   static uint64_t hash(uint64_t x) {
@@ -200,11 +205,22 @@ class BinaryLivenessIndex {
     x = (x ^ (x >> 27)) * UINT64_C(0x94d049bb133111eb);
     return x ^ (x >> 31);
   }
-  bool bit(uint64_t position) const {
-    return bits_[position >> 6] & (UINT64_C(1) << (position & 63));
+  struct Probe {
+    size_t base; // first word of the block
+    uint64_t p0, p1, p2; // bit positions inside the block
+  };
+  Probe probe(uint64_t key) const {
+    const uint64_t h1 = hash(key);
+    const uint64_t h2 = hash(key ^ UINT64_C(0xd6e8feb86659fd93));
+    return {static_cast<size_t>((h1 >> 9) & block_mask_) * BLOCK_WORDS,
+            h1 & (BLOCK_BITS - 1), h2 & (BLOCK_BITS - 1),
+            (h2 >> 9) & (BLOCK_BITS - 1)};
   }
-  void set_bit(uint64_t position) {
-    bits_[position >> 6] |= UINT64_C(1) << (position & 63);
+  bool bit(size_t base, uint64_t position) const {
+    return bits_[base + (position >> 6)] & (UINT64_C(1) << (position & 63));
+  }
+  void set_bit(size_t base, uint64_t position) {
+    bits_[base + (position >> 6)] |= UINT64_C(1) << (position & 63);
   }
 
 public:
@@ -213,8 +229,9 @@ public:
     return bits_.capacity() * sizeof(uint64_t);
   }
 #endif
+  // Four bits per entry, rounded up to a power of two of whole blocks.
   void reserve(size_t entries) {
-    uint64_t target = 64;
+    uint64_t target = BLOCK_BITS;
     assert(entries <= UINT64_MAX / 4);
     const uint64_t requested = 4 * static_cast<uint64_t>(entries);
     while (target < requested) {
@@ -222,26 +239,23 @@ public:
       target <<= 1;
     }
     bits_.assign(static_cast<size_t>(target >> 6), 0);
-    mask_ = target - 1;
+    block_mask_ = (target / BLOCK_BITS) - 1;
     entry_capacity_ = static_cast<size_t>(target >> 2);
   }
   bool needs_growth(size_t entries) const { return entries > entry_capacity_; }
   bool maybe(uint64_t key) const {
     if (bits_.empty())
       return true;
-    const uint64_t first = hash(key);
-    const uint64_t step = hash(key ^ UINT64_C(0xd6e8feb86659fd93)) | 1u;
-    return bit(first & mask_) && bit((first + step) & mask_) &&
-           bit((first + 2 * step) & mask_);
+    const Probe q = probe(key);
+    return bit(q.base, q.p0) && bit(q.base, q.p1) && bit(q.base, q.p2);
   }
   void add(uint64_t key) {
     if (bits_.empty())
       return;
-    const uint64_t first = hash(key);
-    const uint64_t step = hash(key ^ UINT64_C(0xd6e8feb86659fd93)) | 1u;
-    set_bit(first & mask_);
-    set_bit((first + step) & mask_);
-    set_bit((first + 2 * step) & mask_);
+    const Probe q = probe(key);
+    set_bit(q.base, q.p0);
+    set_bit(q.base, q.p1);
+    set_bit(q.base, q.p2);
   }
   void remove(uint64_t) {}
 };
