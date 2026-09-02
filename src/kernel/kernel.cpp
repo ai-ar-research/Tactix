@@ -1207,7 +1207,8 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
 
 RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
                                           uint64_t *changed,
-                                          bool mark_binary_added_material) {
+                                          bool mark_binary_added_material,
+                                          bool clamp_glue) {
   const Ref original_ref = *ref;
   Clause *c = clause_at(k.arena, *ref);
   assert(!c->garbage());
@@ -1284,8 +1285,13 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
     k.stats.c1_shadow_rewritten++;
   const uint64_t original_id = c->id();
   const bool redundant = c->redundant();
-  const uint32_t glue = kernel_shrunken_glue(
-      k, c->glue(), static_cast<uint32_t>(kept.size()));
+  // kissat's generic root flush (collect.c) drops root-false literals without
+  // touching glue; Vivify's schedule-time root simplification clamps to
+  // size-1 (vivify.c) and selects that semantics via `clamp_glue`.
+  const uint32_t glue =
+      clamp_glue ? kernel_shrunken_glue(k, c->glue(),
+                                        static_cast<uint32_t>(kept.size()))
+                 : c->glue();
 #ifdef TACTIX_ENABLE_EVENT_TRACE
   if (kept.size() == 2) {
     std::string payload = "source_id=" + std::to_string(original_id) +
