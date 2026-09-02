@@ -25,6 +25,38 @@ resume surface.
   agree to within 2 of 494,843 (a single 1-word clause-membership difference
   on literal 96125, unrelated to ordering). The backbone tick model is
   converged. Awaiting the Rank-27 regression boundary `4734`.
+- `4734` PASSES: Rank 27 with the reorder returns expected UNSAT at exactly
+  5,793,285 conflicts, byte-identical to the pre-reorder glue pin `4712`, so
+  the reorder does NOT regress the validated Rank-27 trajectory. Both
+  isolated validations clean, so the fix is committed as `6f5d329` and
+  promoted to the full gates. In flight on pin `6f5d329`: the decisive
+  Rank-19 solve `4735` (job `1659700`; pinned Kissat solves it SAT in
+  302.673 s / 701,597 conflicts, the pre-reorder pin timed out at 2,700 s),
+  homogeneous Rank-1--40 gate `4736` (job `1659702`), frozen B28+C5 gate
+  `4737` (job `1659735`), and bounded fuzz legs (jobs `1659736`/`1659737`).
+  If Rank 19 solves and the gates stay green, push the full stack
+  (`f3ac562`..`6f5d329`).
+- PARTIAL: the reorder UNBLOCKS the Rank-19 hang but does not close the gate.
+  `4735` returns expected SAT in 1,974.645 seconds (was a >2,700-second
+  timeout on the glue-only pin), so Rank 19 now terminates and both fuzz legs
+  (jobs `1659736`/`1659737`) are 10,000-case zero-failure PASSES -- the
+  reorder is sound. But the homogeneous gate's 1,200-second solver timeout
+  still trips it (`4736` task 18 is UNKNOWN at 1,200.005 seconds), and
+  1,974 seconds is far above the ~227-second pre-glue baseline and Kissat's
+  303 seconds. A large residual search-trajectory divergence remains on
+  Rank 19 beyond the backbone tick model. The reorder is a correct, sound,
+  Kissat-faithful improvement that fixes a real watch-order defect with no
+  Rank-27 regression, so RETAIN it; but the glue+reorder stack still fails
+  the homogeneous gate and stays local. NEXT: localize the residual Rank-19
+  1,974s-versus-303s divergence (a fresh trajectory investigation), or accept
+  the glue repair's Rank-19 cost as a documented parity-ledger deviation.
+- Gate outcome for the reorder pin `6f5d329` (all provisional records in;
+  checkers nonblocking): homogeneous Rank-1--40 `4736` is 39/40 with Rank 19
+  the SOLE failure (no new regressions from the reorder; total 10,267.7 s),
+  and frozen B28+C5 `4737` is 66/66 valid. Origin/main stays at the
+  gate-passing `f3ac562`; the residual Rank-19 divergence is the next
+  missing-coupled-mechanism to localize before the glue+reorder stack can
+  pass the homogeneous gate.
 - Origin/main is `f3ac562` (pushed, fully validated): the attach-time
   inactive-variable deactivation repair. Pinned Kissat is
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`. Rank 27 improved 483.655 to
