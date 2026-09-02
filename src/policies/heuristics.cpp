@@ -59,6 +59,25 @@ void heuristics_discard_rule_events(Kernel &k) {
   k.retired_events.clear();
 }
 
+void heuristics_deactivate_inactive_vars(Kernel &k) {
+  if (!k.h)
+    return;
+  // Kissat's queue and score heap hold exactly the active variables: an
+  // identity that is root-fixed (an input unit assigned before this attach)
+  // or already retired was deactivated by kissat_mark_fixed_literal /
+  // flags.c:deactivate_variable at the moment it became inactive.  Attach
+  // reproduces that state after enqueueing every identity, so each variable
+  // still consumes its import-order stamp slot exactly as Kissat's
+  // activate-then-deactivate does; skipping the enqueue instead would shift
+  // every later stamp and change BVE's relevance ranking.
+  for (Var v = 0; v < k.nvars; v++) {
+    const bool fixed = k.values[make_lit(v, false)] != 0 &&
+                       k.assigned[v].level == 0;
+    if (fixed || kernel_var_retired(k, v))
+      heuristics_deactivate_var(k, v);
+  }
+}
+
 void heuristics_reserve_vars(Kernel &k, uint32_t old, uint32_t nvars) {
   assert(k.h);
   assert(!k.saved_phases || k.saved_phases == &k.h->saved);

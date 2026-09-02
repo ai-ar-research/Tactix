@@ -129,12 +129,35 @@ static void test_policy_consumes_root_implications() {
   assert(!heuristics_heap_contains(k, var_of(internalize(2))));
 }
 
+// An identity fixed before `H` attaches (an input unit assigned during
+// formula load) leaves both ranking structures at attach, exactly as
+// kissat's flags.c:deactivate_variable removed it when the unit fixed it.
+// Its enqueue still consumes an import-order stamp slot, so every later
+// variable's stamp matches the reference; a retained entry instead shifts
+// all following stamps at the next queue restamp and changes BVE's
+// stamp-based relevance ranking.
+static void test_attach_deactivates_prefixed_input_unit() {
+  Kernel k;
+  kernel_reserve_vars(k, 4);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_assign_unit(k, internalize(3)); // input unit, assigned during load
+  ScopedHeuristics h(k);
+  const Var fixed = var_of(internalize(3));
+  assert(!heuristics_var_active(k, fixed));
+  assert(!heuristics_heap_contains(k, fixed));
+  assert(heuristics_var_active(k, var_of(internalize(1))));
+  assert(heuristics_var_active(k, var_of(internalize(4))));
+  // The stamp slot of the fixed identity is consumed, not skipped.
+  assert(k.h->links[var_of(internalize(4))].stamp == 4);
+}
+
 int main() {
   test_decide_guard_is_pure_off_fixpoint();
   test_off_fixpoint_decide_then_backtrack_no_escape();
   test_retired_unassigned_var_stays_selectable();
   test_canonical_decide_is_policy_independent();
   test_policy_consumes_root_implications();
+  test_attach_deactivates_prefixed_input_unit();
   puts("test_decide OK");
   return 0;
 }

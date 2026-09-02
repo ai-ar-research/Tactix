@@ -573,6 +573,130 @@ resume surface.
   homogeneous Rank-1--40 `4684` (Slurm `1659278`). These are feature-off
   diagnostic projections only; production remains `02ab6f1`. Consume solver
   records immediately and retain later proof/model checks without waiting.
+- Production checkpoint gates are now fully final: B28+C5 `4680` is 66/66 valid
+  and homogeneous `4681` is 40/40 valid, with every SAT model and UNSAT proof
+  independently verified and zero residue.
+- Fresh-pin boundary journal `4685` (job `1659383`, commit `ffae813`) is valid/
+  clean: production Rank 27 ends UNSAT at 6,804,239 conflicts versus Kissat's
+  4,120,691. Both solvers hold macro schedule lock-step through conflict ~4.01M
+  (52 matched Probe/Eliminate invocations within ~4,400 conflicts), then
+  Kissat's final Eliminate at 4,086,997 removes ~5,914 variables and it
+  finishes 34k conflicts later, while Tactix's Eliminate at 4,082,465 removes
+  ~500 and search continues 2.7M more conflicts. The earliest trajectory
+  divergence is the CDCL interval from the exact conflict-110,362 Eliminate to
+  the next Probe: Tactix enters at 120,313/37,518,169 versus Kissat
+  120,310/37,521,538. Submitted paired per-conflict checkpoint zoom `4686`
+  (job `1659384`) over exactly that window; both arms exit at Probe begin and
+  emit no proof.
+- `4686` completes 2/2 valid/clean in 104.421/113.692 seconds and moves the
+  first divergence inside the 110,362 Eliminate itself. The Kissat arm's
+  round journal shows round-1 Strengthen output exact in every counter
+  (132,288 active / 541,260 irred / 21,908 red / 167,774 binary), then
+  round-1 BVE end with one extra Tactix binary (153,805 versus 153,804 at
+  exact active 114,081 and irred 576,041). Round two amplifies to irred
+  522,424/522,431, and post-Eliminate CDCL decisions first split two conflicts
+  later at 110,364 (interval 2,781 versus 2,783 decisions after an exact
+  5,987-decision resume interval). Submitted paired one-shot BVE begin/end
+  binary multiset campaign `4687` (job `1659387`, diagnostic overlay worktree
+  `worktree-bve-binary-set-20260901`) to name the differing pair.
+- `4687` completes 2/2 valid/clean: round-1 BVE INPUT binary multisets are
+  byte-identical, so round-1 BVE owns the first divergence outright. Its
+  output differs by six Tactix-only pairs (four on literal 424046) and five
+  Kissat-only pairs (two on 35319): Kissat eliminates 424046 and keeps 35319,
+  Tactix the reverse. `4688` (4/4 valid/clean) then proves both arms first try
+  candidate 424046 at the exact same resolution tick 24,160,715, spend 19
+  ticks, and decline identically; Kissat must therefore re-arm and eliminate
+  424046 later within the same round, while Tactix instead eliminates 35319
+  at tick 27,832,495 (Kissat declines it at 27,833,038). The owner is the
+  within-round candidate re-arm path. Submitted full try-history campaign
+  `4689` (job `1659393`) for both externals across the whole Eliminate.
+- `4689` completes 4/4 valid/clean. Kissat re-tries 424046 once at tick
+  27,512,167 and eliminates it; Tactix re-tries it at 27,511,963 and declines
+  (then again at 29,659,099 and 30,267,159, declining both). Root-unit counts
+  match (1,362) at the second try, but the 204-tick entry offset proves the
+  first differing action lies strictly between exact tick 24,160,734 and
+  27,511,963. Submitted unfiltered candidate-stream campaign `4690` (job
+  `1659397`) to name the first differing (external, tick, applied) tuple.
+- `4690` completes 2/2 valid/clean with 242,511/242,474 candidate begins. The
+  streams are tuple-exact through try 139,721; the first divergence is a pure
+  pop-order swap at tick 25,873,783: Tactix pops externals 488086 then 485686
+  where Kissat pops 485686 then 488086, all four zero-tick declines. The
+  physical schedule-heap topologies therefore diverged in some earlier update
+  without affecting any pop until this tie. Added a standalone deduped
+  selected-subject heap journal to both diagnostic solvers (no global trace)
+  and submitted campaign `4691` (job `1659399`) tracking both subjects'
+  score/position/occurrence rows across the whole Eliminate.
+- `4691`'s Kissat arm segfaulted because the selected-subject observer cached
+  internal indices across compaction; subjects are now stored as externals and
+  resolved through the import table per call. Kissat-only retry `4692` (job
+  `1659401`) is valid/clean and decisive: subject 485686's BVE relevance
+  differs by exactly 1.0 from schedule initialization (Tactix 3,896,995
+  versus Kissat 3,896,996) with identical occurrence counts, while 488086's
+  score is bit-exact. The focused-mode queue stamp of variable 485686 already
+  differs at Eliminate entry; the BVE heap tie at tick 25,873,783 is only the
+  first place the one-unit stamp gap decides an order. Submitted paired
+  full member dump `4693` (job `1659402`) on the exact-trajectory pins to
+  learn whether the stamp divergence is one variable, a set, or a shifted
+  range.
+- `4693` completes 2/2 valid/clean and reveals a clean counter-offset window:
+  all 132,288 schedule members, occurrence counts, and heap positions are
+  exact, but 36,324 variables have Tactix stamp = Kissat stamp - 1. The
+  shifted set is precisely the variables whose last bump carries Kissat stamp
+  below ~7,897,06x; every more recent stamp is equal (33-stamp transition
+  window). Thus the two VMTF stamp counters were offset by one for a long
+  period and re-synchronized about 103k bumps before Eliminate 110,362 --
+  approximately the conflict-107,95x restart-reuse window. Queue ORDER never
+  differed, so search stayed exact; only BVE's use of raw stamps as relevance
+  exposes the offset. Added a queue-stamp column to both standalone
+  checkpoint journals and submitted per-conflict campaign `4694` (job
+  `1659404`) from conflict 0 to locate both offset transitions exactly.
+- `4694`'s Kissat arm and Tactix retry `4695` (ordinal 3; the preprocess
+  Eliminate also emits `eliminate_begin`) are valid/clean with 101,517 common
+  per-conflict checkpoints. The counter columns read Tactix = Kissat + 1
+  constantly from the first compaction at conflict 1,002 through 110,362,
+  which cannot be reconciled with the member stamps (old members Kissat =
+  Tactix + 1, recent equal) by any single-event model; one side's counter
+  read is a sampling-convention artifact. Added a symmetric one-shot ordered
+  queue dump (position, external, stamp) and submitted campaign `4696` (job
+  `1659407`) at Eliminate begin 110,362 to resolve membership, order, and
+  per-variable stamps directly.
+- `4696` completes 2/2 valid/clean and closes the structure: Tactix's VMTF
+  queue holds one extra member, external 488590, at position 95,964 (stamp
+  102,871); Kissat's queue is exactly the 132,308 active variables. Queue
+  order is otherwise identical and precisely the 36,344 members behind the
+  extra entry carry stamp = Kissat + 1 (the earlier 4693 sign read was the
+  heap's score negation). BVE reads stamps as relevance, so the retained
+  entry is the general owner of the 110,362 pivot swap. The repair is the
+  missing deactivation/dequeue of 488590; submitted Kissat-only `4697` (job
+  `1659409`) with a selected-external deactivate observer to name the phase
+  and class (eliminated versus fixed) of the reference dequeue.
+- `4697` closes the provenance: pinned Kissat deactivates external 488590 at
+  conflict 0 / decision 0 with `fixed=1`, and the input formula's ONLY unit
+  clause is exactly 488590. The unit is assigned during load, before
+  DefaultPolicy attaches `H`; Kissat dequeues it at fix time, while Tactix's
+  attach enqueued every identity and nothing ever consumed the pre-attach
+  root trail. General repair: `heuristics_deactivate_inactive_vars` at
+  `ScopedHeuristics` attach dequeues/heap-removes every already root-fixed or
+  retired identity after enqueueing (preserving Kissat's consumed stamp-slot
+  semantics). Regression `test_attach_deactivates_prefixed_input_unit` covers
+  membership, heap, and the preserved stamp slot. Full Release is 75/76 with
+  only known doc-size debt. Causal campaign `4698` (job `1659410`) validates
+  the repaired BVE-110,362 binary multisets and Probe entry against the 4687
+  Kissat authority.
+- `4698` validates the repair causally: all four BVE begin/end binary
+  multisets at conflict 110,362 are byte-exact to the 4687 Kissat authority
+  (previously +1/-1/+7 pair diffs), and focused ASan/UBSan decide/restart/
+  no-heuristics tests pass. Checkpoint rerun `4700` (job `1659412`; first
+  submission `1659411` failed closed on a stale path, and the inherited
+  validity contract flags the new 15-column rows, so its journal is read
+  directly) shows the repaired pin exact to Kissat through conflict 118,697
+  -- 8,335 conflicts past the old split -- with a new single-decision
+  divergence at 118,698, inside the conflict-118,697 Reduce interval, that
+  chaotically amplifies to -52,689 decisions by Probe 120,310/120,311. That
+  Reduce-time mechanism is the next localization target after banking.
+  Checked Release measurement `4699` (job `1659413`) is running.
+- Standing user directive (2026-09-02): run a thorough fuzz campaign
+  immediately after the next commit, before any new mechanism work.
 - Rank-27 Release campaign `20260901-4490-tierd-rank27-forward-lifecycle-release`
   provisionally returns expected UNSAT in 423.068 s / 5,854,078 conflicts /
   200,851,977 decisions. This is 0.731569x the prior 578.302 s candidate, but

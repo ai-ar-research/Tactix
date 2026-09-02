@@ -15,6 +15,9 @@ namespace tactix {
 void heuristics_consume_rule_advice(Kernel &);
 void heuristics_consume_retirements(Kernel &);
 void heuristics_discard_rule_events(Kernel &);
+// Dequeue and heap-remove every identity that is already root-fixed or
+// retired (kissat holds only active variables in its ranking structures).
+void heuristics_deactivate_inactive_vars(Kernel &);
 
 struct Heuristics {
   // `H` tracks its own variable count; heuristics_check asserts it equals
@@ -100,6 +103,12 @@ struct ScopedHeuristics {
       k.input_activation_order.clear();
       k.input_activation_order.shrink_to_fit();
     }
+    // Identities already inactive at attach (input units fixed during load,
+    // or retired variables on a re-attached kernel) leave the ranking
+    // structures immediately, as kissat deactivated them when they became
+    // inactive.  See heuristics_deactivate_inactive_vars for the stamp-slot
+    // contract.
+    heuristics_deactivate_inactive_vars(k);
   }
   ~ScopedHeuristics() {
     kref.saved_phases = nullptr;
