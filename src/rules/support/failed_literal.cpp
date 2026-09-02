@@ -285,6 +285,35 @@ ApplyResult failed_literal_apply_chained_binary(
       retained.push_back(p);
       const uint32_t saved_level = k.level;
       k.stats.*stats.probed += 1;
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+      // Standalone per-probe effort journal for budget-parity diagnosis;
+      // dormant unless TACTIX_BACKBONE_TICKS_TRACE names a path.
+      if (const char *bt_path = std::getenv("TACTIX_BACKBONE_TICKS_TRACE")) {
+        const char *bt_conflict = std::getenv("SAT_BACKBONE_CONFLICT");
+        if (*bt_path &&
+            (!bt_conflict || !*bt_conflict ||
+             std::strtoull(bt_conflict, nullptr, 10) == k.stats.conflicts)) {
+          static std::FILE *bt_out = nullptr;
+          static uint64_t bt_ordinal = 0;
+          if (!bt_out) {
+            bt_out = std::fopen(bt_path, "w");
+            if (bt_out) {
+              std::setvbuf(bt_out, nullptr, _IOLBF, 0);
+              std::fputs("# backbone-probe-ticks\t1\n", bt_out);
+              std::fputs("# solver\tordinal\texternal\tticks_delta\tbudget\n",
+                         bt_out);
+            }
+          }
+          if (bt_out)
+            std::fprintf(bt_out, "tactix\t%llu\t%d\t%llu\t%llu\n",
+                         (unsigned long long)bt_ordinal++,
+                         kernel_externalize(k, p),
+                         (unsigned long long)(k.stats.backbone_ticks -
+                                              meter_begin),
+                         (unsigned long long)k.work_budget);
+        }
+      }
+#endif
       assume(k, p);
       const bool saved_jump_reasons = k.jump_reasons;
       k.jump_reasons = false;

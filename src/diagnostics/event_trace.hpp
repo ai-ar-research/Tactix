@@ -499,6 +499,9 @@ void event_trace_factor_fresh(const Kernel &, Lit seed, Var fresh,
                               uint64_t next_ticks, uint64_t match_ticks);
 void event_trace_bve_candidate(const Kernel &, Var, const char *, uint64_t,
                                uint64_t, bool);
+// One selected-clause dump of every literal's (external, level, value) as a
+// glue recompute reads them; keyed by required externals plus one conflict.
+void event_trace_recompute_input(const Kernel &, const Clause *);
 void event_trace_bve_occurrences(const Kernel &, Var, uint32_t pos_ordered,
                                  uint32_t neg_ordered,
                                  uint32_t pos_true_binary,
@@ -652,6 +655,7 @@ inline void event_trace_factor_fresh(const Kernel &, Lit, Var, const Lit *,
                                      uint64_t, uint64_t, uint64_t, uint64_t) {}
 inline void event_trace_bve_candidate(const Kernel &, Var, const char *,
                                       uint64_t, uint64_t, bool) {}
+inline void event_trace_recompute_input(const Kernel &, const Clause *) {}
 inline void event_trace_bve_occurrences(const Kernel &, Var, uint32_t,
                                         uint32_t, uint32_t, uint32_t,
                                         uint32_t, uint32_t, uint32_t,

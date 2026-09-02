@@ -818,6 +818,147 @@ resume surface.
   Tactix redundant clauses at the 120,310 Probe exit and the decision drift
   by 151,982. The next localization owner is inside that Probe or the
   ensuing CDCL window.
+- The glue repair is banked as commit `14f9417` (Release binary
+  `4b6d0707...626d9`, byte-reproduced by `build/pin-fuzz-14f9417`). Its
+  bounded fuzz is terminal PASS on both legs: corpus+10,000 default-policy
+  LRAT cases (job `1659551`, Strengthen fired in 218 cases) and 10,000
+  random-policy LRAT cases (job `1659552`), zero failures each. Regression
+  gates `4713` (Rank 1--40, job `1659553`) and `4714` (B28+C5, job
+  `1659569`) run from the identical SHA; checked Release `4711`'s DRAT
+  checker remains nonblocking.
+- `4702`, the B28+C5 gate for `f3ac562`, is now FINAL: 66/66 valid rows with
+  every model and proof independently checked and zero residue, at the
+  0.546054 candidate/shipped ratio recorded provisionally.
+- The `14f9417` gates split: B28+C5 `4714` preserves all 66 statuses at
+  ratio 0.622292, and Rank 27 confirms 432.240 seconds in the homogeneous
+  matrix, but Rank 19 (expected SAT; 227.238 seconds at `02ab6f1`, 251.483
+  at `f3ac562`) times out at 1,200 seconds, so homogeneous `4713` is 39/40
+  and the committed state FAILS the uniform gate. The glue semantics are
+  reference-verified (zero metadata deviation at the 110,362 boundary), so
+  per the faithful-port rule the repair is retained locally, nothing is
+  pushed, and the Rank-19 blowup is the next coupled discrepancy to
+  localize: the old size-1 clamp was masking it.
+- `4701`, the homogeneous gate for `f3ac562`, is now FINAL as well: 40/40
+  valid rows with every SAT model and UNSAT proof independently checked and
+  zero residue. `f3ac562` is therefore a fully validated checkpoint (both
+  gates final, thorough three-leg fuzz PASS); `14f9417` remains local-only
+  until the Rank-19 interaction is repaired. Rank-19 paired boundary
+  diagnostic `4715` (job `1659659`) is running.
+- `4715` quantifies the Rank-19 blowup: pinned Kissat solves SAT in 302.673
+  seconds at 701,597 conflicts, while the glue-repaired trace pin is still
+  unsolved at 9,995,035 conflicts when the 2,700-second diagnostic cap
+  kills it. The journals' first Probe at conflict 3,139 matches EXACTLY in
+  all six scalars; the second triggers at 9,493 versus 9,570, so the first
+  decision split lies in that early window (Rank 19 never had a converged
+  prefix -- its previous 227/251-second solves rode a different chaotic
+  path). Submitted per-conflict checkpoint pair `4716` (job `1659663`,
+  90-second diagnostic kills; initial submission `1659661` failed closed on
+  a working-directory drift and was cancelled) to find the first decision
+  split from conflict 0.
+- `4716` (2/2 valid) finds Rank 19's first decision split at conflict 4,197:
+  the interval decision counts run [1,0,9,...] in Tactix versus [1,0,0,9,...]
+  in Kissat -- a nine-decision burst lands one conflict earlier in the
+  repaired pin, then the counters realign with diverged content. Submitted
+  bounded window trace `4717` (job `1659665`) over conflicts 4,190--4,205.
+- `4717` (2/2 clean) refines the split: after twenty identical decisions in
+  the conflict-4,190 interval, Tactix's stable-mode pick at decision 103,133
+  is -79,275 versus Kissat's -78,966 -- the same stable-heap signature as
+  Rank 27's 176863 case. Kissat's last Reduce before the split is at
+  conflict 3,415 (red 1,972 to 1,743). Submitted metadata dump `4718` (job
+  `1659667`) at reduce_begin 3,415 on Rank 19.
+- `4718` (2/2 valid) reaches the physical frontier: at reduce_begin 3,415 the
+  redundant counts are equal, but one long clause differs in content, three
+  clauses (sizes 240--264) have Tactix glue = Kissat + 1, and 227 differ only
+  in the known representation-local shrunken flag. Under chronological
+  backtracking a variable's assignment LEVEL depends on physical propagation
+  order, so glue recomputes (kissat deduce.c/promote.h) can diverge while
+  every scalar counter stays exact: the remaining class is
+  implication-graph/watch-order parity -- exactly the staged
+  representation-convergence program the plan defers to after inprocessing
+  and CDCL. Submitted paired glue-transition window `4719` (job `1659669`)
+  over conflicts 1--3,415 to name the first differing promote.
+- `4719` is observer-invalid/clean: both arms flooded the two-million-row cap
+  with `phase_save` rows at conflict 213; no claim. Both diagnostic solvers
+  already carry a `GLUE_ONLY` filter retaining only `reason_glue` promote
+  rows; unchanged-pin retry `4720` (job `1659671`) uses it over the same
+  window.
+- `4720`/`4721` are observer-invalid for their headline claims and those
+  claims are WITHDRAWN: the kissat overlay's learned and reason_glue
+  emitters silently dropped any payload over 4,096 bytes, so the "missing"
+  Kissat learned row at conflict 1,161 and "missing" 240-literal promote at
+  1,164 were dropped rows, not semantic events. Steering that survives: the
+  4,721 window's 18,837 implication rows and all 515 resolve/reason-size
+  rows at conflict 1,161 are IDENTICAL across arms, so propagation and the
+  analysis walk match exactly there. The 4718 formula-dump glue diffs
+  (per-literal fprintf, uncapped) remain valid evidence. Enlarged both
+  overlay buffers to 65,536 bytes and submitted unchanged-question retry
+  `4722` (job `1659675`).
+- `4714`, the B28+C5 gate for `14f9417`, is FINAL: 66/66 valid rows with all
+  checks and zero residue at ratio 0.622292. Only the Rank-19 homogeneous
+  loss blocks the glue commit.
+- `4722` (fixed buffers) restores row parity at 1,164 -- both arms promote
+  the same clause 66-to-64, confirming the artifact -- and names the TRUE
+  first promote divergence: at conflict 1,171 / decision 85,699 Kissat
+  promotes ternary (-100265,-82860,95684) glue 3-to-2 while Tactix does not
+  (705 versus 644 promotes by 3,415). Submitted full-detail window `4723`
+  (job `1659677`) over conflicts 1,168--1,172.
+- `4723` retires the promote-stream method for cross-solver comparison: the
+  conflict-1,171 event is Kissat's OTFS-strengthen promote, Tactix performs
+  the same strengthen through a path that emits no reason_glue row, and the
+  ternary's state at reduce 3,415 is IDENTICAL in both arms (glue 2, all
+  metadata). No semantic claim from 4720/4722/4723 promote-count deltas.
+  Ground truth remains the 4718 formula dumps. Submitted bisecting dump
+  `4724` (job `1659679`) at reduce_begin 2,001.
+- `4724`'s dumps (the Kissat task wrote its complete 67 MB dump then timed
+  out because this overlay lineage lacks the SET_STOP exit on the generic
+  dump path; the dump itself is complete and the timeout claims nothing)
+  show reduce_begin 2,001 FULLY converged: identical redundant membership,
+  zero glue diffs, one inert shrunken-flag row. Rank 19's three glue diffs
+  and one content diff are therefore created within conflicts
+  2,001--3,415. Submitted full-payload learned-only window `4725` (job
+  `1659681`) over that window to compare the three clauses' creation
+  levels/glue directly.
+- Cross-referencing 4722's corrected promote streams with the 4724 dumps
+  localizes ALL THREE Rank-19 glue diffs to one instant: each clause is
+  identical at reduce 2,001 (glues 233/184/215) and receives its decisive
+  recompute at conflict 3,139 -- the first Probe -- where Tactix counts
+  exactly one more distinct level than Kissat (233-to-42 versus 41,
+  184-to-124 versus 123, 215-to-126 versus 125) through the vivify-path
+  recompute. Submitted full-detail single-conflict window `4726` (job
+  `1659683`) whose vivify-trail imply rows carry per-assignment levels.
+- The chain is now fully closed to a single mechanism. `4726` stopped before
+  the Probe (its interval lies past the boundary); corrected window `4727`
+  plus a new paired selected-clause recompute-input observer (campaign
+  `4728`, jobs `1659685`/`1659687`) prove: at the conflict-3,139 vivify
+  recompute both arms sit on candidate ordinal 13 with identical tick
+  deltas, and exactly ONE literal differs -- external 90754 is level 0
+  (root) in Tactix but level 17 (assumption) in Kissat -- producing the
+  42-versus-41 level count; candidate 13 is likewise size 467 versus 468
+  because Tactix's copy already lost the root-false literal. The probe
+  journals name the owner: Backbone-early at probe 3,139 fixes 244 variables
+  in Tactix versus Kissat's 232 (125,926 to 125,682 versus 125,694); twelve
+  variables including 90754 move from Kissat's later Backbone pass into
+  Tactix's first, and the sets re-converge at the second Congruence end
+  (both 125,224). NEXT MECHANISM: compare the Backbone round-1 stopping
+  rule (probing order, per-round budget/cutoff) against kissat backbone.c;
+  the 12-variable attribution difference is the whole remaining Rank-19
+  causal chain.
+- Paired per-probe effort journal `4729` (jobs `1659689`; new dormant
+  `TACTIX_BACKBONE_TICKS_TRACE`/`KISSAT_BACKBONE_TICKS_TRACE` observers)
+  sharpens it further: the effort budgets are EXACT (both 351,454) and tick
+  deltas are equal through probe 83, so neither the budget anchor nor the
+  cache-line tick model deviates. At probe ordinal 84 the candidate
+  sequences diverge: Tactix probes external -18422 where Kissat probes
+  18247, each arm value-filtering the other's candidate, then the streams
+  realign with a four-tick offset. NEXT STEP: paired dump of the backbone
+  computation's ordered candidate list with priority bits (Tactix
+  `backbone_priority` versus kissat persistent `backbone0/backbone1`
+  flags) at the conflict-3,139 computation entry; the divergence is in
+  candidate order or priority-flag maintenance, not effort.
+- Pushed the fully validated line: origin/main now at `f3ac562` (13 commits
+  published); `14f9417` remains the only local commit, held until the
+  Rank-19 watch-order interaction is closed or the gate is otherwise
+  satisfied.
 - Rank-27 Release campaign `20260901-4490-tierd-rank27-forward-lifecycle-release`
   provisionally returns expected UNSAT in 423.068 s / 5,854,078 conflicts /
   200,851,977 decisions. This is 0.731569x the prior 578.302 s candidate, but
