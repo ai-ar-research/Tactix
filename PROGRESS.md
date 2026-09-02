@@ -8,6 +8,24 @@ resume surface.
 
 ## Current resume anchor
 
+- RESUME HERE (2026-09-03 wrap; user continues in a fresh srun). The promising
+  path is attach + full-watch-match with the glue repair DROPPED. Evidence:
+  Rank 19 (the sole gate failure) solves in 989.2 s with glue dropped
+  (campaign `4743`) -- UNDER the 1,200 s gate -- whereas both glue-bearing
+  variants fail it (reorder 1,974 s, full-watch-match 2,700 s timeout). The
+  candidate binary is `.claude/worktrees/no-glue/build/rel/tactix`
+  (SHA `1a705dbf`, = f3ac562 + only the `kernel_rebuild_large_watches(k)` call
+  at `substitute_apply` end; NO glue commits). IN FLIGHT: homogeneous Rank
+  1--40 gate `4744` (job `1659821`) and B28+C5 gate `4745` (job `1659857`) on
+  that binary. FIRST ACTION on resume: aggregate `4744`/`4745`. If `4744` is
+  40/40 and its total beats the pushed `f3ac562` baseline (9,413 s), and
+  `4745` stays <=1.10 PAR-2, then the watch-match's UNSAT-rank gains (esp.
+  Rank 27) outweigh its chaotic Rank-19 cost -> commit attach+watch-match as
+  a clean gate-passing stack and push. If not 40/40 or net-worse, keep
+  origin at `f3ac562` and treat the watch-match + glue as retained-but-local
+  faithful repairs. The full stack with glue (commits `14f9417`, `dbadf8e`)
+  stays local regardless; the glue repair is faithful but the confirmed sole
+  cause of Rank 19's chaotic blowup.
 - ACTIVE (user directive 2026-09-03: "do the full watch-layout match; do not
   merge before it"): replaced the partial binary-first reorder at canonical
   `substitute_apply` end with a full `kernel_rebuild_large_watches(k)` call --
