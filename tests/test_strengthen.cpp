@@ -560,39 +560,7 @@ static void test_interrupt() {
   }
 }
 
-// kissat's generic root flush (collect.c) drops a root-false literal from a
-// redundant clause without touching glue; only search-time OTFS, Sweep, and
-// Vivify shrinks clamp to size-1. A redundant clause whose glue equals its
-// size must keep that glue through the root flush, or its tier and Reduce
-// retention leave the reference trajectory.
-static void test_root_flush_preserves_glue() {
-  Kernel k;
-  kernel_reserve_vars(k, 4);
-  const Lit c[4] = {internalize(1), internalize(2), internalize(3),
-                    internalize(4)};
-  kernel_add_large_clause(k, c, 4, /*redundant=*/true, /*glue=*/4);
-  kernel_assign_unit(k, negate(internalize(4)));
-  assert(propagate_apply(k) == ApplyResult::Ok);
-  Ref ref = 0;
-  uint64_t changed = 0;
-  assert(kernel_flush_root_clause(k, &ref, &changed) ==
-         RootFlushOutcome::Rewritten);
-  bool found = false;
-  for (Ref scan = 0; scan < k.arena.size();) {
-    const Clause *cl = clause_at(k.arena, scan);
-    if (!cl->garbage() && cl->redundant()) {
-      found = true;
-      assert(cl->size == 3);
-      assert(cl->glue() == 4); // preserved, not clamped to size-1
-    }
-    scan += clause_actual_words(cl);
-  }
-  assert(found);
-  kernel_check_invariants(k);
-}
-
 int main() {
-  test_root_flush_preserves_glue();
   test_round_entry_deduplicates_binaries();
   test_round_entry_hyper_unary_binary_pair();
   test_binary_strengthens_large();

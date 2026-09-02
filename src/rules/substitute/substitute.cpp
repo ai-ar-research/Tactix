@@ -2323,17 +2323,10 @@ ApplyResult substitute_apply(Kernel &k) {
                  (rewrite_t1 - apply_t0) / 1e6,
                  (unsigned long long)r.nontrivial_count);
   }
-  // kissat's canonical Substitute ends with kissat_watch_large_clauses
-  // (watch.c): it flushes every large watch and re-appends them after the
-  // binaries in clause-arena iteration order, so each list is binary-first
-  // AND its large watches follow the arena order. The lazy in-place rewrite
-  // leaves both the binary-first property and the large-watch order diverged.
-  // Match kissat's terminal state fully with the same rebuild the other
-  // Probe rules (Congruence/Vivify/Factor) already use, rather than only
-  // partitioning binaries first, so the search-visible watch layout after
-  // Substitute matches the reference exactly.
-  if (rewritten == ApplyResult::Ok || rewritten == ApplyResult::NoOp)
-    kernel_rebuild_large_watches(k);
+  // Kissat's canonical Substitute ends with kissat_watch_large_clauses
+  // (watch.c), re-appending every large watch in arena order. Tactix keeps
+  // each survivor's lazy in-place watch pose here: an accepted deviation,
+  // measured in docs/scheduling-parity-ledger.md section 13.3.
   if (rewritten == ApplyResult::NoOp && failed == ApplyResult::Ok)
     return ApplyResult::Ok;
   return rewritten;

@@ -486,8 +486,7 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
         uint64_t changed = 0;
         const RootFlushOutcome outcome =
             kernel_flush_root_clause(mut, &replacement, &changed,
-                                     /*mark_binary_added_material=*/true,
-                                     /*clamp_glue=*/true);
+                                     /*mark_binary_added_material=*/true);
         commit->root_changed += changed;
         if (retain_priority && outcome == RootFlushOutcome::Rewritten)
           clause_at(mut.arena, replacement)->set_vivify(true);
