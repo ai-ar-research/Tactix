@@ -33,6 +33,15 @@ resume surface.
   27.9 s on Rank 5 and 30.3 -> 22.8 s on Rank 10, whose Congruence also
   drops 2.5 s. Decomposition authority: `4746` (same-window vs Kissat) and
   `4747` (source-line profile). Not yet gated or fuzzed.
+- FRONT-END UNIT COST, increment 2 (local): `ingest_clause` dedups large
+  clauses in place with a parse-scoped literal mark array (no per-clause
+  vectors or sort; first-occurrence order kept) and activates from the
+  normalized clause; `kernel_record_import` returns early for an
+  already-ranked variable. Identity probe `4749` (job `1659944`, Ranks
+  1/4/5/10/12 vs the `4701` pin, cumulative with increment 1): byte-identical
+  proofs, models, and counters; parse 36.6 -> 24.7 s on Rank 5 and 29.9 ->
+  20.3 s on Rank 10 (Kissat: 20.4 / 17.2 s). Next: fuzz legs + Rank 1--40 +
+  B28+C5 on the pinned commit; identity oracle = `4701` certificate SHAs.
 - GATE OUTCOME for the no-glue + watch-match binary `1a705dbf`: Rank 1--40
   `4744` is 40/40 (Rank 19 SAT in 1,010.4 s) but totals 10,054.8 s versus
   the accepted 9,597.0 s (Rank 35 +306 s, Rank 19 +759 s, Rank 17 +145 s;

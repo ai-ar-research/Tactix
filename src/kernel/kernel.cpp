@@ -156,6 +156,11 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
 
 void kernel_record_import(Kernel &k, Var v) {
   assert(v < k.nvars);
+  assert(k.internal_import_rank.size() == k.nvars);
+  // Already ranked: the internal and external ranks agree by invariant
+  // (kernel_check_invariants), so there is nothing to record.
+  if (k.internal_import_rank[v] != UINT32_MAX)
+    return;
   const Var external = k.internal_to_external[v];
   if (k.external_import_rank.size() <= external)
     k.external_import_rank.resize(external + 1, UINT32_MAX);
