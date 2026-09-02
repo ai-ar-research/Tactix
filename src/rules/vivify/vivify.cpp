@@ -981,6 +981,7 @@ struct VivifyDeduction {
 static void vivify_recompute_and_promote(Kernel &k, Clause *c) {
   if (!c->redundant() || c->glue() <= 1)
     return;
+  event_trace_recompute_input(k, c);
   const uint32_t old_glue = c->glue();
   uint32_t glue = 0;
   for (const Lit lit : *c) {

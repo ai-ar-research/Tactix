@@ -4271,6 +4271,54 @@ void EventTrace::bve_candidate(const Kernel &k, Var var, const char *stage,
   emit(k, "bve_candidate", payload.c_str(), formula_checkpoint);
 }
 
+void event_trace_recompute_input(const Kernel &k, const Clause *c) {
+  const char *path = std::getenv("TACTIX_RECOMPUTE_TRACE");
+  if (!path || !*path)
+    return;
+  if (const char *conflict = std::getenv("SAT_RECOMPUTE_CONFLICT"))
+    if (*conflict &&
+        std::strtoull(conflict, nullptr, 10) != k.stats.conflicts)
+      return;
+  const char *required = std::getenv("SAT_RECOMPUTE_EXTERNALS");
+  if (required && *required) {
+    std::string haystack = ",";
+    for (const Lit lit : *c) {
+      haystack += std::to_string(kernel_externalize(k, lit));
+      haystack += ',';
+    }
+    const char *cursor = required;
+    while (*cursor) {
+      char *end = nullptr;
+      const long want = std::strtol(cursor, &end, 10);
+      if (end == cursor)
+        break;
+      if (haystack.find("," + std::to_string(want) + ",") ==
+          std::string::npos)
+        return;
+      cursor = *end ? end + 1 : end;
+    }
+  }
+  static std::FILE *out = nullptr;
+  if (!out) {
+    out = std::fopen(path, "w");
+    if (!out) {
+      std::perror("TACTIX_RECOMPUTE_TRACE");
+      std::exit(2);
+    }
+    std::setvbuf(out, nullptr, _IOLBF, 0);
+    std::fputs("# recompute-input\t1\n", out);
+    std::fputs("# solver\tconflicts\tglue\tsize\texternal:level:value...\n",
+               out);
+  }
+  std::fprintf(out, "tactix\t%llu\t%u\t%u",
+               (unsigned long long)k.stats.conflicts, c->glue(), c->size);
+  for (const Lit lit : *c)
+    std::fprintf(out, "\t%d:%u:%d", kernel_externalize(k, lit),
+                 k.var_level(var_of(lit)),
+                 static_cast<int>(k.value(lit)));
+  std::fputc('\n', out);
+}
+
 void event_trace_bve_candidate(const Kernel &k, Var var, const char *stage,
                                uint64_t ticks, uint64_t limit, bool applied) {
   if (std::getenv("TACTIX_BVE_RETRY_TRACE")) {
