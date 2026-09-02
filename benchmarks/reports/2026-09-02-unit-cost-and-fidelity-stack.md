@@ -76,7 +76,7 @@ Line-level profile of the pin's `-g` twin (`.text` identical, campaign
 | `14f9417` (cherry-picked as `7649e78`) | glue preserved on forward and root-flush shrinks | Rank 33 matches kissat through the probe exit at 48,449 instead of diverging at 32,103 (`4770`, `4779`) |
 | `ea51c81` | canonical Substitute in kissat watch mode (drop large watches after the round-one SCC pass, bare rewrite, one reconnect per call with propagation reset) | Rank 33 matches kissat through conflict 120,329 (was 68,558); Rank 35 still diverges in the search between the probes at 9,457 and 19,364; Rank 19 diverges inside the second probe round's Congruence at conflict 3,139 (`4781`) |
 | `0bd4940` | BVE per-candidate working sets kept in the persistent scratch | identity `4784`: proofs, models, counters byte-identical; Rank 31 525.0 -> 520.1 s |
-| `5659765` | Congruence's sparse resume keeps binaries satisfied by the closure's own units (kissat `resume_watching_irredundant_binaries` reads no values; only the entry drops satisfied pairs) | Faithful, but not the deleting site: Rank 19's second-round Congruence at conflict 3,139 still ends 1,276 binaries short (`4789`, same 617,505 vs 618,781 as `4781`). Kissat's own matching phase enters dense mode with a value check (`congruence.c forward_subsume_matching_clauses`), so why Kissat retains those pairs is open; `4796` traces the call's internal boundaries with binary counts |
+| `5659765` | Congruence's sparse resume keeps binaries satisfied by the closure's own units (kissat `resume_watching_irredundant_binaries` reads no values) | faithful; Rank 19's count was unchanged (`4789`) because the deleting site was the forward pass gated on units (`SP-CONG-MATCH-1`, section 4) |
 | reverted | sweep-substitution session: indexed `find_large` with tombstones and lazy compaction | byte-identical (`4785`, five ranks) but Rank 22 Sweep 363 -> 577 s: the compaction re-indexed per affected owner per emission batch. Withdrawn on principle: the session is an order ledger Kissat does not have (its sweep substitution walks one mixed watch stream in dense mode); the fix is that representation, planned through `revise-plan`, not another variant measured on one rank |
 
 Family probes against the pin (wall seconds; kissat in the last column):
@@ -135,14 +135,21 @@ flush). Under the watch-mode tree the first divergence moved to 120,329.
 
 Rank 19 (`4781`): both solvers enter the second probe round's Congruence at
 conflict 3,139 in the identical state (a=125513 i=673243 b=620998) and
-merge the same 289 variables, but Tactix leaves 1,276 fewer binaries
-(617,505 vs 618,781) and that offset survives the rest of the probe with
-every other count equal. Binary-set snapshots at that call (`4786`) name
-the class. Rank 35 (`4787`): trajectory traces over conflicts 9,457..15,400 agree
-through conflict 9,812, where the 4M-record cap cut them (about 11,000
-records per conflict at decision level 1,270); checkpoint digests every 50
-conflicts (`4794`) bracket the divergence that precedes the Eliminate phase
-at 15,344 (a 429256/429257, r 4718/4734, b 754611/754598).
+leave it with the same 289 fewer active variables, but Tactix leaves 1,276
+fewer binaries (617,505 vs 618,781) and 1,250 fewer irredundant clauses,
+and the binary offset survives the rest of the probe with every other count
+equal. The binary-set snapshots (`4786`) show the missing pairs are clauses
+satisfied by the closure's units. The in-call boundary rows (`4797`) and
+Kissat's very-verbose log (`4798`) resolve it: at that call Kissat found 0
+equivalences, propagated 289 congruence units and 0 equivalences, merged 0
+variables, and therefore skipped its matching phase (no
+`congruence_dense_second_entry`), while Tactix ran its forward-subsumption
+pass on the recorded units and retired the satisfied clauses there. The
+smaller irredundant total then scaled Tactix's next probe to conflict 9,493
+against Kissat's 9,570. Kissat gates that phase on the number of propagated
+equivalences (every merge schedules one; units alone do not); ported as
+ledger row `SP-CONG-MATCH-1` (working tree; journal `4799` and family
+probe `4800` pending).
 
 Rank 33 (`4791`): the formula snapshots at the Eliminate entry of 60,638
 differ in exactly one clause, a 1,192-literal learned clause of glue 614
@@ -188,4 +195,4 @@ difference, OTFS, or a satisfied-by-unit flush after 58,245).
   Strengthen (3x). Each needs its reference cost model read first.
 - Trajectory: after `5659765` the known first divergences are Rank 35 in
   the search window 9,457..15,344 (`4787`), Rank 33's one redundant clause
-  before 60,638 (`4790`), and Rank 19 after the probe at 3,139 (`4789`).
+  before 60,638 (`4790`), and Rank 19's matching-phase gate (`SP-CONG-MATCH-1`, `4799`/`4800`).

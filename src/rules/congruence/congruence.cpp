@@ -3838,7 +3838,12 @@ ApplyResult congruence_apply(Kernel &k) {
   congruence_stage_trace(k, "closure-scratch-released", work_head,
                          closure_work_size, completed_gate_count,
                          recorded_unit ? 1 : 0);
-  if (!unsat && (neq || recorded_unit) && !kernel_terminating(k)) {
+  // Kissat runs its matching phase (`forward_subsume_matching_clauses`)
+  // only when `propagate_units_and_equivalences` dequeued at least one
+  // scheduled equivalence, and every merge schedules one; units alone leave
+  // the phase out, and the clauses they satisfy wait for the next
+  // value-inspecting flush (congruence.c `kissat_congruence`).
+  if (!unsat && neq && !kernel_terminating(k)) {
     congruence_stage_trace(k, "closure-forward-begin", work_head,
                            closure_work_size, neq, recorded_unit ? 1 : 0);
     event_trace_slot_boundary(k, "congruence-dense-resume", "second-entry");
