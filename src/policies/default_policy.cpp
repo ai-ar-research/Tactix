@@ -2258,6 +2258,21 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
   inprocess_.build(k);
   EventTrace event_trace;
   event_trace.open_from_env(k);
+  // Paired search-time deletion counters on every analysis_end row: the
+  // clause a solver deletes between two boundaries is invisible in the
+  // journals, and kissat's rows carry the same three statistics.
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  const auto event_trace_analysis_deletions = [&](const Kernel &kk) {
+    event_trace.detail(kk, "analysis_eager_subsumed",
+                       static_cast<int64_t>(kk.stats.eager_subsumed));
+    event_trace.detail(kk, "analysis_otfs_strengthened",
+                       static_cast<int64_t>(kk.stats.otfs_strengthened));
+    event_trace.detail(kk, "analysis_otfs_subsumed",
+                       static_cast<int64_t>(kk.stats.otfs_subsumed));
+  };
+#else
+  const auto event_trace_analysis_deletions = [](const Kernel &) {};
+#endif
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
   uint64_t diagnostic_stop_conflict = UINT64_MAX;
   if (const char *stop = std::getenv("TACTIX_STOP_AFTER_CONFLICT"))
@@ -2486,6 +2501,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
             tick_reluctant();
         }
         event_trace.detail(k, "analysis_end", k.level);
+        event_trace_analysis_deletions(k);
         event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                                mode.ticks_at_focus_entry, mode.count);
         diagnostic_conflict_stop();
@@ -2519,6 +2535,7 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
       event_trace.detail(k, "analysis_propagate_head", k.propagate_head);
       event_trace.detail(k, "analysis_trail_size", k.trail.size());
       event_trace.detail(k, "analysis_end", k.level);
+      event_trace_analysis_deletions(k);
       event_trace.mode_clock(k, "post_analyze", mode.ticks_limit,
                              mode.ticks_at_focus_entry, mode.count);
       diagnostic_conflict_stop();
