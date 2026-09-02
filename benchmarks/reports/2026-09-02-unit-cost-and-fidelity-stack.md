@@ -171,11 +171,18 @@ identical learned-clause sequences on both arms over 58,200..60,640: the
 clause is learned at conflict 58,241 (it immediately subsumes the
 1,193-literal clause of 58,222 on both sides), a unit is learned at 58,245,
 and at 60,638 Tactix retains the 1,168- and 1,178-literal clauses but not
-the 1,192-literal one. Kissat's per-conflict counts show one eager
-deletion every ~10 conflicts; Tactix's trajectory rows carry no clause
-counts, so the deleting conflict on the Tactix side still needs a
-per-conflict deletion event (candidates: an eager-subsumption register
-difference, OTFS, or a satisfied-by-unit flush after 58,245).
+the 1,192-literal one. With paired per-conflict deletion counters on both arms (commit `1ebf269`
+and the same three rows in the kissat-event-trace variant), the window
+resolves at conflict 58,214 (`4804`): Tactix performs an on-the-fly
+strengthening there that Kissat does not, while the eager-subsumption
+counts stay in step. Rank 19's search window 32,876..50,090 has the same
+class (`4805`): identical counters through 40,278, then an extra Tactix
+on-the-fly strengthening at 40,280. The trigger formula is identical on
+both arms (`deduce.c` `antecedent_size > 2 && resolvent_size <
+antecedent_size` against Tactix's `antecedent`/`resolvent_size` with the
+same root and seen skips), so the resolved literal's reason clause differs
+at that conflict, which is a watch-order (reason selection) class; `4808`
+traces the analysis rows at 58,214.
 
 ## 4. Decision
 
@@ -195,8 +202,16 @@ difference, OTFS, or a satisfied-by-unit flush after 58,245).
     1660667), random-policy leg 10,000 / 0 (job 1660668).
   - Decision at the first wrap: keep local; `origin/main` stays at
   `70e3807`. Rank 19 alone decided the sum. Its class was then closed
-  (`SP-CONG-MATCH-1`, `c2bb80f`); gates `4802`/`4803` of that tree are
-  the next decision point.
+  (`SP-CONG-MATCH-1`, `c2bb80f`).
+- Gates of `c2bb80f` (`4802`, job 1660848; `4803`, job 1660849): Rank
+  1--40 40/40 valid, 9,410.3 s against the pin's 9,335.1 s (+75.2 s; Rank
+  19 520.6 s against the pin's lucky 227.0 s and Kissat's 739.9 s; Rank 34
+  -326, Rank 21 -162, Rank 27 -136, Rank 40 -93; Rank 22 +204 from the
+  sweep session, Rank 17 +140 and Rank 9 +41 on SAT reshuffles, Rank 33
+  +51, Rank 39 +47). B28+C5 PAR-2 ratio 0.654 over 31 pairs so far, no
+  failures. The push rule fails only on the total (+75 s); the tree stays
+  local and the remaining class (section 3, on-the-fly strengthening after
+  a differing reason clause) is common to Ranks 19 and 33.
 - Unit cost still open, in order of measured excess at matching work:
   the sweep-substitution session (representation: kissat's single mixed
   watch stream in dense mode), `kernel_sparse_collect_root` at Reduce
