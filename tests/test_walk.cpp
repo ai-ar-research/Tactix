@@ -211,6 +211,32 @@ static void test_no_heuristics_guard() {
   assert(!walk_guard(k));
 }
 
+// Kissat's dense entry (dense.c:flush_large_watches) deletes root-satisfied
+// binaries before init_walker reads BINIRR_CLAUSES, so such binaries are
+// invisible to the walk: neither in its table nor in the score-table average.
+// Two kernels that differ only by root-satisfied binaries must walk identically.
+static void test_root_satisfied_binaries_do_not_reach_the_walk() {
+  Kernel plain, extra;
+  ScopedHeuristics _p(plain), _e(extra);
+  build_conflict_cover(plain, 7);
+  build_conflict_cover(extra, 7);
+  kernel_reserve_vars(extra, 9);
+  // a root unit satisfies six binaries that only `extra` carries
+  kernel_add_binary_clause(extra, internalize(8), internalize(9));
+  for (int i = 1; i <= 6; i++)
+    kernel_add_binary_clause(extra, internalize(8), internalize(-i));
+  kernel_assign_unit(extra, internalize(8));
+  assert(!kernel_propagate(extra)); // no conflict
+  assert(extra.level == 0 && extra.value(internalize(8)) > 0);
+  assert(walk_apply(plain) == ApplyResult::Ok);
+  assert(walk_apply(extra) == ApplyResult::Ok);
+  assert(plain.stats.walk_flips == extra.stats.walk_flips);
+  assert(plain.stats.walk_steps == extra.stats.walk_steps);
+  assert(plain.stats.walk_minimum == extra.stats.walk_minimum);
+  for (Var v = 0; v < plain.nvars; v++)
+    assert(plain.h->saved[v] == extra.h->saved[v]);
+}
+
 int main() {
   test_finds_model();
   test_kernel_untouched();
@@ -220,6 +246,7 @@ int main() {
   test_resume_uses_compact_literal_order();
   test_resume_large_watches_uses_logical_clause_position();
   test_dense_entry_deduplicates_binary_pairs();
+  test_root_satisfied_binaries_do_not_reach_the_walk();
   test_registry();
   test_no_heuristics_guard();
   printf("test_walk: all passed\n");

@@ -70,9 +70,8 @@ struct Walker {
   double epsilon = 1.0;
 
   uint32_t nclauses = 0;
-  uint32_t binary_clauses = 0;
-  uint32_t full_binary_clauses = 0;
-  uint32_t full_irredundant_clauses = 0;
+  uint32_t binary_clauses = 0; // root-open, deduplicated (kissat BINARY_CLAUSES)
+  uint32_t full_irredundant_clauses = 0; // large, garbage excluded, root-satisfied kept
   uint32_t initial = 0, minimum = 0;
   uint32_t initial_binary_unsat = 0;
   uint64_t flips = 0, steps = 0;
@@ -128,7 +127,6 @@ bool build_table(Walker &w, Kernel &k) {
             kernel_import_lit_order(k, l))
           continue; // dedup: each binary is seen from both watch lists
         const Lit pair[2] = {l, other};
-        w.full_binary_clauses++;
         w.binary_clauses += emit(pair, 2);
       }
     }
@@ -179,9 +177,12 @@ bool build_table(Walker &w, Kernel &k) {
   }
 
   // The ProbSAT score table, base 1/cb (kissat init_score_table): cb alternates
-  // between the fixed 2.0 and the size fit across walks.
-  const uint32_t denominator =
-      w.full_binary_clauses + w.full_irredundant_clauses;
+  // between the fixed 2.0 and the size fit across walks.  The average divides
+  // by kissat's BINIRR_CLAUSES as read at init_walker: dense entry
+  // (dense.c:flush_large_watches) has already deleted root-satisfied and
+  // duplicate binaries, while root-satisfied large clauses are only retired
+  // afterwards in connect_large_counters and so still count.
+  const uint32_t denominator = w.binary_clauses + w.full_irredundant_clauses;
   const double avg = total_size / denominator;
   const double cb = (k.stats.walks & 1) ? fit_cbval(avg) : 2.0;
   const double base = 1 / cb;
@@ -461,7 +462,7 @@ ApplyResult walk_apply_steps(Kernel &k, uint64_t steps) {
               "initial=%u binary_unsat=%u minimum=%u flips=%llu "
               "steps=%llu budget=%llu conflicts=%llu\n",
               (unsigned long long)k.stats.walks, w.nclauses,
-              w.full_binary_clauses + w.full_irredundant_clauses,
+              w.binary_clauses + w.full_irredundant_clauses,
               w.binary_clauses, w.initial, w.initial_binary_unsat, w.minimum,
               (unsigned long long)w.flips,
               (unsigned long long)w.steps, (unsigned long long)steps,
