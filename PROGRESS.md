@@ -46,6 +46,12 @@ resume surface.
   watch-match (improves Rank 27), drop glue, and validate a 40/40 + B+C
   gate-passing stack -- genuine further gap closure. Then measure Rank-27 and
   run the full gates on the no-glue+watch-match stack.
+- `4742` result (attach+glue+watch-match, full match): Rank 19 TIMED OUT at
+  2,700 s -- WORSE than reorder-only's 1,974 s, even though the full match
+  improves Rank 27. On this chaotic SAT instance a more-faithful change does
+  not monotonically help; it just reshuffles the trajectory onto a different
+  (here longer) path. This is decisive evidence the Rank-19 cost is chaos, not
+  a targetable mechanism. Whether dropping glue recovers it is `4743`.
 
 
 - IN PROGRESS (staged fix for the Rank-19 block): added
