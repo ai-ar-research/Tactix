@@ -2051,8 +2051,12 @@ static void test_canonical_binary_watch_rebuild() {
   assert(saw_large);
   assert(k.watches.heads[pivot].binaries_first());
   assert(kernel_binary_copies(k, pivot, higher) == 1);
-  assert(kernel_binary_copies(k, root_satisfied, higher) == 0 &&
-         "Congruence dense entry drops root-satisfied binaries like Kissat");
+  // Congruence's own entry scan retires binaries satisfied at entry (as
+  // kissat's dense entry does); this resume rebuild re-appends the saved
+  // pairs without consulting values (`dense.c:resume_watching_irredundant_
+  // binaries`), so a binary satisfied since entry stays watched.
+  assert(kernel_binary_copies(k, root_satisfied, higher) == 1 &&
+         "the sparse resume keeps a binary satisfied after dense entry");
   assert(kernel_binary_copies(k, pivot, internalize(6)) == 0);
   assert(k.stats.congruence_binary_rebuilds == 1);
   kernel_check_invariants(k);
