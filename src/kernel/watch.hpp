@@ -177,6 +177,45 @@ struct WatchLists {
     assert(head.has_large() == has_large);
   }
 
+  // Stable-partition one list into [binaries..][large..], preserving each
+  // group's relative order. kissat_watch_large_clauses (watch.c) yields this
+  // binary-first layout as a side effect of appending large watches after
+  // binaries; the lazy in-place canonical Substitute can instead append a
+  // large-to-binary result after existing large watches, leaving the list
+  // non-binary-first. Sound: reordering entries changes neither which clauses
+  // are watched nor the propagation result, only visit order.
+  void reorder_binaries_first(Lit l) {
+    WatchHead &head = heads[l];
+    if (head.binaries_first())
+      return;
+    uint32_t *const b = begin(l);
+    const uint32_t n = head.size;
+    // Copy out (binaries first, then large), then write back. Lists are small.
+    std::vector<uint32_t> out;
+    out.reserve(n);
+    for (uint32_t i = 0; i < n;) {
+      if (Watch{b[i]}.binary()) {
+        out.push_back(b[i]);
+        i += 1;
+      } else {
+        i += 2;
+      }
+    }
+    for (uint32_t i = 0; i < n;) {
+      if (Watch{b[i]}.binary()) {
+        i += 1;
+      } else {
+        out.push_back(b[i]);
+        out.push_back(b[i + 1]);
+        i += 2;
+      }
+    }
+    assert(out.size() == n);
+    for (uint32_t i = 0; i < n; i++)
+      b[i] = out[i];
+    head.set_layout(head.binary_count(), true);
+  }
+
   // Rewrite the clause reference of every retained large entry in place.
   // Collection uses this after entry-aware compaction: prefix watch order and
   // blockers stay byte-identical while arena references are forwarded around
