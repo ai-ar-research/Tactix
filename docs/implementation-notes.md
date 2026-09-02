@@ -280,7 +280,9 @@ reference compact/import order before large clauses. Its `walkeffort=50‰`
 dose reads the Eliminate tick anchor: Kissat invokes Walk with
 `solver->probing == false`, so `SET_EFFORT_LIMIT` selects
 `last.ticks.eliminate`. Walk has no private effort anchor and does not advance
-that shared anchor; only a completed Eliminate phase does.
+that shared anchor; only a completed Eliminate phase does. The ProbSAT average
+divides by `BINIRR_CLAUSES` as read after dense entry: root-satisfied and
+duplicate binaries are already deleted, root-satisfied large clauses still count.
 
 ## 9. Reason bumping and dynamic tiers
 

@@ -185,8 +185,47 @@ learned since. Kissat's binary strengthening leaves the retired reason's
 reference in `last_learned` as a dead placeholder until it shifts out;
 Tactix vacated the slot, so the next flush compacted older entries forward
 and they survived one more insertion. Ported as `SP-EAGER-REGISTER-1`
-(commit `d182bf6`); Rank 19's window shows the same class at 45,427
-(`4810`, the other direction). Reruns `4813`/`4814` measure the repair.
+(commit `d182bf6`). After it, Rank 33's window 58,200..60,640 holds no
+deletion-counter difference at all (`4813`). Rank 19's window still first
+differs at 45,427 (`4814`), but the register rows on both arms (`4819`)
+show the two solvers already on different trajectories there: the deletion
+counters were silent because the divergence has no deletion signature. The
+first differing learned clause is at conflict 45,402 (Tactix size 11,
+Kissat size 319, identical learned rows before it); `4820` traces the
+decisions, conflict and analysis rows at 45,401..45,402.
+
+Rank 19 at 45,400 (`4820`, `4823`, `4824`): conflict 45,401 is analysed
+identically; the decision stretch of 45,400 differs at decision 4,898, the
+second pick of variable 72309. The full implication rows show why: that
+stretch holds Kissat's eighth rephase, a walk (schedule B,W,I,B,W,O), and
+both arms warm up identically (134,126 assignments, 4,847 decisions, no
+implication difference) before the walk writes every saved phase. Kissat's
+walk saved +72309, Tactix's -72309. Reading `walk.c` against
+`policies/ops/walk/walk.cpp`: `init_walker` reads `BINIRR_CLAUSES` after
+`kissat_enter_dense_mode` has already deleted root-satisfied and duplicate
+binaries, and only later retires root-satisfied large clauses; Tactix
+divided the ProbSAT average by every binary watch pair. Odd walks fit the CB
+base to that average, so every flip probability of the third walk differed.
+Ported as `SP-WALK-SIZE-1` (commit `782c1db`). Verification `4825` (Tactix
+`TACTIX_WALK_TRACE`, Kissat `-v -v -v`): walks 1..3 now agree exactly in
+initial and minimum unsatisfied counts (637/494, 533/530, 7,763/2,135),
+flips (226, 2,961, 7,060; Kissat reports twice the count) and cumulative
+steps (611,402; 4,196,871; 7,577,118). Rank 19's journal then matches
+Kissat's probe entries through 96,825 (previously 32,876) and first differs
+at the next probe entry, 126,396 against 126,390. Kissat's fourth walk lies
+in that interval at 100,865, Tactix's at 100,791 with the same rephase limit
+100,789, both from 726 initially unsatisfied clauses (Kissat minimum 623,
+Tactix 621); window `4829` covers 96,825..101,000. The walk budgets also
+expose a tick-accounting drift: the second walk's reference differs by
+about 20 search ticks (budget 3,581,953 against Kissat's 3,581,952), the
+third matches, the fourth differs by 0.05 % at different conflicts. Rank 19
+under the trace: 1,408 s / 4.94 M conflicts against Kissat's 289 s / 694 k.
+
+Rank 33's next window 60,640..110,430 (`4822`) holds no deletion-counter
+difference over 44,348 common conflicts; its journal divergence stays at
+120,329 (`4816`). Rank 35's window 12,050..15,400 (`4821`) is inconclusive:
+the Tactix trace ended after 162 conflicts with exit 0, the Kissat trace
+covers the window; its journal divergence stays at 19,364.
 
 ## 4. Decision
 
