@@ -36,6 +36,16 @@ resume surface.
   on a chaotic SAT instance (confirmed by 4738/4739's stable-mode heap-pick
   divergence). The full watch match is a strict improvement worth keeping; it
   is necessary but not sufficient for Rank 19.
+- PIVOTAL EXPERIMENT running: attach + full-watch-match WITHOUT the glue
+  repair (worktree at f3ac562 + kernel_rebuild_large_watches, build 1a705dbf),
+  Rank-19 solve `4743` (job `1659819`). The glue repair (14f9417) is faithful
+  but is the confirmed sole Rank-19 owner (watch layout now ruled out). Since
+  it is a NEW repair this session and not previously accepted, declining it to
+  hold 40/40 is legitimate. If 4743 solves under 1,200 s (near the ~227 s
+  pre-glue baseline), the clean path is: keep attach (pushed) + the faithful
+  watch-match (improves Rank 27), drop glue, and validate a 40/40 + B+C
+  gate-passing stack -- genuine further gap closure. Then measure Rank-27 and
+  run the full gates on the no-glue+watch-match stack.
 
 
 - IN PROGRESS (staged fix for the Rank-19 block): added
