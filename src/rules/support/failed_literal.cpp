@@ -227,6 +227,33 @@ ApplyResult failed_literal_apply_chained_binary(
   event_trace_detail(k, "backbone_computation",
                      static_cast<int64_t>(computation));
   trace_backbone_candidates(k, "backbone_scheduled", candidates);
+  // Scheduled-list rows share the dormant per-probe effort journal so one
+  // campaign can compare candidate order and priority bits across solvers.
+  if (const char *bt_path = std::getenv("TACTIX_BACKBONE_TICKS_TRACE")) {
+    const char *bt_conflict = std::getenv("SAT_BACKBONE_CONFLICT");
+    if (*bt_path &&
+        (!bt_conflict || !*bt_conflict ||
+         std::strtoull(bt_conflict, nullptr, 10) == k.stats.conflicts)) {
+      static std::FILE *sched_out = nullptr;
+      if (!sched_out) {
+        const std::string sched_path = std::string(bt_path) + ".sched";
+        sched_out = std::fopen(sched_path.c_str(), "w");
+        if (sched_out) {
+          std::setvbuf(sched_out, nullptr, _IOLBF, 0);
+          std::fputs("# backbone-scheduled\t1\n", sched_out);
+          std::fputs("# solver\tordinal\texternal\tprioritized\n", sched_out);
+        }
+      }
+      if (sched_out)
+        for (size_t i = 0; i < candidates.size(); i++) {
+          const Lit lit = candidates[i];
+          std::fprintf(sched_out, "tactix\t%zu\t%d\t%u\n", i,
+                       kernel_externalize(k, lit),
+                       !!(k.backbone_priority[var_of(lit)] &
+                          (1u << negated(lit))));
+        }
+    }
+  }
 #endif
 
   for (uint32_t round = 0; round < round_limit; round++) {
