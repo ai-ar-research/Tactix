@@ -32,6 +32,22 @@ resume surface.
   +223 s, Factor +186 s, Vivify +135 s (work differs), Substitute +104 s,
   Congruence +64 s. The large residuals (Ranks 25, 21, 34, 27, 37) are
   search-regime divergences for the differential-trace method.
+- SWEEP DELAY-LADDER DENOMINATOR (local, under gates): kissat rates a
+  Sweep call by `average(eliminated, swept)` where `swept` counts the
+  VARIABLES the call swept; Tactix divided by candidate-pair directions
+  (several per seed), judged productive calls unproductive, bumped the
+  delay, and skipped the next Sweep. Localized on Rank 33 by boundary
+  journals (`4757`), binary-set snapshots (`4758`/`4759`), the standalone
+  substitute map (`4762`), Sweep event traces (`4763`), and slot-limit
+  budgets (`4765`): both solvers derive identical Sweep budgets and
+  per-seed Kitten ticks, but Tactix's second probe-round Sweep at conflict
+  19,378 ran zero seeds (40 rounds of 97 invocations run-wide) while Kissat's
+  ran 4,165 more and proved 39230 = 39248. `Stats::sweep_swept` now feeds
+  `DELAY_SPECS` (test `test_sweep_delay_rates_per_swept_variable`). Family
+  probe `4766` vs the `70e3807` pin: Rank 21 315 -> 165 s (conflicts 125.7k
+  -> 93.8k; Kissat 93.1k), Rank 37 559 -> 427 s (7.88M -> 5.08M conflicts),
+  Rank 31 406 -> 393 s (5.77M -> 4.65M; Kissat 4.54M), Rank 35 453 -> 527 s
+  (regression), Ranks 22/27/32 unchanged; net -217 s on seven ranks.
 - SWEEP RESCHEDULE O(1) (local, identity-verified): `sweep_reschedule_
   representatives` did a linear find, erase, and insert on the schedule
   vector per rescheduled representative (Rank 22: 121k reschedules on a

@@ -1424,6 +1424,7 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
         sweep_semantic_effort(k) - start > lim.round_ticks)
       break;
     seeds++;
+    k.stats.sweep_swept++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t before = sweep_semantic_effort(k);
     const uint64_t solves_before = k.stats.sweep_solves;
@@ -1633,6 +1634,7 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
     if (retained)
       k.stats.sweep_resumed++;
     seeds++;
+    k.stats.sweep_swept++;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     const uint64_t before = sweep_semantic_effort(k);
     const uint64_t solves_before = k.stats.sweep_solves;
@@ -2725,6 +2727,7 @@ ApplyResult sweep_try(Kernel &k, Var seed) {
   if (k.work_budget)
     lim.round_ticks = k.work_budget;
   sweep_round_begin(k, round);
+  k.stats.sweep_swept++;
   (void)sweep_process_seed(k, seed, lim, round, true);
   if (k.inconsistent)
     return ApplyResult::Unsat;

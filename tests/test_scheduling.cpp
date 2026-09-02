@@ -689,6 +689,74 @@ static void test_vivify_subsumption_reduces_irredundant_delay(void) {
          "a successful subsumption was omitted from Vivify productivity");
 }
 
+// kissat rates a Sweep call by `kissat_average (eliminated, swept)`, where
+// `swept` counts the scheduled VARIABLES the call processed.  Every seed
+// solves several candidate-pair directions, so dividing by those pairs
+// instead judged productive calls unproductive, bumped the delay, and skipped
+// the following Sweep (Rank 33: the second probe round's Sweep never ran and
+// missed the equivalence Kissat proves there).
+static void test_sweep_delay_rates_per_swept_variable(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  ScopedHeuristics h(k);
+  k.stats.conflicts = 1;
+  const auto equate = [&](int left, int right, int helper) {
+    for (uint32_t mask = 0; mask < 4; mask++) {
+      const int sign = (mask & 1) ? 1 : -1;
+      const int hl = (mask & 2) ? helper : -helper;
+      const Lit clause[3] = {internalize(-sign * left),
+                             internalize(sign * right), internalize(hl)};
+      kernel_add_large_clause(k, clause, 3, false, 0);
+    }
+  };
+  equate(1, 2, 4);
+  equate(2, 3, 5);
+  // Twelve more variables hang off the class through ternaries that force
+  // nothing, so every seed's environment holds many partition classes and
+  // solves several candidate-pair directions per swept variable.
+  kernel_reserve_vars(k, 17);
+  for (int v = 6; v < 17; v++) {
+    const Lit a[3] = {internalize(1), internalize(v), internalize(-(v + 1 > 16 ? 6 : v + 1))};
+    const Lit b[3] = {internalize(-2), internalize(-v), internalize(v + 1 > 16 ? 6 : v + 1)};
+    const Lit c[3] = {internalize(3), internalize(v), internalize(v + 1 > 16 ? 6 : v + 1)};
+    kernel_add_large_clause(k, a, 3, false, 0);
+    kernel_add_large_clause(k, b, 3, false, 0);
+    kernel_add_large_clause(k, c, 3, false, 0);
+  }
+
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.minimum_effort_ticks = 1000000;
+  cfg.inprocess.phase_rounds = 1;
+  cfg.inprocess.sweep_permille = 1000;
+  // A threshold no per-pair rate reaches while the per-variable rate does.
+  cfg.inprocess.sweep_productivity_permille = 600;
+  DefaultPolicy p(cfg);
+  p.inprocess().build(k);
+  DefaultInprocessScheduler::SlotEntry *sweep = nullptr;
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries) {
+    const bool selected = !std::strcmp(rules[e.rule].name, "Sweep") ||
+                          !std::strcmp(rules[e.rule].name, "Substitute");
+    e.enabled = selected;
+    if (!std::strcmp(rules[e.rule].name, "Sweep"))
+      sweep = &e;
+  }
+  assert(sweep);
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  const uint64_t yield = k.stats.sweep_equivalences + k.stats.sweep_units;
+  assert(yield >= 2 && "the chain x1 = x2 = x3 was not proved");
+  assert(k.stats.sweep_swept >= 1 &&
+         k.stats.sweep_candidates > k.stats.sweep_swept);
+  const bool productive_per_variable =
+      yield * 1000 >= 600 * k.stats.sweep_swept;
+  const bool productive_per_pair =
+      yield * 1000 >= 600 * k.stats.sweep_candidates;
+  assert(productive_per_variable && !productive_per_pair &&
+         "fixture no longer separates the two denominators");
+  assert(sweep->delay_current == 0 && sweep->delay_count == 0 &&
+         "Sweep's ladder must rate yield per swept variable, as kissat does");
+}
+
 static void add_substitute_second_round_fixture(Kernel &k) {
   kernel_reserve_vars(k, 5);
   // The first round sees x1 == x2. Rewriting x2 to x1 shrinks the two large
@@ -1543,6 +1611,7 @@ int main() {
   test_vivify_dose_poses_focused_tiers();
   test_vivify_dose_carries_early_tier_budget();
   test_vivify_subsumption_reduces_irredundant_delay();
+  test_sweep_delay_rates_per_swept_variable();
   test_substitute_budget_is_per_round_and_per_call();
   test_substitute_overshoot_stops_only_optional_round();
   test_rule_boundary_deactivates_root_before_substitute_member();
