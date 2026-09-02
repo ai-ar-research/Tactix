@@ -8,31 +8,28 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-02). Accepted pin: `origin/main` production behavior
-  = `f3ac562` (Release SHA `b3303154...`, Rank 1--40 `4701` 9,597.0 s 40/40
-  versus Kissat `1930` 7,675.2 s; T4-K needs <= 8,442.7 s). The glue repair
-  and the canonical-Substitute watch-match are BACKED OUT of `main` and
-  accepted as ledger deviations `SP-GLUE-SHRINK-2` / `SP-SUBSTITUTE-WATCH-1`;
-  the full stack is retained on branch `hold/glue-watch-match`. Evidence:
-  `benchmarks/reports/2026-09-02-glue-watch-match-rank19-ladder.md`.
-  NEXT: the systematic unit-cost ladder on the huge zero-conflict ranks
-  (5, 7, 8, 10, 13, 14: +190 s versus Kissat with identical work and
-  Congruence at parity): (1) DIMACS parse+import front-end (32.8 s versus
-  Kissat parse 17.2 s on Rank 10), (2) canonical Substitute unit cost
-  (23.8 s versus 10.0 s), (3) scaffolding outside the inprocessing slot at
-  zero conflicts (15.1 s versus Kissat lucky 4.7 s), (4) BVE unit cost on
-  Rank 9 (29.7 s versus 13.4 s). Profile first on SLURM, fix unit cost with
-  no scheduling change, gate with Rank 1--40 + B28+C5.
-- FRONT-END UNIT COST, increment 1 (local): `parse_dimacs` now scans one
-  input block at a time with register-resident cursor/limit locals
-  (`parse_dimacs_with_block` exposes the block size so tests place every
-  token and line boundary on a block edge), and `BinaryLivenessIndex` is a
-  blocked filter whose three probe bits share one cache line. Same-window
-  identity probe `4748` (job `1659934`, Ranks 1/4/5/10/12 vs the `4701` pin):
-  byte-identical proofs, models, and counters on every rank; parse 35.8 ->
-  27.9 s on Rank 5 and 30.3 -> 22.8 s on Rank 10, whose Congruence also
-  drops 2.5 s. Decomposition authority: `4746` (same-window vs Kissat) and
-  `4747` (source-line profile). Not yet gated or fuzzed.
+- RESUME HERE (2026-09-02, second wrap). Accepted pin: `origin/main` =
+  `bdb0d44` (Release SHA `1aaad2bb...`): front-end unit-cost increments 1+2,
+  gated 40/40 with every counter and certificate identical to `4701`
+  (campaign `4750`, 9,511.6 s vs 9,597.0 s) and B28+C5 66/66 at 0.547
+  (`4751`); fuzz quick/random legs clean (jobs `1659954`/`1659955`).
+  Kissat `1930` is 7,675.2 s; T4-K needs <= 8,442.7 s. Evidence:
+  `benchmarks/reports/2026-09-02-frontend-unit-cost.md`.
+  NEXT (deterministic, identity-verifiable unit cost at matching work):
+  (1) Sweep's `sweep_reschedule_representatives` does a linear find, erase,
+  and insert on a schedule vector of up to 3.9M entries per rescheduled
+  representative (Rank 22: 121k reschedules, ~100 s inclusive, 70 s self,
+  plus 40 s memmove in profile `4752`; Kissat's `schedule_inner` is an O(1)
+  queue move) -- replace with an order-identical O(1) front stack plus
+  tombstones; verify by identity on Rank 22 and small ranks. (2) Factor
+  3.0x, BVE 1.9x, Congruence 2.1x at identical work on Ranks 31/33/37
+  (7,953 vs 7,874 factorings; 364,546 vs 368,873 eliminations; 67,292 vs
+  67,115 merges); profile `4752` on Rank 33 charges much of it to shared
+  kernel rebuilds (`kernel_collect_garbage` 18 s, `kernel_rebuild_large_
+  watches` 10 s, dense occurrence rebuilds, logical-position sorts) -- root
+  the next profile at those helpers per calling rule. Per-rule excess over
+  all 40 ranks: BVE +223 s, Factor +186 s, Vivify +135 s (work differs),
+  Substitute +104 s, Congruence +64 s.
 - FRONT-END UNIT COST, increment 2 (local): `ingest_clause` dedups large
   clauses in place with a parse-scoped literal mark array (no per-clause
   vectors or sort; first-occurrence order kept) and activates from the
