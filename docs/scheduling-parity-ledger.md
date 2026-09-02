@@ -209,6 +209,27 @@ where the port is deliberately *not* a transliteration and does not weaken the r
   isolate creation to the pre-Vivify canonical substitution; `4614` is the
   direct post-repair boundary validation. No option or instance gate was
   introduced.
+- **`SP-GLUE-SHRINK-2` -- forward-strengthen and root-flush shrinks keep the
+  size-minus-one glue clamp (accepted 2026-09-02).** Kissat clamps only in
+  search-time OTFS, Sweep, and Vivify; `forward.c` and `collect.c` shrink in
+  place without touching glue. The faithful repair (`14f9417`, branch
+  `hold/glue-watch-match`) converges Rank 27's Reduce retention but is the
+  confirmed sole owner of a chaotic Rank-19 blowup: 251 s accepted versus
+  timeout / 1,975 s / 2,700 s with glue under three watch layouts, and Rank
+  1--40 totals 10,421 / 10,268 s against the accepted 9,597 s
+  (`benchmarks/reports/2026-09-02-glue-watch-match-rank19-ladder.md`). Reopen
+  when the coupled mechanism that keeps Kissat's Rank-19 trajectory stable
+  under preserved glue is identified, or when a Rank 1--40 draw carrying the
+  repair beats the accepted total; never on Rank 27 alone.
+- **`SP-SUBSTITUTE-WATCH-1` -- canonical Substitute keeps the lazy in-place
+  watch layout (accepted 2026-09-02).** Kissat's `kissat_substitute` ends with
+  `kissat_watch_large_clauses` (large watches re-appended in arena order);
+  Tactix retains each survivor's watch pose (`SP-INPLACE-REWRITE-1`). The
+  faithful terminal rebuild (`dbadf8e`, same branch) matches the Rank-19
+  conflict-0 binary-scan journal word for word, yet the gated no-glue stack
+  measured 10,054.8 s (40/40) against 9,597.0 s with Rank 27's conflict count
+  unchanged (7,441,126); B28+C5 stayed 66/66 at 0.668. Reopen together with
+  `SP-GLUE-SHRINK-2` or on a watch-lifecycle mismatch at a common state.
 
 - **`D-HBR-STANDALONE` — we ship a technique NEITHER reference budgets, and bound it with the ledger**
   (plan decision (2ecba2d), user decision 2026-08-07). **What the references do:** kissat has no hyper-binary resolution

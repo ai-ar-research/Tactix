@@ -8,24 +8,29 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-03 wrap; user continues in a fresh srun). The promising
-  path is attach + full-watch-match with the glue repair DROPPED. Evidence:
-  Rank 19 (the sole gate failure) solves in 989.2 s with glue dropped
-  (campaign `4743`) -- UNDER the 1,200 s gate -- whereas both glue-bearing
-  variants fail it (reorder 1,974 s, full-watch-match 2,700 s timeout). The
-  candidate binary is `.claude/worktrees/no-glue/build/rel/tactix`
-  (SHA `1a705dbf`, = f3ac562 + only the `kernel_rebuild_large_watches(k)` call
-  at `substitute_apply` end; NO glue commits). IN FLIGHT: homogeneous Rank
-  1--40 gate `4744` (job `1659821`) and B28+C5 gate `4745` (job `1659857`) on
-  that binary. FIRST ACTION on resume: aggregate `4744`/`4745`. If `4744` is
-  40/40 and its total beats the pushed `f3ac562` baseline (9,413 s), and
-  `4745` stays <=1.10 PAR-2, then the watch-match's UNSAT-rank gains (esp.
-  Rank 27) outweigh its chaotic Rank-19 cost -> commit attach+watch-match as
-  a clean gate-passing stack and push. If not 40/40 or net-worse, keep
-  origin at `f3ac562` and treat the watch-match + glue as retained-but-local
-  faithful repairs. The full stack with glue (commits `14f9417`, `dbadf8e`)
-  stays local regardless; the glue repair is faithful but the confirmed sole
-  cause of Rank 19's chaotic blowup.
+- RESUME HERE (2026-09-02). Accepted pin: `origin/main` production behavior
+  = `f3ac562` (Release SHA `b3303154...`, Rank 1--40 `4701` 9,597.0 s 40/40
+  versus Kissat `1930` 7,675.2 s; T4-K needs <= 8,442.7 s). The glue repair
+  and the canonical-Substitute watch-match are BACKED OUT of `main` and
+  accepted as ledger deviations `SP-GLUE-SHRINK-2` / `SP-SUBSTITUTE-WATCH-1`;
+  the full stack is retained on branch `hold/glue-watch-match`. Evidence:
+  `benchmarks/reports/2026-09-02-glue-watch-match-rank19-ladder.md`.
+  NEXT: the systematic unit-cost ladder on the huge zero-conflict ranks
+  (5, 7, 8, 10, 13, 14: +190 s versus Kissat with identical work and
+  Congruence at parity): (1) DIMACS parse+import front-end (32.8 s versus
+  Kissat parse 17.2 s on Rank 10), (2) canonical Substitute unit cost
+  (23.8 s versus 10.0 s), (3) scaffolding outside the inprocessing slot at
+  zero conflicts (15.1 s versus Kissat lucky 4.7 s), (4) BVE unit cost on
+  Rank 9 (29.7 s versus 13.4 s). Profile first on SLURM, fix unit cost with
+  no scheduling change, gate with Rank 1--40 + B28+C5.
+- GATE OUTCOME for the no-glue + watch-match binary `1a705dbf`: Rank 1--40
+  `4744` is 40/40 (Rank 19 SAT in 1,010.4 s) but totals 10,054.8 s versus
+  the accepted 9,597.0 s (Rank 35 +306 s, Rank 19 +759 s, Rank 17 +145 s;
+  Rank 34 -495 s, Rank 37 -162 s); B28+C5 `4745` is 66/66 expected verdicts
+  at 0.668 paired PAR-2 (checkers nonblocking). Rank 27's conflict count is
+  identical to `f3ac562` (7,441,126): the watch-match's Rank-27 gain existed
+  only with glue. Not pushed; the earlier "9,413 s" baseline figure was
+  wrong (`4701` aggregates to 9,596.978 s).
 - ACTIVE (user directive 2026-09-03: "do the full watch-layout match; do not
   merge before it"): replaced the partial binary-first reorder at canonical
   `substitute_apply` end with a full `kernel_rebuild_large_watches(k)` call --
