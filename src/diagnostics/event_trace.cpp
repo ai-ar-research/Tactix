@@ -865,14 +865,14 @@ static void emit_standalone_macro_boundary(const Kernel &k,
     std::fputs("# tactix-macro-boundary\t1\n", out);
     std::fputs("# solver\tseq\tevent\tconflicts\tdecisions\t"
                "propagations\tlevel\tmode\tunassigned\ttrail\t"
-               "restarts\treductions\tswitched\trephased\n",
+               "restarts\treductions\tswitched\trephased\tstamp\n",
                out);
   }
   if (k.stats.conflicts < conflict_from)
     return;
   std::fprintf(out,
                "tactix\t%llu\t%s\t%llu\t%llu\t%llu\t%u\t%s\t%u\t"
-               "%zu\t%llu\t%llu\t%llu\t%llu\n",
+               "%zu\t%llu\t%llu\t%llu\t%llu\t%u\n",
                (unsigned long long)sequence++, event,
                (unsigned long long)k.stats.conflicts,
                (unsigned long long)k.stats.decisions,
@@ -882,7 +882,8 @@ static void emit_standalone_macro_boundary(const Kernel &k,
                (unsigned long long)k.stats.restarts,
                (unsigned long long)k.stats.reductions,
                (unsigned long long)k.stats.switched,
-               (unsigned long long)k.stats.rephased);
+               (unsigned long long)k.stats.rephased,
+               !k.h ? 0u : k.h->queue_stamp);
   const char *state_event = std::getenv("SAT_MACRO_BOUNDARY_STATE_EVENT");
   const char *state_path = std::getenv("TACTIX_MACRO_BOUNDARY_STATE");
   if (state_path && *state_path && state_event && *state_event &&
@@ -913,6 +914,32 @@ static void emit_standalone_macro_boundary(const Kernel &k,
                  (unsigned long long)irredundant,
                  (unsigned long long)redundant,
                  (unsigned long long)live_binary_clause_count(k));
+  }
+  const char *queue_dump_path = std::getenv("TACTIX_QUEUE_DUMP");
+  const char *queue_dump_event = std::getenv("SAT_QUEUE_DUMP_EVENT");
+  const char *queue_dump_conflict = std::getenv("SAT_QUEUE_DUMP_CONFLICT");
+  if (queue_dump_path && *queue_dump_path && queue_dump_event &&
+      !std::strcmp(event, queue_dump_event) && queue_dump_conflict &&
+      *queue_dump_conflict &&
+      std::strtoull(queue_dump_conflict, nullptr, 10) == k.stats.conflicts &&
+      k.h) {
+    static bool queue_dumped = false;
+    if (!queue_dumped) {
+      queue_dumped = true;
+      std::FILE *dump = std::fopen(queue_dump_path, "w");
+      if (!dump) {
+        std::perror("TACTIX_QUEUE_DUMP");
+        std::exit(2);
+      }
+      std::fputs("# queue-dump\t1\n", dump);
+      std::fputs("# position\texternal\tstamp\n", dump);
+      uint64_t position = 0;
+      for (Var v = k.h->queue_first; v != UINT32_MAX; v = k.h->links[v].next)
+        std::fprintf(dump, "%llu\t%u\t%u\n",
+                     (unsigned long long)position++,
+                     k.internal_to_external[v] + 1, k.h->links[v].stamp);
+      std::fclose(dump);
+    }
   }
   const char *exit_event = std::getenv("SAT_MACRO_BOUNDARY_EXIT_EVENT");
   if (exit_event && *exit_event && !std::strcmp(event, exit_event)) {
@@ -4589,6 +4616,42 @@ void EventTrace::bve_heap(const Kernel &k, const char *stage, Var trigger,
 void event_trace_bve_heap(const Kernel &k, const char *stage, Var trigger,
                           Var subject, double score, uint32_t position,
                           Var root, uint32_t size) {
+  // Standalone selected-subject sink: the global trace's per-event dispatch
+  // is too expensive to keep open across a long search prefix, so heap
+  // localization needs a path that stays dormant until its exact conflict.
+  if (const char *path = std::getenv("TACTIX_BVE_HEAP_TRACE")) {
+    const char *conflict = std::getenv("SAT_BVE_HEAP_CONFLICT");
+    if (*path &&
+        (!conflict || !*conflict ||
+         std::strtoull(conflict, nullptr, 10) == k.stats.conflicts)) {
+      static std::FILE *out = nullptr;
+      if (!out) {
+        out = std::fopen(path, "w");
+        if (!out) {
+          std::perror("TACTIX_BVE_HEAP_TRACE");
+          std::exit(2);
+        }
+        std::setvbuf(out, nullptr, _IOLBF, 0);
+        std::fputs("# bve-heap-observer\t1\n", out);
+      }
+      const int trigger_external =
+          trigger == INVALID_VAR ? 0 : k.internal_to_external[trigger] + 1;
+      const int root_external =
+          root == INVALID_VAR ? 0 : k.internal_to_external[root] + 1;
+      const uint32_t positive =
+          bve_schedule_occurrence_count(k, make_lit(subject, false));
+      const uint32_t negative =
+          bve_schedule_occurrence_count(k, make_lit(subject, true));
+      std::fprintf(out,
+                   "tactix\tstage=%s\ttrigger=%d\tsubject=%u\tscore=%a\t"
+                   "positive=%u\tnegative=%u\tpos=%d\troot=%d\tsize=%u\n",
+                   stage, trigger_external,
+                   k.internal_to_external[subject] + 1, score, positive,
+                   negative,
+                   position == UINT32_MAX ? -1 : static_cast<int>(position),
+                   root_external, size);
+    }
+  }
   if (active_trace)
     active_trace->bve_heap(k, stage, trigger, subject, score, position, root,
                            size);
