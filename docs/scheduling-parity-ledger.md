@@ -230,6 +230,17 @@ where the port is deliberately *not* a transliteration and does not weaken the r
   measured 10,054.8 s (40/40) against 9,597.0 s with Rank 27's conflict count
   unchanged (7,441,126); B28+C5 stayed 66/66 at 0.668. Reopen together with
   `SP-GLUE-SHRINK-2` or on a watch-lifecycle mismatch at a common state.
+  **Reopened and repaired 2026-09-02 (unit cost):** the lazy layout was not
+  free. Keeping large watches connected made every rewritten clause pay an
+  O(|watch list|) compaction twice (`kernel_unwatch_large`), 18 s of Rank
+  22's 29.6 s rewrite time and 9 s for one round that merged nothing but
+  shrank root-satisfied clauses. Canonical Substitute now follows
+  `substitute.c` exactly: the round-one SCC pass still charges the large
+  watch words, `substitute_binaries` drops the large watches (duplicate
+  binaries stay: `kernel_drop_large_watches`), `substitute_clauses` rewrites
+  bare records, and the call's last round reconnects in arena order with a
+  propagation reset (`substitute_reconnect_large_watches`). The glue repair
+  ships alongside, as this entry's reopen condition required.
 
 - **`D-HBR-STANDALONE` — we ship a technique NEITHER reference budgets, and bound it with the ledger**
   (plan decision (2ecba2d), user decision 2026-08-07). **What the references do:** kissat has no hyper-binary resolution
