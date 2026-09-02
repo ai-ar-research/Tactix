@@ -1451,15 +1451,91 @@ uint32_t sweep_detect_round(Kernel &k, const SweepLimits &lim, SweepRound &r) {
 }
 
 namespace {
+constexpr uint32_t SWEEP_FRONT_BIT = 1u << 31;
+
+// Record the slot of every tail entry appended since the last call (the
+// resumable build, or a test assigning `sweep_tail` directly). A variable that
+// already has a live entry keeps it: only its first unconsumed copy is the one
+// a reschedule removes, exactly as the former linear search found it.
+void sweep_index_tail(Kernel &k) {
+  for (uint32_t i = k.sweep_tail_indexed; i < k.sweep_tail.size(); i++) {
+    const Var external = k.sweep_tail[i];
+    if (external == INVALID_VAR)
+      continue;
+    if (k.sweep_slot.size() <= external)
+      k.sweep_slot.resize(static_cast<size_t>(external) + 1, 0);
+    if (!k.sweep_slot[external])
+      k.sweep_slot[external] = i + 1;
+    k.sweep_live++;
+  }
+  k.sweep_tail_indexed = static_cast<uint32_t>(k.sweep_tail.size());
+}
+
+// Pop the next live entry: the reschedule front first (last in, first out),
+// then the tail in order. INVALID_VAR when nothing live remains.
+Var sweep_take_next(Kernel &k) {
+  while (!k.sweep_front.empty()) {
+    const uint32_t j = static_cast<uint32_t>(k.sweep_front.size() - 1);
+    const Var external = k.sweep_front.back();
+    k.sweep_front.pop_back();
+    if (external == INVALID_VAR)
+      continue;
+    if (external < k.sweep_slot.size() &&
+        k.sweep_slot[external] == ((j | SWEEP_FRONT_BIT) + 1))
+      k.sweep_slot[external] = 0;
+    k.sweep_live--;
+    return external;
+  }
+  while (k.sweep_tail_next < k.sweep_tail.size()) {
+    const uint32_t i = k.sweep_tail_next++;
+    const Var external = k.sweep_tail[i];
+    if (external == INVALID_VAR)
+      continue;
+    if (external < k.sweep_slot.size() && k.sweep_slot[external] == i + 1)
+      k.sweep_slot[external] = 0;
+    k.sweep_live--;
+    return external;
+  }
+  return INVALID_VAR;
+}
+
+// Move one representative to the pop end: tombstone its live entry, if any,
+// and push it on the front. The last representative pushed is the next seed.
+void sweep_reschedule_one(Kernel &k, Var external) {
+  if (k.sweep_slot.size() <= external)
+    k.sweep_slot.resize(static_cast<size_t>(external) + 1, 0);
+  const uint32_t slot = k.sweep_slot[external];
+  if (slot) {
+    const uint32_t location = slot - 1;
+    if (location & SWEEP_FRONT_BIT)
+      k.sweep_front[location & ~SWEEP_FRONT_BIT] = INVALID_VAR;
+    else
+      k.sweep_tail[location] = INVALID_VAR;
+    k.sweep_live--;
+  }
+  k.sweep_front.push_back(external);
+  k.sweep_slot[external] =
+      (static_cast<uint32_t>(k.sweep_front.size() - 1) | SWEEP_FRONT_BIT) + 1;
+  k.sweep_live++;
+}
+
+void sweep_schedule_clear(Kernel &k) {
+  k.sweep_tail.clear();
+  k.sweep_tail.shrink_to_fit();
+  k.sweep_front.clear();
+  k.sweep_front.shrink_to_fit();
+  std::vector<uint32_t>().swap(k.sweep_slot);
+  k.sweep_tail_next = 0;
+  k.sweep_tail_indexed = 0;
+  k.sweep_live = 0;
+}
+
 // Kissat's `schedule_inner` moves each newly substituted equivalence
 // representative to the pop end of the live schedule.  Since representatives
-// are scheduled in discovery order, the last one becomes the next seed.  The
-// stable-external tail is the same stack written forwards: remove any stale
-// occurrence, then insert each representative at the consumed boundary.
+// are scheduled in discovery order, the last one becomes the next seed.
 static void sweep_reschedule_representatives(
     Kernel &k, SweepRound &round,
     const std::vector<std::pair<Var, Var>> &external_pairs) {
-  std::vector<Var> representatives;
   for (const auto &pair : external_pairs) {
     Var endpoints[2] = {INVALID_VAR, INVALID_VAR};
     bool resolved = true;
@@ -1494,18 +1570,20 @@ static void sweep_reschedule_representatives(
     // Do not deduplicate: Kissat's `schedule_inner` is a move-to-pop-end for
     // every proved equivalence.  If A, B, A are discovered in that order, the
     // final move of A is observable and A—not B—is the next seed.
-    representatives.push_back(k.internal_to_external[representative]);
-  }
-  for (const Var representative : representatives) {
-    const auto begin = k.sweep_tail.begin() + k.sweep_tail_next;
-    const auto found = std::find(begin, k.sweep_tail.end(), representative);
-    if (found != k.sweep_tail.end())
-      k.sweep_tail.erase(found);
-    k.sweep_tail.insert(k.sweep_tail.begin() + k.sweep_tail_next,
-                        representative);
+    sweep_reschedule_one(k, k.internal_to_external[representative]);
     k.stats.sweep_rescheduled++;
   }
 }
+} // namespace
+
+Var sweep_next_scheduled(const Kernel &k) {
+  for (size_t j = k.sweep_front.size(); j-- > 0;)
+    if (k.sweep_front[j] != INVALID_VAR)
+      return k.sweep_front[j];
+  for (size_t i = k.sweep_tail_next; i < k.sweep_tail.size(); i++)
+    if (k.sweep_tail[i] != INVALID_VAR)
+      return k.sweep_tail[i];
+  return INVALID_VAR;
 }
 
 static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
@@ -1516,18 +1594,19 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   sweep_completed_limits(k, lim);
   sweep_round_begin(k, r);
 
-  const bool retained = k.sweep_tail_next < k.sweep_tail.size();
+  sweep_index_tail(k);
+  const bool retained = k.sweep_live > 0;
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
   const uint64_t schedule_t0 = sweep_time ? now_nanos() : 0;
 #endif
   if (!retained) {
-    k.sweep_tail.clear();
-    k.sweep_tail_next = 0;
+    sweep_schedule_clear(k);
     sweep_seeds(k, r.seeds);
     for (const Var v : r.seeds)
       if (sweep_schedulable(k, v, lim))
         k.sweep_tail.push_back(k.internal_to_external[v]);
     k.stats.sweep_scheduled += k.sweep_tail.size();
+    sweep_index_tail(k);
   }
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
   if (sweep_time)
@@ -1537,13 +1616,15 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
   const uint64_t start = sweep_semantic_effort(k);
   uint32_t seeds = 0;
   ApplyResult result = ApplyResult::NoOp;
-  while (k.sweep_tail_next < k.sweep_tail.size()) {
+  while (k.sweep_live > 0) {
     if (lim.max_seeds && seeds >= lim.max_seeds)
       break;
     if (lim.round_ticks &&
         sweep_semantic_effort(k) - start > lim.round_ticks)
       break;
-    const Var external = k.sweep_tail[k.sweep_tail_next++];
+    const Var external = sweep_take_next(k);
+    if (external == INVALID_VAR)
+      break;
     if (external >= k.external_to_internal.size())
       continue;
     const Var v = k.external_to_internal[external];
@@ -1611,10 +1692,8 @@ static ApplyResult sweep_apply_resumable(Kernel &k, SweepLimits lim,
       r.time_post_seed += now_nanos() - post_seed_t0;
 #endif
   }
-  if (k.sweep_tail_next == k.sweep_tail.size()) {
-    k.sweep_tail.clear();
-    k.sweep_tail.shrink_to_fit();
-    k.sweep_tail_next = 0;
+  if (k.sweep_live == 0) {
+    sweep_schedule_clear(k);
     k.sweep_passes_completed++;
     k.stats.sweep_completed++;
   }

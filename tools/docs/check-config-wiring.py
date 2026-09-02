@@ -116,6 +116,8 @@ TABLE = {
     "vivify_flush":            ("ENV", "TACTIX_VIVIFY_FLUSH; CaDiCaL vivifyflush, "
                                        "ships ON via the kernel.hpp default, =0 reverts"),
     "sweep_tail_next":         ("RULE", "Sweep canonical schedule state"),
+    "sweep_tail_indexed": ("RULE", "Sweep canonical schedule state"),
+    "sweep_live": ("RULE", "Sweep canonical schedule state"),
     "sweep_passes_completed":  ("RULE", "Sweep completed-pass limit growth"),
     # Pure diagnostic: it makes C1 report instead of act, so it can never be a
     # shipped default and nothing in the policy may write it.

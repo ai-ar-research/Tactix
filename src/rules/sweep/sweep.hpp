@@ -193,6 +193,10 @@ struct SweepRound {
 // cites level-0 unit ids and reads the watch lists, and both mean what they say
 // only at a drained root.
 RuleEligibility sweep_guard(const Kernel &);
+// The external identity the resumable schedule will seed next (tombstones
+// skipped, the reschedule front before the tail), INVALID_VAR when empty.
+// Read-only; the round loop consumes through its own cursor.
+Var sweep_next_scheduled(const Kernel &);
 
 // Canonical seed order: active, unassigned variables, ascending occurrence
 // degree. This is the action surface `instances()` exposes, so it ranks and

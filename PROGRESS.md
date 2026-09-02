@@ -30,6 +30,16 @@ resume surface.
   the next profile at those helpers per calling rule. Per-rule excess over
   all 40 ranks: BVE +223 s, Factor +186 s, Vivify +135 s (work differs),
   Substitute +104 s, Congruence +64 s.
+- SWEEP RESCHEDULE O(1) (local, identity-verified): `sweep_reschedule_
+  representatives` did a linear find, erase, and insert on the schedule
+  vector per rescheduled representative (Rank 22: 121k reschedules on a
+  3.9M-entry schedule). The schedule is now a LIFO reschedule front consumed
+  before the tail with slot-addressed tombstones, reproducing the former
+  consumption order exactly (`sweep_next_scheduled` is the test-visible
+  peek). Identity probe `4753` (job `1660064`, Ranks 22/21/39/24/9/4 vs the
+  `bdb0d44` pin): byte-identical proofs, models, and counters; Rank 22
+  493.6 -> 392.2 s, Rank 21 315.5 -> 311.8 s, others within noise. Gates
+  and fuzz on the pinned commit are next.
 - FRONT-END UNIT COST, increment 2 (local): `ingest_clause` dedups large
   clauses in place with a parse-scoped literal mark array (no per-clause
   vectors or sort; first-occurrence order kept) and activates from the

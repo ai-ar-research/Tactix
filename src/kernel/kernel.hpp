@@ -1146,6 +1146,16 @@ struct Kernel {
   bool vivify_flush = false;
   std::vector<Var> sweep_tail; // stable external identities
   uint32_t sweep_tail_next = 0;
+  // Kissat's `schedule_inner` moves a proved representative to the pop end
+  // of a linked schedule in O(1). The same order here: representatives go on
+  // this LIFO front, consumed before the tail; a variable's earlier live
+  // entry is tombstoned (INVALID_VAR) through `sweep_slot`, which names the
+  // location (tail index, or front index | SWEEP_FRONT_BIT) plus one of its
+  // live entry and is cleared when that entry is consumed.
+  std::vector<Var> sweep_front;
+  std::vector<uint32_t> sweep_slot; // by external var; 0 = no live entry
+  uint32_t sweep_tail_indexed = 0;  // tail entries whose slot is recorded
+  uint32_t sweep_live = 0;          // live unconsumed entries, front + tail
   uint32_t sweep_passes_completed = 0;
   // Policy choice: shipped frontends enable Kissat's
   // one_literal_on_conflict_level path; bare white-box kernels remain neutral.
