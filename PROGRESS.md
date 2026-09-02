@@ -8,7 +8,34 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-02, third wrap). Accepted pin: `origin/main` =
+- RESUME HERE (2026-09-02, fourth wrap). Accepted pin unchanged:
+  `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
+  7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack
+  `f7fdc6a`..`5659765`: Sweep delay-ladder denominator, Substitute SCC
+  tick rescan, glue-preserving shrinks, canonical Substitute in kissat
+  watch mode (drop/rewrite/reconnect), BVE persistent scratch (identity
+  `4784`), Congruence sparse resume keeping closure-satisfied binaries.
+  Gates of the stack: Rank 1--40 `4792` 39 ranks 8,699.9 s vs 9,108.1 s on the pin (-408 s) but Rank 19 timed out (40-rank 9,899.9 s), so not pushed; B28+C5 `4793` PAR-2 ratio 0.554 over 33 pairs, no failures; fuzz quick/random-policy 10,000/0 each (`1660667`/`1660668`).
+  Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`.
+  What the numbers establish: on the nine ranks where both solvers take
+  identical conflicts Tactix is at 1.03x wall; the family's excess is
+  inprocessing unit cost at matching work (BVE 2x, Factor 3x, Congruence
+  2x, Strengthen 3x) plus chaotic trajectory swings of +/-200 s per rank;
+  Rank 19 alone swings +/-1,000 s (pin 225 s is a lucky draw, kissat 740 s).
+  Principle (user, 2026-09-02): port kissat's mechanism, never pick among
+  speculative variants by one rank's clock.
+  NEXT: (1) read `4787` (Rank 35 trajectory 9,457..15,400) and `4791`
+  (Rank 33 redundant clause at 60,638) with the same
+  first-divergence discipline; (2) the sweep-substitution session is an
+  order ledger kissat does not have (kissat's sweep rewrites one mixed
+  watch stream in dense mode; `4783` charged 41 % of Rank 22 to the
+  ledger's `find_large`): plan that representation change via
+  `revise-plan` before touching it; (3) `kernel_sparse_collect_root` at
+  Reduce (23 s on Rank 22 vs kissat's 1.7 s reduce total): read
+  `collect.c sparse_sweep_garbage_clauses` and match its cost model;
+  (4) BVE resolution and Factor at matching attempts (2x / 3x): read
+  `eliminate.c`/`resolve.c` and `factor.c` cost models first.
+- PREVIOUS ANCHOR (2026-09-02, third wrap). Accepted pin: `origin/main` =
   `70e3807` (Release SHA `2c341010...`): front-end unit-cost increments
   (`86a7705`, `bdb0d44`) plus the O(1) Sweep reschedule, each gated 40/40
   with every counter and certificate identical to `4701`. Rank 1--40 total
