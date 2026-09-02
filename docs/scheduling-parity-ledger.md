@@ -221,10 +221,9 @@ where the port is deliberately *not* a transliteration and does not weaken the r
   when the coupled mechanism that keeps Kissat's Rank-19 trajectory stable
   under preserved glue is identified, or when a Rank 1--40 draw carrying the
   repair beats the accepted total; never on Rank 27 alone.
-  **Reopened 2026-09-02:** stacked as `7649e78` (local); Rank 33 then
-  matches kissat through the probe exit at 48,449 (`4770`, `4779`). Rank
-  19's blow-up traced to `SP-CONG-MATCH-1`, not to glue (report
-  `2026-09-02-unit-cost-and-fidelity-stack.md`).
+  **Reopened 2026-09-02:** stacked as `7649e78` (local); Rank 33 then matches
+  kissat through 48,449 (`4770`, `4779`); Rank 19's blow-up traced to
+  `SP-CONG-MATCH-1`, not glue (`2026-09-02-unit-cost-and-fidelity-stack.md`).
 - **`SP-SUBSTITUTE-WATCH-1` -- canonical Substitute keeps the lazy in-place
   watch layout (accepted 2026-09-02).** Kissat's `kissat_substitute` ends with
   `kissat_watch_large_clauses` (large watches re-appended in arena order);

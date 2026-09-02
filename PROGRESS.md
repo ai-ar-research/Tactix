@@ -15,7 +15,7 @@ resume surface.
   tick rescan, glue-preserving shrinks, canonical Substitute in kissat
   watch mode (drop/rewrite/reconnect), BVE persistent scratch (identity
   `4784`), Congruence sparse resume keeping closure-satisfied binaries.
-  Gates of the stack at `5659765`: Rank 1--40 `4792` 39 ranks 8,699.9 s vs 9,108.1 s on the pin (-408 s) but Rank 19 timed out (40-rank 9,899.9 s), so not pushed; B28+C5 `4793` PAR-2 ratio 0.554 over 33 pairs, no failures; fuzz quick/random-policy 10,000/0 each (`1660667`/`1660668`). Rank 19's class then closed: Kissat runs Congruence's matching phase only after a propagated equivalence, never on units alone (`SP-CONG-MATCH-1`, `c2bb80f`; journal `4799` matches Kissat's probes through conflict 32,876 and solves Rank 19 in 761 s; family probe `4800` -139 s over 14 ranks with Rank 19 at 517 s). Gates of `c2bb80f`: Rank 1--40 `4802` 40/40 valid at 9,410.3 s (pin 9,335.1; +75 s, Rank 19 521 s vs the pin's lucky 227 s); B28+C5 `4803` PAR-2 ratio 0.654 (31 pairs at the verdict); the push rule fails only on the total, so still local. The deletion-counter windows (`4804`/`4805`) first differed at an on-the-fly strengthening, but `4808` shows identical analysis rows and Kissat's size-3 path (`binary_on_the_fly_strengthen`) simply does not count into `on_the_fly_strengthened`: a counting artifact, corrected in the variant's row; the windows are rerun.
+  Gates of the stack at `5659765`: Rank 1--40 `4792` 39 ranks 8,699.9 s vs 9,108.1 s on the pin (-408 s) but Rank 19 timed out (40-rank 9,899.9 s), so not pushed; B28+C5 `4793` PAR-2 ratio 0.554 over 33 pairs, no failures; fuzz quick/random-policy 10,000/0 each (`1660667`/`1660668`). Rank 19's class then closed: Kissat runs Congruence's matching phase only after a propagated equivalence, never on units alone (`SP-CONG-MATCH-1`, `c2bb80f`; journal `4799` matches Kissat's probes through conflict 32,876 and solves Rank 19 in 761 s; family probe `4800` -139 s over 14 ranks with Rank 19 at 517 s). Gates of `c2bb80f`: Rank 1--40 `4802` 40/40 valid at 9,410.3 s (pin 9,335.1; +75 s, Rank 19 521 s vs the pin's lucky 227 s); B28+C5 `4803` PAR-2 ratio 0.654 (31 pairs at the verdict); the push rule fails only on the total, so still local. With comparable deletion counters (`4809`/`4810`/`4812`) the shared class is the eager-subsumption register: Kissat keeps a binary-OTFS-retired reason as a dead placeholder in `last_learned`, Tactix vacated the slot and older entries survived one more insertion (Rank 33 at 58,314, Rank 19 at 45,427). Ported as `SP-EAGER-REGISTER-1` (`d182bf6`); reruns `4813`/`4814` and family probe `4815` measure it.
   Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`.
   What the numbers establish: on the nine ranks where both solvers take
   identical conflicts Tactix is at 1.03x wall; the family's excess is
@@ -24,12 +24,9 @@ resume surface.
   Rank 19 alone swings +/-1,000 s (pin 225 s is a lucky draw, kissat 740 s).
   Principle (user, 2026-09-02): port kissat's mechanism, never pick among
   speculative variants by one rank's clock.
-  NEXT: (1) rerun the deletion-counter windows for Ranks 33
-  (58,200..60,640), 19 (32,876..50,100) and 35 (9,457..15,400) with the
-  corrected Kissat row (binary OTFS counted) and take the first relative
-  counter difference as the class; if the counters stay equal through a
-  window, the deleted clause was removed by a path the rows do not count
-  (reduce victims were identical, so look at the root flush at Reduce); (2) the sweep-substitution session is an
+  NEXT: (1) read `4813`/`4814`/`4811` (windows after `d182bf6`) and take
+  the next first relative counter difference as the next class; then gate
+  the tree (Rank 1--40 + B28+C5 + fuzz) and apply the push rule; (2) the sweep-substitution session is an
   order ledger kissat does not have (kissat's sweep rewrites one mixed
   watch stream in dense mode; `4783` charged 41 % of Rank 22 to the
   ledger's `find_large`): plan that representation change via

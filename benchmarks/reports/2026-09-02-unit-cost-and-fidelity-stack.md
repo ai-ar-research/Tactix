@@ -172,16 +172,21 @@ clause is learned at conflict 58,241 (it immediately subsumes the
 1,193-literal clause of 58,222 on both sides), a unit is learned at 58,245,
 and at 60,638 Tactix retains the 1,168- and 1,178-literal clauses but not
 the 1,192-literal one. With paired per-conflict deletion counters on both arms (commit `1ebf269`
-and the same rows in the kissat-event-trace variant), the first counter
-difference in the window is at conflict 58,214 (`4804`), and Rank 19's
-search window 32,876..50,090 shows the same shape at 40,280 (`4805`):
-Tactix's `otfs_strengthened` advances, Kissat's `on_the_fly_strengthened`
-does not. That is a counting artifact, not a divergence: the analysis rows
-at 58,213 are byte-for-byte identical on both arms (`4808`), the shared
-trigger fires on both at the last resolution (a size-3 reason, resolvent
-2), and Kissat's size-3 case takes `binary_on_the_fly_strengthen`, which
-does not increment `on_the_fly_strengthened`. The variant's row now adds
-the binary path's count; the windows are rerun with the corrected rows.
+and the same rows in the kissat-event-trace variant), the first apparent
+difference was an on-the-fly strengthening at 58,214 (`4804`); that was a
+counting artifact (`4808`: identical analysis rows; Kissat's size-3 path
+`binary_on_the_fly_strengthen` counts into no statistic). With the binary
+path counted (`4809`), the learned and eager sequences are identical through
+58,313 and at 58,314 Tactix's 1,179-literal clause eagerly subsumes the
+1,192-literal clause of 58,241, which Kissat's register no longer holds.
+The register rows (`4812`) show why: Tactix's four-slot register still held
+that clause in slot 1 although eight larger-than-two clauses had been
+learned since. Kissat's binary strengthening leaves the retired reason's
+reference in `last_learned` as a dead placeholder until it shifts out;
+Tactix vacated the slot, so the next flush compacted older entries forward
+and they survived one more insertion. Ported as `SP-EAGER-REGISTER-1`
+(commit `d182bf6`); Rank 19's window shows the same class at 45,427
+(`4810`, the other direction). Reruns `4813`/`4814` measure the repair.
 
 ## 4. Decision
 
