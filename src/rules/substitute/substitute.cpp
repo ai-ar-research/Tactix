@@ -173,6 +173,14 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
           continue;
         work.back().it = it;
 
+        // Kissat's iterative DFS rescans a finished literal's watch list to
+        // fold its reach value (substitute.c, the INVALID_LIT pop branch) and
+        // charges that second scan's cache lines as well.  Tarjan folds the
+        // low-link during the single scan above; charge the reference's
+        // second scan so the round's substitute_ticks, and with them the
+        // 10-per-mille second-round test, match kissat's.
+        k.stats.substitute_ticks +=
+            1 + kernel_cache_lines(k.watches.size(negate(v)));
         if (low[v] == dfs[v]) {
           // v roots an SCC: pop the component off tstack
           size_t start = tstack.size();

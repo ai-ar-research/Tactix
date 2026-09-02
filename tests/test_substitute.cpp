@@ -42,6 +42,29 @@ static void test_equivalence_scc() {
 // compact internal indices in first-occurrence order. SCC representatives must
 // use the recorded import order or equivalent formulas retain different
 // decision variables after preprocessing.
+// Kissat's DFS charges each visited literal's watch cache lines on first
+// visit and again on the finishing rescan that folds its reach; the
+// single-scan Tarjan pass must charge both so round-one `substitute_ticks`
+// equal kissat's and the 10-per-mille second-round test agrees.
+static void test_scc_charges_two_scans_per_literal() {
+  Kernel k;
+  kernel_reserve_vars(k, 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2)); // x1 -> x2
+  kernel_add_binary_clause(k, internalize(-2), internalize(3)); // x2 -> x3
+  kernel_add_binary_clause(k, internalize(-3), internalize(1)); // x3 -> x1
+  assert(k.stats.substitute_ticks == 0);
+  uint64_t one_scan = 0;
+  for (Var v = 0; v < k.nvars; v++)
+    for (uint32_t sign = 0; sign < 2; sign++) {
+      const Lit l = make_lit(v, sign != 0);
+      one_scan += 1 + kernel_cache_lines(k.watches.size(negate(l)));
+    }
+  const SccResult r = substitute_find_sccs(k);
+  assert(r.nontrivial_reps.size() == 2);
+  assert(k.stats.substitute_ticks == 2 * one_scan &&
+         "every visited literal is charged on entry and on finish");
+}
+
 static void test_representative_uses_import_order() {
   Kernel k;
   kernel_reserve_vars(k, 3);
@@ -1421,6 +1444,7 @@ static void test_guard() {
 
 int main() {
   test_equivalence_scc();
+  test_scc_charges_two_scans_per_literal();
   test_representative_uses_import_order();
   test_no_scc();
   test_no_scc_still_simplifies_root_fixed_clauses();
