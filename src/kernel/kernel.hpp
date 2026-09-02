@@ -542,6 +542,7 @@ struct Stats {
   uint64_t sweep_env_clauses = 0;  // clauses encoded into them
   uint64_t sweep_solves = 0;       // sub-solver solve() calls
   uint64_t sweep_candidates = 0;   // candidate-pair directions actually solved
+  uint64_t sweep_swept = 0;        // scheduled variables swept (kissat `swept`)
   uint64_t sweep_equivalences = 0; // pairs PROVED equivalent
   uint64_t sweep_units = 0;        // root units proved by local environments
   uint64_t sweep_backbone_candidates = 0;

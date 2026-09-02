@@ -542,10 +542,11 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.instantiate_rounds,
            (unsigned long long)kernel.stats.instantiated,
            (unsigned long long)kernel.stats.instantiate_checked);
-    printf("c sweep       %llu rounds, %llu environments (%llu clauses), "
+    printf("c sweep       %llu rounds, %llu swept, %llu environments (%llu clauses), "
            "%llu solves, %llu candidates, %llu equivalences, %llu units "
            "(%llu already binary), %llu env-unsat, %llu budget, %llu ticks\n",
            (unsigned long long)kernel.stats.sweep_rounds,
+           (unsigned long long)kernel.stats.sweep_swept,
            (unsigned long long)kernel.stats.sweep_environments,
            (unsigned long long)kernel.stats.sweep_env_clauses,
            (unsigned long long)kernel.stats.sweep_solves,

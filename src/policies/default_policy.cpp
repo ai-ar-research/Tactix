@@ -783,10 +783,13 @@ constexpr DelaySpec DELAY_SPECS[] = {
      active_variables,
      &DefaultStrategyConfig::Inprocess::congruence_productivity_permille,
      false},
+    // kissat `sweep.c`: `if (kissat_average (eliminated, swept) < 0.001)
+    // BUMP_DELAY (sweep)`, where `swept` counts the scheduled VARIABLES the
+    // call swept, not the candidate pairs its environments solved.
     {"Sweep", [](const Kernel &k) {
        return k.stats.sweep_equivalences + k.stats.sweep_units;
      },
-     [](const Kernel &k) { return k.stats.sweep_candidates; },
+     [](const Kernel &k) { return k.stats.sweep_swept; },
      &DefaultStrategyConfig::Inprocess::sweep_productivity_permille, true},
 };
 static const DelaySpec *delay_spec(const char *name) {
