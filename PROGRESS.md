@@ -8,28 +8,30 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-02, second wrap). Accepted pin: `origin/main` =
-  `bdb0d44` (Release SHA `1aaad2bb...`): front-end unit-cost increments 1+2,
-  gated 40/40 with every counter and certificate identical to `4701`
-  (campaign `4750`, 9,511.6 s vs 9,597.0 s) and B28+C5 66/66 at 0.547
-  (`4751`); fuzz quick/random legs clean (jobs `1659954`/`1659955`).
-  Kissat `1930` is 7,675.2 s; T4-K needs <= 8,442.7 s. Evidence:
-  `benchmarks/reports/2026-09-02-frontend-unit-cost.md`.
+- RESUME HERE (2026-09-02, third wrap). Accepted pin: `origin/main` =
+  `70e3807` (Release SHA `2c341010...`): front-end unit-cost increments
+  (`86a7705`, `bdb0d44`) plus the O(1) Sweep reschedule, each gated 40/40
+  with every counter and certificate identical to `4701`. Rank 1--40 total
+  9,335.1 s (`4754`; was 9,597.0 s at `f3ac562`), B28+C5 66/66 at 0.547
+  (`4755`), fuzz quick/random clean (`1660076`/`1660077`). Kissat `1930`
+  is 7,675.2 s; T4-K needs <= 8,442.7 s. Evidence:
+  `benchmarks/reports/2026-09-02-frontend-unit-cost.md` and
+  `2026-09-02-sweep-reschedule-unit-cost.md`.
   NEXT (deterministic, identity-verifiable unit cost at matching work):
-  (1) Sweep's `sweep_reschedule_representatives` does a linear find, erase,
-  and insert on a schedule vector of up to 3.9M entries per rescheduled
-  representative (Rank 22: 121k reschedules, ~100 s inclusive, 70 s self,
-  plus 40 s memmove in profile `4752`; Kissat's `schedule_inner` is an O(1)
-  queue move) -- replace with an order-identical O(1) front stack plus
-  tombstones; verify by identity on Rank 22 and small ranks. (2) Factor
-  3.0x, BVE 1.9x, Congruence 2.1x at identical work on Ranks 31/33/37
-  (7,953 vs 7,874 factorings; 364,546 vs 368,873 eliminations; 67,292 vs
-  67,115 merges); profile `4752` on Rank 33 charges much of it to shared
-  kernel rebuilds (`kernel_collect_garbage` 18 s, `kernel_rebuild_large_
-  watches` 10 s, dense occurrence rebuilds, logical-position sorts) -- root
-  the next profile at those helpers per calling rule. Per-rule excess over
-  all 40 ranks: BVE +223 s, Factor +186 s, Vivify +135 s (work differs),
-  Substitute +104 s, Congruence +64 s.
+  Factor 3.0x, BVE 1.9x, Congruence 2.1x at identical work on Ranks
+  31/33/37 (7,953 vs 7,874 factorings; 364,546 vs 368,873 eliminations;
+  67,292 vs 67,115 merges). Profile `4752` charges much of it to the shared
+  kernel rebuilds run per Eliminate round from `default_policy.cpp`
+  (dense connect / `kernel_collect_garbage` / `kernel_rebuild_large_
+  watches`, lines ~3447-3685) and to `kernel_sort_refs_by_logical_clause_
+  position`; raw perf chains (`4756`) unwind poorly, so add in-code
+  per-rule accounting for those helpers first, then compare per-round cost
+  with kissat's `kissat_eliminate` dense entry/exit. Then Substitute
+  (Rank 10: 23.4 s vs 9.9 s, spread over SCC, rewrite loops, root
+  collection, per-clause unwatch). Per-rule excess over all 40 ranks: BVE
+  +223 s, Factor +186 s, Vivify +135 s (work differs), Substitute +104 s,
+  Congruence +64 s. The large residuals (Ranks 25, 21, 34, 27, 37) are
+  search-regime divergences for the differential-trace method.
 - SWEEP RESCHEDULE O(1) (local, identity-verified): `sweep_reschedule_
   representatives` did a linear find, erase, and insert on the schedule
   vector per rescheduled representative (Rank 22: 121k reschedules on a
