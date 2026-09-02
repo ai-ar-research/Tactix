@@ -221,6 +221,13 @@ where the port is deliberately *not* a transliteration and does not weaken the r
   when the coupled mechanism that keeps Kissat's Rank-19 trajectory stable
   under preserved glue is identified, or when a Rank 1--40 draw carrying the
   repair beats the accepted total; never on Rank 27 alone.
+  **Reopened 2026-09-02:** stacked as `7649e78` (local) on the Sweep ladder
+  and Substitute tick repairs; Rank 33 then matches kissat through the
+  probe exit at 48,449 instead of diverging at 32,103 (`4770`, `4779`).
+  Rank 19 still times out under every glue-preserving build; its first
+  divergence is inside the second probe round's Congruence at conflict
+  3,139 (`4786`, `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-
+  stack.md`), so the coupled mechanism is that class, not glue itself.
 - **`SP-SUBSTITUTE-WATCH-1` -- canonical Substitute keeps the lazy in-place
   watch layout (accepted 2026-09-02).** Kissat's `kissat_substitute` ends with
   `kissat_watch_large_clauses` (large watches re-appended in arena order);
