@@ -8,6 +8,23 @@ resume surface.
 
 ## Current resume anchor
 
+- IN PROGRESS (staged fix for the Rank-19 block): added
+  `WatchLists::reorder_binaries_first` and call it for every list at
+  canonical `substitute_apply` completion, restoring the binary-first watch
+  invariant kissat gets from its terminal `kissat_watch_large_clauses`
+  without a full arena rebuild (preserving the lazy in-place positions). It is
+  a no-op on already-ordered lists. Release is 75/76 (doc-size only) and all
+  watch-adjacent focused tests pass. Isolated validation running: binscan
+  `4733` (job `1659697`, must show ZERO non-binary-first Tactix lists at
+  Rank-19 conflict 0) and Rank-27 regression boundary `4734` (job `1659699`,
+  must stay converged). Promote to the gates only if both are clean;
+  otherwise revert.
+- `4733` is a strong PASS: Tactix non-binary-first scans dropped from 10 to
+  ZERO (matching kissat), the conflict-0 binary-scan row counts now match
+  exactly (165,908 each, was 165,327 vs 165,908), and total scanned words
+  agree to within 2 of 494,843 (a single 1-word clause-membership difference
+  on literal 96125, unrelated to ordering). The backbone tick model is
+  converged. Awaiting the Rank-27 regression boundary `4734`.
 - Origin/main is `f3ac562` (pushed, fully validated): the attach-time
   inactive-variable deactivation repair. Pinned Kissat is
   `8af8e56f174b778aef3aa45af9f739b2a5f492c2`. Rank 27 improved 483.655 to
