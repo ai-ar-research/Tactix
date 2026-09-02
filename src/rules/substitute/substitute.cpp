@@ -2324,16 +2324,16 @@ ApplyResult substitute_apply(Kernel &k) {
                  (unsigned long long)r.nontrivial_count);
   }
   // kissat's canonical Substitute ends with kissat_watch_large_clauses
-  // (watch.c), which appends large watches after binaries and so leaves every
-  // list binary-first. Tactix's lazy in-place rewrite can append a
-  // large-to-binary result after existing large watches, leaving a few lists
-  // non-binary-first; that breaks the binary-first stop-early scan the
-  // Backbone tick model relies on. Restore the invariant without a full arena
-  // rebuild (which would discard the lazy in-place positions this pass
-  // retains): reorder only the lists that are actually non-binary-first.
+  // (watch.c): it flushes every large watch and re-appends them after the
+  // binaries in clause-arena iteration order, so each list is binary-first
+  // AND its large watches follow the arena order. The lazy in-place rewrite
+  // leaves both the binary-first property and the large-watch order diverged.
+  // Match kissat's terminal state fully with the same rebuild the other
+  // Probe rules (Congruence/Vivify/Factor) already use, rather than only
+  // partitioning binaries first, so the search-visible watch layout after
+  // Substitute matches the reference exactly.
   if (rewritten == ApplyResult::Ok || rewritten == ApplyResult::NoOp)
-    for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
-      k.watches.reorder_binaries_first(l);
+    kernel_rebuild_large_watches(k);
   if (rewritten == ApplyResult::NoOp && failed == ApplyResult::Ok)
     return ApplyResult::Ok;
   return rewritten;
