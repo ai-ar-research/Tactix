@@ -298,6 +298,23 @@ struct BveDefScratch {
   std::vector<SubLit> lits; // one reduced clause, being encoded
   SubDerivation deriv;
   SparseBinaryIndex pos_bin, neg_bin;
+  // Per-candidate working sets of `bve_eliminate`.  Kept here so a
+  // ten-million-candidate elimination phase allocates them once instead of
+  // once per attempt; each is cleared or re-assigned at the point of use.
+  std::vector<Ref> del_large;
+  std::vector<std::pair<Lit, Lit>> del_bin;
+  std::vector<uint8_t> pos_gate;
+  std::vector<uint8_t> neg_gate;
+  std::vector<uint32_t> pos_gate_order;
+  std::vector<uint32_t> neg_gate_order;
+  std::vector<uint32_t> pos_antecedent_order;
+  std::vector<uint32_t> neg_antecedent_order;
+  std::vector<uint32_t> pos_all;
+  std::vector<uint32_t> neg_all;
+  std::vector<Ref> fresh;
+  std::vector<std::pair<Lit, Lit>> fresh_bin;
+  std::vector<Lit> connected_lits;
+  std::vector<uint64_t> connected_chain;
   std::vector<uint8_t> literal_marks;
   uint64_t ticks = 0;    // ticks the last attempt spent (0 if none was made)
   Lit unit = INVALID_LIT; // one-sided core's failed pivot literal, if any
@@ -960,9 +977,15 @@ static void bve_backward(Kernel &k, std::vector<Ref> &queue,
   // allocating and zeroing 2*nvars bytes once per successful elimination can
   // dominate its local work; see docs/implementation-notes.md section 18.
   assert(marks.size() >= 2 * static_cast<size_t>(k.nvars));
-  std::vector<Lit> clits, dlits;
-  std::vector<Ref> victims;
-  std::vector<Lit> bin_victims;
+  // Per-call working sets; BVE is not re-entrant and one elimination phase
+  // calls this once per eliminated variable.
+  static thread_local std::vector<Lit> clits, dlits;
+  static thread_local std::vector<Ref> victims;
+  static thread_local std::vector<Lit> bin_victims;
+  clits.clear();
+  dlits.clear();
+  victims.clear();
+  bin_victims.clear();
   const bool lrat = k.proof && k.proof->lrat();
   // Least-occurring-literal count, cadical's occs parity: dense->large is
   // large-only, so the binary share comes from the watch list. Counting stops
@@ -1294,8 +1317,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   def->resolvents.clear();
   def->resolvent_lits.clear();
   def->resolvent_chains.clear();
-  std::vector<Ref> del_large;               // redundant/satisfied/taut → delete-only
-  std::vector<std::pair<Lit, Lit>> del_bin; // satisfied binaries → delete-only
+  std::vector<Ref> &del_large = def->del_large; // redundant/satisfied/taut → delete-only
+  std::vector<std::pair<Lit, Lit>> &del_bin = def->del_bin; // satisfied binaries → delete-only
+  del_large.clear();
+  del_bin.clear();
   bool antecedent_oversized = false;
   bool rescore_popped_candidate = false;
 
@@ -1628,7 +1653,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   const bool pure = pos.empty() || neg.empty();
 
   // ---- syntactic gate detection: restrict resolvents to gate×antecedent ----
-  std::vector<uint8_t> pos_gate(pos.size(), 0), neg_gate(neg.size(), 0);
+  std::vector<uint8_t> &pos_gate = def->pos_gate;
+  std::vector<uint8_t> &neg_gate = def->neg_gate;
+  pos_gate.assign(pos.size(), 0);
+  neg_gate.assign(neg.size(), 0);
   bool resolve_gate = false;
   if (def) {
     def->checked = false;
@@ -1692,8 +1720,14 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   // and resolve.c consumes those lists in three distinct stages.  Flattening
   // this plan into a filtered Cartesian product preserves the resolvent set but
   // changes clause insertion and dynamic elimination-heap update order.
-  std::vector<uint32_t> pos_gate_order, neg_gate_order;
-  std::vector<uint32_t> pos_antecedent_order, neg_antecedent_order;
+  std::vector<uint32_t> &pos_gate_order = def->pos_gate_order;
+  std::vector<uint32_t> &neg_gate_order = def->neg_gate_order;
+  std::vector<uint32_t> &pos_antecedent_order = def->pos_antecedent_order;
+  std::vector<uint32_t> &neg_antecedent_order = def->neg_antecedent_order;
+  pos_gate_order.clear();
+  neg_gate_order.clear();
+  pos_antecedent_order.clear();
+  neg_antecedent_order.clear();
   for (uint32_t i = 0; i < pos.size(); ++i)
     (pos_gate[i] ? pos_gate_order : pos_antecedent_order).push_back(i);
   for (uint32_t i = 0; i < neg.size(); ++i)
@@ -1918,7 +1952,10 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     }
   };
 
-  std::vector<uint32_t> pos_all, neg_all;
+  std::vector<uint32_t> &pos_all = def->pos_all;
+  std::vector<uint32_t> &neg_all = def->neg_all;
+  pos_all.clear();
+  neg_all.clear();
   if (gate) {
     // resolve.c: gates[0]×antecedents[1], gates[1]×antecedents[0], then the
     // gate cross-product only for an incomplete/general definition.
@@ -1945,10 +1982,14 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   }
 
   // ---- commit: add resolvents (RUP, add-before-delete), witnesses, delete ---
-  std::vector<Ref> fresh; // large resolvents, the backward pass's subsumers
-  std::vector<std::pair<Lit, Lit>> fresh_bin; // size-2 resolvents, ditto
-  std::vector<Lit> connected_lits;
-  std::vector<uint64_t> connected_chain;
+  std::vector<Ref> &fresh = def->fresh; // large resolvents, the backward pass's subsumers
+  std::vector<std::pair<Lit, Lit>> &fresh_bin = def->fresh_bin; // size-2 resolvents, ditto
+  std::vector<Lit> &connected_lits = def->connected_lits;
+  std::vector<uint64_t> &connected_chain = def->connected_chain;
+  fresh.clear();
+  fresh_bin.clear();
+  connected_lits.clear();
+  connected_chain.clear();
 
   for (const BveResolvent &r : resolvents) {
     connected_lits.clear();
