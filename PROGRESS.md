@@ -8,6 +8,36 @@ resume surface.
 
 ## Current resume anchor
 
+- ACTIVE (user directive 2026-09-03: "do the full watch-layout match; do not
+  merge before it"): replaced the partial binary-first reorder at canonical
+  `substitute_apply` end with a full `kernel_rebuild_large_watches(k)` call --
+  the same rebuild Congruence/Vivify/Factor already use and the exact analogue
+  of kissat's terminal `kissat_watch_large_clauses`, matching not just the
+  binary-first property but the large-watch arena order too. This reverses the
+  lazy in-place watch retention, so Rank 27 is the regression to watch.
+  Release 75/76 (doc-size only); focused watch/substitute/backbone tests pass.
+  Isolated validation in flight on trace pin `d242bed5`/release `45b80584`:
+  Rank-27 boundary `4740` (job `1659814`, main risk), Rank-19 binscan `4741`
+  (job `1659815`, expect full word-match to kissat), Rank-19 solve `4742`
+  (job `1659817`, decisive -- does it get under the 1,200 s gate?). If Rank 27
+  holds and Rank 19 converges, commit and run the full Rank-1--40 + B+C gates
+  and fuzz, then push the stack. The parity-ledger-deviation path is dropped.
+- FULL WATCH-LAYOUT MATCH RESULT: conflict-0 binscan `4741` is now a COMPLETE
+  match (non-binary-first 0/0, total scanned words 494,841 = 494,841 exactly,
+  no differing scan anywhere; the reorder-only 2-word residual is gone). Rank
+  27 `4740` does NOT regress -- it IMPROVES to 5,533,826 conflicts (versus
+  reorder-only 5,793,285 and glue-only 6,804,239), so the lazy in-place watch
+  order was itself costing Rank 27. The full match supersedes the partial
+  `reorder_binaries_first` (method and test removed as dead code). BUT Rank 19
+  `4742` STILL fails: the Tactix arm ran past 1,848 s (over the 1,200 s gate)
+  and did not converge to kissat's 303 s despite the byte-identical conflict-0
+  watch layout. This DEFINITIVELY rules out the watch layout as Rank 19's
+  owner: the residual is the glue repair's downstream Reduce-retention effect
+  on a chaotic SAT instance (confirmed by 4738/4739's stable-mode heap-pick
+  divergence). The full watch match is a strict improvement worth keeping; it
+  is necessary but not sufficient for Rank 19.
+
+
 - IN PROGRESS (staged fix for the Rank-19 block): added
   `WatchLists::reorder_binaries_first` and call it for every list at
   canonical `substitute_apply` completion, restoring the binary-first watch

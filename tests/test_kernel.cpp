@@ -95,46 +95,6 @@ static void test_compact_watch_head_encoding_is_full_width() {
   assert(!lists.heads[0].has_large());
 }
 
-// reorder_binaries_first restores kissat's binary-first watch layout after the
-// lazy in-place Substitute appends a large-to-binary result behind existing
-// large watches. Reordering preserves every entry (both endpoints of each
-// binary, both words of each large watch) and only moves visit order.
-static void test_reorder_binaries_first_restores_layout() {
-  WatchLists lists;
-  lists.resize_lits(6);
-  const Lit l = 0;
-  // Build a deliberately non-binary-first list: binary, large, binary.
-  lists.push_binary(l, 2);
-  lists.push_large(l, 3, /*ref=*/100);
-  lists.push_binary(l, 4); // appended after a large watch -> not binary-first
-  assert(!lists.heads[l].binaries_first());
-  assert(lists.heads[l].binary_count() == 2);
-  assert(lists.heads[l].has_large());
-
-  lists.reorder_binaries_first(l);
-  assert(lists.heads[l].binaries_first());
-  assert(lists.heads[l].binary_count() == 2);
-  assert(lists.heads[l].has_large());
-
-  // Both binaries and the large entry survive; binaries now precede the large.
-  int binaries = 0, large = 0;
-  bool seen_large = false, order_ok = true;
-  for (const WatchEntry w : lists.entries(l)) {
-    if (w.binary()) {
-      binaries++;
-      order_ok = order_ok && !seen_large;
-    } else {
-      large++;
-      seen_large = true;
-    }
-  }
-  assert(binaries == 2 && large == 1 && order_ok);
-
-  // Idempotent: a second call is a no-op on an already-ordered list.
-  lists.reorder_binaries_first(l);
-  assert(lists.heads[l].binaries_first());
-}
-
 static void test_clause_position_alias_pages_are_exact_and_sparse() {
   ClausePositionAliases aliases;
   assert(aliases.get(7) == 0);
@@ -2305,7 +2265,6 @@ int main() {
   test_irredundant_clause_never_stores_glue();
   test_active_population_is_live_state();
   test_compact_watch_head_encoding_is_full_width();
-  test_reorder_binaries_first_restores_layout();
   test_clause_position_alias_pages_are_exact_and_sparse();
   test_binary_liveness_filter_has_no_false_negatives();
   test_reserved_trail_stack_contract();
