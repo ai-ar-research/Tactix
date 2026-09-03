@@ -8,103 +8,40 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-02, fifth wrap). Push rule (user, 2026-09-02):
-  general kissat-fidelity ports go out when Rank 1--40 stays 40/40 within
-  20 minutes, without a significant regression and without a B28+C5
-  regression; do not wait for the gap to close. `origin/main` = `d182bf6`
-  (pushed 2026-09-02 22:30; Rank 1--40 `4817` 40/40 at 9,522.6 s, B28+C5
-  `4818` 0.643, fuzz quick/random-policy 10,000/0). Kissat `1930` is
-  7,675.2 s; T4-K needs <= 8,442.7 s. The local stack above it ends at
-  `79cb7cc` and is under gate `4869`/`4870` plus fuzz (jobs 1661298,
-  1661299, 1661300 quick, random-policy leg alongside):
-  `SP-WALK-SIZE-1` (`782c1db`: the ProbSAT average divides by the clause
-  count kissat reads after dense entry; walks 1..3 on Rank 19 now match
-  kissat exactly, `4825`), `SP-COLLECT-PROBE-1` (`8c7fa06`: no arena
-  collection after a Probe phase; the eager register survives it, `4837`),
-  `SP-BVE-HEAP-1` (`765924b`: removed-clause variables re-enter the
-  elimination heap; faithful, no measured effect at the tested phases), and
-  `SP-BVE-SCHEDULE-1` (`79cb7cc`: every active variable is scheduled for
-  elimination, occurrences or not; Rank 33's BVE round at 110,427 now
-  matches kissat row for row, 22,708 eliminations on both arms, `4866`).
-  Gates: `d182bf6` Rank 1--40 `4817` 40/40 at 9,522.6 s, B28+C5 `4818`
-  0.643, fuzz clean; `782c1db` Rank 1--40 `4826` 40/40 at 10,032.5 s
-  (Rank 19 965 s / 4.94 M conflicts against 514 s before and kissat's
-  740 s / 694 k), B28+C5 `4827` 0.641. The push rule fails on the total;
-  the walk repair is a verified port, so the tree keeps it.
-  Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`.
-  Where each rank now splits from kissat (all with identical learned
-  clauses before the split): Rank 19 at the reduce of 97,484 because the
-  two arenas hold the same clauses in a different order from row 604,810
-  (a block of BVE resolvents, `4848`), which makes the Vivify pass at
-  71,425 charge one literal's propagation 542 ticks less and vivify one
-  extra clause (`4855`/`4857`); Rank 33 at the BVE round of 110,427,
-  where the first differing pop is a tie (score 3,999,947) between
-  externals 495078 and 495081 decided by heap structure 46 pops into the
-  round (`4843`/`4847`/`4858`); Rank 35 in 12,000..19,364 (`4841` clean
-  through 11,998; `4856` covers the rest). Both Rank 19 and Rank 33 reduce
-  to the BVE elimination order, i.e. the initial schedule heap build.
-  Rank 33's root was schedule membership: kissat's heap held 132,946
-  variables against Tactix's 132,930, the sixteen extra with no occurrence
-  in any elimination clause (`4864`/`4865`; the variant's heap tracer needed
-  its initialization deferred past parsing, `4860`--`4863`).
-  Journals of `79cb7cc`: Rank 33's probe entries agree through 120,330
-  (was 92,452) and split at 151,945 vs 151,943 (`4868`); Rank 19 is
-  unchanged (`4867`): its displaced resolvent block is the elimination of
-  external 44913 at 15,379, where the binaries (-44913,-44642) and
-  (-45488,-44913) sit in Tactix's binary prefix but at the end of Kissat's
-  occurrence list, because Kissat deleted duplicate copies at the walk's
-  dense entry (conflict 2004) and re-added them as resolvents in the round,
-  while Tactix's preprocessing Sweep had added physical copies it keeps
-  (`4879`/`4880`). Fuzz on `79cb7cc`: quick 10,000/0 (1661300),
-  random-policy 10,000/0 (1661330).
-  Gate of `79cb7cc` (`4869`/`4870`, 2026-09-03): Rank 1--40 40/40 valid,
-  slowest rank 951 s, total 10,411.4 s (+888.8 s against `d182bf6`; Rank 19
-  +437 at 4.94 M conflicts, Rank 31 +295 at 10.5 M against 4.5 M, Rank 33
-  +249 at 12.4 M against 6.3 M, Rank 27 +66, Rank 21 +63, Rank 24 +45,
-  Rank 32 -169, Rank 35 -49); B28+C5 ratio 0.615 (better than 0.643), no
-  failures; fuzz clean on both legs. Validity, the 20-minute limit and the
-  B28+C5 clause of the push rule hold; the total is a 9 % regression made
-  of chaotic trajectory swings, so the tip stays local until the user
-  decides whether such swings count as significant.
-  Rank 19's pivot-44913 class closed 2026-09-03 (`SP-BINARY-DEDUP-1`,
-  `SP-BVE-ANTECEDENT-1`): every dense entry, Eliminate's included, now
-  deletes the later copies of a repeated binary as clauses (kissat
-  `watch.c`/`dense.c`), and BVE splits gates from antecedents as
-  `gates.c:get_antecedents` does (one cursor over the flagged entries,
-  raw-watch equality, so an earlier duplicate copy takes the gate slot).
-  Lifecycle rows of the three pivot binaries match kissat (`4887`), all
-  321 pairs of the pivot match row for row (`4888`; `4879`/`4882`/`4885`
-  showed the flag split placing the copies at 0/1 instead of 312/313), and
-  `test_bve` fails on the flag split. Journals of this build: Rank 19
-  `4889`, Rank 33/35 `4890` (the dedup-only build split Rank 19 at
-  126,396 vs 126,390 after 96,825 in common, `4883`; Rank 33 at 151,945,
-  Rank 35 at 19,364, `4884`).
-  Journal of `829aef6` (`4889`): Rank 19's probe entries agree through
-  289,717 (was 96,825) and split at 342,463 vs 342,548; under the trace
-  Tactix reaches its verdict at 681 k conflicts instead of timing out.
-  Rank 33/35 are unchanged (`4890`: 151,945 after 120,330; 19,364 after
-  9,457). Fuzz of `829aef6`: quick 10,000/0 (1661701), random-policy
-  10,000/0 (1661702). An adversarial static review of `829aef6`
-  (workflow `wf_07a4dd89`, five lenses + refuters) found no soundness
-  defect, judged both ports faithful transliterations with negligible
-  overhead (identity on duplicate-free input), and surfaced four
-  pre-existing gaps that the follow-up commit ports: Congruence's first
-  dense entry dropped copies without deleting them, the equivalence gate
-  scanned the positive side and admitted shortened large clauses
-  (`SP-BVE-EQUIV-ORDER-1`), the AND/OR sweep flagged root-shortened large
-  clauses as gate members (`SP-BVE-AND-PHYSICAL-1`), and a half-matched
-  ITE pair left `resolve_gate` set for the XOR shape; `test_walk` and
-  `test_congruence` now pin the clause-level deletion. Rank 33's split is
-  localized (`4895`): the eager-subsumption register subsumes one clause
-  more on kissat at 121,009, right after the 120,330 phase (`4896` traces
-  the register rows).
-  NEXT: (1) gates of `829aef6` (`4891`/`4892`) and of the follow-up
-  commit; apply the push rule (the user has not yet decided on
-  `79cb7cc`'s +889 s of chaotic swings); (2) Rank 33's register state
-  after 120,330 (`4896`); Rank 19's window 289,717..342,548 (`4893`);
-  Rank 35's window 12,000..19,364 with trajectory-only rows (`4894`);
-  (3) the unit-cost items of the fourth wrap stand (a `.text`-identical
-  `-g` pin of `829aef6` is built).
+- RESUME HERE (2026-09-03, sixth wrap). `origin/main` = `d3793d2`
+  (fast-forwarded from `d182bf6` on 2026-09-03 under the push rule).
+  Kissat `1930` is 7,675.2 s; T4-K needs <= 8,442.7 s. Gates: `829aef6`
+  Rank 1--40 `4891` 40/40 at 9,021.4 s (slowest 747 s), B28+C5 `4892`
+  0.615, fuzz 10,000/0 both legs; `d3793d2` Rank 1--40 `4897` 40/40 at
+  8,640.3 s (slowest 743 s), B28+C5 `4898-BC` 0.607, fuzz 10,000/0 both
+  legs. Proof-check tails of both arrays and B/C task 64/65 are still
+  running (jobs 1661589, 1661590, 1661709, 1661710); `4894` (Rank 35
+  window, job 1661699) is running. Evidence:
+  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.1.
+  Working rule (user, 2026-09-03): one active investigation at a time; no
+  parallel threads.
+  Recent changes: `829aef6` BVE splits gates/antecedents as
+  `gates.c:get_antecedents` (raw-watch cursor) and every dense entry
+  deletes repeated binary copies as clauses (`SP-BINARY-DEDUP-1`,
+  `SP-BVE-ANTECEDENT-1`); `d3793d2` equivalence gate scans the negative
+  side's physical binaries, AND/OR members are physical binaries, XOR
+  clears `resolve_gate`, Congruence's first entry deletes copies
+  (`SP-BVE-EQUIV-ORDER-1`, `SP-BVE-AND-PHYSICAL-1`); Rank 19 951 -> 166 s.
+  Where the ranks split from kissat on this pin: Rank 19 at conflict
+  299,714 (same conflict clause, literal 89765 at level 3428 vs 3430 and a
+  different trail order while backtracking; implication rows `4903`,
+  formula/binary snapshots at the 289,717 phase `4904`/`4905` are parked
+  unread); Rank 33 at the 520th decision after conflict 120,607 (stable
+  mode, Tactix picks 250837, kissat 445786, both unassigned; heap-score
+  rows `4902` parked unread); Rank 35 at 19,364 (`4894` running).
+  Remaining gaps on `d3793d2` against kissat: trajectory on Ranks 34
+  (742.6 vs 344.0 s, 7.85 M vs 4.33 M conflicts), 32, 31, 22, 33; unit cost
+  at equal work on Ranks 13 (0 conflicts, 87.2 vs 64.4 s), 9, 17, 21.
+  NEXT (single thread): read `4902` and close Rank 33's decision at
+  120,607 (heap top / scores / tie order), port, gate, push; then Rank 19
+  at 299,714 from `4903`--`4905`; then Rank 13's zero-conflict
+  preprocessing cost with the `.text`-identical `-g` pin
+  `build/pin-829aef6-g`.
 - PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
   `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
   7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack

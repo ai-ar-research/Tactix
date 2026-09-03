@@ -345,6 +345,27 @@ difference over 44,348 common conflicts; its journal divergence stays at
 the Tactix trace ended after 162 conflicts with exit 0, the Kissat trace
 covers the window; its journal divergence stays at 19,364.
 
+
+### 3.1 Gates of `829aef6` and `d3793d2` (2026-09-03)
+
+| pin | Rank 1--40 | valid | slowest | B28+C5 ratio | fuzz quick / random-policy |
+|---|---|---|---|---|---|
+| `d182bf6` (pushed 2026-09-02) | 9,522.6 s (`4817`) | 40/40 | | 0.643 (`4818`) | clean |
+| `79cb7cc` | 10,411.4 s (`4869`) | 40/40 | 951 s | 0.615 (`4870`) | clean |
+| `829aef6` | 9,021.4 s (`4891`) | 40/40 | 747 s | 0.615 (`4892`) | 10,000/0, 10,000/0 |
+| `d3793d2` | 8,640.3 s (`4897`) | 40/40 | 743 s | 0.607 (`4898-BC`) | 10,000/0, 10,000/0 |
+
+Kissat `1930` is 7,675.2 s, so `d3793d2` is 12.6 % slower (target 8,442.7 s).
+Rank 19 falls from 951 s to 166 s (749,582 conflicts against Kissat's
+694 k; Kissat needs 739.9 s). The follow-up commit's per-rank movement is
+trajectory: Rank 22 598 → 333 s, Rank 37 554 → 404 s, Rank 35 479 → 402 s,
+Rank 21 210 → 171 s against Rank 40 385 → 462 s, Rank 32 380 → 441 s,
+Rank 33 386 → 411 s, Rank 17 182 → 204 s. `origin/main` was fast-forwarded
+to `d3793d2` on 2026-09-03 under the push rule (all four clauses hold).
+The largest remaining gaps against Kissat on `d3793d2` are Rank 34
+(742.6 s vs 344.0 s), Rank 32 (441.1 vs 289.7), Rank 31 (427.5 vs 277.3),
+Rank 22 (332.6 vs 192.0) and Rank 33 (410.6 vs 330.4).
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
