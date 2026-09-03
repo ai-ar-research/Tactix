@@ -295,7 +295,11 @@ binary clause and keeps the first watch (`watch.c:kissat_flush_large_watches`,
 `dense.c:flush_large_watches`). BVE splits each side into gates and
 antecedents as `gates.c:get_antecedents` does: one cursor over the flagged
 entries, an entry consumed as a gate when its raw watch equals the cursor's, so
-an earlier copy of a duplicated partner takes the gate slot.
+an earlier copy of a duplicated partner takes the gate slot. Gate members are
+physical binaries only: the equivalence gate is the first negative-side binary
+whose complement partner is a positive-side binary (`equivalences.c`), and the
+AND/OR sweep never flags a large clause shortened to two open literals
+(`ands.c`).
 
 ## 9. Reason bumping and dynamic tiers
 

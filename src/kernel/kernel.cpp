@@ -2777,23 +2777,28 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
   // scanning the literals in index order, the first watch of a binary pair
   // stays and every later copy is deleted as a clause (`kissat_delete_binary`
   // from the smaller literal: proof, statistics, marks, scores).  Dropping
-  // only the watch entries left the copy count and the later occurrence
-  // order behind (Rank 19, pivot 44913 at conflict 15,379: the copies kissat
-  // removed at the walk of 2,004 were still Tactix's binary prefix).
+  // only the watch entries would leave the copy count and the position of a
+  // later re-added copy behind (docs/scheduling-parity-ledger.md).  Values are never
+  // inspected here: like the null-stack `watch.c` path, root-satisfied
+  // binaries stay, which Sweep and Factor rely on; the value-aware
+  // `dense.c` path is modelled by each rule's own root collection.
   std::vector<uint32_t> seen(2 * k.nvars, 0);
   uint32_t epoch = 0;
+  std::vector<Lit> duplicates; // partners repeated in this list, once each
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     if (++epoch == 0) {
       std::fill(seen.begin(), seen.end(), 0);
       epoch = 1;
     }
-    std::vector<Lit> duplicates;
+    duplicates.clear();
     for (const WatchEntry watch : k.watches.entries(lit)) {
       if (!watch.binary())
         continue;
       const Lit other = watch.other();
       if (seen[other] == epoch) {
-        if (lit < other)
+        if (lit < other && (duplicates.empty() || duplicates.back() != other) &&
+            std::find(duplicates.begin(), duplicates.end(), other) ==
+                duplicates.end())
           duplicates.push_back(other);
       } else {
         seen[other] = epoch;

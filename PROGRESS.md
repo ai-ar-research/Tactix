@@ -79,14 +79,32 @@ resume surface.
   `4889`, Rank 33/35 `4890` (the dedup-only build split Rank 19 at
   126,396 vs 126,390 after 96,825 in common, `4883`; Rank 33 at 151,945,
   Rank 35 at 19,364, `4884`).
-  NEXT: (1) gate this commit (Rank 1--40, B28+C5, fuzz quick +
-  random-policy) and apply the push rule; the user has not yet decided on
-  `79cb7cc`'s +889 s of chaotic swings; (2) read `4889`/`4890` and take
-  the next first divergence (Rank 19 after 96,825; Rank 33's 151,945; the
-  120-position displacement before 15,379, `4875`); (3) the unit-cost
-  items of the fourth wrap stand. Rank 35 windows past conflict 12,400 are
-  not obtainable under the event trace (`4856`: 65 minutes for 400
-  conflicts).
+  Journal of `829aef6` (`4889`): Rank 19's probe entries agree through
+  289,717 (was 96,825) and split at 342,463 vs 342,548; under the trace
+  Tactix reaches its verdict at 681 k conflicts instead of timing out.
+  Rank 33/35 are unchanged (`4890`: 151,945 after 120,330; 19,364 after
+  9,457). Fuzz of `829aef6`: quick 10,000/0 (1661701), random-policy
+  10,000/0 (1661702). An adversarial static review of `829aef6`
+  (workflow `wf_07a4dd89`, five lenses + refuters) found no soundness
+  defect, judged both ports faithful transliterations with negligible
+  overhead (identity on duplicate-free input), and surfaced four
+  pre-existing gaps that the follow-up commit ports: Congruence's first
+  dense entry dropped copies without deleting them, the equivalence gate
+  scanned the positive side and admitted shortened large clauses
+  (`SP-BVE-EQUIV-ORDER-1`), the AND/OR sweep flagged root-shortened large
+  clauses as gate members (`SP-BVE-AND-PHYSICAL-1`), and a half-matched
+  ITE pair left `resolve_gate` set for the XOR shape; `test_walk` and
+  `test_congruence` now pin the clause-level deletion. Rank 33's split is
+  localized (`4895`): the eager-subsumption register subsumes one clause
+  more on kissat at 121,009, right after the 120,330 phase (`4896` traces
+  the register rows).
+  NEXT: (1) gates of `829aef6` (`4891`/`4892`) and of the follow-up
+  commit; apply the push rule (the user has not yet decided on
+  `79cb7cc`'s +889 s of chaotic swings); (2) Rank 33's register state
+  after 120,330 (`4896`); Rank 19's window 289,717..342,548 (`4893`);
+  Rank 35's window 12,000..19,364 with trajectory-only rows (`4894`);
+  (3) the unit-cost items of the fourth wrap stand (a `.text`-identical
+  `-g` pin of `829aef6` is built).
 - PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
   `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
   7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack

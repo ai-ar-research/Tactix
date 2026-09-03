@@ -795,6 +795,54 @@ static void test_gate_and_or_earlier_duplicate_takes_the_gate_slot() {
   assert(via5 < via4 && "the antecedent stream is (1,5) then the later (1,4)");
 }
 
+static bool has_large(const Kernel &k, std::vector<int> want); // defined below
+
+// equivalences.c marks the positive side's physical binaries and takes the
+// FIRST negative-side physical binary whose partner's complement is marked.
+// With two equivalence partners in crossed order the chosen pair decides the
+// resolvent insertion order: (¬a∨b) is added before (a∨¬b).
+static void test_gate_equivalence_takes_first_negative_side_binary() {
+  Kernel k;
+  kernel_reserve_vars(k, 3); // x=1, partners a=2, b=3
+  kernel_add_binary_clause(k, internalize(1), internalize(2), 1);   // (x∨a)
+  kernel_add_binary_clause(k, internalize(1), internalize(3), 2);   // (x∨b)
+  kernel_add_binary_clause(k, internalize(-1), internalize(-3), 3); // (¬x∨¬b)
+  kernel_add_binary_clause(k, internalize(-1), internalize(-2), 4); // (¬x∨¬a)
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
+  assert(has_binary(k, internalize(-2), internalize(3)));
+  assert(has_binary(k, internalize(2), internalize(-3)));
+  // gate x = ¬b: (x∨b)×(¬x∨¬a) = (b∨¬a) is resolved first, then (¬x∨¬b)×(x∨a)
+  assert(kernel_binary_id(k, internalize(-2), internalize(3)) <
+         kernel_binary_id(k, internalize(2), internalize(-3)));
+}
+
+// ands.c pushes physical binary watches only.  A large clause whose root-false
+// literal leaves pivot+partner open is an antecedent, never a gate member, so
+// it meets the base clause instead of the opposite antecedents.
+static void test_gate_and_or_root_shortened_large_stays_antecedent() {
+  Kernel k;
+  kernel_reserve_vars(k, 6); // x=1, inputs=2,3, partner=4, false tail=5, ant=6
+  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, base, 3, false, 0);
+  Lit shortened[3] = {internalize(1), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, shortened, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
+  kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(4), 3);
+  kernel_add_binary_clause(k, internalize(-1), internalize(6), 4);
+  kernel_assign_unit(k, internalize(-5));
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) == ApplyResult::Ok);
+  assert(!has_binary(k, internalize(4), internalize(6)) &&
+         "(x∨4∨5) is not a gate member, so it never meets (¬x∨6)");
+  assert(has_large(k, {2, 3, 4}));
+  assert(has_binary(k, internalize(-2), internalize(6)));
+  assert(has_binary(k, internalize(-3), internalize(6)));
+}
+
 // Pinned Kissat scans physical large bases after root-false stripping. A base
 // may therefore have only pivot+input active and still define a gate when the
 // binary side has another distinct (antecedent) partner. The physical binary
@@ -1555,6 +1603,8 @@ int main() {
   test_gate_and_or_retains_duplicate_binary_gate_copies();
   test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent();
   test_gate_and_or_earlier_duplicate_takes_the_gate_slot();
+  test_gate_equivalence_takes_first_negative_side_binary();
+  test_gate_and_or_root_shortened_large_stays_antecedent();
   test_gate_and_or_accepts_root_shortened_large_base();
   test_gate_and_or_rejects_root_shortened_large_inputs();
   test_gate_equivalence_substitution();
