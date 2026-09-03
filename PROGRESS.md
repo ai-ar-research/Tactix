@@ -8,16 +8,24 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-02, fifth wrap). Accepted pin unchanged:
-  `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
-  7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed stack now ends at
-  `765924b`: the fourth-wrap stack plus `SP-EAGER-REGISTER-1` (`d182bf6`),
+- RESUME HERE (2026-09-02, fifth wrap). Push rule (user, 2026-09-02):
+  general kissat-fidelity ports go out when Rank 1--40 stays 40/40 within
+  20 minutes, without a significant regression and without a B28+C5
+  regression; do not wait for the gap to close. `origin/main` = `d182bf6`
+  (pushed 2026-09-02 22:30; Rank 1--40 `4817` 40/40 at 9,522.6 s, B28+C5
+  `4818` 0.643, fuzz quick/random-policy 10,000/0). Kissat `1930` is
+  7,675.2 s; T4-K needs <= 8,442.7 s. The local stack above it ends at
+  `79cb7cc` and is under gate `4869`/`4870` plus fuzz (jobs 1661298,
+  1661299, 1661300 quick, random-policy leg alongside):
   `SP-WALK-SIZE-1` (`782c1db`: the ProbSAT average divides by the clause
   count kissat reads after dense entry; walks 1..3 on Rank 19 now match
   kissat exactly, `4825`), `SP-COLLECT-PROBE-1` (`8c7fa06`: no arena
   collection after a Probe phase; the eager register survives it, `4837`),
-  and `SP-BVE-HEAP-1` (`765924b`: removed-clause variables re-enter the
-  elimination heap; faithful, no measured effect at the tested phases).
+  `SP-BVE-HEAP-1` (`765924b`: removed-clause variables re-enter the
+  elimination heap; faithful, no measured effect at the tested phases), and
+  `SP-BVE-SCHEDULE-1` (`79cb7cc`: every active variable is scheduled for
+  elimination, occurrences or not; Rank 33's BVE round at 110,427 now
+  matches kissat row for row, 22,708 eliminations on both arms, `4866`).
   Gates: `d182bf6` Rank 1--40 `4817` 40/40 at 9,522.6 s, B28+C5 `4818`
   0.643, fuzz clean; `782c1db` Rank 1--40 `4826` 40/40 at 10,032.5 s
   (Rank 19 965 s / 4.94 M conflicts against 514 s before and kissat's
@@ -35,16 +43,17 @@ resume surface.
   round (`4843`/`4847`/`4858`); Rank 35 in 12,000..19,364 (`4841` clean
   through 11,998; `4856` covers the rest). Both Rank 19 and Rank 33 reduce
   to the BVE elimination order, i.e. the initial schedule heap build.
-  NEXT: (1) obtain kissat's heap rows for the tied Rank 33 candidates
-  (the variant's `KISSAT_EVENT_TRACE_BVE_HEAP` tracer resolves no
-  variable yet; `4862` prints its import lookup) and compare the initial
-  positions of 495078/495081 (Tactix 33,223 / 4,151) and the insertion
-  order/scores that produce them (`compact_import_order` against kissat's
-  index order, `variable_score` inputs at schedule time); port the
-  difference, then rerun `4858` and the Rank 19 journal; (2) then gate
-  (Rank 1--40 + B28+C5 + fuzz) and apply the push rule; (3) the unit-cost
-  items of the fourth wrap (sweep session representation, Reduce-time root
-  collection, BVE/Factor cost models) stand.
+  Rank 33's root was schedule membership: kissat's heap held 132,946
+  variables against Tactix's 132,930, the sixteen extra with no occurrence
+  in any elimination clause (`4864`/`4865`; the variant's heap tracer needed
+  its initialization deferred past parsing, `4860`--`4863`).
+  NEXT: (1) read the journals of `79cb7cc` (`4867` Rank 19, `4868` Ranks
+  33/35) and take the next split as the next class; (2) gate `79cb7cc`
+  (Rank 1--40 `4869` + B28+C5 `4870` + fuzz, pins `build/pin-79cb7cc*`) and
+  apply the push rule; (3) the unit-cost items of the fourth wrap (sweep
+  session representation, Reduce-time root collection, BVE/Factor cost
+  models) stand. Rank 35 windows past conflict 12,400 are not obtainable
+  under the event trace (`4856`: 65 minutes for 400 conflicts).
 - PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
   `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
   7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack
