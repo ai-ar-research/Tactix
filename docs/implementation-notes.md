@@ -290,6 +290,12 @@ never collects, so the eager-subsumption register survives it as in Kissat.
 BVE schedules every active variable with the retry flag, occurrences or not
 (kissat `schedule_variables`); a zero-occurrence variable is eliminated as
 pure, and any variable of a removed clause re-enters the schedule heap.
+Every dense entry, Eliminate's included, deletes the later copies of a repeated
+binary clause and keeps the first watch (`watch.c:kissat_flush_large_watches`,
+`dense.c:flush_large_watches`). BVE splits each side into gates and
+antecedents as `gates.c:get_antecedents` does: one cursor over the flagged
+entries, an entry consumed as a gate when its raw watch equals the cursor's, so
+an earlier copy of a duplicated partner takes the gate slot.
 
 ## 9. Reason bumping and dynamic tiers
 

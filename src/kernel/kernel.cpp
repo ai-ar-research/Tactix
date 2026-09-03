@@ -2773,45 +2773,36 @@ void kernel_canonicalize_binary_watches(Kernel &k,
 }
 
 static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
-  // Kissat's null-stack dense entry (`watch.c:kissat_flush_large_watches`)
-  // retains the first watch for each partner in each literal list, including
-  // root-satisfied binaries.  The latter is load-bearing for Sweep and Factor:
-  // unlike `dense.c:flush_large_watches` with a non-null binary-save stack,
-  // the null-stack path never inspects values.  Congruence performs its own
-  // value-aware collection immediately after this operation. Proof clauses
-  // need not be deleted for duplicate watches: one internal pair can represent
-  // any still-live identical proof clause, and `binary_ids` names the latest.
+  // kissat dense.c:flush_large_watches / watch.c:kissat_flush_large_watches:
+  // scanning the literals in index order, the first watch of a binary pair
+  // stays and every later copy is deleted as a clause (`kissat_delete_binary`
+  // from the smaller literal: proof, statistics, marks, scores).  Dropping
+  // only the watch entries left the copy count and the later occurrence
+  // order behind (Rank 19, pivot 44913 at conflict 15,379: the copies kissat
+  // removed at the walk of 2,004 were still Tactix's binary prefix).
   std::vector<uint32_t> seen(2 * k.nvars, 0);
-  std::vector<uint32_t> ordered_seen;
-  if (k.dense && k.dense->track_order)
-    ordered_seen.assign(2 * k.nvars, 0);
   uint32_t epoch = 0;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
     if (++epoch == 0) {
       std::fill(seen.begin(), seen.end(), 0);
       epoch = 1;
     }
-    k.watches.compact(lit, [&](WatchEntry watch) {
+    std::vector<Lit> duplicates;
+    for (const WatchEntry watch : k.watches.entries(lit)) {
       if (!watch.binary())
-        return keep_large;
+        continue;
       const Lit other = watch.other();
-      if (seen[other] == epoch)
-        return false;
-      seen[other] = epoch;
-      return true;
-    });
-    if (!ordered_seen.empty()) {
-      std::vector<OccIndex::Entry> &ordered = k.dense->ordered[lit];
-      size_t out = 0;
-      for (const OccIndex::Entry entry : ordered) {
-        if (!entry.binary || ordered_seen[entry.payload] != epoch) {
-          ordered[out++] = entry;
-          if (entry.binary)
-            ordered_seen[entry.payload] = epoch;
-        }
+      if (seen[other] == epoch) {
+        if (lit < other)
+          duplicates.push_back(other);
+      } else {
+        seen[other] = epoch;
       }
-      ordered.resize(out);
     }
+    for (const Lit other : duplicates)
+      kernel_remove_duplicate_binary_copies(k, lit, other);
+    if (!keep_large)
+      k.watches.compact(lit, [](WatchEntry watch) { return watch.binary(); });
   }
 }
 

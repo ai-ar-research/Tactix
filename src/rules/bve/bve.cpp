@@ -1730,10 +1730,42 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   neg_gate_order.clear();
   pos_antecedent_order.clear();
   neg_antecedent_order.clear();
-  for (uint32_t i = 0; i < pos.size(); ++i)
-    (pos_gate[i] ? pos_gate_order : pos_antecedent_order).push_back(i);
-  for (uint32_t i = 0; i < neg.size(); ++i)
-    (neg_gate[i] ? neg_gate_order : neg_antecedent_order).push_back(i);
+  // gates.c get_antecedents does not consult the extractor's marks: it walks
+  // the connected stream with one cursor over the gate stack and takes an
+  // entry as a gate exactly when its raw watch equals the cursor's.  A binary
+  // watch is raw-equal to every copy of the same pair, so an earlier duplicate
+  // of a gate copy is consumed in its place and the flagged copy itself falls
+  // through as an antecedent at its own (later) position.  Reproduce that
+  // consumption over the flag bits instead of splitting on them directly.
+  const auto split = [&](const std::vector<MClause> &side, Lit pivot,
+                         const std::vector<uint8_t> &flags,
+                         std::vector<uint32_t> &gates,
+                         std::vector<uint32_t> &antecedents) {
+    const auto raw_equal = [&](const MClause &a, const MClause &b) {
+      if (a.ref != INVALID_REF || b.ref != INVALID_REF)
+        return a.ref == b.ref;
+      const Lit oa = a.ba == pivot ? a.bb : a.ba;
+      const Lit ob = b.ba == pivot ? b.bb : b.ba;
+      return oa == ob;
+    };
+    uint32_t cursor = 0; // next flagged index, in stream order
+    for (uint32_t i = 0; i < side.size(); ++i) {
+      while (cursor < side.size() && !flags[cursor])
+        cursor++;
+      if (cursor < side.size() && raw_equal(side[i], side[cursor])) {
+        gates.push_back(i);
+        cursor++;
+      } else {
+        antecedents.push_back(i);
+      }
+    }
+    // every gate entry is consumed at or before its own index
+    while (cursor < side.size() && !flags[cursor])
+      cursor++;
+    assert(cursor == side.size());
+  };
+  split(pos, px, pos_gate, pos_gate_order, pos_antecedent_order);
+  split(neg, nx, neg_gate, neg_gate_order, neg_antecedent_order);
 
   // ---- generate resolvents (ordered gate stages or full cross product) + bound ----
   std::vector<BveResolvent> &resolvents = def->resolvents;
