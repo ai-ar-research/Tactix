@@ -2974,10 +2974,8 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
           k.stats.root_assignments != candidate_roots_before;
       if (ar != ApplyResult::Ok && !bve_learned_root_on_decline)
         continue; // this candidate was not viable; try the next
-      if (ar == ApplyResult::Ok) {
+      if (ar == ApplyResult::Ok)
         ctx.round_changed = true;
-        ctx.phase_dosed = true;
-      }
       // resolve.c can learn a unit immediately and then reject the same BVE
       // candidate on its later growth bound.  eliminate.c nevertheless flushes
       // that unit after every candidate.  A NoOp therefore is not permission to
@@ -3030,9 +3028,6 @@ DefaultInprocessScheduler::run_dosed_entry(Kernel &k, SlotEntry &e, const RuleVT
     // a much larger arena into the following Strengthen round and changes the
     // physical state from which that common consumer reconstructs.
     kernel_collect_garbage(k);
-    // This round has already satisfied the generic dosed-phase reclamation
-    // obligation. BVE is the last enabled dosed entry in production.
-    ctx.phase_dosed = false;
   }
   e.tm.admitted++; // the dosed branch ran; it exits here, not below
   return SlotStep::Next;
@@ -3696,8 +3691,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   }
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat)
     event_trace_eliminate_cleanup(k, "before");
-  if (ctx.phase_dosed && !ctx.phase_unsat)
-    kernel_collect_garbage(k);
+  // Kissat collects the arena only inside an Eliminate round (eliminate.c:519,
+  // mirrored by the BVE round above) and at Reduce (reduce.c:202).  A Probe
+  // phase whose dosed entry applied (TransitiveReduce, HyperBinaryRes) leaves
+  // no arena garbage of its own and must not collect: a collection resets the
+  // eager-subsumption register and compacts the arena, both search-visible.
   // Eliminate's sparse-resume pass below performs the reference's single
   // arena-order collection of every root-satisfied or retired-variable large
   // clause.  Other groups retain the generic redundant-retirement safeguard.
