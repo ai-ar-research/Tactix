@@ -47,13 +47,27 @@ resume surface.
   variables against Tactix's 132,930, the sixteen extra with no occurrence
   in any elimination clause (`4864`/`4865`; the variant's heap tracer needed
   its initialization deferred past parsing, `4860`--`4863`).
-  NEXT: (1) read the journals of `79cb7cc` (`4867` Rank 19, `4868` Ranks
-  33/35) and take the next split as the next class; (2) gate `79cb7cc`
-  (Rank 1--40 `4869` + B28+C5 `4870` + fuzz, pins `build/pin-79cb7cc*`) and
-  apply the push rule; (3) the unit-cost items of the fourth wrap (sweep
-  session representation, Reduce-time root collection, BVE/Factor cost
-  models) stand. Rank 35 windows past conflict 12,400 are not obtainable
-  under the event trace (`4856`: 65 minutes for 400 conflicts).
+  Journals of `79cb7cc`: Rank 33's probe entries agree through 120,330
+  (was 92,452) and split at 151,945 vs 151,943 (`4868`); Rank 19 is
+  unchanged (`4867`): its displaced resolvent block is the elimination of
+  external 44913 at 15,379, where the binaries (-44913,-44642) and
+  (-45488,-44913) sit in Tactix's binary prefix but at the end of Kissat's
+  occurrence list, because Kissat deleted duplicate copies at the walk's
+  dense entry (conflict 2004) and re-added them as resolvents in the round,
+  while Tactix's preprocessing Sweep had added physical copies it keeps
+  (`4879`/`4880`). Fuzz on `79cb7cc`: quick 10,000/0 (1661300),
+  random-policy 10,000/0 (1661330).
+  NEXT: (1) when gates `4869`/`4870` land, apply the push rule to `79cb7cc`
+  (fast-forward `origin/main`); (2) the binary-copy lifecycle class: read
+  kissat `dense.c:flush_large_watches` (walk/vivify dedup of repeated
+  binaries), `kissat_watch_binary` on resolvent copies, and Tactix's
+  `add-copy`/`delete-copy`/Sweep `sweep-physical-target` paths; match which
+  copies survive and where a duplicate resolvent lands; verify with the
+  pair rows of `4879` and the Rank 19 journal; (3) Rank 33's split at
+  151,945 and the 120-position arena displacement before 15,379 (`4875`)
+  are unlocalized; (4) the unit-cost items of the fourth wrap stand. Rank
+  35 windows past conflict 12,400 are not obtainable under the event trace
+  (`4856`: 65 minutes for 400 conflicts).
 - PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
   `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
   7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack

@@ -294,6 +294,25 @@ block sits inside an earlier Eliminate phase, windows `4871`/`4872` (BVE
 rows at 15,379 and 30,729). Fuzz on `79cb7cc`: quick leg 10,000 cases /
 0 failures (job 1661300); the random-policy leg is job 1661330.
 
+Rank 19's displaced resolvent block is now localized (`4871`--`4880`).
+Both Eliminate phases (15,379 and 30,729) pop identical candidates with
+identical per-candidate ticks; the displacement is inside the elimination
+of external 44913 at 15,379 (positive clause (44913, 21763, 22363, 27371,
+38317, 44885), 321 resolution pairs on both arms, same multiset). Tactix
+resolves the positive clause against three binaries first, Kissat against
+one binary, then 309 ternary clauses, then the binaries (-44913,-44642)
+and (-45488,-44913). The lifecycle rows explain the order: Kissat deletes
+the duplicate copies of (-44913,-44608) and (-45488,-44913) at the walk's
+dense entry of conflict 2004, and at 15,379 an earlier candidate's binary
+resolvents re-add (-44913,-44642) and (-45488,-44913) at the end of the
+occurrence lists; Tactix's Sweep at preprocessing added physical copies of
+the same binaries, keeps them, and its BVE round finds the old copies in
+the binary prefix of `ordered[-44913]`. The next class is therefore the
+binary-copy lifecycle around dense entries (which copies survive the
+walk's dedup, and where a resolvent that duplicates a live binary lands).
+A smaller displacement (120 positions at row 674,730) already exists at
+the eliminate_begin of 15,379 (`4875`) and is not yet localized.
+
 Rank 33's next window 60,640..110,430 (`4822`) holds no deletion-counter
 difference over 44,348 common conflicts; its journal divergence stays at
 120,329 (`4816`). Rank 35's window 12,050..15,400 (`4821`) is inconclusive:
