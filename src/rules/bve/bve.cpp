@@ -181,8 +181,10 @@ void bve_schedule(Kernel &k, std::vector<Var> &out) {
     if (k.values[pl] != 0) // assigned variable: not an elimination candidate
       continue;
     const uint32_t p = occ.count(pl), n = occ.count(make_lit(v, true));
-    if (p == 0 && n == 0) // occurs in no elimination clause: nothing to do
-      continue;
+    // Kissat schedules every active variable whose `eliminate` flag is set
+    // (eliminate.c schedule_variables), occurrences or not: a variable in no
+    // elimination clause is popped, treated as pure by generate_resolvents,
+    // and eliminated, which lowers `active` and shapes the schedule heap.
     // Kissat's variable_score uses p*n-p-n before adding search relevancy.
     // Keep that policy-independent structural component here; DefaultPolicy
     // supplies the current EVSIDS/VMTF term and the dynamic heap pose.

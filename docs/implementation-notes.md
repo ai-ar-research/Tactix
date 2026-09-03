@@ -287,6 +287,9 @@ duplicate binaries are already deleted, root-satisfied large clauses still count
 The arena is collected only inside an Eliminate round (BVE's per-round
 collection, `eliminate.c:519`) and at Reduce (`reduce.c:202`); a Probe phase
 never collects, so the eager-subsumption register survives it as in Kissat.
+BVE schedules every active variable with the retry flag, occurrences or not
+(kissat `schedule_variables`); a zero-occurrence variable is eliminated as
+pure, and any variable of a removed clause re-enters the schedule heap.
 
 ## 9. Reason bumping and dynamic tiers
 
