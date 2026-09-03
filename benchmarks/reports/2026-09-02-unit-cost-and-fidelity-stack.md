@@ -362,6 +362,16 @@ covers the window; its journal divergence stays at 19,364.
   (walk denominator, no collection after Probe, heap re-entry, zero-
   occurrence scheduling) is under gate `4869`/`4870` (jobs 1661298/1661299)
   with fuzz legs 1661300 (quick) and 1661330 (random policy).
+- Gates of `79cb7cc` (`4869`, job 1661298; `4870`, job 1661299; read
+  2026-09-03): Rank 1--40 40/40 valid, slowest rank 951 s, total 10,411.4 s
+  (+888.8 s against `d182bf6`, +1,076.4 s against the pin): Rank 19 951.0 s
+  at 4.94 M conflicts, Rank 31 660.2 s at 10.5 M (365 s / 4.5 M before),
+  Rank 33 749.6 s at 12.4 M (500 s / 6.3 M), Rank 27 +66, Rank 21 +63,
+  Rank 24 +45, Rank 32 376.6 s (-169), Rank 35 -49, Rank 37 -23. B28+C5
+  paired ratio 0.615 over 33 pairs, no failures. Fuzz quick 10,000/0
+  (1661300), random-policy 10,000/0 (1661330). Under the push rule the
+  tree is valid, within 20 minutes and better on B28+C5; the total is a
+  9 % regression of chaotic swings, left to the user's call.
 - Gates of `782c1db` (`4826`, job 1661124; `4827`, job 1661125): Rank
   1--40 40/40 valid, 10,032.5 s (+697.4 s against the pin, +509.9 s against
   `d182bf6`), almost entirely Rank 19: 965.4 s / 4.94 M conflicts against

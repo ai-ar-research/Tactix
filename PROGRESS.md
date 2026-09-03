@@ -57,8 +57,17 @@ resume surface.
   while Tactix's preprocessing Sweep had added physical copies it keeps
   (`4879`/`4880`). Fuzz on `79cb7cc`: quick 10,000/0 (1661300),
   random-policy 10,000/0 (1661330).
-  NEXT: (1) when gates `4869`/`4870` land, apply the push rule to `79cb7cc`
-  (fast-forward `origin/main`); (2) the binary-copy lifecycle class:
+  Gate of `79cb7cc` (`4869`/`4870`, 2026-09-03): Rank 1--40 40/40 valid,
+  slowest rank 951 s, total 10,411.4 s (+888.8 s against `d182bf6`; Rank 19
+  +437 at 4.94 M conflicts, Rank 31 +295 at 10.5 M against 4.5 M, Rank 33
+  +249 at 12.4 M against 6.3 M, Rank 27 +66, Rank 21 +63, Rank 24 +45,
+  Rank 32 -169, Rank 35 -49); B28+C5 ratio 0.615 (better than 0.643), no
+  failures; fuzz clean on both legs. Validity, the 20-minute limit and the
+  B28+C5 clause of the push rule hold; the total is a 9 % regression made
+  of chaotic trajectory swings, so the tip stays local until the user
+  decides whether such swings count as significant.
+  NEXT: (1) user decision on pushing `79cb7cc` (fast-forward
+  `origin/main`); (2) the binary-copy lifecycle class:
   kissat deletes a repeated binary as a clause (`kissat_delete_binary`:
   proof, statistics, lifecycle) at every dense entry, i.e. eliminate
   (`eliminate.c:600`), factor, sweep, congruence, walk
