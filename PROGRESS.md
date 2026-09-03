@@ -58,12 +58,17 @@ resume surface.
   (`4879`/`4880`). Fuzz on `79cb7cc`: quick 10,000/0 (1661300),
   random-policy 10,000/0 (1661330).
   NEXT: (1) when gates `4869`/`4870` land, apply the push rule to `79cb7cc`
-  (fast-forward `origin/main`); (2) the binary-copy lifecycle class: read
-  kissat `dense.c:flush_large_watches` (walk/vivify dedup of repeated
-  binaries), `kissat_watch_binary` on resolvent copies, and Tactix's
-  `add-copy`/`delete-copy`/Sweep `sweep-physical-target` paths; match which
-  copies survive and where a duplicate resolvent lands; verify with the
-  pair rows of `4879` and the Rank 19 journal; (3) Rank 33's split at
+  (fast-forward `origin/main`); (2) the binary-copy lifecycle class:
+  kissat deletes a repeated binary as a clause (`kissat_delete_binary`:
+  proof, statistics, lifecycle) at every dense entry, i.e. eliminate
+  (`eliminate.c:600`), factor, sweep, congruence, walk
+  (`dense.c:flush_large_watches`) and vivify (`watch.c:110-128`); Tactix's
+  `kernel_compact_dense_entry_watches` only drops the duplicate watch
+  entries, keeps the copy count, and runs only at walk/sweep/congruence
+  entries. Port: delete one copy (`kernel_delete_binary_one_copy`, with
+  proof) at each of kissat's dense entries; verify with the lifecycle rows
+  of `4880` (kissat deletes (-44913,-44608)/(-45488,-44913) at 2004) and
+  the pair rows of `4879`; (3) Rank 33's split at
   151,945 and the 120-position arena displacement before 15,379 (`4875`)
   are unlocalized; (4) the unit-cost items of the fourth wrap stand. Rank
   35 windows past conflict 12,400 are not obtainable under the event trace
