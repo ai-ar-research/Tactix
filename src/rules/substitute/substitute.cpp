@@ -1048,9 +1048,16 @@ void SweepSubstitutionSession::rewrite_large_in_place(const Kernel &k,
   const auto source_held = [&](Lit lit) {
     return std::find(old->begin(), old->end(), lit) != old->end();
   };
+  // Only a literal that leaves the image loses its stream slot; a retained
+  // literal keeps its entry untouched, so its stream is never searched.
+  // Searching every literal made each rewrite cost the sum of all its
+  // literals' stream lengths (Rank 22: 270 s in `find_large` at identical
+  // Sweep work; see benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md).
   for (const Lit lit : *old) {
+    if (image_holds(lit))
+      continue;
     DenseOccurrence *const at = find_large(k, lit, source);
-    if (!at || image_holds(lit))
+    if (!at)
       continue;
     std::vector<DenseOccurrence> &ordered = occurrences(k, lit);
     ordered.erase(ordered.begin() + (at - ordered.data()));
