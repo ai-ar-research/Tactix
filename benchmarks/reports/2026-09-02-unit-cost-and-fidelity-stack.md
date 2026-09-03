@@ -284,6 +284,16 @@ window past 12,000 is not obtainable with the event trace: the Tactix arm
 reaches conflict 12,402 in 65 minutes (`4856`), so its split in
 12,000..19,364 stays open.
 
+With the schedule port (`4868`) Rank 33's probe entries agree through
+120,330 (previously 92,452) and first differ at 151,945 against 151,943;
+its run under the trace now takes 12.44 M conflicts against Kissat's
+6.33 M (6.29 M before the port), so the gate of `79cb7cc` decides whether
+that trajectory is a wall-time regression. Rank 35 is unchanged (split in
+12,000..19,364). Rank 19 is unchanged by the port (`4867`); its resolvent
+block sits inside an earlier Eliminate phase, windows `4871`/`4872` (BVE
+rows at 15,379 and 30,729). Fuzz on `79cb7cc`: quick leg 10,000 cases /
+0 failures (job 1661300); the random-policy leg is job 1661330.
+
 Rank 33's next window 60,640..110,430 (`4822`) holds no deletion-counter
 difference over 44,348 common conflicts; its journal divergence stays at
 120,329 (`4816`). Rank 35's window 12,050..15,400 (`4821`) is inconclusive:
