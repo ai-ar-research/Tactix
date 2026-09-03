@@ -8,7 +8,44 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-02, fourth wrap). Accepted pin unchanged:
+- RESUME HERE (2026-09-02, fifth wrap). Accepted pin unchanged:
+  `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
+  7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed stack now ends at
+  `765924b`: the fourth-wrap stack plus `SP-EAGER-REGISTER-1` (`d182bf6`),
+  `SP-WALK-SIZE-1` (`782c1db`: the ProbSAT average divides by the clause
+  count kissat reads after dense entry; walks 1..3 on Rank 19 now match
+  kissat exactly, `4825`), `SP-COLLECT-PROBE-1` (`8c7fa06`: no arena
+  collection after a Probe phase; the eager register survives it, `4837`),
+  and `SP-BVE-HEAP-1` (`765924b`: removed-clause variables re-enter the
+  elimination heap; faithful, no measured effect at the tested phases).
+  Gates: `d182bf6` Rank 1--40 `4817` 40/40 at 9,522.6 s, B28+C5 `4818`
+  0.643, fuzz clean; `782c1db` Rank 1--40 `4826` 40/40 at 10,032.5 s
+  (Rank 19 965 s / 4.94 M conflicts against 514 s before and kissat's
+  740 s / 694 k), B28+C5 `4827` 0.641. The push rule fails on the total;
+  the walk repair is a verified port, so the tree keeps it.
+  Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`.
+  Where each rank now splits from kissat (all with identical learned
+  clauses before the split): Rank 19 at the reduce of 97,484 because the
+  two arenas hold the same clauses in a different order from row 604,810
+  (a block of BVE resolvents, `4848`), which makes the Vivify pass at
+  71,425 charge one literal's propagation 542 ticks less and vivify one
+  extra clause (`4855`/`4857`); Rank 33 at the BVE round of 110,427,
+  where the first differing pop is a tie (score 3,999,947) between
+  externals 495078 and 495081 decided by heap structure 46 pops into the
+  round (`4843`/`4847`/`4858`); Rank 35 in 12,000..19,364 (`4841` clean
+  through 11,998; `4856` covers the rest). Both Rank 19 and Rank 33 reduce
+  to the BVE elimination order, i.e. the initial schedule heap build.
+  NEXT: (1) obtain kissat's heap rows for the tied Rank 33 candidates
+  (the variant's `KISSAT_EVENT_TRACE_BVE_HEAP` tracer resolves no
+  variable yet; `4862` prints its import lookup) and compare the initial
+  positions of 495078/495081 (Tactix 33,223 / 4,151) and the insertion
+  order/scores that produce them (`compact_import_order` against kissat's
+  index order, `variable_score` inputs at schedule time); port the
+  difference, then rerun `4858` and the Rank 19 journal; (2) then gate
+  (Rank 1--40 + B28+C5 + fuzz) and apply the push rule; (3) the unit-cost
+  items of the fourth wrap (sweep session representation, Reduce-time root
+  collection, BVE/Factor cost models) stand.
+- PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
   `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
   7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack
   `f7fdc6a`..`5659765`: Sweep delay-ladder denominator, Substitute SCC
