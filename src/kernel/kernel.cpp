@@ -1093,11 +1093,16 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
                                           const Lit *lits, uint32_t size,
                                           uint32_t glue,
                                           const char *source_tag,
-                                          bool mark_added_material) {
+                                          bool mark_added_material,
+                                          Lit retained_watch) {
   Clause *c = clause_at(k.arena, ref);
   assert(!c->garbage());
   assert(id == k.next_clause_id);
   assert(size >= 3 && size <= c->size);
+  const bool retain = retained_watch != INVALID_LIT;
+  assert(!retain || (lits[0] == retained_watch &&
+                     (c->lits[0] == retained_watch ||
+                      c->lits[1] == retained_watch)));
   assert(!k.delayed_used);
   assert(!kernel_probing_rollback_active(k));
 
@@ -1151,11 +1156,14 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
 
   // A live in-place record cannot retain stale watch entries.  Removing them
   // before the semantic overwrite also avoids depending on cached blockers.
+  // kissat's on-the-fly strengthening keeps the surviving watch's entry.
   if (k.large_watches_connected) {
-    kernel_unwatch_large(k, old_first, ref);
-    kernel_unwatch_large(k, old_second, ref);
+    if (!retain || old_first != retained_watch)
+      kernel_unwatch_large(k, old_first, ref);
+    if (!retain || old_second != retained_watch)
+      kernel_unwatch_large(k, old_second, ref);
   }
-  if (!redundant)
+  if (!redundant && !retain)
     for (uint32_t i = 0; i < old_size; ++i) {
       const Lit old = c->lits[i];
       if (std::find(lits, lits + size, old) != lits + size)
@@ -1185,8 +1193,31 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
                               redundant ? glue : 0);
 #endif
   if (k.large_watches_connected) {
-    k.watches.push_large(lits[0], lits[1], ref);
-    k.watches.push_large(lits[1], lits[0], ref);
+    if (retain) {
+      // strengthen.c: the retained entry only changes its blocking literal;
+      // the new second watch is appended to its list.
+      uint32_t *p = k.watches.begin(lits[0]);
+      uint32_t *const end = k.watches.end(lits[0]);
+      bool updated = false;
+      while (p != end) {
+        if (Watch{*p}.binary()) {
+          p++;
+          continue;
+        }
+        if (p[1] == ref) {
+          p[0] = blocking_watch(lits[1]).raw;
+          updated = true;
+          break;
+        }
+        p += 2;
+      }
+      assert(updated && "retained watch entry must exist");
+      (void)updated;
+      k.watches.push_large(lits[1], lits[0], ref);
+    } else {
+      k.watches.push_large(lits[0], lits[1], ref);
+      k.watches.push_large(lits[1], lits[0], ref);
+    }
   }
 
   if (!redundant && mark_added_material)

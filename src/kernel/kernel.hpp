@@ -1300,11 +1300,15 @@ ReplaceOutcome kernel_replace_clause(Kernel &, Clause *orig, uint64_t id,
 // consumers whose reference algorithm publishes the surviving image as new
 // subsumption/Factor material from canonical Substitute, which does not.
 // Both source and image are large and the image may not grow.
+// `retained_watch` (kissat strengthen.c large_on_the_fly_strengthen): that
+// literal is `lits[0]` and keeps its watch entry, the other old watch is
+// dropped, one watch for `lits[1]` is appended, no removed literal is marked.
 void kernel_replace_large_clause_in_place(Kernel &, Ref source, uint64_t id,
                                           const Lit *lits, uint32_t size,
                                           uint32_t glue,
                                           const char *source_tag = "unspecified",
-                                          bool mark_added_material = true);
+                                          bool mark_added_material = true,
+                                          Lit retained_watch = INVALID_LIT);
 
 // Proof-safe root-unit consumption shared by sparse collection and Vivify
 // scheduling. Sparse collection rewrites physical material without marking it

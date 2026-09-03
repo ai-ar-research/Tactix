@@ -90,13 +90,15 @@ for path in sorted((root / "src/rules").glob("*/*")):
 # A proof rule may invoke the kernel's representation-only replacement after it
 # has proved and emitted its own large-to-large rewrite. Keep every rule-side
 # owner explicit: Substitute consumes proved equivalences, Strengthen owns its
-# self-subsuming-resolution proof, and Vivify owns its probing-derived RUP
-# rewrite. Strategy code and unrelated rules must not use the primitive as a
-# semantic shortcut.
+# self-subsuming-resolution proof, Vivify owns its probing-derived RUP
+# rewrite, and ConflictAnalysis owns its on-the-fly strengthening resolvent
+# (kissat strengthen.c shrinks the reason in place). Strategy code and
+# unrelated rules must not use the primitive as a semantic shortcut.
 in_place_primitive = "kernel_replace_large_clause_in_place"
 allowed_in_place_owners = {
     Path("src/kernel/kernel.hpp"),
     Path("src/kernel/kernel.cpp"),
+    Path("src/rules/analyze/analyze.cpp"),
     Path("src/rules/strengthen/strengthen.cpp"),
     Path("src/rules/substitute/substitute.cpp"),
     Path("src/rules/vivify/vivify.cpp"),

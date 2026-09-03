@@ -555,23 +555,19 @@ static void bump_reason_side(Kernel &k, const std::vector<Lit> &learned) {
 
 // --- on-the-fly subsumption (kissat/src/deduce.c + strengthen.c) ----------
 // A resolvent equal to reason ∖ {t} subsumes the reason and becomes the new
-// conflict. Tactix cannot shrink a variable-size arena record in place, so it
-// allocates the stronger clause while the old one remains t's valid reason.
-// The fused Backjump unassigns t and then deletes the old clause; no duplicate
-// crosses the public rule boundary. If the first resolvent also subsumes the
-// conflict, that conflict is deleted immediately because it cannot be a trail
-// reason. Evidence: benchmarks/reports/2026-08-09-tier-a-otfs-watch-repair.md.
+// conflict. The large path shrinks the reason in place as kissat's
+// large_on_the_fly_strengthen does: same arena record and position, the
+// surviving first watch kept, only t's watch dropped; t stays assigned with
+// that record as its reason until the fused Backjump unassigns it, exactly as
+// in kissat. The binary path publishes a new binary and retires the old
+// record at Backjump. If the first resolvent also subsumes the conflict, that
+// conflict is deleted immediately because it cannot be a trail reason.
+// Evidence: benchmarks/reports/2026-08-09-tier-a-otfs-watch-repair.md.
 static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
                             Ref subsumed_ref /* INVALID_REF if none */,
                             uint64_t conflict_chain_id) {
   const Clause *reason = clause_at(k.arena, reason_ref);
   const bool reason_irredundant = !reason->redundant();
-  // Kissat strengthens this reason in place, so Vivify's untried-tail bit
-  // remains on the same clause header.  Tactix materializes a packed OTFS
-  // replacement and must carry that logical metadata explicitly; otherwise a
-  // clause armed by an earlier Vivify round is silently demoted until the next
-  // global re-arm.
-  const bool reason_vivify = reason->vivify();
   std::vector<Lit> &lits = k.otfs_scratch; // no per-event alloc
   lits.clear();
   lits.reserve(reason->size - 1);
@@ -623,11 +619,10 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
   }
   k.stats.otfs_strengthened++;
 
-  // Large in-place OTFS marks the resolved literal removed before shrinking.
-  // It does not semantically delete the whole reason.  Binary OTFS does delete
-  // the old reason, handled below after publishing the new binary.  Keep these
-  // notifications explicit so Tactix's packed representation does not leak
-  // generic add/delete marks into policy state.
+  // kissat_on_the_fly_strengthen marks only the resolved literal removed; the
+  // dropped root-false tail literals are not marked, and the large path does
+  // not semantically delete the reason.  Binary OTFS does delete the old
+  // reason, handled below after publishing the new binary.
   if (reason_irredundant) {
     kernel_mark_bve_retry(k, var_of(t));
     kernel_removed_var(k, var_of(t));
@@ -647,7 +642,6 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     k.conflict_bin[0] = lits[0];
     k.conflict_bin[1] = lits[1];
   } else {
-    kernel_inherit_clause_position(k, id, reason_ref);
     // Kissat keeps the reason's other old watch even when it is root-false,
     // and selects only its new partner, taking the first literal on a level
     // tie.  Re-selecting both watches changes the semantic clause in the root
@@ -660,15 +654,22 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     std::swap(lits[1], lits[highest]);
     // Kissat shortens the reason in place and keeps its existing glue unless
     // the new physical size forces the size-1 clamp (strengthen.c:35-43).
-    // Recomputing LBD from the transient conflict levels can make an already
-    // better reason worse merely because Tactix represents the strengthening
-    // with a fresh packed record.
     const uint32_t glue = kernel_shrunken_glue(
         k, reason->glue(), static_cast<uint32_t>(lits.size()));
-    // reason may dangle after this allocation; it is not used again
-    k.conflict_ref = kernel_add_large_clause(
-        k, lits.data(), static_cast<uint32_t>(lits.size()), redundant, glue,
-        id, /*mark_added_material=*/false);
+    // strengthen.c large_on_the_fly_strengthen: the record, its arena
+    // position and its first watch survive; the header keeps its bits.
+    kernel_replace_large_clause_in_place(
+        k, reason_ref, id, lits.data(), static_cast<uint32_t>(lits.size()),
+        glue, "analyze_strengthen", /*mark_added_material=*/false,
+        /*retained_watch=*/surviving_watch);
+    k.conflict_ref = reason_ref;
+    Clause *replacement = clause_at(k.arena, reason_ref);
+    // kissat_on_the_fly_subsume turns a redundant reason irredundant when it
+    // subsumes an irredundant conflict.
+    if (!redundant && replacement->redundant()) {
+      replacement->set_redundant(false);
+      replacement->set_glue(0);
+    }
     // Pinned Kissat marks only the surviving old tail (original positions
     // 2..), before choosing its new second watch.  The retained first watch is
     // deliberately excluded.  A redundant reason that becomes irredundant by
@@ -679,8 +680,6 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
         kernel_touch_var(k, var_of(lits[i]));
         kernel_mark_factor_literal(k, lits[i], "analyze_strengthen");
       }
-    kernel_swap_large_watch_refs(k, surviving_watch, reason_ref,
-                                 k.conflict_ref, t, lits[1]);
 
     // Kissat's `kissat_on_the_fly_subsume` transfers a better LBD from a
     // redundant conflict to the strengthened redundant reason.  This happens
@@ -689,8 +688,6 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     // deleted conflict.  Omitting it can move the same live clause into a
     // later reduction/Vivify tier even when the two analyses are otherwise
     // literal-for-literal identical.
-    Clause *replacement = clause_at(k.arena, k.conflict_ref);
-    replacement->set_vivify(reason_vivify);
     if (subsumed_glue < replacement->glue()) {
       const uint32_t old_glue = replacement->glue();
       event_trace_clause_glue(k, "analyze", replacement, old_glue,
@@ -700,18 +697,14 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     }
   }
 
-  // The replacement assumes the old reason's eager-register identity.  Kissat's
-  // binary path (strengthen.c binary_on_the_fly_strengthen) marks the old
-  // clause garbage but leaves its reference in last_learned, where the dead
-  // entry keeps its slot (skipped as garbage, kept by flush_last_learned)
-  // until later insertions shift it out.  Vacating the slot instead let the
-  // next flush compact older entries forward, so they survived one more
-  // insertion and subsumed clauses kissat's register no longer held.
-  if (k.conflict_ref != INVALID_REF)
-    for (Ref &recent : k.eager_recent)
-      if (recent == reason_ref)
-        recent = k.conflict_ref;
-  k.otfs_retired.push_back(reason_ref);
+  // The large path keeps the reason's record, so its eager-register slot is
+  // untouched as in kissat.  Kissat's binary path (strengthen.c
+  // binary_on_the_fly_strengthen) marks the old clause garbage but leaves its
+  // reference in last_learned, where the dead entry keeps its slot (skipped
+  // as garbage, kept by flush_last_learned) until later insertions shift it
+  // out; the old record is retired at Backjump, after t is unassigned.
+  if (binary)
+    k.otfs_retired.push_back(reason_ref);
 
   if (subsume) {
     Clause *d = clause_at(k.arena, subsumed_ref); // re-deref: arena moved
