@@ -1479,7 +1479,7 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
       std::strcmp(event, "formula_checkpoint"))
     return;
   if (skip_watch_ && !std::strncmp(event, "watch", 5) &&
-      std::strcmp(event, "watch_move"))
+      std::strcmp(event, "watch_move") && std::strcmp(event, "watch_cost"))
     return;
   if (skip_imply_ && !std::strcmp(event, "imply"))
     return;

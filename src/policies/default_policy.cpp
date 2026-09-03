@@ -1359,7 +1359,11 @@ private:
   }
 
   void update(Var v, bool reinsert) {
-    if (v >= eligible_.size() || !eligible_[v] || !active(v))
+    // kissat eliminate.c:72-110 (update_after_removing_variable): any
+    // non-fixed variable of a removed clause is rescored and, when absent,
+    // pushed, whether or not this round scheduled it; the pop-time retry
+    // check is the only eligibility test.  Adding a resolvent never pushes.
+    if (v >= pos_.size() || !active(v))
       return;
     const double old = score_[v];
     const double now = schedule_score(v);
@@ -1377,6 +1381,8 @@ private:
       // is popped, but its interim presence and bubble path are observable heap
       // topology.  `bve_retry` is the flag image used at initial scheduling and
       // at the pre-apply guard; it must not suppress this physical reinsertion.
+      if (payload_[v] == INSTANCE_CANONICAL)
+        payload_[v] = lit_instance(*kernel_, make_lit(v, false));
       pos_[v] = static_cast<uint32_t>(stack_.size());
       stack_.push_back(v);
       bubble_up(v);
