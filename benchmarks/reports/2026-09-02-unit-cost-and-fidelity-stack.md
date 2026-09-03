@@ -267,6 +267,23 @@ one level up: the first Strengthen round exits identically (132,946 active,
 against 110,145. The BVE row campaign `4843` locates the first candidate
 treated differently.
 
+The Rank 33 tie resolved (`4858`, `4860`--`4866`): both heaps use Kissat's
+sift rules and insertion order, and the traced candidates carry identical
+scores (495123 3,999,993; 495082 3,999,948; 495078 3,999,947; 495075
+3,999,943), but Kissat's schedule holds 132,946 variables against Tactix's
+132,930. The sixteen extra externals (822, 843, 373003, 380403, 397417,
+397464, 397491, 397515, 397529, 398921, 402466, 402471, 402490, 402510,
+402522, 402539) have no occurrence in any elimination clause: Kissat's
+`schedule_variables` pushes every active variable whose `eliminate` flag is
+set, `generate_resolvents` treats the empty polarity as pure, and the
+variable is eliminated, which lowers `active` and shapes the heap; Tactix's
+`bve_schedule` skipped variables with no occurrences. Reading Kissat's heap
+rows needed three repairs of the variant's tracer, whose initialization ran
+while the formula was still being parsed (`4860`--`4863`). Rank 35's
+window past 12,000 is not obtainable with the event trace: the Tactix arm
+reaches conflict 12,402 in 65 minutes (`4856`), so its split in
+12,000..19,364 stays open.
+
 Rank 33's next window 60,640..110,430 (`4822`) holds no deletion-counter
 difference over 44,348 common conflicts; its journal divergence stays at
 120,329 (`4816`). Rank 35's window 12,050..15,400 (`4821`) is inconclusive:

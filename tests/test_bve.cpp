@@ -380,7 +380,10 @@ static void test_schedule_order() {
   assert(cand[2] == var_of(internalize(3)));
 }
 
-// assigned variables and variables in no elimination clause are not candidates.
+// assigned variables are not candidates; a variable in no elimination clause
+// is one (kissat eliminate.c schedule_variables schedules every active
+// variable with its `eliminate` flag set, and generate_resolvents then
+// treats the empty polarity as pure and eliminates it).
 static void test_schedule_excludes() {
   Kernel k;
   kernel_reserve_vars(k, 4);
@@ -389,11 +392,11 @@ static void test_schedule_excludes() {
   kernel_assign_unit(k, internalize(-3));     // 3 assigned (false)
   std::vector<Var> cand;
   bve_schedule(k, cand);
-  assert(cand.size() == 2);
-  for (const Var v : cand) {
+  assert(cand.size() == 3);
+  for (const Var v : cand)
     assert(v != var_of(internalize(3))); // assigned
-    assert(v != var_of(internalize(4))); // in no elimination clause
-  }
+  assert(std::find(cand.begin(), cand.end(), var_of(internalize(4))) !=
+         cand.end()); // in no elimination clause: scheduled, pure
 }
 
 // N1 and Kissat parity: an extension variable is still a legal BVE candidate.
