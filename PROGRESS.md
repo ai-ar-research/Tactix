@@ -66,22 +66,27 @@ resume surface.
   B28+C5 clause of the push rule hold; the total is a 9 % regression made
   of chaotic trajectory swings, so the tip stays local until the user
   decides whether such swings count as significant.
-  NEXT: (1) user decision on pushing `79cb7cc` (fast-forward
-  `origin/main`); (2) the binary-copy lifecycle class:
-  kissat deletes a repeated binary as a clause (`kissat_delete_binary`:
-  proof, statistics, lifecycle) at every dense entry, i.e. eliminate
-  (`eliminate.c:600`), factor, sweep, congruence, walk
-  (`dense.c:flush_large_watches`) and vivify (`watch.c:110-128`); Tactix's
-  `kernel_compact_dense_entry_watches` only drops the duplicate watch
-  entries, keeps the copy count, and runs only at walk/sweep/congruence
-  entries. Port: delete one copy (`kernel_delete_binary_one_copy`, with
-  proof) at each of kissat's dense entries; verify with the lifecycle rows
-  of `4880` (kissat deletes (-44913,-44608)/(-45488,-44913) at 2004) and
-  the pair rows of `4879`; (3) Rank 33's split at
-  151,945 and the 120-position arena displacement before 15,379 (`4875`)
-  are unlocalized; (4) the unit-cost items of the fourth wrap stand. Rank
-  35 windows past conflict 12,400 are not obtainable under the event trace
-  (`4856`: 65 minutes for 400 conflicts).
+  Rank 19's pivot-44913 class closed 2026-09-03 (`SP-BINARY-DEDUP-1`,
+  `SP-BVE-ANTECEDENT-1`): every dense entry, Eliminate's included, now
+  deletes the later copies of a repeated binary as clauses (kissat
+  `watch.c`/`dense.c`), and BVE splits gates from antecedents as
+  `gates.c:get_antecedents` does (one cursor over the flagged entries,
+  raw-watch equality, so an earlier duplicate copy takes the gate slot).
+  Lifecycle rows of the three pivot binaries match kissat (`4887`), all
+  321 pairs of the pivot match row for row (`4888`; `4879`/`4882`/`4885`
+  showed the flag split placing the copies at 0/1 instead of 312/313), and
+  `test_bve` fails on the flag split. Journals of this build: Rank 19
+  `4889`, Rank 33/35 `4890` (the dedup-only build split Rank 19 at
+  126,396 vs 126,390 after 96,825 in common, `4883`; Rank 33 at 151,945,
+  Rank 35 at 19,364, `4884`).
+  NEXT: (1) gate this commit (Rank 1--40, B28+C5, fuzz quick +
+  random-policy) and apply the push rule; the user has not yet decided on
+  `79cb7cc`'s +889 s of chaotic swings; (2) read `4889`/`4890` and take
+  the next first divergence (Rank 19 after 96,825; Rank 33's 151,945; the
+  120-position displacement before 15,379, `4875`); (3) the unit-cost
+  items of the fourth wrap stand. Rank 35 windows past conflict 12,400 are
+  not obtainable under the event trace (`4856`: 65 minutes for 400
+  conflicts).
 - PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
   `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
   7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack

@@ -313,6 +313,32 @@ walk's dedup, and where a resolvent that duplicates a live binary lands).
 A smaller displacement (120 positions at row 674,730) already exists at
 the eliminate_begin of 15,379 (`4875`) and is not yet localized.
 
+The class closed on 2026-09-03 with two ports (`SP-BINARY-DEDUP-1`,
+`SP-BVE-ANTECEDENT-1`). First, kissat deletes a repeated binary as a
+clause at every dense entry, the Eliminate entry included
+(`watch.c:kissat_flush_large_watches` from `eliminate.c:600`,
+`dense.c:flush_large_watches` elsewhere), keeping the first watch; Tactix
+only dropped the duplicate watch entries at walk/sweep/congruence entries
+and kept the copy count. After the port the lifecycle rows of the three
+pivot binaries (`4887`) match kissat's at 2004 (two `deduplicate` rows)
+and at 15,379 (add, add, delete, delete, then the pivot's three deletes in
+the same order), which proves the two occurrence streams are identical.
+Second, the remaining pair-order difference was the gate/antecedent split.
+`gates.c:get_antecedents` does not use the extractor's marks: it walks the
+stream with one cursor over the gate stack and takes an entry as a gate
+exactly when its raw watch equals the cursor's; a binary watch is
+raw-equal to every copy of its pair, so once the five required inputs are
+consumed the OLD copies of (-44913,-44642) and (-45488,-44913) at the
+stream head take the gate slots and the resolvent copies `ands.c` flagged
+fall through as antecedents at positions 312/313. Tactix split on the
+flag bits, so its first copies stayed antecedents at positions 0/1
+(`4879`, `4882`, `4885`: identical on the pre-dedup, dedup-only and
+first-copy-index builds, the last of which was a no-op because
+`SparseBinaryIndex::set` already keeps the first copy). With the cursor
+split (`4888`) all 321 pairs of pivot 44913 match kissat row for row;
+`test_bve` pins the resolvent order on a five-binary AND gate and fails
+on the flag split.
+
 Rank 33's next window 60,640..110,430 (`4822`) holds no deletion-counter
 difference over 44,348 common conflicts; its journal divergence stays at
 120,329 (`4816`). Rank 35's window 12,050..15,400 (`4821`) is inconclusive:

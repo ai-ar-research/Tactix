@@ -752,6 +752,49 @@ static void test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent() {
          "the later unrelated duplicate is a Kissat gate member");
 }
 
+// gates.c get_antecedents splits the stream by raw-watch equality with one
+// cursor over the gate stack, not by the extractor's marks: once the required
+// binaries are consumed, an EARLIER copy of the unrelated duplicate is raw-equal
+// to the gate copy and takes its slot, so the later copy becomes the antecedent
+// at its own position.  The resolvent order shows it: the base then meets (1,5)
+// before (1,4).
+static Ref first_large_ref(const Kernel &k, std::vector<int> want) {
+  std::sort(want.begin(), want.end());
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage()) {
+      std::vector<int> got;
+      for (const Lit l : *c)
+        got.push_back(externalize(l));
+      std::sort(got.begin(), got.end());
+      if (got == want)
+        return ref;
+    }
+    ref += clause_actual_words(c);
+  }
+  return INVALID_REF;
+}
+
+static void test_gate_and_or_earlier_duplicate_takes_the_gate_slot() {
+  Kernel k;
+  kernel_reserve_vars(k, 5); // x=1, inputs=2,3, duplicated ant=4, other ant=5
+  Lit base[3] = {internalize(-1), internalize(2), internalize(3)};
+  kernel_add_large_clause(k, base, 3, false, 0);
+  kernel_add_binary_clause(k, internalize(1), internalize(-2), 1);
+  kernel_add_binary_clause(k, internalize(1), internalize(-3), 2);
+  kernel_add_binary_clause(k, internalize(1), internalize(4), 3);
+  kernel_add_binary_clause(k, internalize(1), internalize(5), 4);
+  kernel_add_binary_clause(k, internalize(1), internalize(4), 5);
+  k.bve_backward = false;
+  const RuleVTable &vt = tactix_rules()[tactix_rule_id("BVE")];
+  assert(vt.apply_instance(k, lit_instance(internalize(1))) ==
+         ApplyResult::Ok);
+  const Ref via5 = first_large_ref(k, {2, 3, 5});
+  const Ref via4 = first_large_ref(k, {2, 3, 4});
+  assert(via5 != INVALID_REF && via4 != INVALID_REF);
+  assert(via5 < via4 && "the antecedent stream is (1,5) then the later (1,4)");
+}
+
 // Pinned Kissat scans physical large bases after root-false stripping. A base
 // may therefore have only pivot+input active and still define a gate when the
 // binary side has another distinct (antecedent) partner. The physical binary
@@ -1511,6 +1554,7 @@ int main() {
   test_gate_and_or_fires();
   test_gate_and_or_retains_duplicate_binary_gate_copies();
   test_gate_and_or_consumes_one_unrelated_duplicate_as_antecedent();
+  test_gate_and_or_earlier_duplicate_takes_the_gate_slot();
   test_gate_and_or_accepts_root_shortened_large_base();
   test_gate_and_or_rejects_root_shortened_large_inputs();
   test_gate_equivalence_substitution();

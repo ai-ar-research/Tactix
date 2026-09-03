@@ -3475,6 +3475,11 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
   // large occurrence image and do not instantiate a duplicate formula-wide
   // ordering representation. Constructing either cache is not itself a
   // physical sparse-watch transition; individual rules own those boundaries.
+  // kissat_eliminate enters dense mode through kissat_enter_dense_mode
+  // (eliminate.c:600), which deletes every repeated binary before the
+  // occurrence lists are built; the Probe rules perform their own entries.
+  if (group == SlotGroup::Eliminate)
+    kernel_deduplicate_binary_watches(k);
   kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
