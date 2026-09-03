@@ -655,6 +655,43 @@ static void test_vivify_dose_carries_early_tier_budget(void) {
          "tier 3 lost the unused cumulative tier-1/tier-2 allowance");
 }
 
+// When the focused tier-1 and tier-2 glue limits coincide, tier 2 is empty:
+// Kissat adds its share to tier 1 and never runs the tier-2 round, so a dose
+// is tier 1, tier 3 and the irredundant pass (vivify.c:kissat_vivify).
+static void test_vivify_dose_merges_tier2_into_tier1(void) {
+  Kernel k;
+  kernel_reserve_vars(k, 160);
+  ScopedHeuristics h(k);
+  k.stats.conflicts = 1;
+  for (uint32_t clause = 0; clause < 8; clause++) {
+    Lit lits[20];
+    for (uint32_t i = 0; i < 20; i++)
+      lits[i] = make_lit(clause * 20 + i, true);
+    kernel_add_large_clause(k, lits, 20, true, 2, 0);
+  }
+  k.tier1_by_mode[0] = k.tier2_by_mode[0] = 2;
+  k.tier1_by_mode[1] = k.tier2_by_mode[1] = 2;
+  k.tier1 = k.tier2 = 2;
+
+  DefaultStrategyConfig cfg;
+  cfg.inprocess.minimum_effort_ticks = 1000;
+  cfg.inprocess.phase_rounds = 1;
+  cfg.inprocess.vivify_permille = 1000;
+  DefaultPolicy p(cfg);
+  p.inprocess().build(k);
+  const auto &rules = tactix_rules();
+  for (auto &e : p.inprocess().entries)
+    e.enabled = !std::strcmp(rules[e.rule].name, "Vivify");
+
+  assert(p.inprocess().run_phase(k, SlotGroup::Probe, nullptr) == 0);
+  std::printf("  vivify tier merge: rounds=%llu checked=%llu\n",
+              (unsigned long long)k.stats.vivify_rounds,
+              (unsigned long long)k.stats.vivify_checked);
+  assert(k.stats.vivify_rounds == 3 &&
+         "equal tier limits must fold tier 2 into tier 1 without a round");
+  assert(k.stats.vivify_checked == 8);
+}
+
 // Kissat's irredundant productivity numerator counts every changed candidate,
 // including a pure subsumption.  Counting only replacement clauses would
 // raise vivifyirr's delay after a maximally productive subsumption-only dose.
@@ -1609,6 +1646,7 @@ int main() {
   test_subsume_meters_partner_visits();
   test_vivify_scope_tracks_tier2();
   test_vivify_dose_poses_focused_tiers();
+  test_vivify_dose_merges_tier2_into_tier1();
   test_vivify_dose_carries_early_tier_budget();
   test_vivify_subsumption_reduces_irredundant_delay();
   test_sweep_delay_rates_per_swept_variable();
