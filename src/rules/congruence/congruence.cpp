@@ -2894,6 +2894,10 @@ ApplyResult congruence_apply(Kernel &k) {
     ~ScopedBinaryExitTrace() { congruence_binary_trace(kernel, "exit"); }
   } binary_exit_trace{k};
   event_trace_slot_boundary(k, "congruence-dense-resume", "entry");
+  // congruence.c init_extraction enters dense mode before extracting the
+  // binaries (kissat_enter_dense_mode with the save stack), and that entry
+  // deletes every later copy of a repeated binary as a clause.
+  kernel_deduplicate_binary_watches(k);
   std::vector<std::pair<Lit, Lit>> binary_candidates;
   bool binary_candidates_complete = false;
   {

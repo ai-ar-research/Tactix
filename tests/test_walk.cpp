@@ -181,8 +181,12 @@ static void test_dense_entry_deduplicates_binary_pairs() {
                            ++k.next_clause_id);
   assert(kernel_binary_copies(k, a, b) == 2);
 
+  const uint64_t deleted_before = k.stats.binaries_deleted;
   assert(walk_apply_steps(k, 1) != ApplyResult::Conflict);
   assert(kernel_binary_copies(k, a, b) == 1);
+  // the later copy is deleted as a clause (kissat_delete_binary), not merely
+  // dropped from the watch lists
+  assert(k.stats.binaries_deleted == deleted_before + 1);
   kernel_check_invariants(k);
 }
 

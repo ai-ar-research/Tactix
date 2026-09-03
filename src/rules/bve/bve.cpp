@@ -708,14 +708,18 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
     }
 
   // (1) equivalence x↔¬w: pos binary (x∨w) + neg binary (¬x∨¬w) ⟹ ¬w→x, x→¬w.
+  // kissat equivalences.c marks the physical binaries of the positive side and
+  // takes the FIRST physical binary of the negative side whose partner's
+  // complement is marked; large clauses shortened to two open literals are
+  // never candidates on either side.
   if (k.bve_gate_mask & BVE_GATE_EQUIV)
-  for (size_t i = 0; i < pos.size(); ++i)
-    if (pos[i].active.size() == 2) {
-      const Lit w = pos[i].active[0] == px ? pos[i].active[1] : pos[i].active[0];
-      const int j = neg_bin.get(negate(w));
-      if (j >= 0) {
-        pos_gate[i] = 1;
-        neg_gate[size_t(j)] = 1;
+  for (size_t j = 0; j < neg.size(); ++j)
+    if (neg[j].ref == INVALID_REF) {
+      const Lit o = neg[j].active[0] == nx ? neg[j].active[1] : neg[j].active[0];
+      const int i = pos_bin.get(negate(o));
+      if (i >= 0) {
+        pos_gate[size_t(i)] = 1;
+        neg_gate[j] = 1;
         return BVE_GATE_EQUIV;
       }
     }
@@ -758,6 +762,10 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
       // the mark as the one antecedent and each later copy becomes a gate.
       // Reproduce that literal-mark consumption in one linear side scan.
       for (size_t i = 0; i < opp_side.size(); ++i) {
+        // ands.c pushes physical binary watches only; a large clause whose
+        // root-false literals leave two open ones is not a gate member.
+        if (opp_side[i].ref != INVALID_REF)
+          continue;
         const PoolSlice<Lit> &clause = opp_side[i].active;
         if (clause.size() != 2)
           continue;
@@ -951,6 +959,10 @@ uint32_t bve_detect_gate(const Kernel &k, Lit px, Lit nx,
     }
     return false;
   };
+  // A half-matched ITE pair leaves `resolve_gate` set (ifthenelse.c resets it
+  // per pair only); kissat's next consumer is the definition, which owns the
+  // flag.  The XOR shape's gate×gate resolvents are tautologies, so clear it.
+  resolve_gate = false;
   if ((k.bve_gate_mask & BVE_GATE_XOR) && try_xor())
     return BVE_GATE_XOR;
   return definition();

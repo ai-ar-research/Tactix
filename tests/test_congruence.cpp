@@ -117,6 +117,7 @@ static void test_existing_representative_pair_is_republished() {
     const uint64_t old_forward_id = kernel_binary_id(k, forward[0], forward[1]);
     const uint64_t old_reverse_id = kernel_binary_id(k, reverse[0], reverse[1]);
     std::fill(k.factor_marks.begin(), k.factor_marks.end(), 0);
+    const uint64_t deleted_before = k.stats.binaries_deleted;
 
     const std::string path = "/tmp/tactix-congruence-republish-" +
                              std::to_string(static_cast<long>(getpid())) +
@@ -134,6 +135,9 @@ static void test_existing_representative_pair_is_republished() {
       assert(k.factor_marks[lit] && "representative publication must re-arm");
     assert(kernel_binary_copies(k, forward[0], forward[1]) == 1);
     assert(kernel_binary_copies(k, reverse[0], reverse[1]) == 1);
+    // the first dense entry deletes each later copy as a clause
+    // (congruence.c init_extraction -> kissat_enter_dense_mode)
+    assert(k.stats.binaries_deleted >= deleted_before + 2);
     assert(kernel_binary_id(k, forward[0], forward[1]) > old_forward_id);
     assert(kernel_binary_id(k, reverse[0], reverse[1]) > old_reverse_id);
     assert(k.stats.congruence_unjustified == 0);
