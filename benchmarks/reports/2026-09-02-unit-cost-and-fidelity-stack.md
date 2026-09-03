@@ -221,6 +221,52 @@ about 20 search ticks (budget 3,581,953 against Kissat's 3,581,952), the
 third matches, the fourth differs by 0.05 % at different conflicts. Rank 19
 under the trace: 1,408 s / 4.94 M conflicts against Kissat's 289 s / 694 k.
 
+Rank 19 after the walk repair: window `4829` (96,825..101,000) puts the
+first deletion-counter difference at 96,826, the first conflict after the
+probe phase of 96,825; both arms learn the identical size-42 clause there,
+Kissat eagerly subsumes one register clause with it, Tactix none. The
+register rows (`4830`) show both registers holding the same four clauses at
+96,825 (sizes 46, 285, 7, 287) and subsuming the same three; at 96,826
+Kissat's register holds the size-44 clause of 96,825 and the size-7 clause,
+Tactix's is empty. The only Tactix paths that empty the register are
+`kernel_collect_garbage` and variable compaction, and the scheduler ran a
+whole-arena collection at the end of every phase in which a dosed entry
+applied (SCHED-E1); TransitiveReduce is dosed and reduced 18 binaries in
+that probe phase. Kissat collects only inside Eliminate rounds and at
+Reduce. Ported as `SP-COLLECT-PROBE-1` (the phase-end collection is
+removed; BVE's per-round collection stays); verification journal `4831`.
+
+Verification of the collection repair (`4831`, `4837`): with `8c7fa06`
+both registers hold the size-44 and size-7 clauses at 96,826 and Tactix now
+subsumes the size-44 clause exactly as Kissat does; the instrumented reset
+rows (`eager_reset_collect`, `eager_reset_compact`) never fire in the probe
+phase. The Rank 19 journal is nevertheless unchanged (walks 4..8 at the
+same conflicts, first differing probe entry 126,396): the deleted clause
+does not alter propagation. The next split is at the reduce of 97,484
+(`4834`, `4839`): every learned clause matches through 97,515, the search
+ticks match through 97,649, and at 97,516 the learned clause has the same
+literal set with a different raw analysis order. The watch rows show why:
+propagating -102038 after the reduce, Kissat implies 94542 through a
+binary clause and Tactix never assigns 94542 in 97,484..97,520; the large
+watch scans of -102038 are identical, so a binary present in Kissat's
+watch list is absent from Tactix's. Kissat's sparse collection at Reduce
+turns root-false large clauses into binaries from `first_reducible`
+(`collect.c:425-440`); the lifecycle campaign `4842` traces that binary on
+both arms.
+
+Rank 33 after the walk and collection repairs (`4832`, `4822`, `4835`,
+`4840`): every learned clause and decision level matches through 110,429,
+one conflict after the Eliminate phase of 110,427, and at 110,430 the same
+conflict clause is analysed at level 3,389 (Tactix) against 3,388. The
+first differing row is an implication: propagating decision 145 at 110,429
+Kissat implies -114896 through the binary (-114896, -145) and Tactix never
+assigns 114896 in the window. The journal rows at 110,427 show the cause
+one level up: the first Strengthen round exits identically (132,946 active,
+534,156 irredundant, 169,607 binaries) and the first BVE round exits with
+112,705 active in Tactix against 112,697 in Kissat, the second with 110,161
+against 110,145. The BVE row campaign `4843` locates the first candidate
+treated differently.
+
 Rank 33's next window 60,640..110,430 (`4822`) holds no deletion-counter
 difference over 44,348 common conflicts; its journal divergence stays at
 120,329 (`4816`). Rank 35's window 12,050..15,400 (`4821`) is inconclusive:
@@ -251,10 +297,25 @@ covers the window; its journal divergence stays at 19,364.
   19 520.6 s against the pin's lucky 227.0 s and Kissat's 739.9 s; Rank 34
   -326, Rank 21 -162, Rank 27 -136, Rank 40 -93; Rank 22 +204 from the
   sweep session, Rank 17 +140 and Rank 9 +41 on SAT reshuffles, Rank 33
-  +51, Rank 39 +47). B28+C5 PAR-2 ratio 0.654 over 31 pairs so far, no
-  failures. The push rule fails only on the total (+75 s); the tree stays
-  local and the remaining class (section 3, on-the-fly strengthening after
-  a differing reason clause) is common to Ranks 19 and 33.
+  +51, Rank 39 +47). B28+C5 (`4803`) paired PAR-2 ratio 0.643 over 33
+  pairs, no failures on either arm. The push rule fails only on the total
+  (+75 s); the tree stays local.
+- Gates of `d182bf6` (`4817`, job 1660996; `4818`, job 1660997): Rank 1--40
+  40/40 valid, 9,522.6 s (+187.5 s against the pin, +112.3 s against
+  `c2bb80f`: Rank 32 +166 at 7.9 M against 4.3 M conflicts, Rank 35 +144 at
+  9.1 M against 5.5 M, Rank 37 -145, Rank 24 -32; Rank 19 unchanged at
+  520 s). B28+C5 paired ratio 0.643 over 33 pairs, no failures. Fuzz on
+  `d182bf6`: quick leg 10,000 / 0 failures (job 1660998), random-policy leg
+  10,000 / 0 (job 1660999). The moves are crafted-family reshuffles, not a
+  verdict on the register repair, which stays as a fidelity port.
+- Gates of `782c1db` (`4826`, job 1661124; `4827`, job 1661125): Rank
+  1--40 40/40 valid, 10,032.5 s (+697.4 s against the pin, +509.9 s against
+  `d182bf6`), almost entirely Rank 19: 965.4 s / 4.94 M conflicts against
+  514.3 s / 2.56 M (`d182bf6`) and Kissat's 739.9 s / 694 k. The walk
+  repair is a verified port (walks 1..3 exact), so the tree keeps it; the
+  Rank 19 trajectory after 97,516 is the open class below. Rank 37 +43 s,
+  every other rank within noise. B28+C5 paired ratio 0.641 over 33 pairs,
+  no failures. The push rule fails on the total; the tree stays local.
 - Unit cost still open, in order of measured excess at matching work:
   the sweep-substitution session (representation: kissat's single mixed
   watch stream in dense mode), `kernel_sparse_collect_root` at Reduce

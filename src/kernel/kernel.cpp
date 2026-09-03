@@ -1678,10 +1678,12 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
   flush_delayed<RECORD>(k);
   if constexpr (!RECORD)
     event_trace_watch_scan_post(k, lit);
-  if constexpr (!RECORD)
-    event_trace_watch_cost(k, lit, words_before, words_after, base_ticks,
-                           binary_assignments, large_dereferences, relocations,
-                           large_assignments, ticks);
+  // Cost rows are emitted for the recording (probing) scan too: Vivify's
+  // budget is denominated in these ticks and a per-literal comparison with
+  // kissat's proplit.h needs the probing propagations as well.
+  event_trace_watch_cost(k, lit, words_before, words_after, base_ticks,
+                         binary_assignments, large_dereferences, relocations,
+                         large_assignments, ticks);
   total_ticks += ticks;
   return conflict;
 }
@@ -2172,9 +2174,14 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // semantics by forwarding live entries through that implementation-only
   // pass.  Garbage entries must never read `searched` as a forwarding pointer
   // (the corpus-003 shape), so they are invalidated below.
-  if (!preserve_eager_recent)
+  if (!preserve_eager_recent) {
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+    event_trace_detail(k, "eager_reset_collect",
+                       static_cast<int>(sparse_collection));
+#endif
     for (Ref &r : k.eager_recent)
       r = INVALID_REF;
+  }
   // A sparse watermark must fall exactly on an arena-record boundary.  Prefix
   // garbage is legal in Tactix because clauses retired by an earlier rule can
   // remain marked until Reduce; its live watch entries are forwarded below.
@@ -3172,6 +3179,9 @@ bool kernel_compact_variables(Kernel &k) {
   k.jump_pending.clear();
   k.lrat_entries.clear();
   k.lrat_chain.clear();
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  event_trace_detail(k, "eager_reset_compact", 0);
+#endif
   for (Ref &ref : k.eager_recent)
     ref = INVALID_REF;
   k.model_values.clear();
