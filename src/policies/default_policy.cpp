@@ -3117,12 +3117,23 @@ ApplyResult DefaultInprocessScheduler::run_vivify_dose(Kernel &k, SlotEntry &e,
   k.work_budget_bounded = true;
   const uint32_t passes =
       split ? static_cast<uint32_t>(cfg.vivify_tier_scopes.size()) : 1u;
+  // Equal focused tier-1 and tier-2 glue limits leave tier 2 empty.  Kissat
+  // then hands tier 2's share to tier 1 up front and never runs the tier-2
+  // round, so no flush/rewatch happens for it (vivify.c:kissat_vivify,
+  // "tier1 matches tier2 thus using tier2 budget for tier1"). Without the
+  // merge tier 1 stops at half its budget and the leftover flows to tier 3.
+  std::array<uint32_t, 3> tier_shares = cfg.vivify_tier_shares;
+  if (split && k.tier1 == k.tier2 && tier_shares[0] && tier_shares[1]) {
+    tier_shares[0] += tier_shares[1];
+    tier_shares[1] = 0;
+  }
   for (uint32_t p = 0; p < passes && ar != ApplyResult::Unsat && !k.inconsistent;
        p++) {
+    if (split && tier_shares[p] == 0)
+      continue; // a band without a share is not a round
     k.vivify_scope = split ? cfg.vivify_tier_scopes[p] : uint8_t{1};
     cumulative_budget +=
-        share(split ? cfg.vivify_tier_shares[p]
-                    : cfg.vivify_redundant_share);
+        share(split ? tier_shares[p] : cfg.vivify_redundant_share);
     k.work_budget = cumulative_budget;
     k.work_budget_offset = e.meter(k) - dose_start;
     TickSinkScope sink(k, e.tick_counter);
