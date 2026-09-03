@@ -524,13 +524,14 @@ static void test_otfs_reuse_honors_chronological_gap() {
   assert(k.assigned[var_of(internalize(2))].level == 1);
 }
 
-static void test_large_otfs_retires_replaced_reason() {
-  // The five-literal reason is strengthened to four literals.  It must stay a
-  // valid reason during Analyze's white-box half, but not survive the fused
-  // backjump alongside its strict replacement.  The redundant conflict keeps
-  // its deletion out of the irredundant mark image, exposing the source
-  // reason's exact Kissat OTFS lifecycle: remove only the resolved literal and
-  // add only the surviving tail, not the retained first watch.
+static void test_large_otfs_shrinks_reason_in_place() {
+  // The five-literal reason is strengthened to four literals in place, as
+  // kissat's large_on_the_fly_strengthen does: same arena record and
+  // position, first watch retained, and the record stays live across the
+  // fused backjump.  The redundant conflict keeps its deletion out of the
+  // irredundant mark image, exposing the source reason's exact Kissat OTFS
+  // lifecycle: remove only the resolved literal and add only the surviving
+  // tail, not the retained first watch.
   Kernel k;
   kernel_reserve_vars(k, 5);
   const Lit r[5] = {internalize(5), internalize(-2), internalize(-3),
@@ -562,7 +563,11 @@ static void test_large_otfs_retires_replaced_reason() {
   assert(k.stats.conflict_reused == 0);
   assert(k.pending.valid);
   assert(!clause_at(k.arena, rref)->garbage());
-  assert(k.otfs_retired.size() == 1 && k.otfs_retired[0] == rref);
+  assert(clause_at(k.arena, rref)->size == 4);
+  assert(clause_at(k.arena, rref)->shrunken());
+  assert(clause_at(k.arena, rref)->lits[0] == internalize(-2) &&
+         "the surviving first watch keeps its slot");
+  assert(k.otfs_retired.empty());
   // Epoch +1 is the removed resolved literal.  OTFS then marks the three
   // source-tail literals at +2..+4.  The ordinary learned binary later touches
   // -2 and -1 at +5,+6; in particular, the retained first watch -2 was not an
@@ -581,7 +586,7 @@ static void test_large_otfs_retires_replaced_reason() {
   kernel_check_invariants(k); // both old reason and replacement are valid
 
   assert(backjump_apply(k) == ApplyResult::Ok);
-  assert(clause_at(k.arena, rref)->garbage());
+  assert(!clause_at(k.arena, rref)->garbage());
   assert(k.otfs_retired.empty());
   kernel_check_invariants(k);
   assert(default_solve(k) == 10);
@@ -629,8 +634,10 @@ static void test_large_otfs_retains_root_false_first_watch() {
     ref += clause_actual_words(c);
   }
   assert(found);
+  assert(clause_at(k.arena, reason_ref)->size == 4 &&
+         "the strengthened image lives in the reason's own record");
   assert(backjump_apply(k) == ApplyResult::Ok);
-  assert(clause_at(k.arena, reason_ref)->garbage());
+  assert(!clause_at(k.arena, reason_ref)->garbage());
   kernel_check_invariants(k);
   assert(default_solve(k) == 10);
 }
@@ -1168,7 +1175,7 @@ int main(int argc, char **argv) {
   test_learned_level_stable_order();
   test_otfs();
   test_otfs_reuse_honors_chronological_gap();
-  test_large_otfs_retires_replaced_reason();
+  test_large_otfs_shrinks_reason_in_place();
   test_large_otfs_retains_root_false_first_watch();
   test_otfs_subsumption_inherits_better_conflict_glue();
   test_otfs_strengthening_preserves_better_reason_glue();

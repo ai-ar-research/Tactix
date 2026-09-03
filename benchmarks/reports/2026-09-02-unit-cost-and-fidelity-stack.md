@@ -366,6 +366,29 @@ The largest remaining gaps against Kissat on `d3793d2` are Rank 34
 (742.6 s vs 344.0 s), Rank 32 (441.1 vs 289.7), Rank 31 (427.5 vs 277.3),
 Rank 22 (332.6 vs 192.0) and Rank 33 (410.6 vs 330.4).
 
+
+### 3.2 The arena-order class: on-the-fly strengthening (2026-09-03)
+
+With `829aef6` Rank 19's journal agrees through 289,717 and the next split
+(299,714) is a trail-level difference (`4901`: the same conflict clause with
+literal 89765 at level 3,428 vs 3,430 and a different trail order while
+backtracking); Rank 33's split at the 520th decision after 120,607 is a
+stable-mode tie between externals 250837 and 445786 at identical scores
+(`4902`), decided by heap structure, which follows the order in which
+backtracking reinserts variables, i.e. the trail order again. Both reduce to
+propagation order, which the arena order fixes at every rewatch. Snapshots
+at the inprocessing boundaries (`4906`) show the two arenas holding the same
+clauses in a different order from the first phase on: 120 displaced rows at
+15,379, 1,109 at 50,243, 2,061 at 96,825, 46,950 at 160,364. The displaced
+rows are individual learned clauses that Tactix holds 2--43 rows later than
+kissat, which is the signature of on-the-fly strengthening: kissat shrinks
+the strengthened reason in its own record (`strengthen.c`), Tactix allocated
+a fresh record at the arena end and retired the old one at Backjump. The
+large OTFS path now shrinks in place through the kernel's replacement
+primitive with a retained-watch shape (`SP-OTFS-INPLACE-1`); with it the
+arenas at 15,379 are identical row for row (`4907`, 0 displaced rows; the
+823 remaining meta-only differences are the `shrunken` header bit).
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

@@ -37,11 +37,21 @@ resume surface.
   Remaining gaps on `d3793d2` against kissat: trajectory on Ranks 34
   (742.6 vs 344.0 s, 7.85 M vs 4.33 M conflicts), 32, 31, 22, 33; unit cost
   at equal work on Ranks 13 (0 conflicts, 87.2 vs 64.4 s), 9, 17, 21.
-  NEXT (single thread): read `4902` and close Rank 33's decision at
-  120,607 (heap top / scores / tie order), port, gate, push; then Rank 19
-  at 299,714 from `4903`--`4905`; then Rank 13's zero-conflict
-  preprocessing cost with the `.text`-identical `-g` pin
-  `build/pin-829aef6-g`.
+  Thread closed 2026-09-03 (`SP-OTFS-INPLACE-1`): Rank 33's decision at
+  120,607 is a stable-mode score tie (`4902`) decided by heap structure,
+  and Rank 19's 299,714 is a trail-order difference (`4901`, `4903`); both
+  follow propagation order, which the arena order sets at every rewatch.
+  Boundary snapshots (`4906`) put the first arena displacement at 15,379
+  (120 rows, growing to 46,950 by 160,364): learned clauses Tactix held
+  2--43 rows later than kissat because large on-the-fly strengthening
+  allocated a fresh record instead of shrinking the reason in place. The
+  large OTFS path now shrinks in place (kernel retained-watch replacement);
+  with it the arenas at 15,379 are identical (`4907`).
+  NEXT (single thread): gate the OTFS commit (Rank 1--40, B28+C5, fuzz)
+  and re-snapshot the later boundaries (`4908`: 50,243 .. 289,439) with its
+  trace pin; push under the push rule; then take the next first divergence
+  from those snapshots; then Rank 13's zero-conflict preprocessing cost
+  with a `.text`-identical `-g` pin.
 - PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
   `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
   7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack

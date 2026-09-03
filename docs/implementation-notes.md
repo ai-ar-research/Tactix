@@ -159,11 +159,12 @@ pending half-analysis or schedules Backjump independently.
   canonical Substitute does not. Large Vivify publishes its new prefix plus
   the old-size stale tail before shrinking. Unit/binary collapses retire the
   record; packed replacements inherit a source position cleared at collection.
-- A packed OTFS replacement inherits the source reason's Vivify bit and exact
-  lifecycle image: large OTFS retains even a root-false first watch, marks only
-  the surviving tail added and the resolved literal removed, and retires the
-  old packed record without semantic marks. Binary OTFS still fully retires it.
-  Copying only literals/glue/order silently changes later policy state.
+- Large OTFS shrinks the reason in its own record (kissat `strengthen.c`):
+  same reference and arena position, the root-false first watch retained with
+  its watch entry, only the resolved literal marked removed and only the
+  surviving tail marked added, `searched` reset, glue clamped, `shrunken` set;
+  the record stays the trail literal's reason until Backjump unassigns it.
+  Binary OTFS publishes the new binary and retires the old record at Backjump.
 - Whole-arena collection replays remaining packed positions; proof IDs are
   never positions, and Reduce's sparse partition remains authoritative.
 - Walk's sparse resume uses the same current source position for its
