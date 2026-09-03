@@ -325,6 +325,14 @@ covers the window; its journal divergence stays at 19,364.
   `d182bf6`: quick leg 10,000 / 0 failures (job 1660998), random-policy leg
   10,000 / 0 (job 1660999). The moves are crafted-family reshuffles, not a
   verdict on the register repair, which stays as a fidelity port.
+- Push rule (user, 2026-09-02, replacing the total-beats-the-pin rule):
+  general kissat-fidelity ports go out when Rank 1--40 stays 40/40 within
+  20 minutes, without a significant regression and without a B28+C5
+  regression; do not wait for the gap to close. `d182bf6` (full gate
+  above) was fast-forwarded to `origin/main` at 22:30. The tip `79cb7cc`
+  (walk denominator, no collection after Probe, heap re-entry, zero-
+  occurrence scheduling) is under gate `4869`/`4870` (jobs 1661298/1661299)
+  with fuzz legs 1661300 (quick) and 1661330 (random policy).
 - Gates of `782c1db` (`4826`, job 1661124; `4827`, job 1661125): Rank
   1--40 40/40 valid, 10,032.5 s (+697.4 s against the pin, +509.9 s against
   `d182bf6`), almost entirely Rank 19: 965.4 s / 4.94 M conflicts against
