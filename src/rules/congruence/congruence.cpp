@@ -2469,13 +2469,16 @@ static void install_congruence_binary_candidates(
 // forward-subsumes large clauses modulo the still-live representative map.
 // This is deliberately local to Congruence: once the map is reset, ordinary
 // SubsumeForward can no longer see that (a v b) and (repr(a) v repr(b)) match.
-template <class Find>
-static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
-  // Dense entry first deduplicates binaries and drops every one satisfied by a
-  // newly propagated root unit.  At a root fixpoint an assigned binary must be
-  // satisfied (the both-false case would already have refuted).
-  kernel_deduplicate_binary_watches(k);
-  congruence_stage_trace(k, "forward-deduplicate-end");
+// Both Congruence dense entries (`congruence.c` init_extraction and
+// forward_subsume_matching_clauses) take the save-stack path of
+// `dense.c:flush_large_watches`: after keeping the first copy of each pair it
+// deletes every binary with a root-assigned endpoint as a clause.  At a root
+// fixpoint an assigned binary must be satisfied (the both-false case would
+// already have refuted).  The later sparse resume replays the saved pairs
+// without reading values, so only units known at entry retire binaries here.
+static void congruence_delete_root_assigned_binaries(Kernel &k,
+                                                     const char *scan_stage,
+                                                     const char *delete_stage) {
   std::vector<std::pair<Lit, Lit>> satisfied_binaries;
   for (Lit lit = 0; lit < 2 * k.nvars; lit++)
     for (const WatchEntry w : k.watches.entries(lit)) {
@@ -2490,15 +2493,23 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
         satisfied_binaries.emplace_back(lit, other);
       }
     }
-  congruence_stage_trace(k, "forward-satisfied-scan-end",
-                         satisfied_binaries.size());
+  congruence_stage_trace(k, scan_stage, satisfied_binaries.size());
   for (const auto &[a, b] : satisfied_binaries) {
     const bool deleted = kernel_delete_binary(k, a, b);
     assert(deleted);
-    (void) deleted;
+    (void)deleted;
   }
-  congruence_stage_trace(k, "forward-satisfied-delete-end",
-                         satisfied_binaries.size());
+  congruence_stage_trace(k, delete_stage, satisfied_binaries.size());
+}
+
+template <class Find>
+static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
+  // Dense entry first deduplicates binaries and drops every one satisfied by a
+  // newly propagated root unit.
+  kernel_deduplicate_binary_watches(k);
+  congruence_stage_trace(k, "forward-deduplicate-end");
+  congruence_delete_root_assigned_binaries(k, "forward-satisfied-scan-end",
+                                           "forward-satisfied-delete-end");
   std::vector<uint8_t> matchable(k.nvars, 0);
   for (Var v = 0; v < k.nvars; v++) {
     if (k.value(make_lit(v, false)) || kernel_var_retired(k, v))
@@ -2896,8 +2907,12 @@ ApplyResult congruence_apply(Kernel &k) {
   event_trace_slot_boundary(k, "congruence-dense-resume", "entry");
   // congruence.c init_extraction enters dense mode before extracting the
   // binaries (kissat_enter_dense_mode with the save stack), and that entry
-  // deletes every later copy of a repeated binary as a clause.
+  // deletes every later copy of a repeated binary and every root-assigned
+  // binary as a clause, so neither reaches the binary candidates, the
+  // canonical rebuild, or the occurrence counts of the rules that follow.
   kernel_deduplicate_binary_watches(k);
+  congruence_delete_root_assigned_binaries(k, "entry-satisfied-scan-end",
+                                           "entry-satisfied-delete-end");
   std::vector<std::pair<Lit, Lit>> binary_candidates;
   bool binary_candidates_complete = false;
   {

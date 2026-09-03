@@ -99,6 +99,31 @@ static void test_and_congruent() {
   assert(equivalence_added(k, 3, 4)); // a ≡ b
 }
 
+// Kissat's Congruence dense entry takes the save-stack path of
+// `dense.c:flush_large_watches`, which deletes every binary with a
+// root-assigned endpoint as a clause before the binaries are extracted; the
+// rules that follow (Factor's occurrence counts in particular) never see it.
+// The formula has no gate, so no merge and no forward-subsumption pass can
+// retire the binary later: only the entry itself may delete it.
+static void test_root_satisfied_binary_deleted_at_entry() {
+  Kernel k;
+  kernel_reserve_vars(k, 6); // fillers 1..4, u=5 v=6
+  const Lit c1[3] = {internalize(1), internalize(2), internalize(3)};
+  const Lit c2[3] = {internalize(-1), internalize(-2), internalize(4)};
+  kernel_add_large_clause(k, c1, 3, false, 0, ++k.next_clause_id);
+  kernel_add_large_clause(k, c2, 3, false, 0, ++k.next_clause_id);
+  const Lit u = internalize(5), v = internalize(6);
+  kernel_add_binary_clause(k, u, v, ++k.next_clause_id);
+  k.unit_ids[var_of(u)] = ++k.next_clause_id;
+  kernel_assign_unit(k, u); // (u v v) is root-satisfied at entry
+  assert(!kernel_propagate(k));
+  assert(kernel_binary_copies(k, u, v) == 1);
+  const uint64_t deleted_before = k.stats.binaries_deleted;
+  assert(congruence_apply(k) == ApplyResult::NoOp);
+  assert(kernel_binary_copies(k, u, v) == 0);
+  assert(k.stats.binaries_deleted == deleted_before + 1);
+}
+
 // Pinned Kissat publishes both representative binaries on every new union,
 // even when the formula already contains identical copies.  Dense forward
 // entry later keeps one physical copy, but the publication must first create
@@ -850,6 +875,7 @@ int main() {
   test_binary_extraction_precedes_gate_budget();
   test_and_congruent();
   test_existing_representative_pair_is_republished();
+  test_root_satisfied_binary_deleted_at_entry();
   test_and_arity_above_old_cutoff();
   test_xor_congruent();
   test_ite_congruent();
