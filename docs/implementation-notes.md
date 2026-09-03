@@ -284,6 +284,10 @@ that shared anchor; only a completed Eliminate phase does. The ProbSAT average
 divides by `BINIRR_CLAUSES` as read after dense entry: root-satisfied and
 duplicate binaries are already deleted, root-satisfied large clauses still count.
 
+The arena is collected only inside an Eliminate round (BVE's per-round
+collection, `eliminate.c:519`) and at Reduce (`reduce.c:202`); a Probe phase
+never collects, so the eager-subsumption register survives it as in Kissat.
+
 ## 9. Reason bumping and dynamic tiers
 
 Reason-side bumping and dynamic tiers are H-only and default on jointly. Bumps

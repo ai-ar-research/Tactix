@@ -226,7 +226,6 @@ private:
     volatile sig_atomic_t *stop;
     int outer = 0;
     bool phase_unsat = false;
-    bool phase_dosed = false;
     bool round_changed = false;
     bool congruence_changed = false;
     bool sweep_changed = false;
