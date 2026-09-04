@@ -851,6 +851,45 @@ it means giving Sweep kissat's connected walk instead of the general
 substitution path, which is the ledger item this report has carried since
 §3.2 and the largest single per-rule gap left on Tier D.
 
+### 3.14 The tier-wide per-rule gap, and what it overturns (2026-09-04)
+
+Sections 3.12 and 3.13 read the per-rule gaps off single ranks. A
+tier-wide aggregate is now available and disagrees with them. Both sides
+below write proofs and cover the same forty ranks: Tactix's rule timers
+from gate `5015`, kissat's phase profile from the accepted baseline
+`20260829-1930-tierd-ranks1-40-accepted-fresh`.
+
+| rule | Tactix | kissat | gap | ratio |
+|---|---:|---:|---:|---:|
+| Vivify | 659.9 s | 576.6 s | +83.3 | 1.14 |
+| Sweep | 395.3 s | 565.0 s | **-169.7** | 0.70 |
+| BVE | 345.1 s | 194.1 s | +151.0 | 1.78 |
+| Congruence | 293.4 s | 245.8 s | +47.6 | 1.19 |
+| Factor | 281.8 s | 129.8 s | +152.0 | 2.17 |
+| Substitute | 275.7 s | 169.6 s | +106.1 | 1.63 |
+| Strengthen | 100.0 s | 36.1 s | +63.9 | 2.77 |
+| Backbone | 64.2 s | 69.4 s | -5.2 | 0.93 |
+| TransitiveReduce | 47.5 s | 34.4 s | +13.1 | 1.38 |
+
+Sweep is 169.7 s **faster** than kissat across Tier D. Rank 22, where it
+is four times slower, is an outlier, and section 3.13's conclusion that
+Sweep's substitution is the largest per-rule gap left is wrong as a
+tier-wide claim. The repairs it produced stand on their own evidence and
+are behaviour-identical, but the rule they were aimed at is not the
+lever. This is the failure mode the chaotic-instance rule exists to
+prevent, reached here by profiling one rank rather than aggregating.
+
+The real targets, by gap and by ratio, are Factor at 2.17 and BVE at
+1.78, with Substitute at 1.63 behind them. Together they hold 409 s of
+the roughly 300 s still needed. Factor's gap is spread rather than
+concentrated: the ten worst ranks contribute between 8.4 s and 18.7 s
+each, so a general unit-cost repair there pays on every rank. Rank 17
+shows it sharpest, 20.8 s against kissat's 2.1 s.
+
+Strengthen's 2.77 is the highest ratio in the table but only 63.9 s, and
+kissat's `subsume` is not an exact counterpart, so it is not ranked with
+the other three.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
