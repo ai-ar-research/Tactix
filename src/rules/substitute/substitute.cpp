@@ -484,14 +484,27 @@ void SweepSubstitutionSession::begin(const Kernel &k) {
     list.initialized = false;
   }
   dense_initialized_lits.clear();
+  for (const Lit lit : ledger_dirty)
+    ledger_dirty_mark[lit] = 0;
+  ledger_dirty.clear();
   dirty_binary_owners.clear();
   dense_enabled = k.dense;
+}
+
+void SweepSubstitutionSession::mark_ledger_dirty(Lit lit) {
+  if (ledger_dirty_mark.size() <= lit)
+    ledger_dirty_mark.resize(static_cast<size_t>(lit) + 1, 0);
+  if (ledger_dirty_mark[lit])
+    return;
+  ledger_dirty_mark[lit] = 1;
+  ledger_dirty.push_back(lit);
 }
 
 std::vector<SweepSubstitutionSession::DenseOccurrence> &
 SweepSubstitutionSession::occurrences(const Kernel &k, Lit lit) {
   assert(dense_enabled && k.dense);
   assert(lit < 2 * static_cast<size_t>(k.nvars));
+  mark_ledger_dirty(lit);
   DenseOccurrenceList &list = dense_occurrences[lit];
   std::vector<DenseOccurrence> &ordered = list.entries;
   if (list.initialized)
@@ -538,11 +551,12 @@ SweepSubstitutionSession::occurrences(const Kernel &k, Lit lit) {
   return ordered;
 }
 
-void SweepSubstitutionSession::publish_dense_order(Kernel &k) {
+void SweepSubstitutionSession::publish_dense_order(Kernel &k,
+                                                   const std::vector<Lit> &lits) {
   if (!dense_enabled || !k.dense || !k.dense->track_order)
     return;
   assert(!k.bve_occurrence_count_image);
-  for (const Lit lit : dense_initialized_lits) {
+  for (const Lit lit : lits) {
     const DenseOccurrenceList &source = dense_occurrences[lit];
     assert(source.initialized);
     std::vector<OccIndex::Entry> &ordered = k.dense->ordered[lit];
@@ -571,6 +585,37 @@ void SweepSubstitutionSession::prime_equivalence(const Kernel &k, Lit a,
     (void)occurrences(k, lit);
 }
 
+// Debug oracle for the incremental publication above: the dense index must
+// hold exactly what republishing every initialized stream would write. A
+// stream mutated outside `occurrences` would escape the dirty set and leave a
+// stale ordering for the next environment, which is invisible in a release
+// build until a much later divergence.
+bool SweepSubstitutionSession::sync_publication_is_complete(const Kernel &k) {
+  if (!dense_enabled || !k.dense || !k.dense->track_order)
+    return true;
+  for (const Lit lit : dense_initialized_lits) {
+    const DenseOccurrenceList &source = dense_occurrences[lit];
+    const std::vector<OccIndex::Entry> &published = k.dense->ordered[lit];
+    const std::vector<Ref> &large = k.dense->large[lit];
+    size_t at = 0, at_large = 0;
+    for (const DenseOccurrence occurrence : source.entries) {
+      if (at == published.size())
+        return false;
+      const OccIndex::Entry &entry = published[at++];
+      if (entry.binary != occurrence.binary ||
+          entry.payload != occurrence.payload)
+        return false;
+      if (!occurrence.binary &&
+          (at_large == large.size() ||
+           large[at_large++] != static_cast<Ref>(occurrence.payload)))
+        return false;
+    }
+    if (at != published.size() || at_large != large.size())
+      return false;
+  }
+  return true;
+}
+
 void SweepSubstitutionSession::sync_new_binaries(
     Kernel &k,
     const std::vector<std::pair<Lit, Lit>> &equivalences) {
@@ -592,15 +637,15 @@ void SweepSubstitutionSession::sync_new_binaries(
   };
   (void)dirty; // assertion-only in release builds
   std::vector<Lit> touched;
-  touched.reserve(4 * equivalences.size() + dirty_binary_owners.size());
+  touched.reserve(4 * equivalences.size() + dirty_binary_owners.size() +
+                  ledger_dirty.size());
   for (const auto &eq : equivalences)
     touched.insert(touched.end(),
                    {eq.first, negate(eq.first), eq.second, negate(eq.second)});
   touched.insert(touched.end(), dirty_binary_owners.begin(),
                  dirty_binary_owners.end());
   if (k.dense->track_order)
-    touched.insert(touched.end(), dense_initialized_lits.begin(),
-                   dense_initialized_lits.end());
+    touched.insert(touched.end(), ledger_dirty.begin(), ledger_dirty.end());
   std::sort(touched.begin(), touched.end());
   touched.erase(std::unique(touched.begin(), touched.end()), touched.end());
   // Mutation provenance already marks both the source owner and the target
@@ -676,7 +721,14 @@ void SweepSubstitutionSession::sync_new_binaries(
       purge_stale_binaries(lit);
     }
   }
-  publish_dense_order(k);
+  publish_dense_order(k, touched);
+  // Every stream this batch could have changed has been reconciled and
+  // republished, so the next batch starts from an empty changed set.
+  for (const Lit lit : ledger_dirty)
+    ledger_dirty_mark[lit] = 0;
+  ledger_dirty.clear();
+  assert(sync_publication_is_complete(k) &&
+         "a ledger stream changed outside the reconciled set");
   dirty_binary_owners.clear();
 }
 
@@ -1089,7 +1141,7 @@ uint64_t SweepSubstitutionSession::collect(Kernel &k) {
   // Sweep runs.  Publish even for a semantically NoOp call: lazy garbage
   // cleanup and duplicate compaction are representation changes, and the next
   // BVE/Walk consumer must not inherit the pre-transaction mirrors.
-  publish_dense_order(k);
+  publish_dense_order(k, dense_initialized_lits);
   if (!changed)
     return 0;
   // Surviving large clauses now keep their Ref and allocation span.  Clauses
