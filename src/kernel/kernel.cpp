@@ -1458,15 +1458,18 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
         satisfied_binaries.emplace_back(lit, other);
     }
   std::sort(satisfied_binaries.begin(), satisfied_binaries.end());
-  satisfied_binaries.erase(
-      std::unique(satisfied_binaries.begin(), satisfied_binaries.end()),
-      satisfied_binaries.end());
-  for (const auto &[a, b] : satisfied_binaries) {
-    const uint32_t copies = kernel_binary_copies(k, a, b);
-    if (!copies)
-      continue;
-    const bool deleted = copies == 1 ? kernel_delete_binary(k, a, b)
-                                     : kernel_delete_binary_all_copies(k, a, b);
+  // The scan above already met every copy of every pair, and each pair is
+  // deleted whole, so recounting through the watch list would rescan a
+  // root-satisfied literal's still-intact prefix once per pair it owns.
+  for (size_t at = 0; at < satisfied_binaries.size();) {
+    const auto [a, b] = satisfied_binaries[at];
+    size_t end = at;
+    while (end < satisfied_binaries.size() && satisfied_binaries[end].first == a &&
+           satisfied_binaries[end].second == b)
+      end++;
+    const uint32_t copies = static_cast<uint32_t>(end - at);
+    at = end;
+    const bool deleted = kernel_delete_binary_all_copies_known(k, a, b, copies);
     assert(deleted);
     (void)deleted;
     changed += copies;
@@ -2564,12 +2567,29 @@ void kernel_resume_walk_watches(Kernel &k) {
           satisfied.emplace_back(lit, other);
       }
     }
-  for (const auto &[a, b] : satisfied) {
-    const uint32_t copies = kernel_binary_copies(k, a, b);
-    if (copies == 1)
-      kernel_delete_binary(k, a, b);
-    else if (copies > 1)
-      kernel_delete_binary_all_copies(k, a, b);
+  // Same reason as the sparse collector above: the scan met every copy, so
+  // the count travels with the pair rather than costing another prefix walk.
+  // The encounter order the deletions run in is the one the surviving-pair
+  // pass below mirrors, so group by sorted index and restore it.
+  {
+    std::vector<uint32_t> order(satisfied.size());
+    for (uint32_t i = 0; i < order.size(); i++)
+      order[i] = i;
+    std::sort(order.begin(), order.end(), [&](uint32_t x, uint32_t y) {
+      return satisfied[x] != satisfied[y] ? satisfied[x] < satisfied[y] : x < y;
+    });
+    std::vector<std::pair<uint32_t, uint32_t>> groups; // first index, copies
+    for (size_t at = 0; at < order.size();) {
+      size_t end = at;
+      while (end < order.size() && satisfied[order[end]] == satisfied[order[at]])
+        end++;
+      groups.emplace_back(order[at], static_cast<uint32_t>(end - at));
+      at = end;
+    }
+    std::sort(groups.begin(), groups.end());
+    for (const auto &[first, copies] : groups)
+      kernel_delete_binary_all_copies_known(k, satisfied[first].first,
+                                            satisfied[first].second, copies);
   }
   // Save each surviving pair in that same compact-literal encounter order.
   // Unlike Congruence, Walk does not sort equal-first runs; the current watch
