@@ -153,47 +153,44 @@ struct RemPool {
 // selection and application.
 struct FactorWatch {
   Ref ref = INVALID_REF;
-  // Pack two 32-bit, apply-local representation keys into the same storage:
-  // the immutable clause occurrence id and the lazily interned remainder id.
-  // This allows Kissat-style dense temporary marks instead of per-column hash
-  // sets. Binary entries are borrowed from Kernel::watches, never copied here.
-  uint64_t payload = UINT64_MAX;
-  // A large clause and the factor literal naming this dense-watch entry are
-  // immutable for the lifetime of one Factor application.  Cache its interned
-  // remainder id in that entry: repeated seed visits then avoid copying,
-  // sorting, hashing, and comparing the same clause remainder.  UINT32_MAX
-  // also covers a remainder that was not yet materialized; failures caused by
-  // the moving fresh-literal boundary are deliberately not cached.
-  uint32_t large_id() const {
-    assert(!binary());
-    return static_cast<uint32_t>(payload);
-  }
+  // One apply-local key beside the reference, so the record is a pair of
+  // words and a scan streams the same width kissat's dense watch does.  For a
+  // large entry it is the lazily interned remainder id: a large clause and
+  // the factor literal naming this dense-watch entry are immutable for the
+  // lifetime of one Factor application, so caching it lets repeated seed
+  // visits skip copying, sorting, hashing and comparing the same remainder.
+  // UINT32_MAX also covers a remainder that was not yet materialized;
+  // failures caused by the moving fresh-literal boundary are deliberately not
+  // cached.  For a binary entry it is the partner literal; those are borrowed
+  // from Kernel::watches and never copied here.  The occurrence id this used
+  // to carry existed only to index Factor's temporary marks, which now live
+  // in the clause header as kissat's do.
+  uint32_t aux = UINT32_MAX;
   uint32_t remainder_id() const {
     assert(!binary());
-    return static_cast<uint32_t>(payload >> 32);
+    return aux;
   }
   void set_remainder_id(uint32_t id) {
     assert(!binary());
-    payload = (static_cast<uint64_t>(id) << 32) | large_id();
+    aux = id;
   }
   bool binary() const { return ref == INVALID_REF; }
   Lit other() const {
     assert(binary());
-    return static_cast<Lit>(payload);
+    return static_cast<Lit>(aux);
   }
   static FactorWatch binary_watch(Lit other) {
     FactorWatch result;
-    result.payload = other;
+    result.aux = other;
     return result;
   }
-  static FactorWatch large_watch(Ref ref, uint32_t large_id) {
+  static FactorWatch large_watch(Ref ref) {
     FactorWatch result;
     result.ref = ref;
-    result.payload = (static_cast<uint64_t>(UINT32_MAX) << 32) | large_id;
     return result;
   }
 };
-static_assert(sizeof(FactorWatch) == 16,
+static_assert(sizeof(FactorWatch) == 8,
               "Factor's dense scan requires a compact watch record");
 
 struct FactorIndex {
@@ -541,9 +538,9 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
         }
       if (!connect)
         continue;
-      const uint32_t large_id = idx.large_count++;
+      idx.large_count++;
       for (const Lit l : *c) {
-        idx.order[l].push_back(FactorWatch::large_watch(cand[i], large_id));
+        idx.order[l].push_back(FactorWatch::large_watch(cand[i]));
         idx.live_degree[l]++;
       }
     }
@@ -554,9 +551,9 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
     if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size) {
-      const uint32_t large_id = idx.large_count++;
+      idx.large_count++;
       for (const Lit l : *c) {
-        idx.order[l].push_back(FactorWatch::large_watch(ref, large_id));
+        idx.order[l].push_back(FactorWatch::large_watch(ref));
         idx.live_degree[l]++;
       }
     }
@@ -812,9 +809,9 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
           idx.order.resize(static_cast<size_t>(2 * k.nvars));
         if (idx.live_degree.size() < static_cast<size_t>(2 * k.nvars))
           idx.live_degree.resize(static_cast<size_t>(2 * k.nvars), 0);
-        const uint32_t large_id = idx.large_count++;
+        idx.large_count++;
         for (const Lit l : qlits) {
-          idx.order[l].push_back(FactorWatch::large_watch(qref, large_id));
+          idx.order[l].push_back(FactorWatch::large_watch(qref));
           idx.live_degree[l]++;
         }
       }
