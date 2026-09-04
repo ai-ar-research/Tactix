@@ -2615,7 +2615,13 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     for (const Lit lit : canonical)
       marks[lit] = 1;
     bool subsumed = false;
-    for (const Lit lit : canonical) {
+    // kissat's `find_subsuming_clause` walks EVERY literal of the candidate in
+    // clause order and consults that literal's representative list, including a
+    // root-false literal's, and picks the connection target from the same
+    // sequence.  Restricting either to the deduplicated root-open set changes
+    // which list holds a clause and therefore which later candidate can see it.
+    for (const Lit clause_lit : *c) {
+      const Lit lit = find(clause_lit);
       const uint32_t occurrence = occ.find(lit);
       if (occurrence == SparseRefOccurrences::EMPTY)
         continue;
@@ -2653,7 +2659,8 @@ static uint64_t forward_subsume_congruent_clauses(Kernel &k, Find &find) {
     }
     Lit least = INVALID_LIT;
     size_t least_count = 0;
-    for (const Lit lit : canonical) {
+    for (const Lit clause_lit : *c) {
+      const Lit lit = find(clause_lit);
       const uint32_t occurrence = occ.find(lit);
       const size_t count = occurrence == SparseRefOccurrences::EMPTY
                                ? 0
