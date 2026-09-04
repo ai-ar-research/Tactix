@@ -1138,18 +1138,31 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
         continue;
       }
       std::vector<Ref> &occ = k.dense->large[lit];
-      const auto at = std::find(occ.begin(), occ.end(), ref);
-      assert(at != occ.end());
-      occ.erase(at);
       if (k.dense->track_order) {
+        // `large` is exactly the large payloads of `ordered` in order, so one
+        // pass over the mixed stream locates the entry in both: the position
+        // in `ordered`, and the count of large entries before it, which is the
+        // index in `large`.  Searching the two separately scanned the same
+        // occurrences twice.
         std::vector<OccIndex::Entry> &ordered = k.dense->ordered[lit];
-        const auto ordered_at =
-            std::find_if(ordered.begin(), ordered.end(),
-                         [ref](const OccIndex::Entry entry) {
-                           return !entry.binary && entry.payload == ref;
-                         });
-        assert(ordered_at != ordered.end());
-        ordered.erase(ordered_at);
+        size_t large_index = 0, at_ordered = ordered.size();
+        for (size_t j = 0; j < ordered.size(); j++) {
+          if (ordered[j].binary)
+            continue;
+          if (ordered[j].payload == ref) {
+            at_ordered = j;
+            break;
+          }
+          large_index++;
+        }
+        assert(at_ordered != ordered.size());
+        assert(large_index < occ.size() && occ[large_index] == ref);
+        occ.erase(occ.begin() + static_cast<ptrdiff_t>(large_index));
+        ordered.erase(ordered.begin() + static_cast<ptrdiff_t>(at_ordered));
+      } else {
+        const auto at = std::find(occ.begin(), occ.end(), ref);
+        assert(at != occ.end());
+        occ.erase(at);
       }
       kernel_bve_occurrence_remove(k, lit);
     }
