@@ -2817,32 +2817,40 @@ static void kernel_compact_dense_entry_watches(Kernel &k, bool keep_large) {
   // inspected here: like the null-stack `watch.c` path, root-satisfied
   // binaries stay, which Sweep and Factor rely on; the value-aware
   // `dense.c` path is modelled by each rule's own root collection.
+  // One pass per list, marking partners and dropping large entries with the
+  // same cursor, as `kissat_flush_large_watches` does; consecutive epochs in
+  // one array carry both of its mark values.
   std::vector<uint32_t> seen(2 * k.nvars, 0);
   uint32_t epoch = 0;
   std::vector<Lit> duplicates; // partners repeated in this list, once each
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    if (++epoch == 0) {
+    if (epoch > UINT32_MAX - 2) {
       std::fill(seen.begin(), seen.end(), 0);
-      epoch = 1;
+      epoch = 0;
     }
+    epoch += 2;
+    const uint32_t queued = epoch + 1;
     duplicates.clear();
-    for (const WatchEntry watch : k.watches.entries(lit)) {
+    const auto mark = [&](WatchEntry watch) {
       if (!watch.binary())
-        continue;
+        return keep_large;
       const Lit other = watch.other();
-      if (seen[other] == epoch) {
-        if (lit < other && (duplicates.empty() || duplicates.back() != other) &&
-            std::find(duplicates.begin(), duplicates.end(), other) ==
-                duplicates.end())
-          duplicates.push_back(other);
-      } else {
+      const uint32_t stamp = seen[other];
+      if (stamp != epoch && stamp != queued) {
         seen[other] = epoch;
+      } else if (lit < other && stamp == epoch) {
+        seen[other] = queued;
+        duplicates.push_back(other);
       }
-    }
+      return true; // the copies leave through the deletion below, as in kissat
+    };
+    if (keep_large)
+      for (const WatchEntry watch : k.watches.entries(lit))
+        (void)mark(watch);
+    else
+      k.watches.compact(lit, mark);
     for (const Lit other : duplicates)
       kernel_remove_duplicate_binary_copies(k, lit, other);
-    if (!keep_large)
-      k.watches.compact(lit, [](WatchEntry watch) { return watch.binary(); });
   }
 }
 
