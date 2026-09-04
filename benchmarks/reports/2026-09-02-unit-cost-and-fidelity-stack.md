@@ -354,6 +354,7 @@ covers the window; its journal divergence stays at 19,364.
 | `79cb7cc` | 10,411.4 s (`4869`) | 40/40 | 951 s | 0.615 (`4870`) | clean |
 | `829aef6` | 9,021.4 s (`4891`) | 40/40 | 747 s | 0.615 (`4892`) | 10,000/0, 10,000/0 |
 | `d3793d2` | 8,640.3 s (`4897`) | 40/40 | 743 s | 0.607 (`4898-BC`) | 10,000/0, 10,000/0 |
+| `bf26be7` | 8,691.8 s (`4909`) | 40/40 | 870 s | 0.561 (`4910`) | 10,000/0, 10,000/0 |
 
 Kissat `1930` is 7,675.2 s, so `d3793d2` is 12.6 % slower (target 8,442.7 s).
 Rank 19 falls from 951 s to 166 s (749,582 conflicts against Kissat's
@@ -362,7 +363,10 @@ trajectory: Rank 22 598 → 333 s, Rank 37 554 → 404 s, Rank 35 479 → 402 s,
 Rank 21 210 → 171 s against Rank 40 385 → 462 s, Rank 32 380 → 441 s,
 Rank 33 386 → 411 s, Rank 17 182 → 204 s. `origin/main` was fast-forwarded
 to `d3793d2` on 2026-09-03 under the push rule (all four clauses hold).
-The largest remaining gaps against Kissat on `d3793d2` are Rank 34
+`bf26be7` (in-place OTFS) was fast-forwarded on 2026-09-03 as well: its
++51.5 s is Rank 34 alone (870 s, 8.91 M conflicts against 7.85 M) with
+Rank 33 at 363 s (−47.7 s); B28+C5 fell to 0.561. The largest remaining
+gaps against Kissat on `d3793d2` are Rank 34
 (742.6 s vs 344.0 s), Rank 32 (441.1 vs 289.7), Rank 31 (427.5 vs 277.3),
 Rank 22 (332.6 vs 192.0) and Rank 33 (410.6 vs 330.4).
 
@@ -387,7 +391,137 @@ a fresh record at the arena end and retired the old one at Backjump. The
 large OTFS path now shrinks in place through the kernel's replacement
 primitive with a retained-watch shape (`SP-OTFS-INPLACE-1`); with it the
 arenas at 15,379 are identical row for row (`4907`, 0 displaced rows; the
-823 remaining meta-only differences are the `shrunken` header bit).
+823 remaining meta-only differences are the `shrunken` header bit), and so
+are they at every later boundary through 289,439 (`4908`: 50,243, 96,825,
+160,364, 241,928, 289,439 all at 0 displaced rows).
+
+
+### 3.3 Rank 33: the tie is the Substitute round boundary (2026-09-03)
+
+With the OTFS port Rank 33 still splits at the 520th decision after conflict
+120,607 (`4916`), a stable-mode tie between externals 250837 and 445786 at
+score 6.6700505662127364e-140 that the two heaps break differently. The
+heap arrangement is identical at every inprocessing boundary from 3,071 to
+92,452 and at the start of 120,330, and differs at the first decision after
+the 120,330 phase (`4923`, per-bump `heap_scores` hashes). Inside that phase
+the insert and reinsert sequences are identical (`4923`), and the 1,324
+removals of substituted variables are the same variables in a different
+order from the 614th removal on (`4925`). Kissat's Substitute deactivates
+representatives once per round in index order
+(`substitute.c:remove_representative_equivalences` inside
+`substitute_round`), so the representatives the preceding Sweep left are
+retired within round 1 and a second SCC round forms its own index-ordered
+pass; Tactix sorted Sweep's portion together with every Substitute round as
+one batch at the Substitute slot end, merging round 2 into round 1.
+Substitute orders the Sweep portion with its first round only on branch
+`substitute-round-177183f` (`SP-SUBSTITUTE-ROUND-1`,
+`Kernel::retired_union_begin`); `test_substitute` pins the order. That
+branch is off `main`: its gate `4931` times out Rank 34. Verification: `4928` (identical removal order and heap).
+The next Rank 33 split on that build is 120,979 (`4934`), where kissat is
+one decision ahead and the trails already differ in length by about 2,350
+assignments at equal decision counts (`4937`); across the 120,330 phase
+the irredundant clause set matches at every rule boundary, the redundant
+set diverges at the second Congruence pass, and the order-sensitive watch
+digests differ already at the phase entry (`4938`) although the binary
+multisets (148,597 each, 465 duplicates each) and the arena order are
+identical there (`4941`). The watch-order bisection over the earlier
+boundaries is `4942`.
+
+Rank 19's remaining split (299,714, `4901`) is not a watch-order effect:
+the order-sensitive digest of every watch list (`SAT_EVENT_TRACE_WATCH_ORDER`,
+2,458,454 entries) is identical on both arms at the analysis rows before and
+after the 289,717 phase (`4927`), and no reduce lies between that phase and
+299,714, so the trail-level difference forms during search; the restart
+rows of that stretch are being compared (`4929`).
+
+### 3.4 mod4block: the Congruence entry keeps root-satisfied binaries (2026-09-03)
+
+mod4block (Tier B, 19.4 s reference median, 208.8 s on `d3793d2`) needs
+715,338 kissat conflicts against 6,080,874 (`4911`); the journals agree
+through the phase at 2,513 and the trajectories split at 4,962 (`4914`,
+`4919`). The order-sensitive watch digests (`4926`, `4933`) could not be
+compared across a compaction because they mix the variable populations, so
+`SAT_EVENT_TRACE_WATCH_ORDER_DUMP` now writes every active root-open
+literal's watch list (external literals, large clauses as content hash plus
+blocking literal) at each digest row on both arms, and a list-by-list diff
+replaces the hash. Startup (`4944`): the only difference from `trace_begin`
+to the first Congruence entry is the 720 duplicate binary copies kissat
+keeps until that entry; from the entry on, every list is identical through
+Factor, both Lucky passes and conflicts 1--3, except that Tactix's Sweep
+leaves 1,227 root-satisfied large clauses watched (kissat's
+`sweep_reference` retires them) until Substitute rebuilds. The 2,513 phase
+(`4945`): identical through the first round (Congruence, Vivify, Sweep,
+Factor) and at the second Congruence entry; there kissat's save-stack dense
+entry (`dense.c:flush_large_watches`) deletes 49 root-satisfied binaries
+that Tactix's extraction entry kept (its forward-subsumption entry already
+deleted them, but that pass runs only after a merge), the second Factor
+then counts different occurrences and builds different clauses on its two
+fresh variables (five large lists differ at `factor_end`), and the phase
+exits with 53 binary and 5 large lists differing. The extraction entry now
+deletes every root-assigned binary as a clause before the binary
+candidates and the canonical rebuild (`SP-BINARY-DEDUP-1`);
+`test_congruence` proves the deletion without a merge. Verification on
+`b744ac0`: the 2,513 phase now exits with every watch list identical
+(`4948`, only the Sweep-to-Substitute transient remains), and the boundary
+journal (`4949`) agrees with kissat's at every Congruence, Factor, Sweep,
+Transitive and Vivify entry to the end of the run; Tactix solves the
+instance in 28.7 s at 654,600 conflicts (kissat 712,992; the earlier pin
+6,080,874 conflicts, 208.8 s).
+
+### 3.5 Gates of the Congruence entry fix and the Sweep ledger unit cost (2026-09-03)
+
+`b744ac0` (= local `177183f` + the Congruence entry fix): Rank 1--40 `4946`
+40/40 within 20 minutes (slowest Rank 34 833 s) at 9,615.1 s, +923 s
+against `bf26be7` (`4909`): Rank 37 +420 (15.46 M against 4.84 M
+conflicts), 32 +326, 31 +106, 27 +95, 22 +43; Ranks 40, 17, 34 faster by
+75, 43, 37 s. Fuzz 10,000/0 on both legs. The fix alone on `origin/main`,
+`19f9525` (worktree `.claude/worktrees/isolate-congfix`): Rank 1--40 `4950`
+40/40 within 20 minutes at 9,471.7 s, +780 s: Rank 22 +319 (637.9 s at
+79,683 conflicts against 318.6 s at 81,929), 35 +136, 17 +108, 31 +92, 32
++66; Rank 37 -1.7 (so its `b744ac0` regression is the interaction with
+`177183f`). Fuzz 10,000/0 on both legs.
+
+Rank 22 is a unit-cost defect, not a trajectory: its per-rule timing puts
+Sweep at 364 s against 75 s in the same 12 calls with swept variables,
+sub-solver ticks and emitted binaries within 6--17 %. The paired profile
+`4955` (`-g` pins with byte-identical `.text`) attributes 41.9 % of the
+candidate's cycles to `SweepSubstitutionSession::find_large`, absent from
+the baseline's top 22 symbols: `rewrite_large_in_place` searched every
+literal of a rewritten clause in its occurrence stream although only a
+literal that leaves the clause loses a slot, so each rewrite cost the sum
+of all its literals' stream lengths, and this trajectory's streams are
+long. The check is reordered (literals kept by the image are skipped
+before the scan); the ledger content is unchanged. Gate of that commit on
+the isolated line: `4956`/`4957`.
+
+Rank 37 on `b744ac0` (`4952`): decisions and every journal counter
+(active, irredundant, redundant, binary) are identical with kissat through
+the entry of the 9,450 phase's Vivify; Vivify's own effect there differs
+(kissat 428,946 active / 574,727 irredundant / 3,295 redundant against
+Tactix 428,947 / 574,730 / 3,554). Per-round watch-list dumps of the
+3,070 and 9,450 phases are `4953`/`4954`.
+
+### 3.6 Rank 37: Vivify's tier-1 budget when tier 1 and tier 2 coincide (2026-09-03)
+
+The per-literal dumps of Rank 37's 9,450 phase (`4954`, kissat 2.5 GB,
+Tactix restricted to the phase) are identical on both arms through the
+Congruence entry and through the rewatch that opens the first Vivify round
+(`vivify_dense_resume` 0, 2,660,822 entries, 777,016 listed literals), and
+differ from the end of that round on: kissat vivifies 1,118 tier-1
+candidates (glue at most 2) under a budget of 2,678,979 probing ticks,
+Tactix 446 under 1,339,489, exactly half, then Tactix runs an empty
+tier-2 round with its own flush and rewatch and spends the leftover on
+tier 3 (550 candidates against kissat's 250 in the glue 3--15 band). The
+cause is `kissat_vivify`: with `vivifyfocusedtiers=1` and equal focused
+tier-1/tier-2 glue limits (both 2 here) it adds the tier-2 share to tier 1
+before the first round and skips tier 2; Tactix's dose scheduler kept the
+static 3/3/1 split and let the unused tier-2 share flow forward. At the
+3,070 phase the same difference appears after the first round but heals
+by the end of the call because both arms' budgets cover every candidate
+there (`4953`). `run_vivify_dose` now folds the share and skips the band
+(ledger `SP-VIVIFY-1`); `test_scheduling` proves three rounds under equal
+limits. The isolated line is `21b4084` plus this commit, gated as
+`4958`/`4959` with fuzz; the Rank 37 journal rerun is `4960`.
 
 ## 4. Decision
 

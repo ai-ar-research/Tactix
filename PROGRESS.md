@@ -8,302 +8,42 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-03, sixth wrap). `origin/main` = `d3793d2`
-  (fast-forwarded from `d182bf6` on 2026-09-03 under the push rule).
-  Kissat `1930` is 7,675.2 s; T4-K needs <= 8,442.7 s. Gates: `829aef6`
-  Rank 1--40 `4891` 40/40 at 9,021.4 s (slowest 747 s), B28+C5 `4892`
-  0.615, fuzz 10,000/0 both legs; `d3793d2` Rank 1--40 `4897` 40/40 at
-  8,640.3 s (slowest 743 s), B28+C5 `4898-BC` 0.607, fuzz 10,000/0 both
-  legs. Proof-check tails of both arrays and B/C task 64/65 are still
-  running (jobs 1661589, 1661590, 1661709, 1661710); `4894` (Rank 35
-  window, job 1661699) is running. Evidence:
-  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.1.
-  Working rule (user, 2026-09-03): one active investigation at a time; no
-  parallel threads.
-  Recent changes: `829aef6` BVE splits gates/antecedents as
-  `gates.c:get_antecedents` (raw-watch cursor) and every dense entry
-  deletes repeated binary copies as clauses (`SP-BINARY-DEDUP-1`,
-  `SP-BVE-ANTECEDENT-1`); `d3793d2` equivalence gate scans the negative
-  side's physical binaries, AND/OR members are physical binaries, XOR
-  clears `resolve_gate`, Congruence's first entry deletes copies
-  (`SP-BVE-EQUIV-ORDER-1`, `SP-BVE-AND-PHYSICAL-1`); Rank 19 951 -> 166 s.
-  Where the ranks split from kissat on this pin: Rank 19 at conflict
-  299,714 (same conflict clause, literal 89765 at level 3428 vs 3430 and a
-  different trail order while backtracking; implication rows `4903`,
-  formula/binary snapshots at the 289,717 phase `4904`/`4905` are parked
-  unread); Rank 33 at the 520th decision after conflict 120,607 (stable
-  mode, Tactix picks 250837, kissat 445786, both unassigned; heap-score
-  rows `4902` parked unread); Rank 35 at 19,364 (`4894` running).
-  Remaining gaps on `d3793d2` against kissat: trajectory on Ranks 34
-  (742.6 vs 344.0 s, 7.85 M vs 4.33 M conflicts), 32, 31, 22, 33; unit cost
-  at equal work on Ranks 13 (0 conflicts, 87.2 vs 64.4 s), 9, 17, 21.
-  Thread closed 2026-09-03 (`SP-OTFS-INPLACE-1`): Rank 33's decision at
-  120,607 is a stable-mode score tie (`4902`) decided by heap structure,
-  and Rank 19's 299,714 is a trail-order difference (`4901`, `4903`); both
-  follow propagation order, which the arena order sets at every rewatch.
-  Boundary snapshots (`4906`) put the first arena displacement at 15,379
-  (120 rows, growing to 46,950 by 160,364): learned clauses Tactix held
-  2--43 rows later than kissat because large on-the-fly strengthening
-  allocated a fresh record instead of shrinking the reason in place. The
-  large OTFS path now shrinks in place (kernel retained-watch replacement);
-  with it the arenas at 15,379 are identical (`4907`).
-  NEXT (single thread): gate the OTFS commit (Rank 1--40, B28+C5, fuzz)
-  and re-snapshot the later boundaries (`4908`: 50,243 .. 289,439) with its
-  trace pin; push under the push rule; then take the next first divergence
-  from those snapshots; then Rank 13's zero-conflict preprocessing cost
-  with a `.text`-identical `-g` pin.
-- PREVIOUS ANCHOR (2026-09-02, fourth wrap). Accepted pin unchanged:
-  `origin/main` = `70e3807` (Rank 1--40 9,335.1 s `4754`; kissat `1930`
-  7,675.2 s; T4-K needs <= 8,442.7 s). Local, unpushed fidelity stack
-  `f7fdc6a`..`5659765`: Sweep delay-ladder denominator, Substitute SCC
-  tick rescan, glue-preserving shrinks, canonical Substitute in kissat
-  watch mode (drop/rewrite/reconnect), BVE persistent scratch (identity
-  `4784`), Congruence sparse resume keeping closure-satisfied binaries.
-  Gates of the stack at `5659765`: Rank 1--40 `4792` 39 ranks 8,699.9 s vs 9,108.1 s on the pin (-408 s) but Rank 19 timed out (40-rank 9,899.9 s), so not pushed; B28+C5 `4793` PAR-2 ratio 0.554 over 33 pairs, no failures; fuzz quick/random-policy 10,000/0 each (`1660667`/`1660668`). Rank 19's class then closed: Kissat runs Congruence's matching phase only after a propagated equivalence, never on units alone (`SP-CONG-MATCH-1`, `c2bb80f`; journal `4799` matches Kissat's probes through conflict 32,876 and solves Rank 19 in 761 s; family probe `4800` -139 s over 14 ranks with Rank 19 at 517 s). Gates of `c2bb80f`: Rank 1--40 `4802` 40/40 valid at 9,410.3 s (pin 9,335.1; +75 s, Rank 19 521 s vs the pin's lucky 227 s); B28+C5 `4803` PAR-2 ratio 0.654 (31 pairs at the verdict); the push rule fails only on the total, so still local. With comparable deletion counters (`4809`/`4810`/`4812`) the shared class is the eager-subsumption register: Kissat keeps a binary-OTFS-retired reason as a dead placeholder in `last_learned`, Tactix vacated the slot and older entries survived one more insertion (Rank 33 at 58,314, Rank 19 at 45,427). Ported as `SP-EAGER-REGISTER-1` (`d182bf6`); reruns `4813`/`4814` and family probe `4815` measure it.
-  Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`.
-  What the numbers establish: on the nine ranks where both solvers take
-  identical conflicts Tactix is at 1.03x wall; the family's excess is
-  inprocessing unit cost at matching work (BVE 2x, Factor 3x, Congruence
-  2x, Strengthen 3x) plus chaotic trajectory swings of +/-200 s per rank;
-  Rank 19 alone swings +/-1,000 s (pin 225 s is a lucky draw, kissat 740 s).
-  Principle (user, 2026-09-02): port kissat's mechanism, never pick among
-  speculative variants by one rank's clock.
-  NEXT: (1) read `4813`/`4814`/`4811` (windows after `d182bf6`) and take
-  the next first relative counter difference as the next class; then gate
-  the tree (Rank 1--40 + B28+C5 + fuzz) and apply the push rule; (2) the sweep-substitution session is an
-  order ledger kissat does not have (kissat's sweep rewrites one mixed
-  watch stream in dense mode; `4783` charged 41 % of Rank 22 to the
-  ledger's `find_large`): plan that representation change via
-  `revise-plan` before touching it; (3) `kernel_sparse_collect_root` at
-  Reduce (23 s on Rank 22 vs kissat's 1.7 s reduce total): read
-  `collect.c sparse_sweep_garbage_clauses` and match its cost model;
-  (4) BVE resolution and Factor at matching attempts (2x / 3x): read
-  `eliminate.c`/`resolve.c` and `factor.c` cost models first.
-- PREVIOUS ANCHOR (2026-09-02, third wrap). Accepted pin: `origin/main` =
-  `70e3807` (Release SHA `2c341010...`): front-end unit-cost increments
-  (`86a7705`, `bdb0d44`) plus the O(1) Sweep reschedule, each gated 40/40
-  with every counter and certificate identical to `4701`. Rank 1--40 total
-  9,335.1 s (`4754`; was 9,597.0 s at `f3ac562`), B28+C5 66/66 at 0.547
-  (`4755`), fuzz quick/random clean (`1660076`/`1660077`). Kissat `1930`
-  is 7,675.2 s; T4-K needs <= 8,442.7 s. Evidence:
-  `benchmarks/reports/2026-09-02-frontend-unit-cost.md` and
-  `2026-09-02-sweep-reschedule-unit-cost.md`.
-  NEXT (deterministic, identity-verifiable unit cost at matching work):
-  Factor 3.0x, BVE 1.9x, Congruence 2.1x at identical work on Ranks
-  31/33/37 (7,953 vs 7,874 factorings; 364,546 vs 368,873 eliminations;
-  67,292 vs 67,115 merges). Profile `4752` charges much of it to the shared
-  kernel rebuilds run per Eliminate round from `default_policy.cpp`
-  (dense connect / `kernel_collect_garbage` / `kernel_rebuild_large_
-  watches`, lines ~3447-3685) and to `kernel_sort_refs_by_logical_clause_
-  position`; raw perf chains (`4756`) unwind poorly, so add in-code
-  per-rule accounting for those helpers first, then compare per-round cost
-  with kissat's `kissat_eliminate` dense entry/exit. Then Substitute
-  (Rank 10: 23.4 s vs 9.9 s, spread over SCC, rewrite loops, root
-  collection, per-clause unwatch). Per-rule excess over all 40 ranks: BVE
-  +223 s, Factor +186 s, Vivify +135 s (work differs), Substitute +104 s,
-  Congruence +64 s. The large residuals (Ranks 25, 21, 34, 27, 37) are
-  search-regime divergences for the differential-trace method.
-- SWEEP DELAY-LADDER DENOMINATOR (local, under gates): kissat rates a
-  Sweep call by `average(eliminated, swept)` where `swept` counts the
-  VARIABLES the call swept; Tactix divided by candidate-pair directions
-  (several per seed), judged productive calls unproductive, bumped the
-  delay, and skipped the next Sweep. Localized on Rank 33 by boundary
-  journals (`4757`), binary-set snapshots (`4758`/`4759`), the standalone
-  substitute map (`4762`), Sweep event traces (`4763`), and slot-limit
-  budgets (`4765`): both solvers derive identical Sweep budgets and
-  per-seed Kitten ticks, but Tactix's second probe-round Sweep at conflict
-  19,378 ran zero seeds (40 rounds of 97 invocations run-wide) while Kissat's
-  ran 4,165 more and proved 39230 = 39248. `Stats::sweep_swept` now feeds
-  `DELAY_SPECS` (test `test_sweep_delay_rates_per_swept_variable`). Family
-  probe `4766` vs the `70e3807` pin: Rank 21 315 -> 165 s (conflicts 125.7k
-  -> 93.8k; Kissat 93.1k), Rank 37 559 -> 427 s (7.88M -> 5.08M conflicts),
-  Rank 31 406 -> 393 s (5.77M -> 4.65M; Kissat 4.54M), Rank 35 453 -> 527 s
-  (regression), Ranks 22/27/32 unchanged; net -217 s on seven ranks.
-- SWEEP RESCHEDULE O(1) (local, identity-verified): `sweep_reschedule_
-  representatives` did a linear find, erase, and insert on the schedule
-  vector per rescheduled representative (Rank 22: 121k reschedules on a
-  3.9M-entry schedule). The schedule is now a LIFO reschedule front consumed
-  before the tail with slot-addressed tombstones, reproducing the former
-  consumption order exactly (`sweep_next_scheduled` is the test-visible
-  peek). Identity probe `4753` (job `1660064`, Ranks 22/21/39/24/9/4 vs the
-  `bdb0d44` pin): byte-identical proofs, models, and counters; Rank 22
-  493.6 -> 392.2 s, Rank 21 315.5 -> 311.8 s, others within noise. Gates
-  and fuzz on the pinned commit are next.
-- FRONT-END UNIT COST, increment 2 (local): `ingest_clause` dedups large
-  clauses in place with a parse-scoped literal mark array (no per-clause
-  vectors or sort; first-occurrence order kept) and activates from the
-  normalized clause; `kernel_record_import` returns early for an
-  already-ranked variable. Identity probe `4749` (job `1659944`, Ranks
-  1/4/5/10/12 vs the `4701` pin, cumulative with increment 1): byte-identical
-  proofs, models, and counters; parse 36.6 -> 24.7 s on Rank 5 and 29.9 ->
-  20.3 s on Rank 10 (Kissat: 20.4 / 17.2 s). Next: fuzz legs + Rank 1--40 +
-  B28+C5 on the pinned commit; identity oracle = `4701` certificate SHAs.
-- GATE OUTCOME for the no-glue + watch-match binary `1a705dbf`: Rank 1--40
-  `4744` is 40/40 (Rank 19 SAT in 1,010.4 s) but totals 10,054.8 s versus
-  the accepted 9,597.0 s (Rank 35 +306 s, Rank 19 +759 s, Rank 17 +145 s;
-  Rank 34 -495 s, Rank 37 -162 s); B28+C5 `4745` is 66/66 expected verdicts
-  at 0.668 paired PAR-2 (checkers nonblocking). Rank 27's conflict count is
-  identical to `f3ac562` (7,441,126): the watch-match's Rank-27 gain existed
-  only with glue. Not pushed; the earlier "9,413 s" baseline figure was
-  wrong (`4701` aggregates to 9,596.978 s).
-- ACTIVE (user directive 2026-09-03: "do the full watch-layout match; do not
-  merge before it"): replaced the partial binary-first reorder at canonical
-  `substitute_apply` end with a full `kernel_rebuild_large_watches(k)` call --
-  the same rebuild Congruence/Vivify/Factor already use and the exact analogue
-  of kissat's terminal `kissat_watch_large_clauses`, matching not just the
-  binary-first property but the large-watch arena order too. This reverses the
-  lazy in-place watch retention, so Rank 27 is the regression to watch.
-  Release 75/76 (doc-size only); focused watch/substitute/backbone tests pass.
-  Isolated validation in flight on trace pin `d242bed5`/release `45b80584`:
-  Rank-27 boundary `4740` (job `1659814`, main risk), Rank-19 binscan `4741`
-  (job `1659815`, expect full word-match to kissat), Rank-19 solve `4742`
-  (job `1659817`, decisive -- does it get under the 1,200 s gate?). If Rank 27
-  holds and Rank 19 converges, commit and run the full Rank-1--40 + B+C gates
-  and fuzz, then push the stack. The parity-ledger-deviation path is dropped.
-- FULL WATCH-LAYOUT MATCH RESULT: conflict-0 binscan `4741` is now a COMPLETE
-  match (non-binary-first 0/0, total scanned words 494,841 = 494,841 exactly,
-  no differing scan anywhere; the reorder-only 2-word residual is gone). Rank
-  27 `4740` does NOT regress -- it IMPROVES to 5,533,826 conflicts (versus
-  reorder-only 5,793,285 and glue-only 6,804,239), so the lazy in-place watch
-  order was itself costing Rank 27. The full match supersedes the partial
-  `reorder_binaries_first` (method and test removed as dead code). BUT Rank 19
-  `4742` STILL fails: the Tactix arm ran past 1,848 s (over the 1,200 s gate)
-  and did not converge to kissat's 303 s despite the byte-identical conflict-0
-  watch layout. This DEFINITIVELY rules out the watch layout as Rank 19's
-  owner: the residual is the glue repair's downstream Reduce-retention effect
-  on a chaotic SAT instance (confirmed by 4738/4739's stable-mode heap-pick
-  divergence). The full watch match is a strict improvement worth keeping; it
-  is necessary but not sufficient for Rank 19.
-- PIVOTAL EXPERIMENT running: attach + full-watch-match WITHOUT the glue
-  repair (worktree at f3ac562 + kernel_rebuild_large_watches, build 1a705dbf),
-  Rank-19 solve `4743` (job `1659819`). The glue repair (14f9417) is faithful
-  but is the confirmed sole Rank-19 owner (watch layout now ruled out). Since
-  it is a NEW repair this session and not previously accepted, declining it to
-  hold 40/40 is legitimate. If 4743 solves under 1,200 s (near the ~227 s
-  pre-glue baseline), the clean path is: keep attach (pushed) + the faithful
-  watch-match (improves Rank 27), drop glue, and validate a 40/40 + B+C
-  gate-passing stack -- genuine further gap closure. Then measure Rank-27 and
-  run the full gates on the no-glue+watch-match stack.
-- `4742` result (attach+glue+watch-match, full match): Rank 19 TIMED OUT at
-  2,700 s -- WORSE than reorder-only's 1,974 s, even though the full match
-  improves Rank 27. On this chaotic SAT instance a more-faithful change does
-  not monotonically help; it just reshuffles the trajectory onto a different
-  (here longer) path. This is decisive evidence the Rank-19 cost is chaos, not
-  a targetable mechanism. Whether dropping glue recovers it is `4743`.
-
-
-- IN PROGRESS (staged fix for the Rank-19 block): added
-  `WatchLists::reorder_binaries_first` and call it for every list at
-  canonical `substitute_apply` completion, restoring the binary-first watch
-  invariant kissat gets from its terminal `kissat_watch_large_clauses`
-  without a full arena rebuild (preserving the lazy in-place positions). It is
-  a no-op on already-ordered lists. Release is 75/76 (doc-size only) and all
-  watch-adjacent focused tests pass. Isolated validation running: binscan
-  `4733` (job `1659697`, must show ZERO non-binary-first Tactix lists at
-  Rank-19 conflict 0) and Rank-27 regression boundary `4734` (job `1659699`,
-  must stay converged). Promote to the gates only if both are clean;
-  otherwise revert.
-- `4733` is a strong PASS: Tactix non-binary-first scans dropped from 10 to
-  ZERO (matching kissat), the conflict-0 binary-scan row counts now match
-  exactly (165,908 each, was 165,327 vs 165,908), and total scanned words
-  agree to within 2 of 494,843 (a single 1-word clause-membership difference
-  on literal 96125, unrelated to ordering). The backbone tick model is
-  converged. Awaiting the Rank-27 regression boundary `4734`.
-- `4734` PASSES: Rank 27 with the reorder returns expected UNSAT at exactly
-  5,793,285 conflicts, byte-identical to the pre-reorder glue pin `4712`, so
-  the reorder does NOT regress the validated Rank-27 trajectory. Both
-  isolated validations clean, so the fix is committed as `6f5d329` and
-  promoted to the full gates. In flight on pin `6f5d329`: the decisive
-  Rank-19 solve `4735` (job `1659700`; pinned Kissat solves it SAT in
-  302.673 s / 701,597 conflicts, the pre-reorder pin timed out at 2,700 s),
-  homogeneous Rank-1--40 gate `4736` (job `1659702`), frozen B28+C5 gate
-  `4737` (job `1659735`), and bounded fuzz legs (jobs `1659736`/`1659737`).
-  If Rank 19 solves and the gates stay green, push the full stack
-  (`f3ac562`..`6f5d329`).
-- PARTIAL: the reorder UNBLOCKS the Rank-19 hang but does not close the gate.
-  `4735` returns expected SAT in 1,974.645 seconds (was a >2,700-second
-  timeout on the glue-only pin), so Rank 19 now terminates and both fuzz legs
-  (jobs `1659736`/`1659737`) are 10,000-case zero-failure PASSES -- the
-  reorder is sound. But the homogeneous gate's 1,200-second solver timeout
-  still trips it (`4736` task 18 is UNKNOWN at 1,200.005 seconds), and
-  1,974 seconds is far above the ~227-second pre-glue baseline and Kissat's
-  303 seconds. A large residual search-trajectory divergence remains on
-  Rank 19 beyond the backbone tick model. The reorder is a correct, sound,
-  Kissat-faithful improvement that fixes a real watch-order defect with no
-  Rank-27 regression, so RETAIN it; but the glue+reorder stack still fails
-  the homogeneous gate and stays local. NEXT: localize the residual Rank-19
-  1,974s-versus-303s divergence (a fresh trajectory investigation), or accept
-  the glue repair's Rank-19 cost as a documented parity-ledger deviation.
-- Gate outcome for the reorder pin `6f5d329` (all provisional records in;
-  checkers nonblocking): homogeneous Rank-1--40 `4736` is 39/40 with Rank 19
-  the SOLE failure (no new regressions from the reorder; total 10,267.7 s),
-  and frozen B28+C5 `4737` is 66/66 valid. Origin/main stays at the
-  gate-passing `f3ac562`; the residual Rank-19 divergence is the next
-  missing-coupled-mechanism to localize before the glue+reorder stack can
-  pass the homogeneous gate.
-- `4737` is now FINAL: the B28+C5 regression gate (the task's designated
-  regression test) is 66/66 valid at candidate/shipped ratio 0.575068 for the
-  full attach+glue+reorder stack -- comfortably under the frozen 1.10 limit
-  and better than the glue-only 0.622. The stack therefore PASSES the B+C
-  regression gate outright; only the homogeneous Rank-1--40 coverage check
-  fails, solely on Rank 19's 1,974-second runtime exceeding the 1,200-second
-  timeout.
-- Origin/main is `f3ac562` (pushed, fully validated): the attach-time
-  inactive-variable deactivation repair. Pinned Kissat is
-  `8af8e56f174b778aef3aa45af9f739b2a5f492c2`. Rank 27 improved 483.655 to
-  468.777 seconds; homogeneous Rank-1--40 `4701` (40/40) and B28+C5 `4702`
-  (66/66) are both FINAL valid; the thorough three-leg fuzz (200k+20k+10k) is
-  a terminal PASS.
-- `14f9417` (glue preservation on forward/root-flush shrinks) and the two
-  diagnostic-observer commits `ee54ac3`/`b70880e`/`00541e7` are LOCAL and
-  unpushed. `14f9417` is reference-verified correct (zero metadata deviation
-  at the 110,362 and 3,415 boundaries) and improves Rank 27 to a provisional
-  428.017 seconds, but its homogeneous gate `4713` is 39/40: Rank 19 (SAT)
-  times out because the repair unmasks a latent binary-propagator
-  tick-accounting divergence. B28+C5 `4714` is 66/66 valid. Do NOT revert the
-  glue repair (faithful-port rule); hold it local until the block is fixed.
-- EXACT NEXT ACTION (Rank-19 sole owner, data-level root cause now fixed by
-  campaign `4732`): enforce Tactix's binary-first watch-list invariant to
-  match kissat. Per-literal binary-scan journals at conflict 0 show kissat
-  has ZERO non-binary-first watch lists (its lists keep all binaries before
-  any large watch, as `kissat_watch_large_clauses` guarantees), while Tactix
-  has exactly 10 lists where a binary follows a large watch. On those 10
-  lists Tactix's `propagate_literal_binary` cannot stop early and scans the
-  full list, charging extra backbone ticks locally (example: literal 16229,
-  Tactix scans 621 words / stop_early=0 versus kissat 6 words / stop_early=1);
-  this perturbs where the 200,000-tick effort limit truncates the first
-  Backbone computation and cascades. It is a watch-ORDERING invariant, not a
-  flag flip: making Tactix trust a global stop-early flag would skip the real
-  binary that sits after the large watch and be UNSOUND. It is pre-existing
-  and latent (conflict 0 is preprocessing, identical on both the pre-glue and
-  glue binaries; `f3ac562` solves Rank 19 only because its trajectory never
-  reaches the sensitive state). Find where Tactix appends a binary after a
-  large watch (or where a rebuild loses binary-first order) and enforce the
-  invariant matching `kissat_watch_large_clauses`; stage it under isolated
-  measurement, then re-run the Rank-1--40 and B+C gates on `14f9417`. This is
-  the staged arena/watch representation item (task priority 3): do NOT rush a
-  hot-path watch-layer change without full 40-rank + B+C revalidation.
-  SOURCE-LEVEL ROOT CAUSE (fully traced): kissat's canonical Substitute ends
-  with `kissat_watch_large_clauses` (watch.c), a full rebuild that appends
-  large watches after all binaries, so every list is binary-first as a side
-  effect. Tactix's canonical Substitute is deliberately in-place/lazy
-  (`substitute.cpp:1626`: "Keep them in place instead of ... rebuilding every
-  watch list ... loses the in-place and delayed positions this session exists
-  to retain") -- an ACCEPTED decision from the Rank-27 lifecycle work -- so an
-  in-place rewrite can leave a binary after a large watch on some lists (10 at
-  Rank-19 conflict 0). Resolving this is a PLAN-LEVEL tradeoff (reintroduce
-  kissat's terminal binary-first rebuild versus keep lazy Substitute), handled
-  through `revise-plan`/`calculus` with full revalidation that it does not
-  regress the Rank-27 lazy-Substitute convergence, not a mechanical edit.
-- No retained repair has a formula, rank, benchmark, identity, size, density,
-  admission, effort, classification, or strategy gate. Preserve N1--N4.
-  Production uses Kissat creation order unconditionally; `TACTIX_ARENA_ORDER=1`
-  is the only CaDiCaL diagnostic arm. BVE/Factor/forward-subsume/Vivify stay
-  uniformly enabled at 100/50/100/100 permille.
-- Known debt: `PROGRESS.md` and `docs/implementation-notes.md` exceed the
-  doc-size gate (the sole failing Release test, 75/76). This session appended
-  a long localization narrative; compact via the explicit `compact-docs`
-  archive process when requested, not automatically.
+- RESUME HERE (2026-09-03, seventh wrap). `origin/main` = `431c4a6`
+  (fast-forwarded from `bf26be7` under the push rule: three Kissat-fidelity
+  ports plus the diagnostic). Kissat `1930` is 7,675.2 s; T4-K needs
+  <= 8,442.7 s. Gate of the pushed solver (`b4e1ea0`, identical Release
+  binary): Rank 1--40 `4958` 40/40 within 20 min at 9,393.7 s (slowest
+  Rank 34 878 s), B28+C5 `4959` 0.509 against `bf26be7`'s 0.561, fuzz
+  10,000/0 on both legs. Intermediate gates: `4950`/`4951` (`19f9525`,
+  9,471.7 s, 0.509) and `4956`/`4957` (`21b4084`, 9,249.6 s, 0.512), both
+  40/40 and fuzz-clean. Evidence:
+  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.4-3.6.
+  Working rule (user, 2026-09-03): one active investigation at a time.
+  Held off `main`: branch `substitute-round-177183f` (faithful
+  `SP-SUBSTITUTE-ROUND-1` port; gate `4931` times out Rank 34) and branch
+  `stack-b744ac0` (that port plus the Congruence fix, gate `4946`).
+  Recent changes: `19f9525` Congruence's extraction entry deletes
+  root-assigned binaries as clauses (`SP-BINARY-DEDUP-1`; mod4block
+  208.8 s -> 28.7 s, journals agree to the end, `4948`/`4949`);
+  `21b4084` the Sweep ledger searches an occurrence stream only for a
+  literal that leaves the clause (Rank 22 637.9 -> 369.4 s, profile
+  `4955`); `b4e1ea0` Vivify folds tier 2's share into tier 1 when the
+  focused tier limits coincide (`SP-VIVIFY-1`; Rank 37's first divergence
+  moves from the 9,450 phase to 32,073, `4960`); `431c4a6` the
+  watch-order dump diagnostic.
+  Where `b4e1ea0` still loses to `bf26be7` (all trajectory, conflicts up):
+  Rank 37 +243 (11.12 M vs 4.84 M conflicts), 35 +132, 17 +108, 31 +91,
+  32 +65, 22 +50; and Rank 21 -25, 28 -13, 27 -3.
+  NEXT (single thread): Rank 37 on the pushed pin. The journal `4960`
+  agrees with kissat's `4952` journal through the phase at 19,358 and
+  first differs at 32,073 (active 148,616 vs 148,637, irredundant 589,960
+  vs 593,339 at the Congruence entry); take the per-literal watch-list
+  dump of the 32,073 phase (`tools`: scratch `mkdump.sh`, comparator
+  `wodiff_stream.py`) and find the rule whose effect differs. Then Rank 35
+  (`4935`: first difference at conflict 13,833, decisions 18,445,126 vs
+  18,445,125) and Rank 17.
+  Standing size debt: `doc_size` fails on PROGRESS and
+  `docs/implementation-notes.md`; compaction only on request.
 
 ## Latest candidate performance
 
