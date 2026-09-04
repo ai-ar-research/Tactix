@@ -595,7 +595,7 @@ static constexpr uint8_t MARK_NOUNTED = 4;
 // Is clause `c` live and usable as a grid member?  Root assignments do not
 // narrow Factor's clause-occurrence grid: Kissat connects every surviving
 // irredundant clause and its first quotient retains assigned remainders.
-bool grid_clause_live(const Kernel &k, const Clause *c) {
+[[maybe_unused]] bool grid_clause_live(const Kernel &k, const Clause *c) {
   (void)k;
   return !c->garbage() && !c->redundant();
 }
