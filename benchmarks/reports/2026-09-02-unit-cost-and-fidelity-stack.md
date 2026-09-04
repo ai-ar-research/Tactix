@@ -890,6 +890,46 @@ Strengthen's 2.77 is the highest ratio in the table but only 63.9 s, and
 kissat's `subsume` is not an exact counterpart, so it is not ranked with
 the other three.
 
+### 3.15 Factor: the remainder pool, and two refutations (2026-09-04)
+
+Factor is the worst ratio among the large rules, 2.17 tier-wide, and its
+gap is spread across every rank rather than concentrated. On Rank 17 it
+runs 20.7 s against kissat's 2.08 s while performing fewer factorings
+(3,771 against 5,046), so it is entirely unit cost.
+
+A call-graph profile put that cost in the remainder pool. Interning a
+remainder went through a map from hash to a vector of ids, so each
+distinct hash cost a node allocation and a bucket vector, and the pool's
+destruction then walked and freed all of them; one application interns
+tens of millions of remainders. Indexing the ids in an open-addressed
+table instead keeps first-intern order and content comparison, so it
+changes only how a match is found.
+
+| rank | Factor | rank total |
+|---|---:|---:|
+| 17 before | 20.6 s | 273.7 s |
+| 17 after | 11.9 s | 257.4 s |
+
+The Rank 1-40 gate reproduced it independently: Rank 17 fell 13.6 s with
+an identical conflict count.
+
+Two follow-ups were refuted and reverted. Factor's dense watch record is
+16 bytes where kissat's is one word, and a scan visits 45 M large
+occurrences on Rank 22, so halving the record looked like a bandwidth
+repair. Moving the cached remainder into a side array keyed by occurrence
+slot made the record 8 bytes and measured nothing at the gate's
+allocation: Rank 22 Factor 25.06 to 25.04 s, Rank 17 12.024 to 12.026 s,
+counters identical on both. The scan is not bandwidth-bound. That attempt
+also showed the cache cannot be keyed by clause, since a remainder is
+`C \ {l}` and depends on the literal removed, and that a slot-keyed cache
+must compact in step with the eager grid-clause removal.
+
+Those two measurements were first run at 4 CPUs and 16 GiB, which is the
+debug contract in `tools/bench/run.py`, not the gate's 12 CPUs and 48 GiB.
+Both arms shared the shape so the signs held, but a bandwidth-sensitive
+result read at the wrong allocation is not evidence; the numbers quoted
+here are the re-run at the gate's shape.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
