@@ -671,6 +671,40 @@ Campaign `4989`: Rank 34 867.1 -> 741.9 s at 8,542,856 conflicts against
 one deliberately changes the trajectory, since four fewer clauses leave
 the formula at conflict 0.
 
+### 3.10 Rank 31: the mode switch fires at a different tick (2026-09-04)
+
+Rank 31 is the one rank that lost time to the subsumption repair (499.8
+-> 696.1 s, 6.76 M -> 12.38 M conflicts) and is now the largest gap at
+696.1 s against kissat's 277.3 s. Its boundary journals (`4992`) agree
+exactly through the end of the phase at conflict 48,379 and already
+differ when both arms enter Eliminate at 60,529, so the divergence is in
+search. The per-conflict window (`4993`) puts it at conflict 49,599:
+identical learned clauses everywhere, but Tactix arrives with two more
+decisions and two levels deeper.
+
+Conflicts 48,379 to 49,598 are identical on both arms. The split happens
+inside the stable-to-focused switch that follows conflict 49,598, while
+both rebuild the trail. Tracing every decision and implication of that
+rebuild (`4994`) shows the first 92,477 assignments identical, and then
+kissat takes a RANDOM decision (draws 491462 rejected, 430582 accepted)
+where Tactix takes an ordinary queue decision.
+
+The random-decision sequence explains it. kissat arms one at every mode
+switch (`mode.c:214`, `kissat_start_random_sequence`, no level or limit
+gate) and Tactix does the same at its own switch. The traces carry no
+`post-start` row on either arm, so neither armed it from inside the
+decision path: each armed it at its own mode switch. kissat's switch
+fires at decision level 8110 of the rebuild and Tactix's at 8117.
+`kissat_switching_search_mode` compares `search_ticks` against
+`limits.mode.ticks` on odd mode counts, so the switch point is set by
+tick accounting, and the two arms' counters differ enough to move it
+seven levels. At the window's first conflict the propagation counters
+already read 218,645,332 against 230,118,851 for the same trajectory.
+
+The open question is therefore tick parity, not the random sequence: a
+5 % difference in the counters that scale every mode, probe and reduce
+limit moves every schedule that reads them.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
