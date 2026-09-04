@@ -43,7 +43,16 @@ resume surface.
   40/40, every rank's conflict count identical to the parent, B28+C5
   0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
   `4972`/`4973` plus fuzz.
-  NEXT (single thread): Rank 34, now the largest single gap at 874.6 s
+  Rank 34 thread (2026-09-03): first divergence found and repaired.
+  Journals `4987` agree until the first Congruence, whose forward
+  subsumption removed 73 clauses against kissat's 69 from identical
+  candidate sets; `find_subsuming_clause` consults every literal's
+  representative list, Tactix used the deduplicated root-open set
+  (`4988`, `4989`,
+  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.9). Rank 34 867 -> 742 s; gate `4990`/`4991`
+  plus fuzz running. Kissat is still 344 s there, so the rank remains the
+  largest gap after this.
+  PARKED: Rank 34, previously the largest single gap at 874.6 s
   against kissat's 344.0 s with 8.91 M conflicts against 4.33 M, so a
   trajectory difference rather than unit cost. It is 531 s of the 1,695 s
   that separate the pin from kissat, and the target needs 928 s. Boundary
