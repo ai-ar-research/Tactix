@@ -592,6 +592,53 @@ clauses by walking the whole arena, 86 times in that run, where
 neither counter; `kernel_irredundant_clauses` performs the same full scan
 and feeds every scaled inprocessing deadline.
 
+### 3.8 Rank 6: the costs behind Factor's neighbours (2026-09-03)
+
+Rank 6 (`cfi-rigid-t2`, SAT) runs kissat's trajectory exactly (373,544
+conflicts, 3,449,913 decisions, 45 factorings, 741,645,064 factor ticks
+on both arms) and was 76.2 s against kissat's 54.6 s. A kissat built with
+symbols (`tools/solvers/variants/kissat-symbols`, campaign `4974`) gave
+the reference source lines to compare against.
+
+Two repairs landed, both behaviour-identical with every solver counter
+byte-identical on Rank 6 and mod4block:
+
+| repair | Rank 6 | evidence |
+|---|---:|---|
+| live clause counts read, not scanned | 76.9 -> 73.8 s | `4975` |
+| dense entry marks and compacts in one pass | 73.7 -> 67.0 s | `4977` |
+| Congruence reads each import rank once | Congruence 6,021 -> 5,777 ms | `4981` |
+| V6a scans the binary prefix | Congruence 5,862 -> 5,508 ms | `4982` |
+
+`kissat_classify` reads `clauses_binary + clauses_irredundant`; Tactix
+walked every watch list and the whole arena, 86 times on this rank. The
+binary half now sums the per-literal counts the watch heads already keep,
+and the irredundant half is maintained at the five sites that change it,
+with a debug oracle against the old scans. `kissat_flush_large_watches`
+marks and compacts with one cursor; Tactix scanned for duplicate
+partners, searched a duplicate queue linearly, then compacted in a second
+pass, and was 8.8 % of the run against kissat's 4.8 % for the same job.
+
+Three further candidates were implemented and measured, and all three are
+refuted: accumulating Factor's scan ticks in a local as
+`ADD (factor_ticks, ticks)` does (mod4block Factor 1,282 -> 1,344 ms),
+indexing Factor's cached ACTIVE flag by variable as kissat does (Rank 6
+30.4 -> 30.9 s), and making the V6a sweep skip a literal whose binary
+list is unchanged (Rank 6 68.6 -> 71.6 s, the stamping costing more than
+the skipped scans save). Each kept every counter identical, so these are
+measurements, not noise.
+
+What remains on Rank 6 is structural rather than micro. Factor is 27.3 s
+against kissat's 23.3 s, and its scan function alone is within 7 % of
+`kissat_factor`; the difference sits in the index build and
+`apply_factoring`, not in the candidate loop. Congruence is 5.5 s against
+kissat's 1.8 s, and 122 M of its 134 M ticks are the V6a
+binary-resolution sweep, which kissat has no counterpart for and which
+finds nothing on this instance; both arms extract zero gates here. V6a is
+retained on measured evidence (ledger Y1: removing it cost 17.7 % on
+T105), so closing that 3.7 s means changing when the sweep runs, not
+whether it runs.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
