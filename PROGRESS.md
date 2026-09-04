@@ -43,6 +43,16 @@ resume surface.
   40/40, every rank's conflict count identical to the parent, B28+C5
   0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
   `4972`/`4973` plus fuzz.
+  NEXT (single thread): Rank 34, now the largest single gap at 874.6 s
+  against kissat's 344.0 s with 8.91 M conflicts against 4.33 M, so a
+  trajectory difference rather than unit cost. It is 531 s of the 1,695 s
+  that separate the pin from kissat, and the target needs 928 s. Boundary
+  journal pair `4987` (job 1663284) is running; take its first differing
+  rule entry. The next largest are Rank 37 +274 (journal `4960` first
+  differs at 32,073), 31 +226, 32 +207, 35 +196, 17 +182, 22 +179.
+  Pin `f4c37ab` = `origin/main`: Rank 1--40 `4978` 40/40 at 9,370.6 s,
+  B28+C5 `4979` 0.500, fuzz 10,000/0 both legs. Two later commits gate as
+  `4984`/`4985`.
   Rank 6 thread (2026-09-03): 76.2 -> 69.2 s in the tier gate `4978`
   (40/40, every rank's conflict count identical to its parent, total
   9,370.6 s). Landed: live clause counts read instead of scanned
