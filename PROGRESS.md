@@ -8,34 +8,33 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-04, ninth wrap). `origin/main` = `2c30fd3`.
+- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `1ea1974`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `5015` 40/40 at 8,738.8 s, **1.138x kissat**, B28+C5 `5016` 0.491, fuzz
-  10,000/0 on both legs. All forty conflict counts are identical to gate
-  `5006` (8,724.5 s), so the +14.3 s is node-assignment noise, not
-  behaviour. Evidence:
+  `5037` 40/40 at **8,546.9 s = 1.114x kissat**, B28+C5 `5038` 0.465,
+  fuzz 10,000/0 on both legs. The session moved the tier 8,781.1 ->
+  8,546.9 s. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
-  3.4 to 3.13. Working rules: one investigation at a time; judge a
-  unit-cost repair by paired same-node repeats, since the tier total
-  carries about 50 s of node-assignment noise.
-  Recent changes: `9585008` the binary rewrite's duplicate test is
-  answered once per owner instead of rescanning that owner's binary prefix
-  per image; `adadf70` the Sweep ledger republishes only the streams a
-  batch touched (those two: Rank 22 292.7 -> 287.1 s, Sweep 52.2 -> 48.8 s,
-  counters identical); `b8aec30` an empty alias table short-circuits
-  `kernel_clause_position`; `4be8e40` Congruence's forward subsumption
-  consults every literal's representative as `find_subsuming_clause` does.
-  NEXT (single thread): give Sweep kissat's connected walk. Report section
-  3.13 has the measurement: Rank 22 matches kissat's sweep work within
-  10 % on every counter and its sub-solver is faster than kitten, yet
-  applying the equivalences is 11.74 % of the run against kissat's
-  fraction of 1.77 %. Kissat's `substitute_connected_clauses` is one
-  compacting walk of the retired literal's dense list; Tactix replaces
-  each clause in place, and that path searches the retired literal's
-  `large` occurrences, searches its `ordered` stream, and compacts both
-  watch lists, each linear in a degree that is the number of clauses
-  already rewritten onto that representative. Worth about 36 s on Rank 22
-  alone and it is the largest single per-rule gap left on Tier D.
+  3.12 to 3.18.
+  Working rules: one investigation at a time; every timing campaign uses
+  the gate's `--cpus-per-task=12 --mem=48000M` (4 CPUs / 16 GiB is the
+  documented debug contract and hid a real bandwidth win once this
+  session); judge a unit-cost repair by paired same-node repeats, since
+  the tier total carries about 50 s of node noise and conflict counts
+  stay identical through all of these repairs.
+  Recent changes: `4b8332d` BVE's occurrence audit, a pure diagnostic
+  whose consumers are empty inline functions, is compiled out (worth
+  170.6 s tier-wide, the largest single repair); `354c5af` + `1ea1974`
+  Factor's transient marks moved into the clause header and its dense
+  watch record cut to two words (Rank 22 Factor 25.0 -> 19.9 s);
+  `30efd28` Factor's remainder pool interned through an open-addressed
+  table; `972c623` the root-satisfied binary scans carry their copy count.
+  NEXT (single thread): the tier-wide per-rule gap table is report section
+  3.18. Substitute is largest at +117.8 s and 1.69x, and it is a
+  matched-work case: 2,069,131 variables substituted on Rank 22 against
+  kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
+  matched scan volume. Read the Rank 22 profile first, since Rank 31's
+  rule times are inflated by its 2.7x conflict count. Propagation is not
+  a gap: 14.1 M/s against 15.4 M/s at equal propagation counts on Rank 22.
   Size debt (compaction not requested): PROGRESS 3,773 lines against a 350
   budget, `docs/implementation-notes.md` 591 against 560.
 ## Latest candidate performance
