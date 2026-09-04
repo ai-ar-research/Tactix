@@ -8,11 +8,15 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `755285f`.
+- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `1148168`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `5050` 40/40 at **8,541.5 s = 1.113x kissat**, B28+C5 `5051` 0.463,
-  fuzz 10,000/0 on both legs; its conflict counts are identical to `5047`
-  (8,535.2 s) on all forty ranks, so the 6.3 s between them is node noise.
+  `5053` 40/40, B28+C5 `5054` 0.468, fuzz 10,000/0 on both legs. The
+  best-measured tier total is `5047`/`5050` at **8,535-8,542 s = 1.112x
+  kissat**; `5053` reports 8,614.3 s with all forty conflict counts
+  identical to `5050`, so that 72.8 s is machine variation. The tier
+  total's noise band is wider than the 50 s previously assumed: read
+  paired same-node repeats for any behaviour-identical change (report
+  section 3.20).
   The session moved the tier 8,781.1 -> 8,538 s and B28+C5 0.495 -> 0.463;
   the net per-rule gap is +428 s. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
@@ -40,7 +44,13 @@ resume surface.
   (`congruence.c normalize_ite_lits`) takes Rank 22's gate count from
   10.48 M to 7.10 M against kissat's 6.91 M with every counter identical.
   Look for more gaps of that shape, where Tactix's own work counter
-  exceeds kissat's for the same outcome, before hunting unit cost. Substitute is largest at +117.8 s and 1.69x, and it is a
+  exceeds kissat's for the same outcome, before hunting unit cost. Two
+  counter pairings were checked and are NOT gaps: Strengthen does 95.5 M
+  forward steps on Rank 22 against kissat's 107.9 M, and BVE eliminates
+  468,495 variables with 25.5 M resolutions against 433,034 and 20.0 M.
+  Note kissat runs forward subsumption inside `eliminate`, not its
+  `subsume` phase, so the fair pairing is BVE+Strengthen against
+  eliminate+subsume: 372 s against 230 s. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
   kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
   matched scan volume. Read the Rank 22 profile first, since Rank 31's
