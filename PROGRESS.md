@@ -50,7 +50,13 @@ resume surface.
   468,495 variables with 25.5 M resolutions against 433,034 and 20.0 M.
   Note kissat runs forward subsumption inside `eliminate`, not its
   `subsume` phase, so the fair pairing is BVE+Strengthen against
-  eliminate+subsume: 372 s against 230 s. Substitute is largest at +117.8 s and 1.69x, and it is a
+  eliminate+subsume: 372 s against 230 s, the largest gap pairing left.
+  BVE was then profiled to the bottom on Rank 21 (report section 3.22):
+  definition detection is its largest piece at 7.9 s and is already
+  structured as kissat's, the sub-solver living in reusable scratch, and
+  no surplus-work counter exists on either side. The residue is per-visit
+  cost in the shared kernel and watch machinery, 39.2 % of Rank 21 against
+  the 29.1 % kissat spends in propagation, assignment and vectors. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
   kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
   matched scan volume. Read the Rank 22 profile first, since Rank 31's

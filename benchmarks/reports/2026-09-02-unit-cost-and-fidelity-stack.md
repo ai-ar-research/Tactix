@@ -1132,6 +1132,41 @@ that the pivot polarity holds no binaries after its collected occurrences
 are deleted fails immediately in the rule's own tests, so the collected
 set is not the whole list and the bulk clear would drop live binaries.
 
+### 3.22 BVE examined, and where the search should go next (2026-09-04)
+
+Rank 21 carries BVE's largest share: 35.6 s against kissat's 20.7 s
+elimination, with Strengthen 4.9 s against kissat's 1.4 s subsumption, on
+a 133.2 s run against 95.7 s. A paired call-graph profile at the gate's
+allocation splits BVE's 17.3 % inclusive share:
+
+| component | share | Rank 21 |
+|---|---:|---:|
+| definition detection | 5.95 % | 7.9 s |
+| its embedded solve | 1.70 % | 2.3 s |
+| its clause loading | 1.64 % | 2.2 s |
+| large-clause creation | 1.16 % | 1.5 s |
+
+Definition detection is the largest piece and it is already structured as
+kissat's is: the sub-solver lives in reusable scratch rather than being
+rebuilt per check, so the loading cost is the same per-clause work
+`kitten_clause` does. No surplus-work counter was found on either side.
+
+Per-file the two solvers land in the same places. Kissat's heap code is
+9.61 % of Rank 21 and Tactix's heuristics 9.04 %; kissat's vector inlines
+are 7.79 % and Tactix's 9.85 %, spread over many growth sites with none
+above 0.37 %. Tactix's kernel and watch sources together are 39.2 %
+against the 29.1 % kissat spends in propagation, assignment and vectors,
+which at these totals is 52 s against 28 s. That is where the remaining
+BVE and Strengthen gap sits, and it is per-visit cost in shared machinery
+rather than a defect in either rule.
+
+Two structural items remain, both larger than any single repair landed
+today. During Sweep, Tactix maintains the sparse watch lists and the
+dense occurrence index together, where kissat's sweep has only the dense
+one; removing that duplication needs a dense propagation path Tactix does
+not have. And Rank 31 runs 2.7x kissat's conflicts, which is search
+trajectory rather than implementation and is not addressed here.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
