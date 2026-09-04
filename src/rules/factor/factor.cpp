@@ -80,12 +80,36 @@ struct RemPool {
     off.push_back(static_cast<uint32_t>(pool.size()));
     len.push_back(1);
     pool.push_back(l);
+    hashes.push_back(0); // keeps `hashes` indexed by id; units never probe
     unit_id[l] = static_cast<int32_t>(id);
     return id;
   }
   // Multi-literal intern; `b[0..n)` must be sorted ascending. Identity is by
   // content.  Interning never implies occurrence deduplication.
-  std::unordered_map<uint64_t, std::vector<uint32_t>> buckets;
+  //
+  // The index is an open-addressed table of ids rather than a map of buckets:
+  // one application interns tens of millions of remainders, and a node plus a
+  // bucket vector per distinct hash made allocation, and then the pool's own
+  // destruction, the rule's largest cost.  Ids are still handed out in
+  // first-intern order and still compared by content, so the table changes
+  // only how a match is found.
+  std::vector<uint32_t> table;  // id + 1, 0 = empty
+  std::vector<uint64_t> hashes; // by id; 0 for the unit ids, which never index
+  uint32_t occupied = 0;
+
+  void rehash_table(size_t capacity) {
+    table.assign(capacity, 0);
+    const size_t mask = capacity - 1;
+    for (uint32_t id = 0; id < static_cast<uint32_t>(off.size()); id++) {
+      if (len[id] == 1)
+        continue;
+      size_t pos = hashes[id] & mask;
+      while (table[pos])
+        pos = (pos + 1) & mask;
+      table[pos] = id + 1;
+    }
+  }
+
   uint32_t intern(const Lit *b, uint32_t n) {
     if (n == 1)
       return intern_unit(b[0]);
@@ -94,15 +118,24 @@ struct RemPool {
       h ^= b[i];
       h *= 1099511628211ull;
     }
-    auto &bucket = buckets[h];
-    for (const uint32_t id : bucket)
-      if (len[id] == n && !std::memcmp(pool.data() + off[id], b, n * sizeof(Lit)))
+    if (table.empty() || (occupied + 1) * 4 > table.size() * 3)
+      rehash_table(table.empty() ? size_t{1} << 12 : table.size() * 2);
+    const size_t mask = table.size() - 1;
+    size_t pos = h & mask;
+    while (table[pos]) {
+      const uint32_t id = table[pos] - 1;
+      if (hashes[id] == h && len[id] == n &&
+          !std::memcmp(pool.data() + off[id], b, n * sizeof(Lit)))
         return id;
+      pos = (pos + 1) & mask;
+    }
     const uint32_t id = static_cast<uint32_t>(off.size());
     off.push_back(static_cast<uint32_t>(pool.size()));
     len.push_back(n);
     pool.insert(pool.end(), b, b + n);
-    bucket.push_back(id);
+    hashes.push_back(h);
+    table[pos] = id + 1;
+    occupied++;
     return id;
   }
   uint32_t count() const { return static_cast<uint32_t>(off.size()); }
