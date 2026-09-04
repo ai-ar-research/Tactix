@@ -930,6 +930,39 @@ Both arms shared the shape so the signs held, but a bandwidth-sensitive
 result read at the wrong allocation is not evidence; the numbers quoted
 here are the re-run at the gate's shape.
 
+### 3.16 A diagnostic left in the production build, and where that class ends (2026-09-04)
+
+BVE ran an occurrence audit on every candidate elimination. It walked
+both polarities' whole ordered occurrence streams, dereferenced every
+large clause, ran a membership scan over each of them twice, and built a
+literal vector for each non-garbage one. Its only consumers are two
+event-trace calls, which are empty inline functions unless the tracing
+build option is on, so a production build computed all of it and threw it
+away. Kissat's eliminate has no counterpart.
+
+| rank | BVE | rank total |
+|---|---:|---:|
+| 21 before | 44.07 s | 143.0 s |
+| 21 after | 33.82 s | 131.7 s |
+| 9 before | | 106.5 s |
+| 9 after | | 98.1 s |
+
+Two interleaved repeats each at the gate's allocation, counters
+identical. This is the largest single repair of the session.
+
+The obvious generalisation does not hold. Fourteen other trace calls in
+the kernel, Congruence and Strengthen compute an argument that is real
+work: an uncapped scan of a literal's binary prefix, or a hash lookup for
+a binary's clause id, on paths as hot as every binary addition and every
+binary deletion. Guarding all of them measured nothing twice: Rank 21
+Congruence 7.968 to 7.982 s, Rank 22 Congruence 19.355 to 19.341 s,
+counters identical. The compiler removes a pure inline computation whose
+result feeds an empty function. What it cannot remove is one that
+allocates, which is exactly why the BVE audit survived. So the rule to
+apply is narrower than "guard every diagnostic": guard the ones that
+allocate or call something the optimiser cannot see through, and leave
+the rest to the optimiser.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
