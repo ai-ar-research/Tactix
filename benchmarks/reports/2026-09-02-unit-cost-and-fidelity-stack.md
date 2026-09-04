@@ -806,6 +806,51 @@ identical and changed the run by nothing measurable (142.1/143.6 s
 against 140.2/144.0 s in interleaved repeats), so the allocator is not
 where that rank's eliminate time goes.
 
+### 3.13 Why Sweep costs 4x on Rank 22: the substitution, not the search (2026-09-04)
+
+Rank 22 spends 51.7 s in Sweep against kissat's 12.9 s, and the two do
+almost the same work: 221,816 variables swept against 196,771, 47.6 M
+encoded clauses against 43.2 M, 119,339 equivalences against 119,987, and
+sub-solver ticks within 4 % (678 M against 654 M). The embedded solver is
+not the problem either, since it carries 1.30 % of samples where kitten
+carries 2.40 %.
+
+A call-graph profile (`5013`) places the cost. Of Sweep's 17.36 %
+inclusive share, finding the equivalences is 2.0 % and applying them is
+11.74 %. Kissat applies one with `substitute_connected_clauses`: a single
+compacting walk of the retired literal's dense list that rewrites each
+clause in the arena in place, keeps its reference, and appends the moved
+watches to the representative in one pass. Tactix builds a binary image
+list, compacts the affected owners, pushes the images, replaces each
+large clause in place, and reconciles a parallel ledger.
+
+Three of those steps search a list per clause where kissat walks one list
+per literal. Replacing a large clause in place searches the retired
+literal's `large` occurrences, searches its `ordered` stream, and
+compacts both watch lists; every one is linear in a degree that is itself
+the number of clauses already rewritten onto that representative.
+
+Two were repaired here, both counter-identical on Rank 22 over
+interleaved repeats:
+
+| change | Sweep | rank total |
+|---|---:|---:|
+| baseline | 52.2 s | 292.7 s |
+| incremental ledger republish | 51.7 s | 291.5 s |
+| duplicate test grouped by owner | 48.8 s | 287.1 s |
+
+The duplicate test was the clearest instance: every rewritten binary
+asked whether its target pair was already live by scanning the target
+owner's binary prefix from both endpoints, and a substituted class sends
+every retired literal's binaries to one representative. Grouping the
+images by owner answers each image identically, with a debug assertion
+re-deriving the original answer per image.
+
+The remaining 36 s is the architecture rather than any one line. Closing
+it means giving Sweep kissat's connected walk instead of the general
+substitution path, which is the ledger item this report has carried since
+§3.2 and the largest single per-rule gap left on Tier D.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
