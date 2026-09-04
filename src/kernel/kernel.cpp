@@ -2660,6 +2660,13 @@ void kernel_canonicalize_binary_watches(Kernel &k,
   std::vector<uint8_t> seen(2 * k.nvars, 0);
   std::vector<Var> ordered_variables;
   kernel_vars_in_import_order(k, ordered_variables);
+  // kissat compares raw compacted literals here; Tactix's stable identities
+  // need their import rank, which is two lookups and a branch per call.  Read
+  // it once per literal so the scan and the per-run sort below index an array
+  // instead of calling into the map for every entry and every comparison.
+  std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
+    lit_rank[l] = kernel_import_lit_order(k, l);
   for (const Var variable : ordered_variables)
     for (uint32_t sign = 0; sign < 2; sign++) {
       const Lit lit = make_lit(variable, sign != 0);
@@ -2676,16 +2683,13 @@ void kernel_canonicalize_binary_watches(Kernel &k,
         // the next collection and keeps counting toward the irredundant
         // clause total that scales the next probe interval.  Rebuild from
         // the same rule: duplicates go, values are not consulted.
-        if (kernel_import_lit_order(k, lit) >=
-                kernel_import_lit_order(k, other) ||
-            seen[other])
+        if (lit_rank[lit] >= lit_rank[other] || seen[other])
           continue;
         seen[other] = 1;
         binaries.emplace_back(lit, other);
       }
       for (const WatchEntry w : k.watches.entries(lit))
-        if (w.binary() && kernel_import_lit_order(k, lit) <
-                              kernel_import_lit_order(k, w.other()))
+        if (w.binary() && lit_rank[lit] < lit_rank[w.other()])
           seen[w.other()] = 0;
     }
   // The outer scan already appends groups in first-literal import order.
@@ -2699,9 +2703,8 @@ void kernel_canonicalize_binary_watches(Kernel &k,
            binaries[end].first == binaries[begin].first)
       end++;
     std::sort(binaries.begin() + begin, binaries.begin() + end,
-              [&](const auto &a, const auto &b) {
-                return kernel_import_lit_order(k, a.second) <
-                       kernel_import_lit_order(k, b.second);
+              [&lit_rank](const auto &a, const auto &b) {
+                return lit_rank[a.second] < lit_rank[b.second];
               });
     begin = end;
   }
