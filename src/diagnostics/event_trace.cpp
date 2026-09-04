@@ -815,7 +815,7 @@ void emit_standalone_inprocess_boundary(const Kernel &k, const char *name,
     std::fputs("# tactix-inprocess-boundary\t1\n", out);
     std::fputs("# solver\tseq\tname\tstage\tconflicts\tdecisions\t"
                "propagations\tactive\tunassigned\ttrail\tirred\tred\t"
-               "binary\n",
+               "binary\tticks\tsearch_ticks\n",
                out);
   }
   if (!out || k.stats.conflicts < conflict_from ||
@@ -825,7 +825,7 @@ void emit_standalone_inprocess_boundary(const Kernel &k, const char *name,
   live_clause_counts(k, irredundant, redundant);
   std::fprintf(out,
                "tactix\t%llu\t%s\t%s\t%llu\t%llu\t%llu\t%llu\t%u\t"
-               "%zu\t%llu\t%llu\t%llu\n",
+               "%zu\t%llu\t%llu\t%llu\t%llu\t%llu\n",
                (unsigned long long)sequence++, name, stage,
                (unsigned long long)k.stats.conflicts,
                (unsigned long long)k.stats.decisions,
@@ -834,7 +834,9 @@ void emit_standalone_inprocess_boundary(const Kernel &k, const char *name,
                k.unassigned_active, k.trail.size(),
                (unsigned long long)irredundant,
                (unsigned long long)redundant,
-               (unsigned long long)live_binary_clause_count(k));
+               (unsigned long long)live_binary_clause_count(k),
+               (unsigned long long)k.stats.ticks,
+               (unsigned long long)k.stats.search_ticks);
 }
 
 static void emit_standalone_macro_boundary(const Kernel &k,
