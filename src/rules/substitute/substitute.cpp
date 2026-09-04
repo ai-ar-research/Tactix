@@ -491,6 +491,54 @@ void SweepSubstitutionSession::begin(const Kernel &k) {
   dense_enabled = k.dense;
 }
 
+// One scan of each distinct owner's binary prefix answers every image that
+// pushes onto it. Scanning per image instead costs the owner's degree each
+// time, and a substituted class sends every retired literal's binaries to the
+// same representative, so that degree is the number of images already done.
+void SweepSubstitutionSession::classify_existing_binaries(
+    const Kernel &k, const std::vector<Lit> &owners,
+    const std::vector<Lit> &others, std::vector<uint8_t> &out) {
+  const size_t n = owners.size();
+  out.assign(n, 0);
+  if (!n)
+    return;
+  const size_t nlits = 2 * static_cast<size_t>(k.nvars);
+  if (live_epoch.size() < nlits)
+    live_epoch.resize(nlits, 0);
+  std::vector<uint32_t> order(n);
+  for (size_t i = 0; i < n; i++)
+    order[i] = static_cast<uint32_t>(i);
+  std::sort(order.begin(), order.end(), [&](uint32_t a, uint32_t b) {
+    return owners[a] < owners[b];
+  });
+  size_t at = 0;
+  while (at < n) {
+    const Lit owner = owners[order[at]];
+    size_t end = at;
+    while (end < n && owners[order[end]] == owner)
+      end++;
+    if (++live_generation == 0) {
+      std::fill(live_epoch.begin(), live_epoch.end(), 0);
+      live_generation = 1;
+    }
+    const bool stop_at_large = k.watches.heads[owner].binaries_first();
+    for (const WatchEntry w : k.watches.entries(owner)) {
+      if (!w.binary()) {
+        if (stop_at_large)
+          break;
+        continue;
+      }
+      live_epoch[w.other()] = live_generation;
+    }
+    for (size_t i = at; i < end; i++) {
+      const uint32_t image = order[i];
+      out[image] =
+          static_cast<uint8_t>(live_epoch[others[image]] == live_generation);
+    }
+    at = end;
+  }
+}
+
 void SweepSubstitutionSession::mark_ledger_dirty(Lit lit) {
   if (ledger_dirty_mark.size() <= lit)
     ledger_dirty_mark.resize(static_cast<size_t>(lit) + 1, 0);
@@ -2194,9 +2242,50 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   }
   substitute_stage_trace(k, "rewrite-binary-reserved", k.watches.arena.size(),
                          k.watches.arena.capacity());
+  // Pre-pass: the pair's presence before this batch's first push, grouped by
+  // owner, and the first image of each unordered pair. Together they answer
+  // the per-image question the scan below used to ask twice.
+  std::vector<uint8_t> preexisting;
+  std::vector<uint8_t> mirror_seen;
+  if (session) {
+    std::vector<Lit> owners, others;
+    std::vector<uint64_t> keys;
+    owners.reserve(images.size());
+    others.reserve(images.size());
+    keys.reserve(images.size());
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
+      const bool skip = image.tautological || image.target_a == image.target_b;
+      owners.push_back(skip ? 0 : image.target_a);
+      others.push_back(skip ? 0 : image.target_b);
+      keys.push_back(skip ? 0
+                          : kernel_binary_key(image.target_a, image.target_b));
+    }
+    // The compaction above removes a mapped binary only from the owners it
+    // touched, so a pair can survive in one endpoint's list and not the
+    // other's. Both directions are therefore asked, exactly as the per-image
+    // scan did.
+    std::vector<uint8_t> mirror_existing;
+    session->classify_existing_binaries(k, owners, others, preexisting);
+    session->classify_existing_binaries(k, others, owners, mirror_existing);
+    for (size_t i = 0; i < preexisting.size(); i++)
+      preexisting[i] = static_cast<uint8_t>(preexisting[i] | mirror_existing[i]);
+    mirror_seen.assign(images.size(), 0);
+    std::vector<uint32_t> by_key(images.size());
+    for (size_t i = 0; i < by_key.size(); i++)
+      by_key[i] = static_cast<uint32_t>(i);
+    std::sort(by_key.begin(), by_key.end(), [&](uint32_t a, uint32_t b) {
+      return keys[a] != keys[b] ? keys[a] < keys[b] : a < b;
+    });
+    for (size_t i = 1; i < by_key.size(); i++)
+      if (keys[by_key[i]] == keys[by_key[i - 1]])
+        mirror_seen[by_key[i]] = 1;
+  }
+  size_t image_index = 0;
   size_t rebuilt_images = 0;
   for (const BinaryImage &stored : images) {
     const ExpandedBinaryImage image = expand_image(stored);
+    const size_t this_image = image_index++;
     if (image.tautological || image.target_a == image.target_b)
       continue;
     const bool moved_other = image.source_b != image.target_b;
@@ -2215,8 +2304,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     } else if (publish)
       id = ++k.next_clause_id;
     const bool already_live =
-        kernel_binary_copies(k, image.target_a, image.target_b, 1) ||
-        kernel_binary_copies(k, image.target_b, image.target_a, 1);
+        session ? (preexisting[this_image] || mirror_seen[this_image])
+                : (kernel_binary_copies(k, image.target_a, image.target_b, 1) ||
+                   kernel_binary_copies(k, image.target_b, image.target_a, 1));
+    assert(!session ||
+           already_live ==
+               (kernel_binary_copies(k, image.target_a, image.target_b, 1) ||
+                kernel_binary_copies(k, image.target_b, image.target_a, 1)));
     k.watches.push_binary(image.target_a, image.target_b);
 #ifdef TACTIX_ENABLE_EVENT_TRACE
     event_trace_binary_lifecycle(k, "sweep-physical-target", image.target_a,
