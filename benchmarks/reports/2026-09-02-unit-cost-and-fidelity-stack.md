@@ -766,6 +766,46 @@ individual ranks by 20 s in both directions. Paired same-node repeats are
 the measurement that decides these repairs; the gate decides 40/40, the
 B+C ratio and fuzz.
 
+### 3.12 Where the remaining inprocessing cost is, rank by rank (2026-09-04)
+
+Three paired profiles against a kissat built with symbols
+(`tools/solvers/variants/kissat-symbols`) place the remaining per-rule
+gaps. They do not agree on which rule dominates, which is why a single
+instance is a poor guide.
+
+| rank | rule | Tactix | kissat | campaign |
+|---|---|---:|---:|---|
+| 22 | Sweep | 51.2 s | 12.9 s | `5003` |
+| 37 | Sweep | 15.4 s | 17.5 s | `5004` |
+| 37 | BVE + Strengthen | 30.6 s | 16.1 s | `5004` |
+| 37 | Factor | 23.5 s | 9.9 s | `5004` |
+| 37 | Vivify | 45.8 s | 36.5 s | `5004` |
+| 21 | BVE + Strengthen | 48.8 s | 20.7 s | `5008` |
+| 21 | Congruence | 7.9 s | 8.4 s | `5008` |
+
+Two of these are already at or better than parity after the session's
+repairs: Sweep on Rank 37 and Congruence on Rank 21. Vivify, the largest
+rule tier-wide at 684 s, is only 1.26x on the rank carrying its highest
+share, so it is not the lever its total suggests.
+
+One further repair followed from Rank 37: every sparse-resume rebuild and
+every collection asks `kernel_clause_position` once per live clause, and
+that answer can only be the reference itself until an in-place rewrite
+records an alias, so the paged lookup now short-circuits and the logical
+ordering pass skips entirely (`5005`, counters identical, 428.8 -> 425.2
+s). A suspicion that the same rebuild sorts all live references where
+kissat walks the arena was refuted by reading: the sort already
+early-exits when the references are ordered.
+
+One attempt measured neutral and was reverted. Rank 21's eliminate
+profile carries 2.9 % in `push_back` and 2.2 % in `free` where kissat's
+carries neither, and BVE's occurrence audit constructed a literal vector
+for every clause it visits across 3.59 M candidate eliminations. Hoisting
+that vector and two others out of their loops kept every counter
+identical and changed the run by nothing measurable (142.1/143.6 s
+against 140.2/144.0 s in interleaved repeats), so the allocator is not
+where that rank's eliminate time goes.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
