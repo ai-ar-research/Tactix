@@ -2749,20 +2749,37 @@ template <class Record> bool find_binary_units(Kernel &k, Record &&record) {
       touched.clear();
       bool found = false;
       Lit witness = INVALID_LIT;
-      for (const WatchEntry w : k.watches.entries(l)) {
-        if (!w.binary())
-          continue;
-        const Lit o = w.other();
+      // Only binaries matter here, and a binary-first list keeps them in one
+      // packed prefix, so the large entries behind it need not be decoded and
+      // skipped one by one.  The tick charge above is unchanged: it prices the
+      // whole list, as the metered pass always has.
+      const auto visit = [&](Lit o) {
         if (k.value(o) != 0)
-          continue; // satisfied or already-propagated binary
+          return true; // satisfied or already-propagated binary
         if (mark[negate(o)]) {
           found = true;
           witness = o;
-          break;
+          return false;
         }
         if (!mark[o]) {
           mark[o] = 1;
           touched.push_back(o);
+        }
+        return true;
+      };
+      const WatchHead &head = k.watches.heads[l];
+      if (head.binaries_first()) {
+        const uint32_t *word = k.watches.arena.data() + head.offset;
+        const uint32_t *const end = word + head.binary_count();
+        for (; word != end; ++word)
+          if (!visit(Watch{*word}.other()))
+            break;
+      } else {
+        for (const WatchEntry w : k.watches.entries(l)) {
+          if (!w.binary())
+            continue;
+          if (!visit(w.other()))
+            break;
         }
       }
       for (const Lit t : touched)
