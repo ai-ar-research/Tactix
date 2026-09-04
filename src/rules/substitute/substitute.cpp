@@ -2086,8 +2086,39 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // above, and retaining it by pair identity leaves the kernel holding a live
   // clause whose every checker copy is later consumed — the DRAT population
   // then under-runs and a later lemma citing the survivor fails RUP.
-  std::unordered_map<uint64_t, uint32_t> bridge_keep_snapshot;
-  std::unordered_map<uint64_t, uint32_t> bridge_keep_compact;
+
+  // Sorted (key, count) pairs, not a hash map: Sweep calls this once per
+  // productive environment, so a per-call map allocates per distinct bridge.
+  std::vector<std::pair<uint64_t, uint32_t>> bridge_keep_snapshot;
+  std::vector<std::pair<uint64_t, uint32_t>> bridge_keep_compact;
+  const auto bridge_keep_add = [](std::vector<std::pair<uint64_t, uint32_t>> &v,
+                                  uint64_t key) { v.emplace_back(key, 1u); };
+  const auto bridge_keep_coalesce =
+      [](std::vector<std::pair<uint64_t, uint32_t>> &v) {
+        std::sort(v.begin(), v.end(),
+                  [](const std::pair<uint64_t, uint32_t> &a,
+                     const std::pair<uint64_t, uint32_t> &b) {
+                    return a.first < b.first;
+                  });
+        size_t kept = 0;
+        for (size_t i = 0; i < v.size(); i++) {
+          if (kept && v[kept - 1].first == v[i].first)
+            v[kept - 1].second += v[i].second;
+          else
+            v[kept++] = v[i];
+        }
+        v.resize(kept);
+      };
+  const auto bridge_keep_find =
+      [](std::vector<std::pair<uint64_t, uint32_t>> &v,
+         uint64_t key) -> uint32_t * {
+    const auto it = std::lower_bound(
+        v.begin(), v.end(), key,
+        [](const std::pair<uint64_t, uint32_t> &a, uint64_t b) {
+          return a.first < b;
+        });
+    return it != v.end() && it->first == key ? &it->second : nullptr;
+  };
   const auto directed_entry_key = [](Lit from, Lit to) {
     return (static_cast<uint64_t>(from) << 32) | to;
   };
@@ -2112,20 +2143,22 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       const bool stable_b = image.source_b == image.target_b;
       if (stable_a && stable_b) {
         // Untouched bridge: both physical directions stay in place.
-        bridge_keep_snapshot[directed_entry_key(image.target_a,
-                                                image.target_b)]++;
-        bridge_keep_snapshot[directed_entry_key(image.target_b,
-                                                image.target_a)]++;
+        bridge_keep_add(bridge_keep_snapshot,
+                        directed_entry_key(image.target_a, image.target_b));
+        bridge_keep_add(bridge_keep_snapshot,
+                        directed_entry_key(image.target_b, image.target_a));
       } else if (stable_a != stable_b) {
         // The in-place pass rewrote the stable direction to the bridge
         // endpoints; only that entry exists before the rebuild below.
         const Lit stable = stable_a ? image.target_a : image.target_b;
         const Lit moved = stable_a ? image.target_b : image.target_a;
-        bridge_keep_snapshot[directed_entry_key(stable, moved)]++;
+        bridge_keep_add(bridge_keep_snapshot,
+                        directed_entry_key(stable, moved));
       }
       // Both endpoints moved: nothing survives compaction; both directions
       // are rebuilt from the directed images after it.
     }
+    bridge_keep_coalesce(bridge_keep_snapshot);
     bridge_keep_compact = bridge_keep_snapshot;
   }
   std::deque<BinaryImage>().swap(images);
@@ -2135,10 +2168,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       if (!watch.binary())
         continue;
       if (session) {
-        const auto keep =
-            bridge_keep_snapshot.find(directed_entry_key(lit, watch.other()));
-        if (keep != bridge_keep_snapshot.end() && keep->second) {
-          keep->second--;
+        uint32_t *const keep = bridge_keep_find(
+            bridge_keep_snapshot, directed_entry_key(lit, watch.other()));
+        if (keep && *keep) {
+          --*keep;
           continue;
         }
       }
@@ -2193,10 +2226,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
             // Same first-N consumption order as the snapshot above: the lists
             // are untouched between the two passes, so identical counters
             // protect identical entries.
-            const auto keep = bridge_keep_compact.find(
-                directed_entry_key(lit, watch.other()));
-            if (keep != bridge_keep_compact.end() && keep->second) {
-              keep->second--;
+            uint32_t *const keep = bridge_keep_find(
+                bridge_keep_compact, directed_entry_key(lit, watch.other()));
+            if (keep && *keep) {
+              --*keep;
               return true;
             }
           }
