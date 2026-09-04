@@ -8,131 +8,42 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-03, seventh wrap). `origin/main` = `431c4a6`
-  (fast-forwarded from `bf26be7` under the push rule: three Kissat-fidelity
-  ports plus the diagnostic). Kissat `1930` is 7,675.2 s; T4-K needs
-  <= 8,442.7 s. Gate of the pushed solver (`b4e1ea0`, identical Release
-  binary): Rank 1--40 `4958` 40/40 within 20 min at 9,393.7 s (slowest
-  Rank 34 878 s), B28+C5 `4959` 0.509 against `bf26be7`'s 0.561, fuzz
-  10,000/0 on both legs. Intermediate gates: `4950`/`4951` (`19f9525`,
-  9,471.7 s, 0.509) and `4956`/`4957` (`21b4084`, 9,249.6 s, 0.512), both
-  40/40 and fuzz-clean. Evidence:
-  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.4-3.6.
-  Working rule (user, 2026-09-03): one active investigation at a time.
-  Held off `main`: branch `substitute-round-177183f` (faithful
-  `SP-SUBSTITUTE-ROUND-1` port; gate `4931` times out Rank 34) and branch
-  `stack-b744ac0` (that port plus the Congruence fix, gate `4946`).
-  Recent changes: `19f9525` Congruence's extraction entry deletes
-  root-assigned binaries as clauses (`SP-BINARY-DEDUP-1`; mod4block
-  208.8 s -> 28.7 s, journals agree to the end, `4948`/`4949`);
-  `21b4084` the Sweep ledger searches an occurrence stream only for a
-  literal that leaves the clause (Rank 22 637.9 -> 369.4 s, profile
-  `4955`); `b4e1ea0` Vivify folds tier 2's share into tier 1 when the
-  focused tier limits coincide (`SP-VIVIFY-1`; Rank 37's first divergence
-  moves from the 9,450 phase to 32,073, `4960`); `431c4a6` the
-  watch-order dump diagnostic.
-  Where `b4e1ea0` still loses to `bf26be7` (all trajectory, conflicts up):
-  Rank 37 +243 (11.12 M vs 4.84 M conflicts), 35 +132, 17 +108, 31 +91,
-  32 +65, 22 +50; and Rank 21 -25, 28 -13, 27 -3.
-  Factor thread (user's priority, 2026-09-03): mod4block now runs kissat's
-  exact trajectory and the gap is unit cost. Three behaviour-identical
-  Factor repairs landed (`19f9525`..`7ef74c0`): remainder marks, eager
-  removal of a deleted grid clause's dense occurrences, and kissat's
-  single mark byte. mod4block 23.09 -> 21.50 s against kissat's 18.38 s;
-  Factor 2,992 -> 1,285 ms against 970 ms. Gate `4966`/`4967` (1a9d120):
-  40/40, every rank's conflict count identical to the parent, B28+C5
-  0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
-  `4972`/`4973` plus fuzz.
-  Unit-cost thread (2026-09-04): tier-wide per-rule timers put 2,821 s of
-  8,696 s in inprocessing, Sweep second at 489 s and concentrated on Rank
-  22 (91.3 s against kissat's 12.9 s, profile `4996`). Two
-  behaviour-identical repairs landed and are pushed: the Sweep ledger
-  reconciles binaries on epoch scratch (`8dcec75`, gate `4998` 40/40
-  8,781.1 s, B28+C5 `4999` 0.495) and a rewritten reason's owner is read
-  off the clause (`afcb126`, gate `5001` 40/40, all forty conflict counts
-  identical, B28+C5 `5002` 0.497). Rank 22 356.1 -> 290.9 s in paired
-  repeats. Judge such repairs by paired same-node runs: the tier total
-  carries about 50 s of node noise.
-  PARKED: the 42 missing search ticks in Tactix's rephase,
-  walk or reorder path. Rank 31's first divergence (`4992`, `4993`,
-  `4994`, `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.10) is a tick-driven stable-to-focused switch firing at decision
-  level 8110 in kissat and 8117 in Tactix. Stopping both at equal
-  conflict counts, `search_ticks` matches to the digit through conflict
-  44,747 and differs by 3 at 44,748, reaching 42 by 44,770 and holding.
-  kissat's `[rephase-7]` with a walk runs at 44,750-44,751 with a
-  `[reorder-3]` after it. Read kissat's tick charges in walk.c, rephase.c
-  and reorder.c against Tactix's; the cache-line formula is already
-  confirmed identical. Probe scripts live in
-  `benchmarks/probes/scratch/ticks-r31`.
-  Gate `4990` (`4be8e40`, the subsumption scan set): 40/40 at 8,829.9 s,
-  440 s better than the pushed pin and 1.150x kissat's 7,675.1 s, so 387 s
-  from the 8,442.7 s target; B28+C5 `4991` 0.496. The repair is general,
-  not local to Rank 34: Rank 37 636 -> 431 s (11.1 M -> 5.9 M conflicts),
-  35 517 -> 360, 32 490 -> 390, 17 305 -> 278, 33 367 -> 343, 34 875 ->
-  742, against one regression, Rank 31 500 -> 696 (6.8 M -> 12.4 M).
-  Largest remaining gaps to kissat: 31 +419, 34 +398, 22 +176, 17 +156,
-  32 +101, 27 +76.
-  Rank 34 thread (2026-09-03): first divergence found and repaired.
-  Journals `4987` agree until the first Congruence, whose forward
-  subsumption removed 73 clauses against kissat's 69 from identical
-  candidate sets; `find_subsuming_clause` consults every literal's
-  representative list, Tactix used the deduplicated root-open set
-  (`4988`, `4989`,
-  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.9). Rank 34 867 -> 742 s; gate `4990`/`4991`
-  plus fuzz running. Kissat is still 344 s there, so the rank remains the
-  largest gap after this.
-  PARKED: Rank 34, previously the largest single gap at 874.6 s
-  against kissat's 344.0 s with 8.91 M conflicts against 4.33 M, so a
-  trajectory difference rather than unit cost. It is 531 s of the 1,695 s
-  that separate the pin from kissat, and the target needs 928 s. Boundary
-  journal pair `4987` (job 1663284) is running; take its first differing
-  rule entry. The next largest are Rank 37 +274 (journal `4960` first
-  differs at 32,073), 31 +226, 32 +207, 35 +196, 17 +182, 22 +179.
-  Pin `f4c37ab` = `origin/main`: Rank 1--40 `4978` 40/40 at 9,370.6 s,
-  B28+C5 `4979` 0.500, fuzz 10,000/0 both legs. Two later commits gate as
-  `4984`/`4985`.
-  Rank 6 thread (2026-09-03): 76.2 -> 69.2 s in the tier gate `4978`
-  (40/40, every rank's conflict count identical to its parent, total
-  9,370.6 s). Landed: live clause counts read instead of scanned
-  (`98488f7`), the dense entry merged into one cursor pass (`f4c37ab`),
-  Congruence reading each import rank once (`6318267`), and V6a scanning
-  the binary prefix (`bff26aa`). Refuted by measurement: Factor tick
-  batching, Factor's ACTIVE flag per variable, and an incremental V6a
-  sweep. Open on Rank 6: Factor 27.3 s against kissat's 23.3 s (the scan
-  is within 7 %; the rest is the index build and apply_factoring) and
-  Congruence 5.5 s against 1.8 s, which is entirely the V6a sweep that
-  kissat has no counterpart for and that finds nothing here.
-  PARKED: Rank 6 Factor, 30.0 s against kissat's 22.98 s at
-  identical work (`4970`); two micro-explanations are already refuted by
-  measurement
-  (`benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.7),
-  so take the grid/greedy structure next.
-  Then the two non-Factor costs `4970` exposed: the O(nvars)-per-call
-  duplicate scan in `kernel_compact_dense_entry_watches` (6.6 s on Rank 6)
-  and `classify_formula`'s full-formula count where kissat reads two
-  maintained statistics (3.3 s on Rank 6, 86 calls).
-  Attempted and reverted 2026-09-03: maintaining kissat's
-  `clauses_binary`/`clauses_irredundant` incrementally. The large half is
-  exact from three sites (creation, `kernel_delete_clause`, the in-place
-  record reuse) plus the two `set_redundant` flips; the binary half drifts
-  because Substitute rewrites binaries in bulk
-  (`substitute.cpp` `compact_owner` plus the delayed `push_binary`) and
-  Congruence rebuilds the lists in `kernel_canonicalize_binary_watches`,
-  neither going through the counted helpers. A debug oracle comparing the
-  maintained counters against the scan caught it in four tests
-  (`test_analyze` 13 against 11 binaries). Redo it by having each bulk
-  rewriter publish the population it installs, keeping that oracle.
-  Parked: Rank 37 on the earlier pin. The journal `4960`
-  agrees with kissat's `4952` journal through the phase at 19,358 and
-  first differs at 32,073 (active 148,616 vs 148,637, irredundant 589,960
-  vs 593,339 at the Congruence entry); take the per-literal watch-list
-  dump of the 32,073 phase (`tools`: scratch `mkdump.sh`, comparator
-  `wodiff_stream.py`) and find the rule whose effect differs. Then Rank 35
-  (`4935`: first difference at conflict 13,833, decisions 18,445,126 vs
-  18,445,125) and Rank 17.
-  Standing size debt: `doc_size` fails on PROGRESS and
-  `docs/implementation-notes.md`; compaction only on request.
-
+- RESUME HERE (2026-09-04, eighth wrap). `origin/main` = `afcb126`.
+  Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
+  `4998` 40/40 at 8,781.1 s, **1.144x kissat**, B28+C5 `4999` 0.495 (was
+  0.561 at the start of the session), fuzz 10,000/0 on both legs of every
+  pushed pin. Gate `5001`/`5002` (`afcb126`) is 40/40 with all forty
+  conflict counts identical to `4998`, B28+C5 0.497; its proof-check tails
+  are still running as jobs 1663420, 1663421, 1663529, 1663530.
+  Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`
+  sections 3.4 to 3.11. Working rules: one investigation at a time; judge a
+  unit-cost repair by paired same-node repeats, since the tier total
+  carries about 50 s of node-assignment noise.
+  Recent changes: `4be8e40` Congruence's forward subsumption consults
+  every literal's representative as `find_subsuming_clause` does (Rank 34
+  875 -> 742 s, 37 636 -> 431, 35 517 -> 360, 32 490 -> 390, against Rank
+  31 500 -> 696); `8dcec75` the Sweep ledger reconciles binaries on epoch
+  scratch; `afcb126` a rewritten reason's owner is read off the clause
+  (those two: Rank 22 356 -> 291 s in paired repeats); `f4c37ab` live
+  clause counts read instead of scanned and one cursor pass per dense
+  entry (Rank 6 76 -> 69 s); `19f9525`..`7ef74c0` the Congruence entry
+  deletion and three Factor repairs (mod4block 209 -> 21.5 s at kissat's
+  exact trajectory).
+  Largest gaps to kissat: Rank 31 +419 (its first divergence is a
+  tick-driven mode switch, report section 3.10; the tick counters agree to the digit for
+  44,747 conflicts and then lose 42 in one rephase-with-walk region, and
+  the assignments there are identical, so it is the residual watch-order
+  class), 34 +398, 22 +176 before today's two repairs, 17 +156, 32 +101.
+  NEXT (single thread): pick the next unit-cost target from a fresh
+  tier-wide per-rule aggregate. As of `4990` inprocessing is 2,821 s of
+  8,696 s, Vivify largest at 684 s and Sweep 489 s. On Rank 22 after the
+  repairs Sweep is still 51 s against kissat's 12.9 s and its remainder is
+  the substitution ledger that reproduces kissat's single mixed watch
+  stream on Tactix's separate indexes, which is architectural rather than
+  a hot spot; Congruence's 3x there and tier-wide is the V6a sweep, a
+  Tactix-only rule whose schedule is a design decision (ledger Y1).
+  Size debt (compaction not requested): PROGRESS 3,862 lines against a 350
+  budget, `docs/implementation-notes.md` 591 against 560.
 ## Latest candidate performance
 
 - Rank-27 campaign `4630` materially merged the search-trajectory gap:
