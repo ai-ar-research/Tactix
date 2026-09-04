@@ -36,7 +36,11 @@ resume surface.
   +72.9 (1.30x), BVE +65.9 (1.34x), Sweep -123.6. The freshest concrete
   lead is Congruence's ITE extraction, report section 3.19: the same
   1.543 M merges as kissat from 10.5 M gates against 6.9 M, the whole
-  difference being about 6.77 M ITE gates against about 3.32 M. Substitute is largest at +117.8 s and 1.69x, and it is a
+  difference being about 6.77 M ITE gates against about 3.32 M. The cause
+  is identified: kissat canonicalises the ITE triple
+  (`congruence.c normalize_ite_lits`) so one stored gate covers a relation
+  and its output-negated twin, while Tactix keys on the sequence as found
+  and keeps both. Adopting it is behaviour-changing and needs a full gate. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
   kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
   matched scan volume. Read the Rank 22 profile first, since Rank 31's

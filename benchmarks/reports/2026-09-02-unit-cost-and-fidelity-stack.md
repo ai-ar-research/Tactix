@@ -1060,8 +1060,22 @@ the same number of congruences as kissat, 1,543,122 merges against
 The whole difference is ITE gates: about 6.77 M against about 3.32 M,
 while the AND counts agree at 3.48 M and 3.44 M. Extracting twice the ITE
 gates for the same merges is work kissat does not do, and gate extraction
-is 1.87 % of that rank. Whether the extra gates are duplicates or a
-broader family than `congruence.c` enumerates has not been established.
+is 1.87 % of that rank. They are duplicates, and the mechanism is
+identified. Kissat canonicalises the triple before storing or looking up
+a gate (`congruence.c normalize_ite_lits`): it makes the condition
+positive, swapping the branches if it was not, and then makes the "then"
+branch positive, negating both branches and recording that the left-hand
+side must be negated. One stored gate therefore covers a relation and its
+output-negated twin. Tactix keys a gate on the sequence of output,
+condition, then and else as found, so `L = ite(c, t, e)` and
+`~L = ite(c, ~t, ~e)` are two entries built from the same four clauses.
+
+Adopting the normalisation is a fidelity repair, and it is
+behaviour-changing rather than a unit-cost recovery: it removes gates
+from the sequence that drives merging, so the merge order and the
+representatives it chooses will move. The merge counts already agree, so
+the duplicates yield nothing, but the change needs a full gate rather
+than a paired repeat.
 
 ## 4. Decision
 
