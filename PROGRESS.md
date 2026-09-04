@@ -52,6 +52,17 @@ resume surface.
   duplicate scan in `kernel_compact_dense_entry_watches` (6.6 s on Rank 6)
   and `classify_formula`'s full-formula count where kissat reads two
   maintained statistics (3.3 s on Rank 6, 86 calls).
+  Attempted and reverted 2026-09-03: maintaining kissat's
+  `clauses_binary`/`clauses_irredundant` incrementally. The large half is
+  exact from three sites (creation, `kernel_delete_clause`, the in-place
+  record reuse) plus the two `set_redundant` flips; the binary half drifts
+  because Substitute rewrites binaries in bulk
+  (`substitute.cpp` `compact_owner` plus the delayed `push_binary`) and
+  Congruence rebuilds the lists in `kernel_canonicalize_binary_watches`,
+  neither going through the counted helpers. A debug oracle comparing the
+  maintained counters against the scan caught it in four tests
+  (`test_analyze` 13 against 11 binaries). Redo it by having each bulk
+  rewriter publish the population it installs, keeping that oracle.
   Parked: Rank 37 on the earlier pin. The journal `4960`
   agrees with kissat's `4952` journal through the phase at 19,358 and
   first differs at 32,073 (active 148,616 vs 148,637, irredundant 589,960
