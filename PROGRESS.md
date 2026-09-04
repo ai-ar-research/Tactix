@@ -34,7 +34,25 @@ resume surface.
   Where `b4e1ea0` still loses to `bf26be7` (all trajectory, conflicts up):
   Rank 37 +243 (11.12 M vs 4.84 M conflicts), 35 +132, 17 +108, 31 +91,
   32 +65, 22 +50; and Rank 21 -25, 28 -13, 27 -3.
-  NEXT (single thread): Rank 37 on the pushed pin. The journal `4960`
+  Factor thread (user's priority, 2026-09-03): mod4block now runs kissat's
+  exact trajectory and the gap is unit cost. Three behaviour-identical
+  Factor repairs landed (`19f9525`..`7ef74c0`): remainder marks, eager
+  removal of a deleted grid clause's dense occurrences, and kissat's
+  single mark byte. mod4block 23.09 -> 21.50 s against kissat's 18.38 s;
+  Factor 2,992 -> 1,285 ms against 970 ms. Gate `4966`/`4967` (1a9d120):
+  40/40, every rank's conflict count identical to the parent, B28+C5
+  0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
+  `4972`/`4973` plus fuzz.
+  NEXT (single thread): Rank 6 Factor, 30.0 s against kissat's 22.98 s at
+  identical work (`4970`); two micro-explanations are already refuted by
+  measurement
+  (`benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.7),
+  so take the grid/greedy structure next.
+  Then the two non-Factor costs `4970` exposed: the O(nvars)-per-call
+  duplicate scan in `kernel_compact_dense_entry_watches` (6.6 s on Rank 6)
+  and `classify_formula`'s full-formula count where kissat reads two
+  maintained statistics (3.3 s on Rank 6, 86 calls).
+  Parked: Rank 37 on the earlier pin. The journal `4960`
   agrees with kissat's `4952` journal through the phase at 19,358 and
   first differs at 32,073 (active 148,616 vs 148,637, irredundant 589,960
   vs 593,339 at the Congruence entry); take the per-literal watch-list
