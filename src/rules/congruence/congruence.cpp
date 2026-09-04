@@ -2061,10 +2061,22 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
               has(negate(cond), negate(then_l), L) &&
               has(negate(cond), then_l, negate(L))))
           continue;
+        // kissat normalizes the triple before storing or looking up a gate
+        // (`congruence.c normalize_ite_lits`): the condition positive, then
+        // the "then" branch positive, negating both branches and the
+        // left-hand side when it was not.  One stored gate then covers a
+        // relation and its output-negated twin, which the same four clauses
+        // otherwise yield as two.  The condition is already positive here.
+        Lit out_lit = L;
+        if (negated(then_l)) {
+          then_l = negate(then_l);
+          else_l = negate(else_l);
+          out_lit = negate(L);
+        }
         // identity key in the fixed sequence [L,cond,then,else], not sorted
         SmallKey keyd;
         keyd.size = 4;
-        keyd.lits[0] = L;
+        keyd.lits[0] = out_lit;
         keyd.lits[1] = cond;
         keyd.lits[2] = then_l;
         keyd.lits[3] = else_l;
@@ -2072,7 +2084,7 @@ void congruence_extract_ite(const Kernel &k, const ClauseIndex &index,
           continue;
         CongGate g;
         g.kind = GateKind::Ite;
-        g.output = L;
+        g.output = out_lit;
         g.inputs = {cond, then_l, else_l}; // [cond,then,else] fixed order
         out.push_back(std::move(g));
       }
