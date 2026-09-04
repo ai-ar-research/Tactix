@@ -113,6 +113,17 @@ struct WatchLists {
 
   void resize_lits(size_t nlits) { heads.resize(nlits); }
 
+  // Live binary clauses. Every list already carries its exact binary count, so
+  // this sums one word per literal where walking the entries costs one step per
+  // watch. kissat reads the same quantity from `statistics.clauses_binary`.
+  uint64_t binary_clauses() const {
+    uint64_t words = 0;
+    for (const WatchHead &head : heads)
+      words += head.binary_count();
+    assert(!(words & 1));
+    return words / 2;
+  }
+
   // collect.h defaults: inspect only after creating a clause, only above
   // 2^18 words, and only when strictly more than 75% of the allocated vector
   // stack is unusable.  In particular propagation itself never defragments.

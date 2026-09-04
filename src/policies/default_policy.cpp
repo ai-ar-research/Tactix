@@ -1736,20 +1736,13 @@ FormulaClassification DefaultPolicy::classify_formula_counts(
 }
 
 FormulaClassification DefaultPolicy::classify_formula(const Kernel &k) const {
-  uint64_t binary_words = 0;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
-    for (const WatchEntry w : k.watches.entries(lit))
-      binary_words += w.binary();
-  assert(!(binary_words & 1));
-  const uint64_t binaries = binary_words / 2;
-  uint64_t large = 0;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *clause = clause_at(k.arena, ref);
-    if (!clause->garbage() && !clause->redundant())
-      large++;
-    ref += clause_actual_words(clause);
-  }
-  return classify_formula_counts(binaries, large);
+  // kissat_classify reads `clauses_binary + clauses_irredundant`; recomputing
+  // them here walked every watch list and the whole arena on every call.
+#ifndef NDEBUG
+  kernel_check_binirr_counts(k);
+#endif
+  return classify_formula_counts(k.watches.binary_clauses(),
+                                 k.live_irredundant_large);
 }
 
 void DefaultPolicy::update_formula_classification(Kernel &k) const {

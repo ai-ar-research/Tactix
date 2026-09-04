@@ -669,6 +669,7 @@ static void otfs_strengthen(Kernel &k, Ref reason_ref, Lit t,
     if (!redundant && replacement->redundant()) {
       replacement->set_redundant(false);
       replacement->set_glue(0);
+      k.live_irredundant_large++;
     }
     // Pinned Kissat marks only the surviving old tail (original positions
     // 2..), before choosing its new second watch.  The retained first watch is

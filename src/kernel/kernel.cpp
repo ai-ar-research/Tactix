@@ -311,6 +311,8 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
   c->size = size;
   // redundant clauses start fully "used" (kissat learn.c: used = MAX_USED)
   c->flags = redundant ? (Clause::REDUNDANT | Clause::USED_MASK) : 0;
+  if (!redundant)
+    k.live_irredundant_large++;
   // Kissat's clause header assigns glue only to redundant clauses.  Keep that
   // representation invariant at the arena boundary: proof rules such as BVE
   // may price an irredundant resolvent by its size, but that price is not LBD
@@ -1182,6 +1184,8 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
     c->lits[old_size - 1] = INVALID_LIT;
   c->size = size;
   c->flags = old_flags & ~Clause::GARBAGE;
+  if (!(old_flags & Clause::REDUNDANT))
+    k.live_irredundant_large++; // live again, with its previous status
   if (size < old_size)
     c->flags |= Clause::SHRUNKEN;
   c->set_glue(redundant ? glue : 0);
@@ -3401,24 +3405,39 @@ uint64_t kernel_conflict_reason_walk(
   return last;
 }
 
+#ifndef NDEBUG
+// The two per-entry scans the maintained quantities replace, kept as their
+// oracle: a drift here would silently move every scaled inprocessing deadline.
+void kernel_check_binirr_counts(const Kernel &k) {
+  uint64_t binaries = 0;
+  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
+    for (const WatchEntry w : k.watches.entries(lit))
+      if (w.binary() && lit < w.other())
+        binaries++;
+  assert(binaries == k.watches.binary_clauses());
+  uint64_t large = 0;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && !c->redundant())
+      large++;
+    ref += clause_actual_words(c);
+  }
+  assert(large == k.live_irredundant_large);
+  (void)binaries;
+  (void)large;
+}
+#endif
+
 uint64_t kernel_irredundant_clauses(const Kernel &k) {
   // Kissat's BINIRR_CLAUSES is a live-clause statistic.  `binary_ids` is a
   // proof-identity archive and deliberately retains deleted pairs, so using
   // its size here moves every scaled inprocessing deadline after a phase that
-  // adds and later removes binaries.  Count one watch direction per live
-  // binary instead.
-  uint64_t n = 0;
-  for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
-    for (const WatchEntry w : k.watches.entries(lit))
-      if (w.binary() && lit < w.other())
-        n++;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage() && !c->redundant())
-      n++;
-    ref += clause_actual_words(c);
-  }
-  return n;
+  // adds and later removes binaries.  Both halves are read the way kissat
+  // reads `clauses_binary + clauses_irredundant`, without walking the formula.
+#ifndef NDEBUG
+  kernel_check_binirr_counts(k);
+#endif
+  return k.watches.binary_clauses() + k.live_irredundant_large;
 }
 
 #ifndef NDEBUG
