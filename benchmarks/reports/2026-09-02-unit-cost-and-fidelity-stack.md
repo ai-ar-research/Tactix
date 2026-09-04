@@ -1078,6 +1078,31 @@ counter is identical on both ranks measured and on all forty gate ranks,
 so the duplicates never reached an outcome. Congruence fell 18.86 to
 18.08 s on Rank 22 and the rank 274.6 to 273.0 s.
 
+### 3.20 A second scan of the same occurrences, and what the tier total is worth (2026-09-04)
+
+Removing a literal from a clause searched the dense large list for the
+reference and then searched the ordered stream for the same reference.
+The large list is exactly the large payloads of the ordered stream in
+order, so one pass gives both positions, and the second search was
+scanning occurrences the first had already passed. Strengthen alone spent
+1.23 % of Rank 22 in that second search. The new pass is a strict subset
+of the old work; a debug assertion checks the correspondence on every
+removal.
+
+Rank 22 fell 273.20 to 271.79 s over two interleaved repeats with
+identical counters. The Rank 1-40 gate for the same commit came back
+72.8 s **slower**, with all forty conflict counts identical to the
+previous gate and the excess spread over many ranks (+25.3, +14.2, +13.4,
++8.5, +8.2). Behaviour is unchanged and the change cannot add work, so
+that 72.8 s is machine variation.
+
+That is the useful lesson of the measurement: the tier total's noise band
+is wider than the 50 s this report has been assuming, wide enough to
+swallow or invent a repair several times the size of any single one
+landed today. Read the paired same-node repeats; treat the tier total as
+a validity check and a coarse trend, and never as the arbiter of a
+behaviour-identical change.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
