@@ -701,16 +701,23 @@ tick accounting, and the two arms' counters differ enough to move it
 seven levels. At the window's first conflict the propagation counters
 already read 218,645,332 against 230,118,851 for the same trajectory.
 
-The open question is therefore tick parity, not the random sequence.
-Both arms switch during the same conflict, so the trigger is the
-tick branch rather than the conflict branch, and the counters that feed
-it must differ slightly. One candidate is already refuted: the per-list
-cache-line charge is identical, `(n + 31) >> 5` on both sides
+The open question is therefore tick parity, not the random sequence, and
+it is now pinned to a single event. Stopping both solvers at the same
+conflict count (`--conflicts=N` against `TACTIX_STOP_AFTER_CONFLICT`) and
+reading `search_ticks` gives an exact match at every checkpoint through
+conflict 44,747 -- 6,892,194 at 100 conflicts, 216,662,437 at 10,000,
+478,533,396 at 40,000, 555,591,147 at 44,747, identical to the digit --
+and a difference of 3 at 44,748, growing to 42 by 44,770 and holding
+there through 48,379. So the accounting is faithful except for one
+region: kissat's `[rephase-7]` fires at 44,750 with a walk at 44,751 and
+a `[reorder-3]` immediately after, and Tactix charges 42 search ticks
+fewer across it. That 42-tick shortfall is what moves the tick-driven
+mode switch seven decision levels later, which flips one random decision,
+which is Rank 31's first divergence. The per-list cache-line charge is
+identical on both sides, `(n + 31) >> 5`
 (`utilities.h:kissat_cache_lines` with `ASSUMED_LD_CACHE_LINE_BYTES` 7
-against `kernel_cache_lines`). The next step is to compare `search_ticks`
-itself at a common trajectory point and, if it differs, to find which
-charge site accounts for it; every mode, probe and reduce limit is scaled
-by that counter.
+against `kernel_cache_lines`), so the missing charge is a site inside the
+rephase, walk or reorder path.
 
 ## 4. Decision
 
