@@ -8,41 +8,35 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-04, eighth wrap). `origin/main` = `afcb126`.
+- RESUME HERE (2026-09-04, ninth wrap). `origin/main` = `2c30fd3`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `4998` 40/40 at 8,781.1 s, **1.144x kissat**, B28+C5 `4999` 0.495 (was
-  0.561 at the start of the session), fuzz 10,000/0 on both legs of every
-  pushed pin. Gate `5001`/`5002` (`afcb126`) is 40/40 with all forty
-  conflict counts identical to `4998`, B28+C5 0.497; its proof-check tails
-  are still running as jobs 1663420, 1663421, 1663529, 1663530.
-  Evidence: `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md`
-  sections 3.4 to 3.11. Working rules: one investigation at a time; judge a
+  `5015` 40/40 at 8,738.8 s, **1.138x kissat**, B28+C5 `5016` 0.491, fuzz
+  10,000/0 on both legs. All forty conflict counts are identical to gate
+  `5006` (8,724.5 s), so the +14.3 s is node-assignment noise, not
+  behaviour. Evidence:
+  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
+  3.4 to 3.13. Working rules: one investigation at a time; judge a
   unit-cost repair by paired same-node repeats, since the tier total
   carries about 50 s of node-assignment noise.
-  Recent changes: `4be8e40` Congruence's forward subsumption consults
-  every literal's representative as `find_subsuming_clause` does (Rank 34
-  875 -> 742 s, 37 636 -> 431, 35 517 -> 360, 32 490 -> 390, against Rank
-  31 500 -> 696); `8dcec75` the Sweep ledger reconciles binaries on epoch
-  scratch; `afcb126` a rewritten reason's owner is read off the clause
-  (those two: Rank 22 356 -> 291 s in paired repeats); `f4c37ab` live
-  clause counts read instead of scanned and one cursor pass per dense
-  entry (Rank 6 76 -> 69 s); `19f9525`..`7ef74c0` the Congruence entry
-  deletion and three Factor repairs (mod4block 209 -> 21.5 s at kissat's
-  exact trajectory).
-  Largest gaps to kissat: Rank 31 +419 (its first divergence is a
-  tick-driven mode switch, report section 3.10; the tick counters agree to the digit for
-  44,747 conflicts and then lose 42 in one rephase-with-walk region, and
-  the assignments there are identical, so it is the residual watch-order
-  class), 34 +398, 22 +176 before today's two repairs, 17 +156, 32 +101.
-  NEXT (single thread): pick the next unit-cost target from a fresh
-  tier-wide per-rule aggregate. As of `4990` inprocessing is 2,821 s of
-  8,696 s, Vivify largest at 684 s and Sweep 489 s. On Rank 22 after the
-  repairs Sweep is still 51 s against kissat's 12.9 s and its remainder is
-  the substitution ledger that reproduces kissat's single mixed watch
-  stream on Tactix's separate indexes, which is architectural rather than
-  a hot spot; Congruence's 3x there and tier-wide is the V6a sweep, a
-  Tactix-only rule whose schedule is a design decision (ledger Y1).
-  Size debt (compaction not requested): PROGRESS 3,862 lines against a 350
+  Recent changes: `9585008` the binary rewrite's duplicate test is
+  answered once per owner instead of rescanning that owner's binary prefix
+  per image; `adadf70` the Sweep ledger republishes only the streams a
+  batch touched (those two: Rank 22 292.7 -> 287.1 s, Sweep 52.2 -> 48.8 s,
+  counters identical); `b8aec30` an empty alias table short-circuits
+  `kernel_clause_position`; `4be8e40` Congruence's forward subsumption
+  consults every literal's representative as `find_subsuming_clause` does.
+  NEXT (single thread): give Sweep kissat's connected walk. Report section
+  3.13 has the measurement: Rank 22 matches kissat's sweep work within
+  10 % on every counter and its sub-solver is faster than kitten, yet
+  applying the equivalences is 11.74 % of the run against kissat's
+  fraction of 1.77 %. Kissat's `substitute_connected_clauses` is one
+  compacting walk of the retired literal's dense list; Tactix replaces
+  each clause in place, and that path searches the retired literal's
+  `large` occurrences, searches its `ordered` stream, and compacts both
+  watch lists, each linear in a degree that is the number of clauses
+  already rewritten onto that representative. Worth about 36 s on Rank 22
+  alone and it is the largest single per-rule gap left on Tier D.
+  Size debt (compaction not requested): PROGRESS 3,773 lines against a 350
   budget, `docs/implementation-notes.md` 591 against 560.
 ## Latest candidate performance
 
