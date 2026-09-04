@@ -43,6 +43,16 @@ resume surface.
   40/40, every rank's conflict count identical to the parent, B28+C5
   0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
   `4972`/`4973` plus fuzz.
+  NEXT (single thread): search-tick parity. Rank 31's first divergence
+  (`4992`, `4993`, `4994`,
+  `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.10)
+  is a stable-to-focused switch that fires at decision level 8110 in
+  kissat and 8117 in Tactix during one trail rebuild; the switch reads
+  `search_ticks` against `limits.mode.ticks`, and the arms' propagation
+  counters already differ by 5 % at the same trajectory point
+  (218,645,332 against 230,118,851 at conflict 48,379). Everything else
+  in that window is identical, including every learned clause. Compare
+  the tick definitions site by site before changing any schedule.
   Gate `4990` (`4be8e40`, the subsumption scan set): 40/40 at 8,829.9 s,
   440 s better than the pushed pin and 1.150x kissat's 7,675.1 s, so 387 s
   from the 8,442.7 s target; B28+C5 `4991` 0.496. The repair is general,
