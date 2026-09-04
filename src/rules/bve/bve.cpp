@@ -1345,6 +1345,13 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     return false;
   };
 
+#ifdef TACTIX_ENABLE_EVENT_TRACE
+  // Pure diagnostic: its only consumers are the two trace calls below, which
+  // are empty inline functions in a production build.  Left compiled in, it
+  // walked both polarities' whole occurrence streams per candidate,
+  // dereferenced every clause, ran a membership scan twice over each, and
+  // built a literal vector for each one, all discarded.  Kissat's eliminate
+  // has no counterpart.
   if (k.dense && k.dense->track_order) {
     struct OccurrenceAudit {
       uint32_t ordered = 0;
@@ -1394,6 +1401,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         negative.satisfied_effective_binary, positive.tautological,
         negative.tautological);
   }
+#endif
 
   // Exact `resolve.c::occurrences_literal` contract: scan each polarity in
   // connected order, deleting satisfied binaries and compacting garbage only
