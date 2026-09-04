@@ -924,6 +924,14 @@ struct Kernel {
   bool large_watches_connected = true;
   ArenaOrdering *arena_ordering = nullptr;
   OccIndex *dense = nullptr;
+  // Literals whose whole dense large-occurrence list the current caller will
+  // clear in one pass. An in-place rewrite then skips the per-clause search
+  // and erase for them: substitution retires a literal from every clause at
+  // once, so removing its occurrences one at a time is quadratic in its
+  // degree, and kissat's substitution walks each literal's list once instead.
+  const std::vector<uint8_t> *dense_bulk_cleared = nullptr;
+  // Reusable marks for the above; never sized per call.
+  std::vector<uint8_t> dense_bulk_scratch;
   // Scratch capacity for delayed large-watch relocations.  `delayed_used`,
   // not vector::size(), is the live stack length: propagation grows this
   // backing store once per largest watch list and writes triples directly,
