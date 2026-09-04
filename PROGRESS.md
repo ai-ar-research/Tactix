@@ -43,6 +43,14 @@ resume surface.
   40/40, every rank's conflict count identical to the parent, B28+C5
   0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
   `4972`/`4973` plus fuzz.
+  Gate `4990` (`4be8e40`, the subsumption scan set): 40/40 at 8,829.9 s,
+  440 s better than the pushed pin and 1.150x kissat's 7,675.1 s, so 387 s
+  from the 8,442.7 s target; B28+C5 `4991` 0.496. The repair is general,
+  not local to Rank 34: Rank 37 636 -> 431 s (11.1 M -> 5.9 M conflicts),
+  35 517 -> 360, 32 490 -> 390, 17 305 -> 278, 33 367 -> 343, 34 875 ->
+  742, against one regression, Rank 31 500 -> 696 (6.8 M -> 12.4 M).
+  Largest remaining gaps to kissat: 31 +419, 34 +398, 22 +176, 17 +156,
+  32 +101, 27 +76.
   Rank 34 thread (2026-09-03): first divergence found and repaired.
   Journals `4987` agree until the first Congruence, whose forward
   subsumption removed 73 clauses against kissat's 69 from identical
