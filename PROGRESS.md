@@ -8,11 +8,11 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `2c145c6`.
+- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `0d10662`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `5041` 40/40 at **8,545.1 s = 1.113x kissat**, B28+C5 `5042` 0.464,
+  `5047` 40/40 at **8,535.2 s = 1.112x kissat**, B28+C5 `5048` 0.463,
   fuzz 10,000/0 on both legs. The session moved the tier 8,781.1 ->
-  8,545.1 s and B28+C5 0.495 -> 0.464. Evidence:
+  8,535.2 s and B28+C5 0.495 -> 0.463; the net per-rule gap is +427.9 s. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
   3.12 to 3.18.
   Working rules: one investigation at a time; every timing campaign uses
@@ -31,7 +31,12 @@ resume surface.
   `2c145c6` the bridge-keep counters use sorted vectors, not per-call
   hash maps.
   NEXT (single thread): the tier-wide per-rule gap table is report section
-  3.18. Substitute is largest at +117.8 s and 1.69x, and it is a
+  3.18, refreshed after `5047` to Substitute +112.6 (1.66x), Factor +108.1
+  (1.83x), Vivify +103.8 (1.18x), Strengthen +76.2 (3.11x), Congruence
+  +72.9 (1.30x), BVE +65.9 (1.34x), Sweep -123.6. The freshest concrete
+  lead is Congruence's ITE extraction, report section 3.19: the same
+  1.543 M merges as kissat from 10.5 M gates against 6.9 M, the whole
+  difference being about 6.77 M ITE gates against about 3.32 M. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
   kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
   matched scan volume. Read the Rank 22 profile first, since Rank 31's

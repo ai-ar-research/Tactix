@@ -1030,6 +1030,39 @@ kissat's conflicts, so its watch lists are longer. On Rank 22, where both
 solvers perform 1.21 G propagations, the rates are 14.1 M/s and 15.4 M/s,
 within 9 %.
 
+### 3.19 A retired literal's occurrences, and a Congruence lead (2026-09-04)
+
+Substitution retires a literal from every clause that holds it, so its
+dense occurrence list is consumed whole. Removing the entries one clause
+at a time searched and erased that list per clause, quadratic in the
+literal's degree. Counting it on Rank 22 gave 40.0 G elements scanned
+across 7.39 M calls, averaging 5,414 per call: 31.6 G from Sweep's
+substitution and 8.4 G from the Substitute rule. Kissat walks each
+literal's list once instead.
+
+Marking the retired literals, letting the in-place rewrite skip their
+per-clause removal, and clearing the lists after the batch is exact,
+because both paths already visit every clause holding those literals: the
+session path enumerates exactly their occurrence lists and the rule path
+sweeps the whole arena. Rank 22 Sweep fell 48.26 to 47.45 s and
+Substitute 11.51 to 11.00 s, 275.8 to 273.2 s, counters identical, and
+the gate fell 10.0 s.
+
+An unsound probe that simply skipped the search and erase bounded the
+whole opportunity at 9.5 s on Rank 22, which is why the more invasive
+restructure of the kernel primitive was not attempted: 40 G scanned
+elements sound worse than they measure, because the scan is vectorised
+and the lists are cache-resident.
+
+Congruence carries a separate and unexamined lead. On Rank 22 it reaches
+the same number of congruences as kissat, 1,543,122 merges against
+1,542,402, from 10,478,492 extracted gates against kissat's 6,908,762.
+The whole difference is ITE gates: about 6.77 M against about 3.32 M,
+while the AND counts agree at 3.48 M and 3.44 M. Extracting twice the ITE
+gates for the same merges is work kissat does not do, and gate extraction
+is 1.87 % of that rank. Whether the extra gates are duplicates or a
+broader family than `congruence.c` enumerates has not been established.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
