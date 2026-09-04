@@ -639,6 +639,38 @@ retained on measured evidence (ledger Y1: removing it cost 17.7 % on
 T105), so closing that 3.7 s means changing when the sweep runs, not
 whether it runs.
 
+### 3.9 Rank 34: Congruence's forward subsumption scan set (2026-09-03)
+
+Rank 34 (`dislog_a14_x14_n24`, SAT) became the largest single gap at
+874.6 s against kissat's 344.0 s with 8.91 M conflicts against 4.33 M,
+so a trajectory difference. The boundary journals (`4987`) agree exactly
+through startup and the sparse collection, and separate at the FIRST
+Congruence, at conflict 0: it ends with 91,543 irredundant clauses in
+Tactix against kissat's 91,547, at identical active (18,652) and binary
+(16,405) counts.
+
+The sub-boundary trace (`4988`) puts the whole difference inside the
+second dense entry, Congruence's forward subsumption. Instrumenting both
+arms settles the split. The candidate sets are the same size (13,872
+tried on both), and the pre-pass deletions agree exactly at 813 (679
+satisfied, 134 tautological under the representative map; kissat's
+verbose report gives the same total). The difference is the subsumption
+itself: Tactix 73, kissat 69.
+
+`find_subsuming_clause` walks EVERY literal of the candidate in clause
+order, consults that literal's representative occurrence list, and picks
+the connection target from the same sequence. Tactix used the
+deduplicated root-open representative set, so a root-false literal's
+list was never consulted and never chosen as the connection target,
+while kissat frequently connects a clause to exactly that empty list
+where later candidates cannot reach it. Running Tactix with kissat's
+scan set reproduces 69 exactly, which is the identification.
+
+Campaign `4989`: Rank 34 867.1 -> 741.9 s at 8,542,856 conflicts against
+8,912,819; mod4block is untouched. Unlike the day's other repairs this
+one deliberately changes the trajectory, since four fewer clauses leave
+the formula at conflict 0.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
