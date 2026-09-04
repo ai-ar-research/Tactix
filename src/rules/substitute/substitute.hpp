@@ -124,6 +124,14 @@ struct SweepSubstitutionSession final {
   // this Sweep call.  The vector storage is retained across calls so giant
   // formulas do not repeatedly construct/destroy millions of empty vectors.
   std::vector<Lit> dense_initialized_lits;
+  // The literals whose stream a caller could have mutated since the last
+  // reconcile. Every mutation reaches a stream through the non-const
+  // `occurrences`, so marking there over-approximates the changed set while
+  // keeping it local: reconciling and republishing all of
+  // `dense_initialized_lits` instead makes one environment's cost the whole
+  // Sweep call's touched formula.
+  std::vector<Lit> ledger_dirty;
+  std::vector<uint8_t> ledger_dirty_mark;
   bool dense_enabled = false;
   // Directed owners whose ordered binary substream was changed by the current
   // inline transaction. Reconciled against physical watches before the next
@@ -201,7 +209,10 @@ struct SweepSubstitutionSession final {
   uint64_t collect(Kernel &);
 
 private:
-  void publish_dense_order(Kernel &);
+  // Republishes only `lits`, the streams reconciled by this batch.
+  void publish_dense_order(Kernel &, const std::vector<Lit> &lits);
+  void mark_ledger_dirty(Lit);
+  bool sync_publication_is_complete(const Kernel &);
   DenseOccurrence *find_large(const Kernel &, Lit, Ref);
   void erase_large(const Kernel &, Lit, Ref);
   void purge_stale_binaries(Lit);
