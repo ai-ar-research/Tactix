@@ -43,7 +43,17 @@ resume surface.
   40/40, every rank's conflict count identical to the parent, B28+C5
   0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
   `4972`/`4973` plus fuzz.
-  NEXT (single thread): the 42 missing search ticks in Tactix's rephase,
+  Unit-cost thread (2026-09-04): tier-wide per-rule timers put 2,821 s of
+  8,696 s in inprocessing, Sweep second at 489 s and concentrated on Rank
+  22 (91.3 s against kissat's 12.9 s, profile `4996`). Two
+  behaviour-identical repairs landed and are pushed: the Sweep ledger
+  reconciles binaries on epoch scratch (`8dcec75`, gate `4998` 40/40
+  8,781.1 s, B28+C5 `4999` 0.495) and a rewritten reason's owner is read
+  off the clause (`afcb126`, gate `5001` 40/40, all forty conflict counts
+  identical, B28+C5 `5002` 0.497). Rank 22 356.1 -> 290.9 s in paired
+  repeats. Judge such repairs by paired same-node runs: the tier total
+  carries about 50 s of node noise.
+  PARKED: the 42 missing search ticks in Tactix's rephase,
   walk or reorder path. Rank 31's first divergence (`4992`, `4993`,
   `4994`, `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.10) is a tick-driven stable-to-focused switch firing at decision
   level 8110 in kissat and 8117 in Tactix. Stopping both at equal
