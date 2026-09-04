@@ -362,6 +362,8 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
 }
 
 uint64_t kernel_clause_position(const Kernel &k, Ref ref) {
+  if (k.clause_position_alias.empty())
+    return ref; // no in-place rewrite since the last collection
   const Clause *c = clause_at(k.arena, ref);
   const uint64_t alias = c->id() ? k.clause_position_alias.get(c->id()) : 0;
   return alias ? alias - 1 : ref;
@@ -2091,8 +2093,8 @@ static void sort_clause_watches_like_kissat(Kernel &k, Clause *c) {
 // entry and sparse resume dominate useful rule work.
 void kernel_sort_refs_by_logical_clause_position(const Kernel &k,
                                                  std::vector<Ref> &refs) {
-  if (refs.size() < 2)
-    return;
+  if (refs.size() < 2 || k.clause_position_alias.empty())
+    return; // allocation order already is the logical order
 
   bool ordered = true;
   uint64_t previous = 0;
