@@ -1070,12 +1070,13 @@ output-negated twin. Tactix keys a gate on the sequence of output,
 condition, then and else as found, so `L = ite(c, t, e)` and
 `~L = ite(c, ~t, ~e)` are two entries built from the same four clauses.
 
-Adopting the normalisation is a fidelity repair, and it is
-behaviour-changing rather than a unit-cost recovery: it removes gates
-from the sequence that drives merging, so the merge order and the
-representatives it chooses will move. The merge counts already agree, so
-the duplicates yield nothing, but the change needs a full gate rather
-than a paired repeat.
+Adopting the normalisation turned out to be behaviour-preserving as well
+as a fidelity match. Rank 22's ITE gates fall from 6,766,804 to
+3,383,402 and the total from 10,478,492 to 7,095,090, against kissat's
+6,908,762. The merge count is unchanged at 1,543,122 and every solver
+counter is identical on both ranks measured and on all forty gate ranks,
+so the duplicates never reached an outcome. Congruence fell 18.86 to
+18.08 s on Rank 22 and the rank 274.6 to 273.0 s.
 
 ## 4. Decision
 
