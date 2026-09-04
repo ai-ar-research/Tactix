@@ -838,6 +838,21 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       for (const Lit l : *c) {
         assert(l < idx.live_degree.size() && idx.live_degree[l]);
         idx.live_degree[l]--;
+        // kissat's `delete_unfactored` removes the clause's occurrence from
+        // every literal's dense list before marking it garbage (`factor.c`),
+        // so no later scan reaches it.  Keeping the entry and filtering it on
+        // arrival costs one clause-header load per visit for the rest of the
+        // application; that was 47.5% of this rule's dense visits on
+        // mod4block.  `live_degree` already excludes it, so the scan charge,
+        // the per-visit tick and the surviving order are unchanged.
+        if (l < idx.order.size()) {
+          std::vector<FactorWatch> &entries = idx.order[l];
+          entries.erase(std::remove_if(entries.begin(), entries.end(),
+                                       [ref](const FactorWatch w) {
+                                         return !w.binary() && w.ref == ref;
+                                       }),
+                        entries.end());
+        }
       }
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
       std::string transition = "factor-grid-delete(factors=";
