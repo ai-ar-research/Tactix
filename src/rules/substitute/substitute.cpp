@@ -1639,7 +1639,41 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // complete arena is therefore both semantically non-reference and O(F) per productive
   // environment.  The session names the exact retiring frontier; collect its
   // irredundant refs sparsely without an arena-sized membership bitmap.
+  // Every clause reached below loses each retired literal, so those literals'
+  // dense lists are consumed whole: mark them and clear once at the end
+  // instead of searching and erasing per clause.
+  const auto bulk_clear_dense = [&](const auto &literals) {
+    if (!k.dense)
+      return;
+    for (const Lit l : literals) {
+      k.dense->large[l].clear();
+      if (!k.dense->track_order)
+        continue;
+      std::vector<OccIndex::Entry> &ordered = k.dense->ordered[l];
+      size_t kept = 0;
+      for (const OccIndex::Entry entry : ordered)
+        if (entry.binary)
+          ordered[kept++] = entry;
+      ordered.resize(kept);
+    }
+  };
   if (session && k.dense) {
+    std::vector<uint8_t> &bulk = k.dense_bulk_scratch;
+    if (bulk.size() < static_cast<size_t>(nlits))
+      bulk.assign(static_cast<size_t>(nlits), 0);
+    for (const Lit l : session->retiring_sources())
+      bulk[l] = 1;
+    k.dense_bulk_cleared = &bulk;
+    struct Restore {
+      Kernel &k;
+      std::vector<uint8_t> &bulk;
+      const std::vector<Lit> &sources;
+      ~Restore() {
+        k.dense_bulk_cleared = nullptr;
+        for (const Lit l : sources)
+          bulk[l] = 0;
+      }
+    } restore{k, bulk, session->retiring_sources()};
     std::vector<Ref> refs;
     for (const Lit l : session->retiring_sources()) {
       for (const Ref ref : k.dense->large[l]) {
@@ -1658,6 +1692,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     for (const Ref ref : refs)
       if (rewrite_large_ref(ref) == ApplyResult::Unsat)
         return ApplyResult::Unsat;
+    bulk_clear_dense(session->retiring_sources());
   } else {
     const Ref original_end = static_cast<Ref>(k.arena.size());
     const auto visit = [&](const auto &fn) {
@@ -1670,12 +1705,25 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       }
     };
     reserve_large_replacements(visit);
+    struct Restore {
+      Kernel &k;
+      ~Restore() { k.dense_bulk_cleared = nullptr; }
+    } restore{k};
+    if (k.dense)
+      k.dense_bulk_cleared = &mapped_sub;
     for (Ref ref = 0; ref < original_end;) {
       const Clause *c = clause_at(k.arena, ref);
       const uint32_t words = clause_actual_words(c);
       if (!c->garbage() && rewrite_large_ref(ref) == ApplyResult::Unsat)
         return ApplyResult::Unsat;
       ref += words;
+    }
+    if (k.dense) {
+      std::vector<Lit> retired;
+      for (Lit l = 0; l < nlits; l++)
+        if (mapped_sub[l])
+          retired.push_back(l);
+      bulk_clear_dense(retired);
     }
   }
   return ApplyResult::Ok;

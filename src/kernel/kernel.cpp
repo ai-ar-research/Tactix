@@ -1132,6 +1132,11 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
       const Lit lit = c->lits[i];
       if (in_new(lit))
         continue;
+      if (k.dense_bulk_cleared && lit < k.dense_bulk_cleared->size() &&
+          (*k.dense_bulk_cleared)[lit]) {
+        kernel_bve_occurrence_remove(k, lit);
+        continue;
+      }
       std::vector<Ref> &occ = k.dense->large[lit];
       const auto at = std::find(occ.begin(), occ.end(), ref);
       assert(at != occ.end());
