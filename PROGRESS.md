@@ -8,11 +8,13 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `0d10662`.
+- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `755285f`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `5047` 40/40 at **8,535.2 s = 1.112x kissat**, B28+C5 `5048` 0.463,
-  fuzz 10,000/0 on both legs. The session moved the tier 8,781.1 ->
-  8,535.2 s and B28+C5 0.495 -> 0.463; the net per-rule gap is +427.9 s. Evidence:
+  `5050` 40/40 at **8,541.5 s = 1.113x kissat**, B28+C5 `5051` 0.463,
+  fuzz 10,000/0 on both legs; its conflict counts are identical to `5047`
+  (8,535.2 s) on all forty ranks, so the 6.3 s between them is node noise.
+  The session moved the tier 8,781.1 -> 8,538 s and B28+C5 0.495 -> 0.463;
+  the net per-rule gap is +428 s. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
   3.12 to 3.18.
   Working rules: one investigation at a time; every timing campaign uses
@@ -33,14 +35,12 @@ resume surface.
   NEXT (single thread): the tier-wide per-rule gap table is report section
   3.18, refreshed after `5047` to Substitute +112.6 (1.66x), Factor +108.1
   (1.83x), Vivify +103.8 (1.18x), Strengthen +76.2 (3.11x), Congruence
-  +72.9 (1.30x), BVE +65.9 (1.34x), Sweep -123.6. The freshest concrete
-  lead is Congruence's ITE extraction, report section 3.19: the same
-  1.543 M merges as kissat from 10.5 M gates against 6.9 M, the whole
-  difference being about 6.77 M ITE gates against about 3.32 M. The cause
-  is identified: kissat canonicalises the ITE triple
-  (`congruence.c normalize_ite_lits`) so one stored gate covers a relation
-  and its output-negated twin, while Tactix keys on the sequence as found
-  and keeps both. Adopting it is behaviour-changing and needs a full gate. Substitute is largest at +117.8 s and 1.69x, and it is a
+  +72.9 (1.30x), BVE +65.9 (1.34x), Sweep -123.6. Congruence's doubled ITE gates
+  are closed (`755285f`): kissat's triple normalisation
+  (`congruence.c normalize_ite_lits`) takes Rank 22's gate count from
+  10.48 M to 7.10 M against kissat's 6.91 M with every counter identical.
+  Look for more gaps of that shape, where Tactix's own work counter
+  exceeds kissat's for the same outcome, before hunting unit cost. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
   kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
   matched scan volume. Read the Rank 22 profile first, since Rank 31's
