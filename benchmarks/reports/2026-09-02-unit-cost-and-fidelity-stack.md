@@ -701,9 +701,16 @@ tick accounting, and the two arms' counters differ enough to move it
 seven levels. At the window's first conflict the propagation counters
 already read 218,645,332 against 230,118,851 for the same trajectory.
 
-The open question is therefore tick parity, not the random sequence: a
-5 % difference in the counters that scale every mode, probe and reduce
-limit moves every schedule that reads them.
+The open question is therefore tick parity, not the random sequence.
+Both arms switch during the same conflict, so the trigger is the
+tick branch rather than the conflict branch, and the counters that feed
+it must differ slightly. One candidate is already refuted: the per-list
+cache-line charge is identical, `(n + 31) >> 5` on both sides
+(`utilities.h:kissat_cache_lines` with `ASSUMED_LD_CACHE_LINE_BYTES` 7
+against `kernel_cache_lines`). The next step is to compare `search_ticks`
+itself at a common trajectory point and, if it differs, to find which
+charge site accounts for it; every mode, probe and reduce limit is scaled
+by that counter.
 
 ## 4. Decision
 
