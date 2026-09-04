@@ -719,6 +719,19 @@ identical on both sides, `(n + 31) >> 5`
 against `kernel_cache_lines`), so the missing charge is a site inside the
 rephase, walk or reorder path.
 
+Two candidates there are already refuted. Kissat's reorder does not
+propagate at all (`reorder.c:kissat_reorder`), so it charges nothing.
+Adding kissat's post-walk `kissat_reset_propagate` plus
+`kissat_search_propagate` to Tactix's walk resume destroyed the agreement
+outright: the counters went from matching to the digit at 44,747 to
+differing by 55 M there, because re-propagating the whole trail is work
+kissat does not repeat. The exact agreement over the earlier walks is
+itself the evidence that the walk resume is already right. The remaining
+shape of the gap is one literal: three ticks is `1 + cache_lines(n)` for
+a list of 33 to 64 words, so kissat propagates one literal at conflict
+44,748 that Tactix does not, and the difference compounds to 42 by
+44,770.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
