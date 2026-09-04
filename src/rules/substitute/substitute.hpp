@@ -204,7 +204,14 @@ private:
   void publish_dense_order(Kernel &);
   DenseOccurrence *find_large(const Kernel &, Lit, Ref);
   void erase_large(const Kernel &, Lit, Ref);
-  void purge_stale_binaries(Lit, std::unordered_map<Lit, size_t> &);
+  void purge_stale_binaries(Lit);
+  // Multiset scratch for `sync_new_binaries`, epoch-stamped and reused: a
+  // hash map built per touched literal made that reconciliation allocate once
+  // per literal on a high-degree graph.
+  std::vector<uint32_t> sync_epoch;  // by lit
+  std::vector<size_t> sync_count;    // by lit, valid when the epoch matches
+  std::vector<Lit> sync_touched;
+  uint32_t sync_generation = 0;
   void reset_transaction();
   bool move_origin(const Clause &, Lit representative, Ref source,
                    bool final_binary,
