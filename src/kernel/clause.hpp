@@ -57,7 +57,16 @@ struct Clause {
   // This is representation metadata only: proof and rule semantics never
   // inspect it.
   static constexpr uint32_t SHRUNKEN = 1u << 9;
-  static constexpr uint32_t GLUE_SHIFT = 10;
+  // Factor's two transient per-clause marks (kissat `clause::quotient`): the
+  // occurrence a column already reserved, and the one a column already
+  // matched.  Kissat keeps this in the clause header so a dense scan reads it
+  // from the line it already loaded for `size`; a side array indexed by
+  // occurrence id costs a second random access on every visited entry, and
+  // Factor visits hundreds of millions.  Both are cleared before Factor
+  // returns and mean nothing outside one application.
+  static constexpr uint32_t FACTOR_RESERVED = 1u << 10;
+  static constexpr uint32_t FACTOR_USED = 1u << 11;
+  static constexpr uint32_t GLUE_SHIFT = 12;
   static constexpr uint32_t MAX_GLUE = (1u << (32 - GLUE_SHIFT)) - 1;
 
   bool garbage() const { return flags & GARBAGE; }
@@ -65,6 +74,8 @@ struct Clause {
   bool reason() const { return flags & REASON; }
   bool vivify() const { return flags & VIVIFY; }
   bool shrunken() const { return flags & SHRUNKEN; }
+  bool factor_reserved() const { return flags & FACTOR_RESERVED; }
+  bool factor_used() const { return flags & FACTOR_USED; }
   void set_redundant(bool v) {
     flags = v ? (flags | REDUNDANT) : (flags & ~REDUNDANT);
     if (!v)
