@@ -219,6 +219,23 @@ private:
   // Multiset scratch for `sync_new_binaries`, epoch-stamped and reused: a
   // hash map built per touched literal made that reconciliation allocate once
   // per literal on a high-degree graph.
+  // Neighbour scratch for the binary-image pre-pass, epoch-stamped and reused
+  // for the same reason as `sync_epoch`: the rewrite runs once per productive
+  // Sweep environment, so a per-call table over all literals is a fill cost
+  // proportional to the formula on every equivalence.
+  std::vector<uint32_t> live_epoch;  // by lit
+  uint32_t live_generation = 0;
+
+public:
+  // Marks, for every image in `keys` (canonical binary keys paired with the
+  // owner literal the push targets), whether that pair already existed before
+  // the batch's first push. Exact replacement for rescanning the owner's
+  // binary prefix per image, which is quadratic in a representative's degree.
+  void classify_existing_binaries(const Kernel &, const std::vector<Lit> &owners,
+                                  const std::vector<Lit> &others,
+                                  std::vector<uint8_t> &out);
+
+private:
   std::vector<uint32_t> sync_epoch;  // by lit
   std::vector<size_t> sync_count;    // by lit, valid when the epoch matches
   std::vector<Lit> sync_touched;
