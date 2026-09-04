@@ -1031,8 +1031,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // lists.  Compact FactorWatch ids provide the same behavior without rebuilding
   // unordered sets for every quotient column.  Epoch rollover is vanishingly
   // rare but handled so the representation remains exact.
-  std::vector<uint32_t> reserved_large_epoch(fidx.large_count, 0);
-  std::vector<uint32_t> used_large_epoch(fidx.large_count, 0);
+  // Kissat marks the clause header (`clause::quotient`) so a dense scan reads
+  // the mark from the line it already loads for `size`.  These hold the
+  // clauses marked since the last reset, so the marks clear without a sweep.
+  std::vector<Ref> reserved_marked, used_marked;
   // kissat keeps all three per-literal Factor marks in ONE byte
   // (`factor.c`: FACTOR, QUOTIENT, NOUNTED) and reads it once per literal of
   // every candidate clause.  Separate arrays cost one bounds test and one
@@ -1055,14 +1057,31 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   for (Lit lit = 0; lit < initial_lits; lit++)
     factor_active[lit] =
         k.value(lit) == 0 && !kernel_var_retired(k, var_of(lit));
-  uint32_t reserved_epoch = 0, used_epoch = 0;
-  const auto advance_epoch = [](std::vector<uint32_t> &marks,
-                                uint32_t &epoch) {
-    if (++epoch == 0) {
-      std::fill(marks.begin(), marks.end(), 0);
-      epoch = 1;
-    }
+  const auto clear_marks = [&](std::vector<Ref> &marked, uint32_t bit) {
+    for (const Ref ref : marked)
+      clause_at(k.arena, ref)->flags &= ~bit;
+    marked.clear();
   };
+  // The marks mean nothing outside this application and every exit must leave
+  // the arena clean, including the early returns below.
+  struct MarkGuard {
+    Kernel &k;
+    std::vector<Ref> &reserved, &used;
+    ~MarkGuard() {
+      for (const Ref ref : reserved)
+        clause_at(k.arena, ref)->flags &= ~Clause::FACTOR_RESERVED;
+      for (const Ref ref : used)
+        clause_at(k.arena, ref)->flags &= ~Clause::FACTOR_USED;
+#ifndef NDEBUG
+      for (Ref ref = 0; ref < k.arena.size();) {
+        const Clause *c = clause_at(k.arena, ref);
+        assert(!(c->flags & (Clause::FACTOR_RESERVED | Clause::FACTOR_USED)) &&
+               "a Factor mark outlived its application");
+        ref += clause_actual_words(c);
+      }
+#endif
+    }
+  } mark_guard{k, reserved_marked, used_marked};
   // Stamp one column's interned remainder QUOTIENT and clear the previous
   // column's, exactly as kissat sets the bit while scanning a quotient clause
   // and unmarks it afterwards.  Every remainder literal is below the interning
@@ -1323,9 +1342,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       };
       charge_factor_watch_scan(k, R.size());
       bool next_factor_budget_hit = false;
-      if (reserved_large_epoch.size() < fidx.large_count)
-        reserved_large_epoch.resize(fidx.large_count, 0);
-      advance_epoch(reserved_large_epoch, reserved_epoch);
+      clear_marks(reserved_marked, Clause::FACTOR_RESERVED);
       for (size_t column = 0; column < R.size(); column++) {
         const uint32_t rid = R[column];
         const uint32_t rn = pool.size_of(rid);
@@ -1389,11 +1406,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           // Kissat charges every live large entry reached by the dense scan,
           // including occurrences already reserved by an earlier column.
           k.stats.factor_ticks++;
-          const uint32_t large_id = watch.large_id();
-          if (reserved_large_epoch[large_id] == reserved_epoch)
-            continue;
-          const Clause *candidate_clause = clause_at(k.arena, ref);
+          Clause *const candidate_clause = clause_at(k.arena, ref);
           assert(grid_clause_live(k, candidate_clause));
+          if (candidate_clause->factor_reserved())
+            continue;
           if (candidate_clause->size != current->size)
             continue;
           Lit candidate = INVALID_LIT;
@@ -1414,7 +1430,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             continue;
           marks[candidate] |= MARK_NOUNTED;
           nounted.push_back(candidate);
-          reserved_large_epoch[large_id] = reserved_epoch;
+          candidate_clause->flags |= Clause::FACTOR_RESERVED;
+          reserved_marked.push_back(ref);
           if (count_candidate(candidate)) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
             event_trace_factor_candidate_source(
@@ -1532,9 +1549,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       newR.clear();
       std::vector<size_t> matched_columns;
       std::vector<Ref> next_refs;
-      if (used_large_epoch.size() < fidx.large_count)
-        used_large_epoch.resize(fidx.large_count, 0);
-      advance_epoch(used_large_epoch, used_epoch);
+      clear_marks(used_marked, Clause::FACTOR_USED);
       charge_factor_watch_scan(k, R.size());
       for (size_t column = 0; column < R.size(); column++) {
         const uint32_t rid = R[column];
@@ -1587,18 +1602,18 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
               continue;
             k.stats.factor_ticks++;
             visited_large++;
-            const uint32_t large_id = watch.large_id();
-            if (used_large_epoch[large_id] == used_epoch)
-              continue;
-            const Clause *candidate = clause_at(k.arena, ref);
+            Clause *const candidate = clause_at(k.arena, ref);
             assert(grid_clause_live(k, candidate));
+            if (candidate->factor_used())
+              continue;
             if (candidate->size != rn + 1)
               continue;
             if (!matches_interned_remainder(candidate, g, live_lits,
                                             marks, MARK_QUOTIENT))
               continue;
             matched_ref = ref;
-            used_large_epoch[large_id] = used_epoch;
+            candidate->flags |= Clause::FACTOR_USED;
+            used_marked.push_back(ref);
             break;
           }
 #ifdef TACTIX_ENABLE_EVENT_TRACE
