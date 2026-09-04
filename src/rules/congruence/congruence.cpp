@@ -2479,8 +2479,22 @@ static void install_congruence_binary_candidates(
 static void congruence_delete_root_assigned_binaries(Kernel &k,
                                                      const char *scan_stage,
                                                      const char *delete_stage) {
-  std::vector<std::pair<Lit, Lit>> satisfied_binaries;
-  for (Lit lit = 0; lit < 2 * k.nvars; lit++)
+  struct SatisfiedBinary {
+    Lit a, b;
+    uint32_t copies;
+  };
+  std::vector<SatisfiedBinary> satisfied_binaries;
+  // Every binary of a root-satisfied literal is deleted here, so asking the
+  // kernel to recount each pair would rescan a prefix that is still nearly
+  // whole: quadratic in that literal's degree.  This scan already reads the
+  // list once, so it carries the exact multiplicity out with the pair.
+  std::vector<uint32_t> seen_epoch(2 * static_cast<size_t>(k.nvars), 0);
+  std::vector<uint32_t> seen_at;
+  uint32_t generation = 0;
+  for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
+    generation++;
+    seen_at.clear();
+    const size_t first = satisfied_binaries.size();
     for (const WatchEntry w : k.watches.entries(lit)) {
       if (!w.binary())
         continue;
@@ -2488,14 +2502,26 @@ static void congruence_delete_root_assigned_binaries(Kernel &k,
       if (kernel_import_lit_order(k, lit) >=
           kernel_import_lit_order(k, other))
         continue;
-      if (k.value(lit) || k.value(other)) {
-        assert(k.value(lit) > 0 || k.value(other) > 0);
-        satisfied_binaries.emplace_back(lit, other);
+      if (!k.value(lit) && !k.value(other))
+        continue;
+      assert(k.value(lit) > 0 || k.value(other) > 0);
+      if (seen_epoch[other] != generation) {
+        seen_epoch[other] = generation;
+        seen_at.push_back(other);
+        satisfied_binaries.push_back({lit, other, 1});
+        continue;
       }
+      for (size_t i = first; i < satisfied_binaries.size(); i++)
+        if (satisfied_binaries[i].b == other) {
+          satisfied_binaries[i].copies++;
+          break;
+        }
     }
+  }
   congruence_stage_trace(k, scan_stage, satisfied_binaries.size());
-  for (const auto &[a, b] : satisfied_binaries) {
-    const bool deleted = kernel_delete_binary(k, a, b);
+  for (const SatisfiedBinary &pair : satisfied_binaries) {
+    const bool deleted =
+        kernel_delete_binary_all_copies_known(k, pair.a, pair.b, pair.copies);
     assert(deleted);
     (void)deleted;
   }
