@@ -164,7 +164,6 @@ static_assert(sizeof(FactorWatch) == 16,
               "Factor's dense scan requires a compact watch record");
 
 struct FactorIndex {
-  std::vector<std::vector<Ref>> occ; // by literal
   // The initial large-clause suffix followed by every binary or large entry
   // appended during this Factor application.  Initial binary partners stay in
   // the kernel's compact watch slices: copying every 4-byte kernel watch into
@@ -426,7 +425,6 @@ static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
 }
 
 void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
-  idx.occ.assign(2 * k.nvars, {});
   idx.order.assign(2 * k.nvars, {});
   idx.initial_binary_live.assign(2 * k.nvars, 0);
   idx.live_degree.assign(2 * k.nvars, 0);
@@ -512,7 +510,6 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
         continue;
       const uint32_t large_id = idx.large_count++;
       for (const Lit l : *c) {
-        idx.occ[l].push_back(cand[i]);
         idx.order[l].push_back(FactorWatch::large_watch(cand[i], large_id));
         idx.live_degree[l]++;
       }
@@ -526,7 +523,6 @@ void build_factor_index(const Kernel &k, FactorIndex &idx, uint32_t max_size) {
     if (!c->garbage() && !c->redundant() && c->size >= 3 && c->size <= max_size) {
       const uint32_t large_id = idx.large_count++;
       for (const Lit l : *c) {
-        idx.occ[l].push_back(ref);
         idx.order[l].push_back(FactorWatch::large_watch(ref, large_id));
         idx.live_degree[l]++;
       }
@@ -555,6 +551,13 @@ void for_each_initial_factor_binary(const Kernel &k, const FactorIndex &idx,
   }
   assert(!left);
 }
+
+// kissat's per-literal Factor marks (`factor.c`): the literal is a factor of
+// the current grid, a member of the current column's remainder, or already
+// counted as a next-factor candidate for the current quotient clause.
+static constexpr uint8_t MARK_FACTOR = 1;
+static constexpr uint8_t MARK_QUOTIENT = 2;
+static constexpr uint8_t MARK_NOUNTED = 4;
 
 // Is clause `c` live and usable as a grid member?  Root assignments do not
 // narrow Factor's clause-occurrence grid: Kissat connects every surviving
@@ -641,16 +644,15 @@ void remainder_occurrences_of(Kernel &k, FactorIndex &idx, RemPool &pool,
 // Membership is the caller's stamped mark, the way kissat reads one
 // `marks[other] & QUOTIENT` byte per literal (`factor.c` quotient scan).
 bool matches_interned_remainder(const Clause *c, Lit factor, Lit limit,
-                                const std::vector<uint32_t> &remainder_epoch,
-                                uint32_t epoch) {
+                                const std::vector<uint8_t> &marks,
+                                uint8_t quotient_bit) {
   bool found_factor = false;
   for (const Lit lit : *c) {
     if (lit == factor) {
       found_factor = true;
       continue;
     }
-    if (lit >= limit || lit >= remainder_epoch.size() ||
-        remainder_epoch[lit] != epoch)
+    if (lit >= limit || lit >= marks.size() || !(marks[lit] & quotient_bit))
       return false;
   }
   return found_factor;
@@ -766,15 +768,12 @@ void apply_factoring(Kernel &k, FactorIndex &idx, const std::vector<Lit> &F,
       // grid.  Stale original refs need no removal because grid_clause_live
       // filters their garbage marks.
       if (idx.built && qlits.size() <= k.factor_size) {
-        if (idx.occ.size() < static_cast<size_t>(2 * k.nvars))
-          idx.occ.resize(static_cast<size_t>(2 * k.nvars));
         if (idx.order.size() < static_cast<size_t>(2 * k.nvars))
           idx.order.resize(static_cast<size_t>(2 * k.nvars));
         if (idx.live_degree.size() < static_cast<size_t>(2 * k.nvars))
           idx.live_degree.resize(static_cast<size_t>(2 * k.nvars), 0);
         const uint32_t large_id = idx.large_count++;
         for (const Lit l : qlits) {
-          idx.occ[l].push_back(qref);
           idx.order[l].push_back(FactorWatch::large_watch(qref, large_id));
           idx.live_degree[l]++;
         }
@@ -994,18 +993,18 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   // rare but handled so the representation remains exact.
   std::vector<uint32_t> reserved_large_epoch(fidx.large_count, 0);
   std::vector<uint32_t> used_large_epoch(fidx.large_count, 0);
-  std::vector<uint32_t> counted_literal_epoch(next_factor_limit, 0);
-  // The column remainder's own literals, stamped once per column: kissat marks
-  // them QUOTIENT while it scans the quotient clause and then reads one byte
-  // per candidate literal (`factor.c`), where searching the sorted remainder
-  // costs a branchy lookup per literal of every candidate clause.
-  std::vector<uint32_t> remainder_literal_epoch(next_factor_limit, 0);
+  // kissat keeps all three per-literal Factor marks in ONE byte
+  // (`factor.c`: FACTOR, QUOTIENT, NOUNTED) and reads it once per literal of
+  // every candidate clause.  Separate arrays cost one bounds test and one
+  // dependent load each on that path.
+  std::vector<uint8_t> marks(next_factor_limit, 0);
+  std::vector<Lit> quotient_marked, nounted;
   // Kissat tests a byte-sized `marks[lit] & FACTOR` bit while growing a
   // quotient.  Keep the same temporary bit and clear only the literals in F
   // after each seed.  A 32-bit epoch fixed the old quadratic search too, but
   // made the 733M-visit binary loop load four times the state and reload the
   // current epoch on every candidate.
-  std::vector<uint8_t> factor_member(next_factor_limit, 0);
+
   // Kissat's hot next-factor loop reads one cached `flags[idx].active` bit.
   // Tactix otherwise reconstructs that same predicate from the literal value
   // and variable-retirement arrays on every dense-watch visit.  Snapshot the
@@ -1016,8 +1015,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   for (Lit lit = 0; lit < initial_lits; lit++)
     factor_active[lit] =
         k.value(lit) == 0 && !kernel_var_retired(k, var_of(lit));
-  uint32_t reserved_epoch = 0, used_epoch = 0, counted_epoch = 0;
-  uint32_t remainder_epoch = 0;
+  uint32_t reserved_epoch = 0, used_epoch = 0;
   const auto advance_epoch = [](std::vector<uint32_t> &marks,
                                 uint32_t &epoch) {
     if (++epoch == 0) {
@@ -1025,15 +1023,26 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       epoch = 1;
     }
   };
-  // Stamp one column's interned remainder. Every remainder literal is below
-  // the interning limit, so the array covers them and a literal outside it is
-  // certainly not a member.
+  // Stamp one column's interned remainder QUOTIENT and clear the previous
+  // column's, exactly as kissat sets the bit while scanning a quotient clause
+  // and unmarks it afterwards.  Every remainder literal is below the interning
+  // limit, so the array covers them and a literal outside it is certainly not
+  // a member.
   const auto stamp_remainder = [&](const Lit *lits, uint32_t n, Lit limit) {
-    if (remainder_literal_epoch.size() < static_cast<size_t>(limit))
-      remainder_literal_epoch.resize(limit, 0);
-    advance_epoch(remainder_literal_epoch, remainder_epoch);
-    for (uint32_t i = 0; i < n; i++)
-      remainder_literal_epoch[lits[i]] = remainder_epoch;
+    for (const Lit l : quotient_marked)
+      marks[l] &= static_cast<uint8_t>(~MARK_QUOTIENT);
+    quotient_marked.clear();
+    if (marks.size() < static_cast<size_t>(limit))
+      marks.resize(limit, 0);
+    for (uint32_t i = 0; i < n; i++) {
+      marks[lits[i]] |= MARK_QUOTIENT;
+      quotient_marked.push_back(lits[i]);
+    }
+  };
+  const auto clear_nounted = [&]() {
+    for (const Lit l : nounted)
+      marks[l] &= static_cast<uint8_t>(~MARK_NOUNTED);
+    nounted.clear();
   };
   std::vector<Lit> touched, F, best_F;
   std::vector<uint32_t> R, newR, best_R;
@@ -1242,7 +1251,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     if (R.size() < 2)
       continue;
     F.assign(1, seed);
-    factor_member[seed] = 1;
+    marks[seed] |= MARK_FACTOR;
     int best_delta = 0;
     best_F.clear();
     best_R.clear();
@@ -1265,7 +1274,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         // mark, then ACTIVE.  `factor_active` is exactly Tactix's former
         // value-zero plus not-retired conjunction, cached above.
         if (candidate >= next_factor_limit ||
-            factor_member[candidate] || !factor_active[candidate])
+            (marks[candidate] & MARK_FACTOR) || !factor_active[candidate])
           return false;
         if (!cofactor[candidate])
           touched.push_back(candidate);
@@ -1315,7 +1324,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         uint32_t scan_size = 0;
         uint32_t factors_in_clause = 0;
         for (const Lit lit : *current) {
-          if (lit < factor_member.size() && factor_member[lit]) {
+          if (lit < marks.size() && (marks[lit] & MARK_FACTOR)) {
             factors_in_clause++;
             continue;
           }
@@ -1330,7 +1339,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           continue;
 
         charge_factor_watch_scan(k, reference_score_of(scan));
-        advance_epoch(counted_literal_epoch, counted_epoch);
+        clear_nounted();
         for (const FactorWatch watch : fidx.order[scan]) {
           if (watch.binary())
             continue;
@@ -1351,12 +1360,10 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           Lit candidate = INVALID_LIT;
           bool matches = true;
           for (const Lit lit : *candidate_clause) {
-            if (lit < remainder_literal_epoch.size() &&
-                remainder_literal_epoch[lit] == remainder_epoch)
+            const uint8_t mark = lit < marks.size() ? marks[lit] : uint8_t{0};
+            if (mark & MARK_QUOTIENT)
               continue;
-            if ((lit < factor_member.size() && factor_member[lit]) ||
-                (lit < counted_literal_epoch.size() &&
-                 counted_literal_epoch[lit] == counted_epoch) ||
+            if ((mark & (MARK_FACTOR | MARK_NOUNTED)) ||
                 candidate != INVALID_LIT) {
               matches = false;
               break;
@@ -1366,7 +1373,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           if (!matches || candidate == INVALID_LIT ||
               candidate >= next_factor_limit || !factor_active[candidate])
             continue;
-          counted_literal_epoch[candidate] = counted_epoch;
+          marks[candidate] |= MARK_NOUNTED;
+          nounted.push_back(candidate);
           reserved_large_epoch[large_id] = reserved_epoch;
           if (count_candidate(candidate)) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
@@ -1462,8 +1470,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       // match row.  Marking g only after this scan preserves the chosen grid
       // but wastes work on such impossible rows (an exact match would require
       // a duplicate g literal), consuming the shared Factor effort early.
-      assert(g < factor_member.size() && !factor_member[g]);
-      factor_member[g] = 1;
+      assert(g < marks.size() && !(marks[g] & MARK_FACTOR));
+      marks[g] |= MARK_FACTOR;
 #ifdef TACTIX_ENABLE_EVENT_TRACE
       const uint64_t diagnostic_match_before = k.stats.factor_ticks;
       const bool diagnostic_match_selected =
@@ -1515,7 +1523,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           uint32_t scan_size = 0;
           uint32_t factors_in_clause = 0;
           for (const Lit lit : *current) {
-            if (lit < factor_member.size() && factor_member[lit]) {
+            if (lit < marks.size() && (marks[lit] & MARK_FACTOR)) {
               factors_in_clause++;
               continue;
             }
@@ -1549,8 +1557,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             if (candidate->size != rn + 1)
               continue;
             if (!matches_interned_remainder(candidate, g, live_lits,
-                                            remainder_literal_epoch,
-                                            remainder_epoch))
+                                            marks, MARK_QUOTIENT))
               continue;
             matched_ref = ref;
             used_large_epoch[large_id] = used_epoch;
@@ -1600,7 +1607,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
       }
       // commit g and shrink R to newR to keep growing.
       F.push_back(g);
-      assert(factor_member[g]);
+      assert(marks[g] & MARK_FACTOR);
       R.swap(newR);
       grid_refs.swap(new_grid_refs);
     }
@@ -1655,7 +1662,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         cofactor.resize(std::max(live_lits, next_factor_limit), 0);
         armed.resize(std::max(live_lits, next_factor_limit), 0);
         binary_partner_epoch.resize(std::max(live_lits, next_factor_limit), 0);
-        factor_member.resize(std::max(live_lits, next_factor_limit), 0);
+        marks.resize(std::max(live_lits, next_factor_limit), 0);
         const Lit fresh = make_lit(added_fresh, false);
         const Lit not_fresh = negate(fresh);
         assert(k.factor_marks[fresh] && k.factor_marks[not_fresh]);
@@ -1723,8 +1730,8 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
 #endif
     }
     for (const Lit factor : F) {
-      assert(factor < factor_member.size() && factor_member[factor]);
-      factor_member[factor] = 0;
+      assert(factor < marks.size() && (marks[factor] & MARK_FACTOR));
+      marks[factor] &= static_cast<uint8_t>(~MARK_FACTOR);
     }
   }
 
