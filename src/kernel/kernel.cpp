@@ -1307,13 +1307,17 @@ RootFlushOutcome kernel_flush_root_clause(Kernel &k, Ref *ref,
   // for no semantic benefit.  A rewritten unsatisfied reason still needs the
   // exact owner so its arena reference can be repaired below.
   if (reason_clause)
-    for (const Lit assigned_lit : k.trail) {
-      const Var v = var_of(assigned_lit);
+    // A reason clause has exactly one satisfied literal, the one it forced, so
+    // kissat reads the owner off the clause (`collect.c:get_forced`) instead of
+    // searching the trail for the variable that names this reference.
+    for (const Lit lit : *c) {
+      if (kernel_root_value(k, lit) > 0 || k.values[lit] <= 0)
+        continue;
+      const Var v = var_of(lit);
       const Assigned &a = k.assigned[v];
-      if (!a.binary && a.reason == original_ref) {
-        assert(reason_var == INVALID_VAR);
+      if (!a.binary && a.reason == original_ref)
         reason_var = v;
-      }
+      break;
     }
 
   if (kernel_shadow_retire(k, c->id()))
