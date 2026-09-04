@@ -8,11 +8,11 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `1ea1974`.
+- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `2c145c6`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `5037` 40/40 at **8,546.9 s = 1.114x kissat**, B28+C5 `5038` 0.465,
+  `5041` 40/40 at **8,545.1 s = 1.113x kissat**, B28+C5 `5042` 0.464,
   fuzz 10,000/0 on both legs. The session moved the tier 8,781.1 ->
-  8,546.9 s. Evidence:
+  8,545.1 s and B28+C5 0.495 -> 0.464. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
   3.12 to 3.18.
   Working rules: one investigation at a time; every timing campaign uses
@@ -27,7 +27,9 @@ resume surface.
   Factor's transient marks moved into the clause header and its dense
   watch record cut to two words (Rank 22 Factor 25.0 -> 19.9 s);
   `30efd28` Factor's remainder pool interned through an open-addressed
-  table; `972c623` the root-satisfied binary scans carry their copy count.
+  table; `972c623` the root-satisfied binary scans carry their copy count;
+  `2c145c6` the bridge-keep counters use sorted vectors, not per-call
+  hash maps.
   NEXT (single thread): the tier-wide per-rule gap table is report section
   3.18. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
