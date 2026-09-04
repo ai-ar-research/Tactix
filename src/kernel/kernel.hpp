@@ -968,6 +968,12 @@ struct Kernel {
   std::vector<uint8_t> eager_marks;
 
   uint64_t next_clause_id = 0;
+  // Live irredundant large clauses. kissat maintains the same quantity as
+  // `statistics.clauses_irredundant` and reads it in constant time from
+  // `kissat_classify` and `BINIRR_CLAUSES`; walking the whole arena for it was
+  // 4.4% of Rank 6 across 86 calls. The population changes only where a large
+  // record is created, retired, reused in place, or flips redundancy.
+  uint64_t live_irredundant_large = 0;
   std::vector<uint64_t> unit_ids; // by var
   BinaryIdMap binary_ids;
   BinaryLivenessIndex *binary_liveness = nullptr; // scoped dense-rule index
@@ -1540,6 +1546,10 @@ inline void kernel_delete_clause(Kernel &k, Clause *c,
   rule_journal_note_clause_transition(k, "delete", c->lits, c->size,
                                       c->id());
 #endif
+  if (!c->redundant()) {
+    assert(k.live_irredundant_large);
+    k.live_irredundant_large--;
+  }
   c->flags |= Clause::GARBAGE;
   if (semantic_removal && !c->redundant())
     for (const Lit l : *c) {
@@ -1881,6 +1891,9 @@ void kernel_dense_disconnect(Kernel &);
 void kernel_flush_retired_redundant(Kernel &);
 
 uint64_t kernel_irredundant_clauses(const Kernel &);
+#ifndef NDEBUG
+void kernel_check_binirr_counts(const Kernel &);
+#endif
 
 void kernel_check_invariants(const Kernel &);
 

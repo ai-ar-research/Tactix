@@ -1015,6 +1015,7 @@ static void promote_irredundant(Kernel &k, Ref ref) {
                                       c->id());
 #endif
   c->set_redundant(false);
+  k.live_irredundant_large++;
   for (const Lit l : *c) {
     // Pinned Kissat promotes this clause through `mark_added_literals`, which
     // arms forward subsumption and Factor but deliberately not Eliminate.
