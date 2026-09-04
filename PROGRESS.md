@@ -43,7 +43,18 @@ resume surface.
   40/40, every rank's conflict count identical to the parent, B28+C5
   0.508, fuzz 10,000/0 both legs -- pushed. `7ef74c0` gates as
   `4972`/`4973` plus fuzz.
-  NEXT (single thread): Rank 6 Factor, 30.0 s against kissat's 22.98 s at
+  Rank 6 thread (2026-09-03): 76.2 -> 69.2 s in the tier gate `4978`
+  (40/40, every rank's conflict count identical to its parent, total
+  9,370.6 s). Landed: live clause counts read instead of scanned
+  (`98488f7`), the dense entry merged into one cursor pass (`f4c37ab`),
+  Congruence reading each import rank once (`6318267`), and V6a scanning
+  the binary prefix (`bff26aa`). Refuted by measurement: Factor tick
+  batching, Factor's ACTIVE flag per variable, and an incremental V6a
+  sweep. Open on Rank 6: Factor 27.3 s against kissat's 23.3 s (the scan
+  is within 7 %; the rest is the index build and apply_factoring) and
+  Congruence 5.5 s against 1.8 s, which is entirely the V6a sweep that
+  kissat has no counterpart for and that finds nothing here.
+  PARKED: Rank 6 Factor, 30.0 s against kissat's 22.98 s at
   identical work (`4970`); two micro-explanations are already refuted by
   measurement
   (`benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` §3.7),
