@@ -523,6 +523,75 @@ there (`4953`). `run_vivify_dose` now folds the share and skips the band
 limits. The isolated line is `21b4084` plus this commit, gated as
 `4958`/`4959` with fuzz; the Rank 37 journal rerun is `4960`.
 
+### 3.7 mod4block matches kissat's trajectory; Factor's unit cost (2026-09-03)
+
+On the pushed pin mod4block executes kissat's search exactly: conflicts
+715,338, decisions 2,261,511, restarts 24,980, reductions 105, eliminated
+763, factored 912, strengthened 8,727, substituted 5 and transitive ticks
+2,444,309 are equal on both arms (`4961`, two same-node repeats each:
+Tactix 23.14 s, kissat 18.38 s; the baseline `4911` was 206.94 s against
+18.28 s). What remains is unit cost at identical work, and the paired
+profile splits it: propagation is already at parity (11.73 s against
+11.72 s), while Factor costs 2.99 s against 0.97 s, Vivify 2.20 against
+1.79, BVE plus Strengthen 1.68 against kissat's 0.77 s eliminate, Sweep
+0.51 against 0.38.
+
+Three Factor repairs, each behaviour-identical and each verified by
+byte-identical solver counters on interleaved repeats:
+
+| repair | Factor ms | run s | evidence |
+|---|---:|---:|---|
+| pushed pin | 2,992 | 23.09 | `4961` |
+| remainder marks | 1,997 | 22.10 | `4962` |
+| eager occurrence removal | 1,472 | 21.70 | `4965` |
+| one mark byte, dead index removed | 1,285 | 21.50 | `4968` |
+| kissat | 970 | 18.38 | `4961` |
+
+The first replaces a binary search over the sorted interned remainder,
+run for every literal of every candidate clause, with the QUOTIENT mark
+kissat sets once per quotient clause (`factor.c`). The second removes a
+deleted grid clause's dense occurrences when it is deleted, as
+`delete_unfactored` does: an instrumented run put 160.8 M of 338.7 M
+Factor dense visits (47.5 %) on clauses that no longer existed. The third
+folds Tactix's three per-literal arrays into kissat's single
+FACTOR/QUOTIENT/NOUNTED byte and deletes a per-literal occurrence vector
+that no code read. A fourth candidate, accumulating each scan's ticks in
+a local as `ADD (factor_ticks, ticks)` does, measured slower (1,344
+against 1,282 ms) and was dropped.
+
+The tier gate `4966` confirms the identity: every one of the 38 settled
+ranks reports the same conflict count as the parent pin. It also shows
+the repairs are instance-specific: Tier D Factor times move by a few per
+cent at most (Rank 31 28.7 -> 27.6 s, Rank 6 25.1 -> 25.2 s), so those
+ranks' Factor cost has a different dominant cause, profiled in `4970`.
+
+Rank 6 (`cfi-rigid-t2`, SAT) is the sharpest case: Factor is 40 % of its
+run, and the two arms again do identical work (45 factorings, 23
+factorizations, 741,645,064 factor ticks, 373,544 conflicts, 3,449,913
+decisions). Tactix spends 30.0 s there against kissat's 22.98 s, 1.31x.
+The profile puts 22 % of the whole run in the three per-candidate probes
+of `count_candidate` (`factor.cpp:1276-1279`) and 5 % in the binary
+enumeration itself, against kissat's structurally identical loop
+(`factor.c:350-361`). Two candidate explanations were implemented and
+measured, and both are refuted: accumulating the scan's ticks in a local
+as `ADD (factor_ticks, ticks)` does made mod4block's Factor slower
+(1,344 against 1,282 ms), and indexing the cached ACTIVE flag by variable
+as kissat does made Rank 6 slower (30.9 against 30.4 s). Both kept every
+counter identical, so the measurements are clean refutations, not noise.
+The remaining Rank 6 gap is unexplained and is the open Factor question.
+
+The same profile shows two costs outside Factor. `kernel_compact_dense_entry_watches`
+is 8.8 % of the Rank 6 run (6.6 s): its duplicate detection runs a linear
+`std::find` over the duplicate list per repeated partner and fills an
+O(nvars) epoch array per call, where `dense.c:flush_large_watches` uses
+the shared marks. And `DefaultPolicy::classify_formula` is 4.4 % (3.3 s):
+it counts live binaries by walking every watch list and live irredundant
+clauses by walking the whole arena, 86 times in that run, where
+`kissat_classify` reads the two maintained statistics
+`clauses_binary + clauses_irredundant` in constant time. Tactix maintains
+neither counter; `kernel_irredundant_clauses` performs the same full scan
+and feeds every scaled inprocessing deadline.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
