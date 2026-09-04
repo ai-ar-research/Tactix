@@ -615,18 +615,35 @@ void SweepSubstitutionSession::sync_new_binaries(
     // directions so the two agree exactly afterwards. The physical sub-list can
     // be permuted relative to the ledger by a prior inline substitution, so
     // match the multiset rather than a prefix.
-    std::unordered_map<Lit, size_t> unmatched;
+    const size_t nlits = 2 * static_cast<size_t>(k.nvars);
+    if (sync_epoch.size() < nlits) {
+      sync_epoch.resize(nlits, 0);
+      sync_count.resize(nlits, 0);
+    }
+    if (++sync_generation == 0) {
+      std::fill(sync_epoch.begin(), sync_epoch.end(), 0);
+      sync_generation = 1;
+    }
+    sync_touched.clear();
     std::vector<DenseOccurrence> &stream = occurrences(k, lit);
+    size_t stale = 0;
     for (const DenseOccurrence occurrence : stream)
-      if (occurrence.binary)
-        unmatched[static_cast<Lit>(occurrence.payload)]++;
-    size_t stale = unmatched.size();
+      if (occurrence.binary) {
+        const Lit other = static_cast<Lit>(occurrence.payload);
+        if (sync_epoch[other] != sync_generation) {
+          sync_epoch[other] = sync_generation;
+          sync_count[other] = 0;
+          sync_touched.push_back(other);
+          stale++;
+        }
+        sync_count[other]++;
+      }
     for (const WatchEntry watch : k.watches.entries(lit)) {
       if (!watch.binary())
         continue;
-      const auto found = unmatched.find(watch.other());
-      if (found != unmatched.end() && found->second) {
-        if (!--found->second)
+      const Lit other = watch.other();
+      if (sync_epoch[other] == sync_generation && sync_count[other]) {
+        if (!--sync_count[other])
           stale--;
         continue;
       }
@@ -648,29 +665,29 @@ void SweepSubstitutionSession::sync_new_binaries(
            "sweep ledger holds a binary absent from the watches");
     if (stale) {
 #ifdef TACTIX_ENABLE_EVENT_TRACE
-      for (const auto &[other, count] : unmatched)
-        if (count)
+      for (const Lit other : sync_touched)
+        if (sync_count[other])
           event_trace_binary_lifecycle(
               k, "sweep-ledger-purge", lit, other,
               kernel_binary_id(k, lit, other),
-              static_cast<uint32_t>(std::min(count, size_t{UINT32_MAX})));
+              static_cast<uint32_t>(
+                  std::min(sync_count[other], size_t{UINT32_MAX})));
 #endif
-      purge_stale_binaries(lit, unmatched);
+      purge_stale_binaries(lit);
     }
   }
   publish_dense_order(k);
   dirty_binary_owners.clear();
 }
 
-void SweepSubstitutionSession::purge_stale_binaries(
-    Lit lit, std::unordered_map<Lit, size_t> &unmatched) {
+void SweepSubstitutionSession::purge_stale_binaries(Lit lit) {
   std::vector<DenseOccurrence> &ordered = dense_occurrences[lit].entries;
   size_t kept = 0;
   for (const DenseOccurrence occurrence : ordered) {
     if (occurrence.binary) {
-      const auto found = unmatched.find(static_cast<Lit>(occurrence.payload));
-      if (found != unmatched.end() && found->second) {
-        found->second--;
+      const Lit other = static_cast<Lit>(occurrence.payload);
+      if (sync_epoch[other] == sync_generation && sync_count[other]) {
+        sync_count[other]--;
         continue;
       }
     }
