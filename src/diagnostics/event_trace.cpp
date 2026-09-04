@@ -1704,6 +1704,89 @@ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
           (unsigned long long)root_fixed,
           (unsigned long long)root_fixed_hash);
       annotated_payload += formula;
+      // Order-sensitive digest of every watch list, variables in import
+      // order, so a boundary can be checked for propagation-order parity.
+      if (std::getenv("SAT_EVENT_TRACE_WATCH_ORDER")) {
+        uint64_t binary_order = 1469598103934665603ull;
+        uint64_t large_order = 1469598103934665603ull;
+        uint64_t entries = 0;
+        const bool watching = k.large_watches_connected;
+        if (watching) {
+          std::vector<Var> order;
+          kernel_vars_in_import_order(k, order);
+          for (const Var v : order)
+            for (uint32_t sign = 0; sign < 2; sign++) {
+              const Lit lit = make_lit(v, sign != 0);
+              const uint64_t ext = static_cast<uint64_t>(
+                  static_cast<int64_t>(kernel_externalize(k, lit)));
+              binary_order = mix(binary_order, ext);
+              large_order = mix(large_order, ext);
+              for (const WatchEntry w : k.watches.entries(lit)) {
+                if (w.binary()) {
+                  binary_order = mix(
+                      binary_order,
+                      static_cast<uint64_t>(static_cast<int64_t>(
+                          kernel_externalize(k, w.other()))));
+                } else {
+                  const Clause *c = clause_at(k.arena, w.ref());
+                  large_order = mix(large_order,
+                                    eliminate_cleanup_clause_hash(k, *c));
+                  large_order = mix(
+                      large_order,
+                      static_cast<uint64_t>(static_cast<int64_t>(
+                          kernel_externalize(k, w.blocking()))));
+                }
+                ++entries;
+              }
+            }
+        }
+        // Optional per-literal dump of the same lists, external literals,
+        // active root-open variables only, so two arms can be diffed offline.
+        if (const char *dump = std::getenv("SAT_EVENT_TRACE_WATCH_ORDER_DUMP");
+            dump && *dump && watching &&
+            k.stats.conflicts >= detail_conflict_from_ &&
+            k.stats.conflicts <= detail_conflict_to_) {
+          if (FILE *f = std::fopen(dump, "a")) {
+            std::fprintf(f, "# event=%s conflict=%llu entries=%llu payload=%s\n",
+                         event, (unsigned long long)k.stats.conflicts,
+                         (unsigned long long)entries, payload ? payload : "");
+            std::vector<Var> order;
+            kernel_vars_in_import_order(k, order);
+            for (const Var v : order) {
+              if (kernel_var_retired(k, v) ||
+                  kernel_root_value(k, make_lit(v, false)) != 0)
+                continue;
+              for (uint32_t sign = 0; sign < 2; sign++) {
+                const Lit lit = make_lit(v, sign != 0);
+                if (k.watches.entries(lit).empty())
+                  continue;
+                std::fprintf(f, "%d", kernel_externalize(k, lit));
+                for (const WatchEntry w : k.watches.entries(lit)) {
+                  if (w.binary()) {
+                    std::fprintf(f, " b%d", kernel_externalize(k, w.other()));
+                  } else {
+                    const Clause *c = clause_at(k.arena, w.ref());
+                    std::fprintf(f, " L%016llx:%d",
+                                 (unsigned long long)
+                                     eliminate_cleanup_clause_hash(k, *c),
+                                 kernel_externalize(k, w.blocking()));
+                  }
+                }
+                std::fputc('\n', f);
+              }
+            }
+            std::fclose(f);
+          }
+        }
+        char digest[160];
+        std::snprintf(digest, sizeof digest,
+                      "|watching=%d|watch_entries=%llu|binary_order_hash=%016llx"
+                      "|large_order_hash=%016llx",
+                      watching ? 1 : 0, (unsigned long long)entries,
+                      (unsigned long long)binary_order,
+                      (unsigned long long)large_order);
+        annotated_payload += digest;
+      }
     }
     if (const char *selected =
             std::getenv("SAT_EVENT_TRACE_WATCH_LIST")) {
