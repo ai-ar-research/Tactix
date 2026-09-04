@@ -638,15 +638,19 @@ void remainder_occurrences_of(Kernel &k, FactorIndex &idx, RemPool &pool,
 // Match C ∖ {factor} against an already-canonical remainder without
 // materializing C's remainder. Clause literals are unique, and |C|=|R|+1,
 // so membership plus the factor occurrence proves exact multiset equality.
+// Membership is the caller's stamped mark, the way kissat reads one
+// `marks[other] & QUOTIENT` byte per literal (`factor.c` quotient scan).
 bool matches_interned_remainder(const Clause *c, Lit factor, Lit limit,
-                                const Lit *expected, uint32_t size) {
+                                const std::vector<uint32_t> &remainder_epoch,
+                                uint32_t epoch) {
   bool found_factor = false;
   for (const Lit lit : *c) {
     if (lit == factor) {
       found_factor = true;
       continue;
     }
-    if (lit >= limit || !std::binary_search(expected, expected + size, lit))
+    if (lit >= limit || lit >= remainder_epoch.size() ||
+        remainder_epoch[lit] != epoch)
       return false;
   }
   return found_factor;
@@ -976,6 +980,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
   std::vector<uint32_t> reserved_large_epoch(fidx.large_count, 0);
   std::vector<uint32_t> used_large_epoch(fidx.large_count, 0);
   std::vector<uint32_t> counted_literal_epoch(next_factor_limit, 0);
+  // The column remainder's own literals, stamped once per column: kissat marks
+  // them QUOTIENT while it scans the quotient clause and then reads one byte
+  // per candidate literal (`factor.c`), where searching the sorted remainder
+  // costs a branchy lookup per literal of every candidate clause.
+  std::vector<uint32_t> remainder_literal_epoch(next_factor_limit, 0);
   // Kissat tests a byte-sized `marks[lit] & FACTOR` bit while growing a
   // quotient.  Keep the same temporary bit and clear only the literals in F
   // after each seed.  A 32-bit epoch fixed the old quadratic search too, but
@@ -993,12 +1002,23 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
     factor_active[lit] =
         k.value(lit) == 0 && !kernel_var_retired(k, var_of(lit));
   uint32_t reserved_epoch = 0, used_epoch = 0, counted_epoch = 0;
+  uint32_t remainder_epoch = 0;
   const auto advance_epoch = [](std::vector<uint32_t> &marks,
                                 uint32_t &epoch) {
     if (++epoch == 0) {
       std::fill(marks.begin(), marks.end(), 0);
       epoch = 1;
     }
+  };
+  // Stamp one column's interned remainder. Every remainder literal is below
+  // the interning limit, so the array covers them and a literal outside it is
+  // certainly not a member.
+  const auto stamp_remainder = [&](const Lit *lits, uint32_t n, Lit limit) {
+    if (remainder_literal_epoch.size() < static_cast<size_t>(limit))
+      remainder_literal_epoch.resize(limit, 0);
+    advance_epoch(remainder_literal_epoch, remainder_epoch);
+    for (uint32_t i = 0; i < n; i++)
+      remainder_literal_epoch[lits[i]] = remainder_epoch;
   };
   std::vector<Lit> touched, F, best_F;
   std::vector<uint32_t> R, newR, best_R;
@@ -1246,6 +1266,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
         const uint32_t rid = R[column];
         const uint32_t rn = pool.size_of(rid);
         const Lit *remainder = pool.lits_of(rid);
+        stamp_remainder(remainder, rn, live_lits);
         if (rn == 1) {
           const Lit q = remainder[0];
           if (q >= static_cast<Lit>(2 * k.nvars))
@@ -1310,13 +1331,13 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
           const uint32_t large_id = watch.large_id();
           if (reserved_large_epoch[large_id] == reserved_epoch)
             continue;
-          if (candidate_clause->size != current->size ||
-              !grid_clause_live(k, candidate_clause))
+          if (candidate_clause->size != current->size)
             continue;
           Lit candidate = INVALID_LIT;
           bool matches = true;
           for (const Lit lit : *candidate_clause) {
-            if (std::binary_search(remainder, remainder + rn, lit))
+            if (lit < remainder_literal_epoch.size() &&
+                remainder_literal_epoch[lit] == remainder_epoch)
               continue;
             if ((lit < factor_member.size() && factor_member[lit]) ||
                 (lit < counted_literal_epoch.size() &&
@@ -1494,6 +1515,7 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             continue;
           charge_factor_watch_scan(k, reference_score_of(scan));
           const Lit *expected = pool.lits_of(rid);
+          stamp_remainder(expected, rn, live_lits);
           uint32_t visited_large = 0;
           for (const FactorWatch watch : fidx.order[scan]) {
             if (watch.binary())
@@ -1509,10 +1531,11 @@ static ApplyResult factor_apply_seeded(Kernel &k, Lit forced_seed) {
             const uint32_t large_id = watch.large_id();
             if (used_large_epoch[large_id] == used_epoch)
               continue;
-            if (candidate->size != rn + 1 || !grid_clause_live(k, candidate))
+            if (candidate->size != rn + 1)
               continue;
-            if (!matches_interned_remainder(candidate, g, live_lits, expected,
-                                            rn))
+            if (!matches_interned_remainder(candidate, g, live_lits,
+                                            remainder_literal_epoch,
+                                            remainder_epoch))
               continue;
             matched_ref = ref;
             used_large_epoch[large_id] = used_epoch;
