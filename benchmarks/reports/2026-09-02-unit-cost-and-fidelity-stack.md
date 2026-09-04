@@ -732,6 +732,40 @@ a list of 33 to 64 words, so kissat propagates one literal at conflict
 44,748 that Tactix does not, and the difference compounds to 42 by
 44,770.
 
+### 3.11 Rank 22: the two Sweep-area unit costs (2026-09-04)
+
+Aggregating the per-rule timers over all forty ranks puts 2,821 s of the
+pin's 8,696 s inside inprocessing, with Vivify at 684 s and Sweep second
+at 489 s. Sweep concentrates on Rank 22, 92 s of that rank's 367 s, and a
+paired profile against a kissat built with symbols (`4996`) makes the
+size of it plain: Sweep 91.3 s against kissat's 12.9 s, with Factor 25.6
+against 8.7 and the eliminate family 27.5 against 5.5.
+
+Two repairs followed, each behaviour-identical with every solver counter
+byte-identical, and each measured on the same node in interleaved repeats:
+
+| repair | Rank 22 run | Sweep | evidence |
+|---|---:|---:|---|
+| pushed pin | 356.1 s | 89.3 s | `4997` |
+| ledger on epoch scratch | 321.1 s | 51.4 s | `4997` |
+| forced literal off the clause | 290.9 s | -- | `5000` |
+
+`sync_new_binaries` reconciles the ledger's binary substream against the
+watches as a multiset and built a `std::unordered_map` for every touched
+literal to do it, which on a high-degree graph is an allocation and a
+hash table per literal; the same match now runs on reused epoch-stamped
+counters. `kernel_flush_root_clause` searched the entire trail for the
+variable naming a rewritten reason, once per reason; kissat reads the
+owner off the clause, because a reason has exactly one satisfied literal
+(`collect.c:get_forced`). That single line was 6.0 % of the rank.
+
+The tier gates confirm the identity rather than the gain: `5001` reports
+the same conflict count on all forty ranks, so the +141 s it shows
+against the older baseline is node-assignment noise, which moves
+individual ranks by 20 s in both directions. Paired same-node repeats are
+the measurement that decides these repairs; the gate decides 40/40, the
+B+C ratio and fuzz.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
