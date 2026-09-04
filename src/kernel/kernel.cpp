@@ -1435,13 +1435,17 @@ RootCollectOutcome kernel_sparse_collect_root(Kernel &k, Ref start) {
   // every later Factor score even though the root assignment was identical.
   // Snapshot unique pairs first because deletion compacts both watch lists.
   std::vector<std::pair<Lit, Lit>> satisfied_binaries;
+  // The rank is two lookups and a branch per call; the pair test needs it for
+  // every watch entry, so read it once per literal.
+  std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
+    lit_rank[l] = kernel_import_lit_order(k, l);
   for (Lit lit = 0; lit < static_cast<Lit>(2 * k.nvars); lit++)
     for (const WatchEntry watch : k.watches.entries(lit)) {
       if (!watch.binary())
         continue;
       const Lit other = watch.other();
-      if (kernel_import_lit_order(k, lit) >=
-          kernel_import_lit_order(k, other))
+      if (lit_rank[lit] >= lit_rank[other])
         continue;
       if (kernel_root_value(k, lit) > 0 ||
           kernel_root_value(k, other) > 0)
@@ -2537,6 +2541,9 @@ void kernel_resume_walk_watches(Kernel &k) {
   std::vector<Var> ordered_variables;
   kernel_vars_in_import_order(k, ordered_variables);
   std::vector<std::pair<Lit, Lit>> satisfied;
+  std::vector<uint64_t> lit_rank(2 * static_cast<size_t>(k.nvars));
+  for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++)
+    lit_rank[l] = kernel_import_lit_order(k, l);
   for (const Var variable : ordered_variables)
     for (uint32_t sign = 0; sign < 2; sign++) {
       const Lit lit = make_lit(variable, sign != 0);
@@ -2544,8 +2551,7 @@ void kernel_resume_walk_watches(Kernel &k) {
         if (!watch.binary())
           continue;
         const Lit other = watch.other();
-        if (kernel_import_lit_order(k, lit) >=
-            kernel_import_lit_order(k, other))
+        if (lit_rank[lit] >= lit_rank[other])
           continue;
         if (kernel_root_value(k, lit) > 0 ||
             kernel_root_value(k, other) > 0)
@@ -2567,8 +2573,7 @@ void kernel_resume_walk_watches(Kernel &k) {
     for (uint32_t sign = 0; sign < 2; sign++) {
       const Lit lit = make_lit(variable, sign != 0);
       for (const WatchEntry watch : k.watches.entries(lit))
-        if (watch.binary() && kernel_import_lit_order(k, lit) <
-                                  kernel_import_lit_order(k, watch.other()))
+        if (watch.binary() && lit_rank[lit] < lit_rank[watch.other()])
           binaries.emplace_back(lit, watch.other());
     }
 
