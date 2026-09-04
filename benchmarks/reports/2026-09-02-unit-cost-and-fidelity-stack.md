@@ -963,6 +963,73 @@ apply is narrower than "guard every diagnostic": guard the ones that
 allocate or call something the optimiser cannot see through, and leave
 the rest to the optimiser.
 
+### 3.17 Factor at matched scan volume (2026-09-04)
+
+Factor is the cleanest "same work, more time" case in the tier. On Rank
+22 kissat charges 733,048,812 `factor_ticks` and Tactix 764,237,682, a
+4 % difference, and both use the same currency: one charge per scanned
+watch list of `1 + n/32` plus one per visited large occurrence. Kissat
+spends 8.9 s and Tactix spent 25.2 s.
+
+Instrumenting the charge showed 90.5 M scans covering 639.6 M streamed
+entries. Per entry Tactix took two random cache misses where kissat takes
+one: kissat's skip mark is a clause header bit, read from the line it
+already loads for the size test, while Tactix's was an epoch array
+indexed by occurrence id. Moving both marks into the header, cleared from
+a recorded list and checked by a scope guard that walks the arena in
+debug builds, closed part of it. With the marks in the header the
+occurrence id became dead in both scans, so the watch record dropped from
+16 bytes to 8 and a scan streams the width kissat's does.
+
+| step | Rank 22 Factor | Rank 17 Factor |
+|---|---:|---:|
+| baseline | 25.02 s | 11.60 s |
+| marks in the clause header | 22.73 s | 11.14 s |
+| two-word watch record | 19.93 s | 10.95 s |
+
+Counters identical at every step, two interleaved repeats each, at the
+gate's allocation shape. Tier-wide Factor fell from 281.8 s to 239.1 s
+across the two gates, against kissat's 129.8 s.
+
+The second step had been refuted earlier in the session and was right to
+retry. That measurement was taken while every entry still cost two
+misses, which hid the streaming cost, and it paid for the smaller record
+with a side array keyed by occurrence slot. Neither confound applied once
+the marks moved.
+
+Two other Factor attempts measured neutral and were dropped: accumulating
+the scan charge in a local before adding it to the kernel counter, which
+is what kissat does, and the earlier 8-byte record.
+
+### 3.18 Where the tier stands (2026-09-04)
+
+Rank 1-40 is 8,546.9 s against kissat's 7,675.1 s, or 1.114x, with B28+C5
+at 0.465. Per rule, over the 39 ranks both campaigns report:
+
+| rule | Tactix | kissat | gap | ratio |
+|---|---:|---:|---:|---:|
+| Substitute | 287.3 s | 169.6 s | +117.8 | 1.69 |
+| Factor | 239.1 s | 129.8 s | +109.4 | 1.84 |
+| Vivify | 679.5 s | 576.6 s | +102.9 | 1.18 |
+| Congruence | 322.2 s | 245.8 s | +76.4 | 1.31 |
+| Strengthen | 112.3 s | 36.1 s | +76.2 | 3.11 |
+| BVE | 261.2 s | 194.1 s | +67.1 | 1.35 |
+| TransitiveReduce | 49.2 s | 34.4 s | +14.8 | 1.43 |
+| Backbone | 67.9 s | 69.4 s | -1.6 | 0.98 |
+| Sweep | 445.3 s | 564.9 s | -119.6 | 0.79 |
+
+The net is +443 s. Two of these are matched-work cases already: Substitute
+substitutes 2,069,131 variables on Rank 22 against kissat's 2,086,279,
+and Factor's scan volume matches within 4 %. Strengthen's 3.11 is not a
+like-for-like comparison, since Tactix checks 3.65 M clauses where kissat
+checks about 26 M and subsumes 197,796 against 105,005.
+
+Propagation was checked and is not a general gap. It is 42 % of Tactix's
+Rank 31 profile and looked 1.5x slower there, but Rank 31 runs 2.7x
+kissat's conflicts, so its watch lists are longer. On Rank 22, where both
+solvers perform 1.21 G propagations, the rates are 14.1 M/s and 15.4 M/s,
+within 9 %.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
