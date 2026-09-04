@@ -1103,6 +1103,35 @@ landed today. Read the paired same-node repeats; treat the tier total as
 a validity check and a coarse trend, and never as the arbiter of a
 behaviour-identical change.
 
+### 3.21 Two counter pairings that are not gaps, and one bulk clear that cannot be done (2026-09-04)
+
+The ITE result suggested a method: look for a Tactix work counter that
+exceeds kissat's for the same outcome, before hunting unit cost. Applying
+it to the remaining rules found no more instances.
+
+BVE eliminates 468,495 variables on Rank 22 with 25.5 M resolutions
+against kissat's 433,034 and 20.0 M, and its definition scan spends
+61.2 M ticks against kissat's 51.7 M: 8 % to 27 % more work for a 1.34x
+time ratio. Strengthen performs 95.5 M forward steps against kissat's
+107.9 M, that is 12 % **fewer**, and reaches 306,171 strengthenings and
+197,796 subsumptions against 261,311 and 105,005.
+
+That pairing also corrects a mapping error in section 3.18. Kissat runs
+forward subsumption inside `eliminate`, not in its `subsume` phase, so
+Strengthen's apparent 3.11 ratio against `subsume` is meaningless. The
+fair comparison is BVE plus Strengthen against eliminate plus subsume:
+372 s against 230 s, a ratio of 1.62 and the largest single gap pairing
+in the tier. Since Tactix does no more work on either side, all of it is
+unit cost.
+
+The obvious next repair there does not exist. Eliminating a variable
+deletes every binary it occurs in, and each deletion compacts both
+endpoints' watch lists, so the pivot's own side is quadratic in its
+degree, the same shape as three repairs landed today. A debug assertion
+that the pivot polarity holds no binaries after its collected occurrences
+are deleted fails immediately in the rule's own tests, so the collected
+set is not the whole list and the bulk clear would drop live binaries.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
