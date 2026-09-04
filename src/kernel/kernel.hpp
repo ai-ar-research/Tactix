@@ -278,7 +278,12 @@ public:
     return result;
   }
 #endif
+  // No alias recorded since the last collection means every clause sits at its
+  // own reference, which is the ordinary state between two in-place rewrites.
+  bool empty() const { return pages_.empty(); }
   uint64_t get(uint64_t id) const {
+    if (pages_.empty())
+      return 0;
     const uint64_t page64 = id >> PAGE_SHIFT;
     if (page64 >= pages_.size())
       return 0;
