@@ -518,10 +518,29 @@ resume surface.
     rank whose defect they close is a MISSING COUPLED MECHANISM, not evidence
     against kissat's strategy. Look for it on Rank 35 first: it carries the
     whole tier verdict alone.
-  - `5153` (job 1666222) gates the four behaviour-identical repairs ALONE
-    (collector hoist, Vivify schedule scratch, dense-rebuild scratch, IGNORE
-    templated out of search propagation). 40/40 byte-identical certificates
-    required; any difference is a defect.
+  - `5153` COMPLETE AND SHIPPED: the four behaviour-identical repairs,
+    8,363.4 -> 8,295.5 s, -67.9 s at 0.9919x, 40/40 paired, ALL FORTY
+    CERTIFICATES BYTE-IDENTICAL (report 3.52). Six times the collector hoist
+    alone. Read the per-instance shape, not just the total: median -0.1 s and
+    only half negative, but every win is on a LARGE instance (Rank 25 -11.0
+    at 277.7 s, 17 -6.4, 28 -4.9, 22 -2.9) and every positive is tiny and on
+    a small one -- the signature of a per-unit-work saving. Campaign `5151`
+    corroborates without a clock: 2.0% fewer instructions at byte-identical
+    work.
+  - `5150` B28+C5 for that same set: 64/66 with NO regressions, NO certificate
+    residue, 32/32 valid per arm, and candidate PAR-2 742.255 against shipped
+    747.949 -- THE CANDIDATE IS FASTER. Two long proof checks still running.
+  - `5154` RANK 35 REFUTES THE SUSPICION AGAINST THE PORTS, BACKWARDS (report
+    3.51). Three arms, search_ticks at matched conflicts: at conflict 20,001
+    the PORTED build is EXACT against kissat while BASE has already lost
+    11.8M ticks, and at 50,000 ported is still the closer of the two. The
+    ports REPAIR Rank 35 rather than perturbing it. So their +184 s there is
+    the NEXT unclosed rung, not a defect in them, and the bisection window is
+    now 20,001 to 50,000 conflicts.
+  - `5155` (job 1666369) bisects that window at 25k/30k/35k/40k/45k. THIS IS
+    THE LARGEST REMAINING LEVER: the ports cost +149.2 s on the tier solely
+    because of Rank 35, so closing this rung could make them shippable at
+    -34.8 s AND recover much of Rank 35's 184 s.
   - `5151` DONE AND LTO IS REFUTED (report 3.50). Same source, only
     -flto=auto differing, Rank 32: instructions 2,694.7G -> 2,841.8G =
     1.0546x, cycles 1,351.4G -> 1,377.2G = 1.0192x, with conflicts and
