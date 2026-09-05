@@ -1582,7 +1582,10 @@ template <bool RECORD> static inline void flush_delayed(Kernel &k) {
 // requests rollback; false for search and for the canonical probing engine.
 // Kissat's probing propagator retains relocation and `searched` churn, so the
 // production probing path deliberately uses the false instantiation too.
-template <bool RECORD, bool BEYOND = false>
+// `IGNORE` mirrors Kissat's `PROBING_PROPAGATION`: `propsearch.c` compiles
+// without it and carries no candidate test, `proprobe.c` compiles with it
+// (`proplit.h:151,169`).
+template <bool RECORD, bool BEYOND = false, bool IGNORE = true>
 static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
                               uint64_t &total_ticks) {
   const Lit not_lit = negate(lit);
@@ -1717,8 +1720,9 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
         // Kissat tests the ignored candidate only after performing any legal
         // watch relocation above.  Skipping at dereference time preserves a
         // different clause pose and can change a later antecedent choice.
-        if (ref == ignore)
-          continue;
+        if constexpr (IGNORE)
+          if (ref == ignore)
+            continue;
         conflict = true;
         if constexpr (!BEYOND) {
           k.conflict_valid = true;
@@ -1726,8 +1730,9 @@ static bool propagate_literal(Kernel &k, Lit lit, Ref ignore,
           break;
         }
       } else { // unit: assign `other` with this clause as reason
-        if (ref == ignore)
-          continue;
+        if constexpr (IGNORE)
+          if (ref == ignore)
+            continue;
         kernel_assign_ref(k, other, ref);
         large_assignments++;
         ticks++;
@@ -2078,8 +2083,15 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
                                         : "search");
     kernel_tick_trace_dump(k, lit);
 #endif
+    // The candidate test exists only for the probing caller, which is the one
+    // site that passes a reference here; search takes the instantiation
+    // without it, exactly as `propsearch.c` is compiled without
+    // `PROBING_PROPAGATION`.
     const bool tick_trace_conflict =
-        propagate_literal<false>(k, lit, ignore, ticks);
+        ignore == INVALID_REF
+            ? propagate_literal<false, false, false>(k, lit, INVALID_REF,
+                                                    ticks)
+            : propagate_literal<false, false, true>(k, lit, ignore, ticks);
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
     kernel_pose_trace(k, k.inprocessing ? "inpr"
                          : k.warming    ? "warm"
@@ -2474,8 +2486,12 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
 
   // One arena walk both collects the irredundant references and counts each
   // literal's occurrences, so every slice below is laid out at its exact
-  // final length and the fill relocates nothing.
-  std::vector<Ref> order;
+  // final length and the fill relocates nothing.  The reference list is
+  // kernel-owned and keeps its allocation across rebuilds; growing a fresh one
+  // per rebuild put its geometric reallocation in the instruction profile
+  // (benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md 3.47).
+  std::vector<Ref> &order = k.dense_order_scratch;
+  order.clear();
   occ.large.begin_exact_layout(nlits);
   if (occ.track_order)
     occ.ordered.begin_exact_layout(nlits);
@@ -2766,23 +2782,26 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
     k.otfs_retired.resize(kept);
   }
   for (Lit lit = 0; lit < 2 * k.nvars; lit++) {
-    k.watches.compact(lit, [&k, sparse_collection, sparse_cut,
-                            lit](WatchEntry w) {
-      if (w.binary())
-        return true;
-      const Clause *c = clause_at(k.arena, w.ref());
-      const uint64_t position = kernel_clause_position(k, w.ref());
-      assert(position <= UINT32_MAX && position < k.arena.size());
-      const Clause *const source =
-          clause_at(k.arena, static_cast<Ref>(position));
-      const bool retained =
-          !c->garbage() ||
-          (sparse_collection && source->searched != INVALID_REF);
-      const bool retain_sparse_prefix =
-          sparse_collection && position < sparse_cut;
-      return kernel_root_value(k, lit) == 0 && retained &&
-             retain_sparse_prefix;
-    });
+    // Kissat tests the literal's fixedness and the collection mode once per
+    // LIST (`collect.c:flush_watched_clauses_by_literal`), not once per entry.
+    // Both are loop-invariant here, and when neither holds every large entry
+    // is dropped, so the position lookup -- a hash probe plus two further
+    // clause dereferences -- has nothing to decide.
+    if (sparse_collection && kernel_root_value(k, lit) == 0)
+      k.watches.compact(lit, [&k, sparse_cut](WatchEntry w) {
+        if (w.binary())
+          return true;
+        const uint64_t position = kernel_clause_position(k, w.ref());
+        assert(position <= UINT32_MAX && position < k.arena.size());
+        if (position >= sparse_cut)
+          return false;
+        if (!clause_at(k.arena, w.ref())->garbage())
+          return true;
+        return clause_at(k.arena, static_cast<Ref>(position))->searched !=
+               INVALID_REF;
+      });
+    else
+      k.watches.compact(lit, [](WatchEntry w) { return w.binary(); });
     // `compact` is stable: every current-prefix entry keeps its exact
     // position and cached blocker. Sorting these survivors would erase
     // search-visible watch relocation.

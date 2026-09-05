@@ -281,10 +281,26 @@ static bool is_candidate(const Kernel &k, const Clause *c) {
 // to each full-size scheduled clause before rebuilding large watches.  This is
 // observable: propagation can otherwise select a different valid conflict and
 // hence a different Vivify transaction on the same formula.
+// One scheduling candidate: its reference, the ranking fields Kissat's
+// `countref` carries, and the offset of its literal snapshot in `keys`.
+struct VivifyCand {
+  Ref ref;
+  uint64_t arena_order;
+  uint32_t prioritized, redundant, band, size;
+  uint32_t key_off, key_len; // literal snapshot at scheduling time
+};
+
 struct VivifyOrder {
   const Kernel *kernel = nullptr;
   std::vector<uint32_t> counts; // per-literal occurrences; persistent scratch
   std::vector<Lit> touched;     // ...restored in O(touched), never O(nvars)
+  // The schedule and its literal snapshot, kept across calls for their
+  // capacity alone. Rebuilding them per call made every Vivify pay the
+  // geometric reallocation of both, which is `push_back` and `memmove`
+  // surviving as their own symbols in the instruction profile
+  // (benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md 3.47).
+  std::vector<VivifyCand> cands;
+  std::vector<Lit> keys;
   bool operator()(Lit a, Lit b) const { // a ≺ b: more occurrences first
     if (counts[a] != counts[b])
       return counts[a] > counts[b];
@@ -428,14 +444,11 @@ static void vivify_schedule(const Kernel &k, std::vector<Ref> &out,
   if (ord.counts.size() < 2 * k.nvars)
     ord.counts.resize(2 * k.nvars, 0);
   order_clear(ord);
-  struct Cand {
-    Ref ref;
-    uint64_t arena_order;
-    uint32_t prioritized, redundant, band, size;
-    uint32_t key_off, key_len; // literal snapshot at scheduling time
-  };
-  std::vector<Cand> cands;
-  std::vector<Lit> keys;
+  using Cand = VivifyCand;
+  std::vector<Cand> &cands = ord.cands;
+  std::vector<Lit> &keys = ord.keys;
+  cands.clear();
+  keys.clear();
   uint64_t prioritized = 0;
 
   const auto append_candidate = [&](Ref ref, bool priority) {
