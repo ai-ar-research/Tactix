@@ -579,11 +579,22 @@ resume surface.
     BOTH 217156 and -494147, and no such clause appears in either solver's dump
     for 217156. A clause cannot be absent from an arena walk and present in a
     watch list of the same solver at the same conflict.
-    NEXT: SETTLE WHICH DUMP LIES before building anything on either. Most
-    likely suspects are the conflict at which `kernel_clause_dump` /
-    kissat's `clause_dump` fire (both use a fired-once static and run at the
-    FIRST propagation of the conflict, while the watch dump runs when the
-    traced literal is propagated) or which arena generation the walk sees.
+    SETTLED, AND THE FAULT IS THE INSTRUMENTS (`5166`, report 3.53). Taking
+    BOTH dumps from the SAME kissat run at the same conflict: literal 145's
+    watch list holds `-494147,-145,217156,-217141,217151` while the arena dump
+    of every clause containing 217156 returns ELEVEN clauses and NONE mentions
+    494147 -- nearest is `217156,-217141,-135451,-145,217151`, one literal
+    different. A clause cannot be in a solver's watch list and absent from its
+    own arena walk. Second symptom in the same run: the watch entry
+    `-217044,-145,217156,-135451,217157` and the arena row
+    `217156,-217044,-145,-135451,217157` are THE SAME CLAUSE IN A DIFFERENT
+    LITERAL ORDER, because the arena dump fires once at the conflict's first
+    propagation while the watch dump fires when the traced literal is
+    propagated, and propagation permutes `lits` on every relocation.
+    SO THE 24-vs-12 COMPARISON IS WORTHLESS and no Rank 35 mechanism is
+    claimed. FIX THE INSTRUMENT FIRST: take both dumps at the same moment, and
+    key clause identity on sorted literals or the proof id rather than the
+    printed sequence.
     VERIFIED AND SAFE TO BUILD ON: ported arm exact through 32,062 and 78 ticks
     out by 32,090; first divergent row is literal 145 at conflict 32,072; the
     instrumented kissat reproduces pristine at every checkpoint used.
