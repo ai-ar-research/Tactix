@@ -399,9 +399,26 @@ resume surface.
   add_core(0);add_binary;clear_core(0);add_core(1);add_binary;clear_core(1)
   (`sweep.c:458-462, 1236-1247`) — the shape Tactix's three
   `sweep_capture_core_units` call sites already have.
-  NEXT: capture units from the CLAUSAL CORE, in kitten's traversal order and
-  with its `learned` tag, and keep the resolution derivation for the LRAT
-  obligation it exists to serve. `SubDerivation` already carries `core` (the
+  CALL-SITE ATTRIBUTION CONFIRMS IT (campaign `5139`): Tactix's 6,950 rows at
+  conflict 26,913 are 602 backbone + 3,133 fwd + 3,215 rev against kissat's
+  3,847 for the same three contexts, and the backbone rows show the shape --
+  each unit lemma emitted TWICE from consecutive step ids, because successive
+  backbone candidates in one environment produce derivations that still
+  contain the lemmas the previous candidate already reported
+  (`SubSolver::derivation` walks back from the new target and re-collects
+  them). Kitten cannot: `kitten_compute_clausal_core` marks each klause with
+  `set_core_klause`, the DFS skips anything marked, and `clear_core` resets
+  between candidates.
+  NEXT: capture units from the CLAUSAL CORE, in kitten's traversal order (a
+  post-order DFS from the conflict/failing clause over the antecedent DAG,
+  `kitten.c:1951-2025`) and with its `learned` tag, and keep the resolution
+  derivation for the LRAT obligation it exists to serve.
+  THE CONSTRAINT THAT MAKES THIS A DESIGN CHANGE, NOT A PORT: each captured
+  unit currently carries `proof.steps` truncated at the lemma proving it, and
+  `sweep_emit_pending_units` falls back to that prefix whenever the RUP fast
+  path declines. A core-based capture MUST supply an equivalent per-unit
+  justification or N2 moves rather than disappears. Budget a fuzz proof leg
+  with it, not just the two tier gates. `SubDerivation` already carries `core` (the
   ascending ids of the original clauses used) and
   `SubSolver::shrink_to_clausal_core` already exists; what is missing is the
   ordered traversal yielding original and learned core clauses together.

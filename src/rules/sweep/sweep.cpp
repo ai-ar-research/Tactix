@@ -772,16 +772,16 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
 // `add_core`, whose walk assigns a unit the moment a lemma reduces to one, so
 // the sequence fixes the order root units enter the trail.
 static void sweep_core_trace(const Kernel &k, const SweepDirProof &proof,
-                             const SubStep &step) {
+                             const SubStep &step, const char *site) {
   static std::FILE *file = [] {
     const char *path = std::getenv("TACTIX_CORE_TRACE");
     return path && *path ? std::fopen(path, "w") : nullptr;
   }();
   if (!file)
     return;
-  std::fprintf(file, "CORE %llu %zu:",
-               static_cast<unsigned long long>(k.stats.conflicts),
-               step.lits.size());
+  std::fprintf(file, "CORE %llu %s id=%u %zu:",
+               static_cast<unsigned long long>(k.stats.conflicts), site,
+               step.id, step.lits.size());
   for (const SubLit sl : step.lits) {
     if (sub_var_of(sl) >= proof.vars.size()) {
       std::fprintf(file, " ?");
@@ -803,13 +803,14 @@ static void sweep_core_trace(const Kernel &k, const SweepDirProof &proof,
 // at the lemma which proves it, rather than borrowing the final target's proof.
 static void sweep_capture_core_units(const Kernel &k,
                                      const SweepDirProof &proof,
-                                     SweepRound &round) {
+                                     SweepRound &round,
+                                     const char *site = "?") {
   if (!proof.ok)
     return;
   for (size_t i = 0; i < proof.steps.size(); i++) {
     const SubStep &step = proof.steps[i];
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
-    sweep_core_trace(k, proof, step);
+    sweep_core_trace(k, proof, step, site);
 #endif
     Lit unit = INVALID_LIT;
     bool satisfied = false;
@@ -1095,7 +1096,7 @@ static uint32_t detect_full_partition(
     k.stats.sweep_dir_unsat++;
     SweepDirProof proof;
     sweep_capture_dir(e, proof);
-    sweep_capture_core_units(k, proof, r);
+    sweep_capture_core_units(k, proof, r, "backbone");
     if (commit_inline &&
         sweep_emit_pending_units(k, r) == ApplyResult::Ok)
       r.emission_batches++;
@@ -1221,11 +1222,11 @@ static uint32_t detect_full_partition(
     k.stats.sweep_dir_unsat++;
     assert(!e.solver.inconsistent());
     sweep_capture_dir(e, pair.rev);
-    sweep_capture_core_units(k, pair.fwd, r);
+    sweep_capture_core_units(k, pair.fwd, r, "fwd");
     if (commit_inline &&
         sweep_emit_pending_units(k, r) == ApplyResult::Ok)
       r.emission_batches++;
-    sweep_capture_core_units(k, pair.rev, r);
+    sweep_capture_core_units(k, pair.rev, r, "rev");
     if (commit_inline &&
         sweep_emit_pending_units(k, r) == ApplyResult::Ok)
       r.emission_batches++;
