@@ -3027,10 +3027,39 @@ walk is fixed**; the likely culprit is the walk desynchronising on a clause
 header, since `all_clauses` advances by `kissat_next_clause`, which reads
 `size` and the `shrunken` flag.
 
-The verified facts are unchanged and come from the tick trace, which is
-independently validated against the pristine binary at every checkpoint: the
-ported arm is exact through conflict 32,062 and 78 ticks out by 32,090, and
-the first divergent row is literal 145 at conflict 32,072.
+**With the instrument repaired, the comparison is sound and it confirms the
+reading the unsound method had forced this section to withdraw** (campaign
+`5168`). Canonical keys on both sides, a single-conflict window, one charge
+row per solver:
+
+| Kissat | Tactix | difference |
+|---|---|---|
+| `-222862,-145,142754,222792,222876` | `-222862,-145,142754,222783,222876` | substitution |
+| `-222879,-145,222792,222889,222894` | `-222879,-145,222783,222889,222894` | substitution |
+| `-494147,-217141,-145,217151,217156` | `-494146,-217141,-145,217151,217156` | substitution |
+| `-222865,-145,222783,222876,222877` | `-222865,-145,222783,222876` | literal removed |
+| `-354276,-145,354273,443293,443294` | `-354276,-145,354273,443294` | literal removed |
+| `-147866,-147855,-145179,-145,147863` | `-147855,-145179,-145,147863` | literal removed |
+
+Twenty-four entries appear only in Kissat's list and twelve only in Tactix's,
+and they pair as above. Two variables are **substituted** --- 222792 for
+222783 and 494147 for 494146, each in several clauses --- and four literals
+are **removed** (222877, $-147866$, 443293, 443158).
+
+So Tactix has applied equivalence substitutions and strengthenings by conflict
+32,072 that Kissat has not yet applied, having agreed exactly through 32,062.
+That is what the phase-entry ports would predict: they propagate at an entry
+Tactix used to skip, so root units arrive earlier, and earlier units drive both
+Substitute and the strengthening rules sooner. It is the same mechanism that
+makes the ported arm *exact* against Kissat at conflict 20,001 where the base
+arm has already lost 11.8 M ticks --- here it simply runs ahead.
+
+**The remaining question is whether Kissat catches up.** If it applies the same
+substitutions later, this is a scheduling-order difference and the repair
+concerns when the entry propagation's units are consumed. If it never applies
+them, Tactix derives something Kissat does not, which is a different repair.
+The clause dump cannot answer that today, because its arena walk under-reports;
+the watch dump can, taken at two conflicts.
 
 For the record, the two earlier diagnoses that used this dump pair do not rest
 on it. Rank 17's repair was confirmed by `search_ticks` becoming exact at

@@ -2043,12 +2043,23 @@ static void kernel_tick_trace_dump(const Kernel &k, Lit lit) {
       continue;
     }
     const Clause *c = clause_at(k.arena, w.ref());
-    std::fprintf(file, "W %u lrg blk=%d blkval=%d garbage=%d size=%u lits=",
-                 slot++, kernel_externalize(k, w.blocking()),
+    std::fprintf(file,
+                 "W %u lrg ref=%u blk=%d blkval=%d garbage=%d size=%u lits=",
+                 slot++, w.ref(), kernel_externalize(k, w.blocking()),
                  static_cast<int>(k.values[w.blocking()]),
                  static_cast<int>(c->garbage()), c->size);
-    for (uint32_t i = 0; i < c->size; i++)
-      std::fprintf(file, "%d,", kernel_externalize(k, c->lits[i]));
+    // Canonical order: propagation permutes `lits` on every relocation, so the
+    // printed sequence is not clause identity. Sorting makes rows comparable
+    // across dumps taken at different moments and across solvers.
+    {
+      std::vector<int> sorted;
+      sorted.reserve(c->size);
+      for (uint32_t i = 0; i < c->size; i++)
+        sorted.push_back(kernel_externalize(k, c->lits[i]));
+      std::sort(sorted.begin(), sorted.end());
+      for (const int lit : sorted)
+        std::fprintf(file, "%d,", lit);
+    }
     std::fprintf(file, "\n");
   }
 }
