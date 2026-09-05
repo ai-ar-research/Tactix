@@ -563,9 +563,30 @@ resume surface.
     cited as evidence of strengthening is not in the database at all: the only
     size-7 clause containing 142754 is
     `78234,-142783,-145,142755,142801,142800,142754`, identical in both.
-    NEXT, AND CHEAP: retake that dump with a SINGLE-CONFLICT window so exactly
-    one list is captured per solver, then compare entry by entry. The 78-tick
-    difference at literal 145 is real and localised; its mechanism is not.
+    RETAKEN WITH A SINGLE-CONFLICT WINDOW (`5164`): one charge row per solver,
+    and it IS the divergent one -- kissat `32072 145 39580 sz=40079` with
+    20,044 watch rows, Tactix `32072 145 39555 sz=40055` with 20,032. So the
+    ENTRY COUNTS WERE RIGHT and only the interpretation was wrong. One list
+    against one list gives 24 entries only in kissat and 12 only in Tactix,
+    pairing as literal-level differences in the same clauses: removals
+    (222877, -147866, -443293, -443158) and substitutions, sharpest being
+    -494147 vs -494146 in two otherwise byte-identical clauses.
+    BUT THE TWO INSTRUMENTS NOW CONTRADICT EACH OTHER, SO NO MECHANISM IS
+    CLAIMED. Clause dumps at the same conflict give byte-identical databases in
+    every region sampled -- 76 clauses containing 142754, 6 containing 354263,
+    11 containing 217156, each zero-diff including watched pair and cursor
+    (`5162`, `5163`, `5165`). Yet the watch rows include clauses containing
+    BOTH 217156 and -494147, and no such clause appears in either solver's dump
+    for 217156. A clause cannot be absent from an arena walk and present in a
+    watch list of the same solver at the same conflict.
+    NEXT: SETTLE WHICH DUMP LIES before building anything on either. Most
+    likely suspects are the conflict at which `kernel_clause_dump` /
+    kissat's `clause_dump` fire (both use a fired-once static and run at the
+    FIRST propagation of the conflict, while the watch dump runs when the
+    traced literal is propagated) or which arena generation the walk sees.
+    VERIFIED AND SAFE TO BUILD ON: ported arm exact through 32,062 and 78 ticks
+    out by 32,090; first divergent row is literal 145 at conflict 32,072; the
+    instrumented kissat reproduces pristine at every checkpoint used.
   - `5159` REFUTED AND REVERTED: the `kernel_rebuild_large_watches` persistent
     scratch drifted -9.4 -> -4.3 -> +1.5 -> +9.3 s across 30 BYTE-IDENTICAL
     pairs, i.e. noise around zero. The profile flagged that function at 1.63x
