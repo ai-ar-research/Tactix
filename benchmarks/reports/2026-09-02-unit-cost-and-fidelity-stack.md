@@ -2238,6 +2238,57 @@ before the scan. The failure is worth naming because the two readings
 looked consistent with each other while measuring different moments, which
 is exactly the shape that survives review.
 
+### 3.40 Rank 17: one cached blocking literal (2026-09-05)
+
+Rank 17 is $+126.4$ s and had never been studied either. Its signature is
+different from both others --- 1.16x Kissat's conflicts but 1.80x its
+propagations --- and the same method localises it faster than either
+(campaigns `5117`--`5121`).
+
+`search_ticks` is exact at conflict 1,000, **one tick** out at 5,000, and
+fully split by 20,000. Bisecting: exact through 3,650, one tick by 3,700.
+Tracing conflicts 3,650--3,700 gives **one row** out of 260,577: at
+conflict 3,654, literal $-628253$ costs Kissat 5 ticks and Tactix 4.
+Everything else in the window is identical, and the instrumented Kissat
+agrees with the pristine binary at 23,412,591.
+
+Dumping that one watch list from both, before the scan, isolates it
+completely. Both hold **seven words, four entries, the same four clauses**:
+
+```
+kissat  W0 bin  other=-642790
+        W1 lrg  blk=-628251 blkval=0   4: -628251, 628253, 613379, 642788
+        W2 lrg  blk=613549  blkval=-1  3:  628253, -584649, 613549
+        W3 lrg  blk=-613549 blkval=1   3: -613549, 628253, 584649
+Tactix  W0 bin  other=-642790
+        W1 lrg  blk=-628251 blkval=0   4: -628251, 628253, 613379, 642788
+        W2 lrg  blk=-584649 blkval=1   3:  628253, -584649, 613549
+        W3 lrg  blk=-613549 blkval=1   3:  628253, -613549, 584649
+```
+
+**W2 is the whole difference.** Same clause, same literal order, and a
+different cached blocker: Kissat holds 613549, which is currently false, so
+it dereferences the clause and charges the tick; Tactix holds $-584649$,
+which is currently true, so it skips. One tick.
+
+Kissat's blocker is the stale one --- 613549 is `lits[2]`, not a watched
+literal, so it was cached before some rewrite moved the literals and never
+refreshed. A blocker is only a hint, so neither solver is wrong; they
+simply carry different hints, and the hint decides whether a clause is
+touched. W3 shows the same drift in the other field: identical clause,
+identical watched pair, `lits[0]` and `lits[1]` **swapped** between the two
+solvers.
+
+That is the same class as Rank 34, reached independently: **clause pose ---
+the watched-literal order and the cached blocker --- has drifted from
+Kissat's before either instance's first tick divergence.** Two independent
+reproducers now point at it, and `docs/implementation-notes.md` claims
+exactly this property for the rewriting rules ("surviving large
+Strengthen, Vivify, root-flush, Sweep and Substitute rewrites stay in
+place, retaining Ref, span, header, occurrence, and watch pose"). Rank 17
+is the cheaper of the two to work with: conflict 3,654, literal $-628253$,
+four watch entries, one differing field.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
