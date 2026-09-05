@@ -2703,6 +2703,38 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         while (k.retire_enabled ? k.unassigned_active : k.unassigned) {
           if (kernel_terminating(k))
             break;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+          if (warmup_dump) {
+            static int at = -2, a_ext = 0, b_ext = 0, n = 0;
+            if (at == -2) {
+              const char *v = std::getenv("TACTIX_WARMUP_AT");
+              const char *a = std::getenv("TACTIX_WARMUP_VARA");
+              const char *b = std::getenv("TACTIX_WARMUP_VARB");
+              at = v ? std::atoi(v) : -1;
+              a_ext = a ? std::atoi(a) : 0;
+              b_ext = b ? std::atoi(b) : 0;
+            }
+            n++;
+            if (at > 0 && n == at) {
+              std::fprintf(warmup_trace, "S stable=%d queue_search=%u\n",
+                           static_cast<int>(k.h->stable), k.h->search_idx);
+              for (Var v = 0; v < k.nvars; v++) {
+                const int e = kernel_externalize(k, make_lit(v, false));
+                if (e != a_ext && e != b_ext)
+                  continue;
+                std::fprintf(warmup_trace,
+                             "V ext=%d score=%g inheap=%d stamp=%u value=%d "
+                             "retired=%d\n",
+                             e, k.h->scores.score[v],
+                             static_cast<int>(v < k.h->scores.pos.size() &&
+                                              k.h->scores.pos[v] != UINT32_MAX),
+                             k.h->links[v].stamp,
+                             static_cast<int>(k.values[make_lit(v, false)]),
+                             static_cast<int>(kernel_var_retired(k, v)));
+              }
+            }
+          }
+#endif
           const Lit decision = bp.pick(k);
           kernel_assign_decision(k, decision);
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
