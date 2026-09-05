@@ -1196,6 +1196,24 @@ means two sets of random accesses into the variable map. Merging them
 needs the variable count before the sub-solver is sized, which the
 compact identity mode requires up front, so it is not a local change.
 
+BVE's work counters on Rank 21 are worth stating carefully, because they
+point somewhere and the pointing is not yet safe to act on. Tactix makes
+3,590,291 elimination attempts and eliminates 1,778,527 variables;
+kissat attempts 10,383,663 and eliminates 1,718,082. Tactix therefore
+makes a third of the attempts, eliminates 3.5 % more, and takes 1.72x the
+time. Its definition check runs 1,686,158 times for 171 M ticks, while
+kissat performs 11,341,236 kitten solves at 8.87 decisions each.
+
+Both readings are suspect until each counter's increment sites are read
+in the reference, which is the discipline this project already has for
+kissat counters and which has overturned four comparisons in this
+session's history. `eliminate_attempted` may count candidates popped
+rather than eliminations tried, and kissat may call kitten many times per
+attempt where Tactix calls its sub-solver once. That reading is the next
+task, before any BVE change: it decides whether BVE's +14.9 s on Rank 21,
+sixty per cent of that rank's rule gap and its largest single item, is
+surplus work or per-attempt cost.
+
 One earlier structural item stands: Rank 31 runs 2.7x kissat's conflicts,
 which is search trajectory rather than implementation.
 

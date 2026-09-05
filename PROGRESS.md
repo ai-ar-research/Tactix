@@ -62,7 +62,16 @@ resume surface.
   before the sub-solver is sized, which compact-identity mode wants up
   front, so it is not a local change. NOTE the report also retracts the
   claim that dense-mode rules pay for maintaining sparse watches too: on
-  Rank 21 that machinery is 0.05 % against kissat's ~7 %. Substitute is largest at +117.8 s and 1.69x, and it is a
+  Rank 21 that machinery is 0.05 % against kissat's ~7 %.
+  START HERE: on Rank 21 Tactix makes 3,590,291 elimination attempts and
+  eliminates 1,778,527 variables where kissat attempts 10,383,663 and
+  eliminates 1,718,082, and Tactix's definition check runs 1,686,158
+  times against kissat's 11,341,236 kitten solves at 8.87 decisions each.
+  Read every increment site of `eliminate_attempted`, `eliminated` and the
+  kitten counters in the reference BEFORE acting: the pairing is not yet
+  safe, and reading counters without their INC sites has overturned four
+  comparisons in this project. That reading decides whether BVE's +14.9 s
+  is surplus work or per-attempt cost. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
   kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
   matched scan volume. Read the Rank 22 profile first, since Rank 31's
