@@ -2985,11 +2985,32 @@ conflict, so one of the two dumps is not reporting what its name suggests ---
 most likely the conflict at which it fires, or which arena generation it
 walks.
 
-**That inconsistency is the next thing to settle, and nothing should be built
-on either reading until it is.** The verified facts are only these: the ported
-arm is exact through conflict 32,062 and 78 ticks out by 32,090; the first
-divergent row is literal 145 at conflict 32,072; and the instrumented Kissat
-reproduces the pristine binary at every checkpoint used here.
+**The inconsistency is in the instruments, and it is reproducible inside a
+single solver** (campaign `5166`). Taking both dumps from the *same* Kissat
+run at the same conflict: literal 145's watch list holds a clause
+`-494147,-145,217156,-217141,217151`, while the arena dump of every clause
+containing 217156 returns eleven clauses and **none of them mentions
+494147** --- the nearest is `217156,-217141,-135451,-145,217151`, differing in
+exactly one literal. A clause cannot be present in a solver's watch list and
+absent from that same solver's arena walk.
+
+The same run shows a second, milder symptom that explains part of the earlier
+confusion: the watch entry `-217044,-145,217156,-135451,217157` and the arena
+row `217156,-217044,-145,-135451,217157` are the **same clause in a different
+literal order**. The two dumps fire at different moments --- the arena dump
+once, at the first propagation of the conflict; the watch dump when the traced
+literal is propagated --- and propagation permutes `lits` on every relocation.
+Comparing entries by their printed literal sequence therefore treats one clause
+as two.
+
+So the `24 against 12` comparison cannot be trusted, and **no mechanism for
+Rank 35 is claimed**. The instrument has to be repaired first: the two dumps
+must be taken at the same moment, and clause identity must be a canonical key
+(sorted literals, or the proof id) rather than the printed sequence. Until
+then the verified facts are only these --- the ported arm is exact through
+conflict 32,062 and 78 ticks out by 32,090, the first divergent row is literal
+145 at conflict 32,072, and the instrumented Kissat reproduces the pristine
+binary at every checkpoint used here.
 
 ## 4. Decision
 
