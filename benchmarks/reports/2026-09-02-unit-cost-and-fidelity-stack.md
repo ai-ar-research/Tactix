@@ -2431,8 +2431,34 @@ downstream --- the heap arrangement, the score-0 tie at warm-up decision 30,
 the 67 extra warm-up decisions, the 58 extra walk steps, the two relocated
 watches, and $+403.4$ s --- follows from where that one unit lands.
 
-The remaining question is which rule assigns 970, and why it runs before its
-five neighbours in Kissat and after them in Tactix.
+Which rule, and which path inside it, comes from labelling each deactivation
+with the innermost profile Kissat is in and with the reason string its
+`kissat_assign_unit` carries (campaigns `5134`, `5135`). Over the whole
+window: 279 eliminations under `substitute`, and every one of the 149 root
+units under `sweep`, `transitive`, `backbone` or `vivify` --- with the entire
+divergent run, 970 and its five neighbours included, reading
+
+```
+DEACT 26913 841 fixed=1 trail=23 phase=sweep why=sweeping backbone reason
+DEACT 26913 970 fixed=1 trail=24 phase=sweep why=sweeping backbone reason
+DEACT 26913 693 fixed=1 trail=25 phase=sweep why=sweeping backbone reason
+```
+
+That is `sweep.c:407`, inside the walk over the clausal core Kitten extracts.
+Kissat reduces each core lemma against the **live** root assignment and, when
+one reduces to a unit, calls `kissat_assign_unit` immediately --- so every
+later lemma in the same walk is evaluated against that new assignment.
+Tactix's `sweep_capture_core_units` walks the same lemmas but evaluates all of
+them against the assignment as it stood on entry, collecting units into
+`SweepRound::units` for a later commit, because each captured unit carries the
+derivation prefix that proves it.
+
+So Rank 34, the largest single item in the tier at $+403.4$ s, reduces to
+**when Sweep commits a core unit**: immediately, as Kissat does, or in a batch
+after the walk. Everything above it --- the heap arrangement at conflict
+26,914, the score-0 tie at warm-up decision 30 forty-eight thousand conflicts
+later, the 67 extra warm-up decisions, the 58 extra walk steps, the two
+relocated watches --- is downstream of that one choice.
 
 ## 4. Decision
 
