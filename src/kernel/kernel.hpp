@@ -398,6 +398,13 @@ struct Stats {
   uint64_t propagations = 0;
   uint64_t ticks = 0; // propagation memory-traffic proxy (see propagate.cpp)
   uint64_t search_ticks = 0;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  // Diagnostic only: the charge the `inprocessing`/`warming` scopes withheld
+  // from `search_ticks`. Kissat's search propagator charges both counters, so
+  // a shortfall against its `search_ticks` is either here or in a propagation
+  // Tactix never runs.
+  uint64_t suppressed_search_ticks = 0;
+#endif
   uint64_t inprocess_propagations = 0; // of those, inside a simplification
   // Monotonic policy-observation epoch.  `unflushed_root` is a transient
   // prefix marker and can return to zero inside Propagate, so it cannot tell
@@ -1631,6 +1638,10 @@ inline void kernel_charge_ticks(Kernel &k, uint64_t n) {
   // for Walk, not work that may consume mode or inprocessing budgets.
   if (!k.inprocessing && !k.warming)
     k.stats.search_ticks += n;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  else
+    k.stats.suppressed_search_ticks += n;
+#endif
   if (k.tick_sink)
     *k.tick_sink += n;
 }
