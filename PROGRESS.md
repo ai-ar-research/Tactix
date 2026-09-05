@@ -196,10 +196,23 @@ resume surface.
   relocation did not happen in SEARCH propagation. It happened in one of
   the other propagation engines, which run under `inprocessing` and which
   the trace deliberately excludes.
-  NEXT EXPERIMENT, different instrument: trace PROBING propagation over
-  conflicts 75,437-75,452 on both sides and find which engine moves those
-  two watches in Tactix and not in kissat. The per-rule timers say which
-  phases ran in that window.
+  THE ENGINE IS THE WALK (`5112`). Every counter that moved across the
+  window says kissat runs NO probe and NO eliminate there: it runs a mode
+  switch (14->15), a rephase (7->8), a warm-up (2->3) and a walk (2->3).
+  Tactix runs the same set — and its walk steps over that span are
+  **4,143,561** against kissat's **4,143,503**, from an IDENTICAL 1,606,472
+  before it. Fifty-eight steps.
+  So the watch difference at 75,452 is DOWNSTREAM: the warm-up before the
+  walk propagates over the whole formula and relocates watches as it goes
+  (`propbeyond.c`; `kernel_propagate_beyond_conflicts`), and neither solver
+  charges it to `search_ticks` — which is exactly why this is invisible to
+  the tick trace until a later scan trips over it. Rank 34's first
+  divergence is in the WALK and the warm-up that seeds it.
+  That also explains why Rank 34 was untouched by the phase-entry ports:
+  those change the rephase ENTRY, this is inside the walk the rephase runs.
+  NEXT: the warm-up itself. kissat reports `warming_decisions` 599->1,219
+  and `warming_propagations` 28,285->41,325 across the window; Tactix
+  prints NEITHER, so expose those two counters first and compare.
   THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
   the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
   Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a
