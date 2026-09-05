@@ -45,12 +45,33 @@ resume surface.
   compiles out under METRICS, but the per-rule site counts do not track the
   per-rule ratios -- Sweep 90 sites at 1.74x, Substitute 15 at 1.77x, BVE 21
   at 1.31x).
-  NEXT: profile the INSTRUCTION event per symbol, not cycles -- a cycles
-  profile spreads the excess in proportion to IPC, which is why 3.33's call
-  graph showed no owner. Campaign `5146` (job 1666058) is that profile on
-  Rank 32. Caveat: the shipped rewatch moved Rank 22's trajectory, so its
-  2.280x mixes unit cost with changed work; RANK 32 IS PROOF-IDENTICAL ACROSS
-  THAT CHANGE AND ITS 1.403x IS UNIT COST AT MATCHED WORK.
+  AND THE INSTRUCTIONS ARE NOW LOCALISED (report 3.47, campaigns `5146`
+  instruction-event profile and `5147` work counters, both Rank 32).
+  FIRST, THE WORK IS NOT QUITE MATCHED, which 3.33 asserted rather than
+  measured: conflicts 5,034,371 vs 4,636,494 (1.086x), decisions 1.038x,
+  propagations 0.959x (Tactix does FEWER). Normalising 1.403x by conflicts
+  leaves ABOUT 1.29x AS UNIT COST; a fifth of the excess is extra work.
+  SECOND, THE PORTED CDCL CORE IS AT OR BETTER THAN PARITY. Absolute
+  instructions (x1e12), Tactix vs kissat: propagation 0.981/0.888 = 1.11,
+  conflict analysis 0.249/0.228 = 1.10, decision 0.095/0.109 = 0.88,
+  embedded sub-solver 0.044/0.080 = 0.54. Together 1.373 vs 1.305, five per
+  cent, with two of four CHEAPER than kissat.
+  THIRD, THE EXCESS IS REPRESENTATION MAINTENANCE: garbage collection
+  0.054/0.016 = 3.30x, Vivify scheduling 0.107/0.050 = 2.15x, large-watch
+  rebuild 0.068/0.042 = 1.63x, backtrack 1.25x, plus four Tactix symbols with
+  NO kissat counterpart -- kernel_replace_large_clause_in_place 0.048, an
+  OUT-OF-LINE std::vector<unsigned>::push_back 0.031, __memmove_avx512 0.028,
+  rebuild_dense_large_occurrences 0.026. kissat shrinks a clause in place
+  inline; Tactix has a function for it. kissat's stacks are macros that
+  inline; Tactix's push_back survives as a call.
+  THOSE NAMED ITEMS ARE 0.274e12 OF A 0.791e12 TOTAL EXCESS -- 35%. The rest
+  is diffuse: Tactix needs 52 symbols above 0.3% to cover 87.4% of its
+  instructions where kissat needs 30 to cover 92.9%, and the sub-cutoff tail
+  is 0.347 against 0.139.
+  NEXT: attack the named third one function at a time, sharpest ratio first
+  (`kernel_collect_garbage` at 3.30x, then `vivify_schedule` at 2.15x, then
+  the four unpaired symbols). Each is general and none is benchmark-specific.
+  Do NOT expect this to reach 1% on its own -- report 3.47 sizes it.
   THIS WRAP SHIPPED ONE GAP AND NAMED THE BIGGEST REMAINING ONE. Shipped:
   the probe pipeline no longer rewatches large watches (kissat has no
   pipeline-level rewatch; only `eliminate.c:587-589` wraps a round), -27.6 s
