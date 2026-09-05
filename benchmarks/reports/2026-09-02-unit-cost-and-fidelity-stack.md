@@ -3003,14 +3003,40 @@ literal is propagated --- and propagation permutes `lits` on every relocation.
 Comparing entries by their printed literal sequence therefore treats one clause
 as two.
 
-So the `24 against 12` comparison cannot be trusted, and **no mechanism for
-Rank 35 is claimed**. The instrument has to be repaired first: the two dumps
-must be taken at the same moment, and clause identity must be a canonical key
-(sorted literals, or the proof id) rather than the printed sequence. Until
-then the verified facts are only these --- the ported arm is exact through
-conflict 32,062 and 78 ticks out by 32,090, the first divergent row is literal
-145 at conflict 32,072, and the instrumented Kissat reproduces the pristine
-binary at every checkpoint used here.
+Repairing the instrument settles which dump is at fault. Both dumps now print
+literals in canonical (sorted) order and carry the arena reference, so entries
+match by identity rather than by a sequence propagation permutes. Re-running
+the same single-solver check (campaign `5167`):
+
+```
+W ref=506484  -217044,-135451,-145,217156,217157     <- matches arena ref=506484
+W ref=1298903 -494147,-217141,-145,217151,217156     <- NO arena row at all
+```
+
+The watch dump is consistent wherever it can be checked: its first entry
+matches an arena row by reference *and* by canonical key. The second
+references a live clause (`garbage=0`) containing 217156 that the arena walk
+never reports. **So the clause dump under-reports, and every "identical
+databases" result taken from it is unsafe** --- those comparisons matched two
+equally truncated walks against each other, which is why they agreed so
+perfectly.
+
+That retires two claims made earlier in this section and leaves the mechanism
+open. **No diagnosis of Rank 35 should be built on either dump until the arena
+walk is fixed**; the likely culprit is the walk desynchronising on a clause
+header, since `all_clauses` advances by `kissat_next_clause`, which reads
+`size` and the `shrunken` flag.
+
+The verified facts are unchanged and come from the tick trace, which is
+independently validated against the pristine binary at every checkpoint: the
+ported arm is exact through conflict 32,062 and 78 ticks out by 32,090, and
+the first divergent row is literal 145 at conflict 32,072.
+
+For the record, the two earlier diagnoses that used this dump pair do not rest
+on it. Rank 17's repair was confirmed by `search_ticks` becoming exact at
+conflict 3,700 with an empty diff over 260,577 trace rows (3.41), and Rank
+34's chain by counters and the heap-array signature (3.43); neither conclusion
+depends on the arena walk being complete.
 
 ## 4. Decision
 
