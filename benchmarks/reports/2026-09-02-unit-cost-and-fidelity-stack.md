@@ -1592,6 +1592,37 @@ does, and the 62 firings above are that. A checkpoint whose predicate the
 surrounding lifecycle cannot satisfy is not a conservative addition; it is
 dead code that reads as a repair.
 
+### 3.31 Certificate emission is not the gap, and why it looked like one (2026-09-05)
+
+A profile of Rank 10 appeared to show Tactix finishing in 72.8 s where
+Kissat's own profile totalled 77.8 s, while the proof-writing gate has
+Tactix 14.6 s behind. That would have made certificate emission a general
+implementation gap on every rank. It is not, and the comparison that
+suggested it was invalid.
+
+Probe `5078` (job 1665029) runs both solvers on Ranks 10 and 21, with and
+without a proof, at the gate's allocation and with no profiler attached:
+
+| rank | arm | no proof | with proof | emission | bytes |
+|---|---|---:|---:|---:|---:|
+| 10 | Tactix | 93.22 s | 97.04 s | +3.82 s | 1.53 GB |
+| 10 | Kissat | 78.16 s | 81.05 s | +2.89 s | 1.90 GB |
+| 21 | Tactix | 127.46 s | 127.02 s | -0.44 s | 0.97 GB |
+| 21 | Kissat | 94.93 s | 97.48 s | +2.55 s | 0.86 GB |
+
+Writing a 1.5 GB binary DRAT certificate costs Tactix 3.82 s against
+Kissat's 2.89 s for a 1.9 GB one, and on Rank 21 Tactix's emission does
+not clear the noise at all. The whole gap is present without proofs:
++15.1 s on Rank 10 and +32.5 s on Rank 21. Certificate emission is worth
+at most about a second on the largest proof in the tier.
+
+The error is worth naming because it is easy to repeat. Tactix's
+`c timing ... solve` excludes parsing; Kissat's profile `total` includes
+it, and on Rank 10 Kissat spends 17.1 s parsing. Comparing the two
+numbers silently credited Tactix with Kissat's parse time. A profile's
+totals are comparable between the two solvers only when both are measured
+on the same span.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
