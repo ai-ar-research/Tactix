@@ -66,6 +66,14 @@ resume surface.
   N2 evidence: the proof/model checks of all ten gate pairs run today have
   finished — 500 proof checks and 560 model checks, all exit 0, no
   expected-verdict mismatch (report section 3.24).
+  Benchmark hygiene (audited 2026-09-05): 49 GB across `benchmarks/runs`
+  with 396 TB free, so nothing was deleted; every campaign from `5000` to
+  `5068` holds either a landed repair's evidence or a recorded refutation.
+  `5061` is a superseded probe whose instrumentation never applied (no
+  `[rb]` rows) and `5059` is the vivify measurement taken with the broken
+  kissat patch; both are retained because their successors `5062`/`5060`
+  and report section 3.23 cite the contrast. `5064` is load-bearing — the
+  gap table reads it.
   IN FLIGHT: a nightly fuzz leg (200,000 cases with LRAT, job 1664736,
   `tools/fuzz/slurm-nightly-57a6895-1664736.log`) on the gated pin, which
   is byte-identical to `pin-1148168`. It is 20x the quick legs every push
