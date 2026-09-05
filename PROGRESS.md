@@ -549,7 +549,7 @@ resume surface.
   - `5155`-`5161` WALKED THE LADDER ALL THE WAY DOWN ON RANK 35 (report 3.53).
     30,000 conflicts -> 5,000 -> 1,000 -> 200 -> 28 -> ONE LITERAL. First
     divergence: conflict 32,072, literal 145, where kissat charges 39,580
-    ticks over 40,079 words and Tactix 39,555 over 40,055. Dumping both lists
+    ticks over 40,079 words and Tactix 39,555 over 40,055.
     Dumping both lists LOOKED like it separated two effects, BUT THAT CLAIM
     IS RETRACTED -- see report 3.53 for the corrected version.
     THE CLAUSE DATABASES HAVE NOT DIVERGED: dumping every clause containing
