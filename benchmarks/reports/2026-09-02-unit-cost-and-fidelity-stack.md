@@ -1353,6 +1353,29 @@ Strengthen has no honest phase counterpart because kissat subsumes inside
 eliminate+subsume's 230.2 s, a ratio of 1.62 and the largest single
 pairing left.
 
+### 3.26 Why the same repair helps one caller and hurts another (2026-09-05)
+
+Rank 10 isolates Substitute: it spends 18.1 s there against kissat's
+7.7 s, a ratio of 2.36, in a single application, with only 4.1 s of Sweep
+to contaminate the profile. Inside it `kernel_binary_copies` is 1.64 %
+of the run. That is the same per-image duplicate test grouped by owner
+for Sweep's session path earlier today and left unchanged on the rule's
+own path.
+
+Applying the identical repair there is a clear regression: Rank 10 98.4
+to 103.9 s and Rank 13 78.7 to 83.7 s, both repeats on both ranks,
+counters identical. It was reverted.
+
+The reason is the batch shape, and it is worth stating because it bounds
+where the rest of today's quadratic repairs generalise. Sweep calls
+`do_substitution` once per productive environment, so its batches are
+tiny and grouping millions of small scans by owner wins. The Substitute
+rule calls it once per application, so a batch holds every image at once
+and the pre-pass pays two sorts over all of them, while the per-image
+scans it replaces are capped at the first hit and usually exit at once.
+A repair that removes a quadratic term can still lose when the quadratic
+was never reached.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
