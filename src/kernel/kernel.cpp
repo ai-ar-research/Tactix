@@ -1767,7 +1767,7 @@ static void kernel_settle_binary_only_debt(Kernel &k) {
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
 // Diagnostic: one row per literal whose watch list the SEARCH propagator
 // scanned, in a conflict window, with the ticks that scan charged and the
-// list's length AS THE SCAN FOUND IT. The scan moves and drops watches, so a
+// list's length as the scan found it. The scan moves and drops watches, so a
 // length sampled afterwards belongs to a different list than the charge.
 // Kissat's matching rows come from the `kissat-ticktrace` variant, so a diff
 // names the literal one solver propagates and the other does not.
