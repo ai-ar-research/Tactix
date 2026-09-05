@@ -409,16 +409,32 @@ resume surface.
   them). Kitten cannot: `kitten_compute_clausal_core` marks each klause with
   `set_core_klause`, the DFS skips anything marked, and `clear_core` resets
   between candidates.
-  NEXT: capture units from the CLAUSAL CORE, in kitten's traversal order (a
-  post-order DFS from the conflict/failing clause over the antecedent DAG,
-  `kitten.c:1951-2025`) and with its `learned` tag, and keep the resolution
-  derivation for the LRAT obligation it exists to serve.
-  THE CONSTRAINT THAT MAKES THIS A DESIGN CHANGE, NOT A PORT: each captured
-  unit currently carries `proof.steps` truncated at the lemma proving it, and
-  `sweep_emit_pending_units` falls back to that prefix whenever the RUP fast
-  path declines. A core-based capture MUST supply an equivalent per-unit
-  justification or N2 moves rather than disappears. Budget a fuzz proof leg
-  with it, not just the two tier gates. `SubDerivation` already carries `core` (the
+  TWO WAYS OF ACTING ON THAT WERE BUILT AND BOTH ARE REFUTED (report 3.45).
+  (a) Emitting `SubSolver::derivation`'s `steps` in kitten's post-order
+  instead of ascending id: preserves every consumer property (post-order still
+  places each step after its antecedents, so a prefix stays self-contained and
+  the target stays last) and changed 858 rows of the deactivation window, but
+  did NOT move 970. (b) Reconstructing the clausal core outright --
+  `SubDerivation::core_clauses` built by kitten's post-order walk carrying
+  learned steps and original clauses together, with `sweep_capture_core_units`
+  walking it and the N2 obligation preserved (learned entry keeps its
+  ascending-id prefix, original entry is a RUP root unit); suite green
+  including sweep_proofs/micro_proofs, but Tactix captured 8,990 deactivations
+  against kissat's 8,905 and THE FIRST HEAP DIVERGENCE MOVED FROM CONFLICT
+  26,914 TO 1,100. Adding the live-value overlay on top did not reduce the
+  over-capture. A core reconstructed from Tactix's own derivation DAG is NOT
+  kitten's clausal core. Both reverted.
+  ALSO REFUTED: that 970 is a backbone-candidate result. Campaign `5141`
+  traces every candidate from both solvers -- the first 15 are identical, both
+  try -970, and the first 20 units either produces are the same list in the
+  same order down to -841 and -693. kissat's 970 is a BY-PRODUCT of the core
+  walk of some earlier candidate, which is what `add_core` assigns.
+  NEXT: the remaining lever is kitten itself. Tactix's sub-solver does not
+  keep a clausal core; it keeps a resolution derivation, and every attempt to
+  synthesise the one from the other has now failed by measurement. Either port
+  `kitten_compute_clausal_core`'s marking into the sub-solver so the core is
+  computed rather than reconstructed, or accept Rank 34 as an N4 scheduling
+  deviation and record it in `docs/scheduling-parity-ledger.md`. `SubDerivation` already carries `core` (the
   ascending ids of the original clauses used) and
   `SubSolver::shrink_to_clausal_core` already exists; what is missing is the
   ordered traversal yielding original and learned core clauses together.
