@@ -326,6 +326,31 @@ resume surface.
   SAT models and 16 UNSAT proofs independently checked, PAR-2 ratio 1.0022
   against the 1.10 guard. Pushed.
 
+  RANK 34 (+403 s, the largest single tier item) IS NOW TRACED BACK TO
+  CONFLICT 26,914 (report 3.43, campaigns `5128`-`5133`). Report 3.39 had
+  stopped at "a tie between two score-0 heap variables at warm-up decision
+  30, origin unknown". A signature over the heap ARRAY -- FNV-1a in external
+  variable numbers, so internal numbering cannot register as a difference --
+  finds it: identical population, order and scores at conflict 26,913;
+  identical population and scores but DIFFERENT ORDER at 26,914. Both are in
+  focused mode, where the heap is never read, so `search_ticks` stays exact
+  (74,207,827 at 26,950 and still exact at 75,000).
+  Between those conflicts both deactivate the same 428 variables (149
+  root-fixed, 279 eliminated), and a heap removal sifts, so the ORDER
+  decides the array. Tracing every deactivation with the trail position of
+  each root-fixed one: both solvers' trail offsets are gap-free and strictly
+  increasing in emission order (kissat 0.. because it flushes the root
+  trail, Tactix 3790.. because it retains root identities), so BOTH
+  deactivate in their own trail order and the consumption path is NOT the
+  defect. THE UNITS ARE DERIVED IN A DIFFERENT ORDER: within one group of
+  six, kissat assigns variable 970 FIRST and Tactix assigns it LAST, with
+  693, 653, 651, 618, 844 identical in between and the neighbours on both
+  sides identical.
+  NEXT: which rule assigns 970 at conflict 26,913, and why it runs before
+  its five neighbours in kissat and after them in Tactix. The instruments
+  are in the tree (TACTIX_HEAP_HASH_EVERY / _DUMP_AT / _DEACT_TRACE and the
+  kissat-ticktrace equivalents).
+
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
   and the gap is fully present with no proof at all. Peak RSS (3.33):
