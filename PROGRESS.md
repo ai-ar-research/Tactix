@@ -8,17 +8,30 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-05, twelfth wrap). Goal in force: close every
-  IMPLEMENTATION gap (same work, more time) and reach <= 1.10x kissat on
-  Rank 1-40, with B28+C5 as the regression gate; do not stop at 1.10x.
-  Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: paired
-  gate `5076` 40/40 at **8,398.9 s = 1.0943x kissat** (T4-K MET), B28+C5
-  `5077` 0.9941x paired, fuzz 10,000/0 on both legs of pin `d073971`.
-  Two paired gates this session moved the tier 8,600.2 -> 8,398.9 s in the
-  same measurement window, every rank byte-identical on both arms.
+- RESUME HERE (2026-09-05, twelfth wrap). Goal in force (user, tightened
+  mid-session): close every IMPLEMENTATION gap (same work, more time) AND
+  reach <= 1.01x kissat on Rank 1-40, safely rather than by noise, with
+  B28+C5 as the regression gate and no benchmark-specific fix. Do not stop
+  at 1.01x; stop when the implementation gap is merged.
+  Kissat `1930` is 7,675.1 s. Standing: paired gate `5084` 40/40 at
+  **8,388.0 s = 1.0929x** (the old 1.10 bar is met; the 1.01 bar needs
+  7,751.9 s, i.e. **-636 s more**), B28+C5 `5085` 1.0028x paired, fuzz
+  10,000/0 on both legs of every pushed pin. Every gate this session ran
+  base and candidate as two arms of one array and every rank came back
+  byte-identical, so each delta is unit cost at an unchanged trajectory.
   Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
-  3.12 to 3.30.
+  3.12 to 3.34.
+
+  WHERE THE -647 s CAN COME FROM, and it is not where this session worked.
+  Per rank against `1930`: Rank 34 +403.4, Rank 31 +384.7, Rank 17 +126.4
+  — and Rank 19 is -590.3, Rank 18 -61.5. Those three positives are
+  SEARCH-TRAJECTORY divergences (conflicts 1.97x, 2.73x, and 1.16x with
+  propagations 1.80x), together +914 s. Closing them alone reaches about
+  0.975x. Every unit-cost repair in this session together moved the tier
+  -201 s, so the 1.01 bar is not reachable through unit cost at all: it
+  requires the trajectory ranks. Treat them as N4 scheduling-parity work
+  (`docs/scheduling-parity-ledger.md`), not as implementation gaps.
 
   MEASURE PAIRED, IN ONE WINDOW. `5071`/`5072` run base and candidate as
   two arms of ONE array, instance-major, so no result rests on a
@@ -116,19 +129,59 @@ resume surface.
   Substitute's worst ranks are 10/13/14/25, Factor's are 25/17/20, BVE's
   is 21.
 
-  NEXT, in order. (1) Tactix still keeps TWO occurrence images where
-  kissat keeps ONE, and copies the binary prefix into `ordered` because
-  that stream is a separate copy of the watch list instead of the watch
-  list itself; the end state is dense large refs living in `k.watches` as
-  one-word entries, which deletes `large`, the copy, and all their
-  maintenance. That needs `WatchHead`'s order bit moved out of the
-  binary-count parity trick and a stride-1 dense iterator, because a dense
-  large watch is one word where a sparse one is two. (2) On Rank 10,
-  profiled without a proof, Tactix BEATS kissat (72.8 s against 77.8 s)
-  while the proof-writing gate has it 14.6 s behind; probe `5078` isolates
-  certificate emission on Ranks 10 and 21 with and without a proof.
-  (3) Rank 31 and Rank 34 remain search-trajectory divergences at 2.7x and
-  2.0x kissat's conflicts, not implementation gaps.
+  NEXT — START HERE, it is the only place -647 s exists, and section 3.10's
+  lead has been CORRECTED (section 3.35, probe `5086`). `kissat
+  --conflicts=N` does not stop at N: it overshot to 44,751 and 44,771 in
+  that probe, so most of the "3 ticks at 44,748, 42 by 44,770" was Kissat
+  doing more conflicts. At the checkpoints where both solvers really stop
+  together, Tactix's `search_ticks` is EXACT at 44,747 (555,591,147 on
+  both) and eight short at 48,379 — eight ticks over 3,632 conflicts. The
+  withheld-tick hypothesis is dead too: `suppressed_search_ticks` is
+  identical at 44,747 and 44,748, so `inprocessing`/`warming` withheld
+  nothing across the conflict where the split was said to begin.
+  So the question is now: can eight ticks in 573 M move the stable-to-
+  focused switch seven decision levels? If yes, the switch predicate is
+  the parity defect, not the accounting — compare
+  `DefaultPolicy::want_switch` against `kissat_switching_search_mode`
+  (`mode.c`), including which side of the comparison is inclusive and when
+  `limits.mode.ticks` is recomputed. If no, section 3.10's decision-level
+  reading (8110 against 8117) needs redoing at a matched conflict count.
+  Rebuild the probe pin with
+  `cmake -DTACTIX_ENABLE_CONFLICT_STOP=ON`; the runs are seconds, so this
+  is a fast bisect, not a campaign. Ranks 34 and 17 have had no equivalent
+  first-divergence study at all.
+
+  DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
+  writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
+  and the gap is fully present with no proof at all. Peak RSS (3.33):
+  Tactix is 2--4x kissat on exactly the unit-cost ranks, and the
+  correlation between log(RSS ratio) and log(time ratio) over 36 ranks is
+  r = 0.124 — none. Rule-dispatch clocks (3.33): 6.7 M applications on
+  Rank 32, 0.12 % of the run. A cheaper liveness probe (3.34): +11.2 s,
+  reverted. And Substitute's per-image watch rescan was a real quadratic
+  that cost nothing when removed (3.32) — the line profile had said 0.22 %
+  and the estimate ignored it.
+
+  THE OPEN QUESTION UNDER THE UNIT-COST HEADING (3.33). On Rank 32 every
+  inprocessing rule is 1.3--1.8x kissat while search is 1.18x: Vivify
+  1.50, BVE 1.31, Substitute 1.77, Factor 1.67, Sweep 1.74, Congruence
+  1.42, Backbone 1.83, TransitiveReduce 1.59, whole slot 1.76. A ratio
+  that uniform across eight independent algorithms is a property of what
+  they share. Memory, dispatch clocks and propagation are all eliminated.
+  The next instrument is hardware counters (cache and TLB misses per rule
+  phase), not another cycle profile.
+
+  STILL UNPORTED, for when unit cost matters again: Tactix keeps TWO
+  occurrence images where kissat keeps ONE and copies the binary prefix
+  into `ordered` because that stream is a separate copy of the watch list
+  instead of the watch list itself. The end state is dense large refs
+  living in `k.watches` as one-word entries, which deletes `large`, the
+  copy and all their maintenance. It needs `WatchHead`'s order bit moved
+  out of the binary-count parity trick and a stride-1 dense iterator (a
+  dense large watch is one word, a sparse one is two), and it needs the
+  dense index's lifetime coupled to `large_watches_connected`, which
+  Tactix deliberately decoupled.
+
   Size debt (compaction not requested): PROGRESS 3,800 lines against a 350
   budget, `docs/implementation-notes.md` 591 against 560.
 ## Latest candidate performance
