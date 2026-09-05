@@ -167,48 +167,25 @@ resume surface.
   Rank 34 stayed byte-identical through both ports, so its cause differs.
 
   RANK 34 (+403 s, the largest single item) NOW HAS ITS FIRST-DIVERGENCE
-  STUDY, and it is a DIFFERENT defect class from Rank 31 (report 3.39,
-  campaigns `5103`-`5108`). `search_ticks` is exact through conflict
-  75,000, -695 by 75,501, split by 100,000. Tracing 75,440-75,455 with the
-  watch-list size logged gives TWO rows out of 1,815: conflict 75,452
-  literal -20584 charges 33 in kissat and 29 in Tactix, and 75,454 literal
-  20587 charges 38 against 36 — with IDENTICAL list sizes (12 and 24) and
-  an identical sequence of propagated literals.
-  So it is not `1 + cache_lines(n)` and not a missing propagation. In
-  `proplit.h` a watch costs one extra tick per binary assignment and one
-  per large dereference, and a watch whose BLOCKING LITERAL is already true
-  is skipped before either. The assignments must match because the
-  trajectory does, so Tactix skips four more entries on a 12-word list than
-  kissat: its cached blockers are true where kissat's are not. Reference
-  sites: `kissat_push_blocking_watch` for the initial choice and
-  `proplit.h`'s replacement-search branches for the update; Tactix's are
-  `WatchLists::push_large` and the propagation engines. Conflict 75,452 on
-  literal -20584 is an exact two-row reproducer.
-  ALREADY CHECKED AND MATCHING, do not re-derive: the propagation update
-  (`proplit.h` writes `q[-2].blocking.lit = other` and gives a moved watch
-  the blocker `other`; Tactix does both, and charges the tick in the same
-  place — after the blocking test, before the garbage test) and the
-  dense-exit rewatch (`kissat_watch_large_clauses` sorts then watches the
-  pair; `sort_clause_watches_like_kissat` is a faithful transliteration of
-  `sort.c`'s `move_smallest_literal_to_front`, incumbent-level update and
-  `satisfied_is_enough` included).
-  UNCHECKED, and one of them is the cause: the collector's rewatch
-  (`collect.c:596` sorts too), on-the-fly strengthening, and Vivify's and
-  Sweep's rewatch boundaries.
-  FIRST FIX THE INSTRUMENT. Campaign `5109` dumps literal 20584's whole
-  watch list from both solvers at conflict 75,452, and kissat's two
-  readings of the SAME list contradict each other: the dump walks 20 large
-  entries (40 words) while the `sz=` field from `SIZE_WATCHES` in the same
-  run says 12. Tactix's two readings agree (6 large, 12 words). Both
-  kissat numbers read `WATCHES (NOT (lit))` at the same point of the same
-  call, so the fault is in the instrument. Do NOT conclude from the dump
-  that Tactix holds a sixth of kissat's large watches there. The dumps are
-  kept because the entry CONTENTS are still the right evidence once the
-  reading is fixed — Tactix's six entries are a strict subsequence of
-  kissat's twenty, in order. The tick table above does not depend on the
-  dump and stands.
-  Take this next: it is the largest single item and a blocker policy is
-  general by construction.
+  STUDY, and it is WATCH PLACEMENT (report 3.39, campaigns `5103`-`5109`).
+  `search_ticks` is exact through conflict 75,000, -695 by 75,501, split by
+  100,000. Two rows out of 1,815 differ: conflict 75,452 literal -20584
+  costs kissat 33 and Tactix 29; 75,454 literal 20587 costs 38 against 36.
+  The propagated-literal sequence is identical throughout.
+  Dumping the list AS THE SCAN FINDS IT: on literal 20584 at conflict
+  75,452 kissat enters with **20** large watches and relocates 14 during
+  the scan; Tactix enters with **6** and relocates none. Both end at 12
+  words. Tactix's six are a strict subsequence of kissat's twenty, in
+  order (kissat's 1, 2, 7, 13, 16, 17). So the same clauses are watched on
+  different literals: kissat still carries 14 large watches here that
+  Tactix has already moved. Trace that drift BACKWARDS from 75,452.
+  A FALSE START WORTH KNOWING: the first reading of this said the list
+  sizes were identical and sent the investigation after blocking literals.
+  The length was sampled AFTER the scan, which moves and drops watches, so
+  both solvers reported 12 because both END at 12. The instrument now
+  samples before the scan on both sides. Blocker choice is NOT the defect;
+  the propagation update and the dense-exit rewatch were both checked and
+  match anyway.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
