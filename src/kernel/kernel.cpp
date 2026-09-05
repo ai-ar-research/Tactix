@@ -1821,6 +1821,45 @@ static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks,
                static_cast<unsigned long long>(ticks), list_size);
 }
 
+// Every arena clause of a given size containing a given external literal,
+// with the two watched literals and the replacement-search cursor. Fires once,
+// at a chosen conflict, so a clause can be compared BY CONTENT across the two
+// solvers instead of by which literal happens to watch it.
+static void kernel_clause_dump(const Kernel &k) {
+  static const int at = [] {
+    const char *v = std::getenv("TACTIX_CLAUSE_DUMP_AT");
+    return v ? std::atoi(v) : -1;
+  }();
+  static const int want_lit = [] {
+    const char *v = std::getenv("TACTIX_CLAUSE_DUMP_LIT");
+    return v ? std::atoi(v) : 0;
+  }();
+  static bool fired = false;
+  if (at < 0 || fired || static_cast<int>(k.stats.conflicts) != at)
+    return;
+  FILE *const file = kernel_tick_trace_file();
+  if (!file)
+    return;
+  fired = true;
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    const uint32_t words = clause_actual_words(c);
+    bool hit = false;
+    for (uint32_t i = 0; i < c->size; i++)
+      hit |= kernel_externalize(k, c->lits[i]) == want_lit;
+    if (hit && !c->garbage()) {
+      std::fprintf(file, "C size=%u searched=%u w0=%d w1=%d red=%d lits=",
+                   c->size, c->searched, kernel_externalize(k, c->lits[0]),
+                   kernel_externalize(k, c->lits[1]),
+                   static_cast<int>(c->redundant()));
+      for (uint32_t i = 0; i < c->size; i++)
+        std::fprintf(file, "%d,", kernel_externalize(k, c->lits[i]));
+      std::fprintf(file, "\n");
+    }
+    ref += words;
+  }
+}
+
 // One literal's whole list, as the scan is about to see it.
 static void kernel_tick_trace_dump(const Kernel &k, Lit lit) {
   const int dump_lit = kernel_tick_trace_dump_lit();
@@ -1870,6 +1909,7 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
     // sampled BEFORE it or the row reports the post-scan length beside a
     // pre-scan charge.
     const uint32_t tick_trace_size = k.watches.size(negate(lit));
+    kernel_clause_dump(k);
     kernel_tick_trace_dump(k, lit);
 #endif
     const bool tick_trace_conflict =

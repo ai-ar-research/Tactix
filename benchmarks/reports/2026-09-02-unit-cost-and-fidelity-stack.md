@@ -2069,17 +2069,38 @@ scan of some other literal found 20584 as its replacement, set
 Kissat relocated both onto 20584 in that window; Tactix relocated them
 somewhere else.
 
-That makes `c->searched` the mechanism to compare, because it is the only
-input to the replacement choice that either solver carries across calls:
-the scan runs `searched` to the end and then `lits + 2` to `searched`,
-taking the first literal whose value is non-negative, so with identical
-values a different cursor is the only way to reach a different replacement.
-Kissat resets it to 2 at every rewatch (`watch.c`, `collect.c`, `dense.c`)
-and advances it to `r - lits` on each relocation; Tactix's collector
-carries `packed->searched = (dense_collection || retained_sparse_watch) ?
-c->searched : 2`. The next experiment is to dump `searched` for these two
-clauses on both sides, which means finding them by content rather than by
-watched literal.
+Dumping every clause containing literal 20584 by content, from both
+solvers at conflict 75,452 (campaign `5111`), settles what happened. Both
+hold **59** such clauses --- the databases agree --- and the size-14 one
+appears in both, but with different literal order:
+
+```
+kissat  w0=19103  w1=20584  searched=2
+        19103, 20584, -16865, 13, -18562, 18756, -16867, -20351,
+        19188, -18558, 18557, -20452, -20574, -16866
+Tactix  w0=-16866 w1=19103  searched=2
+        -16866, 19103, -16865, 13, -18562, 18756, -16867, -20351,
+        19188, -18558, 18557, -20452, -20574, 20584
+```
+
+`-16866` has moved to the front and `20584` to the back: that is exactly
+what a relocation writes (`lits[0] = other; lits[1] = replacement;
+*r = not_lit`). **Tactix has already relocated this clause off 20584;
+Kissat has not.** The second extra entry shows the same rotation, and
+`searched` is 2 on both sides, so the cursor is not the difference.
+
+And 20584's own list was NOT scanned between conflicts 75,437 and 75,452
+--- the search trace has no row for it in that span. A watch leaves a
+literal's list only when that list is scanned, so the relocation Tactix
+performed did not happen in search propagation. It happened in one of the
+other propagation engines, which run during inprocessing and which this
+trace deliberately excludes (`kernel_charge_ticks` skips `search_ticks`
+under `inprocessing`/`warming`, and the trace follows the same rule).
+
+That is the next experiment and it is a different instrument: trace
+PROBING propagation over conflicts 75,437--75,452 on both sides and find
+which engine moves these two watches in Tactix and not in Kissat. The
+per-rule timers say which phases ran in that window.
 
 
 
