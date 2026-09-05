@@ -497,9 +497,42 @@ resume surface.
   TACTIX_DEACT_TRACE, TACTIX_CORE_TRACE and the kissat-ticktrace equivalents
   (whose deactivation rows also carry phase= and why= labels).
 
-  IN FLIGHT (do not wait on these): campaign `5125`'s remaining DRAT checks
-  and two of `5126`'s. Both suites already reported their solver outcomes
-  and neither showed a regression; the checks only confirm certificates.
+  IN FLIGHT. Solver outcomes arrive well before the DRAT checks; read the
+  provisional tool, do not wait on checking.
+  - `5148` COMPLETE AND GREEN: collector per-entry hoist, 8,395.1 -> 8,383.8 s,
+    -11.3 s at 0.9987x, 40/40 paired, ALL FORTY CERTIFICATES BYTE-IDENTICAL.
+    Recorded in report 3.48 and pushed; the code is still uncommitted, inside
+    the `5149` stack below.
+  - `5149` (job 1666140) paired Rank 1-40 of the FIVE-repair stack against
+    `a069f67`: collector hoist, Vivify schedule scratch, dense-rebuild
+    scratch, and the two phase-entry propagation ports recovered from
+    `claude/rephase-entry-propagation`. The ports change trajectories by
+    design; everything else is behaviour-identical. Rank 24 already reports
+    -10.1 s WITH A CHANGED PROOF, so the ports fire and fire favourably --
+    the old +170.8 s arbitration was measured before the rewatch removal
+    moved trajectories and is superseded, not inherited.
+  - `5151` (job 1666218) instruction count for -flto=auto on Rank 32, and
+    `5152` PREPARED (not submitted) as its paired Rank 1-40 gate.
+    THE BUILD HAS NO LTO: `-O3 -DNDEBUG -std=c++20 -Wall -Wextra
+    -fno-exceptions -fno-rtti`. kissat compiles at -O3 too but keeps its hot
+    code in headers (inline.h, inlineheap.h, inlinequeue.h, inlineassign.h,
+    inlinevector.h, proplit.h) and inlines it within each translation unit BY
+    CONSTRUCTION; Tactix is layered across many units where the same calls
+    cannot inline. That is exactly the shape report 3.47 measured and could
+    not attribute -- 52 symbols above 0.3% covering 87.4% against kissat's 30
+    covering 92.9%, sub-cutoff tail 0.347 vs 0.139e12 -- and
+    `heuristics_var_active` is the clean example: three cheap operations,
+    declared in a header, defined in a .cpp around a file-static
+    `queue_contains`, burning 18.7 G instructions as an out-of-line symbol.
+    LTO IS THE ONLY CANDIDATE THAT REACHES THE DIFFUSE TWO THIRDS; the
+    named-function repairs are calibrated at eleven seconds for the sharpest
+    ratio in the whole profile (report 3.48).
+    PASS CRITERION IS FALSIFIABLE: a build flag cannot change solver
+    semantics, and -ffast-math is NOT enabled anywhere, so LTO may not
+    reassociate the EVSIDS double arithmetic. Expect 40/40 byte-identical
+    certificates; ANY certificate difference is a defect, not a result.
+  - fuzz quick leg (job 1666199) on the stack pin, required because the
+    phase-entry ports change trajectories.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
