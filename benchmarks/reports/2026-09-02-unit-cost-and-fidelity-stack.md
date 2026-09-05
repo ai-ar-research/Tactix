@@ -1315,6 +1315,44 @@ the reported verdict disagreed with its expected result. N2 therefore
 holds for every commit landed today, independently of the counter
 identity used to judge the repairs.
 
+### 3.25 The whole remaining gap, paired against work, in one table (2026-09-04)
+
+Deciding whether a rule's gap is surplus work or unit cost took most of a
+session by hand. `tools/bench/rule_gap_table.py` now does it from two
+campaigns, and campaign `5064` supplies the missing half: the same pinned
+kissat-symbols build run under `-v` on all forty ranks, which is the only
+way kissat prints its full statistics. Its verdict and pre-existing
+counters were checked against the pristine profile run before use. Its
+timing is deliberately not used — `-v` perturbs it — so phase times still
+come from the accepted baseline and only counters come from `5064`.
+
+Over all forty ranks:
+
+| rule | Tactix | kissat | ratio | work counter | Tactix/kissat |
+|---|---:|---:|---:|---|---:|
+| Substitute | 282.2 s | 169.6 s | 1.66 | variables substituted | 1.00 |
+| Factor | 237.8 s | 129.8 s | 1.83 | ticks | 1.03 |
+| Vivify | 680.4 s | 576.6 s | 1.18 | probes | 0.83 |
+| Congruence | 318.7 s | 245.8 s | 1.30 | (gates matched, §3.19) | 1.03 |
+| BVE | 260.0 s | 194.1 s | 1.34 | resolutions | 0.91 |
+| | | | | eliminated | 0.97 |
+| Strengthen | 112.4 s | — | — | forward steps | 0.88 |
+| TransitiveReduce | 49.3 s | 34.4 s | 1.43 | | |
+| Backbone | 66.5 s | 69.4 s | 0.96 | | |
+| Sweep | 441.4 s | 564.9 s | 0.78 | equivalences | 0.98 |
+
+Read the two right-hand columns together. Tactix performs **less** work
+than kissat on every counter except Factor's ticks at 1.03, and is slower
+on every rule except Sweep and Backbone. The remaining +427.9 s is
+therefore entirely unit cost; there is no rule whose gap can be closed by
+dosing it down, and no rule where Tactix is buying its time with extra
+simplification.
+
+Strengthen has no honest phase counterpart because kissat subsumes inside
+`eliminate`; paired properly, BVE+Strengthen is 372.3 s against
+eliminate+subsume's 230.2 s, a ratio of 1.62 and the largest single
+pairing left.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
