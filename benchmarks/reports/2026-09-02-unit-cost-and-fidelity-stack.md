@@ -2544,6 +2544,56 @@ per-unit justification or the N2 obligation moves rather than disappears. That
 is why the batching exists, and any port has to answer it before it can be
 gated.
 
+### 3.45 Two more Sweep hypotheses, both refuted by measurement (2026-09-05)
+
+Section 3.44 left the excess lemma stream as the target. Two ways of acting on
+it were built, measured and reverted. Both are recorded because each looked
+correct from the source and each is cheap to re-derive.
+
+**Post-order over the derivation, refuted.** Kitten's core is a post-order walk
+over the antecedent DAG, so `SubSolver::derivation` was made to emit `steps` in
+that order instead of ascending id. It preserves everything the consumers need
+--- post-order still places each step after its antecedents, so a prefix stays
+a self-contained derivation and the target is still last --- and it changed 858
+rows of the deactivation window. It did **not** move 970: the order at
+conflict 26,913 was unchanged, 970 still last.
+
+Attributing each core row to its call site says why (campaign `5139`). The six
+units in the run come from three different places: 693, 653, 651 and 618 from
+the backbone path, 844 from the forward direction of an equivalence, and 970
+from the reverse. Kissat runs its **entire** backbone phase before any
+equivalence (`sweep.c:1370-1432`), so if 970 were a backbone unit there it
+would precede all four --- and it does precede them, at trail 24. But tracing
+every backbone candidate from both solvers (campaign `5141`) shows the two
+streams agree: the first 15 candidates are identical, both try $-970$, and the
+first twenty units either produces are the same list in the same order, down
+to $-841$ and $-693$. Kissat's 970 is therefore not a candidate result at all
+--- it is a by-product of the core walk of some earlier candidate, which is
+precisely what `add_core` assigns.
+
+**Reading units off a reconstructed clausal core, refuted.** So the core was
+reconstructed: `SubDerivation` gained a `core_clauses` stream built by Kitten's
+post-order walk, carrying learned steps and original clauses together with an
+id-to-reference index over the arena, and `sweep_capture_core_units` was made
+to walk that instead of `steps`. This is the shape 3.44 argued for, and the
+N2 obligation survives it --- a learned entry keeps its ascending-id prefix, an
+original entry is a root unit the RUP path owns. The suite stayed green,
+`sweep_proofs` and `micro_proofs` included.
+
+It is still wrong. Tactix captured **8,990** deactivations against Kissat's
+8,905, an over-capture of 85, and adding the live-value overlay of 3.44 on top
+did not reduce it. The heap-array signature is decisive: the first divergence
+moved from conflict **26,914** to conflict **1,100**, twenty-four times
+earlier. A core reconstructed from Tactix's own derivation DAG is not Kitten's
+clausal core; it contains clauses Kitten's traversal does not reach, and
+reading units off it changes the trajectory far sooner than the defect it was
+meant to fix.
+
+Both changes were reverted. What survives is the localisation of 3.43 and the
+diagnostics: `TACTIX_CORE_TRACE` now labels each row with its call site and
+`learned` flag, and `TACTIX_SWEEP_TRACE` records every backbone candidate and
+its outcome, against the same rows from the `kissat-ticktrace` variant.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

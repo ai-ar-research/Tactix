@@ -767,6 +767,25 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
 }
 
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
+// Diagnostic: every backbone candidate this sweep pops, and what became of it.
+// The candidate stack's content and order decide which literals become root
+// units here rather than through a later equivalence. Kissat's matching rows
+// come from the `kissat-ticktrace` variant's `sweep_backbone_candidate`.
+static void sweep_backbone_trace(const Kernel &k, Lit lit,
+                                 const char *outcome) {
+  static std::FILE *file = [] {
+    const char *path = std::getenv("TACTIX_SWEEP_TRACE");
+    return path && *path ? std::fopen(path, "w") : nullptr;
+  }();
+  if (!file)
+    return;
+  std::fprintf(file, "BB %llu %d %s\n",
+               static_cast<unsigned long long>(k.stats.conflicts),
+               kernel_externalize(k, lit), outcome);
+}
+#endif
+
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
 // Diagnostic: the extracted core lemmas, in the order this walk sees them.
 // Kissat's matching rows come from the `kissat-ticktrace` variant's
 // `add_core`, whose walk assigns a unit the moment a lemma reduces to one, so
@@ -1046,6 +1065,9 @@ static uint32_t detect_full_partition(
       break;
     const Lit lit = r.backbone.back();
     r.backbone.pop_back();
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    sweep_backbone_trace(k, lit, "try");
+#endif
     const SubLit candidate =
         sub_lit(e.sub_of_var[var_of(lit)], negated(lit));
     // `kitten_fixed` is checked before the retry flip. A root-fixed candidate
@@ -1096,6 +1118,9 @@ static uint32_t detect_full_partition(
     k.stats.sweep_dir_unsat++;
     SweepDirProof proof;
     sweep_capture_dir(e, proof);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    sweep_backbone_trace(k, lit, "unit");
+#endif
     sweep_capture_core_units(k, proof, r, "backbone");
     if (commit_inline &&
         sweep_emit_pending_units(k, r) == ApplyResult::Ok)
