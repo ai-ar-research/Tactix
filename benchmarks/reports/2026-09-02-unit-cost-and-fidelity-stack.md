@@ -2643,6 +2643,68 @@ trajectory, so its 2.280x mixes unit cost with a changed workload. Rank 32 is
 proof-identical across that change and its **1.403x is unit cost at matched
 work**.
 
+### 3.47 Where the extra instructions are, and how much is unit cost (2026-09-05)
+
+Sampling the **instruction** event per symbol, both solvers, Rank 32
+(campaign `5146`), and reading each solver's own work counters on the same
+instance (campaign `5147`).
+
+First the work, because the unit-cost framing rests on it and 3.33 asserted
+rather than measured it:
+
+| | Tactix | Kissat | ratio |
+|---|---:|---:|---:|
+| conflicts | 5,034,371 | 4,636,494 | 1.086 |
+| decisions | 189,104,237 | 182,202,021 | 1.038 |
+| propagations | 2,904,646,904 | 3,028,091,302 | **0.959** |
+
+So Rank 32 is not quite matched work: Tactix takes 8.6 % more conflicts while
+performing 4 % *fewer* propagations. Normalising the 1.403x instruction ratio
+by conflicts leaves **about 1.29x as unit cost**, and roughly a fifth of the
+excess is extra work rather than extra cost per unit.
+
+Now where the instructions are. Converting each profile's percentages to
+absolute counts against the measured totals ($2.751 \times 10^{12}$ for
+Tactix, $1.960 \times 10^{12}$ for Kissat), in units of $10^{12}$:
+
+| | Tactix | Kissat | ratio |
+|---|---:|---:|---:|
+| propagation | 0.981 | 0.888 | 1.11 |
+| conflict analysis | 0.249 | 0.228 | 1.10 |
+| decision | 0.095 | 0.109 | **0.88** |
+| embedded sub-solver | 0.044 | 0.080 | **0.54** |
+| backtrack | 0.102 | 0.082 | 1.25 |
+| large-watch rebuild | 0.068 | 0.042 | 1.63 |
+| Vivify scheduling | 0.107 | 0.050 | 2.15 |
+| **garbage collection** | 0.054 | 0.016 | **3.30** |
+
+**The ported CDCL core is at or better than parity.** Propagation, conflict
+analysis, decision and the embedded sub-solver together are 1.373 against
+1.305 --- five per cent --- and two of the four are *cheaper* than Kissat's.
+The excess is not in the algorithms this project spent its effort porting.
+
+It is in **representation maintenance**. Garbage collection is 3.3x, Vivify's
+candidate scheduling 2.15x, the large-watch rebuild 1.63x, and four Tactix
+symbols have no counterpart in Kissat's profile at all:
+`kernel_replace_large_clause_in_place` at 0.048, an out-of-line
+`std::vector<unsigned>::push_back` at 0.031, `__memmove_avx512` at 0.028, and
+`rebuild_dense_large_occurrences` at 0.026. Kissat shrinks a clause in place
+inline; Tactix has a function for it. Kissat's stacks are macros that inline;
+Tactix's `push_back` survives as a call.
+
+Those named items total $0.274 \times 10^{12}$ against a total excess of
+$0.791 \times 10^{12}$ --- **35 %**. The rest is diffuse, and the profiles say
+so directly: Tactix needs 52 symbols above 0.3 % to cover 87.4 % of its
+instructions where Kissat needs 30 to cover 92.9 %. The tail below the cutoff
+is 0.347 for Tactix against 0.139 for Kissat.
+
+That is the honest shape of the remaining implementation gap. It is not one
+defect. About a fifth is extra conflicts, about a third is a handful of
+representation-maintenance functions that can be attacked one at a time, and
+the remainder is the distributed cost of a layered C++ design against a
+macro-heavy monolith. Closing the named third is worth having and is general;
+it will not on its own reach 1 %.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
