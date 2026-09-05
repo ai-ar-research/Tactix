@@ -1405,6 +1405,22 @@ excess sits in shared kernel operations that are structurally faithful.
 On Rank 10 Substitute's own source is 8.0 s against kissat's 6.5 s, a
 ratio of 1.23, inside a rule whose timer shows 2.36.
 
+An instruction-level annotation was then taken, since sampling had
+bottomed out. It is unambiguous: 32 % of `do_substitution` on Rank 10
+sits in two instructions, the watch-word load inside the duplicate test's
+binary-prefix scan and the partner comparison beside it. The scan misses
+far more often than it hits, because most rewritten pairs are new.
+
+Two different ways of exploiting that both lost by almost exactly the
+same margin. Grouping the scans by owner cost +5.4 s on Rank 10 and
++4.9 s on Rank 13; installing a blocked liveness filter, so that a miss
+costs one cache line, cost +4.8 s and +3.8 s. Counters were identical in
+every arm. The common factor is that each adds a pass over all images or
+all binaries to avoid work the scan was already doing, and on this path
+the data is touched once: any scheme that touches it a second time to
+build an index loses, however cheap the index makes the query. The
+32 % is real, and it is not reachable by preprocessing.
+
 What remains is not a defect anyone can point at. It is per-visit cost
 spread across clause creation, occurrence maintenance and collection,
 each of which mirrors a kissat mechanism and none of which carries a
