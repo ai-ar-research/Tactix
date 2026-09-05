@@ -2069,9 +2069,27 @@ re-derive them:
 
 What is left, and unchecked, are the other paths that install a large
 watch: the collector's rewatch (`collect.c:596` also sorts), on-the-fly
-strengthening, and Vivify's and Sweep's own rewatch boundaries. One of
-those hands four watches on a single 12-word list a blocker Kissat would
-not.
+strengthening, and Vivify's and Sweep's own rewatch boundaries.
+
+**A caution before anyone continues from here.** Campaign `5109` dumps
+literal 20584's whole watch list from both solvers at conflict 75,452,
+and the two readings of the SAME list disagree with each other on the
+Kissat side: the dump walks twenty large entries, which is forty words,
+while the `sz=` field logged from `SIZE_WATCHES` in the same run reported
+twelve. Tactix's two readings agree (six large entries, twelve words).
+Both Kissat numbers come from `WATCHES (NOT (lit))` at the same point of
+the same call, so one of them is being read wrongly and the discrepancy is
+in the instrument, not in the solvers. Resolve that before concluding
+anything from the dump --- in particular, do NOT conclude from it that
+Tactix holds a sixth of Kissat's large watches on that literal, which is
+what the dump alone would say. The dumps are kept in
+`5109/results/` because the entry contents are still the right evidence
+once the reading is fixed: Tactix's six entries are a strict subsequence
+of Kissat's twenty, in order.
+
+The tick evidence of the table above does not depend on the dump and
+stands: identical list sizes, identical propagated-literal sequence, four
+fewer charges.
 
 ## 4. Decision
 

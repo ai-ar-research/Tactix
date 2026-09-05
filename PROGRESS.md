@@ -194,8 +194,19 @@ resume surface.
   `satisfied_is_enough` included).
   UNCHECKED, and one of them is the cause: the collector's rewatch
   (`collect.c:596` sorts too), on-the-fly strengthening, and Vivify's and
-  Sweep's rewatch boundaries. One of those gives four watches on a single
-  12-word list a blocker kissat would not.
+  Sweep's rewatch boundaries.
+  FIRST FIX THE INSTRUMENT. Campaign `5109` dumps literal 20584's whole
+  watch list from both solvers at conflict 75,452, and kissat's two
+  readings of the SAME list contradict each other: the dump walks 20 large
+  entries (40 words) while the `sz=` field from `SIZE_WATCHES` in the same
+  run says 12. Tactix's two readings agree (6 large, 12 words). Both
+  kissat numbers read `WATCHES (NOT (lit))` at the same point of the same
+  call, so the fault is in the instrument. Do NOT conclude from the dump
+  that Tactix holds a sixth of kissat's large watches there. The dumps are
+  kept because the entry CONTENTS are still the right evidence once the
+  reading is fixed — Tactix's six entries are a strict subsequence of
+  kissat's twenty, in order. The tick table above does not depend on the
+  dump and stands.
   Take this next: it is the largest single item and a blocker policy is
   general by construction.
 
