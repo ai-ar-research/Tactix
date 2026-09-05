@@ -1787,10 +1787,11 @@ static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks) {
     return;
   if (k.stats.conflicts < lo || k.stats.conflicts > hi)
     return;
-  std::fprintf(file, "%llu %d %llu\n",
+  std::fprintf(file, "%llu %d %llu sz=%u\n",
                static_cast<unsigned long long>(k.stats.conflicts),
                kernel_externalize(k, lit),
-               static_cast<unsigned long long>(ticks));
+               static_cast<unsigned long long>(ticks),
+               k.watches.size(negate(lit)));
 }
 #endif
 

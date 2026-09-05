@@ -166,6 +166,27 @@ resume surface.
   Ranks 34 (+403 s) and 17 (+126 s) still have no first-divergence study;
   Rank 34 stayed byte-identical through both ports, so its cause differs.
 
+  RANK 34 (+403 s, the largest single item) NOW HAS ITS FIRST-DIVERGENCE
+  STUDY, and it is a DIFFERENT defect class from Rank 31 (report 3.39,
+  campaigns `5103`-`5108`). `search_ticks` is exact through conflict
+  75,000, -695 by 75,501, split by 100,000. Tracing 75,440-75,455 with the
+  watch-list size logged gives TWO rows out of 1,815: conflict 75,452
+  literal -20584 charges 33 in kissat and 29 in Tactix, and 75,454 literal
+  20587 charges 38 against 36 — with IDENTICAL list sizes (12 and 24) and
+  an identical sequence of propagated literals.
+  So it is not `1 + cache_lines(n)` and not a missing propagation. In
+  `proplit.h` a watch costs one extra tick per binary assignment and one
+  per large dereference, and a watch whose BLOCKING LITERAL is already true
+  is skipped before either. The assignments must match because the
+  trajectory does, so Tactix skips four more entries on a 12-word list than
+  kissat: its cached blockers are true where kissat's are not. Reference
+  sites: `kissat_push_blocking_watch` for the initial choice and
+  `proplit.h`'s replacement-search branches for the update; Tactix's are
+  `WatchLists::push_large` and the propagation engines. Conflict 75,452 on
+  literal -20584 is an exact two-row reproducer.
+  Take this next: it is the largest single item and a blocker policy is
+  general by construction.
+
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
   and the gap is fully present with no proof at all. Peak RSS (3.33):

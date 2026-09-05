@@ -2010,6 +2010,44 @@ findable in well under an hour with campaigns `5087`--`5100` as the
 template, and none of which should be judged by the tier until the ladder
 is climbed far enough that the trajectory stops re-rolling.
 
+### 3.39 Rank 34's first divergence is a blocking literal, not a propagation (2026-09-05)
+
+Rank 34 is the largest single item in the tier at $+403.4$ s, and it had
+never had a first-divergence study. It stayed byte-identical through both
+phase-entry ports of section 3.38, so its cause is independent of Rank
+31's. The same method finds it (campaigns `5103`--`5108`).
+
+`search_ticks` against Kissat at matched conflict counts: exact at 1,000 /
+5,000 / 20,000 / 50,001 / 55,002 / 60,000 / 65,001 / 70,002 / 75,000, then
+$-695$ by 75,501 and a full trajectory split by 100,000. Tracing conflicts
+75,440--75,455 with the watch-list size logged beside every charge gives
+**two rows** out of 1,815:
+
+| conflict | literal | Kissat | Tactix | list size |
+|---:|---:|---:|---:|---:|
+| 75,452 | $-20584$ | 33 | **29** | 12 (both) |
+| 75,454 | $20587$ | 38 | **36** | 24 (both) |
+
+The **list sizes are identical**, so it is not `1 + cache_lines(n)` and not
+a missing propagation --- the sequence of propagated literals matches
+exactly. What differs is the per-entry charge inside the scan. In
+`proplit.h` a watch costs one extra tick per binary assignment and one per
+large-clause dereference, and a watch whose **blocking literal is already
+true is skipped before either** (`if (blocking_value > 0) continue;`).
+The assignments must match, because the trajectory does. So Tactix skips
+four more entries on a 12-word list, and two more on a 24-word list, than
+Kissat does: **its cached blocking literals are true where Kissat's are
+not.**
+
+That makes Rank 34 a different defect class from Rank 31 --- blocker
+choice and blocker update, not a missing propagation --- and it is the
+one worth taking next, because it is the largest single item left and
+because a blocker policy is general by construction. The reference sites
+are `kissat_push_blocking_watch` for the initial choice and the
+replacement-search branches of `proplit.h` for the update; the Tactix
+counterparts are `WatchLists::push_large` and the propagation engines.
+Conflict 75,452 with literal $-20584$ is an exact two-row reproducer.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
