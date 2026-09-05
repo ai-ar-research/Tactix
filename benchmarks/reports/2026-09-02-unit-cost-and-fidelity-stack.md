@@ -2705,6 +2705,36 @@ the remainder is the distributed cost of a layered C++ design against a
 macro-heavy monolith. Closing the named third is worth having and is general;
 it will not on its own reach 1 %.
 
+### 3.48 The first profile-driven repair, gated (2026-09-05)
+
+Section 3.47 named garbage collection as the sharpest ratio in the instruction
+profile: 3.30x Kissat's `kissat_sparse_collect`. Reading the collector against
+`collect.c:flush_watched_clauses_by_literal` finds why. Kissat tests the
+literal's fixedness and the collection mode **once per list**; Tactix's
+watch-flush predicate recomputed `kernel_root_value` once per **entry**, and
+performed a hash probe plus two further clause dereferences even for entries
+that the mode alone already condemned.
+
+Hoisting both out of the predicate, and ordering the surviving tests cheapest
+first, is behaviour-preserving by construction. Paired Rank 1--40, same
+window, instance-major (campaign `5148`):
+
+| | base | candidate | delta |
+|---|---:|---:|---:|
+| Rank 1--40 total | 8,395.1 s | 8,383.8 s | **-11.3 s (0.9987x)** |
+
+40/40 paired, **40 of 40 certificates byte identical**, no verdict mismatch ---
+which is the point: a repair that changes no trajectory anywhere is unit cost
+in its purest form, and the delta is the whole of it.
+
+Two things this fixes about how the remaining gap should be read. It is the
+first repair in this report derived from an instruction profile rather than a
+cycle profile, and it landed exactly where 3.47 predicted. And its size sets
+the scale honestly: the sharpest single ratio in the profile, fully closed, is
+worth eleven seconds. 3.47 already sized the named third of the excess at
+$0.274 \times 10^{12}$ of $0.791 \times 10^{12}$; this is what that third pays
+out at, one function at a time.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
