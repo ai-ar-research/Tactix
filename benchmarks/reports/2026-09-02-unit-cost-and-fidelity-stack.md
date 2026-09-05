@@ -2751,14 +2751,15 @@ The answer is almost exactly the same:
 | 31 | $+33.9$ | $+39.5$ |
 | 35 | $+184.0$ | $+183.3$ |
 | 37 | $-69.8$ | $-68.1$ |
-| **Rank 1--40 total** | **$+143.4$ s (1.0213x)** | $+170.8$ s |
+| 39 | $+13.2$ | --- |
+| **Rank 1--40 total** | **$+149.2$ s (1.0178x)** | $+170.8$ s |
 
 So the rewatch removal did not re-open the question, and the hypothesis that
-it might is dead. Every other rank stayed byte-identical: 33 of 37 pairs, and
-the four that moved are exactly the four the ports reach.
+it might is dead. Every other rank stayed byte-identical: 35 of 40 pairs, and
+the five that moved are exactly the ones the ports reach.
 
-**But the verdict is one instance.** Excluding Rank 35 the stack is
-$-40.6$ s. A headline decided by a single instance is not a verdict, so the
+**But the verdict is one instance.** Over the complete 40/40 set, excluding
+Rank 35 leaves $-34.8$ s. A headline decided by a single instance is not a verdict, so the
 ports are neither shipped nor discarded: they stay on
 `claude/rephase-entry-propagation` pending a Rank 35 study, and the
 behaviour-identical repairs were split out and gated on their own (campaign
