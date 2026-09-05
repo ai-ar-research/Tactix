@@ -2374,6 +2374,66 @@ is the parity ladder behaving as it did on Rank 31 --- one rung closed, the
 next one visible --- and not a reason to keep a rewatch Kissat does not
 perform.
 
+### 3.43 Rank 34's heap tie, traced back to conflict 26,914 (2026-09-05)
+
+Section 3.39 ended with Rank 34's first divergence identified as a tie
+between two score-0 variables in the stable heap at warm-up decision 30,
+and with the note that finding its origin "means tracing every heap
+operation rather than one decision". A signature over the heap's array
+does it in four campaigns (`5128`--`5133`).
+
+The instrument is an FNV-1a hash over the heap array, taken in **external**
+variable numbers so the two solvers' internal numbering cannot register as
+a difference, with a full dump available at one chosen conflict and a
+comparison that separates population from order. Sampled every hundred
+conflicts and then every conflict:
+
+| conflict | Kissat | Tactix |
+|---:|---|---|
+| 26,913 | 13,650 entries, identical order, identical scores | same |
+| 26,914 | 13,226 entries | 13,226 entries, **order differs at position 31** |
+
+Same population, same score for every variable, different arrangement --- so
+this is the arrangement difference of 3.39, forty-eight thousand conflicts
+before it decides anything. Both solvers are in focused mode throughout,
+where the heap is not read at all, which is why the trajectory stays
+identical: `search_ticks` is exact at 26,950 (74,207,827 on both) and still
+exact at 75,000.
+
+Between those two conflicts both deactivate **428 variables** --- 149
+root-fixed and 279 eliminated, the same set on both sides --- and a heap
+removal swaps the last element into the removed slot and sifts, so the
+removal ORDER decides the final array. Tracing every deactivation from both
+solvers, with the trail position of each root-fixed one, isolates it:
+
+```
+        kissat                    Tactix
+row 26  841  @ trail 23           841  @ trail 3815
+row 27  970  @ trail 24           693  @ trail 3816
+row 28  693  @ trail 25           653  @ trail 3817
+...
+row 32  844  @ trail 29           970  @ trail 3821
+row 33  22168 @ trail 30          22168 @ trail 3822
+```
+
+Kissat's trail offsets run 0,1,2,... because `kissat_flush_trail` clears the
+root trail; Tactix's run 3790,3791,... because it retains root identities, a
+documented deviation. What matters is that **both are gap-free and strictly
+increasing in emission order**, so each solver deactivates in its own trail
+order --- kissat inside `assign` at level zero (`inlineassign.h:36`), Tactix
+through `heuristics_consume_root_assignments`, and the two agree.
+
+So the deactivation path is not the defect. The units are **derived** in a
+different order: within one group of six, Kissat assigns 970 first and
+Tactix assigns it last, with 693, 653, 651, 618 and 844 identical in between
+and the variables on either side of the group identical too. Everything
+downstream --- the heap arrangement, the score-0 tie at warm-up decision 30,
+the 67 extra warm-up decisions, the 58 extra walk steps, the two relocated
+watches, and $+403.4$ s --- follows from where that one unit lands.
+
+The remaining question is which rule assigns 970, and why it runs before its
+five neighbours in Kissat and after them in Tactix.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

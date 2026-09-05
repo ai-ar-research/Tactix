@@ -6,6 +6,8 @@
 
 #include <algorithm> // std::max (rescale_scores)
 #include <cassert>
+#include <cstdio>
+#include <cstdlib>
 #include <type_traits>
 
 namespace tactix {
@@ -477,9 +479,37 @@ void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
 
 static void heap_remove(Kernel &k, Var v); // defined with the heap, below
 
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+// Diagnostic: the order variables leave the decision structures. Removing an
+// element from a binary heap swaps the last element into its slot and sifts,
+// so two solvers that deactivate the same set in a different order end with
+// different heap arrays and therefore break ties between equal scores
+// differently. Kissat's matching rows come from the `kissat-ticktrace`
+// variant's `flags.c`.
+static void heuristics_deact_trace(const Kernel &k, Var v) {
+  static std::FILE *file = [] {
+    const char *path = std::getenv("TACTIX_DEACT_TRACE");
+    return path && *path ? std::fopen(path, "w") : nullptr;
+  }();
+  if (!file)
+    return;
+  const bool fixed = kernel_root_value(k, make_lit(v, false)) != 0;
+  std::fprintf(file, "DEACT %llu %d elim=%d fixed=%d inheap=%d trail=%u\n",
+               static_cast<unsigned long long>(k.stats.conflicts),
+               std::abs(kernel_externalize(k, make_lit(v, false))),
+               static_cast<int>(kernel_var_retired(k, v)),
+               static_cast<int>(fixed),
+               static_cast<int>(heuristics_heap_contains(k, v)),
+               fixed ? k.assigned[v].trail : UINT32_MAX);
+}
+#endif
+
 void heuristics_deactivate_var(Kernel &k, Var v) {
   if (!k.h || v >= k.h->nvars)
     return;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+  heuristics_deact_trace(k, v);
+#endif
   // Several formula rules can report the same retirement before the policy
   // drains its event queue.  Kissat's active flag makes deactivation
   // idempotent; mirror that property here.  A second queue_dequeue would
