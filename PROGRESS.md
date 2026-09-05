@@ -477,6 +477,15 @@ resume surface.
   26,914 TO 1,100. Adding the live-value overlay on top did not reduce the
   over-capture. A core reconstructed from Tactix's own derivation DAG is NOT
   kitten's clausal core. Both reverted.
+  SCOPING NOTE FOR THE KITTEN CORE PORT, from reading `subsolver.cpp`:
+  `refute_empty` builds `target_ = {id, {}, chain_build(conflict)}`, and
+  `chain_build` returns the FLATTENED reason cone sorted by trail position
+  with the conflict appended last. That is NOT kitten's antecedent DAG --
+  kitten keeps per-klause antecedent lists and walks them transitively,
+  emitting post-order and marking each klause so it is visited once. So a DFS
+  from `target_.id` expands to the whole cone at depth 1, which is why the
+  reconstruction over-captured. A real port must walk `derived_[i].chain` as a
+  DAG and START FROM THE CONFLICT KLAUSE, not from the synthesised target.
   ALSO REFUTED: that 970 is a backbone-candidate result. Campaign `5141`
   traces every candidate from both solvers -- the first 15 are identical, both
   try -970, and the first 20 units either produces are the same list in the
