@@ -1896,6 +1896,80 @@ them in ordinary search and charges the 42 ticks, and Tactix has nothing
 to scan. That is the next thing to check, and the trace files in
 `5089/results/` name the exact literals to check it on.
 
+### 3.37 The tick defect is closed; closing it costs 90 s (2026-09-05)
+
+The 39 literals of section 3.36 are all at **level 0**, and Tactix
+propagates none of them anywhere in the window. They are root literals
+sitting between Kissat's propagation cursor and its trail end, and the
+site is exact: `kissat_rephase` opens with
+`kissat_backtrack_propagate_and_flush_trail` (`rephase.c:127`), which
+backtracks and then calls `kissat_search_propagate`. The backtrack rewinds
+the cursor to the surviving frame boundary (`backtrack.c:145`), so every
+root literal the trail kept above that boundary is scanned again and
+charged to `search_ticks`. Tactix's rephase entry did the backtrack and
+not the propagation.
+
+Porting it closes the defect exactly. Rank 31 `search_ticks`, Tactix
+against Kissat at matched conflict counts (campaign `5091`):
+
+| conflicts | before | after |
+|---:|---:|---:|
+| 44,747 | 0 | 0 |
+| 44,753 | $-42$ | **0** |
+| 44,802 | $-42$ | **0** |
+| 46,002 | $-42$ | **0** |
+| 48,001 | $-42$ | **0** |
+| 48,379 | $-8$ | $+34$ |
+
+Four checkpoints across 3,254 conflicts that used to drift by 42 now agree
+to the digit. (The residual at 48,379 is a separate defect in the opposite
+direction: Tactix over-charges 34 ticks between 48,001 and 48,379, which
+the old $-8$ was hiding as $42-34$.)
+
+**And the tier regresses.** Campaign `5092` (job 1665566), paired against
+the `baf3f9c` pin: **8,425.0 $\rightarrow$ 8,515.7 s, +90.7 s = 1.0108x**,
+40/40 expected verdicts. B28+C5 (`5093`) is 0.9978x and fuzz is 10,000/0
+on both legs, so this is a performance result, not a correctness one.
+
+The shape of the regression is the informative part. Thirty-seven of the
+forty ranks stay **byte-identical** --- the added propagation is inert
+wherever the trail kept nothing above the boundary, which is the faithful
+behaviour. Only three trajectories move, and they move the wrong way:
+Rank 35 $+63.9$, Rank 31 $+30.3$, Rank 24 $+3.8$. Rank 31 is the instance
+this repair was derived from, and matching Kissat's tick currency there
+made it worse, not better. Rank 34 did not change trajectory at all, so
+its $+403$ s has a different cause.
+
+This is kept and not reverted, on the standing rule that a regression on a
+faithful port is not evidence against the reference mechanism: the port is
+verified exact against the counter it exists to match, so what is missing
+is a mechanism coupled to it, not this one. It is also **not shipped** ---
+it lives on `claude/rephase-entry-propagation`, and `main` stays at the
+gated 8,388.0 s. Matching where the mode switch fires is not the same as
+matching the state it fires in, and `kissat_switch_search_mode` does four
+more things at that point (`saved_decisions`,
+`kissat_start_random_sequence`, and per direction
+`kissat_init_reluctant`/`kissat_update_scores` or
+`kissat_reset_search_of_queue`/`kissat_update_focused_restart_limit`).
+Auditing them against `DefaultPolicy` is the FIRST thing done, and they
+are all already there: `switchmode_apply` calls `heuristics_update_scores`
+on stable entry and `heuristics_reset_queue_search` on focused entry,
+`update_mode_limits` calls `update_restart_limit` on focused entry, and
+the switch site sets `saved_decisions`, resets the reluctant sequence and
+starts the random sequence. The orders differ but nothing reads what the
+other writes.
+
+What is left is the random sequence itself. Section 3.10's divergence is
+Kissat taking a random decision where Tactix takes a queue decision, and
+both arm that sequence at their own switch. Aligning WHERE the switch
+fires does not align WHICH decisions the sequence produces, because the
+two generators carry different state. On that reading, this repair moved
+three trajectories to new positions rather than to Kissat's, and three
+independent re-rolls all landing worse is unremarkable. The right test of
+this port is therefore not the tier but whether Rank 31's trajectory now
+tracks Kissat's, and the two-conflict reproducer of section 3.36 answers
+that directly.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
