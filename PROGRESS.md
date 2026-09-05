@@ -183,16 +183,23 @@ resume surface.
   a size-12 clause, both carrying 20584 as `lits[1]` with `lits[0]` as the
   blocker — the signature of a clause just RELOCATED ONTO this literal by a
   scan of some other literal that picked 20584 as its replacement.
-  So `c->searched` is the mechanism: it is the only input to the
-  replacement choice either solver carries across calls (the scan runs
-  `searched`..end then lits+2..`searched`, first non-negative value wins),
-  so with identical values a different cursor is the only way to reach a
-  different replacement. kissat resets it to 2 at every rewatch (`watch.c`,
-  `collect.c`, `dense.c`) and advances it to `r - lits` per relocation;
-  Tactix's collector carries `packed->searched = (dense_collection ||
-  retained_sparse_watch) ? c->searched : 2`. NEXT EXPERIMENT: dump
-  `searched` for those two clauses on both sides, which means finding them
-  BY CONTENT rather than by watched literal.
+  Dumping every clause containing 20584 BY CONTENT at 75,452 (`5111`):
+  both solvers hold 59, so the databases agree, and the size-14 clause is
+  in both — but kissat has `w0=19103 w1=20584` while Tactix has
+  `w0=-16866 w1=19103` with 20584 moved to the END of the literal array.
+  That rotation is exactly what a relocation writes (`lits[0] = other;
+  lits[1] = replacement; *r = not_lit`). TACTIX HAS ALREADY RELOCATED THE
+  CLAUSE OFF 20584; kissat has not. `searched` is 2 on both sides, so the
+  cursor is NOT the difference — that hypothesis is dead.
+  AND 20584's list was never search-scanned between 75,437 and 75,452 (no
+  trace row). A watch leaves a list only when that list is scanned, so the
+  relocation did not happen in SEARCH propagation. It happened in one of
+  the other propagation engines, which run under `inprocessing` and which
+  the trace deliberately excludes.
+  NEXT EXPERIMENT, different instrument: trace PROBING propagation over
+  conflicts 75,437-75,452 on both sides and find which engine moves those
+  two watches in Tactix and not in kissat. The per-rule timers say which
+  phases ran in that window.
   THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
   the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
   Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a
