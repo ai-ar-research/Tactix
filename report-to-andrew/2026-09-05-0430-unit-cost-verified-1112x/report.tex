@@ -137,6 +137,46 @@ finished: 500 proof checks and 560 model checks, every one exit code~0, with no
 instance whose verdict disagreed with its expected result. N2 holds for every
 commit landed, independently of the counter identity used to judge the repairs.
 
+\section{The tier gap and the implementation gap are different problems}
+
+Decomposing the Rank~1--40 total by rank, which should have happened far
+earlier, separates two things this project has discussed as one.
+
+\begin{center}
+\begin{tabular}{lrrrrr}
+\toprule
+rank & Tactix & Kissat & gap & share & conflicts T/K \\
+\midrule
+34 & 740.7~s & 344.0~s & $+396.6$ & 46.1\,\% & 1.97 \\
+31 & 673.3~s & 277.3~s & $+395.9$ & 46.1\,\% & 2.73 \\
+17 & 256.5~s & 121.8~s & $+134.7$ & 15.7\,\% & 1.16 \\
+all 40 & 8{,}535.2~s & 7{,}675.2~s & $+859.9$ & 100\,\% & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Two instances carry 92\,\% of the entire tier gap, and on both Tactix
+performs roughly twice Kissat's conflicts. That is search trajectory, not
+the same work taking longer, so no amount of unit-cost work reaches it.
+The other thirty-eight ranks net to $+67$~s between them.
+
+The $+427.9$~s of inprocessing gap is therefore a different target from
+the 1.112$\times$ headline. It is real, it is unit cost, and it is spread
+across every rank --- but closing the two trajectory instances alone would
+take the tier to roughly 1.009$\times$. Which of the two goals is being
+served should be decided before the next repair is chosen.
+
+One explanation for those two ranks was raised and refuted the same night.
+Rank~17 learns clauses at glue 26.76 against Kissat's 15.05, and Kissat
+spends 11\,\% of Rank~21 shrinking clauses, so weaker learned-clause
+quality would inflate propagations and conflicts together. Measuring the
+ranks that actually carry the gap kills it: quality is matched on
+Ranks~21, 22 and 34, and on Rank~31 Tactix's clauses are \emph{better}
+than Kissat's (39.14 literals at glue 23.15 against 47.52 and 26.63).
+Rank~17 is an isolated instance. Kissat prints no average learned size, so
+this needed instrumenting \code{kissat\_update\_learned}, with its verdict
+and \code{clauses\_learned} checked against the pristine build first.
+
 \section{Where this leaves the work}
 
 The 428~s is diffuse. Within each rule the rule's own code is a minority of its
