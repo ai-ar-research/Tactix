@@ -1744,6 +1744,48 @@ the noise is how a tuned constant enters. The one part kept is the
 `note_binary_add` key hoist, which computed `kernel_binary_key` twice for
 the same pair: strictly less work with no representation choice attached.
 
+### 3.35 Rank 31's tick shortfall is 8, not 42 (2026-09-05)
+
+Section 3.10 pinned Rank 31's whole 2.73x conflict divergence to a
+42-search-tick shortfall between conflicts 44,748 and 44,770, measured by
+stopping both solvers at the same conflict count. Probe `5086` (job
+1665433) repeats that measurement with a `TACTIX_ENABLE_CONFLICT_STOP`
+build that also prints the ticks `kernel_charge_ticks` withholds under
+`inprocessing`/`warming`, and it prints Kissat's OWN conflict counter
+beside each checkpoint rather than trusting the limit:
+
+| stop at | Tactix search | Tactix withheld | Kissat search | Kissat's actual conflicts |
+|---|---:|---:|---:|---:|
+| 44,747 | 555,591,147 | 106,878,981 | 555,591,147 | 44,747 |
+| 44,748 | 555,591,498 | 106,878,981 | 555,591,501 | **44,751** |
+| 44,770 | 556,107,446 | 107,342,736 | 556,107,488 | **44,771** |
+| 48,379 | 573,182,502 | 107,342,736 | 573,182,510 | 48,379 |
+
+Two things change.
+
+**`--conflicts=N` does not stop Kissat at N.** At 44,748 it stops at
+44,751 and at 44,770 at 44,771. The "3 ticks at 44,748" and "42 by
+44,770" of section 3.10 compare Tactix at N against Kissat at N+3 and
+N+1, so most of both numbers is Kissat's overshoot, not a shortfall. At
+the two checkpoints where both solvers really stop at the same conflict,
+the difference is **0 at 44,747 and 8 at 48,379**. The shortfall over
+that whole 3,632-conflict span is eight ticks. Any future comparison must
+read Kissat's `conflicts:` counter, not the limit it was given.
+
+**The withheld ticks are not the cause.** `suppressed_search_ticks` is
+identical at 44,747 and 44,748 (106,878,981), so `inprocessing`/`warming`
+withheld nothing across the conflict where the divergence was said to
+start; the whole 463,755 it accrues by 44,770 belongs to a Probe pipeline
+that Kissat also excludes from `search_ticks`. Tactix does not
+mis-attribute the charge — it charges eight fewer over the span.
+
+Whether eight ticks can move a tick-driven mode switch seven decision
+levels is now the open question, and it is a different question from the
+one section 3.10 left. Answer it before spending anything on Rank 31: an
+8-tick difference on 573 M is 1.4e-8, and if the switch is that
+sensitive, the switch's own predicate is the parity defect rather than
+the accounting.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
