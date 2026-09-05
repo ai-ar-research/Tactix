@@ -1848,6 +1848,54 @@ both derive the stable budget from the previous focused mode's duration.
 
 
 
+### 3.36 Rank 31's 42 ticks are 39 named literals in one conflict (2026-09-05)
+
+Campaign `5089` (job 1665563) traces every literal the SEARCH propagator
+scans, with the ticks that scan charged, from both solvers over conflicts
+44,747--44,753 of Rank 31. Kissat's side comes from a
+`tools/solvers/variants/kissat-ticktrace` build that patches only
+`search_propagate`; it was checked against the pristine binary first and
+agrees on the verdict, on 44,753 conflicts, and on `search_ticks`
+556,082,922 to the digit.
+
+Per conflict, literals scanned and ticks charged:
+
+| conflict | Kissat lits | Kissat ticks | Tactix lits | Tactix ticks |
+|---:|---:|---:|---:|---:|
+| 44,747 | 13 | 77 | 13 | 77 |
+| 44,748 | 3 | 31 | 3 | 31 |
+| 44,749 | 15 | 70 | 15 | 70 |
+| 44,750 | 9 | 66 | 9 | 66 |
+| **44,751** | **128,053** | **491,527** | **128,014** | **491,485** |
+| 44,752 | 1 | 5 | 1 | 5 |
+| 44,753 | 2 | 10 | 2 | 10 |
+
+Every conflict but one matches exactly. Conflict 44,751 --- the one that
+carries `[rephase-7]`'s walk --- has Kissat scanning **39 more literals**
+for **exactly the 42 ticks**. The diff of the two 128,000-row sequences is
+39 deletions and **zero insertions**: Tactix's sequence is a strict
+subsequence, and the 39 form one contiguous block at rows 49--87, after
+which 128,000 rows match again. Thirty-eight of them charge one tick, so
+their watch lists are empty; one charges four.
+
+The 39 are named (external $-175087$, $-175082$, $-174967$, $-174962$,
+$\ldots$ down to $-173330$), and Tactix propagates **none of them anywhere
+in the window**. So this is not a cursor that re-scans: those literals are
+on Kissat's trail between its cursor and the trail end, and are not on
+Tactix's trail at all. That also rules out the post-backtrack cursor
+candidate of section 3.35 independently of its sign.
+
+What remains is the warm-up boundary. Both solvers warm up before the walk
+with a propagator that deliberately charges `ticks` and not `search_ticks`
+(`propbeyond.c`; `Kernel::warming`), then backtrack to level 0, which keeps
+every literal whose true level is 0. If Kissat's warm-up leaves 39 level-0
+implications on the trail where Tactix's does not --- because the two
+assign warm-up implications at different levels, or because Tactix's
+`kernel_backtrack` unassigns what Kissat keeps --- then Kissat re-scans
+them in ordinary search and charges the 42 ticks, and Tactix has nothing
+to scan. That is the next thing to check, and the trace files in
+`5089/results/` name the exact literals to check it on.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
