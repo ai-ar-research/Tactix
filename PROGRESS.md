@@ -346,10 +346,25 @@ resume surface.
   six, kissat assigns variable 970 FIRST and Tactix assigns it LAST, with
   693, 653, 651, 618, 844 identical in between and the neighbours on both
   sides identical.
-  NEXT: which rule assigns 970 at conflict 26,913, and why it runs before
-  its five neighbours in kissat and after them in Tactix. The instruments
-  are in the tree (TACTIX_HEAP_HASH_EVERY / _DUMP_AT / _DEACT_TRACE and the
-  kissat-ticktrace equivalents).
+  AND THE RULE IS SWEEP'S CORE WALK (campaigns `5134`, `5135`). Labelling
+  each deactivation with kissat's innermost profile and the reason string of
+  its `kissat_assign_unit`: 279 eliminations under `substitute`, all 149
+  root units under sweep/transitive/backbone/vivify, and the whole divergent
+  run -- 970 and its five neighbours -- under
+  `phase=sweep why=sweeping backbone reason`, i.e. `sweep.c:407`.
+  KISSAT REDUCES EACH KITTEN-CORE LEMMA AGAINST THE LIVE ROOT ASSIGNMENT AND
+  ASSIGNS A RESULTING UNIT IMMEDIATELY, so every later lemma in the same walk
+  sees it. Tactix's `sweep_capture_core_units`
+  (src/rules/sweep/sweep.cpp:776) walks the same lemmas against the
+  assignment as it stood on ENTRY and collects units into
+  `SweepRound::units` for a later commit, because each captured unit carries
+  the derivation prefix that proves it.
+  NEXT: commit each Sweep core unit at the point kissat does. The LRAT
+  obligation is the reason for the current batching, so the increment is
+  "assign immediately AND keep the per-unit derivation prefix", not "drop the
+  prefix". Instruments are in the tree (TACTIX_HEAP_HASH_EVERY / _DUMP_AT /
+  TACTIX_DEACT_TRACE and the kissat-ticktrace equivalents, which also carry
+  phase= and why= labels).
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
