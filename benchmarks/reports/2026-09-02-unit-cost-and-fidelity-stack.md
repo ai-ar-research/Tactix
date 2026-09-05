@@ -1160,12 +1160,44 @@ which at these totals is 52 s against 28 s. That is where the remaining
 BVE and Strengthen gap sits, and it is per-visit cost in shared machinery
 rather than a defect in either rule.
 
-Two structural items remain, both larger than any single repair landed
-today. During Sweep, Tactix maintains the sparse watch lists and the
-dense occurrence index together, where kissat's sweep has only the dense
-one; removing that duplication needs a dense propagation path Tactix does
-not have. And Rank 31 runs 2.7x kissat's conflicts, which is search
-trajectory rather than implementation and is not addressed here.
+The paired profile also refutes a claim made earlier in this report. That
+during dense-mode rules Tactix maintains the sparse watch lists as well
+as the dense index, where kissat's dense mode replaces the watches, was
+offered as the largest remaining architectural gap. On Rank 21
+`kernel_unwatch_large` and its compaction together are 0.05 % of the run,
+while kissat spends about 7 % in `kissat_watch_large_clauses`,
+`kissat_flush_large_watches`, `flush_watched_clauses_by_literal` and
+`kissat_push_blocking_watch`. Tactix's watch maintenance is cheaper, not
+more expensive. The 2.79 % that symbol carries on Rank 22 comes from that
+instance's very heavy Sweep substitution, not from a general duplication.
+
+Rank 21's rule-by-rule accounting locates the gap instead. Against
+kissat's 95.7 s Tactix takes 133.2 s, and BVE alone is 35.6 s against
+20.7 s, sixty per cent of the whole rule gap on the rank:
+
+| rule | Tactix | kissat | gap |
+|---|---:|---:|---:|
+| BVE / eliminate | 35.56 s | 20.70 s | +14.86 |
+| Strengthen / subsume | 4.91 s | 1.39 s | +3.52 |
+| Factor | 6.25 s | 3.06 s | +3.19 |
+| Substitute | 7.50 s | 5.38 s | +2.12 |
+| Vivify | 4.58 s | 3.24 s | +1.34 |
+| Sweep | 3.63 s | 2.75 s | +0.88 |
+| Congruence | 8.28 s | 8.40 s | -0.12 |
+| TransitiveReduce | 0.34 s | 1.33 s | -0.99 |
+
+Inside BVE the embedded solver matches kissat's kitten to within the
+sampling error, 2.3 s against 2.3 s for solving and 2.2 s against 2.2 s
+for clause loading. The excess is host-side: the definition check builds
+its compact variable map in a separate pre-pass over every literal of
+every clause on both sides, then traverses them again to export, where
+kissat imports variables inside its single export pass. Two traversals
+means two sets of random accesses into the variable map. Merging them
+needs the variable count before the sub-solver is sized, which the
+compact identity mode requires up front, so it is not a local change.
+
+One earlier structural item stands: Rank 31 runs 2.7x kissat's conflicts,
+which is search trajectory rather than implementation.
 
 ## 4. Decision
 
