@@ -956,7 +956,7 @@ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
     // is a defragmentation checkpoint.  Large Vivify rewrites stay in place
     // there and specialized binary constructors in other rules are not
     // consumers of this checkpoint.
-    k.watches.defrag_if_needed();
+    kernel_defrag_vectors(k);
     return ApplyResult::Ok;
   case ReplaceOutcome::Large:
     assert(false);

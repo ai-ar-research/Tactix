@@ -623,6 +623,11 @@ struct Stats {
   uint64_t conflict_watch_repaired = 0; // ... of those, needing watch repair
   uint64_t binprop_scans = 0;
   uint64_t binprop_ordered = 0;
+  // Dense occurrence arena: slices moved to the arena tail because a push
+  // outgrew their capacity, and defragmentations that reclaimed the abandoned
+  // images. Both are reachability readouts for the arena's growth policy.
+  uint64_t dense_slice_moves = 0;
+  uint64_t dense_defrags = 0;
   uint64_t binprop_flagged = 0;
   uint64_t binprop_words = 0;
   uint64_t binprop_skipped = 0;
@@ -933,6 +938,9 @@ struct Kernel {
   const std::vector<uint8_t> *dense_bulk_cleared = nullptr;
   // Reusable marks for the above; never sized per call.
   std::vector<uint8_t> dense_bulk_scratch;
+  // Collection's survivor list. Kernel-owned so a collection does not
+  // reallocate one clause-sized vector per call.
+  std::vector<Ref> collect_order_scratch;
   // Scratch capacity for delayed large-watch relocations.  `delayed_used`,
   // not vector::size(), is the live stack length: propagation grows this
   // backing store once per largest watch list and writes triples directly,
@@ -1874,6 +1882,13 @@ uint64_t kernel_conflict_reason_walk(
 // whole-arena rebuild; a nonzero watermark implies it for compatibility.
 // `preserve_eager_recent` is reserved for Tactix-only reclamation passes whose
 // reference Kissat operation does not collect the arena at all.
+// Kissat's defragmentation checkpoint covers the whole `vectors` stack, which
+// holds the sparse watches AND every dense occurrence list. Tactix keeps those
+// in three arenas, so a checkpoint inspects all three (collect.h: only after
+// creating a clause, only above 2^18 words, only when the stack is more than
+// 75 % unusable). Every slice reference dies here.
+void kernel_defrag_vectors(Kernel &);
+
 void kernel_collect_garbage(Kernel &, Ref watch_start = 0,
                             bool sparse_collection = false,
                             bool preserve_eager_recent = false);
