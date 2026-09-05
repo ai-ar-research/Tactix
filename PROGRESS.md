@@ -385,10 +385,28 @@ resume surface.
   unit lemmas -10839, -12880, -12488, -14838, -14432, -14548 each appear ONCE
   in kissat's stream and TWICE in Tactix's. Literal order inside a lemma
   differs too (kissat `-564 -563 -971` vs Tactix `-563 -564 -971`).
-  NEXT: kissat's `save_core` drops an extracted clause that is not learned and
-  has more than one non-false literal (`sweep.c:333-337`), and saves each core
-  once per direction. Port that filter and the per-direction save, then re-run
-  campaign `5133`'s deactivation trace to confirm 970 moves back to trail 24.
+  AND THE REASON IS STRUCTURAL, NOT A MISSING FILTER. kissat's stream is
+  KITTEN'S CLAUSAL CORE: `save_core` runs `kitten_compute_clausal_core` then
+  `kitten_traverse_core_clauses` (`sweep.c:424-431`), and the callback gets
+  each core clause with a `learned` flag, drops one satisfied at root, and
+  drops an ORIGINAL clause with more than one non-false literal
+  (`sweep.c:333-337`). Tactix's stream is `SubSolver::derivation` — a
+  resolution derivation in derivation order, pruned to what the target
+  depends on. Different sets, different size, different order.
+  The control flow already agrees: kissat's backbone path is
+  `save_add_clear_core` (one core per successful candidate) and its
+  equivalence path is save_core(0)/save_core(1) then
+  add_core(0);add_binary;clear_core(0);add_core(1);add_binary;clear_core(1)
+  (`sweep.c:458-462, 1236-1247`) — the shape Tactix's three
+  `sweep_capture_core_units` call sites already have.
+  NEXT: capture units from the CLAUSAL CORE, in kitten's traversal order and
+  with its `learned` tag, and keep the resolution derivation for the LRAT
+  obligation it exists to serve. `SubDerivation` already carries `core` (the
+  ascending ids of the original clauses used) and
+  `SubSolver::shrink_to_clausal_core` already exists; what is missing is the
+  ordered traversal yielding original and learned core clauses together.
+  Then re-run campaign `5133`'s deactivation trace to confirm 970 moves back
+  to trail 24.
   Instruments are all in the tree: TACTIX_HEAP_HASH_EVERY / _DUMP_AT,
   TACTIX_DEACT_TRACE, TACTIX_CORE_TRACE and the kissat-ticktrace equivalents
   (whose deactivation rows also carry phase= and why= labels).
