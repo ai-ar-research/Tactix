@@ -2883,10 +2883,24 @@ inside a thousand conflicts:
 | 34,003 | 867,163,313 | 867,129,603 | $-33{,}710$ |
 
 **Exact at 32,003, parted by 33,000**, and oscillating thereafter, which is
-what a trajectory split looks like once it has happened. That is a tenfold
-narrowing of 3.51's window and the same position Rank 17 and Rank 34 were in
-before their per-literal traces reduced them to one row out of 260,577 and one
-conflict respectively.
+what a trajectory split looks like once it has happened.
+
+Two further bisections (campaigns `5157`, `5158`) close it to a window a
+per-literal trace can read directly:
+
+| conflicts | Kissat | ported | delta |
+|---:|---:|---:|---:|
+| 32,031 | 859,977,505 | 859,977,505 | $+0$ |
+| 32,062 | 859,995,518 | 859,995,518 | $+0$ |
+| 32,090 | 860,357,716 | 860,357,638 | $-78$ |
+| 32,200 | 862,898,484 | 862,482,065 | $-416{,}419$ |
+
+**Exact at conflict 32,062 and 78 ticks out by 32,090.** A 28-conflict window
+carrying a 78-tick difference is one or two watch scans, not a trajectory
+difference --- the same scale at which Rank 17 resolved to a single row out of
+260,577. The original span was 30,000 conflicts, so this is a 1,000-fold
+narrowing, and campaign `5160` traces exactly this window with the list length
+sampled before each scan.
 
 ### 3.52 The four unit-cost repairs, gated (2026-09-05)
 
