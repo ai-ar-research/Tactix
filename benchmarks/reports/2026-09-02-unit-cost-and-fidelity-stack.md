@@ -2139,32 +2139,34 @@ window's warm-up:
 | Tactix | 3 | 1,286 (**+687**) | 41,325 (+13,040) |
 
 **The propagations match exactly and the decisions do not.** Tactix makes
-sixty-seven more warm-up decisions than Kissat and derives nothing from
-any of them. The warm-up loop is `while (unassigned) { decide; propagate
-beyond conflicts; }` on both sides, so the same propagation count with
-more decisions means Tactix's loop condition stays true after Kissat's
-has gone false: **Tactix believes sixty-seven more variables are live and
-unassigned than Kissat does.**
+sixty-seven more warm-up decisions than Kissat.
 
-Kissat counts `solver->unassigned` and decrements it for a retired
-identity in `kissat_mark_eliminated_variable`; Tactix keeps the identity
-addressable and tracks the live population separately in
-`unassigned_active`, which is what its warm-up loop reads. Those two
-should agree and here they differ by sixty-seven.
+The first reading of that was "Tactix believes sixty-seven more variables
+are live", i.e. a stale `unassigned_active`. **The arithmetic refutes it.**
+The warm-up loop is `while (unassigned) { decide; propagate beyond
+conflicts; }`, so a larger live set means more assignments and therefore
+more propagations --- and both solvers propagate exactly 13,040. The live
+populations are the same size. Kissat's own counters agree: 22,202
+activated, less 891 eliminated and 4,312 substituted (both go through
+`kissat_mark_eliminated_variable`) and 3,959 units, leaves 13,040.
 
-That is the whole causal chain for Rank 34, and every link is measured:
-sixty-seven phantom live variables give the warm-up sixty-seven extra
-decisions, the extra decisions change the assignment the walker imports,
-the walk runs fifty-eight steps further, its warm-up relocates two watches
-Kissat leaves in place, the next scan of literal 20584 charges four ticks
-fewer, and the trajectories separate for good by conflict 100,000 --- for
-$+403.4$ s. **The defect is an accounting one, it is general, and it is
-not specific to this instance:** any instance whose warm-up runs with a
-stale live-variable count gets a different walker input.
+What differs is the **split** between decisions and implications: Kissat
+reaches those 13,040 assignments with 620 decisions and 12,420
+implications, Tactix with 687 and 12,353. Same variables, different
+order, and Tactix's order yields fewer implications per decision.
 
-The next step is to name the sixty-seven: which variables Tactix counts in
-`unassigned_active` that Kissat has already removed from `unassigned`, and
-which retirement path failed to decrement.
+So Rank 34's first divergence is the **warm-up's decision order** --- the
+branching state (`bp.pick` against `kissat_decide` under warm-up
+conditions: queue/heap pose and saved phases) --- and every downstream
+link is measured from there: a different order changes the assignment the
+walker imports, the walk runs fifty-eight steps further, two watches are
+relocated that Kissat leaves in place, the next scan of literal 20584
+charges four ticks fewer, and the trajectories separate for good by
+conflict 100,000, for $+403.4$ s.
+
+The next step is to compare the first differing warm-up decision, which
+the same trace machinery can produce: both solvers, this warm-up, the
+sequence of decided literals.
 
 
 

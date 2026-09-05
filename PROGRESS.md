@@ -215,25 +215,26 @@ resume surface.
   propagations. Across the window's warm-up:
     kissat  3 warmups, 1,219 decisions (+620), 41,325 propagations
     tactix  3 warmups, 1,286 decisions (+687), 41,325 propagations
-  The PROPAGATIONS MATCH EXACTLY and the DECISIONS DO NOT. Tactix makes 67
-  more warm-up decisions and derives nothing from any of them. The loop is
-  `while (unassigned) { decide; propagate beyond conflicts; }` on both
-  sides, so same propagations + more decisions means Tactix's condition
-  stays true after kissat's goes false: **Tactix believes 67 more
-  variables are live and unassigned**. kissat counts `solver->unassigned`
-  and decrements it in `kissat_mark_eliminated_variable`; Tactix keeps the
-  identity addressable and reads `unassigned_active`. Those two must agree
-  and here they differ by 67.
-  THE WHOLE CHAIN, every link measured: 67 phantom live variables -> 67
-  extra warm-up decisions -> different assignment imported by the walker ->
-  walk runs 58 steps further -> its warm-up relocates two watches kissat
-  leaves -> the next scan of literal 20584 charges 4 ticks fewer ->
-  trajectories separate by conflict 100,000 -> +403.4 s. The defect is an
-  ACCOUNTING one and it is general: any instance whose warm-up runs with a
-  stale live-variable count gets a different walker input.
-  NEXT: name the 67 — which variables Tactix counts in `unassigned_active`
-  that kissat has removed from `unassigned`, and which retirement path
-  failed to decrement.
+  The PROPAGATIONS MATCH EXACTLY and the DECISIONS DO NOT: 67 more in
+  Tactix. The first reading of that was "Tactix believes 67 more variables
+  are live" (a stale `unassigned_active`). THE ARITHMETIC REFUTES IT: the
+  loop is `while (unassigned) { decide; propagate }`, so a larger live set
+  means more assignments and more propagations, and both propagate exactly
+  13,040. kissat's own counters agree — 22,202 activated, less 891
+  eliminated and 4,312 substituted (both go through
+  `kissat_mark_eliminated_variable`) and 3,959 units, leaves 13,040.
+  What differs is the SPLIT: kissat reaches those 13,040 assignments with
+  620 decisions and 12,420 implications, Tactix with 687 and 12,353. Same
+  variables, different ORDER, fewer implications per decision.
+  So Rank 34's first divergence is the WARM-UP'S DECISION ORDER — the
+  branching state (`bp.pick` vs `kissat_decide` under warm-up conditions:
+  queue/heap pose and saved phases). Downstream, all measured: different
+  order -> different assignment imported by the walker -> walk runs 58
+  steps further -> two watches relocated that kissat leaves -> 4 ticks
+  fewer on the next scan of 20584 -> separation by conflict 100,000 ->
+  +403.4 s.
+  NEXT: the first differing warm-up decision. The same trace machinery can
+  emit the decided-literal sequence from both solvers for this warm-up.
   THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
   the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
   Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a
