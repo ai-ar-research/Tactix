@@ -8,15 +8,25 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-05, twelfth wrap). Goal in force (user, tightened
+- RESUME HERE (2026-09-05, thirteenth wrap). Goal in force (user, tightened
   mid-session): close every IMPLEMENTATION gap (same work, more time) AND
   reach <= 1.01x kissat on Rank 1-40, safely rather than by noise, with
   B28+C5 as the regression gate and no benchmark-specific fix. Do not stop
   at 1.01x; stop when the implementation gap is merged.
-  Kissat `1930` is 7,675.1 s. Standing: paired gate `5084` 40/40 at
-  **8,388.0 s = 1.0929x** (the old 1.10 bar is met; the 1.01 bar needs
-  7,751.9 s, i.e. **-636 s more**), B28+C5 `5085` 1.0028x paired, fuzz
-  10,000/0 on both legs of every pushed pin. Every gate this session ran
+  Kissat `1930` is 7,675.1 s. Standing: paired gate `5125` 40/40 at
+  **8,393.1 s = 1.0935x** (base arm in the same window 8,420.7 s, so the
+  shipped delta is -27.6 s at 0.9967x; the 1.01 bar needs 7,751.9 s, i.e.
+  **about -640 s more**), B28+C5 `5126` PAR-2 1.0022 paired with 33 solves
+  and 17+16 checked certificates per arm, fuzz 10,000/0 on both legs of
+  every earlier pushed pin. GOAL NOT MET.
+  THIS WRAP SHIPPED ONE GAP AND NAMED THE BIGGEST REMAINING ONE. Shipped:
+  the probe pipeline no longer rewatches large watches (kissat has no
+  pipeline-level rewatch; only `eliminate.c:587-589` wraps a round), -27.6 s
+  with 38 of 40 certificates byte-identical. Named: Rank 34 (+403 s) runs
+  from a score-heap ARRAY divergence at conflict 26,914 back to the order
+  Sweep's Kitten-core walk derives root units, and the next increment is
+  kissat's `save_core` filter (`sweep.c:333-337`) — see the Rank 34 block
+  below. Every gate this session ran
   base and candidate as two arms of one array and every rank came back
   byte-identical, so each delta is unit cost at an unchanged trajectory.
   Evidence:
@@ -382,6 +392,10 @@ resume surface.
   Instruments are all in the tree: TACTIX_HEAP_HASH_EVERY / _DUMP_AT,
   TACTIX_DEACT_TRACE, TACTIX_CORE_TRACE and the kissat-ticktrace equivalents
   (whose deactivation rows also carry phase= and why= labels).
+
+  IN FLIGHT (do not wait on these): campaign `5125`'s remaining DRAT checks
+  and two of `5126`'s. Both suites already reported their solver outcomes
+  and neither showed a regression; the checks only confirm certificates.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
