@@ -172,20 +172,24 @@ resume surface.
   100,000. Two rows out of 1,815 differ: conflict 75,452 literal -20584
   costs kissat 33 and Tactix 29; 75,454 literal 20587 costs 38 against 36.
   The propagated-literal sequence is identical throughout.
-  Dumping the list AS THE SCAN FINDS IT: on literal 20584 at conflict
-  75,452 kissat enters with **20** large watches and relocates 14 during
-  the scan; Tactix enters with **6** and relocates none. Both end at 12
-  words. Tactix's six are a strict subsequence of kissat's twenty, in
-  order (kissat's 1, 2, 7, 13, 16, 17). So the same clauses are watched on
-  different literals: kissat still carries 14 large watches here that
-  Tactix has already moved. Trace that drift BACKWARDS from 75,452.
-  A FALSE START WORTH KNOWING: the first reading of this said the list
-  sizes were identical and sent the investigation after blocking literals.
-  The length was sampled AFTER the scan, which moves and drops watches, so
-  both solvers reported 12 because both END at 12. The instrument now
-  samples before the scan on both sides. Blocker choice is NOT the defect;
-  the propagation update and the dense-exit rewatch were both checked and
-  match anyway.
+  Following literal -20584 across the WHOLE run with both sides dumping
+  before the scan (`5110`): it is propagated 8,120 times before conflict
+  75,452 and the large-watch count its scan faces is IDENTICAL every time.
+  At 75,452 kissat has 20 and Tactix 18. Those two entries are exactly the
+  four ticks — one dereference plus one relocation each. Both lists end the
+  scan at 12 words, which is what post-scan sampling saw.
+  So the drift appears inside the FIFTEEN conflicts between 75,437 and
+  75,452: something there puts two large clauses on literal 20584's list in
+  kissat and not in Tactix. Learned clauses are watched in that window, so
+  compare the two watched literals chosen for a learned clause first, and a
+  relocation target second.
+  THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
+  the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
+  Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a
+  sixth of kissat's watches". Only with both sides dumping before the scan
+  does 20 vs 18 appear. A diagnostic that straddles the operation it
+  measures gives a confident number either way — check which side of the
+  operation every field is read on.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,

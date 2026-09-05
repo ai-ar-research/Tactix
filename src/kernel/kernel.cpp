@@ -1797,10 +1797,23 @@ static bool kernel_tick_trace_window(const Kernel &k) {
          k.stats.conflicts <= hi;
 }
 
+static int kernel_tick_trace_dump_lit() {
+  static int dump_lit = [] {
+    const char *v = std::getenv("TACTIX_TICK_DUMP_LIT");
+    return v ? std::atoi(v) : 0;
+  }();
+  return dump_lit;
+}
+
 static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks,
                               uint32_t list_size) {
   FILE *const file = kernel_tick_trace_file();
   if (!file || !kernel_tick_trace_window(k))
+    return;
+  // With one literal selected the trace follows only that literal, so a
+  // window may span the whole run.
+  const int dump_lit = kernel_tick_trace_dump_lit();
+  if (dump_lit && kernel_externalize(k, lit) != dump_lit)
     return;
   std::fprintf(file, "%llu %d %llu sz=%u\n",
                static_cast<unsigned long long>(k.stats.conflicts),
@@ -1810,10 +1823,7 @@ static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks,
 
 // One literal's whole list, as the scan is about to see it.
 static void kernel_tick_trace_dump(const Kernel &k, Lit lit) {
-  static int dump_lit = [] {
-    const char *v = std::getenv("TACTIX_TICK_DUMP_LIT");
-    return v ? std::atoi(v) : 0;
-  }();
+  const int dump_lit = kernel_tick_trace_dump_lit();
   if (!dump_lit || kernel_externalize(k, lit) != dump_lit)
     return;
   FILE *const file = kernel_tick_trace_file();

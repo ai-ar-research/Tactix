@@ -2033,34 +2033,40 @@ the scan, and a scan moves and drops watches, so it described a different
 list than the one that was charged. Both solvers reported twelve because
 both END at twelve, not because both started there.
 
-Dumping the list as the scan finds it gives the real state at conflict
-75,452 on literal 20584:
+Dumping the list *as the scan finds it*, on both sides, and following that
+literal across the whole run (campaign `5110`) gives the real answer.
+Literal $-20584$ is propagated **8,120 times** before conflict 75,452, and
+the number of large watches its scan faces is **identical on every one of
+them**. At conflict 75,452 it is not:
 
-| | large watches entering the scan | words after it |
-|---|---:|---:|
-| Kissat | **20** | 12 |
-| Tactix | **6** | 12 |
+| conflict | Kissat large watches | Tactix | ticks |
+|---:|---:|---:|---|
+| 75,407 | 15 | 15 | 14 / 14 |
+| 75,411 | 11 | 11 | 6 / 6 |
+| 75,437 | 18 | 18 | 25 / 25 |
+| **75,452** | **20** | **18** | **33 / 29** |
 
-Kissat enters with twenty large watches on that literal and relocates
-fourteen of them during the scan; Tactix enters with six and relocates
-none. Tactix's six are a strict subsequence of Kissat's twenty, in order
---- Kissat's entries 1, 2, 7, 13, 16 and 17.
+Kissat's list carries **two** large watches Tactix's does not, and those
+two cost exactly the four ticks: each is one dereference plus one
+relocation. Both lists then end the scan at twelve words, which is what the
+post-scan sampling saw.
 
-So Rank 34's first divergence is **watch placement**. With an identical
-clause database and an identical trajectory, the same clauses are watched
-on different literals: Kissat is still carrying fourteen large watches
-here that Tactix has already moved elsewhere. The tick difference follows,
-because each of those costs Kissat a dereference and a relocation tick
-that Tactix paid at some earlier point instead.
+So Rank 34's first divergence is **watch placement**, and it appears inside
+the fifteen conflicts between 75,437 and 75,452: with an identical clause
+database and an identical trajectory, something in that window puts two
+large clauses on literal 20584's list in Kissat and not in Tactix. Learned
+clauses are watched in that window, so the two watched literals chosen for
+a learned clause is the first thing to compare; a relocation target is the
+second.
 
-That is a different defect class from Rank 31 --- accumulated watch
-placement, not a missing propagation --- and it is the one worth taking
-next, because it is the largest single item left and a watch-movement
-policy is general by construction. Note that "Tactix has already moved
-more watches" is not obviously the worse state; what matters is that the
-two databases have drifted apart, and the drift is what has to be traced
-backwards from conflict 75,452. Conflict 75,452 on literal $-20584$ is an
-exact reproducer, and the dumps are in `5109/results/`.
+**Two readings of this were wrong before this one, in the same way.** The
+first sampled the list length after the scan and reported 12 against 12,
+which said the lists were identical and sent the investigation at blocking
+literals. The second dumped Kissat's list before its scan and Tactix's
+after, and reported 20 against 6, which said Tactix held a sixth of
+Kissat's watches. Only when both sides dump before the scan does the
+answer, 20 against 18, appear. A diagnostic that straddles the operation it
+is measuring will produce a confident number either way.
 
 The instrument is fixed on both sides: the list length is now sampled
 before the scan. The failure is worth naming because the two readings
