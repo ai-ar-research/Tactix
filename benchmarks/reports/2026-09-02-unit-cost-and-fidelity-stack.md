@@ -1765,13 +1765,28 @@ beside each checkpoint rather than trusting the limit:
 Two things change.
 
 **`--conflicts=N` does not stop Kissat at N.** At 44,748 it stops at
-44,751 and at 44,770 at 44,771. The "3 ticks at 44,748" and "42 by
-44,770" of section 3.10 compare Tactix at N against Kissat at N+3 and
-N+1, so most of both numbers is Kissat's overshoot, not a shortfall. At
-the two checkpoints where both solvers really stop at the same conflict,
-the difference is **0 at 44,747 and 8 at 48,379**. The shortfall over
-that whole 3,632-conflict span is eight ticks. Any future comparison must
-read Kissat's `conflicts:` counter, not the limit it was given.
+44,751 and at 44,770 at 44,771. Any comparison must therefore read
+Kissat's own `conflicts:` counter and stop Tactix at THAT, which campaign
+`5087` does. **This paragraph first concluded from two checkpoints that
+the shortfall was eight ticks rather than forty-two; the sweep below
+refutes that, and section 3.10's 42 was right.**
+
+| conflicts (both) | Kissat search | Tactix search | Kissat - Tactix |
+|---:|---:|---:|---:|
+| 44,747 | 555,591,147 | 555,591,147 | **0** |
+| 44,802 | 556,128,857 | 556,128,815 | **42** |
+| 45,001 | 556,814,200 | 556,814,158 | 42 |
+| 45,501 | 557,316,982 | 557,316,940 | 42 |
+| 46,502 | 559,392,968 | 559,392,926 | 42 |
+| 47,500 | 567,675,905 | 567,675,863 | 42 |
+| 48,001 | 571,957,494 | 571,957,452 | 42 |
+| 48,379 | 573,182,510 | 573,182,502 | **8** |
+
+The shortfall is exactly 42, it is introduced somewhere in the 55
+conflicts between 44,747 and 44,802, and it holds flat for 3,200
+conflicts after that. The 8 at 48,379 is not a smaller shortfall: Tactix
+gives 34 ticks BACK between 48,001 and 48,379, so the accounting is not
+a one-sided deficit.
 
 **The withheld ticks are not the cause.** `suppressed_search_ticks` is
 identical at 44,747 and 44,748 (106,878,981), so `inprocessing`/`warming`
@@ -1780,12 +1795,58 @@ start; the whole 463,755 it accrues by 44,770 belongs to a Probe pipeline
 that Kissat also excludes from `search_ticks`. Tactix does not
 mis-attribute the charge — it charges eight fewer over the span.
 
-Whether eight ticks can move a tick-driven mode switch seven decision
-levels is now the open question, and it is a different question from the
-one section 3.10 left. Answer it before spending anything on Rank 31: an
-8-tick difference on 573 M is 1.4e-8, and if the switch is that
-sensitive, the switch's own predicate is the parity defect rather than
-the accounting.
+That 42 is enough. `kissat_switching_search_mode` is polled before every
+decision (`search.c:206`), and section 3.10's split happens inside a
+trail rebuild where most decisions imply nothing new, so consecutive
+polls are one or two ticks apart. Forty-two ticks is therefore worth
+about the seven decision levels section 3.10 measured, and the switch
+predicate itself is faithful: both solvers use
+`search_ticks >= mode.ticks` on odd mode counts and
+`conflicts >= mode.conflicts` otherwise, with the same inclusivity and
+the same "previous focused duration" budget.
+
+So the target is the 42 ticks. Campaign `5088` narrows it to two
+conflicts:
+
+| conflicts (both) | Kissat search | Tactix search | Kissat - Tactix |
+|---:|---:|---:|---:|
+| 44,747 | 555,591,147 | 555,591,147 | 0 |
+| 44,751 | 555,591,501 | 555,591,498 | **3** |
+| 44,753 | 556,082,922 | 556,082,880 | **42** |
+| 44,758 | 556,086,891 | 556,086,849 | 42 |
+
+Three ticks are lost by conflict 44,751 and the remaining 39 in the two
+conflicts after it — and those two conflicts cost 491,421 ticks, because
+section 3.10's `[rephase-7]` fires at 44,750 and its walk at 44,751. Three
+is exactly `1 + kissat_cache_lines(n)` for one propagated literal with a
+33--64 word list, and 39 is thirteen more of them.
+
+Kissat charges per propagated literal in `proplit.h`
+(`1 + kissat_cache_lines(size_watches)`, plus one per binary assignment
+and one per large dereference), so the question is which literals it
+propagates that Tactix does not. Two structural candidates, neither yet
+tested:
+
+- `kissat_rephase` opens with `kissat_backtrack_propagate_and_flush_trail`,
+  which backtracks and then calls `kissat_search_propagate`. Tactix's
+  rephase entry instead ASSERTS `k.propagate_head == k.trail.size()`.
+  That is one propagation call at exactly the right conflict for the
+  first three ticks.
+- The propagation cursor after a backtrack. Kissat assigns
+  `solver->propagate = new_end` unconditionally (`backtrack.c:145`);
+  Tactix moves its cursor backwards only, `if (k.propagate_head > reset)`
+  (`kernel.cpp:938`). The two agree whenever the cursor is ahead of the
+  boundary and differ when it is behind — in which case Tactix
+  re-propagates MORE, so this cannot by itself explain a shortfall, and it
+  is recorded to be checked rather than assumed.
+
+The switch predicate itself is faithful and is not the defect: kissat's
+`kissat_switching_search_mode` and `DefaultPolicy::want_switch_mode` both
+use `search_ticks >= mode.ticks` on odd mode counts and
+`conflicts >= mode.conflicts` otherwise, with the same inclusivity, and
+both derive the stable budget from the previous focused mode's duration.
+
+
 
 ## 4. Decision
 
