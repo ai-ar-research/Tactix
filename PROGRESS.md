@@ -129,48 +129,42 @@ resume surface.
   Substitute's worst ranks are 10/13/14/25, Factor's are 25/17/20, BVE's
   is 21.
 
-  RANK 31 IS SOLVED AS A DEFECT AND OPEN AS A WIN (report 3.35-3.37).
-  Traced to the literal: at conflict 44,751 kissat's SEARCH propagator
-  scans 39 literals Tactix does not, all at LEVEL 0, for exactly the 42
-  ticks; the diff of the two 128,000-row sequences is 39 deletions and
-  zero insertions. The site is `kissat_rephase` opening with
-  `kissat_backtrack_propagate_and_flush_trail` (`rephase.c:127`): the
-  backtrack rewinds the cursor to the surviving frame boundary
-  (`backtrack.c:145`) and the propagation then rescans every root literal
-  the trail kept above it. Porting it makes Rank 31's `search_ticks` match
-  kissat TO THE DIGIT at 44,753 / 44,802 / 46,002 / 48,001, where it used
-  to be 42 short.
-  It costs +90.7 s (`5092`, 1.0108x), so it is NOT on main: it is
-  `claude/rephase-entry-propagation`, gated, fuzzed 10,000/0 both legs,
-  B28+C5 0.9978x. 37 of 40 ranks stay byte-identical — the propagation is
-  inert wherever the trail kept nothing above the boundary — and only
-  Ranks 35 (+63.9), 31 (+30.3) and 24 (+3.8) move. Kept because a
-  regression on a port verified exact against the counter it exists to
-  match is not evidence against the mechanism.
-  WHY IT DID NOT PAY, and what to do. All four mechanisms kissat couples
-  to the switch are already in Tactix (`switchmode_apply` does
-  `update_scores`/`reset_queue_search`, `update_mode_limits` does the
-  focused restart limit, the site does `saved_decisions`, reluctant and
-  the random sequence). What is NOT aligned is the random decision
-  sequence itself: section 3.10's divergence is kissat taking a random
-  decision where Tactix takes a queue decision, and aligning WHERE the
-  switch fires does not align WHICH decisions the sequence yields. Judge
-  this port by whether Rank 31's trajectory tracks kissat's, not by the
-  tier; the two-conflict reproducer answers that directly. A residual
-  +34-tick over-charge between conflicts 48,001 and 48,379 is a separate
-  defect in the opposite direction, previously hidden as 42-34=8.
-  Ranks 34 (+403 s) and 17 (+126 s) are untouched by this: Rank 34 stayed
-  byte-identical through the port, so its cause is different, and neither
-  has had a first-divergence study.
-  METHOD: `kissat --conflicts=N` does NOT stop at N. Read kissat's own
-  `conflicts:` counter and stop Tactix at exactly that
-  (`TACTIX_STOP_AFTER_CONFLICT`, needs `-DTACTIX_ENABLE_CONFLICT_STOP=ON`;
-  that build also prints `c ticksplit` and, with `TACTIX_TICK_TRACE`, one
-  row per propagated literal). The kissat side is
-  `tools/solvers/variants/kissat-ticktrace`, which patches only
-  `search_propagate` and was checked against the pristine binary on
-  verdict, conflicts and `search_ticks` before any new number was read.
-  These runs take seconds.
+  RANK 31: A LADDER OF PARITY DEFECTS, TWO RUNGS CLIMBED (report
+  3.35-3.38, branch `claude/rephase-entry-propagation`).
+  Kissat backtracks then propagates at the entry to four phases
+  (`rephase.c:127`, `probe.c:27`, `eliminate.c:580`, `reduce.c:176`), and
+  TWO of them charge `search_ticks` — decided by one flag: `kissat_probe`
+  sets `solver->probing` BEFORE its entry call (`probe.c:74-78`) so that
+  one is a probing propagation, while `kissat_eliminate` calls `eliminate`
+  with the flag still clear (`eliminate.c:595-598`) so that one is
+  `kissat_search_propagate`. Tactix opened its simplifier scope before
+  both and propagated after neither. Reduce was already faithful
+  (`reduce_prepare`).
+  Porting rephase then Eliminate moved Rank 31's `search_ticks` from
+  42 short at conflict 44,751 to EXACT at 44,753 / 48,001 / 60,002 /
+  62,001 / 80,001. The next defect is already bounded to 80,001-120,000
+  at -7 ticks, Tactix over-charging.
+  THE TIER CANNOT ARBITRATE THESE. `5101` reads +170.8 s (1.0203x) while
+  B28+C5 `5102` reads 0.9850x on the SAME binary; 35 of 40 ranks stay
+  byte-identical and the five that re-roll swing from -68.1 (r37) to
+  +183.3 (r35). One instance moves more than the whole tier delta. Judge
+  the ladder by how far the trajectory tracks kissat, not by the total,
+  until it stops re-rolling. Rank 31 needs roughly 4.5 M conflicts of
+  agreement to reach kissat's conflict count.
+  THE METHOD, which is the reusable part. `kissat --conflicts=N` does NOT
+  stop at N: read kissat's own `conflicts:` counter and stop Tactix at
+  exactly that. Build with `-DTACTIX_ENABLE_CONFLICT_STOP=ON`, which adds
+  `TACTIX_STOP_AFTER_CONFLICT`, the `c ticksplit` line, and
+  `TACTIX_TICK_TRACE`/`TACTIX_TICK_LO`/`_HI` — one row per propagated
+  literal with its ticks and level. The kissat side is
+  `tools/solvers/variants/kissat-ticktrace`, patching only
+  `search_propagate`, checked against the pristine binary on verdict,
+  conflicts and `search_ticks` before any new number is read. Strip the
+  `pos=` field before diffing: the two index bases differ. Campaigns
+  `5087`-`5101` are the template; a full cycle is well under an hour and
+  the last defect was found as ONE row in a 670,654-row diff.
+  Ranks 34 (+403 s) and 17 (+126 s) still have no first-divergence study;
+  Rank 34 stayed byte-identical through both ports, so its cause differs.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
