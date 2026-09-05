@@ -557,8 +557,16 @@ resume surface.
     semantics, and -ffast-math is NOT enabled anywhere, so LTO may not
     reassociate the EVSIDS double arithmetic. Expect 40/40 byte-identical
     certificates; ANY certificate difference is a defect, not a result.
-  - fuzz quick leg (job 1666199) on the stack pin, required because the
-    phase-entry ports change trajectories.
+  - fuzz quick leg (job 1666199) PASSED on the stack pin: 10,000 cases,
+    0 FAILURES, verdicts SAT=5712 UNSAT=4097 TIMEOUT=191, model/proof/
+    differential oracles clean. Harness caveats, per its own report: 191
+    non-terminating cases (1.9%) at --timeout 5.0s ran NO oracle, so the leg
+    is 9,809 cases and not 10,000; and these rules never fired on this corpus
+    -- Probe, HyperBinaryRes, BCE, CCE, Instantiate, SubsumeForward,
+    HyperTernaryRes, BveBackward, BveBackwardUnit, VivifyFlush.
+    NOTE THE PIN: this fuzzed the FIVE-change stack, ports included, because
+    it was built before the ports were dropped. The four shipped repairs are
+    a behaviour-identical subset of it.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
