@@ -137,9 +137,9 @@ void kernel_reserve_vars(Kernel &k, uint32_t nvars) {
   // literal out of bounds. New (extension) literals occur in no large clause
   // yet, so empty entries are correct; add() maintains them from there.
   if (k.dense) {
-    k.dense->large.resize(2 * nvars);
+    k.dense->large.resize_lits(2 * nvars);
     if (k.dense->track_order)
-      k.dense->ordered.resize(2 * nvars);
+      k.dense->ordered.resize_lits(2 * nvars);
   }
   k.unassigned += nvars - old;
   k.unassigned_active += nvars - old; // fresh variables are Active (R-a)
@@ -338,10 +338,9 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
         kernel_mark_factor_literal(k, lits[i], "add_large");
       }
       if (k.dense) {
-        k.dense->large[lits[i]].push_back(ref);
+        k.dense->large.push(lits[i], ref);
         if (k.dense->track_order)
-          k.dense->ordered[lits[i]].push_back(
-              OccIndex::Entry::from_large(ref));
+          k.dense->ordered.push(lits[i], OccIndex::Entry::from_large(ref));
         kernel_bve_occurrence_add(k, lits[i]);
       }
       // Kissat updates an already-scheduled variable after adding a
@@ -416,8 +415,8 @@ static void add_binary_clause(Kernel &k, Lit a, Lit b, uint64_t id,
   k.watches.push_binary(a, b);
   k.watches.push_binary(b, a);
   if (k.dense && k.dense->track_order) {
-    k.dense->ordered[a].push_back(OccIndex::Entry::from_binary(b));
-    k.dense->ordered[b].push_back(OccIndex::Entry::from_binary(a));
+    k.dense->ordered.push(a, OccIndex::Entry::from_binary(b));
+    k.dense->ordered.push(b, OccIndex::Entry::from_binary(a));
   }
   kernel_bve_occurrence_add(k, a);
   kernel_bve_occurrence_add(k, b);
@@ -504,14 +503,14 @@ bool kernel_delete_binary(Kernel &k, Lit a, Lit b) {
     });
     assert(removed);
     if (k.dense && k.dense->track_order) {
-      auto &ordered = k.dense->ordered[x];
+      const auto ordered = k.dense->ordered[x];
       const auto at = std::find_if(ordered.begin(), ordered.end(),
                                    [other](const OccIndex::Entry &entry) {
                                      return entry.binary &&
                                             entry.payload == other;
                                    });
       assert(at != ordered.end());
-      ordered.erase(at);
+      k.dense->ordered.erase_at(x, static_cast<size_t>(at - ordered.begin()));
     }
   }
   kernel_bve_occurrence_remove(k, a);
@@ -560,14 +559,14 @@ bool kernel_delete_binary_one_copy(Kernel &k, Lit a, Lit b) {
     });
     assert(removed);
     if (k.dense && k.dense->track_order) {
-      auto &ordered = k.dense->ordered[x];
+      const auto ordered = k.dense->ordered[x];
       const auto at = std::find_if(ordered.begin(), ordered.end(),
                                    [other](const OccIndex::Entry &entry) {
                                      return entry.binary &&
                                             entry.payload == other;
                                    });
       assert(at != ordered.end());
-      ordered.erase(at);
+      k.dense->ordered.erase_at(x, static_cast<size_t>(at - ordered.begin()));
     }
   }
   kernel_bve_occurrence_remove(k, a);
@@ -629,7 +628,7 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
     });
     assert(kept && removed == removed_copies);
     if (k.dense && k.dense->track_order) {
-      auto &ordered = k.dense->ordered[x];
+      const auto ordered = k.dense->ordered[x];
       bool retained = false;
       uint32_t retired = 0;
       size_t out = 0;
@@ -645,7 +644,7 @@ uint32_t kernel_remove_duplicate_binary_copies(Kernel &k, Lit a, Lit b) {
           ordered[out++] = entry;
         }
       }
-      ordered.resize(out);
+      k.dense->ordered.shrink(x, out);
       assert(retained && retired == removed_copies);
     }
   }
@@ -718,7 +717,7 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
       });
     }
     if (k.dense && k.dense->track_order) {
-      auto &ordered = k.dense->ordered[x];
+      const auto ordered = k.dense->ordered[x];
       uint32_t retired = 0;
       size_t out = 0;
       for (const OccIndex::Entry entry : ordered) {
@@ -728,7 +727,7 @@ static bool delete_binary_all_copies(Kernel &k, Lit a, Lit b,
           ordered[out++] = entry;
         }
       }
-      ordered.resize(out);
+      k.dense->ordered.shrink(x, out);
       assert(retired == copies);
     }
   }
@@ -1137,14 +1136,14 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
         kernel_bve_occurrence_remove(k, lit);
         continue;
       }
-      std::vector<Ref> &occ = k.dense->large[lit];
+      const auto occ = k.dense->large[lit];
       if (k.dense->track_order) {
         // `large` is exactly the large payloads of `ordered` in order, so one
         // pass over the mixed stream locates the entry in both: the position
         // in `ordered`, and the count of large entries before it, which is the
         // index in `large`.  Searching the two separately scanned the same
         // occurrences twice.
-        std::vector<OccIndex::Entry> &ordered = k.dense->ordered[lit];
+        const auto ordered = k.dense->ordered[lit];
         size_t large_index = 0, at_ordered = ordered.size();
         for (size_t j = 0; j < ordered.size(); j++) {
           if (ordered[j].binary)
@@ -1157,21 +1156,20 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
         }
         assert(at_ordered != ordered.size());
         assert(large_index < occ.size() && occ[large_index] == ref);
-        occ.erase(occ.begin() + static_cast<ptrdiff_t>(large_index));
-        ordered.erase(ordered.begin() + static_cast<ptrdiff_t>(at_ordered));
+        k.dense->large.erase_at(lit, large_index);
+        k.dense->ordered.erase_at(lit, at_ordered);
       } else {
         const auto at = std::find(occ.begin(), occ.end(), ref);
         assert(at != occ.end());
-        occ.erase(at);
+        k.dense->large.erase_at(lit, static_cast<size_t>(at - occ.begin()));
       }
       kernel_bve_occurrence_remove(k, lit);
     }
     for (uint32_t i = 0; i < size; i++)
       if (!in_old(lits[i])) {
-        k.dense->large[lits[i]].push_back(ref);
+        k.dense->large.push(lits[i], ref);
         if (k.dense->track_order)
-          k.dense->ordered[lits[i]].push_back(
-              OccIndex::Entry::from_large(ref));
+          k.dense->ordered.push(lits[i], OccIndex::Entry::from_large(ref));
         kernel_bve_occurrence_add(k, lits[i]);
       }
   }
@@ -2157,46 +2155,46 @@ void kernel_sort_refs_by_logical_clause_position(const Kernel &k,
   }
 }
 
-static void clear_dense_large_occurrences(OccIndex &occ, size_t nlits) {
-  if (occ.large.size() != nlits)
-    occ.large.resize(nlits);
-  // Kissat empties each persistent watch vector by resetting its end pointer
-  // and then reconnects in arena order.  Retain the per-literal allocations in
-  // exactly that way: rebuilding a dense phase must not destroy and reallocate
-  // the entire occurrence population.
-  for (std::vector<Ref> &refs : occ.large)
-    refs.clear();
-  if (occ.track_order) {
-    if (occ.ordered.size() != nlits)
-      occ.ordered.resize(nlits);
-    for (std::vector<OccIndex::Entry> &entries : occ.ordered)
-      entries.clear();
-  } else {
-    // The previous Eliminate phase may have populated this optional image.
-    // Probe has no consumer for it; release both its payload and its
-    // per-literal vector headers instead of retaining several GiB of cold
-    // capacity across phases.
-    std::vector<std::vector<OccIndex::Entry>>().swap(occ.ordered);
-  }
-}
-
 static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
-  clear_dense_large_occurrences(occ, 2 * static_cast<size_t>(k.nvars));
+  const size_t nlits = 2 * static_cast<size_t>(k.nvars);
+  if (!occ.track_order)
+    // The previous Eliminate phase may have populated this optional image.
+    // Probe has no consumer for it; release its payload rather than retain
+    // several GiB of cold capacity across phases.
+    occ.ordered.release();
+
+  // One arena walk both collects the irredundant references and counts each
+  // literal's occurrences, so every slice below is laid out at its exact
+  // final length and the fill relocates nothing.
+  std::vector<Ref> order;
+  occ.large.begin_exact_layout(nlits);
+  if (occ.track_order)
+    occ.ordered.begin_exact_layout(nlits);
+  for (Ref ref = 0; ref < k.arena.size();) {
+    const Clause *c = clause_at(k.arena, ref);
+    if (!c->garbage() && !c->redundant()) {
+      order.push_back(ref);
+      for (const Lit lit : *c) {
+        occ.large.count(lit);
+        if (occ.track_order)
+          occ.ordered.count(lit);
+      }
+    }
+    ref += clause_actual_words(c);
+  }
   // Eliminate's optional BVE image retains the current binary vectors and
   // appends every full irredundant large occurrence. Large sparse watches are
   // not part of this image; later clause creation appends in connected order.
   if (occ.track_order)
-    for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+    for (Lit lit = 0; lit < nlits; ++lit)
+      occ.ordered.count(lit, k.watches.binary_size(lit));
+  occ.large.finish_exact_layout();
+  if (occ.track_order) {
+    occ.ordered.finish_exact_layout();
+    for (Lit lit = 0; lit < nlits; ++lit)
       for (const WatchEntry watch : k.watches.entries(lit))
         if (watch.binary())
-          occ.ordered[lit].push_back(
-              OccIndex::Entry::from_binary(watch.other()));
-  std::vector<Ref> order;
-  for (Ref ref = 0; ref < k.arena.size();) {
-    const Clause *c = clause_at(k.arena, ref);
-    if (!c->garbage() && !c->redundant())
-      order.push_back(ref);
-    ref += clause_actual_words(c);
+          occ.ordered.push(lit, OccIndex::Entry::from_binary(watch.other()));
   }
   // Kissat's dense lists follow its current irredundant arena order. Tactix's
   // generation-local source positions retain that order across append-only
@@ -2204,9 +2202,9 @@ static void rebuild_dense_large_occurrences(Kernel &k, OccIndex &occ) {
   kernel_sort_refs_by_logical_clause_position(k, order);
   for (const Ref ref : order)
     for (const Lit lit : *clause_at(k.arena, ref)) {
-      occ.large[lit].push_back(ref);
+      occ.large.push(lit, ref);
       if (occ.track_order)
-        occ.ordered[lit].push_back(OccIndex::Entry::from_large(ref));
+        occ.ordered.push(lit, OccIndex::Entry::from_large(ref));
     }
 }
 
@@ -3660,7 +3658,8 @@ void kernel_check_invariants(const Kernel &k) {
     if (k.dense && k.dense->track_order) {
       physical_binary.clear();
       ordered_binary.clear();
-      physical_large = k.dense->large[lit];
+      const auto large_span = k.dense->large[lit];
+      physical_large.assign(large_span.begin(), large_span.end());
       ordered_large.clear();
       for (const WatchEntry w : k.watches.entries(lit))
         if (w.binary())

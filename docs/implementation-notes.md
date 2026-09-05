@@ -147,6 +147,14 @@ pending half-analysis or schedules Backjump independently.
   boundary. Specialized binary constructors and delayed propagation rewatches
   never trigger a whole-arena pack. Per-list entry order survives every
   relocation and pack.
+- The dense occurrence index follows the same flat-vector lifecycle: `large`
+  and Eliminate's mixed `ordered` stream are per-literal slices of one arena
+  each rather than independent per-literal allocations, so a rebuild counts
+  every list in the arena walk it already makes and lays each slice out at its
+  exact final length. A later push relocates by doubling and adds the abandoned
+  image to the same `holes` accounting. A slice reference is therefore valid
+  only until the next push to that index — the precondition Kissat states for
+  `BEGIN_WATCHES`.
 - DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only
   packing exception. During the deletion-free scope, the retained binary-id
   key map remains the exact live-set image, so known-new binary insertion does

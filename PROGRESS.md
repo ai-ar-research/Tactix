@@ -8,13 +8,21 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-05, eleventh wrap). `origin/main` = `c940071`.
-  Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `5047` 40/40 at **8,535.2 s = 1.112x kissat**, B28+C5 `5048` 0.463,
-  fuzz 10,000/0 on both legs of every pushed pin. The session moved the
-  tier 8,781.1 -> 8,535.2 s and B28+C5 0.495 -> 0.463. Evidence:
+- RESUME HERE (2026-09-05, twelfth wrap). Goal in force: close every
+  IMPLEMENTATION gap (same work, more time) and reach <= 1.10x kissat on
+  Rank 1-40, with B28+C5 as the regression gate; do not stop at 1.10x.
+  Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: paired
+  gate `5071` 40/40 at **8,487.4 s = 1.1058x kissat**, B28+C5 `5072`
+  1.0030x paired. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
-  3.12 to 3.28.
+  3.12 to 3.29.
+
+  MEASURE PAIRED, IN ONE WINDOW. `5071`/`5072` run base and candidate as
+  two arms of ONE array, instance-major, so no result rests on a
+  cross-window comparison. `tools/bench/paired_provisional.py <campaign>`
+  reads them before the proof checks finish and prints, per instance, both
+  arms and whether their certificates are byte-identical — which is the
+  oracle that says a change is unit cost and not a trajectory shift.
 
   RUN THIS FIRST: `tools/bench/rule_gap_table.py <gate-campaign>` prints
   the per-rule gap beside the work counter that decides each one, from the
@@ -86,14 +94,26 @@ resume surface.
   Only Rank 17 has worse glue (26.76 against 15.05) and its shrink is
   already active, so it is an isolated instance, not a driver.
 
-  NEXT. The remaining cost is per-visit, spread across clause creation,
-  occurrence maintenance and collection, each mirroring a kissat mechanism
-  with no measurable local win. Closing it needs a representation change
-  that removes a maintenance obligation, not another micro-repair. Two
-  shared paths still carry measured gaps: dense construction 4.14 s
-  against ~1.4 s on Rank 21 (3.6x per call; only the binary copy into
-  `ordered`, 15 %, has no kissat counterpart) and collection ~5.2 s
-  against ~1.95 s. Rank 31 remains the worst instance at 2.7x kissat's
+  WHAT IS WORKING (section 3.29). The dense occurrence index was NOT
+  Kissat's representation: `OccIndex` held one std::vector per literal per
+  image where kissat keeps every dense list as a slice of the single flat
+  `vectors` arena. Moving both images onto that arena took the tier
+  8,600.2 -> 8,487.4 s (-112.8 s) and peak RSS -6.5 %, with all forty
+  certificates byte-identical. The micro-repair refutations of 3.26/3.27
+  still stand; they could not reach a cost that lives in the container.
+
+  NEXT, in order. (1) Tactix still keeps TWO occurrence images where
+  kissat keeps ONE, and copies the binary prefix into `ordered` because
+  that stream is a separate copy of the watch list instead of the watch
+  list itself; the end state is dense large refs living in `k.watches` as
+  one-word entries, which deletes `large`, the copy, and all their
+  maintenance. (2) No defragmentation checkpoint is wired to the new
+  arenas, which is why peak RSS still rose 12-17 % on Ranks 9/21/25.
+  (3) `kernel_collect_garbage` walks the whole arena twice with the same
+  `retain_record` predicate (once to count, once to build `order`) and
+  computes `kernel_clause_position` for garbage records even in the
+  whole-arena case that discards it. Collection is ~5.2 s against kissat's
+  ~1.95 s on Rank 21. Rank 31 remains the worst instance at 2.7x kissat's
   conflicts, which is search trajectory, not implementation.
   Size debt (compaction not requested): PROGRESS 3,800 lines against a 350
   budget, `docs/implementation-notes.md` 591 against 560.

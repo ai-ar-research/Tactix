@@ -1485,6 +1485,59 @@ substantially more propagation per conflict. Whether that is inprocessing
 probing or search has not been established and is the one rank worth
 looking at next under this heading.
 
+### 3.29 The dense occurrence index was not Kissat's representation (2026-09-05)
+
+Section 3.27 concluded that what remained was per-visit cost in shared
+kernel operations that were "structurally faithful". One of them was not.
+
+Kissat keeps every literal's dense occurrences in `solver->watches`, which
+is a slice of the single flat `vectors` arena (`vector.c`,
+`inlinevector.h`) — the same machinery Tactix already transliterates for
+sparse watches in `watch.hpp`. `OccIndex` instead held
+`std::vector<std::vector<Ref>>` and `std::vector<std::vector<Entry>>`:
+2*nvars independent heap allocations per image, a 24-byte header each,
+and geometric slack inside every one of them. Both images are now
+per-literal slices of one arena apiece, with the same enlarge/holes
+accounting as `WatchLists`, and a rebuild lays every slice out at its
+exact counted length in one pass so the fill relocates nothing.
+
+Nothing else changed: list contents, entry order, and the binary-prefix
+shape of the mixed stream are identical by construction, which the gate
+checks rather than assumes.
+
+Paired same-window Rank 1--40, campaign `5071` (job 1664747), both arms
+in one 80-task array at the gate's 12 CPUs / 48,000 MiB:
+
+| | base `eff8abf` | candidate | delta |
+|---|---:|---:|---:|
+| Rank 1--40 total | 8,600.2 s | 8,487.4 s | -112.8 s (0.9869x) |
+| peak RSS, summed | 105.96 GiB | 99.07 GiB | -6.5 % |
+| expected verdicts | 40/40 | 40/40 | |
+| byte-identical certificates | | 40/40 | |
+
+Every one of the forty ranks produced a byte-identical certificate on the
+two arms, so the whole delta is unit cost at an identical trajectory.
+B28+C5 (`5072`, job 1664748) is 1.0030x over 33 instances, also with
+byte-identical certificates throughout — those instances spend seconds,
+not minutes, in inprocessing, so a representation win has almost nothing
+to act on there.
+
+The win is spread, not concentrated: Rank 22 -7.8 s, Rank 33 -8.2 s,
+Rank 31 -8.2 s, Rank 32 -7.0 s, Rank 17 -6.0 s, Rank 10 -5.7 s, with
+only three ranks moving the wrong way by less than 0.3 s. That is the
+signature of a shared path, and it is the first repair since section 3.17
+that the tier total accepted.
+
+Two things follow for the rest of this line of work. The refutation run in
+sections 3.26/3.27 was a run of *micro*-repairs, and its lesson holds:
+none of them could reach a cost that lives in the container rather than
+in the loop. And the same reasoning is not finished — Tactix still keeps
+two occurrence images where Kissat keeps one, and still copies the binary
+prefix into `ordered` because that stream is a separate copy of the watch
+list rather than the watch list itself. Peak RSS rose 12--17 % on Ranks
+9, 21 and 25, which is the abandoned-slice fragmentation the new arena
+does not yet reclaim: no defragmentation checkpoint is wired to it.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

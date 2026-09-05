@@ -433,12 +433,13 @@ inline bool substitution_member_live(const Kernel &k,
 // it, but never mutate through a failed lookup: `erase(end())` and
 // `erase(begin() - 1)` both memmove outside the allocation, which turns a
 // bookkeeping slip into heap corruption far from its cause.
-bool dense_erase_first(std::vector<Ref> &occ, Ref ref) {
+bool dense_erase_first(FlatLists<Ref> &lists, Lit lit, Ref ref) {
+  const auto occ = lists[lit];
   const auto at = std::find(occ.begin(), occ.end(), ref);
   assert(at != occ.end() && "dense occurrence list lost its clause");
   if (at == occ.end())
     return false;
-  occ.erase(at);
+  lists.erase_at(lit, static_cast<size_t>(at - occ.begin()));
   return true;
 }
 
@@ -607,19 +608,16 @@ void SweepSubstitutionSession::publish_dense_order(Kernel &k,
   for (const Lit lit : lits) {
     const DenseOccurrenceList &source = dense_occurrences[lit];
     assert(source.initialized);
-    std::vector<OccIndex::Entry> &ordered = k.dense->ordered[lit];
-    std::vector<Ref> &large = k.dense->large[lit];
-    ordered.clear();
-    large.clear();
-    ordered.reserve(source.entries.size());
+    k.dense->ordered.clear(lit);
+    k.dense->large.clear(lit);
     for (const DenseOccurrence occurrence : source.entries) {
       if (occurrence.binary) {
-        ordered.push_back(OccIndex::Entry::from_binary(
-            static_cast<Lit>(occurrence.payload)));
+        k.dense->ordered.push(lit, OccIndex::Entry::from_binary(
+                                       static_cast<Lit>(occurrence.payload)));
       } else {
         const Ref ref = static_cast<Ref>(occurrence.payload);
-        ordered.push_back(OccIndex::Entry::from_large(ref));
-        large.push_back(ref);
+        k.dense->ordered.push(lit, OccIndex::Entry::from_large(ref));
+        k.dense->large.push(lit, ref);
       }
     }
   }
@@ -643,8 +641,8 @@ bool SweepSubstitutionSession::sync_publication_is_complete(const Kernel &k) {
     return true;
   for (const Lit lit : dense_initialized_lits) {
     const DenseOccurrenceList &source = dense_occurrences[lit];
-    const std::vector<OccIndex::Entry> &published = k.dense->ordered[lit];
-    const std::vector<Ref> &large = k.dense->large[lit];
+    const auto published = k.dense->ordered[lit];
+    const auto large = k.dense->large[lit];
     size_t at = 0, at_large = 0;
     for (const DenseOccurrence occurrence : source.entries) {
       if (at == published.size())
@@ -1094,7 +1092,7 @@ void SweepSubstitutionSession::remove_large(Kernel &k, Ref source) {
     return; // dense Sweep indexes irredundant clauses only
   for (const Lit lit : *old) {
     if (k.dense)
-      dense_erase_first(k.dense->large[lit], source);
+      dense_erase_first(k.dense->large, lit, source);
     if (dense_enabled)
       erase_large(k, lit, source);
   }
@@ -1121,7 +1119,7 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
   if (indexed)
     for (const Lit lit : *old) {
       if (k.dense)
-        dense_erase_first(k.dense->large[lit], source);
+        dense_erase_first(k.dense->large, lit, source);
       if (!dense_enabled)
         continue;
       DenseOccurrence *const at = find_large(k, lit, source);
@@ -1646,15 +1644,15 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     if (!k.dense)
       return;
     for (const Lit l : literals) {
-      k.dense->large[l].clear();
+      k.dense->large.clear(l);
       if (!k.dense->track_order)
         continue;
-      std::vector<OccIndex::Entry> &ordered = k.dense->ordered[l];
+      const auto ordered = k.dense->ordered[l];
       size_t kept = 0;
       for (const OccIndex::Entry entry : ordered)
         if (entry.binary)
           ordered[kept++] = entry;
-      ordered.resize(kept);
+      k.dense->ordered.shrink(l, kept);
     }
   };
   if (session && k.dense) {
