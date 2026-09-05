@@ -2052,12 +2052,36 @@ relocation. Both lists then end the scan at twelve words, which is what the
 post-scan sampling saw.
 
 So Rank 34's first divergence is **watch placement**, and it appears inside
-the fifteen conflicts between 75,437 and 75,452: with an identical clause
-database and an identical trajectory, something in that window puts two
-large clauses on literal 20584's list in Kissat and not in Tactix. Learned
-clauses are watched in that window, so the two watched literals chosen for
-a learned clause is the first thing to compare; a relocation target is the
-second.
+the fifteen conflicts between 75,437 and 75,452. The two extra entries are
+named:
+
+```
+size 14  lits = 19103, 20584, -16865, 13, -18562, 18756, -16867, -20351,
+                19188, -18558, 18557, -20452, -20574, -16866   blk = 19103
+size 12  lits = 18756, 20584, -18562, 19103, 19188, -21185, -18558,
+                -20452, -20351, 20153, 19278, -20574           blk = 18756
+```
+
+Both carry 20584 as `lits[1]` with `lits[0]` as the blocker, which is the
+signature of a clause that has just been **relocated onto** this literal: a
+scan of some other literal found 20584 as its replacement, set
+`lits[0] = other`, `lits[1] = replacement`, and pushed the new watch here.
+Kissat relocated both onto 20584 in that window; Tactix relocated them
+somewhere else.
+
+That makes `c->searched` the mechanism to compare, because it is the only
+input to the replacement choice that either solver carries across calls:
+the scan runs `searched` to the end and then `lits + 2` to `searched`,
+taking the first literal whose value is non-negative, so with identical
+values a different cursor is the only way to reach a different replacement.
+Kissat resets it to 2 at every rewatch (`watch.c`, `collect.c`, `dense.c`)
+and advances it to `r - lits` on each relocation; Tactix's collector
+carries `packed->searched = (dense_collection || retained_sparse_watch) ?
+c->searched : 2`. The next experiment is to dump `searched` for these two
+clauses on both sides, which means finding them by content rather than by
+watched literal.
+
+
 
 **Two readings of this were wrong before this one, in the same way.** The
 first sampled the list length after the scan and reported 12 against 12,

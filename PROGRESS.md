@@ -179,10 +179,20 @@ resume surface.
   four ticks — one dereference plus one relocation each. Both lists end the
   scan at 12 words, which is what post-scan sampling saw.
   So the drift appears inside the FIFTEEN conflicts between 75,437 and
-  75,452: something there puts two large clauses on literal 20584's list in
-  kissat and not in Tactix. Learned clauses are watched in that window, so
-  compare the two watched literals chosen for a learned clause first, and a
-  relocation target second.
+  75,452, and the two extra entries are named (report 3.39): a size-14 and
+  a size-12 clause, both carrying 20584 as `lits[1]` with `lits[0]` as the
+  blocker — the signature of a clause just RELOCATED ONTO this literal by a
+  scan of some other literal that picked 20584 as its replacement.
+  So `c->searched` is the mechanism: it is the only input to the
+  replacement choice either solver carries across calls (the scan runs
+  `searched`..end then lits+2..`searched`, first non-negative value wins),
+  so with identical values a different cursor is the only way to reach a
+  different replacement. kissat resets it to 2 at every rewatch (`watch.c`,
+  `collect.c`, `dense.c`) and advances it to `r - lits` per relocation;
+  Tactix's collector carries `packed->searched = (dense_collection ||
+  retained_sparse_watch) ? c->searched : 2`. NEXT EXPERIMENT: dump
+  `searched` for those two clauses on both sides, which means finding them
+  BY CONTENT rather than by watched literal.
   THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
   the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
   Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a
