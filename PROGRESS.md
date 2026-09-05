@@ -16,9 +16,21 @@ resume surface.
   Kissat `1930` is 7,675.1 s. Standing: paired gate `5125` 40/40 at
   **8,393.1 s = 1.0935x** (base arm in the same window 8,420.7 s, so the
   shipped delta is -27.6 s at 0.9967x; the 1.01 bar needs 7,751.9 s, i.e.
-  **about -640 s more**), B28+C5 `5126` PAR-2 1.0022 paired with 33 solves
-  and 17+16 checked certificates per arm, fuzz 10,000/0 on both legs of
-  every earlier pushed pin. GOAL NOT MET.
+  **about -640 s more**), B28+C5 `5126` COMPLETE AND PASSING: 66/66, no
+  regression, no certificate residue, 33 valid solves per arm (17 SAT models
+  + 16 UNSAT proofs independently checked), PAR-2 1.0022. Fuzz 10,000/0 on
+  both legs of every earlier pushed pin. GOAL NOT MET.
+  A PRIORITISATION CORRECTION FOR WHOEVER RESUMES. This wrap spent itself on
+  Ranks 34 and 31, but report 3.28 already settled that those are SEARCH
+  TRAJECTORY divergences, not implementation gaps: on both, Tactix performs
+  roughly twice kissat's conflicts, so it is not taking longer for the same
+  work, it is doing about twice the work. They are N4 scheduling-parity work
+  (`docs/scheduling-parity-ledger.md`). THE IMPLEMENTATION GAP as the goal
+  defines it (same work, more time) is the +427.9 s of uniform inprocessing
+  unit cost from report 3.33 -- every inprocessing rule 1.3-1.8x kissat at
+  MATCHED work while search is 1.18x -- whose shared cause is still open with
+  four explanations closed (peak RSS r=0.124, rule-dispatch clocks 0.12%,
+  propagation at parity 1.06x, and a cheaper liveness probe).
   THIS WRAP SHIPPED ONE GAP AND NAMED THE BIGGEST REMAINING ONE. Shipped:
   the probe pipeline no longer rewatches large watches (kissat has no
   pipeline-level rewatch; only `eliminate.c:587-589` wraps a round), -27.6 s
