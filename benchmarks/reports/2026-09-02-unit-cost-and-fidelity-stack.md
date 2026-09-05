@@ -2460,6 +2460,42 @@ after the walk. Everything above it --- the heap arrangement at conflict
 later, the 67 extra warm-up decisions, the 58 extra walk steps, the two
 relocated watches --- is downstream of that one choice.
 
+### 3.44 Sweep's core walk, and one hypothesis killed (2026-09-05)
+
+Two candidates follow from 3.43, and the first is wrong.
+
+**Live values, refuted.** Kissat reduces each core lemma against the root
+assignment *as it stands*, which includes the units earlier lemmas in the same
+round already assigned; Tactix reduces every lemma against the assignment as
+it stood on entry. Reproducing Kissat's semantics without assigning during
+detection --- reading values through the units the round has already captured
+--- is a fifteen-line overlay, and it is a real fidelity repair. It is **not**
+this defect: with the overlay in place the deactivation order at conflict
+26,913 is unchanged, 970 still last. The six units in the divergent run are
+six different variables and no lemma among them mentions another, so the live
+value never differs there. Recorded so the repair is not re-derived as a fix.
+
+**The lemma stream itself.** Tracing every core lemma from both walks, in
+order, at conflict 26,913:
+
+| | lemmas at conflict 26,913 | lemmas in the run to 26,950 |
+|---|---:|---:|
+| Kissat | 3,847 | 5,678 |
+| Tactix | 6,950 | 10,318 |
+
+**Tactix's walk sees 1.8x the lemmas**, and the excess is visible in the first
+ten rows: each of the unit lemmas $-10839$, $-12880$, $-12488$, $-14838$,
+$-14432$, $-14548$ appears **once** in Kissat's stream and **twice** in
+Tactix's. The literal order inside a lemma differs too --- Kissat
+`-564 -563 -971` against Tactix `-563 -564 -971`, Kissat
+`-1112 -1111 562 -1042` against Tactix `562 -1042 -1112 -1111`.
+
+Kissat's `save_core` is selective about what reaches the stream: an extracted
+clause that is not learned and has more than one non-false literal is dropped
+(`sweep.c:333-337`), and each core is saved once per direction. So the next
+increment is that filter and the per-direction save, not the reduction inside
+the walk.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

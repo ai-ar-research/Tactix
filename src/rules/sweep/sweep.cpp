@@ -766,6 +766,34 @@ static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
   out.ok = true;
 }
 
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+// Diagnostic: the extracted core lemmas, in the order this walk sees them.
+// Kissat's matching rows come from the `kissat-ticktrace` variant's
+// `add_core`, whose walk assigns a unit the moment a lemma reduces to one, so
+// the sequence fixes the order root units enter the trail.
+static void sweep_core_trace(const Kernel &k, const SweepDirProof &proof,
+                             const SubStep &step) {
+  static std::FILE *file = [] {
+    const char *path = std::getenv("TACTIX_CORE_TRACE");
+    return path && *path ? std::fopen(path, "w") : nullptr;
+  }();
+  if (!file)
+    return;
+  std::fprintf(file, "CORE %llu %zu:",
+               static_cast<unsigned long long>(k.stats.conflicts),
+               step.lits.size());
+  for (const SubLit sl : step.lits) {
+    if (sub_var_of(sl) >= proof.vars.size()) {
+      std::fprintf(file, " ?");
+      continue;
+    }
+    std::fprintf(file, " %d",
+                 kernel_externalize(k, sweep_kernel_lit(proof.vars, sl)));
+  }
+  std::fputc('\n', file);
+}
+#endif
+
 // Kissat's `save_add_clear_core` does not retain only the failed assumption's
 // final target.  It walks every learned lemma in the extracted core and a lemma
 // which is unit under the live root assignment is committed immediately.  A
@@ -780,6 +808,9 @@ static void sweep_capture_core_units(const Kernel &k,
     return;
   for (size_t i = 0; i < proof.steps.size(); i++) {
     const SubStep &step = proof.steps[i];
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    sweep_core_trace(k, proof, step);
+#endif
     Lit unit = INVALID_LIT;
     bool satisfied = false;
     for (const SubLit sl : step.lits) {
