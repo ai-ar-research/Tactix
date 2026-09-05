@@ -8,13 +8,13 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-05, eleventh wrap). `origin/main` = `65175dd`.
+- RESUME HERE (2026-09-05, eleventh wrap). `origin/main` = `c940071`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
   `5047` 40/40 at **8,535.2 s = 1.112x kissat**, B28+C5 `5048` 0.463,
   fuzz 10,000/0 on both legs of every pushed pin. The session moved the
   tier 8,781.1 -> 8,535.2 s and B28+C5 0.495 -> 0.463. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
-  3.12 to 3.27.
+  3.12 to 3.28.
 
   RUN THIS FIRST: `tools/bench/rule_gap_table.py <gate-campaign>` prints
   the per-rule gap beside the work counter that decides each one, from the
