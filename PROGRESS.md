@@ -503,14 +503,25 @@ resume surface.
     -11.3 s at 0.9987x, 40/40 paired, ALL FORTY CERTIFICATES BYTE-IDENTICAL.
     Recorded in report 3.48 and pushed; the code is still uncommitted, inside
     the `5149` stack below.
-  - `5149` (job 1666140) paired Rank 1-40 of the FIVE-repair stack against
-    `a069f67`: collector hoist, Vivify schedule scratch, dense-rebuild
-    scratch, and the two phase-entry propagation ports recovered from
-    `claude/rephase-entry-propagation`. The ports change trajectories by
-    design; everything else is behaviour-identical. Rank 24 already reports
-    -10.1 s WITH A CHANGED PROOF, so the ports fire and fire favourably --
-    the old +170.8 s arbitration was measured before the rewatch removal
-    moved trajectories and is superseded, not inherited.
+  - `5149` DECIDED, AND THE PORTS STAY HELD (report 3.49). Re-arbitrating the
+    phase-entry ports on the post-rewatch baseline gives ALMOST EXACTLY THE
+    OLD ANSWER: Rank 24 -10.1, Rank 31 +33.9 (was +39.5), Rank 35 +184.0 (was
+    +183.3), Rank 37 -69.8 (was -68.1), total +143.4 s at 1.0213x against the
+    old +170.8 s. The hypothesis that the rewatch removal re-opened the
+    question is DEAD. 33 of 37 pairs stayed byte-identical and the four that
+    moved are exactly the four the ports reach.
+    BUT THE VERDICT IS ONE INSTANCE: excluding Rank 35 the stack is -40.6 s.
+    So the ports are neither shipped nor discarded -- they stay on
+    `claude/rephase-entry-propagation` pending a RANK 35 STUDY, which is the
+    next trajectory-side task. They are a faithful port and they close Rank
+    31's tick defect through conflict 80,001 (report 3.37), so +33.9 s on the
+    rank whose defect they close is a MISSING COUPLED MECHANISM, not evidence
+    against kissat's strategy. Look for it on Rank 35 first: it carries the
+    whole tier verdict alone.
+  - `5153` (job 1666222) gates the four behaviour-identical repairs ALONE
+    (collector hoist, Vivify schedule scratch, dense-rebuild scratch, IGNORE
+    templated out of search propagation). 40/40 byte-identical certificates
+    required; any difference is a defect.
   - `5151` (job 1666218) instruction count for -flto=auto on Rank 32, and
     `5152` PREPARED (not submitted) as its paired Rank 1-40 gate.
     THE BUILD HAS NO LTO: `-O3 -DNDEBUG -std=c++20 -Wall -Wextra
