@@ -66,6 +66,13 @@ resume surface.
   N2 evidence: the proof/model checks of all ten gate pairs run today have
   finished — 500 proof checks and 560 model checks, all exit 0, no
   expected-verdict mismatch (report section 3.24).
+  CAUTION learned the hard way (report section 3.26): a repair that removes
+  a quadratic term can LOSE where the quadratic was never reached. The
+  duplicate-test grouping that won on Sweep's session path (tiny batches,
+  one per environment) regressed Rank 10 by 5.4 s and Rank 13 by 4.9 s on
+  the Substitute rule's path, where one application holds every image and
+  the pre-pass sorts dominate. Check the batch shape before porting any of
+  today's grouping repairs to another caller.
   RUN THIS FIRST: `tools/bench/rule_gap_table.py <gate-campaign>` prints the
   per-rule time gap beside the work counter that decides each one, from the
   gate plus the verbose kissat statistics baseline `5064`. It reproduces the
