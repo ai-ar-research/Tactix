@@ -2182,11 +2182,38 @@ despite the mode switch --- its interval (1,934) had not elapsed.
 So Rank 34's first divergence is one ordinary branching pick, the
 thirtieth warm-up decision of the third warm-up, with the same variables
 assigned on both sides and the same twenty-nine decisions behind it. That
-is a pure `H`-state difference: the score heap's order in stable mode or
-the VMTF queue's in focused mode. It is the sharpest form this instance
-can take, and it is where the next session should start --- dump the
-branching structure's top few candidates at that exact point on both
-sides.
+is a pure `H`-state difference, and dumping the branching state there
+(campaigns `5115`, `5116`) narrows it further while closing two
+explanations.
+
+Both solvers are in **stable mode**, so the pick comes from the score
+heap, not the VMTF queue. Both candidate variables carry **score 0** on
+both sides, both in the heap, both unassigned, both active:
+
+```
+kissat  ext=5214  score=0 inheap=1 stamp=6264
+        ext=17217 score=0 inheap=1 stamp=1467
+Tactix  ext=5214  score=0 inheap=1 stamp=6265
+        ext=17217 score=0 inheap=1 stamp=1468
+```
+
+The scores agree, so it is not decay or bumping. With equal scores the
+pick is decided by the heap's **array order**, and the sift logic is not
+the cause either: `kissat_bubble_up`'s
+`if (score[parent] >= idx_score) break` and `kissat_bubble_down`'s
+`sibling_score > child_score` with `child_score <= idx_score` are
+reproduced line for line in `heap_bubble_up`/`heap_bubble_down`, both tie
+directions included. A heap of equal scores is ordered purely by its
+history of pushes, pops and updates, so the divergence is an accumulated
+operation-sequence difference; finding its origin means tracing every heap
+operation rather than one decision.
+
+One adjacent parity difference falls out of the same dump and is worth
+closing on its own: **Tactix's VMTF stamps are exactly one higher than
+Kissat's** on both sampled variables --- 6,265 against 6,264 and 1,468
+against 1,467 --- and `queue_search` differs, 16,896 against 12,951. It
+cannot matter in stable mode, which is why it has never surfaced here, but
+the queue is the branching structure in focused mode.
 
 For the record, the chain from there is fully measured: decision 30
 differs, the warm-up ends 67 decisions later than Kissat's over the same
