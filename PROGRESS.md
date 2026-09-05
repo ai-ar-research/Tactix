@@ -57,9 +57,16 @@ resume surface.
 
   N2: the proof/model checks of all ten gate pairs run this session have
   finished — 500 proof, 560 model, all exit 0, no verdict mismatch.
-  IN FLIGHT: nightly fuzz (200,000 cases with LRAT, job 1664736,
-  `tools/fuzz/slurm-nightly-57a6895-1664736.log`) on the gated pin, which
-  is byte-identical to `pin-1148168`. Nothing depends on it.
+  Nightly fuzz on the gated pin (byte-identical to `pin-1148168`) finished:
+  200,000 cases, 0 failures, LRAT on. Read it with the harness's own two
+  caveats. 3,596 cases (1.8 %) did not terminate at the 5 s timeout so no
+  oracle ran on them, making the effective leg 196,404 — that rate is
+  identical to every quick leg this session (183 and 182 of 10,000) and the
+  kept artifacts date from August, so it is a stable harness property, not
+  a regression. And several rules never fired in the leg: Probe,
+  HyperBinaryRes, BCE, CCE, Instantiate, HyperTernaryRes, SubsumeForward,
+  BveBackward, VivifyFlush. That is a coverage gap in the generator, worth
+  closing before the leg is cited as N1 reachability evidence.
 
   READ THIS BEFORE CHOOSING WHAT TO DO (section 3.28). The tier gap and
   the implementation gap are largely DIFFERENT problems. Of the 859.9 s
