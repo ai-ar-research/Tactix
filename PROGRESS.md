@@ -184,6 +184,18 @@ resume surface.
   `proplit.h`'s replacement-search branches for the update; Tactix's are
   `WatchLists::push_large` and the propagation engines. Conflict 75,452 on
   literal -20584 is an exact two-row reproducer.
+  ALREADY CHECKED AND MATCHING, do not re-derive: the propagation update
+  (`proplit.h` writes `q[-2].blocking.lit = other` and gives a moved watch
+  the blocker `other`; Tactix does both, and charges the tick in the same
+  place — after the blocking test, before the garbage test) and the
+  dense-exit rewatch (`kissat_watch_large_clauses` sorts then watches the
+  pair; `sort_clause_watches_like_kissat` is a faithful transliteration of
+  `sort.c`'s `move_smallest_literal_to_front`, incumbent-level update and
+  `satisfied_is_enough` included).
+  UNCHECKED, and one of them is the cause: the collector's rewatch
+  (`collect.c:596` sorts too), on-the-fly strengthening, and Vivify's and
+  Sweep's rewatch boundaries. One of those gives four watches on a single
+  12-word list a blocker kissat would not.
   Take this next: it is the largest single item and a blocker policy is
   general by construction.
 
