@@ -1387,6 +1387,32 @@ scans it replaces are capped at the first hit and usually exit at once.
 A repair that removes a quadratic term can still lose when the quadratic
 was never reached.
 
+### 3.27 Where this line of work stops paying (2026-09-05)
+
+After the ITE normalisation the next six attempts all measured neutral or
+worse and were reverted: deriving the large occurrence index from the
+ordered one; capping the binary copy count; bulk-stripping an eliminated
+variable's binaries; porting the grouped duplicate test to the Substitute
+rule's own path (a 5 s regression on two ranks); and stopping the dense
+rebuild's binary scan at the first large entry, which is a no-op because
+the layout is not marked binary-first at that point.
+
+That run of results is itself the finding. The four largest rules have
+now been profiled to the bottom — BVE on Rank 21, Substitute on Rank 10
+where it is isolated from Sweep, Factor on Ranks 17 and 22, Vivify on
+Rank 22 — and in each the rule's own code is close to kissat's while the
+excess sits in shared kernel operations that are structurally faithful.
+On Rank 10 Substitute's own source is 8.0 s against kissat's 6.5 s, a
+ratio of 1.23, inside a rule whose timer shows 2.36.
+
+What remains is not a defect anyone can point at. It is per-visit cost
+spread across clause creation, occurrence maintenance and collection,
+each of which mirrors a kissat mechanism and none of which carries a
+measurable local win. Closing it needs a different instrument than
+sampling profiles and single-rule A/Bs: either instruction-level work on
+the specific loops, or a representation change that removes a whole
+maintenance obligation rather than making one cheaper.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
