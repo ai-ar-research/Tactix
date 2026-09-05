@@ -550,24 +550,22 @@ resume surface.
     30,000 conflicts -> 5,000 -> 1,000 -> 200 -> 28 -> ONE LITERAL. First
     divergence: conflict 32,072, literal 145, where kissat charges 39,580
     ticks over 40,079 words and Tactix 39,555 over 40,055. Dumping both lists
-    (20,044 entries vs 20,032) separates TWO effects:
-    (a) twelve clauses present in both but SHORTER IN TACTIX -- it has removed
-        a literal kissat still holds (222877, -147866, ...), one differing by
-        a substitution (222792 vs 222783);
-    (b) twelve clauses ABSENT FROM TACTIX entirely, all in the
-        354xxx/360xxx/441xxx/443xxx variable region.
-    So this rung is NOT a watch-pose difference like Rank 17's and NOT an
-    accounting difference: THE TWO CLAUSE DATABASES HAVE DIVERGED by conflict
-    32,072 after agreeing exactly through 32,062. That fits what the ports do
-    -- they propagate at a phase entry Tactix used to skip, deriving root
-    units earlier, and more root units strengthen more clauses. Extra
-    strengthening is not wrong in itself (it is why the ported arm is EXACT at
-    conflict 20,001 where base has lost 11.8M ticks) but here it runs ahead of
-    the reference.
-    NEXT, AND NARROW: which rule removes 222877 from
-    `142754,-145,222895,222877,222777,222780,222896,-75633` between conflicts
-    32,062 and 32,072, and what does kissat do at that point. The instruments
-    are all in the tree and validated.
+    Dumping both lists LOOKED like it separated two effects, BUT THAT CLAIM
+    IS RETRACTED -- see report 3.53 for the corrected version.
+    THE CLAUSE DATABASES HAVE NOT DIVERGED: dumping every clause containing
+    142754 from both at conflicts 32,062 and 32,072 gives 76 CLAUSES EACH WITH
+    A ZERO-LINE DIFFERENCE -- identical content, watched pair AND replacement
+    cursor -- and a second sampled region gives 6 each, also zero.
+    The comparison was invalid twice over. The watch dump fires on EVERY
+    propagation of the traced literal inside the trace window, and the window
+    was [32072,32074], so "20,044 vs 20,032 entries" compared several
+    concatenated dumps rather than one list per solver. And the size-7 clause
+    cited as evidence of strengthening is not in the database at all: the only
+    size-7 clause containing 142754 is
+    `78234,-142783,-145,142755,142801,142800,142754`, identical in both.
+    NEXT, AND CHEAP: retake that dump with a SINGLE-CONFLICT window so exactly
+    one list is captured per solver, then compare entry by entry. The 78-tick
+    difference at literal 145 is real and localised; its mechanism is not.
   - `5159` REFUTED AND REVERTED: the `kernel_rebuild_large_watches` persistent
     scratch drifted -9.4 -> -4.3 -> +1.5 -> +9.3 s across 30 BYTE-IDENTICAL
     pairs, i.e. noise around zero. The profile flagged that function at 1.63x
