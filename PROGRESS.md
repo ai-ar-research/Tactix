@@ -63,6 +63,9 @@ resume surface.
   front, so it is not a local change. NOTE the report also retracts the
   claim that dense-mode rules pay for maintaining sparse watches too: on
   Rank 21 that machinery is 0.05 % against kissat's ~7 %.
+  N2 evidence: the proof/model checks of all ten gate pairs run today have
+  finished — 500 proof checks and 560 model checks, all exit 0, no
+  expected-verdict mismatch (report section 3.24).
   ALL SIX remaining rule gaps are now verified as unit cost at matched or
   lower work (report section 3.23): Factor's scan volume within 4 %,
   Substitute's substituted-variable count within 1 %, Congruence's gate
