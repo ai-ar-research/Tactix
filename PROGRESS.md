@@ -28,9 +28,29 @@ resume surface.
   (`docs/scheduling-parity-ledger.md`). THE IMPLEMENTATION GAP as the goal
   defines it (same work, more time) is the +427.9 s of uniform inprocessing
   unit cost from report 3.33 -- every inprocessing rule 1.3-1.8x kissat at
-  MATCHED work while search is 1.18x -- whose shared cause is still open with
-  four explanations closed (peak RSS r=0.124, rule-dispatch clocks 0.12%,
-  propagation at parity 1.06x, and a cheaper liveness probe).
+  MATCHED work while search is 1.18x -- whose shared cause is NOW MEASURED
+  (report 3.46, campaign `5145`): IT IS CODE, NOT MEMORY. Whole-run hardware
+  counters on the .text-identical -g pins, Rank 32 / Rank 22 as Tactix over
+  kissat: cycles 1.343 / 1.566 but INSTRUCTIONS 1.403 / 2.280, cache-misses
+  per kilo-instruction 5.04 vs 6.41 and 5.91 vs 11.76, dTLB-load-misses
+  0.130 / 0.222, IPC 1.989 vs 1.904 and 2.074 vs 1.424. TACTIX'S MEMORY
+  BEHAVIOUR IS BETTER THAN KISSAT'S ON EVERY COUNTER; it simply executes
+  1.4-2.3x the instructions, and the cycle ratio is SMALLER than the
+  instruction ratio because the better memory behaviour already pays for part
+  of the excess. That closes 3.33's memory-hierarchy hypothesis and the
+  reading that a uniform ratio across eight algorithms must come from shared
+  hardware. Previously closed: peak RSS r=0.124, rule-dispatch clocks 0.12%,
+  propagation at parity 1.06x, a cheaper liveness probe. Newly closed:
+  always-on stats bookkeeping (320 unguarded `k.stats` sites vs the 71 kissat
+  compiles out under METRICS, but the per-rule site counts do not track the
+  per-rule ratios -- Sweep 90 sites at 1.74x, Substitute 15 at 1.77x, BVE 21
+  at 1.31x).
+  NEXT: profile the INSTRUCTION event per symbol, not cycles -- a cycles
+  profile spreads the excess in proportion to IPC, which is why 3.33's call
+  graph showed no owner. Campaign `5146` (job 1666058) is that profile on
+  Rank 32. Caveat: the shipped rewatch moved Rank 22's trajectory, so its
+  2.280x mixes unit cost with changed work; RANK 32 IS PROOF-IDENTICAL ACROSS
+  THAT CHANGE AND ITS 1.403x IS UNIT COST AT MATCHED WORK.
   THIS WRAP SHIPPED ONE GAP AND NAMED THE BIGGEST REMAINING ONE. Shipped:
   the probe pipeline no longer rewatches large watches (kissat has no
   pipeline-level rewatch; only `eliminate.c:587-589` wraps a round), -27.6 s
