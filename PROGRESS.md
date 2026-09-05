@@ -273,6 +273,27 @@ resume surface.
   measures gives a confident number either way — check which side of the
   operation every field is read on.
 
+  RANK 17 (+126 s) ALSO HAS ITS STUDY NOW, and it lands on the SAME CLASS
+  as Rank 34 by an independent route (report 3.40, campaigns
+  `5117`-`5121`). `search_ticks` exact at conflict 1,000, ONE tick out at
+  5,000, split by 20,000; bisected to exact-through-3,650 and one tick by
+  3,700; tracing 3,650-3,700 gives ONE row out of 260,577 — conflict
+  3,654, literal -628253, kissat 5 ticks and Tactix 4.
+  Dumping that watch list from both (before the scan) isolates it
+  completely: both hold 7 words, 4 entries, the SAME four clauses. W2 is
+  the whole difference — same clause, same literal order, different cached
+  BLOCKER: kissat holds 613549 (currently FALSE, so it dereferences and
+  charges) and Tactix holds -584649 (currently TRUE, so it skips). One
+  tick. kissat's is the stale hint: 613549 is `lits[2]`, not a watched
+  literal. W3 shows the same drift in the other field — identical clause,
+  identical watched pair, `lits[0]` and `lits[1]` SWAPPED.
+  SO THE GENERAL TARGET IS CLAUSE POSE: watched-literal order and cached
+  blocker, drifted from kissat before either instance's first tick
+  divergence. Two independent reproducers, and
+  `docs/implementation-notes.md` claims exactly this property for the
+  rewriting rules. Rank 17 is the cheaper one to work with: conflict
+  3,654, literal -628253, four entries, one differing field.
+
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
   and the gap is fully present with no proof at all. Peak RSS (3.33):
