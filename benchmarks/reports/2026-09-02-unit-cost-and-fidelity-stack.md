@@ -2490,11 +2490,30 @@ Tactix's. The literal order inside a lemma differs too --- Kissat
 `-564 -563 -971` against Tactix `-563 -564 -971`, Kissat
 `-1112 -1111 562 -1042` against Tactix `562 -1042 -1112 -1111`.
 
-Kissat's `save_core` is selective about what reaches the stream: an extracted
-clause that is not learned and has more than one non-false literal is dropped
-(`sweep.c:333-337`), and each core is saved once per direction. So the next
-increment is that filter and the per-direction save, not the reduction inside
-the walk.
+The reason is structural, and it is not a missing filter. Kissat's stream is
+Kitten's **clausal core**: `save_core` runs
+`kitten_compute_clausal_core` and then `kitten_traverse_core_clauses`
+(`sweep.c:424-431`), whose callback receives each core clause with a `learned`
+flag, drops one satisfied at the root, and drops an ORIGINAL clause with more
+than one non-false literal (`sweep.c:333-337`). Tactix's stream is
+`SubSolver::derivation` --- a resolution derivation, in derivation order and
+pruned to what the target depends on. A clausal core and a pruned resolution
+derivation are different sets, of different size, in a different order, so
+1.8x and the consecutive duplicates follow directly.
+
+The control flow around them already agrees: Kissat's backbone path is
+`save_add_clear_core`, one core per successful candidate, and its equivalence
+path is `save_core(0) ... save_core(1)` then `add_core(0); add_binary;
+clear_core(0); add_core(1); add_binary; clear_core(1)`
+(`sweep.c:458-462, 1236-1247`) --- which is the shape Tactix already has at
+its three `sweep_capture_core_units` call sites.
+
+So the increment is to capture units from the clausal core, in Kitten's
+traversal order and with its `learned` tag, and to keep the resolution
+derivation for the LRAT obligation it exists to serve. `SubDerivation` already
+carries `core`, the ascending ids of the original clauses used, and
+`SubSolver::shrink_to_clausal_core` already exists; what is missing is the
+ordered traversal that yields original and learned core clauses together.
 
 ## 4. Decision
 
