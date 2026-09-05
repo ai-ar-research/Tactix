@@ -318,9 +318,13 @@ resume surface.
   The blast radius is the whole run, not one tick: each such rewatch re-sorts
   every clause's watched pair, refreshes every cached blocker and resets every
   replacement-search cursor to 2, at every probe phase.
-  IN FLIGHT: campaign `5125` (job 1665893), paired Rank 1-40 A/B of this
-  change, base `b2ad655` vs base+fix. B28+C5 gate to follow it. Do not push
-  until both report.
+  BOTH GATES GREEN (report 3.42). Paired Rank 1-40 same-window (campaign
+  `5125`): 8,420.7 s -> 8,393.1 s, -27.6 s (0.9967x), 40/40 paired, no
+  verdict mismatch, 38 of 40 certificates BYTE-IDENTICAL. The change is
+  inert on 38 instances and moves two: Rank 22 -22.8 s, Rank 17 +3.6 s.
+  B28+C5 (campaign `5126`): 66/66 tasks, 33 solves preserved per arm, 17
+  SAT models and 16 UNSAT proofs independently checked, PAR-2 ratio 1.0022
+  against the 1.10 guard. Pushed.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
