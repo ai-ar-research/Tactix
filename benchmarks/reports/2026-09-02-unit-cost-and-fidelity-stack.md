@@ -1951,24 +1951,64 @@ more things at that point (`saved_decisions`,
 `kissat_start_random_sequence`, and per direction
 `kissat_init_reluctant`/`kissat_update_scores` or
 `kissat_reset_search_of_queue`/`kissat_update_focused_restart_limit`).
-Auditing them against `DefaultPolicy` is the FIRST thing done, and they
-are all already there: `switchmode_apply` calls `heuristics_update_scores`
-on stable entry and `heuristics_reset_queue_search` on focused entry,
-`update_mode_limits` calls `update_restart_limit` on focused entry, and
-the switch site sets `saved_decisions`, resets the reluctant sequence and
-starts the random sequence. The orders differ but nothing reads what the
-other writes.
+Auditing those against `DefaultPolicy` is the next step, and Rank 31 is
+now a two-conflict reproducer for it.
 
-What is left is the random sequence itself. Section 3.10's divergence is
-Kissat taking a random decision where Tactix takes a queue decision, and
-both arm that sequence at their own switch. Aligning WHERE the switch
-fires does not align WHICH decisions the sequence produces, because the
-two generators carry different state. On that reading, this repair moved
-three trajectories to new positions rather than to Kissat's, and three
-independent re-rolls all landing worse is unremarkable. The right test of
-this port is therefore not the tier but whether Rank 31's trajectory now
-tracks Kissat's, and the two-conflict reproducer of section 3.36 answers
-that directly.
+### 3.38 Two more phase-entry ports, and why the tier cannot arbitrate them (2026-09-05)
+
+Kissat backtracks and then propagates at the entry to four phases
+(`rephase.c:127`, `probe.c:27`, `eliminate.c:580`, `reduce.c:176` through
+`kissat_flush_and_mark_reason_clauses`). Two of them charge
+`search_ticks`, and which two is decided by one flag:
+`kissat_probe` sets `solver->probing` BEFORE `probe` runs its entry call
+(`probe.c:74-78`), so that propagation is a probing one, while
+`kissat_eliminate` calls `eliminate` with the flag still clear
+(`eliminate.c:595-598`), so its propagation is `kissat_search_propagate`.
+Tactix opened its simplifier scope before both and did not propagate after
+either entry backtrack. Reduce was already faithful
+(`reduce_prepare`).
+
+Porting the Eliminate entry as well as the rephase one extends the
+agreement further. Rank 31 `search_ticks` against Kissat, at matched
+conflict counts:
+
+| conflicts | unported | rephase only | both |
+|---:|---:|---:|---:|
+| 44,753 | $-42$ | 0 | 0 |
+| 48,001 | $-42$ | 0 | 0 |
+| 60,002 | --- | 0 | 0 |
+| 62,001 | --- | $-1$ | **0** |
+| 80,001 | --- | $-1$ | **0** |
+| 120,000 | --- | $+1$ | $-7$ |
+
+The single tick that survived the first port was found the same way: one
+row in a 670,654-row trace diff, at conflict 60,529, one level-0 literal,
+one tick (campaign `5099`). Exact agreement now runs from conflict 44,751
+out to 80,001.
+
+**The tier reads +170.8 s** (campaign `5101`: 8,415.6 $\rightarrow$
+8,586.4 s, 1.0203x; B28+C5 `5102` is **0.9850x**; fuzz 10,000/0 both legs).
+Worse than the rephase port alone at +90.7 s.
+
+That comparison is the finding. Thirty-five of forty ranks stay
+byte-identical; five trajectories re-roll, and they re-roll enormously:
+Rank 37 $-68.1$, Rank 24 $-9.6$, Rank 39 $+11.6$, Rank 31 $+39.5$, Rank 35
+$+183.3$. One instance moves by more than the whole tier delta. A 40-rank
+total whose changed instances swing $\pm180$ s cannot arbitrate a
+scheduling-parity port at all --- the sign of the total is decided by which
+way a handful of coin flips land, and B28+C5 moved the other way
+(0.9850x) on the same binary.
+
+So these two ports are correct and their tier numbers are noise at the
+scale that matters. The instrument that does discriminate is the one built
+here: **how far does Tactix's trajectory track Kissat's?** It went from
+conflict 44,751 to 80,001 across the two ports, and the next defect is
+already bounded to 80,001--120,000 at $-7$ ticks. Rank 31 needs agreement
+across roughly 4.5 M conflicts to reach Kissat's conflict count, so this
+is a long ladder of small parity defects, each of which is general, each
+findable in well under an hour with campaigns `5087`--`5100` as the
+template, and none of which should be judged by the tier until the ladder
+is climbed far enough that the trajectory stops re-rolling.
 
 ## 4. Decision
 
