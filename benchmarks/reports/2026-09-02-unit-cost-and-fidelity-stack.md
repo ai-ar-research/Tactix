@@ -2508,12 +2508,41 @@ clear_core(0); add_core(1); add_binary; clear_core(1)`
 (`sweep.c:458-462, 1236-1247`) --- which is the shape Tactix already has at
 its three `sweep_capture_core_units` call sites.
 
+Attributing each row to its call site (campaign `5139`) says where the excess
+sits and confirms the diagnosis. Tactix's 6,950 rows at conflict 26,913 are
+602 from the backbone path and 3,133 + 3,215 from the two equivalence
+directions, against Kissat's 3,847 for the same three contexts --- and the
+backbone rows show the shape directly:
+
+```
+CORE backbone id=139 1: -10839      CORE backbone id=207 1: -12880
+CORE backbone id=140 1: -10839      CORE backbone id=208 1: -12880
+```
+
+Each unit lemma is emitted twice, from consecutive step ids, because
+successive backbone candidates in one environment produce derivations that
+still contain the lemmas the previous candidate already reported:
+`SubSolver::derivation` walks back from the new target and re-collects them.
+Kitten cannot do this --- `kitten_compute_clausal_core` marks each klause with
+`set_core_klause` and the DFS skips anything already marked, so a clause is
+emitted exactly once per core, and `clear_core` resets between candidates.
+
 So the increment is to capture units from the clausal core, in Kitten's
-traversal order and with its `learned` tag, and to keep the resolution
-derivation for the LRAT obligation it exists to serve. `SubDerivation` already
-carries `core`, the ascending ids of the original clauses used, and
-`SubSolver::shrink_to_clausal_core` already exists; what is missing is the
-ordered traversal that yields original and learned core clauses together.
+traversal order (a post-order DFS from the conflict or failing clause over the
+antecedent DAG, `kitten.c:1951-2025`) and with its `learned` tag, and to keep
+the resolution derivation for the LRAT obligation it exists to serve.
+`SubDerivation` already carries `core`, the ascending ids of the original
+clauses used, and `SubSolver::shrink_to_clausal_core` already exists; what is
+missing is the ordered traversal that yields original and learned core clauses
+together.
+
+**The constraint that makes this a design change rather than a port.** Each
+captured unit currently carries `proof.steps` truncated at the lemma that
+proves it, and `sweep_emit_pending_units` falls back to that prefix whenever
+the RUP fast path declines. A core-based capture must supply an equivalent
+per-unit justification or the N2 obligation moves rather than disappears. That
+is why the batching exists, and any port has to answer it before it can be
+gated.
 
 ## 4. Decision
 
