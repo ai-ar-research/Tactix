@@ -2926,51 +2926,43 @@ more Vivify scheduling save more. Campaign `5151` corroborates it without a
 clock --- 2.0 % fewer instructions at byte-identical work, conflicts and
 propagations unchanged to the digit.
 
-### 3.53 Rank 35's rung is a clause-database difference (2026-09-05)
+### 3.53 Rank 35's rung: what is established, and a retraction (2026-09-05)
 
-Tracing the 28-conflict window of 3.51 (campaign `5160`) gives one row, and
-dumping the list it names (campaign `5161`) gives the defect.
+Tracing the 28-conflict window of 3.51 (campaign `5160`) gives one row.
 
-The trace's first divergence is at **conflict 32,072, literal 145**: Kissat
-charges 39,580 ticks over a 40,079-word watch list, Tactix 39,555 over 40,055.
-Everything after it is downstream --- Kissat propagates literals Tactix never
-reaches --- and the instrumented Kissat matches the pristine binary at
-860,037,684, so the reading is sound.
+**Established.** The first divergence is at **conflict 32,072, literal 145**:
+Kissat charges 39,580 ticks over a 40,079-word watch list, Tactix 39,555 over
+40,055. Everything after it is downstream --- Kissat propagates literals
+Tactix never reaches --- and the instrumented Kissat matches the pristine
+binary at 860,037,684, so the trace itself is sound. Combined with 3.51, the
+ported arm is exact against Kissat through conflict 32,062 and 78 ticks out by
+32,090.
 
-**Tactix's list is 24 words short: 20,032 entries against 20,044.** Dumping
-both and comparing by content separates two effects.
+**Established, and it rules out the obvious explanation.** Dumping every
+clause containing 142754 from both solvers at conflicts 32,062 and 32,072
+(campaign `5162`) gives **76 clauses each with a zero-line difference** ---
+identical content, identical watched pair, identical replacement cursor. The
+same holds for the second region sampled (campaign `5163`, 6 clauses each,
+zero difference). Whatever separates the two runs at conflict 32,072, it is
+not that Tactix has strengthened or lost the clauses in these neighbourhoods.
 
-Twelve clauses are present in both but **shorter in Tactix**:
+**Retracted.** An earlier version of this section claimed the two clause
+databases had diverged, citing watch-list entries that looked like the same
+clause at different lengths. That claim is withdrawn and the reasoning behind
+it was wrong twice over. The watch-list dump fires on *every* propagation of
+the traced literal inside the trace window, and the window used was
+`[32072, 32074]`, so the "20,044 against 20,032 entries" compared several
+concatenated list dumps rather than one list against one list. And the
+size-seven clause offered as evidence of strengthening is not in the database
+at all: the only size-seven clause containing 142754 is
+`78234,-142783,-145,142755,142801,142800,142754`, present and identical in
+both solvers.
 
-```
-kissat  size=8  142754,-145,222895,222877,222777,222780,222896,-75633
-Tactix  size=7  142754,-145,222895,       222777,222780,222896,-75633
-kissat  size=5  147863,-145,-147866,-145179,-147855
-Tactix  size=4  147863,-145,        -145179,-147855
-kissat  size=5  -222865,-145,222876,222877,222783
-Tactix  size=4  -222865,-145,222876,       222783
-```
-
-Tactix has removed a literal Kissat still holds --- 222877, $-147866$, and so
-on --- and one clause differs by a substitution rather than a removal
-(`222792` against `222783`). Twelve more are **absent from Tactix
-altogether**, and they are not scattered: every one lies in the
-354xxx/360xxx/441xxx/443xxx variable region.
-
-So Rank 35's rung is not a watch-pose difference like Rank 17's, and not an
-accounting difference. **The two clause databases have diverged**: with the
-phase-entry ports Tactix has strengthened some clauses further than Kissat and
-lost others entirely, by conflict 32,072, having agreed exactly through
-32,062.
-
-That is consistent with what the ports do and with why they help elsewhere.
-They propagate at a phase entry that Tactix previously skipped, so they derive
-root units earlier; more root units strengthen more clauses. Extra
-strengthening is not itself wrong --- it is why the ported arm is *exact*
-against Kissat at conflict 20,001 where the base arm has already lost 11.8 M
-ticks (3.51) --- but here it runs ahead of the reference. The next question is
-narrow and well posed: which rule removes 222877 from that clause between
-conflicts 32,062 and 32,072, and what does Kissat do at the same point.
+**Open.** The 78-tick difference at literal 145 is real and localised, but its
+mechanism is not yet identified. The measurement that would identify it is the
+same dump taken with a **single-conflict window**, so that exactly one list is
+captured per solver, compared entry by entry. That is the next step, and it is
+cheap.
 
 ## 4. Decision
 
