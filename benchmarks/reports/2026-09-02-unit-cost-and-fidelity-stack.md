@@ -2958,11 +2958,38 @@ at all: the only size-seven clause containing 142754 is
 `78234,-142783,-145,142755,142801,142800,142754`, present and identical in
 both solvers.
 
-**Open.** The 78-tick difference at literal 145 is real and localised, but its
-mechanism is not yet identified. The measurement that would identify it is the
-same dump taken with a **single-conflict window**, so that exactly one list is
-captured per solver, compared entry by entry. That is the next step, and it is
-cheap.
+**Re-measured with a single-conflict window** (campaign `5164`), which yields
+exactly one charge row per solver and confirms it is the divergent one:
+
+```
+kissat  32072 145 39580 sz=40079     20,044 watch rows
+Tactix  32072 145 39555 sz=40055     20,032 watch rows
+```
+
+So the entry counts were right; only the earlier interpretation was wrong.
+Comparing one list against one list gives **24 entries only in Kissat and 12
+only in Tactix**, pairing as literal-level differences within the same
+clauses --- removals (222877, $-147866$, $-443293$, $-443158$) and
+substitutions, the sharpest being $-494147$ against $-494146$ in two otherwise
+byte-identical clauses.
+
+**And here the two instruments contradict each other, so no mechanism is
+claimed.** Clause dumps at the same conflict give byte-identical databases in
+every region sampled --- 76 clauses containing 142754, 6 containing 354263, 11
+containing 217156, each with a zero-line difference including watched pair and
+replacement cursor (campaigns `5162`, `5163`, `5165`). Yet the watch-list rows
+above include clauses containing **both** 217156 and $-494147$, and no such
+clause appears in either solver's dump for 217156. A clause cannot be absent
+from an arena walk and present in a watch list of the same solver at the same
+conflict, so one of the two dumps is not reporting what its name suggests ---
+most likely the conflict at which it fires, or which arena generation it
+walks.
+
+**That inconsistency is the next thing to settle, and nothing should be built
+on either reading until it is.** The verified facts are only these: the ported
+arm is exact through conflict 32,062 and 78 ticks out by 32,090; the first
+divergent row is literal 145 at conflict 32,072; and the instrumented Kissat
+reproduces the pristine binary at every checkpoint used here.
 
 ## 4. Decision
 
