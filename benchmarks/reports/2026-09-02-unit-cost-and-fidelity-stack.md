@@ -1305,6 +1305,16 @@ a local change: the rebuild materialises kissat's current irredundant
 arena order, and incremental maintenance does not reproduce that order,
 so skipping it would move behaviour rather than preserve it.
 
+### 3.24 Certificate evidence for the session (2026-09-04)
+
+The proof and model checks of every gate pair run today have now
+finished. Across the ten Rank 1-40 and B28+C5 pairs (`5001`/`5002`
+through `5053`/`5054`) there are 500 completed proof checks and 560
+completed model checks, every one with exit code 0, and no instance where
+the reported verdict disagreed with its expected result. N2 therefore
+holds for every commit landed today, independently of the counter
+identity used to judge the repairs.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
