@@ -1204,15 +1204,41 @@ makes a third of the attempts, eliminates 3.5 % more, and takes 1.72x the
 time. Its definition check runs 1,686,158 times for 171 M ticks, while
 kissat performs 11,341,236 kitten solves at 8.87 decisions each.
 
-Both readings are suspect until each counter's increment sites are read
-in the reference, which is the discipline this project already has for
-kissat counters and which has overturned four comparisons in this
-session's history. `eliminate_attempted` may count candidates popped
-rather than eliminations tried, and kissat may call kitten many times per
-attempt where Tactix calls its sub-solver once. That reading is the next
-task, before any BVE change: it decides whether BVE's +14.9 s on Rank 21,
-sixty per cent of that rank's rule gap and its largest single item, is
-surplus work or per-attempt cost.
+Those counters have now been read at their increment sites and a verbose
+kissat run supplied the two the profile omitted, so the pairing is safe
+to state. `INC (eliminate_attempted)` fires in `kissat_generate_resolvents`
+once per variable that passes the occurrence limits, which is what
+Tactix's BVE applications count. Kissat's kitten solves are 11,341,236 of
+which 1,850,845 are Sweep's, leaving about 9.49 M definition solves at
+8.87 decisions each against Tactix's 1,686,158 checks at 171 M ticks: far
+more, far smaller, and Tactix's definition time of 7.9 s against kissat's
+4.5 s is in proportion to that work rather than above it.
+
+What is left is the resolution rate, and it is the largest quantified
+implementation gap this project has:
+
+| Rank 21 | Tactix | kissat |
+|---|---:|---:|
+| elimination attempts | 3,590,291 | 10,383,663 |
+| resolutions | 97,784,981 | 180,770,675 |
+| variables eliminated | 1,778,527 | 1,718,082 |
+| rule time | 35.56 s | 20.70 s |
+| less definition work | 27.7 s | 16.2 s |
+| resolutions per second | 3.53 M | 11.2 M |
+
+Tactix reaches slightly more eliminations from a third of the attempts
+and 54 % of the resolutions, and is **3.2x slower per resolution**. At
+kissat's rate the same 97.8 M resolutions would cost 8.7 s rather than
+27.7 s on this rank, and BVE's 260 s tier-wide would be nearer 80 s.
+
+The cost is diffuse inside the rule rather than one defect. The inner
+resolution scan mirrors `resolve.c` closely, with the same three array
+lookups per literal, and no line of `bve.cpp` carries more than 0.72 % of
+Rank 21; the two hottest are the occurrence scan's clause-header load and
+the pass that materialises each antecedent's non-false literals, a
+representation kissat does not build at all, reading its clauses from the
+arena instead. Whether that materialisation pays for itself is the first
+question to settle.
 
 One earlier structural item stands: Rank 31 runs 2.7x kissat's conflicts,
 which is search trajectory rather than implementation.

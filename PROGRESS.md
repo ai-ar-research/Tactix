@@ -63,15 +63,18 @@ resume surface.
   front, so it is not a local change. NOTE the report also retracts the
   claim that dense-mode rules pay for maintaining sparse watches too: on
   Rank 21 that machinery is 0.05 % against kissat's ~7 %.
-  START HERE: on Rank 21 Tactix makes 3,590,291 elimination attempts and
-  eliminates 1,778,527 variables where kissat attempts 10,383,663 and
-  eliminates 1,718,082, and Tactix's definition check runs 1,686,158
-  times against kissat's 11,341,236 kitten solves at 8.87 decisions each.
-  Read every increment site of `eliminate_attempted`, `eliminated` and the
-  kitten counters in the reference BEFORE acting: the pairing is not yet
-  safe, and reading counters without their INC sites has overturned four
-  comparisons in this project. That reading decides whether BVE's +14.9 s
-  is surplus work or per-attempt cost. Substitute is largest at +117.8 s and 1.69x, and it is a
+  START HERE: BVE's resolution rate is the largest quantified gap in the
+  project. On Rank 21 Tactix performs 97,784,981 resolutions in about
+  27.7 s of non-definition time where kissat performs 180,770,675 in
+  16.2 s, that is **3.2x slower per resolution**, while eliminating 3.5 %
+  more variables (1,778,527 against 1,718,082) from a third of the
+  attempts (3,590,291 against 10,383,663). The counters were read at their
+  increment sites and kissat's were taken from a verbose run (`5057`), so
+  the pairing is safe. At kissat's rate BVE's 260 s tier-wide would be
+  nearer 80 s. The cost is diffuse: no `bve.cpp` line exceeds 0.72 % of
+  Rank 21 and the inner scan mirrors `resolve.c`. First question to
+  settle: Tactix materialises each antecedent's non-false literals into a
+  pool, which kissat does not do at all, reading clauses from the arena. Substitute is largest at +117.8 s and 1.69x, and it is a
   matched-work case: 2,069,131 variables substituted on Rank 22 against
   kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
   matched scan volume. Read the Rank 22 profile first, since Rank 31's
