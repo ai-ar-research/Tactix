@@ -8,136 +8,69 @@ resume surface.
 
 ## Current resume anchor
 
-- RESUME HERE (2026-09-04, tenth wrap). `origin/main` = `1148168`.
+- RESUME HERE (2026-09-05, eleventh wrap). `origin/main` = `65175dd`.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: gate
-  `5053` 40/40, B28+C5 `5054` 0.468, fuzz 10,000/0 on both legs. The
-  best-measured tier total is `5047`/`5050` at **8,535-8,542 s = 1.112x
-  kissat**; `5053` reports 8,614.3 s with all forty conflict counts
-  identical to `5050`, so that 72.8 s is machine variation. The tier
-  total's noise band is wider than the 50 s previously assumed: read
-  paired same-node repeats for any behaviour-identical change (report
-  section 3.20).
-  The session moved the tier 8,781.1 -> 8,538 s and B28+C5 0.495 -> 0.463;
-  the net per-rule gap is +428 s. Evidence:
+  `5047` 40/40 at **8,535.2 s = 1.112x kissat**, B28+C5 `5048` 0.463,
+  fuzz 10,000/0 on both legs of every pushed pin. The session moved the
+  tier 8,781.1 -> 8,535.2 s and B28+C5 0.495 -> 0.463. Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
-  3.12 to 3.18.
-  Working rules: one investigation at a time; every timing campaign uses
-  the gate's `--cpus-per-task=12 --mem=48000M` (4 CPUs / 16 GiB is the
-  documented debug contract and hid a real bandwidth win once this
-  session); judge a unit-cost repair by paired same-node repeats, since
-  the tier total carries about 50 s of node noise and conflict counts
-  stay identical through all of these repairs.
-  Recent changes: `4b8332d` BVE's occurrence audit, a pure diagnostic
-  whose consumers are empty inline functions, is compiled out (worth
-  170.6 s tier-wide, the largest single repair); `354c5af` + `1ea1974`
-  Factor's transient marks moved into the clause header and its dense
-  watch record cut to two words (Rank 22 Factor 25.0 -> 19.9 s);
-  `30efd28` Factor's remainder pool interned through an open-addressed
-  table; `972c623` the root-satisfied binary scans carry their copy count;
-  `2c145c6` the bridge-keep counters use sorted vectors, not per-call
-  hash maps.
-  NEXT (single thread): the tier-wide per-rule gap table is report section
-  3.18, refreshed after `5047` to Substitute +112.6 (1.66x), Factor +108.1
-  (1.83x), Vivify +103.8 (1.18x), Strengthen +76.2 (3.11x), Congruence
-  +72.9 (1.30x), BVE +65.9 (1.34x), Sweep -123.6. Congruence's doubled ITE gates
-  are closed (`755285f`): kissat's triple normalisation
-  (`congruence.c normalize_ite_lits`) takes Rank 22's gate count from
-  10.48 M to 7.10 M against kissat's 6.91 M with every counter identical.
-  Look for more gaps of that shape, where Tactix's own work counter
-  exceeds kissat's for the same outcome, before hunting unit cost. Two
-  counter pairings were checked and are NOT gaps: Strengthen does 95.5 M
-  forward steps on Rank 22 against kissat's 107.9 M, and BVE eliminates
-  468,495 variables with 25.5 M resolutions against 433,034 and 20.0 M.
-  Note kissat runs forward subsumption inside `eliminate`, not its
-  `subsume` phase, so the fair pairing is BVE+Strengthen against
-  eliminate+subsume: 372 s against 230 s, the largest gap pairing left.
-  BVE was then profiled to the bottom on Rank 21 (report section 3.22),
-  where it is 35.6 s against kissat's 20.7 s and sixty per cent of the
-  whole rule gap on the rank. Its embedded solver matches kissat's kitten
-  within sampling error on both solving and clause loading; the excess is
-  host-side, and the identified mechanism is that the definition check
-  builds its compact variable map in a pre-pass over every literal of both
-  sides and then traverses them again to export, where kissat imports
-  inside its single export pass. Merging the two needs the variable count
-  before the sub-solver is sized, which compact-identity mode wants up
-  front, so it is not a local change. NOTE the report also retracts the
-  claim that dense-mode rules pay for maintaining sparse watches too: on
-  Rank 21 that machinery is 0.05 % against kissat's ~7 %.
-  N2 evidence: the proof/model checks of all ten gate pairs run today have
-  finished — 500 proof checks and 560 model checks, all exit 0, no
-  expected-verdict mismatch (report section 3.24).
-  Benchmark hygiene (audited 2026-09-05): 49 GB across `benchmarks/runs`
-  with 396 TB free, so nothing was deleted; every campaign from `5000` to
-  `5068` holds either a landed repair's evidence or a recorded refutation.
-  `5061` is a superseded probe whose instrumentation never applied (no
-  `[rb]` rows) and `5059` is the vivify measurement taken with the broken
-  kissat patch; both are retained because their successors `5062`/`5060`
-  and report section 3.23 cite the contrast. `5064` is load-bearing — the
-  gap table reads it.
-  IN FLIGHT: a nightly fuzz leg (200,000 cases with LRAT, job 1664736,
+  3.12 to 3.27.
+
+  RUN THIS FIRST: `tools/bench/rule_gap_table.py <gate-campaign>` prints
+  the per-rule gap beside the work counter that decides each one, from the
+  gate plus the verbose kissat statistics baseline `5064`. Do not
+  re-derive it by hand; that cost most of a session.
+
+  THE STATE OF THE GAP. All six remaining rule gaps are unit cost at
+  matched or lower work: Tactix does LESS work than kissat on every paired
+  counter except Factor's ticks at 1.03 (BVE 0.91 resolutions, Substitute
+  1.00 variables, Vivify 0.83 probes, Strengthen 0.88 forward steps, Sweep
+  0.98 equivalences) while being slower on every rule except Sweep and
+  Backbone. Net +427.9 s. So no rule closes by dosing it down, and none is
+  buying time with extra simplification. Sharpest single number: BVE is
+  3.2x slower per resolution on Rank 21. Note kissat subsumes inside
+  `eliminate`, so the honest pairing is BVE+Strengthen against
+  eliminate+subsume, 372.3 s against 230.2 s.
+
+  DEAD ENDS, do not retry (sections 3.26/3.27). Seven consecutive
+  refutations followed the ITE fix. The duplicate test in
+  `do_substitution` is 32 % of that function at instruction level, and
+  both ways of exploiting it lose by the same margin — grouping the scans
+  (+5.4/+4.9 s) and a blocked liveness filter (+4.8/+3.8 s), counters
+  identical in every arm: on this path the data is touched once, so any
+  index built by an extra pass costs more than the scan it saves. Also
+  refuted: deriving the large occurrence index from the ordered one;
+  capping the binary copy count; bulk-stripping an eliminated variable's
+  binaries; stopping the dense binary scan at the first large entry.
+  Retracted claims: dense construction is NOT call-count driven (kissat
+  collects 32 times on Rank 21 to Tactix's 23, and reconnects around each),
+  and dense-mode rules do NOT pay to maintain sparse watches (0.05 %
+  against kissat's ~7 %).
+
+  METHOD RULES. Timing campaigns use the gate's `--cpus-per-task=12
+  --mem=48000M`; 4 CPUs/16 GiB is the documented DEBUG contract and hid a
+  real win once. The tier total cannot arbitrate a behaviour-identical
+  change: one repair measured -1.4 s in paired repeats and returned a gate
+  72.8 s slower with all forty conflict counts identical. A patched kissat
+  that compiles can still be wrong — match its verdict and one existing
+  counter against the pristine build before reading a new counter.
+
+  N2: the proof/model checks of all ten gate pairs run this session have
+  finished — 500 proof, 560 model, all exit 0, no verdict mismatch.
+  IN FLIGHT: nightly fuzz (200,000 cases with LRAT, job 1664736,
   `tools/fuzz/slurm-nightly-57a6895-1664736.log`) on the gated pin, which
-  is byte-identical to `pin-1148168`. It is 20x the quick legs every push
-  used; read it when it lands. Nothing depends on it.
-  DEAD END, do not retry (report sections 3.26/3.27): the duplicate test in
-  `do_substitution` is 32 % of that function at instruction level on Rank
-  10, and BOTH ways of exploiting it lose by the same margin — grouping the
-  scans by owner (+5.4/+4.9 s) and a blocked liveness filter (+4.8/+3.8 s),
-  counters identical in every arm. On this path the data is touched once;
-  any index built by an extra pass over the images or the binaries costs
-  more than the scan it saves. Seven consecutive refutations followed the
-  ITE fix, which is the signal that this change class is exhausted.
-  CAUTION learned the hard way (report section 3.26): a repair that removes
-  a quadratic term can LOSE where the quadratic was never reached. The
-  duplicate-test grouping that won on Sweep's session path (tiny batches,
-  one per environment) regressed Rank 10 by 5.4 s and Rank 13 by 4.9 s on
-  the Substitute rule's path, where one application holds every image and
-  the pre-pass sorts dominate. Check the batch shape before porting any of
-  today's grouping repairs to another caller.
-  RUN THIS FIRST: `tools/bench/rule_gap_table.py <gate-campaign>` prints the
-  per-rule time gap beside the work counter that decides each one, from the
-  gate plus the verbose kissat statistics baseline `5064`. It reproduces the
-  whole picture below in one command; do not re-derive it by hand.
-  ALL SIX remaining rule gaps are now verified as unit cost at matched or
-  lower work (report sections 3.23 and 3.25). Tactix does LESS work than
-  kissat on every paired counter except Factor's ticks at 1.03 — BVE 0.91
-  resolutions, Substitute 1.00 variables, Vivify 0.83 probes, Strengthen
-  0.88 forward steps, Sweep 0.98 equivalences — while being slower on every
-  rule except Sweep and Backbone. So the remaining +427.9 s is entirely
-  unit cost: no rule can be closed by dosing it down, and none is buying
-  its time with extra simplification. Detail: Factor's scan volume within 4 %,
-  Substitute's substituted-variable count within 1 %, Congruence's gate
-  counts matched, Vivify's propagations +7 %, Strengthen's forward steps
-  12 % fewer, BVE a third of the attempts for more eliminations. None can
-  be closed by a scheduling port. Shared-path measurement: dense index
-  construction is 4.14 s on Rank 21 against kissat's ~1.4 s, and it is NOT
-  call-count driven (that earlier claim is retracted): Tactix opens the
-  dense scope once per phase like kissat, the 26 rebuilds follow garbage
-  collections which relocate every ref, and kissat reconnects around each
-  of its own 32 collections on that rank against Tactix's 23. So it is
-  3.6x per construction. The arena walk is 4 % of it and the second
-  parallel structure was measured NOT to be the cost; the only step with
-  no kissat counterpart is copying binaries into `ordered` (15 %), which
-  exists because that stream is a separate copy rather than the watch list. Reusing a
-  live index across rules is not local: the rebuild materialises kissat's
-  irredundant arena order and incremental maintenance does not.
-  START HERE: BVE's resolution rate is the largest quantified gap in the
-  project. On Rank 21 Tactix performs 97,784,981 resolutions in about
-  27.7 s of non-definition time where kissat performs 180,770,675 in
-  16.2 s, that is **3.2x slower per resolution**, while eliminating 3.5 %
-  more variables (1,778,527 against 1,718,082) from a third of the
-  attempts (3,590,291 against 10,383,663). The counters were read at their
-  increment sites and kissat's were taken from a verbose run (`5057`), so
-  the pairing is safe. At kissat's rate BVE's 260 s tier-wide would be
-  nearer 80 s. The cost is diffuse: no `bve.cpp` line exceeds 0.72 % of
-  Rank 21 and the inner scan mirrors `resolve.c`. First question to
-  settle: Tactix materialises each antecedent's non-false literals into a
-  pool, which kissat does not do at all, reading clauses from the arena. Substitute is largest at +117.8 s and 1.69x, and it is a
-  matched-work case: 2,069,131 variables substituted on Rank 22 against
-  kissat's 2,086,279. Factor is next at +109.4 s and 1.84x, still with
-  matched scan volume. Read the Rank 22 profile first, since Rank 31's
-  rule times are inflated by its 2.7x conflict count. Propagation is not
-  a gap: 14.1 M/s against 15.4 M/s at equal propagation counts on Rank 22.
-  Size debt (compaction not requested): PROGRESS 3,773 lines against a 350
+  is byte-identical to `pin-1148168`. Nothing depends on it.
+
+  NEXT. The remaining cost is per-visit, spread across clause creation,
+  occurrence maintenance and collection, each mirroring a kissat mechanism
+  with no measurable local win. Closing it needs a representation change
+  that removes a maintenance obligation, not another micro-repair. Two
+  shared paths still carry measured gaps: dense construction 4.14 s
+  against ~1.4 s on Rank 21 (3.6x per call; only the binary copy into
+  `ordered`, 15 %, has no kissat counterpart) and collection ~5.2 s
+  against ~1.95 s. Rank 31 remains the worst instance at 2.7x kissat's
+  conflicts, which is search trajectory, not implementation.
+  Size debt (compaction not requested): PROGRESS 3,800 lines against a 350
   budget, `docs/implementation-notes.md` 591 against 560.
 ## Latest candidate performance
 
