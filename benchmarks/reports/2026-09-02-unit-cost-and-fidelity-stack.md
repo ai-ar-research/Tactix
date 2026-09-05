@@ -1455,6 +1455,30 @@ attack. The 1.112x headline is dominated by two trajectory divergences
 that no amount of unit-cost work will touch. Closing those two alone
 would take the tier to roughly 1.009x.
 
+One hypothesis for those two ranks was raised and refuted the same night,
+and it is recorded because the refutation was cheap and the idea is
+tempting. Rank 17 learns clauses of 84.26 literals at glue 26.76 against
+kissat's 74.02 and 15.05, so its glue is 1.78x worse, and kissat spends
+11 % of Rank 21 in `kissat_shrink_clause`; worse learned-clause quality
+would inflate propagation and conflicts together. Measuring the two ranks
+that actually carry the gap kills it. Kissat prints no average learned
+size, so `kissat_update_learned` was instrumented to accumulate the size
+and glue it already receives, with verdicts and `clauses_learned` checked
+against the pristine baseline first:
+
+| rank | Tactix lits/glue | kissat lits/glue |
+|---|---|---|
+| 17 | 84.26 / 26.76 | 74.02 / 15.05 |
+| 21 | 9.53 / 5.28 | 8.26 / 5.06 |
+| 22 | 19.23 / 8.29 | 21.25 / 8.16 |
+| 31 | 39.14 / 23.15 | 47.52 / 26.63 |
+| 34 | 22.27 / 9.95 | 20.78 / 9.63 |
+
+Learned-clause quality is matched on Ranks 21, 22 and 34 and better than
+kissat's on Rank 31 — the two ranks carrying 92 % of the gap are exactly
+where Tactix's clauses are as good or better. Rank 17 is an isolated
+case, not the driver.
+
 Rank 17 is the one instance where the two overlap: its conflicts are
 nearly matched at 1.16 while its propagations are 1.80, so it performs
 substantially more propagation per conflict. Whether that is inprocessing
