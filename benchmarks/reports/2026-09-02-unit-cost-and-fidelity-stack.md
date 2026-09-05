@@ -2926,6 +2926,52 @@ more Vivify scheduling save more. Campaign `5151` corroborates it without a
 clock --- 2.0 % fewer instructions at byte-identical work, conflicts and
 propagations unchanged to the digit.
 
+### 3.53 Rank 35's rung is a clause-database difference (2026-09-05)
+
+Tracing the 28-conflict window of 3.51 (campaign `5160`) gives one row, and
+dumping the list it names (campaign `5161`) gives the defect.
+
+The trace's first divergence is at **conflict 32,072, literal 145**: Kissat
+charges 39,580 ticks over a 40,079-word watch list, Tactix 39,555 over 40,055.
+Everything after it is downstream --- Kissat propagates literals Tactix never
+reaches --- and the instrumented Kissat matches the pristine binary at
+860,037,684, so the reading is sound.
+
+**Tactix's list is 24 words short: 20,032 entries against 20,044.** Dumping
+both and comparing by content separates two effects.
+
+Twelve clauses are present in both but **shorter in Tactix**:
+
+```
+kissat  size=8  142754,-145,222895,222877,222777,222780,222896,-75633
+Tactix  size=7  142754,-145,222895,       222777,222780,222896,-75633
+kissat  size=5  147863,-145,-147866,-145179,-147855
+Tactix  size=4  147863,-145,        -145179,-147855
+kissat  size=5  -222865,-145,222876,222877,222783
+Tactix  size=4  -222865,-145,222876,       222783
+```
+
+Tactix has removed a literal Kissat still holds --- 222877, $-147866$, and so
+on --- and one clause differs by a substitution rather than a removal
+(`222792` against `222783`). Twelve more are **absent from Tactix
+altogether**, and they are not scattered: every one lies in the
+354xxx/360xxx/441xxx/443xxx variable region.
+
+So Rank 35's rung is not a watch-pose difference like Rank 17's, and not an
+accounting difference. **The two clause databases have diverged**: with the
+phase-entry ports Tactix has strengthened some clauses further than Kissat and
+lost others entirely, by conflict 32,072, having agreed exactly through
+32,062.
+
+That is consistent with what the ports do and with why they help elsewhere.
+They propagate at a phase entry that Tactix previously skipped, so they derive
+root units earlier; more root units strengthen more clauses. Extra
+strengthening is not itself wrong --- it is why the ported arm is *exact*
+against Kissat at conflict 20,001 where the base arm has already lost 11.8 M
+ticks (3.51) --- but here it runs ahead of the reference. The next question is
+narrow and well posed: which rule removes 222877 from that clause between
+conflicts 32,062 and 32,072, and what does Kissat do at the same point.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

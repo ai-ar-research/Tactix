@@ -546,10 +546,34 @@ resume surface.
     ports REPAIR Rank 35 rather than perturbing it. So their +184 s there is
     the NEXT unclosed rung, not a defect in them, and the bisection window is
     now 20,001 to 50,000 conflicts.
-  - `5155` (job 1666369) bisects that window at 25k/30k/35k/40k/45k. THIS IS
-    THE LARGEST REMAINING LEVER: the ports cost +149.2 s on the tier solely
-    because of Rank 35, so closing this rung could make them shippable at
-    -34.8 s AND recover much of Rank 35's 184 s.
+  - `5155`-`5161` WALKED THE LADDER ALL THE WAY DOWN ON RANK 35 (report 3.53).
+    30,000 conflicts -> 5,000 -> 1,000 -> 200 -> 28 -> ONE LITERAL. First
+    divergence: conflict 32,072, literal 145, where kissat charges 39,580
+    ticks over 40,079 words and Tactix 39,555 over 40,055. Dumping both lists
+    (20,044 entries vs 20,032) separates TWO effects:
+    (a) twelve clauses present in both but SHORTER IN TACTIX -- it has removed
+        a literal kissat still holds (222877, -147866, ...), one differing by
+        a substitution (222792 vs 222783);
+    (b) twelve clauses ABSENT FROM TACTIX entirely, all in the
+        354xxx/360xxx/441xxx/443xxx variable region.
+    So this rung is NOT a watch-pose difference like Rank 17's and NOT an
+    accounting difference: THE TWO CLAUSE DATABASES HAVE DIVERGED by conflict
+    32,072 after agreeing exactly through 32,062. That fits what the ports do
+    -- they propagate at a phase entry Tactix used to skip, deriving root
+    units earlier, and more root units strengthen more clauses. Extra
+    strengthening is not wrong in itself (it is why the ported arm is EXACT at
+    conflict 20,001 where base has lost 11.8M ticks) but here it runs ahead of
+    the reference.
+    NEXT, AND NARROW: which rule removes 222877 from
+    `142754,-145,222895,222877,222777,222780,222896,-75633` between conflicts
+    32,062 and 32,072, and what does kissat do at that point. The instruments
+    are all in the tree and validated.
+  - `5159` REFUTED AND REVERTED: the `kernel_rebuild_large_watches` persistent
+    scratch drifted -9.4 -> -4.3 -> +1.5 -> +9.3 s across 30 BYTE-IDENTICAL
+    pairs, i.e. noise around zero. The profile flagged that function at 1.63x
+    but the per-call vector was not the driver. Inferred from the profile
+    ratio ALONE, unlike the four in `5153` which had two independent
+    confirmations; a profile ratio is a hypothesis and the gate decides.
   - `5151` DONE AND LTO IS REFUTED (report 3.50). Same source, only
     -flto=auto differing, Rank 32: instructions 2,694.7G -> 2,841.8G =
     1.0546x, cycles 1,351.4G -> 1,377.2G = 1.0192x, with conflicts and
