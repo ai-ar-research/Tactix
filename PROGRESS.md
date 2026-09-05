@@ -63,6 +63,18 @@ resume surface.
   front, so it is not a local change. NOTE the report also retracts the
   claim that dense-mode rules pay for maintaining sparse watches too: on
   Rank 21 that machinery is 0.05 % against kissat's ~7 %.
+  ALL SIX remaining rule gaps are now verified as unit cost at matched or
+  lower work (report section 3.23): Factor's scan volume within 4 %,
+  Substitute's substituted-variable count within 1 %, Congruence's gate
+  counts matched, Vivify's propagations +7 %, Strengthen's forward steps
+  12 % fewer, BVE a third of the attempts for more eliminations. None can
+  be closed by a scheduling port. Shared-path measurement: dense index
+  construction is 4.14 s on Rank 21 against kissat's ~1.4 s, and it is
+  CALL-COUNT driven (26 rebuilds, one per rule application, where kissat
+  connects once per dense phase); the arena walk is 4 % of it and the
+  second parallel structure was measured NOT to be the cost. Reusing a
+  live index across rules is not local: the rebuild materialises kissat's
+  irredundant arena order and incremental maintenance does not.
   START HERE: BVE's resolution rate is the largest quantified gap in the
   project. On Rank 21 Tactix performs 97,784,981 resolutions in about
   27.7 s of non-definition time where kissat performs 180,770,675 in

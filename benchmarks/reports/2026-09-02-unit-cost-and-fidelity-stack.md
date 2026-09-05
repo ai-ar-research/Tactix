@@ -1243,6 +1243,68 @@ question to settle.
 One earlier structural item stands: Rank 31 runs 2.7x kissat's conflicts,
 which is search trajectory rather than implementation.
 
+### 3.23 Every remaining rule gap is unit cost, and where the shared cost sits (2026-09-04)
+
+Vivify was the last rule whose gap had not been decomposed at matched
+work. Neither solver reports vivification's own propagation count as
+shipped — kissat declares `vivify_propagations` and never increments it —
+so both were instrumented. On Rank 22 Tactix performs 189,909,338 of them
+against kissat's 177,471,667, seven per cent more, and takes 21.3 s
+against 14.9 s. Vivify is therefore unit cost like the rest.
+
+The first attempt at that measurement was wrong and worth recording. The
+counting wrapper added to kissat declared the propagate candidate
+`unsigned` where the real signature takes `struct clause *`, which
+compiled, ran, and answered SATISFIABLE on an UNSAT instance while
+reporting plausible vivify counters. A patched reference must be checked
+against the pristine build on the verdict and one pre-existing counter
+before any new number from it is read.
+
+That completes the picture. All six remaining rule gaps are unit cost at
+matched or lower work:
+
+| rule | work comparison |
+|---|---|
+| Factor | scan volume within 4 % (764 M ticks against 733 M) |
+| Substitute | 2,069,131 variables substituted against 2,086,279 |
+| BVE | a third of the attempts, 54 % of the resolutions, 3.5 % more eliminated |
+| Congruence | gate counts matched after the ITE normalisation |
+| Vivify | propagations +7 % |
+| Strengthen | forward steps 12 % **fewer** (95.5 M against 107.9 M) |
+
+None of them is surplus work, so none can be closed by a scheduling port.
+
+Since each rule spends most of its time in shared machinery rather than
+its own code — on Rank 21 `bve.cpp` is 9.3 s of BVE's 35.2 s — the shared
+paths were measured directly. Dense index construction is 4.14 s on Rank
+21 against kissat's ~1.4 s for `kissat_enter_dense_mode` plus
+`kissat_connect_irredundant_large_clauses`. Splitting Tactix's rebuild:
+
+| phase | Rank 21 |
+|---|---:|
+| push into `large` and `ordered` | 2.49 s |
+| clear both | 0.84 s |
+| copy binaries into `ordered` | 0.63 s |
+| arena walk | 0.18 s |
+| sort | 0.00 s |
+
+Two hypotheses died here. The arena walk, which kissat shortens by
+stopping at its last irredundant clause where Tactix walks everything, is
+four per cent of the cost. And the second structure is not the cost
+either: deriving `large` from `ordered` in one sequential pass instead of
+a second random append beside every one of the pushes moved Rank 21 by
+0.54 s with disagreeing repeats and Rank 9 by 0.09 s, so it was reverted.
+The two vectors share enough locality that filling both is nearly as
+cheap as filling one.
+
+What remains is call count. Tactix rebuilds the index 26 times on Rank
+21, once per rule application that needs it, where kissat connects once
+per dense-mode phase and lets the rules inside share it — a ratio close
+to the 2.9x in time. Reusing a live index across consecutive rules is not
+a local change: the rebuild materialises kissat's current irredundant
+arena order, and incremental maintenance does not reproduce that order,
+so skipping it would move behaviour rather than preserve it.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
