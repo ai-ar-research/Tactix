@@ -294,6 +294,34 @@ resume surface.
   rewriting rules. Rank 17 is the cheaper one to work with: conflict
   3,654, literal -628253, four entries, one differing field.
 
+  RANK 17 IS SOLVED, AND THE CAUSE IS A SCHEDULING EVENT, NOT CLAUSE POSE
+  (report 3.41, campaigns `5122`-`5124`). A pose tracker follows a clause by
+  its literal CONTENT and prints its literal order, its `searched` cursor and
+  the blocker cached in each of its two watch lists whenever any of them
+  change; the Tactix side tags each row with the phase. Sampled once per
+  conflict the two solvers are identical EVERYWHERE. Sampled per propagation
+  the sequence appears: at conflict 3,654 an inprocessing phase runs, both
+  solvers move the watch identically and both leave the same stale blocker
+  (613549, now `lits[2]` and unwatched) — then TACTIX PERFORMS ONE MORE
+  LARGE-WATCH REBUILD, refreshing the blocker before search sees it. kissat
+  carries the stale hint into search and pays the dereference: that IS the
+  tick.
+  The extra rebuild is `default_policy.cpp`'s end-of-pipeline
+  `kernel_rebuild_large_watches`, run for BOTH slot groups. kissat has no
+  pipeline-level rewatch: every dense-mode rule reconnects on its own exit
+  (vivify.c:1265/1276, substitute.c:594, dense.c:105/217) and `probe.c` adds
+  nothing; only `eliminate.c:587-589` wraps a whole round. Restricting the
+  call to Eliminate (or a group that genuinely left the watches disconnected)
+  makes Rank 17 EXACT: `search_ticks` 23,412,591 on both at conflict 3,700,
+  and the per-literal trace over conflicts 3,650-3,700 is 260,577 rows with a
+  ZERO-LINE diff. At conflict 20,000 Tactix is now 26.9M ticks BELOW kissat.
+  The blast radius is the whole run, not one tick: each such rewatch re-sorts
+  every clause's watched pair, refreshes every cached blocker and resets every
+  replacement-search cursor to 2, at every probe phase.
+  IN FLIGHT: campaign `5125` (job 1665893), paired Rank 1-40 A/B of this
+  change, base `b2ad655` vs base+fix. B28+C5 gate to follow it. Do not push
+  until both report.
+
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
   and the gap is fully present with no proof at all. Peak RSS (3.33):

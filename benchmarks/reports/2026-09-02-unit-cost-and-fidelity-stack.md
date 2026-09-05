@@ -2289,6 +2289,61 @@ place, retaining Ref, span, header, occurrence, and watch pose"). Rank 17
 is the cheaper of the two to work with: conflict 3,654, literal $-628253$,
 four watch entries, one differing field.
 
+### 3.41 The cause: a pipeline-level rewatch Kissat does not have (2026-09-05)
+
+A pose tracker settles 3.40 outright. It follows a clause identified by its
+literal *content* and prints, whenever any of it changes, the literal order,
+the replacement-search cursor, and the blocking literal cached in each of the
+clause's two watch lists. Both solvers carry it; Tactix additionally tags each
+row with the phase that changed the pose (campaigns `5122`, `5123`).
+
+Sampled once per conflict the two are **identical everywhere**, including at
+conflict 3,655 --- after the divergence. Sampled at every propagation across
+conflicts 2,003--3,655 the whole event sequence appears, and at conflict 3,654
+an inprocessing phase runs:
+
+```
+kissat   search  613549,628253,-584649   blk0=628253  blk1=613549
+         search  628253,-584649,613549   blk0=613549  blk1=628253   <- watch moved
+         search  628253,-584649,613549   blk0=-584649 blk1=628253   <- the +1 tick
+Tactix   inpr    613549,628253,-584649   blk0=0       blk1=0        (dense)
+         rebuild 613549,628253,-584649   blk0=628253  blk1=613549
+         inpr    628253,-584649,613549   blk0=613549  blk1=628253   <- watch moved
+         rebuild 628253,-584649,613549   blk0=-584649 blk1=628253   <- EXTRA
+```
+
+Both move the watch identically and both leave the same stale blocker behind
+--- 613549, now `lits[2]` and no longer watched. Kissat carries that stale hint
+into search, dereferences the clause once because of it, and heals it there:
+that dereference *is* the extra tick. Tactix instead performs **one more
+large-watch rebuild** after the probing propagation, which refreshes the
+blocker before search ever sees it. The second target clause shows the same
+rebuild swapping `lits[0]` and `lits[1]`, which is the W3 pose difference of
+3.40.
+
+The extra rebuild is `default_policy.cpp`'s end-of-pipeline
+`kernel_rebuild_large_watches`, run for **both** slot groups. Kissat has no
+such thing. Every one of its dense-mode rules flushes large watches on entry
+and reconnects on exit --- `vivify.c:1265/1276`, `substitute.c:594`, and
+`dense.c:105/217` for congruence, factor, fastel, walk and sweep --- and
+`probe.c` adds nothing of its own, returning to search with whatever pose the
+last sparse probing propagation left. Only `eliminate.c:587-589` wraps a whole
+round in `kissat_enter_dense_mode` / `kissat_resume_sparse_mode`. So the
+pipeline-level rewatch is right for the Eliminate group and spurious for Probe.
+
+Restricting it accordingly --- Eliminate, or a group that genuinely left the
+watches disconnected --- makes Rank 17's `search_ticks` **exact at conflict
+3,700: 23,412,591 on both solvers**, where the same checkpoint previously
+carried the single-tick gap (campaign `5124`).
+
+This is not the pose-drift class 3.40 guessed at, and it is not Rank 34's
+warm-up heap tie-break. It is one scheduling event, and its blast radius is
+much wider than one tick: every such rewatch re-sorts **every** clause's
+watched pair, refreshes **every** cached blocking literal, and resets **every**
+clause's replacement-search cursor to 2, at every probe phase for the whole
+run. Rank 17 is simply the instance where the first consequence was cheap
+enough to isolate.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

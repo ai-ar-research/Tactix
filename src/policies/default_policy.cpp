@@ -3776,14 +3776,19 @@ int DefaultInprocessScheduler::run_phase(Kernel &k, SlotGroup group,
     kernel_flush_retired_redundant(k);
   heuristics_consume_retirements(k);
   kernel_dense_disconnect(k);
-  // Kissat leaves every probe/eliminate pipeline by rebuilding sparse large
-  // watches.  This is ordering state, not optional garbage collection: in
-  // particular it resets the mutations made by unsuccessful early Lucky
-  // trials before late Lucky and first search.
+  // Only Eliminate reconnects at the pipeline level (eliminate.c:587-589).
+  // `probe.c` has no rewatch of its own: each dense-mode rule flushes large
+  // watches on entry and reconnects on exit (vivify.c:1265/1276,
+  // substitute.c:594, dense.c:105/217), and the pipeline returns to search
+  // carrying the pose the last sparse probing propagation left. A rewatch here
+  // re-sorts every watched pair, refreshes every cached blocker and resets
+  // every replacement-search cursor, erasing the stale hints Kissat keeps
+  // (benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md 3.40).
   // The full dense-mode exit corresponds to Kissat's arena-order reconnect.
   // Packed Tactix replacements replay their persistent source positions, as
   // every rule-local reconnect does, until collection materializes the order.
-  kernel_rebuild_large_watches(k, group == SlotGroup::Eliminate);
+  if (group == SlotGroup::Eliminate || !k.large_watches_connected)
+    kernel_rebuild_large_watches(k, group == SlotGroup::Eliminate);
   if (group == SlotGroup::Eliminate && !ctx.phase_unsat) {
     // dense.c::kissat_resume_sparse_mode resets propagation after reconnecting
     // and, because Eliminate is not a probing scope, deliberately uses
