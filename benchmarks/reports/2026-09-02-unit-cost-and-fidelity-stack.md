@@ -1582,9 +1582,10 @@ vacuous.
 
 The order in which those two were found is the useful part. The
 defragmentation checkpoint was measured FIRST, on its own, against the
-exact-fit layout (campaign `5073`, cancelled after twelve rank pairs). It
-moved peak RSS by nothing at all — the two arms agreed to within 1 % on
-every rank — because a rebuild ends with `holes = 0`, so the 75 %
+exact-fit layout (campaign `5073`, job 1664895, cancelled after twelve
+rank pairs once the reading was clear; its directory went with it, so
+this paragraph is the record). It moved peak RSS by nothing at all — the
+two arms agreed to within 1 % on every rank — because a rebuild ends with `holes = 0`, so the 75 %
 predicate cannot be reached between two rebuilds no matter how much the
 arena has grown. The checkpoint only becomes reachable once retained
 capacity is itself counted as holes, which is what capacity retention
