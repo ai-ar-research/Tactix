@@ -2825,6 +2825,67 @@ $1{,}351.4 \times 10^{9}$ cycles against $1{,}382.6 \times 10^{9}$ --- a
 propagations unchanged to the digit. Tactix against Kissat moves from 1.403x
 to 1.375x.
 
+### 3.51 Rank 35 says the ports are right (2026-09-05)
+
+Section 3.49 held the phase-entry ports because one instance, Rank 35 at
+$+184.0$ s, carried the entire tier verdict. The obvious suspicion was that
+the ports fire where Kissat does not, so the test was direct: three arms ---
+Kissat, base Tactix, ported Tactix --- and `search_ticks` at matched conflict
+counts on that instance (campaign `5154`). Whichever arm stays exact longer is
+the faithful one.
+
+| conflicts | Kissat | base | ported |
+|---:|---:|---:|---:|
+| 1,001 | 1,529,676 | $+0$ | $+0$ |
+| 5,000 | 50,407,503 | $+0$ | $+0$ |
+| 20,001 | 765,815,899 | $-11{,}848{,}433$ | **$+0$** |
+| 50,000 | 1,031,705,829 | $-160{,}994{,}187$ | $-136{,}305{,}627$ |
+| 100,001 | 1,198,062,616 | $+24{,}675{,}611$ | $+158{,}349{,}864$ |
+
+**The suspicion was wrong, and backwards.** At conflict 20,001 the ported
+build is exact against Kissat while the base build has already lost 11.8 M
+ticks, and at 50,000 the ported build is still the closer of the two. The
+ports do not perturb Rank 35 --- they *repair* it, exactly as they repair Rank
+31's tick defect through conflict 80,001 (3.37).
+
+So there is no port defect to find here, and the $+184.0$ s is not a reason to
+revert. It is the parity ladder again: the ports close one rung on this
+instance, agreement survives past conflict 20,001, and the next divergence ---
+somewhere between 20,001 and 50,000, where the ported arm first goes nonzero
+--- lands badly enough on this instance to cost 184 s. A faithful port that
+extends agreement and still costs time is evidence of the *next* missing
+mechanism, not of this one being wrong.
+
+That leaves the ports in a well-defined place. They are correct, they are
+general, they improve fidelity on both instances anyone has looked at, and
+they cost $+149.2$ s on the tier because of one instance whose next rung is
+unclosed. They stay on `claude/rephase-entry-propagation` until that rung is
+found; the bisection window is now narrow and named.
+
+### 3.52 The four unit-cost repairs, gated (2026-09-05)
+
+Collector per-entry hoist (3.48), Vivify schedule scratch, dense-rebuild
+scratch, and `IGNORE` templated out of search propagation --- all four
+behaviour-preserving by construction. Paired Rank 1--40, same window,
+instance-major (campaign `5153`):
+
+| | base | candidate | delta |
+|---|---:|---:|---:|
+| Rank 1--40 total | 8,363.4 s | 8,295.5 s | **$-67.9$ s (0.9919x)** |
+
+**40/40 paired, all forty certificates byte identical, no verdict mismatch.**
+Six times the collector hoist alone.
+
+The per-instance shape is worth stating because the aggregate alone would be
+misleading. The median delta is $-0.1$ s and only half the instances are
+negative --- but every win is on a *large* instance (Rank 25 $-11.0$ at
+277.7 s, Rank 17 $-6.4$, Rank 28 $-4.9$, Rank 22 $-2.9$) and every positive is
+tiny and on a small one ($+0.1$ to $+0.6$ on 30--70 s runs). That is what a
+per-unit-work saving looks like: the instances that do more collection and
+more Vivify scheduling save more. Campaign `5151` corroborates it without a
+clock --- 2.0 % fewer instructions at byte-identical work, conflicts and
+propagations unchanged to the digit.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

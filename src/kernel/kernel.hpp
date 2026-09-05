@@ -948,6 +948,9 @@ struct Kernel {
   // Collection's survivor list. Kernel-owned so a collection does not
   // reallocate one clause-sized vector per call.
   std::vector<Ref> collect_order_scratch;
+  // The dense occurrence rebuild's reference list, kept separate because
+  // collection calls that rebuild while its own survivor list is still live.
+  std::vector<Ref> dense_order_scratch;
   // Scratch capacity for delayed large-watch relocations.  `delayed_used`,
   // not vector::size(), is the live stack length: propagation grows this
   // backing store once per largest watch list and writes triples directly,
