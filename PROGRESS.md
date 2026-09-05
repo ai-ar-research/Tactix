@@ -359,12 +359,29 @@ resume surface.
   assignment as it stood on ENTRY and collects units into
   `SweepRound::units` for a later commit, because each captured unit carries
   the derivation prefix that proves it.
-  NEXT: commit each Sweep core unit at the point kissat does. The LRAT
-  obligation is the reason for the current batching, so the increment is
-  "assign immediately AND keep the per-unit derivation prefix", not "drop the
-  prefix". Instruments are in the tree (TACTIX_HEAP_HASH_EVERY / _DUMP_AT /
-  TACTIX_DEACT_TRACE and the kissat-ticktrace equivalents, which also carry
-  phase= and why= labels).
+  ONE HYPOTHESIS IS ALREADY DEAD (report 3.44). kissat reduces each core
+  lemma against the LIVE root assignment (units earlier lemmas in the same
+  round assigned); Tactix reduces every lemma against the entry assignment.
+  Reproducing kissat without assigning during detection is a 15-line overlay
+  over `round.units` inside `sweep_capture_core_units` -- a real fidelity
+  repair, kept on branch `sweep-core-live-values`, and MEASURED NOT TO BE
+  THIS DEFECT: with it in place the deactivation order at conflict 26,913 is
+  unchanged and 970 is still last. The six units in the run are six different
+  variables and no lemma among them mentions another, so the live value never
+  differs there.
+  THE REAL DIFFERENCE IS THE LEMMA STREAM. Tracing every core lemma from both
+  walks at conflict 26,913 (campaign `5138`): kissat 3,847 lemmas, Tactix
+  6,950 -- 1.8x -- and the excess is visible in the first ten rows, where the
+  unit lemmas -10839, -12880, -12488, -14838, -14432, -14548 each appear ONCE
+  in kissat's stream and TWICE in Tactix's. Literal order inside a lemma
+  differs too (kissat `-564 -563 -971` vs Tactix `-563 -564 -971`).
+  NEXT: kissat's `save_core` drops an extracted clause that is not learned and
+  has more than one non-false literal (`sweep.c:333-337`), and saves each core
+  once per direction. Port that filter and the per-direction save, then re-run
+  campaign `5133`'s deactivation trace to confirm 970 moves back to trail 24.
+  Instruments are all in the tree: TACTIX_HEAP_HASH_EVERY / _DUMP_AT,
+  TACTIX_DEACT_TRACE, TACTIX_CORE_TRACE and the kissat-ticktrace equivalents
+  (whose deactivation rows also carry phase= and why= labels).
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
