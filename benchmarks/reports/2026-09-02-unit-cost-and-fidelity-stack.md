@@ -1429,6 +1429,38 @@ sampling profiles and single-rule A/Bs: either instruction-level work on
 the specific loops, or a representation change that removes a whole
 maintenance obligation rather than making one cheaper.
 
+### 3.28 The tier gap and the implementation gap are largely different problems (2026-09-05)
+
+Decomposing the Rank 1-40 total by rank, which this report should have
+done far earlier, separates two things that have been discussed as one.
+
+| rank | Tactix | kissat | gap | share | conflicts T/K |
+|---|---:|---:|---:|---:|---:|
+| 34 | 740.7 s | 344.0 s | +396.6 | 46.1 % | 1.97 |
+| 31 | 673.3 s | 277.3 s | +395.9 | 46.1 % | 2.73 |
+| 17 | 256.5 s | 121.8 s | +134.7 | 15.7 % | 1.16 |
+| all 40 | 8,535.2 s | 7,675.2 s | +859.9 | 100 % | |
+
+Two instances carry 92 % of the whole tier gap, and on both of them
+Tactix performs roughly twice kissat's conflicts: 8.54 M against 4.33 M
+on Rank 34 and 12.38 M against 4.54 M on Rank 31. Those are search
+trajectory divergences, not implementation gaps — Tactix is not taking
+longer for the same work there, it is doing about twice the work. The
+other thirty-eight ranks net to +67 s between them.
+
+So the two figures this report has tracked measure different problems.
+The +427.9 s of inprocessing gap is real, is spread across every rank,
+and is unit cost at matched work; it is what sections 3.12 to 3.27
+attack. The 1.112x headline is dominated by two trajectory divergences
+that no amount of unit-cost work will touch. Closing those two alone
+would take the tier to roughly 1.009x.
+
+Rank 17 is the one instance where the two overlap: its conflicts are
+nearly matched at 1.16 while its propagations are 1.80, so it performs
+substantially more propagation per conflict. Whether that is inprocessing
+probing or search has not been established and is the one rank worth
+looking at next under this heading.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
