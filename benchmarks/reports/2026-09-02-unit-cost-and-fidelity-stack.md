@@ -2735,6 +2735,44 @@ worth eleven seconds. 3.47 already sized the named third of the excess at
 $0.274 \times 10^{12}$ of $0.791 \times 10^{12}$; this is what that third pays
 out at, one function at a time.
 
+### 3.49 The phase-entry ports, re-arbitrated and still held (2026-09-05)
+
+Section 3.38 shelved the rephase and Eliminate phase-entry propagation ports
+on a $+170.8$ s tier regression. That arbitration was taken before the probe
+pipeline rewatch removal of 3.41 moved two ranks' trajectories, so it was
+re-run rather than inherited (campaign `5149`), stacked with the
+behaviour-identical unit-cost repairs.
+
+The answer is almost exactly the same:
+
+| rank | 5149 | earlier run |
+|---|---:|---:|
+| 24 | $-10.1$ | --- |
+| 31 | $+33.9$ | $+39.5$ |
+| 35 | $+184.0$ | $+183.3$ |
+| 37 | $-69.8$ | $-68.1$ |
+| **Rank 1--40 total** | **$+143.4$ s (1.0213x)** | $+170.8$ s |
+
+So the rewatch removal did not re-open the question, and the hypothesis that
+it might is dead. Every other rank stayed byte-identical: 33 of 37 pairs, and
+the four that moved are exactly the four the ports reach.
+
+**But the verdict is one instance.** Excluding Rank 35 the stack is
+$-40.6$ s. A headline decided by a single instance is not a verdict, so the
+ports are neither shipped nor discarded: they stay on
+`claude/rephase-entry-propagation` pending a Rank 35 study, and the
+behaviour-identical repairs were split out and gated on their own (campaign
+`5153`).
+
+Two facts keep the ports alive rather than closing them. They are a faithful
+port --- Kissat backtracks and propagates at both entries and charges both to
+`search_ticks` --- and they demonstrably close Rank 31's tick defect through
+conflict 80,001 (3.37). A faithful port that still costs $+33.9$ s on the very
+rank whose defect it closes is evidence of a missing coupled mechanism, not
+evidence against the reference strategy. Rank 35 at $+184.0$ s is where that
+mechanism should be looked for first, because it carries the entire tier
+verdict on its own.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
