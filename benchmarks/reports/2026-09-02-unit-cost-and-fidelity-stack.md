@@ -2128,10 +2128,43 @@ This also explains why Rank 34 was untouched by the phase-entry ports of
 section 3.38: those change what happens at the rephase ENTRY, and this
 divergence is inside the walk that the rephase then runs.
 
-The next comparison is the warm-up itself --- Kissat reports
-`warming_decisions` 599 to 1,219 and `warming_propagations` 28,285 to
-41,325 across the window, and Tactix does not print either, so those
-counters are the first thing to expose.
+Exposing Tactix's warm-up counters, which it did not print, closes the
+chain (campaign `5113`). Before the window both solvers are identical: 2
+warm-ups, 599 decisions, 28,285 propagations, to the digit. Across the
+window's warm-up:
+
+| | warm-ups | warming decisions | warming propagations |
+|---|---:|---:|---:|
+| Kissat | 3 | 1,219 (**+620**) | 41,325 (+13,040) |
+| Tactix | 3 | 1,286 (**+687**) | 41,325 (+13,040) |
+
+**The propagations match exactly and the decisions do not.** Tactix makes
+sixty-seven more warm-up decisions than Kissat and derives nothing from
+any of them. The warm-up loop is `while (unassigned) { decide; propagate
+beyond conflicts; }` on both sides, so the same propagation count with
+more decisions means Tactix's loop condition stays true after Kissat's
+has gone false: **Tactix believes sixty-seven more variables are live and
+unassigned than Kissat does.**
+
+Kissat counts `solver->unassigned` and decrements it for a retired
+identity in `kissat_mark_eliminated_variable`; Tactix keeps the identity
+addressable and tracks the live population separately in
+`unassigned_active`, which is what its warm-up loop reads. Those two
+should agree and here they differ by sixty-seven.
+
+That is the whole causal chain for Rank 34, and every link is measured:
+sixty-seven phantom live variables give the warm-up sixty-seven extra
+decisions, the extra decisions change the assignment the walker imports,
+the walk runs fifty-eight steps further, its warm-up relocates two watches
+Kissat leaves in place, the next scan of literal 20584 charges four ticks
+fewer, and the trajectories separate for good by conflict 100,000 --- for
+$+403.4$ s. **The defect is an accounting one, it is general, and it is
+not specific to this instance:** any instance whose warm-up runs with a
+stale live-variable count gets a different walker input.
+
+The next step is to name the sixty-seven: which variables Tactix counts in
+`unassigned_active` that Kissat has already removed from `unassigned`, and
+which retirement path failed to decrement.
 
 
 

@@ -461,6 +461,12 @@ int main(int argc, char **argv) {
            (unsigned long long)kernel.stats.suppressed_search_ticks,
            (unsigned long long)kernel.stats.ticks);
 #endif
+    // Kissat reports these three; they are the only readout of the sweep
+    // that seeds Walk, and Walk's own step count is downstream of them.
+    printf("c warmup      %llu warmups, %llu decisions, %llu propagations\n",
+           (unsigned long long)kernel.stats.warmups,
+           (unsigned long long)kernel.stats.warming_decisions,
+           (unsigned long long)kernel.stats.warming_propagations);
     printf("c denseocc    %llu slice moves, %llu defrags\n",
            (unsigned long long)kernel.stats.dense_slice_moves,
            (unsigned long long)kernel.stats.dense_defrags);

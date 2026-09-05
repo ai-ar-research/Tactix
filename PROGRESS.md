@@ -210,9 +210,30 @@ resume surface.
   divergence is in the WALK and the warm-up that seeds it.
   That also explains why Rank 34 was untouched by the phase-entry ports:
   those change the rephase ENTRY, this is inside the walk the rephase runs.
-  NEXT: the warm-up itself. kissat reports `warming_decisions` 599->1,219
-  and `warming_propagations` 28,285->41,325 across the window; Tactix
-  prints NEITHER, so expose those two counters first and compare.
+  ROOT CAUSE FOUND (`5113`). Tactix now prints `c warmup`. Before the
+  window both solvers are IDENTICAL: 2 warmups, 599 decisions, 28,285
+  propagations. Across the window's warm-up:
+    kissat  3 warmups, 1,219 decisions (+620), 41,325 propagations
+    tactix  3 warmups, 1,286 decisions (+687), 41,325 propagations
+  The PROPAGATIONS MATCH EXACTLY and the DECISIONS DO NOT. Tactix makes 67
+  more warm-up decisions and derives nothing from any of them. The loop is
+  `while (unassigned) { decide; propagate beyond conflicts; }` on both
+  sides, so same propagations + more decisions means Tactix's condition
+  stays true after kissat's goes false: **Tactix believes 67 more
+  variables are live and unassigned**. kissat counts `solver->unassigned`
+  and decrements it in `kissat_mark_eliminated_variable`; Tactix keeps the
+  identity addressable and reads `unassigned_active`. Those two must agree
+  and here they differ by 67.
+  THE WHOLE CHAIN, every link measured: 67 phantom live variables -> 67
+  extra warm-up decisions -> different assignment imported by the walker ->
+  walk runs 58 steps further -> its warm-up relocates two watches kissat
+  leaves -> the next scan of literal 20584 charges 4 ticks fewer ->
+  trajectories separate by conflict 100,000 -> +403.4 s. The defect is an
+  ACCOUNTING one and it is general: any instance whose warm-up runs with a
+  stale live-variable count gets a different walker input.
+  NEXT: name the 67 — which variables Tactix counts in `unassigned_active`
+  that kissat has removed from `unassigned`, and which retirement path
+  failed to decrement.
   THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
   the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
   Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a
