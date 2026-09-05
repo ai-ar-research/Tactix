@@ -1823,7 +1823,7 @@ static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks,
 
 // Every arena clause of a given size containing a given external literal,
 // with the two watched literals and the replacement-search cursor. Fires once,
-// at a chosen conflict, so a clause can be compared BY CONTENT across the two
+// at a chosen conflict, so a clause can be compared by content across the two
 // solvers instead of by which literal happens to watch it.
 static void kernel_clause_dump(const Kernel &k) {
   static const int at = [] {
