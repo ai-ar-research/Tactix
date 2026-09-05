@@ -182,8 +182,16 @@ resume surface.
   dense index's lifetime coupled to `large_watches_connected`, which
   Tactix deliberately decoupled.
 
-  Size debt (compaction not requested): PROGRESS 3,800 lines against a 350
-  budget, `docs/implementation-notes.md` 591 against 560.
+  IN FLIGHT AT THE CLOSE: only independent proof/model checks, on gates
+  `5079`, `5082`/`5083` and `5084`/`5085` (jobs 1665113, 1665263/1665264,
+  1665412/1665413). Every solver verdict, timing and certificate hash they
+  produce is already consumed; nothing waits on them. No campaign holds
+  certificate, checker or decompressed-input residue.
+  Andrew's report: `report-to-andrew/2026-09-05-1130-container-repairs-1093x/`.
+  `build/pin-fuzz-harness-MIkmR8` predates this session (2026-09-02) and no
+  job or log references it; left in place rather than removed on a guess.
+  Size debt (compaction not requested): PROGRESS 3,913 lines against a 350
+  budget, `docs/implementation-notes.md` 599 against 560.
 ## Latest candidate performance
 
 - Rank-27 campaign `4630` materially merged the search-trajectory gap:
