@@ -2097,10 +2097,41 @@ other propagation engines, which run during inprocessing and which this
 trace deliberately excludes (`kernel_charge_ticks` skips `search_ticks`
 under `inprocessing`/`warming`, and the trace follows the same rule).
 
-That is the next experiment and it is a different instrument: trace
-PROBING propagation over conflicts 75,437--75,452 on both sides and find
-which engine moves these two watches in Tactix and not in Kissat. The
-per-rule timers say which phases ran in that window.
+Comparing every counter that moved across the window (campaign `5112`)
+names the engine, and it is not a probing one. Kissat runs **no probe and
+no eliminate** there. What it does run is a mode switch, a rephase, a
+warm-up and a walk:
+
+| counter | 75,437 | 75,453 |
+|---|---:|---:|
+| `switched` | 14 | 15 |
+| `rephased` | 7 | 8 |
+| `warmups` | 2 | 3 |
+| `walks` | 2 | 3 |
+| `walk_steps` | 1,606,472 | 4,143,503 |
+
+Tactix runs exactly the same set --- 14 to 15 switches, 7 to 8 rephases, 2
+to 3 walks --- and its walk step count over the same span is
+**4,143,561** against Kissat's **4,143,503**, from an identical 1,606,472
+before it. **Fifty-eight steps.**
+
+That reorders the whole picture. The watch difference at conflict 75,452 is
+downstream: the warm-up that precedes the walk propagates over the entire
+formula and relocates watches as it goes (`propbeyond.c`;
+`kernel_propagate_beyond_conflicts`), and neither solver charges it to
+`search_ticks`, which is exactly why the divergence is invisible to the
+tick trace until a later scan trips over it. Rank 34's first divergence is
+therefore in the **Walk and the warm-up that seeds it**, and the two
+extra watches are its first visible consequence rather than its cause.
+
+This also explains why Rank 34 was untouched by the phase-entry ports of
+section 3.38: those change what happens at the rephase ENTRY, and this
+divergence is inside the walk that the rephase then runs.
+
+The next comparison is the warm-up itself --- Kissat reports
+`warming_decisions` 599 to 1,219 and `warming_propagations` 28,285 to
+41,325 across the window, and Tactix does not print either, so those
+counters are the first thing to expose.
 
 
 
