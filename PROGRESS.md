@@ -233,8 +233,23 @@ resume surface.
   steps further -> two watches relocated that kissat leaves -> 4 ticks
   fewer on the next scan of 20584 -> separation by conflict 100,000 ->
   +403.4 s.
-  NEXT: the first differing warm-up decision. The same trace machinery can
-  emit the decided-literal sequence from both solvers for this warm-up.
+  DOWN TO ONE DECISION (`5114`). The warm-up's first TWENTY-NINE decisions
+  are identical literal for literal, and the trail sizes track with a
+  constant offset of 3,959 — kissat's root-unit count, because
+  `kissat_flush_trail` clears the root trail while Tactix retains root
+  identities (documented deviation, NOT this defect). At the THIRTIETH
+  decision kissat picks -5214 and Tactix picks -17217, from an IDENTICAL
+  assigned set.
+  NOT a random decision: both report 39 random sequences at both ends of
+  the window and Tactix's random-decision count is unchanged at 63,915, so
+  `kissat_start_random_sequence` armed nothing here despite the mode switch
+  (its 1,934 interval had not elapsed).
+  So it is ONE ORDINARY BRANCHING PICK — a pure `H`-state difference: the
+  score heap's order in stable mode or the VMTF queue's in focused mode.
+  NEXT: dump the branching structure's top few candidates at that exact
+  point on both sides. Reproducer: Rank 34, third warm-up, decision 30;
+  `TACTIX_WARMUP_TRACE`/`TACTIX_WARMUP_INDEX=3` and
+  `KISSAT_WARMUP_TRACE`/`KISSAT_WARMUP_INDEX=3` emit the sequences.
   THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
   the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
   Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a

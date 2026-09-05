@@ -2164,9 +2164,36 @@ relocated that Kissat leaves in place, the next scan of literal 20584
 charges four ticks fewer, and the trajectories separate for good by
 conflict 100,000, for $+403.4$ s.
 
-The next step is to compare the first differing warm-up decision, which
-the same trace machinery can produce: both solvers, this warm-up, the
-sequence of decided literals.
+Emitting that sequence from both solvers (campaign `5114`) puts the
+divergence on a single decision.
+
+The **first twenty-nine decisions are identical**, literal for literal, and
+so are their consequences: the trail sizes track with a constant offset of
+3,959 --- exactly Kissat's root-unit count, because `kissat_flush_trail`
+clears the root trail while Tactix retains root identities, a documented
+deviation and not this defect. At the **thirtieth** decision Kissat picks
+$-5214$ and Tactix picks $-17217$, from an identical assigned set.
+
+It is not a random decision. Both solvers report **39 random sequences**
+at both ends of the window and Tactix's random-decision count is
+unchanged at 63,915, so `kissat_start_random_sequence` armed nothing here
+despite the mode switch --- its interval (1,934) had not elapsed.
+
+So Rank 34's first divergence is one ordinary branching pick, the
+thirtieth warm-up decision of the third warm-up, with the same variables
+assigned on both sides and the same twenty-nine decisions behind it. That
+is a pure `H`-state difference: the score heap's order in stable mode or
+the VMTF queue's in focused mode. It is the sharpest form this instance
+can take, and it is where the next session should start --- dump the
+branching structure's top few candidates at that exact point on both
+sides.
+
+For the record, the chain from there is fully measured: decision 30
+differs, the warm-up ends 67 decisions later than Kissat's over the same
+13,040 assignments, the walker imports a different assignment, the walk
+runs 58 steps further, two watches are relocated that Kissat leaves in
+place, the next scan of literal 20584 charges four ticks fewer, and the
+trajectories separate for good by conflict 100,000 --- $+403.4$ s.
 
 
 
