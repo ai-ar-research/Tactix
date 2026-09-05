@@ -1972,6 +1972,56 @@ static void kernel_pose_trace(const Kernel &k, const char *phase) {
   }
 }
 
+// The score heap's ARRAY order, which decides every tie between equal-score
+// variables (report 3.39: Rank 34's first divergence is one such tie). Emitted
+// as an FNV-1a hash over external variable numbers so the two solvers'
+// internal numbering cannot register as a difference, with a full dump
+// available at one chosen conflict.
+static uint64_t kernel_heap_signature(const Kernel &k, FILE *file, bool dump) {
+  uint64_t hash = 1469598103934665603ull;
+  uint32_t at = 0;
+  for (const uint32_t v : k.h->scores.stack) {
+    const int ext = std::abs(kernel_externalize(k, make_lit(v, false)));
+    if (dump)
+      std::fprintf(file, "HEAP %u %d %g\n", at, ext, k.h->scores.score[v]);
+    hash = (hash ^ static_cast<uint64_t>(static_cast<unsigned>(ext))) *
+           1099511628211ull;
+    at++;
+  }
+  return hash;
+}
+
+static void kernel_heap_trace(const Kernel &k) {
+  static const uint64_t every = [] {
+    const char *v = std::getenv("TACTIX_HEAP_HASH_EVERY");
+    return v ? std::strtoull(v, nullptr, 10) : uint64_t{0};
+  }();
+  static const int64_t dump_at = [] {
+    const char *v = std::getenv("TACTIX_HEAP_DUMP_AT");
+    return v ? std::strtoll(v, nullptr, 10) : int64_t{-1};
+  }();
+  static uint64_t last_conflicts = ~uint64_t{0};
+  FILE *const file = kernel_tick_trace_file();
+  // DefaultPolicy leaves `H` unattached through startup propagation and early
+  // Lucky, so there is no heap to sample before the first search decision.
+  if (!file || !k.h || (!every && dump_at < 0) || k.inprocessing || k.warming)
+    return;
+  if (k.stats.conflicts == last_conflicts)
+    return;
+  last_conflicts = k.stats.conflicts;
+  const bool dump =
+      dump_at >= 0 && k.stats.conflicts == static_cast<uint64_t>(dump_at);
+  if (!dump && (!every || k.stats.conflicts % every))
+    return;
+  const uint64_t hash = kernel_heap_signature(k, file, dump);
+  std::fprintf(file, "H %llu %zu %llu stable=%d\n",
+               static_cast<unsigned long long>(k.stats.conflicts),
+               k.h->scores.stack.size(),
+               static_cast<unsigned long long>(hash),
+               static_cast<int>(k.h->stable));
+  std::fflush(file);
+}
+
 // One literal's whole list, as the scan is about to see it.
 static void kernel_tick_trace_dump(const Kernel &k, Lit lit) {
   const int dump_lit = kernel_tick_trace_dump_lit();
@@ -2022,6 +2072,7 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
     // pre-scan charge.
     const uint32_t tick_trace_size = k.watches.size(negate(lit));
     kernel_clause_dump(k);
+    kernel_heap_trace(k);
     kernel_pose_trace(k, k.inprocessing ? "inpr"
                          : k.warming    ? "warm"
                                         : "search");

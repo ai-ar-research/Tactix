@@ -2344,6 +2344,36 @@ clause's replacement-search cursor to 2, at every probe phase for the whole
 run. Rank 17 is simply the instance where the first consequence was cheap
 enough to isolate.
 
+### 3.42 The rewatch removal, gated (2026-09-05)
+
+Paired Rank 1--40, same window, instance-major, base `b2ad655` against the
+same tree with the pipeline rewatch restricted to Eliminate (campaign
+`5125`):
+
+| | base | candidate | delta |
+|---|---:|---:|---:|
+| Rank 1--40 total | 8,420.7 s | 8,393.1 s | **-27.6 s (0.9967x)** |
+
+40/40 paired, no verdict mismatch, and **38 of 40 certificates byte
+identical** --- so the change is inert on thirty-eight instances and moves
+two: Rank 22 by $-22.8$ s and Rank 17 by $+3.6$ s. That distribution is the
+useful part of the result. The rewatch was not a uniform tax; it fired at a
+probe pipeline that had left the watches connected, which most instances do
+not reach, and where it did fire it was worth twenty-three seconds on its
+own.
+
+B28+C5 over the same pair (campaign `5126`): 66/66 tasks, 33 solves
+preserved on each arm with 17 independently checked SAT models and 16
+verified UNSAT proofs, PAR-2 ratio **1.0022** against the frozen 1.10
+guard.
+
+Rank 17 itself is $+3.6$ s and no longer trajectory-identical: its first
+divergence has moved past conflict 3,700, where the two solvers now agree
+tick for tick, and at 20,000 Tactix is 26.9 M ticks **below** Kissat. That
+is the parity ladder behaving as it did on Rank 31 --- one rung closed, the
+next one visible --- and not a reason to keep a rewatch Kissat does not
+perform.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
