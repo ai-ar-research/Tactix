@@ -2594,6 +2594,55 @@ diagnostics: `TACTIX_CORE_TRACE` now labels each row with its call site and
 `learned` flag, and `TACTIX_SWEEP_TRACE` records every backbone candidate and
 its outcome, against the same rows from the `kissat-ticktrace` variant.
 
+### 3.46 The uniform inprocessing gap is code, not memory (2026-09-05)
+
+Section 3.33 left the shared cause of the uniform 1.3--1.8x open and named the
+next instrument: "a hardware-counter run (cache and TLB misses per rule phase)
+rather than another cycle profile, because a uniform ratio with no owner in the
+sampled call graph is what a memory-hierarchy difference looks like." That
+instrument has now been taken (campaign `5145`), and it refutes the hypothesis
+it was designed to test.
+
+Both solvers, whole run, `.text`-identical `-g` pins:
+
+| | Rank 32 | Rank 22 |
+|---|---:|---:|
+| cycles (Tactix / Kissat) | 1.343 | 1.566 |
+| **instructions** | **1.403** | **2.280** |
+| cache-references | 1.299 | 1.800 |
+| cache-misses | 1.102 | 1.147 |
+| dTLB-load-misses | **0.130** | **0.222** |
+| branch-misses | 1.208 | 1.697 |
+| IPC, Tactix vs Kissat | 1.989 vs 1.904 | 2.074 vs 1.424 |
+| cache-misses per kilo-instruction | 5.04 vs 6.41 | 5.91 vs 11.76 |
+
+**Tactix's memory behaviour is better than Kissat's on every counter.** Fewer
+cache misses per instruction, four to eight times fewer dTLB misses, and a
+higher IPC on both instances. What it does is execute **1.4x to 2.3x as many
+instructions**. The cycle ratio is *smaller* than the instruction ratio on both
+ranks, so the better memory behaviour is already paying for part of the excess;
+the raw work executed is more disproportionate than the runtime shows.
+
+That closes the memory-hierarchy hypothesis and, with it, the reading that a
+uniform ratio across eight independent algorithms must be a property of the
+hardware they share. It is a property of how much they each execute. Peak RSS
+being 2--4x is real and is not costing time --- the arena is bigger and colder
+and still misses less per instruction.
+
+Two consequences. The right instrument is a per-symbol profile of the
+**instruction** event rather than cycles, so symbols rank by the quantity that
+is actually 1.4x; a cycles profile spreads the excess across everything in
+proportion to its IPC and is why 3.33's call graph showed no owner. And the
+always-on statistics bookkeeping is not the cause either: Tactix has 320
+unguarded `k.stats` increment sites against the 71 counters Kissat compiles out
+under `METRICS`, but the per-rule site counts do not track the per-rule ratios
+at all (Sweep 90 sites at 1.74x, Substitute 15 at 1.77x, BVE 21 at 1.31x).
+
+One caveat on provenance: the shipped rewatch removal moved Rank 22's
+trajectory, so its 2.280x mixes unit cost with a changed workload. Rank 32 is
+proof-identical across that change and its **1.403x is unit cost at matched
+work**.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
