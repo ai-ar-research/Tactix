@@ -66,8 +66,18 @@ resume surface.
   N2 evidence: the proof/model checks of all ten gate pairs run today have
   finished — 500 proof checks and 560 model checks, all exit 0, no
   expected-verdict mismatch (report section 3.24).
+  RUN THIS FIRST: `tools/bench/rule_gap_table.py <gate-campaign>` prints the
+  per-rule time gap beside the work counter that decides each one, from the
+  gate plus the verbose kissat statistics baseline `5064`. It reproduces the
+  whole picture below in one command; do not re-derive it by hand.
   ALL SIX remaining rule gaps are now verified as unit cost at matched or
-  lower work (report section 3.23): Factor's scan volume within 4 %,
+  lower work (report sections 3.23 and 3.25). Tactix does LESS work than
+  kissat on every paired counter except Factor's ticks at 1.03 — BVE 0.91
+  resolutions, Substitute 1.00 variables, Vivify 0.83 probes, Strengthen
+  0.88 forward steps, Sweep 0.98 equivalences — while being slower on every
+  rule except Sweep and Backbone. So the remaining +427.9 s is entirely
+  unit cost: no rule can be closed by dosing it down, and none is buying
+  its time with extra simplification. Detail: Factor's scan volume within 4 %,
   Substitute's substituted-variable count within 1 %, Congruence's gate
   counts matched, Vivify's propagations +7 %, Strengthen's forward steps
   12 % fewer, BVE a third of the attempts for more eliminations. None can
