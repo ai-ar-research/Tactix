@@ -2048,6 +2048,31 @@ replacement-search branches of `proplit.h` for the update; the Tactix
 counterparts are `WatchLists::push_large` and the propagation engines.
 Conflict 75,452 with literal $-20584$ is an exact two-row reproducer.
 
+Two of the three blocker sources are already checked and MATCH, so do not
+re-derive them:
+
+- **The propagation update.** `proplit.h` writes `q[-2].blocking.lit =
+  other` when the clause is satisfied by its other watched literal, and
+  hands a moved watch the blocker `other`
+  (`kissat_delay_watching_large (solver, delayed, replacement, other,
+  ref)`). Tactix writes `q[-2] = blocking_watch(other).raw` at the same
+  point and queues `{replacement, other, ref}` for the same delayed push.
+  The tick is charged in the same place too: after the blocking test and
+  before the garbage test, on both sides.
+- **The dense-exit rewatch.** `kissat_watch_large_clauses` runs
+  `kissat_sort_literals` and then watches `lits[0]`/`lits[1]` with each
+  other as blockers. Tactix's `kernel_rebuild_large_watches` calls
+  `sort_clause_watches_like_kissat` and pushes the same pair, and that
+  helper is a faithful transliteration of `sort.c`'s
+  `move_smallest_literal_to_front` down to the incumbent-level update and
+  the `satisfied_is_enough` argument of the second pass.
+
+What is left, and unchecked, are the other paths that install a large
+watch: the collector's rewatch (`collect.c:596` also sorts), on-the-fly
+strengthening, and Vivify's and Sweep's own rewatch boundaries. One of
+those hands four watches on a single 12-word list a blocker Kissat would
+not.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
