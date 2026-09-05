@@ -1787,6 +1787,28 @@ static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks) {
     return;
   if (k.stats.conflicts < lo || k.stats.conflicts > hi)
     return;
+  static int dump_lit = [] {
+    const char *v = std::getenv("TACTIX_TICK_DUMP_LIT");
+    return v ? std::atoi(v) : 0;
+  }();
+  if (dump_lit && kernel_externalize(k, lit) == dump_lit) {
+    uint32_t slot = 0;
+    for (const WatchEntry w : k.watches.entries(negate(lit))) {
+      if (w.binary()) {
+        std::fprintf(file, "W %u bin other=%d\n", slot++,
+                     kernel_externalize(k, w.other()));
+      } else {
+        const Clause *c = clause_at(k.arena, w.ref());
+        std::fprintf(file, "W %u lrg blk=%d blkval=%d garbage=%d size=%u lits=",
+                     slot++, kernel_externalize(k, w.blocking()),
+                     static_cast<int>(k.values[w.blocking()]),
+                     static_cast<int>(c->garbage()), c->size);
+        for (uint32_t i = 0; i < c->size; i++)
+          std::fprintf(file, "%d,", kernel_externalize(k, c->lits[i]));
+        std::fprintf(file, "\n");
+      }
+    }
+  }
   std::fprintf(file, "%llu %d %llu sz=%u\n",
                static_cast<unsigned long long>(k.stats.conflicts),
                kernel_externalize(k, lit),
