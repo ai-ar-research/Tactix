@@ -61,6 +61,21 @@ resume surface.
   `tools/fuzz/slurm-nightly-57a6895-1664736.log`) on the gated pin, which
   is byte-identical to `pin-1148168`. Nothing depends on it.
 
+  READ THIS BEFORE CHOOSING WHAT TO DO (section 3.28). The tier gap and
+  the implementation gap are largely DIFFERENT problems. Of the 859.9 s
+  tier gap, 92 % is two instances: Rank 34 +396.6 s and Rank 31 +395.9 s,
+  and on both Tactix runs about twice kissat's conflicts (1.97x and
+  2.73x). That is search trajectory, not "same work, more time". The
+  other 38 ranks net to +67 s. So the +427.9 s inprocessing gap, which is
+  unit cost and spread across every rank, is a different target from the
+  1.112x headline; closing the two trajectory ranks alone would reach
+  about 1.009x. Decide which goal is being served before picking work.
+  A tempting explanation for those two was tested and refuted the same
+  night: learned-clause quality is matched on Ranks 21/22/34 and BETTER
+  than kissat's on Rank 31 (39.14 lits/23.15 glue against 47.52/26.63).
+  Only Rank 17 has worse glue (26.76 against 15.05) and its shrink is
+  already active, so it is an isolated instance, not a driver.
+
   NEXT. The remaining cost is per-visit, spread across clause creation,
   occurrence maintenance and collection, each mirroring a kissat mechanism
   with no measurable local win. Closing it needs a representation change
