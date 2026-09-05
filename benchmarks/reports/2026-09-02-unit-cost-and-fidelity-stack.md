@@ -1668,6 +1668,82 @@ binaries at dense entry instead of at import. That is a deliberate,
 documented Tactix deviation, so the target is its cost, not its
 existence.
 
+### 3.33 The gap is uniform across inprocessing, and it is not memory (2026-09-05)
+
+Ranks 22 and 32 carry +78.8 s and +70.9 s against the accepted Kissat
+baseline, together a fifth of the remaining tier gap, and neither is a
+trajectory divergence. Both were profiled with a `.text`-identical `-g`
+pin (campaign `5081`, job 1665261).
+
+Rank 32, both arms under `perf` with no proof (Tactix 362.4 s of solve,
+Kissat 270.0 s total, of which 0.19 s is parse):
+
+| | Tactix | Kissat | ratio |
+|---|---:|---:|---:|
+| Vivify | 42.7 s | 28.4 s | 1.50 |
+| BVE | 18.7 s | 14.3 s | 1.31 |
+| Substitute | 16.4 s | 9.3 s | 1.77 |
+| Factor | 15.0 s | 9.0 s | 1.67 |
+| Sweep | 10.6 s | 6.1 s | 1.74 |
+| Congruence | 7.8 s | 5.5 s | 1.42 |
+| Backbone | 3.7 s | 2.0 s | 1.83 |
+| TransitiveReduce | 3.5 s | 2.2 s | 1.59 |
+| whole inprocessing slot | 136.0 s | 77.1 s | 1.76 |
+| search and scaffolding | 226.3 s | 191.7 s | 1.18 |
+
+Every inprocessing rule lands between 1.3x and 1.8x while search is 1.18x.
+A ratio that uniform across eight independent algorithms is a property of
+what they share, not of any of them. Rank 22 shows the same shape.
+
+The obvious shared property was tested and refuted. Tactix's peak RSS is
+2--4x Kissat's on exactly the ranks that carry unit cost (Rank 25 3.94x,
+Rank 21 3.23x, Rank 9 2.84x, Rank 32 2.23x), which would make every
+random access more expensive. Over the 36 ranks that run longer than five
+seconds, the correlation between log(RSS ratio) and log(time ratio) is
+**r = 0.124** — none. Ranks 33, 20, 30 and 38 carry 1.6--2.4x the memory
+and are FASTER than Kissat; Ranks 7, 8, 10, 13 and 14 carry 1.03--1.06x
+and are 1.18--1.21x slower. Peak RSS does not predict the gap and is not
+the shared cause.
+
+Two other shared candidates are eliminated by the same profiles. Rule
+dispatch charges two `steady_clock::now()` calls per application, and
+Rank 32 makes 6.7 M of them (BVE 1,985,333 and TransitiveReduce
+4,737,201); the clock is 0.12 % of that run. And propagation is at
+parity: Rank 22 spends 83.2 s in `propagate_literal` against Kissat's
+78.6 s in `kissat_search_propagate` plus `kissat_probing_propagate`.
+
+So the shared cause of a uniform 1.3--1.8x is still open, and it is now
+the sharpest question in front of this work: it is worth more than any
+individual rule, and four of its plausible explanations are already
+closed. What every inprocessing rule still shares and search does not is
+the clause-and-occurrence access pattern of a dense phase — `clause_at`
+on a reference taken from an occurrence list, against Kissat reading the
+same clause through the same watch stack. The next instrument should be a
+hardware-counter run (cache and TLB misses per rule phase) rather than
+another cycle profile, because a uniform ratio with no owner in the
+sampled call graph is what a memory-hierarchy difference looks like.
+
+### 3.34 A cheaper liveness probe, declined (2026-09-05)
+
+The blocked liveness filter draws two 64-bit mixes per probe where one
+supplies everything it needs: three 9-bit positions inside the 512-bit
+block and the block index above them. A second mix only lowers a
+false-positive rate whose cost is an exact watch scan that answers
+correctly either way, so the change is invisible to the solver — and the
+filter is the largest Tactix-only cost on the import and Congruence paths
+(`note_binary_add` 6.06 % and `kernel_binary_live` 6.66 % of Rank 10).
+
+Paired Rank 1--40 (`5082`, job 1665263) against the `7e6e05a` pin:
+8,398.5 s to 8,409.8 s, **+11.2 s = 1.0013x**, all forty certificates
+byte-identical. B28+C5 (`5083`, job 1665264) is 1.0005x.
+
+Reverted. It is not a port of any Kissat mechanism — Kissat keeps no
+binary liveness index at all — so there is no fidelity argument to
+override a measurement, and keeping a change because its sign is inside
+the noise is how a tuned constant enters. The one part kept is the
+`note_binary_add` key hoist, which computed `kernel_binary_key` twice for
+the same pair: strictly less work with no representation choice attached.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

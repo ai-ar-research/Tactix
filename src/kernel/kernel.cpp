@@ -385,9 +385,10 @@ static void note_binary_add(Kernel &k, Lit a, Lit b, uint64_t id,
   // and kernel_delete_binary can retire this pair's id, so a re-add must
   // install its fresh one — otherwise every later LRAT chain through the pair
   // cites a deleted clause. Among live duplicates either id is equally valid.
-  k.binary_ids.insert_or_assign_known(kernel_binary_key(a, b), id, new_pair);
+  const uint64_t key = kernel_binary_key(a, b);
+  k.binary_ids.insert_or_assign_known(key, id, new_pair);
   if (k.binary_liveness)
-    k.binary_liveness->add(kernel_binary_key(a, b));
+    k.binary_liveness->add(key);
   // Like large-clause creation, a new binary is added material for forward
   // subsumption and Factor, but not for Kissat's elimination flag.
   if (mark_added_material) {
