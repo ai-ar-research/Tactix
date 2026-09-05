@@ -70,6 +70,14 @@ resume surface.
   `tools/fuzz/slurm-nightly-57a6895-1664736.log`) on the gated pin, which
   is byte-identical to `pin-1148168`. It is 20x the quick legs every push
   used; read it when it lands. Nothing depends on it.
+  DEAD END, do not retry (report sections 3.26/3.27): the duplicate test in
+  `do_substitution` is 32 % of that function at instruction level on Rank
+  10, and BOTH ways of exploiting it lose by the same margin — grouping the
+  scans by owner (+5.4/+4.9 s) and a blocked liveness filter (+4.8/+3.8 s),
+  counters identical in every arm. On this path the data is touched once;
+  any index built by an extra pass over the images or the binaries costs
+  more than the scan it saves. Seven consecutive refutations followed the
+  ITE fix, which is the signal that this change class is exhausted.
   CAUTION learned the hard way (report section 3.26): a repair that removes
   a quadratic term can LOSE where the quadratic was never reached. The
   duplicate-test grouping that won on Sweep's session path (tiny batches,
