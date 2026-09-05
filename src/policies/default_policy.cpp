@@ -2685,17 +2685,43 @@ int DefaultPolicy::solve(Kernel &k, volatile sig_atomic_t *stop) {
         assert(k.level == 0 && k.propagate_head == k.trail.size());
         k.warming = true;
         k.stats.warmups++;
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+        // Kissat prints the same two counters; the decided-literal sequence
+        // beside them is what localises a warm-up order divergence.
+        static FILE *warmup_trace = [] {
+          const char *path = std::getenv("TACTIX_WARMUP_TRACE");
+          return path && *path ? std::fopen(path, "w") : nullptr;
+        }();
+        static const int warmup_want = [] {
+          const char *v = std::getenv("TACTIX_WARMUP_INDEX");
+          return v ? std::atoi(v) : -1;
+        }();
+        const bool warmup_dump =
+            warmup_trace && (warmup_want < 0 ||
+                             static_cast<int>(k.stats.warmups) == warmup_want);
+#endif
         while (k.retire_enabled ? k.unassigned_active : k.unassigned) {
           if (kernel_terminating(k))
             break;
           const Lit decision = bp.pick(k);
           kernel_assign_decision(k, decision);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+          if (warmup_dump)
+            std::fprintf(warmup_trace, "D %d\n",
+                         kernel_externalize(k, decision));
+#endif
           k.stats.warming_decisions++;
           event_trace.detail(k, "decision", kernel_externalize(k, decision));
           event_trace.heap_after_decision(k);
           event_trace.heap_scores(k);
           const size_t warmup_trail_begin = k.trail.size();
           kernel_propagate_beyond_conflicts(k);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+          if (warmup_dump) {
+            std::fprintf(warmup_trace, "P %zu\n", k.trail.size());
+            std::fflush(warmup_trace);
+          }
+#endif
           event_trace.implications(k, warmup_trail_begin);
         }
         if (k.level)
