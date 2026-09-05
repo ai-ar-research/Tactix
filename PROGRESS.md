@@ -522,8 +522,23 @@ resume surface.
     (collector hoist, Vivify schedule scratch, dense-rebuild scratch, IGNORE
     templated out of search propagation). 40/40 byte-identical certificates
     required; any difference is a defect.
-  - `5151` (job 1666218) instruction count for -flto=auto on Rank 32, and
-    `5152` PREPARED (not submitted) as its paired Rank 1-40 gate.
+  - `5151` DONE AND LTO IS REFUTED (report 3.50). Same source, only
+    -flto=auto differing, Rank 32: instructions 2,694.7G -> 2,841.8G =
+    1.0546x, cycles 1,351.4G -> 1,377.2G = 1.0192x, with conflicts and
+    propagations IDENTICAL to the digit. LTO EXECUTES 5.5% MORE INSTRUCTIONS,
+    not fewer. GCC's cross-unit inlining hurts this program. `5152` was
+    prepared as its tier gate and MUST NOT BE SUBMITTED.
+    THIS CLOSES A WHOLE CLASS: the 52-symbols-against-30 shape is NOT
+    primarily cross-unit call overhead, so moving individual predicates like
+    `heuristics_var_active` into headers is not worth trying either -- LTO
+    subsumes every such move and made things worse. The diffuse two thirds is
+    in what the code DOES, not in how it is linked.
+    OUT OF BAND, THE FOUR REPAIRS ARE CONFIRMED: the no-LTO arm carries
+    2,694.7G instructions against report 3.47's 2,750.6G and 1,351.4G cycles
+    against 1,382.6G -- a 2.0% INSTRUCTION REDUCTION AT BYTE-IDENTICAL WORK,
+    conflicts and propagations unchanged to the digit. Tactix/kissat 1.403x
+    -> 1.375x.
+  - (superseded) `5152` was the LTO tier gate; do not run it.
     THE BUILD HAS NO LTO: `-O3 -DNDEBUG -std=c++20 -Wall -Wextra
     -fno-exceptions -fno-rtti`. kissat compiles at -O3 too but keeps its hot
     code in headers (inline.h, inlineheap.h, inlinequeue.h, inlineassign.h,

@@ -2773,6 +2773,57 @@ evidence against the reference strategy. Rank 35 at $+184.0$ s is where that
 mechanism should be looked for first, because it carries the entire tier
 verdict on its own.
 
+### 3.50 Link-time optimisation, refuted (2026-09-05)
+
+Section 3.47 measured a shape it could not attribute: Tactix needs 52 symbols
+above 0.3 % to cover 87.4 % of its instructions where Kissat needs 30 to cover
+92.9 %, with a sub-cutoff tail of 0.347 against $0.139 \times 10^{12}$. The
+obvious reading is cross-translation-unit call overhead. Kissat keeps its hot
+code in headers --- `inline.h`, `inlineheap.h`, `inlinequeue.h`,
+`inlineassign.h`, `inlinevector.h`, `proplit.h` --- and inlines it within each
+unit by construction, while Tactix is layered across many units where the same
+calls cannot inline. The build has no LTO: `-O3 -DNDEBUG -std=c++20 -Wall
+-Wextra -fno-exceptions -fno-rtti`. `heuristics_var_active` is the clean
+example: three cheap operations, declared in a header, defined in a `.cpp`
+around a file-static `queue_contains`, and surviving as an out-of-line symbol
+burning $18.7 \times 10^{9}$ instructions.
+
+Two prerequisites checked out. LTO builds are byte-reproducible, so the
+candidate-SHA pin protocol holds; and no `-ffast-math` is enabled anywhere, so
+LTO may not reassociate the EVSIDS double arithmetic.
+
+Same source in both arms, only `-flto=auto` differing, Rank 32 (campaign
+`5151`):
+
+| | no LTO | LTO | ratio |
+|---|---:|---:|---:|
+| instructions | 2,694,743,243,282 | 2,841,843,862,709 | **1.0546** |
+| cycles | 1,351,353,737,245 | 1,377,247,051,221 | 1.0192 |
+| conflicts | 5,034,371 | 5,034,371 | identical |
+| propagations | 2,904,646,904 | 2,904,646,904 | identical |
+
+**LTO executes 5.5 % more instructions, not fewer.** The work counters are
+identical to the digit, so this is unit cost measured cleanly and the
+direction is unambiguous: GCC's cross-unit inlining heuristics hurt this
+program rather than helping it, presumably by inflating the hot loops past
+what the register allocator can hold.
+
+That closes the hypothesis and, with it, a whole class of repair. The
+52-against-30 shape is **not** primarily cross-unit call overhead, so moving
+individual predicates like `heuristics_var_active` into headers is not worth
+pursuing either --- LTO subsumes every such move and made things worse. The
+diffuse two thirds of the instruction excess is not reachable by a build flag
+or by inlining; whatever it is, it is in what the code does, not in how it is
+linked.
+
+The same campaign confirms the four unit-cost repairs from 3.47--3.48 out of
+band. Against 3.47's baseline on this instance the no-LTO arm carries
+$2{,}694.7 \times 10^{9}$ instructions against $2{,}750.6 \times 10^{9}$ and
+$1{,}351.4 \times 10^{9}$ cycles against $1{,}382.6 \times 10^{9}$ --- a
+**2.0 % instruction reduction at byte-identical work**, with conflicts and
+propagations unchanged to the digit. Tactix against Kissat moves from 1.403x
+to 1.375x.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
