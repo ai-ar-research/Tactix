@@ -95,10 +95,15 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
   if (nlits == 0)
     return res;
 
-  std::vector<uint32_t> dfs(nlits, 0); // 1-based DFS index; 0 = unvisited
-  substitute_stage_trace(k, "scc-dfs", dfs.size(), dfs.capacity());
-  std::vector<uint32_t> low(nlits, 0); // low-link
-  substitute_stage_trace(k, "scc-low", low.size(), low.capacity());
+  // The DFS index and the low-link of one literal are read together at every
+  // step of the search, so they share a record instead of living in two
+  // formula-wide arrays that cost two cache lines per visit.
+  struct SccNode {
+    uint32_t dfs = 0; // 1-based DFS index; 0 = unvisited
+    uint32_t low = 0;
+  };
+  std::vector<SccNode> node(nlits);
+  substitute_stage_trace(k, "scc-dfs", node.size(), node.capacity());
   std::vector<Lit> tstack; // Tarjan's component stack
   uint32_t next = 1;
 
@@ -122,16 +127,18 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
   // iterator stays valid across the whole DFS.
   auto out_edges = [&](Lit p) { return k.watches.entries(negate(p)); };
 
-  std::vector<Var> roots(k.nvars);
-  substitute_stage_trace(k, "scc-roots", roots.size(), roots.capacity());
+  // `kernel_vars_in_import_order` clears and refills, so pre-sizing here only
+  // pays for a zero fill the call throws away.
+  std::vector<Var> roots;
   kernel_vars_in_import_order(k, roots);
+  substitute_stage_trace(k, "scc-roots", roots.size(), roots.capacity());
   for (const Var root_var : roots) {
     for (uint32_t root_sign = 0; root_sign < 2; root_sign++) {
       const Lit root = make_lit(root_var, root_sign != 0);
-      if (dfs[root] != 0 || !active(root))
+      if (node[root].dfs != 0 || !active(root))
         continue;
-      dfs[root] = low[root] = next++;
-      const uint32_t mark_root = dfs[root];
+      node[root].dfs = node[root].low = next++;
+      const uint32_t mark_root = node[root].dfs;
       bool failed_root = false;
       tstack.push_back(root);
       k.stats.substitute_ticks +=
@@ -150,10 +157,10 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
           const Lit q = w.other();
           if (!active(q))
             continue; // edge into a root-fixed literal: not a node
-          if (dfs[q] == 0) {
+          if (node[q].dfs == 0) {
             // tree edge: save v's resume point (past this edge), descend into q
             work.back().it = ++it;
-            dfs[q] = low[q] = next++;
+            node[q].dfs = node[q].low = next++;
             tstack.push_back(q);
             k.stats.substitute_ticks +=
                 1 + kernel_cache_lines(k.watches.size(negate(q)));
@@ -166,8 +173,8 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
           // so a visited literal with no representative is still on-stack.
           // Reusing that output state avoids a dense byte per literal without
           // changing DFS order or the low-link recurrence.
-          if (res.repr[q] == INVALID_LIT && dfs[q] < low[v])
-            low[v] = dfs[q]; // frond to an on-stack node
+          if (res.repr[q] == INVALID_LIT && node[q].dfs < node[v].low)
+            node[v].low = node[q].dfs; // frond to an on-stack node
         }
         if (descended)
           continue;
@@ -181,17 +188,21 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
         // 10-per-mille second-round test, match kissat's.
         k.stats.substitute_ticks +=
             1 + kernel_cache_lines(k.watches.size(negate(v)));
-        if (low[v] == dfs[v]) {
+        if (node[v].low == node[v].dfs) {
           // v roots an SCC: pop the component off tstack
           size_t start = tstack.size();
           do {
             --start;
           } while (tstack[start] != v);
           Lit rep = tstack[start];
-          for (size_t i = start + 1; i < tstack.size(); i++)
-            if (kernel_import_lit_order(k, tstack[i]) <
-                kernel_import_lit_order(k, rep))
+          uint64_t rep_order = kernel_import_lit_order(k, rep);
+          for (size_t i = start + 1; i < tstack.size(); i++) {
+            const uint64_t order = kernel_import_lit_order(k, tstack[i]);
+            if (order < rep_order) {
               rep = tstack[i];
+              rep_order = order;
+            }
+          }
           const size_t members = tstack.size() - start;
           for (size_t i = start; i < tstack.size(); i++) {
             const Lit m = tstack[i];
@@ -215,7 +226,7 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
             // reaches both m and ¬m.  Thus root is failed and ¬root is a
             // unit.  Kissat records at most one such witness per DFS root.
             if (!failed_root && mirror_rep != INVALID_LIT &&
-                dfs[negate(m)] >= mark_root) {
+                node[negate(m)].dfs >= mark_root) {
               res.failed_units.push_back(negate(root));
               res.failed_witness.push_back(m);
               failed_root = true;
@@ -229,8 +240,8 @@ SccResult substitute_find_sccs(const Kernel &k, bool collect_instances) {
         work.pop_back();
         if (!work.empty()) {
           const Lit parent = work.back().v;
-          if (low[done] < low[parent])
-            low[parent] = low[done];
+          if (node[done].low < node[parent].low)
+            node[parent].low = node[done].low;
         }
       }
     }
@@ -1739,7 +1750,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   substitute_stage_trace(k, "rewrite-variable-order", variable_order.size(),
                          variable_order.capacity());
   if (!session) {
-    variable_order.resize(k.nvars);
     kernel_vars_in_import_order(k, variable_order);
     // Canonical Substitute changes only binaries incident to a retiring
     // literal.  Name those source owners and their mirror owners first, then
@@ -1806,6 +1816,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // BinaryImage/set/map structures and rebuilding every watch list.
   const bool connected_only = true;
   const auto snapshot_undirected = [&](Lit lit) {
+      // The owner's import rank is constant across its whole watch list.
+      const uint64_t lit_order = kernel_import_lit_order(k, lit);
       for (const WatchEntry w : k.watches.entries(lit)) {
         if (!w.binary())
           continue;
@@ -1814,9 +1826,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         // retain one orientation per physical copy. With one stable endpoint
         // only the retiring stream is traversed and therefore owns the image
         // regardless of the stable endpoint's import rank.
-        if (mapped(other) &&
-            kernel_import_lit_order(k, lit) >=
-                kernel_import_lit_order(k, other))
+        if (mapped(other) && lit_order >= kernel_import_lit_order(k, other))
           continue;
         images.push_back(make_image(lit, other));
 #ifdef TACTIX_ENABLE_RULE_JOURNAL
@@ -1838,9 +1848,10 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         const Lit lit = make_lit(variable, sign != 0);
         if (!canonical_binary_affected[lit])
           continue;
+        const uint64_t lit_order = kernel_import_lit_order(k, lit);
         for (const WatchEntry w : k.watches.entries(lit)) {
-          if (!w.binary() || kernel_import_lit_order(k, lit) >=
-                                 kernel_import_lit_order(k, w.other()))
+          if (!w.binary() ||
+              lit_order >= kernel_import_lit_order(k, w.other()))
             continue;
           const Lit other = w.other();
           if (connected_only && !mapped(lit) && !mapped(other))
@@ -2058,41 +2069,85 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     seen_clear(unit);
   std::vector<Lit>().swap(emitted_units);
 
-  // Kissat rewrites a binary direction in place when the literal owning that
-  // watch list is already the class representative (substitute.c:328-340).
-  // Only the mirror on the retired endpoint moves to the representative's
-  // list.  Rebuilding both directions moves the stable direction to the tail;
-  // on `sted5`, (-187 v -2983) -> (-187 v 186) then crossed a later Factor
-  // binary and selected a different Vivify antecedent.  Rewrite exactly one
-  // matching source copy now; the compact pass below will retain it because
-  // both of its post-rewrite endpoints are representatives.
-  for (const BinaryImage &stored : images) {
-    const ExpandedBinaryImage image = expand_image(stored);
-    if (image.tautological || image.target_a == image.target_b)
-      continue;
-    const bool stable_a = image.source_a == image.target_a;
-    const bool stable_b = image.source_b == image.target_b;
-    if (stable_a == stable_b)
-      continue;
-    const Lit stable = stable_a ? image.source_a : image.source_b;
-    const Lit old_other = stable_a ? image.source_b : image.source_a;
-    const Lit new_other = stable_a ? image.target_b : image.target_a;
-    uint32_t *p = k.watches.begin(stable);
-    uint32_t *const end = k.watches.end(stable);
-    bool rewritten = false;
-    while (p != end) {
-      Watch watch{*p};
-      if (watch.binary()) {
-        if (!rewritten && watch.other() == old_other) {
-          *p = binary_watch(new_other).raw;
-          rewritten = true;
+  // A direction owned by a representative is rewritten in place, one pass per
+  // owner, as in substitute.c:328-340; only the mirror on the retired endpoint
+  // moves. Rebuilding both directions instead moves the stable one to the tail
+  // and changes a later antecedent. A scan per image is quadratic in the
+  // owner's degree and equivalent to this pass: the canonical target is a pure
+  // function of the neighbour and an image exists for every pair whose
+  // neighbour is mapped, duplicates included. The session path keeps the
+  // per-image form because its bridge targets depend on the image.
+  if (!session) {
+    size_t stable_rewrites = 0;
+    for (const Var variable : variable_order)
+      for (uint32_t sign = 0; sign < 2; sign++) {
+        const Lit stable = make_lit(variable, sign != 0);
+        if (!canonical_binary_affected[stable] || mapped(stable))
+          continue;
+        uint32_t *p = k.watches.begin(stable);
+        uint32_t *const end = k.watches.end(stable);
+        while (p != end) {
+          const Watch watch{*p};
+          if (!watch.binary()) {
+            p += 2;
+            continue;
+          }
+          const Lit other = watch.other();
+          if (mapped(other)) {
+            const Lit target = representative(other);
+            // The unit and tautological images are retired elsewhere and must
+            // keep their source entry until then.
+            if (target != stable && target != negate(stable)) {
+              *p = binary_watch(target).raw;
+              stable_rewrites++;
+            }
+          }
+          p++;
         }
-        p++;
-      } else {
-        p += 2;
       }
+#ifndef NDEBUG
+    // The pass must rewrite exactly the images the per-image scans did.
+    size_t stable_images = 0;
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
+      if (image.tautological || image.target_a == image.target_b)
+        continue;
+      stable_images +=
+          (image.source_a == image.target_a) != (image.source_b == image.target_b);
     }
-    assert(rewritten);
+    assert(stable_rewrites == stable_images &&
+           "stable-direction pass and the binary image disagree");
+#endif
+    (void)stable_rewrites;
+  } else {
+    for (const BinaryImage &stored : images) {
+      const ExpandedBinaryImage image = expand_image(stored);
+      if (image.tautological || image.target_a == image.target_b)
+        continue;
+      const bool stable_a = image.source_a == image.target_a;
+      const bool stable_b = image.source_b == image.target_b;
+      if (stable_a == stable_b)
+        continue;
+      const Lit stable = stable_a ? image.source_a : image.source_b;
+      const Lit old_other = stable_a ? image.source_b : image.source_a;
+      const Lit new_other = stable_a ? image.target_b : image.target_a;
+      uint32_t *p = k.watches.begin(stable);
+      uint32_t *const end = k.watches.end(stable);
+      bool rewritten = false;
+      while (p != end) {
+        Watch watch{*p};
+        if (watch.binary()) {
+          if (!rewritten && watch.other() == old_other) {
+            *p = binary_watch(new_other).raw;
+            rewritten = true;
+          }
+          p++;
+        } else {
+          p += 2;
+        }
+      }
+      assert(rewritten);
+    }
   }
   substitute_stage_trace(k, "rewrite-stable-directions");
 

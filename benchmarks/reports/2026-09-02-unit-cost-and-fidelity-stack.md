@@ -1623,6 +1623,51 @@ numbers silently credited Tactix with Kissat's parse time. A profile's
 totals are comparable between the two solvers only when both are measured
 on the same span.
 
+### 3.32 Substitute's quadratic rewrite was real and cost nothing (2026-09-05)
+
+Substitute carries the largest remaining implementation gap. Splitting
+every rule's per-rank gap by whether Tactix did the same work
+(`tools/bench/rank_rule_gap.py`, written for this) puts +110.0 s of
+Substitute's +111.5 s at a work ratio of 1.00--1.04, spread over more
+than twenty ranks, with r31 +11.3, r10 +10.4, r13 +7.9, r14 +7.8 and
+r25 +7.5 at the head.
+
+Reading the rewrite against `substitute.c` found a genuine algorithmic
+difference. Kissat rewrites a binary direction owned by a representative
+in place, visiting each owner's watch list once
+(`substitute.c:328-340`). Tactix rescanned the whole list of the stable
+owner ONCE PER IMAGE, which is quadratic in that owner's degree when many
+of its neighbours are substituted. Three smaller repairs went with it: the
+owner's import rank was recomputed for every entry of its own watch list,
+the SCC kept its DFS index and low-link in two formula-wide arrays that
+are read together at every visit, and two callers pre-sized a vector that
+`kernel_vars_in_import_order` clears before refilling.
+
+Paired Rank 1--40, campaign `5079` (job 1665113), against the `1c493a2`
+pin: 8,396.7 s to 8,399.5 s, **+2.9 s = 1.0003x**, with all forty
+certificates byte-identical — which is also the proof that the one-pass
+form assigns exactly the entries the per-image scans assigned. B28+C5
+(`5080`, job 1665114) is 0.9972x, likewise byte-identical.
+
+So the repair is measured neutral, and that is the finding. The
+line-level profile had already said so and the estimate ignored it: on
+Rank 10 the stable-direction loop is 0.22 % of the run, not the 4 % its
+`do_substitution` parent suggested. A quadratic term that is never
+reached costs nothing, exactly as section 3.26 found for the duplicate
+test. It is kept because it is what Kissat does and it removes a
+worst case, not because the tier accepted it.
+
+What the same profile does say about Substitute is that its +110 s is
+diffuse. On Rank 10, `substitute.cpp`'s own self time is 8.57 % against
+`substitute.c`'s 8.41 % — the rule's own code is at parity. The excess is
+in callees, and the largest of them is the binary-identity machinery:
+`note_binary_add` 6.06 % and `kernel_binary_live` 6.66 % of the whole
+run, which together are close to Rank 10's entire 15 s gap. Kissat has no
+counterpart for either: it keeps no binary id ledger and deduplicates
+binaries at dense entry instead of at import. That is a deliberate,
+documented Tactix deviation, so the target is its cost, not its
+existence.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
