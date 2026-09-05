@@ -2213,6 +2213,15 @@ void kernel_rebuild_dense_occurrences(Kernel &k) {
   rebuild_dense_large_occurrences(k, *k.dense);
 }
 
+void kernel_defrag_vectors(Kernel &k) {
+  k.watches.defrag_if_needed();
+  if (!k.dense)
+    return;
+  k.dense->large.defrag_if_needed();
+  if (k.dense->track_order)
+    k.dense->ordered.defrag_if_needed();
+}
+
 void kernel_collect_garbage(Kernel &k, Ref watch_start,
                             bool sparse_collection,
                             bool preserve_eager_recent) {
@@ -2289,14 +2298,23 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
                               sparse_cut](Ref ref, const Clause *c) {
     if (!c->garbage())
       return true;
+    // A whole-arena collection retires every garbage record, so the position
+    // lookup below (a hash probe plus a second clause dereference) would only
+    // be discarded. Only the sparse sweep has a prefix to preserve.
+    if (!sparse_collection)
+      return false;
     const uint64_t position = kernel_clause_position(k, ref);
     assert(position <= UINT32_MAX && position < k.arena.size());
     const Clause *const source =
         clause_at(k.arena, static_cast<Ref>(position));
-    return sparse_collection && position < sparse_cut &&
-           source->searched != INVALID_REF;
+    return position < sparse_cut && source->searched != INVALID_REF;
   };
-  size_t retained_words = 0, retained_clauses = 0;
+  // One walk, not two: the retained-word total and the survivor list come out
+  // of the same pass, so the predicate above runs once per record. The order
+  // vector is kernel-owned and keeps its allocation across collections.
+  size_t retained_words = 0;
+  std::vector<Ref> &order = k.collect_order_scratch;
+  order.clear();
   for (Ref ref = 0; ref < k.arena.size();) {
     const Clause *c = clause_at(k.arena, ref);
     const uint32_t words = clause_actual_words(c);
@@ -2305,20 +2323,11 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
       // tail left by an in-place shrink. Sparse prefix garbage remains part of
       // the physical image, just as it does before Kissat's sweep watermark.
       retained_words += clause_words(c->size);
-      retained_clauses++;
+      order.push_back(ref);
     }
     ref += words;
   }
   assert(retained_words <= UINT32_MAX);
-  std::vector<Ref> order;
-  order.reserve(retained_clauses);
-  for (Ref ref = 0; ref < k.arena.size();) {
-    Clause *c = clause_at(k.arena, ref);
-    const uint32_t words = clause_actual_words(c);
-    if (retain_record(ref, c))
-      order.push_back(ref);
-    ref += words;
-  }
   Arena fresh;
   // Appending rewrites can leave a large garbage suffix. Reserving the old
   // arena size here needlessly kept that suffix alive in both arenas during
@@ -2934,6 +2943,16 @@ void kernel_dense_connect(Kernel &k, OccIndex &occ, bool track_order) {
 
 void kernel_dense_disconnect(Kernel &k) {
   assert(!k.bve_occurrence_count_image);
+  // Drain the phase's arena readouts; the index itself is caller-owned and
+  // outlives this call, so the counters are moved rather than read in place.
+  for (auto *lists : {&k.dense->large.relocations, &k.dense->ordered.relocations}) {
+    k.stats.dense_slice_moves += *lists;
+    *lists = 0;
+  }
+  for (auto *lists : {&k.dense->large.defrags, &k.dense->ordered.defrags}) {
+    k.stats.dense_defrags += *lists;
+    *lists = 0;
+  }
   k.dense = nullptr;
 }
 

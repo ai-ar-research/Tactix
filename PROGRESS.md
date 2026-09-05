@@ -12,10 +12,13 @@ resume surface.
   IMPLEMENTATION gap (same work, more time) and reach <= 1.10x kissat on
   Rank 1-40, with B28+C5 as the regression gate; do not stop at 1.10x.
   Kissat `1930` is 7,675.1 s; T4-K needs <= 8,442.7 s. Standing: paired
-  gate `5071` 40/40 at **8,487.4 s = 1.1058x kissat**, B28+C5 `5072`
-  1.0030x paired. Evidence:
+  gate `5076` 40/40 at **8,398.9 s = 1.0943x kissat** (T4-K MET), B28+C5
+  `5077` 0.9941x paired, fuzz 10,000/0 on both legs of pin `d073971`.
+  Two paired gates this session moved the tier 8,600.2 -> 8,398.9 s in the
+  same measurement window, every rank byte-identical on both arms.
+  Evidence:
   `benchmarks/reports/2026-09-02-unit-cost-and-fidelity-stack.md` sections
-  3.12 to 3.29.
+  3.12 to 3.30.
 
   MEASURE PAIRED, IN ONE WINDOW. `5071`/`5072` run base and candidate as
   two arms of ONE array, instance-major, so no result rests on a
@@ -94,27 +97,38 @@ resume surface.
   Only Rank 17 has worse glue (26.76 against 15.05) and its shrink is
   already active, so it is an isolated instance, not a driver.
 
-  WHAT IS WORKING (section 3.29). The dense occurrence index was NOT
-  Kissat's representation: `OccIndex` held one std::vector per literal per
-  image where kissat keeps every dense list as a slice of the single flat
-  `vectors` arena. Moving both images onto that arena took the tier
-  8,600.2 -> 8,487.4 s (-112.8 s) and peak RSS -6.5 %, with all forty
-  certificates byte-identical. The micro-repair refutations of 3.26/3.27
-  still stand; they could not reach a cost that lives in the container.
+  WHAT IS WORKING (sections 3.29, 3.30). Both wins came from the
+  CONTAINER, not the loop. The dense occurrence index was not Kissat's
+  representation: `OccIndex` held one std::vector per literal per image
+  where kissat keeps every dense list as a slice of one flat `vectors`
+  arena (-112.8 s). Then keeping each slice's capacity across a rebuild,
+  arming Kissat's defragmentation predicate on the new arenas, and cutting
+  collection's duplicated arena walk gave -79.1 s. The micro-repair
+  refutations of 3.26/3.27 still stand; none of them could reach a cost
+  that lives in the container.
+
+  WHERE THE GENERAL GAP IS NOW. Per-rank rule gaps over the 33 checked
+  ranks of `5071` (`scratch rank_rule_gap`, or redo it from the gate's
+  `c timing` rows against `1930`'s phase profile): Substitute +63.4,
+  Factor +44.6, BVE +28.1, Congruence +24.5, TransitiveReduce +5.8,
+  Sweep -98.9, Backbone -15.4. Vivify nets only +15.5 and r34 alone is
+  +39 of it, so Vivify is NOT a general gap — it is one trajectory rank.
+  Substitute's worst ranks are 10/13/14/25, Factor's are 25/17/20, BVE's
+  is 21.
 
   NEXT, in order. (1) Tactix still keeps TWO occurrence images where
   kissat keeps ONE, and copies the binary prefix into `ordered` because
   that stream is a separate copy of the watch list instead of the watch
   list itself; the end state is dense large refs living in `k.watches` as
   one-word entries, which deletes `large`, the copy, and all their
-  maintenance. (2) No defragmentation checkpoint is wired to the new
-  arenas, which is why peak RSS still rose 12-17 % on Ranks 9/21/25.
-  (3) `kernel_collect_garbage` walks the whole arena twice with the same
-  `retain_record` predicate (once to count, once to build `order`) and
-  computes `kernel_clause_position` for garbage records even in the
-  whole-arena case that discards it. Collection is ~5.2 s against kissat's
-  ~1.95 s on Rank 21. Rank 31 remains the worst instance at 2.7x kissat's
-  conflicts, which is search trajectory, not implementation.
+  maintenance. That needs `WatchHead`'s order bit moved out of the
+  binary-count parity trick and a stride-1 dense iterator, because a dense
+  large watch is one word where a sparse one is two. (2) On Rank 10,
+  profiled without a proof, Tactix BEATS kissat (72.8 s against 77.8 s)
+  while the proof-writing gate has it 14.6 s behind; probe `5078` isolates
+  certificate emission on Ranks 10 and 21 with and without a proof.
+  (3) Rank 31 and Rank 34 remain search-trajectory divergences at 2.7x and
+  2.0x kissat's conflicts, not implementation gaps.
   Size debt (compaction not requested): PROGRESS 3,800 lines against a 350
   budget, `docs/implementation-notes.md` 591 against 560.
 ## Latest candidate performance

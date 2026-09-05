@@ -2094,14 +2094,14 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
     }
     if (connected_lits.size() == 2) {
       kernel_add_binary_clause(k, connected_lits[0], connected_lits[1], id);
-      k.watches.defrag_if_needed();
+      kernel_defrag_vectors(k);
       fresh_bin.emplace_back(connected_lits[0], connected_lits[1]);
     } else {
       fresh.push_back(kernel_add_large_clause(
           k, connected_lits.data(),
           static_cast<uint32_t>(connected_lits.size()),
           /*redundant=*/false, /*glue=*/0, id));
-      k.watches.defrag_if_needed();
+      kernel_defrag_vectors(k);
       // Adding a large clause may reallocate the arena, but the Refs held in
       // pos/neg/del_large are offsets and survive a resize; only a Clause*
       // would dangle, and every use below re-fetches through clause_at.

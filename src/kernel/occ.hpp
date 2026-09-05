@@ -37,22 +37,15 @@ public:
     uint32_t offset = 0, size = 0, capacity = 0;
   };
 
+  // Reachability readouts, drained into Kernel::stats at every dense
+  // disconnect: a slice relocation is the cost capacity retention exists to
+  // avoid, and a defragmentation is the only thing that returns abandoned
+  // slices to the arena.
+  uint64_t relocations = 0, defrags = 0;
+
   size_t lits() const { return heads_.size(); }
   // Number of per-literal lists, not a list's length; `size(Lit)` is that.
   size_t size() const { return heads_.size(); }
-
-  // Empty every list, keeping the arena allocation and each slice's capacity
-  // so a rebuild does not destroy and reallocate the occurrence population.
-  void clear_all(size_t nlits) {
-    if (heads_.size() != nlits) {
-      heads_.assign(nlits, Head{});
-      holes_ = arena_.size();
-    } else
-      for (Head &head : heads_) {
-        holes_ += head.size;
-        head.size = 0;
-      }
-  }
 
   // Release payload and headers both: a phase with no consumer must not
   // retain several GiB of cold capacity.
@@ -132,10 +125,13 @@ public:
     holes_++;
   }
 
-  // Exact batch layout. A caller that knows every forthcoming append counts
-  // them first, then receives one arena holding exact final slices, so the
-  // fill itself never relocates. Existing contents are discarded: the only
-  // caller is a full rebuild.
+  // Batch layout for a full rebuild. The caller counts every forthcoming
+  // append first and then receives one arena of contiguous slices, so the fill
+  // relocates nothing. Existing contents are discarded; existing CAPACITY is
+  // not. Kissat's dense connect pushes into vectors that kept their capacity
+  // from the previous connect, so a literal whose occurrence count is stable
+  // never relocates again — dropping to an exact fit instead would make the
+  // first push of the next phase relocate every literal that grows at all.
   void begin_exact_layout(size_t nlits) {
     if (pending_.size() != nlits)
       pending_.assign(nlits, 0);
@@ -152,21 +148,24 @@ public:
   }
   void finish_exact_layout() {
     const size_t nlits = pending_.size();
-    heads_.assign(nlits, Head{});
+    heads_.resize(nlits);
     size_t total = 0;
-    for (const uint32_t n : pending_)
-      total += n;
+    for (size_t lit = 0; lit < nlits; lit++) {
+      Head &head = heads_[lit];
+      head.size = 0;
+      if (head.capacity < pending_[lit])
+        head.capacity = pending_[lit];
+      total += head.capacity;
+    }
     assert(total <= UINT32_MAX);
     arena_.resize(total);
     uint32_t next = 0;
     for (size_t lit = 0; lit < nlits; lit++) {
       heads_[lit].offset = next;
-      heads_[lit].capacity = pending_[lit];
-      next += pending_[lit];
+      next += heads_[lit].capacity;
     }
     // Every reserved word is spare until the fill consumes it, which is what
-    // `push` decrements; words past the layout are unreachable and are not
-    // counted, matching `vectors.usable` over the live stack prefix.
+    // `push` decrements; that is exactly `vectors.usable` over the live stack.
     holes_ = total;
   }
 
@@ -208,6 +207,7 @@ private:
     }
     const uint32_t noff = static_cast<uint32_t>(arena_.size());
     arena_.resize(arena_.size() + ncap);
+    relocations++;
     Head &fresh = heads_[l];
     std::copy(arena_.begin() + fresh.offset,
               arena_.begin() + fresh.offset + fresh.size,
@@ -220,6 +220,7 @@ private:
   }
 
   void defrag() {
+    defrags++;
     std::vector<Lit> order;
     order.reserve(heads_.size());
     for (Lit lit = 0; lit < heads_.size(); lit++)

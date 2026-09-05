@@ -1538,6 +1538,60 @@ list rather than the watch list itself. Peak RSS rose 12--17 % on Ranks
 9, 21 and 25, which is the abandoned-slice fragmentation the new arena
 does not yet reclaim: no defragmentation checkpoint is wired to it.
 
+### 3.30 Keeping the arena's capacity, and one walk instead of two (2026-09-05)
+
+Three behaviour-identical repairs, measured together as campaign `5076`
+(job 1664957) against the `d073971` pin of section 3.29.
+
+**Capacity retention.** The rebuild introduced in 3.29 laid every slice out
+at its exact counted length. Kissat's dense connect pushes into vectors
+that kept their capacity from the previous connect, so a literal whose
+occurrence count is stable never relocates again; an exact fit instead
+makes the next phase's first push relocate every literal that grows at
+all. `finish_exact_layout` now takes `max(count, existing capacity)`.
+
+**A defragmentation checkpoint.** Nothing returned an abandoned slice to
+the arena. `kernel_defrag_vectors` now applies Kissat's `collect.h`
+predicate (above 2^18 words, more than 75 % unusable) to the sparse
+watches and both dense images together, at the three clause-creation
+checkpoints that already checked the watches.
+
+**One collection walk.** `kernel_collect_garbage` walked the whole arena
+twice with the same `retain_record` predicate — once to total the retained
+words, once to build the survivor list — and inside that predicate it
+computed `kernel_clause_position` for every garbage record even in the
+whole-arena case, which discards the answer. The walk is now single and
+the predicate returns early when the collection is not sparse. The
+survivor list is kernel-owned so a collection no longer allocates it.
+
+| | base `d073971` | candidate | delta |
+|---|---:|---:|---:|
+| Rank 1--40 total | 8,478.0 s | 8,398.9 s | -79.1 s (0.9907x) |
+| peak RSS, summed | 99.07 GiB | 99.76 GiB | +0.7 % |
+| expected verdicts | 40/40 | 40/40 | |
+| byte-identical certificates | | 40/40 | |
+
+B28+C5 (`5077`, job 1664958) is 0.9941x over its completed pairs, also
+byte-identical throughout. Against the accepted Kissat baseline `1930`
+(7,675.1 s) the tier is now **1.0943x**.
+
+Reachability, from the `c denseocc` readout the candidate prints: the tier
+performs 94,239,107 slice relocations and 62 defragmentations, the latter
+on fifteen of the forty ranks. Both mechanisms are live; neither result is
+vacuous.
+
+The order in which those two were found is the useful part. The
+defragmentation checkpoint was measured FIRST, on its own, against the
+exact-fit layout (campaign `5073`, cancelled after twelve rank pairs). It
+moved peak RSS by nothing at all — the two arms agreed to within 1 % on
+every rank — because a rebuild ends with `holes = 0`, so the 75 %
+predicate cannot be reached between two rebuilds no matter how much the
+arena has grown. The checkpoint only becomes reachable once retained
+capacity is itself counted as holes, which is what capacity retention
+does, and the 62 firings above are that. A checkpoint whose predicate the
+surrounding lifecycle cannot satisfy is not a conservative addition; it is
+dead code that reads as a repair.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all

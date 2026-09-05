@@ -75,13 +75,19 @@ WORK = {
 }
 
 
-def tactix_rows(campaign):
-    """rank -> (rule timings in seconds, statistics lines)."""
+def tactix_rows(campaign, arm=None):
+    """rank -> (rule timings in seconds, statistics lines).
+
+    A paired campaign carries two Tactix arms, so `arm` selects one; without
+    it a single-arm campaign is read as before.
+    """
     out = {}
     for sub in ("provisional", "results"):
         for path in glob.glob(str(Path(campaign) / sub / "*.json")):
             row = json.loads(Path(path).read_text())
             if row.get("arm") == "kissat":
+                continue
+            if arm is not None and row.get("arm") != arm:
                 continue
             rank = row.get("rank")
             if rank is None or rank in out:
@@ -157,12 +163,14 @@ def main():
                     help="verbose Kissat campaign supplying work counters")
     ap.add_argument("--kissat-time", default=str(KISSAT_PHASES_ONLY),
                     help="accepted Kissat baseline supplying phase times")
+    ap.add_argument("--arm", default=None,
+                    help="Tactix arm of a paired campaign (e.g. cand)")
     args = ap.parse_args()
 
     # Phase times and work counters come from different campaigns on purpose:
     # `-v` and the symbol build both perturb timing, so the verbose run is a
     # statistics source only and the accepted baseline remains the clock.
-    tac = tactix_rows(args.tactix)
+    tac = tactix_rows(args.tactix, args.arm)
     stats_rows = kissat_rows(args.kissat_stats)
     time_rows = kissat_rows(args.kissat_time)
     kis = {r: (time_rows[r][0], stats_rows.get(r, (None, {}))[1])

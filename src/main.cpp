@@ -455,6 +455,9 @@ int main(int argc, char **argv) {
     printf("c tumble      %llu vars seeded (%s)\n",
            (unsigned long long)kernel.stats.tumble_seeded,
            kernel.tumble ? "activation order" : "off");
+    printf("c denseocc    %llu slice moves, %llu defrags\n",
+           (unsigned long long)kernel.stats.dense_slice_moves,
+           (unsigned long long)kernel.stats.dense_defrags);
     printf("c sparsecol   %llu runs, %llu clauses\n",
            (unsigned long long)kernel.stats.sparse_collections,
            (unsigned long long)kernel.stats.sparse_collected);
