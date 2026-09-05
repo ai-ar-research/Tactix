@@ -1766,54 +1766,75 @@ static void kernel_settle_binary_only_debt(Kernel &k) {
 
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
 // Diagnostic: one row per literal whose watch list the SEARCH propagator
-// scanned, in a conflict window, with the ticks that scan charged. Kissat's
-// matching rows come from the `kissat-ticktrace` variant, so a diff names the
-// literal one solver propagates and the other does not.
-static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks) {
+// scanned, in a conflict window, with the ticks that scan charged and the
+// list's length AS THE SCAN FOUND IT. The scan moves and drops watches, so a
+// length sampled afterwards belongs to a different list than the charge.
+// Kissat's matching rows come from the `kissat-ticktrace` variant, so a diff
+// names the literal one solver propagates and the other does not.
+static FILE *kernel_tick_trace_file() {
   static FILE *file = nullptr;
-  static uint64_t lo = 0, hi = 0;
   static bool initialized = false;
   if (!initialized) {
     initialized = true;
     const char *path = std::getenv("TACTIX_TICK_TRACE");
     if (path && *path)
       file = std::fopen(path, "w");
+  }
+  return file;
+}
+
+static bool kernel_tick_trace_window(const Kernel &k) {
+  static uint64_t lo = 0, hi = 0;
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
     if (const char *v = std::getenv("TACTIX_TICK_LO"))
       lo = std::strtoull(v, nullptr, 10);
     if (const char *v = std::getenv("TACTIX_TICK_HI"))
       hi = std::strtoull(v, nullptr, 10);
   }
-  if (!file || k.inprocessing || k.warming)
+  return !k.inprocessing && !k.warming && k.stats.conflicts >= lo &&
+         k.stats.conflicts <= hi;
+}
+
+static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks,
+                              uint32_t list_size) {
+  FILE *const file = kernel_tick_trace_file();
+  if (!file || !kernel_tick_trace_window(k))
     return;
-  if (k.stats.conflicts < lo || k.stats.conflicts > hi)
-    return;
+  std::fprintf(file, "%llu %d %llu sz=%u\n",
+               static_cast<unsigned long long>(k.stats.conflicts),
+               kernel_externalize(k, lit),
+               static_cast<unsigned long long>(ticks), list_size);
+}
+
+// One literal's whole list, as the scan is about to see it.
+static void kernel_tick_trace_dump(const Kernel &k, Lit lit) {
   static int dump_lit = [] {
     const char *v = std::getenv("TACTIX_TICK_DUMP_LIT");
     return v ? std::atoi(v) : 0;
   }();
-  if (dump_lit && kernel_externalize(k, lit) == dump_lit) {
-    uint32_t slot = 0;
-    for (const WatchEntry w : k.watches.entries(negate(lit))) {
-      if (w.binary()) {
-        std::fprintf(file, "W %u bin other=%d\n", slot++,
-                     kernel_externalize(k, w.other()));
-      } else {
-        const Clause *c = clause_at(k.arena, w.ref());
-        std::fprintf(file, "W %u lrg blk=%d blkval=%d garbage=%d size=%u lits=",
-                     slot++, kernel_externalize(k, w.blocking()),
-                     static_cast<int>(k.values[w.blocking()]),
-                     static_cast<int>(c->garbage()), c->size);
-        for (uint32_t i = 0; i < c->size; i++)
-          std::fprintf(file, "%d,", kernel_externalize(k, c->lits[i]));
-        std::fprintf(file, "\n");
-      }
+  if (!dump_lit || kernel_externalize(k, lit) != dump_lit)
+    return;
+  FILE *const file = kernel_tick_trace_file();
+  if (!file || !kernel_tick_trace_window(k))
+    return;
+  uint32_t slot = 0;
+  for (const WatchEntry w : k.watches.entries(negate(lit))) {
+    if (w.binary()) {
+      std::fprintf(file, "W %u bin other=%d\n", slot++,
+                   kernel_externalize(k, w.other()));
+      continue;
     }
+    const Clause *c = clause_at(k.arena, w.ref());
+    std::fprintf(file, "W %u lrg blk=%d blkval=%d garbage=%d size=%u lits=",
+                 slot++, kernel_externalize(k, w.blocking()),
+                 static_cast<int>(k.values[w.blocking()]),
+                 static_cast<int>(c->garbage()), c->size);
+    for (uint32_t i = 0; i < c->size; i++)
+      std::fprintf(file, "%d,", kernel_externalize(k, c->lits[i]));
+    std::fprintf(file, "\n");
   }
-  std::fprintf(file, "%llu %d %llu sz=%u\n",
-               static_cast<unsigned long long>(k.stats.conflicts),
-               kernel_externalize(k, lit),
-               static_cast<unsigned long long>(ticks),
-               k.watches.size(negate(lit)));
 }
 #endif
 
@@ -1834,10 +1855,17 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
     const uint64_t tick_trace_before = ticks;
 #endif
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    // The scan itself moves and drops watches, so the list length must be
+    // sampled BEFORE it or the row reports the post-scan length beside a
+    // pre-scan charge.
+    const uint32_t tick_trace_size = k.watches.size(negate(lit));
+    kernel_tick_trace_dump(k, lit);
+#endif
     const bool tick_trace_conflict =
         propagate_literal<false>(k, lit, ignore, ticks);
 #ifdef TACTIX_ENABLE_CONFLICT_STOP
-    kernel_tick_trace(k, lit, ticks - tick_trace_before);
+    kernel_tick_trace(k, lit, ticks - tick_trace_before, tick_trace_size);
 #endif
     if (tick_trace_conflict) {
       conflict = true;

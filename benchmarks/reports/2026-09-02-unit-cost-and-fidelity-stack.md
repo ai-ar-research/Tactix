@@ -2010,86 +2010,62 @@ findable in well under an hour with campaigns `5087`--`5100` as the
 template, and none of which should be judged by the tier until the ladder
 is climbed far enough that the trajectory stops re-rolling.
 
-### 3.39 Rank 34's first divergence is a blocking literal, not a propagation (2026-09-05)
+### 3.39 Rank 34's first divergence is watch placement (2026-09-05)
 
 Rank 34 is the largest single item in the tier at $+403.4$ s, and it had
 never had a first-divergence study. It stayed byte-identical through both
 phase-entry ports of section 3.38, so its cause is independent of Rank
-31's. The same method finds it (campaigns `5103`--`5108`).
+31's. The same method finds it (campaigns `5103`--`5109`).
 
 `search_ticks` against Kissat at matched conflict counts: exact at 1,000 /
 5,000 / 20,000 / 50,001 / 55,002 / 60,000 / 65,001 / 70,002 / 75,000, then
 $-695$ by 75,501 and a full trajectory split by 100,000. Tracing conflicts
-75,440--75,455 with the watch-list size logged beside every charge gives
-**two rows** out of 1,815:
+75,440--75,455 gives **two rows** out of 1,815 where the charge differs:
+conflict 75,452 literal $-20584$ costs Kissat 33 ticks and Tactix 29, and
+conflict 75,454 literal $20587$ costs 38 against 36. The sequence of
+propagated literals is identical throughout.
 
-| conflict | literal | Kissat | Tactix | list size |
-|---:|---:|---:|---:|---:|
-| 75,452 | $-20584$ | 33 | **29** | 12 (both) |
-| 75,454 | $20587$ | 38 | **36** | 24 (both) |
+**A false start, recorded because it was convincing.** Both rows also
+carried a list length, and the two lengths agreed --- 12 and 12, 24 and 24
+--- which said the scan was over the same list and sent this section after
+blocking literals. That reading was wrong: the length was sampled AFTER
+the scan, and a scan moves and drops watches, so it described a different
+list than the one that was charged. Both solvers reported twelve because
+both END at twelve, not because both started there.
 
-The **list sizes are identical**, so it is not `1 + cache_lines(n)` and not
-a missing propagation --- the sequence of propagated literals matches
-exactly. What differs is the per-entry charge inside the scan. In
-`proplit.h` a watch costs one extra tick per binary assignment and one per
-large-clause dereference, and a watch whose **blocking literal is already
-true is skipped before either** (`if (blocking_value > 0) continue;`).
-The assignments must match, because the trajectory does. So Tactix skips
-four more entries on a 12-word list, and two more on a 24-word list, than
-Kissat does: **its cached blocking literals are true where Kissat's are
-not.**
+Dumping the list as the scan finds it gives the real state at conflict
+75,452 on literal 20584:
 
-That makes Rank 34 a different defect class from Rank 31 --- blocker
-choice and blocker update, not a missing propagation --- and it is the
-one worth taking next, because it is the largest single item left and
-because a blocker policy is general by construction. The reference sites
-are `kissat_push_blocking_watch` for the initial choice and the
-replacement-search branches of `proplit.h` for the update; the Tactix
-counterparts are `WatchLists::push_large` and the propagation engines.
-Conflict 75,452 with literal $-20584$ is an exact two-row reproducer.
+| | large watches entering the scan | words after it |
+|---|---:|---:|
+| Kissat | **20** | 12 |
+| Tactix | **6** | 12 |
 
-Two of the three blocker sources are already checked and MATCH, so do not
-re-derive them:
+Kissat enters with twenty large watches on that literal and relocates
+fourteen of them during the scan; Tactix enters with six and relocates
+none. Tactix's six are a strict subsequence of Kissat's twenty, in order
+--- Kissat's entries 1, 2, 7, 13, 16 and 17.
 
-- **The propagation update.** `proplit.h` writes `q[-2].blocking.lit =
-  other` when the clause is satisfied by its other watched literal, and
-  hands a moved watch the blocker `other`
-  (`kissat_delay_watching_large (solver, delayed, replacement, other,
-  ref)`). Tactix writes `q[-2] = blocking_watch(other).raw` at the same
-  point and queues `{replacement, other, ref}` for the same delayed push.
-  The tick is charged in the same place too: after the blocking test and
-  before the garbage test, on both sides.
-- **The dense-exit rewatch.** `kissat_watch_large_clauses` runs
-  `kissat_sort_literals` and then watches `lits[0]`/`lits[1]` with each
-  other as blockers. Tactix's `kernel_rebuild_large_watches` calls
-  `sort_clause_watches_like_kissat` and pushes the same pair, and that
-  helper is a faithful transliteration of `sort.c`'s
-  `move_smallest_literal_to_front` down to the incumbent-level update and
-  the `satisfied_is_enough` argument of the second pass.
+So Rank 34's first divergence is **watch placement**. With an identical
+clause database and an identical trajectory, the same clauses are watched
+on different literals: Kissat is still carrying fourteen large watches
+here that Tactix has already moved elsewhere. The tick difference follows,
+because each of those costs Kissat a dereference and a relocation tick
+that Tactix paid at some earlier point instead.
 
-What is left, and unchecked, are the other paths that install a large
-watch: the collector's rewatch (`collect.c:596` also sorts), on-the-fly
-strengthening, and Vivify's and Sweep's own rewatch boundaries.
+That is a different defect class from Rank 31 --- accumulated watch
+placement, not a missing propagation --- and it is the one worth taking
+next, because it is the largest single item left and a watch-movement
+policy is general by construction. Note that "Tactix has already moved
+more watches" is not obviously the worse state; what matters is that the
+two databases have drifted apart, and the drift is what has to be traced
+backwards from conflict 75,452. Conflict 75,452 on literal $-20584$ is an
+exact reproducer, and the dumps are in `5109/results/`.
 
-**A caution before anyone continues from here.** Campaign `5109` dumps
-literal 20584's whole watch list from both solvers at conflict 75,452,
-and the two readings of the SAME list disagree with each other on the
-Kissat side: the dump walks twenty large entries, which is forty words,
-while the `sz=` field logged from `SIZE_WATCHES` in the same run reported
-twelve. Tactix's two readings agree (six large entries, twelve words).
-Both Kissat numbers come from `WATCHES (NOT (lit))` at the same point of
-the same call, so one of them is being read wrongly and the discrepancy is
-in the instrument, not in the solvers. Resolve that before concluding
-anything from the dump --- in particular, do NOT conclude from it that
-Tactix holds a sixth of Kissat's large watches on that literal, which is
-what the dump alone would say. The dumps are kept in
-`5109/results/` because the entry contents are still the right evidence
-once the reading is fixed: Tactix's six entries are a strict subsequence
-of Kissat's twenty, in order.
-
-The tick evidence of the table above does not depend on the dump and
-stands: identical list sizes, identical propagated-literal sequence, four
-fewer charges.
+The instrument is fixed on both sides: the list length is now sampled
+before the scan. The failure is worth naming because the two readings
+looked consistent with each other while measuring different moments, which
+is exactly the shape that survives review.
 
 ## 4. Decision
 
