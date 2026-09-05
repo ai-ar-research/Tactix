@@ -244,12 +244,27 @@ resume surface.
   the window and Tactix's random-decision count is unchanged at 63,915, so
   `kissat_start_random_sequence` armed nothing here despite the mode switch
   (its 1,934 interval had not elapsed).
-  So it is ONE ORDINARY BRANCHING PICK — a pure `H`-state difference: the
-  score heap's order in stable mode or the VMTF queue's in focused mode.
-  NEXT: dump the branching structure's top few candidates at that exact
-  point on both sides. Reproducer: Rank 34, third warm-up, decision 30;
-  `TACTIX_WARMUP_TRACE`/`TACTIX_WARMUP_INDEX=3` and
-  `KISSAT_WARMUP_TRACE`/`KISSAT_WARMUP_INDEX=3` emit the sequences.
+  AND IT IS A HEAP TIE-BREAK (`5115`, `5116`). Both solvers are in STABLE
+  mode, so the pick comes from the score heap. Both candidates carry
+  SCORE 0 on both sides, in the heap, unassigned, active:
+    kissat  5214 score=0 stamp=6264 | 17217 score=0 stamp=1467
+    tactix  5214 score=0 stamp=6265 | 17217 score=0 stamp=1468
+  Scores AGREE, so it is not decay or bumping. And the sift logic is not
+  it either: kissat's `bubble_up` (`score[parent] >= idx_score` breaks) and
+  `bubble_down` (`sibling_score > child_score`, `child_score <= idx_score`)
+  are reproduced line for line in `heap_bubble_up`/`heap_bubble_down`,
+  both tie directions included. A heap of equal scores is ordered purely by
+  its history of pushes/pops/updates, so this is an accumulated
+  operation-sequence difference; finding its origin means tracing every
+  heap operation, not one decision.
+  ADJACENT PARITY BUG, worth closing on its own: Tactix's VMTF stamps are
+  EXACTLY ONE HIGHER than kissat's on both sampled variables (6,265 vs
+  6,264; 1,468 vs 1,467), and `queue_search` differs (16,896 vs 12,951).
+  Irrelevant in stable mode, which is why it has never surfaced — but the
+  queue IS the branching structure in focused mode.
+  Reproducer: Rank 34, third warm-up, decision 30.
+  `TACTIX_WARMUP_TRACE`/`_INDEX=3`/`_AT=30`/`_VARA`/`_VARB` and the KISSAT_
+  equivalents emit sequences and per-variable state.
   THREE READINGS, TWO WRONG, SAME CAUSE. Reading 1 sampled the length after
   the scan: 12 vs 12, "identical", sent the hunt at blocking literals.
   Reading 2 dumped kissat before its scan and Tactix after: 20 vs 6, "a
