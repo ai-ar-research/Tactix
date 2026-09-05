@@ -1022,7 +1022,7 @@ static void promote_irredundant(Kernel &k, Ref ref) {
     kernel_touch_var(k, var_of(l));
     kernel_mark_factor_literal(k, l, "vivify_promote");
     if (k.dense)
-      k.dense->large[l].push_back(ref);
+      k.dense->large.push(l, ref);
   }
   k.stats.vivify_promoted++;
 }

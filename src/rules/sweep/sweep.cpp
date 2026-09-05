@@ -360,15 +360,23 @@ static void sweep_build_occurrences(Kernel &k, SweepRound &r) {
   if (k.dense && k.dense->large.size() >= 2 * static_cast<size_t>(k.nvars)) {
     r.occ = &k.dense->large;
   } else {
-    r.occ_owned.assign(2 * k.nvars, {});
+    r.occ_owned.begin_exact_layout(2 * k.nvars);
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
       const uint32_t words = clause_actual_words(c);
       if (!c->garbage() && !c->redundant())
         for (const Lit l : *c)
-          r.occ_owned[l].push_back(ref);
+          r.occ_owned.count(l);
       k.stats.sweep_ticks += words;
       ref += words;
+    }
+    r.occ_owned.finish_exact_layout();
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !c->redundant())
+        for (const Lit l : *c)
+          r.occ_owned.push(l, ref);
+      ref += clause_actual_words(c);
     }
     r.occ = &r.occ_owned;
   }
@@ -409,23 +417,39 @@ static void sweep_enter_dense(Kernel &k) {
     ref += words;
   }
   if (k.dense) {
-    k.dense->large.assign(2 * k.nvars, {});
+    const size_t nlits = 2 * static_cast<size_t>(k.nvars);
+    k.dense->large.begin_exact_layout(nlits);
+    if (k.dense->track_order)
+      k.dense->ordered.begin_exact_layout(nlits);
+    for (Ref ref = 0; ref < k.arena.size();) {
+      const Clause *c = clause_at(k.arena, ref);
+      if (!c->garbage() && !c->redundant())
+        for (const Lit lit : *c) {
+          k.dense->large.count(lit);
+          if (k.dense->track_order)
+            k.dense->ordered.count(lit);
+        }
+      ref += clause_actual_words(c);
+    }
+    if (k.dense->track_order)
+      for (Lit lit = 0; lit < nlits; ++lit)
+        k.dense->ordered.count(lit, k.watches.binary_size(lit));
+    k.dense->large.finish_exact_layout();
     if (k.dense->track_order) {
-      k.dense->ordered.assign(2 * k.nvars, {});
-      for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
+      k.dense->ordered.finish_exact_layout();
+      for (Lit lit = 0; lit < nlits; ++lit)
         for (const WatchEntry watch : k.watches.entries(lit))
           if (watch.binary())
-            k.dense->ordered[lit].push_back(
-                OccIndex::Entry::from_binary(watch.other()));
+            k.dense->ordered.push(lit,
+                                  OccIndex::Entry::from_binary(watch.other()));
     }
     for (Ref ref = 0; ref < k.arena.size();) {
       const Clause *c = clause_at(k.arena, ref);
       if (!c->garbage() && !c->redundant())
         for (const Lit lit : *c) {
-          k.dense->large[lit].push_back(ref);
+          k.dense->large.push(lit, ref);
           if (k.dense->track_order)
-            k.dense->ordered[lit].push_back(
-                OccIndex::Entry::from_large(ref));
+            k.dense->ordered.push(lit, OccIndex::Entry::from_large(ref));
         }
       ref += clause_actual_words(c);
     }

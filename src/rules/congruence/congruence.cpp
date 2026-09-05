@@ -353,7 +353,7 @@ void congruence_extract(const Kernel &k, std::vector<CongGate> &out) {
       // simply sees fewer of them.
       if (!(outp & 255) && cong_budget.over(k))
         break;
-      const std::vector<Ref> &occ = k.dense->large[outp];
+      const auto occ = k.dense->large[outp];
       if (occ.empty())
         continue;
       const Lit nout = negate(outp);

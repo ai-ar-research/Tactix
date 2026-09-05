@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kernel/clause.hpp"
+#include "kernel/occ.hpp"
 #include "kernel/types.hpp"
 #include "kernel/watch.hpp"
 #include "proof/proof.hpp"
@@ -706,7 +707,7 @@ struct PendingLearned {
 };
 
 struct OccIndex {
-  std::vector<std::vector<Ref>> large; // by literal; may hold stale garbage Refs
+  FlatLists<Ref> large; // by literal; may hold stale garbage Refs
   // Kissat dense watches are one mixed connected stream: the binary prefix
   // present at dense entry, then arena-order large occurrences, followed by
   // every binary or large clause created while dense.  `large` remains the
@@ -731,7 +732,7 @@ struct OccIndex {
   };
   static_assert(sizeof(Entry) == sizeof(uint32_t),
                 "dense mixed entries must match Kissat's one-word watch");
-  std::vector<std::vector<Entry>> ordered; // by literal; stale entries allowed
+  FlatLists<Entry> ordered; // by literal; stale entries allowed
   // Only Eliminate/BVE consumes the mixed stream. Probe's Congruence,
   // Substitute, Sweep, and Strengthen consumers use `large` and must not pay
   // another formula-wide vector header and payload image.

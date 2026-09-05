@@ -80,7 +80,7 @@ void bve_flush_units_while_connected(Kernel &k, uint32_t trail_from) {
   for (uint32_t i = trail_from; i < k.propagate_head; ++i) {
     const Lit unit = k.trail[i];
     assert(k.value(unit) > 0 && k.assigned[var_of(unit)].level == 0);
-    std::vector<OccIndex::Entry> &ordered = k.dense->ordered[unit];
+    const auto ordered = k.dense->ordered[unit];
     for (const OccIndex::Entry entry : ordered) {
       if (entry.binary) {
         // eliminate.c::kissat_flush_units_while_connected keeps the satisfied
@@ -115,34 +115,40 @@ void bve_flush_units_while_connected(Kernel &k, uint32_t trail_from) {
 
     // Kissat compacts only the satisfied unit's connected stack here.  Other
     // literal stacks retain their garbage references until inspected later.
-    std::vector<Ref> &refs = k.dense->large[unit];
+    const auto refs = k.dense->large[unit];
     const size_t before = refs.size();
-    refs.erase(std::remove_if(refs.begin(), refs.end(), [&](Ref ref) {
-                 const Clause *c = clause_at(k.arena, ref);
-                 if (c->garbage())
-                   return true;
-                 for (const Lit l : *c)
-                   if (l == unit)
-                     return false;
-                 return true;
-               }),
-               refs.end());
-    const uint32_t removed = static_cast<uint32_t>(before - refs.size());
+    const size_t kept = static_cast<size_t>(
+        std::remove_if(refs.begin(), refs.end(),
+                       [&](Ref ref) {
+                         const Clause *c = clause_at(k.arena, ref);
+                         if (c->garbage())
+                           return true;
+                         for (const Lit l : *c)
+                           if (l == unit)
+                             return false;
+                         return true;
+                       }) -
+        refs.begin());
+    k.dense->large.shrink(unit, kept);
+    const uint32_t removed = static_cast<uint32_t>(before - kept);
     if (removed && k.bve_occurrence_count_image)
       kernel_bve_occurrence_remove(k, unit, removed);
-    ordered.erase(
-        std::remove_if(ordered.begin(), ordered.end(), [&](const auto &entry) {
-          if (entry.binary)
-            return false;
-          const Clause *c = clause_at(k.arena, entry.payload);
-          if (c->garbage())
-            return true;
-          for (const Lit l : *c)
-            if (l == unit)
-              return false;
-          return true;
-        }),
-        ordered.end());
+    k.dense->ordered.shrink(
+        unit, static_cast<size_t>(
+                  std::remove_if(ordered.begin(), ordered.end(),
+                                 [&](const auto &entry) {
+                                   if (entry.binary)
+                                     return false;
+                                   const Clause *c =
+                                       clause_at(k.arena, entry.payload);
+                                   if (c->garbage())
+                                     return true;
+                                   for (const Lit l : *c)
+                                     if (l == unit)
+                                       return false;
+                                   return true;
+                                 }) -
+                  ordered.begin()));
   }
 }
 
@@ -1445,7 +1451,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
         (void)removed;
       }
       if (!garbage_prefix.empty()) {
-        std::vector<Ref> &refs = k.dense->large[pivot];
+        const auto refs = k.dense->large[pivot];
         size_t garbage = 0, out = 0;
         for (const Ref ref : refs) {
           if (garbage < garbage_prefix.size() &&
@@ -1456,11 +1462,11 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
           refs[out++] = ref;
         }
         assert(garbage == garbage_prefix.size());
-        refs.resize(out);
+        k.dense->large.shrink(pivot, out);
         kernel_bve_occurrence_remove(
             k, pivot, static_cast<uint32_t>(garbage_prefix.size()));
 
-        std::vector<OccIndex::Entry> &ordered = k.dense->ordered[pivot];
+        const auto ordered = k.dense->ordered[pivot];
         garbage = out = 0;
         for (const OccIndex::Entry entry : ordered) {
           if (!entry.binary && garbage < garbage_prefix.size() &&
@@ -1471,7 +1477,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
           ordered[out++] = entry;
         }
         assert(garbage == garbage_prefix.size());
-        ordered.resize(out);
+        k.dense->ordered.shrink(pivot, out);
       }
       const bool changed =
           !satisfied_binaries.empty() || !garbage_prefix.empty();

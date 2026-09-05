@@ -66,51 +66,22 @@ DenseStorage dense_storage(const OccIndex *dense) {
   DenseStorage result;
   if (!dense)
     return result;
-  result.capacity_bytes = capacity_bytes(dense->large);
-  if (dense->large.data()) {
+  const auto account = [&result](const void *block, size_t capacity) {
+    result.capacity_bytes += capacity;
+    if (!block)
+      return;
     result.allocations++;
 #if defined(__GLIBC__)
     result.usable_bytes +=
-        malloc_usable_size(const_cast<void *>(
-            static_cast<const void *>(dense->large.data())));
+        malloc_usable_size(const_cast<void *>(block));
 #else
-    result.usable_bytes += capacity_bytes(dense->large);
+    result.usable_bytes += capacity;
 #endif
-  }
-  for (const auto &list : dense->large) {
-    result.capacity_bytes += capacity_bytes(list);
-    if (!list.data())
-      continue;
-    result.allocations++;
-#if defined(__GLIBC__)
-    result.usable_bytes += malloc_usable_size(
-        const_cast<void *>(static_cast<const void *>(list.data())));
-#else
-    result.usable_bytes += capacity_bytes(list);
-#endif
-  }
-  result.capacity_bytes += capacity_bytes(dense->ordered);
-  if (dense->ordered.data()) {
-    result.allocations++;
-#if defined(__GLIBC__)
-    result.usable_bytes += malloc_usable_size(const_cast<void *>(
-        static_cast<const void *>(dense->ordered.data())));
-#else
-    result.usable_bytes += capacity_bytes(dense->ordered);
-#endif
-  }
-  for (const auto &list : dense->ordered) {
-    result.capacity_bytes += capacity_bytes(list);
-    if (!list.data())
-      continue;
-    result.allocations++;
-#if defined(__GLIBC__)
-    result.usable_bytes += malloc_usable_size(
-        const_cast<void *>(static_cast<const void *>(list.data())));
-#else
-    result.usable_bytes += capacity_bytes(list);
-#endif
-  }
+  };
+  account(dense->large.arena_data(), dense->large.arena_capacity_bytes());
+  account(dense->large.heads_data(), dense->large.heads_capacity_bytes());
+  account(dense->ordered.arena_data(), dense->ordered.arena_capacity_bytes());
+  account(dense->ordered.heads_data(), dense->ordered.heads_capacity_bytes());
   return result;
 }
 

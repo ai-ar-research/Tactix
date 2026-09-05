@@ -1590,13 +1590,13 @@ static void test_dense_occurrences_reuse_capacity_and_position_order() {
     ids.push_back(clause_at(k.arena, ref)->id());
   const std::vector<uint64_t> expected{520, 521, 519, 516, 517, 518};
   assert(ids == expected);
-  const Ref *const allocation = occ.large[shared].data();
-  const size_t capacity = occ.large[shared].capacity();
+  const Ref *const allocation = occ.large.data(shared);
+  const size_t capacity = occ.large.capacity(shared);
 
   kernel_dense_disconnect(k);
   kernel_dense_connect(k, occ);
-  assert(occ.large[shared].data() == allocation);
-  assert(occ.large[shared].capacity() == capacity);
+  assert(occ.large.data(shared) == allocation);
+  assert(occ.large.capacity(shared) == capacity);
   ids.clear();
   for (const Ref ref : occ.large[shared])
     ids.push_back(clause_at(k.arena, ref)->id());
