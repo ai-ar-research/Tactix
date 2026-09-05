@@ -2872,9 +2872,21 @@ tracks Kissat exactly far past where 3.51's coarse checkpoints stopped:
 | 35,000 | 868,218,566 | $+109{,}512$ |
 
 So the ported build is exact through conflict **30,001** and has parted by
-35,000. The next divergence is confined to a 5,000-conflict window, which is
-the same position Rank 17 and Rank 34 were in before their per-literal traces
-reduced them to one row and one conflict respectively.
+35,000. Bisecting that window (campaign `5156`) puts the first divergence
+inside a thousand conflicts:
+
+| conflicts | Kissat | ported | delta |
+|---:|---:|---:|---:|
+| 31,001 | 857,372,389 | 857,372,389 | $+0$ |
+| 32,003 | 859,963,504 | 859,963,504 | $+0$ |
+| 33,000 | 864,770,152 | 864,829,850 | $+59{,}698$ |
+| 34,003 | 867,163,313 | 867,129,603 | $-33{,}710$ |
+
+**Exact at 32,003, parted by 33,000**, and oscillating thereafter, which is
+what a trajectory split looks like once it has happened. That is a tenfold
+narrowing of 3.51's window and the same position Rank 17 and Rank 34 were in
+before their per-literal traces reduced them to one row out of 260,577 and one
+conflict respectively.
 
 ### 3.52 The four unit-cost repairs, gated (2026-09-05)
 
