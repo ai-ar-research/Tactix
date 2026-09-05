@@ -89,10 +89,15 @@ resume surface.
   counts matched, Vivify's propagations +7 %, Strengthen's forward steps
   12 % fewer, BVE a third of the attempts for more eliminations. None can
   be closed by a scheduling port. Shared-path measurement: dense index
-  construction is 4.14 s on Rank 21 against kissat's ~1.4 s, and it is
-  CALL-COUNT driven (26 rebuilds, one per rule application, where kissat
-  connects once per dense phase); the arena walk is 4 % of it and the
-  second parallel structure was measured NOT to be the cost. Reusing a
+  construction is 4.14 s on Rank 21 against kissat's ~1.4 s, and it is NOT
+  call-count driven (that earlier claim is retracted): Tactix opens the
+  dense scope once per phase like kissat, the 26 rebuilds follow garbage
+  collections which relocate every ref, and kissat reconnects around each
+  of its own 32 collections on that rank against Tactix's 23. So it is
+  3.6x per construction. The arena walk is 4 % of it and the second
+  parallel structure was measured NOT to be the cost; the only step with
+  no kissat counterpart is copying binaries into `ordered` (15 %), which
+  exists because that stream is a separate copy rather than the watch list. Reusing a
   live index across rules is not local: the rebuild materialises kissat's
   irredundant arena order and incremental maintenance does not.
   START HERE: BVE's resolution rate is the largest quantified gap in the

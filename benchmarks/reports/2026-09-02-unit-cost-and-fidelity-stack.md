@@ -1297,13 +1297,24 @@ a second random append beside every one of the pushes moved Rank 21 by
 The two vectors share enough locality that filling both is nearly as
 cheap as filling one.
 
-What remains is call count. Tactix rebuilds the index 26 times on Rank
-21, once per rule application that needs it, where kissat connects once
-per dense-mode phase and lets the rules inside share it — a ratio close
-to the 2.9x in time. Reusing a live index across consecutive rules is not
-a local change: the rebuild materialises kissat's current irredundant
-arena order, and incremental maintenance does not reproduce that order,
-so skipping it would move behaviour rather than preserve it.
+It is not call count either, and the first version of this section said
+it was on an inference made without kissat's own count. Tactix opens the
+dense scope once per phase and lets the rules inside share it, exactly as
+kissat does; the 26 rebuilds are driven by garbage collection, which
+relocates every reference. Kissat pairs each of its dense collections
+with `kissat_flush_large_connected` and a reconnect, so the pattern is
+faithful — and on Rank 21 kissat collects 32 times against Tactix's 23.
+Tactix rebuilds fewer times and still spends 4.14 s against roughly
+1.4 s, so the gap is 3.6x per construction.
+
+What is left of it is the shape of the work per call, where the measured
+split above says the push phase dominates and the derived-index
+experiment says the second structure is not why. Kissat walks the arena
+once, stops at its last irredundant clause, and pushes into the watch
+lists it already has; Tactix clears two structures, copies the binaries
+into `ordered` because that stream is a separate copy rather than the
+watch list itself, walks the whole arena, sorts, and pushes. Only the
+binary copy has no counterpart at all, and it is 15 % of the call.
 
 ### 3.24 Certificate evidence for the session (2026-09-04)
 
