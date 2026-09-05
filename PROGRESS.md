@@ -57,7 +57,10 @@ resume surface.
 
   N2: the proof/model checks of all ten gate pairs run this session have
   finished — 500 proof, 560 model, all exit 0, no verdict mismatch.
-  Nightly fuzz on the gated pin (byte-identical to `pin-1148168`) finished:
+  NOTHING IN FLIGHT: no queued or running jobs at the close of this session,
+  and every gate's certificates are deleted with cleanup settled (1,060
+  records). Nightly fuzz (job 1664736, now COMPLETED) on the gated pin
+  (byte-identical to `pin-1148168`) finished:
   200,000 cases, 0 failures, LRAT on. Read it with the harness's own two
   caveats. 3,596 cases (1.8 %) did not terminate at the 5 s timeout so no
   oracle ran on them, making the effective leg 196,404 — that rate is
