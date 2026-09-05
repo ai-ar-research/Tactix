@@ -1764,6 +1764,36 @@ static void kernel_settle_binary_only_debt(Kernel &k) {
   k.binary_only_head = UINT32_MAX;
 }
 
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+// Diagnostic: one row per literal whose watch list the SEARCH propagator
+// scanned, in a conflict window, with the ticks that scan charged. Kissat's
+// matching rows come from the `kissat-ticktrace` variant, so a diff names the
+// literal one solver propagates and the other does not.
+static void kernel_tick_trace(const Kernel &k, Lit lit, uint64_t ticks) {
+  static FILE *file = nullptr;
+  static uint64_t lo = 0, hi = 0;
+  static bool initialized = false;
+  if (!initialized) {
+    initialized = true;
+    const char *path = std::getenv("TACTIX_TICK_TRACE");
+    if (path && *path)
+      file = std::fopen(path, "w");
+    if (const char *v = std::getenv("TACTIX_TICK_LO"))
+      lo = std::strtoull(v, nullptr, 10);
+    if (const char *v = std::getenv("TACTIX_TICK_HI"))
+      hi = std::strtoull(v, nullptr, 10);
+  }
+  if (!file || k.inprocessing || k.warming)
+    return;
+  if (k.stats.conflicts < lo || k.stats.conflicts > hi)
+    return;
+  std::fprintf(file, "%llu %d %llu\n",
+               static_cast<unsigned long long>(k.stats.conflicts),
+               kernel_externalize(k, lit),
+               static_cast<unsigned long long>(ticks));
+}
+#endif
+
 bool kernel_propagate(Kernel &k, Ref ignore) {
   kernel_settle_binary_only_debt(k);
   const uint32_t saved_propagate = k.propagate_head;
@@ -1778,7 +1808,15 @@ bool kernel_propagate(Kernel &k, Ref ignore) {
     // Kissat's propagation statistic counts trail literals whose watch lists
     // are scanned, including the literal that exposes a conflict.  It does not
     // count implications at assignment time (propsearch.c:14-23).
-    if (propagate_literal<false>(k, lit, ignore, ticks)) {
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    const uint64_t tick_trace_before = ticks;
+#endif
+    const bool tick_trace_conflict =
+        propagate_literal<false>(k, lit, ignore, ticks);
+#ifdef TACTIX_ENABLE_CONFLICT_STOP
+    kernel_tick_trace(k, lit, ticks - tick_trace_before);
+#endif
+    if (tick_trace_conflict) {
       conflict = true;
       break;
     }
