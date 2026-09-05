@@ -592,9 +592,22 @@ resume surface.
     propagation while the watch dump fires when the traced literal is
     propagated, and propagation permutes `lits` on every relocation.
     SO THE 24-vs-12 COMPARISON IS WORTHLESS and no Rank 35 mechanism is
-    claimed. FIX THE INSTRUMENT FIRST: take both dumps at the same moment, and
-    key clause identity on sorted literals or the proof id rather than the
-    printed sequence.
+    claimed.
+    THE INSTRUMENT IS NOW REPAIRED AND THE FAULT IS PINNED (`5167`): both
+    dumps print CANONICAL (sorted) literals and carry the arena ref. Re-running
+    the single-solver check, watch entry ref=506484 matches an arena row by ref
+    AND key, while watch entry ref=1298903
+    (`-494147,-217141,-145,217151,217156`, garbage=0, contains 217156) HAS NO
+    ARENA ROW AT ALL. THE CLAUSE DUMP UNDER-REPORTS, so every "identical
+    databases" result taken from it is unsafe -- those compared two equally
+    truncated walks. Likely culprit: the walk desynchronising on a clause
+    header, since `all_clauses` advances by `kissat_next_clause`, which reads
+    `size` and the `shrunken` flag.
+    FIX THE ARENA WALK BEFORE ANY RANK 35 DIAGNOSIS. The tick trace is
+    unaffected and independently validated against pristine, so the
+    localisation stands. Reports 3.41 and 3.43 do NOT rest on this dump: Rank
+    17's repair was confirmed by search_ticks going exact with an empty diff
+    over 260,577 rows, Rank 34's chain by counters and the heap signature.
     VERIFIED AND SAFE TO BUILD ON: ported arm exact through 32,062 and 78 ticks
     out by 32,090; first divergent row is literal 145 at conflict 32,072; the
     instrumented kissat reproduces pristine at every checkpoint used.
