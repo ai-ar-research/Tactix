@@ -2860,7 +2860,21 @@ That leaves the ports in a well-defined place. They are correct, they are
 general, they improve fidelity on both instances anyone has looked at, and
 they cost $+149.2$ s on the tier because of one instance whose next rung is
 unclosed. They stay on `claude/rephase-entry-propagation` until that rung is
-found; the bisection window is now narrow and named.
+found.
+
+**The rung is now localised** (campaign `5155`). With the ports, Rank 35
+tracks Kissat exactly far past where 3.51's coarse checkpoints stopped:
+
+| conflicts | Kissat | ported |
+|---:|---:|---:|
+| 25,001 | 779,465,124 | $+0$ |
+| 30,001 | 805,572,158 | $+0$ |
+| 35,000 | 868,218,566 | $+109{,}512$ |
+
+So the ported build is exact through conflict **30,001** and has parted by
+35,000. The next divergence is confined to a 5,000-conflict window, which is
+the same position Rank 17 and Rank 34 were in before their per-literal traces
+reduced them to one row and one conflict respectively.
 
 ### 3.52 The four unit-cost repairs, gated (2026-09-05)
 
