@@ -129,27 +129,35 @@ resume surface.
   Substitute's worst ranks are 10/13/14/25, Factor's are 25/17/20, BVE's
   is 21.
 
-  NEXT — START HERE, it is the only place -647 s exists, and section 3.10's
-  lead has been CORRECTED (section 3.35, probe `5086`). `kissat
-  --conflicts=N` does not stop at N: it overshot to 44,751 and 44,771 in
-  that probe, so most of the "3 ticks at 44,748, 42 by 44,770" was Kissat
-  doing more conflicts. At the checkpoints where both solvers really stop
-  together, Tactix's `search_ticks` is EXACT at 44,747 (555,591,147 on
-  both) and eight short at 48,379 — eight ticks over 3,632 conflicts. The
-  withheld-tick hypothesis is dead too: `suppressed_search_ticks` is
-  identical at 44,747 and 44,748, so `inprocessing`/`warming` withheld
-  nothing across the conflict where the split was said to begin.
-  So the question is now: can eight ticks in 573 M move the stable-to-
-  focused switch seven decision levels? If yes, the switch predicate is
-  the parity defect, not the accounting — compare
-  `DefaultPolicy::want_switch` against `kissat_switching_search_mode`
-  (`mode.c`), including which side of the comparison is inclusive and when
-  `limits.mode.ticks` is recomputed. If no, section 3.10's decision-level
-  reading (8110 against 8117) needs redoing at a matched conflict count.
-  Rebuild the probe pin with
-  `cmake -DTACTIX_ENABLE_CONFLICT_STOP=ON`; the runs are seconds, so this
-  is a fast bisect, not a campaign. Ranks 34 and 17 have had no equivalent
-  first-divergence study at all.
+  NEXT — START HERE, it is the only place -636 s exists, and it is now
+  pinned to TWO CONFLICTS (report 3.35, campaigns `5086`/`5087`/`5088`).
+  Method first: `kissat --conflicts=N` does NOT stop at N (asked 44,748 it
+  stops at 44,751), so read Kissat's own `conflicts:` counter and stop
+  Tactix at exactly that with `TACTIX_STOP_AFTER_CONFLICT` (needs a
+  `-DTACTIX_ENABLE_CONFLICT_STOP=ON` build; the pins are in `5086`). Done
+  that way, Tactix's `search_ticks` is EXACT at conflict 44,747
+  (555,591,147 on both), 3 short at 44,751, 42 short at 44,753, and flat
+  at 42 through 48,001. Section 3.10's 42 was right; a two-checkpoint
+  reading that said 8 is retracted.
+  Those two conflicts cost 491,421 ticks because `[rephase-7]` fires at
+  44,750 and its walk at 44,751. 3 ticks is exactly
+  `1 + kernel_cache_lines(n)` for ONE propagated literal with a 33-64 word
+  list, and 39 is thirteen more; kissat charges per propagated literal in
+  `proplit.h`. So: which literals does kissat propagate there that Tactix
+  does not? A per-propagation trace across those two conflicts settles it
+  and the runs are seconds.
+  CLEARED, do not re-check: the switch predicate is faithful
+  (`kissat_switching_search_mode` vs `DefaultPolicy::want_switch_mode` —
+  same comparison, same inclusivity, same previous-focused-duration
+  budget), and the `inprocessing`/`warming` scopes withhold nothing across
+  the conflict where the split begins. Recorded but WRONG-SIGNED: kissat
+  sets `solver->propagate = new_end` unconditionally after a backtrack
+  (`backtrack.c:145`) where Tactix only moves its cursor backwards
+  (`kernel.cpp:938`) — they differ only when the cursor is BEHIND the
+  boundary, and there Tactix propagates more, not less. Rule it out rather
+  than chase it.
+  Ranks 34 (+403 s) and 17 (+126 s) have had no first-divergence study at
+  all.
 
   DEAD ENDS ADDED THIS SESSION, do not retry. Certificate emission (3.31):
   writing 1.5 GB costs Tactix 3.82 s against kissat's 2.89 s for 1.9 GB,
