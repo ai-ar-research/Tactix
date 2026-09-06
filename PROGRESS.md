@@ -26,9 +26,9 @@ resume surface.
     on a hand-written manifest missing input_sha256 -- fixed by copying the frozen
     manifest, resubmitted): the goal measurement, expected ~+720s (§3.84) since
     the 4 repairs are byte-identical/marginal. Check provisional results.
-  CORRECTED CONCLUSION (report 3.94, clean-line gate 5251, RETRACTS the 3.91
+  CORRECTED CONCLUSION (reports 3.94/3.96; the precise number is +95.5s = 1.24%, 3.94's 1.11% was partial data, clean-line gate 5251, RETRACTS the 3.91
   "architectural wall"): the goal's TRUE implementation gap (same work, more
-  time) is only ~+85s = **1.11% of Kissat's 7,684s** -- right at the 1% line, NOT
+  time) is +95.5s = **1.24% of Kissat's 7,684s** -- right at the 1% line, NOT
   the +9% the raw total implies. 3.84's +336 over-counted N4 trajectory. Tactix's
   SEARCH is at PARITY (r6 +14 but r20 -16, r28 -0.3, r11/r30 <=0); the gap
   concentrates in the 0-conflict LARGE-INPUT ranks (+57s: parse + substitution
