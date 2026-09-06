@@ -323,6 +323,7 @@ struct BveDefScratch {
   std::vector<std::pair<Lit, Lit>> fresh_bin;
   std::vector<Lit> connected_lits;
   std::vector<uint64_t> connected_chain;
+  std::vector<uint64_t> connected_extra_units;
   std::vector<uint8_t> literal_marks;
   uint64_t ticks = 0;    // ticks the last attempt spent (0 if none was made)
   Lit unit = INVALID_LIT; // one-sided core's failed pivot literal, if any
@@ -2046,6 +2047,7 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
   std::vector<std::pair<Lit, Lit>> &fresh_bin = def->fresh_bin; // size-2 resolvents, ditto
   std::vector<Lit> &connected_lits = def->connected_lits;
   std::vector<uint64_t> &connected_chain = def->connected_chain;
+  std::vector<uint64_t> &connected_extra_units = def->connected_extra_units;
   fresh.clear();
   fresh_bin.clear();
   connected_lits.clear();
@@ -2053,8 +2055,15 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
 
   for (const BveResolvent &r : resolvents) {
     connected_lits.clear();
-    connected_chain.assign(r.chain.begin(), r.chain.end());
     bool satisfied = false;
+    // A literal unassigned when the resolvent was generated can be root-false
+    // now, falsified by a sibling immediate unit resolved after it. Its unit
+    // id must join the chain BEFORE the two resolution antecedents, not after:
+    // the RUP replay reaches those clauses only once every literal they carry
+    // is false, so a unit cited past them leaves the clause non-unit and the
+    // line unverifiable (report 3.69). `append_resolution_chain` ends r.chain
+    // with exactly `c.id, d.id`, so the units belong ahead of that pair.
+    connected_extra_units.clear();
     for (const Lit l : r.lits) {
       const int8_t value = k.value(l);
       if (value > 0) {
@@ -2063,13 +2072,25 @@ ApplyResult bve_eliminate(Kernel &k, Var x, BveDefScratch *def) {
       }
       if (value < 0) {
         if (lrat)
-          connected_chain.push_back(k.unit_ids[var_of(l)]);
+          connected_extra_units.push_back(k.unit_ids[var_of(l)]);
       } else {
         connected_lits.push_back(l);
       }
     }
     if (satisfied)
       continue;
+    connected_chain.clear();
+    if (lrat) {
+      assert(r.chain.size() >= 2 &&
+             "append_resolution_chain always ends with c.id, d.id");
+      const size_t clause_tail = r.chain.size() - 2;
+      connected_chain.assign(r.chain.begin(), r.chain.begin() + clause_tail);
+      connected_chain.insert(connected_chain.end(),
+                             connected_extra_units.begin(),
+                             connected_extra_units.end());
+      connected_chain.push_back(r.chain[clause_tail]);
+      connected_chain.push_back(r.chain[clause_tail + 1]);
+    }
     if (connected_lits.empty()) {
       learn_empty(connected_chain.data(),
                   static_cast<uint32_t>(connected_chain.size()));
