@@ -1839,7 +1839,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // Targets are a pure function of the immutable representative map. Store
   // only the source pair, and use segmented storage so growing a giant image
   // does not momentarily hold both old and doubled contiguous buffers.
-  std::deque<BinaryImage> images;
+  std::vector<BinaryImage> images;
   // Substitution, canonical or Sweep-inline, rewrites only clauses incident to
   // a non-representative literal.  Unconnected binaries cannot change.  Keep
   // them in place instead of copying the complete binary formula into
@@ -2292,7 +2292,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     bridge_keep_coalesce(bridge_keep_snapshot);
     bridge_keep_compact = bridge_keep_snapshot;
   }
-  std::deque<BinaryImage>().swap(images);
+  std::vector<BinaryImage>().swap(images);
   const auto snapshot_directed = [&](Lit lit) {
     assert(mapped(lit));
     for (const WatchEntry watch : k.watches.entries(lit)) {
@@ -2495,7 +2495,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   }
   substitute_stage_trace(k, "rewrite-binary-end", rebuilt_images,
                          k.watches.arena.size(), k.watches.holes);
-  std::deque<BinaryImage>().swap(images);
+  std::vector<BinaryImage>().swap(images);
   if (session)
     sparse_seen.clear();
   else
