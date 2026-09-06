@@ -7,40 +7,41 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
-- ALGORITHMIC LEVER FOUND (report 3.102): the binary substitution's stable-
-  direction rewrite (substitute.cpp ~2166) scans the stable literal's WHOLE watch
-  list PER IMAGE -> O(K^2) for a literal with K substituted neighbors (common on
-  binary-heavy formulas). Kissat iterates each list once (O(N)). THE FIX: rewrite
-  the stable-direction pass to per-literal iteration (scan each list once, rewrite
-  every substituted binary in place) -- a deterministic O(K^2)->O(N) win, NOT a
-  noise-limited micro-op. Proof-critical (per-binary DRAT + binary_ids/Bloom) and
-  a ~30-50 line restructure with proof-order sensitivity; a dedicated validated
-  cycle, not a rushed pass. This is the concrete next step to close the gap.
-  MEASUREMENT CAVEAT: r10 single-run sub-phase timing is +-1.2s noisy (memory-
-  bound 349MB), so byte-identical micro-op wall effects are below the floor; use
-  instruction count or the aggregate gate. 7 safe byte-identical repairs shipped
-  (GC guard, import-order/heuristics inline, subst touched+image, deque->vector,
-  stable-scan break); gap ~1.18-1.24% (noise-limited). Clean line unitcost-on-main.
-
-- ROOT LOCALIZED (reports 3.99-3.100, corrects the wrong 3.97 header claim):
-  the implementation gap (1.24%) is dominated by substitution's 2.7x, and a clean
-  experiment REFUTED the clause-header hypothesis (padding Kissat's header +8B =
-  +0.02s, 3.99). The built-in sub-phase timer (`TACTIX_SUBSTITUTE_TIME`, 5253)
-  localizes it: the BINARY SUBSTITUTION dominates do_substitution (5.9s of 12s on
-  r10), processing 37.5M binary images (2.6x the 14.3M vars) via a deque snapshot
-  + a multi-pass DRAT loop (expand_image computed 2x/image across add-targets then
-  delete-sources passes) + per-binary delete+add with binary_ids/Bloom/watch
-  bookkeeping -- where Kissat rewrites watches IN PLACE. (The O(n log n) key sorts
-  are LRAT-only, substitute.cpp ~1966; the gate is DRAT, so it is the iteration +
-  delete-add, not the sorts.)
-  CONCRETE FIX: rewrite the binary substitution (substitute.cpp ~1805-2100,
-  rewrite_binary_occurrences + the apply loop) to Kissat substitute_binaries'
-  in-place watch rewrite -- drop the deque snapshot, cache expand_image once,
-  fuse the add/delete passes (validate DRAT order), reduce per-binary bookkeeping.
-  TARGETED (one loop in one rule) but PROOF-CRITICAL (DRAT binary stream + N2).
-  This is the dominant half of the dominant gap component -- a specific fixable
-  lever, NOT the clause header (refuted) and NOT diffuse. The next step to merge
-  the gap. 6 safe repairs stand (now incl deque->vector 25ba030, ~-0.9s/rank on the binary lever, 3.101); gap est. ~1.18%. Clean line unitcost-on-main.
+- CORRECT LEVER (report 3.103, corrects the wrong 3.102 O(K^2) and 3.97 header
+  claims): the binary-substitution implementation gap is STRUCTURAL, not a single
+  hotspot. Kissat's `substitute_binaries` (kissat/src/substitute.c:276) does ONE
+  in-place pass over the watch lists (q-compaction + a tiny per-lit `delayed`
+  move-to-representative stack + inline proof), never materialising an image
+  array. Tactix's non-session path (substitute.cpp ~1842-2510) instead runs a
+  5-PASS pipeline over a 37.5M-element `images` array: build -> proof add/del ->
+  stable-direction in-place rewrite -> compact (drop connected binaries) ->
+  batch-reserve + mirror-rebuild. connected_only is always true, so the logic is
+  identical to Kissat (lit==repr_lit -> rewrite in place & survive compaction;
+  lit!=repr_lit -> drop & re-push to repr's list). The gap = the 37.5M-elem array
+  (600MB, half dead bridge fields on the non-session path) + 4 extra watch-arena
+  scans, all pure memory traffic Kissat does not do (memory-bound instance).
+  THE FIX (verified feasible without touching the watch container): port Kissat's
+  single in-place pass for the non-session DRAT path (the N2 gate + the 0-conflict
+  ranks r7/r8/r10/r13/r14; keep LRAT + session on the image path). Use a bespoke
+  metadata-maintaining compaction loop (count binaries + set_layout like
+  WatchLists::compact) with rewrite-in-place + a local `delayed` uint32 stack;
+  after each lit's walk, push_binary the delayed moves to image[lit]'s list
+  (grow() is offset-based so heads survive realloc, but raw p/q/end do NOT --
+  never push during a list walk, exactly Kissat's delayed_watched discipline).
+  Reuse the existing pending/record_unit/flush_units machinery for collapsed
+  units. Emit DRAT inline per changed binary under the import-order owner guard
+  (add new pair, del old pair) -- checkable, NOT byte-identical, so validate with
+  drat-trim not byte-compare. PLAN: add a TACTIX_ env hatch (default new) for
+  same-window A/B; hoist `bool refuted`; wrap the existing binary machinery in
+  `if (!kissat_single_pass){...}` and add the new block; guard the image-reading
+  post-passes (batch-reserve 2404, mirror 2457, event-trace) with the hatch.
+  VALIDATE: build Debug+Release, fuzz --quick 10000 x2 (drat-trim, 0 failures),
+  ctest incl reduce_trace_compare, then B28+C5 + R40 aggregate gate. Closes ~half
+  the +95.5s gap (substitution's share); the residual ~0.5% is diffuse elsewhere.
+  MEASUREMENT: r10 single-run is +-1.2s noisy (below the 1.2% gap); the resolvable
+  signals are perf instruction count (sees the eliminated passes) + the R40
+  aggregate (+-0.25%). 7 safe byte-identical repairs shipped; clean line
+  unitcost-on-main @ 303ca15.
 
 - ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
   1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
