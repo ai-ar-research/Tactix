@@ -7,6 +7,26 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+- ROOT LOCALIZED (reports 3.99-3.100, corrects the wrong 3.97 header claim):
+  the implementation gap (1.24%) is dominated by substitution's 2.7x, and a clean
+  experiment REFUTED the clause-header hypothesis (padding Kissat's header +8B =
+  +0.02s, 3.99). The built-in sub-phase timer (`TACTIX_SUBSTITUTE_TIME`, 5253)
+  localizes it: the BINARY SUBSTITUTION dominates do_substitution (5.9s of 12s on
+  r10), processing 37.5M binary images (2.6x the 14.3M vars) via a deque snapshot
+  + a multi-pass DRAT loop (expand_image computed 2x/image across add-targets then
+  delete-sources passes) + per-binary delete+add with binary_ids/Bloom/watch
+  bookkeeping -- where Kissat rewrites watches IN PLACE. (The O(n log n) key sorts
+  are LRAT-only, substitute.cpp ~1966; the gate is DRAT, so it is the iteration +
+  delete-add, not the sorts.)
+  CONCRETE FIX: rewrite the binary substitution (substitute.cpp ~1805-2100,
+  rewrite_binary_occurrences + the apply loop) to Kissat substitute_binaries'
+  in-place watch rewrite -- drop the deque snapshot, cache expand_image once,
+  fuse the add/delete passes (validate DRAT order), reduce per-binary bookkeeping.
+  TARGETED (one loop in one rule) but PROOF-CRITICAL (DRAT binary stream + N2).
+  This is the dominant half of the dominant gap component -- a specific fixable
+  lever, NOT the clause header (refuted) and NOT diffuse. The next step to merge
+  the gap. 5 safe repairs (-6.2s) stand; clean line unitcost-on-main.
+
 - ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
   1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
   substitution's cache-bound 2x on large-input ranks. The precise root is the
