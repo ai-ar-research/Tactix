@@ -4996,3 +4996,24 @@ loop in one rule), and it is the dominant half of the implementation gap's
 dominant component. This supersedes 3.97-3.99 as the actual root: the residual is
 the binary-substitution algorithm, a specific fixable target, not an architectural
 data-layout cost.
+
+### 3.101 Progress: deque->vector on the binary-image container (-0.9s on r10) (2026-09-06)
+
+Acting on the 3.100 localization (binary substitution over 37.5M images): the
+image container was `std::deque<BinaryImage>`, iterated ~10 passes; it uses only
+push_back/back/size/iterate/swap-clear, so `std::vector<BinaryImage>` is byte-
+identical and far more cache-friendly for 37.5M elements. Measured on r10 (`5254`,
+TACTIX_SUBSTITUTE_TIME): round-1 binaries **5408 -> 4554 ms (-16%)**, snapshot
+1133 -> 878, substitute total 18.2 -> 17.3 s (**-0.9 s**). Byte-identical (9
+ctests incl proof/reconstruct/reduce_trace_compare; N2 fuzz 0/10,000 x2).
+Committed 25ba030 (6th safe repair).
+
+Estimated aggregate: ~-0.9 s per binary-heavy 0-conflict rank x 5 = ~-4.5 s, so
+the implementation gap moves from +95.5 s (1.24%) toward ~+91 s (~1.18%) -- still
+above 1%, but real movement on the localized lever. The REMAINING binary-
+substitution cost (the ~4.5 s delete-add watch rewrite over 37.5M binaries via
+the deque/vector snapshot) is the structural in-place-vs-snapshot difference: the
+concrete next lever is rewriting rewrite_binary_occurrences + the apply loop to
+Kissat substitute_binaries' in-place watch rewrite (proof-critical, targeted).
+The safe container win is extracted; the structural rewrite is the remaining
+dominant piece.
