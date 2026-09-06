@@ -25,7 +25,7 @@ resume surface.
   TARGETED (one loop in one rule) but PROOF-CRITICAL (DRAT binary stream + N2).
   This is the dominant half of the dominant gap component -- a specific fixable
   lever, NOT the clause header (refuted) and NOT diffuse. The next step to merge
-  the gap. 5 safe repairs (-6.2s) stand; clean line unitcost-on-main.
+  the gap. 6 safe repairs stand (now incl deque->vector 25ba030, ~-0.9s/rank on the binary lever, 3.101); gap est. ~1.18%. Clean line unitcost-on-main.
 
 - ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
   1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
