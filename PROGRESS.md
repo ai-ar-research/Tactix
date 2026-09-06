@@ -7,8 +7,329 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+- SHIPPABLE LINE = branch `unitcost-on-main` (a63153d = main 275be55 + 5
+  byte-identical unit-cost repairs). The clausal-core branch regresses r34 into a
+  timeout (report 3.92), so the general repairs were cherry-picked here onto clean
+  main where r34 solves. Rank 1-40 goal measurement running: `5251`/1667759
+  (unitcost-on-main vs Kissat, expected ~+720s == main, repairs byte-identical).
+  The implementation gap has NO targeted fix (report 3.91); see the strategic
+  conclusion below.
 
-- RESUME HERE (2026-09-05, thirteenth wrap). Goal in force (user, tightened
+
+- RESUME HERE (2026-09-06, eighteenth wrap -- CORRECTED GAP MAP; implementation
+  gap attack underway on branch `claude/rank34-kitten-clausal-core`).
+  GATES IN FLIGHT / VERDICTS (2026-09-06, addressing the Rank-1-40 measurement gap):
+  * B28+C5 branch(5edf182) vs shipped-main(275be55) `5249`/1667530: net +0.1s
+    (B -0.8, C +0.8), 32/33 paired -- NO REGRESSION; the clausal-core + 4 repairs
+    are neutral on B/C. Regression gate PASSES.
+  * Rank 1-40 branch vs Kissat `5248`/1667596 (RUNNING; first submit 1667450 died
+    on a hand-written manifest missing input_sha256 -- fixed by copying the frozen
+    manifest, resubmitted): the goal measurement, expected ~+720s (§3.84) since
+    the 4 repairs are byte-identical/marginal. Check provisional results.
+  STRATEGIC CONCLUSION (report 3.91, ~11 levers exhausted this session): the
+  implementation gap has NO targeted fix. Every byte-identical lever measured
+  marginal (GC guard ~0%, import-order inline -0.16%, substitution touched+image
+  -0.17%, heuristics_var_active inline ceiling 0.35%) and every structural
+  hypothesis was refuted (append-only rewrite already in-place, Bloom is parsing,
+  substitution already dense-mode, GC dense-rebuild not-redundant, vivify scan 1
+  of 5 passes, LTO bloats 1.05x slower). ROOT (3.50): pervasive cross-TU call
+  overhead + richer bookkeeping; the CHEAP cross-TU helpers are ALREADY inline,
+  the rest are substantial functions -> systematic-inline ceiling ~1-2%, far
+  short of 9%. Reaching within 1% needs a WHOLESALE structural refactor (hot code
+  to headers + std::vector/lambda -> Kissat-style inlined stacks + trim
+  incremental state) -- multi-week, real N2 risk, uncertain net -- PLUS the +405s
+  N4 trajectory gap. This is a strategic fork (structural project vs accept),
+  the honest stopping point of the targeted approach.
+  IN FLIGHT: heuristics_var_active inline UNCOMMITTED in tree (byte-identical, 10
+  ctests pass; N2 fuzz 1667757/58 PENDING on node contention, r32 A/B 1667756
+  cand pending) -- commit if fuzz-green, else revert. R40 branch-vs-Kissat
+  `5248`/1667676 completing (~+720s expected). Prior conclusion below unchanged:
+  the implementation gap is
+  PERVASIVE per-operation overhead (~1.3-2.7x instructions at identical work),
+  NOT a few hot spots. Proven by implementing the biggest identified lever --
+  substitution 2.7x -- with its two Kissat-aligned per-literal repairs, which
+  measured -0.17% total (3.90): the excess did not live in the lambda/branch
+  overhead but is spread across every per-operation. The CDCL core is already at
+  parity (3.47); the +336s implementation gap is diffuse across the inprocessing
+  primitives (GC 3.3x, vivify 2.15x, watch-rebuild 1.63x, substitution 2.7x)
+  each small and general, plus the 0-conflict ranks (~+63s, substitution-heavy).
+  IMPLICATION: reaching within 1% is NOT achievable by targeted fixes; it needs
+  a STRUCTURAL change that cuts many operations at once (candidates: append-only
+  arena -> in-place; the pervasive session/lambda abstraction; a leaner clause
+  representation) -- large and higher-N2-risk -- OR is an architectural cost of
+  Tactix's C++/proof-hooked design vs Kissat's lean C. Four safe monotonic
+  unit-cost repairs shipped this session (GC guard, import-order inline, two
+  substitution micro-ops); together immaterial to the gap. A user strategy
+  decision (invest in a structural rewrite vs accept the cost vs refocus on the
+  +405s N4 trajectory work) is the honest next fork. N1-N4 preserved throughout.
+  PER-PAIR VERDICT (report 3.83): the §3.75 per-equivalence substitution, gated
+  on the branch base (`5235`/`5236`), is SOUND (fuzz 0/10,000 x2) and B28+C5
+  CLEAN (B -20.0, C +3.1, 0 TO) but Rank 1-40 net +84.0 -- decided entirely by
+  r27 (+178). The conflict counts name a MIXED PORT, not noise: on r17
+  per-pair matches Kissat (182k vs Kissat 186k) and the batch diverges (216k);
+  on r27 the BATCH matches Kissat (4.03M vs 4.12M) and per-pair diverges
+  (7.45M). Neither application is byte-identical to Kissat's substitution.
+  Per-pair is HALF a faithful port; completing it (byte-identical) would match
+  Kissat on both -- N4 fidelity work (aligned r27 substitution trace, next
+  lever there). REVERTED; branch tree source == committed cd39e8f.
+  CORRECTED MASTER GAP MAP (report 3.84): the `20260828-0930` tactix arm is
+  STALE (5 TOs, 13,922 s). Pairing CURRENT main (`5235` base, 275be55, 8,404.8
+  s, 0 TO) against the stable Kissat arm: main 8,404.8 vs Kissat 7,684.0 =
+  +720.8 s (9.4 %). Split by conflict ratio cr=tactix/kissat:
+  * IMPLEMENTATION GAP (same work, +>2 s): ~+336 s distributed. r32 +71 (5.03M
+    conflicts BOTH), r27 +46, r24 +39, r37 +25, r39 +24, r9 +19, r6 +15 (equal
+    conflicts), 0-conflict ranks r7/r8/r10/r13/r14 ~+63. Merging ALL still
+    leaves ~+5 %, so necessary-not-sufficient for 1 %.
+  * N4 DIVERGENT (|cr-1|>0.15): +405 net = +1,060 behind (r34 +395 cr1.97,
+    r31 +381 cr2.73 [bigger than r34, off-radar], r17 +158 cr1.16), -655 ahead
+    (r19 -581 cr0.18, r18 -62 cr0.32).
+  IMPLEMENTATION-GAP ATTACK (goal's primary target). KEY REFRAME (report 3.85):
+  3.78's search-heavy r32/r33 profile showed the inprocessing cost spread thin
+  (GC/vivify/watch primitives) -- but search DILUTED it. A 0-CONFLICT rank
+  (r10, `093fa3ff...128_125`, pure inprocessing, `5241`) isolates it: Tactix
+  829.2G instr vs Kissat 596.1G = 1.39x, and the 233G excess CONCENTRATES:
+    * substitution ~1.7x (do_substitution + substitute_find_sccs 4.3% which
+      Kissat FOLDS INTO kissat_substitute -- a separate Tactix cost)
+    * congruence ~1.67x (apply + extract_gates + extract_ite + forward_subsume)
+    * import-order machinery ~5.7x (compaction-permuted-order sort/lookup tax
+      Kissat gets free: it imports vars sequentially so index==rank).
+  Committed repairs:
+  1. [DONE, committed f1dfde1] GC marking-pass guard (kernel.cpp ~2661): skip
+     the sparse source-sentinel scan when clause_position_alias empty (provably
+     inert; fires every search-time Reduce). N2 fuzz 0/10,000 x2; 12 ctests.
+  2. [DONE, committed b57e7d0] import-order accessors inlined into hot cross-TU
+     comparators. MEASURED r10 -0.16% only (`5242`) -- the 2.04% self was the
+     lookup WORK, not frame overhead. Refuted the call-overhead hypothesis; the
+     tax is ALGORITHMIC (sort by compaction-permuted order). N2 0/10,000 x2.
+  NEXT levers (sharpened by 3.86 with precise sums + work counters on r10):
+  3. [TOP PRIORITY] SUBSTITUTION 2.77x (~+108G = HALF the r10 excess), PURE unit
+     cost: Tactix substitutes 14,305,970 vars, Kissat 14,312,218 -- IDENTICAL
+     work, 2.77x the instructions, COMPUTE-bound. LOCALIZED (3.87, srcline on
+     r10 `5244`): the hot lines are the BINARY-EXISTENCE CHECK --
+     BinaryLivenessIndex::maybe() Bloom prefilter (kernel.hpp:254, 3.92%) +
+     kernel_binary_copies watch scan (kernel.hpp:1531 + watch.hpp ~6%) --
+     shared across substitution AND congruence. Append-only-rewrite hypothesis
+     REFUTED (substitute.cpp:1540 already uses in-place). CORRECTION (3.88,
+     call graph `5245`): the Bloom maybe() 3.83% is PARSING (ingest_clause dedup
+     of r10's 349MB input), NOT substitution/congruence -- r10 over-weights
+     parse. 4 hypotheses now refuted by measurement (call overhead, append-only,
+     SCC, Bloom=subst). What STANDS: substitution ~2.7x per var at identical
+     work (general). OPEN: its internal localization (contaminated by parse).
+     RESULT (3.90): the 2.7x is DIFFUSE, not the lambda/branch overhead.
+     Implemented + measured the two Kissat-aligned per-literal repairs on r10:
+     touched-check redundant-term drop (-0.08%) and rewrite_lits image[] (one
+     load vs two lambda calls, -0.08% more) -- together -0.17%, byte-identical
+     (14.3M vars/496.8M ticks identical; 10 ctests; N2 fuzz clean). do_
+     substitution self (~130G) barely moved, so the excess is spread across the
+     OTHER per-literal ops (2 value reads, seen dedup mark/test/clear, out
+     push_back, the 14.3M-iter SCC lemma loop, find_sccs Tarjan) -- pervasive
+     ~1.3-2.7x per-operation overhead, none dominant. MERGING the 2.7x (and the
+     ~336s gap) is NOT reachable by targeted fixes: needs either a structural
+     rewrite of do_substitution to Kissat's marks-based single-pass in-place
+     loop (higher N2 risk, uncertain net win) OR many sub-0.1% micro-ops. The
+     two micro-ops here are kept as safe monotonic cleanups, NOT a dent in 2.7x.
+     Separate size-gated lever: parse-time Bloom net-positive on huge inputs?
+  4. congruence: instruction ratio only ~1.17x (15.68 vs 13.35 self) and
+     MEMORY-bound (Kissat 47% time / ~8% instr, congruent_collisions 56.7M hash
+     probes) -- NOT an instruction-count lever; deprioritise.
+  5. import-order algorithmic (~+43G): keep vars in import order or precompute a
+     rank array + radix-sort instead of per-comparison lookup. Representational.
+  Deferred/dead: vivify live-count scan (needs invasive maintained
+  live_redundant_large counter; cheap scope-guard DEAD via vivify.cpp:727);
+  watch-rebuild sort already early-outed.
+  Ship to main by cherry-pick (main report ends at 3.53; branch owns 3.54-3.85).
+  Pins preserved (a5bf70ed etc.) for the r34/r27 N4 fidelity work.
+
+- SUPERSEDED (2026-09-06, sixteenth wrap addendum).
+  SHIPPED TO origin/main `275be55` (fast-forward from 9a4adfa): BVE 115150 N2
+  fix (proof-only LRAT hint order; connected-resolvent unit ids before their
+  resolution clauses). A LIVE main soundness bug (lrat-check rejected native
+  LRAT under --random-policy). Gated: test_bve, fuzz 10,000/0 default `1667034`
+  + randpol `1667035`, byte-identical trajectory. main is now 275be55.
+  STRATEGIC REFRAME (this session): r34 is a SEARCH-TRAJECTORY divergence
+  (Tactix ~2x kissat conflicts; Kissat r34=344 s, main 733 s, branch 1,200 TO)
+  = N4 scheduling-parity work, NOT the goal-defined implementation gap (per
+  main's own thirteenth-wrap prioritisation). The emit-order repair `a44a486`
+  (branch) was sound+neighbor-clean but INERT on r34 (single-class envs); kept
+  as a faithful port fix. The branch's sweep port (c0fe3ff, Kitten clausal core)
+  is what regresses r34; 44607 was introduced by the branch itself (d42c71d),
+  NOT a main bug -- so the sweep port is deferred N4 fidelity work, not urgent.
+  THE IMPLEMENTATION GAP (goal target, report 3.33/3.47): uniform 1.3-1.8x
+  inprocessing UNIT COST at matched work (+427.9 s), CODE not memory (3.46
+  hardware counters). ~1/3 named repairs (GC, Vivify sched, dense rebuild,
+  IGNORE templating = -67.9 s ALREADY IN MAIN, a8c1d4a). OPEN named targets:
+  large-watch rebuild 1.63x, `kernel_replace_large_clause_in_place` (Tactix-only,
+  Kissat inlines), out-of-line push_back, `rebuild_dense_large_occurrences`.
+  RE-PROFILE DONE (report 3.78, `5223` job 1667036, main 275be55 vs kissat,
+  Rank 33 oski instance, .text-identical -g pins): the CDCL core is at PARITY
+  (kernel_propagate 30.5% vs kissat_search_propagate 38.8%); the unit-cost gap
+  is DISTRIBUTED across inprocessing functions each 1.3-1.8x, NONE dominant
+  (rebuild_large_watches 2.41%, vivify_schedule 2.18%, GC 1.85%, rebuild_dense
+  0.95%, out-of-line push_back 1.35%). NO single win. replace_large_in_place
+  (1.78%) is NOT a target (kissat_shrink_clause 5.83%, tactix cheaper). The
+  one Tactix-only structural tax is kernel_sort_refs_by_logical_clause_position
+  (append-only arena's logical-order recovery; already radix + early-out).
+  STRATEGIC MATH: gap to 1% ~= 600 s from main ~8,350 s. r34 ~389 s = 65% of
+  it and is THE critical lever; unit-cost named third is a grind of ~5-15 s
+  byte-identical repairs that cannot reach 1% alone.
+  NEXT (prioritised):
+  1. r34 layer-2 (critical, resistant, needs a trace): the env-attach order
+     for solve 94463's seed diverges at index 127 (two env clauses swapped;
+     report 3.73 `5213`), caused by the incremental substitution occurrence
+     maintenance (3.74). Layer 1 (Kitten clausal-core capture, immediate-assign
+     overlay) is DONE on the branch (sweep_capture_core_units). The open,
+     DECISIVE step: a fresh aligned per-literal trace of the shared literal's
+     occurrence-ledger mutation history across the round to 94463 (Tactix
+     event_trace_sweep_rewrite_occurrence vs kissat-ticktrace watch mutations),
+     to find the single substitution that swaps the two clauses -- diagnosis
+     has OSCILLATED (3.67 env-vs-sub-solver), settle it with the trace, not
+     static reasoning. Concrete sub-lead: 17 seeds where Tactix holds a binary
+     TWICE where kissat holds it once (3.67), from collapse_large_to_binary /
+     sync_new_binaries; may be separate/small.
+  2. unit-cost grind on a branch off main 275be55 (unitcost worktree ready):
+     byte-identical repairs, gate Rank 1-40 (identical certs) + B28+C5, push
+     each. Secondary to r34.
+
+- SUPERSEDED (2026-09-06, fifteenth wrap). Goal unchanged (user): close
+  every IMPLEMENTATION gap AND reach <= 1.01x kissat on Rank 1-40, safely,
+  B28+C5 as the regression gate, no benchmark-specific fix, N1-N4 held.
+  Kissat `1930` = 7,675.1 s; bar 7,751.9 s. Main `9a4adfa` = 8,365.2 s in
+  gate `5183` = 1.0899x. GOAL NOT MET. Branch
+  `claude/rank34-kitten-clausal-core`.
+  PROCESS RULE (user): verify a fix on its reproducers, then a FEW instances,
+  before full-width. PLAN RULE (user, DEVELOPMENT_PLAN.md 8.2): a fuzz failure
+  after real-benchmark progress is an N1-N4 mechanism gap -- fix it the
+  reference's way and judge it on the same paired gates, never a local guard.
+  SWEEP: ONE EMISSION PATH -- COMMITTED `c0fe3ff` (report 3.68). Every Sweep
+  unit and equivalence is justified from the captured Kitten core (Kissat's
+  add_core), proof or not; both RUP-replay paths, both no-proof direct
+  commits, the SWEEP_MAX_PROOF_STEPS cap and the FORCE_GENERAL hatch are gone;
+  congruence_rup_chain declines (not drains) on an unpropagated root. This
+  closes the 44607 fuzz failure AND recovers an equivalence the cap dropped
+  on Rank 24 (`5209`: 0 declined). VERIFIED: reproducers 36/36 (`1666820`),
+  quick fuzz 10,000/0 default+randpol, test_sweep+sweep_proofs, few-instance
+  `5207` all cand arms checker-valid (r17 -38s, r33 -9s, r21 byte-identical,
+  r24 valid) except r34. The earlier drain-before-replay form was rejected by
+  the user as a symptom patch -- Kissat never replays inside Sweep.
+  BVE 115150 FIX -- IN bve.cpp, UNCOMMITTED, VALIDATING (report 3.69). A
+  SECOND, OLDER N2 defect, reproducing on main `9a4adfa` under --random-policy
+  only (default-policy LRAT verifies), independent of Sweep. Journal (`1666844`,
+  `1666847`): resolving a var, the connected-resolvent path appended a
+  literal's unit id AFTER the two resolution clause ids, so lrat-check reached
+  a clause before the unit that falsifies its literal. FIX: insert the
+  connected-time units ahead of the trailing c.id,d.id (bve.cpp connected loop,
+  new connected_extra_units). Proof-only (solver trajectory + DRAT byte-
+  identical; LRAT hint order only). VERIFIED: min/case lrat-check VERIFIED
+  default+randpol (`1666848`), test_bve release+debug. In flight: randpol
+  nightly `1666851`, debug suite `1666852`, Rank 24/33 DRAT-identity+LRAT
+  `1666853`, quick fuzz `1666849`/`1666850`. Commit once these pass.
+  RANK 34 STILL TIMES OUT (`5207` cand 1200s / 12.15M conflicts) -- the
+  remaining IMPLEMENTATION GAP, and it is INSIDE THE SUB-SOLVER, not the
+  emission path. It is a Kitten query PROPAGATION-ORDER divergence: at solve
+  94463 index 127 Kitten propagates 562 then 656, Tactix 656 then 562 (same
+  decision), which reorders bump, flips core 114's decision, lands var 970
+  late, and diverges heap 26,914 (report 3.66-3.67; `5199`). Environments are
+  524/541 byte-identical (`5202`); the swap of 3.66) is inside the sub-solver, not the environment. REFINED (`5211`,
+  report 3.70): at solve 94463 index 127 BOTH solvers hold the clauses
+  [-1,561,562,622] and [-1,622,656] and propagate the same two literals from
+  them in SWAPPED order -- a WATCH-ORDER divergence, not a foreign derivation.
+  In Kitten mode a satisfied/unit/conflict visit does NOT orient c[0]/c[1]
+  (subsolver.cpp:466 `other = c[0]^c[1]^falsified`), so the reason clause's
+  arena order is the analysis visitation order, and the watch-list order and
+  the learned-clause literal order (`5198`/`5199`: 249/857 lemmas differ,
+  earliest core 6, Kitten -564 vs Tactix -563) are the SAME phenomenon. ROOT FOUND then REFINED (reports 3.73-3.74): the divergence is the SWEEP
+  ENVIRONMENT ATTACH ORDER, and specifically the INCREMENTAL SUBSTITUTION
+  occurrence maintenance. `5216`: sorting `sweep_enter_dense` into logical
+  clause-position order (the 3.73 target) had NO fidelity effect (970 still row
+  25, deact diff still 17810) and stayed 10000/0 on fuzz -- because the env
+  build uses the substitution session's dense occurrences (has_dense_occurrences
+  always true for a large formula), which copy k.dense only on lazy init; later
+  seeds use the incrementally-maintained lists. So the INITIAL order matches; the
+  gap is the incremental maintenance. PRECISE LOCUS: Kitten substitutes large
+  clauses one at a time IN PLACE (kissat_substitute_large_watch overwrites the
+  slot, preserving position); Tactix rewrites the whole class at once
+  (rewrite_binary_occurrences/delayed_moves, substitute.cpp:828) via
+  erase_large+re-place, not preserving each clause's per-literal position. FIX:
+  make the batch class rewrite preserve Kitten's per-clause in-place slot order.
+  Large, intricate; needs full fuzz + Rank 1-40 re-validation. Older detail:
+  the SWEEP ENVIRONMENT ATTACH ORDER. Solve 94463 is the FIRST query of its seed; through trail index
+  126 both sub-solvers are byte-identical (trail + reason ARENA order), first
+  diverging at index 127 where two ENVIRONMENT clauses ([-1,561,562,622] and
+  [-1,622,656]) propagate 562 vs 656 in opposite order -- their watch list is
+  ordered differently because they were attached during env build in a different
+  order/watched-pair. The learned-clause differences (3.71) and the 970-lands-
+  late cascade are all DOWNSTREAM. This is the env-construction fidelity gap of
+  3.67/`5202` (Kitten `sweep_variable` dense-watch-walk vs Tactix
+  `sweep_env_build` occurrence-index; 524/541 seeds match, this seed is one of
+  the rest). FIX TARGET: make `sweep_env_build` attach env clauses in Kitten's
+  order + watched-pair so a shared-literal watch list is byte-identical; general
+  fidelity fix, needs full fuzz re-validation. Superseded detail:
+  SHARPENED (`5212`, report 3.71): the shared literal's watch list is BYTE-
+  IDENTICAL (-561, all 34 entries). The divergence is a learned-clause WATCHED-
+  PAIR difference: clause [-1,561,562,622] is watched on {-1,562} in Kitten but
+  {622,561} in Tactix (same clause, different lits[0]/lits[1]), already divergent
+  at solve 94463 start, so learned that way in an EARLIER query. analyze's
+  Kitten-mode promotion and propagate's move are line-for-line identical, so from
+  identical state the clauses would be identical -- the root is an earlier
+  see-order difference (or a per-seed env difference; `5202`'s 17 duplicate-binary
+  seeds). NEXT THREAD (deep, full fuzz re-validation): a cross-query MAP-aligned
+  learned-clause trace over the whole conflict-26913 sweep (fix `5210`'s scope:
+  gate the kissat learn trace to the conflict window) to find the FIRST query
+  whose learned clause takes a different watched pair, then the specific
+  see-order or env input that differs there. Trace infra: kissat-ticktrace
+  variant carries the reason-content + watch-list dumps (untracked); re-add the
+  subsolver-side dumps (reverted to keep the tree clean).
+  BRANCH GATE MEASURED (report 3.76): Rank 1-40 `5218` (job 1666866) base
+  (main 9a4adfa) 8,339.0 s vs cand (branch cdd8108) 8,757.6 s = +418.6 s, ALL
+  of it Rank 34 (738.0 s SAT -> 1,200 s TO, +462.0 s); the other 39 ranks are
+  -43.4 s, faster-or-equal on every one (r17 -31, r22 -11, r39 -8; recovered
+  r24 eq a benign +6). B28+C5 `5219` (job 1666908) cand 1,088.3 s vs shipped
+  1,101.6 s = -13.3 s, 0 TO, no cand-only regression -- PASSES. So the branch
+  is gate-clean everywhere except r34; r34 is the SOLE blocker and a real
+  regression (main solves it, the branch times out), not pushable until fixed.
+  R34 FIX IMPLEMENTED (2026-09-06), UNCOMMITTED->COMMITTED, VALIDATING: the
+  honest root (report 3.75) is that `substitute_apply_sweep_equivalences`
+  reconstructs Kissat's sequential per-pair append order from a single batched
+  whole-class rewrite, and the reconstruction diverged (5217: Tactix's first
+  append landed on representative 1, Kitten's on the first EMITTED). Precise
+  gap: the batch built `sources` (the retiring-literal order that move_origin
+  reads as rank and flush_moves appends in) by iterating merge-forest roots in
+  IMPORT order, but Kissat retires classes in EMISSION order. FIX (surgical,
+  substitute.cpp `sources` block only): iterate roots in emission order (via
+  the `productive` list) while keeping the merge-forest pre-order WITHIN a
+  class (chains) and ALL soundness machinery (bridges/certificates/sparse_map/
+  do_substitution) untouched. A pure ledger-order reorder -> sound by
+  construction (no proof/model change). A first full-sequential rewrite was
+  REVERTED: it dropped the bridge machinery that preserves each pair's
+  implication-binary certificate and keeps the class active for canonical
+  Substitute (test_substitute/test_sweep caught the N2 hazard).
+  RESULT (report 3.77): SOUND (fuzz 10,000/0 default `1667012` + randpol
+  `1667013`; unit tests pass) and NEIGHBOR-CLEAN (`5220`: r17 -28.7, r22 -9.3,
+  r24 -1.9, r33 -9.3 s vs main) but INERT on r34 -- cand 1,200 TO / 12.18 M
+  conflicts == pre-repair 12.15 M, identical trajectory. r34's productive
+  sweep environments are SINGLE-CLASS, so cross-class retirement order is a
+  no-op there. KEPT as a faithful port repair (corrects a real multi-class
+  divergence fuzz reaches, SweepPartition=1682), NOT a r34 fix.
+  KISSAT r34 = 344.0 s SAT (baselines `1930`/`0930`); tactix historical 500.8
+  -> main 733.5 -> branch 1,200 TO. r34 is a genuine, worsening fidelity gap;
+  the reference is NOT also slow. NEXT (r34): the divergence is the
+  SINGLE-equivalence incremental occurrence maintenance across a round (3.74's
+  kissat_substitute_large_watch in-place vs erase+append), not the batch order.
+  Static reading matches Kissat on every isolated mechanism, so re-establish
+  the 5217 per-representative FINAL-occurrence-order trace restricted to solve
+  94463's shared literal and read the first out-of-order append directly.
+  Staged-but-UNSUBMITTED gates 5221 (Rank 1-40) / 5222 (B28+C5) were removed
+  (redundant: 5220 already shows 39/40 clean + r34 TO). Pin
+  build/pin-r34-emit-order-a44a486 (a699aaff) retained.
+  COMMITS THIS SESSION (branch `claude/rank34-kitten-clausal-core`): `70145f4`
+  plan 8.2, `c0fe3ff` Sweep one path (closes 44607, recovers Rank 24 eq),
+  `481506f` BVE chain order (closes 115150), `3563162` report 3.70. Both fuzz
+  failures CONFIRMED fixed by the 200k random-policy nightly `1666851` crossing
+  both cases at 0 failures; ctest 66/67 (only pre-existing doc_size).
+  DOC SIZE DEBT, pre-existing: `doc_size` fails on PROGRESS.md and
+  `docs/implementation-notes.md`; compaction was not requested.
+
+- SUPERSEDED CONTEXT (2026-09-05, thirteenth wrap). Goal in force (user, tightened
   mid-session): close every IMPLEMENTATION gap (same work, more time) AND
   reach <= 1.01x kissat on Rank 1-40, safely rather than by noise, with
   B28+C5 as the regression gate and no benchmark-specific fix. Do not stop

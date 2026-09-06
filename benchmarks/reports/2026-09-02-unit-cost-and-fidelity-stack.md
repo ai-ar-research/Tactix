@@ -3067,6 +3067,1016 @@ conflict 3,700 with an empty diff over 260,577 trace rows (3.41), and Rank
 34's chain by counters and the heap-array signature (3.43); neither conclusion
 depends on the arena walk being complete.
 
+### 3.54 The watch dump cannot answer the catch-up question (2026-09-05)
+
+Section 3.53 named the watch dump as the instrument that could say whether
+Kissat later applies the substitutions Tactix has already applied. It cannot,
+and the reason is worth recording so the design is not tried a fourth time.
+
+The dump fires when a chosen literal is propagated inside a conflict window.
+Campaign `5169` took literal 145 at conflicts 32,072 / 40,000 / 60,000 / 90,000
+with one-conflict windows and returned 20,044 rows at the first checkpoint and
+**zero at every later one**: a one-conflict window does not guarantee the
+literal is propagated there. Campaign `5170` widened each window to 300
+conflicts and returned zero at the same three checkpoints. Widening cannot fix
+it --- nothing makes a particular literal be propagated in a bounded window, and
+a variable that has since been fixed or eliminated is never propagated again.
+
+What the one working checkpoint says stands: at conflict 32,072 Kissat holds
+`494147:2, 494146:0`, so it has **not** applied that substitution there. Whether
+it applies it later is open, and answering it needs an instrument that reads the
+substitution state directly --- Kissat's own representative map, or a count over
+the whole arena --- rather than one that waits for a literal to be propagated.
+
+### 3.55 Rank 34: the antecedent set is not the LRAT cone (2026-09-05)
+
+Section 3.44 argued for capturing Sweep's units from Kitten's clausal core, and
+3.45 built that and measured it wrong: an over-capture of 85 deactivations and a
+first divergence twenty-four times earlier, because "a core reconstructed from
+Tactix's own derivation DAG is not Kitten's clausal core". That is right, and
+the reason is one line of `fail_assumptions`.
+
+Kitten's failing-assumption analysis walks the trail backwards and pushes each
+reason into `resolved`, but a **root-level** literal is put aside into a
+separate list whose second pass pushes its reason *without expanding it*
+(`kitten.c:1461-1477`). `SubSolver::fail_assumptions` already ports that walk
+exactly, `root_work` pass included --- and then discards `resolved` and builds
+the lemma's antecedent list from `record_cone`, which closes the reason cone
+transitively. The comment there asserted the two "name the same resolution DAG".
+They do not: one stops at a root reason and the other recurses through it, so a
+DFS over the second reaches clauses Kitten's core never contains.
+
+An LRAT chain has to be the transitive cone; Kitten's core has to be the shallow
+set. Kitten keeps both, so `SubStep` now does too: `chain` unchanged for the
+proof obligation, `antecedents` for the core. Three further parity items came
+out of the same reading --- the antecedent *order* Kitten records (conflict
+first, then each reason as the reverse-trail walk meets it, against the LRAT
+chain's ascending-by-trail with the conflict last), the breadth-first order
+`inconsistent` records for a root refutation (`kitten.c:1622-1645`), and the
+core's **root**, which for a single-antecedent failing analysis is that
+antecedent itself and not the synthetic target (`kitten.c:1523`).
+
+| | rows at conflict 26,913 | whole run |
+|---|---:|---:|
+| Kissat's clausal core | 3,847 | 5,678 |
+| Tactix, `SubSolver::derivation` (3.44) | 6,950 | 10,318 |
+| Tactix, ported core (`5171`) | **3,725** | **5,832** |
+
+The 1.8x is gone. Reading units off the ported core (`5172`) gives **8,904**
+deactivations against Kissat's **8,905**, against the 8,990 of the refuted
+attempt, with the 428-variable window set identical. In the divergent run of
+3.43, seven of the nine variables now deactivate in Kissat's exact order:
+
+```
+kissat   903 901 841 970 693 653 651 618 844
+tactix   970 903 901 841 844 693 653 651 618
+```
+
+Only 970 and 844 are misplaced, each one core early, and both are equivalence
+by-products where the other seven are backbone units. The antecedent-order port
+(`5173`) and the core-root port (`5174`) are byte-identical to `5172` on this
+instance: both are corrections against the reference source, neither is what
+places these two.
+
+### 3.56 Kissat saves a core and adds it against different assignments (2026-09-05)
+
+The two units left early in 3.55 are both read off **stated originals**
+(campaign `5176`: `id=44 O` and `id=36 O`), and the reason is a second
+structure in `sweep.c` that a single pass cannot express. Kissat runs
+`save_core` and then `add_core`, and they read different assignments:
+`save_core_clause` drops a satisfied clause and an original with more than one
+non-false literal against the values **as they stand on entry**, and only then
+does `add_core` reduce what survived, assigning each unit as it finds it
+(`sweep.c:318-345, 368-410`). Folding the filter and the reduction into one
+pass lets an original Kissat has already discarded become a unit once an
+earlier capture in the same walk falsifies one of its literals.
+
+Splitting the walk into Kissat's two passes puts **844 in its exact place** and
+leaves 970 one row early --- a single adjacent transposition with 693, where
+3.43 started with 970 last of nine:
+
+```
+kissat   903 901 841 970 693 653 651 618 844
+tactix   903 901 841 693 970 653 651 618 844
+```
+
+Instrumenting `add_core` itself (campaign `5179`, its verdict and
+`search_ticks` checked against the pristine build first) makes the comparison
+exact: of the 94 units Kissat assigns at conflict 26,913, **the first 24 are
+identical**, then the transposition, then five more identical.
+
+Aligning the two streams core by core (campaign `5180`) says the extraction is
+now right and only its order is not. At conflict 26,913 both solvers walk
+**657 cores**, the first twenty have identical sizes, and the first core that
+differs holds the **same fifteen clauses in both** --- "only in kissat: 0, only
+in tactix: 0" --- permuted as a rotation of two subtrees:
+
+```
+kissat row -> tactix position: [11, 9, 10, 12, 13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 14]
+```
+
+The root is last in both, as a post-order requires; the two subtrees below it
+are visited in opposite order, which is an antecedent-list order at that root.
+Two further parity items were ported while looking for it --- Kitten records a
+root literal with no reason as another failed assumption rather than an
+antecedent (`kitten.c:1464-1473`), and its trail is flushed of root literals
+before this walk (`kitten.c:1544`), which Tactix's retained root identities
+must skip explicitly. Both are real gaps; campaigns `5181` and `5182` show
+neither is this one. The next instrument is the root lemma's antecedent list
+from both solvers, not another traversal change.
+
+### 3.57 Rank 34, gated (2026-09-05)
+
+Paired gate `5175` (job 1666474), base `9a4adfa`, candidate the same tree with
+Sweep capturing units from Kitten's clausal core:
+
+| | base | candidate |
+|---|---:|---:|
+| Rank 34 wall | 735.7 s | **343.7 s** |
+| Rank 34 conflicts | 8,542,856 | **4,335,414** |
+
+$-391.9$ s at **half the conflicts**, both verdicts correct, against Kissat's
+own $\approx 332$ s on the same instance --- so the tier's largest single item,
+$+403.4$ s since 3.39, is substantially closed. The change is otherwise inert:
+of the ranks paired, the great majority produce **byte-identical certificates**,
+and only Ranks 9, 17 and 24 move at all. Rank 17 is $+54.6$ s at 244,286
+conflicts against 216,248, which is a re-roll rather than evidence against the
+port: 3.40 established that Rank 17 already diverges from Kissat at conflict
+3,654 over a cached blocking literal, so any change to Sweep's committed units
+re-rolls it.
+
+**This timing does not support shipping.** The binary it was measured on is
+unsound; see 3.58. The numbers are retained because they size the opportunity,
+not because they gate anything.
+
+### 3.58 The core capture is unsound, and where (2026-09-05)
+
+Fuzzing the gated tree found a soundness failure, so nothing in 3.55--3.57
+ships. Quick leg, 10,000 cases: 1 failure. Random-policy leg: **46 failures**
+over the 5,183 cases that reached a verdict, 7 of them crashes. The verdicts
+are wrong, not merely the proofs --- `solver says SAT, oracle says UNSAT` with
+a model that leaves an original clause unsatisfied.
+
+The case shrinks to 16 variables and 27 clauses, and it is deterministic. It
+needs the proof-emitting path: with no proof argument every arm answers UNSAT,
+and with one, or under `TACTIX_SWEEP_FORCE_GENERAL=1`, the ported tree answers
+SAT while `9a4adfa` and Kissat answer UNSAT. Bisecting the stack on that case:
+
+| arm | verdict |
+|---|---|
+| `9a4adfa` | UNSAT |
+| full port | **SAT** |
+| minus the root-literal scan skip | SAT |
+| minus the failed-assumption branch | SAT |
+| minus both | SAT |
+| minus the live-value overlay | SAT |
+| gate `5175`'s own binary | SAT |
+| **capturing only *learned* core clauses** | **UNSAT** |
+
+So it is not the overlay, not the two later parity ports, and not the two-pass
+split: it is **reading units off the stated originals in the core**, which is
+the half of `add_core` Tactix never had.
+
+Tracing every capture with its source clause and each literal's root value
+shows units that are individually well-founded --- `-1` from $(-1 \lor -7)$
+with 7 true, `15` from $(15 \lor 1)$ with 1 false --- and then `-4`, while the
+formula contains $(1 \lor 4)$. The committed batch is **internally
+contradictory**, and the contradiction is never detected: Sweep commits a batch
+of root units without propagating between them, and the reported model carries
+both $-1$ and $-4$. Enlarging the batch is what exposed it; the capture made
+Sweep commit far more units per round than the pruned derivation ever did.
+
+The next step is that contract, not another traversal detail: what Tactix
+guarantees between `kernel_assign_unit` and the next propagation, and where a
+root conflict inside one Sweep batch is supposed to surface. Kissat does not
+face it in the same shape because its sweeper assigns into the solver it is
+already propagating.
+
+### 3.59 The batch contract, repaired (2026-09-05)
+
+The defect is not in the extraction: it is that a committed unit is only a
+hypothesis about the root until something propagates it. Sweep committed a
+whole batch through `kernel_assign_unit` and left propagation to a later
+pipeline slot, so each unit in the batch was read against values that did not
+yet reflect its predecessors, and a batch carrying its own contradiction was
+never refuted. Reading units off the core's stated originals multiplied the
+batch size, which is why the port exposed it rather than caused it.
+
+`sweep_emit_pending_units` now runs `propagate_service` after each committed
+unit and returns `Unsat` when that refutes the formula, which is what Vivify,
+Lucky and Reduce already do with their own root commits; the two inline commit
+sites and the round emitter stop on `k.inconsistent` instead of going on to
+emit equivalences over a refuted formula. The 16-variable case answers UNSAT
+again.
+
+Propagating once per batch instead of once per unit also repairs the case, and
+is cheaper --- Rank 21 costs $+8.9$ s at *identical* conflicts under the
+per-unit form. The per-unit form is kept anyway, on fidelity rather than
+timing: Kissat's sweeper assigns into a solver whose root is already
+propagated, so keeping Tactix's root propagated as Sweep commits is the
+faithful analogue, where the batch form only detects the contradiction
+eventually.
+
+Evidence on the repaired binary (`2fb10551`, the same artefact the gates pin):
+
+| leg | result |
+|---|---|
+| fuzz, quick | 10,000 cases, **0 failures**, coverage 9,820, corpus 27/27 |
+| fuzz, random policy | 10,000 cases, **0 failures**, coverage 8,803, corpus 27/27 |
+| B28+C5 (`5184`) | shipped 522.5 s -> candidate 485.3 s, **$-37.1$ s**, no failures |
+
+against 1 and **46** failures on the unrepaired binary. The repair is also not
+merely defensive: on the Rank 1--40 gate it turns Rank 17 from $+54.6$ s into
+$-102.1$ s and Rank 24 into $-25.6$ s, because the units it forces Sweep to
+propagate change what the next round sees.
+
+### 3.60 Kissat catches up: Rank 35 is scheduling order (2026-09-05)
+
+Section 3.54 said the catch-up question needed an instrument that reads the
+substitution state directly rather than one that waits for a literal to be
+propagated. Campaign `5185` takes it: at each of six conflict checkpoints it
+reports, for each external variable, its import entry and flags and the size of
+its two watch lists. Every checkpoint reports, which is the whole point.
+
+| conflict | 222792 | 222783 | 494147 | 494146 |
+|---:|---|---|---|---|
+| 40,000 | active | active | active | active |
+| 60,000 | **gone** | active | active | active |
+| 90,000 | gone | **gone** | active | **gone** |
+| 150,000 | gone | gone | **gone** | gone |
+
+Tactix has substituted 222792 -> 222783 and 494147 -> 494146 by conflict
+**32,072** (3.53). Kissat disposes of all four variables too, between 60,000
+and 150,000. **Kissat catches up.** Rank 35's divergence is therefore a
+scheduling-order difference --- Tactix running ahead because the phase-entry
+ports deliver root units earlier --- and not a derivation Tactix invents and
+Kissat never makes. The repair concerns *when* those units are consumed, which
+is N4 parity work, and the ports are not wrong to make them.
+
+Two limits on this reading, stated because the conclusion rests on the table
+and not on more. The flag is `import.eliminated`, which does not separate a
+BVE elimination from a substitution, so the table says Kissat removes these
+variables later, not that it applies the identical substitution. And the
+32,072 row reports 494147 and 494146 as *unimported* while the watch dump of
+3.53 and the 40,000 row here both show them present --- an unexplained
+instrument row, not evidence, and the reason nothing above is drawn from that
+checkpoint.
+
+### 3.61 The Rank 34 win was a product of the unsoundness (2026-09-05)
+
+Gate `5183` runs the repaired tree against `9a4adfa`, and it settles what
+3.57's $-391.9$ s was worth:
+
+| | base | unsound arm (`5175`) | repaired arm (`5183`) |
+|---|---:|---:|---:|
+| Rank 34 wall | 741.7 s | 343.7 s | **1200.0 s (timeout)** |
+| Rank 34 conflicts | 8,542,856 | 4,335,414 | 12,469,815 |
+
+**The candidate times out on Rank 34**, which is a gate failure outright. Half
+the conflicts of 3.57 were not a better trajectory; they were the search being
+pruned by units Sweep had no right to commit. Once the batch is propagated and
+a contradictory batch refutes the formula, the same port takes 46 % *more*
+conflicts than the base it was meant to beat.
+
+The rest of the tier is unchanged in character --- 24 of 29 pairs
+byte-identical, Rank 17 $-102.1$ s, Rank 24 $-25.6$ s, Rank 21 $+8.9$ s at
+identical conflicts --- so the port is not broadly harmful. It fails on the one
+instance it was written for.
+
+The measurements that motivated it are also now suspect in the same way. The
+8,904-against-8,905 deactivation count, the 44-of-45 ordering and the 657
+matching cores of 3.55--3.56 were all taken **before** the propagation repair,
+on the unsound binary. Whether the sound binary still matches Kissat's unit
+stream is unmeasured, and is the first thing to establish before deciding
+whether the port is worth keeping, changing or reverting. The cheaper
+batch-level propagation, set aside in 3.59 on fidelity grounds without being
+measured, is the obvious second arm of that comparison.
+
+### 3.62 The propagation fix was wrong; the defect is the originals (2026-09-05)
+
+Section 3.59's repair is withdrawn. Two facts overturn it. Propagating between
+committed units, per unit or once per batch, destroys the matched unit stream
+--- **9,110** deactivations against Kissat's 8,905 and **0** in the window that
+had matched all 428 (`5186`, `5187`) --- and makes Rank 34 **time out** where
+the unsound arm ran in 343.7 s (`5183`: 1200.0 s, 12,469,815 conflicts). And
+fuzz case 874 is a **satisfiable** instance on which the solver's model
+violates an original clause: a root unit that is simply not entailed. No
+propagation can repair that; it can only turn a wrong unit into a detectable
+contradiction on unsatisfiable inputs, which is all 3.59 had measured.
+
+The defect is where the bisect of 3.58 put it and the repair never went:
+reading units off the environment's **stated originals**. Every variant that
+does so is unsound on the reproducers --- with a justification flag that keeps
+such units off the no-proof commit, with the value overlay confined to the
+current call, in every combination --- and the one that does not is sound in
+every mode on every reproducer and clean on both fuzz legs, 10,000/0 quick and
+10,000/0 random policy (`1666731`, `1666732`).
+
+Why it is Tactix-specific: the sub-solver's originals are stripped,
+**substituted** copies of formula clauses, valid only modulo the equivalences
+the round has not yet proved. A unit read off one lives in representative
+space and is not entailed by the formula. Kissat re-proves every core clause
+before `add_core` uses it (`sweep.c:405-416`), and for a *true* formula
+original with one non-false literal the unit is a root consequence under
+propagation anyway, so declining to read it loses nothing.
+
+The overlay had a second, independent hole found on the way: rebuilding it
+from `round.units` on every call revived units whose emission had been
+**declined**, so a later capture could rest on a value the formula never
+received. It now covers the current call's captures only; everything earlier
+has been through emission and `k.value` says exactly what was committed.
+
+So Sweep now captures units from the **learned** clauses of Kitten's core, and
+the two originals in the divergent run of 3.43 --- 970 and 844, the only units
+that ever came off originals there --- are the deviation: with `5188` the
+sound tree is back at **8,904** deactivations against 8,905 and **428/428** in
+the window, with 43 of 45 rows in Kissat's exact order and those two arriving
+last in their group. That is an N4 deviation, accepted with its reason: the
+mechanism it would take is unsound in this architecture and redundant with
+root propagation where it is not.
+
+Two process errors are also on the record. A reproducer harness put the proof
+path before the CNF, so `solver PROOF CNF` truncated the CNF as its proof
+output and every later row on that file was measured on garbage; inputs are
+now copied to scratch first. And the Rank 1--40 gate was launched on the
+per-unit repair before any small check --- the user's instruction, adopted
+from here on, is to verify a fix on the reproducers, then on a few instances,
+before anything full-width.
+
+### 3.63 Learned-only is an amputation, not a fix (2026-09-05)
+
+Two corrections to 3.62 before its conclusion is used for anything.
+
+First, its explanation is wrong. Reading the two environment builders side
+by side, Tactix does **not** substitute representatives into environment
+clauses: it filters out any clause holding a non-representative literal, as
+`add_literal_to_environment` and `sweep_binary` do (`sweep.c:227-262`), and
+Kissat rewrites the main formula only after adding the equivalence binaries to
+the proof (`sweep.c:1243-1258`). Tactix's environment originals are formula
+clauses with root-false literals stripped and the stripping units recorded,
+which is a sound strengthening. So a unit read off one *should* be entailed,
+and the account of why it is not is open again.
+
+Second, the few-instance step (`5189`) says what the sound tree is worth on
+the instance the port was written for: Rank 34 **741.0 -> 739.6 s at
+identical conflicts** (8,542,856). Inert. Rank 17 is $-115.3$ s and Ranks 21
+and 24 byte-identical, so the port is harmless and locally useful, but every
+unit that changed Rank 34's trajectory in 3.55--3.57 came off a stated
+original, and those are exactly the units 3.62 stopped reading. Declining them
+is not a repair; it removes the mechanism along with the defect.
+
+The user's reading is the right one: a significant change is needed, and it
+is upstream of the capture. Kissat commits an original-sourced unit soundly
+because the clause it reads it off is a formula clause and the unit is RUP
+from it. If Tactix's is not, either the clause the walk hands back is not the
+clause the environment holds --- the arena walk of 3.55 maps an id to
+literals, and learned ids are reused --- or the values it is reduced against
+are not the root's. Which one is a per-unit question with an exact oracle on a
+52-variable SAT instance: for each unit Sweep commits, is $F \land \lnot u$
+unsatisfiable. That is the next measurement, and nothing full-width runs
+before it.
+
+### 3.64 The defect: a replay run on an unpropagated root (2026-09-05)
+
+The per-unit oracle of 3.63, run on the execution that actually fails (v10's
+exact source, traced), settles the mechanism, and it is none of the ones
+3.58--3.63 proposed.
+
+Every unit Sweep commits on that execution is entailed, both original-sourced
+ones included; every one of the 55 binaries it adds is entailed; every root
+assignment is entailed. The wrong model has $-14$ where $F \models 14$, and
+14 is never a root assignment at all. Tracing the clause that forces it:
+clause 47, $(14 \lor \lnot 16 \lor 24)$, is rewritten by the substitution
+session into the binary $(14 \lor 24)$ --- **added, watched, live** --- then
+Sweep commits the root unit $-24$, and **nothing ever removes that binary**.
+A watched binary with one literal root-false must propagate its other one.
+It never does, because the root trail is never propagated after $-24$: the
+next two emissions take the general and RUP paths, and `congruence_rup_chain`
+opens a probing scope that records `propagate_head` as its base and returns
+with the cursor at the trail's end (`kernel.cpp:2259-2285`). Its precondition
+is a propagated root; a batch of fresh units is not one, and in release the
+assert that says so is compiled out. The pending unit's consequences are lost,
+search decides $-14$, and the model is wrong.
+
+That is why every earlier reading was partly right and none was the fix. The
+batch *is* the problem (3.59), but propagating after every unit answers it by
+changing when Sweep sees its own units, which is what destroyed the matched
+stream and the Rank 34 trajectory. The originals *are* implicated (3.62), but
+not because their units are unsound --- because a unit read off an original
+has no lemma, so `sweep_plan_general` declines it and it falls to the replay,
+where the precondition bites; a lemma's unit carries its prefix, is eligible,
+and never reaches the replay. Learned-only was sound by avoiding the replay,
+not by removing anything unsound.
+
+The repair keeps the originals and the matched stream. An original-sourced
+unit now carries its own one-step derivation --- the clause, cited with the
+units of its root-false literals, which is exactly the line Kissat's
+`add_core` adds (`sweep.c:405-416`) --- so the general plan is eligible and
+no replay runs. And `sweep_emit_unit` drains the root through
+`propagate_service` before opening the replay when
+`kernel_propagation_fixpoint` does not hold: a precondition enforced at the
+one fallback that needs it, not a policy applied to every unit.
+
+Two process notes. `--random-policy` is seeded (`20260710`), so a traced
+build and a release build of the same source are the same execution, which is
+what let the oracle be run on the failing one. And the first traced build that
+"did not reproduce" was not the same source --- it lacked the routing that
+sends originals to the replay --- which is the kind of difference a build
+label hides and a checksum does not.
+
+### 3.65 The sound port on its own instance (2026-09-05)
+
+The repair of 3.64 is sound and inert on the tier where it should be: fuzz
+**10,000/0** quick and **10,000/0** random policy on the exact binary
+(`1666763`, `1666764`), every reproducer row correct in every mode, and the
+few-instance step (`5193`, `d42c71d` against `9a4adfa`):
+
+| rank | base | repaired | | conflicts |
+|---:|---:|---:|---:|---|
+| 17 | 247.6 | 217.6 | $-30.0$ | 216,248 -> 216,739 |
+| 21 | 128.2 | 127.8 | $-0.4$ | identical |
+| 24 | 262.1 | 264.2 | $+2.1$ | identical |
+| 33 | 319.3 | 320.0 | $+0.7$ | identical (4,255,648) |
+| **34** | 729.2 | **1200.0 (timeout)** | $+470.8$ | 8,542,856 -> 12,057,132 |
+
+On the instance the port exists for it **times out**, in the same shape as
+the withdrawn per-unit propagation (12.47 M conflicts, 3.61), while the
+fidelity probe on the same binary (`5192`) puts the unit stream at
+conflict 26,913 back at 8,904 against Kissat's 8,905 with 428/428 and 44
+of 45 rows in order. Both are measurements of the same binary; they differ
+in one input. The probe runs **without a proof file**; the gate runs
+**with one**. With `k.proof` set the trusted commit is off, every unit takes
+the general plan, and a plan the general path declines falls to the replay
+--- which now drains the root, i.e. the withdrawn policy, on every declined
+unit. Whether the one-step plans are being declined in proof mode, and why,
+is what `5194` counts on the same 60,000-conflict prefix in both modes.
+
+It counts **zero**. Without a proof all 220 emissions take the trusted commit;
+with one all 220 take the general plan --- the 73 original-sourced one-step
+plans included --- and no unit is declined, so no replay runs and nothing
+drains the root. The gate is not running the withdrawn policy. The stream is
+Kissat's through conflict 26,913 and the run still times out, so the
+trajectory leaves Kissat's later, and 3.43 already names where: the heap at
+conflict 26,914, decided by where 970 lands, which is the one adjacent swap
+left (3.56). That swap is the two-subtree rotation in core 20's post-order,
+and the instrument 3.56 named for it --- the root lemma's antecedent list from
+both solvers --- is the next measurement. A timing on a chaotic instance is
+not a selector either way (the 343.7 s of 3.57 was a re-roll on an unsound
+binary); the deviation is.
+
+### 3.66 The residue is inside the sub-solver, not the core walk (2026-09-05)
+
+The instrument 3.56 named --- the root lemma's antecedent list from both
+solvers --- is taken (`5195`--`5197`; the join is by a counter both solvers
+stamp into their core traces, and the RA line is matched to its core by size,
+because both `add_core` calls of an equivalence pair carry the same stamp).
+At core 20, the first core that differs at conflict 26,913, both roots are the
+learned failing lemma $(-906)$ with five antecedents each, one in common:
+
+| | root's antecedents, in list order |
+|---|---|
+| Kitten | $(-906\,563\,845\,1112)$, $(-906\,-1\,563\,845\,1112)$, $(-1197\,904)$, $(-1\,1197)$, $(-1111\,-562\,-1\,844\,904)$ |
+| Tactix | $(-845)$, $(-563)$, $(-1112)$, $(-563\,1112)$, $(-906\,563\,845\,1112)$ |
+
+So 3.56's "rotation" was the wrong description: the post-orders differ
+because the DAGs differ. Tactix's failing analysis resolves directly against
+the root units $-845$, $-563$, $-1112$ --- they are at level 0 in its
+sub-solver, so they come through the `root_work` pass --- while Kitten's walks
+through $1$, $1197$, $904$, $1111$, $562$, $844$ and meets the same unit
+lemmas only deeper in the DAG. Same fifteen clauses, and at the moment of the
+query Kitten does **not** have those three variables assigned at level 0
+where `SubSolver` does. That is a difference in *when a learned unit becomes
+a root assignment* inside the sub-solver, upstream of the core walk, the
+save/add split and every emission path: the cores agree as sets (3.55) and
+disagree as DAGs, and the DAG decides the post-order, the post-order decides
+where 970 lands, 970 decides the heap at 26,914 (3.43), and the heap decides
+Rank 34.
+
+That is the significant change the port needs, and it is not a capture-side
+fix: it is parity of the sub-solver's incremental root state with Kitten's
+between queries of one seed. The next instrument is direct --- at the start of
+that query, each sub-solver's level-0 assignments --- and the mechanism to
+read against is how Kitten assigns a learned unit (`analyze`: backtrack to
+the jump level, then `assign` at level 0) and what `kitten_solve` does with
+`kitten->units` and the trail on entry, against `SubSolver`'s `analyze`,
+`clear_assignments` and `propagate_units`.
+
+**Refuted by `5198`.** Printing each sub-solver's level-0 literals into its
+core stream, the two roots are **identical** at core 20 (seven literals, no
+difference) and at core 19; the first core whose root sets differ is 115,
+where Kitten holds $-731$ and $-622$ and Tactix does not --- the two units of
+`5179`, a consequence of the earlier divergence rather than its cause. The
+DAG difference at core 20 is therefore in the trail *above* the root. And
+the same traces say where: across the first twenty cores, which agree as
+sets, **49 of 124 learned lemmas carry a different literal order**, every
+example differing in the *first* literal --- Kitten learned
+$(-564\,-563\,-971)$ asserting $-564$, Tactix the same clause asserting
+$-563$. A first UIP is unique for a trail, so the two sub-solvers reach the
+same conflicts by different trails inside the query: decision order or
+propagation order, i.e. the environment's clause and literal order and the
+watch scheme, upstream of every port in this section.
+
+Over every core at conflict 26,913 that agrees as a set, **249 of 857
+learned lemmas differ in literal order** and the four originals that can be
+compared do not, and the earliest is core 6: Kitten's $(-564\,-563\,-971)$
+against Tactix's $(-563\,-564\,-971)$. That is the entry point for the
+change the port needs: the sub-solver's search --- decisions, phases,
+propagation and watch order --- must reproduce Kitten's trail for a query, and
+the instrument is that query's decision sequence and trail with reasons from
+both sides, joined by the same counter the core traces carry.
+
+**Taken (`5199`).** Both sub-solvers print every assignment of every query at
+conflict 26,913, joined to the core traces by a solve counter --- and the two
+counters agree query for query, which is itself a parity result. Over the
+core-producing queries, **113 consecutive trails are identical** (levels,
+literals, decisions), and the first divergence is not in a core query at all.
+It is in solve 94463, a satisfiable query between cores 113 and 114: the same
+decisions, and at index 127 of 478 assignments Kitten propagates `562` then
+`656` at level 8 where Tactix propagates `656` then `562`. Everything after
+that is consequence. Kitten's `bump` moves the analysed variables to the
+front of its queue in analysed order, which is trail order, so the swap
+re-orders the queue; in solve 94464 the sixth decision is 622 in Kitten and
+731 in Tactix; core 114's query decides $-656$ where Tactix decides $-1$; the
+lemmas orient differently; the core DAGs differ; 970 lands one row late; the
+heap at 26,914 differs (3.43); Rank 34 follows.
+
+Two literals propagated in the other order at the same level, under the same
+decision, is a **watch-list order** difference: which clause the propagation
+of the shared antecedent visits first. That is set by the order the
+environment's clauses were added and their watches pushed, i.e. by
+`sweep_clause`/`sweep_binary` against `env_add_clause`, and by the
+propagation engine's visiting order. It is one seed, one query, one index, on
+Rank 34 at conflict 26,913, and it is the change the port needs: the
+environment must be built in Kitten's order. The next instrument is the watch
+lists of the literal whose propagation assigns 562 and 656 in solve 94463,
+from both sub-solvers, and the environment's clause addition order for that
+seed.
+
+### 3.67 The environment is the same set in a different order (2026-09-05)
+
+The instrument 3.66 named for the propagation-order swap is taken (`5200`,
+`5201`): one line per clause as each sub-solver receives it, with a seed
+marker, for every seed at conflict 26,913, from both solvers.
+
+| | kissat | Tactix |
+|---|---:|---:|
+| seeds at conflict 26,913 | 1,119 | 1,123 |
+| seeds with the same clause **set**, until the seed order itself parts at 541 | 541 / 541 | |
+| seeds with the same clause **order** | **0 / 1,119** | |
+| matched clauses with the same literal order | 253,119 | 5,608 differ |
+
+Both build the same environment, and never in the same order. The first seed
+parts at index 28: Kissat adds the binaries $(-9519\,-9366)$,
+$(-9519\,9526)$, $(-9519\,9524)$ where Tactix adds three eleven- and
+twelve-literal clauses --- Kissat's `sweep_variable` walks each literal's
+dense watch list, binaries in watch order and then large references, while
+`sweep_env_build` walks the substitution session's occurrence index. Kitten
+pushes watches in addition order, so this order *is* the propagation order,
+and the 562/656 swap of 3.66 is its first visible consequence in the query
+trails. Literal order inside clauses is the secondary 2.2 %.
+
+**Corrected on the same traces.** The Tactix trace prints at the top of
+`env_add`, before its dedup, and kissat's `sweep_reference` skips a swept
+clause silently, so the "0 of 1,119" counted Tactix's rejected re-attempts as
+order. With those removed, **446 of the 541 comparable seeds are identical
+--- same clauses, same order, same literal order** --- and the first that is
+not is seed 5 (variable 9380), at clause 343: Kissat adds the binary
+$(-9510\,9387)$ there for the **second time** (it added $(9387\,-9510)$ at
+327 from the other endpoint) and Tactix does not. `sweep_binary` skips the
+second endpoint only when it is *strictly shallower* (`other_depth <
+lit_depth`, `sweep.c:275`); at equal depth Kitten receives **two copies**, and
+a second watched copy is what changes which clause propagates a literal
+first. Tactix's `process_binary` has the same rule on paper, so its depths
+for 9387 and 9510 must differ from Kissat's --- the candidate being that
+`sweep_binary` registers a root-**false** `other` (it declines only a
+root-true one) where `env_add_clause` strips it and registers nothing. The
+remaining 223 literal-order differences are all binaries in the swapped
+orientation, the same effect. Campaign `5202` prints both solvers'
+registration order and depths per seed to settle it.
+
+**Settled (`5202`).** Registration order is identical seed for seed and the
+depths differ by a constant one (Kissat counts the seed as depth 1, Tactix as
+0), so 9387 and 9510 are at equal depth in both and both solvers admit the
+second copy --- the analysis script, not the solver, had removed Tactix's.
+Removing only the large re-attempts the trace shows before dedup, **524 of
+the 541 comparable seeds have byte-identical environments** --- clauses,
+order, literal order and duplicates --- and the first that does not is seed
+140, where Tactix holds a binary twice in one watch list that Kissat holds
+once. The environment is not where the 562/656 swap comes from; the sub-solver
+is, and the remaining 17 seeds are a separate, small item.
+
+**And the port is not sound.** The nightly random-policy leg (`1666782`),
+200,000 cases against the quick leg's 10,000, fails case 44607 at 54,500:
+`solver says SAT, oracle says UNSAT`, model violating $(-51\,-62)$, on the
+same binary the quick legs passed 10,000/0. The per-root-fact oracle of 3.64
+is running on it (`1666793`); until it is read, nothing here ships, and the
+few-instance result of 3.65 is moot.
+
+What stood at the end of this thread before the nightly leg: the port passed
+the quick fuzz legs (10,000/0 each) and every reproducer, was faithful through
+conflict 26,913 (8,904 against 8,905, 428/428, 44 of 45 rows), harmless where
+inert (Ranks 21 and 24 byte-identical), locally useful (Rank 17 $-30$ s), and
+**not shippable**: Rank 34 times out --- and now also **unsound** at 200,000
+cases. Everything is on `claude/rank34-kitten-clausal-core` at
+`d42c71d` plus the diagnostics of this section; `main` is untouched.
+
+### 3.68 One emission path: Kitten's core, no replay, no drain (2026-09-06)
+
+The 44607 failure was first closed by draining the root before the replay
+(`congruence_rup_chain`, all callers; reproducers 42/42, `1666797`; Ranks
+17/24/33 byte-identical to the v12 certificates, Rank 21 to main, `5203`;
+Rank 34 fidelity unchanged, `5204`). The user rejected that as a patch on a
+symptom, and the reading is right: Kissat never replays inside Sweep. Its
+`add_core` writes every learned core lemma, reduced against the root as it
+stands, then `add_binary` adds the pair (`sweep.c`), in dense mode, with no
+propagation until the session resumes sparse mode. The plan now records the
+principle (§8.2, `70145f4`): a fuzz failure after real-benchmark progress is a
+mechanism not meeting N1--N4, repaired at that mechanism the reference's way
+and judged on the same paired gates.
+
+Tactix's Sweep had three paths. Without a proof it committed directly; with
+one it planned the captured Kitten derivation (the general path, Kissat's
+construction) and, when that plan declined, fell back to Congruence's RUP
+replay --- the probing scope on an unpropagated root of 3.64. Whether the
+replay ever runs is a measurement (`5206`, trace build, proof mode):
+
+| instance | units (core) | pairs (core) | pairs declined | reason |
+|---|---:|---:|---:|---|
+| Rank 17 | 10,845 | 14,950 | 0 | |
+| Rank 33 | 174 | 662 | 0 | |
+| Rank 24 | 510 | 2,186 | **1** | forward capture missing |
+| 44607 (random policy) | 14 | 0 | **42** | forward capture missing, every pair |
+
+Every decline has one cause (`1666818`): `CAP fail=too-many-steps`, the
+derivation holds 4,108--4,220 lemmas and `SWEEP_MAX_PROOF_STEPS = 4096`
+(`ca3522e`) drops the capture. The constant is unbacked --- Kitten's core has
+no cap, and the derivation is already bounded by the session's tick limit,
+one lemma per conflict --- and on Rank 24 it costs an equivalence Kissat
+emits. The replay existed to catch what this cap dropped.
+
+**The change** (`5781d3ce`, Release). The cap is removed. Both replay paths
+(`sweep_emit_unit`, `sweep_emit_equiv`) and both no-proof direct commits are
+removed: every unit and every pair is justified from the captured derivation,
+proof or not, so the two modes cannot decline differently. The
+`TACTIX_SWEEP_FORCE_GENERAL` hatch, which existed only to reach the general
+path in tests, goes with them; `sweep_not_rup` becomes `sweep_declined`.
+Nothing propagates inside a Sweep session. `congruence_rup_chain` keeps its
+precondition as an assert and declines, rather than drains, on an
+unpropagated root: Congruence commits each unit through
+`inprocess_reach_root`, so it never hits it. Calculus V5 states the single
+strategy; `SP-SWEEP-7` no longer says "replayed".
+
+**Verified so far.** All 36 reproducer rows (`1666820`: both 44607 cases,
+4992, 874; plain/DRAT/LRAT, default and random policy). `test_sweep` and
+`sweep_proofs` pass, the S-d tests now asserting the single path.
+In flight: few-instance A/B against main (`5207`), Rank 34 deactivation
+fidelity (`5208`), decline count with the cap gone on 44607 and Rank 24
+(`5209`), quick fuzz legs on the new pin (`1666821`, `1666822`), suites
+(`1666826`). The old-pin nightly legs finished the default policy at
+200,000/0 (`1666781`) and, on random policy, reached a **second** failure at
+115,150 (`115150-proof-seed20375859`: verdict UNSAT agrees with kissat, the
+native LRAT is rejected by `lrat-check`); it is being reproduced on the old
+and the new pin (`1666838`) before anything else.
+
+### 3.69 A second, older N2 defect: BVE unit chains out of replay order (2026-09-06)
+
+The old-pin random-policy nightly's other failure (`115150-proof-seed20375859`,
+19 vars) is not this thread's. It reproduces byte-for-byte on **main
+`9a4adfa`** and on both v12 and v14 (`1666839`, `1666840`), only under
+`--random-policy` --- default-policy LRAT verifies --- so it is a latent
+defect the random schedule exposes, independent of the Sweep change.
+
+The rule journal names it (`1666844`, one BVE application, variable 18):
+
+    rup(id=26;chain=23,22,19)  -> root-unit -1     [valid]
+    rup(id=27;chain=23,20,21,26) -> root-unit -17  [INVALID replay order]
+    retire-var(18); reconstruct(witness=-18;rest=1)
+
+`lrat-check` rejects id 27: assuming `17`, it propagates clause 23 (`19`) then
+reaches hint 20 (`18 -17 1`) with both `18` and `1` unassigned. The chain
+lists `26` (the `-1` unit, which forces `1` false) last; a valid order is
+`23 26 21 20`. The adjacent unit (id 26) is correctly ordered, so BVE's
+`bve_emit_definition_unit` emits each lifted sub-lemma's chain in the
+sub-solver's own trail order (`SubSolver::chain_build` sorts by the *sub*
+trail), which is not the main checker's propagation order once the lemma is
+lifted to `(unit ∨ L)` over `F`. It matches only when the two orders coincide,
+which the random schedule breaks.
+
+This is a distinct, older N2 defect in BVE proof emission, not in Sweep.
+
+**Fixed** (`bve.cpp`, the connected-resolvent path). The exact site
+(`1666847`, trace build): resolving var 18 emits `learn_unit(-1, [23,22,19])`
+then `learn_unit(-17, [23,20,21,26])`. `append_resolution_chain` builds a
+resolvent's chain as `[unit antecedents..., c.id, d.id]` (units before the two
+resolution clauses --- correct); the connected pass then re-reads the
+resolvent's literals and, for one that went root-false *after* generation (here
+`1`, falsified by the sibling unit `-1` = id 26), **appended** its unit id
+after `c.id, d.id`. A checker needs that unit before the clauses it makes unit.
+The immediate-unit path never appends, which is why it, and the sibling `-1`,
+were already valid.
+
+The repair inserts the connected-time units ahead of the two trailing clause
+ids instead of after: `-17`'s chain becomes `[23,26,20,21]` (`1666848`), a
+valid replay order. It is proof-only --- `connected_lits` and every emitted
+clause are unchanged, so the solver trajectory and the DRAT proof are
+byte-identical; only the LRAT hint order on affected unit lines moves.
+Verified: `min` and `case` `lrat-check` VERIFIED under default and random
+policy; `test_bve` passes (release and debug). In flight: random-policy
+nightly fuzz (`1666851`), debug suite (`1666852`), and Rank 24/33 DRAT-identity
+plus LRAT-verify (`1666853`).
+
+### 3.70 Rank 34's divergence is watch-order, not derivation (2026-09-06)
+
+With both N2 defects fixed and committed, Rank 34 still times out (`5207`
+cand 1,200 s / 12.15 M conflicts), and the single-path Sweep change confirms
+the residue is not the emission path. `5199` had localized a propagation-order
+swap at sub-solver solve 94463, index 127 (Kitten 562 then 656, Tactix 656
+then 562), but compared only `(level, literal)` --- it could not say whether
+the two solvers propagate from the *same* clauses in a different order or from
+different clauses.
+
+`5211` settles it. The A-line sub-trail trace was extended to carry each
+reason clause's literals, mapped to the common per-core namespace (the `5199`
+`CB`/`MAP` alignment). At the divergence:
+
+| idx | Kitten | Tactix |
+|---|---|---|
+| 125 | lit 1 ← `[-740,1,735]` | same |
+| 126 | lit 782 ← `[-740,561,782]` | same |
+| **127** | lit **562** ← `[-1,561,562,622]` | lit **656** ← `[-1,622,656]` |
+| **128** | lit **656** ← `[-1,622,656]` | lit **562** ← `[-1,561,562]` |
+
+Both solvers hold the clauses `[-1,561,562,622]` and `[-1,622,656]` and
+propagate the same two literals from them; only the order is swapped. The
+divergence is **watch-order**: the two clauses share a watched literal, and
+that literal's watch list is ordered one way in Kitten and the other in
+Tactix, so the scan reaches a different clause first. It is not a derivation
+Tactix makes and Kitten does not.
+
+This is a general fidelity gap in the Kitten port's watch layer (`SubSolver`
+attach/propagate/analyze), not benchmark-specific and not the emission path.
+The per-clause propagation handling matches Kitten line for line (satisfied /
+blocking / re-watch / unit), and environments are byte-identical (`5202`), so
+the reordering must come from an earlier watch move or from `analyze`'s
+learned-clause literal order (which sets a clause's watched pair and tail, and
+`5198`/`5199` already saw differ). NEXT: trace the shared watched literal's
+watch-list evolution across the incremental solves to find the first move that
+orders the two clauses differently --- a watch-position trace, the counterpart
+of `5211`'s content trace. Nothing here changes the two committed fixes.
+
+### 3.71 The watch-order divergence is a learned-clause watched-pair difference (2026-09-06)
+
+`5212` dumps each propagated literal's full watch list (clause contents,
+MAP-aligned) for solve 94463 in both solvers. Three facts settle the mechanism.
+
+1. **The shared literal's list is identical.** `-561`'s watch list is
+   byte-identical between Kitten and Tactix --- all 34 entries, same clauses,
+   same order. So the residue is not a watch-list *ordering* difference on a
+   shared list.
+
+2. **The divergence is a watched *pair* difference.** Aligning the two dumps by
+   propagated-literal sequence, the first content difference is at `-1`'s list
+   (Kitten 28 entries, Tactix 27): Kitten holds `[-1,561,562,622]` there,
+   Tactix does not. The clause is learned twice in each solver; Kitten's copy
+   `id833` is watched on **{-1, 562}** while Tactix's copy is watched on
+   **{622, 561}**. Same clause, different `lits[0]/lits[1]`, so it lands in a
+   different literal's watch list and propagates in a different order --- that
+   is the 562/656 swap.
+
+3. **It predates solve 94463.** The pair is already divergent at the first
+   propagation of the query, so the clause was *learned* with a different
+   watched pair in an earlier query of the same sweep.
+
+The watched pair is exactly `analyze()`'s output: `lits[0]` the UIP, `lits[1]`
+the deepest lower-level literal (the first to reach the max jump level in
+see-order). `SubSolver::analyze`'s Kitten-mode promotion is line-for-line
+Kitten's (`kitten.c:1286` vs `subsolver.cpp:680`: strict `>` tie-handling,
+swap-into-position-1, push the displaced literal), and `propagate`'s move is
+identical too, so from identical state the two produce identical clauses. The
+divergence is therefore an earlier see-order difference --- clause literal
+order feeding `analyze`, itself set by an earlier `analyze` or move --- a
+self-reinforcing incremental divergence whose first cause is upstream of solve
+94463 (`5199` put the earliest learned-lemma literal-order difference at core
+6, Kitten -564 vs Tactix -563).
+
+NEXT: a cross-query, MAP-aligned learned-clause trace over the whole conflict
+-26913 sweep (the fix for `5210`'s scope bug: gate the kissat learn trace to
+the same conflict window) to find the FIRST query whose learned clause takes a
+different watched pair, then the specific see-order input that differs there.
+Only with that first cause identified can the sub-solver be corrected without
+guessing. This is a deep sub-solver fidelity fix requiring full fuzz
+re-validation, and it does not touch the two committed N2 fixes.
+
+**Refinement (same `5212` dump).** The full clause-content multiset at solve
+94463 is near-identical (kissat 847 distinct, tactix 845; 5 kissat-only, 2
+tactix-only) and Tactix over-adds *nothing* --- so this seed is NOT one of
+`5202`'s 17 duplicate-binary environments. But the differing clauses are
+learned ones with different *content*, not just a different watched pair: e.g.
+Kitten learns `(-1,561,622,733)` and `(-1248,-1152,561,622,733)` where Tactix
+learns `(-1,561,733)` and `(-1248,-1152,561,733)`. The two incremental
+sub-solvers therefore *learn different clauses*, which is a trajectory
+divergence rooted upstream, not a single local watch bug. The watched-pair
+difference and the content difference are two symptoms of the same earlier
+divergence, and the cross-query trace above remains the way to localize its
+first cause.
+
+### 3.72 Rank 34: phases ruled out; the divergence is a paradox under inspection (2026-09-06)
+
+Continuing the sub-solver localization, two candidate roots were tested and
+both ruled out, narrowing the fault to a subtle logic or per-seed input
+difference that static inspection has not surfaced.
+
+**Phase randomization ruled out (`5214`).** Kitten re-seeds its sub-solver
+generator to `initialized++` at every environment (`clear_kitten` zeroes
+`generator`, which sits in `[status,size)`, and `initialize_kitten` re-seeds it;
+`initialized` sits after `size` and persists). A trace of the generator value
+at each `randomize_phases` entry, keyed by solve counter, shows Kitten and
+Tactix **identical through solve 94463** (both 0 at 94463's seed start 86807,
+identical large values after), first differing at 94592 --- *after* the
+divergence, so a consequence of it. The phase stream is faithful; the initial
+worry that Tactix never re-seeds per sweep seed is not borne out at runtime.
+
+**Every inspected mechanism is identical.** `next_decision` (VMTF queue walk +
+saved phase), `queue_bump_analyzed`, `analyze` (1-UIP promotion, strict-`>`
+tie-handling, displaced-literal push), `propagate` (blocking/other/re-watch/
+unit), `clear_assignments` (queue-search restore by max stamp), the LCG
+(`kitten.c` vs `next_kitten_random`), and phase saving all match Kitten
+line-for-line. `flush_trail` (Kitten clears the level-0 trail before deciding)
+is the one behavioral difference Tactix does not replicate, but it shifts only
+trail positions by a constant and cannot change the 1-UIP clause or the watched
+pair.
+
+**The paradox.** For solve 94463's seed the environment is byte-identical
+(`5202`: 524/541 seeds; `5212`: this seed's `-561` watch list is identical and
+its clause-content multiset near-identical with no Tactix over-adds), the
+phases are identical (`5214`), and the logic is identical --- yet the two
+sub-solvers learn different clauses (`5212`) and propagate the same literals
+from different clauses (`5211`), first observably at solve 94463. Identical
+input and identical logic cannot yield different output, so one "identical"
+holds a subtle exception: most likely a rarely-exercised sub-solver path, or a
+per-seed environment ORDER difference not captured by the content-level checks.
+
+**Blocker and next step.** The cross-query differential trace is namespaced
+per core (per seed): a single core's `MAP` cannot align solves from other
+seeds (`5213` mis-flagged solve 86808 because the 94463 MAP does not cover it).
+The next step must (a) build a per-seed MAP and restrict the differential to
+solve 94463's own seed's queries, then (b) at the first genuinely divergent
+propagation, dump both clauses' full identity and their attach history to see
+whether the seed's environment attach ORDER, not just its content, differs.
+This is a self-contained but non-trivial tracing effort. The two committed N2
+fixes are unaffected.
+
+### 3.73 Rank 34 root found: the sweep environment attach order (2026-09-06)
+
+The paradox of 3.72 is resolved. Solve 94463 is the FIRST query of its seed
+(`5213`, seed range 94463--95289), so its state is built only from the seed's
+environment plus this query's own propagations. Through trail index 126 the two
+sub-solvers are byte-identical --- not just in `(level, literal)` but in every
+reason clause's ARENA order (`5213`, unsorted comparison: no arena-order
+divergence before 127), so every watch move up to 126 is identical. The first
+divergence is at index 127: Kitten propagates 562 from `[-1,561,562,622]`,
+Tactix propagates 656 from `[-1,622,656]` (`5211`).
+
+`5215` dumps every learned clause of this one query, arena-ordered and
+MAP-aligned. Learned clause [0] is identical; the first learned clause to
+differ is [1] --- Kitten `[-1,733,561,622]`, Tactix `[-1,733,561]` (Tactix
+missing 622) --- but that clause is asserted at trail index 130, AFTER the
+index-127 swap, and the swap clauses `[-1,561,562,622]` / `[-1,622,656]` are
+NOT in the learned list. They are ENVIRONMENT clauses.
+
+So the causal chain is: two environment clauses that share the propagating
+literal sit in a different order in that literal's watch list; the swap makes
+562/656 propagate in the opposite order; that changes the next conflict, whose
+1-UIP learns `[-1,733,561]` instead of `[-1,733,561,622]`; and from there the
+core DAG, the late landing of variable 970, and heap 26,914 all follow (`5199`).
+Everything downstream --- the watched-pair differences of 3.71, the
+content-multiset differences of 3.71's refinement --- is a consequence of this
+one environment-order difference.
+
+Because indices 0--126 (trail, reasons, arena order) and the environment
+content are all identical, the two env clauses can differ in watch order ONLY
+because they were ATTACHED to the sub-solver in a different order during env
+build --- i.e. a different `lits[0]/lits[1]` (watched pair) or a different add
+order. This is exactly the sweep environment-construction fidelity gap of 3.67
+/ `5202` (Kitten's `sweep_variable` walks each literal's dense watch list ---
+binaries in watch order, then large references --- while Tactix's
+`sweep_env_build` walks the substitution occurrence index; 524/541 seeds match
+byte-for-byte, and this seed is one of the rest). It is not the emission path,
+not phases (`5214`), not analyze/propagate/decide logic (all identical), and
+not a duplicate binary (`5212`).
+
+**The divergence is the large-clause ARENA order, not the traversal.** Kitten's
+dense list is built by `flush_large_watches` (keeps binaries, dedup, in watch
+order; removes large) then `kissat_connect_irredundant_large_clauses` (reconnects
+large in arena scan order) --- so its per-literal dense occurrence list is
+binaries-first-then-large. Tactix's `sweep_enter_dense` builds `k.dense->ordered`
+the same way: binaries (watch order) then large (arena scan order). The two
+structures match. So the swap of the two env clauses `[-1,561,562,622]` /
+`[-1,622,656]` in a shared literal's list is NOT a traversal-order bug; it is
+that the two clauses sit at a different relative position in the two solvers'
+main clause ARENAS, so the arena scan emits them in the opposite order.
+
+**Fix target (the remaining Rank 34 work).** This is a clause-storage / logical-
+position parity issue in the main arena --- the domain of
+`kernel_sort_refs_by_logical_clause_position` and the collection machinery, and
+of the whole unit-cost-and-fidelity stack. The two env clauses (main-formula
+clauses produced by earlier inprocessing) must occupy Kitten's relative arena
+order before Sweep enters dense mode. The concrete next diagnostic is to identify
+those two clauses' ids and trace where their relative arena order first diverges
+(allocation vs a collection reorder), then close that parity gap. This is a
+general representation-fidelity fix (not benchmark-specific) and needs full fuzz
+plus Rank 1--40 re-validation. The two committed N2 fixes are unaffected.
+
+### 3.74 The env order divergence is incremental substitution, not initial arena order (2026-09-06)
+
+Testing the 3.73 fix target directly refines it. `sweep_enter_dense` was changed
+to build `k.dense->large`/`ordered` in logical-clause-position order (as
+`kernel_rebuild_large_watches` does) instead of raw arena order. Result
+(`5216`): the Rank 34 deactivation window is UNCHANGED --- variable 970 still
+lands at row 25 not row 24, the full-sequence deactivation diff is still 17,810
+lines --- while quick fuzz stays 10,000/0 on default and random policy. The
+change is sound but has no fidelity effect here.
+
+Why: the sweep env build uses the substitution session's dense occurrences
+(`has_dense_occurrences()` is true whenever `k.dense` exists, so the `else`
+path over `k.dense->large` is never taken for a formula this size), and
+`SweepSubstitutionSession::occurrences` copies `k.dense->ordered[lit]` only on
+LAZY INITIALISATION. `begin()` resets that init once per sweep round; within a
+round the per-literal lists are then maintained INCREMENTALLY
+(`prime_equivalence`, `publish_dense_order`, the binary ledger) as each
+productive seed's equivalences rewrite clauses. Solve 94463 is a LATER seed in
+its round, so its occurrence lists are the incrementally-updated state, which
+the init-order change never touches.
+
+So the initial dense occurrence order matches Kitten (the logical-position sort
+was a no-op for the clauses involved); the divergence is in the INCREMENTAL
+maintenance of the substitution dense occurrences versus Kitten's
+`kissat_substitute_large_watch` (the in-place large-watch rewrite Kitten does as
+it substitutes). That is the refined fix target: make the incremental
+occurrence updates preserve the same per-literal order Kitten's watch rewrite
+does, so a shared literal's occurrence list stays byte-identical across a
+round's substitutions. The change reverted; the two committed N2 fixes and the
+rest of the stack are unaffected.
+
+**The specific mechanism.** Kitten substitutes large clauses ONE AT A TIME and
+IN PLACE: `kissat_substitute_large_watch` (`watch.c:81`) finds the clause in the
+other watched literal's list and overwrites that slot (`*p = dst; break;`), so
+the clause keeps its position in every list. Tactix's session instead
+"rewrites the whole class at once" (`substitute.cpp:828`) through
+`rewrite_binary_occurrences` / `delayed_moves` --- a batch rewrite that erases
+(`erase_large`) and re-places occurrences, and does not in general preserve each
+clause's per-literal position the way Kitten's per-clause in-place overwrite
+does. That is the precise fix locus: make the batch class rewrite preserve, slot
+for slot, the occurrence position Kitten's incremental in-place rewrite would
+leave. It is a large, intricate incremental-fidelity change (the machinery has
+several acknowledged batch-vs-incremental deviations) and needs full fuzz plus
+Rank 1--40 re-validation.
+
+**Narrowed to `move_origin` (deepest localization).** `rewrite_large_in_place`
+DOES preserve an unchanged literal's occurrence in place (it erases only literals
+that leave the image, appends only those that enter), so a clause the
+substitution does not touch keeps its slot. The reorder is in the APPEND of a
+clause that GAINS the representative literal. Kitten appends such a clause the
+first time `substitute_connected_clauses` rewrites one of its literals to that
+representative --- incrementally, retiring literals in call order, watch order
+within. Tactix rewrites the whole class at once and reconstructs that order in
+`SweepSubstitutionSession::move_origin`: `rank` = the lowest-ranked retiring
+member of the clause whose representative is this one (highest for a final
+binary), `position` = that member's stream index; `delayed_moves` is then
+`stable_sort`ed by `(rank, position)` and appended. The residual Rank 34
+divergence is a mismatch between this reconstruction and Kitten's order ---
+`retiring_rank`'s assignment order vs Kitten's call order, the `final_binary`
+owner rule, or a `position` not equal to the clause's index in Kitten's live
+stream. Pinpointing it needs a differential trace of `(representative, rank,
+position)` per moved occurrence against Kitten's append order for the two swap
+clauses; the fix then corrects that one ordering rule in `move_origin`.
+
+### 3.75 The append reconstruction is structural (incremental vs batch) (2026-09-06)
+
+`5217` traces every large-clause append to a representative's occurrence list
+during the conflict-26913 sweep, in main-formula literals (a common namespace,
+directly comparable). It shows the residual is not a single mis-ranked move but
+a STRUCTURAL difference: Kitten performs 6,924 large appends, Tactix 3,568
+(~2x), and the sequences diverge from index 0 (Kitten's first append is to
+representative 562, Tactix's to 1). Kitten calls `substitute_connected_clauses`
+twice per equivalence --- once per polarity direction --- and flushes each
+call's moved clauses to the representative incrementally as the round proceeds
+seed by seed; Tactix commits each seed's equivalence through one batched
+`do_substitution` whose `move_origin`/`delayed_moves` reconstruct that order.
+
+So `move_origin` is the right function, but the gap is not one ordering rule:
+it is that a batched whole-class rewrite must reproduce Kitten's INCREMENTAL,
+per-direction, per-call append order exactly, and the current reconstruction
+does not (the ~2x append count shows Kitten touches a representative's list far
+more often, presumably re-flushing across directions and later seeds, where
+Tactix appends once). Closing it is a structural fidelity change to the
+substitution session's append model, validated by making `5217`'s per-
+representative FINAL occurrence order (not the raw append sequence, which the
+incremental/batch structures render non-comparable) byte-identical --- then full
+fuzz + Rank 1--40 + B28+C5. This is the honest scope of the remaining Rank 34
+work; it is not a small correction, and the two committed N2 fixes stand
+independent of it.
+
 ## 4. Decision
 
 - Stack gated: `f7fdc6a` .. `5659765`, pin `127c6369` (Release), all
@@ -3137,3 +4147,596 @@ depends on the arena walk being complete.
 - Trajectory: after `5659765` the known first divergences are Rank 35 in
   the search window 9,457..15,344 (`4787`), Rank 33's one redundant clause
   before 60,638 (`4790`), and Rank 19's matching-phase gate (`SP-CONG-MATCH-1`, `4799`/`4800`).
+
+### 3.76 Branch standing gate: r34 is the sole net regression (2026-09-06)
+
+The committed branch `claude/rank34-kitten-clausal-core` (`cdd8108`: Sweep
+single emission path `c0fe3ff`, BVE chain order `481506f`, reports) was run
+against `main` `9a4adfa` on the full paired gates.
+
+- Rank 1--40 (`5218`, job 1666866; base pin `eae92d16`, cand pin `5c0a4b32`,
+  1200 s solve cap): base **8,339.0 s** vs cand **8,757.6 s** = **+418.6 s**.
+  The regression is entirely Rank 34: base 738.0 s (SAT) vs cand 1,200.0 s
+  (timeout), **+462.0 s**. Across the other 39 ranks the branch is **-43.4 s**
+  and faster-or-equal on every one (largest gains r17 -31.3, r22 -10.5, r39
+  -8.3; the recovered Rank 24 equivalence costs a benign +6.4). Neither arm
+  clears the 1% kissat bar (7,751.9 s); the branch is not pushable because it
+  is not 40/40 and net-regresses via r34.
+- B28+C5 (`5219`, job 1666908): candidate **1,088.3 s** vs shipped
+  **1,101.6 s** = **-13.3 s**, 0 timeouts on either arm, no candidate-only
+  regression. PASSES the regression gate.
+
+Conclusion: the branch's committed work (the two N2 fidelity fixes and the
+single Sweep emission path, which also recovers a Rank 24 equivalence the old
+cap dropped) is broadly beneficial and gate-clean everywhere except Rank 34,
+whose sub-solver-fidelity timeout (§3.75, the incremental-vs-batch substitution
+append order) is the one blocker. The r34 fix is the sole remaining Rank 1--40
+work before the branch can go out under the push rule.
+
+### 3.77 Rank 34 is single-class; emission-order retirement is inert there (2026-09-06)
+
+Two findings resize the remaining Rank 34 work.
+
+**Kissat is fast on Rank 34.** The frozen baselines give Kissat 344.0 s /
+343.1 s (SAT) on this instance (`20260829-1930-...`, `20260828-0930-...`,
+tactix arm 500.8 / 514.6 s in the same windows). Main `9a4adfa` is 733.5 s
+(`5220`), the branch 1,200 s (timeout). So Rank 34 is a genuine, longstanding,
+worsening fidelity gap -- Tactix has always trailed Kissat here (1.5x, then
+2.1x on main, then timeout on the branch), and it is NOT a case where the
+reference is also slow. The branch must match Kissat's ~344 s trajectory.
+
+**Emission-order retirement (`a44a486`) is a faithful repair but inert on
+Rank 34.** `substitute_apply_sweep_equivalences` had built the retiring-literal
+`sources` order by walking merge-forest roots in import order; Kissat retires
+classes in emission order. The repair iterates roots in emission order (keeping
+the pre-order walk within a class). It is sound (fuzz 10,000/0 default and
+random policy, jobs `1667012`/`1667013`; unit tests substitute/sweep/bve/
+subsolver/proof/congruence pass) and neighbor-clean (`5220`: r17 -28.7, r22
+-9.3, r24 -1.9, r33 -9.3 s vs main, tracking `5218`). But Rank 34 is UNCHANGED:
+cand 1,200 s / 12.18 M conflicts, versus the pre-repair 12.15 M -- an identical
+trajectory. The repair is a no-op on Rank 34 because that sweep's productive
+environments emit ONE equivalence each (single-class), so there is no
+cross-class retirement order to correct. The change is kept as a fidelity
+repair (it corrects a real multi-class divergence that fuzz reaches --
+SweepPartition=1682), not as a Rank 34 fix.
+
+**Consequence.** The Rank 34 divergence is inside the SINGLE-equivalence
+incremental occurrence maintenance across a round's environments (the in-place
+vs erase+append question of 3.74's `kissat_substitute_large_watch`), not the
+multi-class batch order. Every isolated single-equivalence mechanism inspected
+so far (`rewrite_large_in_place`, `collapse_large_to_binary`'s in-place slot
+overwrite, the binary in-place rewrite) matches Kissat under static reading, so
+the next step is the empirical per-representative FINAL occurrence-order trace
+(3.75's `5217` methodology) restricted to solve 94463's shared literal, to read
+the first out-of-order append directly rather than deduce it.
+
+### 3.78 Re-profile of current main confirms the gap is distributed (2026-09-06)
+
+Instruction profile of main `275be55` vs Kissat on the same Rank 33 instance
+(`5223`, job 1667036, `.text`-identical `-g` pins, `perf -e instructions:u`).
+The shape is 3.47's: the ported CDCL core is at parity -- Tactix
+`kernel_propagate` 30.5% + `analyze_apply` 7.6% + `propagate_literal` 5.3%
+against Kissat `kissat_search_propagate` 38.8% + `kissat_analyze` 1.6% +
+`kissat_deduce_first_uip` 2.1% -- and the inprocessing cost is spread thin:
+`kernel_rebuild_large_watches` 2.41%, `vivify_schedule` 2.18%,
+`kernel_collect_garbage` 1.85%, `rebuild_dense_large_occurrences` 0.95%,
+out-of-line `push_back` 1.35%, each ~1.3-1.8x its Kissat analogue, none
+dominant. `kernel_replace_large_clause_in_place` (1.78%) is NOT a target:
+Kissat's `kissat_shrink_clause` is 5.83%, so Tactix is cheaper there. The one
+structural Tactix-only tax visible is `kernel_sort_refs_by_logical_clause_position`
+(the append-only arena's logical-order recovery, which Kissat's in-place arena
+does not need), already radix and early-outed.
+
+So the named-third unit-cost repairs are each worth a few seconds and general,
+but there is no single win; the gap to 1% (~600 s from main's ~8,350 s) is
+dominated by Rank 34's ~389 s trajectory divergence (65%). r34 is the critical
+lever despite being the resistant one (its layer-2 env-attach/sub-solver order,
+3.66-3.77).
+
+### 3.79 Rank 34 fixed: the sweep environment attaches in the wrong structure (2026-09-06)
+
+The layer-2 divergence of 3.66-3.77 is resolved. Kissat's `sweep_variable`
+walks each literal's dense watch list, which `flush_large_watches` leaves as
+binaries (watch order) and `kissat_connect_irredundant_large_clauses` then
+extends with large references in arena order (`sweep.c:1332`) -- so the
+environment is attached to Kitten as binaries-first, then large in arena
+order. Tactix's `sweep_env_build` walked the substitution session's dense
+occurrence LEDGER, which interleaves binaries and large in incremental
+mutation order. Because Kitten pushes watches in addition order, the attach
+order IS its propagation order (3.67), and on a later seed the interleaving
+diverged the sub-solver -- the 562/656 swap of 3.66, the conflict-26,914 heap
+arrangement, and the timeout.
+
+The `else` (non-dense-index) branch of `sweep_env_build` already attached
+binaries-then-large-arena; the dense-ledger branch did not. Making the dense
+branch do the same -- process binaries in ledger order, then large sorted by
+logical (Kissat-arena-equivalent) clause position -- is a general port of
+Kissat's structure, not a Rank 34 tuning; the var cap then also fills
+binaries-first as Kissat's list does.
+
+Decisive single-instance A/B (`5224`, job 1667037, one binary, env var gating
+the change): Rank 34 default **1,200 s timeout / 12.18 M conflicts** ->
+arena-order **354.9 s SAT / 4.28 M conflicts**, matching Kissat's 344 s (and
+below Kissat's ~6 M conflicts). The change is sound by construction: the
+env-attach order only steers Kitten's trajectory, and every captured core unit
+carries its own justification, so N2 is untouched (`sweep_capture_core_units`,
+3.44). Committed `24f9bc2`; test_sweep, test_substitute pass. Full fuzz
+(`1667039`/`1667040`), Rank 1-40 (`5225`), and B28+C5 (`5226`) gating.
+
+### 3.80 Rank 34: the env-attach fix is a partial port, not yet faithful (2026-09-06)
+
+3.79 was premature in calling Rank 34 fixed. The env-attach order IS the
+divergence -- that stands, decisively (`5224`, one binary, env var gating the
+change: 1,200 s timeout -> 354.9 s, matching Kissat 344 s) -- but the
+structural approximation that produces it is not Kissat's exact order, and it
+trades ranks.
+
+Three variants, each a few-instance paired run (base = main, times in s;
+Kissat reference in parentheses):
+
+| variant | r34 | r21 (105) | r22 (192) | r27 (260) |
+|---|---:|---:|---:|---:|
+| base (main) | 738 | 129 | 247 | 308 |
+| branch (no fix) | 1200 TO | -- | -- | -- |
+| V1/V2 per-env-build separate | **355** | 164 | 292 | 412 |
+| V3 init-only separate | ~764 | 128 | 235 | 309 |
+
+V1/V2 (attach binaries then large at every env build; `5225`/`5227`) recover
+r34 to Kissat but regress the sweep-heavy ranks -- and crucially move them
+AWAY from Kissat (r22 247->292 against Kissat's 192; r27 308->412 against 260),
+the signature of a change that is not the reference order. V3 (separate only at
+the round's lazy init, keeping the round's own appends at the tail; `5228`)
+leaves r21/r22/r27 byte-clean (128/235/309) -- confirming the sweep-heavy
+regressions come from re-separating the round's APPENDED clauses, which Kissat
+keeps interleaved -- but then only partially helps r34 (~764 s, not 355).
+
+So the r34 recovery under V1/V2 comes specifically from re-separating the
+round's appends, which is NOT Kissat's structure; it is an over-correction that
+happens to help r34's seeds. The faithful fix must reproduce Kissat's exact
+per-literal env-attach order -- `[flush binaries][connect large arena][
+substitute appends interleaved at the tail]` -- which every static mechanism
+check already matches, so the residual is subtle and needs the aligned
+per-literal env-attach trace (the `5211`/`5213` infra, extended to dump each
+sub-solver's attach sequence for the divergent seed) to pin, not another
+structural guess. All variants reverted to keep the tree clean; the finding and
+the pins (`pin-r34-envfix-24f9bc2`, `pin-r34-v3`) are preserved for that trace.
+
+### 3.81 Structural env-attach approximations all shuffle trajectories (2026-09-06)
+
+Five paired experiments now settle that no structural re-ordering of the sweep
+env attach is Kissat's exact order, so each merely reshuffles the divergent
+ranks -- helping some, hurting others, differently on each base:
+
+| experiment | base | r34 | the ranks it moves |
+|---|---|---:|---|
+| V1/V2 per-env-build separate | branch | 355 (win) | r17 -164 (win); r21/r22/r27 +34/+44/+104 (regress) |
+| V3 init-only separate | branch | ~764 (partial) | r21/r22/r27 clean |
+| V3 init-only separate | main | pending | **r17 +37 (regress)**; net +34 on 23 ranks |
+
+On the branch V1/V2 *improves* r17 by 164 s; on main V3 *regresses* r17 by
+37 s. A change that helps a rank on one base and hurts the same rank on another
+is not moving that rank toward the reference -- it is perturbing an
+already-divergent (2x-conflict) trajectory. V3-on-main is sound (fuzz 10,000/0
+both policies, `1667194`/`1667195`) but net-negative and reverted.
+
+So the env-attach ORDER is decisively Rank 34's lever (3.79), but matching it
+requires Kissat's EXACT per-literal order, not a structural family that gets
+the *structure* (binaries then large) right and the incremental APPEND order
+wrong. The append order is the §3.75 incremental-vs-batch gap (Tactix 3,568
+vs Kitten 6,924 large appends): the faithful path is either the aligned
+per-literal env-attach trace to pin the first divergent append, or the
+per-equivalence incremental substitution model (attempted early this session,
+reverted on the certificate-preservation contract). Both are structural,
+multi-step. All experiment pins reverted; tree clean.
+
+### 3.82 The per-equivalence application is faithful but also shuffles (2026-09-06)
+
+The last structural candidate: replace the batch whole-class rewrite in
+`substitute_apply_sweep_equivalences` with genuine per-equivalence application
+(one `do_substitution` per pair, per-pair identity bridges preserving each
+pair's own implication binaries), which 3.75 named as what reproduces Kissat's
+per-direction append order. It is the faithful mechanism and a -170-line
+simplification; it is SOUND (fuzz 10,000/0 default and random, `1667281`/
+`1667282`); and `test_sweep` plus the sweep proof suite pass. Only two
+pathological unit tests fail -- both for chained/collision emissions that
+Kissat's partition removal (and Tactix's, mirroring it) never produces.
+
+But it does not fix Rank 34 either. Few-instance (`5233`): r21 -8, r22 -17
+(faster), r27 **+178** (worse than the batch, and away from Kissat's 260), r34
+runs past main's 738 toward timeout. Coupling it with the V3 fresh-init
+separation (`5234`) is inert on top of it -- identical conflict counts on
+r21/r22, r27 and r34 unchanged.
+
+So across nine fidelity experiments -- env-attach reorder (V1/V2/V3, both
+bases), per-equivalence application, and their combination -- every partial fix
+reshuffles the 2x-conflict divergent ranks and none converges to Kissat's
+trajectory. Rank 34's env-attach lever is real (3.79), but matching it needs
+BYTE-IDENTICAL sub-solver fidelity across every coupled mechanism, which is the
+N4 scheduling-parity work main's own prioritisation assigned it, not the
+"same work, more time" implementation gap. The implementation gap is the
+distributed inprocessing unit cost (3.78); that is where a shippable runtime
+win lives. All experiments reverted; tree clean.
+
+### 3.83 The per-equivalence application on main: sound, B+C-clean, aggregate-negative (2026-09-06)
+
+3.82 showed the per-equivalence (per-pair) application -- the faithful
+mechanism §3.75 named -- shuffles trajectories in a few-instance probe. This
+section gates it properly on main. Base = main `9a4adfa` (`eae92d16`);
+candidate = per-pair-on-main pin `3e6bf7c1`. Fuzz `1667287` (default policy)
+and `1667288` (random policy) each report 0 failures over 10,000 cases: the
+mechanism is sound.
+
+**Rank 1-40 (`5235`, 40/40 paired):** base 8,404.8s, candidate 8,488.8s,
+net **+84.0s (+1.00%)** -- net-NEGATIVE. The net is decided by one rank:
+- r17 279.9 -> 180.9 (**-99.0**, a real win, toward Kissat's trajectory)
+- r22 247.4 -> 230.5 (-16.9), r28 -7.5, r38 -6.5
+- r27 308.9 -> 486.8 (**+177.9**, dominates; away from Kissat's ~260)
+- r34 +14.6, r25 +8.6, r33 +8.3, r39 +7.1
+
+Strip r27 and the change is net ~-94 (positive). r27 alone flips the verdict.
+
+**B28+C5 (`5236`, 66/66):** Tier B 392.8 -> 372.8 (**-20.0**, candidate
+faster), Tier C 708.2 -> 711.3 (+3.1, flat), combined -16.9, **0 timeouts on
+both arms**. The regression gate is CLEAN -- candidate is faster on B+C.
+
+**The conflict counts name a mixed port.** Comparing conflicts against the
+Kissat baseline (`20260828-0930-tierd-ranks1-40-current-v-kissat`):
+
+| rank | Kissat | main (batch) | per-pair |
+| --- | --- | --- | --- |
+| r17 (SAT)   | 186,237   | 216,248 (+16%)        | **182,454 (within 2% of Kissat)** |
+| r27 (UNSAT) | 4,120,691 | **4,034,825 (within 2%)** | 7,451,709 (+81%)              |
+
+This is the real finding, and it is sharper than "reshuffles trajectories."
+On r17 **per-pair matches Kissat's conflict count and the batch diverges**; on
+r27 **the batch matches Kissat and per-pair diverges**. Neither application is
+byte-identical to Kissat's substitution -- each happens to land on Kissat's
+trajectory for a different instance. Kissat's own substitution
+(`substitute_connected_clauses`, per-equivalence per-direction) is what per-pair
+models, so per-pair being *more* faithful on r17 is expected; per-pair being
+*less* faithful on r27 is a residual port gap, not evidence against
+per-equivalence application (the regression-on-a-faithful-port rule).
+
+**Verdict.** Per-pair is sound (fuzz 0/10,000 x2) and B+C-clean (-16.9, 0
+timeouts), but its Rank 1-40 aggregate is net +84 because it completes only half
+of the faithful substitution port: it fixes r17 toward Kissat and breaks r27
+away from Kissat. It fails the push rule's "no significant regression" via r27,
+so it is not shippable as-is. Reverted; tree clean (branch `cd39e8f`, main
+`275be55`).
+
+**Next lever.** The fix is to finish the port so Tactix's substitution is
+byte-identical to Kissat's on both r17 and r27 -- matching per-pair's r17 result
+*and* the batch's r27 result. The concrete diagnostic is the aligned
+substitution/env trace on r27 under per-pair (extend `5211`/`5213` with
+`event_trace_sweep_environment_clause` against `kissat-event-trace`) to find the
+FIRST clause where per-pair's post-substitution output diverges from Kissat's;
+that divergence point names the missing coupled mechanism (a candidate is the
+§3.75 incremental-vs-batch binary-append gap: Tactix 3,568 vs Kitten 6,924 large
+appends). This is N4 fidelity work; the distributed unit cost (3.78) remains the
+parallel "same work, more time" implementation-gap target.
+
+### 3.84 Corrected current gap map: implementation gap ~336 s, N4 net +405 s (2026-09-06)
+
+The `20260828-0930` tactix arm is stale (5 timeouts, 13,922 s). Pairing
+*current* main (`5235` base, `275be55`, 8,404.8 s, 0 timeouts) against the
+stable Kissat arm gives the real Rank 1-40 map: **main 8,404.8 s vs Kissat
+7,684.0 s = +720.8 s (9.4 %)**. Classifying each rank by conflict ratio
+`cr = tactix/kissat`:
+
+**Implementation gap (same work, more time; `|cr-1|<=0.15` or 0-conflict, wall
++>2 s): ~+336 s.** r32 +71 (5.03M conflicts *both*), r27 +46, r24 +39, r37 +25,
+r39 +24, r9 +19, r6 +15 (373,544 conflicts *identical*), plus the 0-conflict
+ranks r7/r8/r10/r13/r14 ~+63. No single rank over +71; this is 3.78's
+distributed unit cost. Merging all of it still leaves main at ~+5 %, so it is
+necessary but not sufficient for 1 %.
+
+**N4 divergent (`|cr-1|>0.15`): +405 s net = +1,060 behind, -655 ahead.**
+Behind concentrated in r34 +395 (cr 1.97), **r31 +381 (cr 2.73, larger
+divergence than r34, previously off-radar)**, r17 +158 (cr 1.16). Ahead
+dominated by r19 -581 (cr 0.18, main does 5.7x fewer conflicts than Kissat),
+r18 -62 (cr 0.32). These are trajectory divergences needing byte-identical
+fidelity, tracked as N4.
+
+**Where the implementation gap lives (3.47/3.78, per-primitive Tactix/Kissat
+instruction ratio on r32):** CDCL core at or better than parity; the excess is
+`kernel_collect_garbage` **3.30x**, `vivify_schedule` **2.15x**,
+`kernel_rebuild_large_watches` **1.63x**, backtrack 1.25x. None dominant, all
+general. GC's 3.30x is the worst ratio and runs on every instance -- the first
+concrete same-work-faster target. Next: port Kissat's collector cost, verify
+byte-identical proofs/models/counters (same work), measure the per-primitive
+time drop.
+
+**First repair (GC marking-pass guard), correctness-validated.**
+`kernel_collect_garbage`'s sparse source-sentinel pass (kernel.cpp ~2661) is a
+full-arena scan marking append-only replacement sources so the sparse prefix
+can skip them. When `clause_position_alias` is empty every clause sits at its
+own reference (`kernel_clause_position` returns `ref`), so `position != ref`
+never holds and the pass only scans -- provably inert. Guarding it with
+`!empty()` changes no state. It fires generally: the alias map is populated only
+by the append-style replacement (`kernel_replace_clause` -> inherit), called
+only by inprocessing rules (BVE, vivify, substitute, instantiate, strengthen);
+pure search's OTFS uses the in-place path, which reads `get(id)==0` when empty
+and records nothing (kernel.cpp:1240). So during search the map stays empty, and
+Reduce (reduce.cpp:263, `sparse_collection=true`) -- the dominant search-time
+collection -- now skips one of the collector's ~4 arena traversals every time,
+byte-identical output. Validated: 12 GC-critical ctests incl
+`reduce_trace_compare`; N2 fuzz 0/10,000 default (`1667435`) + 0/10,000 randpol
+(`1667436`). Instruction-count quantification (3.47 method on r32) deferred;
+monotonic-safe regardless (it can only elide a no-op scan).
+
+### 3.85 The unit cost concentrates: a 0-conflict rank isolates it (2026-09-06)
+
+3.78 profiled a search-heavy rank (r33) and saw the inprocessing cost spread
+thin across primitives. That view is diluted: search dominates the profile, so
+the inprocessing rules each look small. Profiling a **0-conflict** rank instead
+-- r10 (`093fa3ff...128_125`, SAT for both, 0 conflicts, PURE inprocessing;
+`5241`) -- isolates the unit-cost gap with no search noise.
+
+`perf stat` totals: **Tactix 829.2G instructions / 92.8 s vs Kissat 596.1G /
+77.6 s = 1.39x instructions, 1.20x time.** The CDCL core is invisible here
+(`kernel_propagate` 2.51 %). Converting self-symbol percentages to absolute
+instructions (x each solver's total), the 233G excess CONCENTRATES in three
+inprocessing areas, not spread thin:
+
+| area | Tactix | Kissat | ratio |
+| --- | ---: | ---: | ---: |
+| import-order machinery (`kernel_import_lit_order` 2.04% + `kernel_vars_in_import_order` 2.20% + `kernel_record_import` 2.08%) | ~52G | ~9G (`kissat_import_literal`) | **~5.7x** |
+| substitution (`do_substitution` x3 ~10% + `substitute_find_sccs` 4.37%) | ~120G | ~70G (`kissat_substitute`) | ~1.7x |
+| congruence (`congruence_apply`+`extract_gates`+`extract_ite`+`delete_root_binaries`+`forward_subsume`) | ~112G | ~67G (`kissat_congruence`) | ~1.67x |
+
+The import-order machinery is the highest ratio and a Tactix-specific tax:
+Kissat imports variables trivially (index == identity); Tactix maintains a
+first-occurrence permutation queried in the substitution/congruence/factor sort
+comparators. `kernel_import_var_order` is itself only an array lookup, but it is
+defined in kernel.cpp and called cross-TU (no LTO, 3.50), so each call in a hot
+comparator is an un-inlined frame around one load -- the frame dominates.
+
+**Repair applied (import-order inline), MEASURED -- hypothesis refuted.** Moved
+`kernel_import_var_order` / `kernel_import_lit_order` to kernel.hpp as `inline`
+(byte-identical computation). Measured on r10 (`5242`): total 829.2G -> 827.9G
+instructions, only **-1.3G (-0.16 %)**, though `import_lit_order`/`var_order`
+DID vanish from the self-symbols. So the 2.04 % self was almost entirely the
+array-lookup WORK, not call-frame overhead -- inlining moved it into the
+comparators, it did not remove it. The frame overhead was just 0.16 %. N2 fuzz
+0/10,000 x2 (`1667439`/`1667440`); 13 correctness ctests pass. Kept as a small
+monotonic-safe win, but the real import-order tax is ALGORITHMIC: Tactix sorts
+substitution/congruence candidates by a compaction-permuted import order that
+Kissat gets for free (Kissat imports variables sequentially, so its internal
+index already equals the import rank; Tactix's compaction breaks that invariant
+and pays an explicit lookup-and-sort to recover Kissat's order). Reducing it
+needs a representational change (keep variables in import order, or precompute a
+rank array and radix-sort), not inlining. The bigger levers remain substitution
+1.7x (incl the separate `substitute_find_sccs` 4.3 %, which Kissat folds into
+`kissat_substitute`) and congruence 1.67x.
+
+**Reframe.** The implementation gap is NOT irreducibly spread-thin. On pure
+inprocessing it concentrates in substitution (1.7x), congruence (1.67x), and
+import-order (5.7x). 3.78's "no single win" was the search-diluted view; the
+attackable levers are these three inprocessing families, biggest-ratio first.
+
+### 3.86 Substitution is the prime unit-cost lever: 2.77x at byte-identical work (2026-09-06)
+
+Sharpening 3.85 with precise symbol sums and work counters on r10 (`5241`; the
+branch's only substitute.cpp change is in `substitute_apply_sweep_equivalences`,
+the sweep path, which sees 0 equivalences on r10 -- so `do_substitution` and
+`substitute_find_sccs` are main's code).
+
+Substitution self-instructions: Tactix `do_substitution` (10+ inlined copies,
+sum 15.77%) + `substitute_find_sccs` 4.37% = **20.39% x 829G = 169G**; Kissat
+`kissat_substitute` (SCC folded in) **10.21% x 596G = 61G**. Ratio **2.77x**,
+~+108G -- about HALF the 233G r10 excess, the largest single piece.
+
+Work counters: Tactix `substituted 14,305,970` variables; Kissat `substituted:
+14,312,218`. **Identical (within 0.04%).** So the 2.77x is PURE unit cost --
+same substitution, 2.77x the instructions -- exactly the goal's "same work,
+more time" gap, and it is COMPUTE-bound (not the memory-bound congruence, which
+Kissat's own timing puts at 47.4% time but only ~8% instructions from
+`congruent_collisions` 56.7M hash probes). Congruence instruction ratio is only
+~1.17x (Tactix 15.68% vs Kissat 13.35% self); substitution is the real lever.
+
+**Next (top priority): find the 2.77x inside substitution.** `perf annotate`
+`do_substitution` + `substitute_find_sccs` against Kissat's
+`substitute_connected_clauses`/SCC loop; the rewrite applies to 14.3M vars in
+both, so the excess is per-var/per-clause instruction count in the apply loop
+(candidates: the import-order Tarjan root iteration, the append-only rewrite
+vs Kissat's in-place slot overwrite, redundant re-lookups). Byte-identical +
+instruction-count validated on r10.
+
+### 3.87 Line-level localization: the hot inprocessing cost is the binary-existence check (2026-09-06)
+
+`perf report --sort srcline` on r10 (`5244`, instruction samples). The append-only
+clause-rewrite hypothesis (3.86) is REFUTED by the source: substitution's
+large-clause rewrite already uses `kernel_replace_large_clause_in_place`
+(substitute.cpp:1540), the in-place path, not append-only; only sub-3 shrinks
+append. The actual hottest source lines (global, whole run):
+
+- `kernel.hpp:254` **3.92%** -- `BinaryLivenessIndex::maybe()`, the binary-
+  existence Bloom prefilter (3 bit-probes `bit(p0)&&bit(p1)&&bit(p2)`), plus its
+  bit ops `kernel.hpp:224/227` ~2%.
+- watch iteration `watch.hpp:20/35/88/154` + `kernel.hpp:1531`
+  (`kernel_binary_copies`, the exact-scan fallback after the prefilter admits)
+  ~6% together.
+- `kernel.hpp:1262` import-order lookup ~1.3% (the irreducible work, post-inline).
+- `substitute.cpp:1246-1254` (the substitutable/mapped/representative lambdas,
+  live_sub[] byte reads) ~4%.
+
+So the dominant inprocessing unit cost is the **binary-existence check**
+(Bloom `maybe` + `kernel_binary_copies` watch scan), used wherever a rule dedupes
+or tests a binary. IMPORTANT: srcline is global -- `maybe()` is called from BOTH
+substitution and congruence (congruence.cpp:911/1115 also hot), and
+`kernel_binary_live` is NOT called directly from substitute.cpp, so the caller
+attribution is unresolved. Next step: a clean `perf report -g` call graph to
+attribute the Bloom/watch cost to substitution vs congruence before optimizing
+the binary-existence check (e.g. Bloom sizing/false-positive rate driving the
+fallback scan, or whether Kissat avoids the check via marks). Three cost
+hypotheses (call overhead, append-only rewrite, SCC structure) were each refuted
+by measurement; do not implement before the call graph attributes the cost.
+
+### 3.88 Correction: the Bloom cost is PARSING, not substitution; r10 over-weights parse (2026-09-06)
+
+A call graph (`5245`, dwarf) overturns 3.87's attribution. `BinaryLivenessIndex::
+maybe()` (3.83%) is called from `kernel_binary_live` <- `ingest_clause` <-
+`parse_dimacs_with_block` <- main: it is the **input-binary dedup during
+PARSING**, not the substitution/congruence binary-existence check I inferred
+from the global srcline. r10's input is 349 MB, so parsing is over-weighted in
+its profile; the Bloom (a Tactix-only structure Kissat lacks) is largely an
+r10-size artifact, not a general Rank 1-40 lever (most instances parse fast).
+This is the fourth cost hypothesis refuted by measurement (call overhead,
+append-only rewrite, SCC structure, now Bloom=substitution) -- attribution by
+call graph is mandatory before implementing.
+
+What STANDS: substitution is ~2.7x per substituted variable at byte-identical
+work (14.3M vars both, 3.86) -- size-independent, general. What is still OPEN:
+substitution's INTERNAL cost localization. The srcline lines I read as
+substitution (the Bloom) were parsing; the real do_substitution/find_sccs
+subtree was not captured (the call-graph awk matched only maybe() and
+congruence). Congruence's `congruence_extract_gates` is separately hot (11.28%
+incl children, recursive) but memory-bound (3.86).
+
+**Next step, corrected.** Profile a SMALLER 0-conflict rank (r7 +9.6, r13 +12.8,
+r14 +13.8 -- all 0-conflict, far smaller than r10's 349 MB) so parsing does not
+dilute the inprocessing signal, and capture the do_substitution/find_sccs
+call-subtree explicitly (`perf report -g` filtered to those symbols) to localize
+the 2.7x before any fix. Also worth a direct check: is the parse-time Bloom
+dedup (Tactix-only) net-positive vs Kissat's no-index parse on large inputs like
+r10 (+15 s there) -- a separate, size-gated lever.
+
+### 3.89 Substitution's 2.7x is localized to its per-literal rewrite loop + Tarjan DFS (2026-09-06)
+
+Closing the open item from 3.88: `do_substitution`'s cost is SELF (15.77%), so
+its own srcline hot lines on r10 ARE the localization (the Bloom that distracted
+3.87 was a sibling parse symbol, not do_substitution). The substitution self-cost
+is two inherent loops:
+
+- The per-literal **clause-rewrite loop** (substitute.cpp:1385+): for every
+  literal of every touched clause, `mapped(m)` then `representative(m)` then
+  `k.value(mp)` and a root-false/true test. Hot lines 1246-1254 are the
+  `substitutable`/`mapped`/`representative` lambdas (1251 = 2.08%), each of which
+  evaluates a runtime `session ? session->... : <array>[l]` branch PER CALL --
+  Kissat's `substitute_clauses` indexes `repr[lit]` directly with no such branch.
+- The **Tarjan `find_sccs` DFS** (substitute.cpp:120-160): `active(l)` (=
+  `values[l]==0 && !kernel_var_retired(var_of(l))`, a retired check per node) and
+  the binary-watch edge iteration.
+
+Candidate per-literal overheads vs Kissat (each needs a side-by-side of the two
+rewrite loops + an A/B measurement, given 4 prior refutations): the `session ?`
+runtime branch threaded through every map/representative/substitutable call on
+the non-session path (could specialize the two callers, or hoist the pointer
+test); the extra `kernel_var_retired` check per literal; the lambda indirection.
+None is proven yet -- the 2.7x is spread across the loop body, so the honest next
+step is a direct instruction-level diff of do_substitution's rewrite loop against
+kissat substitute_clauses, then A/B any candidate byte-identically on r10.
+
+This closes the diagnostic arc for this session: the implementation gap's largest
+general lever is substitution's per-literal rewrite cost (2.7x at identical
+14.3M-var work), localized to its core loop; the fix is a careful loop-body diff
+against Kissat, next session.
+
+### 3.90 Substitution's 2.7x is DIFFUSE: two targeted micro-ops each move ~0.08% (2026-09-06)
+
+Implemented the two Kissat-aligned per-literal repairs 3.89 named and measured
+them on r10:
+- Touched-check: dropped the provably-redundant `mp`/`k.value(mp)` term and
+  session-hoisted the scan to read `mapped_sub[]` directly (`5246`).
+  827.9G -> 827.2G, **-0.08%**.
+- rewrite_lits image[]: precomputed the Kissat-style combined substitution image
+  (`repr[l]` if mapped else `l`) and read one array load for `mp` instead of two
+  per-literal lambda calls (mapped + representative, each a session branch +
+  bounds check) (`5247`). 827.2G -> 826.5G, **-0.08%** more.
+
+Both byte-identical (substitute counters identical: 14.3M vars, 496.8M ticks;
+10 ctests incl proof/reconstruct/reduce_trace_compare; touched-check N2 fuzz
+0/10,000 x2, image N2 fuzz clean). Together **-0.17%** on r10 -- marginal.
+
+**Conclusion: the 2.7x is not the lambda/branch overhead.** do_substitution's
+self-cost (15.77% = ~130G) barely moved when the per-literal map lookups were
+made Kissat-lean, so the excess is spread across the OTHER per-literal
+operations (the two k.value reads, the `seen` dedup mark/test/clear, the
+out.push_back growth, the 14.3M-iteration SCC-member lemma loop, and
+find_sccs's Tarjan) -- each modestly heavier than Kissat's marks-based
+in-place equivalent, none dominant. This matches 3.47/3.78's "distributed"
+finding at the intra-function level: the implementation gap is a PERVASIVE
+~1.3-2.7x per-operation instruction overhead, not a handful of hot spots.
+
+Implication for the goal: merging substitution's 2.7x (and the ~336s
+implementation gap generally) is not reachable by a few targeted fixes. It needs
+either a structural rewrite of do_substitution to Kissat's leaner loop (a
+marks-based single-pass in-place rewrite -- higher N2 risk, uncertain net win
+since the operations are already similar) or the cumulative effect of many
+sub-0.1% byte-identical micro-ops. The two committed here are kept as safe
+monotonic cleanups; they are not a material dent in the 2.7x.
+
+### 3.91 The implementation gap has no targeted fix: ~11 levers exhausted (2026-09-06)
+
+Summary of this session's attack on the +336 s implementation gap. Every
+targeted lever was implemented or investigated and measured; each is marginal or
+refuted, and the reasons converge on one cause.
+
+MEASURED marginal (all byte-identical, N2-clean):
+- GC marking-pass guard (f1dfde1): ~0% (skips one light scan).
+- import-order accessors inlined (b57e7d0): -0.16% on r10 -- the 2.04% self was
+  the array load, not the call frame.
+- substitution touched-check + image[] (1faaf0f): -0.17% on r10 -- the 2.7x is
+  not the per-literal lambda overhead.
+- heuristics_var_active inlined (this turn): ceiling 0.35% (3.50 put it at
+  18.7e9 = 0.7% of r32; inlining removes at most the frame half).
+
+REFUTED by measurement or inspection:
+- append-only clause rewrite (substitution already uses in-place, subst.cpp:1540);
+- SCC structure (Tarjan, comparable to Kissat, folds import-order tax);
+- the Bloom binary-existence check (call graph: it is PARSING, r10-size artifact);
+- per-rewrite watch updates (substitution runs in dense mode, watches disconnected);
+- GC dense-occurrence rebuild (k.dense null during search, not redundant);
+- vivify live-count scan (1 of ~5 passes, ceiling ~0.3%);
+- LTO (3.50: bloats to 1.05x SLOWER).
+
+ROOT CAUSE (3.50, now confirmed actionable-but-exhausted): the excess is
+pervasive cross-TU call overhead plus richer per-operation bookkeeping. Kissat
+keeps its hot code in headers (inline by construction) and its state lean;
+Tactix layers across translation units with std::vector/lambda abstractions and
+maintains more incremental state (dense occurrences, aliases, import order,
+liveness index). BUT the cheap cross-TU helpers Tactix has (kernel_root_value,
+kernel_var_retired, kernel_binary_live, the import-order accessors) are ALREADY
+inline; the remaining hot symbols are substantial functions (ingest_clause,
+find_sccs, congruence_*, kernel_propagate, canonicalize_binary_watches), not
+cheap-inline wins. So even the systematic-inline lever's ceiling is ~1-2 %
+cumulative -- far short of the 9 % gap.
+
+CONCLUSION: the implementation gap is not closable by the targeted, byte-
+identical fixes available in a session. Reaching within 1 % requires a WHOLESALE
+structural change -- reorganising Tactix's hot code into headers and replacing
+std::vector/lambda hot paths with Kissat-style inlined stacks, and/or trimming
+the incremental-state bookkeeping to Kissat's rebuild-per-phase model -- a
+multi-week refactor with real N2 risk and an uncertain net (each piece is <0.4 %,
+and LTO's automatic version regressed). Plus the +405 s N4 trajectory gap remains
+(byte-identical sub-solver fidelity). Four safe monotonic repairs shipped this
+session; they preserve N1-N4 and B28+C5 (net +0.1 s) but do not dent the gap.
+This is a strategic fork (structural project vs accept the architectural cost),
+not a targeted fix, and is the honest stopping point of the targeted approach.
+
+### 3.92 The clausal-core branch REGRESSES r34 (timeout); repairs belong on main (2026-09-06)
+
+Running the Rank 1-40 gate on branch `claude/rank34-kitten-clausal-core`
+(5edf182, this session's 5 byte-identical repairs on the cd39e8f clausal-core
+base) vs a fresh Kissat (`5248`/1667676) surfaced a regression the B28+C5 gate
+could not see (r34 is Tier D, not B/C): **r34 TIMES OUT at 1200 s (12.18M
+conflicts) on the branch**, where main solves it in 514-738 s. The A/B 5224
+established this exact trajectory (12.18M conflicts = 1200 TO) is the r34
+env-attach divergence; the branch's committed sweep.cpp changes (+532 lines,
+the clausal-core work) leave r34 in it. My 5 repairs are byte-identical so the
+regression is the branch base, not this session's work.
+
+Consequences:
+- The branch is NOT a shippable line (r34 regressed). This session's 5 general
+  unit-cost repairs (GC guard, import-order inline, substitution touched+image,
+  heuristics inline -- all byte-identical, N2-clean, B28+C5 +0.1) belong
+  CHERRY-PICKED onto clean main (275be55), where r34 solves.
+- The branch Rank 1-40 gate is measuring the wrong line; the correct goal
+  measurement is main vs Kissat = **+720.8 s (3.84)**, and the fresh Kissat r34
+  = 344.8 s matches 3.84's 343.1 s, so 3.84 stands. Cancelled 1667676.
+- The clausal-core branch work is r34 N4 experimentation (concluded N4 in
+  3.79-3.82); it should not carry the general repairs.
+
+Net: main + this session's repairs = ~+720 s vs Kissat (repairs byte-identical),
+diffuse implementation gap (3.91), r34/r31/r17 N4 on top. Handoff action:
+cherry-pick the 5 repair commits onto main.
