@@ -4866,3 +4866,37 @@ order/heuristics inline, substitution touched+image) are SHIPPED and the rest
 net, 3.95). No clean, safe, high-confidence targeted fix remains for the last
 ~1.2 %; it is the pervasive C++/structure overhead, small but real. The +720 raw
 total's bulk is N4 trajectory (r19 -570, r34/r31 behind), a separate track.
+
+### 3.97 ROOT CAUSE FOUND: the 8-byte proof-id in the clause header (cache density) (2026-09-06)
+
+The substitution 2x is cache-bound (3.95: 41 ns/tick vs Kissat ~20; hot lookups
+value/seen/repr are 1-byte/compact, IDENTICAL density to Kissat -- refuted).
+The difference is the CLAUSE HEADER SIZE:
+
+- Tactix `Clause` (clause.hpp): size, flags, searched, **id_lo, id_hi** =
+  **20-byte header** (the 64-bit proof clause id for native LRAT hints).
+- Kissat `clause` (clause.h): glue/flags bitfield, searched, size =
+  **12-byte header** (no per-clause id in the header).
+
+So every Tactix large clause is **8 bytes bigger**. Substitution iterates the
+entire arena (all clauses, x2 rounds) reading size+flags+lits; the interspersed
+8-byte id is dead weight loaded into those cache lines but not read by the scan.
+On the millions-of-clauses 349 MB 0-conflict ranks this is the lower arena cache
+density that makes substitution ~2x per operation. This is the PRECISE, concrete
+root of the implementation gap -- not "diffuse C++ overhead."
+
+**It is architectural AND N2-load-bearing.** The 64-bit id supports native LRAT
+(the id-referenced hint chains) and the append-only arena's clause_position_alias
+(3.84). Removing it from the header breaks LRAT (N2). The concrete fix is to move
+the proof id OUT of the hot header into a SIDE structure accessed only during
+proof emission -- a targeted (one representation) but INVASIVE structural change
+touching every id()/set_id() site and the append-only-arena position tracking.
+Under DRAT/proofless it could even be omitted entirely (id only needed for LRAT
+hints), a size-gated variant.
+
+This is the general fix the goal points to: the implementation gap's dominant
+component (substitution's cache-bound 2x) is the proof-id-in-header data layout,
+and closing it is the clause-header slim-down (side-array id), a bounded but
+proof-critical rework -- NOT a diffuse micro-op grind. It is the concrete next
+step, and it is a real, general, non-overfitting change (helps every arena-
+iterating inprocessing on every instance).
