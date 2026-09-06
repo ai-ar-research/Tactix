@@ -1247,8 +1247,28 @@ void kernel_reserve_vars(Kernel &, uint32_t nvars);
 void kernel_defer_cold_state(Kernel &);
 void kernel_materialize_cold_state(Kernel &);
 void kernel_record_import(Kernel &, Var);
-uint64_t kernel_import_var_order(const Kernel &, Var);
-uint64_t kernel_import_lit_order(const Kernel &, Lit);
+// Defined inline: these are single array lookups queried in the hot
+// substitution/congruence/factor sort comparators (0-conflict profile r10:
+// ~2% self each as an un-inlined cross-TU call; report 3.85). Inlining folds
+// the lookup into the comparator and removes the call frame; the computation
+// is byte-identical.
+inline uint64_t kernel_import_var_order(const Kernel &k, Var v) {
+  assert(v < k.nvars);
+  assert(k.internal_import_rank.size() == k.nvars);
+  const uint32_t direct = k.internal_import_rank[v];
+  if (direct != UINT32_MAX)
+    return direct;
+  const Var external = k.internal_to_external[v];
+  assert(external >= k.external_import_rank.size() ||
+         k.external_import_rank[external] == UINT32_MAX);
+  // Direct kernel clients need no input finalization. Put their unrecorded
+  // variables after recorded imports in stable external order.
+  return static_cast<uint64_t>(k.next_import_rank) + external;
+}
+
+inline uint64_t kernel_import_lit_order(const Kernel &k, Lit lit) {
+  return 2 * kernel_import_var_order(k, var_of(lit)) + negated(lit);
+}
 uint64_t kernel_compact_import_lit_order(const Kernel &, Lit);
 void kernel_vars_in_import_order(const Kernel &, std::vector<Var> &);
 void kernel_vars_in_external_order(const Kernel &, std::vector<Var> &);

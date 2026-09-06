@@ -410,17 +410,9 @@ static void queue_dequeue(Kernel &k, Var v) {
   l.prev = l.next = UINT32_MAX;
 }
 
-static bool queue_contains(const Kernel &k, Var v) {
-  if (k.h->queue_first == v || k.h->queue_last == v)
-    return true;
-  const Link &l = k.h->links[v];
-  return l.prev != INVALID_VAR && l.prev < k.nvars &&
-         k.h->links[l.prev].next == v;
-}
-
-bool heuristics_var_active(const Kernel &k, Var v) {
-  return k.h && v < k.h->nvars && queue_contains(k, v);
-}
+// heuristics_var_active and its queue_contains helper are defined inline in
+// heuristics.hpp (report 3.50 cross-TU call overhead). Uses below call the
+// renamed inline heuristics_queue_contains.
 
 static void queue_restamp(Kernel &k) {
   // stamp overflow: renumber the whole queue in order (rare)
@@ -514,7 +506,7 @@ void heuristics_deactivate_var(Kernel &k, Var v) {
   // drains its event queue.  Kissat's active flag makes deactivation
   // idempotent; mirror that property here.  A second queue_dequeue would
   // follow the disconnected link sentinels and erase queue_first/queue_last.
-  if (!queue_contains(k, v)) {
+  if (!heuristics_queue_contains(k, v)) {
     k.stats.deactivation_repeats++;
     heap_remove(k, v);
     if (k.h->search_idx == v)
@@ -854,7 +846,7 @@ void heuristics_update_scores(Kernel &k) {
   std::vector<Var> import_order;
   kernel_vars_in_import_order(k, import_order);
   for (const Var v : import_order)
-    if (queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
+    if (heuristics_queue_contains(k, v) && !heuristics_heap_contains(k, v) &&
         (k.assigned[v].level != 0 ||
          k.values[make_lit(v, false)] == 0))
       heuristics_heap_push(k, v);
