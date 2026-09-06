@@ -4932,3 +4932,34 @@ repairs merged (-6.2 s), root contributors named down to the byte level, and the
 residual is the architectural cost of Tactix's proof-carrying append-only design
 -- eliminable only by a validated append-only-arena/clause-header rework, a
 dedicated effort, not a safe in-session fix.
+
+### 3.99 REFUTED: the clause header is NOT the cause; §3.97/§3.98 were wrong (2026-09-06)
+
+Direct experiment (`5252`, job 1667839): padded Kissat's clause header by 8 bytes
+(uint32 pad[2]) to match Tactix's 20-byte header, same source/build otherwise
+(control bit-identical to a fresh unpadded build). Ran r10 (the substitution-
+heavy 0-conflict rank), normal vs padded:
+
+| | normal Kissat | padded Kissat (+8B header) |
+| --- | ---: | ---: |
+| substitute | 7.62 s | **7.64 s (+0.02)** |
+| congruence | 36.70 s | 36.71 s |
+| wall | 77.73 s | 77.91 s (+0.18, noise) |
+
+The 8-byte header made **NO measurable difference**. So the clause-header cache-
+density hypothesis (3.97/3.98) is **REFUTED by experiment** -- the header size is
+not the cause of substitution's 2x. I had committed a wrong root cause; the
+scoped "clause-header slim-down" fix would NOT have closed the gap, and building
+it would have been wasted, risky proof-identity churn. The experiment prevented
+that.
+
+So the substitution excess (Tactix ~20 s vs Kissat 7.6 s on r10, at identical
+14.3M vars) is Tactix's substitution CODE doing ~2.7x the instructions (3.86,
+no-proof profile) -- an algorithmic/code overhead, root still undetermined after
+~16 investigations (find_sccs separate Tarjan, binary-rewrite deque/binary_ids/
+Bloom, lemma generation, per-literal richer structures), with no single dominant
+fixable lever found. The honest state: the implementation gap is 1.24%,
+dominated by substitution's ~2.7x code overhead whose precise cause I could not
+isolate to a targeted fix; my byte-level root-cause claim (3.97) was wrong. The
+5 safe repairs (-6.2 s) stand; the residual is diffuse Tactix substitution code
+overhead, not the clause header.
