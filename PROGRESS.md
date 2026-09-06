@@ -7,6 +7,21 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+- ALGORITHMIC LEVER FOUND (report 3.102): the binary substitution's stable-
+  direction rewrite (substitute.cpp ~2166) scans the stable literal's WHOLE watch
+  list PER IMAGE -> O(K^2) for a literal with K substituted neighbors (common on
+  binary-heavy formulas). Kissat iterates each list once (O(N)). THE FIX: rewrite
+  the stable-direction pass to per-literal iteration (scan each list once, rewrite
+  every substituted binary in place) -- a deterministic O(K^2)->O(N) win, NOT a
+  noise-limited micro-op. Proof-critical (per-binary DRAT + binary_ids/Bloom) and
+  a ~30-50 line restructure with proof-order sensitivity; a dedicated validated
+  cycle, not a rushed pass. This is the concrete next step to close the gap.
+  MEASUREMENT CAVEAT: r10 single-run sub-phase timing is +-1.2s noisy (memory-
+  bound 349MB), so byte-identical micro-op wall effects are below the floor; use
+  instruction count or the aggregate gate. 7 safe byte-identical repairs shipped
+  (GC guard, import-order/heuristics inline, subst touched+image, deque->vector,
+  stable-scan break); gap ~1.18-1.24% (noise-limited). Clean line unitcost-on-main.
+
 - ROOT LOCALIZED (reports 3.99-3.100, corrects the wrong 3.97 header claim):
   the implementation gap (1.24%) is dominated by substitution's 2.7x, and a clean
   experiment REFUTED the clause-header hypothesis (padding Kissat's header +8B =
