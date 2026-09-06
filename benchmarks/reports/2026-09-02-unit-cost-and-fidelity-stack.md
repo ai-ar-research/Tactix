@@ -5042,3 +5042,34 @@ general lever for the binary substitution, superseding the container micro-ops;
 it is proof-critical (per-binary DRAT emission + binary_ids/Bloom) and a
 restructure, needing a dedicated validated cycle. The `break` is a partial O(K^2)
 -> O(K*position) mitigation, kept; the full per-lit fix is next.
+
+### 3.103 Correction to 3.102: the canonical path is ALREADY O(N); O(K^2) is sweep-only (2026-09-06)
+
+Reading substitute.cpp:2111: the NON-SESSION (canonical) binary substitution --
+the path the 0-conflict ranks use -- ALREADY iterates each stable literal's watch
+list ONCE (`for variable_order ... for sign ... scan stable's list, rewrite
+mapped-neighbour binaries in place`), i.e. Kissat's O(N) per-owner form
+(substitute.c:328-340, per the code comment). The O(K^2) per-image scan is the
+SESSION (sweep-inline) path only, which keeps per-image because its bridge targets
+depend on the image. So 3.102 mis-identified the lever: the canonical path is not
+quadratic. My `break` optimizes the sweep path, not the 0-conflict binary
+substitution. (Kept -- it is a valid byte-identical improvement to the sweep path,
+N2 fuzz 0/10k x2 -- but it is not the 0-conflict lever.)
+
+This is the SECOND mis-identified sub-lever (after 3.97's clause header, refuted
+3.99). The honest meta-lesson: the binary substitution 2.7x on the 0-conflict
+ranks is NOT a single algorithmic hot spot -- the canonical stable rewrite is
+already O(N). The cost is the per-image iteration over 37.5M BinaryImages
+(expand_image lambdas, the changed-image checks, the non-stable list moves, and
+binary_ids/Bloom bookkeeping) vs Kissat's leaner in-place watch rewrite that never
+materialises an image array. It is the richer proof-carrying structure, diffuse
+across the 37.5M-image pass -- the container win (deque->vector) is the one clean
+extractable piece; the rest needs the in-place restructure (avoid materialising
+the image array), a substantial proof-critical effort.
+
+Honest terminal characterization: the gap is ~1.18-1.24%, dominated by the binary
+substitution's richer-structure 37.5M-image iteration (not the clause header,
+3.99, and not a canonical O(K^2), 3.103). 7 safe repairs shipped. Closing it needs
+the in-place image-free binary rewrite -- a dedicated proof-critical restructure.
+My specific sub-lever hypotheses (header, O(K^2)) were both wrong on closer
+reading/experiment; the residual is diffuse richer-structure overhead.
