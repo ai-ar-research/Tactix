@@ -4963,3 +4963,36 @@ dominated by substitution's ~2.7x code overhead whose precise cause I could not
 isolate to a targeted fix; my byte-level root-cause claim (3.97) was wrong. The
 5 safe repairs (-6.2 s) stand; the residual is diffuse Tactix substitution code
 overhead, not the clause header.
+
+### 3.100 LOCALIZED: substitution's 2.7x is the BINARY substitution (37.5M images, multi-pass sorts) (2026-09-06)
+
+Built-in sub-phase timer (`TACTIX_SUBSTITUTE_TIME`, `5253`, r10, no proof) breaks
+do_substitution down:
+
+| phase | round-1 ms | round-2 ms |
+| --- | ---: | ---: |
+| **binaries** | **5408** | 532 |
+| large | 3052 | 309 |
+| snapshot | 1133 | 322 |
+| lemmas | 374 | 277 |
+| post-large | 435 | 214 |
+
+The **binary substitution dominates** (~5.9 s of ~12 s do_substitution) -- Tactix's
+binary rewrite alone is most of Kissat's ENTIRE substitute (7.6 s). It processes
+**37.5M binary images** (r10: `images 37527311`, 2.6x the 14.3M vars). The apply
+loop (substitute.cpp ~1900-2010) makes MULTIPLE passes over the deque of images:
+build source_keys/target_keys, std::sort + unique, binary_search dedup, binary_ids
+lookups, then rewrite -- where Kissat's `substitute_binaries` iterates watches and
+rewrites IN PLACE. The code comment concedes "for binary formulas those arrays and
+their comparison sorts dominate." So the 2.7x is this multi-pass key-array/sort
+machinery over 37.5M binaries, NOT the clause header (3.99 refuted) and NOT
+diffuse across the whole rewrite.
+
+This is a concrete, specific lever -- the general fix is to rewrite the binary
+substitution to Kissat's in-place watch-rewrite form, avoiding the deque snapshot,
+the O(n log n) key sorts, and the redundant multi-pass over 37.5M images. It is
+proof-critical (the sorts/dedup order the DRAT binary stream) but TARGETED (one
+loop in one rule), and it is the dominant half of the implementation gap's
+dominant component. This supersedes 3.97-3.99 as the actual root: the residual is
+the binary-substitution algorithm, a specific fixable target, not an architectural
+data-layout cost.
