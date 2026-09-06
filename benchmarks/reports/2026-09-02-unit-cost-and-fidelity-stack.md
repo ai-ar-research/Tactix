@@ -4900,3 +4900,35 @@ and closing it is the clause-header slim-down (side-array id), a bounded but
 proof-critical rework -- NOT a diffuse micro-op grind. It is the concrete next
 step, and it is a real, general, non-overfitting change (helps every arena-
 iterating inprocessing on every instance).
+
+### 3.98 Honest correction to 3.97: the header id is ONE contributor, coupled to the arena (2026-09-06)
+
+3.97 over-claimed the 8-byte clause-header proof id as "THE root cause." Two
+corrections, in the interest of accuracy:
+
+1. **Magnitude is partial, ~10-20%.** An 8-byte-larger header makes an avg-size
+   clause only ~15-25% bigger (size-3: 32 vs 24 B; size-10: 60 vs 52 B), so the
+   arena is ~15-25% less dense. If substitution's arena scan were fully cache-
+   bound that is ~15-25% of the 2x; it is not fully cache-bound, so the header
+   is realistically ~10-20% of the substitution excess = ~+2-5 s on r10, ~+10 s
+   across the 0-conflict ranks. It would move the gap from 1.24% toward ~1.1%,
+   NOT under 1%. The rest of the 2x is diffuse C++/structure overhead (3.90-3.95).
+
+2. **It is NOT a separable quick fix -- it IS the append-only-arena rework.**
+   The id cannot just move to a side array: `clause_position_alias`
+   (kernel_clause_position, the append-only arena's logical-position tracking,
+   3.84) KEYS ON `c->id()`. Slimming the header requires re-keying the alias on
+   arena position -- i.e. reworking the append-only arena's identity model, plus
+   native-LRAT hint id storage. That is the multi-week structural rework, not a
+   targeted swap.
+
+So the corrected picture: the implementation gap (1.24%) is diffuse; the largest
+single *named, concrete* contributor is the clause-header cache density (~10-20%,
+general), but eliminating it is entangled with the append-only-arena identity
+model (N2-load-bearing for LRAT + the alias). No single safe in-session change
+merges the gap. This is the exhaustive terminal characterization: gap corrected
+from a spurious +9% to a true 1.24% (search parity, congruence faster), five safe
+repairs merged (-6.2 s), root contributors named down to the byte level, and the
+residual is the architectural cost of Tactix's proof-carrying append-only design
+-- eliminable only by a validated append-only-arena/clause-header rework, a
+dedicated effort, not a safe in-session fix.
