@@ -5017,3 +5017,28 @@ concrete next lever is rewriting rewrite_binary_occurrences + the apply loop to
 Kissat substitute_binaries' in-place watch rewrite (proof-critical, targeted).
 The safe container win is extracted; the structural rewrite is the remaining
 dominant piece.
+
+### 3.102 Honest caveat: r10 single-run timing is noisy (±1.2s); the O(K^2) scan is the real lever (2026-09-06)
+
+Adding `break` to the stable-direction rewrite loop (byte-identical, N2 fuzz
+0/10,000 x2) measured binaries 4554 -> 5789 ms on r10 -- but a byte-identical
+change CANNOT slow the solver, so this is ~±1.2 s single-run variance on the
+memory-bound 349 MB instance. **Correction to 3.101: the deque->vector "-0.9s"
+was within this noise floor** -- real (byte-identical, cannot hurt) but not
+precisely measurable by single-run r10 sub-phase timing. The deterministic signal
+is instruction count (3.86); wall-time micro-op effects here are noise-limited.
+Both the deque->vector and the break are kept as genuine byte-identical
+improvements (better container; early exit), but their individual wall benefit is
+below the measurement floor.
+
+The GENUINE algorithmic finding: the stable-direction rewrite (substitute.cpp
+~2166) scans the stable literal's ENTIRE watch list PER IMAGE. A literal L with K
+substituted neighbors gets K images, each scanning L's ~K-length list -> O(K^2)
+for high-degree literals (common on binary-heavy formulas like r10). Kissat
+iterates each list ONCE. The real fix is to restructure the stable rewrite to
+per-literal iteration (scan each list once, rewrite every substituted binary in
+place) -- O(sum of list lengths) instead of O(sum of K^2). This is the concrete
+general lever for the binary substitution, superseding the container micro-ops;
+it is proof-critical (per-binary DRAT emission + binary_ids/Bloom) and a
+restructure, needing a dedicated validated cycle. The `break` is a partial O(K^2)
+-> O(K*position) mitigation, kept; the full per-lit fix is next.
