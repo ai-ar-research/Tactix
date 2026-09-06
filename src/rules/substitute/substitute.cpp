@@ -2167,9 +2167,14 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       while (p != end) {
         Watch watch{*p};
         if (watch.binary()) {
-          if (!rewritten && watch.other() == old_other) {
+          if (watch.other() == old_other) {
+            // Rewrite the first matching copy in place and stop: the `!rewritten`
+            // guard meant everything after the first match was a pure scan, so
+            // breaking is byte-identical and turns this per-image scan of the
+            // whole list from O(list) into O(position) (report 3.101 lever).
             *p = binary_watch(new_other).raw;
             rewritten = true;
+            break;
           }
           p++;
         } else {
