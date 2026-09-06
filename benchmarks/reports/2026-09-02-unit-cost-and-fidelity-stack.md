@@ -4839,3 +4839,30 @@ Kissat's single-pass marks-based in-place form -- the ONE concrete, bounded,
 proof-critical lever that would move the 1.11 % under 1 %. The byte-identical
 micro-ops (3.90) already shaved -6.2 s; the structural rewrite is the next step,
 and it is targeted (one function, one rule), not a wholesale codebase refactor.
+
+### 3.96 Precise final: implementation gap = +95.5 s = 1.24% (corrects 3.94's 1.11%) (2026-09-06)
+
+Fuller 5251 data (30/40 paired, all impl-classified ranks done) revises 3.94's
+partial +85 s: the true implementation gap is **+95.5 s = 1.24 % of Kissat's
+7,684 s** (r39-class may still adjust it slightly). Decomposition:
+- **0-conflict large-input ranks: +59.8 s** (r7/r8/r10/r13/r14 substitution-heavy;
+  substitution 2x per 3.95).
+- **Search matched-work (cr~1.00): +35.9 s** -- NOT fully at parity as 3.94
+  implied: r6 +14, r29 +11, r36 +14, r38 +10 carry ~+3-4 % unit cost on large-
+  conflict search ranks, offset by r20 -16, r30 -8 (Tactix faster there).
+
+So the gap is ~1.24 %, spread ~0.5 % search + ~0.8 % inprocessing, both diffuse
+C++/structure overhead. (r34 solves on the clean line at 734 s = +392 N4-behind,
+confirming the branch's r34 timeout was clausal-core-specific, 3.92.)
+
+HONEST STANDING: the implementation gap is 1.24 %, ABOVE the 1 % target. It is
+far below the +9 % the raw total implied (3.84/3.91 over-counted N4), and the 5
+byte-identical repairs shaved -6.2 s of it, but it is NOT merged. Closing the
+remaining ~+18-40 s to safely <1 % requires either (a) a diffuse grind of
+byte-identical micro-ops -- the safe, high-confidence ones (GC guard, import-
+order/heuristics inline, substitution touched+image) are SHIPPED and the rest
+(find_sccs import-order cache) carry N4-invalidation risk for ~1 s each -- or
+(b) the proof-critical do_substitution single-pass structural rewrite (uncertain
+net, 3.95). No clean, safe, high-confidence targeted fix remains for the last
+~1.2 %; it is the pervasive C++/structure overhead, small but real. The +720 raw
+total's bulk is N4 trajectory (r19 -570, r34/r31 behind), a separate track.
