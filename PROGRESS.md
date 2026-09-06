@@ -26,6 +26,20 @@ resume surface.
     on a hand-written manifest missing input_sha256 -- fixed by copying the frozen
     manifest, resubmitted): the goal measurement, expected ~+720s (§3.84) since
     the 4 repairs are byte-identical/marginal. Check provisional results.
+  CORRECTED CONCLUSION (report 3.94, clean-line gate 5251, RETRACTS the 3.91
+  "architectural wall"): the goal's TRUE implementation gap (same work, more
+  time) is only ~+85s = **1.11% of Kissat's 7,684s** -- right at the 1% line, NOT
+  the +9% the raw total implies. 3.84's +336 over-counted N4 trajectory. Tactix's
+  SEARCH is at PARITY (r6 +14 but r20 -16, r28 -0.3, r11/r30 <=0); the gap
+  concentrates in the 0-conflict LARGE-INPUT ranks (+57s: parse + substitution
+  2.77x + congruence). The 5 byte-identical repairs already SHAVED it -6.2s
+  (0-conflict +57.2 vs main +63.4). PATH to safely <1%: keep shaving the
+  0-conflict inprocessing unit cost (~+10-25s target) -- substitution 2.77x
+  (3.90) is the biggest lever; byte-identical micro-ops accumulate seconds here.
+  BOUNDED and targeted, NOT a wholesale rewrite. The +720 raw total's bulk is N4
+  trajectory (r19 -570 ahead, r31/r34 behind) -- DIFFERENT work, a separate track
+  the goal excludes from the implementation gap.
+  ---- superseded framing (3.91) below ----
   STRATEGIC CONCLUSION (report 3.91, ~11 levers exhausted this session): the
   implementation gap has NO targeted fix. Every byte-identical lever measured
   marginal (GC guard ~0%, import-order inline -0.16%, substitution touched+image

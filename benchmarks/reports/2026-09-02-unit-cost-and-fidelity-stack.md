@@ -4740,3 +4740,69 @@ Consequences:
 Net: main + this session's repairs = ~+720 s vs Kissat (repairs byte-identical),
 diffuse implementation gap (3.91), r34/r31/r17 N4 on top. Handoff action:
 cherry-pick the 5 repair commits onto main.
+
+### 3.93 REFRAME: the TRUE implementation gap is ~+80-100s, not +336; repairs help it (2026-09-06)
+
+3.84 bucketed by conflict ratio cr in [0.85,1.15] and called +336 s the
+"implementation gap." Running Rank 1-40 on the clean line (unitcost-on-main,
+`5251`/1667759) with a TIGHT decomposition (pure same-work = cr in [0.97,1.03],
+plus 0-conflict ranks) corrects that: the loose bucket folded in slight-
+trajectory ranks (r32 cr 1.086, r27 cr 1.21 -- MORE conflicts = N4, not unit
+cost).
+
+Tight decomposition (partial, low ranks done):
+- **PURE matched-work (cr~1.00): ~+6 s** -- Tactix's SEARCH is essentially at
+  PARITY with Kissat (e.g. r6 373544 conflicts both +14 but r20 81993 both
+  **-16, Tactix faster**).
+- **0-conflict ranks (pure inprocessing on the 349 MB inputs): +57 s** over 5 --
+  this is where the same-work unit cost concentrates (parse + substitution 2.77x
+  + congruence, all 3.85-3.90 diffuse).
+- N4 trajectory (the big divergent ranks r34/r31/r19/r29) dominates the +720
+  total, and it is DIFFERENT work, not the implementation gap.
+
+So the TRUE "same work, more time" implementation gap is ~+80-100 s (projected
+full), i.e. **~+1.0-1.3 % of Kissat's 7,684 s -- right at the 1 % boundary**, NOT
+the +9 % the raw total implies. 3.84's +336 over-counted trajectory.
+
+**The 5 repairs measurably help it.** The 0-conflict ranks total +57.2 s on
+unitcost-on-main vs +63.4 s on main (3.84) -- a consistent **-6.2 s** across all
+five (every rank improved; byte-identical so they only remove instructions).
+Small but real runtime movement on exactly the target ranks.
+
+Revised picture: the implementation gap is small and near 1 %, concentrated in
+large-input inprocessing (substitution/congruence unit cost). Closing the last
+~+20 s to safely under 1 % needs continued work on that inprocessing unit cost
+(the substitution structural rewrite, 3.90) -- a real but bounded target, not
+the "architectural wall" the +336 framing implied. The +720 total's bulk is N4
+trajectory (r34/r31 behind, r19/r29 ahead), a separate track. Finalising the
+exact true-gap number when 5251's slow ranks complete.
+
+### 3.94 CORRECTED CONCLUSION: implementation gap is ~1.1%, not a wall (supersedes 3.91) (2026-09-06)
+
+The full clean-line gate (`5251`, unitcost-on-main vs Kissat) with the tight
+decomposition settles the size of the goal's "same work, more time"
+implementation gap, and it is much smaller than 3.84/3.91 implied:
+
+- **PURE search matched-work (cr in [0.97,1.03]): ~PARITY.** r6 +14 but r20 -16,
+  r28 -0.3, r11 -0, r30 -8; the search core is at parity with Kissat (3.47's
+  finding, now confirmed on runtime not just instructions).
+- **0-conflict large-input ranks: +57 s** (r7/r8/r10/r13/r14) -- the same-work
+  unit cost concentrates here (parse + substitution 2.77x + congruence).
+- **TRUE implementation gap = +85 s (with r39-class) = 1.11 % of Kissat's
+  7,684 s.** Right at the 1 % line, NOT +9 %. 3.84's +336 and 3.91's "wall" both
+  over-counted N4 trajectory (r32 cr 1.086, r27 cr 1.21 are MORE conflicts =
+  different work, not unit cost).
+
+The N4 trajectory component is separate and LARGE both ways: r19 -570 (Tactix
+5.7x fewer conflicts), r29 ahead, vs r34/r31 behind. It nets a big number but is
+DIFFERENT work, which the goal explicitly excludes from the implementation gap.
+
+**The 5 repairs measurably shrank the implementation gap** (0-conflict ranks
++57.2 vs main's +63.4, -6.2 s, byte-identical). So 3.91's "no targeted fix /
+strategic fork" is RETRACTED: the implementation gap is ~1.1 %, close to merged,
+and the repairs move it. Getting SAFELY under 1 % needs shaving ~+10-25 s more
+from the large-input inprocessing unit cost -- the substitution 2.77x (3.90) is
+the biggest lever there. That is a bounded, targeted continuation (byte-identical
+micro-ops accumulate seconds on these ranks, as the -6.2 s shows), NOT the
+wholesale rewrite 3.91 feared. Next: keep shaving the 0-conflict inprocessing
+unit cost (substitution/congruence) toward safely <1 %.
