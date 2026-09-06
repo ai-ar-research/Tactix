@@ -4806,3 +4806,36 @@ the biggest lever there. That is a bounded, targeted continuation (byte-identica
 micro-ops accumulate seconds on these ranks, as the -6.2 s shows), NOT the
 wholesale rewrite 3.91 feared. Next: keep shaving the 0-conflict inprocessing
 unit cost (substitution/congruence) toward safely <1 %.
+
+### 3.95 The 1.1% gap is substitution's 2x (congruence is FASTER); phase-level trace (2026-09-06)
+
+Per-phase wall timing on r10 (0-conflict; unitcost-on-main vs Kissat), the ranks
+that carry the +85 s / 1.11 % implementation gap (3.94):
+
+| phase | Tactix | Kissat | delta |
+| --- | ---: | ---: | ---: |
+| **Substitute** | 20.5 s | 10.1 s | **+10.4 (2.0x)** |
+| parse + setup | ~23 s | 17.3 s | +5.7 |
+| Sweep | 4.1 s | 2.5 s | +1.6 |
+| **Congruence** | 35.3 s | 37.3 s | **-2.0 (Tactix FASTER)** |
+
+So the implementation gap is NOT uniform: **congruence is faster in Tactix**, and
+the gap is dominated by **substitution's 2.0x** at byte-identical work (14.3M
+vars both), plus a smaller parse delta. This overturns the earlier worry that
+congruence (memory-bound, 3.86) was a lever -- it is not; substitution is.
+
+The 2x is diffuse within substitution (3.90 + this profile): the dense-occurrence
+maintenance in kernel_replace_large_clause_in_place is only ~0.96 % (7th refuted
+hypothesis -- large rewrites are IN-PLACE, no arena scattering), so the excess is
+spread across the per-literal rewrite loop (lambdas, seen dedup, out-vector
+build) and find_sccs's Tarjan -- Tactix's richer C++ structures vs Kissat's lean
+marks-based single-pass substitute_clauses. Same-work, ~2x instructions AND time.
+
+**Bottom line for the goal.** The implementation gap is 1.11 %, its dominant
+remaining component is substitution's 2x (~+10 s/large-input rank), and that 2x
+is the diffuse C++/structure overhead of do_substitution vs kissat
+substitute_clauses. Closing it needs a structural rewrite of do_substitution to
+Kissat's single-pass marks-based in-place form -- the ONE concrete, bounded,
+proof-critical lever that would move the 1.11 % under 1 %. The byte-identical
+micro-ops (3.90) already shaved -6.2 s; the structural rewrite is the next step,
+and it is targeted (one function, one rule), not a wholesale codebase refactor.
