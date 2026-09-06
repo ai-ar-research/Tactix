@@ -174,23 +174,8 @@ void kernel_record_import(Kernel &k, Var v) {
   k.internal_import_rank[v] = rank;
 }
 
-uint64_t kernel_import_var_order(const Kernel &k, Var v) {
-  assert(v < k.nvars);
-  assert(k.internal_import_rank.size() == k.nvars);
-  const uint32_t direct = k.internal_import_rank[v];
-  if (direct != UINT32_MAX)
-    return direct;
-  const Var external = k.internal_to_external[v];
-  assert(external >= k.external_import_rank.size() ||
-         k.external_import_rank[external] == UINT32_MAX);
-  // Direct kernel clients need no input finalization. Put their unrecorded
-  // variables after recorded imports in stable external order.
-  return static_cast<uint64_t>(k.next_import_rank) + external;
-}
-
-uint64_t kernel_import_lit_order(const Kernel &k, Lit lit) {
-  return 2 * kernel_import_var_order(k, var_of(lit)) + negated(lit);
-}
+// kernel_import_var_order and kernel_import_lit_order are defined inline in
+// kernel.hpp (hot cross-TU comparator calls; report 3.85).
 
 uint64_t kernel_compact_import_lit_order(const Kernel &k, Lit lit) {
   const Var v = var_of(lit);
@@ -2615,7 +2600,14 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   // the live replacement receives its forwarding pointer independently below.
   // Thus the sentinel dies with the old arena and cannot affect proof identity,
   // clause order, or a surviving replacement-search cursor.
-  if (sparse_collection)
+  //
+  // With no alias recorded since the last collection every clause sits at its
+  // own reference (kernel_clause_position returns `ref`), so `position != ref`
+  // can never hold and the pass would only scan: the whole append-only source
+  // sentinel machinery is inert. Skip it. This is the ordinary state between
+  // two in-place rewrites, so the common search-time collection avoids an
+  // entire arena traversal here (the append-only-arena GC tax, 3.84).
+  if (sparse_collection && !k.clause_position_alias.empty())
     for (Ref ref = 0; ref < k.arena.size();) {
       Clause *const c = clause_at(k.arena, ref);
       if (!c->garbage()) {

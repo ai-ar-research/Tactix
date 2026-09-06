@@ -1253,6 +1253,20 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   const auto representative = [&](Lit l) {
     return session ? session->representative(l) : r.repr[l];
   };
+  // Kissat-style combined substitution image for the non-session path: the
+  // literal l maps to its representative if substituted, else to itself
+  // (r.repr[] alone is INVALID_LIT for unmapped literals, so the guard is
+  // required). The hot rewrite loop reads this single array for `mp` instead of
+  // re-evaluating mapped()+representative() -- two lambdas, each a session
+  // branch plus bounds check -- per literal (report 3.89). Sweep sessions
+  // rewrite a small frontier of a giant formula, so an nlits image is not
+  // built for them; they keep the lambda path.
+  std::vector<Lit> image;
+  if (!session) {
+    image.resize(nlits);
+    for (Lit l = 0; l < nlits; l++)
+      image[l] = static_cast<bool>(mapped_sub[l]) ? r.repr[l] : l;
+  }
   const auto for_each_substitutable = [&](const auto &fn) {
     if (session)
       for (const Lit l : session->retiring_sources())
@@ -1383,8 +1397,9 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     bool satisfied = false;
     for (uint32_t i = 0; i < size; i++) {
       const Lit m = lits[i];
-      const bool remapped = mapped(m);
-      const Lit mp = remapped ? representative(m) : m;
+      // Non-session reads the precomputed image (one load); the ternary
+      // short-circuits so the lambdas are not evaluated off the session path.
+      const Lit mp = session ? (mapped(m) ? representative(m) : m) : image[m];
       if (k.value(mp) > 0) { // root-true → clause satisfied
         satisfied = true;
         break;
@@ -1403,7 +1418,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
             // finishing. Kissat still rewrites it, but needs no transient
             // equivalence: the source literal's own root unit justifies
             // removing it from the original clause directly.
-            assert(!remapped || k.value(m) < 0);
+            assert(!mapped(m) || k.value(m) < 0);
             chain.push_back(k.unit_ids[var_of(m)]);
           }
         }
@@ -1456,13 +1471,28 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     if (!large_visited++)
       substitute_stage_trace(k, "rewrite-large-first-ref", ref, c->size,
                              k.arena.capacity());
+    // Touched iff some literal is substituted or root-assigned. The old form
+    // also computed `mp = mapped(m) ? representative(m) : m` and tested
+    // `k.value(mp)`, but that term is redundant: when mapped(m) the `||`
+    // short-circuits before it, and when not, mp == m so k.value(mp) ==
+    // k.value(m), already tested. Dropping it removes a representative() lookup
+    // and a value read per literal of every large clause -- the hottest
+    // substitution scan (report 3.89). Session-hoisted so the non-session path
+    // reads mapped_sub[] directly (clause literals are < nlits) instead of the
+    // lambda's session branch + bounds check.
     bool touched = false;
-    for (const Lit m : *c) {
-      const Lit mp = mapped(m) ? representative(m) : m;
-      if (mapped(m) || k.value(m) != 0 || k.value(mp) != 0) {
-        touched = true;
-        break;
-      }
+    if (session) {
+      for (const Lit m : *c)
+        if (mapped(m) || k.value(m) != 0) {
+          touched = true;
+          break;
+        }
+    } else {
+      for (const Lit m : *c)
+        if (mapped_sub[m] || k.value(m) != 0) {
+          touched = true;
+          break;
+        }
     }
     if (!touched)
       return ApplyResult::Ok;

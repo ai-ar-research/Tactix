@@ -143,7 +143,24 @@ void heuristics_deactivate_var(Kernel &, Var v);
 void heuristics_consume_root_assignments(Kernel &, size_t trail_begin);
 // Kissat's flags[idx].active predicate for decision-guidance operations.
 // Root-fixed and retired variables are disconnected but retain kernel IDs.
-bool heuristics_var_active(const Kernel &, Var v);
+//
+// Defined inline: this and its `queue_contains` helper are cheap pointer/link
+// reads called in the conflict-analysis hot loop (analyze.cpp) and other TUs.
+// Out of line they cost a cross-TU call frame per invocation -- the pervasive
+// header-vs-.cpp overhead report 3.50 named (heuristics_var_active alone burned
+// 18.7e9 instructions as an out-of-line symbol). Both Kernel (via the include
+// above) and Heuristics are fully visible here, so the definition folds into
+// each caller as Kissat's header-resident predicates do.
+inline bool heuristics_queue_contains(const Kernel &k, Var v) {
+  if (k.h->queue_first == v || k.h->queue_last == v)
+    return true;
+  const Link &l = k.h->links[v];
+  return l.prev != INVALID_VAR && l.prev < k.nvars &&
+         k.h->links[l.prev].next == v;
+}
+inline bool heuristics_var_active(const Kernel &k, Var v) {
+  return k.h && v < k.h->nvars && heuristics_queue_contains(k, v);
+}
 
 // --- EVSIDS score heap (stable mode) ----------------------------------------
 void heuristics_heap_push(Kernel &, Var v);    // insert (must not be contained)
