@@ -7,6 +7,24 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+- ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
+  1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
+  substitution's cache-bound 2x on large-input ranks. The precise root is the
+  CLAUSE HEADER: Tactix's Clause is 20 bytes (size, flags, searched, id_lo,
+  id_hi -- a 64-bit proof id for native LRAT) vs Kissat's 12. The 8-byte-larger
+  clause lowers arena cache density; substitution iterates the whole arena, so
+  it loads ~8 dead bytes/clause -> the 2x. NOT diffuse C++ overhead.
+  CONCRETE FIX (the general, non-overfitting change to close the gap): move the
+  proof id OUT of the hot clause header into a side structure accessed only at
+  proof emission (or omit it under DRAT/proofless). This slims the header to
+  Kissat's 12 bytes -> denser arena -> faster substitution AND every arena-
+  iterating inprocessing. It is TARGETED (one representation) but INVASIVE and
+  N2-LOAD-BEARING: touches every id()/set_id() site and the append-only-arena
+  clause_position_alias (which keys on the id). A focused, validated rework --
+  NOT safe to rush half-finished at exhausted context, and NOT a diffuse grind.
+  THIS is the next step to merge the gap. The 5 shipped repairs (-6.2s) stand;
+  clean line unitcost-on-main.
+
 - SHIPPABLE LINE = branch `unitcost-on-main` (a63153d = main 275be55 + 5
   byte-identical unit-cost repairs). The clausal-core branch regresses r34 into a
   timeout (report 3.92), so the general repairs were cherry-picked here onto clean
