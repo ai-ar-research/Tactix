@@ -31,6 +31,13 @@ namespace tactix {
 static const bool substitute_time =
     std::getenv("TACTIX_SUBSTITUTE_TIME") != nullptr;
 
+// Single in-place binary-substitution pass (Kissat substitute_binaries port)
+// for the non-session DRAT path, replacing the image-array pipeline. Hatch is
+// for same-window A/B during validation; the port is the default. Set
+// TACTIX_SUBSTITUTE_IMAGE_PATH=1 to force the legacy image path.
+static const bool substitute_force_image_path =
+    std::getenv("TACTIX_SUBSTITUTE_IMAGE_PATH") != nullptr;
+
 namespace {
 
 // Allocation-boundary tracing is compiled only into semantic-trace builds.
@@ -1836,6 +1843,139 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     return ExpandedBinaryImage{source.source_a, source.source_b, a, b,
                                a == negate(b)};
   };
+  bool refuted = false;
+  uint64_t subst_snapshot = 0; // TACTIX_SUBSTITUTE_TIME markers (image path)
+  size_t image_count = 0;
+  // The non-session DRAT path ports Kissat's single in-place `substitute_binaries`
+  // pass (kissat/src/substitute.c:276) instead of the image-array pipeline below.
+  // LRAT (needs per-pair antecedent ids) and Sweep sessions (bridge targets) keep
+  // the image path.
+  const bool kissat_single_pass =
+      !session && !lrat && !substitute_force_image_path;
+  if (kissat_single_pass) {
+    // ---- Kissat substitute_binaries port ------------------------------------
+    // One pass over each affected literal's watch list: `lit==repr` keeps or
+    // rewrites the entry in place; `lit!=repr` moves the pair to `repr`'s list
+    // via a per-lit `delayed` stack appended only AFTER the walk, so no push
+    // relocates the list being scanned (grow() re-indexes offsets, but the raw
+    // p/q/end pointers are not). DRAT and the pair identity are emitted once per
+    // undirected pair under the import-order owner guard, so the resulting
+    // formula, binary_ids and next_clause_id COUNT match the image path; only
+    // the DRAT line interleaving and the id assignment ORDER differ (checkable,
+    // and search-invariant). Metadata bookkeeping mirrors WatchLists::compact.
+    const auto import_owner = [&](Lit a, Lit b) {
+      return kernel_import_lit_order(k, a) < kernel_import_lit_order(k, b);
+    };
+    std::vector<Lit> delayed_targets; // repr_other words to move to repr_lit
+    std::vector<uint8_t> delayed_publish;
+    std::vector<Lit> touched_units;   // seen marks to clear at the end
+    for (const Var variable : variable_order)
+      for (uint32_t sign = 0; sign < 2; sign++) {
+        const Lit lit = make_lit(variable, sign != 0);
+        if (!canonical_binary_affected[lit])
+          continue;
+        const Lit repr_lit = image[lit];
+        const Lit not_repr_lit = negate(repr_lit);
+        delayed_targets.clear();
+        delayed_publish.clear();
+        uint32_t *const base = k.watches.begin(lit);
+        uint32_t *q = base;
+        const uint32_t *p = base;
+        const uint32_t *const stop = k.watches.end(lit);
+        const uint32_t old_size = k.watches.heads[lit].size;
+        uint32_t kept_binaries = 0;
+        bool kept_has_large = false, kept_binaries_first = true;
+        while (p != stop) {
+          const Watch w{*p};
+          if (!w.binary()) { // large watch: two words, keep verbatim
+            *q++ = *p++;
+            *q++ = *p++;
+            kept_has_large = true;
+            continue;
+          }
+          const Lit other = w.other();
+          ++p;
+          const Lit repr_other = image[other];
+          const bool is_owner = import_owner(lit, other);
+          const auto proof_del_source = [&] {
+            if (is_owner && k.proof) {
+              const Lit lits2[2] = {lit, other};
+              k.proof->del(k.next_clause_id, kernel_binary_id(k, lit, other),
+                           lits2, 2);
+            }
+          };
+          if (repr_other == not_repr_lit) { // tautology: drop this direction
+            changed = true;
+            proof_del_source();
+            continue;
+          }
+          if (repr_other == repr_lit) { // collapses to the unit repr_lit
+            changed = true;
+            // Add the unit while the source pair is still live (its RUP cites
+            // the source), then delete the source -- the image path's
+            // add-pass-then-delete-pass order.
+            if (is_owner && !seen_contains(repr_lit)) {
+              seen_mark(repr_lit);
+              touched_units.push_back(repr_lit);
+              const uint64_t id = ++k.next_clause_id;
+              if (k.proof)
+                k.proof->add_rup(0, &repr_lit, 1, nullptr, 0);
+              if (record_unit(repr_lit, id))
+                refuted = true;
+            }
+            proof_del_source();
+            continue;
+          }
+          if (lit == repr_lit && other == repr_other) { // unchanged: keep
+            *q++ = w.raw;
+            ++kept_binaries;
+            kept_binaries_first = kept_binaries_first && !kept_has_large;
+            continue;
+          }
+          // Genuine surviving rewrite to (repr_lit, repr_other).
+          changed = true;
+          if (is_owner && k.proof) {
+            const Lit lits2[2] = {repr_lit, repr_other};
+            k.proof->add_rup(0, lits2, 2, nullptr, 0);
+          }
+          proof_del_source();
+          if (lit == repr_lit) { // stable owner: rewrite in place, survives
+            *q++ = binary_watch(repr_other).raw;
+            ++kept_binaries;
+            kept_binaries_first = kept_binaries_first && !kept_has_large;
+          } else { // mapped owner: move to repr_lit's list, publish once/pair
+            delayed_targets.push_back(repr_other);
+            const bool moved_other = (other != repr_other);
+            delayed_publish.push_back(
+                static_cast<uint8_t>(!moved_other || is_owner));
+          }
+        }
+        // Finalize lit's compacted list (WatchLists::compact bookkeeping).
+        WatchHead &head = k.watches.heads[lit];
+        const uint32_t new_size = static_cast<uint32_t>(q - base);
+        head.size = new_size;
+        k.watches.holes += old_size - new_size;
+        head.set_layout(kept_binaries, kept_binaries_first);
+        // Append the moved directions to repr_lit's list (may relocate that
+        // slice only; lit's list is already finalized and re-read by offset).
+        for (size_t i = 0; i < delayed_targets.size(); i++) {
+          const Lit repr_other = delayed_targets[i];
+          if (delayed_publish[i]) {
+            const bool already_live =
+                kernel_binary_copies(k, repr_lit, repr_other, 1) ||
+                kernel_binary_copies(k, repr_other, repr_lit, 1);
+            k.watches.push_binary(repr_lit, repr_other);
+            const uint64_t id = ++k.next_clause_id;
+            kernel_publish_binary_clause(k, repr_lit, repr_other, id,
+                                         !already_live);
+          } else {
+            k.watches.push_binary(repr_lit, repr_other);
+          }
+        }
+      }
+    for (const Lit unit : touched_units)
+      seen_clear(unit);
+  } else {
   // Targets are a pure function of the immutable representative map. Store
   // only the source pair, and use segmented storage so growing a giant image
   // does not momentarily hold both old and doubled contiguous buffers.
@@ -1895,8 +2035,8 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         }
       }
   }
-  const uint64_t subst_snapshot = substitute_time ? now_nanos() : 0;
-  const size_t image_count = images.size();
+  subst_snapshot = substitute_time ? now_nanos() : 0;
+  image_count = images.size();
   substitute_stage_trace(k, "rewrite-images", images.size(), 0,
                          sizeof(BinaryImage));
 
@@ -1912,7 +2052,6 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
     emitted_units.push_back(unit);
     return true;
   };
-  bool refuted = false;
   std::vector<uint64_t> target_keys, target_ids;
   if (!lrat) {
     // DRAT names clauses by their literals, not by ids.  Stream the transformed
@@ -2501,6 +2640,7 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   substitute_stage_trace(k, "rewrite-binary-end", rebuilt_images,
                          k.watches.arena.size(), k.watches.holes);
   std::vector<BinaryImage>().swap(images);
+  } // end image-path binary substitution (else of kissat_single_pass)
   if (session)
     sparse_seen.clear();
   else
