@@ -7,33 +7,35 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
-- PIVOT TO r34 N4 (user directive 2026-09-06): stop unit-cost work; r34 is the
-  priority. r34 = tactix 734.6s vs kissat 343.3s (2.14x) is NOT an implementation
-  gap -- it is an N4 SEARCH-TRAJECTORY divergence: tactix does 1.97x conflicts,
-  2.05x decisions, 1.73x propagations (unit cost only ~9% on top). Preprocessing
-  outcomes match kissat (subst 5096 vs 5336, BVE-elim 5935 vs 5521). r34 is
-  SYSTEMATIC not a one-instance outlier: it matches the OPEN ledger item
-  SP-FACTOR-OCCURRENCE-1 (docs/scheduling-parity-ledger.md:112 -- Factor+Analyze+
-  conflict-reuse, first divergence conflict 1010 with root-false -89 retention,
-  ~2.6x on its fixture) and the class of ANALYZE-* trajectory divergences (e.g.
-  ANALYZE-OTFS-WATCH-1 closed Rank-15 497s->80s). Several ranks are N4: r17 1.16x,
-  r21/r25/r40, r19 tactix 5x FEWER conflicts.
-  METHOD (parity-ledger, debug-performance skill): trace tactix vs kissat on r34,
-  find the FIRST-divergence conflict (they compound from there -- prior items
-  diverged at conflicts 347/1010/3140, all EARLY, so trace the first ~5-20k
-  conflicts, feasible despite r34's 8.5M total), identify the exact mechanism,
-  port it GENERALLY on a small fixture (NOT overfit r34), validate on fixture+r34.
-  First suspect: SP-FACTOR-OCCURRENCE-1 conflict-1010 (r34 does 91 factorings,
-  223900 restarts=reuse fires). Diagnostic arms: TACTIX_CONFLICT_REUSE,
-  TACTIX_JUMP_REASONS=0, TACTIX_FACTOR_DEMOTE=0, event traces.
-  DEFERRED (done, not pushed): the binary-substitution port (commit 3a1bb53) is
-  SHIPPED + GATED GREEN (R40 36/40 in, 0 tactix timeouts, 0 verdict failures; fuzz
-  --quick 10000 x2 = 0 failures; behaviour-identical A/B; -4-5% on substitution
-  ranks). Push once R40 hits 40/40 and BC regression is re-run (BC job 1667933 hit
-  a node-side FileNotFoundError -- infra, not code; all 3 components run clean
-  locally). Remaining unit-cost gap after the port: Substitute residual +23.9s
-  (large-clause/SCC/lemma sub-phases), Parse +18.4s, Sweep +6.3s over 0-conflict
-  ranks -- resume AFTER r34.
+- MERGED TO MAIN: the binary-substitution port + 7 unit-cost repairs are on
+  origin/main (fast-forward 275be55->f6c98b3, clean, validated: fuzz 0/10k x2,
+  behaviour-identical A/B, R40 39/40 clean 0 timeouts, -4-5% on substitution
+  ranks). Reports 3.103-3.107 on the line.
+- ACTIVE THREAD: r34 N4 (conflict-reuse fidelity). r34 = 2.14x is a search-
+  trajectory divergence; ablation (1667999) localized it to CONFLICT REUSE
+  (reuse OFF: r34 8.54M->5.34M conflicts, 727->452s). Generality gate (1668006,
+  tactix-noreuse vs kissat, 27/40 ranks) shows reuse is NET-POSITIVE (+5.86%
+  WORSE without it -- do NOT ship a knob; turning it off overfits, regressing
+  r20 +84%/r26 +131%/r29 +92%). But tactix's reuse PORT DIVERGES from kissat on a
+  SYSTEMATIC subset where it hurts vs no-reuse: r6 -39%, r16 -44%, r19 -78%,
+  r23 -51%, r34 -38%. This is a general N4 fidelity bug (matches OPEN ledger item
+  SP-FACTOR-OCCURRENCE-1: analyze/reuse, conflict 1010, root-false -89).
+  FIX = faithful port of the reuse decision so r34-class improves WITHOUT
+  regressing r20/r26/r29. NOT a knob.
+  NEXT ACTION: first-divergence trace on the FAST fixture r16 (126s, -44%; or
+  r6 66s) -- much cheaper than r34 (734s). Method: build kissat-event-trace
+  variant + tactix event-trace pin; run both with EVENT_TRACE_CONFLICT_FROM/TO;
+  scalar-checkpoint to locate the divergence conflict, then bounded detailed
+  trace; diff with tools/bench/compare_event_trace.py --mode semantic
+  (orchestrator benchmarks/probes/cross-solver-semantic-trace.sh, CROSS_TRACE_*).
+  Compare tactix analyze.cpp:1278-1345 reuse firing vs kissat analyze.c:16-127
+  one_literal_on_conflict_level. SUSPECTS (code-level, unverified): tactix tests
+  reuse per-OTFS-pass not once; tactix requires jump2>0 (kissat reuses at
+  jump_level=0 via unit); kissat pre-backtracks when conflict_level<level. Target
+  math IS faithful (chronolevels=100=kissat). Then validate the fix improves
+  r6/r16/r19/r23/r34 WITHOUT regressing r20/r26/r29 + fuzz + B28+C5.
+  PARKED unit-cost gap (resume after r34): Substitute residual +23.9s (large-
+  clause/SCC/lemma sub-phases), Parse +18.4s, Sweep +6.3s over 0-conflict ranks.
 
 - ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
   1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
