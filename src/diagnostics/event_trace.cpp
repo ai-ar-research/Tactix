@@ -295,7 +295,13 @@ void initialize_decision_prefix() {
 void note_decision_prefix(const Kernel &k, int external) {
   initialize_decision_prefix();
   auto &s = decision_prefix;
-  if (!s.enabled || s.emitted || k.stats.conflicts != s.conflict)
+  // Accumulate the CUMULATIVE decision prefix (every decision up to and
+  // including the target conflict), not just the decisions made while
+  // conflicts==target. The per-conflict form emitted an empty (seed) hash
+  // whenever no decision fell exactly at the target conflict, which collided
+  // across targets (report 3.125). The cumulative hash is a robust
+  // cross-solver alignment key at the target conflict.
+  if (!s.enabled || s.emitted || k.stats.conflicts > s.conflict)
     return;
   if (!s.count)
     s.first = external;
@@ -313,8 +319,8 @@ void note_decision_prefix(const Kernel &k, int external) {
 void flush_decision_prefix(const Kernel &k) {
   initialize_decision_prefix();
   auto &s = decision_prefix;
-  if (!s.enabled || s.emitted || k.stats.conflicts != s.conflict + 1)
-    return;
+  if (!s.enabled || s.emitted || k.stats.conflicts < s.conflict + 1)
+    return; // flush at first checkpoint past target so STOP fires (3.125)
   FILE *out = std::fopen(s.path.c_str(), "w");
   if (!out) {
     std::perror("TACTIX_DECISION_PREFIX_TRACE");
