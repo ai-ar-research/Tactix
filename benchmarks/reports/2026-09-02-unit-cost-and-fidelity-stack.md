@@ -5404,3 +5404,23 @@ scheduling/analyze fidelity fixes (deep). Honest picture: the big structural imp
 levers are done; what's left is diffuse impl micro-cost + concentrated N4 (trace).
 This is a multi-session effort; this session shipped 2 substitution wins + full
 localization + honest corrections.
+
+### 3.117 Full cumulative profile lever map (r7) -- clean wins captured (2026-09-07)
+
+perf cumulative (children) on r7 (job 1668104):
+  Congruence 37.8% -- FAITHFUL/parity (3.107: 28.78 vs kissat 28.47s), do NOT touch.
+  Substitute 21.6% -- largely CAPTURED (binary single-pass port + Bloom already_live).
+  Parse 20.6% (ingest_clause 10.6%) -- 1.28x slower; its binary-dedup kernel_binary_
+    live (5.5%) is already Bloom-prefiltered so unique binaries are fast; the 1.28x
+    is DIFFUSE per-clause micro-cost (import/dedup/activate), no single hot line.
+  kernel_sparse_collect_root 5.8% -- GC, proof-neutral, but core-kernel; would need
+    its own careful localization vs kissat collect.
+CONCLUSION: the CLEAN, high-EV, byte-identical impl levers are CAPTURED this session
+(binary port + Bloom opt). What remains is (a) diffuse parse/substitute micro-cost
+(many tiny wins, low EV each), (b) core-kernel GC (careful), (c) congruence which is
+faithful (leave), and (d) the concentrated N4 gap (+11.27%, r34-class) needing
+trace-driven analyze/scheduling fidelity fixes. No more quick safe wins on the
+matched-work ranks; the impl-gap remainder is a genuine diffuse micro-grind. Honest
+end-of-session state: 2 substitution wins shipped + full profile-driven lever map +
+exhaustive r34 localization (needs the trace) + honest corrections. The path to
+within-1% is a multi-session effort along these mapped levers.
