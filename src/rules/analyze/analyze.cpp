@@ -1274,8 +1274,12 @@ ApplyResult analyze_apply(Kernel &k) {
       k.stats.conflict_watch_repaired++;
 
     // Test reuse at every OTFS pass, before another 1-UIP/minimize round can
-    // change the replacement (implementation-notes.md §12).
-    if (alevel > 0 && k.conflict_reuse) {
+    // change the replacement (implementation-notes.md §12). Diagnostic arm
+    // reuse_first_round_only restricts the test to the original conflict (the
+    // first, non-OTFS round), matching Kissat's single one_literal_on_conflict_
+    // level call, to probe the r34-class reuse-fidelity divergence.
+    if (alevel > 0 && k.conflict_reuse &&
+        !(k.reuse_first_round_only && otfs_round)) {
       uint32_t at_alevel = 0, jump2 = 0;
       Lit forced = INVALID_LIT;
       for (uint32_t i = 0; i < csize; i++) {
