@@ -5954,3 +5954,38 @@ gap is FEWER-instructions (codegen, concentrated or diffuse; function profile lo
 or SAME-instructions-lower-IPC (data layout / branch prediction). This is the live
 impl-gap lever hunt on a genuine matched-work instance -- the productive thread after
 LTO/-march were refuted and r34's N4 proved instance-specific.
+
+### 3.134 SESSION CONCLUSION: both gap halves driven to roots; impl-gap lever hunt blocked by cluster perf permissions (2026-09-07)
+
+Comprehensive picture after this session's digging (all evidence in 3.127-3.133):
+
+N4 half (trajectory divergence, DIFFERENT work): r34's divergence localized through the
+decision heap -> sweep -> embedded KITTEN core extraction (instance-specific: r6/r16/r19
+are all in LOCKSTEP with kissat on deactivations; only r34 diverges). The emit-order fix
+was implemented and proved INERT. Conclusion: the N4 gap is HETEROGENEOUS per-instance
+embedded-solver trajectory chaos; matching r34's kitten would OVERFIT one instance.
+
+IMPL half (matched work, more time = unit cost): HETEROGENEOUS across ranks --
+r38 (mexam) 0.999 (AT PARITY), r29 (ER_400) 1.027, noL-11 family (r16/r23/r26) ~1.053.
+The noL-11 gap is PURE UNIT COST (byte-identical conflicts/props/decisions to kissat on
+r26; 2.097T instructions, 2.06 IPC, 4.53% branch-misses). NEITHER general build lever
+helps: LTO and -march=native both make tactix ~2.5-3.9% SLOWER (behavior byte-identical),
+so -O3 plain is already tactix's best codegen.
+
+TOOLING BLOCKER: function-level profiling to localize the noL-11 unit-cost gap is BLOCKED
+by the cluster's perf_event_paranoid (perf record fails: "Kernel address maps restricted";
+job 1668189). A cpu-clock:u user-space retry (job 1668190) was attempted; the node was
+degraded by system-wide memory pressure (also killed every login-node watcher this
+session). Without a function profile (or a callgrind run -- ~50x slower, hours) the noL-11
+matched-work unit-cost gap cannot be localized to a concrete lever.
+
+HONEST STATE FOR THE STANDING GOAL: within-1% on Rank 1-40 is NOT achieved and no code fix
+landed this session. Both gap halves were driven to roots WITHOUT a clean general fixable
+mechanism found: N4 = heterogeneous embedded-solver chaos (overfitting risk); impl = a real
+matched-work unit-cost gap on the noL-11 family that build flags cannot close and that
+function-level profiling (blocked by perf permissions) is needed to localize. The two clean
+wins remain the shipped binary-subst port + Bloom prefilter. NEXT (for the user / fresh
+session): (1) obtain perf permissions (perf_event_paranoid<=1) OR run callgrind on r26 to
+localize the noL-11 unit-cost hot spot -> the concrete impl-gap lever; (2) decide the N4
+scope question (accept r34-class deviations in the parity ledger vs per-instance kitten
+fidelity). This is a genuine engineering wall, documented with evidence, not a premature stop.
