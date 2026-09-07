@@ -7,36 +7,33 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
-- PORT SHIPPED + GATED GREEN, but the impl gap is BIGGER than the prior 1.24%
-  claim (reports 3.104/3.105; commit 3a1bb53 unitcost-on-main). The Kissat
-  single-in-place binary-substitution port (non-session DRAT) is SOUND (fuzz
-  --quick 10000 job 1667888 = 0 failures, Substitute fired 2501 cases),
-  behaviour-identical (1500-case A/B byte-identical verdicts+reached), and FASTER
-  (-4 to -5% on every 0-conflict/substitution rank). It STANDS.
-  BUT R40 gate 5256 (job 1667849) decomposed by conflict ratio shows the true
-  implementation gap is ~12-15% on the preprocessing-dominated 0-CONFLICT ranks
-  (r7/8/10/13/14: both arms 0 conflicts = identical work = pure unit cost; tactix
-  +11-15% AFTER the port). Binary substitution was only ~4-5% of that ~16-20%
-  gap; ~11% of DIFFUSE PREPROCESSING UNIT COST REMAINS (congruence/sweep/BVE/
-  vivify/arena/other). The prior 1.24% used the all-40 total as denominator,
-  diluting the concentrated cost.
-  r34 and r17/r21/r25/r40 are N4 (trajectory divergence), NOT impl gap: r34 tactix
-  8.54M vs kissat 4.33M conflicts = 1.97x (runtime 2.14x, +391s) -- a 2x-work
-  search divergence a unit-cost fix cannot touch; r19 tactix does 5x FEWER
-  conflicts (-589s). N4 net ~-12s over these. r34 needs a SEPARATE N4 thread.
-  NEXT ACTION (keep digging, the goal is NOT met): profile the 0-conflict ranks
-  r7/r8/r10/r13/r14 for the next preprocessing unit-cost lever BEYOND binary
-  substitution -- same method as 3.100 (per-phase timers + perf on a .text-
-  identical -g pin vs kissat, NOT noisy r10 wall time). Candidates: congruence
-  (3.95 claimed FASTER -- re-verify on these ranks), sweep, vivify, arena/watch
-  density, dense-occurrence build. Then a separate N4 thread for r34-class 2x-work
-  divergences.
-  GATES: R40 1667849 (32/40 verdicts in; 8 slow ranks still solving/proof-checking
-  -- do not wait per directive; read benchmarks/runs/20260906-5256-r1-40-
-  singlepass-v-kissat/results). Fuzz DRAT 1667888 PASSED 0/10k; randpol 1667889
-  running. BC regression 1667933 (single-pass vs image-path via hatch, B+C).
-  Pin build/pin-sp-3a1bb53 (e52ca91a). PUSH once fuzz-randpol + BC green (behaviour-
-  identical port => no B+C regression expected): fast-forward main to the port.
+- PIVOT TO r34 N4 (user directive 2026-09-06): stop unit-cost work; r34 is the
+  priority. r34 = tactix 734.6s vs kissat 343.3s (2.14x) is NOT an implementation
+  gap -- it is an N4 SEARCH-TRAJECTORY divergence: tactix does 1.97x conflicts,
+  2.05x decisions, 1.73x propagations (unit cost only ~9% on top). Preprocessing
+  outcomes match kissat (subst 5096 vs 5336, BVE-elim 5935 vs 5521). r34 is
+  SYSTEMATIC not a one-instance outlier: it matches the OPEN ledger item
+  SP-FACTOR-OCCURRENCE-1 (docs/scheduling-parity-ledger.md:112 -- Factor+Analyze+
+  conflict-reuse, first divergence conflict 1010 with root-false -89 retention,
+  ~2.6x on its fixture) and the class of ANALYZE-* trajectory divergences (e.g.
+  ANALYZE-OTFS-WATCH-1 closed Rank-15 497s->80s). Several ranks are N4: r17 1.16x,
+  r21/r25/r40, r19 tactix 5x FEWER conflicts.
+  METHOD (parity-ledger, debug-performance skill): trace tactix vs kissat on r34,
+  find the FIRST-divergence conflict (they compound from there -- prior items
+  diverged at conflicts 347/1010/3140, all EARLY, so trace the first ~5-20k
+  conflicts, feasible despite r34's 8.5M total), identify the exact mechanism,
+  port it GENERALLY on a small fixture (NOT overfit r34), validate on fixture+r34.
+  First suspect: SP-FACTOR-OCCURRENCE-1 conflict-1010 (r34 does 91 factorings,
+  223900 restarts=reuse fires). Diagnostic arms: TACTIX_CONFLICT_REUSE,
+  TACTIX_JUMP_REASONS=0, TACTIX_FACTOR_DEMOTE=0, event traces.
+  DEFERRED (done, not pushed): the binary-substitution port (commit 3a1bb53) is
+  SHIPPED + GATED GREEN (R40 36/40 in, 0 tactix timeouts, 0 verdict failures; fuzz
+  --quick 10000 x2 = 0 failures; behaviour-identical A/B; -4-5% on substitution
+  ranks). Push once R40 hits 40/40 and BC regression is re-run (BC job 1667933 hit
+  a node-side FileNotFoundError -- infra, not code; all 3 components run clean
+  locally). Remaining unit-cost gap after the port: Substitute residual +23.9s
+  (large-clause/SCC/lemma sub-phases), Parse +18.4s, Sweep +6.3s over 0-conflict
+  ranks -- resume AFTER r34.
 
 - ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
   1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
