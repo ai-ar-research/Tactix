@@ -5234,3 +5234,29 @@ NOT a knob. General N4 fidelity bug (SP-FACTOR-OCCURRENCE-1). Fixtures r6/r16
 (fast, -39/-44%). Localize via a search-phase windowed cross-solver trace
 (--mode anchor), then repair analyze.cpp reuse firing vs kissat one_literal_on_
 conflict_level.
+
+### 3.110 r34 reuse hypothesis: per-OTFS-pass timing is CONFIRMED the pathology site but the naive fix TRADES ranks (2026-09-07)
+
+Overnight (resumed per goal), tested the pre-localized hypothesis: tactix tests
+the reuse shortcut at every OTFS round; kissat once on the original conflict.
+Diagnostic TACTIX_REUSE_FIRST_ONLY (analyze.cpp, commit 9e03674, gates reuse to
+!otfs_round) -- sound (local fuzz 800/0). Ablation 1668096 (reuse-first-only vs
+default vs kissat):
+  r34 (reuse-HURTS): 734.6 -> 385.3s (-349s! near kissat 343.3) -- r34's blowup
+    IS the reuse x OTFS interaction.
+  r6  (reuse-HURTS): 66.1 -> 80.9s (+15, WORSE)
+  r20 (reuse-HELPS): 118.5 -> 227.5s (+109, WORSE, now >> kissat 141)
+VERDICT: REFUTED as a clean/faithful fix. reuse-first-only is a HYBRID (kissat-like
+reuse timing on tactix's OTFS-RESTART structure) that helps r34 massively but
+REGRESSES r6/r20 below kissat -- it shuffles the gap, does not merge it, and
+violates within-1%-on-all-ranks. Net on 3 ranks -226s (r34 dominates) but the
+r6/r20 regressions are real and unfaithful.
+KEY LEARNING: r34's pathology is the reuse x OTFS-restart interaction (confirmed),
+but the fix is NOT the reuse test timing alone. The deeper divergence is tactix's
+OTFS-RESTART structure (strengthen conflict -> restart analysis) vs kissat's
+OTFS-in-1-UIP-resolution (no restart) -- kissat is good on r6/r20 AND r34 because
+its structure never produces r34's pathological reused clause. FAITHFUL FIX needs
+the first-divergence trace (r16 search-phase window, --mode anchor) to find the
+exact reused-clause/backjump divergence, then match kissat's analyze structure.
+The diagnostic arm is kept (default OFF) as a reproducer. reuse-first-only is NOT
+shippable.
