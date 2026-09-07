@@ -5989,3 +5989,23 @@ session): (1) obtain perf permissions (perf_event_paranoid<=1) OR run callgrind 
 localize the noL-11 unit-cost hot spot -> the concrete impl-gap lever; (2) decide the N4
 scope question (accept r34-class deviations in the parity ledger vs per-instance kitten
 fidelity). This is a genuine engineering wall, documented with evidence, not a premature stop.
+
+### 3.135 CORRECTION to 3.134: the noL-11 unit-cost gap is CONCRETE (+3.4% instructions, IPC at parity), NOT diffuse-no-lever (2026-09-07)
+
+The kissat perf stat DID complete (job 1668190), and it overturns 3.134's premature
+"blocked/no-lever" framing. On r26/noL-11-0 (matched work, 306.5M props BOTH):
+    metric         tactix       kissat       delta
+    instructions   2.097e12     2.028e12     tactix +3.42%
+    cycles         1.016e12     0.974e12     tactix +4.31%
+    IPC            2.06         2.08         ~parity (tactix slightly lower)
+    branches       340.1e9      344.6e9      tactix FEWER
+    branch-misses  4.53%        4.60%        ~parity
+So tactix's noL-11 unit-cost gap is DOMINATED by executing ~3.4% MORE INSTRUCTIONS for
+identical work, with IPC and branch prediction at PARITY. This is a CONCRETE codegen
+lever (raw instruction count), not stalls/data-layout and not "diffuse chaos" -- reduce
+tactix's per-work instruction count and the gap closes. (Notably tactix has FEWER branches
+but slightly lower IPC, consistent with extra straight-line work in the hot path.) The
+cpu-clock:u user-space function profile (bypasses perf_event_paranoid) is running to
+localize WHICH functions carry the extra ~69B instructions -> the concrete impl-gap fix
+target. This supersedes 3.134's pessimism: there IS a lever; it needs the function profile
+to localize (perf record cpu-clock:u works where the default perf record was blocked).
