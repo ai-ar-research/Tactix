@@ -5939,3 +5939,18 @@ PARITY / faster); r29 (ER_400) 297.6/289.8 = 1.027; r23 (noL-11-6) 210.2/199.0 =
 targeted profile (job 1668189: perf on r26 + matched-work counter check). If concentrated ->
 a real, general (noL-11-family) impl-gap lever; if diffuse there too -> the gap is
 fundamental C++-vs-lean-C overhead with no lever and within-1% is not reachable by codegen.
+
+### 3.133 noL-11 gap is MATCHED-WORK pure unit cost (5.3%), 2.15T instructions; profiling for the lever (2026-09-07)
+
+MATCHED WORK CONFIRMED (job 1668189): on r26/noL-11-0 tactix and kissat have IDENTICAL
+conflicts=9,608,136, decisions=27,460,199, propagations=306,487,174 -- so the ~5.3%
+runtime gap is PURE UNIT COST, not N4. This is a clean, real, matched-work unit-cost gap
+larger than 3.119's 1.02-1.03x (which was measured on the small-gap ranks r29/r38). perf
+stat (tactix -g pin): 2.149e12 instructions, 1.021e12 cycles, 2.10 IPC, 4.62% branch-
+misses, 16% frontend-idle, 268.7s. perf record was blocked by the node's
+perf_event_paranoid (kernel maps restricted); retrying with cpu-clock:u user-space
+sampling (job 1668190) + kissat perf stat to compare instruction counts -> whether the
+gap is FEWER-instructions (codegen, concentrated or diffuse; function profile localizes)
+or SAME-instructions-lower-IPC (data layout / branch prediction). This is the live
+impl-gap lever hunt on a genuine matched-work instance -- the productive thread after
+LTO/-march were refuted and r34's N4 proved instance-specific.
