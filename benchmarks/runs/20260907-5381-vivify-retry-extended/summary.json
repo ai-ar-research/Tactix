@@ -1,0 +1,16 @@
+{
+  "stopped_clean": 2,
+  "identical_decisions": 1928902,
+  "stop_conflicts": 1000000,
+  "prior_prefix_preserved": true,
+  "native_observer_neutral": true,
+  "trace_sha256": {
+    "kissat.boundaries.tsv": "bb67919a3a4bd83fb5dde3b8fcfe398f7bcb68ec0d98ede304b40f01d6dfa707",
+    "tactix.decisions.tsv": "dd1a680b94bec0b3c0a4b2773dc7bee4a9216d66b0d9db6250a52f20f7292854",
+    "tactix.boundaries.tsv": "b22fe1c313df1763d98a2dffa079139964d7419d2d1f92fc5c6a5df48a6f20c2",
+    "tactix.prefix.tsv": "795d038bc60c465f83f2b7a934a8833015ffa0b2157f81e8e939d183e6caf826",
+    "kissat.decisions.tsv": "dd1a680b94bec0b3c0a4b2773dc7bee4a9216d66b0d9db6250a52f20f7292854",
+    "kissat.prefix.tsv": "e7d8dc53ea9c3bd048c22d163f0ef92f46f71532654c04329ff9da9958cb35a7"
+  },
+  "conclusion": "All 1928902 decisions agree through one million conflicts. Use this bounded trajectory for cost diagnosis; do not claim whole-state, whole-solve or timing parity."
+}
