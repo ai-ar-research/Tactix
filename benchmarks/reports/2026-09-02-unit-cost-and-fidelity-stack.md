@@ -5383,3 +5383,24 @@ A modest but genuine, safe, general chip off the impl gap (3.108 was +308s/+6.49
 on the matched-work ranks). More such proof-neutral hot-function speedups remain
 (other kernel_binary_copies callsites on the session/sweep path; the large-clause
 substitution residual is proof-critical). r34 (N4) still needs the 7am trace.
+
+### 3.116 Large-clause substitution is already in-place; the impl gap is now DIFFUSE after the two wins (2026-09-07)
+
+Checked the large-clause substitution (rewrite_large_ref, substitute.cpp:1469):
+its surviving images are written back into the SOURCE ALLOCATION in place (only
+unit/binary collapses retire the record) -- matching CLOSED ledger item
+SP-INPLACE-REWRITE-1 and kissat's all_clauses in-place rewrite. So it is NOT a
+multi-pass lever like the binary substitution was; it is already faithful.
+CONSEQUENCE: after the two shipped wins (binary single-pass port 3a1bb53, Bloom
+already_live prefilter bf326dc), the substitution clean levers are CAPTURED. The
+remaining Substitute residual (was +4.65s/1.6x on r14 pre-Bloom, now ~+3.7s) is
+DIFFUSE -- SCC detection, the single-pass details, lemma emission -- no single hot
+lever. Congruence is faithful (parity). Parse is diffuse. So the IMPLEMENTATION
+GAP is now largely DIFFUSE unit cost (many small byte-identical micro-wins, low
+individual EV, like the 7 earlier repairs + the Bloom opt) rather than a few big
+levers. Merging it fully is a long micro-optimization grind. The remaining
+CONCENTRATED gap is the N4 ranks (+11.27%, r34-class), which need the trace-driven
+scheduling/analyze fidelity fixes (deep). Honest picture: the big structural impl
+levers are done; what's left is diffuse impl micro-cost + concentrated N4 (trace).
+This is a multi-session effort; this session shipped 2 substitution wins + full
+localization + honest corrections.
