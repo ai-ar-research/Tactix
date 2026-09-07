@@ -5811,3 +5811,20 @@ Matched diagnostics exist for the next step: TACTIX_CORE_TRACE vs kissat add_cor
 and TACTIX_SWEEP_TRACE vs kissat sweep_backbone_candidate, to confirm the precise first
 divergent core lemma before coding. Validate: r6/r16/r19/r23/r34 track kissat WITHOUT
 regressing r15/r20/r26/r36; fuzz 0/10k; B28+C5; proofs check.
+
+CORE-TRACE CONFIRMATION (job 1668175, TACTIX_CORE_TRACE vs kissat-ticktrace
+KISSAT_CORE_TRACE at conflict 26913): the backbone-site CORE size-1 (unit) lemmas
+match kissat's in ORDER (both: 10839,12880,12488,14838,14432,14548,698,972,1112,563,
+845,906,... -- tactix emits each twice from candidate retries but the dedup'd first-
+occurrence order matches; verified the CORE units == the DEACT sweeping-backbone units).
+So the divergence is NOT the within-core capture order -- it is the INTERLEAVING/
+batching: kissat add_core assigns each unit INLINE during the walk (so root propagation
+of that unit, and any other deactivations, interleave between units), whereas tactix
+CAPTURES a whole core then BATCH-emits via sweep_emit_pending_units, so the global
+deactivation sequence (hence the order-sensitive heap_remove sequence) diverges. FIX
+(confirmed, N2-proof-critical): assign/commit each backbone unit immediately during the
+core-lemma walk (mirror add_core) rather than collect-then-batch-emit, so propagation
+and deactivation interleave as in kissat -- while keeping each unit's reconstructed
+DRAT/LRAT proof valid at the inline commit point. This is a sweep proof-reconstruction
+restructure: design with calculus/rule-dev, validate with the proof oracle. Traces:
+benchmarks/runs/20260907-5281-r34-core-order.
