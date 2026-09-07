@@ -1,0 +1,21 @@
+{
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "job": "1668647",
+  "source_patch": "candidate.patch",
+  "input_sha256_compressed": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+  "contract": "Full-width 0-1, one stopped proof-on solver per task; 12 logical CPUs/48000 MiB, one bound thread, no throttle or node constraint.",
+  "kissat_source": "Pristine 8af8e56f174b778aef3aa45af9f739b2a5f492c2 plus tracked c2a95a6 event overlay and kissat-observer.patch; fresh Release build.",
+  "release_sha256": "a8868f435ddef9a4c6d65c3b852ffe3ac4fa015dc23e3e96187927d1cb197b36",
+  "purpose": "UNFUZZED 5327 bridge pose: does closing root propagation order also close the conflict-75451 warmup decision witness?",
+  "reference_campaign": "benchmarks/runs/20260907-5327-bridge-root-order",
+  "acceptance": "No truncation; both traces reach 75452; compare ordinary and warmup decisions separately in conflicts 50000..75451; verify scratch deletion. Not a runtime or correctness gate.",
+  "hashes": {
+    "pins/tactix": "7bc131a99f5a312f8068a6f09022423c81cb9cba786db450b9c3c6390a6085bc",
+    "pins/kissat": "86cd1ecf8e4cfdfb9af70dea2b62182c9d994ba4adee0d6a2c311a854321259c",
+    "candidate.patch": "6742a562943bdafbf6eb19cb353be6d6eeed0691bd477cba03d8f32a3720cc2b",
+    "run.py": "e01eed3eea375999d3f97fcb3c97efe27ea7376c83227b12de8757fee7cd087e",
+    "array.sbatch": "f71680904b3affc2f7dbcea85b042a877a96385316c23010d8ba166d58c8c1de",
+    "tactix-observer.patch": "faf7061b7f6e0ae7c9e4659b00af09c3ea5e4d28e9eb684985798a6787a28a35",
+    "kissat-observer.patch": "68c19e426a1857989a145806a407db4718d5953cbda73282c1aec958399a6a15"
+  }
+}

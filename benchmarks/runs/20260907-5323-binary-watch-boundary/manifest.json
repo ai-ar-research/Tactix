@@ -1,0 +1,20 @@
+{
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "job": "1668637",
+  "source_patch": "candidate.patch",
+  "input_sha256_compressed": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+  "contract": "Full-width 0-1, one stopped proof-on solver per task; 12 logical CPUs/48000 MiB, one bound thread, no throttle or node constraint.",
+  "kissat_source": "Pristine 8af8e56f174b778aef3aa45af9f739b2a5f492c2 plus tracked c2a95a6 event overlay and kissat-observer.patch; fresh Release build.",
+  "acceptance": "No truncation, both traces reach 26914, ordered root literals/reasons compared, scratch deleted. Stopped runs are not correctness or timing evidence.",
+  "purpose": "UNFUZZED core-only source: observe binary owner 562 at macro boundaries/root assignments, comparing physical watches and the dense ledger.",
+  "reference_campaign": "benchmarks/runs/20260907-5321-all-root-order",
+  "hashes": {
+    "pins/tactix": "d5429781ba8a17b1e8343b06b5cfacdbf3bb8eb1bb5b7ac6c19f0f9100a3eab9",
+    "pins/kissat": "244759a76bb13ae3809d82ba22d0d23c224828e5056ead276bbc2d371f73636b",
+    "candidate.patch": "90b27ae99d082d481ae456424557821631b6d5f55e584f0410cb12f00bcab9fb",
+    "run.py": "63e7e580f246a09db3578c3ae866cadbad6048562257735279840c004338bddb",
+    "array.sbatch": "05e4e49184f0309c18537353c779da499c30b9d8e09f4859069d9f965da8ca85",
+    "tactix-observer.patch": "1b79e0f0bef5815a702210d210109a414a727942ba42c489a39beebe03e95fae",
+    "kissat-observer.patch": "b6df3809ac55f42601c5911475aca2c0655a06dabbc28da1794f6131ce194451"
+  }
+}

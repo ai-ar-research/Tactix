@@ -1,0 +1,18 @@
+{
+  "purpose": "Observe true recorded core antecedents independently of native-LRAT chains; no host consequence or search-policy change.",
+  "job": "1668618",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "source_patch": "candidate.patch",
+  "reference_campaign": "benchmarks/runs/20260907-5313-core-boundary-selector",
+  "input_sha256_compressed": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+  "contract": "Full-width 0-1, 12 logical CPUs and 48000 MiB/task, one bound solver, no throttle/node constraint; 600-second diagnostic cap.",
+  "acceptance": "Semantic event traces match 5313; compare saved core rows at exact seed/query; scratch deleted. Stopped runs are not verdict or timing gates.",
+  "implementation": "Reuses metadata portions of 9a4adfa..d42c71d, omitting search changes; root-unit antecedents are shallow in physical clause order, separately from the LRAT cone.",
+  "hashes": {
+    "candidate.patch": "2f4b721d8fa14d03e6f4d7daa7d3b2402d290b271fa1cb9cd5242d8829c07dd1",
+    "run.py": "158938e82fb2664fc146940ecab9e76a56832fe0722a2d8be99ab83e023d0a19",
+    "array.sbatch": "7359a5d1977fff674e35fa0cb2bc3dd15a10761d3d8f9e89b8a03f5220b39cfe",
+    "pins/tactix": "cdeb95b550a386db8ab2ae3975ac92a556461385ad4cd64e662f4c9bc0f81985",
+    "pins/kissat": "771088fe59af45a327dce4f1b2cb967e43b02566328ac0dc58ac8f1cfeb74560"
+  }
+}

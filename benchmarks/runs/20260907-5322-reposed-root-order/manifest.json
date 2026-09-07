@@ -1,0 +1,23 @@
+{
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "job": "1668635",
+  "source_patch": "candidate.patch",
+  "input_sha256_compressed": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+  "contract": "Full-width 0-1, one stopped proof-on solver per task; 12 logical CPUs/48000 MiB, one bound thread, no throttle or node constraint.",
+  "kissat_source": "Pristine 8af8e56f174b778aef3aa45af9f739b2a5f492c2 plus tracked c2a95a6 event overlay and kissat-observer.patch; fresh Release build.",
+  "purpose": "UNFUZZED: compose original-core exposure with physical binary-watch order publication; test root-order witness.",
+  "observer_note": "The Tactix all-roots patch is identical to 5321, now on the clean Release source (without its earlier unused OBS_QUERY observer).",
+  "release_sha256": "ea92cc15d9c962e2607bd1604294dcdc8153cae5e442fb4c735a2e6f161ed199",
+  "focused_validation": "test_substitute including physical-order fixture, test_sweep, test_subsolver, and all 44 DRAT/LRAT emitted cases pass.",
+  "reference_campaign": "benchmarks/runs/20260907-5321-all-root-order",
+  "acceptance": "No truncation, both traces reach 26914, ordered root literals/reasons compared, scratch deleted. Stopped runs are not correctness or timing evidence.",
+  "hashes": {
+    "pins/kissat": "86cd1ecf8e4cfdfb9af70dea2b62182c9d994ba4adee0d6a2c311a854321259c",
+    "pins/tactix": "3eff878dd682afc0abc85efaab5a9950f309f2f59db599f6bbb8455955189247",
+    "candidate.patch": "1f127d5e4dc8cd1824d4ae1ee9470aefe4148f285270e02472207844cd10ec1e",
+    "run.py": "240f2af75a4bcc9aeaf30b43ea77f32d52a710f745fde6f05f94264658b7d99f",
+    "array.sbatch": "e627b453ddc15a6cda85adc704560315fe5dffa217540cd255ae1a0684023070",
+    "tactix-observer.patch": "faf7061b7f6e0ae7c9e4659b00af09c3ea5e4d28e9eb684985798a6787a28a35",
+    "kissat-observer.patch": "68c19e426a1857989a145806a407db4718d5953cbda73282c1aec958399a6a15"
+  }
+}
