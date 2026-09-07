@@ -1,0 +1,160 @@
+{
+  "stopped_clean": 2,
+  "previous_observers_byte_identical": true,
+  "inheap_counts": [
+    2404,
+    2398
+  ],
+  "matching_prefix": 1554,
+  "first_tactix": [
+    "DEACT",
+    "95799",
+    "3166",
+    "elim=1",
+    "fixed=0",
+    "inheap=1"
+  ],
+  "first_kissat": [
+    "DEACT",
+    "95799",
+    "22171",
+    "elim=1",
+    "fixed=0",
+    "inheap=1"
+  ],
+  "context_tactix": [
+    [
+      "DEACT",
+      "95799",
+      "3182",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "19272",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "2982",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "3166",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "3172",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "17529",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "19290",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ]
+  ],
+  "context_kissat": [
+    [
+      "DEACT",
+      "95799",
+      "3182",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "19272",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "2982",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "22171",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "3166",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "3172",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ],
+    [
+      "DEACT",
+      "95799",
+      "17529",
+      "elim=1",
+      "fixed=0",
+      "inheap=1"
+    ]
+  ],
+  "selected_5416": {
+    "tactix": [
+      [
+        "DEACT",
+        "95799",
+        "5416",
+        "elim=1",
+        "fixed=0",
+        "inheap=1",
+        "trail=4294967295"
+      ]
+    ],
+    "kissat": []
+  },
+  "trace_sha256": {
+    "tactix": "5ee096b834840edc186f39d2fd5dd5aa8668c72ccabd29f471458c6f3ad266fc",
+    "kissat": "af40d8038f2d5292c61fa4f46e7653823f3c66a105c3125fccf64320de19db73"
+  },
+  "conclusion": "5416 is retired only by Tactix at conflict 95799. The first inheap difference is earlier in that phase, after 1554 matching removals: Kissat removes 22171 before Tactix next removes 3166. Trace the first BVE candidate difference."
+}

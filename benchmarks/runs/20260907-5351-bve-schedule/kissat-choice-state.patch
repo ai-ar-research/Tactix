@@ -1,0 +1,50 @@
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -1194,6 +1194,47 @@
+ }
+ 
+ static void note_decision_prefix (kissat *solver, unsigned lit) {
++  static bool state_initialized;
++  static FILE *state;
++  static uint64_t state_conflict = UINT64_MAX;
++  static unsigned wanted, selected = UINT_MAX;
++  if (!state_initialized) {
++    state_initialized = true;
++    const char *path = getenv ("KISSAT_CHOICE_STATE_TRACE");
++    const char *conflict = getenv ("SAT_CHOICE_STATE_CONFLICT");
++    const char *variable = getenv ("SAT_CHOICE_STATE_VARIABLE");
++    if (path && conflict && variable) {
++      state = fopen (path,"w");
++      if (!state) { perror(path); exit(2); }
++      state_conflict = strtoull(conflict,0,10);
++      wanted = atoi(variable);
++    }
++  }
++  if (state && solver->statistics.conflicts == state_conflict) {
++    if (selected == UINT_MAX || external_variable(solver,selected) != wanted)
++      for (all_variables(idx))
++        if (external_variable(solver,idx) == wanted) { selected=idx; break; }
++    if (selected != UINT_MAX) {
++      const unsigned l = LIT(selected);
++      const assigned *a = solver->assigned+selected;
++      fprintf(state,"%" PRIu64 "\t%" PRIu64 "\t%u\t%d\t%u\t%d\t%u\t%u\t%.17g\t",
++          solver->statistics.conflicts,solver->statistics.decisions,
++          solver->level,external_literal(solver,lit),wanted,
++          solver->values[l],solver->values[l] ? a->level : UINT_MAX,
++          kissat_get_heap_pos(SCORES,selected),SCORES->score[selected]);
++      if (!solver->values[l]) fputs("unassigned",state);
++      else if (a->reason == DECISION_REASON) fputs("decision",state);
++      else if (a->reason == UNIT_REASON) fputs("unit",state);
++      else if (a->binary) fprintf(state,"binary:%d",external_literal(solver,a->reason));
++      else {
++        clause *c = kissat_dereference_clause(solver,a->reason);
++        fputs("large:",state);
++        for (unsigned i=0;i<c->size;i++)
++          fprintf(state,"%s%d",i?",":"",external_literal(solver,c->lits[i]));
++      }
++      fputc('\n',state);
++    }
++  }
+   static bool stream_initialized;
+   static FILE *stream;
+   if (!stream_initialized) {

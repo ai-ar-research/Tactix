@@ -1,0 +1,32 @@
+{
+  "job": "1668718",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "source_patch": "candidate.patch",
+  "input_sha256_compressed": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+  "contract": "Full-width 0-1, one stopped proof-on solver per task; 12 logical CPUs/48000 MiB, one bound thread, no throttle or node constraint.",
+  "kissat_source": "Exact 5321/5328 reference source plus kissat-warmup-observer.patch; fresh Release build.",
+  "release_sha256": "a8868f435ddef9a4c6d65c3b852ffe3ac4fa015dc23e3e96187927d1cb197b36",
+  "purpose": "UNFUZZED initial BVE schedule comparison before any candidate at conflict 95799.",
+  "reference_campaign": "benchmarks/runs/20260907-5327-bridge-root-order",
+  "acceptance": "Both exit zero at the first selected schedule, before candidate execution, with clean scratch; compare complete membership, scores, counts and physical positions.",
+  "hashes": {
+    "pins/kissat": "117835ad5b358aa4b145d95e252859e091db678555489137b9320b09971f0e52",
+    "pins/tactix": "2cfc46e5475a44124914875b0956fa15d88bfc797a74e9264183c89bd66e7c9a",
+    "kissat-deact-observer.patch": "90d9c1b87cc5bae2f1d7f5ee0b7cacc86dd504c51ca1fa93be7c9c7fe455cbf8",
+    "kissat-decision-stream.patch": "a22be7c2c2886edc8ad833c06abe885905c1810d9c09f5934f6510bc89049ca0",
+    "kissat-warmup-observer.patch": "4150571da4707c89032200d6facda581b7dda7cca72943b0dfe8cf626f961145",
+    "round-retirement.patch": "d9babc5e77868710a6f8f60a0d151d6f56f452fa31a0fc0244a8afc5ef050c26",
+    "tactix-deact-observer.patch": "4cee510392b882adf2a2c08d5c432564323d96e1979444618f8a1a6221adb14c",
+    "tactix-observer.patch": "faf7061b7f6e0ae7c9e4659b00af09c3ea5e4d28e9eb684985798a6787a28a35",
+    "kissat-observer.patch": "68c19e426a1857989a145806a407db4718d5953cbda73282c1aec958399a6a15",
+    "tactix-decision-stream.patch": "8cca2e25a0806208940d4fc60248f4cb29c64daed5eea6ee448f9d6768b26860",
+    "candidate.patch": "6742a562943bdafbf6eb19cb353be6d6eeed0691bd477cba03d8f32a3720cc2b",
+    "tactix-choice-state.patch": "df07595415452b58968a76ed1830f099ab58984b99e907b87237da209b531091",
+    "kissat-choice-state.patch": "92cffa970235cd295454114fd33274b4ba94ad3ef3e026193c81c19be45dfe8c",
+    "run.py": "cecbe47b8f12d482bacd50ddec96852b1e80cf67d67a4f98e98f690fbe0c033b",
+    "array.sbatch": "63a10edead2c94f00e45f150fd21ab0389a3cf283f975778eefb41286913de57"
+  },
+  "hypothesis": "The tenth candidate mismatch may originate in the initial heap or in updates during the first nine candidates.",
+  "parent_campaign": "benchmarks/runs/20260907-5350-bve-frontier",
+  "source_note": "Reuse exact immutable 5348 pins; existing standalone schedule observer stops before first candidate. No verdict/timing claim."
+}

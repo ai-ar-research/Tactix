@@ -1,0 +1,19 @@
+{
+  "staged_diff_check": {
+    "all_files_exit": 2,
+    "finding": "Only retained .patch context blank lines and native Kissat .out c-space lines trigger trailing-whitespace reports. These are byte-preserved experimental evidence, not source formatting changes.",
+    "excluding_patch_and_out_exit": 0,
+    "action": "Preserve pinned patches and raw solver output; do not rewrite manifests or evidence to silence formatting diagnostics."
+  },
+  "andrew_report": {
+    "path": "report-to-andrew/20260907-1447-bve-choice-frontier/report.tex",
+    "pdf": "report-to-andrew/20260907-1447-bve-choice-frontier/report.pdf",
+    "compilations": 2,
+    "working_directory": "report-to-andrew/20260907-1447-bve-choice-frontier",
+    "module": "amh-tex/2023",
+    "pages": 2,
+    "final_pass": "success, no LaTeX warnings",
+    "ownership": "local/untracked"
+  },
+  "push": "Not attempted; explicit user approval is still required after previous auto-review rejection."
+}
