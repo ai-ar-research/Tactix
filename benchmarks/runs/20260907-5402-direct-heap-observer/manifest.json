@@ -1,0 +1,33 @@
+{
+  "purpose": "Reuse the existing one-shot heap snapshot at the post-decision prefix observer without broad event tracing.",
+  "environment": "SAT_DECISION_HEAP_SNAPSHOT, absent by default; existing HEAP_SET selectors retain the exact boundary.",
+  "validation": "76/76 fixed CTests pass; 5403 must reproduce 5400 cumulative prefix and selected decisions.",
+  "build_note": "Initial Tactix compile failed due to a forward declaration in the anonymous rather than enclosing namespace. Declaration moved before that namespace and rebuilt before any solver execution. No solver or unit-test failure.",
+  "sources": {
+    "tactix": {
+      "parent": ".claude/worktrees/runtime-window-observer-5399",
+      "source": ".claude/worktrees/runtime-direct-heap-5402",
+      "file": "src/diagnostics/event_trace.cpp",
+      "sha256": "03616d26331facb114cf8a9db3bad58fedcc314252d1452d7ee505dddab96142",
+      "patch_sha256": "e9bace0581d6d8a8069911e4d85eafb9fb3327f11c44d9d0a86ae1c3898f2d7d"
+    },
+    "kissat": {
+      "parent": "tools/solvers/variants/kissat-window-observer-5399",
+      "source": "tools/solvers/variants/kissat-direct-heap-5402",
+      "file": "src/eventtrace.c",
+      "sha256": "9dda94f617d673c0ceb3e1a87aa2b90494ba377ee225469a6bb2f6f2f3b1b300",
+      "patch_sha256": "458e799d91be01472d48223df3f265bfd8af3208c81a8d6cd5b9243ee063b2cb"
+    }
+  },
+  "binaries": {
+    "build/pin-5402-direct-heap/tactix": "6cfd95a15eb66c94ca7db0643453c909e124941332533da216e9301925be3146",
+    "tools/solvers/variants/kissat-direct-heap-5402/build/kissat": "2c11fc44649b864d460d10509f4b5b7a20fce044e295e052fc0a29c4e7fae108"
+  },
+  "logs": {
+    "tactix-build-2.log": "7c277daa55dbcce62f939c29a6f69c314c113559cb9c40155870e15fb8ca5185",
+    "kissat-configure.log": "21f88ebfd4521d374ab5605a7d8c91e3c6d5477dc0c39c202d45023b047b9b0b",
+    "tactix-build.log": "f50ac2dd0de0a29c8270b3b2b7abad6daf515a7cc112a668a3f48092631901d6",
+    "kissat-build.log": "cfbd4f1b504a6e4239048ac929b199c463713212db4c1af134362d5414a8ad67",
+    "ctest.log": "694b91d8ba6cf79de07d296c537dd866384ab7945fae7e3728e26aede0b3bd28"
+  }
+}

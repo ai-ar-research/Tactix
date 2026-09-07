@@ -1,0 +1,41 @@
+{
+  "point": {
+    "requested_conflict": 13562,
+    "snapshot_conflict": 13563,
+    "snapshot_decisions": 17798664,
+    "expected_count": 17872584,
+    "expected_hash": "00720e20bd6be748",
+    "common_hash": "423158d46f796010"
+  },
+  "label": "02-kissat",
+  "scratch": "/tmp/tactix-5405-1669514-na0wvl7t",
+  "arm": "kissat",
+  "slurm_job": "1669514",
+  "node": "node017",
+  "binary_sha256": "2c11fc44649b864d460d10509f4b5b7a20fce044e295e052fc0a29c4e7fae108",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "600",
+    "taskset",
+    "-c",
+    "30",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260907-5405-rank35-heap-lifecycle/pins/kissat",
+    "/tmp/tactix-5405-1669514-na0wvl7t/input.cnf",
+    "/tmp/tactix-5405-1669514-na0wvl7t/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 11534336,
+    "sha256": "ce6844e9182c067523fbbbcec47400298a169930939bf948f841614208198bad"
+  },
+  "trace_sha256": {
+    "02-kissat.heap.tsv": "4547ffc7e89360edbcec664f0bacccf4f96ac27f7b782ee609214bd7dddb8a85",
+    "02-kissat.deact.tsv": "fa84e697d66ea85c576e106ece027b43000324a06ef7803719a36f1a8451ac6e",
+    "02-kissat.choice.tsv": "635a2690b92ecdbdab7aca3aa835e744bbbb7ed6d3e086318ef644a7c4e5c5e6",
+    "02-kissat.prefix.tsv": "a5ae3761767be35e23f8b073351726c59d70923ea839e659ad9423d301292362",
+    "02-kissat.decisions.tsv": "089c0fe12ad1d01e1720ba26aa188864697f5a848e7ee87a9b7f6916039b6cae",
+    "02-kissat.boundaries.tsv": "ccbe6eb4b2c58b24aa77487afc839775ad81a29e93550b0a64fd98edfb186b36"
+  },
+  "scratch_deleted": true
+}

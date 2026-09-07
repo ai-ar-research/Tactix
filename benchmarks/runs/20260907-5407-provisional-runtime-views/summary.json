@@ -1,0 +1,3274 @@
+{
+  "observed_at": "2026-09-07T23:15:21.070251+00:00",
+  "purpose": "User-approved asynchronous proof-checking workflow: use expected solver results provisionally to continue dependent work, revisit actual checker outcomes.",
+  "validation": "All 80 expected solver exits per view present, no known rejected final result. Pending certificates are NOT counted as verified.",
+  "views": {
+    "5383": {
+      "campaign": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40",
+      "manifest_sha256": "b89ced4151dca5261a8fd8a5cea21121736a539dc6e0f5a6be220d0f568a9715",
+      "totals": {
+        "tactix": 8217.738,
+        "kissat": 6764.775999999999
+      },
+      "provisional_ratio": 1.2147834606792598,
+      "checked_clean": 79,
+      "rows": [
+        {
+          "rank": 1,
+          "arm": "tactix",
+          "instance": "tierD24-26/1545660e72158c7e90da5ad4c877a124-hwmcc20miters-iso-rast-p06.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.267,
+          "rss_kib": 84068,
+          "work": {
+            "conflicts": 1,
+            "decisions": 0,
+            "propagations": 190699
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/000.json",
+          "source_sha256": "d592e62024a5c922e9ba229bab2fd2583b20cea1c90eb12d68c3da71ba7ced33"
+        },
+        {
+          "rank": 1,
+          "arm": "kissat",
+          "instance": "tierD24-26/1545660e72158c7e90da5ad4c877a124-hwmcc20miters-iso-rast-p06.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 49564,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 190698
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/001.json",
+          "source_sha256": "c853cf29c86a175f267f1b64314bf1e7999b58d0d0a27ec72b16c8958681c3ab"
+        },
+        {
+          "rank": 2,
+          "arm": "tactix",
+          "instance": "tierD24-26/1a20d903db74ab566efc68a35e6b0ec5-hwmcc20miters-iso-rast-p11.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 84088,
+          "work": {
+            "conflicts": 1,
+            "decisions": 0,
+            "propagations": 188827
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/002.json",
+          "source_sha256": "2f1eb7baccd633b1b1abbc6d955f73caab4840d435c204f83be049e326895d0b"
+        },
+        {
+          "rank": 2,
+          "arm": "kissat",
+          "instance": "tierD24-26/1a20d903db74ab566efc68a35e6b0ec5-hwmcc20miters-iso-rast-p11.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 49568,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 188826
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/003.json",
+          "source_sha256": "2aaf58979ac6c7e37cf89a4e34a3861d95eae82c8069fc5ef8b8b6a50228070b"
+        },
+        {
+          "rank": 3,
+          "arm": "tactix",
+          "instance": "tierD24-26/3b5d7ec347010e177bfa04b298fc75cf-nla-digbench-scaling_dijkstra-u_valuebound1_transition.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.567,
+          "rss_kib": 153892,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 96082
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/004.json",
+          "source_sha256": "8c38d3a26127949523bf6ea4be64c9aa6afd1030e39d234c7a5137a8c45f2437"
+        },
+        {
+          "rank": 3,
+          "arm": "kissat",
+          "instance": "tierD24-26/3b5d7ec347010e177bfa04b298fc75cf-nla-digbench-scaling_dijkstra-u_valuebound1_transition.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.467,
+          "rss_kib": 103612,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 96083
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/005.json",
+          "source_sha256": "4f7a9c4a4c339a121e85cf32579e772b7f2a65179bcdc13f3938b9c792332466"
+        },
+        {
+          "rank": 4,
+          "arm": "tactix",
+          "instance": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 8.43,
+          "rss_kib": 28008,
+          "work": {
+            "conflicts": 651764,
+            "decisions": 908950,
+            "propagations": 18006397
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/006.json",
+          "source_sha256": "8a01be365eef245c078da680f93b044d5ce1d44cf928eabc117d808f225d92d3"
+        },
+        {
+          "rank": 4,
+          "arm": "kissat",
+          "instance": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 7.628,
+          "rss_kib": 13008,
+          "work": {
+            "conflicts": 651764,
+            "decisions": 908950,
+            "propagations": 18532091
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/007.json",
+          "source_sha256": "45710e3f4d1d38ad5295be3b77668a48110cf65007f3ef3c91367674a1ee8f8a"
+        },
+        {
+          "rank": 5,
+          "arm": "tactix",
+          "instance": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 29.713,
+          "rss_kib": 10682156,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 58640574
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/008.json",
+          "source_sha256": "0f7afeb94dd153ff549789994d9f5b7736b3f89a8887f7ffcaabcd939ba847d7"
+        },
+        {
+          "rank": 5,
+          "arm": "kissat",
+          "instance": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 30.214,
+          "rss_kib": 10402844,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 58571074
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/009.json",
+          "source_sha256": "fd9015c9778756843b6fb17add337066517c85d6713aa979dba7eb3d6369f712"
+        },
+        {
+          "rank": 6,
+          "arm": "tactix",
+          "instance": "tierD24-26/7a5e9bdbf9b8c025b1f986d6098b6206-cfi-rigid-t2-0048-04-or_3_shuffle_all.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 67.273,
+          "rss_kib": 756988,
+          "work": {
+            "conflicts": 373544,
+            "decisions": 3449913,
+            "propagations": 131533204
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/010.json",
+          "source_sha256": "526cc660a0c45fbe7dddf81a08c126add04ec9f5343cf14ba5de44bce77d0028"
+        },
+        {
+          "rank": 6,
+          "arm": "kissat",
+          "instance": "tierD24-26/7a5e9bdbf9b8c025b1f986d6098b6206-cfi-rigid-t2-0048-04-or_3_shuffle_all.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 52.9,
+          "rss_kib": 349612,
+          "work": {
+            "conflicts": 373544,
+            "decisions": 3449913,
+            "propagations": 145391572
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/011.json",
+          "source_sha256": "971aa336da8dc2b09111d049d2075adfdc0f130c5cdc1a192d701fbbc5d1109e"
+        },
+        {
+          "rank": 7,
+          "arm": "tactix",
+          "instance": "tierD24-26/26b648475cfd06695a17ac95f4469744-128_75.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 54.253,
+          "rss_kib": 9713632,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 46132715
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/012.json",
+          "source_sha256": "5f9625fcb28a3ec1427c44b2446fc3f84f60d1a7ecc3a9adf0835d53bc485caa"
+        },
+        {
+          "rank": 7,
+          "arm": "kissat",
+          "instance": "tierD24-26/26b648475cfd06695a17ac95f4469744-128_75.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 48.545,
+          "rss_kib": 9109728,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 46109670
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/013.json",
+          "source_sha256": "066727b85a77ef6a93b6b6d1b961a8fc949753b3688ef15444cb7fcbca782eda"
+        },
+        {
+          "rank": 8,
+          "arm": "tactix",
+          "instance": "tierD24-26/210fe1c0ffefde5bcd03d59b1efa6984-32_325.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 66.479,
+          "rss_kib": 11862680,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 56889411
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/014.json",
+          "source_sha256": "77d7b96d07253e5e5265781b3a509bb42f93c2fe998ba9c3e11d3b385fa4d058"
+        },
+        {
+          "rank": 8,
+          "arm": "kissat",
+          "instance": "tierD24-26/210fe1c0ffefde5bcd03d59b1efa6984-32_325.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 58.313,
+          "rss_kib": 11118752,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 56849612
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/015.json",
+          "source_sha256": "0e4b6f378c8ab3643fcc1232f99b6c8bc9e2e4abea84c1f8e8c17ff597610ea1"
+        },
+        {
+          "rank": 9,
+          "arm": "tactix",
+          "instance": "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 94.777,
+          "rss_kib": 3794232,
+          "work": {
+            "conflicts": 46730,
+            "decisions": 30153962,
+            "propagations": 642247674
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/016.json",
+          "source_sha256": "085e8e697d49ed5a106e356044278d5ff42dd7dd3e6b8b4cea73f8dd9e2d278f"
+        },
+        {
+          "rank": 9,
+          "arm": "kissat",
+          "instance": "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 69.132,
+          "rss_kib": 1326232,
+          "work": {
+            "conflicts": 48149,
+            "decisions": 31526846,
+            "propagations": 695871037
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/017.json",
+          "source_sha256": "5906e6b96ec167e4c638b02a455b9f62246d8111a68df4b50c550bccf893f3fc"
+        },
+        {
+          "rank": 10,
+          "arm": "tactix",
+          "instance": "tierD24-26/093fa3ff9f7bc9979c43f9d2310ac21d-128_125.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 91.371,
+          "rss_kib": 15967668,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 76457813
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/018.json",
+          "source_sha256": "78a620e63d6e198a26385149fea660e63498d28bab6b51ef245ee4f6d9a8e3b0"
+        },
+        {
+          "rank": 10,
+          "arm": "kissat",
+          "instance": "tierD24-26/093fa3ff9f7bc9979c43f9d2310ac21d-128_125.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 82.153,
+          "rss_kib": 15348304,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 76431950
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/019.json",
+          "source_sha256": "af30f154c426f7c524bcbe67ee22b587eb17b4cb3db8c625c13729b4433736ca"
+        },
+        {
+          "rank": 11,
+          "arm": "tactix",
+          "instance": "tierD24-26/912ce8c21d8fb8abc491cb205ec23e9f-hwmcc20miters-iso-mul2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.267,
+          "rss_kib": 95464,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 253639
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/020.json",
+          "source_sha256": "aebab60affc444abd37317973f5e041f912c7890d9426fe618be17d9f7dfe883"
+        },
+        {
+          "rank": 11,
+          "arm": "kissat",
+          "instance": "tierD24-26/912ce8c21d8fb8abc491cb205ec23e9f-hwmcc20miters-iso-mul2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 60692,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 253639
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/021.json",
+          "source_sha256": "ac3f10412d6ab9fc33f4d0aef8db23452ac5efec0e55da02096b2dc521fde4a8"
+        },
+        {
+          "rank": 12,
+          "arm": "tactix",
+          "instance": "tierD24-26/8d4b50ec0cf99097e9ab0835937afee5-hwmcc17miters-xits-iso-6s281b35.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 7.328,
+          "rss_kib": 1843960,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 4868175
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/022.json",
+          "source_sha256": "8e220da2c4ac1a3a14fe26d6bc6be4aab6a07f65962cb2779d210bac38a5ec8d"
+        },
+        {
+          "rank": 12,
+          "arm": "kissat",
+          "instance": "tierD24-26/8d4b50ec0cf99097e9ab0835937afee5-hwmcc17miters-xits-iso-6s281b35.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 5.175,
+          "rss_kib": 1234908,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 4868175
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/023.json",
+          "source_sha256": "0ae19daf5db16e5d9cc24fa6d94b988240afdd6a5898969f1729f6e207deebcf"
+        },
+        {
+          "rank": 13,
+          "arm": "tactix",
+          "instance": "tierD24-26/84c6d7e4a18aacf166105aaa3cd6e3de-128_100.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 73.592,
+          "rss_kib": 12752784,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61295163
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/024.json",
+          "source_sha256": "d659573cc8b662da66c1ce80e15cb3d9e15830f4e278c98534528ed51250d96f"
+        },
+        {
+          "rank": 13,
+          "arm": "kissat",
+          "instance": "tierD24-26/84c6d7e4a18aacf166105aaa3cd6e3de-128_100.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 64.574,
+          "rss_kib": 11928200,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61261545
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/025.json",
+          "source_sha256": "9e6bf4f2962747d434b49eb2b586421bcba7edb72b6bc89b0fc1f7c3aa2548bf"
+        },
+        {
+          "rank": 14,
+          "arm": "tactix",
+          "instance": "tierD24-26/a14d9ee17051ec08a4334ba43089502c-64_200.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 73.09,
+          "rss_kib": 12854700,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61521915
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/026.json",
+          "source_sha256": "4f16d60f1313abda7eb5425ac2ebeadad706b073ecaa78e125be1ebbdb8d398b"
+        },
+        {
+          "rank": 14,
+          "arm": "kissat",
+          "instance": "tierD24-26/a14d9ee17051ec08a4334ba43089502c-64_200.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 63.874,
+          "rss_kib": 12018708,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61483725
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/027.json",
+          "source_sha256": "06d31f440e1a8cd7783828d19911220a0636ec24c782512be55053a8aac09d92"
+        },
+        {
+          "rank": 15,
+          "arm": "tactix",
+          "instance": "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 82.04,
+          "rss_kib": 53792,
+          "work": {
+            "conflicts": 2272663,
+            "decisions": 3310531,
+            "propagations": 311056558
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/028.json",
+          "source_sha256": "d530594da4be5a1616d2ca79d74d19164867512c794cda003245a3d4607d94ff"
+        },
+        {
+          "rank": 15,
+          "arm": "kissat",
+          "instance": "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 80.347,
+          "rss_kib": 29704,
+          "work": {
+            "conflicts": 2272663,
+            "decisions": 3310531,
+            "propagations": 311286274
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/029.json",
+          "source_sha256": "2c05c4ee2dc98a4219100e4373c6e8e25583fe5c10a3713acecb562ca756efba"
+        },
+        {
+          "rank": 16,
+          "arm": "tactix",
+          "instance": "tierD24-26/05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 127.414,
+          "rss_kib": 106208,
+          "work": {
+            "conflicts": 4777402,
+            "decisions": 14441406,
+            "propagations": 152705482
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/030.json",
+          "source_sha256": "16884477b7ea0be801ea6e0e1b1d70de66b9a26a7c3346f21896c9575898daad"
+        },
+        {
+          "rank": 16,
+          "arm": "kissat",
+          "instance": "tierD24-26/05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 121.707,
+          "rss_kib": 65168,
+          "work": {
+            "conflicts": 4777402,
+            "decisions": 14441406,
+            "propagations": 152707442
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/031.json",
+          "source_sha256": "9b287f93ef71e070c0ea982a8d6a3f514accdfa6ee4e1f26229f9acf96febf54"
+        },
+        {
+          "rank": 17,
+          "arm": "tactix",
+          "instance": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 153.311,
+          "rss_kib": 1335328,
+          "work": {
+            "conflicts": 165557,
+            "decisions": 4406020,
+            "propagations": 1016171447
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/032.json",
+          "source_sha256": "0f2aa8a76d515942c97a5078fd89508248a2aa63b99aebcc251e049159ccad0a"
+        },
+        {
+          "rank": 17,
+          "arm": "kissat",
+          "instance": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 114.497,
+          "rss_kib": 598308,
+          "work": {
+            "conflicts": 186237,
+            "decisions": 3961527,
+            "propagations": 1055776860
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/033.json",
+          "source_sha256": "225e19610f1dba46c099362774502ef260d0a0bb043aa963b9cb672fa7a79573"
+        },
+        {
+          "rank": 18,
+          "arm": "tactix",
+          "instance": "tierD24-26/0f262afd5b117000f8b4734d175aadab-linked_list_swap_contents_safety_unwind73.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 64.57,
+          "rss_kib": 2984780,
+          "work": {
+            "conflicts": 11370,
+            "decisions": 802677,
+            "propagations": 546191110
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/034.json",
+          "source_sha256": "818413891b1b2ab695dd7de47931508ecb8652d5876807be224c2073d8bebf9c"
+        },
+        {
+          "rank": 18,
+          "arm": "kissat",
+          "instance": "tierD24-26/0f262afd5b117000f8b4734d175aadab-linked_list_swap_contents_safety_unwind73.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": false,
+          "wall_seconds": 127.317,
+          "rss_kib": 2083228,
+          "work": {
+            "conflicts": 35646,
+            "decisions": 1055436,
+            "propagations": 1843175943
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/provisional/035.json",
+          "source_sha256": "c598cad41eac1bf8c7c7a0b41ecab1f29c441783f13783609d1c87309103672d"
+        },
+        {
+          "rank": 19,
+          "arm": "tactix",
+          "instance": "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 137.535,
+          "rss_kib": 400784,
+          "work": {
+            "conflicts": 701651,
+            "decisions": 27626032,
+            "propagations": 1846890843
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/036.json",
+          "source_sha256": "52c44af39fae54db7f1db122b4f4ab1052898f2fb4229476e67b7377405b602e"
+        },
+        {
+          "rank": 19,
+          "arm": "kissat",
+          "instance": "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 115.194,
+          "rss_kib": 143804,
+          "work": {
+            "conflicts": 701651,
+            "decisions": 27626032,
+            "propagations": 1965249366
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/037.json",
+          "source_sha256": "41c10f548aa0162f54dc1a6cbfff57f7158c3b0cb95e13004b8aeba71e3c7cff"
+        },
+        {
+          "rank": 20,
+          "arm": "tactix",
+          "instance": "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 120.761,
+          "rss_kib": 1787092,
+          "work": {
+            "conflicts": 81993,
+            "decisions": 1229783,
+            "propagations": 840278325
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/038.json",
+          "source_sha256": "ce90fe8a0a39a71efd2fe4fa417435d82b33da3d6cc3c638e1db074e3ac216e1"
+        },
+        {
+          "rank": 20,
+          "arm": "kissat",
+          "instance": "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 137.577,
+          "rss_kib": 943992,
+          "work": {
+            "conflicts": 81993,
+            "decisions": 1229783,
+            "propagations": 877858626
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/039.json",
+          "source_sha256": "64f4920804b7b5dba411b60a3506055ffacdc5caa77a62cdf5a985be098d6c4c"
+        },
+        {
+          "rank": 21,
+          "arm": "tactix",
+          "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 137.629,
+          "rss_kib": 4713520,
+          "work": {
+            "conflicts": 97517,
+            "decisions": 60978863,
+            "propagations": 840322789
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/040.json",
+          "source_sha256": "16142b0322d15a44f441d8c837442a67239289dd79478423863f4ba6cf4d1e70"
+        },
+        {
+          "rank": 21,
+          "arm": "kissat",
+          "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 97.019,
+          "rss_kib": 1436392,
+          "work": {
+            "conflicts": 93100,
+            "decisions": 47246834,
+            "propagations": 847215445
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/041.json",
+          "source_sha256": "744c817fea98824a4122692c722bf5d81b9ddf43e290f2ac05460304f28058e6"
+        },
+        {
+          "rank": 22,
+          "arm": "tactix",
+          "instance": "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 248.327,
+          "rss_kib": 2714948,
+          "work": {
+            "conflicts": 62648,
+            "decisions": 311785,
+            "propagations": 1041857046
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/042.json",
+          "source_sha256": "a3deafd2fc7293c223d9983278e550c1db379338e9714758e77bcb28f3caeb26"
+        },
+        {
+          "rank": 22,
+          "arm": "kissat",
+          "instance": "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 171.13,
+          "rss_kib": 1919272,
+          "work": {
+            "conflicts": 65820,
+            "decisions": 523753,
+            "propagations": 1209704732
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/043.json",
+          "source_sha256": "410d7586fab1d00723e6c30a43155cb7466060a516b57db84c659a172d0721d2"
+        },
+        {
+          "rank": 23,
+          "arm": "tactix",
+          "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 212.272,
+          "rss_kib": 99416,
+          "work": {
+            "conflicts": 6960467,
+            "decisions": 18156180,
+            "propagations": 254269085
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/044.json",
+          "source_sha256": "cc765429f5061df070a352c7f0d623fe1dde5b15e2f37f10139ed358190c4d74"
+        },
+        {
+          "rank": 23,
+          "arm": "kissat",
+          "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 202.225,
+          "rss_kib": 42608,
+          "work": {
+            "conflicts": 6960467,
+            "decisions": 18156180,
+            "propagations": 254276689
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/045.json",
+          "source_sha256": "ec58c9a68e84e651686fc87406fdb9961a4571ff5c6b4b578755938e0bc34d9d"
+        },
+        {
+          "rank": 24,
+          "arm": "tactix",
+          "instance": "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 236.4,
+          "rss_kib": 238724,
+          "work": {
+            "conflicts": 3775735,
+            "decisions": 38095199,
+            "propagations": 1155304769
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/046.json",
+          "source_sha256": "fcbce3ec312a81d26d8b8969048d0e30fd39c3e6b2e30bed349edbdfb3e32408"
+        },
+        {
+          "rank": 24,
+          "arm": "kissat",
+          "instance": "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 209.648,
+          "rss_kib": 101500,
+          "work": {
+            "conflicts": 4262151,
+            "decisions": 38173988,
+            "propagations": 1240849838
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/047.json",
+          "source_sha256": "2b525aecd99e1a3bdcba52c925810d5df28650b1137f76cfc858689fd48c19e3"
+        },
+        {
+          "rank": 25,
+          "arm": "tactix",
+          "instance": "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 252.178,
+          "rss_kib": 3550232,
+          "work": {
+            "conflicts": 348659,
+            "decisions": 1200326,
+            "propagations": 3289147069
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/048.json",
+          "source_sha256": "edeada2a295a8518d30b1a335e87c264f09d5b5703794f74710ff448a4c4df55"
+        },
+        {
+          "rank": 25,
+          "arm": "kissat",
+          "instance": "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 241.913,
+          "rss_kib": 888820,
+          "work": {
+            "conflicts": 577305,
+            "decisions": 1923486,
+            "propagations": 3408832103
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/049.json",
+          "source_sha256": "54adc39d8d864048c0f3cd81623fcc78b3c79c96d7008501247f9a12d67da347"
+        },
+        {
+          "rank": 26,
+          "arm": "tactix",
+          "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 272.323,
+          "rss_kib": 142168,
+          "work": {
+            "conflicts": 9608136,
+            "decisions": 27460199,
+            "propagations": 306487174
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/050.json",
+          "source_sha256": "7d4fc6b777b2ff110619e20dbaf271e7e83f5b862779d13e91ac477ed05a99ce"
+        },
+        {
+          "rank": 26,
+          "arm": "kissat",
+          "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 260.397,
+          "rss_kib": 87904,
+          "work": {
+            "conflicts": 9608136,
+            "decisions": 27460199,
+            "propagations": 306487174
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/051.json",
+          "source_sha256": "4af1ab6adbf26752a27017743deabb87bb8e6b3133fa200b6bc02cbd2b155d83"
+        },
+        {
+          "rank": 27,
+          "arm": "tactix",
+          "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 499.203,
+          "rss_kib": 658856,
+          "work": {
+            "conflicts": 7296232,
+            "decisions": 237171721,
+            "propagations": 3826159513
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/052.json",
+          "source_sha256": "d8009b728f099ee11c9a811a1087ba31f64e9ca8c5ebb852a03eb663eb80018b"
+        },
+        {
+          "rank": 27,
+          "arm": "kissat",
+          "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 244.873,
+          "rss_kib": 298192,
+          "work": {
+            "conflicts": 4120691,
+            "decisions": 171577295,
+            "propagations": 2665923813
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/053.json",
+          "source_sha256": "a152dbd4d135b195a43aa966fb67799cb9935d193646107289e320c0e4e676f1"
+        },
+        {
+          "rank": 28,
+          "arm": "tactix",
+          "instance": "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 251.242,
+          "rss_kib": 1584224,
+          "work": {
+            "conflicts": 87115,
+            "decisions": 2027884,
+            "propagations": 3106120168
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/054.json",
+          "source_sha256": "56bf414cd01ff31217f0ebf6a5f82e444a6314fa3734e41c06d5f0bf97890892"
+        },
+        {
+          "rank": 28,
+          "arm": "kissat",
+          "instance": "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 243.932,
+          "rss_kib": 807884,
+          "work": {
+            "conflicts": 86308,
+            "decisions": 1957665,
+            "propagations": 3099647407
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/055.json",
+          "source_sha256": "88f9de1a1c2f8852f085564df69b10663a5588d102cd160e56ac7dc58a634176"
+        },
+        {
+          "rank": 29,
+          "arm": "tactix",
+          "instance": "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 312.845,
+          "rss_kib": 137800,
+          "work": {
+            "conflicts": 10609587,
+            "decisions": 32532310,
+            "propagations": 509067370
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/056.json",
+          "source_sha256": "0d710b5e1a4b6d283186a28c7cc5ab176fe00a8dbdc6c2605de773712009a72c"
+        },
+        {
+          "rank": 29,
+          "arm": "kissat",
+          "instance": "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 293.59,
+          "rss_kib": 66076,
+          "work": {
+            "conflicts": 10609587,
+            "decisions": 32532310,
+            "propagations": 561246263
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/057.json",
+          "source_sha256": "955d741863ad8c884d7545336bb4afe99877a9000cdefedca5fa5be0f8783949"
+        },
+        {
+          "rank": 30,
+          "arm": "tactix",
+          "instance": "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 282.703,
+          "rss_kib": 158212,
+          "work": {
+            "conflicts": 5912244,
+            "decisions": 10672173,
+            "propagations": 162634188
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/058.json",
+          "source_sha256": "c349cfa52ea7dd3c0ab9488b95f93908c5da1d38187c0971f6d8ae27ab54e72f"
+        },
+        {
+          "rank": 30,
+          "arm": "kissat",
+          "instance": "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 284.12,
+          "rss_kib": 93572,
+          "work": {
+            "conflicts": 5912244,
+            "decisions": 10672173,
+            "propagations": 162634188
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/059.json",
+          "source_sha256": "52f12c021367fb0513cc012a159e4885f2760f30ab63b3698ebbe4736566891e"
+        },
+        {
+          "rank": 31,
+          "arm": "tactix",
+          "instance": "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 328.136,
+          "rss_kib": 674536,
+          "work": {
+            "conflicts": 4095145,
+            "decisions": 201955008,
+            "propagations": 2597853629
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/060.json",
+          "source_sha256": "8173ba9ba48fe9386f5d37cbc40b3c769b04ea03bfc0a43dcfd755e5c70ac2a3"
+        },
+        {
+          "rank": 31,
+          "arm": "kissat",
+          "instance": "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 264.041,
+          "rss_kib": 265752,
+          "work": {
+            "conflicts": 4540757,
+            "decisions": 198706607,
+            "propagations": 2864694340
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/061.json",
+          "source_sha256": "b3c4fd8e6fd268b6bb45c9edae4072f7dadc425039da369e5240fa7d02ad1825"
+        },
+        {
+          "rank": 32,
+          "arm": "tactix",
+          "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 462.905,
+          "rss_kib": 697024,
+          "work": {
+            "conflicts": 7378565,
+            "decisions": 212366878,
+            "propagations": 3277025725
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/062.json",
+          "source_sha256": "141b4a7b20d554ebc1013dfb9fc560de6bd0670515002496f58ce602ca7de278"
+        },
+        {
+          "rank": 32,
+          "arm": "kissat",
+          "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 274.225,
+          "rss_kib": 299980,
+          "work": {
+            "conflicts": 4636494,
+            "decisions": 182202021,
+            "propagations": 3028091302
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/063.json",
+          "source_sha256": "b1696cb6cec88ea16154e9214c48ccf4198e27b6aeab69807625437102ed0464"
+        },
+        {
+          "rank": 33,
+          "arm": "tactix",
+          "instance": "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 455.345,
+          "rss_kib": 638464,
+          "work": {
+            "conflicts": 7237827,
+            "decisions": 184910165,
+            "propagations": 3285139253
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/064.json",
+          "source_sha256": "dbe018edd6c4dd0ade5fc145f4654ed388f6e2217fd6c68daf2304f9e2182ada"
+        },
+        {
+          "rank": 33,
+          "arm": "kissat",
+          "instance": "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 311.766,
+          "rss_kib": 265332,
+          "work": {
+            "conflicts": 6343232,
+            "decisions": 173123739,
+            "propagations": 3168076600
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/065.json",
+          "source_sha256": "7d9713362d7c21a32597d06aa3c11f361e1dbb8f10c0ef7898d3094f9adfc725"
+        },
+        {
+          "rank": 34,
+          "arm": "tactix",
+          "instance": "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 353.383,
+          "rss_kib": 126056,
+          "work": {
+            "conflicts": 4268701,
+            "decisions": 8300883,
+            "propagations": 972028201
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/066.json",
+          "source_sha256": "8e578385e3a216f1ee4228245ce7f58192da542ea43b4fcfe8aa4328cab90f2e"
+        },
+        {
+          "rank": 34,
+          "arm": "kissat",
+          "instance": "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 332.375,
+          "rss_kib": 40848,
+          "work": {
+            "conflicts": 4330066,
+            "decisions": 8345523,
+            "propagations": 953999448
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/067.json",
+          "source_sha256": "abfd951775ebbd66d9adca35c6ecee972bc9ec05054a088f92b727294f0613c5"
+        },
+        {
+          "rank": 35,
+          "arm": "tactix",
+          "instance": "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 558.714,
+          "rss_kib": 673556,
+          "work": {
+            "conflicts": 8681274,
+            "decisions": 238587661,
+            "propagations": 4407550286
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/068.json",
+          "source_sha256": "b22f97a3ffdc7e37c50f21e18fab3b8c964c41cf6986c850608688bb33f638c0"
+        },
+        {
+          "rank": 35,
+          "arm": "kissat",
+          "instance": "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 306.599,
+          "rss_kib": 269360,
+          "work": {
+            "conflicts": 4751990,
+            "decisions": 210767815,
+            "propagations": 3394097561
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/069.json",
+          "source_sha256": "8c89cd914b9189534c68e924f66ef94771a0c2dac04641176e4e690f410a4476"
+        },
+        {
+          "rank": 36,
+          "arm": "tactix",
+          "instance": "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 383.888,
+          "rss_kib": 100260,
+          "work": {
+            "conflicts": 6559620,
+            "decisions": 23281243,
+            "propagations": 1488017957
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/070.json",
+          "source_sha256": "adaf9ae540b44a1aa35fbad78578ccdacca907f6832873898323972f7194ffa3"
+        },
+        {
+          "rank": 36,
+          "arm": "kissat",
+          "instance": "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 364.249,
+          "rss_kib": 50160,
+          "work": {
+            "conflicts": 6559620,
+            "decisions": 23281243,
+            "propagations": 1671010827
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/071.json",
+          "source_sha256": "d1547e767e62171732ea75361b0b20405101b35418a58c1db75a1adb0c156029"
+        },
+        {
+          "rank": 37,
+          "arm": "tactix",
+          "instance": "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 376.839,
+          "rss_kib": 705776,
+          "work": {
+            "conflicts": 5057588,
+            "decisions": 213247260,
+            "propagations": 3075300198
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/072.json",
+          "source_sha256": "86bf81520c19e09ac4766549369e3581d933ef6057efb9e4321cddc061929d9d"
+        },
+        {
+          "rank": 37,
+          "arm": "kissat",
+          "instance": "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 344.521,
+          "rss_kib": 269236,
+          "work": {
+            "conflicts": 6393826,
+            "decisions": 215248091,
+            "propagations": 3692400046
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/073.json",
+          "source_sha256": "cc24b218f0d3dd74382e1e3949d3fa85a9769f9d39afe1378d743954050bac43"
+        },
+        {
+          "rank": 38,
+          "arm": "tactix",
+          "instance": "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 380.5,
+          "rss_kib": 86032,
+          "work": {
+            "conflicts": 18021141,
+            "decisions": 24152976,
+            "propagations": 485247222
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/074.json",
+          "source_sha256": "906d167b8d566ec109e8b4f1919fc26baa5a4e467097395b240b581a7154da84"
+        },
+        {
+          "rank": 38,
+          "arm": "kissat",
+          "instance": "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 364.123,
+          "rss_kib": 44336,
+          "work": {
+            "conflicts": 18430710,
+            "decisions": 24657248,
+            "propagations": 494320168
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/075.json",
+          "source_sha256": "55b7aa1aeef640e91e9bc32335ac8223d15b593f598c0f0027a2dd7786c7efb0"
+        },
+        {
+          "rank": 39,
+          "arm": "tactix",
+          "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 430.185,
+          "rss_kib": 464260,
+          "work": {
+            "conflicts": 5874561,
+            "decisions": 97760711,
+            "propagations": 2308242038
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/076.json",
+          "source_sha256": "e2ba70857f62d71c62a6e9adb7ae8833b5f3352ed242937eb7d8b95a489973c3"
+        },
+        {
+          "rank": 39,
+          "arm": "kissat",
+          "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 366.496,
+          "rss_kib": 170616,
+          "work": {
+            "conflicts": 5803404,
+            "decisions": 102885243,
+            "propagations": 2545310923
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/077.json",
+          "source_sha256": "a57a21d155e204e972ac30748c4c8c97580ac7b9278b952cf301a3907e395ae4"
+        },
+        {
+          "rank": 40,
+          "arm": "tactix",
+          "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 529.466,
+          "rss_kib": 425240,
+          "work": {
+            "conflicts": 5253527,
+            "decisions": 19983764,
+            "propagations": 3521325896
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/078.json",
+          "source_sha256": "5726818888416075b771f29196b1a435b1d55d2ee41a688a2c2153321f293ab3"
+        },
+        {
+          "rank": 40,
+          "arm": "kissat",
+          "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 407.269,
+          "rss_kib": 187552,
+          "work": {
+            "conflicts": 4857907,
+            "decisions": 18272243,
+            "propagations": 3116952772
+          },
+          "source": "benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/results/079.json",
+          "source_sha256": "dbd590ae15ad653ffca8117e5c01e0439fbed02710a8db8076b5ecec6ab252dd"
+        }
+      ]
+    },
+    "5395": {
+      "campaign": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40",
+      "manifest_sha256": "bc79e569fd2fe20bf75f5a29a2c23266f92e362b7989882274ff4310875cbae5",
+      "totals": {
+        "tactix": 8378.398999999998,
+        "kissat": 6762.78
+      },
+      "provisional_ratio": 1.238898648189058,
+      "checked_clean": 76,
+      "rows": [
+        {
+          "rank": 1,
+          "arm": "tactix",
+          "instance": "tierD24-26/1545660e72158c7e90da5ad4c877a124-hwmcc20miters-iso-rast-p06.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 84068,
+          "work": {
+            "conflicts": 1,
+            "decisions": 0,
+            "propagations": 190699
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/000.json",
+          "source_sha256": "8023f6d7b08f2f47161d546b043d1bd742cb9ff898417dafa0b880bda9a8c659"
+        },
+        {
+          "rank": 1,
+          "arm": "kissat",
+          "instance": "tierD24-26/1545660e72158c7e90da5ad4c877a124-hwmcc20miters-iso-rast-p06.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 49564,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 190698
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/001.json",
+          "source_sha256": "0ebae7f06f8c352cf78bc91637bdd31ed27e7c70ed0a4a202b5573e5747ebf7f"
+        },
+        {
+          "rank": 2,
+          "arm": "tactix",
+          "instance": "tierD24-26/1a20d903db74ab566efc68a35e6b0ec5-hwmcc20miters-iso-rast-p11.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 84088,
+          "work": {
+            "conflicts": 1,
+            "decisions": 0,
+            "propagations": 188827
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/002.json",
+          "source_sha256": "028a9b828723472fd72b45117336e66e6fbd419f3bf366bb1bcad26b95d8bdf4"
+        },
+        {
+          "rank": 2,
+          "arm": "kissat",
+          "instance": "tierD24-26/1a20d903db74ab566efc68a35e6b0ec5-hwmcc20miters-iso-rast-p11.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.216,
+          "rss_kib": 49568,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 188826
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/003.json",
+          "source_sha256": "a8defb231c163f663ddfd1160b69695e3df43e2bfc4015cfbc43f974f3a0ed07"
+        },
+        {
+          "rank": 3,
+          "arm": "tactix",
+          "instance": "tierD24-26/3b5d7ec347010e177bfa04b298fc75cf-nla-digbench-scaling_dijkstra-u_valuebound1_transition.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.567,
+          "rss_kib": 153892,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 96082
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/004.json",
+          "source_sha256": "fb2b2fdeb8331ab17cc95b89521eb1117b83b685632ed2c298b550f49afbbbe1"
+        },
+        {
+          "rank": 3,
+          "arm": "kissat",
+          "instance": "tierD24-26/3b5d7ec347010e177bfa04b298fc75cf-nla-digbench-scaling_dijkstra-u_valuebound1_transition.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.467,
+          "rss_kib": 103612,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 96083
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/005.json",
+          "source_sha256": "a9308147db93496f8ff90cf7b6eb5d5a32f8c86fd02a716e0aacd02629222ae1"
+        },
+        {
+          "rank": 4,
+          "arm": "tactix",
+          "instance": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 8.48,
+          "rss_kib": 28008,
+          "work": {
+            "conflicts": 651764,
+            "decisions": 908950,
+            "propagations": 18006397
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/006.json",
+          "source_sha256": "b4a03e983aa0c52847cf72ef1de5a51b5916f7b7290abafcef22de068f01a659"
+        },
+        {
+          "rank": 4,
+          "arm": "kissat",
+          "instance": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 7.628,
+          "rss_kib": 13008,
+          "work": {
+            "conflicts": 651764,
+            "decisions": 908950,
+            "propagations": 18532091
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/007.json",
+          "source_sha256": "7bbf4b6b5db513d1fa60c3444561ae4974925d5bb3e13b99220af775dcafe304"
+        },
+        {
+          "rank": 5,
+          "arm": "tactix",
+          "instance": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 29.712,
+          "rss_kib": 10682156,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 58640574
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/008.json",
+          "source_sha256": "3ef5aafa309139525ddd387ea1179415fad95678ee589e14df47c22b670aa87d"
+        },
+        {
+          "rank": 5,
+          "arm": "kissat",
+          "instance": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 30.166,
+          "rss_kib": 10402844,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 58571074
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/009.json",
+          "source_sha256": "73f37c10727b08652a041ffeca1fe2a781a616cd54b3e40b121905bd0774a08c"
+        },
+        {
+          "rank": 6,
+          "arm": "tactix",
+          "instance": "tierD24-26/7a5e9bdbf9b8c025b1f986d6098b6206-cfi-rigid-t2-0048-04-or_3_shuffle_all.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 68.025,
+          "rss_kib": 756988,
+          "work": {
+            "conflicts": 373544,
+            "decisions": 3449913,
+            "propagations": 131533204
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/010.json",
+          "source_sha256": "7f02e1ba28febc13d53b0eb8ec3faea29003a919fb6422e0f786c56eaac08278"
+        },
+        {
+          "rank": 6,
+          "arm": "kissat",
+          "instance": "tierD24-26/7a5e9bdbf9b8c025b1f986d6098b6206-cfi-rigid-t2-0048-04-or_3_shuffle_all.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 52.605,
+          "rss_kib": 349612,
+          "work": {
+            "conflicts": 373544,
+            "decisions": 3449913,
+            "propagations": 145391572
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/011.json",
+          "source_sha256": "1a9f454e6df6a74c9b09a53c011522e69065ade83e7bcecfd2318455e3d6c818"
+        },
+        {
+          "rank": 7,
+          "arm": "tactix",
+          "instance": "tierD24-26/26b648475cfd06695a17ac95f4469744-128_75.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 54.152,
+          "rss_kib": 9713632,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 46132715
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/012.json",
+          "source_sha256": "08ffcf6ed6611327af212e0322d95c8a9132321b6183a6608cac144bcbef3cf0"
+        },
+        {
+          "rank": 7,
+          "arm": "kissat",
+          "instance": "tierD24-26/26b648475cfd06695a17ac95f4469744-128_75.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 48.147,
+          "rss_kib": 9109728,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 46109670
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/013.json",
+          "source_sha256": "b8037e75bc1c4c2d0e9563cc093d95ff761ac1b0e13920eb7560d0187c8d9051"
+        },
+        {
+          "rank": 8,
+          "arm": "tactix",
+          "instance": "tierD24-26/210fe1c0ffefde5bcd03d59b1efa6984-32_325.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 65.972,
+          "rss_kib": 11862680,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 56889411
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/014.json",
+          "source_sha256": "b3238f865ffb69c12b8c6f3e879940e1a3cc9afd389b918987e2aa1bb537b54d"
+        },
+        {
+          "rank": 8,
+          "arm": "kissat",
+          "instance": "tierD24-26/210fe1c0ffefde5bcd03d59b1efa6984-32_325.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 58.141,
+          "rss_kib": 11118752,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 56849612
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/015.json",
+          "source_sha256": "2b3428545723c7a387b65164296d271315c28978d8746a2cb53ead575a145ca1"
+        },
+        {
+          "rank": 9,
+          "arm": "tactix",
+          "instance": "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 116.804,
+          "rss_kib": 3232852,
+          "work": {
+            "conflicts": 94957,
+            "decisions": 38940820,
+            "propagations": 799769066
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/016.json",
+          "source_sha256": "7d9ad9808a42b6310c781d085ff111145503bf87d353552f564bd9041ab515aa"
+        },
+        {
+          "rank": 9,
+          "arm": "kissat",
+          "instance": "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 68.932,
+          "rss_kib": 1326232,
+          "work": {
+            "conflicts": 48149,
+            "decisions": 31526846,
+            "propagations": 695871037
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/017.json",
+          "source_sha256": "4fe8084943afb61f45baf4aa3237398ed8ae008fe29da66d1535fef1d4467274"
+        },
+        {
+          "rank": 10,
+          "arm": "tactix",
+          "instance": "tierD24-26/093fa3ff9f7bc9979c43f9d2310ac21d-128_125.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 91.233,
+          "rss_kib": 15967668,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 76457813
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/018.json",
+          "source_sha256": "26b5f8957486ee70666dea09e04aba2023b58787dcfdfd71a6435aafb64ffc3d"
+        },
+        {
+          "rank": 10,
+          "arm": "kissat",
+          "instance": "tierD24-26/093fa3ff9f7bc9979c43f9d2310ac21d-128_125.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 81.694,
+          "rss_kib": 15348304,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 76431950
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/019.json",
+          "source_sha256": "71f2606e29bb33324ee798e34b21da756019d01aec9d567cc17c0e4891ee6d50"
+        },
+        {
+          "rank": 11,
+          "arm": "tactix",
+          "instance": "tierD24-26/912ce8c21d8fb8abc491cb205ec23e9f-hwmcc20miters-iso-mul2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.267,
+          "rss_kib": 95464,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 253639
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/020.json",
+          "source_sha256": "96ef3d9894ab2deb70d2514335047820856060ed53e19b9a949a2ea89fc20e52"
+        },
+        {
+          "rank": 11,
+          "arm": "kissat",
+          "instance": "tierD24-26/912ce8c21d8fb8abc491cb205ec23e9f-hwmcc20miters-iso-mul2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 0.217,
+          "rss_kib": 60692,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 253639
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/021.json",
+          "source_sha256": "fdd049a8e483cc5af27bb8798f89bc782b767b51afe9545d109e28990d7085d3"
+        },
+        {
+          "rank": 12,
+          "arm": "tactix",
+          "instance": "tierD24-26/8d4b50ec0cf99097e9ab0835937afee5-hwmcc17miters-xits-iso-6s281b35.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 7.28,
+          "rss_kib": 1843960,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 4868175
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/022.json",
+          "source_sha256": "f2b47242e5842e715ba30c7a125219ef3a701a0740f22c73a582e8cc8e1e38a4"
+        },
+        {
+          "rank": 12,
+          "arm": "kissat",
+          "instance": "tierD24-26/8d4b50ec0cf99097e9ab0835937afee5-hwmcc17miters-xits-iso-6s281b35.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 5.175,
+          "rss_kib": 1234908,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 4868175
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/023.json",
+          "source_sha256": "f8e6502821c58f8faf343fe7371fb027e94f0d86e4f6f6063fe83f94b175f204"
+        },
+        {
+          "rank": 13,
+          "arm": "tactix",
+          "instance": "tierD24-26/84c6d7e4a18aacf166105aaa3cd6e3de-128_100.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 73.339,
+          "rss_kib": 12752784,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61295163
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/024.json",
+          "source_sha256": "396deb5c358cd9181c7e966d5099684e1873628def3a7b8aff2de922965a269e"
+        },
+        {
+          "rank": 13,
+          "arm": "kissat",
+          "instance": "tierD24-26/84c6d7e4a18aacf166105aaa3cd6e3de-128_100.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 64.121,
+          "rss_kib": 11928200,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61261545
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/025.json",
+          "source_sha256": "cb4e2a6887f7c1f617ddb190dfae99b12ed211bab50f03357b26b1f7cd433e9f"
+        },
+        {
+          "rank": 14,
+          "arm": "tactix",
+          "instance": "tierD24-26/a14d9ee17051ec08a4334ba43089502c-64_200.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 72.081,
+          "rss_kib": 12854700,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61521915
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/026.json",
+          "source_sha256": "6e156c61906db2d736189120a13e297acb8ee8e5fc03ec7f0d4159d3cbf61c6f"
+        },
+        {
+          "rank": 14,
+          "arm": "kissat",
+          "instance": "tierD24-26/a14d9ee17051ec08a4334ba43089502c-64_200.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 63.623,
+          "rss_kib": 12018708,
+          "work": {
+            "conflicts": 0,
+            "decisions": 0,
+            "propagations": 61483725
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/027.json",
+          "source_sha256": "f67ed2c2212380e546a1a27eabdae7c9bcd336b02f14050292a37224c5a68024"
+        },
+        {
+          "rank": 15,
+          "arm": "tactix",
+          "instance": "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 82.202,
+          "rss_kib": 61836,
+          "work": {
+            "conflicts": 2272663,
+            "decisions": 3310531,
+            "propagations": 311056558
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/028.json",
+          "source_sha256": "35e9451abfc55b96617aaec6d46a12f1fb20dbc5a6e7e061fad5ebfee0a397b9"
+        },
+        {
+          "rank": 15,
+          "arm": "kissat",
+          "instance": "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 80.5,
+          "rss_kib": 29704,
+          "work": {
+            "conflicts": 2272663,
+            "decisions": 3310531,
+            "propagations": 311286274
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/029.json",
+          "source_sha256": "a4fb18e121ff588fe43f0a2e7bd6a6efd5c6147e1e06093ca6b5f3006e0469d0"
+        },
+        {
+          "rank": 16,
+          "arm": "tactix",
+          "instance": "tierD24-26/05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 127.206,
+          "rss_kib": 113668,
+          "work": {
+            "conflicts": 4777402,
+            "decisions": 14441406,
+            "propagations": 152705482
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/030.json",
+          "source_sha256": "6fc922e6e1ce90ec148f886627fa7ffdb195261bfc518574e99cedf261d921da"
+        },
+        {
+          "rank": 16,
+          "arm": "kissat",
+          "instance": "tierD24-26/05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 121.91,
+          "rss_kib": 65168,
+          "work": {
+            "conflicts": 4777402,
+            "decisions": 14441406,
+            "propagations": 152707442
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/031.json",
+          "source_sha256": "9413e02abffe1b55c825535bdf81ee40b1bb80e21c9b9a60e961dca534acc545"
+        },
+        {
+          "rank": 17,
+          "arm": "tactix",
+          "instance": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 171.611,
+          "rss_kib": 1354912,
+          "work": {
+            "conflicts": 179361,
+            "decisions": 4249505,
+            "propagations": 1158167288
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/032.json",
+          "source_sha256": "1d37647f1bb21353c0b1042dc04c162bb7e4de17119f194ca12c5ffcd72e91e6"
+        },
+        {
+          "rank": 17,
+          "arm": "kissat",
+          "instance": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 112.998,
+          "rss_kib": 598308,
+          "work": {
+            "conflicts": 186237,
+            "decisions": 3961527,
+            "propagations": 1055776860
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/033.json",
+          "source_sha256": "8dd3219a420141658c4695d3fc82722bbb8f55b46b0b97685f57a2e92d67597d"
+        },
+        {
+          "rank": 18,
+          "arm": "tactix",
+          "instance": "tierD24-26/0f262afd5b117000f8b4734d175aadab-linked_list_swap_contents_safety_unwind73.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 64.271,
+          "rss_kib": 2984780,
+          "work": {
+            "conflicts": 11370,
+            "decisions": 802677,
+            "propagations": 546191110
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/034.json",
+          "source_sha256": "9fac7898a2f9d7f16f49ce4f819447b5fd76e806a4f8517595d973ccf16d3415"
+        },
+        {
+          "rank": 18,
+          "arm": "kissat",
+          "instance": "tierD24-26/0f262afd5b117000f8b4734d175aadab-linked_list_swap_contents_safety_unwind73.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": false,
+          "wall_seconds": 125.726,
+          "rss_kib": 2083228,
+          "work": {
+            "conflicts": 35646,
+            "decisions": 1055436,
+            "propagations": 1843175943
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/provisional/035.json",
+          "source_sha256": "358d9b7c499e85c188f2f83881c2a9cd6b490cdeaec0da0b7f2d39795040a23b"
+        },
+        {
+          "rank": 19,
+          "arm": "tactix",
+          "instance": "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 137.023,
+          "rss_kib": 402344,
+          "work": {
+            "conflicts": 701651,
+            "decisions": 27626032,
+            "propagations": 1846890843
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/036.json",
+          "source_sha256": "fef6bdda72b1a7bbaadbef89b907223f950fcc540ff2b7b5cf79ae6b65497ed5"
+        },
+        {
+          "rank": 19,
+          "arm": "kissat",
+          "instance": "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 114.956,
+          "rss_kib": 143804,
+          "work": {
+            "conflicts": 701651,
+            "decisions": 27626032,
+            "propagations": 1965249366
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/037.json",
+          "source_sha256": "d558ae7d4777b47212cc389f0206707e12cb2b35c17837865bcbcc4ca4c354b1"
+        },
+        {
+          "rank": 20,
+          "arm": "tactix",
+          "instance": "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 120.519,
+          "rss_kib": 1787092,
+          "work": {
+            "conflicts": 81993,
+            "decisions": 1229783,
+            "propagations": 840278325
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/038.json",
+          "source_sha256": "1e53a26de60133f00553b60f73cf6b3181d9cb0c7daa707c9a7b8e252de29e01"
+        },
+        {
+          "rank": 20,
+          "arm": "kissat",
+          "instance": "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 137.801,
+          "rss_kib": 943992,
+          "work": {
+            "conflicts": 81993,
+            "decisions": 1229783,
+            "propagations": 877858626
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/039.json",
+          "source_sha256": "157a2fa80bf15499d30f81ca12c935e26711ea9bc33458861f337b5ae0573f3e"
+        },
+        {
+          "rank": 21,
+          "arm": "tactix",
+          "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 130.433,
+          "rss_kib": 3935936,
+          "work": {
+            "conflicts": 81990,
+            "decisions": 66644458,
+            "propagations": 763244718
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/040.json",
+          "source_sha256": "de7e2e236833fe297095845a9a44fd71d83b96b8ab78b80ce918acdb20035096"
+        },
+        {
+          "rank": 21,
+          "arm": "kissat",
+          "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 96.566,
+          "rss_kib": 1436392,
+          "work": {
+            "conflicts": 93100,
+            "decisions": 47246834,
+            "propagations": 847215445
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/041.json",
+          "source_sha256": "c05dcabb6b89db50ea7e6011ddc0a911c7d352209399273de21230894b545107"
+        },
+        {
+          "rank": 22,
+          "arm": "tactix",
+          "instance": "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": false,
+          "wall_seconds": 236.901,
+          "rss_kib": 2714948,
+          "work": {
+            "conflicts": 62648,
+            "decisions": 311785,
+            "propagations": 1041857046
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/provisional/042.json",
+          "source_sha256": "e4ce78242174bf2eb2f355e1ff163dd5d53fcb26215e1963d433288970c230dc"
+        },
+        {
+          "rank": 22,
+          "arm": "kissat",
+          "instance": "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": false,
+          "wall_seconds": 171.969,
+          "rss_kib": 1919272,
+          "work": {
+            "conflicts": 65820,
+            "decisions": 523753,
+            "propagations": 1209704732
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/provisional/043.json",
+          "source_sha256": "159853f7c88b1ecc14e195c8e71b7d35ee144c0fa22a8f35eaa445d19cd648ed"
+        },
+        {
+          "rank": 23,
+          "arm": "tactix",
+          "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 212.513,
+          "rss_kib": 100628,
+          "work": {
+            "conflicts": 6960467,
+            "decisions": 18156180,
+            "propagations": 254269085
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/044.json",
+          "source_sha256": "11b39d4da61e2f19a8dc234697cc237cb0ca87fdbdfd7b278ea3397770ef316b"
+        },
+        {
+          "rank": 23,
+          "arm": "kissat",
+          "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 202.959,
+          "rss_kib": 42608,
+          "work": {
+            "conflicts": 6960467,
+            "decisions": 18156180,
+            "propagations": 254276689
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/045.json",
+          "source_sha256": "bc549b45751040baf8b07f50ae2ba61fd0f840a82fd40632d8197018531a403c"
+        },
+        {
+          "rank": 24,
+          "arm": "tactix",
+          "instance": "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 243.373,
+          "rss_kib": 238600,
+          "work": {
+            "conflicts": 3997558,
+            "decisions": 38262938,
+            "propagations": 1191159976
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/046.json",
+          "source_sha256": "32b6e76b74efcdc02ffb1bef40e979e1c84e8aa3079768498b89dd892b1ae19b"
+        },
+        {
+          "rank": 24,
+          "arm": "kissat",
+          "instance": "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 208.103,
+          "rss_kib": 101500,
+          "work": {
+            "conflicts": 4262151,
+            "decisions": 38173988,
+            "propagations": 1240849838
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/047.json",
+          "source_sha256": "661fd28442130c8680e9f06d67244050183f20592a06ab0cd65b961aa85110ba"
+        },
+        {
+          "rank": 25,
+          "arm": "tactix",
+          "instance": "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 251.223,
+          "rss_kib": 3409816,
+          "work": {
+            "conflicts": 348659,
+            "decisions": 1200326,
+            "propagations": 3289147069
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/048.json",
+          "source_sha256": "0dff1d4dc6bd83d405262c181674dd74bd72ed630dc94a21aa289a9b2020425b"
+        },
+        {
+          "rank": 25,
+          "arm": "kissat",
+          "instance": "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 245.437,
+          "rss_kib": 888820,
+          "work": {
+            "conflicts": 577305,
+            "decisions": 1923486,
+            "propagations": 3408832103
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/049.json",
+          "source_sha256": "d0ee68fe93c21f92d825ab2bf30464b764df82e2cd55f420d548b9a84c05631b"
+        },
+        {
+          "rank": 26,
+          "arm": "tactix",
+          "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 272.653,
+          "rss_kib": 142168,
+          "work": {
+            "conflicts": 9608136,
+            "decisions": 27460199,
+            "propagations": 306487174
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/050.json",
+          "source_sha256": "ec4b3ef89dd2c5eeaa623b2eff7e500c97e0d030fc71db07580c53076d02708e"
+        },
+        {
+          "rank": 26,
+          "arm": "kissat",
+          "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 262.413,
+          "rss_kib": 87904,
+          "work": {
+            "conflicts": 9608136,
+            "decisions": 27460199,
+            "propagations": 306487174
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/051.json",
+          "source_sha256": "6a743c21270d6f7194f805cb18576aab1942d700bcbfd912b4fce966d3457fb6"
+        },
+        {
+          "rank": 27,
+          "arm": "tactix",
+          "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 347.514,
+          "rss_kib": 581284,
+          "work": {
+            "conflicts": 4473366,
+            "decisions": 180615860,
+            "propagations": 2561617810
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/052.json",
+          "source_sha256": "9a88596a07186542380b8742278c805cccb878ca88b672c458ed7665f66a9399"
+        },
+        {
+          "rank": 27,
+          "arm": "kissat",
+          "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 243.4,
+          "rss_kib": 298192,
+          "work": {
+            "conflicts": 4120691,
+            "decisions": 171577295,
+            "propagations": 2665923813
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/053.json",
+          "source_sha256": "f8ac0f1e7d5d772e0b1a04379832295c8d4f022c0737c997e566c7ba348fcccb"
+        },
+        {
+          "rank": 28,
+          "arm": "tactix",
+          "instance": "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 249.27,
+          "rss_kib": 1571936,
+          "work": {
+            "conflicts": 87115,
+            "decisions": 2027884,
+            "propagations": 3106120168
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/054.json",
+          "source_sha256": "5c4baf7d3953c08f4caf4db32c1fa47e2a3097dcb4c771b0471018de47505505"
+        },
+        {
+          "rank": 28,
+          "arm": "kissat",
+          "instance": "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 244.688,
+          "rss_kib": 807884,
+          "work": {
+            "conflicts": 86308,
+            "decisions": 1957665,
+            "propagations": 3099647407
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/055.json",
+          "source_sha256": "6ba5a7a57d9e8d5a4f206637a2aa09dcd8e6baade694a88e2b3657f3ad7a09eb"
+        },
+        {
+          "rank": 29,
+          "arm": "tactix",
+          "instance": "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 310.253,
+          "rss_kib": 139808,
+          "work": {
+            "conflicts": 10609587,
+            "decisions": 32532310,
+            "propagations": 509067370
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/056.json",
+          "source_sha256": "375ff94869c7f1feadb06bef1eac4b6bea361ee148515859d1a5fe0ced60d7f8"
+        },
+        {
+          "rank": 29,
+          "arm": "kissat",
+          "instance": "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 295.26,
+          "rss_kib": 66076,
+          "work": {
+            "conflicts": 10609587,
+            "decisions": 32532310,
+            "propagations": 561246263
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/057.json",
+          "source_sha256": "0546d18ba64c28b5c5dd5134acafafeccbda74e58277188bea55f4c35904a7e0"
+        },
+        {
+          "rank": 30,
+          "arm": "tactix",
+          "instance": "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 285.342,
+          "rss_kib": 158212,
+          "work": {
+            "conflicts": 5912244,
+            "decisions": 10672173,
+            "propagations": 162634188
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/058.json",
+          "source_sha256": "e4d4a3190409152b54eaa2ccf60e01e71a3168ac5ad5be493cd0ee610b28c76f"
+        },
+        {
+          "rank": 30,
+          "arm": "kissat",
+          "instance": "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 284.827,
+          "rss_kib": 93572,
+          "work": {
+            "conflicts": 5912244,
+            "decisions": 10672173,
+            "propagations": 162634188
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/059.json",
+          "source_sha256": "01191a5782995b51c9aa8ecdf0a38eb5db466a397f65896fc033890a11cc5bda"
+        },
+        {
+          "rank": 31,
+          "arm": "tactix",
+          "instance": "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 323.608,
+          "rss_kib": 567856,
+          "work": {
+            "conflicts": 4095145,
+            "decisions": 201955008,
+            "propagations": 2597853629
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/060.json",
+          "source_sha256": "941d6a460179e4cba6299d31154a442a8cf3987d4fd0c23ea6b46942a39a8445"
+        },
+        {
+          "rank": 31,
+          "arm": "kissat",
+          "instance": "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 265.036,
+          "rss_kib": 265752,
+          "work": {
+            "conflicts": 4540757,
+            "decisions": 198706607,
+            "propagations": 2864694340
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/061.json",
+          "source_sha256": "b88010b0d6721e1a6cdd3992d5fc17a33a831a84f2160e720450243d30c48d84"
+        },
+        {
+          "rank": 32,
+          "arm": "tactix",
+          "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 460.293,
+          "rss_kib": 621988,
+          "work": {
+            "conflicts": 7378565,
+            "decisions": 212366878,
+            "propagations": 3277025725
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/062.json",
+          "source_sha256": "95cec4a60510c8dfcf8930220bd4128560d239e0d6d30624e569fdc9a7df2c91"
+        },
+        {
+          "rank": 32,
+          "arm": "kissat",
+          "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 276.0,
+          "rss_kib": 299980,
+          "work": {
+            "conflicts": 4636494,
+            "decisions": 182202021,
+            "propagations": 3028091302
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/063.json",
+          "source_sha256": "428cf9315d84592c3e3bebe76101be8c20c18908e7acd56694aff8a4e548e784"
+        },
+        {
+          "rank": 33,
+          "arm": "tactix",
+          "instance": "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 515.946,
+          "rss_kib": 567540,
+          "work": {
+            "conflicts": 8896640,
+            "decisions": 214774709,
+            "propagations": 3733783651
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/064.json",
+          "source_sha256": "f9fdbe909b8e74eca6de2bc1a053c25250e9497482d95b254eeabcc3d0099df4"
+        },
+        {
+          "rank": 33,
+          "arm": "kissat",
+          "instance": "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 313.412,
+          "rss_kib": 265332,
+          "work": {
+            "conflicts": 6343232,
+            "decisions": 173123739,
+            "propagations": 3168076600
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/065.json",
+          "source_sha256": "3ece8e178470637c696d3451cc20f1d9f6a1f8739f276c59c8e5dc972d307c25"
+        },
+        {
+          "rank": 34,
+          "arm": "tactix",
+          "instance": "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 349.023,
+          "rss_kib": 114368,
+          "work": {
+            "conflicts": 4268701,
+            "decisions": 8300883,
+            "propagations": 972028201
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/066.json",
+          "source_sha256": "d2ecde72cb23e6971d7446656285e1ab9c498b7c070a0065e86af9afc40a781e"
+        },
+        {
+          "rank": 34,
+          "arm": "kissat",
+          "instance": "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 331.58,
+          "rss_kib": 40848,
+          "work": {
+            "conflicts": 4330066,
+            "decisions": 8345523,
+            "propagations": 953999448
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/067.json",
+          "source_sha256": "d4253386fa752ce8a9e354bd39df39cade50a3dda683cd1d6681725e220f738a"
+        },
+        {
+          "rank": 35,
+          "arm": "tactix",
+          "instance": "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 554.754,
+          "rss_kib": 566564,
+          "work": {
+            "conflicts": 8681274,
+            "decisions": 238587661,
+            "propagations": 4407550286
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/068.json",
+          "source_sha256": "5e8a55a096670943b24b8b9d86700f5438fcd1553fa8d68307777b736307ea67"
+        },
+        {
+          "rank": 35,
+          "arm": "kissat",
+          "instance": "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 306.593,
+          "rss_kib": 269360,
+          "work": {
+            "conflicts": 4751990,
+            "decisions": 210767815,
+            "propagations": 3394097561
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/069.json",
+          "source_sha256": "3d7f5bbd33e531a05fa95fa207b26f0007194402816df782dee39957ce2793e2"
+        },
+        {
+          "rank": 36,
+          "arm": "tactix",
+          "instance": "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 385.029,
+          "rss_kib": 105020,
+          "work": {
+            "conflicts": 6559620,
+            "decisions": 23281243,
+            "propagations": 1488017957
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/070.json",
+          "source_sha256": "96043c44338149e20bdfd5e8fc89a3caf35dbe5ef141e98c45cbfba0d4284e5d"
+        },
+        {
+          "rank": 36,
+          "arm": "kissat",
+          "instance": "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz",
+          "verdict": "SAT",
+          "checked_clean": true,
+          "wall_seconds": 364.365,
+          "rss_kib": 50160,
+          "work": {
+            "conflicts": 6559620,
+            "decisions": 23281243,
+            "propagations": 1671010827
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/071.json",
+          "source_sha256": "d3fa5772009ab33c567593de154111d2f8b6475597165d95f81b6a51dc6c1c98"
+        },
+        {
+          "rank": 37,
+          "arm": "tactix",
+          "instance": "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": false,
+          "wall_seconds": 634.348,
+          "rss_kib": 631940,
+          "work": {
+            "conflicts": 11972299,
+            "decisions": 213760053,
+            "propagations": 4553228016
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/provisional/072.json",
+          "source_sha256": "28743154ec8a624c22fccccf9adaf98a87d04f1172544b0646f45cb954ccdace"
+        },
+        {
+          "rank": 37,
+          "arm": "kissat",
+          "instance": "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 344.769,
+          "rss_kib": 269236,
+          "work": {
+            "conflicts": 6393826,
+            "decisions": 215248091,
+            "propagations": 3692400046
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/073.json",
+          "source_sha256": "a8dc2934f0ff257f4703a5cb9300963f28dcb1069d783563fbb332d870dae541"
+        },
+        {
+          "rank": 38,
+          "arm": "tactix",
+          "instance": "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 379.245,
+          "rss_kib": 94820,
+          "work": {
+            "conflicts": 18021141,
+            "decisions": 24152976,
+            "propagations": 485247222
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/074.json",
+          "source_sha256": "e7a2e1d17b958286e751667714a07ed08ede681e3e7baeb69ad42d8a774f8d7d"
+        },
+        {
+          "rank": 38,
+          "arm": "kissat",
+          "instance": "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 363.071,
+          "rss_kib": 44336,
+          "work": {
+            "conflicts": 18430710,
+            "decisions": 24657248,
+            "propagations": 494320168
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/075.json",
+          "source_sha256": "e232cdc499f51b4144ea1653ff026ff27df9fc9db29e214224751f7e75e80801"
+        },
+        {
+          "rank": 39,
+          "arm": "tactix",
+          "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 418.364,
+          "rss_kib": 417372,
+          "work": {
+            "conflicts": 5819420,
+            "decisions": 98990198,
+            "propagations": 2334196071
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/076.json",
+          "source_sha256": "e79cb3ce0ba3ae5a3c4d9d926c337e020b40268d10a3f32e1ffacc6036194a05"
+        },
+        {
+          "rank": 39,
+          "arm": "kissat",
+          "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 364.842,
+          "rss_kib": 170616,
+          "work": {
+            "conflicts": 5803404,
+            "decisions": 102885243,
+            "propagations": 2545310923
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/077.json",
+          "source_sha256": "eb6b74a46e7ba0d327f48ec8f5bd2ebf3ea3aae6bbe53022cb97c4f35006e542"
+        },
+        {
+          "rank": 40,
+          "arm": "tactix",
+          "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 527.136,
+          "rss_kib": 379184,
+          "work": {
+            "conflicts": 5253527,
+            "decisions": 19983764,
+            "propagations": 3521325896
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/078.json",
+          "source_sha256": "4ff6193bbdbf85222881ff26cb462c338e368b839f5911830141bc4de529e098"
+        },
+        {
+          "rank": 40,
+          "arm": "kissat",
+          "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+          "verdict": "UNSAT",
+          "checked_clean": true,
+          "wall_seconds": 402.25,
+          "rss_kib": 187552,
+          "work": {
+            "conflicts": 4857907,
+            "decisions": 18272243,
+            "propagations": 3116952772
+          },
+          "source": "benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/results/079.json",
+          "source_sha256": "26d1830d1dbfdcf163f86f1ef47acff8c908fb0f02c60a230cecadd2bd1c544b"
+        }
+      ]
+    }
+  },
+  "candidate_cross_window_comparison": [
+    {
+      "rank": 1,
+      "before_seconds": 0.267,
+      "after_seconds": 0.217,
+      "seconds_delta": -0.05000000000000002,
+      "before_work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 190699
+      },
+      "after_work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 190699
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 2,
+      "before_seconds": 0.217,
+      "after_seconds": 0.217,
+      "seconds_delta": 0.0,
+      "before_work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 188827
+      },
+      "after_work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 188827
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 3,
+      "before_seconds": 0.567,
+      "after_seconds": 0.567,
+      "seconds_delta": 0.0,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 96082
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 96082
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 4,
+      "before_seconds": 8.43,
+      "after_seconds": 8.48,
+      "seconds_delta": 0.05000000000000071,
+      "before_work": {
+        "conflicts": 651764,
+        "decisions": 908950,
+        "propagations": 18006397
+      },
+      "after_work": {
+        "conflicts": 651764,
+        "decisions": 908950,
+        "propagations": 18006397
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 5,
+      "before_seconds": 29.713,
+      "after_seconds": 29.712,
+      "seconds_delta": -0.0010000000000012221,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 58640574
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 58640574
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 6,
+      "before_seconds": 67.273,
+      "after_seconds": 68.025,
+      "seconds_delta": 0.7520000000000095,
+      "before_work": {
+        "conflicts": 373544,
+        "decisions": 3449913,
+        "propagations": 131533204
+      },
+      "after_work": {
+        "conflicts": 373544,
+        "decisions": 3449913,
+        "propagations": 131533204
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 7,
+      "before_seconds": 54.253,
+      "after_seconds": 54.152,
+      "seconds_delta": -0.10099999999999909,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 46132715
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 46132715
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 8,
+      "before_seconds": 66.479,
+      "after_seconds": 65.972,
+      "seconds_delta": -0.507000000000005,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 56889411
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 56889411
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 9,
+      "before_seconds": 94.777,
+      "after_seconds": 116.804,
+      "seconds_delta": 22.027,
+      "before_work": {
+        "conflicts": 46730,
+        "decisions": 30153962,
+        "propagations": 642247674
+      },
+      "after_work": {
+        "conflicts": 94957,
+        "decisions": 38940820,
+        "propagations": 799769066
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 10,
+      "before_seconds": 91.371,
+      "after_seconds": 91.233,
+      "seconds_delta": -0.13799999999999102,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 76457813
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 76457813
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 11,
+      "before_seconds": 0.267,
+      "after_seconds": 0.267,
+      "seconds_delta": 0.0,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 253639
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 253639
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 12,
+      "before_seconds": 7.328,
+      "after_seconds": 7.28,
+      "seconds_delta": -0.04800000000000004,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 4868175
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 4868175
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 13,
+      "before_seconds": 73.592,
+      "after_seconds": 73.339,
+      "seconds_delta": -0.2530000000000001,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61295163
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61295163
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 14,
+      "before_seconds": 73.09,
+      "after_seconds": 72.081,
+      "seconds_delta": -1.0090000000000003,
+      "before_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61521915
+      },
+      "after_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61521915
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 15,
+      "before_seconds": 82.04,
+      "after_seconds": 82.202,
+      "seconds_delta": 0.16199999999999193,
+      "before_work": {
+        "conflicts": 2272663,
+        "decisions": 3310531,
+        "propagations": 311056558
+      },
+      "after_work": {
+        "conflicts": 2272663,
+        "decisions": 3310531,
+        "propagations": 311056558
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 16,
+      "before_seconds": 127.414,
+      "after_seconds": 127.206,
+      "seconds_delta": -0.2079999999999984,
+      "before_work": {
+        "conflicts": 4777402,
+        "decisions": 14441406,
+        "propagations": 152705482
+      },
+      "after_work": {
+        "conflicts": 4777402,
+        "decisions": 14441406,
+        "propagations": 152705482
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 17,
+      "before_seconds": 153.311,
+      "after_seconds": 171.611,
+      "seconds_delta": 18.299999999999983,
+      "before_work": {
+        "conflicts": 165557,
+        "decisions": 4406020,
+        "propagations": 1016171447
+      },
+      "after_work": {
+        "conflicts": 179361,
+        "decisions": 4249505,
+        "propagations": 1158167288
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 18,
+      "before_seconds": 64.57,
+      "after_seconds": 64.271,
+      "seconds_delta": -0.2989999999999924,
+      "before_work": {
+        "conflicts": 11370,
+        "decisions": 802677,
+        "propagations": 546191110
+      },
+      "after_work": {
+        "conflicts": 11370,
+        "decisions": 802677,
+        "propagations": 546191110
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 19,
+      "before_seconds": 137.535,
+      "after_seconds": 137.023,
+      "seconds_delta": -0.5120000000000005,
+      "before_work": {
+        "conflicts": 701651,
+        "decisions": 27626032,
+        "propagations": 1846890843
+      },
+      "after_work": {
+        "conflicts": 701651,
+        "decisions": 27626032,
+        "propagations": 1846890843
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 20,
+      "before_seconds": 120.761,
+      "after_seconds": 120.519,
+      "seconds_delta": -0.24199999999999022,
+      "before_work": {
+        "conflicts": 81993,
+        "decisions": 1229783,
+        "propagations": 840278325
+      },
+      "after_work": {
+        "conflicts": 81993,
+        "decisions": 1229783,
+        "propagations": 840278325
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 21,
+      "before_seconds": 137.629,
+      "after_seconds": 130.433,
+      "seconds_delta": -7.195999999999998,
+      "before_work": {
+        "conflicts": 97517,
+        "decisions": 60978863,
+        "propagations": 840322789
+      },
+      "after_work": {
+        "conflicts": 81990,
+        "decisions": 66644458,
+        "propagations": 763244718
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 22,
+      "before_seconds": 248.327,
+      "after_seconds": 236.901,
+      "seconds_delta": -11.425999999999988,
+      "before_work": {
+        "conflicts": 62648,
+        "decisions": 311785,
+        "propagations": 1041857046
+      },
+      "after_work": {
+        "conflicts": 62648,
+        "decisions": 311785,
+        "propagations": 1041857046
+      },
+      "checked_both": false
+    },
+    {
+      "rank": 23,
+      "before_seconds": 212.272,
+      "after_seconds": 212.513,
+      "seconds_delta": 0.24100000000001387,
+      "before_work": {
+        "conflicts": 6960467,
+        "decisions": 18156180,
+        "propagations": 254269085
+      },
+      "after_work": {
+        "conflicts": 6960467,
+        "decisions": 18156180,
+        "propagations": 254269085
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 24,
+      "before_seconds": 236.4,
+      "after_seconds": 243.373,
+      "seconds_delta": 6.972999999999985,
+      "before_work": {
+        "conflicts": 3775735,
+        "decisions": 38095199,
+        "propagations": 1155304769
+      },
+      "after_work": {
+        "conflicts": 3997558,
+        "decisions": 38262938,
+        "propagations": 1191159976
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 25,
+      "before_seconds": 252.178,
+      "after_seconds": 251.223,
+      "seconds_delta": -0.9549999999999841,
+      "before_work": {
+        "conflicts": 348659,
+        "decisions": 1200326,
+        "propagations": 3289147069
+      },
+      "after_work": {
+        "conflicts": 348659,
+        "decisions": 1200326,
+        "propagations": 3289147069
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 26,
+      "before_seconds": 272.323,
+      "after_seconds": 272.653,
+      "seconds_delta": 0.3300000000000409,
+      "before_work": {
+        "conflicts": 9608136,
+        "decisions": 27460199,
+        "propagations": 306487174
+      },
+      "after_work": {
+        "conflicts": 9608136,
+        "decisions": 27460199,
+        "propagations": 306487174
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 27,
+      "before_seconds": 499.203,
+      "after_seconds": 347.514,
+      "seconds_delta": -151.68899999999996,
+      "before_work": {
+        "conflicts": 7296232,
+        "decisions": 237171721,
+        "propagations": 3826159513
+      },
+      "after_work": {
+        "conflicts": 4473366,
+        "decisions": 180615860,
+        "propagations": 2561617810
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 28,
+      "before_seconds": 251.242,
+      "after_seconds": 249.27,
+      "seconds_delta": -1.97199999999998,
+      "before_work": {
+        "conflicts": 87115,
+        "decisions": 2027884,
+        "propagations": 3106120168
+      },
+      "after_work": {
+        "conflicts": 87115,
+        "decisions": 2027884,
+        "propagations": 3106120168
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 29,
+      "before_seconds": 312.845,
+      "after_seconds": 310.253,
+      "seconds_delta": -2.5920000000000414,
+      "before_work": {
+        "conflicts": 10609587,
+        "decisions": 32532310,
+        "propagations": 509067370
+      },
+      "after_work": {
+        "conflicts": 10609587,
+        "decisions": 32532310,
+        "propagations": 509067370
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 30,
+      "before_seconds": 282.703,
+      "after_seconds": 285.342,
+      "seconds_delta": 2.63900000000001,
+      "before_work": {
+        "conflicts": 5912244,
+        "decisions": 10672173,
+        "propagations": 162634188
+      },
+      "after_work": {
+        "conflicts": 5912244,
+        "decisions": 10672173,
+        "propagations": 162634188
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 31,
+      "before_seconds": 328.136,
+      "after_seconds": 323.608,
+      "seconds_delta": -4.52800000000002,
+      "before_work": {
+        "conflicts": 4095145,
+        "decisions": 201955008,
+        "propagations": 2597853629
+      },
+      "after_work": {
+        "conflicts": 4095145,
+        "decisions": 201955008,
+        "propagations": 2597853629
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 32,
+      "before_seconds": 462.905,
+      "after_seconds": 460.293,
+      "seconds_delta": -2.6119999999999663,
+      "before_work": {
+        "conflicts": 7378565,
+        "decisions": 212366878,
+        "propagations": 3277025725
+      },
+      "after_work": {
+        "conflicts": 7378565,
+        "decisions": 212366878,
+        "propagations": 3277025725
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 33,
+      "before_seconds": 455.345,
+      "after_seconds": 515.946,
+      "seconds_delta": 60.601,
+      "before_work": {
+        "conflicts": 7237827,
+        "decisions": 184910165,
+        "propagations": 3285139253
+      },
+      "after_work": {
+        "conflicts": 8896640,
+        "decisions": 214774709,
+        "propagations": 3733783651
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 34,
+      "before_seconds": 353.383,
+      "after_seconds": 349.023,
+      "seconds_delta": -4.359999999999957,
+      "before_work": {
+        "conflicts": 4268701,
+        "decisions": 8300883,
+        "propagations": 972028201
+      },
+      "after_work": {
+        "conflicts": 4268701,
+        "decisions": 8300883,
+        "propagations": 972028201
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 35,
+      "before_seconds": 558.714,
+      "after_seconds": 554.754,
+      "seconds_delta": -3.9600000000000364,
+      "before_work": {
+        "conflicts": 8681274,
+        "decisions": 238587661,
+        "propagations": 4407550286
+      },
+      "after_work": {
+        "conflicts": 8681274,
+        "decisions": 238587661,
+        "propagations": 4407550286
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 36,
+      "before_seconds": 383.888,
+      "after_seconds": 385.029,
+      "seconds_delta": 1.1410000000000196,
+      "before_work": {
+        "conflicts": 6559620,
+        "decisions": 23281243,
+        "propagations": 1488017957
+      },
+      "after_work": {
+        "conflicts": 6559620,
+        "decisions": 23281243,
+        "propagations": 1488017957
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 37,
+      "before_seconds": 376.839,
+      "after_seconds": 634.348,
+      "seconds_delta": 257.50899999999996,
+      "before_work": {
+        "conflicts": 5057588,
+        "decisions": 213247260,
+        "propagations": 3075300198
+      },
+      "after_work": {
+        "conflicts": 11972299,
+        "decisions": 213760053,
+        "propagations": 4553228016
+      },
+      "checked_both": false
+    },
+    {
+      "rank": 38,
+      "before_seconds": 380.5,
+      "after_seconds": 379.245,
+      "seconds_delta": -1.2549999999999955,
+      "before_work": {
+        "conflicts": 18021141,
+        "decisions": 24152976,
+        "propagations": 485247222
+      },
+      "after_work": {
+        "conflicts": 18021141,
+        "decisions": 24152976,
+        "propagations": 485247222
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 39,
+      "before_seconds": 430.185,
+      "after_seconds": 418.364,
+      "seconds_delta": -11.821000000000026,
+      "before_work": {
+        "conflicts": 5874561,
+        "decisions": 97760711,
+        "propagations": 2308242038
+      },
+      "after_work": {
+        "conflicts": 5819420,
+        "decisions": 98990198,
+        "propagations": 2334196071
+      },
+      "checked_both": true
+    },
+    {
+      "rank": 40,
+      "before_seconds": 529.466,
+      "after_seconds": 527.136,
+      "seconds_delta": -2.330000000000041,
+      "before_work": {
+        "conflicts": 5253527,
+        "decisions": 19983764,
+        "propagations": 3521325896
+      },
+      "after_work": {
+        "conflicts": 5253527,
+        "decisions": 19983764,
+        "propagations": 3521325896
+      },
+      "checked_both": true
+    }
+  ],
+  "limitations": "Different full-view windows: cross-window deltas locate mechanisms and regressions, not replicated paired effect sizes. No final promotion or checked-gate closure inferred."
+}

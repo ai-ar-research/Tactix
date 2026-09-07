@@ -1,0 +1,88 @@
+{
+  "selected_event_count": 166,
+  "portable_event_difference_count": 18,
+  "first_differences": [
+    {
+      "index": 127,
+      "candidate": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109796|score=1.2868744741403999e+46|from=51|to=2|hash=b2731a723b350331"
+      },
+      "kissat": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109815|score=6.9378125496482388e+46|from=119|to=2|hash=7b19548368ae82e8"
+      }
+    },
+    {
+      "index": 128,
+      "candidate": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109815|score=6.9378125496482388e+46|from=120|to=2|hash=c6781c7de4e5e30c"
+      },
+      "kissat": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109877|score=6.8279802656419767e+46|from=120|to=6|hash=e01521f62ebf1b5b"
+      }
+    },
+    {
+      "index": 129,
+      "candidate": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109877|score=6.8279802656419767e+46|from=121|to=6|hash=4e405b87450a5d35"
+      },
+      "kissat": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109796|score=1.2868744741403999e+46|from=125|to=62|hash=b9a3ecc3f15f28ec"
+      }
+    },
+    {
+      "index": 130,
+      "candidate": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109841|score=3.3965970888458537e+46|from=6229|to=3114|hash=ee661fd1094975a8"
+      },
+      "kissat": {
+        "event": "heap_insert",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "var=109841|score=3.3965970888458537e+46|from=6229|to=3114|hash=99828e9ca67e4058"
+      }
+    },
+    {
+      "index": 131,
+      "candidate": {
+        "event": "heap_pop",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "stage=move|held=1610:8.9815807389293843e-151|other=109815:6.9378125496482388e+46|from=253|to=126"
+      },
+      "kissat": {
+        "event": "heap_pop",
+        "conflict": 13563,
+        "mode": "stable",
+        "payload": "stage=move|held=1610:8.9815807389293843e-151|other=109796:1.2868744741403999e+46|from=253|to=126"
+      }
+    }
+  ],
+  "counter_scope": "Kissat decide.c increments level and ordinary decision count before picking; Tactix default_policy.cpp picks before applying Decide. Warm-up increments level but not ordinary decisions. Raw 5408 comparison retains these offsets; this comparison drops both counters, retaining event, conflict, mode and full payload.",
+  "sources": [
+    "tools/solvers/variants/kissat-direct-heap-5402/src/decide.c:213",
+    ".claude/worktrees/runtime-direct-heap-5402/src/policies/default_policy.cpp:2738",
+    ".claude/worktrees/runtime-direct-heap-5402/src/policies/default_policy.cpp:2796"
+  ],
+  "limitation": "Selected variables only; equality does not establish equality of all heap updates."
+}

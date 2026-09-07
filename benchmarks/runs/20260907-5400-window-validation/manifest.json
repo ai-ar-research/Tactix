@@ -1,0 +1,29 @@
+{
+  "parent_campaign": "benchmarks/runs/20260907-5398-rank35-prefix",
+  "candidate_authority": "benchmarks/runs/20260907-5399-window-observers/manifest.json",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-window-observer-5399",
+  "input": "benchmarks/cache/tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+  "input_sha256_compressed": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+  "stop_conflict": 13833,
+  "hypothesis": "Locate whether the first Rank-35 choice split is assignment, score/heap or focused queue state. The new stream window must reproduce the retained 5398 bytes exactly; cumulative prefix hashing remains unfiltered.",
+  "validation": "Two clean stops, exact nonempty decision window versus retained old full bytes, matching prior boundary prefix, independently computed cumulative prefix/hash, all pin hashes and partial-certificate cleanup.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "11a91ad2ad985312d0953cd4fd83478058f573cb565cf2c72139585b89dd4193",
+    "pins/kissat": "6ab32e4f8ba862c27661ba559d1c1bb9272fae3dda16a13a74e95f6ce4525336",
+    "run.py": "aef8ab42f580ade0e72fa41d3b577ad9c053956014af5f2b071da101ffcb2f8a",
+    "array.sbatch": "315b7189a749f2bfdf799f0d40b93150ff0c7843503331bee1a34d95275b720c"
+  },
+  "stream_from": 13800,
+  "choice_conflict": 13832,
+  "choice_variable": 483970,
+  "common_decisions": 18516149
+}

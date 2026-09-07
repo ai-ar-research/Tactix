@@ -309,6 +309,14 @@ invariants:
   from the immutable pin and manifest, not a retained partial proof. Each
   checker deletes its consumed input immediately, and the task clears remaining
   scratch before publishing its result.
+- Proof checking is asynchronous during runtime iteration. After an expected
+  solver verdict, treat pending checks as provisional passes for continuing
+  investigation, implementation and subsequent measurements, including dependent
+  work; do not wait for certificates before proceeding. Keep checkers running,
+  retain pin-to-successor dependencies, and revisit outcomes at checkpoints.
+  Label pending results unverified: provisional continuation does not close a
+  checked gate or authorize final promotion. A rejected proof/model immediately
+  pauses affected dependent work and invokes the §8.2 repair workflow.
 - An early exit without a valid result is a blocking incident, not a performance
   loss. Preserve its status, signal, and diagnostics; distinguish timeout,
   scheduler cancellation/preemption, and enforced or confirmed OOM. A crash,
