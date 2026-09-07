@@ -5338,3 +5338,27 @@ learned events not ticks). This is the 7am work; the code-reading shortcuts are
 exhausted. NET honest status: r34 confirmed N4 detail-divergence in a faithful
 analyze structure; the fix needs the trace. reuse-first-only diagnostic (9e03674)
 stays as a reproducer but the timing/structure fixes are both dead ends.
+
+### 3.114 Parse profile (r7): parse is DIFFUSE; real levers are kernel_binary_copies + congruence (2026-09-07)
+
+perf --call-graph on r7 (0-conflict, RelWithDebInfo pin, job 1668104). Flat self-
+time top functions (whole run):
+  do_substitution 5.65% (of which kernel_binary_copies 2.74%)
+  congruence_extract_gates 5.54% (build_clause_index/finish/sort)
+  ... diffuse below.
+PARSE (ingest_clause/parse_dimacs) does NOT appear as a hot self-time function on
+r7 -> the parse +18.4s gap is DIFFUSE across many small per-clause ops (no single
+hot line to port), consistent with the overall diffuse impl gap. population_shadow
+is a compile-time dev diagnostic (TACTIX_ENABLE_PROOF_SHADOW), OFF/no-op in the
+gate -> NOT a parse cost. So the parse lever is a diffuse micro-grind, low EV.
+REDIRECT: the higher-EV impl-gap lever on the 0-conflict ranks is the SUBSTITUTION
+RESIDUAL -- specifically kernel_binary_copies (2.74% self-time on r7 alone), the
+binary-existence check (Bloom + watch scan) called throughout substitution. It is
+proof-NEUTRAL (a read-only count), so a byte-identical speedup is SAFE (like the
+earlier deque->vector repair). NEXT (safe, no proof/analyze risk): profile
+kernel_binary_copies' hot path (Bloom vs watch-scan) and the large-clause
+substitution residual; port a faster form vs kissat's in-place binary lookup.
+This is a better parallel thread than parse while r34's trace waits for 7am.
+Also congruence_extract_gates 5.54% (build_clause_index) is a lever but congruence
+is at PARITY with kissat (3.95/3.107) so it is likely faithful -- verify before
+touching.
