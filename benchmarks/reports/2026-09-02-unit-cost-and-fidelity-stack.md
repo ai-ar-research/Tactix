@@ -5569,3 +5569,27 @@ point; read the conflicts just before it (the reused/OTFS clause, the analysis) 
 find the reuse/analyze fidelity bug, then the proof-critical fix. Pins: build/event-
 trace/tactix, kissat-event-trace worktree. This session solved the tooling wall and
 localized early alignment; the bisection + fix is the fresh 7am work.
+
+### 3.124 N4 localization: decision-comparison method VALIDATED; late-conflict tooling needs debugging (2026-09-07)
+
+Established the working N4 localization method AND its tooling limits:
+- WORKS (validated): extract `decision` events (dec#,level,decided-lit -- same format
+  in tactix + kissat-event-trace) and compare sequences. Correctly showed r16 aligned
+  through conflict 100, r34 aligned through conflict 3000. This is the reliable method.
+- LIMIT: for LATE conflicts, the full trace is too big (tactix ~2500 records/conflict).
+  Two compaction routes, both need debugging at 7am:
+  (a) SKIP flags (TACTIX_EVENT_TRACE_SKIP_IMPLY/SKIP_WATCH/SKIP_ANALYSIS_TICKS/SKIP_HEAP
+      + TRAJECTORY_ONLY) to emit a compact decisions+conflicts trace -- untested combo.
+  (b) The purpose-built decision-prefix HASH tool (TACTIX_/KISSAT_DECISION_PREFIX_TRACE
+      + SAT_DECISION_PREFIX_CONFLICT/COMMON/STOP): tried in job 1668120 but (i) kissat's
+      SAT_DECISION_PREFIX_STOP did NOT fire (kissat ran full, wasteful), and (ii) tactix
+      hashes collided across offsets with COMMON=1 (10k==3M) -- the COMMON/emit
+      semantics are misused. Needs reading kissat overlay eventtrace.c:1167+ and tactix
+      note_decision_prefix to use COMMON = target decision count and confirm the kissat
+      STOP path.
+7AM N4 PLAN (precise): fix route (a) or (b), bisect r34's first-divergence conflict in
+[3000, ~4.3M] (binary search, sticky), read the reused/OTFS clause + analysis just
+before it -> the reuse/analyze fidelity bug -> proof-critical fix; validate r6/r16/r19/
+r23/r34 improve, r15/r20/r26/r36 unregressed, fuzz+B28+C5. The METHOD is proven; only
+the compact-late-trace plumbing remains. This is the highest-value remaining lever
+(N4 = +11.27%, the larger half of the gap).
