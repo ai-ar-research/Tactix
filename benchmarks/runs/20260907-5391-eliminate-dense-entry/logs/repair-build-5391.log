@@ -1,0 +1,4 @@
+[ 96%] Built target tactix_lib
+[100%] Building CXX object tests/CMakeFiles/test_scheduling.dir/test_scheduling.cpp.o
+[100%] Linking CXX executable test_scheduling
+[100%] Built target test_scheduling

@@ -1,0 +1,76 @@
+{
+  "checked_clean": 12,
+  "timeouts": 0,
+  "arms": {
+    "current": {
+      "solved": 3,
+      "sat": 3,
+      "unsat": 0,
+      "seconds": 921.207,
+      "max_rss_kb": 4725892
+    },
+    "previous": {
+      "solved": 3,
+      "sat": 3,
+      "unsat": 0,
+      "seconds": 639.625,
+      "max_rss_kb": 4713520
+    },
+    "candidate": {
+      "solved": 3,
+      "sat": 3,
+      "unsat": 0,
+      "seconds": 652.579,
+      "max_rss_kb": 3935936
+    },
+    "kissat": {
+      "solved": 3,
+      "sat": 3,
+      "unsat": 0,
+      "seconds": 541.494,
+      "max_rss_kb": 1436392
+    }
+  },
+  "ratios": {
+    "previous_over_current": 0.6943336296836651,
+    "candidate_over_current": 0.7083956157519428,
+    "kissat_over_current": 0.5878092545975009,
+    "candidate_over_previous": 1.020252491694352,
+    "candidate_over_kissat": 1.2051453940394536
+  },
+  "per_instance_seconds": {
+    "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz": {
+      "current": 248.049,
+      "previous": 151.71,
+      "candidate": 171.856,
+      "kissat": 113.55
+    },
+    "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz": {
+      "current": 561.206,
+      "previous": 350.627,
+      "candidate": 350.693,
+      "kissat": 331.423
+    },
+    "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz": {
+      "current": 111.952,
+      "previous": 137.288,
+      "candidate": 130.03,
+      "kissat": 96.521
+    }
+  },
+  "result_sha256": {
+    "000.json": "e35899fe64a66804577747a48fb7b95dc9c19017dc3b1be12d0c1776c9ee5b43",
+    "001.json": "dd0d7e00cdee6c604d0591fbabf894f69e5541b2b9be653d8ed3c0ef9d7a9f91",
+    "002.json": "3b9461e22efd55b668ab6a276c84d5eb224dfa5d40603899311345f8a2bc0af2",
+    "003.json": "bd609935c921f0a31f46d2d2b6878f6b1d17bef55bdf2f0d8adf59030da53a41",
+    "004.json": "ca8f791652c657d40047d100d05cede184f54ce84257ddba447665311edd1924",
+    "005.json": "d213701d1a75c4eab20b15bd73ece4401a7f9bc76a46baf9a11ea6852b49faa8",
+    "006.json": "dcece17544d7543481307f09621a8503c15aeea10a702ee16562e7c4d897dbd6",
+    "007.json": "a20f8bc261bfb3c9331a817290a4bd5c78ac589a960cece176ea6c683c9f8fc3",
+    "008.json": "9fd501c6b4529a07a6831a1d6008df3bc50eccfa1f5138ba60fe467610075c8d",
+    "009.json": "19e8d65a8e9643bb9c98880516c0f0331790c8e7ba824fcc8b66017cdf4ed3b6",
+    "010.json": "22298bfb340dca4ca9f10a33167326740fe05cdccfd1ea1d7aeaf74e7f872a24",
+    "011.json": "886f53316813418b8e5a96a00f98be3dceeda3e37b440d0a99e1871116146303"
+  },
+  "limitations": "One diagnostic wave; isolated cumulative candidate UNFUZZED. Not a Rank 1\u201340 acceptance or promotion."
+}

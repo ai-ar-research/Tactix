@@ -1,0 +1,97 @@
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -3541,12 +3541,13 @@
+   // mixed binary/large connection stream. Probe consumers share the ordinary
+   // large occurrence image and do not instantiate a duplicate formula-wide
+   // ordering representation. Constructing either cache is not itself a
+-  // physical sparse-watch transition; individual rules own those boundaries.
+-  // kissat_eliminate enters dense mode through kissat_enter_dense_mode
+-  // (eliminate.c:600), which deletes every repeated binary before the
+-  // occurrence lists are built; the Probe rules perform their own entries.
++  // physical sparse-watch transition. Eliminate owns that transition here:
++  // kissat_enter_dense_mode both disconnects large watches and deletes every
++  // repeated binary before occurrences are built (eliminate.c). Probe rules
++  // retain their own entry/exit transitions. Keeping sparse watches throughout
++  // Eliminate otherwise publishes and scans a second, obsolete large image.
+   if (group == SlotGroup::Eliminate)
+-    kernel_deduplicate_binary_watches(k);
++    kernel_flush_large_watches(k);
+   kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
+   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
+   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
+--- a/tests/test_scheduling.cpp
++++ b/tests/test_scheduling.cpp
+@@ -1620,7 +1620,73 @@
+          "startup collection is scaffolding, not an authored C2 slot");
+ }
+ 
++static void test_eliminate_owns_physical_dense_transition() {
++  struct Observe : CandidateOrderPolicy {
++    bool called = false, connected = false;
++    uint32_t large_words = 0;
++    const char *name() const override { return "observe-dense-entry"; }
++    void rank(const Kernel &k, uint32_t, uint64_t *, uint32_t) override {
++      if (called)
++        return;
++      called = true;
++      connected = k.large_watches_connected;
++      for (Lit l = 0; l < 2 * k.nvars; ++l)
++        large_words += k.watches.size(l) - k.watches.binary_size(l);
++    }
++  } observer;
++  Kernel k;
++  ScopedHeuristics heuristics(k);
++  kernel_reserve_vars(k, 4);
++  const Lit lits[] = {internalize(1), internalize(2), internalize(3)};
++  kernel_add_large_clause(k, lits, 3, false, 0, 1);
++  kernel_add_binary_clause(k, internalize(-1), internalize(4), 2);
++  const auto watch_words = [&k](uint32_t *large, uint32_t *binary) {
++    *large = *binary = 0;
++    for (Lit l = 0; l < 2 * k.nvars; ++l) {
++      *binary += k.watches.binary_size(l);
++      *large += k.watches.size(l) - k.watches.binary_size(l);
++    }
++  };
++  uint32_t large_before = 0, binary_before = 0;
++  watch_words(&large_before, &binary_before);
++  assert(large_before > 0 && binary_before > 0 && k.large_watches_connected);
++  // Eliminate is a search-time phase: DefaultPolicy's BVE entry defers
++  // preprocessing (kissat fastel=0) and slot admission declines every
++  // non-preprocess entry while `conflicts == 0`.  Pose the search-time call.
++  k.stats.conflicts = 1;
++  // The dosed loop consults the retry advice only after ranking.  Holding it
++  // at zero keeps every candidate out of the dose, so the formula survives
++  // and the exit's sparse restoration is observable rather than vacuous.
++  std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0});
++  DefaultPolicy p;
++  p.inprocess().pose_initialized();
++  p.inprocess().candidate_order = &observer;
++  DefaultInprocessScheduler::SlotEntry e;
++  e.rule = tactix_rule_id("BVE");
++  e.group = SlotGroup::Eliminate;
++  e.dosed = true;
++  e.order = CandidateOrder::Reverse;
++  e.max_applies = 1;
++  e.meter = [](const Kernel &) -> uint64_t { return 0; };
++  p.inprocess().entries.push_back(e);
++  assert(p.inprocess().run_phase(k, SlotGroup::Eliminate, nullptr) != 20);
++  const DefaultInprocessScheduler::SlotEntry &ran = p.inprocess().entries[0];
++  assert(ran.applies == 1 && ran.tm.admitted == 1 && ran.ord.lists == 1 &&
++         "the dosed BVE entry must reach its candidate ranking");
++  assert(observer.called && !observer.connected && observer.large_words == 0);
++  assert(k.stats.bve_eliminated == 0 && "the retry advice kept the formula");
++  assert(k.large_watches_connected && !k.dense);
++  uint32_t large_after = 0, binary_after = 0;
++  watch_words(&large_after, &binary_after);
++  assert(large_after == large_before && binary_after == binary_before &&
++         "phase exit must restore the ordinary sparse watches");
++  kernel_check_invariants(k);
++  std::printf("  eliminate entry: sparse watches flushed, dense image only, "
++              "restored at exit\n");
++}
++
+ int main() {
++  test_eliminate_owns_physical_dense_transition();
+   test_mode_growth_key_matches_kissat();
+   test_reason_bump_depth_matches_kissat();
+   test_reason_bump_delay_lives_at_final_clause_gate();

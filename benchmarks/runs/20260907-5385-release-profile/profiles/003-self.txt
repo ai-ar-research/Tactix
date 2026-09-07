@@ -1,0 +1,100 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 19K of event 'cycles:u'
+# Event count (approx.): 358551126482
+#
+# Overhead  Shared Object         Symbol                                         IPC   [IPC Coverage]
+# ........  ....................  .............................................  ....................
+#
+    23.63%  kissat                [.] kissat_search_propagate                    -      -            
+     8.21%  kissat                [.] kissat_next_decision_variable              -      -            
+     4.81%  kissat                [.] kissat_substitute                          -      -            
+     4.27%  kissat                [.] generate_resolvents                        -      -            
+     3.77%  kissat                [.] kissat_backtrack_without_updating_phases   -      -            
+     3.54%  kissat                [.] kissat_save_target_phases                  -      -            
+     2.66%  kissat                [.] kissat_binary_clauses_backbone             -      -            
+     2.43%  kissat                [.] kissat_factor                              -      -            
+     2.35%  kissat                [.] kissat_eliminate                           -      -            
+     2.32%  kissat                [.] kitten_clause_with_id_and_exception        -      -            
+     2.26%  kissat                [.] kitten_solve                               -      -            
+     2.02%  kissat                [.] kissat_watch_large_clauses                 -      -            
+     1.82%  kissat                [.] import_literal                             -      -            
+     1.41%  kissat                [.] kissat_probing_propagate                   -      -            
+     1.39%  kissat                [.] kissat_forward_subsume_during_elimination  -      -            
+     1.37%  kissat                [.] kissat_transitive_reduction                -      -            
+     1.32%  kissat                [.] kissat_save_best_phases                    -      -            
+     1.31%  kissat                [.] flush_watched_clauses_by_literal           -      -            
+     1.24%  kissat                [.] kissat_congruence                          -      -            
+     1.21%  kissat                [.] kissat_generate_resolvents                 -      -            
+     1.19%  kissat                [.] kissat_flush_large_watches                 -      -            
+     1.13%  libc.so.6             [.] __memset_avx512_unaligned_erms             -      -            
+     1.04%  kissat                [.] print_proof_line                           -      -            
+     0.98%  kissat                [.] kissat_enlarge_vector                      -      -            
+     0.80%  kissat                [.] kissat_shrink_clause                       -      -            
+     0.79%  kissat                [.] kissat_resize_vector                       -      -            
+     0.74%  libc.so.6             [.] __memmove_avx512_unaligned_erms            -      -            
+     0.68%  kissat                [.] new_clause                                 -      -            
+     0.64%  kissat                [.] kissat_assign_decision                     -      -            
+     0.64%  kissat                [.] find_gate                                  -      -            
+     0.63%  kissat                [.] kissat_enter_dense_mode                    -      -            
+     0.59%  kissat                [.] update_after_removing_variable             -      -            
+     0.57%  kissat                [.] kissat_resume_sparse_mode                  -      -            
+     0.51%  kissat                [.] kissat_flush_large_connected               -      -            
+     0.48%  kissat                [.] kissat_defrag_vectors                      -      -            
+     0.47%  libc.so.6             [.] unlink_chunk.constprop.0                   -      -            
+     0.44%  kissat                [.] kissat_find_if_then_else_gate              -      -            
+     0.44%  kissat                [.] kissat_find_and_gate                       -      -            
+     0.43%  kissat                [.] kissat_sparse_collect                      -      -            
+     0.43%  kissat                [.] vivify_round                               -      -            
+     0.42%  kissat                [.] sort_active_variables_by_weight            -      -            
+     0.42%  kissat                [.] get_ternary_clause                         -      -            
+     0.41%  libc.so.6             [.] malloc_consolidate                         -      -            
+     0.40%  kissat                [.] kissat_walk                                -      -            
+     0.38%  kissat                [.] kissat_mark_binaries                       -      -            
+     0.37%  kissat                [.] kissat_connect_irredundant_large_clauses   -      -            
+     0.34%  kissat                [.] new_gate.isra.0                            -      -            
+     0.33%  kissat                [.] kitten_clear                               -      -            
+     0.32%  kissat                [.] kitten_flip_literal                        -      -            
+     0.30%  kissat                [.] extract_binaries                           -      -            
+     0.30%  kissat                [.] parse_dimacs                               -      -            
+     0.29%  kissat                [.] index_gate                                 -      -            
+     0.29%  libc.so.6             [.] _int_malloc                                -      -            
+     0.27%  kissat                [.] kissat_search                              -      -            
+     0.27%  kissat                [.] kissat_sweep                               -      -            
+     0.26%  kissat                [.] kissat_find_definition                     -      -            
+     0.26%  kissat                [.] kissat_new_binary_clause                   -      -            
+     0.25%  kissat                [.] reset_gate_hash_table                      -      -            
+     0.22%  kissat                [.] kissat_propagate_beyond_conflicts          -      -            
+     0.22%  kissat                [.] kissat_finalize_compacting                 -      -            
+     0.22%  libc.so.6             [.] _int_free                                  -      -            
+     0.20%  kissat                [.] rewrite_gates                              -      -            
+     0.20%  kissat                [.] kissat_mark_eliminated_variable            -      -            
+     0.20%  kissat                [.] sort_lits.part.0                           -      -            
+     0.19%  kissat                [.] compute_weights                            -      -            
+     0.19%  kissat                [.] sweep_refine                               -      -            
+     0.18%  kissat                [.] kissat_decide                              -      -            
+     0.18%  kissat                [.] kitten_shuffle_clauses                     -      -            
+     0.18%  kissat                [.] kitten_compute_clausal_core                -      -            
+     0.17%  kissat                [.] kitten_value                               -      -            
+     0.17%  kissat                [.] kissat_decide_phase                        -      -            
+     0.17%  kissat                [.] get_antecedents                            -      -            
+     0.16%  kissat                [.] kissat_find_equivalence_gate               -      -            
+     0.16%  kissat                [.] kissat_unmark_binaries                     -      -            
+     0.16%  kissat                [.] import_internal_proof_literals             -      -            
+     0.15%  kissat                [.] forward_subsume_matching_clauses           -      -            
+     0.14%  kissat                [.] new_learned_klause                         -      -            
+     0.13%  kissat                [.] kissat_add_binary_to_proof                 -      -            
+     0.12%  libc.so.6             [.] cfree@GLIBC_2.2.5                          -      -            
+     0.12%  kissat                [.] kissat_delete_binary_from_proof            -      -            
+     0.11%  kissat                [.] completely_backtrack_to_root_level         -      -            
+     0.10%  kissat                [.] update_candidate                           -      -            
+     0.10%  kissat                [.] reset_closure                              -      -            
+     0.10%  kissat                [.] kissat_mark_added_literals                 -      -            
+
+
+#
+# (Tip: To adjust path to source files to local file system use perf report --prefix=... --prefix-strip=...)
+#

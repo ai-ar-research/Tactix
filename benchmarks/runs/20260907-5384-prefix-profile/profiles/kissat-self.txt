@@ -1,0 +1,51 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 12K of event 'cycles:u'
+# Event count (approx.): 244806871188
+#
+# Overhead  Shared Object         Symbol                                         IPC   [IPC Coverage]
+# ........  ....................  .............................................  ....................
+#
+    59.24%  kissat                [.] kissat_search_propagate                    -      -            
+     8.64%  kissat                [.] kissat_probing_propagate                   -      -            
+     6.14%  kissat                [.] kitten_solve                               -      -            
+     5.31%  kissat                [.] kissat_deduce_first_uip_clause             -      -            
+     3.59%  kissat                [.] kissat_bump_analyzed                       -      -            
+     2.52%  kissat                [.] kissat_shrink_clause                       -      -            
+     1.95%  kissat                [.] minimize_literal.part.0                    -      -            
+     1.24%  kissat                [.] kissat_analyze                             -      -            
+     1.03%  libc.so.6             [.] __memset_avx512_unaligned_erms             -      -            
+     1.02%  kissat                [.] vivify_round                               -      -            
+     0.69%  kissat                [.] kitten_flip_literal                        -      -            
+     0.62%  kissat                [.] kissat_factor                              -      -            
+     0.62%  kissat                [.] kissat_backtrack_without_updating_phases   -      -            
+     0.54%  kissat                [.] kissat_substitute                          -      -            
+     0.46%  kissat                [.] kitten_clause_with_id_and_exception        -      -            
+     0.46%  kissat                [.] kissat_resize_vector                       -      -            
+     0.36%  kissat                [.] sweep_refine                               -      -            
+     0.33%  kissat                [.] kissat_watch_large_clauses                 -      -            
+     0.32%  kissat                [.] import_literal                             -      -            
+     0.32%  kissat                [.] flush_watched_clauses_by_literal           -      -            
+     0.29%  kissat                [.] vivify_sort_lits_by_counts.part.0          -      -            
+     0.28%  kissat                [.] kissat_sweep                               -      -            
+     0.27%  kissat                [.] kissat_next_decision_variable              -      -            
+     0.22%  kissat                [.] kissat_learn_clause                        -      -            
+     0.22%  kissat                [.] kitten_value                               -      -            
+     0.21%  kissat                [.] kissat_walk                                -      -            
+     0.19%  kissat                [.] kissat_congruence                          -      -            
+     0.19%  kissat                [.] kissat_sparse_collect                      -      -            
+     0.18%  kissat                [.] print_proof_line                           -      -            
+     0.15%  kissat                [.] sweep_clause                               -      -            
+     0.15%  kissat                [.] kissat_forward_subsume_during_elimination  -      -            
+     0.13%  kissat                [.] generate_resolvents                        -      -            
+     0.12%  kissat                [.] kissat_transitive_reduction                -      -            
+     0.12%  kissat                [.] import_internal_proof_literals             -      -            
+     0.11%  kissat                [.] kissat_flush_large_watches                 -      -            
+
+
+#
+# (Tip: To compare scalability of two workload samples use perf diff -c ratio file1 file2)
+#

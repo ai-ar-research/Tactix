@@ -1,0 +1,61 @@
+UpdateCTestConfiguration  from :/home/hwu/SAT-solving/build/pin-5391-eliminate-dense-entry/DartConfiguration.tcl
+Test project /home/hwu/SAT-solving/build/pin-5391-eliminate-dense-entry
+Constructing a list of tests
+Done constructing a list of tests
+Updating test list for fixtures
+Added 0 tests to meet fixture requirements
+Checking test dependency graph...
+Checking test dependency graph end
+test 10
+    Start 10: scheduling
+
+10: Test command: /home/hwu/SAT-solving/build/pin-5391-eliminate-dense-entry/tests/test_scheduling
+10: Working Directory: /home/hwu/SAT-solving/build/pin-5391-eliminate-dense-entry/tests
+10: Test timeout computed to be: 10000000
+10:   eliminate entry: sparse watches flushed, dense image only, restored at exit
+10:   mode growth key: matches kissat's (switched+1)/2 ladder
+10:   reason bump: Kissat direct reasons in both modes
+10:   reason bump delay: consumed only at finalized-clause gate
+10:   analysis trail reuse: Kissat default off, CaDiCaL arm retained
+10:   factor material gate: cumulative Kissat watermark
+10:   factor large-formula gate: latched for the solve
+10:   retier cadence: only OTFS re-analysis advances glue limit
+10:   effort limit: kissat's formula, phase anchor, no clamps
+10:   initial effort anchors: input propagation remains priced
+10:   Eliminate sparse resume: root suffix replay uses search ticks
+10:   preprocess: one reduced probe pipeline, 10m tick reference
+10:   preprocess followups: all four producer outcomes covered
+10:   preprocess followups: neither-producer path takes final once
+10:   inprocess phases: probe assignments leave saved phases unset
+10:   probe entry: root restart suppresses target/best snapshots
+10:   jump reasons: Kissat small/bigbig classification gates search
+10:   preprocess followups: legacy arm calls both entries
+10:   reorder default: both modes, policy trigger remains root-only
+10:   slot cursor: resumes past the consumed prefix, wraps, permutes
+10:   cursor N1: instances() unchanged, apply_instance cursor-independent, all 7 arms permute
+10:   order arms: 6 arms reorder, native is the identity
+10:   subsume meter: 1392 visits vs 70 candidates
+10:   vivify scope: tier2=2 -> 1 candidates, tier2=10 -> 9
+10:   vivify tiers: stable retier -> focused 20/38 at dose entry
+10:   vivify tier merge: rounds=3 checked=8
+10:   vivify cumulative tiers: checked=8 tier3=8 ticks=632
+10:   substitute effort: fresh per-call, round-local 10-permille gate
+10:   substitute overshoot: mandatory first round, optional second
+10:   rule lifecycle: root fixed before substituted heap removal
+10:   authored slot order: 18 rows, registry-complete
+10:   slot membership/order: exact Kissat startup/search Probe; seven extra rules poseable
+10:   slot clocks: probe next=81674 < eliminate next=492178 at 8 phases
+10:   initial elimination: post-preprocess due at conflict 46478
+10:   BVE ordering: structural score plus search relevancy
+10:   BVE score: Kissat named-intermediate binary64 pose
+10:   inprocess scale: Kissat C+1 then logn(+9) boundary
+10:   slot gates: decline without new material, re-admit with it
+10: test_scheduling: all passed
+1/1 Test #10: scheduling .......................   Passed    0.01 sec
+
+The following tests passed:
+	scheduling
+
+100% tests passed out of 1
+
+Total Test time (real) =   0.01 sec
