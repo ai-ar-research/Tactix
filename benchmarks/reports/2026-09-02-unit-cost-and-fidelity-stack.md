@@ -5194,3 +5194,24 @@ NOT a knob. FIXTURES: r6 (66s) and r16 (126s) show the divergence at 6-11x less
 runtime than r34 (734s) -- trace THOSE for the first-divergence conflict.
 NEXT: first-divergence trace tactix-reuse vs kissat-reuse on r16, localize the
 divergent reuse decision in analyze.cpp:1278-1345 vs kissat analyze.c:16-127.
+
+### 3.108 FINAL R40 (all 40 ranks, merged port) -- honest total gap (2026-09-06)
+
+R40 gate 5256 (job 1667849, 40/40, tactix port 3a1bb53 vs kissat), decomposed by
+conflict ratio:
+  IMPLEMENTATION GAP (28 matched/0-conflict ranks): +308.2s (+6.49% of their
+    kissat time). Dominated by the 0-conflict preprocessing ranks (+12-15%),
+    diluted by near-parity large ranks. Parked roadmap: Substitute residual
+    +23.9s, Parse +18.4s, Sweep +6.3s.
+  N4 TRAJECTORY DIVERGENCE (12 ranks, |cr-1|>0.15): +329.9s (+11.27%). NOT an
+    impl gap. r34 +391s (1.97x conflicts), r17/r18/r22/r25/r31/r33/r40 slower,
+    r19 -589s FASTER. Net WORSE.
+  TOTAL Rank 1-40: ~+638s = ~+8.3% vs kissat.
+KEY: the N4 gap (+11.27%) is LARGER than the implementation gap (+6.49%) -- so
+r34-class scheduling divergences are the bigger lever, validating the pivot to
+r34. The merged binary-substitution port is 40/40 clean (0 timeouts, 0 verdict
+failures) and improved the impl-gap ranks -4-5% each; the gap remains because it
+is one component of a diffuse impl gap PLUS a large N4 gap. Both need substantial
+further work; the goal (within 1%) is far off but now HONESTLY characterized and
+decomposed (correcting the prior 1.24% underestimate). Next: r34 conflict-reuse
+fidelity (N4), then the parked unit-cost levers.
