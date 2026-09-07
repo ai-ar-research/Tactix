@@ -10,11 +10,11 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the audit
   of Claude's work. Campaign 5291's mixed proof modes/unchecked serialized arms
   cannot support “93% search quality” or an implementation-cost ceiling.
-- Latest: [BVE retry frontier](benchmarks/reports/2026-09-07-bve-retry-frontier.md).
-  The isolated Congruence stack matches **786,346 decisions** before a split
-  at conflict 345034. BVE's initial schedule at 343785 omits 12 native members;
-  trace retry-mark producers after the last matching attempt at 240040.
-  No new semantic edit. **UNFUZZED, unpromoted; B28+C5 pending.**
+- Latest: [Vivify retry repair](benchmarks/reports/2026-09-07-vivify-retry-repair.md).
+  Isolated learned-large retry advice closes all 2107 BVE attempts and matches
+  **1,928,902 decisions through one million conflicts**. Checked three-witness
+  time is 0.72237x preceding candidate, 0.69939x production, 1.18630x Kissat
+  (one wave). **UNFUZZED/unpromoted; full Rank 1–40 and B28+C5 pending.**
 - Production source remains `c2a95a6`; Release SHA-256
   `de3d9332f70f3bbd5ca17fedda4ad11c7295114e8b581251192746ff8d68439f`.
   Retain accepted binary substitution/liveness, arena/watch, connected-pose and
@@ -22,12 +22,12 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 
 ## Active jobs and gates
 
-**IN FLIGHT:** 5372 B28+C5 / job `1668833`, tasks 64/65 checking UNSAT proofs;
-64/66 final records are checked/clean. Watch this exact job; never resubmit or
-count unfinished checks as accepted. 5371 runtime and old 5357 are terminal and
-clean. User interactive allocation `1668242` (`bash`) is untouched.
-Diagnostics 5373–5376 are terminal, with eight clean intentional stops and
-validated observer-prefix neutrality. They are not verdict or timing gates.
+**IN FLIGHT:** full Rank 1–40 / 5383 / `1669005`; new B28+C5 / 5380 /
+`1668924` (64/66 final records; tasks 64/65 checking proofs).
+Watch these exact jobs; never resubmit or accept unfinished checks. Preceding
+Congruence B28+C5 5372, runtime 5379 and diagnostics 5377/5378/5381/5382
+are terminal and clean. User
+interactive allocation `1668242` (`bash`) is untouched.
 
 | Authority | Accepted evidence |
 |---|---|
@@ -36,31 +36,32 @@ validated observer-prefix neutrality. They are not verdict or timing gates.
 | [5315 production B28+C5](benchmarks/runs/20260907-5315-pose-r2-BC-gate/summary.json) | 66/66 checked/clean; final-r2/starting time 1.01897x. |
 | [5356 preceding runtime screen](benchmarks/runs/20260907-5356-empty-factor-runtime/summary.json) | 12 checked models; preceding cumulative/production time 1.11539x on three witnesses. One wave, no promotion. |
 | [5357 preceding B28+C5](benchmarks/runs/20260907-5357-empty-factor-BC-gate/summary.json) | 66/66 checked/clean, no timeout/solve loss; candidate/production 1060.139/1115.715 s = 0.950188x. |
-| [5370 repaired stopped replay](benchmarks/runs/20260907-5370-congruence-prefix-extended/summary.json) | Both stops clean; all 475,997 decision records identical through conflict 200000. Not a verdict or timing gate. |
 | [5371 repaired runtime screen](benchmarks/runs/20260907-5371-congruence-prefix-runtime/summary.json) | 12/12 checked models; candidate/preceding 0.86041x, candidate/production 0.96375x, candidate/Kissat 1.63903x. Three witnesses, one wave; no global claim. |
+| [5372 preceding B28+C5](benchmarks/runs/20260907-5372-congruence-prefix-BC-gate/summary.json) | 66/66 checked/clean, no solve loss/timeout; candidate/production 1016.888/1117.371 s = 0.910072x. |
+| [5379 retry runtime screen](benchmarks/runs/20260907-5379-vivify-retry-runtime/summary.json) | 12/12 checked models; 642.637/889.623/918.858/541.717 s candidate/preceding/production/Kissat. One wave, no global claim. |
+| [5381 repaired prefix](benchmarks/runs/20260907-5381-vivify-retry-extended/summary.json) | All 1,928,902 decisions match through one million conflicts; not a verdict or cost gate. |
 
 Rank 1–40 is not an annual/union Tier-D replacement. Memory competitiveness
 remains an independent acceptance dimension.
 
 ## Exact next action
 
-1. Complete 5372 with the tool-owned SLURM watcher, then run
-   `benchmarks/probes/scratch/seal-congruence-gates-5372.py`. Validate final records,
-   checks and scratch cleanup before sealing summaries; retain per-instance
-   solve/work/time/memory differences. The same-window production and exact
-   preceding cumulative arms must not be conflated.
-2. Trace retry-mark producers for missing member 10700 between the second BVE
-   attempt at 240040 and scheduling at 343785. Seven prior attempts match exact
-   ticks; shared initial occurrence counts agree, but native schedules 12 extra
-   members. Use fresh observer-only source/pins; do not mutate submitted builds.
-   Prove the mechanism and downstream utility before repairing: Tactix's extra
-   elimination of 9959 is not intrinsically worse. No identity-conditioned fix.
-   Inprocessing cost on Rank 17 is a separate matched-work profiling lead.
-3. Preserve `.claude/worktrees/runtime-congruence-prefix-5369` and its submitted
-   builds. Release `build/pin-5371-congruence-prefix-release` and independent
-   `build/pin-5372-congruence-prefix-bc` share SHA-256
-   `4f406acc56fe6cf8a68d32b8567a845c8cb08cd164286fd838b4398fa9b3a2be`.
-   The new patch reuses logical-position helpers; no new kernel primitive.
+1. Complete 5383 and 5380 with the tool-owned SLURM watchers. Run
+   `seal-vivify-ranks-5383.py` and `seal-vivify-retry-gates-5380.py`
+   under `benchmarks/probes/scratch/` only against
+   final checked/clean records. Score the full requested view and retain
+   per-instance work/time/memory, solve losses and timeout transitions.
+2. Prioritize the largest remaining full-view gaps. Rank 34's checked solve is
+   now 351.436 versus native 331.297 s, with fewer conflicts but more propagations;
+   do not spend another campaign making a stronger/neutral trajectory identical.
+   Trace-free prefix diagnostic 5382 shows 1.13834x time and excess instructions/
+   memory at matching conflict/decision counts, not exact work equality. Profile
+   common-prefix hot paths; Ranks 17/21 and full-view outliers remain cost leads.
+3. Preserve `.claude/worktrees/runtime-vivify-retry-5378` and every submitted
+   predecessor. `build/pin-5379-vivify-retry-release` and independent
+   `build/pin-5380-vivify-retry-bc` share SHA-256
+   `50cfa880aa01e15f47d63eb28ce0ea47fb51bfc912ecc58d3b755fb21134bbc8`.
+   The repair uses existing mark advice; no new kernel primitive or guard.
 4. At consolidation, compose only supported general repairs, finish checked
    B28+C5/runtime gates, then invoke **one Claude-owned fuzz campaign** under
    plan §8.2. Do not inspect or reinterpret Claude's fuzz artifacts. A reproduced
@@ -86,6 +87,10 @@ remains an independent acceptance dimension.
   pass; the cumulative stack is still unfuzzed investigation material.
 - [Retry frontier](benchmarks/reports/2026-09-07-bve-retry-frontier.md) owns
   5373–5376 and the exact candidate, eligibility and choice-state evidence.
+- [Retry repair](benchmarks/reports/2026-09-07-vivify-retry-repair.md) owns
+  5377–5383. `SP-VIVIFY-RETRY-1` stays open in production. Fixed native/old/new,
+  76 serial trace and 77 fresh Release tests pass; one initial harness cleanup
+  failure is retained. The cumulative stack is still unfuzzed investigation.
 - Raw large streams remain local with hashes; patches, runners, comparators and
   small witnesses are durable. Legacy prefix `start_decisions` wraps with
   warm-up counts and must never be used for alignment.
@@ -114,11 +119,11 @@ remains an independent acceptance dimension.
 
 ## Recent changes
 
-- Extended the isolated stack to 786,346 identical decisions before a new split.
-- Localized the next initial-schedule discrepancy to BVE retry eligibility.
-- Preserved seven matching prior attempts; no speculative heap repair.
-- New B28+C5 final proof checks are running; production unchanged.
+- Isolated learned-large Vivify retry repair closes the BVE/choice frontier.
+- Repaired prefix matches 1,928,902 decisions through one million conflicts.
+- Checked witness time improves 27.8% versus the preceding candidate, one wave.
+- Full Rank 1–40 and B28+C5 are running; production unchanged.
 - Living docs remain within all 30 configured size budgets.
 
 Historical evidence is routed by the runtime review; Git owns ordinary
-chronology. Previous resume text is recoverable with `git show 4bd01e1:PROGRESS.md`.
+chronology. Previous resume text is recoverable with `git show d1a67838:PROGRESS.md`.

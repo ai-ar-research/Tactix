@@ -1,0 +1,22 @@
+{
+  "stopped_clean": 2,
+  "native_observer_neutral": true,
+  "identical_bve_attempts": 2107,
+  "identical_decisions": 786753,
+  "stop_conflict": 345034,
+  "trace_sha256": {
+    "kissat.prefix.tsv": "298899dcdf538f876fee64e3d3767aa617ea61e666b5e4664e51ca5a9616a123",
+    "kissat.decisions.tsv": "d28d0d0bfa7b912c13d91a2e550a6cecfcf4af844880f18b8c82359f3a601f9c",
+    "kissat.bve.tsv": "c7da2d51c96ef6c8ea0464cc897cfd3df5e4cd33fbd67938d2e666311e5623d5",
+    "kissat.retry.tsv": "03ab137c47da96f1950b1b54b018fe89a8dbeda9a470ba0850bcfa3a7cf1bfcf",
+    "tactix.retry.tsv": "8576bcb67b26693a9a63c0f9a3c5cbfc14c5e6450b3a62e92754e773057846d3",
+    "kissat.state.tsv": "95040205a39da06975033f1fe64489832e4bf17694908d98aed2ff9b94b4d0d5",
+    "tactix.bve.tsv": "40bb15bffe076e38bbaaf73d1e80239c1558953e3e3a454be2385d1233081acf",
+    "tactix.prefix.tsv": "179d140be5ec9d9bba113bc57bfef9e4601b3c8ffd9f77e3d0bf653bbb03d585",
+    "tactix.state.tsv": "e4831aa3f2b3bbb0f1ff3845080fde2f08eeea82657151a68c34bdde3152ac2e",
+    "kissat.boundaries.tsv": "9adda12b3550e4ca27c800501022a4840e7f3a9220c198565b7eba678298bcc5",
+    "tactix.boundaries.tsv": "787f90f21bf8bc25fce799fbcd45c5e4f870e73a0ebe1c1223fdfe2ad587b6cb",
+    "tactix.decisions.tsv": "d28d0d0bfa7b912c13d91a2e550a6cecfcf4af844880f18b8c82359f3a601f9c"
+  },
+  "conclusion": "Path-specific learned-large Vivify retry advice closes every BVE candidate/outcome/tick and the old decision split. Runtime and full regression acceptance remain separate."
+}

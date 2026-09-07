@@ -1,0 +1,21 @@
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -1311,6 +1311,9 @@
+ 
+ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
+                       bool snapshot) {
++  if (std::getenv("SAT_EVENT_TRACE_ALL_ROOTS") &&
++      std::strcmp(event, "root_assign") && std::strcmp(event, "analysis_end"))
++    return;
+   const bool exit_after_match =
+       exit_selector_matches(event, payload, exit_match_.c_str()) &&
+       (exit_conflict_ == UINT64_MAX || exit_conflict_ == k.stats.conflicts);
+@@ -5333,6 +5336,8 @@
+ }
+ 
+ bool EventTrace::heap_var_selected(const Kernel &k, Var v) const {
++  if (std::getenv("SAT_EVENT_TRACE_ALL_ROOTS"))
++    return true;
+   if (v >= k.nvars)
+     return false;
+   const int external =

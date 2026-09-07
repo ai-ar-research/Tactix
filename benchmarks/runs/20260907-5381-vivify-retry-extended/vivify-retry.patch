@@ -1,0 +1,89 @@
+--- a/src/rules/vivify/vivify.cpp
++++ b/src/rules/vivify/vivify.cpp
+@@ -882,7 +882,8 @@
+ // itself, so the rewrite is implied by F ∪ R and subsumes the original.
+ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
+                            std::vector<std::pair<uint32_t, uint64_t>> &entries,
+-                           uint64_t last, uint64_t candidate_ordinal) {
++                           uint64_t last, uint64_t candidate_ordinal,
++                           bool instantiated = false) {
+   Clause *c = clause_at(k.arena, cref);
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+   if (lits.size() == 2) {
+@@ -927,6 +928,14 @@
+   // next Vivify dose.  Tactix already has the same shrunken-record primitive;
+   // use it here instead of reconstructing the apparent order after the fact.
+   if (lits.size() > 2) {
++    // vivify_learn_large rearms every old irredundant literal, including
++    // survivors. Instantiation instead marks only its removed literal.
++    // The shared replacement already marks disappearing literals; publish
++    // only the complementary advice here, without changing occurrence counts.
++    if (!redundant && !instantiated)
++      for (const Lit old : *c)
++        if (std::find(lits.begin(), lits.end(), old) != lits.end())
++          kernel_mark_bve_retry(k, var_of(old), "vivify-learn-large", c);
+     // Pinned Kissat copies the new prefix while `c->size` still names the old
+     // allocation, calls mark_added_literals through an old-size clause walk,
+     // and only then installs new_size. Thus the physical tail is intentionally
+@@ -1576,7 +1585,7 @@
+         }
+       }
+ #endif
+-      res = rewrite(k, cref, shorter, entries, last, candidate_ordinal);
++      res = rewrite(k, cref, shorter, entries, last, candidate_ordinal, true);
+       k.stats.vivify_instantiated++;
+     } else {
+ #ifdef TACTIX_ENABLE_RULE_JOURNAL
+--- a/tests/test_vivify.cpp
++++ b/tests/test_vivify.cpp
+@@ -361,6 +361,42 @@
+   assert(default_solve(k) == 10);
+ }
+ 
++static void test_large_learned_retry_advice() {
++  for (const bool redundant : {false, true}) {
++    Kernel k;
++    kernel_reserve_vars(k, 5);
++    const Lit candidate[4] = {internalize(1), internalize(2),
++                              internalize(3), internalize(4)};
++    const Ref ref = kernel_add_large_clause(k, candidate, 4, redundant, 2);
++    kernel_add_binary_clause(k, internalize(1), internalize(-2));
++    std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
++    const uint64_t marks = k.stats.bve_marks;
++    assert(vivify_try(k, ref) == ApplyResult::Ok);
++    assert(k.stats.vivify_shrunken == 1);
++    assert(clause_at(k.arena, ref)->size == 3);
++    for (Var v = 0; v < 4; ++v)
++      assert(static_cast<bool>(k.bve_retry[v]) == !redundant);
++    assert(!k.bve_retry[4]);
++    assert(k.stats.bve_marks - marks == (redundant ? 0 : 4));
++    assert(default_solve(k) == 10);
++  }
++  // Large reverse-last instantiation has selective removed-literal advice.
++  Kernel k;
++  k.vivify_reuse = false;
++  kernel_reserve_vars(k, 5);
++  const Lit candidate[4] = {internalize(1), internalize(2),
++                            internalize(3), internalize(4)};
++  const Ref ref = kernel_add_large_clause(k, candidate, 4, false, 0);
++  kernel_add_binary_clause(k, internalize(-4), internalize(5));
++  kernel_add_binary_clause(k, internalize(-4), internalize(-5));
++  std::fill(k.bve_retry.begin(), k.bve_retry.end(), 0);
++  assert(vivify_try(k, ref) == ApplyResult::Ok);
++  assert(k.stats.vivify_instantiated == 1);
++  for (Var v = 0; v < 3; ++v) assert(!k.bve_retry[v]);
++  assert(k.bve_retry[3] && !k.bve_retry[4]);
++  assert(default_solve(k) == 10);
++}
++
+ // vivify_learn_large marks its rewritten irredundant clause before reducing
+ // c->size, so pinned Kissat publishes both the new prefix and the stale old
+ // tail to Factor. This physical lifecycle is observable at the next Factor
+@@ -790,6 +826,7 @@
+   test_leftover_priority();
+   test_trail_reuse();
+   test_large_rewrite_stays_in_place();
++  test_large_learned_retry_advice();
+   test_large_rewrite_marks_stale_old_tail();
+   test_replacement_watch_pose_scans_unassigned_tail();
+   test_replacement_watch_invariant_backtracks_below_false_pair();

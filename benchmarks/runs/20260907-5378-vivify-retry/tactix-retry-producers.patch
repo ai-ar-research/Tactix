@@ -1,0 +1,43 @@
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -4544,6 +4544,40 @@
+ void event_trace_bve_retry_mark(const Kernel &k, Var var, const char *source,
+                                 bool before, bool after,
+                                 const Clause *clause) {
++  // Standalone read-only producer journal, independent of the old one-shot
++  // post-candidate observer. Compile-time tracing keeps this out of Release.
++  static bool producer_initialized = false;
++  static FILE *producer = nullptr;
++  static uint64_t producer_from = 0, producer_to = UINT64_MAX;
++  static uint32_t producer_external = 0;
++  if (!producer_initialized) {
++    producer_initialized = true;
++    if (const char *path = std::getenv("TACTIX_RETRY_PRODUCER_TRACE")) {
++      producer = std::fopen(path, "w");
++      if (!producer) std::exit(2);
++      std::setvbuf(producer, nullptr, _IOLBF, 0);
++      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_FROM"))
++        producer_from = std::strtoull(s, nullptr, 10);
++      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_TO"))
++        producer_to = std::strtoull(s, nullptr, 10);
++      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_EXTERNAL"))
++        producer_external = std::strtoul(s, nullptr, 10);
++    }
++  }
++  if (producer && k.stats.conflicts >= producer_from &&
++      k.stats.conflicts <= producer_to &&
++      k.internal_to_external[var] + 1 == producer_external) {
++    std::fprintf(producer, "tactix\tconflicts=%llu\tdecisions=%llu\texternal=%u\tsource=%s\tbefore=%u\tafter=%u\tvalue=%d\tretired=%u\tclause=",
++                 (unsigned long long)k.stats.conflicts,
++                 (unsigned long long)k.stats.decisions, producer_external,
++                 source ? source : "unspecified", before, after,
++                 static_cast<int>(k.value(make_lit(var, false))),
++                 kernel_var_retired(k, var));
++    if (clause)
++      for (const Lit l : *clause)
++        std::fprintf(producer, "%d,", kernel_externalize(k, l));
++    std::fputc('\n', producer);
++  }
+   if (!bve_retry_trace_armed || before || !after)
+     return;
+   const char *path = std::getenv("TACTIX_BVE_RETRY_TRACE");
