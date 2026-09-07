@@ -7,6 +7,31 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+- **r34 N4 ROOT CAUSE FOUND (3.127) = DECISION-HEAP TIE-BREAK fidelity gap.** The r34
+  divergence is localized to the exact cause and ALL prior OTFS/reuse/bump hypotheses
+  (3.110-3.126 below) are SUPERSEDED/REFUTED. Facts (jobs 1668166/1668168/1668169,
+  content-addressed trace fingerprints): learned clauses identical through conflict
+  75861; first differing DECISION is conflict 75451, level 30, a different VARIABLE
+  (17217 vs 5214), NOT a phase flip. EVSIDS scores are a BYTE-PERFECT port (12999/12999
+  vars byte-equal; no score/rank/top/set diff 75430-75470) -> scoring/bump/OTFS are NOT
+  the cause. The two divergent vars are BOTH score-0 (TIED); tie-GROUPS identical
+  (score-0 pool 11897 vars, same set both), but the decision-heap ARRAY LAYOUT differs
+  within ties (T:12288,20301,.. vs K:13219,13199,..). r34/dislog bumps few vars so ~92%
+  of the heap is one tie -> deep decisions pick from the tied pool -> different layout
+  breaks the tie differently -> N4. General fidelity deviation, not overfitting.
+- **NEXT (fresh-mind, N4 heuristic -- NOT a proof rule, but gate carefully): align
+  tactix's stable-mode decision-heap (EVSIDS `scores`, kissat heap.c) tie-order with
+  kissat's.** First diagnostic: dump the heap at the FIRST STABLE-MODE conflict in both
+  (job 1668170 came back EMPTY because conflicts 1-10 are FOCUSED/VMTF mode -- the
+  EVSIDS `scores` heap only exists once stable; `heap_scores` requires solver->stable).
+  If the layouts already differ at the first stable conflict, the gap is heap
+  CONSTRUCTION/push order at the focused->stable switch (kissat pushes all vars in a
+  fixed order; score-0 vars never move so their order = build order); else it is an
+  OPERATION-order gap (heap comparison strictness on ties / sift-up-down / re-insert of
+  unassigned vars). Fix in the heap, validate r6/r16/r19/r23/r34 track kissat WITHOUT
+  regressing r15/r20/r26/r36, fuzz 0/10k, gate B28+C5. Pins ready: build/event-trace/
+  tactix + tools/solvers/variants/kissat-event-trace/worktree/build/kissat. Heap dumps
+  landed in benchmarks/runs/20260907-5276-r34-heap-divergence/traces (tactix/kissat).
 - N4 TOOLING (3.125): full traces are TOO SLOW for late conflicts (~100x instrumentation overhead; r34 to 1M conflicts didn't finish in 30min traced, job 1668133 cancelled). Must use the LOW-OVERHEAD decision-prefix HASH tool (no trace I/O, stops at target). 7am FIX: make note_decision_prefix accumulate a CUMULATIVE prefix hash (all decisions to target, COMMON=target-dec-count) not just decisions-while-conflicts==target (job 1668120's COMMON=1 collided); confirm kissat overlay SAT_DECISION_PREFIX_STOP fires. Then binary-search target in [3000,~4.3M] on the cumulative hash -> r34 first-divergence conflict -> inspect reused/OTFS clause -> proof-critical fix. METHOD validated (r34 aligned thru 3000); 4 tooling walls cleared, hash-tool fix is the remaining plumbing.
 - N4 METHOD VALIDATED, late-trace tooling needs debug (3.124): decision-sequence comparison WORKS (r16 aligned thru conflict 100, r34 thru 3000). For LATE conflicts the full trace is too big (tactix ~2500 rec/conflict); 7am: fix EITHER the SKIP-flags compact trajectory trace (SKIP_IMPLY/WATCH/ANALYSIS_TICKS/HEAP+TRAJECTORY_ONLY) OR the decision-prefix HASH tool (job 1668120 failed: kissat SAT_DECISION_PREFIX_STOP didn't fire + tactix COMMON=1 hash collisions -- read kissat overlay eventtrace.c:1167 + tactix note_decision_prefix, use COMMON=target-decision-count). Then bisect r34 divergence in [3000,~4.3M] (sticky binary search), inspect reused/OTFS clause before it -> reuse/analyze fidelity bug -> proof-critical fix. Method proven; plumbing remains. N4 (+11.27%) is the larger half of the gap = top lever.
 - N4 TRACE WALL SOLVED (3.123, BREAKTHROUGH): compare DECISION SEQUENCES (dec#,level,decided-lit -- same format in both solvers, vocabulary-independent), not the mismatched event vocabularies. r16 decisions IDENTICAL through conflict 100, r34 IDENTICAL through conflict 3000 (despite r34 total conflicts 1.97x) -> divergence is LATER + compounds. 7am BISECTION for r34: tiny late windows (CONFLICT_FROM=N,TO=N+1500,STOP=N+1500; keep <2000 conflicts, tactix ~2500 rec/conflict), extract decisions, binary-search N in [3000,~4.3M] on 'decisions identical in window' (sticky). First differing decision+level+reason = r34's divergence; inspect the reused/OTFS clause just before it -> the reuse/analyze fidelity bug -> proof-critical fix. Pins ready. Tooling wall solved this session; bisection+fix is fresh 7am work.
