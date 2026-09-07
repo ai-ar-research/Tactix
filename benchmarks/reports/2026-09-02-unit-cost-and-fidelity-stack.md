@@ -6041,3 +6041,38 @@ inner loops on the same watched-clause access pattern; any instruction-count win
 general across all propagation-heavy ranks. Validate on the matched-work ranks (r23/r26)
 + full ranks1-40 + B28+C5 + fuzz; N1-N4 preserved (BCP loop change, proof-neutral if
 behavior-identical). Pins: build/prof (-g), build/base-o3; p.data saved in the run dir.
+
+### 3.137 Disassembly of kernel_propagate: the +3.4% is DIFFUSE across the BCP per-watch body, no single hotspot (2026-09-07)
+
+Drilled the 3.136 target to the assembly (objdump build/base-o3, kernel_propagate =
+864 instrs, the main BCP scan inlined; it also calls propagate_literal<false,false,true>
+for a sub-path). The 4 sub-counters (binary_assignments/large_dereferences/relocations/
+large_assignments) feed only the compile-time-no-op event_trace_watch_cost, so they DCE
+in production (NOT the overhead); `ticks` is live (effort budgets, matched with kissat).
+Inspecting the hot inner loop: NO single dominant extra instruction -- the +3.4% is spread
+across the per-watch body (Watch construction/accessors, values[] loads, branch structure,
+the delayed-move path). ONE concrete candidate found: the binary-assignment path
+(kernel_assign_binary_from) loads TWO byte flags (k.jump_reasons @[rbp+0x1e6e],
+k.jump_reasons_bigbig @+0x1e6f) and branches on them EVERY binary assignment
+(kernel.hpp:1734). But these are NOT compile-time constant: jump_reasons is toggled at
+runtime (failed_literal.cpp:345-393 save/clear/restore) and bigbig is set per-instance at
+classification (default_policy.cpp:1752). They ARE stable during search, so hoisting the
+check to the top of kernel_propagate + templating the inner loop on it would remove the
+per-assignment loads -- but the win is small (2 loads + 2 well-predicted branches per
+binary assignment), it doubles the loop code (I-cache), and it needs healthy-cluster
+timing validation to confirm it is a real, general win rather than noise.
+
+CONCLUSION (assembly-backed, supersedes 3.135's optimism AND 3.121's hand-wave): the
+noL-11 matched-work +3.4%-instruction gap is DIFFUSE C++-vs-lean-C codegen across the BCP
+inner loop, with no single dominant fixable instruction. Closing it is a GRIND of small
+micro-codegen wins (each ~fraction of a %, each needing paired timing validation to avoid
+overfitting/noise), e.g. the jump_reasons hoist/template above, tighter Watch accessor
+codegen, or the delayed-move path. This is legitimate but slow work that requires a
+HEALTHY cluster (tonight's was under severe memory pressure -- perf record blocked, jobs
+slow/requeuing, watchers killed) and fresh judgment. HONEST STATE: within-1% on the
+prop-heavy/noL-11 family is a diffuse micro-codegen grind, not a single lever; the two
+shipped wins remain the clean structural levers. NEXT: on a healthy cluster, attempt the
+jump_reasons search-path hoist as the first concrete micro-win (behavior-identical +
+paired r23/r26 timing + ranks1-40 + B28+C5 + fuzz), then iterate the grind; OR accept the
+~3-5% C++-vs-C prop overhead as fundamental and record it. Separately, the N4 half is the
+r34-class scope decision (3.131).
