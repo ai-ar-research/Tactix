@@ -1961,9 +1961,19 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
         for (size_t i = 0; i < delayed_targets.size(); i++) {
           const Lit repr_other = delayed_targets[i];
           if (delayed_publish[i]) {
+            // The binary-liveness index is maintained exactly (add at publish,
+            // remove at delete) and is the same no-false-negative prefilter
+            // kernel_binary_live trusts: if it rejects the pair, neither
+            // direction is live, so skip both O(degree) watch scans. Proof-
+            // neutral (already_live only sets new_pair), so a stale hit only
+            // costs the scan it would have cost anyway.
             const bool already_live =
-                kernel_binary_copies(k, repr_lit, repr_other, 1) ||
-                kernel_binary_copies(k, repr_other, repr_lit, 1);
+                (k.binary_liveness &&
+                 !k.binary_liveness->maybe(
+                     kernel_binary_key(repr_lit, repr_other)))
+                    ? false
+                    : (kernel_binary_copies(k, repr_lit, repr_other, 1) ||
+                       kernel_binary_copies(k, repr_other, repr_lit, 1));
             k.watches.push_binary(repr_lit, repr_other);
             const uint64_t id = ++k.next_clause_id;
             kernel_publish_binary_clause(k, repr_lit, repr_other, id,
