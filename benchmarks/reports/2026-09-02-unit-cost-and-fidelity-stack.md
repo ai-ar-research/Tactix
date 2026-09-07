@@ -5767,3 +5767,47 @@ divergence: scores are byte-identical at 75430, proving lockstep bumping through
 NEXT if pursuing A: bisect the first-divergent conflict in (8000, 75451], correlate it
 with a compaction event, and decide whether reproducing kissat's compaction stack-order
 heap rebuild is worth the coupling to physical-compaction numbering (vs option B accept).
+
+### 3.129 r34 divergence PINPOINTED to the exact operation: SWEEP backbone-unit fix ORDER (collect-then-emit vs immediate-assign) (2026-09-07)
+
+Drove 3.128 to the exact operation using the purpose-built matched deactivation
+traces (TACTIX_DEACT_TRACE via a fresh build/deact CONFLICT_STOP+EVENT_TRACE build;
+KISSAT_DEACT_TRACE via the kissat-ticktrace variant; job 1668174 + preserved tactix
+trace from the cancelled 1668173). Method: heap_remove is order-sensitive (swap-last-
+into-slot), so the first DEACTIVATION with inheap=1 whose variable differs between the
+solvers is the first heap-perturbing divergence.
+
+RESULT: 1488 inheap=1 deactivations each; identical for the first 833, then DIVERGE at
+CONFLICT 26913, phase=sweep, why="sweeping backbone reason". Both fix the SAME backbone
+units but in a DIFFERENT ORDER (kissat fixes var 970 right after 841; tactix fixes 970
+later). Same set, different order => different heap_remove sequence => different heap
+layout => different score-0 tie-break at the deep level-30 decision at conflict 75451
+(3.127) => N4. (The earlier deact divergences, e.g. index 0 vars 63/64 at conflict 0,
+are inheap=0 parse-time units -- the heap is not built yet, so they are benign; heap
+layouts are byte-identical through conflict 8000 per 3.128/job 1668171, consistent with
+the first heap-affecting divergence at 26913.)
+
+MECHANISM (both sides read): kissat add_core (sweep.c:347-410) walks the extracted core
+lemmas in stack order and, the moment a lemma reduces to a unit, IMMEDIATELY
+kissat_assign_unit(...,"sweeping backbone reason") (line 407) -- so later lemmas in the
+SAME walk see that assignment (values[lit] is re-read per lemma) and are satisfied/
+reduced accordingly. Tactix sweep_capture_core_units (sweep.cpp:~823) reads k.value per
+lemma but does NOT assign between lemmas: it collects units into round.units (dedup by
+var) and applies them later in sweep_emit_pending_units (sweep.cpp:43) in round.units
+order. Without intra-walk visibility of just-assigned units (and across multiple
+directional SweepDirProofs), tactix's captured order diverges from kissat's immediate-
+assign order. Every primitive is faithful (heap sift, heap_remove, backtrack re-push,
+activation seed, scores byte-identical); ONLY the sweep's backbone-unit fix order differs.
+
+FIX TARGET (N2-PROOF-CRITICAL sweep/kitten work -- do fresh, preserve N2): make tactix's
+sweep assign backbone units in kissat's immediate-assign-during-core-walk order, i.e.
+give the core-lemma walk intra-walk visibility of just-fixed units (or otherwise
+reproduce kissat add_core's ordering) so round.units matches kissat's fix sequence,
+WITHOUT changing the emitted proof's validity. This is genuinely proof-adjacent (the
+sweep emits DRAT/LRAT and reconstructs unit proofs via sweep_plan_general /
+sweep_emit_unit), so it must be designed with the calculus/rule-dev discipline and
+validated with the proof oracle -- exactly the fresh-mind work the 7am monitor is for.
+Matched diagnostics exist for the next step: TACTIX_CORE_TRACE vs kissat add_core rows,
+and TACTIX_SWEEP_TRACE vs kissat sweep_backbone_candidate, to confirm the precise first
+divergent core lemma before coding. Validate: r6/r16/r19/r23/r34 track kissat WITHOUT
+regressing r15/r20/r26/r36; fuzz 0/10k; B28+C5; proofs check.
