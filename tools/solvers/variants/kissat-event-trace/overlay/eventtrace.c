@@ -1196,8 +1196,8 @@ static void initialize_decision_prefix (void) {
 static void note_decision_prefix (kissat *solver, unsigned lit) {
   initialize_decision_prefix ();
   if (!decision_prefix_enabled || decision_prefix_emitted ||
-      solver->statistics.conflicts != decision_prefix_conflict)
-    return;
+      solver->statistics.conflicts > decision_prefix_conflict)
+    return; /* cumulative prefix up to target (report 3.125) */
   const int external = external_literal (solver, lit);
   if (!decision_prefix_count)
     decision_prefix_first = external;
@@ -1216,8 +1216,8 @@ static void note_decision_prefix (kissat *solver, unsigned lit) {
 static void flush_decision_prefix (kissat *solver) {
   initialize_decision_prefix ();
   if (!decision_prefix_enabled || decision_prefix_emitted ||
-      solver->statistics.conflicts != decision_prefix_conflict + 1)
-    return;
+      solver->statistics.conflicts < decision_prefix_conflict + 1)
+    return; /* flush at first checkpoint past target so STOP fires (3.125) */
   FILE *file = fopen (decision_prefix_path, "w");
   if (!file) {
     perror ("KISSAT_DECISION_PREFIX_TRACE");
