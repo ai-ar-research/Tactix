@@ -5497,3 +5497,28 @@ header) or accepting it. The concentrated remaining gap is N4 (+330s, r34-class)
 which needs trace-driven analyze/scheduling fidelity fixes. Within-1% is a deep
 multi-session effort. This session: 2 wins shipped + complete rigorous profile-
 driven characterization of the entire gap + r34 localization + honest corrections.
+
+### 3.121 DECISIVE: clause header is NOT the propagation lever -> impl residual is diffuse codegen; path to 1% is N4 (2026-09-07)
+
+Direct test (job 1668114): padded kissat (+8B header -> 20B, matching tactix) vs
+pristine kissat on the matched-props ranks:
+  r26: 255.5 -> 256.4s (+0.33%)   r29: 290.9 -> 290.1s (-0.25%)
+NEGLIGIBLE (within noise). The clause header (tactix's 8-byte proof id) is NOT the
+big-rank propagation unit-cost lever -- confirming 3.99 (which tested substitution)
+extends to propagation. Combined with 3.120 (values per-lit both, Assigned 16B both,
+BCP loop faithful), EVERY tested propagation structure is at parity. So the ~2-3%
+per-prop unit cost is DEFINITIVELY diffuse C++-vs-lean-C codegen/machinery overhead
+with NO single fixable lever (not header, values, Assigned, or loop structure).
+DEFINITIVE REFRAMING OF THE GOAL:
+- The identifiable IMPLEMENTATION-GAP LEVERS are captured: 2 wins shipped (binary
+  single-pass port, Bloom already_live), and the residual is diffuse codegen that
+  has NO lever (header/values/Assigned/BCP all tested at parity). "Fix ALL the
+  identified implementation gap" via levers is essentially done -- what remains is
+  diffuse codegen the reference is simply leaner at, closable only by whole-solver
+  codegen matching (impractical) or accepted.
+- The PATH TO WITHIN-1% therefore runs primarily through the N4 gap (+11.27%,
+  r34-class trajectory divergence), which IS fixable via analyze/scheduling
+  fidelity (trace-driven), not through more impl-gap levers.
+NEXT (7am): the r34-class N4 traces are now the highest-value remaining work; the
+impl-gap lever hunt is complete (captured + diffuse-residual). This session tested
+every impl hypothesis to exhaustion.
