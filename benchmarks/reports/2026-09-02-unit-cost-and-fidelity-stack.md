@@ -5843,3 +5843,34 @@ carry the kitten-derivation proof through to the inline commit rather than repla
 against the mutated kernel), then verify with the proof oracle. This is calculus/rule-dev
 work; do it fresh. All localization/confirmation for it is complete (3.127-3.129 + this
 note); the remaining item is the implementation itself.
+
+### 3.130 r34 fix ATTEMPT (inline unit-emit) was INERT -> true root is deeper: kitten CORE-EXTRACTION divergence (2026-09-07)
+
+Implemented the 3.129 fix (sweep_capture_core_units emits each unit inline when
+commit_inline, mirroring kissat add_core's intra-walk assign) and re-ran the deact-
+order verification (build/deact rebuilt, job 1668176). RESULT: INERT -- the first
+inheap=1 deactivation divergence stays at the identical point (index 833, conflict
+26913, tactix 693 vs kissat 970). Reverted the change (inert, and it perturbs the RUP
+replay context for no benefit). The emit-order / intra-core-batching hypothesis is
+therefore REFUTED for this divergence.
+
+TRUE ROOT (job 1668175 CORE traces, size-1 unit lemmas at conflict 26913): the two
+solvers' extracted-core unit sequences MATCH through position 28
+(...-841,-693,-653,-651,-618) then DIVERGE -- kissat pos29=-1248,-622,-731,...;
+tactix pos29=-844,-970,-1248,...; the core unit SETS differ by ~7 (tactix-only include
+844 and 970). So the embedded KITTEN solver extracts a DIFFERENT refutation core for
+the sweep backbone query at 26913 (different kitten search/model, or different core
+minimization, or a divergent sweep environment going into the query). The differing
+core fixes a different set/order of backbone units -> different order-sensitive
+heap_remove -> the decision-heap tie-break at conflict 75451 -> r34's N4 divergence.
+
+REVISED ASSESSMENT: r34's N4 gap does NOT bottom out at the decision heap or the sweep
+emit order -- those are all faithful. It bottoms out in the EMBEDDED KITTEN solver's
+core extraction diverging from kissat's kitten at a sweep query. Closing it is an
+embedded-solver fidelity effort (make tactix's kitten track kissat's kitten
+search/core-minimization at the sweep query), a separate and substantial N4 target,
+NOT a decision-heap or emit-order fix. NEXT: kitten-level trace of the 26913 backbone
+query (kitten decisions/conflicts/core-minimization) in both solvers to localize the
+kitten divergence; then match kissat's kitten mechanism. Matched CORE/CB/MAP tooling
+exists (KISSAT_CORE_TRACE emits CB/MAP/L0 per walk); a kitten decision trace is the
+next instrument. Traces: benchmarks/runs/20260907-5281-r34-core-order.
