@@ -1,0 +1,221 @@
+{
+  "stopped_clean": 2,
+  "schedule_byte_identical_5351": true,
+  "snapshots": {
+    "tactix": [
+      {
+        "stage": "startup-compact-pre",
+        "conflicts": 0,
+        "decisions": 0,
+        "stable": 0,
+        "queue_stamp": 44302,
+        "search_external": 22148,
+        "search_stamp": 44302,
+        "fresh_count": null,
+        "queue_size": 18762,
+        "members_sha256": "40270fd2713ede3a1f52cfff7876dcbb60d19a855c3e6e1d4581d22b6c621d15"
+      },
+      {
+        "stage": "startup-compact-post",
+        "conflicts": 0,
+        "decisions": 0,
+        "stable": 0,
+        "queue_stamp": 44302,
+        "search_external": 22148,
+        "search_stamp": 44302,
+        "fresh_count": null,
+        "queue_size": 18762,
+        "members_sha256": "40270fd2713ede3a1f52cfff7876dcbb60d19a855c3e6e1d4581d22b6c621d15"
+      },
+      {
+        "stage": "reduce-compact-pre",
+        "conflicts": 1000,
+        "decisions": 3081,
+        "stable": 0,
+        "queue_stamp": 146194,
+        "search_external": 3440,
+        "search_stamp": 146189,
+        "fresh_count": null,
+        "queue_size": 14483,
+        "members_sha256": "29c175c1fb9466e5d5cb2be5c49c3e11dd2ff849899c29a5e40ebaf113810726"
+      },
+      {
+        "stage": "reduce-compact-post",
+        "conflicts": 1000,
+        "decisions": 3081,
+        "stable": 0,
+        "queue_stamp": 14483,
+        "search_external": 3440,
+        "search_stamp": 14478,
+        "fresh_count": null,
+        "queue_size": 14483,
+        "members_sha256": "d40d577190badd6188b14dd8de5e6ea8c27df02d83f423ade3855bcc4dc5395d"
+      },
+      {
+        "stage": "reduce-compact-pre",
+        "conflicts": 53839,
+        "decisions": 128024,
+        "stable": 1,
+        "queue_stamp": 1578197,
+        "search_external": 18760,
+        "search_stamp": 1578188,
+        "fresh_count": null,
+        "queue_size": 13047,
+        "members_sha256": "770c9ee17b64ffa03d7cec98fb187029342932d9f19d0ca45ed57fd793347dae"
+      },
+      {
+        "stage": "reduce-compact-post",
+        "conflicts": 53839,
+        "decisions": 128024,
+        "stable": 1,
+        "queue_stamp": 13047,
+        "search_external": 18760,
+        "search_stamp": 13038,
+        "fresh_count": null,
+        "queue_size": 13047,
+        "members_sha256": "a66a0b72a9c75226dc3858cc2a2f08d21e453ee67dc7877640388550dd4cadd6"
+      },
+      {
+        "stage": "bve-schedule",
+        "conflicts": 95799,
+        "decisions": 252421,
+        "stable": 0,
+        "queue_stamp": 3612231,
+        "search_external": 18564,
+        "search_stamp": 3612231,
+        "fresh_count": null,
+        "queue_size": 13004,
+        "members_sha256": "d33c429d4cb6dd5941eb5a7d5f91b98072948e1607f285dcd9d7e704bf9bc5f3"
+      }
+    ],
+    "kissat": [
+      {
+        "stage": "queue-compact-pre",
+        "conflicts": 0,
+        "decisions": 0,
+        "stable": 0,
+        "queue_stamp": 22151,
+        "search_external": 22148,
+        "search_stamp": 22151,
+        "fresh_count": null,
+        "queue_size": 18762,
+        "members_sha256": "4ac5632d4a5ffac41fbbba98865724989cc075ac470d18b3b77cff626fe7302f"
+      },
+      {
+        "stage": "compact-pre",
+        "conflicts": 0,
+        "decisions": 0,
+        "stable": 0,
+        "queue_stamp": 18762,
+        "search_external": 22148,
+        "search_stamp": 18762,
+        "fresh_count": null,
+        "queue_size": 18762,
+        "members_sha256": "4672952695883eb7293c8631800143efea9697caab68ab87c56077f2c1404c6e"
+      },
+      {
+        "stage": "compact-post",
+        "conflicts": 0,
+        "decisions": 0,
+        "stable": 0,
+        "queue_stamp": 18762,
+        "search_external": 22148,
+        "search_stamp": 18762,
+        "fresh_count": null,
+        "queue_size": 18762,
+        "members_sha256": "4672952695883eb7293c8631800143efea9697caab68ab87c56077f2c1404c6e"
+      },
+      {
+        "stage": "queue-compact-pre",
+        "conflicts": 1000,
+        "decisions": 3081,
+        "stable": 0,
+        "queue_stamp": 146194,
+        "search_external": 3440,
+        "search_stamp": 146189,
+        "fresh_count": null,
+        "queue_size": 14482,
+        "members_sha256": "59d486b61b0c3e832ed443d08895a82751fac731312b9edbbf30f36e80f32f68"
+      },
+      {
+        "stage": "compact-pre",
+        "conflicts": 1000,
+        "decisions": 3081,
+        "stable": 0,
+        "queue_stamp": 14482,
+        "search_external": 3440,
+        "search_stamp": 14477,
+        "fresh_count": null,
+        "queue_size": 14482,
+        "members_sha256": "ca9d6a77550e4a96885d93d3f2501cbae56ec7c6008892aad68859494506a3a8"
+      },
+      {
+        "stage": "compact-post",
+        "conflicts": 1000,
+        "decisions": 3081,
+        "stable": 0,
+        "queue_stamp": 14482,
+        "search_external": 3440,
+        "search_stamp": 14477,
+        "fresh_count": null,
+        "queue_size": 14482,
+        "members_sha256": "ca9d6a77550e4a96885d93d3f2501cbae56ec7c6008892aad68859494506a3a8"
+      },
+      {
+        "stage": "queue-compact-pre",
+        "conflicts": 53839,
+        "decisions": 128024,
+        "stable": 1,
+        "queue_stamp": 1578196,
+        "search_external": 18760,
+        "search_stamp": 1578187,
+        "fresh_count": null,
+        "queue_size": 13046,
+        "members_sha256": "e0cbbd909e861db90f8ed63d82b914f9498eeec8d295aa589f678fc4454c89e2"
+      },
+      {
+        "stage": "compact-pre",
+        "conflicts": 53839,
+        "decisions": 128024,
+        "stable": 1,
+        "queue_stamp": 13046,
+        "search_external": 18760,
+        "search_stamp": 13037,
+        "fresh_count": null,
+        "queue_size": 13046,
+        "members_sha256": "1e4242376702d3efc7585a26a0b4e1dd63a581759126ad8bc9d21058d6d4c264"
+      },
+      {
+        "stage": "compact-post",
+        "conflicts": 53839,
+        "decisions": 128024,
+        "stable": 1,
+        "queue_stamp": 13046,
+        "search_external": 18760,
+        "search_stamp": 13037,
+        "fresh_count": null,
+        "queue_size": 13046,
+        "members_sha256": "1e4242376702d3efc7585a26a0b4e1dd63a581759126ad8bc9d21058d6d4c264"
+      },
+      {
+        "stage": "bve-schedule",
+        "conflicts": 95799,
+        "decisions": 252421,
+        "stable": 0,
+        "queue_stamp": 1968559,
+        "search_external": 18564,
+        "search_stamp": 1968559,
+        "fresh_count": null,
+        "queue_size": 13003,
+        "members_sha256": "a45023c6c3bfceba35d9b2acc219277be852787b7abaeccc092cf05d46aae40d"
+      }
+    ]
+  },
+  "conclusion": "Both collect at startup, 1000 and 53839. Tactix retains one extra queue member 22152 after startup Factor; initial numeric stamp differences are overwritten by the first productive Factor. Inspect no-yield Factor restamping next.",
+  "trace_sha256": {
+    "tactix.schedule.tsv": "0d73123acc2699062c8cfbbbb04ff9912e1c99ed059f740df384ddd53479326f",
+    "tactix.queue.tsv": "4f583a8b9ad797e8f9e1c8c4ffb8e780f1615aaab086085ce1b9140b2f19c379",
+    "kissat.queue.tsv": "4dd96fe0682dd2eb39384faf58fd1ccf2ed8f5ec992198dc8980b478f6a9f3f0",
+    "kissat.schedule.tsv": "58cea81dae583c209d3fa82e2779b693f2b4ce8576d5a58f51004c1c8cd4103c"
+  }
+}

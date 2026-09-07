@@ -1,0 +1,145 @@
+{
+  "stopped_clean": 2,
+  "full_fnv_verified": true,
+  "native_stream_unchanged": true,
+  "decision_counts": [
+    463179,
+    475997
+  ],
+  "matching_decisions": 328665,
+  "first_tactix": [
+    133243,
+    327447,
+    37,
+    21863,
+    0
+  ],
+  "first_kissat": [
+    133243,
+    327447,
+    37,
+    21954,
+    0
+  ],
+  "contexts": {
+    "tactix": [
+      [
+        133243,
+        327444,
+        34,
+        21779,
+        0
+      ],
+      [
+        133243,
+        327445,
+        35,
+        21187,
+        0
+      ],
+      [
+        133243,
+        327446,
+        36,
+        21867,
+        0
+      ],
+      [
+        133243,
+        327447,
+        37,
+        21863,
+        0
+      ],
+      [
+        133243,
+        327448,
+        38,
+        21693,
+        0
+      ],
+      [
+        133243,
+        327449,
+        39,
+        21689,
+        0
+      ],
+      [
+        133243,
+        327450,
+        40,
+        21691,
+        0
+      ]
+    ],
+    "kissat": [
+      [
+        133243,
+        327444,
+        34,
+        21779,
+        0
+      ],
+      [
+        133243,
+        327445,
+        35,
+        21187,
+        0
+      ],
+      [
+        133243,
+        327446,
+        36,
+        21867,
+        0
+      ],
+      [
+        133243,
+        327447,
+        37,
+        21954,
+        0
+      ],
+      [
+        133243,
+        327448,
+        38,
+        21863,
+        0
+      ],
+      [
+        133243,
+        327449,
+        39,
+        21693,
+        0
+      ],
+      [
+        133243,
+        327450,
+        40,
+        21689,
+        0
+      ]
+    ]
+  },
+  "bve_symmetric_counts": [
+    30772,
+    30772
+  ],
+  "bve_matching_records": 30772,
+  "bve_equal": true,
+  "bve_first_tactix": null,
+  "bve_first_kissat": null,
+  "conclusion": "The 95801 split closes; next first ordinary decision divergence is conflict 133243, level 37. Retain general empty Factor housekeeping and trace the next common-state owner.",
+  "trace_sha256": {
+    "kissat.decisions.tsv": "b02393f1bdd5a213c67d3cd6267d121b2432bb3320e08fa08c47457457975592",
+    "tactix.bve.tsv": "c130e5b91010f8c8cbf0ba11d56330c97b9185650c982184c78b6c4a51a22e86",
+    "tactix.prefix.tsv": "75fe76689ae867e70c65157059e0d52962f86b351c076ce1f74537925cf80e0b",
+    "kissat.bve.tsv": "e7f3771758d6bdd1818aca481641dae3f0f68b7ae61112ad71d88dbefa841196",
+    "tactix.decisions.tsv": "1d14b8bc3e4e37407df1c1c435fd9aea0ef178814b13ffe918b4b4651ff947b9",
+    "kissat.prefix.tsv": "73f590e8ed81a9fcd50e622affc34e3b5848fbc5a9f5b5bb3ab63cac6111b78a"
+  }
+}

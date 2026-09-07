@@ -131,6 +131,8 @@ pending half-analysis or schedules Backjump independently.
   surface.
 - `FactorSelection` is strategy-owned; Factor owns proof-bearing rewrite, gain,
   and effort. Proof order is dividers, quotients, then grid deletion.
+- Production omits queue restamping after zero-yield Factor passes; native
+  Kissat does it unconditionally. Isolated repair: `SP-FACTOR-QUALITY-1`.
 
 ### Binary/watch and clause-order identity
 

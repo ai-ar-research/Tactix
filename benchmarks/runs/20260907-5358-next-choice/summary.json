@@ -1,0 +1,80 @@
+{
+  "stopped_clean": 2,
+  "decision_prefix_byte_identical_5355": true,
+  "previous_columns_unchanged": null,
+  "contexts": {
+    "tactix": [
+      [
+        "133243",
+        "327446",
+        "36",
+        "21867",
+        "21954",
+        "0",
+        "4294967295",
+        "9582",
+        "3.9852014013666375e-15",
+        "unassigned"
+      ],
+      [
+        "133243",
+        "327447",
+        "37",
+        "21863",
+        "21954",
+        "0",
+        "4294967295",
+        "9582",
+        "3.9852014013666375e-15",
+        "unassigned"
+      ]
+    ],
+    "kissat": [
+      [
+        "133243",
+        "327446",
+        "36",
+        "21867",
+        "21954",
+        "0",
+        "4294967295",
+        "9582",
+        "3.9852014013666375e-15",
+        "unassigned"
+      ],
+      [
+        "133243",
+        "327447",
+        "37",
+        "21954",
+        "21954",
+        "1",
+        "37",
+        "9582",
+        "3.9852014013666375e-15",
+        "decision"
+      ]
+    ]
+  },
+  "columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "chosen",
+    "observed",
+    "value",
+    "assignment_level",
+    "heap_position",
+    "score",
+    "reason"
+  ],
+  "conclusion": "Observed 21954 is equally unassigned and EVSIDS-ranked before the split. Focused queue order, not EVSIDS, is the next producer to trace.",
+  "trace_sha256": {
+    "tactix.decisions.tsv": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510",
+    "tactix.state.tsv": "dfea80af51032c7ff5ba8df2e6f29ca4230a77956471da70839d50ad970a38c0",
+    "kissat.state.tsv": "412f7e2ec7ab362ddf07329e97d4ab77cec1f574590f0bdc427e9d3ef9d947b0",
+    "tactix.prefix.tsv": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175",
+    "kissat.prefix.tsv": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8",
+    "kissat.decisions.tsv": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+  }
+}
