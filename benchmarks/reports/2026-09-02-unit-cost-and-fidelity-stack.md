@@ -5260,3 +5260,18 @@ the first-divergence trace (r16 search-phase window, --mode anchor) to find the
 exact reused-clause/backjump divergence, then match kissat's analyze structure.
 The diagnostic arm is kept (default OFF) as a reproducer. reuse-first-only is NOT
 shippable.
+
+### 3.111 reuse-first-only is NET-NEGATIVE -- definitively dead (2026-09-07)
+
+Completing ablation 1668096: r26 (reuse-HELPS) 268.4 -> 615.4s (+347s catastrophe).
+Net over 4 ranks: default=1188s reuseFO=1309s (+121s WORSE). The r34 gain (-349s)
+is outweighed by r6 +15, r20 +109, r26 +347. reuse-first-only is NET-NEGATIVE and
+NOT shippable -- final refutation. The per-OTFS-pass reuse is a GENERALLY good
+mechanism (r6/r20/r26 depend on it); r34 is a SPECIFIC pathology within it.
+IMPLICATION for the fix: do NOT change reuse timing globally. The faithful fix
+matches kissat's analyze STRUCTURE -- OTFS in-1-UIP-resolution (strengthen.c) vs
+tactix's OTFS-RESTART -- so r34's pathological reused clause never forms, while
+the reuse mechanism that helps r6/r20/r26 is untouched. Requires the first-
+divergence trace (r16 search-phase window) to pin the exact reused-clause/backjump
+divergence, then port kissat's OTFS structure. The diagnostic arm (9e03674) stays
+as a default-OFF reproducer of the r34 pathology only.
