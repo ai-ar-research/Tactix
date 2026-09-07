@@ -7,30 +7,36 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
-- SHIPPED + GATING (report 3.104, commit 3a1bb53 on unitcost-on-main): ported
-  Kissat's single in-place `substitute_binaries` pass for the non-session DRAT
-  path, replacing the 5-pass image-array pipeline (build->proof->stable-rewrite->
-  compact->mirror-rebuild over a 37.5M-elem array) that was the implementation gap
-  (3.103). Per affected literal: one q-compaction walk; lit==repr rewrites in
-  place, lit!=repr moves to repr's list via a per-lit delayed stack pushed only
-  after the walk (grow() offset-based; raw p/q/end are not). LRAT + Sweep keep the
-  image path; hatch TACTIX_SUBSTITUTE_IMAGE_PATH=1 forces legacy for A/B.
-  LOCAL VALIDATION (build/sp-release, sp-debug): 1500-case fuzz single-pass =
-  0 failures, Substitute fired 408 cases (model+DRAT+differential oracles); same
-  seeds image-path = BYTE-IDENTICAL verdicts + reached counts (behaviour-equiv);
-  per-case full-stat A/B 0 mismatches; proof/substitution ctests pass with asserts.
-  GATES IN FLIGHT (do not block, standing directive):
-    * R40 gate job 1667849 (80 tasks, -c=12/48000M/1200s): tactix 3a1bb53 vs kissat
-      Rank 1-40. NEXT ACTION: read benchmarks/runs/20260906-5256-r1-40-singlepass-
-      v-kissat/results/*.json -> aggregate PAR-2/runtime vs kissat AND r34 (tasks
-      66=tactix/67=kissat) to classify r34 = implementation-gap (this fixes) vs N4.
-    * N2 fuzz --quick 10000: DRAT job 1667888, random-policy job 1667889 (0 fails
-      required); logs tools/fuzz/slurm-sp-quick-1667888.log / -sp-randpol-1667889.log.
-  Pin build/pin-sp-3a1bb53 (sha e52ca91a...); kissat pin b6a9b1d0...
-  OPEN: substitution is PART of the +95.5s (1.24%) gap; a residual ~0.5% is diffuse
-  elsewhere -- the next target after this gates. 7 prior safe repairs stand.
-  MEASUREMENT: r10 single-run +-1.2s noisy (< the gap); resolvable signals are the
-  R40 aggregate (+-0.25%) and perf instruction count.
+- PORT SHIPPED + GATED GREEN, but the impl gap is BIGGER than the prior 1.24%
+  claim (reports 3.104/3.105; commit 3a1bb53 unitcost-on-main). The Kissat
+  single-in-place binary-substitution port (non-session DRAT) is SOUND (fuzz
+  --quick 10000 job 1667888 = 0 failures, Substitute fired 2501 cases),
+  behaviour-identical (1500-case A/B byte-identical verdicts+reached), and FASTER
+  (-4 to -5% on every 0-conflict/substitution rank). It STANDS.
+  BUT R40 gate 5256 (job 1667849) decomposed by conflict ratio shows the true
+  implementation gap is ~12-15% on the preprocessing-dominated 0-CONFLICT ranks
+  (r7/8/10/13/14: both arms 0 conflicts = identical work = pure unit cost; tactix
+  +11-15% AFTER the port). Binary substitution was only ~4-5% of that ~16-20%
+  gap; ~11% of DIFFUSE PREPROCESSING UNIT COST REMAINS (congruence/sweep/BVE/
+  vivify/arena/other). The prior 1.24% used the all-40 total as denominator,
+  diluting the concentrated cost.
+  r34 and r17/r21/r25/r40 are N4 (trajectory divergence), NOT impl gap: r34 tactix
+  8.54M vs kissat 4.33M conflicts = 1.97x (runtime 2.14x, +391s) -- a 2x-work
+  search divergence a unit-cost fix cannot touch; r19 tactix does 5x FEWER
+  conflicts (-589s). N4 net ~-12s over these. r34 needs a SEPARATE N4 thread.
+  NEXT ACTION (keep digging, the goal is NOT met): profile the 0-conflict ranks
+  r7/r8/r10/r13/r14 for the next preprocessing unit-cost lever BEYOND binary
+  substitution -- same method as 3.100 (per-phase timers + perf on a .text-
+  identical -g pin vs kissat, NOT noisy r10 wall time). Candidates: congruence
+  (3.95 claimed FASTER -- re-verify on these ranks), sweep, vivify, arena/watch
+  density, dense-occurrence build. Then a separate N4 thread for r34-class 2x-work
+  divergences.
+  GATES: R40 1667849 (32/40 verdicts in; 8 slow ranks still solving/proof-checking
+  -- do not wait per directive; read benchmarks/runs/20260906-5256-r1-40-
+  singlepass-v-kissat/results). Fuzz DRAT 1667888 PASSED 0/10k; randpol 1667889
+  running. BC regression 1667933 (single-pass vs image-path via hatch, B+C).
+  Pin build/pin-sp-3a1bb53 (e52ca91a). PUSH once fuzz-randpol + BC green (behaviour-
+  identical port => no B+C regression expected): fast-forward main to the port.
 
 - ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
   1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
