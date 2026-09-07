@@ -1,0 +1,124 @@
+{
+  "stopped_clean": 2,
+  "observer_prefix_identical": true,
+  "initial_members": {
+    "tactix": 1245,
+    "kissat": 1257
+  },
+  "kissat_only": [
+    6649,
+    9355,
+    10700,
+    13407,
+    19389,
+    20877,
+    21051,
+    21323,
+    21325,
+    21551,
+    21553,
+    22022
+  ],
+  "common_occurrence_counts_identical": true,
+  "common_score_offsets": {
+    "0.0": 1,
+    "-1.0": 1244
+  },
+  "selected_members": {
+    "tactix": {
+      "22227": {
+        "external": 22227,
+        "position": 0,
+        "positive": 2,
+        "negative": 20,
+        "score": 3999981.0
+      },
+      "10700": null,
+      "11215": {
+        "external": 11215,
+        "position": 10,
+        "positive": 15,
+        "negative": 17,
+        "score": 3998777.0
+      },
+      "10988": {
+        "external": 10988,
+        "position": 42,
+        "positive": 30,
+        "negative": 30,
+        "score": 3998748.0
+      },
+      "20107": {
+        "external": 20107,
+        "position": 8,
+        "positive": 8,
+        "negative": 7,
+        "score": 3999224.0
+      },
+      "9959": {
+        "external": 9959,
+        "position": 334,
+        "positive": 9,
+        "negative": 15,
+        "score": 3995818.0
+      }
+    },
+    "kissat": {
+      "22227": {
+        "external": 22227,
+        "position": 0,
+        "positive": 2,
+        "negative": 20,
+        "score": 3999981.0
+      },
+      "10700": {
+        "external": 10700,
+        "position": 42,
+        "positive": 30,
+        "negative": 30,
+        "score": 3998830.0
+      },
+      "11215": {
+        "external": 11215,
+        "position": 10,
+        "positive": 15,
+        "negative": 17,
+        "score": 3998778.0
+      },
+      "10988": {
+        "external": 10988,
+        "position": 21,
+        "positive": 30,
+        "negative": 30,
+        "score": 3998749.0
+      },
+      "20107": {
+        "external": 20107,
+        "position": 8,
+        "positive": 8,
+        "negative": 7,
+        "score": 3999225.0
+      },
+      "9959": {
+        "external": 9959,
+        "position": 166,
+        "positive": 9,
+        "negative": 15,
+        "score": 3995819.0
+      }
+    }
+  },
+  "trace_sha256": {
+    "tactix.schedule.tsv": "0a6b42459a4f11725fe799772dc3ef4919ea1d08d823f5cc4fb84120998fd88b",
+    "tactix.queue.tsv": "0f1862f3d278f6cc9ed9d82f4b2033bbbf53061ade1504825d7edd1a505786c6",
+    "kissat.decisions.tsv": "c61d1ce1c92327d43e4a8592e205e5b18cefdb6fe4bfc017ca8ee51ebb3d1519",
+    "kissat.schedule.tsv": "7817cf75ddbfb75d4b345225e4bb77696ddd8a1b53ae412b949f9c12d39b8f36",
+    "kissat.queue.tsv": "5a9eb8f9a7e76000d8f3954c73903fbd8e90ae5780ecc0351efc7b58b5b0ab3a",
+    "kissat.boundaries.tsv": "a1b062ab12d912154965028ef1236b85a2c026cc8aec87c5d57b9b9fa8e5bbc7",
+    "tactix.boundaries.tsv": "bf06b2446c9dfde8fcc0f5d20a26c2c08ce06fd7a6b44a9baa0086790d78e24f",
+    "kissat.state.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tactix.state.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tactix.decisions.tsv": "c61d1ce1c92327d43e4a8592e205e5b18cefdb6fe4bfc017ca8ee51ebb3d1519"
+  },
+  "conclusion": "Initial Tactix schedule omits 12 native candidates, including first differing candidate 10700. Shared occurrence counts agree. Inspect retry eligibility history; do not patch dynamic heap update order from this evidence."
+}

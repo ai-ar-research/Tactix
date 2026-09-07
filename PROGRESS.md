@@ -10,11 +10,11 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the audit
   of Claude's work. Campaign 5291's mixed proof modes/unchecked serialized arms
   cannot support “93% search quality” or an implementation-cost ceiling.
-- Latest: [Congruence prefix repair](benchmarks/reports/2026-09-07-congruence-prefix-frontier.md).
-  Isolated native-prefix cleanup removes 16 extra redundant clauses, closes the
-  Vivify-count/queue split and matches **475,997 decisions through conflict
-  200000**. Three-witness time is 0.8604x the preceding candidate and 0.9637x
-  production (one wave). **UNFUZZED, unpromoted; B28+C5 pending.**
+- Latest: [BVE retry frontier](benchmarks/reports/2026-09-07-bve-retry-frontier.md).
+  The isolated Congruence stack matches **786,346 decisions** before a split
+  at conflict 345034. BVE's initial schedule at 343785 omits 12 native members;
+  trace retry-mark producers after the last matching attempt at 240040.
+  No new semantic edit. **UNFUZZED, unpromoted; B28+C5 pending.**
 - Production source remains `c2a95a6`; Release SHA-256
   `de3d9332f70f3bbd5ca17fedda4ad11c7295114e8b581251192746ff8d68439f`.
   Retain accepted binary substitution/liveness, arena/watch, connected-pose and
@@ -26,6 +26,8 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 64/66 final records are checked/clean. Watch this exact job; never resubmit or
 count unfinished checks as accepted. 5371 runtime and old 5357 are terminal and
 clean. User interactive allocation `1668242` (`bash`) is untouched.
+Diagnostics 5373–5376 are terminal, with eight clean intentional stops and
+validated observer-prefix neutrality. They are not verdict or timing gates.
 
 | Authority | Accepted evidence |
 |---|---|
@@ -47,11 +49,13 @@ remains an independent acceptance dimension.
    checks and scratch cleanup before sealing summaries; retain per-instance
    solve/work/time/memory differences. The same-window production and exact
    preceding cumulative arms must not be conflated.
-2. Extend the **same repaired 5370 pins** beyond conflict 200000 to locate the
-   next worse boundary. If timing remains worse, compare matched-state work
-   and throughput rather than attributing the cost to the last trace difference.
-   Residual Sweep binary count and assigned-queue-cursor differences are leads,
-   not established causes. No literal/conflict/formula/rank/identity gate.
+2. Trace retry-mark producers for missing member 10700 between the second BVE
+   attempt at 240040 and scheduling at 343785. Seven prior attempts match exact
+   ticks; shared initial occurrence counts agree, but native schedules 12 extra
+   members. Use fresh observer-only source/pins; do not mutate submitted builds.
+   Prove the mechanism and downstream utility before repairing: Tactix's extra
+   elimination of 9959 is not intrinsically worse. No identity-conditioned fix.
+   Inprocessing cost on Rank 17 is a separate matched-work profiling lead.
 3. Preserve `.claude/worktrees/runtime-congruence-prefix-5369` and its submitted
    builds. Release `build/pin-5371-congruence-prefix-release` and independent
    `build/pin-5372-congruence-prefix-bc` share SHA-256
@@ -80,6 +84,8 @@ remains an independent acceptance dimension.
   owns 5360–5372. `SP-CONG-PREFIX-1` remains open in production. Fixed native
   positive / old negative / repaired positive plus 76 trace / 77 Release tests
   pass; the cumulative stack is still unfuzzed investigation material.
+- [Retry frontier](benchmarks/reports/2026-09-07-bve-retry-frontier.md) owns
+  5373–5376 and the exact candidate, eligibility and choice-state evidence.
 - Raw large streams remain local with hashes; patches, runners, comparators and
   small witnesses are durable. Legacy prefix `start_decisions` wraps with
   warm-up counts and must never be used for alignment.
@@ -108,11 +114,11 @@ remains an independent acceptance dimension.
 
 ## Recent changes
 
-- Localized the focused-choice split to Congruence's redundant-prefix cleanup.
-- Isolated repair matches 475,997 decisions and improves the single-wave screen.
-- Previous B28+C5 gate is fully checked/clean at 0.950188x production.
+- Extended the isolated stack to 786,346 identical decisions before a new split.
+- Localized the next initial-schedule discrepancy to BVE retry eligibility.
+- Preserved seven matching prior attempts; no speculative heap repair.
 - New B28+C5 final proof checks are running; production unchanged.
 - Living docs remain within all 30 configured size budgets.
 
 Historical evidence is routed by the runtime review; Git owns ordinary
-chronology. Previous resume text is recoverable with `git show bfd9651:PROGRESS.md`.
+chronology. Previous resume text is recoverable with `git show 4bd01e1:PROGRESS.md`.

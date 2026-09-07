@@ -1,0 +1,61 @@
+--- a/src/inlinequeue.h
++++ b/src/inlinequeue.h
+@@ -2,6 +2,7 @@
+ #define _inlinequeue_h_INCLUDED
+ 
+ #include "internal.h"
++#include "eventtrace.h"
+ #include "logging.h"
+ 
+ static inline void kissat_update_queue (kissat *solver, const links *links,
+@@ -88,6 +89,7 @@
+ }
+ 
+ static inline void kissat_move_to_front (kissat *solver, unsigned idx) {
++  kissat_event_trace_queue_bump (solver, idx);
+   queue *queue = &solver->queue;
+   links *links = solver->links;
+   if (idx == queue->last) {
+--- a/src/eventtrace.h
++++ b/src/eventtrace.h
+@@ -8,6 +8,7 @@
+ struct kissat;
+ struct clause;
+ struct heap;
++void kissat_event_trace_queue_bump (struct kissat *, unsigned);
+ 
+ void kissat_event_trace (struct kissat *, const char *, const char *, bool);
+ void kissat_event_trace_late (struct kissat *, const char *, const char *,
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -1715,6 +1715,30 @@
+   kissat_event_trace (solver, "phase_save", payload, false);
+ }
+ 
++void kissat_event_trace_queue_bump (kissat *solver, unsigned idx) {
++  static bool initialized;
++  static FILE *file;
++  static uint64_t first, last = UINT64_MAX;
++  if (!initialized) {
++    initialized = true;
++    const char *path = getenv("KISSAT_QUEUE_BUMP_TRACE");
++    const char *lo = getenv("SAT_QUEUE_BUMP_FROM"), *hi = getenv("SAT_QUEUE_BUMP_TO");
++    if (path && *path) file = fopen(path,"w");
++    if (lo) first = strtoull(lo,0,10);
++    if (hi) last = strtoull(hi,0,10);
++  }
++  if (!file || solver->statistics.conflicts < first || solver->statistics.conflicts > last) return;
++  const unsigned prev = LINK(idx).prev, next = LINK(idx).next;
++  const unsigned search = solver->queue.search.idx;
++  fprintf(file,"%" PRIu64 "\t%" PRIu64 "\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%d\n",
++      solver->statistics.conflicts,solver->statistics.decisions,(int)solver->stable,
++      external_variable(solver,idx),LINK(idx).stamp,
++      DISCONNECTED(prev)?0:external_variable(solver,prev),
++      DISCONNECTED(next)?0:external_variable(solver,next),
++      DISCONNECTED(search)?0:external_variable(solver,search),
++      solver->queue.search.stamp,solver->queue.stamp,solver->values[LIT(idx)]);
++}
++
+ void kissat_event_trace_target_state (kissat *solver, const char *stage,
+                                       unsigned assigned) {
+   if (strstr (stage, "compact") || strstr (stage, "factor-stamps") || !strcmp (stage, "bve-schedule")) {
