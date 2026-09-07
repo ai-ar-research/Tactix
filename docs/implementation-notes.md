@@ -258,8 +258,9 @@ pending half-analysis or schedules Backjump independently.
 - Sweep uses exact inclusive embedded limits and strict enclosing limits,
   resumes its retained tail, and grows its 256/1024/2 environment bounds only
   on exhaustion toward 8192/32768/3.
-- Substitute publishes Sweep plus SCC retirement as one import-ordered
-  heuristic transaction. Root-fixed variables are consumed first.
+- Substitute still globally sorts post-Sweep SCC retirement across rounds;
+  this known `SP-SUBSTITUTE-ROUND-1` deviation changes equal-score heap pose.
+  Root-fixed variables publish first. Per-round repair remains isolated.
 - Reduce begins at conflict 1,000, then uses `1000*sqrt(reductions)` and the
   dynamic tier/compaction lifecycle. Formula profiles may dose independently
   measured work but may not dose Vivify or replace cadence, tiers, or collection

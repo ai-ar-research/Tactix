@@ -1,0 +1,23 @@
+{
+  "job": "1668684",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "source_patch": "candidate.patch",
+  "input_sha256_compressed": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+  "contract": "Full-width 0-1, one stopped proof-on solver per task; 12 logical CPUs/48000 MiB, one bound thread, no throttle or node constraint.",
+  "kissat_source": "Pristine 8af8e56f174b778aef3aa45af9f739b2a5f492c2 plus tracked c2a95a6 event overlay and kissat-observer.patch; fresh Release build.",
+  "release_sha256": "a8868f435ddef9a4c6d65c3b852ffe3ac4fa015dc23e3e96187927d1cb197b36",
+  "purpose": "UNFUZZED detailed Rank-34 warm-up decision and implication frontier at conflict 75451; not timing or correctness acceptance.",
+  "reference_campaign": "benchmarks/runs/20260907-5327-bridge-root-order",
+  "acceptance": "Stop at 75452 without truncation and scratch clean; compare warm-up decisions and ordered implication literals/reasons. Normalize root trail offsets, not actual non-root decisions.",
+  "hashes": {
+    "pins/kissat": "86cd1ecf8e4cfdfb9af70dea2b62182c9d994ba4adee0d6a2c311a854321259c",
+    "pins/tactix": "7bc131a99f5a312f8068a6f09022423c81cb9cba786db450b9c3c6390a6085bc",
+    "candidate.patch": "6742a562943bdafbf6eb19cb353be6d6eeed0691bd477cba03d8f32a3720cc2b",
+    "kissat-observer.patch": "68c19e426a1857989a145806a407db4718d5953cbda73282c1aec958399a6a15",
+    "tactix-observer.patch": "faf7061b7f6e0ae7c9e4659b00af09c3ea5e4d28e9eb684985798a6787a28a35",
+    "run.py": "011497bdc61314984a617174e362128716bcf834da712a91d816fe24408d3814",
+    "array.sbatch": "15930343e7fa606bbd90b570f953d84214f0bb6982bc900a2985e90c10c6a470"
+  },
+  "hypothesis": "Selected heap zero-score tie may be downstream of different propagation membership or order. Find the first implication/reason difference before the level-24 decision.",
+  "parent_campaign": "benchmarks/runs/20260907-5328-bridge-decision-window"
+}
