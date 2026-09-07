@@ -1,0 +1,195 @@
+{
+  "scope": "5373\u20135376 terminal normal diagnostics only. No fuzz artifacts inspected. Pending 5372 scratch remains job-owned.",
+  "removed_paths": [],
+  "removed_bytes": 0,
+  "campaigns": [
+    {
+      "campaign": "benchmarks/runs/20260907-5373-million-prefix",
+      "job": "1668911",
+      "parent": "benchmarks/runs/20260907-5370-congruence-prefix-extended",
+      "manifest_sha256": "052bcc0b66e23fa0bdbf69462d30b07b063aedc6724f52e5dc195fb1187ad05b",
+      "summary_sha256": "6d2d6d37ccc89838bada50cafbc3c4946d9b323afb3009f51a3b39e45a70930a",
+      "residue": [],
+      "retained_reason": "Unique causal diagnostic; preserve parent chain, pins, runners and witnesses.",
+      "traces": {
+        "kissat.boundaries.tsv": {
+          "bytes": 5461723,
+          "sha256": "bb67919a3a4bd83fb5dde3b8fcfe398f7bcb68ec0d98ede304b40f01d6dfa707"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 49940902,
+          "sha256": "dd1a680b94bec0b3c0a4b2773dc7bee4a9216d66b0d9db6250a52f20f7292854"
+        },
+        "tactix.boundaries.tsv": {
+          "bytes": 49578,
+          "sha256": "8baac6b38d74ba15b226a9386c1af172bc1e0d5ae34e2599baf7fbfa6a75c147"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 267,
+          "sha256": "e7d8dc53ea9c3bd048c22d163f0ef92f46f71532654c04329ff9da9958cb35a7"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 51823447,
+          "sha256": "7611a30452b982421b4c2305968fc2cb1bcd7839ed7fe9c75aaade942de17982"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 267,
+          "sha256": "7fa034dcde99b237e5a6c78eba27f8feb1310d374459e1ae964843258ec796a9"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5374-bve-frontier",
+      "job": "1668913",
+      "parent": "benchmarks/runs/20260907-5373-million-prefix",
+      "manifest_sha256": "004da44f7583a424ee97416aea84657c1c612e3c5f3d4f7a9d8fedf7dc0bdc0a",
+      "summary_sha256": "30c561fa2c9b862b689308b09a2f6b124687c4a327693c1edf6b49125fe5d8a3",
+      "residue": [],
+      "retained_reason": "Unique causal diagnostic; preserve parent chain, pins, runners and witnesses.",
+      "traces": {
+        "tactix.prefix.tsv": {
+          "bytes": 264,
+          "sha256": "47d37f015b64314a80d6dea30ac50390e07e4851038b224ebca425510734a642"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 19784392,
+          "sha256": "e69b9c213b9221f47e88e35a50c4d0e8967a5099bbe45dec274d888c4101b55e"
+        },
+        "kissat.bve.tsv": {
+          "bytes": 1081814,
+          "sha256": "c7da2d51c96ef6c8ea0464cc897cfd3df5e4cd33fbd67938d2e666311e5623d5"
+        },
+        "kissat.boundaries.tsv": {
+          "bytes": 1466859,
+          "sha256": "9adda12b3550e4ca27c800501022a4840e7f3a9220c198565b7eba678298bcc5"
+        },
+        "tactix.boundaries.tsv": {
+          "bytes": 20795,
+          "sha256": "ddbef1fa48b2170b73f02257034c44359c6c0d68fbd99268fd99329fd735b50b"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 264,
+          "sha256": "298899dcdf538f876fee64e3d3767aa617ea61e666b5e4664e51ca5a9616a123"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 19784418,
+          "sha256": "d28d0d0bfa7b912c13d91a2e550a6cecfcf4af844880f18b8c82359f3a601f9c"
+        },
+        "tactix.bve.tsv": {
+          "bytes": 649877,
+          "sha256": "8f272db5ae2ad46476339deb4bb9e059bca9b4033cd9a367491c35245001e454"
+        },
+        "kissat.state.tsv": {
+          "bytes": 70366,
+          "sha256": "95040205a39da06975033f1fe64489832e4bf17694908d98aed2ff9b94b4d0d5"
+        },
+        "tactix.state.tsv": {
+          "bytes": 72852,
+          "sha256": "4d5f991f5f6a7625159ff9812d1b48e2136f38c7cf23b5b288062a964d5de2a1"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5375-bve-schedule",
+      "job": "1668915",
+      "parent": "benchmarks/runs/20260907-5374-bve-frontier",
+      "manifest_sha256": "b6bd6c285cb0d2eab1152c7d7d1d918a01b36737dc69bbb6a6fd1797298663ff",
+      "summary_sha256": "5469ece4f603e34b4e34fa8627d6886ff84ca78b0374aa4ac6e39be144afcbbe",
+      "residue": [],
+      "retained_reason": "Unique causal diagnostic; preserve parent chain, pins, runners and witnesses.",
+      "traces": {
+        "tactix.schedule.tsv": {
+          "bytes": 102157,
+          "sha256": "0a6b42459a4f11725fe799772dc3ef4919ea1d08d823f5cc4fb84120998fd88b"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 14574059,
+          "sha256": "0f1862f3d278f6cc9ed9d82f4b2033bbbf53061ade1504825d7edd1a505786c6"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 19654941,
+          "sha256": "c61d1ce1c92327d43e4a8592e205e5b18cefdb6fe4bfc017ca8ee51ebb3d1519"
+        },
+        "kissat.schedule.tsv": {
+          "bytes": 103149,
+          "sha256": "7817cf75ddbfb75d4b345225e4bb77696ddd8a1b53ae412b949f9c12d39b8f36"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 15719193,
+          "sha256": "5a9eb8f9a7e76000d8f3954c73903fbd8e90ae5780ecc0351efc7b58b5b0ab3a"
+        },
+        "kissat.boundaries.tsv": {
+          "bytes": 1421780,
+          "sha256": "a1b062ab12d912154965028ef1236b85a2c026cc8aec87c5d57b9b9fa8e5bbc7"
+        },
+        "tactix.boundaries.tsv": {
+          "bytes": 20297,
+          "sha256": "bf06b2446c9dfde8fcc0f5d20a26c2c08ce06fd7a6b44a9baa0086790d78e24f"
+        },
+        "kissat.state.tsv": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "tactix.state.tsv": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 19654941,
+          "sha256": "c61d1ce1c92327d43e4a8592e205e5b18cefdb6fe4bfc017ca8ee51ebb3d1519"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5376-bve-history",
+      "job": "1668917",
+      "parent": "benchmarks/runs/20260907-5375-bve-schedule",
+      "manifest_sha256": "7d90c73bdc0e85a39957fdca5523f47214e21bd91685b37b98a3ddaa24a6b596",
+      "summary_sha256": "1759c01815e8cf9f5abc68f5d03545a812b2bb2e91053c35beacc776f097925f",
+      "residue": [],
+      "retained_reason": "Unique causal diagnostic; preserve parent chain, pins, runners and witnesses.",
+      "traces": {
+        "kissat.schedule.tsv": {
+          "bytes": 103149,
+          "sha256": "7817cf75ddbfb75d4b345225e4bb77696ddd8a1b53ae412b949f9c12d39b8f36"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 19654941,
+          "sha256": "c61d1ce1c92327d43e4a8592e205e5b18cefdb6fe4bfc017ca8ee51ebb3d1519"
+        },
+        "tactix.schedule.tsv": {
+          "bytes": 102157,
+          "sha256": "0a6b42459a4f11725fe799772dc3ef4919ea1d08d823f5cc4fb84120998fd88b"
+        },
+        "kissat.bve.tsv": {
+          "bytes": 3605,
+          "sha256": "f3fdf6e417bc6d206654760e6054eeb186beebe07bc73b4e033de017f7aa898b"
+        },
+        "kissat.state.tsv": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "tactix.state.tsv": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "tactix.bve.tsv": {
+          "bytes": 2137,
+          "sha256": "fbb26d5182c103f3a83ecad1a1e78eda1b87f87b4de705b44bd112f82f9df468"
+        },
+        "tactix.boundaries.tsv": {
+          "bytes": 20297,
+          "sha256": "bf06b2446c9dfde8fcc0f5d20a26c2c08ce06fd7a6b44a9baa0086790d78e24f"
+        },
+        "kissat.boundaries.tsv": {
+          "bytes": 1421780,
+          "sha256": "a1b062ab12d912154965028ef1236b85a2c026cc8aec87c5d57b9b9fa8e5bbc7"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 19654941,
+          "sha256": "c61d1ce1c92327d43e4a8592e205e5b18cefdb6fe4bfc017ca8ee51ebb3d1519"
+        }
+      }
+    }
+  ]
+}

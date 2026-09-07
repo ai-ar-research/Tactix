@@ -1,0 +1,18 @@
+--- /home/hwu/SAT-solving/tools/solvers/variants/kissat-factor-stamps-5353/src/eventtrace.c	2026-09-07 15:00:03.093475401 -0400
++++ /home/hwu/SAT-solving/tools/solvers/variants/kissat-focused-choice-5359/src/eventtrace.c	2026-09-07 15:19:38.624406013 -0400
+@@ -1232,6 +1232,15 @@
+         for (unsigned i=0;i<c->size;i++)
+           fprintf(state,"%s%d",i?",":"",external_literal(solver,c->lits[i]));
+       }
++      const unsigned search = solver->queue.search.idx;
++      const unsigned prev = LINK(selected).prev, next = LINK(selected).next;
++      fprintf(state,"\t%d\t%u\t%u\t%u\t%u\t%u\t%u\t%u",
++          solver->stable, solver->queue.stamp,
++          DISCONNECTED(search) ? 0 : external_variable(solver,search),
++          solver->queue.search.stamp, LINK(selected).stamp,
++          DISCONNECTED(prev) ? 0 : external_variable(solver,prev),
++          DISCONNECTED(next) ? 0 : external_variable(solver,next),
++          LINK(IDX(lit)).stamp);
+       fputc('\n',state);
+     }
+   }

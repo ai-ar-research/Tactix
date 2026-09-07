@@ -1,0 +1,50 @@
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -293,6 +293,47 @@
+ }
+ 
+ void note_decision_prefix(const Kernel &k, int external) {
++  static bool state_initialized = false;
++  static FILE *state = nullptr;
++  static uint64_t state_conflict = UINT64_MAX;
++  static int wanted = 0;
++  if (!state_initialized) {
++    state_initialized = true;
++    const char *path = std::getenv("TACTIX_CHOICE_STATE_TRACE");
++    const char *conflict = std::getenv("SAT_CHOICE_STATE_CONFLICT");
++    const char *variable = std::getenv("SAT_CHOICE_STATE_VARIABLE");
++    if (path && conflict && variable) {
++      state = std::fopen(path, "w");
++      if (!state) { std::perror(path); std::exit(2); }
++      state_conflict = std::strtoull(conflict, nullptr, 10);
++      wanted = std::atoi(variable);
++    }
++  }
++  if (state && k.stats.conflicts == state_conflict) {
++    const Lit l = kernel_internalize(k, wanted);
++    if (l != INVALID_LIT) {
++      const Var v = var_of(l);
++      const auto &a = k.assigned[v];
++      std::fprintf(state, "%llu\t%llu\t%u\t%d\t%d\t%d\t%u\t%u\t%.17g\t",
++          (unsigned long long)k.stats.conflicts,
++          (unsigned long long)k.stats.decisions, k.level, external, wanted,
++          int(k.values[l]), k.values[l] ? a.level : UINT32_MAX,
++          k.h ? k.h->scores.pos[v] : UINT32_MAX,
++          k.h ? k.h->scores.score[v] : 0.0);
++      if (!k.values[l]) std::fputs("unassigned",state);
++      else if (a.reason == DECISION_REASON) std::fputs("decision",state);
++      else if (a.reason == UNIT_REASON) std::fputs("unit",state);
++      else if (a.binary)
++        std::fprintf(state,"binary:%d",kernel_externalize(k,a.reason));
++      else {
++        const Clause *c = clause_at(k.arena,a.reason);
++        std::fputs("large:",state);
++        for (uint32_t i=0;i<c->size;i++)
++          std::fprintf(state,"%s%d",i?",":"",kernel_externalize(k,c->lits[i]));
++      }
++      std::fputc('\n',state);
++    }
++  }
+   static bool stream_initialized = false;
+   static FILE *stream = nullptr;
+   if (!stream_initialized) {
