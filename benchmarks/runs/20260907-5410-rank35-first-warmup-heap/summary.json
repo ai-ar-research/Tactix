@@ -1,0 +1,38 @@
+{
+  "clean_stops": 2,
+  "unchanged_prefix_stream_events_boundaries": true,
+  "snapshot": {
+    "conflict": 13563,
+    "ordinary_decisions": 17798663,
+    "level": 1,
+    "literal": 145,
+    "warming": true
+  },
+  "heap_size": 429257,
+  "identical_membership": true,
+  "valid_heaps": true,
+  "difference_counts": {
+    "position": 0,
+    "score": 0,
+    "assignment": 0
+  },
+  "first_differences": {
+    "position": [],
+    "score": [],
+    "assignment": []
+  },
+  "trace_sha256": {
+    "kissat.events.tsv": "2fddc2efd4a196c6c98dc3cdffa33f8c9dc07f488975f69adb86640a616e6671",
+    "kissat.heap.tsv": "24504a806559277de777deff529ebbc8d3d7bcc6c7075705656a7a452ed3db01",
+    "candidate.macro.tsv": "a074de4bef3d5fe84a513349a54c1d8d02df471073011a8895bfecd563a33eeb",
+    "candidate.prefix.tsv": "d616b51b0579d0d3208f2cf6a1c6c1111555f65c1f5d9cb190992abe120a3c3e",
+    "candidate.decisions.tsv": "f49681ba9ffb8ca41fe9b8e0112dbe14ff33c48c794e863d20bf8e086fb2bbc6",
+    "candidate.boundaries.tsv": "0c9099fb935cc37cca353ae64f4c49c37271281d0732f55f6663c3d47991328c",
+    "candidate.events.tsv": "116a40bb3530e09ea9625df7e05953145bc6e4ba427ec7ead825cb8fd76a3b82",
+    "kissat.decisions.tsv": "f49681ba9ffb8ca41fe9b8e0112dbe14ff33c48c794e863d20bf8e086fb2bbc6",
+    "kissat.boundaries.tsv": "ccbe6eb4b2c58b24aa77487afc839775ad81a29e93550b0a64fd98edfb186b36",
+    "kissat.prefix.tsv": "a5ae3761767be35e23f8b073351726c59d70923ea839e659ad9423d301292362",
+    "candidate.heap.tsv": "f2c018b8bf3913313be407352db3ab52a49c546ea220c275492a0407e3ddb57e"
+  },
+  "limitation": "Stopped diagnostic, not checked final solve or timing. Snapshot active column excluded because representations differ."
+}

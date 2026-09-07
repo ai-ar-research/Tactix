@@ -1,0 +1,86 @@
+{
+  "clean_stops": 2,
+  "prefix_identical_to_5405": {
+    "candidate": [
+      "13563",
+      "18446744073709480523",
+      "17801491",
+      "17872584",
+      "00720e20bd6be748",
+      "1",
+      "1",
+      "423158d46f796010",
+      "488499",
+      "488499",
+      "5626",
+      "41434"
+    ],
+    "kissat": [
+      "13563",
+      "18446744073709480523",
+      "17801491",
+      "17872584",
+      "00720e20bd6be748",
+      "1",
+      "1",
+      "423158d46f796010",
+      "488499",
+      "488499",
+      "5626",
+      "41434"
+    ]
+  },
+  "heap_size": 308772,
+  "snapshot_conflict": 13560,
+  "snapshot_decisions": 17798663,
+  "identical_membership": true,
+  "valid_heaps": true,
+  "difference_counts": {
+    "position": 0,
+    "score": 0,
+    "assignment": 0
+  },
+  "first_differences": {
+    "position": [],
+    "score": [],
+    "assignment": []
+  },
+  "selected_event_counts": {
+    "candidate": 166,
+    "kissat": 166
+  },
+  "first_selected_event_difference": {
+    "index": 18,
+    "candidate": {
+      "event": "heap_pop",
+      "conflict": 13418,
+      "decisions": 17696178,
+      "level": 3157,
+      "mode": "stable",
+      "payload": "stage=move|held=391995:2.1237779646514139e-143|other=109841:3.3965970888458537e+46|from=76977|to=38488"
+    },
+    "kissat": {
+      "event": "heap_pop",
+      "conflict": 13418,
+      "decisions": 17696179,
+      "level": 3158,
+      "mode": "stable",
+      "payload": "stage=move|held=391995:2.1237779646514139e-143|other=109841:3.3965970888458537e+46|from=76977|to=38488"
+    }
+  },
+  "selected_events_identical": false,
+  "trace_sha256": {
+    "candidate.heap.tsv": "382781c974e1ae5cc9214e9f7102f0b49308c16dcbe736b89bc7cca7d9f50302",
+    "kissat.prefix.tsv": "a5ae3761767be35e23f8b073351726c59d70923ea839e659ad9423d301292362",
+    "candidate.events.tsv": "116a40bb3530e09ea9625df7e05953145bc6e4ba427ec7ead825cb8fd76a3b82",
+    "kissat.decisions.tsv": "f49681ba9ffb8ca41fe9b8e0112dbe14ff33c48c794e863d20bf8e086fb2bbc6",
+    "kissat.boundaries.tsv": "ccbe6eb4b2c58b24aa77487afc839775ad81a29e93550b0a64fd98edfb186b36",
+    "candidate.macro.tsv": "a074de4bef3d5fe84a513349a54c1d8d02df471073011a8895bfecd563a33eeb",
+    "candidate.prefix.tsv": "d616b51b0579d0d3208f2cf6a1c6c1111555f65c1f5d9cb190992abe120a3c3e",
+    "kissat.heap.tsv": "84ffb02ca88c12ebcbe32c193ad029a9f92eda85d9ace81e8b32ac1d95aaeae9",
+    "candidate.boundaries.tsv": "0c9099fb935cc37cca353ae64f4c49c37271281d0732f55f6663c3d47991328c",
+    "candidate.decisions.tsv": "f49681ba9ffb8ca41fe9b8e0112dbe14ff33c48c794e863d20bf8e086fb2bbc6",
+    "kissat.events.tsv": "2fddc2efd4a196c6c98dc3cdffa33f8c9dc07f488975f69adb86640a616e6671"
+  },
+  "limitation": "Stopped diagnostic, not a solve or timing result. Active columns and local trail offsets have different representations and are excluded. Selected events are not an exhaustive lifecycle trace."
+}

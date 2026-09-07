@@ -1,0 +1,3 @@
+# tactix-macro-boundary	1
+# solver	seq	event	conflicts	decisions	propagations	level	mode	unassigned	trail	restarts	reductions	switched	rephased	stamp
+tactix	0	checkpoint	13000	17529706	251602795	15942	stable	131752	297759	730	7	5	4	952695

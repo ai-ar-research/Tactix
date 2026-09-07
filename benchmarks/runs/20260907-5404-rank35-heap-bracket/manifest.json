@@ -1,0 +1,81 @@
+{
+  "parent_campaign": "benchmarks/runs/20260907-5403-rank35-direct-heap",
+  "candidate_authority": "benchmarks/runs/20260907-5402-direct-heap-observer/manifest.json",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-direct-heap-5402",
+  "input": "benchmarks/cache/tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+  "input_sha256_compressed": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+  "stop_conflict": 13833,
+  "hypothesis": "Locate the earliest differing heap among six stable-mode checkpoints before the known Rank-35 choice split; observe existing source, never alter selection.",
+  "validation": "12 clean stopped runs, exact full-prefix count/hash versus the retained common 5398 prefix, nonempty unique heap sets; compare portable membership, scores, assignments and array order. No complete verdict or timing claim.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "6cfd95a15eb66c94ca7db0643453c909e124941332533da216e9301925be3146",
+    "pins/kissat": "2c11fc44649b864d460d10509f4b5b7a20fce044e295e052fc0a29c4e7fae108",
+    "run.py": "c5b4dfc54d1542a4df238a8acf9f04551f6354faa8ac830fc4c7e56b720399f7",
+    "array.sbatch": "b7ed8d31c5f085de37e5ebc3f5d3e11d48f704e656b21b25eb89cbdd6b38337b"
+  },
+  "stream_from": 13800,
+  "choice_conflict": 13832,
+  "choice_variable": 483970,
+  "common_decisions": 18516149,
+  "snapshot_conflict": 13832,
+  "snapshot_decisions": 18441404,
+  "points": [
+    {
+      "requested_conflict": 3005,
+      "snapshot_conflict": 3006,
+      "snapshot_decisions": 645826,
+      "expected_count": 677899,
+      "expected_hash": "1e2c59f7575ad92c",
+      "common_hash": "423158d46f796010"
+    },
+    {
+      "requested_conflict": 3071,
+      "snapshot_conflict": 3072,
+      "snapshot_decisions": 663137,
+      "expected_count": 695210,
+      "expected_hash": "b83b870a46672150",
+      "common_hash": "423158d46f796010"
+    },
+    {
+      "requested_conflict": 8000,
+      "snapshot_conflict": 8001,
+      "snapshot_decisions": 1954679,
+      "expected_count": 1986782,
+      "expected_hash": "f07d70d2925d89a0",
+      "common_hash": "423158d46f796010"
+    },
+    {
+      "requested_conflict": 10553,
+      "snapshot_conflict": 10553,
+      "snapshot_decisions": 11643483,
+      "expected_count": 11675723,
+      "expected_hash": "38a20e0292b0e2e8",
+      "common_hash": "423158d46f796010"
+    },
+    {
+      "requested_conflict": 11837,
+      "snapshot_conflict": 11838,
+      "snapshot_decisions": 12064079,
+      "expected_count": 12098608,
+      "expected_hash": "16187ff9195e8d5c",
+      "common_hash": "423158d46f796010"
+    },
+    {
+      "requested_conflict": 13564,
+      "snapshot_conflict": 13565,
+      "snapshot_decisions": 17801492,
+      "expected_count": 17875791,
+      "expected_hash": "142a53dba91a5fe5",
+      "common_hash": "423158d46f796010"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "parent_campaign": "benchmarks/runs/20260907-5381-vivify-retry-extended",
+  "candidate_authority": "benchmarks/runs/20260907-5391-eliminate-dense-entry/manifest.json",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-eliminate-dense-entry-5391",
+  "input": "benchmarks/cache/tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+  "input_sha256_compressed": "5435b1b271b049ed9291ab1b9b297afb33b8d2d3c50ff1b48bfaed4ddf7bb4e9",
+  "stop_conflict": 100000,
+  "hypothesis": "The largest checked full-view gap (Rank 27, 499.203 versus 244.873 seconds in 5383) includes substantially more search work. 5396 matches all 7,154,988 decision rows through 25,000 conflicts; extend to 100,000 to locate the first worse boundary before selecting a repair.",
+  "validation": "Three clean intentional exit-zero prefix stops, immutable hashes, complete decision/boundary streams and deleted partial certificates. Normalize portable fields; unequal raw counts alone do not establish weaker semantics.",
+  "contract": "Full-width 0\u20132, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "648b4653c3dc374dfa42ea447177b69ff37289bc6b3e775d7471d524219a1475",
+    "pins/kissat": "07bbff9f90477023a7fb10a53aa182da64496ba4529bc8f05b47dfb205eedb6b",
+    "pins/previous": "dbc786d3fc1b44bb21030b9503c715a985afe69d7b33c6e81c4b587b864af860",
+    "run.py": "5d5bac77fa19fd9ed222c300a2a78a8bfcfe00ebb31c3b1eb260f7def5456a90",
+    "array.sbatch": "2c9db1c114bd9b8698133b765b7dd4467c80fdf3c601db8fde3bd8e67f149b01"
+  }
+}

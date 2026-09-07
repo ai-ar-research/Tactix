@@ -1,0 +1,66 @@
+[  2%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[  2%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o
+[  7%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o
+[  9%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o
+[ 11%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o
+[ 12%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o
+[ 14%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o
+[ 17%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o
+[ 18%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o
+[ 18%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[ 19%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o
+[ 20%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+[ 22%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[ 23%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[ 23%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[ 24%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o
+[ 25%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/engine/subsolver.cpp: In member function ‘void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/engine/subsolver.cpp:823:35: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+  823 |                {clause_id(reason)}};
+      |                                   ^
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/engine/subsolver.cpp: In member function ‘tactix::SubResult tactix::SubSolver::solve(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/engine/subsolver.cpp:1034:61: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+ 1034 |           target_ = {target_id, export_literals(lits), chain};
+      |                                                             ^
+[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[ 27%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[ 28%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o
+[ 29%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[ 29%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[ 30%] Building CXX object CMakeFiles/tactix_lib.dir/src/diagnostics/event_trace.cpp.o
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/diagnostics/event_trace.cpp: In member function ‘void tactix::EventTrace::heap_after_decision(const tactix::Kernel&)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/diagnostics/event_trace.cpp:5436:25: error: call of overloaded ‘emit_heap_set_snapshot(const tactix::Kernel&, bool)’ is ambiguous
+ 5436 |   emit_heap_set_snapshot(k, true);
+      |   ~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/diagnostics/event_trace.cpp:1180:6: note: candidate: ‘void tactix::emit_heap_set_snapshot(const Kernel&, bool)’
+ 1180 | void emit_heap_set_snapshot(const Kernel &k, bool after_decision = false) {
+      |      ^~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/diagnostics/event_trace.cpp:295:6: note: candidate: ‘void tactix::{anonymous}::emit_heap_set_snapshot(const tactix::Kernel&, bool)’
+  295 | void emit_heap_set_snapshot(const Kernel &k, bool after_decision);
+      |      ^~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/diagnostics/event_trace.cpp: At global scope:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/diagnostics/event_trace.cpp:295:6: warning: ‘void tactix::{anonymous}::emit_heap_set_snapshot(const tactix::Kernel&, bool)’ declared ‘static’ but never defined [-Wunused-function]
+/home/hwu/SAT-solving/.claude/worktrees/runtime-direct-heap-5402/src/diagnostics/event_trace.cpp:295:6: warning: ‘void tactix::{anonymous}::emit_heap_set_snapshot(const tactix::Kernel&, bool)’ used but never defined
+gmake[2]: *** [CMakeFiles/tactix_lib.dir/build.make:639: CMakeFiles/tactix_lib.dir/src/diagnostics/event_trace.cpp.o] Error 1
+gmake[2]: *** Waiting for unfinished jobs....
+gmake[1]: *** [CMakeFiles/Makefile2:270: CMakeFiles/tactix_lib.dir/all] Error 2
+gmake: *** [Makefile:101: all] Error 2

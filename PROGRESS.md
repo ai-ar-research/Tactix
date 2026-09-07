@@ -10,10 +10,13 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest: [dense-entry cost and repair](benchmarks/reports/2026-09-07-dense-entry-cost.md).
-  Clean Release profiles expose BVE ownership costs. Coupled disconnection /
-  publication repair lowers Rank-21 peak RSS about 16.5%, but runtime is mixed:
-  Rank 17 worsens, 21 improves, 34 is neutral. **UNFUZZED/unpromoted.**
+- Latest: [Asynchronous-check checkpoint](benchmarks/reports/2026-09-07-async-check-warmup.md).
+  First choice split is conflict 13,832 after 18,516,149 matching decision rows.
+  Complete heap matches at the first warm-up decision at 13,563; subsequent
+  warm-up backtracking reinserts selected variables in different order.
+  No new semantic repair or promotion; cumulative candidates remain **UNFUZZED**.
+- [Dense-entry evidence](benchmarks/reports/2026-09-07-dense-entry-cost.md) owns
+  the latest semantic candidate: Rank-21 peak RSS falls about 16.5%, runtime is mixed.
 - Correction: stopped-prefix 5382 contains dormant hot-loop instrumentation;
   its 1.13834x time is not clean production overhead. Use clean profiles 5385.
 - Production remains `c2a95a6`; Release SHA-256
@@ -25,15 +28,13 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 
 | Campaign | Job | Pending scope |
 |---|---|---|
-| 5383 Vivify full Rank 1–40 | `1669005` | Remaining proof checks; no partial acceptance. |
-| 5389 publication-only B28+C5 | `1669095` | Remaining proof checks. |
-| 5393 coupled B28+C5 | `1669174` | Remaining proof checks. |
-| 5395 coupled full Rank 1–40 | `1669252` | New full-width checked comparison. |
+| 5395 coupled full Rank 1–40 | `1669252` | 77/80 checked; tasks 35, 42, 43 still checking. |
 
-Watch these exact jobs with `tools/slurm/wait.py`; never resubmit or accept
-unfinished checks. 5384/5385 profiles and 5386/5390/5394 memory observers are
-terminal; memory observers have checked models and match their own Release
-work counters. User interactive allocation `1668242` is untouched.
+Keep these checks running while proceeding on a provisional-pass assumption;
+revisit them at checkpoints, never label pending certificates verified.
+5383/5389/5393 are terminal and checked; 5396–5410 diagnostics are
+terminal (5401 deliberately cancelled and cleaned). User interactive allocation
+`1668242` is untouched. Exact audit and stop limitations are in the latest report.
 
 | Accepted authority | Result |
 |---|---|
@@ -42,23 +43,30 @@ work counters. User interactive allocation `1668242` is untouched.
 | [5315 production B28+C5](benchmarks/runs/20260907-5315-pose-r2-BC-gate/summary.json) | 66/66 checked/clean; final-r2/starting time 1.01897x. |
 | [5379 Vivify witnesses](benchmarks/runs/20260907-5379-vivify-retry-runtime/summary.json) | 12 checked models; 0.722370x preceding candidate and 1.186297x Kissat, one wave. |
 | [5380 Vivify B28+C5](benchmarks/runs/20260907-5380-vivify-retry-BC-gate/summary.json) | 66/66 checked/clean, no timeout/solve loss; candidate/production 0.953796x. |
+| [5383 Vivify Rank 1–40](benchmarks/runs/20260907-5383-vivify-retry-ranks1-40/summary.json) | 80/80 checked/clean; both 40 solves; 8217.738/6764.776 s = 1.214783x. |
 | [5388 publication witnesses](benchmarks/runs/20260907-5388-dense-publication-runtime/summary.json) | 12 checked models; 0.997513x preceding candidate: neutral, one wave. |
+| [5389 publication B28+C5](benchmarks/runs/20260907-5389-dense-publication-BC-gate/summary.json) | 66/66 checked/clean; no timeout/solve loss; candidate/production 0.950318x. |
 | [5392 coupled witnesses](benchmarks/runs/20260907-5392-eliminate-entry-runtime/summary.json) | 12 checked models; 1.020252x preceding candidate, 1.205145x Kissat; mixed, one wave. |
+| [5393 coupled B28+C5](benchmarks/runs/20260907-5393-eliminate-entry-BC-gate/summary.json) | 66/66 checked/clean; no timeout/solve loss; candidate/production 0.922328x. |
 
 Rank 1–40 is not an annual/union Tier-D replacement. Memory competitiveness
 is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Finish active jobs, then run retained `seal-vivify-ranks-5383.py`,
-   `seal-dense-publication-gates-5389.py`, `seal-eliminate-entry-gates-5393.py`
-   and `seal-eliminate-ranks-5395.py` in `benchmarks/probes/scratch/`.
-   Score only complete checked/clean records, preserving per-instance
-   work/time/memory, solve losses and timeout transitions.
-2. Compare both full views; prioritize the largest remaining component gaps.
-   Isolate any weaker work caused by dense entry before further cost edits.
-   Dense occurrence capacity and reconstruction remain Rank-21 memory leads;
-   one-sided witnesses would require a separate semantic/API review.
+1. Trace Rank 35's selected warm-up implications at conflict 13,563, especially
+   variable 109796 relative to 109815/109877; compare reasons, trail order and
+   watch/assignment producers before the differing warm-up backtrack inserts.
+   Root removal matches (5406); first warm-up heap is fully identical (5410).
+   Use validated observers 5402 with narrow imply filters, not broad 5401.
+   Use provisional solver results to guide work while checks run. Rank 27's three-arm
+   decision streams match through 100,000 conflicts (28,605,461 rows); its split
+   is later. Coupled Rank 37 regresses substantially; inspect it next. Memory
+   capacity remains independent. Provisional full-view coupled ratio is 1.238899x.
+2. Revisit active checker outcomes without blocking the investigation; run
+   `seal-eliminate-ranks-5395.py` when complete; 5383 is already sealed.
+   Preserve per-instance work/time/memory and label verification status.
+   Any rejected proof/model pauses dependent work under plan §8.2.
 3. Preserve submitted sources/pins. Latest source is
    `.claude/worktrees/runtime-eliminate-dense-entry-5391`; Release
    `build/pin-5392-eliminate-dense-release` and independent
@@ -79,10 +87,13 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
   [Vivify report](benchmarks/reports/2026-09-07-vivify-retry-repair.md) owns
   5377–5383, predecessor links, all 2107 BVE attempts and exact
   1,928,902 decisions through one million conflicts, not the full trajectory.
-- The latest report owns 5384–5395, both physical-mode repairs, profiles,
+- The dense-entry report owns 5384–5395, both physical-mode repairs, profiles,
   measured memory ownership, initial fixture failure and Claude's terminal
   fixture-only repair. Final tests: 76/76 trace, 77/77 in each Release build.
   No new fuzz was launched or inspected; the candidate remains unfuzzed.
+- The [heap report](benchmarks/reports/2026-09-07-rank35-heap-localization.md) owns 5396–5405, validated stream/window and direct heap
+  observers, exact prefix/heap witnesses and cancellation cleanup. Both new
+  trace builds pass 76/76 fixed tests; production source remains unchanged.
 - Production passes 77/77 CTests. Claude's authoritative
   [r2 fuzz report](benchmarks/reports/2026-09-07-sweep-pose-fuzz.md) is PASS;
   regressions 028–030 remain. This does not cover isolated candidates.
@@ -107,10 +118,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Corrected the stopped-build cost inference using clean Release profiles.
-- Isolated coupled dense-entry/publication repair; peak memory falls, runtime is mixed.
-- Completed the Vivify B28+C5 gate: 66/66 checked/clean.
-- Started a second full-view gate; production remains unchanged.
-- Compacted active status and retained detailed evidence in the new report.
+- Narrowed Rank 35's heap-order difference to warm-up after a common entry heap.
+- Matched all three Rank-27 decision streams through 100,000 conflicts.
+- Completed Vivify Rank 1–40: 80/80 checked/clean, 1.214783x Kissat.
+- Made proof checks asynchronous for dependent investigation, retaining final gates.
+- Kept living docs within their budgets; detailed evidence remains in frozen reports.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

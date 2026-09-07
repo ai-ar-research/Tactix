@@ -1,0 +1,175 @@
+{
+  "clean_stops": 6,
+  "all_prefixes_match_retained_common_5398": true,
+  "points": [
+    {
+      "point": {
+        "requested_conflict": 12500,
+        "snapshot_conflict": 12501,
+        "snapshot_decisions": 15366820,
+        "expected_count": 15427227,
+        "expected_hash": "2807e77ab4eb4cec",
+        "common_hash": "423158d46f796010"
+      },
+      "heap_sizes": {
+        "candidate": 305986,
+        "kissat": 305986
+      },
+      "membership_identical": true,
+      "score_differences": 0,
+      "assignment_differences": 0,
+      "positional_differences": 0,
+      "first_differences": [],
+      "candidate_only": [],
+      "kissat_only": [],
+      "heap_invariant_violations": {
+        "candidate": 0,
+        "kissat": 0
+      }
+    },
+    {
+      "point": {
+        "requested_conflict": 13000,
+        "snapshot_conflict": 13001,
+        "snapshot_decisions": 17529707,
+        "expected_count": 17570022,
+        "expected_hash": "8ef16fc487a30420",
+        "common_hash": "423158d46f796010"
+      },
+      "heap_sizes": {
+        "candidate": 292109,
+        "kissat": 292109
+      },
+      "membership_identical": true,
+      "score_differences": 0,
+      "assignment_differences": 0,
+      "positional_differences": 0,
+      "first_differences": [],
+      "candidate_only": [],
+      "kissat_only": [],
+      "heap_invariant_violations": {
+        "candidate": 0,
+        "kissat": 0
+      }
+    },
+    {
+      "point": {
+        "requested_conflict": 13562,
+        "snapshot_conflict": 13563,
+        "snapshot_decisions": 17798664,
+        "expected_count": 17872584,
+        "expected_hash": "00720e20bd6be748",
+        "common_hash": "423158d46f796010"
+      },
+      "heap_sizes": {
+        "candidate": 429257,
+        "kissat": 429257
+      },
+      "membership_identical": true,
+      "score_differences": 0,
+      "assignment_differences": 0,
+      "positional_differences": 75,
+      "first_differences": [
+        {
+          "position": 119,
+          "candidate": [
+            "109796",
+            "119",
+            "1.2868744741403999e+46",
+            "0",
+            "1"
+          ],
+          "kissat": [
+            "109877",
+            "119",
+            "6.8279802656419767e+46",
+            "0",
+            "1"
+          ]
+        },
+        {
+          "position": 248,
+          "candidate": [
+            "109877",
+            "248",
+            "6.8279802656419767e+46",
+            "0",
+            "1"
+          ],
+          "kissat": [
+            "109815",
+            "248",
+            "6.9378125496482388e+46",
+            "0",
+            "1"
+          ]
+        },
+        {
+          "position": 253,
+          "candidate": [
+            "109815",
+            "253",
+            "6.9378125496482388e+46",
+            "0",
+            "1"
+          ],
+          "kissat": [
+            "109796",
+            "253",
+            "1.2868744741403999e+46",
+            "0",
+            "1"
+          ]
+        }
+      ],
+      "candidate_only": [],
+      "kissat_only": [],
+      "heap_invariant_violations": {
+        "candidate": 0,
+        "kissat": 0
+      }
+    }
+  ],
+  "limitation": "Bracket over selected post-decision stable-mode states, not proof of identity between checkpoints or a runtime/solve gate.",
+  "trace_sha256": {
+    "01-kissat.deact.tsv": "7fc999e331e455ff465067d07e8897fe8af2405392995d1c7aec57b234928a41",
+    "02-kissat.heap.tsv": "4547ffc7e89360edbcec664f0bacccf4f96ac27f7b782ee609214bd7dddb8a85",
+    "00-kissat.deact.tsv": "5a99b6983c8c699139a03ecfe603429036cb448c5f90c787f6614c809c53baa8",
+    "02-candidate.decisions.tsv": "089c0fe12ad1d01e1720ba26aa188864697f5a848e7ee87a9b7f6916039b6cae",
+    "02-candidate.heap.tsv": "f68c1c64096b396319ea0a701603a1683f6b56c1563d3c4c34fbf6ccb871d841",
+    "01-candidate.macro.tsv": "f0d8788815f9c3a881a3c0ae499bc654b20a73bae3d30acd02da1e5b2a4bf88b",
+    "02-candidate.deact.tsv": "e487912bdb18fa227505366e6e38efd10149e5808283a23307fad8e93224a22d",
+    "00-kissat.decisions.tsv": "5fbaf44f74858088dadaf1a6d221c53fbf83b721bf47efff33a5d21a1c20b94e",
+    "02-kissat.deact.tsv": "fa84e697d66ea85c576e106ece027b43000324a06ef7803719a36f1a8451ac6e",
+    "01-kissat.boundaries.tsv": "7788921f829424c5e266b95da7333a1db8e6990229c697321b1024ca8a21c4e8",
+    "02-candidate.prefix.tsv": "d616b51b0579d0d3208f2cf6a1c6c1111555f65c1f5d9cb190992abe120a3c3e",
+    "02-kissat.choice.tsv": "635a2690b92ecdbdab7aca3aa835e744bbbb7ed6d3e086318ef644a7c4e5c5e6",
+    "00-kissat.heap.tsv": "2c42eb0439a5c713964c2917a153d7346b111e12cac8395bc3a81e8353d383e6",
+    "02-candidate.choice.tsv": "635a2690b92ecdbdab7aca3aa835e744bbbb7ed6d3e086318ef644a7c4e5c5e6",
+    "02-kissat.prefix.tsv": "a5ae3761767be35e23f8b073351726c59d70923ea839e659ad9423d301292362",
+    "00-candidate.heap.tsv": "c9be9d3d8080b328d98ad9c50df92aed315a90ae44cd5f419024e9472152ee3e",
+    "01-kissat.heap.tsv": "ec1d3b1c9c5d8207ef6d005387d53eb602ba50c369cb5a6628495dcd0478354a",
+    "01-candidate.deact.tsv": "2ffc59f3487a6e9d5c29466b777e93489d46c60d7e7abbfb6502b79b171f4911",
+    "02-candidate.macro.tsv": "a2e7bf549d2327eee727e5da63a92cf276396f035c549d6828bed85647cda637",
+    "01-kissat.decisions.tsv": "40d2c1c16ce8ea8c0051020fa6ad7a494d81d25472a1c9fc1198f14dd5881488",
+    "01-candidate.decisions.tsv": "40d2c1c16ce8ea8c0051020fa6ad7a494d81d25472a1c9fc1198f14dd5881488",
+    "00-kissat.boundaries.tsv": "ea81f34c988f62307d1e6e0c255ad6600f7232746e5c3f18f50c08ee4dcb9cf5",
+    "01-candidate.boundaries.tsv": "0c9099fb935cc37cca353ae64f4c49c37271281d0732f55f6663c3d47991328c",
+    "01-candidate.heap.tsv": "fa6d4315bffb0c1f7971f082c78d13aee02ca38b6f3ef19023547c14af6cddc4",
+    "00-candidate.boundaries.tsv": "0c9099fb935cc37cca353ae64f4c49c37271281d0732f55f6663c3d47991328c",
+    "01-kissat.prefix.tsv": "6a61657ec6a3fa1daee8793637482c4e3f479d33f6b2bf469232f9fc17dc884c",
+    "01-candidate.choice.tsv": "20e10e712781b04b4fa425ef73d3b16980f15c9d9dac26e5c9318906520ba632",
+    "01-kissat.choice.tsv": "20e10e712781b04b4fa425ef73d3b16980f15c9d9dac26e5c9318906520ba632",
+    "00-candidate.macro.tsv": "f0d8788815f9c3a881a3c0ae499bc654b20a73bae3d30acd02da1e5b2a4bf88b",
+    "02-candidate.boundaries.tsv": "0c9099fb935cc37cca353ae64f4c49c37271281d0732f55f6663c3d47991328c",
+    "01-candidate.prefix.tsv": "3f467e48b74b221a3ca8673e69545df2b4e00b494257cc914c0eebdace8f6626",
+    "02-kissat.decisions.tsv": "089c0fe12ad1d01e1720ba26aa188864697f5a848e7ee87a9b7f6916039b6cae",
+    "00-candidate.choice.tsv": "2255e562644b91eeccec0b94c2996ae098e1bc01f4acab5fa4ef0970d5ec93a5",
+    "00-kissat.prefix.tsv": "b7519d3f7d02146fec10ff5254ccdfa10acc85d12ca16630f19677660c818b94",
+    "00-candidate.deact.tsv": "369be75b126016c9376284fade9f1a8a3345cbb78c34bc9862797d73d7ec4856",
+    "00-candidate.prefix.tsv": "7cb95ff66531f15c487a0a6d22617478c352b69b69468c21a76b0e4750329b34",
+    "00-candidate.decisions.tsv": "5fbaf44f74858088dadaf1a6d221c53fbf83b721bf47efff33a5d21a1c20b94e",
+    "00-kissat.choice.tsv": "2255e562644b91eeccec0b94c2996ae098e1bc01f4acab5fa4ef0970d5ec93a5",
+    "02-kissat.boundaries.tsv": "ccbe6eb4b2c58b24aa77487afc839775ad81a29e93550b0a64fd98edfb186b36"
+  }
+}

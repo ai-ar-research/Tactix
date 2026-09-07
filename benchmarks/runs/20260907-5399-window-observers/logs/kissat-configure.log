@@ -1,0 +1,11 @@
+configure: default configuration (see '-h')
+configure: reusing existing build directory 'build'
+configure: assuming GCC version 13.1.0 uses C99 by default
+configure: compiler 'gcc  -W -Wall -O3 -DNDEBUG'
+configure: linker 'gcc' (no additional options)
+configure: using default 'ar' (no cross compilation)
+configure: no 'tissat' binary generated (without '--test')
+configure: no 'libkissat.so' shared library generated (without '-shared')
+configure: no 'kitten' binary generated (without '--kitten')
+configure: removing src/makefile
+configure: linking src/makefile

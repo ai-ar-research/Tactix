@@ -1,0 +1,32 @@
+{
+  "purpose": "Compile-time-gated read-only decision stream lower-bound filter; cumulative prefix hash remains unfiltered.",
+  "environment": "SAT_DECISION_STREAM_CONFLICT_FROM, default zero; no production selection or semantic state change.",
+  "validation": "76/76 full trace CTests, 21.22 seconds. Initial sealer expected a different CTest summary phrase; corrected to the actual successful log before any freeze. Actual old/new observer byte-equivalence is the separate 5400 SLURM gate.",
+  "build_note": "Native initially configured with -g but was reconfigured to original -O3 -DNDEBUG before any compilation/execution. Existing diagnostic snprintf truncation warning retained; new filter adds no formatting.",
+  "sources": {
+    "tactix": {
+      "parent": ".claude/worktrees/runtime-eliminate-dense-entry-5391",
+      "source": ".claude/worktrees/runtime-window-observer-5399",
+      "file": "src/diagnostics/event_trace.cpp",
+      "sha256": "e543ffb1d5bc81132a5ea4ae65dd577960ae820ccaf4d0dcb91fd640816f4058",
+      "patch_sha256": "74f795e09702c9a72e975be144d7f21c5418170c8294cf77eecb93a199279068"
+    },
+    "kissat": {
+      "parent": "tools/solvers/variants/kissat-retry-producers-5377",
+      "source": "tools/solvers/variants/kissat-window-observer-5399",
+      "file": "src/eventtrace.c",
+      "sha256": "164205aaaeb53a501c5a9dd796d0cf928013dd4636b9945c807a153910a49335",
+      "patch_sha256": "41b66094c7bef70bd2aaa99af77ef1fa995008e3f278df08fc17366e8c53949a"
+    }
+  },
+  "binaries": {
+    "build/pin-5399-window-observer/tactix": "11a91ad2ad985312d0953cd4fd83478058f573cb565cf2c72139585b89dd4193",
+    "tools/solvers/variants/kissat-window-observer-5399/build/kissat": "6ab32e4f8ba862c27661ba559d1c1bb9272fae3dda16a13a74e95f6ce4525336"
+  },
+  "logs": {
+    "kissat-configure.log": "9446203d6632bbaf070f0df4e5940266431b17a852af58770508b6b658867ba0",
+    "ctest.log": "f94d6385ceb283f30b7b6c248752bd9f3e4e3060c48dff25fa37d473efd0d55e",
+    "tactix-build.log": "03af51bf7de1518519b94393df646e667eb93ae38f4f03781fb06037742f97be",
+    "kissat-build.log": "6dfc585e2326176d8c8cf45ec5f988d4d9b2cc4464d8a2b88c256cceffb4aa5f"
+  }
+}
