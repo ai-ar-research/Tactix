@@ -823,7 +823,7 @@ static void sweep_core_trace(const Kernel &k, const SweepDirProof &proof,
 static void sweep_capture_core_units(const Kernel &k,
                                      const SweepDirProof &proof,
                                      SweepRound &round,
-                                     const char *site = "?") {
+                                     [[maybe_unused]] const char *site = "?") {
   if (!proof.ok)
     return;
   for (size_t i = 0; i < proof.steps.size(); i++) {

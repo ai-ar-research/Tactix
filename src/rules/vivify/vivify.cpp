@@ -1034,8 +1034,12 @@ static void promote_irredundant(Kernel &k, Ref ref) {
     // arms forward subsumption and Factor but deliberately not Eliminate.
     kernel_touch_var(k, var_of(l));
     kernel_mark_factor_literal(k, l, "vivify_promote");
+    // The promoted record joins every attached occurrence view, not only the
+    // `large` mirror: a free N1 schedule can keep Eliminate's mixed stream
+    // attached across Vivify (random_policy.cpp), and BVE consumes that
+    // stream.  Kissat's dense watches are one list, so this is one append.
     if (k.dense)
-      k.dense->large.push(l, ref);
+      kernel_dense_add_large_occurrence(k, l, ref);
   }
   k.stats.vivify_promoted++;
 }

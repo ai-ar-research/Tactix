@@ -1,0 +1,13 @@
+{
+  "seed": 1,
+  "index": 0,
+  "generator": "corpus 008 min.cnf (6 vars, 12 clauses) replayed under the Substitute stress schedule; already minimal, the abort is the second policy step",
+  "failure": "crash",
+  "solver_args": ["--stress-policy=1"],
+  "solver_env": {
+    "TACTIX_STRESS_RULES": "Substitute",
+    "TACTIX_STRESS_NORMAL_EVERY": "6"
+  },
+  "found_by": "prep probe of the Claude-owned campaign 20260907-sweep-pose-fuzz (job 1668415): corpus replay under the subst-stress-lrat shape, plus the sweep-stress reach probe seed 980019 (36 vars, 54 clauses, --lrat) and corpus 002/015 under the same shapes. Reproduced identically on the plain base 96e894c; bisected to 02ab6f1, the first commit after the last passing campaign (20260901-4631).",
+  "diagnosis": "kernel_check_invariants: `physical_binary == ordered_binary && \"dense ordered stream lost a physical binary copy\"` after a canonical Substitute step. The stress/random policy attaches Eliminate's mixed dense stream (OccIndex::ordered, track_order) for the whole walk on odd seeds so BVE can run at any step. Canonical Substitute rewrites the stable binary watches in place and appends the retired endpoints' mirrors to their representatives (substitute.c:294-363), and bulk_clear_dense kept a retired literal's binary entries; none of these go through the kernel add/delete primitives that maintain `ordered`, so the image kept stale binary entries that BVE would later read as phantom clauses. Kissat never substitutes under a dense image (substitute runs in the sparse probing phase). Fixed by republishing the attached image from the canonical physical result at the rule boundary (kernel_rebuild_dense_occurrences, the same representation boundary Congruence closes in kernel_canonicalize_binary_watches); DefaultPolicy attaches the mixed stream only inside Eliminate, where canonical Substitute never runs, so its trajectories are unchanged. Mechanism regression: tests/test_substitute.cpp::test_canonical_substitution_republishes_attached_mixed_stream. The related correspondence assertion in kernel_replace_large_clause_in_place (`large_index < occ.size() && occ[large_index] == ref`, corpus 002 and 019 under the random-policy and Sweep stress shapes) has its own cause inside the Sweep session and its own entry, corpus 030."
+}

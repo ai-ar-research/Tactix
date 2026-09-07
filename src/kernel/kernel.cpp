@@ -323,9 +323,7 @@ Ref kernel_add_large_clause(Kernel &k, const Lit *lits, uint32_t size,
         kernel_mark_factor_literal(k, lits[i], "add_large");
       }
       if (k.dense) {
-        k.dense->large.push(lits[i], ref);
-        if (k.dense->track_order)
-          k.dense->ordered.push(lits[i], OccIndex::Entry::from_large(ref));
+        kernel_dense_add_large_occurrence(k, lits[i], ref);
         kernel_bve_occurrence_add(k, lits[i]);
       }
       // Kissat updates an already-scheduled variable after adding a
@@ -1122,40 +1120,12 @@ void kernel_replace_large_clause_in_place(Kernel &k, Ref ref, uint64_t id,
         kernel_bve_occurrence_remove(k, lit);
         continue;
       }
-      const auto occ = k.dense->large[lit];
-      if (k.dense->track_order) {
-        // `large` is exactly the large payloads of `ordered` in order, so one
-        // pass over the mixed stream locates the entry in both: the position
-        // in `ordered`, and the count of large entries before it, which is the
-        // index in `large`.  Searching the two separately scanned the same
-        // occurrences twice.
-        const auto ordered = k.dense->ordered[lit];
-        size_t large_index = 0, at_ordered = ordered.size();
-        for (size_t j = 0; j < ordered.size(); j++) {
-          if (ordered[j].binary)
-            continue;
-          if (ordered[j].payload == ref) {
-            at_ordered = j;
-            break;
-          }
-          large_index++;
-        }
-        assert(at_ordered != ordered.size());
-        assert(large_index < occ.size() && occ[large_index] == ref);
-        k.dense->large.erase_at(lit, large_index);
-        k.dense->ordered.erase_at(lit, at_ordered);
-      } else {
-        const auto at = std::find(occ.begin(), occ.end(), ref);
-        assert(at != occ.end());
-        k.dense->large.erase_at(lit, static_cast<size_t>(at - occ.begin()));
-      }
+      kernel_dense_remove_large_occurrence(k, lit, ref);
       kernel_bve_occurrence_remove(k, lit);
     }
     for (uint32_t i = 0; i < size; i++)
       if (!in_old(lits[i])) {
-        k.dense->large.push(lits[i], ref);
-        if (k.dense->track_order)
-          k.dense->ordered.push(lits[i], OccIndex::Entry::from_large(ref));
+        kernel_dense_add_large_occurrence(k, lits[i], ref);
         kernel_bve_occurrence_add(k, lits[i]);
       }
   }
@@ -2534,6 +2504,44 @@ void kernel_rebuild_dense_occurrences(Kernel &k) {
   rebuild_dense_large_occurrences(k, *k.dense);
 }
 
+void kernel_dense_add_large_occurrence(Kernel &k, Lit lit, Ref ref) {
+  assert(k.dense);
+  k.dense->large.push(lit, ref);
+  if (k.dense->track_order)
+    k.dense->ordered.push(lit, OccIndex::Entry::from_large(ref));
+}
+
+void kernel_dense_remove_large_occurrence(Kernel &k, Lit lit, Ref ref) {
+  assert(k.dense);
+  const auto occ = k.dense->large[lit];
+  if (k.dense->track_order) {
+    // `large` is exactly the large payloads of `ordered` in order, so one
+    // pass over the mixed stream locates the entry in both: the position in
+    // `ordered`, and the count of large entries before it, which is the index
+    // in `large`.  Searching the two separately scanned the same occurrences
+    // twice.
+    const auto ordered = k.dense->ordered[lit];
+    size_t large_index = 0, at_ordered = ordered.size();
+    for (size_t j = 0; j < ordered.size(); j++) {
+      if (ordered[j].binary)
+        continue;
+      if (ordered[j].payload == ref) {
+        at_ordered = j;
+        break;
+      }
+      large_index++;
+    }
+    assert(at_ordered != ordered.size());
+    assert(large_index < occ.size() && occ[large_index] == ref);
+    k.dense->large.erase_at(lit, large_index);
+    k.dense->ordered.erase_at(lit, at_ordered);
+  } else {
+    const auto at = std::find(occ.begin(), occ.end(), ref);
+    assert(at != occ.end());
+    k.dense->large.erase_at(lit, static_cast<size_t>(at - occ.begin()));
+  }
+}
+
 void kernel_defrag_vectors(Kernel &k) {
   k.watches.defrag_if_needed();
   if (!k.dense)
@@ -2592,21 +2600,11 @@ void kernel_collect_garbage(Kernel &k, Ref watch_start,
   sparse_collection |= watch_start != 0;
   const uint64_t sparse_cut =
       watch_start ? kernel_clause_position(k, watch_start) : 0;
-  // Kissat's sparse sweep starts at the physical watermark and deliberately
-  // leaves garbage records in the prefix. Tactix additionally has append-only
-  // replacement sources which Kissat rewrote in place. Mark such a source in
-  // its already-dead `searched` word instead of allocating a hash node for
-  // every live clause position. The source can never be copied once marked;
-  // the live replacement receives its forwarding pointer independently below.
-  // Thus the sentinel dies with the old arena and cannot affect proof identity,
-  // clause order, or a surviving replacement-search cursor.
-  //
-  // With no alias recorded since the last collection every clause sits at its
-  // own reference (kernel_clause_position returns `ref`), so `position != ref`
-  // can never hold and the pass would only scan: the whole append-only source
-  // sentinel machinery is inert. Skip it. This is the ordinary state between
-  // two in-place rewrites, so the common search-time collection avoids an
-  // entire arena traversal here (the append-only-arena GC tax, 3.84).
+  // Mark aliased, already-dead sources in their searched word so the sparse
+  // prefix cannot copy them; live replacements receive separate forwarding.
+  // With no aliases, every clause owns its position and this scan is inert.
+  // Sentinels die with the old arena, preserving proof ids and live cursors
+  // (docs/implementation-notes.md §5).
   if (sparse_collection && !k.clause_position_alias.empty())
     for (Ref ref = 0; ref < k.arena.size();) {
       Clause *const c = clause_at(k.arena, ref);

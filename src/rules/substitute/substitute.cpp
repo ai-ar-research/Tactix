@@ -446,26 +446,14 @@ inline bool substitution_member_live(const Kernel &k,
          !kernel_var_retired(k, var_of(l));
 }
 
-// The dense Sweep indexes are maintained by this session alone, so every lookup
-// below is an invariant of the session, never a property of the input. Assert
-// it, but never mutate through a failed lookup: `erase(end())` and
-// `erase(begin() - 1)` both memmove outside the allocation, which turns a
-// bookkeeping slip into heap corruption far from its cause.
-bool dense_erase_first(FlatLists<Ref> &lists, Lit lit, Ref ref) {
-  const auto occ = lists[lit];
-  const auto at = std::find(occ.begin(), occ.end(), ref);
-  assert(at != occ.end() && "dense occurrence list lost its clause");
-  if (at == occ.end())
-    return false;
-  lists.erase_at(lit, static_cast<size_t>(at - occ.begin()));
-  return true;
-}
-
 } // namespace
 
 // The ledger slot naming `ref` in `lit`'s stream, or null when the session never
-// indexed it. Callers must test the result before writing through it, for the
-// reason given on `dense_erase_first`. The stream must already be
+// indexed it. Callers must test the result before writing through it: the
+// ledger is maintained by this session alone, so a failed lookup is a session
+// invariant violation, and `erase(end())` or `erase(begin() - 1)` would
+// memmove outside the allocation and turn that slip into heap corruption far
+// from its cause. The stream must already be
 // materialized (`prime_large`): building it here would read the watches and
 // `Kernel::dense` after the kernel's rewrite, where the source is garbage,
 // unindexed, or already shadowed by its binary image.
@@ -1108,9 +1096,12 @@ void SweepSubstitutionSession::remove_large(Kernel &k, Ref source) {
   const Clause *const old = clause_at(k.arena, source);
   if (old->redundant())
     return; // dense Sweep indexes irredundant clauses only
+  // Membership leaves every attached kernel view at once (`large` and the
+  // mixed stream): the ledger publishes ORDER later, but a kernel primitive
+  // locating this literal's next rewrite reads both views before that.
   for (const Lit lit : *old) {
     if (k.dense)
-      dense_erase_first(k.dense->large, lit, source);
+      kernel_dense_remove_large_occurrence(k, lit, source);
     if (dense_enabled)
       erase_large(k, lit, source);
   }
@@ -1137,7 +1128,7 @@ void SweepSubstitutionSession::collapse_large_to_binary(Kernel &k, Ref source,
   if (indexed)
     for (const Lit lit : *old) {
       if (k.dense)
-        dense_erase_first(k.dense->large, lit, source);
+        kernel_dense_remove_large_occurrence(k, lit, source);
       if (!dense_enabled)
         continue;
       DenseOccurrence *const at = find_large(k, lit, source);
@@ -1228,6 +1219,26 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   const uint64_t subst_t0 = substitute_time ? now_nanos() : 0;
   const Lit nlits = static_cast<Lit>(2 * k.nvars);
   substitute_stage_trace(k, "rewrite-entry", nlits, r.nontrivial_count);
+  // Canonical substitution rewrites the stable binary watches in place and
+  // appends the retired endpoints' mirrors to their representatives
+  // (substitute.c:294-363): wholesale edits of the physical watch lists that
+  // bypass the kernel add/delete primitives.  Kissat never substitutes under
+  // a dense image, but a free N1 schedule can keep Eliminate's mixed stream
+  // attached across this call (random_policy.cpp attaches one for the whole
+  // walk), and BVE consumes that stream, so a stale binary entry there is a
+  // phantom clause.  Republish the image from the canonical physical result
+  // at the rule boundary, the same representation boundary Congruence closes
+  // in kernel_canonicalize_binary_watches.  The Sweep session path owns its
+  // ledger and republishes per batch; DefaultPolicy attaches the mixed stream
+  // only inside Eliminate, where this rule never runs.
+  struct RepublishAttachedMixedStream {
+    Kernel &k;
+    const bool active;
+    ~RepublishAttachedMixedStream() {
+      if (active)
+        kernel_rebuild_dense_occurrences(k);
+    }
+  } republish{k, !session && k.dense && k.dense->track_order};
   // A member can already be root-fixed here: the caller's map predates the
   // round's failed root units. Kissat skips exactly those when it adds proof
   // equivalences and later retires variables (`add_representative_equivalences`
@@ -1397,10 +1408,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
   // kept active literals and `chain` with the antecedent ids, without the
   // original clause id — the caller appends that. Returns true iff the rewrite
   // is satisfied or tautological, in which case the caller only deletes.
+  std::vector<uint32_t> sweep_origin_rank;
   auto rewrite_lits = [&](const Lit *lits, uint32_t size, std::vector<Lit> &out,
                           std::vector<uint64_t> &chain) -> bool {
     out.clear();
     chain.clear();
+    sweep_origin_rank.clear();
+    const bool connected_large = session && size > 2;
     bool satisfied = false;
     for (uint32_t i = 0; i < size; i++) {
       const Lit m = lits[i];
@@ -1433,14 +1447,33 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       }
       if (substitutable(m) && lrat)
         chain.push_back(lemma_id(m));
-      if (seen_contains(mp)) // duplicate literal
+      const uint32_t origin_rank = connected_large && mapped(m)
+                                       ? session->retiring_index(m) + 1
+                                       : 0;
+      if (seen_contains(mp)) { // duplicate literal
+        // Connected substitution discards the resident representative, keeping
+        // the retiring occurrence's position. Later merge-forest origins win
+        // batched collisions; proof hints retain their independent order.
+        if (connected_large) {
+          const auto prior = std::find(out.begin(), out.end(), mp);
+          const size_t at = static_cast<size_t>(prior - out.begin());
+          if (origin_rank > sweep_origin_rank[at]) {
+            out.erase(prior);
+            sweep_origin_rank.erase(sweep_origin_rank.begin() + at);
+            out.push_back(mp);
+            sweep_origin_rank.push_back(origin_rank);
+          }
+        }
         continue;
+      }
       if (seen_contains(negate(mp))) { // mp and ¬mp both present → tautology
         satisfied = true;
         break;
       }
       seen_mark(mp);
       out.push_back(mp);
+      if (connected_large)
+        sweep_origin_rank.push_back(origin_rank);
     }
     for (const Lit l : out)
       seen_clear(l); // unmark
@@ -2312,15 +2345,13 @@ ApplyResult do_substitution(Kernel &k, SccResult &r,
       const Lit new_other = stable_a ? image.target_b : image.target_a;
       uint32_t *p = k.watches.begin(stable);
       uint32_t *const end = k.watches.end(stable);
-      bool rewritten = false;
+      [[maybe_unused]] bool rewritten = false;
       while (p != end) {
         Watch watch{*p};
         if (watch.binary()) {
           if (watch.other() == old_other) {
-            // Rewrite the first matching copy in place and stop: the `!rewritten`
-            // guard meant everything after the first match was a pure scan, so
-            // breaking is byte-identical and turns this per-image scan of the
-            // whole list from O(list) into O(position) (report 3.101 lever).
+            // Preserve the first physical copy's position and leave later
+            // duplicates untouched (docs/implementation-notes.md §5).
             *p = binary_watch(new_other).raw;
             rewritten = true;
             break;

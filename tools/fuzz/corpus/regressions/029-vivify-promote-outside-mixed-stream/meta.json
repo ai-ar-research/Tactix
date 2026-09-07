@@ -1,0 +1,13 @@
+{
+  "seed": 1,
+  "index": 0,
+  "generator": "corpus 020 min.cnf (21 vars, 144 clauses) replayed under the Sweep stress schedule with native LRAT; the abort is a Vivify step after 4,130 policy steps",
+  "failure": "crash",
+  "solver_args": ["--stress-policy=1", "--lrat"],
+  "solver_env": {
+    "TACTIX_STRESS_RULES": "Sweep",
+    "TACTIX_STRESS_NORMAL_EVERY": "6"
+  },
+  "found_by": "prep probe of the Claude-owned campaign 20260907-sweep-pose-fuzz (job 1668415): corpus 020 replayed under the sweep-stress-lrat and shadow-sweep-drat shapes. Reproduced identically on the plain base 96e894c; bisected to 02ab6f1.",
+  "diagnosis": "kernel_check_invariants: `physical_large == ordered_large && \"dense ordered stream disagrees with its large mirror\"` after a Vivify step with Eliminate's mixed dense stream attached by the stress policy. Vivify's promote_irredundant turned a redundant clause irredundant and pushed it into the `large` membership mirror only, never into `ordered`, so the two views of the attached image disagreed and BVE's mixed-stream traversal would miss the promoted clause. Kissat's dense watches are one list, so the promotion is one append there. Fixed by routing the promotion through the kernel primitive kernel_dense_add_large_occurrence, which appends to every attached view; kernel_add_large_clause and kernel_replace_large_clause_in_place now share that primitive. Under the pre-repair source the older BVE assertion `garbage == garbage_prefix.size()` was reached on this case at the last passing campaign's commit (f51a988); the current source's outcome on that path is validated by the campaign legs."
+}

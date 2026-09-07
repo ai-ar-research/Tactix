@@ -69,6 +69,9 @@ add_test(NAME reduce_trace_compare
 add_test(NAME modelcheck
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_modelcheck.py)
+add_test(NAME runtime_task
+         COMMAND ${CMAKE_COMMAND} -E env python3
+                 ${CMAKE_CURRENT_SOURCE_DIR}/test_runtime_task.py)
 add_test(NAME kissat_journal_overlay_static
          COMMAND ${CMAKE_COMMAND} -E env python3
                  ${CMAKE_CURRENT_SOURCE_DIR}/test_kissat_journal_overlay_static.py)

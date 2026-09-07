@@ -1,0 +1,10 @@
+{
+  "seed": 1,
+  "index": 0,
+  "generator": "corpus 002 min.cnf (94 vars, 516 clauses) replayed under the random policy with native LRAT; the abort is inside a Sweep session's connected rewrite after 317 policy steps",
+  "failure": "crash",
+  "solver_args": ["--random-policy=1", "--lrat"],
+  "solver_env": {},
+  "found_by": "prep probe of the Claude-owned campaign 20260907-sweep-pose-fuzz (job 1668415): corpus 002/003/004/005/017/019/020 under the random-lrat, subst-stress-lrat, sweep-stress-lrat and shadow-sweep-drat shapes. Reproduced identically on the plain base 96e894c; bisected to 1148168, which added the correspondence assertion.",
+  "diagnosis": "kernel_replace_large_clause_in_place: `large_index < occ.size() && occ[large_index] == ref` from substitute_apply_sweep_equivalences (Sweep's connected rewrite of a second clause on the same literal). Since 1148168 the kernel locates a removed large occurrence with one pass over the mixed stream and derives its `large` index from the count of large entries before it, which is exact only while `large` is the large projection of `ordered`. The Sweep session's remove_large and collapse_large_to_binary erased a retired clause eagerly from `large` alone (dense_erase_first) and left `ordered` to the batch's later republish, so within one batch a later in-place rewrite on the same literal read a shifted index. Fixed by routing both session erases through the kernel primitive kernel_dense_remove_large_occurrence, which removes the entry from every attached view at once and is now the single owner of the one-pass search (kernel_replace_large_clause_in_place calls it too). The ledger still owns order and republishes per batch; the kernel views own membership, as documented on SweepSubstitutionSession."
+}

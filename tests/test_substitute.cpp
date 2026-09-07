@@ -1442,7 +1442,82 @@ static void test_guard() {
   assert(!substitute_guard(k)); // level > 0 is still not a root state
 }
 
+// Connected Sweep rewrites keep the retiring occurrence, unlike canonical
+// first-occurrence deduplication. Merge-forest order covers batched chains.
+static void test_sweep_duplicate_literal_pose() {
+  struct Case {
+    std::vector<int> input, expected;
+    std::vector<std::pair<int, int>> merges;
+  };
+  const Case cases[] = {
+      {{1, 4, 2, 5}, {4, 1, 5}, {{1, 2}}},
+      {{2, 4, 1, 5}, {1, 4, 5}, {{1, 2}}},
+      {{4, 2, 5, 6, 3}, {4, 5, 6, 1}, {{1, 2}, {1, 3}}},
+      {{4, 3, 5, 6, 2}, {4, 1, 5, 6}, {{1, 2}, {1, 3}}},
+      {{2, 5, 3, 6, 4}, {5, 6, 1}, {{3, 4}, {2, 3}, {1, 2}}},
+  };
+  for (const auto &test : cases) {
+    Kernel k;
+    kernel_reserve_vars(k, 6);
+    std::vector<Lit> input, expected;
+    for (int lit : test.input)
+      input.push_back(internalize(lit));
+    for (int lit : test.expected)
+      expected.push_back(internalize(lit));
+    const Ref ref = kernel_add_large_clause(k, input.data(), input.size(), false, 0);
+    OccIndex occ;
+    kernel_dense_connect(k, occ);
+    SweepSubstitutionSession session;
+    session.begin(k);
+    std::vector<std::pair<Lit, Lit>> merges;
+    for (const auto &[a, b] : test.merges) {
+      const Lit x = internalize(a), y = internalize(b);
+      kernel_add_binary_clause(k, negate(x), y);
+      kernel_add_binary_clause(k, x, negate(y));
+      merges.emplace_back(x, y);
+    }
+    assert(substitute_apply_sweep_equivalences(k, merges, session) == ApplyResult::Ok);
+    const Clause *clause = clause_at(k.arena, ref);
+    assert(!clause->garbage());
+    assert(std::vector<Lit>(clause->begin(), clause->end()) == expected);
+    assert_ledger_mirrors_kernel(k, session);
+    kernel_dense_disconnect(k);
+  }
+}
+
+// A free N1 schedule can keep Eliminate's mixed dense stream attached across a
+// canonical Substitute (random_policy.cpp attaches one for the whole walk).
+// The in-place stable-watch rewrite and the directed mirror moves bypass the
+// kernel add/delete primitives, so the rule republishes the image at its
+// boundary; the dense oracle in kernel_check_invariants is the acceptance test
+// and the retired literals must hold neither physical nor image entries.
+static void test_canonical_substitution_republishes_attached_mixed_stream() {
+  Kernel k;
+  kernel_reserve_vars(k, 5);
+  kernel_add_binary_clause(k, internalize(-1), internalize(2));
+  kernel_add_binary_clause(k, internalize(-2), internalize(1));
+  kernel_add_binary_clause(k, internalize(2), internalize(3));
+  kernel_add_binary_clause(k, internalize(-2), internalize(4));
+  const Lit c[3] = {internalize(2), internalize(3), internalize(5)};
+  const Lit d[3] = {internalize(-2), internalize(4), internalize(5)};
+  kernel_add_large_clause(k, c, 3, /*redundant=*/false, /*glue=*/0);
+  kernel_add_large_clause(k, d, 3, /*redundant=*/false, /*glue=*/0);
+  OccIndex occ;
+  kernel_dense_connect(k, occ, /*track_order=*/true);
+  assert(substitute_apply(k) == ApplyResult::Ok);
+  assert(!k.inconsistent);
+  for (const Lit retired : {internalize(2), internalize(-2)}) {
+    assert(k.watches.binary_size(retired) == 0);
+    assert(occ.ordered[retired].size() == 0);
+    assert(occ.large[retired].size() == 0);
+  }
+  kernel_check_invariants(k);
+  kernel_dense_disconnect(k);
+}
+
 int main() {
+  test_canonical_substitution_republishes_attached_mixed_stream();
+  test_sweep_duplicate_literal_pose();
   test_equivalence_scc();
   test_scc_charges_two_scans_per_literal();
   test_representative_uses_import_order();
