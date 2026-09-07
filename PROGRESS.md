@@ -8,6 +8,25 @@ resume surface.
 
 ## Current resume anchor
 
+- r34 REUSE HYPOTHESIS TESTED + REFUTED (overnight, report 3.110): the per-OTFS-
+  pass reuse timing is CONFIRMED the pathology SITE (TACTIX_REUSE_FIRST_ONLY cut
+  r34 734->385s, near kissat 343) but is NOT a clean fix -- it REGRESSES r6
+  (66->81) and r20 (118->227, now >>kissat) -> a hybrid that shuffles the gap,
+  unfaithful, NOT shippable. Diagnostic arm committed (9e03674, default OFF,
+  fuzz 800/0) as a reproducer.
+  DEEPER LOCALIZATION: the real divergence is tactix's OTFS-RESTART structure
+  (strengthen conflict -> RESTART analysis, analyze.cpp:1221 loop + otfs_round at
+  1484) vs kissat's OTFS-IN-1-UIP-RESOLUTION (strengthen.c, no restart). Kissat is
+  good on r6/r20 AND r34 because its structure never builds r34's pathological
+  reused clause. 7AM PLAN (unchanged tool, sharper target): first-divergence trace
+  on r16 (search-phase window CONFLICT_FROM~1, compare_event_trace.py --mode
+  anchor) to find the exact reused-clause/backjump divergence between tactix's
+  OTFS-restart and kissat's in-resolution OTFS; then match kissat's analyze
+  structure (NOT the reuse timing knob). Validate improves r6/r16/r19/r23/r34
+  toward kissat WITHOUT regressing r15/r20/r26/r36 + fuzz + B28+C5. Pins built:
+  build/event-trace/tactix, kissat-event-trace worktree, build/reuse-diag (the
+  refuted arm). Ablation 1668096 finishing (r16/r15/r26/r36) -- record its net.
+
 - r34 REUSE DIVERGENCE -- SHARPENED HYPOTHESIS (code pre-localization 2026-09-07,
   no compute): two suspects ELIMINATED as faithful -- (a) target math (chronolevels
   =100=kissat), (b) conflict_level<level pre-backtrack (tactix analyze.cpp:1263
