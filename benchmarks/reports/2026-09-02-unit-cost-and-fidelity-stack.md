@@ -5698,3 +5698,72 @@ tactix's decision-heap construction/tie-order with kissat's (heap.c), validate t
 r6/r16/r19/r23/r34 track kissat's trajectory WITHOUT regressing r15/r20/r26/r36, fuzz
 0/10k, and gate on Rank B28+C5. The heap tie-order change is scheduling/heuristic
 (N4), does not alter proof rules, and must stay behind the usual paired gates.
+
+### 3.128 r34 tie-break MECHANISM = divergent scores-heap PUSH ORDER (kissat compacts, tactix keeps stable sparse identities) (2026-09-07)
+
+Sharpened 3.127 from "heap tie-break" to the exact mechanism + code sites, by
+comparing the per-variable heap dumps' external<->internal index columns
+(jobs 1668168/1668169, conflict 75451) and reading both heap implementations.
+
+FAITHFUL (ruled out): tactix's heap sift is byte-identical to kissat's
+(heuristics.cpp heap_bubble_up `score[parent] >= vscore` break; heap_bubble_down
+left-child-on-tie `score[sibling] > child_score`, `child_score <= vscore` break
+== kissat inlineheap.h). The backtrack re-push order is also identical: both walk
+the unassigned trail suffix FORWARD (earliest-assigned first) and push-if-not-
+contained (tactix kernel.cpp:902 loop + kernel_unassign_literal ->
+heuristics_heap_push; kissat backtrack.c:93-109 add_unassigned_variable_back_to_
+heap). Initial activation scores match too: both seed 1.0-1.0/rank in first-
+occurrence order (heuristics.cpp:270; kissat flags.c:18), and the 12999-var scores
+are byte-identical at 75451 (the score-0 pool of 11897 is the same SET).
+
+THE DIVERGENCE = the order variables are PUSHED onto the scores-heap STACK:
+- kissat builds the stack (kissat_update_scores, bump.c:114, at each stable entry)
+  by iterating `all_variables(idx)` = its DENSE COMPACTED internal index order, and
+  on compaction (compact.c:196-201) rebuilds by re-pushing survivors in OLD STACK
+  order. Kissat PHYSICALLY COMPACTS: at 75451 its internal indices are dense
+  [0,13046] for 12999 active vars.
+- tactix builds the stack (heuristics_update_scores, heuristics.cpp:834) by
+  iterating `kernel_vars_in_import_order` (import/first-occurrence rank), and NEVER
+  renumbers on compaction -- it keeps STABLE SPARSE identities (holes for retired/
+  eliminated vars) for N1/proof/model reconstruction. At 75451 its internal indices
+  span [0,17001] (~4000 holes) for the same 12999 vars.
+EVIDENCE: ext->internal maps share 0.0% (private numbering, expected); the external
+sequence sorted by each solver's internal index DIVERGES at internal-order position
+2 (tactix ext3@int2 vs kissat ext39@int3). Different push order + identical scores
++ identical sift => different valid heap layout => equal-score (score-0) ties break
+differently => different deep decision (level 30, conf 75451) => N4 trajectory
+divergence. tie-break among score-0 vars matters here because r34/dislog leaves
+~92% of the heap tied at 0.
+
+FIX IS A DESIGN DECISION (N4: "close OR explicitly accept every parity-ledger
+deviation"):
+  (A) CLOSE: make tactix's scores-heap build/rebuild reproduce kissat's exact push
+      sequence -- push at stable entry in kissat's compacted-index order and mirror
+      compact.c's stack-order rebuild. Invasive: it couples the decision heap to
+      kissat's physical-compaction numbering, which tactix deliberately does NOT do
+      (stable identities are load-bearing for N1/proof/model). High-risk, needs
+      careful design + full paired gates.
+  (B) ACCEPT: record in docs/scheduling-parity-ledger.md that tactix's stable-
+      identity numbering yields a different-but-equally-valid tie-break among never-
+      bumped (score-0) variables; r34-class N4 trajectory divergence is then an
+      accepted deviation, not a bug.
+This is the honest fork for the fix and needs fresh judgment (and likely a
+revise-plan touch for the ledger). PENDING refinement: job 1668171 (heap dumps at
+conflicts 100..30000) will say whether the layout diverges at the FIRST stable build
+(-> import/build-order, option A more localized) or only after a compaction (-> the
+compaction stack-order rebuild, option A more invasive).
+
+REFINEMENT (job 1668171, heap dumps at conflicts 2000..30000): the heap layouts are
+BYTE-IDENTICAL at conflicts 2000/4000/8000 (first_layout_diff_pos=None, scores +
+score-0 set equal) and only diverge by 75451. So the INITIAL build + early push/pop/
+backtrack operations are FAITHFUL; the tie-order divergence EMERGES from a later
+structural event -- the prime suspect is a COMPACTION (kissat compact.c:196 rebuilds
+the scores-heap stack by re-pushing survivors in OLD STACK order after physically
+renumbering; tactix keeps stable sparse identities and does not mirror that stack-
+order rebuild). This rules OUT option-A-as-initial-build and points option A at the
+COMPACTION heap-rebuild specifically (more invasive). (Kissat also emitted stable-mode
+dumps at 16000/30000 where tactix did not -- a mode-boundary sampling artefact, not a
+divergence: scores are byte-identical at 75430, proving lockstep bumping through it.)
+NEXT if pursuing A: bisect the first-divergent conflict in (8000, 75451], correlate it
+with a compaction event, and decide whether reproducing kissat's compaction stack-order
+heap rebuild is worth the coupling to physical-compaction numbering (vs option B accept).
