@@ -46,14 +46,22 @@ resume surface.
   DIFFERENT refutation core at the sweep backbone query -> different backbone units fixed ->
   different heap_remove order -> the tie-break at conflict 75451. The decision heap, sweep
   emit, scoring, and all heap primitives are FAITHFUL; the root is embedded-kitten fidelity.
-- **NEXT = investigate the kitten divergence (fresh-mind; possibly chaotic -- weigh overfitting
-  per [[chaotic-instance-veto]]).** Kitten-level trace of the 26913 backbone query (kitten
-  decisions/conflicts/core-minimization) in both solvers to localize whether it is a GENERAL
-  kitten mechanism gap (fixable, general) or accumulated embedded-solve chaos (matching =
-  overfitting one instance). Matched CORE/CB/MAP tooling exists (KISSAT_CORE_TRACE). If a
-  general kitten mechanism diverges, port it and validate r6/r16/r19/r23/r34 track kissat
-  WITHOUT regressing r15/r20/r26/r36, fuzz 0/10k, B28+C5, proofs. Pins: build/deact/tactix +
-  kissat-ticktrace/build/kissat; traces in benchmarks/runs/20260907-5280 + -5281.
+- **r34's kitten root is INSTANCE-SPECIFIC; N4 gap is HETEROGENEOUS (3.131).** r16 (job 1668179)
+  is in LOCKSTEP with kissat on inheap=1 deactivations (377, identical order) through 200k -- it
+  does NOT share r34's sweep/kitten divergence. Matching r34's kitten would OVERFIT one instance
+  ([[chaotic-instance-veto]] + user "general, not overfitting"). BOTH gap halves now have roots
+  WITHOUT a clean general fixable mechanism: impl = diffuse C++-vs-lean-C codegen (3.119-3.121,
+  no lever, 2 wins shipped); N4 = heterogeneous per-instance embedded-solver trajectory chaos.
+- **IN FLIGHT (read logs next session): r6 (job 1668181) + r19 (1668182) DEACT-generality** --
+  does ANY N4 rank share r34's sweep/kitten root? benchmarks/runs/20260907-5284-r6/r19-deact-
+  generality/logs. Shared-mechanism -> a general fix exists; all lockstep like r16 -> confirms chaos.
+- **NEXT = a SCOPE DECISION for the user (impasse; keep-digging done to roots):** (a) per-instance
+  embedded-kitten fidelity (high cost, overfitting risk); (b) ACCEPT r34-class N4 deviations in
+  docs/scheduling-parity-ledger.md with 3.127-3.131 evidence; or (c) re-scope within-1% given the
+  residual is diffuse codegen + heterogeneous trajectory chaos. If digging further: find the ACTUAL
+  large-N4 ranks (large |cr-1| in ranks1-40 timing) -- NOT the stale reuse-era r6/r16/r19/r23 set --
+  and look for a SHARED mechanism before any per-instance effort. Pins: build/deact/tactix +
+  kissat-ticktrace/build/kissat.
 - N4 TOOLING (3.125): full traces are TOO SLOW for late conflicts (~100x instrumentation overhead; r34 to 1M conflicts didn't finish in 30min traced, job 1668133 cancelled). Must use the LOW-OVERHEAD decision-prefix HASH tool (no trace I/O, stops at target). 7am FIX: make note_decision_prefix accumulate a CUMULATIVE prefix hash (all decisions to target, COMMON=target-dec-count) not just decisions-while-conflicts==target (job 1668120's COMMON=1 collided); confirm kissat overlay SAT_DECISION_PREFIX_STOP fires. Then binary-search target in [3000,~4.3M] on the cumulative hash -> r34 first-divergence conflict -> inspect reused/OTFS clause -> proof-critical fix. METHOD validated (r34 aligned thru 3000); 4 tooling walls cleared, hash-tool fix is the remaining plumbing.
 - N4 METHOD VALIDATED, late-trace tooling needs debug (3.124): decision-sequence comparison WORKS (r16 aligned thru conflict 100, r34 thru 3000). For LATE conflicts the full trace is too big (tactix ~2500 rec/conflict); 7am: fix EITHER the SKIP-flags compact trajectory trace (SKIP_IMPLY/WATCH/ANALYSIS_TICKS/HEAP+TRAJECTORY_ONLY) OR the decision-prefix HASH tool (job 1668120 failed: kissat SAT_DECISION_PREFIX_STOP didn't fire + tactix COMMON=1 hash collisions -- read kissat overlay eventtrace.c:1167 + tactix note_decision_prefix, use COMMON=target-decision-count). Then bisect r34 divergence in [3000,~4.3M] (sticky binary search), inspect reused/OTFS clause before it -> reuse/analyze fidelity bug -> proof-critical fix. Method proven; plumbing remains. N4 (+11.27%) is the larger half of the gap = top lever.
 - N4 TRACE WALL SOLVED (3.123, BREAKTHROUGH): compare DECISION SEQUENCES (dec#,level,decided-lit -- same format in both solvers, vocabulary-independent), not the mismatched event vocabularies. r16 decisions IDENTICAL through conflict 100, r34 IDENTICAL through conflict 3000 (despite r34 total conflicts 1.97x) -> divergence is LATER + compounds. 7am BISECTION for r34: tiny late windows (CONFLICT_FROM=N,TO=N+1500,STOP=N+1500; keep <2000 conflicts, tactix ~2500 rec/conflict), extract decisions, binary-search N in [3000,~4.3M] on 'decisions identical in window' (sticky). First differing decision+level+reason = r34's divergence; inspect the reused/OTFS clause just before it -> the reuse/analyze fidelity bug -> proof-critical fix. Pins ready. Tooling wall solved this session; bisection+fix is fresh 7am work.
