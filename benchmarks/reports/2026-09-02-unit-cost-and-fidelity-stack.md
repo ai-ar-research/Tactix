@@ -5174,3 +5174,23 @@ of tactix's conflict-reuse to match Kissat (not turning it off, which still leav
 kissat one_literal_on_conflict_level, find the first-divergence conflict, port
 faithfully; validate on a small fixture + r34 + a generality gate (chaotic-
 instance-veto: confirm the fix helps broadly, not just r34).
+
+### 3.107 Conflict-reuse is net-positive but DIVERGENT on a subset (generality gate 1668006) (2026-09-06)
+
+tactix TACTIX_CONFLICT_REUSE=0 vs default (reuse ON), 27 ranks so far:
+  net +229.5s (+5.86% WORSE without reuse) -- reuse is a genuinely beneficial
+  mechanism, turning it off is NOT the fix and overfits (r34-class improves but
+  r20 +84%, r26 +131%, r29 +92% badly regress).
+  HELPED by removing reuse (tactix's reuse HURTS these): r4 -25%, r6 -39%,
+    r16 -44%, r19 -78%, r23 -51%, r24 -6%, r25 -9%, r34 -38%.
+  HURT by removing reuse (tactix's reuse helps, as in kissat): r9, r17, r20 +84%,
+    r21, r26 +131%, r28, r29 +92%, r30.
+CONCLUSION: tactix's conflict-reuse PORT diverges from kissat's on a SYSTEMATIC
+subset (r6/r16/r19/r23/r34), producing worse trajectories than even no-reuse.
+This is a general N4 FIDELITY bug (5 ranks), matching open SP-FACTOR-OCCURRENCE-1
+(analyze/reuse, conflict 1010, root-false -89 retention). The fix is a faithful
+port of the reuse decision (so r34-class improves WITHOUT regressing r20/r26/r29),
+NOT a knob. FIXTURES: r6 (66s) and r16 (126s) show the divergence at 6-11x less
+runtime than r34 (734s) -- trace THOSE for the first-divergence conflict.
+NEXT: first-divergence trace tactix-reuse vs kissat-reuse on r16, localize the
+divergent reuse decision in analyze.cpp:1278-1345 vs kissat analyze.c:16-127.
