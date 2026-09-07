@@ -5312,3 +5312,29 @@ per kissat). Validate: r6/r16/r19/r23/r34 improve toward kissat, r15/r20/r26/r36
 unregressed, fuzz 0/10k, B28+C5. This SUPERSEDES the trace approach -- localized
 directly from source. Risk: high (conflict analysis + proof + OTFS subsume) -- a
 careful validated cycle.
+
+### 3.113 CORRECTION of 3.112: the OTFS structure IS faithful; r34 divergence is detail-level (2026-09-07)
+
+3.112 was WRONG -- based on misreading kissat deduce.c `return res` as ENDING
+analysis. Re-reading kissat analyze.c:540-580: the deduce call is in a DO-WHILE
+loop. When OTFS fires, kissat_deduce_first_uip_clause returns the strengthened
+clause (non-null); analyze then reset_analysis + `INC(conflicts)` (555) +
+`update_tier_limits` (glue deadline) + `res=0` -> RE-RUNS the loop on the
+strengthened conflict. And one_literal_on_conflict_level (reuse) is tested EVERY
+iteration (545). So KISSAT restarts analysis on OTFS, counts each OTFS as a
+conflict, applies the deadline per OTFS round, and re-tests reuse per round --
+EXACTLY tactix's analyze.cpp:1221-1488 structure. tactix's comment (1470-1471) is
+CORRECT; my 3.112 claim it was a misread was itself the misread.
+CONSEQUENCE: the OTFS-restart + per-pass-reuse + per-OTFS conflict-counting are all
+FAITHFUL to kissat. r34's divergence is NOT structural -- it is a DETAIL-level
+divergence within this faithful structure (the exact OTFS-strengthened clause, the
+reuse firing condition/target, the minimize/shrink, or the OTFS-subsume). Both
+code-reading hypotheses (reuse timing 3.110-3.111, OTFS structure 3.112) are now
+refuted/corrected. The DEFINITIVE localization requires the first-divergence TRACE
+after all -- find the first conflict where tactix's reused/learned clause differs
+from kissat's on r16 (the reuse-hurts fixture), with the event-filtering the
+trace-tuning learnings named (CONFLICT_FROM>=1, filter to decide/analysis/reuse/
+learned events not ticks). This is the 7am work; the code-reading shortcuts are
+exhausted. NET honest status: r34 confirmed N4 detail-divergence in a faithful
+analyze structure; the fix needs the trace. reuse-first-only diagnostic (9e03674)
+stays as a reproducer but the timing/structure fixes are both dead ends.
