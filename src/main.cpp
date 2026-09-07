@@ -329,6 +329,8 @@ int main(int argc, char **argv) {
   // Kissat's `jumpreasons` ships ON; =0 restores direct antecedent reasons.
   if (const char *jr = getenv("TACTIX_JUMP_REASONS"))
     kernel.jump_reasons = (*jr != '0');
+  if (getenv("TACTIX_REUSE_FIRST_ONLY"))
+    kernel.reuse_first_round_only = true; // diagnostic; see the field
   if (getenv("TACTIX_CONFLICT_REUSE_NOREPAIR")) // diagnostic; see the field
     kernel.conflict_reuse_no_repair = true;
   // Both ship ON at their references' defaults (kissat `promote`, `tumble`);

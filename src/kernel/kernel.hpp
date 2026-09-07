@@ -1203,6 +1203,11 @@ struct Kernel {
   // default to non-chronological; DefaultPolicy poses its configured limit.
   uint32_t conflict_reuse_chrono_levels = UINT32_MAX;
   bool conflict_reuse_no_repair = false;
+  // Diagnostic (TACTIX_REUSE_FIRST_ONLY): test the reuse shortcut only on the
+  // original conflict (the first analyze round), matching Kissat's single
+  // one_literal_on_conflict_level call, instead of re-testing after each OTFS
+  // restart. Probes the r34-class reuse-fidelity divergence.
+  bool reuse_first_round_only = false;
   bool jump_reasons = true;
   bool jump_reasons_bigbig = false;
   uint32_t bump_reason_limit = 0;
