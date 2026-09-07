@@ -7,6 +7,7 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+- UPDATE 3.111: reuse-first-only is NET-NEGATIVE (+121s over 4 ranks, r26 268->615) -- DEAD. The per-OTFS reuse is generally good; r34 is a specific pathology. Fix = match kissat OTFS-in-resolution STRUCTURE (not reuse timing). 7am: trace r16 -> port kissat strengthen.c OTFS structure to replace tactix's OTFS-restart.
 
 - r34 REUSE HYPOTHESIS TESTED + REFUTED (overnight, report 3.110): the per-OTFS-
   pass reuse timing is CONFIRMED the pathology SITE (TACTIX_REUSE_FIRST_ONLY cut
