@@ -5619,3 +5619,27 @@ STATE: N4 decision-comparison METHOD validated (r34 aligned thru conflict 3000);
 localization tooling needs the hash-tool fix (full traces ruled out -- too slow).
 This is the fresh 7am work; the plumbing is now precisely diagnosed (4 walls
 cleared: semantic-vocab, granularity, SKIP-insufficient, trace-too-slow -> hash tool).
+
+### 3.126 N4 tooling FIXED + r34 divergence bisected to (70000, 80000] (2026-09-07)
+
+ROOT CAUSE of the earlier kissat hash failure (3.124/3.125): the kissat-event-trace
+variant's worktree (built Aug 29) predated the overlay's decision-prefix tool, so
+the built kissat binary had ZERO decision-prefix code (job 1668120 emitted nothing
++ never stopped). FIX: (a) made note_decision_prefix accumulate a CUMULATIVE prefix
+hash (conflicts <= target, not ==target -- the ==target form emitted empty/colliding
+hashes) in BOTH tactix (event_trace.cpp) and the kissat overlay; (b) made flush fire
+at the first checkpoint >= target+1 so SAT_DECISION_PREFIX_STOP actually fires;
+(c) regenerated + rebuilt the kissat variant from the current overlay. Both variants
+now carry the working low-overhead cumulative decision-prefix hash (no trace I/O,
+stops at target).
+BISECTION (jobs 1668134/1668146/1668158, low-overhead hash comparison, STOP fires:
+0.5s@3k .. 71s@1M): r34 decisions ALIGNED with kissat through conflict 3000/30000/
+40000/50000/60000/70000, DIVERGED by 80000/90000/100000. So r34's FIRST-DIVERGENCE
+conflict is in (70000, 80000] -- narrowed from the full [3000, 4.3M] range in ~4
+fast array jobs. Hashes distinct per offset (cumulative fix verified); tactix==kissat
+exactly where aligned (method verified).
+NEXT: narrow to the exact conflict (fine2 job in (70k,80k]), then a TINY TRAJECTORY_
+ONLY trace of that ~100-conflict window (feasible -- small window) to read the first
+differing decision + its level + the retained analysis_otfs_strengthened/subsumed
+events -> the reuse/analyze fidelity bug -> proof-critical fix. The N4 localization
+is now UNBLOCKED and fast; only the final pinpoint + proof-critical fix remain.
