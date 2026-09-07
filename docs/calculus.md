@@ -350,6 +350,10 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
     else` ⇒ `out = cond ∧ then`; `cond ≡ ¬else` ⇒ `out = ¬cond ∨ then`).
 
   A round with no new merge is `NoOp`; a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
+  After a merge, forward cleanup may delete root-satisfied or representative-tautological clauses,
+  and clauses subsumed modulo the proved equivalences. An irredundant victim requires an
+  irredundant surviving subsumer; redundant victims may use either class. Each deletion emits `del`
+  after its justifying equivalences are live, preserves models, and needs no reconstruction witness.
   Still deferred, sound: the ITE collapses (`Canon::Skip`), and the literal-form `x ≡ ¬x` for XOR/ITE,
   whose "binaries" degenerate to units (AND refutes it directly). *(Closed ledger row **D-CONG-UNIT**,
   `implementation-notes.md` §2.)*

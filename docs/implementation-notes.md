@@ -459,6 +459,11 @@ proof history, not liveness. Native LRAT retains exact pair-to-id state;
 DRAT/proofless input uses a compact filter plus exact mirrored-watch checks and
 retains only the monotone material count. No formula shape selects this. Root
 assignments requeue affected gates; header-only identities retire unwitnessed.
+Production forward cleanup skips redundant clauses. Kissat instead includes
+live records through its last irredundant physical position, even interleaved
+redundant records; CaDiCaL filters them. Isolated `SP-CONG-PREFIX-1` uses the
+existing generation-local position image. A redundant partner never subsumes
+an irredundant victim; prefix coverage is engineering scope, not a pure guard.
 
 ## 20. BVE antecedent admission
 
@@ -478,43 +483,34 @@ instance after earlier candidates mutate its occurrences.
 
 ## 21. Reserved assignment trail
 
-The trail's pre-sized vector plus logical end removes grow-capable push from
-the search hot path. Compaction adopts its replacement vector and restores
-backing capacity before search. Exact profile/trace, B28+C5, fuzz, and checked
-Rank-27 evidence are frozen under jobs `1645700`--`1645778`.
+The pre-sized trail removes grow-capable push from search; compaction restores
+backing capacity. Jobs `1645700`--`1645778` own profile, gates and validation.
 
 ## 22. Post-trail representation closures
 
-Cold proof-id layout, active assignment specialization, binary-source and saved-
-phase snapshots, compiled probing-ignore removal, and atomic watch append are
-closed negative by jobs `1645781`--`1645791`. None improved the exact whole
-prefix materially. The one-word-capacity crash was repaired under the mandatory
-Claude workflow, tested, priced, rejected, and reverted.
+Jobs `1645781`--`1645791` close cold proof-id layout, active assignment,
+binary-source/phase snapshots, probing-ignore removal and atomic watch append
+negative: no material matched-prefix gain. The one-word-capacity crash was
+Claude-repaired, tested, priced, rejected and reverted.
 
 ## 23. Congruence first-literal directory
 
-Sorted canonical records have contiguous first-literal ranges. A scoped offset
-directory narrows membership lookup without changing construction, iteration,
-ticks, candidates, proof, scheduling, or pruning. Exact jobs
-`1645800`--`1645805`, full guard `1645806`/`1645872`, fuzz `1645874`, and
-checked Rank-27 `1645875` own promotion evidence.
+Scoped offsets narrow lookup to each sorted first-literal range, preserving
+order, ticks, candidates, proof and pruning. Promotion: exact jobs
+`1645800`--`1645805`, guard `1645806`/`1645872`, fuzz `1645874`, Rank-27 `1645875`.
 
 ## 24. Batched ITE sign membership
 
-For each unsigned three-variable prefix, one byte records the eight exact sign
-patterns. ITE reads it only for distinct-variable same-prefix records;
-degeneracies and cross-prefix verification retain authoritative lookup. The
-temporary ordinal image is released after indexing. Jobs `1645882`--`1645956`
-own exact trace, profile, gate, fuzz, proof, and promotion evidence. Compact hash
-and unfinished-index prototypes are closed negative/repaired/reverted.
+One byte per unsigned three-variable prefix records its eight sign patterns.
+Only distinct-variable same-prefix ITE records use it; other cases retain exact
+lookup. Release ordinal scratch after indexing. Jobs `1645882`--`1645956` own
+promotion; compact-hash/unfinished-index prototypes are negative/repaired/reverted.
 
 ## 25. Dense ITE conditional-list ownership
 
-A dense literal-to-sparse-slot image owns vectors only for touched literals;
-the sparse key list is sorted before consumption and per-key append order is
-unchanged. It is scoped representation state, not clause or strategy authority.
-Jobs `1645957`--`1646031` own exact stage/profile/trace, complete gate, fuzz,
-and checked Rank-27 evidence.
+Dense literal-to-slot state owns vectors only for touched literals; sort sparse
+keys before consumption and preserve per-key append order. It is scoped
+representation, not strategy. Jobs `1645957`--`1646031` own promotion evidence.
 
 ## 26. Sweep phase-word expansion
 

@@ -1,0 +1,679 @@
+{
+  "stopped_clean": 2,
+  "previous_standalone_streams_identical": false,
+  "trace_sha256": {
+    "tactix.prefix.tsv": "8cc408210c1b5f70da027553985ca4001da717091b1e536f4d8944eee132fb52",
+    "tactix.state.tsv": "36ed0194007b413508a7c948d6e9bf6c3e136c3b615371efa491f32be8ec2225",
+    "kissat.state.tsv": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766",
+    "kissat.bumps.tsv": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949",
+    "tactix.bumps.tsv": "cc75b59c69c046d36de0a5b37511ce6a5d16c17c1f6e0defc5818b16b8638d38",
+    "tactix.counts.tsv": "71cb306bbffb2f6b32c6f02acde5bfef06e0d09ddef3eb4dd76ad09e1d0200f0",
+    "kissat.decisions.tsv": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9",
+    "kissat.boundaries.tsv": "3b493a652607036f6f111d88d8e517853ec0eead05508e6f1b9eec77c7eb382d",
+    "kissat.prefix.tsv": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8",
+    "tactix.boundaries.tsv": "5430739113f5d84be7ce5ef92c3188ab8b0a16dcaa897d6c43a61dc1122d61c2",
+    "kissat.counts.tsv": "6107e2069e94c92161b4eed605e6a4bd9444dcc831be48a9e58c7a317eb833bc",
+    "tactix.decisions.tsv": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9",
+    "kissat.queue.tsv": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869",
+    "tactix.queue.tsv": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+  },
+  "native_prior_streams_identical": true,
+  "matching_decisions": 328670,
+  "matching_selected_vivify_vectors": 8,
+  "matching_queue_bump_identities": 31809,
+  "boundaries": {
+    "tactix": [
+      {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 37917683,
+        "irred": 84937,
+        "red": 14803,
+        "binary": 1546
+      },
+      {
+        "name": "Congruence",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 37917683,
+        "irred": 84937,
+        "red": 14803,
+        "binary": 1546
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 37917683,
+        "irred": 84937,
+        "red": 14803,
+        "binary": 1546
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 37917683,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 37917683,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 37945669,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 37945669,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38572610,
+        "irred": 84071,
+        "red": 13420,
+        "binary": 1833
+      },
+      {
+        "name": "Sweep",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38572610,
+        "irred": 84071,
+        "red": 13420,
+        "binary": 1833
+      },
+      {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38572611,
+        "irred": 83971,
+        "red": 13420,
+        "binary": 1832
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38572611,
+        "irred": 83971,
+        "red": 13420,
+        "binary": 1832
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38572611,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1844
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38572611,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1844
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38572613,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38572613,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38600667,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38600667,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38600668,
+        "irred": 83898,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38600668,
+        "irred": 83898,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Congruence",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38600670,
+        "irred": 83781,
+        "red": 13394,
+        "binary": 1879
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38600670,
+        "irred": 83781,
+        "red": 13394,
+        "binary": 1879
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38600670,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38600670,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38628817,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38628817,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Sweep",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1917
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1917
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39267993,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39296070,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39296070,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39296070,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1762
+      }
+    ],
+    "kissat": [
+      {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38281441,
+        "irred": 84937,
+        "red": 14803,
+        "binary": 1546
+      },
+      {
+        "name": "Congruence",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38281441,
+        "irred": 84937,
+        "red": 14803,
+        "binary": 1546
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38281441,
+        "irred": 84937,
+        "red": 14803,
+        "binary": 1546
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38281441,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38281441,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38309427,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38309427,
+        "irred": 84593,
+        "red": 14799,
+        "binary": 1601
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38936368,
+        "irred": 84071,
+        "red": 13420,
+        "binary": 1833
+      },
+      {
+        "name": "Sweep",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38936368,
+        "irred": 84071,
+        "red": 13420,
+        "binary": 1833
+      },
+      {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38936370,
+        "irred": 83971,
+        "red": 13420,
+        "binary": 1834
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38936370,
+        "irred": 83971,
+        "red": 13420,
+        "binary": 1834
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38936370,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1844
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38936370,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1844
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38961747,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38961747,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38989801,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38989801,
+        "irred": 83912,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38989801,
+        "irred": 83898,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38989801,
+        "irred": 83898,
+        "red": 13410,
+        "binary": 1770
+      },
+      {
+        "name": "Congruence",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38989803,
+        "irred": 83781,
+        "red": 13394,
+        "binary": 1879
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38989803,
+        "irred": 83781,
+        "red": 13394,
+        "binary": 1879
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 38989803,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 38989803,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39017950,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39017950,
+        "irred": 83764,
+        "red": 13394,
+        "binary": 1853
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39657126,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Sweep",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39657126,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39657126,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Substitute",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39657126,
+        "irred": 83120,
+        "red": 12934,
+        "binary": 1999
+      },
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39657126,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1917
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39657126,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1917
+      },
+      {
+        "name": "TransitiveReduce",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39683066,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39683066,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39711143,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 132816,
+        "propagations": 39711143,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1763
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 132816,
+        "propagations": 39711143,
+        "irred": 83080,
+        "red": 12931,
+        "binary": 1762
+      }
+    ]
+  },
+  "conclusion": "Isolated prefix repair closes all observed redundant counts, eight selected Vivify count vectors, queue bump identities, and all 328670 decisions through conflict 133243. UNFUZZED; no runtime claim. Transient Sweep binary discrepancy is not closed."
+}

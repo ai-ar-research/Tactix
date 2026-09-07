@@ -1,0 +1,695 @@
+{
+  "scope": "5360\u20135372 normal campaigns only; no fuzz artifact inspection. Active 5371/5372 scratch remains node-local and job-owned.",
+  "removed_paths": [],
+  "removed_bytes": 0,
+  "retention": "All inspected campaigns have unique evidence or active ownership; no speculative deletion.",
+  "campaigns": [
+    {
+      "campaign": "benchmarks/runs/20260907-5360-queue-frontier",
+      "manifest_sha256": "7a4a2db02fec4dcc95c0defaf03aee9148083127e7e96d11365e13871f4c8af6",
+      "parent": "benchmarks/runs/20260907-5359-focused-choice",
+      "submitted": "1668810",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5361-queue-bumps",
+      "manifest_sha256": "78fab4c97a290924459ec725dcec9a4502a59faa7a66076815927a6920a67640",
+      "parent": "benchmarks/runs/20260907-5360-queue-frontier",
+      "submitted": "1668812",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5362-analysis-frontier",
+      "manifest_sha256": "32b2b3e4719a2a5507ad092c5cc45612e8b435e788ffaa984395a80921a6218a",
+      "parent": "benchmarks/runs/20260907-5361-queue-bumps",
+      "submitted": "1668814",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "tactix.events.tsv": {
+          "bytes": 3001445,
+          "sha256": "89dd24a3127bcc7a50d8d7a6cbbe54c1cfe1767abfe4d6b6bea5b014e0d008e5"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "kissat.events.tsv": {
+          "bytes": 65942495,
+          "sha256": "3a0753132964ad39bbfa1add3c176f2496da23dfaafb8efe9794c5f0deeefe27"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5363-imply-frontier",
+      "manifest_sha256": "715ae7cddb77ad367235e75280762e24beceeaa38ab766b2c4387b99e113ab9d",
+      "parent": "benchmarks/runs/20260907-5362-analysis-frontier",
+      "submitted": "1668816",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "tactix.events.tsv": {
+          "bytes": 4476604,
+          "sha256": "3607f928c955850f22b20beb7b231b6cde5737bd5a527145cebde26ae7ea84fb"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        },
+        "kissat.events.tsv": {
+          "bytes": 4809773,
+          "sha256": "85264e2b9db1c40f2593ea695869b915eb2e4ea199ef9c3fc424656f782db638"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5364-watch-frontier",
+      "manifest_sha256": "00a6cf5c9a56b5e11705975b1e83ca192a32d110506492808979232f83904c42",
+      "parent": "benchmarks/runs/20260907-5362-analysis-frontier",
+      "submitted": "1668818",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "kissat.events.tsv": {
+          "bytes": 65539819,
+          "sha256": "9d909fb54be3d9bd998ea5379730b1143d04dc48c6d73d5740327a44c081b9e3"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "tactix.events.tsv": {
+          "bytes": 2614940,
+          "sha256": "8d35d401e71ba4a03ffcf5635833b4d63b27b23dcfc0e4d68ffa58be69bd2bb3"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5365-watch-pose",
+      "manifest_sha256": "936ad1ca5a8633d7e97deab43fa0361fe2fd559f4213e7437bbba4306a24a93b",
+      "parent": "benchmarks/runs/20260907-5364-watch-frontier",
+      "submitted": "1668820",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "tactix.events.tsv": {
+          "bytes": 247473524,
+          "sha256": "8534598c889a9301dddf082d4d030412098706e4fc26ee76944bec79c8a3b301"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        },
+        "kissat.events.tsv": {
+          "bytes": 265887632,
+          "sha256": "ae257da632d19b9b223c7e471d9b1674588d644634f1dcad1e9955c0e614d849"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5366-vivify-counts",
+      "manifest_sha256": "b3aea5224e6c4ff3cc646e52f5d7e16f7c8b9582108b549ec8f9481e2dcf1134",
+      "parent": "benchmarks/runs/20260907-5361-queue-bumps",
+      "submitted": "1668822",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "kissat.counts.tsv": {
+          "bytes": 1046,
+          "sha256": "6107e2069e94c92161b4eed605e6a4bd9444dcc831be48a9e58c7a317eb833bc"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        },
+        "tactix.counts.tsv": {
+          "bytes": 1049,
+          "sha256": "ae169429f88ea04dfe7a4d823cfee00e0e2b2b0cfc1d084cfebe8981bfed6deb"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5367-later-bve",
+      "manifest_sha256": "2e56e772ccace3dbab4b02ebd1e0d2cf34c6d29988513c65a4f3b86a11a9c8ba",
+      "parent": "benchmarks/runs/20260907-5366-vivify-counts",
+      "submitted": "1668824",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "tactix.counts.tsv": {
+          "bytes": 1049,
+          "sha256": "ae169429f88ea04dfe7a4d823cfee00e0e2b2b0cfc1d084cfebe8981bfed6deb"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        },
+        "kissat.counts.tsv": {
+          "bytes": 1046,
+          "sha256": "6107e2069e94c92161b4eed605e6a4bd9444dcc831be48a9e58c7a317eb833bc"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5368-phase-counts",
+      "manifest_sha256": "9cea55810a85425f69d60b2e9be97fad3212bde36e9b13f0b1b1e92a85f338f8",
+      "parent": "benchmarks/runs/20260907-5366-vivify-counts",
+      "submitted": "1668826",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1146,
+          "sha256": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918398,
+          "sha256": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a"
+        },
+        "tactix.counts.tsv": {
+          "bytes": 1049,
+          "sha256": "ae169429f88ea04dfe7a4d823cfee00e0e2b2b0cfc1d084cfebe8981bfed6deb"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "kissat.boundaries.tsv": {
+          "bytes": 3170,
+          "sha256": "3b493a652607036f6f111d88d8e517853ec0eead05508e6f1b9eec77c7eb382d"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000439,
+          "sha256": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "tactix.boundaries.tsv": {
+          "bytes": 3801,
+          "sha256": "ef9cf9d07f33e1a03058bf368acc09b79552b58a1095987717a35a69bfb19996"
+        },
+        "kissat.counts.tsv": {
+          "bytes": 1046,
+          "sha256": "6107e2069e94c92161b4eed605e6a4bd9444dcc831be48a9e58c7a317eb833bc"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5369-congruence-prefix",
+      "manifest_sha256": "a81d3715a8b943e25c7986a17a16fdfa2e7c93f6a1319853946b875e30df23ca",
+      "parent": "benchmarks/runs/20260907-5368-phase-counts",
+      "submitted": "1668828",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "tactix.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "8cc408210c1b5f70da027553985ca4001da717091b1e536f4d8944eee132fb52"
+        },
+        "tactix.state.tsv": {
+          "bytes": 1200,
+          "sha256": "36ed0194007b413508a7c948d6e9bf6c3e136c3b615371efa491f32be8ec2225"
+        },
+        "kissat.state.tsv": {
+          "bytes": 1200,
+          "sha256": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 1918038,
+          "sha256": "cc75b59c69c046d36de0a5b37511ce6a5d16c17c1f6e0defc5818b16b8638d38"
+        },
+        "tactix.counts.tsv": {
+          "bytes": 1046,
+          "sha256": "71cb306bbffb2f6b32c6f02acde5bfef06e0d09ddef3eb4dd76ad09e1d0200f0"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "kissat.boundaries.tsv": {
+          "bytes": 3170,
+          "sha256": "3b493a652607036f6f111d88d8e517853ec0eead05508e6f1b9eec77c7eb382d"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 263,
+          "sha256": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8"
+        },
+        "tactix.boundaries.tsv": {
+          "bytes": 3801,
+          "sha256": "5430739113f5d84be7ce5ef92c3188ab8b0a16dcaa897d6c43a61dc1122d61c2"
+        },
+        "kissat.counts.tsv": {
+          "bytes": 1046,
+          "sha256": "6107e2069e94c92161b4eed605e6a4bd9444dcc831be48a9e58c7a317eb833bc"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 8000464,
+          "sha256": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 11619837,
+          "sha256": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 10823374,
+          "sha256": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5370-congruence-prefix-extended",
+      "manifest_sha256": "291454b0669236fcbb964b2adad4f0be54c839b0551408a0a54c204510c03ab8",
+      "parent": "benchmarks/runs/20260907-5369-congruence-prefix",
+      "submitted": "1668830",
+      "repository_residue": [],
+      "results": 0,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {
+        "tactix.counts.tsv": {
+          "bytes": 1046,
+          "sha256": "71cb306bbffb2f6b32c6f02acde5bfef06e0d09ddef3eb4dd76ad09e1d0200f0"
+        },
+        "tactix.prefix.tsv": {
+          "bytes": 264,
+          "sha256": "23afd8f86f95dd38357029e638e30aba160ca416fe5693fc0829ae23f6c96eb4"
+        },
+        "tactix.decisions.tsv": {
+          "bytes": 11779114,
+          "sha256": "b02393f1bdd5a213c67d3cd6267d121b2432bb3320e08fa08c47457457975592"
+        },
+        "tactix.queue.tsv": {
+          "bytes": 12045988,
+          "sha256": "6f26edcbc25f48b7503eae96f193a69974dcd315d875d24c99c80e2a39a9dbe5"
+        },
+        "kissat.queue.tsv": {
+          "bytes": 13043594,
+          "sha256": "53b05e1e6464c005b09e0d2a3ab47b3c23fdbd2ca808b63ac864f8eda2535e02"
+        },
+        "kissat.counts.tsv": {
+          "bytes": 1046,
+          "sha256": "6107e2069e94c92161b4eed605e6a4bd9444dcc831be48a9e58c7a317eb833bc"
+        },
+        "kissat.state.tsv": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "tactix.state.tsv": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "tactix.bumps.tsv": {
+          "bytes": 320757387,
+          "sha256": "22976d26d698217c65745497431879f8933371d4692cc69ed0a39e60e3f4f248"
+        },
+        "kissat.boundaries.tsv": {
+          "bytes": 432018,
+          "sha256": "241b7eed38c2e4d60d3d261a6d1b54dd3e0361c5b3216352080b88365735e3e8"
+        },
+        "kissat.bumps.tsv": {
+          "bytes": 320757092,
+          "sha256": "a3f32fbfd457790281d4035ad2e3694fd4021d210c68fcfa0088a0c40bf8927e"
+        },
+        "kissat.prefix.tsv": {
+          "bytes": 264,
+          "sha256": "73f590e8ed81a9fcd50e622affc34e3b5848fbc5a9f5b5bb3ab63cac6111b78a"
+        },
+        "kissat.decisions.tsv": {
+          "bytes": 11779114,
+          "sha256": "b02393f1bdd5a213c67d3cd6267d121b2432bb3320e08fa08c47457457975592"
+        },
+        "tactix.boundaries.tsv": {
+          "bytes": 8261,
+          "sha256": "bfd9fc50aab0f41300375947e3607847035cf453a069926930e8b39e644fd59c"
+        }
+      }
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5371-congruence-prefix-runtime",
+      "manifest_sha256": "a11717f5efce5e1f9bbdc8f4a7b50799e60a7ce4b8d1e50b7c879a3e954ef438",
+      "parent": "benchmarks/runs/20260907-5356-empty-factor-runtime",
+      "submitted": "1668832",
+      "repository_residue": [],
+      "results": 9,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {}
+    },
+    {
+      "campaign": "benchmarks/runs/20260907-5372-congruence-prefix-BC-gate",
+      "manifest_sha256": "af5d5d72fe7e4754053d837009b28e5d0a50e052c4ae9b55aca7c888a6afe917",
+      "parent": "benchmarks/runs/20260907-5357-empty-factor-BC-gate",
+      "submitted": "1668833",
+      "repository_residue": [],
+      "results": 64,
+      "retained_reason": "Unique causal evidence or active checked gate; pins/runners and parent references retained.",
+      "trace_files": {}
+    }
+  ],
+  "tests": [
+    {
+      "build": "build/pin-5369-congruence-prefix",
+      "passed": 76,
+      "total": 76,
+      "seconds": 5.99,
+      "log": "benchmarks/runs/20260907-5369-congruence-prefix/trace-ctest.log",
+      "sha256": "097080641003a327f80378957b29f2a148d3973251782e2680de56f88b6ce4b7"
+    },
+    {
+      "build": "build/pin-5371-congruence-prefix-release",
+      "passed": 77,
+      "total": 77,
+      "seconds": 5.7,
+      "log": "benchmarks/runs/20260907-5369-congruence-prefix/release-ctest.log",
+      "sha256": "1c644e98f4873e73bae216a73f0bb011a667eb09eabcc31123fcd51916f9846c"
+    }
+  ]
+}
