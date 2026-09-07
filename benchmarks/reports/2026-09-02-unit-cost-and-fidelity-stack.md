@@ -5593,3 +5593,29 @@ before it -> the reuse/analyze fidelity bug -> proof-critical fix; validate r6/r
 r23/r34 improve, r15/r20/r26/r36 unregressed, fuzz+B28+C5. The METHOD is proven; only
 the compact-late-trace plumbing remains. This is the highest-value remaining lever
 (N4 = +11.27%, the larger half of the gap).
+
+### 3.125 N4 localization tooling: full traces too SLOW for late conflicts; hash tool required (2026-09-07)
+
+TRAJECTORY_ONLY solved the trace SIZE (compact ~decisions+conflicts+OTFS), but the
+event-trace INSTRUMENTATION overhead makes the solver ~100x slower, so reaching
+LATE conflicts via a full trace is impractical: r34 to conflict 1M (normally ~87s)
+did not finish in 30 min traced (job 1668133, cancelled). r34's divergence is
+>conflict 3000 and possibly ~1e5-1e6, so full-window tracing cannot reach it in
+reasonable time.
+THE RIGHT TOOL is the LOW-OVERHEAD decision-prefix HASH tool (accumulates a hash,
+writes nothing until the target conflict, stops there): TACTIX_/KISSAT_DECISION_
+PREFIX_TRACE + SAT_DECISION_PREFIX_CONFLICT/COMMON/STOP. It failed in job 1668120
+because (a) kissat's SAT_DECISION_PREFIX_STOP didn't fire (kissat ran full), and
+(b) tactix hashes collided across offsets with COMMON=1. 7AM FIX (read tactix
+note_decision_prefix event_trace.cpp:295 + kissat overlay eventtrace.c:1167): the
+hash accumulates decisions only WHILE conflicts==target (one conflict's worth), so
+comparing at a single target is fragile -- instead accumulate a CUMULATIVE prefix
+hash (all decisions up to target) and set COMMON=target-decision-count; and confirm
+kissat's STOP path (the overlay may gate STOP differently). Then binary-search the
+target conflict in [3000, ~4.3M] comparing the cumulative hash (O(1) per step, low
+overhead, stops at target) -> r34's first-divergence conflict -> inspect the
+reused/OTFS clause -> proof-critical fix.
+STATE: N4 decision-comparison METHOD validated (r34 aligned thru conflict 3000);
+localization tooling needs the hash-tool fix (full traces ruled out -- too slow).
+This is the fresh 7am work; the plumbing is now precisely diagnosed (4 walls
+cleared: semantic-vocab, granularity, SKIP-insufficient, trace-too-slow -> hash tool).
