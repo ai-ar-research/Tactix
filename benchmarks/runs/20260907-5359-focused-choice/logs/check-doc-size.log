@@ -1,0 +1,5 @@
+  warn  DEVELOPMENT_PLAN.md: 716 of 750 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/calculus.md: 653 of 680 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/implementation-notes.md: 555 of 560 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines — under 10% reserve left, compact it before the next addition needs the room
+check-doc-size: 0 error(s), 4 warning(s), 30 file budget(s) checked

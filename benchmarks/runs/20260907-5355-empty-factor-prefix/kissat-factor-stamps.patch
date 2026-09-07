@@ -1,0 +1,43 @@
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -1708,7 +1708,7 @@
+ 
+ void kissat_event_trace_target_state (kissat *solver, const char *stage,
+                                       unsigned assigned) {
+-  if (strstr (stage, "compact") || !strcmp (stage, "bve-schedule")) {
++  if (strstr (stage, "compact") || strstr (stage, "factor-stamps") || !strcmp (stage, "bve-schedule")) {
+     static bool initialized;
+     static FILE *file;
+     if (!initialized) {
+@@ -1719,11 +1719,11 @@
+     }
+     if (file) {
+       const unsigned search = solver->queue.search.idx;
+-      fprintf (file, "snapshot\t%s\t%" PRIu64 "\t%" PRIu64 "\t%d\t%u\t%u\t%u\n",
++      fprintf (file, "snapshot\t%s\t%" PRIu64 "\t%" PRIu64 "\t%d\t%u\t%u\t%u\t%u\n",
+           stage, solver->statistics.conflicts, solver->statistics.decisions,
+           (int) solver->stable, solver->queue.stamp,
+           DISCONNECTED (search) ? 0 : external_variable (solver, search),
+-          solver->queue.search.stamp);
++          solver->queue.search.stamp, assigned);
+       for (unsigned idx = solver->queue.first; !DISCONNECTED (idx);
+            idx = LINK (idx).next)
+         fprintf (file, "member\t%u\t%u\n", external_variable (solver, idx), LINK (idx).stamp);
+--- a/src/factor.c
++++ b/src/factor.c
+@@ -915,6 +915,7 @@
+ 
+ static void
+ adjust_scores_and_phases_of_fresh_variables (factoring *factoring) {
++  kissat_event_trace_target_state (factoring->solver, "factor-stamps-pre", SIZE_STACK (factoring->fresh));
+   const unsigned *begin = BEGIN_STACK (factoring->fresh);
+   const unsigned *end = END_STACK (factoring->fresh);
+   kissat *const solver = factoring->solver;
+@@ -966,6 +967,7 @@
+     solver->queue.search.stamp = queue->stamp;
+     kissat_check_queue (solver);
+   }
++  kissat_event_trace_target_state (solver, "factor-stamps-post", 0);
+ }
+ 
+ static bool run_factorization (kissat *solver, uint64_t limit) {

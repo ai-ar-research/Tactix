@@ -1,0 +1,18 @@
+{
+  "results": [
+    {
+      "label": "production",
+      "build": "build/release",
+      "exit": 0,
+      "binary_sha256": "de3d9332f70f3bbd5ca17fedda4ad11c7295114e8b581251192746ff8d68439f",
+      "log": "production-ctest.log"
+    },
+    {
+      "label": "candidate",
+      "build": "build/pin-5356-empty-factor-release",
+      "exit": 0,
+      "binary_sha256": "64a6bf16b86d249c3555e23c08689f51b2661ee4f3e88c625ed0492e019d5d89",
+      "log": "candidate-ctest.log"
+    }
+  ]
+}
