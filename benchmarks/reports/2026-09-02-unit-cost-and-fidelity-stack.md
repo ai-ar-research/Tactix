@@ -5547,3 +5547,25 @@ tooling + a proof-critical fix). 7am work: build the common-anchor/scalar-checkp
 trace comparison for r16, localize the first reuse/OTFS divergence conflict, then
 the proof-critical analyze fix. This session: 2 shipped wins + exhaustive evidence-
 backed characterization of the entire gap + r34 localization + honest corrections.
+
+### 3.123 BREAKTHROUGH: decision-sequence comparison localizes N4 divergence; r34 aligned through conflict 3000 (2026-09-07)
+
+Solved the cross-solver trace wall (3.122). tactix and kissat emit `decision` events
+in the SAME format (fields: ...|decisions#|level|...|decided-literal), so comparing
+the DECISION SEQUENCES (dec#, level, literal) in order is VOCABULARY-INDEPENDENT and
+sidesteps the event-vocabulary mismatch. Verified on r16 (job 1668118) and r34
+(job 1668119):
+  r16: decisions IDENTICAL through conflict 100 (1043 decisions).
+  r34: decisions IDENTICAL through conflict 3000 (7985 decisions) -- despite r34's
+    total conflicts being 1.97x kissat. So r34's trajectory is ALIGNED early; the
+    2x-conflict divergence happens LATER (>3000) and COMPOUNDS over the search.
+This is the working N4 localization method. NEXT (7am) -- BISECTION for r34's first-
+divergence conflict: trace tiny late windows (CONFLICT_FROM=N, TO=N+~1500, STOP=
+N+1500; tactix emits ~2500 records/conflict so keep the window <~2000 conflicts to
+bound the trace), extract decisions, binary-search N in [3000, ~4.3M] on "are the
+(dec#,level,lit) identical in the window" (divergence is sticky/monotonic). At the
+transition, the first differing decision + its level/reason is r34's divergence
+point; read the conflicts just before it (the reused/OTFS clause, the analysis) to
+find the reuse/analyze fidelity bug, then the proof-critical fix. Pins: build/event-
+trace/tactix, kissat-event-trace worktree. This session solved the tooling wall and
+localized early alignment; the bisection + fix is the fresh 7am work.
