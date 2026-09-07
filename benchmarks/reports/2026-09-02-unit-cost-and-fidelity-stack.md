@@ -5116,3 +5116,36 @@ GATES IN FLIGHT (submitted, do not block per the standing directive):
 EXPECTATION: closes substitution's share of the +95.5s gap (the memory-traffic of
 the 37.5M-elem array + 4 extra watch scans). Substitution is PART of the gap;
 a residual ~0.5% is diffuse elsewhere and is the next target after this gates.
+
+### 3.105 R40 gate 5256: port works (-4-5%/rank), but the impl gap is BIGGER than 1.24% (2026-09-06)
+
+R40 gate (job 1667849, 5256-singlepass-v-kissat, 32/40 ranks in) decomposed by
+conflict ratio cr=tactix/kissat (impl gap = 0-conflict + cr in [0.85,1.15]; N4 =
+|cr-1|>0.15):
+
+PORT WORKS (5256 single-pass vs 5251 pre-port image path, tactix solve):
+  0-conflict ranks r7/8/10/13/14: -4.4/-4.1/-5.1/-4.2/-3.9% each; behaviour-identical.
+  The binary-substitution port is a real, sound, general improvement -- shipped.
+
+BUT the implementation gap is LARGER than the prior 1.24% claim (3.96 was an
+all-40-ranks-total denominator that diluted the concentrated preprocessing cost):
+  0-conflict ranks (BOTH arms 0 conflicts = identical search work = PURE
+  preprocessing unit cost, unambiguous impl gap): tactix is STILL +11-15% AFTER
+  the port -- r7 +12.7%, r8 +14.1%, r10 +11.5%, r13 +14.1%, r14 +14.8%.
+  So binary substitution was only ~4-5% of a ~16-20% preprocessing unit-cost gap;
+  ~11% of diffuse preprocessing unit cost REMAINS (congruence/sweep/BVE/vivify/
+  arena/other), the next digging target. Impl-gap-rank aggregate (loose band):
+  +165s (+4.73% of matched-rank kissat time) over 24 ranks.
+
+N4 ranks (trajectory divergence, NOT impl gap -- unit-cost work cannot fix these):
+  r34 tactix 8.54M vs kissat 4.33M conflicts = 1.97x (runtime 2.14x, +391s) --
+  THIS is why r34 is not "merged": it is a 2x-work search divergence, not
+  same-work-more-time. r17 1.16x, r21 0.77x, r25 0.79x, r40 0.83x, and r19 tactix
+  does 5x FEWER conflicts (0.18x, tactix -589s FASTER). N4 net over these: -12.5s.
+
+HONEST BOTTOM LINE: the port is correct and helps, but the goal (within 1% on
+Rank 1-40) is NOT met. The true implementation gap is ~12-15% on the preprocessing-
+dominated 0-conflict ranks, of which binary substitution was ~4-5%. Next: profile
+the 0-conflict ranks (r7/8/10/13/14) for the next preprocessing unit-cost lever
+beyond binary substitution -- same method as 3.100 (sub-phase timer + perf, not
+noisy r10 wall time). r34-class ranks are a SEPARATE N4 (scheduling) thread.
