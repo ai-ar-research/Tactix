@@ -12,6 +12,7 @@ parity ledger owns N4. Reports and run records own experiment detail.
   approaches and explicitly requested this documentation compaction.
 - Start with [the runtime review](benchmarks/reports/2026-09-07-runtime-review.md).
   Latest continuation: [original-core convergence](benchmarks/reports/2026-09-07-original-core-convergence.md).
+  Current probe: [Rank-21 sequential boundary](benchmarks/reports/2026-09-07-rank21-sequential-boundary.md).
   The previous headline “+24%, 93% search quality” is not a valid attribution:
   campaign 5291 mixed proof-on Tactix with proof-off Kissat, serialized arms,
   and checked verdict strings only. Runtime bands were mistaken for work
@@ -59,9 +60,23 @@ parity ledger owns N4. Reports and run records own experiment detail.
 | `20260907-5328-bridge-decision-window` | `1668647` | Terminal: all 77,627 ordinary decisions match; the same level-24 warm-up mismatch remains. |
 | `20260907-5329-bridge-unit-small` | `1668649` | Terminal: 6/6 checked/clean; candidate/current ratios 0.44957, 1.25052, 1.60118 on Ranks 17/21/34. No promotion. |
 | `20260907-5330-ordering-ablation` | `1668658` | Terminal: 6/6 checked; sequential rewriting changes Rank-21 work, physical publication alone does not. |
+| `20260907-5331-rank21-boundary` | `1668664` | Terminal: Tactix arms byte-identical through conflict 1; Kissat selector unsupported/truncated. |
+| `20260907-5332-rank21-sweep-boundary` | `1668667` | Terminal observer-budget failure: all three reach the 600-second cap; scratch clean. |
+| `20260907-5333-rank21-standalone` | `1668671` | Terminal: 3 checked models; first Tactix difference is four binary copies at second Sweep end, conflict 23,889. |
+| `20260907-5334-rank21-binary-delta` | `1668674` | Terminal: selector captured earlier Sweep; full binary multisets identical. |
+| `20260907-5335-rank21-second-binaries` | `1668676` | Terminal: 2 checked models; exact delta is four extra duplicates, no new unique binary clauses. |
+| `20260907-5336-rank21-producers` | `1668678` | Terminal: 2 checked models, unchanged boundary traces; the extra copies come from binary-image reconstruction, not large collapse. |
 
-1. Localize the sequential rewrite's first changed Rank-21 clause/order against
-   Kissat before adding more pose machinery. 5329 is terminal: Rank 17 gains
+1. Correlate 5336's four binary-image targets with their source pairs and
+   emitted equivalence order, then compare Kissat on matched state and build
+   a focused fixture. 5335 identifies
+   four extra copies at the second Sweep end at conflict 23,889, while
+   assignments, ticks and propagation counts remain equal. Kissat's original
+   run is already on a different state there; do not assert transaction parity.
+   5336 closes the producer class (binary reconstruction, not large collapse),
+   but target-only rows omit source endpoints. Binary multiplicity alone does
+   not exclude other watch-order differences or establish the runtime cause.
+   5329 is terminal: Rank 17 gains
    do not offset the Rank-21/34 regressions; do not promote this candidate.
    5330 isolates the Rank-21 changed-work regression to sequential rewriting:
    603M to 789M propagations, while core-only and physical-only keep counters.
@@ -104,7 +119,7 @@ parity ledger owns N4. Reports and run records own experiment detail.
    instruction profiles are leads; no evidence establishes an unavoidable
    C++ overhead. Rank-31/17 trigger mechanisms remain unconfirmed.
 
-5314's complete solver times are provisionally 1.2788x Kissat (77/80 checked
+5314's complete solver times are provisionally 1.2788x Kissat (79/80 checked
 at the continuation snapshot): the whole-suite objective is not met. 5315 is
 66/66 checked and clean. Local commit `c2a95a6` was not pushed: auto-review requires
 explicit user approval to publish to shared `origin/main`; do not retry it.

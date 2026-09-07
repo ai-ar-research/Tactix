@@ -1,0 +1,59 @@
+{
+  "slurm_job_id": "1668678",
+  "schema": "tactix-kissat-checked-runtime-v1",
+  "created_at": "2026-09-07T16:48:24.878025+00:00",
+  "status": "UNFUZZED isolated investigation; no production promotion",
+  "hypothesis": "Identify the producers of the four extra copies exported at the second Sweep at conflict 23889; distinguish large collapse from binary rewrite or bridge birth.",
+  "comparison": "Core-only versus sequential Tactix, full checked solves and exact-pair standalone lifecycle observer.",
+  "decision": "Require two verified models and cleanup; require standalone boundary traces unchanged from 5333; inspect selected producer/source rows. No timing acceptance.",
+  "arms": {
+    "core": {
+      "path": "pins/core",
+      "sha256": "e426238cf90d35ff877f7b1bede599d6579c330dafd8f64ff168055f6aa1e4fb",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_provenance": "benchmarks/runs/20260907-5332-rank21-sweep-boundary/manifest.json"
+    },
+    "sequential": {
+      "path": "pins/sequential",
+      "sha256": "c6ae4525f3644a7db73d6fdb175e24832b1bdb5d5980963b5a78d5a5311fa181",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_provenance": "benchmarks/runs/20260907-5332-rank21-sweep-boundary/manifest.json"
+    }
+  },
+  "collect_runtime_context": false,
+  "input_sha256": {
+    "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "pin_sha256": {
+    "pins/core.patch": "2ee5f420019c1fa2b5cfe66c7de4c05d2f12fe236cf671e2b32235addc80e7fa",
+    "pins/sequential.patch": "fb58595fc344972c2a4fc0cc70248364edab0c34532fa077cb9fb994e8610129",
+    "pins/core": "e426238cf90d35ff877f7b1bede599d6579c330dafd8f64ff168055f6aa1e4fb",
+    "pins/kissat-snapshot.patch": "eb3c177e9b1a5bfdd6e736c3976a15feb31b686da23105734ca35bf059e72bfa",
+    "pins/sequential": "c6ae4525f3644a7db73d6fdb175e24832b1bdb5d5980963b5a78d5a5311fa181",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/runtime_task.py": "969ec3fa05f7987fb3bc5577a779af71f7cfc4e1e92f7a979d99db5e41b00bd6",
+    "pins/tactix-observer.patch": "faf7061b7f6e0ae7c9e4659b00af09c3ea5e4d28e9eb684985798a6787a28a35",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/kissat-observer.patch": "68c19e426a1857989a145806a407db4718d5953cbda73282c1aec958399a6a15",
+    "matrix.tsv": "4164fcbde73b11eb566bf2530920e30102d142c7547b461dd2a37c282571ab40",
+    "array.sbatch": "31a972c375251a6c76c444a6f87a7d23023af4951d6a1e827b76726d233ff25e"
+  },
+  "parent_campaign": "benchmarks/runs/20260907-5335-rank21-second-binaries",
+  "candidate_validation": "Each semantic variant has focused unit/proof validation; core-only and final bridge variant have all 77 CTests. All variants except current remain UNFUZZED.",
+  "runner_delta": "Replaces standalone binary-set exporter with four-pair lifecycle observer. No global EventTrace. All solver/model/proof invocation and cleanup logic unchanged."
+}

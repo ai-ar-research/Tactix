@@ -1,0 +1,24 @@
+# tactix-event-trace	1
+# detail-conflicts	0	10000
+# solver	seq	event	conflicts	decisions	propagations	level	mode	active	unassigned	trail	queue	heap	retired_queue	retired_heap	irred	red	binary	digest	search_external	top32	payload
+tactix	0	trace_begin	0	0	35564	0	none	3384654	3384654	35564	0	0	0	0	2964195	0	6102982	3fb34c1c72cdb74a	0	-	-
+tactix	1	preprocess_begin	0	0	851616	0	focused	3384654	3384654	35564	3384654	0	0	0	2964195	0	6102982	81cc3382ac8aea78	3420215	-	-
+tactix	2	slot_boundary	0	0	851616	0	focused	3384654	3384654	35564	3384654	0	0	0	2964195	0	6102982	81cc3382ac8aea78	3420215	-	name=SparseCollect|stage=begin
+tactix	3	slot_boundary	0	0	851616	0	focused	3384654	3384654	35564	3384654	0	0	0	2963871	0	6102655	81cc3382ac8aea78	3420215	-	name=SparseCollect|stage=end
+tactix	4	slot_boundary	0	0	851616	0	focused	3384654	3384654	35564	3384654	0	0	0	2963871	0	6102655	81cc3382ac8aea78	3420215	-	name=Congruence|stage=begin
+tactix	5	slot_boundary	0	0	851616	0	focused	3384654	3384654	35564	3384654	0	0	0	2963871	0	6102655	81cc3382ac8aea78	3420215	-	name=congruence-dense-resume|stage=entry
+tactix	6	slot_boundary	0	0	851616	0	focused	3384654	3384654	35564	3384654	0	0	0	2963871	0	6102655	81cc3382ac8aea78	3420215	-	name=congruence-dense-resume|stage=first
+tactix	7	slot_boundary	0	0	853222	0	focused	3383048	3383048	37170	3384654	0	0	0	2963871	0	11644031	a6e96139dfac6eee	3420215	-	name=congruence-dense-resume|stage=second-entry
+tactix	8	slot_boundary	0	0	853222	0	focused	3383048	3383048	37170	3384654	0	0	0	1577765	0	8871655	a6e96139dfac6eee	3420215	-	name=congruence-dense-resume|stage=second
+tactix	9	slot_boundary	0	0	853222	0	focused	3383048	3383048	37170	3383048	0	0	0	1577765	0	8871655	82e51b532662ce74	3420215	-	name=Congruence|stage=end
+tactix	10	slot_boundary	0	0	853222	0	focused	3383048	3383048	37170	3383048	0	0	0	1577765	0	8871655	82e51b532662ce74	3420215	-	name=Substitute|stage=begin
+tactix	11	slot_boundary	0	0	853222	0	focused	1997696	1997696	37170	1997696	0	0	0	1577683	0	6101040	a8bc44ba713d960f	3420215	-	name=Substitute|stage=end
+tactix	12	slot_boundary	0	0	853222	0	focused	1997696	1997696	37170	1997696	0	0	0	1577683	0	6101040	a8bc44ba713d960f	3420215	-	name=Backbone|stage=begin
+tactix	13	slot_boundary	0	0	958554	0	focused	1997696	1997696	37170	1997696	0	0	0	1577683	0	6101040	a8bc44ba713d960f	3420215	-	name=Backbone|stage=end
+tactix	14	slot_boundary	0	0	958554	0	focused	1997696	1997696	37170	1997696	0	0	0	1577683	0	6101040	a8bc44ba713d960f	3420215	-	name=Sweep|stage=begin|formula_irredundant=1577683|formula_redundant=0|formula_irredundant_hash=b317e4ec069800e1|formula_redundant_hash=0000000000000000|formula_binary_hash=b121b6a6671f4e33|root_fixed=37170|root_fixed_hash=a2c4e19182ad6f5f|watching=1|watch_entries=15357446|binary_order_hash=56c6a5f4cc3b3968|large_order_hash=ec7a303cabff8ace
+tactix	15	slot_boundary	0	0	958558	0	focused	1997692	1997692	37174	1997692	0	0	0	1577683	0	3330352	423e9a4d8a66754b	3420215	-	name=Sweep|stage=end|formula_irredundant=1577683|formula_redundant=0|formula_irredundant_hash=b317e4ec069800e1|formula_redundant_hash=0000000000000000|formula_binary_hash=d24b12678ca118a6|root_fixed=37174|root_fixed_hash=02fac040772ae045|watching=1|watch_entries=9816070|binary_order_hash=01dd21f20db8f979|large_order_hash=ec7a303cabff8ace
+tactix	16	slot_boundary	0	0	958558	0	focused	1997692	1997692	37174	1997692	0	0	0	1577683	0	3330352	423e9a4d8a66754b	3420215	-	name=Substitute|stage=begin
+tactix	17	slot_boundary	0	0	958558	0	focused	1997692	1997692	37174	1997692	0	0	0	1577679	0	3330356	423e9a4d8a66754b	3420215	-	name=Substitute|stage=end
+tactix	18	slot_boundary	0	0	958558	0	focused	1997692	1997692	37174	1997692	0	0	0	1577679	0	3330356	423e9a4d8a66754b	3420215	-	name=Factor|stage=begin
+tactix	19	slot_boundary	0	0	958558	0	focused	1997692	1997692	37174	1997692	0	0	0	1577679	0	3330356	423e9a4d8a66754b	3420215	-	name=Factor|stage=end
+tactix	20	preprocess_end	0	0	958558	0	focused	1997692	1997692	37174	1997692	0	0	0	1577679	0	3330356	423e9a4d8a66754b	3420215	-	-

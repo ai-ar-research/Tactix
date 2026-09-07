@@ -1,0 +1,52 @@
+{
+  "checked_clean": 2,
+  "boundary_traces_identical_to_5333": true,
+  "binary_copies": {
+    "core": 621085,
+    "sequential": 621089
+  },
+  "core_only": [],
+  "sequential_only": [
+    {
+      "literals": [
+        -364071,
+        212244
+      ],
+      "copies": 1,
+      "core_copies": 1,
+      "sequential_copies": 2
+    },
+    {
+      "literals": [
+        -364068,
+        212244
+      ],
+      "copies": 1,
+      "core_copies": 1,
+      "sequential_copies": 2
+    },
+    {
+      "literals": [
+        -306948,
+        211419
+      ],
+      "copies": 1,
+      "core_copies": 1,
+      "sequential_copies": 2
+    },
+    {
+      "literals": [
+        -306945,
+        211419
+      ],
+      "copies": 1,
+      "core_copies": 1,
+      "sequential_copies": 2
+    }
+  ],
+  "trace_sha256": {
+    "core": "285449faead73093e38f0c043f4a78a994cdf34f65327cabe99af632a39fc421",
+    "sequential": "fefb363eefbdaf202c25684132a7a665ea03626dfbae4601003ea1d80dc2f3b4"
+  },
+  "caveat": "Full binary multisets, not full formula or watch-order equality. No runtime or fuzz acceptance."
+}

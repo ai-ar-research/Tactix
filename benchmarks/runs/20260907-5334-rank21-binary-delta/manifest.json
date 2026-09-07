@@ -1,0 +1,24 @@
+{
+  "job": "1668674",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "documentation_checkpoint": "4d0c3c97e7f6170bf57e701801178e7375ac32af",
+  "purpose": "UNFUZZED exact binary-copy delta at first differing Tactix Sweep end, conflict 23889. No global trace or reference run on a different state.",
+  "hypothesis": "Four additional binary copies from sequential rewriting identify the concrete producer to inspect.",
+  "acceptance": "Both stopped exit 0 and delete scratch; each export has complete begin/end markers and declared row count; compare complete binary multisets. No correctness or timing claim.",
+  "contract": "Full-width 0-1; one bound proof-on solver per task; 12 logical CPUs/48000 MiB; no node constraint or throttle; 600-second cap.",
+  "input_sha256_compressed": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450",
+  "release_sha256": {
+    "core": "d6701f2e4c158b056f13956c4f02acf12b38c5c81805757c6066bdd56ef4b72a",
+    "sequential": "e7e82dd1d83db8529e09dd0dba62c2314096df6a08533a9f0faf47cd3a20aee9"
+  },
+  "hashes": {
+    "pins/sequential": "c6ae4525f3644a7db73d6fdb175e24832b1bdb5d5980963b5a78d5a5311fa181",
+    "pins/core": "e426238cf90d35ff877f7b1bede599d6579c330dafd8f64ff168055f6aa1e4fb",
+    "sequential.patch": "fb58595fc344972c2a4fc0cc70248364edab0c34532fa077cb9fb994e8610129",
+    "tactix-observer.patch": "faf7061b7f6e0ae7c9e4659b00af09c3ea5e4d28e9eb684985798a6787a28a35",
+    "core.patch": "2ee5f420019c1fa2b5cfe66c7de4c05d2f12fe236cf671e2b32235addc80e7fa",
+    "run.py": "0d54640e986b8706a9122b222f09e0ddcdf92b6009e7d081851f3ca1fda05eb9",
+    "array.sbatch": "3297f76bec7bcc89a1c8e114effde15f077166408f77f60119eadd82d58a8f8f"
+  },
+  "observer_note": "Standalone binary exporter; the existing SET_STOP selector uses the formula match/conflict without requesting a formula export. Stop is immediately after first selected binary snapshot."
+}
