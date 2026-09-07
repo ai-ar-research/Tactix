@@ -1,0 +1,42 @@
+{
+  "observed_at": "2026-09-07T22:16:45.514056+00:00",
+  "main_ctest": {
+    "passed": 77,
+    "seconds": 20.4,
+    "log": "benchmarks/reports/2026-09-07-dense-entry-main-ctest.log",
+    "sha256": "41f022d2f3772f30b1124d083d8647ee5e26516c780264a537a5ea8ff23bf0fb"
+  },
+  "doc_size": {
+    "errors": 0,
+    "budgets": 30,
+    "near_cap_warnings": 4,
+    "progress_lines": 116
+  },
+  "progress_check": {
+    "errors": 0,
+    "warnings": [
+      "Three historical lesson citations in plan.",
+      "Old completed tier authority not cited in current resume surface."
+    ],
+    "queue": "Escalated read-only check observes the real active SLURM queue."
+  },
+  "option_coverage": {
+    "options": 418,
+    "unaccounted": 0,
+    "failures": 0
+  },
+  "section_refs": {
+    "resolved": 42,
+    "errors": 0
+  },
+  "rule_policy_boundary": "PASS",
+  "andrew_report": {
+    "directory": "report-to-andrew/20260907-1813-dense-entry",
+    "final_compilations": 2,
+    "tex_sha256": "3cd0989374b533384225718e7dea25a1a6bc2438d7e7e0fdb55af8ec8b8325b6",
+    "pdf_sha256": "7c8228c82352b884f07eff778f7379f41b48da752baa23fbaa3acc69dd2025e2",
+    "pages": 3,
+    "overfull_boxes": 0
+  },
+  "scope": "Fixed aggregate validation only; no fuzz campaign or fuzz artifact inspection. Candidate-specific full suites are independently retained in 5391."
+}

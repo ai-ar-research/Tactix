@@ -1,0 +1,764 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 12K of event 'cycles:u'
+# Event count (approx.): 244806871188
+#
+# Children      Self  Shared Object         Symbol                                         IPC   [IPC Coverage]
+# ........  ........  ....................  .............................................  ....................
+#
+    99.94%     0.00%  libc.so.6             [.] __libc_start_main@@GLIBC_2.34              -      -            
+            |
+            ---__libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               |          
+                --99.94%--main
+                          kissat_application
+                          |          
+                           --99.93%--kissat_search
+                                     |          
+                                     |--60.48%--kissat_search_propagate
+                                     |          |          
+                                     |           --0.81%--__memset_avx512_unaligned_erms
+                                     |          
+                                     |--21.01%--kissat_probe
+                                     |          |          
+                                     |          |--10.61%--kissat_vivify
+                                     |          |          vivify_round
+                                     |          |          |          
+                                     |          |           --8.86%--kissat_probing_propagate
+                                     |          |          
+                                     |          |--8.68%--kissat_sweep
+                                     |          |          |          
+                                     |          |          |--6.07%--kitten_solve
+                                     |          |          |          
+                                     |          |          |--0.77%--sweep_clause
+                                     |          |          |          |          
+                                     |          |          |           --0.63%--kitten_clause_with_id_and_exception
+                                     |          |          |          
+                                     |          |          |--0.69%--kitten_flip_literal
+                                     |          |          |          
+                                     |          |           --0.61%--sweep_refine
+                                     |          |          
+                                     |          |--0.67%--kissat_factor
+                                     |          |          
+                                     |           --0.61%--kissat_substitute
+                                     |          
+                                     |--16.02%--kissat_analyze
+                                     |          |          
+                                     |          |--5.32%--kissat_deduce_first_uip_clause
+                                     |          |          
+                                     |          |--4.52%--kissat_shrink_clause
+                                     |          |          |          
+                                     |          |           --1.95%--minimize_literal.part.0
+                                     |          |                     |          
+                                     |          |                      --1.51%--minimize_literal.part.0
+                                     |          |                                |          
+                                     |          |                                 --0.99%--minimize_literal.part.0
+                                     |          |                                           |          
+                                     |          |                                            --0.76%--minimize_literal.part.0
+                                     |          |                                                      |          
+                                     |          |                                                       --0.64%--minimize_literal.part.0
+                                     |          |                                                                 |          
+                                     |          |                                                                  --0.52%--minimize_literal.part.0
+                                     |          |          
+                                     |          |--3.69%--kissat_bump_analyzed
+                                     |          |          
+                                     |           --1.14%--kissat_learn_clause
+                                     |                     |          
+                                     |                      --0.53%--kissat_backtrack_after_conflict
+                                     |                                |          
+                                     |                                 --0.53%--kissat_backtrack_without_updating_phases
+                                     |          
+                                     |--0.94%--kissat_eliminate
+                                     |          |          
+                                     |           --0.62%--kissat_generate_resolvents
+                                     |          
+                                      --0.67%--kissat_reduce
+                                                |          
+                                                 --0.53%--kissat_sparse_collect
+
+    99.94%     0.00%  libc.so.6             [.] __libc_start_call_main                     -      -            
+            |
+            ---__libc_start_call_main
+               |          
+                --99.94%--main
+                          kissat_application
+                          |          
+                           --99.93%--kissat_search
+                                     |          
+                                     |--60.48%--kissat_search_propagate
+                                     |          |          
+                                     |           --0.81%--__memset_avx512_unaligned_erms
+                                     |          
+                                     |--21.01%--kissat_probe
+                                     |          |          
+                                     |          |--10.61%--kissat_vivify
+                                     |          |          vivify_round
+                                     |          |          |          
+                                     |          |           --8.86%--kissat_probing_propagate
+                                     |          |          
+                                     |          |--8.68%--kissat_sweep
+                                     |          |          |          
+                                     |          |          |--6.07%--kitten_solve
+                                     |          |          |          
+                                     |          |          |--0.77%--sweep_clause
+                                     |          |          |          |          
+                                     |          |          |           --0.63%--kitten_clause_with_id_and_exception
+                                     |          |          |          
+                                     |          |          |--0.69%--kitten_flip_literal
+                                     |          |          |          
+                                     |          |           --0.61%--sweep_refine
+                                     |          |          
+                                     |          |--0.67%--kissat_factor
+                                     |          |          
+                                     |           --0.61%--kissat_substitute
+                                     |          
+                                     |--16.02%--kissat_analyze
+                                     |          |          
+                                     |          |--5.32%--kissat_deduce_first_uip_clause
+                                     |          |          
+                                     |          |--4.52%--kissat_shrink_clause
+                                     |          |          |          
+                                     |          |           --1.95%--minimize_literal.part.0
+                                     |          |                     |          
+                                     |          |                      --1.51%--minimize_literal.part.0
+                                     |          |                                |          
+                                     |          |                                 --0.99%--minimize_literal.part.0
+                                     |          |                                           |          
+                                     |          |                                            --0.76%--minimize_literal.part.0
+                                     |          |                                                      |          
+                                     |          |                                                       --0.64%--minimize_literal.part.0
+                                     |          |                                                                 |          
+                                     |          |                                                                  --0.52%--minimize_literal.part.0
+                                     |          |          
+                                     |          |--3.69%--kissat_bump_analyzed
+                                     |          |          
+                                     |           --1.14%--kissat_learn_clause
+                                     |                     |          
+                                     |                      --0.53%--kissat_backtrack_after_conflict
+                                     |                                |          
+                                     |                                 --0.53%--kissat_backtrack_without_updating_phases
+                                     |          
+                                     |--0.94%--kissat_eliminate
+                                     |          |          
+                                     |           --0.62%--kissat_generate_resolvents
+                                     |          
+                                      --0.67%--kissat_reduce
+                                                |          
+                                                 --0.53%--kissat_sparse_collect
+
+    99.94%     0.00%  kissat                [.] _start                                     -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               |          
+                --99.93%--kissat_search
+                          |          
+                          |--60.48%--kissat_search_propagate
+                          |          |          
+                          |           --0.81%--__memset_avx512_unaligned_erms
+                          |          
+                          |--21.01%--kissat_probe
+                          |          |          
+                          |          |--10.61%--kissat_vivify
+                          |          |          vivify_round
+                          |          |          |          
+                          |          |           --8.86%--kissat_probing_propagate
+                          |          |          
+                          |          |--8.68%--kissat_sweep
+                          |          |          |          
+                          |          |          |--6.07%--kitten_solve
+                          |          |          |          
+                          |          |          |--0.77%--sweep_clause
+                          |          |          |          |          
+                          |          |          |           --0.63%--kitten_clause_with_id_and_exception
+                          |          |          |          
+                          |          |          |--0.69%--kitten_flip_literal
+                          |          |          |          
+                          |          |           --0.61%--sweep_refine
+                          |          |          
+                          |          |--0.67%--kissat_factor
+                          |          |          
+                          |           --0.61%--kissat_substitute
+                          |          
+                          |--16.02%--kissat_analyze
+                          |          |          
+                          |          |--5.32%--kissat_deduce_first_uip_clause
+                          |          |          
+                          |          |--4.52%--kissat_shrink_clause
+                          |          |          |          
+                          |          |           --1.95%--minimize_literal.part.0
+                          |          |                     |          
+                          |          |                      --1.51%--minimize_literal.part.0
+                          |          |                                |          
+                          |          |                                 --0.99%--minimize_literal.part.0
+                          |          |                                           |          
+                          |          |                                            --0.76%--minimize_literal.part.0
+                          |          |                                                      |          
+                          |          |                                                       --0.64%--minimize_literal.part.0
+                          |          |                                                                 |          
+                          |          |                                                                  --0.52%--minimize_literal.part.0
+                          |          |          
+                          |          |--3.69%--kissat_bump_analyzed
+                          |          |          
+                          |           --1.14%--kissat_learn_clause
+                          |                     |          
+                          |                      --0.53%--kissat_backtrack_after_conflict
+                          |                                |          
+                          |                                 --0.53%--kissat_backtrack_without_updating_phases
+                          |          
+                          |--0.94%--kissat_eliminate
+                          |          |          
+                          |           --0.62%--kissat_generate_resolvents
+                          |          
+                           --0.67%--kissat_reduce
+                                     |          
+                                      --0.53%--kissat_sparse_collect
+
+    99.94%     0.00%  kissat                [.] main                                       -      -            
+            |
+            ---main
+               kissat_application
+               |          
+                --99.93%--kissat_search
+                          |          
+                          |--60.48%--kissat_search_propagate
+                          |          |          
+                          |           --0.81%--__memset_avx512_unaligned_erms
+                          |          
+                          |--21.01%--kissat_probe
+                          |          |          
+                          |          |--10.61%--kissat_vivify
+                          |          |          vivify_round
+                          |          |          |          
+                          |          |           --8.86%--kissat_probing_propagate
+                          |          |          
+                          |          |--8.68%--kissat_sweep
+                          |          |          |          
+                          |          |          |--6.07%--kitten_solve
+                          |          |          |          
+                          |          |          |--0.77%--sweep_clause
+                          |          |          |          |          
+                          |          |          |           --0.63%--kitten_clause_with_id_and_exception
+                          |          |          |          
+                          |          |          |--0.69%--kitten_flip_literal
+                          |          |          |          
+                          |          |           --0.61%--sweep_refine
+                          |          |          
+                          |          |--0.67%--kissat_factor
+                          |          |          
+                          |           --0.61%--kissat_substitute
+                          |          
+                          |--16.02%--kissat_analyze
+                          |          |          
+                          |          |--5.32%--kissat_deduce_first_uip_clause
+                          |          |          
+                          |          |--4.52%--kissat_shrink_clause
+                          |          |          |          
+                          |          |           --1.95%--minimize_literal.part.0
+                          |          |                     |          
+                          |          |                      --1.51%--minimize_literal.part.0
+                          |          |                                |          
+                          |          |                                 --0.99%--minimize_literal.part.0
+                          |          |                                           |          
+                          |          |                                            --0.76%--minimize_literal.part.0
+                          |          |                                                      |          
+                          |          |                                                       --0.64%--minimize_literal.part.0
+                          |          |                                                                 |          
+                          |          |                                                                  --0.52%--minimize_literal.part.0
+                          |          |          
+                          |          |--3.69%--kissat_bump_analyzed
+                          |          |          
+                          |           --1.14%--kissat_learn_clause
+                          |                     |          
+                          |                      --0.53%--kissat_backtrack_after_conflict
+                          |                                |          
+                          |                                 --0.53%--kissat_backtrack_without_updating_phases
+                          |          
+                          |--0.94%--kissat_eliminate
+                          |          |          
+                          |           --0.62%--kissat_generate_resolvents
+                          |          
+                           --0.67%--kissat_reduce
+                                     |          
+                                      --0.53%--kissat_sparse_collect
+
+    99.94%     0.00%  kissat                [.] kissat_application                         -      -            
+            |
+            ---kissat_application
+               |          
+                --99.93%--kissat_search
+                          |          
+                          |--60.48%--kissat_search_propagate
+                          |          |          
+                          |           --0.81%--__memset_avx512_unaligned_erms
+                          |          
+                          |--21.01%--kissat_probe
+                          |          |          
+                          |          |--10.61%--kissat_vivify
+                          |          |          vivify_round
+                          |          |          |          
+                          |          |           --8.86%--kissat_probing_propagate
+                          |          |          
+                          |          |--8.68%--kissat_sweep
+                          |          |          |          
+                          |          |          |--6.07%--kitten_solve
+                          |          |          |          
+                          |          |          |--0.77%--sweep_clause
+                          |          |          |          |          
+                          |          |          |           --0.63%--kitten_clause_with_id_and_exception
+                          |          |          |          
+                          |          |          |--0.69%--kitten_flip_literal
+                          |          |          |          
+                          |          |           --0.61%--sweep_refine
+                          |          |          
+                          |          |--0.67%--kissat_factor
+                          |          |          
+                          |           --0.61%--kissat_substitute
+                          |          
+                          |--16.02%--kissat_analyze
+                          |          |          
+                          |          |--5.32%--kissat_deduce_first_uip_clause
+                          |          |          
+                          |          |--4.52%--kissat_shrink_clause
+                          |          |          |          
+                          |          |           --1.95%--minimize_literal.part.0
+                          |          |                     |          
+                          |          |                      --1.51%--minimize_literal.part.0
+                          |          |                                |          
+                          |          |                                 --0.99%--minimize_literal.part.0
+                          |          |                                           |          
+                          |          |                                            --0.76%--minimize_literal.part.0
+                          |          |                                                      |          
+                          |          |                                                       --0.64%--minimize_literal.part.0
+                          |          |                                                                 |          
+                          |          |                                                                  --0.52%--minimize_literal.part.0
+                          |          |          
+                          |          |--3.69%--kissat_bump_analyzed
+                          |          |          
+                          |           --1.14%--kissat_learn_clause
+                          |                     |          
+                          |                      --0.53%--kissat_backtrack_after_conflict
+                          |                                |          
+                          |                                 --0.53%--kissat_backtrack_without_updating_phases
+                          |          
+                          |--0.94%--kissat_eliminate
+                          |          |          
+                          |           --0.62%--kissat_generate_resolvents
+                          |          
+                           --0.67%--kissat_reduce
+                                     |          
+                                      --0.53%--kissat_sparse_collect
+
+    99.93%     0.03%  kissat                [.] kissat_search                              -      -            
+            |          
+             --99.90%--kissat_search
+                       |          
+                       |--60.48%--kissat_search_propagate
+                       |          |          
+                       |           --0.81%--__memset_avx512_unaligned_erms
+                       |          
+                       |--21.01%--kissat_probe
+                       |          |          
+                       |          |--10.61%--kissat_vivify
+                       |          |          vivify_round
+                       |          |          |          
+                       |          |           --8.86%--kissat_probing_propagate
+                       |          |          
+                       |          |--8.68%--kissat_sweep
+                       |          |          |          
+                       |          |          |--6.07%--kitten_solve
+                       |          |          |          
+                       |          |          |--0.77%--sweep_clause
+                       |          |          |          |          
+                       |          |          |           --0.63%--kitten_clause_with_id_and_exception
+                       |          |          |          
+                       |          |          |--0.69%--kitten_flip_literal
+                       |          |          |          
+                       |          |           --0.61%--sweep_refine
+                       |          |          
+                       |          |--0.67%--kissat_factor
+                       |          |          
+                       |           --0.61%--kissat_substitute
+                       |          
+                       |--16.02%--kissat_analyze
+                       |          |          
+                       |          |--5.32%--kissat_deduce_first_uip_clause
+                       |          |          
+                       |          |--4.52%--kissat_shrink_clause
+                       |          |          |          
+                       |          |           --1.95%--minimize_literal.part.0
+                       |          |                     |          
+                       |          |                      --1.51%--minimize_literal.part.0
+                       |          |                                |          
+                       |          |                                 --0.99%--minimize_literal.part.0
+                       |          |                                           |          
+                       |          |                                            --0.76%--minimize_literal.part.0
+                       |          |                                                      |          
+                       |          |                                                       --0.64%--minimize_literal.part.0
+                       |          |                                                                 |          
+                       |          |                                                                  --0.52%--minimize_literal.part.0
+                       |          |          
+                       |          |--3.69%--kissat_bump_analyzed
+                       |          |          
+                       |           --1.14%--kissat_learn_clause
+                       |                     |          
+                       |                      --0.53%--kissat_backtrack_after_conflict
+                       |                                |          
+                       |                                 --0.53%--kissat_backtrack_without_updating_phases
+                       |          
+                       |--0.94%--kissat_eliminate
+                       |          |          
+                       |           --0.62%--kissat_generate_resolvents
+                       |          
+                        --0.67%--kissat_reduce
+                                  |          
+                                   --0.53%--kissat_sparse_collect
+
+    60.48%    59.24%  kissat                [.] kissat_search_propagate                    -      -            
+            |          
+            |--59.24%--_start
+            |          __libc_start_main@@GLIBC_2.34
+            |          __libc_start_call_main
+            |          main
+            |          kissat_application
+            |          kissat_search
+            |          kissat_search_propagate
+            |          
+             --1.23%--kissat_search_propagate
+                       |          
+                        --0.81%--__memset_avx512_unaligned_erms
+
+    21.01%     0.00%  kissat                [.] kissat_probe                               -      -            
+            |
+            ---kissat_probe
+               |          
+               |--10.61%--kissat_vivify
+               |          vivify_round
+               |          |          
+               |           --8.86%--kissat_probing_propagate
+               |          
+               |--8.68%--kissat_sweep
+               |          |          
+               |          |--6.07%--kitten_solve
+               |          |          
+               |          |--0.77%--sweep_clause
+               |          |          |          
+               |          |           --0.63%--kitten_clause_with_id_and_exception
+               |          |          
+               |          |--0.69%--kitten_flip_literal
+               |          |          
+               |           --0.61%--sweep_refine
+               |          
+               |--0.67%--kissat_factor
+               |          
+                --0.61%--kissat_substitute
+
+    16.04%     1.24%  kissat                [.] kissat_analyze                             -      -            
+            |          
+            |--14.80%--kissat_analyze
+            |          |          
+            |          |--5.33%--kissat_deduce_first_uip_clause
+            |          |          
+            |          |--4.52%--kissat_shrink_clause
+            |          |          |          
+            |          |           --1.95%--minimize_literal.part.0
+            |          |                     |          
+            |          |                      --1.51%--minimize_literal.part.0
+            |          |                                |          
+            |          |                                 --0.99%--minimize_literal.part.0
+            |          |                                           |          
+            |          |                                            --0.76%--minimize_literal.part.0
+            |          |                                                      |          
+            |          |                                                       --0.64%--minimize_literal.part.0
+            |          |                                                                 |          
+            |          |                                                                  --0.52%--minimize_literal.part.0
+            |          |          
+            |          |--3.69%--kissat_bump_analyzed
+            |          |          
+            |           --1.15%--kissat_learn_clause
+            |                     |          
+            |                      --0.53%--kissat_backtrack_after_conflict
+            |                                |          
+            |                                 --0.53%--kissat_backtrack_without_updating_phases
+            |          
+             --1.24%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_analyze
+
+    10.61%     1.02%  kissat                [.] vivify_round                               -      -            
+            |          
+            |--9.60%--vivify_round
+            |          |          
+            |           --8.86%--kissat_probing_propagate
+            |          
+             --1.02%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_probe
+                       kissat_vivify
+                       vivify_round
+
+    10.61%     0.00%  kissat                [.] kissat_vivify                              -      -            
+            |
+            ---kissat_vivify
+               vivify_round
+               |          
+                --8.86%--kissat_probing_propagate
+
+     8.86%     8.64%  kissat                [.] kissat_probing_propagate                   -      -            
+            |          
+             --8.64%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --8.64%--kissat_probe
+                                  kissat_vivify
+                                  vivify_round
+                                  kissat_probing_propagate
+
+     8.72%     0.28%  kissat                [.] kissat_sweep                               -      -            
+            |          
+             --8.45%--kissat_sweep
+                       |          
+                       |--6.09%--kitten_solve
+                       |          
+                       |--0.79%--sweep_clause
+                       |          |          
+                       |           --0.63%--kitten_clause_with_id_and_exception
+                       |          
+                       |--0.69%--kitten_flip_literal
+                       |          
+                        --0.63%--sweep_refine
+
+     6.20%     6.14%  kissat                [.] kitten_solve                               -      -            
+            |          
+             --6.14%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --6.04%--kissat_probe
+                                  kissat_sweep
+                                  kitten_solve
+
+     5.33%     5.31%  kissat                [.] kissat_deduce_first_uip_clause             -      -            
+            |          
+             --5.30%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_analyze
+                       kissat_deduce_first_uip_clause
+
+     4.52%     2.52%  kissat                [.] kissat_shrink_clause                       -      -            
+            |          
+            |--2.52%--_start
+            |          __libc_start_main@@GLIBC_2.34
+            |          __libc_start_call_main
+            |          main
+            |          kissat_application
+            |          kissat_search
+            |          kissat_analyze
+            |          kissat_shrink_clause
+            |          
+             --2.00%--kissat_shrink_clause
+                       |          
+                        --1.95%--minimize_literal.part.0
+                                  |          
+                                   --1.51%--minimize_literal.part.0
+                                             |          
+                                              --0.99%--minimize_literal.part.0
+                                                        |          
+                                                         --0.76%--minimize_literal.part.0
+                                                                   |          
+                                                                    --0.64%--minimize_literal.part.0
+                                                                              |          
+                                                                               --0.52%--minimize_literal.part.0
+
+     3.69%     3.59%  kissat                [.] kissat_bump_analyzed                       -      -            
+            |          
+             --3.59%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_analyze
+                       kissat_bump_analyzed
+
+     1.95%     1.95%  kissat                [.] minimize_literal.part.0                    -      -            
+            |          
+             --1.95%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_analyze
+                       kissat_shrink_clause
+                       minimize_literal.part.0
+                       |          
+                        --1.51%--minimize_literal.part.0
+                                  |          
+                                   --0.99%--minimize_literal.part.0
+                                             |          
+                                              --0.76%--minimize_literal.part.0
+                                                        |          
+                                                         --0.64%--minimize_literal.part.0
+                                                                   |          
+                                                                    --0.52%--minimize_literal.part.0
+
+     1.15%     0.22%  kissat                [.] kissat_learn_clause                        -      -            
+            |          
+             --0.93%--kissat_learn_clause
+                       |          
+                        --0.53%--kissat_backtrack_after_conflict
+                                  |          
+                                   --0.53%--kissat_backtrack_without_updating_phases
+
+     1.03%     1.03%  libc.so.6             [.] __memset_avx512_unaligned_erms             -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               |          
+                --0.81%--kissat_search_propagate
+                          __memset_avx512_unaligned_erms
+
+     0.94%     0.02%  kissat                [.] kissat_eliminate                           -      -            
+            |          
+             --0.91%--kissat_eliminate
+                       |          
+                        --0.62%--kissat_generate_resolvents
+
+     0.80%     0.46%  kissat                [.] kitten_clause_with_id_and_exception        -      -            
+     0.79%     0.15%  kissat                [.] sweep_clause                               -      -            
+            |          
+             --0.63%--sweep_clause
+                       kitten_clause_with_id_and_exception
+
+     0.70%     0.62%  kissat                [.] kissat_factor                              -      -            
+            |          
+             --0.62%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --0.61%--kissat_probe
+                                  kissat_factor
+
+     0.69%     0.69%  kissat                [.] kitten_flip_literal                        -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               kissat_probe
+               kissat_sweep
+               kitten_flip_literal
+
+     0.67%     0.07%  kissat                [.] kissat_reduce                              -      -            
+            |          
+             --0.60%--kissat_reduce
+                       |          
+                        --0.53%--kissat_sparse_collect
+
+     0.63%     0.36%  kissat                [.] sweep_refine                               -      -            
+     0.62%     0.54%  kissat                [.] kissat_substitute                          -      -            
+            |          
+             --0.54%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --0.52%--kissat_probe
+                                  kissat_substitute
+
+     0.62%     0.03%  kissat                [.] kissat_generate_resolvents                 -      -            
+            |          
+             --0.59%--kissat_generate_resolvents
+
+     0.62%     0.62%  kissat                [.] kissat_backtrack_without_updating_phases   -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               |          
+                --0.53%--kissat_analyze
+                          kissat_learn_clause
+                          |          
+                           --0.53%--kissat_backtrack_after_conflict
+                                     kissat_backtrack_without_updating_phases
+
+     0.54%     0.19%  kissat                [.] kissat_sparse_collect                      -      -            
+     0.53%     0.00%  kissat                [.] kissat_backtrack_after_conflict            -      -            
+            |
+            ---kissat_backtrack_after_conflict
+               |          
+                --0.53%--kissat_backtrack_without_updating_phases
+
+     0.46%     0.46%  kissat                [.] kissat_resize_vector                       -      -            
+     0.37%     0.00%  kissat                [.] kissat_find_definition                     -      -            
+     0.33%     0.01%  kissat                [.] kissat_decide                              -      -            
+     0.33%     0.33%  kissat                [.] kissat_watch_large_clauses                 -      -            
+     0.32%     0.32%  kissat                [.] import_literal                             -      -            
+     0.32%     0.32%  kissat                [.] flush_watched_clauses_by_literal           -      -            
+     0.30%     0.19%  kissat                [.] kissat_congruence                          -      -            
+     0.29%     0.29%  kissat                [.] vivify_sort_lits_by_counts.part.0          -      -            
+     0.28%     0.02%  kissat                [.] new_clause                                 -      -            
+     0.27%     0.27%  kissat                [.] kissat_next_decision_variable              -      -            
+     0.26%     0.21%  kissat                [.] kissat_walk                                -      -            
+     0.26%     0.00%  kissat                [.] kissat_rephase                             -      -            
+     0.26%     0.00%  kissat                [.] rephase_walking                            -      -            
+     0.22%     0.22%  kissat                [.] kitten_value                               -      -            
+     0.19%     0.18%  kissat                [.] print_proof_line                           -      -            
+     0.16%     0.15%  kissat                [.] kissat_forward_subsume_during_elimination  -      -            
+     0.13%     0.01%  kissat                [.] kitten_assume                              -      -            
+     0.13%     0.13%  kissat                [.] generate_resolvents                        -      -            
+     0.12%     0.00%  kissat                [.] kissat_mark_clause_as_garbage              -      -            
+     0.12%     0.03%  kissat                [.] reset_incremental                          -      -            
+     0.12%     0.11%  kissat                [.] kissat_flush_large_watches                 -      -            
+     0.12%     0.12%  kissat                [.] kissat_transitive_reduction                -      -            
+     0.12%     0.01%  kissat                [.] kissat_add_clause_to_proof                 -      -            
+     0.12%     0.12%  kissat                [.] import_internal_proof_literals             -      -            
+     0.11%     0.00%  kissat                [.] kissat_preprocess                          -      -            
+     0.11%     0.00%  kissat                [.] kissat_resume_sparse_mode                  -      -            
+     0.11%     0.00%  kissat                [.] kissat_probe_initially                     -      -            
+
+
+#
+# (Tip: To compare scalability of two workload samples use perf diff -c ratio file1 file2)
+#

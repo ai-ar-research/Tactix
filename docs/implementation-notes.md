@@ -162,6 +162,9 @@ pending half-analysis or schedules Backjump independently.
   Substitute republishes an attached mixed stream at its boundary after bulk
   watch rewrites. Free N1 schedules may attach it outside DefaultPolicy's
   Eliminate group; a stale mirror is not an admissible scheduling deviation.
+- Dense mode forbids sparse large-watch publication, including new clauses.
+  Production omits this guard and Eliminate's physical disconnection; isolated
+  repairs 5387/5391 restore both. Ledger `SP-ELIM-DENSE-ENTRY-1` owns the gap.
 - DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only
   packing exception. During the deletion-free scope, the retained binary-id
   key map remains the exact live-set image, so known-new binary insertion does

@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/benchmarks/probes/scratch/replay-eliminate-dense-entry-5391.py", line 15, in <module>
+    exec(compile(source, __file__, 'exec'), {'__file__': __file__})
+  File "/home/hwu/SAT-solving/benchmarks/probes/scratch/replay-eliminate-dense-entry-5391.py", line 25, in <module>
+AssertionError: ('after', 1, 'called=0 entry_connected=0 large_words=0 exit_connected=1 result=0\n', '')

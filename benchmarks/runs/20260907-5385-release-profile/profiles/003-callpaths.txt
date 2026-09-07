@@ -1,0 +1,1710 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 19K of event 'cycles:u'
+# Event count (approx.): 358551126482
+#
+# Children      Self  Shared Object         Symbol                                          IPC   [IPC Coverage]
+# ........  ........  ....................  ..............................................  ....................
+#
+    99.26%     0.00%  libc.so.6             [.] __libc_start_main@@GLIBC_2.34               -      -            
+            |
+            ---__libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               |          
+                --99.26%--main
+                          kissat_application
+                          |          
+                           --98.52%--kissat_search
+                                     |          
+                                     |--24.04%--kissat_search_propagate
+                                     |          
+                                     |--22.89%--kissat_eliminate
+                                     |          |          
+                                     |          |--15.08%--kissat_generate_resolvents
+                                     |          |          |          
+                                     |          |          |--7.34%--kissat_find_definition
+                                     |          |          |          |          
+                                     |          |          |          |--3.86%--kitten_clause_with_id_and_exception
+                                     |          |          |          |          |          
+                                     |          |          |          |           --1.69%--import_literal
+                                     |          |          |          |          
+                                     |          |          |          |--1.87%--kitten_solve
+                                     |          |          |          |          
+                                     |          |          |           --0.81%--kitten_clear
+                                     |          |          |          
+                                     |          |          |--4.28%--generate_resolvents
+                                     |          |          |          
+                                     |          |           --2.02%--kissat_find_gates
+                                     |          |                     |          
+                                     |          |                     |--0.86%--kissat_find_if_then_else_gate
+                                     |          |                     |          
+                                     |          |                      --0.72%--kissat_find_and_gate
+                                     |          |          
+                                     |          |--1.68%--new_clause
+                                     |          |          |          
+                                     |          |           --0.51%--print_proof_line
+                                     |          |          
+                                     |          |--1.51%--kissat_forward_subsume_during_elimination
+                                     |          |          
+                                     |           --0.59%--update_after_removing_variable
+                                     |          
+                                     |--22.18%--kissat_probe
+                                     |          |          
+                                     |          |--4.59%--kissat_substitute
+                                     |          |          |          
+                                     |          |           --0.60%--kissat_watch_large_clauses
+                                     |          |          
+                                     |          |--4.26%--kissat_congruence
+                                     |          |          |          
+                                     |          |          |--1.48%--forward_subsume_matching_clauses
+                                     |          |          |          |          
+                                     |          |          |           --0.85%--reset_closure
+                                     |          |          |                     |          
+                                     |          |          |                      --0.53%--cfree@GLIBC_2.2.5
+                                     |          |          |                                |          
+                                     |          |          |                                 --0.51%--_int_free
+                                     |          |          |          
+                                     |          |           --0.84%--new_and_gate.isra.0
+                                     |          |                     |          
+                                     |          |                      --0.57%--new_gate.isra.0
+                                     |          |          
+                                     |          |--3.40%--kissat_vivify
+                                     |          |          |          
+                                     |          |           --3.39%--vivify_round
+                                     |          |                     |          
+                                     |          |                     |--1.06%--kissat_probing_propagate
+                                     |          |                     |          
+                                     |          |                     |--0.95%--kissat_flush_large_watches
+                                     |          |                     |          
+                                     |          |                      --0.86%--kissat_watch_large_clauses
+                                     |          |          
+                                     |          |--3.18%--kissat_factor
+                                     |          |          
+                                     |          |--2.69%--kissat_sweep
+                                     |          |          |          
+                                     |          |           --0.64%--kitten_solve
+                                     |          |          
+                                     |          |--2.66%--kissat_binary_clauses_backbone
+                                     |          |          
+                                     |           --1.38%--kissat_transitive_reduction
+                                     |          
+                                     |--8.81%--kissat_decide
+                                     |          |          
+                                     |          |--7.85%--kissat_next_decision_variable
+                                     |          |          
+                                     |           --0.61%--kissat_assign_decision
+                                     |          
+                                     |--8.02%--kissat_analyze
+                                     |          |          
+                                     |          |--4.39%--kissat_learn_clause
+                                     |          |          |          
+                                     |          |           --4.27%--kissat_backtrack_after_conflict
+                                     |          |                     |          
+                                     |          |                     |--3.20%--kissat_save_target_phases
+                                     |          |                     |          
+                                     |          |                      --0.99%--kissat_save_best_phases
+                                     |          |          
+                                     |          |--1.96%--kissat_backtrack_without_updating_phases
+                                     |          |          
+                                     |          |--0.81%--kissat_shrink_clause
+                                     |          |          
+                                     |           --0.69%--kissat_backtrack_after_conflict
+                                     |          
+                                     |--5.84%--kissat_preprocess
+                                     |          |          
+                                     |           --5.54%--kissat_probe_initially
+                                     |                     |          
+                                     |                     |--4.05%--kissat_congruence
+                                     |                     |          |          
+                                     |                     |          |--1.19%--rewrite_gates
+                                     |                     |          |          |          
+                                     |                     |          |           --0.92%--update_and_gate
+                                     |                     |          |          
+                                     |                     |          |--1.14%--forward_subsume_matching_clauses
+                                     |                     |          |          |          
+                                     |                     |          |           --0.60%--reset_closure
+                                     |                     |          |          
+                                     |                     |           --0.70%--new_and_gate.isra.0
+                                     |                     |                     |          
+                                     |                     |                      --0.51%--new_gate.isra.0
+                                     |                     |          
+                                     |                      --1.22%--kissat_substitute
+                                     |          
+                                     |--1.84%--kissat_rephase
+                                     |          |          
+                                     |           --1.80%--rephase_walking
+                                     |                     kissat_walk
+                                     |                     |          
+                                     |                      --0.69%--kissat_warmup
+                                     |          
+                                     |--1.81%--kissat_reduce
+                                     |          |          
+                                     |           --1.74%--kissat_sparse_collect
+                                     |                     |          
+                                     |                      --1.22%--flush_watched_clauses_by_literal
+                                     |          
+                                     |--1.36%--kissat_restart
+                                     |          kissat_backtrack_without_updating_phases
+                                     |          
+                                      --0.69%--kissat_reorder
+
+    99.26%     0.00%  libc.so.6             [.] __libc_start_call_main                      -      -            
+            |
+            ---__libc_start_call_main
+               |          
+                --99.26%--main
+                          kissat_application
+                          |          
+                           --98.52%--kissat_search
+                                     |          
+                                     |--24.04%--kissat_search_propagate
+                                     |          
+                                     |--22.89%--kissat_eliminate
+                                     |          |          
+                                     |          |--15.08%--kissat_generate_resolvents
+                                     |          |          |          
+                                     |          |          |--7.34%--kissat_find_definition
+                                     |          |          |          |          
+                                     |          |          |          |--3.86%--kitten_clause_with_id_and_exception
+                                     |          |          |          |          |          
+                                     |          |          |          |           --1.69%--import_literal
+                                     |          |          |          |          
+                                     |          |          |          |--1.87%--kitten_solve
+                                     |          |          |          |          
+                                     |          |          |           --0.81%--kitten_clear
+                                     |          |          |          
+                                     |          |          |--4.28%--generate_resolvents
+                                     |          |          |          
+                                     |          |           --2.02%--kissat_find_gates
+                                     |          |                     |          
+                                     |          |                     |--0.86%--kissat_find_if_then_else_gate
+                                     |          |                     |          
+                                     |          |                      --0.72%--kissat_find_and_gate
+                                     |          |          
+                                     |          |--1.68%--new_clause
+                                     |          |          |          
+                                     |          |           --0.51%--print_proof_line
+                                     |          |          
+                                     |          |--1.51%--kissat_forward_subsume_during_elimination
+                                     |          |          
+                                     |           --0.59%--update_after_removing_variable
+                                     |          
+                                     |--22.18%--kissat_probe
+                                     |          |          
+                                     |          |--4.59%--kissat_substitute
+                                     |          |          |          
+                                     |          |           --0.60%--kissat_watch_large_clauses
+                                     |          |          
+                                     |          |--4.26%--kissat_congruence
+                                     |          |          |          
+                                     |          |          |--1.48%--forward_subsume_matching_clauses
+                                     |          |          |          |          
+                                     |          |          |           --0.85%--reset_closure
+                                     |          |          |                     |          
+                                     |          |          |                      --0.53%--cfree@GLIBC_2.2.5
+                                     |          |          |                                |          
+                                     |          |          |                                 --0.51%--_int_free
+                                     |          |          |          
+                                     |          |           --0.84%--new_and_gate.isra.0
+                                     |          |                     |          
+                                     |          |                      --0.57%--new_gate.isra.0
+                                     |          |          
+                                     |          |--3.40%--kissat_vivify
+                                     |          |          |          
+                                     |          |           --3.39%--vivify_round
+                                     |          |                     |          
+                                     |          |                     |--1.06%--kissat_probing_propagate
+                                     |          |                     |          
+                                     |          |                     |--0.95%--kissat_flush_large_watches
+                                     |          |                     |          
+                                     |          |                      --0.86%--kissat_watch_large_clauses
+                                     |          |          
+                                     |          |--3.18%--kissat_factor
+                                     |          |          
+                                     |          |--2.69%--kissat_sweep
+                                     |          |          |          
+                                     |          |           --0.64%--kitten_solve
+                                     |          |          
+                                     |          |--2.66%--kissat_binary_clauses_backbone
+                                     |          |          
+                                     |           --1.38%--kissat_transitive_reduction
+                                     |          
+                                     |--8.81%--kissat_decide
+                                     |          |          
+                                     |          |--7.85%--kissat_next_decision_variable
+                                     |          |          
+                                     |           --0.61%--kissat_assign_decision
+                                     |          
+                                     |--8.02%--kissat_analyze
+                                     |          |          
+                                     |          |--4.39%--kissat_learn_clause
+                                     |          |          |          
+                                     |          |           --4.27%--kissat_backtrack_after_conflict
+                                     |          |                     |          
+                                     |          |                     |--3.20%--kissat_save_target_phases
+                                     |          |                     |          
+                                     |          |                      --0.99%--kissat_save_best_phases
+                                     |          |          
+                                     |          |--1.96%--kissat_backtrack_without_updating_phases
+                                     |          |          
+                                     |          |--0.81%--kissat_shrink_clause
+                                     |          |          
+                                     |           --0.69%--kissat_backtrack_after_conflict
+                                     |          
+                                     |--5.84%--kissat_preprocess
+                                     |          |          
+                                     |           --5.54%--kissat_probe_initially
+                                     |                     |          
+                                     |                     |--4.05%--kissat_congruence
+                                     |                     |          |          
+                                     |                     |          |--1.19%--rewrite_gates
+                                     |                     |          |          |          
+                                     |                     |          |           --0.92%--update_and_gate
+                                     |                     |          |          
+                                     |                     |          |--1.14%--forward_subsume_matching_clauses
+                                     |                     |          |          |          
+                                     |                     |          |           --0.60%--reset_closure
+                                     |                     |          |          
+                                     |                     |           --0.70%--new_and_gate.isra.0
+                                     |                     |                     |          
+                                     |                     |                      --0.51%--new_gate.isra.0
+                                     |                     |          
+                                     |                      --1.22%--kissat_substitute
+                                     |          
+                                     |--1.84%--kissat_rephase
+                                     |          |          
+                                     |           --1.80%--rephase_walking
+                                     |                     kissat_walk
+                                     |                     |          
+                                     |                      --0.69%--kissat_warmup
+                                     |          
+                                     |--1.81%--kissat_reduce
+                                     |          |          
+                                     |           --1.74%--kissat_sparse_collect
+                                     |                     |          
+                                     |                      --1.22%--flush_watched_clauses_by_literal
+                                     |          
+                                     |--1.36%--kissat_restart
+                                     |          kissat_backtrack_without_updating_phases
+                                     |          
+                                      --0.69%--kissat_reorder
+
+    99.26%     0.00%  kissat                [.] _start                                      -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               |          
+                --98.52%--kissat_search
+                          |          
+                          |--24.04%--kissat_search_propagate
+                          |          
+                          |--22.89%--kissat_eliminate
+                          |          |          
+                          |          |--15.08%--kissat_generate_resolvents
+                          |          |          |          
+                          |          |          |--7.34%--kissat_find_definition
+                          |          |          |          |          
+                          |          |          |          |--3.86%--kitten_clause_with_id_and_exception
+                          |          |          |          |          |          
+                          |          |          |          |           --1.69%--import_literal
+                          |          |          |          |          
+                          |          |          |          |--1.87%--kitten_solve
+                          |          |          |          |          
+                          |          |          |           --0.81%--kitten_clear
+                          |          |          |          
+                          |          |          |--4.28%--generate_resolvents
+                          |          |          |          
+                          |          |           --2.02%--kissat_find_gates
+                          |          |                     |          
+                          |          |                     |--0.86%--kissat_find_if_then_else_gate
+                          |          |                     |          
+                          |          |                      --0.72%--kissat_find_and_gate
+                          |          |          
+                          |          |--1.68%--new_clause
+                          |          |          |          
+                          |          |           --0.51%--print_proof_line
+                          |          |          
+                          |          |--1.51%--kissat_forward_subsume_during_elimination
+                          |          |          
+                          |           --0.59%--update_after_removing_variable
+                          |          
+                          |--22.18%--kissat_probe
+                          |          |          
+                          |          |--4.59%--kissat_substitute
+                          |          |          |          
+                          |          |           --0.60%--kissat_watch_large_clauses
+                          |          |          
+                          |          |--4.26%--kissat_congruence
+                          |          |          |          
+                          |          |          |--1.48%--forward_subsume_matching_clauses
+                          |          |          |          |          
+                          |          |          |           --0.85%--reset_closure
+                          |          |          |                     |          
+                          |          |          |                      --0.53%--cfree@GLIBC_2.2.5
+                          |          |          |                                |          
+                          |          |          |                                 --0.51%--_int_free
+                          |          |          |          
+                          |          |           --0.84%--new_and_gate.isra.0
+                          |          |                     |          
+                          |          |                      --0.57%--new_gate.isra.0
+                          |          |          
+                          |          |--3.40%--kissat_vivify
+                          |          |          |          
+                          |          |           --3.39%--vivify_round
+                          |          |                     |          
+                          |          |                     |--1.06%--kissat_probing_propagate
+                          |          |                     |          
+                          |          |                     |--0.95%--kissat_flush_large_watches
+                          |          |                     |          
+                          |          |                      --0.86%--kissat_watch_large_clauses
+                          |          |          
+                          |          |--3.18%--kissat_factor
+                          |          |          
+                          |          |--2.69%--kissat_sweep
+                          |          |          |          
+                          |          |           --0.64%--kitten_solve
+                          |          |          
+                          |          |--2.66%--kissat_binary_clauses_backbone
+                          |          |          
+                          |           --1.38%--kissat_transitive_reduction
+                          |          
+                          |--8.81%--kissat_decide
+                          |          |          
+                          |          |--7.85%--kissat_next_decision_variable
+                          |          |          
+                          |           --0.61%--kissat_assign_decision
+                          |          
+                          |--8.02%--kissat_analyze
+                          |          |          
+                          |          |--4.39%--kissat_learn_clause
+                          |          |          |          
+                          |          |           --4.27%--kissat_backtrack_after_conflict
+                          |          |                     |          
+                          |          |                     |--3.20%--kissat_save_target_phases
+                          |          |                     |          
+                          |          |                      --0.99%--kissat_save_best_phases
+                          |          |          
+                          |          |--1.96%--kissat_backtrack_without_updating_phases
+                          |          |          
+                          |          |--0.81%--kissat_shrink_clause
+                          |          |          
+                          |           --0.69%--kissat_backtrack_after_conflict
+                          |          
+                          |--5.84%--kissat_preprocess
+                          |          |          
+                          |           --5.54%--kissat_probe_initially
+                          |                     |          
+                          |                     |--4.05%--kissat_congruence
+                          |                     |          |          
+                          |                     |          |--1.19%--rewrite_gates
+                          |                     |          |          |          
+                          |                     |          |           --0.92%--update_and_gate
+                          |                     |          |          
+                          |                     |          |--1.14%--forward_subsume_matching_clauses
+                          |                     |          |          |          
+                          |                     |          |           --0.60%--reset_closure
+                          |                     |          |          
+                          |                     |           --0.70%--new_and_gate.isra.0
+                          |                     |                     |          
+                          |                     |                      --0.51%--new_gate.isra.0
+                          |                     |          
+                          |                      --1.22%--kissat_substitute
+                          |          
+                          |--1.84%--kissat_rephase
+                          |          |          
+                          |           --1.80%--rephase_walking
+                          |                     kissat_walk
+                          |                     |          
+                          |                      --0.69%--kissat_warmup
+                          |          
+                          |--1.81%--kissat_reduce
+                          |          |          
+                          |           --1.74%--kissat_sparse_collect
+                          |                     |          
+                          |                      --1.22%--flush_watched_clauses_by_literal
+                          |          
+                          |--1.36%--kissat_restart
+                          |          kissat_backtrack_without_updating_phases
+                          |          
+                           --0.69%--kissat_reorder
+
+    99.26%     0.00%  kissat                [.] main                                        -      -            
+            |
+            ---main
+               kissat_application
+               |          
+                --98.52%--kissat_search
+                          |          
+                          |--24.04%--kissat_search_propagate
+                          |          
+                          |--22.89%--kissat_eliminate
+                          |          |          
+                          |          |--15.08%--kissat_generate_resolvents
+                          |          |          |          
+                          |          |          |--7.34%--kissat_find_definition
+                          |          |          |          |          
+                          |          |          |          |--3.86%--kitten_clause_with_id_and_exception
+                          |          |          |          |          |          
+                          |          |          |          |           --1.69%--import_literal
+                          |          |          |          |          
+                          |          |          |          |--1.87%--kitten_solve
+                          |          |          |          |          
+                          |          |          |           --0.81%--kitten_clear
+                          |          |          |          
+                          |          |          |--4.28%--generate_resolvents
+                          |          |          |          
+                          |          |           --2.02%--kissat_find_gates
+                          |          |                     |          
+                          |          |                     |--0.86%--kissat_find_if_then_else_gate
+                          |          |                     |          
+                          |          |                      --0.72%--kissat_find_and_gate
+                          |          |          
+                          |          |--1.68%--new_clause
+                          |          |          |          
+                          |          |           --0.51%--print_proof_line
+                          |          |          
+                          |          |--1.51%--kissat_forward_subsume_during_elimination
+                          |          |          
+                          |           --0.59%--update_after_removing_variable
+                          |          
+                          |--22.18%--kissat_probe
+                          |          |          
+                          |          |--4.59%--kissat_substitute
+                          |          |          |          
+                          |          |           --0.60%--kissat_watch_large_clauses
+                          |          |          
+                          |          |--4.26%--kissat_congruence
+                          |          |          |          
+                          |          |          |--1.48%--forward_subsume_matching_clauses
+                          |          |          |          |          
+                          |          |          |           --0.85%--reset_closure
+                          |          |          |                     |          
+                          |          |          |                      --0.53%--cfree@GLIBC_2.2.5
+                          |          |          |                                |          
+                          |          |          |                                 --0.51%--_int_free
+                          |          |          |          
+                          |          |           --0.84%--new_and_gate.isra.0
+                          |          |                     |          
+                          |          |                      --0.57%--new_gate.isra.0
+                          |          |          
+                          |          |--3.40%--kissat_vivify
+                          |          |          |          
+                          |          |           --3.39%--vivify_round
+                          |          |                     |          
+                          |          |                     |--1.06%--kissat_probing_propagate
+                          |          |                     |          
+                          |          |                     |--0.95%--kissat_flush_large_watches
+                          |          |                     |          
+                          |          |                      --0.86%--kissat_watch_large_clauses
+                          |          |          
+                          |          |--3.18%--kissat_factor
+                          |          |          
+                          |          |--2.69%--kissat_sweep
+                          |          |          |          
+                          |          |           --0.64%--kitten_solve
+                          |          |          
+                          |          |--2.66%--kissat_binary_clauses_backbone
+                          |          |          
+                          |           --1.38%--kissat_transitive_reduction
+                          |          
+                          |--8.81%--kissat_decide
+                          |          |          
+                          |          |--7.85%--kissat_next_decision_variable
+                          |          |          
+                          |           --0.61%--kissat_assign_decision
+                          |          
+                          |--8.02%--kissat_analyze
+                          |          |          
+                          |          |--4.39%--kissat_learn_clause
+                          |          |          |          
+                          |          |           --4.27%--kissat_backtrack_after_conflict
+                          |          |                     |          
+                          |          |                     |--3.20%--kissat_save_target_phases
+                          |          |                     |          
+                          |          |                      --0.99%--kissat_save_best_phases
+                          |          |          
+                          |          |--1.96%--kissat_backtrack_without_updating_phases
+                          |          |          
+                          |          |--0.81%--kissat_shrink_clause
+                          |          |          
+                          |           --0.69%--kissat_backtrack_after_conflict
+                          |          
+                          |--5.84%--kissat_preprocess
+                          |          |          
+                          |           --5.54%--kissat_probe_initially
+                          |                     |          
+                          |                     |--4.05%--kissat_congruence
+                          |                     |          |          
+                          |                     |          |--1.19%--rewrite_gates
+                          |                     |          |          |          
+                          |                     |          |           --0.92%--update_and_gate
+                          |                     |          |          
+                          |                     |          |--1.14%--forward_subsume_matching_clauses
+                          |                     |          |          |          
+                          |                     |          |           --0.60%--reset_closure
+                          |                     |          |          
+                          |                     |           --0.70%--new_and_gate.isra.0
+                          |                     |                     |          
+                          |                     |                      --0.51%--new_gate.isra.0
+                          |                     |          
+                          |                      --1.22%--kissat_substitute
+                          |          
+                          |--1.84%--kissat_rephase
+                          |          |          
+                          |           --1.80%--rephase_walking
+                          |                     kissat_walk
+                          |                     |          
+                          |                      --0.69%--kissat_warmup
+                          |          
+                          |--1.81%--kissat_reduce
+                          |          |          
+                          |           --1.74%--kissat_sparse_collect
+                          |                     |          
+                          |                      --1.22%--flush_watched_clauses_by_literal
+                          |          
+                          |--1.36%--kissat_restart
+                          |          kissat_backtrack_without_updating_phases
+                          |          
+                           --0.69%--kissat_reorder
+
+    99.26%     0.00%  kissat                [.] kissat_application                          -      -            
+            |
+            ---kissat_application
+               |          
+                --98.52%--kissat_search
+                          |          
+                          |--24.04%--kissat_search_propagate
+                          |          
+                          |--22.89%--kissat_eliminate
+                          |          |          
+                          |          |--15.08%--kissat_generate_resolvents
+                          |          |          |          
+                          |          |          |--7.34%--kissat_find_definition
+                          |          |          |          |          
+                          |          |          |          |--3.86%--kitten_clause_with_id_and_exception
+                          |          |          |          |          |          
+                          |          |          |          |           --1.69%--import_literal
+                          |          |          |          |          
+                          |          |          |          |--1.87%--kitten_solve
+                          |          |          |          |          
+                          |          |          |           --0.81%--kitten_clear
+                          |          |          |          
+                          |          |          |--4.28%--generate_resolvents
+                          |          |          |          
+                          |          |           --2.02%--kissat_find_gates
+                          |          |                     |          
+                          |          |                     |--0.86%--kissat_find_if_then_else_gate
+                          |          |                     |          
+                          |          |                      --0.72%--kissat_find_and_gate
+                          |          |          
+                          |          |--1.68%--new_clause
+                          |          |          |          
+                          |          |           --0.51%--print_proof_line
+                          |          |          
+                          |          |--1.51%--kissat_forward_subsume_during_elimination
+                          |          |          
+                          |           --0.59%--update_after_removing_variable
+                          |          
+                          |--22.18%--kissat_probe
+                          |          |          
+                          |          |--4.59%--kissat_substitute
+                          |          |          |          
+                          |          |           --0.60%--kissat_watch_large_clauses
+                          |          |          
+                          |          |--4.26%--kissat_congruence
+                          |          |          |          
+                          |          |          |--1.48%--forward_subsume_matching_clauses
+                          |          |          |          |          
+                          |          |          |           --0.85%--reset_closure
+                          |          |          |                     |          
+                          |          |          |                      --0.53%--cfree@GLIBC_2.2.5
+                          |          |          |                                |          
+                          |          |          |                                 --0.51%--_int_free
+                          |          |          |          
+                          |          |           --0.84%--new_and_gate.isra.0
+                          |          |                     |          
+                          |          |                      --0.57%--new_gate.isra.0
+                          |          |          
+                          |          |--3.40%--kissat_vivify
+                          |          |          |          
+                          |          |           --3.39%--vivify_round
+                          |          |                     |          
+                          |          |                     |--1.06%--kissat_probing_propagate
+                          |          |                     |          
+                          |          |                     |--0.95%--kissat_flush_large_watches
+                          |          |                     |          
+                          |          |                      --0.86%--kissat_watch_large_clauses
+                          |          |          
+                          |          |--3.18%--kissat_factor
+                          |          |          
+                          |          |--2.69%--kissat_sweep
+                          |          |          |          
+                          |          |           --0.64%--kitten_solve
+                          |          |          
+                          |          |--2.66%--kissat_binary_clauses_backbone
+                          |          |          
+                          |           --1.38%--kissat_transitive_reduction
+                          |          
+                          |--8.81%--kissat_decide
+                          |          |          
+                          |          |--7.85%--kissat_next_decision_variable
+                          |          |          
+                          |           --0.61%--kissat_assign_decision
+                          |          
+                          |--8.02%--kissat_analyze
+                          |          |          
+                          |          |--4.39%--kissat_learn_clause
+                          |          |          |          
+                          |          |           --4.27%--kissat_backtrack_after_conflict
+                          |          |                     |          
+                          |          |                     |--3.20%--kissat_save_target_phases
+                          |          |                     |          
+                          |          |                      --0.99%--kissat_save_best_phases
+                          |          |          
+                          |          |--1.96%--kissat_backtrack_without_updating_phases
+                          |          |          
+                          |          |--0.81%--kissat_shrink_clause
+                          |          |          
+                          |           --0.69%--kissat_backtrack_after_conflict
+                          |          
+                          |--5.84%--kissat_preprocess
+                          |          |          
+                          |           --5.54%--kissat_probe_initially
+                          |                     |          
+                          |                     |--4.05%--kissat_congruence
+                          |                     |          |          
+                          |                     |          |--1.19%--rewrite_gates
+                          |                     |          |          |          
+                          |                     |          |           --0.92%--update_and_gate
+                          |                     |          |          
+                          |                     |          |--1.14%--forward_subsume_matching_clauses
+                          |                     |          |          |          
+                          |                     |          |           --0.60%--reset_closure
+                          |                     |          |          
+                          |                     |           --0.70%--new_and_gate.isra.0
+                          |                     |                     |          
+                          |                     |                      --0.51%--new_gate.isra.0
+                          |                     |          
+                          |                      --1.22%--kissat_substitute
+                          |          
+                          |--1.84%--kissat_rephase
+                          |          |          
+                          |           --1.80%--rephase_walking
+                          |                     kissat_walk
+                          |                     |          
+                          |                      --0.69%--kissat_warmup
+                          |          
+                          |--1.81%--kissat_reduce
+                          |          |          
+                          |           --1.74%--kissat_sparse_collect
+                          |                     |          
+                          |                      --1.22%--flush_watched_clauses_by_literal
+                          |          
+                          |--1.36%--kissat_restart
+                          |          kissat_backtrack_without_updating_phases
+                          |          
+                           --0.69%--kissat_reorder
+
+    98.52%     0.27%  kissat                [.] kissat_search                               -      -            
+            |          
+             --98.25%--kissat_search
+                       |          
+                       |--24.04%--kissat_search_propagate
+                       |          
+                       |--22.89%--kissat_eliminate
+                       |          |          
+                       |          |--15.08%--kissat_generate_resolvents
+                       |          |          |          
+                       |          |          |--7.34%--kissat_find_definition
+                       |          |          |          |          
+                       |          |          |          |--3.86%--kitten_clause_with_id_and_exception
+                       |          |          |          |          |          
+                       |          |          |          |           --1.69%--import_literal
+                       |          |          |          |          
+                       |          |          |          |--1.87%--kitten_solve
+                       |          |          |          |          
+                       |          |          |           --0.81%--kitten_clear
+                       |          |          |          
+                       |          |          |--4.28%--generate_resolvents
+                       |          |          |          
+                       |          |           --2.02%--kissat_find_gates
+                       |          |                     |          
+                       |          |                     |--0.86%--kissat_find_if_then_else_gate
+                       |          |                     |          
+                       |          |                      --0.72%--kissat_find_and_gate
+                       |          |          
+                       |          |--1.68%--new_clause
+                       |          |          |          
+                       |          |           --0.51%--print_proof_line
+                       |          |          
+                       |          |--1.51%--kissat_forward_subsume_during_elimination
+                       |          |          
+                       |           --0.59%--update_after_removing_variable
+                       |          
+                       |--22.18%--kissat_probe
+                       |          |          
+                       |          |--4.59%--kissat_substitute
+                       |          |          |          
+                       |          |           --0.60%--kissat_watch_large_clauses
+                       |          |          
+                       |          |--4.26%--kissat_congruence
+                       |          |          |          
+                       |          |          |--1.48%--forward_subsume_matching_clauses
+                       |          |          |          |          
+                       |          |          |           --0.85%--reset_closure
+                       |          |          |                     |          
+                       |          |          |                      --0.53%--cfree@GLIBC_2.2.5
+                       |          |          |                                |          
+                       |          |          |                                 --0.51%--_int_free
+                       |          |          |          
+                       |          |           --0.84%--new_and_gate.isra.0
+                       |          |                     |          
+                       |          |                      --0.57%--new_gate.isra.0
+                       |          |          
+                       |          |--3.40%--kissat_vivify
+                       |          |          |          
+                       |          |           --3.39%--vivify_round
+                       |          |                     |          
+                       |          |                     |--1.06%--kissat_probing_propagate
+                       |          |                     |          
+                       |          |                     |--0.95%--kissat_flush_large_watches
+                       |          |                     |          
+                       |          |                      --0.86%--kissat_watch_large_clauses
+                       |          |          
+                       |          |--3.18%--kissat_factor
+                       |          |          
+                       |          |--2.69%--kissat_sweep
+                       |          |          |          
+                       |          |           --0.64%--kitten_solve
+                       |          |          
+                       |          |--2.66%--kissat_binary_clauses_backbone
+                       |          |          
+                       |           --1.38%--kissat_transitive_reduction
+                       |          
+                       |--8.81%--kissat_decide
+                       |          |          
+                       |          |--7.85%--kissat_next_decision_variable
+                       |          |          
+                       |           --0.61%--kissat_assign_decision
+                       |          
+                       |--8.02%--kissat_analyze
+                       |          |          
+                       |          |--4.39%--kissat_learn_clause
+                       |          |          |          
+                       |          |           --4.27%--kissat_backtrack_after_conflict
+                       |          |                     |          
+                       |          |                     |--3.20%--kissat_save_target_phases
+                       |          |                     |          
+                       |          |                      --0.99%--kissat_save_best_phases
+                       |          |          
+                       |          |--1.96%--kissat_backtrack_without_updating_phases
+                       |          |          
+                       |          |--0.81%--kissat_shrink_clause
+                       |          |          
+                       |           --0.69%--kissat_backtrack_after_conflict
+                       |          
+                       |--5.84%--kissat_preprocess
+                       |          |          
+                       |           --5.54%--kissat_probe_initially
+                       |                     |          
+                       |                     |--4.05%--kissat_congruence
+                       |                     |          |          
+                       |                     |          |--1.19%--rewrite_gates
+                       |                     |          |          |          
+                       |                     |          |           --0.92%--update_and_gate
+                       |                     |          |          
+                       |                     |          |--1.14%--forward_subsume_matching_clauses
+                       |                     |          |          |          
+                       |                     |          |           --0.60%--reset_closure
+                       |                     |          |          
+                       |                     |           --0.70%--new_and_gate.isra.0
+                       |                     |                     |          
+                       |                     |                      --0.51%--new_gate.isra.0
+                       |                     |          
+                       |                      --1.22%--kissat_substitute
+                       |          
+                       |--1.84%--kissat_rephase
+                       |          |          
+                       |           --1.80%--rephase_walking
+                       |                     kissat_walk
+                       |                     |          
+                       |                      --0.69%--kissat_warmup
+                       |          
+                       |--1.81%--kissat_reduce
+                       |          |          
+                       |           --1.74%--kissat_sparse_collect
+                       |                     |          
+                       |                      --1.22%--flush_watched_clauses_by_literal
+                       |          
+                       |--1.36%--kissat_restart
+                       |          kissat_backtrack_without_updating_phases
+                       |          
+                        --0.69%--kissat_reorder
+
+    24.04%    23.63%  kissat                [.] kissat_search_propagate                     -      -            
+            |          
+             --23.63%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_search_propagate
+
+    22.89%     2.35%  kissat                [.] kissat_eliminate                            -      -            
+            |          
+            |--20.54%--kissat_eliminate
+            |          |          
+            |          |--15.08%--kissat_generate_resolvents
+            |          |          |          
+            |          |          |--7.34%--kissat_find_definition
+            |          |          |          |          
+            |          |          |          |--3.86%--kitten_clause_with_id_and_exception
+            |          |          |          |          |          
+            |          |          |          |           --1.69%--import_literal
+            |          |          |          |          
+            |          |          |          |--1.87%--kitten_solve
+            |          |          |          |          
+            |          |          |           --0.81%--kitten_clear
+            |          |          |          
+            |          |          |--4.28%--generate_resolvents
+            |          |          |          
+            |          |           --2.02%--kissat_find_gates
+            |          |                     |          
+            |          |                     |--0.86%--kissat_find_if_then_else_gate
+            |          |                     |          
+            |          |                      --0.72%--kissat_find_and_gate
+            |          |          
+            |          |--1.68%--new_clause
+            |          |          |          
+            |          |           --0.51%--print_proof_line
+            |          |          
+            |          |--1.51%--kissat_forward_subsume_during_elimination
+            |          |          
+            |           --0.59%--update_after_removing_variable
+            |          
+             --2.35%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_eliminate
+
+    22.18%     0.00%  kissat                [.] kissat_probe                                -      -            
+            |
+            ---kissat_probe
+               |          
+               |--4.59%--kissat_substitute
+               |          |          
+               |           --0.60%--kissat_watch_large_clauses
+               |          
+               |--4.26%--kissat_congruence
+               |          |          
+               |          |--1.48%--forward_subsume_matching_clauses
+               |          |          |          
+               |          |           --0.85%--reset_closure
+               |          |                     |          
+               |          |                      --0.53%--cfree@GLIBC_2.2.5
+               |          |                                |          
+               |          |                                 --0.51%--_int_free
+               |          |          
+               |           --0.84%--new_and_gate.isra.0
+               |                     |          
+               |                      --0.57%--new_gate.isra.0
+               |          
+               |--3.40%--kissat_vivify
+               |          |          
+               |           --3.39%--vivify_round
+               |                     |          
+               |                     |--1.06%--kissat_probing_propagate
+               |                     |          
+               |                     |--0.95%--kissat_flush_large_watches
+               |                     |          
+               |                      --0.86%--kissat_watch_large_clauses
+               |          
+               |--3.18%--kissat_factor
+               |          
+               |--2.69%--kissat_sweep
+               |          |          
+               |           --0.64%--kitten_solve
+               |          
+               |--2.66%--kissat_binary_clauses_backbone
+               |          
+                --1.38%--kissat_transitive_reduction
+
+    15.08%     1.21%  kissat                [.] kissat_generate_resolvents                  -      -            
+            |          
+            |--13.87%--kissat_generate_resolvents
+            |          |          
+            |          |--7.34%--kissat_find_definition
+            |          |          |          
+            |          |          |--3.86%--kitten_clause_with_id_and_exception
+            |          |          |          |          
+            |          |          |           --1.69%--import_literal
+            |          |          |          
+            |          |          |--1.87%--kitten_solve
+            |          |          |          
+            |          |           --0.81%--kitten_clear
+            |          |          
+            |          |--4.28%--generate_resolvents
+            |          |          
+            |           --2.02%--kissat_find_gates
+            |                     |          
+            |                     |--0.86%--kissat_find_if_then_else_gate
+            |                     |          
+            |                      --0.72%--kissat_find_and_gate
+            |          
+             --1.21%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_eliminate
+                       kissat_generate_resolvents
+
+     9.20%     0.18%  kissat                [.] kissat_decide                               -      -            
+            |          
+             --9.02%--kissat_decide
+                       |          
+                       |--8.22%--kissat_next_decision_variable
+                       |          
+                        --0.63%--kissat_assign_decision
+
+     8.31%     1.24%  kissat                [.] kissat_congruence                           -      -            
+            |          
+            |--7.07%--kissat_congruence
+            |          |          
+            |          |--2.62%--forward_subsume_matching_clauses
+            |          |          |          
+            |          |          |--1.45%--reset_closure
+            |          |          |          |          
+            |          |          |           --0.91%--cfree@GLIBC_2.2.5
+            |          |          |                     |          
+            |          |          |                      --0.88%--_int_free
+            |          |          |                                |          
+            |          |          |                                 --0.82%--malloc_consolidate
+            |          |          |          
+            |          |           --0.69%--kissat_resume_sparse_mode
+            |          |          
+            |          |--1.54%--new_and_gate.isra.0
+            |          |          |          
+            |          |           --1.07%--new_gate.isra.0
+            |          |          
+            |           --1.19%--rewrite_gates
+            |                     |          
+            |                      --0.92%--update_and_gate
+            |          
+             --1.24%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --0.76%--kissat_probe
+                                  kissat_congruence
+
+     8.22%     8.21%  kissat                [.] kissat_next_decision_variable               -      -            
+            |          
+             --8.21%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --7.85%--kissat_decide
+                                  kissat_next_decision_variable
+
+     8.02%     0.03%  kissat                [.] kissat_analyze                              -      -            
+            |          
+             --8.00%--kissat_analyze
+                       |          
+                       |--4.39%--kissat_learn_clause
+                       |          |          
+                       |           --4.27%--kissat_backtrack_after_conflict
+                       |                     |          
+                       |                     |--3.20%--kissat_save_target_phases
+                       |                     |          
+                       |                      --0.99%--kissat_save_best_phases
+                       |          
+                       |--1.96%--kissat_backtrack_without_updating_phases
+                       |          
+                       |--0.81%--kissat_shrink_clause
+                       |          
+                        --0.69%--kissat_backtrack_after_conflict
+
+     7.34%     0.26%  kissat                [.] kissat_find_definition                      -      -            
+            |          
+             --7.08%--kissat_find_definition
+                       |          
+                       |--3.86%--kitten_clause_with_id_and_exception
+                       |          |          
+                       |           --1.69%--import_literal
+                       |          
+                       |--1.87%--kitten_solve
+                       |          
+                        --0.81%--kitten_clear
+
+     5.84%     0.00%  kissat                [.] kissat_preprocess                           -      -            
+            |
+            ---kissat_preprocess
+               |          
+                --5.54%--kissat_probe_initially
+                          |          
+                          |--4.05%--kissat_congruence
+                          |          |          
+                          |          |--1.19%--rewrite_gates
+                          |          |          |          
+                          |          |           --0.92%--update_and_gate
+                          |          |          
+                          |          |--1.14%--forward_subsume_matching_clauses
+                          |          |          |          
+                          |          |           --0.60%--reset_closure
+                          |          |          
+                          |           --0.70%--new_and_gate.isra.0
+                          |                     |          
+                          |                      --0.51%--new_gate.isra.0
+                          |          
+                           --1.22%--kissat_substitute
+
+     5.81%     4.81%  kissat                [.] kissat_substitute                           -      -            
+            |          
+            |--4.81%--_start
+            |          __libc_start_main@@GLIBC_2.34
+            |          __libc_start_call_main
+            |          main
+            |          kissat_application
+            |          kissat_search
+            |          |          
+            |          |--3.86%--kissat_probe
+            |          |          kissat_substitute
+            |          |          
+            |           --0.96%--kissat_preprocess
+            |                     kissat_probe_initially
+            |                     kissat_substitute
+            |          
+             --0.99%--kissat_substitute
+                       |          
+                        --0.66%--kissat_watch_large_clauses
+
+     5.54%     0.00%  kissat                [.] kissat_probe_initially                      -      -            
+            |
+            ---kissat_probe_initially
+               |          
+               |--4.05%--kissat_congruence
+               |          |          
+               |          |--1.19%--rewrite_gates
+               |          |          |          
+               |          |           --0.92%--update_and_gate
+               |          |          
+               |          |--1.14%--forward_subsume_matching_clauses
+               |          |          |          
+               |          |           --0.60%--reset_closure
+               |          |          
+               |           --0.70%--new_and_gate.isra.0
+               |                     |          
+               |                      --0.51%--new_gate.isra.0
+               |          
+                --1.22%--kissat_substitute
+
+     4.96%     0.00%  kissat                [.] kissat_backtrack_after_conflict             -      -            
+            |
+            ---kissat_backtrack_after_conflict
+               |          
+               |--3.53%--kissat_save_target_phases
+               |          
+                --1.32%--kissat_save_best_phases
+
+     4.39%     0.00%  kissat                [.] kissat_learn_clause                         -      -            
+            |
+            ---kissat_learn_clause
+               |          
+                --4.27%--kissat_backtrack_after_conflict
+                          |          
+                          |--3.20%--kissat_save_target_phases
+                          |          
+                           --0.99%--kissat_save_best_phases
+
+     4.28%     4.27%  kissat                [.] generate_resolvents                         -      -            
+            |          
+             --4.27%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_eliminate
+                       kissat_generate_resolvents
+                       generate_resolvents
+
+     4.13%     2.32%  kissat                [.] kitten_clause_with_id_and_exception         -      -            
+            |          
+            |--2.32%--_start
+            |          __libc_start_main@@GLIBC_2.34
+            |          __libc_start_call_main
+            |          main
+            |          kissat_application
+            |          kissat_search
+            |          |          
+            |           --2.17%--kissat_eliminate
+            |                     kissat_generate_resolvents
+            |                     kissat_find_definition
+            |                     kitten_clause_with_id_and_exception
+            |          
+             --1.81%--kitten_clause_with_id_and_exception
+                       import_literal
+
+     3.77%     3.77%  kissat                [.] kissat_backtrack_without_updating_phases    -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               |          
+               |--2.13%--kissat_analyze
+               |          |          
+               |           --1.96%--kissat_backtrack_without_updating_phases
+               |          
+                --1.36%--kissat_restart
+                          kissat_backtrack_without_updating_phases
+
+     3.54%     3.54%  kissat                [.] kissat_save_target_phases                   -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               |          
+                --3.53%--kissat_analyze
+                          |          
+                           --3.20%--kissat_learn_clause
+                                     kissat_backtrack_after_conflict
+                                     kissat_save_target_phases
+
+     3.40%     0.00%  kissat                [.] kissat_vivify                               -      -            
+            |
+            ---kissat_vivify
+               |          
+                --3.39%--vivify_round
+                          |          
+                          |--1.06%--kissat_probing_propagate
+                          |          
+                          |--0.95%--kissat_flush_large_watches
+                          |          
+                           --0.86%--kissat_watch_large_clauses
+
+     3.39%     0.43%  kissat                [.] vivify_round                                -      -            
+            |          
+             --2.96%--vivify_round
+                       |          
+                       |--1.06%--kissat_probing_propagate
+                       |          
+                       |--0.95%--kissat_flush_large_watches
+                       |          
+                        --0.86%--kissat_watch_large_clauses
+
+     3.18%     2.43%  kissat                [.] kissat_factor                               -      -            
+            |          
+            |--2.43%--_start
+            |          __libc_start_main@@GLIBC_2.34
+            |          __libc_start_call_main
+            |          main
+            |          kissat_application
+            |          kissat_search
+            |          kissat_probe
+            |          kissat_factor
+            |          
+             --0.74%--kissat_factor
+
+     2.95%     0.27%  kissat                [.] kissat_sweep                                -      -            
+            |          
+             --2.67%--kissat_sweep
+                       |          
+                        --0.64%--kitten_solve
+
+     2.68%     2.66%  kissat                [.] kissat_binary_clauses_backbone              -      -            
+            |          
+             --2.66%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --2.64%--kissat_probe
+                                  kissat_binary_clauses_backbone
+
+     2.62%     0.15%  kissat                [.] forward_subsume_matching_clauses            -      -            
+            |          
+             --2.47%--forward_subsume_matching_clauses
+                       |          
+                       |--1.45%--reset_closure
+                       |          |          
+                       |           --0.91%--cfree@GLIBC_2.2.5
+                       |                     |          
+                       |                      --0.88%--_int_free
+                       |                                |          
+                       |                                 --0.82%--malloc_consolidate
+                       |          
+                        --0.69%--kissat_resume_sparse_mode
+
+     2.52%     2.26%  kissat                [.] kitten_solve                                -      -            
+            |          
+             --2.26%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                       |--1.62%--kissat_eliminate
+                       |          kissat_generate_resolvents
+                       |          kissat_find_definition
+                       |          kitten_solve
+                       |          
+                        --0.64%--kissat_probe
+                                  kissat_sweep
+                                  kitten_solve
+
+     2.37%     2.02%  kissat                [.] kissat_watch_large_clauses                  -      -            
+            |          
+             --2.02%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --1.84%--kissat_probe
+                                  |          
+                                  |--0.86%--kissat_vivify
+                                  |          vivify_round
+                                  |          kissat_watch_large_clauses
+                                  |          
+                                   --0.60%--kissat_substitute
+                                             kissat_watch_large_clauses
+
+     2.10%     0.57%  kissat                [.] kissat_resume_sparse_mode                   -      -            
+            |          
+            |--1.54%--kissat_resume_sparse_mode
+            |          |          
+            |           --0.84%--kissat_watch_large_clauses
+            |          
+             --0.57%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+
+     2.04%     0.43%  kissat                [.] kissat_sparse_collect                       -      -            
+            |          
+             --1.61%--kissat_sparse_collect
+                       |          
+                        --1.36%--flush_watched_clauses_by_literal
+
+     2.02%     0.02%  kissat                [.] kissat_find_gates                           -      -            
+            |          
+             --1.99%--kissat_find_gates
+                       |          
+                       |--0.86%--kissat_find_if_then_else_gate
+                       |          
+                        --0.72%--kissat_find_and_gate
+
+     1.96%     0.68%  kissat                [.] new_clause                                  -      -            
+            |          
+            |--1.28%--new_clause
+            |          |          
+            |           --0.52%--print_proof_line
+            |          
+             --0.59%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --0.57%--kissat_eliminate
+                                  new_clause
+
+     1.84%     0.00%  kissat                [.] kissat_rephase                              -      -            
+            |
+            ---kissat_rephase
+               |          
+                --1.80%--rephase_walking
+                          kissat_walk
+                          |          
+                           --0.69%--kissat_warmup
+
+     1.82%     1.82%  kissat                [.] import_literal                              -      -            
+            |          
+             --1.82%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --1.69%--kissat_eliminate
+                                  kissat_generate_resolvents
+                                  kissat_find_definition
+                                  kitten_clause_with_id_and_exception
+                                  import_literal
+
+     1.81%     0.02%  kissat                [.] kissat_reduce                               -      -            
+            |          
+             --1.79%--kissat_reduce
+                       |          
+                        --1.74%--kissat_sparse_collect
+                                  |          
+                                   --1.22%--flush_watched_clauses_by_literal
+
+     1.80%     0.40%  kissat                [.] kissat_walk                                 -      -            
+            |          
+             --1.40%--kissat_walk
+                       |          
+                        --0.69%--kissat_warmup
+
+     1.80%     0.00%  kissat                [.] rephase_walking                             -      -            
+            |
+            ---rephase_walking
+               kissat_walk
+               |          
+                --0.69%--kissat_warmup
+
+     1.60%     0.98%  kissat                [.] kissat_enlarge_vector                       -      -            
+            |          
+            |--0.96%--_start
+            |          __libc_start_main@@GLIBC_2.34
+            |          __libc_start_call_main
+            |          main
+            |          kissat_application
+            |          kissat_search
+            |          
+             --0.62%--kissat_enlarge_vector
+
+     1.54%     0.04%  kissat                [.] new_and_gate.isra.0                         -      -            
+            |          
+             --1.51%--new_and_gate.isra.0
+                       |          
+                        --1.07%--new_gate.isra.0
+
+     1.52%     1.39%  kissat                [.] kissat_forward_subsume_during_elimination   -      -            
+            |          
+             --1.39%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_eliminate
+                       kissat_forward_subsume_during_elimination
+
+     1.45%     1.41%  kissat                [.] kissat_probing_propagate                    -      -            
+            |          
+             --1.41%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --1.02%--kissat_probe
+                                  kissat_vivify
+                                  vivify_round
+                                  kissat_probing_propagate
+
+     1.45%     0.10%  kissat                [.] reset_closure                               -      -            
+            |          
+             --1.34%--reset_closure
+                       |          
+                        --0.91%--cfree@GLIBC_2.2.5
+                                  |          
+                                   --0.88%--_int_free
+                                             |          
+                                              --0.82%--malloc_consolidate
+
+     1.40%     1.19%  kissat                [.] kissat_flush_large_watches                  -      -            
+            |          
+             --1.19%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --1.05%--kissat_probe
+                                  |          
+                                   --0.84%--kissat_vivify
+                                             vivify_round
+                                             kissat_flush_large_watches
+
+     1.38%     1.37%  kissat                [.] kissat_transitive_reduction                 -      -            
+            |          
+             --1.37%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_probe
+                       kissat_transitive_reduction
+
+     1.36%     1.31%  kissat                [.] flush_watched_clauses_by_literal            -      -            
+            |          
+             --1.31%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --1.17%--kissat_reduce
+                                  kissat_sparse_collect
+                                  flush_watched_clauses_by_literal
+
+     1.36%     0.00%  kissat                [.] kissat_restart                              -      -            
+            |
+            ---kissat_restart
+               kissat_backtrack_without_updating_phases
+
+     1.32%     1.32%  kissat                [.] kissat_save_best_phases                     -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               kissat_analyze
+               |          
+                --0.99%--kissat_learn_clause
+                          kissat_backtrack_after_conflict
+                          kissat_save_best_phases
+
+     1.19%     0.20%  kissat                [.] rewrite_gates                               -      -            
+            |          
+             --0.99%--rewrite_gates
+                       |          
+                        --0.92%--update_and_gate
+
+     1.14%     0.12%  libc.so.6             [.] cfree@GLIBC_2.2.5                           -      -            
+            |          
+             --1.02%--cfree@GLIBC_2.2.5
+                       _int_free
+                       |          
+                        --0.85%--malloc_consolidate
+
+     1.13%     1.13%  libc.so.6             [.] __memset_avx512_unaligned_erms              -      -            
+            |          
+             --1.12%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       |          
+                        --0.59%--kissat_eliminate
+                                  |          
+                                   --0.53%--kissat_generate_resolvents
+
+     1.09%     0.63%  kissat                [.] kissat_enter_dense_mode                     -      -            
+            |          
+             --0.63%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+
+     1.08%     0.22%  libc.so.6             [.] _int_free                                   -      -            
+            |          
+             --0.86%--_int_free
+                       malloc_consolidate
+
+     1.07%     0.34%  kissat                [.] new_gate.isra.0                             -      -            
+            |          
+             --0.73%--new_gate.isra.0
+
+     1.04%     1.04%  kissat                [.] print_proof_line                            -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               |          
+                --0.83%--kissat_eliminate
+                          |          
+                           --0.51%--new_clause
+                                     print_proof_line
+
+     0.92%     0.03%  kissat                [.] update_and_gate                             -      -            
+            |          
+             --0.88%--update_and_gate
+
+     0.88%     0.41%  libc.so.6             [.] malloc_consolidate                          -      -            
+     0.86%     0.44%  kissat                [.] kissat_find_if_then_else_gate               -      -            
+     0.84%     0.33%  kissat                [.] kitten_clear                                -      -            
+            |          
+             --0.51%--kitten_clear
+
+     0.81%     0.80%  kissat                [.] kissat_shrink_clause                        -      -            
+            |          
+             --0.80%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+                       kissat_analyze
+                       kissat_shrink_clause
+
+     0.79%     0.79%  kissat                [.] kissat_resize_vector                        -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+
+     0.74%     0.74%  libc.so.6             [.] __memmove_avx512_unaligned_erms             -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               |          
+                --0.72%--kissat_search
+
+     0.72%     0.44%  kissat                [.] kissat_find_and_gate                        -      -            
+     0.71%     0.30%  kissat                [.] parse_dimacs                                -      -            
+            |
+            ---parse_dimacs
+
+     0.69%     0.00%  kissat                [.] kissat_warmup                               -      -            
+            |
+            ---kissat_warmup
+
+     0.69%     0.06%  kissat                [.] kissat_reorder                              -      -            
+            |          
+             --0.63%--kissat_reorder
+
+     0.67%     0.51%  kissat                [.] kissat_flush_large_connected                -      -            
+            |          
+             --0.51%--_start
+                       __libc_start_main@@GLIBC_2.34
+                       __libc_start_call_main
+                       main
+                       kissat_application
+                       kissat_search
+
+     0.65%     0.01%  kissat                [.] kissat_realloc                              -      -            
+            |          
+             --0.64%--kissat_realloc
+
+     0.64%     0.64%  kissat                [.] kissat_assign_decision                      -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               |          
+                --0.61%--kissat_decide
+                          kissat_assign_decision
+
+     0.64%     0.64%  kissat                [.] find_gate                                   -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+
+     0.59%     0.59%  kissat                [.] update_after_removing_variable              -      -            
+            |
+            ---_start
+               __libc_start_main@@GLIBC_2.34
+               __libc_start_call_main
+               main
+               kissat_application
+               kissat_search
+               kissat_eliminate
+               update_after_removing_variable
+
+     0.54%     0.48%  kissat                [.] kissat_defrag_vectors                       -      -            
+     0.49%     0.04%  kissat                [.] merge_literals                              -      -            
+     0.47%     0.47%  libc.so.6             [.] unlink_chunk.constprop.0                    -      -            
+     0.46%     0.19%  kissat                [.] sweep_refine                                -      -            
+     0.45%     0.01%  kissat                [.] kissat_lucky                                -      -            
+     0.42%     0.42%  kissat                [.] sort_active_variables_by_weight             -      -            
+     0.42%     0.42%  kissat                [.] get_ternary_clause                          -      -            
+     0.41%     0.10%  kissat                [.] kissat_add                                  -      -            
+     0.41%     0.16%  kissat                [.] kissat_find_equivalence_gate                -      -            
+     0.41%     0.25%  kissat                [.] reset_gate_hash_table                       -      -            
+     0.40%     0.37%  kissat                [.] kissat_connect_irredundant_large_clauses    -      -            
+     0.38%     0.38%  kissat                [.] kissat_mark_binaries                        -      -            
+     0.38%     0.00%  kissat                [.] kissat_print_witness                        -      -            
+     0.37%     0.08%  libc.so.6             [.] realloc                                     -      -            
+     0.37%     0.03%  kissat                [.] kissat_mark_clause_as_garbage               -      -            
+     0.36%     0.00%  kissat                [.] kissat_parse_dimacs                         -      -            
+     0.34%     0.07%  libc.so.6             [.] malloc                                      -      -            
+     0.33%     0.29%  libc.so.6             [.] _int_malloc                                 -      -            
+     0.32%     0.32%  kissat                [.] kitten_flip_literal                         -      -            
+     0.32%     0.04%  kissat                [.] sweep_clause                                -      -            
+     0.31%     0.30%  kissat                [.] extract_binaries                            -      -            
+     0.30%     0.29%  kissat                [.] index_gate                                  -      -            
+     0.30%     0.00%  kissat                [.] kissat_initial_sparse_collect               -      -            
+     0.30%     0.26%  kissat                [.] kissat_new_binary_clause                    -      -            
+     0.29%     0.02%  kissat                [.] print_int                                   -      -            
+     0.29%     0.04%  libc.so.6             [.] _int_realloc                                -      -            
+     0.27%     0.05%  kissat                [.] kissat_delete_binary                        -      -            
+     0.23%     0.22%  kissat                [.] kissat_propagate_beyond_conflicts           -      -            
+     0.23%     0.22%  kissat                [.] kissat_finalize_compacting                  -      -            
+     0.20%     0.20%  kissat                [.] kissat_mark_eliminated_variable             -      -            
+     0.20%     0.19%  kissat                [.] compute_weights                             -      -            
+     0.20%     0.20%  kissat                [.] sort_lits.part.0                            -      -            
+     0.20%     0.04%  kissat                [.] kissat_add_clause_to_proof                  -      -            
+     0.18%     0.18%  kissat                [.] kitten_shuffle_clauses                      -      -            
+     0.18%     0.18%  kissat                [.] kitten_compute_clausal_core                 -      -            
+     0.17%     0.17%  kissat                [.] kitten_value                                -      -            
+     0.17%     0.17%  kissat                [.] kissat_decide_phase                         -      -            
+     0.17%     0.17%  kissat                [.] get_antecedents                             -      -            
+     0.16%     0.16%  kissat                [.] kissat_unmark_binaries                      -      -            
+     0.16%     0.16%  kissat                [.] import_internal_proof_literals              -      -            
+     0.14%     0.06%  kissat                [.] kissat_flush_all_connected                  -      -            
+     0.14%     0.14%  kissat                [.] new_learned_klause                          -      -            
+     0.13%     0.13%  kissat                [.] kissat_add_binary_to_proof                  -      -            
+     0.13%     0.06%  kissat                [.] kitten_shrink_to_clausal_core               -      -            
+     0.12%     0.10%  kissat                [.] update_candidate                            -      -            
+     0.12%     0.07%  kissat                [.] kissat_remove_from_vector                   -      -            
+     0.12%     0.12%  kissat                [.] kissat_delete_binary_from_proof             -      -            
+     0.11%     0.11%  kissat                [.] completely_backtrack_to_root_level          -      -            
+     0.11%     0.00%  libc.so.6             [.] sprintf                                     -      -            
+     0.11%     0.01%  kissat                [.] kitten_assume                               -      -            
+     0.10%     0.03%  libc.so.6             [.] __vsprintf_internal                         -      -            
+     0.10%     0.10%  kissat                [.] kissat_mark_added_literals                  -      -            
+
+
+#
+# (Tip: To adjust path to source files to local file system use perf report --prefix=... --prefix-strip=...)
+#

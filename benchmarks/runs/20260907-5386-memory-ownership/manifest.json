@@ -1,0 +1,51 @@
+{
+  "schema": "tactix-kissat-checked-runtime-v1",
+  "created_at": "2026-09-07T18:05:45.071011+00:00",
+  "status": "UNFUZZED isolated investigation; no production promotion",
+  "hypothesis": "The 4.7-GB Release Rank-21 peak versus 1.4-GB Kissat warrants ownership attribution: distinguish dense/index backing, semantic formula/search state and allocator retention.",
+  "comparison": "Ranks 17/21/34, four independent proof-on arms in one diagnostic wave. No decision-grade timing claim.",
+  "decision": "One independently checked SAT model, matching Release logical work, clean scratch and retained slot-memory rows. Read-only attribution, not timing or production memory acceptance.",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "dbc786d3fc1b44bb21030b9503c715a985afe69d7b33c6e81c4b587b864af860",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/candidate.patch",
+      "source_patch_sha256": "e9794534daf6d4a3662f42f57a556d3cdc10ff2c2086040bd120ccd993d1135d",
+      "source_build": "build/pin-5378-vivify-retry"
+    }
+  },
+  "collect_runtime_context": true,
+  "input_sha256": {
+    "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz": "dc26f207a97200e5b52a46a62477381055b7f0ad41b962492f22a901ed1d1049",
+    "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450",
+    "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-11",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "pin_sha256": {
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/candidate.patch": "e9794534daf6d4a3662f42f57a556d3cdc10ff2c2086040bd120ccd993d1135d",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/candidate": "dbc786d3fc1b44bb21030b9503c715a985afe69d7b33c6e81c4b587b864af860",
+    "pins/run.py": "6c40b068e656804c1a1662a0bd469baf6d39664ac38fe0f0c05a60f8e63f8714",
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "matrix.tsv": "ec0f1d9b4a89db1abab14ce3b0f4f7b08177d17879888d463e094aa68d3b9abe",
+    "array.sbatch": "8d1e5d65112c218d20307242472d7ccab4286a08561f1b65e81f4b080b683408"
+  },
+  "parent_campaign": "benchmarks/runs/20260907-5379-vivify-retry-runtime",
+  "candidate_validation": "5378 fixed native-positive/old-negative/new-positive, 76 serial trace CTests, all 2107 BVE attempts and 786753 decisions match through 345034.",
+  "limitations": "Uses existing event-trace/conflict-stop-enabled 5378 pin with only slot-memory output selected and no conflict stop. Diagnostic audits can add work/temporary storage; compare counters and phase ownership, do not equate traced peak with Release. Rule-local scratch is not exhaustively inventoried."
+}

@@ -1,0 +1,24 @@
+Repair complete. The failure was fixture wiring, not a solver defect, and the implementation was not changed.
+
+**Cause and classification.** Fixture reachability error. The test built a dosed BVE slot entry with the default `preprocess=false` on a kernel with zero conflicts. The scheduler's slot admission declines every non-preprocess entry while the conflict count is zero, so the entry was never run, the candidate ranking never happened, and the observing candidate-order policy was never called. The assertion then read an untouched observer. A second latent trap sat one line further: the dosed BVE path calls the entry's meter unconditionally when the bound ramp is active, and the fixture left that meter null. DefaultPolicy's own BVE entry defers preprocessing, so the Eliminate physical entry is a search-time call. The fixture now poses that call.
+
+**Changed paths.**
+- `.claude/worktrees/runtime-eliminate-dense-entry-5391/tests/test_scheduling.cpp`, test body only, around lines 1637 to 1680. Sets one conflict, installs a zero meter, holds the retry advice at zero so no candidate is eliminated, asserts the entry's own counters (`applies`, `tm.admitted`, `ord.lists`) before reading the observer, and asserts the large and binary watch word counts after the phase equal the counts before it.
+- `benchmarks/probes/scratch/eliminate-dense-entry-5391.cpp`, same wiring, prints reachability, entry state, elimination count, and restoration counts.
+- The replay script was not changed. No source under `src/` was touched. The predecessor pin-5387 was only read.
+
+**Results.** The standalone replay, logged at `logs/fixture-repaired.log`, now discriminates with actual objects:
+
+| arm | objects | exit | entry connected | large words at entry | restored at exit |
+|---|---|---|---|---|---|
+| before | pin-5387 | 1 | yes | 4 | 4/4, 2/2 |
+| after | pin-5391 | 0 | no | 0 | 4/4, 2/2 |
+| native | kissat | 0 | no | 3 dense entries | retained |
+
+The old arm fails only on the entry state, which is the expected phase-entry fidelity mismatch. The replay wrote `fixture.json` into the 5391 campaign with all input hashes. Retry advice kept the formula intact in both arms, so the sparse restoration check is non-vacuous.
+
+**Focused tests.** I rebuilt only the `test_scheduling` target in pins 5391, 5392, and 5393. Solver binaries in all three keep their original timestamps. The focused set (kernel, scheduling, subsume, strengthen, bve, subsume_n1, kernel_h_boundary) passes 7 of 7 in both the trace pin 5391 and the Release pin 5392. The verbose scheduling run shows the new test's printed line, so it ran rather than being skipped.
+
+New logs, all under `benchmarks/runs/20260907-5391-eliminate-dense-entry/logs/`: `fixture-repaired.log`, `repair-build-5391.log`, `repair-build-5392.log`, `repair-build-5393.log`, `repair-ctest-5391.log`, `repair-ctest-5392.log`, `repair-scheduling-verbose-5391.log`. The original `ctest.log` and `fixture.log` are untouched.
+
+**Follow-up for the parent.** Full CTest runs on the three pins still need to be rerun, since only the scheduling target was rebuilt after the test edit. No fuzz or benchmark submission is required by this repair.
