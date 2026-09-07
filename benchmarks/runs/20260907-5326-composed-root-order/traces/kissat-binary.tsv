@@ -1,0 +1,21 @@
+# tactix-binary-lifecycle	3
+# solver	seq	event	conflicts	search_ticks	probing_ticks	a	b	value_a	value_b	id	copies	payload
+kissat	0	substitute-large-collapse-source	15783	40204837	6350630	-841	562	0	0	0	0	internal=205,56|raw_export=841,562|source=562,-841,792
+kissat	1	substitute	15783	40204837	6350630	-841	562	0	0	0	0	internal=205,56|raw_export=841,562
+kissat	2	add	15783	40204837	6350630	-841	562	0	0	0	0	internal=205,56|raw_export=841,562
+kissat	3	sweep	26913	74166638	14794403	-583	562	0	0	0	0	internal=75,56|raw_export=583,562
+kissat	4	add	26913	74166638	14794403	-583	562	0	0	0	0	internal=75,56|raw_export=583,562
+kissat	5	sweep-binary-rewrite-from=583,-587	26913	74166638	14794403	-587	562	0	0	0	0	internal=83,56|raw_export=587,562
+kissat	6	sweep-large-collapse-source	26913	74166638	14794403	-587	562	0	0	0	0	internal=83,56|raw_export=587,562|source=-1038,562,1035,972
+kissat	7	sweep	26913	74166638	14794403	-587	562	0	0	0	0	internal=83,56|raw_export=587,562
+kissat	8	add	26913	74166638	14794403	-587	562	0	0	0	0	internal=83,56|raw_export=587,562
+kissat	9	sweep-binary-rewrite-from=587,-1038	26913	74166638	14794403	-1038	562	0	0	0	0	internal=273,56|raw_export=1038,562
+kissat	10	sweep-binary-rewrite-from=587,-1205	26913	74166638	14794403	-1205	562	0	0	0	0	internal=395,56|raw_export=1205,562
+kissat	11	sweep-binary-rewrite-from=587,-1110	26913	74166638	14794403	-1110	562	0	0	0	0	internal=295,56|raw_export=1110,562
+kissat	12	sweep-binary-rewrite-from=587,-690	26913	74166638	14794403	-690	562	0	0	0	0	internal=129,56|raw_export=690,562
+kissat	13	sweep-binary-rewrite-from=587,-616	26913	74166638	14794403	-616	562	0	0	0	0	internal=89,56|raw_export=616,562
+kissat	14	sweep-binary-rewrite-from=587,-649	26913	74166638	14794403	-649	562	0	0	0	0	internal=107,56|raw_export=649,562
+kissat	15	sweep	26913	74166638	14794403	-581	562	0	0	0	0	internal=69,56|raw_export=581,562
+kissat	16	add	26913	74166638	14794403	-581	562	0	0	0	0	internal=69,56|raw_export=581,562
+kissat	17	delete	26913	74166638	14952073	-587	562	1	-1	0	3	internal=83,56|raw_export=587,562
+kissat	18	delete	26913	74166638	14952073	-587	562	1	-1	0	3	internal=83,56|raw_export=587,562

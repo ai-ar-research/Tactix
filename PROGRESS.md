@@ -11,6 +11,7 @@ parity ledger owns N4. Reports and run records own experiment detail.
   The objective is not yet met. The user authorizes reconsidering prior
   approaches and explicitly requested this documentation compaction.
 - Start with [the runtime review](benchmarks/reports/2026-09-07-runtime-review.md).
+  Latest continuation: [original-core convergence](benchmarks/reports/2026-09-07-original-core-convergence.md).
   The previous headline “+24%, 93% search quality” is not a valid attribution:
   campaign 5291 mixed proof-on Tactix with proof-off Kissat, serialized arms,
   and checked verdict strings only. Runtime bands were mistaken for work
@@ -43,9 +44,29 @@ parity ledger owns N4. Reports and run records own experiment detail.
 | `20260907-5305-pose-ranks1-40` | never submitted | Superseded by 5314 after fuzz required source repairs; preserve its old pin identity. |
 | `20260907-5306-pose-rank34-three-wave` | `1668405` | Terminal: six checked models; median candidate/starting ratio 0.75801. |
 | `20260907-5314-pose-r2-ranks1-40` | `1668472` | Active full-40 final-binary/pristine-Kissat comparison; require all 80 checked/clean records. |
-| `20260907-5315-pose-r2-BC-gate` | `1668473` | Active B28+C5 replay on final binary; require all 66 checked/clean records. |
+| `20260907-5315-pose-r2-BC-gate` | `1668473` | Terminal: 66/66 checked/clean; final-r2/starting aggregate time 1.01897x. |
+| `20260907-5316-core-capture-observer` | `1668618` | Terminal: metadata-only core order matches all 98 shared queries; semantic traces unchanged. |
+| `20260907-5317-core-unit-candidate` | `1668620` | Terminal unfuzzed candidate: all 94 unit emissions, 98 cores, 112 queries/models/ticks and environment sequence match. |
+| `20260907-5318-core-unit-small` | `1668623` | Terminal: 6/6 checked/clean; candidate/current ratios 0.66789, 1.01130, 1.40836 on Ranks 17/21/34. No promotion. |
+| `20260907-5319-core-decision-window` | `1668629` | Terminal: ordinary decisions match; warm-up divergence remains, now level 24 at conflict 75,451. |
+| `20260907-5321-all-root-order` | `1668633` | Terminal: first root-order mismatch is propagation of binary owner 562, after 68 matching root records. |
+| `20260907-5322-reposed-root-order` | `1668635` | Publication alone does not change root order; its interaction with sequential rewriting is tested by 5326. |
+| `20260907-5323-binary-watch-boundary` | `1668637` | Terminal: owner 562 starts identical and differs during Sweep, not the preceding Vivify. |
+| `20260907-5324-binary-producers` | `1668639` | Terminal: Kissat creates an intermediate large-to-binary image absent from Tactix's combined rewrite. |
+| `20260907-5325-sequential-root-order` | `1668641` | Terminal: sequential certified rewrites restore the intermediate image but not root order. |
+| `20260907-5326-composed-root-order` | `1668643` | Terminal: sequential rewrites plus physical publication move first root mismatch from 68 to 70. |
+| `20260907-5327-bridge-root-order` | `1668645` | Terminal: owner-562 root order closes; first raw mismatch is duplicate -1278 at record 131. |
+| `20260907-5328-bridge-decision-window` | `1668647` | Terminal: all 77,627 ordinary decisions match; the same level-24 warm-up mismatch remains. |
+| `20260907-5329-bridge-unit-small` | `1668649` | Terminal: 6/6 checked/clean; candidate/current ratios 0.44957, 1.25052, 1.60118 on Ranks 17/21/34. No promotion. |
+| `20260907-5330-ordering-ablation` | `1668658` | Terminal: 6/6 checked; sequential rewriting changes Rank-21 work, physical publication alone does not. |
 
-1. Summarize 5314 with
+1. Localize the sequential rewrite's first changed Rank-21 clause/order against
+   Kissat before adding more pose machinery. 5329 is terminal: Rank 17 gains
+   do not offset the Rank-21/34 regressions; do not promote this candidate.
+   5330 isolates the Rank-21 changed-work regression to sequential rewriting:
+   603M to 789M propagations, while core-only and physical-only keep counters.
+   Keep the later warm-up tie separate; matching one root boundary is insufficient.
+   Separately summarize 5314 with
    `python3 tools/bench/runtime_summary.py benchmarks/runs/20260907-5314-pose-r2-ranks1-40`.
    Report solved/validated counts, aggregate time, work counters and RSS.
    Equal reported counters are only a diagnostic screen; never price N4 from
@@ -58,16 +79,24 @@ parity ledger owns N4. Reports and run records own experiment detail.
    paired occurrence primitives and canonical boundary republishing repair them.
    Claude owns the campaign, artifacts, interpretation and cleanup; do not
    independently audit them. The live Release rebuild matches its r2 hash.
-3. Three paired waves confirm a 24.2% Rank-34 improvement on the pose-only
-   pin, not a whole-suite or final-r2 timing claim. The next witness is
-   warm-up decision 33 at conflict 75,451 (5308/5309): a zero-score heap tie.
-   5310 confirms the earlier -970 root-unit ordering difference survives;
-   5311 matches seed-563's 696 ordered clauses and first 112 queries/ticks/models.
-   5313 identifies original core clause 44, (-970,967,910,563), already unit at
-   query 20 but skipped by Tactix's derived-step-only unit capture. Original
-   clause 36 similarly exposes -844. Repair original-unit exposure at the
-   proper save/add boundary, preserving native-LRAT justification and ordering;
-   do not repeat refuted inline-emission or synthetic-core over-capture.
+3. Isolated 5317 closes the original-core witness below with native-LRAT
+   justification and save-time eligibility. Its focused tests and 44 fixed
+   proof cases pass; it is UNFUZZED and main source is unchanged. 5318 shows a
+   Rank-17 work reduction but a Rank-34 regression, so no broad promotion yet.
+   Clean Release `d6701f2e...` passes all 77 CTests. Owner-562 tracing isolates
+   intermediate binary birth and physical publication as interacting causes.
+   5326 leaves bridge -581 too early; 5327's pose-only per-pair publication
+   closes that owner. Its clean Release `a8868f43...` passes all 77 CTests.
+   5328 does not close the later warm-up tie. 5329 is checked but mixed;
+   5330 localizes its Rank-21 changed-work regression to the sequential
+   rewrite, not physical-only publication or the later bridge pose. Matching
+   roots does not establish speedup.
+   Copies have no independent identity: future bridge changes remain a general
+   birth-order fidelity risk. This is still an unfuzzed, isolated ablation.
+   Do not interleave captured proof emission with deleting source rewrites.
+   Earlier pose-only timing (three paired waves, 24.2% faster on Rank 34) and
+   the superseded level-33 heap witness remain in the runtime review. Neither
+   is a current cumulative-candidate or whole-suite result.
 4. Keep the broader codebase revisit separate from causal solver repairs:
    inventory obsolete macro/env paths, consolidate duplicate mechanisms, and
    retain N1 API capabilities. The cleanup in this checkpoint is only scoped.
@@ -75,10 +104,15 @@ parity ledger owns N4. Reports and run records own experiment detail.
    instruction profiles are leads; no evidence establishes an unavoidable
    C++ overhead. Rank-31/17 trigger mechanisms remain unconfirmed.
 
+5314's complete solver times are provisionally 1.2788x Kissat (77/80 checked
+at the continuation snapshot): the whole-suite objective is not met. 5315 is
+66/66 checked and clean. Local commit `c2a95a6` was not pushed: auto-review requires
+explicit user approval to publish to shared `origin/main`; do not retry it.
+
 All new campaigns own immutable binaries and runners. 5295 measures the
 pre-cleanup Release built at `96e894c`; 5302 owns the repaired candidate's exact
-  patch and binaries; 5314/5315 own the final r2 source patch. Do not label
-  any earlier pin as later machine code. Earlier “in-flight” claims were
+patch and binaries; 5314/5315 own the final r2 source patch. Do not label
+any earlier pin as later machine code. Earlier “in-flight” claims were
 stale: the queue had no solver jobs at session entry.
 
 ## Validation and remaining obligations
@@ -129,10 +163,10 @@ stale: the queue had no solver jobs at session entry.
 ## Recent changes
 
 - 2026-09-07: Audited invalid runtime attribution and launched matched checked campaign 5295.
-- 2026-09-07: Repaired connected duplicate pose; exact seed-1 and full environment frontier now match.
-- 2026-09-07: Claude repaired three inherited N1 dense-image bugs; the consolidation fuzz campaign passes on r2.
-- 2026-09-07: Added proof-interface/runner fixtures, removed rejected reuse-first diagnostic, launched final-binary gates.
-- 2026-09-07: Compacted living docs; primary reports and Git preserve historical evidence.
+- 2026-09-07: Connected duplicate pose and Claude's three inherited N1 repairs remain the fuzz-passing production checkpoint.
+- 2026-09-07: Isolated original-core exposure closes the 112-query boundary; checked timing is mixed.
+- 2026-09-07: Bridge/physical ordering ablations close root order but not the later warm-up tie; no candidate promotion.
+- 2026-09-07: Final-r2 B28+C5 is 66/66 checked; living docs remain within all required budgets.
 
 ## Historical evidence routing
 

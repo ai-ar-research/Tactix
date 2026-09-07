@@ -1,0 +1,18 @@
+{
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "job": "1668631",
+  "source_patch": "candidate.patch",
+  "input_sha256_compressed": "ae23202ebf6de47a653fb74430a7603e155a321f2826929864e9bfb69c41ebbd",
+  "contract": "Full-width 0-1, one stopped proof-on solver per task; 12 logical CPUs/48000 MiB, one bound thread, no throttle or node constraint.",
+  "purpose": "UNFUZZED candidate: compare every root assignment at conflict 26913, not just the 94 explicitly emitted Sweep units.",
+  "selection": "Existing heap-vars observer with external IDs 1..22500; diagnostic selection only, not solver policy.",
+  "reference_campaign": "benchmarks/runs/20260907-5317-core-unit-candidate",
+  "acceptance": "Compare ordered root literals and reasons at the repaired boundary; stop at 26914, scratch clean. No verdict or runtime claim.",
+  "hashes": {
+    "pins/kissat": "771088fe59af45a327dce4f1b2cb967e43b02566328ac0dc58ac8f1cfeb74560",
+    "pins/tactix": "29101c26802ac733b7df23350772e818d492268696c7ab86c78fea735cf02b24",
+    "candidate.patch": "90b27ae99d082d481ae456424557821631b6d5f55e584f0410cb12f00bcab9fb",
+    "run.py": "74e8d89596d409feb095e09c40025d0bba4f1958983936af839bf2c231f9884f",
+    "array.sbatch": "a4fd9c63487e6665f38bb3029eecae83b7f1577a493559a483693b74b802cc8b"
+  }
+}

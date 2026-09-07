@@ -1,0 +1,123 @@
+{
+  "clauses": 696,
+  "variables": 141,
+  "ordered_mismatches": [],
+  "set_mismatches": [],
+  "queries": [
+    112,
+    112
+  ],
+  "first_query_mismatch": null,
+  "first_model_mismatch": null,
+  "first_tick_mismatch": null,
+  "unpaired_queries": {
+    "tactix": [],
+    "kissat": []
+  },
+  "initial_queries": {
+    "tactix": [
+      {
+        "seed": "563",
+        "ordinal": "0",
+        "kind": "initial",
+        "a": "0",
+        "b": "0",
+        "result": "0",
+        "ticks": "380",
+        "conflicts": "2"
+      },
+      {
+        "seed": "563",
+        "ordinal": "1",
+        "kind": "backbone",
+        "a": "1152",
+        "b": "0",
+        "result": "0",
+        "ticks": "540",
+        "conflicts": "2"
+      },
+      {
+        "seed": "563",
+        "ordinal": "2",
+        "kind": "backbone",
+        "a": "-1205",
+        "b": "0",
+        "result": "0",
+        "ticks": "455",
+        "conflicts": "1"
+      },
+      {
+        "seed": "563",
+        "ordinal": "3",
+        "kind": "backbone",
+        "a": "1197",
+        "b": "0",
+        "result": "0",
+        "ticks": "1144",
+        "conflicts": "5"
+      },
+      {
+        "seed": "563",
+        "ordinal": "4",
+        "kind": "backbone",
+        "a": "-1150",
+        "b": "0",
+        "result": "0",
+        "ticks": "1018",
+        "conflicts": "4"
+      }
+    ],
+    "kissat": [
+      {
+        "seed": "563",
+        "ordinal": "0",
+        "kind": "initial",
+        "a": "0",
+        "b": "0",
+        "result": "0",
+        "ticks": "380",
+        "conflicts": "0"
+      },
+      {
+        "seed": "563",
+        "ordinal": "1",
+        "kind": "backbone",
+        "a": "1152",
+        "b": "0",
+        "result": "0",
+        "ticks": "540",
+        "conflicts": "0"
+      },
+      {
+        "seed": "563",
+        "ordinal": "2",
+        "kind": "backbone",
+        "a": "-1205",
+        "b": "0",
+        "result": "0",
+        "ticks": "455",
+        "conflicts": "0"
+      },
+      {
+        "seed": "563",
+        "ordinal": "3",
+        "kind": "backbone",
+        "a": "1197",
+        "b": "0",
+        "result": "0",
+        "ticks": "1144",
+        "conflicts": "0"
+      },
+      {
+        "seed": "563",
+        "ordinal": "4",
+        "kind": "backbone",
+        "a": "-1150",
+        "b": "0",
+        "result": "0",
+        "ticks": "1018",
+        "conflicts": "0"
+      }
+    ]
+  }
+}

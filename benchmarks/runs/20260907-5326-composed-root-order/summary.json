@@ -1,0 +1,176 @@
+{
+  "counts": [
+    150,
+    149
+  ],
+  "first_mismatch": 70,
+  "mismatch_window": {
+    "tactix": [
+      {
+        "lit": "-658",
+        "warming": "0",
+        "trail_after": "3858",
+        "unflushed_after": "33",
+        "reason": "binary:-658,622"
+      },
+      {
+        "lit": "-587",
+        "warming": "0",
+        "trail_after": "3859",
+        "unflushed_after": "34",
+        "reason": "binary:-587,562"
+      },
+      {
+        "lit": "-583",
+        "warming": "0",
+        "trail_after": "3860",
+        "unflushed_after": "35",
+        "reason": "binary:-583,562"
+      },
+      {
+        "lit": "-581",
+        "warming": "0",
+        "trail_after": "3861",
+        "unflushed_after": "36",
+        "reason": "binary:-581,562"
+      },
+      {
+        "lit": "-1038",
+        "warming": "0",
+        "trail_after": "3862",
+        "unflushed_after": "37",
+        "reason": "binary:-1038,562"
+      },
+      {
+        "lit": "-1110",
+        "warming": "0",
+        "trail_after": "3863",
+        "unflushed_after": "38",
+        "reason": "binary:-1110,562"
+      },
+      {
+        "lit": "-690",
+        "warming": "0",
+        "trail_after": "3864",
+        "unflushed_after": "39",
+        "reason": "binary:-690,562"
+      },
+      {
+        "lit": "-616",
+        "warming": "0",
+        "trail_after": "3865",
+        "unflushed_after": "40",
+        "reason": "binary:-616,562"
+      },
+      {
+        "lit": "1141",
+        "warming": "0",
+        "trail_after": "3866",
+        "unflushed_after": "41",
+        "reason": "binary:1141,1167"
+      },
+      {
+        "lit": "-737",
+        "warming": "0",
+        "trail_after": "3867",
+        "unflushed_after": "42",
+        "reason": "binary:-737,735"
+      },
+      {
+        "lit": "-60",
+        "warming": "0",
+        "trail_after": "3868",
+        "unflushed_after": "43",
+        "reason": "binary:-60,1158"
+      }
+    ],
+    "kissat": [
+      {
+        "lit": "-658",
+        "warming": "0",
+        "trail_after": "66",
+        "unflushed_after": "66",
+        "reason": "binary:-658,622"
+      },
+      {
+        "lit": "-587",
+        "warming": "0",
+        "trail_after": "67",
+        "unflushed_after": "67",
+        "reason": "binary:-587,562"
+      },
+      {
+        "lit": "-583",
+        "warming": "0",
+        "trail_after": "68",
+        "unflushed_after": "68",
+        "reason": "binary:-583,562"
+      },
+      {
+        "lit": "-1038",
+        "warming": "0",
+        "trail_after": "69",
+        "unflushed_after": "69",
+        "reason": "binary:-1038,562"
+      },
+      {
+        "lit": "-1110",
+        "warming": "0",
+        "trail_after": "70",
+        "unflushed_after": "70",
+        "reason": "binary:-1110,562"
+      },
+      {
+        "lit": "-690",
+        "warming": "0",
+        "trail_after": "71",
+        "unflushed_after": "71",
+        "reason": "binary:-690,562"
+      },
+      {
+        "lit": "-616",
+        "warming": "0",
+        "trail_after": "72",
+        "unflushed_after": "72",
+        "reason": "binary:-616,562"
+      },
+      {
+        "lit": "-581",
+        "warming": "0",
+        "trail_after": "73",
+        "unflushed_after": "73",
+        "reason": "binary:-581,562"
+      },
+      {
+        "lit": "1141",
+        "warming": "0",
+        "trail_after": "74",
+        "unflushed_after": "74",
+        "reason": "binary:1141,1167"
+      },
+      {
+        "lit": "-737",
+        "warming": "0",
+        "trail_after": "75",
+        "unflushed_after": "75",
+        "reason": "binary:-737,735"
+      },
+      {
+        "lit": "-60",
+        "warming": "0",
+        "trail_after": "76",
+        "unflushed_after": "76",
+        "reason": "binary:-60,1158"
+      }
+    ]
+  },
+  "extra_records": {
+    "-1278": 1
+  },
+  "missing_records": {},
+  "caveat": "Observer includes speculative root operations; repeated records are not automatically extra committed units.",
+  "trace_sha256": {
+    "tactix": "816227bee6663c789809c85872eb231338a731d5c521329bc22f087451d24dc5",
+    "kissat": "b428db09243ddbba84cdbe12cee8a99ff3aa95ef5b48044aaf41a2fca531053a"
+  }
+}
