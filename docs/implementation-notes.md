@@ -155,6 +155,11 @@ pending half-analysis or schedules Backjump independently.
   image to the same `holes` accounting. A slice reference is therefore valid
   only until the next push to that index — the precondition Kissat states for
   `BEGIN_WATCHES`.
+- Attached dense views change together: large promotion/removal uses paired
+  kernel primitives, including Sweep's eager session erases. Canonical
+  Substitute republishes an attached mixed stream at its boundary after bulk
+  watch rewrites. Free N1 schedules may attach it outside DefaultPolicy's
+  Eliminate group; a stale mirror is not an admissible scheduling deviation.
 - DIMACS import uses that same clause-by-clause lifecycle; it has no parse-only
   packing exception. During the deletion-free scope, the retained binary-id
   key map remains the exact live-set image, so known-new binary insertion does
@@ -204,6 +209,9 @@ pending half-analysis or schedules Backjump independently.
   rewrites reached irredundant occurrences, preserves directed bridge images,
   leaves classes active, and lets mandatory Substitute own learned cleanup,
   reconstruction, retirement, and heuristic publication.
+- Connected large-clause deduplication keeps the latest retiring occurrence's
+  position (merge-forest order for batches), not the first literal. Canonical
+  substitution remains first-occurrence. Proof-hint order is independent.
 - A surviving in-place large Sweep image keeps its Ref/allocation span and an
   `INVALID_LIT` tail marker. Collapse/deletion becomes lazy garbage; canonical
   Sweep owes no exit collection. Public/sessionless calls refresh immediately
@@ -514,86 +522,31 @@ scalar mapping. A fresh Sweep Kitten starts at seed 0; later clears advance to
 proof, learning, and pruning are exact. Reports `2026-08-27-rank27-sweep-phase-word.md`
 and `2026-08-30-codebase-revisit-and-otfs-candidate.md` own the evidence.
 
-## 27. Original-unit ticks and forward victim scope
+## 27. Import, root lifecycle, and retained search state
 
-Kissat closes each original unit through `kissat_search_propagate`
-(`internal.c:363`), so those watch scans advance both total and search ticks.
-Tactix does the same for proof-less and DRAT parsing; native LRAT still defers
-closure until the original input-id namespace is complete. The parser fixture
-pins the exact seven-tick chained-unit scan.
+- Original units close through search propagation, charging both total and
+  search ticks. Proofless/DRAT parsing follows that order; native LRAT defers
+  closure until the original input-id namespace is complete.
+- Probe and Eliminate enter root through neutral backtracking: this scaffolding
+  does not increment scheduled Restart, reuse, or focused-cadence counters.
+  Rephase and Reduce keep the same accounting distinction.
+- Production BVE reaches the complete 0,1,2,4,8,16 bound ladder. Dynamic heap
+  insertion preserves candidates retryable at a later bound. A lower diagnostic
+  ceiling never changes the public instance surface.
+- Packed OTFS retains the source clause's Vivify untried-tail bit, along with
+  the physical pose and path-specific addition/removal marks specified in §5.
+- Stable Reorder scans stop at exactly 100 open literals; equal-weight/score
+  ordering uses first-import rank after score rescaling (§10).
+- Root-fixed variables are inactive immediately; compact random slots use
+  first-import order filtered to active variables. Activation order remains
+  the separate queue/score-seeding authority.
+- BVE occurrence cleanup stably compacts the inspected legal prefix once,
+  preserving the oversized-clause boundary and untouched suffix. Ordered
+  physical duplicates remain significant for gate membership.
+- TransitiveReduce commits failed-walk units with native-LRAT BFS chains,
+  preserves earlier tombstones, and reaches root before the next dosed
+  candidate. DefaultPolicy consumes direct and propagated roots there.
 
-Pinned Kissat's fused forward pass admits irredundant victims only. Production
-Strengthen therefore leaves `Kernel::touch_redundant` off while retaining the
-complete public/N1 instance surface. `TACTIX_TOUCH_REDUNDANT=1` is the sole
-explicit CaDiCaL likely-kept redundant-band diagnostic arm; its stamps and
-live/static telemetry are cold unless that arm is enabled. Formula shape,
-benchmark identity, density, size, rank, and classification cannot enable it.
-Same-CPU job `1654544` is trajectory-identical and effectively neutral
-(174.57 s cold diagnostics versus 173.01 s prior baseline).
-On SAT Rank 16, the old arm strengthened 747 redundant clauses and first changed
-search cost immediately after BVE at conflict 15,258. With the production scope
-repaired, search ticks and decisions are exact through conflict 17,352.
-
-Probe and Eliminate enter at root through the neutral Restart backtrack
-primitive. This is lifecycle scaffolding, not a scheduled Restart: it does not
-increment the canonical restart count, the reused-trail count, or the
-logarithmic focused-restart cadence. Rephase and Reduce follow the same
-accounting distinction. The complete public Restart instance surface remains
-unchanged.
-
-Rank 16 then exposed a separate stable-Reorder lifecycle mismatch. Pinned
-Kissat calls `kissat_rescale_scores` before
-`sort_active_variables_by_weight`; Tactix formerly sorted first. At the
-conflict-49,389 Reorder boundary both formulas and physical heaps were exact,
-but pre-rescale sorting produced a different equal-score heap at conflict
-49,390 and eventually permuted the first stable decisions at conflict 61,855.
-The corrected source order restores exact formula, decision, mode, top-rank,
-and full physical-heap checkpoints through conflict 98,262. The focused unit
-test forces two distinct scores to underflow to the same rescaled value and
-pins Kissat's internal-index tie/update pose. No schedule, threshold, formula
-classification, effort allowance, rank, or benchmark predicate changed.
-
-The next common-state boundary was not Reorder or propagation reconstruction.
-At conflict 83,783, analysis removes literal 1011 from the same armed
-seven-literal reason in both solvers. Kissat's in-place OTFS strengthening
-retains that clause's Vivify untried-tail bit. Tactix materialized the same
-six-literal packed replacement, with the same glue, watches, current arena
-position, and later formula state, but initialized the fresh header with the
-bit clear. At conflict 98,206 this one lost bit omitted the clause
-`-696,-681,-366,350,380,1010` from Tactix's priority-one Vivify band. That
-omission changed the enclosing propagation cursor and became heap-visible at
-conflict 98,263 and decision-visible at 98,276.
-
-Packed OTFS now carries the source reason's bit. In job `1654198`, both solvers
-probe that clause at exact ordinal 226 with the same literal set, candidate
-pose, priority, decision prefix, and 497-tick cost. The surrounding candidate
-stream realigns at the formerly missing boundary. Remaining differences in a
-few Vivify terminal labels predate this candidate and have effect-identical
-clause pairs; they are not evidence for an ordering gate. No formula,
-benchmark, density, size, conflict, or rank selector changed, and N1--N4 plus
-the proof-rule/strategy boundary remain intact.
-
-The next Rank-16 split was an Eliminate-bound lifecycle error, not a formula profile. Both solvers completed their first five Eliminate phases at conflicts 15,257, 30,646, 64,010, 117,746, and 194,103. Pinned Kissat then advanced from bound 8 to its shipped `eliminatebound=16`, kept both variable-admission limits at zero, and admitted phase six at conflict 295,173. Tactix's typed ladder contained 16 but its production ceiling was still 8, so it prematurely latched the terminal watermark and skipped that phase. Production now walks the full 0,1,2,4,8,16 ladder; a lower typed or `TACTIX_BVE_RAMP_MAX` ceiling remains an explicit diagnostic arm only.
-
-The dynamic BVE heap had a second loss: heap insertion filtered every cleared retry before the dose loop's reachable-later-bound predicate could run. It now applies the identical predicate. The focused 5x5 grid fails through bound 8 and retires its pivot at 16. Rank-16 job `1654379` admits Eliminate at conflict 295,173, eliminates the same variable, changes irredundant clauses 7,322→7,332, and matches the next 72 decisions and conflict/learned clause. Jobs `1654383`/`1654386` extend the normalized compact stream through conflict 330,000; paired reference counters are in `1654377`. Neither repair changes the BVE instance surface, proof semantics, N1--N4, effort, classification, or benchmark/rank behavior.
-
-The next Rank-16 split was walking Rephase at conflict 356,414. Tactix measured each Walk from the previous Walk; Kissat selects `last.ticks.eliminate` because Walk leaves the semantic probing flag false. The private clock preserved the same minimum through five walks, then gave walk six 7,867,806 ticks instead of 4,149,107 and changed its exported assignment. Tactix now reads the Eliminate slot clock. Job `1654483` matches all six allowances, flips, steps, initial/minimum counts, first choices, decisions, conflicts, and learned clauses. Jobs `1654488`/`1654492` restore normalized checkpoints at conflicts 500,000/1,000,000; the latter has only one extra post-frontier `analysis_end` while Tactix completes an entered OTFS chain. The regression proves Eliminate is the consumer, Probe is ignored, and the 10-million-tick floor remains.
-
-The pre-Reorder creation-order baseline `1653941` was Kissat SAT 128.93 s versus Tactix SAT 1038.89 s. Both had zero Factor transformations, and Tactix spent 191 ms in Factor: this SAT gap is not Factor cost.
-
-The pre-Walk-clock bound-16 replay `1654380` timed Tactix out at 1,200 s / 23,999,415 conflicts / 63,249,677 decisions; Kissat verified SAT in 133.79 s / 4,777,402 conflicts / 14,441,406 decisions. Both again had zero Factor transformations and 378 eliminations. It proves Eliminate was necessary but insufficient and cannot justify a formula gate.
-Pinned Kissat counts propagation when a trail literal's watches are consumed, then publishes cursor and tick deltas once per call. Tactix formerly counted new implications and wrote global counters inside the scan. The shared kernel now uses Kissat's definition and bulk boundary; Rank 16 remains search-identical, drops 175.47→159.98 s, and reports 152.705M versus Kissat's 152.707M scans.
-
-Rank 15 closed forward's duplicate/tie/action lifecycle, shortened ITE, and BVE retry. Jobs `1654651`/`1654652` match all binaries and 15,211 live clauses. Only Eliminate/BVE owns the exact mixed stream; jobs `1655087`/`1655161` provisionally reduce Rank 10 from 111.387→95.211 s and 23.05→17.08 GB.
-
-Rank 15 then exposed a Probe fixed-point error after Factor. Pinned Kissat tests current `solver->active`; Tactix reconstructed that population from cumulative root-fixed, BVE, and Substitute counters. Compaction makes those histories non-invertible, and the proxy missed Factor's newly active extension variable, so Tactix skipped the second `proberounds` pipeline pass. DefaultPolicy now counts live non-retired state. Boundary job `1655202` enters round two and matches Kissat at Probe exit: 6,103 irredundant, 25,183 redundant, and 334 binary clauses, including the top-32 order. Formula-independent provisional job `1655204` improves Rank 15 from 520.937 s to 310.540 s, still 3.854× Kissat's 80.585 s. Factor took 96 ms for 24 factorizations; the remaining gap belongs to the next common-state search/mechanism divergence. Proof checking does not block provisional timing but remains a promotion gate; N1--N4 are unchanged.
-
-The pre-repair homogeneous campaign `20260828-2030-tierd-ranks1-40-forward-stream-final` completed all 80 solver runs. Its 18 UNSAT pairs have provisional geometric-mean Tactix/Kissat ratio 1.428× (arithmetic mean 1.466×), recorded independently of the proof-check queue; 75/80 results were checked at the timing snapshot. This is evidence for a general gap, not a selector: formula size, density, classification, benchmark identity, and rank do not alter production strategy. Rank 15's next common-state split was physical BVE occurrence cleanup: the dynamic candidate heap, scalar scores, and formula images agreed through conflict 16,403, but the first Eliminate phase left six buried EVSIDS variables in different positions. Attempt 97 first differed after eliminating 762 because `resolve.c::occurrences_literal` compacts garbage large references from each inspected dense stack even when a candidate fails, while Tactix filtered them semantically but retained them in its physical count. Candidate gathering now compacts those two stacks and mirrors eager deletion of a root-satisfied binary with partner-only schedule notification. All 1,042 Rank-15 BVE attempts and the complete 766-entry heap after conflict 16,404 are exact. This global lifecycle rule adds no formula, density, size, classification, benchmark, or rank predicate and changes neither effort nor N1.
-The post-live-active homogeneous campaign `20260828-1344-tierd-ranks1-40-live-active-fix` also publishes timing before certificate checking and has completed all 80 solver runs. Its provisional geometric-mean ratios are 1.408× over 22 SAT ranks and 1.342× over 18 UNSAT ranks. Rank 16 is effectively closed at 1.029×; Rank 6 remains 5.377× and Rank 15 3.429× in that baseline, while Rank 36 is a 6.19× Tactix win. At the snapshot, 59/80 certificates had completed independent validation; all completed certificates were valid, apart from the expected UNKNOWN records for Tactix's Rank-19 and Rank-29 solve timeouts, and every completed task reported clean scratch deletion. The remaining proof queue does not delay provisional UNSAT timing.
-Rank 6's exact Release profile localized 45.63% of wall time to BVE and 24.95% to Strengthen. Both hot instructions were the same `kernel_binary_copies` watch-list scan: BVE invoked it to revalidate every entry in an already eagerly maintained live dense stream, while Strengthen rediscovered duplicate multiplicity in a second pass. The dense stream is now the BVE authority and retains a Debug cross-check; Strengthen records duplicates during its first marked pass. The checked SAT run preserves the complete search and rule counters but falls from 293.372 to 98.730 seconds. Factor remains about 25 seconds and is not the owner of this cost. No admission, effort, size, density, formula, benchmark, rank, or classification consumer changed. Strengthen's required local mixed stream formerly stored a 64-bit proof id beside every directed binary even though DRAT never reads it and LRAT needs only the selected partner. Its entry is now 8 bytes instead of 24; a selected LRAT binary resolves its live id on demand. This retains the binary prefix and all later binary/large insertion positions exactly. Rank 6 preserves the exact 551,149-conflict / 5,224,515-decision trajectory and checked model while peak RSS falls 1,287,052→959,232 KiB and Strengthen falls 13.257→6.947 s. The frontend then exposed a missing mode selection: `BinaryIdMap` supported key-only DRAT storage, but DIMACS import retained its parallel LRAT value table. Proofless and DRAT header initialization now discard only those values; native LRAT keeps them. The same trajectory/model remains exact and RSS falls again to 829,152 KiB. The remaining gap versus Kissat's roughly 350,588 KiB stays open. Rank 33's duplicate-gate repair now also matches pinned `ands.c` when an unrelated binary partner is duplicated: the first physical copy stays antecedent while later copies become gate members after literal-mark consumption; the sparse image retains first occurrence and a content-sensitive focused test pins the resulting resolvent.
-Rank 15's conflict-1,566,544 Reorder boundary had exact formula, binaries, pre-Reorder scores, and heap, but a different physical heap afterward. Two literal translations were incomplete: clause scanning must stop exactly at the 100th open literal even if a satisfying root literal occurs later, and stable equal-weight/equal-score order must use permanent first-import rank as Kissat's current internal-index order rather than stable raw `Var` or the distinct activation/random permutation. Final job `1656612` changes the first two post-Reorder hashes to Kissat's exact `70e4f7b3644d5770` / `43c6e3f5931d42dd` and restores the `-30,-17` decision order. Both repairs are uniform and add no selector or consumer. Rank 15's next split was packed large-OTFS lifecycle rather than Factor: Kissat retains the first watch, marks only the surviving tail added, and treats the resolved literal as the semantic removal, while Tactix's generic packed add/delete marked both complete clause images. The exact lifecycle repair prevents the extra first-watch Strengthen admission and retains victim 136,723 at conflict 1,646,098. Uniform job `1656659` solves all 40 ranks, improves total time 11,123.861→10,179.368 s and geomean 0.902671x versus the preceding candidate, and closes Rank 15 to 80.295 s versus Kissat's 80.788 s. Rank 36 also closes to 383.669 s versus 368.510 s, confirming Factor was not its downstream gap owner. Rank 33 then exposed duplicate AND/OR gate membership: Kissat's literal mark plus physical watch walk retains every matching binary copy, while Tactix's sparse partner image marked only one. Tactix now expands each marked representative to all copies in one linear side scan. Job `1656901` matches gate counts, four ordered resolvents, the neighbor score, and next pops at the first divergence. The follow-through also matches Kissat's two-distinct-binary precondition and accepts a physical large AND base shortened to pivot plus one input; a focused test excludes the extra antecedent cross-resolvent. No formula, rank, benchmark, size, density, option, admission, effort, or classification gate was added; full details are in `benchmarks/reports/2026-08-30-codebase-revisit-and-otfs-candidate.md`. General-definition import now matches pinned `definition.c`'s physical clause view too: it removes only the pivot, retains root-false literals as Kitten variables, and lifts one-sided proofs from the same physical originals; a SAT-physical/UNSAT-stripped regression fixture and all Release proof gates pass. Rank 20's first real search split was random-index mapping at conflict 502: queue/score seeding uses activation order, while Kissat's compact random slots use first-import order filtered to activated live variables. The unconditional repair maps the exact shared slot to external 2,745; model-checked job `1657050` falls 594.433→123.02 s and exactly matches Kissat's conflicts, decisions, Factor count, and BVE eliminations. Uniform 40-rank job `1657091` validates it without any formula, rank, benchmark, size, density, classification, admission, or effort gate.
-Rank 34's late audit now closes both Eliminate H lifecycle and the next TransitiveReduce formula split. Jobs `1657530`--`1657537` exonerate sparse resume, match all 571 BVE removal ordinals and 568 true eliminations, and reduce the inherited heap-pose difference. Jobs `1657550`/`1657552` then find exact second-pass input but two excess Tactix binary deletions; job `1657554` proves Tactix detected the same failed walks as Kissat yet deferred their units to Probe and discarded earlier tombstones. TransitiveReduce now retains prior reductions, emits `{src}` with its native-LRAT BFS chain, reaches root immediately, and lets DefaultPolicy consume direct/propagated roots per dosed candidate. Job `1657559` makes all four binary snapshots exact and closes units `-19788`/`-19396`, the 3,339-copy output, 14,378 active variables, and 14,259 heap entries. External LRAT, Release 76/76, Trace 75/75, four brute-force modes, and focused ASan/UBSan pass. Checked Rank 34 improves 1,014.550→804.709 s; homogeneous job `1657564` solves 40/40 but regresses total 9,305.953→10,573.791 s, chiefly ranks 17/19/21/27/34/35. The final revisit removes a redundant outer dosed-root rescan and adds the exact prior-delete-plus-failed-unit regression. Every repair is unconditional, preserves N1--N4 and the proof-rule/strategy boundary, and adds no formula/rank/benchmark/size/density/classification/admission/score/heap/conflict/effort gate. Details: `benchmarks/reports/2026-08-31-transitive-unit-rank1-40-codebase-revisit.md`.
-
-The Rank-17 revisit corrected one remaining part of the earlier live-active definition: non-retired is necessary but not sufficient. Kissat deactivates a root-fixed variable immediately, whereas Tactix retains its level-zero assignment and stable identity for reconstruction. `kernel_active_variables` now excludes semantic level-zero fixed variables while continuing to count non-root search assignments. Existing production consumers remain Factor factordelay, Substitute round progress, and Probe/Eliminate fixed points. Causal job `1657636` changes only the first-BVE active summary 944,336→328,081; homogeneous job `1657639` solves 40/40 in 10,290.269 s versus 10,573.791 previously. No formula, density, size, classification, benchmark, or rank selector was added. Details: `benchmarks/reports/2026-08-31-fixed-active-rank1-40-codebase-revisit.md`.
-
-Rank 25 exposed representation cost inside the already-correct `resolve.c::occurrences_literal` lifecycle: repeated `find` plus `vector::erase` for every inspected garbage occurrence made the same 3,296,386 BVE applications cost 507,738 rather than 13,779 ms. Each polarity now records only mutations in the legal prefix, retires satisfied binaries in encounter order, and stably compacts the ordered and large mirrors once by the same garbage subsequence; the first oversized live clause and suffix remain untouched and the opposite polarity observes the completed first mutation. Three checked waves preserve the exact work signature at median 0.348100x wall time and 14,358--14,428 ms BVE. This is a uniform representation repair: creation order, proof/model effects, occurrence counts, score notifications, guards, effort, N1--N4, and the rule/policy boundary are unchanged. Details: `benchmarks/reports/2026-08-31-rank25-bve-streaming-compaction.md`.
+Historical rank-by-rank validation is owned by the dated reports linked from
+[the runtime review](../benchmarks/reports/2026-09-07-runtime-review.md);
+the pre-compaction text is recoverable from Git commit `96e894c`.

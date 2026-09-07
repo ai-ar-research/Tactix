@@ -1203,11 +1203,6 @@ struct Kernel {
   // default to non-chronological; DefaultPolicy poses its configured limit.
   uint32_t conflict_reuse_chrono_levels = UINT32_MAX;
   bool conflict_reuse_no_repair = false;
-  // Diagnostic (TACTIX_REUSE_FIRST_ONLY): test the reuse shortcut only on the
-  // original conflict (the first analyze round), matching Kissat's single
-  // one_literal_on_conflict_level call, instead of re-testing after each OTFS
-  // restart. Probes the r34-class reuse-fidelity divergence.
-  bool reuse_first_round_only = false;
   bool jump_reasons = true;
   bool jump_reasons_bigbig = false;
   uint32_t bump_reason_limit = 0;
@@ -1955,6 +1950,18 @@ void kernel_deduplicate_binary_watches(Kernel &);
 void kernel_dense_connect(Kernel &, OccIndex &occ,
                           bool track_order = false);
 void kernel_rebuild_dense_occurrences(Kernel &);
+// Append one irredundant large occurrence of `lit` to the attached image: the
+// `large` membership mirror and, under Eliminate's mixed stream, `ordered`.
+// A rule that gives an existing record irredundant status while an image is
+// attached goes through this, never through `large` alone: the two views must
+// agree (the dense oracle in kernel_check_invariants).
+void kernel_dense_add_large_occurrence(Kernel &, Lit, Ref);
+// Remove one large occurrence of `lit` from every attached view.  `large` is
+// exactly the large payloads of `ordered` in order, so under the mixed stream
+// one pass locates the entry in both; that correspondence is the invariant
+// every remover must keep, which is why the Sweep session's eager membership
+// erases go through here rather than through `large` alone.
+void kernel_dense_remove_large_occurrence(Kernel &, Lit, Ref);
 void kernel_dense_disconnect(Kernel &);
 void kernel_flush_retired_redundant(Kernel &);
 

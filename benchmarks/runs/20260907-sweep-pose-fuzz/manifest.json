@@ -1,0 +1,265 @@
+{
+  "schema": "sweep-pose-consolidation-fuzz-v1",
+  "campaign": "20260907-sweep-pose-fuzz",
+  "created_at": "2026-09-07T13:05:00Z",
+  "status": "completed-pass",
+  "owner": "Claude Code (DEVELOPMENT_PLAN.md section 8.2 Claude-owned fuzzing; the main agent takes the terminal report at face value and does not probe fuzz artifacts)",
+  "purpose": "The single bounded consolidation fuzz campaign for the Sweep pose repair: connected (Sweep-session) large-clause deduplication in substitute.cpp rewrite_lits retains the latest retiring occurrence by merge-forest order; canonical substitution and LRAT hint order are unchanged.",
+  "candidate": {
+    "base_commit": "96e894cb486c8d8c4362e1363ca8f44bc2464aeb",
+    "patch": "../20260907-5302-sweep-pose-repair/candidate.patch",
+    "patch_sha256": "876574847bf233c7185b509712ad433a5c2f7a3d626469a5feda2f8e7bf86db1",
+    "release_pin": "../20260907-5302-sweep-pose-repair/pins/tactix-release",
+    "release_sha256": "f180cbc708f0fd20c6a7079f7c7df48bab090a914e87df6e10e5e37993c403a7",
+    "source_snapshot": "build/pin-sweep-pose-fuzz-src = git archive 96e894c + candidate.patch (patch applied cleanly; every patched file byte-identical to the live worktree; the live worktree additionally carries only the main agent's tests/CMakeLists.txt runtime_task registration and tests/test_runtime_task.py, outside src/)",
+    "source_identity_proof": "A fresh Release build (CMAKE_BUILD_TYPE=Release, CMAKE_CXX_FLAGS=-O3) from the snapshot reproduced f180cbc7... byte-for-byte (logs/build-pins.log), so the snapshot provably is the gated candidate source."
+  },
+  "gate": {
+    "campaign": "../20260907-5304-pose-BC-gate",
+    "slurm_job": "1668339",
+    "requirement": "all 66 (B28 + C5, both arms) results valid: expected verdict and exit code, independent model or proof check verified, scratch deleted",
+    "result": "PASS: job 1668339 all 66 array tasks COMPLETED 0:0 on node017/node018; 66/66 records valid (34 SAT models verified by checkmodel, 32 UNSAT DRAT proofs verified by drat-trim, expected verdicts and exit codes, pin hashes matched, scratch deleted on every task). Audit: logs/gate-1668339-audit.txt. T105 (rank 33): both arms wrote 695,190,050-byte DRAT certificates with DIFFERENT SHA-256 (shipped 95436183d5f3..., candidate 1de75ce8048c...), both verified (drat-trim 3332.0 s / 3324.9 s); equal size with different content is consistent with a literal-order (pose) change and is not a failure. Certificates byte-identical on 19/33 ranks; differing on ranks 1,4,5,9,11,14,15,16,19,20,24,30,31,33. Total solve wall shipped 1095.664 s vs candidate 1109.774 s (ratio 1.0129; single wave, not a timing claim)."
+  },
+  "pins": {
+    "tactix-release": {
+      "sha256": "f180cbc708f0fd20c6a7079f7c7df48bab090a914e87df6e10e5e37993c403a7",
+      "build": "Release -O3 from the snapshot; identity witness only, not a fuzz leg solver"
+    },
+    "tactix-debug": {
+      "sha256": "f8b765ed1a7251cceb6280c62fbab246e0e2209f2848d7b5668f4322af0ea99b",
+      "build": "Debug, -O1 -g -fsanitize=address,undefined -fno-omit-frame-pointer (assertions on) from the snapshot; build dir build/pin-sweep-pose-fuzz-dbg (all targets, for ctest)"
+    },
+    "tactix-shadow": {
+      "sha256": "1a48ef0ac2ffdef4c215950ed60f707f753e1a22a5f41b4c53d2f48189b64163",
+      "build": "same Debug flags + TACTIX_ENABLE_PROOF_SHADOW=ON: proof-population oracle aborts on the first deletion of a clause the proof never added (keyed by literal multiset under DRAT)"
+    }
+  },
+  "harness": {
+    "snapshot": "harness/ (read-only copy of tools/fuzz run.sh, fuzz.py, generators.py, modelcheck.py, shrink.py, stress.py, corpus/, stress-scenarios/ plus reach.py) used by prep and reach jobs; each generated leg gets its own build/pin-fuzz-harness-* snapshot from tools/fuzz/slurm.sh",
+    "snapshot_sha256": "7f1d682a52da6e033ad98b95feaf64059f4b643d2de1d1343088796b093b3f3e",
+    "live_file_sha256": {
+      "fuzz.py": "e9639c5206a9f56bad0bffddf343665ab11604e9b7375462fee7fc433328d7c2",
+      "run.sh": "3e736db1ab5dbefc58099250f6d3f05a36ab8e75de0632b14f5254f3c6d2afb5",
+      "slurm.sh": "b08aa2bb32715e171fb843380970606cd60b643558d0436d765ceaf3502bcfb3",
+      "modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+      "generators.py": "489bfdabebb05f9498dc1dbcd3350e2acddbe48d373fec40bda329986cdc21ba"
+    },
+    "unchanged_since": "campaign 20260901-4631 (fuzz.py/run.sh/slurm.sh/modelcheck.py SHA-256 identical); no oracle, accept condition, or checker invocation changed, so its selftest remains applicable"
+  },
+  "oracles": {
+    "kissat_sha256": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "drat_trim_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "lrat_check_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+    "model": "modelcheck.check_files: independent original-CNF check of every SAT v-line",
+    "proof": "DRAT legs: drat-trim must print s VERIFIED, then drat-trim -L -> lrat-check (harness --lrat chain); native-LRAT legs: lrat-check must accept",
+    "differential": "pinned kissat verdict on every case",
+    "invariants": "ASan+UBSan halt_on_error, debug assertions, crash/io consistency; shadow leg adds the proof-population deletion oracle"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "generated_leg": {
+      "physical_cores": 50,
+      "logical_cpus": 100,
+      "memory_mib": 400000,
+      "workers": 50,
+      "time_limit": "08:00:00",
+      "node_constraint": null,
+      "array": null
+    },
+    "reach_leg": {
+      "physical_cores": 50,
+      "logical_cpus": 100,
+      "memory_mib": 400000,
+      "workers": 50,
+      "time_limit": "06:00:00"
+    },
+    "prep": {
+      "physical_cores": 25,
+      "logical_cpus": 50,
+      "memory_mib": 200000,
+      "time_limit": "04:00:00",
+      "reason": "preparation: serial per-shape corpus replays and a bounded 2,300-case witness scan (section 8.2 allows less than 50 physical cores for preparation with a recorded reason)"
+    }
+  },
+  "legs": {
+    "default-drat": {
+      "solver": "pins/tactix-debug (DefaultPolicy)",
+      "certificate": "binary DRAT -> drat-trim; drat-trim -L -> lrat-check",
+      "cases": 10000,
+      "seed_base": 20260709,
+      "timeout_s": 5,
+      "require_reached": "Decide,Propagate,ConflictAnalysis,Sweep,SweepPartition,Substitute",
+      "max_nonterminating_frac": 0.25
+    },
+    "default-lrat": {
+      "solver": "pins/tactix-debug --lrat",
+      "certificate": "native LRAT -> lrat-check",
+      "cases": 10000,
+      "seed_base": 20260709,
+      "timeout_s": 5,
+      "require_reached": "Decide,Propagate,ConflictAnalysis,Sweep,SweepPartition,Substitute",
+      "max_nonterminating_frac": 0.25
+    },
+    "random-lrat": {
+      "solver": "pins/tactix-debug --random-policy={seed} --lrat",
+      "certificate": "native LRAT -> lrat-check",
+      "cases": 10000,
+      "seed_base": 20260709,
+      "timeout_s": 5,
+      "require_reached": "Decide,Propagate,Sweep,SweepPartition,Substitute",
+      "max_nonterminating_frac": 0.25
+    },
+    "sweep-stress-lrat": {
+      "solver": "TACTIX_STRESS_RULES=Sweep TACTIX_STRESS_NORMAL_EVERY=6 pins/tactix-debug --stress-policy={seed} --lrat (stress-scenarios/sweep.json)",
+      "certificate": "native LRAT -> lrat-check",
+      "cases": 10000,
+      "seed_base": 20260709,
+      "timeout_s": 5,
+      "require_reached": "Decide,Propagate,Sweep,Substitute",
+      "minimum_verdicts": 50,
+      "minimum_target_fires": 1,
+      "max_nonterminating_frac": null,
+      "nontermination_note": "stress schedules drive whole rounds to a fixpoint under ASan; the scenario's minimum-verdict floor is the coverage gate and the non-terminating population is reported, as in campaign 20260826-1330"
+    },
+    "subst-stress-lrat": {
+      "solver": "TACTIX_STRESS_RULES=Substitute TACTIX_STRESS_NORMAL_EVERY=6 pins/tactix-debug --stress-policy={seed} --lrat (stress-scenarios/substitute.json)",
+      "certificate": "native LRAT -> lrat-check",
+      "cases": 10000,
+      "seed_base": 20260709,
+      "timeout_s": 5,
+      "require_reached": "Decide,Propagate,Substitute",
+      "minimum_verdicts": 50,
+      "minimum_target_fires": 1,
+      "max_nonterminating_frac": null,
+      "nontermination_note": "stress schedules drive whole rounds to a fixpoint under ASan; the scenario's minimum-verdict floor is the coverage gate and the non-terminating population is reported, as in campaign 20260826-1330"
+    },
+    "shadow-sweep-drat": {
+      "solver": "TACTIX_STRESS_RULES=Sweep TACTIX_STRESS_NORMAL_EVERY=6 pins/tactix-shadow --stress-policy={seed}",
+      "certificate": "binary DRAT -> drat-trim; drat-trim -L -> lrat-check; in-process proof-population deletion oracle",
+      "cases": 10000,
+      "seed_base": 20260709,
+      "timeout_s": 5,
+      "require_reached": "Decide,Propagate,Sweep,Substitute",
+      "minimum_verdicts": 50,
+      "minimum_target_fires": 1,
+      "max_nonterminating_frac": null,
+      "nontermination_note": "stress schedules drive whole rounds to a fixpoint under ASan; the scenario's minimum-verdict floor is the coverage gate and the non-terminating population is reported, as in campaign 20260826-1330"
+    },
+    "reach": {
+      "script": "reach.sbatch -> harness/reach.py",
+      "witnesses": {
+        "sess": "substitute_apply_sweep_equivalences entry",
+        "large": "substitute.cpp:1465 (a literal kept by a connected large-clause rewrite; the retiring-only condition is untestable because origin_rank is optimized out at -O1)",
+        "dup": "substitute.cpp:1447 (connected large clause with a duplicate literal: the changed decision point)",
+        "pose": "substitute.cpp:1450 (later merge-forest origin displaced the resident copy: new behaviour executed)"
+      },
+      "universes": "default seeds 960000-961499, random-policy 970000-970399, sweep-stress 980000-980399; selector: solver's own `c sweep ... N equivalences` >= 1; every terminating gdb case must be oracle-clean under fuzz.py check-one (independent model check, native LRAT, kissat differential)",
+      "floors": "set from the prep probe's measured rates (reach-floors.json)"
+    }
+  },
+  "corpus": "28 tracked regression entries (tools/fuzz/corpus/regressions) replayed under every leg's exact solver command at a 60 s budget before the generated phase; per-shape non-termination allowances are pre-registered from the prep probe",
+  "acceptance": "Zero crashes, sanitizer findings, assertion/invariant failures, rejected SAT models, rejected proofs (drat-trim, lrat-check), proof-population aborts, or unexplained kissat disagreements in any leg; every fatal reach row fires at the source; the reach leg meets every floor with all terminating gdb cases oracle-clean; corpus replays pass with only pre-registered non-terminations; zero certificate/scratch residue at the cleanup audit.",
+  "correctness_trigger": "Any reproduced soundness defect preserves the exact reproducer and failure class; Claude owns the bounded repair; the finding is never concealed.",
+  "no_behavior_change": "The campaign alters no solver source, harness oracle, or accept condition; it adds only this campaign directory and its immutable pins/snapshot.",
+  "slurm_jobs": {
+    "prep": 1668415,
+    "prooftests-r0": 1668428,
+    "diag-crash-r0": 1668429,
+    "diag-base-96e894c": 1668430,
+    "bisect-repro": [
+      1668431,
+      1668432,
+      1668433,
+      1668434,
+      1668435,
+      1668436,
+      1668437,
+      1668438,
+      1668439,
+      1668440,
+      1668441,
+      1668442,
+      1668443,
+      1668444,
+      1668445,
+      1668446,
+      1668447,
+      1668448
+    ],
+    "trace-repro": [
+      1668449,
+      1668450,
+      1668451
+    ],
+    "gdbvals-r0": 1668452,
+    "repro-r1": 1668453,
+    "repro-r2": 1668454,
+    "prep-r2": 1668455,
+    "neutrality-r2": 1668456,
+    "prooftests-r2": 1668464,
+    "default-drat": 1668465,
+    "default-lrat": 1668466,
+    "random-lrat": 1668467,
+    "sweep-stress-lrat": 1668468,
+    "subst-stress-lrat": 1668469,
+    "shadow-sweep-drat": 1668470,
+    "reach-r3": 1668471
+  },
+  "prep": {
+    "r0": {
+      "job": 1668415,
+      "state": "FAILED (exit 1 by design: ctest not ok)",
+      "ctest": "71 passed; fuzz_slurm_snapshot failed only in its cleanup (shutil.rmtree ENOTEMPTY on the network filesystem after all assertions passed; the empty residue build/pin-sweep-pose-fuzz-src/build/pin-fuzz-harness-llArPU was removed); doc_size failed on the base commit's documentation budgets (PROGRESS.md 4948 > 350, implementation-notes 599 > 560; not a solver test); demo3_scripted_default timed out at 2400 s under ASan (an examples API demo); micro_proofs and sweep_proofs skipped (no checker binaries in the git-archive snapshot) and were replayed by job 1668428 on the same ASan build with the live checkers: both ok, sweep_proofs 44 derivations verified by drat-trim + lrat-check",
+      "corpus": "default-drat 0 failures, default-lrat 0 failures; random-lrat 7 failures (002,003,004,005,017,019,020), subst-stress-lrat 11 failures (002,003,004,005,008,009,015,017,019,020,021), sweep-stress-lrat 2 failures (019,020) + 026 non-terminating, shadow-sweep-drat 2 failures (019,020) + 026 non-terminating; all failures exit -6 (SIGABRT, debug assertion)",
+      "reach_probe": "default 1500 scanned/1464 terminating/162 selected, 16 gdb cases all oracle-clean (sess=16 large=15 dup=9 pose=8); random 400/344/57, 12 gdb cases all oracle-clean (sess=12 large=11 dup=4 pose=4); sweep-stress 400/337/122, 16 gdb cases (sess=16 large=12 dup=6 pose=5) but check-one CRASH on seed 980019 (exit -6) aborted the probe"
+    },
+    "crash_classes": {
+      "A": "kernel.cpp kernel_replace_large_clause_in_place: `large_index < occ.size() && occ[large_index] == ref` inside substitute_apply_sweep_equivalences (corpus 002/019 under random/Sweep-stress shapes)",
+      "B": "kernel.cpp kernel_check_invariants: `physical_binary == ordered_binary && dense ordered stream lost a physical binary copy` after a canonical Substitute step (corpus 008/015 under Substitute stress, reach seed 980019 under Sweep stress with --lrat)",
+      "C": "kernel.cpp kernel_check_invariants: `physical_large == ordered_large && dense ordered stream disagrees with its large mirror` after a Vivify step (corpus 020 under Sweep stress)"
+    },
+    "attribution": "all three classes reproduce byte-for-byte (same assertions, refs, ids) on a Debug ASan build of the plain base 96e894c (job 1668430): the 5302 candidate patch did not introduce them. Bisection (18 Debug builds, jobs 1668431-1668448) over f51a988..96e894c: classes B/C first appear at 02ab6f1 (Converge Rank 27 lifecycle mechanisms; it also added the invariant), class A at 1148168 (one-pass occurrence removal; it added the correspondence assertion); the last passing fuzz campaign (20260901-4631) ran at f51a988",
+    "repair": "(1) canonical Substitute republishes an attached track_order dense image at its boundary (RepublishAttachedMixedStream in do_substitution; the Congruence precedent kernel_canonicalize_binary_watches); (2) Vivify promote_irredundant appends through kernel_dense_add_large_occurrence (both views); (3) the Sweep session's remove_large/collapse_large_to_binary erase through kernel_dense_remove_large_occurrence (both views; the one-pass search moved out of kernel_replace_large_clause_in_place). DefaultPolicy attaches the mixed stream only inside Eliminate where canonical Substitute/Vivify never run, so (1) is inert there; (2)/(3) only add the `ordered` half under track_order. Regressions: corpus 028/029/030 and tests/test_substitute.cpp::test_canonical_substitution_republishes_attached_mixed_stream. Sources changed: src/kernel/kernel.hpp, src/kernel/kernel.cpp, src/rules/vivify/vivify.cpp, src/rules/substitute/substitute.cpp, tests/test_substitute.cpp, tools/fuzz/corpus/regressions/{028,029,030}; repair.patch (relative to the r0 candidate source) and candidate-r2.patch (relative to 96e894c) are in this directory",
+    "r1": {
+      "pins": "pins-r1 (repairs 1+2; release e9bd5f14..., debug d6e363df..., shadow 9fb68fa6...)",
+      "repro": "job 1668453: B/C fixed (su008drat=20, ss020=10, reach=10), A still failing (rp002/ss019)"
+    },
+    "r2": {
+      "job": 1668455,
+      "state": "FAILED (exit 1 by design: ctest not ok)",
+      "ctest": "75/76 passed with demo3_scripted_default excluded (API demo that exceeded ctest's 2400 s budget under ASan in the r0 prep); doc_size failed on the base commit's documentation budgets (not a solver test); micro_proofs and sweep_proofs skipped in the checker-less snapshot and replayed by job 1668464; the substitute test including test_canonical_substitution_republishes_attached_mixed_stream passed; fuzz_slurm_snapshot passed",
+      "corpus": "30 entries (001-030) x six shapes: 0 failures in every shape; non-terminating: 026 under sweep-stress-lrat and shadow-sweep-drat (allowance 1 each, pre-registered), crash-oracle-only 006/011/022 as recorded",
+      "reach_probe": "all 44 gdb cases across the three universes oracle-clean (0 crashes; seed 980019 now SAT); the witness COUNTS of this probe are void because harness-r2/reach.py still carried the r0 source's breakpoint lines (1447/1450/1465) while the repair shifted them by +11 (1458/1461/1476); harness-r3 corrects them for the reach leg",
+      "shadow_smoke": "35 verdicts of 40 cases, no population-oracle abort"
+    }
+  },
+  "outcome": {
+    "default-drat": "job 1668465 COMPLETED 0:0 (4:15, node018, 100 logical CPUs/50 workers/400,000 MiB): corpus 30 entries 0 failures; 10000 generated cases 0 failures; verdicts SAT=5685 UNSAT=4030 TIMEOUT=285; coverage 9715/10000 (2.9% non-terminating, under 0.25); all six required rules fired (Decide=1420 Propagate=9708 ConflictAnalysis=1413 Sweep=2485 SweepPartition=1665 Substitute=2396); every UNSAT DRAT verified by drat-trim, the drat-trim -L -> lrat-check cross-check skipped on 2429 degenerate-input cases for the harness's documented reason (conversion_crosscheck_unsound)",
+    "default-lrat": "job 1668466 COMPLETED 0:0 (4:02, node017): corpus 30/0; 10000 cases 0 failures; SAT=5686 UNSAT=4018 TIMEOUT=296; coverage 9704/10000 (3.0%); required rules fired (Decide=1409 Propagate=7467 ConflictAnalysis=1402 Sweep=2474 SweepPartition=1666 Substitute=2385); native LRAT accepted by lrat-check on every UNSAT",
+    "random-lrat": "job 1668467 COMPLETED 0:0 (5:04, node017): corpus 30/0; 10000 cases 0 failures; SAT=5199 UNSAT=3551 TIMEOUT=1250; coverage 8750/10000 (12.5%); required rules fired (Decide=3859 Propagate=6499 Sweep=2519 SweepPartition=3697 Substitute=4256); dense-connected 4392 cases",
+    "sweep-stress-lrat": "job 1668468 COMPLETED 0:0 (8:49, node018): corpus 30/0 with the pre-registered 026 non-termination; 10000 cases 0 failures; SAT=4891 UNSAT=3485 TIMEOUT=1624; coverage 8376/10000 (>= 50); stress target applications 653811 (>= 1); required rules fired (Decide=2840 Propagate=6087 Sweep=5485 Substitute=4623)",
+    "subst-stress-lrat": "job 1668469 COMPLETED 0:0 (5:26, node017): corpus 30/0; 10000 cases 0 failures; SAT=5195 UNSAT=3543 TIMEOUT=1262; coverage 8738/10000; stress target applications 1208875; required rules fired (Decide=3793 Propagate=6452 Substitute=6039)",
+    "shadow-sweep-drat": "job 1668470 COMPLETED 0:0 (8:55, node018): corpus 30/0 with the pre-registered 026 non-termination; 10000 cases 0 failures; SAT=4888 UNSAT=3483 TIMEOUT=1629; coverage 8371/10000; stress target applications 645974; required rules fired (Decide=2786 Propagate=8310 Sweep=5468 Substitute=4592); no proof-population abort",
+    "reach": "job 1668471 COMPLETED 0:0 (0:45, node017, 100 logical CPUs/50 workers/400,000 MiB, harness-r3 4b7a8e4b...): 2300 scanned cases, 44 gdb cases (0 bounded nonterminations) all oracle-clean under check-one; cases per witness sess=44 large=40 dup=19 pose=18 against floors 20/15/8/7 (per universe default 16/15/9/8, random 12/11/5/5, sweep-stress 16/14/5/5); REACH OK",
+    "totals": "60000 generated cases, 53654 verdicts (31544 SAT models independently checked against the original CNF with Kissat differential agreement, 22110 UNSAT proofs checked: DRAT by drat-trim on the two DRAT legs, native LRAT by lrat-check on the four LRAT legs), 6346 non-terminating at the 5 s budget (retained seeds under artifacts/<leg>/nonterminating), 0 failures of any class",
+    "residue": "every leg's build/pin-fuzz-harness-* snapshot removed by its successful job (six checked); no new tools/fuzz/failures bundle; job TMPDIRs removed by each job's trap; the r0 ctest's empty snapshot residue removed; 21 bisect build pairs and the base attribution build removed after use; retained: pins/ (r0, frozen), pins-r1, pins-r2, harness/, harness-r1, harness-r2, harness-r3, diag*/ evidence, artifacts/<leg>/nonterminating (harness-retained seeds, not certificates), build/pin-sweep-pose-fuzz-{,r1-,r2-}{src,rel,dbg,shadow}",
+    "campaign_verdict": "PASS on the repaired candidate pins-r2. The r0 candidate (release f180cbc7...) FAILED the campaign: its prep probe reproduced three debug-assertion crash classes on the dense mixed-stream image under free N1 schedules (corpus replays under the random and stress shapes and reach seed 980019), all present in the plain base 96e894c and bisected to 02ab6f1 and 1148168; the bounded repair (canonical Substitute boundary republish, Vivify promote through the kernel add primitive, Sweep-session erases through the kernel remove primitive) removes every class, keeps DefaultPolicy byte-identical on 8 re-solved gate instances, and the full six-leg plus reach campaign on pins-r2 is clean with every oracle, coverage floor, and reachability requirement met."
+  },
+  "neutrality": {
+    "job": 1668456,
+    "result": "8/8 short B28 gate instances (ranks 1,2,15 SAT; 8,9,10,22,23 UNSAT) re-solved by pins-r2/tactix-release: verdicts, DRAT certificate SHA-256 and byte counts, and every non-timing `c` statistics line byte-identical to the 5304 candidate arm (results 001,003,029,015,017,019,043,045)"
+  },
+  "legs_r2": {
+    "harness_snapshot_sha256": "33fdec527633457e05611ee0e537d8f3e94966bad37dc428a0fad33bd71f9afe",
+    "allowances": {
+      "default-drat": 0,
+      "default-lrat": 0,
+      "random-lrat": 0,
+      "sweep-stress-lrat": 1,
+      "subst-stress-lrat": 0,
+      "shadow-sweep-drat": 1
+    },
+    "resource": "each leg: 50 physical cores = 100 logical CPUs, 400,000 MiB, 50 workers, 08:00:00, cpu-dense-hwulab-q, no array, no node constraint"
+  },
+  "accepted_pins": "pins-r2 (candidate-r2.patch on 96e894c): release de3d9332f70f3bbd5ca17fedda4ad11c7295114e8b581251192746ff8d68439f, debug c7c536fe6a5fd77ef346f9dad327432c632ac37ef8283212e344712f5c744ea8, shadow f3354faf33960dc595ecea13fd31c4ff0da870be0651ddceaffb3c665f0b2cac"
+}

@@ -251,8 +251,9 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   `λ_l={¬l,μ(l)}`. First emit `add_rup(λ_l, big_path_chain(l,μ(l)))` for every substituted polarity.
   For each touched clause `C`, form `C^μ` by applying `μ`, removing duplicates and root-false literals,
   and detecting a complementary pair or root-true literal. A satisfied/tautological `C^μ` needs only
-  `del(C)`; otherwise emit `add_rup(C^μ,[deduplicated λ_l/root-unit ids in increasing proof-id order,
+  `del(C)`; otherwise emit `add_rup(C^μ,[deduplicated λ_l/root-unit ids in dependency order,
   C.id]) · del(C)` (add-before-delete).
+  Literal deduplication pose is an implementation choice, independent of the proof-hint dependency order.
   Finally delete every transient `λ_l`. For each eliminated positive literal `l` with `s=μ(l)`, append
   the symmetric witness pair `({¬l,s}, witness ¬l)` and `({l,¬s}, witness l)` to `ρ` (no proof line).
   UNSAT from `x,¬x` in one SCC is

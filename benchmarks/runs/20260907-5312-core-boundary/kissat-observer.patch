@@ -1,0 +1,52 @@
+--- a/src/sweep.c
++++ b/src/sweep.c
+@@ -40,6 +40,24 @@
+ 
+ typedef struct sweeper sweeper;
+ 
++static bool core_boundary_selected (sweeper *sweeper) {
++  kissat *solver = sweeper->solver;
++  return getenv ("SAT_CORE_BOUNDARY") && solver->statistics.conflicts == 26913 &&
++    kissat_export_literal (solver, LIT (sweeper->trace_seed)) == 563;
++}
++
++static void core_boundary_clause (sweeper *sweeper, const char *kind,
++                                 bool learned, size_t size, const unsigned *lits) {
++  if (!core_boundary_selected (sweeper)) return;
++  kissat *solver = sweeper->solver;
++  fprintf (stderr, "OBS_%s query=%u learned=%u lits=", kind,
++           sweeper->trace_query_ordinal - 1, learned);
++  for (size_t i = 0; i < size; ++i)
++    fprintf (stderr, "%d:%d,", kissat_export_literal (solver, lits[i]),
++             (int) solver->values[lits[i]]);
++  fputc ('\n', stderr);
++}
++
+ static int sweep_solve (sweeper *sweeper) {
+   kissat *solver = sweeper->solver;
+   kitten *kitten = solver->kitten;
+@@ -60,6 +78,8 @@
+   const int res = sweep_solve (sweeper);
+   const unsigned ordinal = sweeper->trace_query_ordinal++;
+   const int normalized = res == 10 ? 0 : res == 20 ? 1 : 2;
++  if (core_boundary_selected (sweeper))
++    fprintf (stderr, "OBS_QUERY query=%u kind=%s result=%d\n", ordinal, kind, normalized);
+   kissat_event_trace_sweep_query (
+       solver, sweeper->trace_seed, ordinal, kind, a, b, normalized,
+       solver->statistics.kitten_ticks - ticks_before);
+@@ -355,6 +375,7 @@
+ static void save_core_clause (void *state, bool learned, size_t size,
+                               const unsigned *lits) {
+   sweeper *sweeper = state;
++  core_boundary_clause (sweeper, "SAVE", learned, size, lits);
+   kissat *solver = sweeper->solver;
+   if (solver->inconsistent)
+     return;
+@@ -405,6 +426,7 @@
+     const unsigned *c = p;
+     while (*p != INVALID_LIT)
+       p++;
++    core_boundary_clause (sweeper, "ADD", false, p - c, c);
+     const size_t journal_old_size = p - c;
+     char journal_literals[2048];
+     kissat_rule_journal_literals (solver, c, journal_old_size,

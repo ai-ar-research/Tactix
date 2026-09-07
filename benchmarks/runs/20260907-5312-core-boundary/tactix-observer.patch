@@ -1,0 +1,62 @@
+--- a/src/rules/sweep/sweep.cpp
++++ b/src/rules/sweep/sweep.cpp
+@@ -17,6 +17,8 @@
+ 
+ namespace {
+ 
++const Kernel *core_boundary_kernel = nullptr;
++
+ #ifdef TACTIX_ENABLE_CONFLICT_STOP
+ static const bool sweep_time = std::getenv("TACTIX_SWEEP_TIME") != nullptr;
+ #endif
+@@ -750,6 +752,29 @@
+   SubDerivation d;
+   if (!e.solver.derivation(d) || d.steps.empty())
+     return; // no refutation to hand back (e.g. directly contradictory assumptions)
++  if (core_boundary_kernel) {
++    const Kernel &k = *core_boundary_kernel;
++    std::fprintf(stderr, "OBS_CORE_BEGIN\n");
++    for (uint32_t id : d.core) {
++      std::fprintf(stderr, "OBS_ORIGINAL id=%u lits=", id);
++      for (uint32_t i = e.clause_off[id - 1]; i < e.clause_off[id]; ++i) {
++        const Lit l = e.clause_lits[i];
++        std::fprintf(stderr, "%d:%d,", kernel_externalize(k, l), int(k.value(l)));
++      }
++      std::fputc('\n', stderr);
++    }
++    for (const auto &step : d.steps) {
++      std::fprintf(stderr, "OBS_STEP id=%u lits=", step.id);
++      for (SubLit sl : step.lits) {
++        const Lit l = sweep_kernel_lit(e.vars, sl);
++        std::fprintf(stderr, "%d:%d,", kernel_externalize(k, l), int(k.value(l)));
++      }
++      std::fprintf(stderr, " chain=");
++      for (uint32_t id : step.chain) std::fprintf(stderr, "%u,", id);
++      std::fputc('\n', stderr);
++    }
++    std::fprintf(stderr, "OBS_CORE_END\n");
++  }
+   if (d.steps.size() > SWEEP_MAX_PROOF_STEPS)
+     return; // pathological: decline rather than allocate without bound
+   const std::vector<SubLit> &tl = d.steps.back().lits;
+@@ -1267,6 +1292,9 @@
+ 
+ static uint32_t sweep_process_seed(Kernel &k, Var seed, const SweepLimits &lim,
+                                    SweepRound &r, bool commit_inline) {
++  core_boundary_kernel = std::getenv("SAT_CORE_BOUNDARY") &&
++      k.stats.conflicts == 26913 &&
++      kernel_externalize(k, make_lit(seed, false)) == 563 ? &k : nullptr;
+   assert(sweep_guard(k));
+   assert(r.repr.size() == 2 * k.nvars && "sweep_round_begin must run first");
+   SweepEnv &e = r.env;
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -3330,6 +3330,8 @@
+       "|ticks=" + std::to_string(ticks) +
+       "|conflicts=" + std::to_string(conflicts);
+   emit(k, "sweep_query", payload.c_str(), false);
++  if (std::getenv("SAT_CORE_BOUNDARY"))
++    std::fprintf(stderr, "OBS_QUERY %s\n", payload.c_str());
+ }
+ 
+ void event_trace_sweep_query(const Kernel &k, Var seed, uint32_t ordinal,
