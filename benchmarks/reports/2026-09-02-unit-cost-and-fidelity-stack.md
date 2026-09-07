@@ -5902,3 +5902,28 @@ payoff), (b) accept the r34-class N4 deviations in docs/scheduling-parity-ledger
 this evidence, or (c) re-scope. NEXT diagnostic if continuing: confirm heterogeneity on a
 3rd/4th N4 rank (r6 cfi / r19 knight) and check whether ANY share a general mechanism
 before committing to a per-instance embedded-solver effort.
+
+### 3.132 IMPL-GAP general codegen levers: LTO REFUTED (slower); -march=native testing; N4 heterogeneity CONFIRMED (2026-09-07)
+
+Redirected from r34's instance-specific N4 dead-end to the actual IMPLEMENTATION GAP
+(same work, more time = unit cost), testing GENERAL, non-overfitting build-level levers
+for the diffuse-codegen gap (3.119-3.121). All behavior-verified byte-identical (output +
+proof) vs the -O3 baseline before timing, so any delta is pure codegen.
+
+N4 HETEROGENEITY CONFIRMED (jobs 1668179/1668181/1668182): r16, r19, r6 are ALL in
+LOCKSTEP with kissat on inheap=1 deactivations (377 / 7191 / 5, identical order) through
+their windows; only r34 diverges (at the sweep, conflict 26913). So r34's embedded-kitten
+core-extraction divergence is INSTANCE-SPECIFIC, not a general N4 mechanism -- matching it
+would overfit. The N4 gap is heterogeneous per-instance embedded-solver trajectory chaos.
+
+LTO REFUTED (job 1668187, build/lto = Release + CMAKE_INTERPROCEDURAL_OPTIMIZATION on the
+current source; same-node paired vs build/base-o3 and kissat 4.0.4):
+    rank   base-o3   lto       kissat    lto/base
+    r23    210.17s   215.54s   198.97s   1.0255
+    r26    268.36s   277.11s   254.78s   1.0325
+LTO makes tactix ~2.5-3.3% SLOWER, not faster (consistent across both matched-work ranks).
+tactix's plain -O3 build is already its best; aggressive cross-TU inlining hurts the hot
+loop (code layout / register pressure). LTO is NOT the impl-gap lever. NOTE: tactix/kissat
+here is ~1.053 on r23/r26 -- LARGER than 3.119's 1.02-1.03x (fresh gate-shape measurement;
+noL-11 family), so the unit-cost gap on this family may be bigger than earlier measured and
+worth a targeted profile. -march=native (build/march, Zen 3) probe in flight (job 1668188).
