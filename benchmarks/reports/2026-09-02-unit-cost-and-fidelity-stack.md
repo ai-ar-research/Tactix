@@ -5643,3 +5643,58 @@ ONLY trace of that ~100-conflict window (feasible -- small window) to read the f
 differing decision + its level + the retained analysis_otfs_strengthened/subsumed
 events -> the reuse/analyze fidelity bug -> proof-critical fix. The N4 localization
 is now UNBLOCKED and fast; only the final pinpoint + proof-critical fix remain.
+
+### 3.127 ROOT CAUSE of r34 N4 divergence = decision-heap TIE-BREAK (heap array layout), not scoring/OTFS/bump (2026-09-07)
+
+Completed the r34 localization from 3.126's (70000,80000] bracket down to the exact
+cause, using content-addressed trace fingerprints (jobs 1668166/1668168/1668169).
+
+PINPOINT (job 1668166, TRAJECTORY_ONLY trace of window [73900,76100]):
+- Learned-clause `set_hash` (order-independent, cross-solver) is IDENTICAL through
+  conflict 75861; the FIRST differing learned clause is conflict 75862 (learned_raw,
+  same size 11, different literal set).
+- The first differing DECISION LITERAL is 411 conflicts EARLIER, at conflict 75451
+  (real count, from the bracketing `conflict` events; the decision event's own
+  conflicts/decisions columns are a frozen snapshot between conflicts). At decision
+  LEVEL 30 tactix picks var 17217, kissat picks var 5214 -- a DIFFERENT VARIABLE, not
+  a phase flip. Levels 24-29 of that descent matched exactly (5388,17375,-14195,14280).
+- Ordering (monotonic `seq`): the diverging decision (seq 33502) precedes conflict
+  75862's analysis (seq 39917) by ~6400 events. So the decision heuristic diverged
+  first and only reached the learned clauses 411 conflicts later (the deep divergent
+  decisions were pruned by backjumps above level 30 until 75862).
+
+CAUSE (jobs 1668168 tactix + 1668169 kissat, per-variable heap dumps via
+formula_checkpoint HEAP_DUMP at conflicts 75430..75470, both solvers):
+- EVSIDS scores are a BYTE-PERFECT port: at conflict 75430, 12999/12999 common vars
+  have byte-equal score; through 75470 there is NO score, score-rank, heap-top, or
+  set-membership difference. The bump-set / reason-side-bump / OTFS-clause hypotheses
+  are therefore REFUTED for this divergence.
+- The two divergent decision variables both have score EXACTLY 0 in both solvers
+  (var 17217 and var 5214 are TIED). At conflict 75451 there are 739 distinct score
+  values with identical tie-GROUPS across solvers (same vars per score), and a score-0
+  pool of 11897 vars (identical SET in both) -- ~92% of the heap is one giant tie
+  (r34/dislog bumps very few variables, so deep decisions are dominated by ties).
+- The decision-heap ARRAY LAYOUT differs: within the identical score-0 pool the
+  heap-array order is completely different (T: 12288,20301,12415,... vs
+  K: 13219,13199,20299,...). Distinct-score vars pop in score order regardless of
+  layout, so layout is decision-IRRELEVANT except at EXACT ties; at level 30 the
+  solver is picking from the tied score-0 pool, and the differing layout breaks the
+  tie differently -> different decision variable -> N4 trajectory divergence.
+
+VERDICT: r34's N4 gap is a DECISION-HEAP TIE-BREAK FIDELITY GAP. Kissat's binary heap
+breaks equal-score ties by array position (a deterministic artefact of its heap
+operation/build order); tactix's heap holds the identical variables with identical
+scores but in a different valid layout, so it breaks ties differently. This is a
+general fidelity deviation (N4 "close or explicitly accept every parity-ledger
+deviation"), not overfitting: any instance whose search descends into a large
+equal-score pool will diverge the same way.
+
+NEXT (fresh-mind, proof-adjacent -- deferred per the 7am wrap-up): determine whether
+the tie-order divergence is INITIALIZATION/import order (job 1668170 dumps the heap at
+conflicts 1,2,3,5,10 where nearly all vars are still score-0: if layouts already
+differ there, it is purely build order) or an OPERATION-order gap (heap comparison
+strictness on ties, sift-up/down, or re-insertion of unassigned vars). Then align
+tactix's decision-heap construction/tie-order with kissat's (heap.c), validate that
+r6/r16/r19/r23/r34 track kissat's trajectory WITHOUT regressing r15/r20/r26/r36, fuzz
+0/10k, and gate on Rank B28+C5. The heap tie-order change is scheduling/heuristic
+(N4), does not alter proof rules, and must stay behind the usual paired gates.
