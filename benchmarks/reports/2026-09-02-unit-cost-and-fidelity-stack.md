@@ -6161,3 +6161,33 @@ invasive/uncertain; jr-hoist codegen micro-win was net-negative). The two shippe
 lever is search-quality/trajectory fidelity, which needs a deliberate first-divergence ->
 scheduling-fix -> aggregate-validate loop across the divergent ranks, and a scope decision
 on how far to chase per-instance trajectory matching vs accept N4 deviations.
+
+### 3.141 N4 divergence is INPROCESSING-TRIGGERED (align tens-of-thousands of conflicts, then split); general lever = embedded-kitten fidelity (2026-09-07)
+
+Shared-mechanism test on the top N4 ranks (decision-prefix cumulative-hash tool, jobs
+1668239/1668241): tactix and kissat make BYTE-IDENTICAL decision sequences early, then
+diverge in the inprocessing-heavy range:
+    r17 (SAT):  ALIGNED thru conflict 10000, DIVERGED by 100000
+    r31 (UNSAT): ALIGNED thru 40000, DIVERGED in (40000,60000]
+    r34 (SAT):  ALIGNED thru ~75000, divergence traced (3.127-3.130) to a SWEEP at conflict
+                26913 -> tactix's embedded KITTEN extracts a different core than kissat's kitten.
+So the N4 trajectory divergence is NOT a fundamental early scheduling difference (the early
+search, including many inprocessing rounds, is bit-faithful). It is TRIGGERED later by a
+specific inprocessing operation whose INTERNAL result differs -- for r34 confirmed to be the
+sweep's kitten core extraction. Once triggered, it compounds (r31 -> 2.7x conflicts).
+
+GENERAL LEVER (the coherent conclusion for the whole N4 gap): make tactix's embedded kitten
+solver (SubSolver, used by the sweep) BIT-FAITHFUL to kissat's kitten -- same decisions,
+propagation, learning, and core extraction/minimization. If kitten matched bit-for-bit, no
+instance's sweep would diverge, so the sweep-triggered N4 divergence would vanish across the
+tier. This is ONE well-defined target (not a per-instance grind), and it explains why some
+ranks stay lockstep (r6/r16/r19) while others diverge (r17/r31/r34): the effect is instance-
+dependent (only bites when a given sweep's kitten solve diverges), but the FIX is general.
+CAVEATS: (1) it is a LARGE effort -- the embedded kitten's search must be aligned bit-for-bit,
+which 3.130 showed is deep (core-extraction differences). (2) N4 divergence may also be
+triggered by OTHER inprocessing rules (eliminate/vivify/probe) on ranks not yet traced; r31's
+exact trigger rule is not yet confirmed to be the sweep (divergence bracketed to (40k,60k],
+not pinned to a rule). (3) must preserve N1-N4 + proofs. RECOMMENDATION: the path to within-1%
+runs through embedded-kitten (and broader inprocessing) fidelity, NOT the impl codegen grind
+(~5%) nor per-instance trajectory matching. Next concrete step: confirm r31's trigger rule
+(is it a sweep?), then scope the kitten-fidelity alignment as the primary N4 workstream.
