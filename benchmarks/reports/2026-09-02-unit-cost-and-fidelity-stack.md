@@ -5149,3 +5149,28 @@ dominated 0-conflict ranks, of which binary substitution was ~4-5%. Next: profil
 the 0-conflict ranks (r7/8/10/13/14) for the next preprocessing unit-cost lever
 beyond binary substitution -- same method as 3.100 (sub-phase timer + perf, not
 noisy r10 wall time). r34-class ranks are a SEPARATE N4 (scheduling) thread.
+
+### 3.106 r34 N4 localized: tactix's conflict-reuse port diverges from Kissat (2026-09-06)
+
+r34 (dislog_a14_x14_n24) is an N4 search-trajectory divergence (tactix 1.97x
+conflicts vs kissat). Ablation battery (job 1667999, all on r34, conflicts):
+  tactix-default      8.54M  1.97x  727s
+  tactix -factor      9.60M  2.22x  887s   (Factor HELPS tactix; not the cause)
+  tactix -jumpreasons 8.54M  1.97x  772s   (no effect)
+  tactix -CONFLICT_REUSE 5.34M 1.23x 452s  <-- collapses 76% of the excess
+  tactix -factordemote 7.27M 1.68x  642s   (secondary, ~0.29x)
+  kissat-default      4.33M  1.00x  328s
+  kissat -factor      4.09M  0.94x  308s
+
+CONFLICT REUSE is the dominant lever: TACTIX_CONFLICT_REUSE=0 cuts conflicts
+8.54M->5.34M and wall 727->452s. But conflict_reuse ships ON to MATCH Kissat's
+one_literal_on_conflict_level shortcut, and Kissat WITH reuse gets 4.33M -- so
+tactix's reuse PORT is divergent/buggy, amplifying a 2x blowup Kissat's does not.
+This is the open ledger item SP-FACTOR-OCCURRENCE-1's conflict-reuse boundary
+(conflict 347/1010) -- SYSTEMATIC, not r34-specific. The fix is a FIDELITY repair
+of tactix's conflict-reuse to match Kissat (not turning it off, which still leaves
+1.23x and is not faithful). Residual after reuse (1.23x) is other divergence
+(factor-demote interaction + analyze). NEXT: audit tactix conflict_reuse vs
+kissat one_literal_on_conflict_level, find the first-divergence conflict, port
+faithfully; validate on a small fixture + r34 + a generality gate (chaotic-
+instance-veto: confirm the fix helps broadly, not just r34).
