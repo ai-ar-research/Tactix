@@ -5522,3 +5522,28 @@ DEFINITIVE REFRAMING OF THE GOAL:
 NEXT (7am): the r34-class N4 traces are now the highest-value remaining work; the
 impl-gap lever hunt is complete (captured + diffuse-residual). This session tested
 every impl hypothesis to exhaustion.
+
+### 3.122 N4 trace needs deep tooling (event vocabularies don't align); solvers aligned at first conflict (2026-09-07)
+
+Third r16 trace attempt (job 1668118, tiny window conflicts 1-100, CONFLICT_FROM=1):
+traces are now comparable SIZE (tactix 48.6k / kissat 50k lines) -- the tiny window
+fixed the granularity blowup. But compare_event_trace.py --mode semantic still can't
+align them: tactix and kissat emit DIFFERENT EVENT VOCABULARIES (tactix: imply/
+analysis_mark/analysis_reason_lit/watch/phase_save; kissat: restart_begin+end (24020
+each)/decision/conflict/checkpoint). The diff flags a spurious seq-0 divergence
+(tactix imply vs kissat trace_begin), not a solver divergence.
+USEFUL SIGNAL: both solvers reach their FIRST CONFLICT at decisions=60, level=60,
+conflicts=1 -- so their SEARCH TRAJECTORIES ARE ALIGNED early; r16's reuse/OTFS
+divergence is LATER, and finding it needs deeper trace tooling: a common-anchor
+event mapping between the two vocabularies, or a scalar-checkpoint comparison
+(kissat emits `checkpoint` events; match tactix checkpoints to bisect the first
+conflict where conflicts/decisions/level diverge). This is a genuine tooling effort,
+not a tonight-tractable diagnostic (3 attempts: startup misalignment, granularity
+blowup, vocabulary mismatch -- each a real wall, each scoped).
+DEFINITIVE END-OF-SESSION: BOTH remaining paths are now exhausted for tonight with
+evidence -- impl-gap levers (captured + diffuse-no-lever residual, every hypothesis
+tested incl. the padded-header A/B) AND the N4 trace (needs deep common-anchor
+tooling + a proof-critical fix). 7am work: build the common-anchor/scalar-checkpoint
+trace comparison for r16, localize the first reuse/OTFS divergence conflict, then
+the proof-critical analyze fix. This session: 2 shipped wins + exhaustive evidence-
+backed characterization of the entire gap + r34 localization + honest corrections.
