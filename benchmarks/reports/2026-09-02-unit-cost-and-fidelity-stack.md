@@ -5828,3 +5828,18 @@ and deactivation interleave as in kissat -- while keeping each unit's reconstruc
 DRAT/LRAT proof valid at the inline commit point. This is a sweep proof-reconstruction
 restructure: design with calculus/rule-dev, validate with the proof oracle. Traces:
 benchmarks/runs/20260907-5281-r34-core-order.
+
+N2 OBSTACLE FOR THE FIX (why inline-assign is a proof-reconstruction redesign, not a
+reorder): tactix's sweep proves each backbone unit by RUP REPLAY against the current
+kernel (sweep_emit_unit -> congruence_replay_rup), and capture is deliberately
+`const Kernel&` (read-only) and separated from emit precisely so this replay runs in a
+stable batch context. Kissat instead adds each unit's proof INSIDE the kitten refutation
+(add_core: ADD_UNIT_TO_PROOF before kissat_assign_unit), independent of the evolving
+kernel. So moving tactix to kissat's inline-assign-during-core-walk changes the RUP
+replay context per unit (earlier units now assigned), which can flip whether a unit
+RUP-replays and alter its chain -- i.e. it is entangled with N2, not timing-neutral. The
+fix must therefore rework the sweep's unit proof reconstruction to be inline-safe (e.g.
+carry the kitten-derivation proof through to the inline commit rather than replaying RUP
+against the mutated kernel), then verify with the proof oracle. This is calculus/rule-dev
+work; do it fresh. All localization/confirmation for it is complete (3.127-3.129 + this
+note); the remaining item is the implementation itself.
