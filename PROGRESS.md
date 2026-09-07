@@ -7,6 +7,22 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+
+- SESSION WRAP-UP 2026-09-06 22:30 EDT: on `main` (== origin/main == 6aae303),
+  clean, all junk branches + stale worktrees removed (only main remains). The
+  substitution port is merged+pushed. 7am cron ee93e605 set to resume r34 (fires
+  09-07 07:03 IF this session stays alive; SLURM jobs finish regardless). Trace
+  tooling built: build/event-trace/tactix + kissat-event-trace worktree.
+  TRACE STATUS: the r16 first-divergence trace (job 1668086) RAN but its --mode
+  semantic diff was swamped by STARTUP-event misalignment (tactix emits watch/
+  sweep_schedule normalization at conflicts=0 that kissat orders differently) --
+  NOT the real divergence. RE-RUN with a search-phase window (CONFLICT_FROM~1)
+  and --mode anchor/--common-anchor to skip startup. This is the first task next
+  session.
+  IN-FLIGHT (check + record next session): generality gate 1668006 (~60/80),
+  R40 gate 1667849 (~77/80, confirms merged port 40/40). BC 1667933 infra-errored
+  (node FileNotFoundError; components run clean locally -- re-run if a formal B+C
+  gate is needed; the A/B already proves no regression).
 - MERGED TO MAIN: the binary-substitution port + 7 unit-cost repairs are on
   origin/main (fast-forward 275be55->f6c98b3, clean, validated: fuzz 0/10k x2,
   behaviour-identical A/B, R40 39/40 clean 0 timeouts, -4-5% on substitution
