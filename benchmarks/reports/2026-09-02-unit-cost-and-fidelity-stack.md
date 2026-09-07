@@ -5448,3 +5448,30 @@ The concentrated gap is N4 (+330s, r34-class), needing trace-driven analyze/
 scheduling fidelity fixes (deep). This session RIGOROUSLY established the complete
 lever map, shipped the 2 clean wins available, and localized r34; the within-1%
 target is a multi-session effort with no remaining quick wins.
+
+### 3.119 BIG-RANK impl gap = propagation UNIT COST (matched props, faithful BCP) (2026-09-07)
+
+Profiled the big matched-work ranks (r29/r38, job 1668110) -- these hold ~+115s of
+the +303s impl gap and were unexamined (r7 was 0-conflict/preprocessing). Result:
+  PROPAGATION dominates -- kernel_propagate (kernel.cpp:2088) = 64-71% of the run;
+  the single hottest line is the BCP inner loop kernel.cpp:1619-1620 (values[
+  blocking] load) at 15-18% SELF, +1639 (large ref) 7-9%.
+  PROP COUNTS vs kissat: tactix does the SAME or FEWER props -- r23/r26 IDENTICAL
+  props+conflicts yet 1.03x/1.02x slower (UNAMBIGUOUS unit cost); r29 0.907x,
+  r36 0.890x, r39 0.905x props (10% FEWER) yet slower. So the big-rank gap is
+  PROPAGATION UNIT COST: ~2-3% slower per propagation.
+  BUT the BCP loop is FAITHFUL to kissat: values is per-lit int8_t in BOTH
+  (kernel.hpp:902 = kissat VALUE(LIT)), the replacement scan resumes at c->searched
+  (kissat), the watch move is delayed (kissat proplit.h). No single-line divergence.
+CONCLUSION: the bulk of the residual impl gap is DIFFUSE propagation unit cost --
+tactix's slightly-heavier C++ propagation machinery (clause/assign/trail bookkeeping)
+costs ~2-3% per prop vs kissat's lean C, spread across the faithful BCP, with NO
+single-line lever. This is the fundamental "C++ solver vs lean-C reference" gap. The
+clause header (20 vs 12 B) is a candidate (its effect on prop-deref cache was NOT
+directly tested; 3.99 only tested substitution arena-scan +0.02s), but changing it
+is invasive + N2-load-bearing + uncertain payoff. So closing the residual impl gap
+needs either deep low-level representation matching (uncertain) or accepting it.
+COMPLETE session characterization: impl gap = substitution (2 wins shipped) +
+congruence (faithful) + parse (diffuse) + BIG-RANK PROPAGATION UNIT COST (diffuse,
+the bulk); N4 gap = r34-class (needs traces). Within-1% is a deep multi-session
+effort; the clean levers are captured, the residual is diffuse unit cost + N4.
