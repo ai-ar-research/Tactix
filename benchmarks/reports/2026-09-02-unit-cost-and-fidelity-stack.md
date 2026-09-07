@@ -6136,3 +6136,28 @@ NEXT: decompose the top N4 ranks (r31, r34, r17, r22) by conflict/prop RATIO (ma
 vs divergent work) and first-divergence point to test whether they SHARE a general N4
 mechanism (fixable) or are each idiosyncratic (accept). This is the highest-leverage
 question for the whole goal and needs the user's scope call on (B).
+
+### 3.140 The dominant gap is SEARCH-QUALITY: tactix does 1.5-2.7x MORE work than kissat on N4 ranks (2026-09-07)
+
+Characterized the top N4-worse ranks by tactix-vs-kissat WORK counts (job 1668236):
+    r17 (sum_of_three_cubes, SAT): cr=1.16 conflicts, prop-ratio=1.80 -> +55% props/conflict (prop blowup)
+    r22 (oisc-subrv, UNSAT):       cr=1.26 conflicts, prop-ratio=0.96  (conflict blowup, props matched)
+    r31 (oski15, UNSAT):           cr=2.73 conflicts, prop-ratio=1.42  (2.7x MORE conflicts -- huge)
+All three: tactix does substantially MORE search work (conflicts and/or propagations) than
+kissat to solve the SAME instance. The patterns differ per instance (r17 prop-heavy, r31
+conflict-heavy) but the common thread is a SEARCH-QUALITY deficit: tactix's decisions/
+scheduling/learning produce LONGER searches. This is the +43-52% "N4" band from 3.139 and
+it is 93% of the +24% aggregate. It is NOT codegen (matched-work ranks are ~1.03-1.05) and
+NOT a single mechanism (patterns are per-instance).
+
+BOTTOM LINE for the goal: within-1% on Rank 1-40 is gated by making tactix's SEARCH as
+efficient as kissat's on ~22 ranks (the N4 half, "at least as sophisticated as kissat's
+scheduling"), not by the impl codegen grind (~+5%). This is systematic scheduling/heuristic
+FIDELITY work: each small divergence (e.g. the r34 decision-heap tie-break, 3.127-3.128)
+compounds into a longer trajectory. It is a large, multi-cycle effort with an overfitting
+risk (per-instance matching) and no quick win identified this session (heap tie-order is
+invasive/uncertain; jr-hoist codegen micro-win was net-negative). The two shipped wins
+(binary-subst port, Bloom prefilter) addressed real impl levers; the remaining dominant
+lever is search-quality/trajectory fidelity, which needs a deliberate first-divergence ->
+scheduling-fix -> aggregate-validate loop across the divergent ranks, and a scope decision
+on how far to chase per-instance trajectory matching vs accept N4 deviations.
