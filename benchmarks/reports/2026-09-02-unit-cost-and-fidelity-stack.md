@@ -6100,3 +6100,39 @@ needs paired timing validation and most will be neutral/negative), OR accepting 
 ~3-5% C++-vs-lean-C propagation overhead on the prop-heavy/noL-11 family as fundamental.
 This is a validated negative, done right (implement -> behavior-check -> timing -> revert),
 per the protocol -- not a speculative land.
+
+### 3.139 DECISIVE: aggregate Rank 1-40 gap = +24%, and 93% of it is N4 trajectory divergence, NOT impl codegen (2026-09-07)
+
+FIRST direct measurement this session of the goal's actual metric (job 1668196, 40-task
+array, tactix build/base-o3 vs kissat 4.0.4, gate allocation -c=12 --mem=48000M, all 40
+verdicts correct). Raw per-rank in benchmarks/runs/20260907-5291-ranks1-40-aggregate/
+aggregate.tsv.
+
+AGGREGATE = 1.2407 (sum tactix 8249s vs kissat 6649s, +1600s). Band decomposition:
+  impl unit-cost (16 ranks, ratio in [0.9,1.15]): 1.0535, +189s  <- "same work, more time"
+  N4 trajectory-WORSE (22 ranks, ratio > 1.15): 1.5236, +1489s   <- 93% OF THE GAP
+  N4 trajectory-BETTER (2 ranks, ratio < 0.9): 0.7020, -79s      <- tactix wins
+Worst N4: r31 2.51x (+393s), r34 2.24x (+406s), r17 2.17x (+133s), r22 1.43x (+73s),
+r9 1.39x (+27s). r34+r31 ALONE = +799s = HALF the entire aggregate gap.
+
+REFRAMING (supersedes the session's impl-codegen focus): the Rank 1-40 within-1% goal is
+OVERWHELMINGLY gated by N4 TRAJECTORY DIVERGENCE (tactix's search takes different, mostly
+worse paths -- r31/r34 at 2.2-2.5x), NOT by implementation unit cost. The IMPLEMENTATION
+GAP proper (goal's "same work, more time") is only ~+5.4% on matched-work ranks (16 ranks
+band) -- close to mergeable, a diffuse-codegen grind (3.136-3.138; note isolated-probe
+noL-11 numbers ran hot vs this gate-shape ~1.03-1.05). The +1489s N4 component is DIFFERENT
+work: it is the +11.27% "N4" half of the old R40 decomposition, now measured across the
+whole tier and found DOMINANT.
+
+STRATEGIC CONSEQUENCE (for the user): "within 1% on Rank 1-40" requires eliminating the N4
+trajectory divergence on ~22 ranks (esp. r34, r31 at >2x), which this session PROVED
+bottoms out in INSTANCE-SPECIFIC embedded-solver chaos for r34 (decision-heap tie-break ->
+kitten core extraction; r6/r16/r19 lockstep) -- i.e. matching it risks overfitting and may
+require bit-for-bit trajectory fidelity across many ranks. So the goal has two very
+different halves: (A) merge the +5.4% impl gap (diffuse-codegen grind, bounded, general);
+(B) close the +43-52% N4 gap on ~22 ranks (trajectory fidelity -- possibly a GENERAL
+mechanism worth porting, possibly idiosyncratic chaos to accept in the parity ledger).
+NEXT: decompose the top N4 ranks (r31, r34, r17, r22) by conflict/prop RATIO (matched work
+vs divergent work) and first-divergence point to test whether they SHARE a general N4
+mechanism (fixable) or are each idiosyncratic (accept). This is the highest-leverage
+question for the whole goal and needs the user's scope call on (B).
