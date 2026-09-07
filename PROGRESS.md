@@ -8,6 +8,26 @@ resume surface.
 
 ## Current resume anchor
 
+- r34 REUSE DIVERGENCE -- SHARPENED HYPOTHESIS (code pre-localization 2026-09-07,
+  no compute): two suspects ELIMINATED as faithful -- (a) target math (chronolevels
+  =100=kissat), (b) conflict_level<level pre-backtrack (tactix analyze.cpp:1263
+  `if (alevel<k.level) unwind_after_conflict` == kissat backtrack_after_conflict).
+  PRIMARY SUSPECT: tactix tests reuse at EVERY OTFS PASS (analyze.cpp:1276 loop,
+  "Test reuse at every OTFS pass") whereas kissat calls one_literal_on_conflict_
+  level ONCE on the original conflict then does full 1-UIP (analyze.c:545). So when
+  on-the-fly strengthening reduces a >1-literal-at-level conflict to exactly one,
+  tactix REUSES the strengthened clause as a reason where kissat would LEARN a
+  1-UIP clause -- a weaker/different reason, the likely worse-trajectory cause on
+  the 11 divergent ranks (r6/r16/r19/r23/r34...). SECONDARY: tactix requires
+  jump2>0 (kissat reuses at jump_level=0 via its reason path; tactix uses an LRAT
+  unit path) -- probably trajectory-equivalent, check second.
+  7AM PLAN: (1) confirm via the r16 search-phase windowed trace (--mode anchor,
+  CONFLICT_FROM~1). (2) If confirmed, gate tactix's reuse test to kissat's timing
+  (once on the original conflict, before OTFS strengthening) -- match analyze.c
+  exactly. (3) Validate: r6/r16/r19/r23/r34 improve toward kissat WITHOUT
+  regressing the 18 reuse-benefiting ranks (r15/r20/r26/r29/r36...), + fuzz 0/10k
+  + B28+C5. NOT a knob (reuse is +24% net-positive).
+
 - SESSION WRAP-UP 2026-09-06 22:30 EDT: on `main` (== origin/main == 6aae303),
   clean, all junk branches + stale worktrees removed (only main remains). The
   substitution port is merged+pushed. 7am cron ee93e605 set to resume r34 (fires
