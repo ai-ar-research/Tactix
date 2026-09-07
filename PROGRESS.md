@@ -7,6 +7,7 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
+- TRACE-TUNING LEARNINGS (2026-09-07, for 7am): the cross-solver trace is finicky. (1) conflicts=0 preprocessing events misalign (tactix emits watch/sweep_schedule, kissat trace_begin/startup) -> use CONFLICT_FROM>=1. (2) EVENT GRANULARITY MISMATCH: with CONFLICT_FROM=1,TO=8000 tactix emitted 5,000,000+ records (~625/conflict, ticks+watches) vs kissat 50k (~6/conflict) -> the compare chokes. FIX for 7am: filter the trace to SEMANTIC events only (decide/analysis/reuse/learned-clause), NOT ticks/watches -- either a compare_event_trace.py event-type filter or a much smaller window (TO~200) + grep the reuse/analysis event lines. Pins ready: build/event-trace/tactix, kissat-event-trace worktree. GOAL: find the first conflict where tactix's OTFS-restart reused clause differs from kissat's in-resolution OTFS clause, then port kissat strengthen.c OTFS structure. Also verify r16 is a valid fixture (does reuse-first-only help r16 like r34 or hurt like r6 -- ablation 1668096 r16 result pending).
 - UPDATE 3.111: reuse-first-only is NET-NEGATIVE (+121s over 4 ranks, r26 268->615) -- DEAD. The per-OTFS reuse is generally good; r34 is a specific pathology. Fix = match kissat OTFS-in-resolution STRUCTURE (not reuse timing). 7am: trace r16 -> port kissat strengthen.c OTFS structure to replace tactix's OTFS-restart.
 
 - r34 REUSE HYPOTHESIS TESTED + REFUTED (overnight, report 3.110): the per-OTFS-
