@@ -5215,3 +5215,22 @@ is one component of a diffuse impl gap PLUS a large N4 gap. Both need substantia
 further work; the goal (within 1%) is far off but now HONESTLY characterized and
 decomposed (correcting the prior 1.24% underestimate). Next: r34 conflict-reuse
 fidelity (N4), then the parked unit-cost levers.
+
+### 3.109 FINAL generality (all 40): reuse is strongly net-positive; port diverges on 11 ranks (2026-09-07)
+
+Generality gate 5259 (job 1668006, 40 ranks): tactix TACTIX_CONFLICT_REUSE=0 vs
+default (reuse ON):
+  reuse OFF = +2030s (+24.42% WORSE). Conflict-reuse is a STRONGLY beneficial
+  mechanism (r15 +994%, r36 +213%, r26 +131%, r29 +92%, r20 +84% without it) --
+  a knob/off is definitively OUT (would catastrophically regress).
+  tactix's reuse PORT HURTS these 11 ranks vs no-reuse (the fidelity divergence):
+    r4 -25%, r6 -39%, r16 -44%, r19 -78%, r23 -51%, r24 -6%, r25 -9%, r31 -45%,
+    r34 -38%, r35 -2%, r40 -7% (reuse-off is FASTER, so tactix's reuse mis-fires).
+  tactix's reuse HELPS these 18 (as kissat's does): r9/15/17/18/20/21/22/26/27/
+    28/29/30/32/33/36/37/38/39.
+CONCLUSION (final): the fix is a FAITHFUL PORT of the reuse decision so the 11
+divergent ranks improve toward kissat WITHOUT touching the 18 where reuse works.
+NOT a knob. General N4 fidelity bug (SP-FACTOR-OCCURRENCE-1). Fixtures r6/r16
+(fast, -39/-44%). Localize via a search-phase windowed cross-solver trace
+(--mode anchor), then repair analyze.cpp reuse firing vs kissat one_literal_on_
+conflict_level.
