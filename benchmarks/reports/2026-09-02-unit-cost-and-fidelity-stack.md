@@ -5874,3 +5874,31 @@ query (kitten decisions/conflicts/core-minimization) in both solvers to localize
 kitten divergence; then match kissat's kitten mechanism. Matched CORE/CB/MAP tooling
 exists (KISSAT_CORE_TRACE emits CB/MAP/L0 per walk); a kitten decision trace is the
 next instrument. Traces: benchmarks/runs/20260907-5281-r34-core-order.
+
+### 3.131 r34's kitten-core divergence is INSTANCE-SPECIFIC (r16 in lockstep) -> N4 gap is heterogeneous, not one general mechanism (2026-09-07)
+
+Tested whether 3.130's embedded-kitten core-extraction divergence is a GENERAL N4-class
+root or r34-specific, by running the same DEACT analysis on r16 (noL-11-2, another rank
+from the fix's validation set; job 1668179, both solvers to 200k conflicts).
+RESULT: r16's heap-perturbing (inheap=1) deactivations are IDENTICAL to kissat -- same
+count (377) AND order -- through 200k conflicts. So r16 is in LOCKSTEP with kissat on the
+sweep/heap deactivation mechanism, whereas r34 diverges at conflict 26913. One
+counterexample suffices: the sweep/kitten core-extraction divergence is NOT a universal
+N4-class mechanism; it is r34-specific.
+
+IMPLICATION: r34's N4 divergence bottoms out in embedded-kitten core extraction that r16
+does not share -> the N4 gap is HETEROGENEOUS (different per-instance roots receding into
+embedded-solver bit differences), not a single general mechanism with one fix. Matching
+r34's kitten core extraction bit-for-bit would be OVERFITTING one instance (the user's
+"general, not overfitting" constraint + [[chaotic-instance-veto]] both caution against
+it). Combined with the impl-gap finding (3.119-3.121: diffuse C++-vs-lean-C propagation
+unit cost, NO single lever), BOTH halves of the Rank 1-40 gap have now been driven to
+roots without a clean general fixable mechanism: impl = diffuse codegen; N4 = heterogeneous
+trajectory chaos in/around the embedded solver. HONEST STATUS: within-1% via further
+mechanism ports has hit strong diminishing returns; the two shipped wins (binary-subst
+port, Bloom prefilter) were the clean levers. A DECISION for the user: (a) invest in
+embedded-kitten fidelity per-instance (high cost, overfitting risk, uncertain aggregate
+payoff), (b) accept the r34-class N4 deviations in docs/scheduling-parity-ledger.md with
+this evidence, or (c) re-scope. NEXT diagnostic if continuing: confirm heterogeneity on a
+3rd/4th N4 rank (r6 cfi / r19 knight) and check whether ANY share a general mechanism
+before committing to a per-instance embedded-solver effort.
