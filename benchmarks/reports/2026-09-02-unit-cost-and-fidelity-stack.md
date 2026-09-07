@@ -5275,3 +5275,40 @@ the reuse mechanism that helps r6/r20/r26 is untouched. Requires the first-
 divergence trace (r16 search-phase window) to pin the exact reused-clause/backjump
 divergence, then port kissat's OTFS structure. The diagnostic arm (9e03674) stays
 as a default-OFF reproducer of the r34 pathology only.
+
+### 3.112 r34 ROOT CAUSE localized from code: OTFS-restart vs kissat OTFS-return (2026-09-07)
+
+Reading kissat deduce.c:98-160 + analyze.c:555 vs tactix analyze.cpp:1221-1488:
+  KISSAT OTFS (deduce.c:143): mid-1-UIP-resolution, when antecedent_size>2 and
+    resolvent_size<antecedent_size, it kissat_on_the_fly_strengthen(reason,uip),
+    optionally on_the_fly_subsume(res,conflict), then STOP(deduce) + `return res`
+    -- deduce ENDS, returning the strengthened clause as the asserting driver. One
+    analyze, one conflict (INC(conflicts) is analyze.c:555, once per real conflict;
+    deduce never increments). No restart, no re-analysis.
+  TACTIX OTFS (analyze.cpp:1472-1488): k.stats.conflicts++, run the analysis_
+    conflict_hook (glue-tier deadline), bump, otfs_round=true, and RESTART the
+    for(;;) analysis loop on the strengthened conflict -- re-running 1-UIP, counting
+    a NEW conflict per OTFS, and re-testing the reuse shortcut (analyze.cpp:1278)
+    on the restarted conflict.
+DIVERGENCE (r34 root): tactix's OTFS-restart (a) inflates the conflict clock by
+counting each OTFS round -- and that clock drives restart/reduce/mode/rephase/
+reorder/inprocessing deadlines (comment 1470-1471) -> tactix restarts/reduces/
+switches ~2x as often as kissat -> divergent worse trajectory; and (b) re-exposes
+the reuse shortcut on OTFS-strengthened conflicts (the r34-specific pathology, why
+reuse-first-only helped r34 by killing exactly those reuses). Kissat's OTFS is a
+single-pass early-return that does neither. This is confirmed by: reuse-first-only
+cut r34 8.54M->4.4M conflicts (removing the OTFS-round reuses) and helped r34 but
+regressed r6/r20/r26 (because it ALSO removed beneficial first-round-... no: it
+gated OTFS-round reuse globally). tactix's author counted OTFS rounds as conflicts
+"to match kissat's clock" (comment 1471) but kissat does NOT count them -- a
+misread of kissat's conflict accounting.
+FAITHFUL FIX (7am, proof-critical core analyze): make tactix's OTFS match kissat --
+when OTFS strengthens the reason mid-resolution, USE the strengthened clause as the
+asserting driver and finish the analysis (like deduce.c `return res`), instead of
+restarting + re-counting + re-testing reuse. Expected: r34 conflict clock ->
+kissat's, scheduling converges, r34-class pathology removed, WITHOUT touching the
+reuse mechanism r6/r20/r26 rely on (reuse still fires once on the original conflict
+per kissat). Validate: r6/r16/r19/r23/r34 improve toward kissat, r15/r20/r26/r36
+unregressed, fuzz 0/10k, B28+C5. This SUPERSEDES the trace approach -- localized
+directly from source. Risk: high (conflict analysis + proof + OTFS subsume) -- a
+careful validated cycle.
