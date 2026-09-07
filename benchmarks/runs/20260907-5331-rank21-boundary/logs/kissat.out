@@ -1,0 +1,83 @@
+c ---- [ banner ] ------------------------------------------------------------
+c
+c Kissat SAT Solver
+c 
+c Copyright (c) 2021-2024 Armin Biere University of Freiburg
+c Copyright (c) 2019-2021 Armin Biere Johannes Kepler University Linz
+c 
+c Version 4.0.4 unknown
+c gcc (GCC) 13.1.0 -W -Wall -O3 -DNDEBUG
+c Mon Sep 7 12:02:05 EDT 2026 Linux node008 5.14.0-611.55.1.el9_7.x86_64 x86_64
+c
+c ---- [ proving ] -----------------------------------------------------------
+c
+c opened and writing proof to DRAT file:
+c
+c   /tmp/tactix-sweep-audit-xwlzxbq6/partial.drat
+c
+c ---- [ parsing ] -----------------------------------------------------------
+c
+c opened and reading DIMACS file:
+c
+c   /tmp/tactix-sweep-audit-xwlzxbq6/input.cnf
+c
+c parsed 'p cnf 3420218 9206854' header
+c closing input after reading 192209568 bytes (183 MB)
+c finished parsing after 3.39 seconds
+c
+c ---- [ solving ] -----------------------------------------------------------
+c
+c seconds  switched rate     size/glue tier1    binary              remaining
+c         MB reductions conflicts size  tier2        irredundant
+c          level restarts redundant glue  trail               variables
+c
+c *  3.39 513 0 0 0  0 0   0   0 0.0 0 0 0 0 0% 6102982 2964195 3384654 99%
+c (  3.59 522 0 0 0  0 0   0   0 0.0 0 0 0 0 0% 6102982 2964195 3384654 99%
+c .  7.98 542 0 0 0  0 0   0   0 0.0 0 0 0 0 0% 6102655 2963871 3384654 99%
+c c 13.19 886 0 0 0  0 0   0   0 0.0 0 0 0 0 0% 8871655 1577765 1997704 58%
+c d 17.93 888 0 0 0  0 0   0   0 0.0 0 0 0 0 0% 6101040 1577683 1997696 58%
+c = 29.08 892 0 0 0  0 0   0   0 0.0 0 0 0 0 0% 3330352 1577683 1997692 58%
+c ) 33.36 892 0 0 0  0 0   0   0 0.0 0 0 0 0 0% 3330356 1577679 1997692 58%
+c { 38.40 901 0 0 0  0 0   0   0 0.0 0 0 2 6 0% 3330356 1577679 1997692 58%
+c caught signal 15 (SIGTERM)
+c
+c ---- [ profiling ] ---------------------------------------------------------
+c
+c          29.76   76.24 %  preprocess
+c          25.38   65.00 %  probe
+c          13.34   34.17 %  substitute
+c           6.81   17.44 %  sweep
+c           5.21   13.34 %  congruence
+c           3.39    8.69 %  parse
+c           2.86    7.34 %  lucky
+c           0.64    1.64 %  search
+c           0.64    1.64 %  focused
+c           0.02    0.04 %  backbone
+c           0.00    0.00 %  simplify
+c =============================================
+c          39.04  100.00 %  total
+c
+c ---- [ statistics ] --------------------------------------------------------
+c
+c conflicts:                                1                0.03 per second
+c congruent:                          1385344               41 %  variables
+c decisions:                               81               81.00 per conflict
+c propagations:                      14163351           362745    per second
+c substituted:                        1385352               41 %  variables
+c switched:                                 0                0    interval
+c
+c ---- [ proof ] -------------------------------------------------------------
+c
+c proof_added:                        8423261               40 %  per line
+c proof_bytes:                      202375168              193 MB 
+c proof_deleted:                     12684905               60 %  per line
+c
+c ---- [ glue usage ] --------------------------------------------------------
+c
+c no clauses used at all
+c
+c ---- [ resources ] ---------------------------------------------------------
+c
+c maximum-resident-set-size:       1310769152 bytes       1250 MB
+c process-time:                            39s              39.04 seconds
+c raising signal 15 (SIGTERM)

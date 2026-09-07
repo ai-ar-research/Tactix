@@ -1,0 +1,26 @@
+{
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "job": "1668664",
+  "documentation_checkpoint": "4d0c3c97e7f6170bf57e701801178e7375ac32af",
+  "purpose": "UNFUZZED diagnostic: compare core-only, sequential and pristine Kissat simplification snapshots through the first conflict on Rank 21.",
+  "hypothesis": "Sequential rewriting first changes a simplification boundary image; localize that state before another semantic edit.",
+  "acceptance": "No truncation; all traces reach conflict 1 and scratch is deleted. Compare core/sequential state fields and portable formula hashes against Kissat. Stopped runs are neither timing nor correctness acceptance.",
+  "contract": "Full-width 0-2; one bound proof-on solver per task; 12 logical CPUs, 48000 MiB, no throttle or node constraint; 600-second cap.",
+  "input_sha256_compressed": "07b881ae5d1057ccbfdd564ddebf1a8f6e45582542b96aee21974ccdcd446450",
+  "kissat_source": "Pristine 8af8e56f174b778aef3aa45af9f739b2a5f492c2 plus tracked c2a95a6 event overlay and kissat-observer.patch; fresh Release build.",
+  "release_sha256": {
+    "core": "d6701f2e4c158b056f13956c4f02acf12b38c5c81805757c6066bdd56ef4b72a",
+    "sequential": "e7e82dd1d83db8529e09dd0dba62c2314096df6a08533a9f0faf47cd3a20aee9"
+  },
+  "hashes": {
+    "pins/kissat": "86cd1ecf8e4cfdfb9af70dea2b62182c9d994ba4adee0d6a2c311a854321259c",
+    "pins/sequential": "c6ae4525f3644a7db73d6fdb175e24832b1bdb5d5980963b5a78d5a5311fa181",
+    "pins/core": "e426238cf90d35ff877f7b1bede599d6579c330dafd8f64ff168055f6aa1e4fb",
+    "core.patch": "2ee5f420019c1fa2b5cfe66c7de4c05d2f12fe236cf671e2b32235addc80e7fa",
+    "sequential.patch": "fb58595fc344972c2a4fc0cc70248364edab0c34532fa077cb9fb994e8610129",
+    "tactix-observer.patch": "faf7061b7f6e0ae7c9e4659b00af09c3ea5e4d28e9eb684985798a6787a28a35",
+    "kissat-observer.patch": "68c19e426a1857989a145806a407db4718d5953cbda73282c1aec958399a6a15",
+    "run.py": "8f8f363fb234d3da62d9bb6c8979383def15025a15dcfddb4319841a6b92d8ba",
+    "array.sbatch": "ca18f635c70199d558c024cacb42cf554d8688dbd68d43ebcb6224c4c3add65d"
+  }
+}
