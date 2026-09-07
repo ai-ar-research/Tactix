@@ -5475,3 +5475,25 @@ COMPLETE session characterization: impl gap = substitution (2 wins shipped) +
 congruence (faithful) + parse (diffuse) + BIG-RANK PROPAGATION UNIT COST (diffuse,
 the bulk); N4 gap = r34-class (needs traces). Within-1% is a deep multi-session
 effort; the clean levers are captured, the residual is diffuse unit cost + N4.
+
+### 3.120 Propagation structures at parity -> residual impl gap is diffuse codegen (DEFINITIVE) (2026-09-07)
+
+Checked every propagation structure vs kissat: values is per-lit int8_t in BOTH
+(kernel.hpp:902 = kissat VALUE); Assigned is 16 bytes in BOTH (tactix
+level/trail/reason/binary/jumped -> 16; kissat level/trail/5-bitfield-flags/reason
+-> 16); the BCP loop is faithful (searched-resume replacement scan, delayed watch
+move). All at parity. So the ~2-3% per-prop unit cost (r23/r26 identical props+
+conflicts, 1.02-1.03x slower) is DIFFUSE C++-vs-lean-C codegen/machinery overhead
+with NO single-structure or single-line lever.
+DEFINITIVE END-OF-INVESTIGATION: the residual implementation gap (~+303s over the
+matched-work ranks) decomposes as: substitution (2 clean wins SHIPPED this session)
++ congruence (faithful/parity) + parse (diffuse per-clause) + BIG-RANK PROPAGATION
+UNIT COST (diffuse codegen, the bulk, structures all at parity). There are NO
+remaining clean single-line/single-structure levers -- confirmed by profiling BOTH
+preprocessing-heavy (r7) and search-heavy (r29/r38) ranks and checking every hot
+structure. Closing the residual needs either deep whole-representation matching to
+kissat's lean C (diffuse, uncertain payoff, N2-load-bearing e.g. the 20->12B clause
+header) or accepting it. The concentrated remaining gap is N4 (+330s, r34-class),
+which needs trace-driven analyze/scheduling fidelity fixes. Within-1% is a deep
+multi-session effort. This session: 2 wins shipped + complete rigorous profile-
+driven characterization of the entire gap + r34 localization + honest corrections.
