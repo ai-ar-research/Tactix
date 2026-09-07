@@ -5424,3 +5424,27 @@ matched-work ranks; the impl-gap remainder is a genuine diffuse micro-grind. Hon
 end-of-session state: 2 substitution wins shipped + full profile-driven lever map +
 exhaustive r34 localization (needs the trace) + honest corrections. The path to
 within-1% is a multi-session effort along these mapped levers.
+
+### 3.118 Line-level profile confirms the impl-gap remainder is diffuse -- no more clean levers (2026-09-07)
+
+Line-level (perf --sort=srcline on r7's profile) confirmation of every candidate:
+  parse.cpp:565 (15.5%) = the ingest_clause CALL (already known); parse's 1.28x is
+    DIFFUSE across ingest_clause per-clause ops (read_digits 483/485 ~2.3%, dedup
+    264/270/277 ~3% each, import 145 ~1.8%) -- no single portable line.
+  Hot std::sort (stl_algo.h:1931/1932, 5.6%/5.5% self) = congruence build_clause_
+    index sorts -- congruence is FAITHFUL/parity, leave.
+  kernel_sparse_collect_root (5.8%): top line kernel.cpp:2088 2.76%, self-hot 162
+    (0.71%)/222 (0.49%) -- DIFFUSE GC, core-kernel, no dominant line.
+  kernel_binary_live 5.09% (parse binary dedup) -- proof-adjacent (dedup semantics),
+    already Bloom-fast for unique binaries.
+RIGOROUS CONCLUSION: the Bloom already_live prefilter (3.115) was the LAST clean,
+single-line, safe, byte-identical, high-EV impl lever. Every remaining hot line is
+faithful (congruence), captured (substitution), proof-adjacent (parse dedup, large-
+clause), or diffuse (parse per-clause ops, GC, and the 1.02-1.15x big-rank unit
+cost = accumulated richer-structure overhead, no single line). Closing the impl
+remainder (+303s) requires MANY sub-1% micro-optimizations (each a careful
+profile+validate cycle) -- a genuine multi-session grind -- OR accepting a residual.
+The concentrated gap is N4 (+330s, r34-class), needing trace-driven analyze/
+scheduling fidelity fixes (deep). This session RIGOROUSLY established the complete
+lever map, shipped the 2 clean wins available, and localized r34; the within-1%
+target is a multi-session effort with no remaining quick wins.
