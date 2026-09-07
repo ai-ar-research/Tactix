@@ -5927,3 +5927,15 @@ loop (code layout / register pressure). LTO is NOT the impl-gap lever. NOTE: tac
 here is ~1.053 on r23/r26 -- LARGER than 3.119's 1.02-1.03x (fresh gate-shape measurement;
 noL-11 family), so the unit-cost gap on this family may be bigger than earlier measured and
 worth a targeted profile. -march=native (build/march, Zen 3) probe in flight (job 1668188).
+
+UPDATE (job 1668188, -march=native = build/march, behavior byte-identical): also SLOWER --
+r23 march/base=1.0239, r26=1.0388. So BOTH general codegen levers (LTO, -march=native) make
+tactix ~2.5-3.9% slower; -O3 plain is tactix's best. Build flags do NOT close the gap.
+KEY REFRAME from the LTO full run (all 4 ranks, tactix-base vs kissat): the unit-cost gap is
+HETEROGENEOUS, not uniformly diffuse -- r38 (mexam UNSAT) 357.3 vs kissat 357.7 = 0.999 (AT
+PARITY / faster); r29 (ER_400) 297.6/289.8 = 1.027; r23 (noL-11-6) 210.2/199.0 = 1.056; r26
+(noL-11-0) 268.4/254.8 = 1.053. So 3.119's "diffuse, no lever" reflected the SMALL-gap ranks
+(r29/r38); the noL-11 family (r16/r23/r26) carries a concentrated ~5.3-5.6% gap worth a
+targeted profile (job 1668189: perf on r26 + matched-work counter check). If concentrated ->
+a real, general (noL-11-family) impl-gap lever; if diffuse there too -> the gap is
+fundamental C++-vs-lean-C overhead with no lever and within-1% is not reachable by codegen.
