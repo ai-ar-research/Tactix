@@ -6009,3 +6009,35 @@ cpu-clock:u user-space function profile (bypasses perf_event_paranoid) is runnin
 localize WHICH functions carry the extra ~69B instructions -> the concrete impl-gap fix
 target. This supersedes 3.134's pessimism: there IS a lever; it needs the function profile
 to localize (perf record cpu-clock:u works where the default perf record was blocked).
+
+### 3.136 noL-11 +3.4%-instruction gap LOCALIZED to kernel_propagate (BCP, 62% self-time) -- concrete impl-gap target (2026-09-07)
+
+Function profile of tactix on r26/noL-11-0 (job 1668193; perf record cpu-clock:u -F 199,
+53k+ samples; perf report --sort=dso,symbol run locally on the saved p.data -- note the
+in-job report used --sort=overhead which collapses to one 100% row, a reporting bug not a
+data problem):
+    62.13%  kernel_propagate           <- BCP inner loop (kernel.cpp:1616-1730), DOMINANT
+     8.81%  analyze_apply
+     3.85%  propagate_literal<false,false,true>
+     3.46%  literal_redundant
+     3.27%  mark_reason_tree
+     1.84%  count_glue
+     1.44%  radix_sort_bumps_by_stamp
+     1.37%  bump_and_reset_analyzed
+     1.28%  heuristics_score_bump   ... (diffuse tail)
+Propagation dominates (~66% incl propagate_literal/SubSolver::propagate), and since the
+work is matched (identical props), tactix's +3.4% instruction excess (3.135) is
+concentrated in the BCP inner loop. 3.120 found that loop STRUCTURALLY faithful (values
+per-lit, searched-resume, delayed move), so the excess is C++-codegen-of-BCP overhead:
+the concrete, GENERAL lever is reducing kernel_propagate's per-propagation instruction
+count. This SUPERSEDES the "diffuse no-lever" framing (3.121/3.134): the impl-gap on the
+noL-11 family has a concrete home (the BCP hot loop). It is a real optimization target but
+careful assembly-level work (compare tactix kernel_propagate vs kissat kissat_propagate
+codegen; look for redundant loads/bounds/spills the C++ emits that lean C does not).
+CAVEAT: I have tactix's per-function profile but not kissat's (no -g symbols + perf
+permissions), so "+3.4% excess is IN kernel_propagate" is inferred from its 62% dominance,
+not directly measured per-function. NEXT (fresh session): disassemble/compare the two BCP
+inner loops on the same watched-clause access pattern; any instruction-count win there is
+general across all propagation-heavy ranks. Validate on the matched-work ranks (r23/r26)
++ full ranks1-40 + B28+C5 + fuzz; N1-N4 preserved (BCP loop change, proof-neutral if
+behavior-identical). Pins: build/prof (-g), build/base-o3; p.data saved in the run dir.
