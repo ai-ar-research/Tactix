@@ -6076,3 +6076,27 @@ jump_reasons search-path hoist as the first concrete micro-win (behavior-identic
 paired r23/r26 timing + ranks1-40 + B28+C5 + fuzz), then iterate the grind; OR accept the
 ~3-5% C++-vs-C prop overhead as fundamental and record it. Separately, the N4 half is the
 r34-class scope decision (3.131).
+
+### 3.138 jr-hoist micro-win IMPLEMENTED + validated: behavior byte-identical but timing NET-NEGATIVE -> reverted (2026-09-07)
+
+Implemented the 3.137 first micro-candidate: hoist the jump-reason gate
+(k.jump_reasons && k.jump_reasons_bigbig) out of propagate_literal's per-watch loop
+into a per-literal local, via a new kernel_assign_binary_from_jr helper (kernel.hpp).
+CORRECTNESS: byte-identical proofs + identical non-timing output on 27 corpus instances
+(N1-N4 preserved). DISASSEMBLY: confirmed the two flag byte-loads moved from the
+per-binary-assignment path (base-o3 @413..a8) to once-per-literal (@..d1), inner loop
+now uses a register. TIMING (job 1668195, paired same-node vs base-o3):
+    rank   base-o3    jr-hoist   ratio
+    r23    208.71s    210.77s    1.0098   (+1.0% SLOWER)
+    r26    266.83s    264.63s    0.9917   (-0.8% faster)
+    r29    297.92s    315.69s    1.0596   (+6.0% SLOWER)
+NET-NEGATIVE and INCONSISTENT: helps r26 marginally, hurts r23 and (badly) r29. The
+per-literal hoist adds an unconditional computation that outweighs the per-assignment
+saving wherever binary-assignments are sparse per literal (r29). This is NOT a general
+win (fails the "general, not overfitting" bar) -> REVERTED (src clean, build/jr-hoist
+removed). CONFIRMS 3.137: the diffuse BCP-codegen +3.4% has no easy micro-win; the first
+concrete candidate is net-negative. The remaining path is a harder grind (each candidate
+needs paired timing validation and most will be neutral/negative), OR accepting the
+~3-5% C++-vs-lean-C propagation overhead on the prop-heavy/noL-11 family as fundamental.
+This is a validated negative, done right (implement -> behavior-check -> timing -> revert),
+per the protocol -- not a speculative land.
