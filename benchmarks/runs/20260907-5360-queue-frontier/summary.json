@@ -1,0 +1,964 @@
+{
+  "stopped_clean": 2,
+  "previous_streams_byte_identical": true,
+  "matching_factor_boundaries": 38,
+  "contexts": [
+    {
+      "header": [
+        "factor-stamps-pre",
+        "0",
+        "0",
+        "0"
+      ],
+      "shared": 14485,
+      "tactix_only": [],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21955,
+          21954,
+          21957
+        ],
+        "kissat": [
+          21955,
+          21954,
+          21957
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "0",
+        "0",
+        "0"
+      ],
+      "shared": 14485,
+      "tactix_only": [],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21955,
+          21954,
+          21957
+        ],
+        "kissat": [
+          21955,
+          21954,
+          21957
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "2502",
+        "6126",
+        "0"
+      ],
+      "shared": 14448,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21545,
+          21954,
+          21477
+        ],
+        "kissat": [
+          21545,
+          21954,
+          21477
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "2502",
+        "6126",
+        "0"
+      ],
+      "shared": 14448,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21545,
+          21954,
+          21477
+        ],
+        "kissat": [
+          21545,
+          21954,
+          21477
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "2502",
+        "6126",
+        "0"
+      ],
+      "shared": 14439,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21545,
+          21954,
+          21477
+        ],
+        "kissat": [
+          21545,
+          21954,
+          21477
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "2502",
+        "6126",
+        "0"
+      ],
+      "shared": 14439,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21545,
+          21954,
+          21477
+        ],
+        "kissat": [
+          21545,
+          21954,
+          21477
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "7705",
+        "19355",
+        "0"
+      ],
+      "shared": 14381,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20980,
+          21954,
+          20822
+        ],
+        "kissat": [
+          20980,
+          21954,
+          20822
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "7705",
+        "19355",
+        "0"
+      ],
+      "shared": 14381,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20980,
+          21954,
+          20822
+        ],
+        "kissat": [
+          20980,
+          21954,
+          20822
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "7705",
+        "19355",
+        "0"
+      ],
+      "shared": 14378,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20980,
+          21954,
+          20822
+        ],
+        "kissat": [
+          20980,
+          21954,
+          20822
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "7705",
+        "19355",
+        "0"
+      ],
+      "shared": 14378,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20980,
+          21954,
+          20822
+        ],
+        "kissat": [
+          20980,
+          21954,
+          20822
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "15783",
+        "40421",
+        "0"
+      ],
+      "shared": 13810,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21222,
+          21954,
+          21597
+        ],
+        "kissat": [
+          21222,
+          21954,
+          21597
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "15783",
+        "40421",
+        "0"
+      ],
+      "shared": 13810,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21222,
+          21954,
+          21597
+        ],
+        "kissat": [
+          21222,
+          21954,
+          21597
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "15783",
+        "40421",
+        "0"
+      ],
+      "shared": 13803,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21222,
+          21954,
+          21597
+        ],
+        "kissat": [
+          21222,
+          21954,
+          21597
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "15783",
+        "40421",
+        "0"
+      ],
+      "shared": 13803,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21222,
+          21954,
+          21597
+        ],
+        "kissat": [
+          21222,
+          21954,
+          21597
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "26913",
+        "67983",
+        "0"
+      ],
+      "shared": 13312,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21771,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21771,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "26913",
+        "67983",
+        "0"
+      ],
+      "shared": 13312,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21771,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21771,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "26913",
+        "67983",
+        "0"
+      ],
+      "shared": 13295,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21771,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21771,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "26913",
+        "67983",
+        "0"
+      ],
+      "shared": 13295,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21771,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21771,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "41247",
+        "88670",
+        "1"
+      ],
+      "shared": 13289,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21864,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21864,
+          21954,
+          21865
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "41247",
+        "88670",
+        "1"
+      ],
+      "shared": 13289,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21864,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21864,
+          21954,
+          21865
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "41247",
+        "88670",
+        "1"
+      ],
+      "shared": 13261,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21864,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21864,
+          21954,
+          21865
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "41247",
+        "88670",
+        "1"
+      ],
+      "shared": 13261,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21864,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21864,
+          21954,
+          21865
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "58885",
+        "133874",
+        "1"
+      ],
+      "shared": 13042,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21776,
+          21954,
+          21862
+        ],
+        "kissat": [
+          21776,
+          21954,
+          21862
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "58885",
+        "133874",
+        "1"
+      ],
+      "shared": 13042,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21776,
+          21954,
+          21862
+        ],
+        "kissat": [
+          21776,
+          21954,
+          21862
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "58885",
+        "133874",
+        "1"
+      ],
+      "shared": 13040,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21776,
+          21954,
+          21862
+        ],
+        "kissat": [
+          21776,
+          21954,
+          21862
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "58885",
+        "133874",
+        "1"
+      ],
+      "shared": 13040,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21776,
+          21954,
+          21862
+        ],
+        "kissat": [
+          21776,
+          21954,
+          21862
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "79951",
+        "191973",
+        "1"
+      ],
+      "shared": 13005,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21154,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21154,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "79951",
+        "191973",
+        "1"
+      ],
+      "shared": 13005,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21154,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21154,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "79951",
+        "191973",
+        "1"
+      ],
+      "shared": 13003,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21154,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21154,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "79951",
+        "191973",
+        "1"
+      ],
+      "shared": 13003,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21154,
+          21954,
+          21867
+        ],
+        "kissat": [
+          21154,
+          21954,
+          21867
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "104570",
+        "269682",
+        "1"
+      ],
+      "shared": 12148,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20350,
+          21954,
+          21968
+        ],
+        "kissat": [
+          20350,
+          21954,
+          21968
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "104570",
+        "269682",
+        "1"
+      ],
+      "shared": 12148,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20350,
+          21954,
+          21968
+        ],
+        "kissat": [
+          20350,
+          21954,
+          21968
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "104570",
+        "269682",
+        "1"
+      ],
+      "shared": 12143,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20350,
+          21954,
+          21968
+        ],
+        "kissat": [
+          20350,
+          21954,
+          21968
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "104570",
+        "269682",
+        "1"
+      ],
+      "shared": 12143,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          20350,
+          21954,
+          21968
+        ],
+        "kissat": [
+          20350,
+          21954,
+          21968
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "132816",
+        "326865",
+        "0"
+      ],
+      "shared": 12095,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21267,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21267,
+          21954,
+          21865
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "132816",
+        "326865",
+        "0"
+      ],
+      "shared": 12095,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21267,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21267,
+          21954,
+          21865
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-pre",
+        "132816",
+        "326865",
+        "0"
+      ],
+      "shared": 12018,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21267,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21267,
+          21954,
+          21865
+        ]
+      }
+    },
+    {
+      "header": [
+        "factor-stamps-post",
+        "132816",
+        "326865",
+        "0"
+      ],
+      "shared": 12018,
+      "tactix_only": [
+        22152
+      ],
+      "kissat_only": [],
+      "observed_neighbors": {
+        "tactix": [
+          21267,
+          21954,
+          21865
+        ],
+        "kissat": [
+          21267,
+          21954,
+          21865
+        ]
+      }
+    }
+  ],
+  "trace_sha256": {
+    "kissat.prefix.tsv": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8",
+    "kissat.state.tsv": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766",
+    "tactix.state.tsv": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58",
+    "tactix.decisions.tsv": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510",
+    "tactix.queue.tsv": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503",
+    "kissat.queue.tsv": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869",
+    "tactix.prefix.tsv": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175",
+    "kissat.decisions.tsv": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9"
+  },
+  "conclusion": "All shared-identity queue order matches through the last Factor boundary at 132816. The focused choice split arises afterward; inspect active search queue bumps."
+}

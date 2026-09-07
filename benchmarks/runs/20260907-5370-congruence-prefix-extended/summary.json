@@ -1,0 +1,24 @@
+{
+  "stopped_clean": 2,
+  "matching_decisions": 475997,
+  "stop_conflicts": 200000,
+  "preceding_prefix_retained": true,
+  "next_divergence": null,
+  "trace_sha256": {
+    "tactix.counts.tsv": "71cb306bbffb2f6b32c6f02acde5bfef06e0d09ddef3eb4dd76ad09e1d0200f0",
+    "tactix.prefix.tsv": "23afd8f86f95dd38357029e638e30aba160ca416fe5693fc0829ae23f6c96eb4",
+    "tactix.decisions.tsv": "b02393f1bdd5a213c67d3cd6267d121b2432bb3320e08fa08c47457457975592",
+    "tactix.queue.tsv": "6f26edcbc25f48b7503eae96f193a69974dcd315d875d24c99c80e2a39a9dbe5",
+    "kissat.queue.tsv": "53b05e1e6464c005b09e0d2a3ab47b3c23fdbd2ca808b63ac864f8eda2535e02",
+    "kissat.counts.tsv": "6107e2069e94c92161b4eed605e6a4bd9444dcc831be48a9e58c7a317eb833bc",
+    "kissat.state.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tactix.state.tsv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tactix.bumps.tsv": "22976d26d698217c65745497431879f8933371d4692cc69ed0a39e60e3f4f248",
+    "kissat.boundaries.tsv": "241b7eed38c2e4d60d3d261a6d1b54dd3e0361c5b3216352080b88365735e3e8",
+    "kissat.bumps.tsv": "a3f32fbfd457790281d4035ad2e3694fd4021d210c68fcfa0088a0c40bf8927e",
+    "kissat.prefix.tsv": "73f590e8ed81a9fcd50e622affc34e3b5848fbc5a9f5b5bb3ab63cac6111b78a",
+    "kissat.decisions.tsv": "b02393f1bdd5a213c67d3cd6267d121b2432bb3320e08fa08c47457457975592",
+    "tactix.boundaries.tsv": "bfd9fc50aab0f41300375947e3607847035cf453a069926930e8b39e644fd59c"
+  },
+  "limitations": "Identical decision stream, not full state identity, proof/model validation or a runtime result. UNFUZZED and unpromoted."
+}

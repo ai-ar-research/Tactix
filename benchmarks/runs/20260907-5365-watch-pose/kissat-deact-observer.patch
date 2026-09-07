@@ -1,0 +1,35 @@
+--- a/src/flags.c
++++ b/src/flags.c
+@@ -1,6 +1,8 @@
+ #include "inline.h"
+ #include "inlineheap.h"
+ #include "inlinequeue.h"
++#include <stdio.h>
++#include <stdlib.h>
+ 
+ static inline void activate_literal (kissat *solver, unsigned lit) {
+   const unsigned idx = IDX (lit);
+@@ -39,6 +41,23 @@
+   LOG ("deactivating %s", LOGVAR (idx));
+   assert (f->active);
+   assert (f->eliminated || f->fixed);
++  static FILE *deact_trace;
++  static bool deact_initialized;
++  if (!deact_initialized) {
++    deact_initialized = true;
++    const char *path = getenv ("KISSAT_DEACT_TRACE");
++    if (path && *path) {
++      deact_trace = fopen (path, "w");
++      if (deact_trace)
++        setvbuf (deact_trace, 0, _IOLBF, 0);
++    }
++  }
++  if (deact_trace)
++    fprintf (deact_trace, "DEACT %llu %d elim=%d fixed=%d inheap=%d\n",
++             (unsigned long long) solver->statistics.conflicts,
++             abs (kissat_export_literal (solver, LIT (idx))),
++             (int) f->eliminated, (int) f->fixed,
++             (int) kissat_heap_contains (SCORES, idx));
+   f->active = false;
+   assert (solver->active > 0);
+   solver->active--;

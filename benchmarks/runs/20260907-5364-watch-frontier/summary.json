@@ -1,0 +1,55 @@
+{
+  "stopped_clean": 2,
+  "previous_standalone_streams_identical": true,
+  "trace_sha256": {
+    "tactix.state.tsv": "cd84310ad79ed913add82a906dbb49d0eb64e3159820a88caf6503a845620a58",
+    "kissat.state.tsv": "5e7942182c6aa30a9e3d68e724612c14219da9c54d5848601d38071a29360766",
+    "kissat.events.tsv": "9d909fb54be3d9bd998ea5379730b1143d04dc48c6d73d5740327a44c081b9e3",
+    "kissat.bumps.tsv": "343faffd5727a0ba76e04e513984b9404cb217ba3b9e7c5c86b2c3859b31e949",
+    "tactix.bumps.tsv": "fdcd6c8a0f7ee551431ea694f5a0b5576c5f179ff5fb43fd612d453fd30c2a5a",
+    "tactix.prefix.tsv": "44f18a44ee5f3027d3f93c0c4b91e4a7d3efc965fe585ddd7065a6e77fac6175",
+    "kissat.decisions.tsv": "9bcb58386e31b1f55763428965aa75f86a0ddf448c71e5123c0a048236c8fab9",
+    "tactix.events.tsv": "8d35d401e71ba4a03ffcf5635833b4d63b27b23dcfc0e4d68ffa58be69bd2bb3",
+    "kissat.prefix.tsv": "c292dc1c351f3be33ff160d7817f8dd4252fa2bee65dbcf5aaca3773d5951ed8",
+    "tactix.decisions.tsv": "36c6a9ef6fae5eca5e518abf853e9d0aab884da6b48e3a635ad2318da35bb510",
+    "kissat.queue.tsv": "5bf64aae8c3ee79ef71798ecb037be613d44c6af6f64d93fcc616d4af2fce869",
+    "tactix.queue.tsv": "dccbbf90c3a2543b8b643cc95889aa6fe41238cedfdfb45b3fca729859588503"
+  },
+  "witness": {
+    "tactix": [
+      {
+        "event": "watch",
+        "conflicts": "132831",
+        "decisions": "326920",
+        "payload": {
+          "scan": "21186",
+          "block": "18559",
+          "clause": "-21187,-21186,18559,21214"
+        }
+      },
+      {
+        "event": "watch",
+        "conflicts": "132831",
+        "decisions": "326920",
+        "payload": {
+          "scan": "21187",
+          "block": "-21186",
+          "clause": "-21187,-21186,18559,21214"
+        }
+      }
+    ],
+    "kissat": [
+      {
+        "event": "watch",
+        "conflicts": "132831",
+        "decisions": "326920",
+        "payload": {
+          "scan": "21186",
+          "block": "18559",
+          "clause": "-21187,-21186,18559,21214"
+        }
+      }
+    ]
+  },
+  "conclusion": "Target clause is scanned under 21186 then 21187 in Tactix; native assigns 21214 during the 21186 scan. Watch watermark 132831 precedes implication watermark 132832. Pre-scan snapshots are not per-entry execution logs."
+}

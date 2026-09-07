@@ -1,0 +1,21 @@
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -1991,6 +1991,9 @@
+ 
+ void kissat_event_trace (kissat *solver, const char *event,
+                          const char *payload, bool snapshot) {
++  if (getenv ("SAT_EVENT_TRACE_ALL_ROOTS") && strcmp (event, "root_assign") &&
++      strcmp (event, "analysis_end"))
++    return;
+   emit_standalone_inprocess_boundary (solver, event, snapshot);
+   open_trace ();
+   const bool exit_after_match =
+@@ -3789,6 +3792,8 @@
+ }
+ 
+ static bool selected_heap_variable (kissat *solver, unsigned idx) {
++  if (getenv ("SAT_EVENT_TRACE_ALL_ROOTS"))
++    return true;
+   const int external = abs (external_literal (solver, LIT (idx)));
+   for (size_t i = 0; i != trace_heap_vars_size; ++i)
+     if (trace_heap_vars[i] == external)

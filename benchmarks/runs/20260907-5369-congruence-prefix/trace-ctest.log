@@ -1,0 +1,1382 @@
+Start testing: Sep 07 16:02 EDT
+----------------------------------------------------------
+1/76 Testing: kernel
+1/76 Test: kernel
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_kernel"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"kernel" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_kernel OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"kernel" end time: Sep 07 16:02 EDT
+"kernel" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/76 Testing: proof
+3/76 Test: proof
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_proof"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"proof" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_proof: all proof-backend serializer cases passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"proof" end time: Sep 07 16:02 EDT
+"proof" time elapsed: 00:00:00
+----------------------------------------------------------
+
+5/76 Testing: restart_reduce
+5/76 Test: restart_reduce
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_restart_reduce"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"restart_reduce" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_restart_reduce OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"restart_reduce" end time: Sep 07 16:02 EDT
+"restart_reduce" time elapsed: 00:00:00
+----------------------------------------------------------
+
+6/76 Testing: switchmode
+6/76 Test: switchmode
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_switchmode"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"switchmode" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_switchmode: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"switchmode" end time: Sep 07 16:02 EDT
+"switchmode" time elapsed: 00:00:00
+----------------------------------------------------------
+
+7/76 Testing: rephase
+7/76 Test: rephase
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_rephase"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"rephase" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_rephase OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"rephase" end time: Sep 07 16:02 EDT
+"rephase" time elapsed: 00:00:00
+----------------------------------------------------------
+
+10/76 Testing: scheduling
+10/76 Test: scheduling
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_scheduling"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"scheduling" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  mode growth key: matches kissat's (switched+1)/2 ladder
+  reason bump: Kissat direct reasons in both modes
+  reason bump delay: consumed only at finalized-clause gate
+  analysis trail reuse: Kissat default off, CaDiCaL arm retained
+  factor material gate: cumulative Kissat watermark
+  factor large-formula gate: latched for the solve
+  retier cadence: only OTFS re-analysis advances glue limit
+  effort limit: kissat's formula, phase anchor, no clamps
+  initial effort anchors: input propagation remains priced
+  Eliminate sparse resume: root suffix replay uses search ticks
+  preprocess: one reduced probe pipeline, 10m tick reference
+  preprocess followups: all four producer outcomes covered
+  preprocess followups: neither-producer path takes final once
+  inprocess phases: probe assignments leave saved phases unset
+  probe entry: root restart suppresses target/best snapshots
+  jump reasons: Kissat small/bigbig classification gates search
+  preprocess followups: legacy arm calls both entries
+  reorder default: both modes, policy trigger remains root-only
+  slot cursor: resumes past the consumed prefix, wraps, permutes
+  cursor N1: instances() unchanged, apply_instance cursor-independent, all 7 arms permute
+  order arms: 6 arms reorder, native is the identity
+  subsume meter: 1392 visits vs 70 candidates
+  vivify scope: tier2=2 -> 1 candidates, tier2=10 -> 9
+  vivify tiers: stable retier -> focused 20/38 at dose entry
+  vivify tier merge: rounds=3 checked=8
+  vivify cumulative tiers: checked=8 tier3=8 ticks=632
+  substitute effort: fresh per-call, round-local 10-permille gate
+  substitute overshoot: mandatory first round, optional second
+  rule lifecycle: root fixed before substituted heap removal
+  authored slot order: 18 rows, registry-complete
+  slot membership/order: exact Kissat startup/search Probe; seven extra rules poseable
+  slot clocks: probe next=81674 < eliminate next=492178 at 8 phases
+  initial elimination: post-preprocess due at conflict 46478
+  BVE ordering: structural score plus search relevancy
+  BVE score: Kissat named-intermediate binary64 pose
+  inprocess scale: Kissat C+1 then logn(+9) boundary
+  slot gates: decline without new material, re-admit with it
+test_scheduling: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"scheduling" end time: Sep 07 16:02 EDT
+"scheduling" time elapsed: 00:00:00
+----------------------------------------------------------
+
+11/76 Testing: strategy_config
+11/76 Test: strategy_config
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_strategy_config"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"strategy_config" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"strategy_config" end time: Sep 07 16:02 EDT
+"strategy_config" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/76 Testing: parse
+2/76 Test: parse
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_parse"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"parse" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_parse OK
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"parse" end time: Sep 07 16:02 EDT
+"parse" time elapsed: 00:00:00
+----------------------------------------------------------
+
+12/76 Testing: event_trace
+12/76 Test: event_trace
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_event_trace"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"event_trace" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_event_trace OK
+<end of output>
+Test time =   0.05 sec
+----------------------------------------------------------
+Test Passed.
+"event_trace" end time: Sep 07 16:02 EDT
+"event_trace" time elapsed: 00:00:00
+----------------------------------------------------------
+
+15/76 Testing: modelcheck
+15/76 Test: modelcheck
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_modelcheck.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"modelcheck" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Passed.
+"modelcheck" end time: Sep 07 16:02 EDT
+"modelcheck" time elapsed: 00:00:00
+----------------------------------------------------------
+
+14/76 Testing: reduce_trace_compare
+14/76 Test: reduce_trace_compare
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_compare_reduce_trace.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"reduce_trace_compare" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+compare-reduce-trace: ok
+<end of output>
+Test time =   0.07 sec
+----------------------------------------------------------
+Test Passed.
+"reduce_trace_compare" end time: Sep 07 16:02 EDT
+"reduce_trace_compare" time elapsed: 00:00:00
+----------------------------------------------------------
+
+17/76 Testing: kissat_journal_overlay_static
+17/76 Test: kissat_journal_overlay_static
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_kissat_journal_overlay_static.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"kissat_journal_overlay_static" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_kissat_journal_overlay_static OK
+<end of output>
+Test time =   0.07 sec
+----------------------------------------------------------
+Test Passed.
+"kissat_journal_overlay_static" end time: Sep 07 16:02 EDT
+"kissat_journal_overlay_static" time elapsed: 00:00:00
+----------------------------------------------------------
+
+16/76 Testing: runtime_task
+16/76 Test: runtime_task
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_runtime_task.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"runtime_task" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+....
+----------------------------------------------------------------------
+Ran 4 tests in 0.080s
+
+OK
+<end of output>
+Test time =   0.18 sec
+----------------------------------------------------------
+Test Passed.
+"runtime_task" end time: Sep 07 16:02 EDT
+"runtime_task" time elapsed: 00:00:00
+----------------------------------------------------------
+
+18/76 Testing: rule_journal
+18/76 Test: rule_journal
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_rule_journal.py" "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_rule_journal"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"rule_journal" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_rule_journal OK
+<end of output>
+Test time =   0.17 sec
+----------------------------------------------------------
+Test Passed.
+"rule_journal" end time: Sep 07 16:02 EDT
+"rule_journal" time elapsed: 00:00:00
+----------------------------------------------------------
+
+21/76 Testing: tierd_campaign_pinning
+21/76 Test: tierd_campaign_pinning
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_tierd_campaign_pinning.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"tierd_campaign_pinning" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+Tier-D campaign pinning: PASS
+<end of output>
+Test time =   0.08 sec
+----------------------------------------------------------
+Test Passed.
+"tierd_campaign_pinning" end time: Sep 07 16:02 EDT
+"tierd_campaign_pinning" time elapsed: 00:00:00
+----------------------------------------------------------
+
+9/76 Testing: sweep
+9/76 Test: sweep
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_sweep"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"sweep" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  S-d: emitted 6 binaries via the RUP fast path
+  S-d: non-RUP pairs declined, F unchanged
+  admission: no-proof agrees (non-RUP declined, RUP admitted)
+  admission: DRAT agrees (non-RUP declined, RUP admitted)
+  admission: LRAT agrees (non-RUP declined, RUP admitted)
+  S-e: general path emitted 2 binaries for a non-RUP equivalence
+  substitution without a dense session kept 10 binary watches whole
+  oracle: 56221 environments, 5344 claims (17 not RUP)
+test_sweep: all tests passed
+<end of output>
+Test time =   0.29 sec
+----------------------------------------------------------
+Test Passed.
+"sweep" end time: Sep 07 16:02 EDT
+"sweep" time elapsed: 00:00:00
+----------------------------------------------------------
+
+24/76 Testing: slot_pose
+24/76 Test: slot_pose
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_slot_pose"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"slot_pose" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  BVE zero-yield round collects exactly once
+  productive BVE round collects exactly once
+  declined BVE candidate flushes its immediate unit
+  BVE default ladder: terminal watermark only after bound 16
+  BVE dynamic heap: all candidates rearmed at bound 16
+  incomplete BVE round drops remaining retry flags
+  SP-FACTOR-1: posed BVE ladder 0,3,5,13,13 reached Factor
+  pose/disable: 1 merges enabled, 0 disabled; 1 occasions all declined as DISABLED
+  TACTIX_SLOT_DISABLE=Congruence: entry off, 0 merges
+  TACTIX_SLOT_ENABLE overrides TACTIX_NO_BVE
+  TACTIX_SLOT_ENABLE exposes default-off SubsumeForward
+  TACTIX_SLOT_ORDER=legacy moves BVE/Factor to the back
+  PERMILLE / MAX_APPLIES / CURSOR_* / ORDER_* all land on the posed entry
+test_slot_pose: all passed
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"slot_pose" end time: Sep 07 16:02 EDT
+"slot_pose" time elapsed: 00:00:00
+----------------------------------------------------------
+
+25/76 Testing: reorder
+25/76 Test: reorder
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_reorder"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"reorder" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_reorder: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"reorder" end time: Sep 07 16:02 EDT
+"reorder" time elapsed: 00:00:00
+----------------------------------------------------------
+
+4/76 Testing: analyze
+4/76 Test: analyze
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_analyze"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"analyze" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_analyze OK
+<end of output>
+Test time =   0.33 sec
+----------------------------------------------------------
+Test Passed.
+"analyze" end time: Sep 07 16:02 EDT
+"analyze" time elapsed: 00:00:00
+----------------------------------------------------------
+
+26/76 Testing: walk
+26/76 Test: walk
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_walk"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"walk" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_walk: all passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"walk" end time: Sep 07 16:02 EDT
+"walk" time elapsed: 00:00:00
+----------------------------------------------------------
+
+27/76 Testing: subsume
+27/76 Test: subsume
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_subsume"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"subsume" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_subsume: all ok
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"subsume" end time: Sep 07 16:02 EDT
+"subsume" time elapsed: 00:00:00
+----------------------------------------------------------
+
+29/76 Testing: instantiate
+29/76 Test: instantiate
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_instantiate"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"instantiate" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_instantiate: all passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"instantiate" end time: Sep 07 16:02 EDT
+"instantiate" time elapsed: 00:00:00
+----------------------------------------------------------
+
+30/76 Testing: vivify
+30/76 Test: vivify
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_vivify"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"vivify" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_vivify OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"vivify" end time: Sep 07 16:02 EDT
+"vivify" time elapsed: 00:00:00
+----------------------------------------------------------
+
+28/76 Testing: strengthen
+28/76 Test: strengthen
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_strengthen"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"strengthen" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_strengthen OK
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"strengthen" end time: Sep 07 16:02 EDT
+"strengthen" time elapsed: 00:00:00
+----------------------------------------------------------
+
+31/76 Testing: vivify_n1
+31/76 Test: vivify_n1
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_vivify_n1"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"vivify_n1" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  scope 0: tier3 candidate enumerated and applied
+  scope 5: tier3 candidate enumerated and applied
+  bands 1/3/4/5 unchanged, scope 0 spans all three tiers
+  API setter stores scopes 0-5, ignores out-of-range
+test_vivify_n1: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"vivify_n1" end time: Sep 07 16:02 EDT
+"vivify_n1" time elapsed: 00:00:00
+----------------------------------------------------------
+
+32/76 Testing: probe
+32/76 Test: probe
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_probe"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"probe" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_probe OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"probe" end time: Sep 07 16:02 EDT
+"probe" time elapsed: 00:00:00
+----------------------------------------------------------
+
+22/76 Testing: slurm_memory_enforcement
+22/76 Test: slurm_memory_enforcement
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_slurm_memory_enforcement.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"slurm_memory_enforcement" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+SLURM memory enforcement: PASS
+<end of output>
+Test time =   0.11 sec
+----------------------------------------------------------
+Test Passed.
+"slurm_memory_enforcement" end time: Sep 07 16:02 EDT
+"slurm_memory_enforcement" time elapsed: 00:00:00
+----------------------------------------------------------
+
+34/76 Testing: bce
+34/76 Test: bce
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_bce"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"bce" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_bce: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"bce" end time: Sep 07 16:02 EDT
+"bce" time elapsed: 00:00:00
+----------------------------------------------------------
+
+33/76 Testing: backbone
+33/76 Test: backbone
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_backbone"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"backbone" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_backbone OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"backbone" end time: Sep 07 16:02 EDT
+"backbone" time elapsed: 00:00:00
+----------------------------------------------------------
+
+36/76 Testing: ternary
+36/76 Test: ternary
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_ternary"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"ternary" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_ternary: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"ternary" end time: Sep 07 16:02 EDT
+"ternary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+37/76 Testing: hyperbinary
+37/76 Test: hyperbinary
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_hyperbinary"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"hyperbinary" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_hyperbinary: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"hyperbinary" end time: Sep 07 16:02 EDT
+"hyperbinary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+38/76 Testing: decide
+38/76 Test: decide
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_decide"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"decide" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_decide OK
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"decide" end time: Sep 07 16:02 EDT
+"decide" time elapsed: 00:00:00
+----------------------------------------------------------
+
+39/76 Testing: reconstruct
+39/76 Test: reconstruct
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_reconstruct"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"reconstruct" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_reconstruct OK
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"reconstruct" end time: Sep 07 16:02 EDT
+"reconstruct" time elapsed: 00:00:00
+----------------------------------------------------------
+
+40/76 Testing: substitute
+40/76 Test: substitute
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_substitute"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"substitute" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_substitute OK
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"substitute" end time: Sep 07 16:02 EDT
+"substitute" time elapsed: 00:00:00
+----------------------------------------------------------
+
+35/76 Testing: cce
+35/76 Test: cce
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_cce"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"cce" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_cce: 3605 deletions (2251 blocked / 1354 ata), 1486 covered literals added; 28926 models checked, 18926 of them needed ρ
+test_cce: all passed
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"cce" end time: Sep 07 16:02 EDT
+"cce" time elapsed: 00:00:00
+----------------------------------------------------------
+
+42/76 Testing: binary_deletion
+42/76 Test: binary_deletion
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_binary_deletion"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"binary_deletion" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_binary_deletion OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"binary_deletion" end time: Sep 07 16:02 EDT
+"binary_deletion" time elapsed: 00:00:00
+----------------------------------------------------------
+
+41/76 Testing: congruence
+41/76 Test: congruence
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_congruence"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"congruence" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_congruence: all passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"congruence" end time: Sep 07 16:02 EDT
+"congruence" time elapsed: 00:00:00
+----------------------------------------------------------
+
+43/76 Testing: transitive_reduce
+43/76 Test: transitive_reduce
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_transitive_reduce"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"transitive_reduce" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_transitive_reduce OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"transitive_reduce" end time: Sep 07 16:02 EDT
+"transitive_reduce" time elapsed: 00:00:00
+----------------------------------------------------------
+
+46/76 Testing: api_n1
+46/76 Test: api_n1
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_api_c"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"api_n1" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_api_c OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"api_n1" end time: Sep 07 16:02 EDT
+"api_n1" time elapsed: 00:00:00
+----------------------------------------------------------
+
+45/76 Testing: lucky
+45/76 Test: lucky
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_lucky"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"lucky" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_lucky OK
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"lucky" end time: Sep 07 16:02 EDT
+"lucky" time elapsed: 00:00:00
+----------------------------------------------------------
+
+47/76 Testing: api_instances
+47/76 Test: api_instances
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_api_instances"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"api_instances" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  BCE                PAYLOAD
+  BVE                PAYLOAD
+  Backbone           PAYLOAD
+  CCE                PAYLOAD
+  ConflictAnalysis   PAYLOAD
+  Congruence         CANON  
+  Decide             PAYLOAD
+  Factor             PAYLOAD
+  HyperBinaryRes     PAYLOAD
+  HyperTernaryRes    PAYLOAD
+  Instantiate        PAYLOAD
+  Lucky              PAYLOAD
+  Probe              PAYLOAD
+  Propagate          CANON  
+  Reduce             PAYLOAD
+  Reorder            PAYLOAD
+  Rephase            PAYLOAD
+  Restart            PAYLOAD
+  Strengthen         PAYLOAD
+  Substitute         CANON    (enumeration empty here)
+  SubsumeForward     PAYLOAD
+  Sweep              PAYLOAD
+  SwitchMode         CANON  
+  TransitiveReduce   PAYLOAD
+  Vivify             PAYLOAD
+  Walk               CANON  
+test_api_instances: 26/26 entries applied via tactix_apply_instance (21 through a chosen payload), 11 made progress
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"api_instances" end time: Sep 07 16:02 EDT
+"api_instances" time elapsed: 00:00:00
+----------------------------------------------------------
+
+44/76 Testing: bve
+44/76 Test: bve
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_bve"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"bve" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  definition reconstruction: 391 trials, 420 gates, 2772 eliminated, 70754 models (63349 needed repair)
+test_bve OK
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"bve" end time: Sep 07 16:02 EDT
+"bve" time elapsed: 00:00:00
+----------------------------------------------------------
+
+19/76 Testing: p4_fixtures
+19/76 Test: p4_fixtures
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_p4_fixtures.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"p4_fixtures" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_p4_fixtures OK
+<end of output>
+Test time =   0.39 sec
+----------------------------------------------------------
+Test Passed.
+"p4_fixtures" end time: Sep 07 16:02 EDT
+"p4_fixtures" time elapsed: 00:00:00
+----------------------------------------------------------
+
+48/76 Testing: random_policy
+48/76 Test: random_policy
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_random_policy"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"random_policy" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+random-policy sat-chain: 50 seeds OK
+random-policy unsat-enum: 50 seeds OK
+random-policy unsat-php2: 50 seeds OK
+random-policy sat-amo: 50 seeds OK
+random-policy unsat-xor3: 50 seeds OK
+random-policy sat-units: 50 seeds OK
+test_random_policy OK
+<end of output>
+Test time =   0.10 sec
+----------------------------------------------------------
+Test Passed.
+"random_policy" end time: Sep 07 16:02 EDT
+"random_policy" time elapsed: 00:00:00
+----------------------------------------------------------
+
+49/76 Testing: trace_replay
+49/76 Test: trace_replay
+Command: "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/trace_replay.sh" "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tactix"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"trace_replay" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  unsat/drat: verdict 20, 6 actions, proof + counters identical, seed reproducible
+  unsat/lrat: verdict 20, 6 actions, proof + counters identical, seed reproducible
+  unsat/drat seed 23: verdict 20, 3 actions, proof + counters identical, seed reproducible
+  sat/drat: verdict 10, 5 actions, proof + counters identical, seed reproducible
+  sat/lrat: verdict 10, 5 actions, proof + counters identical, seed reproducible
+  negative: a truncated trace fails the verdict check
+  negative: --trace refuses a non-traceable policy
+trace_replay: all passed
+<end of output>
+Test time =   0.23 sec
+----------------------------------------------------------
+Test Passed.
+"trace_replay" end time: Sep 07 16:02 EDT
+"trace_replay" time elapsed: 00:00:00
+----------------------------------------------------------
+
+23/76 Testing: fuzz_slurm_snapshot
+23/76 Test: fuzz_slurm_snapshot
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_fuzz_slurm_snapshot.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"fuzz_slurm_snapshot" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+fuzz SLURM immutable harness snapshot: PASS
+<end of output>
+Test time =   0.38 sec
+----------------------------------------------------------
+Test Passed.
+"fuzz_slurm_snapshot" end time: Sep 07 16:02 EDT
+"fuzz_slurm_snapshot" time elapsed: 00:00:00
+----------------------------------------------------------
+
+52/76 Testing: tr_bruteforce_0
+52/76 Test: tr_bruteforce_0
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_tr_bruteforce" "0"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"tr_bruteforce_0" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_tr_bruteforce mode=0 OK (ran=49708, del_instances=14225, deleted=18447)
+<end of output>
+Test time =   0.22 sec
+----------------------------------------------------------
+Test Passed.
+"tr_bruteforce_0" end time: Sep 07 16:02 EDT
+"tr_bruteforce_0" time elapsed: 00:00:00
+----------------------------------------------------------
+
+13/76 Testing: event_trace_compare
+13/76 Test: event_trace_compare
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_compare_event_trace.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"event_trace_compare" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_compare_event_trace OK
+<end of output>
+Test time =   0.79 sec
+----------------------------------------------------------
+Test Passed.
+"event_trace_compare" end time: Sep 07 16:02 EDT
+"event_trace_compare" time elapsed: 00:00:00
+----------------------------------------------------------
+
+56/76 Testing: factor
+56/76 Test: factor
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_factor"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"factor" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_factor: all passed
+<end of output>
+Test time =   0.03 sec
+----------------------------------------------------------
+Test Passed.
+"factor" end time: Sep 07 16:02 EDT
+"factor" time elapsed: 00:00:00
+----------------------------------------------------------
+
+57/76 Testing: factor_n1
+57/76 Test: factor_n1
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_factor_n1"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"factor_n1" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_factor_n1: all passed (1 factorings on a formula at 0.054 binaries/var)
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"factor_n1" end time: Sep 07 16:02 EDT
+"factor_n1" time elapsed: 00:00:00
+----------------------------------------------------------
+
+58/76 Testing: subsume_n1
+58/76 Test: subsume_n1
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_subsume_n1"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"subsume_n1" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_subsume_n1: all passed
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"subsume_n1" end time: Sep 07 16:02 EDT
+"subsume_n1" time elapsed: 00:00:00
+----------------------------------------------------------
+
+53/76 Testing: tr_bruteforce_1
+53/76 Test: tr_bruteforce_1
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_tr_bruteforce" "1"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"tr_bruteforce_1" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_tr_bruteforce mode=1 OK (ran=47268, del_instances=9051, deleted=11477)
+<end of output>
+Test time =   0.21 sec
+----------------------------------------------------------
+Test Passed.
+"tr_bruteforce_1" end time: Sep 07 16:02 EDT
+"tr_bruteforce_1" time elapsed: 00:00:00
+----------------------------------------------------------
+
+54/76 Testing: tr_bruteforce_2
+54/76 Test: tr_bruteforce_2
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_tr_bruteforce" "2"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"tr_bruteforce_2" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_tr_bruteforce mode=2 OK (ran=47286, del_instances=9001, deleted=11327)
+<end of output>
+Test time =   0.20 sec
+----------------------------------------------------------
+Test Passed.
+"tr_bruteforce_2" end time: Sep 07 16:02 EDT
+"tr_bruteforce_2" time elapsed: 00:00:00
+----------------------------------------------------------
+
+55/76 Testing: tr_bruteforce_3
+55/76 Test: tr_bruteforce_3
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_tr_bruteforce" "3"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"tr_bruteforce_3" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_tr_bruteforce mode=3 OK (ran=46993, del_instances=8869, deleted=11249)
+<end of output>
+Test time =   0.20 sec
+----------------------------------------------------------
+Test Passed.
+"tr_bruteforce_3" end time: Sep 07 16:02 EDT
+"tr_bruteforce_3" time elapsed: 00:00:00
+----------------------------------------------------------
+
+20/76 Testing: campaign_certificate_cleanup
+20/76 Test: campaign_certificate_cleanup
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/test_campaign_certificate_cleanup.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"campaign_certificate_cleanup" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+{
+  "passed": false,
+  "node": "node008"
+}
+campaign certificate cleanup: PASS
+<end of output>
+Test time =   0.81 sec
+----------------------------------------------------------
+Test Passed.
+"campaign_certificate_cleanup" end time: Sep 07 16:02 EDT
+"campaign_certificate_cleanup" time elapsed: 00:00:00
+----------------------------------------------------------
+
+60/76 Testing: effort_specs
+60/76 Test: effort_specs
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-effort-specs.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"effort_specs" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  ok    METERED BVE               <- 100 permille (&DefaultStrategyConfig::Inprocess::bve_permille), meter_bve, dosed
+  ok    METERED Probe             <- 8 permille (&DefaultStrategyConfig::Inprocess::probe_permille), meter_probe, dosed
+  ok    METERED Backbone          <- 20 permille (&DefaultStrategyConfig::Inprocess::backbone_permille), meter_backbone, budgeted
+  ok    METERED TransitiveReduce  <- 20 permille (&DefaultStrategyConfig::Inprocess::transitive_permille), meter_transitive, dosed, budgeted
+  ok    METERED Vivify            <- 100 permille (&DefaultStrategyConfig::Inprocess::vivify_permille), meter_vivify, budgeted
+  ok    METERED Strengthen        <- 100 permille (&DefaultStrategyConfig::Inprocess::strengthen_permille), meter_forward_pair, budgeted
+  ok    METERED SubsumeForward    <- 100 permille (&DefaultStrategyConfig::Inprocess::subsume_forward_permille), meter_forward_pair, budgeted
+  ok    METERED Factor            <- 50 permille (&DefaultStrategyConfig::Inprocess::factor_permille), meter_factor, budgeted
+  ok    METERED HyperTernaryRes   <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_ternary_permille), meter_ternary, budgeted
+  ok    METERED HyperBinaryRes    <- 8 permille (&DefaultStrategyConfig::Inprocess::hyper_binary_permille), meter_hbr, dosed, budgeted
+  ok    METERED BCE               <- 20 permille (&DefaultStrategyConfig::Inprocess::bce_permille), meter_bce, budgeted
+  ok    METERED CCE               <- 4 permille (&DefaultStrategyConfig::Inprocess::cce_permille), meter_cce, budgeted
+  ok    METERED Instantiate       <- 20 permille (&DefaultStrategyConfig::Inprocess::instantiate_permille), meter_instantiate, budgeted
+  ok    METERED Sweep             <- 100 permille (&DefaultStrategyConfig::Inprocess::sweep_permille), meter_sweep, budgeted
+  ok    ALT-GOV Congruence        <- the exact Kissat productivity delay ladder
+  ok    METERED Substitute        <- 10 permille (&DefaultStrategyConfig::Inprocess::substitute_permille), meter_substitute, budgeted
+check-effort-specs: 16 scheduled Inprocess rules, 15 EFFORT_SPECS rows, 1 alternate-governor, 0 failure(s)
+<end of output>
+Test time =   0.09 sec
+----------------------------------------------------------
+Test Passed.
+"effort_specs" end time: Sep 07 16:02 EDT
+"effort_specs" time elapsed: 00:00:00
+----------------------------------------------------------
+
+59/76 Testing: config_wiring
+59/76 Test: config_wiring
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-config-wiring.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"config_wiring" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  ok    POLICY bve_bound                  <- src/policies/default_policy.cpp:2921, src/policies/default_policy.cpp:2936
+  ok    POLICY bve_occurrence_limit       <- src/policies/default_policy.cpp:261, src/policies/default_policy.cpp:2196, src/policies/default_policy.cpp:3501
+  ok    POLICY bve_clause_size_limit      <- src/policies/default_policy.cpp:263, src/policies/default_policy.cpp:2197, src/policies/default_policy.cpp:3502
+  ok    POLICY bve_definition_session     <- src/policies/default_policy.cpp:3500
+  ok    POLICY factor_composite           <- src/policies/default_policy.cpp:3135, src/policies/default_policy.cpp:3342
+  ok    POLICY work_budget                <- src/policies/default_policy.cpp:2763, src/policies/default_policy.cpp:2769, src/policies/default_policy.cpp:2970
+  ok    POLICY work_budget_offset         <- src/policies/default_policy.cpp:3189, src/policies/default_policy.cpp:3212, src/policies/default_policy.cpp:3238
+  ok    POLICY work_budget_bounded        <- src/policies/default_policy.cpp:3168, src/policies/default_policy.cpp:3239
+  ok    POLICY vivify_scope               <- src/policies/default_policy.cpp:3185, src/policies/default_policy.cpp:3210, src/policies/default_policy.cpp:3236
+  ok    POLICY bump_reason_limit          <- src/policies/default_policy.cpp:181, src/policies/default_policy.cpp:1865, src/policies/default_policy.cpp:1867
+  ok    POLICY bump_reason_depth          <- src/policies/default_policy.cpp:2469, src/policies/default_policy.cpp:2478
+  ok    POLICY inprocessing               <- src/policies/default_policy.cpp:118, src/policies/default_policy.cpp:122, src/policies/default_policy.cpp:685
+  ok    POLICY jump_reasons_bigbig        <- src/policies/default_policy.cpp:1752
+  ok    POLICY conflict_reuse_chrono_levels <- src/policies/default_policy.cpp:2247
+check-config-wiring: 57 config fields, 14 POLICY-tagged, 0 failure(s)
+<end of output>
+Test time =   0.15 sec
+----------------------------------------------------------
+Test Passed.
+"config_wiring" end time: Sep 07 16:02 EDT
+"config_wiring" time elapsed: 00:00:00
+----------------------------------------------------------
+
+62/76 Testing: stat_ids
+62/76 Test: stat_ids
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-stat-ids.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"stat_ids" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+check-stat-ids: 51 ids, 51 cases, 16 rule pairs (0 proxy, 1 diagnostic) — 0 failure(s)
+<end of output>
+Test time =   0.07 sec
+----------------------------------------------------------
+Test Passed.
+"stat_ids" end time: Sep 07 16:02 EDT
+"stat_ids" time elapsed: 00:00:00
+----------------------------------------------------------
+
+64/76 Testing: section_refs
+64/76 Test: section_refs
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-section-refs.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"section_refs" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  ok    42/42 section references resolve
+check-section-refs: 0 error(s)
+<end of output>
+Test time =   0.09 sec
+----------------------------------------------------------
+Test Passed.
+"section_refs" end time: Sep 07 16:02 EDT
+"section_refs" time elapsed: 00:00:00
+----------------------------------------------------------
+
+65/76 Testing: inventory
+65/76 Test: inventory
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-inventory.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"inventory" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  ok    28/28 catalog families have a disposition
+check-inventory: 0 error(s)
+<end of output>
+Test time =   0.07 sec
+----------------------------------------------------------
+Test Passed.
+"inventory" end time: Sep 07 16:02 EDT
+"inventory" time elapsed: 00:00:00
+----------------------------------------------------------
+
+67/76 Testing: doc_size
+67/76 Test: doc_size
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-doc-size.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"doc_size" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  warn  DEVELOPMENT_PLAN.md: 716 of 750 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/calculus.md: 653 of 680 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/implementation-notes.md: 555 of 560 lines — under 10% reserve left, compact it before the next addition needs the room
+  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines — under 10% reserve left, compact it before the next addition needs the room
+check-doc-size: 0 error(s), 4 warning(s), 30 file budget(s) checked
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Passed.
+"doc_size" end time: Sep 07 16:02 EDT
+"doc_size" time elapsed: 00:00:00
+----------------------------------------------------------
+
+68/76 Testing: proof_rule_sync
+68/76 Test: proof_rule_sync
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-proof-rule-sync.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"proof_rule_sync" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)
+<end of output>
+Test time =   0.06 sec
+----------------------------------------------------------
+Test Passed.
+"proof_rule_sync" end time: Sep 07 16:02 EDT
+"proof_rule_sync" time elapsed: 00:00:00
+----------------------------------------------------------
+
+70/76 Testing: no_heuristics
+70/76 Test: no_heuristics
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_no_heuristics"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"no_heuristics" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+test_no_heuristics OK
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"no_heuristics" end time: Sep 07 16:02 EDT
+"no_heuristics" time elapsed: 00:00:00
+----------------------------------------------------------
+
+71/76 Testing: kernel_h_boundary
+71/76 Test: kernel_h_boundary
+Command: "/usr/bin/bash" "-c" "! grep -qE '^[[:space:]]*#[[:space:]]*include.*heuristics\.hpp' '/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/src/kernel/kernel.hpp'"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"kernel_h_boundary" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"kernel_h_boundary" end time: Sep 07 16:02 EDT
+"kernel_h_boundary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+69/76 Testing: default_strategy_config_check
+69/76 Test: default_strategy_config_check
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-default-strategy-config.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"default_strategy_config_check" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+default-strategy-config: permanent rule and use sites OK
+<end of output>
+Test time =   0.07 sec
+----------------------------------------------------------
+Test Passed.
+"default_strategy_config_check" end time: Sep 07 16:02 EDT
+"default_strategy_config_check" time elapsed: 00:00:00
+----------------------------------------------------------
+
+8/76 Testing: subsolver
+8/76 Test: subsolver
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_subsolver"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"subsolver" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  brute force: 100000 iterations, 34428 SAT / 65572 UNSAT, 33300 with assumptions
+  fixed derivations: 20688 refutations checked (5683 over assumptions, 15005 empty), 2.7 steps / 11.1 core clauses each, 11913 multi-step (max 44)
+  Kitten derivations: 8281 refutations checked (2287 over assumptions, 5994 empty), 5.1 steps / 10.9 core clauses each, 5863 multi-step (max 45)
+test_subsolver: all passed
+<end of output>
+Test time =   1.19 sec
+----------------------------------------------------------
+Test Passed.
+"subsolver" end time: Sep 07 16:02 EDT
+"subsolver" time elapsed: 00:00:01
+----------------------------------------------------------
+
+74/76 Testing: demo1_dpll
+74/76 Test: demo1_dpll
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/examples/demo1_dpll"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/examples
+"demo1_dpll" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+demo1_dpll OK
+<end of output>
+Test time =   0.00 sec
+----------------------------------------------------------
+Test Passed.
+"demo1_dpll" end time: Sep 07 16:02 EDT
+"demo1_dpll" time elapsed: 00:00:00
+----------------------------------------------------------
+
+75/76 Testing: demo2_no_restarts
+75/76 Test: demo2_no_restarts
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/examples/demo2_no_restarts"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/examples
+"demo2_no_restarts" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+demo2_no_restarts OK
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"demo2_no_restarts" end time: Sep 07 16:02 EDT
+"demo2_no_restarts" time elapsed: 00:00:00
+----------------------------------------------------------
+
+72/76 Testing: rule_policy_boundary
+72/76 Test: rule_policy_boundary
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-rule-policy-boundary.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"rule_policy_boundary" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+check-rule-policy-boundary: rule/policy imports and data flows are clean
+<end of output>
+Test time =   0.14 sec
+----------------------------------------------------------
+Test Passed.
+"rule_policy_boundary" end time: Sep 07 16:02 EDT
+"rule_policy_boundary" time elapsed: 00:00:00
+----------------------------------------------------------
+
+61/76 Testing: option_coverage
+61/76 Test: option_coverage
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-option-coverage.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"option_coverage" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  ok    kissat  161 options  ·  cadical 257
+  ok    dismissed  83 (roster, parsed from §13.6)
+  ok    carried   125 (23 roster entries, anchors re-checked)
+  ok    cited     208 (named in the ledger corpus)
+  ok    exempt      2 (named in EXEMPT, with a reason)
+check-option-coverage: 418 reference options, 0 unaccounted, 0 failure(s)
+<end of output>
+Test time =   0.55 sec
+----------------------------------------------------------
+Test Passed.
+"option_coverage" end time: Sep 07 16:02 EDT
+"option_coverage" time elapsed: 00:00:00
+----------------------------------------------------------
+
+73/76 Testing: solve_reset
+73/76 Test: solve_reset
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_solve_reset"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"solve_reset" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  reused#2  res=20 confl=5032 dec=6438 props=176227 ticks=3566089 restart=102 reduce=3 del=573 learn=4974 switch=4 rephase=2 walk=1 retier=13 randseq=5 band=0 proof=342445B
+  fresh#1   res=20 confl=5032 dec=6438 props=176227 ticks=3566089 restart=102 reduce=3 del=573 learn=4974 switch=4 rephase=2 walk=1 retier=13 randseq=5 band=0 proof=342445B
+  state groups dirty after a solve: 11/11
+test_solve_reset: OK
+<end of output>
+Test time =   0.67 sec
+----------------------------------------------------------
+Test Passed.
+"solve_reset" end time: Sep 07 16:02 EDT
+"solve_reset" time elapsed: 00:00:00
+----------------------------------------------------------
+
+76/76 Testing: demo3_scripted_default
+76/76 Test: demo3_scripted_default
+Command: "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/examples/demo3_scripted_default"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/examples
+"demo3_scripted_default" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+demo3: verdict 20 — builtin{confl 8622 rst 46 red 5 sw 6 rp 3}  scripted{confl 75327 rst 1735 red 17 sw 12 rp 7}
+demo3_scripted_default OK
+<end of output>
+Test time =   1.22 sec
+----------------------------------------------------------
+Test Passed.
+"demo3_scripted_default" end time: Sep 07 16:02 EDT
+"demo3_scripted_default" time elapsed: 00:00:01
+----------------------------------------------------------
+
+51/76 Testing: sweep_proofs
+51/76 Test: sweep_proofs
+Command: "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/sweep_proofs.sh" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369" "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_subsolver" "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_sweep"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"sweep_proofs" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+emitted 40 cases to /tmp/tmp.Afg1RD40qQ/test_subsolver (22 multi-step, longest 12 steps)
+emitted the S-e case to /tmp/tmp.Afg1RD40qQ/test_sweep
+emitted the Sweep-unit case to /tmp/tmp.Afg1RD40qQ/test_sweep
+emitted the bridge-chain case to /tmp/tmp.Afg1RD40qQ/test_sweep
+emitted the bridge two-hint case to /tmp/tmp.Afg1RD40qQ/test_sweep
+sweep_proofs: 44 derivations verified by drat-trim + lrat-check
+<end of output>
+Test time =   3.03 sec
+----------------------------------------------------------
+Test Passed.
+"sweep_proofs" end time: Sep 07 16:02 EDT
+"sweep_proofs" time elapsed: 00:00:03
+----------------------------------------------------------
+
+50/76 Testing: micro_proofs
+50/76 Test: micro_proofs
+Command: "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tests/micro_proofs.sh" "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tactix" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369" "/home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests/test_analyze"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"micro_proofs" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+micro_proofs OK
+<end of output>
+Test time =   3.60 sec
+----------------------------------------------------------
+Test Passed.
+"micro_proofs" end time: Sep 07 16:02 EDT
+"micro_proofs" time elapsed: 00:00:03
+----------------------------------------------------------
+
+66/76 Testing: comment_hygiene
+66/76 Test: comment_hygiene
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-comment-hygiene.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"comment_hygiene" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+check-comment-hygiene: 0 hit(s)
+<end of output>
+Test time =   4.10 sec
+----------------------------------------------------------
+Test Passed.
+"comment_hygiene" end time: Sep 07 16:02 EDT
+"comment_hygiene" time elapsed: 00:00:04
+----------------------------------------------------------
+
+63/76 Testing: citations
+63/76 Test: citations
+Command: "/home/hwu/.local/lib/python3.9/site-packages/cmake/data/bin/cmake" "-E" "env" "python3" "/home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-prefix-5369/tools/docs/check-citations.py"
+Directory: /home/hwu/SAT-solving/build/pin-5369-congruence-prefix/tests
+"citations" start time: Sep 07 16:02 EDT
+Output:
+----------------------------------------------------------
+  ok    59 citation(s) resolved and in range
+  note  189 skipped (189 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)
+check-citations: 0 error(s)
+<end of output>
+Test time =   5.05 sec
+----------------------------------------------------------
+Test Passed.
+"citations" end time: Sep 07 16:02 EDT
+"citations" time elapsed: 00:00:05
+----------------------------------------------------------
+
+End testing: Sep 07 16:02 EDT
