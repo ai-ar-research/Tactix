@@ -5073,3 +5073,46 @@ substitution's richer-structure 37.5M-image iteration (not the clause header,
 the in-place image-free binary rewrite -- a dedicated proof-critical restructure.
 My specific sub-lever hypotheses (header, O(K^2)) were both wrong on closer
 reading/experiment; the residual is diffuse richer-structure overhead.
+
+### 3.104 SHIPPED: Kissat single in-place binary-substitution pass (non-session DRAT) (2026-09-06)
+
+Acting on 3.103's correct localization, ported Kissat's `substitute_binaries`
+(kissat/src/substitute.c:276) single in-place pass for the non-session DRAT path,
+replacing the 5-pass image-array pipeline (build undirected snapshot -> proof
+add/del -> stable-direction in-place rewrite -> directed re-snapshot + compact ->
+batch-reserve + mirror rebuild). Commit 3a1bb53 on unitcost-on-main.
+
+Mechanism ported faithfully: per affected literal, one q-compaction walk of its
+watch list; lit==repr keeps/rewrites in place, lit!=repr moves the pair to repr's
+list via a per-lit `delayed` stack appended only AFTER the walk (grow() re-indexes
+offsets but raw p/q/end pointers are not, so no push may relocate the list being
+scanned -- Kissat's delayed_watched discipline). DRAT + the pair identity
+(kernel_publish_binary_clause) emitted once per undirected pair under the
+import-order owner guard; unit collapses reuse the existing pending/record_unit.
+LRAT (per-pair antecedent ids) and Sweep sessions (bridge targets) keep the image
+path; env hatch TACTIX_SUBSTITUTE_IMAGE_PATH=1 forces legacy for A/B.
+
+LOCAL VALIDATION (build/sp-release + sp-debug at 3a1bb53):
+- 1500-case fuzz, single pass (default): 0 failures; Substitute fired on 408
+  cases, Congruence 421, Sweep 418 (model + DRAT proof + differential-vs-kissat
+  oracles all pass).
+- SAME 1500 seeds on the image path (TACTIX_SUBSTITUTE_IMAGE_PATH=1): BYTE-
+  IDENTICAL verdicts (SAT=856 UNSAT=612 TIMEOUT=32) and BYTE-IDENTICAL per-rule
+  reached counts -> behaviour-equivalent (a divergent already_live/new_pair would
+  have shifted a verdict or an internal count among 1500 cases; none did).
+- Per-case full-stat A/B (equiv + structured instances): 0 mismatches, 0 DRAT
+  failures on substitution-firing cases.
+- ctests with Debug asserts: substitute, proof, reduce_trace_compare, sweep,
+  sweep_proofs, micro_proofs, congruence, proof_rule_sync all pass. (4 unrelated
+  failures are pre-existing doc-debt / a Debug-only event-trace-symbol check:
+  PROGRESS.md size, old section refs, a kernel.cpp comment -- none touch the port.)
+
+GATES IN FLIGHT (submitted, do not block per the standing directive):
+- R40 gate 1667849 (80 tasks, -c=12 --mem=48000M, 1200s): tactix 3a1bb53 vs kissat
+  on Rank 1-40. Will read the aggregate gap AND r34 specifically (tasks 66/67) to
+  classify r34 as implementation-gap (this fixes) or N4 (needs a scheduling fix).
+- N2 fuzz --quick 10000: DRAT 1667888, random-policy 1667889 (0 failures required).
+
+EXPECTATION: closes substitution's share of the +95.5s gap (the memory-traffic of
+the 37.5M-elem array + 4 extra watch scans). Substitution is PART of the gap;
+a residual ~0.5% is diffuse elsewhere and is the next target after this gates.
