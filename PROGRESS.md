@@ -36,16 +36,24 @@ resume surface.
   (line 407) so later lemmas in the same walk see it; tactix sweep_capture_core_units
   (sweep.cpp:~823) COLLECTS units (no intra-walk assign) into round.units and emits later
   (sweep_emit_pending_units sweep.cpp:43). Every primitive faithful; only this order differs.
-- **NEXT = implement the sweep fix (N2-PROOF-CRITICAL -- fresh-mind, calculus/rule-dev
-  discipline):** give tactix's sweep core-lemma walk intra-walk visibility of just-fixed
-  units (or otherwise reproduce kissat add_core's order) so round.units matches kissat's fix
-  sequence, WITHOUT changing emitted-proof validity (sweep emits DRAT/LRAT via
-  sweep_plan_general/sweep_emit_unit -- N2). Confirm the precise first divergent core lemma
-  first with the matched diagnostics TACTIX_CORE_TRACE vs kissat add_core rows (and
-  TACTIX_SWEEP_TRACE vs kissat sweep_backbone_candidate). Then validate r6/r16/r19/r23/r34
-  track kissat WITHOUT regressing r15/r20/r26/r36, fuzz 0/10k, B28+C5, proofs check. Pins:
-  build/deact/tactix (CONFLICT_STOP+EVENT_TRACE, DEACT trace) + kissat-ticktrace/build/kissat;
-  traces in benchmarks/runs/20260907-5280-r34-deact-order.
+- **FIX ATTEMPT INERT -> TRUE ROOT IS DEEPER = embedded KITTEN core-extraction divergence
+  (3.130).** Implemented the 3.129 inline-emit fix (sweep_capture_core_units emits each unit
+  inline) + verified (job 1668176): INERT -- deactivation divergence stays at conflict 26913;
+  reverted. Emit-order/capture-batching hypothesis REFUTED. CORE traces (job 1668175, size-1
+  unit lemmas @26913): the two solvers' extracted-core unit sequences MATCH through position
+  28 (-841,-693,-653,-651,-618) then DIVERGE (kissat -1248,-622,-731...; tactix -844,-970...;
+  sets differ ~7 units incl tactix-only 844,970). So the embedded KITTEN solver extracts a
+  DIFFERENT refutation core at the sweep backbone query -> different backbone units fixed ->
+  different heap_remove order -> the tie-break at conflict 75451. The decision heap, sweep
+  emit, scoring, and all heap primitives are FAITHFUL; the root is embedded-kitten fidelity.
+- **NEXT = investigate the kitten divergence (fresh-mind; possibly chaotic -- weigh overfitting
+  per [[chaotic-instance-veto]]).** Kitten-level trace of the 26913 backbone query (kitten
+  decisions/conflicts/core-minimization) in both solvers to localize whether it is a GENERAL
+  kitten mechanism gap (fixable, general) or accumulated embedded-solve chaos (matching =
+  overfitting one instance). Matched CORE/CB/MAP tooling exists (KISSAT_CORE_TRACE). If a
+  general kitten mechanism diverges, port it and validate r6/r16/r19/r23/r34 track kissat
+  WITHOUT regressing r15/r20/r26/r36, fuzz 0/10k, B28+C5, proofs. Pins: build/deact/tactix +
+  kissat-ticktrace/build/kissat; traces in benchmarks/runs/20260907-5280 + -5281.
 - N4 TOOLING (3.125): full traces are TOO SLOW for late conflicts (~100x instrumentation overhead; r34 to 1M conflicts didn't finish in 30min traced, job 1668133 cancelled). Must use the LOW-OVERHEAD decision-prefix HASH tool (no trace I/O, stops at target). 7am FIX: make note_decision_prefix accumulate a CUMULATIVE prefix hash (all decisions to target, COMMON=target-dec-count) not just decisions-while-conflicts==target (job 1668120's COMMON=1 collided); confirm kissat overlay SAT_DECISION_PREFIX_STOP fires. Then binary-search target in [3000,~4.3M] on the cumulative hash -> r34 first-divergence conflict -> inspect reused/OTFS clause -> proof-critical fix. METHOD validated (r34 aligned thru 3000); 4 tooling walls cleared, hash-tool fix is the remaining plumbing.
 - N4 METHOD VALIDATED, late-trace tooling needs debug (3.124): decision-sequence comparison WORKS (r16 aligned thru conflict 100, r34 thru 3000). For LATE conflicts the full trace is too big (tactix ~2500 rec/conflict); 7am: fix EITHER the SKIP-flags compact trajectory trace (SKIP_IMPLY/WATCH/ANALYSIS_TICKS/HEAP+TRAJECTORY_ONLY) OR the decision-prefix HASH tool (job 1668120 failed: kissat SAT_DECISION_PREFIX_STOP didn't fire + tactix COMMON=1 hash collisions -- read kissat overlay eventtrace.c:1167 + tactix note_decision_prefix, use COMMON=target-decision-count). Then bisect r34 divergence in [3000,~4.3M] (sticky binary search), inspect reused/OTFS clause before it -> reuse/analyze fidelity bug -> proof-critical fix. Method proven; plumbing remains. N4 (+11.27%) is the larger half of the gap = top lever.
 - N4 TRACE WALL SOLVED (3.123, BREAKTHROUGH): compare DECISION SEQUENCES (dec#,level,decided-lit -- same format in both solvers, vocabulary-independent), not the mismatched event vocabularies. r16 decisions IDENTICAL through conflict 100, r34 IDENTICAL through conflict 3000 (despite r34 total conflicts 1.97x) -> divergence is LATER + compounds. 7am BISECTION for r34: tiny late windows (CONFLICT_FROM=N,TO=N+1500,STOP=N+1500; keep <2000 conflicts, tactix ~2500 rec/conflict), extract decisions, binary-search N in [3000,~4.3M] on 'decisions identical in window' (sticky). First differing decision+level+reason = r34's divergence; inspect the reused/OTFS clause just before it -> the reuse/analyze fidelity bug -> proof-critical fix. Pins ready. Tooling wall solved this session; bisection+fix is fresh 7am work.
