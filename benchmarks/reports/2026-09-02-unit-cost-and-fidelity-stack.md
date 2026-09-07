@@ -5362,3 +5362,24 @@ This is a better parallel thread than parse while r34's trace waits for 7am.
 Also congruence_extract_gates 5.54% (build_clause_index) is a lever but congruence
 is at PARITY with kissat (3.95/3.107) so it is likely faithful -- verify before
 touching.
+
+### 3.115 SHIPPED: Bloom-prefilter the substitution already_live check -- -4.4s (-1.2%) on 0-conflict ranks (2026-09-07)
+
+Acting on 3.114's redirect: added a binary-liveness (exact, add-at-publish/remove-
+at-delete, no-false-negative) prefilter to the non-session DRAT port's already_live
+existence check (substitute.cpp ~1964), skipping both O(degree) kernel_binary_copies
+watch scans when the pair was never live -- the common case for new substitution
+targets. Proof-NEUTRAL (already_live only sets new_pair). Commit bf326dc on main.
+VALIDATED byte-identical: A/B fuzz 1500 cases seed 7 = 0 failures, SAT=856/UNSAT=
+612/TIMEOUT=32, Substitute=408/Congruence=421/Sweep=418 -- EXACTLY the 3.104
+baseline; 7/7 substitution/proof ctests pass with asserts.
+MEASURED (job 1668105, bloom-opt vs pre-opt port 5256, 5 0-conflict ranks):
+  r7 54.6->53.7 (-0.9)  r8 66.4->65.5 (-0.9)  r10 91.4->91.1 (-0.4)
+  r13 73.7->72.4 (-1.3)  r14 73.1->72.1 (-1.0)
+  aggregate 359.3->354.8s = -4.4s (-1.2%). All 5 faster; byte-identical so the
+  savings are real skipped-scan instructions (individual deltas near the +-1.2s
+  single-run floor but the direction+aggregate are reliable).
+A modest but genuine, safe, general chip off the impl gap (3.108 was +308s/+6.49%
+on the matched-work ranks). More such proof-neutral hot-function speedups remain
+(other kernel_binary_copies callsites on the session/sweep path; the large-clause
+substitution residual is proof-critical). r34 (N4) still needs the 7am trace.
