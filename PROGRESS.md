@@ -7,41 +7,30 @@ manifests and dated reports own experiment detail. This file is the compact
 resume surface.
 
 ## Current resume anchor
-- CORRECT LEVER (report 3.103, corrects the wrong 3.102 O(K^2) and 3.97 header
-  claims): the binary-substitution implementation gap is STRUCTURAL, not a single
-  hotspot. Kissat's `substitute_binaries` (kissat/src/substitute.c:276) does ONE
-  in-place pass over the watch lists (q-compaction + a tiny per-lit `delayed`
-  move-to-representative stack + inline proof), never materialising an image
-  array. Tactix's non-session path (substitute.cpp ~1842-2510) instead runs a
-  5-PASS pipeline over a 37.5M-element `images` array: build -> proof add/del ->
-  stable-direction in-place rewrite -> compact (drop connected binaries) ->
-  batch-reserve + mirror-rebuild. connected_only is always true, so the logic is
-  identical to Kissat (lit==repr_lit -> rewrite in place & survive compaction;
-  lit!=repr_lit -> drop & re-push to repr's list). The gap = the 37.5M-elem array
-  (600MB, half dead bridge fields on the non-session path) + 4 extra watch-arena
-  scans, all pure memory traffic Kissat does not do (memory-bound instance).
-  THE FIX (verified feasible without touching the watch container): port Kissat's
-  single in-place pass for the non-session DRAT path (the N2 gate + the 0-conflict
-  ranks r7/r8/r10/r13/r14; keep LRAT + session on the image path). Use a bespoke
-  metadata-maintaining compaction loop (count binaries + set_layout like
-  WatchLists::compact) with rewrite-in-place + a local `delayed` uint32 stack;
-  after each lit's walk, push_binary the delayed moves to image[lit]'s list
-  (grow() is offset-based so heads survive realloc, but raw p/q/end do NOT --
-  never push during a list walk, exactly Kissat's delayed_watched discipline).
-  Reuse the existing pending/record_unit/flush_units machinery for collapsed
-  units. Emit DRAT inline per changed binary under the import-order owner guard
-  (add new pair, del old pair) -- checkable, NOT byte-identical, so validate with
-  drat-trim not byte-compare. PLAN: add a TACTIX_ env hatch (default new) for
-  same-window A/B; hoist `bool refuted`; wrap the existing binary machinery in
-  `if (!kissat_single_pass){...}` and add the new block; guard the image-reading
-  post-passes (batch-reserve 2404, mirror 2457, event-trace) with the hatch.
-  VALIDATE: build Debug+Release, fuzz --quick 10000 x2 (drat-trim, 0 failures),
-  ctest incl reduce_trace_compare, then B28+C5 + R40 aggregate gate. Closes ~half
-  the +95.5s gap (substitution's share); the residual ~0.5% is diffuse elsewhere.
-  MEASUREMENT: r10 single-run is +-1.2s noisy (below the 1.2% gap); the resolvable
-  signals are perf instruction count (sees the eliminated passes) + the R40
-  aggregate (+-0.25%). 7 safe byte-identical repairs shipped; clean line
-  unitcost-on-main @ 303ca15.
+- SHIPPED + GATING (report 3.104, commit 3a1bb53 on unitcost-on-main): ported
+  Kissat's single in-place `substitute_binaries` pass for the non-session DRAT
+  path, replacing the 5-pass image-array pipeline (build->proof->stable-rewrite->
+  compact->mirror-rebuild over a 37.5M-elem array) that was the implementation gap
+  (3.103). Per affected literal: one q-compaction walk; lit==repr rewrites in
+  place, lit!=repr moves to repr's list via a per-lit delayed stack pushed only
+  after the walk (grow() offset-based; raw p/q/end are not). LRAT + Sweep keep the
+  image path; hatch TACTIX_SUBSTITUTE_IMAGE_PATH=1 forces legacy for A/B.
+  LOCAL VALIDATION (build/sp-release, sp-debug): 1500-case fuzz single-pass =
+  0 failures, Substitute fired 408 cases (model+DRAT+differential oracles); same
+  seeds image-path = BYTE-IDENTICAL verdicts + reached counts (behaviour-equiv);
+  per-case full-stat A/B 0 mismatches; proof/substitution ctests pass with asserts.
+  GATES IN FLIGHT (do not block, standing directive):
+    * R40 gate job 1667849 (80 tasks, -c=12/48000M/1200s): tactix 3a1bb53 vs kissat
+      Rank 1-40. NEXT ACTION: read benchmarks/runs/20260906-5256-r1-40-singlepass-
+      v-kissat/results/*.json -> aggregate PAR-2/runtime vs kissat AND r34 (tasks
+      66=tactix/67=kissat) to classify r34 = implementation-gap (this fixes) vs N4.
+    * N2 fuzz --quick 10000: DRAT job 1667888, random-policy job 1667889 (0 fails
+      required); logs tools/fuzz/slurm-sp-quick-1667888.log / -sp-randpol-1667889.log.
+  Pin build/pin-sp-3a1bb53 (sha e52ca91a...); kissat pin b6a9b1d0...
+  OPEN: substitution is PART of the +95.5s (1.24%) gap; a residual ~0.5% is diffuse
+  elsewhere -- the next target after this gates. 7 prior safe repairs stand.
+  MEASUREMENT: r10 single-run +-1.2s noisy (< the gap); resolvable signals are the
+  R40 aggregate (+-0.25%) and perf instruction count.
 
 - ROOT CAUSE OF THE IMPLEMENTATION GAP FOUND (report 3.97): the gap is +95.5s =
   1.24% (search at parity, congruence FASTER than Kissat; §3.96), dominated by
