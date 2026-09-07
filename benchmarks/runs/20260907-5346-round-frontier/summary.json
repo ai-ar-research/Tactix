@@ -1,0 +1,22 @@
+{
+  "job": "1668707",
+  "acceptance_met": false,
+  "scratch_clean": 2,
+  "arms": {
+    "tactix": {
+      "exit_code": 124,
+      "rows": 2000000,
+      "last_recorded_conflict": 152615,
+      "truncation_marker": true,
+      "trace_sha256": "33aa039a53d412ef2141840b6beae271efb22ee4c666b5f5102d40fc306c7d95"
+    },
+    "kissat": {
+      "exit_code": 124,
+      "rows": 627607,
+      "last_recorded_conflict": 87997,
+      "truncation_marker": false,
+      "trace_sha256": "57511ed5ef7e0f13b9034490b69059273cf9f41e7c1b0bf9fc85665787c3c7eb"
+    }
+  },
+  "conclusion": "Both broad observers hit the 600-second cap before the requested endpoint. Not a solver failure or timing gate. Replaced by complete lightweight stream 5347."
+}

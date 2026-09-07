@@ -1,0 +1,229 @@
+{
+  "checked_clean": 15,
+  "invalid": 0,
+  "verdicts": {
+    "SAT": 15,
+    "UNSAT": 0
+  },
+  "timeout_transitions": 0,
+  "by_rank": {
+    "17": {
+      "current": {
+        "seconds": 248.458,
+        "rss_kib": 1364112,
+        "counters": {
+          "conflicts": 205609,
+          "decisions": 4261885,
+          "propagations": 1921368224
+        },
+        "certificate_sha256": "d7425da5468edef94e9c9fe0360d8d57a17f22e6bd0bf545986d339ccb7d88c4",
+        "ratio_current": 1.0,
+        "ratio_kissat": 2.186187295972688
+      },
+      "round_only": {
+        "seconds": 343.186,
+        "rss_kib": 1364112,
+        "counters": {
+          "conflicts": 435660,
+          "decisions": 4927604,
+          "propagations": 3038594986
+        },
+        "certificate_sha256": "7ebd8bf9fa3eac0f5c6311097de4f42b7258c62c51e6c162f287fa4721bdbba2",
+        "ratio_current": 1.3812636340950986,
+        "ratio_kissat": 3.0197010092477714
+      },
+      "bridge": {
+        "seconds": 111.684,
+        "rss_kib": 1341100,
+        "counters": {
+          "conflicts": 156451,
+          "decisions": 4533255,
+          "propagations": 768551458
+        },
+        "certificate_sha256": "23ef1e34d488cbf48b14f09fa4a8e0896142d979bd895b284265d98aface340d",
+        "ratio_current": 0.44950856885268337,
+        "ratio_kissat": 0.9827099226566005
+      },
+      "bridge_round": {
+        "seconds": 201.793,
+        "rss_kib": 1341100,
+        "counters": {
+          "conflicts": 168871,
+          "decisions": 3936738,
+          "propagations": 1503365712
+        },
+        "certificate_sha256": "453690d84552d515554fe22e5d7aa19f62b0d09cad77f9ee92ee000bcae4022f",
+        "ratio_current": 0.8121815357122734,
+        "ratio_kissat": 1.7755809553977597
+      },
+      "kissat": {
+        "seconds": 113.649,
+        "rss_kib": 598308,
+        "counters": {
+          "conflicts": 186237,
+          "decisions": 3961527,
+          "propagations": 1055776860
+        },
+        "certificate_sha256": "db4a77910b6ee17d1f1538f5c49f65468a9fb2a29e5e034fc22c5524ef6251a3",
+        "ratio_current": 0.4574173502161331,
+        "ratio_kissat": 1.0
+      }
+    },
+    "21": {
+      "current": {
+        "seconds": 111.795,
+        "rss_kib": 4725892,
+        "counters": {
+          "conflicts": 56206,
+          "decisions": 45390047,
+          "propagations": 603059704
+        },
+        "certificate_sha256": "0da33a5b4789c4a735f03816b28b788d3c90e80c2028f184e3591486e96a997d",
+        "ratio_current": 1.0,
+        "ratio_kissat": 1.1558503323993754
+      },
+      "round_only": {
+        "seconds": 107.84,
+        "rss_kib": 4725892,
+        "counters": {
+          "conflicts": 56822,
+          "decisions": 42151018,
+          "propagations": 569284900
+        },
+        "certificate_sha256": "0f95c80d08592861e41f74980d849be5062736eae2acd113f2451987e0f08455",
+        "ratio_current": 0.9646227469922627,
+        "ratio_kissat": 1.1149595227510054
+      },
+      "bridge": {
+        "seconds": 139.491,
+        "rss_kib": 4713520,
+        "counters": {
+          "conflicts": 77398,
+          "decisions": 64713156,
+          "propagations": 788553687
+        },
+        "certificate_sha256": "1910c8704c5c9febba7acde7fcc8ae65ea328ccd48313d0fae965371b89a3b0b",
+        "ratio_current": 1.247739165436737,
+        "ratio_kissat": 1.4421997291177717
+      },
+      "bridge_round": {
+        "seconds": 134.933,
+        "rss_kib": 4713520,
+        "counters": {
+          "conflicts": 87611,
+          "decisions": 58937715,
+          "propagations": 795535151
+        },
+        "certificate_sha256": "ffcde29284617feb6bba71c5aafd41024ee9f7e3bdde54720f251a4ad1888d50",
+        "ratio_current": 1.2069681112751016,
+        "ratio_kissat": 1.3950744926127727
+      },
+      "kissat": {
+        "seconds": 96.721,
+        "rss_kib": 1436392,
+        "counters": {
+          "conflicts": 93100,
+          "decisions": 47246834,
+          "propagations": 847215445
+        },
+        "certificate_sha256": "e7e4876b3e3832e05c32ad7fefddc8d01f15fc2bf5de80587fb3955418f88dac",
+        "ratio_current": 0.8651639160964265,
+        "ratio_kissat": 1.0
+      }
+    },
+    "34": {
+      "current": {
+        "seconds": 559.836,
+        "rss_kib": 121644,
+        "counters": {
+          "conflicts": 6486701,
+          "decisions": 12994707,
+          "propagations": 1322997837
+        },
+        "certificate_sha256": "e694324772aafb0024d75bde7432ffc493c818536deda43015e65139d12b3f65",
+        "ratio_current": 1.0,
+        "ratio_kissat": 1.6893416577899958
+      },
+      "round_only": {
+        "seconds": 590.081,
+        "rss_kib": 159552,
+        "counters": {
+          "conflicts": 6840611,
+          "decisions": 13910358,
+          "propagations": 1328604572
+        },
+        "certificate_sha256": "abe64100c934e47fba9321437252cc4879d4c4ceb19c75e56e6fc327516d3b72",
+        "ratio_current": 1.054024750105388,
+        "ratio_kissat": 1.7806079186947221
+      },
+      "bridge": {
+        "seconds": 899.217,
+        "rss_kib": 149916,
+        "counters": {
+          "conflicts": 9633178,
+          "decisions": 17861106,
+          "propagations": 2033067701
+        },
+        "certificate_sha256": "c275958ec9a41d827a2fa5445a042bece96980864df6a7cd3dab8053161ced20",
+        "ratio_current": 1.6062150344029322,
+        "ratio_kissat": 2.7134459689854644
+      },
+      "bridge_round": {
+        "seconds": 680.31,
+        "rss_kib": 126044,
+        "counters": {
+          "conflicts": 7737781,
+          "decisions": 14899823,
+          "propagations": 1568553672
+        },
+        "certificate_sha256": "28914559207bbbd02a73eff00039f89ef16cb9ca2da452a6ea8c94102fe50a7e",
+        "ratio_current": 1.2151951642981158,
+        "ratio_kissat": 2.052879813393765
+      },
+      "kissat": {
+        "seconds": 331.393,
+        "rss_kib": 40848,
+        "counters": {
+          "conflicts": 4330066,
+          "decisions": 8345523,
+          "propagations": 953999448
+        },
+        "certificate_sha256": "1ca83b6cc5751b863cf6d9847fec621d749aea1fa19f61b4863b14756401e928",
+        "ratio_current": 0.5919465700669481,
+        "ratio_kissat": 1.0
+      }
+    }
+  },
+  "total_seconds": {
+    "current": 920.0889999999999,
+    "round_only": 1041.107,
+    "bridge": 1150.392,
+    "bridge_round": 1017.036,
+    "kissat": 541.7629999999999
+  },
+  "par2_mean_seconds": {
+    "current": 306.6963333333333,
+    "round_only": 347.03566666666666,
+    "bridge": 383.464,
+    "bridge_round": 339.012,
+    "kissat": 180.58766666666665
+  },
+  "scope": "Single diagnostic wave on three predeclared witnesses. No repeat interval, global performance conclusion, or candidate promotion.",
+  "result_sha256": {
+    "000.json": "80cc1cd8f64008f397da6ac071287274d0f8a8a0a27fb8c50329d6bb32159806",
+    "001.json": "276896643817b9793a6b712e8ca34258c762cdc4e65251eb2be4325a00dc1495",
+    "002.json": "d6b2a800911cc02000cb93c88dc733c63fcd2b36701a209e67e7bf0445539d7c",
+    "003.json": "cb263d81d92b7e8e81f130617ada981169f6e2f2d297fb25569e184463eb65b3",
+    "004.json": "23bc8fa210be9aa24eb82f63e7e83422072e16ea9df455b6bec8bce86e245ea1",
+    "005.json": "811230dcac253bb157ea1681021a8eb4d720ed19a9af148b36ce9a7e34ed2663",
+    "006.json": "386d33c744a5a037afe03b18d7a5ecd24b6a8509b912e4aaf8a04f624d88f7c1",
+    "007.json": "a0374c89acf625d7d452909c31b12d795163881ba5df2ebbf6c83ad1e55a8b9d",
+    "008.json": "7636ca6f2d8de21d9dcc02c37245424e4e366c22b8d426b3e76045e6cea6fb5b",
+    "009.json": "aadb424802d48b07ded8d7102a54808af22a3192ff6a1f75f2668a457a22cede",
+    "010.json": "af5b043cc8dbacbbbbd84bfdf5f3a78c776405237b8526c795c236da71793670",
+    "011.json": "16e31552640c6b50b2ece2ef28236620de6d9ee27202e10f307013423f37940b",
+    "012.json": "ee1e658539cdf31af694d55d30d03db86cefa02f7a6b370af5fb14e395c941f1",
+    "013.json": "ee9b92985e37757062b55c5b3ad083c69421b82242c58cc046b8e2e1bf660636",
+    "014.json": "38bea829c46c228ba38a95c7ab082a8b2ac4e68a642a1fc0fa2cc8beaf645803"
+  }
+}

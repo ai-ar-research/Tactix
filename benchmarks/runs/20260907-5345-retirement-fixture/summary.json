@@ -1,0 +1,21 @@
+{
+  "scope": "Fixed heuristic-fidelity fixture, not a SAT solving benchmark or soundness failure.",
+  "conclusion": "A productive disjoint Sweep precedes SCC retirement 3,6 in round one and 2 in round two. Current policy globally sorts to 2,3,6, altering a zero-score heap. The one-call removal preserves the canonical per-round pose.",
+  "fixture_development": "Initial reachability assertion mistakenly required a new binary instead of a known equivalence; initial comparison had an empty focused-mode heap. Final fixture explicitly requires known-equivalence reachability and populates the score heap before comparing.",
+  "records": [
+    {
+      "arm": "before",
+      "expected_exit": 1,
+      "exit_code": 1,
+      "stdout": "canonical retirement: 3 6 2\nheap expected: 1 14 16 4 5 15 7 8 9 10 11 12 13\nheap actual: 1 16 15 4 5 14 7 8 9 10 11 12 13\nper-round policy heap: DIFFERS\n",
+      "stderr": ""
+    },
+    {
+      "arm": "after",
+      "expected_exit": 0,
+      "exit_code": 0,
+      "stdout": "canonical retirement: 3 6 2\nheap expected: 1 14 16 4 5 15 7 8 9 10 11 12 13\nheap actual: 1 14 16 4 5 15 7 8 9 10 11 12 13\nper-round policy heap: matches\n",
+      "stderr": ""
+    }
+  ]
+}

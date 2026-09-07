@@ -1,0 +1,212 @@
+{
+  "stopped_clean": 2,
+  "decisions_implications_unchanged": true,
+  "all_deactivations": {
+    "counts": [
+      9161,
+      9162
+    ],
+    "matching_prefix": 0,
+    "first_tactix": {
+      "conflict": 0,
+      "external": 63,
+      "eliminated": 0,
+      "fixed": 1,
+      "inheap": 0
+    },
+    "first_kissat": {
+      "conflict": 0,
+      "external": 64,
+      "eliminated": 0,
+      "fixed": 1,
+      "inheap": 0
+    },
+    "context_tactix": [
+      {
+        "conflict": 0,
+        "external": 63,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      },
+      {
+        "conflict": 0,
+        "external": 64,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      },
+      {
+        "conflict": 0,
+        "external": 65,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      },
+      {
+        "conflict": 0,
+        "external": 95,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      }
+    ],
+    "context_kissat": [
+      {
+        "conflict": 0,
+        "external": 64,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      },
+      {
+        "conflict": 0,
+        "external": 63,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      },
+      {
+        "conflict": 0,
+        "external": 65,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      },
+      {
+        "conflict": 0,
+        "external": 96,
+        "eliminated": 0,
+        "fixed": 1,
+        "inheap": 0
+      }
+    ]
+  },
+  "inheap_deactivations": {
+    "counts": [
+      1488,
+      1488
+    ],
+    "matching_prefix": 1019,
+    "first_tactix": {
+      "conflict": 26913,
+      "external": 1238,
+      "eliminated": 1,
+      "fixed": 0,
+      "inheap": 1
+    },
+    "first_kissat": {
+      "conflict": 26913,
+      "external": 1324,
+      "eliminated": 1,
+      "fixed": 0,
+      "inheap": 1
+    },
+    "context_tactix": [
+      {
+        "conflict": 26913,
+        "external": 1156,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1199,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1201,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1238,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1276,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1277,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1324,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      }
+    ],
+    "context_kissat": [
+      {
+        "conflict": 26913,
+        "external": 1156,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1199,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1201,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1324,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1323,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1326,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      },
+      {
+        "conflict": 26913,
+        "external": 1325,
+        "eliminated": 1,
+        "fixed": 0,
+        "inheap": 1
+      }
+    ]
+  },
+  "trace_sha256": {
+    "tactix": "5ff3165f3e2be1013e016db94dedef1465815e62038ee69de99f5354534d7f73",
+    "kissat": "decedec1fa458bcdb7c7641daa225660d670a3a4371b99bbe29dd2d438abdbc3"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "job": "1668682",
+  "stopped_clean": 2,
+  "rows": {
+    "tactix": 228,
+    "kissat": 294
+  },
+  "trace_sha256": {
+    "tactix": "8d08f47925237a78d3a3ab765555915e848a11239acf86f97c1aae9f4ecf1178",
+    "kissat": "895b4d65b575d310f0ac3c24d6fd6f84f152c837d9690fed4ed73147f5712bc2"
+  },
+  "limitation": "Kissat heap_pop observer also records non-SCORES heaps; do not compare every pop as a decision-heap operation. Superseded by explicit inheap deactivation stream 5342."
+}

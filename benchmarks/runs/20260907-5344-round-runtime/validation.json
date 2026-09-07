@@ -1,0 +1,22 @@
+{
+  "pin-5343-round-retirement": {
+    "passed": 76,
+    "log_sha256": "30326254d60d3dab45203babfec3f2b567558a3610f908ef6f5c8aeddeb71694",
+    "binary_sha256": "b4eb125cf0024e9fbae50f6b8ca16b0b7ebbee2127762c25da61c16c4108f2c3"
+  },
+  "pin-5344-round-only": {
+    "passed": 77,
+    "log_sha256": "001f100d9b7305d678f801aada494da156224e124c038301992e6e95d7b85276",
+    "binary_sha256": "2b275aacc0fc469372b43e1d45e54f4016e01010794d6fa67383cfd990d0784a"
+  },
+  "pin-5344-round-release": {
+    "passed": 77,
+    "log_sha256": "28b1d8d1df9bdadde4d1903694cf5b021c6fdd9db38dcb250b8426978c9e256c",
+    "binary_sha256": "3f1bb3e03a6b524ccd08666e7898b517cc0a67981ef7881740ad7d335cd88475"
+  },
+  "release": {
+    "passed": 77,
+    "log_sha256": "331e16ecd45ee95bb83e20149a1a83f40de6e7bcfbb02257c545c068d9fbd1ce",
+    "binary_sha256": "de3d9332f70f3bbd5ca17fedda4ad11c7295114e8b581251192746ff8d68439f"
+  }
+}

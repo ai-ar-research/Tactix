@@ -12,7 +12,7 @@ parity ledger owns N4. Reports and run records own experiment detail.
   approaches and explicitly requested this documentation compaction.
 - Start with [the runtime review](benchmarks/reports/2026-09-07-runtime-review.md).
   Latest continuation: [original-core convergence](benchmarks/reports/2026-09-07-original-core-convergence.md).
-  Current probe: [Rank-21 sequential boundary](benchmarks/reports/2026-09-07-rank21-sequential-boundary.md).
+  Current probe: [reference duplicates and retirement](benchmarks/reports/2026-09-07-reference-duplicates-and-retirement.md).
   The previous headline “+24%, 93% search quality” is not a valid attribution:
   campaign 5291 mixed proof-on Tactix with proof-off Kissat, serialized arms,
   and checked verdict strings only. Runtime bands were mistaken for work
@@ -22,7 +22,7 @@ parity ledger owns N4. Reports and run records own experiment detail.
   prefilter, accepted arena/watch lifecycles, and cumulative decision-prefix
   observer. The rejected `REUSE_FIRST_ONLY` diagnostic has been removed.
   The connected-substitution pose repair and three pre-existing free-schedule
-  dense-image repairs are fuzz-clean; final-binary performance gates are active.
+  dense-image repairs are fuzz-clean; final-binary performance gates are terminal.
 - Rank 34's seed-1 divergence at conflict 26,913 is now localized and repaired:
   connected substitution must retain the retiring duplicate's position, not
   the first occurrence. 5301 proves identical original input before Sweep;
@@ -36,6 +36,9 @@ parity ledger owns N4. Reports and run records own experiment detail.
 
 ## Active campaigns and exact next actions
 
+NOTHING IN FLIGHT: all normal solver campaigns are terminal; the separate
+user interactive allocation is untouched.
+
 | Campaign | SLURM job | Purpose / next action |
 |---|---|---|
 | `20260907-5295-checked-runtime-audit` | `1668243` | Terminal: 80/80 proof-on runs checked and clean; starting-source Tactix/Kissat ratio 1.2192x. |
@@ -44,7 +47,7 @@ parity ledger owns N4. Reports and run records own experiment detail.
 | `20260907-5304-pose-BC-gate` | `1668339` | Terminal: B28+C5, 66/66 independently checked and clean; candidate/starting time 1.0129x. |
 | `20260907-5305-pose-ranks1-40` | never submitted | Superseded by 5314 after fuzz required source repairs; preserve its old pin identity. |
 | `20260907-5306-pose-rank34-three-wave` | `1668405` | Terminal: six checked models; median candidate/starting ratio 0.75801. |
-| `20260907-5314-pose-r2-ranks1-40` | `1668472` | Active full-40 final-binary/pristine-Kissat comparison; require all 80 checked/clean records. |
+| `20260907-5314-pose-r2-ranks1-40` | `1668472` | Terminal: 80/80 checked/clean, both solve 40/40 (22 SAT/18 UNSAT); final ratio 1.2787518x Kissat. |
 | `20260907-5315-pose-r2-BC-gate` | `1668473` | Terminal: 66/66 checked/clean; final-r2/starting aggregate time 1.01897x. |
 | `20260907-5316-core-capture-observer` | `1668618` | Terminal: metadata-only core order matches all 98 shared queries; semantic traces unchanged. |
 | `20260907-5317-core-unit-candidate` | `1668620` | Terminal unfuzzed candidate: all 94 unit emissions, 98 cores, 112 queries/models/ticks and environment sequence match. |
@@ -66,27 +69,37 @@ parity ledger owns N4. Reports and run records own experiment detail.
 | `20260907-5334-rank21-binary-delta` | `1668674` | Terminal: selector captured earlier Sweep; full binary multisets identical. |
 | `20260907-5335-rank21-second-binaries` | `1668676` | Terminal: 2 checked models; exact delta is four extra duplicates, no new unique binary clauses. |
 | `20260907-5336-rank21-producers` | `1668678` | Terminal: 2 checked models, unchanged boundary traces; the extra copies come from binary-image reconstruction, not large collapse. |
+| `20260907-5337-rank21-rewrite-source` | `1668680` | Terminal: 2 checked models; exact source pairs and ordered equivalence batches identified, boundary traces unchanged. |
+| `20260907-5338-duplicate-fixture` | local fixed test | Native Kissat and sequential Tactix retain two bridge copies; bulk retains one. Do not deduplicate to erase the Rank-21 delta. |
+| `20260907-5339-warmup-heap` | `1668682` | Terminal/clean; reference pop observer also sees non-decision heaps, so use explicit deactivation stream instead. |
+| `20260907-5340-warmup-implications` | `1668684` | Terminal/clean; incomplete Kissat warm-up observer, corrected by 5341. |
+| `20260907-5341-warmup-reference` | `1668686` | Terminal/clean; all 23 decisions and 1,132 ordered implications before the known level-24 split match. |
+| `20260907-5342-deact-trace` | `1668688` | Terminal/clean; first inheap removal difference after 1,019 matches: three later-round retirements sorted too early at conflict 26,913. |
+| `20260907-5343-round-retirement` | `1668690` | Terminal/clean; removing the obsolete policy sort matches all 1,488 inheap removals and 13,292 warm-up records. |
+| `20260907-5344-round-runtime` | `1668692` | Terminal: 15/15 checked models/clean; retirement-only and cumulative+retirement both regress the three-witness aggregate versus current. No promotion. |
+| `20260907-5345-retirement-fixture` | local fixed test | Two SCC rounds retire 3,6 then 2; current policy changes the zero-score heap, candidate preserves native round order. |
+| `20260907-5346-round-frontier` | `1668707` | Terminal observer-budget failure: both hit 600 seconds and delete scratch; replaced by 5347. |
+| `20260907-5347-decision-stream` | `1668709` | Terminal/clean at 200,001: 254,416 decisions match from startup; first split at conflict 95,801, ordinary decision 253,198. |
 
-1. Correlate 5336's four binary-image targets with their source pairs and
-   emitted equivalence order, then compare Kissat on matched state and build
-   a focused fixture. 5335 identifies
-   four extra copies at the second Sweep end at conflict 23,889, while
-   assignments, ticks and propagation counts remain equal. Kissat's original
-   run is already on a different state there; do not assert transaction parity.
-   5336 closes the producer class (binary reconstruction, not large collapse),
-   but target-only rows omit source endpoints. Binary multiplicity alone does
-   not exclude other watch-order differences or establish the runtime cause.
-   5329 is terminal: Rank 17 gains
-   do not offset the Rank-21/34 regressions; do not promote this candidate.
-   5330 isolates the Rank-21 changed-work regression to sequential rewriting:
-   603M to 789M propagations, while core-only and physical-only keep counters.
-   Keep the later warm-up tie separate; matching one root boundary is insufficient.
-   Separately summarize 5314 with
-   `python3 tools/bench/runtime_summary.py benchmarks/runs/20260907-5314-pose-r2-ranks1-40`.
-   Report solved/validated counts, aggregate time, work counters and RSS.
-   Equal reported counters are only a diagnostic screen; never price N4 from
-   a runtime threshold. Use `5315/aggregate.py` for the final-binary B/C gate;
-   neither the old 5304 gate nor eight byte-identical short replays replaces it.
+1. Continue from 5347's **first ordinary decision split at conflict 95,801**:
+   after 254,416 matching decisions (253,197 ordinary), level 672 chooses
+   Tactix `18849` versus Kissat `-5416`. Compare assignment/reason and decision
+   structure state for 5416 immediately before that choice, then trace its
+   producer. Use the lightweight standalone observer; broad 5346 timed out.
+   The complete 5347 streams and recomputed cumulative hashes validate the
+   endpoint and preserve all 5343 decisions at 75,451. Legacy prefix metadata
+   `start_decisions` wraps when warm-up counts are subtracted; do not use it.
+   5343 closes the warm-up mismatch by removing the obsolete cross-round sort;
+   5345 reproduces it on a fixed fixture. Both fresh Release candidates pass
+   77/77 tests, but 5344's 15 checked models show mixed downstream work:
+   three-witness totals current/retirement-only/bridge/bridge+retirement/Kissat
+   are 920.089/1041.107/1150.392/1017.036/541.763 seconds. No promotion.
+   The cumulative candidate's Rank-34 improvement does not offset all risks.
+   Separately, 5338 proves native Kissat also creates the Rank-21 duplicate
+   mechanism; deleting those copies is not a parity repair. Preserve proof
+   emission before source-deleting rewrites. 5314's final aggregate and all
+   proof/model/RSS/counter evidence are now in its `summary.json` and
+   `runtime-summary.tsv`; equal counters remain only a diagnostic screen.
 2. Claude's authoritative terminal fuzz
    report (`benchmarks/reports/2026-09-07-sweep-pose-fuzz.md`) is PASS on r2:
    Release `de3d9332f70f3bbd5ca17fedda4ad11c7295114e8b581251192746ff8d68439f`.
@@ -102,7 +115,7 @@ parity ledger owns N4. Reports and run records own experiment detail.
    intermediate binary birth and physical publication as interacting causes.
    5326 leaves bridge -581 too early; 5327's pose-only per-pair publication
    closes that owner. Its clean Release `a8868f43...` passes all 77 CTests.
-   5328 does not close the later warm-up tie. 5329 is checked but mixed;
+   5328 did not close the warm-up tie; 5343 now does. 5329 is checked but mixed;
    5330 localizes its Rank-21 changed-work regression to the sequential
    rewrite, not physical-only publication or the later bridge pose. Matching
    roots does not establish speedup.
@@ -119,8 +132,8 @@ parity ledger owns N4. Reports and run records own experiment detail.
    instruction profiles are leads; no evidence establishes an unavoidable
    C++ overhead. Rank-31/17 trigger mechanisms remain unconfirmed.
 
-5314's complete solver times are provisionally 1.2788x Kissat (79/80 checked
-at the continuation snapshot): the whole-suite objective is not met. 5315 is
+5314's final checked solver times are 1.2788x Kissat (80/80 checked/clean):
+the whole-suite objective is not met. 5315 is
 66/66 checked and clean. Local commit `c2a95a6` was not pushed: auto-review requires
 explicit user approval to publish to shared `origin/main`; do not retry it.
 
@@ -177,11 +190,11 @@ stale: the queue had no solver jobs at session entry.
 
 ## Recent changes
 
-- 2026-09-07: Audited invalid runtime attribution and launched matched checked campaign 5295.
-- 2026-09-07: Connected duplicate pose and Claude's three inherited N1 repairs remain the fuzz-passing production checkpoint.
-- 2026-09-07: Isolated original-core exposure closes the 112-query boundary; checked timing is mixed.
-- 2026-09-07: Bridge/physical ordering ablations close root order but not the later warm-up tie; no candidate promotion.
-- 2026-09-07: Final-r2 B28+C5 is 66/66 checked; living docs remain within all required budgets.
+- 2026-09-07: Final production Rank 1–40 is 80/80 checked, 1.2788x Kissat; B28+C5 remains 66/66 checked.
+- 2026-09-07: Native fixed replay confirms the four-copy Rank-21 mechanism is reference-consistent.
+- 2026-09-07: Isolated per-round retirement closes all 13,292 warm-up records; fixed negative/positive fixture retained.
+- 2026-09-07: Checked crossed ablation remains mixed; production unchanged and all new candidates unfuzzed.
+- 2026-09-07: Lightweight full decision prefix moves the next Rank-34 frontier to conflict 95,801; docs stay within budget.
 
 ## Historical evidence routing
 
