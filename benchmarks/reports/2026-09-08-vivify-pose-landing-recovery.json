@@ -1,0 +1,25 @@
+{
+  "landing_sha256": "d8c29937681d82d3e01af5ab6cfca6b1f6ab1b33788941028f3882ac2b80ee27",
+  "exact_artifact_exemptions": {
+    "benchmarks/runs/20260908-6008-clause-pose-series/kissat-observer.patch": [
+      6
+    ],
+    "benchmarks/runs/20260908-6008-clause-pose-series/tactix-observer.patch": [
+      4,
+      6,
+      50
+    ]
+  },
+  "reason": "Four single-space lines encode blank context in frozen unified diffs. They are not trailing whitespace in source changes. Preserve submitted manifest hashes; all other staged files pass the ordinary whitespace check.",
+  "frozen_hashes_verified": true,
+  "source_whitespace_check": [
+    "git",
+    "diff",
+    "--cached",
+    "--check",
+    "--",
+    ".",
+    ":(exclude)benchmarks/runs/20260908-6008-clause-pose-series/kissat-observer.patch",
+    ":(exclude)benchmarks/runs/20260908-6008-clause-pose-series/tactix-observer.patch"
+  ]
+}

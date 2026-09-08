@@ -1,0 +1,10 @@
+{
+  "job_id": "1676281",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6008-clause-pose-series/array.sbatch"
+  ],
+  "manifest_sha256": "3ac667cb245290526e2783b261a4b0f75345697d9c7666db973ec2e6a9d4f385",
+  "continuation": "Read-only6008 selected-clause history;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
