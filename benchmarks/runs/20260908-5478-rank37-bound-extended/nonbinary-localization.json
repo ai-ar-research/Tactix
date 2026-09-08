@@ -1,0 +1,149 @@
+{
+  "first_nonbinary_boundary": {
+    "index": 367,
+    "candidate": {
+      "name": "Vivify",
+      "stage": "end",
+      "conflicts": 188501,
+      "decisions": 60179934,
+      "active": 95117,
+      "irred": 545231,
+      "red": 13354,
+      "binary": 132248
+    },
+    "kissat": {
+      "name": "Vivify",
+      "stage": "end",
+      "conflicts": 188501,
+      "decisions": 60179934,
+      "active": 95117,
+      "irred": 545231,
+      "red": 13353,
+      "binary": 132248
+    }
+  },
+  "preceding_boundaries": {
+    "candidate": [
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95235,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95235,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95122,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95122,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95117,
+        "irred": 545231,
+        "red": 13354,
+        "binary": 132248
+      }
+    ],
+    "kissat": [
+      {
+        "name": "Substitute",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95235,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95235,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95122,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95122,
+        "irred": 545231,
+        "red": 16229,
+        "binary": 132349
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95117,
+        "irred": 545231,
+        "red": 13353,
+        "binary": 132248
+      }
+    ]
+  },
+  "decision_difference": {
+    "candidate": [
+      "188502",
+      "60180275",
+      "340",
+      "26688",
+      "0"
+    ],
+    "kissat": [
+      "188502",
+      "60180275",
+      "340",
+      "9940",
+      "0"
+    ],
+    "matching_rows": 25001084
+  },
+  "limitation": "Earlier binary-only differences remain unresolved, not dismissed as neutral. Active and clause counts locate a boundary, not formula/stream equality or relative semantic strength. More active-variable removal alone does not justify acceptance or a fidelity repair."
+}
