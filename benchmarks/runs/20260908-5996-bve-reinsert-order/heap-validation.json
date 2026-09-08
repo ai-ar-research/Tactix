@@ -1,0 +1,650 @@
+{
+  "full_ordinary_trace_and_partial_proof_replay": true,
+  "complete_bve_candidate_replay": true,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "c83bd9faafe3e964eb7555076857cb09750498f34176595071352782df1a8388",
+      "cached_control": {
+        "record": "benchmarks/runs/20260908-5907-reduce-root-rank32-prefix/results/candidate.json",
+        "sha256": "9968f48a7d6bf2464bb10ee088c2f4d2a63ccf46c4d743a8d0ad3fa340f514eb"
+      },
+      "parent_record_sha256": "def18f082f99decf7cc7787bcac206ca982ab45a40b587e9e437eb5daa87e222",
+      "trace_sha256": {
+        "candidate.decisions.tsv": "5f9622555a975dd8c92cfca17cd65ab21fae3743fbc7a1c4c228b14b9098d61d",
+        "candidate.bve-heap.tsv": "422e65ce15b5f34bd6e2d77ec29a93158604e985a79d5bcf58304f4588d3f38c",
+        "candidate.retry-producer.tsv": "d82e50fbf5bfecd331a568816b81db524b15cc606e007550c460bfdae8375269",
+        "candidate.prefix.tsv": "9977a0e167b71e02dbbbad0d7a1761a3fe01f22760545526f77ebf5d837cba9d",
+        "candidate.macro.tsv": "5653703919a22f974015ee96890d4b0ffc90137a40d08d8134adc4ddc22e52b4",
+        "candidate.bve-candidates.tsv": "5fc87a94113301a99737e9831723d4788bf7df87dcf1b7649d0de9036fd22b8e",
+        "candidate.boundaries.tsv": "b7e972df964c116a32313acb279a0e984d7d341ff615ef621d0ec15b2a79bd29"
+      },
+      "rows": 434,
+      "stages": {
+        "initial": 16,
+        "pop": 231,
+        "update-add": 168,
+        "update-reinsert": 19
+      }
+    },
+    "kissat": {
+      "result_sha256": "572c3df236080407cf44444a3b212b3b1225a660af73d2194c42d11a9387c136",
+      "cached_control": {
+        "record": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/results/kissat.json",
+        "sha256": "16bbb018d89f0f85751c27ef4f5a8790f99b3b91db9f3a9f391f9c85ff6d1abc"
+      },
+      "parent_record_sha256": "754b7a8a89348193d11bf58050754ff2ffa5c611f2b750f9c82b950597bb1543",
+      "trace_sha256": {
+        "kissat.decisions.tsv": "f4990be94c72275c53230aea12099bcdbc6fc838bc554d7012e826462f9df33c",
+        "kissat.bve-heap.tsv": "0166a7dc04f9d4638c2b63cbd9327152ab8029c482dedd5cd26d1ea3ccf7909c",
+        "kissat.prefix.tsv": "74afa84cbaaa31c818de7a4934536d3a88e4829c687e58299309171701df962d",
+        "kissat.retry-producer.tsv": "a71f30d6d21fdd18a254fb1513cc2014e00b8d45f98b5f5415ed68f52f6155d4",
+        "kissat.bve-candidates.tsv": "a711b50d6fb21a01632d0a4bcb5360dd4318d3989d3136db12256512f73fc165",
+        "kissat.boundaries.tsv": "d3427e8bf6d60c48d729d21ff4d3490f2a7dc19caf8576f9be497ba54fb921b5"
+      },
+      "rows": 427,
+      "stages": {
+        "initial": 16,
+        "pop": 226,
+        "update": 168,
+        "push": 17
+      }
+    }
+  },
+  "subjects": {
+    "148944": {
+      "candidate_rows": 72,
+      "kissat_rows": 72,
+      "first_raw_state_difference": null,
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "148944",
+          "score": "0x1.e7ada8p+21",
+          "positive": "66",
+          "negative": "77",
+          "pos": "66045",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "148944",
+          "score": "0x0p+0",
+          "positive": "0",
+          "negative": "0",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "148944",
+          "score": "0x1.e7ada8p+21",
+          "positive": "66",
+          "negative": "77",
+          "pos": "66045",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "148944",
+          "score": "0x0p+0",
+          "positive": "0",
+          "negative": "0",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    },
+    "225614": {
+      "candidate_rows": 38,
+      "kissat_rows": 41,
+      "first_raw_state_difference": {
+        "index": 7,
+        "candidate": {
+          "stage": "pop",
+          "trigger": "122629",
+          "subject": "225614",
+          "score": "-0x1.299c942e0440ep+208",
+          "positive": "11",
+          "negative": "16",
+          "pos": "4465",
+          "root": "165965",
+          "size": "8413"
+        },
+        "kissat": {
+          "stage": "pop",
+          "trigger": "122629",
+          "subject": "225614",
+          "score": "-0x1.299c942e0440ep+208",
+          "positive": "11",
+          "negative": "16",
+          "pos": "4472",
+          "root": "165965",
+          "size": "8413"
+        }
+      },
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "225614",
+          "score": "-0x1.299c942e0440ep+208",
+          "positive": "5",
+          "negative": "5",
+          "pos": "84745",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "225614",
+          "score": "-0x1.299c942e0440ep+208",
+          "positive": "5",
+          "negative": "6",
+          "pos": "15609",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "225614",
+          "score": "-0x1.299c942e0440ep+208",
+          "positive": "5",
+          "negative": "5",
+          "pos": "84745",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "225614",
+          "score": "-0x1.299c942e0440ep+208",
+          "positive": "5",
+          "negative": "6",
+          "pos": "15609",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    },
+    "331390": {
+      "candidate_rows": 21,
+      "kissat_rows": 21,
+      "first_raw_state_difference": null,
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "331390",
+          "score": "0x1.e847b8p+21",
+          "positive": "3",
+          "negative": "6",
+          "pos": "29357",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "331390",
+          "score": "0x0p+0",
+          "positive": "3",
+          "negative": "6",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "331390",
+          "score": "0x1.e847b8p+21",
+          "positive": "3",
+          "negative": "6",
+          "pos": "29357",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "331390",
+          "score": "0x0p+0",
+          "positive": "3",
+          "negative": "6",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    },
+    "5232": {
+      "candidate_rows": 58,
+      "kissat_rows": 58,
+      "first_raw_state_difference": null,
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5232",
+          "score": "0x1.e84508p+21",
+          "positive": "17",
+          "negative": "7",
+          "pos": "28361",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5232",
+          "score": "0x0p+0",
+          "positive": "32",
+          "negative": "7",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5232",
+          "score": "0x1.e84508p+21",
+          "positive": "17",
+          "negative": "7",
+          "pos": "28361",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5232",
+          "score": "0x0p+0",
+          "positive": "32",
+          "negative": "7",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    },
+    "5409": {
+      "candidate_rows": 80,
+      "kissat_rows": 81,
+      "first_raw_state_difference": {
+        "index": 49,
+        "candidate": {
+          "stage": "update-reinsert",
+          "trigger": "5409",
+          "subject": "5409",
+          "score": "0x1.e841fp+21",
+          "positive": "6",
+          "negative": "40",
+          "pos": "9002",
+          "root": "331390",
+          "size": "9003"
+        },
+        "kissat": {
+          "stage": "push",
+          "trigger": "5409",
+          "subject": "5409",
+          "score": "0x1.e841fp+21",
+          "positive": "6",
+          "negative": "40",
+          "pos": "2250",
+          "root": "331390",
+          "size": "9004"
+        }
+      },
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5409",
+          "score": "0x1.e8456p+21",
+          "positive": "6",
+          "negative": "18",
+          "pos": "59313",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5409",
+          "score": "0x1.e843dp+21",
+          "positive": "6",
+          "negative": "28",
+          "pos": "8632",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5409",
+          "score": "0x1.e8456p+21",
+          "positive": "6",
+          "negative": "18",
+          "pos": "59313",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5409",
+          "score": "0x1.e843dp+21",
+          "positive": "6",
+          "negative": "28",
+          "pos": "8632",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    },
+    "5415": {
+      "candidate_rows": 76,
+      "kissat_rows": 70,
+      "first_raw_state_difference": {
+        "index": 53,
+        "candidate": {
+          "stage": "update-reinsert",
+          "trigger": "5415",
+          "subject": "5415",
+          "score": "0x1.e836c8p+21",
+          "positive": "24",
+          "negative": "25",
+          "pos": "2250",
+          "root": "331390",
+          "size": "9004"
+        },
+        "kissat": {
+          "stage": "push",
+          "trigger": "5415",
+          "subject": "5415",
+          "score": "0x1.e836c8p+21",
+          "positive": "24",
+          "negative": "25",
+          "pos": "9002",
+          "root": "331390",
+          "size": "9003"
+        }
+      },
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5415",
+          "score": "0x1.e843e8p+21",
+          "positive": "12",
+          "negative": "13",
+          "pos": "59204",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5415",
+          "score": "0x0p+0",
+          "positive": "23",
+          "negative": "24",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5415",
+          "score": "0x1.e843e8p+21",
+          "positive": "12",
+          "negative": "13",
+          "pos": "59204",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5415",
+          "score": "0x0p+0",
+          "positive": "23",
+          "negative": "24",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    },
+    "5419": {
+      "candidate_rows": 58,
+      "kissat_rows": 58,
+      "first_raw_state_difference": null,
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5419",
+          "score": "0x1.e84538p+21",
+          "positive": "6",
+          "negative": "19",
+          "pos": "59344",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5419",
+          "score": "0x0p+0",
+          "positive": "6",
+          "negative": "34",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5419",
+          "score": "0x1.e84538p+21",
+          "positive": "6",
+          "negative": "19",
+          "pos": "59344",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "5419",
+          "score": "0x0p+0",
+          "positive": "6",
+          "negative": "34",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    },
+    "60705": {
+      "candidate_rows": 31,
+      "kissat_rows": 26,
+      "first_raw_state_difference": {
+        "index": 10,
+        "candidate": {
+          "stage": "pop",
+          "trigger": "462198",
+          "subject": "60705",
+          "score": "-0x1.2da61b38342b1p+149",
+          "positive": "55",
+          "negative": "26",
+          "pos": "8930",
+          "root": "465378",
+          "size": "8965"
+        },
+        "kissat": {
+          "stage": "pop",
+          "trigger": "462198",
+          "subject": "60705",
+          "score": "-0x1.2da61b38342b1p+149",
+          "positive": "55",
+          "negative": "26",
+          "pos": "8954",
+          "root": "465378",
+          "size": "8965"
+        }
+      },
+      "initial_candidate": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "60705",
+          "score": "-0x1.2da61b38342b1p+149",
+          "positive": "23",
+          "negative": "26",
+          "pos": "61995",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "60705",
+          "score": "0x0p+0",
+          "positive": "39",
+          "negative": "26",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ],
+      "initial_kissat": [
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "60705",
+          "score": "-0x1.2da61b38342b1p+149",
+          "positive": "23",
+          "negative": "26",
+          "pos": "61995",
+          "root": "178060",
+          "size": "88946"
+        },
+        {
+          "stage": "initial",
+          "trigger": "0",
+          "subject": "60705",
+          "score": "0x0p+0",
+          "positive": "39",
+          "negative": "26",
+          "pos": "-1",
+          "root": "179491",
+          "size": "30377"
+        }
+      ]
+    }
+  },
+  "limitation": "Raw selected-state differences still require caller-stage classification: native update is before an absent-member push, Tactix update-reinsert is after. Neither a row-index mismatch nor this diagnostic establishes a runtime gain or checked final proof.",
+  "completed_insertions": {
+    "candidate": [
+      {
+        "stage": "update-reinsert",
+        "trigger": "5409",
+        "subject": "5409",
+        "score": "0x1.e841fp+21",
+        "positive": "6",
+        "negative": "40",
+        "pos": "9002",
+        "root": "331390",
+        "size": "9003"
+      },
+      {
+        "stage": "update-reinsert",
+        "trigger": "5415",
+        "subject": "5415",
+        "score": "0x1.e836c8p+21",
+        "positive": "24",
+        "negative": "25",
+        "pos": "2250",
+        "root": "331390",
+        "size": "9004"
+      }
+    ],
+    "kissat": [
+      {
+        "stage": "push",
+        "trigger": "5415",
+        "subject": "5415",
+        "score": "0x1.e836c8p+21",
+        "positive": "24",
+        "negative": "25",
+        "pos": "9002",
+        "root": "331390",
+        "size": "9003"
+      },
+      {
+        "stage": "push",
+        "trigger": "5409",
+        "subject": "5409",
+        "score": "0x1.e841fp+21",
+        "positive": "6",
+        "negative": "40",
+        "pos": "2250",
+        "root": "331390",
+        "size": "9004"
+      }
+    ]
+  },
+  "tactix_clause_producer": {
+    "conflicts": "271079",
+    "decisions": "67954244",
+    "external": "5409",
+    "source": "delete-clause",
+    "before": "0",
+    "after": "1",
+    "value": "0",
+    "retired": "0",
+    "clause": [
+      -246596,
+      -47,
+      49,
+      -5409,
+      5415,
+      148944,
+      238853
+    ]
+  },
+  "producer_rows": {
+    "candidate": 21,
+    "kissat": 21
+  },
+  "interpretation": "Actual post-push order is reversed for5409/5415. Tactix producer records actual physical clause order. Native deletion pose and the origin of incoming pose difference are not yet directly traced; no implementation fix or runtime gain claimed."
+}
