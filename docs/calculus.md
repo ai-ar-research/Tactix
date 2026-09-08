@@ -72,7 +72,8 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
   literals from `B` but preserve that asserting form. Write the final clause as `L = {¬u} ∪ B` and
   define `j = max({level(l) | l ∈ B} ∪ {0})`.
 - **Already-asserting reuse:** when `K₀` has exactly one literal at `d>0`, reuse it as the driver
-  without constructing a new learned clause. Backtrack within `[j,d−1]` and assert at true level `j`.
+  without constructing a new learned clause. Honor the selected target in `[j,d−1]` (canonical `j`)
+  and assert at true level `j`; reuse does not remove the caller's backjump choice.
   If `j=0`, publish the implied unit, citing the other literals' root-unit ids followed by `K₀` in
   LRAT (a unit addition in DRAT), and retain its unit reason. Otherwise no proof addition is needed.
 - **Level-one failed-literal construction:** if `d=1` and `K₀` has more than one level-one literal,

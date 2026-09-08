@@ -13,13 +13,13 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - New isolated [assignment-level5672](benchmarks/reports/2026-09-08-assignment-level-bound.md)
   stops the exact antecedent maximum at the current-level bound;root maximum is zero.
   Release90/90 twice;trace89/89;3288 old/new states agree;5677 full1M parent replayPASS.5679 three-pair median1.030478x,6.01% candidate spread: no proven speedup.
-  [Root reuse5718](benchmarks/reports/2026-09-08-root-conflict-reuse.md):91/91 Release twice,90/90 trace,24 native matches,288 checked micro-proofs;5726 closes182093,next227618;[N1 follow-up](benchmarks/reports/2026-09-08-root-reuse-followup.md) required;UNFUZZED.
-  [Full5712](benchmarks/reports/2026-09-08-root-conflict-reuse.md):1.110877x Kissat,all80 solves,60 checked at frozen snapshot;all40 parent work/proofs equal;losses31/33/37.5664 latest79/80 checked.
+  [Reuse-target5741](benchmarks/reports/2026-09-08-reuse-target-fixed-reference.md) closes public canonical/explicit target dispatch on5718;92/92 Release twice,91/91 trace,5088 checked old/new micro-proofs,240 policy rows equal;UNFUZZED,unsubmitted.5718 closes182093,next227618.
+  Fixed Kissat authority: `benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json`, frozen from5712:6810.066s;future full views Tactix-only at12CPU/48000MiB.5712 Tactix1.110877x;checks async,not all verified;losses31/33/37.
   [Score increment](benchmarks/reports/2026-09-08-score-increment-localization.md):5698 matches523 admissions;182093 one extra decay.5704/5710 timed out,not full replays.5726 native replayPASS,23,612,137 common suffix rows;5727/job1673169 BC;5687 checked/clean.
   [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
   all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
   all80 checked/clean;5599 three pairs median0.824875x5522,spreads1.60%/0.52%,all6 proofs checked.
-  Fuzz5657/95829 terminalPASS5649:70K cases,63573 checked,0solverfailures,312 reachability cases;fixture-only GCC read issue.5715/4746 owns5672;CLI response only,no artifacts;no promotion;goal unmet.
+  Fuzz5715/4746 terminalPASS5672 per owner:60K cases,55384 checked verdicts,176 reach cases/2823730 bound hits,0solverfailures;fixture-only GCC read issue. No longer poll4746;5741/5718 remain unfuzzed,no promotion;goal unmet.
 - Preceding implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
@@ -183,14 +183,14 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Submitted sources/pins are immutable.5597/5600 closes all40,102,204 decisions through100K;
    5605 confirms both19375 Factor outputs. Full5604 is1.137589x Kissat;goal not met.
    Timing5599 all3 pairs improve,median0.824875x5522,spreads1.60%/0.52%;all6 proofs checked.
-   Latest5718 runtime-root-conflict-reuse-5718 is immutable;manifest binds5718Release/5720BC/5719trace.5726 closes182093,next227618;5735 Rank31 first split179823 after76,952,511 common rows.5727BC/job1673169 queued.
+   Latest5741 runtime-reuse-target-5741 is frozen;manifest binds5741Release/5743BC/5742trace.5718 submitted pins stay immutable;5726 next227618;5735 Rank31 split179823 after76,952,511 common rows.5727BC/job1673169 pending.
    Full5712 all80 solves,1.110877xKissat,60checked at frozen snapshot;5733 selects31/33/37;seal5714.Never rerun5713/5665 snapshots.5664=1.128369x,latest79/80 checked;seal5666.
    Do not rerun frozen5608 snapshot. Timing is replicated changed-work gain,not isolated unit cost.
    Parent5535 remains1.162180x,all80 checked/clean;summary sealed;do not rewrite its snapshot.
    Parent5531 is6/6 checked,median0.889407x5510.5522 Release/BC SHA67867f4b999b55b4… .
    5585/5587 identify the extra five-literal candidate;5588 proves its sole binary support
    reaches a root-fixed smaller endpoint.5592 fixes that count,not physical binaries or the heap.
-   Next fix public reuse-target dispatch in a new successor: explicit0 atdepth103 currently returns102;keep DefaultPolicy chronology,add root/nonroot/clamping/OTFS/proof tests. Then localize5735/5726 splits;advance5730 timing and5734 full after solver prerequisites,not proofs.5679 all6 checked/noisy.
+   Next replay5741 DefaultPolicy against cached native5735/5726,run5741 B28+C5,then candidate-only full40 against fixed6810.066sKissat. Do not run old5734 paired-full helper. Localize Rank31 Strengthen179823 (5744 boundary evidence);checks async.5679 all6 checked/noisy.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
    `sweep-localization.json` splits both calls at19375. First14 seeds, environment
    sizes and effort deltas/solve counts match; then Tactix alone processes836.
@@ -290,9 +290,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Claude's terminal fixture review passed: the initial expected elimination
    count was wrong at equality, not a solver defect; original failure retained.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
-   in the background as requested.5715/4746 owns5672,not newest5718;5657 terminalPASS5649.
+   in the background as requested.5715/4746 terminalPASS5672,not newest5741;5657 terminalPASS5649.
    5610:50000 cases,45752 checked verdicts,144 direct reachability cases,0failures.
-   Poll only live owner4746 CLI response,never fuzz jobs/artifacts.95829,1814/70659 terminalPASS;5718 needs its own changed-source checkpoint.
+   No live fuzz owner:4746,95829,1814/70659 terminalPASS;do not repoll.5741 needs its own changed-source checkpoint;never inspect owner jobs/artifacts independently.
    This is a changed-source checkpoint, not duplicate confirmation. Require all
    runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
    pauses dependent work and invokes bounded Claude repair immediately.
@@ -341,10 +341,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Root5718 enables zero-jump reuse:91/91 Release twice,90/90 trace;288 predecessor cases,24 exact native matches,288 DRAT/LRAT micro-proofs checked.
+- Target5741 honors canonical/explicit reuse choices:92/92 Release twice,91/91 trace;5088 independently checked old/new proofs,240 policy rows equal;frozen,unsubmitted.
 - Native fixture supports reuse/no excess score transaction;5726 moves split182093→227618. Final review finds pre-existing public reuse target ignored;new successor/test repair required before promotion.
 - Full5712=1.110877xKissat;all40 parent work/proofs equal.5679 three-pair median1.030478x with6.01% candidate spread: no proven unit-cost gain.
-- 5735 Rank31 splits179823 after76,952,511 common decisions;5727BC queued.5687 checked/clean;5679timing6/6,5678BC65/66,5712full65/80. Fuzz5715/4746 owns5672,not5718.
+- Fixed Kissat reference6810.066s from5712 at12CPU/48000MiB,38/40 checked at freeze;future full views Tactix-only. Fuzz5715 terminalPASS5672,not5741. Rank31 Strengthen179823 is next causal lead.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

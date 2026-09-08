@@ -1,0 +1,318 @@
+Test project /home/hwu/SAT-solving/build/pin-5742-reuse-target-trace
+      Start  1: kernel
+      Start  2: parse
+      Start  3: proof
+      Start  4: analyze
+      Start  5: restart_reduce
+      Start  6: switchmode
+      Start  7: rephase
+      Start  8: subsolver
+ 1/91 Test  #1: kernel ...........................   Passed    0.09 sec
+ 2/91 Test  #2: parse ............................   Passed    0.09 sec
+ 3/91 Test  #3: proof ............................   Passed    0.07 sec
+ 4/91 Test  #5: restart_reduce ...................   Passed    0.05 sec
+ 5/91 Test  #6: switchmode .......................   Passed    0.04 sec
+ 6/91 Test  #7: rephase ..........................   Passed    0.03 sec
+      Start  9: sweep
+      Start 10: scheduling
+      Start 11: strategy_config
+      Start 12: event_trace
+      Start 13: event_trace_compare
+      Start 14: reduce_trace_compare
+ 7/91 Test #11: strategy_config ..................   Passed    0.04 sec
+      Start 15: modelcheck
+ 8/91 Test #10: scheduling .......................   Passed    0.09 sec
+      Start 16: runtime_task
+ 9/91 Test #14: reduce_trace_compare .............   Passed    0.09 sec
+      Start 17: kissat_journal_overlay_static
+10/91 Test #12: event_trace ......................   Passed    0.15 sec
+      Start 18: rule_journal
+11/91 Test #15: modelcheck .......................   Passed    0.21 sec
+      Start 19: p4_fixtures
+12/91 Test  #9: sweep ............................   Passed    0.36 sec
+      Start 20: campaign_certificate_cleanup
+13/91 Test #17: kissat_journal_overlay_static ....   Passed    0.26 sec
+      Start 21: tierd_campaign_pinning
+14/91 Test #18: rule_journal .....................   Passed    0.28 sec
+      Start 22: slurm_memory_enforcement
+15/91 Test #16: runtime_task .....................   Passed    0.45 sec
+      Start 23: fuzz_slurm_snapshot
+16/91 Test #21: tierd_campaign_pinning ...........   Passed    0.19 sec
+      Start 24: slot_pose
+17/91 Test #24: slot_pose ........................   Passed    0.02 sec
+      Start 25: reorder
+18/91 Test #22: slurm_memory_enforcement .........   Passed    0.17 sec
+      Start 26: walk
+19/91 Test #25: reorder ..........................   Passed    0.04 sec
+      Start 27: subsume
+20/91 Test #26: walk .............................   Passed    0.04 sec
+      Start 28: strengthen
+21/91 Test #27: subsume ..........................   Passed    0.04 sec
+      Start 29: instantiate
+22/91 Test #28: strengthen .......................   Passed    0.04 sec
+      Start 30: vivify
+23/91 Test #29: instantiate ......................   Passed    0.03 sec
+      Start 31: vivify_n1
+24/91 Test #30: vivify ...........................   Passed    0.02 sec
+      Start 32: probe
+25/91 Test #31: vivify_n1 ........................   Passed    0.03 sec
+      Start 33: backbone
+26/91 Test #32: probe ............................   Passed    0.06 sec
+      Start 34: bce
+27/91 Test #33: backbone .........................   Passed    0.06 sec
+      Start 35: cce
+28/91 Test #34: bce ..............................   Passed    0.03 sec
+      Start 36: ternary
+29/91 Test #36: ternary ..........................   Passed    0.02 sec
+      Start 37: hyperbinary
+30/91 Test #35: cce ..............................   Passed    0.05 sec
+      Start 38: decide
+31/91 Test #37: hyperbinary ......................   Passed    0.03 sec
+      Start 39: reconstruct
+32/91 Test #38: decide ...........................   Passed    0.03 sec
+      Start 40: substitute
+33/91 Test #39: reconstruct ......................   Passed    0.02 sec
+      Start 41: congruence
+34/91 Test #19: p4_fixtures ......................   Passed    0.66 sec
+      Start 42: binary_deletion
+35/91 Test #40: substitute .......................   Passed    0.03 sec
+      Start 43: transitive_reduce
+36/91 Test #42: binary_deletion ..................   Passed    0.03 sec
+37/91 Test #41: congruence .......................   Passed    0.04 sec
+38/91 Test #43: transitive_reduce ................   Passed    0.02 sec
+      Start 44: bve
+      Start 45: lucky
+      Start 46: api_n1
+39/91 Test #46: api_n1 ...........................   Passed    0.02 sec
+      Start 47: api_instances
+40/91 Test #45: lucky ............................   Passed    0.06 sec
+41/91 Test #44: bve ..............................   Passed    0.07 sec
+      Start 48: random_policy
+      Start 49: trace_replay
+42/91 Test #47: api_instances ....................   Passed    0.07 sec
+43/91 Test  #4: analyze ..........................   Passed    1.13 sec
+      Start 50: micro_proofs
+      Start 51: sweep_proofs
+44/91 Test #23: fuzz_slurm_snapshot ..............   Passed    0.72 sec
+      Start 52: tr_bruteforce_0
+45/91 Test #48: random_policy ....................   Passed    0.33 sec
+      Start 53: tr_bruteforce_1
+46/91 Test #52: tr_bruteforce_0 ..................   Passed    0.34 sec
+      Start 54: tr_bruteforce_2
+47/91 Test #49: trace_replay .....................   Passed    1.07 sec
+      Start 55: tr_bruteforce_3
+48/91 Test #54: tr_bruteforce_2 ..................   Passed    0.56 sec
+      Start 56: factor
+49/91 Test #53: tr_bruteforce_1 ..................   Passed    0.83 sec
+      Start 57: factor_n1
+50/91 Test  #8: subsolver ........................   Passed    2.22 sec
+      Start 58: subsume_n1
+51/91 Test #57: factor_n1 ........................   Passed    0.05 sec
+      Start 59: config_wiring
+52/91 Test #58: subsume_n1 .......................   Passed    0.05 sec
+53/91 Test #56: factor ...........................   Passed    0.09 sec
+      Start 60: effort_specs
+      Start 61: option_coverage
+54/91 Test #20: campaign_certificate_cleanup .....   Passed    2.04 sec
+      Start 62: stat_ids
+55/91 Test #55: tr_bruteforce_3 ..................   Passed    0.33 sec
+      Start 63: citations
+56/91 Test #13: event_trace_compare ..............   Passed    2.44 sec
+      Start 64: section_refs
+57/91 Test #60: effort_specs .....................   Passed    0.26 sec
+      Start 65: inventory
+58/91 Test #62: stat_ids .........................   Passed    0.16 sec
+      Start 66: comment_hygiene
+59/91 Test #59: config_wiring ....................   Passed    0.43 sec
+      Start 67: doc_size
+60/91 Test #65: inventory ........................   Passed    0.22 sec
+      Start 68: proof_rule_sync
+61/91 Test #64: section_refs .....................   Passed    0.33 sec
+      Start 69: default_strategy_config_check
+62/91 Test #67: doc_size .........................   Passed    0.16 sec
+      Start 70: no_heuristics
+63/91 Test #70: no_heuristics ....................   Passed    0.00 sec
+      Start 71: kernel_h_boundary
+64/91 Test #71: kernel_h_boundary ................   Passed    0.03 sec
+      Start 72: rule_policy_boundary
+65/91 Test #68: proof_rule_sync ..................   Passed    0.15 sec
+      Start 73: solve_reset
+66/91 Test #69: default_strategy_config_check ....   Passed    0.18 sec
+      Start 74: assignment_level_bound
+67/91 Test #74: assignment_level_bound ...........   Passed    0.06 sec
+      Start 75: bve_bound_cut
+68/91 Test #75: bve_bound_cut ....................   Passed    0.02 sec
+      Start 76: conflict_reuse_targets
+69/91 Test #72: rule_policy_boundary .............   Passed    0.42 sec
+      Start 77: congruence_index_cleanup
+70/91 Test #61: option_coverage ..................   Passed    1.27 sec
+      Start 78: eliminate_limit
+71/91 Test #78: eliminate_limit ..................   Passed    0.02 sec
+      Start 79: factor_root_support
+72/91 Test #79: factor_root_support ..............   Passed    0.02 sec
+      Start 80: inprocess_root
+73/91 Test #80: inprocess_root ...................   Passed    0.02 sec
+      Start 81: propagation_cursor
+74/91 Test #81: propagation_cursor ...............   Passed    0.02 sec
+      Start 82: replacement_cursor
+75/91 Test #82: replacement_cursor ...............   Passed    0.02 sec
+      Start 83: root_conflict_reuse
+76/91 Test #83: root_conflict_reuse ..............   Passed    0.17 sec
+      Start 84: sweep_cursor
+77/91 Test #73: solve_reset ......................   Passed    0.95 sec
+      Start 85: sweep_retained
+78/91 Test #84: sweep_cursor .....................   Passed    0.03 sec
+      Start 86: sweep_small_env
+79/91 Test #76: conflict_reuse_targets ...........Subprocess aborted***Exception:   0.79 sec
+POLICY 0 2 0 7 0 0 1 0 0 1 0 0
+POLICY 0 2 0 7 0 0 1 0 0 1 0 0
+POLICY 0 2 0 7 0 1 1 0 0 1 0 0
+POLICY 0 2 0 7 0 1 1 0 0 1 0 0
+POLICY 0 2 0 7 1 0 1 0 0 1 0 0
+POLICY 0 2 0 7 1 0 1 0 0 1 0 0
+POLICY 0 2 0 7 1 1 1 0 0 1 0 0
+POLICY 0 2 0 7 1 1 1 0 0 1 0 0
+POLICY 0 2 0 7 2 0 1 0 0 0 0 0
+POLICY 0 2 0 7 2 0 1 0 0 0 0 0
+POLICY 0 2 0 7 2 1 1 0 0 0 0 0
+POLICY 0 2 0 7 2 1 1 0 0 0 0 0
+POLICY 0 2 0 103 0 0 1 102 0 1 0 0
+POLICY 0 2 0 103 0 0 1 102 0 1 0 0
+POLICY 0 2 0 103 0 1 1 102 0 1 0 0
+POLICY 0 2 0 103 0 1 1 102 0 1 0 0
+POLICY 0 2 0 103 1 0 1 102 0 1 0 0
+POLICY 0 2 0 103 1 0 1 102 0 1 0 0
+POLICY 0 2 0 103 1 1 1 102 0 1 0 0
+POLICY 0 2 0 103 1 1 1 102 0 1 0 0
+POLICY 0 2 0 103 2 0 1 102 0 0 0 0
+POLICY 0 2 0 103 2 0 1 102 0 0 0 0
+POLICY 0 2 0 103 2 1 1 102 0 0 0 0
+POLICY 0 2 0 103 2 1 1 102 0 0 0 0
+POLICY 0 2 1 7 0 0 1 1 1 1 0 0
+POLICY 0 2 1 7 0 0 1 1 1 1 0 0
+POLICY 0 2 1 7 0 1 1 1 1 1 0 0
+POLICY 0 2 1 7 0 1 1 1 1 1 0 0
+POLICY 0 2 1 7 1 0 1 1 1 1 0 0
+POLICY 0 2 1 7 1 0 1 1 1 1 0 0
+POLICY 0 2 1 7 1 1 1 1 1 1 0 0
+POLICY 0 2 1 7 1 1 1 1 1 1 0 0
+POLICY 0 2 1 7 2 0 1 1 1 0 0 0
+POLICY 0 2 1 7 2 0 1 1 1 0 0 0
+POLICY 0 2 1 7 2 1 1 1 1 0 0 0
+POLICY 0 2 1 7 2 1 1 1 1 0 0 0
+POLICY 0 2 1 103 0 0 1 102 1 1 0 0
+POLICY 0 2 1 103 0 0 1 102 1 1 0 0
+POLICY 0 2 1 103 0 1 1 102 1 1 0 0
+POLICY 0 2 1 103 0 1 1 102 1 1 0 0
+POLICY 0 2 1 103 1 0 1 102 1 1 0 0
+POLICY 0 2 1 103 1 0 1 102 1 1 0 0
+POLICY 0 2 1 103 1 1 1 102 1 1 0 0
+POLICY 0 2 1 103 1 1 1 102 1 1 0 0
+POLICY 0 2 1 103 2 0 1 102 1 0 0 0
+POLICY 0 2 1 103 2 0 1 102 1 0 0 0
+POLICY 0 2 1 103 2 1 1 102 1 0 0 0
+POLICY 0 2 1 103 2 1 1 102 1 0 0 0
+POLICY 0 2 3 7 0 0 1 3 3 1 0 0
+POLICY 0 2 3 7 0 0 1 3 3 1 0 0
+POLICY 0 2 3 7 0 1 1 3 3 1 0 0
+POLICY 0 2 3 7 0 1 1 3 3 1 0 0
+POLICY 0 2 3 7 1 0 1 3 3 1 0 0
+POLICY 0 2 3 7 1 0 1 3 3 1 0 0
+POLICY 0 2 3 7 1 1 1 3 3 1 0 0
+POLICY 0 2 3 7 1 1 1 3 3 1 0 0
+POLICY 0 2 3 7 2 0 1 3 3 0 0 0
+POLICY 0 2 3 7 2 0 1 3 3 0 0 0
+POLICY 0 2 3 7 2 1 1 3 3 0 0 0
+POLICY 0 2 3 7 2 1 1 3 3 0 0 0
+POLICY 0 2 3 103 0 0 1 3 3 1 0 0
+POLICY 0 2 3 103 0 0 1 3 3 1 0 0
+POLICY 0 2 3 103 0 1 1 3 3 1 0 0
+POLICY 0 2 3 103 0 1 1 3 3 1 0 0
+POLICY 0 2 3 103 1 0 1 3 3 1 0 0
+POLICY 0 2 3 103 1 0 1 3 3 1 0 0
+POLICY 0 2 3 103 1 1 1 3 3 1 0 0
+POLICY 0 2 3 103 1 1 1 3 3 1 0 0
+POLICY 0 2 3 103 2 0 1 3 3 0 0 0
+POLICY 0 2 3 103 2 0 1 3 3 0 0 0
+POLICY 0 2 3 103 2 1 1 3 3 0 0 0
+POLICY 0 2 3 103 2 1 1 3 3 0 0 0
+POLICY 0 4 0 7 0 0 1 0 0 1 0 0
+POLICY 0 4 0 7 0 0 1 0 0 1 0 0
+POLICY 0 4 0 7 0 1 1 0 0 1 0 0
+POLICY 0 4 0 7 0 1 1 0 0 1 0 0
+POLICY 0 4 0 7 1 0 1 0 0 1 0 0
+POLICY 0 4 0 7 1 0 1 0 0 1 0 0
+POLICY 0 4 0 7 1 1 1 0 0 1 0 0
+POLICY 0 4 0 7 1 1 1 0 0 1 0 0
+POLICY 0 4 0 7 2 0 1 0 0 0 0 0
+POLICY 0 4 0 7 2 0 1 0 0 0 0 0
+POLICY 0 4 0 7 2 1 1 0 0 0 0 0
+POLICY 0 4 0 7 2 1 1 0 0 0 0 0
+POLICY 0 4 0 103 0 0 1 102 0 1 0 0
+POLICY 0 4 0 103 0 0 1 102 0 1 0 0
+POLICY 0 4 0 103 0 1 1 102 0 1 0 0
+POLICY 0 4 0 103 0 1 1 102 0 1 0 0
+POLICY 0 4 0 103 1 0 1 102 0 1 0 0
+POLICY 0 4 0 103 1 0 1 102 0 1 0 0
+POLICY 0 4 0 103 1 1 1 102 0 1 0 0
+POLICY 0 4 0 103 1 1 1 102 0 1 0 0
+POLICY 0 4 0 103 2 0 1 102 0 0 0 0
+POLICY 0 4 0 103 2 0 1 102 0 0 0 0
+POLICY 0 4 0 103 2 1 1 102 0 0 0 0
+POLICY 0 4 0 103 2 1 1 102 0 0 0 0
+POLICY 0 4 1 7 0 0 1 1 1 1 0 0
+POLICY 0 4 1 7 0 0 1 1 1 1 0 0
+POLICY 0 4 1 7 0 1 1 1 1 1 0 0
+POLICY 0 4 1 7 0 1 1 1 1 1 0 0
+POLICY 0 4 1 7 1 0 1 1 1 1 0 0
+POLICY 0 4 1 7 1 0 1 1 1 1 0 0
+POLICY 0 4 1 7 1 1 1 1 1 1 0 0
+POLICY 0 4 1 7 1 1 1 1 1 1 0 0
+POLICY 0 4 1 7 2 0 1 1 1 0 0 0
+POLICY 0 4 1 7 2 0 1 1 1 0 0 0
+POLICY 0 4 1 7 2 1 1 1 1 0 0 0
+POLICY 0 4 1 7 2 1 1 1 1 0 0 0
+POLICY 0 4 1 103 0 0 1 102 1 1 0 0
+POLICY 0 4 1 103 0 0 1 102 1 1 0 0
+POLICY 0 4 1 103 0 1 1 102 1 1 0 0
+POLICY 0 4 1 103 0 1 1 102 1 1 0 0
+POLICY 0 4 1 103 1 0 1 102 1 1 0 0
+POLICY 0 4 1 103 1 0 1 102 1 1 0 0
+POLICY 0 4 1 103 1 1 1 102 1 1 0 0
+POLICY 0 4 1 103 1 1 1 102 1 1 0 0
+POLICY 0 4 1 103 2 0 1 102 1 0 0 0
+POLICY 0 4 1 103 2 0 1 102 1 0 0 0
+POLICY 0 4 1 103 2 1 1 102 1 0 0 0
+POLICY 0 4 1 103 2 1 1 102 1 0 0 0
+POLICY 0 4 3 7 0 0 1 3 3 1 0 0
+POLICY 0 4 3 7 0 0 1 3 3 1 0 0
+POLICY 0 4 3 7 0 1 1 3 3 1 0 0
+POLICY 0 4 3 7 0 1 1 3 3 1 0 0
+POLICY 0 4 3 7 1 0 1 3 3 1 0 0
+POLICtest_conflict_reuse_targets: /home/hwu/SAT-solving/.claude/worktrees/runtime-reuse-target-5741/tests/test_conflict_reuse_targets.cpp:124: void fixture(bool, unsigned int, unsigned int, unsigned int, unsigned int, bool, bool, Dispatch, tactix::ProofFormat, bool, const std::string&): Assertion `k.level == wanted && k.value(forced) > 0' failed.
+
+      Start 87: vivify_max
+80/91 Test #85: sweep_retained ...................   Passed    0.03 sec
+      Start 88: watch_pair
+81/91 Test #77: congruence_index_cleanup .........   Passed    0.58 sec
+82/91 Test #86: sweep_small_env ..................   Passed    0.03 sec
+      Start 89: demo1_dpll
+      Start 90: demo2_no_restarts
+83/91 Test #88: watch_pair .......................   Passed    0.02 sec
+84/91 Test #87: vivify_max .......................   Passed    0.03 sec
+      Start 91: demo3_scripted_default
+85/91 Test #90: demo2_no_restarts ................   Passed    0.01 sec
+86/91 Test #89: demo1_dpll .......................   Passed    0.02 sec
+87/91 Test #91: demo3_scripted_default ...........   Passed    1.17 sec
+88/91 Test #51: sweep_proofs .....................   Passed    5.06 sec
+89/91 Test #66: comment_hygiene ..................   Passed    4.19 sec
+90/91 Test #50: micro_proofs .....................   Passed    5.68 sec
+91/91 Test #63: citations ........................   Passed    5.51 sec
+
+99% tests passed, 1 tests failed out of 91
+
+Total Test time (real) =   8.07 sec
+
+The following tests FAILED:
+	 76 - conflict_reuse_targets (Subprocess aborted)
+Errors while running CTest

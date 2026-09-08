@@ -508,6 +508,17 @@ Full-width tier arrays retain their no-throttle, no-node-constraint allocation
 contract and are interpreted through aggregate evidence rather than this
 targeted timing protocol.
 
+**Fixed Rank 1–40 reference.** Reuse one frozen complete Kissat measurement
+vector at 12 logical CPUs and 48,000 MiB; the current authority is in PROGRESS.
+Future full-view arrays run Tactix only against those same inputs, options,
+proof mode and resource limits. Do not refresh Kissat routinely or select a
+best-of denominator. Label these cross-window fixed-reference scores; they do
+not establish isolated unit-cost gains. Targeted Tactix/predecessor waves remain
+available for attribution. Reuse matching native diagnostic traces; rerun Kissat
+only for missing diagnostic information or an explicitly approved replacement
+reference. Pending certificate checks allow provisional work, not acceptance;
+all correctness, B28+C5, memory and the ≤1.01× runtime goal remain unchanged.
+
 **Causal convergence.** For every coverage or runtime gap, localize the earliest
 portable semantic divergence with the structured rule journal. Repair it unless
 Tactix is demonstrably stronger or the deviation is explicitly accepted; then
@@ -702,7 +713,7 @@ independently checkable native proofs and must earn a measured time/memory gain.
 - **Proof unsoundness:** independent checkers, negative oracle tests, stress
   schedules, regression corpus.
 - **Model reconstruction bugs:** validate every SAT model against original CNF.
-- **Benchmark noise/overfitting:** same-window baselines, fixed tiers, Tier C/D
+- **Benchmark noise/overfitting:** fixed references, matched attribution, Tier C/D
   gates, per-instance review.
 - **Documentation drift:** one fact/one home, enforced budgets and cross-reference
   checks, concise PROGRESS resume block.
