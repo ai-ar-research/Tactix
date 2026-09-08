@@ -1,0 +1,14 @@
+{
+  "portable_boundaries_identical": true,
+  "boundary_counts": {
+    "candidate": 272,
+    "kissat": 272
+  },
+  "first_coarse_boundary": null,
+  "preceding_boundaries": {
+    "candidate": [],
+    "kissat": []
+  },
+  "decision_difference": null,
+  "limitation": "Active and clause counts locate a boundary, not formula/stream equality or relative semantic strength. More active-variable removal alone does not justify acceptance or a fidelity repair."
+}
