@@ -1,0 +1,9 @@
+{
+  "job": "1673169",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "benchmarks/runs/20260908-5727-root-reuse-BC-gate/array.sbatch"
+  ],
+  "manifest_sha256": "78be3849d92043e7cf5ad27571822f6d5494a39ba42ece03ca68d1ef3af2b3c2"
+}

@@ -359,10 +359,10 @@ control solver behavior.
 
 ## 12. Conflict reuse and watch repair
 
-Reuse may retain a conflict prefix and assign its sole top-level literal with
-the conflict as reason. Repair chooses a level-ranked watch pair so later
-backtrack cannot strand a unit. It runs only when reuse fires, never deletes a
-reason, and clears the learn/backjump tail if pending state is consumed.
+Reuse includes zero-jump conflicts: retain the chronological target, repair
+level-ranked watches and clear the learn/backjump tail. At true level zero,
+publish a named DRAT/LRAT unit and deactivate its variable without learned
+counters or analyzed bumps; otherwise the repaired conflict remains the reason.
 
 ## 13. Scheduling parity
 

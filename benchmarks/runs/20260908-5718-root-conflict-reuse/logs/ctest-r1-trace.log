@@ -1,0 +1,185 @@
+Test project /home/hwu/SAT-solving/build/pin-5719-root-conflict-reuse-trace
+      Start 82: root_conflict_reuse
+      Start 50: micro_proofs
+      Start 51: sweep_proofs
+      Start 63: citations
+      Start 66: comment_hygiene
+      Start 20: campaign_certificate_cleanup
+      Start  8: subsolver
+      Start 13: event_trace_compare
+ 1/90 Test #82: root_conflict_reuse ..............   Passed    0.17 sec
+      Start 90: demo3_scripted_default
+ 2/90 Test #13: event_trace_compare ..............   Passed    2.10 sec
+      Start 49: trace_replay
+ 3/90 Test  #8: subsolver ........................   Passed    2.67 sec
+      Start 73: solve_reset
+ 4/90 Test #90: demo3_scripted_default ...........   Passed    2.68 sec
+      Start 61: option_coverage
+ 5/90 Test #20: campaign_certificate_cleanup .....   Passed    3.19 sec
+      Start 19: p4_fixtures
+ 6/90 Test #49: trace_replay .....................   Passed    1.13 sec
+      Start 23: fuzz_slurm_snapshot
+ 7/90 Test #61: option_coverage ..................   Passed    1.16 sec
+      Start  9: sweep
+ 8/90 Test #73: solve_reset ......................   Passed    1.22 sec
+      Start  4: analyze
+ 9/90 Test #23: fuzz_slurm_snapshot ..............   Passed    0.83 sec
+      Start 16: runtime_task
+10/90 Test  #9: sweep ............................   Passed    0.57 sec
+      Start 59: config_wiring
+11/90 Test #19: p4_fixtures ......................   Passed    1.30 sec
+      Start 52: tr_bruteforce_0
+12/90 Test  #4: analyze ..........................   Passed    0.63 sec
+      Start 53: tr_bruteforce_1
+13/90 Test #16: runtime_task .....................   Passed    0.47 sec
+      Start 76: congruence_index_cleanup
+14/90 Test #52: tr_bruteforce_0 ..................   Passed    0.34 sec
+      Start 18: rule_journal
+15/90 Test #53: tr_bruteforce_1 ..................   Passed    0.35 sec
+      Start 54: tr_bruteforce_2
+16/90 Test #59: config_wiring ....................   Passed    0.43 sec
+      Start 64: section_refs
+17/90 Test #76: congruence_index_cleanup .........   Passed    0.46 sec
+      Start 72: rule_policy_boundary
+18/90 Test #64: section_refs .....................   Passed    0.20 sec
+      Start 55: tr_bruteforce_3
+19/90 Test #54: tr_bruteforce_2 ..................   Passed    0.23 sec
+      Start 60: effort_specs
+20/90 Test #18: rule_journal .....................   Passed    0.40 sec
+      Start 14: reduce_trace_compare
+21/90 Test #60: effort_specs .....................   Passed    0.16 sec
+      Start 48: random_policy
+22/90 Test #72: rule_policy_boundary .............   Passed    0.28 sec
+      Start 22: slurm_memory_enforcement
+23/90 Test #14: reduce_trace_compare .............   Passed    0.12 sec
+      Start 17: kissat_journal_overlay_static
+24/90 Test #55: tr_bruteforce_3 ..................   Passed    0.40 sec
+      Start 21: tierd_campaign_pinning
+25/90 Test #22: slurm_memory_enforcement .........   Passed    0.20 sec
+      Start 65: inventory
+26/90 Test #17: kissat_journal_overlay_static ....   Passed    0.19 sec
+      Start 15: modelcheck
+27/90 Test #48: random_policy ....................   Passed    0.25 sec
+      Start 68: proof_rule_sync
+28/90 Test #21: tierd_campaign_pinning ...........   Passed    0.10 sec
+      Start 69: default_strategy_config_check
+29/90 Test #65: inventory ........................   Passed    0.14 sec
+      Start 44: bve
+30/90 Test #15: modelcheck .......................   Passed    0.14 sec
+      Start  1: kernel
+31/90 Test #66: comment_hygiene ..................   Passed    5.70 sec
+      Start 56: factor
+32/90 Test #68: proof_rule_sync ..................   Passed    0.16 sec
+      Start  2: parse
+33/90 Test  #1: kernel ...........................   Passed    0.04 sec
+      Start  3: proof
+34/90 Test #69: default_strategy_config_check ....   Passed    0.13 sec
+      Start 67: doc_size
+35/90 Test #44: bve ..............................   Passed    0.08 sec
+      Start 62: stat_ids
+36/90 Test  #3: proof ............................   Passed    0.03 sec
+      Start 71: kernel_h_boundary
+37/90 Test #56: factor ...........................   Passed    0.06 sec
+      Start 37: hyperbinary
+38/90 Test #71: kernel_h_boundary ................   Passed    0.01 sec
+      Start 35: cce
+39/90 Test  #2: parse ............................   Passed    0.06 sec
+40/90 Test #37: hyperbinary ......................   Passed    0.02 sec
+      Start 45: lucky
+      Start 27: subsume
+41/90 Test #27: subsume ..........................   Passed    0.01 sec
+      Start 33: backbone
+42/90 Test #33: backbone .........................   Passed    0.00 sec
+      Start 41: congruence
+43/90 Test #35: cce ..............................   Passed    0.03 sec
+44/90 Test #45: lucky ............................   Passed    0.02 sec
+      Start 74: assignment_level_bound
+      Start 10: scheduling
+45/90 Test #41: congruence .......................   Passed    0.04 sec
+46/90 Test #74: assignment_level_bound ...........   Passed    0.03 sec
+      Start 12: event_trace
+      Start  5: restart_reduce
+47/90 Test #67: doc_size .........................   Passed    0.11 sec
+      Start 28: strengthen
+48/90 Test #62: stat_ids .........................   Passed    0.11 sec
+49/90 Test #10: scheduling .......................   Passed    0.05 sec
+      Start 42: binary_deletion
+      Start 43: transitive_reduce
+50/90 Test  #5: restart_reduce ...................   Passed    0.02 sec
+      Start 81: replacement_cursor
+51/90 Test #43: transitive_reduce ................   Passed    0.01 sec
+52/90 Test #42: binary_deletion ..................   Passed    0.01 sec
+      Start 36: ternary
+      Start 11: strategy_config
+53/90 Test #36: ternary ..........................   Passed    0.00 sec
+      Start 38: decide
+54/90 Test #11: strategy_config ..................   Passed    0.01 sec
+      Start 25: reorder
+55/90 Test #28: strengthen .......................   Passed    0.04 sec
+56/90 Test #12: event_trace ......................   Passed    0.06 sec
+      Start 34: bce
+      Start 70: no_heuristics
+57/90 Test #38: decide ...........................   Passed    0.03 sec
+58/90 Test #81: replacement_cursor ...............   Passed    0.04 sec
+      Start 24: slot_pose
+      Start 31: vivify_n1
+59/90 Test #25: reorder ..........................   Passed    0.05 sec
+60/90 Test #34: bce ..............................   Passed    0.04 sec
+      Start 39: reconstruct
+      Start 47: api_instances
+61/90 Test #70: no_heuristics ....................   Passed    0.04 sec
+62/90 Test #24: slot_pose ........................   Passed    0.04 sec
+      Start 85: sweep_small_env
+      Start 32: probe
+63/90 Test #31: vivify_n1 ........................   Passed    0.03 sec
+      Start 26: walk
+64/90 Test #39: reconstruct ......................   Passed    0.01 sec
+65/90 Test #47: api_instances ....................   Passed    0.01 sec
+66/90 Test #85: sweep_small_env ..................   Passed    0.01 sec
+      Start 46: api_n1
+      Start 86: vivify_max
+      Start 29: instantiate
+67/90 Test #32: probe ............................   Passed    0.02 sec
+      Start  6: switchmode
+68/90 Test #26: walk .............................   Passed    0.02 sec
+      Start 77: eliminate_limit
+69/90 Test #46: api_n1 ...........................   Passed    0.01 sec
+70/90 Test #29: instantiate ......................   Passed    0.01 sec
+71/90 Test #86: vivify_max .......................   Passed    0.01 sec
+      Start 40: substitute
+      Start 78: factor_root_support
+      Start 87: watch_pair
+72/90 Test  #6: switchmode .......................   Passed    0.02 sec
+      Start 88: demo1_dpll
+73/90 Test #77: eliminate_limit ..................   Passed    0.01 sec
+74/90 Test #40: substitute .......................   Passed    0.01 sec
+75/90 Test #78: factor_root_support ..............   Passed    0.01 sec
+      Start 89: demo2_no_restarts
+      Start 58: subsume_n1
+      Start 80: propagation_cursor
+76/90 Test #87: watch_pair .......................   Passed    0.04 sec
+      Start 57: factor_n1
+77/90 Test #88: demo1_dpll .......................   Passed    0.03 sec
+78/90 Test #89: demo2_no_restarts ................   Passed    0.03 sec
+79/90 Test #58: subsume_n1 .......................   Passed    0.02 sec
+      Start 79: inprocess_root
+      Start 83: sweep_cursor
+      Start 30: vivify
+80/90 Test #80: propagation_cursor ...............   Passed    0.02 sec
+81/90 Test #57: factor_n1 ........................   Passed    0.02 sec
+82/90 Test #79: inprocess_root ...................   Passed    0.02 sec
+83/90 Test #83: sweep_cursor .....................   Passed    0.01 sec
+      Start  7: rephase
+      Start 75: bve_bound_cut
+      Start 84: sweep_retained
+84/90 Test #30: vivify ...........................   Passed    0.02 sec
+85/90 Test  #7: rephase ..........................   Passed    0.01 sec
+86/90 Test #75: bve_bound_cut ....................   Passed    0.01 sec
+87/90 Test #84: sweep_retained ...................   Passed    0.01 sec
+88/90 Test #63: citations ........................   Passed    6.72 sec
+89/90 Test #51: sweep_proofs .....................   Passed    7.51 sec
+90/90 Test #50: micro_proofs .....................   Passed    7.81 sec
+
+100% tests passed out of 90
+
+Total Test time (real) =   7.85 sec

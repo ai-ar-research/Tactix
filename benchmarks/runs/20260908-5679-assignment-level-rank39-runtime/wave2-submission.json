@@ -1,0 +1,22 @@
+{
+  "job": "1673142",
+  "tasks": [
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=4-5",
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/array.sbatch"
+  ],
+  "recorded_at": "2026-09-08T13:17:10.385445+00:00",
+  "manifest_sha256": "ee80eda860f0574d49bdb0c2c24b9a87e77aaf19250b23d114b61f92cb1ef48a",
+  "predecessor_solver_records": {
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/results/000.json": "a0fa586a1ca97345c600ae7b84ebb03ea06576b67cb96bea45ab014857cd38ea",
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/results/001.json": "129d290a48ef74b65bdc6d24f852398b534089166e39b0d3faf819efbbe59c70",
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/provisional/002.json": "68385cda65522b692c7948812b292fe1fe9e73be3e1071bbfc2a054e93fd429b",
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/provisional/003.json": "3c018f6e5cdd7d679b5378f5f6c9d297dac19ab5573ffe85091e83ea370e6747"
+  },
+  "validation": "Expected solver outcomes permit continuation; proof/model checks remain asynchronous and must pass before promotion."
+}

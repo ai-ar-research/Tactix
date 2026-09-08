@@ -1,0 +1,79 @@
+{
+  "schema": "tactix-kissat-checked-runtime-v1",
+  "status": "UNFUZZED isolated candidate; no promotion.",
+  "hypothesis": "Measure net Rank33 effect of root-conflict reuse against immediate5672. General reference repair,no tuned schedule/budget. Cross-arm search work may change;all three independent waves andfull40 remain required.",
+  "comparison": "Three independent matched candidate/previous replica blocks, full width without forced placement.",
+  "decision": "After all B28 expected solver records,submit predeclared waves0,1,2 after predecessor solves without waiting for checkers. Require within-arm complete non-timing statistics/proof identity,all ratios and spreads<=2%.Cross-arm work may change;full Rank1-40 remains required.",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "fa53d8199674ac2d29b0244525c2d9bc1120de8a7b07e8cecde89e1bf8284115",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/candidate.patch",
+      "source_patch_sha256": "3b3593d3a8d931905686842f2f29fb765294af388998f0f850fd36a122d6ad88",
+      "source_build": "build/pin-5718-root-conflict-reuse-release"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "743e1283507ee0cb35d7ba1843ab008fda8b48e75714ca6d0688b0227d05fe61",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/previous.patch",
+      "source_patch_sha256": "49cfc7d111c8e8c05587e0e1d5e802a868e6574c6a8d60de6fd78ba36eb6e025",
+      "source_build": "build/pin-5672-assignment-level-release"
+    }
+  },
+  "collect_runtime_context": true,
+  "input_sha256": {
+    "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-5",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "pin_sha256": {
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/previous.patch": "49cfc7d111c8e8c05587e0e1d5e802a868e6574c6a8d60de6fd78ba36eb6e025",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/previous": "743e1283507ee0cb35d7ba1843ab008fda8b48e75714ca6d0688b0227d05fe61",
+    "pins/candidate.patch": "3b3593d3a8d931905686842f2f29fb765294af388998f0f850fd36a122d6ad88",
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "pins/candidate": "fa53d8199674ac2d29b0244525c2d9bc1120de8a7b07e8cecde89e1bf8284115",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "array.sbatch": "883957d97d03b90e10a4691057ab74739b0ebbd771a3d54909edb81064d8af63",
+    "matrix.tsv": "7524322e424684732dfb51c249369b8f3e464bd518012c9f46a21ad23c4d05a9"
+  },
+  "parent_campaign": "benchmarks/runs/20260908-5664-propagation-cursor-ranks1-40",
+  "candidate_validation": "91/91 each independent Release,90/90 trace;288 root/binary/large/chrono/proof/H/API/disabled-reuse cases;actual predecessor controls and24 exact native transitions;288 independently checked DRAT/LRAT micro-proofs. Initial registry-vs-policy target expectation repaired without solver changes;original test/logs retained.",
+  "candidate_authority": "benchmarks/runs/20260908-5718-root-conflict-reuse",
+  "wave_tasks": {
+    "0": [
+      0,
+      1
+    ],
+    "1": [
+      2,
+      3
+    ],
+    "2": [
+      4,
+      5
+    ]
+  },
+  "created_at": "2026-09-08T13:33:00.981915+00:00",
+  "predecessor": "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime",
+  "test_consideration": "91/91 each independent Release,90/90 trace;288 root/binary/large/chrono/proof/H/API/disabled-reuse cases;actual predecessor controls and24 exact native transitions;288 independently checked DRAT/LRAT micro-proofs. Initial registry-vs-policy target expectation repaired without solver changes;original test/logs retained.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5664-propagation-cursor-ranks1-40/next-losses.json",
+    "sha256": "398d4ee9b4a89a5214420dbf6022156545536cbc8a4a8ce4be33f5424ac3dc0e"
+  }
+}
