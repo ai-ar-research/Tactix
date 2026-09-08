@@ -1,0 +1,84 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended",
+  "candidate_authority": "benchmarks/runs/20260908-5741-reuse-target",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-reuse-target-5741",
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 300000,
+  "hypothesis": "Rank32 Strengthen179463 processes its whole stream,not a unit or quota exit. Identify the eight outgoing large-clause difference and establish incoming literal sets/physical pose/root values before choosing a general repair.",
+  "validation": "Native ordinary300K traces and partial proof must exactly replay5771;selected snapshot required. Reuse Tactix snapshot from original companion without another solve.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "run.py": "05d3681176769e4a088be89d8f15626608c5891154e032e2da3e5f6825a24a72",
+    "array.sbatch": "6f44b1df4d673bc39c3855f86c7225aa05fd93915eb735c31fd32511289be542",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16"
+  },
+  "stream_from": 100000,
+  "common_decisions": 40102204,
+  "created_at": "2026-09-08T14:27:54.979288+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Instrumented bounded diagnostic. Frozen native runtime vector remains6810.066s. Earlier control and new suffix have separate scopes.",
+  "test_consideration": "Configuration-only existing immutable5742/native pins. Four prefix-parser tests and complete parent replay validate observer scope; no changed solver code or new solver unit test.",
+  "source_patch_sha256": "84b8a71043da20d304cc26643c468fe77a45196253944b941ad2fb0f0dc96e5a",
+  "predecessor": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix",
+  "cached_controls": {
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5597-factor-support-rank32-prefix/results/kissat.json",
+      "sha256": "7795750cbf66213fe457d905ae5051ab8afb7053db89eb86bb293445b89cbf91"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "1-1",
+    "throttle": null,
+    "node_constraint": null
+  },
+  "cached_native_campaign": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended",
+  "selection": {
+    "path": "benchmarks/runs/20260908-5758-reuse-target-ranks1-40/next-losses.json",
+    "sha256": "286465d1e6e59365e2ffc7afea526d4b71c2616a5f81ab6e99faad0ecb11e869"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260908-5769-reuse-target-rank32-prefix/summary.json",
+    "sha256": "f7b168c72f9c66a78b4e6d7d156b742ab950d6be4920d84b3ce4f16153f0e41c"
+  },
+  "native_rerun_reason": "Prior native clean stop has no snapshot because selector used ordinary-journal name rather than standalone slot payload. Actual native fixed controls prove corrected selector. Missing native snapshot only;no candidate or timing-baseline repeat.",
+  "selected_stage": "end",
+  "localization_authority": {
+    "path": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/boundary-localization.json",
+    "sha256": "e4918c835a79e277a456ea4b7e3be7b903b125adb7429303b8b1bd9bd89a0964"
+  },
+  "candidate_snapshot_campaign": "benchmarks/runs/20260908-5783-rank32-forward-end-formula",
+  "selector_controls": [
+    {
+      "selector": "strengthen_end",
+      "expected_snapshot": false,
+      "exit_code": 0,
+      "snapshot_sha256": null
+    },
+    {
+      "selector": "name=Strengthen|stage=end",
+      "expected_snapshot": true,
+      "exit_code": 0,
+      "snapshot_sha256": "9b5fb606f56ff65df344ad60baa6134a850a943b684e04a48872f6e516b9011f"
+    }
+  ],
+  "selector_control_binary": {
+    "path": "benchmarks/runs/20260908-5760-forward-exit-observer/native",
+    "sha256": "1ddda2456d54892d65b413e908b4d4617d2895c32c76a09fd470851579a15510"
+  }
+}

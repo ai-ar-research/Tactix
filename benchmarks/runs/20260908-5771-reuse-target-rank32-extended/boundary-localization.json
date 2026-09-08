@@ -1,0 +1,230 @@
+{
+  "conflict": 179463,
+  "portable_fields": [
+    "name",
+    "stage",
+    "conflicts",
+    "decisions",
+    "active",
+    "unassigned",
+    "irred",
+    "red",
+    "binary"
+  ],
+  "hashes": {
+    "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/traces/candidate.boundaries.tsv": "86798f4c05c04dea1664c3e004fd5bb083a4a7f2bbafa589847b18897c307196",
+    "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/traces/kissat.boundaries.tsv": "d3427e8bf6d60c48d729d21ff4d3490f2a7dc19caf8576f9be497ba54fb921b5"
+  },
+  "compared_boundaries": 40,
+  "unequal_boundaries": 7,
+  "first_portable_difference": {
+    "ordinal": 33,
+    "candidate": {
+      "name": "strengthen",
+      "stage": "end",
+      "conflicts": "179463",
+      "decisions": "55033606",
+      "active": "106938",
+      "unassigned": "106938",
+      "irred": "478403",
+      "red": "17619",
+      "binary": "147963"
+    },
+    "kissat": {
+      "name": "strengthen",
+      "stage": "end",
+      "conflicts": "179463",
+      "decisions": "55033606",
+      "active": "106938",
+      "unassigned": "106938",
+      "irred": "478411",
+      "red": "17619",
+      "binary": "147963"
+    }
+  },
+  "selected_boundary_pairs": {
+    "candidate": [
+      {
+        "name": "strengthen",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "107025",
+        "unassigned": "107025",
+        "irred": "493108",
+        "red": "17619",
+        "binary": "146999"
+      },
+      {
+        "name": "strengthen",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "106938",
+        "unassigned": "106938",
+        "irred": "478403",
+        "red": "17619",
+        "binary": "147963"
+      },
+      {
+        "name": "bve",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "106938",
+        "unassigned": "106938",
+        "irred": "478403",
+        "red": "17619",
+        "binary": "147963"
+      },
+      {
+        "name": "bve",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93597",
+        "unassigned": "93597",
+        "irred": "534432",
+        "red": "17619",
+        "binary": "134049"
+      },
+      {
+        "name": "strengthen",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93597",
+        "unassigned": "93597",
+        "irred": "534432",
+        "red": "17619",
+        "binary": "134049"
+      },
+      {
+        "name": "strengthen",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93580",
+        "unassigned": "93580",
+        "irred": "492489",
+        "red": "17619",
+        "binary": "134469"
+      },
+      {
+        "name": "bve",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93580",
+        "unassigned": "93580",
+        "irred": "492489",
+        "red": "17619",
+        "binary": "134469"
+      },
+      {
+        "name": "bve",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "91156",
+        "unassigned": "91156",
+        "irred": "503106",
+        "red": "17619",
+        "binary": "131326"
+      }
+    ],
+    "kissat": [
+      {
+        "name": "strengthen",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "107025",
+        "unassigned": "107025",
+        "irred": "493108",
+        "red": "17619",
+        "binary": "146999"
+      },
+      {
+        "name": "strengthen",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "106938",
+        "unassigned": "106938",
+        "irred": "478411",
+        "red": "17619",
+        "binary": "147963"
+      },
+      {
+        "name": "bve",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "106938",
+        "unassigned": "106938",
+        "irred": "478411",
+        "red": "17619",
+        "binary": "147963"
+      },
+      {
+        "name": "bve",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93589",
+        "unassigned": "93589",
+        "irred": "534469",
+        "red": "17619",
+        "binary": "134058"
+      },
+      {
+        "name": "strengthen",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93589",
+        "unassigned": "93589",
+        "irred": "534469",
+        "red": "17619",
+        "binary": "134058"
+      },
+      {
+        "name": "strengthen",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93572",
+        "unassigned": "93572",
+        "irred": "492494",
+        "red": "17619",
+        "binary": "134471"
+      },
+      {
+        "name": "bve",
+        "stage": "begin",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "93572",
+        "unassigned": "93572",
+        "irred": "492494",
+        "red": "17619",
+        "binary": "134471"
+      },
+      {
+        "name": "bve",
+        "stage": "end",
+        "conflicts": "179463",
+        "decisions": "55033606",
+        "active": "91140",
+        "unassigned": "91140",
+        "irred": "503157",
+        "red": "17619",
+        "binary": "131303"
+      }
+    ]
+  },
+  "conclusion": "At the first decision split, Strengthen enters with equal portable counts and exits with eight fewer Tactix irredundant large clauses; BVE then changes counts. Unit-exit cause is not established for Rank32.",
+  "limitation": "Counts are not a physical formula/flag identity proof. Trail and propagation totals are representation-local and deliberately not compared.",
+  "tests": "Header-aware prefix validator has four tests. This extraction only selects named recorded columns; asserts entry equality and measured eight-clause delta without changing solver, oracle or source."
+}

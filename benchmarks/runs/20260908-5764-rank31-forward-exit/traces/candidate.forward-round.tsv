@@ -1,0 +1,8 @@
+begin conflict=179823 round=9 candidates=345695 start=73147303 budget=35595073 bounded=1 binary_removed=48
+unit-candidate index=32609 id=4060427 spent=312049 flipped=-130506 partner=0 clause=-130574:0,130506:0,-145:-1,
+unit-stop index=32609 tail=313085
+end reached=32610 candidates=345695 spent=312049 budget=35595073 ended=1 interrupted=0
+begin conflict=179823 round=10 candidates=562637 start=73459352 budget=35595073 bounded=1 binary_removed=1291
+unit-candidate index=73330 id=4193038 spent=909962 flipped=-40355 partner=0 clause=-108783:0,40355:0,-145:-1,
+unit-stop index=73330 tail=489306
+end reached=73331 candidates=562637 spent=909962 budget=35595073 ended=1 interrupted=0

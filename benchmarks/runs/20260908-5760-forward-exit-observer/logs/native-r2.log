@@ -1,0 +1,2 @@
+ENTRY tail=3 first_size=3 first_garbage=0 flags=1,1,1 steps=0
+MISMATCH value3=0 tail_removed=0 steps=2

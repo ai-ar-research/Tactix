@@ -1,0 +1,7 @@
+{
+  "job_id": "1673400",
+  "observed_at": "2026-09-08T15:42:48Z",
+  "manifest_sha256": "cc9d0d5e00633543a4746ead68f5df0c3017f274c5f4e880c4e5b9504d6bc3c8",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5791-rank32-selected-forward/array.sbatch",
+  "purpose": "Development-partition selected-action diagnostic; not the pending cpu-q breadth experiment."
+}

@@ -1,0 +1,5 @@
+{
+  "job_id": "1673389",
+  "command": ["sbatch", "--parsable", "benchmarks/runs/20260908-5779-rank32-forward-round/array.sbatch"],
+  "purpose": "Candidate-only Rank32 round-exit diagnostic; cached native5771 remains the control."
+}

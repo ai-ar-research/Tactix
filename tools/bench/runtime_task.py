@@ -163,6 +163,17 @@ def atomic_json(path, value):
     os.replace(temporary, path)
 
 
+def expected_matches(expected, verdict):
+    """Unknown dataset labels do not replace independent verdict checking."""
+    return verdict in ("SAT", "UNSAT") and expected in (verdict, "UNKNOWN")
+
+
+def checked_verdict_valid(expected, verdict, solve, certificate_valid):
+    return bool(certificate_valid and expected_matches(expected, verdict) and
+                not solve["timed_out"] and
+                solve["exit_code"] == (10 if verdict == "SAT" else 20))
+
+
 def main():
     global CAMPAIGN, ROOT
     if len(sys.argv) != 3 or not os.environ.get("SLURM_JOB_ID"):
@@ -243,7 +254,7 @@ def main():
             "instance": row["instance"],
             "expected": row["expected"],
             "verdict": verdict,
-            "expected_match": verdict == row["expected"],
+            "expected_match": expected_matches(row["expected"], verdict),
             "solve": solve,
             "cpu_affinity": affinity,
             "runtime_context": context,
@@ -273,7 +284,7 @@ def main():
             "instance": row["instance"],
             "expected": row["expected"],
             "verdict": verdict,
-            "expected_match": verdict == row["expected"],
+            "expected_match": expected_matches(row["expected"], verdict),
             "solve": solve,
             "node": result["node"],
             "certificate_bytes": result["certificate_bytes"],
@@ -308,10 +319,8 @@ def main():
             checked["stderr_tail"] = tail(checker_err)
             result["model_check"] = checked
             result["valid"] = checked["result"] == "verified"
-        result["valid"] = bool(
-            result["valid"] and result["expected_match"] and
-            not solve["timed_out"] and
-            solve["exit_code"] == (10 if verdict == "SAT" else 20))
+        result["valid"] = checked_verdict_valid(
+            row["expected"], verdict, solve, result["valid"])
     except Exception as error:
         result = {
             "schema": "tactix-matched-slurm-memory-regression-result-v2",

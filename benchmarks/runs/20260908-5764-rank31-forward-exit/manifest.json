@@ -1,0 +1,54 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5755-reuse-target-rank31-replay",
+  "candidate_authority": "benchmarks/runs/20260908-5760-forward-exit-observer",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-forward-exit-observer-5760",
+  "input": "benchmarks/cache/tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+  "input_sha256_compressed": "b593364c559acab10fed9546371efe2f96683fd2c21021439dc340d6fa1ea85c",
+  "stop_conflict": 300000,
+  "hypothesis": "Determine whether the Rank31 Strengthen179823 exit is a unit-induced early stop,quota cut or complete pass. Actual-code tiny controls prove the general early-stop gap,not this instance cause.",
+  "validation": "Clean300K stop;all ordinary trace/proof hashes equal5755;new selected round rows identify candidate count,spent allowance,unit clause and unreached tail.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "run.py": "220092e14acaacc6785ef3a0b6fc64176ec29676997de9882b4ee6f290967e82",
+    "array.sbatch": "175c85fdcfa0c79a6282cc069e390693403d40d198c8e1e1c92126868eba7877",
+    "pins/candidate": "9559242e67c3d7a5ddea39ec0498bce789f98e2dc4cf0778aeb18d0f4cc27d56"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T14:27:54.979288+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Stopped diagnostic,not final checked verdict or acceptance timing; no new Kissat run.",
+  "test_consideration": "Actual-code two Tactix and two native unit/tail controls;all91 trace tests pass. New observer only emits under explicit target conflict and env;full parent trace/proof replay required.",
+  "source_patch_sha256": "a1a39a15ec1b596a830950f1b834b66c70d89e2a7788b9eff7623cce8973fd86",
+  "predecessor": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix",
+  "cached_controls": {
+    "candidate": {
+      "record": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix/results/candidate.json",
+      "sha256": "1dcf2df749ad7fd8c20dfbbd91a7317952049f31c2c8c3bb4f62ec246d9ec2c0"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix/results/kissat.json",
+      "sha256": "63b7668610e420d2039fde126b057a86bb4274149fa0fbafd0e8cbe06afb8904"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-0",
+    "throttle": null,
+    "node_constraint": null
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "job": "1673257",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "benchmarks/runs/20260908-5756-reuse-target-rank33-replay/array.sbatch"
+  ],
+  "manifest_sha256": "3ca6033e5e2266acc34dc786b8cf5945b7602ee0bd58f8adc23f1ea80a1ee3b4"
+}
