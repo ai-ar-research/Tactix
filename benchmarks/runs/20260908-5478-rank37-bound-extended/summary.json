@@ -1,0 +1,56 @@
+{
+  "stream_from": 100000,
+  "prior_summary_sha256": "c279ea591b03b3f7ad35f39d089cce936a0ae319d96144075da5f8764e92e0e7",
+  "clean_stops": 2,
+  "stop_conflict": 1000000,
+  "complete_prefix_identical": false,
+  "prefixes": {
+    "candidate": [
+      "1000000",
+      "18446744073709289232",
+      "106414053",
+      "106676437",
+      "6e3770a4c725b43d",
+      "1",
+      "1",
+      "422a29d46f6d2b33",
+      "488194",
+      "488194",
+      "-202171",
+      "41644"
+    ],
+    "kissat": [
+      "1000000",
+      "18446744073709316205",
+      "103732320",
+      "103967731",
+      "e6a38609509ec0fd",
+      "1",
+      "1",
+      "422a29d46f6d2b33",
+      "488194",
+      "488194",
+      "-404374",
+      "41644"
+    ]
+  },
+  "first_decision_difference": {
+    "candidate": [
+      "188502",
+      "60180275",
+      "340",
+      "26688",
+      "0"
+    ],
+    "kissat": [
+      "188502",
+      "60180275",
+      "340",
+      "9940",
+      "0"
+    ],
+    "matching_rows": 25001084
+  },
+  "matching_rows": 25001084,
+  "limitation": "Recorded suffix begins at conflict 100000 after a separately validated common prefix; matching_rows counts suffix rows only. Stopped proof-on diagnostic only. No complete verdict, checked proof or acceptance timing. Differences require causal interpretation, not automatic repair."
+}

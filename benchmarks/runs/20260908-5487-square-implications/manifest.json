@@ -1,0 +1,42 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5482-square-phase",
+  "candidate_authority": "benchmarks/runs/20260907-5459-bound-advance",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-bound-advance-5459",
+  "input": "benchmarks/cache/tierB/square.2.0.i.smt2-cvc4.cnf.xz",
+  "input_sha256_compressed": "c1f7de70c0905da33f99cc929c3c9e161094ccd54d3ea406774d8692bad86157",
+  "stop_conflict": 10000,
+  "hypothesis": "Both solvers honor saved phases at decision5849. Tactix saves negative43773 at conflict492, while earlier assignment histories already differ. Trace selected implication reasons from startup through502 to locate assignment/representation ownership; do not change phase priority or assume equal auxiliary-variable definitions.",
+  "validation": "Two clean stops and complete per-arm decision/prefix replay against5471; unchanged candidate boundaries; native original boundary equality allowing only source-backed extra analysis/end rows with validated sequence/window checks. Inspect selected implication reasons, not timing.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "pins/candidate": "509877b2c8f2fb7fbcd2faac6cdcf90cbae3eca77dd1eccce5e1816a0222e9ef",
+    "run.py": "ca7952037b3e04ee250d4c47250d2213329c28b4d431493a884940fe265604f0",
+    "array.sbatch": "78ba6f28acc8fdfbe37857d018880024785bf449bfee2495c078db2d8f18d912"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T05:15:24.657735+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": "benchmarks/runs/20260907-5462-short-bound-witnesses/summary.json",
+  "limitation": "Mechanism diagnostic on a short B case; not a replacement for fixed B28+C5 or Rank 1-40 competitiveness.",
+  "phase_window": [
+    0,
+    502
+  ],
+  "phase_variable": 43773,
+  "prior_summary_sha256": "cf0d21eb70953138ef1c251f2018a8fa1f8dd2aec513f5dbdd07428692e661d1",
+  "test_consideration": "Configuration-only reuse of tested IMPLY_ONLY observers. Syntax check, full parent replay and the eight normalization fixtures guard the diagnostic; no solver code change.",
+  "phase_authority": {
+    "path": "benchmarks/runs/20260908-5482-square-phase/observer-validation.json",
+    "sha256": "0f97613191d2285f28c4c35614a3bb99e43b25290b3bda41d4677820b8cefdb1"
+  }
+}

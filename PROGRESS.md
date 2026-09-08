@@ -13,7 +13,9 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - Latest implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
-  Three exact-work timing pairs and unchanged B28+C5 are queued; unfuzzed.
+  [Measured timing and causal follow-up](benchmarks/reports/2026-09-08-sweep-measured-and-causal-followup.md):
+  three exact-work pairs give median 0.984563x predecessor; proofs pending.
+  Full Rank 1–40 successor 5485 is submitted; B28+C5 is 64/66 checked.
 - Preceding [Watch-pair append](benchmarks/reports/2026-09-07-watch-pair-append.md), candidate 5466,
   adds an exact-layout two-word fast path within existing capacity on 5459.
   Both Release suites pass 83/83; 180 actual old/new cases have identical
@@ -32,11 +34,13 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   all 40 pairs are **1.173817x**, 58/80 checked at the solver snapshot; no
   timeout/verdict loss. No aggregate breakthrough. Rank 37 is again the largest
   loss (712.017/346.009 s, conflicts 2.114745x), then Ranks 32 and 31.
-  Extend Rank 37 beyond its common prefix and trace Rank 32. Rank 31 now matches
-  51,491,857 decisions and 276 portable boundaries through 100000 conflicts.
+  Rank 37 now first splits at 188502; earlier Sweep/Vivify boundaries are
+  localized. Rank 32 first splits after Sweep at 19375; selected replay queued.
+  Rank 31 matches 51,491,857 decisions and 276 boundaries through 100K.
 - [Short phase witness and closed gates](benchmarks/reports/2026-09-08-square-phase-and-checked-gates.md):
   Square first differs at conflict 501, decision 5849, same variable/opposite
-  polarity. Selected phase-history replay 5482 is queued; cause not established.
+  polarity. Replay 5482 now shows differing saved phases, not phase priority;
+  selected implications 5487 are queued. Assignment cause remains unresolved.
 - [Complete phase-budget view](benchmarks/reports/2026-09-07-phase-budget-full-view.md):
   5454 has all 40 pairs at **1.170283x**, 63/80 checked at the solver snapshot.
   No timeout/verdict loss; goal still unmet. Largest losses are Ranks 31/37/32.
@@ -54,7 +58,8 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   5430 restores missing root closure before Probe/Eliminate, with distinct
   search-tick/phase-saving scopes. Actual old/new scheduler fixtures confirm it.
   Independent 5426 removes redundant watch-metadata writes without state changes.
-  Both are **UNFUZZED**, unpromoted; phase-entry timing/gates are in flight.
+  5430 is covered by 5438's terminal fuzz pass; independent 5426 remains
+  unfuzzed. Neither source is promoted.
 - [Rephase closure](benchmarks/reports/2026-09-07-rephase-root-closure.md) owns
   exact Rank-35 prefix/heap closure and now-checked paired 0.658243x preceding
   candidate, 1.183228x Kissat. New clean profiles prioritize inprocessing cost.
@@ -96,17 +101,22 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; certificate tail pending. |
 | 5470 Rank-31 bound prefix | `1670801` | Complete: 51,491,857 matching decisions and 276 boundaries. |
 | 5471 Square bound prefix | `1670919` | Complete: first polarity split at conflict 501, decision 5849. |
-| 5475 Sweep cursor timing | `1671162` | Three exact-work pairs against 5466; running. |
-| 5476 Sweep cursor B28+C5 | `1671163` | Fixed cumulative gate; queued. |
-| 5478 Rank-37 extended prefix | `1671258` | Stop at 1M, record suffix from validated 100K anchor; queued. |
-| 5479 Rank-32 bound prefix | `1671263` | Second-largest full loss: 100K-conflict causal prefix; queued. |
-| 5482 Square selected phase | `1671600` | Existing observers, variable 43773 through conflict 502; queued. |
+| 5475 Sweep cursor timing | `1671162` | Six exact-work solves; median 0.984563x, proofs pending. |
+| 5476 Sweep cursor B28+C5 | `1671163` | Fixed cumulative gate; 64/66 checked. |
+| 5478 Rank-37 extended prefix | `1671258` | Complete: 25,001,084 common suffix rows, first split 188502. |
+| 5479 Rank-32 bound prefix | `1671263` | Complete: 18,583,703 common rows, split after Sweep at 19375. |
+| 5482 Square selected phase | `1671600` | Complete: negative Tactix phase save at 492; replay normalized. |
+| 5485 Sweep cursor Rank 1–40 | `1671708` | 61/80 solver records, 54 checked at audit; no full score yet. |
+| 5487 Square implications | `1671745` | Selected reasons for variable 43773 through conflict 502; queued. |
+| 5490 Rank-32 Sweep | `1671777` | Selected schedule/query/effort trace at 19375; queued. |
 
-User-requested periodic fuzz checkpoint 5442 is owned by background Claude
-process `2920923` (parent tool session `30094`), testing immutable source 5438.
-Read only its terminal response; do not inspect its jobs, logs or fuzz artifacts.
-Continue independent development while pending; no passing gate is inferred.
-This campaign does not cover 5445/5450/5459/5466/5473; include all in the next periodic checkpoint.
+Claude's terminal report for periodic fuzz 5442 is **PASS** on source 5438:
+80,000 cases, 71,907 checked verdicts, zero failures. Session 30094 is closed;
+the report is authoritative, and no fuzz artifacts were independently inspected.
+New checkpoint **5492** is owned by Claude process `3041017`, parent session
+`9171`, testing immutable latest source **5473**, including all post-5438 repairs.
+Read only its terminal response; do not inspect jobs, logs or fuzz artifacts.
+Continue development while pending; a predecessor pass does not cover 5473.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -135,13 +145,23 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Run `compare-square-phase-5482.py` when 5482 finishes: require exact parent
-   replay before interpreting phase saves/picks. The first Square polarity
-   split precedes search-time inprocessing; its cause is not established.
-   Rank 31's whole 100K prefix and portable boundaries now agree; its full-run
-   loss needs a later trace, after consuming the higher-priority extended R37.
-   Evaluate 5475 with `snapshot-sweep-cursor-runtime-5475.py`: require all three
-   complete statistics/proof-byte identities before interpreting paired timing.
+1. Run `compare-rank32-sweep-5490.py` and `compare-square-imply-5487.py` when
+   their probes finish. Require full observed parent replay before interpreting
+   selected events. Rank 32's first coarse split is Sweep exit at 19375, with
+   one more active variable; compare schedules, queries, units and effort.
+   Square 5482 passes successor `validate-square-phase-5486.py`: both complete
+   streams/prefixes agree with their parent; native adds 476 analysis/end rows,
+   while all 986 original boundaries match after sequence normalization.
+   The original strict comparator is retained as a failed observer expectation.
+   Both phase picks use saved state; Tactix saves negative43773 at conflict492.
+   Earlier assignment histories differ too; do not change phase priority.
+   Rank 31's whole 100K prefix and portable boundaries agree; its full-run loss
+   needs a later trace after the current Rank32/37 component investigations.
+   5475 now has three complete statistics/proof-byte identities: median
+   0.984563x predecessor, all pairs improve and both arm spreads below 0.5%.
+   Revisit its snapshot helper for proof closure only. Score new full 5485 with
+   `snapshot-sweep-full-5485.py` once all 80 solver records exist; preserve the
+   frozen snapshot afterward. Final checking uses `seal-sweep-full-5485.py`.
    Latest frozen source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
    5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
    5468's three pairs pass exact statistics/proof-byte identity: median
@@ -150,9 +170,11 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    B28+C5 gate remain required. Revisit `snapshot-watch-pair-runtime-5468.py`
    for final proof closure, not a duplicate timing campaign.
    5465's frozen solver snapshot is complete: 1.173817x, all expected verdicts.
-   Its `next-losses.json` selects Ranks 37/32/31. Compare 5478 with
-   `compare-rank37-extended-5478.py` (watcher 30072), then Rank 32 with
-   `compare-rank32-prefix-5479.py`. The 5478 matching-row count is suffix-only;
+   Its `next-losses.json` selects Ranks 37/32/31. Completed 5478 first splits at
+   conflict188502; `boundary-localization.json` first finds two Sweep binaries
+   at152381, while `nonbinary-localization.json` finds one retained Vivify clause
+   at188501. Neither is a proved cause or accepted neutral difference.
+   Watcher30072 is terminal. The 5478 matching-row count is suffix-only;
    5463 separately proves the complete earlier 35,346,388-row common prefix.
    5458 confirms native bound advancement after the cut; 5463 closes the
    100000-conflict prefix, including all 272 portable boundaries. First-call 5457 grids
@@ -209,7 +231,7 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Claude's terminal fixture review passed: the initial expected elimination
    count was wrong at equality, not a solver defect; original failure retained.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
-   in the background as requested. Check session `30094` for its terminal report;
+   in the background as requested. Check session `9171` for its terminal report;
    do not inspect/reinterpret fuzz artifacts. Consolidation still requires all
    runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
    pauses dependent work and invokes bounded Claude repair immediately.
@@ -218,6 +240,8 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    after the earlier auto-review rejection; do not retry or bypass it.
    Approval requested for separate future solve/check jobs to release solver
    allocations sooner; no contract/runner change until explicitly approved.
+   SLURM accounting is unavailable at the latest audit; controller queries work.
+   Preserve unknown purged-job states and never restart jobs on observation failure.
 
 ## Immutable evidence and validation
 
@@ -256,10 +280,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Rank 31 matches 51,491,857 decisions and 276 boundaries through 100K.
-- Short Square first splits on polarity at conflict 501; phase-history probe queued.
-- Phase-budget and bound B28+C5 each close with 66 checked/clean records.
-- Bound Rank 1–40 remains 1.173817x; 72/80 certificates checked in final audit.
-- Sweep timing runs; latest sources stay isolated and background fuzz remains pending.
+- Sweep cursor measured exact-work median 0.984563x; full successor5485 submitted.
+- Square phase choice honors saved state; implication-history probe5487 queued.
+- Rank32 Sweep and Rank37 later Sweep/Vivify boundaries localized; no cause proved.
+- Predecessor fuzz5442 PASS; latest-source checkpoint5492 runs under owner9171.
+- Production77/77 and eight new normalization fixtures pass; no source promoted.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

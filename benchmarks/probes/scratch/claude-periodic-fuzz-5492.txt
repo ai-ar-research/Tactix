@@ -1,0 +1,95 @@
+Own ONE new background periodic soundness checkpoint under DEVELOPMENT_PLAN.md
+section 8.2. Read CLAUDE.md, tools/fuzz/README.md, and the fuzz, stress-policy
+and slurm-jobs skills. Own preparation, immutable builds/harness snapshots,
+SLURM submission, monitoring, artifact inspection, oracles, cleanup and terminal
+report. Parent Codex will trust only your terminal report, not inspect your
+jobs or artifacts. Stay until terminal outcome. Parent owns PROGRESS, Andrew
+report and commits; do not invoke whole-project wrap-up.
+
+Workspace: /home/hwu/SAT-solving.
+READ-ONLY current candidate source (owned by submitted jobs):
+  .claude/worktrees/runtime-sweep-cursor-5473
+Immutable source authorities:
+  benchmarks/runs/20260908-5473-sweep-cursor/manifest.json
+  benchmarks/runs/20260908-5473-sweep-cursor/cumulative.patch
+Release pins (READ ONLY):
+  build/pin-5473-sweep-cursor-release/tactix
+  build/pin-5474-sweep-cursor-bc/tactix
+Both SHA-256:
+  305b2285fdda58345bdb020efe41584b3e8a4025df8aa8f4c44a06fa18f3f594
+Both pass 84/84 fixed CTests. Production remains c2a95a6, unmodified.
+
+Preceding Claude-owned campaign 5442 has returned terminal PASS on 5438:
+80,000 cases, 71,907 independently checked verdicts, zero failures, 496 direct
+reachability witness cases. Its report is
+benchmarks/runs/20260907-5442-periodic-fuzz/report.md. Do not repeat that passing
+candidate. This checkpoint covers a DIFFERENT current implementation, 5473,
+and its post-5438 changes. The parent has not inspected 5442 artifacts.
+
+Changed-surface risk matrix must cover these general repairs since 5438:
+- 5445 kernel replacement membership cursors: 840 actual old/new state cases.
+- 5450 strict phase-wide Eliminate budget stop; 12 scheduling fixtures.
+- 5459 native phase-bound advancement and retry flags after quota cuts;
+  two actual old/new quota-bound fixtures, updated phase cases.
+- 5466 two-word watch append fast path inside existing capacity;
+  180 actual old/new whole-watch-layout fixtures.
+- 5473 private Sweep membership cursors, preserving ordered mixed-occurrence
+  ledger and delayed rewrite moves; 588 actual old/new ledger fixtures.
+Authorities:
+  benchmarks/runs/20260907-5445-replacement-cursor/manifest.json
+  benchmarks/runs/20260907-5450-eliminate-limit/manifest.json
+  benchmarks/runs/20260907-5459-bound-advance/manifest.json
+  benchmarks/runs/20260907-5466-watch-pair/manifest.json
+  benchmarks/reports/2026-09-08-sweep-membership-cursor.md
+Use the current cumulative patch and exact filesystem authorities if an older
+directory spelling differs. All predecessor root-closure, dense-entry, Vivify,
+Sweep, Factor and Congruence repairs remain in the stack. Independent metadata
+5426 is NOT included. Source 5473 is currently UNFUZZED and unpromoted.
+
+Create only your own .claude/worktrees/runtime-periodic-fuzz-5492 source copy,
+build/pin-periodic-fuzz-5492-* builds and
+benchmarks/runs/20260908-5492-periodic-fuzz campaign. Existing worktree docs and
+tools may be symlinks: do not edit through them. Never rebuild or change any
+existing source, pin, manifest, runner or report. Verify production plus the
+cumulative patch and reproduce the plain Release SHA before fuzz builds.
+Snapshots for every submitted harness/scenario/corpus must be immutable.
+
+Coverage: use the maintained quick checkpoint base (corpus plus 10,000 seeded
+generated cases), with the minimum complete risk-based legs for assertions,
+ASan/UBSan, independent original-CNF model checks, DRAT and native LRAT,
+reference differential verdicts, random policies, and relevant maintained
+stress schedules. Reuse maintained scenarios and seed/count contracts, not a
+parallel harness. Show direct reachability of the new watch fast/fallback
+paths, kernel/Sweep membership updates including delayed transactions, quota
+cuts and phase-bound/retry lifecycle. Useful verdicts and actual target hits
+are mandatory; zero target fires are not coverage. Use bounded fixed or legal
+targeted witnesses when generated cases miss a trigger. Retain any limitation
+honestly, distinguishing fixed-fixture coverage from generated reachability.
+The earlier 5442 closure-entry stress did not hit pending propagation/unflushed
+root assignments, despite many entries; deep-tail fixed fixtures cover those.
+Do not spend an unbounded campaign repeating already unsuccessful reach probes.
+Known-bad oracle selftest is required if setup, harness or accept conditions
+change. Do not multiply a passing campaign for confidence.
+
+All real CNF solves use sbatch through the owning wrapper. Generated fuzz legs
+request 100 logical CPUs / 400,000 MiB / 50 workers (50 physical cores under
+SMT-2), queue normally without node constraints or array throttle. No silent
+one/two-worker fallback. Narrow setup/corpus/reachability jobs may use fewer
+resources with the recorded reason. Report requested and achieved concurrency.
+Leave user allocation 1668242 and unrelated jobs untouched.
+
+On a genuine soundness defect, crash, sanitizer/invariant failure, rejected
+model/proof or unexplained verdict difference: preserve original artifacts and
+immutable metadata, stop your dependent fuzz legs, shrink the failure and
+return terminal FAILURE with reproducer and bounded repair scope. Stop the
+owned latest-source dependent jobs 1671162 (5475 timing), 1671163 (5476 B28+C5)
+and 1671708 (5485 Rank1-40), preserving their evidence. Do not cancel unrelated
+jobs. Distinguish expected timeouts/resource failures from soundness. Do not
+repair production or any submitted candidate in place. Parent will invoke the
+required bounded Claude repair workflow from your terminal failure report.
+
+Terminal response: PASS / FAILURE / BLOCKED, exact tested source/build hashes,
+seed ranges, modes, scenarios, job IDs, resource/concurrency records, useful
+SAT/UNSAT/timeout counts, independent oracles, target reachability and limits,
+regression handling, cleanup audit, exact created/changed paths and durable
+report. Do not commit, push, revise the plan or change solver/checker contracts.
