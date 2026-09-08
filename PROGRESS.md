@@ -142,7 +142,7 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5558/5567 Rank33 prefixes | `1672426/1672434` |100K all31,494,584 decisions equal;1M first split182093, validator5568. |
 | 5564 Rank32 Factor grids | `1672430` | Complete via5574: first4824 grids agree;4825 differs. Extra journal rows accounted explicitly. |
 | 5565/5569 Rank32 Factor inputs | `1672432/1672436` | Both binary multisets match; second large input has only2 pose differences, no metadata difference. |
-| 5571 Rank32 post4824 heap | `1672476` | Submitted0-1; validator5573 distinguishes scores from topology. |
+| 5571 Rank32 post4824 heap | `1672476` | Complete:27256/27254 members; shared scores equal, T-only3/K-only1;5573. |
 
 Claude's terminal report for periodic fuzz 5442 is **PASS** on source 5438:
 80,000 cases, 71,907 checked verdicts, zero failures. Session 30094 is closed;
@@ -184,11 +184,11 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Validated5537 via5560 matches18,696,140 decisions, then splits at20095.
    5565/5569 validate both Factor19375 binary multisets and large clause order;
    only2 second-pass clause poses differ, metadata equal.5574 validates first4824 grids.
-   Post4824 heap5571/job1672476 runs; compare via5573. Original5566 expectation retained.
+   Heap5571 validates T-only[-491572,119877,393688]/K-only[394573], shared scores equal.
    Timing5531 is frozen:median0.889407x5510,all3 pairs improve,spreads<1%;
    checks pending.5536 seals after all6 checks; B28+C5 uses5541,checks async.
    Source5522 and builds5522/5524 match SHA67867f4b999b55b4…; trace5523 is separate.
-   Prior5515/5520 own missing single-clause solves;5522 repairs their call path.
+   Next compare the second Factor initial heap (ordinal4693) and membership history.
    Rank33 extended5567 splits182093;5572 finds an earlier5-large Congruence gap9457.
    Localize those actual clauses; do not infer its cause from counts or the late split.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
