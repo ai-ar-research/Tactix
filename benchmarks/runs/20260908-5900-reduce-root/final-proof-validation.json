@@ -1,0 +1,24 @@
+{
+  "checked_proofs": 46,
+  "journal_active_outcomes": [
+    "applied",
+    "applied",
+    "declined",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted"
+  ],
+  "hashes": {
+    "benchmarks/runs/20260908-5900-reduce-root/reduce-proofs/summary.json": "bed372ee793bceeb5636394faaa1a2b3d35208b8bdbb0900719207b00fac3104",
+    "benchmarks/runs/20260908-5900-reduce-root/continuation-proofs/summary.json": "7f10bd8154992e8f4096d0e95d587db23d02d39687e1eab611196348756c3bc7",
+    "benchmarks/runs/20260908-5900-reduce-root/caller-proofs/summary.json": "16d02da47fbd7f1d8f849bd6ed1c98886cf2d425f165265c121fc37b6e104ee9",
+    "benchmarks/runs/20260908-5900-reduce-root/journal-proofs/summary.json": "2b08a76340d535237f294d2d65c3398f4f97ace75959da527b2ab8df903dfa6e",
+    "benchmarks/runs/20260908-5900-reduce-root/controls/summary.json": "7de4d2acc113346813fbfde0901c9df225d235552186cfbcb762e51eb686ec48",
+    "benchmarks/runs/20260908-5904-reduce-root-edges/summary.json": "371775ed4af7fa36b0ef145b3488ecf84f03576bc70a2ebda4fb6938859ab026",
+    "benchmarks/runs/20260908-5900-reduce-root/caller-journal.tsv": "58fff35ea58b92679ec8c90af94a3bec924dde0a0a49c900a688da9fbac8f03a"
+  },
+  "scope": "6 new Reduce-guidance proofs plus40 inherited continuation/caller/edge/active-journal proofs. Actual old/new/native guidance and original SAT model controls. No checker acceptance change."
+}

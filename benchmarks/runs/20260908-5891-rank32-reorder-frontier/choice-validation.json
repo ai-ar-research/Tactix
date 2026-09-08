@@ -1,0 +1,100 @@
+{
+  "observer_neutrality": "Both arms replay every cached ordinary trace hash and partial proof byte through300K;no final proof or runtime claim.",
+  "heap_sizes": {
+    "candidate": 90617,
+    "kissat": 90616
+  },
+  "heap_differences": [
+    {
+      "external": 80373,
+      "candidate": {
+        "position": 32821,
+        "score": "4.6796875",
+        "assigned": 0,
+        "active": 1
+      },
+      "kissat": {
+        "position": 65643,
+        "score": "4.6796875",
+        "assigned": 0,
+        "active": 1
+      }
+    },
+    {
+      "external": 202958,
+      "candidate": {
+        "position": 65643,
+        "score": "3.0625000015589925",
+        "assigned": 1,
+        "active": 1
+      },
+      "kissat": null
+    },
+    {
+      "external": 471444,
+      "candidate": {
+        "position": 90616,
+        "score": "4.75",
+        "assigned": 0,
+        "active": 1
+      },
+      "kissat": {
+        "position": 32821,
+        "score": "4.75",
+        "assigned": 0,
+        "active": 1
+      }
+    }
+  ],
+  "first_choice_state_difference": {
+    "index": 0,
+    "candidate": [
+      "225987",
+      "61013974",
+      "1",
+      "-489810",
+      "202958",
+      "-1",
+      "0",
+      "65643",
+      "3.0625000015589925",
+      "unit",
+      "1",
+      "90619",
+      "163691",
+      "90619",
+      "86713",
+      "182138",
+      "204760",
+      "71983"
+    ],
+    "kissat": [
+      "225987",
+      "61013974",
+      "1",
+      "-489810",
+      "202958",
+      "-1",
+      "0",
+      "4294967295",
+      "1.5589924281907274e-09",
+      "unit",
+      "1",
+      "90619",
+      "163691",
+      "90619",
+      "86713",
+      "0",
+      "0",
+      "71983"
+    ]
+  },
+  "hashes": {
+    "benchmarks/runs/20260908-5891-rank32-reorder-frontier/manifest.json": "ca74a0da95c7b215250ba09f648cb28f66eb856a222ea62fcdcafbf961fa93d1",
+    "benchmarks/runs/20260908-5891-rank32-reorder-frontier/results/candidate.json": "4d8e7528dfef1347ae700c8f84dd4e0e38c4bea494c24e2da4b05b02dca4caa6",
+    "benchmarks/runs/20260908-5857-forward-caller-rank32-prefix/results/candidate.json": "3844df63f1df3a31cdf94e72c7afdb266900ec6e056f97ba1cfa738241db29da",
+    "benchmarks/runs/20260908-5891-rank32-reorder-frontier/results/kissat.json": "6030739b1c59c499f416cc08a176ef1398748d4de123e35e2c2ca825de623349",
+    "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/results/kissat.json": "16bbb018d89f0f85751c27ef4f5a8790f99b3b91db9f3a9f391f9c85ff6d1abc"
+  },
+  "limitation": "Heap snapshot follows first post-Reorder decision61013974 before subsequent propagation. Choice fields use portable reasons but internal missing-position sentinels may differ; classify fields,not raw rows alone."
+}

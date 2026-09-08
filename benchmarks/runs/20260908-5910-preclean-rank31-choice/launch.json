@@ -1,0 +1,9 @@
+{
+  "job_id": "1675028",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5910-preclean-rank31-choice/array.sbatch"
+  ],
+  "manifest_sha256": "6110e65c965f2d610d5b71d73c674ae706f12103bf0891efdedba6180e0ba7df"
+}

@@ -1,0 +1,9 @@
+{
+  "job_id": "1675097",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5917-reduce-root-next-choice/array.sbatch"
+  ],
+  "manifest_sha256": "cc968dfa852277d2b98d8b0a39978422b407821cb23460d54e01fccd77a7a7d0"
+}

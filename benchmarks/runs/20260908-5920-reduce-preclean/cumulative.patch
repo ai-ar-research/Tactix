@@ -1,0 +1,2454 @@
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -19,6 +19,7 @@
+ #endif
+ 
+ namespace tactix {
++void emit_heap_set_snapshot(const Kernel &k, bool after_decision);
+ namespace {
+ 
+ EventTrace *active_trace;
+@@ -293,6 +294,79 @@
+ }
+ 
+ void note_decision_prefix(const Kernel &k, int external) {
++  // Reuse the one-shot observer without enabling broad event payloads.
++  static const bool direct_heap =
++      std::getenv("SAT_DECISION_HEAP_SNAPSHOT") != nullptr;
++  if (direct_heap)
++    emit_heap_set_snapshot(k, true);
++  static bool state_initialized = false;
++  static FILE *state = nullptr;
++  static uint64_t state_conflict = UINT64_MAX;
++  static int wanted = 0;
++  if (!state_initialized) {
++    state_initialized = true;
++    const char *path = std::getenv("TACTIX_CHOICE_STATE_TRACE");
++    const char *conflict = std::getenv("SAT_CHOICE_STATE_CONFLICT");
++    const char *variable = std::getenv("SAT_CHOICE_STATE_VARIABLE");
++    if (path && conflict && variable) {
++      state = std::fopen(path, "w");
++      if (!state) { std::perror(path); std::exit(2); }
++      state_conflict = std::strtoull(conflict, nullptr, 10);
++      wanted = std::atoi(variable);
++    }
++  }
++  if (state && k.stats.conflicts == state_conflict) {
++    const Lit l = kernel_internalize(k, wanted);
++    if (l != INVALID_LIT) {
++      const Var v = var_of(l);
++      const auto &a = k.assigned[v];
++      std::fprintf(state, "%llu\t%llu\t%u\t%d\t%d\t%d\t%u\t%u\t%.17g\t",
++          (unsigned long long)k.stats.conflicts,
++          (unsigned long long)k.stats.decisions, k.level, external, wanted,
++          int(k.values[l]), k.values[l] ? a.level : UINT32_MAX,
++          k.h ? k.h->scores.pos[v] : UINT32_MAX,
++          k.h ? k.h->scores.score[v] : 0.0);
++      if (!k.values[l]) std::fputs("unassigned",state);
++      else if (a.reason == DECISION_REASON) std::fputs("decision",state);
++      else if (a.reason == UNIT_REASON) std::fputs("unit",state);
++      else if (a.binary)
++        std::fprintf(state,"binary:%d",kernel_externalize(k,a.reason));
++      else {
++        const Clause *c = clause_at(k.arena,a.reason);
++        std::fputs("large:",state);
++        for (uint32_t i=0;i<c->size;i++)
++          std::fprintf(state,"%s%d",i?",":"",kernel_externalize(k,c->lits[i]));
++      }
++      if (k.h) {
++        const auto ext = [&](Var x) { return x == INVALID_VAR ? 0 :
++            std::abs(kernel_externalize(k, make_lit(x, false))); };
++        const Lit chosen = kernel_internalize(k, external);
++        std::fprintf(state, "\t%d\t%u\t%d\t%u\t%u\t%d\t%d\t%u",
++            int(k.h->stable), k.h->queue_stamp, ext(k.h->search_idx),
++            k.h->search_stamp, k.h->links[v].stamp,
++            ext(k.h->links[v].prev), ext(k.h->links[v].next),
++            chosen == INVALID_LIT ? 0 : k.h->links[var_of(chosen)].stamp);
++      }
++      std::fputc('\n',state);
++    }
++  }
++  static bool stream_initialized = false;
++  static FILE *stream = nullptr;
++  static uint64_t stream_conflict_from = 0;
++  if (!stream_initialized) {
++    stream_initialized = true;
++    if (const char *path = std::getenv("TACTIX_DECISION_STREAM_TRACE")) {
++      if (const char *from = std::getenv("SAT_DECISION_STREAM_CONFLICT_FROM"))
++        stream_conflict_from = std::strtoull(from, nullptr, 10);
++      stream = std::fopen(path, "w");
++      if (!stream) { std::perror(path); std::exit(2); }
++    }
++  }
++  if (stream && k.stats.conflicts >= stream_conflict_from)
++    std::fprintf(stream, "%llu\t%llu\t%u\t%d\t%d\n",
++                 (unsigned long long)k.stats.conflicts,
++                 (unsigned long long)k.stats.decisions, k.level, external,
++                 k.warming ? 1 : 0);
+   initialize_decision_prefix();
+   auto &s = decision_prefix;
+   // Accumulate the CUMULATIVE decision prefix (every decision up to and
+@@ -1311,6 +1385,9 @@
+ 
+ void EventTrace::emit(const Kernel &k, const char *event, const char *payload,
+                       bool snapshot) {
++  if (std::getenv("SAT_EVENT_TRACE_ALL_ROOTS") &&
++      std::strcmp(event, "root_assign") && std::strcmp(event, "analysis_end"))
++    return;
+   const bool exit_after_match =
+       exit_selector_matches(event, payload, exit_match_.c_str()) &&
+       (exit_conflict_ == UINT64_MAX || exit_conflict_ == k.stats.conflicts);
+@@ -2258,6 +2335,8 @@
+   // Learned-only is a low-perturbation trajectory observer.  Reject other
+   // detailed helpers before they construct payloads; learned_stage applies
+   // the same conflict window directly below.
++  if (imply_only_)
++    return false;
+   if (learned_only_ || heap_vars_only_ || factor_fresh_only_ ||
+       factor_update_only_ || factor_literal_only_ || clause_lifecycle_only_)
+     return false;
+@@ -3103,6 +3182,26 @@
+ 
+ void event_trace_target_state(const Kernel &k, const char *stage,
+                               uint32_t assigned) {
++  if (k.h && (std::strstr(stage, "compact") || std::strstr(stage, "factor-stamps") ||
++              !std::strcmp(stage, "bve-schedule"))) {
++    static std::FILE *file = [] {
++      const char *path = std::getenv("TACTIX_QUEUE_STAMP_TRACE");
++      return path && *path ? std::fopen(path, "w") : nullptr;
++    }();
++    if (file) {
++      const Var search = k.h->search_idx;
++      std::fprintf(file, "snapshot\t%s\t%llu\t%llu\t%d\t%u\t%d\t%u\t%u\n",
++          stage, (unsigned long long)k.stats.conflicts,
++          (unsigned long long)k.stats.decisions, int(k.h->stable),
++          k.h->queue_stamp, search == INVALID_VAR ? 0 :
++              std::abs(kernel_externalize(k, make_lit(search, false))),
++          k.h->search_stamp, assigned);
++      for (Var v = k.h->queue_first; v != INVALID_VAR; v = k.h->links[v].next)
++        std::fprintf(file, "member\t%d\t%u\n",
++            std::abs(kernel_externalize(k, make_lit(v, false))), k.h->links[v].stamp);
++      std::fflush(file);
++    }
++  }
+   if (active_trace)
+     active_trace->target_state(k, stage, assigned);
+ }
+@@ -4456,6 +4555,40 @@
+ void event_trace_bve_retry_mark(const Kernel &k, Var var, const char *source,
+                                 bool before, bool after,
+                                 const Clause *clause) {
++  // Standalone read-only producer journal, independent of the old one-shot
++  // post-candidate observer. Compile-time tracing keeps this out of Release.
++  static bool producer_initialized = false;
++  static FILE *producer = nullptr;
++  static uint64_t producer_from = 0, producer_to = UINT64_MAX;
++  static uint32_t producer_external = 0;
++  if (!producer_initialized) {
++    producer_initialized = true;
++    if (const char *path = std::getenv("TACTIX_RETRY_PRODUCER_TRACE")) {
++      producer = std::fopen(path, "w");
++      if (!producer) std::exit(2);
++      std::setvbuf(producer, nullptr, _IOLBF, 0);
++      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_FROM"))
++        producer_from = std::strtoull(s, nullptr, 10);
++      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_TO"))
++        producer_to = std::strtoull(s, nullptr, 10);
++      if (const char *s = std::getenv("SAT_RETRY_PRODUCER_EXTERNAL"))
++        producer_external = std::strtoul(s, nullptr, 10);
++    }
++  }
++  if (producer && k.stats.conflicts >= producer_from &&
++      k.stats.conflicts <= producer_to &&
++      k.internal_to_external[var] + 1 == producer_external) {
++    std::fprintf(producer, "tactix\tconflicts=%llu\tdecisions=%llu\texternal=%u\tsource=%s\tbefore=%u\tafter=%u\tvalue=%d\tretired=%u\tclause=",
++                 (unsigned long long)k.stats.conflicts,
++                 (unsigned long long)k.stats.decisions, producer_external,
++                 source ? source : "unspecified", before, after,
++                 static_cast<int>(k.value(make_lit(var, false))),
++                 kernel_var_retired(k, var));
++    if (clause)
++      for (const Lit l : *clause)
++        std::fprintf(producer, "%d,", kernel_externalize(k, l));
++    std::fputc('\n', producer);
++  }
+   if (!bve_retry_trace_armed || before || !after)
+     return;
+   const char *path = std::getenv("TACTIX_BVE_RETRY_TRACE");
+@@ -4857,6 +4990,7 @@
+       }
+       const std::string payload = bve_schedule_payload(
+           k, members, scores, size, bound, insertion_hash);
++      event_trace_target_state(k, "bve-schedule", 0);
+       uint64_t irredundant = 0, redundant = 0;
+       live_clause_counts(k, irredundant, redundant);
+       std::fprintf(out, "# bve-schedule-observer\t1\n");
+@@ -5331,6 +5465,8 @@
+ }
+ 
+ bool EventTrace::heap_var_selected(const Kernel &k, Var v) const {
++  if (std::getenv("SAT_EVENT_TRACE_ALL_ROOTS"))
++    return true;
+   if (v >= k.nvars)
+     return false;
+   const int external =
+@@ -5341,6 +5477,8 @@
+ 
+ void EventTrace::heap_insert(const Kernel &k, Var v, uint32_t from,
+                              uint32_t to) {
++  if (imply_only_)
++    return;
+   if (!out_ || !k.h || !k.h->stable)
+     return;
+   if (heap_vars_only_ && detail_window_ &&
+@@ -5366,6 +5504,8 @@
+ void EventTrace::heap_remove(const Kernel &k, Var removed, Var last,
+                              uint32_t removed_pos, uint32_t from,
+                              uint32_t to) {
++  if (imply_only_)
++    return;
+   if (!out_ || !k.h || !k.h->stable)
+     return;
+   if (heap_vars_only_ && detail_window_ &&
+@@ -5398,6 +5538,8 @@
+ 
+ void EventTrace::heap_pop(const Kernel &k, const char *stage, Var held,
+                           Var other, uint32_t from, uint32_t to) {
++  if (imply_only_)
++    return;
+   if (!out_ || !k.h || !k.h->stable)
+     return;
+   if (heap_vars_only_ && detail_window_ &&
+@@ -5675,7 +5817,14 @@
+ }
+ 
+ void EventTrace::implications(const Kernel &k, size_t trail_begin) {
+-  if (!want_detail(k) || emitted_ >= limit_)
++  // Implication-only tracing rejects unrelated helpers before constructing
++  // their payloads. Admit this owner directly at the same conflict window.
++  const bool selected = imply_only_
++      ? out_ && (!detail_window_ ||
++                 (k.stats.conflicts >= detail_conflict_from_ &&
++                  k.stats.conflicts <= detail_conflict_to_))
++      : want_detail(k);
++  if (!selected || emitted_ >= limit_)
+     return;
+   for (size_t pos = trail_begin; pos < k.trail.size(); pos++) {
+     if (emitted_ >= limit_)
+--- a/src/engine/subsolver.cpp
++++ b/src/engine/subsolver.cpp
+@@ -169,6 +169,7 @@
+   chain_entries_.clear();
+   derived_.clear();
+   target_ = {};
++  core_root_ = 0;
+   have_derivation_ = false;
+   target_is_derived_ = false;
+   next_id_ = 1;
+@@ -316,11 +317,14 @@
+     chain_clear();
+     const SubLit *c = clause_lits(reason);
+     const uint32_t size = clause_size(reason);
++    std::vector<uint32_t> antecedents{clause_id(reason)};
+     for (uint32_t i = 0; i < size; i++)
+-      if (c[i] != l)
++      if (c[i] != l) {
++        antecedents.push_back(clause_id(reason_[sub_var_of(c[i])]));
+         record_cone(sub_var_of(c[i]), nullptr);
++      }
+     const std::vector<SubLit> unit{l};
+-    reason = add_derived(unit, chain_build(reason));
++    reason = add_derived(unit, chain_build(reason), antecedents);
+     chain_clear();
+   }
+   values_[l] = 1;
+@@ -408,10 +412,11 @@
+ }
+ 
+ SubSolver::SubRef SubSolver::add_derived(const std::vector<SubLit> &lits,
+-                                         const std::vector<uint32_t> &chain) {
++                                         const std::vector<uint32_t> &chain,
++                                         const std::vector<uint32_t> &ante) {
+   const uint32_t id = next_id_++;
+   kitten_ticks_++; // learned clauses use the same `new_reference`
+-  derived_.push_back({id, export_literals(lits), chain});
++  derived_.push_back({id, export_literals(lits), chain, ante});
+   arena_.push_back(id);
+   arena_.push_back(static_cast<SubLit>(lits.size()));
+   const SubRef ref = static_cast<SubRef>(arena_.size());
+@@ -620,9 +625,44 @@
+   // already `inconsistent` and does not allocate that lemma.
+   if (search_mode_ == SubSearchMode::Kitten && clause_size(conflict))
+     kitten_ticks_++;
+-  target_ = {next_id_++, {}, chain_build(conflict)};
++  target_ = {next_id_++, {}, chain_build(conflict),
++             refute_antecedents(conflict)};
++  core_root_ = target_.id;
+   have_derivation_ = true;
+   target_is_derived_ = false;
++}
++
++// `inconsistent` (`kitten.c:1622-1645`) records the antecedents of the empty
++// clause by breadth: the conflict, then the reason of each root literal in the
++// order the walk marks it. The LRAT cone reaches the same clauses depth-first,
++// which is a different list and so a different core post-order.
++std::vector<uint32_t> SubSolver::refute_antecedents(SubRef conflict) {
++  std::vector<uint32_t> ante;
++  assert(analyzed_.empty());
++  SubRef ref = conflict;
++  for (;;) {
++    ante.push_back(clause_id(ref));
++    const uint32_t size = clause_size(ref);
++    const SubLit *c = clause_lits(ref);
++    for (uint32_t i = 0; i < size; i++) {
++      const SubVar v = sub_var_of(c[i]);
++      if (seen_[v])
++        continue;
++      seen_[v] = 1;
++      analyzed_.push_back(v);
++    }
++    if (next_root_ == analyzed_.size())
++      break;
++    const SubVar v = analyzed_[next_root_++];
++    if (reason_[v] == NO_REF)
++      break; // no antecedent to follow: the list stops here, as Kitten's does
++    ref = reason_[v];
++  }
++  for (const SubVar v : analyzed_)
++    seen_[v] = 0;
++  analyzed_.clear();
++  next_root_ = 0;
++  return ante;
+ }
+ 
+ bool SubSolver::analyze() {
+@@ -635,6 +675,13 @@
+   analyzed_.clear();
+   chain_clear();
+ 
++  // Kitten's `resolved` (`kitten.c:1303`): the conflict, then each reason as
++  // the reverse-trail walk resolves on it. The LRAT chain sorts the same
++  // clauses ascending by trail position with the conflict last, and the core
++  // DFS pushes antecedents in list order, so the two give different
++  // post-orders.
++  analyze_ante_.clear();
++  analyze_ante_.push_back(clause_id(conflict_ref_));
+   uint32_t count = 0; // seen, unresolved, at the current level
+   uint32_t bj = 0;
+   const auto see = [&](SubLit l) {
+@@ -703,6 +750,7 @@
+     const SubLit resolved = trail_[idx];
+     assert(reason_[v] != NO_REF); // a decision is never resolved on
+     chain_entries_.emplace_back(trail_pos_[v], clause_id(reason_[v]));
++    analyze_ante_.push_back(clause_id(reason_[v]));
+     const uint32_t size = clause_size(reason_[v]);
+     const SubLit *c = clause_lits(reason_[v]);
+     for (uint32_t i = 0; i < size; i++)
+@@ -726,7 +774,7 @@
+     bj = level_[sub_var_of(learned_[1])];
+   }
+   backtrack(bj);
+-  const SubRef ref = add_derived(learned_, chain);
++  const SubRef ref = add_derived(learned_, chain, analyze_ante_);
+   assign(learned_[0], ref);
+   return true;
+ }
+@@ -773,6 +821,7 @@
+     assert(reason != NO_REF && clause_size(reason) == 1);
+     target_ = {next_id_, {export_literal(sub_negate(failed))},
+                {clause_id(reason)}};
++    core_root_ = clause_id(reason);
+     have_derivation_ = true;
+     return;
+   }
+@@ -838,15 +887,28 @@
+   chain_clear();
+   record_cone(failed_var, nullptr);
+   const std::vector<uint32_t> chain = chain_build(NO_REF);
++  // The two lists are different sets, not two orders of one: `record_cone`
++  // closes transitively, while the walk above stops at a root reason as Kitten
++  // does. Only the cone is a RUP sequence; only `resolved` is what Kitten's
++  // clausal core traverses, so the lemma has to carry both.
++  std::vector<uint32_t> antecedents;
++  antecedents.reserve(resolved.size());
++  for (const SubRef ref : resolved)
++    antecedents.push_back(clause_id(ref));
+   if (resolved.size() == 1) {
+     // Kitten points at the sole antecedent rather than allocating a duplicate
+     // clause.  Expose a synthetic proof target without consuming its id.
+-    target_ = {next_id_, export_literals(clause), chain};
++    target_ = {next_id_, export_literals(clause), chain, antecedents};
+     target_is_derived_ = false;
++    // `failing` points straight at the sole antecedent (`kitten.c:1523`), so
++    // the core is rooted there. The synthetic target names no clause and must
++    // not enter the core as one.
++    core_root_ = antecedents.front();
+   } else {
+-    add_derived(clause, chain);
++    add_derived(clause, chain, antecedents);
+     target_ = derived_.back();
+     target_is_derived_ = true;
++    core_root_ = target_.id;
+   }
+   have_derivation_ = true;
+ }
+@@ -962,6 +1024,7 @@
+           (void)target_ref;
+           target_ = derived_.back();
+           target_is_derived_ = true;
++          core_root_ = target_.id;
+         } else {
+           // Kitten reuses a single antecedent as the failing core. Keep a
+           // synthetic view for proof capture without consuming a clause id or
+@@ -971,6 +1034,7 @@
+           target_ = {target_id, export_literals(lits), chain};
+           target_is_derived_ = false;
+         }
++        core_root_ = target_.id;
+         have_derivation_ = true;
+         return SubResult::Unsat;
+       }
+@@ -1158,6 +1222,7 @@
+   next_id_ = original_clauses_ + 1;
+   derived_.clear();
+   target_ = {};
++  core_root_ = 0;
+   have_derivation_ = false;
+   target_is_derived_ = false;
+   conflict_ref_ = NO_REF;
+@@ -1191,26 +1256,28 @@
+   shuffle(units_);
+ }
+ 
+-bool SubSolver::derivation(SubDerivation &out) const {
++const SubStep *SubSolver::step_of(uint32_t id) const {
++  if (id == target_.id && !target_is_derived_)
++    return &target_;
++  // derived_ is in ascending id order, so a binary search finds it
++  const auto it = std::lower_bound(
++      derived_.begin(), derived_.end(), id,
++      [](const SubStep &s, uint32_t v) { return s.id < v; });
++  if (it == derived_.end() || it->id != id)
++    return nullptr;
++  return &*it;
++}
++
++bool SubSolver::derivation(SubDerivation &out, bool with_core) const {
+   out.steps.clear();
+   out.core.clear();
++  out.core_clauses.clear();
+   if (!have_derivation_)
+     return false;
+   // Walk back from the target, marking the lemmas and originals it needs.
+   std::vector<uint8_t> needed(next_id_ + 1, 0);
+   std::vector<uint32_t> todo{target_.id};
+   needed[target_.id] = 1;
+-  const auto step_of = [&](uint32_t id) -> const SubStep * {
+-    if (id == target_.id && !target_is_derived_)
+-      return &target_;
+-    // derived_ is in ascending id order, so a binary search finds it
+-    const auto it = std::lower_bound(
+-        derived_.begin(), derived_.end(), id,
+-        [](const SubStep &s, uint32_t v) { return s.id < v; });
+-    if (it == derived_.end() || it->id != id)
+-      return nullptr;
+-    return &*it;
+-  };
+   while (!todo.empty()) {
+     const uint32_t id = todo.back();
+     todo.pop_back();
+@@ -1232,7 +1299,60 @@
+     out.steps.push_back(target_);
+   std::sort(out.core.begin(), out.core.end());
+   out.core.erase(std::unique(out.core.begin(), out.core.end()), out.core.end());
++  if (with_core)
++    compute_clausal_core(out);
+   return true;
+ }
+ 
++// `kitten_compute_clausal_core` (`kitten.c:1978-2008`): a DFS from the refuting
++// lemma over recorded antecedents, pushing each clause back under a sentinel so
++// it is appended after its own antecedents and marked, which emits every core
++// clause exactly once in post-order. The stack alternates clause ids and the
++// sentinel, so an id may never equal it.
++void SubSolver::compute_clausal_core(SubDerivation &out) const {
++  constexpr uint32_t SENTINEL = UINT32_MAX;
++  assert(next_id_ < SENTINEL);
++  std::vector<uint8_t> in_core(static_cast<size_t>(next_id_) + 2, 0);
++  std::vector<uint32_t> resolved{core_root_};
++  std::vector<size_t> slot(static_cast<size_t>(next_id_) + 2, SIZE_MAX);
++  while (!resolved.empty()) {
++    const uint32_t c_id = resolved.back();
++    resolved.pop_back();
++    if (c_id == SENTINEL) {
++      const uint32_t d_id = resolved.back();
++      resolved.pop_back();
++      assert(!in_core[d_id]);
++      in_core[d_id] = 1;
++      const SubStep *d = step_of(d_id);
++      slot[d_id] = out.core_clauses.size();
++      out.core_clauses.push_back(
++          {d_id, d != nullptr, d ? d->lits : std::vector<SubLit>{}});
++      continue;
++    }
++    if (in_core[c_id])
++      continue;
++    resolved.push_back(c_id);
++    resolved.push_back(SENTINEL);
++    const SubStep *c = step_of(c_id);
++    if (!c) // a stated original clause has no antecedents
++      continue;
++    for (const uint32_t a : c->core_antecedents())
++      if (!in_core[a])
++        resolved.push_back(a);
++  }
++  // The core sees each clause's live watch pose. Proof steps keep their
++  // creation pose and LRAT chain independently. Join once, not per core row.
++  for (size_t off = 0; off < arena_.size();) {
++    const uint32_t id = arena_[off];
++    const uint32_t size = arena_[off + 1];
++    const size_t next = off + 2 + size;
++    if (id < slot.size() && slot[id] != SIZE_MAX) {
++      const SubLit *lits = arena_.data() + off + 2;
++      out.core_clauses[slot[id]].lits =
++          export_literals(std::vector<SubLit>(lits, lits + size));
++    }
++    off = next;
++  }
++}
++
+ } // namespace tactix
+--- a/src/engine/subsolver.hpp
++++ b/src/engine/subsolver.hpp
+@@ -47,10 +47,21 @@
+ // One derived clause: `lits` follows from `chain` in the LRAT sense — assume
+ // every literal of `lits` false, then propagate `chain` in order, each entry
+ // unit or (the last) conflicting. An empty `lits` is the empty clause.
++//
++// `antecedents` is a second, generally smaller list: the clauses Kitten records
++// on the lemma (`kitten.c:965`), which is what its clausal core walks. Kitten's
++// failing-assumption analysis stops at a root reason instead of expanding it
++// (`kitten.c:1461-1477`), so that set is not the transitive cone an LRAT chain
++// needs. Empty means the two coincide, which holds everywhere but there.
+ struct SubStep {
+   uint32_t id = 0;
+   std::vector<SubLit> lits;
+   std::vector<uint32_t> chain;
++  std::vector<uint32_t> antecedents;
++
++  const std::vector<uint32_t> &core_antecedents() const {
++    return antecedents.empty() ? chain : antecedents;
++  }
+ };
+ 
+ // A complete refutation, payable as a proof obligation: a swept equivalence is
+@@ -63,6 +74,17 @@
+ struct SubDerivation {
+   std::vector<SubStep> steps;
+   std::vector<uint32_t> core;
++  // Kitten's clausal core: every clause reachable from the refuting lemma over
++  // `antecedents`, each emitted once, in the post-order
++  // `kitten_compute_clausal_core` produces (`kitten.c:1978-2008`). `learned`
++  // separates a lemma from a stated original, which Kissat's `save_core_clause`
++  // filters on (`sweep.c:333-337`).
++  struct CoreClause {
++    uint32_t id = 0;
++    bool learned = false;
++    std::vector<SubLit> lits;
++  };
++  std::vector<CoreClause> core_clauses;
+ };
+ 
+ class SubSolver {
+@@ -107,7 +129,10 @@
+   // refutation yet, or the assumptions were directly contradictory, so nothing
+   // was derived and the target clause would be a tautology — which only
+   // `Proof::add_rup`'s assert catches, DRAT accepting it for free.
+-  bool derivation(SubDerivation &out) const;
++  // `with_core` additionally fills `out.core_clauses` with Kitten's clausal
++  // core; it costs one arena walk, so only the caller that consumes the core
++  // asks for it.
++  bool derivation(SubDerivation &out, bool with_core = false) const;
+ 
+   // Kitten definition-core refinement: retain only the original clauses in a
+   // computed core, discard learned state, then deterministically shuffle the
+@@ -177,7 +202,8 @@
+   bool propagate_units();
+   void attach(SubRef ref);
+   SubRef add_derived(const std::vector<SubLit> &lits,
+-                     const std::vector<uint32_t> &chain);
++                     const std::vector<uint32_t> &chain,
++                     const std::vector<uint32_t> &ante = {});
+   SubLit *clause_lits(SubRef ref) { return &arena_[ref]; }
+   const SubLit *clause_lits(SubRef ref) const { return &arena_[ref]; }
+   uint32_t clause_size(SubRef ref) const { return arena_[ref - 1]; }
+@@ -192,6 +218,9 @@
+   void chain_clear();
+   // sorted ids, with `closing` appended last when it is not NO_REF
+   std::vector<uint32_t> chain_build(SubRef closing);
++  std::vector<uint32_t> refute_antecedents(SubRef conflict);
++  const SubStep *step_of(uint32_t id) const;
++  void compute_clausal_core(SubDerivation &out) const;
+   void refute_empty(SubRef conflict); // the empty clause, from a level-0 conflict
+ 
+   uint32_t nvars_ = 0;
+@@ -261,6 +290,12 @@
+   std::vector<SubVar> cone_touched_;
+   std::vector<SubVar> cone_stack_;
+   std::vector<std::pair<uint32_t, uint32_t>> chain_entries_; // (trail pos, id)
++  std::vector<uint32_t> analyze_ante_; // Kitten's `resolved`, in its own order
++  size_t next_root_ = 0;               // `inconsistent`'s breadth cursor
++  // The clause Kitten leaves in `inconsistent`/`failing`, which roots the core.
++  // Not always the proof target: a single-antecedent failing analysis reuses
++  // that antecedent and never allocates a clause for the target.
++  uint32_t core_root_ = 0;
+ 
+   std::vector<SubStep> derived_; // every lemma learned, in derivation order
+   SubStep target_;               // the last refutation's target clause
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -310,8 +310,14 @@
+ #ifdef TACTIX_ENABLE_RULE_JOURNAL
+   rule_journal_note_large_add(k, lits, size, id, redundant, glue);
+ #endif
+-  k.watches.push_large(lits[0], lits[1], ref);
+-  k.watches.push_large(lits[1], lits[0], ref);
++  // Physical dense mode publishes occurrences below, not sparse watches.
++  // Kissat's new_large_clause selects those representations by `watching`;
++  // our in-place replacement already obeys this same connection flag.
++  // Reconnection publishes the final live clauses once, in their owned order.
++  if (k.large_watches_connected) {
++    k.watches.push_large(lits[0], lits[1], ref);
++    k.watches.push_large(lits[1], lits[0], ref);
++  }
+   // Irredundant clauses feed the dense index and the added-material consumers
+   // (forward subsumption and Factor).  Pinned Kissat's `mark_added_literal`
+   // does NOT set `flags.eliminate`: BVE retry is armed by variable activation
+@@ -1100,17 +1106,31 @@
+   const Lit old_first = c->lits[0], old_second = c->lits[1];
+   const bool redundant = c->redundant();
+ 
++  // Rewrite images usually retain the source order (root stripping and
++  // connected substitution). Restarting each membership lookup at the first
++  // literal turns those unchanged runs into quadratic scans. Continue after
++  // the previous match, wrapping over the prefix if necessary: every query
++  // still searches the complete image, including arbitrary reorderings.
++  // No marks, clause pose, or shared scratch are changed by this cursor.
++  const auto membership = [](const Lit *begin, const Lit *end) {
++    return [begin, end, next = begin](Lit lit) mutable {
++      const Lit *found = std::find(next, end, lit);
++      if (found == end) {
++        found = std::find(begin, next, lit);
++        if (found == next)
++          return false;
++      }
++      next = found + 1;
++      return true;
++    };
++  };
++  auto in_new = membership(lits, lits + size);
++
+   // Update the optional dense membership while the old semantic image is
+   // still readable.  Retained literals keep the same Ref and therefore their
+   // exact occurrence position; only a genuinely new literal is appended.
+   if (k.dense && !redundant) {
+-    const auto in_new = [&](Lit lit) {
+-      return std::find(lits, lits + size, lit) != lits + size;
+-    };
+-    const auto in_old = [&](Lit lit) {
+-      return std::find(c->lits, c->lits + old_size, lit) !=
+-             c->lits + old_size;
+-    };
++    auto in_old = membership(c->lits, c->lits + old_size);
+     for (uint32_t i = 0; i < old_size; i++) {
+       const Lit lit = c->lits[i];
+       if (in_new(lit))
+@@ -1142,7 +1162,7 @@
+   if (!redundant && !retain)
+     for (uint32_t i = 0; i < old_size; ++i) {
+       const Lit old = c->lits[i];
+-      if (std::find(lits, lits + size, old) != lits + size)
++      if (in_new(old))
+         continue;
+       kernel_mark_bve_retry(k, var_of(old));
+       kernel_removed_var(k, var_of(old));
+@@ -2020,17 +2040,25 @@
+ }
+ #endif
+ 
+-bool kernel_propagate(Kernel &k, Ref ignore) {
++template <bool IGNORE>
++static bool propagate_trail(Kernel &k, Ref ignore) {
+   kernel_settle_binary_only_debt(k);
+   const uint32_t saved_propagate = k.propagate_head;
++  uint32_t propagate = saved_propagate;
+   uint64_t ticks = 0;
+   bool conflict = false;
+-  while (k.propagate_head < k.trail.size()) {
++  while (propagate < k.trail.size()) {
+     // Pinned Kissat post-increments its local trail cursor before scanning the
+     // literal and publishes that cursor even when the scan finds a conflict
+     // (propsearch.c:37-40). Backtrack, not Propagate, owns any required rewind
+     // to the surviving frame boundary.
+-    const Lit lit = k.trail[k.propagate_head++];
++    const Lit lit = k.trail[propagate++];
++#if defined(TACTIX_ENABLE_EVENT_TRACE) || defined(TACTIX_ENABLE_CONFLICT_STOP) || \
++    defined(TACTIX_ENABLE_RULE_JOURNAL)
++    // Diagnostic callbacks observe the same consumed cursor as before. The
++    // ordinary scan only appends assignments and never reads or rewinds it.
++    k.propagate_head = propagate;
++#endif
+     // Kissat's propagation statistic counts trail literals whose watch lists
+     // are scanned, including the literal that exposes a conflict.  It does not
+     // count implications at assignment time (propsearch.c:14-23).
+@@ -2054,10 +2082,7 @@
+     // without it, exactly as `propsearch.c` is compiled without
+     // `PROBING_PROPAGATION`.
+     const bool tick_trace_conflict =
+-        ignore == INVALID_REF
+-            ? propagate_literal<false, false, false>(k, lit, INVALID_REF,
+-                                                    ticks)
+-            : propagate_literal<false, false, true>(k, lit, ignore, ticks);
++        propagate_literal<false, false, IGNORE>(k, lit, ignore, ticks);
+ #ifdef TACTIX_ENABLE_CONFLICT_STOP
+     kernel_pose_trace(k, k.inprocessing ? "inpr"
+                          : k.warming    ? "warm"
+@@ -2069,13 +2094,22 @@
+       break;
+     }
+   }
+-  k.stats.propagations += k.propagate_head - saved_propagate;
++  k.propagate_head = propagate;
++  k.stats.propagations += propagate - saved_propagate;
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+   if (!k.inprocessing && !k.warming)
+     k.diagnostic_search_propagation_ticks += ticks;
+ #endif
+   kernel_charge_ticks(k, ticks);
+   return conflict;
++}
++
++bool kernel_propagate(Kernel &k, Ref ignore) {
++  // Select the candidate-aware scan once per call, not once per trail literal.
++  // The local cursor follows the growing used trail during assignments; publish
++  // it on both fixpoint and conflict exits as native propsearch.c does.
++  return ignore == INVALID_REF ? propagate_trail<false>(k, INVALID_REF)
++                               : propagate_trail<true>(k, ignore);
+ }
+ 
+ void kernel_propagate_beyond_conflicts(Kernel &k) {
+--- a/src/kernel/kernel.hpp
++++ b/src/kernel/kernel.hpp
+@@ -1752,12 +1752,20 @@
+   const Clause *c = clause_at(k.arena, reason);
+   const Var v = var_of(lit);
+   uint32_t lvl = 0;
+-  for (const Lit m : *c)
+-    if (var_of(m) != v) {
+-      const uint32_t ml = k.assigned[var_of(m)].level;
+-      if (ml > lvl)
+-        lvl = ml;
+-    }
++  // Every assigned level is at most k.level (kernel_check_invariants).
++  // Preserve the true antecedent maximum, including chrono/root implications,
++  // but stop once that bound is reached. At root the maximum is already zero.
++  // Kissat/CaDiCaL scan the whole reason; this only removes redundant reads.
++  if (k.level)
++    for (const Lit m : *c)
++      if (var_of(m) != v) {
++        const uint32_t ml = k.assigned[var_of(m)].level;
++        if (ml > lvl) {
++          lvl = ml;
++          if (lvl == k.level)
++            break;
++        }
++      }
+   kernel_assign(k, lit, lvl, reason, false);
+ }
+ void kernel_backtrack(Kernel &, uint32_t target_level,
+--- a/src/kernel/watch.hpp
++++ b/src/kernel/watch.hpp
+@@ -300,6 +300,17 @@
+   }
+   void push_large(Lit l, Lit blocking, Ref ref) {
+     WatchHead &h = heads[l];
++    if (h.capacity - h.size >= 2) {
++      // Both words fit the existing slice: no growth or relocation can occur.
++      // Adding two preserves size parity, hence the packed binary/order image.
++      assert(holes >= 2 && h.size <= UINT32_MAX - 2);
++      uint32_t *const dst = arena.data() + h.offset + h.size;
++      dst[0] = blocking_watch(blocking).raw;
++      dst[1] = ref;
++      h.size += 2;
++      holes -= 2;
++      return;
++    }
+     const uint32_t binaries = h.binary_count();
+     const bool first = h.binaries_first();
+     push(l, blocking_watch(blocking).raw);
+--- a/src/policies/default_inprocess.hpp
++++ b/src/policies/default_inprocess.hpp
+@@ -227,6 +227,7 @@
+     int outer = 0;
+     bool phase_unsat = false;
+     bool round_changed = false;
++    bool eliminate_limit_reached = false;
+     bool congruence_changed = false;
+     bool sweep_changed = false;
+     ApplyResult last_result = ApplyResult::NoOp;
+@@ -257,7 +258,6 @@
+   uint32_t bve_level_ = 0;
+   uint32_t bve_level_idx_ = 0;
+   bool bve_ran_this_phase_ = false;
+-  bool bve_complete_this_phase_ = true;
+   uint32_t factor_bound_snapshot_ = 0;
+   bool couple_factor_bound_ = true;
+   OccIndex occurrence_index_;
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -15,6 +15,7 @@
+ #include "policies/ops/walk/walk.hpp"
+ #include "rules/restart/restart.hpp"
+ #include "rules/registry.hpp"
++#include "rules/strengthen/strengthen.hpp"
+ #include "rules/substitute/substitute.hpp"
+ #include "rules/sweep/sweep.hpp"
+ #include "rules/vivify/vivify.hpp"
+@@ -121,6 +122,19 @@
+                                                : "probe-sparse-resume");
+   k.inprocessing = saved_inprocessing;
+   return result;
++}
++
++void default_prepare_reduction(Kernel &k) {
++  const uint64_t roots_before = k.stats.root_assignments;
++  reduce_prepare(k);
++  const uint64_t new_roots = k.stats.root_assignments - roots_before;
++  if (new_roots) {
++    // Preparation backtracks before its root-only propagation. The incoming
++    // trail length is not a valid suffix cursor after that truncation; every
++    // new root is instead in the final appended suffix, including on conflict.
++    assert(new_roots <= k.trail.size());
++    heuristics_consume_root_assignments(k, k.trail.size() - new_roots);
++  }
+ }
+ 
+ namespace {
+@@ -525,6 +539,24 @@
+          k.stats.conflicts > rephase.next_conflicts;
+ }
+ 
++ApplyResult DefaultPolicy::prepare_rephase_root(Kernel &k) {
++  if (restart_guard(k)) {
++    heuristics_update_target_phases(k);
++    (void)default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
++                              [&] { return restart_backtrack_to(k, 0); });
++  }
++  // Kissat rephase.c backtracks, propagates and flushes the root trail before
++  // changing phases. Chronological backtracking can retain out-of-order root
++  // assignments that must be rescanned after their transient blockers vanish.
++  // Warm-up must not defer those scans until after its first decision.
++  const ApplyResult result = default_propagate(k, "rephase-root");
++  if (result == ApplyResult::Ok) {
++    assert(k.level == 0 && kernel_propagation_fixpoint(k));
++    k.unflushed_root = 0;
++  }
++  return result;
++}
++
+ bool DefaultPolicy::want_reorder(const Kernel &k) const {
+   if (!config_.reorder.mode)
+     return false;
+@@ -1978,7 +2010,6 @@
+   factor_marked_watermark_ = 0;
+   bve_level_ = 0;
+   bve_level_idx_ = 0;
+-  bve_complete_this_phase_ = true;
+   default_candidate_order_.reset(config().candidate_order_seed);
+   for (SlotEntry &e : entries) {
+     e.limit = 0;
+@@ -2544,7 +2575,7 @@
+       return finish(10);
+     if (want_reduce(k) && reduce_guard(k)) {
+       event_trace.macro(k, "reduce_begin");
+-      reduce_prepare(k);
++      default_prepare_reduction(k);
+       if (k.inconsistent)
+         return finish(20);
+       ReductionPolicy &rp = reduction ? *reduction : default_reduction_;
+@@ -2655,12 +2686,8 @@
+     }
+     if (want_rephase(k) && rephase_guard(k)) {
+       event_trace.macro(k, "rephase_begin");
+-      if (restart_guard(k)) {
+-        heuristics_update_target_phases(k);
+-        (void)default_direct_rule(k, "Restart", "keep-level=0;rephase=1",
+-                                  [&] { return restart_backtrack_to(k, 0); });
+-      }
+-      k.unflushed_root = 0; // Kissat Rephase flushes the root trail here.
++      if (prepare_rephase_root(k) == ApplyResult::Unsat)
++        return finish(20);
+       static constexpr uint64_t WALK_SLOT = UINT64_MAX;
+       static constexpr uint64_t ROTATION[6] = {
+           REPHASE_BEST, WALK_SLOT, REPHASE_INVERTED,
+@@ -2682,7 +2709,7 @@
+         // beyond conflicts. Assignment-time phase saving is the output; the
+         // trail is then discarded without undoing it.
+         BranchingPolicy &bp = branching ? *branching : default_branching_;
+-        assert(k.level == 0 && k.propagate_head == k.trail.size());
++        assert(k.level == 0 && kernel_propagation_fixpoint(k));
+         k.warming = true;
+         k.stats.warmups++;
+ #ifdef TACTIX_ENABLE_CONFLICT_STOP
+@@ -3056,14 +3083,6 @@
+ #endif
+     }
+     if (dynamic_bve) {
+-      const bool complete = bve_heap.empty();
+-      bve_complete_this_phase_ &= complete;
+-      if (!complete) {
+-        // eliminate.c drops every still-set eliminate flag when a resolution
+-        // limit leaves members in the schedule.  This includes the candidate
+-        // popped immediately before the limit check.
+-        std::fill(k.bve_retry.begin(), k.bve_retry.end(), uint8_t{0});
+-      }
+       k.bve_score_update_hook = nullptr;
+       k.bve_score_update_state = nullptr;
+       assert(k.bve_occurrence_count_image);
+@@ -3085,6 +3104,13 @@
+     // a much larger arena into the following Strengthen round and changes the
+     // physical state from which that common consumer reconstructs.
+     kernel_collect_garbage(k);
++    // The resolution ceiling belongs to the whole Eliminate phase.  Finish
++    // this round's cleanup, but do not start another forward round after
++    // exhausting it (Kissat eliminate.c::eliminate_variables).  Equality still
++    // admits work; neither heap completeness nor progress identifies this
++    // boundary, since even a rejected last candidate can cross the ceiling.
++    if (ctx.group == SlotGroup::Eliminate && e.meter(k) > limit)
++      ctx.eliminate_limit_reached = true;
+   }
+   e.tm.admitted++; // the dosed branch ran; it exits here, not below
+   return SlotStep::Next;
+@@ -3403,6 +3429,9 @@
+   const uint64_t denom_before = dspec ? dspec->denom(k) : 0;
+   const bool budgeted = e.meter && !e.dosed && e.budget_aware;
+   const bool vivify_dose = budgeted && !std::strcmp(r.name, "Vivify");
++  const bool forward_entry = ctx.group == SlotGroup::Eliminate &&
++                             !std::strcmp(r.name, "Strengthen");
++  const uint32_t forward_trail_from = k.propagate_head;
+   ApplyResult ar;
+   if (vivify_dose) {
+     ar = run_vivify_dose(k, e, r, limit);
+@@ -3427,7 +3456,12 @@
+     }
+   }
+   ctx.last_result = ar;
++  if (factor_entry)
++    event_trace_target_state(k, "factor-stamps-pre",
++        k.fresh_var_events.empty() ? 0 : k.fresh_var_events.back().end - k.fresh_var_events.back().first);
+   heuristics_consume_rule_advice(k);
++  if (factor_entry)
++    event_trace_target_state(k, "factor-stamps-post", 0);
+   // Match Kissat's post-Factor return point after sparse reconstruction and
+   // fresh-variable heuristic adjustment, but before caller propagation or a
+   // later inprocessing slot can change the semantic formula.
+@@ -3470,6 +3504,20 @@
+     ctx.phase_unsat = true;
+     return SlotStep::Stop;
+   }
++  if (forward_entry) {
++    // C2's internal partial scan can consume the cursor while leaving full
++    // clause consequences pending. Publish its roots in assignment order,
++    // then close the reconnected suffix before any following slot observes it.
++    heuristics_consume_root_assignments(k, forward_trail_from);
++    const size_t closure_trail_from = k.trail.size();
++    const ApplyResult closure =
++        strengthen_reconnect_and_flush(k, forward_trail_from);
++    heuristics_consume_root_assignments(k, closure_trail_from);
++    if (closure == ApplyResult::Unsat) {
++      ctx.phase_unsat = true;
++      return SlotStep::Stop;
++    }
++  }
+   if (ar != ApplyResult::Ok)
+     return SlotStep::Next;
+   ctx.round_changed = true;
+@@ -3490,7 +3538,6 @@
+   clock.blocked = false; // a new blocking episode may now be counted
+   forward_pair_limit_ = 0;
+   bve_ran_this_phase_ = false;
+-  bve_complete_this_phase_ = true;
+   // Kissat constructs one embedded Kitten at the beginning of the complete
+   // `eliminate()` invocation and releases it after all of that invocation's
+   // elimination rounds. `run_phase(Eliminate)` is that lifetime boundary;
+@@ -3504,10 +3551,16 @@
+       couple_factor_bound_
+           ? (std::getenv("TACTIX_NO_BVE_RAMP") ? k.bve_bound : bve_level_)
+           : 0; // ramp off => BVE runs at k.bve_bound, so couple to THAT value,
+-  InprocessScope inprocess_scope(k);
+   const uint64_t phase_props_at_entry = k.stats.propagations;
+   const uint64_t phase_nanos_at_entry = now_nanos();
+   k.stats.inprocess_phases++;
++  // Probe sets Kissat's probing flag before root preparation; Eliminate
++  // still uses ordinary search propagation here. Enter the common simplifier
++  // scope only after that boundary so Eliminate credits search ticks and
++  // saves phases for any newly exposed root implications.
++  std::optional<InprocessScope> entry_probe_scope;
++  if (group == SlotGroup::Probe)
++    entry_probe_scope.emplace(k);
+   if (k.level > 0 && restart_guard(k)) {
+     // `kissat_probe` sets `solver->probing` before `probe` enters
+     // `kissat_backtrack_propagate_and_flush_trail`; the target/best updater
+@@ -3521,10 +3574,18 @@
+     (void)default_direct_rule(k, "Restart", "keep-level=0;inprocess=1",
+                               [&] { return restart_backtrack_to(k, 0); });
+   }
+-  // Probe and Eliminate enter through
+-  // `kissat_backtrack_propagate_and_flush_trail`; dense Tactix keeps the root
+-  // literals but has consumed the same pending-root lifecycle state.
++  // Retained out-of-order root assignments must be rescanned after their
++  // transient blockers disappear, before dense construction or rule admission.
++  // Reuse the rule's root proof path, including a possible terminal conflict.
++  const ApplyResult root_result = default_propagate(
++      k, group == SlotGroup::Probe ? "probe-root" : "eliminate-root");
++  if (root_result == ApplyResult::Unsat)
++    return 20;
++  assert(root_result == ApplyResult::Ok && k.level == 0 &&
++         kernel_propagation_fixpoint(k));
+   k.unflushed_root = 0;
++  entry_probe_scope.reset();
++  InprocessScope inprocess_scope(k);
+   // Kissat has physically cleared the previously propagated root trail at
+   // this point. Preserve Tactix's immutable prefix but remember the equivalent
+   // beginning for its sparse-resume reset below.
+@@ -3536,12 +3597,13 @@
+   // mixed binary/large connection stream. Probe consumers share the ordinary
+   // large occurrence image and do not instantiate a duplicate formula-wide
+   // ordering representation. Constructing either cache is not itself a
+-  // physical sparse-watch transition; individual rules own those boundaries.
+-  // kissat_eliminate enters dense mode through kissat_enter_dense_mode
+-  // (eliminate.c:600), which deletes every repeated binary before the
+-  // occurrence lists are built; the Probe rules perform their own entries.
++  // physical sparse-watch transition. Eliminate owns that transition here:
++  // kissat_enter_dense_mode both disconnects large watches and deletes every
++  // repeated binary before occurrences are built (eliminate.c). Probe rules
++  // retain their own entry/exit transitions. Keeping sparse watches throughout
++  // Eliminate otherwise publishes and scans a second, obsolete large image.
+   if (group == SlotGroup::Eliminate)
+-    kernel_deduplicate_binary_watches(k);
++    kernel_flush_large_watches(k);
+   kernel_dense_connect(k, occurrence_index_, group == SlotGroup::Eliminate);
+   default_factor_match_.bound = std::max(k.factor_bound, factor_bound_snapshot_); // see DefaultFactorMatch
+   k.factor_selection = factor_match ? factor_match : &default_factor_match_;
+@@ -3730,8 +3792,9 @@
+           // their binaries.  Sweep has already ordered its own portion;
+           // extend that same scan boundary across this mandated follow-up
+           // before H consumes either portion at this call boundary.
+-          sweep_order_retirement_suffix(k, sweep_retired_begin,
+-                                        sweep_substituted_begin);
++          // Canonical Substitute already appends each SCC round in import
++          // order. Sweep no longer retires inline; sorting this suffix would
++          // move later-round removals ahead of earlier-round removals.
+           sweep_retired_begin = sweep_substituted_begin = SIZE_MAX;
+         }
+         if (sweep_retired_begin == SIZE_MAX) {
+@@ -3752,6 +3815,8 @@
+       if (step == SlotStep::Stop)
+         break;
+     }
++    if (ctx.eliminate_limit_reached)
++      break;
+     const bool subsume_pending =
+         group == SlotGroup::Eliminate && k.subsume_holds_elim &&
+         (!k.subsume_complete || !k.strengthen_complete);
+@@ -3812,7 +3877,11 @@
+     BveBoundPolicy &bramp = bve_bound ? *bve_bound : default_bve_ramp_;
+     const uint32_t last = bramp.num_passes() - 1;
+     const uint32_t blim = bramp.bound(last);
+-    if (!bve_complete_this_phase_ || bve_level_idx_ >= last) {
++    // Pinned Kissat releases the round schedule before final bookkeeping;
++    // its outer last_round_eliminated is zero (the round counter shadows it).
++    // Every consistent engaged phase therefore advances, even on a quota cut.
++    // Preserve that policy contract directly, without copying the shadowing.
++    if (bve_level_idx_ >= last) {
+       clock.marks_mark = k.stats.bve_marks;
+       clock.fixed_mark = kernel_root_fixed(k);
+     } else {
+--- a/src/policies/default_policy.hpp
++++ b/src/policies/default_policy.hpp
+@@ -16,6 +16,10 @@
+ // position corresponding to the reference's cleared trail begin.
+ ApplyResult default_resume_sparse_propagation(Kernel &, uint32_t trail_begin,
+                                               bool charge_search_ticks);
++
++// Reduce's root preparation can shorten the trail before deriving new units.
++// Consume only those new root identities into DefaultPolicy's rankings.
++void default_prepare_reduction(Kernel &);
+ 
+ class DefaultBranching final : public BranchingPolicy {
+ public:
+@@ -211,6 +215,8 @@
+   bool want_reduce(const Kernel &) const;
+   bool want_switch_mode(const Kernel &) const;
+   bool want_rephase(const Kernel &) const;
++  // Policy composition, not an additional guard on public Restart/Rephase.
++  ApplyResult prepare_rephase_root(Kernel &);
+   bool want_reorder(const Kernel &) const;
+   void tick_reluctant();
+   void update_mode_limits(const Kernel &);
+--- a/src/policies/heuristics.cpp
++++ b/src/policies/heuristics.cpp
+@@ -434,7 +434,7 @@
+ // O(#queue) per call, so call it once per rule application, never once per
+ // fresh variable.
+ void heuristics_demote_fresh_vars(Kernel &k, Var first, Var end) {
+-  if (!k.h || first >= end || first >= k.h->nvars)
++  if (!k.h || first > end || first > k.h->nvars)
+     return;
+   end = std::min(end, k.h->nvars);
+   // Kissat factor.c::adjust_scores_and_phases_of_fresh_variables walks the
+@@ -464,14 +464,17 @@
+     k.h->queue_first = v;
+   }
+   // Reachability, counted at the site (see Kernel::Stats::factor_demotions).
+-  k.stats.factor_demotions++;
++  if (first < end)
++    k.stats.factor_demotions++;
+   k.stats.factor_demoted_vars += end - first;
+-  queue_restamp(k); // renumber in queue order + reset the search cache
++  // Native Factor performs this housekeeping even for an empty fresh batch.
++  // Numeric stamps feed focused BVE's score, not just VMTF relative order.
++  queue_restamp(k);
+ }
+ 
+ static void heap_remove(Kernel &k, Var v); // defined with the heap, below
+ 
+-#ifdef TACTIX_ENABLE_CONFLICT_STOP
++#if defined(TACTIX_ENABLE_CONFLICT_STOP) || defined(TACTIX_ENABLE_EVENT_TRACE)
+ // Diagnostic: the order variables leave the decision structures. Removing an
+ // element from a binary heap swaps the last element into its slot and sifts,
+ // so two solvers that deactivate the same set in a different order end with
+@@ -499,7 +502,7 @@
+ void heuristics_deactivate_var(Kernel &k, Var v) {
+   if (!k.h || v >= k.h->nvars)
+     return;
+-#ifdef TACTIX_ENABLE_CONFLICT_STOP
++#if defined(TACTIX_ENABLE_CONFLICT_STOP) || defined(TACTIX_ENABLE_EVENT_TRACE)
+   heuristics_deact_trace(k, v);
+ #endif
+   // Several formula rules can report the same retirement before the policy
+@@ -574,6 +577,30 @@
+   if (!heuristics_var_active(k, v))
+     return;
+ 
++#ifdef TACTIX_ENABLE_EVENT_TRACE
++  static std::FILE *trace = [] {
++    const char *path = std::getenv("TACTIX_QUEUE_BUMP_TRACE");
++    return path && *path ? std::fopen(path, "w") : nullptr;
++  }();
++  static const uint64_t first = [] {
++    const char *s = std::getenv("SAT_QUEUE_BUMP_FROM");
++    return s ? std::strtoull(s, nullptr, 10) : 0;
++  }();
++  static const uint64_t last = [] {
++    const char *s = std::getenv("SAT_QUEUE_BUMP_TO");
++    return s ? std::strtoull(s, nullptr, 10) : UINT64_MAX;
++  }();
++  if (trace && k.stats.conflicts >= first && k.stats.conflicts <= last) {
++    const auto ext = [&](Var x) { return x == INVALID_VAR ? 0 :
++        std::abs(kernel_externalize(k, make_lit(x, false))); };
++    const Link &link = k.h->links[v];
++    std::fprintf(trace, "%llu\t%llu\t%d\t%d\t%u\t%d\t%d\t%d\t%u\t%u\t%d\n",
++        (unsigned long long)k.stats.conflicts,
++        (unsigned long long)k.stats.decisions, int(k.h->stable), ext(v),
++        link.stamp, ext(link.prev), ext(link.next), ext(k.h->search_idx),
++        k.h->search_stamp, k.h->queue_stamp, int(k.values[make_lit(v,false)]));
++  }
++#endif
+   if (k.h->queue_last == v)
+     return;
+   queue_dequeue(k, v);
+--- a/src/policies/heuristics.hpp
++++ b/src/policies/heuristics.hpp
+@@ -125,7 +125,8 @@
+ void heuristics_reset_queue_search(Kernel &);
+ // Demote the extension variables [first, end) to the bottom of the decision
+ // queue (kissat factor.c adjust_scores_and_phases_of_fresh_variables).
+-// O(#queue) per call, so call it once per variable-adding rule application.
++// An empty interval still restamps and resets the cursor after an executed
++// Factor pass. O(#queue) per call, once per application, independent of yield.
+ void heuristics_demote_fresh_vars(Kernel &, Var first, Var end);
+ // The same for a scattered set: move every marked variable to the
+ // least-preferred end of the VMTF queue, preserving relative order, and floor
+--- a/src/rules/analyze/analyze.cpp
++++ b/src/rules/analyze/analyze.cpp
+@@ -1208,7 +1208,11 @@
+   return ApplyResult::Ok;
+ }
+ 
+-ApplyResult analyze_apply(Kernel &k) {
++// Public dispatch supplies the selected backjump target before a reuse path
++// consumes the conflict. DefaultPolicy uses the other specialization, keeping
++// its reference target calculation out of the public action semantics.
++template <bool PublicTarget>
++static ApplyResult analyze_apply_internal(Kernel &k, uint32_t requested_target) {
+   assert(analyze_guard(k));
+   assert(k.analyzed.empty());
+   assert(k.bump_order.empty());
+@@ -1265,7 +1269,7 @@
+ 
+     // A conflict with one literal at `alevel` is already asserting after a
+     // backtrack to `jump2`; reuse it without learning. Apply the ordinary
+-    // chronological-gap target, and let jump2==0 use the LRAT unit path.
++    // chronological-gap target, including a root implication when jump2==0.
+     // Canonicalize watches first because even a declined conflict can survive
+     // the backtrack and its pose controls its next observation. Repeat this at
+     // every OTFS pass. See docs/implementation-notes.md §12.
+@@ -1301,7 +1305,7 @@
+                                                          : cc->lits[0])) ==
+                     jump2);
+       }
+-      if (at_alevel == 1 && jump2 > 0 && !crippled_declines) {
++      if (at_alevel == 1 && !crippled_declines) {
+         const Ref cref = k.conflict_ref;
+         const Lit other = cref == INVALID_REF
+                               ? (k.conflict_bin[0] ^ k.conflict_bin[1] ^ forced)
+@@ -1319,10 +1323,31 @@
+           }
+         }
+ #endif
+-        const uint32_t target = conflict_reuse_target(k, jump2);
++        const uint32_t target =
++            PublicTarget ? std::clamp(requested_target, jump2, k.level - 1)
++                         : conflict_reuse_target(k, jump2);
+         unwind_after_conflict(k, target);
+         analyze_retire_otfs_reasons(k);
+-        if (cref == INVALID_REF)
++        if (!jump2) {
++          // A reused root implication is propagation, not a learned-clause
++          // transaction. Kissat inlineassign.h publishes its unit and fixes
++          // the variable without entering Deduce or advancing EVSIDS. Name
++          // the same root fact in LRAT using the other literals' unit ids.
++          const uint64_t id = ++k.next_clause_id;
++          if (k.proof) {
++            if (lrat) {
++              for (uint32_t i = 0; i < csize; ++i)
++                if (clits[i] != forced)
++                  chain_record_root(k, var_of(clits[i]));
++              chain_emit(k, id, &forced, 1, conflict_chain_id);
++            } else {
++              k.proof->add_rup(id, &forced, 1, nullptr, 0);
++            }
++          }
++          k.unit_ids[var_of(forced)] = id;
++          kernel_assign_unit(k, forced);
++          heuristics_deactivate_var(k, var_of(forced));
++        } else if (cref == INVALID_REF)
+           // Kissat routes reused binary conflicts through
+           // `kissat_assign_binary`, whose reason-jump path is intentionally
+           // not guarded by the big/big formula classification.  Storing the
+@@ -1342,7 +1367,7 @@
+ 
+     // A genuine level-one conflict with more than one literal on that level
+     // is Kissat's failed-literal case.  The one-literal case above remains the
+-    // conflict-reuse path (or Tactix's explicit LRAT unit path when jump2=0).
++    // conflict-reuse path, including zero-jump root implications.
+     if (alevel == 1) {
+       uint32_t on_level_one = 0;
+       for (uint32_t i = 0; i < csize; i++)
+@@ -1595,7 +1620,9 @@
+                           : INVALID_LIT;
+     if (cref != INVALID_REF && repair_conflict_watches(k, cref, k.level))
+       k.stats.conflict_watch_repaired++;
+-    const uint32_t target = conflict_reuse_target(k, jump);
++    const uint32_t target =
++        PublicTarget ? std::clamp(requested_target, jump, k.level - 1)
++                     : conflict_reuse_target(k, jump);
+     unwind_after_conflict(k, target);
+     analyze_retire_otfs_reasons(k);
+     if (cref == INVALID_REF)
+@@ -1665,20 +1692,28 @@
+   return ApplyResult::Ok;
+ }
+ 
++ApplyResult analyze_apply(Kernel &k) {
++  return analyze_apply_internal<false>(k, 0);
++}
++
+ // ConflictAnalysis — the atomic learn+backjump rule (docs/calculus.md §3 M3).
+ // One transition from a recorded conflict: derive and emit the learned clause,
+ // then, unless that was a root refutation, assert it by backjumping. Fusing
+ // the two removes the `pending` control state that was observable at a rule
+ // boundary, so no guard needs a ¬pending.valid conjunct. The step functions
+ // stay internal, driven white-box by DefaultPolicy and the analyze tests.
+-static ApplyResult conflictanalysis_apply(Kernel &k) {
+-  const ApplyResult r = analyze_apply(k);
++static ApplyResult conflictanalysis_apply_to(Kernel &k, uint32_t target) {
++  const ApplyResult r = analyze_apply_internal<true>(k, target);
+   if (r != ApplyResult::Ok)
+     return r; // root refutation (Unsat) — analyze set no pending clause
+   if (!k.pending.valid)
+     return ApplyResult::Ok; // conflict reused as its own driver: the implied
+                             // literal is already assigned
+-  return backjump_apply(k); // asserts the UIP at jump_level; clears pending
++  return backjump_apply_to(k, target); // same selected target when learning
++}
++
++static ApplyResult conflictanalysis_apply(Kernel &k) {
++  return conflictanalysis_apply_to(k, 0); // clamps up to the true jump level
+ }
+ 
+ // Instance surface (D-LEVEL-2): the backjump target, any level in
+@@ -1694,19 +1729,11 @@
+ }
+ 
+ static ApplyResult conflictanalysis_apply_instance(Kernel &k, uint64_t inst) {
+-  const ApplyResult r = analyze_apply(k);
+-  if (r != ApplyResult::Ok)
+-    return r; // root refutation
+-  if (!k.pending.valid)
+-    return ApplyResult::Ok; // conflict reused as its own driver: no clause to
+-                            // assert and no target to honour. Must stay in
+-                            // step with the canonical path above; the random
+-                            // policy drives only this one.
+   if (inst == INSTANCE_CANONICAL)
+-    return backjump_apply(k); // jump_level
++    return conflictanalysis_apply(k);
+   const uint32_t target =
+       inst > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(inst);
+-  return backjump_apply_to(k, target); // clamps into [jump_level, level-1]
++  return conflictanalysis_apply_to(k, target);
+ }
+ 
+ TACTIX_REGISTER_RULE(ConflictAnalysis, RuleTier::Micro, analyze_guard,
+--- a/src/rules/congruence/congruence.cpp
++++ b/src/rules/congruence/congruence.cpp
+@@ -1266,13 +1266,16 @@
+ // input becomes binary and is no longer a Congruence gate; Substitute may still
+ // discover the residual relation from the binary graph later.  Retaining the
+ // original clause shape here over-extracts exactly those valued gates.
+-void build_clause_index(const Kernel &k, ClauseIndex &index) {
++void build_clause_index(const Kernel &k, ClauseIndex &index,
++                        Kernel *cleanup) {
++  assert(!cleanup || cleanup == &k);
+   std::vector<Lit> ls;
+   // Every indexed clause has at least three literals and therefore at least
+   // eight arena words.  Reserving this exact structural upper bound prevents a
+   // second full vector from coexisting during geometric growth.
+   index.reserve(k.arena.size() / clause_words(3));
+-  // Extraction is read-only, so aborting is free: the caller returns NoOp.
++  // Pure extraction only indexes. Apply may also retire satisfied records;
++  // each such deletion is complete and sound if an interrupt follows it.
+   uint32_t xtick = 0;
+   for (Ref ref = 0; ref < k.arena.size();) {
+     if (k.stop_fuzz || !(++xtick & 255)) {
+@@ -1285,6 +1288,7 @@
+                 // require every defining clause to be present, so a missing
+                 // entry can suppress a gate but never fabricate one.
+     }
++    const Ref clause_ref = ref;
+     const Clause *c = clause_at(k.arena, ref);
+     ref += clause_actual_words(c);
+     if (c->garbage() || c->redundant())
+@@ -1297,6 +1301,13 @@
+         continue;
+       if (value > 0) {
+         satisfied = true;
++        // Native XOR indexing examines values before its size test, but stops
++        // at the first open literal beyond the arity+1 allowance. A later true
++        // literal therefore cannot retire that record in this phase. Keep the
++        // existing pure index intact and translate only the visited cleanup.
++        if (cleanup && ls.size() <= CONG_XOR_ARITY + 1)
++          kernel_delete_clause(*cleanup,
++                               clause_at(cleanup->arena, clause_ref));
+         break;
+       }
+       ls.push_back(l);
+@@ -2609,12 +2620,28 @@
+     return keep;
+   };
+ 
++  // Kissat scans the physical prefix through its last irredundant record,
++  // including interleaved redundant clauses; CaDiCaL filters redundant clauses.
++  // Use the existing logical position image for append-only replacements.
++  uint64_t last_irredundant = 0;
++  bool have_irredundant = false;
++  std::vector<Ref> prefix;
+   for (Ref ref = 0; ref < k.arena.size();) {
++    const Clause *c = clause_at(k.arena, ref);
++    if (!c->redundant()) {
++      last_irredundant = std::max(last_irredundant,
++                                 kernel_clause_position(k, ref));
++      have_irredundant = true;
++    }
++    if (!c->garbage())
++      prefix.push_back(ref);
++    ref += clause_actual_words(c);
++  }
++  kernel_sort_refs_by_logical_clause_position(k, prefix);
++  for (const Ref ref : prefix) {
++    if (have_irredundant && kernel_clause_position(k, ref) > last_irredundant)
++      break;
+     Clause *c = clause_at(k.arena, ref);
+-    const uint32_t words = clause_actual_words(c);
+-    ref += words;
+-    if (c->garbage() || c->redundant())
+-      continue;
+     bool contains_matchable = false;
+     if (!canonicalize_clause(c, &contains_matchable)) {
+       kernel_delete_clause(k, c);
+@@ -2623,7 +2650,7 @@
+     }
+     if (contains_matchable)
+       candidates.push_back(
+-          {static_cast<Ref>(ref - words), static_cast<uint32_t>(canonical.size())});
++          {ref, static_cast<uint32_t>(canonical.size())});
+   }
+   congruence_stage_trace(k, "forward-candidates-end", candidates.size());
+   std::stable_sort(candidates.begin(), candidates.end(),
+@@ -2667,6 +2694,9 @@
+            node != SparseRefOccurrences::EMPTY; node = occ.next(node)) {
+         const Ref dref = occ.ref(node);
+         const Clause *d = clause_at(k.arena, dref);
++        // A redundant partner may only subsume another redundant candidate.
++        if (!c->redundant() && d->redundant())
++          continue;
+         bool d_matchable = false;
+         std::vector<Lit> dcanonical;
+         // `canonicalize_clause` owns shared scratch, so preserve the candidate
+@@ -2884,8 +2914,8 @@
+   return congruence_rup_chain(k, lits, n, chain, purpose);
+ }
+ 
+-void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
+-                              bool with_xor_ite) {
++static void extract_gates(const Kernel &k, std::vector<CongGate> &out,
++                          bool with_xor_ite, Kernel *cleanup) {
+   const size_t base = out.size();
+   congruence_stage_trace(k, "and-begin", out.size());
+   {
+@@ -2899,7 +2929,7 @@
+     congruence_stage_trace(k, "small-index-begin", out.size());
+     {
+       Stage s(&cong_t.index);
+-      build_clause_index(k, index);
++      build_clause_index(k, index, cleanup);
+     }
+     congruence_stage_trace(k, "small-index-end", out.size(), index.size());
+     // …and so is its canonical iteration order: the index is immutable for the
+@@ -2925,6 +2955,11 @@
+     congruence_stage_trace(k, "ite-end", out.size(), sorted->size());
+     k.stats.congruence_gates_ite += out.size() - before_ite;
+   }
++}
++
++void congruence_extract_gates(const Kernel &k, std::vector<CongGate> &out,
++                              bool with_xor_ite) {
++  extract_gates(k, out, with_xor_ite, nullptr);
+ }
+ 
+ ApplyResult congruence_apply(Kernel &k) {
+@@ -3070,10 +3105,10 @@
+   // semantic: gates containing a literal fixed by the new binary-unit sweep
+   // must remain present so the closure can simplify them into residual units,
+   // binaries, and equivalences.
+-  congruence_extract_gates(k, gates, /*with_xor_ite=*/true);
++  extract_gates(k, gates, /*with_xor_ite=*/true, &k);
+   congruence_stage_trace(k, "gates-end", gates.size());
+-  // Extraction is read-only, so an interrupt raised during it costs nothing to
+-  // honour — nothing has been applied yet.
++  // Any satisfied-clause deletion already emitted its complete proof delta;
++  // an interrupt can discard the optional extracted gates without rollback.
+   if (kernel_terminating(k)) {
+     k.stats.rule_interrupted++;
+     return finish(/*merged=*/false);
+--- a/src/rules/factor/factor.cpp
++++ b/src/rules/factor/factor.cpp
+@@ -448,9 +448,20 @@
+ static void count_binaries(const Kernel &k, std::vector<uint32_t> &bincount) {
+   bincount.assign(2 * k.nvars, 0);
+   for (Lit l = 0; l < static_cast<Lit>(2 * k.nvars); l++) {
+-    uint32_t n = 0;
+-    for_each_factor_binary(k, l, [&](Lit) { n++; });
+-    bincount[l] = n;
++    // Native counts a pair once, from its smaller imported endpoint, only
++    // while that endpoint is ACTIVE. Root-fixed identities remain allocated
++    // in Tactix, so retirement alone is not the corresponding predicate.
++    // This is the candidate-peeling census, not the physical matching degree:
++    // the null-stack dense transition still retains satisfied binaries.
++    if (k.value(l) || kernel_var_retired(k, var_of(l)))
++      continue;
++    const uint64_t order = kernel_import_lit_order(k, l);
++    for_each_factor_binary(k, l, [&](Lit other) {
++      if (order > kernel_import_lit_order(k, other))
++        return;
++      bincount[l]++;
++      bincount[other]++;
++    });
+   }
+ }
+ 
+@@ -1794,8 +1805,10 @@
+   // A budget cut needs no tail repair: unpopped literal bits remain set in
+   // `factor_marks`, exactly as Kissat leaves them for the next occasion.
+ 
+-  if (applied)
+-    k.fresh_var_events.push_back({fresh_first, k.nvars});
++  // The executed pass owns an advice boundary even if its fresh interval is
++  // empty: Kissat restamps the queue after zero-yield and budget-cut passes.
++  // Only the policy consumer mutates H; NoOp still describes formula yield.
++  k.fresh_var_events.push_back({fresh_first, k.nvars});
+ 
+   if (fm)
+     fm->end_sweep();
+--- a/src/rules/strengthen/strengthen.cpp
++++ b/src/rules/strengthen/strengthen.cpp
+@@ -3,6 +3,7 @@
+ 
+ #include "diagnostics/event_trace.hpp"
+ #include "rules/propagate/propagate.hpp"
++#include "rules/bve/bve.hpp"
+ 
+ #include "proof/proof.hpp"
+ 
+@@ -172,14 +173,17 @@
+ // once — marked in the opposite phase, which is the strengthen case.
+ static CheckResult check_marked(const Kernel &k,
+                                 const std::vector<uint8_t> &marks,
+-                                const Clause *d) {
++                                const Clause *d, bool *satisfied = nullptr) {
+   CheckResult r;
+   for (const Lit l : *d) {
+     if (marks[l])
+       continue;
+     const int8_t v = k.value(l);
+-    if (v > 0)
++    if (v > 0) {
++      if (satisfied)
++        *satisfied = true;
+       return {}; // satisfied partner proves nothing
++    }
+     if (v < 0)
+       continue; // absorbed
+     if (marks[negate(l)]) {
+@@ -351,9 +355,197 @@
+   return (watches + 31u) / 32u;
+ }
+ 
++// Root facts must survive deletion of a connected reason. Native dense
++// assignment emits the unit immediately and retains UNIT_REASON. Reuse the
++// established LRAT chain builder, before any later satisfied-clause cleanup.
++static void forward_assign_root(Kernel &k, Lit unit, uint32_t reason,
++                                bool binary) {
++  const size_t from = k.trail.size();
++  kernel_assign(k, unit, 0, reason, binary);
++  if (k.proof) {
++    if (k.proof->lrat())
++      kernel_emit_root_units(k, from);
++    else
++      k.proof->add_rup(0, &unit, 1, nullptr, 0);
++  }
++  Assigned &assigned = k.assigned[var_of(unit)];
++  assigned.reason = UNIT_REASON;
++  assigned.binary = false;
++  assigned.jumped = false;
++}
++
++static void forward_refute(Kernel &k, const Clause *clause,
++                           Lit first = INVALID_LIT, Lit second = INVALID_LIT) {
++  if (k.proof) {
++    if (k.proof->lrat()) {
++      k.lrat_entries.clear();
++      const auto add = [&](Lit lit) {
++        assert(k.value(lit) < 0);
++        const Var v = var_of(lit);
++        k.lrat_entries.emplace_back(k.assigned[v].trail, k.unit_ids[v]);
++      };
++      if (clause)
++        for (const Lit lit : *clause)
++          add(lit);
++      else {
++        add(first);
++        add(second);
++      }
++      kernel_lrat_chain(k, clause ? clause->id()
++                                 : kernel_binary_id(k, first, second));
++      k.proof->add_empty(++k.next_clause_id, k.lrat_chain.data(),
++                         static_cast<uint32_t>(k.lrat_chain.size()));
++    } else
++      k.proof->add_empty(0, nullptr, 0);
++  }
++  k.inconsistent = true;
++  k.conflict_valid = false;
++}
++
++// The same dense assignment/proof semantics apply to the private partial
++// forward image and to the caller's complete irredundant image. The caller
++// chooses the image; do not replace the partial scan during candidate work.
++template <class Streams>
++static bool forward_propagate_units(Kernel &k, const Streams &watches,
++                                    uint64_t &changed) {
++  while (k.propagate_head < k.trail.size()) {
++    const Lit false_lit = negate(k.trail[k.propagate_head++]);
++    k.stats.propagations++;
++    const auto &stream = watches[false_lit];
++    uint64_t ticks = 1 + forward_cache_lines(stream.size());
++    for (const auto watch : stream) {
++      if (watch.binary) {
++        const Lit other = watch.payload;
++        if (k.value(other) > 0)
++          continue;
++        if (k.value(other) < 0) {
++          forward_refute(k, nullptr, false_lit, other);
++          return false; // native does not charge the conflicting scan
++        }
++        if (!kernel_var_retired(k, var_of(other)))
++          forward_assign_root(k, other, false_lit, true);
++        continue;
++      }
++      ++ticks;
++      Clause *clause = clause_at(k.arena, watch.payload);
++      if (clause->garbage())
++        continue;
++      Lit unit = INVALID_LIT;
++      unsigned non_false = 0;
++      bool satisfied = false;
++      for (const Lit lit : *clause) {
++        if (lit == false_lit || k.value(lit) < 0)
++          continue;
++        if (k.value(lit) > 0) {
++          satisfied = true;
++          kernel_delete_clause(k, clause);
++          ++changed;
++          break;
++        }
++        unit = lit;
++        if (++non_false == 2)
++          break;
++      }
++      if (satisfied)
++        continue;
++      if (!non_false) {
++        forward_refute(k, clause);
++        return false;
++      }
++      if (non_false == 1)
++        forward_assign_root(k, unit, watch.payload, false);
++    }
++    const bool saved_inprocessing = k.inprocessing;
++    k.inprocessing = true; // dense ticks never increase search_ticks
++    kernel_charge_ticks(k, ticks);
++    k.inprocessing = saved_inprocessing;
++  }
++  return true;
++}
++
++// Compact the private forward image only after closing its reachable units.
++// Sparse public callers retain full replay debt. Eliminate's caller separately
++// reconnects all irredundant clauses before replaying the forward suffix.
++static bool forward_flush_units(
++    Kernel &k, std::vector<std::vector<ForwardWatch>> &watches,
++    uint64_t &changed) {
++  const uint32_t from = k.propagate_head;
++  if (from == k.trail.size())
++    return true;
++  if (k.large_watches_connected)
++    k.binary_only_head = std::min(k.binary_only_head, from);
++  if (!forward_propagate_units(k, watches, changed))
++    return false;
++  for (uint32_t i = from; i < k.propagate_head; ++i) {
++    auto &stream = watches[k.trail[i]];
++    size_t kept = 0;
++    for (const ForwardWatch watch : stream) {
++      if (watch.binary) {
++        stream[kept++] = watch;
++        // Normally no BVE heap exists during the forward pass. Preserve the
++        // shared removal notification if a public caller has installed one.
++        if (k.value(watch.other()) == 0)
++          kernel_notify_bve_score(k, var_of(watch.other()), true);
++        continue;
++      }
++      Clause *clause = clause_at(k.arena, watch.ref());
++      if (!clause->garbage()) {
++        kernel_delete_clause(k, clause);
++        ++changed;
++      }
++    }
++    stream.resize(kept);
++  }
++  return true;
++}
++
++ApplyResult strengthen_reconnect_and_flush(Kernel &k, uint32_t trail_from) {
++  assert(k.level == 0 && k.dense && k.dense->track_order);
++  assert(!k.large_watches_connected && trail_from <= k.trail.size());
++  if (k.inconsistent)
++    return ApplyResult::Unsat;
++  // Native watch.c discards clauses satisfied by incoming roots before it
++  // connects any large occurrence. Deleting them only in the later unit flush
++  // leaves garbage references on the other literals, changing BVE's physical
++  // stack lengths and scores despite equal live-clause counts. Keep clauses
++  // satisfied by *subsequent* dense implications on their native lazy path.
++  for (Ref ref = 0; ref < k.arena.size();) {
++    Clause *clause = clause_at(k.arena, ref);
++    const uint32_t words = clause_actual_words(clause);
++    if (!clause->garbage() && !clause->redundant())
++      for (const Lit lit : *clause)
++        if (k.value(lit) > 0) {
++          kernel_delete_clause(k, clause);
++          break;
++        }
++    ref += words;
++  }
++  // eliminate.c rebuilds full connections after every forward call, even a
++  // quota cut. Reuse the existing arena-order constructor, without allocating
++  // another formula-wide copy of the mixed occurrence image.
++  kernel_rebuild_dense_occurrences(k);
++  k.propagate_head = trail_from;
++  const auto propagate = [&] {
++    uint64_t changed = 0;
++    if (!forward_propagate_units(k, k.dense->ordered, changed))
++      return ApplyResult::Unsat;
++    bve_flush_units_while_connected(k, trail_from);
++    return ApplyResult::Ok;
++  };
++#ifdef TACTIX_ENABLE_RULE_JOURNAL
++  // Rearm before journal eligibility is evaluated: the partial forward scan
++  // may have consumed the old cursor without covering this complete image.
++  return journal_direct_rule(k, "Propagate", "post-forward-connected",
++                             propagate, ApplyResult::Ok);
++#else
++  return propagate();
++#endif
++}
++
+ static Partner find_forward_partner(
+     Kernel &k, const std::vector<uint8_t> &marks, const Clause *c,
+-    std::vector<std::vector<ForwardWatch>> &watches, uint64_t &steps) {
++    std::vector<std::vector<ForwardWatch>> &watches, uint64_t &steps,
++    uint64_t &changed) {
+   Partner p;
+   const bool lrat = k.proof && k.proof->lrat();
+   for (const Lit l : *c) {
+@@ -469,7 +661,14 @@
+           write--;
+           continue;
+         }
+-        const CheckResult r = check_marked(k, marks, d);
++        bool satisfied = false;
++        const CheckResult r = check_marked(k, marks, d, &satisfied);
++        if (satisfied) {
++          kernel_delete_clause(k, clause_at(k.arena, watch.ref()));
++          ++changed;
++          --write;
++          break; // native cleans this entry and retains the unscanned tail
++        }
+         if (r.kind == CheckResult::NONE)
+           continue;
+         p.res = r;
+@@ -738,7 +937,7 @@
+ // act() on a found partner. Returns: 0 = candidate unchanged (NONE),
+ // 1 = candidate died (subsumed), 2 = strengthened into *ref (rescan),
+ // 3 = strengthened to binary (done with candidate), 4 = unit asserted
+-// (round must end: values changed), 5 = empty clause derived (UNSAT)
++// (the canonical caller propagates and continues), 5 = empty clause (UNSAT)
+ static int act(Kernel &k, Ref *ref, const Partner &p, uint64_t *changed,
+                std::pair<Lit, Lit> *new_binary = nullptr) {
+   if (p.res.kind == CheckResult::NONE)
+@@ -829,7 +1028,7 @@
+                                 redundant ? glue : 0, ref)) {
+   case ReplaceOutcome::Refuted:
+     return 5; // corpus 002: the empty clause just emitted IS the refutation
+-  case ReplaceOutcome::Unit: // unit: assert at root, end the round
++  case ReplaceOutcome::Unit: // caller owns the appropriate propagation image
+     k.unit_ids[var_of(lits[0])] = id;
+     kernel_assign_unit(k, lits[0]);
+     return 4;
+@@ -848,9 +1047,10 @@
+   if (inprocess_reach_root(k))
+     return ApplyResult::Unsat;
+   k.stats.strengthen_rounds++;
+-  // Repetition filter, C1's arrangement exactly (see the N1 note in
+-  // subsume_forward.cpp).
+-  kernel_touch_sync_fixed(k);
++  // Native forward admission consumes clause-addition marks, not root-fixed
++  // notifications: Kissat's mark_fixed_literal does not set flags.subsume.
++  // Keep actual addition marks even on fixed variables. C1/CCE retain their
++  // separate root-notification consumer; public instances remain unfiltered.
+   const bool filter = k.touch_filter;
+   const uint64_t snapshot = k.touch_epoch;
+   const uint64_t wm = k.strengthen_touch_mark;
+@@ -858,7 +1058,6 @@
+   if (binary_removed == UINT64_MAX)
+     return ApplyResult::Unsat;
+   uint64_t changed = binary_removed;
+-  bool ended = false;
+   // §6 termination polling before and inside the candidate loop. Like
+   // Kissat's `forward_subsume_all_clauses`, one candidate gets at most one
+   // subsume-or-strengthen action in a round, so there is no same-candidate
+@@ -905,7 +1104,7 @@
+       ref += words;
+     }
+   std::vector<Ref> candidates;
+-  if (!ended && !interrupted) {
++  if (!interrupted) {
+     strengthen_candidates(k, candidates);
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+     for (const Ref ref : candidates) {
+@@ -1004,7 +1203,8 @@
+       forward_watches[min_lit].push_back(ForwardWatch::large_entry(cr));
+   };
+   size_t stopped_at = candidates.size(); // index of the first unreached one
+-  const uint64_t produced_before = k.stats.strengthened;
++  std::vector<Ref> rewritten_survivors;
++  bool made_binary = false;
+   for (size_t ci = 0; ci < candidates.size(); ci++) {
+     Ref cref = candidates[ci];
+     if (step_bounded && steps.value - check_start > step_budget) {
+@@ -1021,6 +1221,46 @@
+     const uint64_t red_sub_before = k.stats.strengthen_subsumed;
+     const uint64_t red_str_before = k.stats.strengthened;
+     Clause *c = clause_at(k.arena, cref);
++    if (c->garbage())
++      continue;
++    // Earlier candidates can change roots. Re-evaluate this scheduled clause
++    // before marking it; the native candidate step is charged only when at
++    // least two free literals remain and partner discovery actually runs.
++    unsigned non_false = 0;
++    Lit remaining = INVALID_LIT;
++    bool satisfied = false;
++    for (const Lit lit : *c) {
++      if (k.value(lit) > 0) {
++        satisfied = true;
++        break;
++      }
++      if (k.value(lit) == 0) {
++        ++non_false;
++        remaining = lit;
++        marks[lit] = 1;
++      }
++    }
++    k.stats.strengthen_checked++;
++    if (satisfied) {
++      mark_candidate(k, marks, c, 0);
++      kernel_delete_clause(k, c);
++      ++k.stats.flushed;
++      ++changed;
++      continue;
++    }
++    if (!non_false) {
++      forward_refute(k, c);
++      return ApplyResult::Unsat;
++    }
++    if (non_false == 1) {
++      marks[remaining] = 0;
++      forward_assign_root(k, remaining, cref, false);
++      kernel_delete_clause(k, c);
++      ++changed;
++      if (!forward_flush_units(k, forward_watches, changed))
++        return ApplyResult::Unsat;
++      continue;
++    }
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+     const bool selected = selected_strengthen_clause(c);
+     if (selected) {
+@@ -1050,11 +1290,9 @@
+       }
+     }
+ #endif
+-    k.stats.strengthen_checked++;
+     steps.value++; // Kissat `INC(forward_steps)` in forward_marked_clause.
+-    mark_candidate(k, marks, c, 1);
+     const Partner p =
+-        find_forward_partner(k, marks, c, forward_watches, steps.value);
++        find_forward_partner(k, marks, c, forward_watches, steps.value, changed);
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+     trace_forward_result(k, c, p, ci, forward_watches);
+ #endif
+@@ -1078,27 +1316,29 @@
+     // rescan the strengthened candidate until a later forward round.
+     if (r == 0 || r == 2)
+       connect(cref);
++    if (r == 2)
++      rewritten_survivors.push_back(cref);
+     if (r == 3) {
++      made_binary = true;
+       const Lit a = new_binary.first, b = new_binary.second;
+       assert(a != INVALID_LIT && b != INVALID_LIT);
+       forward_watches[a].push_back(ForwardWatch::binary_entry(b));
+       forward_watches[b].push_back(ForwardWatch::binary_entry(a));
+     }
+-    if (r == 4)
+-      ended = true;
++    if (r == 4 && !forward_flush_units(k, forward_watches, changed))
++      return ApplyResult::Unsat;
+     if (red) { // the band's YIELD, read against `strengthen_red_checked`
+       k.stats.strengthen_red_subsumed +=
+           k.stats.strengthen_subsumed - red_sub_before;
+       k.stats.strengthen_red_strengthened +=
+           k.stats.strengthened - red_str_before;
+     }
+-    if (ended || interrupted) {
++    if (interrupted) {
+       stopped_at = ci + 1; // this candidate was checked; the rest were not
+       break;
+     }
+   }
+-  // Resume (see the twin comment in subsume_forward.cpp); `ended` leaves a tail
+-  // too, re-armed for the same reason a budget cut's is. A re-arm writes the
++  // Resume (see the twin comment in subsume_forward.cpp). A re-arm writes the
+   // array the candidate's own creation would have written — `touched` for an
+   // irredundant clause, `touched_kept` for a band one — because re-arming a
+   // band candidate through `touched` would leak the band into
+@@ -1122,14 +1362,14 @@
+     k.strengthen_touch_mark = snapshot;
+     k.stats.strengthen_mark_advances++;
+   }
+-  // Completeness, kissat's `completed` (forward.c:664-670): nothing was
+-  // re-armed. Unlike C1 this rule rewrites clauses, and a rewrite is an add the
+-  // substrate arms, so a productive round is incomplete whatever it reached.
+-  // `!ended`/`!interrupted` cover an entry stop which leaves `candidates`
+-  // empty and would otherwise read as a vacuous fixpoint.
+-  k.strengthen_complete = !ended && !interrupted &&
+-                          stopped_at == candidates.size() &&
+-                          k.stats.strengthened == produced_before;
++  // A unit-only rewrite which later leaves no live strengthened candidate
++  // does not itself re-arm native forward subsumption. Live large rewrites
++  // and newly created binaries do; so do unreached candidates or interruption.
++  const bool live_rewrite = std::any_of(
++      rewritten_survivors.begin(), rewritten_survivors.end(),
++      [&](Ref ref) { return !clause_at(k.arena, ref)->garbage(); });
++  k.strengthen_complete = !interrupted && stopped_at == candidates.size() &&
++                          !made_binary && !live_rewrite;
+   if (!changed)
+     return ApplyResult::NoOp;
+   // Tactix still uses a packed variable-width arena. Until the remaining
+--- a/src/rules/strengthen/strengthen.hpp
++++ b/src/rules/strengthen/strengthen.hpp
+@@ -49,10 +49,16 @@
+ // root-falsified literals stripped and their unit ids joining the chain.  As in
+ // Kissat's forward pass, a candidate gets at most one action per round; a
+ // strengthened large survivor is connected for later candidates and re-armed
+-// for a later round. A unit result is asserted at the root and ends the round;
+-// an empty result refutes, which is
++// for a later round. A unit result is propagated through the current partial
++// forward connection image before continuing; an empty result refutes, which is
+ // reachable because an N1 history can leave a root engine-quiescent yet
+ // semantically under-derived (corpus 002).
+ ApplyResult strengthen_apply(Kernel &);
+ 
++// Eliminate's post-forward service, separate from canonical C2 and explicit
++// actions: reconnect the full irredundant image, replay from the saved entry
++// cursor, then flush satisfied large clauses before scheduling BVE. Uses the
++// existing unit/refutation proof vocabulary; requires root dense ordered mode.
++ApplyResult strengthen_reconnect_and_flush(Kernel &, uint32_t trail_from);
++
+ } // namespace tactix
+--- a/src/rules/substitute/substitute.cpp
++++ b/src/rules/substitute/substitute.cpp
+@@ -772,6 +772,28 @@
+ #endif
+       purge_stale_binaries(lit);
+     }
++    // Propagation reads physical watches, not the environment ledger. Publish
++    // the same binary order to both consumers after reconciling membership.
++    // Only permute binary words: large watches, counts, proof identities and
++    // capacities stay unchanged, and no allocation can invalidate this slice.
++    auto next_binary = stream.begin();
++    uint32_t *word = k.watches.begin(lit);
++    const uint32_t *const end = k.watches.end(lit);
++    while (word != end) {
++      const Watch watch{*word};
++      if (!watch.binary()) {
++        word += 2;
++        continue;
++      }
++      while (next_binary != stream.end() && !next_binary->binary)
++        ++next_binary;
++      assert(next_binary != stream.end());
++      *word++ = binary_watch(static_cast<Lit>(next_binary->payload)).raw;
++      ++next_binary;
++    }
++    while (next_binary != stream.end() && !next_binary->binary)
++      ++next_binary;
++    assert(next_binary == stream.end());
+   }
+   publish_dense_order(k, touched);
+   // Every stream this batch could have changed has been reconciled and
+@@ -782,6 +804,26 @@
+   assert(sync_publication_is_complete(k) &&
+          "a ledger stream changed outside the reconciled set");
+   dirty_binary_owners.clear();
++}
++
++void SweepSubstitutionSession::repose_emitted_equivalence(
++    const Kernel &k, Lit a, Lit b) {
++  if (!dense_enabled)
++    return;
++  const auto repose = [&](Lit owner, Lit other) {
++    auto &stream = occurrences(k, owner);
++    for (size_t i = stream.size(); i; --i) {
++      const auto entry = stream[i - 1];
++      if (!entry.binary || entry.payload != other)
++        continue;
++      std::rotate(stream.begin() + (i - 1), stream.begin() + i, stream.end());
++      break;
++    }
++  };
++  repose(negate(a), b);
++  repose(b, negate(a));
++  repose(a, negate(b));
++  repose(negate(b), a);
+ }
+ 
+ void SweepSubstitutionSession::purge_stale_binaries(Lit lit) {
+@@ -1166,12 +1208,24 @@
+   const Clause *const old = clause_at(k.arena, source);
+   if (old->redundant() || !dense_enabled)
+     return;
+-  const auto image_holds = [&](Lit lit) {
+-    return std::find(image, image + size, lit) != image + size;
+-  };
+-  const auto source_held = [&](Lit lit) {
+-    return std::find(old->begin(), old->end(), lit) != old->end();
+-  };
++  // Connected rewrites retain long runs in source order. Keep a private
++  // successful-search cursor to avoid rescanning each retained prefix.
++  // Wrap on misses so arbitrary images still get exact full-range membership;
++  // neither range is mutated while these ledger updates run.
++  const auto membership = [](const Lit *begin, const Lit *end) {
++    return [begin, end, next = begin](Lit lit) mutable {
++      const Lit *found = std::find(next, end, lit);
++      if (found == end) {
++        found = std::find(begin, next, lit);
++        if (found == next)
++          return false;
++      }
++      next = found + 1;
++      return true;
++    };
++  };
++  auto image_holds = membership(image, image + size);
++  auto source_held = membership(old->begin(), old->end());
+   // Only a literal that leaves the image loses its stream slot; a retained
+   // literal keeps its entry untouched, so its stream is never searched.
+   // Searching every literal made each rewrite cost the sum of all its
+--- a/src/rules/substitute/substitute.hpp
++++ b/src/rules/substitute/substitute.hpp
+@@ -106,8 +106,9 @@
+   // Invariant, restored at every entry point below: for each literal the
+   // binary sub-multiset of this ledger equals that literal's physical binary
+   // watch multiset, and its large sub-multiset names the same irredundant
+-  // records as `Kernel::dense`. The ledger owns only the ORDER; the watch lists
+-  // and `Kernel::dense` own membership. A ledger that claims a clause the
++  // records as `Kernel::dense`. Synchronization also publishes the ledger's
++  // binary order to physical watches; propagation must see the same stream.
++  // The watch lists and `Kernel::dense` own membership. A ledger claiming what
+   // formula does not hold puts a phantom clause into the next environment.
+   struct DenseOccurrenceList {
+     std::vector<DenseOccurrence> entries;
+@@ -165,6 +166,10 @@
+   // the binaries are already in the watch lists by then.
+   void sync_new_binaries(
+       Kernel &, const std::vector<std::pair<Lit, Lit>> &equivalences);
++  // Pose-only experiment: after synchronization, move the last extant copy
++  // of each freshly emitted directed bridge to this pair's commit boundary.
++  // No membership or proof identity changes; absent images remain absent.
++  void repose_emitted_equivalence(const Kernel &, Lit a, Lit b);
+   // `map` is the sparse requested literal-to-representative map. The rewrite
+   // this mirrors declines a member that is already root-fixed or retired, so
+   // this applies the same
+--- a/src/rules/sweep/sweep.cpp
++++ b/src/rules/sweep/sweep.cpp
+@@ -743,12 +743,13 @@
+ // is rebuilt for the next seed. Failure just means no general-path proof. The
+ // target is read off the derivation, never predicted from the assumptions — a
+ // wrong prediction silently swaps the two directions.
+-static void sweep_capture_dir(const SweepEnv &e, SweepDirProof &out) {
++static void sweep_capture_dir(const Kernel &host, const SweepEnv &e, SweepDirProof &out) {
+   out.ok = false;
+   out.t0 = out.t1 = INVALID_LIT;
+   out.steps.clear();
++  out.core_clauses.clear();
+   SubDerivation d;
+-  if (!e.solver.derivation(d) || d.steps.empty())
++  if (!e.solver.derivation(d, true) || d.steps.empty())
+     return; // no refutation to hand back (e.g. directly contradictory assumptions)
+   if (d.steps.size() > SWEEP_MAX_PROOF_STEPS)
+     return; // pathological: decline rather than allocate without bound
+@@ -758,6 +759,23 @@
+   out.t0 = sweep_kernel_lit(e.vars, tl[0]);
+   out.t1 = tl.size() == 2 ? sweep_kernel_lit(e.vars, tl[1]) : INVALID_LIT;
+   out.steps = std::move(d.steps);
++  for (auto &cc : d.core_clauses) {
++    bool drop = false;
++    uint32_t non_false = 0;
++    for (const SubLit sl : cc.lits) {
++      if (sub_var_of(sl) >= e.vars.size()) {
++        drop = true;
++        break;
++      }
++      const int8_t value = host.value(sweep_kernel_lit(e.vars, sl));
++      if (value > 0 || (!cc.learned && !value && ++non_false > 1)) {
++        drop = true;
++        break;
++      }
++    }
++    if (!drop)
++      out.core_clauses.push_back(std::move(cc));
++  }
+   out.orig_ids = e.clause_ids;
+   out.strip_ids = e.strip_ids;
+   out.strip_off = e.strip_off;
+@@ -820,20 +838,26 @@
+ // literal before ever posing it as an equivalence candidate.  Keep the same
+ // ordered semantic surface here: each unit gets the derivation prefix ending
+ // at the lemma which proves it, rather than borrowing the final target's proof.
+-static void sweep_capture_core_units(const Kernel &k,
++static void sweep_capture_core_units(Kernel &k,
+                                      const SweepDirProof &proof,
+                                      SweepRound &round,
++                                     bool commit_inline,
+                                      [[maybe_unused]] const char *site = "?") {
+   if (!proof.ok)
+     return;
+-  for (size_t i = 0; i < proof.steps.size(); i++) {
+-    const SubStep &step = proof.steps[i];
++  bool committed = false;
++  for (const auto &cc : proof.core_clauses) {
++    const auto step_at = std::lower_bound(proof.steps.begin(), proof.steps.end(), cc.id,
++        [](const SubStep &step, uint32_t id) { return step.id < id; });
++    if (cc.learned && (step_at == proof.steps.end() || step_at->id != cc.id))
++      continue; // No independent proof prefix: do not borrow a different target.
+ #ifdef TACTIX_ENABLE_CONFLICT_STOP
+-    sweep_core_trace(k, proof, step, site);
++    if (cc.learned)
++      sweep_core_trace(k, proof, *step_at, site);
+ #endif
+     Lit unit = INVALID_LIT;
+     bool satisfied = false;
+-    for (const SubLit sl : step.lits) {
++    for (const SubLit sl : cc.lits) {
+       if (sub_var_of(sl) >= proof.vars.size()) {
+         satisfied = true; // malformed captures decline in the real evaluator
+         break;
+@@ -862,12 +886,30 @@
+       continue;
+     SweepUnitProof captured;
+     captured.unit = unit;
+-    captured.proof = proof;
+-    captured.proof.steps.resize(i + 1);
++    captured.proof.ok = true;
++    captured.proof.orig_ids = proof.orig_ids;
++    captured.proof.strip_ids = proof.strip_ids;
++    captured.proof.strip_off = proof.strip_off;
++    captured.proof.vars = proof.vars;
++    captured.proof.formula_epoch = proof.formula_epoch;
++    if (cc.learned)
++      captured.proof.steps.assign(proof.steps.begin(), step_at + 1);
++    else {
++      const uint32_t id = static_cast<uint32_t>(proof.orig_ids.size()) + 1;
++      captured.proof.steps.assign(1, SubStep{id, cc.lits, {cc.id}, {}});
++    }
+     captured.proof.t0 = unit;
+     captured.proof.t1 = INVALID_LIT;
+     round.units.push_back(std::move(captured));
+-  }
++    if (commit_inline) {
++      const ApplyResult result = sweep_emit_pending_units(k, round);
++      committed |= result == ApplyResult::Ok;
++      if (k.inconsistent)
++        break;
++    }
++  }
++  if (committed)
++    round.emission_batches++;
+ }
+ 
+ static uint32_t partition_size(const SweepRound &r) {
+@@ -1117,14 +1159,13 @@
+     }
+     k.stats.sweep_dir_unsat++;
+     SweepDirProof proof;
+-    sweep_capture_dir(e, proof);
++    sweep_capture_dir(k, e, proof);
+ #ifdef TACTIX_ENABLE_CONFLICT_STOP
+     sweep_backbone_trace(k, lit, "unit");
+ #endif
+-    sweep_capture_core_units(k, proof, r, "backbone");
+-    if (commit_inline &&
+-        sweep_emit_pending_units(k, r) == ApplyResult::Ok)
+-      r.emission_batches++;
++    sweep_capture_core_units(k, proof, r, commit_inline, "backbone");
++    if (k.inconsistent)
++      return 0;
+   }
+ 
+   uint32_t found = 0, solved = 0;
+@@ -1213,7 +1254,7 @@
+     }
+     k.stats.sweep_dir_unsat++;
+     assert(!e.solver.inconsistent());
+-    sweep_capture_dir(e, pair.fwd);
++    sweep_capture_dir(k, e, pair.fwd);
+ 
+     assumptions = {sub_lit(e.sub_of_var[var_of(a)], negated(a)),
+                    sub_lit(e.sub_of_var[var_of(b)], !negated(b))};
+@@ -1246,15 +1287,13 @@
+     }
+     k.stats.sweep_dir_unsat++;
+     assert(!e.solver.inconsistent());
+-    sweep_capture_dir(e, pair.rev);
+-    sweep_capture_core_units(k, pair.fwd, r, "fwd");
+-    if (commit_inline &&
+-        sweep_emit_pending_units(k, r) == ApplyResult::Ok)
+-      r.emission_batches++;
+-    sweep_capture_core_units(k, pair.rev, r, "rev");
+-    if (commit_inline &&
+-        sweep_emit_pending_units(k, r) == ApplyResult::Ok)
+-      r.emission_batches++;
++    sweep_capture_dir(k, e, pair.rev);
++    sweep_capture_core_units(k, pair.fwd, r, commit_inline, "fwd");
++    if (k.inconsistent)
++      return found;
++    sweep_capture_core_units(k, pair.rev, r, commit_inline, "rev");
++    if (k.inconsistent)
++      return found;
+     r.found.push_back({std::min(a, b), std::max(a, b)});
+     r.proofs.push_back(std::move(pair));
+     k.stats.sweep_equivalences++;
+@@ -1277,7 +1316,10 @@
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+   event_trace_sweep_seed(k, seed);
+ #endif
+-  if (!sweep_env_build(k, seed, lim, r)) {
++  // The builder's false result also covers a live seed with no clauses.
++  // Preserve that public builder contract, but only an absent environment
++  // (fixed/retired seed) declines the solve lifecycle here.
++  if (!sweep_env_build(k, seed, lim, r) && e.vars.empty()) {
+     e.solver.reset(0, SubSearchMode::Kitten);
+     return 0;
+   }
+@@ -1293,8 +1335,11 @@
+ #endif
+   e.solver.reset(static_cast<uint32_t>(e.vars.size()),
+                  SubSearchMode::Kitten);
+-  if (e.vars.size() < 2 || e.nclauses() < 2)
+-    return 0; // nothing to be equivalent TO
++  // Even an empty or single-clause environment follows Kissat's initial
++  // solve/model lifecycle. Skipping it changes embedded effort and can admit
++  // extra environments under the enclosing budget. The ordinary detector
++  // already handles empty/singleton candidate partitions without inventing
++  // an equivalence; no synthetic tick charge replaces the actual solve.
+   k.stats.sweep_environments++;
+   k.stats.sweep_env_clauses += e.nclauses();
+ 
+@@ -1448,7 +1493,7 @@
+                tl == sub_negate(assumptions[1]));
+     }
+ #endif
+-    sweep_capture_dir(e, pair.fwd);
++    sweep_capture_dir(k, e, pair.fwd);
+     // Direction 2: ¬x ∧ y unsatisfiable ⇔ F ⊨ (x ∨ ¬y).
+     assumptions.clear();
+     assumptions.push_back(sub_lit(e.sub_of_var[seed], true));
+@@ -1469,7 +1514,7 @@
+     }
+     k.stats.sweep_dir_unsat++;
+     assert(!e.solver.inconsistent());
+-    sweep_capture_dir(e, pair.rev);
++    sweep_capture_dir(k, e, pair.rev);
+     // Both directions refuted over env ⊆ F, so F ⊨ x ≡ y.
+     r.found.push_back({std::min(seed_lit, y), std::max(seed_lit, y)});
+     r.proofs.push_back(std::move(pair));
+@@ -1551,6 +1596,30 @@
+     k.sweep_live++;
+   }
+   k.sweep_tail_indexed = static_cast<uint32_t>(k.sweep_tail.size());
++}
++
++// Both reference solvers revalidate previously remaining seeds when building
++// a new call's schedule. Do this once, before any environment changes the
++// formula, not at pop time. Newly proved representatives keep their separate
++// move-to-front contract, including representatives made pure in this call.
++void sweep_revalidate_retained(Kernel &k, const SweepLimits &lim) {
++  auto revalidate = [&](Var &external, uint32_t slot) {
++    if (external == INVALID_VAR)
++      return;
++    const Var v = external < k.external_to_internal.size()
++                      ? k.external_to_internal[external]
++                      : INVALID_VAR;
++    if (sweep_schedulable(k, v, lim))
++      return;
++    if (external < k.sweep_slot.size() && k.sweep_slot[external] == slot)
++      k.sweep_slot[external] = 0;
++    external = INVALID_VAR;
++    k.sweep_live--;
++  };
++  for (uint32_t j = 0; j < k.sweep_front.size(); j++)
++    revalidate(k.sweep_front[j], (j | SWEEP_FRONT_BIT) + 1);
++  for (uint32_t i = k.sweep_tail_next; i < k.sweep_tail.size(); i++)
++    revalidate(k.sweep_tail[i], i + 1);
+ }
+ 
+ // Pop the next live entry: the reschedule front first (last in, first out),
+@@ -1681,7 +1750,9 @@
+ #ifdef TACTIX_ENABLE_CONFLICT_STOP
+   const uint64_t schedule_t0 = sweep_time ? now_nanos() : 0;
+ #endif
+-  if (!retained) {
++  if (retained) {
++    sweep_revalidate_retained(k, lim);
++  } else {
+     sweep_schedule_clear(k);
+     sweep_seeds(k, r.seeds);
+     for (const Var v : r.seeds)
+@@ -2298,6 +2369,12 @@
+     return false;
+   if (k.value(unit) < 0)
+     return false; // the caller's consistent environment cannot prove this
++  // Only the speculative fallback requires a propagated root. Native core
++  // proofs commit without draining it, preserving Sweep's ordered unit batch.
++  if (!kernel_propagation_fixpoint(k)) {
++    if (propagate_service(k) == ApplyResult::Unsat || k.value(unit) != 0)
++      return false;
++  }
+   std::vector<uint64_t> chain;
+   // Admission, exactly as in `sweep_emit_equiv`: Kitten's refutation is the
+   // semantic certificate, and this asks the separate, format-independent
+@@ -2378,6 +2455,8 @@
+     }
+     if (!emitted)
+       emitted = sweep_emit_unit(k, unit.unit);
++    if (k.inconsistent)
++      return ApplyResult::Unsat;
+     if (emitted) {
+       any = true;
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+@@ -2408,7 +2487,10 @@
+   const bool force_general = std::getenv("TACTIX_SWEEP_FORCE_GENERAL") != nullptr;
+   std::vector<uint64_t> chain_fwd, chain_rev;
+   std::vector<std::pair<Lit, Lit>> emitted_equivalences;
++  std::vector<size_t> fresh_equivalences;
+   bool any = sweep_emit_pending_units(k, round) == ApplyResult::Ok;
++  if (k.inconsistent)
++    return ApplyResult::Unsat;
+   while (round.equivalences_emitted < round.found.size()) {
+     const size_t idx = round.equivalences_emitted++;
+     const SweepEquiv &e = round.found[idx];
+@@ -2674,6 +2756,7 @@
+       k.stats.sweep_not_rup++;
+     if (emitted) {
+       any = true;
++      fresh_equivalences.push_back(emitted_equivalences.size());
+       emitted_equivalences.emplace_back(e.a, e.b);
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+       event_trace_sweep_equivalence(k, e.a, e.b);
+@@ -2689,9 +2772,29 @@
+     // Applying one Sweep environment's consequences crosses Tactix's
+     // variable-width representation bridge once. Sweep owns that scheduled
+     // cost; Substitute remains unaware of who requested the rewrite.
+-    const ApplyResult substituted =
+-        substitute_apply_sweep_equivalences(k, emitted_equivalences,
+-                                            round.substitution);
++    ApplyResult substituted = ApplyResult::NoOp;
++    // All pair proofs have been emitted above while their environment source
++    // clauses were still live. Preserve intermediate connected-clause images
++    // by applying those certified pairs in their recorded emission order.
++    std::vector<std::pair<Lit, Lit>> single(1);
++    size_t fresh = 0;
++    for (size_t i = 0; i < emitted_equivalences.size(); ++i) {
++      single[0] = emitted_equivalences[i];
++      if (fresh < fresh_equivalences.size() && fresh_equivalences[fresh] == i) {
++        round.substitution.sync_new_binaries(k, single);
++        round.substitution.repose_emitted_equivalence(
++            k, single[0].first, single[0].second);
++        ++fresh;
++      }
++      const ApplyResult result = substitute_apply_sweep_equivalences(
++          k, single, round.substitution);
++      if (result == ApplyResult::Unsat) {
++        substituted = result;
++        break;
++      }
++      if (result == ApplyResult::Ok)
++        substituted = result;
++    }
+     if (substituted == ApplyResult::Unsat)
+       return substituted;
+     if (!k.dense && round.substitution.changed) {
+--- a/src/rules/sweep/sweep.hpp
++++ b/src/rules/sweep/sweep.hpp
+@@ -128,6 +128,9 @@
+   // silently swaps the two directions when the seed is the larger literal.
+   Lit t0 = INVALID_LIT, t1 = INVALID_LIT;
+   std::vector<SubStep> steps;
++  // Saved at the query boundary; original eligibility does not change while
++  // a later core commits units. This is separate from the LRAT proof prefix.
++  std::vector<SubDerivation::CoreClause> core_clauses;
+   std::vector<uint64_t> orig_ids;
+   // the environment's strip ledger, captured with `orig_ids`: an antecedent's
+   // chain is incomplete without the units justifying its stripped literals
+--- a/src/rules/vivify/vivify.cpp
++++ b/src/rules/vivify/vivify.cpp
+@@ -579,10 +579,22 @@
+   // literal and candidate sorting; vivify_one still sorts the probe stack of
+   // each clause that the tick budget actually reaches.
+   if (k.vivify_reuse && !radix_reverse_irredundant)
+-    for (const Cand &cand : cands)
+-      std::sort(keys.begin() + cand.key_off,
+-                keys.begin() + cand.key_off + cand.key_len,
+-                [&ord](Lit a, Lit b) { return ord(a, b); });
++    for (const Cand &cand : cands) {
++      const auto begin = keys.begin() + cand.key_off;
++      const auto end = begin + cand.key_len;
++      if (k.vivify_scope == 2 && !k.vivify_flush) {
++        // This pure irredundant schedule reads only the maximum count. It
++        // neither commits these keys to clause pose nor uses their prefixes.
++        // Kissat's init_countref likewise selects COUNTREF_COUNTS == 1
++        // directly. Keep full ordering for mixed scopes and prefix flushing.
++        const auto best = std::max_element(begin, end, [&ord](Lit a, Lit b) {
++          return ord.counts[a] < ord.counts[b];
++        });
++        std::iter_swap(begin, best);
++      } else {
++        std::sort(begin, end, [&ord](Lit a, Lit b) { return ord(a, b); });
++      }
++    }
+   // kissat vivify.c:296-301: an empty leftover set re-arms the whole scope.
+   // The bit is a priority mechanism and never a suppressor.
+   const bool rearm = prioritized == 0 && !cands.empty();
+@@ -882,7 +894,8 @@
+ // itself, so the rewrite is implied by F ∪ R and subsumes the original.
+ static ApplyResult rewrite(Kernel &k, Ref cref, const std::vector<Lit> &lits,
+                            std::vector<std::pair<uint32_t, uint64_t>> &entries,
+-                           uint64_t last, uint64_t candidate_ordinal) {
++                           uint64_t last, uint64_t candidate_ordinal,
++                           bool instantiated = false) {
+   Clause *c = clause_at(k.arena, cref);
+ #ifdef TACTIX_ENABLE_EVENT_TRACE
+   if (lits.size() == 2) {
+@@ -927,6 +940,14 @@
+   // next Vivify dose.  Tactix already has the same shrunken-record primitive;
+   // use it here instead of reconstructing the apparent order after the fact.
+   if (lits.size() > 2) {
++    // vivify_learn_large rearms every old irredundant literal, including
++    // survivors. Instantiation instead marks only its removed literal.
++    // The shared replacement already marks disappearing literals; publish
++    // only the complementary advice here, without changing occurrence counts.
++    if (!redundant && !instantiated)
++      for (const Lit old : *c)
++        if (std::find(lits.begin(), lits.end(), old) != lits.end())
++          kernel_mark_bve_retry(k, var_of(old), "vivify-learn-large", c);
+     // Pinned Kissat copies the new prefix while `c->size` still names the old
+     // allocation, calls mark_added_literals through an old-size clause walk,
+     // and only then installs new_size. Thus the physical tail is intentionally
+@@ -1576,7 +1597,7 @@
+         }
+       }
+ #endif
+-      res = rewrite(k, cref, shorter, entries, last, candidate_ordinal);
++      res = rewrite(k, cref, shorter, entries, last, candidate_ordinal, true);
+       k.stats.vivify_instantiated++;
+     } else {
+ #ifdef TACTIX_ENABLE_RULE_JOURNAL

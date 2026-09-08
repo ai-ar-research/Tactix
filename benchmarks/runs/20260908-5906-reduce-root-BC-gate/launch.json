@@ -1,0 +1,10 @@
+{
+  "job_id": "1674929",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5906-reduce-root-BC-gate/array.sbatch"
+  ],
+  "manifest_sha256": "5f536f1fee7fa8dd67f3ec1a15eea13acc2aa4cf7796ca86b60ae4f1c864687f",
+  "continuation": "Independent5900 successor on5849;regressing5870 remains separate;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
