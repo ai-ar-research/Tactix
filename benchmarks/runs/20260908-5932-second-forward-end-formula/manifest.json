@@ -1,0 +1,76 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5925-reduce-preclean-rank32-prefix",
+  "candidate_authority": "benchmarks/runs/20260908-5920-reduce-preclean",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-reduce-preclean-5920",
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 300000,
+  "hypothesis": "Second forward271079 first changes large-clause counts;compare full incoming andoutgoing multisets,physical order,pose androot values to identify exact residual before choosing candidate/partner diagnostics.",
+  "validation": "Require complete ordinary300K trace hashes andpartial proof bytes to replay cached5925 candidate and5771 native. Full formula snapshot required with boundary-matched irredundant/redundant counts. Slot payload selector andzero-based ordinal1 select second call;no early-stop observer.",
+  "contract": "Two separate proof-on diagnostic tasks,12CPU/48000MiB,1200s solver/25min allocation. Full width,no node constraint or throttle. Diagnostic snapshots are not final proof or runtime acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "run.py": "842c68433c42bf4957da40126b361a6475497ea6e977c53aa0dc3be5bbda50a2",
+    "array.sbatch": "1952b5e1e4401b33c9fea9ac58c19126181737ddb7dc13fcacc2f67419fd8add",
+    "pins/candidate": "2fb804ac27be5a8a9fab83bc0fefd3d7d478bcb4c1676f9a0b3e4f255ff53c90",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16"
+  },
+  "stream_from": 0,
+  "common_decisions": 40102204,
+  "created_at": "2026-09-08T20:09:40.969538+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Not solver timing,final checked proof,or full-state identity. No reference refresh.",
+  "test_consideration": "Read-only observer configuration on unchanged tested pins. Existing full snapshot parser malformed/duplicate/pose/value fixtures andactual native payload-selector controls retained;validate expected counts andwhole replay before interpretation. No implementation change or new solver test.",
+  "source_patch_sha256": "44ce86e16b713bfb2773d9e61b497103417ce1cf198b6c516b0b00fe798b6778",
+  "predecessor": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix",
+  "cached_controls": {
+    "candidate": {
+      "record": "benchmarks/runs/20260908-5925-reduce-preclean-rank32-prefix/results/candidate.json",
+      "sha256": "64cdd7fbea5fdb411e5b0bed21c289ce88d425a603180da9262461015116ab80"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/results/kissat.json",
+      "sha256": "16bbb018d89f0f85751c27ef4f5a8790f99b3b91db9f3a9f391f9c85ff6d1abc"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null
+  },
+  "cached_native_campaign": "benchmarks/runs/20260908-5597-factor-support-rank32-prefix",
+  "selection": {
+    "path": "benchmarks/runs/20260908-5758-reuse-target-ranks1-40/next-losses.json",
+    "sha256": "286465d1e6e59365e2ffc7afea526d4b71c2616a5f81ab6e99faad0ecb11e869"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260908-5769-reuse-target-rank32-prefix/summary.json",
+    "sha256": "f7b168c72f9c66a78b4e6d7d156b742ab950d6be4920d84b3ce4f16153f0e41c"
+  },
+  "native_rerun_reason": "Cached native traces lack complete entry/exit formula images atsecond forward271079. Missing causal fields only,no timing denominator refresh.",
+  "cached_early_native": {
+    "record": "benchmarks/runs/20260908-5597-factor-support-rank32-prefix/results/kissat.json",
+    "sha256": "7795750cbf66213fe457d905ae5051ab8afb7053db89eb86bb293445b89cbf91"
+  },
+  "stream_from_by_arm": {
+    "candidate": 0,
+    "kissat": 100000
+  },
+  "formula_stage": "end",
+  "formula_ordinal": 1,
+  "formula_conflict": 271079
+}

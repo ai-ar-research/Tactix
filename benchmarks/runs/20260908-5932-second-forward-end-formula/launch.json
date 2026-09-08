@@ -1,0 +1,10 @@
+{
+  "job_id": "1675330",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5932-second-forward-end-formula/array.sbatch"
+  ],
+  "manifest_sha256": "12e3908b0111f5a4028eda54637e0d9edae62fcd8a0e2b3ca0d7614a93f7b77c",
+  "scope": "Read-only formula observers on frozen5920/native pins;normal campaigns untouched."
+}
