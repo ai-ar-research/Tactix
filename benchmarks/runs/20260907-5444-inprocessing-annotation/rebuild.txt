@@ -1,0 +1,837 @@
+ Percent |	Source code & Disassembly of candidate for cycles:u (1761 samples, percent: local period)
+---------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      0000000000410a40 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)>:
+    0.00 :   410a40: push   %r15
+    0.00 :   410a42: push   %r14
+    0.00 :   410a44: mov    %rdi,%r14
+    0.00 :   410a47: push   %r13
+    0.00 :   410a49: push   %r12
+    0.00 :   410a4b: push   %rbp
+    0.00 :   410a4c: mov    %esi,%ebp
+    0.00 :   410a4e: push   %rbx
+    0.00 :   410a4f: sub    $0x88,%rsp
+    0.00 :   410a56: mov    (%rdi),%edx
+    0.00 :   410a58: add    %edx,%edx
+    0.00 :   410a5a: je     410b1c <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xdc>
+    0.00 :   410a60: mov    0x160(%rdi),%rbx
+    0.00 :   410a67: mov    0x190(%rdi),%r11
+    0.00 :   410a6e: xor    %r10d,%r10d
+    0.00 :   410a71: mov    0x178(%rdi),%r9
+    0.00 :   410a78: nopl   0x0(%rax,%rax,1)
+    0.00 :   410a80: mov    (%r9),%esi
+    0.40 :   410a83: mov    0x4(%r9),%ecx
+    0.11 :   410a87: mov    %r9,%r12
+    0.00 :   410a8a: mov    %rcx,%rax
+    0.00 :   410a8d: add    %rsi,%rcx
+    0.80 :   410a90: lea    (%rbx,%rsi,4),%r8
+    0.11 :   410a94: lea    (%rbx,%rcx,4),%r13
+    0.85 :   410a98: cmp    %r13,%r8
+    0.00 :   410a9b: je     4113f0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x9b0>
+    0.00 :   410aa1: mov    %r8,%rsi
+    0.57 :   410aa4: mov    %r8,%rax
+    0.00 :   410aa7: xor    %edi,%edi
+    0.00 :   410aa9: nopl   0x0(%rax)
+    0.00 :   410ab0: mov    (%rax),%edx
+    3.81 :   410ab2: test   $0x1,%dl
+    0.29 :   410ab5: je     410ad3 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x93>
+    0.00 :   410ab7: add    $0x4,%rax
+    0.00 :   410abb: mov    %edx,(%rsi)
+    0.06 :   410abd: add    $0x1,%edi
+    0.00 :   410ac0: lea    0x4(%rsi),%rcx
+    0.11 :   410ac4: cmp    %rax,%r13
+    0.00 :   410ac7: je     410adf <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x9f>
+    0.00 :   410ac9: mov    (%rax),%edx
+    1.64 :   410acb: mov    %rcx,%rsi
+    0.45 :   410ace: test   $0x1,%dl
+    0.00 :   410ad1: jne    410ab7 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x77>
+    0.00 :   410ad3: add    $0x8,%rax
+    0.17 :   410ad7: cmp    %rax,%r13
+    0.00 :   410ada: jne    410ab0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x70>
+    0.00 :   410adc: mov    %rsi,%rcx
+    0.11 :   410adf: mov    (%r14),%edx
+    1.37 :   410ae2: mov    0x4(%r9),%eax
+    0.00 :   410ae6: and    $0xfffffffe,%edi
+    0.28 :   410ae9: add    %edx,%edx
+    0.00 :   410aeb: sub    %r8,%rcx
+    0.29 :   410aee: add    $0x1,%r10d
+    0.00 :   410af2: mov    %edi,0xc(%r9)
+    0.23 :   410af6: add    $0x10,%r9
+    0.00 :   410afa: sar    $0x2,%rcx
+    0.17 :   410afe: sub    %ecx,%eax
+    0.05 :   410b00: mov    %ecx,-0xc(%r9)
+    0.40 :   410b04: add    %rax,%r11
+    0.17 :   410b07: cmp    %edx,%r10d
+    0.00 :   410b0a: jb     410a80 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x40>
+    0.00 :   410b10: mov    %r11,0x190(%r14)
+    0.00 :   410b17: mov    %edi,0xc(%r12)
+    0.00 :   410b1c: mov    0x138(%r14),%rdi
+    0.00 :   410b23: pxor   %xmm0,%xmm0
+    0.00 :   410b27: xor    %r13d,%r13d
+    0.00 :   410b2a: xor    %edx,%edx
+    0.00 :   410b2c: mov    0x130(%r14),%rcx
+    0.00 :   410b33: movaps %xmm0,0x60(%rsp)
+    0.00 :   410b38: movq   $0x0,0x70(%rsp)
+    0.00 :   410b41: cmp    %rdi,%rcx
+    0.00 :   410b44: je     410bad <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x16d>
+    0.00 :   410b46: nopw   %cs:0x0(%rax,%rax,1)
+    0.00 :   410b50: lea    (%rcx,%rdx,4),%r12
+    0.11 :   410b54: mov    (%r12),%esi
+    3.02 :   410b58: mov    0x4(%r12),%edx
+    0.17 :   410b5d: lea    0x5(%rsi),%ebx
+    1.03 :   410b60: test   $0x2,%dh
+    0.00 :   410b63: je     410b84 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x144>
+    0.00 :   410b65: mov    %esi,%eax
+    0.06 :   410b67: lea    0x14(%r12,%rax,4),%rax
+    0.00 :   410b6c: nopl   0x0(%rax)
+    0.00 :   410b70: add    $0x4,%rax
+    0.06 :   410b74: cmpl   $0xffffffff,-0x4(%rax)
+    0.06 :   410b78: jne    410b70 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x130>
+    0.00 :   410b7a: sub    %r12,%rax
+    0.00 :   410b7d: mov    %rax,%rbx
+    0.00 :   410b80: sar    $0x2,%rbx
+    0.00 :   410b84: test   %bpl,%bpl
+    0.06 :   410b87: je     410e08 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x3c8>
+    0.00 :   410b8d: and    $0x1,%edx
+    0.00 :   410b90: je     410d90 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x350>
+    0.00 :   410b96: mov    %rdi,%rax
+    0.06 :   410b99: lea    0x0(%r13,%rbx,1),%edx
+    1.14 :   410b9e: sub    %rcx,%rax
+    0.06 :   410ba1: mov    %rdx,%r13
+    0.00 :   410ba4: sar    $0x2,%rax
+    0.17 :   410ba8: cmp    %rax,%rdx
+    0.23 :   410bab: jb     410b50 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x110>
+    0.00 :   410bad: lea    0x60(%rsp),%rsi
+    0.00 :   410bb2: mov    %r14,%rdi
+    0.00 :   410bb5: lea    0x160(%r14),%rbx
+    0.00 :   410bbc: callq  40f720 <tactix::kernel_sort_refs_by_logical_clause_position(tactix::Kernel const&, std::vector<unsigned int, std::allocator<unsigned int> >&)>
+    0.00 :   410bc1: mov    0x60(%rsp),%r12
+    0.00 :   410bc6: mov    0x68(%rsp),%rax
+    0.00 :   410bcb: mov    %rbx,0x30(%rsp)
+    0.00 :   410bd0: mov    %rax,0x28(%rsp)
+    0.00 :   410bd5: mov    %r12,0x8(%rsp)
+    0.00 :   410bda: cmp    %r12,%rax
+    0.00 :   410bdd: je     4113b5 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x975>
+    0.00 :   410be3: mov    %r12,0x58(%rsp)
+    0.00 :   410be8: jmpq   410d3d <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x2fd>
+    0.00 :   410bed: nopl   (%rax)
+    0.00 :   410bf0: mov    0x14(%r13),%r15d
+    0.34 :   410bf4: mov    0x178(%r14),%rcx
+    0.34 :   410bfb: movl   $0x2,0x8(%r13)
+    0.84 :   410c03: shl    $0x4,%r15
+    0.06 :   410c07: lea    (%rcx,%r15,1),%rbp
+    0.00 :   410c0b: mov    0xc(%rbp),%eax
+    4.20 :   410c0e: mov    0x4(%rbp),%esi
+    1.54 :   410c11: mov    %eax,%edi
+    0.11 :   410c13: not    %eax
+    0.11 :   410c15: mov    %esi,%edx
+    0.06 :   410c17: and    $0x1,%eax
+    2.17 :   410c1a: and    $0xfffffffe,%edi
+    0.00 :   410c1d: and    $0x1,%edx
+    0.17 :   410c20: mov    %al,0x20(%rsp)
+    0.06 :   410c24: mov    0x18(%r13),%eax
+    0.91 :   410c28: or     %edx,%edi
+    0.28 :   410c2a: mov    %edi,0x18(%rsp)
+    0.29 :   410c2e: lea    (%rax,%rax,1),%ebx
+    0.11 :   410c31: mov    0x160(%r14),%rax
+    2.05 :   410c38: cmp    0x8(%rbp),%esi
+    0.06 :   410c3b: je     411268 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x828>
+    0.00 :   410c41: mov    0x190(%r14),%rdi
+    0.63 :   410c48: mov    %rbp,%r8
+    0.06 :   410c4b: lea    -0x1(%rdi),%rdx
+    0.17 :   410c4f: lea    0x1(%rsi),%edi
+    0.23 :   410c52: add    (%r8),%esi
+    0.67 :   410c55: mov    %rdx,0x190(%r14)
+    0.06 :   410c5c: mov    %edi,0x4(%r8)
+    1.42 :   410c60: mov    %ebx,(%rax,%rsi,4)
+    8.24 :   410c63: mov    0x4(%r8),%esi
+    0.33 :   410c67: cmp    0x8(%r8),%esi
+    0.11 :   410c6b: je     411130 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x6f0>
+    0.00 :   410c71: sub    $0x1,%rdx
+    0.40 :   410c75: lea    0x1(%rsi),%edi
+    0.00 :   410c78: mov    %rdx,0x190(%r14)
+    1.71 :   410c7f: add    (%r8),%esi
+    0.23 :   410c82: mov    %edi,0x4(%r8)
+    1.25 :   410c86: movzbl 0x20(%rsp),%edi
+    1.87 :   410c8b: mov    %r12d,(%rax,%rsi,4)
+    2.89 :   410c8f: mov    0x18(%rsp),%esi
+    0.23 :   410c93: mov    0x18(%r13),%r8d
+    0.17 :   410c97: xor    $0x1,%edi
+    0.11 :   410c9a: mov    0x14(%r13),%r9d
+    0.17 :   410c9e: and    $0xfffffffe,%esi
+    0.17 :   410ca1: movzbl %dil,%edi
+    2.34 :   410ca5: shl    $0x4,%r8
+    1.47 :   410ca9: or     %edi,%esi
+    2.74 :   410cab: add    %r9d,%r9d
+    0.00 :   410cae: lea    (%rcx,%r8,1),%r15
+    0.17 :   410cb2: mov    %esi,0xc(%rbp)
+    0.11 :   410cb5: mov    0x4(%r15),%r11d
+    2.31 :   410cb9: mov    0xc(%r15),%ebx
+    0.28 :   410cbd: mov    %r11d,%esi
+    0.06 :   410cc0: mov    %ebx,%ebp
+    0.74 :   410cc2: not    %ebx
+    1.88 :   410cc4: and    $0xfffffffe,%ebp
+    0.11 :   410cc7: and    $0x1,%esi
+    0.00 :   410cca: and    $0x1,%ebx
+    0.23 :   410ccd: or     %esi,%ebp
+    0.11 :   410ccf: cmp    0x8(%r15),%r11d
+    0.06 :   410cd3: je     410fc0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x580>
+    0.00 :   410cd9: lea    -0x1(%rdx),%rdi
+    0.23 :   410cdd: mov    %r15,%rdx
+    0.46 :   410ce0: lea    0x1(%r11),%esi
+    1.08 :   410ce4: add    (%rdx),%r11d
+    0.67 :   410ce7: mov    %rdi,0x190(%r14)
+    0.06 :   410cee: mov    %esi,0x4(%rdx)
+    0.06 :   410cf1: mov    %r9d,(%rax,%r11,4)
+    5.39 :   410cf5: mov    0x4(%rdx),%esi
+    0.23 :   410cf8: cmp    0x8(%rdx),%esi
+    0.06 :   410cfb: je     410e68 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x428>
+    0.00 :   410d01: sub    $0x1,%rdi
+    1.37 :   410d05: xor    $0x1,%ebx
+    0.06 :   410d08: and    $0xfffffffe,%ebp
+    0.17 :   410d0b: mov    %rdi,0x190(%r14)
+    0.11 :   410d12: lea    0x1(%rsi),%edi
+    0.06 :   410d15: movzbl %bl,%ebx
+    0.40 :   410d18: add    (%rdx),%esi
+    0.06 :   410d1a: mov    %edi,0x4(%rdx)
+    0.00 :   410d1d: or     %ebx,%ebp
+    0.74 :   410d1f: mov    %r12d,(%rax,%rsi,4)
+    1.76 :   410d23: addq   $0x4,0x8(%rsp)
+    1.02 :   410d29: mov    0x8(%rsp),%rax
+    0.17 :   410d2e: mov    %ebp,0xc(%r15)
+    0.00 :   410d32: cmp    %rax,0x28(%rsp)
+    0.63 :   410d37: je     4113b0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x970>
+    0.00 :   410d3d: mov    0x8(%rsp),%rax
+    0.34 :   410d42: xor    %ecx,%ecx
+    0.06 :   410d44: mov    %r14,%rdi
+    0.97 :   410d47: mov    (%rax),%edx
+    1.80 :   410d49: mov    0x130(%r14),%rax
+    1.02 :   410d50: lea    (%rax,%rdx,4),%r13
+    0.29 :   410d54: mov    %rdx,%r12
+    0.00 :   410d57: xor    %edx,%edx
+    0.74 :   410d59: mov    %r13,%rsi
+    0.17 :   410d5c: callq  407950 <tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool)>
+    0.28 :   410d61: cmpl   $0x2,0x0(%r13)
+    0.23 :   410d66: jbe    410bf0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x1b0>
+    0.06 :   410d6c: movsbl %al,%ecx
+    0.17 :   410d6f: mov    $0x1,%edx
+    0.11 :   410d74: mov    %r13,%rsi
+    0.27 :   410d77: mov    %r14,%rdi
+    0.40 :   410d7a: not    %ecx
+    0.00 :   410d7c: shr    $0x1f,%ecx
+    0.23 :   410d7f: callq  407950 <tactix::move_best_watch_to_front(tactix::Kernel&, tactix::Clause*, unsigned int, bool)>
+    0.90 :   410d84: jmpq   410bf0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x1b0>
+    0.00 :   410d89: nopl   0x0(%rax)
+    0.00 :   410d90: mov    %esi,%eax
+    0.00 :   410d92: lea    0x14(%r12),%rdx
+    0.00 :   410d97: shl    $0x2,%rax
+    0.00 :   410d9b: lea    (%rdx,%rax,1),%rdi
+    0.00 :   410d9f: je     410e30 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x3f0>
+    0.00 :   410da5: mov    0x88(%r14),%r8
+    0.00 :   410dac: mov    (%rdx),%ecx
+    0.00 :   410dae: mov    %rcx,%rax
+    0.00 :   410db1: movzbl (%r8,%rcx,1),%ecx
+    0.34 :   410db6: shr    %eax
+    0.00 :   410db8: test   %cl,%cl
+    0.00 :   410dba: je     410dd4 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x394>
+    0.00 :   410dbc: mov    %rax,%rsi
+    0.00 :   410dbf: shl    $0x4,%rsi
+    0.00 :   410dc3: add    0xa0(%r14),%rsi
+    0.00 :   410dca: mov    (%rsi),%esi
+    0.00 :   410dcc: test   %esi,%esi
+    0.00 :   410dce: jne    410dd4 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x394>
+    0.00 :   410dd0: test   %cl,%cl
+    0.00 :   410dd2: jg     410df0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x3b0>
+    0.00 :   410dd4: mov    0x1d48(%r14),%rsi
+    0.11 :   410ddb: mov    0x1d50(%r14),%rcx
+    0.00 :   410de2: sub    %rsi,%rcx
+    0.00 :   410de5: cmp    %rcx,%rax
+    0.00 :   410de8: jae    410e20 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x3e0>
+    0.00 :   410dea: cmpb   $0x0,(%rsi,%rax,1)
+    0.23 :   410dee: je     410e20 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x3e0>
+    0.00 :   410df0: mov    $0x1,%edx
+    0.00 :   410df5: mov    %r12,%rsi
+    0.00 :   410df8: mov    %r14,%rdi
+    0.00 :   410dfb: callq  408430 <tactix::kernel_delete_clause(tactix::Kernel&, tactix::Clause*, bool, char const*) [clone .isra.0]>
+    0.00 :   410e00: mov    0x4(%r12),%edx
+    0.00 :   410e05: nopl   (%rax)
+    0.00 :   410e08: and    $0x1,%edx
+    0.34 :   410e0b: je     410e30 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x3f0>
+    0.00 :   410e0d: mov    0x138(%r14),%rdi
+    0.28 :   410e14: mov    0x130(%r14),%rcx
+    0.00 :   410e1b: jmpq   410b96 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x156>
+    0.00 :   410e20: add    $0x4,%rdx
+    0.00 :   410e24: cmp    %rdx,%rdi
+    0.00 :   410e27: jne    410dac <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x36c>
+    0.00 :   410e2d: nopl   (%rax)
+    0.17 :   410e30: mov    0x68(%rsp),%rax
+    1.42 :   410e35: mov    0x70(%rsp),%rcx
+    0.00 :   410e3a: cmp    %rcx,%rax
+    0.00 :   410e3d: je     411597 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xb57>
+    0.00 :   410e43: mov    %r13d,(%rax)
+    0.11 :   410e46: add    $0x4,%rax
+    0.00 :   410e4a: mov    0x138(%r14),%rdi
+    0.00 :   410e51: mov    %rax,0x68(%rsp)
+    0.00 :   410e56: mov    0x130(%r14),%rcx
+    0.00 :   410e5d: jmpq   410b96 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x156>
+    0.00 :   410e62: nopw   0x0(%rax,%rax,1)
+    0.00 :   410e68: mov    0x30(%rsp),%rcx
+    0.06 :   410e6d: mov    0x170(%r14),%r9
+    0.00 :   410e74: mov    %rcx,0x10(%rsp)
+    0.00 :   410e79: cmp    %rax,%r9
+    0.00 :   410e7c: je     411647 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xc07>
+    0.00 :   410e82: mov    0x168(%r14),%r11
+    0.06 :   410e89: sub    %rax,%r9
+    0.11 :   410e8c: mov    %esi,%r13d
+    0.00 :   410e8f: sub    %rax,%r11
+    0.00 :   410e92: mov    (%rdx),%eax
+    0.06 :   410e94: mov    %r11,%rdi
+    0.00 :   410e97: sar    $0x2,%rdi
+    0.00 :   410e9b: add    %r13,%rax
+    0.00 :   410e9e: mov    %rdi,%r10
+    0.06 :   410ea1: cmp    %rdi,%rax
+    0.00 :   410ea4: je     4114b4 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xa74>
+    0.00 :   410eaa: test   %esi,%esi
+    0.00 :   410eac: je     411450 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xa10>
+    0.00 :   410eb2: lea    (%rsi,%rsi,1),%r13d
+    0.00 :   410eb6: mov    %r13d,0x18(%rsp)
+    0.00 :   410ebb: add    %r13,%rdi
+    0.06 :   410ebe: sar    $0x2,%r9
+    0.00 :   410ec2: cmp    %rdi,%r9
+    0.00 :   410ec5: jae    410f16 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x4d6>
+    0.00 :   410ec7: cmp    $0x3,%rdi
+    0.00 :   410ecb: jbe    411825 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xde5>
+    0.00 :   410ed1: mov    $0x4,%eax
+    0.00 :   410ed6: nopw   %cs:0x0(%rax,%rax,1)
+    0.00 :   410ee0: add    %rax,%rax
+    0.00 :   410ee3: lea    -0x1(%rax),%rsi
+    0.00 :   410ee7: cmp    %rdi,%rsi
+    0.00 :   410eea: jb     410ee0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x4a0>
+    0.00 :   410eec: mov    0x10(%rsp),%rdi
+    0.00 :   410ef1: mov    %r8,0x20(%rsp)
+    0.00 :   410ef6: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   410efb: mov    0x168(%r14),%r10
+    0.00 :   410f02: mov    0x20(%rsp),%r8
+    0.00 :   410f07: sub    0x160(%r14),%r10
+    0.00 :   410f0e: sar    $0x2,%r10
+    0.00 :   410f12: lea    (%r10,%r13,1),%rdi
+    0.00 :   410f16: mov    %rdi,%rsi
+    0.00 :   410f19: mov    0x10(%rsp),%rdi
+    0.00 :   410f1e: mov    %r8,0x40(%rsp)
+    0.00 :   410f23: mov    %r10d,0x20(%rsp)
+    0.00 :   410f28: mov    %r10,0x38(%rsp)
+    0.00 :   410f2d: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   410f32: mov    0x40(%rsp),%r8
+    0.00 :   410f37: mov    0x38(%rsp),%r10
+    0.00 :   410f3c: mov    0x160(%r14),%rax
+    0.00 :   410f43: mov    %r8,%r9
+    0.00 :   410f46: add    0x178(%r14),%r9
+    0.00 :   410f4d: mov    %r10d,%r10d
+    0.00 :   410f50: mov    %r8,0x10(%rsp)
+    0.00 :   410f55: mov    (%r9),%edx
+    0.00 :   410f58: mov    0x4(%r9),%esi
+    0.00 :   410f5c: lea    (%rax,%r10,4),%rdi
+    0.00 :   410f60: lea    (%rax,%rdx,4),%r10
+    0.00 :   410f64: mov    %esi,%edx
+    0.00 :   410f66: shl    $0x2,%rdx
+    0.00 :   410f6a: cmp    $0x4,%rdx
+    0.00 :   410f6e: jbe    4117b6 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xd76>
+    0.00 :   410f74: mov    %r10,%rsi
+    0.00 :   410f77: mov    %r9,0x38(%rsp)
+    0.00 :   410f7c: callq  4023b0 <memmove@plt>
+    0.00 :   410f81: mov    0x10(%rsp),%rdx
+    0.06 :   410f86: mov    0x38(%rsp),%r9
+    0.00 :   410f8b: add    0x178(%r14),%rdx
+    0.00 :   410f92: mov    0x160(%r14),%rax
+    0.00 :   410f99: mov    0x4(%rdx),%esi
+    0.00 :   410f9c: mov    0x20(%rsp),%ecx
+    0.06 :   410fa0: mov    0x190(%r14),%rdi
+    0.00 :   410fa7: mov    %ecx,(%r9)
+    0.00 :   410faa: mov    0x18(%rsp),%ecx
+    0.00 :   410fae: lea    -0x1(%r13,%rdi,1),%rdi
+    0.00 :   410fb3: mov    %ecx,0x8(%r9)
+    0.00 :   410fb7: jmpq   410d05 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x2c5>
+    0.00 :   410fbc: nopl   0x0(%rax)
+    0.00 :   410fc0: mov    0x30(%rsp),%rcx
+    0.74 :   410fc5: mov    0x170(%r14),%rdi
+    0.00 :   410fcc: mov    %rcx,0x10(%rsp)
+    0.06 :   410fd1: cmp    %rax,%rdi
+    0.00 :   410fd4: je     4116c4 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xc84>
+    0.00 :   410fda: mov    0x168(%r14),%r10
+    0.00 :   410fe1: sub    %rax,%rdi
+    0.00 :   410fe4: mov    %r11d,%r13d
+    0.00 :   410fe7: sub    %rax,%r10
+    0.00 :   410fea: mov    (%r15),%eax
+    0.17 :   410fed: mov    %r10,%rsi
+    0.11 :   410ff0: sar    $0x2,%rsi
+    0.00 :   410ff4: add    %r13,%rax
+    0.00 :   410ff7: mov    %rsi,%rdx
+    0.00 :   410ffa: cmp    %rsi,%rax
+    0.06 :   410ffd: je     411463 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xa23>
+    0.00 :   411003: test   %r11d,%r11d
+    0.00 :   411006: je     411438 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x9f8>
+    0.00 :   41100c: lea    (%r11,%r11,1),%r13d
+    0.11 :   411010: mov    %r13d,0x18(%rsp)
+    0.00 :   411015: add    %r13,%rsi
+    0.16 :   411018: sar    $0x2,%rdi
+    0.06 :   41101c: cmp    %rsi,%rdi
+    0.00 :   41101f: jae    411073 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x633>
+    0.00 :   411021: cmp    $0x3,%rsi
+    0.00 :   411025: jbe    41181b <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xddb>
+    0.00 :   41102b: mov    $0x4,%eax
+    0.00 :   411030: add    %rax,%rax
+    0.00 :   411033: lea    -0x1(%rax),%rdx
+    0.00 :   411037: cmp    %rsi,%rdx
+    0.00 :   41103a: jb     411030 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x5f0>
+    0.00 :   41103c: mov    0x10(%rsp),%rdi
+    0.00 :   411041: mov    %rdx,%rsi
+    0.00 :   411044: mov    %r9d,0x38(%rsp)
+    0.00 :   411049: mov    %r8,0x20(%rsp)
+    0.00 :   41104e: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   411053: mov    0x38(%rsp),%r9d
+    0.00 :   411058: mov    0x20(%rsp),%r8
+    0.00 :   41105d: mov    0x168(%r14),%rdx
+    0.00 :   411064: sub    0x160(%r14),%rdx
+    0.00 :   41106b: sar    $0x2,%rdx
+    0.00 :   41106f: lea    (%rdx,%r13,1),%rsi
+    0.00 :   411073: mov    0x10(%rsp),%rdi
+    0.06 :   411078: mov    %r9d,0x48(%rsp)
+    0.00 :   41107d: mov    %r8,0x40(%rsp)
+    0.11 :   411082: mov    %edx,0x20(%rsp)
+    0.00 :   411086: mov    %rdx,0x38(%rsp)
+    0.06 :   41108b: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   411090: mov    0x40(%rsp),%r8
+    0.00 :   411095: mov    0x178(%r14),%r10
+    0.11 :   41109c: mov    0x38(%rsp),%rdx
+    0.00 :   4110a1: mov    0x160(%r14),%rax
+    0.06 :   4110a8: add    %r8,%r10
+    0.00 :   4110ab: mov    0x48(%rsp),%r9d
+    0.00 :   4110b0: mov    %edx,%edx
+    0.00 :   4110b2: mov    0x4(%r10),%r11d
+    0.11 :   4110b6: lea    (%rax,%rdx,4),%rdi
+    0.06 :   4110ba: mov    (%r10),%edx
+    0.06 :   4110bd: lea    (%rax,%rdx,4),%rsi
+    0.06 :   4110c1: mov    %r11d,%edx
+    0.00 :   4110c4: shl    $0x2,%rdx
+    0.00 :   4110c8: cmp    $0x4,%rdx
+    0.00 :   4110cc: jbe    4117fb <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xdbb>
+    0.00 :   4110d2: mov    %r10,0x40(%rsp)
+    0.06 :   4110d7: mov    %r9d,0x38(%rsp)
+    0.00 :   4110dc: mov    %r8,0x10(%rsp)
+    0.00 :   4110e1: callq  4023b0 <memmove@plt>
+    0.11 :   4110e6: mov    0x10(%rsp),%r8
+    0.00 :   4110eb: mov    0x38(%rsp),%r9d
+    0.00 :   4110f0: mov    0x178(%r14),%rdx
+    0.00 :   4110f7: mov    0x160(%r14),%rax
+    0.06 :   4110fe: mov    0x40(%rsp),%r10
+    0.00 :   411103: add    %r8,%rdx
+    0.06 :   411106: mov    0x4(%rdx),%r11d
+    0.11 :   41110a: mov    0x20(%rsp),%ecx
+    0.00 :   41110e: mov    0x190(%r14),%rsi
+    0.00 :   411115: mov    %ecx,(%r10)
+    0.05 :   411118: mov    0x18(%rsp),%ecx
+    0.23 :   41111c: lea    -0x1(%r13,%rsi,1),%rdi
+    0.00 :   411121: mov    %ecx,0x8(%r10)
+    0.06 :   411125: jmpq   410ce0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x2a0>
+    0.00 :   41112a: nopw   0x0(%rax,%rax,1)
+    0.00 :   411130: mov    0x30(%rsp),%rbx
+    0.06 :   411135: mov    0x170(%r14),%rdi
+    0.00 :   41113c: mov    %rbx,0x10(%rsp)
+    0.00 :   411141: cmp    %rax,%rdi
+    0.00 :   411144: je     41168a <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xc4a>
+    0.00 :   41114a: mov    0x168(%r14),%r9
+    0.00 :   411151: sub    %rax,%rdi
+    0.00 :   411154: mov    %esi,%r10d
+    0.11 :   411157: sub    %rax,%r9
+    0.00 :   41115a: mov    (%r8),%eax
+    0.00 :   41115d: mov    %r9,%rcx
+    0.00 :   411160: sar    $0x2,%rcx
+    0.00 :   411164: add    %r10,%rax
+    0.00 :   411167: mov    %rcx,%rdx
+    0.00 :   41116a: cmp    %rcx,%rax
+    0.00 :   41116d: je     41153d <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xafd>
+    0.00 :   411173: test   %esi,%esi
+    0.00 :   411175: je     411420 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x9e0>
+    0.00 :   41117b: lea    (%rsi,%rsi,1),%ebx
+    0.00 :   41117e: mov    %ebx,0x38(%rsp)
+    0.00 :   411182: lea    (%rcx,%rbx,1),%rsi
+    0.00 :   411186: sar    $0x2,%rdi
+    0.00 :   41118a: cmp    %rsi,%rdi
+    0.00 :   41118d: jae    4111cf <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x78f>
+    0.00 :   41118f: cmp    $0x3,%rsi
+    0.00 :   411193: jbe    411811 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xdd1>
+    0.00 :   411199: mov    $0x4,%eax
+    0.00 :   41119e: xchg   %ax,%ax
+    0.00 :   4111a0: add    %rax,%rax
+    0.00 :   4111a3: lea    -0x1(%rax),%rdx
+    0.00 :   4111a7: cmp    %rsi,%rdx
+    0.00 :   4111aa: jb     4111a0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x760>
+    0.00 :   4111ac: mov    0x10(%rsp),%rdi
+    0.00 :   4111b1: mov    %rdx,%rsi
+    0.00 :   4111b4: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   4111b9: mov    0x168(%r14),%rdx
+    0.00 :   4111c0: sub    0x160(%r14),%rdx
+    0.00 :   4111c7: sar    $0x2,%rdx
+    0.00 :   4111cb: lea    (%rdx,%rbx,1),%rsi
+    0.00 :   4111cf: mov    0x10(%rsp),%rdi
+    0.06 :   4111d4: mov    %edx,0x40(%rsp)
+    0.00 :   4111d8: mov    %rdx,0x48(%rsp)
+    0.00 :   4111dd: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   4111e2: mov    0x178(%r14),%rcx
+    0.00 :   4111e9: mov    0x48(%rsp),%rdx
+    0.00 :   4111ee: mov    0x160(%r14),%rax
+    0.00 :   4111f5: lea    (%rcx,%r15,1),%r9
+    0.00 :   4111f9: mov    %edx,%edx
+    0.00 :   4111fb: mov    0x4(%r9),%esi
+    0.06 :   4111ff: lea    (%rax,%rdx,4),%rdi
+    0.00 :   411203: mov    (%r9),%edx
+    0.00 :   411206: lea    (%rax,%rdx,4),%r10
+    0.00 :   41120a: mov    %esi,%edx
+    0.00 :   41120c: shl    $0x2,%rdx
+    0.00 :   411210: cmp    $0x4,%rdx
+    0.00 :   411214: jbe    4117e4 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xda4>
+    0.00 :   41121a: mov    %r10,%rsi
+    0.00 :   41121d: mov    %r9,0x10(%rsp)
+    0.00 :   411222: callq  4023b0 <memmove@plt>
+    0.00 :   411227: mov    0x178(%r14),%rcx
+    0.00 :   41122e: mov    0x10(%rsp),%r9
+    0.00 :   411233: mov    0x160(%r14),%rax
+    0.00 :   41123a: lea    (%rcx,%r15,1),%r8
+    0.00 :   41123e: mov    0x4(%r8),%esi
+    0.00 :   411242: mov    0x40(%rsp),%edi
+    0.00 :   411246: mov    0x190(%r14),%rdx
+    0.00 :   41124d: mov    %edi,(%r9)
+    0.00 :   411250: mov    0x38(%rsp),%edi
+    0.06 :   411254: lea    -0x1(%rbx,%rdx,1),%rdx
+    0.00 :   411259: mov    %edi,0x8(%r9)
+    0.00 :   41125d: jmpq   410c75 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x235>
+    0.00 :   411262: nopw   0x0(%rax,%rax,1)
+    0.00 :   411268: mov    0x30(%rsp),%rcx
+    0.57 :   41126d: mov    0x170(%r14),%rdi
+    0.06 :   411274: mov    %rcx,0x10(%rsp)
+    0.00 :   411279: cmp    %rax,%rdi
+    0.00 :   41127c: je     411618 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xbd8>
+    0.00 :   411282: mov    0x168(%r14),%r8
+    0.00 :   411289: sub    %rax,%rdi
+    0.00 :   41128c: mov    %esi,%r9d
+    0.06 :   41128f: sub    %rax,%r8
+    0.00 :   411292: mov    0x0(%rbp),%eax
+    0.00 :   411295: mov    %r8,%rcx
+    0.00 :   411298: sar    $0x2,%rcx
+    0.00 :   41129c: add    %r9,%rax
+    0.00 :   41129f: mov    %rcx,%rdx
+    0.00 :   4112a2: cmp    %rcx,%rax
+    0.00 :   4112a5: je     411500 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xac0>
+    0.00 :   4112ab: test   %esi,%esi
+    0.00 :   4112ad: je     411400 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x9c0>
+    0.00 :   4112b3: lea    (%rsi,%rsi,1),%eax
+    0.00 :   4112b6: mov    %eax,0x40(%rsp)
+    0.00 :   4112ba: mov    %rax,0x38(%rsp)
+    0.00 :   4112bf: mov    0x38(%rsp),%rax
+    0.17 :   4112c4: sar    $0x2,%rdi
+    0.00 :   4112c8: lea    (%rcx,%rax,1),%rsi
+    0.00 :   4112cc: cmp    %rsi,%rdi
+    0.00 :   4112cf: jae    411314 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x8d4>
+    0.00 :   4112d1: cmp    $0x3,%rsi
+    0.00 :   4112d5: jbe    41182f <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xdef>
+    0.00 :   4112db: mov    $0x4,%eax
+    0.00 :   4112e0: add    %rax,%rax
+    0.00 :   4112e3: lea    -0x1(%rax),%rdx
+    0.00 :   4112e7: cmp    %rsi,%rdx
+    0.00 :   4112ea: jb     4112e0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x8a0>
+    0.00 :   4112ec: mov    0x10(%rsp),%rdi
+    0.00 :   4112f1: mov    %rdx,%rsi
+    0.00 :   4112f4: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   4112f9: mov    0x168(%r14),%rdx
+    0.00 :   411300: mov    0x38(%rsp),%rax
+    0.00 :   411305: sub    0x160(%r14),%rdx
+    0.00 :   41130c: sar    $0x2,%rdx
+    0.00 :   411310: lea    (%rdx,%rax,1),%rsi
+    0.00 :   411314: mov    0x10(%rsp),%rdi
+    0.00 :   411319: mov    %edx,0x48(%rsp)
+    0.00 :   41131d: mov    %rdx,0x50(%rsp)
+    0.00 :   411322: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.11 :   411327: mov    0x178(%r14),%rcx
+    0.00 :   41132e: mov    0x50(%rsp),%rdx
+    0.00 :   411333: mov    0x160(%r14),%rax
+    0.00 :   41133a: lea    (%rcx,%r15,1),%r9
+    0.00 :   41133e: mov    %edx,%edx
+    0.00 :   411340: mov    0x4(%r9),%esi
+    0.22 :   411344: lea    (%rax,%rdx,4),%rdi
+    0.00 :   411348: mov    (%r9),%edx
+    0.11 :   41134b: lea    (%rax,%rdx,4),%r10
+    0.00 :   41134f: mov    %esi,%edx
+    0.11 :   411351: shl    $0x2,%rdx
+    0.00 :   411355: cmp    $0x4,%rdx
+    0.00 :   411359: jbe    4117cd <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xd8d>
+    0.00 :   41135f: mov    %r10,%rsi
+    0.00 :   411362: mov    %r9,0x10(%rsp)
+    0.00 :   411367: callq  4023b0 <memmove@plt>
+    0.00 :   41136c: mov    0x178(%r14),%rcx
+    0.00 :   411373: mov    0x10(%rsp),%r9
+    0.00 :   411378: mov    0x160(%r14),%rax
+    0.00 :   41137f: lea    (%rcx,%r15,1),%r8
+    0.06 :   411383: mov    0x4(%r8),%esi
+    0.11 :   411387: mov    0x48(%rsp),%edi
+    0.00 :   41138b: mov    0x190(%r14),%rdx
+    0.06 :   411392: mov    %edi,(%r9)
+    0.06 :   411395: mov    0x40(%rsp),%edi
+    0.23 :   411399: mov    %edi,0x8(%r9)
+    0.06 :   41139d: mov    0x38(%rsp),%rdi
+    0.06 :   4113a2: lea    -0x1(%rdi,%rdx,1),%rdx
+    0.11 :   4113a7: jmpq   410c4f <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x20f>
+    0.00 :   4113ac: nopl   0x0(%rax)
+    0.00 :   4113b0: mov    0x58(%rsp),%r12
+    0.00 :   4113b5: movb   $0x1,0x198(%r14)
+    0.00 :   4113bd: test   %r12,%r12
+    0.00 :   4113c0: je     411585 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xb45>
+    0.00 :   4113c6: mov    0x70(%rsp),%rsi
+    0.00 :   4113cb: add    $0x88,%rsp
+    0.00 :   4113d2: mov    %r12,%rdi
+    0.00 :   4113d5: pop    %rbx
+    0.00 :   4113d6: pop    %rbp
+    0.00 :   4113d7: sub    %r12,%rsi
+    0.00 :   4113da: pop    %r12
+    0.00 :   4113dc: pop    %r13
+    0.00 :   4113de: pop    %r14
+    0.00 :   4113e0: pop    %r15
+    0.00 :   4113e2: jmpq   402210 <operator delete(void*, unsigned long)@plt>
+    0.00 :   4113e7: nopw   0x0(%rax,%rax,1)
+    0.00 :   4113f0: mov    %r8,%rcx
+    0.97 :   4113f3: xor    %edi,%edi
+    0.00 :   4113f5: jmpq   410aeb <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xab>
+    0.00 :   4113fa: nopw   0x0(%rax,%rax,1)
+    0.00 :   411400: movq   $0x1,0x38(%rsp)
+    0.11 :   411409: movl   $0x1,0x40(%rsp)
+    0.00 :   411411: jmpq   4112bf <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x87f>
+    0.00 :   411416: nopw   %cs:0x0(%rax,%rax,1)
+    0.00 :   411420: movl   $0x1,0x38(%rsp)
+    0.00 :   411428: mov    $0x1,%ebx
+    0.00 :   41142d: jmpq   411182 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x742>
+    0.00 :   411432: nopw   0x0(%rax,%rax,1)
+    0.00 :   411438: movl   $0x1,0x18(%rsp)
+    0.06 :   411440: mov    $0x1,%r13d
+    0.00 :   411446: jmpq   411015 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x5d5>
+    0.00 :   41144b: nopl   0x0(%rax,%rax,1)
+    0.00 :   411450: movl   $0x1,0x18(%rsp)
+    0.00 :   411458: mov    $0x1,%r13d
+    0.00 :   41145e: jmpq   410ebb <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x47b>
+    0.00 :   411463: cmp    %rdi,%r10
+    0.00 :   411466: jae    411003 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x5c3>
+    0.00 :   41146c: mov    0x10(%rsp),%rdi
+    0.06 :   411471: lea    0x1(%rax),%rsi
+    0.00 :   411475: mov    %r9d,0x20(%rsp)
+    0.00 :   41147a: mov    %r8,0x18(%rsp)
+    0.00 :   41147f: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.06 :   411484: mov    0x18(%rsp),%r8
+    0.06 :   411489: mov    0x178(%r14),%rdx
+    0.00 :   411490: addl   $0x1,0x8(%r15)
+    0.00 :   411495: mov    0x190(%r14),%rdi
+    0.00 :   41149c: add    %r8,%rdx
+    0.00 :   41149f: mov    0x160(%r14),%rax
+    0.00 :   4114a6: mov    0x20(%rsp),%r9d
+    0.00 :   4114ab: mov    0x4(%rdx),%r11d
+    0.00 :   4114af: jmpq   410ce0 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x2a0>
+    0.00 :   4114b4: cmp    %r9,%r11
+    0.00 :   4114b7: jae    410eaa <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x46a>
+    0.00 :   4114bd: mov    0x10(%rsp),%rdi
+    0.06 :   4114c2: lea    0x1(%rax),%rsi
+    0.00 :   4114c6: mov    %rdx,0x20(%rsp)
+    0.00 :   4114cb: mov    %r8,0x18(%rsp)
+    0.00 :   4114d0: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   4114d5: mov    0x20(%rsp),%rdx
+    0.00 :   4114da: mov    0x190(%r14),%rdi
+    0.11 :   4114e1: mov    0x160(%r14),%rax
+    0.00 :   4114e8: addl   $0x1,0x8(%rdx)
+    0.00 :   4114ec: mov    0x18(%rsp),%rdx
+    0.11 :   4114f1: add    0x178(%r14),%rdx
+    0.00 :   4114f8: mov    0x4(%rdx),%esi
+    0.00 :   4114fb: jmpq   410d05 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x2c5>
+    0.00 :   411500: cmp    %rdi,%r8
+    0.11 :   411503: jae    4112ab <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x86b>
+    0.00 :   411509: mov    0x10(%rsp),%rdi
+    0.06 :   41150e: lea    0x1(%rax),%rsi
+    0.00 :   411512: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   411517: mov    0x178(%r14),%rcx
+    0.00 :   41151e: addl   $0x1,0x8(%rbp)
+    0.00 :   411522: mov    0x190(%r14),%rdx
+    0.06 :   411529: mov    0x160(%r14),%rax
+    0.00 :   411530: lea    (%rcx,%r15,1),%r8
+    0.00 :   411534: mov    0x4(%r8),%esi
+    0.00 :   411538: jmpq   410c4f <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x20f>
+    0.00 :   41153d: cmp    %rdi,%r9
+    0.00 :   411540: jae    411173 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x733>
+    0.00 :   411546: mov    0x10(%rsp),%rdi
+    0.00 :   41154b: lea    0x1(%rax),%rsi
+    0.00 :   41154f: mov    %r8,0x38(%rsp)
+    0.00 :   411554: callq  424b00 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   411559: mov    0x38(%rsp),%r8
+    0.00 :   41155e: mov    0x178(%r14),%rcx
+    0.00 :   411565: mov    0x190(%r14),%rdx
+    0.00 :   41156c: mov    0x160(%r14),%rax
+    0.00 :   411573: addl   $0x1,0x8(%r8)
+    0.00 :   411578: lea    (%rcx,%r15,1),%r8
+    0.00 :   41157c: mov    0x4(%r8),%esi
+    0.00 :   411580: jmpq   410c75 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x235>
+    0.00 :   411585: add    $0x88,%rsp
+    0.00 :   41158c: pop    %rbx
+    0.00 :   41158d: pop    %rbp
+    0.00 :   41158e: pop    %r12
+    0.00 :   411590: pop    %r13
+    0.00 :   411592: pop    %r14
+    0.00 :   411594: pop    %r15
+    0.00 :   411596: retq
+    0.00 :   411597: movabs $0x1fffffffffffffff,%rdx
+    0.06 :   4115a1: mov    0x60(%rsp),%r8
+    0.00 :   4115a6: sub    %r8,%rax
+    0.00 :   4115a9: mov    %rax,%r12
+    0.00 :   4115ac: sar    $0x2,%rax
+    0.00 :   4115b0: cmp    %rdx,%rax
+    0.00 :   4115b3: je     411856 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xe16>
+    0.00 :   4115b9: cmp    %r8,%rcx
+    0.00 :   4115bc: je     41178e <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xd4e>
+    0.00 :   4115c2: lea    (%rax,%rax,1),%rdx
+    0.06 :   4115c6: cmp    %rax,%rdx
+    0.00 :   4115c9: jb     411708 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xcc8>
+    0.00 :   4115cf: test   %rdx,%rdx
+    0.00 :   4115d2: jne    411839 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xdf9>
+    0.00 :   4115d8: movq   $0x0,0x8(%rsp)
+    0.00 :   4115e1: xor    %r9d,%r9d
+    0.00 :   4115e4: mov    %r13d,(%r9,%r12,1)
+    0.00 :   4115e8: lea    0x4(%r9,%r12,1),%r15
+    0.00 :   4115ed: test   %r12,%r12
+    0.00 :   4115f0: jg     41174c <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xd0c>
+    0.00 :   4115f6: test   %r8,%r8
+    0.00 :   4115f9: jne    411771 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xd31>
+    0.00 :   4115ff: mov    0x8(%rsp),%rax
+    0.00 :   411604: mov    %r9,0x60(%rsp)
+    0.00 :   411609: mov    %r15,0x68(%rsp)
+    0.00 :   41160e: mov    %rax,0x70(%rsp)
+    0.00 :   411613: jmpq   410e0d <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x3cd>
+    0.00 :   411618: lea    0x160(%r14),%rax
+    0.00 :   41161f: mov    $0x3,%esi
+    0.00 :   411624: mov    %rax,%rdi
+    0.00 :   411627: mov    %rax,0x10(%rsp)
+    0.00 :   41162c: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   411631: mov    0x4(%rbp),%esi
+    0.00 :   411634: mov    0x160(%r14),%rax
+    0.00 :   41163b: mov    0x170(%r14),%rdi
+    0.00 :   411642: jmpq   411282 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x842>
+    0.00 :   411647: lea    0x160(%r14),%rax
+    0.00 :   41164e: mov    $0x3,%esi
+    0.00 :   411653: mov    %rdx,0x20(%rsp)
+    0.00 :   411658: mov    %rax,%rdi
+    0.00 :   41165b: mov    %r8,0x18(%rsp)
+    0.00 :   411660: mov    %rax,0x10(%rsp)
+    0.00 :   411665: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   41166a: mov    0x20(%rsp),%rdx
+    0.00 :   41166f: mov    0x18(%rsp),%r8
+    0.00 :   411674: mov    0x160(%r14),%rax
+    0.00 :   41167b: mov    0x170(%r14),%r9
+    0.00 :   411682: mov    0x4(%rdx),%esi
+    0.00 :   411685: jmpq   410e82 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x442>
+    0.00 :   41168a: lea    0x160(%r14),%rax
+    0.00 :   411691: mov    $0x3,%esi
+    0.00 :   411696: mov    %r8,0x38(%rsp)
+    0.00 :   41169b: mov    %rax,%rdi
+    0.00 :   41169e: mov    %rax,0x10(%rsp)
+    0.00 :   4116a3: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   4116a8: mov    0x38(%rsp),%r8
+    0.00 :   4116ad: mov    0x160(%r14),%rax
+    0.00 :   4116b4: mov    0x170(%r14),%rdi
+    0.00 :   4116bb: mov    0x4(%r8),%esi
+    0.00 :   4116bf: jmpq   41114a <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x70a>
+    0.00 :   4116c4: lea    0x160(%r14),%rax
+    0.00 :   4116cb: mov    $0x3,%esi
+    0.00 :   4116d0: mov    %r9d,0x20(%rsp)
+    0.00 :   4116d5: mov    %rax,%rdi
+    0.00 :   4116d8: mov    %r8,0x18(%rsp)
+    0.00 :   4116dd: mov    %rax,0x10(%rsp)
+    0.00 :   4116e2: callq  424a40 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   4116e7: mov    0x4(%r15),%r11d
+    0.00 :   4116eb: mov    0x20(%rsp),%r9d
+    0.00 :   4116f0: mov    0x160(%r14),%rax
+    0.00 :   4116f7: mov    0x170(%r14),%rdi
+    0.00 :   4116fe: mov    0x18(%rsp),%r8
+    0.00 :   411703: jmpq   410fda <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x59a>
+    0.00 :   411708: movabs $0x7ffffffffffffffc,%r15
+    0.00 :   411712: mov    %r15,%rdi
+    0.00 :   411715: mov    %r8,0x18(%rsp)
+    0.00 :   41171a: mov    %rcx,0x10(%rsp)
+    0.00 :   41171f: callq  402200 <operator new(unsigned long)@plt>
+    0.00 :   411724: mov    0x10(%rsp),%rcx
+    0.00 :   411729: mov    0x18(%rsp),%r8
+    0.00 :   41172e: mov    %rax,%r9
+    0.00 :   411731: lea    (%rax,%r15,1),%rax
+    0.00 :   411735: mov    %rax,0x8(%rsp)
+    0.00 :   41173a: lea    0x4(%r9,%r12,1),%r15
+    0.00 :   41173f: mov    %r13d,(%r9,%r12,1)
+    0.00 :   411743: test   %r12,%r12
+    0.00 :   411746: jle    4115f6 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xbb6>
+    0.00 :   41174c: mov    %r8,%rsi
+    0.00 :   41174f: mov    %r9,%rdi
+    0.00 :   411752: mov    %r12,%rdx
+    0.00 :   411755: mov    %rcx,0x18(%rsp)
+    0.00 :   41175a: mov    %r8,0x10(%rsp)
+    0.00 :   41175f: callq  4023b0 <memmove@plt>
+    0.00 :   411764: mov    0x10(%rsp),%r8
+    0.00 :   411769: mov    0x18(%rsp),%rcx
+    0.00 :   41176e: mov    %rax,%r9
+    0.00 :   411771: sub    %r8,%rcx
+    0.00 :   411774: mov    %r8,%rdi
+    0.00 :   411777: mov    %r9,0x10(%rsp)
+    0.00 :   41177c: mov    %rcx,%rsi
+    0.00 :   41177f: callq  402210 <operator delete(void*, unsigned long)@plt>
+    0.00 :   411784: mov    0x10(%rsp),%r9
+    0.00 :   411789: jmpq   4115ff <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xbbf>
+    0.00 :   41178e: add    $0x1,%rax
+    0.00 :   411792: jb     411708 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xcc8>
+    0.00 :   411798: movabs $0x1fffffffffffffff,%rdx
+    0.00 :   4117a2: cmp    %rdx,%rax
+    0.00 :   4117a5: cmova  %rdx,%rax
+    0.00 :   4117a9: lea    0x0(,%rax,4),%r15
+    0.00 :   4117b1: jmpq   411712 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xcd2>
+    0.00 :   4117b6: mov    %r9,%rdx
+    0.00 :   4117b9: jne    410f9c <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x55c>
+    0.00 :   4117bf: mov    (%r10),%esi
+    0.00 :   4117c2: mov    %esi,(%rdi)
+    0.00 :   4117c4: mov    0x4(%r9),%esi
+    0.00 :   4117c8: jmpq   410f9c <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x55c>
+    0.00 :   4117cd: mov    %r9,%r8
+    0.11 :   4117d0: jne    411387 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x947>
+    0.00 :   4117d6: mov    (%r10),%edx
+    0.00 :   4117d9: mov    %edx,(%rdi)
+    0.00 :   4117db: mov    0x4(%r9),%esi
+    0.00 :   4117df: jmpq   411387 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x947>
+    0.00 :   4117e4: mov    %r9,%r8
+    0.00 :   4117e7: jne    411242 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x802>
+    0.00 :   4117ed: mov    (%r10),%edx
+    0.00 :   4117f0: mov    %edx,(%rdi)
+    0.00 :   4117f2: mov    0x4(%r9),%esi
+    0.00 :   4117f6: jmpq   411242 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x802>
+    0.00 :   4117fb: mov    %r10,%rdx
+    0.06 :   4117fe: jne    41110a <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x6ca>
+    0.00 :   411804: mov    (%rsi),%esi
+    0.11 :   411806: mov    %esi,(%rdi)
+    0.00 :   411808: mov    0x4(%r10),%r11d
+    0.00 :   41180c: jmpq   41110a <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x6ca>
+    0.00 :   411811: mov    $0x3,%edx
+    0.00 :   411816: jmpq   4111ac <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x76c>
+    0.00 :   41181b: mov    $0x3,%edx
+    0.00 :   411820: jmpq   41103c <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x5fc>
+    0.00 :   411825: mov    $0x3,%esi
+    0.00 :   41182a: jmpq   410eec <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x4ac>
+    0.00 :   41182f: mov    $0x3,%edx
+    0.00 :   411834: jmpq   4112ec <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0x8ac>
+    0.00 :   411839: movabs $0x1fffffffffffffff,%rax
+    0.00 :   411843: cmp    %rax,%rdx
+    0.00 :   411846: cmovbe %rdx,%rax
+    0.00 :   41184a: mov    %rax,%r15
+    0.00 :   41184d: shl    $0x2,%r15
+    0.00 :   411851: jmpq   411712 <tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)+0xcd2>
+    0.00 :   411856: mov    $0x50d4e1,%edi
+    0.00 :   41185b: callq  402110 <std::__throw_length_error(char const*)@plt>

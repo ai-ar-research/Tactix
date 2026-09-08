@@ -1,0 +1,73 @@
+{
+  "schema": "tactix-kissat-checked-runtime-v1",
+  "status": "UNFUZZED isolated investigation; no production promotion",
+  "hypothesis": "Wraparound membership cursors avoid repeated unchanged-prefix scans during large replacement while preserving exact work and proof bytes.",
+  "comparison": "Three independent matched candidate/previous replica blocks, full width without forced placement.",
+  "decision": "Require identical complete non-timing statistics and proof hashes in all three pairs against exact predecessor 5438. Judge median paired ratio and full range, not best-of; absolute headline only with both arm ranges <=2%. Pending proofs guide investigation but not final acceptance. Neutral/noisy timing does not establish a useful optimization.",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "b92994ec05c61c3197985f22a45d3df82da4a8ec9301d2d1c99663e46dbac99c",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/candidate.patch",
+      "source_patch_sha256": "646747894d27c6fd25a7e76a388e721b93701e9be08535339019ab0e496d0732",
+      "source_build": "build/pin-5445-replacement-cursor-release"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "2e316cb494cc10e24a917f8e8eaba7855d742168063961980da40363ad3a9d74",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/previous.patch",
+      "source_patch_sha256": "476ce16a8778adb177639d244c2705a60215252decd46ff5a94e5699ba6d2e6f",
+      "source_build": "build/pin-5438-vivify-max-release"
+    }
+  },
+  "collect_runtime_context": true,
+  "input_sha256": {
+    "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-5",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "pin_sha256": {
+    "pins/candidate": "b92994ec05c61c3197985f22a45d3df82da4a8ec9301d2d1c99663e46dbac99c",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/previous.patch": "476ce16a8778adb177639d244c2705a60215252decd46ff5a94e5699ba6d2e6f",
+    "pins/previous": "2e316cb494cc10e24a917f8e8eaba7855d742168063961980da40363ad3a9d74",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/candidate.patch": "646747894d27c6fd25a7e76a388e721b93701e9be08535339019ab0e496d0732",
+    "matrix.tsv": "2099ecbda23bfc997dc4f08688a85da83d74cf78213831420d993fae809b5e09",
+    "array.sbatch": "9f0dbf5df41d021baeccee3d2d95a029623a8012e3d4f9f0f0ff03612999c8b4"
+  },
+  "parent_campaign": "benchmarks/runs/20260907-5428-watch-truncate-rank35-runtime",
+  "candidate_validation": "840 exact old/new replacement-state cases; independent identical Release builds each pass 80/80 fixed tests; UNFUZZED.",
+  "candidate_authority": "benchmarks/runs/20260907-5445-replacement-cursor",
+  "wave_tasks": {
+    "0": [
+      0,
+      1
+    ],
+    "1": [
+      2,
+      3
+    ],
+    "2": [
+      4,
+      5
+    ]
+  },
+  "created_at": "2026-09-08T02:00:44.077759+00:00"
+}

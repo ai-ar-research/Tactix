@@ -10,9 +10,11 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest implementation: [Vivify maximum selection](benchmarks/reports/2026-09-07-vivify-max-selection.md), candidate 5438,
-  based on phase-entry 5430. Actual old/new 144-case order/pose checks match;
-  both independent Release builds pass 79/79. Timing and B28+C5 are queued.
+- Latest implementation: [replacement membership cursor](benchmarks/reports/2026-09-07-replacement-cursor.md), candidate 5445,
+  based on Vivify 5438. Actual old/new 840-case state checks match; both
+  independent Release builds pass 80/80. Timing and B28+C5 are queued.
+- Phase-entry 5434 now has all 40 pairs: **1.205580x**, 60/80 checked at its
+  frozen solver snapshot. It does not materially close the aggregate gap.
 - [Full view and next boundaries](benchmarks/reports/2026-09-07-runtime-next-boundaries.md):
   Rephase's full 40-pair solver view is **1.202034x**, with proofs still pending.
   Its nine timing proofs and B28+C5 are now fully checked. Metadata 5426 has a
@@ -39,27 +41,30 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | Campaign | Job | Pending scope |
 |---|---|---|
 | 5423 Rephase full Rank 1–40 | `1669887` | All 80 expected verdicts; proofs checking. |
-| 5425 clean Rephase profiles | `1669961` | Both usable profiles reproduce work; proofs checking. |
-| 5428 metadata timing | `1669968` | All 6 expected UNSAT, identical paired proof bytes; checking. |
 | 5429 metadata B28+C5 | `1669969` | 64/66 checked; C5 tail in flight. |
 | 5433 phase-entry prefix | `1669971` | Complete: unchanged from Rephase through 100,000. |
-| 5434 phase-entry Rank 1–40 | `1669972` | Full fixed comparison; running. |
-| 5435 phase-entry B28+C5 | `1669973` | Fixed cumulative gate; queued. |
-| 5436 Rank-37 prefix | `1669994` | Latest phase-entry candidate/Kissat; queued. |
+| 5434 phase-entry Rank 1–40 | `1669972` | All 80 expected verdicts; proofs checking. |
+| 5435 phase-entry B28+C5 | `1669973` | Fixed cumulative gate; running. |
+| 5436 Rank-37 prefix | `1669994` | Complete: first decision split at conflict 29,767. |
 | 5437 Rank-35 Sweep binaries | `1670050` | Rephase/phase-entry/Kissat snapshots at conflict 19,365; queued. |
 | 5440 Vivify maximum timing | `1670118` | Three exact phase-entry predecessor pairs; queued. |
 | 5441 Vivify maximum B28+C5 | `1670119` | Fixed cumulative gate; queued. |
+| 5447 replacement cursor timing | `1670198` | Three exact Vivify predecessor pairs; queued. |
+| 5448 replacement cursor B28+C5 | `1670199` | Fixed cumulative gate; queued. |
+| 5449 Rank-37 elimination limit | `1670217` | Selected ledger at earlier extra Strengthen round; queued. |
 
 User-requested periodic fuzz checkpoint 5442 is owned by background Claude
 process `2920923` (parent tool session `30094`), testing immutable source 5438.
 Read only its terminal response; do not inspect its jobs, logs or fuzz artifacts.
 Continue independent development while pending; no passing gate is inferred.
+This campaign does not cover new 5445; include it in the next periodic checkpoint.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
 5383/5389/5393/5395/5421/5422 are terminal and checked; diagnostics through 5424 are terminal
 (5401/5411 cancelled, 5413 timed out; scratch cleaned). User interactive allocation
 `1668242` is untouched. Exact audit and stop limitations are in the latest report.
+5425's two profiles and 5428's six timing proofs are now fully checked and clean.
 
 | Accepted authority | Result |
 |---|---|
@@ -81,9 +86,13 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Compare 5434's full view against 5423 as solver results arrive; use provisional
-   passes. Rephase's largest losses are Ranks 37/32/31. Run the 5436 prefix
-   comparators and `compare-sweep-binary-boundary-5437.py` on complete traces.
+1. Post-report 5436 is complete: 7,504,348 matching decision rows before
+   conflict 29,767. Its `boundary-localization.json` shows identical first BVE
+   output at 29,761, then an extra Tactix Strengthen round producing 21 units.
+   Inspect 5449's selected BVE/slot ledger: test a missing outer resolution-limit
+   check against native `eliminate_variables` before changing scheduling.
+   Extra simplification is not automatically weaker. Largest losses remain
+   Ranks 37/32/31. Run `compare-sweep-binary-boundary-5437.py` when complete.
    Rank 35 first differs in coarse binary count at Sweep end, conflict 19,365;
    decisions remain identical until 32,072. Resolve duplicates versus unique
    clauses before modifying Sweep; 5433 leaves that prefix unchanged. Profile
@@ -92,6 +101,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    its small measured gain may inform consolidation, pending final gates.
    Judge 5440 with all three exact-work pairs and its snapshot helper; no gain
    is claimed for maximum selection before measurement.
+   Likewise judge 5447 with `snapshot-replacement-cursor-runtime-5447.py`;
+   5444 attributes 98.71% of replacement-local sampled periods to membership
+   loops, but no new-candidate speedup is measured yet.
 2. Revisit active checker outcomes without blocking the investigation; run
    `seal-rephase-gates-5422.py` and `seal-root-followup-gates-5435.py` when complete.
    `seal-rephase-replicas-5421.py` has sealed all nine timing proofs.
@@ -107,6 +119,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Private maximum-selection source `.claude/worktrees/runtime-vivify-max-5438`
    descends from 5430, excludes metadata, and owns Release 5438/5439 (matching
    SHA `2e316cb494cc10e24…`); its manifest owns full hashes, patch and tests.
+   Latest source `.claude/worktrees/runtime-replacement-cursor-5445` descends
+   from 5438; builds 5445/5446 share SHA `b92994ec05c61c31…`. No submitted
+   source may be edited. Its 840-case fixture preserves physical/derived state.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
    in the background as requested. Check session `30094` for its terminal report;
    do not inspect/reinterpret fuzz artifacts. Consolidation still requires all
@@ -155,10 +170,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Replaced unnecessary Vivify literal sorting in isolated 5438; old/new order matches.
-- Passed 79/79 tests in both matching builds and queued timing/B28+C5 gates.
-- Launched Claude-owned periodic fuzzing on the latest candidate.
-- Recorded user-authorized background fuzzing while independent development continues.
-- Kept documentation within budgets; no source promotion or pending-gate acceptance.
+- Completed phase-entry's full solver view and checked profiles/metadata timing.
+- Attributed replacement cost to repeated membership scans and added exact cursors.
+- Matched actual old/new state in 840 cases; both builds pass 80/80 tests.
+- Queued 5447/5448 while Claude-owned predecessor fuzzing continues in the background.
+- Localized Rank-37's earlier extra Strengthen round; queued ledger diagnostic 5449.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

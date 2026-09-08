@@ -1,0 +1,149 @@
+{
+  "first_coarse_boundary": {
+    "index": 120,
+    "candidate": {
+      "name": "Strengthen",
+      "stage": "begin",
+      "conflicts": 29761,
+      "decisions": 7434658,
+      "active": 148637,
+      "irred": 593341,
+      "red": 8748,
+      "binary": 182266
+    },
+    "kissat": {
+      "name": "Congruence",
+      "stage": "begin",
+      "conflicts": 32073,
+      "decisions": 7848914,
+      "active": 148637,
+      "irred": 593339,
+      "red": 7580,
+      "binary": 181940
+    }
+  },
+  "preceding_boundaries": {
+    "candidate": [
+      {
+        "name": "Strengthen",
+        "stage": "begin",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 162201,
+        "irred": 575478,
+        "red": 8748,
+        "binary": 202574
+      },
+      {
+        "name": "Strengthen",
+        "stage": "end",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 162196,
+        "irred": 569708,
+        "red": 8748,
+        "binary": 202959
+      },
+      {
+        "name": "BVE",
+        "stage": "begin",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 162196,
+        "irred": 569708,
+        "red": 8748,
+        "binary": 202959
+      },
+      {
+        "name": "BVE",
+        "stage": "end",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 148637,
+        "irred": 593341,
+        "red": 8748,
+        "binary": 182266
+      },
+      {
+        "name": "Strengthen",
+        "stage": "begin",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 148637,
+        "irred": 593341,
+        "red": 8748,
+        "binary": 182266
+      }
+    ],
+    "kissat": [
+      {
+        "name": "Strengthen",
+        "stage": "begin",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 162201,
+        "irred": 575478,
+        "red": 8748,
+        "binary": 202574
+      },
+      {
+        "name": "Strengthen",
+        "stage": "end",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 162196,
+        "irred": 569708,
+        "red": 8748,
+        "binary": 202959
+      },
+      {
+        "name": "BVE",
+        "stage": "begin",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 162196,
+        "irred": 569708,
+        "red": 8748,
+        "binary": 202959
+      },
+      {
+        "name": "BVE",
+        "stage": "end",
+        "conflicts": 29761,
+        "decisions": 7434658,
+        "active": 148637,
+        "irred": 593341,
+        "red": 8748,
+        "binary": 182266
+      },
+      {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148637,
+        "irred": 593339,
+        "red": 7580,
+        "binary": 181940
+      }
+    ]
+  },
+  "decision_difference": {
+    "candidate": [
+      "29767",
+      "7435331",
+      "666",
+      "203055",
+      "0"
+    ],
+    "kissat": [
+      "29767",
+      "7435331",
+      "666",
+      "203038",
+      "0"
+    ],
+    "matching_rows": 7504348
+  },
+  "limitation": "Active and clause counts locate a boundary, not formula/stream equality or relative semantic strength. More active-variable removal alone does not justify acceptance or a fidelity repair."
+}
