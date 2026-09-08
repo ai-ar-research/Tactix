@@ -1,0 +1,1394 @@
+{
+  "full_replay": true,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "e6a085eaf4425bbeee8c0d85fe20ded3110d29063d4a5a6c5f03a205f4f1370a",
+      "traces": {
+        "candidate.macro.tsv": "5653703919a22f974015ee96890d4b0ffc90137a40d08d8134adc4ddc22e52b4",
+        "candidate.full-heap.tsv": "d8fc27dcdd99ec618b89038a63cd6418009da88cf55287b6acf98531fea7ccb2",
+        "candidate.prefix.tsv": "9977a0e167b71e02dbbbad0d7a1761a3fe01f22760545526f77ebf5d837cba9d",
+        "candidate.bve-candidates.tsv": "5fc87a94113301a99737e9831723d4788bf7df87dcf1b7649d0de9036fd22b8e",
+        "candidate.decisions.tsv": "5f9622555a975dd8c92cfca17cd65ab21fae3743fbc7a1c4c228b14b9098d61d",
+        "candidate.boundaries.tsv": "b7e972df964c116a32313acb279a0e984d7d341ff615ef621d0ec15b2a79bd29"
+      },
+      "cached_record": {
+        "record": "benchmarks/runs/20260908-5907-reduce-root-rank32-prefix/results/candidate.json",
+        "sha256": "9968f48a7d6bf2464bb10ee088c2f4d2a63ccf46c4d743a8d0ad3fa340f514eb"
+      }
+    },
+    "kissat": {
+      "result_sha256": "360bc993c241ff62fc6fae0cab926e4026539322290bd451fa253a44503ffe72",
+      "traces": {
+        "kissat.bve-candidates.tsv": "a711b50d6fb21a01632d0a4bcb5360dd4318d3989d3136db12256512f73fc165",
+        "kissat.prefix.tsv": "74afa84cbaaa31c818de7a4934536d3a88e4829c687e58299309171701df962d",
+        "kissat.decisions.tsv": "f4990be94c72275c53230aea12099bcdbc6fc838bc554d7012e826462f9df33c",
+        "kissat.boundaries.tsv": "d3427e8bf6d60c48d729d21ff4d3490f2a7dc19caf8576f9be497ba54fb921b5",
+        "kissat.full-heap.tsv": "c213053d3796286bd5b2935b27cb588ee3567566054730c875ca97cd25d3f924"
+      },
+      "cached_record": {
+        "record": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/results/kissat.json",
+        "sha256": "16bbb018d89f0f85751c27ef4f5a8790f99b3b91db9f3a9f391f9c85ff6d1abc"
+      }
+    }
+  },
+  "snapshots": [
+    {
+      "ordinal": 0,
+      "candidate_size": 88946,
+      "kissat_size": 88946,
+      "candidate_only": [],
+      "kissat_only": [],
+      "differences": {
+        "pos": 0,
+        "score": 0,
+        "positive": 0,
+        "negative": 0,
+        "value": 0,
+        "retired": 0,
+        "retry": 0
+      },
+      "first_differences": [],
+      "complete_rows_equal": true
+    },
+    {
+      "ordinal": 1,
+      "candidate_size": 8414,
+      "kissat_size": 8414,
+      "candidate_only": [],
+      "kissat_only": [],
+      "differences": {
+        "pos": 63,
+        "score": 0,
+        "positive": 0,
+        "negative": 0,
+        "value": 0,
+        "retired": 0,
+        "retry": 0
+      },
+      "first_differences": [
+        {
+          "external": 933,
+          "candidate": {
+            "pos": 4413,
+            "external": 933,
+            "score": "-0x1.02422c2b3ebd4p+197",
+            "positive": 221,
+            "negative": 81,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4416,
+            "external": 933,
+            "score": "-0x1.02422c2b3ebd4p+197",
+            "positive": 221,
+            "negative": 81,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 9823,
+          "candidate": {
+            "pos": 2238,
+            "external": 9823,
+            "score": "-0x1.010c380c3d5c3p+56",
+            "positive": 207,
+            "negative": 96,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4485,
+            "external": 9823,
+            "score": "-0x1.010c380c3d5c3p+56",
+            "positive": 207,
+            "negative": 96,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 10269,
+          "candidate": {
+            "pos": 4462,
+            "external": 10269,
+            "score": "-0x1.0451458c69fbp+141",
+            "positive": 12,
+            "negative": 35,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2233,
+            "external": 10269,
+            "score": "-0x1.0451458c69fbp+141",
+            "positive": 12,
+            "negative": 35,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 11440,
+          "candidate": {
+            "pos": 4558,
+            "external": 11440,
+            "score": "-0x1.b0ea28f0f0fb5p+92",
+            "positive": 21,
+            "negative": 70,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4544,
+            "external": 11440,
+            "score": "-0x1.b0ea28f0f0fb5p+92",
+            "positive": 21,
+            "negative": 70,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 17156,
+          "candidate": {
+            "pos": 4494,
+            "external": 17156,
+            "score": "-0x1.45732fbf64b15p+125",
+            "positive": 3,
+            "negative": 17,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4493,
+            "external": 17156,
+            "score": "-0x1.45732fbf64b15p+125",
+            "positive": 3,
+            "negative": 17,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 17250,
+          "candidate": {
+            "pos": 4475,
+            "external": 17250,
+            "score": "-0x1.e65cae1bc28a8p+140",
+            "positive": 3,
+            "negative": 17,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2237,
+            "external": 17250,
+            "score": "-0x1.e65cae1bc28a8p+140",
+            "positive": 3,
+            "negative": 17,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 17326,
+          "candidate": {
+            "pos": 4457,
+            "external": 17326,
+            "score": "-0x1.0bf439e92197dp+99",
+            "positive": 3,
+            "negative": 49,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2234,
+            "external": 17326,
+            "score": "-0x1.0bf439e92197dp+99",
+            "positive": 3,
+            "negative": 49,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 17401,
+          "candidate": {
+            "pos": 4470,
+            "external": 17401,
+            "score": "-0x1.452a9dec21aebp+149",
+            "positive": 31,
+            "negative": 29,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4504,
+            "external": 17401,
+            "score": "-0x1.452a9dec21aebp+149",
+            "positive": 31,
+            "negative": 29,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 20701,
+          "candidate": {
+            "pos": 4483,
+            "external": 20701,
+            "score": "-0x1.ed36f3b801e22p+147",
+            "positive": 6,
+            "negative": 10,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2238,
+            "external": 20701,
+            "score": "-0x1.ed36f3b801e22p+147",
+            "positive": 6,
+            "negative": 10,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 22122,
+          "candidate": {
+            "pos": 4430,
+            "external": 22122,
+            "score": "-0x1.b409a435ec281p+127",
+            "positive": 174,
+            "negative": 20,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4413,
+            "external": 22122,
+            "score": "-0x1.b409a435ec281p+127",
+            "positive": 174,
+            "negative": 20,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 25179,
+          "candidate": {
+            "pos": 4484,
+            "external": 25179,
+            "score": "-0x1.45fa70bcab46cp+151",
+            "positive": 77,
+            "negative": 36,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2241,
+            "external": 25179,
+            "score": "-0x1.45fa70bcab46cp+151",
+            "positive": 77,
+            "negative": 36,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 26047,
+          "candidate": {
+            "pos": 2228,
+            "external": 26047,
+            "score": "-0x1.deef0205a0ffap+61",
+            "positive": 17,
+            "negative": 3,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4458,
+            "external": 26047,
+            "score": "-0x1.deef0205a0ffap+61",
+            "positive": 17,
+            "negative": 3,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 26333,
+          "candidate": {
+            "pos": 4458,
+            "external": 26333,
+            "score": "-0x1.ee531e810065dp+391",
+            "positive": 34,
+            "negative": 41,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4457,
+            "external": 26333,
+            "score": "-0x1.ee531e810065dp+391",
+            "positive": 34,
+            "negative": 41,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 27169,
+          "candidate": {
+            "pos": 4495,
+            "external": 27169,
+            "score": "-0x1.db5ce729bb172p+300",
+            "positive": 17,
+            "negative": 25,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4496,
+            "external": 27169,
+            "score": "-0x1.db5ce729bb172p+300",
+            "positive": 17,
+            "negative": 25,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 29997,
+          "candidate": {
+            "pos": 4504,
+            "external": 29997,
+            "score": "-0x1.2ac23029503ebp+163",
+            "positive": 35,
+            "negative": 21,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4469,
+            "external": 29997,
+            "score": "-0x1.2ac23029503ebp+163",
+            "positive": 35,
+            "negative": 21,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 30737,
+          "candidate": {
+            "pos": 4509,
+            "external": 30737,
+            "score": "-0x1.832a71805fd6ep+159",
+            "positive": 171,
+            "negative": 20,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4507,
+            "external": 30737,
+            "score": "-0x1.832a71805fd6ep+159",
+            "positive": 171,
+            "negative": 20,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 30767,
+          "candidate": {
+            "pos": 4478,
+            "external": 30767,
+            "score": "-0x1.832a71805fd6ep+159",
+            "positive": 10,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4477,
+            "external": 30767,
+            "score": "-0x1.832a71805fd6ep+159",
+            "positive": 10,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 31586,
+          "candidate": {
+            "pos": 4497,
+            "external": 31586,
+            "score": "-0x1.797c95105d718p+160",
+            "positive": 11,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2254,
+            "external": 31586,
+            "score": "-0x1.797c95105d718p+160",
+            "positive": 11,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 37663,
+          "candidate": {
+            "pos": 4468,
+            "external": 37663,
+            "score": "-0x1.1382f392ac16dp+194",
+            "positive": 33,
+            "negative": 11,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4483,
+            "external": 37663,
+            "score": "-0x1.1382f392ac16dp+194",
+            "positive": 33,
+            "negative": 11,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 37694,
+          "candidate": {
+            "pos": 4512,
+            "external": 37694,
+            "score": "-0x1.34fd925825523p+210",
+            "positive": 12,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4478,
+            "external": 37694,
+            "score": "-0x1.34fd925825523p+210",
+            "positive": 12,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 41132,
+          "candidate": {
+            "pos": 2222,
+            "external": 41132,
+            "score": "0x1.c35928p+21",
+            "positive": 1328,
+            "negative": 229,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4449,
+            "external": 41132,
+            "score": "0x1.c35928p+21",
+            "positive": 1328,
+            "negative": 229,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 41148,
+          "candidate": {
+            "pos": 2241,
+            "external": 41148,
+            "score": "0x1.d727c8p+21",
+            "positive": 924,
+            "negative": 153,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2242,
+            "external": 41148,
+            "score": "0x1.d727c8p+21",
+            "positive": 924,
+            "negative": 153,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 41954,
+          "candidate": {
+            "pos": 2278,
+            "external": 41954,
+            "score": "0x1.d16208p+21",
+            "positive": 978,
+            "negative": 193,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4558,
+            "external": 41954,
+            "score": "0x1.d16208p+21",
+            "positive": 978,
+            "negative": 193,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 51039,
+          "candidate": {
+            "pos": 1124,
+            "external": 51039,
+            "score": "0x1.ddce48p+21",
+            "positive": 632,
+            "negative": 137,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 2250,
+            "external": 51039,
+            "score": "0x1.ddce48p+21",
+            "positive": 632,
+            "negative": 137,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 51247,
+          "candidate": {
+            "pos": 2242,
+            "external": 51247,
+            "score": "0x1.dd022p+21",
+            "positive": 280,
+            "negative": 332,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 1120,
+            "external": 51247,
+            "score": "0x1.dd022p+21",
+            "positive": 280,
+            "negative": 332,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 51381,
+          "candidate": {
+            "pos": 1126,
+            "external": 51381,
+            "score": "0x1.e2f0b8p+21",
+            "positive": 335,
+            "negative": 132,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 562,
+            "external": 51381,
+            "score": "0x1.e2f0b8p+21",
+            "positive": 335,
+            "negative": 132,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 57815,
+          "candidate": {
+            "pos": 4472,
+            "external": 57815,
+            "score": "-0x1.da5eff8c602f8p+246",
+            "positive": 53,
+            "negative": 27,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4476,
+            "external": 57815,
+            "score": "-0x1.da5eff8c602f8p+246",
+            "positive": 53,
+            "negative": 27,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 58097,
+          "candidate": {
+            "pos": 4488,
+            "external": 58097,
+            "score": "-0x1.060183b765efap+242",
+            "positive": 65,
+            "negative": 29,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4494,
+            "external": 58097,
+            "score": "-0x1.060183b765efap+242",
+            "positive": 65,
+            "negative": 29,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 60705,
+          "candidate": {
+            "pos": 2234,
+            "external": 60705,
+            "score": "-0x1.2da61b38342b1p+149",
+            "positive": 55,
+            "negative": 26,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4513,
+            "external": 60705,
+            "score": "-0x1.2da61b38342b1p+149",
+            "positive": 55,
+            "negative": 26,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        },
+        {
+          "external": 67913,
+          "candidate": {
+            "pos": 4501,
+            "external": 67913,
+            "score": "-0x1.e49939b005212p+218",
+            "positive": 10,
+            "negative": 19,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "kissat": {
+            "pos": 4502,
+            "external": 67913,
+            "score": "-0x1.e49939b005212p+218",
+            "positive": 10,
+            "negative": 19,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          }
+        }
+      ],
+      "complete_rows_equal": false
+    }
+  ],
+  "sift_paths": {
+    "candidate": {
+      "removed": {
+        "pos": 0,
+        "external": 122629,
+        "score": "0x1.e6ac18p+21",
+        "positive": 170,
+        "negative": 79,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last": {
+        "pos": 8413,
+        "external": 225614,
+        "score": "-0x1.299c942e0440ep+208",
+        "positive": 11,
+        "negative": 16,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last_final_pos": 4465,
+      "path": [
+        {
+          "at": 0,
+          "left": {
+            "pos": 1,
+            "external": 165965,
+            "score": "0x1.e6ac08p+21",
+            "positive": 129,
+            "negative": 104,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2,
+            "external": 97417,
+            "score": "0x1.e6ab6p+21",
+            "positive": 140,
+            "negative": 96,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1
+        },
+        {
+          "at": 1,
+          "left": {
+            "pos": 3,
+            "external": 282056,
+            "score": "0x1.e6ab88p+21",
+            "positive": 133,
+            "negative": 101,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 4,
+            "external": 135677,
+            "score": "0x1.e6ab88p+21",
+            "positive": 133,
+            "negative": 101,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 3
+        },
+        {
+          "at": 3,
+          "left": {
+            "pos": 7,
+            "external": 40924,
+            "score": "0x1.e6ab08p+21",
+            "positive": 119,
+            "negative": 113,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 8,
+            "external": 92470,
+            "score": "0x1.e6a818p+21",
+            "positive": 111,
+            "negative": 122,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 7
+        },
+        {
+          "at": 7,
+          "left": {
+            "pos": 15,
+            "external": 457402,
+            "score": "0x1.e6a728p+21",
+            "positive": 93,
+            "negative": 146,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 16,
+            "external": 96664,
+            "score": "0x1.e6a75p+21",
+            "positive": 106,
+            "negative": 128,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 16
+        },
+        {
+          "at": 16,
+          "left": {
+            "pos": 33,
+            "external": 98278,
+            "score": "0x1.e6a3c8p+21",
+            "positive": 83,
+            "negative": 165,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 34,
+            "external": 129004,
+            "score": "0x1.e6a358p+21",
+            "positive": 128,
+            "negative": 107,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 33
+        },
+        {
+          "at": 33,
+          "left": {
+            "pos": 67,
+            "external": 50677,
+            "score": "0x1.e693b8p+21",
+            "positive": 180,
+            "negative": 79,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 68,
+            "external": 113689,
+            "score": "0x1.e6a0d8p+21",
+            "positive": 123,
+            "negative": 112,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 68
+        },
+        {
+          "at": 68,
+          "left": {
+            "pos": 137,
+            "external": 459615,
+            "score": "0x1.e694fp+21",
+            "positive": 154,
+            "negative": 92,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 138,
+            "external": 203701,
+            "score": "0x1.e69cb8p+21",
+            "positive": 130,
+            "negative": 107,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 138
+        },
+        {
+          "at": 138,
+          "left": {
+            "pos": 277,
+            "external": 181255,
+            "score": "0x1.e66f88p+21",
+            "positive": 316,
+            "negative": 49,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 278,
+            "external": 50706,
+            "score": "0x1.e69848p+21",
+            "positive": 158,
+            "negative": 89,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 278
+        },
+        {
+          "at": 278,
+          "left": {
+            "pos": 557,
+            "external": 40787,
+            "score": "0x1.e5e078p+21",
+            "positive": 99,
+            "negative": 202,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 558,
+            "external": 129082,
+            "score": "0x1.e5d1a8p+21",
+            "positive": 124,
+            "negative": 165,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 557
+        },
+        {
+          "at": 557,
+          "left": {
+            "pos": 1115,
+            "external": 181262,
+            "score": "0x1.e4fa68p+21",
+            "positive": 221,
+            "negative": 124,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 1116,
+            "external": 9673,
+            "score": "0x1.e4adc8p+21",
+            "positive": 218,
+            "negative": 137,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1115
+        },
+        {
+          "at": 1115,
+          "left": {
+            "pos": 2231,
+            "external": 107019,
+            "score": "-0x1.74db77103faaap+84",
+            "positive": 56,
+            "negative": 88,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2232,
+            "external": 50861,
+            "score": "0x1.e3e788p+21",
+            "positive": 250,
+            "negative": 145,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 2232
+        },
+        {
+          "at": 2232,
+          "left": {
+            "pos": 4465,
+            "external": 41090,
+            "score": "0x1.b9922p+21",
+            "positive": 1038,
+            "negative": 370,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 4466,
+            "external": 226048,
+            "score": "-0x1.299c942e0440ep+208",
+            "positive": 3,
+            "negative": 4,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 4465
+        }
+      ],
+      "root": 165965
+    },
+    "kissat": {
+      "removed": {
+        "pos": 0,
+        "external": 122629,
+        "score": "0x1.e6ac18p+21",
+        "positive": 170,
+        "negative": 79,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last": {
+        "pos": 8413,
+        "external": 225614,
+        "score": "-0x1.299c942e0440ep+208",
+        "positive": 11,
+        "negative": 16,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last_final_pos": 4472,
+      "path": [
+        {
+          "at": 0,
+          "left": {
+            "pos": 1,
+            "external": 165965,
+            "score": "0x1.e6ac08p+21",
+            "positive": 129,
+            "negative": 104,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2,
+            "external": 97417,
+            "score": "0x1.e6ab6p+21",
+            "positive": 140,
+            "negative": 96,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1
+        },
+        {
+          "at": 1,
+          "left": {
+            "pos": 3,
+            "external": 282056,
+            "score": "0x1.e6ab88p+21",
+            "positive": 133,
+            "negative": 101,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 4,
+            "external": 135677,
+            "score": "0x1.e6ab88p+21",
+            "positive": 133,
+            "negative": 101,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 3
+        },
+        {
+          "at": 3,
+          "left": {
+            "pos": 7,
+            "external": 40924,
+            "score": "0x1.e6ab08p+21",
+            "positive": 119,
+            "negative": 113,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 8,
+            "external": 92470,
+            "score": "0x1.e6a818p+21",
+            "positive": 111,
+            "negative": 122,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 7
+        },
+        {
+          "at": 7,
+          "left": {
+            "pos": 15,
+            "external": 457402,
+            "score": "0x1.e6a728p+21",
+            "positive": 93,
+            "negative": 146,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 16,
+            "external": 96664,
+            "score": "0x1.e6a75p+21",
+            "positive": 106,
+            "negative": 128,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 16
+        },
+        {
+          "at": 16,
+          "left": {
+            "pos": 33,
+            "external": 98278,
+            "score": "0x1.e6a3c8p+21",
+            "positive": 83,
+            "negative": 165,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 34,
+            "external": 129004,
+            "score": "0x1.e6a358p+21",
+            "positive": 128,
+            "negative": 107,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 33
+        },
+        {
+          "at": 33,
+          "left": {
+            "pos": 67,
+            "external": 50677,
+            "score": "0x1.e693b8p+21",
+            "positive": 180,
+            "negative": 79,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 68,
+            "external": 113689,
+            "score": "0x1.e6a0d8p+21",
+            "positive": 123,
+            "negative": 112,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 68
+        },
+        {
+          "at": 68,
+          "left": {
+            "pos": 137,
+            "external": 459615,
+            "score": "0x1.e694fp+21",
+            "positive": 154,
+            "negative": 92,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 138,
+            "external": 203701,
+            "score": "0x1.e69cb8p+21",
+            "positive": 130,
+            "negative": 107,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 138
+        },
+        {
+          "at": 138,
+          "left": {
+            "pos": 277,
+            "external": 181255,
+            "score": "0x1.e66f88p+21",
+            "positive": 316,
+            "negative": 49,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 278,
+            "external": 50706,
+            "score": "0x1.e69848p+21",
+            "positive": 158,
+            "negative": 89,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 278
+        },
+        {
+          "at": 278,
+          "left": {
+            "pos": 557,
+            "external": 40787,
+            "score": "0x1.e5e078p+21",
+            "positive": 99,
+            "negative": 202,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 558,
+            "external": 127295,
+            "score": "0x1.e60e08p+21",
+            "positive": 161,
+            "negative": 115,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 558
+        },
+        {
+          "at": 558,
+          "left": {
+            "pos": 1117,
+            "external": 129082,
+            "score": "0x1.e5d1a8p+21",
+            "positive": 124,
+            "negative": 165,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 1118,
+            "external": 97431,
+            "score": "0x1.e5c928p+21",
+            "positive": 270,
+            "negative": 77,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1117
+        },
+        {
+          "at": 1117,
+          "left": {
+            "pos": 2235,
+            "external": 81922,
+            "score": "0x1.e54348p+21",
+            "positive": 282,
+            "negative": 89,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2236,
+            "external": 9691,
+            "score": "0x1.e53b9p+21",
+            "positive": 186,
+            "negative": 136,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 2235
+        },
+        {
+          "at": 2235,
+          "left": {
+            "pos": 4471,
+            "external": 227724,
+            "score": "-0x1.f5611ce4fb6d8p+210",
+            "positive": 6,
+            "negative": 5,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 4472,
+            "external": 97988,
+            "score": "0x1.e352p+21",
+            "positive": 714,
+            "negative": 58,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 4472
+        }
+      ],
+      "root": 165965
+    }
+  },
+  "limitation": "Complete pre-pop heaps and replayed actual selected positions. Sift reconstruction explains placement but does not identify the earlier mutation or authorize tie/score changes."
+}

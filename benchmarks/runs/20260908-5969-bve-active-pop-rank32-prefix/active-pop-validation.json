@@ -1,0 +1,116 @@
+{
+  "attempt_counts": {
+    "new": 168851,
+    "old": 168860,
+    "native": 168819
+  },
+  "old_inactive_count": 9,
+  "new_inactive_attempts": [],
+  "first_native_difference": {
+    "index": 120872,
+    "candidate": [
+      {
+        "external": "225614",
+        "stage": "begin",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "retry": "1",
+        "value": "0",
+        "retired": "0",
+        "roots": "4198",
+        "trail": "4194",
+        "propagate": "4194"
+      },
+      {
+        "external": "225614",
+        "stage": "end",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "retry": "0",
+        "value": "0",
+        "retired": "0",
+        "roots": "4198",
+        "trail": "4194",
+        "propagate": "4194"
+      }
+    ],
+    "kissat": [
+      {
+        "external": "225641",
+        "stage": "begin",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "eliminate": "1",
+        "active": "1",
+        "fixed": "0",
+        "eliminated": "0",
+        "value": "0",
+        "units": "4194",
+        "trail": "35",
+        "propagate": "35"
+      },
+      {
+        "external": "225641",
+        "stage": "end",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "eliminate": "0",
+        "active": "1",
+        "fixed": "0",
+        "eliminated": "0",
+        "value": "0",
+        "units": "4194",
+        "trail": "35",
+        "propagate": "35"
+      },
+      {
+        "external": "225641",
+        "stage": "postflush",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "eliminate": "0",
+        "active": "1",
+        "fixed": "0",
+        "eliminated": "0",
+        "value": "0",
+        "units": "4194",
+        "trail": "35",
+        "propagate": "35"
+      }
+    ]
+  },
+  "first_parent_active_difference": null,
+  "ordinary_parent_trace_equality": {
+    "candidate.macro.tsv": true,
+    "candidate.prefix.tsv": true,
+    "candidate.decisions.tsv": true,
+    "candidate.boundaries.tsv": true
+  },
+  "parent_partial_proof_equal": true,
+  "compared_fields": [
+    "external",
+    "stage",
+    "conflicts",
+    "applied",
+    "value",
+    "ticks",
+    "limit"
+  ],
+  "hashes": {
+    "benchmarks/runs/20260908-5969-bve-active-pop-rank32-prefix/results/candidate.json": "30644beae0aaa58d22ac03e0bf0a8eff61d6f972627c978a450d6ddd58d72804",
+    "benchmarks/runs/20260908-5969-bve-active-pop-rank32-prefix/traces/candidate.bve-candidates.tsv": "6708c1b206da11c51157c34139a9e0be620f21cdd976e6704391afac9ccaf4f8",
+    "benchmarks/runs/20260908-5937-first-bve-frontier/traces/candidate.bve-candidates.tsv": "5fc87a94113301a99737e9831723d4788bf7df87dcf1b7649d0de9036fd22b8e",
+    "benchmarks/runs/20260908-5937-first-bve-frontier/traces/kissat.bve-candidates.tsv": "a711b50d6fb21a01632d0a4bcb5360dd4318d3989d3136db12256512f73fc165"
+  },
+  "limitation": "All attempts are compared with absolute effort. Parent active projection is labelled separately, never a substitute for native comparison or full runtime/correctness gates."
+}

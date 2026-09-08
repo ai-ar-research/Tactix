@@ -1,0 +1,21 @@
+{
+  "task": 384,
+  "instance": "tierD24-26/25cc054738293c0d9377d7b72b78a341-string_compare_safety_cbmc_unwinding_900.cnf.xz",
+  "solver_seconds": 850.606,
+  "proof_check": {
+    "exit_code": null,
+    "output_tail": "",
+    "peak_rss_kb": null,
+    "result": "not-verified",
+    "sampled_process_vm_peak_kb": null,
+    "timed_out": true,
+    "wall_seconds": 16000.004
+  },
+  "hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/results/384.json": "a10586fd28f357c15299cfdcdb879693ef3d8be4d4f93854ce389de0bae3fa46",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f"
+  },
+  "disposition": "Checker exhausted16000s allowance;certificate remains unverified and this result remains invalid/unsolved. This is not a proved rejected derivation, solver crash or empty-input status incident. No rerun, runner change or acceptance relaxation.",
+  "test_consideration": "Eight negative classifier controls keep solver failure, mismatch, real checker exits and premature termination out of timeout classification."
+}

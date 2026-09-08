@@ -1,0 +1,10 @@
+{
+  "job_id": "1675774",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5972-bve-sift-ancestry/array.sbatch"
+  ],
+  "manifest_sha256": "6229b1f811be9d243d01e8e19fa859b3db458d72454df2119b331a1960927fbd",
+  "continuation": "Independent5962 successor of5900;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
