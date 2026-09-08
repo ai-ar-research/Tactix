@@ -1,0 +1,149 @@
+{
+  "first_coarse_boundary": {
+    "index": 155,
+    "candidate": {
+      "name": "Factor",
+      "stage": "end",
+      "conflicts": 32073,
+      "decisions": 7848914,
+      "active": 148613,
+      "irred": 593188,
+      "red": 6620,
+      "binary": 181013
+    },
+    "kissat": {
+      "name": "Factor",
+      "stage": "end",
+      "conflicts": 32073,
+      "decisions": 7848914,
+      "active": 148618,
+      "irred": 593188,
+      "red": 6620,
+      "binary": 180960
+    }
+  },
+  "preceding_boundaries": {
+    "candidate": [
+      {
+        "name": "TransitiveReduce",
+        "stage": "end",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148613,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181013
+      }
+    ],
+    "kissat": [
+      {
+        "name": "TransitiveReduce",
+        "stage": "end",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Backbone",
+        "stage": "begin",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Factor",
+        "stage": "begin",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148610,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 181122
+      },
+      {
+        "name": "Factor",
+        "stage": "end",
+        "conflicts": 32073,
+        "decisions": 7848914,
+        "active": 148618,
+        "irred": 593188,
+        "red": 6620,
+        "binary": 180960
+      }
+    ]
+  },
+  "decision_difference": {
+    "candidate": [
+      "32073",
+      "7849145",
+      "231",
+      "41073",
+      "0"
+    ],
+    "kissat": [
+      "32073",
+      "7849145",
+      "231",
+      "149472",
+      "0"
+    ],
+    "matching_rows": 7918162
+  },
+  "limitation": "Active and clause counts locate a boundary, not formula/stream equality or relative semantic strength. More active-variable removal alone does not justify acceptance or a fidelity repair."
+}

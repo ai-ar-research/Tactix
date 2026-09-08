@@ -1,0 +1,62 @@
+Bounded unit-fixture debugging task under DEVELOPMENT_PLAN.md section 8.2.
+Read CLAUDE.md and relevant project skills. Primary development is paused until
+your terminal report. A separate Claude owner is running fuzz checkpoint 5442;
+do NOT inspect, modify, query, cancel or otherwise interact with any fuzz job,
+artifact, log, owner or source copy. Do not inspect all-user SLURM queues.
+
+Scope: the newly authored, unsubmitted unit fixture
+.claude/worktrees/runtime-eliminate-limit-5450/tests/test_eliminate_limit.cpp.
+No solver source has been changed in this candidate. It is a copy of immutable
+predecessor .claude/worktrees/runtime-replacement-cursor-5445.
+
+Failure: helper benchmarks/probes/scratch/check-old-eliminate-limit-5450.py
+links this new fixture against immutable build/pin-5445-replacement-cursor-release
+objects with -DTACTIX_TEST_PREVIOUS. It aborted on the new test's line 54:
+assert(k.stats.bve_resolutions==1 && k.stats.bve_eliminated==1).
+The exact failed output is retained in
+benchmarks/runs/20260907-5450-eliminate-limit/logs/old-fixture.log.
+Do not overwrite that log, helper, binary, or immutable predecessor sources/pins.
+No real-instance solver failure or incorrect verdict has been observed.
+
+Hypothesis to investigate, not assume: the fixture incorrectly assumes only
+one variable is eliminated when equality at the resolution limit permits later
+pure eliminations, or the dynamic heap processes initially unmarked variables
+in a different order. Need a sound fixed micro-test for the scheduler's missing
+phase-wide budget check, not an assertion relaxed to accept anything.
+
+Mechanism motivation: frozen normal-runtime diagnostic 5436 shows Tactix and
+Kissat identical at BVE end conflict 29761, then Tactix runs an extra Strengthen
+round (21 units) whereas Kissat resumes search. Native kissat/src/eliminate.c
+eliminate_variables checks eliminate_resolutions > resolution_limit after
+cleanup and BEFORE another forward round. Tactix checks its e.meter > e.limit
+inside run_dosed_entry, but run_phase currently repeats the pipeline based only
+on activity/fixpoint. Diagnostic 5449 (1670217) is pending to inspect the ledger;
+do not inspect or change it; primary owns normal performance interpretation.
+
+Your task: causally classify the new fixture failure; fix only the fixture if
+its expectation is invalid. Establish actual predecessor behavior for strict
+exhaustion, equality and remaining allowance, enabled/disabled BVE, enabled/
+disabled Strengthen, and fresh-phase reset. Preserve the intended assertion
+that the current predecessor performs an optional second outer round even
+when the BVE meter has exceeded its phase ceiling. The future scheduler fix
+should suppress only that optional round, preserving current-round cleanup,
+strict > (not >=), public guards and authored disabled/non-BVE paths.
+It is acceptable to pose the scheduler's public meter/order interface to isolate
+a boundary, but prefer a real resolution counter where feasible and explain
+what the fixture covers. Do not introduce a public API or change solver source.
+
+You may edit only the unsubmitted test named above; create new distinctly
+named 5450-fixture-review helpers/binaries/logs under benchmarks/probes/scratch
+and benchmarks/runs/20260907-5450-eliminate-limit/logs. For full regression, use
+the existing immutable predecessor test executables without rebuilding its
+directory. All real CNF solver runs require SLURM, but this bounded fixed unit
+fixture may run locally. Do not launch fuzzing or production benchmarks.
+No main docs, plan, corpus or production edits; no commits or pushes; no
+permissions bypass flags. Preserve other agents' work and submitted artifacts.
+
+Return only a terminal PASS/FAILURE/BLOCKED report, giving causal classification,
+exact changed paths, actual fixture outputs and completed checks. If this is a
+genuine solver soundness/crash/invariant issue rather than a bad expected count,
+preserve its reproducer and return FAILURE with the exact required repair scope;
+do not broaden into solver changes. Never report a passing expected-count test
+as a full soundness or fuzz pass.

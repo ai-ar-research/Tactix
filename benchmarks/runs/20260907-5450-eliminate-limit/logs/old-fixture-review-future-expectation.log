@@ -1,0 +1,5 @@
+allowance=3 forward=0 enabled=0 resolutions=0 ceiling=0 bve=1 admitted=0 strengthen=1 eliminated=0
+  fresh phase: ceiling=0 bve=2 strengthen=2 resolutions=0 eliminated=0
+allowance=3 forward=0 enabled=1 resolutions=4 ceiling=3 bve=2 admitted=2 strengthen=2 eliminated=1
+eliminate-limit-old-5450-review-future: /home/hwu/SAT-solving/.claude/worktrees/runtime-eliminate-limit-5450/tests/test_eliminate_limit.cpp:125: void check(unsigned int, bool, bool): Assertion `bve->tm.occasions==rounds && bve->tm.admitted==rounds' failed.
+exit=-6

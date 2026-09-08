@@ -1,0 +1,42 @@
+{
+  "clean_stops": 1,
+  "conflict": 29761,
+  "first_candidate": {
+    "external": "374729",
+    "stage": "begin",
+    "conflicts": "29761",
+    "ticks": "9567541",
+    "limit": "12587131",
+    "applied": "0",
+    "retry": "1",
+    "value": "0",
+    "retired": "0",
+    "roots": "427",
+    "trail": "427",
+    "propagate": "427"
+  },
+  "last_candidate": {
+    "external": "102635",
+    "stage": "end",
+    "conflicts": "29761",
+    "ticks": "12587157",
+    "limit": "12587131",
+    "applied": "0",
+    "retry": "0",
+    "value": "0",
+    "retired": "0",
+    "roots": "564",
+    "trail": "564",
+    "propagate": "564"
+  },
+  "resolution_ceiling": 12587131,
+  "final_meter": 12587157,
+  "overrun": 26,
+  "next_round_slots": [
+    "[slot] phase=6 outer=1 Strengthen enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=26711010 limit=26710994",
+    "[slot] phase=6 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 followup=0 mode=0 meter=12587157 limit=12587131"
+  ],
+  "ledger_records": 354525,
+  "conclusion": "The last rejected BVE attempt crosses the shared phase ceiling. Tactix nevertheless offers another Strengthen round. Native eliminate_variables stops at this boundary after round cleanup. This is a missing general policy budget stop, not evidence that extra simplification is intrinsically weaker.",
+  "limitations": "One stopped diagnostic; no checked verdict or performance claim. 5436 boundary-localization.json owns the common first-round output and subsequent 21-unit difference."
+}

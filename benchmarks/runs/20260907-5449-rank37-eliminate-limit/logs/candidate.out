@@ -1,0 +1,175 @@
+[slot] phase=1 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=1 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=1 mode=1 meter=0 limit=0
+[slot-limit] Substitute now=1 anchor=0 reference=10000000 permille=10 delta=100000 meter=0
+[slot] phase=1 outer=0 HyperBinaryRes enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=1 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot-limit] Backbone now=1 anchor=0 reference=10000000 permille=20 delta=200000 meter=0
+[slot] phase=1 outer=0 Probe enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=1 outer=0 Vivify enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=1 outer=0 Sweep enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot-limit] Sweep now=1 anchor=0 reference=10000000 permille=100 delta=1000000 meter=0
+[slot] phase=1 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=2 mode=0 meter=6491466 limit=0
+[slot] phase=1 outer=0 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=1 outer=0 HyperTernaryRes enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=1 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=200001 limit=0
+[slot] phase=1 outer=0 Factor enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot-limit] Factor now=1 anchor=0 reference=10000000 permille=50 delta=500000 meter=0
+[slot] phase=2 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=1 mode=0 meter=6491466 limit=100000
+[slot-limit] Substitute now=169584102 anchor=0 reference=169584102 permille=10 delta=1695841 meter=6491466
+[slot] phase=2 outer=0 HyperBinaryRes enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=200001 limit=200000
+[slot-limit] Backbone now=169584102 anchor=0 reference=169584102 permille=20 delta=3391682 meter=200001
+[slot] phase=2 outer=0 Probe enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=0 Vivify enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot-limit] Vivify now=169584102 anchor=0 reference=169584102 permille=100 delta=16958410 meter=0
+[slot] phase=2 outer=0 Sweep enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=1000001 limit=1000000
+[slot-limit] Sweep now=169584102 anchor=0 reference=169584102 permille=100 delta=16958410 meter=1000001
+[slot] phase=2 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=2 mode=0 meter=9767660 limit=0
+[slot-limit] Substitute now=169584102 anchor=0 reference=169584102 permille=10 delta=1695841 meter=9767660
+[slot] phase=2 outer=0 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot-limit] TransitiveReduce now=169584102 anchor=0 reference=169584102 permille=20 delta=3391682 meter=0
+[slot]   TransitiveReduce pass=0 n=858562 bve_bound=16 meter=0 limit=3391682
+[slot] phase=2 outer=0 HyperTernaryRes enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=3591737 limit=0
+[slot-limit] Backbone now=169584102 anchor=0 reference=169584102 permille=20 delta=3391682 meter=3591737
+[slot] phase=2 outer=0 Factor enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=700000000
+[slot-limit] Factor now=169584102 anchor=0 reference=169584102 permille=50 delta=8479205 meter=0
+[slot] phase=2 outer=1 Congruence enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=1 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=1 mode=0 meter=13059210 limit=8187307
+[slot-limit] Substitute now=169584102 anchor=0 reference=169584102 permille=10 delta=1695841 meter=13059210
+[slot] phase=2 outer=1 HyperBinaryRes enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=1 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=6983451 limit=3591683
+[slot-limit] Backbone now=169584102 anchor=0 reference=169584102 permille=20 delta=3391682 meter=6983451
+[slot] phase=2 outer=1 Probe enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=1 Vivify enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=16958562 limit=16958410
+[slot-limit] Vivify now=169584102 anchor=0 reference=169584102 permille=100 delta=16958410 meter=16958562
+[slot] phase=2 outer=1 Sweep enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=1000001 limit=17958411
+[slot-limit] Sweep now=169584102 anchor=0 reference=169584102 permille=100 delta=16958410 meter=1000001
+[slot] phase=2 outer=1 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=2 mode=0 meter=16350740 limit=11463501
+[slot-limit] Substitute now=169584102 anchor=0 reference=169584102 permille=10 delta=1695841 meter=16350740
+[slot] phase=2 outer=1 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=3391804 limit=3391682
+[slot-limit] TransitiveReduce now=169584102 anchor=0 reference=169584102 permille=20 delta=3391682 meter=3391804
+[slot]   TransitiveReduce pass=0 n=857896 bve_bound=16 meter=3391804 limit=6783486
+[slot] phase=2 outer=1 HyperTernaryRes enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=2 outer=1 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=10375487 limit=6983419
+[slot-limit] Backbone now=169584102 anchor=0 reference=169584102 permille=20 delta=3391682 meter=10375487
+[slot] phase=2 outer=1 Factor enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=700000000
+[slot-limit] Factor now=169584102 anchor=0 reference=169584102 permille=50 delta=8479205 meter=0
+[slot] phase=3 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=1 mode=0 meter=19651476 limit=14755051
+[slot-limit] Substitute now=214233767 anchor=169584102 reference=44649665 permille=10 delta=446496 meter=19651476
+[slot] phase=3 outer=0 HyperBinaryRes enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=13775139 limit=10375133
+[slot-limit] Backbone now=214233767 anchor=169584102 reference=44649665 permille=20 delta=892993 meter=13775139
+[slot] phase=3 outer=0 Probe enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=0 Vivify enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=33917416 limit=33916972
+[slot-limit] Vivify now=214233767 anchor=169584102 reference=44649665 permille=100 delta=4464966 meter=33917416
+[slot] phase=3 outer=0 Sweep enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=17958420 limit=17958411
+[slot-limit] Sweep now=214233767 anchor=169584102 reference=44649665 permille=100 delta=4464966 meter=17958420
+[slot] phase=3 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=2 mode=0 meter=22938250 limit=18046581
+[slot-limit] Substitute now=214233767 anchor=169584102 reference=44649665 permille=10 delta=446496 meter=22938250
+[slot] phase=3 outer=0 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=6783525 limit=6783486
+[slot-limit] TransitiveReduce now=214233767 anchor=169584102 reference=44649665 permille=20 delta=892993 meter=6783525
+[slot]   TransitiveReduce pass=0 n=857888 bve_bound=16 meter=6783525 limit=7676518
+[slot] phase=3 outer=0 HyperTernaryRes enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=14668141 limit=13767169
+[slot-limit] Backbone now=214233767 anchor=169584102 reference=44649665 permille=20 delta=892993 meter=14668141
+[slot] phase=3 outer=0 Factor enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=700000000
+[slot-limit] Factor now=214233767 anchor=169584102 reference=44649665 permille=50 delta=2232483 meter=0
+[slot] phase=3 outer=1 Congruence enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=1 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=1 mode=0 meter=26222560 limit=20097972
+[slot-limit] Substitute now=214233767 anchor=169584102 reference=44649665 permille=10 delta=446496 meter=26222560
+[slot] phase=3 outer=1 HyperBinaryRes enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=1 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=15571613 limit=14668132
+[slot-limit] Backbone now=214233767 anchor=169584102 reference=44649665 permille=20 delta=892993 meter=15571613
+[slot] phase=3 outer=1 Probe enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=1 Vivify enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=38382753 limit=38382382
+[slot-limit] Vivify now=214233767 anchor=169584102 reference=44649665 permille=100 delta=4464966 meter=38382753
+[slot] phase=3 outer=1 Sweep enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=22423387 limit=22423386
+[slot-limit] Sweep now=214233767 anchor=169584102 reference=44649665 permille=100 delta=4464966 meter=22423387
+[slot] phase=3 outer=1 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=2 mode=0 meter=29506854 limit=23384746
+[slot-limit] Substitute now=214233767 anchor=169584102 reference=44649665 permille=10 delta=446496 meter=29506854
+[slot] phase=3 outer=1 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=7676521 limit=7676518
+[slot-limit] TransitiveReduce now=214233767 anchor=169584102 reference=44649665 permille=20 delta=892993 meter=7676521
+[slot]   TransitiveReduce pass=0 n=857884 bve_bound=16 meter=7676521 limit=8569514
+[slot] phase=3 outer=1 HyperTernaryRes enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=3 outer=1 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=16464695 limit=15561134
+[slot-limit] Backbone now=214233767 anchor=169584102 reference=44649665 permille=20 delta=892993 meter=16464695
+[slot] phase=3 outer=1 Factor enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=700000000
+[slot-limit] Factor now=214233767 anchor=169584102 reference=44649665 permille=50 delta=2232483 meter=0
+[slot] phase=4 outer=0 SubsumeForward enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=4 outer=0 Strengthen enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot-limit] Strengthen now=253292680 anchor=0 reference=253292680 permille=100 delta=25329268 meter=0
+[slot] phase=4 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot-limit] BVE now=253292680 anchor=0 reference=253292680 permille=100 delta=25329268 meter=0
+[slot]   BVE pass=0 n=429296 bve_bound=0 meter=0 limit=25329268
+[slot] phase=4 outer=0 Instantiate enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=4 outer=0 BCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=4 outer=0 CCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=4 outer=1 SubsumeForward enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=8174182 limit=0
+[slot] phase=4 outer=1 Strengthen enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=8174182 limit=25329268
+[slot-limit] Strengthen now=253292680 anchor=0 reference=253292680 permille=100 delta=25329268 meter=8174182
+[slot] phase=4 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 followup=0 mode=0 meter=7010489 limit=25329268
+[slot]   BVE pass=0 n=429295 bve_bound=0 meter=7010489 limit=25329268
+[slot] phase=4 outer=1 Instantiate enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=4 outer=1 BCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=4 outer=1 CCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=0 Congruence enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=1 mode=0 meter=32793252 limit=26669056
+[slot-limit] Substitute now=266688347 anchor=214233767 reference=52454580 permille=10 delta=524545 meter=32793252
+[slot] phase=5 outer=0 HyperBinaryRes enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=17357697 limit=16464606
+[slot-limit] Backbone now=266688347 anchor=214233767 reference=52454580 permille=20 delta=1049091 meter=17357697
+[slot] phase=5 outer=0 Probe enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=0 Vivify enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=42847728 limit=42847719
+[slot-limit] Vivify now=266688347 anchor=214233767 reference=52454580 permille=100 delta=5245458 meter=42847728
+[slot] phase=5 outer=0 Sweep enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=22423387 limit=26888353
+[slot-limit] Sweep now=266688347 anchor=214233767 reference=52454580 permille=100 delta=5245458 meter=22423387
+[slot] phase=5 outer=0 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=2 mode=0 meter=34001184 limit=29953350
+[slot-limit] Substitute now=266688347 anchor=214233767 reference=52454580 permille=10 delta=524545 meter=34001184
+[slot] phase=5 outer=0 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=8574758 limit=8569514
+[slot-limit] TransitiveReduce now=266688347 anchor=214233767 reference=52454580 permille=20 delta=1049091 meter=8574758
+[slot]   TransitiveReduce pass=0 n=315130 bve_bound=0 meter=8574758 limit=9623849
+[slot] phase=5 outer=0 HyperTernaryRes enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=0 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=18406811 limit=17357688
+[slot-limit] Backbone now=266688347 anchor=214233767 reference=52454580 permille=20 delta=1049091 meter=18406811
+[slot] phase=5 outer=0 Factor enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=700000000
+[slot-limit] Factor now=266688347 anchor=214233767 reference=52454580 permille=50 delta=2622729 meter=0
+[slot] phase=5 outer=1 Congruence enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=1 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=1 mode=0 meter=35214822 limit=33317797
+[slot-limit] Substitute now=266688347 anchor=214233767 reference=52454580 permille=10 delta=524545 meter=35214822
+[slot] phase=5 outer=1 HyperBinaryRes enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=1 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=19455905 limit=18406788
+[slot-limit] Backbone now=266688347 anchor=214233767 reference=52454580 permille=20 delta=1049091 meter=19455905
+[slot] phase=5 outer=1 Probe enabled=0 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=1 Vivify enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=48093280 limit=48093186
+[slot-limit] Vivify now=266688347 anchor=214233767 reference=52454580 permille=100 delta=5245458 meter=48093280
+[slot] phase=5 outer=1 Sweep enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=27668967 limit=27668845
+[slot-limit] Sweep now=266688347 anchor=214233767 reference=52454580 permille=100 delta=5245458 meter=27668967
+[slot] phase=5 outer=1 Substitute enabled=1 defer=0 guard=1 dosed=0 followup=2 mode=0 meter=36464242 limit=34525729
+[slot-limit] Substitute now=266688347 anchor=214233767 reference=52454580 permille=10 delta=524545 meter=36464242
+[slot] phase=5 outer=1 TransitiveReduce enabled=1 defer=0 guard=1 dosed=1 followup=0 mode=0 meter=9627046 limit=9623849
+[slot-limit] TransitiveReduce now=266688347 anchor=214233767 reference=52454580 permille=20 delta=1049091 meter=9627046
+[slot]   TransitiveReduce pass=0 n=324508 bve_bound=0 meter=9627046 limit=10676137
+[slot] phase=5 outer=1 HyperTernaryRes enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=5 outer=1 Backbone enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=20505002 limit=19455902
+[slot-limit] Backbone now=266688347 anchor=214233767 reference=52454580 permille=20 delta=1049091 meter=20505002
+[slot] phase=5 outer=1 Factor enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=138656513 limit=700000000
+[slot-limit] Factor now=266688347 anchor=214233767 reference=52454580 permille=50 delta=2622729 meter=138656513
+[slot] phase=6 outer=0 SubsumeForward enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=23691404 limit=0
+[slot] phase=6 outer=0 Strengthen enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=23691404 limit=33503450
+[slot-limit] Strengthen now=283488591 anchor=253292685 reference=30195906 permille=100 delta=3019590 meter=23691404
+[slot] phase=6 outer=0 BVE enabled=1 defer=1 guard=1 dosed=1 followup=0 mode=0 meter=9567541 limit=25329268
+[slot-limit] BVE now=283488591 anchor=253292685 reference=30195906 permille=100 delta=3019590 meter=9567541
+[slot]   BVE pass=0 n=162330 bve_bound=1 meter=9567541 limit=12587131
+[slot] phase=6 outer=0 Instantiate enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=6 outer=0 BCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=6 outer=0 CCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=6 outer=1 SubsumeForward enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=26711010 limit=0
+[slot] phase=6 outer=1 Strengthen enabled=1 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=26711010 limit=26710994
+[slot-limit] Strengthen now=283488591 anchor=253292685 reference=30195906 permille=100 delta=3019590 meter=26711010
+[slot] phase=6 outer=1 BVE enabled=1 defer=1 guard=1 dosed=1 followup=0 mode=0 meter=12587157 limit=12587131
+[slot] phase=6 outer=1 Instantiate enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=6 outer=1 BCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0
+[slot] phase=6 outer=1 CCE enabled=0 defer=0 guard=1 dosed=0 followup=0 mode=0 meter=0 limit=0

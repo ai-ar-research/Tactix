@@ -1,0 +1,1 @@
+eliminate-limit-old-5450: /home/hwu/SAT-solving/.claude/worktrees/runtime-eliminate-limit-5450/tests/test_eliminate_limit.cpp:54: void check(unsigned int, bool, bool): Assertion `k.stats.bve_resolutions==1 && k.stats.bve_eliminated==1' failed.
