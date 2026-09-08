@@ -1,0 +1,35 @@
+{
+  "purpose": "Replace unnecessary whole-snapshot literal sorting with linear maximum-count selection in the pure irredundant, non-flushing Vivify schedule.",
+  "source": ".claude/worktrees/runtime-vivify-max-5438",
+  "parent": ".claude/worktrees/runtime-inprocess-root-5430",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "motivation": "Clean profile 5425 samples Vivify scheduling at 1.66% plus candidate sorting at 0.98%; this bounds a cost investigation, not measured benefit of this specific branch.",
+  "references": [
+    "Kissat vivify.c:init_countref, COUNTREF_COUNTS == 1, and sort_vivification_candidates",
+    "CaDiCaL vivify.cpp global literal order; retain the full lexicographic path for mixed and prefix-flushing scopes"
+  ],
+  "semantics": "Same candidates, priorities, maximum count, size and position ties. Private irredundant keys are neither committed to clause pose nor inspected as prefixes when flushing is disabled. Mixed scopes, precise redundant ordering, prefix flushing and the existing no-sort regime are unchanged. No guard, public API, proof vocabulary, timer, allowance or cadence change; calculus/production ledger unchanged.",
+  "fixture": "144 fixed actual old/new public scheduler cases; identical order-and-pose digest a223a06d79fb69dd. Covers all six scopes, reuse/flush on/off, three priority patterns, both sides of existing no-sort condition, repeatability and nonmutation; checks exact maximum-count rank in the changed path.",
+  "status": "Isolated UNFUZZED performance investigation. Metadata 5426 excluded; no runtime acceptance or promotion.",
+  "files": {
+    "src/rules/vivify/vivify.cpp": "f7e994e01b3c0dea7b30511b717c95b4ead68a65d01439243ea3e17b94735112",
+    "tests/test_vivify_max.cpp": "22f863024d967ca408454663723fab96e502b9137fed05663e74a3b72ccd0b0e"
+  },
+  "binaries": {
+    "build/pin-5438-vivify-max-release/tactix": "2e316cb494cc10e24a917f8e8eaba7855d742168063961980da40363ad3a9d74",
+    "build/pin-5439-vivify-max-bc/tactix": "2e316cb494cc10e24a917f8e8eaba7855d742168063961980da40363ad3a9d74"
+  },
+  "patches": {
+    "repair.patch": "e645c8e92d5ba28c1da3321f7abce779c0c5af151a1020ae99b4b33d067118be",
+    "cumulative.patch": "476ce16a8778adb177639d244c2705a60215252decd46ff5a94e5699ba6d2e6f"
+  },
+  "logs": {
+    "build-release.log": "76d23a56e163d52671dd8baa2953afe2eae7331e2e7243f8ebe38cf918c5c99d",
+    "ctest-release.log": "78bd16acda15ff4000e17dee8c60d5d963aba82e7841da043391de4d0b4df6bb",
+    "old-fixture.log": "0a02da0dcf7f3740fe327f9ad4387af83de2e15d528b78e3cbdc2ad6991d1dbd",
+    "configure-bc.log": "901ca00dd58ac6d5fd5427533ee1ed7cd35ec64511756c14252378c016b19f2c",
+    "configure-release.log": "9a0468b648c439d4bd0bbe10d40558245ae1d7536d494a76fab79a1a40c7f922",
+    "build-bc.log": "1eaaf40b91333c43b2ceb32d818482f9c17323da7fefe1e592975a7edd85cdb4",
+    "ctest-bc.log": "48e911dbe9afa2323784bf67d88b1a39ec747be3639a3be2a905c002a72565b6"
+  }
+}
