@@ -1,0 +1,112 @@
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[  2%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o
+[  2%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[  3%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o
+[  3%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o
+[  7%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o
+[  9%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o
+[  9%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o
+[ 11%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[ 11%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o
+[ 12%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o
+[ 14%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[ 14%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[ 17%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[ 17%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[ 18%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o
+[ 19%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[ 19%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/engine/subsolver.cpp: In member function ‘void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/engine/subsolver.cpp:823:35: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+  823 |                {clause_id(reason)}};
+      |                                   ^
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/engine/subsolver.cpp: In member function ‘tactix::SubResult tactix::SubSolver::solve(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/engine/subsolver.cpp:1034:61: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+ 1034 |           target_ = {target_id, export_literals(lits), chain};
+      |                                                             ^
+[ 20%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[ 22%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[ 22%] Building CXX object CMakeFiles/tactix_lib.dir/src/diagnostics/event_trace.cpp.o
+[ 22%] Built target tactix_lib
+[ 22%] Building CXX object CMakeFiles/tactix.dir/src/main.cpp.o
+[ 22%] Building CXX object tests/CMakeFiles/test_clause_pose_series.dir/test_clause_pose_series.cpp.o
+[ 23%] Building CXX object tests/CMakeFiles/test_kernel.dir/test_kernel.cpp.o
+[ 24%] Building CXX object tests/CMakeFiles/test_parse.dir/test_parse.cpp.o
+[ 24%] Building CXX object tests/CMakeFiles/test_proof.dir/test_proof.cpp.o
+[ 25%] Building CXX object tests/CMakeFiles/test_analyze.dir/test_analyze.cpp.o
+[ 26%] Building CXX object tests/CMakeFiles/test_restart_reduce.dir/test_restart_reduce.cpp.o
+[ 26%] Building CXX object tests/CMakeFiles/test_switchmode.dir/test_switchmode.cpp.o
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/tests/test_clause_pose_series.cpp: In function ‘int main()’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/tests/test_clause_pose_series.cpp:24:40: error: too few arguments to function ‘tactix::Ref tactix::kernel_add_large_clause(Kernel&, const Lit*, uint32_t, bool, uint32_t, uint64_t, bool)’
+   24 |   const Ref a = kernel_add_large_clause(k, lits, 3, false);
+      |                 ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+In file included from /home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/tests/test_clause_pose_series.cpp:3:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/kernel/kernel.hpp:1478:5: note: declared here
+ 1478 | Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
+      |     ^~~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/tests/test_clause_pose_series.cpp:25:40: error: too few arguments to function ‘tactix::Ref tactix::kernel_add_large_clause(Kernel&, const Lit*, uint32_t, bool, uint32_t, uint64_t, bool)’
+   25 |   const Ref b = kernel_add_large_clause(k, lits, 3, false);
+      |                 ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/kernel/kernel.hpp:1478:5: note: declared here
+ 1478 | Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
+      |     ^~~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/tests/test_clause_pose_series.cpp:27:26: error: too few arguments to function ‘tactix::Ref tactix::kernel_add_large_clause(Kernel&, const Lit*, uint32_t, bool, uint32_t, uint64_t, bool)’
+   27 |   kernel_add_large_clause(k, other, 3, false);
+      |   ~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/kernel/kernel.hpp:1478:5: note: declared here
+ 1478 | Ref kernel_add_large_clause(Kernel &, const Lit *lits, uint32_t size,
+      |     ^~~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/tests/test_clause_pose_series.cpp:41:27: error: invalid conversion from ‘tactix::Ref’ {aka ‘unsigned int’} to ‘tactix::Clause*’ [-fpermissive]
+   41 |   kernel_delete_clause(k, a); kernel_delete_clause(k, b);
+      |                           ^
+      |                           |
+      |                           tactix::Ref {aka unsigned int}
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/kernel/kernel.hpp:1580:53: note:   initializing argument 2 of ‘void tactix::kernel_delete_clause(Kernel&, Clause*, bool, const char*)’
+ 1580 | inline void kernel_delete_clause(Kernel &k, Clause *c,
+      |                                             ~~~~~~~~^
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/tests/test_clause_pose_series.cpp:41:55: error: invalid conversion from ‘tactix::Ref’ {aka ‘unsigned int’} to ‘tactix::Clause*’ [-fpermissive]
+   41 |   kernel_delete_clause(k, a); kernel_delete_clause(k, b);
+      |                                                       ^
+      |                                                       |
+      |                                                       tactix::Ref {aka unsigned int}
+/home/hwu/SAT-solving/.claude/worktrees/runtime-clause-pose-series-6004/src/kernel/kernel.hpp:1580:53: note:   initializing argument 2 of ‘void tactix::kernel_delete_clause(Kernel&, Clause*, bool, const char*)’
+ 1580 | inline void kernel_delete_clause(Kernel &k, Clause *c,
+      |                                             ~~~~~~~~^
+[ 27%] Linking CXX executable test_proof
+gmake[2]: *** [tests/CMakeFiles/test_clause_pose_series.dir/build.make:79: tests/CMakeFiles/test_clause_pose_series.dir/test_clause_pose_series.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:400: tests/CMakeFiles/test_clause_pose_series.dir/all] Error 2
+gmake[1]: *** Waiting for unfinished jobs....
+[ 27%] Built target test_proof
+[ 28%] Linking CXX executable test_switchmode
+[ 29%] Linking CXX executable tactix
+[ 29%] Built target test_switchmode
+[ 29%] Built target tactix
+[ 30%] Linking CXX executable test_restart_reduce
+[ 30%] Built target test_restart_reduce
+[ 31%] Linking CXX executable test_analyze
+[ 31%] Built target test_analyze
+[ 32%] Linking CXX executable test_parse
+[ 32%] Built target test_parse
+[ 32%] Linking CXX executable test_kernel
+[ 32%] Built target test_kernel
+gmake: *** [Makefile:101: all] Error 2
