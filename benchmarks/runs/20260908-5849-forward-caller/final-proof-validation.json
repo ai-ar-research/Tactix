@@ -1,0 +1,23 @@
+{
+  "checked_proofs": 40,
+  "journal_active_outcomes": [
+    "applied",
+    "applied",
+    "declined",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted"
+  ],
+  "hashes": {
+    "benchmarks/runs/20260908-5849-forward-caller/continuation-proofs-final/summary.json": "3cd5b417975b4c8a63f36130c961d645c0a92f58b8bc6132703fa4b7a866e520",
+    "benchmarks/runs/20260908-5849-forward-caller/caller-proofs-final/summary.json": "4ed759a2f228b4cdd9caddb0bd7d49d49fa10c839a07b53c4953653a09d5e4bf",
+    "benchmarks/runs/20260908-5849-forward-caller/journal-proofs/summary.json": "e8631320b6b0ebeb0ac2a95300c32a851c0d7f3b61a64c433380a8086def5a32",
+    "benchmarks/runs/20260908-5859-forward-caller-edges-final/summary.json": "afb67ebd4bd76595fbba44a53e0a8f0be92078efc711422897c3b67950c0412b",
+    "benchmarks/runs/20260908-5849-forward-caller/caller-journal.tsv": "58fff35ea58b92679ec8c90af94a3bec924dde0a0a49c900a688da9fbac8f03a"
+  },
+  "scope": "Final binaries:16 continuation,12 edges,6 caller and6 active-journal independently verified proofs. Journal includes two applied closures, empty-suffix decline and six refutations.",
+  "tooling_correction": "Final proof runner completed all40 checker verifications,then expected enum Ok instead of the established applied text. This sealer validates the existing records without overwriting them;no solver or checker failure."
+}

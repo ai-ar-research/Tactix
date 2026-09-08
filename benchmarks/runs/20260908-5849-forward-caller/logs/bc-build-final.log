@@ -1,0 +1,135 @@
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[ 23%] Built target tactix_lib
+[ 23%] Linking CXX executable test_proof
+[ 24%] Linking CXX executable tactix
+[ 24%] Linking CXX executable test_parse
+[ 25%] Linking CXX executable test_restart_reduce
+[ 25%] Linking CXX executable test_kernel
+[ 25%] Linking CXX executable test_analyze
+[ 25%] Linking CXX executable test_switchmode
+[ 26%] Linking CXX executable test_rephase
+[ 27%] Built target test_kernel
+[ 28%] Built target test_switchmode
+[ 29%] Built target test_proof
+[ 30%] Built target test_restart_reduce
+[ 30%] Built target test_rephase
+[ 30%] Built target test_parse
+[ 31%] Built target tactix
+[ 32%] Built target test_analyze
+[ 32%] Linking CXX executable test_subsolver
+[ 32%] Linking CXX executable test_scheduling
+[ 33%] Linking CXX executable test_strategy_config
+[ 34%] Linking CXX executable test_slot_pose
+[ 35%] Linking CXX executable test_event_trace
+[ 36%] Linking CXX executable test_reorder
+[ 36%] Linking CXX executable test_rule_journal
+[ 37%] Linking CXX executable test_sweep
+[ 38%] Built target test_subsolver
+[ 38%] Built target test_strategy_config
+[ 39%] Built target test_sweep
+[ 39%] Built target test_scheduling
+[ 40%] Built target test_event_trace
+[ 42%] Built target test_rule_journal
+[ 43%] Built target test_slot_pose
+[ 43%] Built target test_reorder
+[ 43%] Linking CXX executable test_walk
+[ 43%] Linking CXX executable test_subsume
+[ 43%] Linking CXX executable test_instantiate
+[ 44%] Linking CXX executable test_strengthen
+[ 45%] Linking CXX executable test_vivify
+[ 45%] Linking CXX executable test_vivify_n1
+[ 46%] Linking CXX executable test_probe
+[ 46%] Linking CXX executable test_backbone
+[ 47%] Built target test_instantiate
+[ 48%] Built target test_walk
+[ 49%] Built target test_probe
+[ 50%] Built target test_subsume
+[ 50%] Built target test_vivify
+[ 51%] Built target test_vivify_n1
+[ 51%] Built target test_strengthen
+[ 52%] Linking CXX executable test_bce
+[ 53%] Linking CXX executable test_cce
+[ 53%] Built target test_backbone
+[ 53%] Linking CXX executable test_hyperbinary
+[ 53%] Linking CXX executable test_ternary
+[ 53%] Linking CXX executable test_decide
+[ 54%] Linking CXX executable test_reconstruct
+[ 54%] Linking CXX executable test_substitute
+[ 55%] Linking CXX executable test_congruence
+[ 55%] Built target test_bce
+[ 56%] Built target test_ternary
+[ 58%] Built target test_decide
+[ 58%] Built target test_cce
+[ 59%] Built target test_hyperbinary
+[ 59%] Built target test_reconstruct
+[ 60%] Built target test_substitute
+[ 61%] Linking CXX executable test_binary_deletion
+[ 61%] Linking CXX executable test_transitive_reduce
+[ 62%] Linking CXX executable test_lucky
+[ 62%] Built target test_congruence
+[ 62%] Linking CXX executable test_bve
+[ 62%] Linking CXX executable test_api_c
+[ 63%] Linking CXX executable test_api_instances
+[ 64%] Linking CXX executable test_random_policy
+[ 65%] Linking CXX executable test_tr_bruteforce
+[ 66%] Built target test_bve
+[ 67%] Built target test_api_instances
+[ 68%] Built target test_binary_deletion
+[ 68%] Built target test_lucky
+[ 68%] Built target test_transitive_reduce
+[ 70%] Built target test_tr_bruteforce
+[ 70%] Built target test_api_c
+[ 71%] Built target test_random_policy
+[ 72%] Linking CXX executable test_subsume_n1
+[ 72%] Linking CXX executable test_factor
+[ 72%] Linking CXX executable test_factor_n1
+[ 73%] Linking CXX executable test_solve_reset
+[ 74%] Linking CXX executable test_no_heuristics
+[ 75%] Linking CXX executable test_bve_bound_cut
+[ 75%] Linking CXX executable test_assignment_level_bound
+[ 76%] Linking CXX executable test_conflict_reuse_targets
+[ 77%] Built target test_factor
+[ 78%] Built target test_solve_reset
+[ 78%] Built target test_factor_n1
+[ 79%] Built target test_bve_bound_cut
+[ 80%] Built target test_subsume_n1
+[ 80%] Built target test_no_heuristics
+[ 80%] Built target test_assignment_level_bound
+[ 80%] Linking CXX executable test_eliminate_limit
+[ 82%] Linking CXX executable test_factor_root_support
+[ 82%] Linking CXX executable test_congruence_index_cleanup
+[ 84%] Linking CXX executable test_forward_marks
+[ 84%] Linking CXX executable test_forward_caller
+[ 84%] Linking CXX executable test_inprocess_root
+[ 85%] Linking CXX executable test_forward_unit
+[ 85%] Built target test_conflict_reuse_targets
+[ 85%] Linking CXX executable test_propagation_cursor
+[ 85%] Built target test_congruence_index_cleanup
+[ 87%] Built target test_eliminate_limit
+[ 87%] Built target test_factor_root_support
+[ 87%] Built target test_forward_unit
+[ 88%] Built target test_inprocess_root
+[ 88%] Built target test_forward_caller
+[ 88%] Built target test_forward_marks
+[ 88%] Linking CXX executable test_replacement_cursor
+[ 88%] Linking CXX executable test_root_conflict_reuse
+[ 88%] Linking CXX executable test_sweep_small_env
+[ 89%] Linking CXX executable test_sweep_cursor
+[ 90%] Linking CXX executable test_watch_pair
+[ 92%] Linking CXX executable test_sweep_retained
+[ 92%] Built target test_propagation_cursor
+[ 93%] Linking CXX executable test_vivify_max
+[ 94%] Linking CXX executable demo1_dpll
+[ 94%] Built target test_sweep_cursor
+[ 95%] Built target test_replacement_cursor
+[ 96%] Built target test_watch_pair
+[ 96%] Built target test_sweep_retained
+[ 97%] Built target test_root_conflict_reuse
+[ 98%] Built target test_sweep_small_env
+[ 98%] Built target test_vivify_max
+[ 99%] Linking CXX executable demo2_no_restarts
+[100%] Linking CXX executable demo3_scripted_default
+[100%] Built target demo1_dpll
+[100%] Built target demo2_no_restarts
+[100%] Built target demo3_scripted_default
