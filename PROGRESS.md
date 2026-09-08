@@ -24,7 +24,13 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   It retains [5450's strict phase stop](benchmarks/reports/2026-09-07-eliminate-phase-budget.md).
   Rank-37 Factor schedules match; differing gain-2 admission selects this repair.
   Causal replay now matches all 35,346,388 decisions through 100000 conflicts;
-  272 portable boundaries also agree. Full runtime and B28+C5 remain pending.
+  272 portable boundaries also agree. Full runtime is now scored below;
+  B28+C5 and certificate checking remain pending.
+- [Complete bound view](benchmarks/reports/2026-09-08-bound-full-and-next-losses.md):
+  all 40 pairs are **1.173817x**, 58/80 checked at the solver snapshot; no
+  timeout/verdict loss. No aggregate breakthrough. Rank 37 is again the largest
+  loss (712.017/346.009 s, conflicts 2.114745x), then Ranks 32 and 31.
+  Extend Rank 37 beyond its common prefix and trace Rank 32; Rank 31 is queued.
 - [Complete phase-budget view](benchmarks/reports/2026-09-07-phase-budget-full-view.md):
   5454 has all 40 pairs at **1.170283x**, 63/80 checked at the solver snapshot.
   No timeout/verdict loss; goal still unmet. Largest losses are Ranks 31/37/32.
@@ -79,13 +85,15 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5462 short B bound witnesses | `1670635` | Complete: nine checked/clean; old/new behavior identical. |
 | 5463 Rank-37 bound prefix | `1670637` | Complete: all 35,346,388 decisions and 272 boundaries match. |
 | 5464 bound B28+C5 | `1670636` | Fixed cumulative gate; checker tail running. |
-| 5465 bound Rank 1–40 | `1670638` | Full unchanged paired view; running. |
+| 5465 bound Rank 1–40 | `1670638` | All 80 expected solves, 1.173817x; proof tail running. |
 | 5468 watch-pair timing | `1670699` | Three exact-work predecessor pairs; queued. |
 | 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; queued. |
 | 5470 Rank-31 bound prefix | `1670801` | New largest loss: complete 100000-conflict stream; queued. |
 | 5471 Square bound prefix | `1670919` | Short B inprocessing witness, stop at 10000 conflicts; queued. |
 | 5475 Sweep cursor timing | `1671162` | Three exact-work pairs against 5466; queued. |
 | 5476 Sweep cursor B28+C5 | `1671163` | Fixed cumulative gate; queued. |
+| 5478 Rank-37 extended prefix | `1671258` | Stop at 1M, record suffix from validated 100K anchor; queued. |
+| 5479 Rank-32 bound prefix | `1671263` | Second-largest full loss: 100K-conflict causal prefix; queued. |
 
 User-requested periodic fuzz checkpoint 5442 is owned by background Claude
 process `2920923` (parent tool session `30094`), testing immutable source 5438.
@@ -125,8 +133,11 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Latest frozen source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
    5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
    Evaluate predecessor 5468 with `snapshot-watch-pair-runtime-5468.py` too.
-   Score 5465 with `snapshot-bound-full-5465.py` once all 80 solver records exist;
-   it refuses partial aggregates and does not wait for the checker tail.
+   5465's frozen solver snapshot is complete: 1.173817x, all expected verdicts.
+   Its `next-losses.json` selects Ranks 37/32/31. Compare 5478 with
+   `compare-rank37-extended-5478.py` (watcher 30072), then Rank 32 with
+   `compare-rank32-prefix-5479.py`. The 5478 matching-row count is suffix-only;
+   5463 separately proves the complete earlier 35,346,388-row common prefix.
    5458 confirms native bound advancement after the cut; 5463 closes the
    100000-conflict prefix, including all 272 portable boundaries. First-call 5457 grids
    are equal by member ordinal; raw observer emission order is not a mismatch.
@@ -137,7 +148,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Preceding source `.claude/worktrees/runtime-bound-advance-5459` is frozen;
    Release 5459/BC 5461 share SHA `84300eafeef6c973…`, trace 5460 `509877b2…`.
    Its manifest owns full hashes, tests and patches. Watchers 50218 (5463) and
-   18033 (5458) completed. No runtime gain is established for 5459.
+   18033 (5458) completed. Full 5459 timing does not establish an aggregate gain;
+   Rank-37 full work regresses despite its bounded causal closure. Retain the
+   source-backed bound repair while localizing the later coupled mechanism.
    5453 is terminal and compared: 7,918,162 matching rows (was 7,504,348).
    `boundary-localization.json` places the next coarse split at the second
    Factor call, conflict 32,073: common input active 148610/binary 181122;
@@ -227,10 +240,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Attributed Sweep ledger cost to repeated full-range membership scans.
-- Isolated wraparound cursors; 588 actual old/new ledger states agree.
-- Both new Release builds pass 84/84; exact-work timing and B28+C5 queued.
-- Sealed replacement-cursor B28+C5: 66/66 checked, 0.919289x production.
+- Scored all bound Rank 1–40 pairs: 1.173817x, checking pending; no breakthrough.
+- Rank 37 is the largest loss again, with conflicts 2.114745x Kissat.
+- Queued its extended 1M-conflict trace from the validated 100K common prefix.
+- Queued Rank 32's prefix alongside pending Rank 31 and short Square probes.
 - Newer candidates remain isolated; proof checking and fuzz stay background.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
