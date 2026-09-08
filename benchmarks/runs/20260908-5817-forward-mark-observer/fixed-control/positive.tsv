@@ -1,0 +1,8 @@
+boundary	stage=before-sync	round=1	watermark=8	epoch=9	fixed_head=0	root_fixed=1
+variable	external=1	value=-1	stamp=4	marked=0	trail=0
+variable	external=2	value=0	stamp=7	marked=0	trail=0
+variable	external=3	value=0	stamp=9	marked=1	trail=0
+boundary	stage=after-sync	round=1	watermark=8	epoch=10	fixed_head=1	root_fixed=1
+variable	external=1	value=-1	stamp=10	marked=1	trail=0
+variable	external=2	value=0	stamp=7	marked=0	trail=0
+variable	external=3	value=0	stamp=9	marked=1	trail=0

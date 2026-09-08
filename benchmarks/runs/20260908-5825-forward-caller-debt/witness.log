@@ -1,0 +1,1 @@
+witness: /home/hwu/SAT-solving/benchmarks/probes/scratch/forward-caller-debt-5824.cpp:48: int main(): Assertion `observed && pending_value == 0' failed.

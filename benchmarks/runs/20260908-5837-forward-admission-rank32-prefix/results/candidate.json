@@ -1,0 +1,30 @@
+{
+  "scratch": "/tmp/tactix-5837-1674056-ezr8lcxf",
+  "arm": "candidate",
+  "slurm_job": "1674056",
+  "node": "node017",
+  "binary_sha256": "a930ec98f4fc0688eaeba2cc2018908dd55c88627bf8ee7815dba52d93604a8b",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "66",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5837-forward-admission-rank32-prefix/pins/candidate",
+    "/tmp/tactix-5837-1674056-ezr8lcxf/input.cnf",
+    "/tmp/tactix-5837-1674056-ezr8lcxf/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 217055232,
+    "sha256": "c37131162ccf8ea3f076ff41e6546e7af59f53838545473be59a82411bcb3847"
+  },
+  "trace_sha256": {
+    "candidate.boundaries.tsv": "bbee46886f2145c5a28ee53845bcdb9310ab8ae1b93627f62274f3f9267ae912",
+    "candidate.prefix.tsv": "6d6bfd15448c1140d4fc021792d74c57cc6096300ee135acddeab7e503cf2b6d",
+    "candidate.decisions.tsv": "617ed53b1e76d911a3eaab1306b8d075ede6b9d5335c9b71cf4300337a40c705",
+    "candidate.macro.tsv": "c37e955f5b0201df8762ee068d0a95131c8a9a65bd5bb1d5a6ddea2f5197e047"
+  },
+  "scratch_deleted": true
+}

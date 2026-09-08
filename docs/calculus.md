@@ -172,7 +172,7 @@ conjunct.
   when the resolvent subsumes outright — that branch is **`del` with no add**.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core entailed at every step.
   The fused SUBSUMED branch is C1's inference and inherits its argument (`implementation-notes.md` §14).
-  Like C1 the precondition constrains only the PARTNER `d` — ledger `D-C1C2-VICTIM`.
+  Like C1 the precondition constrains only the PARTNER `d` — ledger `D-C1C2-VICTIM`. Canonical added-material marks are scheduling advice, not soundness conditions or restrictions on explicit instances.
 
 ### C3 · Vivify
 - **Precondition (abstract):** ∃ a clause `c` whose distillation by propagation proves a strengthened

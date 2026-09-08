@@ -1,0 +1,24 @@
+{
+  "arm": "tactix",
+  "certificate_bytes": 2911895552,
+  "certificate_sha256": "7fe76e6f85fa32a81194710342ec31b48761c56b09ffbb2ff2e2f66d07da6c04",
+  "expected": "UNKNOWN",
+  "expected_match": false,
+  "instance": "tierD24-26/207ebdf62e5ce54c8b4ddeeb17843a56-hhyp_cec_multi_2.cnf.xz",
+  "node": "node011",
+  "rank": 170,
+  "recorded_at": "2026-09-08T16:58:02.028035+00:00",
+  "schema": "tactix-matched-slurm-provisional-result-v1",
+  "solve": {
+    "exit_code": null,
+    "peak_rss_kb": null,
+    "sampled_process_vm_peak_kb": 651128,
+    "timed_out": true,
+    "wall_seconds": 1200.006
+  },
+  "solver_statistics": [],
+  "task": 338,
+  "tier": "D",
+  "validation_pending": true,
+  "verdict": "UNKNOWN"
+}

@@ -1,0 +1,356 @@
+{
+  "observer_parent_trace_and_partial_proof_equal": true,
+  "complete_trace_sha256": {
+    "candidate.decisions.tsv": "4327428d132bc3c81e7217afa3a615391be8da8df8cecbbf8a221ce30f42fd5c",
+    "candidate.macro.tsv": "854a5a1f73fd0a526b2d7a841f1b9e0bf7f95a74f6dc74c9cbc20bc825ad9521",
+    "candidate.boundaries.tsv": "86798f4c05c04dea1664c3e004fd5bb083a4a7f2bbafa589847b18897c307196",
+    "candidate.prefix.tsv": "b7a3a3c1ab409f6746f4d692c24d5cebf4a530c5cb811ed2f811f5c8f92d9ece",
+    "candidate.marks.tsv": "366d62e6264dff8de3ff50c69cfc923b381d8096e57fb97a8e326744bd335069"
+  },
+  "result_sha256": "f350826b04b6c541a66b84c9696f8ef4f7c59a05e51f5723b0a144af54c4452a",
+  "cached_parent_sha256": "f583a26a08d53e02b796df69b744f588d25867777a912fa7b9088d58625e4b95",
+  "frames": [
+    {
+      "stage": "before-sync",
+      "round": 9,
+      "watermark": 27466146,
+      "epoch": 28454811,
+      "fixed_head": 1355,
+      "root_fixed": 2600,
+      "variables": [
+        {
+          "external": -217936,
+          "value": 0,
+          "stamp": 24502218,
+          "marked": 0,
+          "trail": 44052
+        },
+        {
+          "external": -217929,
+          "value": 0,
+          "stamp": 23654855,
+          "marked": 0,
+          "trail": 44053
+        },
+        {
+          "external": -217919,
+          "value": 0,
+          "stamp": 24630374,
+          "marked": 0,
+          "trail": 24795
+        },
+        {
+          "external": -217911,
+          "value": 0,
+          "stamp": 23654858,
+          "marked": 0,
+          "trail": 24796
+        },
+        {
+          "external": -217844,
+          "value": 0,
+          "stamp": 24596997,
+          "marked": 0,
+          "trail": 2937
+        },
+        {
+          "external": -217832,
+          "value": 0,
+          "stamp": 24596998,
+          "marked": 0,
+          "trail": 13747
+        },
+        {
+          "external": 217821,
+          "value": -1,
+          "stamp": 23654864,
+          "marked": 0,
+          "trail": 2252
+        },
+        {
+          "external": 217824,
+          "value": 0,
+          "stamp": 24595439,
+          "marked": 0,
+          "trail": 3279
+        },
+        {
+          "external": 217864,
+          "value": 0,
+          "stamp": 28396436,
+          "marked": 1,
+          "trail": 3882
+        },
+        {
+          "external": 217939,
+          "value": 0,
+          "stamp": 25317435,
+          "marked": 0,
+          "trail": 3605
+        }
+      ]
+    },
+    {
+      "stage": "after-sync",
+      "round": 9,
+      "watermark": 27466146,
+      "epoch": 28456056,
+      "fixed_head": 2600,
+      "root_fixed": 2600,
+      "variables": [
+        {
+          "external": -217936,
+          "value": 0,
+          "stamp": 24502218,
+          "marked": 0,
+          "trail": 44052
+        },
+        {
+          "external": -217929,
+          "value": 0,
+          "stamp": 23654855,
+          "marked": 0,
+          "trail": 44053
+        },
+        {
+          "external": -217919,
+          "value": 0,
+          "stamp": 24630374,
+          "marked": 0,
+          "trail": 24795
+        },
+        {
+          "external": -217911,
+          "value": 0,
+          "stamp": 23654858,
+          "marked": 0,
+          "trail": 24796
+        },
+        {
+          "external": -217844,
+          "value": 0,
+          "stamp": 24596997,
+          "marked": 0,
+          "trail": 2937
+        },
+        {
+          "external": -217832,
+          "value": 0,
+          "stamp": 24596998,
+          "marked": 0,
+          "trail": 13747
+        },
+        {
+          "external": 217821,
+          "value": -1,
+          "stamp": 28455709,
+          "marked": 1,
+          "trail": 2252
+        },
+        {
+          "external": 217824,
+          "value": 0,
+          "stamp": 24595439,
+          "marked": 0,
+          "trail": 3279
+        },
+        {
+          "external": 217864,
+          "value": 0,
+          "stamp": 28396436,
+          "marked": 1,
+          "trail": 3882
+        },
+        {
+          "external": 217939,
+          "value": 0,
+          "stamp": 25317435,
+          "marked": 0,
+          "trail": 3605
+        }
+      ]
+    },
+    {
+      "stage": "before-sync",
+      "round": 10,
+      "watermark": 28456056,
+      "epoch": 31978186,
+      "fixed_head": 2600,
+      "root_fixed": 2792,
+      "variables": [
+        {
+          "external": -217936,
+          "value": 0,
+          "stamp": 24502218,
+          "marked": 0,
+          "trail": 44052
+        },
+        {
+          "external": -217929,
+          "value": 0,
+          "stamp": 29637984,
+          "marked": 1,
+          "trail": 44053
+        },
+        {
+          "external": -217919,
+          "value": 0,
+          "stamp": 24630374,
+          "marked": 0,
+          "trail": 24795
+        },
+        {
+          "external": -217911,
+          "value": 0,
+          "stamp": 29476267,
+          "marked": 1,
+          "trail": 24796
+        },
+        {
+          "external": -217844,
+          "value": 0,
+          "stamp": 24596997,
+          "marked": 0,
+          "trail": 2937
+        },
+        {
+          "external": -217832,
+          "value": 0,
+          "stamp": 29571525,
+          "marked": 1,
+          "trail": 13747
+        },
+        {
+          "external": 217821,
+          "value": -1,
+          "stamp": 28455709,
+          "marked": 0,
+          "trail": 2252
+        },
+        {
+          "external": 217824,
+          "value": 0,
+          "stamp": 24595439,
+          "marked": 0,
+          "trail": 3279
+        },
+        {
+          "external": 217864,
+          "value": 0,
+          "stamp": 28521075,
+          "marked": 1,
+          "trail": 3882
+        },
+        {
+          "external": 217939,
+          "value": 0,
+          "stamp": 31899460,
+          "marked": 1,
+          "trail": 3605
+        }
+      ]
+    },
+    {
+      "stage": "after-sync",
+      "round": 10,
+      "watermark": 28456056,
+      "epoch": 31978378,
+      "fixed_head": 2792,
+      "root_fixed": 2792,
+      "variables": [
+        {
+          "external": -217936,
+          "value": 0,
+          "stamp": 24502218,
+          "marked": 0,
+          "trail": 44052
+        },
+        {
+          "external": -217929,
+          "value": 0,
+          "stamp": 29637984,
+          "marked": 1,
+          "trail": 44053
+        },
+        {
+          "external": -217919,
+          "value": 0,
+          "stamp": 24630374,
+          "marked": 0,
+          "trail": 24795
+        },
+        {
+          "external": -217911,
+          "value": 0,
+          "stamp": 29476267,
+          "marked": 1,
+          "trail": 24796
+        },
+        {
+          "external": -217844,
+          "value": 0,
+          "stamp": 24596997,
+          "marked": 0,
+          "trail": 2937
+        },
+        {
+          "external": -217832,
+          "value": 0,
+          "stamp": 29571525,
+          "marked": 1,
+          "trail": 13747
+        },
+        {
+          "external": 217821,
+          "value": -1,
+          "stamp": 28455709,
+          "marked": 0,
+          "trail": 2252
+        },
+        {
+          "external": 217824,
+          "value": 0,
+          "stamp": 24595439,
+          "marked": 0,
+          "trail": 3279
+        },
+        {
+          "external": 217864,
+          "value": 0,
+          "stamp": 28521075,
+          "marked": 1,
+          "trail": 3882
+        },
+        {
+          "external": 217939,
+          "value": 0,
+          "stamp": 31899460,
+          "marked": 1,
+          "trail": 3605
+        }
+      ]
+    }
+  ],
+  "first_sync_changed": [
+    [
+      {
+        "external": 217821,
+        "value": -1,
+        "stamp": 23654864,
+        "marked": 0,
+        "trail": 2252
+      },
+      {
+        "external": 217821,
+        "value": -1,
+        "stamp": 28455709,
+        "marked": 1,
+        "trail": 2252
+      }
+    ]
+  ],
+  "parser_negative_controls": 6,
+  "conclusion": "At Rank32 conflict179463,canonical root synchronization alone marks root-false217821,raising selected-clause admission from one to two marked variables. Existing native witness filters that same clause with one subsume mark. This establishes the origin of this admission difference,not its net runtime effect.",
+  "next_action": "Isolate the default forward-admission treatment of root notifications while preserving other consumers and public single-instance capability;check fixed native parity,proof/model tests,Rank32 causal prefix,BC and full40.",
+  "limitation": "Observer-only stopped300K replay;no new runtime result or checked final proof. Root notification has other consumers;do not globally delete shared touch updates without auditing them."
+}

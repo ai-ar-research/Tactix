@@ -1,0 +1,17 @@
+{
+  "created_at": "2026-09-08T17:09:27.459197+00:00",
+  "parent_authority": "benchmarks/runs/20260908-5798-forward-unit",
+  "parent_manifest_sha256": "5611f974bedc57872a44740319245de226107d2640b51d37d4e7695c8d8c5895",
+  "source": ".claude/worktrees/runtime-forward-mark-observer-5817",
+  "purpose": "Read-only selected-variable stamps before/after canonical root notification;no rule or scheduling changes.",
+  "test_consideration": "92/92 CTest;actual native/Tactix root-mark control;observer positive/negative selection and off/on output equality.",
+  "hashes": {
+    "benchmarks/runs/20260908-5817-forward-mark-observer/observer.patch": "588c7a9a83aff8d0cb4e72e4fdb382b13799e69aad89a7faa17edeecb761e89d",
+    "benchmarks/runs/20260908-5817-forward-mark-observer/fixed-control/summary.json": "84dd6e21fbf10a279c690a169420508efbe28ed29e7b0f2f3bbf02acc58c2511",
+    "benchmarks/runs/20260908-5817-forward-mark-observer/logs/build.log": "2b91cea113fb548008bfc124e2983f4b7c14366eeb07c3a1e64025f23b47f32a",
+    "benchmarks/runs/20260908-5817-forward-mark-observer/logs/configure.log": "c5e79316a855e6f870994eb5eefdca23f49b2c5cedee1c45c71fab2000ffbd45",
+    "benchmarks/runs/20260908-5817-forward-mark-observer/logs/ctest.log": "322c35d87016c175bc2a1afdd997f390ac00ba1e7b17f62b0b9a7010756b699a",
+    "build/pin-5817-forward-mark-trace/tactix": "b961c9802c74ccfd28d684c5b7374b5adcee9b20d7cf5c4cc709e0873589bf2d",
+    ".claude/worktrees/runtime-forward-mark-observer-5817/src/rules/strengthen/strengthen.cpp": "87fda8647095083726cc6761191b7dd92f734b1e02d3e892fbc36179fe714255"
+  }
+}

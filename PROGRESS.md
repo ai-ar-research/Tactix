@@ -14,8 +14,8 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   stops the exact antecedent maximum at the current-level bound;root maximum is zero.
   Release90/90 twice;trace89/89;3288 old/new states agree;5677 full1M parent replayPASS.5679 three-pair median1.030478x,6.01% candidate spread: no proven speedup.
   [Current5741](benchmarks/reports/2026-09-08-forward-unit-exit.md):92/92 Release twice,91/91 trace,5088 checked old/new proofs;5755/5756 full parent trace/proof replayPASS. Full5758 all40 solves7807.759s=1.146503x fixedKissat,29 checked at snapshot;not promoted.
-  Fixed Kissat authority: `benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json`, frozen from5712:6810.066s;all40 reference checks complete. Future full views Tactix-only at12CPU/48000MiB.5712 Tactix1.110877x,80/80 checked;5758 latest39/40 checked.
-  [Isolated5798 repair](benchmarks/reports/2026-09-08-forward-unit-repair.md):canonical units propagate through partial forward connections and continue;93/93 Release twice,92/92 trace,16 independently checked proofs,six exact native controls. BC5806/job1673704 submitted;no runtime claim/promotion. [Rank32 checkpoint](benchmarks/reports/2026-09-08-rank32-forward-checkpoint.md) retains valid extra subsumption;later BVE remains open.
+  Fixed Kissat authority: `benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json`, frozen from5712:6810.066s;all40 reference checks complete. Future full views Tactix-only at12CPU/48000MiB.5712 Tactix1.110877x,80/80 checked;5758 now40/40 checked.
+  [Current5830 runtime](benchmarks/reports/2026-09-08-forward-admission-runtime.md):all40 solves7744.440s=1.137205x fixedKissat,29 checked at snapshot;not an aggregate win over5798's1.127044x. C2 admission repair passes94/94 twice,93/93 trace,28 checked proofs and61,154,590 native Rank32 decisions. Rank31 worsens;5845/job1674241 localizes it. BC5836 C1.032997x production;checks continue. No promotion.
   [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
   all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
   all80 checked/clean;5599 three pairs median0.824875x5522,spreads1.60%/0.52%,all6 proofs checked.
@@ -179,10 +179,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Review isolated5798 BC5806/job1673704 provisional solver results,then submit Rank31 trace5800 against cached native evidence without waiting for proof checks. Prove continuation through the179823 rounds and recover the dropped tail;then measure full Rank1–40 against fixed Kissat. No5798 real-instance speedup or promotion yet.
-   SP-FORWARD-UNIT-CONTINUE-1 stays open in production.5798 implements partial-stream unit propagation/cleanup,root rechecks,proof-safe reasons,sparse replay debt and native completion;93/93 twice,92/92 trace,17 state/model cases,16 independent proofs,six exact native rows. Add focused connected-conflict/interruption coverage when extending this batch.
-   All5798 source/builds are now frozen;manifest owns hashes. Separate5806 pins run66 tasks oncpu-dense-hwulab-q,12CPU/48000MiB,1200s solve/16000s checker/5h allocation.5741 and all earlier sources/pins unchanged;5760 remains diagnostic-only. Rank32 extra subsumption is equivalent and retained;downstream BVE/marking-history/real-cost gaps stay open.
-   Full5758/job1673329 all40 solves1.146503x fixedKissat,39/40 checked;checkpoint frozen. Score via tools/bench/fixed_runtime.py;never refresh denominator.5754 BC now66/66 checked,combined0.934250x production;root5727 also66/66 checked.5789 seals both.
+1. Validate5845/job1674241 Rank31 against cached5810/native5735 before attributing its regression to caller closure.5838 all40 solves1.137205x fixedKissat,29 checked at snapshot;Rank32 improves36.776s but31 costs105.388s more.5836 all66 expected solves,B0.746180x,C1.032997x,64 checked. Keep5830 experimental;continue checks,not promotion. Fixed Kissat6810.066s.
+   Next independent general repair: full-connection root propagation/cleanup between C2 and BVE. Actual scheduler5826 exposes pending unit5 while reporting fixpoint;native5829 closes it before BVE. Phase-exit replay is too late. Do not replace full closure with cleanup-only or change partial C2 propagation itself.
+   Neutral5822 proves root217821 alone supplies Rank32's second admission mark at179463;5830 removes only C2's root-sync call,retaining C1/CCE helper and public actions.5837 is terminal:61,154,590 native decisions and40 forward/BVE boundaries match;first split225987 after stable Reduce/Reorder. Inspect that common-state lifecycle next.5815 snapshot/counter hooks straddle native caller cleanup,not a proven bad counter.
+   Parent5798 full5811 all40 solves1.127044x;first snapshot29 checked,latest37. BC5806 now66/66 checked/clean,sealed5840:B0.746337x,C1.076240x,combined0.954995x production. Keep C regression explicit. Full5758 now40/40 checked at1.146503x;never rewrite frozen solver checkpoints or refresh denominator.
    Fuzz5765 session3c676397… unresolved:38524 terminal interim,96672 terminal API error;network retry denied,explicit approval required. Paired fullTierD5784/job1673402 is submitted oncpu-q:2332 tasks,4CPU/32GiB/1200s solve,5h total per user clarification.5793 actual positive/negative checkersPASS;existing campaign pins/launches unchanged.
    Full5712 now80/80 checked/clean,1.110877xKissat;summary sealed5714.5733 selects31/33/37. Never rerun5713/5665 snapshots.5664=1.128369x,latest79/80 checked;seal5666.
    Do not rerun frozen5608 snapshot. Timing is replicated changed-work gain,not isolated unit cost.
@@ -341,10 +341,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Full5758 all40 expected solves7807.759s=1.146503x fixedKissat;Rank32 largest loss with changed work/proof;5769 diagnoses it against cached native100K. No gain or promotion claimed.
-- Isolated5798 repairs Rank31's unit-induced forward exit:93/93 twice,92/92 trace,17 state/model cases,16 checked proofs,six exact native controls. BC5806/job1673704 submitted separately;real-prefix/runtime/fuzz gates remain open.
+- Isolated5830 removes C2's root-only admission producer:94/94 twice,93/93 trace,28 checked proofs;5837 closes61,154,590 decisions. Full5838 is1.137205x,not an aggregate win;Rank31 regression replay5845 submitted,checks continue.
+- Parent5798 full5811 is1.127044x fixedKissat;Rank32 largest loss with2.510381x conflicts. Rank31 continuation recovered;new fixed native/Tactix caller witnesses expose missing dense closure before BVE.
 - Current5741 preserves entire parent Rank31/33 traces and partial proofs;5754 BC66/66 checked,combined0.934250x production.5712 full and5727 BC also sealed;5679 remains noisy,not a proven unit-cost gain.
-- Benchmark tools18 testsPASS:11 fixed score,4 prefix schema,3 checked unknown-label acceptance;actual oracle controls pass.5786/5787 and5791 localize extra subsumption. Paired fullTierD5784 runs separately oncpu-q;fixed12CPU baseline unchanged. Fuzz owner resume blocked on approval.
+- Benchmark tools22 testsPASS;chunked complete-row comparison covers all chunk boundaries. Neutral5822 proves actual Rank32 root-mark provenance;5813/5834 add interruption and direct-conflict proof coverage. Paired TierD5784 remains immutable;fuzz owner resume still needs approval.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

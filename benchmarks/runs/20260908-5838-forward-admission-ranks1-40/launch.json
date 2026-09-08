@@ -1,0 +1,7 @@
+{
+  "job_id": "1674132",
+  "manifest_sha256": "a4bbf27d2ae273a7ef419fe9799b41aed7a09fa9168b5158991b62f93b4369c3",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5838-forward-admission-ranks1-40/array.sbatch",
+  "scope": "All40 candidate-only proof-on runtime measurements at12CPU/48000MiB;fixed Kissat vector unchanged;1200s solver,16000s checker,5h allocation.",
+  "dependencies": "Isolated5830 and separate BC5836. No gate or promotion from pending checks;normal failures pause dependent work."
+}

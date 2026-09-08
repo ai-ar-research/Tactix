@@ -1,0 +1,6 @@
+{
+  "job_id": "1673816",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5811-forward-unit-ranks1-40/array.sbatch",
+  "scope": "All40 candidate-only proof-on runtime measurements at12CPU/48000MiB against the unchanged fixed Kissat vector;1200s solver,16000s checker,5h allocation;no new Kissat arm.",
+  "dependencies": "Isolated5798 and BC5806. Pending results permit investigation only,not promotion. Rank31 diagnostic5810 runs independently."
+}

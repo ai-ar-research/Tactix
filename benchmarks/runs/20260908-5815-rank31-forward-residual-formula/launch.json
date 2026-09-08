@@ -1,0 +1,5 @@
+{
+  "job_id": "1673909",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5815-rank31-forward-residual-formula/array.sbatch",
+  "scope": "Two pinned300K stopped diagnostics with first forward-exit large-clause and full forward-boundary binary snapshots. Native replay supplies missing Rank31 physical context;fixed timing baseline remains unchanged."
+}

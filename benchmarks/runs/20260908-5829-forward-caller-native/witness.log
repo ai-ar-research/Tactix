@@ -1,0 +1,2 @@
+native partial-forward: unit5=0 complete=0
+PASS: native caller closes unit5 before scheduling BVE
