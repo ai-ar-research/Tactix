@@ -17,7 +17,9 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - Preceding [Watch-pair append](benchmarks/reports/2026-09-07-watch-pair-append.md), candidate 5466,
   adds an exact-layout two-word fast path within existing capacity on 5459.
   Both Release suites pass 83/83; 180 actual old/new cases have identical
-  whole-state digests. Three exact-work timing pairs and B28+C5 are queued.
+  whole-state digests. [Measured timing](benchmarks/reports/2026-09-08-watch-pair-measured.md)
+  now gives three exact-work/proof-byte pairs: median 0.983980x predecessor,
+  range 0.981238–0.993028. Proof checking and B28+C5 remain pending.
 - Preceding [Bound lifecycle](benchmarks/reports/2026-09-07-bound-lifecycle.md), candidate 5459,
   restores the documented phase-bound advance and retry flags after quota cuts.
   Release 82/82 twice, trace 81/81; two old/new cut-bound fixtures pass.
@@ -86,7 +88,7 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5463 Rank-37 bound prefix | `1670637` | Complete: all 35,346,388 decisions and 272 boundaries match. |
 | 5464 bound B28+C5 | `1670636` | Fixed cumulative gate; checker tail running. |
 | 5465 bound Rank 1–40 | `1670638` | All 80 expected solves, 1.173817x; proof tail running. |
-| 5468 watch-pair timing | `1670699` | Three exact-work predecessor pairs; queued. |
+| 5468 watch-pair timing | `1670699` | All six solves, exact-work median 0.983980x; proofs pending. |
 | 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; queued. |
 | 5470 Rank-31 bound prefix | `1670801` | New largest loss: complete 100000-conflict stream; queued. |
 | 5471 Square bound prefix | `1670919` | Short B inprocessing witness, stop at 10000 conflicts; queued. |
@@ -132,7 +134,11 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    complete statistics/proof-byte identities before interpreting paired timing.
    Latest frozen source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
    5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
-   Evaluate predecessor 5468 with `snapshot-watch-pair-runtime-5468.py` too.
+   5468's three pairs pass exact statistics/proof-byte identity: median
+   0.983980x predecessor; all paired ratios below 1, both arm spreads below 2%.
+   Retain the supported append optimization provisionally; checking and its
+   B28+C5 gate remain required. Revisit `snapshot-watch-pair-runtime-5468.py`
+   for final proof closure, not a duplicate timing campaign.
    5465's frozen solver snapshot is complete: 1.173817x, all expected verdicts.
    Its `next-losses.json` selects Ranks 37/32/31. Compare 5478 with
    `compare-rank37-extended-5478.py` (watcher 30072), then Rank 32 with
@@ -240,10 +246,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Scored all bound Rank 1–40 pairs: 1.173817x, checking pending; no breakthrough.
-- Rank 37 is the largest loss again, with conflicts 2.114745x Kissat.
-- Queued its extended 1M-conflict trace from the validated 100K common prefix.
-- Queued Rank 32's prefix alongside pending Rank 31 and short Square probes.
+- Measured watch-pair append: exact-work median 0.983980x over three pairs.
+- All paired ratios improve, both arm spreads below 2%; proof checks pending.
+- Bound Rank 1–40 remains 1.173817x; 64/80 certificates now checked.
+- Rank-31/32/37 and short Square causal traces remain queued.
 - Newer candidates remain isolated; proof checking and fuzz stay background.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
