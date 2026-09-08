@@ -10,11 +10,12 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest implementation: [Eliminate phase budget](benchmarks/reports/2026-09-07-eliminate-phase-budget.md), candidate 5450,
-  based on replacement cursor 5445. The selected ledger confirms a missing
-  strict resolution-limit stop before optional outer rounds. Twelve fixed
-  phase scenarios pass; Release 81/81 twice and trace 80/80. The causal prefix
-  extends to 7,918,162 rows; full runtime and regression gates are queued.
+- Latest implementation: [Bound lifecycle](benchmarks/reports/2026-09-07-bound-lifecycle.md), candidate 5459,
+  restores the documented phase-bound advance and retry flags after quota cuts.
+  Release 82/82 twice, trace 81/81; two old/new cut-bound fixtures pass.
+  It retains [5450's strict phase stop](benchmarks/reports/2026-09-07-eliminate-phase-budget.md).
+  Rank-37 Factor schedules match; differing gain-2 admission selects this repair.
+  Causal replay, three short B witnesses, full runtime and B28+C5 are queued.
 - Phase-entry 5434 now has all 40 pairs: **1.205580x**, 60/80 checked at its
   frozen solver snapshot. It does not materially close the aggregate gap.
 - [Full view and next boundaries](benchmarks/reports/2026-09-07-runtime-next-boundaries.md):
@@ -57,12 +58,18 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5453 Rank-37 budget prefix | `1670291` | Complete: repaired boundary, next split at Factor, conflict 32,073. |
 | 5454 phase-budget Rank 1–40 | `1670292` | Full unchanged paired view; queued. |
 | 5455 phase-budget B28+C5 | `1670293` | Fixed cumulative gate; queued. |
+| 5457 Factor selected window | `1670359` | Complete: observer-neutral, first-call grids equal by ordinal. |
+| 5458 native bound verbosity | `1670509` | Confirm native 0→1→2 before Factor; queued. |
+| 5462 short B bound witnesses | `1670635` | Nine old/new/native full solves; queued. |
+| 5463 Rank-37 bound prefix | `1670637` | Test closure at conflict 32,073; queued. |
+| 5464 bound B28+C5 | `1670636` | Fixed cumulative gate; queued. |
+| 5465 bound Rank 1–40 | `1670638` | Full unchanged paired view; queued. |
 
 User-requested periodic fuzz checkpoint 5442 is owned by background Claude
 process `2920923` (parent tool session `30094`), testing immutable source 5438.
 Read only its terminal response; do not inspect its jobs, logs or fuzz artifacts.
 Continue independent development while pending; no passing gate is inferred.
-This campaign does not cover 5445/5450; include both in the next periodic checkpoint.
+This campaign does not cover 5445/5450/5459; include all in the next periodic checkpoint.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -91,7 +98,16 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. 5453 is terminal and compared: 7,918,162 matching rows (was 7,504,348).
+1. 5459 restores the bound lifecycle; inspect 5458 native verbosity and compare
+   5463's full decision streams against 5453 and Kissat. First-call 5457 grids
+   are equal by member ordinal; raw observer emission order is not a mismatch.
+   Inspect 5462's short B slot/native logs for quota-cut and bound transitions;
+   these diagnostic witnesses do not replace the fixed regression gates.
+   Latest source `.claude/worktrees/runtime-bound-advance-5459` is frozen;
+   Release 5459/BC 5461 share SHA `84300eafeef6c973…`, trace 5460 `509877b2…`.
+   Its manifest owns full hashes, tests and patches. Watcher 50218 owns 5463;
+   watcher 18033 owns 5458. No runtime gain is established for 5459.
+   5453 is terminal and compared: 7,918,162 matching rows (was 7,504,348).
    `boundary-localization.json` places the next coarse split at the second
    Factor call, conflict 32,073: common input active 148610/binary 181122;
    output Tactix active 148613/binary 181013, Kissat 148618/180960. Localize
@@ -103,14 +119,15 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    5437's unique binary sets agree: two physical duplicate copies explain the
    count split. Do not restore duplicates without evidence of a causal defect.
    Vivify 5440 has a small exact-work 0.995069x median gain; proofs pending.
-   Judge 5447 with `snapshot-replacement-cursor-runtime-5447.py`; no measured
-   cursor speedup yet. Metadata 5426 is checked but remains independent/unfuzzed.
+   5447 now has three complete exact-work/proof-byte pairs: median 0.976662x
+   predecessor (range 0.976171–0.989633), proofs pending at snapshot.
+   Metadata 5426 is checked but remains independent/unfuzzed.
 2. Revisit active checker outcomes without blocking the investigation; run
    `seal-rephase-gates-5422.py` and `seal-root-followup-gates-5435.py` when complete.
    `seal-rephase-replicas-5421.py` has sealed all nine timing proofs.
    Preserve per-instance work/time/memory and label verification status.
    Any rejected proof/model pauses dependent work under plan §8.2.
-3. Preserve submitted sources/pins. Latest semantic source is
+3. Preserve submitted sources/pins. Earlier phase-entry source is
    `.claude/worktrees/runtime-inprocess-root-5430`; Release
    `build/pin-5430-inprocess-root-release` and independent
    `build/pin-5432-inprocess-root-bc` share SHA-256
@@ -123,7 +140,7 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Predecessor `.claude/worktrees/runtime-replacement-cursor-5445` descends
    from 5438; builds 5445/5446 share SHA `b92994ec05c61c31…`. No submitted
    source may be edited. Its 840-case fixture preserves physical/derived state.
-   Latest `.claude/worktrees/runtime-eliminate-limit-5450` adds only the private
+   Predecessor `.claude/worktrees/runtime-eliminate-limit-5450` adds only the private
    phase-budget stop and 12-scenario fixture. Release 5450/5452 share SHA
    `c7f57cbcb92f2611…`; trace 5451. Its manifest owns full hashes and patches.
    Claude's terminal fixture review passed: the initial expected elimination
@@ -176,10 +193,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Confirmed Rank-37's missing phase-resolution stop and repaired it in isolated 5450.
-- Added 12 old/new phase scenarios; both Release suites pass 81/81, trace 80/80.
-- Queued causal prefix, full Rank 1–40 and B28+C5 while background checks continue.
-- Closed Sweep's count discrepancy as duplicate multiplicity, not missing unique clauses.
-- Sealed Rephase's full view and metadata gates; measured Vivify's small exact-work gain.
+- Restored bound advancement after quota cuts in isolated 5459; no promotion.
+- Added advancing/terminal cut-bound fixtures; Release 82/82 twice, trace 81/81.
+- Queued short B witnesses, causal prefix, full Rank 1–40 and B28+C5.
+- Measured cursor's 0.976662x exact-work median; proofs remain asynchronous.
+- Plan now requires explicit consideration of unit-test coverage for every change.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

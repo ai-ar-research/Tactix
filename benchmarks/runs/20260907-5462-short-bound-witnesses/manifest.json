@@ -1,0 +1,64 @@
+{
+  "schema": "tactix-kissat-checked-runtime-v1",
+  "arms": {
+    "predecessor": {
+      "path": "pins/predecessor",
+      "sha256": "c7f57cbcb92f2611e8afd451e13ec1203e67e2f5fb7b937cf5a2e8df3e1eb611",
+      "arguments": [],
+      "source_binary": "benchmarks/runs/20260907-5455-eliminate-limit-BC-gate/pins/candidate_B"
+    },
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "84300eafeef6c973c7f815abe3358331f3cd34a6cadf3282bdc244cd000e197a",
+      "arguments": [],
+      "source_binary": "build/pin-5459-bound-advance-release/tactix"
+    },
+    "kissat": {
+      "path": "pins/kissat",
+      "sha256": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+      "arguments": [
+        "--verbose=3"
+      ],
+      "source_binary": "benchmarks/runs/20260907-5454-eliminate-limit-ranks1-40/pins/kissat"
+    }
+  },
+  "input_sha256": {
+    "tierB/rbsat-v760c43649gyes10.cnf.xz": "86c4918ce062316d06a264e63e02c2edfd196cb440ae92dc8a6f805df7ab3d8a",
+    "tierB/square.2.0.i.smt2-cvc4.cnf.xz": "c1f7de70c0905da33f99cc929c3c9e161094ccd54d3ea406774d8692bad86157",
+    "tierB/pyhala-braun-sat-35-4-04.shuffled.cnf.xz": "cae7a16e9909be4153c7e4476ab03e87f58dceeacd3aa99f10541b862e823492"
+  },
+  "pin_sha256": {
+    "pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "pins/predecessor": "c7f57cbcb92f2611e8afd451e13ec1203e67e2f5fb7b937cf5a2e8df3e1eb611",
+    "pins/candidate.patch": "d9dacbfbfc7290a714ac751dce0076e0e9c428f277ba80336394c16335a9a852",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/runtime_task.py": "2f7516bd015ee91c757f565d75b89ff1eeeda548c8c6dd70b55e9f15b2bf53c8",
+    "pins/candidate": "84300eafeef6c973c7f815abe3358331f3cd34a6cadf3282bdc244cd000e197a",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "array.sbatch": "b9ea08d1818cd06a8e5d45fdc568ff57311d1fc5b7b65f3b0c1546a8d6b27a96",
+    "matrix.tsv": "6e57111f04fdc720ef732d6bb72d17df24a9cecd88ea27802756c7d552ed6a2c"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-8",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "purpose": "Short B mechanism witnesses: old/new bound lifecycle and native reference; full models/proofs checked, diagnostic not timing acceptance.",
+  "validation": "Nine expected, independently checked and clean results; inspect slot and native verbose bound transitions. No competitiveness claim from this subset.",
+  "predecessor": "benchmarks/runs/20260907-5455-eliminate-limit-BC-gate",
+  "hypothesis": "These fast but productive B instances exercise bound cuts and Factor bound rejection, permitting short causal replays.",
+  "build_identity": "Tested 5459 versus immutable 5450 and release Kissat; diagnostic logging enabled.",
+  "candidate_authority": "benchmarks/runs/20260907-5459-bound-advance",
+  "continuation": "Checks run asynchronously; expected solver results are provisional passes for dependent investigation, not checked-gate closure.",
+  "created_at": "2026-09-08T03:28:04.016027+00:00",
+  "selection": "5435 candidate scout: pyhala 4.574s/84 Factor, square 5.275s/2455 Factor, rbsat 6.326s/2550 Factor. Selection is mechanism reach, not a new tier or tuned policy.",
+  "collect_runtime_context": false
+}
