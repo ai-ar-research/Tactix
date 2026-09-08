@@ -1,0 +1,55 @@
+{
+  "parent": "benchmarks/runs/20260908-5544-small-rank39-profile",
+  "parent_manifest_sha256": "801b4ea2a12d1a598ce9cba797389f2cc4495197d7bb1848d6756e901b0da275",
+  "parent_summary_sha256": "6bf10ed24473a684b74c91c42f89dd522b18b1d248492de20f84898faad31945",
+  "profiles": {
+    "candidate-main": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5671-propagation-annotation/candidate-annotation-b3f68bs4/profile.data",
+        "--symbol",
+        "tactix::kernel_propagate(tactix::Kernel&, unsigned int)"
+      ],
+      "exit": 0,
+      "stdout_sha256": "69c50c41b664b28016d4fa74c966521bbf2ac354dfebbaca543bb7aa7477568c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-subsolver": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5671-propagation-annotation/candidate-annotation-b3f68bs4/profile.data",
+        "--symbol",
+        "tactix::SubSolver::propagate()"
+      ],
+      "exit": 0,
+      "stdout_sha256": "593c8d7a9f2406ee098a44cbc90a5e1a58a45b898d1cf1c1b6493dfd257930e1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-main": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5671-propagation-annotation/kissat-annotation-fc9od28a/profile.data",
+        "--symbol",
+        "kissat_search_propagate"
+      ],
+      "exit": 0,
+      "stdout_sha256": "a21e735f3e57f1eb80dbab896a5b9a474d58a49e0b48fd2823cb14ba5b6235be",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "temporary_data_deleted": true,
+  "test_consideration": "Configuration-only extension of the existing annotation helper: exact compressed/decompressed profile and pin hashes plus nonempty successful symbol output validate use. No solver or parser semantics changed; no new solver unit test.",
+  "limitation": "Old5522 checked profile. It prioritizes a current-source hypothesis,not current cost attribution or a speedup; source and machine-code applicability must be checked."
+}

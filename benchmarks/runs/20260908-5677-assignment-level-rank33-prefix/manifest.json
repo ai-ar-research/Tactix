@@ -1,0 +1,43 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5650-propagation-cursor-rank33-prefix",
+  "candidate_authority": "benchmarks/runs/20260908-5672-assignment-level",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-assignment-level-5672",
+  "input": "benchmarks/cache/tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+  "input_sha256_compressed": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+  "stop_conflict": 1000000,
+  "hypothesis": "Bounded maximum preserves true levels and every observed decision,boundary,formula/proof byte per arm through1M.",
+  "validation": "Two clean stopped runs and complete parent trace/proof identity;no acceptance timing or complete verdict.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "pins/candidate": "f105ee65ca60e9b91bbf0f79c0cce6cd4514d33c9a69140ab79de1b817ef877b",
+    "array.sbatch": "8cb1bc30345eac735c0b4a0a5f84518e85adeb744cd6c0e3ebc25add8128e4f9",
+    "run.py": "07d51146847b91b6f497ea53f8e5f566653a020eaf4aba1b58206f84527067cc"
+  },
+  "stream_from": 100000,
+  "common_decisions": 31494584,
+  "created_at": "2026-09-08T11:57:15.682357+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5535-sweep-small-ranks1-40/next-losses.json",
+    "sha256": "3b05e4eb79852ffa998a7c54100a8445d641560e3b27cb06bd009f4d07d5c57e"
+  },
+  "limitation": "matching_rows counts the recorded suffix, which includes conflict100K. The prior whole-prefix hash is an additional replay check, not a replacement for the earlier full-row comparison.",
+  "test_consideration": "90/90 each independent Release,89/89 trace;3288 fixed root/high-current/lower-true-level and maximum-position cases. Actual predecessor-header/object fixture and all candidate builds share digest af23481afdb9aa83. Existing micro-proof,model,API,chrono and propagation suites cover unchanged semantics.",
+  "source_patch_sha256": "49cfc7d111c8e8c05587e0e1d5e802a868e6574c6a8d60de6fd78ba36eb6e025",
+  "parent_summary_sha256": "0d551b3c267d250e842ce8320d8a997b6df85bcd0ce5756fc8633f2f11cf2de9",
+  "selected_authority": {
+    "path": "benchmarks/runs/20260908-5567-rank33-small-extended/nonbinary-localization.json",
+    "sha256": "e3676c8f733636beaeca83cc7f4bd50fba540a093aa0275a45411c94083d08b1"
+  },
+  "predecessor": "benchmarks/runs/20260908-5650-propagation-cursor-rank33-prefix",
+  "prior_summary_sha256": "57e70cc49cc9a538865e4b3e0d5d181435e42f68c6b08fa2ebcd46e34a87c058"
+}

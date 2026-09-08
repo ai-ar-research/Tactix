@@ -1,0 +1,9 @@
+{
+  "job": "1672950",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "benchmarks/runs/20260908-5669-rank33-choice-state/array.sbatch"
+  ],
+  "manifest_sha256": "ff501c13239b99fac7c9d2e20b23e95e98e4404e22583a351cbf14f9c48f3894"
+}

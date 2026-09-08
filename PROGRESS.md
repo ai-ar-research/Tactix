@@ -10,16 +10,16 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- New isolated [propagation cursor5649](benchmarks/reports/2026-09-08-propagation-cursor.md)
-  chooses ignored-clause scan once and keeps a local cursor;exit/diagnostic state unchanged.
-  Release89/89 twice;trace88/88;224 old/new states agree;5650 replays all1M traces/proof bytes.
+- New isolated [assignment-level5672](benchmarks/reports/2026-09-08-assignment-level-bound.md)
+  stops the exact antecedent maximum at the current-level bound;root maximum is zero.
+  Release90/90 twice;trace89/89;3288 actual old/new states agree;5677/job1672959 replays1M.
   On parent5592,5611 matches31,494,584 decisions;5613 proves five root-satisfied native-garbage/Tactix-live clauses.
-  [Full5604](benchmarks/reports/2026-09-08-factor-full-and-congruence.md):1.137589x Kissat,all80 solves,58 checked at snapshot;losses33/31/37.
-  Cleanup5626 closes five clauses;Sweep5663 validates2574matchingseeds/170units,both targetvars fixed.5651BC/5652timing andfull5664/job1672864 run.
+  [Full5664](benchmarks/reports/2026-09-08-assignment-level-bound.md):1.128369x Kissat,all80 solves,59 checked at snapshot;losses33/31/37;goal unmet.
+  Sweep5663 matches2574seeds/170units,both targetvars fixed;choice5669/job1672950 distinguishes availability/queue order at182093.5678BC/job1672960;5679timing prepared.
   [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
   all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
   all80 checked/clean;5599 three pairs median0.824875x5522,spreads1.60%/0.52%,all6 proofs checked.
-  Fuzz5610 PASS on5592:50K cases,45752 checked,0failures.5657/33894 owns current5649;no promotion;goal unmet.
+  Fuzz5610 PASS5592:50K cases,45752 checked,0failures.5657 resumed95829 owns5649,not5672;33894 was submission-only;no promotion;goal unmet.
 - Preceding implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
@@ -183,14 +183,14 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Submitted sources/pins are immutable.5597/5600 closes all40,102,204 decisions through100K;
    5605 confirms both19375 Factor outputs. Full5604 is1.137589x Kissat;goal not met.
    Timing5599 all3 pairs improve,median0.824875x5522,spreads1.60%/0.52%;all6 proofs checked.
-   Latest5649 uses runtime-propagation-cursor-repair-5647;Release/BC032ef0ba…cdbbb8,traceb42f0e54…19f4b. Fuzz5657/33894 covers it;5610PASS covers5592 only.
-   Full5604 has all80 solves,58 checked at frozen snapshot;5615 ranks33/31/37 highest;seal5609.
+   Latest5672 uses runtime-assignment-level-5672;manifest binds5672Release/5674BC/5673trace. Fuzz5657/95829 covers parent5649 only;5672needs later changed-source coverage.
+   Full5664 has all80 solves,1.128369xKissat,59checked at frozen snapshot;5684ranks33/31/37 highest;seal5666.Do not rerun5665 snapshot.
    Do not rerun frozen5608 snapshot. Timing is replicated changed-work gain,not isolated unit cost.
    Parent5535 remains1.162180x,all80 checked/clean;summary sealed;do not rewrite its snapshot.
    Parent5531 is6/6 checked,median0.889407x5510.5522 Release/BC SHA67867f4b999b55b4… .
    5585/5587 identify the extra five-literal candidate;5588 proves its sole binary support
    reaches a root-fixed smaller endpoint.5592 fixes that count,not physical binaries or the heap.
-   5650 closes1M replay;5651BC64/66checked;5652wave2/job1672918,nextscore5655. Full5664/job1672864,snapshot5665once,sealer5666;Sweep5663unit/seedorderagrees;5629median0.995798x.
+   Next5677/5682replay,5678BC/sealer5683,5679timing advance5680wave0 after B28 solves;score5681. Choice5669/5670 testsRank33;Rank39memory2.679xKissat needs cost attribution;5652final1672918.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
    `sweep-localization.json` splits both calls at19375. First14 seeds, environment
    sizes and effort deltas/solve counts match; then Tactix alone processes836.
@@ -290,9 +290,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Claude's terminal fixture review passed: the initial expected elimination
    count was wrong at equality, not a solver defect; original failure retained.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
-   in the background as requested.5657 tests current5649 after5610 terminalPASS on5592.
+   in the background as requested.5657 tests parent5649,not latest5672;5610 terminalPASS5592.
    5610:50000 cases,45752 checked verdicts,144 direct reachability cases,0failures.
-   Session `33894` is live for5657;1814/70659 are terminalPASS. Poll only owner response,never artifacts.
+   Session `95829` resumes existing5657;33894 returned submission-only.1814/70659 terminalPASS;poll only owner response,never artifacts.
    This is a changed-source checkpoint, not duplicate confirmation. Require all
    runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
    pauses dependent work and invokes bounded Claude repair immediately.
@@ -341,10 +341,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Propagation5649 passes89/89 twice,88/88 trace;224 exact-state cases;Claude5647 fixed null registry call in fixture only.
+- Assignment-level5672 passes90/90 twice,89/89 trace;3288 exact old/new states;root/saturating maximum shortcuts only.
 - Rank32 all40,102,204 decisions match through100K;three timing pairs median0.824875x5522.
-- Full5604 is1.137589xKissat,58/80 checked at snapshot;BC5598 is66/66 checked;checks asynchronous.
-- Full1M replay5650 exact;Sweep5663 matches2574seeds/170units;5651/5652/full5664 andfuzz5657 run.
+- Full5664 is1.128369xKissat,all80 solves,59/80checked at snapshot;largest losses33/31/37;checks asynchronous.
+- Replay5677/BC5678 queued;timing5679 prepared;choice5669 queued;full5664 andfuzz5657/95829 remain active.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
