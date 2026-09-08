@@ -1,0 +1,9 @@
+{
+  "parent_authority": "benchmarks/runs/20260908-5741-reuse-target/manifest.json",
+  "parent_sha256": "0cf57477d270633b87ae71e41d88f866bf582be6db9b857704eaa07911c4341f",
+  "source": ".claude/worktrees/runtime-forward-unit-5798",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "parent_strengthen_sha256": "6e81149ac484d3271bde061781f11dd8b2d5c584337c72528b4564a15cb91d55",
+  "parent_header_sha256": "4d736f359e4e00599401705209166ae7be77630c39aaa62958b34b9e743136ee",
+  "purpose": "Complete connected forward-unit propagation and continuation, preserving N1/N2 and scheduling currency. No submitted source modified."
+}

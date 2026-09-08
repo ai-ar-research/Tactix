@@ -1,0 +1,23 @@
+{
+  "audit_sha256": "00808b45cefce5bfcaba4c0b8545603b570343773105955f5a4dd9098803dd2c",
+  "editable_staged_paths": 337,
+  "whitespace_check": "PASS outside exact hash-bound unified-diff blank context and checker progress lines",
+  "immutable_artifact_formatting_lines": {
+    "benchmarks/runs/20260908-5798-forward-unit/cumulative.patch": 46,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-0-0-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-0-1-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-0-2-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-0-3-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-1-0-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-1-1-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-1-2-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/fixed-proofs/forward-1-3-drat.log": 1,
+    "benchmarks/runs/20260908-5798-forward-unit/repair.patch": 2,
+    "benchmarks/runs/20260908-5806-forward-unit-BC-gate/pins/candidate.patch": 46
+  },
+  "andrew_report": {
+    "report-to-andrew/20260908-1232-forward-unit-continuation/report.tex": "f80543a3e31e07f1014782b55b0a14a409cd987ad9375b1561221b8010f82450",
+    "report-to-andrew/20260908-1232-forward-unit-continuation/report.pdf": "a00d6716ac2dec62012f14df402c8918a87c85ac2edc2e03c9f677e991266b53"
+  },
+  "cleanup": "No manual deletion; no frozen artifact formatting altered. No push or Claude-network retry."
+}
