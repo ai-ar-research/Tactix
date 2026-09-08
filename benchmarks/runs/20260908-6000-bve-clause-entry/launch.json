@@ -1,0 +1,10 @@
+{
+  "job_id": "1676209",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6000-bve-clause-entry/array.sbatch"
+  ],
+  "manifest_sha256": "0d9f30e8b691eab0d7e5c32139ba42b3abec0e130106172266e9d0984933622a",
+  "continuation": "Read-only6000 clause-entry diagnostic;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
