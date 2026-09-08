@@ -341,10 +341,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Score5698 full replayPASS:523 equal admissions;increment first differs182093 after common182089.5704/job1673060 is next.
+- Score5698 full replayPASS:523 equal admissions;increment first differs182093.5704 timed out/native cap;5710/job1673072 is next.
 - Diagnostic5696 passes89/89 trace tests,new read-only observer fixture;30 history/bump parser fixtures and20 window/normalization fixtures pass.
-- Memory5702 exact100K paired replay/proofPASS:peak379040KiB reached within BVE;schema5706 has24fixtures.5687full pending via5708.
-- Parent5651BC66/66 and5652timing6/6 checked/clean;5678BC64/66;5679wave0job1673062 after B solves;full5664/fuzz95829 asynchronous.
+- Memory5702 exact100K paired replay/proofPASS;5687 full work/proof replayPASS via5709,checks pending;24 row+13 record fixtures.
+- Parent5651BC66/66 and5652timing6/6 checked;5678BC64/66;5679wave1/5712full run. Fuzz5657 PASS5649;5715/4746 owns5672.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
