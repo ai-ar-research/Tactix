@@ -1,0 +1,132 @@
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[ 25%] Built target tactix_lib
+[ 25%] Linking CXX executable test_parse
+[ 25%] Linking CXX executable tactix
+[ 26%] Linking CXX executable test_kernel
+[ 27%] Linking CXX executable test_proof
+[ 27%] Linking CXX executable test_analyze
+[ 27%] Linking CXX executable test_restart_reduce
+[ 28%] Linking CXX executable test_switchmode
+[ 29%] Linking CXX executable test_rephase
+[ 31%] Built target test_kernel
+[ 32%] Built target test_analyze
+[ 32%] Built target test_restart_reduce
+[ 33%] Built target test_parse
+[ 33%] Built target test_proof
+[ 34%] Built target tactix
+[ 34%] Built target test_rephase
+[ 35%] Linking CXX executable test_subsolver
+[ 36%] Built target test_switchmode
+[ 37%] Linking CXX executable test_scheduling
+[ 38%] Linking CXX executable test_sweep
+[ 39%] Linking CXX executable test_event_trace
+[ 39%] Linking CXX executable test_strategy_config
+[ 39%] Linking CXX executable test_rule_journal
+[ 40%] Linking CXX executable test_reorder
+[ 41%] Linking CXX executable test_slot_pose
+[ 41%] Built target test_subsolver
+[ 42%] Built target test_scheduling
+[ 42%] Linking CXX executable test_walk
+[ 43%] Built target test_strategy_config
+[ 44%] Built target test_sweep
+[ 44%] Linking CXX executable test_subsume
+[ 45%] Built target test_event_trace
+[ 47%] Built target test_rule_journal
+[ 47%] Built target test_reorder
+[ 48%] Linking CXX executable test_vivify
+[ 49%] Linking CXX executable test_strengthen
+[ 49%] Built target test_slot_pose
+[ 49%] Linking CXX executable test_instantiate
+[ 50%] Linking CXX executable test_vivify_n1
+[ 51%] Built target test_walk
+[ 52%] Built target test_subsume
+[ 53%] Linking CXX executable test_probe
+[ 53%] Linking CXX executable test_bce
+[ 54%] Linking CXX executable test_backbone
+[ 54%] Linking CXX executable test_cce
+[ 56%] Built target test_strengthen
+[ 56%] Built target test_vivify
+[ 57%] Linking CXX executable test_hyperbinary
+[ 58%] Built target test_instantiate
+[ 59%] Linking CXX executable test_ternary
+[ 59%] Built target test_vivify_n1
+[ 60%] Linking CXX executable test_decide
+[ 60%] Built target test_backbone
+[ 61%] Built target test_cce
+[ 62%] Built target test_probe
+[ 63%] Built target test_bce
+[ 65%] Linking CXX executable test_substitute
+[ 65%] Linking CXX executable test_reconstruct
+[ 65%] Linking CXX executable test_transitive_reduce
+[ 65%] Built target test_ternary
+[ 65%] Linking CXX executable test_congruence
+[ 65%] Built target test_hyperbinary
+[ 66%] Built target test_decide
+[ 66%] Linking CXX executable test_binary_deletion
+[ 67%] Linking CXX executable test_bve
+[ 68%] Linking CXX executable test_lucky
+[ 69%] Linking CXX executable test_api_c
+[ 71%] Built target test_reconstruct
+[ 71%] Built target test_transitive_reduce
+[ 72%] Built target test_congruence
+[ 73%] Linking CXX executable test_api_instances
+[ 73%] Linking CXX executable test_random_policy
+[ 74%] Built target test_binary_deletion
+[ 74%] Built target test_substitute
+[ 74%] Built target test_lucky
+[ 75%] Linking CXX executable test_tr_bruteforce
+[ 75%] Linking CXX executable test_factor
+[ 75%] Built target test_bve
+[ 77%] Built target test_api_c
+[ 77%] Linking CXX executable test_factor_n1
+[ 77%] Linking CXX executable test_subsume_n1
+[ 77%] Built target test_api_instances
+[ 77%] Linking CXX executable test_no_heuristics
+[ 78%] Built target test_random_policy
+[ 79%] Linking CXX executable test_solve_reset
+[ 80%] Linking CXX executable test_bve_bound_cut
+[ 80%] Built target test_tr_bruteforce
+[ 81%] Built target test_factor
+[ 83%] Built target test_factor_n1
+[ 83%] Linking CXX executable test_congruence_index_cleanup
+[ 84%] Built target test_subsume_n1
+[ 84%] Linking CXX executable test_eliminate_limit
+[ 84%] Built target test_solve_reset
+[ 84%] Building CXX object tests/CMakeFiles/test_propagation_cursor.dir/test_propagation_cursor.cpp.o
+[ 84%] Linking CXX executable test_inprocess_root
+[ 84%] Built target test_bve_bound_cut
+[ 85%] Built target test_no_heuristics
+[ 86%] Linking CXX executable test_factor_root_support
+[ 87%] Built target test_congruence_index_cleanup
+[ 87%] Linking CXX executable test_sweep_retained
+[ 87%] Linking CXX executable test_replacement_cursor
+[ 88%] Linking CXX executable test_sweep_cursor
+[ 89%] Building CXX object tests/CMakeFiles/test_sweep_small_env.dir/test_sweep_small_env.cpp.o
+[ 90%] Built target test_eliminate_limit
+[ 90%] Building CXX object tests/CMakeFiles/test_vivify_max.dir/test_vivify_max.cpp.o
+[ 91%] Built target test_inprocess_root
+[ 92%] Built target test_sweep_retained
+[ 92%] Built target test_factor_root_support
+[ 93%] Building CXX object tests/CMakeFiles/test_watch_pair.dir/test_watch_pair.cpp.o
+[ 94%] Built target test_replacement_cursor
+[ 94%] Building C object examples/CMakeFiles/demo2_no_restarts.dir/demo2_no_restarts.c.o
+[ 94%] Building C object examples/CMakeFiles/demo1_dpll.dir/demo1_dpll.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 94%] Built target test_sweep_cursor
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 95%] Building C object examples/CMakeFiles/demo3_scripted_default.dir/demo3_scripted_default.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 96%] Linking CXX executable demo1_dpll
+[ 97%] Linking CXX executable demo2_no_restarts
+[ 97%] Linking CXX executable demo3_scripted_default
+[ 97%] Built target demo1_dpll
+[ 97%] Built target demo2_no_restarts
+[ 97%] Built target demo3_scripted_default
+[ 98%] Linking CXX executable test_watch_pair
+[ 98%] Built target test_watch_pair
+[ 99%] Linking CXX executable test_vivify_max
+[100%] Linking CXX executable test_propagation_cursor
+[100%] Built target test_vivify_max
+[100%] Built target test_propagation_cursor
+[100%] Linking CXX executable test_sweep_small_env
+[100%] Built target test_sweep_small_env

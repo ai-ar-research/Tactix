@@ -10,16 +10,16 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- New isolated [Congruence cleanup5626](benchmarks/reports/2026-09-08-congruence-index-cleanup.md)
-  retires visited root-satisfied index records, preserving pure public extraction/native size scope.
-  Release88/88 twice;trace87/87;1200 old/new cases and75 actual native cases pass,24 changes.
+- New isolated [propagation cursor5649](benchmarks/reports/2026-09-08-propagation-cursor.md)
+  chooses ignored-clause scan once and keeps a local cursor;exit/diagnostic state unchanged.
+  Release89/89 twice;trace88/88;224 old/new states agree;5650 replays all1M traces/proof bytes.
   On parent5592,5611 matches31,494,584 decisions;5613 proves five root-satisfied native-garbage/Tactix-live clauses.
   [Full5604](benchmarks/reports/2026-09-08-factor-full-and-congruence.md):1.137589x Kissat,all80 solves,58 checked at snapshot;losses33/31/37.
-  Replay5627 closes five clauses;extended5634 still splits at182093. Sweep5639/job1672751 localizes120330;BC5628/job1672704 andtiming5629/job1672776 run.
+  Cleanup5626 closes five clauses;Sweep5663 validates2574matchingseeds/170units,both targetvars fixed.5651BC/5652timing andfull5664/job1672864 run.
   [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
   all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
-  all80 checked/clean;5599 three pairs median0.824875x5522,spreads1.60%/0.52%,proofs pending.
-  Fuzz5539 PASS on5522;5610 resumed under1814 tests5592,not5626/5546. No source promoted;goal unmet.
+  all80 checked/clean;5599 three pairs median0.824875x5522,spreads1.60%/0.52%,all6 proofs checked.
+  Fuzz5610 PASS on5592:50K cases,45752 checked,0failures.5657/33894 owns current5649;no promotion;goal unmet.
 - Preceding implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
@@ -150,7 +150,7 @@ the report is authoritative, and no fuzz artifacts were independently inspected.
 Claude's terminal5492 report is **PASS** on5473:60,000 cases,55,036 checked
 verdicts, zero failures and360 direct reachability cases; session34566 closed.
 Claude5539 returned **PASS** on5522:70,000 cases,64,364 checked verdicts,zero failures.
-Session70659 closed;5610 resumed under1814 owns5592;78639 returned submission-only. No fuzz artifacts inspected.
+Sessions70659/1814 closedPASS;5610 on5592:50000 cases,45752 checked,0failures. New5657/33894 owns5649;no fuzz artifacts inspected.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -182,15 +182,15 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 1. Source5592 and Release5592/BC5594 match SHA12b3731294d2fd6e…;trace5593 is separate.
    Submitted sources/pins are immutable.5597/5600 closes all40,102,204 decisions through100K;
    5605 confirms both19375 Factor outputs. Full5604 is1.137589x Kissat;goal not met.
-   Timing5599 all3 pairs improve,median0.824875x5522,spreads1.60%/0.52%;6 proofs pending.
-   Latest source5626 uses runtime-congruence-index-repair-5623;Release/BC351bef36…9073e,trace794f28b8…bf130. Fuzz5610/1814 covers5592 only.
+   Timing5599 all3 pairs improve,median0.824875x5522,spreads1.60%/0.52%;all6 proofs checked.
+   Latest5649 uses runtime-propagation-cursor-repair-5647;Release/BC032ef0ba…cdbbb8,traceb42f0e54…19f4b. Fuzz5657/33894 covers it;5610PASS covers5592 only.
    Full5604 has all80 solves,58 checked at frozen snapshot;5615 ranks33/31/37 highest;seal5609.
    Do not rerun frozen5608 snapshot. Timing is replicated changed-work gain,not isolated unit cost.
    Parent5535 remains1.162180x,all80 checked/clean;summary sealed;do not rewrite its snapshot.
    Parent5531 is6/6 checked,median0.889407x5510.5522 Release/BC SHA67867f4b999b55b4… .
    5585/5587 identify the extra five-literal candidate;5588 proves its sole binary support
    reaches a root-fixed smaller endpoint.5592 fixes that count,not physical binaries or the heap.
-   5634/5635 still splits182093;5638 selects Sweep binary difference120330. Replay5639/job1672751,validator5640;timing5630 wave1 follows1672776 solves,score5632/BCseal5633.
+   5650 closes1M replay;5651BC64/66checked;5652wave2/job1672918,nextscore5655. Full5664/job1672864,snapshot5665once,sealer5666;Sweep5663unit/seedorderagrees;5629median0.995798x.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
    `sweep-localization.json` splits both calls at19375. First14 seeds, environment
    sizes and effort deltas/solve counts match; then Tactix alone processes836.
@@ -290,9 +290,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Claude's terminal fixture review passed: the initial expected elimination
    count was wrong at equality, not a solver defect; original failure retained.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
-   in the background as requested.5592 needs a changed-source checkpoint;5539 does not cover it.
-   new5539 tests5522 with direct retained-entry and small-solve reachability.
-   Resumed session `1814` is live for5592;70659 is terminalPASS on5522. Poll only owner response,never artifacts.
+   in the background as requested.5657 tests current5649 after5610 terminalPASS on5592.
+   5610:50000 cases,45752 checked verdicts,144 direct reachability cases,0failures.
+   Session `33894` is live for5657;1814/70659 are terminalPASS. Poll only owner response,never artifacts.
    This is a changed-source checkpoint, not duplicate confirmation. Require all
    runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
    pauses dependent work and invokes bounded Claude repair immediately.
@@ -341,10 +341,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Cleanup5626 passes88/88 twice,87/87 trace;1200 old/new fixtures and75 native cases,24 intended changes.
+- Propagation5649 passes89/89 twice,88/88 trace;224 exact-state cases;Claude5647 fixed null registry call in fixture only.
 - Rank32 all40,102,204 decisions match through100K;three timing pairs median0.824875x5522.
 - Full5604 is1.137589xKissat,58/80 checked at snapshot;BC5598 is66/66 checked;checks asynchronous.
-- Cleanup closes five clauses but5634 still splits182093;Sweep5639 andBC/timing run;Claude5623 fixed test only,fuzz5610 under1814.
+- Full1M replay5650 exact;Sweep5663 matches2574seeds/170units;5651/5652/full5664 andfuzz5657 run.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

@@ -1,0 +1,33 @@
+{
+  "source": ".claude/worktrees/runtime-propagation-cursor-5641",
+  "parent": ".claude/worktrees/runtime-congruence-index-repair-5623",
+  "status": "FAILED NEW UNIT FIXTURE: segfault in all three builds. No benchmark submitted or promotion. Claude5647 owns separate-copy bounded diagnosis; original immutable.",
+  "purpose": "Behavior-preserving local propagation cursor and per-call ignored-clause specialization; diagnostics retain per-scan cursor publication.",
+  "files": {
+    "src/kernel/kernel.cpp": "a1071669c076a109525f4a9d9f1032a74d3b96818b2041f1436ad9584d0686aa",
+    "tests/test_propagation_cursor.cpp": "e24d813332251587cd2ee6488fdab9dc7e98ec5a39117010461bc95fe40cb1b4"
+  },
+  "patches": {
+    "prototype.patch": "2722758b0fd30081e15fcc5bf17a8235e5c9b9b139e66cb99376f6cdb604b3bc"
+  },
+  "binaries": {
+    "build/pin-5641-propagation-cursor-release/tactix": "032ef0ba2d3cac6f3579b2e158de36488a1110e2b586e81d5ca7c62f12cdbbb8",
+    "build/pin-5642-propagation-cursor-trace/tactix": "b42f0e54533c5032db5b318b4baab9e508c513fff92d454f692acbfc89f19f4b",
+    "build/pin-5643-propagation-cursor-bc/tactix": "032ef0ba2d3cac6f3579b2e158de36488a1110e2b586e81d5ca7c62f12cdbbb8"
+  },
+  "logs": {
+    "build-release.log": "c0d478dca2cad810bfc425514825d685c3c3f0b74c9a6c0a4eb685955fdbd03e",
+    "build-release.r1.log": "ae0d4484033274c7af1086f60a73680e4ab504488898101614763ca1d27a7159",
+    "ctest-release.r1.log": "ac47ae767ed06df356d010b7622208fcd360508b44031a7fcce17b0cdb9d0dc0",
+    "ctest-bc.r1.log": "0bc23a564fca8c5edc12496e775753f95aeaea873fc4a29fd28c50e6a5edc115",
+    "build-bc.r1.log": "16931f44f48dfcf2346488e09542de2b75e1cf09689c361a7ea71163ecc322b4",
+    "build-trace.r1.log": "10d45ad345927721a16aaa42e57836f56b81615afcc34556b8702ff8fb895f5d",
+    "build-bc.log": "6c427e0ec22ae8ffc88c454ab6bb746895294671703fcb7ac75161954ab5b375",
+    "configure-release.log": "0141fec198bc6f0ba9e64da0a60a75b3a3f5be341992c650bdf5b8299d7ddfe9",
+    "ctest-trace.r1.log": "2e17158c01f6fd0ed7291f026d76dcb5aaf9d704c8c12fda34d9f4002db4e4ba",
+    "configure-trace.log": "5aa90abab93102143d2a1396634cc06619b8ecbfa9387356fa7c0717184ad88b",
+    "configure-bc.log": "cb93ee75b1c48f191c32f91f785e55d568f69e78ed5dd2b02774bb2f22dfac82",
+    "build-trace.log": "ad1815a0f61d5fbf89c6005b010ee7266dafa5b5f69e58c703853417f2a4ba6f"
+  },
+  "limitation": "Initial nonexistent ReservedTrail shrink_to_fit API caused compilation failure and was corrected before builds succeeded. Subsequent runtime segfault is unresolved; development and candidate submissions pause until bounded owner terminal outcome. Existing other tests pass; no failed real-instance oracle yet."
+}
