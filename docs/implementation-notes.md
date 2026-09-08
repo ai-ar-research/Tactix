@@ -359,10 +359,10 @@ control solver behavior.
 
 ## 12. Conflict reuse and watch repair
 
-Reuse includes zero-jump conflicts: retain the chronological target, repair
-level-ranked watches and clear the learn/backjump tail. At true level zero,
-publish a named DRAT/LRAT unit and deactivate its variable without learned
-counters or analyzed bumps; otherwise the repaired conflict remains the reason.
+Reuse, including OTFS, honors public targets clamped to `[jump,level−1]`; canonical is `jump`.
+DefaultPolicy separately chooses reference chronology. Repair level-ranked watches and clear the
+learn/backjump tail. At true level zero publish a named DRAT/LRAT unit and deactivate without
+learned counters or fresh analyzed bumps; otherwise the repaired conflict remains the reason.
 
 ## 13. Scheduling parity
 

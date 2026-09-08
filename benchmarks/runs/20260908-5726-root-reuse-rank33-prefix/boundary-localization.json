@@ -1,0 +1,154 @@
+{
+  "portable_boundaries_identical": false,
+  "boundary_counts": {
+    "candidate": 872,
+    "kissat": 872
+  },
+  "first_coarse_boundary": {
+    "index": 293,
+    "candidate": {
+      "name": "Sweep",
+      "stage": "end",
+      "conflicts": 120330,
+      "decisions": 39477051,
+      "active": 109347,
+      "irred": 514977,
+      "red": 11212,
+      "binary": 151018
+    },
+    "kissat": {
+      "name": "Sweep",
+      "stage": "end",
+      "conflicts": 120330,
+      "decisions": 39477051,
+      "active": 109347,
+      "irred": 514977,
+      "red": 11212,
+      "binary": 151020
+    }
+  },
+  "preceding_boundaries": {
+    "candidate": [
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109531,
+        "irred": 516355,
+        "red": 16332,
+        "binary": 151175
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109531,
+        "irred": 516355,
+        "red": 16332,
+        "binary": 151175
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109520,
+        "irred": 515789,
+        "red": 11212,
+        "binary": 150715
+      },
+      {
+        "name": "Sweep",
+        "stage": "begin",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109520,
+        "irred": 515789,
+        "red": 11212,
+        "binary": 150715
+      },
+      {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109347,
+        "irred": 514977,
+        "red": 11212,
+        "binary": 151018
+      }
+    ],
+    "kissat": [
+      {
+        "name": "Backbone",
+        "stage": "end",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109531,
+        "irred": 516355,
+        "red": 16332,
+        "binary": 151175
+      },
+      {
+        "name": "Vivify",
+        "stage": "begin",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109531,
+        "irred": 516355,
+        "red": 16332,
+        "binary": 151175
+      },
+      {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109520,
+        "irred": 515789,
+        "red": 11212,
+        "binary": 150715
+      },
+      {
+        "name": "Sweep",
+        "stage": "begin",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109520,
+        "irred": 515789,
+        "red": 11212,
+        "binary": 150715
+      },
+      {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 120330,
+        "decisions": 39477051,
+        "active": 109347,
+        "irred": 514977,
+        "red": 11212,
+        "binary": 151020
+      }
+    ]
+  },
+  "decision_difference": {
+    "candidate": [
+      "227618",
+      "54966705",
+      "204",
+      "-233254",
+      "0"
+    ],
+    "kissat": [
+      "227618",
+      "54966705",
+      "204",
+      "-232900",
+      "0"
+    ],
+    "matching_rows": 23612137
+  },
+  "limitation": "Active and clause counts locate a boundary, not formula/stream equality or relative semantic strength. More active-variable removal alone does not justify acceptance or a fidelity repair."
+}
