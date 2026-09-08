@@ -15,7 +15,7 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   Release90/90 twice;trace89/89;3288 old/new states agree;5677 full1M parent replayPASS.5679 three-pair median1.030478x,6.01% candidate spread: no proven speedup.
   [Current5741](benchmarks/reports/2026-09-08-forward-unit-exit.md):92/92 Release twice,91/91 trace,5088 checked old/new proofs;5755/5756 full parent trace/proof replayPASS. Full5758 all40 solves7807.759s=1.146503x fixedKissat,29 checked at snapshot;not promoted.
   Fixed Kissat authority: `benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json`, frozen from5712:6810.066s;all40 reference checks complete. Future full views Tactix-only at12CPU/48000MiB.5712 Tactix1.110877x,80/80 checked;5758 latest39/40 checked.
-  [Rank32 checkpoint](benchmarks/reports/2026-09-08-rank32-forward-checkpoint.md):first Strengthen179463 removes8 clauses containing a common binary;5794 proves identical full binary multisets before/after. Retain this equivalent simplification,not forced trace identity. Later BVE differs; prioritize the proved Rank31 unit-continuation gap.
+  [Isolated5798 repair](benchmarks/reports/2026-09-08-forward-unit-repair.md):canonical units propagate through partial forward connections and continue;93/93 Release twice,92/92 trace,16 independently checked proofs,six exact native controls. BC5806/job1673704 submitted;no runtime claim/promotion. [Rank32 checkpoint](benchmarks/reports/2026-09-08-rank32-forward-checkpoint.md) retains valid extra subsumption;later BVE remains open.
   [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
   all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
   all80 checked/clean;5599 three pairs median0.824875x5522,spreads1.60%/0.52%,all6 proofs checked.
@@ -179,9 +179,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Implement the isolated Rank31 forward-unit continuation repair from5741. Rank32 first differing forward pass is now classified by5791+5794:all8 extra deleted clauses contain a retained common binary;full large/binary snapshots prove equivalence. Retain the simplification;later BVE and marking-history/real-cost gaps stay open in the checkpoint report.
-   Retain SP-FORWARD-UNIT-CONTINUE-1:5764 proves Rank31 Strengthen179823 stops on units,not quota. Implement a complete isolated continuation repair,not just deletion of the break;see report's propagation/proof/test obligations.
-   Latest5741 Release/BC SHAd49a4e90393304ef…;trace5742 separate.5755/5756 entire parent decisions/traces/proofs match;all submitted sources/pins immutable. Observer5760 is diagnostic-only,not a candidate repair.
+1. Review isolated5798 BC5806/job1673704 provisional solver results,then submit Rank31 trace5800 against cached native evidence without waiting for proof checks. Prove continuation through the179823 rounds and recover the dropped tail;then measure full Rank1–40 against fixed Kissat. No5798 real-instance speedup or promotion yet.
+   SP-FORWARD-UNIT-CONTINUE-1 stays open in production.5798 implements partial-stream unit propagation/cleanup,root rechecks,proof-safe reasons,sparse replay debt and native completion;93/93 twice,92/92 trace,17 state/model cases,16 independent proofs,six exact native rows. Add focused connected-conflict/interruption coverage when extending this batch.
+   All5798 source/builds are now frozen;manifest owns hashes. Separate5806 pins run66 tasks oncpu-dense-hwulab-q,12CPU/48000MiB,1200s solve/16000s checker/5h allocation.5741 and all earlier sources/pins unchanged;5760 remains diagnostic-only. Rank32 extra subsumption is equivalent and retained;downstream BVE/marking-history/real-cost gaps stay open.
    Full5758/job1673329 all40 solves1.146503x fixedKissat,39/40 checked;checkpoint frozen. Score via tools/bench/fixed_runtime.py;never refresh denominator.5754 BC now66/66 checked,combined0.934250x production;root5727 also66/66 checked.5789 seals both.
    Fuzz5765 session3c676397… unresolved:38524 terminal interim,96672 terminal API error;network retry denied,explicit approval required. Paired fullTierD5784/job1673402 is submitted oncpu-q:2332 tasks,4CPU/32GiB/1200s solve,5h total per user clarification.5793 actual positive/negative checkersPASS;existing campaign pins/launches unchanged.
    Full5712 now80/80 checked/clean,1.110877xKissat;summary sealed5714.5733 selects31/33/37. Never rerun5713/5665 snapshots.5664=1.128369x,latest79/80 checked;seal5666.
@@ -342,7 +342,7 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 ## Recent changes
 
 - Full5758 all40 expected solves7807.759s=1.146503x fixedKissat;Rank32 largest loss with changed work/proof;5769 diagnoses it against cached native100K. No gain or promotion claimed.
-- Rank31 observer-neutral5764 proves unit-induced forward exits with ample budget;actual-code tail controls expose missing coverage in the existing unit-named test. Continuation repair remains open.
+- Isolated5798 repairs Rank31's unit-induced forward exit:93/93 twice,92/92 trace,17 state/model cases,16 checked proofs,six exact native controls. BC5806/job1673704 submitted separately;real-prefix/runtime/fuzz gates remain open.
 - Current5741 preserves entire parent Rank31/33 traces and partial proofs;5754 BC66/66 checked,combined0.934250x production.5712 full and5727 BC also sealed;5679 remains noisy,not a proven unit-cost gain.
 - Benchmark tools18 testsPASS:11 fixed score,4 prefix schema,3 checked unknown-label acceptance;actual oracle controls pass.5786/5787 and5791 localize extra subsumption. Paired fullTierD5784 runs separately oncpu-q;fixed12CPU baseline unchanged. Fuzz owner resume blocked on approval.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
