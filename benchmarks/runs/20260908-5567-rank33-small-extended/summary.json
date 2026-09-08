@@ -1,0 +1,57 @@
+{
+  "stream_from": 100000,
+  "prior_summary_sha256": "57e70cc49cc9a538865e4b3e0d5d181435e42f68c6b08fa2ebcd46e34a87c058",
+  "prior_common_prefix_replayed": true,
+  "clean_stops": 2,
+  "stop_conflict": 1000000,
+  "complete_prefix_identical": false,
+  "prefixes": {
+    "candidate": [
+      "1000000",
+      "18446744073709353500",
+      "86632322",
+      "86830438",
+      "1c5cb9209242c4b8",
+      "31494584",
+      "1",
+      "5c263e00aa882466",
+      "488842",
+      "-277711",
+      "-254208",
+      "38760"
+    ],
+    "kissat": [
+      "1000000",
+      "18446744073709341539",
+      "81755247",
+      "81965324",
+      "07850862fe25abc1",
+      "31494584",
+      "1",
+      "5c263e00aa882466",
+      "488842",
+      "-277711",
+      "258708",
+      "38760"
+    ]
+  },
+  "first_decision_difference": {
+    "candidate": [
+      "182093",
+      "49396661",
+      "7257",
+      "-120438",
+      "0"
+    ],
+    "kissat": [
+      "182093",
+      "49396661",
+      "7257",
+      "-121103",
+      "0"
+    ],
+    "matching_rows": 18013384
+  },
+  "matching_rows": 18013384,
+  "limitation": "matching_rows counts only the suffix from100K. Prior31494584-literal prefix digest and all previous boundary rows replay exactly. Stopped proof-on diagnostic only. No complete verdict, checked proof or acceptance timing. Differences require causal interpretation, not automatic repair."
+}

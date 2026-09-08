@@ -27,8 +27,15 @@ for item in record['campaigns']:
         paths += [str(p.relative_to(root)) for p in (c / 'logs').glob('*.log')]
     if any('-' + str(n) + '-' in c.name for n in (5537, 5558)):
         paths += [str((c / name).relative_to(root)) for name in ('run.py', 'array.sbatch')]
-        for suffix in ('prefix.tsv', 'boundaries.tsv', 'macro.tsv'):
-            paths += [str(p.relative_to(root)) for p in (c / 'traces').glob('*.' + suffix)]
+        # An active arm may already have a growing trace file. Stage only
+        # traces belonging to a completed result captured in this audit.
+        for result_name in item['result_sha256']:
+            result = json.loads((c / 'results' / result_name).read_text())
+            for name, digest in result['trace_sha256'].items():
+                if name.endswith(('.prefix.tsv', '.boundaries.tsv', '.macro.tsv')):
+                    p = c / 'traces' / name
+                    assert sha(p) == digest
+                    paths.append(str(p.relative_to(root)))
     if any('-' + str(n) + '-' in c.name for n in (5544, 5550, 5551)):
         paths += [str((c / name).relative_to(root)) for name in ('matrix.tsv', 'array.sbatch')]
 assert all((root / name).is_file() for name in paths)

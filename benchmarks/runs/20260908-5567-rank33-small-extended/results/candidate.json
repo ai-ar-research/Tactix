@@ -1,0 +1,30 @@
+{
+  "scratch": "/tmp/tactix-5567-1672435-dny46wn9",
+  "arm": "candidate",
+  "slurm_job": "1672435",
+  "node": "node017",
+  "binary_sha256": "dcabb601c210d9bcc6f03100a29404cdae744a024da6c754ed9e0d00a5d5a3ae",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "6",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5567-rank33-small-extended/pins/candidate",
+    "/tmp/tactix-5567-1672435-dny46wn9/input.cnf",
+    "/tmp/tactix-5567-1672435-dny46wn9/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 488636416,
+    "sha256": "7074860bf4862a5604a1c36caac107afcc6881ff4aec3533b5b1f1e4d27dbf71"
+  },
+  "trace_sha256": {
+    "candidate.prefix.tsv": "619b4e1f2504ce591e2b11766ff1da07b06ebd695f5a093455dba4479909a9a2",
+    "candidate.macro.tsv": "7a86b5d18c7c454301eb6d78dc16487c4c262a147118d1b7aea7741ac0a0db70",
+    "candidate.boundaries.tsv": "e264fa123efea9b1e37ecaa27ed991dff89b4f13d6f7ae58131da246958dc75a",
+    "candidate.decisions.tsv": "1fff9be5193c4cd936c0d2457d15fee475c477553fd3e379548113aafef8c31b"
+  },
+  "scratch_deleted": true
+}
