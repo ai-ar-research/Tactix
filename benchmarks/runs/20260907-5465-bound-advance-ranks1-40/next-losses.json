@@ -1,0 +1,2504 @@
+{
+  "source_sha256": {
+    "benchmarks/runs/20260907-5454-eliminate-limit-ranks1-40/solver-checkpoint.json": "8a301b78b5ae47367a910718aa055e1cc4eab5285f19fc66fe442c8169748e6b",
+    "benchmarks/runs/20260907-5465-bound-advance-ranks1-40/solver-checkpoint.json": "eb1db8f13ba6627e2346cca47fceebfb100abb3f3aed1b88901cf89feeff9c52"
+  },
+  "full_view_ratio": 1.1738170989857453,
+  "checked_at_solver_snapshot": 58,
+  "ranked_losses": [
+    {
+      "rank": 37,
+      "instance": "tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+      "candidate_seconds": 712.017,
+      "kissat_seconds": 346.009,
+      "seconds_over_kissat": 366.00800000000004,
+      "time_ratio": 2.0577990745905455,
+      "work": {
+        "conflicts": 13521309,
+        "decisions": 244585735,
+        "propagations": 4674359400
+      },
+      "kissat_work": {
+        "conflicts": 6393826,
+        "decisions": 215248091,
+        "propagations": 3692400046
+      },
+      "prior_candidate_work": {
+        "conflicts": 7764161,
+        "decisions": 206459604,
+        "propagations": 3694823040
+      },
+      "work_unchanged_from_prior": false,
+      "candidate_peak_rss_kb": 631940,
+      "kissat_peak_rss_kb": 269236,
+      "work_ratios": {
+        "conflicts": 2.1147445989302804,
+        "decisions": 1.1362968835807237,
+        "propagations": 1.265940673211659
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      583 rounds, 439998 vivified, 427 deleted, 0 flushed, 2937032 checked",
+          "c sweep       77 rounds, 109843 swept, 96502 environments (75174445 clauses), 1222523 solves, 527162 candidates, 2449 equivalences, 1068 units (259 already binary), 4 env-unsat, 86 budget, 5361919385 ticks",
+          "c factor      7761 factorings, 24625911 large remainders offered, 554990531 ticks",
+          "c factor-rem  14737052 materialized, 9888859 reused",
+          "c factor-bnd  294915 grids rejected by the coupled bound",
+          "c factor-dem  109 demotions, 7761 fresh vars demoted",
+          "c bve         0 rounds, 376034 eliminated, 119434132 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   1544 equiv, 466133 andor, 39291 ite, 0 xor, 594231 definition; 1017376788 resolvent pairs saved",
+          "c bve-def     1297360 checked, 204658528 ticks, 0 hit the tick ceiling, 386 units",
+          "c timing      711794 ms solve",
+          "c timing      246430 ms (34.6%) inprocessing slot, 465365 ms (65.4%) search+scaffolding outside it",
+          "c timing        Vivify               72454 ms ( 10.2%) in 583 applications",
+          "c timing        Sweep                69255 ms (  9.7%) in 77 applications",
+          "c timing        BVE                  25139 ms (  3.5%) in 2295497 applications",
+          "c timing        Substitute           19491 ms (  2.7%) in 300 applications",
+          "c timing        Factor               18582 ms (  2.6%) in 145 applications",
+          "c timing        Congruence           11711 ms (  1.6%) in 50 applications",
+          "c timing        Strengthen            9900 ms (  1.4%) in 61 applications",
+          "c timing        TransitiveReduce      6632 ms (  0.9%) in 6820375 applications",
+          "c timing        Backbone              5852 ms (  0.8%) in 300 applications",
+          "c timing        (unattributed)        7413 ms (  1.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                   36           177606    interval"
+        ]
+      }
+    },
+    {
+      "rank": 32,
+      "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+      "candidate_seconds": 421.021,
+      "kissat_seconds": 274.413,
+      "seconds_over_kissat": 146.608,
+      "time_ratio": 1.5342604031150127,
+      "work": {
+        "conflicts": 6339726,
+        "decisions": 201581008,
+        "propagations": 3825684273
+      },
+      "kissat_work": {
+        "conflicts": 4636494,
+        "decisions": 182202021,
+        "propagations": 3028091302
+      },
+      "prior_candidate_work": {
+        "conflicts": 6492569,
+        "decisions": 202822754,
+        "propagations": 3467947192
+      },
+      "work_unchanged_from_prior": false,
+      "candidate_peak_rss_kb": 621988,
+      "kissat_peak_rss_kb": 299980,
+      "work_ratios": {
+        "conflicts": 1.3673534355916346,
+        "decisions": 1.1063598904866154,
+        "propagations": 1.263397926764363
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      424 rounds, 282422 vivified, 1046 deleted, 0 flushed, 1753914 checked",
+          "c sweep       25 rounds, 39795 swept, 35280 environments (7157658 clauses), 310386 solves, 137902 candidates, 656 equivalences, 12 units (4 already binary), 0 env-unsat, 31 budget, 612027692 ticks",
+          "c factor      7307 factorings, 19746291 large remainders offered, 448793304 ticks",
+          "c factor-rem  11172466 materialized, 8573825 reused",
+          "c factor-bnd  225605 grids rejected by the coupled bound",
+          "c factor-dem  74 demotions, 7307 fresh vars demoted",
+          "c bve         0 rounds, 371095 eliminated, 100052141 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   1226 equiv, 444600 andor, 36298 ite, 0 xor, 543090 definition; 929165096 resolvent pairs saved",
+          "c bve-def     1156467 checked, 169251601 ticks, 0 hit the tick ceiling, 446 units",
+          "c timing      420772 ms solve",
+          "c timing      144767 ms (34.4%) inprocessing slot, 276005 ms (65.6%) search+scaffolding outside it",
+          "c timing        Vivify               49448 ms ( 11.8%) in 424 applications",
+          "c timing        BVE                  21223 ms (  5.0%) in 2061317 applications",
+          "c timing        Substitute           15744 ms (  3.7%) in 213 applications",
+          "c timing        Factor               15725 ms (  3.7%) in 102 applications",
+          "c timing        Sweep                10518 ms (  2.5%) in 25 applications",
+          "c timing        Congruence            9651 ms (  2.3%) in 35 applications",
+          "c timing        Strengthen            7865 ms (  1.9%) in 43 applications",
+          "c timing        TransitiveReduce      4621 ms (  1.1%) in 6103114 applications",
+          "c timing        Backbone              3849 ms (  0.9%) in 213 applications",
+          "c timing        (unattributed)        6123 ms (  1.5%)"
+        ],
+        "kissat": [
+          "c sweep:                                   22           210750    interval"
+        ]
+      }
+    },
+    {
+      "rank": 31,
+      "instance": "tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+      "candidate_seconds": 417.482,
+      "kissat_seconds": 283.258,
+      "seconds_over_kissat": 134.22400000000005,
+      "time_ratio": 1.4738577551207734,
+      "work": {
+        "conflicts": 7003044,
+        "decisions": 212528693,
+        "propagations": 3337062094
+      },
+      "kissat_work": {
+        "conflicts": 4540757,
+        "decisions": 198706607,
+        "propagations": 2864694340
+      },
+      "prior_candidate_work": {
+        "conflicts": 7003044,
+        "decisions": 212528693,
+        "propagations": 3337062094
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 581484,
+      "kissat_peak_rss_kb": 265752,
+      "work_ratios": {
+        "conflicts": 1.5422635476859916,
+        "decisions": 1.0695602738564198,
+        "propagations": 1.164892898835413
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      426 rounds, 298525 vivified, 440 deleted, 0 flushed, 1864004 checked",
+          "c sweep       29 rounds, 51948 swept, 45980 environments (16721759 clauses), 473548 solves, 210917 candidates, 680 equivalences, 45 units (2 already binary), 0 env-unsat, 40 budget, 969228072 ticks",
+          "c factor      8322 factorings, 23396005 large remainders offered, 503809164 ticks",
+          "c factor-rem  12508261 materialized, 10887744 reused",
+          "c factor-bnd  243889 grids rejected by the coupled bound",
+          "c factor-dem  80 demotions, 8322 fresh vars demoted",
+          "c bve         0 rounds, 373943 eliminated, 106833989 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   1477 equiv, 461991 andor, 39734 ite, 0 xor, 575608 definition; 1013001771 resolvent pairs saved",
+          "c bve-def     1229967 checked, 182703344 ticks, 0 hit the tick ceiling, 376 units",
+          "c timing      417264 ms solve",
+          "c timing      149087 ms (35.7%) inprocessing slot, 268178 ms (64.3%) search+scaffolding outside it",
+          "c timing        Vivify               46903 ms ( 11.2%) in 426 applications",
+          "c timing        BVE                  22643 ms (  5.4%) in 2184469 applications",
+          "c timing        Factor               15881 ms (  3.8%) in 106 applications",
+          "c timing        Substitute           15766 ms (  3.8%) in 221 applications",
+          "c timing        Sweep                13676 ms (  3.3%) in 29 applications",
+          "c timing        Congruence           11336 ms (  2.7%) in 45 applications",
+          "c timing        Strengthen            8291 ms (  2.0%) in 46 applications",
+          "c timing        Backbone              4310 ms (  1.0%) in 221 applications",
+          "c timing        TransitiveReduce      4141 ms (  1.0%) in 4708095 applications",
+          "c timing        (unattributed)        6138 ms (  1.5%)"
+        ],
+        "kissat": [
+          "c sweep:                                   23           197424    interval"
+        ]
+      }
+    },
+    {
+      "rank": 27,
+      "instance": "tierD24-26/5911653e4edadec391654c8f06353f9a-oski15a01b06s_opt.cnf.xz",
+      "candidate_seconds": 358.706,
+      "kissat_seconds": 240.141,
+      "seconds_over_kissat": 118.56500000000003,
+      "time_ratio": 1.49373076650801,
+      "work": {
+        "conflicts": 5105729,
+        "decisions": 213903498,
+        "propagations": 2952035252
+      },
+      "kissat_work": {
+        "conflicts": 4120691,
+        "decisions": 171577295,
+        "propagations": 2665923813
+      },
+      "prior_candidate_work": {
+        "conflicts": 5105729,
+        "decisions": 213903498,
+        "propagations": 2952035252
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 574092,
+      "kissat_peak_rss_kb": 298192,
+      "work_ratios": {
+        "conflicts": 1.239046800645814,
+        "decisions": 1.2466888349067398,
+        "propagations": 1.1073216862405513
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      357 rounds, 227180 vivified, 2113 deleted, 0 flushed, 1187594 checked",
+          "c sweep       25 rounds, 41142 swept, 32062 environments (7107953 clauses), 259832 solves, 113590 candidates, 596 equivalences, 154 units (3 already binary), 0 env-unsat, 30 budget, 780537791 ticks",
+          "c factor      7676 factorings, 19770606 large remainders offered, 422709558 ticks",
+          "c factor-rem  10492673 materialized, 9277933 reused",
+          "c factor-bnd  201267 grids rejected by the coupled bound",
+          "c factor-dem  71 demotions, 7676 fresh vars demoted",
+          "c bve         0 rounds, 363900 eliminated, 97665287 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   1131 equiv, 443845 andor, 42242 ite, 0 xor, 560148 definition; 954132288 resolvent pairs saved",
+          "c bve-def     1152799 checked, 166919770 ticks, 0 hit the tick ceiling, 380 units",
+          "c timing      358494 ms solve",
+          "c timing      130721 ms (36.5%) inprocessing slot, 227773 ms (63.5%) search+scaffolding outside it",
+          "c timing        Vivify               40064 ms ( 11.2%) in 357 applications",
+          "c timing        BVE                  20504 ms (  5.7%) in 2037478 applications",
+          "c timing        Substitute           14902 ms (  4.2%) in 193 applications",
+          "c timing        Factor               14351 ms (  4.0%) in 92 applications",
+          "c timing        Sweep                10663 ms (  3.0%) in 25 applications",
+          "c timing        Congruence            9486 ms (  2.6%) in 32 applications",
+          "c timing        Strengthen            7521 ms (  2.1%) in 40 applications",
+          "c timing        Backbone              3941 ms (  1.1%) in 193 applications",
+          "c timing        TransitiveReduce      3521 ms (  1.0%) in 4598725 applications",
+          "c timing        (unattributed)        5768 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                   23           179160    interval"
+        ]
+      }
+    },
+    {
+      "rank": 39,
+      "instance": "tierD24-26/0a4880c0e882e6a4a31943522573c394-b19_1.cnf.xz",
+      "candidate_seconds": 443.315,
+      "kissat_seconds": 364.614,
+      "seconds_over_kissat": 78.70100000000002,
+      "time_ratio": 1.2158474441464124,
+      "work": {
+        "conflicts": 6472437,
+        "decisions": 98331549,
+        "propagations": 2358730279
+      },
+      "kissat_work": {
+        "conflicts": 5803404,
+        "decisions": 102885243,
+        "propagations": 2545310923
+      },
+      "prior_candidate_work": {
+        "conflicts": 5864565,
+        "decisions": 96380224,
+        "propagations": 2300915148
+      },
+      "work_unchanged_from_prior": false,
+      "candidate_peak_rss_kb": 422700,
+      "kissat_peak_rss_kb": 170616,
+      "work_ratios": {
+        "conflicts": 1.1152828581294703,
+        "decisions": 0.9557400666293805,
+        "propagations": 0.9266963252646208
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      413 rounds, 375495 vivified, 698 deleted, 0 flushed, 1819991 checked",
+          "c sweep       104 rounds, 112024 swept, 111852 environments (95660144 clauses), 1622803 solves, 722446 candidates, 4686 equivalences, 860 units (197 already binary), 0 env-unsat, 111 budget, 4130844304 ticks",
+          "c factor      5070 factorings, 15668650 large remainders offered, 425657184 ticks",
+          "c factor-rem  14937285 materialized, 731365 reused",
+          "c factor-bnd  308905 grids rejected by the coupled bound",
+          "c factor-dem  75 demotions, 5070 fresh vars demoted",
+          "c bve         0 rounds, 309779 eliminated, 73170057 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   462 equiv, 350078 andor, 8019 ite, 0 xor, 503625 definition; 821485783 resolvent pairs saved",
+          "c bve-def     930835 checked, 118496226 ticks, 0 hit the tick ceiling, 289 units",
+          "c timing      443170 ms solve",
+          "c timing      171254 ms (38.6%) inprocessing slot, 271916 ms (61.4%) search+scaffolding outside it",
+          "c timing        Sweep                66490 ms ( 15.0%) in 104 applications",
+          "c timing        Vivify               45534 ms ( 10.3%) in 413 applications",
+          "c timing        BVE                  15402 ms (  3.5%) in 1291506 applications",
+          "c timing        Factor               11855 ms (  2.7%) in 104 applications",
+          "c timing        Substitute           11004 ms (  2.5%) in 217 applications",
+          "c timing        Strengthen            5774 ms (  1.3%) in 45 applications",
+          "c timing        Congruence            5624 ms (  1.3%) in 29 applications",
+          "c timing        TransitiveReduce      3619 ms (  0.8%) in 5298647 applications",
+          "c timing        Backbone              1994 ms (  0.4%) in 217 applications",
+          "c timing        (unattributed)        3960 ms (  0.9%)"
+        ],
+        "kissat": [
+          "c sweep:                                  100            58034    interval"
+        ]
+      }
+    },
+    {
+      "rank": 22,
+      "instance": "tierD24-26/113e692e379518bc3277855277dcc1b8-oisc-subrv-sll-nested-8.cnf.xz",
+      "candidate_seconds": 237.678,
+      "kissat_seconds": 182.175,
+      "seconds_over_kissat": 55.502999999999986,
+      "time_ratio": 1.3046685878962534,
+      "work": {
+        "conflicts": 62648,
+        "decisions": 311785,
+        "propagations": 1041857046
+      },
+      "kissat_work": {
+        "conflicts": 65820,
+        "decisions": 523753,
+        "propagations": 1209704732
+      },
+      "prior_candidate_work": {
+        "conflicts": 62648,
+        "decisions": 311785,
+        "propagations": 1041857046
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 2714948,
+      "kissat_peak_rss_kb": 1919272,
+      "work_ratios": {
+        "conflicts": 0.9518079611060468,
+        "decisions": 0.5952901463094245,
+        "propagations": 0.8612490456886135
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      39 rounds, 2223 vivified, 44 deleted, 0 flushed, 14572 checked",
+          "c sweep       10 rounds, 184959 swept, 179582 environments (39615961 clauses), 1452167 solves, 763985 candidates, 116645 equivalences, 925 units (46046 already binary), 0 env-unsat, 10 budget, 4334203285 ticks",
+          "c factor      212 factorings, 37941101 large remainders offered, 723049064 ticks",
+          "c factor-rem  1341999 materialized, 36599102 reused",
+          "c factor-bnd  9 grids rejected by the coupled bound",
+          "c factor-dem  4 demotions, 212 fresh vars demoted",
+          "c bve         0 rounds, 433387 eliminated, 22089437 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   180 equiv, 264078 andor, 14407 ite, 0 xor, 669599 definition; 651115052 resolvent pairs saved",
+          "c bve-def     685696 checked, 52910272 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      236204 ms solve",
+          "c timing      144952 ms (61.4%) inprocessing slot, 91252 ms (38.6%) search+scaffolding outside it",
+          "c timing        Sweep                40404 ms ( 17.1%) in 10 applications",
+          "c timing        BVE                  23508 ms ( 10.0%) in 966391 applications",
+          "c timing        Factor               19268 ms (  8.2%) in 4 applications",
+          "c timing        Vivify               17733 ms (  7.5%) in 39 applications",
+          "c timing        Congruence           16418 ms (  7.0%) in 6 applications",
+          "c timing        Substitute           10389 ms (  4.4%) in 21 applications",
+          "c timing        Strengthen            9845 ms (  4.2%) in 4 applications",
+          "c timing        Backbone              3526 ms (  1.5%) in 21 applications",
+          "c timing        TransitiveReduce       884 ms (  0.4%) in 55301 applications",
+          "c timing        (unattributed)        2978 ms (  1.3%)"
+        ],
+        "kissat": [
+          "c sweep:                                   10             6582    interval"
+        ]
+      }
+    },
+    {
+      "rank": 33,
+      "instance": "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+      "candidate_seconds": 364.669,
+      "kissat_seconds": 313.163,
+      "seconds_over_kissat": 51.50599999999997,
+      "time_ratio": 1.1644702598966032,
+      "work": {
+        "conflicts": 5089497,
+        "decisions": 208628795,
+        "propagations": 3190323887
+      },
+      "kissat_work": {
+        "conflicts": 6343232,
+        "decisions": 173123739,
+        "propagations": 3168076600
+      },
+      "prior_candidate_work": {
+        "conflicts": 5089497,
+        "decisions": 208628795,
+        "propagations": 3190323887
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 667860,
+      "kissat_peak_rss_kb": 265332,
+      "work_ratios": {
+        "conflicts": 0.8023507574687478,
+        "decisions": 1.2050848497443785,
+        "propagations": 1.0070223324145635
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      351 rounds, 238884 vivified, 171 deleted, 0 flushed, 1205807 checked",
+          "c sweep       27 rounds, 38603 swept, 30032 environments (6272607 clauses), 263456 solves, 117753 candidates, 596 equivalences, 175 units (3 already binary), 0 env-unsat, 20 budget, 651326191 ticks",
+          "c factor      7859 factorings, 20297068 large remainders offered, 434189556 ticks",
+          "c factor-rem  10611879 materialized, 9685189 reused",
+          "c factor-bnd  214122 grids rejected by the coupled bound",
+          "c factor-dem  65 demotions, 7859 fresh vars demoted",
+          "c bve         0 rounds, 363653 eliminated, 91905622 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   1074 equiv, 438009 andor, 38337 ite, 0 xor, 558410 definition; 869654231 resolvent pairs saved",
+          "c bve-def     1125603 checked, 158533315 ticks, 0 hit the tick ceiling, 407 units",
+          "c timing      364457 ms solve",
+          "c timing      129055 ms (35.4%) inprocessing slot, 235401 ms (64.6%) search+scaffolding outside it",
+          "c timing        Vivify               39974 ms ( 11.0%) in 351 applications",
+          "c timing        BVE                  20031 ms (  5.5%) in 2011894 applications",
+          "c timing        Substitute           14410 ms (  4.0%) in 193 applications",
+          "c timing        Factor               14329 ms (  3.9%) in 92 applications",
+          "c timing        Congruence           10633 ms (  2.9%) in 39 applications",
+          "c timing        Sweep                 9202 ms (  2.5%) in 27 applications",
+          "c timing        Strengthen            7389 ms (  2.0%) in 40 applications",
+          "c timing        TransitiveReduce      3737 ms (  1.0%) in 5076247 applications",
+          "c timing        Backbone              3600 ms (  1.0%) in 193 applications",
+          "c timing        (unattributed)        5751 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                   33           192219    interval"
+        ]
+      }
+    },
+    {
+      "rank": 21,
+      "instance": "tierD24-26/ac3887576c2ce781202b9fe0fdc31420-pj2008_k80.cnf.xz",
+      "candidate_seconds": 147.296,
+      "kissat_seconds": 96.723,
+      "seconds_over_kissat": 50.57299999999999,
+      "time_ratio": 1.5228642618611912,
+      "work": {
+        "conflicts": 89796,
+        "decisions": 76028136,
+        "propagations": 877832157
+      },
+      "kissat_work": {
+        "conflicts": 93100,
+        "decisions": 47246834,
+        "propagations": 847215445
+      },
+      "prior_candidate_work": {
+        "conflicts": 116593,
+        "decisions": 79662728,
+        "propagations": 921790302
+      },
+      "work_unchanged_from_prior": false,
+      "candidate_peak_rss_kb": 3935936,
+      "kissat_peak_rss_kb": 1436392,
+      "work_ratios": {
+        "conflicts": 0.9645112781954888,
+        "decisions": 1.6091689021956477,
+        "propagations": 1.0361380475069124
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      38 rounds, 16267 vivified, 36 deleted, 0 flushed, 173804 checked",
+          "c sweep       9 rounds, 234300 swept, 234284 environments (14650501 clauses), 1363823 solves, 542099 candidates, 1091 equivalences, 324 units (49 already binary), 0 env-unsat, 8 budget, 571618255 ticks",
+          "c factor      60687 factorings, 13470094 large remainders offered, 203982285 ticks",
+          "c factor-rem  3982330 materialized, 9487764 reused",
+          "c factor-bnd  210103 grids rejected by the coupled bound",
+          "c factor-dem  8 demotions, 60687 fresh vars demoted",
+          "c bve         0 rounds, 1782603 eliminated, 110009867 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   711 equiv, 1854175 andor, 10770 ite, 0 xor, 349037 definition; 234275629 resolvent pairs saved",
+          "c bve-def     1969831 checked, 213905521 ticks, 0 hit the tick ceiling, 260 units",
+          "c timing      146135 ms solve",
+          "c timing      87929 ms (60.2%) inprocessing slot, 58206 ms (39.8%) search+scaffolding outside it",
+          "c timing        BVE                  37308 ms ( 25.5%) in 3883541 applications",
+          "c timing        Sweep                 9174 ms (  6.3%) in 9 applications",
+          "c timing        Substitute            7619 ms (  5.2%) in 26 applications",
+          "c timing        Congruence            7549 ms (  5.2%) in 5 applications",
+          "c timing        Factor                6700 ms (  4.6%) in 8 applications",
+          "c timing        Vivify                6574 ms (  4.5%) in 38 applications",
+          "c timing        Strengthen            4496 ms (  3.1%) in 5 applications",
+          "c timing        Backbone              3106 ms (  2.1%) in 25 applications",
+          "c timing        TransitiveReduce       493 ms (  0.3%) in 144807 applications",
+          "c timing        (unattributed)        4910 ms (  3.4%)"
+        ],
+        "kissat": [
+          "c sweep:                                    5            18620    interval"
+        ]
+      }
+    },
+    {
+      "rank": 35,
+      "instance": "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+      "candidate_seconds": 353.984,
+      "kissat_seconds": 305.351,
+      "seconds_over_kissat": 48.63299999999998,
+      "time_ratio": 1.159269168923632,
+      "work": {
+        "conflicts": 4297466,
+        "decisions": 194380570,
+        "propagations": 2712641780
+      },
+      "kissat_work": {
+        "conflicts": 4751990,
+        "decisions": 210767815,
+        "propagations": 3394097561
+      },
+      "prior_candidate_work": {
+        "conflicts": 4297466,
+        "decisions": 194380570,
+        "propagations": 2712641780
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 589544,
+      "kissat_peak_rss_kb": 269360,
+      "work_ratios": {
+        "conflicts": 0.9043508088190422,
+        "decisions": 0.9222497751850774,
+        "propagations": 0.7992232784259674
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      347 rounds, 191253 vivified, 133 deleted, 0 flushed, 1282073 checked",
+          "c sweep       39 rounds, 71859 swept, 64407 environments (18445734 clauses), 627937 solves, 284690 candidates, 1114 equivalences, 60 units (46 already binary), 0 env-unsat, 47 budget, 1388697675 ticks",
+          "c factor      7813 factorings, 21879626 large remainders offered, 459440986 ticks",
+          "c factor-rem  10725513 materialized, 11154113 reused",
+          "c factor-bnd  200828 grids rejected by the coupled bound",
+          "c factor-dem  64 demotions, 7813 fresh vars demoted",
+          "c bve         0 rounds, 366710 eliminated, 90583820 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   1699 equiv, 439643 andor, 40710 ite, 0 xor, 535540 definition; 766559115 resolvent pairs saved",
+          "c bve-def     1108415 checked, 151303972 ticks, 0 hit the tick ceiling, 382 units",
+          "c timing      353745 ms solve",
+          "c timing      139952 ms (39.6%) inprocessing slot, 213794 ms (60.4%) search+scaffolding outside it",
+          "c timing        Vivify               37271 ms ( 10.5%) in 347 applications",
+          "c timing        Sweep                24946 ms (  7.1%) in 39 applications",
+          "c timing        BVE                  19438 ms (  5.5%) in 2026121 applications",
+          "c timing        Factor               14811 ms (  4.2%) in 84 applications",
+          "c timing        Substitute           13444 ms (  3.8%) in 177 applications",
+          "c timing        Congruence           10461 ms (  3.0%) in 39 applications",
+          "c timing        Strengthen            7089 ms (  2.0%) in 38 applications",
+          "c timing        Backbone              3919 ms (  1.1%) in 177 applications",
+          "c timing        TransitiveReduce      3043 ms (  0.9%) in 3782133 applications",
+          "c timing        (unattributed)        5528 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                   25           190080    interval"
+        ]
+      }
+    },
+    {
+      "rank": 17,
+      "instance": "tierD24-26/0a8a4c28d27228e954354ea0a6e7f16c-sum_of_three_cubes_42_known_representation.cnf.xz",
+      "candidate_seconds": 170.747,
+      "kissat_seconds": 123.387,
+      "seconds_over_kissat": 47.360000000000014,
+      "time_ratio": 1.3838329807840373,
+      "work": {
+        "conflicts": 179361,
+        "decisions": 4249505,
+        "propagations": 1158167288
+      },
+      "kissat_work": {
+        "conflicts": 186237,
+        "decisions": 3961527,
+        "propagations": 1055776860
+      },
+      "prior_candidate_work": {
+        "conflicts": 179361,
+        "decisions": 4249505,
+        "propagations": 1158167288
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 1354912,
+      "kissat_peak_rss_kb": 598308,
+      "work_ratios": {
+        "conflicts": 0.963079302179481,
+        "decisions": 1.07269368604581,
+        "propagations": 1.0969811253487787
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      68 rounds, 213977 vivified, 13767 deleted, 0 flushed, 2380474 checked",
+          "c sweep       15 rounds, 108999 swept, 108141 environments (40488892 clauses), 1212213 solves, 573094 candidates, 17129 equivalences, 9576 units (1193 already binary), 0 env-unsat, 14 budget, 984106388 ticks",
+          "c factor      3735 factorings, 19964338 large remainders offered, 417787932 ticks",
+          "c factor-rem  14307978 materialized, 5656360 reused",
+          "c factor-bnd  14595 grids rejected by the coupled bound",
+          "c factor-dem  13 demotions, 3735 fresh vars demoted",
+          "c bve         0 rounds, 73839 eliminated, 37564735 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   9120 equiv, 214653 andor, 5064 ite, 0 xor, 924159 definition; 902202507 resolvent pairs saved",
+          "c bve-def     954118 checked, 152369620 ticks, 0 hit the tick ceiling, 219 units",
+          "c timing      170029 ms solve",
+          "c timing      79061 ms (46.5%) inprocessing slot, 90968 ms (53.5%) search+scaffolding outside it",
+          "c timing        Sweep                19435 ms ( 11.4%) in 15 applications",
+          "c timing        Vivify               15338 ms (  9.0%) in 68 applications",
+          "c timing        Congruence           12989 ms (  7.6%) in 13 applications",
+          "c timing        Factor                8700 ms (  5.1%) in 14 applications",
+          "c timing        BVE                   8280 ms (  4.9%) in 1184010 applications",
+          "c timing        Substitute            7408 ms (  4.4%) in 38 applications",
+          "c timing        Strengthen            1814 ms (  1.1%) in 8 applications",
+          "c timing        Backbone              1682 ms (  1.0%) in 37 applications",
+          "c timing        TransitiveReduce       960 ms (  0.6%) in 2254139 applications",
+          "c timing        (unattributed)        2457 ms (  1.4%)"
+        ],
+        "kissat": [
+          "c sweep:                                   11            16931    interval"
+        ]
+      }
+    },
+    {
+      "rank": 9,
+      "instance": "tierD24-26/5ceb95f5960efe1f23c3014847dea118-pj2009_k80.cnf.xz",
+      "candidate_seconds": 110.191,
+      "kissat_seconds": 68.575,
+      "seconds_over_kissat": 41.616,
+      "time_ratio": 1.606868392271236,
+      "work": {
+        "conflicts": 83476,
+        "decisions": 36309528,
+        "propagations": 725647728
+      },
+      "kissat_work": {
+        "conflicts": 48149,
+        "decisions": 31526846,
+        "propagations": 695871037
+      },
+      "prior_candidate_work": {
+        "conflicts": 106446,
+        "decisions": 47108421,
+        "propagations": 893308895
+      },
+      "work_unchanged_from_prior": false,
+      "candidate_peak_rss_kb": 3232852,
+      "kissat_peak_rss_kb": 1326232,
+      "work_ratios": {
+        "conflicts": 1.7337016345095433,
+        "decisions": 1.1517018860687809,
+        "propagations": 1.0427905307402527
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      44 rounds, 13183 vivified, 824 deleted, 0 flushed, 144487 checked",
+          "c sweep       12 rounds, 391892 swept, 391556 environments (12477861 clauses), 2074448 solves, 893024 candidates, 3147 equivalences, 1692 units (2462 already binary), 0 env-unsat, 19 budget, 445587495 ticks",
+          "c factor      53847 factorings, 9923595 large remainders offered, 150466318 ticks",
+          "c factor-rem  2975429 materialized, 6948166 reused",
+          "c factor-bnd  172316 grids rejected by the coupled bound",
+          "c factor-dem  8 demotions, 53847 fresh vars demoted",
+          "c bve         0 rounds, 1565048 eliminated, 83270994 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   73 equiv, 1850198 andor, 9419 ite, 0 xor, 274806 definition; 277342767 resolvent pairs saved",
+          "c bve-def     1340806 checked, 139246408 ticks, 0 hit the tick ceiling, 255 units",
+          "c timing      109120 ms solve",
+          "c timing      70321 ms (64.4%) inprocessing slot, 38799 ms (35.6%) search+scaffolding outside it",
+          "c timing        BVE                  27272 ms ( 25.0%) in 3242155 applications",
+          "c timing        Sweep                 8165 ms (  7.5%) in 12 applications",
+          "c timing        Congruence            7170 ms (  6.6%) in 5 applications",
+          "c timing        Substitute            6347 ms (  5.8%) in 26 applications",
+          "c timing        Vivify                5746 ms (  5.3%) in 44 applications",
+          "c timing        Factor                5032 ms (  4.6%) in 8 applications",
+          "c timing        Strengthen            3387 ms (  3.1%) in 5 applications",
+          "c timing        Backbone              2777 ms (  2.5%) in 25 applications",
+          "c timing        TransitiveReduce       357 ms (  0.3%) in 122409 applications",
+          "c timing        (unattributed)        4068 ms (  3.7%)"
+        ],
+        "kissat": [
+          "c sweep:                                    8             6019    interval"
+        ]
+      }
+    },
+    {
+      "rank": 19,
+      "instance": "tierD24-26/4551c996fc6f5fbe62b43076abb25077-knight_18.cnf.xz",
+      "candidate_seconds": 153.473,
+      "kissat_seconds": 114.603,
+      "seconds_over_kissat": 38.87000000000002,
+      "time_ratio": 1.3391708768531367,
+      "work": {
+        "conflicts": 701651,
+        "decisions": 27626032,
+        "propagations": 1846890843
+      },
+      "kissat_work": {
+        "conflicts": 701651,
+        "decisions": 27626032,
+        "propagations": 1965249366
+      },
+      "prior_candidate_work": {
+        "conflicts": 701651,
+        "decisions": 27626032,
+        "propagations": 1846890843
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 402344,
+      "kissat_peak_rss_kb": 143804,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.9397742978333061
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      102 rounds, 29690 vivified, 11 deleted, 0 flushed, 243329 checked",
+          "c sweep       11 rounds, 120719 swept, 120703 environments (1440330 clauses), 247669 solves, 34549 candidates, 105 equivalences, 0 units (4 already binary), 0 env-unsat, 8 budget, 214205084 ticks",
+          "c factor      9614 factorings, 4183375 large remainders offered, 80269271 ticks",
+          "c factor-rem  3965593 materialized, 217782 reused",
+          "c factor-bnd  64566 grids rejected by the coupled bound",
+          "c factor-dem  9 demotions, 9614 fresh vars demoted",
+          "c bve         0 rounds, 8673 eliminated, 17273486 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   10 equiv, 3827 andor, 5 ite, 0 xor, 6777 definition; 784113836 resolvent pairs saved",
+          "c bve-def     189270 checked, 21619775 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      153214 ms solve",
+          "c timing      53470 ms (34.9%) inprocessing slot, 99745 ms (65.1%) search+scaffolding outside it",
+          "c timing        Vivify               18996 ms ( 12.4%) in 102 applications",
+          "c timing        Backbone              7552 ms (  4.9%) in 63 applications",
+          "c timing        Factor                5681 ms (  3.7%) in 27 applications",
+          "c timing        Substitute            5589 ms (  3.6%) in 64 applications",
+          "c timing        Sweep                 3654 ms (  2.4%) in 11 applications",
+          "c timing        Strengthen            2711 ms (  1.8%) in 16 applications",
+          "c timing        Congruence            2543 ms (  1.7%) in 7 applications",
+          "c timing        BVE                   2302 ms (  1.5%) in 1005766 applications",
+          "c timing        TransitiveReduce      1381 ms (  0.9%) in 184949 applications",
+          "c timing        (unattributed)        3061 ms (  2.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                   11            63786    interval"
+        ]
+      }
+    },
+    {
+      "rank": 24,
+      "instance": "tierD24-26/29b573e0f7b922c4bd0a675db005265f-b18.cnf.xz",
+      "candidate_seconds": 239.797,
+      "kissat_seconds": 208.104,
+      "seconds_over_kissat": 31.692999999999984,
+      "time_ratio": 1.1522940452850496,
+      "work": {
+        "conflicts": 4629096,
+        "decisions": 38868632,
+        "propagations": 1187052867
+      },
+      "kissat_work": {
+        "conflicts": 4262151,
+        "decisions": 38173988,
+        "propagations": 1240849838
+      },
+      "prior_candidate_work": {
+        "conflicts": 4629096,
+        "decisions": 38868632,
+        "propagations": 1187052867
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 240512,
+      "kissat_peak_rss_kb": 101500,
+      "work_ratios": {
+        "conflicts": 1.0860938526110409,
+        "decisions": 1.0181967888709977,
+        "propagations": 0.9566450594161258
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      347 rounds, 222966 vivified, 112 deleted, 0 flushed, 1260730 checked",
+          "c sweep       76 rounds, 62970 swept, 62892 environments (46541577 clauses), 795811 solves, 327285 candidates, 2269 equivalences, 509 units (95 already binary), 0 env-unsat, 84 budget, 1937929501 ticks",
+          "c factor      2364 factorings, 7454911 large remainders offered, 195137543 ticks",
+          "c factor-rem  7126311 materialized, 328600 reused",
+          "c factor-bnd  146093 grids rejected by the coupled bound",
+          "c factor-dem  59 demotions, 2364 fresh vars demoted",
+          "c bve         0 rounds, 159057 eliminated, 33978051 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   223 equiv, 175736 andor, 4108 ite, 0 xor, 256021 definition; 304978376 resolvent pairs saved",
+          "c bve-def     454207 checked, 56848645 ticks, 0 hit the tick ceiling, 86 units",
+          "c timing      239695 ms solve",
+          "c timing      79746 ms (33.3%) inprocessing slot, 159948 ms (66.7%) search+scaffolding outside it",
+          "c timing        Sweep                31804 ms ( 13.3%) in 76 applications",
+          "c timing        Vivify               22708 ms (  9.5%) in 347 applications",
+          "c timing        BVE                   7210 ms (  3.0%) in 635600 applications",
+          "c timing        Factor                4770 ms (  2.0%) in 88 applications",
+          "c timing        Substitute            4284 ms (  1.8%) in 183 applications",
+          "c timing        Congruence            2591 ms (  1.1%) in 28 applications",
+          "c timing        Strengthen            2360 ms (  1.0%) in 40 applications",
+          "c timing        TransitiveReduce      1694 ms (  0.7%) in 2116220 applications",
+          "c timing        Backbone               749 ms (  0.3%) in 183 applications",
+          "c timing        (unattributed)        1576 ms (  0.7%)"
+        ],
+        "kissat": [
+          "c sweep:                                   78            54643    interval"
+        ]
+      }
+    },
+    {
+      "rank": 36,
+      "instance": "tierD24-26/780b0c9b5aed38a127f61c6aae7287aa-rbsat-v1375c111739gyes10.cnf.xz",
+      "candidate_seconds": 384.654,
+      "kissat_seconds": 362.396,
+      "seconds_over_kissat": 22.25799999999998,
+      "time_ratio": 1.0614190002097152,
+      "work": {
+        "conflicts": 6559620,
+        "decisions": 23281243,
+        "propagations": 1488017957
+      },
+      "kissat_work": {
+        "conflicts": 6559620,
+        "decisions": 23281243,
+        "propagations": 1671010827
+      },
+      "prior_candidate_work": {
+        "conflicts": 6559620,
+        "decisions": 23281243,
+        "propagations": 1488017957
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 105020,
+      "kissat_peak_rss_kb": 50160,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.8904897161387453
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      236 rounds, 113119 vivified, 0 deleted, 0 flushed, 567528 checked",
+          "c sweep       10 rounds, 6943 swept, 6943 environments (7004650 clauses), 85629 solves, 4127 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 12 budget, 289162251 ticks",
+          "c factor      6172 factorings, 1963 large remainders offered, 14894782 ticks",
+          "c factor-rem  1963 materialized, 0 reused",
+          "c factor-bnd  17042 grids rejected by the coupled bound",
+          "c factor-dem  7 demotions, 6172 fresh vars demoted",
+          "c bve         0 rounds, 5343 eliminated, 5171896 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 38 andor, 0 ite, 0 xor, 1 definition; 132313 resolvent pairs saved",
+          "c bve-def     59684 checked, 13672500 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      384577 ms solve",
+          "c timing      36281 ms (9.4%) inprocessing slot, 348297 ms (90.6%) search+scaffolding outside it",
+          "c timing        Vivify               24552 ms (  6.4%) in 236 applications",
+          "c timing        Sweep                 4397 ms (  1.1%) in 10 applications",
+          "c timing        TransitiveReduce      3823 ms (  1.0%) in 69076 applications",
+          "c timing        BVE                    998 ms (  0.3%) in 59722 applications",
+          "c timing        Factor                 861 ms (  0.2%) in 60 applications",
+          "c timing        Substitute             532 ms (  0.1%) in 123 applications",
+          "c timing        Strengthen             428 ms (  0.1%) in 40 applications",
+          "c timing        Backbone               293 ms (  0.1%) in 123 applications",
+          "c timing        Congruence              82 ms (  0.0%) in 10 applications",
+          "c timing        (unattributed)         314 ms (  0.1%)"
+        ],
+        "kissat": [
+          "c sweep:                                   10           655962    interval"
+        ]
+      }
+    },
+    {
+      "rank": 34,
+      "instance": "tierD24-26/0ae917c2e0c1d39cbe411c29b2f5ff08-dislog_a14_x14_n24.cnf.xz",
+      "candidate_seconds": 351.701,
+      "kissat_seconds": 331.351,
+      "seconds_over_kissat": 20.350000000000023,
+      "time_ratio": 1.061415236410936,
+      "work": {
+        "conflicts": 4268701,
+        "decisions": 8300883,
+        "propagations": 972028201
+      },
+      "kissat_work": {
+        "conflicts": 4330066,
+        "decisions": 8345523,
+        "propagations": 953999448
+      },
+      "prior_candidate_work": {
+        "conflicts": 4268701,
+        "decisions": 8300883,
+        "propagations": 972028201
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 114368,
+      "kissat_peak_rss_kb": 40848,
+      "work_ratios": {
+        "conflicts": 0.9858281605869287,
+        "decisions": 0.9946510242677421,
+        "propagations": 1.018898074876035
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      252 rounds, 199207 vivified, 2243 deleted, 0 flushed, 2507602 checked",
+          "c sweep       34 rounds, 26273 swept, 25934 environments (38488878 clauses), 424326 solves, 214350 candidates, 1235 equivalences, 338 units (30 already binary), 0 env-unsat, 38 budget, 1736425870 ticks",
+          "c factor      84 factorings, 1827749 large remainders offered, 59124439 ticks",
+          "c factor-rem  1815218 materialized, 12531 reused",
+          "c factor-bnd  25436 grids rejected by the coupled bound",
+          "c factor-dem  15 demotions, 84 fresh vars demoted",
+          "c bve         0 rounds, 5521 eliminated, 5811350 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   30 equiv, 3432 andor, 581 ite, 0 xor, 94793 definition; 82989311 resolvent pairs saved",
+          "c bve-def     99462 checked, 11339260 ticks, 0 hit the tick ceiling, 6 units",
+          "c timing      351636 ms solve",
+          "c timing      61592 ms (17.5%) inprocessing slot, 290043 ms (82.5%) search+scaffolding outside it",
+          "c timing        Vivify               31877 ms (  9.1%) in 252 applications",
+          "c timing        Sweep                23997 ms (  6.8%) in 34 applications",
+          "c timing        Factor                1284 ms (  0.4%) in 69 applications",
+          "c timing        Substitute            1217 ms (  0.3%) in 142 applications",
+          "c timing        BVE                   1195 ms (  0.3%) in 103507 applications",
+          "c timing        Congruence             611 ms (  0.2%) in 16 applications",
+          "c timing        Strengthen             568 ms (  0.2%) in 40 applications",
+          "c timing        TransitiveReduce       151 ms (  0.0%) in 1321554 applications",
+          "c timing        Backbone                80 ms (  0.0%) in 141 applications",
+          "c timing        (unattributed)         613 ms (  0.2%)"
+        ],
+        "kissat": [
+          "c sweep:                                   34           127355    interval"
+        ]
+      }
+    },
+    {
+      "rank": 38,
+      "instance": "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz",
+      "candidate_seconds": 380.271,
+      "kissat_seconds": 362.741,
+      "seconds_over_kissat": 17.53000000000003,
+      "time_ratio": 1.0483264919046924,
+      "work": {
+        "conflicts": 18021141,
+        "decisions": 24152976,
+        "propagations": 485247222
+      },
+      "kissat_work": {
+        "conflicts": 18430710,
+        "decisions": 24657248,
+        "propagations": 494320168
+      },
+      "prior_candidate_work": {
+        "conflicts": 18021141,
+        "decisions": 24152976,
+        "propagations": 485247222
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 94820,
+      "kissat_peak_rss_kb": 44336,
+      "work_ratios": {
+        "conflicts": 0.9777779043780733,
+        "decisions": 0.979548731472385,
+        "propagations": 0.9816456082771036
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      255 rounds, 124508 vivified, 0 deleted, 0 flushed, 585307 checked",
+          "c sweep       11 rounds, 547 swept, 547 environments (328529 clauses), 14790 solves, 2468 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 9 budget, 177969397 ticks",
+          "c factor      376 factorings, 521 large remainders offered, 301172 ticks",
+          "c factor-rem  501 materialized, 20 reused",
+          "c factor-bnd  1417 grids rejected by the coupled bound",
+          "c factor-dem  5 demotions, 376 fresh vars demoted",
+          "c bve         0 rounds, 506 eliminated, 288059 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 3 andor, 0 ite, 0 xor, 4 definition; 125 resolvent pairs saved",
+          "c bve-def     6403 checked, 384161 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      380201 ms solve",
+          "c timing      25376 ms (6.7%) inprocessing slot, 354826 ms (93.3%) search+scaffolding outside it",
+          "c timing        Vivify               20483 ms (  5.4%) in 255 applications",
+          "c timing        Sweep                 3712 ms (  1.0%) in 11 applications",
+          "c timing        Substitute             471 ms (  0.1%) in 151 applications",
+          "c timing        TransitiveReduce       352 ms (  0.1%) in 41492 applications",
+          "c timing        Strengthen              57 ms (  0.0%) in 42 applications",
+          "c timing        Factor                  50 ms (  0.0%) in 46 applications",
+          "c timing        BVE                     38 ms (  0.0%) in 6423 applications",
+          "c timing        Congruence              24 ms (  0.0%) in 11 applications",
+          "c timing        Backbone                17 ms (  0.0%) in 151 applications",
+          "c timing        (unattributed)         170 ms (  0.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                   11          1675519    interval"
+        ]
+      }
+    },
+    {
+      "rank": 29,
+      "instance": "tierD24-26/16564a6acba6b9fc887c447d4e507767-ER_400_20_7.apx_2_DS-ST.cnf.xz",
+      "candidate_seconds": 310.506,
+      "kissat_seconds": 294.3,
+      "seconds_over_kissat": 16.20599999999996,
+      "time_ratio": 1.0550662589194697,
+      "work": {
+        "conflicts": 10609587,
+        "decisions": 32532310,
+        "propagations": 509067370
+      },
+      "kissat_work": {
+        "conflicts": 10609587,
+        "decisions": 32532310,
+        "propagations": 561246263
+      },
+      "prior_candidate_work": {
+        "conflicts": 10609587,
+        "decisions": 32532310,
+        "propagations": 509067370
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 139808,
+      "kissat_peak_rss_kb": 66076,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.907030306587538
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      215 rounds, 131519 vivified, 0 deleted, 0 flushed, 1691820 checked",
+          "c sweep       11 rounds, 2339 swept, 2339 environments (7235174 clauses), 83041 solves, 6966 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 9 budget, 414498427 ticks",
+          "c factor      1160 factorings, 0 large remainders offered, 1542971 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  2916 grids rejected by the coupled bound",
+          "c factor-dem  4 demotions, 1160 fresh vars demoted",
+          "c bve         0 rounds, 1046 eliminated, 352894 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 2 andor, 0 ite, 0 xor, 0 definition; 1183 resolvent pairs saved",
+          "c bve-def     7675 checked, 1495262 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      310443 ms solve",
+          "c timing      26814 ms (8.6%) inprocessing slot, 283629 ms (91.4%) search+scaffolding outside it",
+          "c timing        Vivify               18422 ms (  5.9%) in 215 applications",
+          "c timing        Sweep                 3815 ms (  1.2%) in 11 applications",
+          "c timing        TransitiveReduce      3492 ms (  1.1%) in 49220 applications",
+          "c timing        Substitute             644 ms (  0.2%) in 137 applications",
+          "c timing        BVE                     99 ms (  0.0%) in 7677 applications",
+          "c timing        Factor                  70 ms (  0.0%) in 8 applications",
+          "c timing        Congruence              59 ms (  0.0%) in 12 applications",
+          "c timing        Backbone                48 ms (  0.0%) in 137 applications",
+          "c timing        Strengthen              23 ms (  0.0%) in 15 applications",
+          "c timing        (unattributed)         142 ms (  0.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                   11           964508    interval"
+        ]
+      }
+    },
+    {
+      "rank": 6,
+      "instance": "tierD24-26/7a5e9bdbf9b8c025b1f986d6098b6206-cfi-rigid-t2-0048-04-or_3_shuffle_all.cnf.xz",
+      "candidate_seconds": 66.825,
+      "kissat_seconds": 52.851,
+      "seconds_over_kissat": 13.974000000000004,
+      "time_ratio": 1.2644037009706535,
+      "work": {
+        "conflicts": 373544,
+        "decisions": 3449913,
+        "propagations": 131533204
+      },
+      "kissat_work": {
+        "conflicts": 373544,
+        "decisions": 3449913,
+        "propagations": 145391572
+      },
+      "prior_candidate_work": {
+        "conflicts": 373544,
+        "decisions": 3449913,
+        "propagations": 131533204
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 756988,
+      "kissat_peak_rss_kb": 349612,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.9046824529829005
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      72 rounds, 7072 vivified, 0 deleted, 0 flushed, 64492 checked",
+          "c sweep       6 rounds, 2528 swept, 2528 environments (2261791 clauses), 5149 solves, 70 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 6 budget, 24349393 ticks",
+          "c factor      45 factorings, 0 large remainders offered, 741645064 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  23 demotions, 45 fresh vars demoted",
+          "c bve         0 rounds, 3 eliminated, 71115 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     129 checked, 141186 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      64767 ms solve",
+          "c timing      45514 ms (70.3%) inprocessing slot, 19254 ms (29.7%) search+scaffolding outside it",
+          "c timing        Factor               28310 ms ( 43.7%) in 23 applications",
+          "c timing        Congruence            5597 ms (  8.6%) in 6 applications",
+          "c timing        Substitute            3574 ms (  5.5%) in 45 applications",
+          "c timing        Vivify                3483 ms (  5.4%) in 72 applications",
+          "c timing        Strengthen            1365 ms (  2.1%) in 7 applications",
+          "c timing        Sweep                  851 ms (  1.3%) in 6 applications",
+          "c timing        Backbone               634 ms (  1.0%) in 45 applications",
+          "c timing        BVE                    115 ms (  0.2%) in 34706 applications",
+          "c timing        TransitiveReduce        95 ms (  0.1%) in 37 applications",
+          "c timing        (unattributed)        1490 ms (  2.3%)"
+        ],
+        "kissat": [
+          "c sweep:                                    6            62257    interval"
+        ]
+      }
+    },
+    {
+      "rank": 26,
+      "instance": "tierD24-26/0a27eb7c16c1e69ff4d087d217ac89cb-noL-11-0.sanitized.cnf.xz",
+      "candidate_seconds": 272.659,
+      "kissat_seconds": 262.497,
+      "seconds_over_kissat": 10.161999999999978,
+      "time_ratio": 1.038712823384648,
+      "work": {
+        "conflicts": 9608136,
+        "decisions": 27460199,
+        "propagations": 306487174
+      },
+      "kissat_work": {
+        "conflicts": 9608136,
+        "decisions": 27460199,
+        "propagations": 306487174
+      },
+      "prior_candidate_work": {
+        "conflicts": 9608136,
+        "decisions": 27460199,
+        "propagations": 306487174
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 142168,
+      "kissat_peak_rss_kb": 87904,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 1.0
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      190 rounds, 50015 vivified, 0 deleted, 0 flushed, 542479 checked",
+          "c sweep       10 rounds, 1747 swept, 1747 environments (1514384 clauses), 22166 solves, 5327 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 9 budget, 191109074 ticks",
+          "c factor      0 factorings, 47563 large remainders offered, 1046328 ticks",
+          "c factor-rem  47563 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 377 eliminated, 236069 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     5079 checked, 706267 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      272621 ms solve",
+          "c timing      17932 ms (6.6%) inprocessing slot, 254689 ms (93.4%) search+scaffolding outside it",
+          "c timing        Vivify               13364 ms (  4.9%) in 190 applications",
+          "c timing        Sweep                 3839 ms (  1.4%) in 10 applications",
+          "c timing        Substitute             475 ms (  0.2%) in 121 applications",
+          "c timing        BVE                     51 ms (  0.0%) in 5082 applications",
+          "c timing        Congruence              43 ms (  0.0%) in 10 applications",
+          "c timing        TransitiveReduce        19 ms (  0.0%) in 86984 applications",
+          "c timing        Factor                  13 ms (  0.0%) in 4 applications",
+          "c timing        Strengthen               8 ms (  0.0%) in 8 applications",
+          "c timing        Backbone                 4 ms (  0.0%) in 121 applications",
+          "c timing        (unattributed)         115 ms (  0.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                   10           960814    interval"
+        ]
+      }
+    },
+    {
+      "rank": 23,
+      "instance": "tierD24-26/994783ef4ed3a0366842e1b6f9128a6f-noL-11-6.sanitized.cnf.xz",
+      "candidate_seconds": 212.354,
+      "kissat_seconds": 202.295,
+      "seconds_over_kissat": 10.059000000000026,
+      "time_ratio": 1.0497244123680765,
+      "work": {
+        "conflicts": 6960467,
+        "decisions": 18156180,
+        "propagations": 254269085
+      },
+      "kissat_work": {
+        "conflicts": 6960467,
+        "decisions": 18156180,
+        "propagations": 254276689
+      },
+      "prior_candidate_work": {
+        "conflicts": 6960467,
+        "decisions": 18156180,
+        "propagations": 254269085
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 100628,
+      "kissat_peak_rss_kb": 42608,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.9999700955678246
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      165 rounds, 45615 vivified, 0 deleted, 0 flushed, 463109 checked",
+          "c sweep       9 rounds, 1699 swept, 1699 environments (1408823 clauses), 21902 solves, 5269 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 6 budget, 133931770 ticks",
+          "c factor      0 factorings, 46379 large remainders offered, 1000642 ticks",
+          "c factor-rem  46379 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 382 eliminated, 271705 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     6057 checked, 832848 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      212309 ms solve",
+          "c timing      13556 ms (6.4%) inprocessing slot, 198753 ms (93.6%) search+scaffolding outside it",
+          "c timing        Vivify               10417 ms (  4.9%) in 165 applications",
+          "c timing        Sweep                 2597 ms (  1.2%) in 9 applications",
+          "c timing        Substitute             320 ms (  0.2%) in 105 applications",
+          "c timing        BVE                     59 ms (  0.0%) in 6072 applications",
+          "c timing        Congruence              35 ms (  0.0%) in 9 applications",
+          "c timing        TransitiveReduce        15 ms (  0.0%) in 74256 applications",
+          "c timing        Factor                  13 ms (  0.0%) in 4 applications",
+          "c timing        Strengthen               9 ms (  0.0%) in 9 applications",
+          "c timing        Backbone                 4 ms (  0.0%) in 105 applications",
+          "c timing        (unattributed)          87 ms (  0.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                    9           773385    interval"
+        ]
+      }
+    },
+    {
+      "rank": 10,
+      "instance": "tierD24-26/093fa3ff9f7bc9979c43f9d2310ac21d-128_125.sanitized.cnf.xz",
+      "candidate_seconds": 90.713,
+      "kissat_seconds": 81.346,
+      "seconds_over_kissat": 9.36699999999999,
+      "time_ratio": 1.1151500995746564,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 76457813
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 76431950
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 76457813
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 15967668,
+      "kissat_peak_rss_kb": 15348304,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0003383794342549
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       1 rounds, 6679 swept, 6679 environments (80148 clauses), 38896 solves, 20322 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 1387383 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      68635 ms solve",
+          "c timing      56737 ms (82.7%) inprocessing slot, 11898 ms (17.3%) search+scaffolding outside it",
+          "c timing        Congruence           35039 ms ( 51.1%) in 1 applications",
+          "c timing        Substitute           16248 ms ( 23.7%) in 1 applications",
+          "c timing        Sweep                 3932 ms (  5.7%) in 1 applications",
+          "c timing        Backbone               399 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)        1117 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                    1                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 14,
+      "instance": "tierD24-26/a14d9ee17051ec08a4334ba43089502c-64_200.sanitized.cnf.xz",
+      "candidate_seconds": 72.484,
+      "kissat_seconds": 63.315,
+      "seconds_over_kissat": 9.168999999999997,
+      "time_ratio": 1.144815604517097,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61521915
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61483725
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61521915
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 12854700,
+      "kissat_peak_rss_kb": 12018708,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0006211399846057
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       1 rounds, 6679 swept, 6679 environments (80148 clauses), 38896 solves, 20322 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 1387383 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      55024 ms solve",
+          "c timing      45299 ms (82.3%) inprocessing slot, 9724 ms (17.7%) search+scaffolding outside it",
+          "c timing        Congruence           28605 ms ( 52.0%) in 1 applications",
+          "c timing        Substitute           12291 ms ( 22.3%) in 1 applications",
+          "c timing        Sweep                 3213 ms (  5.8%) in 1 applications",
+          "c timing        Backbone               324 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)         866 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                    1                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 13,
+      "instance": "tierD24-26/84c6d7e4a18aacf166105aaa3cd6e3de-128_100.sanitized.cnf.xz",
+      "candidate_seconds": 72.833,
+      "kissat_seconds": 64.172,
+      "seconds_over_kissat": 8.661000000000001,
+      "time_ratio": 1.1349654054727918,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61295163
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61261545
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 61295163
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 12752784,
+      "kissat_peak_rss_kb": 11928200,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0005487618701094
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       1 rounds, 6679 swept, 6679 environments (80148 clauses), 38896 solves, 20322 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 1387383 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      55649 ms solve",
+          "c timing      45621 ms (82.0%) inprocessing slot, 10028 ms (18.0%) search+scaffolding outside it",
+          "c timing        Congruence           28331 ms ( 50.9%) in 1 applications",
+          "c timing        Substitute           12948 ms ( 23.3%) in 1 applications",
+          "c timing        Sweep                 3135 ms (  5.6%) in 1 applications",
+          "c timing        Backbone               316 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)         891 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                    1                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 16,
+      "instance": "tierD24-26/05c8e94aaee86390eaf6e68dd3ec3570-noL-11-2.sanitized.cnf.xz",
+      "candidate_seconds": 129.899,
+      "kissat_seconds": 121.862,
+      "seconds_over_kissat": 8.037000000000006,
+      "time_ratio": 1.0659516502273063,
+      "work": {
+        "conflicts": 4777402,
+        "decisions": 14441406,
+        "propagations": 152705482
+      },
+      "kissat_work": {
+        "conflicts": 4777402,
+        "decisions": 14441406,
+        "propagations": 152707442
+      },
+      "prior_candidate_work": {
+        "conflicts": 4777402,
+        "decisions": 14441406,
+        "propagations": 152705482
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 113668,
+      "kissat_peak_rss_kb": 65168,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.9999871650001183
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      140 rounds, 25517 vivified, 0 deleted, 0 flushed, 280617 checked",
+          "c sweep       9 rounds, 1755 swept, 1755 environments (1591987 clauses), 22096 solves, 5372 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 8 budget, 139863197 ticks",
+          "c factor      0 factorings, 46571 large remainders offered, 1022963 ticks",
+          "c factor-rem  46571 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 378 eliminated, 228740 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     4959 checked, 682664 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      129843 ms solve",
+          "c timing      9497 ms (7.3%) inprocessing slot, 120345 ms (92.7%) search+scaffolding outside it",
+          "c timing        Vivify                6465 ms (  5.0%) in 140 applications",
+          "c timing        Sweep                 2554 ms (  2.0%) in 9 applications",
+          "c timing        Substitute             281 ms (  0.2%) in 89 applications",
+          "c timing        BVE                     49 ms (  0.0%) in 4966 applications",
+          "c timing        Congruence              39 ms (  0.0%) in 9 applications",
+          "c timing        TransitiveReduce        12 ms (  0.0%) in 63834 applications",
+          "c timing        Factor                  12 ms (  0.0%) in 3 applications",
+          "c timing        Strengthen               8 ms (  0.0%) in 8 applications",
+          "c timing        Backbone                 3 ms (  0.0%) in 89 applications",
+          "c timing        (unattributed)          74 ms (  0.1%)"
+        ],
+        "kissat": [
+          "c sweep:                                    9           530822    interval"
+        ]
+      }
+    },
+    {
+      "rank": 8,
+      "instance": "tierD24-26/210fe1c0ffefde5bcd03d59b1efa6984-32_325.sanitized.cnf.xz",
+      "candidate_seconds": 65.971,
+      "kissat_seconds": 58.463,
+      "seconds_over_kissat": 7.508000000000003,
+      "time_ratio": 1.1284231052118434,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 56889411
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 56849612
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 56889411
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 11862680,
+      "kissat_peak_rss_kb": 11118752,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0007000751385955
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       1 rounds, 6679 swept, 6679 environments (80148 clauses), 38896 solves, 20322 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 1387383 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      50013 ms solve",
+          "c timing      41280 ms (82.5%) inprocessing slot, 8733 ms (17.5%) search+scaffolding outside it",
+          "c timing        Congruence           26352 ms ( 52.7%) in 1 applications",
+          "c timing        Substitute           10924 ms ( 21.8%) in 1 applications",
+          "c timing        Sweep                 2920 ms (  5.8%) in 1 applications",
+          "c timing        Backbone               303 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)         781 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                    1                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 30,
+      "instance": "tierD24-26/ab17eed90e4da47767f72f518e3b4a26-vdwb_k6_n250.sanitized.cnf.xz",
+      "candidate_seconds": 287.503,
+      "kissat_seconds": 281.441,
+      "seconds_over_kissat": 6.062000000000012,
+      "time_ratio": 1.0215391503014841,
+      "work": {
+        "conflicts": 5912244,
+        "decisions": 10672173,
+        "propagations": 162634188
+      },
+      "kissat_work": {
+        "conflicts": 5912244,
+        "decisions": 10672173,
+        "propagations": 162634188
+      },
+      "prior_candidate_work": {
+        "conflicts": 5912244,
+        "decisions": 10672173,
+        "propagations": 162634188
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 158212,
+      "kissat_peak_rss_kb": 93572,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 1.0
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      159 rounds, 37046 vivified, 0 deleted, 0 flushed, 132925 checked",
+          "c sweep       9 rounds, 751 swept, 751 environments (1869226 clauses), 7186 solves, 3052 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 6 budget, 240223058 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 580670 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     1500 checked, 1177654 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      287475 ms solve",
+          "c timing      25890 ms (9.0%) inprocessing slot, 261585 ms (91.0%) search+scaffolding outside it",
+          "c timing        Vivify               19951 ms (  6.9%) in 159 applications",
+          "c timing        Sweep                 5098 ms (  1.8%) in 9 applications",
+          "c timing        Substitute             570 ms (  0.2%) in 101 applications",
+          "c timing        BVE                    100 ms (  0.0%) in 1500 applications",
+          "c timing        Strengthen              57 ms (  0.0%) in 8 applications",
+          "c timing        Congruence              40 ms (  0.0%) in 9 applications",
+          "c timing        TransitiveReduce        18 ms (  0.0%) in 25000 applications",
+          "c timing        Backbone                 1 ms (  0.0%) in 101 applications",
+          "c timing        Factor                   0 ms (  0.0%) in 1 applications",
+          "c timing        (unattributed)          54 ms (  0.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                    9           656916    interval"
+        ]
+      }
+    },
+    {
+      "rank": 7,
+      "instance": "tierD24-26/26b648475cfd06695a17ac95f4469744-128_75.sanitized.cnf.xz",
+      "candidate_seconds": 54.32,
+      "kissat_seconds": 48.497,
+      "seconds_over_kissat": 5.823,
+      "time_ratio": 1.1200692826360394,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 46132715
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 46109670
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 46132715
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 9713632,
+      "kissat_peak_rss_kb": 9109728,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0004997867041772
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       1 rounds, 6679 swept, 6679 environments (80148 clauses), 38896 solves, 20322 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 1387383 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      41863 ms solve",
+          "c timing      34721 ms (82.9%) inprocessing slot, 7142 ms (17.1%) search+scaffolding outside it",
+          "c timing        Congruence           21675 ms ( 51.8%) in 1 applications",
+          "c timing        Substitute            9801 ms ( 23.4%) in 1 applications",
+          "c timing        Sweep                 2336 ms (  5.6%) in 1 applications",
+          "c timing        Backbone               239 ms (  0.6%) in 1 applications",
+          "c timing        (unattributed)         669 ms (  1.6%)"
+        ],
+        "kissat": [
+          "c sweep:                                    1                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 12,
+      "instance": "tierD24-26/8d4b50ec0cf99097e9ab0835937afee5-hwmcc17miters-xits-iso-6s281b35.sanitized.cnf.xz",
+      "candidate_seconds": 7.328,
+      "kissat_seconds": 5.174,
+      "seconds_over_kissat": 2.154,
+      "time_ratio": 1.4163123308851953,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 4868175
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 4868175
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 4868175
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 1843960,
+      "kissat_peak_rss_kb": 1234908,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       0 rounds, 0 swept, 0 environments (0 clauses), 0 solves, 0 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 0 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      6480 ms solve",
+          "c timing      5515 ms (85.1%) inprocessing slot, 965 ms (14.9%) search+scaffolding outside it",
+          "c timing        Congruence            5396 ms ( 83.3%) in 1 applications",
+          "c timing        (unattributed)         118 ms (  1.8%)"
+        ],
+        "kissat": [
+          "c sweep:                                    0                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 15,
+      "instance": "tierD24-26/8ffd718f763ed7a3f691cf46e57f8d98-mdp-32-10-sat.cnf.xz",
+      "candidate_seconds": 82.411,
+      "kissat_seconds": 80.414,
+      "seconds_over_kissat": 1.9969999999999999,
+      "time_ratio": 1.0248339841321163,
+      "work": {
+        "conflicts": 2272663,
+        "decisions": 3310531,
+        "propagations": 311056558
+      },
+      "kissat_work": {
+        "conflicts": 2272663,
+        "decisions": 3310531,
+        "propagations": 311286274
+      },
+      "prior_candidate_work": {
+        "conflicts": 2272663,
+        "decisions": 3310531,
+        "propagations": 311056558
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 61836,
+      "kissat_peak_rss_kb": 29704,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.999262042630251
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      116 rounds, 45851 vivified, 0 deleted, 0 flushed, 252557 checked",
+          "c sweep       8 rounds, 1436 swept, 1436 environments (1522151 clauses), 26206 solves, 14311 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 6 budget, 98853444 ticks",
+          "c factor      24 factorings, 62173 large remainders offered, 1207855 ticks",
+          "c factor-rem  61323 materialized, 850 reused",
+          "c factor-bnd  869 grids rejected by the coupled bound",
+          "c factor-dem  5 demotions, 24 fresh vars demoted",
+          "c bve         0 rounds, 410 eliminated, 238593 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 398 andor, 11 ite, 0 xor, 5283 definition; 2638533 resolvent pairs saved",
+          "c bve-def     5634 checked, 867144 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      82374 ms solve",
+          "c timing      6683 ms (8.1%) inprocessing slot, 75691 ms (91.9%) search+scaffolding outside it",
+          "c timing        Vivify                5154 ms (  6.3%) in 116 applications",
+          "c timing        Sweep                 1149 ms (  1.4%) in 8 applications",
+          "c timing        Substitute             123 ms (  0.1%) in 71 applications",
+          "c timing        BVE                     78 ms (  0.1%) in 6043 applications",
+          "c timing        Factor                  38 ms (  0.0%) in 25 applications",
+          "c timing        Strengthen              36 ms (  0.0%) in 24 applications",
+          "c timing        Congruence              23 ms (  0.0%) in 8 applications",
+          "c timing        TransitiveReduce        13 ms (  0.0%) in 39720 applications",
+          "c timing        Backbone                 3 ms (  0.0%) in 71 applications",
+          "c timing        (unattributed)          65 ms (  0.1%)"
+        ],
+        "kissat": [
+          "c sweep:                                    8           284083    interval"
+        ]
+      }
+    },
+    {
+      "rank": 4,
+      "instance": "tierD24-26/15456f0d13b26f0b4b21525ef7d0d711-clique_n5_k10.sanitized.cnf.xz",
+      "candidate_seconds": 8.48,
+      "kissat_seconds": 7.629,
+      "seconds_over_kissat": 0.8510000000000009,
+      "time_ratio": 1.111548040372264,
+      "work": {
+        "conflicts": 651764,
+        "decisions": 908950,
+        "propagations": 18006397
+      },
+      "kissat_work": {
+        "conflicts": 651764,
+        "decisions": 908950,
+        "propagations": 18532091
+      },
+      "prior_candidate_work": {
+        "conflicts": 651764,
+        "decisions": 908950,
+        "propagations": 18006397
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 28008,
+      "kissat_peak_rss_kb": 13008,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.971633314341053
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      71 rounds, 5967 vivified, 0 deleted, 0 flushed, 29948 checked",
+          "c sweep       5 rounds, 583 swept, 583 environments (295646 clauses), 12693 solves, 2290 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 4 budget, 12629209 ticks",
+          "c factor      399 factorings, 277 large remainders offered, 430685 ticks",
+          "c factor-rem  277 materialized, 0 reused",
+          "c factor-bnd  837 grids rejected by the coupled bound",
+          "c factor-dem  5 demotions, 399 fresh vars demoted",
+          "c bve         0 rounds, 700 eliminated, 150026 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 3 andor, 0 ite, 0 xor, 6 definition; 129 resolvent pairs saved",
+          "c bve-def     6144 checked, 299064 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      8439 ms solve",
+          "c timing      800 ms (9.5%) inprocessing slot, 7639 ms (90.5%) search+scaffolding outside it",
+          "c timing        Vivify                 456 ms (  5.4%) in 71 applications",
+          "c timing        Sweep                  196 ms (  2.3%) in 5 applications",
+          "c timing        Substitute              34 ms (  0.4%) in 37 applications",
+          "c timing        BVE                     29 ms (  0.3%) in 6172 applications",
+          "c timing        TransitiveReduce        27 ms (  0.3%) in 10642 applications",
+          "c timing        Factor                  18 ms (  0.2%) in 16 applications",
+          "c timing        Strengthen              11 ms (  0.1%) in 14 applications",
+          "c timing        Backbone                 6 ms (  0.1%) in 37 applications",
+          "c timing        Congruence               5 ms (  0.1%) in 5 applications",
+          "c timing        (unattributed)          18 ms (  0.2%)"
+        ],
+        "kissat": [
+          "c sweep:                                    5           130353    interval"
+        ]
+      }
+    },
+    {
+      "rank": 5,
+      "instance": "tierD24-26/1c21a43aa1ad437e4a7e4eb5b9cd45a1-9.normalised.cnf.xz",
+      "candidate_seconds": 30.721,
+      "kissat_seconds": 30.315,
+      "seconds_over_kissat": 0.4059999999999988,
+      "time_ratio": 1.0133927098795976,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 58640574
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 58571074
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 58640574
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 10682156,
+      "kissat_peak_rss_kb": 10402844,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0011865925490797
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       0 rounds, 0 swept, 0 environments (0 clauses), 0 solves, 0 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 0 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      3381 ms solve",
+          "c timing      0 ms (0.0%) inprocessing slot, 3381 ms (100.0%) search+scaffolding outside it",
+          "c timing        (unattributed)           0 ms (  0.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                    0                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 3,
+      "instance": "tierD24-26/3b5d7ec347010e177bfa04b298fc75cf-nla-digbench-scaling_dijkstra-u_valuebound1_transition.cnf.xz",
+      "candidate_seconds": 0.567,
+      "kissat_seconds": 0.467,
+      "seconds_over_kissat": 0.09999999999999992,
+      "time_ratio": 1.2141327623126337,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 96082
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 96083
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 96082
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 153892,
+      "kissat_peak_rss_kb": 103612,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 0.99998959233163
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       0 rounds, 0 swept, 0 environments (0 clauses), 0 solves, 0 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 0 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      477 ms solve",
+          "c timing      436 ms (91.5%) inprocessing slot, 40 ms (8.5%) search+scaffolding outside it",
+          "c timing        Congruence             387 ms ( 81.2%) in 1 applications",
+          "c timing        Substitute              36 ms (  7.6%) in 1 applications",
+          "c timing        (unattributed)          13 ms (  2.7%)"
+        ],
+        "kissat": [
+          "c sweep:                                    0                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 11,
+      "instance": "tierD24-26/912ce8c21d8fb8abc491cb205ec23e9f-hwmcc20miters-iso-mul2.sanitized.cnf.xz",
+      "candidate_seconds": 0.266,
+      "kissat_seconds": 0.216,
+      "seconds_over_kissat": 0.05000000000000002,
+      "time_ratio": 1.2314814814814816,
+      "work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 253639
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 253639
+      },
+      "prior_candidate_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 253639
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 95464,
+      "kissat_peak_rss_kb": 60692,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       0 rounds, 0 swept, 0 environments (0 clauses), 0 solves, 0 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 0 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      169 ms solve",
+          "c timing      142 ms (83.8%) inprocessing slot, 27 ms (16.2%) search+scaffolding outside it",
+          "c timing        Congruence             137 ms ( 80.7%) in 1 applications",
+          "c timing        (unattributed)           5 ms (  3.0%)"
+        ],
+        "kissat": [
+          "c sweep:                                    0                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 1,
+      "instance": "tierD24-26/1545660e72158c7e90da5ad4c877a124-hwmcc20miters-iso-rast-p06.sanitized.cnf.xz",
+      "candidate_seconds": 0.216,
+      "kissat_seconds": 0.216,
+      "seconds_over_kissat": 0.0,
+      "time_ratio": 1.0,
+      "work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 190699
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 190698
+      },
+      "prior_candidate_work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 190699
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 84068,
+      "kissat_peak_rss_kb": 49564,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.000005243893486
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       0 rounds, 0 swept, 0 environments (0 clauses), 0 solves, 0 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 0 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      155 ms solve",
+          "c timing      132 ms (85.0%) inprocessing slot, 23 ms (15.0%) search+scaffolding outside it",
+          "c timing        Congruence             128 ms ( 82.2%) in 1 applications",
+          "c timing        (unattributed)           4 ms (  2.8%)"
+        ],
+        "kissat": [
+          "c sweep:                                    0                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 2,
+      "instance": "tierD24-26/1a20d903db74ab566efc68a35e6b0ec5-hwmcc20miters-iso-rast-p11.sanitized.cnf.xz",
+      "candidate_seconds": 0.216,
+      "kissat_seconds": 0.217,
+      "seconds_over_kissat": -0.0010000000000000009,
+      "time_ratio": 0.9953917050691244,
+      "work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 188827
+      },
+      "kissat_work": {
+        "conflicts": 0,
+        "decisions": 0,
+        "propagations": 188826
+      },
+      "prior_candidate_work": {
+        "conflicts": 1,
+        "decisions": 0,
+        "propagations": 188827
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 84088,
+      "kissat_peak_rss_kb": 49568,
+      "work_ratios": {
+        "conflicts": null,
+        "decisions": null,
+        "propagations": 1.0000052958808638
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      0 rounds, 0 vivified, 0 deleted, 0 flushed, 0 checked",
+          "c sweep       0 rounds, 0 swept, 0 environments (0 clauses), 0 solves, 0 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 0 budget, 0 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      154 ms solve",
+          "c timing      131 ms (85.0%) inprocessing slot, 23 ms (15.0%) search+scaffolding outside it",
+          "c timing        Congruence             127 ms ( 82.3%) in 1 applications",
+          "c timing        (unattributed)           4 ms (  2.7%)"
+        ],
+        "kissat": [
+          "c sweep:                                    0                0    interval"
+        ]
+      }
+    },
+    {
+      "rank": 25,
+      "instance": "tierD24-26/180e6d8b61fe6bab26126b78591e324e-baseballcover11with22_and2positions.cnf.xz",
+      "candidate_seconds": 256.986,
+      "kissat_seconds": 261.868,
+      "seconds_over_kissat": -4.882000000000005,
+      "time_ratio": 0.9813570195671101,
+      "work": {
+        "conflicts": 348659,
+        "decisions": 1200326,
+        "propagations": 3289147069
+      },
+      "kissat_work": {
+        "conflicts": 577305,
+        "decisions": 1923486,
+        "propagations": 3408832103
+      },
+      "prior_candidate_work": {
+        "conflicts": 348659,
+        "decisions": 1200326,
+        "propagations": 3289147069
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 3409816,
+      "kissat_peak_rss_kb": 888820,
+      "work_ratios": {
+        "conflicts": 0.6039424567602913,
+        "decisions": 0.6240367748972439,
+        "propagations": 0.9648897245790812
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      96 rounds, 18338 vivified, 1 deleted, 0 flushed, 89973 checked",
+          "c sweep       6 rounds, 67585 swept, 67585 environments (10568529 clauses), 385622 solves, 131107 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 3 budget, 422748990 ticks",
+          "c factor      721 factorings, 515756 large remainders offered, 8997544 ticks",
+          "c factor-rem  471552 materialized, 44204 reused",
+          "c factor-bnd  18872 grids rejected by the coupled bound",
+          "c factor-dem  8 demotions, 721 fresh vars demoted",
+          "c bve         0 rounds, 566495 eliminated, 32797847 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     3127428 checked, 98590588 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      256049 ms solve",
+          "c timing      47155 ms (18.4%) inprocessing slot, 208893 ms (81.6%) search+scaffolding outside it",
+          "c timing        BVE                  12456 ms (  4.9%) in 3295889 applications",
+          "c timing        Vivify                9352 ms (  3.7%) in 96 applications",
+          "c timing        Substitute            6302 ms (  2.5%) in 51 applications",
+          "c timing        Sweep                 5285 ms (  2.1%) in 6 applications",
+          "c timing        Factor                4834 ms (  1.9%) in 21 applications",
+          "c timing        Congruence            2967 ms (  1.2%) in 7 applications",
+          "c timing        Strengthen            1282 ms (  0.5%) in 12 applications",
+          "c timing        Backbone              1083 ms (  0.4%) in 51 applications",
+          "c timing        TransitiveReduce       797 ms (  0.3%) in 224029 applications",
+          "c timing        (unattributed)        2799 ms (  1.1%)"
+        ],
+        "kissat": [
+          "c sweep:                                    7            82472    interval"
+        ]
+      }
+    },
+    {
+      "rank": 28,
+      "instance": "tierD24-26/9541d12f3e3d9201085c13f25145d2f7-cabp-V-nos6.mtx.rnd-k275.sanitized.cnf.xz",
+      "candidate_seconds": 249.272,
+      "kissat_seconds": 275.071,
+      "seconds_over_kissat": -25.799000000000035,
+      "time_ratio": 0.9062096695035099,
+      "work": {
+        "conflicts": 87115,
+        "decisions": 2027884,
+        "propagations": 3106120168
+      },
+      "kissat_work": {
+        "conflicts": 86308,
+        "decisions": 1957665,
+        "propagations": 3099647407
+      },
+      "prior_candidate_work": {
+        "conflicts": 87115,
+        "decisions": 2027884,
+        "propagations": 3106120168
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 1571936,
+      "kissat_peak_rss_kb": 807884,
+      "work_ratios": {
+        "conflicts": 1.0093502340455114,
+        "decisions": 1.035868751803807,
+        "propagations": 1.0020882249333851
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      27 rounds, 3736 vivified, 0 deleted, 0 flushed, 18024 checked",
+          "c sweep       3 rounds, 490936 swept, 39021 environments (2228015 clauses), 275013 solves, 132269 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 4 budget, 380815820 ticks",
+          "c factor      246597 factorings, 2958408 large remainders offered, 120769281 ticks",
+          "c factor-rem  2713575 materialized, 244833 reused",
+          "c factor-bnd  571408 grids rejected by the coupled bound",
+          "c factor-dem  3 demotions, 246597 fresh vars demoted",
+          "c bve         0 rounds, 424165 eliminated, 54548605 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   82 equiv, 3078087 andor, 0 ite, 0 xor, 0 definition; 34338600 resolvent pairs saved",
+          "c bve-def     631753 checked, 14826460 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      248325 ms solve",
+          "c timing      69548 ms (28.0%) inprocessing slot, 178777 ms (72.0%) search+scaffolding outside it",
+          "c timing        Vivify               19403 ms (  7.8%) in 27 applications",
+          "c timing        Backbone             13279 ms (  5.3%) in 17 applications",
+          "c timing        Factor                7182 ms (  2.9%) in 4 applications",
+          "c timing        Substitute            5773 ms (  2.3%) in 17 applications",
+          "c timing        BVE                   5108 ms (  2.1%) in 5514818 applications",
+          "c timing        Congruence            4498 ms (  1.8%) in 3 applications",
+          "c timing        Sweep                 3879 ms (  1.6%) in 3 applications",
+          "c timing        Strengthen            3349 ms (  1.3%) in 6 applications",
+          "c timing        TransitiveReduce      2296 ms (  0.9%) in 16988 applications",
+          "c timing        (unattributed)        4781 ms (  1.9%)"
+        ],
+        "kissat": [
+          "c sweep:                                    3            28769    interval"
+        ]
+      }
+    },
+    {
+      "rank": 40,
+      "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+      "candidate_seconds": 365.212,
+      "kissat_seconds": 398.765,
+      "seconds_over_kissat": -33.553,
+      "time_ratio": 0.9158577106817298,
+      "work": {
+        "conflicts": 3314676,
+        "decisions": 12875218,
+        "propagations": 2586734397
+      },
+      "kissat_work": {
+        "conflicts": 4857907,
+        "decisions": 18272243,
+        "propagations": 3116952772
+      },
+      "prior_candidate_work": {
+        "conflicts": 4028303,
+        "decisions": 14606738,
+        "propagations": 3190779427
+      },
+      "work_unchanged_from_prior": false,
+      "candidate_peak_rss_kb": 379184,
+      "kissat_peak_rss_kb": 187552,
+      "work_ratios": {
+        "conflicts": 0.6823259481912683,
+        "decisions": 0.7046325949145926,
+        "propagations": 0.8298920728722546
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      292 rounds, 167444 vivified, 38 deleted, 0 flushed, 690420 checked",
+          "c sweep       46 rounds, 189543 swept, 189371 environments (73334878 clauses), 1929000 solves, 895260 candidates, 5204 equivalences, 1093 units (571 already binary), 0 env-unsat, 50 budget, 2423457555 ticks",
+          "c factor      1819 factorings, 13157571 large remainders offered, 485908660 ticks",
+          "c factor-rem  12085263 materialized, 1072308 reused",
+          "c factor-bnd  92411 grids rejected by the coupled bound",
+          "c factor-dem  50 demotions, 1819 fresh vars demoted",
+          "c bve         0 rounds, 236125 eliminated, 67753677 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   1016 equiv, 134945 andor, 47525 ite, 0 xor, 521585 definition; 10615006628 resolvent pairs saved",
+          "c bve-def     552575 checked, 106591620 ticks, 0 hit the tick ceiling, 10 units",
+          "c timing      365062 ms solve",
+          "c timing      105571 ms (28.9%) inprocessing slot, 259491 ms (71.1%) search+scaffolding outside it",
+          "c timing        Sweep                36903 ms ( 10.1%) in 46 applications",
+          "c timing        Vivify               35746 ms (  9.8%) in 292 applications",
+          "c timing        BVE                  11125 ms (  3.0%) in 736918 applications",
+          "c timing        Factor                7080 ms (  1.9%) in 74 applications",
+          "c timing        Substitute            4810 ms (  1.3%) in 160 applications",
+          "c timing        TransitiveReduce      3637 ms (  1.0%) in 3899896 applications",
+          "c timing        Strengthen            2273 ms (  0.6%) in 33 applications",
+          "c timing        Congruence            1485 ms (  0.4%) in 12 applications",
+          "c timing        Backbone               644 ms (  0.2%) in 159 applications",
+          "c timing        (unattributed)        1867 ms (  0.5%)"
+        ],
+        "kissat": [
+          "c sweep:                                   62            78353    interval"
+        ]
+      }
+    },
+    {
+      "rank": 20,
+      "instance": "tierD24-26/9376a4be372c14aa68235831712ff3f9-cabp-X-can__715.mtx.rnd-k102.sanitized.cnf.xz",
+      "candidate_seconds": 120.056,
+      "kissat_seconds": 178.885,
+      "seconds_over_kissat": -58.82899999999999,
+      "time_ratio": 0.671135086787601,
+      "work": {
+        "conflicts": 81993,
+        "decisions": 1229783,
+        "propagations": 840278325
+      },
+      "kissat_work": {
+        "conflicts": 81993,
+        "decisions": 1229783,
+        "propagations": 877858626
+      },
+      "prior_candidate_work": {
+        "conflicts": 81993,
+        "decisions": 1229783,
+        "propagations": 840278325
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 1787092,
+      "kissat_peak_rss_kb": 943992,
+      "work_ratios": {
+        "conflicts": 1.0,
+        "decisions": 1.0,
+        "propagations": 0.9571909418134487
+      },
+      "verification": {
+        "tactix": "checked",
+        "kissat": "checked"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      24 rounds, 1193 vivified, 0 deleted, 0 flushed, 7317 checked",
+          "c sweep       3 rounds, 20856 swept, 20856 environments (2041046 clauses), 193749 solves, 91968 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 3 budget, 45394674 ticks",
+          "c factor      493961 factorings, 3435027 large remainders offered, 208932319 ticks",
+          "c factor-rem  3023318 materialized, 411709 reused",
+          "c factor-bnd  548059 grids rejected by the coupled bound",
+          "c factor-dem  2 demotions, 493961 fresh vars demoted",
+          "c bve         0 rounds, 21227 eliminated, 51909106 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 2012023 andor, 0 ite, 0 xor, 0 definition; 42364575 resolvent pairs saved",
+          "c bve-def     130587 checked, 5174230 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      118536 ms solve",
+          "c timing      45657 ms (38.5%) inprocessing slot, 72879 ms (61.5%) search+scaffolding outside it",
+          "c timing        Factor               13235 ms ( 11.2%) in 2 applications",
+          "c timing        Vivify                6622 ms (  5.6%) in 24 applications",
+          "c timing        Substitute            6227 ms (  5.3%) in 15 applications",
+          "c timing        Congruence            5512 ms (  4.7%) in 3 applications",
+          "c timing        Backbone              3616 ms (  3.1%) in 15 applications",
+          "c timing        BVE                   2622 ms (  2.2%) in 3165117 applications",
+          "c timing        Strengthen            2421 ms (  2.0%) in 4 applications",
+          "c timing        Sweep                 1147 ms (  1.0%) in 3 applications",
+          "c timing        TransitiveReduce       506 ms (  0.4%) in 4412 applications",
+          "c timing        (unattributed)        3750 ms (  3.2%)"
+        ],
+        "kissat": [
+          "c sweep:                                    3            27331    interval"
+        ]
+      }
+    },
+    {
+      "rank": 18,
+      "instance": "tierD24-26/0f262afd5b117000f8b4734d175aadab-linked_list_swap_contents_safety_unwind73.cnf.xz",
+      "candidate_seconds": 65.074,
+      "kissat_seconds": 127.619,
+      "seconds_over_kissat": -62.545,
+      "time_ratio": 0.5099083992195519,
+      "work": {
+        "conflicts": 11370,
+        "decisions": 802677,
+        "propagations": 546191110
+      },
+      "kissat_work": {
+        "conflicts": 35646,
+        "decisions": 1055436,
+        "propagations": 1843175943
+      },
+      "prior_candidate_work": {
+        "conflicts": 11370,
+        "decisions": 802677,
+        "propagations": 546191110
+      },
+      "work_unchanged_from_prior": true,
+      "candidate_peak_rss_kb": 2984780,
+      "kissat_peak_rss_kb": 2083228,
+      "work_ratios": {
+        "conflicts": 0.3189698703921899,
+        "decisions": 0.7605169806601253,
+        "propagations": 0.2963315097911952
+      },
+      "verification": {
+        "tactix": "pending",
+        "kissat": "pending"
+      },
+      "component_statistics": {
+        "tactix": [
+          "c vivify      7 rounds, 258 vivified, 0 deleted, 0 flushed, 13296 checked",
+          "c sweep       2 rounds, 13725 swept, 13725 environments (2743142 clauses), 82191 solves, 27818 candidates, 0 equivalences, 0 units (0 already binary), 0 env-unsat, 2 budget, 76652863 ticks",
+          "c factor      0 factorings, 0 large remainders offered, 0 ticks",
+          "c factor-rem  0 materialized, 0 reused",
+          "c factor-bnd  0 grids rejected by the coupled bound",
+          "c factor-dem  0 demotions, 0 fresh vars demoted",
+          "c bve         0 rounds, 0 eliminated, 0 resolutions",
+          "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+          "c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved",
+          "c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units",
+          "c timing      60678 ms solve",
+          "c timing      28727 ms (47.3%) inprocessing slot, 31951 ms (52.7%) search+scaffolding outside it",
+          "c timing        Congruence           15964 ms ( 26.3%) in 3 applications",
+          "c timing        Substitute            5011 ms (  8.3%) in 5 applications",
+          "c timing        Sweep                 4042 ms (  6.7%) in 2 applications",
+          "c timing        Vivify                2583 ms (  4.3%) in 7 applications",
+          "c timing        Backbone               587 ms (  1.0%) in 5 applications",
+          "c timing        TransitiveReduce        68 ms (  0.1%) in 62 applications",
+          "c timing        (unattributed)         472 ms (  0.8%)"
+        ],
+        "kissat": [
+          "c sweep:                                    3            11882    interval"
+        ]
+      }
+    }
+  ],
+  "candidate_work_changed_ranks": [
+    9,
+    21,
+    32,
+    37,
+    39,
+    40
+  ],
+  "decision": "Prioritize the largest remaining measured losses and their pending causal traces. Bounded Rank-37 closure does not establish full-run trajectory equality. Keep source-backed general repairs while investigating remaining work and cost.",
+  "limitations": "Complete same-campaign Tactix/Kissat scoring view; predecessor comparison crosses windows and does not causally attribute timing. Counter ratios and unmatched timer scopes do not prove unit-cost parity or infer weakness from raw work counts. Per-rank peak RSS is not a live-memory ownership decomposition."
+}
