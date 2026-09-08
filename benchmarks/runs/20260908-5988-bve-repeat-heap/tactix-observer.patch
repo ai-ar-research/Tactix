@@ -1,0 +1,42 @@
+--- a/src/policies/default_policy.cpp
++++ b/src/policies/default_policy.cpp
+@@ -1360,0 +1361,2 @@
++    static unsigned pop_snapshot = 0;
++    const bool all_pops = std::getenv("SAT_BVE_FULL_HEAP_ALL_POPS") != nullptr;
+@@ -1363 +1365 @@
+-    if (initial ? initial_done : (pop_done || external != std::strtoul(subject, nullptr, 10)))
++    if (initial ? initial_done : ((pop_done && !all_pops) || external != std::strtoul(subject, nullptr, 10)))
+@@ -1369 +1371,2 @@
+-    std::fprintf(out, "# begin\t%u\t%s\t%llu\t%u\t%zu\n", initial ? 0 : 1,
++    const unsigned snapshot = initial ? 0 : ++pop_snapshot;
++    std::fprintf(out, "# begin\t%u\t%s\t%llu\t%u\t%zu\n", snapshot,
+@@ -1380 +1383 @@
+-    std::fprintf(out, "# end\t%u\n", initial ? 0 : 1);
++    std::fprintf(out, "# end\t%u\n", snapshot);
+--- a/tests/test_bve_full_heap.cpp
++++ b/tests/test_bve_full_heap.cpp
+@@ -33 +33,4 @@
+-int main() {
++int main(int argc, char **) {
++  const bool all = argc == 2;
++  if (all) setenv("SAT_BVE_FULL_HEAP_ALL_POPS", "1", 1);
++  else unsetenv("SAT_BVE_FULL_HEAP_ALL_POPS");
+@@ -49 +52,13 @@
+-  fixed_unit();assert(read()==snapshot);
++  fixed_unit();
++#ifdef TACTIX_ENABLE_EVENT_TRACE
++  if (all) {
++    const std::string twice=read();
++    assert(twice.find(snapshot)==0 && std::count(twice.begin(),twice.end(),'\n')==10);
++    assert(twice.find("# begin\t2\tbefore-pop\t1\t1\t1\n")!=std::string::npos);
++    fixed_unit();const std::string third=read();
++    assert(std::count(third.begin(),third.end(),'\n')==13);
++    assert(third.find("# begin\t3\tbefore-pop\t1\t1\t1\n")!=std::string::npos);
++  } else assert(read()==snapshot);
++#else
++  assert(read()==snapshot);
++#endif
+@@ -51,0 +67 @@
++  unsetenv("SAT_BVE_FULL_HEAP_ALL_POPS");
+@@ -52,0 +69 @@
++  return 0;
