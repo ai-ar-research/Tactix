@@ -1,0 +1,14 @@
+# tactix-event-trace	1
+# detail-conflicts	0	502
+# solver	seq	event	conflicts	decisions	propagations	level	mode	active	unassigned	trail	queue	heap	retired_queue	retired_heap	irred	red	binary	digest	search_external	top32	payload
+tactix	0	trace_begin	0	0	0	0	none	42387	42387	0	0	0	0	0	105047	0	78047	f75b0991be241b0c	0	-	-
+tactix	1	imply	199	2225	420056	66	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	4082	-	lit=43773|level=66|reason=-211,43773
+tactix	2	imply	201	2251	446302	72	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	4082	-	lit=43773|level=72|reason=-211,43773
+tactix	3	imply	436	3631	551642	202	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	16570	-	lit=43773|level=202|reason=609,43773
+tactix	4	imply	471	5074	623837	242	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	15897	-	lit=43773|level=242|reason=609,43773
+tactix	5	imply	477	5086	645501	242	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	3141	-	lit=43773|level=242|reason=609,43773
+tactix	6	imply	488	5392	721311	11	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	19837	-	lit=43773|level=11|reason=-19801,43773
+tactix	7	imply	489	5408	723716	18	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	39863	-	lit=43773|level=18|reason=20045,43773
+tactix	8	imply	491	5439	763842	23	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	19735	-	lit=43773|level=23|reason=609,43773
+tactix	9	imply	492	5612	794660	177	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	20574	-	lit=43773|level=177|reason=609,43773
+tactix	10	imply	493	5612	798556	176	focused	0	0	0	0	0	0	0	0	0	0	0000000000000000	20571	-	lit=-43773|level=176|reason=-43773,-20046

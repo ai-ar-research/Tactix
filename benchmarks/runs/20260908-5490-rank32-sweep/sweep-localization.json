@@ -1,0 +1,211 @@
+{
+  "observer_validation_sha256": "f57d151e91f8f3277b7364a34b9c666b4316a69fda625affc7d8f1adfae08747",
+  "calls": [
+    {
+      "call": 1,
+      "counts": {
+        "candidate": {
+          "sweep_seed": 11020,
+          "sweep_environment": 11020,
+          "sweep_effort": 10987,
+          "sweep_unit": 6
+        },
+        "kissat": {
+          "sweep_seed": 11023,
+          "sweep_environment": 11023,
+          "sweep_effort": 11023,
+          "sweep_unit": 7
+        }
+      },
+      "first_differences": {
+        "sweep_seed": {
+          "index": 14,
+          "candidate": {
+            "external": "836"
+          },
+          "kissat": {
+            "external": "1236"
+          }
+        },
+        "sweep_environment": {
+          "index": 14,
+          "candidate": {
+            "external": "836",
+            "vars": "72",
+            "clauses": "115",
+            "hash": "8ce141ac12307fc3"
+          },
+          "kissat": {
+            "external": "1236",
+            "vars": "256",
+            "clauses": "427"
+          }
+        },
+        "sweep_effort": {
+          "index": 14,
+          "candidate": {
+            "external": "836",
+            "before": "17309789",
+            "after": "17311703",
+            "delta": "1914",
+            "solves": "11"
+          },
+          "kissat": {
+            "external": "1236",
+            "before": "35945509",
+            "after": "35952664",
+            "delta": "7155",
+            "solves": "11"
+          }
+        }
+      },
+      "units": {
+        "candidate": [
+          {
+            "lit": "-9623"
+          },
+          {
+            "lit": "-9614"
+          },
+          {
+            "lit": "-846"
+          },
+          {
+            "lit": "-92035"
+          },
+          {
+            "lit": "-99201"
+          },
+          {
+            "lit": "-111570"
+          }
+        ],
+        "kissat": [
+          {
+            "lit": "-9623",
+            "source": "core"
+          },
+          {
+            "lit": "-9614",
+            "source": "core"
+          },
+          {
+            "lit": "-846",
+            "source": "core"
+          },
+          {
+            "lit": "-92035",
+            "source": "core"
+          },
+          {
+            "lit": "-99201",
+            "source": "core"
+          },
+          {
+            "lit": "-103918",
+            "source": "core"
+          },
+          {
+            "lit": "-111570",
+            "source": "core"
+          }
+        ]
+      }
+    },
+    {
+      "call": 2,
+      "counts": {
+        "candidate": {
+          "sweep_seed": 9454,
+          "sweep_environment": 9454,
+          "sweep_effort": 9143,
+          "sweep_unit": 4
+        },
+        "kissat": {
+          "sweep_seed": 9343,
+          "sweep_environment": 9343,
+          "sweep_effort": 9343,
+          "sweep_unit": 4
+        }
+      },
+      "first_differences": {
+        "sweep_seed": {
+          "index": 0,
+          "candidate": {
+            "external": "112431"
+          },
+          "kissat": {
+            "external": "112830"
+          }
+        },
+        "sweep_environment": {
+          "index": 0,
+          "candidate": {
+            "external": "112431",
+            "vars": "435",
+            "clauses": "7",
+            "hash": "4bc18af6c49ac7fe"
+          },
+          "kissat": {
+            "external": "112830",
+            "vars": "463",
+            "clauses": "36"
+          }
+        },
+        "sweep_effort": {
+          "index": 0,
+          "candidate": {
+            "external": "112431",
+            "before": "72069496",
+            "after": "72070816",
+            "delta": "1320",
+            "solves": "1"
+          },
+          "kissat": {
+            "external": "112830",
+            "before": "90704865",
+            "after": "90707788",
+            "delta": "2923",
+            "solves": "5"
+          }
+        }
+      },
+      "units": {
+        "candidate": [
+          {
+            "lit": "-112830"
+          },
+          {
+            "lit": "-146116"
+          },
+          {
+            "lit": "-166720"
+          },
+          {
+            "lit": "-205674"
+          }
+        ],
+        "kissat": [
+          {
+            "lit": "-112830",
+            "source": "core"
+          },
+          {
+            "lit": "-146116",
+            "source": "core"
+          },
+          {
+            "lit": "-166720",
+            "source": "core"
+          },
+          {
+            "lit": "-205674",
+            "source": "core"
+          }
+        ]
+      }
+    }
+  ],
+  "decision": "First call shares14 seed/environment-size/tick-delta/solve-count records, then Tactix processes836 while native advances to1236. Inspect836 eligibility/current occurrences at entry before changing retained scheduling. Native-only unit-103918 occurs later, not yet causally assigned to the skip.",
+  "limitation": "Environment sizes do not prove clause/model equality. Tick origins differ; only deltas are compared. Second-call divergence follows earlier differences. No performance or correctness acceptance."
+}

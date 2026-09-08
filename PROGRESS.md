@@ -14,15 +14,19 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
   [Measured timing and causal follow-up](benchmarks/reports/2026-09-08-sweep-measured-and-causal-followup.md):
-  three exact-work pairs give median 0.984563x predecessor; proofs pending.
-  Full Rank 1–40 successor 5485 is submitted; B28+C5 is 64/66 checked.
+  three exact-work pairs give median 0.984563x predecessor; all six proofs checked.
+  [Full comparison and causal witnesses](benchmarks/reports/2026-09-08-full-sweep-and-causal-witnesses.md):
+  5485 has all 40 pairs at **1.165337x Kissat**, 59/80 checked at snapshot.
+  All 40 candidate non-timing statistics/certificates match bound5459 exactly.
+  B28+C5 is 66/66 checked/clean, combined 0.953757x production Tactix.
+  Current-source fuzz remains pending; no source is promoted.
 - Preceding [Watch-pair append](benchmarks/reports/2026-09-07-watch-pair-append.md), candidate 5466,
   adds an exact-layout two-word fast path within existing capacity on 5459.
   Both Release suites pass 83/83; 180 actual old/new cases have identical
   whole-state digests. [Measured timing](benchmarks/reports/2026-09-08-watch-pair-measured.md)
   now gives three exact-work/proof-byte pairs: median 0.983980x predecessor,
   range 0.981238–0.993028. [All six timing proofs are checked](benchmarks/reports/2026-09-08-watch-pair-checked.md);
-  B28+C5 and latest-source fuzz closure remain required.
+  B28+C5 is 66/66 checked/clean (0.958073x production); latest-source fuzz pending.
 - Preceding [Bound lifecycle](benchmarks/reports/2026-09-07-bound-lifecycle.md), candidate 5459,
   restores the documented phase-bound advance and retry flags after quota cuts.
   Release 82/82 twice, trace 81/81; two old/new cut-bound fixtures pass.
@@ -36,12 +40,15 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   timeout/verdict loss. No aggregate breakthrough. Rank 37 is again the largest
   loss (712.017/346.009 s, conflicts 2.114745x), then Ranks 32 and 31.
   Rank 37 now first splits at 188502; earlier Sweep/Vivify boundaries are
-  localized. Rank 32 first splits after Sweep at 19375; selected replay queued.
+  localized. Rank32 selected Sweep replay matches its full parent per arm;
+  first14 seeds agree, then Tactix alone processes836. Eligibility5505 is in flight.
   Rank 31 matches 51,491,857 decisions and 276 boundaries through 100K.
 - [Short phase witness and closed gates](benchmarks/reports/2026-09-08-square-phase-and-checked-gates.md):
   Square first differs at conflict 501, decision 5849, same variable/opposite
   polarity. Replay 5482 now shows differing saved phases, not phase priority;
-  selected implications 5487 are queued. Assignment cause remains unresolved.
+  Implications5487 lead to differing startup auxiliary definitions in5498.
+  Factor5502 matches first942 extensions, then selects different seeds at943.
+  Incoming physical formula/heap cause remains unresolved; do not alter phase priority.
 - [Complete phase-budget view](benchmarks/reports/2026-09-07-phase-budget-full-view.md):
   5454 has all 40 pairs at **1.170283x**, 63/80 checked at the solver snapshot.
   No timeout/verdict loss; goal still unmet. Largest losses are Ranks 31/37/32.
@@ -146,10 +153,22 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Run `compare-rank32-sweep-5490.py` and `compare-square-imply-5487.py` when
-   their probes finish. Require full observed parent replay before interpreting
-   selected events. Rank 32's first coarse split is Sweep exit at 19375, with
-   one more active variable; compare schedules, queries, units and effort.
+1. Validate new Rank32 eligibility5505 (job1672156) against5490 using full
+   per-arm decision/prefix/boundary hashes before interpreting its snapshots.
+   It captures836/1236 clauses at first Sweep entry and preceding829 queries.
+   `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
+   `sweep-localization.json` splits both calls at19375. First14 seeds, environment
+   sizes and effort deltas/solve counts match; then Tactix alone processes836.
+   First-call native-only unit-103918 is later, not a proved effect of that skip.
+   Original5490 fails an observer expectation: retained Tactix emits no fresh
+   schedule, while four native event families emit before the selected window.
+   Successor5503 records those separately with ten window fixtures; no solver failure.
+   Square5502 has1555 extensions per arm and full parent replay. First unequal
+   accepted grid is943: Tactix seed-4143/member-4147 versus native-4171/-4175.
+   Investigate incoming physical formula and Factor heap before a repair.
+   Definition5498 passes successor5501 (twelve framing fixtures): auxiliary43773
+   has different defining clauses.5496/5497 missing snapshots and5498's lucky
+   payload expectation remain frozen failures; no failed correctness oracle.
    Square 5482 passes successor `validate-square-phase-5486.py`: both complete
    streams/prefixes agree with their parent; native adds 476 analysis/end rows,
    while all 986 original boundaries match after sequence normalization.
@@ -160,16 +179,20 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    needs a later trace after the current Rank32/37 component investigations.
    5475 now has three complete statistics/proof-byte identities: median
    0.984563x predecessor, all pairs improve and both arm spreads below 0.5%.
-   Revisit its snapshot helper for proof closure only. Score new full 5485 with
-   `snapshot-sweep-full-5485.py` once all 80 solver records exist; preserve the
-   frozen snapshot afterward. Final checking uses `seal-sweep-full-5485.py`.
+   All six5475 proofs are now checked/clean; its final summary is sealed.
+   Both5469 and5476 B28+C5 gates are sealed66/66, no solve loss/timeouts.
+   Full5485's solver snapshot
+   is frozen:1.165337x,59/80 checked; never rerun its snapshot helper.
+   `next-losses.json` from5500 keeps Ranks37/31/32 as largest losses and verifies
+   all40 candidate non-timing statistics/certificates unchanged from5459.
+   Final checking uses `seal-sweep-full-5485.py`.
    Latest frozen source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
    5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
    5468's three pairs pass exact statistics/proof-byte identity: median
    0.983980x predecessor; all paired ratios below 1, both arm spreads below 2%.
    All six append timing proofs are checked/clean in 5468's final summary.
-   Retain the supported optimization provisionally; B28+C5 and latest-source
-   fuzz remain required. Do not repeat the timing campaign for confirmation.
+   Retain the supported optimization provisionally; B28+C5 is checked and
+   latest-source fuzz remains pending. Do not repeat timing for confirmation.
    5465's frozen solver snapshot is complete: 1.173817x, all expected verdicts.
    Its `next-losses.json` selects Ranks 37/32/31. Completed 5478 first splits at
    conflict188502; `boundary-localization.json` first finds two Sweep binaries
@@ -243,7 +266,7 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    after the earlier auto-review rejection; do not retry or bypass it.
    Approval requested for separate future solve/check jobs to release solver
    allocations sooner; no contract/runner change until explicitly approved.
-   SLURM accounting is unavailable at the latest audit; controller queries work.
+   SLURM accounting recovered at the latest5506 audit; controller queries work.
    Preserve unknown purged-job states and never restart jobs on observation failure.
 
 ## Immutable evidence and validation
@@ -283,10 +306,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Sweep cursor measured exact-work median 0.984563x; full successor5485 submitted.
-- Square phase choice honors saved state; implication-history probe5487 queued.
-- Rank32 Sweep and Rank37 later Sweep/Vivify boundaries localized; no cause proved.
+- Full5485 is1.165337x; all40 candidate work/certificate records match5459.
+- Square auxiliary definitions differ; first Factor grid mismatch is ordinal943.
+- Rank32 first14 Sweep seeds agree, then Tactix alone processes836;5505 in flight.
 - Predecessor fuzz5442 PASS; latest-source owner5492 resumed under session34566.
-- Watch append5468 now has six independently checked/clean timing proofs.
+- Thirty new snapshot/window/Factor fixtures pass; no solver source changed.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

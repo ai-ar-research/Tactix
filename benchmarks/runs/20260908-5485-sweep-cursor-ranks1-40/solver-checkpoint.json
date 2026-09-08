@@ -1,0 +1,1070 @@
+{
+  "observed_at": "2026-09-08T05:59:31.269659+00:00",
+  "solver_records": 80,
+  "checked_clean": 59,
+  "manifest_sha256": "34c60b29cc7ed22eee96a875bce3ae74ba27820366896e4ac9d1b6412a5f157d",
+  "arms": {
+    "tactix": {
+      "expected_solves": 40,
+      "sat": 22,
+      "unsat": 18,
+      "timeouts": 0,
+      "solver_seconds": 7859.743999999999,
+      "provisional_par2": 7859.743999999999,
+      "max_rss_kb": 15967668
+    },
+    "kissat": {
+      "expected_solves": 40,
+      "sat": 22,
+      "unsat": 18,
+      "timeouts": 0,
+      "solver_seconds": 6744.611,
+      "provisional_par2": 6744.611,
+      "max_rss_kb": 15348304
+    }
+  },
+  "provisional_all_solved_time_ratio": 1.1653368889621654,
+  "per_rank": {
+    "1": {
+      "tactix": {
+        "seconds": 0.217,
+        "peak_rss_kb": 84068,
+        "work": {
+          "conflicts": 1,
+          "decisions": 0,
+          "propagations": 190699
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/000.json",
+        "record_sha256": "aae0ce7c506dd34b397d685507b447b23b29567094da760509a8fb50070c66da"
+      },
+      "kissat": {
+        "seconds": 0.217,
+        "peak_rss_kb": 49564,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 190698
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/001.json",
+        "record_sha256": "afd669145d25784513534fe65151d06615770c50ba1757790640550172028147"
+      }
+    },
+    "2": {
+      "tactix": {
+        "seconds": 0.217,
+        "peak_rss_kb": 84088,
+        "work": {
+          "conflicts": 1,
+          "decisions": 0,
+          "propagations": 188827
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/002.json",
+        "record_sha256": "80a5c6d1617c1a98b8e83760f93e853e667462e84e15e2c14266f8e9fbd2d9df"
+      },
+      "kissat": {
+        "seconds": 0.217,
+        "peak_rss_kb": 49568,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 188826
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/003.json",
+        "record_sha256": "bc4c1091672959728f263fffa97f9f2cc988d196d308880083718ae13a959e8e"
+      }
+    },
+    "3": {
+      "tactix": {
+        "seconds": 0.568,
+        "peak_rss_kb": 153892,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 96082
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/004.json",
+        "record_sha256": "f2df812c5b778aa704e41bc34285f0964176b9f1be58d3f693b265fd26830abc"
+      },
+      "kissat": {
+        "seconds": 0.467,
+        "peak_rss_kb": 103612,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 96083
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/005.json",
+        "record_sha256": "a9d83f34b0d9936f83657b4e8419da090a2362857c7ddfeadddc11c9df485bdf"
+      }
+    },
+    "4": {
+      "tactix": {
+        "seconds": 8.18,
+        "peak_rss_kb": 28008,
+        "work": {
+          "conflicts": 651764,
+          "decisions": 908950,
+          "propagations": 18006397
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/006.json",
+        "record_sha256": "0a332836edca3156c5832fcf2aacf7819e79c0bbb8e7037c09ab6d2c782567e0"
+      },
+      "kissat": {
+        "seconds": 7.679,
+        "peak_rss_kb": 13008,
+        "work": {
+          "conflicts": 651764,
+          "decisions": 908950,
+          "propagations": 18532091
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/007.json",
+        "record_sha256": "581136b13bce1a2a915dcfa111abc5badb6c978407ab853f91735fb28aab2357"
+      }
+    },
+    "5": {
+      "tactix": {
+        "seconds": 30.223,
+        "peak_rss_kb": 10682156,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 58640574
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/008.json",
+        "record_sha256": "b41aed62e0caedc8f60c91a963553addcc0c457d5b9a2fed0ddf3283eb0585c1"
+      },
+      "kissat": {
+        "seconds": 31.129,
+        "peak_rss_kb": 10402844,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 58571074
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/009.json",
+        "record_sha256": "ca6c9572db63e8eee0f6a4e65672545957e85f77d627f123f44c9d054aac6c63"
+      }
+    },
+    "6": {
+      "tactix": {
+        "seconds": 66.817,
+        "peak_rss_kb": 756988,
+        "work": {
+          "conflicts": 373544,
+          "decisions": 3449913,
+          "propagations": 131533204
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/010.json",
+        "record_sha256": "a93ef0851efe90fb1342bf6ae9fdac947c42bdae52e6d1592a082b645536734a"
+      },
+      "kissat": {
+        "seconds": 52.623,
+        "peak_rss_kb": 349612,
+        "work": {
+          "conflicts": 373544,
+          "decisions": 3449913,
+          "propagations": 145391572
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/011.json",
+        "record_sha256": "75ecb174f68640892c1ef6e9036289bbf943bd87ff747f502b03d954ef4b10d8"
+      }
+    },
+    "7": {
+      "tactix": {
+        "seconds": 53.651,
+        "peak_rss_kb": 9713632,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 46132715
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/012.json",
+        "record_sha256": "6a96582270a73055ca982d4ceab27888122c4b176a9f9bb423d524f3fa01936b"
+      },
+      "kissat": {
+        "seconds": 48.093,
+        "peak_rss_kb": 9109728,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 46109670
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/013.json",
+        "record_sha256": "149e07c9f4b03bc1d4acca548a500fb8bb153b868d1bd0337a766c7c3384953d"
+      }
+    },
+    "8": {
+      "tactix": {
+        "seconds": 65.374,
+        "peak_rss_kb": 11862680,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 56889411
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/014.json",
+        "record_sha256": "fda11362af1ac02f3cd1231d9d1fd658f0f3ffe256359a8f130e9748e08c6618"
+      },
+      "kissat": {
+        "seconds": 58.255,
+        "peak_rss_kb": 11118752,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 56849612
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/015.json",
+        "record_sha256": "17535ac604da04f45768205f28b47fbc0e5338daf83408614b1a6c34ef5350f4"
+      }
+    },
+    "9": {
+      "tactix": {
+        "seconds": 110.409,
+        "peak_rss_kb": 3232852,
+        "work": {
+          "conflicts": 83476,
+          "decisions": 36309528,
+          "propagations": 725647728
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/016.json",
+        "record_sha256": "2b56dec6d4a7b9b1c51ed46a72af22bf6735a99c790555f346ece6f44ae749b3"
+      },
+      "kissat": {
+        "seconds": 74.69,
+        "peak_rss_kb": 1326232,
+        "work": {
+          "conflicts": 48149,
+          "decisions": 31526846,
+          "propagations": 695871037
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/017.json",
+        "record_sha256": "8d4cd6a0cca41303898a839c4b80aaa43809ce1492f2503fa4f6a58b980f2f41"
+      }
+    },
+    "10": {
+      "tactix": {
+        "seconds": 90.31,
+        "peak_rss_kb": 15967668,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 76457813
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/018.json",
+        "record_sha256": "d89a05729511db08ae0d4a72ff3f3514f783900b23aa3ada854a51407dc62c37"
+      },
+      "kissat": {
+        "seconds": 81.752,
+        "peak_rss_kb": 15348304,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 76431950
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/019.json",
+        "record_sha256": "4eb2354b4575b86dad59bb23acb42c9b4bebc30df028cfdba63b845c7866a097"
+      }
+    },
+    "11": {
+      "tactix": {
+        "seconds": 0.266,
+        "peak_rss_kb": 95464,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 253639
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/020.json",
+        "record_sha256": "65e8a422ee79cf2f765b4373499e38e1ef5933a5e710717e32c38aeea9bdf360"
+      },
+      "kissat": {
+        "seconds": 0.216,
+        "peak_rss_kb": 60692,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 253639
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/021.json",
+        "record_sha256": "cf26928a670503d9acc3623aba91880c0ebf2483606892e435cbbdd78f3d1a62"
+      }
+    },
+    "12": {
+      "tactix": {
+        "seconds": 7.328,
+        "peak_rss_kb": 1843960,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 4868175
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/022.json",
+        "record_sha256": "151d43342350390e86d1953ba9d34a76b1bb5bf16f49526f63997324e7d9fbd1"
+      },
+      "kissat": {
+        "seconds": 5.174,
+        "peak_rss_kb": 1234908,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 4868175
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/023.json",
+        "record_sha256": "2a32a1ef2149133d444a1e2e2e6276f951a58b79e3a146ecf48aeee2eddf0243"
+      }
+    },
+    "13": {
+      "tactix": {
+        "seconds": 72.586,
+        "peak_rss_kb": 12752784,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 61295163
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/024.json",
+        "record_sha256": "1306291c3ec655cf6f6ed7cdd7bff15095de58bd121d3b84ad4cf50042e669a7"
+      },
+      "kissat": {
+        "seconds": 64.242,
+        "peak_rss_kb": 11928200,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 61261545
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/025.json",
+        "record_sha256": "7d4d1e06ccad0e016f185b1dca99e6c8e623ce8e503e279c51196b0d8406fe29"
+      }
+    },
+    "14": {
+      "tactix": {
+        "seconds": 71.885,
+        "peak_rss_kb": 12854700,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 61521915
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/026.json",
+        "record_sha256": "8721851e9b08f8a6851b2c7debb09fda4009a9693e9236ab045f86f1b5e0ffdb"
+      },
+      "kissat": {
+        "seconds": 64.067,
+        "peak_rss_kb": 12018708,
+        "work": {
+          "conflicts": 0,
+          "decisions": 0,
+          "propagations": 61483725
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/027.json",
+        "record_sha256": "0786536f96d7da2f00f94a446c93b2bf608aaaa8f37cfc52ba91edaf507edf94"
+      }
+    },
+    "15": {
+      "tactix": {
+        "seconds": 79.153,
+        "peak_rss_kb": 61836,
+        "work": {
+          "conflicts": 2272663,
+          "decisions": 3310531,
+          "propagations": 311056558
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/028.json",
+        "record_sha256": "e502951efbf4834837d8f67f86b787b7f746ff71827c99cab56e258c6f3c0ad6"
+      },
+      "kissat": {
+        "seconds": 80.154,
+        "peak_rss_kb": 29704,
+        "work": {
+          "conflicts": 2272663,
+          "decisions": 3310531,
+          "propagations": 311286274
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/029.json",
+        "record_sha256": "caa9941ffe9c49d491a53a33dadeb27d0cb6eab2697a002df384bf0c207c73ca"
+      }
+    },
+    "16": {
+      "tactix": {
+        "seconds": 122.662,
+        "peak_rss_kb": 113668,
+        "work": {
+          "conflicts": 4777402,
+          "decisions": 14441406,
+          "propagations": 152705482
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/030.json",
+        "record_sha256": "125c67ccc6760f77d1886d483242d9cf8fa12d9ed1ebc535642af24bc41169f9"
+      },
+      "kissat": {
+        "seconds": 121.417,
+        "peak_rss_kb": 65168,
+        "work": {
+          "conflicts": 4777402,
+          "decisions": 14441406,
+          "propagations": 152707442
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/031.json",
+        "record_sha256": "b470f3246a3ec68a403ad2c155b073b639d7047def06c5accd015b41ce0f2171"
+      }
+    },
+    "17": {
+      "tactix": {
+        "seconds": 169.152,
+        "peak_rss_kb": 1354912,
+        "work": {
+          "conflicts": 179361,
+          "decisions": 4249505,
+          "propagations": 1158167288
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/032.json",
+        "record_sha256": "ca1eb8fd388f7370e15bad77817213a511a38d4ea3e09cbd17e3ad4e0930249d"
+      },
+      "kissat": {
+        "seconds": 113.003,
+        "peak_rss_kb": 598308,
+        "work": {
+          "conflicts": 186237,
+          "decisions": 3961527,
+          "propagations": 1055776860
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/033.json",
+        "record_sha256": "219b9e982bf7a83332c523385419c748acad44e96d36aede5bf22f96096c3b75"
+      }
+    },
+    "18": {
+      "tactix": {
+        "seconds": 63.565,
+        "peak_rss_kb": 2984780,
+        "work": {
+          "conflicts": 11370,
+          "decisions": 802677,
+          "propagations": 546191110
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/034.json",
+        "record_sha256": "a4ed4987970cb5d7750e44d1f79c8c4ed69f197a01f5df99b098a80420c14e56"
+      },
+      "kissat": {
+        "seconds": 128.023,
+        "peak_rss_kb": 2083228,
+        "work": {
+          "conflicts": 35646,
+          "decisions": 1055436,
+          "propagations": 1843175943
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/035.json",
+        "record_sha256": "9a930f6d0595a2509751873a2adcb245e8a592fd1c598a94de2d2c69c09141e4"
+      }
+    },
+    "19": {
+      "tactix": {
+        "seconds": 134.438,
+        "peak_rss_kb": 402344,
+        "work": {
+          "conflicts": 701651,
+          "decisions": 27626032,
+          "propagations": 1846890843
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/036.json",
+        "record_sha256": "189630a0f25e1fa2745bc2a5bd75b04d00c5e5f7152c96c85f8837daf69f6aa6"
+      },
+      "kissat": {
+        "seconds": 113.956,
+        "peak_rss_kb": 143804,
+        "work": {
+          "conflicts": 701651,
+          "decisions": 27626032,
+          "propagations": 1965249366
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/037.json",
+        "record_sha256": "71ceb2b1d86205c779bab87bec4e02f46fae27cb16338db681fe39ac522029b0"
+      }
+    },
+    "20": {
+      "tactix": {
+        "seconds": 120.214,
+        "peak_rss_kb": 1787092,
+        "work": {
+          "conflicts": 81993,
+          "decisions": 1229783,
+          "propagations": 840278325
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/038.json",
+        "record_sha256": "57063075a9feca6c12aa66af6a8c41c01cdd46975d1327fb36e1e22d1ddedbb7"
+      },
+      "kissat": {
+        "seconds": 139.184,
+        "peak_rss_kb": 943992,
+        "work": {
+          "conflicts": 81993,
+          "decisions": 1229783,
+          "propagations": 877858626
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/039.json",
+        "record_sha256": "63ad1cb59a86eaa9ec43c44c860d61e28d9e60beb7aebd40a7f82949c4cd2da6"
+      }
+    },
+    "21": {
+      "tactix": {
+        "seconds": 147.152,
+        "peak_rss_kb": 3935936,
+        "work": {
+          "conflicts": 89796,
+          "decisions": 76028136,
+          "propagations": 877832157
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/040.json",
+        "record_sha256": "657c9917f5456946b30576a3ace989e02816634808ab3d1c706f2b089e35abfe"
+      },
+      "kissat": {
+        "seconds": 96.711,
+        "peak_rss_kb": 1436392,
+        "work": {
+          "conflicts": 93100,
+          "decisions": 47246834,
+          "propagations": 847215445
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/041.json",
+        "record_sha256": "cc57b5b5c55b542c88f5c21f5d91a4680a11fb6bd5542c8eee8d7a857067d27b"
+      }
+    },
+    "22": {
+      "tactix": {
+        "seconds": 236.509,
+        "peak_rss_kb": 2714948,
+        "work": {
+          "conflicts": 62648,
+          "decisions": 311785,
+          "propagations": 1041857046
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/042.json",
+        "record_sha256": "75aed241d357f3722ebfc507dda7ffb88e9485f4e3aeb89f2fbbb15324e5b172"
+      },
+      "kissat": {
+        "seconds": 171.286,
+        "peak_rss_kb": 1919272,
+        "work": {
+          "conflicts": 65820,
+          "decisions": 523753,
+          "propagations": 1209704732
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/043.json",
+        "record_sha256": "0036244eaf07c01f5202f38adb119b0fbb43982165166b2043beffa442f51fc0"
+      }
+    },
+    "23": {
+      "tactix": {
+        "seconds": 203.453,
+        "peak_rss_kb": 100628,
+        "work": {
+          "conflicts": 6960467,
+          "decisions": 18156180,
+          "propagations": 254269085
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/044.json",
+        "record_sha256": "6a1f63a7c98d174c52543358c797fa9563ab7107a1d95d82642cdf9ed82ae469"
+      },
+      "kissat": {
+        "seconds": 202.701,
+        "peak_rss_kb": 42608,
+        "work": {
+          "conflicts": 6960467,
+          "decisions": 18156180,
+          "propagations": 254276689
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/045.json",
+        "record_sha256": "f86bad69f332b062ce11ac5308bb21d21959afb3753dc228de1eff521db35df1"
+      }
+    },
+    "24": {
+      "tactix": {
+        "seconds": 235.047,
+        "peak_rss_kb": 240512,
+        "work": {
+          "conflicts": 4629096,
+          "decisions": 38868632,
+          "propagations": 1187052867
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/046.json",
+        "record_sha256": "e845b12fa348308c32ff62cdf05fc9a550158a7ed4bbcb370ee8cf84d555df9e"
+      },
+      "kissat": {
+        "seconds": 208.697,
+        "peak_rss_kb": 101500,
+        "work": {
+          "conflicts": 4262151,
+          "decisions": 38173988,
+          "propagations": 1240849838
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/047.json",
+        "record_sha256": "6f6184d46fd9cd89e09ff7c919c7d3975a86ca4a4c67d061d0b833ffd386d56b"
+      }
+    },
+    "25": {
+      "tactix": {
+        "seconds": 252.162,
+        "peak_rss_kb": 3409816,
+        "work": {
+          "conflicts": 348659,
+          "decisions": 1200326,
+          "propagations": 3289147069
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/048.json",
+        "record_sha256": "5f31bc085250e6f4bbae809fbfdbffa487c325ff971876ef3994a402e01c9170"
+      },
+      "kissat": {
+        "seconds": 241.815,
+        "peak_rss_kb": 888820,
+        "work": {
+          "conflicts": 577305,
+          "decisions": 1923486,
+          "propagations": 3408832103
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/049.json",
+        "record_sha256": "2170c9780d7b973af3441efba457d0d962ba94973ccef45eb297b2481e11ab3b"
+      }
+    },
+    "26": {
+      "tactix": {
+        "seconds": 257.567,
+        "peak_rss_kb": 142168,
+        "work": {
+          "conflicts": 9608136,
+          "decisions": 27460199,
+          "propagations": 306487174
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/050.json",
+        "record_sha256": "a7e0579e8142495770edcfcb2b994aea5406e6ba96a04fbe3582404c8ff9fb36"
+      },
+      "kissat": {
+        "seconds": 260.095,
+        "peak_rss_kb": 87904,
+        "work": {
+          "conflicts": 9608136,
+          "decisions": 27460199,
+          "propagations": 306487174
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/051.json",
+        "record_sha256": "a9729630103340826c74b68c7c5d17e36b89cd00aba2da41543f2e4a0c933e0b"
+      }
+    },
+    "27": {
+      "tactix": {
+        "seconds": 351.061,
+        "peak_rss_kb": 574092,
+        "work": {
+          "conflicts": 5105729,
+          "decisions": 213903498,
+          "propagations": 2952035252
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/052.json",
+        "record_sha256": "21f59dab78eb561b792fd41849a157474ab1a05a8bc665b286895551f43e3a09"
+      },
+      "kissat": {
+        "seconds": 243.959,
+        "peak_rss_kb": 298192,
+        "work": {
+          "conflicts": 4120691,
+          "decisions": 171577295,
+          "propagations": 2665923813
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/053.json",
+        "record_sha256": "fdf5a97b66fd5842a3ddf4daef9444a9f29491b700dede04d585a4cbeadbecd3"
+      }
+    },
+    "28": {
+      "tactix": {
+        "seconds": 248.998,
+        "peak_rss_kb": 1571936,
+        "work": {
+          "conflicts": 87115,
+          "decisions": 2027884,
+          "propagations": 3106120168
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/054.json",
+        "record_sha256": "a780fe5cf488ca3dae5c4d791f4d30b73f11351cc14c6612c0d9982d8c427a86"
+      },
+      "kissat": {
+        "seconds": 242.045,
+        "peak_rss_kb": 807884,
+        "work": {
+          "conflicts": 86308,
+          "decisions": 1957665,
+          "propagations": 3099647407
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/055.json",
+        "record_sha256": "bd265f018969c3d7f7dba1086b95f65622f55a9802eb3e41d419e76b406583c0"
+      }
+    },
+    "29": {
+      "tactix": {
+        "seconds": 300.049,
+        "peak_rss_kb": 139808,
+        "work": {
+          "conflicts": 10609587,
+          "decisions": 32532310,
+          "propagations": 509067370
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/056.json",
+        "record_sha256": "d8a8234c87679774de01811131a47a6916f8ccf71cdaba33f69c965c596cc2c5"
+      },
+      "kissat": {
+        "seconds": 294.929,
+        "peak_rss_kb": 66076,
+        "work": {
+          "conflicts": 10609587,
+          "decisions": 32532310,
+          "propagations": 561246263
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/057.json",
+        "record_sha256": "90eba00850e22d4d7584251026d3062da599aa754d1bfa6a42bf73a9bbd0993d"
+      }
+    },
+    "30": {
+      "tactix": {
+        "seconds": 268.924,
+        "peak_rss_kb": 158212,
+        "work": {
+          "conflicts": 5912244,
+          "decisions": 10672173,
+          "propagations": 162634188
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/058.json",
+        "record_sha256": "72b72d6709db988adadaf96ce3fbc861a72657bf86b477c1e787fc9077f20c44"
+      },
+      "kissat": {
+        "seconds": 283.918,
+        "peak_rss_kb": 93572,
+        "work": {
+          "conflicts": 5912244,
+          "decisions": 10672173,
+          "propagations": 162634188
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/059.json",
+        "record_sha256": "60ac52d4882cea779465a99d7176a47bd875548440892942dfbe092f35e05020"
+      }
+    },
+    "31": {
+      "tactix": {
+        "seconds": 409.078,
+        "peak_rss_kb": 581484,
+        "work": {
+          "conflicts": 7003044,
+          "decisions": 212528693,
+          "propagations": 3337062094
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/060.json",
+        "record_sha256": "1db73579d0d20dcde5b1dfea72cf9b460ed4746fa332353b884b8699d1d6c16e"
+      },
+      "kissat": {
+        "seconds": 262.335,
+        "peak_rss_kb": 265752,
+        "work": {
+          "conflicts": 4540757,
+          "decisions": 198706607,
+          "propagations": 2864694340
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/061.json",
+        "record_sha256": "e51c5bc6e82064d21aa1cbabd921401be16fdf5b8e800a0a65763d134a4e47cb"
+      }
+    },
+    "32": {
+      "tactix": {
+        "seconds": 408.971,
+        "peak_rss_kb": 621988,
+        "work": {
+          "conflicts": 6339726,
+          "decisions": 201581008,
+          "propagations": 3825684273
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/062.json",
+        "record_sha256": "bbe262dbb5c8e78e29adcf1b88b13f66712d3e86cbbeba2fea3fa9325f5aa57f"
+      },
+      "kissat": {
+        "seconds": 273.054,
+        "peak_rss_kb": 299980,
+        "work": {
+          "conflicts": 4636494,
+          "decisions": 182202021,
+          "propagations": 3028091302
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/063.json",
+        "record_sha256": "b46862d9e5ba1692c706f52d92ac65367e84548e452b24b064ed1c3d76fe8c74"
+      }
+    },
+    "33": {
+      "tactix": {
+        "seconds": 354.934,
+        "peak_rss_kb": 667860,
+        "work": {
+          "conflicts": 5089497,
+          "decisions": 208628795,
+          "propagations": 3190323887
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/064.json",
+        "record_sha256": "2ae13dbe77debf1e3e58600c630b74d38c1e74f9e8c0db200ab0990b421208fc"
+      },
+      "kissat": {
+        "seconds": 309.449,
+        "peak_rss_kb": 265332,
+        "work": {
+          "conflicts": 6343232,
+          "decisions": 173123739,
+          "propagations": 3168076600
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/065.json",
+        "record_sha256": "e87c6694633357a7a99131923c5d300eb9bcce9615168a94cd9e51b6c655c906"
+      }
+    },
+    "34": {
+      "tactix": {
+        "seconds": 333.266,
+        "peak_rss_kb": 114368,
+        "work": {
+          "conflicts": 4268701,
+          "decisions": 8300883,
+          "propagations": 972028201
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/066.json",
+        "record_sha256": "b195b0879b630c0cdc4beba356cefdf98b54d47c4873d35cc35b722e0a9dea6e"
+      },
+      "kissat": {
+        "seconds": 332.82,
+        "peak_rss_kb": 40848,
+        "work": {
+          "conflicts": 4330066,
+          "decisions": 8345523,
+          "propagations": 953999448
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/067.json",
+        "record_sha256": "340351080ffa4d02b48d7f8a0d6b9438571f7566b52fc2488364bcfc40107cd6"
+      }
+    },
+    "35": {
+      "tactix": {
+        "seconds": 347.298,
+        "peak_rss_kb": 589544,
+        "work": {
+          "conflicts": 4297466,
+          "decisions": 194380570,
+          "propagations": 2712641780
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/068.json",
+        "record_sha256": "f206ba61ef1e37fc3204c060d42e3f84ac6edfe0fa5eb735e1d25aa9abe34490"
+      },
+      "kissat": {
+        "seconds": 304.939,
+        "peak_rss_kb": 269360,
+        "work": {
+          "conflicts": 4751990,
+          "decisions": 210767815,
+          "propagations": 3394097561
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/069.json",
+        "record_sha256": "6fd0e463925fb232f12849b75c1372b545b18c757c989c87579155116a93c16c"
+      }
+    },
+    "36": {
+      "tactix": {
+        "seconds": 367.186,
+        "peak_rss_kb": 105020,
+        "work": {
+          "conflicts": 6559620,
+          "decisions": 23281243,
+          "propagations": 1488017957
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/070.json",
+        "record_sha256": "7574ba6e5baca644c483eff41dae42075ef9648c6bf5960d6e39aa4dbd4f7675"
+      },
+      "kissat": {
+        "seconds": 365.661,
+        "peak_rss_kb": 50160,
+        "work": {
+          "conflicts": 6559620,
+          "decisions": 23281243,
+          "propagations": 1671010827
+        },
+        "verification": "checked",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/results/071.json",
+        "record_sha256": "b01852d165b570b2c4c926fbc0048f2f65b3f5a2aa9f6e2157133bba42923ca2"
+      }
+    },
+    "37": {
+      "tactix": {
+        "seconds": 694.6,
+        "peak_rss_kb": 631940,
+        "work": {
+          "conflicts": 13521309,
+          "decisions": 244585735,
+          "propagations": 4674359400
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/072.json",
+        "record_sha256": "35f8b0ac71a7c69e906500f001c03437a1b7f4889b97e53860ea67b328d80ac3"
+      },
+      "kissat": {
+        "seconds": 341.998,
+        "peak_rss_kb": 269236,
+        "work": {
+          "conflicts": 6393826,
+          "decisions": 215248091,
+          "propagations": 3692400046
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/073.json",
+        "record_sha256": "cfff977fc89f9490ba7d9bd0692dbe51aa0d015de25bf0b01c046bfbb519c0f3"
+      }
+    },
+    "38": {
+      "tactix": {
+        "seconds": 367.867,
+        "peak_rss_kb": 94820,
+        "work": {
+          "conflicts": 18021141,
+          "decisions": 24152976,
+          "propagations": 485247222
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/074.json",
+        "record_sha256": "05621ff687cbabaeca06796db9ba1142aacc23c2ba1456c247bfa4f02b4b591f"
+      },
+      "kissat": {
+        "seconds": 362.858,
+        "peak_rss_kb": 44336,
+        "work": {
+          "conflicts": 18430710,
+          "decisions": 24657248,
+          "propagations": 494320168
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/075.json",
+        "record_sha256": "416fe0428b72a706d5f731282d219cfe326e503e4040acab63f9c7b9d5d01980"
+      }
+    },
+    "39": {
+      "tactix": {
+        "seconds": 432.945,
+        "peak_rss_kb": 422700,
+        "work": {
+          "conflicts": 6472437,
+          "decisions": 98331549,
+          "propagations": 2358730279
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/076.json",
+        "record_sha256": "e0177e040030ef621b8aafb1a6fc431b7576d42af725d2ddd7ee0dc0f48f3828"
+      },
+      "kissat": {
+        "seconds": 361.686,
+        "peak_rss_kb": 170616,
+        "work": {
+          "conflicts": 5803404,
+          "decisions": 102885243,
+          "propagations": 2545310923
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/077.json",
+        "record_sha256": "391f0c27ebd1ccf34bdb73d04c6677e04b619219bde3d842b423ed6cd44bb3d9"
+      }
+    },
+    "40": {
+      "tactix": {
+        "seconds": 375.462,
+        "peak_rss_kb": 379184,
+        "work": {
+          "conflicts": 3314676,
+          "decisions": 12875218,
+          "propagations": 2586734397
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/078.json",
+        "record_sha256": "26e49ddb6d73ad6ac60eeee7a7b40f68b6ec1bdae928c212b99318a3357ea5ad"
+      },
+      "kissat": {
+        "seconds": 399.097,
+        "peak_rss_kb": 187552,
+        "work": {
+          "conflicts": 4857907,
+          "decisions": 18272243,
+          "propagations": 3116952772
+        },
+        "verification": "pending",
+        "record": "benchmarks/runs/20260908-5485-sweep-cursor-ranks1-40/provisional/079.json",
+        "record_sha256": "95f630a0f5d430ec5196b317a9362e6d026cc39781863df7c7c4fecd744123d6"
+      }
+    }
+  },
+  "limitation": "All forty pairs, not a partial aggregate. Pending certificates are provisional passes for investigation, not final checked scoring or promotion. Isolated candidate remains UNFUZZED; annual/union Tier D and memory gates remain separate."
+}
