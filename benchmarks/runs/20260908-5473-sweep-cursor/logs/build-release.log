@@ -1,0 +1,226 @@
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o
+[  2%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o
+[  3%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o
+[  3%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o
+[  3%] Building CXX object CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o
+[  4%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o
+[  5%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o
+[  6%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o
+[  7%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o
+[  8%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o
+[  9%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o
+[ 10%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o
+[ 11%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o
+[ 12%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o
+[ 12%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o
+[ 13%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o
+[ 14%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o
+[ 14%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o
+[ 15%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o
+[ 16%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[ 17%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o
+[ 18%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o
+[ 18%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o
+[ 19%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o
+/home/hwu/SAT-solving/.claude/worktrees/runtime-sweep-cursor-5473/src/rules/vivify/vivify.cpp: In function ‘tactix::ApplyResult tactix::rewrite(Kernel&, Ref, const std::vector<unsigned int>&, std::vector<std::pair<unsigned int, long unsigned int> >&, uint64_t, uint64_t, bool)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-sweep-cursor-5473/src/rules/vivify/vivify.cpp:897:52: warning: unused parameter ‘candidate_ordinal’ [-Wunused-parameter]
+  897 |                            uint64_t last, uint64_t candidate_ordinal,
+      |                                           ~~~~~~~~~^~~~~~~~~~~~~~~~~
+[ 20%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o
+[ 20%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o
+[ 21%] Building CXX object CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o
+/home/hwu/SAT-solving/.claude/worktrees/runtime-sweep-cursor-5473/src/engine/subsolver.cpp: In member function ‘void tactix::SubSolver::fail_assumptions(const std::vector<unsigned int>&)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-sweep-cursor-5473/src/engine/subsolver.cpp:823:35: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+  823 |                {clause_id(reason)}};
+      |                                   ^
+/home/hwu/SAT-solving/.claude/worktrees/runtime-sweep-cursor-5473/src/engine/subsolver.cpp: In member function ‘tactix::SubResult tactix::SubSolver::solve(const std::vector<unsigned int>&, uint64_t, tactix::SubTickMode)’:
+/home/hwu/SAT-solving/.claude/worktrees/runtime-sweep-cursor-5473/src/engine/subsolver.cpp:1034:61: warning: missing initializer for member ‘tactix::SubStep::antecedents’ [-Wmissing-field-initializers]
+ 1034 |           target_ = {target_id, export_literals(lits), chain};
+      |                                                             ^
+[ 22%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o
+[ 23%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o
+[ 23%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o
+[ 24%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o
+[ 25%] Building CXX object CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o
+[ 25%] Building CXX object CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o
+[ 26%] Building CXX object CMakeFiles/tactix_lib.dir/src/api/api.cpp.o
+[ 26%] Built target tactix_lib
+[ 27%] Building CXX object tests/CMakeFiles/test_kernel.dir/test_kernel.cpp.o
+[ 29%] Building CXX object tests/CMakeFiles/test_proof.dir/test_proof.cpp.o
+[ 29%] Building CXX object CMakeFiles/tactix.dir/src/main.cpp.o
+[ 30%] Building CXX object tests/CMakeFiles/test_parse.dir/test_parse.cpp.o
+[ 32%] Building CXX object tests/CMakeFiles/test_analyze.dir/test_analyze.cpp.o
+[ 32%] Building CXX object tests/CMakeFiles/test_restart_reduce.dir/test_restart_reduce.cpp.o
+[ 32%] Building CXX object tests/CMakeFiles/test_switchmode.dir/test_switchmode.cpp.o
+[ 33%] Building CXX object tests/CMakeFiles/test_rephase.dir/test_rephase.cpp.o
+[ 33%] Linking CXX executable test_proof
+[ 33%] Built target test_proof
+[ 33%] Building CXX object tests/CMakeFiles/test_subsolver.dir/test_subsolver.cpp.o
+[ 34%] Linking CXX executable test_switchmode
+[ 35%] Linking CXX executable test_rephase
+[ 35%] Built target test_switchmode
+[ 36%] Building CXX object tests/CMakeFiles/test_sweep.dir/test_sweep.cpp.o
+[ 37%] Linking CXX executable tactix
+[ 37%] Built target test_rephase
+[ 38%] Building CXX object tests/CMakeFiles/test_scheduling.dir/test_scheduling.cpp.o
+[ 38%] Built target tactix
+[ 39%] Building CXX object tests/CMakeFiles/test_strategy_config.dir/test_strategy_config.cpp.o
+[ 39%] Linking CXX executable test_restart_reduce
+[ 39%] Linking CXX executable test_analyze
+[ 39%] Built target test_restart_reduce
+[ 39%] Built target test_analyze
+[ 40%] Building CXX object tests/CMakeFiles/test_event_trace.dir/test_event_trace.cpp.o
+[ 41%] Building CXX object tests/CMakeFiles/test_rule_journal.dir/test_rule_journal.cpp.o
+[ 42%] Linking CXX executable test_kernel
+[ 42%] Linking CXX executable test_strategy_config
+[ 43%] Linking CXX executable test_subsolver
+[ 43%] Built target test_kernel
+[ 44%] Building CXX object tests/CMakeFiles/test_rule_journal.dir/__/src/diagnostics/rule_journal.cpp.o
+[ 45%] Linking CXX executable test_parse
+[ 45%] Built target test_subsolver
+[ 45%] Built target test_strategy_config
+[ 45%] Built target test_parse
+[ 45%] Building CXX object tests/CMakeFiles/test_slot_pose.dir/test_slot_pose.cpp.o
+[ 46%] Building CXX object tests/CMakeFiles/test_reorder.dir/test_reorder.cpp.o
+[ 47%] Building CXX object tests/CMakeFiles/test_walk.dir/test_walk.cpp.o
+[ 47%] Building CXX object tests/CMakeFiles/test_event_trace.dir/__/src/diagnostics/event_trace.cpp.o
+[ 48%] Linking CXX executable test_scheduling
+[ 48%] Linking CXX executable test_reorder
+[ 49%] Building CXX object tests/CMakeFiles/test_subsume.dir/test_subsume.cpp.o
+[ 49%] Built target test_scheduling
+[ 50%] Building CXX object tests/CMakeFiles/test_strengthen.dir/test_strengthen.cpp.o
+[ 50%] Built target test_reorder
+[ 50%] Linking CXX executable test_walk
+[ 51%] Building CXX object tests/CMakeFiles/test_instantiate.dir/test_instantiate.cpp.o
+[ 51%] Built target test_walk
+[ 52%] Building CXX object tests/CMakeFiles/test_vivify.dir/test_vivify.cpp.o
+[ 53%] Linking CXX executable test_slot_pose
+[ 53%] Built target test_slot_pose
+[ 53%] Linking CXX executable test_rule_journal
+[ 53%] Building CXX object tests/CMakeFiles/test_vivify_n1.dir/test_vivify_n1.cpp.o
+[ 53%] Built target test_rule_journal
+[ 53%] Building CXX object tests/CMakeFiles/test_probe.dir/test_probe.cpp.o
+[ 53%] Linking CXX executable test_sweep
+[ 53%] Linking CXX executable test_instantiate
+[ 53%] Built target test_sweep
+[ 54%] Linking CXX executable test_subsume
+[ 55%] Building CXX object tests/CMakeFiles/test_backbone.dir/test_backbone.cpp.o
+[ 56%] Linking CXX executable test_strengthen
+[ 56%] Built target test_instantiate
+[ 57%] Building CXX object tests/CMakeFiles/test_bce.dir/test_bce.cpp.o
+[ 57%] Built target test_subsume
+[ 57%] Built target test_strengthen
+[ 58%] Linking CXX executable test_vivify_n1
+[ 58%] Building CXX object tests/CMakeFiles/test_cce.dir/test_cce.cpp.o
+[ 59%] Building CXX object tests/CMakeFiles/test_ternary.dir/test_ternary.cpp.o
+[ 59%] Linking CXX executable test_vivify
+[ 59%] Built target test_vivify
+[ 60%] Built target test_vivify_n1
+[ 60%] Linking CXX executable test_probe
+[ 61%] Building CXX object tests/CMakeFiles/test_hyperbinary.dir/test_hyperbinary.cpp.o
+[ 62%] Building CXX object tests/CMakeFiles/test_decide.dir/test_decide.cpp.o
+[ 62%] Built target test_probe
+[ 62%] Building CXX object tests/CMakeFiles/test_reconstruct.dir/test_reconstruct.cpp.o
+[ 62%] Linking CXX executable test_ternary
+[ 63%] Linking CXX executable test_bce
+[ 63%] Built target test_ternary
+[ 64%] Building CXX object tests/CMakeFiles/test_substitute.dir/test_substitute.cpp.o
+[ 65%] Linking CXX executable test_cce
+[ 65%] Built target test_bce
+[ 66%] Linking CXX executable test_hyperbinary
+[ 67%] Building CXX object tests/CMakeFiles/test_congruence.dir/test_congruence.cpp.o
+[ 67%] Linking CXX executable test_backbone
+[ 67%] Built target test_cce
+[ 67%] Building CXX object tests/CMakeFiles/test_binary_deletion.dir/test_binary_deletion.cpp.o
+[ 68%] Linking CXX executable test_reconstruct
+[ 68%] Built target test_hyperbinary
+[ 69%] Linking CXX executable test_decide
+[ 69%] Built target test_backbone
+[ 69%] Building CXX object tests/CMakeFiles/test_transitive_reduce.dir/test_transitive_reduce.cpp.o
+[ 70%] Building CXX object tests/CMakeFiles/test_bve.dir/test_bve.cpp.o
+[ 70%] Built target test_decide
+[ 70%] Built target test_reconstruct
+[ 70%] Building CXX object tests/CMakeFiles/test_lucky.dir/test_lucky.cpp.o
+[ 71%] Building C object tests/CMakeFiles/test_api_c.dir/test_api_c.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 72%] Linking CXX executable test_api_c
+[ 72%] Built target test_api_c
+[ 72%] Building C object tests/CMakeFiles/test_api_instances.dir/test_api_instances.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 73%] Linking CXX executable test_api_instances
+[ 73%] Built target test_api_instances
+[ 74%] Building C object tests/CMakeFiles/test_random_policy.dir/test_random_policy.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 75%] Linking CXX executable test_transitive_reduce
+[ 76%] Linking CXX executable test_random_policy
+[ 76%] Built target test_transitive_reduce
+[ 77%] Linking CXX executable test_event_trace
+[ 77%] Built target test_random_policy
+[ 78%] Building CXX object tests/CMakeFiles/test_tr_bruteforce.dir/test_tr_bruteforce.cpp.o
+[ 79%] Linking CXX executable test_binary_deletion
+[ 80%] Building CXX object tests/CMakeFiles/test_factor.dir/test_factor.cpp.o
+[ 80%] Built target test_event_trace
+[ 80%] Built target test_binary_deletion
+[ 81%] Building CXX object tests/CMakeFiles/test_factor_n1.dir/test_factor_n1.cpp.o
+[ 81%] Building CXX object tests/CMakeFiles/test_subsume_n1.dir/test_subsume_n1.cpp.o
+[ 81%] Linking CXX executable test_congruence
+[ 81%] Built target test_congruence
+[ 82%] Building CXX object tests/CMakeFiles/test_no_heuristics.dir/test_no_heuristics.cpp.o
+[ 83%] Linking CXX executable test_lucky
+[ 83%] Built target test_lucky
+[ 83%] Building CXX object tests/CMakeFiles/test_solve_reset.dir/test_solve_reset.cpp.o
+[ 83%] Linking CXX executable test_factor_n1
+[ 83%] Linking CXX executable test_no_heuristics
+[ 83%] Built target test_factor_n1
+[ 83%] Built target test_no_heuristics
+[ 84%] Linking CXX executable test_subsume_n1
+[ 85%] Building CXX object tests/CMakeFiles/test_bve_bound_cut.dir/test_bve_bound_cut.cpp.o
+[ 85%] Building CXX object tests/CMakeFiles/test_eliminate_limit.dir/test_eliminate_limit.cpp.o
+[ 85%] Built target test_subsume_n1
+[ 85%] Building CXX object tests/CMakeFiles/test_inprocess_root.dir/test_inprocess_root.cpp.o
+[ 85%] Linking CXX executable test_bve
+[ 85%] Linking CXX executable test_substitute
+[ 86%] Linking CXX executable test_tr_bruteforce
+[ 86%] Linking CXX executable test_factor
+[ 86%] Built target test_bve
+[ 86%] Built target test_substitute
+[ 86%] Built target test_tr_bruteforce
+[ 86%] Building CXX object tests/CMakeFiles/test_replacement_cursor.dir/test_replacement_cursor.cpp.o
+[ 87%] Building CXX object tests/CMakeFiles/test_sweep_cursor.dir/test_sweep_cursor.cpp.o
+[ 88%] Building CXX object tests/CMakeFiles/test_vivify_max.dir/test_vivify_max.cpp.o
+[ 88%] Built target test_factor
+[ 89%] Building CXX object tests/CMakeFiles/test_watch_pair.dir/test_watch_pair.cpp.o
+[ 90%] Linking CXX executable test_solve_reset
+[ 91%] Linking CXX executable test_bve_bound_cut
+[ 91%] Built target test_solve_reset
+[ 91%] Building C object examples/CMakeFiles/demo1_dpll.dir/demo1_dpll.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 91%] Built target test_bve_bound_cut
+[ 92%] Linking CXX executable demo1_dpll
+[ 92%] Building C object examples/CMakeFiles/demo2_no_restarts.dir/demo2_no_restarts.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 93%] Linking CXX executable test_eliminate_limit
+[ 93%] Built target demo1_dpll
+[ 94%] Linking CXX executable demo2_no_restarts
+[ 95%] Building C object examples/CMakeFiles/demo3_scripted_default.dir/demo3_scripted_default.c.o
+cc1: warning: command-line option ‘-fno-rtti’ is valid for C++/D/ObjC++ but not for C
+[ 95%] Built target test_eliminate_limit
+[ 95%] Built target demo2_no_restarts
+[ 95%] Linking CXX executable demo3_scripted_default
+[ 96%] Linking CXX executable test_watch_pair
+[ 97%] Linking CXX executable test_inprocess_root
+[ 97%] Built target demo3_scripted_default
+[ 97%] Built target test_watch_pair
+[ 97%] Built target test_inprocess_root
+[ 98%] Linking CXX executable test_vivify_max
+[ 99%] Built target test_vivify_max
+[ 99%] Linking CXX executable test_replacement_cursor
+[100%] Linking CXX executable test_sweep_cursor
+[100%] Built target test_replacement_cursor
+[100%] Built target test_sweep_cursor

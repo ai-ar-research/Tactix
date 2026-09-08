@@ -1,0 +1,237 @@
+ Percent |	Source code & Disassembly of candidate for cycles:u (727 samples, percent: local period)
+--------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      00000000004964f0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)>:
+    0.00 :   4964f0: push   %r15
+    0.00 :   4964f2: mov    %rsi,%rax
+    0.00 :   4964f5: mov    %edx,%esi
+    0.00 :   4964f7: mov    %r8d,%edx
+    0.00 :   4964fa: push   %r14
+    0.00 :   4964fc: mov    %esi,%r8d
+    0.00 :   4964ff: push   %r13
+    0.00 :   496501: push   %r12
+    0.00 :   496503: mov    %rcx,%r12
+    0.00 :   496506: push   %rbp
+    0.00 :   496507: push   %rbx
+    0.00 :   496508: sub    $0x58,%rsp
+    0.00 :   49650c: mov    0x130(%rax),%rcx
+    0.00 :   496513: lea    (%rcx,%r8,4),%r14
+    0.00 :   496517: testb  $0x2,0x4(%r14)
+    0.00 :   49651c: jne    4966ae <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1be>
+    0.00 :   496522: cmpb   $0x0,0x88(%rdi)
+    0.00 :   496529: mov    %rdi,%r15
+    0.00 :   49652c: je     4966ae <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1be>
+    0.00 :   496532: mov    (%r14),%ecx
+    0.00 :   496535: lea    0x14(%r14),%rbx
+    0.00 :   496539: shl    $0x2,%rcx
+    0.00 :   49653d: lea    (%rbx,%rcx,1),%r10
+    0.00 :   496541: je     496621 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x131>
+    0.00 :   496547: mov    %edx,%ecx
+    0.00 :   496549: mov    %r9,0x30(%rsp)
+    0.00 :   49654e: mov    %rbx,%r13
+    0.00 :   496551: shl    $0x2,%rcx
+    0.00 :   496555: mov    %r15,0x8(%rsp)
+    0.00 :   49655a: lea    (%r12,%rcx,1),%rdi
+    0.00 :   49655e: mov    %rax,0x10(%rsp)
+    0.00 :   496563: mov    %rdi,(%rsp)
+    0.00 :   496567: mov    %rcx,%rdi
+    0.00 :   49656a: sar    $0x4,%rcx
+    0.00 :   49656e: sar    $0x2,%rdi
+    0.00 :   496572: mov    %rcx,%rbp
+    0.00 :   496575: mov    %esi,0x38(%rsp)
+    0.00 :   496579: mov    %rdi,0x48(%rsp)
+    0.00 :   49657e: shl    $0x4,%rbp
+    0.00 :   496582: mov    %edx,0x3c(%rsp)
+    0.00 :   496586: add    %r12,%rbp
+    0.00 :   496589: mov    %r8,0x40(%rsp)
+    0.00 :   49658e: mov    %r14,0x20(%rsp)
+    0.00 :   496593: mov    %rcx,%r14
+    0.00 :   496596: mov    %rbx,0x28(%rsp)
+    0.00 :   49659b: mov    %r10,%rbx
+    0.00 :   49659e: xchg   %ax,%ax
+    0.00 :   4965a0: mov    0x0(%r13),%r15d
+    0.00 :   4965a4: test   %r14,%r14
+    0.00 :   4965a7: je     49687d <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x38d>
+    0.00 :   4965ad: mov    %r12,%rax
+    0.00 :   4965b0: jmp    4965e3 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf3>
+    0.00 :   4965b2: nopw   0x0(%rax,%rax,1)
+    0.00 :   4965b8: cmp    0x4(%rax),%r15d
+   31.09 :   4965bc: je     4967b0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x2c0>
+    0.00 :   4965c2: cmp    0x8(%rax),%r15d
+    0.14 :   4965c6: je     4967d0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x2e0>
+    0.00 :   4965cc: cmp    0xc(%rax),%r15d
+   11.82 :   4965d0: je     4967f0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x300>
+    0.00 :   4965d6: add    $0x10,%rax
+    0.41 :   4965da: cmp    %rbp,%rax
+    0.00 :   4965dd: je     496810 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x320>
+    0.00 :   4965e3: cmp    (%rax),%r15d
+   12.50 :   4965e6: jne    4965b8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xc8>
+    0.00 :   4965e8: cmp    %rax,(%rsp)
+    0.13 :   4965ec: je     4966e0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1f0>
+    0.00 :   4965f2: add    $0x4,%r13
+    0.00 :   4965f6: cmp    %r13,%rbx
+    0.00 :   4965f9: jne    4965a0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xb0>
+    0.00 :   4965fb: mov    0x20(%rsp),%r14
+    0.00 :   496600: mov    0x28(%rsp),%rbx
+    0.00 :   496605: mov    0x30(%rsp),%r9
+    0.00 :   49660a: mov    0x8(%rsp),%r15
+    0.00 :   49660f: mov    0x10(%rsp),%rax
+    0.00 :   496614: mov    0x38(%rsp),%esi
+    0.00 :   496618: mov    0x3c(%rsp),%edx
+    0.00 :   49661c: mov    0x40(%rsp),%r8
+    0.00 :   496621: test   %edx,%edx
+    0.00 :   496623: je     4966ae <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1be>
+    0.00 :   496629: mov    %rax,0x8(%rsp)
+    0.00 :   49662e: lea    (%r12,%rdx,4),%r13
+    0.00 :   496632: shl    $0x20,%r8
+    0.00 :   496636: mov    %esi,0x10(%rsp)
+    0.00 :   49663a: mov    %r13,%rbp
+    0.00 :   49663d: mov    %r8,%r13
+    0.00 :   496640: mov    (%r14),%eax
+    0.14 :   496643: mov    (%r12),%ecx
+    0.00 :   496647: shl    $0x2,%rax
+    0.00 :   49664b: mov    %rax,%rsi
+    0.00 :   49664e: lea    (%rbx,%rax,1),%rdx
+    0.00 :   496652: sar    $0x2,%rsi
+    0.00 :   496656: sar    $0x4,%rax
+    0.00 :   49665a: je     496887 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x397>
+    0.00 :   496660: shl    $0x4,%rax
+    0.00 :   496664: lea    0x14(%r14,%rax,1),%rsi
+    0.00 :   496669: mov    %rbx,%rax
+    0.00 :   49666c: jmp    496698 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1a8>
+    0.00 :   49666e: xchg   %ax,%ax
+    0.00 :   496670: cmp    0x4(%rax),%ecx
+   14.45 :   496673: je     4967c0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x2d0>
+    0.00 :   496679: cmp    0x8(%rax),%ecx
+    6.74 :   49667c: je     4967e0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x2f0>
+    0.00 :   496682: cmp    0xc(%rax),%ecx
+    8.12 :   496685: je     496800 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x310>
+    0.00 :   49668b: add    $0x10,%rax
+    3.44 :   49668f: cmp    %rsi,%rax
+    0.00 :   496692: je     496850 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x360>
+    0.00 :   496698: cmp    (%rax),%ecx
+   10.60 :   49669a: jne    496670 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x180>
+    0.00 :   49669c: cmp    %rax,%rdx
+    0.00 :   49669f: je     49677e <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x28e>
+    0.00 :   4966a5: add    $0x4,%r12
+    0.00 :   4966a9: cmp    %r12,%rbp
+    0.00 :   4966ac: jne    496640 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x150>
+    0.00 :   4966ae: add    $0x58,%rsp
+    0.00 :   4966b2: pop    %rbx
+    0.00 :   4966b3: pop    %rbp
+    0.00 :   4966b4: pop    %r12
+    0.00 :   4966b6: pop    %r13
+    0.00 :   4966b8: pop    %r14
+    0.00 :   4966ba: pop    %r15
+    0.00 :   4966bc: retq
+    0.00 :   4966bd: cmp    (%rax),%r15d
+    0.00 :   4966c0: je     4965e8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf8>
+    0.00 :   4966c6: add    $0x4,%rax
+    0.00 :   4966ca: cmp    (%rax),%r15d
+    0.00 :   4966cd: je     4965e8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf8>
+    0.00 :   4966d3: add    $0x4,%rax
+    0.00 :   4966d7: cmp    (%rax),%r15d
+    0.00 :   4966da: je     4965e8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf8>
+    0.00 :   4966e0: mov    0x38(%rsp),%ecx
+    0.00 :   4966e4: mov    0x10(%rsp),%rsi
+    0.00 :   4966e9: mov    %r15d,%edx
+    0.00 :   4966ec: mov    0x8(%rsp),%rdi
+    0.00 :   4966f1: callq  495c70 <tactix::SweepSubstitutionSession::find_large(tactix::Kernel const&, unsigned int, unsigned int)>
+    0.00 :   4966f6: test   %rax,%rax
+    0.00 :   4966f9: mov    %rax,0x18(%rsp)
+    0.00 :   4966fe: je     4965f2 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x102>
+    0.00 :   496704: mov    0x10(%rsp),%rsi
+    0.00 :   496709: mov    0x8(%rsp),%rdi
+    0.00 :   49670e: mov    %r15d,%edx
+    0.00 :   496711: callq  4952a0 <tactix::SweepSubstitutionSession::occurrences(tactix::Kernel const&, unsigned int)>
+    0.00 :   496716: mov    0x18(%rsp),%rcx
+    0.00 :   49671b: mov    %rax,%r10
+    0.00 :   49671e: mov    0x8(%rax),%rax
+    0.00 :   496722: lea    0x8(%rcx),%rsi
+    0.00 :   496726: cmp    %rsi,%rax
+    0.00 :   496729: je     496751 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x261>
+    0.00 :   49672b: mov    %rax,%rdx
+    0.00 :   49672e: sub    %rsi,%rdx
+    0.00 :   496731: cmp    $0x8,%rdx
+    0.00 :   496735: jle    49688c <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x39c>
+    0.00 :   49673b: mov    %rcx,%rdi
+    0.00 :   49673e: mov    %r10,0x18(%rsp)
+    0.00 :   496743: callq  4023b0 <memmove@plt>
+    0.00 :   496748: mov    0x18(%rsp),%r10
+    0.00 :   49674d: mov    0x8(%r10),%rax
+    0.00 :   496751: sub    $0x8,%rax
+    0.00 :   496755: mov    %rax,0x8(%r10)
+    0.00 :   496759: jmpq   4965f2 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x102>
+    0.00 :   49675e: cmp    (%rax),%ecx
+    0.00 :   496760: je     49669c <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1ac>
+    0.00 :   496766: add    $0x4,%rax
+    0.00 :   49676a: cmp    (%rax),%ecx
+    0.00 :   49676c: je     49669c <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1ac>
+    0.00 :   496772: add    $0x4,%rax
+    0.00 :   496776: cmp    (%rax),%ecx
+    0.00 :   496778: je     49669c <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1ac>
+    0.00 :   49677e: mov    0x10(%rsp),%r8d
+    0.00 :   496783: mov    0x8(%rsp),%rsi
+    0.00 :   496788: mov    %r14,%rdx
+    0.00 :   49678b: mov    %r15,%rdi
+    0.00 :   49678e: and    $0xffffff00,%r9d
+    0.00 :   496795: or     %r13,%r9
+    0.00 :   496798: mov    %r9,(%rsp)
+    0.00 :   49679c: callq  495de0 <tactix::SweepSubstitutionSession::push_move(tactix::Kernel const&, tactix::Clause const&, unsigned int, unsigned int, tactix::SweepSubstitutionSession::DenseOccurrence)>
+    0.00 :   4967a1: mov    (%rsp),%r9
+    0.00 :   4967a5: jmpq   4966a5 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1b5>
+    0.00 :   4967aa: nopw   0x0(%rax,%rax,1)
+    0.00 :   4967b0: add    $0x4,%rax
+    0.00 :   4967b4: jmpq   4965e8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf8>
+    0.00 :   4967b9: nopl   0x0(%rax)
+    0.00 :   4967c0: add    $0x4,%rax
+    0.14 :   4967c4: jmpq   49669c <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1ac>
+    0.00 :   4967c9: nopl   0x0(%rax)
+    0.00 :   4967d0: add    $0x8,%rax
+    0.00 :   4967d4: jmpq   4965e8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf8>
+    0.00 :   4967d9: nopl   0x0(%rax)
+    0.00 :   4967e0: add    $0x8,%rax
+    0.14 :   4967e4: jmpq   49669c <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1ac>
+    0.00 :   4967e9: nopl   0x0(%rax)
+    0.00 :   4967f0: add    $0xc,%rax
+    0.14 :   4967f4: jmpq   4965e8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf8>
+    0.00 :   4967f9: nopl   0x0(%rax)
+    0.00 :   496800: add    $0xc,%rax
+    0.00 :   496804: jmpq   49669c <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1ac>
+    0.00 :   496809: nopl   0x0(%rax)
+    0.00 :   496810: mov    (%rsp),%rcx
+    0.00 :   496814: sub    %rax,%rcx
+    0.00 :   496817: sar    $0x2,%rcx
+    0.00 :   49681b: cmp    $0x2,%rcx
+    0.00 :   49681f: je     4966ca <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1da>
+    0.00 :   496825: cmp    $0x3,%rcx
+    0.00 :   496829: je     4966bd <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1cd>
+    0.00 :   49682f: cmp    $0x1,%rcx
+    0.00 :   496833: jne    4966e0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1f0>
+    0.00 :   496839: cmp    (%rax),%r15d
+    0.00 :   49683c: jne    4966e0 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x1f0>
+    0.00 :   496842: jmpq   4965e8 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0xf8>
+    0.00 :   496847: nopw   0x0(%rax,%rax,1)
+    0.00 :   496850: mov    %rdx,%rsi
+    0.00 :   496853: sub    %rax,%rsi
+    0.00 :   496856: sar    $0x2,%rsi
+    0.00 :   49685a: cmp    $0x2,%rsi
+    0.00 :   49685e: je     49676a <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x27a>
+    0.00 :   496864: cmp    $0x3,%rsi
+    0.00 :   496868: je     49675e <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x26e>
+    0.00 :   49686e: cmp    $0x1,%rsi
+    0.00 :   496872: je     496776 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x286>
+    0.00 :   496878: jmpq   49677e <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x28e>
+    0.00 :   49687d: mov    0x48(%rsp),%rcx
+    0.00 :   496882: mov    %r12,%rax
+    0.00 :   496885: jmp    49681b <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x32b>
+    0.00 :   496887: mov    %rbx,%rax
+    0.00 :   49688a: jmp    49685a <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x36a>
+    0.00 :   49688c: jne    496751 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x261>
+    0.00 :   496892: mov    0x8(%rcx),%rdx
+    0.00 :   496896: mov    %rdx,(%rcx)
+    0.00 :   496899: jmpq   496751 <tactix::SweepSubstitutionSession::rewrite_large_in_place(tactix::Kernel const&, unsigned int, unsigned int const*, unsigned int)+0x261>
