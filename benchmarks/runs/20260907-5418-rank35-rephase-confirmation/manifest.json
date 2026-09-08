@@ -1,0 +1,33 @@
+{
+  "parent_campaign": "benchmarks/runs/20260907-5415-rank35-warmup-implications",
+  "candidate_authority": "benchmarks/runs/20260907-5417-rephase-root/manifest.json",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-rephase-root-5417",
+  "input": "benchmarks/cache/tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+  "input_sha256_compressed": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+  "stop_conflict": 13833,
+  "hypothesis": "The missing root closure caused the first warm-up implication-order difference, later heap permutation, and first decision split at 13832. Restore it without changing public rules.",
+  "validation": "Two clean stops and pin/trace cleanup; native reproduces established 13833 prefix; compare complete post-warm-up heap portable fields, six selected implications and full cumulative decision hash. No timing claim.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "pins/candidate": "3e9c431b0be3c9837ea5dc4a82c40ab0e9200a79bca0f7d5d00b280876249a28",
+    "run.py": "7ce8b0c1556af951560743e6dfceb521085587e048a07f778ec71ff09662226b",
+    "array.sbatch": "4cca8a4329438faa4074497a925900d4d3161ae67ce25e43724f66351b0ef082"
+  },
+  "stream_from": 13560,
+  "choice_conflict": 13414,
+  "choice_variable": 109797,
+  "common_decisions": 18516149,
+  "matched_prefix_authority": "benchmarks/runs/20260907-5410-rank35-first-warmup-heap",
+  "supersession": "5413 retained full per-heap-move selected-variable tests even in implication-only mode; this observer rejects those helpers immediately.",
+  "snapshot_conflict": 13563,
+  "snapshot_decisions": 17798664
+}

@@ -1,0 +1,218 @@
+{
+  "observed_at": "2026-09-08T00:20:05.495491+00:00",
+  "campaign": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime",
+  "manifest_sha256": "3a930277883cc8f7e2b8d2d0b2b4a6059003ef2840b8074c2abdb16b246dbf42",
+  "solver_results": 9,
+  "checked_clean": 0,
+  "expected_unsat": 9,
+  "timeouts": 0,
+  "waves": [
+    {
+      "wave": 0,
+      "seconds": {
+        "candidate": 365.156,
+        "previous": 553.503,
+        "kissat": 307.959
+      },
+      "candidate_over_previous": 0.6597181948426657,
+      "candidate_over_kissat": 1.185729269155959
+    },
+    {
+      "wave": 1,
+      "seconds": {
+        "candidate": 364.633,
+        "previous": 553.949,
+        "kissat": 308.612
+      },
+      "candidate_over_previous": 0.6582429068379941,
+      "candidate_over_kissat": 1.1815256697730483
+    },
+    {
+      "wave": 2,
+      "seconds": {
+        "candidate": 364.44,
+        "previous": 558.2,
+        "kissat": 308.005
+      },
+      "candidate_over_previous": 0.6528842708706556,
+      "candidate_over_kissat": 1.1832275450073864
+    }
+  ],
+  "arms": {
+    "candidate": [
+      {
+        "task": 0,
+        "seconds": 365.156,
+        "peak_rss_kb": 589544,
+        "work": {
+          "conflicts": 4297466,
+          "decisions": 194380570,
+          "propagations": 2712641780
+        },
+        "node": "node017",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/000.json",
+        "record_sha256": "7829c1c4e415ba7595beac0a293c645d546fc49dbe48a9b3f9011c055d76c198"
+      },
+      {
+        "task": 3,
+        "seconds": 364.633,
+        "peak_rss_kb": 589544,
+        "work": {
+          "conflicts": 4297466,
+          "decisions": 194380570,
+          "propagations": 2712641780
+        },
+        "node": "node017",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/003.json",
+        "record_sha256": "be85ab97a2447dbc2ad76b549c4b28427ef2d9c0abb1c88fa3d2b30f3390e55a"
+      },
+      {
+        "task": 6,
+        "seconds": 364.44,
+        "peak_rss_kb": 589544,
+        "work": {
+          "conflicts": 4297466,
+          "decisions": 194380570,
+          "propagations": 2712641780
+        },
+        "node": "node018",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/006.json",
+        "record_sha256": "926415bfcbb35376b2ca2076122304910ae6e0ac5858389428517751258b9e32"
+      }
+    ],
+    "previous": [
+      {
+        "task": 1,
+        "seconds": 553.503,
+        "peak_rss_kb": 566564,
+        "work": {
+          "conflicts": 8681274,
+          "decisions": 238587661,
+          "propagations": 4407550286
+        },
+        "node": "node017",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/001.json",
+        "record_sha256": "e2c7430b0edf27668a696dac713491f15655b801af99c2100017dea9445ed33c"
+      },
+      {
+        "task": 4,
+        "seconds": 553.949,
+        "peak_rss_kb": 566564,
+        "work": {
+          "conflicts": 8681274,
+          "decisions": 238587661,
+          "propagations": 4407550286
+        },
+        "node": "node018",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/004.json",
+        "record_sha256": "2a65b9fedc016c12ae6d8c33bd4a80a16c136b37ec5336c8b295351feb435ccb"
+      },
+      {
+        "task": 7,
+        "seconds": 558.2,
+        "peak_rss_kb": 566564,
+        "work": {
+          "conflicts": 8681274,
+          "decisions": 238587661,
+          "propagations": 4407550286
+        },
+        "node": "node017",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/007.json",
+        "record_sha256": "53fe363ddba307fc51b4102bef9d4206605c732a39e0c44789e8545bf6d3ab7f"
+      }
+    ],
+    "kissat": [
+      {
+        "task": 2,
+        "seconds": 307.959,
+        "peak_rss_kb": 269360,
+        "work": {
+          "conflicts": 4751990,
+          "decisions": 210767815,
+          "propagations": 3394097561
+        },
+        "node": "node017",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/002.json",
+        "record_sha256": "7ae5741ab74a068cac13dbdd2d21e1422a5deba014c9f95abfc57d14379f14d8"
+      },
+      {
+        "task": 5,
+        "seconds": 308.612,
+        "peak_rss_kb": 269360,
+        "work": {
+          "conflicts": 4751990,
+          "decisions": 210767815,
+          "propagations": 3394097561
+        },
+        "node": "node017",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/005.json",
+        "record_sha256": "7728b9512b4da53835bf09968d43504b6347079f413ad9979f277d4c71d75ab3"
+      },
+      {
+        "task": 8,
+        "seconds": 308.005,
+        "peak_rss_kb": 269360,
+        "work": {
+          "conflicts": 4751990,
+          "decisions": 210767815,
+          "propagations": 3394097561
+        },
+        "node": "node018",
+        "cpu_affinity": null,
+        "verification": "pending",
+        "record": "benchmarks/runs/20260907-5421-rephase-root-rank35-runtime/provisional/008.json",
+        "record_sha256": "aa1855bf4f89aafefeb2e9e825d69757f46694f84e73ca46c581cf100f87c311"
+      }
+    ]
+  },
+  "spread": {
+    "candidate": {
+      "median": 364.633,
+      "min": 364.44,
+      "max": 365.156,
+      "range_over_median": 0.0019636182133816967
+    },
+    "previous": {
+      "median": 553.949,
+      "min": 553.503,
+      "max": 558.2,
+      "range_over_median": 0.008479119918981717
+    },
+    "kissat": {
+      "median": 308.005,
+      "min": 307.959,
+      "max": 308.612,
+      "range_over_median": 0.002120095452995958
+    }
+  },
+  "paired": {
+    "candidate_over_previous": {
+      "median": 0.6582429068379941,
+      "min": 0.6528842708706556,
+      "max": 0.6597181948426657
+    },
+    "candidate_over_kissat": {
+      "median": 1.1832275450073864,
+      "min": 1.1815256697730483,
+      "max": 1.185729269155959
+    }
+  },
+  "absolute_range_within_two_percent": true,
+  "limitations": "Solver timing checkpoint; pending proofs are provisional passes for investigation only. No production promotion or global goal closure. Independent full-width replica blocks; node placement is recorded, not forced or crossed. Affinity/runtime context and per-record binary identity publish with final records; immutable pin hashes are independently verified here."
+}

@@ -1,0 +1,30 @@
+{
+  "parent_campaign": "benchmarks/runs/20260907-5418-rank35-rephase-confirmation",
+  "candidate_authority": "benchmarks/runs/20260907-5417-rephase-root/manifest.json",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-rephase-root-5417",
+  "input": "benchmarks/cache/tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+  "input_sha256_compressed": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+  "stop_conflict": 100000,
+  "hypothesis": "After closing the first Rank-35 split, determine whether the repaired decision prefix matches through 100000 conflicts; otherwise localize the next decision and macro boundary split.",
+  "validation": "Two bounded stops, immutable pin checks and scratch cleanup. Compare complete prefix hashes, common prefix authority and streamed decisions. Diagnostic only: no accepted solve, proof check or timing claim.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "3e9c431b0be3c9837ea5dc4a82c40ab0e9200a79bca0f7d5d00b280876249a28",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "run.py": "44accab33d10837f232644877efd5f2e99104c063358af38fd257b808ebe03c3",
+    "array.sbatch": "d4312eca3e6d9668e9ce34fad57285765b12ec8aad8ee286d2af0ea5bfffc7da"
+  },
+  "stream_from": 13833,
+  "common_decisions": 18516218,
+  "matched_prefix_authority": "benchmarks/runs/20260907-5418-rank35-rephase-confirmation",
+  "created_at": "2026-09-08T00:16:32.520972+00:00",
+  "continuation": "Independent diagnostic proceeds while 5421/5422/5423 proofs run; any actual correctness rejection pauses dependent work."
+}

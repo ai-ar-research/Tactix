@@ -1,0 +1,82 @@
+{
+  "schema": "tactix-kissat-checked-runtime-v1",
+  "status": "UNFUZZED isolated investigation; no production promotion",
+  "hypothesis": "Restoring the missing root propagation before Rephase reduces Rank-35 search work and time relative to the exact preceding coupled candidate.",
+  "comparison": "Three independent matched replicate blocks, candidate/previous/pristine Kissat; instance-major arm order, all tasks eligible concurrently.",
+  "decision": "Use the median of all three paired candidate/previous ratios and full range. Absolute runtime headline requires each arm range <=2%. Check all nine proofs and cleanup; expected pending results guide continued work provisionally. No promotion or global claim; UNFUZZED.",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "f86419c4763ea5a8372661648d552c6b47c7b3375441ebc879fe9088f171c10c",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/candidate.patch",
+      "source_patch_sha256": "19599a92983cac14cb53e08d737aad45cdfd2e9c55d2094cc5e6839324b37e0a"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "5236e63f5ba3fc27e448d23c2a4b92e1948bb9c1390f336cc0852eed66cf64e2",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/previous.patch",
+      "source_patch_sha256": "2670f070cb13fe55d84d284a30b3f859bf5a2e5c250aa3c3a1e2772495b36fd3"
+    },
+    "kissat": {
+      "path": "pins/kissat",
+      "sha256": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+      "source_commit": "8af8e56f174b778aef3aa45af9f739b2a5f492c2",
+      "arguments": [
+        "-v"
+      ]
+    }
+  },
+  "collect_runtime_context": true,
+  "input_sha256": {
+    "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-8",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "pin_sha256": {
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c",
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "pins/candidate": "f86419c4763ea5a8372661648d552c6b47c7b3375441ebc879fe9088f171c10c",
+    "pins/previous": "5236e63f5ba3fc27e448d23c2a4b92e1948bb9c1390f336cc0852eed66cf64e2",
+    "pins/previous.patch": "2670f070cb13fe55d84d284a30b3f859bf5a2e5c250aa3c3a1e2772495b36fd3",
+    "pins/candidate.patch": "19599a92983cac14cb53e08d737aad45cdfd2e9c55d2094cc5e6839324b37e0a",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "matrix.tsv": "78a7e962db40290dbc4bad8ba904c632ad1d78f6a5981e465af83d4f349ef2c5",
+    "array.sbatch": "6a4cc8ffe698050b38628a493f9efa8fd618ee10924ef7981579d95c8e80d467"
+  },
+  "parent_campaign": "benchmarks/runs/20260907-5392-eliminate-entry-runtime",
+  "candidate_validation": "5417 old-negative/new-positive root-closure fixture, 76/76 trace and 77/77 in each independent Release build; UNFUZZED.",
+  "candidate_authority": "benchmarks/runs/20260907-5417-rephase-root",
+  "wave_tasks": {
+    "0": [
+      0,
+      1,
+      2
+    ],
+    "1": [
+      3,
+      4,
+      5
+    ],
+    "2": [
+      6,
+      7,
+      8
+    ]
+  }
+}

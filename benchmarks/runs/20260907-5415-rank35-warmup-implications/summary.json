@@ -1,0 +1,141 @@
+{
+  "clean_stops": 2,
+  "unchanged_prefix_stream": true,
+  "normalized_boundaries": {
+    "candidate": {
+      "coarse_rows_identical": true,
+      "additional_analysis_rows": []
+    },
+    "kissat": {
+      "coarse_rows_identical": true,
+      "additional_analysis_rows": [
+        [
+          "analysis",
+          "end",
+          "13563",
+          "17798663",
+          "262434494",
+          "429257",
+          "250320",
+          "178938",
+          "571102",
+          "4252",
+          "754612"
+        ]
+      ]
+    }
+  },
+  "selected_event_counts": {
+    "candidate": 6,
+    "kissat": 6
+  },
+  "selected_events": {
+    "candidate": [
+      {
+        "conflict": 13563,
+        "decisions": 17798663,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109796|level=1|reason=-109796,-145,109797"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798663,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109815|level=1|reason=-109815,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798663,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109877|level=1|reason=-109877,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798664,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109815|level=1|reason=-109815,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798664,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109877|level=1|reason=-109877,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798664,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109796|level=1|reason=-109796,-145,109797"
+      }
+    ],
+    "kissat": [
+      {
+        "conflict": 13563,
+        "decisions": 17798663,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109815|level=1|reason=-109815,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798663,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109877|level=1|reason=-109877,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798663,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109796|level=1|reason=-109796,-145,109797"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798664,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109815|level=1|reason=-109815,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798664,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109877|level=1|reason=-109877,-145"
+      },
+      {
+        "conflict": 13563,
+        "decisions": 17798664,
+        "level": 1,
+        "mode": "stable",
+        "payload": "lit=-109796|level=1|reason=-109796,-145,109797"
+      }
+    ]
+  },
+  "selected_events_identical": false,
+  "first_selected_difference": {
+    "index": 0,
+    "candidate": {
+      "conflict": 13563,
+      "decisions": 17798663,
+      "level": 1,
+      "mode": "stable",
+      "payload": "lit=-109796|level=1|reason=-109796,-145,109797"
+    },
+    "kissat": {
+      "conflict": 13563,
+      "decisions": 17798663,
+      "level": 1,
+      "mode": "stable",
+      "payload": "lit=-109815|level=1|reason=-109815,-145"
+    }
+  },
+  "limitation": "Selected implication stream, not all assignments. Context decisions/level are sampled after propagation in both observers. Same decisions do not establish same reasons/trail order. Stopped diagnostic, not checked final verdict or timing."
+}

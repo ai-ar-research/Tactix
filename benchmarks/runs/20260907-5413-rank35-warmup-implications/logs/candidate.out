@@ -1,0 +1,95 @@
+c tactix 0.1.0
+c input       0 clauses restated (normalized literals)
+c decisions   16877477 (0 via API)
+c conflicts   12676
+c propagations 246187525 (209029938 search, 37157587 inprocess)
+c learned     12083 (57 units)
+c learnedsize 10.05 avg lits, 6.54 avg glue
+c reduction   24.7% of resolved lits removed by minimize+shrink
+c minimized   15157 lits
+c min-depth   0 cutoffs
+c shrunken    24710 lits
+c reasonbump  0 vars in 1 rounds (0 depth2, 0 aborted)
+c otfs        292 strengthened (6 conflicts subsumed)
+c eagersub    623 subsumed of 27025 tried (0 kept as reason), register 4
+c shrinkglue  243 promoted (clamp size-1)
+c tumble      488500 vars seeded (activation order)
+c ticksplit   632076032 search, 108065030 suppressed, 740141062 total
+c warmup      1 warmups, 32072 decisions, 429693 propagations
+c denseocc    38135 slice moves, 0 defrags
+c sparsecol   8 runs, 84 clauses
+c vivify      13 rounds, 1011 vivified, 3 deleted, 0 flushed, 214883 checked
+c vivify2     38672 reused, 836873 probes, 0 full, 417 tier3, 1631365 prio, 11 rearm, 214886 polls, 0 term
+c vivify3     11511 subsumed, 0 promoted, 902 shrunken, 944 implied, 13 asym, 109 instantiated, 201404 noop
+c probe       0 rounds, 0 probed, 0 failed
+c backbone    112 rounds, 2933222 probed, 0 failed
+c transitive  0 rounds, 46827 checked, 19 deleted, 0 units, 14785031 ticks, 46827 polls, 0 terminated
+c substitute  348 rounds, 32847904 ticks, 57872 non-trivial SCCs (118654 lits), 58989 vars substituted, 0 rounds skipped / 0 partial (0 lits poisoned) on the hazard check
+c bce         0 rounds, 0 deleted, 0 ticks
+c cce         0 rounds, 0 tried, 0 deleted (0 blocked / 0 ata), 0 ala, 0 cla, 0 ticks
+c cce2        0 skipped / 0 advances / 0 rearmed
+c instantiate 0 rounds, 0 literals removed, 0 probed
+c sweep       4 rounds, 13329 swept, 13329 environments (2019220 clauses), 158695 solves, 89647 candidates, 338 equivalences, 0 units (0 already binary), 0 env-unsat, 5 budget, 90217637 ticks
+c sweepdiag   8779960 env-lits, 0 root-false (0 stripped, 0 FREE), 0 units, 5114413 cand-seeded, 178495 refined, 135324 dir-sat, 10039 dir-unsat
+c sweepflip   6749498 attempts, 4514265 successful
+c sweepback   6280460 candidates, 4545186 flipped
+c sweepcost   2121439 dedup ticks, 70570838 sub-solver ticks, 0 representation words; closure 0/0 occurrences, 0/0 vars whole
+c sweepemit   676 binaries, 0 not-rup, 338 general pairs, 0 strip units cited
+c sweepsched  429686 scheduled, 338 rescheduled, 12730 resumed, 0 completed, 416357 tail; limits 256 vars, 1024 clauses, depth 2
+c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks
+c hbr         0 rounds, 0 probes, 0 binaries, 0 subsumed, 0 declined, 0 ticks
+c chrono      7658 chronological, 0 stale backjumps, 0 propagation re-arms
+c reuse       301 conflicts reused, 51 needed watch repair
+c jumpreason  79500152 binary reasons jumped, 11 classifications, 11 big-binary; gate on
+c binprop     16712368 scans, 16712368 flagged, 30778281 words, 30873378 skipped, 0 residual-ordered, 0 residual-large
+c inprocess   3 phases
+c conggates   1036426 and, 585114 xor, 68617 ite
+c congruence  3 rounds, 3 binary rebuilds, 1690157 gates, 58644 merges, 181 units, 0 unjustified, 437405382 ticks, 0 budget stops
+c congy1      0 found, 0 units, 96 binary equivalences, 14782424 ticks
+c retired     372 vars (372 substituted, 0 eliminated) of 429883
+c compact     1 passes removed 58617 internal variables
+c deactivate  59239 deactivations, 0 repeated reports, 0 re-bumps of retired vars
+c substdec    0 decisions on substituted vars (0.00% of 16877477)
+c extension   0 vars added, 0 decisions on them (0.00% of 16877477)
+c interrupt   0 rule applications aborted on the stop flag (0 stress fires)
+c extbumps    0 of 347062 bumps on extension vars (0.00%), 0 reason-side only (0.00% of those)
+c factor      0 factorings, 0 large remainders offered, 0 ticks
+c factor-rem  0 materialized, 0 reused
+c factor-bnd  0 grids rejected by the coupled bound
+c factor-dem  0 demotions, 0 fresh vars demoted
+c bve         0 rounds, 0 eliminated, 0 resolutions
+c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units
+c bve-gates   0 equiv, 0 andor, 0 ite, 0 xor, 0 definition; 0 resolvent pairs saved
+c bve-def     0 checked, 0 ticks, 0 hit the tick ceiling, 0 units
+c restarts    729 (231 reused a trail prefix)
+c reductions  7 (915 clauses deleted, 950 promoted)
+c tiers       3/8 live after 19 retiers (retention band 0 clause-visits dynamic vs 0 static)
+c redscan     0 scans, 0 arena words walked, 0 skippable by a first_reducible watermark (0.00%)
+c mode        unguided after 5 switches (740141062 ticks, 964 target phases saved)
+c rephased    4 (560 best phases saved)
+c reordered   1 eligible, 1 decision re-rankings
+c lucky       1 early, 1 late (0 SAT), 12 probes
+c walk        1 walks (1 improved, 1944 flips, 506442 steps)
+c randec      5 sequences, 90578 random decisions
+c subsume     0 rounds (0 checked, 0 visits, 0 subsumed)
+c strengthen  0 rounds (0 checked, 0 visits, 0 strengthened, 0 subsumed)
+c budgetstop  0 C1 rounds, 0 C2 rounds stopped mid-round
+c c1shadow    0 observed, 0 deleted + 0 rewritten by C2, 0 residual
+c touch       5748097 marks, 5748097 epoch; C1 0 skipped / 0 advances / 0 rearmed, C2 0 skipped / 0 advances / 0 rearmed
+c subhold     0 elimination rounds held open by C1/C2
+c touch3      BCE 0 skipped / 0 rearmed, X2 0 skipped / 0 rearmed, X4 0 skipped / 0 rearmed
+c interrupt3  BCE 0, X2 0, X4 0 aborts
+c interrupt2  C1 0, C2 0 aborts
+c touchred    0 redundant creations in scope (dynamic) vs 0 (static tier2=6), 0 band marks; band off
+c f7band      C2 0 band candidates checked / 0 skipped, 0 subsumed / 0 strengthened
+c touch4      Factor 0 seeds skipped / 0 rearmed
+c timing      599754 ms solve
+c timing      14258 ms (2.4%) inprocessing slot, 585496 ms (97.6%) search+scaffolding outside it
+c timing        Vivify                5738 ms (  1.0%) in 13 applications
+c timing        Backbone              2865 ms (  0.5%) in 9 applications
+c timing        Sweep                 2029 ms (  0.3%) in 4 applications
+c timing        Congruence            1644 ms (  0.3%) in 3 applications
+c timing        Substitute            1008 ms (  0.2%) in 9 applications
+c timing        TransitiveReduce       161 ms (  0.0%) in 64402 applications
+c timing        (unattributed)         813 ms (  0.1%)
+s UNKNOWN
