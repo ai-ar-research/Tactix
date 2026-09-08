@@ -1,0 +1,59 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5755-reuse-target-rank31-replay",
+  "candidate_authority": "benchmarks/runs/20260908-5798-forward-unit",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-forward-unit-5798",
+  "input": "benchmarks/cache/tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+  "input_sha256_compressed": "b593364c559acab10fed9546371efe2f96683fd2c21021439dc340d6fa1ea85c",
+  "stop_conflict": 300000,
+  "hypothesis": "Canonical unit continuation recovers the omitted Rank31 forward tail; require unchanged decisions before its first actual effect and inspect later portable Strengthen/BVE boundaries against cached native,not identity after intended change.",
+  "validation": "Clean300K diagnostic stop and scratch cleanup; verify complete trace hashes;compare all available decision rows and portable boundaries to both parent and cached native. Not a final proof or acceptance timing.",
+  "contract": "Single candidate task0;12CPU/48000MiB,25min allocation,1200s solver,proof-on diagnostic; no node constraint/throttle. No Kissat rerun.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "682c3fd9abf7586814a7bccf94b4c324f34922e40970b9fbeedf5fa1ca9d88c1",
+    "run.py": "2e3d68c9c243bb7a5a97bb38fec9c9d2b4b2d8bcf70a5ac2da2df192280eb16c",
+    "array.sbatch": "8c60b5d7f653f649679c92fac1efec1b5a1b44827561d6f27b98ec47ce32052d"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T16:36:14.737061+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Stopped diagnostic,not final checked verdict or acceptance timing; no new Kissat run.",
+  "test_consideration": "93/93 independent Release and BC;92/92 trace;17 state/model regressions;8 DRAT+8 LRAT independent checks;six actual native/Tactix root/trail/step/completion rows equal. Existing interruption and N1 tests retained.",
+  "source_patch_sha256": "219a0bfe85084ac537056e07841f5bfc36b5f28301bc41f031e2dc6e8b58c6a5",
+  "predecessor": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix",
+  "cached_controls": {
+    "candidate": {
+      "record": "benchmarks/runs/20260908-5755-reuse-target-rank31-replay/results/candidate.json",
+      "sha256": "09ed03ed3509b0542e4ec197c8d26a345b8d75f92dfa88e8dd35a26896005624"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix/results/kissat.json",
+      "sha256": "63b7668610e420d2039fde126b057a86bb4274149fa0fbafd0e8cbe06afb8904"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-0",
+    "throttle": null,
+    "node_constraint": null
+  },
+  "bc_dependency": {
+    "campaign": "benchmarks/runs/20260908-5806-forward-unit-BC-gate",
+    "provisional_outcomes": 66,
+    "limitation": "Remaining BC solves/checks continue independently;no gate closure or promotion. Investigative trace only."
+  }
+}

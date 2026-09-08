@@ -1,0 +1,24 @@
+{
+  "arm": "tactix",
+  "certificate_bytes": 2342518784,
+  "certificate_sha256": "b536486d62340fea8b72389b0a02d1cd1086e82e35252011dd19a9145bee9edc",
+  "expected": "UNSAT",
+  "expected_match": false,
+  "instance": "tierD24-26/2b60f9be1439f63b7f174c6b8ca7fedf-sgen1-unsat-121-100.cnf.xz",
+  "node": "node013",
+  "rank": 224,
+  "recorded_at": "2026-09-08T17:24:48.147609+00:00",
+  "schema": "tactix-matched-slurm-provisional-result-v1",
+  "solve": {
+    "exit_code": null,
+    "peak_rss_kb": null,
+    "sampled_process_vm_peak_kb": 133404,
+    "timed_out": true,
+    "wall_seconds": 1200.005
+  },
+  "solver_statistics": [],
+  "task": 446,
+  "tier": "D",
+  "validation_pending": true,
+  "verdict": "UNKNOWN"
+}

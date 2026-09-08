@@ -1,0 +1,7 @@
+{
+  "job_id": "1674241",
+  "manifest_sha256": "46bd8228183121039db3e06d50e7bbdb1e567dc954843bbcfacfdca34bd1d2c8",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5845-forward-admission-rank31-prefix/array.sbatch",
+  "purpose": "Locate5830's measured Rank31 changed-work regression against cached5798 and native traces;do not assume the known caller defect is its cause.",
+  "scope": "One candidate-only12CPU/48000MiB stopped300K diagnostic;25min allocation,1200s solver,no native rerun."
+}

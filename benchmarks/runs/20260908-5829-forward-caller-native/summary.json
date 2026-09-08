@@ -1,0 +1,28 @@
+{
+  "commands": [
+    [
+      "gcc",
+      "-O3",
+      "-DNDEBUG",
+      "-I/home/hwu/SAT-solving/tools/solvers/variants/kissat-score-bump-observer-5696/src",
+      "/home/hwu/SAT-solving/benchmarks/probes/scratch/forward-caller-native-5828.c",
+      "/home/hwu/SAT-solving/tools/solvers/variants/kissat-score-bump-observer-5696/build/libkissat.a",
+      "-lm",
+      "-o",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260908-5829-forward-caller-native/witness"
+    ],
+    [
+      "/home/hwu/SAT-solving/benchmarks/runs/20260908-5829-forward-caller-native/witness"
+    ]
+  ],
+  "hashes": {
+    "benchmarks/probes/scratch/forward-caller-native-5828.c": "133632820ae6b0433d5c3f5e40425bf90069e3aff23200eeed6f9095d80739d1",
+    "tools/solvers/variants/kissat-score-bump-observer-5696/build/libkissat.a": "5f73545edff77ac882c25c3e07998497eb8726933ea1eb8a01bf2abd5a2b9c20",
+    "benchmarks/runs/20260908-5829-forward-caller-native/witness": "1f175636da6f60a4abbd88c7282d60cc84b3768aee16a88c0aba7c41aa443723",
+    "tools/solvers/variants/kissat-score-bump-observer-5696/src/forward.c": "df9df518505c932e2dfe039bc90496cd071650dcbe98314af59d059f9ffaaed9",
+    "tools/solvers/variants/kissat-score-bump-observer-5696/src/eliminate.c": "0a5972ad92025b21f0ed5e70163399e6a6fdb553fa7d23cdf424cc469fa0040f"
+  },
+  "result": "Native partial forward quota cut leaves unit5 pending;actual caller reconnect/reset/flush derives it before BVE scheduling.",
+  "paired_tactix": "benchmarks/runs/20260908-5826-forward-caller-debt/summary.json",
+  "limitation": "Fixed actual-code control,no final native proof or runtime claim."
+}

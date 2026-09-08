@@ -1,0 +1,7 @@
+{
+  "job_id": "1673996",
+  "manifest_sha256": "9192cc0b3f36d778ccf7bb255204f5b727e69bd437a0423abb30f42a05d58684",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5822-forward-mark-rank32-replay/array.sbatch",
+  "purpose": "Read-only Rank32 root-mark diagnostic; no baseline refresh or acceptance timing.",
+  "watcher": "python3 tools/slurm/wait.py --job 1673996"
+}

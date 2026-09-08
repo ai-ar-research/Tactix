@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from decision_prefix import FIELDS, read_prefix, validate_common
+from decision_prefix import FIELDS, first_stream_difference, read_prefix, validate_common
 
 
 class DecisionPrefixTests(unittest.TestCase):
@@ -51,6 +51,40 @@ class DecisionPrefixTests(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(AssertionError):
                 self.path.write_text(text)
                 read_prefix(self.path)
+
+    def compare_streams(self, left, right, chunk):
+        a, b = Path(self.tmp.name) / 'a.tsv', Path(self.tmp.name) / 'b.tsv'
+        a.write_text(left)
+        b.write_text(right)
+        return first_stream_difference(a, b, chunk_bytes=chunk)
+
+    def test_stream_equality_across_every_chunk_boundary(self):
+        text = '0\t1\t1\t-12345\t0\n1\t2\t2\t67\t1\n'
+        for chunk in range(1, len(text) + 2):
+            self.assertEqual(self.compare_streams(text, text, chunk),
+                             dict(matching_rows=2, left=None, right=None, complete_equal=True))
+
+    def test_stream_difference_preserves_entire_straddling_row(self):
+        prefix = '0\t1\t1\t-12345\t0\n'
+        a, b = '1\t2\t2\t67\t1\n', '1\t2\t2\t-67\t1\n'
+        for chunk in range(1, len(prefix + a) + 2):
+            self.assertEqual(self.compare_streams(prefix + a, prefix + b, chunk),
+                             dict(matching_rows=1, left=[1,2,2,67,1], right=[1,2,2,-67,1], complete_equal=False))
+
+    def test_stream_unequal_lengths_and_empty(self):
+        text = '0\t1\t1\t3\t0\n'
+        for chunk in range(1, len(text) + 2):
+            for a, b in [('', text), (text, text + text), (text, ''), (text + text, text)]:
+                got = self.compare_streams(a, b, chunk)
+                self.assertEqual(got['matching_rows'], min(a.count('\n'), b.count('\n')))
+                self.assertEqual(got['left'] is None, len(a) < len(b))
+                self.assertEqual(got['right'] is None, len(b) < len(a))
+        self.assertTrue(self.compare_streams('', '', 1)['complete_equal'])
+
+    def test_stream_rejects_truncation_and_wrong_columns(self):
+        for text in ['0\t1\t1\t3\t0', '0\t1\n', '# wrong header\n']:
+            with self.subTest(text=text), self.assertRaises(AssertionError):
+                self.compare_streams(text, text, 2)
 
 
 if __name__ == '__main__':
