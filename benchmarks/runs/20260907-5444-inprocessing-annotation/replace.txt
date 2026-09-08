@@ -1,0 +1,904 @@
+ Percent |	Source code & Disassembly of candidate for cycles:u (1313 samples, percent: local period)
+---------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      0000000000421ba0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)>:
+    0.00 :   421ba0: push   %r15
+    0.00 :   421ba2: push   %r14
+    0.00 :   421ba4: mov    %esi,%r14d
+    0.00 :   421ba7: push   %r13
+    0.00 :   421ba9: push   %r12
+    0.00 :   421bab: push   %rbp
+    0.00 :   421bac: mov    %rcx,%rbp
+    0.00 :   421baf: push   %rbx
+    0.00 :   421bb0: mov    %rdi,%rbx
+    0.00 :   421bb3: sub    $0x88,%rsp
+    0.00 :   421bba: mov    0xc8(%rsp),%eax
+    0.00 :   421bc1: mov    %rdx,0x30(%rsp)
+    0.00 :   421bc6: mov    %esi,%edx
+    0.00 :   421bc8: mov    %r8d,0x10(%rsp)
+    0.00 :   421bcd: mov    %eax,0x40(%rsp)
+    0.00 :   421bd1: mov    0x130(%rdi),%rax
+    0.00 :   421bd8: mov    %r9d,0x44(%rsp)
+    0.00 :   421bdd: lea    (%rax,%rdx,4),%r15
+    0.00 :   421be1: mov    (%r15),%eax
+    0.00 :   421be4: mov    0xc(%r15),%rdi
+    0.00 :   421be8: mov    %eax,0x18(%rsp)
+    0.00 :   421bec: mov    0x4(%r15),%eax
+    0.00 :   421bf0: mov    %rdi,0x20(%rsp)
+    0.00 :   421bf5: mov    %eax,0x1c(%rsp)
+    0.00 :   421bf9: test   %rdi,%rdi
+    0.00 :   421bfc: je     421c60 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc0>
+    0.00 :   421bfe: mov    0x150(%rbx),%rax
+    0.00 :   421c05: mov    0x148(%rbx),%rdx
+    0.00 :   421c0c: cmp    %rdx,%rax
+    0.00 :   421c0f: je     42224d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6ad>
+    0.00 :   421c15: movabs $0xaaaaaaaaaaaaaaab,%rsi
+    0.00 :   421c1f: sub    %rdx,%rax
+    0.00 :   421c22: mov    %rdi,%rcx
+    0.00 :   421c25: sar    $0x3,%rax
+    0.00 :   421c29: shr    $0xc,%rcx
+    0.00 :   421c2d: imul   %rsi,%rax
+    0.00 :   421c31: cmp    %rax,%rcx
+    0.00 :   421c34: jae    42224d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6ad>
+    0.00 :   421c3a: lea    (%rcx,%rcx,2),%rax
+    0.00 :   421c3e: lea    (%rdx,%rax,8),%rax
+    0.00 :   421c42: mov    (%rax),%rdx
+    0.00 :   421c45: cmp    %rdx,0x8(%rax)
+    0.00 :   421c49: je     42224d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6ad>
+    0.00 :   421c4f: mov    %rdi,%rax
+    0.00 :   421c52: and    $0xfff,%eax
+    0.00 :   421c57: mov    (%rdx,%rax,8),%rax
+    0.00 :   421c5b: mov    %rax,0x20(%rsp)
+    0.00 :   421c60: mov    0x1c(%rsp),%eax
+    0.00 :   421c64: mov    0x14(%r15),%edi
+    0.00 :   421c68: mov    0x18(%r15),%r11d
+    0.00 :   421c6c: and    $0x2,%eax
+    0.00 :   421c6f: cmpq   $0x0,0x1a8(%rbx)
+    0.00 :   421c77: mov    %eax,0x14(%rsp)
+    0.00 :   421c7b: je     421eb1 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x311>
+    0.00 :   421c81: mov    0x14(%rsp),%r10d
+    0.00 :   421c86: test   %r10d,%r10d
+    0.00 :   421c89: jne    4221fa <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x65a>
+    0.00 :   421c8f: mov    0x18(%rsp),%r9d
+    0.00 :   421c94: test   %r9d,%r9d
+    0.00 :   421c97: je     421dc2 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x222>
+    0.00 :   421c9d: mov    0x10(%rsp),%esi
+    0.00 :   421ca1: mov    %edi,0x50(%rsp)
+    0.00 :   421ca5: mov    %rbx,%r13
+    0.00 :   421ca8: mov    %r11d,0x58(%rsp)
+    0.00 :   421cad: shl    $0x2,%rsi
+    0.00 :   421cb1: mov    %r15,0x60(%rsp)
+    0.00 :   421cb6: mov    %rsi,%rax
+    0.00 :   421cb9: lea    0x0(%rbp,%rsi,1),%r10
+    0.00 :   421cbe: sar    $0x4,%rsi
+    0.00 :   421cc2: mov    %r14d,0x38(%rsp)
+    0.00 :   421cc7: sar    $0x2,%rax
+    0.00 :   421ccb: mov    %r10,%rdx
+    0.00 :   421cce: mov    %r10,0x28(%rsp)
+    0.00 :   421cd3: mov    %rax,0x68(%rsp)
+    0.00 :   421cd8: mov    0x18(%rsp),%eax
+    0.00 :   421cdc: lea    (%r15,%rax,4),%rax
+    0.00 :   421ce0: mov    %rax,(%rsp)
+    0.00 :   421ce4: mov    %rsi,%rax
+    0.00 :   421ce7: shl    $0x4,%rax
+    0.00 :   421ceb: lea    0x0(%rbp,%rax,1),%r12
+    0.00 :   421cf0: sub    %r12,%rdx
+    0.00 :   421cf3: mov    %r12,%r14
+    0.00 :   421cf6: mov    %rsi,%r12
+    0.00 :   421cf9: sar    $0x2,%rdx
+    0.00 :   421cfd: mov    %rdx,0x48(%rsp)
+    0.00 :   421d02: nopw   0x0(%rax,%rax,1)
+    0.00 :   421d08: mov    0x14(%r15),%ebx
+    0.08 :   421d0c: test   %r12,%r12
+    0.00 :   421d0f: je     42288d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xced>
+    0.00 :   421d15: mov    %rbp,%rax
+    0.00 :   421d18: jmp    421d48 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1a8>
+    0.00 :   421d1a: nopw   0x0(%rax,%rax,1)
+    0.00 :   421d20: cmp    0x4(%rax),%ebx
+   12.17 :   421d23: je     4223c0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x820>
+    0.00 :   421d29: cmp    0x8(%rax),%ebx
+    3.27 :   421d2c: je     422420 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x880>
+    0.00 :   421d32: cmp    0xc(%rax),%ebx
+    8.60 :   421d35: je     422430 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x890>
+    0.00 :   421d3b: add    $0x10,%rax
+    0.76 :   421d3f: cmp    %rax,%r14
+    0.00 :   421d42: je     422480 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x8e0>
+    0.00 :   421d48: cmp    (%rax),%ebx
+    7.91 :   421d4a: jne    421d20 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x180>
+    0.00 :   421d4c: cmp    %rax,0x28(%rsp)
+    0.38 :   421d51: jne    421d9e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1fe>
+    0.00 :   421d53: mov    0x1b0(%r13),%rax
+    0.00 :   421d5a: test   %rax,%rax
+    0.00 :   421d5d: je     421d7b <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1db>
+    0.00 :   421d5f: mov    (%rax),%r9
+    0.00 :   421d62: mov    0x8(%rax),%rax
+    0.00 :   421d66: mov    %ebx,%edx
+    0.00 :   421d68: sub    %r9,%rax
+    0.00 :   421d6b: cmp    %rax,%rdx
+    0.00 :   421d6e: jae    421d7b <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1db>
+    0.00 :   421d70: cmpb   $0x0,(%r9,%rdx,1)
+    0.00 :   421d75: jne    422632 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xa92>
+    0.00 :   421d7b: mov    0x38(%rsp),%edx
+    0.00 :   421d7f: mov    %ebx,%esi
+    0.00 :   421d81: mov    %r13,%rdi
+    0.00 :   421d84: callq  40cc10 <tactix::kernel_dense_remove_large_occurrence(tactix::Kernel&, unsigned int, unsigned int)>
+    0.00 :   421d89: mov    0x1ce0(%r13),%rax
+    0.00 :   421d90: test   %rax,%rax
+    0.00 :   421d93: je     421d9e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1fe>
+    0.00 :   421d95: mov    (%rax),%rax
+    0.00 :   421d98: mov    %ebx,%esi
+    0.00 :   421d9a: subl   $0x1,(%rax,%rsi,4)
+    0.00 :   421d9e: add    $0x4,%r15
+    0.00 :   421da2: cmp    %r15,(%rsp)
+    0.00 :   421da6: jne    421d08 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x168>
+    0.00 :   421dac: mov    0x50(%rsp),%edi
+    0.00 :   421db0: mov    0x58(%rsp),%r11d
+    0.00 :   421db5: mov    %r13,%rbx
+    0.00 :   421db8: mov    0x60(%rsp),%r15
+    0.00 :   421dbd: mov    0x38(%rsp),%r14d
+    0.00 :   421dc2: mov    0x10(%rsp),%esi
+    0.00 :   421dc6: test   %esi,%esi
+    0.00 :   421dc8: je     421eb1 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x311>
+    0.00 :   421dce: mov    0x18(%rsp),%eax
+    0.00 :   421dd2: lea    0x14(%r15),%rcx
+    0.00 :   421dd6: mov    %r11d,0x50(%rsp)
+    0.00 :   421ddb: mov    %edi,0x48(%rsp)
+    0.00 :   421ddf: mov    %rcx,%r13
+    0.00 :   421de2: mov    %rbx,%rdi
+    0.00 :   421de5: shl    $0x2,%rax
+    0.00 :   421de9: mov    %r15,0x58(%rsp)
+    0.00 :   421dee: mov    %rax,%rdx
+    0.00 :   421df1: lea    (%rcx,%rax,1),%r10
+    0.00 :   421df5: sar    $0x4,%rax
+    0.00 :   421df9: mov    %r14d,0x28(%rsp)
+    0.08 :   421dfe: sar    $0x2,%rdx
+    0.00 :   421e02: mov    %rbp,0x60(%rsp)
+    0.00 :   421e07: mov    %rax,%r14
+    0.00 :   421e0a: mov    %rdx,0x68(%rsp)
+    0.00 :   421e0f: mov    %esi,%edx
+    0.00 :   421e11: lea    0x0(%rbp,%rdx,4),%r9
+    0.00 :   421e16: mov    %rax,%rdx
+    0.00 :   421e19: shl    $0x4,%rdx
+    0.00 :   421e1d: lea    0x14(%r15,%rdx,1),%r12
+    0.00 :   421e22: mov    %r10,%rdx
+    0.00 :   421e25: mov    %r10,%r15
+    0.00 :   421e28: sub    %r12,%rdx
+    0.00 :   421e2b: mov    %r12,%rbx
+    0.00 :   421e2e: mov    %rbp,%r12
+    0.00 :   421e31: mov    %r9,%rbp
+    0.00 :   421e34: sar    $0x2,%rdx
+    0.00 :   421e38: mov    %rdx,0x38(%rsp)
+    0.00 :   421e3d: nopl   (%rax)
+    0.00 :   421e40: mov    (%r12),%esi
+    0.00 :   421e44: test   %r14,%r14
+    0.00 :   421e47: je     422824 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc84>
+    0.00 :   421e4d: mov    %r13,%rdx
+    0.00 :   421e50: jmp    421e80 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e0>
+    0.00 :   421e52: nopw   0x0(%rax,%rax,1)
+    0.00 :   421e58: cmp    0x4(%rdx),%esi
+   10.21 :   421e5b: je     422400 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x860>
+    0.00 :   421e61: cmp    0x8(%rdx),%esi
+    2.81 :   421e64: je     422410 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x870>
+    0.00 :   421e6a: cmp    0xc(%rdx),%esi
+    9.44 :   421e6d: je     422440 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x8a0>
+    0.00 :   421e73: add    $0x10,%rdx
+    0.84 :   421e77: cmp    %rdx,%rbx
+    0.00 :   421e7a: je     422450 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x8b0>
+    0.00 :   421e80: cmp    (%rdx),%esi
+    9.45 :   421e82: jne    421e58 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2b8>
+    0.00 :   421e84: cmp    %rdx,%r15
+    0.15 :   421e87: je     422358 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x7b8>
+    0.00 :   421e8d: add    $0x4,%r12
+    0.00 :   421e91: cmp    %r12,%rbp
+    0.00 :   421e94: jne    421e40 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2a0>
+    0.00 :   421e96: mov    %rdi,%rbx
+    0.00 :   421e99: mov    0x50(%rsp),%r11d
+    0.00 :   421e9e: mov    0x58(%rsp),%r15
+    0.00 :   421ea3: mov    0x48(%rsp),%edi
+    0.00 :   421ea7: mov    0x28(%rsp),%r14d
+    0.00 :   421eac: mov    0x60(%rsp),%rbp
+    0.00 :   421eb1: cmpb   $0x0,0x198(%rbx)
+    0.00 :   421eb8: jne    42220d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x66d>
+    0.00 :   421ebe: cmpl   $0xffffffff,0xd0(%rsp)
+    0.00 :   421ec6: sete   %r12b
+    0.00 :   421eca: mov    0x14(%rsp),%r8d
+    0.00 :   421ecf: test   %r8d,%r8d
+    0.00 :   421ed2: sete   %al
+    0.00 :   421ed5: and    %al,%r12b
+    0.00 :   421ed8: mov    %r12b,0x28(%rsp)
+    0.00 :   421edd: je     422a8e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xeee>
+    0.00 :   421ee3: mov    0x18(%rsp),%edi
+    0.00 :   421ee7: test   %edi,%edi
+    0.00 :   421ee9: je     421fb6 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x416>
+    0.00 :   421eef: mov    0x10(%rsp),%eax
+    0.00 :   421ef3: mov    %edi,%edx
+    0.00 :   421ef5: mov    %rbp,%rdi
+    0.00 :   421ef8: mov    %r15,0x48(%rsp)
+    0.00 :   421efd: lea    (%r15,%rdx,4),%r10
+    0.00 :   421f01: mov    %r14d,0x50(%rsp)
+    0.00 :   421f06: mov    %r15,%r13
+    0.00 :   421f09: mov    %rbx,%r15
+    0.00 :   421f0c: shl    $0x2,%rax
+    0.00 :   421f10: mov    %r10,%rbx
+    0.00 :   421f13: lea    0x0(%rbp,%rax,1),%r11
+    0.00 :   421f18: mov    %rax,%rsi
+    0.00 :   421f1b: sar    $0x4,%rax
+    0.00 :   421f1f: mov    %rax,%r12
+    0.00 :   421f22: mov    %r11,%rdx
+    0.00 :   421f25: sar    $0x2,%rsi
+    0.00 :   421f29: mov    %r11,%r14
+    0.00 :   421f2c: shl    $0x4,%r12
+    0.00 :   421f30: mov    %rsi,0x58(%rsp)
+    0.00 :   421f35: add    %rbp,%r12
+    0.00 :   421f38: mov    %rax,%rbp
+    0.00 :   421f3b: mov    %rdi,%rax
+    0.00 :   421f3e: sub    %r12,%rdx
+    0.00 :   421f41: sar    $0x2,%rdx
+    0.00 :   421f45: mov    %rdx,0x38(%rsp)
+    0.00 :   421f4a: nopw   0x0(%rax,%rax,1)
+    0.00 :   421f50: mov    0x14(%r13),%ecx
+    0.15 :   421f54: test   %rbp,%rbp
+    0.00 :   421f57: je     422817 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc77>
+    0.00 :   421f5d: mov    %rax,%rdx
+    0.00 :   421f60: jmp    421f90 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3f0>
+    0.00 :   421f62: nopw   0x0(%rax,%rax,1)
+    0.00 :   421f68: cmp    0x4(%rdx),%ecx
+    9.61 :   421f6b: je     422390 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x7f0>
+    0.00 :   421f71: cmp    0x8(%rdx),%ecx
+    2.44 :   421f74: je     4223a0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x800>
+    0.00 :   421f7a: cmp    0xc(%rdx),%ecx
+    7.40 :   421f7d: je     4223b0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x810>
+    0.00 :   421f83: add    $0x10,%rdx
+    2.21 :   421f87: cmp    %rdx,%r12
+    0.08 :   421f8a: je     422260 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6c0>
+    0.00 :   421f90: cmp    (%rdx),%ecx
+   10.98 :   421f92: jne    421f68 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3c8>
+    0.00 :   421f94: cmp    %rdx,%r14
+    0.00 :   421f97: je     422287 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6e7>
+    0.00 :   421f9d: add    $0x4,%r13
+    0.00 :   421fa1: cmp    %r13,%rbx
+    0.00 :   421fa4: jne    421f50 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3b0>
+    0.00 :   421fa6: mov    %r15,%rbx
+    0.00 :   421fa9: mov    0x50(%rsp),%r14d
+    0.00 :   421fae: mov    0x48(%rsp),%r15
+    0.00 :   421fb3: mov    %rax,%rbp
+    0.00 :   421fb6: xor    %edx,%edx
+    0.00 :   421fb8: mov    %r15,%rsi
+    0.00 :   421fbb: mov    %rbx,%rdi
+    0.00 :   421fbe: callq  408430 <tactix::kernel_delete_clause(tactix::Kernel&, tactix::Clause*, bool, char const*) [clone .isra.0]>
+    0.00 :   421fc3: cmpq   $0x0,0x20(%rsp)
+    0.00 :   421fc9: jne    42259e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x9fe>
+    0.00 :   421fcf: mov    0x118(%rbx),%esi
+    0.00 :   421fd5: test   %esi,%esi
+    0.00 :   421fd7: jne    4223d0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x830>
+    0.00 :   421fdd: cmpb   $0x0,0x2d1(%rbx)
+    0.00 :   421fe4: jne    4223d0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x830>
+    0.00 :   421fea: mov    0x10(%rsp),%eax
+    0.00 :   421fee: test   %eax,%eax
+    0.00 :   421ff0: je     422065 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x4c5>
+    0.00 :   421ff2: mov    %eax,%edi
+    0.00 :   421ff4: mov    0x88(%rbx),%rsi
+    0.00 :   421ffb: mov    %rbp,%rdx
+    0.00 :   421ffe: lea    0x0(%rbp,%rdi,4),%rcx
+    0.00 :   422003: nopl   0x0(%rax,%rax,1)
+    0.00 :   422008: mov    (%rdx),%r8d
+    0.00 :   42200b: cmpb   $0x0,(%rsi,%r8,1)
+    0.08 :   422010: mov    %r8,%rax
+    0.00 :   422013: jns    42203b <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x49b>
+    0.00 :   422015: shr    %eax
+    0.00 :   422017: shl    $0x4,%rax
+    0.00 :   42201b: add    0xa0(%rbx),%rax
+    0.00 :   422022: mov    0x4(%rax),%eax
+    0.00 :   422025: cmp    0xf0(%rbx),%eax
+    0.00 :   42202b: jae    42203b <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x49b>
+    0.00 :   42202d: addq   $0x1,0x6a0(%rbx)
+    0.00 :   422035: mov    %eax,0xf0(%rbx)
+    0.00 :   42203b: add    $0x4,%rdx
+    0.00 :   42203f: cmp    %rcx,%rdx
+    0.00 :   422042: jne    422008 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x468>
+    0.00 :   422044: lea    0x14(%r15),%rax
+    0.00 :   422048: lea    0x0(,%rdi,4),%rdx
+    0.00 :   422050: cmp    $0x1,%rdi
+    0.00 :   422054: je     4223ec <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x84c>
+    0.00 :   42205a: mov    %rbp,%rsi
+    0.00 :   42205d: mov    %rax,%rdi
+    0.00 :   422060: callq  4023b0 <memmove@plt>
+    0.00 :   422065: mov    0x1c(%rsp),%edi
+    0.00 :   422069: mov    0x18(%rsp),%esi
+    0.00 :   42206d: mov    %edi,%eax
+    0.00 :   42206f: and    $0xfffffffe,%eax
+    0.00 :   422072: cmp    %esi,0x10(%rsp)
+    0.00 :   422076: jae    4224b0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x910>
+    0.00 :   42207c: and    $0x200,%edi
+    0.00 :   422082: jne    422090 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x4f0>
+    0.00 :   422084: lea    -0x1(%rsi),%edx
+    0.00 :   422087: movl   $0xffffffff,0x14(%r15,%rdx,4)
+    0.00 :   422090: mov    0x10(%rsp),%edi
+    0.00 :   422094: mov    0x14(%rsp),%edx
+    0.00 :   422098: mov    %edi,(%r15)
+    0.00 :   42209b: test   %edx,%edx
+    0.00 :   42209d: jne    42264e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xaae>
+    0.00 :   4220a3: addq   $0x1,0x498(%rbx)
+    0.00 :   4220ab: or     $0x2,%ah
+    0.00 :   4220ae: mov    0x14(%rsp),%edi
+    0.00 :   4220b2: and    $0xfff,%eax
+    0.00 :   4220b7: movl   $0x2,0x8(%r15)
+    0.00 :   4220bf: or     %edi,%eax
+    0.00 :   4220c1: cmpb   $0x0,0x198(%rbx)
+    0.00 :   4220c8: mov    %eax,0x4(%r15)
+    0.00 :   4220cc: mov    0x30(%rsp),%rax
+    0.00 :   4220d1: mov    %rax,0xc(%r15)
+    0.00 :   4220d5: je     422145 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x5a5>
+    0.00 :   4220d7: cmpl   $0xffffffff,0xd0(%rsp)
+    0.00 :   4220df: mov    0x4(%rbp),%esi
+    0.00 :   4220e2: mov    0x0(%rbp),%edi
+    0.00 :   4220e5: je     4227eb <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc4b>
+    0.00 :   4220eb: mov    %edi,%edx
+    0.00 :   4220ed: mov    0x160(%rbx),%rcx
+    0.00 :   4220f4: shl    $0x4,%rdx
+    0.00 :   4220f8: add    0x178(%rbx),%rdx
+    0.00 :   4220ff: mov    (%rdx),%r8d
+    0.00 :   422102: mov    0x4(%rdx),%edx
+    0.00 :   422105: add    %r8,%rdx
+    0.00 :   422108: lea    (%rcx,%r8,4),%rax
+    0.00 :   42210c: lea    (%rcx,%rdx,4),%rdx
+    0.00 :   422110: cmp    %rax,%rdx
+    0.00 :   422113: je     422131 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x591>
+    0.00 :   422115: testb  $0x1,(%rax)
+    0.00 :   422118: jne    4222e0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x740>
+    0.00 :   42211e: cmp    %r14d,0x4(%rax)
+    0.00 :   422122: je     422726 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xb86>
+    0.00 :   422128: add    $0x8,%rax
+    0.00 :   42212c: cmp    %rax,%rdx
+    0.00 :   42212f: jne    422115 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x575>
+    0.00 :   422131: lea    0x160(%rbx),%rax
+    0.00 :   422138: mov    %edi,%edx
+    0.00 :   42213a: mov    %r14d,%ecx
+    0.00 :   42213d: mov    %rax,%rdi
+    0.00 :   422140: callq  425440 <tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int)>
+    0.00 :   422145: cmpb   $0x0,0x40(%rsp)
+    0.08 :   42214a: je     4224e0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x940>
+    0.00 :   422150: cmpb   $0x0,0x28(%rsp)
+    0.00 :   422155: je     4224e0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x940>
+    0.00 :   42215b: mov    0x10(%rsp),%eax
+    0.00 :   42215f: test   %eax,%eax
+    0.00 :   422161: je     4221e8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x648>
+    0.00 :   422167: mov    %eax,%r15d
+    0.00 :   42216a: lea    0x0(%rbp,%r15,4),%r12
+    0.00 :   42216f: nop
+    0.00 :   422170: mov    0x0(%rbp),%eax
+    0.00 :   422173: mov    0x1c00(%rbx),%rsi
+    0.00 :   42217a: mov    %eax,%edi
+    0.00 :   42217c: lea    0x1(%rsi),%rdx
+    0.00 :   422180: shr    %edi
+    0.00 :   422182: cmpb   $0x0,0x1b98(%rbx)
+    0.00 :   422189: mov    %rdx,0x1c00(%rbx)
+    0.00 :   422190: jne    42219f <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x5ff>
+    0.00 :   422192: mov    0x1c08(%rbx),%rsi
+    0.00 :   422199: mov    %edi,%ecx
+    0.00 :   42219b: mov    %rdx,(%rsi,%rcx,8)
+    0.08 :   42219f: add    0x1bb8(%rbx),%rax
+    0.00 :   4221a6: addq   $0x1,0x1a60(%rbx)
+    0.00 :   4221ae: cmpb   $0x0,(%rax)
+    0.23 :   4221b1: jne    4221c3 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x623>
+    0.00 :   4221b3: movb   $0x1,(%rax)
+    0.00 :   4221b6: mov    0x0(%rbp),%edi
+    0.00 :   4221b9: addq   $0x1,0x1bd0(%rbx)
+    0.00 :   4221c1: shr    %edi
+    0.00 :   4221c3: mov    0x1cd0(%rbx),%rax
+    0.00 :   4221ca: test   %rax,%rax
+    0.00 :   4221cd: je     4221df <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x63f>
+    0.00 :   4221cf: mov    %edi,%edx
+    0.00 :   4221d1: mov    0x1cd8(%rbx),%rsi
+    0.00 :   4221d8: xor    %ecx,%ecx
+    0.00 :   4221da: mov    %rbx,%rdi
+    0.00 :   4221dd: callq  *%rax
+    0.00 :   4221df: add    $0x4,%rbp
+    0.08 :   4221e3: cmp    %r12,%rbp
+    0.00 :   4221e6: jne    422170 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x5d0>
+    0.00 :   4221e8: add    $0x88,%rsp
+    0.00 :   4221ef: pop    %rbx
+    0.00 :   4221f0: pop    %rbp
+    0.00 :   4221f1: pop    %r12
+    0.00 :   4221f3: pop    %r13
+    0.00 :   4221f5: pop    %r14
+    0.00 :   4221f7: pop    %r15
+    0.00 :   4221f9: retq
+    0.00 :   4221fa: movzbl 0x198(%rbx),%eax
+    0.00 :   422201: mov    %al,0x28(%rsp)
+    0.00 :   422205: test   %al,%al
+    0.00 :   422207: je     421fb6 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x416>
+    0.00 :   42220d: cmpl   $0xffffffff,0xd0(%rsp)
+    0.00 :   422215: sete   %r12b
+    0.00 :   422219: cmp    %edi,0xd0(%rsp)
+    0.00 :   422220: jne    422696 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xaf6>
+    0.00 :   422226: test   %r12b,%r12b
+    0.00 :   422229: jne    422696 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xaf6>
+    0.00 :   42222f: cmp    %r11d,0xd0(%rsp)
+    0.00 :   422237: jne    422735 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xb95>
+    0.00 :   42223d: mov    0x14(%rsp),%edi
+    0.00 :   422241: test   %edi,%edi
+    0.00 :   422243: sete   0x28(%rsp)
+    0.00 :   422248: jmpq   421fb6 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x416>
+    0.00 :   42224d: movq   $0x0,0x20(%rsp)
+    0.00 :   422256: jmpq   421c60 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc0>
+    0.00 :   42225b: nopl   0x0(%rax,%rax,1)
+    0.00 :   422260: mov    0x38(%rsp),%rsi
+    0.15 :   422265: cmp    $0x2,%rsi
+    0.00 :   422269: je     42258d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x9ed>
+    0.00 :   42226f: cmp    $0x3,%rsi
+    0.00 :   422273: je     422581 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x9e1>
+    0.00 :   422279: cmp    $0x1,%rsi
+    0.00 :   42227d: jne    422287 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6e7>
+    0.00 :   42227f: cmp    (%rdx),%ecx
+    0.00 :   422281: je     421f94 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3f4>
+    0.00 :   422287: shr    %ecx
+    0.00 :   422289: cmpb   $0x0,0x1b98(%r15)
+    0.00 :   422291: mov    %ecx,%edx
+    0.00 :   422293: je     4222f0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x750>
+    0.00 :   422295: addq   $0x1,0x1a58(%r15)
+    0.00 :   42229d: addq   $0x1,0x1c00(%r15)
+    0.00 :   4222a5: mov    0x1cd0(%r15),%r8
+    0.00 :   4222ac: addq   $0x1,0x1a60(%r15)
+    0.00 :   4222b4: test   %r8,%r8
+    0.00 :   4222b7: je     421f9d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3fd>
+    0.00 :   4222bd: mov    %rax,(%rsp)
+    0.00 :   4222c1: mov    0x1cd8(%r15),%rsi
+    0.00 :   4222c8: mov    $0x1,%ecx
+    0.00 :   4222cd: mov    %r15,%rdi
+    0.00 :   4222d0: callq  *%r8
+    0.00 :   4222d3: mov    (%rsp),%rax
+    0.00 :   4222d7: jmpq   421f9d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3fd>
+    0.00 :   4222dc: nopl   0x0(%rax)
+    0.00 :   4222e0: add    $0x4,%rax
+    0.00 :   4222e4: jmpq   422110 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x570>
+    0.00 :   4222e9: nopl   0x0(%rax)
+    0.00 :   4222f0: mov    %ecx,%esi
+    0.00 :   4222f2: mov    0x1ba0(%r15),%rcx
+    0.00 :   4222f9: movb   $0x1,(%rcx,%rsi,1)
+    0.00 :   4222fd: mov    0x1c00(%r15),%rdi
+    0.00 :   422304: addq   $0x1,0x1a58(%r15)
+    0.00 :   42230c: cmpb   $0x0,0x1b98(%r15)
+    0.00 :   422314: lea    0x1(%rdi),%rcx
+    0.00 :   422318: mov    %rcx,0x1c00(%r15)
+    0.00 :   42231f: jne    4222a5 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x705>
+    0.00 :   422321: mov    0x1c20(%r15),%r8
+    0.00 :   422328: mov    %rcx,(%r8,%rsi,8)
+    0.00 :   42232c: jmpq   4222a5 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x705>
+    0.00 :   422331: cmp    (%rdx),%esi
+    0.00 :   422333: je     421e84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e4>
+    0.00 :   422339: add    $0x4,%rdx
+    0.00 :   42233d: cmp    (%rdx),%esi
+    0.00 :   42233f: je     421e84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e4>
+    0.00 :   422345: add    $0x4,%rdx
+    0.00 :   422349: cmp    (%rdx),%esi
+    0.00 :   42234b: je     421e84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e4>
+    0.00 :   422351: nopl   0x0(%rax)
+    0.00 :   422358: mov    0x28(%rsp),%edx
+    0.00 :   42235c: mov    %rdi,(%rsp)
+    0.00 :   422360: callq  420e50 <tactix::kernel_dense_add_large_occurrence(tactix::Kernel&, unsigned int, unsigned int)>
+    0.00 :   422365: mov    (%rsp),%rdi
+    0.00 :   422369: mov    (%r12),%edx
+    0.00 :   42236d: mov    0x1ce0(%rdi),%rsi
+    0.00 :   422374: test   %rsi,%rsi
+    0.00 :   422377: je     421e8d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2ed>
+    0.00 :   42237d: mov    (%rsi),%rsi
+    0.00 :   422380: addl   $0x1,(%rsi,%rdx,4)
+    0.00 :   422384: jmpq   421e8d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2ed>
+    0.00 :   422389: nopl   0x0(%rax)
+    0.00 :   422390: add    $0x4,%rdx
+    0.00 :   422394: jmpq   421f94 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3f4>
+    0.00 :   422399: nopl   0x0(%rax)
+    0.00 :   4223a0: add    $0x8,%rdx
+    0.00 :   4223a4: jmpq   421f94 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3f4>
+    0.00 :   4223a9: nopl   0x0(%rax)
+    0.00 :   4223b0: add    $0xc,%rdx
+    0.00 :   4223b4: jmpq   421f94 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3f4>
+    0.00 :   4223b9: nopl   0x0(%rax)
+    0.00 :   4223c0: add    $0x4,%rax
+    0.00 :   4223c4: jmpq   421d4c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1ac>
+    0.00 :   4223c9: nopl   0x0(%rax)
+    0.00 :   4223d0: mov    0x10(%rsp),%edx
+    0.00 :   4223d4: lea    0x14(%r15),%rax
+    0.00 :   4223d8: shl    $0x2,%rdx
+    0.00 :   4223dc: cmp    $0x4,%rdx
+    0.00 :   4223e0: ja     42205a <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x4ba>
+    0.00 :   4223e6: jne    422065 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x4c5>
+    0.00 :   4223ec: mov    0x0(%rbp),%eax
+    0.00 :   4223ef: mov    %eax,0x14(%r15)
+    0.00 :   4223f3: jmpq   422065 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x4c5>
+    0.00 :   4223f8: nopl   0x0(%rax,%rax,1)
+    0.00 :   422400: add    $0x4,%rdx
+    0.00 :   422404: jmpq   421e84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e4>
+    0.00 :   422409: nopl   0x0(%rax)
+    0.00 :   422410: add    $0x8,%rdx
+    0.00 :   422414: jmpq   421e84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e4>
+    0.00 :   422419: nopl   0x0(%rax)
+    0.00 :   422420: add    $0x8,%rax
+    0.08 :   422424: jmpq   421d4c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1ac>
+    0.00 :   422429: nopl   0x0(%rax)
+    0.00 :   422430: add    $0xc,%rax
+    0.00 :   422434: jmpq   421d4c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1ac>
+    0.00 :   422439: nopl   0x0(%rax)
+    0.00 :   422440: add    $0xc,%rdx
+    0.00 :   422444: jmpq   421e84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e4>
+    0.00 :   422449: nopl   0x0(%rax)
+    0.00 :   422450: mov    0x38(%rsp),%r11
+    0.00 :   422455: cmp    $0x2,%r11
+    0.00 :   422459: je     42233d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x79d>
+    0.00 :   42245f: cmp    $0x3,%r11
+    0.00 :   422463: je     422331 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x791>
+    0.00 :   422469: cmp    $0x1,%r11
+    0.00 :   42246d: jne    422358 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x7b8>
+    0.00 :   422473: cmp    (%rdx),%esi
+    0.08 :   422475: jne    422358 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x7b8>
+    0.00 :   42247b: jmpq   421e84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x2e4>
+    0.00 :   422480: mov    0x48(%rsp),%rdx
+    0.00 :   422485: cmp    $0x2,%rdx
+    0.00 :   422489: je     422619 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xa79>
+    0.00 :   42248f: cmp    $0x3,%rdx
+    0.00 :   422493: je     42260d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xa6d>
+    0.00 :   422499: cmp    $0x1,%rdx
+    0.00 :   42249d: jne    421d53 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1b3>
+    0.00 :   4224a3: cmp    (%rax),%ebx
+    0.00 :   4224a5: jne    421d53 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1b3>
+    0.00 :   4224ab: jmpq   421d4c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1ac>
+    0.00 :   4224b0: mov    0x10(%rsp),%edi
+    0.00 :   4224b4: mov    0x14(%rsp),%ecx
+    0.00 :   4224b8: mov    %edi,(%r15)
+    0.00 :   4224bb: test   %ecx,%ecx
+    0.00 :   4224bd: je     42266b <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xacb>
+    0.00 :   4224c3: mov    0x44(%rsp),%edi
+    0.00 :   4224c7: mov    $0xfffff,%edx
+    0.00 :   4224cc: cmp    %edx,%edi
+    0.00 :   4224ce: cmovbe %edi,%edx
+    0.00 :   4224d1: shl    $0xc,%edx
+    0.00 :   4224d4: mov    %edx,0x14(%rsp)
+    0.00 :   4224d8: jmpq   4220ae <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x50e>
+    0.00 :   4224dd: nopl   (%rax)
+    0.00 :   4224e0: cmpb   $0x0,0x1c8c(%rbx)
+    0.00 :   4224e7: je     4221e8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x648>
+    0.00 :   4224ed: mov    0x44(%rsp),%edi
+    0.00 :   4224f1: xor    %eax,%eax
+    0.00 :   4224f3: cmp    $0x6,%edi
+    0.00 :   4224f6: setbe  %al
+    0.00 :   4224f9: add    0x1b08(%rbx),%rax
+    0.00 :   422500: cmp    %edi,0x1e90(%rbx)
+    0.00 :   422506: jb     422678 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xad8>
+    0.00 :   42250c: mov    0x1b00(%rbx),%rdi
+    0.00 :   422513: mov    %rax,0x1b08(%rbx)
+    0.00 :   42251a: mov    0x10(%rsp),%eax
+    0.00 :   42251e: lea    0x1(%rdi),%rdx
+    0.00 :   422522: mov    %rdx,0x1b00(%rbx)
+    0.00 :   422529: test   %eax,%eax
+    0.00 :   42252b: je     4221e8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x648>
+    0.00 :   422531: cmpb   $0x0,0x1b98(%rbx)
+    0.00 :   422538: jne    422831 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc91>
+    0.00 :   42253e: mov    %eax,%r15d
+    0.00 :   422541: mov    0x1c38(%rbx),%rcx
+    0.00 :   422548: lea    0x0(%rbp,%r15,4),%rsi
+    0.00 :   42254d: nopl   (%rax)
+    0.00 :   422550: mov    0x0(%rbp),%eax
+    0.00 :   422553: mov    0x1c00(%rbx),%rdi
+    0.00 :   42255a: add    $0x4,%rbp
+    0.00 :   42255e: lea    0x1(%rdi),%rdx
+    0.00 :   422562: shr    %eax
+    0.00 :   422564: mov    %rdx,0x1c00(%rbx)
+    0.00 :   42256b: mov    %rdx,(%rcx,%rax,8)
+    0.00 :   42256f: addq   $0x1,0x1a68(%rbx)
+    0.00 :   422577: cmp    %rbp,%rsi
+    0.00 :   42257a: jne    422550 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x9b0>
+    0.00 :   42257c: jmpq   4221e8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x648>
+    0.00 :   422581: cmp    (%rdx),%ecx
+    0.00 :   422583: je     421f94 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3f4>
+    0.00 :   422589: add    $0x4,%rdx
+    0.00 :   42258d: cmp    (%rdx),%ecx
+    0.00 :   42258f: je     421f94 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x3f4>
+    0.00 :   422595: add    $0x4,%rdx
+    0.00 :   422599: jmpq   42227f <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6df>
+    0.00 :   42259e: mov    0x150(%rbx),%r10
+    0.00 :   4225a5: mov    0x148(%rbx),%r9
+    0.00 :   4225ac: movabs $0xaaaaaaaaaaaaaaab,%rdx
+    0.00 :   4225b6: mov    0x30(%rsp),%r13
+    0.00 :   4225bb: mov    %r10,%r12
+    0.00 :   4225be: sub    %r9,%r12
+    0.00 :   4225c1: shr    $0xc,%r13
+    0.00 :   4225c5: mov    %r12,%rcx
+    0.00 :   4225c8: sar    $0x3,%rcx
+    0.00 :   4225cc: mov    %rcx,%rax
+    0.00 :   4225cf: imul   %rdx,%rax
+    0.00 :   4225d3: cmp    %rax,%r13
+    0.00 :   4225d6: jae    422752 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xbb2>
+    0.00 :   4225dc: lea    0x0(%r13,%r13,2),%rax
+    0.00 :   4225e1: lea    (%r9,%rax,8),%r12
+    0.00 :   4225e5: mov    (%r12),%rax
+    0.00 :   4225e9: cmp    %rax,0x8(%r12)
+    0.00 :   4225ee: je     42289a <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xcfa>
+    0.00 :   4225f4: mov    0x30(%rsp),%rdx
+    0.00 :   4225f9: mov    0x20(%rsp),%rdi
+    0.00 :   4225fe: and    $0xfff,%edx
+    0.00 :   422604: mov    %rdi,(%rax,%rdx,8)
+    0.00 :   422608: jmpq   421fcf <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x42f>
+    0.00 :   42260d: cmp    (%rax),%ebx
+    0.00 :   42260f: je     421d4c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1ac>
+    0.00 :   422615: add    $0x4,%rax
+    0.00 :   422619: cmp    (%rax),%ebx
+    0.08 :   42261b: je     421d4c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1ac>
+    0.00 :   422621: add    $0x4,%rax
+    0.00 :   422625: cmp    (%rax),%ebx
+    0.00 :   422627: jne    421d53 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1b3>
+    0.00 :   42262d: jmpq   421d4c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1ac>
+    0.00 :   422632: mov    0x1ce0(%r13),%rax
+    0.00 :   422639: test   %rax,%rax
+    0.00 :   42263c: je     421d9e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1fe>
+    0.00 :   422642: mov    (%rax),%rax
+    0.00 :   422645: subl   $0x1,(%rax,%rdx,4)
+    0.00 :   422649: jmpq   421d9e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x1fe>
+    0.00 :   42264e: mov    0x44(%rsp),%edi
+    0.00 :   422652: mov    $0xfffff,%edx
+    0.00 :   422657: cmp    %edx,%edi
+    0.00 :   422659: cmovbe %edi,%edx
+    0.00 :   42265c: or     $0x2,%ah
+    0.00 :   42265f: shl    $0xc,%edx
+    0.00 :   422662: mov    %edx,0x14(%rsp)
+    0.00 :   422666: jmpq   4220ae <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x50e>
+    0.00 :   42266b: addq   $0x1,0x498(%rbx)
+    0.00 :   422673: jmpq   4220ae <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x50e>
+    0.00 :   422678: mov    0x1cc8(%rbx),%edx
+    0.00 :   42267e: cmp    %edi,%edx
+    0.00 :   422680: jb     42268a <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xaea>
+    0.00 :   422682: test   %edx,%edx
+    0.00 :   422684: jne    4228be <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xd1e>
+    0.00 :   42268a: mov    %rax,0x1b08(%rbx)
+    0.00 :   422691: jmpq   4221e8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x648>
+    0.00 :   422696: lea    0x77(%rsp),%rax
+    0.00 :   42269b: lea    0x160(%rbx),%r13
+    0.00 :   4226a2: mov    %edi,%esi
+    0.00 :   4226a4: mov    %r11d,0x28(%rsp)
+    0.00 :   4226a9: movq   %rax,%xmm0
+    0.00 :   4226ae: lea    0x78(%rsp),%rax
+    0.00 :   4226b3: mov    %r13,%rdi
+    0.00 :   4226b6: mov    %r14d,0x78(%rsp)
+    0.00 :   4226bb: movq   %rax,%xmm1
+    0.00 :   4226c0: movdqa %xmm0,%xmm3
+    0.00 :   4226c4: movb   $0x0,0x77(%rsp)
+    0.00 :   4226c9: punpcklqdq %xmm1,%xmm3
+    0.00 :   4226cd: movaps %xmm3,(%rsp)
+    0.00 :   4226d1: mov    (%rsp),%rdx
+    0.08 :   4226d5: mov    0x8(%rsp),%rcx
+    0.00 :   4226da: callq  407aa0 <void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1})>
+    0.00 :   4226df: mov    0x28(%rsp),%r11d
+    0.00 :   4226e4: cmp    %r11d,0xd0(%rsp)
+    0.00 :   4226ec: jne    4226f7 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xb57>
+    0.00 :   4226ee: test   %r12b,%r12b
+    0.00 :   4226f1: je     42223d <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x69d>
+    0.00 :   4226f7: movdqa %xmm0,%xmm2
+    0.00 :   4226fb: mov    %r11d,%esi
+    0.00 :   4226fe: mov    %r13,%rdi
+    0.00 :   422701: mov    %r14d,0x78(%rsp)
+    0.00 :   422706: punpcklqdq %xmm1,%xmm2
+    0.00 :   42270a: movb   $0x0,0x77(%rsp)
+    0.00 :   42270f: movaps %xmm2,(%rsp)
+    0.00 :   422713: mov    (%rsp),%rdx
+    0.00 :   422717: mov    0x8(%rsp),%rcx
+    0.00 :   42271c: callq  407aa0 <void tactix::WatchLists::compact<tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1}>(unsigned int, tactix::kernel_unwatch_large(tactix::Kernel&, unsigned int, unsigned int)::{lambda(tactix::WatchEntry)#1})>
+    0.00 :   422721: jmpq   421eca <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x32a>
+    0.00 :   422726: add    %esi,%esi
+    0.00 :   422728: mov    %esi,(%rax)
+    0.00 :   42272a: mov    0x0(%rbp),%edi
+    0.00 :   42272d: mov    0x4(%rbp),%esi
+    0.00 :   422730: jmpq   422131 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x591>
+    0.00 :   422735: lea    0x77(%rsp),%rax
+    0.00 :   42273a: lea    0x160(%rbx),%r13
+    0.00 :   422741: movq   %rax,%xmm0
+    0.00 :   422746: lea    0x78(%rsp),%rax
+    0.00 :   42274b: movq   %rax,%xmm1
+    0.00 :   422750: jmp    4226f7 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xb57>
+    0.00 :   422752: mov    0x158(%rbx),%rsi
+    0.00 :   422759: lea    0x1(%r13),%rdi
+    0.00 :   42275d: mov    %rdi,%r11
+    0.00 :   422760: sub    %r10,%rsi
+    0.00 :   422763: sub    %rax,%r11
+    0.00 :   422766: sar    $0x3,%rsi
+    0.00 :   42276a: imul   %rdx,%rsi
+    0.00 :   42276e: cmp    %r11,%rsi
+    0.00 :   422771: jb     4228d3 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xd33>
+    0.00 :   422777: cmp    $0x1,%r11
+    0.00 :   42277b: je     422aa0 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xf00>
+    0.00 :   422781: mov    %r11,%rcx
+    0.00 :   422784: mov    %r11,%rax
+    0.00 :   422787: pxor   %xmm0,%xmm0
+    0.00 :   42278b: mov    %r10,%rdx
+    0.00 :   42278e: shr    %rcx
+    0.00 :   422791: and    $0xfffffffffffffffe,%rax
+    0.00 :   422795: add    %rcx,%rax
+    0.00 :   422798: shl    $0x4,%rax
+    0.00 :   42279c: add    %r10,%rax
+    0.00 :   42279f: movups %xmm0,(%rdx)
+    0.00 :   4227a2: add    $0x30,%rdx
+    0.00 :   4227a6: movups %xmm0,-0x20(%rdx)
+    0.00 :   4227aa: movups %xmm0,-0x10(%rdx)
+    0.00 :   4227ae: cmp    %rdx,%rax
+    0.00 :   4227b1: jne    42279f <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xbff>
+    0.00 :   4227b3: test   $0x1,%r11b
+    0.00 :   4227b7: je     4227d7 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc37>
+    0.00 :   4227b9: mov    %r11,%rax
+    0.00 :   4227bc: and    $0xfffffffffffffffe,%rax
+    0.00 :   4227c0: lea    (%rax,%rax,2),%rax
+    0.00 :   4227c4: lea    (%r10,%rax,8),%rax
+    0.00 :   4227c8: movq   $0x0,0x10(%rax)
+    0.00 :   4227d0: pxor   %xmm0,%xmm0
+    0.00 :   4227d4: movups %xmm0,(%rax)
+    0.00 :   4227d7: lea    (%r11,%r11,2),%rax
+    0.00 :   4227db: lea    (%r10,%rax,8),%rax
+    0.00 :   4227df: mov    %rax,0x150(%rbx)
+    0.00 :   4227e6: jmpq   4225dc <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xa3c>
+    0.00 :   4227eb: lea    0x160(%rbx),%r12
+    0.00 :   4227f2: mov    %r14d,%ecx
+    0.00 :   4227f5: mov    %esi,%edx
+    0.00 :   4227f7: mov    %edi,%esi
+    0.00 :   4227f9: mov    %r12,%rdi
+    0.00 :   4227fc: callq  425440 <tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int)>
+    0.00 :   422801: mov    0x0(%rbp),%edx
+    0.00 :   422804: mov    0x4(%rbp),%esi
+    0.00 :   422807: mov    %r14d,%ecx
+    0.00 :   42280a: mov    %r12,%rdi
+    0.00 :   42280d: callq  425440 <tactix::WatchLists::push_large(unsigned int, unsigned int, unsigned int)>
+    0.00 :   422812: jmpq   422145 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x5a5>
+    0.00 :   422817: mov    0x58(%rsp),%rsi
+    0.00 :   42281c: mov    %rax,%rdx
+    0.00 :   42281f: jmpq   422265 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x6c5>
+    0.00 :   422824: mov    0x68(%rsp),%r11
+    0.00 :   422829: mov    %r13,%rdx
+    0.00 :   42282c: jmpq   422455 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x8b5>
+    0.00 :   422831: mov    0x1c00(%rbx),%rdi
+    0.00 :   422838: mov    0x10(%rsp),%r15d
+    0.00 :   42283d: mov    0x1a68(%rbx),%rsi
+    0.00 :   422844: lea    0x1(%rdi,%r15,1),%rcx
+    0.00 :   422849: lea    0x1(%rdi),%rax
+    0.00 :   42284d: mov    %rcx,%rdx
+    0.00 :   422850: sub    %rax,%rdx
+    0.00 :   422853: and    $0x1,%edx
+    0.00 :   422856: je     422864 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xcc4>
+    0.00 :   422858: mov    %rax,%rdx
+    0.00 :   42285b: lea    0x2(%rdi),%rax
+    0.00 :   42285f: cmp    %rcx,%rax
+    0.00 :   422862: je     422871 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xcd1>
+    0.00 :   422864: lea    0x1(%rax),%rdx
+    0.00 :   422868: add    $0x2,%rax
+    0.00 :   42286c: cmp    %rcx,%rax
+    0.00 :   42286f: jne    422864 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xcc4>
+    0.00 :   422871: mov    %rsi,%rax
+    0.00 :   422874: mov    %rdx,0x1c00(%rbx)
+    0.00 :   42287b: sub    %rdi,%rax
+    0.00 :   42287e: add    %rdx,%rax
+    0.00 :   422881: mov    %rax,0x1a68(%rbx)
+    0.00 :   422888: jmpq   4221e8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x648>
+    0.00 :   42288d: mov    0x68(%rsp),%rdx
+    0.00 :   422892: mov    %rbp,%rax
+    0.00 :   422895: jmpq   422485 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x8e5>
+    0.00 :   42289a: lea    0x78(%rsp),%rdx
+    0.00 :   42289f: mov    $0x1000,%esi
+    0.00 :   4228a4: mov    %r12,%rdi
+    0.00 :   4228a7: movq   $0x0,0x78(%rsp)
+    0.00 :   4228b0: callq  4258d0 <std::vector<unsigned long, std::allocator<unsigned long> >::resize(unsigned long, unsigned long const&)>
+    0.00 :   4228b5: mov    (%r12),%rax
+    0.00 :   4228b9: jmpq   4225f4 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xa54>
+    0.00 :   4228be: mov    0x10(%rsp),%edi
+    0.00 :   4228c2: cmp    %edi,0x1ccc(%rbx)
+    0.00 :   4228c8: jb     42268a <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xaea>
+    0.00 :   4228ce: jmpq   42250c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x96c>
+    0.00 :   4228d3: movabs $0x555555555555555,%rdx
+    0.00 :   4228dd: sub    %rax,%rdx
+    0.00 :   4228e0: cmp    %r11,%rdx
+    0.00 :   4228e3: jb     422a84 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xee4>
+    0.00 :   4228e9: lea    (%rdi,%rdi,2),%rdx
+    0.00 :   4228ed: mov    %r10,0x58(%rsp)
+    0.00 :   4228f2: lea    0x0(,%rdx,8),%rdi
+    0.00 :   4228fa: mov    %r11,0x50(%rsp)
+    0.00 :   4228ff: mov    %rdi,(%rsp)
+    0.00 :   422903: mov    %r9,0x48(%rsp)
+    0.00 :   422908: cmp    %r11,%rax
+    0.00 :   42290b: jb     422a5b <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xebb>
+    0.00 :   422911: shl    $0x4,%rcx
+    0.00 :   422915: mov    %rcx,%rdi
+    0.00 :   422918: mov    %rcx,0x38(%rsp)
+    0.00 :   42291d: callq  402200 <operator new(unsigned long)@plt>
+    0.00 :   422922: mov    0x58(%rsp),%r10
+    0.00 :   422927: mov    0x50(%rsp),%r11
+    0.00 :   42292c: mov    0x48(%rsp),%r9
+    0.00 :   422931: mov    %rax,%r8
+    0.00 :   422934: lea    (%rax,%r12,1),%rsi
+    0.00 :   422938: cmp    $0x1,%r11
+    0.00 :   42293c: je     422982 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xde2>
+    0.00 :   42293e: mov    %r11,%rcx
+    0.00 :   422941: mov    %r11,%rdx
+    0.00 :   422944: pxor   %xmm0,%xmm0
+    0.00 :   422948: mov    %rsi,%rax
+    0.00 :   42294b: shr    %rcx
+    0.00 :   42294e: and    $0xfffffffffffffffe,%rdx
+    0.00 :   422952: add    %rcx,%rdx
+    0.00 :   422955: shl    $0x4,%rdx
+    0.00 :   422959: add    %rsi,%rdx
+    0.00 :   42295c: movups %xmm0,(%rax)
+    0.00 :   42295f: add    $0x30,%rax
+    0.00 :   422963: movups %xmm0,-0x20(%rax)
+    0.00 :   422967: movups %xmm0,-0x10(%rax)
+    0.00 :   42296b: cmp    %rax,%rdx
+    0.00 :   42296e: jne    42295c <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xdbc>
+    0.00 :   422970: test   $0x1,%r11b
+    0.00 :   422974: je     422991 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xdf1>
+    0.00 :   422976: and    $0xfffffffffffffffe,%r11
+    0.00 :   42297a: lea    (%r11,%r11,2),%rax
+    0.00 :   42297e: lea    (%rsi,%rax,8),%rsi
+    0.00 :   422982: movq   $0x0,0x10(%rsi)
+    0.00 :   42298a: pxor   %xmm0,%xmm0
+    0.00 :   42298e: movups %xmm0,(%rsi)
+    0.00 :   422991: mov    %r8,%r12
+    0.00 :   422994: pxor   %xmm0,%xmm0
+    0.00 :   422998: cmp    %r9,%r10
+    0.00 :   42299b: je     422a0e <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xe6e>
+    0.00 :   42299d: mov    %rbx,0x48(%rsp)
+    0.00 :   4229a2: mov    %r9,%rbx
+    0.00 :   4229a5: mov    %r14d,0x50(%rsp)
+    0.00 :   4229aa: mov    %r13,%r14
+    0.00 :   4229ad: mov    %r9,%r13
+    0.00 :   4229b0: mov    %rbp,0x58(%rsp)
+    0.00 :   4229b5: mov    %r10,%rbp
+    0.00 :   4229b8: mov    0x10(%rbx),%rax
+    0.00 :   4229bc: movdqu (%rbx),%xmm4
+    0.00 :   4229c0: mov    %rbx,%rdi
+    0.00 :   4229c3: movups %xmm0,(%rbx)
+    0.00 :   4229c6: movq   $0x0,0x10(%rbx)
+    0.00 :   4229ce: add    $0x18,%rbx
+    0.00 :   4229d2: add    $0x18,%r12
+    0.00 :   4229d6: mov    %rax,-0x8(%r12)
+    0.00 :   4229db: movups %xmm4,-0x18(%r12)
+    0.00 :   4229e1: mov    %r8,0x60(%rsp)
+    0.00 :   4229e6: callq  4258a0 <std::vector<unsigned long, std::allocator<unsigned long> >::~vector()>
+    0.00 :   4229eb: cmp    %rbx,%rbp
+    0.00 :   4229ee: mov    0x60(%rsp),%r8
+    0.00 :   4229f3: pxor   %xmm0,%xmm0
+    0.00 :   4229f7: jne    4229b8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xe18>
+    0.00 :   4229f9: mov    %r13,%r9
+    0.00 :   4229fc: mov    0x48(%rsp),%rbx
+    0.00 :   422a01: mov    %r14,%r13
+    0.00 :   422a04: mov    0x58(%rsp),%rbp
+    0.00 :   422a09: mov    0x50(%rsp),%r14d
+    0.00 :   422a0e: test   %r9,%r9
+    0.00 :   422a11: je     422a2f <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xe8f>
+    0.00 :   422a13: mov    0x158(%rbx),%rsi
+    0.00 :   422a1a: mov    %r9,%rdi
+    0.00 :   422a1d: mov    %r8,0x48(%rsp)
+    0.00 :   422a22: sub    %r9,%rsi
+    0.00 :   422a25: callq  402210 <operator delete(void*, unsigned long)@plt>
+    0.00 :   422a2a: mov    0x48(%rsp),%r8
+    0.00 :   422a2f: mov    (%rsp),%rax
+    0.00 :   422a33: mov    %r8,0x148(%rbx)
+    0.00 :   422a3a: mov    %r8,%r9
+    0.00 :   422a3d: add    %r8,%rax
+    0.00 :   422a40: mov    %rax,0x150(%rbx)
+    0.00 :   422a47: mov    0x38(%rsp),%rax
+    0.00 :   422a4c: add    %r8,%rax
+    0.00 :   422a4f: mov    %rax,0x158(%rbx)
+    0.00 :   422a56: jmpq   4225dc <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xa3c>
+    0.00 :   422a5b: callq  402200 <operator new(unsigned long)@plt>
+    0.00 :   422a60: mov    0x48(%rsp),%r9
+    0.00 :   422a65: mov    0x50(%rsp),%r11
+    0.00 :   422a6a: mov    %rax,%r8
+    0.00 :   422a6d: lea    (%rax,%r12,1),%rsi
+    0.00 :   422a71: mov    (%rsp),%rax
+    0.00 :   422a75: mov    0x58(%rsp),%r10
+    0.00 :   422a7a: mov    %rax,0x38(%rsp)
+    0.00 :   422a7f: jmpq   422938 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xd98>
+    0.00 :   422a84: mov    $0x50f2b8,%edi
+    0.00 :   422a89: callq  402110 <std::__throw_length_error(char const*)@plt>
+    0.00 :   422a8e: mov    %al,0x28(%rsp)
+    0.00 :   422a92: jmpq   421fb6 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0x416>
+    0.00 :   422a97: nopw   0x0(%rax,%rax,1)
+    0.00 :   422aa0: mov    %r10,%rax
+    0.00 :   422aa3: jmpq   4227c8 <tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)+0xc28>

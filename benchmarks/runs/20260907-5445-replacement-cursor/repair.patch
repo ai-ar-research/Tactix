@@ -1,0 +1,187 @@
+--- a/src/kernel/kernel.cpp
++++ b/src/kernel/kernel.cpp
+@@ -1106,17 +1106,31 @@
+   const Lit old_first = c->lits[0], old_second = c->lits[1];
+   const bool redundant = c->redundant();
+ 
++  // Rewrite images usually retain the source order (root stripping and
++  // connected substitution). Restarting each membership lookup at the first
++  // literal turns those unchanged runs into quadratic scans. Continue after
++  // the previous match, wrapping over the prefix if necessary: every query
++  // still searches the complete image, including arbitrary reorderings.
++  // No marks, clause pose, or shared scratch are changed by this cursor.
++  const auto membership = [](const Lit *begin, const Lit *end) {
++    return [begin, end, next = begin](Lit lit) mutable {
++      const Lit *found = std::find(next, end, lit);
++      if (found == end) {
++        found = std::find(begin, next, lit);
++        if (found == next)
++          return false;
++      }
++      next = found + 1;
++      return true;
++    };
++  };
++  auto in_new = membership(lits, lits + size);
++
+   // Update the optional dense membership while the old semantic image is
+   // still readable.  Retained literals keep the same Ref and therefore their
+   // exact occurrence position; only a genuinely new literal is appended.
+   if (k.dense && !redundant) {
+-    const auto in_new = [&](Lit lit) {
+-      return std::find(lits, lits + size, lit) != lits + size;
+-    };
+-    const auto in_old = [&](Lit lit) {
+-      return std::find(c->lits, c->lits + old_size, lit) !=
+-             c->lits + old_size;
+-    };
++    auto in_old = membership(c->lits, c->lits + old_size);
+     for (uint32_t i = 0; i < old_size; i++) {
+       const Lit lit = c->lits[i];
+       if (in_new(lit))
+@@ -1148,7 +1162,7 @@
+   if (!redundant && !retain)
+     for (uint32_t i = 0; i < old_size; ++i) {
+       const Lit old = c->lits[i];
+-      if (std::find(lits, lits + size, old) != lits + size)
++      if (in_new(old))
+         continue;
+       kernel_mark_bve_retry(k, var_of(old));
+       kernel_removed_var(k, var_of(old));
+--- /dev/null
++++ b/tests/test_replacement_cursor.cpp
+@@ -0,0 +1,134 @@
++// Fixed public-transition comparisons against immutable predecessor objects.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "rules/bve/bve.hpp"
++
++#include <algorithm>
++#include <cassert>
++#include <cstdio>
++#include <vector>
++
++using namespace tactix;
++static uint64_t digest = UINT64_C(1469598103934665603);
++static void hash(uint64_t x) { digest = (digest ^ x) * UINT64_C(1099511628211); }
++template <class T> static void hash_vector(const T &values) {
++  hash(values.size());
++  for (auto x : values) hash(x);
++}
++static void score_event(Kernel &, void *state, Var v, bool removed) {
++  static_cast<std::vector<uint64_t> *>(state)->push_back(2 * uint64_t(v) + removed);
++}
++
++static void check(unsigned size, unsigned shape, bool redundant,
++                  unsigned dense_mode, bool added, bool retained) {
++  Kernel k;
++  kernel_reserve_vars(k, 4 * size + 8);
++  std::vector<Lit> original;
++  for (unsigned i = 0; i < size; ++i)
++    original.push_back(make_lit(i, i & 1));
++  const Lit neighbour[] = {original[0], original[1], make_lit(3 * size, false)};
++  kernel_add_large_clause(k, neighbour, 3, false, 0);
++  const Ref ref = kernel_add_large_clause(k, original.data(), size, redundant, 2);
++  kernel_add_large_clause(k, neighbour, 3, false, 0);
++  kernel_add_binary_clause(k, original[0], make_lit(3 * size + 1, false));
++  Clause *clause = clause_at(k.arena, ref);
++  clause->set_vivify(true);
++  clause->set_used(2);
++  const size_t allocation_words = k.arena.size();
++  const size_t span = clause_actual_words(clause);
++
++  OccIndex occ;
++  std::vector<uint32_t> counts(2 * k.nvars);
++  if (dense_mode) {
++    kernel_flush_large_watches(k);
++    kernel_dense_connect(k, occ, dense_mode == 2);
++    for (Lit lit = 0; lit < 2 * k.nvars; ++lit)
++      counts[lit] = bve_schedule_occurrence_count(k, lit);
++    k.bve_occurrence_count_image = &counts;
++  }
++  std::vector<uint64_t> events;
++  k.bve_score_update_hook = score_event;
++  k.bve_score_update_state = &events;
++
++  std::vector<Lit> image = original;
++  if (shape == 1 && size > 3) image.erase(image.begin() + size / 2);
++  if (shape == 2) image.back() = make_lit(2 * size, true);
++  if (shape == 3)
++    for (unsigned i = 0; i < size; ++i)
++      image[i] = make_lit(size + i, !(i & 1));
++  if (shape == 4) std::rotate(image.begin(), image.begin() + size / 2, image.end());
++  if (shape == 5) std::reverse(image.begin(), image.end());
++  if (shape == 6) {
++    for (unsigned i = 1; i < size; i += 2)
++      image[i] = make_lit(size + i, true);
++    std::reverse(image.begin(), image.end());
++  }
++  if (retained) {
++    const auto found = std::find(image.begin(), image.end(), original[0]);
++    if (found == image.end()) image[0] = original[0];
++    else std::iter_swap(image.begin(), found);
++  }
++  // Repeated rewriting also exercises an already-shrunken allocation and
++  // cursor wrap after a prior complete image. No solver invocation or fuzz.
++  for (unsigned pass = 0; pass < 2; ++pass) {
++    if (pass) std::reverse(image.begin() + (retained ? 1 : 0), image.end());
++    kernel_replace_large_clause_in_place(k, ref, ++k.next_clause_id,
++        image.data(), image.size(), 1, "fixed-membership-test", added,
++        retained ? original[0] : INVALID_LIT);
++    clause = clause_at(k.arena, ref);
++    assert(k.arena.size() == allocation_words);
++    assert(clause_actual_words(clause) == span);
++    assert(clause->size == image.size() && !clause->garbage());
++    assert(std::equal(image.begin(), image.end(), clause->lits));
++    assert(clause->vivify() && clause->used() == 2);
++    if (dense_mode && !redundant)
++      for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
++        const bool expected = std::find(image.begin(), image.end(), lit) != image.end();
++        const auto &list = occ.large[lit];
++        assert((std::find(list.begin(), list.end(), ref) != list.end()) == expected);
++        assert(counts[lit] == bve_schedule_occurrence_count(k, lit));
++      }
++    hash_vector(k.arena);
++    hash_vector(k.watches.arena);
++    hash(k.watches.holes);
++    for (const auto &head : k.watches.heads) {
++      hash(head.offset); hash(head.size); hash(head.capacity);
++      hash(head.binary_count_and_order);
++    }
++    hash_vector(k.bve_retry); hash_vector(k.removed); hash_vector(k.touched);
++    hash_vector(k.factor_marks); hash_vector(events); hash_vector(counts);
++    hash(k.stats.bve_marks); hash(k.stats.touch_marks);
++    hash(k.touch_epoch); hash(k.live_irredundant_large);
++    if (dense_mode)
++      for (Lit lit = 0; lit < 2 * k.nvars; ++lit) {
++        hash_vector(occ.large[lit]);
++        if (dense_mode == 2) {
++          hash(occ.ordered[lit].size());
++          for (const auto entry : occ.ordered[lit]) {
++            hash(entry.binary); hash(entry.payload);
++          }
++        }
++      }
++  }
++  k.bve_score_update_hook = nullptr;
++  k.bve_score_update_state = nullptr;
++  k.bve_occurrence_count_image = nullptr;
++  if (dense_mode) kernel_dense_disconnect(k);
++  kernel_rebuild_large_watches(k);
++  kernel_check_invariants(k);
++}
++
++int main() {
++  unsigned cases = 0;
++  for (unsigned size : {3u, 4u, 7u, 32u, 129u})
++    for (unsigned shape = 0; shape < 7; ++shape)
++      for (bool redundant : {false, true})
++        for (unsigned dense_mode = 0; dense_mode < 3; ++dense_mode)
++          for (bool added : {false, true})
++            for (bool retained : {false, true}) {
++              check(size, shape, redundant, dense_mode, added, retained);
++              ++cases;
++            }
++  std::printf("replacement-cursor cases=%u state=%016llx\n", cases,
++              static_cast<unsigned long long>(digest));
++}

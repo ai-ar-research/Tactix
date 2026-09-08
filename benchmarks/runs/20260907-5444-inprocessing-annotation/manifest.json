@@ -1,0 +1,39 @@
+{
+  "parent": "benchmarks/runs/20260907-5425-rephase-root-profile",
+  "parent_manifest_sha256": "af6b86c4c9762a58fb5c342fc3f03a98837c604708dabaed8cf815a479edbb7c",
+  "compressed_sha256": "87a63eaa2ce77b257cbea8c7071b79830769b6bec3c3a71d106012986c780379",
+  "profiles": {
+    "replace": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260907-5444-inprocessing-annotation/annotation-5mfyhl1e/profile.data",
+        "--symbol",
+        "tactix::kernel_replace_large_clause_in_place(tactix::Kernel&, unsigned int, unsigned long, unsigned int const*, unsigned int, unsigned int, char const*, bool, unsigned int)"
+      ],
+      "exit": 0,
+      "stdout_sha256": "8d3655c62926bf4e629974bc6301cb45ebc5e6f712b8ce2b85b28708bea58223",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "rebuild": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260907-5444-inprocessing-annotation/annotation-5mfyhl1e/profile.data",
+        "--symbol",
+        "tactix::kernel_rebuild_large_watches(tactix::Kernel&, bool)"
+      ],
+      "exit": 0,
+      "stdout_sha256": "08ce4a0da9c217734ab599bd35389e1a5a0b4fe59c3a43667d7184ee47c8f712",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "temporary_data_deleted": true,
+  "scope": "Read-only attribution of existing clean samples, no timing or correctness claim."
+}

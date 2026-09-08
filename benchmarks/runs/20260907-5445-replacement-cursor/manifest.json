@@ -1,0 +1,35 @@
+{
+  "purpose": "Avoid repeated full-prefix literal scans during in-place large-clause replacement using exact wraparound search cursors.",
+  "source": ".claude/worktrees/runtime-replacement-cursor-5445",
+  "parent": ".claude/worktrees/runtime-vivify-max-5438",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "motivation": "Clean 5425 profile, annotated in 5444: 1313 replacement samples, with almost all local periods in the three membership-search loops. No measured candidate speedup yet.",
+  "references": [
+    "Kissat sweep.c:substitute_connected_clauses retains unchanged literal runs during one-pass image construction",
+    "CaDiCaL subsume.cpp:strengthen_clause preserves survivor order via remove and shrink"
+  ],
+  "semantics": "Each query searches [next,end), then [begin,next), so its boolean is exactly full-range membership for arbitrary order. Only the successful-search cursor advances; no shared state, allocation, sorting, guard, API, proof, update order, timer or cadence change. Worst-case quadratic membership remains for adversarial reorderings/misses; ordered hits avoid repeated prefixes.",
+  "fixture": "840 fixed actual old/new transition cases, two replacements per case; identical state f86da0be45055db3. Five lengths, seven image shapes including misses/reversal/rotation, both clause kinds, sparse/dense/ordered-dense, added-material on/off and retained watch on/off. Arena/span, physical watches, occurrence order/counts, advice and callback order checked.",
+  "status": "Isolated UNFUZZED candidate. Includes 5438, excludes 5426. Ongoing fuzz 5442 covers predecessor 5438, not this change. No runtime acceptance or promotion.",
+  "files": {
+    "src/kernel/kernel.cpp": "6a5844b84d9a7868cb136a2391673a1c80b25c39fb5b5494fc4187f643ced059",
+    "tests/test_replacement_cursor.cpp": "3550d53e968a9d4761f95cc98ddcc1dc372649380cdd6ae25ce9fddd8f4a8008"
+  },
+  "binaries": {
+    "build/pin-5445-replacement-cursor-release/tactix": "b92994ec05c61c3197985f22a45d3df82da4a8ec9301d2d1c99663e46dbac99c",
+    "build/pin-5446-replacement-cursor-bc/tactix": "b92994ec05c61c3197985f22a45d3df82da4a8ec9301d2d1c99663e46dbac99c"
+  },
+  "patches": {
+    "repair.patch": "9a41575089f143e58174c7e2eeedb0687b7f86f10ff2e85ae13dbd6fd7c3890c",
+    "cumulative.patch": "646747894d27c6fd25a7e76a388e721b93701e9be08535339019ab0e496d0732"
+  },
+  "logs": {
+    "configure-release.log": "33ef0c9e6dabafda66b2086bd5fa772c7a3f78cd5e7e99c7847750d9253bc164",
+    "configure-bc.log": "44ed7f2f93ab1ae48497af61e3a7c406b992ade4f7ecd8783e67d78a6a181bf9",
+    "build-bc.log": "a312c7109624d18cdd162a55c8cb08c5c85f4ba3ec4d96ffcb395f8a445310a0",
+    "ctest-bc.log": "635b09b6bf2ab53ca786e447c320e6ed371cbe64898378d29725c7939c532c9f",
+    "old-fixture.log": "990c31ad6d181e8967c302c10af783d2371d8b664f7c6a06d910f9c8914ffdc2",
+    "build-release.log": "17a1364db6d58baeb05e5ed1a545eebbd3350115885ef92dfcea8fd434431bd9",
+    "ctest-release.log": "514450a03c739e9fe3a5ff6f00ba2f9acdb6901276a403b31b7ecf93bfa99e7d"
+  }
+}
