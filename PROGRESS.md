@@ -10,7 +10,11 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest implementation: [Watch-pair append](benchmarks/reports/2026-09-07-watch-pair-append.md), candidate 5466,
+- Latest implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
+  removes repeated retained-prefix scans from Sweep's private ledger on 5466.
+  Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
+  Three exact-work timing pairs and unchanged B28+C5 are queued; unfuzzed.
+- Preceding [Watch-pair append](benchmarks/reports/2026-09-07-watch-pair-append.md), candidate 5466,
   adds an exact-layout two-word fast path within existing capacity on 5459.
   Both Release suites pass 83/83; 180 actual old/new cases have identical
   whole-state digests. Three exact-work timing pairs and B28+C5 are queued.
@@ -65,7 +69,7 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5440 Vivify maximum timing | `1670118` | Complete: six checked proofs, median 0.995069x. |
 | 5441 Vivify maximum B28+C5 | `1670119` | Complete: 66/66 checked, 0.922120x production. |
 | 5447 replacement cursor timing | `1670198` | Complete: six checked proofs; median 0.976662x. |
-| 5448 replacement cursor B28+C5 | `1670199` | Fixed cumulative gate; queued. |
+| 5448 replacement cursor B28+C5 | `1670199` | Complete: 66/66 checked, 0.919289x production. |
 | 5449 Rank-37 elimination limit | `1670217` | Complete: meter exceeds phase limit by 26 before extra round. |
 | 5453 Rank-37 budget prefix | `1670291` | Complete: repaired boundary, next split at Factor, conflict 32,073. |
 | 5454 phase-budget Rank 1–40 | `1670292` | All 80 expected solves, 1.170283x; proof tail running. |
@@ -80,12 +84,14 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; queued. |
 | 5470 Rank-31 bound prefix | `1670801` | New largest loss: complete 100000-conflict stream; queued. |
 | 5471 Square bound prefix | `1670919` | Short B inprocessing witness, stop at 10000 conflicts; queued. |
+| 5475 Sweep cursor timing | `1671162` | Three exact-work pairs against 5466; queued. |
+| 5476 Sweep cursor B28+C5 | `1671163` | Fixed cumulative gate; queued. |
 
 User-requested periodic fuzz checkpoint 5442 is owned by background Claude
 process `2920923` (parent tool session `30094`), testing immutable source 5438.
 Read only its terminal response; do not inspect its jobs, logs or fuzz artifacts.
 Continue independent development while pending; no passing gate is inferred.
-This campaign does not cover 5445/5450/5459/5466; include all in the next periodic checkpoint.
+This campaign does not cover 5445/5450/5459/5466/5473; include all in the next periodic checkpoint.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -114,10 +120,13 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Evaluate 5468 with `snapshot-watch-pair-runtime-5468.py`: require all three
+1. Evaluate 5475 with `snapshot-sweep-cursor-runtime-5475.py`: require all three
    complete statistics/proof-byte identities before interpreting paired timing.
-   Latest frozen source `.claude/worktrees/runtime-watch-pair-5466` and Release
-   5466/5467 share SHA `152da8f372022836…`; its manifest owns exact identities.
+   Latest frozen source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
+   5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
+   Evaluate predecessor 5468 with `snapshot-watch-pair-runtime-5468.py` too.
+   Score 5465 with `snapshot-bound-full-5465.py` once all 80 solver records exist;
+   it refuses partial aggregates and does not wait for the checker tail.
    5458 confirms native bound advancement after the cut; 5463 closes the
    100000-conflict prefix, including all 272 portable boundaries. First-call 5457 grids
    are equal by member ordinal; raw observer emission order is not a mismatch.
@@ -218,10 +227,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Closed Rank-37's full 100000-conflict decision prefix after the bound repair.
-- Checked all nine short-B controls; old/new work, proof and slot traces agree.
-- Selected Square's inprocessing difference for a short causal prefix.
-- Sealed replacement-cursor timing: six checked proofs, median 0.976662x.
+- Attributed Sweep ledger cost to repeated full-range membership scans.
+- Isolated wraparound cursors; 588 actual old/new ledger states agree.
+- Both new Release builds pass 84/84; exact-work timing and B28+C5 queued.
+- Sealed replacement-cursor B28+C5: 66/66 checked, 0.919289x production.
 - Newer candidates remain isolated; proof checking and fuzz stay background.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
