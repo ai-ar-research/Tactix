@@ -1,0 +1,37 @@
+{
+  "parent_artifact_identity": {
+    "candidate": {
+      "candidate.formula.tsv": false,
+      "candidate.boundaries.tsv": false,
+      "candidate.decisions.tsv": true,
+      "candidate.prefix.tsv": true,
+      "candidate.macro.tsv": true,
+      "candidate.binary.tsv": true,
+      "partial_proof": false
+    },
+    "kissat": {
+      "kissat.formula.tsv": true,
+      "kissat.prefix.tsv": true,
+      "kissat.boundaries.tsv": true,
+      "kissat.decisions.tsv": true,
+      "kissat.binary.tsv": true,
+      "partial_proof": true
+    }
+  },
+  "parser_fixtures": 27,
+  "large_clause_difference": {
+    "candidate_only": [],
+    "kissat_only": []
+  },
+  "binary_difference_by_pass": [
+    {
+      "candidate_only": [],
+      "kissat_only": []
+    },
+    {
+      "candidate_only": [],
+      "kissat_only": []
+    }
+  ],
+  "limitation": "Current-source revalidation of actual clause difference; not proof of deletion cause or later decision causality. Full prefix comparison is separate summary.json; no complete verdict or runtime claim."
+}

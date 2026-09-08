@@ -464,15 +464,15 @@ campaigns and reports; living code retains only accepted invariants above.
 ## 19. Congruence indices
 
 Congruence owns scoped live-binary and gate-occurrence indices; `binary_ids` is
-proof history, not liveness. Native LRAT retains exact pair-to-id state;
-DRAT/proofless input uses a compact filter plus exact mirrored-watch checks and
-retains only the monotone material count. No formula shape selects this. Root
-assignments requeue affected gates; header-only identities retire unwitnessed.
-Production forward cleanup skips redundant clauses. Kissat instead includes
-live records through its last irredundant physical position, even interleaved
-redundant records; CaDiCaL filters them. Isolated `SP-CONG-PREFIX-1` uses the
-existing generation-local position image. A redundant partner never subsumes
-an irredundant victim; prefix coverage is engineering scope, not a pure guard.
+proof history, not liveness. Native LRAT retains exact pair-to-id state.
+DRAT/proofless uses a compact filter plus exact mirrored-watch checks and only
+the monotone material count; no formula shape selects this. Root assignments
+requeue affected gates; header-only identities retire unwitnessed. Isolated5626
+deletes visited root-satisfied index clauses with native size/position scope;
+public extraction remains read-only. Production forward cleanup skips redundant
+clauses; Kissat includes live records through its last irredundant physical position,
+including interleaved redundant records; CaDiCaL filters them. Isolated `SP-CONG-PREFIX-1`
+uses generation-local positions; redundant never subsumes irredundant. Scope is not a guard.
 
 ## 20. BVE antecedent admission
 

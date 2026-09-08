@@ -355,6 +355,8 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
     else` ⇒ `out = cond ∧ then`; `cond ≡ ¬else` ⇒ `out = ¬cond ∨ then`).
 
   A round with no new merge is `NoOp`; a merge of `x` with `¬x` sets `inconsistent` → `Unsat`.
+  Applying gate extraction may delete root-satisfied clauses with `del`, independently of a
+  later merge. Root units justify their removal; no reconstruction witness is needed.
   After a merge, forward cleanup may delete root-satisfied or representative-tautological clauses,
   and clauses subsumed modulo the proved equivalences. An irredundant victim requires an
   irredundant surviving subsumer; redundant victims may use either class. Each deletion emits `del`

@@ -1,0 +1,380 @@
+{
+  "address_space_limit": null,
+  "arm": "tactix",
+  "artifact_deleted": true,
+  "binary_sha256": "12b3731294d2fd6e8a273fb4b808b2444e8ccd6dc4cff9f771622a476e1ad340",
+  "certificate_bytes": 841991459,
+  "certificate_sha256": "f645c889916defb437f5429c9409c49498a52dfdebcb2b952367f492b44f0045",
+  "cleanup_pending": false,
+  "command": [
+    "perf",
+    "stat",
+    "-x",
+    "\t",
+    "-o",
+    "/tmp/tactix-runtime-078-_w2r8dgk/solver.perf",
+    "-e",
+    "task-clock,cycles,instructions,context-switches,cpu-migrations,page-faults",
+    "--",
+    "taskset",
+    "-c",
+    "54",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5604-factor-support-ranks1-40/pins/tactix",
+    "/tmp/tactix-runtime-078-_w2r8dgk/input.cnf",
+    "/tmp/tactix-runtime-078-_w2r8dgk/proof.drat"
+  ],
+  "cpu_affinity": [
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155
+  ],
+  "derived_artifacts_deleted": true,
+  "expected": "UNSAT",
+  "expected_match": true,
+  "finished_at": "2026-09-08T10:14:47.165582+00:00",
+  "instance": "tierD24-26/a49ec44c8d9972cda278d48b6dbef09e-grs-32-128.cnf.xz",
+  "memory_enforcement": "slurm_task_cgroup",
+  "model_check": null,
+  "node": "node017",
+  "proof_check": {
+    "exit_code": 0,
+    "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 258112 variables and 739198 clauses\n\nc finished parsing, read 841991459 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 449979 of 739198 clauses in core                            \n\nc 2911412 of 6153288 lemmas in core using 1174627376 resolution steps\n\nc 12287 RAT lemmas in core; 1029595 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 882.948 seconds",
+    "peak_rss_kb": 907796,
+    "result": "verified",
+    "sampled_process_vm_peak_kb": null,
+    "timed_out": false,
+    "wall_seconds": 883.032
+  },
+  "rank": 40,
+  "runtime_context": {
+    "end": {
+      "observed_at": "2026-09-08T10:00:03.489770+00:00",
+      "occupancy": {
+        "exit_code": 0,
+        "rows": [
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12"
+        ],
+        "stderr": ""
+      },
+      "topology": [
+        {
+          "core": "32",
+          "cpu": 54,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "33",
+          "cpu": 55,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "34",
+          "cpu": 56,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "35",
+          "cpu": 57,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "36",
+          "cpu": 58,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "37",
+          "cpu": 59,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "32",
+          "cpu": 150,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "33",
+          "cpu": 151,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "34",
+          "cpu": 152,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "35",
+          "cpu": 153,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "36",
+          "cpu": 154,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        },
+        {
+          "core": "37",
+          "cpu": 155,
+          "l3_shared_cpus": "54-59,150-155",
+          "socket": "1"
+        }
+      ]
+    },
+    "observed_at": "2026-09-08T09:54:01.252869+00:00",
+    "occupancy": {
+      "exit_code": 0,
+      "rows": [
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12"
+      ],
+      "stderr": ""
+    },
+    "perf_probe": {
+      "exit_code": 0,
+      "stderr": "\n Performance counter stats for 'true':\n\n           3086384      cycles                                                                \n\n       0.002430370 seconds time elapsed\n\n       0.000000000 seconds user\n       0.002471000 seconds sys\n\n\n"
+    },
+    "perf_statistics": [
+      "# started on Tue Sep  8 05:54:01 2026",
+      "",
+      "362143.30\tmsec\ttask-clock\t362143302470\t100.00\t1.000\tCPUs utilized",
+      "1376116964301\t\tcycles\t362143302470\t100.00\t3.800\tGHz",
+      "2711809955030\t\tinstructions\t362143302470\t100.00\t1.97\tinsn per cycle",
+      "1142\t\tcontext-switches\t362143302470\t100.00\t3.153\t/sec",
+      "1\t\tcpu-migrations\t362143302470\t100.00\t0.003\t/sec",
+      "80432\t\tpage-faults\t362143302470\t100.00\t222.100\t/sec"
+    ],
+    "topology": [
+      {
+        "core": "32",
+        "cpu": 54,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "33",
+        "cpu": 55,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "34",
+        "cpu": 56,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "35",
+        "cpu": 57,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "36",
+        "cpu": 58,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "37",
+        "cpu": 59,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "32",
+        "cpu": 150,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "33",
+        "cpu": 151,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "34",
+        "cpu": 152,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "35",
+        "cpu": 153,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "36",
+        "cpu": 154,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      },
+      {
+        "core": "37",
+        "cpu": 155,
+        "l3_shared_cpus": "54-59,150-155",
+        "socket": "1"
+      }
+    ]
+  },
+  "schema": "tactix-matched-slurm-memory-regression-result-v2",
+  "solve": {
+    "exit_code": 20,
+    "peak_rss_kb": 379184,
+    "sampled_process_vm_peak_kb": 470696,
+    "timed_out": false,
+    "wall_seconds": 362.208
+  },
+  "solver_statistics": [
+    "c tactix 0.1.0",
+    "c input       0 clauses restated (normalized literals)",
+    "c decisions   12875218 (0 via API)",
+    "c conflicts   3314676",
+    "c propagations 2586734397 (2164065996 search, 422668401 inprocess)",
+    "c learned     3252787 (162 units)",
+    "c learnedsize 32.70 avg lits, 14.19 avg glue",
+    "c reduction   78.8% of resolved lits removed by minimize+shrink",
+    "c minimized   40786524 lits",
+    "c min-depth   2 cutoffs",
+    "c shrunken    354958665 lits",
+    "c reasonbump  110014830 vars in 2871690 rounds (0 depth2, 5226 aborted)",
+    "c otfs        41025 strengthened (9076 conflicts subsumed)",
+    "c eagersub    539206 subsumed of 5920595 tried (0 kept as reason), register 4",
+    "c shrinkglue  28305 promoted (clamp size-1)",
+    "c tumble      258112 vars seeded (activation order)",
+    "c warmup      13 warmups, 7993 decisions, 575979 propagations",
+    "c denseocc    1742312 slice moves, 4 defrags",
+    "c sparsecol   292 runs, 220357 clauses",
+    "c vivify      292 rounds, 167444 vivified, 38 deleted, 0 flushed, 690420 checked",
+    "c vivify2     2862829 reused, 3381621 probes, 0 full, 145005 tier3, 6206354 prio, 78 rearm, 690458 polls, 0 term",
+    "c vivify3     211081 subsumed, 69 promoted, 161597 shrunken, 54088 implied, 1852 asym, 5847 instantiated, 255951 noop",
+    "c probe       0 rounds, 0 probed, 0 failed",
+    "c backbone    2011 rounds, 9056774 probed, 696 failed",
+    "c transitive  0 rounds, 1224788 checked, 9937 deleted, 34 units, 200068104 ticks, 1224788 polls, 0 terminated",
+    "c substitute  5431 rounds, 66049154 ticks, 22920 non-trivial SCCs (32810 lits), 11205 vars substituted, 0 rounds skipped / 0 partial (0 lits poisoned) on the hazard check",
+    "c bce         0 rounds, 0 deleted, 0 ticks",
+    "c cce         0 rounds, 0 tried, 0 deleted (0 blocked / 0 ata), 0 ala, 0 cla, 0 ticks",
+    "c cce2        0 skipped / 0 advances / 0 rearmed",
+    "c instantiate 0 rounds, 0 literals removed, 0 probed",
+    "c sweep       46 rounds, 189524 swept, 189352 environments (73326101 clauses), 1928916 solves, 895299 candidates, 5204 equivalences, 1093 units (571 already binary), 0 env-unsat, 51 budget, 2423244349 ticks",
+    "c sweepdiag   327281962 env-lits, 290307 root-false (290307 stripped, 0 FREE), 0 units, 24629283 cand-seeded, 3511202 refined, 1612154 dir-sat, 127376 dir-unsat",
+    "c sweepflip   30129563 attempts, 12394489 successful",
+    "c sweepback   37061904 candidates, 16904666 flipped",
+    "c sweepcost   96721562 dedup ticks, 1586615852 sub-solver ticks, 0 representation words; closure 0/0 occurrences, 0/0 vars whole",
+    "c sweepemit   9256 binaries, 0 not-rup, 4628 general pairs, 0 strip units cited",
+    "c sweepsched  293843 scheduled, 5117 rescheduled, 185104 resumed, 2 completed, 5800 tail; limits 1024 vars, 4096 clauses, depth 3",
+    "c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks",
+    "c hbr         0 rounds, 0 probes, 0 binaries, 0 subsumed, 0 declined, 0 ticks",
+    "c chrono      12738 chronological, 0 stale backjumps, 2 propagation re-arms",
+    "c reuse       20863 conflicts reused, 695 needed watch repair",
+    "c jumpreason  265405647 binary reasons jumped, 350 classifications, 344 big-binary; gate off",
+    "c binprop     23660696 scans, 23660696 flagged, 37863094 words, 274229748 skipped, 0 residual-ordered, 0 residual-large",
+    "c inprocess   58 phases",
+    "c conggates   239248 and, 629117 xor, 30243 ite",
+    "c congruence  12 rounds, 12 binary rebuilds, 898608 gates, 54 merges, 0 units, 0 unjustified, 208987349 ticks, 0 budget stops",
+    "c congy1      2 found, 2 units, 8 binary equivalences, 17080216 ticks",
+    "c retired     0 vars (0 substituted, 0 eliminated) of 12601",
+    "c compact     11 passes removed 247330 internal variables",
+    "c deactivate  255290 deactivations, 0 repeated reports, 0 re-bumps of retired vars",
+    "c substdec    0 decisions on substituted vars (0.00% of 12875218)",
+    "c extension   778 vars added, 244025 decisions on them (1.90% of 12875218)",
+    "c interrupt   0 rule applications aborted on the stop flag (0 stress fires)",
+    "c extbumps    88171726 of 1129328420 bumps on extension vars (7.81%), 10549714 reason-side only (11.96% of those)",
+    "c factor      1819 factorings, 13157566 large remainders offered, 485908563 ticks",
+    "c factor-rem  12085258 materialized, 1072308 reused",
+    "c factor-bnd  92411 grids rejected by the coupled bound",
+    "c factor-dem  50 demotions, 1819 fresh vars demoted",
+    "c bve         0 rounds, 236125 eliminated, 67753677 resolutions",
+    "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+    "c bve-gates   1016 equiv, 134945 andor, 47525 ite, 0 xor, 521585 definition; 10615006628 resolvent pairs saved",
+    "c bve-def     552575 checked, 106591620 ticks, 0 hit the tick ceiling, 10 units",
+    "c restarts    69984 (59817 reused a trail prefix)",
+    "c reductions  291 (2139073 clauses deleted, 1203541 promoted)",
+    "c tiers       2/7 live after 355 retiers (retention band 0 clause-visits dynamic vs 0 static)",
+    "c redscan     0 scans, 0 arena words walked, 0 skippable by a first_reducible watermark (0.00%)",
+    "c mode        unguided after 51 switches (14412197963 ticks, 545 target phases saved)",
+    "c rephased    39 (128 best phases saved)",
+    "c reordered   24 eligible, 24 decision re-rankings",
+    "c lucky       1 early, 1 late (0 SAT), 12 probes",
+    "c walk        13 walks (9 improved, 352830 flips, 173432557 steps)",
+    "c randec      569 sequences, 843816 random decisions",
+    "c subsume     0 rounds (0 checked, 0 visits, 0 subsumed)",
+    "c strengthen  33 rounds (5154481 checked, 136144859 visits, 225000 strengthened, 115603 subsumed)",
+    "c budgetstop  0 C1 rounds, 0 C2 rounds stopped mid-round",
+    "c c1shadow    0 observed, 0 deleted + 0 rewritten by C2, 0 residual",
+    "c touch       21214377 marks, 21214377 epoch; C1 0 skipped / 0 advances / 0 rearmed, C2 2284296 skipped / 33 advances / 426471 rearmed",
+    "c subhold     0 elimination rounds held open by C1/C2",
+    "c touch3      BCE 0 skipped / 0 rearmed, X2 0 skipped / 0 rearmed, X4 0 skipped / 0 rearmed",
+    "c interrupt3  BCE 0, X2 0, X4 0 aborts",
+    "c interrupt2  C1 0, C2 0 aborts",
+    "c touchred    0 redundant creations in scope (dynamic) vs 0 (static tier2=6), 0 band marks; band off",
+    "c f7band      C2 0 band candidates checked / 0 skipped, 0 subsumed / 0 strengthened",
+    "c touch4      Factor 2539591 seeds skipped / 0 rearmed",
+    "c timing      362086 ms solve",
+    "c timing      104639 ms (28.9%) inprocessing slot, 257447 ms (71.1%) search+scaffolding outside it",
+    "c timing        Sweep                37034 ms ( 10.2%) in 46 applications",
+    "c timing        Vivify               34786 ms (  9.6%) in 292 applications",
+    "c timing        BVE                  11107 ms (  3.1%) in 736918 applications",
+    "c timing        Factor                7024 ms (  1.9%) in 74 applications",
+    "c timing        Substitute            4727 ms (  1.3%) in 160 applications",
+    "c timing        TransitiveReduce      3659 ms (  1.0%) in 3899896 applications",
+    "c timing        Strengthen            2290 ms (  0.6%) in 33 applications",
+    "c timing        Congruence            1472 ms (  0.4%) in 12 applications",
+    "c timing        Backbone               655 ms (  0.2%) in 159 applications",
+    "c timing        (unattributed)        1883 ms (  0.5%)",
+    "s UNSATISFIABLE"
+  ],
+  "solver_stderr_tail": [],
+  "task": 78,
+  "tier": "D",
+  "valid": true,
+  "verdict": "UNSAT"
+}

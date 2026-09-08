@@ -1,0 +1,42 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5611-current-congruence-output",
+  "candidate_authority": "benchmarks/runs/20260908-5626-congruence-index-validated",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-congruence-index-repair-5623",
+  "input": "benchmarks/cache/tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+  "input_sha256_compressed": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+  "stop_conflict": 100000,
+  "hypothesis": "Applying root-satisfied index cleanup should close the five retained Congruence9457 ternaries on current Rank33. Validate actual whole100K decisions and formula outputs; do not assume later182093 split closes.",
+  "validation": "Two clean100K stops and complete hashes. Native whole5611 traces/proof replay; candidate may change. Full candidate/native decision comparison and exact framed formula/binary outputs. No acceptance timing or complete verdict.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "794f28b8a6a4730cdfd9d02ecae76bbe8fc3b992f327eb59bf7be155765bf130",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "array.sbatch": "afebaaa71ee9ecbd035c4fea7b7deee78894bd739fa0481eecb95f95626a745f",
+    "run.py": "78e04d94585b05f50bb3f7927c37a5474b241dfde0fa5fbe21178a0f1f766b7b"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T10:34:55.008643+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5535-sweep-small-ranks1-40/next-losses.json",
+    "sha256": "3b05e4eb79852ffa998a7c54100a8445d641560e3b27cb06bd009f4d07d5c57e"
+  },
+  "limitation": "Diagnostic-only partial proof; no checked complete verdict or acceptance timing. Does not replace Rank 1-40 or B28+C5.",
+  "test_consideration": "88/88 each independent Release,87/87 trace.1200 actual old/new cases;75 native index cases agree with candidate,24 targeted differences. Exact DRAT/LRAT deletion bytes, duplicate/redundant controls, public purity/guard/instance, root values and native cap are covered.",
+  "source_patch_sha256": "9c40e4db079cc0d5c28dc434195870794baff10f3e87364054a1fa94260009b8",
+  "parent_summary_sha256": "e1874e7c5dc7d78837adb13185f48b9c9addb4f82b8956d08651b5211b9bdab4",
+  "selected_authority": {
+    "path": "benchmarks/runs/20260908-5567-rank33-small-extended/nonbinary-localization.json",
+    "sha256": "e3676c8f733636beaeca83cc7f4bd50fba540a093aa0275a45411c94083d08b1"
+  },
+  "predecessor": "benchmarks/runs/20260908-5611-current-congruence-output"
+}

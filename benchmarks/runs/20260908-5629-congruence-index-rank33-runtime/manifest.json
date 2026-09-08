@@ -1,0 +1,79 @@
+{
+  "schema": "tactix-kissat-checked-runtime-v1",
+  "status": "UNFUZZED isolated candidate; no promotion.",
+  "hypothesis": "Measure net Rank33 runtime effect of visited satisfied-clause index cleanup against actual5592 on the largest full-window loss. No tuned schedule or budget.",
+  "comparison": "Three independent matched candidate/previous replica blocks, full width without forced placement.",
+  "decision": "After all B28 expected solver records,submit predeclared waves0,1,2 after predecessor solves without waiting for checkers. Require within-arm complete non-timing statistics/proof identity,all ratios and spreads<=2%.Cross-arm work may change;full Rank1-40 remains required.",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "351bef360ee6427cf40ea3450f3777a615779c3377cb26721a4435ad2b79073e",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/candidate.patch",
+      "source_patch_sha256": "9c40e4db079cc0d5c28dc434195870794baff10f3e87364054a1fa94260009b8",
+      "source_build": "build/pin-congruence-index-repair-5623-release"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "12b3731294d2fd6e8a273fb4b808b2444e8ccd6dc4cff9f771622a476e1ad340",
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "arguments": [],
+      "source_patch": "pins/previous.patch",
+      "source_patch_sha256": "a1929c45d6b352fe30e414ea7ee052da0ed6324d10cb9b2c36f4b43484fdbb52",
+      "source_build": "build/pin-5592-factor-root-support-release"
+    }
+  },
+  "collect_runtime_context": true,
+  "input_sha256": {
+    "tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a"
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-5",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000
+  },
+  "pin_sha256": {
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/previous.patch": "a1929c45d6b352fe30e414ea7ee052da0ed6324d10cb9b2c36f4b43484fdbb52",
+    "pins/previous": "12b3731294d2fd6e8a273fb4b808b2444e8ccd6dc4cff9f771622a476e1ad340",
+    "pins/candidate": "351bef360ee6427cf40ea3450f3777a615779c3377cb26721a4435ad2b79073e",
+    "pins/candidate.patch": "9c40e4db079cc0d5c28dc434195870794baff10f3e87364054a1fa94260009b8",
+    "array.sbatch": "b6ea8f8d0a1f906faed2d8c40cde7e23eec811d352a9092130bf44441b5033b6",
+    "matrix.tsv": "7524322e424684732dfb51c249369b8f3e464bd518012c9f46a21ad23c4d05a9"
+  },
+  "parent_campaign": "benchmarks/runs/20260908-5604-factor-support-ranks1-40",
+  "candidate_validation": "88/88 each independent Release,87/87 trace.1200 actual old/new cases;75 native index cases agree with candidate,24 targeted differences. Exact DRAT/LRAT deletion bytes, duplicate/redundant controls, public purity/guard/instance, root values and native cap are covered.",
+  "candidate_authority": "benchmarks/runs/20260908-5626-congruence-index-validated",
+  "wave_tasks": {
+    "0": [
+      0,
+      1
+    ],
+    "1": [
+      2,
+      3
+    ],
+    "2": [
+      4,
+      5
+    ]
+  },
+  "created_at": "2026-09-08T10:34:55.096472+00:00",
+  "predecessor": "benchmarks/runs/20260908-5599-factor-support-rank32-runtime",
+  "test_consideration": "88/88 each independent Release,87/87 trace.1200 actual old/new cases;75 native index cases agree with candidate,24 targeted differences. Exact DRAT/LRAT deletion bytes, duplicate/redundant controls, public purity/guard/instance, root values and native cap are covered.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5604-factor-support-ranks1-40/next-losses.json",
+    "sha256": "8cc65ee6cdf6e9e7a434130fec2e37ab47417d66c55c9da0f605ce4e1c395340"
+  }
+}

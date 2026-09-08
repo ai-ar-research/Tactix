@@ -1,0 +1,9 @@
+{
+  "job": "1672704",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "benchmarks/runs/20260908-5628-congruence-index-BC-gate/array.sbatch"
+  ],
+  "manifest_sha256": "fec0d70c9bdc53c8cf4d8a8afcaba853b38061bf538de7320b04b2f685a51a2c"
+}

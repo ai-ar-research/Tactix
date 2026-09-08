@@ -1,0 +1,38 @@
+{
+  "clean_stops": 2,
+  "stop_conflict": 100000,
+  "complete_prefix_identical": true,
+  "prefixes": {
+    "candidate": [
+      "100000",
+      "18446744073709440308",
+      "31383276",
+      "31494584",
+      "5c263e00aa882466",
+      "1",
+      "1",
+      "422fb1d46f76914b",
+      "488842",
+      "488842",
+      "-277711",
+      "38760"
+    ],
+    "kissat": [
+      "100000",
+      "18446744073709440308",
+      "31383276",
+      "31494584",
+      "5c263e00aa882466",
+      "1",
+      "1",
+      "422fb1d46f76914b",
+      "488842",
+      "488842",
+      "-277711",
+      "38760"
+    ]
+  },
+  "first_decision_difference": null,
+  "matching_rows": 31494584,
+  "limitation": "Stopped proof-on diagnostic only. No complete verdict, checked proof or acceptance timing. Differences require causal interpretation, not automatic repair."
+}
