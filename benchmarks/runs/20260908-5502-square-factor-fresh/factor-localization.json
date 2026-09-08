@@ -1,0 +1,36 @@
+{
+  "parent_replay": true,
+  "fixtures": 8,
+  "counts": {
+    "candidate": 1555,
+    "kissat": 1555
+  },
+  "first_extension_difference": {
+    "ordinal": 943,
+    "candidate": {
+      "fresh": 43330,
+      "ordinal": 943,
+      "seed": -4143,
+      "factors": 2,
+      "remainders": 3,
+      "delta": 1,
+      "members": [
+        -4143,
+        -4147
+      ]
+    },
+    "kissat": {
+      "fresh": 43330,
+      "ordinal": 943,
+      "seed": -4171,
+      "factors": 2,
+      "remainders": 3,
+      "delta": 1,
+      "members": [
+        -4171,
+        -4175
+      ]
+    }
+  },
+  "limitation": "Accepted seed/member grids identify a boundary, not equality of the incoming physical formula or an established performance cause."
+}

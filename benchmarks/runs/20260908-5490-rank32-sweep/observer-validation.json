@@ -1,0 +1,67 @@
+{
+  "clean_stops": 2,
+  "observer_neutral": {
+    "candidate": {
+      "replayed_rows": 18593185,
+      "events": {
+        "analysis_end": 1,
+        "probe_begin": 1,
+        "slot_boundary": 60,
+        "sweep_seed": 20474,
+        "sweep_environment": 20474,
+        "sweep_effort": 20130,
+        "sweep_unit": 10,
+        "sweep_equivalence": 202,
+        "probe_end": 1
+      },
+      "earlier_native_events": {},
+      "total_rows": 61353
+    },
+    "kissat": {
+      "replayed_rows": 18593182,
+      "events": {
+        "analysis_end": 1,
+        "probe_begin": 1,
+        "congruence_begin": 2,
+        "congruence_end": 2,
+        "substitute_early_begin": 2,
+        "substitute_early_end": 2,
+        "backbone_early_begin": 2,
+        "backbone_early_end": 2,
+        "vivify_begin": 2,
+        "vivify_dense_entry": 8,
+        "vivify_dense_resume": 8,
+        "vivify_end": 2,
+        "sweep_begin": 2,
+        "sweep_seed": 20366,
+        "sweep_environment": 20366,
+        "sweep_effort": 20366,
+        "sweep_unit": 11,
+        "sweep_end": 2,
+        "substitute_late_begin": 2,
+        "substitute_late_end": 2,
+        "transitive_begin": 2,
+        "transitive_end": 2,
+        "backbone_late_begin": 2,
+        "backbone_late_end": 2,
+        "factor_begin": 2,
+        "factor_admitted": 2,
+        "factor_applied": 2,
+        "factor_end": 2,
+        "congruence_dense_entry": 1,
+        "congruence_dense_first": 1,
+        "congruence_dense_second_entry": 1,
+        "congruence_dense_second": 1,
+        "probe_end": 1
+      },
+      "earlier_native_events": {
+        "sweep_schedule": 431046,
+        "sweep_seed": 2814,
+        "sweep_environment": 2814,
+        "sweep_effort": 2814
+      },
+      "total_rows": 500660
+    }
+  },
+  "limitation": "Prefix replay and selected observer validation, not semantic equality or a proved performance cause."
+}

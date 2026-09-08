@@ -1,0 +1,54 @@
+{
+  "clean_stops": 2,
+  "stop_conflict": 10000,
+  "complete_prefix_identical": false,
+  "prefixes": {
+    "candidate": [
+      "10000",
+      "18446744073709551392",
+      "72216",
+      "72440",
+      "2aa0af6882be9073",
+      "1",
+      "1",
+      "455fb6d474e129ca",
+      "42381",
+      "42381",
+      "-22776",
+      "781"
+    ],
+    "kissat": [
+      "10000",
+      "18446744073709551434",
+      "70431",
+      "70613",
+      "ddb27a9df322013f",
+      "1",
+      "1",
+      "455fb6d474e129ca",
+      "42381",
+      "42381",
+      "-9497",
+      "1095"
+    ]
+  },
+  "first_decision_difference": {
+    "candidate": [
+      "501",
+      "5849",
+      "67",
+      "-43773",
+      "0"
+    ],
+    "kissat": [
+      "501",
+      "5849",
+      "67",
+      "43773",
+      "0"
+    ],
+    "matching_rows": 5848
+  },
+  "matching_rows": 5848,
+  "limitation": "Stopped proof-on diagnostic only. No complete verdict, checked proof or acceptance timing. Differences require causal interpretation, not automatic repair."
+}

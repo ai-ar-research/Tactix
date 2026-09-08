@@ -1,0 +1,277 @@
+{
+  "parent_replay": true,
+  "snapshot_fixtures": 12,
+  "snapshots": {
+    "candidate": {
+      "binary_boundaries": [
+        {
+          "header": [
+            "tactix",
+            "slot_boundary",
+            "0",
+            "0",
+            "name=SparseCollect|stage=end"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "tactix",
+            "slot_boundary",
+            "0",
+            "0",
+            "name=Congruence|stage=end"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "tactix",
+            "slot_boundary",
+            "0",
+            "0",
+            "name=Substitute|stage=end"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "tactix",
+            "slot_boundary",
+            "0",
+            "0",
+            "name=Backbone|stage=end"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "tactix",
+            "slot_boundary",
+            "0",
+            "0",
+            "name=Sweep|stage=end"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "tactix",
+            "slot_boundary",
+            "0",
+            "0",
+            "name=Substitute|stage=end"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "tactix",
+            "slot_boundary",
+            "0",
+            "5",
+            "name=Factor|stage=end"
+          ],
+          "clauses": [
+            [
+              -43773,
+              -20079
+            ],
+            [
+              -43773,
+              -20060
+            ],
+            [
+              -43773,
+              -20046
+            ],
+            [
+              -42389,
+              43773
+            ],
+            [
+              20045,
+              43773
+            ]
+          ],
+          "count": 5
+        }
+      ],
+      "factor_exit_large": []
+    },
+    "kissat": {
+      "binary_boundaries": [
+        {
+          "header": [
+            "kissat",
+            "lucky_early_end",
+            "0",
+            "0",
+            "unknown"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "kissat",
+            "congruence_end",
+            "0",
+            "0",
+            "-"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "kissat",
+            "substitute_complete_end",
+            "0",
+            "0",
+            "-"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "kissat",
+            "backbone_end",
+            "0",
+            "0",
+            "-"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "kissat",
+            "sweep_end",
+            "0",
+            "0",
+            "-"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "kissat",
+            "substitute_complete_end",
+            "0",
+            "0",
+            "-"
+          ],
+          "clauses": [],
+          "count": 0
+        },
+        {
+          "header": [
+            "kissat",
+            "factor_end",
+            "0",
+            "5",
+            "-"
+          ],
+          "clauses": [
+            [
+              -43773,
+              -16793
+            ],
+            [
+              -43773,
+              -16674
+            ],
+            [
+              -43773,
+              -16558
+            ],
+            [
+              -42392,
+              43773
+            ],
+            [
+              3270,
+              43773
+            ]
+          ],
+          "count": 5
+        },
+        {
+          "header": [
+            "kissat",
+            "preprocess_end",
+            "0",
+            "5",
+            "-"
+          ],
+          "clauses": [
+            [
+              -43773,
+              -16793
+            ],
+            [
+              -43773,
+              -16674
+            ],
+            [
+              -43773,
+              -16558
+            ],
+            [
+              -42392,
+              43773
+            ],
+            [
+              3270,
+              43773
+            ]
+          ],
+          "count": 5
+        },
+        {
+          "header": [
+            "kissat",
+            "lucky_late_end",
+            "0",
+            "5",
+            "unknown"
+          ],
+          "clauses": [
+            [
+              -43773,
+              -16793
+            ],
+            [
+              -43773,
+              -16674
+            ],
+            [
+              -43773,
+              -16558
+            ],
+            [
+              -42392,
+              43773
+            ],
+            [
+              3270,
+              43773
+            ]
+          ],
+          "count": 5
+        }
+      ],
+      "factor_exit_large": []
+    }
+  },
+  "limitation": "Selected clause populations only; match named boundaries before comparison. No automatic semantic-equivalence, performance, or proof-acceptance claim."
+}
