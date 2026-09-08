@@ -10,7 +10,10 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest: [Full view and next boundaries](benchmarks/reports/2026-09-07-runtime-next-boundaries.md).
+- Latest implementation: [Vivify maximum selection](benchmarks/reports/2026-09-07-vivify-max-selection.md), candidate 5438,
+  based on phase-entry 5430. Actual old/new 144-case order/pose checks match;
+  both independent Release builds pass 79/79. Timing and B28+C5 are queued.
+- [Full view and next boundaries](benchmarks/reports/2026-09-07-runtime-next-boundaries.md):
   Rephase's full 40-pair solver view is **1.202034x**, with proofs still pending.
   Its nine timing proofs and B28+C5 are now fully checked. Metadata 5426 has a
   small 0.993882x median exact-work gain, not a solution to the aggregate gap.
@@ -44,6 +47,13 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5435 phase-entry B28+C5 | `1669973` | Fixed cumulative gate; queued. |
 | 5436 Rank-37 prefix | `1669994` | Latest phase-entry candidate/Kissat; queued. |
 | 5437 Rank-35 Sweep binaries | `1670050` | Rephase/phase-entry/Kissat snapshots at conflict 19,365; queued. |
+| 5440 Vivify maximum timing | `1670118` | Three exact phase-entry predecessor pairs; queued. |
+| 5441 Vivify maximum B28+C5 | `1670119` | Fixed cumulative gate; queued. |
+
+User-requested periodic fuzz checkpoint 5442 is owned by background Claude
+process `2920923` (parent tool session `30094`), testing immutable source 5438.
+Read only its terminal response; do not inspect its jobs, logs or fuzz artifacts.
+Continue independent development while pending; no passing gate is inferred.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -80,22 +90,28 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    5425 prioritizes inprocessing, but differing work prevents unit-cost attribution.
    Metadata 5428 now has all three exact-work/proof-identical timing pairs;
    its small measured gain may inform consolidation, pending final gates.
+   Judge 5440 with all three exact-work pairs and its snapshot helper; no gain
+   is claimed for maximum selection before measurement.
 2. Revisit active checker outcomes without blocking the investigation; run
    `seal-rephase-gates-5422.py` and `seal-root-followup-gates-5435.py` when complete.
    `seal-rephase-replicas-5421.py` has sealed all nine timing proofs.
    Preserve per-instance work/time/memory and label verification status.
    Any rejected proof/model pauses dependent work under plan §8.2.
-3. Preserve submitted sources/pins. Latest source is
+3. Preserve submitted sources/pins. Latest semantic source is
    `.claude/worktrees/runtime-inprocess-root-5430`; Release
    `build/pin-5430-inprocess-root-release` and independent
    `build/pin-5432-inprocess-root-bc` share SHA-256
    `44cac3efc60149ab78dca2a5e6b17e552f2f860d4797226d6a0889ae93c1fe26`.
    5430 owns patches/tests; trace pin 5431. Separate metadata source/pins belong
    to 5426 (Release 5426/5427, SHA `bb4e3fbc…`); both descend from Rephase 5417.
-4. Consolidate only supported general repairs, finish runtime/B28+C5 gates,
-   then invoke **one Claude-owned fuzz campaign** under plan §8.2. Do not inspect
-   or reinterpret Claude's fuzz artifacts. Route reproduced soundness/crash/
-   proof/model failures to bounded Claude repair immediately.
+   Private maximum-selection source `.claude/worktrees/runtime-vivify-max-5438`
+   descends from 5430, excludes metadata, and owns Release 5438/5439 (matching
+   SHA `2e316cb494cc10e24…`); its manifest owns full hashes, patch and tests.
+4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
+   in the background as requested. Check session `30094` for its terminal report;
+   do not inspect/reinterpret fuzz artifacts. Consolidation still requires all
+   runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
+   pauses dependent work and invokes bounded Claude repair immediately.
 5. Keep broad cleanup separate. Preserve proof-before-deletion, native physical
    duplicates, N1–N4 and open ledger obligations. Push remains **unapproved**
    after the earlier auto-review rejection; do not retry or bypass it.
@@ -139,10 +155,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Completed the full Rephase solver view and checked its timing/regression gates.
-- Measured metadata's small exact-work gain across all three pairs.
-- Validated clean profiles and localized the next earlier Sweep count split.
-- Launched Rank-37 and three-arm Sweep diagnostics while proof checking continues.
-- Kept living docs within their budgets; detailed evidence remains in frozen reports.
+- Replaced unnecessary Vivify literal sorting in isolated 5438; old/new order matches.
+- Passed 79/79 tests in both matching builds and queued timing/B28+C5 gates.
+- Launched Claude-owned periodic fuzzing on the latest candidate.
+- Recorded user-authorized background fuzzing while independent development continues.
+- Kept documentation within budgets; no source promotion or pending-gate acceptance.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
