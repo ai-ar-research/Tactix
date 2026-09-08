@@ -20,8 +20,11 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   It retains [5450's strict phase stop](benchmarks/reports/2026-09-07-eliminate-phase-budget.md).
   Rank-37 Factor schedules match; differing gain-2 admission selects this repair.
   Causal replay, three short B witnesses, full runtime and B28+C5 are queued.
-- Phase-entry 5434 now has all 40 pairs: **1.205580x**, 60/80 checked at its
-  frozen solver snapshot. It does not materially close the aggregate gap.
+- [Complete phase-budget view](benchmarks/reports/2026-09-07-phase-budget-full-view.md):
+  5454 has all 40 pairs at **1.170283x**, 63/80 checked at the solver snapshot.
+  No timeout/verdict loss; goal still unmet. Largest losses are Ranks 31/37/32.
+  Phase-entry 5434 is now fully checked at 1.205580x; different windows prevent
+  attributing their ratio difference to one repair.
 - [Full view and next boundaries](benchmarks/reports/2026-09-07-runtime-next-boundaries.md):
   Rephase's full 40-pair view is **1.202034x**, now 80/80 checked and clean.
   Its nine timing proofs and B28+C5 are now fully checked. Metadata 5426 has a
@@ -50,17 +53,17 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5423 Rephase full Rank 1–40 | `1669887` | Complete: 80/80 checked, 1.202034x. |
 | 5429 metadata B28+C5 | `1669969` | Complete: 66/66 checked, 0.924072x production. |
 | 5433 phase-entry prefix | `1669971` | Complete: unchanged from Rephase through 100,000. |
-| 5434 phase-entry Rank 1–40 | `1669972` | All 80 expected verdicts; 77 checked, proofs checking. |
+| 5434 phase-entry Rank 1–40 | `1669972` | Complete: 80/80 checked, 1.205580x. |
 | 5435 phase-entry B28+C5 | `1669973` | Complete: 66/66 checked and clean; 0.920290x production. |
 | 5436 Rank-37 prefix | `1669994` | Complete: first decision split at conflict 29,767. |
 | 5437 Rank-35 Sweep binaries | `1670050` | Complete: two duplicate multiplicities only; unique sets equal. |
-| 5440 Vivify maximum timing | `1670118` | All three exact-work pairs: median 0.995069x; proofs checking. |
-| 5441 Vivify maximum B28+C5 | `1670119` | Fixed cumulative gate; checker tail running. |
+| 5440 Vivify maximum timing | `1670118` | Complete: six checked proofs, median 0.995069x. |
+| 5441 Vivify maximum B28+C5 | `1670119` | Complete: 66/66 checked, 0.922120x production. |
 | 5447 replacement cursor timing | `1670198` | Three exact Vivify predecessor pairs; queued. |
 | 5448 replacement cursor B28+C5 | `1670199` | Fixed cumulative gate; queued. |
 | 5449 Rank-37 elimination limit | `1670217` | Complete: meter exceeds phase limit by 26 before extra round. |
 | 5453 Rank-37 budget prefix | `1670291` | Complete: repaired boundary, next split at Factor, conflict 32,073. |
-| 5454 phase-budget Rank 1–40 | `1670292` | Full unchanged paired view; queued. |
+| 5454 phase-budget Rank 1–40 | `1670292` | All 80 expected solves, 1.170283x; proof tail running. |
 | 5455 phase-budget B28+C5 | `1670293` | Fixed cumulative gate; queued. |
 | 5457 Factor selected window | `1670359` | Complete: observer-neutral, first-call grids equal by ordinal. |
 | 5458 native bound verbosity | `1670509` | Confirm native 0→1→2 before Factor; queued. |
@@ -70,6 +73,7 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5465 bound Rank 1–40 | `1670638` | Full unchanged paired view; queued. |
 | 5468 watch-pair timing | `1670699` | Three exact-work predecessor pairs; queued. |
 | 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; queued. |
+| 5470 Rank-31 bound prefix | `1670801` | New largest loss: complete 100000-conflict stream; queued. |
 
 User-requested periodic fuzz checkpoint 5442 is owned by background Claude
 process `2920923` (parent tool session `30094`), testing immutable source 5438.
@@ -124,13 +128,14 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Factor's seed/grid/material or effort difference before changing it; coarse
    counts alone do not prove common physical state. Inspect full 5454 work,
    runtime and memory, and seal 5454/5455 with `seal-eliminate-limit-gates-5455.py`.
-   Use `snapshot-eliminate-full-5454.py` once all 80 solver records exist;
-   79/80 exist now, so no partial aggregate is scored. No measured gain is
-   claimed for the policy repair yet. Largest prior losses
-   remain Ranks 37/32/31; localize the next common-state component boundary.
+   5454's complete solver view is 1.170283x. `next-losses.json` selects Rank 31
+   (+154.211 s, conflicts 1.542264x) while Rank 37's work drops materially.
+   Run `compare-rank31-prefix-5470.py` after job 1670801 finishes; localize its
+   earliest common-state component boundary without inferring weakness from
+   divergence alone. No causal timing attribution from different campaign windows.
    5437's unique binary sets agree: two physical duplicate copies explain the
    count split. Do not restore duplicates without evidence of a causal defect.
-   Vivify 5440 has a small exact-work 0.995069x median gain; proofs pending.
+   Vivify 5440's small exact-work 0.995069x median gain now has six checked proofs.
    5447 now has three complete exact-work/proof-byte pairs: median 0.976662x
    predecessor (range 0.976171–0.989633), proofs pending at snapshot.
    Metadata 5426 is checked but remains independent/unfuzzed.
@@ -205,10 +210,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Added an exact-layout watch append fast path in isolated 5466; no promotion.
-- Added 180 actual old/new state cases; both Release builds pass 83/83.
-- Queued three exact-work timing pairs and unchanged B28+C5.
-- Sealed phase-entry B28+C5: 66/66 checked, 0.920290x production.
-- Bound causal replay and full runtime remain queued; checking/fuzz stay background.
+- Scored all phase-budget Rank 1–40 pairs: 1.170283x, verification tail pending.
+- Selected Rank 31 as the largest residual loss and submitted its causal prefix.
+- Sealed phase-entry full view: 80/80 checked, 1.205580x.
+- Sealed Vivify timing's six proofs and B28+C5's 66 checked results.
+- Current watch/bound candidates remain isolated; checking/fuzz stay background.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
