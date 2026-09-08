@@ -1,0 +1,330 @@
+{
+  "clean_stops": 3,
+  "prefixes": {
+    "previous": [
+      "19366",
+      "18446744073709480523",
+      "22776375",
+      "22847468",
+      "3de8bf645f3b1179",
+      "18516218",
+      "1",
+      "a6eb1df4f4e0e591",
+      "488499",
+      "-80094",
+      "-130109",
+      "41434"
+    ],
+    "candidate": [
+      "19366",
+      "18446744073709480523",
+      "22776375",
+      "22847468",
+      "3de8bf645f3b1179",
+      "18516218",
+      "1",
+      "a6eb1df4f4e0e591",
+      "488499",
+      "-80094",
+      "-130109",
+      "41434"
+    ],
+    "kissat": [
+      "19366",
+      "18446744073709480523",
+      "22776375",
+      "22847468",
+      "3de8bf645f3b1179",
+      "18516218",
+      "1",
+      "a6eb1df4f4e0e591",
+      "488499",
+      "-80094",
+      "-130109",
+      "41434"
+    ]
+  },
+  "comparisons": {
+    "previous_vs_kissat": [
+      {
+        "snapshot": 0,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=begin"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_begin",
+          "19365",
+          "210947",
+          "-"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 1,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=end"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_end",
+          "19365",
+          "210947",
+          "-"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 2,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204957",
+          "name=Sweep|stage=begin"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_begin",
+          "19365",
+          "204957",
+          "-"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 3,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204961",
+          "name=Sweep|stage=end"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_end",
+          "19365",
+          "204963",
+          "-"
+        ],
+        "equal_multiset": false,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": [
+          [
+            -112752,
+            112742,
+            1
+          ],
+          [
+            -112742,
+            112752,
+            1
+          ]
+        ]
+      }
+    ],
+    "candidate_vs_kissat": [
+      {
+        "snapshot": 0,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=begin"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_begin",
+          "19365",
+          "210947",
+          "-"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 1,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=end"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_end",
+          "19365",
+          "210947",
+          "-"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 2,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204957",
+          "name=Sweep|stage=begin"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_begin",
+          "19365",
+          "204957",
+          "-"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 3,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204961",
+          "name=Sweep|stage=end"
+        ],
+        "right_header": [
+          "kissat",
+          "sweep_end",
+          "19365",
+          "204963",
+          "-"
+        ],
+        "equal_multiset": false,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": [
+          [
+            -112752,
+            112742,
+            1
+          ],
+          [
+            -112742,
+            112752,
+            1
+          ]
+        ]
+      }
+    ],
+    "previous_vs_candidate": [
+      {
+        "snapshot": 0,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=begin"
+        ],
+        "right_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=begin"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 1,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=end"
+        ],
+        "right_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "210947",
+          "name=Sweep|stage=end"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 2,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204957",
+          "name=Sweep|stage=begin"
+        ],
+        "right_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204957",
+          "name=Sweep|stage=begin"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      },
+      {
+        "snapshot": 3,
+        "left_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204961",
+          "name=Sweep|stage=end"
+        ],
+        "right_header": [
+          "tactix",
+          "slot_boundary",
+          "19365",
+          "204961",
+          "name=Sweep|stage=end"
+        ],
+        "equal_multiset": true,
+        "equal_unique_set": true,
+        "left_only": [],
+        "right_only": []
+      }
+    ]
+  },
+  "limitation": "Selected binary multisets distinguish duplicate counts from unique clauses. Formula digests and raw event boundaries remain required for causal interpretation; a count difference alone is not a semantic failure. No complete solve or timing acceptance."
+}
