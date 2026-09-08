@@ -1,0 +1,9 @@
+6a5844b84d9a7868cb136a2391673a1c80b25c39fb5b5494fc4187f643ced059  .claude/worktrees/runtime-congruence-index-repair-5623/src/kernel/kernel.cpp
+a1071669c076a109525f4a9d9f1032a74d3b96818b2041f1436ad9584d0686aa  .claude/worktrees/runtime-propagation-cursor-5641/src/kernel/kernel.cpp
+a1071669c076a109525f4a9d9f1032a74d3b96818b2041f1436ad9584d0686aa  .claude/worktrees/runtime-propagation-cursor-repair-5647/src/kernel/kernel.cpp
+e24d813332251587cd2ee6488fdab9dc7e98ec5a39117010461bc95fe40cb1b4  .claude/worktrees/runtime-propagation-cursor-5641/tests/test_propagation_cursor.cpp
+099e6d59f46ec2c9469b764435c42fff99fb4dbfabe88e567e60f7c1f2732338  .claude/worktrees/runtime-propagation-cursor-repair-5647/tests/test_propagation_cursor.cpp
+032ef0ba2d3cac6f3579b2e158de36488a1110e2b586e81d5ca7c62f12cdbbb8  build/pin-5641-propagation-cursor-release/tactix
+032ef0ba2d3cac6f3579b2e158de36488a1110e2b586e81d5ca7c62f12cdbbb8  build/pin-5643-propagation-cursor-bc/tactix
+b42f0e54533c5032db5b318b4baab9e508c513fff92d454f692acbfc89f19f4b  build/pin-5642-propagation-cursor-trace/tactix
+c1ee16901d9e327499f10f12ec56c9a1cbd2bd0803ec07be2f7ef76a2d62168f  build/pin-5641-propagation-cursor-release/tests/test_propagation_cursor

@@ -1,0 +1,77 @@
+{
+  "observed_at": "2026-09-08T11:38:28.416436+00:00",
+  "checked_clean": 0,
+  "solver_results": 6,
+  "same_non_timing_statistics_and_proof": false,
+  "within_arm_replica_identity": true,
+  "waves": [
+    {
+      "wave": 0,
+      "candidate_seconds": 475.575,
+      "previous_seconds": 477.582,
+      "ratio": 0.9957975803108158,
+      "proof_sha256": "4174565d4167cf8db4ab75c2040728b7e13d58c4a882fb442ce816ed16ac2eba"
+    },
+    {
+      "wave": 1,
+      "candidate_seconds": 475.736,
+      "previous_seconds": 475.233,
+      "ratio": 1.0010584281815447,
+      "proof_sha256": "4174565d4167cf8db4ab75c2040728b7e13d58c4a882fb442ce816ed16ac2eba"
+    },
+    {
+      "wave": 2,
+      "candidate_seconds": 472.721,
+      "previous_seconds": 474.727,
+      "ratio": 0.995774413505025,
+      "proof_sha256": "4174565d4167cf8db4ab75c2040728b7e13d58c4a882fb442ce816ed16ac2eba"
+    }
+  ],
+  "paired": {
+    "median": 0.9957975803108158,
+    "min": 0.995774413505025,
+    "max": 1.0010584281815447
+  },
+  "spread": {
+    "candidate": {
+      "median": 475.575,
+      "min": 472.721,
+      "max": 475.736,
+      "range_over_median": 0.006339694054565498
+    },
+    "previous": {
+      "median": 475.233,
+      "min": 474.727,
+      "max": 477.582,
+      "range_over_median": 0.006007579439980006
+    }
+  },
+  "absolute_range_within_two_percent": true,
+  "records": {
+    "3": {
+      "path": "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/003.json",
+      "sha256": "11776185e349ac296fc902280af1b1dbd0c3c2303e0b65493b0cc00b764e1863"
+    },
+    "2": {
+      "path": "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/002.json",
+      "sha256": "03b8d0dfee6c7ebe3c5f17ba6502fa549309c2ae35b0affd68aed8e8ddf1d3b2"
+    },
+    "4": {
+      "path": "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/004.json",
+      "sha256": "6e7fca7ef9b4c8c3ce391909ebe7a4594dbe145354387a0673ae923a551ad51d"
+    },
+    "0": {
+      "path": "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/000.json",
+      "sha256": "9d4737a420ac0c019fd49def263fdf5d6a3e2b106a7826b0f5438c065415d965"
+    },
+    "5": {
+      "path": "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/005.json",
+      "sha256": "96f724a3837d8af04e13b5fbcf2c356771a8e529d5f3fb62f46af95d09aa0c8e"
+    },
+    "1": {
+      "path": "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/001.json",
+      "sha256": "9b37c2b2dada37ec5c69d64c831d3b3d3a38f4357db87f0bf591ac823687aa5d"
+    }
+  },
+  "limitation": "Semantic repair changes work/proofs across arms; only within-arm replica identity is required. Paired ratios are net runtime effects, not isolated unit cost. Pending proofs do not establish correctness or promotion; full Rank1-40 and B28+C5 remain separate."
+}

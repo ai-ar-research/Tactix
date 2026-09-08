@@ -1,0 +1,20 @@
+{
+  "job": "1672862",
+  "tasks": [
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=2-3",
+    "benchmarks/runs/20260908-5652-propagation-cursor-rank39-runtime/array.sbatch"
+  ],
+  "recorded_at": "2026-09-08T11:28:47.781298+00:00",
+  "manifest_sha256": "482e8fdf48abba918182abd3ce64403ac5980d50e83b0716f07a62632abc1a44",
+  "predecessor_solver_records": {
+    "benchmarks/runs/20260908-5652-propagation-cursor-rank39-runtime/provisional/000.json": "6959c9d79fb678c13bd754e0410003a744867eaf94938042182b4485ba4ccd4a",
+    "benchmarks/runs/20260908-5652-propagation-cursor-rank39-runtime/provisional/001.json": "d00110a9a132f4d143023447634c556abdf9df7305e789ee1bcda71c97d0f59c"
+  },
+  "validation": "Expected solver outcomes permit continuation; proof/model checks remain asynchronous and must pass before promotion."
+}

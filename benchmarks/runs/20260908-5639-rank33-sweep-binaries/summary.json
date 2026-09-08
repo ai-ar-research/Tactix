@@ -1,0 +1,89 @@
+{
+  "parent_full_replay": true,
+  "parser_fixtures": 10,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "16bffbf8ef35a2738a54d73c20c4aff6c49d67ed2dd6da43eb569b60f8ff93ce",
+      "traces": {
+        "candidate.binary.tsv": "c0f8c437c8f820cd18c6cafbcf27a880a70b833c53d8378b4b5ff8ba1cb18bd9",
+        "candidate.formula.tsv": "87cffe473f579c4ba4c034b1112cd48db432db57827e348aff4131f9c9d1d402",
+        "candidate.boundaries.tsv": "f2ccf553ffbb2839c4d8ae85f06c288e9a9476b9627c4cef98c4660b5e9e80a3",
+        "candidate.prefix.tsv": "619b4e1f2504ce591e2b11766ff1da07b06ebd695f5a093455dba4479909a9a2",
+        "candidate.macro.tsv": "7a86b5d18c7c454301eb6d78dc16487c4c262a147118d1b7aea7741ac0a0db70",
+        "candidate.decisions.tsv": "1fff9be5193c4cd936c0d2457d15fee475c477553fd3e379548113aafef8c31b"
+      }
+    },
+    "kissat": {
+      "result_sha256": "615f83b5bd30132de243adfe37dc4f9c2aa5183cd8fa3ff71492bf55d7e44865",
+      "traces": {
+        "kissat.binary.tsv": "3fb7f897873a661acc8f0c47b2d3303182b3c234a5a2a834025156fc40a36ac3",
+        "kissat.decisions.tsv": "e5d7883d0d17ab5dab023cdde88a3677cea18efa20ad10a6c7088ae325840c81",
+        "kissat.prefix.tsv": "3bd58ce105bc8f12f3f8fd3676d0bca59d4c458422fb1fe2db599057823522e8",
+        "kissat.boundaries.tsv": "673ec73c6b8d181681ced1c6c038dea71a078ba238046d15b9dadc693d549526",
+        "kissat.formula.tsv": "cf4c80831acfd5124cb1b14f659136c2e52bfb752bdeae674770b01420b96a39"
+      }
+    }
+  },
+  "binary_comparisons": [
+    {
+      "snapshot": 0,
+      "stage": "begin",
+      "candidate_count": 150715,
+      "kissat_count": 150715,
+      "equal_unique_set": true,
+      "equal_multiset": true,
+      "candidate_only": [],
+      "kissat_only": []
+    },
+    {
+      "snapshot": 1,
+      "stage": "end",
+      "candidate_count": 151018,
+      "kissat_count": 151020,
+      "equal_unique_set": false,
+      "equal_multiset": false,
+      "candidate_only": [],
+      "kissat_only": [
+        {
+          "item": [
+            -143631,
+            143590
+          ],
+          "count": 1
+        },
+        {
+          "item": [
+            -143590,
+            143631
+          ],
+          "count": 1
+        }
+      ]
+    },
+    {
+      "snapshot": 2,
+      "stage": "begin",
+      "candidate_count": 148008,
+      "kissat_count": 148008,
+      "equal_unique_set": true,
+      "equal_multiset": true,
+      "candidate_only": [],
+      "kissat_only": []
+    },
+    {
+      "snapshot": 3,
+      "stage": "end",
+      "candidate_count": 148008,
+      "kissat_count": 148008,
+      "equal_unique_set": true,
+      "equal_multiset": true,
+      "candidate_only": [],
+      "kissat_only": []
+    }
+  ],
+  "first_input_large_difference": {
+    "candidate_only": [],
+    "kissat_only": []
+  },
+  "limitation": "Binary observer captures all begin/end calls at120330; one-shot large observer captures first input only. Complete parent trace and proof identity validates observer neutrality. No checked full verdict or runtime claim; duplicates are not automatically causal defects."
+}

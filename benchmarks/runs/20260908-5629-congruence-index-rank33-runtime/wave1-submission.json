@@ -1,0 +1,20 @@
+{
+  "job": "1672788",
+  "tasks": [
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=2-3",
+    "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/array.sbatch"
+  ],
+  "recorded_at": "2026-09-08T11:14:26.338636+00:00",
+  "manifest_sha256": "5656721201f754df34cfd7e9798834dce292bd3b694052150514d34663e56d70",
+  "predecessor_solver_records": {
+    "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/000.json": "9d4737a420ac0c019fd49def263fdf5d6a3e2b106a7826b0f5438c065415d965",
+    "benchmarks/runs/20260908-5629-congruence-index-rank33-runtime/provisional/001.json": "9b37c2b2dada37ec5c69d64c831d3b3d3a38f4357db87f0bf591ac823687aa5d"
+  },
+  "validation": "Expected solver outcomes permit continuation; proof/model checks remain asynchronous and must pass before promotion."
+}

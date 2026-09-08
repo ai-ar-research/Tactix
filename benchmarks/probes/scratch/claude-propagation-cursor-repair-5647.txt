@@ -1,0 +1,57 @@
+Bounded unit-test crash review under DEVELOPMENT_PLAN.md 8.2. Read CLAUDE.md
+and relevant project skills. Parent pauses further development/performance
+interpretation and waits for your terminal outcome, without inspecting progress.
+Workspace /home/hwu/SAT-solving. Do not inspect unrelated active fuzz campaigns.
+
+Unsubmitted prototype: .claude/worktrees/runtime-propagation-cursor-5641
+Immutable predecessor: .claude/worktrees/runtime-congruence-index-repair-5623
+Changed paths: src/kernel/kernel.cpp and tests/test_propagation_cursor.cpp.
+The kernel change chooses the ignored-clause specialization once per call,
+uses a local numeric trail cursor and publishes it at exit; diagnostic builds
+publish it before each scan to preserve event/journal/stop observers.
+No guard, public action, schedule, tick currency, proof primitive or semantic
+change is intended. Kissat propsearch.c uses a local cursor and compile-selected
+search scan. ReservedTrail appends only within preallocated capacity.
+
+Reproducer: build/pin-5641-propagation-cursor-release/tests/test_propagation_cursor
+The new fixture segfaults in all three CTest suites; other tests pass.
+Builds: build/pin-5641-propagation-cursor-release,
+build/pin-5642-propagation-cursor-trace, build/pin-5643-propagation-cursor-bc.
+Logs: benchmarks/runs/20260908-5641-propagation-cursor/logs/ctest-{release,bc,trace}.r1.log
+Earlier build-*.log compile failures were a fixture call to nonexistent
+ReservedTrail::shrink_to_fit; that ordinary API typo was removed before these
+successful builds/test runs. Preserve both sets of logs.
+
+Fixture:224 cases across empty, binary-chain, large-unit, large-conflict,
+binary-conflict, watch-relocation and garbage-list scans; root/nonroot,
+ignored/no-ignore, binary-only debt, search/inprocessing and32/257 chain sizes.
+It checks cursor/tick accounting and emits a state digest for actual old/new
+object-linked comparison. Suspect the fixture's direct raw RuleVTable instances
+call (canonical instance fallback may belong to API rather than raw pointer),
+but prove the root cause, not assume it. Distinguish a fixture setup/API error
+from a solver optimization defect. No old/new comparison has run yet.
+
+Create separate copy .claude/worktrees/runtime-propagation-cursor-repair-5647
+and independent builds build/pin-propagation-cursor-repair-5647-{release,bc,trace}.
+Put report/logs/diff under benchmarks/runs/20260908-5647-propagation-cursor-repair.
+Do not edit original5641, predecessor5623, production, root docs, shared symlink
+targets, frozen artifacts or submitted pins. Preserve original failure source,
+builds and exact reproducer. No commit/push or production promotion.
+
+Task: identify causal root cause and smallest correct repair in your copy.
+Retain meaningful guard/public-instance checks via the real supported API,
+state/cursor/tick and ignore/debt coverage. Add a stable regression as needed;
+do not weaken expected behavior to hide a solver defect. Full independent
+Release+BC suites should pass89/89 each and trace88/88, with matching Release
+solver hashes. If semantic/proof behavior is implicated, require independent
+model/proof validation and report implications for predecessor jobs. Fixed
+microfixtures/builds may run locally; any real CNF solve must use SLURM.
+Do not launch an unbounded fuzz campaign or performance sweep.
+
+No prototype5641 SLURM jobs exist to cancel. Predecessor5623 Sweep diagnostic
+5644/job1672779, normal5628/5629 and parent5592 campaigns do not execute this
+new source. Leave them and the independently Claude-owned5610 fuzz untouched
+unless you prove a shared defect, then report immediately via terminal result.
+Return terminal PASS/FAILURE/BLOCKED with root cause, exact diff, full test and
+source/binary hashes, residual risk, cleanup and durable REPORT.md path.
+Stay until bounded repair is complete; do not invoke whole-project wrap-up.

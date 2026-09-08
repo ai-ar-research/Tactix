@@ -1,0 +1,31 @@
+{
+  "scratch": "/tmp/tactix-5639-1672751-7_m1z6p_",
+  "arm": "kissat",
+  "slurm_job": "1672751",
+  "node": "node017",
+  "binary_sha256": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "68",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5639-rank33-sweep-binaries/pins/kissat",
+    "/tmp/tactix-5639-1672751-7_m1z6p_/input.cnf",
+    "/tmp/tactix-5639-1672751-7_m1z6p_/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 400556032,
+    "sha256": "f5dc44c9f4d86341399b1af48733b269b1f211718033689177106ae705fbeba6"
+  },
+  "trace_sha256": {
+    "kissat.binary.tsv": "3fb7f897873a661acc8f0c47b2d3303182b3c234a5a2a834025156fc40a36ac3",
+    "kissat.decisions.tsv": "e5d7883d0d17ab5dab023cdde88a3677cea18efa20ad10a6c7088ae325840c81",
+    "kissat.prefix.tsv": "3bd58ce105bc8f12f3f8fd3676d0bca59d4c458422fb1fe2db599057823522e8",
+    "kissat.boundaries.tsv": "673ec73c6b8d181681ced1c6c038dea71a078ba238046d15b9dadc693d549526",
+    "kissat.formula.tsv": "cf4c80831acfd5124cb1b14f659136c2e52bfb752bdeae674770b01420b96a39"
+  },
+  "scratch_deleted": true
+}
