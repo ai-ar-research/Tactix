@@ -494,6 +494,8 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   independently of any policy-side schedule filter, and applying one applies at most one factoring. The
   grid `(F,R)` a seed grows into is not separately addressable — that space is exponential — and is the
   matcher's maximal-delta construction, swappable through `Kernel::factor_selection`.
+  Candidate-support pruning is matcher scope, not a soundness precondition or a restriction on
+  seed enumeration; physical binaries, including root-satisfied pairs, remain grid material.
 - **Proof δ:** **add-RAT**. Each divider `(x ∨ fᵢ)` is vacuous RAT on fresh `x`, since no clause yet
   mentions `¬x`. Each quotient `{¬x} ∪ Rⱼ` is RAT on `¬x`: resolving against divider `i` yields the
   still-live grid clause `{fᵢ} ∪ Rⱼ`, hence RUP. Order is load-bearing: **dividers, quotients, grid

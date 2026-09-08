@@ -1,0 +1,6 @@
+{
+  "job": "1672600",
+  "tasks": "0-79",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5604-factor-support-ranks1-40/array.sbatch",
+  "continuation": "Full fixed Rank1-40 view of5592 against the unchanged Kissat pin. Proofs run asynchronously. No promotion without checked full view, B28+C5 and latest-source fuzz."
+}
