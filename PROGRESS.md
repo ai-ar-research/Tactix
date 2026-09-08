@@ -10,7 +10,15 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
+- New isolated [retained-entry repair5510](benchmarks/reports/2026-09-08-sweep-retained-entry.md)
+  revalidates Sweep's retained seeds once at call entry, on5473. Release85/85
+  twice and trace84/84 pass; actual5473 objects reproduce the missing check.
+  Trace5515 validates all11023 native first-call seeds/environment sizes, but
+  Tactix skips33 one-clause embedded solves and continues seven extra seeds.
+  B28+C5 5516/job1672165 runs; timing5517 first pair is438.175/410.609 seconds
+  (unfavorable); second438.003/411.332. Wave2/job1672244 owns4-5, earlier
+  wave jobs1672166/1672240 keep checking. New source is unfuzzed/unpromoted.
+- Preceding implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
   [Measured timing and causal follow-up](benchmarks/reports/2026-09-08-sweep-measured-and-causal-followup.md):
@@ -41,7 +49,7 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   loss (712.017/346.009 s, conflicts 2.114745x), then Ranks 32 and 31.
   Rank 37 now first splits at 188502; earlier Sweep/Vivify boundaries are
   localized. Rank32 selected Sweep replay matches its full parent per arm;
-  first14 seeds agree, then Tactix alone processes836. Eligibility5505 is in flight.
+  first14 seeds agree, then Tactix alone processes836. Eligibility5505 is validated.
   Rank 31 matches 51,491,857 decisions and 276 boundaries through 100K.
 - [Short phase witness and closed gates](benchmarks/reports/2026-09-08-square-phase-and-checked-gates.md):
   Square first differs at conflict 501, decision 5849, same variable/opposite
@@ -104,27 +112,31 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5462 short B bound witnesses | `1670635` | Complete: nine checked/clean; old/new behavior identical. |
 | 5463 Rank-37 bound prefix | `1670637` | Complete: all 35,346,388 decisions and 272 boundaries match. |
 | 5464 bound B28+C5 | `1670636` | Complete: 66/66 checked, combined 0.986955x production. |
-| 5465 bound Rank 1–40 | `1670638` | All 80 expected solves, 1.173817x; proof tail running. |
-| 5468 watch-pair timing | `1670699` | All six solves, exact-work median 0.983980x; proofs pending. |
-| 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; certificate tail pending. |
+| 5465 bound Rank 1–40 | `1670638` | Complete: 80/80 checked/clean, 1.173817x; summary sealed. |
+| 5468 watch-pair timing | `1670699` | Complete: six checked proofs, exact-work median 0.983980x. |
+| 5469 watch-pair B28+C5 | `1670700` | Complete: 66/66 checked/clean, combined 0.958073x production. |
 | 5470 Rank-31 bound prefix | `1670801` | Complete: 51,491,857 matching decisions and 276 boundaries. |
 | 5471 Square bound prefix | `1670919` | Complete: first polarity split at conflict 501, decision 5849. |
-| 5475 Sweep cursor timing | `1671162` | Six exact-work solves; median 0.984563x, proofs pending. |
-| 5476 Sweep cursor B28+C5 | `1671163` | Fixed cumulative gate; 64/66 checked. |
+| 5475 Sweep cursor timing | `1671162` | Complete: six checked proofs, exact-work median 0.984563x. |
+| 5476 Sweep cursor B28+C5 | `1671163` | Complete: 66/66 checked/clean, combined 0.953757x production. |
 | 5478 Rank-37 extended prefix | `1671258` | Complete: 25,001,084 common suffix rows, first split 188502. |
 | 5479 Rank-32 bound prefix | `1671263` | Complete: 18,583,703 common rows, split after Sweep at 19375. |
 | 5482 Square selected phase | `1671600` | Complete: negative Tactix phase save at 492; replay normalized. |
-| 5485 Sweep cursor Rank 1–40 | `1671708` | 61/80 solver records, 54 checked at audit; no full score yet. |
-| 5487 Square implications | `1671745` | Selected reasons for variable 43773 through conflict 502; queued. |
-| 5490 Rank-32 Sweep | `1671777` | Selected schedule/query/effort trace at 19375; queued. |
+| 5485 Sweep cursor Rank 1–40 | `1671708` | All80 solves,1.165337x;77/80 checked at06:59 audit. |
+| 5487 Square implications | `1671745` | Complete: differing binary reasons; parent replay validated. |
+| 5490 Rank-32 Sweep | `1671777` | Complete:14 common seeds, then extra836; successor5503 validates. |
+| 5505 Rank-32 eligibility | `1672156` | Complete: identical one-sided836 entry snapshots, full parent replay. |
+| 5515 retained-entry trace | `1672164` | Complete:11023 common seeds,33 omitted single-clause solves. |
+| 5516 retained-entry B28+C5 | `1672165` | All66 expected solves,64/66 checked at06:59 audit. |
+| 5517 retained-entry timing | `1672166/1672240/1672244` | First two pairs unfavorable; wave2 solving, earlier proofs pending. |
 
 Claude's terminal report for periodic fuzz 5442 is **PASS** on source 5438:
 80,000 cases, 71,907 checked verdicts, zero failures. Session 30094 is closed;
 the report is authoritative, and no fuzz artifacts were independently inspected.
-New checkpoint **5492** is owned by Claude process `3041017`, parent session
-`9171`, testing immutable latest source **5473**, including all post-5438 repairs.
-Read only its terminal response; do not inspect jobs, logs or fuzz artifacts.
-Continue development while pending; a predecessor pass does not cover 5473.
+Checkpoint **5492** remains owned by resumed Claude session **34566**, testing
+immutable source **5473**. Original9171 returned submission-only and is closed;
+the resumed handle is live. Read only its terminal response, no fuzz artifacts.
+Continue while pending; this campaign cannot cover the new5510 source.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -153,9 +165,20 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Validate new Rank32 eligibility5505 (job1672156) against5490 using full
-   per-arm decision/prefix/boundary hashes before interpreting its snapshots.
-   It captures836/1236 clauses at first Sweep entry and preceding829 queries.
+1. Repair the next supported Sweep gap on a new isolated successor to5510:
+   `sweep_process_seed` skips the initial solve when vars<2 or clauses<2.
+   Validated5515/5518+aligned5520 pin first differing effort at seed340186:
+   same270 variables/one clause, Tactix0 versus native814 ticks/one solve.
+   All33 omitted rows have270 variables/one clause, native26836 ticks total.
+   First11023 seed/environment-size records now agree and unit-103918 returns;
+   Tactix then spends25505 ticks on seven extra seeds. Do not pad the meter:
+   inspect both reference solve/model lifecycles and add actual tiny-env tests.
+   Native full replay is exact; first decision split is19375/18522692.
+   B28+C5 5516/job1672165 runs. Timing5517 wave0 is438.175/410.609 seconds;
+   wave1 is438.003/411.332; wave2/job1672244 owns4-5. Validate all six solver
+   snapshots before summarizing. Watcher41912 and comparator99857 completed.
+   Eligibility5505 passes successor5509: full parent hashes, two identical
+   binary snapshots,11 identical large clauses;836 is already positive-only.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
    `sweep-localization.json` splits both calls at19375. First14 seeds, environment
    sizes and effort deltas/solve counts match; then Tactix alone processes836.
@@ -186,14 +209,14 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    `next-losses.json` from5500 keeps Ranks37/31/32 as largest losses and verifies
    all40 candidate non-timing statistics/certificates unchanged from5459.
    Final checking uses `seal-sweep-full-5485.py`.
-   Latest frozen source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
+   Predecessor source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
    5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
    5468's three pairs pass exact statistics/proof-byte identity: median
    0.983980x predecessor; all paired ratios below 1, both arm spreads below 2%.
    All six append timing proofs are checked/clean in 5468's final summary.
    Retain the supported optimization provisionally; B28+C5 is checked and
    latest-source fuzz remains pending. Do not repeat timing for confirmation.
-   5465's frozen solver snapshot is complete: 1.173817x, all expected verdicts.
+   5465's final summary is sealed:1.173817x, all80 expected verdicts checked/clean.
    Its `next-losses.json` selects Ranks 37/32/31. Completed 5478 first splits at
    conflict188502; `boundary-localization.json` first finds two Sweep binaries
    at152381, while `nonbinary-localization.json` finds one retained Vivify clause

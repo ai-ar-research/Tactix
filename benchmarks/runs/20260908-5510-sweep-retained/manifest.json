@@ -1,0 +1,49 @@
+{
+  "source": ".claude/worktrees/runtime-sweep-retained-5510",
+  "parent": ".claude/worktrees/runtime-sweep-cursor-5473",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Revalidate retained Sweep seeds once at call entry with the existing fresh-admission predicate.",
+  "evidence": "benchmarks/runs/20260908-5505-rank32-sweep-eligibility/eligibility-validation.json",
+  "evidence_sha256": "f85d1da07827c87a6c2928b40000d3ee6bdaf5d78ee400ca55f190b8796e4f8f",
+  "references": [
+    "kissat-imply-fast-5414/src/sweep.c::reschedule_previously_remaining",
+    "cadical-extdiag/src/sweep.cpp::Internal::reschedule_previously_remaining"
+  ],
+  "contract": "Filter retained front/tail in place before environments using current external mapping, activity, root status and occurrence caps. Preserve ordering, slot identities, live counts, completion ownership and same-call representative rescheduling. Capture retained before filtering, so all-filtered does not start a fresh pass in the same call. No public API, proof vocabulary, option or budget change.",
+  "limitation": "Incomplete-variable flags and native fresh-admission/completion parity remain unaudited beyond this entry predicate. Existing sparse raw-watch and dense occurrence conventions are unchanged. No runtime win or full semantic trajectory closure is claimed.",
+  "tests": "New actual-kernel fixtures cover pure seeds/public N1, all-filtered no fresh restart, both occurrence caps and grown caps, front/tail holes/order/slots, duplicates/invalid identities, fixed/retired seeds, sparse/dense large occurrences and same-call representative crossing its entry cap. Existing cycle fixture updated only after proving all surviving seeds isolated/retired. Old actual 5473 objects reproduce an attempted pure retained seed.",
+  "failed_expectations": "Initial full suites fail the old resumed>=1 assertion after the fixture leaves only an isolated representative. Intermediate new-test expectations incorrectly assumed same-call bridges disappeared and sparse large watches were one word; focused observation corrected those tests without further solver changes. No soundness/checker/model failure observed.",
+  "status": "Isolated UNFUZZED candidate on5473. Existing Claude campaign5492 covers5473 only. Not promoted; B28+C5 and Rank1-40 runtime validation required.",
+  "files": {
+    "src/rules/sweep/sweep.cpp": "2256839f70db298ddb2ee07b92f6941e8600d1d526d958d9dd3b37a92d2c5c81",
+    "tests/test_sweep.cpp": "668fd3e9dba350d9e813c27006db157356fd0f899aaa361f0fa82213925e74c0",
+    "tests/test_sweep_retained.cpp": "14e4db8f715fcaa922d80a32e4297c9e4b50d13ab2c4dcc21ced9725199d4cf6"
+  },
+  "binaries": {
+    "build/pin-5510-sweep-retained-release/tactix": "5a54d60d90a8e8323e962267e6041347491c66a8875d71710bf960d70a5d37ed",
+    "build/pin-5512-sweep-retained-bc/tactix": "5a54d60d90a8e8323e962267e6041347491c66a8875d71710bf960d70a5d37ed",
+    "build/pin-5511-sweep-retained-trace/tactix": "25040e69ca9f41b6dc43c13bf323a6794239097e9de84353d45396b8773d379f"
+  },
+  "patches": {
+    "repair.patch": "3fc0d5f651c07782318569b0f7f2aa4956740ae0637854c6289cca18fc510336",
+    "cumulative.patch": "6d7f8a454cc8b1d8bb3c1d091c7127214223a146f67de21f170b8e0e2588bcc6"
+  },
+  "logs": {
+    "old-final-counterexample.log": "3e09aa89b14157457018e83b3c3b8cd45b285f8e65cf6cce00f100fd097a8868",
+    "ctest-final-trace.log": "06cddcbea2199059b8281f84afccac3a9c644a2cce371ae693726e7a3ef324c6",
+    "compile-old-final.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "configure-release.log": "e8bf7906edbc71c3c6f48d4e4bee017d99f6194c57653ba1dbc9a34f0e10568a",
+    "old-counterexample.log": "3e09aa89b14157457018e83b3c3b8cd45b285f8e65cf6cce00f100fd097a8868",
+    "ctest-final-release.log": "7f127bb423d2978449faf63dd6824e1019ec394ae508a35eed9324254defb67b",
+    "build-final-trace.log": "eb680101389205fbaf8031650bfd2ba27b28cc414e6aa2ed513f75483f6d388f",
+    "build-bc.log": "34ca56d531d8904dd898aeb184be533c84b05cb5dacb409a278d3aaa02d8eda1",
+    "ctest-bc.log": "5a287c69f6f5a6b2217555acc472ffa4efa4e4521c7d50604f0c61876e7c7ceb",
+    "build-final-release.log": "c1dd0d6a29128e5f6facc440b47779148037d72a8939c4e962c830cd321dafc9",
+    "build-release.log": "eb8794bb98882cb961900f1b1d3453b483707d25f3d77bce0b485aeec8376d37",
+    "build-final-bc.log": "7972a7d96fee5e25ba7effc0913e32c5ca6cb3a3315f9d5b247f7c03bca0ff93",
+    "ctest-final-bc.log": "11a8e92c57e3e724158b80aea0221a01dcbb108fcccc08f40f724b73212aeaf3",
+    "configure-trace.log": "3fbdfba5ee118623854eccdbff52cf4cbe46f2acc160d9059ab704e2f3ff47a0",
+    "configure-bc.log": "03270b4bd7101dae211d2b0b375df561c5de398e096635463d51e842d81cf27f",
+    "ctest-release.log": "41ca520a5f8aeb57545bfa4dcbcc594b2aa36ad7ca00ef97f581da9904cd5adf"
+  }
+}

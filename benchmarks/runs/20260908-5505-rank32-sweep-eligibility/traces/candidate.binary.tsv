@@ -1,0 +1,14 @@
+# tactix-binary-set-snapshot	1
+# snapshot	a	b
+# begin	0	tactix	slot_boundary	19375	4	name=Sweep|stage=begin
+0	-841	836
+0	-796	836
+0	783	836
+0	834	836
+# end	0
+# begin	1	tactix	slot_boundary	19375	4	name=Sweep|stage=begin
+1	-826	836
+1	-796	836
+1	783	836
+1	834	836
+# end	1

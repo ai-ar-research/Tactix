@@ -1,0 +1,14 @@
+# kissat-binary-set-snapshot	1
+# snapshot	a	b
+# begin	0	kissat	sweep_begin	19375	4	-
+0	-841	836
+0	-796	836
+0	783	836
+0	834	836
+# end	0
+# begin	1	kissat	sweep_begin	19375	4	-
+1	-826	836
+1	-796	836
+1	783	836
+1	834	836
+# end	1
