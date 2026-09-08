@@ -1,0 +1,24 @@
+{
+  "checks": {
+    "check-doc-size": "  warn  DEVELOPMENT_PLAN.md: 747 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  PROGRESS.md: 350 of 350 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 671 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 560 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 5 warning(s), 30 file budget(s) checked\n",
+    "check-section-refs": "  ok    43/43 section references resolve\ncheck-section-refs: 0 error(s)\n",
+    "check-option-coverage": "  ok    kissat  161 options  \u00b7  cadical 257\n  ok    dismissed  83 (roster, parsed from \u00a713.6)\n  ok    carried   125 (23 roster entries, anchors re-checked)\n  ok    cited     208 (named in the ledger corpus)\n  ok    exempt      2 (named in EXEMPT, with a reason)\ncheck-option-coverage: 418 reference options, 0 unaccounted, 0 failure(s)\n",
+    "check-rule-policy-boundary": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+    "check-proof-rule-sync": "check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)\n",
+    "check-inventory": "  ok    28/28 catalog families have a disposition\ncheck-inventory: 0 error(s)\n"
+  },
+  "hashes": {
+    "PROGRESS.md": "e8e6edc95f87772912b1f963926abd6c8f19e54fb3c0287b12c0c14d1aa3d481",
+    "benchmarks/reports/2026-09-08-composition-prefix.md": "f6d82a5225dc15627f65634660304083d43e4350eeebc5792b041c06483a8969",
+    "benchmarks/probes/scratch/land-composition-prefix-5930.py": "7637d796e1e1ce70d8142f1b9c7397fbd5d88dcf81ef344c1ad570960412f363",
+    "benchmarks/probes/scratch/seal-composition-prefix-5929.py": "dcf75cdb505462599766ede653224a9e0fab76b36a5c223dd6849d34555d34a0",
+    "benchmarks/runs/20260908-5925-reduce-preclean-rank32-prefix/summary.json": "2ebcdfaf14e77e3c5b72a33747b454aac7ad539a15a6f187efb81b57109c0634",
+    "benchmarks/runs/20260908-5925-reduce-preclean-rank32-prefix/parent-replay.json": "f9a3cb63de57ad528f89aafe90ff1ba54130b83d5043375ba3a1d4ca498a831d",
+    "benchmarks/runs/20260908-5925-reduce-preclean-rank32-prefix/results/candidate.json": "64cdd7fbea5fdb411e5b0bed21c289ce88d425a603180da9262461015116ab80"
+  },
+  "andrew_report": {
+    "report-to-andrew/20260908-1605-composition-prefix/report.tex": "968cc7e2c298108c078df3f94b34736043af7aa135eff1ee97f8fa430c4b1f9c",
+    "report-to-andrew/20260908-1605-composition-prefix/report.pdf": "246f13ce7cb9bd544b1c38e28f47b087878a4e0b7ef0739d12cf8cd627f41cbf"
+  },
+  "limitation": "Negative local causal result,not full performance acceptance. Full5926 andBC5924 continue. Older reports,launches,pins andsnapshots remain frozen;no deletion,push,promotion or fuzz-artifact inspection."
+}
