@@ -1,0 +1,53 @@
+{
+  "parent_replay": true,
+  "parser_fixtures": 8,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "64320a3c7fe4c5e22baf6c686259df4ae89f157ae5be395822ebab3458e4c54d",
+      "traces": {
+        "candidate.prefix.tsv": "ef9e125be442a25e61433b572f5e9a8af0e3f64e48b7f50e81cc887fba78a985",
+        "candidate.boundaries.tsv": "0f15064aacc36320ad6ce786c3323d86087ca34dd9590231f82ce15adce80f4b",
+        "candidate.decisions.tsv": "773d01c7807878f150d5e0dd5a21f56e853676a43121b5a00b813a7422ced41d",
+        "candidate.macro.tsv": "f2c8247f5a7ba067d190ea26a3e537b0244d677fda22a61143b1ac11e96332f3",
+        "candidate.heap.tsv": "0c0e1dcdf4fae96b4d0aecdfd7eb1e1aae567b608e1593f93eb3b832fbfd7de3"
+      }
+    },
+    "kissat": {
+      "result_sha256": "d9711cf38771f48c97651f86d9057da679bc47f07bc28547120b651b1100b0df",
+      "traces": {
+        "kissat.boundaries.tsv": "3b0e0da38cdbf640b2d0487ebc20d3ceaf44b7279be5d13558e18a651c10c029",
+        "kissat.heap.tsv": "dafd55c9c9400ca151372854f7bf21a6c69f9cc9893713915fa087e94d9a87b5",
+        "kissat.prefix.tsv": "823f4bcbc1e9db55b22b63e27a5119148c86ef89472bb9e1be2b8ba37cd32b87",
+        "kissat.decisions.tsv": "37b6da96686be4b1e4acee950c8867684d86aee4dc6aae3a4eae157f6ef9ea91"
+      }
+    }
+  },
+  "counts": {
+    "candidate": 27256,
+    "kissat": 27254
+  },
+  "physical_order_equal": false,
+  "membership_equal": false,
+  "scores_equal": false,
+  "candidate_only": [
+    -491572,
+    119877,
+    393688
+  ],
+  "kissat_only": [
+    394573
+  ],
+  "unequal_scores": [],
+  "first_position_difference": {
+    "index": 8,
+    "candidate": [
+      -133384,
+      9
+    ],
+    "kissat": [
+      494379,
+      9
+    ]
+  },
+  "limitation": "Snapshot is after accepted grid4824. A score or topology difference may originate earlier; it does not prove the heap implementation is defective. Preserve public policy freedom and budget semantics."
+}
