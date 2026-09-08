@@ -10,7 +10,11 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest implementation: [Bound lifecycle](benchmarks/reports/2026-09-07-bound-lifecycle.md), candidate 5459,
+- Latest implementation: [Watch-pair append](benchmarks/reports/2026-09-07-watch-pair-append.md), candidate 5466,
+  adds an exact-layout two-word fast path within existing capacity on 5459.
+  Both Release suites pass 83/83; 180 actual old/new cases have identical
+  whole-state digests. Three exact-work timing pairs and B28+C5 are queued.
+- Preceding [Bound lifecycle](benchmarks/reports/2026-09-07-bound-lifecycle.md), candidate 5459,
   restores the documented phase-bound advance and retry flags after quota cuts.
   Release 82/82 twice, trace 81/81; two old/new cut-bound fixtures pass.
   It retains [5450's strict phase stop](benchmarks/reports/2026-09-07-eliminate-phase-budget.md).
@@ -47,7 +51,7 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5429 metadata B28+C5 | `1669969` | Complete: 66/66 checked, 0.924072x production. |
 | 5433 phase-entry prefix | `1669971` | Complete: unchanged from Rephase through 100,000. |
 | 5434 phase-entry Rank 1–40 | `1669972` | All 80 expected verdicts; 77 checked, proofs checking. |
-| 5435 phase-entry B28+C5 | `1669973` | Fixed cumulative gate; running. |
+| 5435 phase-entry B28+C5 | `1669973` | Complete: 66/66 checked and clean; 0.920290x production. |
 | 5436 Rank-37 prefix | `1669994` | Complete: first decision split at conflict 29,767. |
 | 5437 Rank-35 Sweep binaries | `1670050` | Complete: two duplicate multiplicities only; unique sets equal. |
 | 5440 Vivify maximum timing | `1670118` | All three exact-work pairs: median 0.995069x; proofs checking. |
@@ -64,12 +68,14 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5463 Rank-37 bound prefix | `1670637` | Test closure at conflict 32,073; queued. |
 | 5464 bound B28+C5 | `1670636` | Fixed cumulative gate; queued. |
 | 5465 bound Rank 1–40 | `1670638` | Full unchanged paired view; queued. |
+| 5468 watch-pair timing | `1670699` | Three exact-work predecessor pairs; queued. |
+| 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; queued. |
 
 User-requested periodic fuzz checkpoint 5442 is owned by background Claude
 process `2920923` (parent tool session `30094`), testing immutable source 5438.
 Read only its terminal response; do not inspect its jobs, logs or fuzz artifacts.
 Continue independent development while pending; no passing gate is inferred.
-This campaign does not cover 5445/5450/5459; include all in the next periodic checkpoint.
+This campaign does not cover 5445/5450/5459/5466; include all in the next periodic checkpoint.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -98,12 +104,16 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. 5459 restores the bound lifecycle; inspect 5458 native verbosity and compare
+1. Evaluate 5468 with `snapshot-watch-pair-runtime-5468.py`: require all three
+   complete statistics/proof-byte identities before interpreting paired timing.
+   Latest frozen source `.claude/worktrees/runtime-watch-pair-5466` and Release
+   5466/5467 share SHA `152da8f372022836…`; its manifest owns exact identities.
+   5459 restores the bound lifecycle; inspect 5458 native verbosity and compare
    5463's full decision streams against 5453 and Kissat. First-call 5457 grids
    are equal by member ordinal; raw observer emission order is not a mismatch.
    Inspect 5462's short B slot/native logs for quota-cut and bound transitions;
    these diagnostic witnesses do not replace the fixed regression gates.
-   Latest source `.claude/worktrees/runtime-bound-advance-5459` is frozen;
+   Preceding source `.claude/worktrees/runtime-bound-advance-5459` is frozen;
    Release 5459/BC 5461 share SHA `84300eafeef6c973…`, trace 5460 `509877b2…`.
    Its manifest owns full hashes, tests and patches. Watcher 50218 owns 5463;
    watcher 18033 owns 5458. No runtime gain is established for 5459.
@@ -114,7 +124,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Factor's seed/grid/material or effort difference before changing it; coarse
    counts alone do not prove common physical state. Inspect full 5454 work,
    runtime and memory, and seal 5454/5455 with `seal-eliminate-limit-gates-5455.py`.
-   No measured gain is claimed for the policy repair yet. Largest prior losses
+   Use `snapshot-eliminate-full-5454.py` once all 80 solver records exist;
+   79/80 exist now, so no partial aggregate is scored. No measured gain is
+   claimed for the policy repair yet. Largest prior losses
    remain Ranks 37/32/31; localize the next common-state component boundary.
    5437's unique binary sets agree: two physical duplicate copies explain the
    count split. Do not restore duplicates without evidence of a causal defect.
@@ -193,10 +205,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Restored bound advancement after quota cuts in isolated 5459; no promotion.
-- Added advancing/terminal cut-bound fixtures; Release 82/82 twice, trace 81/81.
-- Queued short B witnesses, causal prefix, full Rank 1–40 and B28+C5.
-- Measured cursor's 0.976662x exact-work median; proofs remain asynchronous.
-- Plan now requires explicit consideration of unit-test coverage for every change.
+- Added an exact-layout watch append fast path in isolated 5466; no promotion.
+- Added 180 actual old/new state cases; both Release builds pass 83/83.
+- Queued three exact-work timing pairs and unchanged B28+C5.
+- Sealed phase-entry B28+C5: 66/66 checked, 0.920290x production.
+- Bound causal replay and full runtime remain queued; checking/fuzz stay background.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
