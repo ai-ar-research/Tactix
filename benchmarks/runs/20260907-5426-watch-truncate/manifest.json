@@ -1,0 +1,44 @@
+{
+  "purpose": "Remove unchanged packed watch metadata loads/stores on large-only append/truncate; preserve every physical and semantic state field.",
+  "source": ".claude/worktrees/runtime-watch-truncate-5426",
+  "parent": ".claude/worktrees/runtime-rephase-root-5417",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "hypothesis": "Source and baseline assembly show a redundant packed-metadata load/store on each full watch scan and unnecessary metadata reconstruction on delayed append. Eliminate these operations without altering traversal, representation layout or scheduling; measure rather than assume a timing win.",
+  "invariant": "Two-word changes preserve size parity, binary population, and the conservative order bit. Arena grow only changes placement/capacity. Truncate asserts even removal and sufficient retained binary words. No guard, proof, N1 or scheduling change.",
+  "fixture": "392 identical actual-object cases on old and new headers: odd/even binary populations, large/binary interleaving, every large removal count, no-op/empty cases, repeated arena growth, exact encoded metadata, entries, sizes, holes, offsets and capacities.",
+  "fixture_runs": {
+    "old": {
+      "binary_sha256": "87ebd9066b89c090ef019986da075bd2c881f4c5c83e052f07cbe840d8d35c28",
+      "output": "watch metadata: 392 exact old/new preservation cases passed\n"
+    },
+    "new": {
+      "binary_sha256": "d703f093709a383cc0a8f11a8c78c2ac444df47544914afe53a0d6e3e6ab3e62",
+      "output": "watch metadata: 392 exact old/new preservation cases passed\n"
+    }
+  },
+  "status": "UNFUZZED isolated equivalent implementation; no runtime acceptance or production promotion",
+  "files": {
+    "src/kernel/watch.hpp": "3754b5ab420efa66b692d3b2f4701e293866a3bc427406fedbbc20bf0dad4e9b",
+    "tests/test_watch_metadata.cpp": "367c43006e6501246520c3435a32963a6661072accd73cc1d88eaa395350f814"
+  },
+  "binaries": {
+    "build/pin-5426-watch-truncate-release/tactix": "bb4e3fbc2cc59cb2fc9164c204c2497c0c6cacf518a218d0ab719a42015acab0",
+    "build/pin-5427-watch-truncate-bc/tactix": "bb4e3fbc2cc59cb2fc9164c204c2497c0c6cacf518a218d0ab719a42015acab0"
+  },
+  "patches": {
+    "cumulative.patch": "2e49da9ee1438b5b54f7546eb5e1736c156d477ef2cfb6d5fc573e6377896224",
+    "repair.patch": "373ba741504c498bee97940c97069c5abf0d4f976ec7c5ee26bda0f394621caf"
+  },
+  "assembly": {
+    "old-propagate.asm": "9b9580dbe2d679a666d0d27580ea483205742f171abe1b5aff4b91c20668624e",
+    "new-propagate.asm": "78cc10a04adb8e8b3e90500167933cd5e13c082b2b8de20c8980d7640bf33e23"
+  },
+  "logs": {
+    "build-release.log": "93cbdd985c9ac1ee6d244133064db06526398718daa5c2a3668060ae6c830d0e",
+    "ctest-bc.log": "2abe98fc367ecb0146687da8efb2a57503db931b98595a56ad869d37d7be1921",
+    "ctest-release.log": "ca9a82e8c75abb782c73c62ae530cde5f8e6b6e176701aad7e3b8dd38f8e6026",
+    "build-bc.log": "df0716daa2bf628258a81a4084a29cd6f2cf3103dec45996cf72946d48b1b62d",
+    "configure-bc.log": "3a3395daa9b0e04752e0922ca95ee15631dfaa8c0bbd7bc3dfde6506311e415e",
+    "configure-release.log": "efa10c97c38868a5f7a51d6573151f5aa2eae7eabd1908bad1b40d16066f144b"
+  }
+}
