@@ -1,0 +1,52 @@
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -4911,0 +4912,33 @@
++#include "vivify-pose-6016.h"
++
++static int native_vp_matches(kissat *solver, reference ref, int *pose, int *values) {
++  if (ref == INVALID_REF || ref >= SIZE_STACK(solver->arena)) return 0;
++  clause *c = kissat_dereference_clause(solver, ref);
++  if (c->garbage || c->size != vp_size) return 0;
++  for (unsigned i = 0; i < vp_size; ++i) {
++    pose[i] = external_literal(solver, c->lits[i]); values[i] = solver->values[c->lits[i]];
++  }
++  return vp_matches(pose);
++}
++void kissat_vivify_pose_candidate(kissat *solver, const char *event, size_t ordinal,
++                                   clause *candidate, uint64_t ticks, uint64_t limit,
++                                   unsigned scope) {
++  if (!vp_enabled(solver->statistics.conflicts)) return;
++  if (!ordinal && strcmp(event, "vivify_candidate_end")) vp_cached = INVALID_REF;
++  int pose[16], values[16];
++  if (!native_vp_matches(solver, vp_cached, pose, values)) {
++    vp_cached = INVALID_REF;
++    for (all_clauses(c)) {
++      reference ref = kissat_reference_clause(solver, c);
++      if (native_vp_matches(solver, ref, pose, values)) { vp_cached = ref; break; }
++    }
++  }
++  unsigned searched = vp_cached == INVALID_REF ? 0 : kissat_dereference_clause(solver, vp_cached)->searched;
++  vp_start(event, solver->statistics.conflicts, scope, ordinal, ticks, limit,
++           vp_cached, searched, pose, values);
++  fprintf(vp_file, "%u\t%u\t%u\t", kissat_reference_clause(solver, candidate), candidate->redundant, candidate->garbage);
++  for (unsigned i = 0; i < candidate->size; ++i)
++    fprintf(vp_file, "%s%d", i ? "," : "", external_literal(solver, candidate->lits[i]));
++  fputc('\n', vp_file); fflush(vp_file);
++}
++
+--- a/src/eventtrace.h
++++ b/src/eventtrace.h
+@@ -20,0 +21,2 @@
++void kissat_vivify_pose_candidate (struct kissat *, const char *, size_t,
++                                   struct clause *, uint64_t, uint64_t, unsigned);
+--- a/src/vivify.c
++++ b/src/vivify.c
+@@ -1310,0 +1311,2 @@
++      kissat_vivify_pose_candidate(solver, "vivify_budget_stop", trace_candidate_ordinal,
++                                    trace_candidate, probing_ticks, limit, tier);
+@@ -1320,0 +1323,2 @@
++    kissat_vivify_pose_candidate(solver, "vivify_candidate", trace_candidate_ordinal,
++                                  candidate, probing_ticks, limit, tier);
+@@ -1326,0 +1331,2 @@
++    kissat_vivify_pose_candidate(solver, "vivify_candidate_end", trace_candidate_ordinal - 1,
++                                  candidate, solver->statistics.probing_ticks, limit, tier);
