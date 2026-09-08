@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "subjects": "1,2",
+      "returncode": 0,
+      "stderr": ""
+    },
+    {
+      "subjects": "",
+      "returncode": 2,
+      "stderr": "missing BVE heap subjects\n"
+    },
+    {
+      "subjects": "0",
+      "returncode": 2,
+      "stderr": "invalid BVE heap subjects\n"
+    },
+    {
+      "subjects": "1,1",
+      "returncode": 2,
+      "stderr": "duplicate BVE heap subject\n"
+    },
+    {
+      "subjects": "1,",
+      "returncode": 2,
+      "stderr": "trailing BVE heap separator\n"
+    },
+    {
+      "subjects": "1;x",
+      "returncode": 2,
+      "stderr": "invalid BVE heap subjects\n"
+    },
+    {
+      "subjects": "99",
+      "returncode": 2,
+      "stderr": "unmapped BVE heap subject\n"
+    },
+    {
+      "subjects": "1,2,3,4,1,2,3,4,1",
+      "returncode": 2,
+      "stderr": "duplicate BVE heap subject\n"
+    },
+    {
+      "subjects": "missed-initial",
+      "returncode": 2,
+      "stderr": "BVE heap journal missed initial boundary\n"
+    }
+  ],
+  "build_command": [
+    "gcc",
+    "-DNDEBUG",
+    "-O2",
+    "-I/home/hwu/SAT-solving/tools/solvers/variants/kissat-bve-heap-observer-5944/src",
+    "/home/hwu/SAT-solving/benchmarks/probes/scratch/test-bve-heap-observer-5944.c",
+    "/home/hwu/SAT-solving/tools/solvers/variants/kissat-bve-heap-observer-5944/build/libkissat.a",
+    "-lm",
+    "-o",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5944-bve-heap-observer-controls/repaired/test-observer"
+  ],
+  "scope": "Actual native heap updates, conflict filtering, absence, external remapping and eight rejection controls. No solver invocation.",
+  "fixture_repair": "Initial control crashed before the observer: ASan located null heap->pos in kissat_enlarge_heap, called by kissat_update_heap. Match eliminate.c schedule_variables by reserving schedule capacity before scored imports. Observer source unchanged; original control binaries retained.",
+  "hashes": {
+    "benchmarks/runs/20260908-5944-bve-heap-observer-controls/repaired/test-observer": "40e1fa2fe8b99d3f7edae62f71822ea969784b3dd67fc2492dc3c0375c63cf32",
+    "tools/solvers/variants/kissat-bve-heap-observer-5944/build/kissat": "9cbe0915ca7efa86441dfbc8606e8f3c652e38369c70bc180ad4897da3fdcf59",
+    "tools/solvers/variants/kissat-bve-heap-observer-5944/src/eventtrace.c": "0a2ebe3d34289b5ad9befb6251a16a26c76ba7a173d9fe4f46d8c798491ad698",
+    "tools/solvers/variants/kissat-bve-heap-observer-5944/src/eliminate.c": "ac2c5d1f588182544056d2bdbbbb84762346ded677e90f0ee3fc26a7a2989aad"
+  }
+}

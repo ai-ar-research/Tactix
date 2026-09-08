@@ -1,0 +1,817 @@
+{
+  "stage_rows": {
+    "candidate": {
+      "begin": 168860,
+      "end": 168860,
+      "postflush": 13556
+    },
+    "kissat": {
+      "begin": 168819,
+      "end": 168819,
+      "postflush": 168819
+    }
+  },
+  "attempt_counts": {
+    "candidate": 168860,
+    "kissat": 168819
+  },
+  "first_full_attempt_difference": {
+    "index": 22616,
+    "candidate": [
+      {
+        "external": "89339",
+        "stage": "begin",
+        "conflicts": "271079",
+        "ticks": "36031427",
+        "limit": "65731490",
+        "applied": "0",
+        "retry": "1",
+        "value": "0",
+        "retired": "1",
+        "roots": "4166",
+        "trail": "4162",
+        "propagate": "4162"
+      },
+      {
+        "external": "89339",
+        "stage": "end",
+        "conflicts": "271079",
+        "ticks": "36031427",
+        "limit": "65731490",
+        "applied": "1",
+        "retry": "0",
+        "value": "0",
+        "retired": "1",
+        "roots": "4166",
+        "trail": "4162",
+        "propagate": "4162"
+      },
+      {
+        "external": "89339",
+        "stage": "postflush",
+        "conflicts": "271079",
+        "ticks": "36031427",
+        "limit": "65731490",
+        "applied": "1",
+        "retry": "0",
+        "value": "0",
+        "retired": "1",
+        "roots": "4166",
+        "trail": "4162",
+        "propagate": "4162"
+      }
+    ],
+    "kissat": [
+      {
+        "external": "90113",
+        "stage": "begin",
+        "conflicts": "271079",
+        "ticks": "36031427",
+        "limit": "65731490",
+        "applied": "0",
+        "eliminate": "1",
+        "active": "1",
+        "fixed": "0",
+        "eliminated": "0",
+        "value": "0",
+        "units": "4162",
+        "trail": "3",
+        "propagate": "3"
+      },
+      {
+        "external": "90113",
+        "stage": "end",
+        "conflicts": "271079",
+        "ticks": "36031463",
+        "limit": "65731490",
+        "applied": "1",
+        "eliminate": "1",
+        "active": "0",
+        "fixed": "0",
+        "eliminated": "1",
+        "value": "0",
+        "units": "4162",
+        "trail": "3",
+        "propagate": "3"
+      },
+      {
+        "external": "90113",
+        "stage": "postflush",
+        "conflicts": "271079",
+        "ticks": "36031463",
+        "limit": "65731490",
+        "applied": "1",
+        "eliminate": "1",
+        "active": "0",
+        "fixed": "0",
+        "eliminated": "1",
+        "value": "0",
+        "units": "4162",
+        "trail": "3",
+        "propagate": "3"
+      }
+    ]
+  },
+  "inactive_candidate_attempts": [
+    {
+      "index": 22616,
+      "rows": [
+        {
+          "external": "89339",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "36031427",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "0",
+          "retired": "1",
+          "roots": "4166",
+          "trail": "4162",
+          "propagate": "4162"
+        },
+        {
+          "external": "89339",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "36031427",
+          "limit": "65731490",
+          "applied": "1",
+          "retry": "0",
+          "value": "0",
+          "retired": "1",
+          "roots": "4166",
+          "trail": "4162",
+          "propagate": "4162"
+        },
+        {
+          "external": "89339",
+          "stage": "postflush",
+          "conflicts": "271079",
+          "ticks": "36031427",
+          "limit": "65731490",
+          "applied": "1",
+          "retry": "0",
+          "value": "0",
+          "retired": "1",
+          "roots": "4166",
+          "trail": "4162",
+          "propagate": "4162"
+        }
+      ]
+    },
+    {
+      "index": 36438,
+      "rows": [
+        {
+          "external": "89345",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "36360466",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4169",
+          "trail": "4165",
+          "propagate": "4165"
+        },
+        {
+          "external": "89345",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "36360466",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4169",
+          "trail": "4165",
+          "propagate": "4165"
+        }
+      ]
+    },
+    {
+      "index": 36439,
+      "rows": [
+        {
+          "external": "89363",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "36360466",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4169",
+          "trail": "4165",
+          "propagate": "4165"
+        },
+        {
+          "external": "89363",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "36360466",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4169",
+          "trail": "4165",
+          "propagate": "4165"
+        }
+      ]
+    },
+    {
+      "index": 92315,
+      "rows": [
+        {
+          "external": "109988",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "39777920",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4181",
+          "trail": "4177",
+          "propagate": "4177"
+        },
+        {
+          "external": "109988",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "39777920",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4181",
+          "trail": "4177",
+          "propagate": "4177"
+        }
+      ]
+    },
+    {
+      "index": 125113,
+      "rows": [
+        {
+          "external": "105068",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "44481190",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4201",
+          "trail": "4197",
+          "propagate": "4197"
+        },
+        {
+          "external": "105068",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "44481190",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4201",
+          "trail": "4197",
+          "propagate": "4197"
+        }
+      ]
+    },
+    {
+      "index": 127628,
+      "rows": [
+        {
+          "external": "108255",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "44769716",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4202",
+          "trail": "4198",
+          "propagate": "4198"
+        },
+        {
+          "external": "108255",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "44769716",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "-1",
+          "retired": "0",
+          "roots": "4202",
+          "trail": "4198",
+          "propagate": "4198"
+        }
+      ]
+    },
+    {
+      "index": 168035,
+      "rows": [
+        {
+          "external": "221681",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "48756686",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4229",
+          "trail": "4225",
+          "propagate": "4225"
+        },
+        {
+          "external": "221681",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "48756686",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4229",
+          "trail": "4225",
+          "propagate": "4225"
+        }
+      ]
+    },
+    {
+      "index": 168038,
+      "rows": [
+        {
+          "external": "110823",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "48756686",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4229",
+          "trail": "4225",
+          "propagate": "4225"
+        },
+        {
+          "external": "110823",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "48756686",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4229",
+          "trail": "4225",
+          "propagate": "4225"
+        }
+      ]
+    },
+    {
+      "index": 168040,
+      "rows": [
+        {
+          "external": "215950",
+          "stage": "begin",
+          "conflicts": "271079",
+          "ticks": "48756686",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4229",
+          "trail": "4225",
+          "propagate": "4225"
+        },
+        {
+          "external": "215950",
+          "stage": "end",
+          "conflicts": "271079",
+          "ticks": "48756686",
+          "limit": "65731490",
+          "applied": "0",
+          "retry": "1",
+          "value": "1",
+          "retired": "0",
+          "roots": "4229",
+          "trail": "4225",
+          "propagate": "4225"
+        }
+      ]
+    }
+  ],
+  "first_active_projection_difference": {
+    "index": 120872,
+    "candidate": [
+      {
+        "external": "225614",
+        "stage": "begin",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "retry": "1",
+        "value": "0",
+        "retired": "0",
+        "roots": "4198",
+        "trail": "4194",
+        "propagate": "4194"
+      },
+      {
+        "external": "225614",
+        "stage": "end",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "retry": "0",
+        "value": "0",
+        "retired": "0",
+        "roots": "4198",
+        "trail": "4194",
+        "propagate": "4194"
+      }
+    ],
+    "kissat": [
+      {
+        "external": "225641",
+        "stage": "begin",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "eliminate": "1",
+        "active": "1",
+        "fixed": "0",
+        "eliminated": "0",
+        "value": "0",
+        "units": "4194",
+        "trail": "35",
+        "propagate": "35"
+      },
+      {
+        "external": "225641",
+        "stage": "end",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "eliminate": "0",
+        "active": "1",
+        "fixed": "0",
+        "eliminated": "0",
+        "value": "0",
+        "units": "4194",
+        "trail": "35",
+        "propagate": "35"
+      },
+      {
+        "external": "225641",
+        "stage": "postflush",
+        "conflicts": "271079",
+        "ticks": "43990691",
+        "limit": "65731490",
+        "applied": "0",
+        "eliminate": "0",
+        "active": "1",
+        "fixed": "0",
+        "eliminated": "0",
+        "value": "0",
+        "units": "4194",
+        "trail": "35",
+        "propagate": "35"
+      }
+    ]
+  },
+  "compared_fields": [
+    "external",
+    "stage",
+    "conflicts",
+    "applied",
+    "value",
+    "ticks",
+    "limit"
+  ],
+  "irredundant_input": {
+    "copies": 461336,
+    "differences": {
+      "pose": 816,
+      "metadata": 18096
+    },
+    "first": {
+      "pose": {
+        "index": 9337,
+        "candidate": [
+          [
+            0,
+            [
+              -81863,
+              -81849,
+              81864
+            ]
+          ],
+          [
+            -81863,
+            -81849,
+            81864
+          ],
+          [
+            [
+              "glue",
+              0
+            ],
+            [
+              "priority",
+              1
+            ],
+            [
+              "reason",
+              0
+            ],
+            [
+              "searched",
+              2
+            ],
+            [
+              "shrunken",
+              0
+            ],
+            [
+              "used",
+              0
+            ]
+          ],
+          [
+            [
+              -81863,
+              0
+            ],
+            [
+              -81849,
+              0
+            ],
+            [
+              81864,
+              0
+            ]
+          ]
+        ],
+        "kissat": [
+          [
+            0,
+            [
+              -81863,
+              -81849,
+              81864
+            ]
+          ],
+          [
+            81864,
+            -81849,
+            -81863
+          ],
+          [
+            [
+              "glue",
+              0
+            ],
+            [
+              "priority",
+              1
+            ],
+            [
+              "reason",
+              0
+            ],
+            [
+              "searched",
+              2
+            ],
+            [
+              "shrunken",
+              0
+            ],
+            [
+              "used",
+              0
+            ]
+          ],
+          [
+            [
+              -81863,
+              0
+            ],
+            [
+              -81849,
+              0
+            ],
+            [
+              81864,
+              0
+            ]
+          ]
+        ]
+      },
+      "metadata": {
+        "index": 9946,
+        "candidate": [
+          [
+            0,
+            [
+              -99146,
+              98354,
+              98379,
+              98503,
+              98607,
+              98897
+            ]
+          ],
+          [
+            -99146,
+            98503,
+            98607,
+            98897,
+            98354,
+            98379
+          ],
+          [
+            [
+              "glue",
+              0
+            ],
+            [
+              "priority",
+              1
+            ],
+            [
+              "reason",
+              0
+            ],
+            [
+              "searched",
+              2
+            ],
+            [
+              "shrunken",
+              0
+            ],
+            [
+              "used",
+              0
+            ]
+          ],
+          [
+            [
+              -99146,
+              0
+            ],
+            [
+              98354,
+              0
+            ],
+            [
+              98379,
+              0
+            ],
+            [
+              98503,
+              0
+            ],
+            [
+              98607,
+              0
+            ],
+            [
+              98897,
+              0
+            ]
+          ]
+        ],
+        "kissat": [
+          [
+            0,
+            [
+              -99146,
+              98354,
+              98379,
+              98503,
+              98607,
+              98897
+            ]
+          ],
+          [
+            -99146,
+            98503,
+            98607,
+            98897,
+            98354,
+            98379
+          ],
+          [
+            [
+              "glue",
+              0
+            ],
+            [
+              "priority",
+              1
+            ],
+            [
+              "reason",
+              0
+            ],
+            [
+              "searched",
+              2
+            ],
+            [
+              "shrunken",
+              1
+            ],
+            [
+              "used",
+              0
+            ]
+          ],
+          [
+            [
+              -99146,
+              0
+            ],
+            [
+              98354,
+              0
+            ],
+            [
+              98379,
+              0
+            ],
+            [
+              98503,
+              0
+            ],
+            [
+              98607,
+              0
+            ],
+            [
+              98897,
+              0
+            ]
+          ]
+        ]
+      }
+    }
+  },
+  "inherited_binary_snapshots": [
+    {
+      "ordinal": 0,
+      "candidate_copies": 124857,
+      "kissat_copies": 124857,
+      "equal": true,
+      "candidate_only": 0,
+      "kissat_only": 0
+    },
+    {
+      "ordinal": 1,
+      "candidate_copies": 113035,
+      "kissat_copies": 113035,
+      "equal": false,
+      "candidate_only": 15,
+      "kissat_only": 15
+    }
+  ],
+  "inherited_learned_only_differences": true,
+  "hashes": {
+    "benchmarks/runs/20260908-5937-first-bve-frontier/traces/candidate.bve-candidates.tsv": "5fc87a94113301a99737e9831723d4788bf7df87dcf1b7649d0de9036fd22b8e",
+    "benchmarks/runs/20260908-5937-first-bve-frontier/traces/kissat.bve-candidates.tsv": "a711b50d6fb21a01632d0a4bcb5360dd4318d3989d3136db12256512f73fc165",
+    ".claude/worktrees/runtime-reduce-root-5900/src/policies/default_policy.cpp": "661283f62f28d8114758e6f7e26e5bc6f2288f7a17d38ecf6e8227f3a4d45934",
+    "tools/solvers/variants/kissat-score-bump-observer-5696/src/eliminate.c": "0a5972ad92025b21f0ed5e70163399e6a6fdb553fa7d23cdf424cc469fa0040f"
+  },
+  "limitation": "Active projection exposes later divergence; it does not excuse the nine inactive attempts or prove formula identity. Literal pose already differs in the irredundant input. No timing or correctness acceptance claim."
+}
