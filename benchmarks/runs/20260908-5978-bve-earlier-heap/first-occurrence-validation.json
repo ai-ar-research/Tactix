@@ -1,0 +1,849 @@
+{
+  "full_replay": true,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "c1a0e48ee13769dc52cb5128e5d41ca11ed70c48e9ec518694225e2fcaf714da",
+      "traces": {
+        "candidate.macro.tsv": "5653703919a22f974015ee96890d4b0ffc90137a40d08d8134adc4ddc22e52b4",
+        "candidate.full-heap.tsv": "95dbf58f6635aa7834e9518ed71068b2be2b8d8a510cdd0922f2939773189c77",
+        "candidate.boundaries.tsv": "b7e972df964c116a32313acb279a0e984d7d341ff615ef621d0ec15b2a79bd29",
+        "candidate.bve-candidates.tsv": "5fc87a94113301a99737e9831723d4788bf7df87dcf1b7649d0de9036fd22b8e",
+        "candidate.prefix.tsv": "9977a0e167b71e02dbbbad0d7a1761a3fe01f22760545526f77ebf5d837cba9d",
+        "candidate.decisions.tsv": "5f9622555a975dd8c92cfca17cd65ab21fae3743fbc7a1c4c228b14b9098d61d"
+      },
+      "cached_record": {
+        "record": "benchmarks/runs/20260908-5907-reduce-root-rank32-prefix/results/candidate.json",
+        "sha256": "9968f48a7d6bf2464bb10ee088c2f4d2a63ccf46c4d743a8d0ad3fa340f514eb"
+      }
+    },
+    "kissat": {
+      "result_sha256": "9cfeff1d8155f01e7b6883924cd0efdfc55eafaa96777ba9341e16e2f6971dcf",
+      "traces": {
+        "kissat.boundaries.tsv": "d3427e8bf6d60c48d729d21ff4d3490f2a7dc19caf8576f9be497ba54fb921b5",
+        "kissat.prefix.tsv": "74afa84cbaaa31c818de7a4934536d3a88e4829c687e58299309171701df962d",
+        "kissat.bve-candidates.tsv": "a711b50d6fb21a01632d0a4bcb5360dd4318d3989d3136db12256512f73fc165",
+        "kissat.decisions.tsv": "f4990be94c72275c53230aea12099bcdbc6fc838bc554d7012e826462f9df33c",
+        "kissat.full-heap.tsv": "95dbf58f6635aa7834e9518ed71068b2be2b8d8a510cdd0922f2939773189c77"
+      },
+      "cached_record": {
+        "record": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/results/kissat.json",
+        "sha256": "16bbb018d89f0f85751c27ef4f5a8790f99b3b91db9f3a9f391f9c85ff6d1abc"
+      }
+    }
+  },
+  "snapshots": [
+    {
+      "ordinal": 0,
+      "candidate_size": 88946,
+      "kissat_size": 88946,
+      "candidate_only": [],
+      "kissat_only": [],
+      "differences": {
+        "pos": 0,
+        "score": 0,
+        "positive": 0,
+        "negative": 0,
+        "value": 0,
+        "retired": 0,
+        "retry": 0
+      },
+      "first_differences": [],
+      "complete_rows_equal": true
+    },
+    {
+      "ordinal": 1,
+      "candidate_size": 62185,
+      "kissat_size": 62185,
+      "candidate_only": [],
+      "kissat_only": [],
+      "differences": {
+        "pos": 0,
+        "score": 0,
+        "positive": 0,
+        "negative": 0,
+        "value": 0,
+        "retired": 0,
+        "retry": 0
+      },
+      "first_differences": [],
+      "complete_rows_equal": true
+    }
+  ],
+  "sift_paths": {
+    "candidate": {
+      "removed": {
+        "pos": 0,
+        "external": 462198,
+        "score": "0x1.e8465p+21",
+        "positive": 12,
+        "negative": 6,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last": {
+        "pos": 62184,
+        "external": 435552,
+        "score": "0x1.e806c8p+21",
+        "positive": 59,
+        "negative": 37,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last_final_pos": 20576,
+      "path": [
+        {
+          "at": 0,
+          "left": {
+            "pos": 1,
+            "external": 7827,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2,
+            "external": 267880,
+            "score": "0x1.e8465p+21",
+            "positive": 12,
+            "negative": 6,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1
+        },
+        {
+          "at": 1,
+          "left": {
+            "pos": 3,
+            "external": 478,
+            "score": "0x1.e84648p+21",
+            "positive": 9,
+            "negative": 8,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 4,
+            "external": 426854,
+            "score": "0x1.e8465p+21",
+            "positive": 12,
+            "negative": 6,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 4
+        },
+        {
+          "at": 4,
+          "left": {
+            "pos": 9,
+            "external": 38681,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 10,
+            "external": 85855,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 9
+        },
+        {
+          "at": 9,
+          "left": {
+            "pos": 19,
+            "external": 73550,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 20,
+            "external": 200369,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 19
+        },
+        {
+          "at": 19,
+          "left": {
+            "pos": 39,
+            "external": 415256,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 40,
+            "external": 62155,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 39
+        },
+        {
+          "at": 39,
+          "left": {
+            "pos": 79,
+            "external": 469621,
+            "score": "0x1.e84648p+21",
+            "positive": 8,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 80,
+            "external": 472944,
+            "score": "0x1.e84648p+21",
+            "positive": 9,
+            "negative": 8,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 79
+        },
+        {
+          "at": 79,
+          "left": {
+            "pos": 159,
+            "external": 471329,
+            "score": "0x1.e84648p+21",
+            "positive": 8,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 160,
+            "external": 212729,
+            "score": "0x1.e84648p+21",
+            "positive": 8,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 159
+        },
+        {
+          "at": 159,
+          "left": {
+            "pos": 319,
+            "external": 87828,
+            "score": "0x1.e8462p+21",
+            "positive": 62,
+            "negative": 2,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 320,
+            "external": 471190,
+            "score": "0x1.e84628p+21",
+            "positive": 13,
+            "negative": 6,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 320
+        },
+        {
+          "at": 320,
+          "left": {
+            "pos": 641,
+            "external": 210606,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 642,
+            "external": 75596,
+            "score": "0x1.e84628p+21",
+            "positive": 11,
+            "negative": 7,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 642
+        },
+        {
+          "at": 642,
+          "left": {
+            "pos": 1285,
+            "external": 38426,
+            "score": "0x1.e8461p+21",
+            "positive": 8,
+            "negative": 10,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 1286,
+            "external": 471532,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1285
+        },
+        {
+          "at": 1285,
+          "left": {
+            "pos": 2571,
+            "external": 471178,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2572,
+            "external": 471298,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 2571
+        },
+        {
+          "at": 2571,
+          "left": {
+            "pos": 5143,
+            "external": 471169,
+            "score": "0x1.e8458p+21",
+            "positive": 10,
+            "negative": 10,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 5144,
+            "external": 471243,
+            "score": "0x1.e84538p+21",
+            "positive": 10,
+            "negative": 11,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 5143
+        },
+        {
+          "at": 5143,
+          "left": {
+            "pos": 10287,
+            "external": 14848,
+            "score": "0x1.e84508p+21",
+            "positive": 3,
+            "negative": 49,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 10288,
+            "external": 21738,
+            "score": "0x1.e84508p+21",
+            "positive": 49,
+            "negative": 3,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 10287
+        },
+        {
+          "at": 10287,
+          "left": {
+            "pos": 20575,
+            "external": 65885,
+            "score": "0x1.e83f7p+21",
+            "positive": 26,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 20576,
+            "external": 70212,
+            "score": "0x1.e83fc8p+21",
+            "positive": 13,
+            "negative": 23,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 20576
+        },
+        {
+          "at": 20576,
+          "left": {
+            "pos": 41153,
+            "external": 181984,
+            "score": "0x1.e7fbb8p+21",
+            "positive": 75,
+            "negative": 34,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 41154,
+            "external": 130329,
+            "score": "0x1.e745d8p+21",
+            "positive": 103,
+            "negative": 82,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 41153,
+          "stop": true
+        }
+      ],
+      "root": 7827
+    },
+    "kissat": {
+      "removed": {
+        "pos": 0,
+        "external": 462198,
+        "score": "0x1.e8465p+21",
+        "positive": 12,
+        "negative": 6,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last": {
+        "pos": 62184,
+        "external": 435552,
+        "score": "0x1.e806c8p+21",
+        "positive": 59,
+        "negative": 37,
+        "value": 0,
+        "retired": 0,
+        "retry": 1
+      },
+      "last_final_pos": 20576,
+      "path": [
+        {
+          "at": 0,
+          "left": {
+            "pos": 1,
+            "external": 7827,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2,
+            "external": 267880,
+            "score": "0x1.e8465p+21",
+            "positive": 12,
+            "negative": 6,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1
+        },
+        {
+          "at": 1,
+          "left": {
+            "pos": 3,
+            "external": 478,
+            "score": "0x1.e84648p+21",
+            "positive": 9,
+            "negative": 8,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 4,
+            "external": 426854,
+            "score": "0x1.e8465p+21",
+            "positive": 12,
+            "negative": 6,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 4
+        },
+        {
+          "at": 4,
+          "left": {
+            "pos": 9,
+            "external": 38681,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 10,
+            "external": 85855,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 9
+        },
+        {
+          "at": 9,
+          "left": {
+            "pos": 19,
+            "external": 73550,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 20,
+            "external": 200369,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 19
+        },
+        {
+          "at": 19,
+          "left": {
+            "pos": 39,
+            "external": 415256,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 40,
+            "external": 62155,
+            "score": "0x1.e8465p+21",
+            "positive": 6,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 39
+        },
+        {
+          "at": 39,
+          "left": {
+            "pos": 79,
+            "external": 469621,
+            "score": "0x1.e84648p+21",
+            "positive": 8,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 80,
+            "external": 472944,
+            "score": "0x1.e84648p+21",
+            "positive": 9,
+            "negative": 8,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 79
+        },
+        {
+          "at": 79,
+          "left": {
+            "pos": 159,
+            "external": 471329,
+            "score": "0x1.e84648p+21",
+            "positive": 8,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 160,
+            "external": 212729,
+            "score": "0x1.e84648p+21",
+            "positive": 8,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 159
+        },
+        {
+          "at": 159,
+          "left": {
+            "pos": 319,
+            "external": 87828,
+            "score": "0x1.e8462p+21",
+            "positive": 62,
+            "negative": 2,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 320,
+            "external": 471190,
+            "score": "0x1.e84628p+21",
+            "positive": 13,
+            "negative": 6,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 320
+        },
+        {
+          "at": 320,
+          "left": {
+            "pos": 641,
+            "external": 210606,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 642,
+            "external": 75596,
+            "score": "0x1.e84628p+21",
+            "positive": 11,
+            "negative": 7,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 642
+        },
+        {
+          "at": 642,
+          "left": {
+            "pos": 1285,
+            "external": 38426,
+            "score": "0x1.e8461p+21",
+            "positive": 8,
+            "negative": 10,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 1286,
+            "external": 471532,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 1285
+        },
+        {
+          "at": 1285,
+          "left": {
+            "pos": 2571,
+            "external": 471178,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 2572,
+            "external": 471298,
+            "score": "0x1.e84608p+21",
+            "positive": 9,
+            "negative": 9,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 2571
+        },
+        {
+          "at": 2571,
+          "left": {
+            "pos": 5143,
+            "external": 471169,
+            "score": "0x1.e8458p+21",
+            "positive": 10,
+            "negative": 10,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 5144,
+            "external": 471243,
+            "score": "0x1.e84538p+21",
+            "positive": 10,
+            "negative": 11,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 5143
+        },
+        {
+          "at": 5143,
+          "left": {
+            "pos": 10287,
+            "external": 14848,
+            "score": "0x1.e84508p+21",
+            "positive": 3,
+            "negative": 49,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 10288,
+            "external": 21738,
+            "score": "0x1.e84508p+21",
+            "positive": 49,
+            "negative": 3,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 10287
+        },
+        {
+          "at": 10287,
+          "left": {
+            "pos": 20575,
+            "external": 65885,
+            "score": "0x1.e83f7p+21",
+            "positive": 26,
+            "negative": 12,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 20576,
+            "external": 70212,
+            "score": "0x1.e83fc8p+21",
+            "positive": 13,
+            "negative": 23,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 20576
+        },
+        {
+          "at": 20576,
+          "left": {
+            "pos": 41153,
+            "external": 181984,
+            "score": "0x1.e7fbb8p+21",
+            "positive": 75,
+            "negative": 34,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "right": {
+            "pos": 41154,
+            "external": 130329,
+            "score": "0x1.e745d8p+21",
+            "positive": 103,
+            "negative": 82,
+            "value": 0,
+            "retired": 0,
+            "retry": 1
+          },
+          "selected": 41153,
+          "stop": true
+        }
+      ],
+      "root": 7827
+    }
+  },
+  "limitation": "5978 captured the FIRST pop of462198, at62185 members, not the later8966-member target. All ordinary traces/proof/attempts replay. This validates only the first-occurrence state;5979 incorrectly assumed the watched60705 was the tail of this pop. New observer must distinguish repeated pops before interpreting the intended witness."
+}

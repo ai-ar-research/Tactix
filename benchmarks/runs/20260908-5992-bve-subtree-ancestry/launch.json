@@ -1,0 +1,10 @@
+{
+  "job_id": "1675996",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5992-bve-subtree-ancestry/array.sbatch"
+  ],
+  "manifest_sha256": "15bddbacae4539339285ca9d669e57e3764343ce69d57b3c6812d485e363a947",
+  "continuation": "Retargeted validated5949 observer;no timing reference change;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}

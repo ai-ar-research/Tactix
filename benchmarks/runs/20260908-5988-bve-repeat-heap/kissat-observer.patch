@@ -1,0 +1,15 @@
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -3304,0 +3305,2 @@
++  static unsigned pop_snapshot;
++  const bool all_pops = getenv ("SAT_BVE_FULL_HEAP_ALL_POPS") != 0;
+@@ -3306 +3308 @@
+-  if (initial ? initial_done : (pop_done || external != strtoul (subject, 0, 10))) return;
++  if (initial ? initial_done : ((pop_done && !all_pops) || external != strtoul (subject, 0, 10))) return;
+@@ -3311 +3313,2 @@
+-  fprintf (out, "# begin\t%u\t%s\t%" PRIu64 "\t%u\t%zu\n", initial ? 0 : 1,
++  const unsigned snapshot = initial ? 0 : ++pop_snapshot;
++  fprintf (out, "# begin\t%u\t%s\t%" PRIu64 "\t%u\t%zu\n", snapshot,
+@@ -3321 +3324 @@
+-  fprintf (out, "# end\t%u\n", initial ? 0 : 1);
++  fprintf (out, "# end\t%u\n", snapshot);

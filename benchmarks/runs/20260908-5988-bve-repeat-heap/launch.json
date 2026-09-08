@@ -1,0 +1,10 @@
+{
+  "job_id": "1675945",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5988-bve-repeat-heap/array.sbatch"
+  ],
+  "manifest_sha256": "e5a2e586ad2c0573c6774dfd3ff242cf78655d1e826194a77bdbb597d6842846",
+  "continuation": "Diagnostic-only5985 observer;no timing reference change;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}

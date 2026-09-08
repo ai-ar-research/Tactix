@@ -1,0 +1,21 @@
+{
+  "tactix_ctest": "97/97 PASS",
+  "native_controls": {
+    "new-default": {
+      "snapshot_count": 2,
+      "trace_sha256": "47889a2818b2bfcd238dfadf4f057a33d721890ff604c58b29ad47b3925df6b5",
+      "binary_sha256": "54c1cbaec46445df8e03c233d39fc59016b01f4cf54767a0e752a69fe74e9175"
+    },
+    "new-all": {
+      "snapshot_count": 3,
+      "trace_sha256": "2fde3601bb7ac250268c0cd9ff1574c5abe3cc263bb3dc69819b61c30dcfeeb5",
+      "binary_sha256": "54c1cbaec46445df8e03c233d39fc59016b01f4cf54767a0e752a69fe74e9175"
+    },
+    "old-all": {
+      "snapshot_count": 2,
+      "trace_sha256": "47889a2818b2bfcd238dfadf4f057a33d721890ff604c58b29ad47b3925df6b5",
+      "binary_sha256": "75540d943d0e870d81bc0fc410a99103312a3cba4994be284027db71ec2eead2"
+    }
+  },
+  "test_consideration": "Old observer ignores all-pops and captures2 instead of3 frames;new default preserves2,all-pops records3. New Tactix fixed API fixture covers3 repeated pops. Strict parser rejects missing/ambiguous target size and bad repeated framing."
+}
