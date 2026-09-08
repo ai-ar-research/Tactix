@@ -1,0 +1,41 @@
+{
+  "source": ".claude/worktrees/runtime-factor-root-support-5592",
+  "parent": ".claude/worktrees/runtime-sweep-small-5522",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Translate native active smaller-endpoint binary support into the stable-identity kernel before Factor candidate peeling.",
+  "evidence": "benchmarks/runs/20260908-5588-rank32-factor-root-neighbor/literal-localization.json",
+  "evidence_sha256": "b084c459b4d7728b946d05b1701b21800cdd88178fe2131324b09f45b33dd139",
+  "contract": "Count each binary pair once from its smaller imported endpoint only when unassigned and unretired. This changes candidate support, not physical degrees, retained binaries, proof emission, matching budget, public seed enumeration or any guard. No benchmark-conditioned constants or new primitive.",
+  "references": "Kissat checks ACTIVE before counting the smaller endpoint; CaDiCaL counts physical binary clauses without this check. Preserve Kissat-default fidelity while leaving physical grid material and the public seed surface intact.",
+  "tests": "Release87/87 in each independent build, trace86/86.96 actual old/new cases across import order, polarity, root fixation, zero/one/two prune rounds, canonical/explicit seed.64 actual native connection cases match; exactly16 old/new support scores change.",
+  "status": "Isolated UNFUZZED successor to5522. No runtime result or promotion. Existing Claude5539 covers5522, not this repair. B28+C5 and full Rank1-40 remain required.",
+  "files": {
+    "src/rules/factor/factor.cpp": "c7679ff8e17ff5ae46703768a465e26fe4ff8d533e93dc60a7e10a5315a77ac4",
+    "tests/test_factor_root_support.cpp": "6086da30582a469e368d7dcbaf3932a7a632dd36206886ebfa309be23c1e4734"
+  },
+  "binaries": {
+    "build/pin-5592-factor-root-support-release/tactix": "12b3731294d2fd6e8a273fb4b808b2444e8ccd6dc4cff9f771622a476e1ad340",
+    "build/pin-5593-factor-root-support-trace/tactix": "a594dd1ea67a5cf925a0e43f36ed364bfd8c747509fe22dcb4c33de6675f37c9",
+    "build/pin-5594-factor-root-support-bc/tactix": "12b3731294d2fd6e8a273fb4b808b2444e8ccd6dc4cff9f771622a476e1ad340"
+  },
+  "patches": {
+    "cumulative.patch": "a1929c45d6b352fe30e414ea7ee052da0ed6324d10cb9b2c36f4b43484fdbb52",
+    "repair.patch": "220fe6da694c04b26b933ce54fdc03f67ca8f0ef8171722cffd1a5386585f78f"
+  },
+  "logs": {
+    "new-fixture.log": "e5ffb9abbfc160d1da0f07b5b78408ecd329f8e62c2305b71ddef44c58059ed9",
+    "configure-release.log": "d585b7c2ec71c897b6dc92cfeedabd703c835a1a0f4f282c92925cc445850444",
+    "ctest-release.log": "45b19085da3b0d16dfba2de3ae66e9142522b0293d831a41c66cb005ff504d97",
+    "build-trace.log": "f83493c7e0c1073221c7b4219f89e34d2c036d1f184c7d53c404029a5f323194",
+    "configure-trace.log": "01e9f30e26725f18f0516b95db20ca6e65639003ae2e659a0980f2fdc008a105",
+    "compile-old-fixture.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-fixture.log": "b708984b14da59d73bb748badc5c9d86e6564931b3b9ad92c7e8db84541282e9",
+    "build-release.log": "ab4a3ed242847f04a9adcdf1a00752c56abfca2eee4a0bc1f1300404f06d309b",
+    "old-fixture.log": "f0d5279d34f9ff9029f3bb21e9a9eaad5fd67073868b9853cabedf862ecee3cb",
+    "configure-bc.log": "c5af34a398cbcd9adbab3ce01e3ba75b590ef80aac652d5fd580b20bd7d30e3b",
+    "ctest-trace.log": "febbac40931f162e8999f643fa08536917988fd1193f281a77427bf24fb63194",
+    "ctest-bc.log": "3eef4955beb5718a7b43f1b441457474b8f9576176f32ba359daf21eb134a03c",
+    "build-bc.log": "bbe0764aff99846b6f433a04749356877d766e1aef06d13ae7a6f6602f0ffb74"
+  },
+  "reference_validation_sha256": "5c9813c4382ed76c8270d45e5eddff86588c7bf9f1a1587472b810b30dae2b55"
+}

@@ -101,9 +101,9 @@ pending half-analysis or schedules Backjump independently.
   factor-bit transition increments `factor_literals_marked`; a fully drained
   call snapshots it after its own additions. Interrupted calls remain
   retryable, while Factor output cannot automatically schedule another call.
-- Dense entry retains one binary watch per partner and exits in binary
-  encounter order then large-clause arena order; cached physical degrees drive
-  matching and the reference cache-line effort currency.
+- Dense entry retains one binary per partner; exit keeps binary encounter then arena order.
+  Physical degrees drive matching/cache-line ticks. Isolated support repair5592 counts a pair
+  for candidate peeling only if its smaller imported endpoint is unassigned/unretired.
 - Dense Factor entries use compact apply-local clause ids and lazy canonical
   remainder ids. Epoch quotient marks replace per-column hash sets; these are
   representation changes only and add no admission predicate.
