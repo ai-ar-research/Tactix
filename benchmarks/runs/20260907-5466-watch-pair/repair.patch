@@ -1,0 +1,94 @@
+--- a/src/kernel/watch.hpp
++++ b/src/kernel/watch.hpp
+@@ -300,6 +300,17 @@
+   }
+   void push_large(Lit l, Lit blocking, Ref ref) {
+     WatchHead &h = heads[l];
++    if (h.capacity - h.size >= 2) {
++      // Both words fit the existing slice: no growth or relocation can occur.
++      // Adding two preserves size parity, hence the packed binary/order image.
++      assert(holes >= 2 && h.size <= UINT32_MAX - 2);
++      uint32_t *const dst = arena.data() + h.offset + h.size;
++      dst[0] = blocking_watch(blocking).raw;
++      dst[1] = ref;
++      h.size += 2;
++      holes -= 2;
++      return;
++    }
+     const uint32_t binaries = h.binary_count();
+     const bool first = h.binaries_first();
+     push(l, blocking_watch(blocking).raw);
+--- /dev/null
++++ b/tests/test_watch_pair.cpp
+@@ -0,0 +1,71 @@
++#undef NDEBUG
++#include "kernel/watch.hpp"
++#include <cassert>
++#include <cstdio>
++using namespace tactix;
++
++// Actual predecessor append expressed solely through unchanged public methods.
++static void previous(WatchLists &w, Lit l, Lit blocker, Ref ref) {
++  WatchHead &h=w.heads[l];
++  const uint32_t binaries=h.binary_count();
++  const bool first=h.binaries_first();
++  w.push(l,blocking_watch(blocker).raw);
++  w.push(l,ref);
++  h.set_layout(binaries,first);
++}
++static uint64_t digest=1469598103934665603ull;
++static void add(uint64_t n){digest^=n;digest*=1099511628211ull;}
++static void equal(const WatchLists &a,const WatchLists &b) {
++  assert(a.arena==b.arena && a.arena.capacity()==b.arena.capacity());
++  assert(a.holes==b.holes && a.heads.size()==b.heads.size());
++  uint64_t live=0;
++  for(size_t i=0;i<a.heads.size();++i) {
++    const WatchHead &x=a.heads[i],&y=b.heads[i];
++    assert(x.offset==y.offset && x.size==y.size && x.capacity==y.capacity);
++    assert(x.binary_count_and_order==y.binary_count_and_order);
++    assert(x.size<=x.capacity && size_t{x.offset}+x.capacity<=a.arena.size());
++    live+=x.size;
++    add(x.offset);add(x.size);add(x.capacity);add(x.binary_count_and_order);
++  }
++  assert(a.holes==a.arena.size()-live);
++  for(uint32_t v:a.arena)add(v);
++  add(a.holes);add(a.arena.capacity());
++}
++
++int main() {
++  unsigned cases=0,spare=0,boundary=0;
++  for(unsigned length:{0u,1u,2u,3u,4u,7u,8u,15u,31u})
++    for(unsigned gap:{0u,1u,2u,3u,8u})
++      for(bool tail:{false,true})
++        for(bool mixed:{false,true}) {
++          WatchLists a,b;
++          for(WatchLists *w:{&a,&b}) {
++            w->resize_lits(4);
++            for(unsigned i=0;i<length;++i)w->push_binary(0,2);
++            if(mixed) {previous(*w,0,3,19);w->push_binary(0,1);}
++            w->begin_batch_reserve();
++            for(unsigned i=0;i<gap;++i)w->reserve_batch_word(0);
++            w->finish_batch_reserve();
++            if(!tail)w->push_binary(1,0);
++          }
++          equal(a,b);
++          assert(a.heads[0].capacity-a.heads[0].size==gap);
++          for(unsigned i=0;i<8;++i) {
++            const Lit l=i%3==2?1:0;
++            const unsigned free=a.heads[l].capacity-a.heads[l].size;
++            (free>=2?spare:boundary)++;
++            a.push_large(l,2+(i&1),17+i);
++            previous(b,l,2+(i&1),17+i);
++            equal(a,b);
++            if(i%2) {a.push_binary(l,3);b.push_binary(l,3);equal(a,b);}
++          }
++          // Compaction supplies reusable spare capacity with stable live order.
++          auto keep=[](WatchEntry entry){return entry.binary();};
++          a.compact(0,keep);b.compact(0,keep);equal(a,b);
++          a.push_large(0,1,123);previous(b,0,1,123);equal(a,b);
++          cases++;
++        }
++  assert(cases==180 && spare && boundary);
++  std::printf("watch-pair: %u fixed cases, spare=%u boundary=%u digest=%016llx\n",
++              cases,spare,boundary,(unsigned long long)digest);
++}
