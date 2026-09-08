@@ -1,0 +1,19 @@
+{
+  "scratch": "/tmp/tactix-5945-1675510-y0ip3pa9",
+  "arm": "kissat",
+  "slurm_job": "1675510",
+  "node": "node018",
+  "binary_sha256": "9cbe0915ca7efa86441dfbc8606e8f3c652e38369c70bc180ad4897da3fdcf59",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "12",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5945-bve-heap-frontier/pins/kissat",
+    "/tmp/tactix-5945-1675510-y0ip3pa9/input.cnf",
+    "/tmp/tactix-5945-1675510-y0ip3pa9/partial.drat"
+  ],
+  "scratch_deleted": true
+}
