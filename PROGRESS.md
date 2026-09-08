@@ -21,7 +21,8 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   Both Release suites pass 83/83; 180 actual old/new cases have identical
   whole-state digests. [Measured timing](benchmarks/reports/2026-09-08-watch-pair-measured.md)
   now gives three exact-work/proof-byte pairs: median 0.983980x predecessor,
-  range 0.981238–0.993028. Proof checking and B28+C5 remain pending.
+  range 0.981238–0.993028. [All six timing proofs are checked](benchmarks/reports/2026-09-08-watch-pair-checked.md);
+  B28+C5 and latest-source fuzz closure remain required.
 - Preceding [Bound lifecycle](benchmarks/reports/2026-09-07-bound-lifecycle.md), candidate 5459,
   restores the documented phase-bound advance and retry flags after quota cuts.
   Release 82/82 twice, trace 81/81; two old/new cut-bound fixtures pass.
@@ -166,9 +167,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
    5468's three pairs pass exact statistics/proof-byte identity: median
    0.983980x predecessor; all paired ratios below 1, both arm spreads below 2%.
-   Retain the supported append optimization provisionally; checking and its
-   B28+C5 gate remain required. Revisit `snapshot-watch-pair-runtime-5468.py`
-   for final proof closure, not a duplicate timing campaign.
+   All six append timing proofs are checked/clean in 5468's final summary.
+   Retain the supported optimization provisionally; B28+C5 and latest-source
+   fuzz remain required. Do not repeat the timing campaign for confirmation.
    5465's frozen solver snapshot is complete: 1.173817x, all expected verdicts.
    Its `next-losses.json` selects Ranks 37/32/31. Completed 5478 first splits at
    conflict188502; `boundary-localization.json` first finds two Sweep binaries
@@ -284,6 +285,6 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 - Square phase choice honors saved state; implication-history probe5487 queued.
 - Rank32 Sweep and Rank37 later Sweep/Vivify boundaries localized; no cause proved.
 - Predecessor fuzz5442 PASS; latest-source checkpoint5492 runs under owner9171.
-- Production77/77 and eight new normalization fixtures pass; no source promoted.
+- Watch append5468 now has six independently checked/clean timing proofs.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
