@@ -1,0 +1,50 @@
+{
+  "source": ".claude/worktrees/runtime-reduce-preclean-5920",
+  "parent": ".claude/worktrees/runtime-reduce-root-5900",
+  "parent_authority": {
+    "path": "benchmarks/runs/20260908-5900-reduce-root/manifest.json",
+    "sha256": "b99fa2045af41af66dbc237387277b74f0b8600785d6ce4720c180ce4cf9c8ec"
+  },
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Compose independently tested Reduce root guidance and incoming-root preconnection cleanup. Current5900 Rank32 first differs after second forward pass at271079 by three clauses; test whether cleanup closes this boundary and improves full work. The standalone5870 regression is not accepted or hidden.",
+  "test_consideration": "Release96/96 twice,trace95/95,journal96/96;46 independently checked DRAT/LRAT proofs,actual old/new/native guidance controls. New interaction test derives roots during Reduce after trail truncation, verifies guidance removal, then reconnects dense occurrences and checks physical BVE counts, preserved unrelated guidance and original SAT model. Inherited preconnection/lazy-lifetime and raw Reduce-neutrality tests retained.",
+  "files": {
+    "src/policies/default_policy.cpp": "661283f62f28d8114758e6f7e26e5bc6f2288f7a17d38ecf6e8227f3a4d45934",
+    "src/policies/default_policy.hpp": "4da331fc986d71110041cb383ef74255ad157fc5ed6ac5326db47e0c677c08f7",
+    "src/rules/strengthen/strengthen.cpp": "86d2a38f8be3d39a121a4a459e3da5b39ea0265d6ffa2659647da9469b3b2bc3",
+    "tests/test_reduce_root_guidance.cpp": "5cf41721bd93fe4e05d8e4180bf94aa7c1a6e0b7eaee7c365f4a79ae45be1fbb",
+    "tests/test_forward_caller.cpp": "b07307f91bc6acbf4007729cf030d60099810f7f372931d1b08a29b0dbd7d3fb"
+  },
+  "binaries": {
+    "build/pin-5920-reduce-preclean-release/tactix": "f6bd4856044cd9c9df4878d122867410cb0c675652083cd5d2deb33a8673129d",
+    "build/pin-5921-reduce-preclean-bc/tactix": "f6bd4856044cd9c9df4878d122867410cb0c675652083cd5d2deb33a8673129d",
+    "build/pin-5922-reduce-preclean-trace/tactix": "2fb804ac27be5a8a9fab83bc0fefd3d7d478bcb4c1676f9a0b3e4f255ff53c90",
+    "build/pin-5923-reduce-preclean-journal/tactix": "42d02c935a9406a80def6fbebeca269bbf0198756eacc728551023c980491d81"
+  },
+  "patches": {
+    "cumulative.patch": "44ce86e16b713bfb2773d9e61b497103417ce1cf198b6c516b0b00fe798b6778",
+    "repair.patch": "be2054783baac1460798387c57b5cd1534384376eb59eccfa9f6618c7c45e891"
+  },
+  "validation": {
+    "benchmarks/runs/20260908-5920-reduce-preclean/final-proof-validation.json": "7d957105d2ba0dd7a657a00edb819530f2ad8c1cecf057795e1e130432d7a08e",
+    "benchmarks/runs/20260908-5900-reduce-root/manifest.json": "b99fa2045af41af66dbc237387277b74f0b8600785d6ce4720c180ce4cf9c8ec",
+    "benchmarks/runs/20260908-5870-forward-preclean/manifest.json": "3adb48aeb3cbd6bd97b3d3307284617b82b41e6b404e75e21aaf1b17e33850cd",
+    "benchmarks/runs/20260908-5917-reduce-root-next-choice/choice-validation.json": "f4fa88a6df14a8e2bdfe0ff913dd6496fb667e5da9cc41bc972ac6ac9fa57feb",
+    "benchmarks/runs/20260908-5908-reduce-root-ranks1-40/solver-checkpoint.json": "365f0a96c9bc621d374728f1ecf0e51bdd285b1730b621d8ee2d790a24bfd2ee"
+  },
+  "logs": {
+    "journal-configure-final.log": "e7147d64a0f26934ad7dae22bf911e8cab4cff73fc43a316a7ba77a732c49bfc",
+    "trace-ctest-final.log": "45c716fc51c1ae2a3a3e85d20d5963bdc2e309b9783cffb96e55c8cfa578faef",
+    "journal-ctest-final.log": "7e7388da692f82316cd69084f50df0c8d10d12c9376c34df8e03fa4a5a73752b",
+    "trace-configure-final.log": "b0f6cc401777a870ad373837f596f0553a5abbc9e7bded68d33bd919c81ec828",
+    "release-build-final.log": "5708764061d7098771cfae735573557839f08d3563b4cb34766ccead7ca16cb0",
+    "bc-build-final.log": "6178b6377e842cff670a2cccf72358ea477841bed83b00560a16234ae33b5815",
+    "release-configure-final.log": "34b94a405b2f3809265a8579d1de285e2fb212b06da21793a09f8c5194c33dcc",
+    "bc-configure-final.log": "928a15735f8aec0e91dca8a3261deac42513388ff31b3aefe2ad13a0dd93bbf7",
+    "bc-ctest-final.log": "aba6552b01fc8cf3f81151bdf554afa15a1a271f4ee8e2c64d6f9dde4fa1c2c7",
+    "release-ctest-final.log": "9fc5d1d5348ed9ac06150ffacb17a88a4cefb5eec633ac35dfbcc43c7ab4c830",
+    "journal-build-final.log": "1799a7fee43bdd7dd4605a53d2903e24980f3e9f77ddee4b172493afaa9d1d00",
+    "trace-build-final.log": "92488218f10331bbf192460bca916f095634ce5d9b0d5a7a5ea1b69ab75561c1"
+  },
+  "limitation": "Unfuzzed isolated composition experiment,not promoted. Require full40,B28+C5 and current-source fuzz before acceptance;denied external transfer is not retried. Earlier source/runners/pins remain immutable."
+}

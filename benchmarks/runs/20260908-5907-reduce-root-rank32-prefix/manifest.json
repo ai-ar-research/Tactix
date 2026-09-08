@@ -1,0 +1,68 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended",
+  "candidate_authority": "benchmarks/runs/20260908-5900-reduce-root",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-reduce-root-5900",
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 300000,
+  "hypothesis": "Consume newly derived roots after Reduce preparation before Reorder. Compare every decision against cached native;expect to close225987 but report any earlier or later split. No change to preclean5870 branch or fixed runtime denominator.",
+  "validation": "Clean300K stop and cleanup,complete new stream from0. Compare cached native5597 first100K rows and5771 suffix;common-prefix hash separately checks first40102204 decisions. Intended changes need not replay parent.",
+  "contract": "One12CPU/48000MiB candidate task,25min allocation,1200s solver;no node constraint,throttle,or native rerun. Diagnostic only.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "e13d64478ca71bce48f85f556dba0a4e0dcf8b5a7f29eddeaf8353354a732cde",
+    "run.py": "d2f79010286727df2efae8677ef4a4aeed9e33a28e3e389c07d3a8ea9163c05a",
+    "array.sbatch": "93260f02063e6b0ddf42747f2e382e7b04f5f120163256857ffb95b9e97b4d74"
+  },
+  "stream_from": 0,
+  "common_decisions": 40102204,
+  "created_at": "2026-09-08T19:32:58.251103+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Instrumented bounded diagnostic. Frozen native runtime vector remains6810.066s. Earlier control and new suffix have separate scopes.",
+  "test_consideration": "96/96 Release twice,95/95 trace,96/96 journal. New retained-root chain/truncated suffix,public Reduce neutrality,idempotence,no-root no-op,original SAT model andsix refutation cases. Actual old/new/native root-guidance controls.46 independently checked proofs including active-journal inherited cases.",
+  "source_patch_sha256": "1d8517ec42043f8e3fc8b318c68086497a79291bca871205faf02fd18a609cbd",
+  "predecessor": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix",
+  "cached_controls": {
+    "candidate": {
+      "record": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/results/candidate.json",
+      "sha256": "f583a26a08d53e02b796df69b744f588d25867777a912fa7b9088d58625e4b95"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/results/kissat.json",
+      "sha256": "16bbb018d89f0f85751c27ef4f5a8790f99b3b91db9f3a9f391f9c85ff6d1abc"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-0",
+    "throttle": null,
+    "node_constraint": null
+  },
+  "cached_native_campaign": "benchmarks/runs/20260908-5597-factor-support-rank32-prefix",
+  "selection": {
+    "path": "benchmarks/runs/20260908-5758-reuse-target-ranks1-40/next-losses.json",
+    "sha256": "286465d1e6e59365e2ffc7afea526d4b71c2616a5f81ab6e99faad0ecb11e869"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260908-5769-reuse-target-rank32-prefix/summary.json",
+    "sha256": "f7b168c72f9c66a78b4e6d7d156b742ab950d6be4920d84b3ce4f16153f0e41c"
+  },
+  "native_rerun_reason": "Missing diagnostic information beyond existing100K coverage,not routine runtime confirmation or a denominator replacement.",
+  "cached_early_native": {
+    "record": "benchmarks/runs/20260908-5597-factor-support-rank32-prefix/results/kissat.json",
+    "sha256": "7795750cbf66213fe457d905ae5051ab8afb7053db89eb86bb293445b89cbf91"
+  }
+}

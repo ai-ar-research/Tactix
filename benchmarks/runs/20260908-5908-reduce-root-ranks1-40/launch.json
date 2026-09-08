@@ -1,0 +1,10 @@
+{
+  "job_id": "1674992",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5908-reduce-root-ranks1-40/array.sbatch"
+  ],
+  "manifest_sha256": "a887827deb0b635282919f5dc53879f0d6157e3c9cfb5db9b5688b3f0a2670ef",
+  "continuation": "Independent5900 successor on5849;regressing5870 remains separate;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
