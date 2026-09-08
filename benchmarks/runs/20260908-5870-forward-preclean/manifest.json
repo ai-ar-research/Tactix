@@ -1,0 +1,53 @@
+{
+  "source": ".claude/worktrees/runtime-forward-preclean-5870",
+  "parent": ".claude/worktrees/runtime-forward-caller-5849",
+  "parent_authority": {
+    "path": "benchmarks/runs/20260908-5849-forward-caller/manifest.json",
+    "sha256": "80b294d1a1d3446a231cdf547b45e19cee001f9f65e611d368ef75575ae0bf29"
+  },
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Delete incoming-root-satisfied irredundant clauses before full reconnection so they never inflate BVE physical occurrence scores. Preserve lazy stale occurrences for clauses satisfied later during dense propagation. No new primitive, guard, option, effort budget or proof vocabulary.",
+  "test_consideration": "Final rebuilt suites95/95 twice,94/94 trace,95/95 journal. New incoming-C2,already-fixed/empty-suffix and later-derived negative-control occurrence fixtures;SAT models and invariants. Six caller refutations include precleaned clauses.40 independently checked DRAT/LRAT proofs. Actual old/new/native occurrence controls distinguish required eager from preserved lazy cleanup.",
+  "files": {
+    "src/rules/strengthen/strengthen.cpp": "86d2a38f8be3d39a121a4a459e3da5b39ea0265d6ffa2659647da9469b3b2bc3",
+    "tests/test_forward_caller.cpp": "c46d24542af6a0fa573f955deed8340326e88df85d671e2a18b22e4de19ab22d"
+  },
+  "binaries": {
+    "build/pin-5870-forward-preclean-release/tactix": "c8aa0305f94c216806d69687fd0ed947a31ee5ac025a66a3e13e23743b09d453",
+    "build/pin-5871-forward-preclean-bc/tactix": "c8aa0305f94c216806d69687fd0ed947a31ee5ac025a66a3e13e23743b09d453",
+    "build/pin-5872-forward-preclean-trace/tactix": "87f2543698b681af7dd5faed925fd09b560235a012206e9c668f58d82e3be9cc",
+    "build/pin-5873-forward-preclean-journal/tactix": "90d2b10a242c92de209ef3d267c882ee14124e9a659e9f178956fc43bc248f1c"
+  },
+  "patches": {
+    "cumulative.patch": "f3d0771fe4375f66a7b2c31622a190a3a15a21398ddcd7e175517245397a16fe",
+    "repair.patch": "fdebacf3c8be8c4fb378594abe021b7a5d84750b50c76132ee8e1d801b96cf04"
+  },
+  "validation": {
+    "benchmarks/runs/20260908-5870-forward-preclean/final-proof-validation.json": "60dcd03da22cbe19a43f80b88b983f077ce1b12e0485e2b74dd469ac02fd2dd5",
+    "benchmarks/runs/20260908-5875-forward-preclean-controls/summary.json": "28f868418ceb4748aecd5ce275415901ad8bbe93a06e7b221aea000732b45013",
+    "benchmarks/runs/20260908-5862-rank31-bve-frontier/schedule-diagnosis.json": "aae643318e7c9840164fe955c2860b08f4f737b4cc352c6f8c41e9f6798563f0"
+  },
+  "logs": {
+    "trace-ctest-sealed.log": "6faf43e7c737365e3349a5d5ef09c0d71787f86d81302cd17242afc5b5459643",
+    "bc-ctest-sealed.log": "29f93f03852889635761457ca37250d92eaad31129cd3574c5a5ed2be57a766a",
+    "bc-ctest-final.log": "8bbac38991282841c20a9c888b0bdff50110beb536e34ac1696abed64c3edc6d",
+    "release-build-final.log": "3e628f1b3c37a1e047c8bbb44bbcaf41fcb378bd9fe942db740a3f8a41c3e3e3",
+    "journal-ctest-final.log": "75b5729f63188a98f21b00c3d1096cc0a2e042d8645fd3c5be709e335dfbd707",
+    "bc-build-sealed.log": "03bc6fbad61fcc46ea48c6188fe410b2d8f410a290816c4a06d8c4d320a4f503",
+    "trace-build-final.log": "1cf34b4e4389b834fd655e375892b9b9a85bf078e015ff81b7cbbe1c9b6ad98f",
+    "trace-build-sealed.log": "08c8c5fd29f6538d3dc57f0eed91ea655c89dd024d24d81d88dfa66be4fd6326",
+    "release-ctest-sealed.log": "30958264c9be01d5c1a1ca5d28a1897bbc31c8c08164af6fc39591ef5d9e137a",
+    "trace-ctest-final.log": "2a576dab34a028c488b67d735d51df8883b3f1fec7f81de2aab49ca62528dc20",
+    "journal-ctest-sealed.log": "3ce40bcbd47ec4483873a34d7f0931c2e00fa131ccc267303bd89ca56497793c",
+    "trace-configure-final.log": "72fe66169dec6b7869da4d055afd586d338fcd054c2e7013c339a66e4e977ecf",
+    "journal-configure-final.log": "939fd34b7b3058338402efcc06a25d300512a87279d5bff94fb3cd1a6e62cfe8",
+    "journal-build-final.log": "23be058d37fc3cf56bfa11521afb4732250e1be74357a6b397e995e89bc90931",
+    "bc-configure-final.log": "5a2fab64f99366de9e300447a59d72a6cf74293207b9be03d13d850ac198a7a1",
+    "release-configure-final.log": "68995db20792e13d66b7805f3d1625a8f76486935768ddffcec9532623d440fe",
+    "bc-build-final.log": "33964703dd0d762944cabebc66d1733df80a8c08e29abe20d3d89ae6138b0d58",
+    "journal-build-sealed.log": "e4f7ddb1a32222554e7ec65ab58e6a5b7c5b2caacfbf4fb5449524fdd11e49e6",
+    "release-ctest-final.log": "3df0693ce4ea3dccc033d42f6cf5b93b01a8f3b52a158779e0e6645f004d576f",
+    "release-build-sealed.log": "41c0f95e47c905cba8f9149b9529adf4c1707956d052c4151e9c72046a087194"
+  },
+  "limitation": "Unfuzzed investigation material,not promoted. Current-source fuzz blocked on previously denied external-transfer approval;no retry. Runtime and causal gates pending.5862 failed its300K contract because standalone schedule observer exits after capture;only separately validated initial schedule is evidence."
+}

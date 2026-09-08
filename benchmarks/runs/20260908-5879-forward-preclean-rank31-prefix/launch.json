@@ -1,0 +1,10 @@
+{
+  "job_id": "1674669",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5879-forward-preclean-rank31-prefix/array.sbatch"
+  ],
+  "manifest_sha256": "305fc45a59040395b38f8f24ebffe38876a2bc6680c4c98a375458ba516e7e3b",
+  "continuation": "Independent5870 successor;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
