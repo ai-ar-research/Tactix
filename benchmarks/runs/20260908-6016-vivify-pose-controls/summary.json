@@ -1,0 +1,46 @@
+{
+  "full_trace_suite": "99/99 PASS",
+  "native_controls": {
+    "valid": {
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "duplicate": {
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": ""
+    },
+    "trailing": {
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": ""
+    },
+    "bad-token": {
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": ""
+    },
+    "empty": {
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": ""
+    },
+    "short": {
+      "exit_code": 2,
+      "stdout": "",
+      "stderr": ""
+    }
+  },
+  "test_consideration": "Actual Tactix/native callbacks cover selected-pose cache, garbage invalidation, replacement and scope reset; native uses matching Release layout. Five malformed selectors exit2; strict parser rejects eight malformed rows. Diagnostic-only, no solver behavior change.",
+  "hashes": {
+    "benchmarks/runs/20260908-6016-vivify-pose-controls/native-control": "bbcd6788de8eeb1a0b514277313321f50f07eb11d3edcf14d4f2d1a63cf2ebb8",
+    "benchmarks/probes/scratch/test-vivify-pose-native-6018.c": "2d7c09dc1da3365640319602494c6226f1affc87c46528685dd57e5bd2a37f80",
+    "benchmarks/runs/20260908-6016-vivify-pose-controls/valid.tsv": "611d13dbb5d4bb0911e51c472c2f38126f71dbb12f0e95a43f1ad3f727335215",
+    "benchmarks/runs/20260908-6016-vivify-pose-controls/logs/tactix-build.log": "276be5f82bfa4e2c9325fecf005127daa94a284a99141cf3b286a649a7afc457",
+    "benchmarks/runs/20260908-6016-vivify-pose-controls/logs/kissat-build.log": "884ed5a944a31eef5992320fa2b15316b8d79b3a9fe5a97f32ec37108811f8c5",
+    "benchmarks/runs/20260908-6016-vivify-pose-controls/logs/kissat-configure.log": "21f88ebfd4521d374ab5605a7d8c91e3c6d5477dc0c39c202d45023b047b9b0b",
+    "benchmarks/runs/20260908-6016-vivify-pose-controls/logs/tactix-ctest.log": "c04dd385f49a92821cc854184794f83f6a2697ac438b77101212e00ebeecf421",
+    "benchmarks/runs/20260908-6016-vivify-pose-controls/logs/tactix-configure.log": "0751e1b49a9a0545f8841569ba95686eea496824f2ac3ed22d6f8ff5a78a4fd0"
+  }
+}

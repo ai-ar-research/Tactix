@@ -1,0 +1,10 @@
+{
+  "job_id": "1676418",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6020-vivify-pose/array.sbatch"
+  ],
+  "manifest_sha256": "f09d685bf2451b869502ca9b0b91b6c98bc96e44ec41a1f27903272161a877dc",
+  "continuation": "Read-only6020 Vivify candidate pose;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}

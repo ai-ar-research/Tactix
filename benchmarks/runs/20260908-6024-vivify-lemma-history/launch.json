@@ -1,0 +1,10 @@
+{
+  "job_id": "1676453",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6024-vivify-lemma-history/array.sbatch"
+  ],
+  "manifest_sha256": "8959361d986d731de36ec1210ab1ee732bd03105deff2d877218418e8177c023",
+  "continuation": "Read-only6024 learned-clause history with frozen6016 pins;existing campaigns unchanged. Pending expected verdicts permit development,not promotion."
+}
