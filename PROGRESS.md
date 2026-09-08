@@ -12,10 +12,10 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   unchecked serialized arms do not establish “93% search quality.”
 - New isolated [assignment-level5672](benchmarks/reports/2026-09-08-assignment-level-bound.md)
   stops the exact antecedent maximum at the current-level bound;root maximum is zero.
-  Release90/90 twice;trace89/89;3288 actual old/new states agree;5677/job1672959 replays1M.
+  Release90/90 twice;trace89/89;3288 actual old/new states agree;5677 now matches complete1M parent traces/proofs.
   On parent5592,5611 matches31,494,584 decisions;5613 proves five root-satisfied native-garbage/Tactix-live clauses.
   [Full5664](benchmarks/reports/2026-09-08-assignment-level-bound.md):1.128369x Kissat,all80 solves,59 checked at snapshot;losses33/31/37;goal unmet.
-  Sweep5663 matches2574seeds/170units,both targetvars fixed;choice5669/job1672950 distinguishes availability/queue order at182093.5678BC/job1672960;5679timing prepared.
+  [Choice/ownership](benchmarks/reports/2026-09-08-choice-and-ownership.md):5689 validates63689 common heap members/assignments;only3scores differ,120438vs121103 order reverses. Next trace score updates;5687/job1672962 attributes memory.
   [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
   all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
   all80 checked/clean;5599 three pairs median0.824875x5522,spreads1.60%/0.52%,all6 proofs checked.
@@ -190,7 +190,7 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Parent5531 is6/6 checked,median0.889407x5510.5522 Release/BC SHA67867f4b999b55b4… .
    5585/5587 identify the extra five-literal candidate;5588 proves its sole binary support
    reaches a root-fixed smaller endpoint.5592 fixes that count,not physical binaries or the heap.
-   Next5677/5682replay,5678BC/sealer5683,5679timing advance5680wave0 after B28 solves;score5681. Choice5669/5670 testsRank33;Rank39memory2.679xKissat needs cost attribution;5652final1672918.
+   Next trace score updates120425/120434/120438:5689full replayPASS,only3scores differ,equal positive deltas;heap membership/assignments equal.5687/5688memory pending;5678BC/seal5683;5679advance5680wave0 after B solves.5652final sealer5655.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
    `sweep-localization.json` splits both calls at19375. First14 seeds, environment
    sizes and effort deltas/solve counts match; then Tactix alone processes836.
@@ -341,10 +341,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Assignment-level5672 passes90/90 twice,89/89 trace;3288 exact old/new states;root/saturating maximum shortcuts only.
-- Rank32 all40,102,204 decisions match through100K;three timing pairs median0.824875x5522.
-- Full5664 is1.128369xKissat,all80 solves,59/80checked at snapshot;largest losses33/31/37;checks asynchronous.
-- Replay5677/BC5678 queued;timing5679 prepared;choice5669 queued;full5664 andfuzz5657/95829 remain active.
+- Assignment-level5672 now preserves both complete1M parent traces/proof bytes;5678BC queued,5679timing prepared.
+- Propagation5652 three exact-work/proof pairs all improve,median0.997379x5626;spreads0.409%/0.655%;4/6checked at snapshot.
+- Heap5689 full replayPASS:63689 equal members/assignments,only3scores differ;relative branch scores reverse.14parser fixtures pass;next score-update producer.
+- Memory5687/job1672962 attributes Rank39's2.679x peak;11parser fixtures pass. Full5664 checks advance asynchronously;fuzz95829 live.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
