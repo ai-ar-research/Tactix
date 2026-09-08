@@ -232,8 +232,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Claude's terminal fixture review passed: the initial expected elimination
    count was wrong at equality, not a solver defect; original failure retained.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
-   in the background as requested. Check session `9171` for its terminal report;
-   do not inspect/reinterpret fuzz artifacts. Consolidation still requires all
+   in the background as requested. Owner9171 exited with a submission-only update,
+   not a verdict: eight jobs were queued. The same Claude conversation is resumed
+   under tool session `34566`; poll only its terminal response, never artifacts.
+   No duplicate campaign was requested. Consolidation still requires all
    runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
    pauses dependent work and invokes bounded Claude repair immediately.
 5. Keep broad cleanup separate. Preserve proof-before-deletion, native physical
@@ -284,7 +286,7 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 - Sweep cursor measured exact-work median 0.984563x; full successor5485 submitted.
 - Square phase choice honors saved state; implication-history probe5487 queued.
 - Rank32 Sweep and Rank37 later Sweep/Vivify boundaries localized; no cause proved.
-- Predecessor fuzz5442 PASS; latest-source checkpoint5492 runs under owner9171.
+- Predecessor fuzz5442 PASS; latest-source owner5492 resumed under session34566.
 - Watch append5468 now has six independently checked/clean timing proofs.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
