@@ -1,0 +1,295 @@
+{
+  "first_call_normalized_grids_equal": true,
+  "calls": {
+    "candidate": [
+      {
+        "seeds": [
+          {
+            "external": "-145",
+            "score": "34966",
+            "remainders": "34966"
+          },
+          {
+            "external": "-145",
+            "score": "34942",
+            "remainders": "34942"
+          },
+          {
+            "external": "-145",
+            "score": "34920",
+            "remainders": "34920"
+          }
+        ],
+        "grids": [
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "25",
+              "delta": "23"
+            },
+            "members": {
+              "0": "-145",
+              "1": "-233959"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "3",
+              "remainders": "23",
+              "delta": "43"
+            },
+            "members": {
+              "0": "-145",
+              "1": "145",
+              "2": "-224516"
+            }
+          }
+        ]
+      },
+      {
+        "seeds": [
+          {
+            "external": "-145",
+            "score": "34922",
+            "remainders": "34922"
+          },
+          {
+            "external": "-145",
+            "score": "34919",
+            "remainders": "34919"
+          },
+          {
+            "external": "-488187",
+            "score": "10076",
+            "remainders": "10076"
+          },
+          {
+            "external": "-488187",
+            "score": "10020",
+            "remainders": "10020"
+          },
+          {
+            "external": "145",
+            "score": "9624",
+            "remainders": "9624"
+          }
+        ],
+        "grids": [
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "4",
+              "delta": "2"
+            },
+            "members": {
+              "0": "-145",
+              "1": "145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "57",
+              "delta": "55"
+            },
+            "members": {
+              "0": "-488187",
+              "1": "340773"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "54",
+              "delta": "52"
+            },
+            "members": {
+              "0": "145",
+              "1": "-493146"
+            }
+          }
+        ]
+      }
+    ],
+    "kissat": [
+      {
+        "seeds": [
+          {
+            "external": "-145",
+            "remainders": "34966"
+          },
+          {
+            "external": "-145",
+            "remainders": "34942"
+          },
+          {
+            "external": "-145",
+            "remainders": "34920"
+          }
+        ],
+        "grids": [
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "25",
+              "delta": "23"
+            },
+            "members": {
+              "1": "-233959",
+              "0": "-145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "3",
+              "remainders": "23",
+              "delta": "43"
+            },
+            "members": {
+              "2": "-224516",
+              "1": "145",
+              "0": "-145"
+            }
+          }
+        ]
+      },
+      {
+        "seeds": [
+          {
+            "external": "-145",
+            "remainders": "34922"
+          },
+          {
+            "external": "-488187",
+            "remainders": "10076"
+          },
+          {
+            "external": "-488187",
+            "remainders": "10020"
+          },
+          {
+            "external": "145",
+            "remainders": "9627"
+          },
+          {
+            "external": "145",
+            "remainders": "9574"
+          },
+          {
+            "external": "145",
+            "remainders": "9560"
+          },
+          {
+            "external": "145",
+            "remainders": "9549"
+          },
+          {
+            "external": "145",
+            "remainders": "9540"
+          },
+          {
+            "external": "145",
+            "remainders": "9531"
+          },
+          {
+            "external": "145",
+            "remainders": "9522"
+          }
+        ],
+        "grids": [
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "57",
+              "delta": "55"
+            },
+            "members": {
+              "1": "340773",
+              "0": "-488187"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "54",
+              "delta": "52"
+            },
+            "members": {
+              "1": "-493146",
+              "0": "145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "15",
+              "delta": "13"
+            },
+            "members": {
+              "1": "-88852",
+              "0": "145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "12",
+              "delta": "10"
+            },
+            "members": {
+              "1": "-90733",
+              "0": "145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "10",
+              "delta": "8"
+            },
+            "members": {
+              "1": "-217851",
+              "0": "145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "10",
+              "delta": "8"
+            },
+            "members": {
+              "1": "-220636",
+              "0": "145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "10",
+              "delta": "8"
+            },
+            "members": {
+              "1": "-223749",
+              "0": "145"
+            }
+          },
+          {
+            "dimensions": {
+              "factors": "2",
+              "remainders": "10",
+              "delta": "8"
+            },
+            "members": {
+              "1": "-218780",
+              "0": "145"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "conclusion": "Both initial schedules and scores match (summary.json). First-call grid members match by ordinal; raw emission order is intentionally reversed in native logging. Second call begins at seed -145 in both; Tactix accepts gain 2, native proceeds to seed -488187 and accepts gain 55.",
+  "source_hypothesis": "5450 stalls bound 1 on the preceding BVE quota cut. Native consistent-phase bookkeeping advances to 2, and Factor requires gain strictly above that bound. Candidate 5459 restores this policy; 5458 verbose confirmation and 5463 causal prefix remain independent checks.",
+  "limitation": "No full runtime gain inferred from a trace or source hypothesis."
+}

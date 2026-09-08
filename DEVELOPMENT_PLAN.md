@@ -388,6 +388,13 @@ gate exemption and never waive a matched Kissat solve.
 
 ### 8.2 Correctness
 
+For every change, explicitly consider whether new or updated unit tests are
+needed. Check coverage of the affected behavior, boundaries, and failure modes;
+add focused tests for uncovered cases. When no test change is needed, record a
+brief coverage-based reason in the change's validation summary. This applies
+to implementation, policy, refactoring, tooling, and documentation changes;
+it does not replace the existing correctness or benchmark gates.
+
 Every relevant run checks SAT models against the original CNF, UNSAT proofs
 with independent checkers, differential status against references, and internal
 invariants. The Tier-D campaign follows the SC2026 Main-track contract: the

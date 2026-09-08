@@ -1,0 +1,133 @@
+{
+  "clean_stops": 2,
+  "observer_neutral_prefix_rows": {
+    "candidate": 7921492,
+    "kissat": 7921492
+  },
+  "conflict": 32073,
+  "calls": [
+    {
+      "call": 1,
+      "counts": {
+        "candidate": {
+          "schedule": 117141,
+          "seeds": 3,
+          "grids": 2,
+          "members": 5,
+          "summary": 0
+        },
+        "kissat": {
+          "schedule": 117141,
+          "seeds": 3,
+          "grids": 2,
+          "members": 5,
+          "summary": 1
+        }
+      },
+      "native_summary": [
+        {
+          "ticks": "1207708"
+        }
+      ],
+      "schedule": {
+        "equal": true,
+        "first_difference": null
+      },
+      "seeds": {
+        "equal": true,
+        "first_difference": null
+      },
+      "grids": {
+        "equal": true,
+        "first_difference": null
+      },
+      "members": {
+        "equal": false,
+        "first_difference": {
+          "index": 0,
+          "candidate": {
+            "ordinal": "0",
+            "external": "-145"
+          },
+          "kissat": {
+            "ordinal": "1",
+            "external": "-233959"
+          }
+        }
+      }
+    },
+    {
+      "call": 2,
+      "counts": {
+        "candidate": {
+          "schedule": 117154,
+          "seeds": 5,
+          "grids": 3,
+          "members": 6,
+          "summary": 0
+        },
+        "kissat": {
+          "schedule": 117154,
+          "seeds": 10,
+          "grids": 8,
+          "members": 16,
+          "summary": 1
+        }
+      },
+      "native_summary": [
+        {
+          "ticks": "1242583"
+        }
+      ],
+      "schedule": {
+        "equal": true,
+        "first_difference": null
+      },
+      "seeds": {
+        "equal": false,
+        "first_difference": {
+          "index": 1,
+          "candidate": {
+            "external": "-145",
+            "remainders": "34919"
+          },
+          "kissat": {
+            "external": "-488187",
+            "remainders": "10076"
+          }
+        }
+      },
+      "grids": {
+        "equal": false,
+        "first_difference": {
+          "index": 0,
+          "candidate": {
+            "factors": "2",
+            "remainders": "4",
+            "delta": "2"
+          },
+          "kissat": {
+            "factors": "2",
+            "remainders": "57",
+            "delta": "55"
+          }
+        }
+      },
+      "members": {
+        "equal": false,
+        "first_difference": {
+          "index": 0,
+          "candidate": {
+            "ordinal": "0",
+            "external": "-145"
+          },
+          "kissat": {
+            "ordinal": "1",
+            "external": "340773"
+          }
+        }
+      }
+    }
+  ],
+  "limitation": "Controlled-stop diagnostic only. Matching counts are not formula or physical-state identity. First differing schedule or seed is a localization target, not automatically a solver defect or a performance improvement."
+}
