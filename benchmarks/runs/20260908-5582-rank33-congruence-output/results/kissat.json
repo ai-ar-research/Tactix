@@ -1,0 +1,31 @@
+{
+  "scratch": "/tmp/tactix-5582-1672513-ikf961hg",
+  "arm": "kissat",
+  "slurm_job": "1672513",
+  "node": "node017",
+  "binary_sha256": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "18",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5582-rank33-congruence-output/pins/kissat",
+    "/tmp/tactix-5582-1672513-ikf961hg/input.cnf",
+    "/tmp/tactix-5582-1672513-ikf961hg/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 85983232,
+    "sha256": "770d1ae765b34878a57ede12c13f05d6a481df5f77c5a42295555398ed260f25"
+  },
+  "trace_sha256": {
+    "kissat.decisions.tsv": "e5f098fb2bd52b5e850068af8a9576477226383b8597efae04923678fd6e88f6",
+    "kissat.prefix.tsv": "9312863e5dceb871d092fed01d57ace7976cc411f28985aa5e51e11469dff47b",
+    "kissat.formula.tsv": "e83bda202ea2b2080da997261bc16600a8eb554d4c4dc8b257cf3f951a873f6d",
+    "kissat.boundaries.tsv": "18b5f3ee6edd44de5defc58357af8ea23fa120ba756f9e63021fa748c48d81ab",
+    "kissat.binary.tsv": "1174c70cf5599ba5587b6bb15f32b677525f4da1f66fc71aa4515999f4bfffa3"
+  },
+  "scratch_deleted": true
+}
