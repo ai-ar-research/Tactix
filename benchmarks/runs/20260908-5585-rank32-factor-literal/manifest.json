@@ -1,0 +1,38 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5529-sweep-small-rank32-trace",
+  "candidate_authority": "benchmarks/runs/20260908-5522-sweep-small",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-sweep-small-5522",
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 19376,
+  "hypothesis": "The second Factor entry score differs by one despite equal canonical binary and large-clause multisets. Compare actual directed binary occurrences and connected large candidates to discriminate binary degree from candidate peeling.",
+  "validation": "Require whole per-arm5529 decision/prefix and partial-proof identity; account explicitly for additional global-observer boundary events. Compare all selected literal state/occurrence groups, preserving multiplicity. Diagnostic only, no acceptance timing.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "dcabb601c210d9bcc6f03100a29404cdae744a024da6c754ed9e0d00a5d5a3ae",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "run.py": "e86399f251ad4e71f0b6b984ccbc5b070a1ac1f143655c324db7b3f97d461971",
+    "array.sbatch": "6a91406725e9f885f1e107952402fc8c8ba97a0ca074ba0465ff3750dc7be465"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T09:02:51.467024+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5580-rank32-factor-entry/heap-localization.json",
+    "sha256": "0946b40555b092f95b0bccf5b8414aaecae237c818521ce1b91f2e3a275c64ee"
+  },
+  "limitation": "Diagnostic-only partial proof; no checked complete verdict or acceptance timing. Does not replace Rank 1-40 or B28+C5.",
+  "localization_sha256": "fce42ceb8b50ec08de821a24f8d8838c0da958e2e5812cb080040d95117b9ac1",
+  "test_consideration": "No solver/observer change. Reuse immutable existing selected-literal observers; add parser framing/multiplicity fixtures when analyzing results. Stop19376 uses the independently validated short parent, not a new timing budget.",
+  "source_patch_sha256": "afea4c71e4e7668d618df315692aaf0028e587aa3fb40d0267cde94504d1c06a",
+  "selected_literal": 41096
+}

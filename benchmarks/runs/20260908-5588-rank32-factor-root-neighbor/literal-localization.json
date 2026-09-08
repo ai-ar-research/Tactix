@@ -1,0 +1,67 @@
+{
+  "parent_replay": true,
+  "parser_fixtures": 18,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "715117dcddf08db448dc2ceecd9c9ccc238a809be09815c7f0624c898507b409",
+      "traces": {
+        "candidate.prefix.tsv": "ec5ab1857d2b75a6c5215a1e971ff0a9f1fe356b2a1a3a19d2572fd78e9d72d3",
+        "candidate.events.tsv": "c6700006f4e2607b6f5fedd005b1cd24cef7663ed321470ea7d5828907fe057f",
+        "candidate.boundaries.tsv": "354fdac20bf040c9726c4c405d0848e475965e12b8e09ecd2eac557fdf6a8622",
+        "candidate.decisions.tsv": "9ad7f67c50a00694db9a7b9c8e634607ee987e7ac0c78248ac7a7ed119475401",
+        "candidate.macro.tsv": "8ee4126200feddcad0b0206375f3ff76124a4dac9a85b8b84b187b0be5e8a2cc"
+      }
+    },
+    "kissat": {
+      "result_sha256": "1e20a4e975f10f6cfc2ce0eb61f98456d805c1a2212346aa8f0f8e3d534a5fe3",
+      "traces": {
+        "kissat.prefix.tsv": "fe407c3af79419a98b5953b2032723ccdcd7eb88edac748fbca62e7dec446347",
+        "kissat.decisions.tsv": "9ad7f67c50a00694db9a7b9c8e634607ee987e7ac0c78248ac7a7ed119475401",
+        "kissat.boundaries.tsv": "4e03ae7d38bb647ba0761337d5e0dd3460c6e17abbe3be19aa40d7147bf120be",
+        "kissat.events.tsv": "83b5b2d6c433f0f682f0f9bcd2b9dd7111a189e296e5538b3328d655de64596a"
+      }
+    }
+  },
+  "observer_projection": {},
+  "pass_comparisons": [
+    {
+      "candidate_state": {
+        "external": -174483,
+        "active": 1,
+        "marked": 1,
+        "value": 0,
+        "score": 9
+      },
+      "kissat_state": {
+        "external": -174483,
+        "active": 1,
+        "marked": 1,
+        "value": 0,
+        "score": 9
+      },
+      "physical_order_equal": true,
+      "candidate_only": [],
+      "kissat_only": []
+    },
+    {
+      "candidate_state": {
+        "external": -174483,
+        "active": 1,
+        "marked": 1,
+        "value": 1,
+        "score": 5
+      },
+      "kissat_state": {
+        "external": -174483,
+        "active": 0,
+        "marked": 1,
+        "value": 1,
+        "score": 5
+      },
+      "physical_order_equal": true,
+      "candidate_only": [],
+      "kissat_only": []
+    }
+  ],
+  "limitation": "Initial occurrence snapshots identify connected material, not the cause of different admission/peeling or the eventual runtime effect. No solver source change or checked final verdict in this stopped diagnostic."
+}
