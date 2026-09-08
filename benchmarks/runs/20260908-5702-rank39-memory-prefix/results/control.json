@@ -1,0 +1,30 @@
+{
+  "scratch": "/tmp/tactix-5702-1672996-ktnngh_9",
+  "arm": "control",
+  "slurm_job": "1672996",
+  "node": "node018",
+  "binary_sha256": "b42f0e54533c5032db5b318b4baab9e508c513fff92d454f692acbfc89f19f4b",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "30",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5702-rank39-memory-prefix/pins/control",
+    "/tmp/tactix-5702-1672996-ktnngh_9/input.cnf",
+    "/tmp/tactix-5702-1672996-ktnngh_9/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 42991616,
+    "sha256": "3dfa409a3a2d2de233d8adfe249619769ef816de35b2abd9e7d63dec89b65338"
+  },
+  "trace_sha256": {
+    "control.boundaries.tsv": "7d51b739af072981036bcb7cf53cad97f7cee5c36a7f4ce8d601dc9038592d53",
+    "control.prefix.tsv": "d8e7ff0f943d9554d5b38f95d1572ac7ddbab0836bbb61c38a42eaf7bada026c",
+    "control.decisions.tsv": "f8760ea1be644065463e343a1c2b3439deafb30616ba556a7357ba7ab8d55e33",
+    "control.macro.tsv": "a13c467e33d30dbb397f99533d31dd1bf676e8bdfa1862bcc37f152384c2eb0a"
+  },
+  "scratch_deleted": true
+}

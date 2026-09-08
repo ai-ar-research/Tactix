@@ -1,0 +1,63 @@
+Own ONE background periodic correctness checkpoint under DEVELOPMENT_PLAN.md
+8.2. Read CLAUDE.md, tools/fuzz/README.md, fuzz and slurm-jobs skills. Own all
+preparation, immutable pins, submission, monitoring, oracle/artifact inspection,
+cleanup and TERMINAL report. Do not return submission-only. Parent continues
+runtime development and will observe only your CLI response, not your artifacts.
+No project wrap-up, commits, production edits, push or solver repairs.
+
+Read-only candidate: .claude/worktrees/runtime-assignment-level-5672
+Authority: benchmarks/runs/20260908-5672-assignment-level/manifest.json
+Production base: c2a95a6c79c21a76516cf556b6538e76da369c34
+Cumulative and repair patches: same authority directory.
+Release build/pin-5672-assignment-level-release/tactix and independent
+build/pin-5674-assignment-level-bc/tactix have SHA
+743e1283507ee0cb35d7ba1843ab008fda8b48e75714ca6d0688b0227d05fe61.
+Release90/90 twice,trace89/89.3288 actual old/new state fixtures agree,
+including root,chrono,all-root antecedents and maximum positions.
+5677 complete1M parent per-arm decisions/traces/proof bytes replay.
+
+Preceding5657 owner95829 is TERMINAL PASS on5649:70000 cases,63573 independently
+checked verdicts,zero solver failures,312 direct reachability cases. Do not
+repeat or inspect5657 or any preceding fuzz campaign. This checkpoint covers
+the NEW assignment-level bound only: kernel_assign_ref stops scanning when
+the exact antecedent maximum reaches k.level,and does no scan at root.
+Read the actual source and patch. Prove normal,current-bound early termination,
+root,no-current-level maximum,chrono/non-level-sorted trail reachability.
+Distinguish generated evidence from fixed cases. Preserve legal N1 schedules.
+
+The preceding owner reported a fixture-only GCC13.1/libstdc++ PR109703 issue:
+test_congruence_index_cleanup uses an input-iterator string constructor to read
+its proof file, triggering UBSan with no solver frame. A fixture-only alternative
+read passed1200/1200. Do not inspect the old fuzz artifacts. Review the candidate
+test directly and,if needed,create a documented test-only copy for sanitizer
+validation. Keep submitted5672 and all production/pins immutable; no solver
+source changes. Report separately from solver/oracle outcomes.
+
+Create only .claude/worktrees/runtime-periodic-fuzz-5715,
+build/pin-periodic-fuzz-5715-* and benchmarks/runs/20260908-5715-periodic-fuzz.
+Never write through shared docs/tools symlinks. Verify production+cumulative
+patch identity and reproduce plain Release hash before debug/fuzz builds.
+Use maintained quick checkpoint base(corpus plus10000 seeds per necessary
+risk-based leg),assertions,ASan/UBSan,original-CNF SAT models,DRAT/native LRAT
+independent proofs,differential verdicts,random policy and relevant targeted
+propagation/probing schedules. Select the minimal complete risk matrix.
+Known-bad selftest required for any oracle/setup/accept-condition change.
+
+All real CNF solves use sbatch. Generated legs request100logicalCPUs,
+400000MiB,50workers,normal partition,no node constraint or array throttle.
+No silent fallback concurrency. Narrow fixed/setup/reachability tasks may use
+fewer resources with recorded reason. Submitted harness/scenarios/corpus must
+be immutable snapshots. Record requested and achieved concurrency.
+
+On genuine solver soundness/crash/sanitizer/invariant/model/proof failure:
+preserve originals,stop dependent owned legs,shrink and return terminal FAILURE
+with causal reproducer and bounded scope. Normal dependent5672 jobs are
+5678/job1672960,5679 waves1673062/1673070 (plus later specifically submitted
+waves in that campaign),full5712/job1673074. Stop only exact dependent tasks
+on genuine correctness failure. Unrelated jobs and user1668242 untouched.
+No independent editing of submitted source or pins; parent invokes repair.
+
+Return terminal PASS/FAILURE/BLOCKED with source/build/harness hashes,seeds,
+modes,jobs/resources/concurrency,SAT/UNSAT/timeouts,oracles,direct reachability,
+limitations,cleanup,created paths and durable report. No duplicate passing
+campaign. Observation timeouts are not terminal:re-poll the same live handle.

@@ -1,0 +1,20 @@
+{
+  "job": "1673070",
+  "tasks": [
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=2-3",
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/array.sbatch"
+  ],
+  "recorded_at": "2026-09-08T13:04:07.617984+00:00",
+  "manifest_sha256": "ee80eda860f0574d49bdb0c2c24b9a87e77aaf19250b23d114b61f92cb1ef48a",
+  "predecessor_solver_records": {
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/provisional/000.json": "39c6ca596672a37188c1bd6be3084d663b18a8f094ba91bf84b2c85d87269c59",
+    "benchmarks/runs/20260908-5679-assignment-level-rank39-runtime/provisional/001.json": "8c04033bc1ebb658646235c2dcd4ac05d7fe61e458e039900a2f07e34a9aa7a1"
+  },
+  "validation": "Expected solver outcomes permit continuation; proof/model checks remain asynchronous and must pass before promotion."
+}
