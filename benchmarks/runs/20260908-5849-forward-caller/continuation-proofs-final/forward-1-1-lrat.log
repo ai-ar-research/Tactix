@@ -1,0 +1,6 @@
+c parsed a formula with 16 variables and 9 clauses
+c WARNING hint already satisfied in lemma with index 13
+c VERIFIED
+c allocated 1024 60 160
+c Added clauses = 15.  Deleted clauses = 4.  Max live clauses = 12
+c verification time = 0.01 secs

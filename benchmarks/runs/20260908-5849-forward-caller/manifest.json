@@ -1,0 +1,52 @@
+{
+  "source": ".claude/worktrees/runtime-forward-caller-5849",
+  "parent": ".claude/worktrees/runtime-forward-admission-5830",
+  "parent_authority": {
+    "path": "benchmarks/runs/20260908-5830-forward-admission/manifest.json",
+    "sha256": "4711f027a7e0f819548f8c9e4841750dcb6b2b32b0b737cdf74a8b46a93975cf"
+  },
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Restore post-C2 full irredundant reconnect, suffix propagation and satisfied-clause cleanup before scheduling BVE. Retain private partial forward semantics and explicit N1 actions. Reuse existing kernel operations and proof-safe root/refutation helpers; no new kernel primitive, option, global contract or tuned budget.",
+  "test_consideration": "95/95 twice,94/94 trace,95/95 journal; actual next-slot two-wave closure, direct mixed chain, empty suffix, six caller conflict cases;40 independently checked DRAT/LRAT proofs including active-journal cases. Inherited public/action/guard/model and continuation coverage retained.",
+  "files": {
+    "src/policies/default_policy.cpp": "5a62b0a121be774099f8de6cb2ea775711f6b7263faf0bb289d68a59d4fff339",
+    "src/rules/strengthen/strengthen.cpp": "e0f7dae84d58ddefa96905544153d12ae027bf4a42a48b304a695bdf9b007e68",
+    "src/rules/strengthen/strengthen.hpp": "81f448f279d1a6564526eb58c63ddefc8dc5cca130d618ac19042da76f01986b",
+    "tests/test_forward_caller.cpp": "c5edd1fc72c4082718068abc1d6ee8ac90ffba56415c2bd54e476a7e0a6bb40c"
+  },
+  "binaries": {
+    "build/pin-5849-forward-caller-release/tactix": "294ff32881d2b0e18d6342afec712f1a110d4722838a11bcd443b607f2e94307",
+    "build/pin-5850-forward-caller-bc/tactix": "294ff32881d2b0e18d6342afec712f1a110d4722838a11bcd443b607f2e94307",
+    "build/pin-5851-forward-caller-trace/tactix": "10a9906fa396e8f846da8e9281d207986405b2abb546984e7b39b7c9d9d06ad4",
+    "build/pin-5854-forward-caller-journal/tactix": "1b97458b9655631bfc4ddc56a5f1e3a93763c19264db2255fdeb971bc437cc24"
+  },
+  "patches": {
+    "repair.patch": "c6e5030f89da876e2eb0e2de7683ea337319588bf0b8c6b4ae97ca8e76316e85",
+    "cumulative.patch": "dff5189ceecb982c8c11eac929c2350a884e490ea1615ebf04c85d3ee02430de"
+  },
+  "validation": {
+    "benchmarks/runs/20260908-5849-forward-caller/final-proof-validation.json": "e5ab0c7d59f83dd1bef8db641f13a238f81627e0853ecb48c3e6da2b25ad39f8",
+    "benchmarks/runs/20260908-5845-forward-admission-rank31-prefix/summary.json": "9d883d6e2373ae55e4ef44ced8a63c5179326b40475cd729a9b2a2d01d481de1"
+  },
+  "logs": {
+    "journal-ctest-final.log": "cac595d9bae6a5120037fcd43dc9b28db2b394bb01fd9297a00ed0c41378da63",
+    "release-build.log": "9587d7a59ef1865c14ca286f3e3f637f6615f445b3c62ca585ac96355863a8e3",
+    "trace-configure-final.log": "9343ae22df8a30d9dc941a8cee596d2bf5e322e3584d4612dd2875b5e59564b0",
+    "release-build-final.log": "abd51b609331cdbf23cb2efb786bed2304f6a98d3e73e624d567e11c7ed38855",
+    "bc-ctest.log": "60c0bf793de28fadf46fcc1523c51be455618320df1bc37601e2155d2a857b75",
+    "trace-ctest-final.log": "bce413988d65ac898ef98518de58940e75439932ce72bfc5d5d52f16aa801169",
+    "bc-ctest-final.log": "862c26f0cc2e94c5d4cde38dd0ff267e19ca2c0a37f9fcd0cedd8d41fb73b0de",
+    "bc-build-final.log": "2d8060468500246607b79e2ecba354e02ff5d484a4fb1b3b8c886fc9f65c56bd",
+    "trace-build-final.log": "f82b865670b22d73969697cb063b73b944159b9599b5a6f1ed90746165ddf26f",
+    "release-ctest-final.log": "49993f88667f9d90b6c538ebdb1256f3f05920a47591b2f1b11b0d55444b99fe",
+    "release-configure-final.log": "0bbe48195ad2d59ae44b2635686801ac599d5e38753b865e478c40029349cb32",
+    "bc-build.log": "48c2eb95c904267900268d8d39b9a257dc803722796a72e187ece94b3993a05a",
+    "bc-configure-final.log": "e8bae9ad8c5045ad3b19dcf31620589c12bb95a356de3ceb8d1df7d799477415",
+    "bc-configure.log": "fd4293f0297fbead6557e3b0853d74bb6895f7596506b2a6db2bdffb84086a6d",
+    "journal-configure-final.log": "68dc8d956c558ccc892613f76a426c037bb0e3905cb1dc9d1bafbe161806c15b",
+    "release-ctest.log": "43a395cf7b452d44cc77babe1b95fa309a401e1b70fb98fc09e8fe7bda34724f",
+    "release-configure.log": "804ed1a4133a481e221e52ae59c99883d6ea49b59ba6b602e04b87027f143d83",
+    "journal-build-final.log": "bff89e946ec7359bd701bcc15282abf1704fbf12312d197a3afc46dad75dfbfd"
+  },
+  "limitation": "Not promoted, current-source fuzz remains blocked on previously denied external-transfer approval. Initial parallel BC CTest failed only mocked snapshot cleanup with ENOTEMPTY; complete serial rerun retained. Journal guard/cursor ordering corrected by review before final builds. Runtime and causal gates pending."
+}

@@ -1,0 +1,7 @@
+{
+  "job_id": "1674504",
+  "manifest_sha256": "d958c08c5c68cfb33f8a1f5d8eb13a18983044934054c1475045dc3b8e0d9249",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5862-rank31-bve-frontier/array.sbatch",
+  "scope": "Two independent 12CPU/48000MiB candidate/native diagnostic tasks;300K stop,1200s solver,25min allocation. Existing campaigns and fixed runtime reference unchanged.",
+  "purpose": "Collect missing first BVE schedule and candidate lifecycle at179823;require cached ordinary trace and proof-byte replay before causal interpretation."
+}
