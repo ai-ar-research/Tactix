@@ -1,0 +1,116 @@
+{
+  "old_new_cases": 24,
+  "native_cases": 6,
+  "checked_proofs": 8,
+  "records": [
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-0-drat.cnf",
+      "proof_sha256": "f77ae6344a63f3403239e34b7ffa73e8c0af85de98e291e5d8fa9815ed9ae74e",
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-0-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-0-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-0-lrat.cnf",
+      "proof_sha256": "8d67dd1599453ce9d3171ddb232264146fdeaac958201f21b10d2b3a08fe6f50",
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-0-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-0-lrat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-1-drat.cnf",
+      "proof_sha256": "f77ae6344a63f3403239e34b7ffa73e8c0af85de98e291e5d8fa9815ed9ae74e",
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-1-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-1-lrat.cnf",
+      "proof_sha256": "8d67dd1599453ce9d3171ddb232264146fdeaac958201f21b10d2b3a08fe6f50",
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-0-1-lrat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-0-drat.cnf",
+      "proof_sha256": "eebf5abc259a3f5ea948ef410c5236056f908c55780327ce67b3bfa552f3ca35",
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-0-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-0-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-0-lrat.cnf",
+      "proof_sha256": "1e8636667e15ac1179e094642708035d098ebf9451e41ef9f1dd6e060d98e7f1",
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-0-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-0-lrat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-1-drat.cnf",
+      "proof_sha256": "eebf5abc259a3f5ea948ef410c5236056f908c55780327ce67b3bfa552f3ca35",
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-1-drat.proof"
+      ]
+    },
+    {
+      "cnf": "benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-1-lrat.cnf",
+      "proof_sha256": "1e8636667e15ac1179e094642708035d098ebf9451e41ef9f1dd6e060d98e7f1",
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5962-bve-active-pop/fixed-proofs/bve-active-1-1-lrat.proof"
+      ]
+    }
+  ],
+  "hashes": {
+    ".claude/worktrees/runtime-bve-active-pop-5962/tests/test_bve_active_pop.cpp": "345a83768738870b2b9cd46e85f51adcdd33a55f91c8ea0bb2de306a4ec89cc3",
+    "build/pin-5962-bve-active-pop-release/tests/test_bve_active_pop": "06ca7a227212f3cf35ae7f6702ba138f03a333f6767fedc8b46179dbedc296b1",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/old": "c2cea13f1d8331927d3ca663fcecc965945377a5efdc326f0c95725375d189c2",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/native": "bf7c7add8e505f9c34efe8e527e86b0927ff38d2d347e7cc2f0280c62751f161",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-1-0-lrat.log": "bb92944a4d795ad18a08cfcfb1006ef92c22259d27383b7199a2ae77aafe8c0c",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/new.log": "4fe9862f0e31a990c1ab569ebc8684a65d360cd2dfca0d86646042d1987960a8",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-0-1-drat.log": "101da50c49ca41ceb8edeac3aac151b864265fc222ec1f2eeeccdb8e50d898be",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/old.log": "7e589d9dfe7d6e51b5bd24028dab4ebfe4c05bb3d09a9f033bc0d0bf3b473954",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/old-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-1-1-lrat.log": "bb92944a4d795ad18a08cfcfb1006ef92c22259d27383b7199a2ae77aafe8c0c",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/native-build.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-0-0-drat.log": "06a9a7915383a38d175b6f3e6a4d0d7ac033c07b477ae576a9a0d09c03ba1cd4",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-1-0-drat.log": "06a9a7915383a38d175b6f3e6a4d0d7ac033c07b477ae576a9a0d09c03ba1cd4",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/native.log": "fc0971e6347cb4654cdc6a1308cc34064a3545eb720ba24593f7c02e636be161",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/proof-fixtures.log": "e58ba28e708b042f0764d15789b88e40dd2e6d9d5c8f45750c9d824e2354d778",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-0-1-lrat.log": "bb92944a4d795ad18a08cfcfb1006ef92c22259d27383b7199a2ae77aafe8c0c",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-1-1-drat.log": "101da50c49ca41ceb8edeac3aac151b864265fc222ec1f2eeeccdb8e50d898be",
+    "benchmarks/runs/20260908-5962-bve-active-pop/controls/check-bve-active-0-0-lrat.log": "bb92944a4d795ad18a08cfcfb1006ef92c22259d27383b7199a2ae77aafe8c0c"
+  },
+  "outcome": "Old policy counts4 for3 retired variables on two-sided large cases;new andnative count3. Public retry-independent instance offering,SAT models,invariants andeight DRAT/LRAT refutations pass. No fuzz or runtime claim."
+}

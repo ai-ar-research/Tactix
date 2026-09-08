@@ -435,7 +435,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   clause onto `ρ` with the pivot as its blocking literal (both sides); assert any size-collapsed root
   units un-propagated (M1 owns the cascade). An empty resolvent or two contradictory collapsed units →
   `Unsat`. One variable per apply (canonical = the best schedulable candidate within budget);
-  over-budget or a duplicate-binary hazard → `NoOp` (no state mutated).
+  over-budget or a duplicate-binary hazard → `NoOp` (no state mutated). Private retry/active-pop advice adds no abstract precondition and does not narrow public instances.
 - **Gate reduction:** the resolvent set above is the *full* cross product; when a subset of `x`'s clauses
   is a **gate** — writing them `(x∨Cᵢ)` for `i∈P`, `(¬x∨Dⱼ)` for `j∈N`, with marked subsets `G⁺⊆P`,
   `G⁻⊆N` — the *antecedent×antecedent* resolvents are dropped. Marking is legal exactly when

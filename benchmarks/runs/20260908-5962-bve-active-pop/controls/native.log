@@ -1,0 +1,6 @@
+native sides=1 negative=0 eliminated=2 retired=2 units=1 PASS
+native sides=1 negative=1 eliminated=2 retired=2 units=1 PASS
+native sides=2 negative=0 eliminated=2 retired=2 units=1 PASS
+native sides=2 negative=1 eliminated=2 retired=2 units=1 PASS
+native sides=3 negative=0 eliminated=3 retired=3 units=1 PASS
+native sides=3 negative=1 eliminated=3 retired=3 units=1 PASS

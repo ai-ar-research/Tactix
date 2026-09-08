@@ -288,10 +288,10 @@ pending half-analysis or schedules Backjump independently.
 
 ## 6. BVE retry advice
 
-`bve_retry[v]` is policy advice, not a guard: activation initializes it, an
-attempt clears it, and irredundant semantic removal re-arms it. Clause creation
-or promotion arms only forward/Factor; replacement marks disappearing literals;
-bound growth blanket-rearms every variable. Redundant traffic and collection do not mark it; public instances stay complete.
+`bve_retry[v]` is policy advice, not a guard: activation initializes it, attempts clear it,
+and irredundant semantic removal re-arms it; creation/promotion arms only forward/Factor.
+Replacement marks disappearing literals; bound growth rearms all; redundant traffic/collection do not.
+Private pop eligibility skips assigned/retired payloads before effort checks (isolated5962); physical reinsertion remains intact, and public BVE instances/guard stay unchanged. See SP-BVE-HEAP-1.
 
 ## 7. Probing scopes
 

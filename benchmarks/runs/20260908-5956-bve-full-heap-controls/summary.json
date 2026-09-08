@@ -1,0 +1,15 @@
+{
+  "tactix_ctest": "96/96 PASS",
+  "native_control": "actual construction/initial/pre-pop and repeat suppression PASS",
+  "hashes": {
+    "benchmarks/runs/20260908-5956-bve-full-heap-controls/logs/tactix-ctest.log": "355b7d8a8a678b56eba2d52d5f61701f122d3fc728a3a25e304dc33930f625e2",
+    "benchmarks/runs/20260908-5956-bve-full-heap-controls/native-control": "580b69a01ce45fb59788d3b7be70b5c4e94703ea2961d25fc25ab2106e9a89a1",
+    "benchmarks/runs/20260908-5956-bve-full-heap-controls/native-full.tsv": "47889a2818b2bfcd238dfadf4f057a33d721890ff604c58b29ad47b3925df6b5",
+    ".claude/worktrees/runtime-bve-full-heap-5956/src/policies/default_policy.cpp": "765cb36a24b2dcbccf1376c01a6c497dcfcaf913565a2508b6c453fbbaee0c25",
+    ".claude/worktrees/runtime-bve-full-heap-5956/tests/test_bve_full_heap.cpp": "44c67b7268aa0a524b0ea26646a465f9b3b7476f09edf35b37d5037776ab4a05",
+    "tools/solvers/variants/kissat-bve-full-heap-5956/src/eventtrace.c": "6294fca4625743067a5f9fe42ddf1cfbc7c5f27c7416fb17afb4c34f87c7972e",
+    "tools/solvers/variants/kissat-bve-full-heap-5956/src/eliminate.c": "d546d74aed21e969e3325b87c9a1df8f91e0eb48cf8ab7a10e41ccc2c4d64676",
+    "build/pin-5956-bve-full-heap-trace/tactix": "06b0db76c5e68fbae7608929c165ca5435031c9411dbade9e45a237efa049e38",
+    "tools/solvers/variants/kissat-bve-full-heap-5956/build/kissat": "7eb93f264da18906440309d17655442d09dfa21290774568221129830780ca5e"
+  }
+}

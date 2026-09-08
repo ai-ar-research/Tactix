@@ -1,0 +1,31 @@
+{
+  "scratch": "/tmp/tactix-5972-1675774-w308_scz",
+  "arm": "kissat",
+  "slurm_job": "1675774",
+  "node": "node017",
+  "binary_sha256": "fc460f0099a90950ef9fe530f1643da48ae7adc83076f8edfd7cfb7bb0415dd8",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "12",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5972-bve-sift-ancestry/pins/kissat",
+    "/tmp/tactix-5972-1675774-w308_scz/input.cnf",
+    "/tmp/tactix-5972-1675774-w308_scz/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 218103808,
+    "sha256": "bd9aeb14ef6ec990687bb6440dcf0b13bfcbb2a2b8553166b87d2bc7b83685ab"
+  },
+  "trace_sha256": {
+    "kissat.bve-heap.tsv": "1d03d2bcfc68937722535eb5044da9e0263d3328b145906332ff33f59374d960",
+    "kissat.decisions.tsv": "f4990be94c72275c53230aea12099bcdbc6fc838bc554d7012e826462f9df33c",
+    "kissat.bve-candidates.tsv": "a711b50d6fb21a01632d0a4bcb5360dd4318d3989d3136db12256512f73fc165",
+    "kissat.boundaries.tsv": "d3427e8bf6d60c48d729d21ff4d3490f2a7dc19caf8576f9be497ba54fb921b5",
+    "kissat.prefix.tsv": "74afa84cbaaa31c818de7a4934536d3a88e4829c687e58299309171701df962d"
+  },
+  "scratch_deleted": true
+}

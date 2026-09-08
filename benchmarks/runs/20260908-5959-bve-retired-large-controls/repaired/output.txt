@@ -1,0 +1,3 @@
+sides=1 result=0 eliminated=2 retired=2 roots=1 resolutions=1
+sides=2 result=0 eliminated=2 retired=2 roots=1 resolutions=1
+sides=3 result=0 eliminated=4 retired=3 roots=1 resolutions=1
