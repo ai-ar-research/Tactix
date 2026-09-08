@@ -1,0 +1,34 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5490-rank32-sweep",
+  "candidate_authority": "benchmarks/runs/20260908-5510-sweep-retained",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-sweep-retained-5510",
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 19376,
+  "hypothesis": "Entry-only retained eligibility removes the known extra seed836; determine the earliest remaining decision and Sweep boundary difference against native after the general repair.",
+  "validation": "Two clean stops, trace/pin hashes, exact native full parent replay. Compare candidate to native and to old candidate without requiring unchanged candidate trajectory. Earlier differences must be localized, not discarded.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "25040e69ca9f41b6dc43c13bf323a6794239097e9de84353d45396b8773d379f",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "array.sbatch": "ddf01330e6f7589ced82718a3ca1110f7c0b24229ef1ec450bd4914cf84560e8",
+    "run.py": "6610aca99421186a12b527501514a1471ed81fbfeef505e3e724a1b406c9e4fe"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T06:42:30.915710+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": "benchmarks/runs/20260907-5465-bound-advance-ranks1-40/next-losses.json",
+  "limitation": "Diagnostic-only partial proof; no checked complete verdict or acceptance timing. Does not replace Rank 1-40 or B28+C5.",
+  "localization_sha256": "fce42ceb8b50ec08de821a24f8d8838c0da958e2e5812cb080040d95117b9ac1",
+  "test_consideration": "85/85 twice, trace84/84; actual old pure-seed counterexample; entry/cap/ledger/N1 regression fixtures.",
+  "source_patch_sha256": "6d7f8a454cc8b1d8bb3c1d091c7127214223a146f67de21f170b8e0e2588bcc6"
+}

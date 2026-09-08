@@ -1,0 +1,1 @@
+{"job_id":"1672244","array":"4-5","wave":2,"precondition":"Wave1 tasks2/3 both expected UNSAT solver snapshots exist; proof checking remains pending.","wave1_seconds":{"candidate":438.003,"previous":411.332},"next":"Validate all six solver snapshots and within-arm work identity, summarize all three pairs; keep proof checks running."}
