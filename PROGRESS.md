@@ -10,15 +10,16 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- New isolated [small-environment repair5522](benchmarks/reports/2026-09-08-sweep-small-environments.md)
-  executes real embedded solves for small/empty environments on5510.
-  Release86/86 twice, trace85/85,12 actual native/SubSolver lifecycle cases pass.
-  Trace5529 closes all18,593,182 decisions through19376 and both seed sequences.
-  Timing5531 first pair389.931/435.844s; full5535/job1672328 and trace5537 run.
-  Preceding [retained-entry5510](benchmarks/reports/2026-09-08-sweep-retained-entry.md)
-  matches11023 native first-call seeds but skips33 embedded solves. All three
-  timing5517 pairs regress: median1.067134x5473; within-arm work/proofs agree,
-  checks pending. Neither5510 nor5522 is promoted; current-source fuzz5539 runs.
+- New isolated [Vivify census5546](benchmarks/reports/2026-09-08-vivify-unused-census.md)
+  skips an unused arena census on schedules with no irredundant candidate.
+  Release87/87 twice,192 actual5522/5546 schedule/state/proof cases agree.
+  B28+C5 5550/job1672418 runs. Timing5551 is prepared: after all B28 expected
+  snapshots, submit0-1 then2-3 then4-5 after solver pairs; scorer5552, checks async.
+  Clean current5522 Rank39 profiles5544/job1672400 run; validator5545.
+  [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
+  all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
+  all80 solves,59 checked at snapshot; largest losses37/33.5531 median0.889407x5510.
+  No source promoted; fuzz5539 covers5522, not5546. Goal remains unmet.
 - Preceding implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
@@ -123,26 +124,30 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5478 Rank-37 extended prefix | `1671258` | Complete: 25,001,084 common suffix rows, first split 188502. |
 | 5479 Rank-32 bound prefix | `1671263` | Complete: 18,583,703 common rows, split after Sweep at 19375. |
 | 5482 Square selected phase | `1671600` | Complete: negative Tactix phase save at 492; replay normalized. |
-| 5485 Sweep cursor Rank 1–40 | `1671708` | All80 solves,1.165337x;79/80 checked at07:31 checkpoint. |
+| 5485 Sweep cursor Rank 1–40 | `1671708` | Complete:80/80 checked/clean,1.165337x; summary sealed. |
 | 5487 Square implications | `1671745` | Complete: differing binary reasons; parent replay validated. |
 | 5490 Rank-32 Sweep | `1671777` | Complete:14 common seeds, then extra836; successor5503 validates. |
 | 5505 Rank-32 eligibility | `1672156` | Complete: identical one-sided836 entry snapshots, full parent replay. |
 | 5515 retained-entry trace | `1672164` | Complete:11023 common seeds,33 omitted single-clause solves. |
-| 5516 retained-entry B28+C5 | `1672165` | All66 expected solves,64/66 checked at06:59 audit. |
-| 5517 retained-entry timing | `1672166/1672240/1672244` | All three solver pairs regress; median1.067134x, proofs pending. |
+| 5516 retained-entry B28+C5 | `1672165` | Complete:66/66 checked/clean,0.932605x production; no solve loss. |
+| 5517 retained-entry timing | `1672166/1672240/1672244` | Complete:6/6 checked; all pairs regress,median1.067134x. |
 | 5529 small-environment trace | `1672251` | Complete: all18,593,182 decisions match; only2 first-call ticks differ. |
 | 5530 small-environment B28+C5 | `1672252` | All66 expected solves,64/66 checked at07:33 checkpoint. |
-| 5531 small-environment timing | `1672253/1672326/1672385` | First two pairs improve; final wave4-5 runs, proofs pending. |
-| 5535 small-environment Rank1–40 | `1672328` | Full-width80 tasks; solver/checking in flight. |
-| 5537 Rank32 extended small-prefix | `1672356` | Whole100K-conflict prefix; watcher85047, comparator5538. |
+| 5531 small-environment timing | `1672253/1672326/1672385` | Three pairs improve,median0.889407x5510; all proofs pending. |
+| 5535 small-environment Rank1–40 | `1672328` | All80 solves,1.162180x;59 checked at frozen snapshot. |
+| 5537 Rank32 extended small-prefix | `1672356` | Complete via5560:18,696,140 common rows; next split20095. |
+| 5544 current5522 Rank39 profiles | `1672400` | Clean Release/native; require5535 work/proof neutrality via5545. |
+| 5550 Vivify census B28+C5 | `1672418` | Full-width66-task cumulative gate; pending. |
+| 5551 Vivify census timing | prepared | Three exact-work Rank39 pairs after B28 snapshots; scorer5552. |
+| 5558 Rank33 current prefix | `1672426` | New second-largest full-view loss;100K trace, comparator5561. |
 
 Claude's terminal report for periodic fuzz 5442 is **PASS** on source 5438:
 80,000 cases, 71,907 checked verdicts, zero failures. Session 30094 is closed;
 the report is authoritative, and no fuzz artifacts were independently inspected.
 Claude's terminal5492 report is **PASS** on5473:60,000 cases,55,036 checked
 verdicts, zero failures and360 direct reachability cases; session34566 closed.
-New current-source **5539** is owned by live Claude session **92433**, testing
-immutable5522 including5510. Read only its terminal response, no fuzz artifacts.
+Checkpoint **5539** is owned by resumed live Claude session **70659**, testing
+immutable5522 including5510;92433 returned submission-only, not a verdict.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -171,14 +176,14 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Follow full5535/job1672328 with `snapshot-small-full-5540.py` only after all
-   80 solver records, then `seal-small-full-5540.py` once all checks finish.
-   Trace5537/job1672356 (watcher85047) extends Rank32 through100K; validate via
-   `compare-small-prefix-5538.py`, then localize the next material boundary.
-   Validated5529 matches18,593,182 decisions and both seed/environment sequences;
-   first-call effort differs by only2 ticks, second-call costs agree exactly.
-   Timing5531 wave2/job1672385 runs; first two pairs389.931/435.844s and
-   388.231/439.077s. Score all3 pairs using5536; B28+C5 uses5541, checks async.
+1. Full5535 snapshot is frozen at1.162180x, all80 solves,59 checked; do not rerun
+   its snapshot helper. Seal via5540 after all checks.5555 ranks losses37/33/31/32.
+   Validated5537 via5560 matches18,696,140 decisions, then splits at20095.
+   5562/5563 place four earlier Sweep binaries and13 Factor large clauses at19375;
+   localize actual duplicate/grid/heap state before blaming Factor. Native has no
+   macro trace; original5538 missing-file expectation remains frozen.5558 uses5561.
+   Timing5531 is frozen:median0.889407x5510,all3 pairs improve,spreads<1%;
+   checks pending.5536 seals after all6 checks; B28+C5 uses5541,checks async.
    Source5522 and builds5522/5524 match SHA67867f4b999b55b4…; trace5523 is separate.
    Old5515 validates11023 native seeds, then seven extras; aligned5520 attributes
    33 missing270-variable/one-clause solves to26836 uncharged native ticks.
@@ -287,7 +292,7 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
    in the background as requested. Owner5492 returned terminal PASS on5473;
    new5539 tests5522 with direct retained-entry and small-solve reachability.
-   Tool session `92433` is live; poll only its terminal response, never artifacts.
+   Resumed session `70659` is live; poll only its terminal response, never artifacts.
    This is a changed-source checkpoint, not duplicate confirmation. Require all
    runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
    pauses dependent work and invokes bounded Claude repair immediately.
@@ -336,10 +341,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Small-environment5522 passes86/86 twice, trace85/85 and12 native engine cases.
-- Rank32 causal5529 matches all18,593,182 decisions through19376.
-- First timing5531 pair is389.931/435.844s; full5535 and extended5537 run.
-- Fuzz5492 PASS on5473; current-source5539 owned by session92433.
+- Vivify5546 removes an unused census;87/87 twice and192 exact-state cases pass.
+- Rank39 clean profiles5544 run; B28+C5 5550 precedes prepared timing5551.
+- Full5535 is1.162180x; next Rank32 split20095 follows earlier Factor count split.
+- Fuzz5492 PASS on5473;5539 resumed under70659 on5522, not5546.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

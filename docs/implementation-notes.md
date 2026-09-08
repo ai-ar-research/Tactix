@@ -263,6 +263,7 @@ pending half-analysis or schedules Backjump independently.
   promotion, and logical-order reclamation once per dose. That Tactix-only
   packing pass forwards live eager-recent refs and invalidates retired ones;
   genuine Kissat-equivalent collections reset the register instead.
+- Vivify's population census serves only schedules containing irredundant candidates; omitting it must preserve mixed/public-scope ordering.
 - Sweep uses exact inclusive embedded limits and strict enclosing limits,
   resumes its retained tail, and grows its 256/1024/2 environment bounds only
   on exhaustion toward 8192/32768/3. Retained-entry eligibility is the open

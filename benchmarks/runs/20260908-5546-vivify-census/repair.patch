@@ -1,0 +1,159 @@
+--- a/src/rules/vivify/vivify.cpp
++++ b/src/rules/vivify/vivify.cpp
+@@ -450,6 +450,7 @@
+   cands.clear();
+   keys.clear();
+   uint64_t prioritized = 0;
++  bool has_irredundant_candidate = false;
+ 
+   const auto append_candidate = [&](Ref ref, bool priority) {
+     const Clause *c = clause_at(k.arena, ref);
+@@ -471,6 +472,7 @@
+                      c->redundant() ? 1u : 0u, band, c->size, key_off,
+                      c->size});
+     prioritized += priority;
++    has_irredundant_candidate |= !c->redundant();
+   };
+   const auto append_priority = [&](bool priority) {
+     for (Ref ref = 0; ref < k.arena.size();) {
+@@ -563,12 +565,16 @@
+   event_trace_vivify_counts(k, ord.counts.data(), ord.counts.size());
+ 
+   uint64_t live_irredundant = 0, live_redundant = 0;
+-  for (Ref ref = 0; ref < k.arena.size();) {
+-    const Clause *c = clause_at(k.arena, ref);
+-    if (!c->garbage())
+-      (c->redundant() ? live_redundant : live_irredundant)++;
+-    ref += clause_actual_words(c);
+-  }
++  // This census only selects the irredundant ordering. Redundant-only and
++  // empty schedules never consume it (as in the references' tier dispatch).
++  // Use actual pass-time candidates so mixed/public scopes retain their path.
++  if (has_irredundant_candidate)
++    for (Ref ref = 0; ref < k.arena.size();) {
++      const Clause *c = clause_at(k.arena, ref);
++      if (!c->garbage())
++        (c->redundant() ? live_redundant : live_irredundant)++;
++      ref += clause_actual_words(c);
++    }
+   const bool radix_reverse_irredundant =
+       k.vivify_scope == 2 && !k.vivify_flush &&
+       live_irredundant / 10 > live_redundant;
+--- /dev/null
++++ b/tests/test_vivify_census.cpp
+@@ -0,0 +1,115 @@
++// The optional census must not change any schedule, state or proof bytes.
++#undef NDEBUG
++#include "kernel/kernel.hpp"
++#include "proof/proof.hpp"
++#include "rules/propagate/propagate.hpp"
++#include "rules/vivify/vivify.hpp"
++#include <cassert>
++#include <cstdio>
++#include <cstdlib>
++#include <unistd.h>
++#include <vector>
++using namespace tactix;
++
++static void mix(uint64_t &h, uint64_t value) {
++  h = (h ^ value) * UINT64_C(1099511628211);
++}
++static uint64_t state(const Kernel &k) {
++  uint64_t h = UINT64_C(1469598103934665603);
++  for (auto x : k.arena) mix(h, x);
++  for (auto x : k.watches.arena) mix(h, x);
++  for (const auto &x : k.watches.heads) {
++    mix(h, x.offset); mix(h, x.size); mix(h, x.capacity);
++    mix(h, x.binary_count_and_order);
++  }
++  for (auto x : k.trail) mix(h, x);
++  for (auto x : k.values) mix(h, static_cast<uint8_t>(x));
++  for (auto x : k.unit_ids) mix(h, x);
++  mix(h, k.next_clause_id); mix(h, k.live_irredundant_large);
++  mix(h, k.stats.ticks); mix(h, k.stats.vivify_checked);
++  mix(h, k.stats.vivify_subsumed); mix(h, k.stats.vivify_shrunken);
++  mix(h, k.stats.vivify_prioritized); mix(h, k.stats.vivify_reprioritized);
++  return h;
++}
++static void large(Kernel &k, const std::vector<Lit> &lits, bool red,
++                  uint32_t glue, bool priority, bool garbage = false) {
++  const Ref ref = kernel_add_large_clause(k, lits.data(), lits.size(), red,
++                                         glue, ++k.next_clause_id);
++  clause_at(k.arena, ref)->set_vivify(priority);
++  if (garbage) kernel_delete_clause(k, clause_at(k.arena, ref));
++}
++static void fixture(unsigned scope, unsigned population, bool reuse,
++                    bool flush, bool lrat) {
++  Kernel k;
++  kernel_reserve_vars(k, 512);
++  k.vivify_scope = scope;
++  k.vivify_reuse = reuse;
++  k.vivify_flush = flush;
++  for (unsigned i = 0; i < 24; i++) {
++    const unsigned a = 3 + 4 * i;
++    const bool red = population != 2;
++    large(k, {internalize(1), internalize(a), internalize(a + 1),
++              internalize(a + 2)}, red, red ? (i % 3 == 0 ? 2 : i % 3 == 1 ? 5 : 9) : 0,
++          i % 2, population == 3 && i % 7 == 0);
++    if (i % 3 == 0)
++      kernel_add_binary_clause(k, internalize(a), internalize(a + 1), ++k.next_clause_id);
++  }
++  if (population)
++    for (unsigned i = 0; i < 270; i++) {
++      const unsigned a = 150 + i % 80;
++      large(k, {internalize(a), internalize(a + 80), internalize(a + 160)},
++            false, 0, i % 3 == 0, population == 3 && i % 11 == 0);
++    }
++  k.unit_ids[0] = ++k.next_clause_id;
++  kernel_assign_unit(k, internalize(-1));
++  assert(propagate_apply(k) != ApplyResult::Unsat);
++  std::vector<Ref> first, again;
++  const auto before = state(k);
++  vivify_candidates(k, first);
++  vivify_candidates(k, again);
++  assert(first == again && state(k) == before);
++  for (Ref ref : first) {
++    const Clause *c = clause_at(k.arena, ref);
++    assert(!c->garbage());
++    if (scope == 2) assert(!c->redundant());
++    if (scope == 1 || (scope >= 3 && scope <= 5)) assert(c->redundant());
++  }
++  if ((population == 0 && scope == 2) ||
++      (population == 2 && (scope == 1 || (scope >= 3 && scope <= 5))))
++    assert(first.empty());
++  char name[] = "vivify-census-XXXXXX";
++  const int fd = mkstemp(name);
++  assert(fd >= 0);
++  close(fd);
++  Proof proof;
++  assert(proof.open(name, lrat ? ProofFormat::Lrat : ProofFormat::DratAscii));
++  k.proof = &proof;
++  uint64_t h = before;
++  for (Ref ref : first) mix(h, ref);
++  for (unsigned pass = 0; pass < 2; pass++) {
++    k.work_budget = pass ? 0 : 1;
++    k.work_budget_bounded = pass == 0;
++    assert(vivify_apply(k) != ApplyResult::Unsat);
++    assert(!k.inconsistent && k.level == 0);
++    mix(h, state(k));
++    vivify_candidates(k, again);
++    for (Ref ref : again) mix(h, ref);
++  }
++  proof.flush();
++  FILE *file = fopen(name, "rb");
++  assert(file);
++  for (int ch; (ch = fgetc(file)) != EOF;) mix(h, static_cast<unsigned>(ch));
++  fclose(file);
++  assert(unlink(name) == 0);
++  k.proof = nullptr;
++  std::printf("%u %u %u %u %u %016llx\n", scope, population, reuse, flush, lrat,
++              static_cast<unsigned long long>(h));
++}
++int main() {
++  for (unsigned scope = 0; scope < 6; scope++)
++    for (unsigned population = 0; population < 4; population++)
++      for (bool reuse : {false, true})
++        for (bool flush : {false, true})
++          for (bool lrat : {false, true})
++            fixture(scope, population, reuse, flush, lrat);
++}

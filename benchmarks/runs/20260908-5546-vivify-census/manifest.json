@@ -1,0 +1,36 @@
+{
+  "source": ".claude/worktrees/runtime-vivify-census-5546",
+  "parent": ".claude/worktrees/runtime-sweep-small-5522",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Skip the global large-clause population census when a Vivify schedule has no irredundant candidate.",
+  "contract": "Track actual pass-time candidate redundancy, not a policy scope restriction. Preserve both population counts whenever any irredundant candidate exists. All schedule/order/priority/flush/proof/model/API/budget behavior is unchanged; no new constant or kernel primitive.",
+  "evidence": "benchmarks/runs/20260907-5425-rephase-root-profile/summary.json",
+  "evidence_sha256": "aed67c1647113a3f8565d200350a9c4731b6b75de113f87d0032cd75ee9ddf92",
+  "references": "Kissat vivify.c sort_vivification_candidates dispatches tier sorting without the irredundant population ratio; CaDiCaL vivify_round short-circuits the ratio for non-IRREDUNDANT tiers. Tactix previously scanned the whole arena even though all consumers select only irredundant ordering. Preserve mixed/public scopes through actual candidate membership.",
+  "tests": "Two independent Release builds87/87, identical binary SHA.192 actual5522/5546 cases have byte-identical schedule/state/proof digests: six scopes,four populations,reuse/flush flags,DRAT/LRAT,priority/garbage/root-false,query purity and budget/unbounded resumption. Existing proof/model/N1 suites pass.",
+  "status": "Isolated unmeasured/unpromoted successor to5522. Current Claude fuzz5539 covers parent5522, not this source. No runtime gain claimed.",
+  "files": {
+    "src/rules/vivify/vivify.cpp": "20940cac73f4d93316b4e622ab87b7ab238cd057d1452dd836382ca3aae6dce1",
+    "tests/test_vivify_census.cpp": "d6ff4d372bcea371f0e57305048bcb0a99ced8b0dc84c5e973435976d6a4d4c7"
+  },
+  "binaries": {
+    "build/pin-5546-vivify-census-release/tactix": "b55607c9a1a894dba4ecb06d9da9c636e6a8c556bc7b6545ec01e6feaa675c98",
+    "build/pin-5547-vivify-census-bc/tactix": "b55607c9a1a894dba4ecb06d9da9c636e6a8c556bc7b6545ec01e6feaa675c98"
+  },
+  "patches": {
+    "repair.patch": "ddaa4bcceaed334c3be7e7b357a64f1aef2a981f38742f636d79aea96fbf4f28",
+    "cumulative.patch": "a4f351570d02e15a097133588abf2e4461d2604df7638369ecc50451177a03b4"
+  },
+  "logs": {
+    "old-cases-5548.log": "461ca46c107603ef9c342230a1b6dc340983d30b9cc30f3ecba200cffd5501f8",
+    "ctest-release.log": "7bf8735f344935071440dd001f33004e869ec251ea3d5b17ec12ce7cd8d4833e",
+    "build-release.log": "8ca5a4ecefd61a5973ea425b4e320942877293f96204dcd2ef39c76cfadfdb88",
+    "configure-bc.log": "f62ad17d5a9ceb84071b82725f21c1d04e4d9dd7e9a88cde7d63cdcfb39abdee",
+    "ctest-bc.log": "546a44910322fa121c13b728b13a6d1680b3ba6201dff1591e3acb32506b6a88",
+    "compile-old-5548.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "build-bc.log": "afa01b9b3b5e8d932a3674d9b0eb19859f1dedb1487439c28c56e5749c6bbb00",
+    "configure-release.log": "6becf39b2da6f54f96ef5b9df08b97279e0839857b472239e37de081c6245287",
+    "candidate-cases-5548.log": "461ca46c107603ef9c342230a1b6dc340983d30b9cc30f3ecba200cffd5501f8"
+  },
+  "state_validation_sha256": "cc18023be73c07aacaa1eb1da08d4ff2e3c310c72469c4ec94df75ef7c69922e"
+}
