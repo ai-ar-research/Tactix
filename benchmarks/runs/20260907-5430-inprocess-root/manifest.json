@@ -1,0 +1,39 @@
+{
+  "purpose": "Restore root closure before Probe/Eliminate rule admission and dense construction, with reference-specific phase-saving and search-tick scope.",
+  "source": ".claude/worktrees/runtime-inprocess-root-5430",
+  "parent": ".claude/worktrees/runtime-rephase-root-5417",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "references": [
+    "Kissat probe.c:probe and kissat_probe, eliminate.c:eliminate, backtrack.c:kissat_backtrack_propagate_and_flush_trail",
+    "CaDiCaL elim.cpp elimination entry root propagation; same root-fixpoint prerequisite, separate architecture"
+  ],
+  "semantics": "Policy composition only: Propagate and Restart abstract guards/effects and public instances unchanged. Probe entry suppresses phase saving/search ticks; Eliminate entry uses search propagation before the simplifier scope. Existing root proof service handles terminal conflict; no new proof vocabulary.",
+  "fixture": "Actual old run_phase with empty pipelines misses retained-root consequence -1: 0 propagations in both; Eliminate exit falsely closes the cursor. New run_phase derives -1 at root with 3 scans; Probe search ticks 0, Eliminate 6; phase saving and canonical restart count checked. Both root-conflict exits restore scope and leave no dense attachment.",
+  "old_fixture_log_sha256": "0786851ed8d4b378a567fc3c1acaea05589fa8859fe37557222b03f2c817ed4d",
+  "status": "Isolated UNFUZZED semantic candidate, independent of metadata 5426. No runtime acceptance or production promotion.",
+  "files": {
+    "src/policies/default_policy.cpp": "6d09bb2b736c7629e33e341a0e82e592ce799bd366ff85edce371eb6b2ed5b6a",
+    "tests/test_inprocess_root.cpp": "d803e2fd63c0c176f66af3882395b7b0faea1cb5ae46bb20c12c1b466d3b9a52"
+  },
+  "binaries": {
+    "build/pin-5430-inprocess-root-release/tactix": "44cac3efc60149ab78dca2a5e6b17e552f2f860d4797226d6a0889ae93c1fe26",
+    "build/pin-5431-inprocess-root-trace/tactix": "89ee0fdb6fe0b0d7202fd61f79e16f22cfbed6d40e849d63ac8d534ab9f67425",
+    "build/pin-5432-inprocess-root-bc/tactix": "44cac3efc60149ab78dca2a5e6b17e552f2f860d4797226d6a0889ae93c1fe26"
+  },
+  "patches": {
+    "repair.patch": "4560fd507718607ddad02429194181cb31c2c6c587487a2f0666eea731da7d0c",
+    "cumulative.patch": "e033b811900ef76a4bde238b7bc94918e6e5528d203e8a6f628f7d3c0ff6463a"
+  },
+  "logs": {
+    "configure-bc.log": "cb1978357ed191a2e178b633ae29127d7fe8d14c108f31ac4d87d317f6e7c2da",
+    "configure-trace.log": "208a4ff110ce199c0f630bd776d7492399cb83cd8841a361139bd339e65ceeb1",
+    "build-bc.log": "2f8554bde5258e1a1624ba4d202a70eddd288ba986bc148a087434704d489d5c",
+    "ctest-bc.log": "48985298493ea8a7e5d36da6aa3d609e1180f7253d67e79349b4c433eaaeb09b",
+    "ctest-trace.log": "7205c802881c41ef3068d6fce4572dbec14a1d88ba4d6ed9a5a118ed227b8ae6",
+    "configure-release.log": "d6e339088f97449e2c9e76ef6d47817fd1bdfba2fd5b08fd904e3a541d6ee2ee",
+    "build-trace.log": "97cf69994b2f7d979fcd7a23a01082f2e931b289577ee3215d6517f320ecf1fe",
+    "ctest-release.log": "12eba0025faaada309132f7d56ea9f0fc634f31d947352e8062b2b8ce223bfd1",
+    "build-release.log": "cf4b92c938f7d77e5c169fee2f74e28bc842e344a74b2f4f53075dcce26062f3",
+    "old-entry-fixture.log": "0786851ed8d4b378a567fc3c1acaea05589fa8859fe37557222b03f2c817ed4d"
+  }
+}
