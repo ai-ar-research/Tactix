@@ -1,0 +1,60 @@
+{
+  "clean_stops": 2,
+  "stop_conflict": 300000,
+  "stream_from": 100000,
+  "earlier_common_rows": 40102204,
+  "earlier_common_literal_digest_equal": true,
+  "matching_suffix_rows": 15050563,
+  "first_decision_difference": {
+    "candidate": [
+      "179463",
+      "55034320",
+      "714",
+      "31184",
+      "0"
+    ],
+    "kissat": [
+      "179463",
+      "55034320",
+      "714",
+      "31159",
+      "0"
+    ],
+    "matching_suffix_rows": 15050563
+  },
+  "complete_prefix_identical": false,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 300000,
+      "start_decisions": 18446744073709414842,
+      "end_decisions": 74393487,
+      "count": 74530261,
+      "hash": "b16c9d74ee88e6da",
+      "common": 40102204,
+      "common_reached": 1,
+      "common_hash": "d6521123d1b0ecf7",
+      "first": 489816,
+      "common_last": -81843,
+      "last": 147451,
+      "max_level": 45166
+    },
+    "kissat": {
+      "solver": "kissat",
+      "conflict": 300000,
+      "start_decisions": 18446744073709414830,
+      "end_decisions": 69692146,
+      "count": 69828932,
+      "hash": "10d4b4ca139060f5",
+      "common": 40102204,
+      "common_reached": 1,
+      "common_hash": "d6521123d1b0ecf7",
+      "first": 489816,
+      "common_last": -81843,
+      "last": -50710,
+      "max_level": 45166
+    }
+  },
+  "validator_correction": "5772 conflated common count with common_reached Boolean; header-aware parser and four unit tests added. No trace or solver rerun.",
+  "limitation": "Suffix count starts at100K,not zero. Diagnostic only; fixed6810.066s denominator unchanged."
+}

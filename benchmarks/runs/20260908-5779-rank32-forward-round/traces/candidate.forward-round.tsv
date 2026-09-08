@@ -1,0 +1,4 @@
+begin conflict=179463 round=9 candidates=312412 start=75200793 budget=25514303 bounded=1 binary_removed=82
+end reached=312412 candidates=312412 spent=7371428 budget=25514303 ended=0 interrupted=0
+begin conflict=179463 round=10 candidates=505929 start=82572221 budget=25514303 bounded=1 binary_removed=902
+end reached=505929 candidates=505929 spent=18158226 budget=25514303 ended=0 interrupted=0

@@ -1,0 +1,68 @@
+{
+  "observer_parent_trace_and_proof_equal": true,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "5467f75fcfd378c4ed778b51f496e92509e2c434672878a31351a0c9a887bd2f",
+      "trace_sha256": {
+        "candidate.decisions.tsv": "4327428d132bc3c81e7217afa3a615391be8da8df8cecbbf8a221ce30f42fd5c",
+        "candidate.binaries.tsv": "a15daed67c69807822e38af5ea7a0640bb152fec8d94ced08aef98dde79193d8",
+        "candidate.boundaries.tsv": "86798f4c05c04dea1664c3e004fd5bb083a4a7f2bbafa589847b18897c307196",
+        "candidate.prefix.tsv": "b7a3a3c1ab409f6746f4d692c24d5cebf4a530c5cb811ed2f811f5c8f92d9ece",
+        "candidate.macro.tsv": "854a5a1f73fd0a526b2d7a841f1b9e0bf7f95a74f6dc74c9cbc20bc825ad9521"
+      }
+    },
+    "kissat": {
+      "result_sha256": "a65f72f8e19358fafddf269803df4d28b5f2ac482af813af121be72771c2e40f",
+      "trace_sha256": {
+        "kissat.prefix.tsv": "74afa84cbaaa31c818de7a4934536d3a88e4829c687e58299309171701df962d",
+        "kissat.decisions.tsv": "f4990be94c72275c53230aea12099bcdbc6fc838bc554d7012e826462f9df33c",
+        "kissat.binaries.tsv": "efa587c2929257e0db73b121207bd5cdb5e3f8d19cfcd0d70ed0322507987c7a",
+        "kissat.boundaries.tsv": "d3427e8bf6d60c48d729d21ff4d3490f2a7dc19caf8576f9be497ba54fb921b5"
+      }
+    }
+  },
+  "snapshots": [
+    {
+      "index": 0,
+      "stage": "begin",
+      "equal": true,
+      "candidate_only_copies": 0,
+      "kissat_only_copies": 0,
+      "candidate_subsumer_copies": 1,
+      "kissat_subsumer_copies": 1
+    },
+    {
+      "index": 1,
+      "stage": "end",
+      "equal": true,
+      "candidate_only_copies": 0,
+      "kissat_only_copies": 0,
+      "candidate_subsumer_copies": 1,
+      "kissat_subsumer_copies": 1
+    },
+    {
+      "index": 2,
+      "stage": "begin",
+      "equal": false,
+      "candidate_only_copies": 46,
+      "kissat_only_copies": 55,
+      "candidate_subsumer_copies": 0,
+      "kissat_subsumer_copies": 0
+    },
+    {
+      "index": 3,
+      "stage": "end",
+      "equal": false,
+      "candidate_only_copies": 46,
+      "kissat_only_copies": 48,
+      "candidate_subsumer_copies": 0,
+      "kissat_subsumer_copies": 0
+    }
+  ],
+  "subsumer": [
+    217824,
+    217939
+  ],
+  "all_eight_extra_native_clauses_contain_subsumer": true,
+  "limitation": "Physical binary multiplicities, not watch order or scheduling flags. Deletion equivalence does not prove downstream time neutrality."
+}

@@ -1,0 +1,54 @@
+{
+  "observer_parent_trace_and_proof_equal": true,
+  "selected_clause": [
+    -217936,
+    -217929,
+    -217919,
+    -217911,
+    -217844,
+    -217832,
+    217821,
+    217824,
+    217864,
+    217939
+  ],
+  "evidence": {
+    "candidate": {
+      "result_sha256": "2fd26d059e076af2ec18349a917e2e18d9f35597f9cca79a862fd98464d07b10",
+      "trace_sha256": {
+        "candidate.prefix.tsv": "b7a3a3c1ab409f6746f4d692c24d5cebf4a530c5cb811ed2f811f5c8f92d9ece",
+        "candidate.decisions.tsv": "4327428d132bc3c81e7217afa3a615391be8da8df8cecbbf8a221ce30f42fd5c",
+        "candidate.boundaries.tsv": "86798f4c05c04dea1664c3e004fd5bb083a4a7f2bbafa589847b18897c307196",
+        "candidate.forward.tsv": "60d52e2fc347969364992512abee27cb24da99910a9e5673abc8ae1f08841aec",
+        "candidate.macro.tsv": "854a5a1f73fd0a526b2d7a841f1b9e0bf7f95a74f6dc74c9cbc20bc825ad9521"
+      },
+      "partial_certificate": {
+        "bytes": 207618048,
+        "sha256": "cbc13cd969bba6d8fc41e2fd6e77e12c1bbb5a3a14a0661235f4da3e9ef6db07"
+      }
+    },
+    "kissat": {
+      "result_sha256": "d6d7cb323592d3b3e95c33f5c10e7e509503e7194b2af3252c7808f801d586a8",
+      "trace_sha256": {
+        "kissat.forward.tsv": "63f11bff7b0185cb6107234bf5753e93134c823db421a3a57b0ef53ad1094183",
+        "kissat.boundaries.tsv": "d3427e8bf6d60c48d729d21ff4d3490f2a7dc19caf8576f9be497ba54fb921b5",
+        "kissat.decisions.tsv": "f4990be94c72275c53230aea12099bcdbc6fc838bc554d7012e826462f9df33c",
+        "kissat.prefix.tsv": "74afa84cbaaa31c818de7a4934536d3a88e4829c687e58299309171701df962d"
+      },
+      "partial_certificate": {
+        "bytes": 218103808,
+        "sha256": "bd9aeb14ef6ec990687bb6440dcf0b13bfcbb2a2b8553166b87d2bc7b83685ab"
+      }
+    }
+  },
+  "records": {
+    "candidate": [
+      "result\tindex=297096\tid=4792702\taction=1\tflipped=0\tpartner_id=0\tpartner=binary:217939,217824"
+    ],
+    "kissat": [
+      "forward_clause\tstage=discover|detail=0|ref=645467|size=10|garbage=0|values=-217929:0,-217936:0,217939:0,217864:0,217824:0,217821:-1,-217911:0,-217919:0,-217844:0,-217832:0|clause=-217936,-217929,-217919,-217911,-217844,-217832,217821,217824,217864,217939",
+      "forward_clause\tstage=discover-filtered|detail=1|ref=645467|size=10|garbage=0|values=-217929:0,-217936:0,217939:0,217864:0,217824:0,217821:-1,-217911:0,-217919:0,-217844:0,-217832:0|clause=-217936,-217929,-217919,-217911,-217844,-217832,217821,217824,217864,217939"
+    ]
+  },
+  "limitation": "Selected action/partner records do not alone prove complete binary-watch or scheduling-flag identity, causal runtime gain, or final proof acceptance."
+}

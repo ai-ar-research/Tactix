@@ -1,0 +1,590 @@
+{
+  "final_records": 80,
+  "arms": {
+    "tactix": {
+      "solved": 40,
+      "sat": 22,
+      "unsat": 18,
+      "timeouts": 0,
+      "seconds": 7565.146,
+      "par2": 7565.146,
+      "max_rss_kb": 15967668
+    },
+    "kissat": {
+      "solved": 40,
+      "sat": 22,
+      "unsat": 18,
+      "timeouts": 0,
+      "seconds": 6810.066000000001,
+      "par2": 6810.066000000001,
+      "max_rss_kb": 15348304
+    }
+  },
+  "per_rank": {
+    "1": {
+      "tactix": {
+        "solved": true,
+        "seconds": 0.219,
+        "peak_rss_kb": 84052
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 0.218,
+        "peak_rss_kb": 49564
+      }
+    },
+    "2": {
+      "tactix": {
+        "solved": true,
+        "seconds": 0.268,
+        "peak_rss_kb": 84068
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 0.217,
+        "peak_rss_kb": 49568
+      }
+    },
+    "3": {
+      "tactix": {
+        "solved": true,
+        "seconds": 0.618,
+        "peak_rss_kb": 153872
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 0.467,
+        "peak_rss_kb": 103612
+      }
+    },
+    "4": {
+      "tactix": {
+        "solved": true,
+        "seconds": 7.83,
+        "peak_rss_kb": 28012
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 7.681,
+        "peak_rss_kb": 13008
+      }
+    },
+    "5": {
+      "tactix": {
+        "solved": true,
+        "seconds": 29.463,
+        "peak_rss_kb": 10682156
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 30.214,
+        "peak_rss_kb": 10402844
+      }
+    },
+    "6": {
+      "tactix": {
+        "solved": true,
+        "seconds": 68.125,
+        "peak_rss_kb": 756988
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 52.599,
+        "peak_rss_kb": 349612
+      }
+    },
+    "7": {
+      "tactix": {
+        "solved": true,
+        "seconds": 54.353,
+        "peak_rss_kb": 9713624
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 48.242,
+        "peak_rss_kb": 9109728
+      }
+    },
+    "8": {
+      "tactix": {
+        "solved": true,
+        "seconds": 66.274,
+        "peak_rss_kb": 11862680
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 58.159,
+        "peak_rss_kb": 11118752
+      }
+    },
+    "9": {
+      "tactix": {
+        "solved": true,
+        "seconds": 109.467,
+        "peak_rss_kb": 3225600
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 68.928,
+        "peak_rss_kb": 1326232
+      }
+    },
+    "10": {
+      "tactix": {
+        "solved": true,
+        "seconds": 91.614,
+        "peak_rss_kb": 15967668
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 81.797,
+        "peak_rss_kb": 15348304
+      }
+    },
+    "11": {
+      "tactix": {
+        "solved": true,
+        "seconds": 0.267,
+        "peak_rss_kb": 95444
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 0.217,
+        "peak_rss_kb": 60692
+      }
+    },
+    "12": {
+      "tactix": {
+        "solved": true,
+        "seconds": 7.23,
+        "peak_rss_kb": 1843916
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 5.127,
+        "peak_rss_kb": 1234908
+      }
+    },
+    "13": {
+      "tactix": {
+        "solved": true,
+        "seconds": 72.54,
+        "peak_rss_kb": 12752784
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 65.334,
+        "peak_rss_kb": 11928200
+      }
+    },
+    "14": {
+      "tactix": {
+        "solved": true,
+        "seconds": 72.384,
+        "peak_rss_kb": 12854700
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 63.368,
+        "peak_rss_kb": 12018708
+      }
+    },
+    "15": {
+      "tactix": {
+        "solved": true,
+        "seconds": 76.502,
+        "peak_rss_kb": 61836
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 80.291,
+        "peak_rss_kb": 29704
+      }
+    },
+    "16": {
+      "tactix": {
+        "solved": true,
+        "seconds": 121.762,
+        "peak_rss_kb": 113668
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 122.015,
+        "peak_rss_kb": 65168
+      }
+    },
+    "17": {
+      "tactix": {
+        "solved": true,
+        "seconds": 187.319,
+        "peak_rss_kb": 1354220
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 113.158,
+        "peak_rss_kb": 598308
+      }
+    },
+    "18": {
+      "tactix": {
+        "solved": true,
+        "seconds": 62.714,
+        "peak_rss_kb": 2984752
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 126.552,
+        "peak_rss_kb": 2083228
+      }
+    },
+    "19": {
+      "tactix": {
+        "solved": true,
+        "seconds": 132.281,
+        "peak_rss_kb": 402324
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 119.042,
+        "peak_rss_kb": 143804
+      }
+    },
+    "20": {
+      "tactix": {
+        "solved": true,
+        "seconds": 119.658,
+        "peak_rss_kb": 1787056
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 165.883,
+        "peak_rss_kb": 943992
+      }
+    },
+    "21": {
+      "tactix": {
+        "solved": true,
+        "seconds": 144.799,
+        "peak_rss_kb": 3935912
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 96.821,
+        "peak_rss_kb": 1436392
+      }
+    },
+    "22": {
+      "tactix": {
+        "solved": true,
+        "seconds": 224.732,
+        "peak_rss_kb": 2714932
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 189.477,
+        "peak_rss_kb": 1919272
+      }
+    },
+    "23": {
+      "tactix": {
+        "solved": true,
+        "seconds": 199.933,
+        "peak_rss_kb": 100628
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 202.406,
+        "peak_rss_kb": 42608
+      }
+    },
+    "24": {
+      "tactix": {
+        "solved": true,
+        "seconds": 210.104,
+        "peak_rss_kb": 251236
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 207.984,
+        "peak_rss_kb": 101500
+      }
+    },
+    "25": {
+      "tactix": {
+        "solved": true,
+        "seconds": 245.414,
+        "peak_rss_kb": 3409800
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 246.184,
+        "peak_rss_kb": 888820
+      }
+    },
+    "26": {
+      "tactix": {
+        "solved": true,
+        "seconds": 255.471,
+        "peak_rss_kb": 142168
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 260.932,
+        "peak_rss_kb": 87904
+      }
+    },
+    "27": {
+      "tactix": {
+        "solved": true,
+        "seconds": 339.753,
+        "peak_rss_kb": 576744
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 245.726,
+        "peak_rss_kb": 298192
+      }
+    },
+    "28": {
+      "tactix": {
+        "solved": true,
+        "seconds": 217.161,
+        "peak_rss_kb": 1372504
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 242.505,
+        "peak_rss_kb": 807884
+      }
+    },
+    "29": {
+      "tactix": {
+        "solved": true,
+        "seconds": 287.476,
+        "peak_rss_kb": 139804
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 295.641,
+        "peak_rss_kb": 66076
+      }
+    },
+    "30": {
+      "tactix": {
+        "solved": true,
+        "seconds": 264.666,
+        "peak_rss_kb": 158208
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 284.168,
+        "peak_rss_kb": 93572
+      }
+    },
+    "31": {
+      "tactix": {
+        "solved": true,
+        "seconds": 441.064,
+        "peak_rss_kb": 567848
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 264.532,
+        "peak_rss_kb": 265752
+      }
+    },
+    "32": {
+      "tactix": {
+        "solved": true,
+        "seconds": 316.715,
+        "peak_rss_kb": 632132
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 274.456,
+        "peak_rss_kb": 299980
+      }
+    },
+    "33": {
+      "tactix": {
+        "solved": true,
+        "seconds": 468.71,
+        "peak_rss_kb": 665764
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 311.385,
+        "peak_rss_kb": 265332
+      }
+    },
+    "34": {
+      "tactix": {
+        "solved": true,
+        "seconds": 331.758,
+        "peak_rss_kb": 114360
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 330.932,
+        "peak_rss_kb": 40848
+      }
+    },
+    "35": {
+      "tactix": {
+        "solved": true,
+        "seconds": 401.328,
+        "peak_rss_kb": 584584
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 306.699,
+        "peak_rss_kb": 269360
+      }
+    },
+    "36": {
+      "tactix": {
+        "solved": true,
+        "seconds": 360.997,
+        "peak_rss_kb": 105016
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 363.801,
+        "peak_rss_kb": 50160
+      }
+    },
+    "37": {
+      "tactix": {
+        "solved": true,
+        "seconds": 458.641,
+        "peak_rss_kb": 631932
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 346.372,
+        "peak_rss_kb": 269236
+      }
+    },
+    "38": {
+      "tactix": {
+        "solved": true,
+        "seconds": 345.271,
+        "peak_rss_kb": 94820
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 362.395,
+        "peak_rss_kb": 44336
+      }
+    },
+    "39": {
+      "tactix": {
+        "solved": true,
+        "seconds": 416.885,
+        "peak_rss_kb": 457020
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 366.837,
+        "peak_rss_kb": 170616
+      }
+    },
+    "40": {
+      "tactix": {
+        "solved": true,
+        "seconds": 353.38,
+        "peak_rss_kb": 379184
+      },
+      "kissat": {
+        "solved": true,
+        "seconds": 401.304,
+        "peak_rss_kb": 187552
+      }
+    }
+  },
+  "all_solved_time_ratio": 1.110877045831861,
+  "par2_ratio": 1.110877045831861,
+  "result_sha256": {
+    "000.json": "128d04bba93cff8d32948094548a80f123efa558ca9fb06d9db485af4ccbc755",
+    "001.json": "ec55f4bf3b032fb2491bf333041e8b88bc1e431b2b95588d7446b300191c76c3",
+    "002.json": "49136edb5aafa1b8c51f0cc5baaf769300b6475d52b1287a83e5080ae8e1cc0c",
+    "003.json": "cee645dad759da9b77b71525b5c079babb512bb26e90a1ee6fd64e9ed40d6b15",
+    "004.json": "19705dd7574f1f775db8a373bd7354457b605fd4448eb06afe7c8bdc51e6b83f",
+    "005.json": "6f9086430cd6ac0dab7b4c25eb665c827b6c18e92311d4b8ee694ff70f19a308",
+    "006.json": "43d8cab53a5270f339377d6ff072440b2b1459e4f3c1a206285a3c2c07daa41c",
+    "007.json": "12dbf464d53b852a7bb03e61887ca0a30519d87f12600d1823634a95276a7fde",
+    "008.json": "660877541cb129fbeea162de558de21b39c6f17fdb4aaf26ece6e8cc4a662666",
+    "009.json": "4d724104b00c5777491ee445223ba7429c1c9012b9d049b21ede93f821a32132",
+    "010.json": "947b82e105c1e88b748b8d7ed69313688215f1927e64d2cbe5cd01b1c8ed0b8c",
+    "011.json": "2636be0a5940f84bfa816e7366c0f583ccd9243ec31e3a0c455d55aaa6000874",
+    "012.json": "33c9baca2ee755f0f4339ef0f0caf3261223103f51d32946198c77b62a5393ff",
+    "013.json": "4b92a900b58248e1530963f52cf990023e417ec85041dfa1e35ba2e780ded3e4",
+    "014.json": "71858d1c1eff31cc601fc837b970a50ded6437f80e00684853089ddd0a840ae0",
+    "015.json": "ec7a1586c99d24cb15d0799c90a21df1ea8bcbb8413ca141a5fb97656d433f4b",
+    "016.json": "adcb9f5ca1a72201b8316438d7ff1f621075638d7bd3be4e4c488d70861c4c82",
+    "017.json": "b5cda5210a7892af589caaa500a28577c467224ec2be1ccc48f15ff3af163655",
+    "018.json": "13c4c3a0445b5d9eb111f34a5f4dc0aa219da741f8db71e646bb5877df28ff80",
+    "019.json": "169da3dea8b49ab205f77263016bd400cf845f048fa047a829e77dc001218843",
+    "020.json": "bcc67943a4df18b61b22beab30a8f04860a2711b1e0cc58f0e9a400f55c3eef4",
+    "021.json": "3bd6d536c6a7a11486f15b1c2fa5504a062a590706596cfb0715158b65b4d51b",
+    "022.json": "b8bb9b765f13f669aadce5d62454264af85af1220cdd763b9d5d5e046d0f4a9a",
+    "023.json": "12b787b8bbfbd6611df0e9958692c944e39ad85535fcc62cd82fdbc274a92bb9",
+    "024.json": "62b92503d9151b641af06e45e64bb9cf272567fbd0a131ab66d847fc4fb4eb29",
+    "025.json": "858abd7b9c957af7684d50ff4c96f4d5a2a26aea12d1ac4c10b1f51742f78ce4",
+    "026.json": "3119a49fdb69bf4c86fd68991c55068442be1938e56227bce498b4a749a46756",
+    "027.json": "40c7df839b477d7a70493ca304376ac7bde01cf3ccdadffa4ee31b8fc2e9518e",
+    "028.json": "88fe4e7fa5b1c0623016e77dc6294eaade8caa744841b9d3548340e33cf02928",
+    "029.json": "980c47bc2584145b96f6909e6fac877af71bec0e661826fd46863efcf3032050",
+    "030.json": "8821054b2829f1b5493d31b348bc48737a945d61a2d3bbda54ace4b76abe9074",
+    "031.json": "bce9877653ab71d3e45e20db248a8da2e570008f9ed211a0102be7e8459397fc",
+    "032.json": "c1716a264d85d42f7d93274ecc43e14583e29c5132d41db551c93e5aef23132d",
+    "033.json": "52b74673717d7f2beeff6123f8eac9ca0dd6526ace25e26169a30b05563376ca",
+    "034.json": "76651543b4fc686096406e88cea0d931a88f87390f30f262905e9766ab43566f",
+    "035.json": "4eede4ec6d5f12f4c52d1032670026f5f9062b772836324aa6920c2e3d539e74",
+    "036.json": "188c06ff28f7d850b43888f7653e03e736871438a76929687302c34c829ac357",
+    "037.json": "56448be5d3e8f5742fc025bd1d35006a01c61a5a5a2177f782732d0b0463cca2",
+    "038.json": "cec6bda2f6f68361c34ade7b33a24051cfe124348bbafa72a76043ca0b2db45f",
+    "039.json": "d77dbadd08ba26239e6f304ba168546527916457077f61345b6e4c818711eb35",
+    "040.json": "609ad236f6fdf0eaa3d059a025aff6b91c19a3950a4ae5c78fd4ac89022720da",
+    "041.json": "aa7b0d1f3b84631504cb0f4c1fd822797e4654ac7ae6ad40c7d7c45603131a99",
+    "042.json": "c1bd41667aeb9ff909c5b25df258494f50edb6ae1a44d897585026da7caeb722",
+    "043.json": "f725f6964e8220bf79824adb615758cc285ff25cba083a4e85fb83fa7eded7ec",
+    "044.json": "b2ba7bef8c010c9a922f21cf55cec136b0a2653908185007dd457420b4915427",
+    "045.json": "f878c2074fa6ec1d93f29a240124ec24e56c85d852aab582985cbd3cf3eb1b20",
+    "046.json": "ddb4f879f4deb04c5a11d75ee97cc2598db69700e833c99a24cf9acdab950216",
+    "047.json": "f1172343638595f54ab921f4934c62118799cbd38534dc61bc9d48feb0d89b2a",
+    "048.json": "15b33859718e0d83d6967df9aae9e0d7a1f1a88488e3e0f8eef40a9d90ee0e7b",
+    "049.json": "663f01bae3fda2b69f9ac753d1a92a36d7dfbd374e37185ea62ed7655311d1d3",
+    "050.json": "d50b4e46e7921ce403ccde267bf688c8366dc13d38c2254ba3bca7b696d8eff5",
+    "051.json": "af03542d0c325063f067a201e1ed4b6a1d95a30a9483c17cd0db496b61d3ac76",
+    "052.json": "0f67756cf7f842fbd5e3c78b758a62bc2c26d66de2363043a2444507e63832a7",
+    "053.json": "8d5c1e43a3bd442efda7b85b93295be8c23c54a34eb421e4ab7aff4dd3ee4ab8",
+    "054.json": "5a7a16bf3b0972cc1aeb604e71bbcd1cc797ed58274fce7ffd2c697e4ff5d889",
+    "055.json": "c33693fd8a0e418028b23a273a6525ac9a85fd7081a7b5dd6bc78970871819df",
+    "056.json": "83fef53b3547b87c66b886f4bfc9488ffa429a85681e63356732db044ed9edbe",
+    "057.json": "de890d34ed7863de18a22a191552f4fb96306dcdf90f4ea92e362ccba937ddfb",
+    "058.json": "141d78c69b01bb547fe46613466fd21aea925418ebd847578cc2f37460948973",
+    "059.json": "f3310c16ca27bdff912dd8fc7f0df6108e4fe7043a565d0007dc7e0883f87da7",
+    "060.json": "7ce7362e67b208572cb95aeb01ed15bd30483b7259a756ff78412a44f314a34d",
+    "061.json": "741ec9f2082c23f9dd70a784f374759526e4f44e8b5291785023aaa8026f499e",
+    "062.json": "21df9c94a386dca3f6807f554a8663823834dedb2a374566abe8e597f12fdf8f",
+    "063.json": "d52018a78aa9432825c8aba785558e1746aa44dd2bc072746b5315e14672a3e2",
+    "064.json": "a16515712f4390bca15653017eeb48f834a47cbb0f29e0b8d1282454162e2803",
+    "065.json": "3a48e099333bc954816ee84e9923bcc6da91cb46a87f177136db1e24b177135c",
+    "066.json": "bee0a49751f14d3d837f7f85d45cfb62b3f2cc361ae7092713a75c27fa60c4a9",
+    "067.json": "5fae2923e4c14a2c9712bc28fb4490cb97a2aa360ebe4dac62a198d8a5668af8",
+    "068.json": "ad2f1ec71fd2b5bde9e925d0eaecd2d72cf25bdb2c8cd61170a899bfd62d02d0",
+    "069.json": "1d6611b2651fd7b8fb8f4958e709daefeecd5b35eee99fe44bbc0cec65791028",
+    "070.json": "f0e6765c9660ed80096601ecfd0f4d08b11177f9f4de171d0acc6796f69641ed",
+    "071.json": "749fb07f3d0b530380e8318cbbf990da977b65138011ada3debefb1f76e6ebec",
+    "072.json": "9cffc5a236b8b24572061eae912ecbf660d914a644c2724186ed3f380f3299ca",
+    "073.json": "ef769e8fb7e96d7b98361fe87be2959380cec59826369ebbc3f381685390723e",
+    "074.json": "b43ae41ca878accb4978df0c7defd753500c5c1b71109cfe04aa95039411abd6",
+    "075.json": "4c9dae86fd2feac30a3a40a05151fe33335cf86fa8994c46717f8fb10607d1b1",
+    "076.json": "197996c05057e2541305810239c32e57e291b46835ad2191d543e9bdc987d097",
+    "077.json": "8e5070beed332c034a2fa9be8a454c85b4c10db75927ddc0003fe0e00f2e825b",
+    "078.json": "935dad0ccddcbb774c38c3ff7606c170df4ac14d641fbf04c521774d34b6c057",
+    "079.json": "c5cf1edc028705e59c3fcd0ee07a678c83f9200a899b413d89e0331623cc3267"
+  },
+  "limitations": "Full requested scoring view, not annual/union Tier D. Isolated cumulative candidate UNFUZZED and unpromoted; B28+C5 and consolidation fuzz remain separate gates."
+}

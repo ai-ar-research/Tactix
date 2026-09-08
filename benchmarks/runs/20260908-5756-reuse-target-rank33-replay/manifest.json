@@ -1,0 +1,60 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5726-root-reuse-rank33-prefix",
+  "candidate_authority": "benchmarks/runs/20260908-5741-reuse-target",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-reuse-target-5741",
+  "input": "benchmarks/cache/tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+  "input_sha256_compressed": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+  "stop_conflict": 1000000,
+  "hypothesis": "Public reuse-target dispatch preserves DefaultPolicy: require exact entire stopped candidate trace and partial-proof replay of5718, then reuse unchanged native controls.",
+  "validation": "Only candidate task0 runs. Require clean requested stop, exact parent candidate trace/proof hashes; cached native remains bound to prior pin/input/observer contract.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "189b2d9b21bf94f9b9fcb1962d7f686deef6260ee12f69a8fa417011435a53ff",
+    "array.sbatch": "7b6f05cf9791f3a31da06046ee03eebee3953d189075e2789e667f9f4cad5774",
+    "run.py": "e4c8d007d58c36ee5fdc32ea2ee1084f0391ff1607e4e7aa60091195c2d8491d"
+  },
+  "stream_from": 100000,
+  "common_decisions": 31494584,
+  "created_at": "2026-09-08T14:27:58.484961+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5535-sweep-small-ranks1-40/next-losses.json",
+    "sha256": "3b05e4eb79852ffa998a7c54100a8445d641560e3b27cb06bd009f4d07d5c57e"
+  },
+  "limitation": "Stopped diagnostic,not final checked verdict or acceptance timing; no new Kissat run.",
+  "test_consideration": "92/92 each independent Release,91/91 trace;2400 current target cases,2400 actual predecessor controls,240 equal policy observations,24 actual native transitions;5088 independent DRAT/LRAT proof checks including2400 parent proofs. Fixture-localization.json explains invalid OTFS reason-watch setup corrected by actual propagation, without changing solver behavior to satisfy the fixture.",
+  "source_patch_sha256": "84b8a71043da20d304cc26643c468fe77a45196253944b941ad2fb0f0dc96e5a",
+  "parent_summary_sha256": "ed42619c47216d3dafd7ab38f47c076aa27d721e1b57f8df5752f70f81d5091a",
+  "selected_authority": {
+    "path": "benchmarks/runs/20260908-5567-rank33-small-extended/nonbinary-localization.json",
+    "sha256": "e3676c8f733636beaeca83cc7f4bd50fba540a093aa0275a45411c94083d08b1"
+  },
+  "predecessor": "benchmarks/runs/20260908-5726-root-reuse-rank33-prefix",
+  "prior_summary_sha256": "57e70cc49cc9a538865e4b3e0d5d181435e42f68c6b08fa2ebcd46e34a87c058",
+  "cached_controls": {
+    "candidate": {
+      "record": "benchmarks/runs/20260908-5726-root-reuse-rank33-prefix/results/candidate.json",
+      "sha256": "1753011798b59f178b3a4a85027561a9f3192ca657af58fc4b28d5e1b961996a"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5726-root-reuse-rank33-prefix/results/kissat.json",
+      "sha256": "3eab3b14e7e60be1f0ddee24ebe275d3947a6f9b18552ff443fc6c6ce561d80f"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-0",
+    "throttle": null,
+    "node_constraint": null
+  }
+}

@@ -1,0 +1,9 @@
+/home/hwu/SAT-solving/benchmarks/probes/scratch/forward-unit-native-5761.c: In function ‘main’:
+/home/hwu/SAT-solving/benchmarks/probes/scratch/forward-unit-native-5761.c:28:50: error: ‘statistics’ has no member named ‘forward_subsumed’; did you mean ‘fast_subsumed’?
+   28 |     if (VALUE(LIT(2)) != 1 || solver->statistics.forward_subsumed != 1) return 4;
+      |                                                  ^~~~~~~~~~~~~~~~
+      |                                                  fast_subsumed
+/home/hwu/SAT-solving/benchmarks/probes/scratch/forward-unit-native-5761.c:30:48: error: ‘statistics’ has no member named ‘forward_subsumed’; did you mean ‘fast_subsumed’?
+   30 |         (unsigned long long)solver->statistics.forward_subsumed);
+      |                                                ^~~~~~~~~~~~~~~~
+      |                                                fast_subsumed

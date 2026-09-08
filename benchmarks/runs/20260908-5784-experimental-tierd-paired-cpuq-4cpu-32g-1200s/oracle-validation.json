@@ -1,0 +1,63 @@
+{
+  "purpose": "Fixed positive/negative actual benchmark checker controls; no solver execution or fuzz artifacts.",
+  "manifest_sha256": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+  "checks": [
+    {
+      "verdict": "SAT",
+      "expected_acceptance": true,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/checkmodel",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/sat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/good.model"
+      ],
+      "exit_code": 0,
+      "output": "checkmodel: OK \u2014 1 clauses satisfied, 1 vars assigned\n",
+      "verified": true
+    },
+    {
+      "verdict": "SAT",
+      "expected_acceptance": false,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/checkmodel",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/sat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/bad.model"
+      ],
+      "exit_code": 1,
+      "output": "checkmodel: FAILED \u2014 clause 1 (1 0) not satisfied\n",
+      "verified": false
+    },
+    {
+      "verdict": "UNSAT",
+      "expected_acceptance": true,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/unsat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/good.drat"
+      ],
+      "exit_code": 0,
+      "output": "\nc parsing input formula with 2 variables and 4 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 4 of 4 clauses in core                            \n\nc 2 of 3 lemmas in core using 5 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+      "verified": true
+    },
+    {
+      "verdict": "UNSAT",
+      "expected_acceptance": false,
+      "command": [
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/unsat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/probes/scratch/5793-experimental-oracle/bad.drat"
+      ],
+      "exit_code": 1,
+      "output": "\nc parsing input formula with 2 variables and 4 clauses\n\nc finished parsing\n\nc conflict claimed, but not detected\n\ns NOT VERIFIED\n\nc verification time: 0.042 seconds\n",
+      "verified": false
+    }
+  ],
+  "fixture_sha256": {
+    "benchmarks/probes/scratch/5793-experimental-oracle/good.drat": "ed124fbf8ffd811c88b3cc955212778eacce7a20b83ad9c8e79a9729cfb9b0b9",
+    "benchmarks/probes/scratch/5793-experimental-oracle/bad.model": "42b42de297238584fe80306963c63edac456647dce5b91484c7c3e4ca1fdb943",
+    "benchmarks/probes/scratch/5793-experimental-oracle/bad.drat": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "benchmarks/probes/scratch/5793-experimental-oracle/good.model": "f5d108e5be9ea122e069a928413aa296c08f42bb1856e95e7ae85eb63fcf6431",
+    "benchmarks/probes/scratch/5793-experimental-oracle/unsat.cnf": "bdcfed14408fb3f368fe82437336d283a9dedc953677460e9c7317724c5e1e58",
+    "benchmarks/probes/scratch/5793-experimental-oracle/sat.cnf": "6642f3ff4fae6f869a53f303bc768802cec0a16af731686c6bf03f342cf0489e"
+  },
+  "runner_sha256": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f"
+}

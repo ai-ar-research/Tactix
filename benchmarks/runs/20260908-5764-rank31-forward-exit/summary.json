@@ -1,0 +1,84 @@
+{
+  "observer_parent_trace_and_proof_equal": true,
+  "stop_conflict": 300000,
+  "rounds": [
+    {
+      "begin": {
+        "conflict": "179823",
+        "round": "9",
+        "candidates": "345695",
+        "start": "73147303",
+        "budget": "35595073",
+        "bounded": "1",
+        "binary_removed": "48"
+      },
+      "unit-candidate": {
+        "index": "32609",
+        "id": "4060427",
+        "spent": "312049",
+        "flipped": "-130506",
+        "partner": "0",
+        "clause": "-130574:0,130506:0,-145:-1,"
+      },
+      "unit-stop": {
+        "index": "32609",
+        "tail": "313085"
+      },
+      "end": {
+        "reached": "32610",
+        "candidates": "345695",
+        "spent": "312049",
+        "budget": "35595073",
+        "ended": "1",
+        "interrupted": "0"
+      },
+      "spent_fraction": 0.008766634640698729,
+      "reached_fraction": 0.09433170858704928
+    },
+    {
+      "begin": {
+        "conflict": "179823",
+        "round": "10",
+        "candidates": "562637",
+        "start": "73459352",
+        "budget": "35595073",
+        "bounded": "1",
+        "binary_removed": "1291"
+      },
+      "unit-candidate": {
+        "index": "73330",
+        "id": "4193038",
+        "spent": "909962",
+        "flipped": "-40355",
+        "partner": "0",
+        "clause": "-108783:0,40355:0,-145:-1,"
+      },
+      "unit-stop": {
+        "index": "73330",
+        "tail": "489306"
+      },
+      "end": {
+        "reached": "73331",
+        "candidates": "562637",
+        "spent": "909962",
+        "budget": "35595073",
+        "ended": "1",
+        "interrupted": "0"
+      },
+      "spent_fraction": 0.025564268403101744,
+      "reached_fraction": 0.13033447853589436
+    }
+  ],
+  "manifest_sha256": "4c62c69549d9fd3ca6ee44102619ed1dacacab5cc814f9afa0b306230612ba71",
+  "result_sha256": "f0ac11e573e728835b7020a70eb32cdbec15835255d39b3d5d6f5b5d6bd3b5db",
+  "trace_sha256": {
+    "candidate.prefix.tsv": "4e09ea749d4032346cba1482d6492b9d4a7b5608a6a03c1f4871d08b6877747f",
+    "candidate.macro.tsv": "b317f1c5e09f99b7cae8d6775b6512df3e649d78715571d02aa126abb2a7e19b",
+    "candidate.forward-round.tsv": "251cfa1b1e8414aa1dbc7d94ecbaa68512e1b4be87d266c354bd6c75355174a4",
+    "candidate.boundaries.tsv": "e59c52cdfb42688f09838380804159e06b0a0d4caafe7974f456f3d6939ac1e3",
+    "candidate.decisions.tsv": "14921e38a89b42dbfcbf081037d3a1d2b2d7b457b5b0bcd8f28db20dfa8ae69d"
+  },
+  "conclusion": "Rank31 first differing Strengthen179823 ends on a unit with more than99% of its first-round step allowance unused;not a quota cut. Native source continues after dense unit propagation,and actual native/Tactix fixed tail controls establish the omitted mechanism.",
+  "required_repair": "Continue the same forward candidate stream after root consequences,with reference-scoped propagation and connected-watch cleanup;revalidate each later candidate against changed roots,keep chain IDs valid before deleting reasons,and preserve strict quota/interrupt/public action contracts.",
+  "limitation": "No implementation repair or runtime attribution yet. No new Kissat solve. Current5741 B28+C5/full40/fuzz remain separate."
+}

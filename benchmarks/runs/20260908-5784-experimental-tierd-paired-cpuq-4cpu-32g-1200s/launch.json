@@ -1,0 +1,13 @@
+{
+  "job_id": "1673402",
+  "observed_at": "2026-09-08T15:46:12Z",
+  "manifest_sha256": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+  "command": "sbatch --parsable benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch",
+  "user_authorization": "20 minutes for solver only; retain existing budgeting for decompression, proof checking and cleanup. All Tier D, both solvers, cpu-q, 4 CPUs and 32 GiB.",
+  "scheduler_wall_seconds": 18000,
+  "solver_timeout_seconds": 1200,
+  "checker_timeout_seconds": 16000,
+  "tasks": 2332,
+  "instances": 1166,
+  "status_at_first_queue_check": "65 running on cpu-q, remainder pending; 4 CPUs/32G confirmed. Development jobs remain on cpu-dense-hwulab-q."
+}

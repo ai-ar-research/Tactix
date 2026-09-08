@@ -1,0 +1,66 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended",
+  "candidate_authority": "benchmarks/runs/20260908-5741-reuse-target",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-reuse-target-5741",
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 300000,
+  "hypothesis": "Rank32 Strengthen179463 processes its whole stream,not a unit or quota exit. Identify the eight outgoing large-clause difference and establish incoming literal sets/physical pose/root values before choosing a general repair.",
+  "validation": "Both arms ordinary300K traces and partial proofs exactly replay5771. Selected first Strengthen boundary formula snapshot must exist and match recorded live large-clause counts.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "run.py": "f2837d368b12a83fe99f6eca93c0e96c39a47958b5e9fee20681ff796e95aa8b",
+    "array.sbatch": "67f230098ed1c693d17ff24dd9d518d60526bc29c5b9a5f1366d9e01ead6a84f",
+    "pins/candidate": "189b2d9b21bf94f9b9fcb1962d7f686deef6260ee12f69a8fa417011435a53ff",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16"
+  },
+  "stream_from": 100000,
+  "common_decisions": 40102204,
+  "created_at": "2026-09-08T14:27:54.979288+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Instrumented bounded diagnostic. Frozen native runtime vector remains6810.066s. Earlier control and new suffix have separate scopes.",
+  "test_consideration": "Configuration-only existing immutable5742/native pins. Four prefix-parser tests and complete parent replay validate observer scope; no changed solver code or new solver unit test.",
+  "source_patch_sha256": "84b8a71043da20d304cc26643c468fe77a45196253944b941ad2fb0f0dc96e5a",
+  "predecessor": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix",
+  "cached_controls": {
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5597-factor-support-rank32-prefix/results/kissat.json",
+      "sha256": "7795750cbf66213fe457d905ae5051ab8afb7053db89eb86bb293445b89cbf91"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null
+  },
+  "cached_native_campaign": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended",
+  "selection": {
+    "path": "benchmarks/runs/20260908-5758-reuse-target-ranks1-40/next-losses.json",
+    "sha256": "286465d1e6e59365e2ffc7afea526d4b71c2616a5f81ab6e99faad0ecb11e869"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260908-5769-reuse-target-rank32-prefix/summary.json",
+    "sha256": "f7b168c72f9c66a78b4e6d7d156b742ab950d6be4920d84b3ce4f16153f0e41c"
+  },
+  "native_rerun_reason": "Missing physical formula/pose/root-value snapshots at the first differing component boundary; no runtime baseline refresh.",
+  "selected_stage": "end",
+  "localization_authority": {
+    "path": "benchmarks/runs/20260908-5771-reuse-target-rank32-extended/boundary-localization.json",
+    "sha256": "e4918c835a79e277a456ea4b7e3be7b903b125adb7429303b8b1bd9bd89a0964"
+  }
+}
