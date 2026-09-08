@@ -1,0 +1,26 @@
+{
+  "checked_proofs": 40,
+  "journal_active_outcomes": [
+    "applied",
+    "applied",
+    "declined",
+    "applied",
+    "declined",
+    "applied",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted",
+    "refuted"
+  ],
+  "hashes": {
+    "benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/summary.json": "2c255b9deaec4fff870e491e2c9da32952de83172d53adab00d9e53c8cf285bf",
+    "benchmarks/runs/20260908-5870-forward-preclean/caller-proofs/summary.json": "bc2067628d83eea55e8570008ea1224b2ecefd48c3168f77e7d870613666017e",
+    "benchmarks/runs/20260908-5870-forward-preclean/journal-proofs/summary.json": "12297e67139447674cc5a40e5c5600bffafdb45c2d034d32e6e7ab51c36c2721",
+    "benchmarks/runs/20260908-5875-forward-preclean-controls/summary.json": "28f868418ceb4748aecd5ce275415901ad8bbe93a06e7b221aea000732b45013",
+    "benchmarks/runs/20260908-5876-forward-preclean-edges/summary.json": "6300fc8ee6740a6107bde5b954a93ef0fad6e1c83e3b60eb417d74be3f0d103d",
+    "benchmarks/runs/20260908-5870-forward-preclean/caller-journal.tsv": "57903925430f694407063706f4ad73651d230500dffcdf314f22f8590e6c4fdc"
+  },
+  "test_consideration": "Three new occurrence-lifetime tests,old/new/native controls,40 checked DRAT/LRAT proofs including preconnection deletion before refutation and active-journal paths. No checker acceptance changes."
+}

@@ -1,0 +1,9 @@
+{
+  "job_id": "1674840",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-5891-rank32-reorder-frontier/array.sbatch"
+  ],
+  "manifest_sha256": "ca74a0da95c7b215250ba09f648cb28f66eb856a222ea62fcdcafbf961fa93d1"
+}

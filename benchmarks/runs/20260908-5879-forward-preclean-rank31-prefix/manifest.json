@@ -1,0 +1,63 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5856-forward-caller-rank31-prefix",
+  "candidate_authority": "benchmarks/runs/20260908-5870-forward-preclean",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-forward-preclean-5870",
+  "input": "benchmarks/cache/tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+  "input_sha256_compressed": "b593364c559acab10fed9546371efe2f96683fd2c21021439dc340d6fa1ea85c",
+  "stop_conflict": 300000,
+  "hypothesis": "Correct the six BVE score residuals caused by nine stale occurrences in three incoming-root-satisfied clauses. Compare complete decisions and forward/BVE boundaries against5849 and cached native; no standalone schedule observer or native rerun.",
+  "validation": "Complete300K stream from0,expected diagnostic stop and scratch cleanup;compare every row and portable forward/BVE boundaries to both cached controls. No native refresh or acceptance timing.",
+  "contract": "Single candidate task0;12CPU/48000MiB,25min allocation,1200s solver,proof-on diagnostic; no node constraint/throttle. No Kissat rerun.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "run.py": "9bf4c7edb946c02422648ccd2e61b045eba889409752c679e76a105a74bcbc55",
+    "array.sbatch": "9dbd663b7cb442fbeb3e4a94c174eb26e3ea074c5229d684bcb068980e23e988",
+    "pins/candidate": "87f2543698b681af7dd5faed925fd09b560235a012206e9c668f58d82e3be9cc"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T16:36:14.737061+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Stopped diagnostic,not final checked verdict or acceptance timing; no new Kissat run.",
+  "test_consideration": "Final rebuilt suites95/95 twice,94/94 trace,95/95 journal. New incoming-C2,already-fixed/empty-suffix and later-derived negative-control occurrence fixtures;SAT models and invariants. Six caller refutations include precleaned clauses.40 independently checked DRAT/LRAT proofs. Actual old/new/native occurrence controls distinguish required eager from preserved lazy cleanup.",
+  "source_patch_sha256": "f3d0771fe4375f66a7b2c31622a190a3a15a21398ddcd7e175517245397a16fe",
+  "predecessor": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix",
+  "cached_controls": {
+    "candidate": {
+      "record": "benchmarks/runs/20260908-5856-forward-caller-rank31-prefix/results/candidate.json",
+      "sha256": "9410aa37c3f0c2b218ca5afd37476f587528f0466249af2d770d7c8c9604e874"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5735-root-reuse-rank31-prefix/results/kissat.json",
+      "sha256": "63b7668610e420d2039fde126b057a86bb4274149fa0fbafd0e8cbe06afb8904"
+    }
+  },
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-0",
+    "throttle": null,
+    "node_constraint": null
+  },
+  "bc_dependency": {
+    "campaign": "benchmarks/runs/20260908-5806-forward-unit-BC-gate",
+    "provisional_outcomes": 66,
+    "limitation": "Remaining BC solves/checks continue independently;no gate closure or promotion. Investigative trace only."
+  },
+  "runtime_selection": {
+    "path": "benchmarks/runs/20260908-5858-forward-caller-ranks1-40/next-losses.json",
+    "sha256": "4c933bdaf27dee322d60196e1a615d3ca33cb2e67aada4306e77148d6b9e0654"
+  }
+}

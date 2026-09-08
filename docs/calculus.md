@@ -168,7 +168,7 @@ conjunct.
   (self-subsuming resolution).
 - **Effect:** replace `c` by `c′` (add-before-delete). Proof δ: `add_rup(c′)` + `del(c)`; a unit result
   is asserted (root unit), an empty result refutes. Derived root consequences may simplify later
-  candidates, with proof support retained before reason deletion; caller closure uses M1, not a stronger C2 guard. The round is *fused*, taking C1's inference
+  candidates, with proof support retained before reason deletion; caller closure uses M1 and root-satisfied deletion, not a stronger C2 guard. The round is *fused*, taking C1's inference
   when the resolvent subsumes outright — that branch is **`del` with no add**.
 - **Soundness:** `c′` is RUP from `c` and `d`; add-before-delete keeps the core entailed at every step.
   The fused SUBSUMED branch is C1's inference and inherits its argument (`implementation-notes.md` §14).

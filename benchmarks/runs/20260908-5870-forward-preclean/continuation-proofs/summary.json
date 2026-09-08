@@ -1,0 +1,216 @@
+{
+  "state_model_cases": 17,
+  "checked_micro_proofs": 16,
+  "binary_sha256": "343f90a75057ef70671bf95527207d2f1667c5d6e7d00462d3f972b02a54ca9e",
+  "records": [
+    {
+      "case": "forward-0-0-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-0-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-0-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "c524abc79a472c4446e3263915cf618d481583b1c132a98c5f5daf40bf217da6",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "72c81018fec22579e10b7d344fd5af273034fa9d7380be7d0dc650f6b4b31aff"
+    },
+    {
+      "case": "forward-0-0-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-0-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-0-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "08918cc1476bc5240a8235473dbdfdf0a3275ed46e93f7a8ffe1dcc76d7f5710",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "8a92df53ab42d1e2eface58f2262a823ad01bfbcf65ec388899ad56306ecfb91"
+    },
+    {
+      "case": "forward-0-1-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-1-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "24f9f750b46a43fdef6b661be8fcd23d99a86afeaad1edf2a867ccc9696bc6ee",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "801f1b86c70ef067b3b76491d7fc940509a1461fe9f3ae9780b8c7d2c203045c"
+    },
+    {
+      "case": "forward-0-1-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-1-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "27f03c7209381f29f151e9d76f4f3bd722fdd032ad8653a96a2d51fa9d95dce7",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "79a8ca536d97d839133815c92b1e9103ccbaa9f9385459ba348f60152b032ebd"
+    },
+    {
+      "case": "forward-0-2-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-2-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-2-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "dcfb04c87bfc85b002520d6387e4f007ae0b69f0aa9fa36264b26959a6fcc8a3",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "4979aaca95d375d144aad33f6763fdb10e1c766b32827922ba02dbbe5db1138e"
+    },
+    {
+      "case": "forward-0-2-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-2-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-2-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "2bfca181ee1f41c87978e506a7fe00585bd97974fe6b8d31d18a41f47914dee0",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "3702a2eec5be40e7c6dbba2350015441063495b14c992318cf0fb5ef295a7a8a"
+    },
+    {
+      "case": "forward-0-3-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-3-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-3-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "15e2f182a38e47d8f7aa6feb9528eec945a1bef308fd79c403e766c77e24e14f",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "4c2c1cd856df1ffaaa9225a6be9d462f5777f060881a5b68ea83c15c4f15960e"
+    },
+    {
+      "case": "forward-0-3-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-3-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-0-3-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "4f8680189f7877e63c1459793d096150d4ed1acfe2d0e9445e5c2d6f030f71bf",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "cfd67149f373894ae87e026ab38ea88ff5b7eb2fa51f0148bb3c5b55b9f4a93d"
+    },
+    {
+      "case": "forward-1-0-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-0-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-0-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "c524abc79a472c4446e3263915cf618d481583b1c132a98c5f5daf40bf217da6",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "4e6e42adf4a5b46f3d19df589f1427ca64a1ac9133cb4178cd8385dc390bfccc"
+    },
+    {
+      "case": "forward-1-0-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-0-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-0-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "295de9efd5cc0bf00e2885d48752b90e260eeeb2da2ff5c67b60ff7fce67dc00",
+      "proof_sha256": "08918cc1476bc5240a8235473dbdfdf0a3275ed46e93f7a8ffe1dcc76d7f5710",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "8a92df53ab42d1e2eface58f2262a823ad01bfbcf65ec388899ad56306ecfb91"
+    },
+    {
+      "case": "forward-1-1-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-1-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "24f9f750b46a43fdef6b661be8fcd23d99a86afeaad1edf2a867ccc9696bc6ee",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "0258ad9a8e87919b1b621575d1cced1b2b4a04bf1c51d92a2db784c773ed5211"
+    },
+    {
+      "case": "forward-1-1-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-1-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "dfba3db74ebd10617db17a5253494077b11493416c3fd1070ee0604befe13f97",
+      "proof_sha256": "27f03c7209381f29f151e9d76f4f3bd722fdd032ad8653a96a2d51fa9d95dce7",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "79a8ca536d97d839133815c92b1e9103ccbaa9f9385459ba348f60152b032ebd"
+    },
+    {
+      "case": "forward-1-2-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-2-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-2-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "dcfb04c87bfc85b002520d6387e4f007ae0b69f0aa9fa36264b26959a6fcc8a3",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "7a483f0814ca867dc9b59c097812f67f8454fa3981a8ce2f850946d71f412bc4"
+    },
+    {
+      "case": "forward-1-2-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-2-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-2-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "378743f2fdbf3710e85a6a0f8d0bc2941b42db3ee936c9be35db50380bd05352",
+      "proof_sha256": "2bfca181ee1f41c87978e506a7fe00585bd97974fe6b8d31d18a41f47914dee0",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "3702a2eec5be40e7c6dbba2350015441063495b14c992318cf0fb5ef295a7a8a"
+    },
+    {
+      "case": "forward-1-3-drat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-3-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-3-drat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "15e2f182a38e47d8f7aa6feb9528eec945a1bef308fd79c403e766c77e24e14f",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+      "log_sha256": "ad1b35918b065423fef0b6165e02cf56312defb2fa25bf86a5ce97eeaeab1463"
+    },
+    {
+      "case": "forward-1-3-lrat",
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-3-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-5870-forward-preclean/continuation-proofs/forward-1-3-lrat.proof"
+      ],
+      "exit_code": 0,
+      "cnf_sha256": "b4eae063627faaba6a1687a1ce5a7fd79a64d8084dd5e9f07de4544ed5fdcc01",
+      "proof_sha256": "4f8680189f7877e63c1459793d096150d4ed1acfe2d0e9445e5c2d6f030f71bf",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+      "log_sha256": "cfd67149f373894ae87e026ab38ea88ff5b7eb2fa51f0148bb3c5b55b9f4a93d"
+    }
+  ],
+  "limitation": "Fixed actual-code regressions only; not fuzz or real-instance proof/performance gates."
+}
