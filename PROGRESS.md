@@ -10,14 +10,18 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest: [Root-entry follow-up](benchmarks/reports/2026-09-07-root-entry-followup.md).
+- Latest: [Full view and next boundaries](benchmarks/reports/2026-09-07-runtime-next-boundaries.md).
+  Rephase's full 40-pair solver view is **1.202034x**, with proofs still pending.
+  Its nine timing proofs and B28+C5 are now fully checked. Metadata 5426 has a
+  small 0.993882x median exact-work gain, not a solution to the aggregate gap.
+- [Root-entry follow-up](benchmarks/reports/2026-09-07-root-entry-followup.md):
   5430 restores missing root closure before Probe/Eliminate, with distinct
   search-tick/phase-saving scopes. Actual old/new scheduler fixtures confirm it.
   Independent 5426 removes redundant watch-metadata writes without state changes.
-  Both are **UNFUZZED**, unpromoted; new timing/gates are queued.
+  Both are **UNFUZZED**, unpromoted; phase-entry timing/gates are in flight.
 - [Rephase closure](benchmarks/reports/2026-09-07-rephase-root-closure.md) owns
-  exact Rank-35 prefix/heap closure and provisional paired 0.658243x preceding
-  candidate, 1.183228x Kissat. Full Rephase view still has pending solver results.
+  exact Rank-35 prefix/heap closure and now-checked paired 0.658243x preceding
+  candidate, 1.183228x Kissat. New clean profiles prioritize inprocessing cost.
 - [Dense-entry evidence](benchmarks/reports/2026-09-07-dense-entry-cost.md) owns
   the preceding candidate: Rank-21 peak RSS falls about 16.5%, runtime is mixed.
 - Correction: stopped-prefix 5382 contains dormant hot-loop instrumentation;
@@ -31,20 +35,19 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 
 | Campaign | Job | Pending scope |
 |---|---|---|
-| 5421 Rephase Rank-35 replicas | `1669878` | All 9 expected UNSAT; proofs checking. |
-| 5422 Rephase B28+C5 | `1669812` | All 66 expected verdicts; 64/66 checked. |
-| 5423 Rephase full Rank 1–40 | `1669887` | Solver/checker array in flight. |
-| 5424 Rank-35 extended prefix | `1669919` | Stop at 100,000 conflicts; diagnostic only. |
-| 5425 clean Rephase profiles | `1669961` | Rank-35 candidate/Kissat profiles; queued. |
-| 5428 metadata timing | `1669968` | Three candidate/exact-predecessor pairs; queued. |
-| 5429 metadata B28+C5 | `1669969` | Fixed cumulative gate; queued. |
-| 5433 phase-entry prefix | `1669971` | Candidate/Kissat stop 100,000; queued. |
-| 5434 phase-entry Rank 1–40 | `1669972` | Full fixed comparison; queued. |
+| 5423 Rephase full Rank 1–40 | `1669887` | All 80 expected verdicts; proofs checking. |
+| 5425 clean Rephase profiles | `1669961` | Both usable profiles reproduce work; proofs checking. |
+| 5428 metadata timing | `1669968` | All 6 expected UNSAT, identical paired proof bytes; checking. |
+| 5429 metadata B28+C5 | `1669969` | 64/66 checked; C5 tail in flight. |
+| 5433 phase-entry prefix | `1669971` | Complete: unchanged from Rephase through 100,000. |
+| 5434 phase-entry Rank 1–40 | `1669972` | Full fixed comparison; running. |
 | 5435 phase-entry B28+C5 | `1669973` | Fixed cumulative gate; queued. |
+| 5436 Rank-37 prefix | `1669994` | Latest phase-entry candidate/Kissat; queued. |
+| 5437 Rank-35 Sweep binaries | `1670050` | Rephase/phase-entry/Kissat snapshots at conflict 19,365; queued. |
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
-5383/5389/5393/5395 are terminal and checked; diagnostics through 5418 are terminal
+5383/5389/5393/5395/5421/5422 are terminal and checked; diagnostics through 5424 are terminal
 (5401/5411 cancelled, 5413 timed out; scratch cleaned). User interactive allocation
 `1668242` is untouched. Exact audit and stop limitations are in the latest report.
 
@@ -61,21 +64,25 @@ revisit them at checkpoints, never label pending certificates verified.
 | [5392 coupled witnesses](benchmarks/runs/20260907-5392-eliminate-entry-runtime/summary.json) | 12 checked models; 1.020252x preceding candidate, 1.205145x Kissat; mixed, one wave. |
 | [5393 coupled B28+C5](benchmarks/runs/20260907-5393-eliminate-entry-BC-gate/summary.json) | 66/66 checked/clean; no timeout/solve loss; candidate/production 0.922328x. |
 | [5395 coupled Rank 1–40](benchmarks/runs/20260907-5395-eliminate-entry-ranks1-40/summary.json) | 80/80 checked/clean; both 40 solves; 8378.399/6762.780 s = 1.238899x. |
+| [5422 Rephase B28+C5](benchmarks/runs/20260907-5422-rephase-root-BC-gate/summary.json) | 66/66 checked/clean, no solve loss/timeout; candidate/production 0.936764x. |
 
 Rank 1–40 is not an annual/union Tier-D replacement. Memory competitiveness
 is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Compare full views 5423/5434 as solver results arrive; use provisional passes.
-   Rephase still has large gaps on Ranks 37/32/31. Inspect 5424/5433 prefixes
-   with their comparators and 5425's clean profiles before the next repair.
-   Rank 27 matches through 100,000 conflicts; its split is later. Judge 5428
-   metadata timing only with all three exact-work/proof-identical pairs; do not
-   combine that unmeasured branch into the phase-entry candidate prematurely.
+1. Compare 5434's full view against 5423 as solver results arrive; use provisional
+   passes. Rephase's largest losses are Ranks 37/32/31. Run the 5436 prefix
+   comparators and `compare-sweep-binary-boundary-5437.py` on complete traces.
+   Rank 35 first differs in coarse binary count at Sweep end, conflict 19,365;
+   decisions remain identical until 32,072. Resolve duplicates versus unique
+   clauses before modifying Sweep; 5433 leaves that prefix unchanged. Profile
+   5425 prioritizes inprocessing, but differing work prevents unit-cost attribution.
+   Metadata 5428 now has all three exact-work/proof-identical timing pairs;
+   its small measured gain may inform consolidation, pending final gates.
 2. Revisit active checker outcomes without blocking the investigation; run
    `seal-rephase-gates-5422.py` and `seal-root-followup-gates-5435.py` when complete.
-   Seal 5421's nine proofs separately; its solver checkpoint is not a checked gate.
+   `seal-rephase-replicas-5421.py` has sealed all nine timing proofs.
    Preserve per-instance work/time/memory and label verification status.
    Any rejected proof/model pauses dependent work under plan §8.2.
 3. Preserve submitted sources/pins. Latest source is
@@ -132,10 +139,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Restored Probe/Eliminate root closure and reference tick/phase scope in isolation.
-- Removed redundant large-watch metadata writes in an independent exact-state branch.
-- Passed 392 old/new metadata cases and actual old/new phase-entry fixtures.
-- Completed preceding coupled full-view checking; launched new gates asynchronously.
+- Completed the full Rephase solver view and checked its timing/regression gates.
+- Measured metadata's small exact-work gain across all three pairs.
+- Validated clean profiles and localized the next earlier Sweep count split.
+- Launched Rank-37 and three-arm Sweep diagnostics while proof checking continues.
 - Kept living docs within their budgets; detailed evidence remains in frozen reports.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

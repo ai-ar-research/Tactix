@@ -1,0 +1,55 @@
+{
+  "clean_stops": 2,
+  "prior_13833_prefix_preserved": true,
+  "stop_conflict": 100000,
+  "complete_prefix_identical": false,
+  "prefixes": {
+    "candidate": [
+      "100000",
+      "18446744073709421499",
+      "44679992",
+      "44810109",
+      "b4ec26dd2380e0b8",
+      "18516218",
+      "1",
+      "a6eb1df4f4e0e591",
+      "488499",
+      "-80094",
+      "-201511",
+      "41434"
+    ],
+    "kissat": [
+      "100000",
+      "18446744073709419300",
+      "40504207",
+      "40636523",
+      "6a3ebeb3a46d7ad5",
+      "18516218",
+      "1",
+      "a6eb1df4f4e0e591",
+      "488499",
+      "-80094",
+      "202239",
+      "41434"
+    ]
+  },
+  "first_decision_difference": {
+    "candidate": [
+      "32072",
+      "25844533",
+      "249",
+      "148432",
+      "0"
+    ],
+    "kissat": [
+      "32072",
+      "25844533",
+      "249",
+      "147866",
+      "0"
+    ],
+    "matching_window_rows": 7399407
+  },
+  "matching_window_rows": 7399407,
+  "limitation": "Stopped proof-on diagnostic, not complete solve or timing evidence. Macro boundaries are raw localization inputs; differing counts alone do not establish semantic cause."
+}

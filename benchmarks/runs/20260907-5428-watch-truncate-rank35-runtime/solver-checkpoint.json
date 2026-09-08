@@ -1,0 +1,76 @@
+{
+  "observed_at": "2026-09-08T01:09:40.278826+00:00",
+  "checked_clean": 0,
+  "solver_results": 6,
+  "same_non_timing_statistics_and_proof": true,
+  "waves": [
+    {
+      "wave": 0,
+      "candidate_seconds": 359.132,
+      "previous_seconds": 362.792,
+      "ratio": 0.9899115746763987,
+      "proof_sha256": "c6d148443294bda8c11ee6dba357fbbf02145447671b6b7d4d547f1d6df81398"
+    },
+    {
+      "wave": 1,
+      "candidate_seconds": 361.467,
+      "previous_seconds": 363.692,
+      "ratio": 0.993882186025538,
+      "proof_sha256": "c6d148443294bda8c11ee6dba357fbbf02145447671b6b7d4d547f1d6df81398"
+    },
+    {
+      "wave": 2,
+      "candidate_seconds": 361.935,
+      "previous_seconds": 362.106,
+      "ratio": 0.9995277625888552,
+      "proof_sha256": "c6d148443294bda8c11ee6dba357fbbf02145447671b6b7d4d547f1d6df81398"
+    }
+  ],
+  "paired": {
+    "median": 0.993882186025538,
+    "min": 0.9899115746763987,
+    "max": 0.9995277625888552
+  },
+  "spread": {
+    "candidate": {
+      "median": 361.467,
+      "min": 359.132,
+      "max": 361.935,
+      "range_over_median": 0.007754511476842969
+    },
+    "previous": {
+      "median": 362.792,
+      "min": 362.106,
+      "max": 363.692,
+      "range_over_median": 0.004371650973560643
+    }
+  },
+  "absolute_range_within_two_percent": true,
+  "records": {
+    "0": {
+      "path": "benchmarks/runs/20260907-5428-watch-truncate-rank35-runtime/provisional/000.json",
+      "sha256": "eba24d4e094ee3ff6a410f3df48633de00f7ab59080fcedc9cabda54cb0f3f61"
+    },
+    "4": {
+      "path": "benchmarks/runs/20260907-5428-watch-truncate-rank35-runtime/provisional/004.json",
+      "sha256": "42a2817f533a22c343676bd652a94ecd4fd2d6907398b3d37e0cd935bf2239c1"
+    },
+    "1": {
+      "path": "benchmarks/runs/20260907-5428-watch-truncate-rank35-runtime/provisional/001.json",
+      "sha256": "9c6b89b49724c836783fb382eb36fb15dd8156dec68cfee54b22a0004910fbc9"
+    },
+    "5": {
+      "path": "benchmarks/runs/20260907-5428-watch-truncate-rank35-runtime/provisional/005.json",
+      "sha256": "57cdc39f85e239c653858323b341bed11dad8a84a0b1f3bdb957d37475e94ffe"
+    },
+    "3": {
+      "path": "benchmarks/runs/20260907-5428-watch-truncate-rank35-runtime/provisional/003.json",
+      "sha256": "edeaaff394d2003426b2d83946c820c3e303c9c546526b4826f3c0a8e492bbad"
+    },
+    "2": {
+      "path": "benchmarks/runs/20260907-5428-watch-truncate-rank35-runtime/provisional/002.json",
+      "sha256": "455d83b97119c56a1661262140ef4f21906af82634df33c702fb8533abded8e6"
+    }
+  },
+  "limitation": "Exact-work/proof identity supports a unit-cost comparison, not final correctness before checks or global competitiveness. Candidate remains UNFUZZED and unpromoted."
+}
