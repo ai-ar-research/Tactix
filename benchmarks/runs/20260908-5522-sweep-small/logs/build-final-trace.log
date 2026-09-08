@@ -1,0 +1,117 @@
+[  1%] Building CXX object CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o
+[ 26%] Built target tactix_lib
+[ 27%] Linking CXX executable tactix
+[ 27%] Linking CXX executable test_kernel
+[ 27%] Linking CXX executable test_restart_reduce
+[ 28%] Linking CXX executable test_parse
+[ 28%] Linking CXX executable test_analyze
+[ 28%] Linking CXX executable test_switchmode
+[ 29%] Linking CXX executable test_proof
+[ 30%] Linking CXX executable test_rephase
+[ 30%] Built target test_parse
+[ 31%] Built target test_rephase
+[ 31%] Built target tactix
+[ 33%] Built target test_switchmode
+[ 33%] Linking CXX executable test_subsolver
+[ 34%] Built target test_kernel
+[ 35%] Built target test_restart_reduce
+[ 36%] Linking CXX executable test_scheduling
+[ 37%] Built target test_proof
+[ 38%] Linking CXX executable test_sweep
+[ 38%] Linking CXX executable test_strategy_config
+[ 39%] Built target test_analyze
+[ 39%] Linking CXX executable test_rule_journal
+[ 39%] Built target test_subsolver
+[ 41%] Linking CXX executable test_event_trace
+[ 41%] Linking CXX executable test_slot_pose
+[ 42%] Built target test_scheduling
+[ 43%] Linking CXX executable test_reorder
+[ 43%] Linking CXX executable test_walk
+[ 43%] Built target test_sweep
+[ 44%] Built target test_strategy_config
+[ 45%] Linking CXX executable test_subsume
+[ 46%] Linking CXX executable test_strengthen
+[ 48%] Built target test_rule_journal
+[ 49%] Linking CXX executable test_instantiate
+[ 50%] Built target test_event_trace
+[ 51%] Built target test_reorder
+[ 51%] Linking CXX executable test_vivify
+[ 52%] Built target test_subsume
+[ 53%] Linking CXX executable test_vivify_n1
+[ 53%] Linking CXX executable test_probe
+[ 53%] Built target test_slot_pose
+[ 53%] Built target test_instantiate
+[ 54%] Built target test_walk
+[ 55%] Built target test_strengthen
+[ 55%] Linking CXX executable test_bce
+[ 56%] Linking CXX executable test_backbone
+[ 56%] Linking CXX executable test_cce
+[ 56%] Linking CXX executable test_hyperbinary
+[ 57%] Linking CXX executable test_ternary
+[ 58%] Built target test_vivify
+[ 58%] Built target test_vivify_n1
+[ 58%] Linking CXX executable test_reconstruct
+[ 59%] Built target test_probe
+[ 60%] Built target test_cce
+[ 61%] Linking CXX executable test_decide
+[ 61%] Built target test_backbone
+[ 62%] Built target test_hyperbinary
+[ 63%] Built target test_bce
+[ 64%] Linking CXX executable test_substitute
+[ 64%] Built target test_ternary
+[ 65%] Linking CXX executable test_congruence
+[ 66%] Linking CXX executable test_binary_deletion
+[ 67%] Linking CXX executable test_transitive_reduce
+[ 68%] Linking CXX executable test_bve
+[ 69%] Linking CXX executable test_lucky
+[ 70%] Built target test_reconstruct
+[ 70%] Built target test_decide
+[ 71%] Built target test_substitute
+[ 71%] Built target test_transitive_reduce
+[ 72%] Built target test_congruence
+[ 73%] Built target test_bve
+[ 73%] Built target test_binary_deletion
+[ 74%] Linking CXX executable test_api_c
+[ 75%] Built target test_lucky
+[ 75%] Linking CXX executable test_api_instances
+[ 76%] Linking CXX executable test_random_policy
+[ 77%] Linking CXX executable test_factor
+[ 78%] Linking CXX executable test_tr_bruteforce
+[ 79%] Linking CXX executable test_subsume_n1
+[ 80%] Linking CXX executable test_no_heuristics
+[ 80%] Linking CXX executable test_factor_n1
+[ 81%] Built target test_api_c
+[ 82%] Built target test_api_instances
+[ 82%] Built target test_tr_bruteforce
+[ 82%] Built target test_random_policy
+[ 82%] Linking CXX executable test_solve_reset
+[ 82%] Built target test_factor
+[ 83%] Built target test_factor_n1
+[ 83%] Linking CXX executable test_bve_bound_cut
+[ 83%] Built target test_subsume_n1
+[ 84%] Built target test_no_heuristics
+[ 84%] Linking CXX executable test_eliminate_limit
+[ 84%] Linking CXX executable test_inprocess_root
+[ 84%] Linking CXX executable test_sweep_cursor
+[ 85%] Linking CXX executable test_replacement_cursor
+[ 86%] Linking CXX executable test_sweep_retained
+[ 86%] Building CXX object tests/CMakeFiles/test_sweep_small_env.dir/test_sweep_small_env.cpp.o
+[ 87%] Built target test_solve_reset
+[ 89%] Built target test_bve_bound_cut
+[ 89%] Linking CXX executable test_vivify_max
+[ 91%] Built target test_eliminate_limit
+[ 91%] Built target test_inprocess_root
+[ 91%] Built target test_replacement_cursor
+[ 92%] Built target test_sweep_cursor
+[ 93%] Built target test_sweep_retained
+[ 94%] Linking CXX executable test_watch_pair
+[ 95%] Linking CXX executable demo2_no_restarts
+[ 96%] Linking CXX executable demo1_dpll
+[ 96%] Linking CXX executable demo3_scripted_default
+[ 97%] Built target test_vivify_max
+[ 98%] Built target test_watch_pair
+[ 98%] Built target demo2_no_restarts
+[ 98%] Built target demo1_dpll
+[ 99%] Built target demo3_scripted_default
+[100%] Linking CXX executable test_sweep_small_env
+[100%] Built target test_sweep_small_env

@@ -1,0 +1,57 @@
+{
+  "source": ".claude/worktrees/runtime-sweep-small-5522",
+  "parent": ".claude/worktrees/runtime-sweep-retained-5510",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Remove empty/single-clause Sweep solve shortcuts; execute and charge real Kitten work.",
+  "evidence": "benchmarks/runs/20260908-5515-sweep-retained-rank32-trace/effort-localization.json",
+  "evidence_sha256": "57966983e2f3cd3b5f81216df9dac7066e26b9afae025c0e1f82c22e82e57007",
+  "contract": "Every constructed live-seed environment follows initial import/randomize/solve/model/refinement and real effort accounting. Builder false still means no usable clauses or fixed/retired seed; Sweep distinguishes a clause-free live seed by its nonempty variable list. Fixed/retired seeds still decline. No synthetic tick charge, bound/option change, new primitive, proof vocabulary or public guard restriction.",
+  "references": "Both references solve one-clause environments. Kissat also solves singleton/empty environments; CaDiCaL skips a singleton. Follow Kissat tie-break. Twelve direct actual native/SubSolver cases match initial/post-flip ticks, flip counts, generator and model hash.",
+  "tests": "Release86/86 twice and trace85/85. New one-clause widths2/3/17/270, bounded solves, empty/singleton/public-invalid cases, fixed/retired decline, repeated sessions, no false equivalences/units or formula mutation, and strict outer/inclusive inner budget transition leaving the third seed retained. Actual5510 objects skip the same four one-clause cases. Full existing DRAT/LRAT, model and API suites pass.",
+  "failed_expectations": "Initial test exposed an earlier builder-empty shortcut, now included in the repair. Budget fixture initially forgot strict outer equality, then omitted dense connection for its third unwatched large occurrence. Those fixture expectations/setup were corrected without changing budget or admission code. Initial failed logs retained; no soundness/model/proof failure observed.",
+  "status": "Isolated UNFUZZED successor to5510. Predecessor5510 median runtime1.067134x5473 on Rank32; this successor has no runtime result yet. No production promotion. Existing Claude fuzz5492 covers5473 only.",
+  "files": {
+    "src/rules/sweep/sweep.cpp": "b67d0033a9555b0a2f7adf86109025e81b05b37847ffa18d8e7bf812a2d19b59",
+    "tests/test_sweep_small_env.cpp": "9836f64ec928a16d492237ec270f93fffee3ae838384439e1737a440994f54aa"
+  },
+  "binaries": {
+    "build/pin-5522-sweep-small-release/tactix": "67867f4b999b55b494b5ec8f291096bc6f3682f4c99de5792871e057b21e0f4d",
+    "build/pin-5524-sweep-small-bc/tactix": "67867f4b999b55b494b5ec8f291096bc6f3682f4c99de5792871e057b21e0f4d",
+    "build/pin-5523-sweep-small-trace/tactix": "dcabb601c210d9bcc6f03100a29404cdae744a024da6c754ed9e0d00a5d5a3ae"
+  },
+  "patches": {
+    "cumulative.patch": "afea4c71e4e7668d618df315692aaf0028e587aa3fb40d0267cde94504d1c06a",
+    "repair.patch": "083402a99bdd326e51456ef52b756cd58213b6356f8282dacc39e40d236e66ef"
+  },
+  "logs": {
+    "build-final-release.log": "904f1c0c4b351c12900db334864c170113ade9c4a2b55531228f30ee26845f1a",
+    "ctest-verified-release.log": "bce03e72f9bcf4756902b2f0b7b0794960052f59ac737dbd8b1a4aa34361efba",
+    "build-verified-trace.log": "3e625b5ca4c42c3e5a4eaa9b23ef678db2d512c2108696c86797fa5bf229a26e",
+    "old-counterexample.log": "e1fb5363aa892bd07f7613c0ef82683c13778ad71b15fb4eab089ac8fc45b463",
+    "ctest-final-bc.log": "56722c22b8060911dd91ffae200fc2b1824dfb56b214f7d64026a5471d2cc325",
+    "build-final-bc.log": "26e3d578b00051ffdbd9bc920ad57fa5e5753ee03409db84413520e079acd9cf",
+    "configure-bc.log": "24bc394d07281fe92e568f6f5e1bb4bb65c2634bc8a4b5ad54eb63166a17a51a",
+    "build-release.log": "97e72d96e5f695351f07be2b9e819d8b6c48d955b98c57b989ec31d960ed8271",
+    "build-trace.log": "afd363449549035164871a37037f15552366e471cadbdfca8479ca26f85e56ab",
+    "build-verified-release.log": "5cbab9c311e57f4d572c213365eee78be400cdaa417d95ae14adefe6fa35b180",
+    "ctest-bc.log": "b7ba4ac7763463509b401255f0b5bf08256344a1c9294d3f6ac6f2a2e4634e3e",
+    "native-reference.log": "8bb247f5f591b2eb2da07fa3aa6e8b24257167ca6622b732bd4c9fe17231fd53",
+    "build-bc.log": "25aad56b79c03a2ac0556bb786fb742d1767ddaa0b1aa30904690bc9fe5546ff",
+    "ctest-release.log": "e75a7de49354c858b0d60b438ae83847b71012d06760e531d48150c198b56856",
+    "ctest-verified-bc.log": "d28d3f0a6d557b3b21ebedfcf6fc322bd238149d9e8902a7bbe108e5d441ecea",
+    "compile-old-counterexample.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "tactix-reference.log": "8bb247f5f591b2eb2da07fa3aa6e8b24257167ca6622b732bd4c9fe17231fd53",
+    "build-final-trace.log": "9ccfefdf2e2d544a125aa24b6b47d13a541ad1072e72949e0fb3672ea1a25a80",
+    "ctest-trace.log": "e71a295e704dabe36b636099f55b6d1d2d3bb986b0728509c04efbc95b830dd6",
+    "ctest-final-release.log": "c1e3761096ed38f3af000300a7eb2f09f2b1e7a05a080ed1ab8334d67177f7da",
+    "compile-old-verified.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ctest-verified-trace.log": "13202408106abacb2b1e8a22853f3897298654bc881828c21d728744aa794336",
+    "build-verified-bc.log": "2a080b62e2fc13db842009e3e0d7dd333637aad4cafee39f7f82ddeab201c80f",
+    "configure-trace.log": "3963c3be0d9693306826a161373d23490b064249717571ce8553a0ceb65c3480",
+    "compile-tactix-reference.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "ctest-final-trace.log": "98c4744a369f36395685f494bc064234d595fd520ec39e273f851db1eb62c7cc",
+    "configure-release.log": "43807aa4aea36807587b97635c274ff627a9e443c40fe41f5d2fa1b8fe513df3",
+    "old-verified-counterexample.log": "e1fb5363aa892bd07f7613c0ef82683c13778ad71b15fb4eab089ac8fc45b463"
+  },
+  "reference_validation_sha256": "cc7a4929db14f7abcd449388c7faff0e4cb97e198d3356ff4f66f43ba2509940"
+}

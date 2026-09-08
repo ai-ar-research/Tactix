@@ -10,14 +10,15 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- New isolated [retained-entry repair5510](benchmarks/reports/2026-09-08-sweep-retained-entry.md)
-  revalidates Sweep's retained seeds once at call entry, on5473. Release85/85
-  twice and trace84/84 pass; actual5473 objects reproduce the missing check.
-  Trace5515 validates all11023 native first-call seeds/environment sizes, but
-  Tactix skips33 one-clause embedded solves and continues seven extra seeds.
-  B28+C5 5516/job1672165 runs; timing5517 first pair is438.175/410.609 seconds
-  (unfavorable); second438.003/411.332. Wave2/job1672244 owns4-5, earlier
-  wave jobs1672166/1672240 keep checking. New source is unfuzzed/unpromoted.
+- New isolated [small-environment repair5522](benchmarks/reports/2026-09-08-sweep-small-environments.md)
+  executes real embedded solves for small/empty environments on5510.
+  Release86/86 twice, trace85/85,12 actual native/SubSolver lifecycle cases pass.
+  Trace5529 closes all18,593,182 decisions through19376 and both seed sequences.
+  Timing5531 first pair389.931/435.844s; full5535/job1672328 and trace5537 run.
+  Preceding [retained-entry5510](benchmarks/reports/2026-09-08-sweep-retained-entry.md)
+  matches11023 native first-call seeds but skips33 embedded solves. All three
+  timing5517 pairs regress: median1.067134x5473; within-arm work/proofs agree,
+  checks pending. Neither5510 nor5522 is promoted; current-source fuzz5539 runs.
 - Preceding implementation: [Sweep membership cursors](benchmarks/reports/2026-09-08-sweep-membership-cursor.md), candidate 5473,
   removes repeated retained-prefix scans from Sweep's private ledger on 5466.
   Both Release suites pass 84/84; 588 actual old/new ledger fixtures agree.
@@ -122,21 +123,26 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5478 Rank-37 extended prefix | `1671258` | Complete: 25,001,084 common suffix rows, first split 188502. |
 | 5479 Rank-32 bound prefix | `1671263` | Complete: 18,583,703 common rows, split after Sweep at 19375. |
 | 5482 Square selected phase | `1671600` | Complete: negative Tactix phase save at 492; replay normalized. |
-| 5485 Sweep cursor Rank 1–40 | `1671708` | All80 solves,1.165337x;77/80 checked at06:59 audit. |
+| 5485 Sweep cursor Rank 1–40 | `1671708` | All80 solves,1.165337x;79/80 checked at07:31 checkpoint. |
 | 5487 Square implications | `1671745` | Complete: differing binary reasons; parent replay validated. |
 | 5490 Rank-32 Sweep | `1671777` | Complete:14 common seeds, then extra836; successor5503 validates. |
 | 5505 Rank-32 eligibility | `1672156` | Complete: identical one-sided836 entry snapshots, full parent replay. |
 | 5515 retained-entry trace | `1672164` | Complete:11023 common seeds,33 omitted single-clause solves. |
 | 5516 retained-entry B28+C5 | `1672165` | All66 expected solves,64/66 checked at06:59 audit. |
-| 5517 retained-entry timing | `1672166/1672240/1672244` | First two pairs unfavorable; wave2 solving, earlier proofs pending. |
+| 5517 retained-entry timing | `1672166/1672240/1672244` | All three solver pairs regress; median1.067134x, proofs pending. |
+| 5529 small-environment trace | `1672251` | Complete: all18,593,182 decisions match; only2 first-call ticks differ. |
+| 5530 small-environment B28+C5 | `1672252` | All66 expected solves,64/66 checked at07:33 checkpoint. |
+| 5531 small-environment timing | `1672253/1672326/1672385` | First two pairs improve; final wave4-5 runs, proofs pending. |
+| 5535 small-environment Rank1–40 | `1672328` | Full-width80 tasks; solver/checking in flight. |
+| 5537 Rank32 extended small-prefix | `1672356` | Whole100K-conflict prefix; watcher85047, comparator5538. |
 
 Claude's terminal report for periodic fuzz 5442 is **PASS** on source 5438:
 80,000 cases, 71,907 checked verdicts, zero failures. Session 30094 is closed;
 the report is authoritative, and no fuzz artifacts were independently inspected.
-Checkpoint **5492** remains owned by resumed Claude session **34566**, testing
-immutable source **5473**. Original9171 returned submission-only and is closed;
-the resumed handle is live. Read only its terminal response, no fuzz artifacts.
-Continue while pending; this campaign cannot cover the new5510 source.
+Claude's terminal5492 report is **PASS** on5473:60,000 cases,55,036 checked
+verdicts, zero failures and360 direct reachability cases; session34566 closed.
+New current-source **5539** is owned by live Claude session **92433**, testing
+immutable5522 including5510. Read only its terminal response, no fuzz artifacts.
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
@@ -165,18 +171,19 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Repair the next supported Sweep gap on a new isolated successor to5510:
-   `sweep_process_seed` skips the initial solve when vars<2 or clauses<2.
-   Validated5515/5518+aligned5520 pin first differing effort at seed340186:
-   same270 variables/one clause, Tactix0 versus native814 ticks/one solve.
-   All33 omitted rows have270 variables/one clause, native26836 ticks total.
-   First11023 seed/environment-size records now agree and unit-103918 returns;
-   Tactix then spends25505 ticks on seven extra seeds. Do not pad the meter:
-   inspect both reference solve/model lifecycles and add actual tiny-env tests.
-   Native full replay is exact; first decision split is19375/18522692.
-   B28+C5 5516/job1672165 runs. Timing5517 wave0 is438.175/410.609 seconds;
-   wave1 is438.003/411.332; wave2/job1672244 owns4-5. Validate all six solver
-   snapshots before summarizing. Watcher41912 and comparator99857 completed.
+1. Follow full5535/job1672328 with `snapshot-small-full-5540.py` only after all
+   80 solver records, then `seal-small-full-5540.py` once all checks finish.
+   Trace5537/job1672356 (watcher85047) extends Rank32 through100K; validate via
+   `compare-small-prefix-5538.py`, then localize the next material boundary.
+   Validated5529 matches18,593,182 decisions and both seed/environment sequences;
+   first-call effort differs by only2 ticks, second-call costs agree exactly.
+   Timing5531 wave2/job1672385 runs; first two pairs389.931/435.844s and
+   388.231/439.077s. Score all3 pairs using5536; B28+C5 uses5541, checks async.
+   Source5522 and builds5522/5524 match SHA67867f4b999b55b4…; trace5523 is separate.
+   Old5515 validates11023 native seeds, then seven extras; aligned5520 attributes
+   33 missing270-variable/one-clause solves to26836 uncharged native ticks.
+   Actual native/SubSolver tests prove the engine already matches;5522 repairs
+   the call path, not the meter. Predecessor5517 median1.067134x is unfavorable.
    Eligibility5505 passes successor5509: full parent hashes, two identical
    binary snapshots,11 identical large clauses;836 is already positive-only.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
@@ -278,10 +285,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    Claude's terminal fixture review passed: the initial expected elimination
    count was wrong at equality, not a solver defect; original failure retained.
 4. Continue periodic Claude-owned fuzzing after meaningful implementation batches,
-   in the background as requested. Owner9171 exited with a submission-only update,
-   not a verdict: eight jobs were queued. The same Claude conversation is resumed
-   under tool session `34566`; poll only its terminal response, never artifacts.
-   No duplicate campaign was requested. Consolidation still requires all
+   in the background as requested. Owner5492 returned terminal PASS on5473;
+   new5539 tests5522 with direct retained-entry and small-solve reachability.
+   Tool session `92433` is live; poll only its terminal response, never artifacts.
+   This is a changed-source checkpoint, not duplicate confirmation. Require all
    runtime/B28+C5/fuzz gates. A reported soundness/crash/proof/model failure
    pauses dependent work and invokes bounded Claude repair immediately.
 5. Keep broad cleanup separate. Preserve proof-before-deletion, native physical
@@ -329,10 +336,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Full5485 is1.165337x; all40 candidate work/certificate records match5459.
-- Square auxiliary definitions differ; first Factor grid mismatch is ordinal943.
-- Rank32 first14 Sweep seeds agree, then Tactix alone processes836;5505 in flight.
-- Predecessor fuzz5442 PASS; latest-source owner5492 resumed under session34566.
-- Thirty new snapshot/window/Factor fixtures pass; no solver source changed.
+- Small-environment5522 passes86/86 twice, trace85/85 and12 native engine cases.
+- Rank32 causal5529 matches all18,593,182 decisions through19376.
+- First timing5531 pair is389.931/435.844s; full5535 and extended5537 run.
+- Fuzz5492 PASS on5473; current-source5539 owned by session92433.
+- Production unchanged; goal, full checks and cumulative promotion remain open.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

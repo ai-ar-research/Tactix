@@ -267,6 +267,7 @@ pending half-analysis or schedules Backjump independently.
   resumes its retained tail, and grows its 256/1024/2 environment bounds only
   on exhaustion toward 8192/32768/3. Retained-entry eligibility is the open
   `SP-SWEEP-3` restriction; it must not become a public guard or per-pop filter.
+- The small-environment solve shortcut is tracked by `SP-SWEEP-SMALL-1`.
 - Substitute still globally sorts post-Sweep SCC retirement across rounds;
   this known `SP-SUBSTITUTE-ROUND-1` deviation changes equal-score heap pose.
   Root-fixed variables publish first. Per-round repair remains isolated.
