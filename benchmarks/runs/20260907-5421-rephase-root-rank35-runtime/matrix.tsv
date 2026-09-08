@@ -1,0 +1,10 @@
+task	rank	arm	tier	instance	expected
+0	35	candidate	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+1	35	previous	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+2	35	kissat	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+3	35	candidate	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+4	35	previous	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+5	35	kissat	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+6	35	candidate	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+7	35	previous	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT
+8	35	kissat	D	tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz	UNSAT

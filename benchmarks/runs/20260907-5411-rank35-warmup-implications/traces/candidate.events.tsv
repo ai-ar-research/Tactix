@@ -1,0 +1,4 @@
+# tactix-event-trace	1
+# detail-conflicts	13563	13563
+# solver	seq	event	conflicts	decisions	propagations	level	mode	active	unassigned	trail	queue	heap	retired_queue	retired_heap	irred	red	binary	digest	search_external	top32	payload
+tactix	0	trace_begin	0	0	1	0	none	488499	488499	1	0	0	0	0	650849	0	899380	bc3a2258ffbcf4bd	0	-	-

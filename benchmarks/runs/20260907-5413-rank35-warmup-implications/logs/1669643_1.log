@@ -1,0 +1,5 @@
+scratch=/tmp/tactix-5413-1669643-_rhi89ab
+Traceback (most recent call last):
+  File "/home/hwu/SAT-solving/benchmarks/runs/20260907-5413-rank35-warmup-implications/run.py", line 92, in <module>
+    assert r['exit_code'] == 0, 'Unexpected solver exit: inspect before further performance work'
+AssertionError: Unexpected solver exit: inspect before further performance work

@@ -10,13 +10,13 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - [Runtime review](benchmarks/reports/2026-09-07-runtime-review.md) owns the
   audit of Claude's work and retained/rejected evidence. Mixed proof modes and
   unchecked serialized arms do not establish “93% search quality.”
-- Latest: [Asynchronous-check checkpoint](benchmarks/reports/2026-09-07-async-check-warmup.md).
-  First choice split is conflict 13,832 after 18,516,149 matching decision rows.
-  Complete heap matches at the first warm-up decision at 13,563; subsequent
-  warm-up backtracking reinserts selected variables in different order.
-  No new semantic repair or promotion; cumulative candidates remain **UNFUZZED**.
+- Latest: [Rephase root closure](benchmarks/reports/2026-09-07-rephase-root-closure.md).
+  Missing root propagation before warm-up caused the first Rank-35 split;
+  repair matches all 429,257 heap entries and the prefix through conflict 13,833.
+  Three paired Rank-35 replicas: provisional candidate/previous 0.658243x,
+  candidate/Kissat 1.183228x. Cumulative candidate remains **UNFUZZED**, unpromoted.
 - [Dense-entry evidence](benchmarks/reports/2026-09-07-dense-entry-cost.md) owns
-  the latest semantic candidate: Rank-21 peak RSS falls about 16.5%, runtime is mixed.
+  the preceding candidate: Rank-21 peak RSS falls about 16.5%, runtime is mixed.
 - Correction: stopped-prefix 5382 contains dormant hot-loop instrumentation;
   its 1.13834x time is not clean production overhead. Use clean profiles 5385.
 - Production remains `c2a95a6`; Release SHA-256
@@ -28,12 +28,16 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 
 | Campaign | Job | Pending scope |
 |---|---|---|
-| 5395 coupled full Rank 1–40 | `1669252` | 77/80 checked; tasks 35, 42, 43 still checking. |
+| 5395 coupled full Rank 1–40 | `1669252` | 79/80 checked; task 35 still checking. |
+| 5421 Rephase Rank-35 replicas | `1669878` | All 9 expected UNSAT; proofs checking. |
+| 5422 Rephase B28+C5 | `1669812` | All 66 expected verdicts; 64/66 checked. |
+| 5423 Rephase full Rank 1–40 | `1669887` | Solver/checker array in flight. |
+| 5424 Rank-35 extended prefix | `1669919` | Stop at 100,000 conflicts; diagnostic only. |
 
 Keep these checks running while proceeding on a provisional-pass assumption;
 revisit them at checkpoints, never label pending certificates verified.
-5383/5389/5393 are terminal and checked; 5396–5410 diagnostics are
-terminal (5401 deliberately cancelled and cleaned). User interactive allocation
+5383/5389/5393 are terminal and checked; diagnostics through 5418 are terminal
+(5401/5411 cancelled, 5413 timed out; scratch cleaned). User interactive allocation
 `1668242` is untouched. Exact audit and stop limitations are in the latest report.
 
 | Accepted authority | Result |
@@ -54,25 +58,23 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Trace Rank 35's selected warm-up implications at conflict 13,563, especially
-   variable 109796 relative to 109815/109877; compare reasons, trail order and
-   watch/assignment producers before the differing warm-up backtrack inserts.
-   Root removal matches (5406); first warm-up heap is fully identical (5410).
-   Use validated observers 5402 with narrow imply filters, not broad 5401.
-   Use provisional solver results to guide work while checks run. Rank 27's three-arm
-   decision streams match through 100,000 conflicts (28,605,461 rows); its split
-   is later. Coupled Rank 37 regresses substantially; inspect it next. Memory
-   capacity remains independent. Provisional full-view coupled ratio is 1.238899x.
+1. Compare 5423's full runtime/work/memory view as solver results arrive;
+   inspect 5424's next Rank-35 decision/macro split beyond the closed witness.
+   Use provisional passes while proofs run. Rank 35 now has fewer conflicts
+   than Kissat but is still slower; distinguish useful work from execution cost.
+   Coupled Rank 37 regresses substantially; prioritize it if the new full view
+   retains that gap. Rank 27 matches through 100,000 conflicts; its split is later.
 2. Revisit active checker outcomes without blocking the investigation; run
-   `seal-eliminate-ranks-5395.py` when complete; 5383 is already sealed.
+   `seal-eliminate-ranks-5395.py` and `seal-rephase-gates-5422.py` when complete.
+   Seal 5421's nine proofs separately; its solver checkpoint is not a checked gate.
    Preserve per-instance work/time/memory and label verification status.
    Any rejected proof/model pauses dependent work under plan §8.2.
 3. Preserve submitted sources/pins. Latest source is
-   `.claude/worktrees/runtime-eliminate-dense-entry-5391`; Release
-   `build/pin-5392-eliminate-dense-release` and independent
-   `build/pin-5393-eliminate-dense-bc` share SHA-256
-   `5236e63f5ba3fc27e448d23c2a4b92e1948bb9c1390f336cc0852eed66cf64e2`.
-   Earlier Vivify source/pins and publication-only 5387 remain immutable.
+   `.claude/worktrees/runtime-rephase-root-5417`; Release
+   `build/pin-5419-rephase-root-release` and independent
+   `build/pin-5420-rephase-root-bc` share SHA-256
+   `f86419c4763ea5a8372661648d552c6b47c7b3375441ebc879fe9088f171c10c`.
+   Authority 5417 retains repair/cumulative patches and all three build/test logs.
 4. Consolidate only supported general repairs, finish runtime/B28+C5 gates,
    then invoke **one Claude-owned fuzz campaign** under plan §8.2. Do not inspect
    or reinterpret Claude's fuzz artifacts. Route reproduced soundness/crash/
@@ -118,10 +120,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Narrowed Rank 35's heap-order difference to warm-up after a common entry heap.
-- Matched all three Rank-27 decision streams through 100,000 conflicts.
-- Completed Vivify Rank 1–40: 80/80 checked/clean, 1.214783x Kissat.
-- Made proof checks asynchronous for dependent investigation, retaining final gates.
+- Restored root propagation before policy Rephase; public rules remain unchanged.
+- Closed Rank 35's first implication/heap/decision divergence with exact witnesses.
+- Measured provisional 34.2% Rank-35 reduction over the preceding candidate.
+- Launched full runtime gates and longer diagnostics while proofs continue checking.
 - Kept living docs within their budgets; detailed evidence remains in frozen reports.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.

@@ -1,0 +1,26 @@
+--- a/src/eventtrace.c
++++ b/src/eventtrace.c
+@@ -1539,6 +1539,8 @@
+     return false;
+   // kissat_event_trace_detail invokes formula_checkpoint before ordinary
+   // detail filtering, so avoid constructing all other diagnostic payloads.
++  if (trace_imply_only)
++    return false;
+   if (trace_formula_only || trace_learned_only || trace_heap_vars_only ||
+       trace_factor_fresh_only || trace_factor_update_only ||
+       trace_factor_literal_only || trace_clause_lifecycle_only)
+@@ -3736,7 +3738,13 @@
+ }
+ 
+ void kissat_event_trace_implications (kissat *solver, size_t trail_begin) {
+-  if (!detail_enabled (solver) || trace_emitted >= trace_limit)
++  open_trace ();
++  const bool selected = trace_imply_only
++      ? trace_file && (!trace_detail_window ||
++                       (trace_detail_from <= solver->statistics.conflicts &&
++                        solver->statistics.conflicts <= trace_detail_to))
++      : detail_enabled (solver);
++  if (!selected || trace_emitted >= trace_limit)
+     return;
+   const size_t trail_size = SIZE_ARRAY (solver->trail);
+   // Root propagation can flush the complete trail before this diagnostic is
