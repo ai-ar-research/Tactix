@@ -1,0 +1,37 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5726-root-reuse-rank33-prefix",
+  "candidate_authority": "benchmarks/runs/20260908-5718-root-conflict-reuse",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-root-conflict-reuse-5718",
+  "input": "benchmarks/cache/tierD24-26/28eeb2beac7005a9afa98e4d3aaca621-oski15a01b40s_opt.cnf.xz",
+  "input_sha256_compressed": "b593364c559acab10fed9546371efe2f96683fd2c21021439dc340d6fa1ea85c",
+  "stop_conflict": 300000,
+  "hypothesis": "Rank31 is the largest complete5672 time loss (+176.532s), with 38.44% extra conflicts and2.137x peak memory. Localize the earliest portable decision divergence on current root-reuse5718 before choosing the next general repair.",
+  "validation": "Two clean300K stops, complete decision rows from0, prefix/stream consistency, immutable source/pin/input hashes and scratch cleanup. No parent replay assumption: the earlier5459 100K agreement is historical, not current-source evidence.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/candidate": "68575873544db2e7e4af4253b8a26841bcbb2f8ebe5b8f6b5fb9454510ac82ec",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "run.py": "4a65f37d367fd6dce2c35d50a0e0b6b4e2374d658343dd0acfe3da4af01b85e5",
+    "array.sbatch": "2fd194cfbf0c626f9407fd2b8db4674e140ab82ad8c07e2153a90872168f3a51"
+  },
+  "stream_from": 0,
+  "common_decisions": 1,
+  "created_at": "2026-09-08T13:41:33.431967+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/next-losses.json",
+    "sha256": "0aa6170505301d011ec31e095dfee70ade81909db046d4feebec4aa65bf8043b"
+  },
+  "limitation": "Stopped proof-on causal diagnostic, not acceptance timing, a full verdict or a checked proof. Current5718 remains unfuzzed; B28+C5 and all40 remain mandatory.",
+  "test_consideration": "Configuration-only reuse of tested current trace binaries and stopped runner; remove unrelated formula-dump selectors. Existing complete-stream comparator verifies both arms and prefix consistency; fixed91/91 Release and90/90 trace suites cover unchanged solver source.",
+  "source_patch_sha256": "3b3593d3a8d931905686842f2f29fb765294af388998f0f850fd36a122d6ad88",
+  "predecessor": "benchmarks/runs/20260908-5726-root-reuse-rank33-prefix"
+}

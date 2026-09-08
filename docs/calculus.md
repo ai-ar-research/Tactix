@@ -71,13 +71,17 @@ Each public rule has pure `guard(σ)`, lazy `instances(σ)`, and total
   `{¬u} ∪ B`, where `u` is the first UIP. Recursive minimization and all-UIP shrinking may remove
   literals from `B` but preserve that asserting form. Write the final clause as `L = {¬u} ∪ B` and
   define `j = max({level(l) | l ∈ B} ∪ {0})`.
+- **Already-asserting reuse:** when `K₀` has exactly one literal at `d>0`, reuse it as the driver
+  without constructing a new learned clause. Backtrack within `[j,d−1]` and assert at true level `j`.
+  If `j=0`, publish the implied unit, citing the other literals' root-unit ids followed by `K₀` in
+  LRAT (a unit addition in DRAT), and retain its unit reason. Otherwise no proof addition is needed.
 - **Level-one failed-literal construction:** if `d=1` and `K₀` has more than one level-one literal,
   walk the marked implication graph backwards instead of stopping at one UIP. Whenever the unresolved
   frontier has one true literal `q`, record the root unit `¬q`; stop when a reason contains the negated
   decision, then record that literal too. This is one size-one/glue-zero learned result even when the
   traversal exposes several units. The whole batch is asserted at level zero before the analyzed set is
   bumped; root-fixed variables therefore leave both decision structures before any equal-score move.
-- **Effect (one atomic transition):** add `L` to `R`; choose a backtrack target `t` in
+- **Effect (one atomic transition, except reuse above):** add `L` to `R`; choose a backtrack target `t` in
   `[j,d−1]` (canonically `t=j`); truncate `τ` through level `t`; then append `¬u` with reason `L` and
   **true level** `j`. OTFS may replace a reason `C` by a strict RUP subset `C′` in the same
   irredundancy partition and delete `C`; the replacement inherits `C`'s current arena

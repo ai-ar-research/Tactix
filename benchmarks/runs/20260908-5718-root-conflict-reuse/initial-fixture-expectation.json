@@ -1,0 +1,5 @@
+{
+  "source_sha256": "9ee6404495854eebf27e4778706d0f210ba9b02562d0cb7d3ad95a0545d58b63",
+  "diagnosis": "Fixture assumed canonical registry learning used DefaultPolicy chronological retention. Source conflictanalysis_apply calls backjump_apply with jump_level (zero here); only reuse owns its own chrono target. First failing case:size2/depth103/mode0/early roots/reuse disabled/canonical/DRAT. This is a test expectation mismatch,not a solver correctness oracle failure.",
+  "fix": "Expected retained level is depth-1 only for actual reuse above the chrono threshold; otherwise registry target is zero. Solver source remains unchanged."
+}

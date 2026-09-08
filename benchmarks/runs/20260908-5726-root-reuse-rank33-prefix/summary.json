@@ -1,0 +1,57 @@
+{
+  "native_parent_replay": true,
+  "earlier_common_literal_digest_equal": true,
+  "stream_from": 100000,
+  "clean_stops": 2,
+  "stop_conflict": 1000000,
+  "complete_prefix_identical": false,
+  "prefixes": {
+    "candidate": [
+      "1000000",
+      "18446744073709333928",
+      "83589894",
+      "83807582",
+      "c62d2a80d2cf64d3",
+      "31494584",
+      "1",
+      "5c263e00aa882466",
+      "488842",
+      "-277711",
+      "-122899",
+      "38760"
+    ],
+    "kissat": [
+      "1000000",
+      "18446744073709341539",
+      "81755247",
+      "81965324",
+      "07850862fe25abc1",
+      "31494584",
+      "1",
+      "5c263e00aa882466",
+      "488842",
+      "-277711",
+      "258708",
+      "38760"
+    ]
+  },
+  "first_decision_difference": {
+    "candidate": [
+      "227618",
+      "54966705",
+      "204",
+      "-233254",
+      "0"
+    ],
+    "kissat": [
+      "227618",
+      "54966705",
+      "204",
+      "-232900",
+      "0"
+    ],
+    "matching_rows": 23612137
+  },
+  "matching_rows": 23612137,
+  "limitation": "matching_rows counts the recorded suffix from100K only;earlier common literal digest is reported separately. Stopped proof-on diagnostic only. No complete verdict, checked proof or acceptance timing. Differences require causal interpretation, not automatic repair."
+}

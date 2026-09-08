@@ -1,0 +1,16 @@
+
+c parsing input formula with 5 variables and 4 clauses
+
+c finished parsing
+
+c UNSAT via unit propagation on the input instance
+
+c 4 of 4 clauses in core                            
+
+c 1 of 3 lemmas in core using 4 resolution steps
+
+c 0 RAT lemmas in core; 0 redundant literals in core lemmas
+
+s VERIFIED
+
+c verification time: 0.049 seconds
