@@ -27,12 +27,16 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
   Rank-37 Factor schedules match; differing gain-2 admission selects this repair.
   Causal replay now matches all 35,346,388 decisions through 100000 conflicts;
   272 portable boundaries also agree. Full runtime is now scored below;
-  B28+C5 and certificate checking remain pending.
+  B28+C5 is now 66/66 checked; full-view certificate checking remains pending.
 - [Complete bound view](benchmarks/reports/2026-09-08-bound-full-and-next-losses.md):
   all 40 pairs are **1.173817x**, 58/80 checked at the solver snapshot; no
   timeout/verdict loss. No aggregate breakthrough. Rank 37 is again the largest
   loss (712.017/346.009 s, conflicts 2.114745x), then Ranks 32 and 31.
-  Extend Rank 37 beyond its common prefix and trace Rank 32; Rank 31 is queued.
+  Extend Rank 37 beyond its common prefix and trace Rank 32. Rank 31 now matches
+  51,491,857 decisions and 276 portable boundaries through 100000 conflicts.
+- [Short phase witness and closed gates](benchmarks/reports/2026-09-08-square-phase-and-checked-gates.md):
+  Square first differs at conflict 501, decision 5849, same variable/opposite
+  polarity. Selected phase-history replay 5482 is queued; cause not established.
 - [Complete phase-budget view](benchmarks/reports/2026-09-07-phase-budget-full-view.md):
   5454 has all 40 pairs at **1.170283x**, 63/80 checked at the solver snapshot.
   No timeout/verdict loss; goal still unmet. Largest losses are Ranks 31/37/32.
@@ -81,21 +85,22 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5449 Rank-37 elimination limit | `1670217` | Complete: meter exceeds phase limit by 26 before extra round. |
 | 5453 Rank-37 budget prefix | `1670291` | Complete: repaired boundary, next split at Factor, conflict 32,073. |
 | 5454 phase-budget Rank 1–40 | `1670292` | All 80 expected solves, 1.170283x; proof tail running. |
-| 5455 phase-budget B28+C5 | `1670293` | Fixed cumulative gate; queued. |
+| 5455 phase-budget B28+C5 | `1670293` | Complete: 66/66 checked, combined 0.935341x production. |
 | 5457 Factor selected window | `1670359` | Complete: observer-neutral, first-call grids equal by ordinal. |
 | 5458 native bound verbosity | `1670509` | Complete: quota cut followed by 1→2; prefix unchanged. |
 | 5462 short B bound witnesses | `1670635` | Complete: nine checked/clean; old/new behavior identical. |
 | 5463 Rank-37 bound prefix | `1670637` | Complete: all 35,346,388 decisions and 272 boundaries match. |
-| 5464 bound B28+C5 | `1670636` | Fixed cumulative gate; checker tail running. |
+| 5464 bound B28+C5 | `1670636` | Complete: 66/66 checked, combined 0.986955x production. |
 | 5465 bound Rank 1–40 | `1670638` | All 80 expected solves, 1.173817x; proof tail running. |
 | 5468 watch-pair timing | `1670699` | All six solves, exact-work median 0.983980x; proofs pending. |
-| 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; queued. |
-| 5470 Rank-31 bound prefix | `1670801` | New largest loss: complete 100000-conflict stream; queued. |
-| 5471 Square bound prefix | `1670919` | Short B inprocessing witness, stop at 10000 conflicts; queued. |
-| 5475 Sweep cursor timing | `1671162` | Three exact-work pairs against 5466; queued. |
+| 5469 watch-pair B28+C5 | `1670700` | Fixed cumulative gate; certificate tail pending. |
+| 5470 Rank-31 bound prefix | `1670801` | Complete: 51,491,857 matching decisions and 276 boundaries. |
+| 5471 Square bound prefix | `1670919` | Complete: first polarity split at conflict 501, decision 5849. |
+| 5475 Sweep cursor timing | `1671162` | Three exact-work pairs against 5466; running. |
 | 5476 Sweep cursor B28+C5 | `1671163` | Fixed cumulative gate; queued. |
 | 5478 Rank-37 extended prefix | `1671258` | Stop at 1M, record suffix from validated 100K anchor; queued. |
 | 5479 Rank-32 bound prefix | `1671263` | Second-largest full loss: 100K-conflict causal prefix; queued. |
+| 5482 Square selected phase | `1671600` | Existing observers, variable 43773 through conflict 502; queued. |
 
 User-requested periodic fuzz checkpoint 5442 is owned by background Claude
 process `2920923` (parent tool session `30094`), testing immutable source 5438.
@@ -130,7 +135,12 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Exact next action
 
-1. Evaluate 5475 with `snapshot-sweep-cursor-runtime-5475.py`: require all three
+1. Run `compare-square-phase-5482.py` when 5482 finishes: require exact parent
+   replay before interpreting phase saves/picks. The first Square polarity
+   split precedes search-time inprocessing; its cause is not established.
+   Rank 31's whole 100K prefix and portable boundaries now agree; its full-run
+   loss needs a later trace, after consuming the higher-priority extended R37.
+   Evaluate 5475 with `snapshot-sweep-cursor-runtime-5475.py`: require all three
    complete statistics/proof-byte identities before interpreting paired timing.
    Latest frozen source `.claude/worktrees/runtime-sweep-cursor-5473` and Release
    5473/5474 share SHA `305b2285fdda5834…`; its manifest owns exact identities.
@@ -148,8 +158,8 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    100000-conflict prefix, including all 272 portable boundaries. First-call 5457 grids
    are equal by member ordinal; raw observer emission order is not a mismatch.
    5462's short cases have identical old/new work/proof/slot traces; they do
-   not reproduce the repaired cut. Run `compare-square-prefix-5471.py` after
-   job 1670919 finishes to localize Square's substantial inprocessing difference.
+   not reproduce the repaired cut. Square 5471 instead locates a phase split
+   after 5848 common decisions, before those later inprocessing differences.
    Short diagnostics do not replace the fixed regression gates.
    Preceding source `.claude/worktrees/runtime-bound-advance-5459` is frozen;
    Release 5459/BC 5461 share SHA `84300eafeef6c973…`, trace 5460 `509877b2…`.
@@ -166,9 +176,9 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
    runtime and memory, and seal 5454/5455 with `seal-eliminate-limit-gates-5455.py`.
    5454's complete solver view is 1.170283x. `next-losses.json` selects Rank 31
    (+154.211 s, conflicts 1.542264x) while Rank 37's work drops materially.
-   Run `compare-rank31-prefix-5470.py` after job 1670801 finishes; localize its
-   earliest common-state component boundary without inferring weakness from
-   divergence alone. No causal timing attribution from different campaign windows.
+   Rank-31 comparator 5470 and boundary localizer 5483 now establish no split
+   through 100K; watcher 4656 is terminal (COMPLETED).
+   No causal timing attribution from different campaign windows.
    5437's unique binary sets agree: two physical duplicate copies explain the
    count split. Do not restore duplicates without evidence of a causal defect.
    Vivify 5440's small exact-work 0.995069x median gain now has six checked proofs.
@@ -246,10 +256,10 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 
 ## Recent changes
 
-- Measured watch-pair append: exact-work median 0.983980x over three pairs.
-- All paired ratios improve, both arm spreads below 2%; proof checks pending.
-- Bound Rank 1–40 remains 1.173817x; 64/80 certificates now checked.
-- Rank-31/32/37 and short Square causal traces remain queued.
-- Newer candidates remain isolated; proof checking and fuzz stay background.
+- Rank 31 matches 51,491,857 decisions and 276 boundaries through 100K.
+- Short Square first splits on polarity at conflict 501; phase-history probe queued.
+- Phase-budget and bound B28+C5 each close with 66 checked/clean records.
+- Bound Rank 1–40 remains 1.173817x; 72/80 certificates checked in final audit.
+- Sweep timing runs; latest sources stay isolated and background fuzz remains pending.
 
 Git and primary reports own history; prior resume text is in `a336e013:PROGRESS.md`.
