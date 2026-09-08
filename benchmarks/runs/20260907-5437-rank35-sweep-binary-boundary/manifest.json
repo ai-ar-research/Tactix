@@ -1,0 +1,33 @@
+{
+  "parent_campaign": "benchmarks/runs/20260907-5433-rank35-inprocess-prefix",
+  "candidate_authority": "benchmarks/runs/20260907-5430-inprocess-root",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-inprocess-root-5430",
+  "input": "benchmarks/cache/tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz",
+  "input_sha256_compressed": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+  "stop_conflict": 19366,
+  "hypothesis": "First coarse split is Sweep end at conflict 19365: active/large counts match but binary counts are 204961/204963. Compare before/after binary multisets, formula digests and the new phase-entry candidate to distinguish duplicate retirement, genuine clause differences, and closure effects before altering Sweep.",
+  "validation": "Three exit-zero proof-on bounded stops with identical prior confirmed prefix; immutable pins, complete selected snapshots, no trace truncation, partial certificate hashes and cleanup. No final verdict, proof-check or timing acceptance.",
+  "contract": "Full-width 0\u20132, one bound solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Existing proof checks run independently.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/previous": "3e9c431b0be3c9837ea5dc4a82c40ab0e9200a79bca0f7d5d00b280876249a28",
+    "pins/candidate": "89ee0fdb6fe0b0d7202fd61f79e16f22cfbed6d40e849d63ac8d534ab9f67425",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "run.py": "1975cbd12c4c0b507cf2d1298cc4e5a4315247ec2f401d1a138e1f1d9acc8d87",
+    "array.sbatch": "0221a181e030c123ecaf5729051b87b585075a1ed99430368a32c85079b24c87"
+  },
+  "stream_from": 19365,
+  "common_decisions": 18516218,
+  "matched_prefix_authority": "benchmarks/runs/20260907-5418-rank35-rephase-confirmation",
+  "created_at": "2026-09-08T01:12:42.899233+00:00",
+  "continuation": "Independent diagnostic proceeds while 5421/5422/5423 proofs run; any actual correctness rejection pauses dependent work.",
+  "previous_authority": "benchmarks/runs/20260907-5417-rephase-root/manifest.json",
+  "localization_authority": "benchmarks/runs/20260907-5424-rank35-rephase-prefix/boundary-localization.json"
+}

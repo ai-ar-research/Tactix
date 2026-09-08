@@ -1,0 +1,72 @@
+# To display the perf.data header info, please use --header/--header-only options.
+#
+#
+# Total Lost Samples: 0
+#
+# Samples: 60K of event 'cycles:u'
+# Event count (approx.): 1137823728574
+#
+# Overhead  Shared Object         Symbol                                         IPC   [IPC Coverage]
+# ........  ....................  .............................................  ....................
+#
+    43.62%  kissat                [.] kissat_search_propagate                    -      -            
+     8.24%  kissat                [.] kissat_next_decision_variable              -      -            
+     5.70%  kissat                [.] kissat_probing_propagate                   -      -            
+     3.96%  kissat                [.] kissat_shrink_clause                       -      -            
+     3.21%  kissat                [.] kissat_backtrack_without_updating_phases   -      -            
+     2.43%  kissat                [.] kissat_substitute                          -      -            
+     2.30%  kissat                [.] kissat_watch_large_clauses                 -      -            
+     2.27%  kissat                [.] kissat_factor                              -      -            
+     2.10%  kissat                [.] kissat_deduce_first_uip_clause             -      -            
+     1.89%  kissat                [.] minimize_literal.part.0                    -      -            
+     1.75%  kissat                [.] vivify_round                               -      -            
+     1.29%  kissat                [.] kitten_solve                               -      -            
+     1.21%  kissat                [.] kissat_analyze                             -      -            
+     1.10%  kissat                [.] kissat_bump_analyzed                       -      -            
+     1.05%  kissat                [.] kissat_forward_subsume_during_elimination  -      -            
+     0.95%  kissat                [.] flush_watched_clauses_by_literal           -      -            
+     0.93%  kissat                [.] kissat_assign_decision                     -      -            
+     0.90%  kissat                [.] kissat_sparse_collect                      -      -            
+     0.78%  kissat                [.] kissat_binary_clauses_backbone             -      -            
+     0.77%  kissat                [.] generate_resolvents                        -      -            
+     0.76%  kissat                [.] kissat_transitive_reduction                -      -            
+     0.72%  libc.so.6             [.] __memset_avx512_unaligned_erms             -      -            
+     0.71%  kissat                [.] kissat_resize_vector                       -      -            
+     0.62%  kissat                [.] print_proof_line                           -      -            
+     0.62%  kissat                [.] kissat_flush_large_watches                 -      -            
+     0.55%  kissat                [.] kissat_congruence                          -      -            
+     0.54%  kissat                [.] kitten_clause_with_id_and_exception        -      -            
+     0.52%  kissat                [.] vivify_sort_lits_by_counts.part.0          -      -            
+     0.50%  kissat                [.] import_literal                             -      -            
+     0.41%  kissat                [.] kissat_learn_clause                        -      -            
+     0.38%  kissat                [.] kissat_search                              -      -            
+     0.28%  libc.so.6             [.] __memmove_avx512_unaligned_erms            -      -            
+     0.28%  kissat                [.] kissat_connect_irredundant_large_clauses   -      -            
+     0.27%  kissat                [.] kissat_flush_large_connected               -      -            
+     0.27%  kissat                [.] kissat_decide_phase                        -      -            
+     0.26%  kissat                [.] kitten_flip_literal                        -      -            
+     0.24%  kissat                [.] kissat_save_target_phases                  -      -            
+     0.23%  kissat                [.] kissat_enlarge_vector                      -      -            
+     0.22%  kissat                [.] sweep_refine                               -      -            
+     0.21%  kissat                [.] kissat_decide                              -      -            
+     0.21%  kissat                [.] kitten_value                               -      -            
+     0.21%  kissat                [.] import_internal_proof_literals             -      -            
+     0.20%  kissat                [.] kissat_eliminate                           -      -            
+     0.20%  kissat                [.] kissat_generate_resolvents                 -      -            
+     0.19%  kissat                [.] kissat_delete_clause_from_proof            -      -            
+     0.18%  kissat                [.] kissat_walk                                -      -            
+     0.17%  kissat                [.] kissat_enter_dense_mode                    -      -            
+     0.16%  kissat                [.] kissat_restarting                          -      -            
+     0.14%  kissat                [.] compute_weights                            -      -            
+     0.13%  kissat                [.] kissat_sweep                               -      -            
+     0.13%  kissat                [.] kissat_minimize_clause                     -      -            
+     0.13%  kissat                [.] kissat_resume_sparse_mode                  -      -            
+     0.12%  kissat                [.] forward_subsume_matching_clauses           -      -            
+     0.11%  kissat                [.] kissat_reduce                              -      -            
+     0.11%  kissat                [.] kissat_assign_reference                    -      -            
+     0.11%  kissat                [.] get_ternary_clause                         -      -            
+
+
+#
+# (Tip: Order by the overhead of source file name and line number: perf report -s srcline)
+#
