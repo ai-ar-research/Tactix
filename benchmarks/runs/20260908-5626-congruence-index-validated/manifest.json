@@ -1,0 +1,351 @@
+{
+  "source": ".claude/worktrees/runtime-congruence-index-repair-5623",
+  "parent": ".claude/worktrees/runtime-factor-root-support-5592",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Retire visited root-satisfied irredundant clauses during applying XOR/ITE indexing, including no-merge calls; preserve pure public extraction and native size/position scope.",
+  "evidence": {
+    "path": "benchmarks/runs/20260908-5613-congruence-clause-values/value-localization.json",
+    "sha256": "a73b7a769d5a0ec93c6ff0b137580808c8f9acb43386c35e4c78351bfe9a00de"
+  },
+  "review": {
+    "path": "benchmarks/runs/20260908-5623-congruence-index-repair/REPORT.md",
+    "sha256": "181d4e309c7fdeb91246dc09cb3638a02b9ef4ea6a4e1ba2fc484844deee6d00",
+    "outcome": "PASS: test expected pre-rebuild DRAT order. Solver unchanged; only corrected fixture in review copy."
+  },
+  "test_consideration": "88/88 each independent Release,87/87 trace.1200 actual old/new cases;75 native index cases agree with candidate,24 targeted differences. Exact DRAT/LRAT deletion bytes, duplicate/redundant controls, public purity/guard/instance, root values and native cap are covered.",
+  "cases": 1200,
+  "native_cases": 75,
+  "changes": [
+    {
+      "parameters": [
+        3,
+        0,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        3,
+        1,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        3,
+        2,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        4,
+        0,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        4,
+        1,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        4,
+        2,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        4,
+        3,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        5,
+        0,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        5,
+        1,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        5,
+        2,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        5,
+        3,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        5,
+        4,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        6,
+        0,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        6,
+        1,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        6,
+        2,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        6,
+        3,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        6,
+        4,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        6,
+        5,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        7,
+        0,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        7,
+        1,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        7,
+        2,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        7,
+        3,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        7,
+        4,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    },
+    {
+      "parameters": [
+        7,
+        5,
+        1
+      ],
+      "previous": 0,
+      "candidate": 1
+    }
+  ],
+  "status": "Isolated UNFUZZED validated successor to5592; no runtime claim or promotion. Fuzz5610 covers5592,not this source. B28+C5 and complete Rank1-40 required.",
+  "files": {
+    "src/rules/congruence/congruence.cpp": "01004745a067bc0f4eb88bd0b2455324c1d2039870dc65e16b56957a17170398",
+    "tests/test_congruence_index_cleanup.cpp": "e2004d074334e22fed8d590c741abdbfedcf2bf0affc4cd99b2df02c337746b3"
+  },
+  "binaries": {
+    "build/pin-congruence-index-repair-5623-release/tactix": "351bef360ee6427cf40ea3450f3777a615779c3377cb26721a4435ad2b79073e",
+    "build/pin-congruence-index-repair-5623-bc/tactix": "351bef360ee6427cf40ea3450f3777a615779c3377cb26721a4435ad2b79073e",
+    "build/pin-congruence-index-repair-5623-trace/tactix": "794f28b8a6a4730cdfd9d02ecae76bbe8fc3b992f327eb59bf7be155765bf130"
+  },
+  "patches": {
+    "cumulative.patch": "9c40e4db079cc0d5c28dc434195870794baff10f3e87364054a1fa94260009b8",
+    "repair.patch": "b096d5d60af9752ae5a82b61f18d930e809dd0ef8f7d504d7dbabc79aae46f1a"
+  },
+  "logs": {
+    "old.log": "a5e880f1ebb728bf74050cf8a1d74edaba93bf0451c002091b0df08d7250a656",
+    "native.log": "53c5b6f0956683678f18623398f16a9031f1fa9ae5c1e319dc108fc0dddf5701",
+    "new.log": "69aefb1b945cbd5376c1c0855ecb06d5d99b6cc5b923db2c4fd11c2f19ee09f3",
+    "compile-old.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "reference_identity": {
+    "benchmarks/runs/20260908-5618-congruence-index-fixture/native": "a4fd9a2f505ba7c6897a4097d5e4bfe593be1f950e24c89d8c2138da76b8bfce",
+    "benchmarks/runs/20260908-5618-congruence-index-fixture/current": "45161bb964a06e8e1425314554fef935c8a75dc8e25f4bda8f8d72555d802df8",
+    "benchmarks/probes/scratch/reference-congruence-index-5618.c": "394a24eba40e1cab7fb06ed70b0ac724c014d04ba831bdc0a7a4f278670b257b",
+    "benchmarks/probes/scratch/current-congruence-index-5618.cpp": "2032eb0fd0618f4194d4cf1e0b069cb723cde4fb2f1bacca2ecc9085f4f0d52a",
+    "tools/solvers/variants/kissat-imply-fast-5414/src/congruence.c": "afc5f1236596a0484463408cebc5953b4e6a2b76f47e708dcad94560844a8aba",
+    "tools/solvers/variants/kissat-imply-fast-5414/build/libkissat.a": "e7d6795d34c57f13b8057c7f2bb03353c869eb99c51d0674af7438e46c03f695",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "ca63a1896557730b76c2c41bd6da7f520fc839e5c02a2258166d78a97aee53ee",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "f6de1158068fd832101794caf35b371f32acb77c08b2152ced6990e9901e81cf",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "a6884e4116f70dfa4d42a3d1c9a13786ff40c907281ad5f85cd249a86bf4dfe4",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "ba51c1aff1e7234f0fad9580c741cfeeafd00cb9d6b173282fdc027ddca48e25",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "aad7e70bf8750450e06409e4ed8fa19918bbd6a5251f3c667fbe1b02d1e9c001",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "df537b060f4f5857f9ebb29f7f3aa66afae3ccd6393dbfc90eb7e6cd5627af27",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "fe39a6230d9646d5d49626f69c9aafddfc77ebd1bf197ae460741cc95884f8d8",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "2902bfb7fb59dad37b737a929f49c54e4678dbc85c6e81d4a93e88549de6e8a1",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "8827ee0780fc1cef61cba61c8a7da450d22a707f8cef5e8feef63f3876106717",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "848ea5aa5e5b6537f409cca3075d6eb777488a808de365cfa466229ff2e4ac7c",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "ac34517230ad2fb71fff8cf827c7b744f0f2d20d4c05f3defbc155b99c1afaa8",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "57354345974f069d17ebaec85d97682ee74a8f6ac632bc3387efa7708287944e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "a5938b00d243d9ba0bb76072f3aceca2f0e9c02033594aac7640b53209058f15",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "1e03ee62827dce0d75d3047a1734bc7bb8fe1528e8c6fa0304ab57dde9321801",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "5f81e28c09f8d9bd8adb699cfd8c15ffc9420b7ccbe07d9768e490807ead59e0",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "5f0affa030440b4b57ff7d150b02f42979cb06554cfc3a64d4e4a28bfb5e19ee",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "be5ee4c43a6aba71bd61797f22c900d88e4aaa893eb33ac6a11c698fa96ec982",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "a4add323238303b4e95aa3f781700082256936cfcdb2786990e5a86a63802083",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "f217ea7076cf808f99f1ebe779b6650da89f7e9b3f1bef446827e686bee3120e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "4235d1d1b0da003ebecb9f2e99a4a39f81199b49e020f003b483203e43d99d70",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "af32f587308a3b4e18971b11020ae082ef2fb5e6ae4a6e1beae73078afe12a67",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "1f7da3de4c0fcb461462d3ca8609781a7d140130c57ba61705b883ec7466463a",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "a7162d8fee8aa40e73758935540390ad68dcd4bfe167d30ed34e8b186ac8f131",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "dfa78b5db79b5c023412e564ca3b952806733524a6f18553fe6d76a1c004ae33",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "93a643ec89debf5849f917268fe014dea33512aa78b68f63530a91cead0d24f9",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "10886d3607d15c1cd9238c2110f14606759b14f1b2fa78e5e78886b3e3a71736",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "7eba94270895169f82d925b2cae0c88eb2f4560d5d6ebc90c72b11cef41c3a89",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "bc9c260a0645ebf7a7e1cfef885b58f2f134a326c9c13afc88ed695e48ae9381",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "24c18611b35200f9fa1e76a4158097c824ddff86e620329e688c3cdab9317535",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "85c6adc9370994f6bc2899d2bb7ffdba9bbcaa9b7220fb93c00bb009d15b417a",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "8c6bdbf787fc5c1642b00985d8a72097455e45be74a2a6bd9c027b907669b8bc",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "4b89159d671e8c461ad54f3213855be147cdd44762c069e13396bbfc36bea70e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "69292de2029165e3a89afa44616f61c59d828b32b8d216356a95adc08bf1cf70",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "e9e54e7cbdf81290e631b4c63e5640a1ddaac4edcfa5581b4cfe1f31eb307e56",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "cd0cb01654b34ecca6b004d283b3128fe71c7e0d61b8b4fc412b05355e981e7c",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "f71e837b42b5329ec0789e9b24e91b6d5d96bd47b43c476f2f7b2ac6cdb4b5ba",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "2e3e77629dea689ee071cc7fbbfa364af77a9a34020d81c08449101a58033146",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "f1d115beeccfea75b6bc9ed4e1cbbb59c65709573bce3a8cbbaca1e72ccaac5e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "43684caac8d10c8eede4a6ccf33730a73b9b63d709ec1bb86d94ce77b1087de5",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "f8eb10bc18dac8e1e4806d03a8396348b5bca3fc8cd65f781ffeae91fbb617ba"
+  },
+  "old_object_identity": {
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "ca63a1896557730b76c2c41bd6da7f520fc839e5c02a2258166d78a97aee53ee",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "f6de1158068fd832101794caf35b371f32acb77c08b2152ced6990e9901e81cf",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "a6884e4116f70dfa4d42a3d1c9a13786ff40c907281ad5f85cd249a86bf4dfe4",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "ba51c1aff1e7234f0fad9580c741cfeeafd00cb9d6b173282fdc027ddca48e25",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "aad7e70bf8750450e06409e4ed8fa19918bbd6a5251f3c667fbe1b02d1e9c001",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "df537b060f4f5857f9ebb29f7f3aa66afae3ccd6393dbfc90eb7e6cd5627af27",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "fe39a6230d9646d5d49626f69c9aafddfc77ebd1bf197ae460741cc95884f8d8",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "2902bfb7fb59dad37b737a929f49c54e4678dbc85c6e81d4a93e88549de6e8a1",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "8827ee0780fc1cef61cba61c8a7da450d22a707f8cef5e8feef63f3876106717",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "848ea5aa5e5b6537f409cca3075d6eb777488a808de365cfa466229ff2e4ac7c",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "ac34517230ad2fb71fff8cf827c7b744f0f2d20d4c05f3defbc155b99c1afaa8",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "57354345974f069d17ebaec85d97682ee74a8f6ac632bc3387efa7708287944e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "a5938b00d243d9ba0bb76072f3aceca2f0e9c02033594aac7640b53209058f15",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "1e03ee62827dce0d75d3047a1734bc7bb8fe1528e8c6fa0304ab57dde9321801",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "5f81e28c09f8d9bd8adb699cfd8c15ffc9420b7ccbe07d9768e490807ead59e0",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "5f0affa030440b4b57ff7d150b02f42979cb06554cfc3a64d4e4a28bfb5e19ee",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "be5ee4c43a6aba71bd61797f22c900d88e4aaa893eb33ac6a11c698fa96ec982",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "a4add323238303b4e95aa3f781700082256936cfcdb2786990e5a86a63802083",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "f217ea7076cf808f99f1ebe779b6650da89f7e9b3f1bef446827e686bee3120e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "4235d1d1b0da003ebecb9f2e99a4a39f81199b49e020f003b483203e43d99d70",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "af32f587308a3b4e18971b11020ae082ef2fb5e6ae4a6e1beae73078afe12a67",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "1f7da3de4c0fcb461462d3ca8609781a7d140130c57ba61705b883ec7466463a",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "a7162d8fee8aa40e73758935540390ad68dcd4bfe167d30ed34e8b186ac8f131",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "dfa78b5db79b5c023412e564ca3b952806733524a6f18553fe6d76a1c004ae33",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "93a643ec89debf5849f917268fe014dea33512aa78b68f63530a91cead0d24f9",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "10886d3607d15c1cd9238c2110f14606759b14f1b2fa78e5e78886b3e3a71736",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "7eba94270895169f82d925b2cae0c88eb2f4560d5d6ebc90c72b11cef41c3a89",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "bc9c260a0645ebf7a7e1cfef885b58f2f134a326c9c13afc88ed695e48ae9381",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "24c18611b35200f9fa1e76a4158097c824ddff86e620329e688c3cdab9317535",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "85c6adc9370994f6bc2899d2bb7ffdba9bbcaa9b7220fb93c00bb009d15b417a",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "8c6bdbf787fc5c1642b00985d8a72097455e45be74a2a6bd9c027b907669b8bc",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "4b89159d671e8c461ad54f3213855be147cdd44762c069e13396bbfc36bea70e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "69292de2029165e3a89afa44616f61c59d828b32b8d216356a95adc08bf1cf70",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "e9e54e7cbdf81290e631b4c63e5640a1ddaac4edcfa5581b4cfe1f31eb307e56",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "cd0cb01654b34ecca6b004d283b3128fe71c7e0d61b8b4fc412b05355e981e7c",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "f71e837b42b5329ec0789e9b24e91b6d5d96bd47b43c476f2f7b2ac6cdb4b5ba",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "2e3e77629dea689ee071cc7fbbfa364af77a9a34020d81c08449101a58033146",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "f1d115beeccfea75b6bc9ed4e1cbbb59c65709573bce3a8cbbaca1e72ccaac5e",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "43684caac8d10c8eede4a6ccf33730a73b9b63d709ec1bb86d94ce77b1087de5",
+    "build/pin-5592-factor-root-support-release/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "f8eb10bc18dac8e1e4806d03a8396348b5bca3fc8cd65f781ffeae91fbb617ba"
+  },
+  "full_suite_logs": {
+    "benchmarks/runs/20260908-5623-congruence-index-repair/logs/ctest-bc.log": "f665346599783e7f565ba87cb3687897b621d903f2ae1e62d2d8a4e4ddd55070",
+    "benchmarks/runs/20260908-5623-congruence-index-repair/logs/ctest-trace.log": "12dfa5d396177090fbd5d1abde143c84afa06ef0dd1fed7c3a5522ef04f2eb42",
+    "benchmarks/runs/20260908-5623-congruence-index-repair/logs/ctest-release.log": "803cc5a121ca3864b8d888c2c7c01fa57d2ddf96e14cc285011863b58c504157"
+  }
+}

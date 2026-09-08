@@ -1,0 +1,6 @@
+In file included from /cm/local/apps/gcc/13.1.0/include/c++/13.1.0/cassert:44,
+                 from /home/hwu/SAT-solving/benchmarks/probes/scratch/current-congruence-index-5618.cpp:5:
+/home/hwu/SAT-solving/benchmarks/probes/scratch/current-congruence-index-5618.cpp: In function ‘int main()’:
+/home/hwu/SAT-solving/benchmarks/probes/scratch/current-congruence-index-5618.cpp:29:44: error: ‘struct tactix::Stats’ has no member named ‘congruence_equivs’; did you mean ‘congruence_rounds’?
+   29 |         assert(!k.inconsistent && !k.stats.congruence_equivs);
+      |                                            ^~~~~~~~~~~~~~~~~

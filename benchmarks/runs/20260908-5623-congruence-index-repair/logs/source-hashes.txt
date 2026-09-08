@@ -1,0 +1,5 @@
+1cf1f73bc3dc193e5cc517363b1c47c068a379e7cd7b218428b7ffbb453120eb  /home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-index-5619/tests/test_congruence_index_cleanup.cpp
+e2004d074334e22fed8d590c741abdbfedcf2bf0affc4cd99b2df02c337746b3  /home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-index-repair-5623/tests/test_congruence_index_cleanup.cpp
+01004745a067bc0f4eb88bd0b2455324c1d2039870dc65e16b56957a17170398  /home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-index-5619/src/rules/congruence/congruence.cpp
+01004745a067bc0f4eb88bd0b2455324c1d2039870dc65e16b56957a17170398  /home/hwu/SAT-solving/.claude/worktrees/runtime-congruence-index-repair-5623/src/rules/congruence/congruence.cpp
+16ab4a0b18ec121aed858439d9a556ca09ff236585ecc5b66e05c9d4951463bd  /home/hwu/SAT-solving/.claude/worktrees/runtime-factor-root-support-5592/src/rules/congruence/congruence.cpp
