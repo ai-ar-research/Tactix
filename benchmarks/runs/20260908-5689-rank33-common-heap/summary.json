@@ -1,0 +1,118 @@
+{
+  "parent_full_replay": true,
+  "parser_fixtures": 14,
+  "evidence": {
+    "candidate": {
+      "result_sha256": "b8b59d74451d94683cdf0c99f418699e38af5ff53b8f2507433aec9da3274687",
+      "traces": {
+        "candidate.macro.tsv": "7a86b5d18c7c454301eb6d78dc16487c4c262a147118d1b7aea7741ac0a0db70",
+        "candidate.binary.tsv": "7269e2555151fe01744cdd8e36d8f20e7f21c51ab55e96346d3817bff327d7f8",
+        "candidate.heap.tsv": "53414bdad4b708a6ee1fea65d9d30e2933b19fdcca20d1172b56c1ffc21761ac",
+        "candidate.prefix.tsv": "619b4e1f2504ce591e2b11766ff1da07b06ebd695f5a093455dba4479909a9a2",
+        "candidate.formula.tsv": "019f6796f8b6d368846def9cda95e9d238440b24b27f172882fb971193f8527e",
+        "candidate.boundaries.tsv": "f2ccf553ffbb2839c4d8ae85f06c288e9a9476b9627c4cef98c4660b5e9e80a3",
+        "candidate.state.tsv": "7dc09fe0d57f7a73f5095e3c127754b3bb2b79bc12f789910e5a6c70e9d481d1",
+        "candidate.decisions.tsv": "1fff9be5193c4cd936c0d2457d15fee475c477553fd3e379548113aafef8c31b"
+      }
+    },
+    "kissat": {
+      "result_sha256": "bb7469aebc07ba72ad81b4ad2d2b2b0e7dc5c574477d7b6fa73e79692e355156",
+      "traces": {
+        "kissat.formula.tsv": "e83bda202ea2b2080da997261bc16600a8eb554d4c4dc8b257cf3f951a873f6d",
+        "kissat.prefix.tsv": "3bd58ce105bc8f12f3f8fd3676d0bca59d4c458422fb1fe2db599057823522e8",
+        "kissat.boundaries.tsv": "673ec73c6b8d181681ced1c6c038dea71a078ba238046d15b9dadc693d549526",
+        "kissat.state.tsv": "218be38065c37fff28cf23ccc15334a2eaaff7cb5c5a18a6ba143b94e3e8f240",
+        "kissat.binary.tsv": "1174c70cf5599ba5587b6bb15f32b677525f4da1f66fc71aa4515999f4bfffa3",
+        "kissat.decisions.tsv": "e5d7883d0d17ab5dab023cdde88a3677cea18efa20ad10a6c7088ae325840c81",
+        "kissat.heap.tsv": "6c1a3e537f03432429a8a4bf27689b71780a43e02ba91757753394665b6c75e6"
+      }
+    }
+  },
+  "snapshot": {
+    "conflict": 182093,
+    "decisions": 49396660
+  },
+  "heap_sizes": {
+    "candidate": 63689,
+    "kissat": 63689
+  },
+  "candidate_only": [],
+  "kissat_only": [],
+  "differences": {
+    "score": {
+      "count": 3,
+      "first_variables": [
+        120425,
+        120434,
+        120438
+      ]
+    },
+    "position": {
+      "count": 15,
+      "first_variables": [
+        120056,
+        120058,
+        120062,
+        120438,
+        121094,
+        121103,
+        121162,
+        123731,
+        124327,
+        124388,
+        124469,
+        296844,
+        296877,
+        339566,
+        469625
+      ]
+    },
+    "assigned": {
+      "count": 0,
+      "first_variables": []
+    }
+  },
+  "selected": {
+    "candidate": {
+      "120438": {
+        "variable": 120438,
+        "position": 2,
+        "score": 4.047207935952683e+39,
+        "assigned": 0,
+        "active": 1
+      },
+      "121103": {
+        "variable": 121103,
+        "position": 6,
+        "score": 4.021803609267157e+39,
+        "assigned": 0,
+        "active": 1
+      }
+    },
+    "kissat": {
+      "120438": {
+        "variable": 120438,
+        "position": 14,
+        "score": 3.9868160221687436e+39,
+        "assigned": 0,
+        "active": 1
+      },
+      "121103": {
+        "variable": 121103,
+        "position": 2,
+        "score": 4.021803609267157e+39,
+        "assigned": 0,
+        "active": 1
+      }
+    }
+  },
+  "selected_score_relation": {
+    "candidate": 1,
+    "kissat": -1
+  },
+  "nonzero_reference_score_ratio_range": [
+    1.0,
+    1.023989408314952
+  ],
+  "limitation": "Active flags are representation-local. A numeric scale difference or heap pose difference alone is not a proven performance defect; compare selected score relations, then localize its producer."
+}

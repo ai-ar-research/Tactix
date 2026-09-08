@@ -1,0 +1,68 @@
+{
+  "parent_campaign": "benchmarks/runs/20260908-5669-rank33-choice-state",
+  "candidate_authority": "benchmarks/runs/20260908-5649-propagation-cursor-validated",
+  "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "candidate_source": ".claude/worktrees/runtime-propagation-cursor-repair-5647",
+  "input": "benchmarks/cache/tierD24-26/5314fd6ccb53b6f6af49a594ea68a273-oski15a01b15s_opt.cnf.xz",
+  "input_sha256_compressed": "51907671051cdecfab72b2c27d8cfc767b926a6203e58771251fc0fe06d22c6a",
+  "stop_conflict": 1000000,
+  "hypothesis": "5669 excludes unavailable120438 and focused VMTF selection: stable score heap differs. At the last common decision compare all heap members, assignments, scores and physical positions; discriminate unequal relative score order from tie-pose before changing a mechanism.",
+  "validation": "Exact full1M parent traces and partial-proof bytes per arm; strict heap schema, unique membership, contiguous positions and numeric max-heap invariant. No solver change or acceptance timing.",
+  "contract": "Full-width 0\u20131, one bound proof-on solver per task, 12 logical CPUs/48000 MiB, no throttle/node constraint. Diagnostic time is not acceptance.",
+  "decision_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "external_literal",
+    "warming"
+  ],
+  "hashes": {
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "pins/candidate": "b42f0e54533c5032db5b318b4baab9e508c513fff92d454f692acbfc89f19f4b",
+    "run.py": "fe8a098a29d853c9eab6ab31a75f0317f92dfa614408fe2e75ad25e9d538ba2e",
+    "array.sbatch": "690a2e3f376c54168e8b59c6b228721882303016e87140853138c1e37310c12b"
+  },
+  "stream_from": 100000,
+  "common_decisions": 31494584,
+  "created_at": "2026-09-08T12:17:38.463363+00:00",
+  "continuation": "Investigation proceeds with pending correctness checks as provisional passes. Actual rejected certificates or solver failures interrupt dependent work.",
+  "selection_authority": {
+    "path": "benchmarks/runs/20260908-5535-sweep-small-ranks1-40/next-losses.json",
+    "sha256": "3b05e4eb79852ffa998a7c54100a8445d641560e3b27cb06bd009f4d07d5c57e"
+  },
+  "limitation": "Post-decision snapshot precedes propagation of the last common decision. Active flags have different fixed/retired representations; proportional score differences alone do not prove ordering changes or a performance defect.",
+  "test_consideration": "Reuse existing immutable one-shot heap observer; new positive/negative parser fixtures cover framing, values, membership, positions, nonfinite scores and heap violations. No solver unit-test change needed for configuration-only diagnostics.",
+  "source_patch_sha256": "db1052cc0140524959ab54f8c93a63b0bb4e9a47c57e2b866eb5c3164b9ee0f6",
+  "parent_summary_sha256": "faccffa6bdbbf5e9788da195fe0bfccd6911818f354a4ae7295068b5a6c57e05",
+  "selected_authority": {
+    "path": "benchmarks/runs/20260908-5634-congruence-index-extended/summary.json",
+    "sha256": "b42c30e7d0757e5bab0433ef9fbca0d048247a53ae21b32e18a43ac4125f4c56"
+  },
+  "predecessor": "benchmarks/runs/20260908-5634-congruence-index-extended",
+  "prior_summary_sha256": "57e70cc49cc9a538865e4b3e0d5d181435e42f68c6b08fa2ebcd46e34a87c058",
+  "state_columns": [
+    "conflicts",
+    "decisions",
+    "level",
+    "chosen",
+    "observed",
+    "value",
+    "assignment_level",
+    "heap_position",
+    "score",
+    "reason",
+    "stable",
+    "queue_stamp",
+    "search_external",
+    "search_stamp",
+    "observed_stamp",
+    "observed_prev",
+    "observed_next",
+    "chosen_stamp"
+  ],
+  "selected_conflict": 182093,
+  "selected_variable": 120438,
+  "selected_decision": 49396661,
+  "snapshot_conflict": 182093,
+  "snapshot_decisions": 49396660
+}
