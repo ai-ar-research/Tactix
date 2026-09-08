@@ -1,0 +1,46 @@
+{
+  "source": ".claude/worktrees/runtime-assignment-level-5672",
+  "parent": ".claude/worktrees/runtime-propagation-cursor-repair-5647",
+  "production": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+  "purpose": "Stop the exact antecedent-level maximum at its current-level upper bound;root maximum is zero. No scheduling,guards,proof/state/tick changes.",
+  "test_consideration": "90/90 each independent Release,89/89 trace;3288 fixed root/high-current/lower-true-level and maximum-position cases. Actual predecessor-header/object fixture and all candidate builds share digest af23481afdb9aa83. Existing micro-proof,model,API,chrono and propagation suites cover unchanged semantics.",
+  "files": {
+    "src/kernel/kernel.hpp": "b917fbcb1284e604a5377d202eda32ea95fee2e498a05d5640a6f459016842ec",
+    "tests/test_assignment_level_bound.cpp": "8a165d3f9c7dc7243ebe1199af8b1ba0b283ed58db6691afd9bf4146cfaa823e"
+  },
+  "binaries": {
+    "build/pin-5672-assignment-level-release/tactix": "743e1283507ee0cb35d7ba1843ab008fda8b48e75714ca6d0688b0227d05fe61",
+    "build/pin-5673-assignment-level-trace/tactix": "f105ee65ca60e9b91bbf0f79c0cce6cd4514d33c9a69140ab79de1b817ef877b",
+    "build/pin-5674-assignment-level-bc/tactix": "743e1283507ee0cb35d7ba1843ab008fda8b48e75714ca6d0688b0227d05fe61"
+  },
+  "patches": {
+    "repair.patch": "1cdda31aa35e85de851c46b55e0914d8de905161a2b87999c452622a6d483b89",
+    "cumulative.patch": "49cfc7d111c8e8c05587e0e1d5e802a868e6574c6a8d60de6fd78ba36eb6e025"
+  },
+  "logs": {
+    "previous-propagate.asm": "40d6139d4ede4656d2fdd9de6af014f622d4106eba64a003eb473be670a9b793",
+    "ctest-trace.log": "74f0a61209b81a08f3921ca807472f02d7e64c6c3562958df839986f7df4aa69",
+    "candidate-propagate.asm": "a623a9c6a7889a3b44fd6a2bb6ec8f6a4c725ebc78bc2a2a69cf43479dcd5d95",
+    "ctest-release.log": "f59d160cc140b52a4a71fc1917e19221c2404aab0ee4ba5bc26c83124b7bf175",
+    "build-release.log": "7ead0497759492fd4308cf362afc16a0248cca06c8b66b82ef3b6a61b9e31c0a",
+    "configure-trace.log": "d2734568575040610f82f374d49639aebab82e9a29dd6ed1291efa2ae48820bb",
+    "fixture-trace.log": "ef9b1e5d4058436765358d77a5fa58851a10a27e6fe53b98029d19726c812d83",
+    "build-bc.log": "d6ebbc09867e395fc3427665f625fd138e47d25d6eeb75ae32b639104d55009a",
+    "ctest-bc.log": "1597f1ffc57cbfb261711b3ec53266aca1ac4aa76975c34a97779fa9b5476706",
+    "configure-bc.log": "726d113a7f2e9355f825fb0e195c070183a9837b313b434296a4837eebfd1014",
+    "build-trace.log": "b975295615afd38439c54de47a90dc4e2c95bb6687cbaa8cbb1a4aff484b1a24",
+    "fixture-release.log": "ef9b1e5d4058436765358d77a5fa58851a10a27e6fe53b98029d19726c812d83",
+    "configure-release.log": "f51b120e75f2b20c3af686e4370dd190c227aebc4bdf9e37bb8ec13623983736",
+    "fixture-bc.log": "ef9b1e5d4058436765358d77a5fa58851a10a27e6fe53b98029d19726c812d83"
+  },
+  "predecessor_fixture": {
+    "benchmarks/runs/20260908-5672-assignment-level/predecessor-fixture/manifest.json": "8806bac1119016c242c086416e926fc1243359ed679bfbf507d7720501b5bb61",
+    "benchmarks/runs/20260908-5672-assignment-level/predecessor-fixture/link.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260908-5672-assignment-level/predecessor-fixture/run.log": "ef9b1e5d4058436765358d77a5fa58851a10a27e6fe53b98029d19726c812d83",
+    "benchmarks/runs/20260908-5672-assignment-level/predecessor-fixture/compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "source_baseline_sha256": "70a363b977a4e47cfd678081d36ef11b1c14235f76abe09fb3ed497a90501a88",
+  "reference": "Kissat inlineassign.h and CaDiCaL propagate.cpp compute the full antecedent maximum. The upper-bound early exit preserves that exact result;kernel_check_invariants already enforces every assigned level<=current level.",
+  "motivation": "Checked old5522 Rank39 annotation5671:maximum-level scan is5.86% of main-propagation sampled periods,approximately2.28% of all samples. Old profile prioritizes this hypothesis,not a current gain claim.",
+  "status": "Isolated UNFUZZED successor to5649;5657 pending fuzz covers parent only. Require exact replay,paired cost,B28+C5 and full Rank1-40 before acceptance;no promotion."
+}

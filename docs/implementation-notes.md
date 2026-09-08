@@ -58,8 +58,8 @@ rules remain registered, journaled, N1-reachable, and explicitly poseable.
 
 ## 3. Cross-cutting state invariants
 
-- Propagated literals carry true levels. Backtrack compacts surviving true
-  levels because the trail need not be level-sorted.
+- True levels are bounded by current level;isolated5672 stops the maximum scan there.
+  Backtrack compacts surviving true levels because the trail need not be level-sorted.
 - Off-fixpoint Decide taints propagation; search backtrack or root additions
   rearm the cursor. `kernel_propagation_fixpoint` is the sole fixpoint oracle.
 - Search, probing, and binary propagation post-increment the trail cursor before

@@ -1,0 +1,806 @@
+ Percent |	Source code & Disassembly of kissat for cycles:u (33646 samples, percent: local period)
+-------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      0000000000413bd0 <kissat_search_propagate>:
+    0.00 :   413bd0: push   %r15
+    0.01 :   413bd2: mov    %rdi,%r9
+    0.00 :   413bd5: push   %r14
+    0.00 :   413bd7: push   %r13
+    0.00 :   413bd9: push   %r12
+    0.00 :   413bdb: lea    0x13b0(%rdi),%r12
+    0.00 :   413be2: push   %rbp
+    0.00 :   413be3: push   %rbx
+    0.00 :   413be4: sub    $0x98,%rsp
+    0.01 :   413beb: mov    0x13b0(%rdi),%eax
+    0.01 :   413bf1: cmp    %eax,0x1864(%rdi)
+    0.00 :   413bf7: jge    414906 <kissat_search_propagate+0xd36>
+    0.00 :   413bfd: mov    0x1e8(%r9),%rbp
+    0.00 :   413c04: mov    %r12,0x80(%rsp)
+    0.00 :   413c0c: mov    %r9,%rbx
+    0.00 :   413c0f: movq   $0x0,0x6f0(%r9)
+    0.00 :   413c1a: mov    %rbp,0x48(%rsp)
+    0.02 :   413c1f: mov    %rbp,0x88(%rsp)
+    0.00 :   413c27: nopw   0x0(%rax,%rax,1)
+    0.00 :   413c30: mov    0x48(%rsp),%rax
+    0.34 :   413c35: cmp    %rax,0x1e0(%rbx)
+    0.30 :   413c3c: je     41488f <kissat_search_propagate+0xcbf>
+    0.00 :   413c42: addq   $0x4,0x48(%rsp)
+    0.09 :   413c48: mov    0x330(%rbx),%rdi
+    0.14 :   413c4f: mov    $0x1,%r11d
+    0.01 :   413c55: mov    0x48(%rsp),%rax
+    0.71 :   413c5a: mov    0x370(%rbx),%r14
+    0.01 :   413c61: mov    %rdi,0x28(%rsp)
+    0.00 :   413c66: mov    0xb0(%rbx),%rdi
+    0.12 :   413c6d: mov    -0x4(%rax),%eax
+    0.14 :   413c70: mov    0xc8(%rbx),%r8
+    0.02 :   413c77: mov    %rdi,0x10(%rsp)
+    0.06 :   413c7c: mov    %eax,%edi
+    0.03 :   413c7e: xor    $0x1,%edi
+    0.01 :   413c81: mov    %edi,%edx
+    0.15 :   413c83: mov    %edi,0x8(%rsp)
+    0.03 :   413c87: shl    $0x4,%rdx
+    0.05 :   413c8b: lea    (%r14,%rdx,1),%r15
+    0.19 :   413c8f: mov    0x8(%r15),%rdi
+    2.07 :   413c93: mov    (%r15),%rcx
+    0.37 :   413c96: mov    %rdi,%rdx
+    0.03 :   413c99: mov    %rdi,0x20(%rsp)
+    0.01 :   413c9e: sub    %rcx,%rdx
+    0.23 :   413ca1: sar    $0x2,%rdx
+    0.23 :   413ca5: je     413cb3 <kissat_search_propagate+0xe3>
+    0.23 :   413ca7: lea    0x1f(%rdx),%rsi
+    0.17 :   413cab: shr    $0x5,%rsi
+    0.21 :   413caf: lea    0x1(%rsi),%r11
+    0.22 :   413cb3: mov    0x10(%rsp),%rdi
+    0.49 :   413cb8: shr    %eax
+    0.00 :   413cba: shl    $0x4,%rax
+    0.02 :   413cbe: add    %rdi,%rax
+    0.04 :   413cc1: movzbl 0x4(%rbx),%edi
+    0.01 :   413cc5: mov    %rax,0x70(%rsp)
+    0.07 :   413cca: mov    (%rax),%r9d
+    0.32 :   413ccd: mov    0x20(%rsp),%rax
+    0.31 :   413cd2: mov    %dil,0x37(%rsp)
+    0.03 :   413cd7: cmp    %rax,%rcx
+    0.00 :   413cda: je     414933 <kissat_search_propagate+0xd63>
+    0.00 :   413ce0: mov    %r11,%r10
+    0.01 :   413ce3: mov    %r14,0x58(%rsp)
+    0.02 :   413ce8: mov    %rcx,%rbp
+    0.00 :   413ceb: mov    %r8,%r11
+    0.00 :   413cee: mov    %r15,0x60(%rsp)
+    0.05 :   413cf3: mov    %r9d,(%rsp)
+    0.07 :   413cf7: jmpq   413e00 <kissat_search_propagate+0x230>
+    0.00 :   413cfc: nopl   0x0(%rax)
+    0.00 :   413d00: lea    0x4(%rcx),%r9
+    0.48 :   413d04: add    $0x4,%rbp
+    0.09 :   413d08: test   %dl,%dl
+    0.00 :   413d0a: jg     413df2 <kissat_search_propagate+0x222>
+    0.00 :   413d10: jne    414650 <kissat_search_propagate+0xa80>
+    0.29 :   413d16: mov    0x1804(%rbx),%r8d
+    0.12 :   413d1d: mov    0x8(%rsp),%r14d
+    0.04 :   413d22: test   %r8d,%r8d
+    0.00 :   413d25: je     413d32 <kissat_search_propagate+0x162>
+    0.00 :   413d27: mov    (%rsp),%edi
+    0.08 :   413d2a: test   %edi,%edi
+    0.02 :   413d2c: jne    414200 <kissat_search_propagate+0x630>
+    0.01 :   413d32: mov    %r13d,%eax
+    0.06 :   413d35: xor    $0x1,%eax
+    0.01 :   413d38: mov    %rax,%rdx
+    0.02 :   413d3b: shl    $0x4,%rdx
+    0.01 :   413d3f: add    0x370(%rbx),%rdx
+    0.07 :   413d46: mov    (%rdx),%rcx
+    1.07 :   413d49: cmp    0x8(%rdx),%rcx
+    0.06 :   413d4d: je     413d52 <kissat_search_propagate+0x182>
+    0.00 :   413d4f: prefetcht2 (%rcx)
+    0.39 :   413d52: movb   $0x1,(%rsi)
+    0.18 :   413d55: mov    (%rsp),%esi
+    0.01 :   413d58: movb   $0xff,(%r11,%rax,1)
+    0.00 :   413d5d: subl   $0x1,0x1fc(%rbx)
+    0.02 :   413d64: test   %esi,%esi
+    0.00 :   413d66: je     414190 <kissat_search_propagate+0x5c0>
+    0.00 :   413d6c: mov    0x1e0(%rbx),%rdx
+    0.00 :   413d73: lea    0x4(%rdx),%rcx
+    0.01 :   413d77: mov    %rdx,%rax
+    0.06 :   413d7a: sub    0x1d8(%rbx),%rax
+    0.02 :   413d81: mov    %rcx,0x1e0(%rbx)
+    0.01 :   413d88: sar    $0x2,%rax
+    0.02 :   413d8c: mov    %r13d,(%rdx)
+    0.06 :   413d8f: mov    %r13d,%edx
+    0.00 :   413d92: mov    %rax,%rsi
+    0.00 :   413d95: shr    %edx
+    0.00 :   413d97: cmpb   $0x0,0x37(%rsp)
+    0.02 :   413d9c: mov    %edx,%eax
+    0.01 :   413d9e: jne    413dba <kissat_search_propagate+0x1ea>
+    0.00 :   413da0: and    $0x1,%r13d
+    0.00 :   413da4: mov    0xd8(%rbx),%rcx
+    0.01 :   413dab: cmp    $0x1,%r13d
+    0.00 :   413daf: sbb    %edx,%edx
+    0.03 :   413db1: and    $0x2,%edx
+    0.00 :   413db4: sub    $0x1,%edx
+    0.00 :   413db7: mov    %dl,(%rcx,%rax,1)
+    0.08 :   413dba: shl    $0x4,%rax
+    0.02 :   413dbe: add    %r12d,%r12d
+    0.00 :   413dc1: movd   (%rsp),%xmm0
+    0.01 :   413dc6: movd   %esi,%xmm1
+    0.03 :   413dca: mov    %rax,%rdx
+    0.00 :   413dcd: mov    0x10(%rsp),%rax
+    0.01 :   413dd2: add    $0x1,%r10
+    0.00 :   413dd6: punpckldq %xmm1,%xmm0
+    0.03 :   413dda: add    %rax,%rdx
+    0.02 :   413ddd: movzbl 0x8(%rdx),%eax
+    0.27 :   413de1: mov    %r14d,0xc(%rdx)
+    0.03 :   413de5: movq   %xmm0,(%rdx)
+    0.02 :   413de9: and    $0xffffffe0,%eax
+    0.05 :   413dec: or     %r12d,%eax
+    0.00 :   413def: mov    %al,0x8(%rdx)
+    0.39 :   413df2: cmp    %r9,0x20(%rsp)
+    1.81 :   413df7: je     413ec0 <kissat_search_propagate+0x2f0>
+    0.00 :   413dfd: mov    %r9,%rcx
+    0.68 :   413e00: mov    (%rcx),%eax
+    3.86 :   413e02: mov    %eax,%r13d
+    0.16 :   413e05: mov    %eax,%edi
+    0.24 :   413e07: mov    %eax,0x0(%rbp)
+    1.71 :   413e0a: and    $0x7fffffff,%r13d
+    0.83 :   413e11: shr    $0x1f,%edi
+    0.38 :   413e14: mov    %r13d,%esi
+    0.25 :   413e17: mov    %edi,%r12d
+    0.34 :   413e1a: add    %r11,%rsi
+    0.85 :   413e1d: movzbl (%rsi),%edx
+    7.04 :   413e20: test   %dil,%dil
+    0.01 :   413e23: jne    413d00 <kissat_search_propagate+0x130>
+    0.00 :   413e29: mov    0x4(%rcx),%r14d
+    1.58 :   413e2d: lea    0x8(%rcx),%r9
+    0.48 :   413e31: lea    0x8(%rbp),%r8
+    0.45 :   413e35: mov    %r14d,0x4(%rbp)
+    0.30 :   413e39: mov    %r14d,%esi
+    1.31 :   413e3c: test   %dl,%dl
+    0.04 :   413e3e: jg     414178 <kissat_search_propagate+0x5a8>
+    0.00 :   413e44: mov    0x28(%rsp),%rdi
+    4.05 :   413e49: mov    %r14d,%r12d
+    0.27 :   413e4c: shl    $0x4,%r12
+    0.00 :   413e50: add    %rdi,%r12
+    0.00 :   413e53: lea    0x1(%r10),%rdi
+    0.00 :   413e57: mov    %rdi,0x18(%rsp)
+    0.05 :   413e5c: testb  $0x8,0x2(%r12)
+   14.35 :   413e62: jne    414180 <kissat_search_propagate+0x5b0>
+    0.51 :   413e68: mov    0x8(%rsp),%ecx
+    0.06 :   413e6c: mov    0xc(%r12),%r13d
+    0.08 :   413e71: xor    0x10(%r12),%r13d
+    1.43 :   413e76: xor    %ecx,%r13d
+    0.00 :   413e79: mov    %r13d,%edx
+    0.00 :   413e7c: lea    (%r11,%rdx,1),%rcx
+    0.53 :   413e80: mov    %rcx,0x40(%rsp)
+    0.15 :   413e85: movzbl (%rcx),%ecx
+    2.28 :   413e88: mov    %cl,0x38(%rsp)
+    0.04 :   413e8c: test   %cl,%cl
+    0.45 :   413e8e: jle    414228 <kissat_search_propagate+0x658>
+    0.00 :   413e94: and    $0x7fffffff,%r13d
+    0.58 :   413e9b: and    $0x80000000,%eax
+    0.00 :   413ea0: mov    %rdi,%r10
+    0.00 :   413ea3: or     %r13d,%eax
+    0.05 :   413ea6: mov    %eax,0x0(%rbp)
+    0.08 :   413ea9: mov    %r8,%rbp
+    0.00 :   413eac: cmp    %r9,0x20(%rsp)
+    0.11 :   413eb1: jne    413dfd <kissat_search_propagate+0x22d>
+    0.00 :   413eb7: nopw   0x0(%rax,%rax,1)
+    0.03 :   413ec0: mov    0x60(%rsp),%r15
+    1.91 :   413ec5: add    %r10,0x6f0(%rbx)
+    0.03 :   413ecc: xor    %r12d,%r12d
+    0.00 :   413ecf: mov    0x58(%rsp),%r14
+    0.13 :   413ed4: mov    (%r15),%rcx
+    0.52 :   413ed7: mov    %rbp,%rdx
+    0.16 :   413eda: sub    %rcx,%rdx
+    0.00 :   413edd: sar    $0x2,%rdx
+    0.14 :   413ee1: nopl   0x0(%rax)
+    0.00 :   413ee8: mov    %r15,%rsi
+    0.10 :   413eeb: mov    %rbx,%rdi
+    0.01 :   413eee: callq  41bcd0 <kissat_resize_vector>
+    0.27 :   413ef3: mov    0x208(%rbx),%rcx
+    0.13 :   413efa: mov    0x200(%rbx),%r13
+    0.07 :   413f01: cmp    %r13,%rcx
+    0.18 :   413f04: je     41406c <kissat_search_propagate+0x49c>
+    0.00 :   413f0a: mov    %r12,0x8(%rsp)
+    0.01 :   413f0f: mov    %rcx,%r15
+    0.00 :   413f12: jmpq   413fbc <kissat_search_propagate+0x3ec>
+    0.00 :   413f17: nopw   0x0(%rax,%rax,1)
+    0.00 :   413f20: mov    0x8(%rbp),%rax
+    0.12 :   413f24: cmp    %rsi,%rax
+    0.11 :   413f27: je     414310 <kissat_search_propagate+0x740>
+    0.00 :   413f2d: cmpl   $0xffffffff,(%rax)
+    2.86 :   413f30: mov    %rax,%rcx
+    0.32 :   413f33: je     413f57 <kissat_search_propagate+0x387>
+    0.00 :   413f35: mov    %rbp,%rsi
+    0.00 :   413f38: mov    %rbx,%rdi
+    0.00 :   413f3b: mov    %r8d,(%rsp)
+    0.00 :   413f3f: callq  41b1a0 <kissat_enlarge_vector>
+    0.00 :   413f44: mov    0x8(%rbp),%rcx
+    0.00 :   413f48: mov    0x0(%rbp),%rdx
+    0.00 :   413f4c: mov    0x350(%rbx),%rsi
+    0.00 :   413f53: mov    (%rsp),%r8d
+    0.00 :   413f57: mov    %r8d,(%rax)
+    0.11 :   413f5a: lea    0x4(%rcx),%rax
+    0.11 :   413f5e: subq   $0x1,0x360(%rbx)
+    0.08 :   413f66: mov    %r12d,%r9d
+    0.04 :   413f69: mov    %rax,0x8(%rbp)
+    0.02 :   413f6d: and    $0x7fffffff,%r9d
+    0.03 :   413f74: mov    %r9d,%r12d
+    0.07 :   413f77: test   %rdx,%rdx
+    0.00 :   413f7a: jne    41433c <kissat_search_propagate+0x76c>
+    0.00 :   413f80: mov    0x358(%rbx),%rax
+    0.00 :   413f87: cmp    %rsi,0x348(%rbx)
+    0.00 :   413f8e: je     414378 <kissat_search_propagate+0x7a8>
+    0.00 :   413f94: cmp    %rax,%rsi
+    0.00 :   413f97: je     41439e <kissat_search_propagate+0x7ce>
+    0.00 :   413f9d: lea    0x4(%rsi),%rax
+    0.00 :   413fa1: mov    %rax,0x350(%rbx)
+    0.00 :   413fa8: mov    %rsi,0x0(%rbp)
+    0.00 :   413fac: mov    %r9d,(%rsi)
+    0.08 :   413faf: mov    %rax,0x8(%rbp)
+    0.23 :   413fb3: cmp    %r13,%r15
+    0.08 :   413fb6: je     414060 <kissat_search_propagate+0x490>
+    0.00 :   413fbc: mov    0x0(%r13),%ebp
+    0.29 :   413fc0: mov    0x4(%r13),%r8d
+    0.05 :   413fc4: add    $0xc,%r13
+    0.07 :   413fc8: mov    0x350(%rbx),%rsi
+    0.05 :   413fcf: mov    -0x4(%r13),%r12d
+    0.10 :   413fd3: shl    $0x4,%rbp
+    0.11 :   413fd7: and    $0x7fffffff,%r8d
+    0.18 :   413fde: add    %r14,%rbp
+    0.04 :   413fe1: mov    0x0(%rbp),%rdx
+    1.02 :   413fe5: test   %rdx,%rdx
+    0.00 :   413fe8: jne    413f20 <kissat_search_propagate+0x350>
+    0.00 :   413fee: mov    0x358(%rbx),%rax
+    0.00 :   413ff5: cmp    %rsi,0x348(%rbx)
+    0.00 :   413ffc: je     4143d0 <kissat_search_propagate+0x800>
+    0.00 :   414002: cmp    %rax,%rsi
+    0.00 :   414005: je     4143f6 <kissat_search_propagate+0x826>
+    0.00 :   41400b: lea    0x4(%rsi),%rdx
+    0.00 :   41400f: and    $0x7fffffff,%r12d
+    0.00 :   414016: mov    %rdx,0x350(%rbx)
+    0.00 :   41401d: mov    %rdx,%rax
+    0.00 :   414020: mov    %rsi,0x0(%rbp)
+    0.00 :   414024: mov    %r8d,(%rsi)
+    0.00 :   414027: mov    %rdx,0x8(%rbp)
+    0.00 :   41402b: cmp    %rdx,0x358(%rbx)
+    0.00 :   414032: je     4145a0 <kissat_search_propagate+0x9d0>
+    0.00 :   414038: lea    0x4(%rdx),%rcx
+    0.00 :   41403c: add    $0x4,%rax
+    0.00 :   414040: mov    %rcx,0x350(%rbx)
+    0.00 :   414047: mov    %r12d,(%rdx)
+    0.00 :   41404a: mov    %rax,0x8(%rbp)
+    0.00 :   41404e: cmp    %r13,%r15
+    0.00 :   414051: jne    413fbc <kissat_search_propagate+0x3ec>
+    0.00 :   414057: nopw   0x0(%rax,%rax,1)
+    0.00 :   414060: mov    0x8(%rsp),%r12
+    0.26 :   414065: mov    0x200(%rbx),%r13
+    0.01 :   41406c: mov    %r13,0x208(%rbx)
+    0.12 :   414073: test   %r12,%r12
+    0.00 :   414076: je     413c30 <kissat_search_propagate+0x60>
+    0.00 :   41407c: mov    0x48(%rsp),%rax
+    0.00 :   414081: mov    %r12,%r10
+    0.00 :   414084: mov    %rbx,%r9
+    0.00 :   414087: mov    0x88(%rsp),%rbp
+    0.01 :   41408f: addq   $0x1,0x19f0(%rbx)
+    0.00 :   414097: mov    0x80(%rsp),%r12
+    0.00 :   41409f: mov    %rax,0x1e8(%rbx)
+    0.00 :   4140a6: sub    %rbp,%rax
+    0.00 :   4140a9: sar    $0x2,%rax
+    0.00 :   4140ad: mov    %eax,%eax
+    0.00 :   4140af: add    %rax,0x1ad8(%rbx)
+    0.00 :   4140b6: mov    0x6f0(%rbx),%rax
+    0.00 :   4140bd: add    %rax,0x1b18(%rbx)
+    0.00 :   4140c4: mov    0x1b8(%rbx),%eax
+    0.00 :   4140ca: test   %eax,%eax
+    0.00 :   4140cc: jne    4140f7 <kissat_search_propagate+0x527>
+    0.00 :   4140ce: cmpq   $0x0,0x1980(%r9)
+    0.00 :   4140d6: movb   $0x1,0x1(%r9)
+    0.00 :   4140db: je     4140f7 <kissat_search_propagate+0x527>
+    0.00 :   4140dd: mov    %r9,%rdi
+    0.00 :   4140e0: mov    %r10,0x8(%rsp)
+    0.00 :   4140e5: mov    %r9,(%rsp)
+    0.00 :   4140e9: callq  4128d0 <kissat_add_empty_to_proof>
+    0.00 :   4140ee: mov    (%rsp),%r9
+    0.00 :   4140f2: mov    0x8(%rsp),%r10
+    0.00 :   4140f7: mov    0x34(%r9),%eax
+    0.00 :   4140fb: test   %eax,%eax
+    0.00 :   4140fd: je     414148 <kissat_search_propagate+0x578>
+    0.00 :   4140ff: sub    $0x1,%eax
+    0.00 :   414102: mov    %r10,0x8(%rsp)
+    0.00 :   414107: mov    %eax,0x34(%r9)
+    0.00 :   41410b: je     41497d <kissat_search_propagate+0xdad>
+    0.00 :   414111: cmp    $0x1,%eax
+    0.00 :   414114: je     41495c <kissat_search_propagate+0xd8c>
+    0.00 :   41411a: lea    0x6f8(%r9),%rdi
+    0.00 :   414121: mov    %eax,%esi
+    0.00 :   414123: mov    %r9,(%rsp)
+    0.00 :   414127: callq  407070 <kissat_format_count>
+    0.00 :   41412c: mov    (%rsp),%rdi
+    0.00 :   414130: mov    $0x46e4f8,%esi
+    0.00 :   414135: mov    %rax,%rdx
+    0.00 :   414138: xor    %eax,%eax
+    0.00 :   41413a: callq  410480 <kissat_very_verbose>
+    0.00 :   41413f: mov    0x8(%rsp),%r10
+    0.00 :   414144: mov    (%rsp),%r9
+    0.00 :   414148: mov    0x13b0(%r9),%eax
+    0.00 :   41414f: cmp    %eax,0x1864(%r9)
+    0.03 :   414156: jge    41491b <kissat_search_propagate+0xd4b>
+    0.00 :   41415c: add    $0x98,%rsp
+    0.00 :   414163: mov    %r10,%rax
+    0.00 :   414166: pop    %rbx
+    0.00 :   414167: pop    %rbp
+    0.00 :   414168: pop    %r12
+    0.00 :   41416a: pop    %r13
+    0.02 :   41416c: pop    %r14
+    0.01 :   41416e: pop    %r15
+    0.00 :   414170: retq
+    0.00 :   414171: nopl   0x0(%rax)
+    0.00 :   414178: mov    %r8,%rbp
+    1.40 :   41417b: jmpq   413df2 <kissat_search_propagate+0x222>
+    0.00 :   414180: mov    %rdi,%r10
+    0.00 :   414183: jmpq   413df2 <kissat_search_propagate+0x222>
+    0.00 :   414188: nopl   0x0(%rax,%rax,1)
+    0.00 :   414190: mov    %r13d,%esi
+    0.00 :   414193: mov    %rbx,%rdi
+    0.00 :   414196: mov    %r9,0x40(%rsp)
+    0.00 :   41419b: mov    %r10,0x38(%rsp)
+    0.00 :   4141a0: mov    %r11,0x18(%rsp)
+    0.00 :   4141a5: callq  426b50 <kissat_mark_fixed_literal>
+    0.00 :   4141aa: mov    0x18(%rsp),%r11
+    0.00 :   4141af: mov    0x38(%rsp),%r10
+    0.00 :   4141b4: addl   $0x1,0x1f8(%rbx)
+    0.00 :   4141bb: cmp    $0xfffffffe,%r14d
+    0.00 :   4141bf: mov    0x40(%rsp),%r9
+    0.00 :   4141c4: je     413d6c <kissat_search_propagate+0x19c>
+    0.00 :   4141ca: cmpq   $0x0,0x1980(%rbx)
+    0.00 :   4141d2: je     4141ee <kissat_search_propagate+0x61e>
+    0.00 :   4141d4: mov    %r13d,%esi
+    0.00 :   4141d7: mov    %rbx,%rdi
+    0.00 :   4141da: callq  412d00 <kissat_add_unit_to_proof>
+    0.00 :   4141df: mov    0x40(%rsp),%r9
+    0.00 :   4141e4: mov    0x38(%rsp),%r10
+    0.00 :   4141e9: mov    0x18(%rsp),%r11
+    0.00 :   4141ee: mov    $0xfffffffe,%r14d
+    0.00 :   4141f4: xor    %r12d,%r12d
+    0.00 :   4141f7: jmpq   413d6c <kissat_search_propagate+0x19c>
+    0.00 :   4141fc: nopl   0x0(%rax)
+    0.00 :   414200: cmpb   $0x0,0x5f9(%rbx)
+    0.04 :   414207: je     413d32 <kissat_search_propagate+0x162>
+    0.04 :   41420d: mov    0x70(%rsp),%rax
+    0.02 :   414212: testb  $0x2,0x8(%rax)
+    0.11 :   414216: je     413d32 <kissat_search_propagate+0x162>
+    0.01 :   41421c: mov    0xc(%rax),%r14d
+    0.05 :   414220: jmpq   413d32 <kissat_search_propagate+0x162>
+    0.00 :   414225: nopl   (%rax)
+    0.00 :   414228: mov    0x8(%r12),%eax
+    0.34 :   41422d: lea    0xc(%r12),%rdx
+    0.00 :   414232: lea    0x0(,%rax,4),%rcx
+    0.03 :   41423a: mov    0x4(%r12),%eax
+    0.04 :   41423f: lea    (%rdx,%rcx,1),%rdi
+    0.15 :   414243: shl    $0x2,%rax
+    0.04 :   414247: lea    (%rdx,%rax,1),%r15
+    0.05 :   41424b: mov    %r15,0x50(%rsp)
+    0.41 :   414250: cmp    %rax,%rcx
+    0.00 :   414253: je     41486b <kissat_search_propagate+0xc9b>
+    0.00 :   414259: mov    %r8,0x68(%rsp)
+    0.04 :   41425e: mov    %r15,%rax
+    0.00 :   414261: jmp    414275 <kissat_search_propagate+0x6a5>
+    0.00 :   414263: nopl   0x0(%rax,%rax,1)
+    0.26 :   414268: add    $0x4,%rax
+    0.98 :   41426c: cmp    %rax,%rdi
+    0.00 :   41426f: je     414430 <kissat_search_propagate+0x860>
+    0.00 :   414275: mov    (%rax),%r8d
+    1.62 :   414278: cmpb   $0x0,(%r11,%r8,1)
+    2.91 :   41427d: mov    %r8,%r15
+    0.29 :   414280: js     414268 <kissat_search_propagate+0x698>
+    0.05 :   414282: mov    %rax,%rcx
+    1.33 :   414285: mov    %r13d,0xc(%r12)
+    0.40 :   41428a: mov    0x8(%rsp),%edi
+    0.14 :   41428e: sub    %rdx,%rcx
+    0.01 :   414291: mov    %r15d,0x10(%r12)
+    0.10 :   414296: mov    0x208(%rbx),%rdx
+    0.17 :   41429d: sar    $0x2,%rcx
+    0.01 :   4142a1: mov    %ecx,0x4(%r12)
+    0.32 :   4142a6: mov    %r13d,%r12d
+    0.01 :   4142a9: mov    0x210(%rbx),%r13
+    0.01 :   4142b0: mov    %edi,(%rax)
+    0.15 :   4142b2: and    $0x7fffffff,%r12d
+    0.06 :   4142b9: cmp    %r13,%rdx
+    0.01 :   4142bc: je     41479c <kissat_search_propagate+0xbcc>
+    0.00 :   4142c2: lea    0x4(%rdx),%rcx
+    0.00 :   4142c6: mov    %rcx,0x208(%rbx)
+    0.22 :   4142cd: mov    %r15d,(%rdx)
+    1.03 :   4142d0: cmp    %r13,%rcx
+    0.03 :   4142d3: je     414731 <kissat_search_propagate+0xb61>
+    0.00 :   4142d9: lea    0x4(%rcx),%rax
+    0.01 :   4142dd: mov    %rax,0x208(%rbx)
+    0.17 :   4142e4: mov    %r12d,(%rcx)
+    0.55 :   4142e7: cmp    %r13,%rax
+    0.00 :   4142ea: je     4146ca <kissat_search_propagate+0xafa>
+    0.00 :   4142f0: lea    0x4(%rax),%rdx
+    0.00 :   4142f4: add    $0x2,%r10
+    0.00 :   4142f8: mov    %rdx,0x208(%rbx)
+    0.10 :   4142ff: mov    %r14d,(%rax)
+    0.54 :   414302: jmpq   413df2 <kissat_search_propagate+0x222>
+    0.00 :   414307: nopw   0x0(%rax,%rax,1)
+    0.00 :   414310: cmp    %rsi,0x358(%rbx)
+    0.00 :   414317: je     414568 <kissat_search_propagate+0x998>
+    0.00 :   41431d: lea    0x4(%rsi),%rax
+    0.00 :   414321: mov    %rsi,%rcx
+    0.00 :   414324: and    $0x7fffffff,%r12d
+    0.00 :   41432b: mov    %rax,0x350(%rbx)
+    0.00 :   414332: mov    %r8d,(%rsi)
+    0.00 :   414335: mov    %rax,%rsi
+    0.00 :   414338: mov    %rax,0x8(%rbp)
+    0.00 :   41433c: mov    %rax,%rdx
+    0.22 :   41433f: cmp    %rax,%rsi
+    0.09 :   414342: je     41402b <kissat_search_propagate+0x45b>
+    0.00 :   414348: cmpl   $0xffffffff,0x4(%rcx)
+    0.27 :   41434c: je     41435d <kissat_search_propagate+0x78d>
+    0.00 :   41434e: mov    %rbp,%rsi
+    0.00 :   414351: mov    %rbx,%rdi
+    0.00 :   414354: callq  41b1a0 <kissat_enlarge_vector>
+    0.00 :   414359: mov    0x8(%rbp),%rdx
+    0.08 :   41435d: mov    %r12d,(%rax)
+    0.05 :   414360: lea    0x4(%rdx),%rax
+    0.01 :   414364: subq   $0x1,0x360(%rbx)
+    0.08 :   41436c: jmpq   413faf <kissat_search_propagate+0x3df>
+    0.00 :   414371: nopl   0x0(%rax)
+    0.00 :   414378: cmp    %rax,%rsi
+    0.00 :   41437b: je     41480a <kissat_search_propagate+0xc3a>
+    0.00 :   414381: lea    0x4(%rsi),%rdx
+    0.00 :   414385: mov    %rdx,0x350(%rbx)
+    0.00 :   41438c: movl   $0x0,(%rsi)
+    0.00 :   414392: mov    %rdx,%rsi
+    0.00 :   414395: cmp    %rax,%rsi
+    0.00 :   414398: jne    413f9d <kissat_search_propagate+0x3cd>
+    0.00 :   41439e: mov    %rbp,%rsi
+    0.00 :   4143a1: mov    %rbx,%rdi
+    0.00 :   4143a4: mov    %r9d,(%rsp)
+    0.00 :   4143a8: callq  41b1a0 <kissat_enlarge_vector>
+    0.00 :   4143ad: mov    (%rsp),%r9d
+    0.00 :   4143b1: mov    %r9d,(%rax)
+    0.00 :   4143b4: mov    0x0(%rbp),%rax
+    0.00 :   4143b8: subq   $0x1,0x360(%rbx)
+    0.00 :   4143c0: add    $0x4,%rax
+    0.00 :   4143c4: jmpq   413faf <kissat_search_propagate+0x3df>
+    0.00 :   4143c9: nopl   0x0(%rax)
+    0.00 :   4143d0: cmp    %rsi,%rax
+    0.00 :   4143d3: je     414839 <kissat_search_propagate+0xc69>
+    0.00 :   4143d9: lea    0x4(%rsi),%rdx
+    0.00 :   4143dd: mov    %rdx,0x350(%rbx)
+    0.00 :   4143e4: movl   $0x0,(%rsi)
+    0.00 :   4143ea: mov    %rdx,%rsi
+    0.00 :   4143ed: cmp    %rax,%rsi
+    0.00 :   4143f0: jne    41400b <kissat_search_propagate+0x43b>
+    0.00 :   4143f6: mov    %rbp,%rsi
+    0.00 :   4143f9: mov    %rbx,%rdi
+    0.00 :   4143fc: mov    %r8d,(%rsp)
+    0.00 :   414400: callq  41b1a0 <kissat_enlarge_vector>
+    0.00 :   414405: mov    0x0(%rbp),%rdx
+    0.00 :   414409: mov    (%rsp),%r8d
+    0.00 :   41440d: mov    0x350(%rbx),%rsi
+    0.00 :   414414: mov    %r8d,(%rax)
+    0.00 :   414417: mov    %rdx,%rcx
+    0.00 :   41441a: lea    0x4(%rdx),%rax
+    0.00 :   41441e: subq   $0x1,0x360(%rbx)
+    0.00 :   414426: jmpq   413f66 <kissat_search_propagate+0x396>
+    0.00 :   41442b: nopl   0x0(%rax,%rax,1)
+    0.00 :   414430: mov    0x50(%rsp),%r15
+    0.98 :   414435: lea    0x14(%r12),%rax
+    0.01 :   41443a: mov    0x68(%rsp),%r8
+    0.13 :   41443f: cmp    %rax,%r15
+    0.06 :   414442: je     41447c <kissat_search_propagate+0x8ac>
+    0.00 :   414444: mov    %rcx,0x78(%rsp)
+    0.45 :   414449: mov    %r15,%rcx
+    0.01 :   41444c: mov    %rbp,0x68(%rsp)
+    0.00 :   414451: jmp    414461 <kissat_search_propagate+0x891>
+    0.00 :   414453: nopl   0x0(%rax,%rax,1)
+    0.00 :   414458: add    $0x4,%rax
+    0.12 :   41445c: cmp    %rax,%rcx
+    0.00 :   41445f: je     414477 <kissat_search_propagate+0x8a7>
+    0.00 :   414461: mov    (%rax),%ebp
+    0.37 :   414463: cmpb   $0x0,(%r11,%rbp,1)
+    0.57 :   414468: mov    %rbp,%r15
+    0.12 :   41446b: js     414458 <kissat_search_propagate+0x888>
+    0.00 :   41446d: mov    0x68(%rsp),%rbp
+    0.23 :   414472: jmpq   414282 <kissat_search_propagate+0x6b2>
+    0.00 :   414477: mov    0x78(%rsp),%rcx
+    0.20 :   41447c: cmpb   $0x0,0x38(%rsp)
+    0.78 :   414481: jne    414942 <kissat_search_propagate+0xd72>
+    0.18 :   414487: xor    %ebp,%ebp
+    0.04 :   414489: test   %rcx,%rcx
+    0.00 :   41448c: je     4144b6 <kissat_search_propagate+0x8e6>
+    0.00 :   41448e: mov    0x10(%rsp),%rcx
+    0.00 :   414493: nopl   0x0(%rax,%rax,1)
+    0.00 :   414498: mov    (%rdx),%eax
+    0.20 :   41449a: cmp    %eax,%r13d
+    0.23 :   41449d: je     4144ad <kissat_search_propagate+0x8dd>
+    0.00 :   41449f: shr    %eax
+    0.31 :   4144a1: shl    $0x4,%rax
+    0.15 :   4144a5: mov    (%rcx,%rax,1),%eax
+    2.60 :   4144a8: cmp    %eax,%ebp
+    0.02 :   4144aa: cmovb  %eax,%ebp
+    0.53 :   4144ad: add    $0x4,%rdx
+    0.12 :   4144b1: cmp    %rdx,%rdi
+    0.00 :   4144b4: jne    414498 <kissat_search_propagate+0x8c8>
+    0.00 :   4144b6: mov    %r13d,%edx
+    0.05 :   4144b9: movzbl 0x4(%rbx),%r12d
+    0.01 :   4144be: xor    $0x1,%edx
+    0.00 :   4144c1: mov    %rdx,%rax
+    0.03 :   4144c4: shl    $0x4,%rax
+    0.00 :   4144c8: add    0x370(%rbx),%rax
+    0.02 :   4144cf: mov    (%rax),%rcx
+    3.27 :   4144d2: cmp    0x8(%rax),%rcx
+    0.25 :   4144d6: je     4144db <kissat_search_propagate+0x90b>
+    0.00 :   4144d8: prefetcht2 (%rcx)
+    1.22 :   4144db: mov    0x40(%rsp),%rax
+    0.33 :   4144e0: movb   $0x1,(%rax)
+    0.12 :   4144e3: movb   $0xff,(%r11,%rdx,1)
+    0.06 :   4144e8: subl   $0x1,0x1fc(%rbx)
+    0.01 :   4144ef: test   %ebp,%ebp
+    0.00 :   4144f1: je     4145c8 <kissat_search_propagate+0x9f8>
+    0.00 :   4144f7: mov    0x1e0(%rbx),%rdx
+    0.02 :   4144fe: lea    0x4(%rdx),%rcx
+    0.04 :   414502: mov    %rdx,%rax
+    0.18 :   414505: sub    0x1d8(%rbx),%rax
+    0.01 :   41450c: mov    %rcx,0x1e0(%rbx)
+    0.04 :   414513: sar    $0x2,%rax
+    0.01 :   414517: mov    %r13d,(%rdx)
+    0.02 :   41451a: mov    %r13d,%edx
+    0.00 :   41451d: shr    %edx
+    0.00 :   41451f: test   %r12b,%r12b
+    0.00 :   414522: jne    41453e <kissat_search_propagate+0x96e>
+    0.00 :   414524: and    $0x1,%r13d
+    0.02 :   414528: mov    0xd8(%rbx),%rdi
+    0.20 :   41452f: cmp    $0x1,%r13d
+    0.00 :   414533: sbb    %ecx,%ecx
+    0.01 :   414535: and    $0x2,%ecx
+    0.00 :   414538: sub    $0x1,%ecx
+    0.00 :   41453b: mov    %cl,(%rdi,%rdx,1)
+    0.07 :   41453e: mov    0x10(%rsp),%rdi
+    0.00 :   414543: shl    $0x4,%rdx
+    0.02 :   414547: add    $0x2,%r10
+    0.00 :   41454b: add    %rdi,%rdx
+    0.17 :   41454e: mov    %ebp,(%rdx)
+    0.12 :   414550: mov    %r8,%rbp
+    0.00 :   414553: andb   $0xe0,0x8(%rdx)
+    0.19 :   414557: mov    %eax,0x4(%rdx)
+    0.04 :   41455a: mov    %esi,0xc(%rdx)
+    0.01 :   41455d: jmpq   413df2 <kissat_search_propagate+0x222>
+    0.00 :   414562: nopw   0x0(%rax,%rax,1)
+    0.00 :   414568: mov    %rbp,%rsi
+    0.00 :   41456b: mov    %rbx,%rdi
+    0.00 :   41456e: mov    %r8d,(%rsp)
+    0.00 :   414572: callq  41b1a0 <kissat_enlarge_vector>
+    0.00 :   414577: mov    (%rsp),%r8d
+    0.00 :   41457b: mov    0x8(%rbp),%rcx
+    0.00 :   41457f: mov    0x0(%rbp),%rdx
+    0.00 :   414583: mov    0x350(%rbx),%rsi
+    0.00 :   41458a: mov    %r8d,(%rax)
+    0.00 :   41458d: lea    0x4(%rcx),%rax
+    0.00 :   414591: subq   $0x1,0x360(%rbx)
+    0.00 :   414599: jmpq   413f66 <kissat_search_propagate+0x396>
+    0.00 :   41459e: xchg   %ax,%ax
+    0.00 :   4145a0: mov    %rbp,%rsi
+    0.00 :   4145a3: mov    %rbx,%rdi
+    0.00 :   4145a6: callq  41b1a0 <kissat_enlarge_vector>
+    0.00 :   4145ab: mov    %r12d,(%rax)
+    0.00 :   4145ae: mov    0x8(%rbp),%rax
+    0.00 :   4145b2: subq   $0x1,0x360(%rbx)
+    0.00 :   4145ba: add    $0x4,%rax
+    0.00 :   4145be: jmpq   413faf <kissat_search_propagate+0x3df>
+    0.00 :   4145c3: nopl   0x0(%rax,%rax,1)
+    0.00 :   4145c8: mov    %r13d,%esi
+    0.00 :   4145cb: mov    %rbx,%rdi
+    0.00 :   4145ce: mov    %r8,0x50(%rsp)
+    0.00 :   4145d3: mov    %r9,0x40(%rsp)
+    0.00 :   4145d8: mov    %r10,0x38(%rsp)
+    0.00 :   4145dd: mov    %r11,0x18(%rsp)
+    0.00 :   4145e2: callq  426b50 <kissat_mark_fixed_literal>
+    0.00 :   4145e7: mov    0x18(%rsp),%r11
+    0.00 :   4145ec: mov    0x38(%rsp),%r10
+    0.00 :   4145f1: addl   $0x1,0x1f8(%rbx)
+    0.00 :   4145f8: cmp    $0xfffffffe,%r14d
+    0.00 :   4145fc: mov    0x40(%rsp),%r9
+    0.00 :   414601: mov    0x50(%rsp),%r8
+    0.00 :   414606: je     414645 <kissat_search_propagate+0xa75>
+    0.00 :   414608: cmpq   $0x0,0x1980(%rbx)
+    0.00 :   414610: je     414645 <kissat_search_propagate+0xa75>
+    0.00 :   414612: mov    %r13d,%esi
+    0.00 :   414615: mov    %rbx,%rdi
+    0.00 :   414618: mov    %r8,0x50(%rsp)
+    0.00 :   41461d: mov    %r9,0x40(%rsp)
+    0.00 :   414622: mov    %r10,0x38(%rsp)
+    0.00 :   414627: mov    %r11,0x18(%rsp)
+    0.00 :   41462c: callq  412d00 <kissat_add_unit_to_proof>
+    0.00 :   414631: mov    0x18(%rsp),%r11
+    0.00 :   414636: mov    0x38(%rsp),%r10
+    0.00 :   41463b: mov    0x40(%rsp),%r9
+    0.00 :   414640: mov    0x50(%rsp),%r8
+    0.00 :   414645: mov    $0xfffffffe,%esi
+    0.00 :   41464a: jmpq   4144f7 <kissat_search_propagate+0x927>
+    0.00 :   41464f: nop
+    0.00 :   414650: mov    0x8(%rsp),%eax
+    0.00 :   414654: mov    %r13d,0x2f0(%rbx)
+    0.00 :   41465b: mov    %r10,%r11
+    0.00 :   41465e: lea    0x2e0(%rbx),%r12
+    0.00 :   414665: mov    0x58(%rsp),%r14
+    0.00 :   41466a: mov    0x60(%rsp),%r15
+    0.00 :   41466f: mov    %r9,%r10
+    0.00 :   414672: movl   $0x2,0x2e8(%rbx)
+    0.00 :   41467c: mov    %eax,0x2ec(%rbx)
+    0.00 :   414682: mov    0x20(%rsp),%rax
+    0.00 :   414687: add    %r11,0x6f0(%rbx)
+    0.00 :   41468e: mov    (%r15),%rcx
+    0.00 :   414691: cmp    %r10,%rax
+    0.00 :   414694: je     413ed7 <kissat_search_propagate+0x307>
+    0.00 :   41469a: mov    %rax,%rdx
+    0.00 :   41469d: xor    %eax,%eax
+    0.00 :   41469f: sub    %r10,%rdx
+    0.00 :   4146a2: nopw   0x0(%rax,%rax,1)
+    0.00 :   4146a8: mov    (%r10,%rax,1),%esi
+    0.01 :   4146ac: mov    %esi,0x0(%rbp,%rax,1)
+    0.01 :   4146b0: add    $0x4,%rax
+    0.00 :   4146b4: cmp    %rdx,%rax
+    0.00 :   4146b7: jne    4146a8 <kissat_search_propagate+0xad8>
+    0.00 :   4146b9: lea    0x0(%rbp,%rax,1),%rdx
+    0.01 :   4146be: sub    %rcx,%rdx
+    0.00 :   4146c1: sar    $0x2,%rdx
+    0.00 :   4146c5: jmpq   413ee8 <kissat_search_propagate+0x318>
+    0.00 :   4146ca: mov    0x200(%rbx),%rsi
+    0.00 :   4146d1: mov    %rbx,%rdi
+    0.00 :   4146d4: mov    %r9,0x40(%rsp)
+    0.00 :   4146d9: mov    %r10,0x38(%rsp)
+    0.00 :   4146de: sub    %rsi,%r13
+    0.00 :   4146e1: mov    %r11,0x18(%rsp)
+    0.00 :   4146e6: mov    %r13,%rax
+    0.00 :   4146e9: mov    %r13,%rdx
+    0.00 :   4146ec: sar    $0x2,%rax
+    0.00 :   4146f0: lea    0x0(,%rax,8),%r12
+    0.00 :   4146f8: mov    $0x10,%eax
+    0.00 :   4146fd: cmove  %rax,%r12
+    0.00 :   414701: mov    %r12,%rcx
+    0.00 :   414704: callq  4058c0 <kissat_realloc>
+    0.00 :   414709: mov    0x40(%rsp),%r9
+    0.00 :   41470e: mov    0x38(%rsp),%r10
+    0.00 :   414713: add    %rax,%r12
+    0.00 :   414716: mov    %rax,0x200(%rbx)
+    0.00 :   41471d: mov    0x18(%rsp),%r11
+    0.00 :   414722: add    %r13,%rax
+    0.00 :   414725: mov    %r12,0x210(%rbx)
+    0.00 :   41472c: jmpq   4142f0 <kissat_search_propagate+0x720>
+    0.00 :   414731: mov    0x200(%rbx),%rsi
+    0.00 :   414738: mov    %r13,%r15
+    0.00 :   41473b: mov    %rbx,%rdi
+    0.00 :   41473e: mov    %r9,0x40(%rsp)
+    0.00 :   414743: mov    %r10,0x38(%rsp)
+    0.00 :   414748: sub    %rsi,%r15
+    0.00 :   41474b: mov    %r11,0x18(%rsp)
+    0.00 :   414750: mov    %r15,%rax
+    0.00 :   414753: mov    %r15,%rdx
+    0.00 :   414756: sar    $0x2,%rax
+    0.00 :   41475a: lea    0x0(,%rax,8),%r13
+    0.00 :   414762: mov    $0x10,%eax
+    0.00 :   414767: cmove  %rax,%r13
+    0.00 :   41476b: mov    %r13,%rcx
+    0.00 :   41476e: callq  4058c0 <kissat_realloc>
+    0.00 :   414773: mov    0x40(%rsp),%r9
+    0.00 :   414778: mov    0x38(%rsp),%r10
+    0.00 :   41477d: add    %rax,%r13
+    0.00 :   414780: mov    %rax,0x200(%rbx)
+    0.00 :   414787: mov    0x18(%rsp),%r11
+    0.00 :   41478c: lea    (%rax,%r15,1),%rcx
+    0.00 :   414790: mov    %r13,0x210(%rbx)
+    0.00 :   414797: jmpq   4142d9 <kissat_search_propagate+0x709>
+    0.00 :   41479c: mov    0x200(%rbx),%rsi
+    0.00 :   4147a3: mov    %rbx,%rdi
+    0.00 :   4147a6: mov    %r9,0x50(%rsp)
+    0.00 :   4147ab: mov    %r10,0x40(%rsp)
+    0.00 :   4147b0: sub    %rsi,%rdx
+    0.00 :   4147b3: mov    %r11,0x38(%rsp)
+    0.00 :   4147b8: mov    %rdx,%rax
+    0.00 :   4147bb: mov    %rdx,0x18(%rsp)
+    0.00 :   4147c0: sar    $0x2,%rax
+    0.00 :   4147c4: lea    0x0(,%rax,8),%r13
+    0.00 :   4147cc: mov    $0x10,%eax
+    0.00 :   4147d1: cmove  %rax,%r13
+    0.00 :   4147d5: mov    %r13,%rcx
+    0.00 :   4147d8: callq  4058c0 <kissat_realloc>
+    0.00 :   4147dd: mov    0x18(%rsp),%rdx
+    0.00 :   4147e2: mov    0x50(%rsp),%r9
+    0.00 :   4147e7: add    %rax,%r13
+    0.00 :   4147ea: mov    0x40(%rsp),%r10
+    0.00 :   4147ef: mov    0x38(%rsp),%r11
+    0.00 :   4147f4: mov    %rax,0x200(%rbx)
+    0.00 :   4147fb: mov    %r13,0x210(%rbx)
+    0.00 :   414802: add    %rax,%rdx
+    0.00 :   414805: jmpq   4142c2 <kissat_search_propagate+0x6f2>
+    0.00 :   41480a: mov    $0x10,%ecx
+    0.00 :   41480f: mov    %rbx,%rdi
+    0.00 :   414812: mov    %r9d,(%rsp)
+    0.00 :   414816: callq  4058c0 <kissat_realloc>
+    0.00 :   41481b: mov    (%rsp),%r9d
+    0.00 :   41481f: mov    %rax,0x348(%rbx)
+    0.00 :   414826: mov    %rax,%rsi
+    0.00 :   414829: lea    0x10(%rax),%rax
+    0.00 :   41482d: mov    %rax,0x358(%rbx)
+    0.00 :   414834: jmpq   414381 <kissat_search_propagate+0x7b1>
+    0.00 :   414839: mov    %rax,%rsi
+    0.00 :   41483c: mov    $0x10,%ecx
+    0.00 :   414841: mov    %rbx,%rdi
+    0.00 :   414844: mov    %r8d,(%rsp)
+    0.00 :   414848: callq  4058c0 <kissat_realloc>
+    0.00 :   41484d: mov    (%rsp),%r8d
+    0.00 :   414851: mov    %rax,0x348(%rbx)
+    0.00 :   414858: mov    %rax,%rsi
+    0.00 :   41485b: lea    0x10(%rax),%rax
+    0.00 :   41485f: mov    %rax,0x358(%rbx)
+    0.00 :   414866: jmpq   4143d9 <kissat_search_propagate+0x809>
+    0.00 :   41486b: lea    0x14(%r12),%rax
+    0.00 :   414870: cmp    %rax,0x50(%rsp)
+    0.00 :   414875: je     41447c <kissat_search_propagate+0x8ac>
+    0.00 :   41487b: mov    %rcx,0x78(%rsp)
+    0.00 :   414880: mov    0x50(%rsp),%rcx
+    0.00 :   414885: mov    %rbp,0x68(%rsp)
+    0.00 :   41488a: jmpq   414461 <kissat_search_propagate+0x891>
+    0.00 :   41488f: mov    0x88(%rsp),%rbp
+    0.19 :   414897: mov    %rbx,%r9
+    0.00 :   41489a: xor    %r10d,%r10d
+    0.00 :   41489d: mov    %rax,0x1e8(%rbx)
+    0.00 :   4148a4: mov    0x1b8(%rbx),%edx
+    0.00 :   4148aa: mov    0x80(%rsp),%r12
+    0.01 :   4148b2: sub    %rbp,%rax
+    0.01 :   4148b5: sar    $0x2,%rax
+    0.02 :   4148b9: mov    %eax,%eax
+    0.00 :   4148bb: add    %rax,0x1ad8(%rbx)
+    0.03 :   4148c2: mov    0x6f0(%rbx),%rax
+    0.00 :   4148c9: add    %rax,0x1b18(%rbx)
+    0.01 :   4148d0: test   %edx,%edx
+    0.00 :   4148d2: jne    414148 <kissat_search_propagate+0x578>
+    0.00 :   4148d8: mov    0x1f8(%r9),%ecx
+    0.00 :   4148df: test   %ecx,%ecx
+    0.00 :   4148e1: je     414148 <kissat_search_propagate+0x578>
+    0.00 :   4148e7: mov    %r9,%rdi
+    0.00 :   4148ea: mov    %r10,0x8(%rsp)
+    0.00 :   4148ef: mov    %r9,(%rsp)
+    0.00 :   4148f3: callq  41afe0 <kissat_flush_trail>
+    0.00 :   4148f8: mov    (%rsp),%r9
+    0.00 :   4148fc: mov    0x8(%rsp),%r10
+    0.00 :   414901: jmpq   414148 <kissat_search_propagate+0x578>
+    0.00 :   414906: mov    %r12,%rsi
+    0.00 :   414909: mov    %rdi,(%rsp)
+    0.00 :   41490d: callq  411430 <kissat_start>
+    0.00 :   414912: mov    (%rsp),%r9
+    0.00 :   414916: jmpq   413bfd <kissat_search_propagate+0x2d>
+    0.00 :   41491b: mov    %r12,%rsi
+    0.00 :   41491e: mov    %r9,%rdi
+    0.00 :   414921: mov    %r10,(%rsp)
+    0.00 :   414925: callq  4114c0 <kissat_stop>
+    0.00 :   41492a: mov    (%rsp),%r10
+    0.00 :   41492e: jmpq   41415c <kissat_search_propagate+0x58c>
+    0.00 :   414933: add    %r11,0x6f0(%rbx)
+    0.07 :   41493a: xor    %r12d,%r12d
+    0.00 :   41493d: jmpq   413ee8 <kissat_search_propagate+0x318>
+    0.00 :   414942: mov    0x58(%rsp),%r14
+    0.02 :   414947: mov    0x60(%rsp),%r15
+    0.00 :   41494c: mov    %r9,%r10
+    0.00 :   41494f: mov    %r8,%rbp
+    0.00 :   414952: mov    0x18(%rsp),%r11
+    0.00 :   414957: jmpq   414682 <kissat_search_propagate+0xab2>
+    0.00 :   41495c: mov    %r9,%rdi
+    0.00 :   41495f: mov    $0x46e4d0,%esi
+    0.00 :   414964: xor    %eax,%eax
+    0.00 :   414966: mov    %r9,(%rsp)
+    0.00 :   41496a: callq  410480 <kissat_very_verbose>
+    0.00 :   41496f: mov    (%rsp),%r9
+    0.00 :   414973: mov    0x8(%rsp),%r10
+    0.00 :   414978: jmpq   414148 <kissat_search_propagate+0x578>
+    0.00 :   41497d: mov    %r9,%rdi
+    0.00 :   414980: mov    $0x46e4b0,%esi
+    0.00 :   414985: mov    %r9,(%rsp)
+    0.00 :   414989: callq  410480 <kissat_very_verbose>
+    0.00 :   41498e: mov    (%rsp),%r9
+    0.00 :   414992: mov    0x8(%rsp),%r10
+    0.00 :   414997: jmpq   414148 <kissat_search_propagate+0x578>
