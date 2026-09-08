@@ -1,0 +1,6 @@
+{
+  "job": "1672432",
+  "array": "0-1",
+  "command": "sbatch --parsable --array=0-1 benchmarks/runs/20260908-5565-rank32-factor-input/array.sbatch",
+  "dependency": "Candidate5522; pending Claude-owned fuzz5539 and proof checks permit provisional investigation only."
+}

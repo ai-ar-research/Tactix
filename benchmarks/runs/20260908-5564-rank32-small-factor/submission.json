@@ -1,0 +1,6 @@
+{
+  "job": "1672430",
+  "array": "0-1",
+  "command": "sbatch --parsable --array=0-1 benchmarks/runs/20260908-5564-rank32-small-factor/array.sbatch",
+  "dependency": "Candidate5522 normal diagnostics; pending Claude-owned fuzz5539 and normal proof checks do not close correctness gates. Pause dependent work on an actual correctness failure."
+}

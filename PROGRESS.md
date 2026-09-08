@@ -13,9 +13,9 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 - New isolated [Vivify census5546](benchmarks/reports/2026-09-08-vivify-unused-census.md)
   skips an unused arena census on schedules with no irredundant candidate.
   Release87/87 twice,192 actual5522/5546 schedule/state/proof cases agree.
-  B28+C5 5550/job1672418 runs. Timing5551 is prepared: after all B28 expected
-  snapshots, submit0-1 then2-3 then4-5 after solver pairs; scorer5552, checks async.
-  Clean current5522 Rank39 profiles5544/job1672400 run; validator5545.
+  B28+C5 5550/job1672418 has all56 B28 checks. Timing5551 wave0/job1672509 runs;
+  after its solver pair submit2-3, then4-5 after wave1 solves; scorer5552, checks async.
+  [Profiles/causal](benchmarks/reports/2026-09-08-factor-input-and-rank33.md):5544 is2/2 checked, work/proof neutral.
   [Parent5522](benchmarks/reports/2026-09-08-sweep-small-environments.md) closes
   all18,593,182 Rank32 decisions through19376. Full5535 is1.162180x Kissat,
   all80 solves,59 checked at snapshot; largest losses37/33.5531 median0.889407x5510.
@@ -132,14 +132,17 @@ guards/representation, the parity ledger owns N4, and frozen reports own evidenc
 | 5516 retained-entry B28+C5 | `1672165` | Complete:66/66 checked/clean,0.932605x production; no solve loss. |
 | 5517 retained-entry timing | `1672166/1672240/1672244` | Complete:6/6 checked; all pairs regress,median1.067134x. |
 | 5529 small-environment trace | `1672251` | Complete: all18,593,182 decisions match; only2 first-call ticks differ. |
-| 5530 small-environment B28+C5 | `1672252` | All66 expected solves,64/66 checked at07:33 checkpoint. |
-| 5531 small-environment timing | `1672253/1672326/1672385` | Three pairs improve,median0.889407x5510; all proofs pending. |
+| 5530 small-environment B28+C5 | `1672252` | Complete:66/66 checked/clean,0.930592x production; no solve loss. |
+| 5531 small-environment timing | `1672253/1672326/1672385` | Three pairs improve,median0.889407x5510;4/6 checked at5575 audit. |
 | 5535 small-environment Rank1–40 | `1672328` | All80 solves,1.162180x;59 checked at frozen snapshot. |
 | 5537 Rank32 extended small-prefix | `1672356` | Complete via5560:18,696,140 common rows; next split20095. |
-| 5544 current5522 Rank39 profiles | `1672400` | Clean Release/native; require5535 work/proof neutrality via5545. |
-| 5550 Vivify census B28+C5 | `1672418` | Full-width66-task cumulative gate; pending. |
-| 5551 Vivify census timing | prepared | Three exact-work Rank39 pairs after B28 snapshots; scorer5552. |
-| 5558 Rank33 current prefix | `1672426` | New second-largest full-view loss;100K trace, comparator5561. |
+| 5544 current5522 Rank39 profiles | `1672400` | Complete:2/2 checked; exact5535 work/proof, zero lost samples. |
+| 5550 Vivify census B28+C5 | `1672418` | B28 all56 checked; C5 checks pending; strict seal5553. |
+| 5551 Vivify census timing | `1672509` wave0 | After pair solves submit2-3 then4-5; exact-work scorer5552. |
+| 5558/5567 Rank33 prefixes | `1672426/1672434` |100K all31,494,584 decisions equal;1M first split182093, validator5568. |
+| 5564 Rank32 Factor grids | `1672430` | Complete via5574: first4824 grids agree;4825 differs. Extra journal rows accounted explicitly. |
+| 5565/5569 Rank32 Factor inputs | `1672432/1672436` | Both binary multisets match; second large input has only2 pose differences, no metadata difference. |
+| 5571 Rank32 post4824 heap | `1672476` | Submitted0-1; validator5573 distinguishes scores from topology. |
 
 Claude's terminal report for periodic fuzz 5442 is **PASS** on source 5438:
 80,000 cases, 71,907 checked verdicts, zero failures. Session 30094 is closed;
@@ -179,18 +182,15 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 1. Full5535 snapshot is frozen at1.162180x, all80 solves,59 checked; do not rerun
    its snapshot helper. Seal via5540 after all checks.5555 ranks losses37/33/31/32.
    Validated5537 via5560 matches18,696,140 decisions, then splits at20095.
-   5562/5563 place four earlier Sweep binaries and13 Factor large clauses at19375;
-   localize actual duplicate/grid/heap state before blaming Factor. Native has no
-   macro trace; original5538 missing-file expectation remains frozen.5558 uses5561.
+   5565/5569 validate both Factor19375 binary multisets and large clause order;
+   only2 second-pass clause poses differ, metadata equal.5574 validates first4824 grids.
+   Post4824 heap5571/job1672476 runs; compare via5573. Original5566 expectation retained.
    Timing5531 is frozen:median0.889407x5510,all3 pairs improve,spreads<1%;
    checks pending.5536 seals after all6 checks; B28+C5 uses5541,checks async.
    Source5522 and builds5522/5524 match SHA67867f4b999b55b4…; trace5523 is separate.
-   Old5515 validates11023 native seeds, then seven extras; aligned5520 attributes
-   33 missing270-variable/one-clause solves to26836 uncharged native ticks.
-   Actual native/SubSolver tests prove the engine already matches;5522 repairs
-   the call path, not the meter. Predecessor5517 median1.067134x is unfavorable.
-   Eligibility5505 passes successor5509: full parent hashes, two identical
-   binary snapshots,11 identical large clauses;836 is already positive-only.
+   Prior5515/5520 own missing single-clause solves;5522 repairs their call path.
+   Rank33 extended5567 splits182093;5572 finds an earlier5-large Congruence gap9457.
+   Localize those actual clauses; do not infer its cause from counts or the late split.
    `compare-rank32-sweep-5503.py` validates5490's complete observed parent replay;
    `sweep-localization.json` splits both calls at19375. First14 seeds, environment
    sizes and effort deltas/solve counts match; then Tactix alone processes836.
@@ -342,8 +342,8 @@ is an independent acceptance dimension, not discharged by a runtime ratio.
 ## Recent changes
 
 - Vivify5546 removes an unused census;87/87 twice and192 exact-state cases pass.
-- Rank39 clean profiles5544 run; B28+C5 5550 precedes prepared timing5551.
-- Full5535 is1.162180x; next Rank32 split20095 follows earlier Factor count split.
+- Rank39 profiles5544 checked/neutral; B28+C5 5550 precedes prepared timing5551.
+- Rank32 second Factor input matches except2 poses; Rank33 next split182093.
 - Fuzz5492 PASS on5473;5539 resumed under70659 on5522, not5546.
 - Production unchanged; goal, full checks and cumulative promotion remain open.
 

@@ -1,0 +1,108 @@
+{
+  "parent_replay": true,
+  "parser_fixtures": 25,
+  "observer_projection": {
+    "candidate_macro": {
+      "trace_begin": 1,
+      "retier": 15,
+      "checkpoint": 89
+    },
+    "native_boundary": {
+      "analysis_end_at19375": 1
+    },
+    "all_prior_rows": "equal in original order after removing only these observer-only event families; all complete decisions, prefix and partial proof bytes equal per arm"
+  },
+  "evidence": {
+    "20260908-5564-rank32-small-factor": {
+      "candidate": {
+        "result_sha256": "6f438b8ceb6b7a0a0cf3166111cd66b9087d3aadac408a1be49537cd3e4e66e1",
+        "traces": {
+          "candidate.decisions.tsv": "773d01c7807878f150d5e0dd5a21f56e853676a43121b5a00b813a7422ced41d",
+          "candidate.prefix.tsv": "ef9e125be442a25e61433b572f5e9a8af0e3f64e48b7f50e81cc887fba78a985",
+          "candidate.factor.tsv": "f22b544c75bf7d8c06b4184d74c4aae8907b715542d24634b3e3a4716997aa65",
+          "candidate.boundaries.tsv": "0f15064aacc36320ad6ce786c3323d86087ca34dd9590231f82ce15adce80f4b",
+          "candidate.macro.tsv": "716e3436bfb2e951ead30c21a5832134976fbbc4bdc70f9c7008348eba70ae32"
+        }
+      },
+      "kissat": {
+        "result_sha256": "466b5efd0e2c30521a828c255e33a19ae037afe82ac52e3b31d49e8cb47060f6",
+        "traces": {
+          "kissat.boundaries.tsv": "4ab079ba6d13e17aa72d474847bb9460d908bd1c1defb069d18e8c536c7348cb",
+          "kissat.prefix.tsv": "823f4bcbc1e9db55b22b63e27a5119148c86ef89472bb9e1be2b8ba37cd32b87",
+          "kissat.factor.tsv": "78d2e395a84c337ca56a8427c41685ab9910efec771d56ceb961e7590eec5a4c",
+          "kissat.decisions.tsv": "37b6da96686be4b1e4acee950c8867684d86aee4dc6aae3a4eae157f6ef9ea91"
+        }
+      }
+    },
+    "20260908-5565-rank32-factor-input": {
+      "candidate": {
+        "result_sha256": "36d14e5fc214eb449edf8265b5f1ade9f11a5cfd301de087edbdcdf4d2ad020f",
+        "traces": {
+          "candidate.formula.tsv": "2cd0a2ae3b51bb99c7a2e588f0c84350aadd63bed6c7545ca72515a9c4b9b8eb",
+          "candidate.binary.tsv": "fbb2943736411d07caaefad810c62bbd94b55b4c4101376f29b31a596db4e9fc",
+          "candidate.prefix.tsv": "ef9e125be442a25e61433b572f5e9a8af0e3f64e48b7f50e81cc887fba78a985",
+          "candidate.decisions.tsv": "773d01c7807878f150d5e0dd5a21f56e853676a43121b5a00b813a7422ced41d",
+          "candidate.boundaries.tsv": "0f15064aacc36320ad6ce786c3323d86087ca34dd9590231f82ce15adce80f4b",
+          "candidate.macro.tsv": "f2c8247f5a7ba067d190ea26a3e537b0244d677fda22a61143b1ac11e96332f3"
+        }
+      },
+      "kissat": {
+        "result_sha256": "fb2b990c5324f7825af173acd0dfef5a1575ab47fd2b9341783c808c1d5b837d",
+        "traces": {
+          "kissat.prefix.tsv": "823f4bcbc1e9db55b22b63e27a5119148c86ef89472bb9e1be2b8ba37cd32b87",
+          "kissat.boundaries.tsv": "3b0e0da38cdbf640b2d0487ebc20d3ceaf44b7279be5d13558e18a651c10c029",
+          "kissat.binary.tsv": "94d9fc5c35e9056d02f77622560783a7af60abc5ee71dae1d20333f3e461983b",
+          "kissat.decisions.tsv": "37b6da96686be4b1e4acee950c8867684d86aee4dc6aae3a4eae157f6ef9ea91",
+          "kissat.formula.tsv": "cdb8da94bb20d498a040ef6dcea84451eb13935dcca5bdbda756209e61856b45"
+        }
+      }
+    }
+  },
+  "binary_difference_by_pass": [
+    {
+      "candidate_only": [],
+      "kissat_only": []
+    },
+    {
+      "candidate_only": [],
+      "kissat_only": []
+    }
+  ],
+  "first_pass_large_difference": {
+    "candidate_only": [],
+    "kissat_only": []
+  },
+  "large_physical_order_equal": true,
+  "accepted_counts": {
+    "candidate": 4946,
+    "kissat": 4946
+  },
+  "first_grid_difference": {
+    "index": 4824,
+    "candidate": {
+      "fresh": 494642,
+      "ordinal": 4825,
+      "seed": 182673,
+      "factors": 2,
+      "remainders": 4,
+      "delta": 2,
+      "members": [
+        182673,
+        182615
+      ]
+    },
+    "kissat": {
+      "fresh": 494642,
+      "ordinal": 4825,
+      "seed": 187350,
+      "factors": 2,
+      "remainders": 4,
+      "delta": 2,
+      "members": [
+        187350,
+        187292
+      ]
+    }
+  },
+  "limitation": "Two Factor passes share19375:5565 captures both binary inputs but only the first large input.5569 selects the second large input explicitly. Literal multisets omit watch order, clause pose, flags, heap scores and ties. A grid difference is not proof of a defect or runtime gain.5564 fresh-only mode suppresses input snapshots;5565 supplies them independently."
+}

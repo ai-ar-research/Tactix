@@ -1,0 +1,6 @@
+{
+  "job": "1672476",
+  "array": "0-1",
+  "command": "sbatch --parsable --array=0-1 benchmarks/runs/20260908-5571-rank32-factor-heap/array.sbatch",
+  "dependency": "Candidate5522; bounded by validated5564 grid localization via5574. Pending Claude-owned fuzz5539 and proofs permit provisional investigation only."
+}
