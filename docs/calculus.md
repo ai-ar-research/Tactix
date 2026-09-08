@@ -314,6 +314,7 @@ whereas the pure `F`-rewrites (the C-family and V3/V4) do not.
   references retains its immediate collection/refresh contract.
 - Seed occurrence counts and retained-entry eligibility are scheduling advice,
   not proof preconditions; pure non-fixed seeds remain legal public instances.
+  Empty/single-clause environments do not justify a stronger proof precondition.
 - **Emission (why entailment is not enough):** the checker knows nothing of the environment, so
   each binary must be justified over `F`. Two strategies. **Fast path:** negate `B`, propagate the main
   formula, and let `h` be its reason clauses in propagation order followed by the conflict. **General
