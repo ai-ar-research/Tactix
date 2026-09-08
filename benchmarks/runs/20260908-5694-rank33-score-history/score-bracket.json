@@ -1,0 +1,34 @@
+{
+  "history_summary_sha256": "a73a87136ecee9d201aaf7cab1e7aa7bbba9ec9d569f26a1feabe7b075e63ca1",
+  "heap_summary_sha256": "21f92ec4d5c4acb8aa86f2449eeb0ac5649ef61025acec05fe376aa336fc346f",
+  "last_common_macro_score": {
+    "candidate": {
+      "row": 5984,
+      "label": "restart_end",
+      "conflicts": 180773,
+      "decisions": 49323622,
+      "external": 120438,
+      "score": 6.414611250162512e-300,
+      "position": 27264,
+      "value": 0,
+      "active": 1
+    },
+    "kissat": {
+      "row": 6044,
+      "label": "restart_end",
+      "conflicts": 180773,
+      "decisions": 49323622,
+      "external": 120438,
+      "score": 6.414611250162512e-300,
+      "position": 27264,
+      "value": 0,
+      "active": 1
+    }
+  },
+  "first_choice_split": 182093,
+  "update_window_conflicts": [
+    180773,
+    182093
+  ],
+  "conclusion": "Equal120438 score through the last restart_end at180773; unequal at the pre-split heap182093. There are no later score snapshots at or below182093 in either arm. Bound selected bump/analysis inspection to this interval;the responsible update remains unproved."
+}

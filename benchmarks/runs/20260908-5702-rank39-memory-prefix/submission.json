@@ -1,0 +1,9 @@
+{
+  "job": "1672996",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "benchmarks/runs/20260908-5702-rank39-memory-prefix/array.sbatch"
+  ],
+  "manifest_sha256": "af7ba6c16d8da8fecff02a5172ca5ab89d415a1936196802c3d3928d4077f680"
+}
