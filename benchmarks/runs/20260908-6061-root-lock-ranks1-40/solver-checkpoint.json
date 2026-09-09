@@ -1,0 +1,335 @@
+{
+  "records": 40,
+  "expected_solves": 40,
+  "checked_clean": 29,
+  "complete": true,
+  "candidate_par2": 7443.116000000002,
+  "fixed_kissat_seconds": 6810.066,
+  "ratio": 1.0929579830797531,
+  "runtime_target_met": false,
+  "per_rank": [
+    {
+      "rank": 1,
+      "solved": true,
+      "candidate_par2_seconds": 0.217,
+      "kissat_seconds": 0.218,
+      "candidate_peak_rss_kb": 83952,
+      "kissat_peak_rss_kb": 49564
+    },
+    {
+      "rank": 2,
+      "solved": true,
+      "candidate_par2_seconds": 0.216,
+      "kissat_seconds": 0.217,
+      "candidate_peak_rss_kb": 83972,
+      "kissat_peak_rss_kb": 49568
+    },
+    {
+      "rank": 3,
+      "solved": true,
+      "candidate_par2_seconds": 0.567,
+      "kissat_seconds": 0.467,
+      "candidate_peak_rss_kb": 153756,
+      "kissat_peak_rss_kb": 103612
+    },
+    {
+      "rank": 4,
+      "solved": true,
+      "candidate_par2_seconds": 7.879,
+      "kissat_seconds": 7.681,
+      "candidate_peak_rss_kb": 28036,
+      "kissat_peak_rss_kb": 13008
+    },
+    {
+      "rank": 5,
+      "solved": true,
+      "candidate_par2_seconds": 29.916,
+      "kissat_seconds": 30.214,
+      "candidate_peak_rss_kb": 10682156,
+      "kissat_peak_rss_kb": 10402844
+    },
+    {
+      "rank": 6,
+      "solved": true,
+      "candidate_par2_seconds": 69.478,
+      "kissat_seconds": 52.599,
+      "candidate_peak_rss_kb": 756988,
+      "kissat_peak_rss_kb": 349612
+    },
+    {
+      "rank": 7,
+      "solved": true,
+      "candidate_par2_seconds": 54.508,
+      "kissat_seconds": 48.242,
+      "candidate_peak_rss_kb": 9713576,
+      "kissat_peak_rss_kb": 9109728
+    },
+    {
+      "rank": 8,
+      "solved": true,
+      "candidate_par2_seconds": 66.324,
+      "kissat_seconds": 58.159,
+      "candidate_peak_rss_kb": 11862680,
+      "kissat_peak_rss_kb": 11118752
+    },
+    {
+      "rank": 9,
+      "solved": true,
+      "candidate_par2_seconds": 95.527,
+      "kissat_seconds": 68.928,
+      "candidate_peak_rss_kb": 3226172,
+      "kissat_peak_rss_kb": 1326232
+    },
+    {
+      "rank": 10,
+      "solved": true,
+      "candidate_par2_seconds": 91.114,
+      "kissat_seconds": 81.797,
+      "candidate_peak_rss_kb": 15967668,
+      "kissat_peak_rss_kb": 15348304
+    },
+    {
+      "rank": 11,
+      "solved": true,
+      "candidate_par2_seconds": 0.267,
+      "kissat_seconds": 0.217,
+      "candidate_peak_rss_kb": 95324,
+      "kissat_peak_rss_kb": 60692
+    },
+    {
+      "rank": 12,
+      "solved": true,
+      "candidate_par2_seconds": 7.278,
+      "kissat_seconds": 5.127,
+      "candidate_peak_rss_kb": 1843652,
+      "kissat_peak_rss_kb": 1234908
+    },
+    {
+      "rank": 13,
+      "solved": true,
+      "candidate_par2_seconds": 73.587,
+      "kissat_seconds": 65.334,
+      "candidate_peak_rss_kb": 12752784,
+      "kissat_peak_rss_kb": 11928200
+    },
+    {
+      "rank": 14,
+      "solved": true,
+      "candidate_par2_seconds": 72.734,
+      "kissat_seconds": 63.368,
+      "candidate_peak_rss_kb": 12854700,
+      "kissat_peak_rss_kb": 12018708
+    },
+    {
+      "rank": 15,
+      "solved": true,
+      "candidate_par2_seconds": 76.685,
+      "kissat_seconds": 80.291,
+      "candidate_peak_rss_kb": 61956,
+      "kissat_peak_rss_kb": 29704
+    },
+    {
+      "rank": 16,
+      "solved": true,
+      "candidate_par2_seconds": 120.118,
+      "kissat_seconds": 122.015,
+      "candidate_peak_rss_kb": 113668,
+      "kissat_peak_rss_kb": 65168
+    },
+    {
+      "rank": 17,
+      "solved": true,
+      "candidate_par2_seconds": 77.189,
+      "kissat_seconds": 113.158,
+      "candidate_peak_rss_kb": 1164960,
+      "kissat_peak_rss_kb": 598308
+    },
+    {
+      "rank": 18,
+      "solved": true,
+      "candidate_par2_seconds": 62.671,
+      "kissat_seconds": 126.552,
+      "candidate_peak_rss_kb": 2986628,
+      "kissat_peak_rss_kb": 2083228
+    },
+    {
+      "rank": 19,
+      "solved": true,
+      "candidate_par2_seconds": 137.988,
+      "kissat_seconds": 119.042,
+      "candidate_peak_rss_kb": 402204,
+      "kissat_peak_rss_kb": 143804
+    },
+    {
+      "rank": 20,
+      "solved": true,
+      "candidate_par2_seconds": 133.244,
+      "kissat_seconds": 165.883,
+      "candidate_peak_rss_kb": 1788772,
+      "kissat_peak_rss_kb": 943992
+    },
+    {
+      "rank": 21,
+      "solved": true,
+      "candidate_par2_seconds": 245.861,
+      "kissat_seconds": 96.821,
+      "candidate_peak_rss_kb": 3034340,
+      "kissat_peak_rss_kb": 1436392
+    },
+    {
+      "rank": 22,
+      "solved": true,
+      "candidate_par2_seconds": 229.653,
+      "kissat_seconds": 189.477,
+      "candidate_peak_rss_kb": 2714840,
+      "kissat_peak_rss_kb": 1919272
+    },
+    {
+      "rank": 23,
+      "solved": true,
+      "candidate_par2_seconds": 200.63,
+      "kissat_seconds": 202.406,
+      "candidate_peak_rss_kb": 100628,
+      "kissat_peak_rss_kb": 42608
+    },
+    {
+      "rank": 24,
+      "solved": true,
+      "candidate_par2_seconds": 228.593,
+      "kissat_seconds": 207.984,
+      "candidate_peak_rss_kb": 228036,
+      "kissat_peak_rss_kb": 101500
+    },
+    {
+      "rank": 25,
+      "solved": true,
+      "candidate_par2_seconds": 248.971,
+      "kissat_seconds": 246.184,
+      "candidate_peak_rss_kb": 3409704,
+      "kissat_peak_rss_kb": 888820
+    },
+    {
+      "rank": 26,
+      "solved": true,
+      "candidate_par2_seconds": 255.794,
+      "kissat_seconds": 260.932,
+      "candidate_peak_rss_kb": 142168,
+      "kissat_peak_rss_kb": 87904
+    },
+    {
+      "rank": 27,
+      "solved": true,
+      "candidate_par2_seconds": 345.778,
+      "kissat_seconds": 245.726,
+      "candidate_peak_rss_kb": 618204,
+      "kissat_peak_rss_kb": 298192
+    },
+    {
+      "rank": 28,
+      "solved": true,
+      "candidate_par2_seconds": 228.857,
+      "kissat_seconds": 242.505,
+      "candidate_peak_rss_kb": 1372144,
+      "kissat_peak_rss_kb": 807884
+    },
+    {
+      "rank": 29,
+      "solved": true,
+      "candidate_par2_seconds": 287.474,
+      "kissat_seconds": 295.641,
+      "candidate_peak_rss_kb": 139780,
+      "kissat_peak_rss_kb": 66076
+    },
+    {
+      "rank": 30,
+      "solved": true,
+      "candidate_par2_seconds": 262.578,
+      "kissat_seconds": 284.168,
+      "candidate_peak_rss_kb": 158184,
+      "kissat_peak_rss_kb": 93572
+    },
+    {
+      "rank": 31,
+      "solved": true,
+      "candidate_par2_seconds": 337.323,
+      "kissat_seconds": 264.532,
+      "candidate_peak_rss_kb": 567800,
+      "kissat_peak_rss_kb": 265752
+    },
+    {
+      "rank": 32,
+      "solved": true,
+      "candidate_par2_seconds": 376.199,
+      "kissat_seconds": 274.456,
+      "candidate_peak_rss_kb": 643988,
+      "kissat_peak_rss_kb": 299980
+    },
+    {
+      "rank": 33,
+      "solved": true,
+      "candidate_par2_seconds": 332.36,
+      "kissat_seconds": 311.385,
+      "candidate_peak_rss_kb": 584356,
+      "kissat_peak_rss_kb": 265332
+    },
+    {
+      "rank": 34,
+      "solved": true,
+      "candidate_par2_seconds": 334.885,
+      "kissat_seconds": 330.932,
+      "candidate_peak_rss_kb": 112284,
+      "kissat_peak_rss_kb": 40848
+    },
+    {
+      "rank": 35,
+      "solved": true,
+      "candidate_par2_seconds": 354.233,
+      "kissat_seconds": 306.699,
+      "candidate_peak_rss_kb": 588120,
+      "kissat_peak_rss_kb": 269360
+    },
+    {
+      "rank": 36,
+      "solved": true,
+      "candidate_par2_seconds": 361.752,
+      "kissat_seconds": 363.801,
+      "candidate_peak_rss_kb": 94556,
+      "kissat_peak_rss_kb": 50160
+    },
+    {
+      "rank": 37,
+      "solved": true,
+      "candidate_par2_seconds": 507.822,
+      "kissat_seconds": 346.372,
+      "candidate_peak_rss_kb": 631884,
+      "kissat_peak_rss_kb": 269236
+    },
+    {
+      "rank": 38,
+      "solved": true,
+      "candidate_par2_seconds": 345.288,
+      "kissat_seconds": 362.395,
+      "candidate_peak_rss_kb": 88920,
+      "kissat_peak_rss_kb": 44336
+    },
+    {
+      "rank": 39,
+      "solved": true,
+      "candidate_par2_seconds": 422.291,
+      "kissat_seconds": 366.837,
+      "candidate_peak_rss_kb": 423776,
+      "kissat_peak_rss_kb": 170616
+    },
+    {
+      "rank": 40,
+      "solved": true,
+      "candidate_par2_seconds": 359.267,
+      "kissat_seconds": 401.304,
+      "candidate_peak_rss_kb": 379184,
+      "kissat_peak_rss_kb": 187552
+    }
+  ],
+  "reference_checked": 40,
+  "all_certificates_checked": false,
+  "limitation": "Fixed-reference cross-window score; runtime_target_met alone is not acceptance. B28+C5,current-source fuzz and memory gates remain separate."
+}

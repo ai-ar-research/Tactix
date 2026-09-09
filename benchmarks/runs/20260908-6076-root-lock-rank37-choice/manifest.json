@@ -1,0 +1,62 @@
+{
+  "candidate_authority": "benchmarks/runs/20260908-6049-reduce-root-lock",
+  "candidate_source": ".claude/worktrees/runtime-reduce-root-lock-6049",
+  "authority_sha256": "948dea2cea1174341e4caf9d882b709fcf4eaeca53ad47d35a330608688c5bd3",
+  "diagnostic_source": ".claude/worktrees/runtime-reduce-root-lock-trace-6054",
+  "diagnostic_source_hashes": {
+    "src/rules/reduce/reduce.cpp": "6eacc7d88235c7740db546634384e88c806a761dc4ebb5c3dea397007ef6be2f",
+    "src/diagnostics/event_trace.cpp": "9831425a83ed2ba9d7d57526b12ce4b7de9f7fdd1c92b106dc46d6c058551868",
+    "tests/test_reduce_root_trace.cpp": "7efd0a00818d7deaa909dacf6f72f5ee6382a6aa23a9181ccc4d9ae538da3dbe"
+  },
+  "input": "benchmarks/cache/tierD24-26/35748015c5f16c9ee7e4d1894af497a0-oski15a01b39s_opt.cnf.xz",
+  "input_sha256_compressed": "798e6a21073247e52119a379c76bb8ffddc0e0ce663d2a4ccf84e012eb1a5167",
+  "stop_conflict": 1000000,
+  "stream_from": 0,
+  "common_decisions": 35346388,
+  "cached_early_native": {
+    "record": "benchmarks/runs/20260907-5463-rank37-bound-prefix/results/kissat.json",
+    "sha256": "9c57a52c0fa658d841330d86828719959d06b861ea986ed06674fc2ceb5248b0"
+  },
+  "cached_controls": {
+    "candidate": {
+      "record": "benchmarks/runs/20260908-6070-root-lock-rank37-prefix/results/candidate.json",
+      "sha256": "b62b7cea32c9d84f29a407503c92dc151482f66071d5cec3fb965736feba431b"
+    },
+    "kissat": {
+      "record": "benchmarks/runs/20260908-5478-rank37-bound-extended/results/kissat.json",
+      "sha256": "afde2a7cd77ea0ec805dc37df014e238d699ce7704054d5f89903a289b4142a6"
+    }
+  },
+  "selection": {
+    "path": "benchmarks/runs/20260908-6061-root-lock-ranks1-40/next-losses.json",
+    "sha256": "0416ddb7da27c41a1d4a8ecc09e04c1a051cc23f1f7e82dac83ae3b7857f4870",
+    "rank": 37,
+    "excess_seconds": 161.45
+  },
+  "hypothesis": "At first new272979/76953349 split,distinguish assignment/score/membership from physical heap order for116360 versus116362. Observe after last-common76953348,not after divergence.",
+  "validation": "Both arms must replay every cached ordinary1M trace and partial proof byte. Candidate stream0/native100K and per-arm common-prefix requests reproduce each cache exactly. Require full heap and nonempty116362 choice-state rows.",
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "test_consideration": "Existing tested standalone heap/choice observers,unchanged binaries.22 benchmark tests and6073 boundary controls pass;exact ordinary/proof replay is the observer-neutrality gate. No solver change or new fuzz campaign required.",
+  "created_at": "2026-09-09T00:43:05.646954+00:00",
+  "limitation": "No final checked proof,runtime claim,source promotion or field alignment by native sentinels. Normal full-run checks and cpu-q campaign continue unchanged.",
+  "hashes": {
+    "pins/candidate": "378c25380bdebc3f025c395726ce17f9315c122fe14b96528a204269489a969f",
+    "pins/kissat": "849db948ead9166917d9598e02cea6b34703a0f87c7bc5b437a704b24099dc16",
+    "run.py": "57bdd869e240247d86dc6da889c5b6608d9a3ccf920fdf3422fdccb53df8fea2",
+    "array.sbatch": "07e1e5a4663712fa03810497323506d09dba593c45fe91e211f461afb6bd9255"
+  },
+  "parent_summary": {
+    "path": "benchmarks/runs/20260908-6070-root-lock-rank37-prefix/summary.json",
+    "sha256": "0a6441041b945856004840e0c8917f35900f0c1dc1be72da34aa1f9729c0e1fb"
+  },
+  "native_rerun_reason": "Cached native5478 lacks full last-common heap and116362 assignment/reason state at272979. Missing causal fields only;fixed runtime vector unchanged."
+}
