@@ -1,0 +1,7 @@
+kissat	conflicts=0	decisions=0	external=399915	source=activate_literal	before=0	after=1	value=0	probing=0
+kissat	conflicts=15353	decisions=18100166	external=399915	source=kissat_mark_removed_literals	before=0	after=1	value=0	probing=0
+kissat	conflicts=15353	decisions=18100166	external=399915	source=kissat_delete_binary	before=1	after=1	value=0	probing=0
+kissat	conflicts=19375	decisions=18522616	external=399915	source=kissat_delete_binary	before=1	after=1	value=0	probing=1
+kissat	conflicts=19375	decisions=18522616	external=399915	source=kissat_delete_binary	before=1	after=1	value=0	probing=1
+kissat	conflicts=179463	decisions=55033606	external=399915	source=kissat_delete_binary	before=0	after=1	value=0	probing=0
+kissat	conflicts=372473	decisions=77569158	external=399915	source=kissat_mark_removed_literals	before=0	after=1	value=0	probing=1

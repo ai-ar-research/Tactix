@@ -1,0 +1,10 @@
+{
+  "job_id": "1677309",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6256-rank32-remaining-retry/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T03:09:54",
+  "manifest_sha256": "a86f885b23ac6042ce0fa92cc1eaeb6c5bbb874b4ed3fb2d22606f702ea920d7"
+}
