@@ -1,0 +1,32 @@
+{
+  "scratch": "/tmp/tactix-6501-1678192-qbtcymg0",
+  "arm": "candidate",
+  "slurm_job": "1678192",
+  "node": "node017",
+  "binary_sha256": "c5ca763ce93f48507648c32cb55027274a79332ef56147814bb917d6dddc9e8c",
+  "purpose": "Stopped diagnostic; no checked final verdict or timing claim.",
+  "command": [
+    "timeout",
+    "1200",
+    "taskset",
+    "-c",
+    "84",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6501-rank33-congruence-replay/pins/candidate",
+    "/tmp/tactix-6501-1678192-qbtcymg0/input.cnf",
+    "/tmp/tactix-6501-1678192-qbtcymg0/partial.drat"
+  ],
+  "exit_code": 0,
+  "partial_certificate": {
+    "bytes": 497025024,
+    "sha256": "e72daf7af858be3ed491bfc74cd92dc9a9bff2899ad75691c8f500d5df02bd78"
+  },
+  "trace_sha256": {
+    "candidate.prefix.tsv": "cac1471cf2ef643dadc0d8fa86698909bde7f998adca497566572700ed1d70e5",
+    "candidate.macro.tsv": "6285457cd6fbafffa381d34a2f1818c139f705028970090873a261f5a6387c5c",
+    "candidate.congruence-candidates.tsv": "83cd288dc5761382219ae126cd8dcfaf10c11d08714ba23759a5fe9bfc15eb25",
+    "candidate.congruence-binaries.tsv": "32776358aa553360d7c100f9d09ad0a42ca9a1cbe3e36ce993f1647153c346b0",
+    "candidate.boundaries.tsv": "dba284766620bc5bf057b775839ec15362cd486836bf9c82497b689cf36cfd0f",
+    "candidate.decisions.tsv": "688cd7404d0e83ba1a79e5b9313cc0b858841a345f82484b60b48cbf29f43733"
+  },
+  "scratch_deleted": true
+}

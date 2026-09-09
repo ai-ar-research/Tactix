@@ -1,0 +1,35 @@
+{
+  "manifest_sha256": "2a0ed37fa76264116913157d85b42f8cb78b4b74805e71a05e087332d799f55b",
+  "launch_sha256": "24711dcd92e318ed2371092d3379481133632d25ebf0dd0c9eb510b21b30bbb2",
+  "actual_resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-1",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "actual_arms": {
+    "0": "candidate",
+    "1": "kissat"
+  },
+  "accounting": {
+    "command": [
+      "sacct",
+      "--array",
+      "-n",
+      "-X",
+      "-j",
+      "1678191",
+      "-S",
+      "2026-09-09T10:32:11",
+      "-P",
+      "-o",
+      "JobID,State,ExitCode,Submit"
+    ],
+    "stdout": "1678191_0|RUNNING|0:0|2026-09-09T10:32:11\n1678191_1|RUNNING|0:0|2026-09-09T10:32:11\n"
+  },
+  "correction": "The immutable manifest inherited its parent three-arm array label0-2. The hashed batch and runner, original launch and exact accounting all use only tasks0-1/candidate,kissat. Preserve original files; no task missing, no resubmission or excluded measurement. This sidecar owns the corrected array metadata."
+}
