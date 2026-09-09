@@ -1,0 +1,19 @@
+{
+  "job_id": "1678408",
+  "tasks": [
+    2,
+    3
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=2-3",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6599-material-adverse-rank38/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T16:39:11",
+  "manifest_sha256": "0084c9d14646d06ee2310a7001588d246bf721a80f97d7ffe1a500944a4e50e0",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6599-material-adverse-rank38/provisional/001.json": "b8897bf2143726c059edf6dc4002949384b619a2c731bb7c0ee970bf63e64362",
+    "benchmarks/runs/20260909-6599-material-adverse-rank38/provisional/000.json": "9d1d21700c0c756ff5222e860ebc14ae989231474fe30dde395e1d629557e77c"
+  }
+}

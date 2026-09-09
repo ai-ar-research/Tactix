@@ -1,0 +1,25 @@
+{
+  "job_id": "1678404",
+  "tasks": [
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=4-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T16:23:38",
+  "manifest_sha256": "3a2820d917b0113cc9c615f05a987a2980dbd8eaf2e1b8d53603c1b22078c92b",
+  "preceding_records": {
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/provisional/000.json": "7cd84fd882ade12cb0e4317d21436a22e17ae6f37a7d89015cb1f9503925196d",
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/provisional/001.json": "b33482bd73138b1c7faf663151c7bdccf0a485abc238197dc9302343878d8954",
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/provisional/002.json": "e7390c273d8f0245d35513068e40e184d398502031b418d6f3da913bfc97249f",
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/provisional/003.json": "d7046675afcc7c5fdf66e3011f4b731d71246f3671a83caf412abe2f65b25961",
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/results/000.json": "3dfa5da65ba08b5e4d38660b71cda0a65d4ee76c68d3f0dfd6369cec4e996995",
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/results/001.json": "48abf0219add56dd5e6d2769354ac9590186efe70cbe79aaddb28b94d284fcf0",
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/results/002.json": "d15ee03aef6a666aa95d3b5e6773d280f0a4560c720bb98eb0d1239c971d714d",
+    "benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/results/003.json": "c9deb5412bde6a18ec287837449b0cce1742999bb65abc82beed79d162386938"
+  }
+}
