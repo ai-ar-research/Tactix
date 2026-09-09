@@ -1,0 +1,26 @@
+In file included from /home/hwu/SAT-solving/benchmarks/probes/scratch/test-material-observer-6552.c:6:
+/home/hwu/SAT-solving/benchmarks/probes/scratch/test-material-observer-6552.c: In function ‘main’:
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-material-observer-6550/src/internal.h:248:19: error: ‘solver’ undeclared (first use in this function)
+  248 | #define LITS (2 * solver->vars)
+      |                   ^~~~~~
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-material-observer-6550/src/literal.h:20:46: note: in expansion of macro ‘LITS’
+   20 | #define VALID_INTERNAL_LITERAL(LIT) ((LIT) < LITS)
+      |                                              ^~~~
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-material-observer-6550/src/literal.h:26:12: note: in expansion of macro ‘VALID_INTERNAL_LITERAL’
+   26 |   (assert (VALID_INTERNAL_LITERAL (LIT)), (((unsigned) (LIT)) >> 1))
+      |            ^~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/benchmarks/probes/scratch/test-material-observer-6552.c:21:12: note: in expansion of macro ‘IDX’
+   21 |   s->flags[IDX(a)].subsume = false;
+      |            ^~~
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-material-observer-6550/src/internal.h:248:19: note: each undeclared identifier is reported only once for each function it appears in
+  248 | #define LITS (2 * solver->vars)
+      |                   ^~~~~~
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-material-observer-6550/src/literal.h:20:46: note: in expansion of macro ‘LITS’
+   20 | #define VALID_INTERNAL_LITERAL(LIT) ((LIT) < LITS)
+      |                                              ^~~~
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-material-observer-6550/src/literal.h:26:12: note: in expansion of macro ‘VALID_INTERNAL_LITERAL’
+   26 |   (assert (VALID_INTERNAL_LITERAL (LIT)), (((unsigned) (LIT)) >> 1))
+      |            ^~~~~~~~~~~~~~~~~~~~~~
+/home/hwu/SAT-solving/benchmarks/probes/scratch/test-material-observer-6552.c:21:12: note: in expansion of macro ‘IDX’
+   21 |   s->flags[IDX(a)].subsume = false;
+      |            ^~~

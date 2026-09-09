@@ -1,0 +1,10 @@
+{
+  "job_id": "1678212",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6553-rank50-material-producers/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T13:00:49",
+  "manifest_sha256": "259c7f2f3d58ad263d068d971908ae58558595087dd6de676dbd2c95cb8df55a"
+}
