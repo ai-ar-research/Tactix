@@ -1,0 +1,20 @@
+{
+  "job_id": "1677791",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6405-count-cache-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T07:28:15",
+  "manifest_sha256": "b896609f9ca05608a8e1f06de488559115f4ee1ec021645badcdf04311fcda57",
+  "preceding_records": {}
+}
