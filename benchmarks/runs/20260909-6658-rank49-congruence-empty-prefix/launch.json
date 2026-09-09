@@ -1,0 +1,10 @@
+{
+  "job_id": "1678433",
+  "accounting_since": "2026-09-09T18:57:58",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6658-rank49-congruence-empty-prefix/array.sbatch"
+  ],
+  "manifest_sha256": "74ae9aa716227fa61809af091a72cd591fa86ce39f9a4b2ee1623de0a7143e1d"
+}

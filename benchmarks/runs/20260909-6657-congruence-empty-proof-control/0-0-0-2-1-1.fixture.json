@@ -1,0 +1,17 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6657-congruence-empty-proof-control/fixture",
+    "0",
+    "0",
+    "0",
+    "2",
+    "1",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6657-congruence-empty-proof-control/0-0-0-2-1-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6657-congruence-empty-proof-control/0-0-0-2-1-1.proof",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6657-congruence-empty-proof-control/0-0-0-2-1-1.effects.json"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": ""
+}

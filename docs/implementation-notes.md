@@ -397,7 +397,7 @@ reference-equivalent level predicate without a formula-size exception.
 Every Congruence representative union publishes two fresh watched binaries,
 including physical duplicates of already-live pairs. Each publication owns a
 fresh proof identity and re-arms ordinary added-material consumers; the second
-dense transition then retains the first physical copy. Native LRAT cites the
+dense transition, including gate-free binary merges, retains the first copy. Native LRAT cites the
 pre-existing identical clause when proving a duplicate and retains independent
 identities even after physical deduplication.
 Directed Sweep bridges are protected per physical entry, never by pair, so
