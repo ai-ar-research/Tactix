@@ -1,0 +1,935 @@
+{
+  "cases": 24,
+  "final_proofs_checked": 12,
+  "records": [
+    {
+      "mode": 0,
+      "n": 3,
+      "missing": 0,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture",
+          "0",
+          "3",
+          "0",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=3 missing=0 style=0 rounds=2\n",
+        "stderr": ""
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-0.proof"
+        ],
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+        "exit_code": 0,
+        "stdout": "\nc parsing input formula with 3 variables and 8 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 8 of 8 clauses in core                            \n\nc 9 of 12 lemmas in core using 20 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+        "stderr": ""
+      },
+      "effects": {
+        "rounds": 2,
+        "strengthened": 7,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "provenance": "Original fixture retained as material-proof-initial-fixture-6583.cpp; original binary retained. Proof hash and removed-byte count were not persisted before the later assertion; no certificate retained and no rerun."
+    },
+    {
+      "mode": 0,
+      "n": 3,
+      "missing": 0,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-2",
+          "0",
+          "3",
+          "0",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1-retry.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1-retry.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1-retry.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=3 missing=0 style=1 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "proof_sha256": "ab3e8bd26e825225d44b6d7cdd0a3b59f4d40b2fb1643bc80e65e19c3a551a73",
+      "proof_bytes": 153,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 7,
+        "budget_stops": 1,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1-retry.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1-retry.proof"
+        ],
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+        "exit_code": 0,
+        "stdout": "\nc parsing input formula with 3 variables and 8 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 8 of 8 clauses in core                            \n\nc 9 of 12 lemmas in core using 21 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 0,
+      "n": 3,
+      "missing": 0,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "3",
+          "0",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-2-retry.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-2-retry.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-2-retry.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=3 missing=0 style=2 rounds=9\n",
+        "stderr": ""
+      },
+      "input_sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "proof_sha256": "491032b64c4be7112b864004212f00b134b053ef26e2340d0fbad7273cfac294",
+      "proof_bytes": 139,
+      "effects": {
+        "rounds": 9,
+        "strengthened": 5,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-2-retry.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-2-retry.proof"
+        ],
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+        "exit_code": 0,
+        "stdout": "\nc parsing input formula with 3 variables and 8 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 8 of 8 clauses in core                            \n\nc 6 of 9 lemmas in core using 13 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 0,
+      "n": 3,
+      "missing": 1,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "3",
+          "1",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=3 missing=1 style=0 rounds=2\n",
+        "stderr": ""
+      },
+      "input_sha256": "0a8b30bd2c821e7c182be0f415a7d58628ea345c3c12d43560def3586f296a90",
+      "proof_sha256": "00b153dd12387bcab0f1e84237e5c0c9d0294ec928359fff2a356734f34779a0",
+      "proof_bytes": 130,
+      "effects": {
+        "rounds": 2,
+        "strengthened": 6,
+        "budget_stops": 0,
+        "models": 128
+      }
+    },
+    {
+      "mode": 0,
+      "n": 3,
+      "missing": 1,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "3",
+          "1",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-1.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-1.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=3 missing=1 style=1 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "0a8b30bd2c821e7c182be0f415a7d58628ea345c3c12d43560def3586f296a90",
+      "proof_sha256": "f2afc675155c9afeb0c1c21baf70bd27c6fe46798a3045440820cc7d99c341a0",
+      "proof_bytes": 130,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 6,
+        "budget_stops": 1,
+        "models": 128
+      }
+    },
+    {
+      "mode": 0,
+      "n": 3,
+      "missing": 1,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "3",
+          "1",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-2.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-1-2.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=3 missing=1 style=2 rounds=8\n",
+        "stderr": ""
+      },
+      "input_sha256": "0a8b30bd2c821e7c182be0f415a7d58628ea345c3c12d43560def3586f296a90",
+      "proof_sha256": "c997dc82b33b4210c29c96492ab8ff0249bf95d2dceeb965faa56a939e1a0b22",
+      "proof_bytes": 114,
+      "effects": {
+        "rounds": 8,
+        "strengthened": 4,
+        "budget_stops": 0,
+        "models": 128
+      }
+    },
+    {
+      "mode": 0,
+      "n": 4,
+      "missing": 0,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "4",
+          "0",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=4 missing=0 style=0 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "af4cf0680b8b437a5a6a161fba3fb0410bc7f6b15f7c5f935c332841df52dc83",
+      "proof_sha256": "344d869509e2759c78deb5300b40ba921661261fae5dfd01a86c0dd29fdc9467",
+      "proof_bytes": 575,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 26,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.proof"
+        ],
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+        "exit_code": 0,
+        "stdout": "\nc parsing input formula with 4 variables and 16 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 16 of 16 clauses in core                            \n\nc 26 of 31 lemmas in core using 55 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.042 seconds\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 0,
+      "n": 4,
+      "missing": 0,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "4",
+          "0",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-1.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-1.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=4 missing=0 style=1 rounds=4\n",
+        "stderr": ""
+      },
+      "input_sha256": "af4cf0680b8b437a5a6a161fba3fb0410bc7f6b15f7c5f935c332841df52dc83",
+      "proof_sha256": "30a83a58261ce3c2b149ba907b14d6c8c8cf30766bb3a421c9e36779231e9d99",
+      "proof_bytes": 557,
+      "effects": {
+        "rounds": 4,
+        "strengthened": 25,
+        "budget_stops": 1,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-1.proof"
+        ],
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+        "exit_code": 0,
+        "stdout": "\nc parsing input formula with 4 variables and 16 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 16 of 16 clauses in core                            \n\nc 26 of 31 lemmas in core using 55 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.044 seconds\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 0,
+      "n": 4,
+      "missing": 0,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "4",
+          "0",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-2.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-2.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=4 missing=0 style=2 rounds=28\n",
+        "stderr": ""
+      },
+      "input_sha256": "af4cf0680b8b437a5a6a161fba3fb0410bc7f6b15f7c5f935c332841df52dc83",
+      "proof_sha256": "bd641b35b482465d1fda1bc6dc7e3cd3bd97280cf1a291921a1fbd10bf141567",
+      "proof_bytes": 532,
+      "effects": {
+        "rounds": 28,
+        "strengthened": 20,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-2.proof"
+        ],
+        "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+        "exit_code": 0,
+        "stdout": "\nc parsing input formula with 4 variables and 16 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 16 of 16 clauses in core                            \n\nc 21 of 25 lemmas in core using 46 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.042 seconds\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 0,
+      "n": 4,
+      "missing": 1,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "4",
+          "1",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=4 missing=1 style=0 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "af5cf85e1f4eb9b14aa6ddbfaff64cb0aceac81a8a469dfdcc82e3643611709a",
+      "proof_sha256": "487a880ff9642815cd8cb10f89dfe897aa8605c142ce67e8e868da28de97b68f",
+      "proof_bytes": 568,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 24,
+        "budget_stops": 0,
+        "models": 32768
+      }
+    },
+    {
+      "mode": 0,
+      "n": 4,
+      "missing": 1,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "4",
+          "1",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-1.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-1.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=4 missing=1 style=1 rounds=4\n",
+        "stderr": ""
+      },
+      "input_sha256": "af5cf85e1f4eb9b14aa6ddbfaff64cb0aceac81a8a469dfdcc82e3643611709a",
+      "proof_sha256": "6711a9b1af849081ebcc0fd713c78076be0f05759f085edf651203afbdf56dcd",
+      "proof_bytes": 568,
+      "effects": {
+        "rounds": 4,
+        "strengthened": 24,
+        "budget_stops": 1,
+        "models": 32768
+      }
+    },
+    {
+      "mode": 0,
+      "n": 4,
+      "missing": 1,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "0",
+          "4",
+          "1",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-2.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-2.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=0 n=4 missing=1 style=2 rounds=26\n",
+        "stderr": ""
+      },
+      "input_sha256": "af5cf85e1f4eb9b14aa6ddbfaff64cb0aceac81a8a469dfdcc82e3643611709a",
+      "proof_sha256": "5585177054849bb8f11395741360e207f00a76671ff006a90c83e702b5cd1034",
+      "proof_bytes": 494,
+      "effects": {
+        "rounds": 26,
+        "strengthened": 18,
+        "budget_stops": 0,
+        "models": 32768
+      }
+    },
+    {
+      "mode": 1,
+      "n": 3,
+      "missing": 0,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "3",
+          "0",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=3 missing=0 style=0 rounds=2\n",
+        "stderr": ""
+      },
+      "input_sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "proof_sha256": "26ebbc611516aeae8935006fe9efd94aec150c3890e5885998e5e9eef84e41c4",
+      "proof_bytes": 234,
+      "effects": {
+        "rounds": 2,
+        "strengthened": 7,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-0.proof"
+        ],
+        "sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+        "exit_code": 0,
+        "stdout": "c parsed a formula with 3 variables and 8 clauses\nc VERIFIED\nc allocated 1024 54 30\nc Added clauses = 19.  Deleted clauses = 7.  Max live clauses = 12\nc verification time = 0.00 secs\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 1,
+      "n": 3,
+      "missing": 0,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "3",
+          "0",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-1.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-1.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=3 missing=0 style=1 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "proof_sha256": "72932c631fed275403dbbb28fa677bed3af2d79314828e60adbe3fefd30037e8",
+      "proof_bytes": 242,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 7,
+        "budget_stops": 1,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-1.proof"
+        ],
+        "sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+        "exit_code": 0,
+        "stdout": "c parsed a formula with 3 variables and 8 clauses\nc VERIFIED\nc allocated 1024 54 30\nc Added clauses = 19.  Deleted clauses = 8.  Max live clauses = 11\nc verification time = 0.00 secs\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 1,
+      "n": 3,
+      "missing": 0,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "3",
+          "0",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-2.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-2.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=3 missing=0 style=2 rounds=9\n",
+        "stderr": ""
+      },
+      "input_sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "proof_sha256": "28adabd3cbf2ce81cbaa0e4d74716a3038b75c5ad7a9635915ca17fb5108f838",
+      "proof_bytes": 195,
+      "effects": {
+        "rounds": 9,
+        "strengthened": 5,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-0-2.proof"
+        ],
+        "sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+        "exit_code": 0,
+        "stdout": "c parsed a formula with 3 variables and 8 clauses\nc VERIFIED\nc allocated 1024 54 30\nc Added clauses = 16.  Deleted clauses = 8.  Max live clauses = 9\nc verification time = 0.00 secs\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 1,
+      "n": 3,
+      "missing": 1,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "3",
+          "1",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=3 missing=1 style=0 rounds=2\n",
+        "stderr": ""
+      },
+      "input_sha256": "0a8b30bd2c821e7c182be0f415a7d58628ea345c3c12d43560def3586f296a90",
+      "proof_sha256": "b75549293e6e05e8f22d2a3c189b0eed4db6e55528e322e74372bdb6a0234408",
+      "proof_bytes": 196,
+      "effects": {
+        "rounds": 2,
+        "strengthened": 6,
+        "budget_stops": 0,
+        "models": 128
+      }
+    },
+    {
+      "mode": 1,
+      "n": 3,
+      "missing": 1,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "3",
+          "1",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-1.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-1.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=3 missing=1 style=1 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "0a8b30bd2c821e7c182be0f415a7d58628ea345c3c12d43560def3586f296a90",
+      "proof_sha256": "a4d63c82a12ff02209099a1ae467eaf59eec7fb503381bf4799ff9bc0fe8871b",
+      "proof_bytes": 195,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 6,
+        "budget_stops": 1,
+        "models": 128
+      }
+    },
+    {
+      "mode": 1,
+      "n": 3,
+      "missing": 1,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "3",
+          "1",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-2.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-3-1-2.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=3 missing=1 style=2 rounds=8\n",
+        "stderr": ""
+      },
+      "input_sha256": "0a8b30bd2c821e7c182be0f415a7d58628ea345c3c12d43560def3586f296a90",
+      "proof_sha256": "d5cb01ccc999f77cc83b2dca8baf6be17d0b3fead09b236444270e6a48bea476",
+      "proof_bytes": 163,
+      "effects": {
+        "rounds": 8,
+        "strengthened": 4,
+        "budget_stops": 0,
+        "models": 128
+      }
+    },
+    {
+      "mode": 1,
+      "n": 4,
+      "missing": 0,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "4",
+          "0",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=4 missing=0 style=0 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "af4cf0680b8b437a5a6a161fba3fb0410bc7f6b15f7c5f935c332841df52dc83",
+      "proof_sha256": "ff06083de61090ddec9f678c05a15f371de576b1becc9388bedc7ab2296064d9",
+      "proof_bytes": 803,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 26,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-0.proof"
+        ],
+        "sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+        "exit_code": 0,
+        "stdout": "c parsed a formula with 4 variables and 16 clauses\nc VERIFIED\nc allocated 1024 162 40\nc Added clauses = 46.  Deleted clauses = 27.  Max live clauses = 19\nc verification time = 0.00 secs\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 1,
+      "n": 4,
+      "missing": 0,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "4",
+          "0",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-1.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-1.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=4 missing=0 style=1 rounds=4\n",
+        "stderr": ""
+      },
+      "input_sha256": "af4cf0680b8b437a5a6a161fba3fb0410bc7f6b15f7c5f935c332841df52dc83",
+      "proof_sha256": "9f4a1a4573e7818dfb9cfae8822327c4eaee0df2cf44d7ec6a11e4b8bc741f0a",
+      "proof_bytes": 797,
+      "effects": {
+        "rounds": 4,
+        "strengthened": 25,
+        "budget_stops": 1,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-1.proof"
+        ],
+        "sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+        "exit_code": 0,
+        "stdout": "c parsed a formula with 4 variables and 16 clauses\nc VERIFIED\nc allocated 1024 108 40\nc Added clauses = 46.  Deleted clauses = 26.  Max live clauses = 20\nc verification time = 0.00 secs\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 1,
+      "n": 4,
+      "missing": 0,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "4",
+          "0",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-2.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-2.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=4 missing=0 style=2 rounds=28\n",
+        "stderr": ""
+      },
+      "input_sha256": "af4cf0680b8b437a5a6a161fba3fb0410bc7f6b15f7c5f935c332841df52dc83",
+      "proof_sha256": "f52875190bb664ed131a079520248d5a541ae7b41f8892918c5c149b131c79a3",
+      "proof_bytes": 700,
+      "effects": {
+        "rounds": 28,
+        "strengthened": 20,
+        "budget_stops": 0,
+        "models": 0
+      },
+      "checker": {
+        "command": [
+          "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-0-2.proof"
+        ],
+        "sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7",
+        "exit_code": 0,
+        "stdout": "c parsed a formula with 4 variables and 16 clauses\nc VERIFIED\nc allocated 1024 108 40\nc Added clauses = 40.  Deleted clauses = 27.  Max live clauses = 17\nc verification time = 0.00 secs\n",
+        "stderr": ""
+      }
+    },
+    {
+      "mode": 1,
+      "n": 4,
+      "missing": 1,
+      "style": 0,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "4",
+          "1",
+          "0",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-0.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-0.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-0.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=4 missing=1 style=0 rounds=3\n",
+        "stderr": ""
+      },
+      "input_sha256": "af5cf85e1f4eb9b14aa6ddbfaff64cb0aceac81a8a469dfdcc82e3643611709a",
+      "proof_sha256": "a2b388e6d294b611d9e059acd563d30574aa8ff75f4d69b8131f789d7ed5fcfe",
+      "proof_bytes": 783,
+      "effects": {
+        "rounds": 3,
+        "strengthened": 24,
+        "budget_stops": 0,
+        "models": 32768
+      }
+    },
+    {
+      "mode": 1,
+      "n": 4,
+      "missing": 1,
+      "style": 1,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "4",
+          "1",
+          "1",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-1.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-1.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-1.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=4 missing=1 style=1 rounds=4\n",
+        "stderr": ""
+      },
+      "input_sha256": "af5cf85e1f4eb9b14aa6ddbfaff64cb0aceac81a8a469dfdcc82e3643611709a",
+      "proof_sha256": "e31a5c3682be148f16f0c435249c41cf1032fc873c4f1860521fccfceb87f93a",
+      "proof_bytes": 786,
+      "effects": {
+        "rounds": 4,
+        "strengthened": 24,
+        "budget_stops": 1,
+        "models": 32768
+      }
+    },
+    {
+      "mode": 1,
+      "n": 4,
+      "missing": 1,
+      "style": 2,
+      "fixture": {
+        "command": [
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+          "1",
+          "4",
+          "1",
+          "2",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-2.cnf",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-2.proof",
+          "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/1-4-1-2.effects.json"
+        ],
+        "exit_code": 0,
+        "stdout": "PASS mode=1 n=4 missing=1 style=2 rounds=26\n",
+        "stderr": ""
+      },
+      "input_sha256": "af5cf85e1f4eb9b14aa6ddbfaff64cb0aceac81a8a469dfdcc82e3643611709a",
+      "proof_sha256": "93590af04aa5142f6af06812ab7cf3d328a9344fdb998cdac378e7fd8c8c870e",
+      "proof_bytes": 652,
+      "effects": {
+        "rounds": 26,
+        "strengthened": 18,
+        "budget_stops": 0,
+        "models": 32768
+      }
+    }
+  ],
+  "hashes": {
+    "benchmarks/runs/20260909-6579-material-schedule-build/manifest.json": "2f5b717cdc2dd0ecf99e8daf122a10e01a725572af52b064dba96252605989ce",
+    "benchmarks/probes/scratch/test-material-proofs-6581.cpp": "0a4939a13b9ed1f9fcc236d591637ac1c21846f8694d0e57cbeae62cec754a5f",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/api/api.cpp.o": "b3b023619209593d54ecf00fee3c86a69591c8e62c956036040d54dc9c29d659",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/engine/subsolver.cpp.o": "69292de2029165e3a89afa44616f61c59d828b32b8d216356a95adc08bf1cf70",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/frontend/parse.cpp.o": "2e3d69b3eb931e13063f890b5ae8e67bbcf5148147c75358dfb353261c1d9fe2",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/kernel/kernel.cpp.o": "0a5c525e9ba9ba9c139572482480dd53052f61c6836b1233a89fb93e4b4a2bf6",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/default_policy.cpp.o": "9ce9adbfd610e9aa0c035e6bba44cbb9c8d714b1161920122ff49f8eb0bd5f16",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/heuristics.cpp.o": "2b3d0ffc26f22b956c7a83da79168151a097114514c49f3e989a8c628d5baf59",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/ops/reorder/reorder.cpp.o": "24c18611b35200f9fa1e76a4158097c824ddff86e620329e688c3cdab9317535",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/ops/rephase/rephase.cpp.o": "85c6adc9370994f6bc2899d2bb7ffdba9bbcaa9b7220fb93c00bb009d15b417a",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/ops/switchmode/switchmode.cpp.o": "8c6bdbf787fc5c1642b00985d8a72097455e45be74a2a6bd9c027b907669b8bc",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/ops/walk/walk.cpp.o": "a5560628647f775684038cffbd00a1c3951565e65c89b5fb52421b446d91b728",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/random_policy.cpp.o": "5b53b14b90f7564f967d4b0d6fddd8f04027ca3e38c9ff5d32c1ee9ea4ec06bf",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/stress_registry.cpp.o": "f1d115beeccfea75b6bc9ed4e1cbbb59c65709573bce3a8cbbaca1e72ccaac5e",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/policies/trace.cpp.o": "c47e6c3ed13acae3b4701ec5b3080ede58f2d4e0ea30a5c458a5ca39e4ace61a",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/proof/proof.cpp.o": "f6de1158068fd832101794caf35b371f32acb77c08b2152ced6990e9901e81cf",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/analyze/analyze.cpp.o": "1510f00537f2d9c6f7e1af6ccd6d9bbd27dbed92b758621370f730c8e3fdf0ac",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/backbone/backbone.cpp.o": "aad7e70bf8750450e06409e4ed8fa19918bbd6a5251f3c667fbe1b02d1e9c001",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/backjump/backjump.cpp.o": "0f806262f4d714dd604bdb0b6d79113667f5268c4359d79dfcf8ee614b865ec0",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/bce/bce.cpp.o": "535844029e456bbd42b342866b513d759bf382b9b6aa341cc97667b5d08bc5f4",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/bve/bve.cpp.o": "3310cfb0a83c3ba4110bd762c216c6e5e1df1f97bcdc1e3118c80359db1bdac4",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/cce/cce.cpp.o": "f7f49b753d7d94462356ffba457a3c06a54e83277e642044414f0fe3d19b0b91",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/congruence/congruence.cpp.o": "e8900ac0d9097f4bc1f3df975e11dc5f7ec5734ac8c0e8bd22437bd1bde922aa",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/decide/decide.cpp.o": "2a54879305f676cb8a51719f92bdae36aaf0d75707f273561869e8dad0b84bf6",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/factor/factor.cpp.o": "b6bd430a409ac1f4076894ae12d3daaf9fff6ca070ca02386ecf92833e91ed55",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/hyperbinary/hyperbinary.cpp.o": "020d80c788976fe09cca610e7fd579c7ec79839c7344ed9e3051392ec7a9fb31",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/instantiate/instantiate.cpp.o": "36e66779bde24eebed155eae604baa1fae579098b2af9b4ffb1a680d9a59c0ec",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/lucky/lucky.cpp.o": "11b40e18c39d1d913d7feff343f043180ac78e1cb1260bc108f09fb92e554cb2",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/probe/probe.cpp.o": "5f0affa030440b4b57ff7d150b02f42979cb06554cfc3a64d4e4a28bfb5e19ee",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/propagate/propagate.cpp.o": "3c6383819d36429cb8a737001e42c78ea2b3b0190373b89688796874354374cd",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/reduce/reduce.cpp.o": "1e55b25301f2201c2f6724532e95f762982fd6918773442fe67c9aa0e31d0f49",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/registry.cpp.o": "a6884e4116f70dfa4d42a3d1c9a13786ff40c907281ad5f85cd249a86bf4dfe4",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/restart/restart.cpp.o": "f217ea7076cf808f99f1ebe779b6650da89f7e9b3f1bef446827e686bee3120e",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/strengthen/strengthen.cpp.o": "8df377fa3e41ed8951f65a49b77ecd2bec415022facfed296dbf9ced6548bb3c",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/substitute/substitute.cpp.o": "3bd3da2ed29cab521c44b0377afe4ed2492a2273684d0c170569e6e11bb2dcb9",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/subsume_forward/subsume_forward.cpp.o": "a145bc1bee9cb7058584befcfd92c987b8645d960cd5765a5cbc106b58cec951",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/support/failed_literal.cpp.o": "f5f501a21882769ee41f5eeb25c08262549351c755ae7ef4e1a5c13407a6f46b",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/support/flat_occurrence.cpp.o": "dfa78b5db79b5c023412e564ca3b952806733524a6f18553fe6d76a1c004ae33",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/sweep/sweep.cpp.o": "748ac2fc8501e8664bc9d79047f47b013ccb31ac4710b99162ed819a411bb826",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/ternary/ternary.cpp.o": "6e8bb9181c0a3939c3cd03af2d4b54301665fcd512195a485ef6458c9a8a01aa",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/transitive_reduce/transitive_reduce.cpp.o": "7b1e88c89d615b26e7a70f1929aa5301f5c2c8ad5fc6830bd00e624fae49ab39",
+    "build/pin-6579-material-schedule-release/CMakeFiles/tactix_lib.dir/src/rules/vivify/vivify.cpp.o": "784e571f2c369bcfd7b6ed1baf4353d12c9067f66309aa4472f61028a94e79c8"
+  },
+  "fixture_binary_sha256": "4934ade971aa7a82bc7e53fcfc4d95f51a62a6a92604252162bfd7c4927994de",
+  "removed_bytes": 12957,
+  "failed_fixture_cleanup": [
+    {
+      "path": "0-3-0-1.cnf",
+      "sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "bytes": 86
+    },
+    {
+      "path": "0-3-0-1.proof",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "diagnostic.cnf",
+      "sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "bytes": 86
+    },
+    {
+      "path": "diagnostic.proof",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "0-3-0-2.cnf",
+      "sha256": "83ef822c62746022fb52b0d52f6050c2f8a699e171512c9eb61356bda5d553d4",
+      "bytes": 86
+    },
+    {
+      "path": "0-3-0-2.proof",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  ],
+  "limitation": "24 fixed C2 round/budget/public-instance tests,12 exhaustive SAT model-set controls and12 independently checked final DRAT/LRAT micro proofs. Not fuzz or runtime evidence."
+}

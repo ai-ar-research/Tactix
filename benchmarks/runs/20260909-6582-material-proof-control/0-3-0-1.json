@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture",
+    "0",
+    "3",
+    "0",
+    "1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1.proof",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-3-0-1.effects.json"
+  ],
+  "exit_code": -6,
+  "stdout": "",
+  "stderr": "fixture: /home/hwu/SAT-solving/benchmarks/probes/scratch/test-material-proofs-6581.cpp:66: int main(int, char**): Assertion `rounds<100 && k.stats.strengthened>0' failed.\n"
+}

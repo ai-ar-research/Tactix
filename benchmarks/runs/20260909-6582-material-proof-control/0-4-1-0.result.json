@@ -1,0 +1,30 @@
+{
+  "mode": 0,
+  "n": 4,
+  "missing": 1,
+  "style": 0,
+  "fixture": {
+    "command": [
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+      "0",
+      "4",
+      "1",
+      "0",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.proof",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.effects.json"
+    ],
+    "exit_code": 0,
+    "stdout": "PASS mode=0 n=4 missing=1 style=0 rounds=3\n",
+    "stderr": ""
+  },
+  "input_sha256": "af5cf85e1f4eb9b14aa6ddbfaff64cb0aceac81a8a469dfdcc82e3643611709a",
+  "proof_sha256": "487a880ff9642815cd8cb10f89dfe897aa8605c142ce67e8e868da28de97b68f",
+  "proof_bytes": 568,
+  "effects": {
+    "rounds": 3,
+    "strengthened": 24,
+    "budget_stops": 0,
+    "models": 32768
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "job_id": "1678348",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6587-rank50-material-schedule/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T16:04:21",
+  "manifest_sha256": "ce93d9094fbc3fdb1043a81033baa0e44c56327596bf4f2e01018775429dc04b",
+  "dependencies": {
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/summary-6586.json": "67ce52cd0dde03b50c646d7a8d5fcabefa08d49590af63d4e760b39786e2ea94"
+  }
+}

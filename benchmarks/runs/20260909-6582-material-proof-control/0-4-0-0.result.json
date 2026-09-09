@@ -1,0 +1,41 @@
+{
+  "mode": 0,
+  "n": 4,
+  "missing": 0,
+  "style": 0,
+  "fixture": {
+    "command": [
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+      "0",
+      "4",
+      "0",
+      "0",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.proof",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.effects.json"
+    ],
+    "exit_code": 0,
+    "stdout": "PASS mode=0 n=4 missing=0 style=0 rounds=3\n",
+    "stderr": ""
+  },
+  "input_sha256": "af4cf0680b8b437a5a6a161fba3fb0410bc7f6b15f7c5f935c332841df52dc83",
+  "proof_sha256": "344d869509e2759c78deb5300b40ba921661261fae5dfd01a86c0dd29fdc9467",
+  "proof_bytes": 575,
+  "effects": {
+    "rounds": 3,
+    "strengthened": 26,
+    "budget_stops": 0,
+    "models": 0
+  },
+  "checker": {
+    "command": [
+      "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.cnf",
+      "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-0-0.proof"
+    ],
+    "sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "exit_code": 0,
+    "stdout": "\nc parsing input formula with 4 variables and 16 clauses\n\nc finished parsing\n\nc detected empty clause; start verification via backward checking\n\nc 16 of 16 clauses in core                            \n\nc 26 of 31 lemmas in core using 55 resolution steps\n\nc 0 RAT lemmas in core; 0 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 0.042 seconds\n",
+    "stderr": ""
+  }
+}
