@@ -1,0 +1,88 @@
+{
+  "result_sha256": "b62b7cea32c9d84f29a407503c92dc151482f66071d5cec3fb965736feba431b",
+  "complete_trace_sha256": {
+    "candidate.prefix.tsv": "8540ed2252f657c3bbe670bdc2a7f6a0f9069afedcb5dd8787cd889fc7b7870e",
+    "candidate.decisions.tsv": "713ea7177795a1f000cb19c995912e053ec97f2cf82fe39eb4b8baa33a3863c5",
+    "candidate.boundaries.tsv": "ee3cb4ba0680291f1aae8b2d31aff4ec8ea57e2f9854f9e12baa5a5b4fe406d1",
+    "candidate.macro.tsv": "8408638aedcaf00c53ba2d4016d40c144bc27085b1b1ef1737ca8648051b5c2a"
+  },
+  "new_prefix": {
+    "solver": "tactix",
+    "conflict": 1000000,
+    "start_decisions": 18446744073709317220,
+    "end_decisions": 103612213,
+    "count": 103846609,
+    "hash": "af7f6d8062cea48f",
+    "common": 35346388,
+    "common_reached": 1,
+    "common_hash": "4fe7bb88d76e0cca",
+    "first": 488194,
+    "common_last": 149661,
+    "last": -279951,
+    "max_level": 41644
+  },
+  "native_prefix": {
+    "solver": "kissat",
+    "conflict": 1000000,
+    "start_decisions": 18446744073709316205,
+    "end_decisions": 103732320,
+    "count": 103967731,
+    "hash": "e6a38609509ec0fd",
+    "common": 1,
+    "common_reached": 1,
+    "common_hash": "422a29d46f6d2b33",
+    "first": 488194,
+    "common_last": 488194,
+    "last": -404374,
+    "max_level": 41644
+  },
+  "early_comparison": {
+    "matching_rows": 35346388,
+    "left": [
+      100002,
+      35207917,
+      652,
+      149712,
+      0
+    ],
+    "right": null,
+    "complete_equal": false
+  },
+  "suffix_comparison": {
+    "matching_rows": 41774158,
+    "left": [
+      272979,
+      76953349,
+      388,
+      116360,
+      0
+    ],
+    "right": [
+      272979,
+      76953349,
+      388,
+      116362,
+      0
+    ],
+    "complete_equal": false
+  },
+  "matching_decisions": 77120545,
+  "cached_overlap_rows": 1,
+  "overlap_controls": 3,
+  "target_boundaries": {
+    "candidate": [],
+    "native": []
+  },
+  "cached_bindings": {
+    "early": {
+      "record": "benchmarks/runs/20260907-5463-rank37-bound-prefix/results/kissat.json",
+      "sha256": "9c57a52c0fa658d841330d86828719959d06b861ea986ed06674fc2ceb5248b0"
+    },
+    "native": {
+      "record": "benchmarks/runs/20260908-5478-rank37-bound-extended/results/kissat.json",
+      "sha256": "afde2a7cd77ea0ec805dc37df014e238d699ce7704054d5f89903a289b4142a6"
+    }
+  },
+  "cleanup": "Temporary comparison-only suffix removed;original full trace,cached native streams and solver result retained. Solver-owned scratch cleaned.",
+  "limitation": "Intended scheduling change;first difference is diagnostic,not a runtime benefit or checked final proof. Native streams overlap at conflict100K;the exact matching overlap is verified and counted only once. All full-file hashes and common prefix are checked."
+}

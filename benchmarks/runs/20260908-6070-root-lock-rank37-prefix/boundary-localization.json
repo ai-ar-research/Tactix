@@ -1,0 +1,259 @@
+{
+  "all": {
+    "equal": false,
+    "candidate_rows": 878,
+    "kissat_rows": 878,
+    "first": {
+      "index": 0,
+      "candidate": {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 488194,
+        "irred": 650492,
+        "red": 0,
+        "binary": 901177
+      },
+      "kissat": {
+        "name": "Congruence",
+        "stage": "begin",
+        "conflicts": 0,
+        "decisions": 0,
+        "active": 488194,
+        "irred": 650492,
+        "red": 0,
+        "binary": 901249
+      },
+      "preceding_candidate": [],
+      "preceding_kissat": []
+    }
+  },
+  "search": {
+    "equal": false,
+    "candidate_rows": 868,
+    "kissat_rows": 868,
+    "first": {
+      "index": 325,
+      "candidate": {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 152381,
+        "decisions": 48237398,
+        "active": 118753,
+        "irred": 570402,
+        "red": 19419,
+        "binary": 151957
+      },
+      "kissat": {
+        "name": "Sweep",
+        "stage": "end",
+        "conflicts": 152381,
+        "decisions": 48237398,
+        "active": 118753,
+        "irred": 570402,
+        "red": 19419,
+        "binary": 151959
+      },
+      "preceding_candidate": [
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 152381,
+          "decisions": 48237398,
+          "active": 118781,
+          "irred": 571060,
+          "red": 22614,
+          "binary": 152514
+        },
+        {
+          "name": "Vivify",
+          "stage": "end",
+          "conflicts": 152381,
+          "decisions": 48237398,
+          "active": 118758,
+          "irred": 571060,
+          "red": 19419,
+          "binary": 151893
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 152381,
+          "decisions": 48237398,
+          "active": 118758,
+          "irred": 571060,
+          "red": 19419,
+          "binary": 151893
+        }
+      ],
+      "preceding_kissat": [
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 152381,
+          "decisions": 48237398,
+          "active": 118781,
+          "irred": 571060,
+          "red": 22614,
+          "binary": 152514
+        },
+        {
+          "name": "Vivify",
+          "stage": "end",
+          "conflicts": 152381,
+          "decisions": 48237398,
+          "active": 118758,
+          "irred": 571060,
+          "red": 19419,
+          "binary": 151893
+        },
+        {
+          "name": "Sweep",
+          "stage": "begin",
+          "conflicts": 152381,
+          "decisions": 48237398,
+          "active": 118758,
+          "irred": 571060,
+          "red": 19419,
+          "binary": 151893
+        }
+      ]
+    }
+  },
+  "nonbinary_search": {
+    "equal": false,
+    "candidate_rows": 868,
+    "kissat_rows": 868,
+    "first": {
+      "index": 367,
+      "candidate": {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95117,
+        "irred": 545231,
+        "red": 13354,
+        "binary": 132248
+      },
+      "kissat": {
+        "name": "Vivify",
+        "stage": "end",
+        "conflicts": 188501,
+        "decisions": 60179934,
+        "active": 95117,
+        "irred": 545231,
+        "red": 13353,
+        "binary": 132248
+      },
+      "preceding_candidate": [
+        {
+          "name": "Backbone",
+          "stage": "begin",
+          "conflicts": 188501,
+          "decisions": 60179934,
+          "active": 95235,
+          "irred": 545231,
+          "red": 16229,
+          "binary": 132349
+        },
+        {
+          "name": "Backbone",
+          "stage": "end",
+          "conflicts": 188501,
+          "decisions": 60179934,
+          "active": 95122,
+          "irred": 545231,
+          "red": 16229,
+          "binary": 132349
+        },
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 188501,
+          "decisions": 60179934,
+          "active": 95122,
+          "irred": 545231,
+          "red": 16229,
+          "binary": 132349
+        }
+      ],
+      "preceding_kissat": [
+        {
+          "name": "Backbone",
+          "stage": "begin",
+          "conflicts": 188501,
+          "decisions": 60179934,
+          "active": 95235,
+          "irred": 545231,
+          "red": 16229,
+          "binary": 132349
+        },
+        {
+          "name": "Backbone",
+          "stage": "end",
+          "conflicts": 188501,
+          "decisions": 60179934,
+          "active": 95122,
+          "irred": 545231,
+          "red": 16229,
+          "binary": 132349
+        },
+        {
+          "name": "Vivify",
+          "stage": "begin",
+          "conflicts": 188501,
+          "decisions": 60179934,
+          "active": 95122,
+          "irred": 545231,
+          "red": 16229,
+          "binary": 132349
+        }
+      ]
+    }
+  },
+  "ignored_names": {
+    "candidate": {
+      "SparseCollect": 2
+    },
+    "kissat": {
+      "trace": 1,
+      "startup": 1,
+      "lucky_early": 2,
+      "preprocess": 2,
+      "lucky_late": 2,
+      "restart": 26384,
+      "reduce": 262,
+      "switch": 50,
+      "rephase": 52,
+      "probe": 44,
+      "reorder": 28,
+      "eliminate": 20
+    }
+  },
+  "hashes": {
+    "benchmarks/runs/20260908-6070-root-lock-rank37-prefix/summary.json": "0a6441041b945856004840e0c8917f35900f0c1dc1be72da34aa1f9729c0e1fb",
+    "benchmarks/runs/20260908-6070-root-lock-rank37-prefix/traces/candidate.boundaries.tsv": "ee3cb4ba0680291f1aae8b2d31aff4ec8ea57e2f9854f9e12baa5a5b4fe406d1",
+    "benchmarks/runs/20260908-5478-rank37-bound-extended/traces/kissat.boundaries.tsv": "12a4a1c2500e8a6c91bf045c73a2f9efcad5fbd081fa3a091b2c9bc573a7ef65"
+  },
+  "decision_difference": {
+    "matching_rows": 41774158,
+    "left": [
+      272979,
+      76953349,
+      388,
+      116360,
+      0
+    ],
+    "right": [
+      272979,
+      76953349,
+      388,
+      116362,
+      0
+    ],
+    "complete_equal": false
+  },
+  "limitation": "Coarse ordinal-aligned shared mechanism boundaries only. Startup included separately; binary-only differences remain unresolved,not dismissed. Equal counts do not prove formula,pose,effort or relative-strength parity. Propagation,trail,ticks and native-only phase wrappers are not aligned fields."
+}
