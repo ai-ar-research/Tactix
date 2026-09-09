@@ -1,0 +1,20 @@
+{
+  "job_id": "1677986",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6443-activation-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T08:51:28",
+  "manifest_sha256": "245f5350d6d3885cb256c863bfaa0d27cff8cbdf6ab5a5da281be7ef0e88280a",
+  "preceding_records": {}
+}

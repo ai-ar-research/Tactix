@@ -1,0 +1,185 @@
+{
+  "schema": "tactix-activation-changed-work-three-waves-v1",
+  "created_at": "2026-09-09T12:51:04.733656+00:00",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-6424-activation-stamp-release"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "f10cd91ad6f7b9b1e3e982cd1fac5460fbd5b15c63da5a543214fa8587b8fed7",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-6383-vivify-count-cache-release"
+    }
+  },
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6424-activation-stamp-build/manifest.json",
+      "sha256": "25c8fc8b5623ef24ad7690cb3cb7098c47ebac1e85aba4dc56f3e6684453eb06"
+    },
+    "previous": {
+      "path": "benchmarks/runs/20260909-6383-vivify-count-cache-build/manifest.json",
+      "sha256": "321ffb5e88dc907897d862ce580ddaec77f281daf6ef26db9f6279260c0a43a6"
+    }
+  },
+  "input_sha256": {
+    "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+    "tierD24-26/5c47810953b22baa5f6f45585430fc77-oski15a01b20s_opt.cnf.xz": "ddc5401e59d155512cf289cea0844387ee2a0ebcb487b223f983f5e84673da8f",
+    "tierD24-26/efc1b7cc3861df8c2b68ca10399b794e-oddball_19_4_ttf.normalised.cnf.xz": "edc765a801c6301189c0cf74bca741f9fb3841690a7ebdea20610b72c31c67d3"
+  },
+  "collect_runtime_context": true,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-17",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000,
+    "scheduler_wall_seconds": 18000
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "work_oracles": {
+    "candidate": {
+      "32": {
+        "path": "benchmarks/runs/20260909-6439-activation-ranks1-50/provisional/031.json",
+        "sha256": "8aa832297fe961de96e0d9c6f2960fbebc2e5677203da58087bb1687ec052810"
+      },
+      "35": {
+        "path": "benchmarks/runs/20260909-6439-activation-ranks1-50/provisional/034.json",
+        "sha256": "0465e90ab9082cf39350a8fb71ec496ad9470ada8a3363b52cbd8055de89b5ca"
+      },
+      "45": {
+        "path": "benchmarks/runs/20260909-6439-activation-ranks1-50/results/044.json",
+        "sha256": "4b95131de7e45febde09073201016269a3198af0b2abf8d34f5172bde4d07f8e"
+      }
+    },
+    "previous": {
+      "32": {
+        "path": "benchmarks/runs/20260909-6407-count-cache-ranks1-50/results/031.json",
+        "sha256": "91b24942f21cd7f2f9ee3cffaf349d930d35dd7ad377730e29ca5eab46613bec"
+      },
+      "35": {
+        "path": "benchmarks/runs/20260909-6407-count-cache-ranks1-50/results/034.json",
+        "sha256": "ba315e522cddbe49f707cd251cafe4854396b928db4839dd5783652e7b1c1120"
+      },
+      "45": {
+        "path": "benchmarks/runs/20260909-6407-count-cache-ranks1-50/results/044.json",
+        "sha256": "87ee8fc2d34c45dcc91caa25631f2582dfe449088471bf95ff281b65b37bc058"
+      }
+    }
+  },
+  "bc_solver_records": {
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/053.json": "2fd4ec0dc7f447a75d3779bd3d7d27e6da34fc12021babdc14a4a2dca4370c68",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/018.json": "f0f6cf8a20cf86242d29701fc97cf1d313e47bd71f7f1da78204ec10b5aa01b9",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/029.json": "8ae6270ee9d9931c97191ada579162278af58cf5546bda590857ee8371aa18f0",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/062.json": "158e8f744f9b1c292c2f0c32f9982e3fa5f3ad8e505aa7d0b6f014c07fc26e7c",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/000.json": "cc4e2568c907c45634abb58cf10e9fd90b51f2019bc0bba63b74739d5b744631",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/031.json": "a0b8a2915491b8a36aaa5308683ce8b26ee487ebdec6522c4e5bb38d36c6fefe",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/057.json": "de5131b45abfb667fa62f6072c562e899403e9984f8c75bd723a2bcad7bda363",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/035.json": "805b465d1ee7284eb5c6eed18a70232b4d32a0eba11bd30475af4f80b90d72c5",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/004.json": "eb98fc6ef39fffeeaeaf6cad7372b8de89388b452bbd2b1fbb0cb10ab044eb85",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/008.json": "ba46a20992be8f06bb75e2f7462fb72c7ec8075b6807e162fd261862bfb0374e",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/043.json": "f11ba23ce0f36ed519bdba370addc065b1a5d9124b00fd2895e9d2c17dd293ff",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/039.json": "ae448d1b97120e7870d384f0535684c456beb6358cd4b1278356517597bb751c",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/010.json": "8cb4c71afc4587b923a8c3b3d98851bd81426ed041eb2cec3315b823c1fbc987",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/021.json": "9d28df8459d6218ba06244b4071be5b7f77f635a7305de7eac0d5df7631c7cb1",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/047.json": "0d1f6c60b60638f8c039f00a522342a4c6080562124378a6033e7acb68d1d10e",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/025.json": "f7bcf9d30d25fb7e1e4ee3e1866c6b4aff16594c8d228bcef742b6b584197fae",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/014.json": "d37996e366da8c7dcf49ceeb983bdb0f8cb00fda855eac9ed2acbaca1c68d842",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/042.json": "2c5d8680c8ccbaa6f88908f88c9456a8d784d6390d7ee581376f479b6b92872d",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/009.json": "b7ec4f52ae56dc73a4565e170f947c927eb0411f4747037e0eb0eb7a613b4c80",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/038.json": "95a983eb789f71d313142d0e50414e12be963c485b71c06203087a12b5c0ce9e",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/011.json": "2e6318b7ad6ac27e4ce736a01e36b10ebe042842ddc35581a3f50709d1c01ac9",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/020.json": "4fda48e75d6eb0f5e38539d51d2d9e3e411f6153a2229e71a61782816a0c583f",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/046.json": "e68c525262bf333159091362c32a4d24a3cb7a19c9abe430a6193edb8033fde8",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/024.json": "66b8de4f2486e30f263124833313731b50c3fd5ad5112e36725991d35b8468b2",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/015.json": "320276c91f1703d6eda90be749c5b093d0fefc4fc2ac848698ec0877795623ad",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/019.json": "34fe736c1a7a7a24894efe505805681626c425ea5c7feea9dea1f6d7c784a975",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/052.json": "d3b8b6e9c77360194339bc48259483749a0517e83f9fd049a4603b704f130f4b",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/063.json": "a3f68a276c7cf6927c2e047ab44e6314f553e3712c2767cc050d234cc8e41989",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/028.json": "78a654a6a851473a78de13d85f9590ab452d3081d2fa6e6ecda5189f0c2ce7bb",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/001.json": "afa3ee48ebeb02162a6d945b6d88d8806ddda997cfc3e7eb6fadd9ed08c625bd",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/030.json": "942ec5a521e45c35b9c3aaf17eed5f70461cdfdb3ec92a79f488142cbbe77a0e",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/056.json": "6f59d8425fdbd8b7b80f69fe407bae893b68669e03509199b5fd831a89f50281",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/034.json": "eeb2c9fdd040864414af9710ef3abd7476bcfb58d6e495bc4cd34dd5db670346",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/005.json": "2709a68b1b5384aa1532845b0e7038e74a2011879e48d18684f668e01af662f1",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/040.json": "e4ca32cdbebf57bbc9427682338d6ed7d856a2216f79b5726e5eaaf6baa3e5cf",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/058.json": "7f0c8cf0239c142077b340e59d61911a6ac69cd77c1772f6d531d7f64aa912bd",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/013.json": "43a7984a9ba17e1c7676fd1d13b23d84f8813aa342bef53b821c6da63b836276",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/022.json": "f8dbd7fee153bf3912e319447b2537a6ab0af85c876a96d830bfeed275bc2dca",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/044.json": "80eba856e64299e7e25fc54eaec8766609e47ff25bbab236b8c41d72b7a01679",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/026.json": "f10c9191eb3e19ff09b003447379b9fb52ea22641e1addf21a8b707811410980",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/017.json": "fcb817894c1220e44088b015737d2744ef9ad00ccb191f98af247fc87d40a53e",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/050.json": "5361e957827c606a2e643f34466181e19a11103993eb8353f83b03343e4f5144",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/061.json": "9784d6be823565fa77323a9db5b290677caec8ca0bf92c3210f2dc4016836529",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/003.json": "367f20bd8202dd3924b0d7407f02a0190ce90b90b0133e81dc8c970b53d44afb",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/048.json": "bec961c170e75c9c236e7de938ec6426b23c184a6e2656f13119face2d003fc6",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/032.json": "41127a5a221f67359b9c69d5e08514434d72069dadeee47b786e64ce1aea81ea",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/065.json": "59a133bb32b388b8c3e1e09cb16ced2ee70db97336d2e59764bc14b2c470a25f",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/054.json": "bbd7d8f947519bb133d990544f030ef7aa4f01e94bb94fec4ff06e7eb23e36c2",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/036.json": "492b09cc152b6a2605eab73874a1acfc7cf4339aa22b2101b85d6c0aa2dca4de",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/007.json": "58563b8ecfdb82061bebf65b096242474c6b00bd8bd9c2e1e77bac9562deaf10",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/051.json": "4ff33d474380f7ecfc3183361489219e6a1fe43f5feeef9309e92c645d4d3a54",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/060.json": "4422f54df8a1a8de4cfd2b6ad6f95f2c57813d5a01cea0dc2b426f844eb4180f",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/049.json": "8e458e5547db43dbe11b192b42a2664714e26cb0fdf5d2f766d42227ee032d47",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/002.json": "2c26b86eb775394c569068967d03287b4f075549465db76472468c21a0cf0625",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/033.json": "f50f79b334f1036a6e98509175ca2b4a4200c3c9aedacd0872fd0f125da563ff",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/provisional/064.json": "0d2a9f9a6b7766ffa244a39b9f81226fad80207488ded2abef88e7e3b669d62d",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/055.json": "e44f70d9202426a9f0280307ee8a89efc09f29a08f22931d209a794cd82fefb2",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/037.json": "99b52d229fd7d7d7450bfb0595d137f86addeace3d5fdf39ebc7c7e5a3aba680",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/006.json": "c79bc6637ec142ed17bc2fb1f40cbbdeb886132f03e23f50d71da715f194e8cc",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/041.json": "daddf827b852356ecab5a628076c43317b4121fb9f8a24a60d5092ccf485b023",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/012.json": "59d18a01b1da56ab6adf42a00e9c0108a890911ae8677058960ff06c489185e1",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/059.json": "edb16f26c522a7b56df7bb248f7c032f326302235e631dab7703bf7e64f6a9a1",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/023.json": "15e9f87d60128eb4a42e1a5979a4ee105cb41b17fe509a7b609f7fdc28c68eb1",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/045.json": "6e7ece69e63ad549ca460d4694aab05d6959a24810b2ac3f6bd98555cd7dc202",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/027.json": "c0f4b2a34416ee43188bb5c2951194617ffb70048c2821e4b5e21239b70ecd54",
+    "benchmarks/runs/20260909-6427-activation-stamp-BC-gate/results/016.json": "d6d5dde0519252e4af03b56c8a0cdce9cebfd797d74b5d4c509e3743a23c16b2"
+  },
+  "witnesses": {
+    "32": "preserved3M closure and remaining unit-cost gap",
+    "35": "large adverse stamp-repair search-work control",
+    "45": "causal first-activation repair witness with restored100K closure"
+  },
+  "submission_contract": "Three sequential full-width six-task waves0-5,6-11,12-17; expected solver outcomes permit next wave without waiting proofs. Middle wave reverses arm order. No node constraints or throttles.",
+  "hypothesis": "6424 native first-activation stamps produce repeatable runtime effects versus6383. Include the primary45 repair, preserved32 closure and adverse35 control; no speedup assumed.",
+  "acceptance": "All18 expected independently checked clean outcomes; every arm exact to its own work/proof oracle. Report per-rank median/range of three paired ratios and each arm spread; absolute claim requires <=2% spread. No fixed50 competitiveness or promotion from subset.",
+  "test_consideration": "Unchanged runner and maintained65benchmark13watcher tests;108Release twice107trace and80actualparentfailures repaired with20nativecontrols. All33BC expected and Rank45/32 bounded closures are prerequisites to the full-run oracles. Matrix checks all18 paired tasks; exact own work/proof required. Changed-work timing, not isolated instruction cost.",
+  "limitation": "Source fuzz,memory and full50 gates remain separate. No new Kissat run or fixed-reference change.",
+  "pin_sha256": {
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/candidate": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+    "pins/previous": "f10cd91ad6f7b9b1e3e982cd1fac5460fbd5b15c63da5a543214fa8587b8fed7",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "matrix.tsv": "e825ab82a8ecb4231d6e73f82d070e64a34932afbc4c0db7855398c1db5ea1e0",
+    "array.sbatch": "1cd4f10735a4408e2f57838722b5cf3ee61eb0282b7ec8fb237b640959c88d9b"
+  }
+}

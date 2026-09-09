@@ -1,0 +1,20 @@
+{
+  "job_id": "1678054",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6464-activation-adverse-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T09:00:56",
+  "manifest_sha256": "24f833fc10ae5599356328963a1deaceb414637f45a8c53daa12ffaabbbf6e93",
+  "preceding_records": {}
+}
