@@ -127,9 +127,9 @@ Backjump is not separately schedulable. It is the atomic tail of M3; its canonic
 
 ### S2 · Reduce
 - **Precondition (abstract):** `F` not refuted; plus the standing invariant (enforced in `apply`, not
-  the guard) that a reason-locked clause is never deleted.
+  the guard) that non-root and pending learned-clause reasons are never deleted; proved root units need no clause lock.
 - **Effect:** delete a subset of the *redundant* (learned) clauses by the glue/usage tiers; compact the
-  arena; fix trail reasons via forwarding. `F` unchanged; `R` shrinks. Proof δ: `del` per deleted
+  arena; forward live reasons and retire deleted root reasons to proved units. `F` unchanged; `R` shrinks. Proof δ: `del` per deleted
   clause. Preparatory root closure is M1; consuming its roots into decision guidance belongs to policy, not S2's guard.
 - **Soundness:** deleting redundant/entailed clauses is equisatisfiability-preserving; the checker
   accepts any deletion.

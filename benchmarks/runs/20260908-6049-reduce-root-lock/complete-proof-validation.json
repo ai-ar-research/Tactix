@@ -1,0 +1,93 @@
+{
+  "checked_proofs": 62,
+  "bve_records": [
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-0-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-0-drat.proof"
+      ],
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "proof_sha256": "f77ae6344a63f3403239e34b7ffa73e8c0af85de98e291e5d8fa9815ed9ae74e",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-0-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-0-lrat.proof"
+      ],
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "proof_sha256": "8d67dd1599453ce9d3171ddb232264146fdeaac958201f21b10d2b3a08fe6f50",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-1-drat.proof"
+      ],
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "proof_sha256": "f77ae6344a63f3403239e34b7ffa73e8c0af85de98e291e5d8fa9815ed9ae74e",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-0-1-lrat.proof"
+      ],
+      "cnf_sha256": "6ca94c9e654a03fe1b02ce0f64f84e01ef02814cbaca9bab362785c2231265a9",
+      "proof_sha256": "8d67dd1599453ce9d3171ddb232264146fdeaac958201f21b10d2b3a08fe6f50",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-0-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-0-drat.proof"
+      ],
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "proof_sha256": "eebf5abc259a3f5ea948ef410c5236056f908c55780327ce67b3bfa552f3ca35",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-0-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-0-lrat.proof"
+      ],
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "proof_sha256": "1e8636667e15ac1179e094642708035d098ebf9451e41ef9f1dd6e060d98e7f1",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/drat-trim",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-1-drat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-1-drat.proof"
+      ],
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "proof_sha256": "eebf5abc259a3f5ea948ef410c5236056f908c55780327ce67b3bfa552f3ca35",
+      "checker_sha256": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a"
+    },
+    {
+      "command": [
+        "/home/hwu/SAT-solving/tools/checkers/bin/lrat-check",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-1-lrat.cnf",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/bve-1-1-lrat.proof"
+      ],
+      "cnf_sha256": "1db8366ea3f529b8e2c16f97639175f30d89de2775b863eb446834830ec00ec7",
+      "proof_sha256": "1e8636667e15ac1179e094642708035d098ebf9451e41ef9f1dd6e060d98e7f1",
+      "checker_sha256": "0c9a87d5cfb8851350928303094cb7d36317d47786dda243ebcc6250d6eec6d7"
+    }
+  ],
+  "hashes": {
+    "benchmarks/runs/20260908-6049-reduce-root-lock/final-proof-validation.json": "e45290d267c1604c081d0ef9a5076c9b2751338de057a9d0342518b6e4c9054a",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/controls/summary.json": "9b53fae5b39db3b1c882fe7aa786e8d25b7165c7bdece197ca4814f2ff6553ff",
+    "build/pin-6049-reduce-root-lock-release/tests/test_bve_active_pop": "7a755f469e978b49b1b3ca319d91c67851d75302af080bdfeac5855214589909",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/bve-proofs/fixtures.log": "e58ba28e708b042f0764d15789b88e40dd2e6d9d5c8f45750c9d824e2354d778"
+  },
+  "tooling_incident": "6055 completed46 inherited checks then read a nonexistent inherited-proof-validation.json. Its actual final-proof-validation.json remains frozen with46 checks. This successor validates that authority, adds8 root-lock and8 BVE proofs without rerunning it.",
+  "scope": "All62 proofs executed on6049. Current-source fuzz remains unverified."
+}

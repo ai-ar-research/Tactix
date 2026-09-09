@@ -1,0 +1,8 @@
+sides=3 negative=0 reverse=0 stable=0 refute=1 eliminated=3 retired=3 model/proof-path PASS
+sides=3 negative=0 reverse=0 stable=0 refute=1 eliminated=3 retired=3 model/proof-path PASS
+sides=3 negative=0 reverse=0 stable=1 refute=1 eliminated=3 retired=3 model/proof-path PASS
+sides=3 negative=0 reverse=0 stable=1 refute=1 eliminated=3 retired=3 model/proof-path PASS
+sides=3 negative=1 reverse=0 stable=0 refute=1 eliminated=3 retired=3 model/proof-path PASS
+sides=3 negative=1 reverse=0 stable=0 refute=1 eliminated=3 retired=3 model/proof-path PASS
+sides=3 negative=1 reverse=0 stable=1 refute=1 eliminated=3 retired=3 model/proof-path PASS
+sides=3 negative=1 reverse=0 stable=1 refute=1 eliminated=3 retired=3 model/proof-path PASS

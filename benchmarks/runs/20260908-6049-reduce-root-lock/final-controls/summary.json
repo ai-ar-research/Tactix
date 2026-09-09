@@ -1,0 +1,23 @@
+{
+  "old_new_cases": 18,
+  "root_cases": 16,
+  "trace_suite": "98/98 PASS",
+  "native_cases": 3,
+  "hashes": {
+    ".claude/worktrees/runtime-reduce-root-lock-6049/tests/test_reduce_root_lock.cpp": "77ce1c2de4112086cae4face33e7b87fb5aeeca14052f93f823e474b5c74647a",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/final-controls/old": "eace3f025ab7e3c463117f5190859f1513936a13ac2114c3135fe1ea66070492",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/final-controls/new.log": "5bd0c90899b9c6e9a40aa98c2a88dbae252cb9b432fc7cb77f7b0aa2b517c350",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/final-controls/old.log": "9c32e70cea80103d43d6a9fdfd08c03a47a46563d1bae6dc75a7929cdf7487c6",
+    "benchmarks/runs/20260908-6049-reduce-root-lock/final-controls/compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "benchmarks/runs/20260908-6054-root-lock-trace-controls/observer.patch": "a493197fa2da1bd93135f47c0a0c56a2c977e89b724d6a146e68485a3c43d541",
+    "benchmarks/runs/20260908-6054-root-lock-trace-controls/logs/ctest.log": "5a786fa76c8197a19768f769f9667fa5f12a70a171e3924792eac23c6b3bb93b",
+    "benchmarks/runs/20260908-6054-root-lock-trace-controls/logs/configure.log": "4b4e95e63cf91553969a51c7735f5acbd8df3da3f96797aa7bb9793a981f5a26",
+    "benchmarks/runs/20260908-6054-root-lock-trace-controls/logs/build.log": "40c1e4583d9c57a04dafce47deaee11ede91236b8677355a6220712cb0b1b7e2"
+  },
+  "diagnostic_files": {
+    "src/diagnostics/event_trace.cpp": "9831425a83ed2ba9d7d57526b12ce4b7de9f7fdd1c92b106dc46d6c058551868",
+    "tests/test_reduce_root_trace.cpp": "7efd0a00818d7deaa909dacf6f72f5ee6382a6aa23a9181ccc4d9ae538da3dbe"
+  },
+  "diagnostic_binary_sha256": "378c25380bdebc3f025c395726ce17f9315c122fe14b96528a204269489a969f",
+  "outcome": "Exact final fixture confirms old0/new1 root candidate and deletion across16 state/proof/model cases;pending/non-root/stale guards agree. Trace-only clone fixes metadata and passes98 tests includingactual three-way root/pending/non-root annotation control. No runtime or fuzz claim."
+}

@@ -389,12 +389,12 @@ Restart(1)
           <div class="rule-content"><div class="tabs"><button class="tab active" data-panel="formal">Formal calculus</button><button class="tab" data-panel="plain">Informal</button><button class="tab" data-panel="examples">Examples</button></div>
             <section class="panel" data-panel-content="formal"><div class="equation">F not refuted ∧ D ⊆ R ∧ no d ∈ D is reason-locked
 ────────────────────────────────────────────────── S2(D)
-R := R \ D ; δ = ∏ d∈D del(d)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Delete selected learned clauses, compact storage, and forward surviving trail reasons.</p></div><div class="formal-block"><h4>Soundness</h4><p>Every deleted clause is redundant/entailed; proof checkers accept deletions without a chain.</p></div></div></section>
-            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Throw away learned hints that are no longer worth their memory cost.</strong> The original problem clauses stay; a clause currently explaining an assignment is protected.</p></section>
+R := R \ D ; δ = ∏ d∈D del(d)</div><div class="formal-grid"><div class="formal-block"><h4>Effect</h4><p>Delete selected learned clauses, compact storage, forward surviving reasons, and retire deleted root reasons to proved units.</p></div><div class="formal-block"><h4>Soundness</h4><p>Every deleted clause is redundant/entailed; proof checkers accept deletions without a chain. Non-root and pending learned-clause reasons stay locked; proved root units need no clause lock.</p></div></div></section>
+            <section class="panel" data-panel-content="plain"><p class="plain"><strong>Throw away learned hints that are no longer worth their memory cost.</strong> The original problem clauses stay; non-root and pending reasons are protected. A proved root assignment can survive without its old clause.</p></section>
             <section class="panel" data-panel-content="examples"><div class="examples"><div class="example"><h4>Forget a weak learned clause</h4><div class="equation">R = {(a ∨ b), (c ∨ d ∨ e)}
 D = {(c ∨ d ∨ e)}
 ⇒ R′ = {(a ∨ b)}
-δ = del(c ∨ d ∨ e)</div><p>The solver may need to rediscover it later, but satisfiability is unchanged.</p></div><div class="example"><h4>Protect a live reason</h4><div class="equation">reason(x) = (x ∨ ¬a)
+δ = del(c ∨ d ∨ e)</div><p>The solver may need to rediscover it later, but satisfiability is unchanged.</p></div><div class="example"><h4>Protect a non-root reason</h4><div class="equation">level(x) &gt; 0 ∧ reason(x) = (x ∨ ¬a)
 candidate D contains reason(x)
 ⇒ skip that clause</div><p>Deleting it would leave the current trail with a dangling explanation.</p></div></div></section>
           </div>

@@ -1,0 +1,3 @@
+native mode=0 candidates=1 root=1 reason=0 PASS
+native mode=1 candidates=1 root=1 reason=0 PASS
+native mode=2 candidates=0 root=0 reason=1 PASS
