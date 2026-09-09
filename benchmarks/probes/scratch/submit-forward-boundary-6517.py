@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import sys
+assert len(sys.argv)==2 and sys.argv[1] in ('before','after')
+source=Path(__file__).with_name('submit-rank35-stamp-prefix-6377.py')
+code=source.read_text()
+for old,new in {
+ '20260909-6376-rank35-stamp-prefix':'20260909-6516-forward-'+sys.argv[1],
+ "m['prior_closure'],m['selection']":"m['prior_closure'],m['selection'],m['parent_summary'],m['boundary_localization'],m['stage_qualification']",
+}.items():
+    assert old in code,old; code=code.replace(old,new)
+exec(compile(code,str(source),'exec'),{'__file__':str(source),'__name__':'__main__'})
