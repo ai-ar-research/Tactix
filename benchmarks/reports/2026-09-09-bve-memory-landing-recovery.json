@@ -1,0 +1,18 @@
+{
+  "original_landing_sha256": "69d15b27a2be0d33ff5f61bd3c53f148d76484aecca9902d30e4880bfe815332",
+  "helper": {
+    "path": "benchmarks/probes/scratch/recover-bve-memory-landing-6165.py",
+    "sha256": "dc27254b86a2921e87d1c7fc85075a1ceadae01e3d0ceadd7b72e45822a784d8"
+  },
+  "unstaged_duplicate_patches": {
+    "benchmarks/runs/20260908-6148-collect-memory/pins/candidate-source.patch": "d1e008a152a98667afdb0d4807f58d0f0124e522a906683cdb0fa6ce73785991",
+    "benchmarks/runs/20260909-6156-bve-capacity/pins/candidate-source.patch": "d1e008a152a98667afdb0d4807f58d0f0124e522a906683cdb0fa6ce73785991"
+  },
+  "canonical_copy": {
+    "path": "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/pins/candidate-source.patch",
+    "sha256": "d1e008a152a98667afdb0d4807f58d0f0124e522a906683cdb0fa6ce73785991"
+  },
+  "reason": "git diff --check rejects blank context lines in newly staged copies of historical unified patches. Keep immutable run-local files and hashes,avoid duplicate staging; never rewrite submitted pins or weaken whitespace checks.",
+  "deletion": false,
+  "source_or_runtime_change": false
+}

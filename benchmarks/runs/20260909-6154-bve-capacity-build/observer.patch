@@ -1,0 +1,98 @@
+--- a/src/diagnostics/event_trace.cpp
++++ b/src/diagnostics/event_trace.cpp
+@@ -8,0 +9 @@
++#include <array>
+@@ -90 +91 @@
+-                       size_t temporary_bytes = 0) {
++                       size_t temporary_bytes = 0, uint32_t subject = 0) {
+@@ -196 +197,5 @@
+-               "collector_temporary_capacity_bytes=%zu\n",
++               "collector_temporary_capacity_bytes=%zu\t"
++               "dense_large_arena_capacity_bytes=%zu\t"
++               "dense_ordered_arena_capacity_bytes=%zu\t"
++               "memory_conflicts=%llu\tmemory_decisions=%llu\t"
++               "memory_subject_internal=%u\n",
+@@ -209 +214,32 @@
+-               capacity_bytes(k.collect_order_scratch), temporary_bytes);
++               capacity_bytes(k.collect_order_scratch), temporary_bytes,
++               k.dense ? k.dense->large.arena_capacity_bytes() : 0,
++               k.dense ? k.dense->ordered.arena_capacity_bytes() : 0,
++               (unsigned long long)k.stats.conflicts,
++               (unsigned long long)k.stats.decisions, subject);
++}
++
++void trace_bve_capacity_change(const Kernel &k, Var var, const char *stage) {
++  static const bool enabled = [] {
++    const char *path = std::getenv("TACTIX_SLOT_MEMORY_TRACE");
++    return path && *path;
++  }();
++  if (!enabled)
++    return;
++  // Constant-space reads at existing candidate callbacks. Only a capacity
++  // transition opens /proc and samples the allocator; do not scan lists or
++  // emit a row for every attempted variable. A row brackets an interval,
++  // not necessarily one allocation when a candidate grows several pools.
++  const std::array<size_t, 8> capacities = {
++      k.arena.capacity(), k.watches.arena.capacity(),
++      k.reconstruction.capacity(), k.watches.heads.capacity(),
++      k.dense ? k.dense->large.arena_capacity_bytes() : 0,
++      k.dense ? k.dense->ordered.arena_capacity_bytes() : 0,
++      k.dense ? k.dense->large.heads_capacity_bytes() : 0,
++      k.dense ? k.dense->ordered.heads_capacity_bytes() : 0};
++  static std::array<size_t, 8> previous{};
++  static const Kernel *owner = nullptr;
++  if (owner == &k && capacities == previous)
++    return;
++  owner = &k;
++  previous = capacities;
++  trace_slot_memory(k, "BVECapacity", stage, 0, var + 1);
+@@ -4498,0 +4535 @@
++  trace_bve_capacity_change(k, var, stage);
+--- /dev/null
++++ b/tests/test_bve_memory.cpp
+@@ -0,0 +1,45 @@
++// The diagnostic must emit capacity transitions, not every candidate callback.
++#undef NDEBUG
++#include "diagnostics/event_trace.hpp"
++#include <cassert>
++#include <cstdio>
++#include <cstdlib>
++#include <fstream>
++#include <string>
++#include <vector>
++#include <unistd.h>
++using namespace tactix;
++int main() {
++#ifdef TACTIX_ENABLE_EVENT_TRACE
++  char path[] = "bve-memory-test-XXXXXX";
++  const int fd = mkstemp(path);
++  assert(fd >= 0); close(fd);
++  assert(setenv("TACTIX_SLOT_MEMORY_TRACE", path, 1) == 0);
++  Kernel k;
++  kernel_reserve_vars(k, 3);
++  event_trace_bve_candidate(k, 0, "begin", 0, 1, false);
++  event_trace_bve_candidate(k, 0, "end", 0, 1, false); // no allocation
++  k.reconstruction.reserve(k.reconstruction.capacity() + 1);
++  event_trace_bve_candidate(k, 1, "begin", 0, 1, false);
++  k.arena.reserve(k.arena.capacity() + 1);
++  event_trace_bve_candidate(k, 1, "end", 0, 1, false);
++  event_trace_bve_candidate(k, 1, "postflush", 0, 1, false); // unchanged
++  std::ifstream input(path);
++  std::vector<std::string> rows;
++  std::string line;
++  while (std::getline(input, line)) rows.push_back(line);
++  assert(rows.size() == 3);
++  assert(rows[0].find("BVECapacity\tbegin\t") == 0);
++  assert(rows[1].find("BVECapacity\tbegin\t") == 0);
++  assert(rows[2].find("BVECapacity\tend\t") == 0);
++  assert(rows[0].find("memory_subject_internal=1") != std::string::npos);
++  for (size_t i = 1; i < rows.size(); ++i)
++    assert(rows[i].find("memory_subject_internal=2") != std::string::npos);
++  for (const auto &row : rows) {
++    assert(row.find("dense_large_arena_capacity_bytes=0") != std::string::npos);
++    assert(row.find("dense_ordered_arena_capacity_bytes=0") != std::string::npos);
++  }
++  input.close(); unsetenv("TACTIX_SLOT_MEMORY_TRACE");
++  assert(std::remove(path) == 0);
++#endif
++}

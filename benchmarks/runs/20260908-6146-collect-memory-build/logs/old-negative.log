@@ -1,0 +1,1 @@
+old-fixture: /home/hwu/SAT-solving/.claude/worktrees/runtime-collect-memory-6146/tests/test_collect_memory.cpp:92: int main(): Assertion `row == capacities.size() * stages.size()' failed.
