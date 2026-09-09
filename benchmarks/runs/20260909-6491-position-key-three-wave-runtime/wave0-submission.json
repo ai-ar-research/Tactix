@@ -1,0 +1,20 @@
+{
+  "job_id": "1678179",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6491-position-key-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T10:16:34",
+  "manifest_sha256": "c9356b05aba8e07d71399275ef4587a57eb501876667842326fc67347112a77b",
+  "preceding_records": {}
+}
