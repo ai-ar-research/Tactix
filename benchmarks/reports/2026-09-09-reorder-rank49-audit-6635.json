@@ -1,0 +1,612 @@
+{
+  "observed_at": "2026-09-09T22:26:41.339466+00:00",
+  "prior_audit": {
+    "path": "benchmarks/reports/2026-09-09-rank35-reorder-audit-6627.json",
+    "sha256": "e2e6e7049490a03f379ff75eb3541ff4e9b5692b9234ba3c1b2b6dfef84f4709"
+  },
+  "owned_hashes": {
+    "PROGRESS.md": "3e0fccb06faae42cfd18b23d89abe1a461b20a2cd469b95a773793dc2579a2cc",
+    "benchmarks/probes/scratch/audit-reorder-rank49-6635.py": "a6c991ed2c1a9f9a8a67147d252284ec5840773f90ea12ebc03b6a6e4c2c722f",
+    "benchmarks/probes/scratch/land-reorder-rank49-6636.py": "db5a0dd80f3deb3f9d2d337c298b4ba7a7a97264bd4f90caf90f523d7ef4e854",
+    "benchmarks/probes/scratch/prepare-rank35-binary-life-6637.py": "d9300b03bf3d67cc1c5c37b2f74bfc15e2f6726db70164ee589888b8ee2b55a3",
+    "benchmarks/probes/scratch/prepare-rank49-current-replay-6632.py": "bcffe737187416c8f26376f299aafa526b0ec618b2cb99f072b4f86ffca903a4",
+    "benchmarks/probes/scratch/submit-rank35-binary-life-6638.py": "ff9fe9f4d4fd1327fed718921dc5ffde4221b1cf5621bfe5f4c66cccac9b5655",
+    "benchmarks/probes/scratch/submit-rank49-current-replay-6633.py": "4389ed3f0d946c214651d38ac4c27f0ff85312fd7c9e42758a9511117cdd095a",
+    "benchmarks/probes/scratch/validate-rank35-reorder-input-6631.py": "25ea89d6508541e4d6348156bbe2aac227dbca8195d88854e3a0c8d2707c9b95",
+    "benchmarks/probes/scratch/validate-rank49-current-replay-6634.py": "1771a7eede34549b9cb0a352c8b9afa0a279c8f6f765ffac1ad8fc2fef7b4dd3",
+    "benchmarks/reports/2026-09-09-reorder-binary-and-rank49-replay.md": "c1df50e978209a13c285b0fb00a387b46b48f1777a95b3a33984f46d29a7f6eb",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/000.json": "204ef5d8fcbca061bb545e45e95d914f45b7dd02bd3d36fb8cc1bb5a7965dc4f",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/001.json": "26801c2fb59b9167005fdefabfa7d501f80f35dd6f0e97b92aa755ffb3df0274",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/002.json": "5dd8d587ec92f023c39097a52d82de614dc24d616127d1ea59492154f69bc52a",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/003.json": "c36a5750f8ff79a4d274e0166b2982e31e49ea8ef58962c7f0a7980172858e95",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/004.json": "30b2d94c29d3e4ba28237e21f1cf85cc06ca24da151e5a10086113041b32a2b2",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/005.json": "6633d8659415aa58e1c47a0271f6fddc4ae4449adc0b3954873a83e8e65cf6c1",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/006.json": "06e1a4fec48296d4498237d9e1f4fa81c0a823513319584645e5ad1080d291ee",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/007.json": "0e881244abd3c2ffd787535c7cc89ccde22377d3c8ea75e464a8dcf5243b33ab",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/008.json": "c354044a3ac2e6fb79c476e7db77c7b4bb10e7639a5b99db56b6dd3255413b4b",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/009.json": "fe9d19924c69cba4eb0bbba941573f45a735d311adf42ff45e1a2a1bac30de1e",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/010.json": "a05f0742851217e84208da0276139bc9f7196320bb962e3d16ed377153f197f1",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/011.json": "00a1e36822b0af2f9ad3200dbcdfed80179f6df4f6ec0c34e30cb71df5c286c1",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/012.json": "820515faeaa847d9d81aff83d81ea1d33293f8c44877c39f41579e3500f1e0bf",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/013.json": "606f0f660f972dc2714afc1b5c7c08cbfb63115b143dc920e7a45b23a3932880",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/014.json": "075a2f7f0f0e1618878f48bde3f04cd5d675ac6acd669c81f18a0a696250ddc2",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/015.json": "cf5f5e0f6c38a55aef101ef1616ecac64c662418bb6d9e2436701b8e8bf62e56",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/016.json": "1fab3752faeda70fef76a3dee41fae0bea2d042dd678fcd8a9b5344a14d28644",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/017.json": "937517912c497055ccde689b71cc68485a2586b39b7defaa1a547109c5323a0d",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/018.json": "e0d107dede2fb26d8f140ebdfc0a45855a7bf101bed45e40192c40a2cdb5e598",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/019.json": "8322458f74fddfb73ef19b66bfe29b6169af9aa88178d3c4c9e8edda400a8f71",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/020.json": "a43f32629c9bb303fb3a034d04820648457ac4a5b35e435675afbc4acb999400",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/021.json": "5e66ce2bfcff8c462a48636b67eae431b958fa5b6782085edeb46669cdbbbea1",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/022.json": "863af7f4b6fa9779371584b92fe16c10479c844b136b11bb0d2ae3aa600f7c6b",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/023.json": "ef27780299fecac1e3970d806272de3bd3c013ac9e57e697eb13f01e04bca37f",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/024.json": "d87495b0c2c6cdea46fb1c726b7e7e345cc4e8b2fa17212e820229b8037c8db7",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/025.json": "03906a22e0230a5eff400f80380efd159bafc867e236b86014f8a41518a8ea64",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/026.json": "0a885d36df448e7fc9468e789e5a879d9fe23c7ff46a784ee25a9233b6467df2",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/027.json": "5850e5d281c8603652a76a0aa5de99f9a59a2db86a40a15da30571a14c0becfe",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/028.json": "a2b15111dd77c278e8c610ee027a38ec8081eb380a7366140a678ba057637249",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/029.json": "1f381a335a024fc44ddf6bcf24b4cd09129d3981e857e3ed7c1aed7bee3491ee",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/030.json": "16a3acbbce92dbfdad873f8102613ffaa4af12608220185b7e47e3e4a5f33eb3",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/031.json": "0968619aca23f999b5fcb5c2be5873f61f17837a745d1d7f050fabe0cd3f884b",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/032.json": "8eb1cbbe12d24b96677d3cda75665c1260bfc869e505856c87e051d336156d02",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/033.json": "562b8b09c23bca397fe41fb8d2bac57633e03f9ff0c5fb5892ac9eb55721c8f3",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/034.json": "6d02f04ca0ce04e8a2f112c9033291f50cd4e7a5923bc6f276b75d8f53a1ffca",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/035.json": "9bb06e7ea155f8b23ebf1090088efba67de5c18e02003ebed55e547a158537b6",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/036.json": "10ea1b896ac88f4fd0394115c53cb9da4988eab3114bebea81b31dfbdd8bce6d",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/037.json": "71caeb808e082de544ff1ac5b0dc6acb3801544fc98b2cd74dba08e93c04b5c7",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/038.json": "84b8a3c8642d7a4d0c07ba35bbafdd139c1adb08ea0be3bef8e33204fe25466f",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/039.json": "eefc8c56a51b860bdf02cb4b925f63501b52f9af160a1d3322d407a7d32935dd",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/040.json": "20bd70a9c52e52b0dda595bc88fc103609133422763716e689e3c364645f4f80",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/041.json": "54a73b7ccd2f9d270fd3233fb89a7ed2d2c5993e65729bef9822362ce9e1b86d",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/042.json": "def49ddf4b994d82b63515f70bc99992df48a59425f7136c75ad7da4f530b633",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/043.json": "79665edbbad2a8bb1f23b0d73785f62b068f99430e0770aeffee9d2a96102461",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/044.json": "4946f959e21bcb94d18b38a7009950c284226ea310ebce3e3b404ae1903f30df",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/045.json": "c51556d48ed4f92d78ad056896c86d4f6720dcfbc651bb54668e3387c051f0d3",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/046.json": "42d22c042610fa6bde0f65df826fc5a056d365b57b56632d91cd067c0236153e",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/047.json": "5ebd4a6693dfaeefc2268041c0d58dac58555ccf6c92ba738c7861acb6591011",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/048.json": "88aa5fac98695715d0b246dc2d9c46be2ac5d4268cecaeeac09e63b1b144ac3e",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/049.json": "d02fc7133352ba3bc51d6e9b17b3d75457abcbd1fd604890193a7a27fa5347b2",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/000.json": "66d1e257408f722d1504a1207c2a1f86abe6c8fad0ce34ed83316181d3fffefd",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/001.json": "f7861ae0365e813a8bac1ebfb0e5ce75de05bba37f50723d90ce62257802f49a",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/002.json": "943edf80ff04152f73738b337bef3ce237b707db5aa739b8508622d136732660",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/003.json": "547c09e8962a390ecb1c83278c42f50f73e46876c379c7b204824978f5137984",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/004.json": "ea4f2918a093e5afce1d43cbd588ba9076deca13877fea2a22e8b49071e72d89",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/005.json": "830dd0eefbfb20b41966f582b54eabc3c01d64dcb0656069388b63a7eef319c1",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/006.json": "5ab2fa8b864b372835aa252b9465a4dc1cfa023679ed63fa408a0007d5c0d4d5",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/007.json": "87904ee38adc256ee3ca93fb97f3be63217ae19f047379702f430ad478a7017d",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/008.json": "963c350aa32c51c9e464270575d842cfdc74a86b34449fafac99f4d0a8f940d8",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/009.json": "1c96e2dc9f7846d5b86015823fc5ee76215c7a504d9d83331639c56b027f8b52",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/010.json": "fcec2594111831cb891fff25e5b03fb2852cada510296142cc26111221df8d02",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/011.json": "123762661bfd16be9432e6c59fabf1a5af2fef8c0f29d10846355e1761121ef3",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/012.json": "0bae1844a3a92a41a701786e91441481d36f190cfaaf1d00b9b1787c35160d3f",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/013.json": "2bc51f78718ca0b1d4bf41ab0942d9d636e02218283c3e26de17634467ba7af7",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/014.json": "9509ec1be148dc4a8861e25c6d87304c591bc80c1c22cd807799bdbcf7e7bae6",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/015.json": "1c129e0d4470e4bc76087b0bceaa7a5a14d1bfe773f2edfe25c4ca4a3478f043",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/016.json": "e7dfd34e345b2d0d1f2562642cc4f6f9f2813449de38f8ea3422df013e8cefc0",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/017.json": "0d795be53f06487e460fa55dbe621ec481501c11f3167fdbb81006514708cb1b",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/018.json": "28055a83f42e432028e813dbd213707f33f4d7efccc3a5b8c0cdf56b39397589",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/019.json": "19e093487a129ef2579f8afa452a32d369f592ae2d416538c2f7f1822871c1e3",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/020.json": "4df078ed62daf47521f0760b3c627e94e30d6a7ff1e608189d14e8e9f93e78dc",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/021.json": "dced84b29b9f78beb3c652a5c5b9b17166977c3a33f26375d281e4b7b3b9ff29",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/022.json": "47a4b108c838a9e08406947799bdbe9e56e589b00c83396aeb55ddfd935e9548",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/023.json": "dd6f3207cc8d37709fcfcdbb901c3678da9a96e32cfaa8b9f025f672735d1404",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/024.json": "59b221c3ed2dfa10f27a26ab84c51a3bd7a43605cbff3d58d776f05443f69eb8",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/025.json": "87173680ef9c98f61e355df1eda25a3d1d8432ed593d661f26bfdaaca591b705",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/026.json": "764c1b17f0c44fe5dc4d6ba105c5d19f14d02c8294ceba7fc8085bbc34692d13",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/027.json": "5df212d07fa3489464c64054ff643f6a7fed8a87aab5497a843f8386a37233e1",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/028.json": "30cc890bd9ccb28f4fd51b5a1982645f941352eb54da05f74e94b2849c4f0a6e",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/029.json": "2cb8236709b9f482f555bd27d1b0c44fee5126d0ce5e1c9a27c32adb5642fe76",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/030.json": "220fe5f3351c758ce4366a81053590e99d180e4f9ff5f3899cc0e5e9d19fed4d",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/031.json": "6e9fc360913ce160b027881bd8dc2289789c16ed44392c6ebffbe062c57608c8",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/032.json": "0ae6c241d7a43febc2fc5989089806bc7f5a5ae5ddf1c9810c76c8b9bbb7d6f2",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/033.json": "335c35691d2c6f35faf93011121d72137f99aab29290c7208d06a6e4e82b8386",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/034.json": "d241868edef20a6427aac797a969f4aca13b7e0b1daafb68d693e25a1955ba6d",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/035.json": "b18e88f222e1b2182e3c394aa427147b0fdcb2d82176052f3a5becf6ea8b5019",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/036.json": "09bae4274a24755c8aef5a757e23e006f5516b2e28dcfc2b3e88bae9071d675c",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/037.json": "66a582f485e49edebf8c0f07d0f28c7ec56e7774ffdf80d16815b57494873e13",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/038.json": "4094a261cf1a6441e66036c403e09b9ddaf8d03a5db4eef0fb73a470dc58525f",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/039.json": "6f8dada60c9678cce80b4a00bd0ea2c2dcde0d07bc253c115c00cbd77723338e",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/040.json": "2da885a0e5b0f59a05413060ff793486d4cbc7fdb1a81373e843c9609177a76b",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/041.json": "070c039f12b3f680cf32c9692e5ed25562a2541d8e1f2fc2a5ae4ca63a581f5f",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/043.json": "1dad98966afcd6ba747ca18734dfee75b5fa5d3db8aeef16266914c2b4e1250a",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/044.json": "ab1d583d299cc56fac9b982b14efa9a514070b08b2a7222fdf295e93fee0ad27",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/045.json": "bb348a9c429848f6e3d03a29d215441e3735dcca5947f83450dd63401732f71b",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/046.json": "c8586bcc8a7211fd214ef49faaded0ac7e81ef9b9e7b7d3ea820a85d9d239dea",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/047.json": "605b65d2703538d7e8fde8e718b090e138ce0049edaca1ea3ab6416f856cde67",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/048.json": "e34ef06f22b7b524001fd86116277e6ee5da5b99a4d99440899d12d34b9f338d",
+    "benchmarks/runs/20260909-6594-material-ranks1-50/results/049.json": "725abd37abd062c9e8e8564a8de7464fe201b3433f0a2e6495c5d2f2137cda43",
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/array.sbatch": "181790737d279467a5d4b21055315205e506ef1a9066375c16429a9bf8a83dbd",
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/launch.json": "8eaf221addc123b34ebe7fb78adc6e9a6262d8ae86b6ffee4c50728130340dbd",
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/manifest.json": "3ea16dedae8f9680e193287700bb68ed2977edf1e25f0c4a870b3ff68762d33d",
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/results/candidate.json": "a53556acfd180e8441f35adb0ed47a679eadef364f4bb0ca0eaafd4b4d0e623f",
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/results/previous.json": "691175f61149333e2bcadceb5b0b62bed3adcefe7c36d22f28b4ccea91dcc67b",
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/run.py": "134ca71a54fd26e6be7ed5cb4f0b7ff2fb079e205d5b42f232a3e2dc3a83fd2a",
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/summary-6631.json": "ebbd338efb3e4fc9e5700e9fb0609738077007d0716d076aeeff744636853163",
+    "benchmarks/runs/20260909-6632-rank49-current-replay/array.sbatch": "1a3835a295509e568b9dd184b6a568d3cd23d60f1a88f9f492dcec712011571c",
+    "benchmarks/runs/20260909-6632-rank49-current-replay/launch.json": "d7ebff2aaddf18f57c3b799503e93e7a91db11bcd49ae6d3ee0ecdfd0e56a4f3",
+    "benchmarks/runs/20260909-6632-rank49-current-replay/manifest.json": "068381208b34aa2c6f3025b2eb0cf44056f5590391a2bb35e915968e9f4099ab",
+    "benchmarks/runs/20260909-6632-rank49-current-replay/results/candidate.json": "484612bc5a6515fbf77c7b5ea934c3906c7ff9fcc0cc3f605249c0d906da75fa",
+    "benchmarks/runs/20260909-6632-rank49-current-replay/run.py": "2d648f5ad32b984c6aa029f1e88fa2f9ead84a8b3fbf5c5494031a57e4aab275",
+    "benchmarks/runs/20260909-6632-rank49-current-replay/summary-6634.json": "9b69b1817260bc84673b479781eee2a9c0f381d434718e8d6d6a5afcaacfb249",
+    "benchmarks/runs/20260909-6637-rank35-binary-life/array.sbatch": "cd8fdb06ff4ddf3c707cf8f26028192710275fe2ae68c8e8958fe36f8c8f9969",
+    "benchmarks/runs/20260909-6637-rank35-binary-life/launch.json": "01750d3450286a50348359a73c69e88cff6f09292777197abe1cec8d0de75e74",
+    "benchmarks/runs/20260909-6637-rank35-binary-life/manifest.json": "5411e9ec24f55976f52fb2cbb5cc9f87478b978e99b5329673d969eec7b00b2d",
+    "benchmarks/runs/20260909-6637-rank35-binary-life/run.py": "6f659a9607f0ab5d5e8951ea6fc85e20b6112e87121bcbad81b407dd4a5fac42",
+    "tools/bench/reorder_input.py": "c3dc1bb19d19282477842ad439ee721863acef2eaaed7afe46ef58af9a316c72",
+    "tools/bench/test_reorder_input.py": "1fef08b244368ff925a98c67934935146621f0951a7db515e8d2ad3f99b13203"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "accounting": {
+    "benchmarks/runs/20260909-6629-rank35-reorder-input": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678421",
+        "-S",
+        "2026-09-09T18:04:31",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678421_0|COMPLETED|0:0|2026-09-09T18:04:31\n1678421_1|COMPLETED|0:0|2026-09-09T18:04:31\n"
+    },
+    "benchmarks/runs/20260909-6632-rank49-current-replay": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678423",
+        "-S",
+        "2026-09-09T18:18:42",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678423_0|COMPLETED|0:0|2026-09-09T18:18:42\n"
+    },
+    "benchmarks/runs/20260909-6637-rank35-binary-life": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678424",
+        "-S",
+        "2026-09-09T18:21:39",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678424_0|RUNNING|0:0|2026-09-09T18:21:39\n1678424_1|RUNNING|0:0|2026-09-09T18:21:39\n"
+    },
+    "benchmarks/runs/20260909-6594-material-ranks1-50": {
+      "command": [
+        "sacct",
+        "-n",
+        "-X",
+        "--array",
+        "-j",
+        "1678354",
+        "-S",
+        "2026-09-09T16:16:14",
+        "-o",
+        "JobID,State%40,ExitCode,Submit",
+        "-P"
+      ],
+      "stdout": "1678354_0|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_1|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_2|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_3|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_4|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_5|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_6|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_7|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_8|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_9|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_10|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_11|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_12|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_13|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_14|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_15|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_16|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_17|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_18|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_19|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_20|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_21|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_22|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_23|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_24|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_25|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_26|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_27|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_28|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_29|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_30|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_31|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_32|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_33|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_34|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_35|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_36|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_37|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_38|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_39|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_40|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_41|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_42|RUNNING|0:0|2026-09-09T16:16:14\n1678354_43|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_44|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_45|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_46|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_47|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_48|COMPLETED|0:0|2026-09-09T16:16:14\n1678354_49|COMPLETED|0:0|2026-09-09T16:16:14\n"
+    }
+  },
+  "evidence": {
+    "benchmarks/runs/20260909-6629-rank35-reorder-input/summary-6631.json": "ebbd338efb3e4fc9e5700e9fb0609738077007d0716d076aeeff744636853163",
+    "benchmarks/runs/20260909-6632-rank49-current-replay/summary-6634.json": "9b69b1817260bc84673b479781eee2a9c0f381d434718e8d6d6a5afcaacfb249"
+  },
+  "checked_clean": 49,
+  "full50_states": {
+    "1": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "2": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "3": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "4": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "5": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "6": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "7": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "8": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "9": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "10": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "11": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "12": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "13": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "14": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "15": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "16": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "17": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "18": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "19": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "20": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "21": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "22": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "23": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "24": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "25": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "26": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "27": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "28": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "29": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "30": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "31": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "32": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "33": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "34": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "35": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "36": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "37": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "38": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "39": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "40": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "41": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "42": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "43": {
+      "status": "pending_validation",
+      "clean": false,
+      "checked": false,
+      "scorable": false
+    },
+    "44": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "45": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "46": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "47": {
+      "status": "checked_UNSAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "48": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "49": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    },
+    "50": {
+      "status": "checked_SAT",
+      "clean": true,
+      "checked": true,
+      "scorable": true
+    }
+  },
+  "checks": {
+    "bench": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/bench",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "",
+      "stderr": ".......................................................................................................................................................................................\n----------------------------------------------------------------------\nRan 183 tests in 0.084s\n\nOK\n"
+    },
+    "slurm": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/slurm",
+        "-p",
+        "test_*.py"
+      ],
+      "stdout": "SLURM job 123: observation failed (1); retrying same job\n",
+      "stderr": ".............\n----------------------------------------------------------------------\nRan 13 tests in 0.004s\n\nOK\n"
+    },
+    "check-doc-size": {
+      "command": [
+        "python3",
+        "tools/docs/check-doc-size.py"
+      ],
+      "stdout": "  warn  DEVELOPMENT_PLAN.md: 747 of 750 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  PROGRESS.md: 350 of 350 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/calculus.md: 671 of 680 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/implementation-notes.md: 560 of 560 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\n  warn  docs/scheduling-parity-ledger.md: 600 of 600 lines \u2014 under 10% reserve left, compact it before the next addition needs the room\ncheck-doc-size: 0 error(s), 5 warning(s), 30 file budget(s) checked\n",
+      "stderr": ""
+    },
+    "check-progress": {
+      "command": [
+        "python3",
+        "tools/docs/check-progress.py"
+      ],
+      "stdout": "  note  build dirs newer than newest source: pin-5316-core-capture(Release), pin-5317-core-capture(Release), pin-5318-core-release(Release), pin-5321-core-roots(Release), pin-5322-core-repose(Release), pin-5322-repose-trace(Release), pin-5323-binary-watch(Release), pin-5325-sequential(Release), pin-5325-sequential-trace(Release), pin-5326-composed(Release), pin-5326-composed-trace(Release), pin-5327-bridge-pose(Release), pin-5327-bridge-trace(Release), pin-5331-core-trace(Release), pin-5337-rewrite-source(Release), pin-5342-deact-trace(Release), pin-5343-round-retirement(Release), pin-5344-round-only(Release), pin-5344-round-release(Release), pin-5347-decision-stream(Release), pin-5348-choice-state(Release), pin-5352-queue-stamps(Release), pin-5353-factor-stamps(Release), pin-5354-empty-factor(Release), pin-5356-empty-factor-release(Release), pin-5357-empty-factor-C(Release), pin-5359-focused-choice(Release), pin-5361-queue-bumps(Release), pin-5369-congruence-prefix(Release), pin-5371-congruence-prefix-release(Release), pin-5372-congruence-prefix-bc(Release), pin-5377-retry-producers(Release), pin-5378-vivify-retry(Release), pin-5379-vivify-retry-release(Release), pin-5380-vivify-retry-bc(Release), pin-5382-prefix-cost(Release), pin-5387-dense-publication(Release), pin-5388-dense-publication-release(Release), pin-5389-dense-publication-bc(Release), pin-5391-eliminate-dense-entry(Release), pin-5392-eliminate-dense-release(Release), pin-5393-eliminate-dense-bc(Release), pin-5399-window-observer(Release), pin-5402-direct-heap(Release), pin-5412-imply-observer(Release), pin-5414-imply-fast(Release), pin-5417-rephase-root-trace(Release), pin-5419-rephase-root-release(Release), pin-5420-rephase-root-bc(Release), pin-5426-watch-truncate-release(Release), pin-5427-watch-truncate-bc(Release), pin-5430-inprocess-root-release(Release), pin-5431-inprocess-root-trace(Release), pin-5432-inprocess-root-bc(Release), pin-5438-vivify-max-release(Release), pin-5439-vivify-max-bc(Release), pin-5445-replacement-cursor-release(Release), pin-5446-replacement-cursor-bc(Release), pin-5450-eliminate-limit-release(Release), pin-5451-eliminate-limit-trace(Release), pin-5452-eliminate-limit-bc(Release), pin-5456-factor-observer-trace(Release), pin-5459-bound-advance-release(Release), pin-5460-bound-advance-trace(Release), pin-5461-bound-advance-bc(Release), pin-5466-watch-pair-release(Release), pin-5467-watch-pair-bc(Release), pin-5473-sweep-cursor-release(Release), pin-5474-sweep-cursor-bc(Release), pin-5510-sweep-retained-release(Release), pin-5511-sweep-retained-trace(Release), pin-5512-sweep-retained-bc(Release), pin-5522-sweep-small-release(Release), pin-5523-sweep-small-trace(Release), pin-5524-sweep-small-bc(Release), pin-5546-vivify-census-release(Release), pin-5547-vivify-census-bc(Release), pin-5592-factor-root-support-release(Release), pin-5593-factor-root-support-trace(Release), pin-5594-factor-root-support-bc(Release), pin-5619-congruence-index-release(Release), pin-5620-congruence-index-trace(Release), pin-5621-congruence-index-bc(Release), pin-5641-propagation-cursor-release(Release), pin-5642-propagation-cursor-trace(Release), pin-5643-propagation-cursor-bc(Release), pin-5672-assignment-level-release(Release), pin-5673-assignment-level-trace(Release), pin-5674-assignment-level-bc(Release), pin-5696-score-bump-observer-trace(Release), pin-5718-root-conflict-reuse-release(Release), pin-5719-root-conflict-reuse-trace(Release), pin-5720-root-conflict-reuse-bc(Release), pin-5741-reuse-target-release(Release), pin-5742-reuse-target-trace(Release), pin-5743-reuse-target-bc(Release), pin-5760-forward-exit-trace(Release), pin-5798-forward-unit-release(Release), pin-5799-forward-unit-bc(Release), pin-5800-forward-unit-trace(Release), pin-5817-forward-mark-trace(Release), pin-5830-forward-admission-release(Release), pin-5831-forward-admission-bc(Release), pin-5832-forward-admission-trace(Release), pin-5849-forward-caller-release(Release), pin-5850-forward-caller-bc(Release), pin-5851-forward-caller-trace(Release), pin-5854-forward-caller-journal(Release), pin-5870-forward-preclean-release(Release), pin-5871-forward-preclean-bc(Release), pin-5872-forward-preclean-trace(Release), pin-5873-forward-preclean-journal(Release), pin-5900-reduce-root-release(Release), pin-5901-reduce-root-bc(Release), pin-5902-reduce-root-trace(Release), pin-5903-reduce-root-journal(Release), pin-5920-reduce-preclean-release(Release), pin-5921-reduce-preclean-bc(Release), pin-5922-reduce-preclean-trace(Release), pin-5923-reduce-preclean-journal(Release), pin-5956-bve-full-heap-trace(Release), pin-5962-bve-active-pop-release(Release), pin-5963-bve-active-pop-bc(Release), pin-5964-bve-active-pop-trace(Release), pin-5965-bve-active-pop-journal(Release), pin-5985-bve-repeat-heap-trace(Release), pin-6004-clause-pose-series-trace(Release), pin-6016-vivify-pose-trace(Release), pin-6030-learned-stage-trace(Release), pin-6049-reduce-root-lock-release(Release), pin-6050-reduce-root-lock-bc(Release), pin-6051-reduce-root-lock-trace(Release), pin-6052-reduce-root-lock-journal(Release), pin-6054-reduce-root-lock-trace(Release), pin-6090-macro-heap-trace(Release), pin-6107-substitute-publication-release(Release), pin-6108-substitute-publication-bc(Release), pin-6127-publication-trace(Release), pin-6128-publication-journal(Release), pin-6136-substitute-journal-release(Release), pin-6137-substitute-journal-journal(Release), pin-6146-collect-memory-release(Release), pin-6147-collect-memory-trace(Release), pin-6150-collect-memory-release(Release), pin-6151-collect-memory-trace(Release), pin-6154-bve-capacity-release(Release), pin-6155-bve-capacity-trace(Release), pin-6169-learned-sort-release(Release), pin-6170-learned-sort-bc(Release), pin-6206-schedule-continue-release(Release), pin-6206-schedule-continue-trace(Release), pin-6231-substitute-retry-bc(Release), pin-6231-substitute-retry-release(Release), pin-6231-substitute-retry-trace(Release), pin-6269-vivify-binary-retry-bc(Release), pin-6269-vivify-binary-retry-release(Release), pin-6269-vivify-binary-retry-trace(Release), pin-6283-admission-release(Release), pin-6283-admission-trace(Release), pin-6305-substitute-collapse-bc(Release), pin-6305-substitute-collapse-release(Release), pin-6305-substitute-collapse-trace(Release), pin-6327-collapse-schedule-release(Release), pin-6327-collapse-schedule-trace(Release), pin-6350-transitive-schedule-release(Release), pin-6350-transitive-schedule-trace(Release), pin-6357-compact-stamp-bc(Release), pin-6357-compact-stamp-release(Release), pin-6357-compact-stamp-trace(Release), pin-6383-vivify-count-cache-bc(Release), pin-6383-vivify-count-cache-release(Release), pin-6383-vivify-count-cache-trace(Release), pin-6413-rank45-schedule-release(Release), pin-6413-rank45-schedule-trace(Release), pin-6424-activation-stamp-bc(Release), pin-6424-activation-stamp-release(Release), pin-6424-activation-stamp-trace(Release), pin-6448-shared-blocker-bc(Release), pin-6448-shared-blocker-release(Release), pin-6448-shared-blocker-trace(Release), pin-6475-position-key-bc(Release), pin-6475-position-key-release(Release), pin-6475-position-key-trace(Release), pin-6508-congruence-stages-release(Release), pin-6508-congruence-stages-trace(Release), pin-6571-material-state-bc(Release), pin-6571-material-state-release(Release), pin-6571-material-state-trace(Release), pin-6579-material-schedule-bc(Release), pin-6579-material-schedule-release(Release), pin-6579-material-schedule-trace(Release), pin-congruence-index-repair-5623-bc(Release), pin-congruence-index-repair-5623-release(Release), pin-congruence-index-repair-5623-trace(Release), pin-periodic-fuzz-5442-debug(Debug), pin-periodic-fuzz-5442-release(Release), pin-periodic-fuzz-5442-shadow(Debug), pin-periodic-fuzz-5492-debug(Debug), pin-periodic-fuzz-5492-release(Release), pin-periodic-fuzz-5492-shadow(Debug), pin-periodic-fuzz-5539-debug(Debug), pin-periodic-fuzz-5539-release(Release), pin-periodic-fuzz-5539-shadow(Debug), pin-periodic-fuzz-5610-debug(Debug), pin-periodic-fuzz-5610-release(Release), pin-periodic-fuzz-5657-debug(Debug), pin-periodic-fuzz-5657-release(Release), pin-periodic-fuzz-5657-shadow(Debug), pin-periodic-fuzz-5715-debug(Debug), pin-periodic-fuzz-5715-release(Release), pin-periodic-fuzz-5715-witness(Debug), pin-periodic-fuzz-5765-asan(Debug), pin-periodic-fuzz-5765-release(Release), pin-periodic-fuzz-5765-witness(Debug), pin-propagation-cursor-repair-5647-bc(Release), pin-propagation-cursor-repair-5647-release(Release), pin-propagation-cursor-repair-5647-trace(Release), pin-sweep-pose-fuzz-r2-dbg(Debug), pin-sweep-pose-fuzz-r2-rel(Release), pin-sweep-pose-fuzz-r2-shadow(Debug)  (total pin-* dirs: 408)\n  note  newest completed tier run: 20260813-111513-C-cleanup-b2b8362\n  WARN  3 lesson citations remain in living docs (DEVELOPMENT_PLAN.md:3) \u2014 policy is to state the finding + evidence, not the number. Run the de-citation sweep.\n  WARN  newest tier run 20260813-111513-C-cleanup-b2b8362 is not cited anywhere in PROGRESS \u2014 a completed window nobody recorded\ncheck-progress: 0 error(s), 2 warning(s)\n",
+      "stderr": ""
+    },
+    "check-rule-policy-boundary": {
+      "command": [
+        "python3",
+        "tools/docs/check-rule-policy-boundary.py"
+      ],
+      "stdout": "check-rule-policy-boundary: rule/policy imports and data flows are clean\n",
+      "stderr": ""
+    },
+    "check-proof-rule-sync": {
+      "command": [
+        "python3",
+        "tools/docs/check-proof-rule-sync.py"
+      ],
+      "stdout": "check-proof-rule-sync: 0 error(s), 23 calculus rule(s), 24 guide card(s)\n",
+      "stderr": ""
+    },
+    "check-section-refs": {
+      "command": [
+        "python3",
+        "tools/docs/check-section-refs.py"
+      ],
+      "stdout": "  ok    43/43 section references resolve\ncheck-section-refs: 0 error(s)\n",
+      "stderr": ""
+    },
+    "check-citations": {
+      "command": [
+        "python3",
+        "tools/docs/check-citations.py"
+      ],
+      "stdout": "  ok    59 citation(s) resolved and in range\n  note  186 skipped (186 ambiguous basename, 0 not in our tree, 0 resolve to a reference clone, 0 unjudged: no reference clone on disk)\ncheck-citations: 0 error(s)\n",
+      "stderr": ""
+    }
+  },
+  "andrew_report": {
+    "report-to-andrew/20260909-1825-reorder-binary-rank49/report.tex": "8858f645ab8d8c6dc91824850499b2658e285fda4b2f4b446702087e5cb732aa",
+    "report-to-andrew/20260909-1825-reorder-binary-rank49/report.pdf": "d5ed30e1b859e2f48a79e41923f306c7e907f4cfb93034e771685a100db19b96"
+  },
+  "cleanup": "No manual deletion. Terminal diagnostics hash/delete partial proofs and scratch before publication; final runtime records independently require clean scratch. All new/old pins, traces and writers remain needed. No live checker scratch or fuzz artifacts inspected.",
+  "limitations": "No solver change or runtime gain. Rank35 selected weight accounted, lifecycle causal producer pending. Rank49 preflight full-work equality rejected before campaign creation; exact three counter families retained and short applicability checked independently. One startup macro stamp difference retained. No failed solver/checker oracle, native timing rerun, source promotion, FlatLists/fuzz access or denied transfer/push retry."
+}
