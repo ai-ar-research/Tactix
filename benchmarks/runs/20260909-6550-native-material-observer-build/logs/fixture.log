@@ -1,0 +1,1 @@
+PASS actual producer callback: inclusive counters/conflict, no repeat/rearm rows, signed export, fixed flag and no observer mutation

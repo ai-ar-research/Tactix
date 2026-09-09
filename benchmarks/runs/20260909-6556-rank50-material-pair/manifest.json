@@ -1,0 +1,64 @@
+{
+  "rank": 50,
+  "input": "benchmarks/cache/tierD24-26/04ded94454830d4ea960327e8b91f5a3-mdp-28-14-sat.cnf.xz",
+  "input_sha256_compressed": "0120ee45acc3ee4d9fd9b48c32d4f3c0b85c80e83eacca950a45fbec7c594c10",
+  "stop_conflict": 1000000,
+  "stream_from": 0,
+  "common_decisions": 139633,
+  "selection_sha256": "727420ea950f42bfc6e7c4e36b5ac5aaa521bb326e17bfa841685b79a8c4d59b",
+  "earlier_closure": {
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/049.json": "ca13a9ed1bfca6dcc781687e4ad1b431df56f7e2f26389b91139137b60f265ff",
+    "benchmarks/runs/20260909-6181-learned-sort-ranks1-50/results/049.json": "8776b485ac0b14c6fe1ecb688ec9cf07b1084a1f871b023a1f1d0b84487931c9",
+    "benchmarks/reports/2026-09-09-rank50-loss-breakdown-6198.json": "2329d71f72020955071d122b1c8e39863615079e39e1061c38a2c3bb29519323"
+  },
+  "admission_conflict": 823562,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-0",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "material_from": 2508,
+  "material_to": 2510,
+  "observer_build": {
+    "path": "benchmarks/runs/20260909-6550-native-material-observer-build/manifest.json",
+    "sha256": "afbd6b6aa1ad21826d333c1940c29641a2081d7c584df079be749dcae02b5a43"
+  },
+  "cached_control": {
+    "campaign": "benchmarks/runs/20260909-6553-rank50-material-producers",
+    "result_sha256": "9ba6307b040b04cdc478f246a36299198de59fe8f501af368d148d8ea4d68a24",
+    "summary_sha256": "ccd6acc2fa40293a3da7c0dc6231ca477226c81011c3225fa134ebe712785af1"
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "purpose": "Resolve whether the two observed new-binary material events refer to the same physical binary pair. Existing selected-pair lifecycle observer; no source edit.",
+  "validation": "Require every6553 ordinary stream plus material stream and partial proof exactly; parse all selected-pair lifecycle records. No adjacency-based same-clause assumption or final-proof acceptance.",
+  "test_consideration": "Same binary and existing lifecycle observer/parser with fixed tests; no new solver code. Prior callback and nine material-reader tests retained.",
+  "limitation": "Native-only bounded diagnostic. No competitiveness timing, final SAT/UNSAT verdict, fuzz acceptance or approved policy redesign. 1200 seconds solver-only; 25-minute allocation; no node constraint/throttle.",
+  "hashes": {
+    "run.py": "cc23264ee6a37300a7b8f332fa57108f4d5aaca4e35c6a50474786ca2bed12e0",
+    "array.sbatch": "fbbab85dcf733993216039fc0af78b45e196751d1a4b4d71130d02d9b1dc21af",
+    "pins/kissat": "03010cb49b7538297cf77405b8ccdf2ec797b836d4ba7539eed15c14b53090f7"
+  },
+  "selected_pair": "574,-525"
+}
