@@ -1,0 +1,324 @@
+{
+  "hashes": {
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/manifest.json": "c9ad1c3915dfc25d188b6cd3a74ce535fcbfb8ff621655ed6cbff9457dd7d951",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/launch.json": "675c1ed013dccd0a8d66cdbac8ead9afaf620aace068bac4077963445a14cdc0",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/candidate.patch": "79df3720167edb0e1222de47f35389cff653ee99d50fa0a4edde91a07af29ebd",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/candidate_B": "30a19aebc09b81e58fc012b1fb5462ed0352bfa62653ec00833e48f7ec6d889c",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/candidate_C": "30a19aebc09b81e58fc012b1fb5462ed0352bfa62653ec00833e48f7ec6d889c",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/current.patch": "205dab5861239511ac743d64ebef3ac41f5a0932ffb3b5d39276e8106511c3c0",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/current_B": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/current_C": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/pins/runtime_task.py": "9a010d276a883c9289ad6a620e39c1ed761c2ba3b62f3d878e37cca5de228206",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/matrix.tsv": "da2d234473fc551eb67bf3c7e1e9d7cbd5f3fe09df5e4e5363b13a28fe17e064",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/array.sbatch": "d598e6eb865345140298bd43c1250fc7620a720c01b8c5dd876f685ac79c07e1",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/000.json": "e2d9838312c2d411b6857e922ce7ceeae5af896c76c81726ab2a319adaae8d9f",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/000.json": "c88c3bb350466794affb3fc950aaec355cb2d12c464271c83ee5f129a2b75ee0",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/001.json": "cb8bb698910bf6c80e83955105905eb2302d56409dc082619593d1f72427bcb4",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/001.json": "e4bd46d02816fbf252627a1442a80fa10567bc36867fa2b0a1cd4dac004bf806",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/002.json": "de804ab2f9dca47fe97a34aa1e6dd184eac295447c8264f5ceec88961ec19398",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/002.json": "a3faab6b00731b60a38c99aa07ab4bafd1a9ef0d19fd94c1a051675a9bda4358",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/003.json": "844f03872ad3c8f321ac59e05b96eae015e1caa6578130999e6e03b369c82fbc",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/003.json": "c5fbf2a88ba60b2b9cb59566eac845f61f70f268dc1a19f199b0f302a9d653b8",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/004.json": "a280599d38f8ec3135ebbd67bfe709d3d243db7e2a4c5c1179958752193c0e5b",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/004.json": "c4aa79461260838b9072f75f475a08c7ce0cca0f67eb48d3d110470f4fdfdf68",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/005.json": "c9dca9809ec84ddcd5a844d334a731ba18832214e077b88bf830e2e75b95fb6f",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/005.json": "56f86ce8b785dc2ff94f3c6c2d3ef0993f9d17e959d64a445e80fe86c11a18ac",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/006.json": "766b902ce2e47a9848f04a48c790449c5258c40123f589c70b4ca1dc6e319035",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/006.json": "aa0fb0d1b6ea3fa5048c04c20aec5f3f1e8413104388c136cc2a8091dedb72b7",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/007.json": "467009a95832509121b0fbd02ab2e952d470a5edcbcd1e432025495ac3d4e358",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/007.json": "1b8bd50fe41a44667810d201cdb444bebf608bef5d630d6e5b006670adb52c49",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/008.json": "3d8b6ad157051cd1250930210d6be43a145c957418199669ecf8656d3b7113b6",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/008.json": "bfa78c9fd586b5f56d34c5d8d3594f5b6f586a19ea5352adfd586af453dee53d",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/009.json": "cbd535224cdc7ccf6abb4d0ccc89877bca3bf64095890c345d4a9491034ce5ac",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/009.json": "5b20c240661b1ec5a33954c38ce59960410199a2ed482ee0c8ff897888651b39",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/010.json": "209b34bc652a3388b7224fd914f26cce8b28119eafc9a4978f3f01982b41b09f",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/010.json": "df96507b4d20f5833e6dc33ea9bf623929f00bbc1594f8612ad7a3b942f707c9",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/011.json": "fa8b7b7c5b4f63f4db32a5e8651c5a40f36ae760e2c49b91ef4b8a676dd283ea",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/011.json": "b65e5b3e716cc1ca2bebced48daf0738e10c7ab73bf279cf0910b9784c0a03e5",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/012.json": "d1457dcb8ac0824092eb7779082722c1f80efac53dcd14167556b63e6ed68e05",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/012.json": "40ac526e6f04a334a2a25631a96a623cc0deea20312ced5a26fbb988e74b7a3e",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/013.json": "dea7a454a6e6bdf0cbad173ba307357a39216565eda1c2af180b1e0ed7a99503",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/013.json": "25f60bb19801cde40e0d8fe881955572496544136246561c5955be3e753ffaef",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/014.json": "ae7e971178a10320e0af76e43a86546e40aca64c5d4c2c8610d146bf0e39d174",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/014.json": "e27f4833c122b0c8988affc0b2b2e5c581bb11174c064f66fafc381cecec1ab8",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/015.json": "4baed72abe21ecd490224383eafdf56dc6f78fd998f2e33a2645c3dbc432efc8",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/015.json": "df9658e7605deef0f895c66726f5efc6790038231d2290db58730bf2136f42ea",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/016.json": "3d45b7590e1e753fb08441376db1f02daac2169d28e7b2b042478832de9f9b4e",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/016.json": "6be8c04ae3c72eccd16d706850db2e22cc230ad9b3875910f41ff514abdcdd32",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/017.json": "f6bb322dfec1f8c645a49d353b4459a0e00f42f9921fc816f1174879a4d6da2b",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/017.json": "3c1ec3c35c3a2a104abd54938e934eb259ad562a90ec531ab96d1832b76a5b6c",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/018.json": "f879ba24f7156f0e0b86696afe7214fa35a7cd4aab90a4690b4e617a49e94050",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/018.json": "51c9d3bfef6e70612f3e2952ed9e2bc5c0bf5f7d604a82056f163dd22b39395e",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/019.json": "b0de7c96a0b8cea4103f7b530fdeee9e5f5969660dc4de5db4232ddb44b50404",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/019.json": "6e998eefbe9b82f154ccaaba5ff8a4c7cc2f5d8088774c8e09ccb978121a9615",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/020.json": "d1032b4227612868455866598b329f271d9c2d7070f70c33a31200f62ef7bfb0",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/020.json": "695d953870ac065c7d11354312680a87b3c24e24dae3d38dcf7cf9b570da1dfd",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/021.json": "8bb1969c884b42b3b32023ead6a7808f186a685fcd0670b2553f458440ebc2e7",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/021.json": "1c69bcf251f8ee9f7b10a72c3f5088f59282bbc7526fdd33faedbf757f02c101",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/022.json": "88539fb3ba2e9707870b2634a5d55046cb9e6867dbfdc18625fc68066d850dde",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/022.json": "08067bdf7ae3e3173f495efea66e6cdf8539e12a07a856aeaca04fca90e147a1",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/023.json": "2dc935fa556bd49e6e4e4353b75e0371ad206d8165d02d0d468f82649807de8d",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/023.json": "8284b41f0ca5ffb7c328e1248aba0d47a9edf5852fde6af45dadcfe5825303dd",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/024.json": "9995caef087cdbf8a6cc57858f8e9c5f9800d3093684d8a1fb882f1e0f24dc56",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/024.json": "100f2bea941ff4bcd0ffc163f3594cf278360879848e9988fafea157caea7d40",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/025.json": "6f71d3a82d0b59080bd064eaeedf439477e31162f368dadaf160558a299cbee9",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/025.json": "467498655557fac2ba5686e7495c524cfcf1bbb2bc3f28e934d94a326a9a3bcb",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/026.json": "84d07272744074668b79262513256c0d3bc34dfed9c762f143fd6998b5606636",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/026.json": "d26368b1ac4d56850adcd9655f3f6527bd2c8f78d62c2295edd5ab3aa7c4282a",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/027.json": "5d3c4e475720a7cf04046064115854e4f8d27a1036cd78cb5f722d5fd9cab420",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/027.json": "67f235f150628d9d35569fcd2e792bc1f63a7a8558eb107f085c478af8813061",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/028.json": "79c8bf3bf302a05377a6100c675ba101aafed20a864951a26a0d7e8097120108",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/028.json": "6f4af919a0bb46a11fbfc65ee3ac8970d15288473b105b0756723ebe7db7d63d",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/029.json": "b3c5ed6e4121e8558f98780daca4df8a2765b1df7f717b52a3c699bd18a8530b",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/029.json": "6ac1f7864265731c4c9de77822c10f070405536cbf9e42c7312bc2aa296aa2ca",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/030.json": "49463d6d86f8b15427ee31c68931cf78cf64be5d37be9adbcabdcad7ca9ebfc9",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/030.json": "17f39047a3b19c3615789b176af2f398668442762a53bdab7ba40a13133e91ec",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/031.json": "7e21e39f839f116b283734094d9bb2b39ce7f29c2d284dbce9fc74b0672d044e",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/031.json": "19f0f443b7cacfe22adbc88b056304c2bbb0779f4c4a194237cf9fb4cbc34435",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/032.json": "eb9b9f83c34982ef1ad45e0ddc470a1be27bc91cd5ee07ade1c5b8ebefacf5df",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/032.json": "56e69c30cca54436a4dccfacbf1242ea24001cf54b4fc957d58ef87792fca418",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/033.json": "bd17fedfb6fd97d1a2f99647c84d39bb9672cb8f5a0c7299f363fc8ea5355637",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/033.json": "487cbc4c9606363e59897bcd04006b68568da74ca465ba554879381ab9a6009d",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/034.json": "2b2ceecbdf0957f77976497c4853e1fc0020dbc7aa5791158cb501237dc0cfd3",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/034.json": "0b8d9aba2f0c4e2c9754d9688ec483060d6d4d678168bd1baeba7ed63886f0b9",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/035.json": "8728ae1088354d78f26b4fae0a212b35ddd7986cc3f6b72701b375f01b3034a4",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/035.json": "c35392bfe67937fcb862fdc3f4a8e4b88ee5484fa223b9ae26dcd79dabd8b000",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/036.json": "4805f7e71213760238308274c8337c69efb191dbe0610eb32409d91b3842e87e",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/036.json": "8e4cde99292e48c74b29b91fba73285840d1e3219144e437468982e133f63bd5",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/037.json": "125129bd4d6306f044741ccab6df4a1a1df38caeb06e2583fd6a486d0d919dab",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/037.json": "0a02586d6253fc9c3cc1c37204f66581aa9553427b5d280dc1091f287cd5dc85",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/038.json": "e1570c7659ca2191c9d4900c8d1963a7eb878993936a4fb657b2f7e56bb817b4",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/038.json": "f21e8561ac214089690b1180b022d5e5cadecd17d8aa27ed0e245c3238f0dafc",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/039.json": "818123d9d674a256da486419e30cdf6eb0929e8bf0b958f730ecd92b1d9febb0",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/039.json": "378557609cc1b213e8ee5406e0f65f49e24512e457bb124dc092befcb9acc96d",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/040.json": "3e32b69b4a6b7dff3546fcb5395e1d8b2aa7779020891a4599b33f957b546e95",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/040.json": "ba948a840d5923b67618a082886b6b08bf00dc5d99e7c3453f544c5342a085a2",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/041.json": "b0608ad5fe313c5d62737e7ec135cedae3339e24c851300a4bc9e1e705390214",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/041.json": "6482053e9f5e777f7cf6a03b517c5c311352406ae1a03b18742c45397ca48e48",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/042.json": "fd7cd0efa4161165c0e137a736a9f3a338cf3f3571332f251b27521a861a2b5a",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/042.json": "1333eea037af972c2ab3f0926db5b39a813b8afcfff0fc5b3f1c56cef5cd899e",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/043.json": "6bbf1c74dad4074364faf2f772b57e91f28d64e8ef8095dbba3df9f3a45f658b",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/043.json": "af28643d5202bec15147b59b664f6af8fd0a42e2b3691e20b0051e1bc03cd0f5",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/044.json": "71e5a3515dc177d20e0455cdcc54ac11f55bdce901aacf341ca9fe78a6bbc5cb",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/044.json": "9f1e7b51e0413add00c18557ad3130624acc32053c6887b2fd921673fcc72747",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/045.json": "0d683f98d8ec6dccfd3de06451d58193ece38a255ca854da29007879b2983982",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/045.json": "de015bdfccbce641b52654595f49f8eebc414dc7763bc9c322c19bb6b5921c87",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/046.json": "ed12fe098c4f563c11d5d7e9dee7501ee02faa5d0cde6a8506362754e621ee6f",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/046.json": "b49bfc74e6dde39a4583ef5406513e2affa5a804dfa724524632836c40b11b6e",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/047.json": "939a697a4139a70e2eb79fd9416c9b1583d35213bfb8b5d21bcd1665b98b0ac5",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/047.json": "819a7b9b831897d13acf9d12d45891f2e6a6727833934273909b88adf9c0eec7",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/048.json": "26f699c29e771e6bed62bec1c57b5633f2d7cf7ee679c3909af941c3e9051c73",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/048.json": "813ec2c6844d370b2f425bea5cbaef10b4412fb63b162699a2c11c21d39024e2",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/049.json": "e3c0e79a6069f128cc3815d4cf87ff2689b68c5ea5f19ea157debf53b076d9ac",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/049.json": "c9a71abcfff39c596ddc72fd555c4fdc5d7f4abc703c8b07a85aa637bb2059c7",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/050.json": "8221deab45685b4076168e128fd222e5cf4c1a4163dd04eb9ae9a7e8a2ec0569",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/050.json": "2e53ba704dadea36f50a8b175cc1d3a04b1d854d718d087447149042afafb40f",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/051.json": "eddd3bf038a344adc05ee456c00b5692a00c6b885939cfa1071876acd298f0a6",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/051.json": "e6877355ee54476d895066941b3eb8847b6be129e2b2956e00ce5348f309c53a",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/052.json": "665aaad518c49d07d20c67f1815ea732047810e28a56a314e96038477a7fcd98",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/052.json": "8978815214b117edbb9e22112174bea3fb0139752bd0ca1a20343927f6b17756",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/053.json": "cad98cfb601a688144447480e7fc4b562a5d5ab7a68cc7fc2bd4ff12c45cf1ba",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/053.json": "80acb02780d16bb42d51d7b55230af47fc7c1e741ee756dc350eeee7c01fcb3f",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/054.json": "22b5a48bf18f6885b08394aca94d343c3bf0a4ee2ca002ea903f2aca23902e79",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/054.json": "f8f5beab9ca36e4d4e4226c23c3e8d9a340a65bba620030a79bd8da043168def",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/055.json": "ff02fcc448b94062ba721bd542449e2bb16821fc8f68a331a89e94b1ccdb66b6",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/055.json": "b64401729675f8a070313ce00e9e4358a9d1fb37446ff20b23952cabbd83da09",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/056.json": "e31b787a029e8e8c413ceea26fbc62a92d3374379a61742282303efa0e69fbec",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/056.json": "510be742ae6daf9b462bdda3eb7f57f9af48f2467f0f73496060f996f2fa216b",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/057.json": "9336c744e5fb5b1c9f4e4b43af2f4405deb314a2641ad5c9c0ce2729d227d3de",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/057.json": "0cf757aa26ea6f62a751e80147d68c0669bfb6da05385f90b4ebe7725b41352a",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/058.json": "3a1b99ce5c4b13c47f17306333982a10a45834e1d3f704ce543ef058c4bfde85",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/058.json": "10f0620eff7d2a9b5a554048d9a4f9b02645bdcf2e1c405216b6ed4707f46d34",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/059.json": "a7d3bbff8c7b08c20c3407e012de10cf1346b8b34cf091f0263e892c137cbf50",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/059.json": "0082d61fee2521a1702b896acae4697ff462628fa872b9de6e0c5791bd5417d9",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/060.json": "99d667b256834025c9b43b18111fbd715a7611ea6630e5bfbf08396d86a2a86b",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/060.json": "1d8171a4d613e2655bdfa5f160b27c753b683a535e87021313d7468c40e5255b",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/061.json": "33010597af3f762b716343da25fc9e84de05955b64d45f1a8db8a45fdfb410b6",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/061.json": "b44c850fd86dae055efc02968550a5fd06d61f988a55eb5285ab8b2447b33830",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/062.json": "5f0acf7b30d46b245f2cb5b41a1b2fad9e883450ad458bee8f5ae9eb3a50380d",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/062.json": "7284bbbab1bd9605c00c9c9b021da855a2a6b6dfb67c3abe7f375a09284556d3",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/results/063.json": "0f11c05ab3c8b43dd2ba36e94ea5c4fa6569fc192fe632cc6fafc75454310134",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/063.json": "703b00b5e63a763e53ed1e5b1ceb9114c8df1fc899e64e9743d4bd4664c08a95",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/064.json": "f457a9d6cebbd783bf0b4c9cf8c464d11eb4e03eddb44d0d4cba8f3070532ee8",
+    "benchmarks/runs/20260909-6574-material-state-BC-gate/provisional/065.json": "bb766b660682dc7c3aaf29c83534d5300a52ca504661a1021435116ff7310d25",
+    "benchmarks/probes/scratch/validate-material-state-BC-6576.py": "071407bb348536114e7123988132459ddc2ea3c420075cca655a79b18c096b01",
+    "benchmarks/runs/20260909-6571-material-state-build/manifest.json": "6ef10412119d0668e357b9e44b3d4850991c28f1f801d4b97e8179b693cfc703",
+    "benchmarks/runs/20260909-6571-material-state-build/parent.json": "fe173773bc3bff5cd4fe0c04d2d5dca97faeef96dfa1d161abed460450934278",
+    "benchmarks/runs/20260909-6573-material-shared-touch-control/summary.json": "68741915c3c30d39a1c746201620eaa186118856ebc110affda1b33728d8c3cf"
+  },
+  "pairs": {
+    "1": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "6b8539cae78404a5d2cf5b5b38ffbdb829a07a404ae9b60af7425eeed87e799b",
+      "certificate_bytes": 12157239
+    },
+    "2": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "c5fc0e2b24a4793ca4a70887926a0487f8abdce33bcd1e4a804df173f3a1c524",
+      "certificate_bytes": 15857279
+    },
+    "3": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "c062fe1e93fe48ccc84eebf21fc9b11d59a701b679d447b6bc95bb01aabbace4",
+      "certificate_bytes": 47130667
+    },
+    "4": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "c38387a3bc15eae882dd18ad48957e8d14905072c1588c9532f97d8f76ee4ac0",
+      "certificate_bytes": 14320450
+    },
+    "5": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "fee7965570e656d9fa95a766005fa172f3ad4bca8f772d94727d16ceeefea132",
+      "certificate_bytes": 29989617
+    },
+    "6": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "882a780d5d80cdf8e9b90ce90741bb641182af427117603232759f2656d11aff",
+      "certificate_bytes": 112114775
+    },
+    "7": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "b2a3e3b949497c52c772536efbd6bd5aa1e7f6ac6587768cf2dd2ef3fae37410",
+      "certificate_bytes": 77052995
+    },
+    "8": {
+      "non_timing_lines": 83,
+      "certificate_sha256": "a42af12f89b3de75128c85b8f50bde3c3c77bc0750884f18761ac426d454a8de",
+      "certificate_bytes": 26649040
+    },
+    "9": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "2f6f176789f2e9e5be83d1b2f5e078c1e23755515253e24320d6966eb7a07744",
+      "certificate_bytes": 10543115
+    },
+    "10": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "ad517a717f5a178e217a07824b8948d6edb4de33dc34b854cb1b567fa6cf43d1",
+      "certificate_bytes": 34193564
+    },
+    "11": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "4419eb42d74abb293722f3655178dafb36037a60201e507930c095dcee993cc3",
+      "certificate_bytes": 43673782
+    },
+    "12": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "740a6640d6fb62f244f55b50a992baa88b33bbbb8e6a50983f8caae96673953d",
+      "certificate_bytes": 37626218
+    },
+    "13": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "efb490e57e191cd9c0dc1d2d2e49e54b4ba4231b0132f9c6cd52aacb24d0cbdc",
+      "certificate_bytes": 23663090
+    },
+    "14": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "8d97ff9d47ae4fa8f73a2002be77e1672fc1b70e7f6f0916e9fc65dd6bb1bb39",
+      "certificate_bytes": 44570736
+    },
+    "15": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "7bcc13dfa637834cd34ca005861b4614f90d3a747d788877cbfccbeab45cd087",
+      "certificate_bytes": 8014398
+    },
+    "16": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "64596241067baaa58e45010790e9ebf04fb0f242440f70470cddabc33bade2a3",
+      "certificate_bytes": 34024019
+    },
+    "17": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "a9a80873f1b25c042e3d778152870061526bd435810f4024d4a772ea1dd7fb7f",
+      "certificate_bytes": 18548702
+    },
+    "18": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "67a7c7eaa3de1151a78eab282e3b73013d564073b52ed4632d6f30dc02c44fee",
+      "certificate_bytes": 59767919
+    },
+    "19": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "130967f634c0a0b53c81d1c7bb2519684a21d597330cb1da0955878656bdad08",
+      "certificate_bytes": 10387318
+    },
+    "20": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "c1e55c0e172b3c078b33b743fe3f3d5641274a44478bf035ffbc35aa832ad360",
+      "certificate_bytes": 39985345
+    },
+    "21": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "549af02e5e29955697e8b0f43d28664a227d1e1d4c183dc11c4a422f07f88912",
+      "certificate_bytes": 53797171
+    },
+    "22": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "b3a7278d2b6fa21ea4d18687a5dee864b53ce0b655450711336be66f41f4e04d",
+      "certificate_bytes": 30907783
+    },
+    "23": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "25160e60b1f90d8a1f445e93fce8fcb843313de62445d0ca941b3fcca01c3ef7",
+      "certificate_bytes": 24578539
+    },
+    "24": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "5d6901895475f225b3b52787eb9107ab8de15eb32682fa095002135e0dba7443",
+      "certificate_bytes": 26106579
+    },
+    "25": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "559ec2ab5109593d5b7a019422fcc3b7239c54a3ee5f0ef7b1cdeba8fc6dc371",
+      "certificate_bytes": 22354233
+    },
+    "26": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "f7411dc9eff4cea6521cdd384ad74fda4693fe64198b5ade07033b831d5747bb",
+      "certificate_bytes": 42581621
+    },
+    "27": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "8815a7c758e97ddfc52a1895e90cedb7bd77787b1db7160e1de9003292ef27c7",
+      "certificate_bytes": 67811565
+    },
+    "28": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "aac65eca1636c8aed33636ada9056bc03c5fc471733904604c1ebf23c30c32cf",
+      "certificate_bytes": 107583616
+    },
+    "29": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "e055b5edd3815e551e12ac436a7bfc443ff4598be8ee883d35b744ae69723693",
+      "certificate_bytes": 171913148
+    },
+    "30": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "467c6f8af9ae7de253b5baea851148a89a8af49c85b445509a232b15ea1f7294",
+      "certificate_bytes": 17581642
+    },
+    "31": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "a6910bd443f2205b470afb7353700fcd9885ce9ff62998e8e7c01cd1220eb5c6",
+      "certificate_bytes": 204691966
+    },
+    "32": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "9eb42602b1faf7bcfdc838d7c28f50bc7f2bf47433087e4f49a44749072132d7",
+      "certificate_bytes": 453628704
+    },
+    "33": {
+      "non_timing_lines": 85,
+      "certificate_sha256": "e6f15505fac9767d8610b12e57016ed85ec9e4abb9636654d656acb8052ef71f",
+      "certificate_bytes": 731247941
+    }
+  },
+  "all_work_and_certificates_equal": true,
+  "checked_clean": 64,
+  "validation_pending": true,
+  "tooling_failure": "First read-only status invocation expected binary_sha256 in the intentionally smaller provisional schema and raised KeyError before writing any summary. Corrected to bind immutable task inputs and verify explicit binary identity on every final record; no solver failure or exclusion.",
+  "limitation": "All reported non-timing statistics and emitted certificate bytes/hashes agree across33 full paired solves. This is not complete internal-state identity, byte-identical SAT models, runtime acceptance or promotion. Independent pending proof checks remain obligations. Scheduling consumers are not enabled."
+}
