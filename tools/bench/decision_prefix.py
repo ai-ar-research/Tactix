@@ -43,6 +43,24 @@ def validate_stream_accounting(record, first, last, count):
     assert record['start_decisions'] == (record['end_decisions'] - count) % (1 << 64), 'wrong derived start counter'
 
 
+def validate_suffix_accounting(record, first, last, count, *, common_count,
+                               overlap_count, stream_from):
+    """Validate a threshold-filtered suffix after a separately verified prefix.
+
+    The threshold can have zero decisions: do not require or invent one overlap
+    row. Callers bind complete files and verify any actual cached overlap bytes;
+    this function checks counts and edges, not the interior rows or prefix hash.
+    """
+    assert 0 <= overlap_count <= common_count <= record['count'], 'invalid overlap/common count'
+    assert count == record['count'] - common_count + overlap_count and count > 0, 'wrong suffix row count'
+    assert len(first) == len(last) == 5, 'decision stream must have five columns'
+    assert 0 <= stream_from <= first[0] <= last[0] <= record['conflict'], 'suffix outside boundary'
+    assert (first[0] == stream_from) == (overlap_count > 0), 'threshold overlap mismatch'
+    assert last[3] == record['last'], 'last literal does not match prefix'
+    assert last[1] == record['end_decisions'], 'last counter does not match prefix'
+    assert record['start_decisions'] == (record['end_decisions'] - record['count']) % (1 << 64), 'wrong derived start counter'
+
+
 def first_stream_difference(left, right, *, chunk_bytes=1 << 20):
     """Compare bound, headerless decision streams without parsing equal rows.
 

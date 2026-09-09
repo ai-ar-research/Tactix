@@ -1,0 +1,182 @@
+{
+  "parent": "benchmarks/runs/20260909-6372-rank32-release-profile",
+  "authorities": {
+    "manifest.json": "fe3be2666d547e91e32a362906754015c1f82e1469231afa7554e891f63ff05e",
+    "solver-summary-6378.json": "5f88080bacba0ef1e7d6927c2edc069dbff5aa23e435fdc8deae8f5ae9268031",
+    "results/000.json": "ceb00ad92064308d05b73146040c38cdd723be1eb087b10f00c2b3f78310e42f",
+    "profiles/000.perf.data.xz": "65ec69af4c9cd31c85dd6f7699ad7b7f4f54d23d0f9773f8402e709f0edebfc8",
+    "pins/candidate": "00a23b9c8f5ec050cb0a1eb05a903c44496b8fd40c650e62eae7ae182a78a695",
+    "results/001.json": "76f36bba26fcffda034b6dbdee2e1c4107dd3d910d4f750bf6fe520def2ff741",
+    "profiles/001.perf.data.xz": "48140862bf6ce98f77924b563658dc41fd129ab3463a3de696c60634831f1e27",
+    "pins/kissat": "3aa8e41f976e213d3c4627150e9cd4e5fce0ce9508d67ab469a7696e26a8d49c"
+  },
+  "source_propagation_assignment_sections_exact_current": {
+    "src/kernel/kernel.cpp": {
+      "source": "a1a7b65339bca339fa8f7794a8fbb444f7d77d613d9c76b48ff4fb65228c454d",
+      "current": "b375d2527595d43e381bb18f6ed85e773d894ddb6a2a8e90407179ba61e8bd3c",
+      "start": "// --- propagation engine",
+      "stop": "void kernel_propagate_beyond_conflicts",
+      "section_sha256": "fbe35035c3d223ddbd8d36653fdc783c10a9c9537f4d4e613e0c48d685458174"
+    },
+    "src/kernel/kernel.hpp": {
+      "source": "b917fbcb1284e604a5377d202eda32ea95fee2e498a05d5640a6f459016842ec",
+      "current": "cf5fab3d0bc64c717417f916a3298bda3059d0e9dcff8f9098c29ddac4ba338b",
+      "start": "kernel_assign(Kernel &k,",
+      "stop": "void kernel_backtrack(Kernel &",
+      "section_sha256": "980325af78b6e9bd864cabb11dfc15624069659657776c2daa014eca0fb82a10"
+    }
+  },
+  "outputs": {
+    "candidate-search-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-nph_p34y/profile.data",
+        "--symbol",
+        "tactix::kernel_propagate(tactix::Kernel&, unsigned int)",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "a9c3c457071b50ba1b7037097044460e1216fe02d2b1adbeffabd5d648c89502",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-search-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-nph_p34y/profile.data",
+        "--symbol",
+        "tactix::kernel_propagate(tactix::Kernel&, unsigned int)",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "476af6991b44aa082d0e93be250b8679485242df074163971589f4da7b08a262",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-probing-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-nph_p34y/profile.data",
+        "--symbol",
+        "tactix::kernel_propagate_probing(tactix::Kernel&, unsigned int)",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "a1452070a641504e1079ef125e3b0bba9e7eb1bd78acf0652eabd30fe4d07a0d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "candidate-probing-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/candidate-nph_p34y/profile.data",
+        "--symbol",
+        "tactix::kernel_propagate_probing(tactix::Kernel&, unsigned int)",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "1bfb05057520e15c58f5c8209de7ecec97268e5eb9a6b05ea87f354f78f67ce4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-search-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-397yujuf/profile.data",
+        "--symbol",
+        "kissat_search_propagate",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "77ffbbcdb9ef403463027d1007dbd240a4c70ef95e6be69f62cd015ff9968479",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-search-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-397yujuf/profile.data",
+        "--symbol",
+        "kissat_search_propagate",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "79229486d4015a0b39ebfc2485d79329410ef209c005cdb615e03536d841e50e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-probing-periods": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-397yujuf/profile.data",
+        "--symbol",
+        "kissat_probing_propagate",
+        "--show-total-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "690eada48ce3128fbe2b78901b7282327d9f23cdfca6be3aa39249aef31edfc3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "kissat-probing-percent": {
+      "command": [
+        "perf",
+        "annotate",
+        "--stdio",
+        "--stdio-color",
+        "never",
+        "--no-source",
+        "-i",
+        "/home/hwu/SAT-solving/benchmarks/runs/20260909-6604-rank32-propagation-annotation/kissat-397yujuf/profile.data",
+        "--symbol",
+        "kissat_probing_propagate",
+        "--percent-type",
+        "local-period"
+      ],
+      "exit": 0,
+      "stdout_sha256": "a5f5052116b31ad8cd416fe98b9e9b8f3057edaf523f06b8466b25930a48c4f4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "temporary_expansions_deleted_bytes": 1010452800,
+  "scope": "Offline attribution of already checked profiles; no new solver/profile/correctness or runtime-gain claim.",
+  "test_consideration": "Existing annotate helper pattern, exact pin/profile/source hashes and nonempty successful symbol outputs. No solver/parser implementation changed; new attribution parser will need focused tests if introduced."
+}

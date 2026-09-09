@@ -1,0 +1,941 @@
+ Percent |	Source code & Disassembly of candidate for cycles:u (22378 samples, percent: local period)
+----------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3      Disassembly of section .text:
+         :
+         : 5      00000000004136d0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)>:
+    0.00 :   4136d0: push   %r15
+    0.00 :   4136d2: mov    %rdi,%r15
+    0.00 :   4136d5: push   %r14
+    0.01 :   4136d7: push   %r13
+    0.06 :   4136d9: push   %r12
+    0.00 :   4136db: push   %rbp
+    0.00 :   4136dc: push   %rbx
+    0.00 :   4136dd: sub    $0x88,%rsp
+    0.00 :   4136e4: mov    0xf4(%rdi),%eax
+    0.00 :   4136ea: mov    0xf0(%rdi),%r12d
+    0.01 :   4136f1: cmp    $0xffffffff,%esi
+    0.01 :   4136f4: je     4137d0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x100>
+    0.00 :   4136fa: mov    %esi,%ebp
+    0.00 :   4136fc: cmp    %r12d,%eax
+    0.00 :   4136ff: jb     4137c2 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf2>
+    0.00 :   413705: movl   $0xffffffff,0xf4(%r15)
+    0.00 :   413710: mov    %r12d,%ebx
+    0.00 :   413713: movq   $0x0,0x78(%rsp)
+    0.00 :   41371c: jmp    413744 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x74>
+    0.00 :   41371e: xchg   %ax,%ax
+    0.00 :   413720: mov    0xd0(%r15),%rdx
+    0.00 :   413727: lea    0x78(%rsp),%rcx
+    0.00 :   41372c: mov    %r15,%rdi
+    0.00 :   41372f: add    $0x1,%ebx
+    0.00 :   413732: mov    (%rdx,%rax,4),%esi
+    0.00 :   413735: mov    %ebp,%edx
+    0.00 :   413737: callq  4127b0 <bool tactix::propagate_literal<false, false, true>(tactix::Kernel&, unsigned int, unsigned int, unsigned long&)>
+    0.00 :   41373c: test   %al,%al
+    0.00 :   41373e: jne    414603 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf33>
+    0.00 :   413744: mov    %ebx,%eax
+    0.00 :   413746: cmp    0xe8(%r15),%rax
+    0.00 :   41374d: jb     413720 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x50>
+    0.00 :   41374f: xor    %r8d,%r8d
+    0.00 :   413752: mov    0x78(%rsp),%rdx
+    0.00 :   413757: mov    %ebx,%eax
+    0.00 :   413759: mov    %ebx,0xf0(%r15)
+    0.00 :   413760: movdqu 0x678(%r15),%xmm5
+    0.00 :   413769: sub    %r12d,%eax
+    0.00 :   41376c: cmpb   $0x0,0x1dd8(%r15)
+    0.00 :   413774: movq   %rax,%xmm0
+    0.00 :   413779: movq   %rdx,%xmm4
+    0.00 :   41377e: punpcklqdq %xmm4,%xmm0
+    0.00 :   413782: paddq  %xmm5,%xmm0
+    0.00 :   413786: movups %xmm0,0x678(%r15)
+    0.00 :   41378e: jne    41379e <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xce>
+    0.00 :   413790: cmpb   $0x0,0x124(%r15)
+    0.00 :   413798: je     414637 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf67>
+    0.00 :   41379e: mov    0x1dd0(%r15),%rax
+    0.00 :   4137a5: test   %rax,%rax
+    0.00 :   4137a8: je     4137ad <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdd>
+    0.00 :   4137aa: add    %rdx,(%rax)
+    0.00 :   4137ad: add    $0x88,%rsp
+    0.04 :   4137b4: mov    %r8d,%eax
+    0.02 :   4137b7: pop    %rbx
+    0.01 :   4137b8: pop    %rbp
+    0.00 :   4137b9: pop    %r12
+    0.01 :   4137bb: pop    %r13
+    0.00 :   4137bd: pop    %r14
+    0.01 :   4137bf: pop    %r15
+    0.01 :   4137c1: retq
+    0.00 :   4137c2: mov    %eax,0xf0(%rdi)
+    0.00 :   4137c8: mov    %eax,%r12d
+    0.00 :   4137cb: jmpq   413705 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x35>
+    0.00 :   4137d0: cmp    %r12d,%eax
+    0.00 :   4137d3: jb     414629 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf59>
+    0.00 :   4137d9: movl   $0xffffffff,0xf4(%r15)
+    0.00 :   4137e4: mov    %r12d,%ebp
+    0.00 :   4137e7: movq   $0x0,0x60(%rsp)
+    0.00 :   4137f0: mov    %r12d,0x6c(%rsp)
+    0.00 :   4137f5: nopl   (%rax)
+    0.00 :   4137f8: mov    %ebp,%eax
+    0.08 :   4137fa: cmp    0xe8(%r15),%rax
+    0.26 :   413801: jae    414684 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xfb4>
+    0.00 :   413807: mov    0xd0(%r15),%rdx
+    0.13 :   41380e: mov    0x178(%r15),%r10
+    0.04 :   413815: add    $0x1,%ebp
+    0.00 :   413818: mov    0x160(%r15),%r8
+    0.11 :   41381f: mov    0x130(%r15),%rbx
+    0.21 :   413826: mov    (%rdx,%rax,4),%edi
+    0.45 :   413829: mov    0x88(%r15),%r14
+    0.08 :   413830: mov    %rbx,0x18(%rsp)
+    0.12 :   413835: mov    %edi,%eax
+    0.06 :   413837: shr    %edi
+    0.20 :   413839: xor    $0x1,%eax
+    0.00 :   41383c: shl    $0x4,%rdi
+    0.24 :   413840: add    0xa0(%r15),%rdi
+    0.42 :   413847: mov    %eax,0xc(%rsp)
+    0.01 :   41384b: shl    $0x4,%rax
+    0.04 :   41384f: mov    %rax,0x48(%rsp)
+    0.12 :   413854: add    %r10,%rax
+    0.05 :   413857: mov    (%rax),%r9d
+    2.01 :   41385a: mov    0x4(%rax),%edx
+    0.12 :   41385d: mov    %rdi,0x20(%rsp)
+    0.01 :   413862: mov    %rdx,%rcx
+    0.09 :   413865: add    %r9,%rdx
+    0.41 :   413868: lea    0x0(,%r9,4),%rsi
+    0.02 :   413870: shl    $0x2,%rdx
+    0.53 :   413874: lea    (%r8,%rsi,1),%r12
+    0.02 :   413878: lea    (%r8,%rdx,1),%r11
+    0.38 :   41387c: sub    %rsi,%rdx
+    0.00 :   41387f: sar    $0x2,%rdx
+    0.36 :   413883: lea    0x1f(%rdx),%rsi
+    0.45 :   413887: shr    $0x5,%rsi
+    0.35 :   41388b: lea    0x1(%rsi),%rdi
+    0.37 :   41388f: mov    %rdi,0x10(%rsp)
+    0.11 :   413894: cmp    %r11,%r12
+    0.00 :   413897: je     414693 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xfc3>
+    0.00 :   41389d: mov    %r12,0x50(%rsp)
+    0.49 :   4138a2: mov    %r12,%rbx
+    0.00 :   4138a5: mov    %r12,%rdx
+    0.00 :   4138a8: mov    %rdi,%r12
+    0.01 :   4138ab: mov    %ebp,0x68(%rsp)
+    0.05 :   4138af: jmpq   413a09 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x339>
+    0.00 :   4138b4: nopl   0x0(%rax)
+    0.00 :   4138b8: add    $0x4,%rdx
+    0.63 :   4138bc: add    $0x4,%rbx
+    0.04 :   4138c0: test   %r8b,%r8b
+    0.31 :   4138c3: jg     413a00 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x330>
+    0.00 :   4138c9: mov    0x178(%r15),%r10
+    0.85 :   4138d0: jne    414450 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xd80>
+    0.04 :   4138d6: mov    %ecx,%edi
+    0.03 :   4138d8: mov    0x20(%rsp),%rbp
+    0.16 :   4138dd: shr    $0x2,%eax
+    0.14 :   4138e0: xor    $0x1,%edi
+    0.00 :   4138e3: mov    %rdi,%r9
+    0.01 :   4138e6: mov    0x0(%rbp),%r8d
+    0.50 :   4138ea: shl    $0x4,%r9
+    0.17 :   4138ee: add    %r9,%r10
+    0.01 :   4138f1: cmpb   $0x0,0x1e6d(%r15)
+    0.02 :   4138f9: je     41390e <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x23e>
+    0.07 :   4138fb: cmpb   $0x0,0x1e6e(%r15)
+    0.11 :   413903: je     41390e <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x23e>
+    0.03 :   413905: test   %r8d,%r8d
+    0.09 :   413908: jne    413e08 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x738>
+    0.10 :   41390e: mov    0x4(%r10),%ebp
+    2.07 :   413912: test   %ebp,%ebp
+    0.09 :   413914: jne    413cc8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x5f8>
+    0.00 :   41391a: mov    0x88(%r15),%r9
+    0.37 :   413921: movd   %r8d,%xmm0
+    0.03 :   413926: movb   $0x1,(%r9,%rsi,1)
+    0.14 :   41392b: mov    0x88(%r15),%rsi
+    0.00 :   413932: mov    0xc(%rsp),%r9d
+    0.03 :   413937: movb   $0xff,(%rsi,%rdi,1)
+    0.07 :   41393b: mov    %rax,%rsi
+    0.02 :   41393e: mov    0xe8(%r15),%rdi
+    0.06 :   413945: shl    $0x4,%rsi
+    0.03 :   413949: add    0xa0(%r15),%rsi
+    0.00 :   413950: mov    %r9d,0x8(%rsi)
+    0.33 :   413954: movd   %edi,%xmm2
+    0.04 :   413958: movzwl 0x103a80(%rip),%r9d        # 5173e0 <tactix::BinaryIdMap::EMPTY+0x18>
+    0.01 :   413960: punpckldq %xmm2,%xmm0
+    0.06 :   413964: mov    %r9w,0xc(%rsi)
+    0.12 :   413969: movq   %xmm0,(%rsi)
+    0.04 :   41396d: lea    0x1(%rdi),%rsi
+    0.01 :   413971: mov    %rsi,0xe8(%r15)
+    0.00 :   413978: mov    0xd0(%r15),%rsi
+    0.00 :   41397f: mov    %ecx,(%rsi,%rdi,4)
+    0.14 :   413982: test   %r8d,%r8d
+    0.02 :   413985: jne    413997 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x2c7>
+    0.00 :   413987: addq   $0x1,0x698(%r15)
+    0.00 :   41398f: addl   $0x1,0x1c54(%r15)
+    0.00 :   413997: mov    0x1de0(%r15),%rsi
+    0.02 :   41399e: test   %rsi,%rsi
+    0.04 :   4139a1: je     4139d0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x300>
+    0.00 :   4139a3: cmpb   $0x0,0x1de8(%r15)
+    0.04 :   4139ab: jne    4139d0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x300>
+    0.05 :   4139ad: cmpb   $0x0,0x220(%r15)
+    0.01 :   4139b5: jne    4139d0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x300>
+    0.05 :   4139b7: and    $0x1,%ecx
+    0.05 :   4139ba: mov    (%rsi),%rsi
+    0.11 :   4139bd: cmp    $0x1,%cl
+    0.00 :   4139c0: sbb    %ecx,%ecx
+    0.06 :   4139c2: and    $0x2,%ecx
+    0.07 :   4139c5: sub    $0x1,%ecx
+    0.01 :   4139c8: mov    %cl,(%rsi,%rax,1)
+    0.51 :   4139cb: nopl   0x0(%rax,%rax,1)
+    0.00 :   4139d0: mov    0x1d48(%r15),%rsi
+    0.01 :   4139d7: mov    0x1d50(%r15),%rcx
+    0.04 :   4139de: subl   $0x1,0x11c(%r15)
+    0.10 :   4139e6: sub    %rsi,%rcx
+    0.00 :   4139e9: cmp    %rcx,%rax
+    0.05 :   4139ec: jae    4139f4 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x324>
+    0.00 :   4139ee: cmpb   $0x0,(%rsi,%rax,1)
+    0.19 :   4139f2: jne    4139fc <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x32c>
+    0.00 :   4139f4: subl   $0x1,0x120(%r15)
+    0.24 :   4139fc: add    $0x1,%r12
+    0.04 :   413a00: cmp    %rdx,%r11
+    1.28 :   413a03: je     413aa0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x3d0>
+    0.00 :   413a09: mov    (%rdx),%eax
+    6.80 :   413a0b: mov    %eax,%ecx
+    0.14 :   413a0d: mov    %eax,(%rbx)
+    0.68 :   413a0f: shr    %ecx
+    0.63 :   413a11: mov    %ecx,%esi
+    0.95 :   413a13: movzbl (%r14,%rsi,1),%r8d
+    7.43 :   413a18: test   $0x1,%al
+    0.11 :   413a1a: jne    4138b8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x1e8>
+    0.00 :   413a20: mov    0x4(%rdx),%r13d
+    2.02 :   413a24: lea    0x8(%rdx),%rcx
+    0.07 :   413a28: lea    0x8(%rbx),%rdi
+    0.10 :   413a2c: mov    %r13d,0x4(%rbx)
+    0.25 :   413a30: test   %r8b,%r8b
+    1.23 :   413a33: jg     413ca8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x5d8>
+    0.00 :   413a39: mov    0x18(%rsp),%rax
+    2.36 :   413a3e: mov    %r13d,%esi
+    0.07 :   413a41: lea    0x1(%r12),%r8
+    0.03 :   413a46: shl    $0x2,%rsi
+    0.03 :   413a4a: lea    (%rax,%rsi,1),%rdx
+    0.22 :   413a4e: testb  $0x1,0x4(%rdx)
+   10.89 :   413a52: jne    413cb8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x5e8>
+    0.45 :   413a58: mov    0xc(%rsp),%r10d
+    0.07 :   413a5d: mov    0x14(%rdx),%eax
+    0.50 :   413a60: xor    0x18(%rdx),%eax
+    0.64 :   413a63: xor    %eax,%r10d
+    0.00 :   413a66: mov    %r10d,0x10(%rsp)
+    0.01 :   413a6b: mov    %r10d,%eax
+    0.01 :   413a6e: mov    %r10,0x28(%rsp)
+    0.02 :   413a73: movzbl (%r14,%r10,1),%r10d
+    2.27 :   413a78: test   %r10b,%r10b
+    0.02 :   413a7b: jle    413ce0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x610>
+    0.00 :   413a81: add    %eax,%eax
+    0.32 :   413a83: mov    %rcx,%rdx
+    0.01 :   413a86: mov    %r8,%r12
+    0.00 :   413a89: mov    %eax,(%rbx)
+    0.07 :   413a8b: mov    %rdi,%rbx
+    0.00 :   413a8e: cmp    %rdx,%r11
+    0.00 :   413a91: jne    413a09 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x339>
+    0.00 :   413a97: nopw   0x0(%rax,%rax,1)
+    0.02 :   413aa0: mov    0x178(%r15),%r10
+    1.58 :   413aa7: mov    0x68(%rsp),%ebp
+    0.18 :   413aab: mov    %r12,0x10(%rsp)
+    0.04 :   413ab0: xor    %r13d,%r13d
+    0.02 :   413ab3: mov    0x48(%rsp),%rax
+    0.17 :   413ab8: mov    0x50(%rsp),%r12
+    0.19 :   413abd: add    %r10,%rax
+    0.26 :   413ac0: sub    %r12,%rbx
+    0.04 :   413ac3: mov    0x4(%rax),%ecx
+    0.71 :   413ac6: mov    %rbx,%rdx
+    0.01 :   413ac9: sar    $0x2,%rdx
+    0.00 :   413acd: nopl   (%rax)
+    0.00 :   413ad0: mov    0xc(%rax),%esi
+    0.40 :   413ad3: mov    0x218(%r15),%rdi
+    0.08 :   413ada: sub    %edx,%ecx
+    0.22 :   413adc: add    %rcx,0x190(%r15)
+    0.38 :   413ae3: mov    %edx,0x4(%rax)
+    0.13 :   413ae6: mov    %esi,0xc(%rax)
+    0.14 :   413ae9: test   %rdi,%rdi
+    0.05 :   413aec: je     413c12 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x542>
+    0.00 :   413af2: mov    %ebp,0x18(%rsp)
+    0.08 :   413af6: mov    0x160(%r15),%r11
+    0.00 :   413afd: xor    %r14d,%r14d
+    0.00 :   413b00: mov    %r13b,0x20(%rsp)
+    0.00 :   413b05: jmp    413b3c <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x46c>
+    0.00 :   413b07: nopw   0x0(%rax,%rax,1)
+    0.00 :   413b10: mov    (%rbx),%eax
+    0.12 :   413b12: movd   %ebp,%xmm1
+    0.11 :   413b16: add    $0x3,%r14
+    0.00 :   413b1a: punpckldq %xmm0,%xmm1
+    0.05 :   413b1e: add    %rdx,%rax
+    0.01 :   413b21: movq   %xmm1,(%r11,%rax,4)
+    2.46 :   413b27: addl   $0x2,0x4(%rbx)
+    0.15 :   413b2b: subq   $0x2,0x190(%r15)
+    0.07 :   413b33: cmp    %rdi,%r14
+    0.00 :   413b36: jae    413c08 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x538>
+    0.02 :   413b3c: mov    0x200(%r15),%rax
+    0.09 :   413b43: lea    0x0(,%r14,4),%rsi
+    0.04 :   413b4b: mov    (%rax,%r14,4),%r8d
+    0.15 :   413b4f: mov    0x4(%rax,%rsi,1),%ebp
+    0.04 :   413b53: movd   0x8(%rax,%rsi,1),%xmm0
+    0.19 :   413b59: shl    $0x4,%r8
+    0.02 :   413b5d: add    %ebp,%ebp
+    0.01 :   413b5f: lea    (%r10,%r8,1),%rbx
+    0.05 :   413b63: mov    0x8(%rbx),%r9d
+    1.35 :   413b67: mov    0x4(%rbx),%edx
+    0.16 :   413b6a: mov    %r9d,%eax
+    0.15 :   413b6d: sub    %edx,%eax
+    0.08 :   413b6f: cmp    $0x1,%eax
+    0.09 :   413b72: ja     413b10 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x440>
+    0.00 :   413b74: mov    0xc(%rbx),%eax
+    0.05 :   413b77: mov    %edx,%esi
+    0.00 :   413b79: and    $0x1,%esi
+    0.00 :   413b7c: mov    %eax,%r12d
+    0.00 :   413b7f: not    %eax
+    0.00 :   413b81: and    $0xfffffffe,%r12d
+    0.00 :   413b85: and    $0x1,%eax
+    0.00 :   413b88: mov    %al,0xc(%rsp)
+    0.00 :   413b8c: or     %esi,%r12d
+    0.00 :   413b8f: cmp    %edx,%r9d
+    0.00 :   413b92: je     414030 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x960>
+    0.00 :   413b98: mov    0x190(%r15),%rax
+    0.00 :   413b9f: lea    -0x1(%rax),%rdi
+    0.00 :   413ba3: mov    %rbx,%rax
+    0.00 :   413ba6: lea    0x1(%rdx),%esi
+    0.00 :   413ba9: add    (%rax),%edx
+    0.00 :   413bab: mov    %rdi,0x190(%r15)
+    0.00 :   413bb2: mov    %esi,0x4(%rax)
+    0.00 :   413bb5: mov    %ebp,(%r11,%rdx,4)
+    0.02 :   413bb9: mov    0x4(%rax),%esi
+    0.00 :   413bbc: cmp    0x8(%rax),%esi
+    0.00 :   413bbf: je     413ec0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x7f0>
+    0.00 :   413bc5: sub    $0x1,%rdi
+    0.01 :   413bc9: lea    0x1(%rsi),%edx
+    0.01 :   413bcc: add    (%rax),%esi
+    0.01 :   413bce: and    $0xfffffffe,%r12d
+    0.00 :   413bd2: add    $0x3,%r14
+    0.00 :   413bd6: mov    %rdi,0x190(%r15)
+    0.00 :   413bdd: mov    0x218(%r15),%rdi
+    0.00 :   413be4: mov    %edx,0x4(%rax)
+    0.00 :   413be7: movzbl 0xc(%rsp),%eax
+    0.00 :   413bec: movd   %xmm0,(%r11,%rsi,4)
+    0.00 :   413bf2: xor    $0x1,%eax
+    0.00 :   413bf5: movzbl %al,%eax
+    0.00 :   413bf8: or     %eax,%r12d
+    0.00 :   413bfb: mov    %r12d,0xc(%rbx)
+    0.01 :   413bff: cmp    %rdi,%r14
+    0.00 :   413c02: jb     413b3c <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x46c>
+    0.00 :   413c08: mov    0x18(%rsp),%ebp
+    0.04 :   413c0c: movzbl 0x20(%rsp),%r13d
+    0.00 :   413c12: movq   $0x0,0x218(%r15)
+    0.29 :   413c1d: mov    0x10(%rsp),%rbx
+    0.40 :   413c22: add    %rbx,0x60(%rsp)
+    0.31 :   413c27: test   %r13b,%r13b
+    0.01 :   413c2a: je     4137f8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x128>
+    0.00 :   413c30: mov    0x6c(%rsp),%r12d
+    0.00 :   413c35: mov    %ebp,%eax
+    0.00 :   413c37: mov    %r13d,%r8d
+    0.01 :   413c3a: mov    %eax,0xf0(%r15)
+    0.07 :   413c41: sub    %r12d,%eax
+    0.00 :   413c44: cmpb   $0x0,0x1dd8(%r15)
+    0.08 :   413c4c: movq   %rax,%xmm0
+    0.04 :   413c51: mov    0x60(%rsp),%rax
+    0.02 :   413c56: movq   %rax,%xmm7
+    0.07 :   413c5b: punpcklqdq %xmm7,%xmm0
+    0.04 :   413c5f: movdqu 0x678(%r15),%xmm7
+    0.00 :   413c68: paddq  %xmm7,%xmm0
+    0.04 :   413c6c: movups %xmm0,0x678(%r15)
+    0.02 :   413c74: jne    413c87 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x5b7>
+    0.00 :   413c76: cmpb   $0x0,0x124(%r15)
+    0.00 :   413c7e: jne    413c87 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x5b7>
+    0.00 :   413c80: add    %rax,0x688(%r15)
+    0.00 :   413c87: mov    0x1dd0(%r15),%rax
+    0.09 :   413c8e: test   %rax,%rax
+    0.01 :   413c91: je     4137ad <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdd>
+    0.00 :   413c97: mov    0x60(%rsp),%rbx
+    0.00 :   413c9c: add    %rbx,(%rax)
+    0.00 :   413c9f: jmpq   4137ad <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdd>
+    0.00 :   413ca4: nopl   0x0(%rax)
+    0.00 :   413ca8: mov    %rcx,%rdx
+    1.24 :   413cab: mov    %rdi,%rbx
+    0.18 :   413cae: jmpq   413a00 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x330>
+    0.00 :   413cb3: nopl   0x0(%rax,%rax,1)
+    0.00 :   413cb8: mov    %r8,%r12
+    0.01 :   413cbb: mov    %rcx,%rdx
+    0.00 :   413cbe: jmpq   413a00 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x330>
+    0.00 :   413cc3: nopl   0x0(%rax,%rax,1)
+    0.00 :   413cc8: mov    (%r10),%r10d
+    0.26 :   413ccb: mov    0x160(%r15),%r9
+    0.01 :   413cd2: prefetcht2 (%r9,%r10,4)
+    0.41 :   413cd7: jmpq   41391a <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x24a>
+    0.00 :   413cdc: nopl   0x0(%rax)
+    0.00 :   413ce0: mov    (%rdx),%ebp
+    0.21 :   413ce2: lea    0x14(%rdx),%rax
+    0.03 :   413ce6: mov    %rax,%r9
+    0.03 :   413ce9: mov    %rax,0x38(%rsp)
+    0.00 :   413cee: shl    $0x2,%rbp
+    0.03 :   413cf2: add    %rbp,%rax
+    0.00 :   413cf5: mov    %rax,0x30(%rsp)
+    0.00 :   413cfa: mov    0x8(%rdx),%eax
+    0.40 :   413cfd: shl    $0x2,%rax
+    0.04 :   413d01: add    %rax,%r9
+    0.01 :   413d04: mov    %r9,0x40(%rsp)
+    0.13 :   413d09: cmp    %rax,%rbp
+    0.00 :   413d0c: je     41460b <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf3b>
+    0.00 :   413d12: mov    %r9,%rax
+    0.00 :   413d15: mov    %rdi,0x58(%rsp)
+    0.05 :   413d1a: mov    0x30(%rsp),%r9
+    0.14 :   413d1f: jmp    413d35 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x665>
+    0.00 :   413d21: nopl   0x0(%rax)
+    0.41 :   413d28: add    $0x4,%rax
+    1.06 :   413d2c: cmp    %rax,%r9
+    0.01 :   413d2f: je     4141a8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xad8>
+    0.00 :   413d35: mov    (%rax),%edi
+    2.07 :   413d37: cmpb   $0x0,(%r14,%rdi,1)
+    3.84 :   413d3c: mov    %rdi,%rbp
+    0.54 :   413d3f: js     413d28 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x658>
+    0.03 :   413d41: mov    0x38(%rsp),%rdi
+    1.43 :   413d46: mov    %rax,%rsi
+    0.05 :   413d49: mov    0x208(%r15),%r8
+    0.04 :   413d50: mov    %ebp,0x18(%rdx)
+    0.06 :   413d53: sub    %rdi,%rsi
+    0.13 :   413d56: mov    0x10(%rsp),%edi
+    0.03 :   413d5a: sar    $0x2,%rsi
+    0.08 :   413d5e: mov    %edi,0x14(%rdx)
+    0.18 :   413d61: mov    0xc(%rsp),%edi
+    0.01 :   413d65: mov    %esi,0x8(%rdx)
+    0.10 :   413d68: mov    0x200(%r15),%rdx
+    0.07 :   413d6f: mov    %edi,(%rax)
+    0.03 :   413d71: mov    0x218(%r15),%rsi
+    0.11 :   413d78: mov    %r8,%rax
+    0.08 :   413d7b: sub    %rdx,%rax
+    0.00 :   413d7e: lea    0x3(%rsi),%rdi
+    0.06 :   413d82: sar    $0x2,%rax
+    0.29 :   413d86: cmp    %rdi,%rax
+    0.04 :   413d89: jae    413dd6 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x706>
+    0.00 :   413d8b: add    %rax,%rax
+    0.00 :   413d8e: cmp    %rdx,%r8
+    0.00 :   413d91: mov    $0x3,%edx
+    0.00 :   413d96: mov    %rcx,0x30(%rsp)
+    0.00 :   413d9b: cmove  %rdx,%rax
+    0.00 :   413d9f: mov    %r11,0x28(%rsp)
+    0.00 :   413da4: cmp    %rax,%rdi
+    0.00 :   413da7: cmovae %rdi,%rax
+    0.00 :   413dab: lea    0x200(%r15),%rdi
+    0.00 :   413db2: mov    %rax,%rsi
+    0.00 :   413db5: callq  424d90 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   413dba: mov    0x30(%rsp),%rcx
+    0.00 :   413dbf: mov    0x28(%rsp),%r11
+    0.00 :   413dc4: mov    0x218(%r15),%rsi
+    0.00 :   413dcb: mov    0x200(%r15),%rdx
+    0.00 :   413dd2: lea    0x3(%rsi),%rdi
+    0.00 :   413dd6: mov    %ebp,(%rdx,%rsi,4)
+    0.35 :   413dd9: lea    0x0(,%rsi,4),%rax
+    0.00 :   413de1: mov    0x10(%rsp),%esi
+    0.04 :   413de5: add    $0x2,%r12
+    0.01 :   413de9: mov    %esi,0x4(%rdx,%rax,1)
+    0.19 :   413ded: mov    %rdi,0x218(%r15)
+    0.07 :   413df4: mov    %r13d,0x8(%rdx,%rax,1)
+    0.22 :   413df9: mov    %rcx,%rdx
+    0.00 :   413dfc: jmpq   413a00 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x330>
+    0.00 :   413e01: nopl   0x0(%rax)
+    0.00 :   413e08: cmpb   $0x0,0xc(%rbp)
+    0.11 :   413e0c: je     41390e <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x23e>
+    0.04 :   413e12: mov    0xb8(%r15),%r9
+    0.09 :   413e19: mov    0xc(%rsp),%ebp
+    0.01 :   413e1d: mov    %ebp,(%r9,%rax,4)
+    0.49 :   413e21: mov    0x20(%rsp),%r9
+    0.09 :   413e26: mov    0x4(%r10),%r13d
+    1.60 :   413e2a: addq   $0x1,0x18e8(%r15)
+    0.06 :   413e32: mov    0x8(%r9),%r9d
+    0.06 :   413e36: test   %r13d,%r13d
+    0.00 :   413e39: jne    414643 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf73>
+    0.00 :   413e3f: mov    0x88(%r15),%r10
+    0.41 :   413e46: movd   %r8d,%xmm0
+    0.01 :   413e4b: movb   $0x1,(%r10,%rsi,1)
+    0.15 :   413e50: mov    0x88(%r15),%rsi
+    0.03 :   413e57: movzwl 0x1033db(%rip),%r10d        # 51723a <_IO_stdin_used+0x223a>
+    0.00 :   413e5f: movb   $0xff,(%rsi,%rdi,1)
+    0.07 :   413e63: mov    0xe8(%r15),%rdi
+    0.09 :   413e6a: mov    %rax,%rsi
+    0.01 :   413e6d: shl    $0x4,%rsi
+    0.00 :   413e71: add    0xa0(%r15),%rsi
+    0.02 :   413e78: movd   %edi,%xmm6
+    0.08 :   413e7c: mov    %r9d,0x8(%rsi)
+    0.23 :   413e80: punpckldq %xmm6,%xmm0
+    0.02 :   413e84: mov    %r10w,0xc(%rsi)
+    0.04 :   413e89: movq   %xmm0,(%rsi)
+    0.05 :   413e8d: lea    0x1(%rdi),%rsi
+    0.02 :   413e91: mov    %rsi,0xe8(%r15)
+    0.01 :   413e98: mov    0xd0(%r15),%rsi
+    0.03 :   413e9f: mov    %ecx,(%rsi,%rdi,4)
+    0.13 :   413ea2: mov    0x1de0(%r15),%rsi
+    0.02 :   413ea9: test   %rsi,%rsi
+    0.01 :   413eac: jne    4139a3 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x2d3>
+    0.00 :   413eb2: jmpq   4139d0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x300>
+    0.00 :   413eb7: nopw   0x0(%rax,%rax,1)
+    0.00 :   413ec0: mov    0x170(%r15),%r10
+    0.00 :   413ec7: lea    0x160(%r15),%rdi
+    0.00 :   413ece: cmp    %r11,%r10
+    0.00 :   413ed1: je     4145b9 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xee9>
+    0.00 :   413ed7: mov    0x168(%r15),%rbp
+    0.00 :   413ede: sub    %r11,%r10
+    0.00 :   413ee1: mov    %esi,%r13d
+    0.00 :   413ee4: sub    %r11,%rbp
+    0.00 :   413ee7: mov    (%rax),%r11d
+    0.00 :   413eea: mov    %rbp,%r9
+    0.00 :   413eed: sar    $0x2,%r9
+    0.00 :   413ef1: add    %r13,%r11
+    0.00 :   413ef4: mov    %r9,%rdx
+    0.00 :   413ef7: cmp    %r9,%r11
+    0.00 :   413efa: je     4143f0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xd20>
+    0.00 :   413f00: test   %esi,%esi
+    0.00 :   413f02: je     414388 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xcb8>
+    0.00 :   413f08: lea    (%rsi,%rsi,1),%ebp
+    0.00 :   413f0b: mov    %rbp,%r13
+    0.00 :   413f0e: lea    (%r9,%rbp,1),%rsi
+    0.00 :   413f12: sar    $0x2,%r10
+    0.00 :   413f16: cmp    %rsi,%r10
+    0.00 :   413f19: jae    413f7a <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x8aa>
+    0.00 :   413f1b: cmp    $0x3,%rsi
+    0.00 :   413f1f: jbe    41469b <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xfcb>
+    0.00 :   413f25: mov    $0x4,%eax
+    0.00 :   413f2a: nopw   0x0(%rax,%rax,1)
+    0.00 :   413f30: add    %rax,%rax
+    0.00 :   413f33: lea    -0x1(%rax),%rdx
+    0.00 :   413f37: cmp    %rsi,%rdx
+    0.00 :   413f3a: jb     413f30 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x860>
+    0.00 :   413f3c: mov    %rdx,%rsi
+    0.00 :   413f3f: mov    %r8,0x38(%rsp)
+    0.00 :   413f44: mov    %rdi,0x28(%rsp)
+    0.00 :   413f49: movd   %xmm0,0x30(%rsp)
+    0.00 :   413f4f: callq  424cd0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   413f54: mov    0x38(%rsp),%r8
+    0.00 :   413f59: movd   0x30(%rsp),%xmm0
+    0.00 :   413f5f: mov    0x168(%r15),%rdx
+    0.00 :   413f66: sub    0x160(%r15),%rdx
+    0.00 :   413f6d: sar    $0x2,%rdx
+    0.00 :   413f71: mov    0x28(%rsp),%rdi
+    0.00 :   413f76: lea    (%rdx,%rbp,1),%rsi
+    0.00 :   413f7a: mov    %r8,0x40(%rsp)
+    0.00 :   413f7f: mov    %edx,0x28(%rsp)
+    0.00 :   413f83: mov    %rdx,0x30(%rsp)
+    0.00 :   413f88: movd   %xmm0,0x38(%rsp)
+    0.00 :   413f8e: callq  424d90 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   413f93: mov    0x40(%rsp),%r8
+    0.00 :   413f98: mov    0x178(%r15),%r10
+    0.00 :   413f9f: mov    0x30(%rsp),%rdx
+    0.00 :   413fa4: mov    0x160(%r15),%r11
+    0.00 :   413fab: lea    (%r10,%r8,1),%rcx
+    0.00 :   413faf: movd   0x38(%rsp),%xmm0
+    0.00 :   413fb5: mov    %edx,%edx
+    0.00 :   413fb7: mov    (%rcx),%eax
+    0.00 :   413fb9: lea    (%r11,%rdx,4),%rdi
+    0.00 :   413fbd: mov    0x4(%rcx),%edx
+    0.00 :   413fc0: lea    (%r11,%rax,4),%r9
+    0.00 :   413fc4: mov    %rdx,%rsi
+    0.00 :   413fc7: shl    $0x2,%rdx
+    0.00 :   413fcb: cmp    $0x4,%rdx
+    0.00 :   413fcf: jbe    41466e <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf9e>
+    0.00 :   413fd5: mov    %r9,%rsi
+    0.00 :   413fd8: mov    %rcx,0x38(%rsp)
+    0.00 :   413fdd: movd   %xmm0,0x30(%rsp)
+    0.00 :   413fe3: callq  4023b0 <memmove@plt>
+    0.00 :   413fe8: mov    0x40(%rsp),%r8
+    0.00 :   413fed: mov    0x38(%rsp),%rcx
+    0.00 :   413ff2: mov    0x178(%r15),%r10
+    0.00 :   413ff9: mov    0x160(%r15),%r11
+    0.00 :   414000: movd   0x30(%rsp),%xmm0
+    0.00 :   414006: lea    (%r10,%r8,1),%rax
+    0.00 :   41400a: mov    0x4(%rax),%esi
+    0.00 :   41400d: mov    0x190(%r15),%rdx
+    0.00 :   414014: mov    0x28(%rsp),%edi
+    0.00 :   414018: mov    %r13d,0x8(%rcx)
+    0.00 :   41401c: mov    %edi,(%rcx)
+    0.00 :   41401e: lea    -0x1(%rbp,%rdx,1),%rdi
+    0.00 :   414023: jmpq   413bc9 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x4f9>
+    0.00 :   414028: nopl   0x0(%rax,%rax,1)
+    0.00 :   414030: mov    0x170(%r15),%r9
+    0.02 :   414037: lea    0x160(%r15),%rdi
+    0.00 :   41403e: cmp    %r11,%r9
+    0.00 :   414041: je     414579 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xea9>
+    0.00 :   414047: mov    0x168(%r15),%r10
+    0.00 :   41404e: sub    %r11,%r9
+    0.00 :   414051: mov    %edx,%r13d
+    0.00 :   414054: sub    %r11,%r10
+    0.00 :   414057: mov    (%rbx),%r11d
+    0.00 :   41405a: mov    %r10,%rsi
+    0.00 :   41405d: sar    $0x2,%rsi
+    0.00 :   414061: add    %r13,%r11
+    0.00 :   414064: mov    %rsi,%rax
+    0.00 :   414067: cmp    %rsi,%r11
+    0.00 :   41406a: je     4143a0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xcd0>
+    0.00 :   414070: test   %edx,%edx
+    0.00 :   414072: je     414370 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xca0>
+    0.00 :   414078: lea    (%rdx,%rdx,1),%r13d
+    0.00 :   41407c: mov    %r13d,0x48(%rsp)
+    0.00 :   414081: add    %r13,%rsi
+    0.00 :   414084: sar    $0x2,%r9
+    0.00 :   414088: cmp    %rsi,%r9
+    0.00 :   41408b: jae    4140ea <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xa1a>
+    0.00 :   41408d: cmp    $0x3,%rsi
+    0.00 :   414091: jbe    4146a5 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xfd5>
+    0.00 :   414097: mov    $0x4,%eax
+    0.00 :   41409c: nopl   0x0(%rax)
+    0.00 :   4140a0: add    %rax,%rax
+    0.00 :   4140a3: lea    -0x1(%rax),%rdx
+    0.00 :   4140a7: cmp    %rsi,%rdx
+    0.00 :   4140aa: jb     4140a0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x9d0>
+    0.00 :   4140ac: mov    %rdx,%rsi
+    0.00 :   4140af: mov    %r8,0x38(%rsp)
+    0.00 :   4140b4: mov    %rdi,0x28(%rsp)
+    0.00 :   4140b9: movd   %xmm0,0x30(%rsp)
+    0.00 :   4140bf: callq  424cd0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   4140c4: mov    0x38(%rsp),%r8
+    0.00 :   4140c9: movd   0x30(%rsp),%xmm0
+    0.00 :   4140cf: mov    0x168(%r15),%rax
+    0.00 :   4140d6: sub    0x160(%r15),%rax
+    0.00 :   4140dd: sar    $0x2,%rax
+    0.00 :   4140e1: mov    0x28(%rsp),%rdi
+    0.00 :   4140e6: lea    (%rax,%r13,1),%rsi
+    0.00 :   4140ea: mov    %r8,0x40(%rsp)
+    0.03 :   4140ef: mov    %eax,0x28(%rsp)
+    0.00 :   4140f3: mov    %rax,0x30(%rsp)
+    0.00 :   4140f8: movd   %xmm0,0x38(%rsp)
+    0.00 :   4140fe: callq  424d90 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   414103: mov    0x40(%rsp),%r8
+    0.00 :   414108: mov    0x178(%r15),%r10
+    0.00 :   41410f: mov    0x30(%rsp),%rax
+    0.00 :   414114: mov    0x160(%r15),%r11
+    0.00 :   41411b: lea    (%r10,%r8,1),%r9
+    0.00 :   41411f: movd   0x38(%rsp),%xmm0
+    0.00 :   414125: mov    %eax,%eax
+    0.00 :   414127: mov    0x4(%r9),%edx
+    0.00 :   41412b: lea    (%r11,%rax,4),%rdi
+    0.00 :   41412f: mov    (%r9),%eax
+    0.00 :   414132: lea    (%r11,%rax,4),%rsi
+    0.00 :   414136: mov    %edx,%eax
+    0.00 :   414138: shl    $0x2,%rax
+    0.00 :   41413c: cmp    $0x4,%rax
+    0.00 :   414140: jbe    414658 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xf88>
+    0.00 :   414146: mov    %rax,%rdx
+    0.00 :   414149: mov    %r9,0x40(%rsp)
+    0.00 :   41414e: mov    %r8,0x38(%rsp)
+    0.00 :   414153: movd   %xmm0,0x30(%rsp)
+    0.00 :   414159: callq  4023b0 <memmove@plt>
+    0.00 :   41415e: mov    0x38(%rsp),%r8
+    0.00 :   414163: mov    0x40(%rsp),%r9
+    0.00 :   414168: mov    0x178(%r15),%r10
+    0.00 :   41416f: mov    0x160(%r15),%r11
+    0.00 :   414176: movd   0x30(%rsp),%xmm0
+    0.00 :   41417c: lea    (%r10,%r8,1),%rax
+    0.00 :   414180: mov    0x4(%rax),%edx
+    0.01 :   414183: mov    0x28(%rsp),%edi
+    0.00 :   414187: mov    0x190(%r15),%rsi
+    0.00 :   41418e: mov    %edi,(%r9)
+    0.00 :   414191: mov    0x48(%rsp),%edi
+    0.00 :   414195: mov    %edi,0x8(%r9)
+    0.00 :   414199: lea    -0x1(%r13,%rsi,1),%rdi
+    0.00 :   41419e: jmpq   413ba6 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x4d6>
+    0.00 :   4141a3: nopl   0x0(%rax,%rax,1)
+    0.00 :   4141a8: mov    0x40(%rsp),%r9
+    0.90 :   4141ad: lea    0x1c(%rdx),%rax
+    0.00 :   4141b1: mov    0x58(%rsp),%rdi
+    0.08 :   4141b6: cmp    %rax,%r9
+    0.00 :   4141b9: je     4141e8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb18>
+    0.00 :   4141bb: mov    %rdx,0x30(%rsp)
+    0.26 :   4141c0: mov    %r9,%rdx
+    0.00 :   4141c3: jmp    4141d1 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb01>
+    0.00 :   4141c5: nopl   (%rax)
+    0.01 :   4141c8: add    $0x4,%rax
+    0.11 :   4141cc: cmp    %rax,%rdx
+    0.00 :   4141cf: je     4141e8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb18>
+    0.00 :   4141d1: mov    (%rax),%r9d
+    0.33 :   4141d4: cmpb   $0x0,(%r14,%r9,1)
+    0.50 :   4141d9: mov    %r9,%rbp
+    0.16 :   4141dc: js     4141c8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xaf8>
+    0.00 :   4141de: mov    0x30(%rsp),%rdx
+    0.27 :   4141e3: jmpq   413d41 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x671>
+    0.00 :   4141e8: test   %r10b,%r10b
+    0.26 :   4141eb: jne    4146af <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xfdf>
+    0.00 :   4141f1: mov    0x10(%rsp),%r8d
+    0.14 :   4141f6: mov    0x118(%r15),%r9d
+    0.09 :   4141fd: mov    0x130(%r15),%rax
+    0.08 :   414204: shr    %r8d
+    0.01 :   414207: test   %r9d,%r9d
+    0.00 :   41420a: je     41425f <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb8f>
+    0.00 :   41420c: add    %rsi,%rax
+    0.09 :   41420f: lea    0x14(%rax),%rdx
+    0.08 :   414213: mov    (%rax),%eax
+    0.24 :   414215: shl    $0x2,%rax
+    0.08 :   414219: lea    (%rdx,%rax,1),%rsi
+    0.15 :   41421d: je     4146de <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x100e>
+    0.00 :   414223: xor    %r10d,%r10d
+    0.01 :   414226: nopw   %cs:0x0(%rax,%rax,1)
+    0.00 :   414230: mov    (%rdx),%eax
+    0.08 :   414232: shr    %eax
+    0.13 :   414234: cmp    %eax,%r8d
+    0.06 :   414237: je     414253 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb83>
+    0.00 :   414239: shl    $0x4,%rax
+    0.22 :   41423d: add    0xa0(%r15),%rax
+    0.14 :   414244: mov    (%rax),%eax
+    0.73 :   414246: cmp    %eax,%r10d
+    0.02 :   414249: jae    414253 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb83>
+    0.00 :   41424b: cmp    %eax,%r9d
+    0.02 :   41424e: je     41425f <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb8f>
+    0.00 :   414250: mov    %eax,%r10d
+    0.00 :   414253: add    $0x4,%rdx
+    0.13 :   414257: cmp    %rdx,%rsi
+    0.00 :   41425a: jne    414230 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb60>
+    0.00 :   41425c: mov    %r10d,%r9d
+    0.00 :   41425f: mov    0x10(%rsp),%eax
+    0.01 :   414263: xor    $0x1,%eax
+    0.00 :   414266: mov    %rax,%rdx
+    0.01 :   414269: shl    $0x4,%rdx
+    0.00 :   41426d: add    0x178(%r15),%rdx
+    0.04 :   414274: mov    0x4(%rdx),%r10d
+    2.82 :   414278: test   %r10d,%r10d
+    0.15 :   41427b: jne    414567 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xe97>
+    0.00 :   414281: mov    0x88(%r15),%rdx
+    0.13 :   414288: mov    0x28(%rsp),%rbx
+    0.02 :   41428d: xor    %esi,%esi
+    0.00 :   41428f: movb   $0x1,(%rdx,%rbx,1)
+    0.05 :   414293: mov    0x88(%r15),%rdx
+    0.02 :   41429a: mov    0x10(%rsp),%ebx
+    0.01 :   41429e: movb   $0xff,(%rdx,%rax,1)
+    0.04 :   4142a2: mov    %r8,%rax
+    0.15 :   4142a5: mov    0xe8(%r15),%rdx
+    0.00 :   4142ac: shl    $0x4,%rax
+    0.00 :   4142b0: add    0xa0(%r15),%rax
+    0.01 :   4142b7: mov    %r9d,(%rax)
+    0.17 :   4142ba: mov    %edx,0x4(%rax)
+    0.04 :   4142bd: mov    %r13d,0x8(%rax)
+    0.02 :   4142c1: mov    %si,0xc(%rax)
+    0.02 :   4142c5: lea    0x1(%rdx),%rax
+    0.13 :   4142c9: mov    %rax,0xe8(%r15)
+    0.00 :   4142d0: mov    0xd0(%r15),%rax
+    0.00 :   4142d7: mov    %ebx,(%rax,%rdx,4)
+    0.06 :   4142da: test   %r9d,%r9d
+    0.01 :   4142dd: jne    4142ef <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xc1f>
+    0.00 :   4142df: addq   $0x1,0x698(%r15)
+    0.00 :   4142e7: addl   $0x1,0x1c54(%r15)
+    0.00 :   4142ef: mov    0x1de0(%r15),%rdx
+    0.02 :   4142f6: test   %rdx,%rdx
+    0.01 :   4142f9: je     414330 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xc60>
+    0.00 :   4142fb: cmpb   $0x0,0x1de8(%r15)
+    0.00 :   414303: jne    414330 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xc60>
+    0.13 :   414305: cmpb   $0x0,0x220(%r15)
+    0.01 :   41430d: jne    414330 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xc60>
+    0.00 :   41430f: movzbl 0x10(%rsp),%eax
+    0.01 :   414314: mov    (%rdx),%rdx
+    0.01 :   414317: and    $0x1,%eax
+    0.02 :   41431a: cmp    $0x1,%al
+    0.00 :   41431c: sbb    %eax,%eax
+    0.01 :   41431e: and    $0x2,%eax
+    0.16 :   414321: sub    $0x1,%eax
+    0.00 :   414324: mov    %al,(%rdx,%r8,1)
+    0.14 :   414328: nopl   0x0(%rax,%rax,1)
+    0.00 :   414330: mov    0x1d48(%r15),%rdx
+    0.01 :   414337: mov    0x1d50(%r15),%rax
+    0.01 :   41433e: subl   $0x1,0x11c(%r15)
+    0.02 :   414346: sub    %rdx,%rax
+    0.00 :   414349: cmp    %rax,%r8
+    0.00 :   41434c: jae    414355 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xc85>
+    0.00 :   41434e: cmpb   $0x0,(%rdx,%r8,1)
+    0.16 :   414353: jne    41435d <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xc8d>
+    0.00 :   414355: subl   $0x1,0x120(%r15)
+    0.03 :   41435d: add    $0x2,%r12
+    0.00 :   414361: mov    %rcx,%rdx
+    0.00 :   414364: mov    %rdi,%rbx
+    0.01 :   414367: jmpq   413a00 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x330>
+    0.00 :   41436c: nopl   0x0(%rax)
+    0.00 :   414370: movl   $0x1,0x48(%rsp)
+    0.01 :   414378: mov    $0x1,%r13d
+    0.00 :   41437e: jmpq   414081 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x9b1>
+    0.00 :   414383: nopl   0x0(%rax,%rax,1)
+    0.00 :   414388: mov    $0x1,%ebp
+    0.00 :   41438d: mov    $0x1,%r13d
+    0.00 :   414393: jmpq   413f0e <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x83e>
+    0.00 :   414398: nopl   0x0(%rax,%rax,1)
+    0.00 :   4143a0: cmp    %r9,%r10
+    0.00 :   4143a3: jae    414070 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x9a0>
+    0.00 :   4143a9: lea    0x1(%r11),%rsi
+    0.00 :   4143ad: mov    %r8,0x30(%rsp)
+    0.00 :   4143b2: movd   %xmm0,0x28(%rsp)
+    0.00 :   4143b8: callq  424d90 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   4143bd: mov    0x178(%r15),%r10
+    0.00 :   4143c4: addl   $0x1,0x8(%rbx)
+    0.00 :   4143c8: mov    0x30(%rsp),%r8
+    0.00 :   4143cd: mov    0x190(%r15),%rdi
+    0.00 :   4143d4: mov    0x160(%r15),%r11
+    0.00 :   4143db: movd   0x28(%rsp),%xmm0
+    0.00 :   4143e1: lea    (%r10,%r8,1),%rax
+    0.00 :   4143e5: mov    0x4(%rax),%edx
+    0.00 :   4143e8: jmpq   413ba6 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x4d6>
+    0.00 :   4143ed: nopl   (%rax)
+    0.00 :   4143f0: cmp    %r10,%rbp
+    0.00 :   4143f3: jae    413f00 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x830>
+    0.00 :   4143f9: lea    0x1(%r11),%rsi
+    0.00 :   4143fd: mov    %rax,0x38(%rsp)
+    0.00 :   414402: mov    %r8,0x30(%rsp)
+    0.00 :   414407: movd   %xmm0,0x28(%rsp)
+    0.00 :   41440d: callq  424d90 <std::vector<unsigned int, std::allocator<unsigned int> >::resize(unsigned long)>
+    0.00 :   414412: mov    0x38(%rsp),%rax
+    0.00 :   414417: mov    0x178(%r15),%r10
+    0.00 :   41441e: mov    0x30(%rsp),%r8
+    0.00 :   414423: mov    0x190(%r15),%rdi
+    0.00 :   41442a: addl   $0x1,0x8(%rax)
+    0.00 :   41442e: mov    0x160(%r15),%r11
+    0.00 :   414435: lea    (%r10,%r8,1),%rax
+    0.00 :   414439: movd   0x28(%rsp),%xmm0
+    0.00 :   41443f: mov    0x4(%rax),%esi
+    0.00 :   414442: jmpq   413bc9 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x4f9>
+    0.00 :   414447: nopw   0x0(%rax,%rax,1)
+    0.00 :   414450: mov    0xc(%rsp),%eax
+    0.00 :   414454: mov    0x68(%rsp),%ebp
+    0.00 :   414458: mov    %r12,0x10(%rsp)
+    0.00 :   41445d: mov    %r10,%r9
+    0.00 :   414460: movb   $0x1,0x2d1(%r15)
+    0.00 :   414468: mov    0x50(%rsp),%r12
+    0.00 :   41446d: movl   $0xffffffff,0x2d4(%r15)
+    0.00 :   414478: mov    %eax,0x2d8(%r15)
+    0.00 :   41447f: mov    %ecx,0x2dc(%r15)
+    0.00 :   414486: mov    0x48(%rsp),%rax
+    0.00 :   41448b: mov    %r9,%r10
+    0.00 :   41448e: add    %r9,%rax
+    0.00 :   414491: cmp    %rdx,%r11
+    0.00 :   414494: je     4146e6 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x1016>
+    0.00 :   41449a: mov    %r11,%rsi
+    0.00 :   41449d: sub    %rdx,%rsi
+    0.00 :   4144a0: lea    -0x4(%rsi),%rdi
+    0.00 :   4144a4: cmp    $0x8,%rdi
+    0.00 :   4144a8: jbe    414560 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xe90>
+    0.00 :   4144ae: lea    0x4(%rdx),%rcx
+    0.00 :   4144b2: mov    %rbx,%r8
+    0.00 :   4144b5: sub    %rcx,%r8
+    0.00 :   4144b8: xor    %ecx,%ecx
+    0.00 :   4144ba: cmp    $0x8,%r8
+    0.00 :   4144be: ja     4144f0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xe20>
+    0.00 :   4144c0: mov    (%rdx,%rcx,1),%edi
+    0.00 :   4144c3: mov    %edi,(%rbx,%rcx,1)
+    0.00 :   4144c6: add    $0x4,%rcx
+    0.00 :   4144ca: cmp    %rsi,%rcx
+    0.00 :   4144cd: jne    4144c0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdf0>
+    0.00 :   4144cf: lea    (%rbx,%rsi,1),%rdx
+    0.01 :   4144d3: mov    0x4(%rax),%ecx
+    0.00 :   4144d6: mov    $0x1,%r13d
+    0.00 :   4144dc: sub    %r12,%rdx
+    0.00 :   4144df: sar    $0x2,%rdx
+    0.00 :   4144e3: jmpq   413ad0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x400>
+    0.00 :   4144e8: nopl   0x0(%rax,%rax,1)
+    0.00 :   4144f0: shr    $0x2,%rdi
+    0.00 :   4144f4: add    $0x1,%rdi
+    0.00 :   4144f8: mov    %rdi,%r8
+    0.00 :   4144fb: shr    $0x2,%r8
+    0.00 :   4144ff: shl    $0x4,%r8
+    0.00 :   414503: nopl   0x0(%rax,%rax,1)
+    0.00 :   414508: movdqu (%rdx,%rcx,1),%xmm3
+    0.01 :   41450d: movups %xmm3,(%rbx,%rcx,1)
+    0.01 :   414511: add    $0x10,%rcx
+    0.00 :   414515: cmp    %r8,%rcx
+    0.00 :   414518: jne    414508 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xe38>
+    0.00 :   41451a: test   $0x3,%dil
+    0.00 :   41451e: je     4144cf <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdff>
+    0.00 :   414520: and    $0xfffffffffffffffc,%rdi
+    0.00 :   414524: lea    0x0(,%rdi,4),%rcx
+    0.00 :   41452c: add    %rcx,%rdx
+    0.00 :   41452f: add    %rbx,%rcx
+    0.00 :   414532: mov    (%rdx),%edi
+    0.00 :   414534: mov    %edi,(%rcx)
+    0.00 :   414536: lea    0x4(%rdx),%rdi
+    0.00 :   41453a: cmp    %rdi,%r11
+    0.00 :   41453d: je     4144cf <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdff>
+    0.00 :   41453f: mov    0x4(%rdx),%edi
+    0.00 :   414542: mov    %edi,0x4(%rcx)
+    0.00 :   414545: lea    0x8(%rdx),%rdi
+    0.00 :   414549: cmp    %rdi,%r11
+    0.00 :   41454c: je     4144cf <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdff>
+    0.00 :   41454e: mov    0x8(%rdx),%edx
+    0.00 :   414551: mov    %edx,0x8(%rcx)
+    0.00 :   414554: jmpq   4144cf <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdff>
+    0.00 :   414559: nopl   0x0(%rax)
+    0.00 :   414560: xor    %ecx,%ecx
+    0.00 :   414562: jmpq   4144c0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdf0>
+    0.01 :   414567: mov    (%rdx),%esi
+    0.10 :   414569: mov    0x160(%r15),%rdx
+    0.01 :   414570: prefetcht2 (%rdx,%rsi,4)
+    0.63 :   414574: jmpq   414281 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xbb1>
+    0.00 :   414579: mov    $0x3,%esi
+    0.00 :   41457e: mov    %r8,0x38(%rsp)
+    0.00 :   414583: mov    %rdi,0x28(%rsp)
+    0.00 :   414588: movd   %xmm0,0x30(%rsp)
+    0.00 :   41458e: callq  424cd0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   414593: mov    0x4(%rbx),%edx
+    0.00 :   414596: mov    0x38(%rsp),%r8
+    0.00 :   41459b: mov    0x160(%r15),%r11
+    0.00 :   4145a2: mov    0x170(%r15),%r9
+    0.00 :   4145a9: movd   0x30(%rsp),%xmm0
+    0.00 :   4145af: mov    0x28(%rsp),%rdi
+    0.00 :   4145b4: jmpq   414047 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x977>
+    0.00 :   4145b9: mov    $0x3,%esi
+    0.00 :   4145be: mov    %rax,0x40(%rsp)
+    0.00 :   4145c3: mov    %r8,0x38(%rsp)
+    0.00 :   4145c8: mov    %rdi,0x28(%rsp)
+    0.00 :   4145cd: movd   %xmm0,0x30(%rsp)
+    0.00 :   4145d3: callq  424cd0 <std::vector<unsigned int, std::allocator<unsigned int> >::reserve(unsigned long)>
+    0.00 :   4145d8: mov    0x40(%rsp),%rax
+    0.00 :   4145dd: mov    0x38(%rsp),%r8
+    0.00 :   4145e2: mov    0x160(%r15),%r11
+    0.00 :   4145e9: mov    0x170(%r15),%r10
+    0.00 :   4145f0: mov    0x4(%rax),%esi
+    0.00 :   4145f3: movd   0x30(%rsp),%xmm0
+    0.00 :   4145f9: mov    0x28(%rsp),%rdi
+    0.00 :   4145fe: jmpq   413ed7 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x807>
+    0.00 :   414603: mov    %eax,%r8d
+    0.00 :   414606: jmpq   413752 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x82>
+    0.00 :   41460b: lea    0x1c(%rdx),%rax
+    0.00 :   41460f: cmp    %rax,0x40(%rsp)
+    0.00 :   414614: je     4141e8 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb18>
+    0.00 :   41461a: mov    %rdx,0x30(%rsp)
+    0.00 :   41461f: mov    0x40(%rsp),%rdx
+    0.00 :   414624: jmpq   4141d1 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb01>
+    0.00 :   414629: mov    %eax,0xf0(%rdi)
+    0.00 :   41462f: mov    %eax,%r12d
+    0.00 :   414632: jmpq   4137d9 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x109>
+    0.00 :   414637: add    %rdx,0x688(%r15)
+    0.00 :   41463e: jmpq   41379e <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xce>
+    0.00 :   414643: mov    (%r10),%r10d
+    0.21 :   414646: mov    0x160(%r15),%rbp
+    0.00 :   41464d: prefetcht2 0x0(%rbp,%r10,4)
+    0.31 :   414653: jmpq   413e3f <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x76f>
+    0.00 :   414658: mov    %r9,%rax
+    0.00 :   41465b: jne    414183 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xab3>
+    0.00 :   414661: mov    (%rsi),%edx
+    0.00 :   414663: mov    %edx,(%rdi)
+    0.00 :   414665: mov    0x4(%r9),%edx
+    0.00 :   414669: jmpq   414183 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xab3>
+    0.00 :   41466e: mov    %rcx,%rax
+    0.00 :   414671: jne    41400d <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x93d>
+    0.00 :   414677: mov    (%r9),%edx
+    0.00 :   41467a: mov    %edx,(%rdi)
+    0.00 :   41467c: mov    0x4(%rcx),%esi
+    0.00 :   41467f: jmpq   41400d <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x93d>
+    0.00 :   414684: mov    0x6c(%rsp),%r12d
+    0.20 :   414689: mov    %ebp,%eax
+    0.00 :   41468b: xor    %r8d,%r8d
+    0.00 :   41468e: jmpq   413c3a <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x56a>
+    0.00 :   414693: xor    %r13d,%r13d
+    0.54 :   414696: jmpq   413ad0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x400>
+    0.00 :   41469b: mov    $0x3,%edx
+    0.00 :   4146a0: jmpq   413f3c <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x86c>
+    0.00 :   4146a5: mov    $0x3,%edx
+    0.00 :   4146aa: jmpq   4140ac <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x9dc>
+    0.00 :   4146af: mov    %r8,0x10(%rsp)
+    0.01 :   4146b4: mov    0x68(%rsp),%ebp
+    0.00 :   4146b8: mov    %rdi,%rbx
+    0.00 :   4146bb: mov    %rcx,%rdx
+    0.00 :   4146be: movb   $0x1,0x2d1(%r15)
+    0.01 :   4146c6: mov    0x50(%rsp),%r12
+    0.00 :   4146cb: mov    %r13d,0x2d4(%r15)
+    0.00 :   4146d2: mov    0x178(%r15),%r9
+    0.00 :   4146d9: jmpq   414486 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xdb6>
+    0.00 :   4146de: xor    %r9d,%r9d
+    0.00 :   4146e1: jmpq   41425f <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0xb8f>
+    0.00 :   4146e6: mov    $0x1,%r13d
+    0.00 :   4146ec: jmpq   413ac0 <tactix::kernel_propagate(tactix::Kernel&, unsigned int)+0x3f0>
