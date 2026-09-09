@@ -1,0 +1,170 @@
+{
+  "schema": "tactix-material-adverse-three-waves-v1",
+  "created_at": "2026-09-09T20:28:20.999195+00:00",
+  "arms": {
+    "candidate": {
+      "path": "pins/candidate",
+      "sha256": "0e37693102684a4ddd965715c9cabdfedb19dd9e2c20b04a08a30d8410d0cf8e",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-6579-material-schedule-release"
+    },
+    "previous": {
+      "path": "pins/previous",
+      "sha256": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+      "arguments": [],
+      "source_commit": "c2a95a6c79c21a76516cf556b6538e76da369c34",
+      "source_build": "build/pin-6424-activation-stamp-release"
+    }
+  },
+  "authorities": {
+    "candidate": {
+      "path": "benchmarks/runs/20260909-6579-material-schedule-build/manifest.json",
+      "sha256": "2f5b717cdc2dd0ecf99e8daf122a10e01a725572af52b064dba96252605989ce"
+    },
+    "previous": {
+      "path": "benchmarks/runs/20260909-6424-activation-stamp-build/manifest.json",
+      "sha256": "25c8fc8b5623ef24ad7690cb3cb7098c47ebac1e85aba4dc56f3e6684453eb06"
+    }
+  },
+  "input_sha256": {
+    "tierD24-26/266e890b706cf336378bf148bbda1aff-mexam_15_12_2.sanitized.cnf.xz": "ff8adaab784f0655ac2e249bf18d36bfb80fa1c812f48d690ac5c27208c65fcc"
+  },
+  "collect_runtime_context": true,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0-5",
+    "throttle": null,
+    "node_constraint": null,
+    "proof_mode": "DRAT on both arms",
+    "one_solver_per_task": true,
+    "solve_timeout": 1200,
+    "checker_timeout": 16000,
+    "scheduler_wall_seconds": 18000
+  },
+  "protected_campaign_hashes": {
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/manifest.json": "b2f9e98291c56c415e4cb9439a77378c55cc78593d632c1fc84a6d5ee194acf6",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/array.sbatch": "b90503efeb1acd5ea2cb081fc60a79c2e1ab6d51287cedf050a673ddb5433143",
+    "benchmarks/baselines/rank1-40-kissat-12cpu-v1/manifest.json": "45259e1acbc93472b923517f75fd6b8697669b3ad74970d27b565b6b7f1aa686",
+    "benchmarks/runs/20260908-5712-assignment-level-ranks1-40/manifest.json": "80211109441ac7e1483082a767c755ffc03c029381398c71017593e2ff29a8ae",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/runtime_task.py": "ccef4f23bac433c4c205949c0296f2cdef0e98d0d56fff5d306abb6e6209297f",
+    "benchmarks/runs/20260908-5784-experimental-tierd-paired-cpuq-4cpu-32g-1200s/pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/manifest.json": "d09c9f2a030d0d29974fa881ee247c7900704e4be0e204b28c0b16beaf443d16",
+    "benchmarks/runs/20260908-6108-rank41-50-matched/array.sbatch": "82b47f14fc76c4d5ca14484035b1033d013c1a36c2bbe44c531a1a6a56c87efb",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/manifest.json": "27c57c3c896ab15daa9d51ff87f9a977472d28b2b43b849be7322b96eb598bb1",
+    "benchmarks/runs/20260908-6114-substitute-publication-BC-gate/array.sbatch": "2b6afd38eb7dcc8fc39f6fa294f5786d20d9238a4facb7cb64bc6c35a0320b4a",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/manifest.json": "e739603e6d4ec9024beebfa7a049def7c3ea01eb6b5287e542f05a651e646cd7",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/array.sbatch": "ab074cdcf7e9691f7031fd9aa198cef18fe83bb9edc5aa73f0c5b033d2d380f5",
+    "benchmarks/baselines/rank1-50-kissat-12cpu-v1/manifest.json": "5f7865e46af2b9ed0d1899ce6e450bfb9b3575801c50183e059d0e4326f5a1e0",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/manifest.json": "224b3b5d80c3087b3c3c709a78dcf934d175823bd2232f68a2475e6d11bd3d1a",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/launch.json": "ee6eea617d6fef64349ed0096c9dd06f1ffb9ba03467dd6901ab92b833bfb7a1",
+    "benchmarks/runs/20260908-6121-fresh-accepted-ranks1-50/array.sbatch": "37e88d1e5998092127067b1ac0fedc388f29ddf45179057a508fb53dabaa24be"
+  },
+  "work_oracles": {
+    "candidate": {
+      "38": {
+        "path": "benchmarks/runs/20260909-6594-material-ranks1-50/provisional/037.json",
+        "sha256": "71caeb808e082de544ff1ac5b0dc6acb3801544fc98b2cd74dba08e93c04b5c7"
+      }
+    },
+    "previous": {
+      "38": {
+        "path": "benchmarks/runs/20260909-6439-activation-ranks1-50/results/037.json",
+        "sha256": "7ab37cce63da4cc905bda2ca9e876cddc22f39b92e9b48d9ab6e540339c8492c"
+      }
+    }
+  },
+  "bc_solver_records": {
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/016.json": "e507b5372ec420285a0cd5f1f0c65d6e65f25cc43e8fd2eea67369ac0027b857",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/027.json": "319bca2a77f62134147816a4c2654c9a5f62b462928adeee8ed5d2002f2ca049",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/045.json": "b65e886149f57026e5b278e91619ebdbe7e0a5a1e92e88a383eb07182101bd64",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/023.json": "17e52cade9411ca4092585414b7c5e1b9660e2d4ea056db02fd48c5c7fe9376b",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/059.json": "eef5f56286cc68dc884090739d216929812d84d1ff0c7fd3dc3f6fc60a1b744b",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/012.json": "32533a1c31e3acc28f183f067ee303c69af6f67f25c62491eebb1aa03e1cc7f0",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/041.json": "a2ed27c5e2fa3b9fb8eaab875f27fb7fd7a4fb117ec03ae40bbbcd49de81254e",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/006.json": "d52256b89f38b0a898009b611e112e0bee6a68b524412f563a22834590809af6",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/037.json": "7df9a6e4d3372fce75ef2ea6f8f5e34150d1637db634b61bcd6b7baa83f9a9b0",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/055.json": "8ca98aff696a1a510aa88cfcde405bf3f79d331a0994e336e4f87246f80aa94d",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/provisional/064.json": "12440695414c3f371ece470d52ac939ed309de2c4ab0c644a24d718bbbe8d71f",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/033.json": "d76824b9cbf15e463d95eb19dfad369cf2f84ee86ce99253fef76a5f1d4414c5",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/002.json": "59aa43a02ef1c59a641c96fa997767632209b95d5b58bef8156edde04fe1d3bb",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/049.json": "9559907e7a347495806a57b5ffc614bdcf9b9b3c22a7acb8a2bd8db3991b713f",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/060.json": "d51dde4b456e050253811450610c7ca8e39501439f5eb968abb219380dbdc2e3",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/051.json": "bca9212cf4bd35d9b1c2140d37f39fcac3c1ac37ca3e1c4b2195a14e62ca12cf",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/007.json": "e9336ad8767dcf7a1d36021a64408c2840949ddc67f0da03ac6a9a0471507906",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/036.json": "b6ae376ecd9679d868ab2e20a23ab1e4be4915b5e851cae4bbfa04f7bfd21f33",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/054.json": "cc99b075888d7df312d300d45399e6a9a8c7b0e991ae3c95a472de82a06d2410",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/provisional/065.json": "0d8864e3765ecf32bf59c306c0af85cbd959fe55596eeee837c9461869da1e1f",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/032.json": "04665231c69cb8178efc56aeab6f15a28c279c6d71f5c293fa4a1ab00c945512",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/048.json": "9c99be07ff1446eb3aacc881eb86d46cae818b62bc068e32b8fba846bafaeb36",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/003.json": "fa17a2ef50ca9d199d935f7a9cba3852f13ac437e46ee9115fcbeaefb609027a",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/061.json": "59e96c3c73f1a432e247b8c64d77652b776cb2826d1feddd08eae76c9b523a17",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/050.json": "9240b1b70413eabf2cc2978a9410d658046c3daa25336542fe07ea56595d7d26",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/017.json": "668d9a9cf45bc768a73d90a7ef9958ab6af7f321a34a1172061c4cfee74335ad",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/026.json": "e8ff593d901f08b0bb489ed0258973819df2e5bbe39086acc0a6e63ba1febb35",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/044.json": "6080b88f8a291513134848b20ee640a63f940515eab080cfff71f3c80b063124",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/022.json": "025bd4ba4d6cbd6098bd198681174c86878bef786c4e3f043619f6ba3f38b2ab",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/013.json": "dcf95d33bc3bda255f668226d630c78fcb1a36181bafbe6bf338a843c6f4c51d",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/058.json": "d8f40bec4ce9b571d3398faf2c762b26805a8534275f668f6fbfa9704de3f38c",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/040.json": "3bb535c5473ca3ffcfa16ca93dccfac751c06272593d4a6763892d2dccafdb6e",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/005.json": "9f18e40c7ae3b970b678c63142b5a87307f209abdd12d2e761453e26c506d73d",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/034.json": "9c9f351c7dcdcc21f628974b49512e4ae1378eb5516f307013ad8d9884a0b01f",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/056.json": "65934b4839bb17bdcb24bab98b3721d513d51dc6ce9272343486acaf5709b156",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/030.json": "782925fc044c718ea587b838a2d39cc2ff86324c415cd04d35175de0843052db",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/001.json": "e4b51b713e6807514f37b73ea92bf34a88e02eac55c3984672360d3e057231a2",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/028.json": "3331d456cea5cb6e8eeafd7857bd057e4191f06ff26245239019ce3146fc3651",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/063.json": "ac6c80d2f44fe3769f9b1d6fbfd0a5da4af1f5743132465e315f1236006e3b3a",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/052.json": "ce59dabc763588e644ad28532a24d7024b855ca862d028f75e77a21c248fd92b",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/019.json": "7823bd26957bcbb18ab4e17eb4b8ee9f17e74641ca8da4d7d87bb2e7268d3794",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/015.json": "73cfee916a2e8eb4ad63d488fb68485ad4325b322015c1a6947a40a0ded02bbe",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/024.json": "1fdcb35e1cf044579f2a7735c6a8e14b1eea273030f63dc57bf7e0b72d62152d",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/046.json": "06355fe69a08ae88adc06241d70b25e1b3accbb3d0b00f89b03e897879e9ff40",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/020.json": "1c1835a43acdf9392f85d2fd80825443f23aa3186b2f2cf9df8193c7bb2cb0fd",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/011.json": "886a7c783444b3e6ea172f14caa90c32950b7850cddc892af394af1768531732",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/038.json": "8b7964fc7238df675686ed9e9b39cee994c0c6af8e4a9d5a098f7d5d612f89cd",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/009.json": "0f29cf988871a9b1199715249da7f8b8ebcbd4cf660438ec50472302bd9dba81",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/042.json": "940ec779e50da28374fb8576368fbd3b8d8eceaf73f967b16231f30dde90bf95",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/014.json": "90e95b0d0ead8dd7fcb15c7519325701b6177fa0a53136187529335e8c7625a0",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/025.json": "9dc7951846d374f1790ea0433e84af3d52a0d110493f235a2c9f2fcf1354cc25",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/047.json": "6c6cfb017e29d4c70e86da4ec00f9e5bf948a0e0515df972572af168e1a2b701",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/021.json": "fe072100005469e02de100499a98e0929f89817eee4eabf0c487599cd6e0682b",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/010.json": "8f2b54089b9e1e49ca3c3fc23630092c9176bb8c932b449b4b81e70e5c1f485c",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/039.json": "2c9a540877ff387661e306d8ced74f4373c9d325f397ea625bf812ed5a6917cb",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/043.json": "743bcafecf797540e96334c0b70b0de68b6c217182c102574b3839528b16750a",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/008.json": "fd12c7b2da473f7ac54d86ab04ac9e0cd4187e176f2122cf8b2f37381f25cce9",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/004.json": "bda0e1c219700d05c61a1311a13702f359435f8a8c030d856c22cdf8a63d42e1",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/035.json": "134745b1153c01db766487c2790aa65c1c1c8ba675c8095420d1e5e6016c0186",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/057.json": "bee025140f775f5840ff539445585a931361645e1cc57f9b28447e047ad1d304",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/031.json": "86b97ccdc6b2e6e7dd1856ca4086718bdf8b4a82ac504308d4ec64a11a6380cb",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/000.json": "6cfc40b01b29c5c7f120c87efaf25e41997d3f164f94dbbb3e86bc09ed775af1",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/062.json": "0865bdb5147eedcddffe93591dc6c38be720eaee31555eeb972be4f33a6c0dfc",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/029.json": "e9bbc206545e14ecf5cb1f02cc7c72a0eeebf30430377797c4380b3900e7b405",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/018.json": "d16e65045cd52ab5071f9a61e305271a341ee082656fa2106eb0b8468a4ddee6",
+    "benchmarks/runs/20260909-6584-material-schedule-BC-gate/results/053.json": "d44acfb8d57349b2a0f1d1868a23962649515326390a9ec67ce98ca89452b1f0"
+  },
+  "witnesses": {
+    "38": "sole changed-certificate parent loss in complete6596; now matches native conflicts/decisions, still faster than fixed native in one full run"
+  },
+  "submission_contract": "Three sequential full-width two-task waves0-1,2-3,4-5; expected solver outcomes permit next wave without waiting proofs. Middle wave reverses arm order. No node constraints or throttles.",
+  "hypothesis": "Measure the sole changed-work adverse rank38 from complete6596 without excluding it or substituting it for the already-declared Rank50 waves. Do not assume an absolute loss from a single cross-window result.",
+  "acceptance": "All6 expected independently checked clean outcomes; every arm exact to its own work/proof oracle. Report per-rank median/range of three paired ratios and each arm spread; absolute claim requires <=2% spread. No fixed50 competitiveness or promotion from subset.",
+  "test_consideration": "Unchanged pinned runner/oracles and maintained149benchmark13watcher tests; actual material consumer110/110/109 suites and24 fixed proof/model controls. Six-task paired matrix, own-arm exact work/proof, full-table adverse selection. No source/checker change.",
+  "limitation": "Source fuzz,memory and full50 gates remain separate. No new Kissat run or fixed-reference change.",
+  "complete50_selection": {
+    "path": "benchmarks/reports/2026-09-09-material-full50-6596/summary.json",
+    "sha256": "7736674cf1ed5c6915fa3329195c7d954f0db25631f3882acf7cbd60ec874229",
+    "rule": "every changed-certificate rank with positive parent delta; exactly rank38"
+  },
+  "pin_sha256": {
+    "pins/previous": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+    "pins/candidate": "0e37693102684a4ddd965715c9cabdfedb19dd9e2c20b04a08a30d8410d0cf8e",
+    "pins/drat-trim": "f2cb7d45d6acc05b1295bfa0d27b53d75fa48259c2b1e15f15772f064f99849a",
+    "pins/checkmodel": "5fde6bbc7be305f6b6166ef75dc4788e2cf40180317ab1ec9a38a3d6071676cf",
+    "pins/modelcheck.py": "f70f0eeffe30a31e2ad68f696ba280aba8a81cee747e087efca1f04101ad0d98",
+    "pins/runtime_task.py": "9c2e2fc471a3a4b55e4673517107dd5d9bad209020d80bd6f77e37d14827c8e8",
+    "matrix.tsv": "6fc064ba0f36d84fa568f1045f9e97d5e6b6f127ab1b8f06b6398654c9c45ccd",
+    "array.sbatch": "c05eacad9ca8ab388082a34bd6cc726891a35599783a9e2747db8f53029ebdea"
+  }
+}
