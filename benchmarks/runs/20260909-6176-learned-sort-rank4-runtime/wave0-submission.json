@@ -1,0 +1,16 @@
+{
+  "job_id": "1677116",
+  "tasks": [
+    0,
+    1
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6176-learned-sort-rank4-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T01:02:19",
+  "manifest_sha256": "08d47653961aec7ed028a85ce8422405b56adf85a7c05121ce06a4a7d60aba20",
+  "predecessor_solver_records": {}
+}
