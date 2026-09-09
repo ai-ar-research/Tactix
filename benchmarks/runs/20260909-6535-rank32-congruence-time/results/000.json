@@ -1,0 +1,393 @@
+{
+  "address_space_limit": null,
+  "arm": "tactix",
+  "artifact_deleted": true,
+  "binary_sha256": "5946f59800adbf1bbbb20c64ac4bcbcd00ff8dc980ebfdc04edd844db2cd7eb4",
+  "certificate_bytes": 1527700786,
+  "certificate_sha256": "0ebf7c4cb79e8137af8fb410b0e2cbf77963a17b6d524b4a68f4d46a2d129640",
+  "cleanup_pending": false,
+  "command": [
+    "perf",
+    "stat",
+    "-x",
+    "\t",
+    "-o",
+    "/tmp/tactix-runtime-000-0geehfsw/solver.perf",
+    "-e",
+    "task-clock,cycles,instructions,context-switches,cpu-migrations,page-faults",
+    "--",
+    "taskset",
+    "-c",
+    "48",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6535-rank32-congruence-time/pins/tactix",
+    "/tmp/tactix-runtime-000-0geehfsw/input.cnf",
+    "/tmp/tactix-runtime-000-0geehfsw/proof.drat"
+  ],
+  "cpu_affinity": [
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    144,
+    145,
+    146,
+    147,
+    148,
+    149
+  ],
+  "derived_artifacts_deleted": true,
+  "expected": "UNSAT",
+  "expected_match": true,
+  "finished_at": "2026-09-09T17:13:56.336142+00:00",
+  "instance": "tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "memory_enforcement": "slurm_task_cgroup",
+  "model_check": null,
+  "node": "node017",
+  "proof_check": {
+    "exit_code": 0,
+    "output_tail": "\nc turning on binary mode checking\n\nc parsing input formula with 489817 variables and 1556955 clauses\n\nc finished parsing, read 1527700786 bytes from proof file\n\nc detected empty clause; start verification via backward checking\n\nc 1456166 of 1556955 clauses in core                            \n\nc 3681623 of 9574143 lemmas in core using 30734243 resolution steps\n\nc 72103 RAT lemmas in core; 196265 redundant literals in core lemmas\n\ns VERIFIED\n\nc verification time: 2958.118 seconds",
+    "peak_rss_kb": 1541112,
+    "result": "verified",
+    "sampled_process_vm_peak_kb": null,
+    "timed_out": false,
+    "wall_seconds": 2958.232
+  },
+  "rank": 32,
+  "runtime_context": {
+    "end": {
+      "observed_at": "2026-09-09T16:24:36.971457+00:00",
+      "occupancy": {
+        "exit_code": 0,
+        "rows": [
+          "cpu-dense-hwulab-q|RUNNING|12",
+          "cpu-dense-hwulab-q|RUNNING|12"
+        ],
+        "stderr": ""
+      },
+      "topology": [
+        {
+          "core": "0",
+          "cpu": 48,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "1",
+          "cpu": 49,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "2",
+          "cpu": 50,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "3",
+          "cpu": 51,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "4",
+          "cpu": 52,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "5",
+          "cpu": 53,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "0",
+          "cpu": 144,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "1",
+          "cpu": 145,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "2",
+          "cpu": 146,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "3",
+          "cpu": 147,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "4",
+          "cpu": 148,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        },
+        {
+          "core": "5",
+          "cpu": 149,
+          "l3_shared_cpus": "48-53,144-149",
+          "socket": "1"
+        }
+      ]
+    },
+    "observed_at": "2026-09-09T16:19:10.115480+00:00",
+    "occupancy": {
+      "exit_code": 0,
+      "rows": [
+        "cpu-dense-hwulab-q|RUNNING|12",
+        "cpu-dense-hwulab-q|RUNNING|12"
+      ],
+      "stderr": ""
+    },
+    "perf_probe": {
+      "exit_code": 0,
+      "stderr": "\n Performance counter stats for 'true':\n\n           3380447      cycles                                                                \n\n       0.002588290 seconds time elapsed\n\n       0.000000000 seconds user\n       0.002631000 seconds sys\n\n\n"
+    },
+    "perf_statistics": [
+      "# started on Wed Sep  9 12:19:10 2026",
+      "",
+      "326730.04\tmsec\ttask-clock\t326730037354\t100.00\t1.000\tCPUs utilized",
+      "1241538860005\t\tcycles\t326730037354\t100.00\t3.800\tGHz",
+      "2416015515395\t\tinstructions\t326730037354\t100.00\t1.95\tinsn per cycle",
+      "1162\t\tcontext-switches\t326730037354\t100.00\t3.556\t/sec",
+      "1\t\tcpu-migrations\t326730037354\t100.00\t0.003\t/sec",
+      "249975\t\tpage-faults\t326730037354\t100.00\t765.081\t/sec"
+    ],
+    "topology": [
+      {
+        "core": "0",
+        "cpu": 48,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "1",
+        "cpu": 49,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "2",
+        "cpu": 50,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "3",
+        "cpu": 51,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "4",
+        "cpu": 52,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "5",
+        "cpu": 53,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "0",
+        "cpu": 144,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "1",
+        "cpu": 145,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "2",
+        "cpu": 146,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "3",
+        "cpu": 147,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "4",
+        "cpu": 148,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      },
+      {
+        "core": "5",
+        "cpu": 149,
+        "l3_shared_cpus": "48-53,144-149",
+        "socket": "1"
+      }
+    ]
+  },
+  "schema": "tactix-matched-slurm-memory-regression-result-v2",
+  "solve": {
+    "exit_code": 20,
+    "peak_rss_kb": 590456,
+    "sampled_process_vm_peak_kb": 701500,
+    "timed_out": false,
+    "wall_seconds": 326.81
+  },
+  "solver_statistics": [
+    "c tactix 0.1.0",
+    "c input       0 clauses restated (normalized literals)",
+    "c decisions   182202021 (0 via API)",
+    "c conflicts   4636494",
+    "c propagations 2797668319 (2225456968 search, 572211351 inprocess)",
+    "c learned     4376753 (1662 units)",
+    "c learnedsize 48.95 avg lits, 30.28 avg glue",
+    "c reduction   33.1% of resolved lits removed by minimize+shrink",
+    "c minimized   46242796 lits",
+    "c min-depth   0 cutoffs",
+    "c shrunken    59944600 lits",
+    "c reasonbump  51357828 vars in 903312 rounds (0 depth2, 27784 aborted)",
+    "c otfs        158833 strengthened (23152 conflicts subsumed)",
+    "c eagersub    511902 subsumed of 7946120 tried (0 kept as reason), register 4",
+    "c shrinkglue  43354 promoted (clamp size-1)",
+    "c tumble      489817 vars seeded (activation order)",
+    "c warmup      16 warmups, 289441 decisions, 1943977 propagations",
+    "c denseocc    3757842 slice moves, 4 defrags",
+    "c sparsecol   365 runs, 44428 clauses",
+    "c vivify      359 rounds, 221663 vivified, 83 deleted, 0 flushed, 1218359 checked",
+    "c vivify2     3229879 reused, 7465889 probes, 0 full, 85954 tier3, 23333213 prio, 109 rearm, 1218442 polls, 0 term",
+    "c vivify3     163979 subsumed, 894 promoted, 209299 shrunken, 65690 implied, 55194 asym, 12364 instantiated, 711829 noop",
+    "c probe       0 rounds, 0 probed, 0 failed",
+    "c backbone    12808 rounds, 21512034 probed, 994 failed",
+    "c transitive  0 rounds, 2346066 checked, 18694 deleted, 52 units, 375221175 ticks, 2346066 polls, 0 terminated",
+    "c substitute  897 rounds, 189227400 ticks, 81572 non-trivial SCCs (142530 lits), 70654 vars substituted, 0 rounds skipped / 0 partial (0 lits poisoned) on the hazard check",
+    "c bce         0 rounds, 0 deleted, 0 ticks",
+    "c cce         0 rounds, 0 tried, 0 deleted (0 blocked / 0 ata), 0 ala, 0 cla, 0 ticks",
+    "c cce2        0 skipped / 0 advances / 0 rearmed",
+    "c instantiate 0 rounds, 0 literals removed, 0 probed",
+    "c sweep       22 rounds, 29433 swept, 29404 environments (4938029 clauses), 263079 solves, 120091 candidates, 611 equivalences, 11 units (3 already binary), 0 env-unsat, 23 budget, 476419503 ticks",
+    "c sweepdiag   78235201 env-lits, 982 root-false (982 stripped, 0 FREE), 0 units, 63261280 cand-seeded, 303085 refined, 219738 dir-sat, 13927 dir-unsat",
+    "c sweepflip   64078250 attempts, 61827093 successful",
+    "c sweepback   65034675 candidates, 62411543 flipped",
+    "c sweepcost   5974579 dedup ticks, 347407780 sub-solver ticks, 0 representation words; closure 0/0 occurrences, 0/0 vars whole",
+    "c sweepemit   1216 binaries, 0 not-rup, 608 general pairs, 0 strip units cited",
+    "c sweepsched  431046 scheduled, 611 rescheduled, 28844 resumed, 0 completed, 41473 tail; limits 256 vars, 1024 clauses, depth 2",
+    "c ternary     0 rounds, 0 resolvents, 0 binaries, 0 ticks",
+    "c hbr         0 rounds, 0 probes, 0 binaries, 0 subsumed, 0 declined, 0 ticks",
+    "c chrono      278297 chronological, 0 stale backjumps, 2 propagation re-arms",
+    "c reuse       100907 conflicts reused, 17348 needed watch repair",
+    "c jumpreason  911585078 binary reasons jumped, 431 classifications, 431 big-binary; gate on",
+    "c binprop     121088246 scans, 121088246 flagged, 207043273 words, 885442209 skipped, 0 residual-ordered, 0 residual-large",
+    "c inprocess   66 phases",
+    "c conggates   1626533 and, 749164 xor, 108843 ite",
+    "c congruence  38 rounds, 38 binary rebuilds, 2484540 gates, 66862 merges, 182 units, 0 unjustified, 6145762557 ticks, 0 budget stops",
+    "c congy1      396 found, 396 units, 2349 binary equivalences, 101953987 ticks",
+    "c retired     3614 vars (556 substituted, 3058 eliminated) of 66009",
+    "c compact     9 passes removed 431165 internal variables",
+    "c deactivate  446900 deactivations, 0 repeated reports, 0 re-bumps of retired vars",
+    "c substdec    0 decisions on substituted vars (0.00% of 182202021)",
+    "c extension   1201 vars added, 2121631 decisions on them (1.16% of 182202021)",
+    "c interrupt   0 rule applications aborted on the stop flag (0 stress fires)",
+    "c extbumps    7660800 of 436994402 bumps on extension vars (1.75%), 986327 reason-side only (12.87% of those)",
+    "c factor      7357 factorings, 19687122 large remainders offered, 428217051 ticks",
+    "c factor-rem  9995047 materialized, 9692075 reused",
+    "c factor-bnd  194885 grids rejected by the coupled bound",
+    "c factor-dem  58 demotions, 7357 fresh vars demoted",
+    "c bve         0 rounds, 364125 eliminated, 88965353 resolutions",
+    "c bve-bwd     0 subsumers, 0 subsumed, 0 strengthened, 0 units",
+    "c bve-gates   1253 equiv, 436020 andor, 36906 ite, 0 xor, 533117 definition; 863060073 resolvent pairs saved",
+    "c bve-def     1100990 checked, 152022450 ticks, 0 hit the tick ceiling, 429 units",
+    "c restarts    58692 (14789 reused a trail prefix)",
+    "c reductions  364 (3415113 clauses deleted, 1506126 promoted)",
+    "c tiers       2/7 live after 448 retiers (retention band 0 clause-visits dynamic vs 0 static)",
+    "c redscan     0 scans, 0 arena words walked, 0 skippable by a first_reducible watermark (0.00%)",
+    "c mode        unguided after 45 switches (11731955782 ticks, 5663 target phases saved)",
+    "c rephased    47 (1085 best phases saved)",
+    "c reordered   30 eligible, 30 decision re-rankings",
+    "c lucky       1 early, 1 late (0 SAT), 12 probes",
+    "c walk        16 walks (6 improved, 297891 flips, 241801524 steps)",
+    "c randec      643 sequences, 15131721 random decisions",
+    "c subsume     0 rounds (0 checked, 0 visits, 0 subsumed)",
+    "c strengthen  40 rounds (10615891 checked, 325547626 visits, 352503 strengthened, 420860 subsumed)",
+    "c budgetstop  0 C1 rounds, 3 C2 rounds stopped mid-round",
+    "c c1shadow    0 observed, 0 deleted + 0 rewritten by C2, 0 residual",
+    "c touch       50163740 marks, 50163740 epoch; C1 0 skipped / 0 advances / 0 rearmed, C2 7170458 skipped / 40 advances / 409460 rearmed",
+    "c subhold     0 elimination rounds held open by C1/C2",
+    "c touch3      BCE 0 skipped / 0 rearmed, X2 0 skipped / 0 rearmed, X4 0 skipped / 0 rearmed",
+    "c interrupt3  BCE 0, X2 0, X4 0 aborts",
+    "c interrupt2  C1 0, C2 0 aborts",
+    "c touchred    0 redundant creations in scope (dynamic) vs 0 (static tier2=6), 0 band marks; band off",
+    "c f7band      C2 0 band candidates checked / 0 skipped, 0 subsumed / 0 strengthened",
+    "c touch4      Factor 7595313 seeds skipped / 0 rearmed",
+    "c timing      326577 ms solve",
+    "c timing      121885 ms (37.3%) inprocessing slot, 204692 ms (62.7%) search+scaffolding outside it",
+    "c timing        Vivify               35077 ms ( 10.7%) in 359 applications",
+    "c timing        BVE                  19088 ms (  5.8%) in 1980421 applications",
+    "c timing        Factor               14503 ms (  4.4%) in 86 applications",
+    "c timing        Substitute           13098 ms (  4.0%) in 181 applications",
+    "c timing        Congruence           10861 ms (  3.3%) in 38 applications",
+    "c timing        Sweep                 8153 ms (  2.5%) in 22 applications",
+    "c timing        Strengthen            7583 ms (  2.3%) in 40 applications",
+    "c timing        Backbone              3582 ms (  1.1%) in 181 applications",
+    "c timing        TransitiveReduce      3175 ms (  1.0%) in 3934305 applications",
+    "c timing        (unattributed)        6765 ms (  2.1%)",
+    "s UNSATISFIABLE"
+  ],
+  "solver_stderr_tail": [
+    "[cong-time] cumulative ms: apply 735 | extract{and 56 index 70 sort 0 xor 35 ite 76} | rebuild 74 binary{extract 64 units 11 import 13} setup 6 | closure 268 {canon 27 match 74 (of which proof 33)} | forward 123 | items 661506",
+    "[cong-time] cumulative ms: apply 1204 | extract{and 112 index 130 sort 0 xor 64 ite 124} | rebuild 115 binary{extract 111 units 21 import 30} setup 11 | closure 397 {canon 47 match 107 (of which proof 33)} | forward 174 | items 1180933",
+    "[cong-time] cumulative ms: apply 1718 | extract{and 176 index 191 sort 0 xor 94 ite 173} | rebuild 170 binary{extract 160 units 31 import 47} setup 16 | closure 526 {canon 66 match 137 (of which proof 33)} | forward 227 | items 1698332",
+    "[cong-time] cumulative ms: apply 2067 | extract{and 225 index 263 sort 0 xor 126 ite 197} | rebuild 213 binary{extract 189 units 36 import 57} setup 17 | closure 585 {canon 69 match 141 (of which proof 34)} | forward 273 | items 1773624",
+    "[cong-time] cumulative ms: apply 2395 | extract{and 276 index 332 sort 0 xor 157 ite 218} | rebuild 258 binary{extract 211 units 40 import 66} setup 17 | closure 635 {canon 71 match 144 (of which proof 34)} | forward 315 | items 1826577",
+    "[cong-time] cumulative ms: apply 2712 | extract{and 330 index 402 sort 0 xor 187 ite 239} | rebuild 295 binary{extract 232 units 45 import 76} setup 18 | closure 687 {canon 73 match 146 (of which proof 34)} | forward 359 | items 1878250",
+    "[cong-time] cumulative ms: apply 3001 | extract{and 383 index 472 sort 0 xor 218 ite 259} | rebuild 340 binary{extract 254 units 49 import 85} setup 19 | closure 695 {canon 74 match 148 (of which proof 34)} | forward 359 | items 1929747",
+    "[cong-time] cumulative ms: apply 3354 | extract{and 437 index 540 sort 0 xor 247 ite 278} | rebuild 386 binary{extract 272 units 54 import 95} setup 19 | closure 773 {canon 77 match 153 (of which proof 37)} | forward 427 | items 1982911",
+    "[cong-time] cumulative ms: apply 3655 | extract{and 490 index 606 sort 0 xor 276 ite 296} | rebuild 424 binary{extract 289 units 58 import 104} setup 20 | closure 819 {canon 78 match 155 (of which proof 37)} | forward 468 | items 2023853",
+    "[cong-time] cumulative ms: apply 3940 | extract{and 545 index 667 sort 0 xor 301 ite 311} | rebuild 462 binary{extract 302 units 62 import 112} setup 20 | closure 867 {canon 79 match 156 (of which proof 37)} | forward 512 | items 2052140",
+    "[cong-time] cumulative ms: apply 4225 | extract{and 599 index 728 sort 0 xor 326 ite 325} | rebuild 503 binary{extract 314 units 66 import 120} setup 21 | closure 908 {canon 80 match 157 (of which proof 37)} | forward 549 | items 2079276",
+    "[cong-time] cumulative ms: apply 4516 | extract{and 654 index 790 sort 0 xor 353 ite 341} | rebuild 545 binary{extract 325 units 70 import 128} setup 21 | closure 952 {canon 81 match 158 (of which proof 37)} | forward 588 | items 2109260",
+    "[cong-time] cumulative ms: apply 4821 | extract{and 713 index 847 sort 0 xor 376 ite 353} | rebuild 590 binary{extract 337 units 73 import 136} setup 21 | closure 1013 {canon 82 match 159 (of which proof 37)} | forward 645 | items 2129933",
+    "[cong-time] cumulative ms: apply 5111 | extract{and 771 index 904 sort 0 xor 399 ite 365} | rebuild 629 binary{extract 349 units 77 import 143} setup 22 | closure 1069 {canon 83 match 160 (of which proof 37)} | forward 699 | items 2150004",
+    "[cong-time] cumulative ms: apply 5378 | extract{and 828 index 959 sort 0 xor 421 ite 377} | rebuild 667 binary{extract 361 units 81 import 151} setup 22 | closure 1108 {canon 84 match 161 (of which proof 37)} | forward 734 | items 2169981",
+    "[cong-time] cumulative ms: apply 5666 | extract{and 893 index 1013 sort 0 xor 441 ite 388} | rebuild 711 binary{extract 371 units 84 import 158} setup 22 | closure 1164 {canon 84 match 162 (of which proof 37)} | forward 789 | items 2185005",
+    "[cong-time] cumulative ms: apply 5944 | extract{and 959 index 1065 sort 0 xor 461 ite 398} | rebuild 754 binary{extract 380 units 88 import 165} setup 23 | closure 1211 {canon 85 match 162 (of which proof 37)} | forward 833 | items 2200361",
+    "[cong-time] cumulative ms: apply 6177 | extract{and 1025 index 1118 sort 0 xor 480 ite 408} | rebuild 797 binary{extract 389 units 91 import 172} setup 23 | closure 1212 {canon 85 match 163 (of which proof 37)} | forward 833 | items 2215702",
+    "[cong-time] cumulative ms: apply 6435 | extract{and 1088 index 1166 sort 0 xor 498 ite 417} | rebuild 837 binary{extract 397 units 94 import 179} setup 23 | closure 1256 {canon 86 match 163 (of which proof 37)} | forward 875 | items 2230071",
+    "[cong-time] cumulative ms: apply 6705 | extract{and 1149 index 1213 sort 0 xor 515 ite 425} | rebuild 877 binary{extract 405 units 98 import 186} setup 23 | closure 1316 {canon 86 match 164 (of which proof 37)} | forward 933 | items 2244753",
+    "[cong-time] cumulative ms: apply 6965 | extract{and 1211 index 1259 sort 0 xor 530 ite 434} | rebuild 917 binary{extract 413 units 101 import 193} setup 24 | closure 1367 {canon 87 match 164 (of which proof 37)} | forward 982 | items 2259304",
+    "[cong-time] cumulative ms: apply 7170 | extract{and 1271 index 1304 sort 0 xor 544 ite 442} | rebuild 956 binary{extract 421 units 104 import 199} setup 24 | closure 1369 {canon 87 match 165 (of which proof 37)} | forward 982 | items 2273804",
+    "[cong-time] cumulative ms: apply 7405 | extract{and 1329 index 1349 sort 0 xor 559 ite 450} | rebuild 991 binary{extract 428 units 108 import 206} setup 24 | closure 1410 {canon 88 match 166 (of which proof 37)} | forward 1021 | items 2288393",
+    "[cong-time] cumulative ms: apply 7660 | extract{and 1388 index 1393 sort 0 xor 573 ite 458} | rebuild 1029 binary{extract 436 units 111 import 212} setup 24 | closure 1465 {canon 89 match 166 (of which proof 37)} | forward 1075 | items 2303237",
+    "[cong-time] cumulative ms: apply 7911 | extract{and 1446 index 1437 sort 0 xor 588 ite 466} | rebuild 1063 binary{extract 443 units 114 import 219} setup 25 | closure 1526 {canon 89 match 167 (of which proof 37)} | forward 1134 | items 2318063",
+    "[cong-time] cumulative ms: apply 8139 | extract{and 1504 index 1481 sort 0 xor 602 ite 474} | rebuild 1098 binary{extract 450 units 117 import 225} setup 25 | closure 1562 {canon 90 match 167 (of which proof 37)} | forward 1168 | items 2332831",
+    "[cong-time] cumulative ms: apply 8365 | extract{and 1562 index 1524 sort 0 xor 616 ite 482} | rebuild 1133 binary{extract 457 units 120 import 231} setup 25 | closure 1597 {canon 90 match 168 (of which proof 37)} | forward 1201 | items 2347648",
+    "[cong-time] cumulative ms: apply 8615 | extract{and 1618 index 1567 sort 0 xor 630 ite 490} | rebuild 1165 binary{extract 465 units 124 import 238} setup 25 | closure 1662 {canon 91 match 168 (of which proof 37)} | forward 1264 | items 2362492",
+    "[cong-time] cumulative ms: apply 8849 | extract{and 1675 index 1610 sort 0 xor 644 ite 498} | rebuild 1201 binary{extract 472 units 127 import 244} setup 26 | closure 1705 {canon 91 match 169 (of which proof 37)} | forward 1305 | items 2377425",
+    "[cong-time] cumulative ms: apply 9077 | extract{and 1732 index 1652 sort 0 xor 657 ite 506} | rebuild 1237 binary{extract 479 units 130 import 250} setup 26 | closure 1743 {canon 92 match 169 (of which proof 37)} | forward 1341 | items 2392403",
+    "[cong-time] cumulative ms: apply 9298 | extract{and 1789 index 1693 sort 0 xor 671 ite 513} | rebuild 1271 binary{extract 485 units 133 import 257} setup 26 | closure 1778 {canon 92 match 170 (of which proof 37)} | forward 1374 | items 2407312",
+    "[cong-time] cumulative ms: apply 9517 | extract{and 1844 index 1734 sort 0 xor 684 ite 521} | rebuild 1305 binary{extract 492 units 136 import 263} setup 26 | closure 1814 {canon 93 match 171 (of which proof 37)} | forward 1409 | items 2422191",
+    "[cong-time] cumulative ms: apply 9753 | extract{and 1900 index 1775 sort 0 xor 697 ite 528} | rebuild 1339 binary{extract 499 units 140 import 269} setup 27 | closure 1866 {canon 93 match 171 (of which proof 37)} | forward 1459 | items 2437034",
+    "[cong-time] cumulative ms: apply 9975 | extract{and 1956 index 1815 sort 0 xor 709 ite 536} | rebuild 1375 binary{extract 505 units 143 import 275} setup 27 | closure 1905 {canon 94 match 172 (of which proof 37)} | forward 1495 | items 2451817",
+    "[cong-time] cumulative ms: apply 10197 | extract{and 2011 index 1855 sort 0 xor 722 ite 543} | rebuild 1412 binary{extract 512 units 146 import 282} setup 27 | closure 1941 {canon 95 match 172 (of which proof 37)} | forward 1530 | items 2466485",
+    "[cong-time] cumulative ms: apply 10429 | extract{and 2066 index 1894 sort 0 xor 734 ite 550} | rebuild 1451 binary{extract 519 units 149 import 288} setup 27 | closure 1985 {canon 95 match 173 (of which proof 37)} | forward 1572 | items 2480994",
+    "[cong-time] cumulative ms: apply 10638 | extract{and 2120 index 1932 sort 0 xor 745 ite 557} | rebuild 1481 binary{extract 525 units 152 import 294} setup 28 | closure 2026 {canon 96 match 173 (of which proof 37)} | forward 1611 | items 2495085",
+    "[cong-time] cumulative ms: apply 10861 | extract{and 2174 index 1969 sort 0 xor 757 ite 564} | rebuild 1513 binary{extract 532 units 155 import 300} setup 28 | closure 2076 {canon 96 match 174 (of which proof 37)} | forward 1659 | items 2509050"
+  ],
+  "task": 0,
+  "tier": "D",
+  "valid": true,
+  "verdict": "UNSAT"
+}
