@@ -1,0 +1,10 @@
+{
+  "job_id": "1677314",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6276-vivify-binary-rank32-prefix/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T03:37:17",
+  "manifest_sha256": "2de852101059a5c4f390251dc99bb27da7bd959b9607487e724ed6719af0f535"
+}

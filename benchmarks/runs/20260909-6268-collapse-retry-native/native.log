@@ -1,0 +1,3 @@
+native copies=1 retained_endpoint_retry=1
+native copies=2 retained_endpoint_retry=1
+native copies=5 retained_endpoint_retry=1

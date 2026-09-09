@@ -1,0 +1,47 @@
+{
+  "rank": 32,
+  "input": "benchmarks/cache/tierD24-26/753ca299a6ab46e28ece1aefa38f4947-oski15a01b01s_opt.cnf.xz",
+  "input_sha256_compressed": "038955b162df4caa3a11b24eb039a6775b3774ed3e7a32886cd81c462755e7f3",
+  "stop_conflict": 1000000,
+  "stream_from": 300000,
+  "common_decisions": 69828932,
+  "resource_contract": {
+    "partition": "cpu-dense-hwulab-q",
+    "cpus_per_task": 12,
+    "memory_mib": 48000,
+    "array": "0",
+    "throttle": null,
+    "node_constraint": null,
+    "solver_timeout": 1200,
+    "allocation_minutes": 25
+  },
+  "candidate_authority": {
+    "path": "benchmarks/runs/20260909-6269-vivify-binary-retry-build/manifest.json",
+    "sha256": "e4a6dcec7a7a248d48e6bc29f33f554a9e2555727b88003e0efd7bb2782cd1e1"
+  },
+  "native_authority": {
+    "path": "benchmarks/runs/20260908-6092-rank37-macro-heaps/manifest.json",
+    "sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9"
+  },
+  "selection_sha256": "727420ea950f42bfc6e7c4e36b5ac5aaa521bb326e17bfa841685b79a8c4d59b",
+  "purpose": "Candidate-only causal replay of binary-Vivify retry repair against cached native6183; no reference timing rerun.",
+  "hypothesis": "Restored retry producer closes Rank32 missing schedule members; first check inherited300K hash, then full suffix and portable boundaries.",
+  "validation": "Require requested1M stop/cleanup; compare69828932-row hash10d4b4ca139060f5 before inheriting300K closure. If hash differs, cached early closure is invalid for this source and next diagnostic must localize earlier. No parent proof identity assumed after semantic repair.",
+  "test_consideration": "Actual frozen parent lacks all24 irredundant cases of48 public-instance fixtures covering proof modes, learned/instantiated binaries, reuse and preset flags; redundant cases remain neutral. Full suites, direct proof/model checks, native-reference evidence and gates required.",
+  "limitation": "Nativeinstrumenteddiagnostic rerun allowed;frozen timingvectorunchanged. Observer-neutrality mustbevalidated beforecausalinterpretation. Allpriorcampaign scriptsandpins untouched.",
+  "earlier_closure": {
+    "benchmarks/runs/20260908-6060-root-lock-rank32-prefix/summary.json": "640e4bc6a6e4b78c843a167ef8c3d27baaa0d6f528932454e274f01c06f367d1",
+    "benchmarks/runs/20260908-6061-root-lock-ranks1-40/results/031.json": "4e5b988dab8183c4a33b76d9b1de013140b21f862c46e7723d4ab309b2899f13",
+    "benchmarks/runs/20260908-6115-substitute-publication-ranks1-50/results/031.json": "54f7798a1c5da66733a873db02d943bce52c091ea7580bd704b021da01db89a2"
+  },
+  "scope": "Trace pin corresponds exactly to new6269 source, not semantic6107.",
+  "hashes": {
+    "pins/candidate": "ae974849b0c49db7e4fe54ef2a1cedc00c0ca399cfbc13c39519100be4a1b5ea",
+    "run.py": "461c1e83eee71885777e0a291af47371b6b205c8019e885299e84b3c8fbe0b9e",
+    "array.sbatch": "45f55ebe8731bba5484dd18bd3415d3ef0422669bec804b1cc6e2b5f38e1a734"
+  },
+  "cached_native": {
+    "path": "benchmarks/runs/20260909-6183-rank32-current-prefix/results/kissat.json",
+    "sha256": "73c99c8e8f472f00d1c9c4bd819be642d44cb8cb757810fd435243fbf5a8ba7e"
+  }
+}

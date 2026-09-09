@@ -189,7 +189,7 @@ conjunct.
   physical order, retain the first `|c′|-1` assumption levels, and choose watches in that valuation.
   This control state selects later reasons. Vivify also recomputes each traversed redundant reason's
   glue and immediately promotes improvements; that changes later tier eligibility, not proof delta.
-  Learned large irredundant replacements rearm elimination advice for every old variable;
+  Learned large irredundant replacements retry every old variable; irredundant binary terminals retry free old variables;
   large instantiation remains selective. Advice changes neither legal instances nor proof δ.
   Before dispatch, scheduling forgets root-satisfied clauses and strips root-false literals proof-first,
   committing any binary/unit/refutation. Two ordered arena passes simplify unprioritized candidates,

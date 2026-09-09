@@ -1,0 +1,18 @@
+In file included from /home/hwu/SAT-solving/benchmarks/probes/scratch/test-substitute-collapse-retry-6267.cpp:6:
+/home/hwu/SAT-solving/tools/solvers/variants/kissat-schedule-continue-6206/src/internal.h:108:8: error: expected unqualified-id before ‘export’
+  108 |   ints export;
+      |        ^~~~~~
+/home/hwu/SAT-solving/benchmarks/probes/scratch/test-substitute-collapse-retry-6267.cpp: In function ‘int main()’:
+/home/hwu/SAT-solving/benchmarks/probes/scratch/test-substitute-collapse-retry-6267.cpp:22:37: error: deducing from brace-enclosed initializer list requires ‘#include <initializer_list>’
+   16 | #include <cstdio>
+  +++ |+#include <initializer_list>
+   17 | #ifndef NATIVE
+......
+   22 |   for (unsigned copies : {1u, 2u, 5u}) {
+      |                                     ^
+/home/hwu/SAT-solving/benchmarks/probes/scratch/test-substitute-collapse-retry-6267.cpp:27:37: error: deducing from brace-enclosed initializer list requires ‘#include <initializer_list>’
+   27 |     for (int x : {-1, 2, 0, 1, -2, 0}) kissat_add(s, x);
+      |                                     ^
+/home/hwu/SAT-solving/benchmarks/probes/scratch/test-substitute-collapse-retry-6267.cpp:29:31: error: deducing from brace-enclosed initializer list requires ‘#include <initializer_list>’
+   29 |       for (int x : {1, 2, 3, 0}) kissat_add(s, x);
+      |                               ^
