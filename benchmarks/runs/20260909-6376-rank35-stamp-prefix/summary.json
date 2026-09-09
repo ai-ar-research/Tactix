@@ -1,0 +1,61 @@
+{
+  "rank": 35,
+  "stop": 100000,
+  "prefixes": {
+    "candidate": {
+      "solver": "tactix",
+      "conflict": 100000,
+      "start_decisions": 18446744073709419300,
+      "end_decisions": 40504207,
+      "count": 40636523,
+      "hash": "6a3ebeb3a46d7ad5",
+      "common": 18516218,
+      "common_reached": 1,
+      "common_hash": "a6eb1df4f4e0e591",
+      "first": 488499,
+      "common_last": -80094,
+      "last": 202239,
+      "max_level": 41434
+    },
+    "previous": {
+      "solver": "tactix",
+      "conflict": 100000,
+      "start_decisions": 18446744073709419300,
+      "end_decisions": 40504207,
+      "count": 40636523,
+      "hash": "6a3ebeb3a46d7ad5",
+      "common": 18516218,
+      "common_reached": 1,
+      "common_hash": "a6eb1df4f4e0e591",
+      "first": 488499,
+      "common_last": -80094,
+      "last": 202239,
+      "max_level": 41434
+    }
+  },
+  "prior_rephase_closure": {
+    "candidate": true,
+    "previous": true
+  },
+  "current_previous_decisions": {
+    "matching_rows": 40636523,
+    "left": null,
+    "right": null,
+    "complete_equal": true
+  },
+  "hashes": {
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/manifest.json": "828d895c1f301e391bb377cc044fab9354a2794aafb993ad965d769bd3464ab1",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/launch.json": "96b15fe29c3bfe79323a0253cd6c575e0b234dc6ce821c1560cd728e6b7c339c",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/results/candidate.json": "afd297536de6eb4c0337de73b29284e013887d8e77769ab8d4e471b11fbcb848",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/candidate.prefix.tsv": "922d38bc3776ae1c9a5d3507661cc73b27dab71120941694d3e5d570aaab7492",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/candidate.boundaries.tsv": "db1ca2b5dbbf64fa5b5ef1330216e9ff27aaecdb9203061217e412a71afeddaf",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/candidate.macro.tsv": "632301f23990d35defb44f5a3991c859f8ad1eea3dd747484f94ab05d2861f40",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/candidate.decisions.tsv": "ae86a8409a0ac52450a6c17f94a5501e0830758dc82c14092338d2cf786fc2fa",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/results/previous.json": "f853188b292ec03eece48736a40f6dd2958ff0c0540449716e9d747bde89696f",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/previous.boundaries.tsv": "db1ca2b5dbbf64fa5b5ef1330216e9ff27aaecdb9203061217e412a71afeddaf",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/previous.prefix.tsv": "922d38bc3776ae1c9a5d3507661cc73b27dab71120941694d3e5d570aaab7492",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/previous.decisions.tsv": "ae86a8409a0ac52450a6c17f94a5501e0830758dc82c14092338d2cf786fc2fa",
+    "benchmarks/runs/20260909-6376-rank35-stamp-prefix/traces/previous.macro.tsv": "632301f23990d35defb44f5a3991c859f8ad1eea3dd747484f94ab05d2861f40"
+  },
+  "limitation": "Full selected-decision streams compared through100K; unchanged or changed prior closure is reported rather than assumed. No whole-formula identity, final proof acceptance or timing claim."
+}

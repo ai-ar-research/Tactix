@@ -1,0 +1,20 @@
+{
+  "job_id": "1677697",
+  "tasks": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-5",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6374-compact-stamp-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T06:32:33",
+  "manifest_sha256": "dfe3a9a80b86d04ce9a5c14dfab1fa86100cf20df4ae31f8f467a543361222ba",
+  "preceding_records": {}
+}
