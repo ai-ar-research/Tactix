@@ -1,0 +1,15 @@
+{
+  "command": [
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/fixture-3",
+    "0",
+    "4",
+    "1",
+    "0",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.cnf",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.proof",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6582-material-proof-control/0-4-1-0.effects.json"
+  ],
+  "exit_code": 0,
+  "stdout": "PASS mode=0 n=4 missing=1 style=0 rounds=3\n",
+  "stderr": ""
+}

@@ -1,0 +1,16 @@
+{
+  "job_id": "1678350",
+  "tasks": [
+    0,
+    1
+  ],
+  "command": [
+    "sbatch",
+    "--parsable",
+    "--array=0-1",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260909-6592-rank50-material-three-wave-runtime/array.sbatch"
+  ],
+  "accounting_since": "2026-09-09T16:07:54",
+  "manifest_sha256": "3a2820d917b0113cc9c615f05a987a2980dbd8eaf2e1b8d53603c1b22078c92b",
+  "preceding_records": {}
+}

@@ -1,0 +1,10 @@
+{
+  "path": "benchmarks/runs/20260909-6571-material-state-build/manifest.json",
+  "sha256": "6ef10412119d0668e357b9e44b3d4850991c28f1f801d4b97e8179b693cfc703",
+  "design": {
+    "path": "benchmarks/reports/2026-09-09-material-tracker-design-and-touch-contract.md",
+    "sha256": "6851e1e6d63985b3874499b9a97d6ee08f7157fe9451ec160ae528f8430829ef"
+  },
+  "approval": "User replied Yes to implementing the isolated material-tracker repair, subject to correctness, memory and Rank1\u201350 validation before promotion. Approval does not cover FlatLists, fuzz access or push.",
+  "stage": "Canonical C2 flag predicates and clear/rearm lifecycle, plus Eliminate material admission and maximum-bound exit watermark. Public guards, shared producers and SP-SLOT-5 unchanged."
+}

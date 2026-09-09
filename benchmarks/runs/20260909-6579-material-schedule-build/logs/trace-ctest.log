@@ -1,0 +1,229 @@
+Test project /home/hwu/SAT-solving/build/pin-6579-material-schedule-trace
+        Start   1: kernel
+  1/109 Test   #1: kernel ...........................   Passed    0.01 sec
+        Start   2: parse
+  2/109 Test   #2: parse ............................   Passed    0.02 sec
+        Start   3: proof
+  3/109 Test   #3: proof ............................   Passed    0.01 sec
+        Start   4: analyze
+  4/109 Test   #4: analyze ..........................   Passed    0.33 sec
+        Start   5: restart_reduce
+  5/109 Test   #5: restart_reduce ...................   Passed    0.01 sec
+        Start   6: switchmode
+  6/109 Test   #6: switchmode .......................   Passed    0.00 sec
+        Start   7: rephase
+  7/109 Test   #7: rephase ..........................   Passed    0.00 sec
+        Start   8: subsolver
+  8/109 Test   #8: subsolver ........................   Passed    1.18 sec
+        Start   9: sweep
+  9/109 Test   #9: sweep ............................   Passed    0.30 sec
+        Start  10: scheduling
+ 10/109 Test  #10: scheduling .......................   Passed    0.01 sec
+        Start  11: strategy_config
+ 11/109 Test  #11: strategy_config ..................   Passed    0.00 sec
+        Start  12: event_trace
+ 12/109 Test  #12: event_trace ......................   Passed    0.02 sec
+        Start  13: event_trace_compare
+ 13/109 Test  #13: event_trace_compare ..............   Passed    0.66 sec
+        Start  14: reduce_trace_compare
+ 14/109 Test  #14: reduce_trace_compare .............   Passed    0.06 sec
+        Start  15: modelcheck
+ 15/109 Test  #15: modelcheck .......................   Passed    0.07 sec
+        Start  16: runtime_task
+ 16/109 Test  #16: runtime_task .....................   Passed    0.18 sec
+        Start  17: kissat_journal_overlay_static
+ 17/109 Test  #17: kissat_journal_overlay_static ....   Passed    0.06 sec
+        Start  18: rule_journal
+ 18/109 Test  #18: rule_journal .....................   Passed    0.17 sec
+        Start  19: p4_fixtures
+ 19/109 Test  #19: p4_fixtures ......................   Passed    0.35 sec
+        Start  20: campaign_certificate_cleanup
+ 20/109 Test  #20: campaign_certificate_cleanup .....   Passed    0.74 sec
+        Start  21: tierd_campaign_pinning
+ 21/109 Test  #21: tierd_campaign_pinning ...........   Passed    0.07 sec
+        Start  22: slurm_memory_enforcement
+ 22/109 Test  #22: slurm_memory_enforcement .........   Passed    0.09 sec
+        Start  23: fuzz_slurm_snapshot
+ 23/109 Test  #23: fuzz_slurm_snapshot ..............   Passed    0.29 sec
+        Start  24: slot_pose
+ 24/109 Test  #24: slot_pose ........................   Passed    0.00 sec
+        Start  25: reorder
+ 25/109 Test  #25: reorder ..........................   Passed    0.00 sec
+        Start  26: walk
+ 26/109 Test  #26: walk .............................   Passed    0.00 sec
+        Start  27: subsume
+ 27/109 Test  #27: subsume ..........................   Passed    0.00 sec
+        Start  28: strengthen
+ 28/109 Test  #28: strengthen .......................   Passed    0.01 sec
+        Start  29: instantiate
+ 29/109 Test  #29: instantiate ......................   Passed    0.00 sec
+        Start  30: vivify
+ 30/109 Test  #30: vivify ...........................   Passed    0.00 sec
+        Start  31: vivify_n1
+ 31/109 Test  #31: vivify_n1 ........................   Passed    0.00 sec
+        Start  32: probe
+ 32/109 Test  #32: probe ............................   Passed    0.00 sec
+        Start  33: backbone
+ 33/109 Test  #33: backbone .........................   Passed    0.00 sec
+        Start  34: bce
+ 34/109 Test  #34: bce ..............................   Passed    0.00 sec
+        Start  35: cce
+ 35/109 Test  #35: cce ..............................   Passed    0.02 sec
+        Start  36: ternary
+ 36/109 Test  #36: ternary ..........................   Passed    0.00 sec
+        Start  37: hyperbinary
+ 37/109 Test  #37: hyperbinary ......................   Passed    0.00 sec
+        Start  38: decide
+ 38/109 Test  #38: decide ...........................   Passed    0.00 sec
+        Start  39: reconstruct
+ 39/109 Test  #39: reconstruct ......................   Passed    0.00 sec
+        Start  40: substitute
+ 40/109 Test  #40: substitute .......................   Passed    0.00 sec
+        Start  41: congruence
+ 41/109 Test  #41: congruence .......................   Passed    0.01 sec
+        Start  42: binary_deletion
+ 42/109 Test  #42: binary_deletion ..................   Passed    0.00 sec
+        Start  43: transitive_reduce
+ 43/109 Test  #43: transitive_reduce ................   Passed    0.00 sec
+        Start  44: bve
+ 44/109 Test  #44: bve ..............................   Passed    0.02 sec
+        Start  45: lucky
+ 45/109 Test  #45: lucky ............................   Passed    0.01 sec
+        Start  46: api_n1
+ 46/109 Test  #46: api_n1 ...........................   Passed    0.00 sec
+        Start  47: api_instances
+ 47/109 Test  #47: api_instances ....................   Passed    0.01 sec
+        Start  48: random_policy
+ 48/109 Test  #48: random_policy ....................   Passed    0.10 sec
+        Start  49: trace_replay
+ 49/109 Test  #49: trace_replay .....................   Passed    0.18 sec
+        Start  50: micro_proofs
+ 50/109 Test  #50: micro_proofs .....................   Passed    3.01 sec
+        Start  51: sweep_proofs
+ 51/109 Test  #51: sweep_proofs .....................   Passed    2.74 sec
+        Start  52: tr_bruteforce_0
+ 52/109 Test  #52: tr_bruteforce_0 ..................   Passed    0.21 sec
+        Start  53: tr_bruteforce_1
+ 53/109 Test  #53: tr_bruteforce_1 ..................   Passed    0.19 sec
+        Start  54: tr_bruteforce_2
+ 54/109 Test  #54: tr_bruteforce_2 ..................   Passed    0.18 sec
+        Start  55: tr_bruteforce_3
+ 55/109 Test  #55: tr_bruteforce_3 ..................   Passed    0.20 sec
+        Start  56: factor
+ 56/109 Test  #56: factor ...........................   Passed    0.03 sec
+        Start  57: factor_n1
+ 57/109 Test  #57: factor_n1 ........................   Passed    0.00 sec
+        Start  58: subsume_n1
+ 58/109 Test  #58: subsume_n1 .......................   Passed    0.00 sec
+        Start  59: config_wiring
+ 59/109 Test  #59: config_wiring ....................   Passed    0.14 sec
+        Start  60: effort_specs
+ 60/109 Test  #60: effort_specs .....................   Passed    0.08 sec
+        Start  61: option_coverage
+ 61/109 Test  #61: option_coverage ..................   Passed    0.57 sec
+        Start  62: stat_ids
+ 62/109 Test  #62: stat_ids .........................   Passed    0.08 sec
+        Start  63: citations
+ 63/109 Test  #63: citations ........................   Passed    2.56 sec
+        Start  64: section_refs
+ 64/109 Test  #64: section_refs .....................   Passed    0.08 sec
+        Start  65: inventory
+ 65/109 Test  #65: inventory ........................   Passed    0.06 sec
+        Start  66: comment_hygiene
+ 66/109 Test  #66: comment_hygiene ..................   Passed    1.49 sec
+        Start  67: doc_size
+ 67/109 Test  #67: doc_size .........................   Passed    0.06 sec
+        Start  68: proof_rule_sync
+ 68/109 Test  #68: proof_rule_sync ..................   Passed    0.05 sec
+        Start  69: default_strategy_config_check
+ 69/109 Test  #69: default_strategy_config_check ....   Passed    0.06 sec
+        Start  70: no_heuristics
+ 70/109 Test  #70: no_heuristics ....................   Passed    0.00 sec
+        Start  71: kernel_h_boundary
+ 71/109 Test  #71: kernel_h_boundary ................   Passed    0.01 sec
+        Start  72: rule_policy_boundary
+ 72/109 Test  #72: rule_policy_boundary .............   Passed    0.12 sec
+        Start  73: solve_reset
+ 73/109 Test  #73: solve_reset ......................   Passed    0.64 sec
+        Start  74: activation_stamp
+ 74/109 Test  #74: activation_stamp .................   Passed    0.00 sec
+        Start  75: assignment_level_bound
+ 75/109 Test  #75: assignment_level_bound ...........   Passed    0.03 sec
+        Start  76: bve_active_pop
+ 76/109 Test  #76: bve_active_pop ...................   Passed    0.01 sec
+        Start  77: bve_bound_cut
+ 77/109 Test  #77: bve_bound_cut ....................   Passed    0.00 sec
+        Start  78: bve_memory
+ 78/109 Test  #78: bve_memory .......................   Passed    0.00 sec
+        Start  79: collect_memory
+ 79/109 Test  #79: collect_memory ...................   Passed    0.00 sec
+        Start  80: compact_stamp
+ 80/109 Test  #80: compact_stamp ....................   Passed    0.00 sec
+        Start  81: conflict_reuse_targets
+ 81/109 Test  #81: conflict_reuse_targets ...........   Passed    0.55 sec
+        Start  82: congruence_index_cleanup
+ 82/109 Test  #82: congruence_index_cleanup .........   Passed    0.22 sec
+        Start  83: eliminate_limit
+ 83/109 Test  #83: eliminate_limit ..................   Passed    0.00 sec
+        Start  84: factor_root_support
+ 84/109 Test  #84: factor_root_support ..............   Passed    0.00 sec
+        Start  85: forward_caller
+ 85/109 Test  #85: forward_caller ...................   Passed    0.00 sec
+        Start  86: forward_marks
+ 86/109 Test  #86: forward_marks ....................   Passed    0.00 sec
+        Start  87: forward_unit
+ 87/109 Test  #87: forward_unit .....................   Passed    0.01 sec
+        Start  88: inprocess_root
+ 88/109 Test  #88: inprocess_root ...................   Passed    0.00 sec
+        Start  89: learned_sort
+ 89/109 Test  #89: learned_sort .....................   Passed    0.00 sec
+        Start  90: material_schedule
+ 90/109 Test  #90: material_schedule ................Subprocess aborted***Exception:   0.09 sec
+test_material_schedule: /home/hwu/SAT-solving/.claude/worktrees/runtime-material-schedule-6579/tests/test_material_schedule.cpp:84: void budget_tail_and_band(): Assertion `k.stats.strengthen_checked==1 && k.stats.budget_stops_c2==1' failed.
+
+        Start  91: propagation_cursor
+ 91/109 Test  #91: propagation_cursor ...............   Passed    0.00 sec
+        Start  92: reduce_root_guidance
+ 92/109 Test  #92: reduce_root_guidance .............   Passed    0.01 sec
+        Start  93: reduce_root_lock
+ 93/109 Test  #93: reduce_root_lock .................   Passed    0.01 sec
+        Start  94: replacement_cursor
+ 94/109 Test  #94: replacement_cursor ...............   Passed    0.02 sec
+        Start  95: root_conflict_reuse
+ 95/109 Test  #95: root_conflict_reuse ..............   Passed    0.05 sec
+        Start  96: substitute_collapse
+ 96/109 Test  #96: substitute_collapse ..............   Passed    0.04 sec
+        Start  97: substitute_publication
+ 97/109 Test  #97: substitute_publication ...........   Passed    0.00 sec
+        Start  98: substitute_retry
+ 98/109 Test  #98: substitute_retry .................   Passed    0.02 sec
+        Start  99: subsume_material
+ 99/109 Test  #99: subsume_material .................   Passed    0.00 sec
+        Start 100: sweep_cursor
+100/109 Test #100: sweep_cursor .....................   Passed    0.01 sec
+        Start 101: sweep_retained
+101/109 Test #101: sweep_retained ...................   Passed    0.00 sec
+        Start 102: sweep_small_env
+102/109 Test #102: sweep_small_env ..................   Passed    0.00 sec
+        Start 103: vivify_binary_retry
+103/109 Test #103: vivify_binary_retry ..............   Passed    0.03 sec
+        Start 104: vivify_count_cache
+104/109 Test #104: vivify_count_cache ...............   Passed    0.44 sec
+        Start 105: vivify_max
+105/109 Test #105: vivify_max .......................   Passed    0.01 sec
+        Start 106: watch_pair
+106/109 Test #106: watch_pair .......................   Passed    0.00 sec
+        Start 107: demo1_dpll
+107/109 Test #107: demo1_dpll .......................   Passed    0.00 sec
+        Start 108: demo2_no_restarts
+108/109 Test #108: demo2_no_restarts ................   Passed    0.00 sec
+        Start 109: demo3_scripted_default
+109/109 Test #109: demo3_scripted_default ...........   Passed    1.11 sec
+
+99% tests passed, 1 tests failed out of 109
+
+Total Test time (real) =  20.40 sec
+
+The following tests FAILED:
+	 90 - material_schedule (Subprocess aborted)
+Errors while running CTest
