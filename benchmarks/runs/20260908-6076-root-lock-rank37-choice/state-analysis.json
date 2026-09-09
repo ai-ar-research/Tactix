@@ -1,0 +1,1584 @@
+{
+  "heap_sizes": {
+    "candidate": 89594,
+    "kissat": 89594
+  },
+  "changes": {
+    "candidate_only": [],
+    "kissat_only": [],
+    "score": [],
+    "assigned": [],
+    "active": [],
+    "position": [
+      {
+        "variable": 7908,
+        "candidate": 64230,
+        "kissat": 36213
+      },
+      {
+        "variable": 13157,
+        "candidate": 77419,
+        "kissat": 77142
+      },
+      {
+        "variable": 14265,
+        "candidate": 18919,
+        "kissat": 63980
+      },
+      {
+        "variable": 15714,
+        "candidate": 23114,
+        "kissat": 86454
+      },
+      {
+        "variable": 16579,
+        "candidate": 76913,
+        "kissat": 76915
+      },
+      {
+        "variable": 18947,
+        "candidate": 21629,
+        "kissat": 85742
+      },
+      {
+        "variable": 21791,
+        "candidate": 86191,
+        "kissat": 84830
+      },
+      {
+        "variable": 23308,
+        "candidate": 35968,
+        "kissat": 71938
+      },
+      {
+        "variable": 23817,
+        "candidate": 86454,
+        "kissat": 43218
+      },
+      {
+        "variable": 26231,
+        "candidate": 86480,
+        "kissat": 43239
+      },
+      {
+        "variable": 26645,
+        "candidate": 102,
+        "kissat": 101
+      },
+      {
+        "variable": 28166,
+        "candidate": 33729,
+        "kissat": 38130
+      },
+      {
+        "variable": 28251,
+        "candidate": 85742,
+        "kissat": 59632
+      },
+      {
+        "variable": 29043,
+        "candidate": 9215,
+        "kissat": 82226
+      },
+      {
+        "variable": 30323,
+        "candidate": 52326,
+        "kissat": 43679
+      },
+      {
+        "variable": 31099,
+        "candidate": 77145,
+        "kissat": 77379
+      },
+      {
+        "variable": 32859,
+        "candidate": 36213,
+        "kissat": 31493
+      },
+      {
+        "variable": 33247,
+        "candidate": 14193,
+        "kissat": 3547
+      },
+      {
+        "variable": 35510,
+        "candidate": 8543,
+        "kissat": 34081
+      },
+      {
+        "variable": 35578,
+        "candidate": 20585,
+        "kissat": 82348
+      },
+      {
+        "variable": 35580,
+        "candidate": 41172,
+        "kissat": 20585
+      },
+      {
+        "variable": 35583,
+        "candidate": 20583,
+        "kissat": 41172
+      },
+      {
+        "variable": 35585,
+        "candidate": 41170,
+        "kissat": 20583
+      },
+      {
+        "variable": 35598,
+        "candidate": 82342,
+        "kissat": 41170
+      },
+      {
+        "variable": 35991,
+        "candidate": 882,
+        "kissat": 70666
+      },
+      {
+        "variable": 36074,
+        "candidate": 77129,
+        "kissat": 77134
+      },
+      {
+        "variable": 36484,
+        "candidate": 71938,
+        "kissat": 85470
+      },
+      {
+        "variable": 36767,
+        "candidate": 38890,
+        "kissat": 37573
+      },
+      {
+        "variable": 37851,
+        "candidate": 20512,
+        "kissat": 23121
+      },
+      {
+        "variable": 37860,
+        "candidate": 77547,
+        "kissat": 77123
+      },
+      {
+        "variable": 37893,
+        "candidate": 35331,
+        "kissat": 35846
+      },
+      {
+        "variable": 38005,
+        "candidate": 42090,
+        "kissat": 82158
+      },
+      {
+        "variable": 38032,
+        "candidate": 37573,
+        "kissat": 19159
+      },
+      {
+        "variable": 38330,
+        "candidate": 42737,
+        "kissat": 42093
+      },
+      {
+        "variable": 38390,
+        "candidate": 20537,
+        "kissat": 10269
+      },
+      {
+        "variable": 38393,
+        "candidate": 77481,
+        "kissat": 82478
+      },
+      {
+        "variable": 38431,
+        "candidate": 10237,
+        "kissat": 38567
+      },
+      {
+        "variable": 38453,
+        "candidate": 2894,
+        "kissat": 5187
+      },
+      {
+        "variable": 38459,
+        "candidate": 10269,
+        "kissat": 41138
+      },
+      {
+        "variable": 38462,
+        "candidate": 77482,
+        "kissat": 10237
+      },
+      {
+        "variable": 38564,
+        "candidate": 77445,
+        "kissat": 77146
+      },
+      {
+        "variable": 38575,
+        "candidate": 76915,
+        "kissat": 76921
+      },
+      {
+        "variable": 38930,
+        "candidate": 38874,
+        "kissat": 38890
+      },
+      {
+        "variable": 38974,
+        "candidate": 41165,
+        "kissat": 41164
+      },
+      {
+        "variable": 38996,
+        "candidate": 8479,
+        "kissat": 34242
+      },
+      {
+        "variable": 39002,
+        "candidate": 41138,
+        "kissat": 41165
+      },
+      {
+        "variable": 40668,
+        "candidate": 42330,
+        "kissat": 42326
+      },
+      {
+        "variable": 50678,
+        "candidate": 77382,
+        "kissat": 77137
+      },
+      {
+        "variable": 55321,
+        "candidate": 77136,
+        "kissat": 77419
+      },
+      {
+        "variable": 55579,
+        "candidate": 2383,
+        "kissat": 77502
+      },
+      {
+        "variable": 55816,
+        "candidate": 76896,
+        "kissat": 77118
+      },
+      {
+        "variable": 55851,
+        "candidate": 77302,
+        "kissat": 77531
+      },
+      {
+        "variable": 55888,
+        "candidate": 77325,
+        "kissat": 77302
+      },
+      {
+        "variable": 55962,
+        "candidate": 77133,
+        "kissat": 76896
+      },
+      {
+        "variable": 55999,
+        "candidate": 76726,
+        "kissat": 77131
+      },
+      {
+        "variable": 56036,
+        "candidate": 77139,
+        "kissat": 77418
+      },
+      {
+        "variable": 56094,
+        "candidate": 77132,
+        "kissat": 77481
+      },
+      {
+        "variable": 56149,
+        "candidate": 77140,
+        "kissat": 77454
+      },
+      {
+        "variable": 56186,
+        "candidate": 76906,
+        "kissat": 77328
+      },
+      {
+        "variable": 56223,
+        "candidate": 77126,
+        "kissat": 77150
+      },
+      {
+        "variable": 56297,
+        "candidate": 76922,
+        "kissat": 76902
+      },
+      {
+        "variable": 58372,
+        "candidate": 13781,
+        "kissat": 6890
+      },
+      {
+        "variable": 58814,
+        "candidate": 13991,
+        "kissat": 13891
+      },
+      {
+        "variable": 60820,
+        "candidate": 6539,
+        "kissat": 13080
+      },
+      {
+        "variable": 65301,
+        "candidate": 84830,
+        "kissat": 42324
+      },
+      {
+        "variable": 66098,
+        "candidate": 7953,
+        "kissat": 85654
+      },
+      {
+        "variable": 66352,
+        "candidate": 14189,
+        "kissat": 37576
+      },
+      {
+        "variable": 73086,
+        "candidate": 64522,
+        "kissat": 63825
+      },
+      {
+        "variable": 73162,
+        "candidate": 18688,
+        "kissat": 33729
+      },
+      {
+        "variable": 73829,
+        "candidate": 35846,
+        "kissat": 72201
+      },
+      {
+        "variable": 75278,
+        "candidate": 21553,
+        "kissat": 2383
+      },
+      {
+        "variable": 77558,
+        "candidate": 26162,
+        "kissat": 52326
+      },
+      {
+        "variable": 77863,
+        "candidate": 12599,
+        "kissat": 6299
+      },
+      {
+        "variable": 86949,
+        "candidate": 77142,
+        "kissat": 76922
+      },
+      {
+        "variable": 86957,
+        "candidate": 77418,
+        "kissat": 77141
+      },
+      {
+        "variable": 92764,
+        "candidate": 43258,
+        "kissat": 21628
+      },
+      {
+        "variable": 94909,
+        "candidate": 82226,
+        "kissat": 21553
+      },
+      {
+        "variable": 94910,
+        "candidate": 38130,
+        "kissat": 9215
+      },
+      {
+        "variable": 95366,
+        "candidate": 77422,
+        "kissat": 77344
+      },
+      {
+        "variable": 96191,
+        "candidate": 17015,
+        "kissat": 67909
+      },
+      {
+        "variable": 96240,
+        "candidate": 16095,
+        "kissat": 64522
+      },
+      {
+        "variable": 97005,
+        "candidate": 71694,
+        "kissat": 17983
+      },
+      {
+        "variable": 97030,
+        "candidate": 37576,
+        "kissat": 75021
+      },
+      {
+        "variable": 97626,
+        "candidate": 16960,
+        "kissat": 8543
+      },
+      {
+        "variable": 116307,
+        "candidate": 74746,
+        "kissat": 18919
+      },
+      {
+        "variable": 116360,
+        "candidate": 1,
+        "kissat": 3
+      },
+      {
+        "variable": 116362,
+        "candidate": 3,
+        "kissat": 1
+      },
+      {
+        "variable": 121798,
+        "candidate": 407,
+        "kissat": 816
+      },
+      {
+        "variable": 126557,
+        "candidate": 77322,
+        "kissat": 77417
+      },
+      {
+        "variable": 133636,
+        "candidate": 7101,
+        "kissat": 14204
+      },
+      {
+        "variable": 133640,
+        "candidate": 14204,
+        "kissat": 28410
+      },
+      {
+        "variable": 134232,
+        "candidate": 7100,
+        "kissat": 3549
+      },
+      {
+        "variable": 134428,
+        "candidate": 3549,
+        "kissat": 3550
+      },
+      {
+        "variable": 148358,
+        "candidate": 10814,
+        "kissat": 21629
+      },
+      {
+        "variable": 150934,
+        "candidate": 6299,
+        "kissat": 3149
+      },
+      {
+        "variable": 161642,
+        "candidate": 77379,
+        "kissat": 77145
+      },
+      {
+        "variable": 161877,
+        "candidate": 37250,
+        "kissat": 74746
+      },
+      {
+        "variable": 161895,
+        "candidate": 17280,
+        "kissat": 34690
+      },
+      {
+        "variable": 162887,
+        "candidate": 392,
+        "kissat": 391
+      },
+      {
+        "variable": 163905,
+        "candidate": 77421,
+        "kissat": 77381
+      },
+      {
+        "variable": 164458,
+        "candidate": 203,
+        "kissat": 407
+      },
+      {
+        "variable": 164738,
+        "candidate": 860,
+        "kissat": 429
+      },
+      {
+        "variable": 164744,
+        "candidate": 1721,
+        "kissat": 860
+      },
+      {
+        "variable": 167730,
+        "candidate": 77446,
+        "kissat": 77139
+      },
+      {
+        "variable": 168346,
+        "candidate": 77417,
+        "kissat": 77422
+      },
+      {
+        "variable": 168973,
+        "candidate": 77531,
+        "kissat": 76721
+      },
+      {
+        "variable": 170978,
+        "candidate": 77131,
+        "kissat": 77133
+      },
+      {
+        "variable": 171935,
+        "candidate": 77150,
+        "kissat": 77147
+      },
+      {
+        "variable": 172925,
+        "candidate": 3149,
+        "kissat": 1574
+      },
+      {
+        "variable": 177633,
+        "candidate": 3444,
+        "kissat": 1721
+      },
+      {
+        "variable": 180411,
+        "candidate": 77301,
+        "kissat": 77149
+      },
+      {
+        "variable": 190537,
+        "candidate": 79107,
+        "kissat": 14201
+      },
+      {
+        "variable": 195290,
+        "candidate": 42324,
+        "kissat": 21161
+      },
+      {
+        "variable": 195303,
+        "candidate": 32147,
+        "kissat": 32002
+      },
+      {
+        "variable": 196779,
+        "candidate": 77146,
+        "kissat": 77126
+      },
+      {
+        "variable": 198790,
+        "candidate": 23121,
+        "kissat": 2894
+      },
+      {
+        "variable": 204206,
+        "candidate": 45101,
+        "kissat": 23114
+      },
+      {
+        "variable": 205287,
+        "candidate": 3547,
+        "kissat": 25277
+      },
+      {
+        "variable": 214223,
+        "candidate": 77130,
+        "kissat": 77326
+      },
+      {
+        "variable": 215618,
+        "candidate": 14201,
+        "kissat": 7100
+      },
+      {
+        "variable": 215709,
+        "candidate": 3550,
+        "kissat": 7101
+      },
+      {
+        "variable": 220220,
+        "candidate": 77701,
+        "kissat": 77325
+      },
+      {
+        "variable": 226757,
+        "candidate": 21619,
+        "kissat": 43258
+      },
+      {
+        "variable": 228269,
+        "candidate": 38567,
+        "kissat": 77701
+      },
+      {
+        "variable": 228285,
+        "candidate": 76902,
+        "kissat": 76913
+      },
+      {
+        "variable": 228325,
+        "candidate": 34081,
+        "kissat": 77507
+      },
+      {
+        "variable": 228333,
+        "candidate": 74790,
+        "kissat": 73742
+      },
+      {
+        "variable": 228429,
+        "candidate": 82478,
+        "kissat": 104
+      },
+      {
+        "variable": 228435,
+        "candidate": 104,
+        "kissat": 64390
+      },
+      {
+        "variable": 228446,
+        "candidate": 19159,
+        "kissat": 18688
+      },
+      {
+        "variable": 228452,
+        "candidate": 85654,
+        "kissat": 42737
+      },
+      {
+        "variable": 228473,
+        "candidate": 48,
+        "kissat": 50
+      },
+      {
+        "variable": 228727,
+        "candidate": 105,
+        "kissat": 209
+      },
+      {
+        "variable": 228781,
+        "candidate": 82158,
+        "kissat": 20537
+      },
+      {
+        "variable": 228814,
+        "candidate": 41164,
+        "kissat": 82342
+      },
+      {
+        "variable": 228835,
+        "candidate": 50,
+        "kissat": 102
+      },
+      {
+        "variable": 229086,
+        "candidate": 68618,
+        "kissat": 8479
+      },
+      {
+        "variable": 229137,
+        "candidate": 42093,
+        "kissat": 10367
+      },
+      {
+        "variable": 229203,
+        "candidate": 106,
+        "kissat": 105
+      },
+      {
+        "variable": 229417,
+        "candidate": 209,
+        "kissat": 23
+      },
+      {
+        "variable": 229433,
+        "candidate": 42326,
+        "kissat": 42090
+      },
+      {
+        "variable": 229506,
+        "candidate": 10367,
+        "kissat": 20512
+      },
+      {
+        "variable": 229540,
+        "candidate": 70666,
+        "kissat": 35331
+      },
+      {
+        "variable": 229543,
+        "candidate": 23,
+        "kissat": 882
+      },
+      {
+        "variable": 235731,
+        "candidate": 43239,
+        "kissat": 21619
+      },
+      {
+        "variable": 237885,
+        "candidate": 4013,
+        "kissat": 8027
+      },
+      {
+        "variable": 237934,
+        "candidate": 8023,
+        "kissat": 4011
+      },
+      {
+        "variable": 238129,
+        "candidate": 2006,
+        "kissat": 4013
+      },
+      {
+        "variable": 238480,
+        "candidate": 21628,
+        "kissat": 10813
+      },
+      {
+        "variable": 238964,
+        "candidate": 2005,
+        "kissat": 1002
+      },
+      {
+        "variable": 244334,
+        "candidate": 26277,
+        "kissat": 12599
+      },
+      {
+        "variable": 245979,
+        "candidate": 16056,
+        "kissat": 32114
+      },
+      {
+        "variable": 246774,
+        "candidate": 32114,
+        "kissat": 64230
+      },
+      {
+        "variable": 247964,
+        "candidate": 77386,
+        "kissat": 77382
+      },
+      {
+        "variable": 248175,
+        "candidate": 64198,
+        "kissat": 32098
+      },
+      {
+        "variable": 248177,
+        "candidate": 16048,
+        "kissat": 8023
+      },
+      {
+        "variable": 248741,
+        "candidate": 77338,
+        "kissat": 77329
+      },
+      {
+        "variable": 253599,
+        "candidate": 63150,
+        "kissat": 77140
+      },
+      {
+        "variable": 253696,
+        "candidate": 77147,
+        "kissat": 77738
+      },
+      {
+        "variable": 253704,
+        "candidate": 77738,
+        "kissat": 77421
+      },
+      {
+        "variable": 258010,
+        "candidate": 75021,
+        "kissat": 74790
+      },
+      {
+        "variable": 258107,
+        "candidate": 77328,
+        "kissat": 77322
+      },
+      {
+        "variable": 266277,
+        "candidate": 214,
+        "kissat": 106
+      },
+      {
+        "variable": 267681,
+        "candidate": 1634,
+        "kissat": 3269
+      },
+      {
+        "variable": 269461,
+        "candidate": 77381,
+        "kissat": 31656
+      },
+      {
+        "variable": 273220,
+        "candidate": 38839,
+        "kissat": 77301
+      },
+      {
+        "variable": 273295,
+        "candidate": 391,
+        "kissat": 195
+      },
+      {
+        "variable": 277968,
+        "candidate": 816,
+        "kissat": 1634
+      },
+      {
+        "variable": 279699,
+        "candidate": 77414,
+        "kissat": 77132
+      },
+      {
+        "variable": 279703,
+        "candidate": 77123,
+        "kissat": 77414
+      },
+      {
+        "variable": 286109,
+        "candidate": 786,
+        "kissat": 392
+      },
+      {
+        "variable": 292666,
+        "candidate": 76721,
+        "kissat": 77547
+      },
+      {
+        "variable": 294132,
+        "candidate": 6890,
+        "kissat": 3444
+      },
+      {
+        "variable": 303073,
+        "candidate": 59632,
+        "kissat": 69295
+      },
+      {
+        "variable": 318386,
+        "candidate": 73742,
+        "kissat": 37250
+      },
+      {
+        "variable": 323251,
+        "candidate": 34242,
+        "kissat": 38874
+      },
+      {
+        "variable": 336139,
+        "candidate": 85674,
+        "kissat": 86191
+      },
+      {
+        "variable": 336456,
+        "candidate": 33986,
+        "kissat": 67974
+      },
+      {
+        "variable": 337224,
+        "candidate": 13080,
+        "kissat": 26162
+      },
+      {
+        "variable": 341456,
+        "candidate": 77149,
+        "kissat": 77350
+      },
+      {
+        "variable": 342090,
+        "candidate": 55128,
+        "kissat": 27563
+      },
+      {
+        "variable": 343278,
+        "candidate": 3542,
+        "kissat": 56758
+      },
+      {
+        "variable": 345201,
+        "candidate": 64390,
+        "kissat": 16095
+      },
+      {
+        "variable": 356210,
+        "candidate": 25277,
+        "kissat": 3542
+      },
+      {
+        "variable": 359079,
+        "candidate": 1574,
+        "kissat": 786
+      },
+      {
+        "variable": 363647,
+        "candidate": 77454,
+        "kissat": 77445
+      },
+      {
+        "variable": 363648,
+        "candidate": 77329,
+        "kissat": 77136
+      },
+      {
+        "variable": 364474,
+        "candidate": 97,
+        "kissat": 48
+      },
+      {
+        "variable": 369556,
+        "candidate": 28410,
+        "kissat": 14193
+      },
+      {
+        "variable": 372874,
+        "candidate": 72201,
+        "kissat": 71694
+      },
+      {
+        "variable": 385219,
+        "candidate": 43218,
+        "kissat": 86480
+      },
+      {
+        "variable": 403825,
+        "candidate": 77350,
+        "kissat": 77386
+      },
+      {
+        "variable": 403858,
+        "candidate": 56758,
+        "kissat": 14189
+      },
+      {
+        "variable": 403868,
+        "candidate": 13891,
+        "kissat": 55128
+      },
+      {
+        "variable": 407234,
+        "candidate": 77134,
+        "kissat": 76726
+      },
+      {
+        "variable": 407617,
+        "candidate": 77046,
+        "kissat": 77338
+      },
+      {
+        "variable": 412210,
+        "candidate": 63980,
+        "kissat": 85674
+      },
+      {
+        "variable": 413523,
+        "candidate": 77507,
+        "kissat": 77046
+      },
+      {
+        "variable": 414083,
+        "candidate": 429,
+        "kissat": 214
+      },
+      {
+        "variable": 414135,
+        "candidate": 101,
+        "kissat": 203
+      },
+      {
+        "variable": 414259,
+        "candidate": 32002,
+        "kissat": 64198
+      },
+      {
+        "variable": 414581,
+        "candidate": 21163,
+        "kissat": 42330
+      },
+      {
+        "variable": 420233,
+        "candidate": 77137,
+        "kissat": 77446
+      },
+      {
+        "variable": 420283,
+        "candidate": 77141,
+        "kissat": 63150
+      },
+      {
+        "variable": 420494,
+        "candidate": 67909,
+        "kissat": 16960
+      },
+      {
+        "variable": 422033,
+        "candidate": 3269,
+        "kissat": 6539
+      },
+      {
+        "variable": 423423,
+        "candidate": 31493,
+        "kissat": 67981
+      },
+      {
+        "variable": 423960,
+        "candidate": 77344,
+        "kissat": 38839
+      },
+      {
+        "variable": 424273,
+        "candidate": 5187,
+        "kissat": 45101
+      },
+      {
+        "variable": 425439,
+        "candidate": 67974,
+        "kissat": 17015
+      },
+      {
+        "variable": 427198,
+        "candidate": 4319,
+        "kissat": 8639
+      },
+      {
+        "variable": 427205,
+        "candidate": 2159,
+        "kissat": 4319
+      },
+      {
+        "variable": 427518,
+        "candidate": 1081,
+        "kissat": 540
+      },
+      {
+        "variable": 428875,
+        "candidate": 8661,
+        "kissat": 4330
+      },
+      {
+        "variable": 430603,
+        "candidate": 69295,
+        "kissat": 34647
+      },
+      {
+        "variable": 447697,
+        "candidate": 33990,
+        "kissat": 16994
+      },
+      {
+        "variable": 449344,
+        "candidate": 67981,
+        "kissat": 33990
+      },
+      {
+        "variable": 450764,
+        "candidate": 4330,
+        "kissat": 2164
+      },
+      {
+        "variable": 452949,
+        "candidate": 16992,
+        "kissat": 33986
+      },
+      {
+        "variable": 454206,
+        "candidate": 8496,
+        "kissat": 1061
+      },
+      {
+        "variable": 455464,
+        "candidate": 34647,
+        "kissat": 17323
+      },
+      {
+        "variable": 456042,
+        "candidate": 16994,
+        "kissat": 8496
+      },
+      {
+        "variable": 456648,
+        "candidate": 1061,
+        "kissat": 2123
+      },
+      {
+        "variable": 456923,
+        "candidate": 17323,
+        "kissat": 8661
+      },
+      {
+        "variable": 458323,
+        "candidate": 8639,
+        "kissat": 17280
+      },
+      {
+        "variable": 458375,
+        "candidate": 539,
+        "kissat": 1079
+      },
+      {
+        "variable": 459507,
+        "candidate": 8495,
+        "kissat": 16992
+      },
+      {
+        "variable": 461961,
+        "candidate": 5406,
+        "kissat": 10814
+      },
+      {
+        "variable": 462155,
+        "candidate": 2123,
+        "kissat": 4247
+      },
+      {
+        "variable": 462680,
+        "candidate": 10813,
+        "kissat": 5406
+      },
+      {
+        "variable": 463355,
+        "candidate": 195,
+        "kissat": 97
+      },
+      {
+        "variable": 465548,
+        "candidate": 77118,
+        "kissat": 77482
+      },
+      {
+        "variable": 465803,
+        "candidate": 32098,
+        "kissat": 16048
+      },
+      {
+        "variable": 465804,
+        "candidate": 4011,
+        "kissat": 2005
+      },
+      {
+        "variable": 467388,
+        "candidate": 1002,
+        "kissat": 2006
+      },
+      {
+        "variable": 467921,
+        "candidate": 269,
+        "kissat": 539
+      },
+      {
+        "variable": 469053,
+        "candidate": 540,
+        "kissat": 269
+      },
+      {
+        "variable": 471900,
+        "candidate": 2164,
+        "kissat": 1081
+      },
+      {
+        "variable": 473718,
+        "candidate": 1079,
+        "kissat": 2159
+      },
+      {
+        "variable": 474377,
+        "candidate": 8027,
+        "kissat": 16056
+      },
+      {
+        "variable": 478183,
+        "candidate": 4247,
+        "kissat": 8495
+      },
+      {
+        "variable": 479897,
+        "candidate": 84662,
+        "kissat": 21163
+      },
+      {
+        "variable": 481617,
+        "candidate": 63825,
+        "kissat": 32147
+      },
+      {
+        "variable": 482437,
+        "candidate": 43679,
+        "kissat": 79107
+      },
+      {
+        "variable": 482888,
+        "candidate": 21161,
+        "kissat": 84662
+      },
+      {
+        "variable": 485002,
+        "candidate": 31656,
+        "kissat": 7953
+      },
+      {
+        "variable": 485057,
+        "candidate": 27563,
+        "kissat": 13781
+      },
+      {
+        "variable": 486105,
+        "candidate": 85470,
+        "kissat": 26277
+      },
+      {
+        "variable": 486115,
+        "candidate": 82348,
+        "kissat": 13991
+      },
+      {
+        "variable": 486376,
+        "candidate": 77502,
+        "kissat": 77129
+      },
+      {
+        "variable": 486987,
+        "candidate": 77326,
+        "kissat": 77130
+      },
+      {
+        "variable": 487156,
+        "candidate": 34690,
+        "kissat": 68618
+      },
+      {
+        "variable": 488944,
+        "candidate": 17983,
+        "kissat": 35968
+      },
+      {
+        "variable": 494080,
+        "candidate": 76921,
+        "kissat": 76906
+      }
+    ]
+  },
+  "change_counts": {
+    "candidate_only": 0,
+    "kissat_only": 0,
+    "score": 0,
+    "assigned": 0,
+    "active": 0,
+    "position": 254
+  },
+  "selected_heap_entries": {
+    "candidate": {
+      "116360": {
+        "position": 1,
+        "score": "4.8334225168340841e-29",
+        "assigned": 0,
+        "active": 1
+      },
+      "116362": {
+        "position": 3,
+        "score": "4.8334225168340841e-29",
+        "assigned": 0,
+        "active": 1
+      }
+    },
+    "kissat": {
+      "116360": {
+        "position": 3,
+        "score": "4.8334225168340841e-29",
+        "assigned": 0,
+        "active": 1
+      },
+      "116362": {
+        "position": 1,
+        "score": "4.8334225168340841e-29",
+        "assigned": 0,
+        "active": 1
+      }
+    }
+  },
+  "last_common_choice_state": {
+    "candidate": [
+      [
+        "272979",
+        "76953348",
+        "387",
+        "116330",
+        "116362",
+        "0",
+        "4294967295",
+        "3",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68114"
+      ]
+    ],
+    "kissat": [
+      [
+        "272979",
+        "76953348",
+        "387",
+        "116330",
+        "116362",
+        "0",
+        "4294967295",
+        "1",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68114"
+      ]
+    ]
+  },
+  "around_first_split": {
+    "candidate": [
+      [
+        "272979",
+        "76953346",
+        "385",
+        "116312",
+        "116362",
+        "0",
+        "4294967295",
+        "74",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "91192"
+      ],
+      [
+        "272979",
+        "76953347",
+        "386",
+        "116378",
+        "116362",
+        "0",
+        "4294967295",
+        "17",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68117"
+      ],
+      [
+        "272979",
+        "76953348",
+        "387",
+        "116330",
+        "116362",
+        "0",
+        "4294967295",
+        "3",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68114"
+      ],
+      [
+        "272979",
+        "76953349",
+        "388",
+        "116360",
+        "116362",
+        "0",
+        "4294967295",
+        "1",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "61924"
+      ],
+      [
+        "272979",
+        "76953350",
+        "389",
+        "116362",
+        "116362",
+        "1",
+        "389",
+        "0",
+        "4.8334225168340841e-29",
+        "decision",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68086"
+      ]
+    ],
+    "kissat": [
+      [
+        "272979",
+        "76953346",
+        "385",
+        "116312",
+        "116362",
+        "0",
+        "4294967295",
+        "36",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "91192"
+      ],
+      [
+        "272979",
+        "76953347",
+        "386",
+        "116378",
+        "116362",
+        "0",
+        "4294967295",
+        "8",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68117"
+      ],
+      [
+        "272979",
+        "76953348",
+        "387",
+        "116330",
+        "116362",
+        "0",
+        "4294967295",
+        "1",
+        "4.8334225168340841e-29",
+        "unassigned",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68114"
+      ],
+      [
+        "272979",
+        "76953349",
+        "388",
+        "116362",
+        "116362",
+        "1",
+        "388",
+        "0",
+        "4.8334225168340841e-29",
+        "decision",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "68086"
+      ],
+      [
+        "272979",
+        "76953350",
+        "389",
+        "116360",
+        "116362",
+        "1",
+        "388",
+        "4294967295",
+        "4.8334225168340841e-29",
+        "decision",
+        "1",
+        "92344",
+        "81329",
+        "92344",
+        "68086",
+        "116441",
+        "116403",
+        "61924"
+      ]
+    ]
+  },
+  "hashes": {
+    "benchmarks/runs/20260908-6076-root-lock-rank37-choice/choice-validation.json": "0b5cf655a381a34fd42a42090c89046bd9876f6da5f45b0daed72b13acf63d1a",
+    "benchmarks/runs/20260908-6076-root-lock-rank37-choice/traces/candidate.heap.tsv": "432b228394745a45445d0c39f03aeb7565f107e2b00d8dd2feb8ec777e736463",
+    "benchmarks/runs/20260908-6076-root-lock-rank37-choice/traces/candidate.choice.tsv": "1b5ef924b5cce0aa7f75fd94247029954169d90afbc1e1bb71f4194be4f1956d",
+    "benchmarks/runs/20260908-6076-root-lock-rank37-choice/traces/kissat.heap.tsv": "ca35cdc179017e95d7c154d678b41d1b67a93866ec9114fc0ceccb7522a1d89d",
+    "benchmarks/runs/20260908-6076-root-lock-rank37-choice/traces/kissat.choice.tsv": "ba892699c04b695c52a09b9e513e9614ad569e2a22dcbfacff9813f9b789c520"
+  },
+  "fields": "Choice rows:conflict,decision,level,chosen,wanted,value,assignment_level,heap_position,score,reason,stable,queue_stamp,queue_search,search_stamp,wanted_stamp,prev,next,chosen_stamp.",
+  "limitation": "After-decision snapshot precedes subsequent propagation. Equal shared score/assignment/active metadata does not prove earlier formula or operation parity. Queue fields and absent-position sentinels need mode-aware normalization; post-split state may be a consequence."
+}

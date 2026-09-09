@@ -1,0 +1,10 @@
+{
+  "job_id": "1676779",
+  "command": [
+    "sbatch",
+    "--parsable",
+    "/home/hwu/SAT-solving/benchmarks/runs/20260908-6092-rank37-macro-heaps/array.sbatch"
+  ],
+  "manifest_sha256": "39668f289367568f0effdaaddc0a587ae10257095d8234893a1610cd581b92a9",
+  "continuation": "Current6049 diagnostic only;full6061 checks and cpu-q campaign untouched. Native rerun only for missing complete macro heap transitions;timing reference unchanged."
+}
